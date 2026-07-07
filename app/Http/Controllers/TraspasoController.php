@@ -308,12 +308,23 @@ class TraspasoController extends Controller
 
         // Productos activos con CODIGO/NOMBRE/UM: alimentan el autocomplete del
         // cliente (sin endpoint AJAX adicional — la lista cabe holgadamente en el
-        // HTML inicial). El autocomplete matchea por CODIGO o NOMBRE, no necesita
-        // CATEGORIA ni UBICACION.
+        // HTML inicial). El autocomplete matchea por CODIGO, NOMBRE o número de parte.
         // CATEGORIA viaja en la lista para que, al crear una presentacion nueva (cambiar la
         // UM de un producto del catalogo en Recepcion), el producto-presentacion herede la
         // categoria del original — ver entDoCreateProducto en la vista.
-        $productosLista = ProductoInventario::activos()->orderBy('NOMBRE')->get(['ID_PRODUCTO', 'CODIGO', 'NOMBRE', 'UM', 'CATEGORIA']);
+        // EQUIV/PARTE/PARTES: números de parte equivalentes de los FILTROS — MISMO enriquecido
+        // que /admin/almacen (AlmacenController::index) para que el buscador de descripciones
+        // encuentre los filtros al teclear un nº de parte alterno, igual que en el inventario.
+        $productosLista = ProductoInventario::activos()
+            ->with(['equivalencias' => fn ($q) => $q->orderByDesc('ES_PRINCIPAL')])
+            ->orderBy('NOMBRE')->get(['ID_PRODUCTO', 'CODIGO', 'NOMBRE', 'UM', 'CATEGORIA'])
+            ->map(function ($p) {
+                $p->EQUIV  = $p->equivalencias->pluck('NUMERO_PARTE')->implode(' ');
+                $p->PARTE  = (string) ($p->equivalencias->first()->NUMERO_PARTE ?? '');
+                $p->PARTES = $p->equivalencias->pluck('NUMERO_PARTE')->values()->all();
+                unset($p->equivalencias); // no enviar la relación completa al front
+                return $p;
+            });
 
         // Unidades de medida DISTINTAS ya registradas en el catalogo — alimentan el
         // autocomplete del campo UM (mismo patron que el modal "Nuevo producto" de

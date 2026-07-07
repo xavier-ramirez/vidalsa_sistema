@@ -135,6 +135,8 @@
     .ent-suggest.open { display:block; }
     .ent-suggest-item { display:flex; flex-direction:row; align-items:baseline; gap:8px; padding:8px 12px; border-radius:6px; cursor:pointer; transition:background .12s; }
     .ent-suggest-item:hover, .ent-suggest-item.active { background:#e1effa; }
+    /* Nº de parte del filtro que coincidió con lo buscado — gris, delante del nombre (como /admin/almacen). */
+    .ent-suggest-item .parte { flex:0 0 auto; font-size:12.5px; font-weight:600; color:#475569; white-space:nowrap; }
     .ent-suggest-item .nom { font-size:13px; font-weight:600; color:#0f172a; flex:1 1 0; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .ent-suggest-item .um { flex:0 0 auto; font-size:11px; font-weight:800; color:var(--maquinaria-blue,#0067b1); text-transform:uppercase; letter-spacing:.3px; }
     .ent-suggest-item .um::before { content:'·'; margin-right:6px; color:#cbd5e0; font-weight:400; }
@@ -370,8 +372,10 @@
         // Ranking robusto compartido (window.FuzzySearch, layout base). NO se deduplica
         // por nombre: cada presentación (misma descripción, distinta UM) es un producto
         // válido aparte que el usuario debe poder elegir. Límite 12.
+        // haystack incluye EQUIV (números de parte equivalentes) para que teclear un nº de
+        // parte alterno de un FILTRO lo encuentre, igual que el buscador de /admin/almacen.
         var matches = window.FuzzySearch.rank(PRODUCTOS, rawTerm, function (p) {
-            return { haystack: (p.CODIGO || '') + ' ' + (p.NOMBRE || ''), label: p.NOMBRE || '' };
+            return { haystack: (p.CODIGO || '') + ' ' + (p.NOMBRE || '') + ' ' + (p.EQUIV || ''), label: p.NOMBRE || '' };
         }).slice(0, 12);
         if (matches.length === 0) {
             // Sin coincidencias → invitar a registrar el producto nuevo. El usuario
@@ -388,14 +392,26 @@
                 var nom  = escHtml(p.NOMBRE);
                 var um   = escHtml(p.UM);
                 var cat  = escHtml(p.CATEGORIA || '');
-                // Sugerencia: SOLO NOMBRE + UM (sin codigo en la lista — pedido cliente). La UM
-                // se pinta como tag al final porque un mismo material puede existir en varias
+                // Filtros: mostrar el nº de PARTE que COINCIDE con lo tecleado (o el principal),
+                // como en /admin/almacen — así reconoces por qué salió al buscar un alterno.
+                // Normaliza sin espacios/guiones para tolerar "AL-7723" vs "AL7723".
+                var parteMostrar = p.PARTE || '';
+                if (rawTerm && p.PARTES && p.PARTES.length) {
+                    var tN = norm(rawTerm).replace(/[\s\-]/g, '');
+                    if (tN) for (var pi = 0; pi < p.PARTES.length; pi++) {
+                        var eN = norm(String(p.PARTES[pi])).replace(/[\s\-]/g, '');
+                        if (eN && (eN.indexOf(tN) !== -1 || tN.indexOf(eN) !== -1)) { parteMostrar = p.PARTES[pi]; break; }
+                    }
+                }
+                var partePrefix = parteMostrar ? '<span class="parte">' + escHtml(parteMostrar) + '</span>' : '';
+                // Sugerencia: nº de parte (si es filtro) + NOMBRE + UM (sin codigo — pedido cliente).
+                // La UM se pinta como tag al final porque un mismo material puede existir en varias
                 // presentaciones (mismo nombre, distinta UM) — sin la UM serian indistinguibles.
                 // data-cod queda en el elemento (no visible) porque entPick lo usa para el badge
                 // del producto seleccionado; data-um prefija el campo UM; data-cat para que una
                 // presentacion nueva herede la categoria del original.
                 return '<div class="ent-suggest-item" data-id="' + p.ID_PRODUCTO + '" data-cod="' + cod + '" data-nom="' + nom + '" data-um="' + um + '" data-cat="' + cat + '">'
-                    +    '<span class="nom">' + nom + '</span>'
+                    +    partePrefix + '<span class="nom">' + nom + '</span>'
                     +    (um ? '<span class="um">' + um + '</span>' : '')
                     +  '</div>';
             }).join('');
