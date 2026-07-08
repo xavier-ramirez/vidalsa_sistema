@@ -1103,7 +1103,7 @@ window.showDetailsImproved = function (target, event) {
                     // en gris + botón-ícono para ver el PDF, o "No cargado"). Abre el visor
                     // solo-lectura sin salir del modal (equipoId=0 + skipMetadata=true).
                     const docRow = (label, link, docType) => `
-                        <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;padding:6px 0;border-bottom:1px dashed #f1f5f9;">
+                        <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;padding:3px 0;border-bottom:1px dashed #f1f5f9;">
                             <span style="color:#64748b;font-size:12px;">${label}</span>
                             ${link
                                 ? `<button type="button" title="Ver PDF" onclick="event.stopPropagation(); window.openPdfPreview('${link}','${docType}','${label}',0,'',true,'auxiliar');" style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:7px;background:#0067b1;box-shadow:0 2px 6px rgba(0,103,177,0.35);border:none;cursor:pointer;flex-shrink:0;"><i class="material-icons" style="font-size:17px;color:white;">description</i></button>`
@@ -1123,7 +1123,7 @@ window.showDetailsImproved = function (target, event) {
                             </div>
                             <i class="material-icons" style="font-size:18px;color:#94a3b8;flex-shrink:0;" title="Ver documentos">expand_more</i>
                         </summary>
-                        <div style="padding:2px 14px 8px;border-top:1px dashed #e2e8f0;background:#fff;">
+                        <div style="padding:1px 14px 4px;border-top:1px dashed #e2e8f0;background:#fff;">
                             ${docRow('Propiedad', sa.link_doc_propiedad, 'propiedad')}
                             ${docRow('Certificado', sa.link_certificado, 'certificado')}
                         </div>
