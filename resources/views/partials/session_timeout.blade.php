@@ -51,7 +51,11 @@
          */
         (function() {
             // ── Configuración ──────────────────────────────────────────
-            const SESSION_LIFETIME_MS   = {{ config('session.lifetime') ?? 20 }} * 60 * 1000;
+            // ⚠️ MODO PRUEBA (temporal): el aviso sale ~1 min tras cargar para poder probar el
+            //    botón "Mantener Sesión" sin esperar 20 min. La sesión del BACKEND sigue en
+            //    {{ config('session.lifetime') ?? 20 }} min, así que al pulsar "Mantener Sesión"
+            //    se renueva de verdad. REVERTIR a la línea de abajo cuando termines de probar.
+            const SESSION_LIFETIME_MS   = {{ config('session.lifetime') ?? 10 }} * 60 * 1000; // minutos desde config/session.php (SESSION_LIFETIME)
             // Avisar en el último 33% del tiempo (mín 15s, máx 60s)
             const WARNING_DURATION_SEC  = Math.max(15, Math.min(60, Math.floor(SESSION_LIFETIME_MS / 1000 * 0.33)));
             // Throttle = 25% del tiempo de sesión (mín 5s, máx 30s)
@@ -65,6 +69,10 @@
             let checkInterval;
             let serverPingInterval;
             let isModalVisible = false;
+            // Mientras el usuario pulsa "Mantener Sesión" y la renovación está en vuelo, NO
+            // debe dispararse el auto-logout: sin esto una renovación lenta se cruzaba con el
+            // cierre por contador=0 y cerraba la sesión justo al pedir mantenerla ("no continúa").
+            let isRenewing = false;
 
             // ── Inicialización ──────────────────────────────────────────
             function initSession() {
@@ -110,7 +118,9 @@
                 const secRemaining = Math.ceil(msRemaining / 1000);
 
                 if (secRemaining <= 0) {
-                    performLogout();
+                    // No auto-cerrar si hay una renovación en curso ("Mantener Sesión"): dejamos
+                    // que la petición decida (renovar / ir al login), evitando el logout a mitad.
+                    if (!isRenewing) performLogout();
                 } else if (secRemaining <= WARNING_DURATION_SEC) {
                     showWarning(secRemaining);
                 } else {
@@ -205,16 +215,33 @@
                 }
             }
 
-            // ── Extender sesión (botón del modal) ───────────────────────
-            window.extendSession = function() {
-                const btn = document.getElementById('btnExtendSession');
-                if (btn) {
-                    btn.disabled      = true;
-                    btn.style.opacity = '0.7';
-                    btn.innerHTML     = '<i class="material-icons" style="font-size:18px;animation:spin 1s linear infinite;">sync</i><span>Renovando...</span>';
-                }
+            // ── Re-verificación tras un renovar sin confirmar ───────────
+            // extendSession cierra el aviso y reinicia el timer AL INSTANTE (optimista). Si el
+            // renovar en background NO se pudo confirmar (5xx o red caída), el frontend cree que
+            // la sesión sigue viva cuando quizá ya cayó → la próxima petición real daría 419 y el
+            // usuario perdería trabajo. Para no quedar en ese estado ciego, revalidamos PRONTO con
+            // pingServer (no esperamos al intervalo normal, que en producción son ~16 min):
+            //   • sesión caída  → pingServer detecta INVITADO → va al login;
+            //   • 5xx persistente → pingServer hace logout limpio;
+            //   • red aún caída  → pingServer no fuerza nada (offline ≠ sesión muerta) y otra
+            //     recuperación posterior la reconfirmará.
+            let reverifyTimeoutId;
+            function reverificarSesionPronto() {
+                clearTimeout(reverifyTimeoutId);
+                reverifyTimeoutId = setTimeout(pingServer, 4000);
+            }
 
-                if (typeof window.showPreloader === 'function') window.showPreloader();
+            // ── Extender sesión (botón del modal) ───────────────────────
+            // Al pulsar "Mantener Sesión": OCULTAMOS el aviso y reiniciamos el timer AL INSTANTE
+            // (feedback inmediato — el modal nunca se queda "pegado"), y confirmamos con el
+            // servidor EN BACKGROUND. Antes se esperaba a que /refresh-csrf respondiera para
+            // ocultar el modal; si ese fetch tardaba o fallaba, el aviso se quedaba ahí ("presiono
+            // continuar y no continúa"). Resultados del background: si el token viene de INVITADO
+            // la sesión ya cayó → login; si no se pudo confirmar (5xx/red), revalidamos pronto.
+            window.extendSession = function() {
+                isRenewing = true;          // congela el auto-logout durante la confirmación
+                updateExpirationTime();     // reinicia el timer del frontend YA
+                hideWarning();              // cierra el aviso de inmediato (resetea el botón)
 
                 const controller = new AbortController();
                 const timeoutId  = setTimeout(() => controller.abort(), 8000);
@@ -222,54 +249,27 @@
                 fetch('/refresh-csrf', { method: 'GET', cache: 'no-store', signal: controller.signal })
                     .then(async response => {
                         clearTimeout(timeoutId);
-                        if (response.ok) {
-                            // La ruta es pública: aunque devuelva 200, si la sesión del
-                            // backend YA expiró el token es de invitado. No falseamos la
-                            // renovación → cerramos sesión de verdad (outcome claro).
-                            if (response.headers.get('X-Auth-Status') === 'guest') {
-                                sessionAlreadyExpired();
-                                return;
-                            }
-                            const token = await response.text();
-                            if (token && token.length > 10) {
-                                const meta = document.querySelector('meta[name="csrf-token"]');
-                                if (meta) meta.setAttribute('content', token);
-                                if (window.axios) window.axios.defaults.headers.common['X-CSRF-TOKEN'] = token;
-                                if (window.jQuery) window.jQuery.ajaxSetup({ headers: { 'X-CSRF-TOKEN': token } });
-                            }
-                            // Usuario eligió extender → reiniciar timers
-                            updateExpirationTime();
-                            startServerPing();
-                            hideWarning();
-                            // Feedback explícito: el usuario ve que la sesión SÍ se mantuvo.
-                            if (window.showToast) window.showToast('Sesión renovada', 'success');
-                        } else {
-                            throw new Error('Server ' + response.status);
+                        if (!response.ok) { reverificarSesionPronto(); return; }
+                        // Ruta pública: 200 con token de INVITADO = la sesión ya expiró en el backend.
+                        if (response.headers.get('X-Auth-Status') === 'guest') { sessionAlreadyExpired(); return; }
+                        const token = await response.text();
+                        if (token && token.length > 10) {
+                            const meta = document.querySelector('meta[name="csrf-token"]');
+                            if (meta) meta.setAttribute('content', token);
+                            if (window.axios) window.axios.defaults.headers.common['X-CSRF-TOKEN'] = token;
+                            if (window.jQuery) window.jQuery.ajaxSetup({ headers: { 'X-CSRF-TOKEN': token } });
                         }
+                        startServerPing();
+                        if (window.showToast) window.showToast('Sesión renovada', 'success');
                     })
-                    .catch(error => {
-                        console.error('Error al renovar sesión:', error);
-                        if (typeof showModal === 'function') {
-                            showModal({
-                                type: 'error',
-                                title: 'Error de Sesión',
-                                message: 'No se pudo renovar la sesión. Por favor recarga la página.',
-                                confirmText: 'Recargar',
-                                hideCancel: true,
-                                onConfirm: () => window.location.reload()
-                            });
-                        } else {
-                            window.location.reload();
-                        }
+                    .catch(() => {
+                        // Fallo/timeout de red al renovar el token: NO forzamos logout ni modal —
+                        // el timer ya se reinició, pero revalidamos PRONTO (no en ~16 min) para no
+                        // quedar creyendo que la sesión vive si en realidad ya cayó.
+                        clearTimeout(timeoutId);
+                        reverificarSesionPronto();
                     })
-                    .finally(() => {
-                        if (typeof window.hidePreloader === 'function') window.hidePreloader();
-                        if (btn) {
-                            btn.disabled      = false;
-                            btn.style.opacity = '1';
-                            btn.innerHTML     = '<i class="material-icons" style="font-size:18px;">refresh</i><span>Mantener Sesión</span>';
-                        }
-                    });
+                    .finally(() => { isRenewing = false; });
             };
 
             // ── Sesión ya caída en el backend ───────────────────────────
