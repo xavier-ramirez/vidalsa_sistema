@@ -81,11 +81,9 @@ window.loadMovilizaciones = async function (pageUrl = null) {
         const paginationDiv = document.getElementById('movilizacionesPagination');
         if (paginationDiv) paginationDiv.innerHTML = data.pagination || '';
 
-        // Actualizar contadores
-        ['totalTransitoCount', 'mobileTransitoCount'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el && data.totalTransito !== undefined) el.innerText = data.totalTransito;
-        });
+        // Actualizar contador (sidebar de escritorio)
+        const totalEl = document.getElementById('totalTransitoCount');
+        if (totalEl && data.totalTransito !== undefined) totalEl.innerText = data.totalTransito;
 
         // Actualizar URL sin recargar
         if (window.history && window.history.pushState) {

@@ -134,14 +134,15 @@
                 {{-- Deshacer: devuelve el equipo a su frente de ORIGEN y borra el registro
                      (como si nunca ocurrió). Solo super.admin (acción destructiva). --}}
                 @can('super.admin')
-                {{-- Deshacer solo-ícono: botón cuadrado 30x30 (mismo tamaño que el
-                     de PDF), rojo tenue, para que pegue con el resto de la vista. --}}
+                {{-- Botón Deshacer (estilo en .mv-undo-btn): pill moderno con
+                     ícono + texto en PC; en móvil (<=1024px) el texto se oculta y
+                     queda solo el ícono en un botón cuadrado. --}}
                 <button type="button" onclick="window.movDeshacer({{ $mov->ID_MOVILIZACION }})"
                         title="Deshacer: devolver el equipo a su frente de origen"
                         aria-label="Deshacer movilización"
-                        style="margin-top:4px;display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;padding:0;background:#fef2f2;color:#dc2626;border:1px solid #fecaca;border-radius:8px;cursor:pointer;transition:background .15s;flex-shrink:0;"
-                        onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='#fef2f2'">
-                    <i class="material-icons" style="font-size:16px;">undo</i>
+                        class="mv-undo-btn">
+                    <i class="material-icons">undo</i>
+                    <span class="mv-undo-text">Deshacer</span>
                 </button>
                 @endcan
             </div>

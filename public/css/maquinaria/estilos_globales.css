@@ -2600,8 +2600,44 @@ input:-webkit-autofill:active {
     width: 11%;
 }
 
-.movilizaciones-mobile-stats {
-    display: none;
+/* ── Botón Deshacer (movilizaciones) — PC: pill moderno con ícono + texto.
+   Rojo tenue, borde y sombra sutiles, con animación de hover (se rellena de
+   rojo). En móvil se reduce a solo-ícono (ver @media más abajo). ── */
+.mv-undo-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 3px;
+    padding: 5px 12px;
+    border-radius: 999px;
+    background: #fef2f2;
+    color: #dc2626;
+    border: 1px solid #fecaca;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
+    white-space: nowrap;
+    cursor: pointer;
+    box-shadow: 0 1px 2px rgba(220, 38, 38, 0.08);
+    transition: background .18s ease, color .18s ease, border-color .18s ease, box-shadow .18s ease, transform .1s ease;
+}
+.mv-undo-btn .material-icons {
+    font-size: 16px;
+    transition: transform .3s ease;
+}
+.mv-undo-btn:hover {
+    background: #dc2626;
+    color: #fff;
+    border-color: #dc2626;
+    box-shadow: 0 4px 10px rgba(220, 38, 38, 0.28);
+}
+.mv-undo-btn:hover .material-icons {
+    transform: rotate(-28deg);
+}
+.mv-undo-btn:active {
+    transform: translateY(1px);
+    box-shadow: 0 1px 2px rgba(220, 38, 38, 0.2);
 }
 
 /* En desktop: el wrapper de búsqueda+filtro avanzado es transparente
@@ -2659,32 +2695,6 @@ input:-webkit-autofill:active {
     #movilizacionesTable {
         min-width: 0 !important;
         width: 100% !important;
-    }
-
-    /* Stats pills visibles arriba */
-    .movilizaciones-mobile-stats {
-        display: flex;
-        gap: 10px;
-        margin-bottom: 12px;
-        flex-wrap: wrap;
-    }
-
-    .movilizaciones-mobile-stats .stat-pill {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        background: linear-gradient(135deg, #4c1d95, #6d28d9);
-        color: white;
-        padding: 7px 14px;
-        border-radius: 20px;
-        font-size: 13px;
-        font-weight: 700;
-        white-space: nowrap;
-        box-shadow: 0 2px 6px rgba(109, 40, 217, 0.3);
-    }
-
-    .movilizaciones-mobile-stats .stat-pill i {
-        font-size: 16px;
     }
 
     /* ── Filtros Responsive ── */
@@ -2870,8 +2880,18 @@ input:-webkit-autofill:active {
         gap: 8px 14px !important;
         height: auto !important;
     }
-    #movilizacionesTable tr.mv-row-card.mv-expanded td.mv-col-op > div > button {
+    /* Botón Deshacer en móvil: SOLO ícono (se oculta el texto), botón cuadrado
+       moderno para que quepa en la fila del detalle. */
+    #movilizacionesTable tr.mv-row-card .mv-undo-btn {
         margin-top: 0 !important;
+        gap: 0 !important;
+        width: 34px !important;
+        height: 34px !important;
+        padding: 0 !important;
+        border-radius: 10px !important;
+    }
+    #movilizacionesTable tr.mv-row-card .mv-undo-btn .mv-undo-text {
+        display: none !important;
     }
     /* Letra UNIFORME en fecha/hora/usuario: mismo tamaño, peso y color. Los
        iconos también se igualan. (El acta <a> y el botón deshacer quedan aparte.) */

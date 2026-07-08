@@ -15,14 +15,6 @@
     <!-- Left Column: Table & Filters -->
     <div class="admin-card movilizaciones-main-card" style="margin: 0; width: 100%;">
 
-        <!-- Stats compactas visibles solo en mobile -->
-        <div class="movilizaciones-mobile-stats">
-            <div class="stat-pill">
-                <i class="material-icons">local_shipping</i>
-                <span id="mobileTransitoCount">{{ $totalTransito }}</span> Operaciones
-            </div>
-        </div>
-
         <!-- Filter Toolbar -->
         <div class="movilizaciones-filter-bar filter-toolbar-container" style="display: flex; gap: 15px; flex-wrap: wrap; align-items: center; margin-bottom: 5px;">
         @php
@@ -366,18 +358,6 @@
         border-right-color: #93c5fd !important;
     }
 
-    /* Ocultar TODO EL CALCULO DE OPERACIONES en móviles de forma forzada */
-    @media (max-width: 900px) {
-        .movilizaciones-sidebar,
-        .counter-sidebar.movilizaciones-sidebar,
-        .movilizaciones-mobile-stats {
-            display: none !important;
-            visibility: hidden !important;
-            opacity: 0 !important;
-            height: 0 !important;
-            overflow: hidden !important;
-        }
-    }
 </style>
 
 @can('super.admin')
