@@ -4140,6 +4140,10 @@ html.is-ios .ent-capt-add-btn { display: flex !important; }
     padding-bottom: 6px;
 }
 .mapa-export-check input { width: 16px; height: 16px; accent-color: #0067b1; cursor: pointer; }
+/* Botones Cancelar / Descargar: alinear al FONDO de la barra (como el check) para que queden
+   a la MISMA altura que los <select>. Los campos son más altos (etiqueta arriba + select), así
+   que con el align-items:center de la barra los botones salían "muy arriba" respecto al select. */
+.mapa-export-cancel, .mapa-export-go { align-self: flex-end; }
 
 /* Overlay "Generando imagen…" */
 .mapa-export-load {
