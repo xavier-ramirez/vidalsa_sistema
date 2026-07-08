@@ -61,6 +61,11 @@
        el azul general como cualquier otra fila (sin sobrescribir con !important — antes
        quedaba naranja en hover y se sentia inconsistente). */
     .alm-row-bajo td { background: #fee2e2; }
+    /* Franja roja izquierda ("severity stripe") en filas de stock bajo. Se ve SIEMPRE,
+       incluso cuando la fila está seleccionada (el fondo azul !important tapa el rojo del
+       fondo, pero NO este box-shadow). Así, al auditar/mover stock y recargar, el indicador
+       de "bajo" refleja el estado nuevo de inmediato sin tener que deseleccionar la fila. */
+    .alm-table tbody tr.alm-row.alm-row-bajo td:first-child { box-shadow: inset 4px 0 0 0 #dc2626; }
     /* Fila seleccionable: clic en la fila la marca (estilo /admin/equipos → .selected-row-maquinaria) */
     /* Las filas son seleccionables con clic pero el cursor se mantiene como flecha (sin mano). */
     .alm-table tbody tr.alm-row-clickable { cursor: default; }
@@ -1334,10 +1339,6 @@
                     <div style="font-size:11.5px;font-weight:500;line-height:1.35;margin-top:2px;opacity:0.85;">El saldo está en o por debajo del mínimo configurado.</div>
                 </div>
             </div>
-            {{-- Filtros: equivalencias (nºs de parte alternos) + equipos/modelos que usan
-                 este filtro. Se llena en almAbrirDetalle desde los data-attrs de la fila;
-                 queda oculto si el producto no es un filtro (sin datos). --}}
-            <div id="almDetFiltroInfo" style="display:none;flex-direction:column;gap:12px;border-top:1px solid #f1f5f9;padding-top:12px;"></div>
             <div style="border-top:1px solid #f1f5f9;padding-top:12px;display:flex;flex-direction:column;gap:7px;">
                 {{-- Botones SIEMPRE visibles. La verificacion de permiso vive dentro de
                      almDetalleAccion / almAbrirAjuste / almEditarProducto / almEliminarProducto
@@ -2475,6 +2476,24 @@
     function almSelApplyToRows(rows) {
         rows.forEach(function (tr) {
             var id = tr.getAttribute('data-id-producto');
+            // Refrescar el saldo CACHEADO de la selección con el del render fresco. Tras una
+            // auditoría/movimiento el saldo del servidor cambió, y el control "excede stock" de
+            // la salida compara la cantidad contra ESTE saldo cacheado. Sin esto comparaba contra
+            // el saldo viejo (antes de auditar) y pintaba la fila de rojo como si la salida
+            // excediera, aunque el usuario aún no realiza la salida.
+            var sel = almSeleccion[id];
+            if (sel) {
+                var ds = parseFloat(tr.getAttribute('data-saldo'));
+                if (!isNaN(ds)) {
+                    sel.saldo = ds;
+                    // Re-evaluar el "excede" con el saldo nuevo por si la cantidad ya tecleada
+                    // dejó de exceder (o pasó a exceder) tras el cambio de stock.
+                    var cant = parseFloat(String(sel.cantidad || '').replace(',', '.'));
+                    if (!isNaN(cant) && cant > 0) {
+                        if (cant > ds) almExceden[id] = true; else delete almExceden[id];
+                    }
+                }
+            }
             almSelMarkRow(tr, !!almSeleccion[id]);
             tr.classList.toggle('alm-row-missing-cant', !!almFaltantes[id]);
             tr.classList.toggle('alm-row-exceeds-stock', !!almExceden[id]);
@@ -2692,7 +2711,14 @@
         window.almProdCatSuggest(true);
         var inp = el('almProdCategoria'); if (inp) inp.focus();
     };
-    window.almProdCatPick = function (cat) { var inp = el('almProdCategoria'); if (inp) inp.value = cat; almProdCatHide(); };
+    window.almProdCatPick = function (cat) {
+        var inp = el('almProdCategoria'); if (inp) inp.value = cat; almProdCatHide();
+        // Re-sincroniza la visibilidad del campo de Equivalencias: solo aplica a FILTROS.
+        // El oninput ya lo hace al teclear; aquí lo hacemos al ELEGIR del dropdown / Enter,
+        // si no, cambiar la categoría por la lista dejaba el campo mostrado/oculto de forma
+        // incoherente (las equivalencias son SOLO para la lógica de los filtros).
+        if (window.almProdEquivSyncVisible) window.almProdEquivSyncVisible();
+    };
 
     // Delegación: click en una opción de la lista / click fuera del campo lo cierra.
     document.addEventListener('click', function (e) {
@@ -3200,8 +3226,19 @@
     var _almTipActiva = null;
     function almTipReset() {
         var b = _almTipActiva; if (!b) return; _almTipActiva = null;
-        b.style.position = ''; b.style.left = ''; b.style.bottom = ''; b.style.top = '';
-        b.style.transform = ''; b.style.margin = ''; b.style.zIndex = '';
+        // Restaurar el ancla POR DEFECTO del blade: ARRIBA de la celda (bottom:100%).
+        // OJO: NO limpiar `bottom` a '' — eso borraba el `bottom:100%` inline del blade y
+        // la burbuja caía DEBAJO de la fila (bug: "sale por abajo"). Se restauran los
+        // valores originales para que, aunque almTipShow no alcance a re-posicionar, la
+        // burbuja quede siempre arriba.
+        b.style.position = 'absolute';
+        b.style.left = '0';
+        b.style.right = 'auto';
+        b.style.bottom = '100%';
+        b.style.top = 'auto';
+        b.style.transform = 'translateY(5px)';
+        b.style.margin = '';
+        b.style.zIndex = '';
     }
     function almTipShow(cell) {
         var bub = cell.querySelector(':scope > .tooltip-bubble'); if (!bub) { almTipReset(); return; }
@@ -3209,8 +3246,18 @@
         var r = cell.getBoundingClientRect();
         bub.style.position = 'fixed';
         bub.style.left = r.left + 'px';
-        bub.style.bottom = (window.innerHeight - r.top + 6) + 'px'; // 6px por ENCIMA de la celda
-        bub.style.top = 'auto'; bub.style.transform = 'none'; bub.style.margin = '0'; bub.style.zIndex = '10050';
+        bub.style.right = 'auto';
+        bub.style.transform = 'none';
+        bub.style.margin = '0';
+        bub.style.zIndex = '10050';
+        // SIEMPRE arriba de la fila: anclamos por `top` usando el alto real de la burbuja
+        // (top = borde superior de la celda − alto − 6px). Clamp al tope del viewport para
+        // que nunca se voltee hacia abajo ni se salga por arriba de la pantalla.
+        var h = bub.offsetHeight;
+        var top = r.top - h - 6;
+        if (top < 6) top = 6;
+        bub.style.top = top + 'px';
+        bub.style.bottom = 'auto';
         _almTipActiva = bub;
     }
     document.addEventListener('mouseover', function (e) {
@@ -3236,25 +3283,8 @@
         // y texto a la derecha (display:flex en el CSS inline del div). Ver markup arriba.
         el('almDetBajoBadge').style.display = bajo ? 'flex' : 'none';
 
-        // Sección de filtro: SOLO las equivalencias (nº de parte). Se lee del data-attr de la
-        // fila (lo rellena el partial table_rows). Los equipos asociados ya NO se muestran aquí
-        // (a pedido del cliente). Oculto si el producto no tiene equivalencias.
-        var box = el('almDetFiltroInfo');
-        if (box) {
-            var tr = document.querySelector('tr.alm-row[data-id-producto="' + id + '"]');
-            var equiv = (tr && tr.dataset.equiv) ? tr.dataset.equiv.split('|') : [];
-            if (equiv.length) {
-                var escp = function (t) { return String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;'); };
-                // Números de parte en TEXTO negro, SIN chip azul, separados por " · ".
-                var equivTxt = equiv.map(escp).join(' &middot; ');
-                box.innerHTML = '<div><div style="font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#64748b;margin-bottom:6px;">🔁 Equivalencias</div>'
-                    + '<div style="font-size:12.5px;font-weight:600;color:#1e293b;line-height:1.5;word-break:break-word;">' + equivTxt + '</div></div>';
-                box.style.display = 'flex';
-            } else {
-                box.innerHTML = '';
-                box.style.display = 'none';
-            }
-        }
+        // Las EQUIVALENCIAS ya NO se muestran en "Detalles del producto" (pedido del cliente):
+        // son solo para la lógica interna de búsqueda de filtros. Se gestionan al Editar un filtro.
 
         almOpen('almDetalleModal');
     };
@@ -3368,6 +3398,30 @@
         showErr('almAjError', ''); almOpen('almAjusteModal');
     };
 
+    // Reevalúa el resaltado de "stock bajo" de una fila con un saldo nuevo, SIN esperar la
+    // recarga: actualiza data-saldo y togglea .alm-row-bajo comparando contra data-minimo.
+    // Así el color (fondo/franja roja) se actualiza AL INSTANTE tras una auditoría (la
+    // recarga posterior lo confirma). Antes el color quedaba "pegado" hasta deseleccionar
+    // o recargar. Reutilizable por cualquier operación que cambie el stock de un producto visible.
+    function almReevaluarStockFila(idProducto, nuevoSaldo) {
+        var tr = document.querySelector('#almTableBody tr.alm-row[data-id-producto="' + idProducto + '"]');
+        if (!tr) return;
+        var saldo = parseFloat(nuevoSaldo);
+        if (isNaN(saldo)) return;
+        tr.dataset.saldo = String(saldo);
+        var minStr = tr.dataset.minimo;
+        var bajo = (minStr !== undefined && minStr !== '') && saldo <= parseFloat(minStr);
+        tr.classList.toggle('alm-row-bajo', bajo);
+        tr.dataset.bajo = bajo ? '1' : '0';
+        // Sincronizar también el saldo CACHEADO de la selección (si la fila está seleccionada)
+        // para que el control "excede stock" de la salida use el saldo nuevo de inmediato.
+        if (almSeleccion[idProducto]) {
+            almSeleccion[idProducto].saldo = saldo;
+            var c = parseFloat(String(almSeleccion[idProducto].cantidad || '').replace(',', '.'));
+            if (!isNaN(c) && c > 0) { if (c > saldo) almExceden[idProducto] = true; else delete almExceden[idProducto]; }
+        }
+    }
+
     window.almGuardarAjuste = function () {
         // Guard de permiso: la Auditoría registra un AJUSTE de inventario, que exige la
         // clave almacen.movimiento. (El stock mínimo se movió a su propio modal/flujo.)
@@ -3395,6 +3449,9 @@
           .then(function (res) {
               unpre();
               if (!res.ok) { showErr('almAjError', (res.b && res.b.message) || 'No se pudo registrar la auditoría.'); almCargar(); return; }
+              // Feedback instantáneo del resaltado (rojo/normal) con el saldo auditado;
+              // almCargar() recarga y confirma con el dato fresco del servidor.
+              almReevaluarStockFila(m.dataset.idProducto, ns);
               almCerrar('almAjusteModal'); toast('Auditoría registrada.'); almCargar();
           }).catch(function () { unpre(); showErr('almAjError', 'Error de red.'); });
     };
