@@ -1069,7 +1069,6 @@ window.showDetailsImproved = function (target, event) {
                 saList.innerHTML = json.data.map(sa => {
                     const tc = SA_TIPO_CFG[sa.tipo] || SA_TIPO_CFG.OTRO;
                     const estadoColor = sa.estado === 'OPERATIVO' ? '#16a34a' : (sa.estado === 'INOPERATIVO' ? '#dc2626' : '#64748b');
-                    const estadoBg    = sa.estado === 'OPERATIVO' ? '#f0fdf4'  : (sa.estado === 'INOPERATIVO' ? '#fef2f2'  : '#f1f5f9');
 
                     // Foto: si el auxiliar tiene foto propia se muestra (object-fit:cover
                     // para llenar el cuadrado 44x44); si no, placeholder gris con icono
@@ -1083,17 +1082,50 @@ window.showDetailsImproved = function (target, event) {
                                 <span class="material-icons" style="font-size:22px;color:#94a3b8;">${tc.icon}</span>
                            </div>`;
 
-                    const infoExtra = [sa.marca, sa.modelo, sa.capacidad, sa.anio].filter(Boolean).join(' · ');
+                    // Mismo layout que la tarjeta "Vinculación" (hostCard) del modal del auxiliar
+                    // para que se vean IGUALES: 3 líneas → (TIPO · MARCA · MODELO) gris / serial /
+                    // estado con ícono. Sin badge a la derecha.
+                    const marcaModelo = [sa.marca, sa.modelo].filter(Boolean).join(' · ');
+                    // Si el tipo es "OTRO" NO se antepone la palabra (no aporta y molesta): se
+                    // muestra solo la marca/modelo. Para tipos reales sí va "TIPO · MARCA · MODELO".
+                    const esOtro = sa.tipo && String(sa.tipo).toUpperCase() === 'OTRO';
+                    const tipoMarcaLine = esOtro
+                        ? (marcaModelo.toUpperCase() || tc.label)
+                        : (marcaModelo
+                            ? `${tc.label} <span style="color:#cbd5e1;font-weight:600;">·</span> ${marcaModelo.toUpperCase()}`
+                            : tc.label);
+                    const estadoIcon = sa.estado === 'OPERATIVO' ? 'check_circle' : (sa.estado === 'INOPERATIVO' ? 'cancel' : 'help');
+                    const estadoLine = `<span style="font-size:11px;color:${estadoColor};font-weight:700;display:inline-flex;align-items:center;gap:3px;margin-top:1px;"><i class="material-icons" style="font-size:13px;">${estadoIcon}</i>${sa.estado.replace('_',' ')}</span>`;
 
-                    return `<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;transition:background .15s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='#f8fafc'">
-                        ${foto}
-                        <div style="flex:1;min-width:0;">
-                            <div style="font-size:12px;font-weight:700;color:#334155;">${tc.label}</div>
-                            <div style="font-family:monospace;font-size:12px;color:#1e293b;font-weight:700;margin-top:1px;">${sa.serial || '—'}</div>
-                            ${infoExtra ? `<div style="font-size:10px;color:#94a3b8;margin-top:1px;">${infoExtra}</div>` : ''}
+                    // Fila de documento del auxiliar — mismo estilo que los docs propios (nombre
+                    // en gris + botón-ícono para ver el PDF, o "No cargado"). Abre el visor
+                    // solo-lectura sin salir del modal (equipoId=0 + skipMetadata=true).
+                    const docRow = (label, link, docType) => `
+                        <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;padding:6px 0;border-bottom:1px dashed #f1f5f9;">
+                            <span style="color:#64748b;font-size:12px;">${label}</span>
+                            ${link
+                                ? `<button type="button" title="Ver PDF" onclick="event.stopPropagation(); window.openPdfPreview('${link}','${docType}','${label}',0,'',true,'auxiliar');" style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:7px;background:#0067b1;box-shadow:0 2px 6px rgba(0,103,177,0.35);border:none;cursor:pointer;flex-shrink:0;"><i class="material-icons" style="font-size:17px;color:white;">description</i></button>`
+                                : `<span style="color:#94a3b8;font-size:12px;">No cargado</span>`}
+                        </div>`;
+
+                    // <summary> con el MISMO layout que la tarjeta "Vinculación" (hostCard): foto +
+                    // 3 líneas (tipo·marca·modelo / serial / estado) + chevron. Panel con SOLO los
+                    // PDFs (el serial ya va en el summary; el Cód. interno se omite por redundante).
+                    return `<details style="background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;overflow:hidden;">
+                        <summary style="display:flex;align-items:center;gap:10px;padding:8px 10px;cursor:pointer;list-style:none;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
+                            ${foto}
+                            <div style="display:flex;flex-direction:column;flex:1;min-width:0;gap:2px;">
+                                <span style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${tipoMarcaLine}</span>
+                                <span style="font-size:11px;font-weight:700;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.25;">${sa.serial || '—'}</span>
+                                ${estadoLine}
+                            </div>
+                            <i class="material-icons" style="font-size:18px;color:#94a3b8;flex-shrink:0;" title="Ver documentos">expand_more</i>
+                        </summary>
+                        <div style="padding:2px 14px 8px;border-top:1px dashed #e2e8f0;background:#fff;">
+                            ${docRow('Propiedad', sa.link_doc_propiedad, 'propiedad')}
+                            ${docRow('Certificado', sa.link_certificado, 'certificado')}
                         </div>
-                        <span style="font-size:10px;font-weight:800;color:${estadoColor};background:${estadoBg};padding:3px 9px;border-radius:10px;flex-shrink:0;letter-spacing:.3px;">${sa.estado.replace('_',' ')}</span>
-                    </div>`;
+                    </details>`;
                 }).join('');
             })
             .catch(() => { 

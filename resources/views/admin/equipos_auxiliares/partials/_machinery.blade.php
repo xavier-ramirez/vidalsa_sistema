@@ -162,7 +162,7 @@
         <div style="background: var(--maquinaria-dark-blue); color: white;">
             <div style="padding: 12px 20px; display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;">
                 <div style="display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0;">
-                    <h2 id="auxDetailsTitle" style="margin: 0; font-size: 17px; font-weight: 700; word-break: break-word; line-height: 1.2;">—</h2>
+                    <h2 id="auxDetailsTitle" style="margin: 0; font-size: 14px; font-weight: 700; word-break: break-word; line-height: 1.2;">—</h2>
                     <p id="auxDetailsSubtitle" style="margin: 2px 0 0 0; opacity: 0.8; font-size: 12px; word-break: break-word;">—</p>
                 </div>
                 <div style="display: flex; gap: 6px; flex-shrink: 0;">
@@ -390,15 +390,36 @@
             const tipoMarcaLine = marca
                 ? `${tipoUpper} <span style="color:#cbd5e1;font-weight:600;">·</span> ${marca.toUpperCase()}`
                 : tipoUpper;
-            hostCard = `
-                <div style="display:flex;align-items:center;gap:10px;background:#f8fafc;padding:8px 10px;border-radius:8px;border:1px solid #e2e8f0;">
-                    ${fotoThumb}
-                    <div style="display:flex;flex-direction:column;flex:1;min-width:0;gap:2px;">
-                        <span style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${tipoMarcaLine}</span>
-                        <span style="font-size:14px;font-weight:800;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.25;">${idPrincipal}</span>
-                        ${frente ? `<span style="font-size:11px;color:#059669;font-weight:600;display:inline-flex;align-items:center;gap:3px;margin-top:1px;"><i class="material-icons" style="font-size:13px;">place</i>${frente}</span>` : `<span style="font-size:11px;color:#94a3b8;font-style:italic;display:inline-flex;align-items:center;gap:3px;margin-top:1px;"><i class="material-icons" style="font-size:13px;">location_off</i>Sin frente</span>`}
-                    </div>
+            // Fila de documento del equipo HOST — mismo estilo que los docs propios del aux
+            // (nombre en gris + botón-ícono para ver el PDF, o "No cargado"). Solo-lectura
+            // (equipoId=0 + skipMetadata=true → sin gestión desde aquí). Link crudo.
+            const hostDocRow = (label, link, docType) => `
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;padding:6px 0;border-bottom:1px dashed #f1f5f9;">
+                    <span style="color:#64748b;font-size:12px;">${label}</span>
+                    ${link
+                        ? `<button type="button" title="Ver PDF" onclick="event.stopPropagation(); window.openPdfPreview('${link}','${docType}','${label}',0,'',true);" style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:7px;background:#0067b1;box-shadow:0 2px 6px rgba(0,103,177,0.35);border:none;cursor:pointer;flex-shrink:0;"><i class="material-icons" style="font-size:17px;color:white;">description</i></button>`
+                        : `<span style="color:#94a3b8;font-size:12px;">No cargado</span>`}
                 </div>`;
+            // Tarjeta desplegable: la fila (summary) + los DOCUMENTOS del equipo host (los
+            // seriales ya van en el summary/tabla, no se repiten).
+            hostCard = `
+                <details style="background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;overflow:hidden;">
+                    <summary style="display:flex;align-items:center;gap:10px;padding:8px 10px;cursor:pointer;list-style:none;">
+                        ${fotoThumb}
+                        <div style="display:flex;flex-direction:column;flex:1;min-width:0;gap:2px;">
+                            <span style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${tipoMarcaLine}</span>
+                            <span style="font-size:11px;font-weight:700;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.25;">${idPrincipal}</span>
+                            ${frente ? `<span style="font-size:11px;color:#059669;font-weight:600;display:inline-flex;align-items:center;gap:3px;margin-top:1px;"><i class="material-icons" style="font-size:13px;">place</i>${frente}</span>` : `<span style="font-size:11px;color:#94a3b8;font-style:italic;display:inline-flex;align-items:center;gap:3px;margin-top:1px;"><i class="material-icons" style="font-size:13px;">location_off</i>Sin frente</span>`}
+                        </div>
+                        <i class="material-icons" style="font-size:18px;color:#94a3b8;flex-shrink:0;" title="Ver documentos del equipo">expand_more</i>
+                    </summary>
+                    <div style="padding:2px 10px 6px;border-top:1px dashed #e2e8f0;background:#fff;">
+                        ${hostDocRow('Propiedad', d.host_link_propiedad, 'propiedad')}
+                        ${hostDocRow('Póliza', d.host_link_seguro, 'poliza')}
+                        ${hostDocRow('ROTC', d.host_link_rotc, 'rotc')}
+                        ${hostDocRow('RACDA', d.host_link_racda, 'racda')}
+                    </div>
+                </details>`;
         } else {
             hostCard = '<div style="text-align:center;padding:12px;color:#94a3b8;font-size:12px;font-style:italic;">Sin equipo vinculado.</div>';
         }

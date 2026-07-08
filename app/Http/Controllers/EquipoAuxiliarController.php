@@ -1356,6 +1356,13 @@ class EquipoAuxiliarController extends Controller
             'host_modelo'        => optional($aux->equipoHost)->MODELO,
             'host_foto'          => $hostFoto,
             'host_frente'        => optional(optional($aux->equipoHost)->frenteActual)->NOMBRE_FRENTE,
+            // Documentos del equipo host: se muestran (desplegables) DENTRO de la seccion
+            // "Vinculación" del modal del auxiliar, para ver el PDF del equipo sin buscarlo
+            // aparte. Valor CRUDO de la columna (mismo que usa equiposData/openPdfPreview).
+            'host_link_propiedad' => optional(optional($aux->equipoHost)->documentacion)->LINK_DOC_PROPIEDAD ?: null,
+            'host_link_seguro'    => optional(optional($aux->equipoHost)->documentacion)->LINK_POLIZA_SEGURO ?: null,
+            'host_link_rotc'      => optional(optional($aux->equipoHost)->documentacion)->LINK_ROTC ?: null,
+            'host_link_racda'     => optional(optional($aux->equipoHost)->documentacion)->LINK_RACDA ?: null,
             'creado_por'     => optional($aux->creador)->NOMBRE_COMPLETO,
             'created_at'     => optional($aux->created_at)->format('d/m/Y H:i'),
             'edit_url'       => route('equipos-auxiliares.edit', $aux->ID_AUXILIAR),
@@ -1403,17 +1410,23 @@ class EquipoAuxiliarController extends Controller
             ->get()
             ->map(function ($a) {
                 return [
-                    'id'        => $a->ID_AUXILIAR,
-                    'tipo'      => $a->TIPO,
-                    'serial'    => $a->SERIAL,
-                    'marca'     => $a->MARCA,
-                    'modelo'    => $a->MODELO,
-                    'capacidad' => $a->CAPACIDAD,
-                    'anio'      => $a->ANIO,
-                    'estado'    => $a->ESTADO_OPERATIVO,
+                    'id'             => $a->ID_AUXILIAR,
+                    'tipo'           => $a->TIPO,
+                    'serial'         => $a->SERIAL,
+                    'marca'          => $a->MARCA,
+                    'modelo'         => $a->MODELO,
+                    'capacidad'      => $a->CAPACIDAD,
+                    'anio'           => $a->ANIO,
+                    'estado'         => $a->ESTADO_OPERATIVO,
                     // Foto del auxiliar para el modal de detalles del equipo host
                     // (seccion "Sub-activos vinculados"). Null si no hay foto.
-                    'foto'      => $a->FOTO ? asset($a->FOTO) : null,
+                    'foto'           => $a->FOTO ? asset($a->FOTO) : null,
+                    // Documentos del auxiliar: se muestran (desplegables) DENTRO de la seccion
+                    // "Sub-activos vinculados" del modal del equipo host, para poder ver el PDF
+                    // sin tener que buscar el auxiliar y abrir su propio modal. Se guardan como
+                    // ruta '/storage/...' directa (misma forma que usa el modal de auxiliares).
+                    'link_doc_propiedad' => $a->LINK_DOC_PROPIEDAD ?: null,
+                    'link_certificado'   => $a->LINK_CERTIFICADO ?: null,
                 ];
             });
 

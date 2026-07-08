@@ -13,7 +13,7 @@ Estructura: overlay > modal-content > header + sub-header + body
             <div style="padding: 12px 20px; display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;">
                 <div style="display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 0;">
                     <div>
-                        <h2 id="modal_equipo_title" style="margin: 0; font-size: 17px; font-weight: 700; word-break: break-word; line-height: 1.2;"></h2>
+                        <h2 id="modal_equipo_title" style="margin: 0; font-size: 14px; font-weight: 700; word-break: break-word; line-height: 1.2;"></h2>
                         <p id="modal_equipo_subtitle" style="margin: 2px 0 0 0; opacity: 0.8; font-size: 12px; word-break: break-word;"></p>
                     </div>
                     <div style="display: flex; gap: 6px; flex-wrap: wrap;">
