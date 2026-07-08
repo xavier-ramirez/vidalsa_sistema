@@ -150,18 +150,24 @@ function initEquiposForm() {
             });
     };
 
-    // Match 'blur' behavior for dropdowns
-    window.addEventListener('dropdown-selection', function (e) {
-        // e.detail = { dropdownId, value, label, inputName } sent from uicomponents.js
-        // Map type (suffix) to input ID
-        const type = e.detail.type || e.detail.inputName;
-        const inputId = 'input_' + type;
-        const input = document.getElementById(inputId);
-        if (input) {
-            clearFieldError(input);
-            // Optionally triggering checkUniqueness if needed (for sensitive dropdowns)
-        }
-    });
+    // Match 'blur' behavior for dropdowns. Es un listener a nivel de window
+    // (no del form), así que se registra UNA sola vez para toda la vida de la
+    // página: initEquiposForm() se re-ejecuta en cada navegación SPA y, sin este
+    // guard, el handler anónimo se acumulaba (no se puede remover) en cada visita.
+    if (!window.__eqFormDropdownSelReady) {
+        window.__eqFormDropdownSelReady = true;
+        window.addEventListener('dropdown-selection', function (e) {
+            // e.detail = { dropdownId, value, label, inputName } sent from uicomponents.js
+            // Map type (suffix) to input ID
+            const type = e.detail.type || e.detail.inputName;
+            const inputId = 'input_' + type;
+            const input = document.getElementById(inputId);
+            if (input) {
+                clearFieldError(input);
+                // Optionally triggering checkUniqueness if needed (for sensitive dropdowns)
+            }
+        });
+    }
 
     // FIX 1 & 4: Attach Blur Listeners FIRST (without destructive cloning)
     ['serial_chasis', 'serial_motor', 'codigo_patio', 'placa'].forEach(id => {

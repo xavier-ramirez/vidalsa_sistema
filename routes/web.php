@@ -163,8 +163,12 @@ Route::middleware(['auth'])->group(function () {
             // el registro (como si nunca hubiera ocurrido). Destructivo → super.admin (gateado
             // también en el constructor del controlador).
             Route::post('movilizaciones/{id}/deshacer', [App\Http\Controllers\MovilizacionController::class, 'deshacer'])->name('movilizaciones.deshacer');
-            // Resource route al final para que sus wildcards no capturen las rutas estáticas de arriba
-            Route::resource('movilizaciones', App\Http\Controllers\MovilizacionController::class);
+            // Resource route al final para que sus wildcards no capturen las rutas estáticas de arriba.
+            // ->only con los métodos que EXISTEN en el controller: show/edit/update no están
+            // implementados, así que registrarlos (resource completo) exponía rutas que lanzaban
+            // BadMethodCallException (500) si alguien las visitaba.
+            Route::resource('movilizaciones', App\Http\Controllers\MovilizacionController::class)
+                ->only(['index', 'create', 'store', 'destroy']);
 
             // Subida de foto desde la tarjeta del catálogo (sin abrir el form de edición).
             // ANTES del resource para que su wildcard {catalogo} no capture esta ruta.

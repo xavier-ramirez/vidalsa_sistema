@@ -1777,6 +1777,19 @@
             if (status === 200 && body.success) {
                 if (window.showToast) window.showToast(body.message || 'PDF cargado.', 'success');
 
+                // 0) Actualizar la caché en memoria (auxDetailsMap) con el link nuevo,
+                //    para que al REABRIR el modal de detalles el botón salga como
+                //    "cargado" (description) sin recargar la página. Igual que
+                //    applyDocUpload en el módulo de equipos: no dependemos del
+                //    refresco async de la tabla (que puede no traer este aux por
+                //    paginación/filtro y dejaba el icono viejo hasta un F5).
+                const _map = (window.auxDetailsMap = window.auxDetailsMap || {});
+                const _cached = _map[auxId] || _map[String(auxId)];
+                if (_cached && body.link) {
+                    if (docType === 'propiedad')        _cached.link_doc_propiedad = body.link;
+                    else if (docType === 'certificado') _cached.link_certificado   = body.link;
+                }
+
                 // 1) Cerrar el modal de detalles para que el visor del PDF
                 //    no quede solapado por el card del aux.
                 if (typeof window.closeAuxDetailsModal === 'function') {

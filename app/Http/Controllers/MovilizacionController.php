@@ -153,7 +153,6 @@ class MovilizacionController extends Controller
             return response()->json([
                 'html' => $tableHtml,
                 'pagination' => $paginationHtml,
-                'statsHtml' => '',
                 'totalTransito' => $totalTransito
             ]);
         }
@@ -450,6 +449,15 @@ class MovilizacionController extends Controller
                 'count'            => count($movilizacionIds),
                 'omitidos'         => $omitidos, // ya estaban en el frente destino → no se movilizaron
                 'generar_pdf'      => $generarPdf,
+                // Frente de destino: el front lo inyecta en el filtro/datalist sin recargar
+                // cuando es_nuevo, para que un frente recién creado aparezca de inmediato
+                // en las sugerencias del filtro de Frente.
+                'frente'           => [
+                    'id'        => $frente->ID_FRENTE,
+                    'nombre'    => $frente->NOMBRE_FRENTE,
+                    'ubicacion' => $frente->UBICACION,
+                    'es_nuevo'  => (bool) $frente->wasRecentlyCreated,
+                ],
             ]);
 
         } catch (\Exception $e) {
@@ -773,13 +781,6 @@ class MovilizacionController extends Controller
     }
 
     /**
-     * Construye el PDF del Acta de Traslado (binario) a partir de datos ya resueltos.
-     * Centralizado: lo usan generarActaTraslado() (descarga real con CODIGO_CONTROL)
-     * y previewActaLote() (vista previa desde borrador, numero "PENDIENTE"). Asi NO
-     * se duplica el armado/paginacion. Margenes 18/40/18 atados a equiposColWidths
-     * (=174mm) y cabX/cabW (18/174) del Header.
-     */
-    /**
      * Resuelve la lista de firmantes del acta a partir de los responsables (RESP_1..5)
      * del frente de ORIGEN, filtrando por la categoria de flota de los equipos del acta.
      * FUENTE UNICA DE VERDAD: antes esta logica vivia inline en el blade; se centralizo
@@ -863,6 +864,13 @@ class MovilizacionController extends Controller
         return $out;
     }
 
+    /**
+     * Construye el PDF del Acta de Traslado (binario) a partir de datos ya resueltos.
+     * Centralizado: lo usan generarActaTraslado() (descarga real con CODIGO_CONTROL)
+     * y previewActaLote() (vista previa desde borrador, numero "PENDIENTE"). Asi NO
+     * se duplica el armado/paginacion. Margenes 18/40/18 atados a equiposColWidths
+     * (=174mm) y cabX/cabW (18/174) del Header.
+     */
     private function buildActaPdfBinary($equipos, $frenteOrigen, $frenteDestino, string $numeroOperacion, string $fechaActa, ?array $firmasOverride = null): string
     {
         $pdf = new ActaTrasladoPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, PDF_PAGE_FORMAT, true, 'UTF-8', false);

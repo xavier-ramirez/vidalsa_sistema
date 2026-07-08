@@ -1,6 +1,8 @@
+{{-- Mobile-only: oculta CATEGORÍA/MODELO/AÑO en tarjetas pequeñas. Va UNA sola vez
+     antes del bucle (antes se emitía por cada fila). El repintado offline inyecta su
+     propia copia porque reemplaza el tbody y este style desaparece (equipos-offline.js). --}}
+<style>@media(max-width:900px){.eq-hide-mobile{display:none!important;}}</style>
 @forelse($equipos as $equipo)
-{{-- Mobile-only: oculta MODELO, AÑO y SERIAL_CHASIS en tarjetas pequeñas --}}
-<style>.eq-hide-mobile{} @media(max-width:900px){.eq-hide-mobile{display:none!important;}}</style>
     @php
         // Foto: prioriza FOTO_REFERENCIAL del catalogo (ID_ESPEC), cae a FOTO_EQUIPO
         $fotoToShow = ($equipo->especificaciones && $equipo->especificaciones->FOTO_REFERENCIAL)
@@ -134,7 +136,7 @@
                  (p.ej. tipos que no usan código de patio) la línea no se muestra, para
                  no dejar un "ID: #" vacío. --}}
             @if($equipo->CODIGO_PATIO)
-            <div style="line-height: 1.4; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+            <div class="eq-id-line" style="line-height: 1.4; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                 <strong style="color:#64748b;">ID:</strong>
                 <span style="color:#1e293b; font-weight:600;">#{{ $equipo->CODIGO_PATIO }}</span>
             </div>

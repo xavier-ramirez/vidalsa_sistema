@@ -81,10 +81,6 @@ window.loadMovilizaciones = async function (pageUrl = null) {
         const paginationDiv = document.getElementById('movilizacionesPagination');
         if (paginationDiv) paginationDiv.innerHTML = data.pagination || '';
 
-        // Actualizar estadísticas del sidebar
-        const statsDiv = document.getElementById('statusStatsContainer');
-        if (statsDiv && data.statsHtml) statsDiv.innerHTML = data.statsHtml;
-
         // Actualizar contadores
         ['totalTransitoCount', 'mobileTransitoCount'].forEach(id => {
             const el = document.getElementById(id);
@@ -608,14 +604,8 @@ if (!window._mvSelectedIds) {
     window._mvSelectedIds = new Set();
 }
 
-// Cerrar dropdown de Acciones si se hace clic fuera
-document.addEventListener('click', function (e) {
-    const menuMov = document.getElementById('splitDropdownMenuMov');
-    const btnMov = document.getElementById('btnAccionesMov');
-    if (menuMov && btnMov && !menuMov.contains(e.target) && !btnMov.contains(e.target)) {
-        menuMov.style.display = 'none';
-    }
-});
+// (El cierre del dropdown de Acciones al clic fuera ya lo maneja el listener con
+//  guard _mvPanelClickListenerRegistered de arriba — no se duplica aquí.)
 
 // ── Aplica/quita el estilo de selección en una fila ──
 window.applyRowStyleMv = function (tr, selected) {
@@ -661,10 +651,16 @@ if (!window._mvRowClickRegistered) {
         const tr = e.target.closest('.mv-selectable-row');
         if (!tr) return;
 
-        // ── Móvil (tarjeta): el tap EXPANDE para ver el detalle (PDF, usuario, hora) ──
-        // El layout de tarjeta se activa a <=1024px (ver estilos_globales.css).
+        // ── Móvil (tarjeta): el tap DESPLIEGA el detalle (fecha/hora + PDF +
+        // usuario + deshacer). Acordeón: solo una tarjeta abierta a la vez — al
+        // abrir una se cierran las demás, nunca hay dos desplegadas. La selección
+        // para borrado en lote es solo de escritorio. El layout de tarjeta se
+        // activa a <=1024px (ver estilos_globales.css).
         if (window.innerWidth <= 1024) {
-            tr.classList.toggle('mv-expanded');
+            const abrir = !tr.classList.contains('mv-expanded');
+            document.querySelectorAll('#movilizacionesTable tr.mv-row-card.mv-expanded')
+                .forEach(function (r) { if (r !== tr) r.classList.remove('mv-expanded'); });
+            tr.classList.toggle('mv-expanded', abrir);
             return;
         }
 

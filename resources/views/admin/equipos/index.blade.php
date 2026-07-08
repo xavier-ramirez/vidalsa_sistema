@@ -1033,11 +1033,6 @@
 
 
 
-<!-- Image Overlay Modal -->
-<div id="imageOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 9999; justify-content: center; align-items: center; cursor: default;" onclick="this.style.display='none'">
-    <img id="enlargedImg" style="max-width: 90%; max-height: 90%; border-radius: 12px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); transition: transform 0.3s ease;">
-</div>
-
 <!-- Floating Action Bar -->
 {{-- eq-hide-in-aux: en modo aux se oculta la barra de seleccion de EQUIPOS (la
      seleccion se conserva, solo no se muestra) para que no se solape con la barra

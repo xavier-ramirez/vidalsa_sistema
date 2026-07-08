@@ -267,8 +267,8 @@
                     <tr class="table-row-header">
                         <th class="table-header-custom">Equipo</th>
                         <th class="table-header-custom" style="text-align: center !important;">Trayecto (Origen → Destino)</th>
-                        <th class="table-header-custom mv-mobile-hidden" style="text-align: center !important;">Fechas</th>
-                        <th class="table-header-custom mv-col-op mv-mobile-hidden" style="text-align: center !important;">N° OPERACIÓN</th>
+                        <th class="table-header-custom" style="text-align: center !important;">Fechas</th>
+                        <th class="table-header-custom mv-col-op" style="text-align: center !important;">N° OPERACIÓN</th>
                         <th class="table-header-custom" style="text-align: center !important;">Estado</th>
                     </tr>
                 </thead>

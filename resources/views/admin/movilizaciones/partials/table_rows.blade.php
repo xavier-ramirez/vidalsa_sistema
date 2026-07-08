@@ -80,17 +80,17 @@
         </td>
 
         {{-- 3. Fechas --}}
-        <td class="mv-td-fechas mv-mobile-hidden">
+        <td class="mv-td-fechas">
             <div
                 style="display: flex; flex-direction: column; align-items: center; line-height: 1.2; justify-content: center; height: 100%; gap: 4px;">
-                <div
+                <div class="mv-meta"
                     style="display: flex; align-items: center; gap: 4px; background: #f1f5f9; padding: 4px 8px; border-radius: 6px; border: 1px solid #e2e8f0;">
                     <i class="material-icons" style="font-size: 16px; color: #64748b;">event</i>
                     <span
                         style="font-size: 13px; color: #334155; font-weight: 700;">{{ $mov->created_at ? $mov->created_at->format('d/m/Y') : '--' }}</span>
                 </div>
                 @if($mov->created_at)
-                    <div style="font-size: 11px; color: #94a3b8; font-weight: 600; display: flex; align-items: center; gap: 3px;">
+                    <div class="mv-meta" style="font-size: 11px; color: #94a3b8; font-weight: 600; display: flex; align-items: center; gap: 3px;">
                         <i class="material-icons" style="font-size: 12px;">schedule</i>
                         {{ $mov->created_at->format('h:i A') }}
                     </div>
@@ -105,7 +105,7 @@
              del Kardex de Almacén. El controller responde con Content-Disposition:
              inline, asi el iframe del modal lo renderiza directo. El boton
              "Descargar" del propio modal sigue disponible para el usuario. --}}
-        <td class="mv-col-op mv-mobile-hidden">
+        <td class="mv-col-op">
             <div style="display: flex; flex-direction: column; align-items: center; line-height: 1.2; gap: 2px;">
                 @if($mov->CODIGO_CONTROL)
                     {{-- Defensa: stripear posible prefijo "MV-" en valor crudo
@@ -123,10 +123,10 @@
                        style="font-weight: 800; color: #0067b1; font-size: 13px; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;"
                        onmouseover="this.style.textDecoration='underline'"
                        onmouseout="this.style.textDecoration='none'"><i class="material-icons" style="font-size: 16px;">picture_as_pdf</i>{{ $mvLabel }}</a>
-                @else
-                    <span style="color: #94a3b8; font-size: 13px; font-weight: 600;">--</span>
                 @endif
-                <div
+                {{-- Sin CODIGO_CONTROL no hay acta: no se muestra icono ni placeholder
+                     (algunos movimientos —p.ej. actualización de ubicación— no generan PDF). --}}
+                <div class="mv-meta"
                     style="display: flex; align-items: center; gap: 4px; color: #64748b; font-size: 13px; font-weight: 600;">
                     <i class="material-icons" style="font-size: 15px;">person</i>
                     {{ $mov->usuario->NOMBRE_COMPLETO ?? $mov->USUARIO_REGISTRO }}
@@ -134,11 +134,14 @@
                 {{-- Deshacer: devuelve el equipo a su frente de ORIGEN y borra el registro
                      (como si nunca ocurrió). Solo super.admin (acción destructiva). --}}
                 @can('super.admin')
+                {{-- Deshacer solo-ícono: botón cuadrado 30x30 (mismo tamaño que el
+                     de PDF), rojo tenue, para que pegue con el resto de la vista. --}}
                 <button type="button" onclick="window.movDeshacer({{ $mov->ID_MOVILIZACION }})"
                         title="Deshacer: devolver el equipo a su frente de origen"
-                        style="margin-top:4px;display:inline-flex;align-items:center;gap:4px;background:#fef2f2;color:#dc2626;border:1px solid #fecaca;border-radius:8px;padding:3px 9px;font-size:11.5px;font-weight:700;cursor:pointer;transition:background .15s;"
+                        aria-label="Deshacer movilización"
+                        style="margin-top:4px;display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;padding:0;background:#fef2f2;color:#dc2626;border:1px solid #fecaca;border-radius:8px;cursor:pointer;transition:background .15s;flex-shrink:0;"
                         onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='#fef2f2'">
-                    <i class="material-icons" style="font-size:14px;">undo</i>Deshacer
+                    <i class="material-icons" style="font-size:16px;">undo</i>
                 </button>
                 @endcan
             </div>

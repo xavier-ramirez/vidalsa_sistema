@@ -771,14 +771,6 @@ window.unanchorEquipos = async function (e) {
 
 
 
-window.enlargeImage = function (src) {
-    const overlay = document.getElementById("imageOverlay");
-    const img = document.getElementById("enlargedImg");
-    if (!overlay || !img) return;
-    img.src = src;
-    overlay.style.display = "flex";
-};
-
 window.toggleDocFilter = function (type) {
     // Al cambiar qué documentos están tildados volvemos al lado "Con" (default
     // histórico: tildar un doc muestra los que lo tienen). El usuario elige
@@ -1088,6 +1080,48 @@ window.filterAuxByStatus = function (status) {
     const url = '/admin/equipos' + (qs ? '?' + qs : '');
     if (typeof window.navigateTo === 'function') window.navigateTo(url);
     else window.location.href = url;
+};
+
+// Inyecta un frente RECIÉN CREADO (por una movilización a destino nuevo) en el
+// filtro de Frente (#frenteFilterSelect) y en el datalist (#dynamicFrentesList),
+// sin recargar la página. Idempotente: si el frente ya está en el DOM no hace nada.
+// Antes, un frente creado al movilizar solo aparecía en las sugerencias tras F5.
+window.eqRegisterNuevoFrente = function (frente) {
+    if (!frente || !frente.id || !frente.nombre) return;
+    const fid    = String(frente.id);
+    const nombre = String(frente.nombre).trim();
+    if (!nombre) return;
+
+    // 1) Datalist — es la fuente desde la que el modal de movilización reconstruye
+    //    frentesData en cada apertura, así que al reabrirlo ya sugerirá este frente.
+    const dl = document.querySelector('#dynamicFrentesList');
+    if (dl && !dl.querySelector(`option[data-id="${fid}"]`)) {
+        const opt = document.createElement('option');
+        opt.value = nombre;
+        opt.setAttribute('data-id', fid);
+        opt.setAttribute('data-ubicacion', (frente.ubicacion || '').toString().toUpperCase());
+        dl.appendChild(opt);
+    }
+
+    // 2) Dropdown del filtro de Frente — inserta el item alfabéticamente (deja arriba
+    //    los centinelas 'all'/'none'). El onclick espeja el de los items server-render.
+    const list = document.querySelector('#frenteFilterSelect .dropdown-item-list');
+    if (list && !list.querySelector(`.dropdown-item[data-value="${fid}"]`)) {
+        const item = document.createElement('div');
+        item.className = 'dropdown-item';
+        item.setAttribute('data-value', fid);
+        const safeNombre = nombre.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        item.setAttribute('onclick',
+            `selectOption('frenteFilterSelect', '${fid}', '${safeNombre}'); window.eqSyncTiposFrente && window.eqSyncTiposFrente(); loadEquipos();`);
+        item.textContent = nombre;
+        const ref = Array.from(list.querySelectorAll('.dropdown-item')).find((el) => {
+            const v = el.getAttribute('data-value');
+            return v && v !== 'all' && v !== 'none' &&
+                   el.textContent.trim().toUpperCase() > nombre.toUpperCase();
+        });
+        if (ref) list.insertBefore(item, ref);
+        else list.appendChild(item);
+    }
 };
 
 window.loadEquipos = function (url = null, silent = false, opts = {}) {
@@ -1572,31 +1606,6 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
             }
         });
 };
-
-window.filterList = function (inputArg, listArg) {
-    // Support both element references and ID strings (backward compatible)
-    const input =
-        typeof inputArg === "string"
-            ? document.getElementById(inputArg)
-            : inputArg;
-    const list =
-        typeof listArg === "string"
-            ? document.getElementById(listArg)
-            : listArg;
-    if (!input || !list) return;
-
-    const filter = input.value.toUpperCase();
-    const items = list.querySelectorAll(".filter-option-item");
-
-    items.forEach((item) => {
-        const txt = item.textContent || item.innerText;
-        item.style.display =
-            txt.toUpperCase().indexOf(filter) > -1 ? "" : "none";
-    });
-
-    list.style.display = "block";
-};
-
 
 /**
  * Modal de asignacion masiva de DETALLE_UBICACION_ACTUAL.
@@ -2186,6 +2195,13 @@ window.openBulkModal = function (event) {
                     );
                     if (opt) opt.setAttribute('data-ubicacion', actaState.destination_ubicacion.toUpperCase());
                 }
+            }
+
+            // Si el destino era un frente NUEVO (recién creado por esta movilización),
+            // inyectarlo en el filtro de Frente y el datalist para que aparezca de
+            // inmediato en las sugerencias, sin necesidad de recargar la página.
+            if (data.frente && data.frente.es_nuevo) {
+                window.eqRegisterNuevoFrente(data.frente);
             }
 
             // Refrescar tabla con preloader visible hasta completar el render inicial

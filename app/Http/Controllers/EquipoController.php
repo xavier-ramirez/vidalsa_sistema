@@ -1522,7 +1522,7 @@ class EquipoController extends Controller
             'CODIGO_PATIO' => (trim($request->CODIGO_PATIO ?? '') === '') ? null : strtoupper($request->CODIGO_PATIO),
             'SERIAL_CHASIS' => strtoupper($request->SERIAL_CHASIS),
             'SERIAL_DE_MOTOR' => (trim($request->SERIAL_DE_MOTOR ?? '') === '') ? null : strtoupper(trim($request->SERIAL_DE_MOTOR)),
-            'DETALLE_UBICACION_ACTUAL' => (trim($request->DETALLE_UBICACION_ACTUAL ?? '') === '') ? null : strtoupper(trim($request->DETALLE_UBICACION_ACTUAL)),
+            'DETALLE_UBICACION_ACTUAL' => (trim($request->DETALLE_UBICACION_ACTUAL ?? '') === '') ? null : mb_strtoupper(trim($request->DETALLE_UBICACION_ACTUAL)),
         ]);
 
         if ($request->has('documentacion.PLACA')) {
@@ -1798,6 +1798,7 @@ class EquipoController extends Controller
             'equipos_modelos_dropdown', // filtro del índice
             'equipos_marcas_dropdown',
             'equipos_anios_dropdown',
+            'equipos_colores_dropdown',
             'marcas_list_form_v3',     // formulario create/edit
             'modelos_list_form_v3',
             'anios_list_form_v3',
@@ -1895,7 +1896,7 @@ class EquipoController extends Controller
             'CODIGO_PATIO' => (trim($request->CODIGO_PATIO ?? '') === '') ? null : strtoupper(trim($request->CODIGO_PATIO)),
             'SERIAL_CHASIS' => strtoupper($request->SERIAL_CHASIS),
             'SERIAL_DE_MOTOR' => (trim($request->SERIAL_DE_MOTOR ?? '') === '') ? null : strtoupper(trim($request->SERIAL_DE_MOTOR)),
-            'DETALLE_UBICACION_ACTUAL' => (trim($request->DETALLE_UBICACION_ACTUAL ?? '') === '') ? null : strtoupper(trim($request->DETALLE_UBICACION_ACTUAL)),
+            'DETALLE_UBICACION_ACTUAL' => (trim($request->DETALLE_UBICACION_ACTUAL ?? '') === '') ? null : mb_strtoupper(trim($request->DETALLE_UBICACION_ACTUAL)),
         ]);
 
         if ($request->has('documentacion.PLACA')) {
@@ -2119,7 +2120,9 @@ class EquipoController extends Controller
             'modelos_list_form_v3',
             'anios_list_form_v3',
             'equipos_marcas_dropdown',
+            'equipos_modelos_dropdown', // faltaba: editar el modelo no refrescaba el filtro del índice
             'equipos_anios_dropdown',
+            'equipos_colores_dropdown', // faltaba: editar el color no refrescaba el filtro del índice
         ] as $key) {
             \Illuminate\Support\Facades\Cache::forget($key);
         }
@@ -2826,8 +2829,8 @@ class EquipoController extends Controller
 
         // ── 1. Borrar el archivo del Google Drive ──────────────────────────
         // Solo intentamos borrar si la URL guardada apunta a /storage/google/<id>.
-        // Mismo patron que uploadDoc (linea ~1511) cuando reemplaza un archivo
-        // existente. Errores del Drive NO bloquean el borrado en BD — los
+        // Mismo patron que uploadDoc cuando reemplaza un archivo existente.
+        // Errores del Drive NO bloquean el borrado en BD — los
         // registramos para revisión posterior pero la fila local se limpia.
         if ($oldUrl && str_starts_with($oldUrl, '/storage/google/')) {
             try {
@@ -3132,8 +3135,13 @@ class EquipoController extends Controller
 
             // Cache key — v6: cambió la estructura del payload (se quitaron los gráficos
             // Estado Operativo e Inoperatividad y los auxiliares ahora se filtran por frente).
-            $cacheKey = 'fleet_stats_v6_u' . ($user?->id ?? 'guest')
+            // OJO: el PK de Usuario es ID_USUARIO (no existe columna `id`), así que hay que
+            // usar auth()->id()/ID_USUARIO — con $user->id todos caían en 'guest' y compartían
+            // caché entre usuarios de distinto alcance (fuga de datos). Se hashea también el
+            // scope (isLocal + frentes permitidos) por robustez si cambian los permisos.
+            $cacheKey = 'fleet_stats_v6_u' . ($user?->ID_USUARIO ?? 'guest')
                       . '_f' . ($requestedFrenteId ?: 'all')
+                      . '_s' . md5(($isLocal ? 'L' : 'G') . '|' . implode(',', $frentesPermitidos))
                       . '_b' . md5(implode(',', $frentesBloqueados));
 
             $payload = \Illuminate\Support\Facades\Cache::remember($cacheKey, 120, function () use (
@@ -3745,7 +3753,13 @@ class EquipoController extends Controller
     {
         $frenteId = $request->input('frente_id');
         $tipoId   = $request->input('id_tipo');
-        $query = Equipo::with(['ancladoA', 'tipo', 'especificaciones', 'documentacion'])->whereNotNull('ID_ANCLAJE');
+        // Se cargan también las relaciones ANIDADAS de ancladoA (especificaciones,
+        // documentacion, tipo) porque el map de abajo las accede; sin esto cada par
+        // anclado dispara ~3 queries lazy (N+1). Espeja lo que hace exportAnclajes.
+        $query = Equipo::with([
+            'ancladoA', 'ancladoA.especificaciones', 'ancladoA.documentacion', 'ancladoA.tipo',
+            'tipo', 'especificaciones', 'documentacion',
+        ])->whereNotNull('ID_ANCLAJE');
 
         if ($frenteId && $frenteId !== 'all') {
             $query->where('ID_FRENTE_ACTUAL', $frenteId);
@@ -4205,6 +4219,17 @@ class EquipoController extends Controller
             $sourceId = $request->ids[0];
             $targetId = $request->master_id;
 
+            // Soltar anclajes PREVIOS de source/target antes de crear el nuevo. La
+            // lista de destinos (getEquiposByFrente) no excluye equipos ya anclados,
+            // así que source o target pueden traer pareja. Sin esto quedaría un
+            // huérfano unidireccional: si B estaba con X (B→X, X→B) y se ancla A→B,
+            // X seguiría apuntando a B. Espeja la limpieza bidireccional de clearAnchor.
+            $previos = Equipo::whereIn('ID_EQUIPO', [$sourceId, $targetId])
+                             ->pluck('ID_ANCLAJE')->filter()->all();
+            $aSoltar = array_unique(array_merge([$sourceId, $targetId], $previos));
+            Equipo::whereIn('ID_EQUIPO', $aSoltar)->update(['ID_ANCLAJE' => null]);
+            Equipo::whereIn('ID_ANCLAJE', $aSoltar)->update(['ID_ANCLAJE' => null]);
+
             // Create mutual anchor link
             Equipo::where('ID_EQUIPO', $sourceId)->update(['ID_ANCLAJE' => $targetId]);
             Equipo::where('ID_EQUIPO', $targetId)->update(['ID_ANCLAJE' => $sourceId]);
@@ -4303,7 +4328,7 @@ class EquipoController extends Controller
         ]);
 
         $valor = $request->filled('DETALLE_UBICACION_ACTUAL')
-            ? strtoupper(trim($request->DETALLE_UBICACION_ACTUAL))
+            ? mb_strtoupper(trim($request->DETALLE_UBICACION_ACTUAL))
             : null;
 
         $equipo->DETALLE_UBICACION_ACTUAL = $valor;
@@ -4339,9 +4364,11 @@ class EquipoController extends Controller
         ]);
 
         $rawValor = $request->input('detalle_ubicacion', '');
-        // Guardar NULL cuando el valor llega vacío (borra la ubicación en BD)
+        // Guardar NULL cuando el valor llega vacío (borra la ubicación en BD).
+        // mb_strtoupper (no strtoupper) para que la ñ/acentos suban a mayúscula
+        // correctamente (strtoupper es byte a byte y dejaba "SEñOR").
         $valor = ($rawValor !== null && trim($rawValor) !== '')
-            ? strtoupper(trim($rawValor))
+            ? mb_strtoupper(trim($rawValor))
             : null;
 
         // Transaccion requerida para que lockForUpdate tenga efecto real hasta el UPDATE

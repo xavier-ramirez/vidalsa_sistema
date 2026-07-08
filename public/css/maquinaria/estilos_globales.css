@@ -1823,8 +1823,11 @@ input:-webkit-autofill:active {
         /* NOTE: Do NOT set color here — each child div has its own color (Serial, Placa blue, etc.) */
     }
 
-    /* Hide CODIGO_PATIO (ID: line) on mobile — not needed on small screens */
-    .table-equipos-mobile tbody td:nth-child(4) div:last-child {
+    /* Hide CODIGO_PATIO (ID: line) on mobile — not needed on small screens.
+       Se apunta a .eq-id-line (no a div:last-child): la línea ID es condicional
+       (solo si hay CODIGO_PATIO), así que con :last-child se ocultaba la PLACA
+       cuando el equipo no tenía código de patio (p.ej. CHUTO CON BRAZO). */
+    .table-equipos-mobile tbody td:nth-child(4) .eq-id-line {
         display: none !important;
     }
 
@@ -2452,15 +2455,6 @@ input:-webkit-autofill:active {
    Clases .mv-* son exclusivas de esta sección
    ══════════════════════════════════════════════ */
 
-/* ── mv-mobile-hidden: oculta columnas en tablet/móvil ──
-   IMPORTATE: esta regla DEBE estar aquí (en el CSS global)
-   y NO dentro de un <style> en el blade, porque el SPA
-   inyecta solo el .main-viewport y descarta los estilos inline. */
-@media (max-width: 1024px) {
-    .mv-mobile-hidden {
-        display: none !important;
-    }
-}
 
 /* ── EQUIPOS PAGE LAYOUT (was inline style - moved here for SPA compat.) ── */
 /* Tooltip Burbuja para Subdivisión: aparece al hacer hover sobre la celda
@@ -2575,14 +2569,10 @@ input:-webkit-autofill:active {
     font-size: 13px;
 }
 
-/* Anchos de columna desktop — pedido del cliente: reducir Equipo
-   (sobraba espacio entre foto/datos y borde derecho) y entregarselo a
-   Estado (el texto "ACTUALIZACIÓN DE UBICACIÓN" antes se partia en 2
-   lineas). Trayecto, Fechas y N° Op las define el thead (en %).
-   Iteracion 6: el recorte sale de Estado (20%→15%) en vez de Equipo, que
-   vuelve a 22%; esos 5% liberados van a Trayecto (34%→37%). Estos % coinciden
+/* Anchos de columna desktop. Solo se fijan Equipo (26%) y Estado (11%); el
+   resto (Trayecto, Fechas, N° Op) los reparte el thead. Estos % coinciden
    EXACTAMENTE con los del thead de arriba (table-layout:fixed manda el thead,
-   pero los igualamos para que no haya contradiccion cabecera/cuerpo). */
+   pero los igualamos aquí para que no haya contradicción cabecera/cuerpo). */
 #movilizacionesTable .mv-td-equipo {
     text-align: left;
     border-left: 1px solid #cbd5e0;
@@ -2614,11 +2604,6 @@ input:-webkit-autofill:active {
     display: none;
 }
 
-/* En desktop: mv-filter-btn-row es transparente — el botón actúa como flex-item directo */
-.mv-filter-btn-row {
-    display: contents;
-}
-
 /* En desktop: el wrapper de búsqueda+filtro avanzado es transparente
    los hijos (search item + adv filter) actúan como flex-items directos */
 .mv-search-adv-row {
@@ -2648,11 +2633,6 @@ input:-webkit-autofill:active {
    esto solo aplica en escritorio. */
 .mv-filter-item.mv-tipo-item {
     flex: 1.3 1 210px;
-}
-
-/* En desktop el botón Recepción Directa tiene ancho automático */
-#btnRecepcionDirecta {
-    width: auto;
 }
 
 @media (max-width: 1024px) {
@@ -2744,15 +2724,6 @@ input:-webkit-autofill:active {
         display: flex !important;
     }
 
-    /* Div contenedor del botón Recepción Directa: fila propia full-width */
-    .mv-filter-btn-row {
-        flex: 1 1 100% !important;
-        width: 100% !important;
-        order: 10 !important;
-        display: flex !important;
-        margin-top: 5px;
-    }
-
     /* Boton "Acciones" en mobile: debe ir DESPUES de la fila de busqueda
        (mv-search-adv-row tiene order:3). Sin order explicito caia en 0 y se
        pintaba arriba del filtro de Serial. */
@@ -2768,11 +2739,6 @@ input:-webkit-autofill:active {
 
     .mv-acciones-btn-container #btnAccionesMov {
         width: 100% !important;
-    }
-
-    .mv-filter-btn-row #btnRecepcionDirecta {
-        justify-content: center !important;
-        flex: 1 !important;
     }
 
     .movilizaciones-main-card {
@@ -2856,15 +2822,86 @@ input:-webkit-autofill:active {
         box-sizing: border-box !important;
     }
 
-    /* ── Ocultar obligatoriamente las columnas desktop-only ── */
-    #movilizacionesTable tr.mv-row-card td.mv-mobile-hidden,
+    /* ── DETALLE DESPLEGABLE (móvil): fecha·hora + PDF + usuario + deshacer.
+       OCULTO por defecto; se revela SOLO al tocar la tarjeta (clase .mv-expanded).
+       Es un acordeón: solo una tarjeta abierta a la vez (ver movilizaciones_index.js).
+       La letra del detalle es UNIFORME (mismo tamaño y color) para que se vea
+       ordenado; el enlace del acta conserva su azul y el deshacer su rojo. ── */
     #movilizacionesTable tr.mv-row-card td.mv-td-fechas,
     #movilizacionesTable tr.mv-row-card td.mv-col-op {
         display: none !important;
-        height: 0 !important;
-        padding: 0 !important;
+    }
+    #movilizacionesTable tr.mv-row-card.mv-expanded td.mv-td-fechas,
+    #movilizacionesTable tr.mv-row-card.mv-expanded td.mv-col-op {
+        display: block !important;
+        width: 100% !important;
+        height: auto !important;
         margin: 0 !important;
+        background: #f8fafc !important;
+        text-align: center !important;
+        border-bottom: none !important;
+    }
+    #movilizacionesTable tr.mv-row-card.mv-expanded td.mv-td-fechas {
+        border-top: 1px dashed #e2e8f0 !important;
+        padding: 9px 14px 3px !important;
+    }
+    #movilizacionesTable tr.mv-row-card.mv-expanded td.mv-col-op {
+        padding: 3px 14px 11px !important;
+    }
+    /* Fecha + hora en UNA línea, planas (sin la píldora). */
+    #movilizacionesTable tr.mv-row-card.mv-expanded td.mv-td-fechas > div {
+        flex-direction: row !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 14px !important;
+        height: auto !important;
+    }
+    #movilizacionesTable tr.mv-row-card.mv-expanded td.mv-td-fechas .mv-meta {
+        background: transparent !important;
         border: none !important;
+        padding: 0 !important;
+    }
+    /* Usuario + acta + deshacer en UNA fila, con wrap si no caben. */
+    #movilizacionesTable tr.mv-row-card.mv-expanded td.mv-col-op > div {
+        flex-direction: row !important;
+        flex-wrap: wrap !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 8px 14px !important;
+        height: auto !important;
+    }
+    #movilizacionesTable tr.mv-row-card.mv-expanded td.mv-col-op > div > button {
+        margin-top: 0 !important;
+    }
+    /* Letra UNIFORME en fecha/hora/usuario: mismo tamaño, peso y color. Los
+       iconos también se igualan. (El acta <a> y el botón deshacer quedan aparte.) */
+    #movilizacionesTable tr.mv-row-card.mv-expanded .mv-meta,
+    #movilizacionesTable tr.mv-row-card.mv-expanded .mv-meta span {
+        font-size: 12px !important;
+        font-weight: 600 !important;
+        color: #475569 !important;
+    }
+    #movilizacionesTable tr.mv-row-card.mv-expanded .mv-meta .material-icons {
+        font-size: 15px !important;
+        color: #94a3b8 !important;
+    }
+
+    /* Chevron indicador de que la tarjeta se puede tocar/desplegar. Va al pie del
+       bloque colapsado (tras el Trayecto) y rota 180° cuando está desplegada. */
+    #movilizacionesTable tr.mv-row-card td.mv-td-trayecto::after {
+        content: "expand_more";
+        font-family: 'Material Icons';
+        display: block;
+        text-align: center;
+        font-size: 20px;
+        line-height: 1;
+        color: #cbd5e1;
+        margin-top: 6px;
+        transition: transform .2s ease, color .2s ease;
+    }
+    #movilizacionesTable tr.mv-row-card.mv-expanded td.mv-td-trayecto::after {
+        transform: rotate(180deg);
+        color: #0067b1;
     }
 
     /* ── 1. EQUIPO (Fila 1 de la tarjeta) ── */
@@ -2929,70 +2966,18 @@ input:-webkit-autofill:active {
         display: none !important;
     }
 
-    /* ── ESTADO (Fila 3 de la tarjeta) ── */
-    #movilizacionesTable td.mv-td-estado {
-        border-bottom: none !important;
-        text-align: center !important;
-        padding-top: 2px !important;
-        padding-bottom: 10px !important;
-        display: block !important;
+    /* ── ESTADO: NO se muestra en la tarjeta de móvil (decisión del cliente:
+       la tarjeta colapsada queda limpia con solo Equipo + Trayecto). ── */
+    #movilizacionesTable tr.mv-row-card td.mv-td-estado {
+        display: none !important;
     }
 
-    #movilizacionesTable td.mv-td-estado>div,
-    #movilizacionesTable td.mv-td-estado .badge {
-        display: inline-block !important;
-        margin: 0 auto !important;
-        width: auto !important;
-        text-align: center !important;
-    }
-
-    /* ══════════════════════════════════════════
-       TARJETA EXPANDIBLE (móvil): al tocar la tarjeta se revela el detalle
-       (PDF del acta, quién hizo el movimiento y la fecha/hora).
-       ══════════════════════════════════════════ */
-
-    /* Orden dentro de la tarjeta: estado queda ANTES del detalle expandible,
-       así el detalle (fechas + N° operación) aparece al final al expandir. */
+    /* Orden dentro de la tarjeta: Equipo, Trayecto y —al desplegar— el detalle
+       (Fecha/hora + Acta/usuario/deshacer). El Estado va oculto (order irrelevante). */
     #movilizacionesTable td.mv-td-equipo   { order: 1 !important; }
     #movilizacionesTable td.mv-td-trayecto { order: 2 !important; }
-    #movilizacionesTable td.mv-td-estado   { order: 3 !important; }
     #movilizacionesTable td.mv-td-fechas   { order: 4 !important; }
     #movilizacionesTable td.mv-col-op      { order: 5 !important; }
-
-    /* Detalle: oculto por defecto (ya lo están vía mv-mobile-hidden); al expandir
-       se muestran las celdas de Fechas y N° Operación (con PDF + usuario) como un
-       panel tipo lista, con un encabezado por sección para que se entienda. */
-    #movilizacionesTable tr.mv-row-card.mv-expanded td.mv-td-fechas,
-    #movilizacionesTable tr.mv-row-card.mv-expanded td.mv-col-op {
-        display: block !important;
-        height: auto !important;
-        padding: 8px 16px !important;
-        background: #f8fafc !important;
-        text-align: left !important;
-    }
-    #movilizacionesTable tr.mv-row-card.mv-expanded td.mv-td-fechas {
-        border-top: 1px dashed #e2e8f0 !important;
-        padding-top: 10px !important;
-    }
-    /* Encabezado de cada sección del detalle */
-    #movilizacionesTable tr.mv-row-card.mv-expanded td.mv-td-fechas::before {
-        content: "Fecha y hora";
-        display: block;
-        font-size: 10px; font-weight: 800; letter-spacing: 0.06em;
-        text-transform: uppercase; color: #94a3b8; margin-bottom: 5px;
-    }
-    #movilizacionesTable tr.mv-row-card.mv-expanded td.mv-col-op::before {
-        content: "Acta y registro";
-        display: block;
-        font-size: 10px; font-weight: 800; letter-spacing: 0.06em;
-        text-transform: uppercase; color: #94a3b8; margin-bottom: 5px;
-    }
-    /* Contenido alineado a la izquierda, en columna y con respiro entre items. */
-    #movilizacionesTable tr.mv-row-card.mv-expanded td.mv-td-fechas>div,
-    #movilizacionesTable tr.mv-row-card.mv-expanded td.mv-col-op>div {
-        align-items: flex-start !important;
-        gap: 6px !important;
-    }
 
 }
 
