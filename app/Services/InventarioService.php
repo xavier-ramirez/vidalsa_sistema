@@ -316,6 +316,12 @@ class InventarioService
             ->get();
 
         $saldo = round($apertura, 3);
+        // Magnitud de la ÚLTIMA entrada / salida que sobrevive — se recomputa aquí para que
+        // no queden apuntando a un movimiento ya borrado (quedaban stale tras un borrado duro).
+        // Solo ENTRADA/SALIDA las tocan (igual que aplicarMovimiento); el AJUSTE no. Si ya no
+        // queda ninguna del tipo, la fija en null (limpia el valor viejo).
+        $ultEntrada = null;
+        $ultSalida  = null;
         foreach ($movs as $m) {
             $anterior = $saldo;
             if ($m->TIPO === MovimientoInventario::TIPO_AJUSTE) {
@@ -324,9 +330,11 @@ class InventarioService
             } elseif (in_array($m->TIPO, MovimientoInventario::TIPOS_ENTRADA, true)) {
                 $magnitud   = round((float) $m->CANTIDAD, 3);
                 $resultante = round($anterior + $magnitud, 3);
+                $ultEntrada = $magnitud;
             } else { // TIPOS_SALIDA
                 $magnitud   = round((float) $m->CANTIDAD, 3);
                 $resultante = round($anterior - $magnitud, 3);
+                $ultSalida  = $magnitud;
             }
 
             $m->CANTIDAD_ANTERIOR   = $anterior;
@@ -342,6 +350,8 @@ class InventarioService
         if ($stock) {
             $stock->CANTIDAD             = $saldo;
             $stock->FECHA_ULT_MOVIMIENTO = now();
+            $stock->ULTIMA_ENTRADA       = $ultEntrada;
+            $stock->ULTIMA_SALIDA        = $ultSalida;
             $stock->save();
         }
 

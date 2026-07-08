@@ -10,15 +10,15 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 /**
  * Almacén / depósito de inventario.
  *
- *  - TIPO = GENERAL  → almacén PRINCIPAL (uno o dos): surte a los secundarios vía
- *                      traspasos. Solo visible para usuarios GLOBAL (NIVEL_ACCESO=1).
- *  - TIPO = PROYECTO → almacén SECUNDARIO de obra/tienda: ligado a uno o varios
- *                      frentes de trabajo vía el pivote `almacen_frentes`. Visible
- *                      para los usuarios LOCAL (NIVEL_ACCESO=2) de esos frentes —
- *                      que NO ven los almacenes GENERAL.
+ *  - TIPO = GENERAL  → almacén PRINCIPAL (uno o dos): surte a los secundarios vía traspasos.
+ *  - TIPO = PROYECTO → almacén SECUNDARIO de obra/tienda.
+ *  AMBOS se ligan a frentes de trabajo vía el pivote `almacen_frentes`.
  *
- * Reusa el modelo "global vs local" del sistema (Usuario::NIVEL_ACCESO):
- *   1 = GLOBAL → ve todos los almacenes;  2 = LOCAL → solo los de sus frentes.
+ * VISIBILIDAD: el TIPO ya NO restringe (ver visiblePara/visiblesPara). Depende SOLO de
+ * Usuario::NIVEL_ACCESO + los frentes compartidos:
+ *   1 = GLOBAL → ve TODOS los almacenes (salvo los ligados en exclusiva a frentes bloqueados).
+ *   2 = LOCAL  → ve cualquier almacén —GENERAL o PROYECTO— que comparta al menos un frente
+ *                con él. Es decir, un LOCAL SÍ puede ver un almacén GENERAL si comparten frente.
  */
 class Almacen extends Model
 {

@@ -683,6 +683,14 @@ class AlmacenController extends Controller
         $idAlmacen   = $extra['id_almacen']       ?? null;
         $cantInicial = (float) ($extra['cantidad_inicial'] ?? 0);
 
+        // Si se pasó un almacén de contexto, DEBE ser visible para el usuario. Sin esto,
+        // `exists:almacenes` dejaba que un LOCAL con almacen.movimiento inyectara stock
+        // inicial + movimiento de kardex en un almacén ajeno (que ni siquiera ve) vía
+        // id_almacen+cantidad_inicial. Mismo gate que registrarMovimientoLote/actualizarMinimo.
+        if ($idAlmacen) {
+            $this->assertPuedeVerAlmacen($request, (int) $idAlmacen);
+        }
+
         if ($cantInicial > 0 && ! $request->user()?->can('almacen.movimiento')) {
             return response()->json([
                 'message' => 'No tienes permiso para registrar movimientos de inventario (cantidad inicial > 0).',
@@ -763,15 +771,26 @@ class AlmacenController extends Controller
         }
         $producto->update($data);
 
-        // Equivalencias (nº de parte) — SOLO filtros. Se gestionan como una lista dentro del
-        // modal "Editar producto": el front manda el conjunto COMPLETO y aquí se sincroniza
-        // (agrega las nuevas, borra las que se quitaron). El principal existente se preserva.
-        if ($request->has('equivalencias') && mb_strtoupper((string) $producto->CATEGORIA) === 'FILTROS') {
-            $request->validate([
-                'equivalencias'   => 'array|max:100',
-                'equivalencias.*' => 'nullable|string|max:100',
-            ]);
-            $this->sincronizarEquivalencias($producto, (array) $request->input('equivalencias', []));
+        // Equivalencias (nº de parte) — feature EXCLUSIVA de filtros. Criterio ÚNICO de
+        // "es filtro": la categoría CONTIENE 'FILTRO' (mismo criterio que el buscador
+        // esFiltroCat), no la coincidencia exacta 'FILTROS' — así "FILTROS DE ACEITE" o
+        // "FILTRO DE AIRE" también admiten equivalencias, sin la incoherencia previa.
+        if (str_contains(mb_strtoupper((string) $producto->CATEGORIA), 'FILTRO')) {
+            // Se gestionan como lista dentro del modal "Editar producto": el front manda el
+            // conjunto COMPLETO y aquí se sincroniza (agrega nuevas, borra las quitadas). El
+            // principal existente se preserva. Solo si el front las envió.
+            if ($request->has('equivalencias')) {
+                $request->validate([
+                    'equivalencias'   => 'array|max:100',
+                    'equivalencias.*' => 'nullable|string|max:100',
+                ]);
+                $this->sincronizarEquivalencias($producto, (array) $request->input('equivalencias', []));
+            }
+        } else {
+            // El producto ya NO es filtro (típicamente se le cambió la categoría). Sus
+            // equivalencias quedarían HUÉRFANAS y seguirían matcheando en la búsqueda por
+            // nº de parte (que no filtra por categoría) → las borramos.
+            $producto->equivalencias()->delete();
         }
 
         return response()->json(['message' => 'Producto actualizado.', 'producto' => $producto->fresh()]);
@@ -1018,8 +1037,11 @@ class AlmacenController extends Controller
             if ($tipoReq === 'ENTRADAS') {
                 $q->where(function ($w) {
                     $w->whereIn('TIPO', MovimientoInventario::TIPOS_ENTRADA)
+                      // Ajuste que SUBIÓ el saldo (aumento neto). Estricto (>), simétrico con
+                      // SALIDAS (<): un ajuste neutro (resultante == anterior) no movió nada,
+                      // así que no es ni entrada ni salida y no aparece en ninguno de los dos.
                       ->orWhere(fn ($a) => $a->where('TIPO', MovimientoInventario::TIPO_AJUSTE)
-                          ->whereColumn('CANTIDAD_RESULTANTE', '>=', 'CANTIDAD_ANTERIOR'));
+                          ->whereColumn('CANTIDAD_RESULTANTE', '>', 'CANTIDAD_ANTERIOR'));
                 });
             } elseif ($tipoReq === 'SALIDAS') {
                 $q->where(function ($w) {
@@ -1340,12 +1362,14 @@ class AlmacenController extends Controller
 
     /**
      * Dashboard de Consumo (JSON para Chart.js). Devuelve KPIs + series para los
-     * gráficos del modal. "Consumo" = movimientos de SALIDA (y TRASPASO_SALIDA si
-     * hay un almacén filtrado, igual criterio que consumoRanking()). Respeta los
-     * MISMOS filtros que el kardex/ranking (almacén, frente, producto, búsqueda,
-     * categoría, período + visibilidad por usuario) — así el dashboard refleja
-     * exactamente lo que el usuario está viendo. Los nombres se pasan por
-     * MojibakeFix porque las queries crudas (con JOIN) NO aplican el cast del modelo.
+     * gráficos del modal. "Consumo" = movimientos TIPO 'SALIDA' de TODOS los almacenes
+     * visibles (los TRASPASO_SALIDA son movimientos internos entre almacenes, NO consumo).
+     *
+     * IMPORTANTE: es INDEPENDIENTE de los filtros generales del módulo (almacén
+     * seleccionado, frente, producto, búsqueda). Usa SOLO sus propios filtros: rango de
+     * meses (desde/hasta en YYYY-MM) y categoría — es una vista global de consumo, no un
+     * reflejo de la tabla filtrada. Los nombres se pasan por MojibakeFix porque las queries
+     * crudas (con JOIN) NO aplican el cast del modelo.
      */
     public function consumoDashboard(Request $request)
     {
@@ -1720,7 +1744,8 @@ class AlmacenController extends Controller
      *  - fecha, referencia, motivo, notas : opcionales
      *  - id_frente / id_frente_destino : opcional (SALIDA: frente destino del producto;
      *                          en ENTRADA / AJUSTE se ignora salvo autollenado).
-     *  - permitir_negativo   : opcional (sólo super.admin)
+     *  - permitir_negativo   : opcional (sólo super.admin) — se aplica SOLO a AJUSTE. En SALIDA
+     *                          se ignora: una salida nunca puede dejar el saldo negativo.
      *  - lineas              : [{ id_producto, cantidad }, ...]   (>= 1)
      *                          en AJUSTE, "cantidad" es el SALDO OBJETIVO de ese producto.
      */
@@ -1835,7 +1860,13 @@ class AlmacenController extends Controller
             'motivo'            => $data['motivo'] ?? null,
             'notas'             => $data['notas'] ?? null,
             'id_usuario'        => optional($request->user())->ID_USUARIO,
-            'permitir_negativo' => $request->boolean('permitir_negativo') && $request->user()->can('super.admin'),
+            // Una SALIDA NUNCA puede dejar el saldo en negativo — ni siquiera super.admin: no se
+            // entrega material que no existe físicamente (regla del cliente, coherente con la
+            // vista previa de la Nota). El bypass permitir_negativo se conserva SOLO para AJUSTE
+            // (conteo físico / corrección), donde un objetivo negativo puede ser legítimo.
+            'permitir_negativo' => $data['tipo'] !== 'SALIDA'
+                && $request->boolean('permitir_negativo')
+                && $request->user()->can('super.admin'),
         ];
 
         try {
@@ -1931,7 +1962,9 @@ class AlmacenController extends Controller
                 $this->traspasos->enviar($traspaso, [
                     'id_usuario_envio'  => $idUsuario,
                     'fecha_envio'       => $data['fecha'] ?? null,
-                    'permitir_negativo' => $request->boolean('permitir_negativo') && $request->user()->can('super.admin'),
+                    // Un envío a otro almacén también es una SALIDA física: no se puede enviar
+                    // material que no existe. No permitimos negativo, ni a super.admin.
+                    'permitir_negativo' => false,
                     'numero_nota'       => $numeroNota,
                     'numero_contrato'   => $data['numero_contrato'] ?? null,
                     'numero_rq'         => $data['numero_rq']       ?? null,
@@ -2307,20 +2340,26 @@ class AlmacenController extends Controller
             'motivo'               => 'nullable|string|max:200',
             'lineas'               => 'required|array|min:1',
             'lineas.*.id_producto'  => 'required|integer|exists:productos_inventario,ID_PRODUCTO',
+            // La vista previa NUNCA debe dejar pasar una salida que deje el saldo en negativo:
+            // el material que no existe no se puede entregar. Por eso exigimos gt:0 y validamos
+            // el saldo SIEMPRE (sin excepción permitir_negativo) — la revisión de stock es el
+            // paso previo obligatorio antes de generar la Nota de Entrega.
             'lineas.*.cantidad'     => 'required|numeric|gt:0',
             'lineas.*.numero_parte' => 'nullable|string|max:100',
         ]);
 
         $this->assertPuedeVerAlmacen($request, (int) $data['id_almacen']);
 
-        // Mismo gate de stock que registrarMovimientoLote — si esta funcion deja
-        // pasar algo, el "Confirmar" tambien lo dejara (consistencia preview/final).
-        $idsProd = collect($data['lineas'])->pluck('id_producto')->map(fn ($n) => (int) $n)->all();
-        $stocks  = AlmacenStock::where('ID_ALMACEN', (int) $data['id_almacen'])
-            ->whereIn('ID_PRODUCTO', $idsProd)
-            ->get(['ID_PRODUCTO', 'CANTIDAD'])->keyBy('ID_PRODUCTO');
-        $productos = ProductoInventario::whereIn('ID_PRODUCTO', $idsProd)
+        $productos = ProductoInventario::whereIn('ID_PRODUCTO',
+                collect($data['lineas'])->pluck('id_producto')->map(fn ($n) => (int) $n)->all())
             ->get(['ID_PRODUCTO', 'CODIGO', 'NOMBRE', 'UM'])->keyBy('ID_PRODUCTO');
+
+        // Gate de stock: rechaza cualquier línea que supere el saldo disponible. La Nota de
+        // Entrega solo se genera si TODO el material solicitado existe físicamente — NO se
+        // permite negativo en este flujo, ni siquiera a super.admin.
+        $stocks = AlmacenStock::where('ID_ALMACEN', (int) $data['id_almacen'])
+            ->whereIn('ID_PRODUCTO', $productos->keys()->all())
+            ->get(['ID_PRODUCTO', 'CANTIDAD'])->keyBy('ID_PRODUCTO');
 
         $excesos = [];
         foreach ($data['lineas'] as $l) {
@@ -2504,13 +2543,24 @@ class AlmacenController extends Controller
             return response()->json(['message' => 'Ingresa un N° de Nota.'], 422);
         }
 
-        $movs = MovimientoInventario::where('TIPO', MovimientoInventario::TIPO_SALIDA)
-            ->where('NUMERO_NOTA', $numero)
+        // Buscamos por NUMERO_NOTA SIN filtrar el tipo: la misma nota puede ser una SALIDA pura
+        // o una TRASPASO_SALIDA (envío a otro almacén/proyecto). Filtrar solo TIPO_SALIDA daba un
+        // 404 engañoso para las notas de traspaso, que SÍ existen y se listan con su PDF.
+        $movs = MovimientoInventario::where('NUMERO_NOTA', $numero)
             ->orderBy('ID_MOVIMIENTO')
             ->get();
 
         if ($movs->isEmpty()) {
             return response()->json(['message' => 'No se encontró ninguna Nota con ese código.'], 404);
+        }
+
+        // Si la nota incluye un ENVÍO (traspaso), NO se revierte aquí: el traspaso movió stock por
+        // su propio flujo (salida en origen + entrada al confirmar en destino) y tiene su propia
+        // anulación. Revertirlo con una ENTRADA simple lo desincronizaría y duplicaría stock.
+        if ($movs->contains(fn ($m) => $m->TIPO === MovimientoInventario::TIPO_TRASPASO_SALIDA)) {
+            return response()->json([
+                'message' => 'Esta Nota corresponde a un envío a otro almacén/proyecto (traspaso). Para anularla, cancela el traspaso desde Recepción, no desde aquí.',
+            ], 422);
         }
 
         abort_if(

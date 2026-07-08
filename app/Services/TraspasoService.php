@@ -223,6 +223,7 @@ class TraspasoService
             $lineas = $traspaso->lineas()->lockForUpdate()->get()->keyBy('ID_LINEA');
 
             $huboDiferencia = false;
+            $vistos = []; // id_linea ya procesados → rechazar duplicados en el payload
 
             foreach ($lineasRecibidas as $rec) {
                 $idLinea = (int) ($rec['id_linea'] ?? 0);
@@ -230,6 +231,12 @@ class TraspasoService
                 if (!$linea) {
                     throw new InvalidArgumentException("La línea #{$idLinea} no pertenece a este traspaso.");
                 }
+                // Sin esto, dos entradas con el mismo id_linea aplicaban la entrada al destino
+                // DOS veces (stock duplicado) y dejaban el primer movimiento huérfano.
+                if (isset($vistos[$idLinea])) {
+                    throw new InvalidArgumentException("La línea #{$idLinea} viene duplicada en la recepción.");
+                }
+                $vistos[$idLinea] = true;
                 $recibida = max(0.0, (float) ($rec['cantidad_recibida'] ?? 0));
                 $estado   = $rec['estado'] ?? null; // opcional: DANADO sobrescribe el cálculo automático
                 $notas    = $rec['notas'] ?? null;
@@ -249,10 +256,12 @@ class TraspasoService
                     $huboDiferencia = true;
                 }
 
-                // Aplicamos la entrada al destino — SOLO si la cantidad recibida > 0
-                // (si llegó 0, ninguna entrada al stock; el faltante queda registrado en la línea).
+                // Aplicamos la entrada al destino — SOLO si la cantidad recibida > 0 y la línea
+                // NO está DAÑADA. Lo dañado NO suma al inventario disponible: la mercancía llegó
+                // rota/inservible, así que se registra la línea como DAÑADO (con su cantidad, para
+                // auditoría) pero sin entrada de stock. Si llegó 0, tampoco hay entrada.
                 $entrada = null;
-                if ($recibida > self::EPS) {
+                if ($recibida > self::EPS && $estadoFinal !== TraspasoLinea::ESTADO_DANADO) {
                     $entrada = $this->inventario->registrarTraspasoEntrada(
                         idAlmacen:          (int) $traspaso->ID_ALMACEN_DESTINO,
                         idProducto:         (int) $linea->ID_PRODUCTO,
@@ -346,6 +355,11 @@ class TraspasoService
                             'referencia' => $lock->NUMERO,
                             'motivo'     => 'Retorno por cancelación de ' . $lock->NUMERO,
                             'notas'      => $opts['notas'] ?? null,
+                            // Ligar la entrada de retorno al pedido y al destino frustrado, para
+                            // que Traspaso::movimientos() la incluya y el pedido cancelado muestre
+                            // el trazo COMPLETO (salida + retorno), como promete el docblock.
+                            'id_traspaso'            => (int) $lock->ID_TRASPASO,
+                            'id_almacen_contraparte' => (int) $lock->ID_ALMACEN_DESTINO,
                         ],
                     );
                 }

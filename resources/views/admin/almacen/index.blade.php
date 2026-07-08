@@ -1546,7 +1546,10 @@
     // Guard: si el módulo se re-monta (navegación SPA) no re-bindear listeners
     // de documento; las funciones window.alm* del primer montaje siguen válidas.
     if (window.__almIndexInit) {
-        if (typeof window.almResetBadges === 'function') window.almResetBadges();
+        // Re-montaje SPA: el cuerpo del IIFE NO vuelve a correr, así que las variables del
+        // closure del montaje anterior siguen vivas (selección fantasma que infla el contador,
+        // pick pegado, "ver todo" activo…). Reseteamos TODO el estado contra el DOM nuevo.
+        if (typeof window.almResetOnRemount === 'function') window.almResetOnRemount();
         return;
     }
     window.__almIndexInit = true;
@@ -1645,6 +1648,43 @@
     // para que clicks de deseleccion posteriores no se "deshagan" al recargar el tbody.
     var _almPendingAutoSelect = (almBuscarPickedId != null);
 
+    // Descarta el "pick" de producto (match EXACTO id_producto / id_producto_in de una
+    // sugerencia). Punto ÚNICO de reset: lo llaman tanto los helpers del buscador (al
+    // reteclear / limpiar) como los atajos del sidebar y los badges (categoría, "Con
+    // stock", "Stock bajo", "Ver todo"). Sin esto el pick quedaba PEGADO y como el backend
+    // prioriza id_producto(_in) sobre categoría/stock, esos atajos encendían el badge pero
+    // NO cambiaban la tabla (seguía mostrando solo lo picado). Fuente única, sin duplicar.
+    function almResetPick() {
+        almBuscarPickedId = null;
+        almBuscarPickedIds = null;
+    }
+
+    // Criterio ÚNICO "es filtro": la categoría CONTIENE 'FILTRO' (así "FILTROS DE ACEITE" o
+    // "FILTRO DE AIRE" también cuentan), coherente con el backend (updateProducto). Definidos en
+    // el scope del IIFE (no dentro de una función) para que los compartan el buscador, la sección
+    // de equivalencias del modal y el guardado — un solo punto de verdad, sin duplicar.
+    var esCatFiltro = function (cat) { return String(cat || '').toUpperCase().indexOf('FILTRO') !== -1; };
+    var esFiltroCat = function (x) { return esCatFiltro(x && x.CATEGORIA); };
+    // Construye una entry del autocomplete con la MISMA forma que listaAutocomplete (backend):
+    // ID_PRODUCTO, CODIGO, NOMBRE, UM, CATEGORIA, EQUIV, PARTE, PARTES. Punto ÚNICO para que el
+    // producto creado/editado/restaurado se cachee completo — antes solo se guardaba
+    // {ID,CODIGO,NOMBRE,UM} y tras editar dejaba de reconocerse como filtro / por nº de parte
+    // hasta recargar. `equivs` (opcional) = nºs de parte conocidos en el cliente (los del modal).
+    function almProdEntry(p, equivs) {
+        var parts = Array.isArray(equivs) ? equivs.slice()
+                  : (Array.isArray(p.PARTES) ? p.PARTES.slice() : []);
+        return {
+            ID_PRODUCTO: p.ID_PRODUCTO,
+            CODIGO:      p.CODIGO,
+            NOMBRE:      p.NOMBRE,
+            UM:          p.UM,
+            CATEGORIA:   p.CATEGORIA || '',
+            EQUIV:       parts.join(' '),
+            PARTE:       parts[0] || '',
+            PARTES:      parts
+        };
+    }
+
     // Resuelve el valor "real" de un filtro con patron placeholder-background:
     //   - Si el usuario tipeo algo → ese texto GANA y se promueve a data-active
     //     (clear el value y poner el typed como placeholder, asi sigue visible
@@ -1720,6 +1760,7 @@
     // su generación; si el usuario filtra/recarga mientras baja el resto, los lotes viejos
     // se descartan (no pintan datos obsoletos ni siguen trayendo).
     var almLoadGen = 0;
+    var almFiltrosVigentes = null; // filtros congelados de la carga fresca; los append los reusan
     window.almCargar = function (opts) {
         // back-compat: si llaman almCargar() sin args o almCargar('url-string') se trata
         // como recarga completa (offset=0). Si se pasa un objeto, respetamos sus opciones.
@@ -1743,7 +1784,20 @@
         }
 
         // Construir URL preservando los filtros activos + offset.
-        var f = filtros(); f.set('offset', String(offset));
+        // En una carga fresca (!append) calculamos los filtros con filtros() —que TIENE efectos
+        // secundarios (valActive vacía el input y lo promueve a data-active)— y CONGELAMOS el
+        // resultado. En los append del scroll infinito NO volvemos a llamar filtros(): reusamos
+        // los congelados. Antes filtros() corría en cada append y, si un lote llegaba mientras
+        // el usuario tecleaba, le borraba lo escrito; además garantiza que la paginación use
+        // exactamente los mismos filtros que la carga inicial.
+        var f;
+        if (!append) {
+            f = filtros();
+            almFiltrosVigentes = f.toString();
+        } else {
+            f = new URLSearchParams(almFiltrosVigentes || '');
+        }
+        f.set('offset', String(offset));
         var finalUrl = ROUTE_INDEX + '?' + f.toString();
         if (append) {
             if (loadMore) loadMore.style.display = 'block';
@@ -1856,10 +1910,10 @@
         almSuggestHide(); almCatSuggestHide();
         soloBajo = false; soloConSaldo = false;
         almPintarBadges();
-        almBuscarPickedId = null; // descartar match exacto si quedó pegado de un clic previo
+        almResetPick(); // descartar match exacto (id_producto/_in) si quedó pegado de un clic previo
         almCargar({ verTodo: true }); // acción explícita: mostrar TODO el inventario del almacén
     };
-    window.almFilterByCategoria = function (cat) { var s = el('almFiltroCat'); if (s) { s.value = cat || ''; } almCatSuggestHide(); almCargar(); };
+    window.almFilterByCategoria = function (cat) { var s = el('almFiltroCat'); if (s) { s.value = cat || ''; } almResetPick(); almCatSuggestHide(); almCargar(); };
     // Los dos badges del header son TOGGLES: clic con el mismo filtro activo lo apaga.
     // Clic en uno mientras el otro estaba encendido los hace mutuamente exclusivos.
     // En cualquier caso, almPintarBadges() refleja el estado para que el usuario VEA
@@ -1867,11 +1921,13 @@
     window.almFiltrarConSaldo = function () {
         soloConSaldo = !soloConSaldo;
         if (soloConSaldo) soloBajo = false;
+        almResetPick(); // un badge global no debe quedar anulado por un pick exacto pegado
         almPintarBadges(); almCargar();
     };
     window.almFiltrarBajo = function () {
         soloBajo = !soloBajo;
         if (soloBajo) soloConSaldo = false;
+        almResetPick(); // un badge global no debe quedar anulado por un pick exacto pegado
         almPintarBadges(); almCargar();
     };
     function almPintarBadges() {
@@ -1882,6 +1938,15 @@
         soloConSaldo = false;
         soloBajo = false;
         almPintarBadges();
+    };
+    // Reset COMPLETO del estado del módulo — lo llama el guard cuando la vista se re-monta por
+    // navegación SPA. Reúne las piezas que ya limpian cada cosa (badges + pick + selección) para
+    // no duplicar lógica; almSelClear vacía almSeleccion/almSoloSel y refresca la barra flotante.
+    window.almResetOnRemount = function () {
+        window.almResetBadges();
+        if (typeof almResetPick === 'function') almResetPick();
+        almVerTodoActivo = false;
+        if (typeof window.almSelClear === 'function') window.almSelClear();
     };
     // Pintar al inicio para reflejar el estado leido de la URL.
     almPintarBadges();
@@ -1989,8 +2054,8 @@
         });
         // ¿El producto es un FILTRO? Los filtros del mismo nombre son MODELOS DISTINTOS (distinto
         // nº de parte), NO "presentaciones" → no se agrupan por descripción: cada uno es su propia
-        // sugerencia. Fuente ÚNICA de esta comprobación (la usan el dedupe y el render).
-        var esFiltroCat = function (x) { return String(x && x.CATEGORIA || '').toUpperCase().indexOf('FILTRO') !== -1; };
+        // sugerencia. Se usa esFiltroCat/esCatFiltro (definidos en el scope del IIFE, ver arriba)
+        // para que el dedupe y el render compartan el MISMO criterio con el resto del módulo.
         for (var s = 0; s < ranked.length && matches.length < 17; s++) {
             var rp = ranked[s];
             var esFiltro = esFiltroCat(rp);
@@ -2072,16 +2137,14 @@
     window.almBuscarInput = function () {
         // Si el texto ya no coincide con la última sugerencia elegida, el id pegado deja
         // de aplicar. Lo más simple: descartar siempre que se vuelva a teclear.
-        almBuscarPickedId = null;
-        almBuscarPickedIds = null;
+        almResetPick();
         window.almScanIconToggle();   // ocultar el icono escanear mientras hay texto
         window.almBuscarSuggest();
     };
     window.almBuscarEnter = function (ev) {
         if (ev && ev.key !== 'Enter') return;
         if (ev) ev.preventDefault();
-        almBuscarPickedId = null;
-        almBuscarPickedIds = null;
+        almResetPick();
         almSuggestHide();
         almCargar();
     };
@@ -2127,8 +2190,7 @@
             inp.dataset.active = '';                                  // borrar el filtro activo
             inp.placeholder = inp.dataset.placeholderEmpty || 'Buscar por código o descripción…';
         }
-        almBuscarPickedId = null;
-        almBuscarPickedIds = null;
+        almResetPick();
         window.almScanIconToggle();   // buscador vacío → reaparece el icono escanear
         almSuggestHide();
         almCargar();
@@ -2684,7 +2746,9 @@
     });
 
     // ── modales ──
-    function open(id)  { var m = el(id); if (m) m.classList.add('open'); }
+    // almOpen (no `open`): `open` a secas sombreaba window.open en todo el IIFE — foot-gun
+    // para cualquier uso futuro de window.open dentro del closure. Renombrado explícito.
+    function almOpen(id)  { var m = el(id); if (m) m.classList.add('open'); }
     window.almCerrar = function (id) { var m = el(id); if (m) m.classList.remove('open'); };
     // El cierre por clic en el backdrop fue removido por preferencia del usuario:
     // cada modal tiene su propio botón "✕" / "Cancelar". Escape sí lo sigue cerrando.
@@ -2828,7 +2892,7 @@
                 }).join('');
             }
         }
-        open('almEtiquetasModal');
+        almOpen('almEtiquetasModal');
     };
     window.almEtiquetasGenerar = function () {
         var m = el('almEtiquetasModal'); if (!m) return;
@@ -2905,7 +2969,7 @@
         var m = el('almEscanearModal'); if (!m) return;
         almScanBusy = false;
         var actBtn = el('almScanActivar'); if (actBtn) actBtn.style.display = 'none';
-        open('almEscanearModal');
+        almOpen('almEscanearModal');
         // El modal es SOLO móvil (en PC se enfoca el buscador). La cámara es la única
         // vía: arranca al abrir y pide el permiso de una (la lib se precargó en idle).
         almScanIniciarCamara();
@@ -3192,7 +3256,7 @@
             }
         }
 
-        open('almDetalleModal');
+        almOpen('almDetalleModal');
     };
     // Cancelar de un sub-modal (Auditoría / Stock mínimo / Editar): cierra ese modal y, si
     // venía de "Detalles del producto" (window.almDesdeDetalle), REABRE Detalles — sus datos
@@ -3202,7 +3266,7 @@
     window.almVolverADetalle = function (subId) {
         almCerrar(subId);
         var det = el('almDetalleModal');
-        if (window.almDesdeDetalle && det && det.dataset.id) open('almDetalleModal');
+        if (window.almDesdeDetalle && det && det.dataset.id) almOpen('almDetalleModal');
         window.almDesdeDetalle = false;
     };
     window.almDetalleAccion = function (which) {
@@ -3240,7 +3304,7 @@
         if (el('almKpDesde'))      el('almKpDesde').value = '';
         if (el('almKpHasta'))      el('almKpHasta').value = '';
         if (el('almKpTipoSelect')) el('almKpTipoSelect').value = '';
-        open('almKardexProductoModal');
+        almOpen('almKardexProductoModal');
         window.almKpCargar();
     };
 
@@ -3301,7 +3365,7 @@
         var m = el('almAjusteModal');
         m.dataset.idProducto = idProducto;
         el('almAjNuevoSaldo').value = '';
-        showErr('almAjError', ''); open('almAjusteModal');
+        showErr('almAjError', ''); almOpen('almAjusteModal');
     };
 
     window.almGuardarAjuste = function () {
@@ -3344,7 +3408,7 @@
         m.dataset.idProducto = idProducto;
         m.dataset.minimoOrig = (minimo == null ? '' : String(minimo)); // para detectar si cambió
         el('almMinValor').value = (minimo == null ? '' : minimo);
-        showErr('almMinError', ''); open('almMinimoModal');
+        showErr('almMinError', ''); almOpen('almMinimoModal');
     };
 
     window.almGuardarMinimo = function () {
@@ -3479,7 +3543,7 @@
         if (!ensurePerm(HAS_ALM_MANAGE, 'No tienes permiso para crear almacenes.')) return;
         almResetAlmacenModal();
         el('almNvTitulo').textContent = 'Nuevo almacén'; el('almNvSubmit').textContent = 'Guardar';
-        open('almAlmacenModal'); setTimeout(function () { el('almNvNombre').focus(); }, 60);
+        almOpen('almAlmacenModal'); setTimeout(function () { el('almNvNombre').focus(); }, 60);
     };
     window.almEditarAlmacen = function (id) {
         if (!ensurePerm(HAS_ALM_MANAGE, 'No tienes permiso para editar almacenes.')) return;
@@ -3495,7 +3559,7 @@
         almNvSetFrentes(d.frentes || []);
         window.almToggleFrentes();
         almCerrar('almAdminAlmacenesModal');
-        open('almAlmacenModal'); setTimeout(function () { el('almNvNombre').focus(); }, 60);
+        almOpen('almAlmacenModal'); setTimeout(function () { el('almNvNombre').focus(); }, 60);
     };
     window.almGuardarAlmacen = function () {
         if (!ensurePerm(HAS_ALM_MANAGE, 'No tienes permiso para guardar almacenes.')) return;
@@ -3556,7 +3620,7 @@
     };
     window.almAbrirAdminAlmacenes = function () {
         if (!ensurePerm(HAS_ALM_MANAGE, 'No tienes permiso para gestionar almacenes.')) return;
-        open('almAdminAlmacenesModal');
+        almOpen('almAdminAlmacenesModal');
     };
     window.almEliminarAlmacen = function (id, nombre) {
         if (!ensurePerm(HAS_ALM_MANAGE, 'No tienes permiso para eliminar almacenes.')) return;
@@ -3650,7 +3714,7 @@
     window.almProdEquivSyncVisible = function () {
         var wrap = el('almProdEquivWrap'); if (!wrap) return;
         var editing = !!el('almProductoModal').dataset.idProducto;
-        var esFiltro = String(val('almProdCategoria') || '').trim().toUpperCase() === 'FILTROS';
+        var esFiltro = esCatFiltro(val('almProdCategoria'));
         wrap.style.display = (editing && esFiltro) ? '' : 'none';
     };
     window.almAbrirProducto = function () {
@@ -3663,7 +3727,7 @@
         // registrará en ese almacén). Si no hay, ocultamos el campo (no tiene sentido).
         var wrap = el('almProdCantInicialWrap');
         if (wrap) wrap.style.display = almSelAlmacenActual() ? '' : 'none';
-        open('almProductoModal'); setTimeout(function () { el('almProdCodigo').focus(); }, 60);
+        almOpen('almProductoModal'); setTimeout(function () { el('almProdCodigo').focus(); }, 60);
     };
     window.almEditarProducto = function (id, cod, nom, um, cat, ubicacion) {
         if (!ensurePerm(HAS_PRODUCTOS, 'No tienes permiso para editar productos.')) return;
@@ -3685,7 +3749,7 @@
         window._almProdEquivs = (trE && trE.dataset.equiv) ? trE.dataset.equiv.split('|').filter(Boolean) : [];
         almProdEquivRender();
         window.almProdEquivSyncVisible();
-        open('almProductoModal'); setTimeout(function () { el('almProdNombre').focus(); }, 60);
+        almOpen('almProductoModal'); setTimeout(function () { el('almProdNombre').focus(); }, 60);
     };
 
     // ── Papelera de productos (eliminados / soft-delete): buscar + restaurar ──────
@@ -3697,7 +3761,7 @@
     window.almAbrirPapelera = function () {
         if (!ensurePerm(HAS_NOTA_ELIMINAR, 'No tienes permiso para ver o restaurar productos eliminados.')) return;
         var inp = el('almPapeleraSearch'); if (inp) inp.value = '';
-        open('almPapeleraModal');
+        almOpen('almPapeleraModal');
         window.almPapeleraBuscar();
         setTimeout(function () { if (inp) inp.focus(); }, 60);
     };
@@ -3719,9 +3783,12 @@
                     return;
                 }
                 cont.innerHTML = rows.map(function (p) {
-                    var cod = p.CODIGO ? String(p.CODIGO) : '—';
-                    var nom = String(p.NOMBRE || '').replace(/</g, '&lt;');
-                    var meta = (p.UM || '') + (p.CATEGORIA ? (' · ' + p.CATEGORIA) : '');
+                    // escHtml en TODO: CODIGO/NOMBRE/UM/CATEGORIA son texto libre editable en el
+                    // modal de producto. Sin escapar, una categoría tipo "<img src=x onerror=…>"
+                    // ejecutaría script al verse en la papelera (XSS almacenado).
+                    var cod = escHtml(p.CODIGO ? String(p.CODIGO) : '—');
+                    var nom = escHtml(String(p.NOMBRE || ''));
+                    var meta = escHtml((p.UM || '') + (p.CATEGORIA ? (' · ' + p.CATEGORIA) : ''));
                     return '<div style="display:flex;align-items:center;gap:10px;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;">' +
                         '<div style="flex:1;min-width:0;">' +
                             '<div style="font-family:monospace;font-weight:700;color:#0f172a;font-size:12.5px;">' + cod + '</div>' +
@@ -3763,13 +3830,9 @@
                     var p = res.b.producto;
                     var ya = window.almProductosLista.some(function (x) { return String(x.ID_PRODUCTO) === String(p.ID_PRODUCTO); });
                     if (!ya) {
-                        window.almProductosLista.push({
-                            ID_PRODUCTO: p.ID_PRODUCTO,
-                            CODIGO: p.CODIGO,
-                            NOMBRE: p.NOMBRE,
-                            UM: p.UM,
-                            CATEGORIA: p.CATEGORIA
-                        });
+                        // Restaurar no trae los nºs de parte en la respuesta; quedan vacíos hasta el
+                        // próximo F5 (la relación sigue en BD). La forma de la entry sí es completa.
+                        window.almProductosLista.push(almProdEntry(p));
                     }
                 }
             } else {
@@ -3856,7 +3919,7 @@
                 // se manda la lista COMPLETA de equivalencias para sincronizarla en el backend.
                 ? Object.assign(
                     { CODIGO: codigo || null, NOMBRE: nombre, UM: um, CATEGORIA: cat || null, UBICACION: ubicacion || null },
-                    String(cat || '').toUpperCase() === 'FILTROS' ? { equivalencias: window._almProdEquivs } : {}
+                    esCatFiltro(cat) ? { equivalencias: window._almProdEquivs } : {}
                   )
                 // Al crear: CODIGO + opcionalmente id_almacen + cantidad_inicial para asegurar/abrir la fila en el almacén actual.
                 : bodyCreate
@@ -3872,7 +3935,7 @@
                 // FILTROS editados: refleja las equivalencias en la fila (data-equiv) para que el
                 // modal de Detalles y el tooltip queden consistentes sin recargar. La descripción
                 // visible de la tabla se rehace al recargar/filtrar.
-                if (id && String(cat || '').toUpperCase() === 'FILTROS') {
+                if (id && esCatFiltro(cat)) {
                     var trU = document.querySelector('tr.alm-row[data-id-producto="' + id + '"]');
                     if (trU) trU.dataset.equiv = window._almProdEquivs.join('|');
                 }
@@ -3883,12 +3946,12 @@
                 // aparecia tras un F5 porque la lista se cargaba 1 vez al render del server.
                 if (res.b && res.b.producto && Array.isArray(window.almProductosLista)) {
                     var p = res.b.producto;
-                    var entry = {
-                        ID_PRODUCTO: p.ID_PRODUCTO,
-                        CODIGO:      p.CODIGO,
-                        NOMBRE:      p.NOMBRE,
-                        UM:          p.UM
-                    };
+                    // Filtro editado → sus nºs de parte están en _almProdEquivs (el modal). Para
+                    // no-filtros o creación, parts queda vacío. Así la entry cacheada conserva
+                    // CATEGORIA y equivalencias y la búsqueda sigue funcionando sin recargar.
+                    var equivs = esCatFiltro(p.CATEGORIA) && Array.isArray(window._almProdEquivs)
+                        ? window._almProdEquivs : [];
+                    var entry = almProdEntry(p, equivs);
                     if (id) {
                         // EDICION: reemplazar la entry existente
                         var idx = window.almProductosLista.findIndex(function (x) {
@@ -3960,7 +4023,7 @@
         // recibe foco — por eso evitamos hacer .focus() automatico al abrir el modal).
         var ddProy = el('almSalidaProyectoDropdown');
         if (ddProy) ddProy.classList.remove('active');
-        open('almSalidaModal');
+        almOpen('almSalidaModal');
     };
     // Campo "Contrato N°" del modal Registrar salida — es un custom-dropdown (mismo
     // componente que Proyecto) con UNA particularidad: el input es libre. El usuario
@@ -4190,7 +4253,7 @@
             // quita .open, los valores quedan listos para "Editar") y abrir el preview
             // ANTES de renderizar, para que el canvas mida bien el ancho disponible.
             almCerrar('almSalidaModal');
-            open('almPreviewModal');
+            almOpen('almPreviewModal');
             if (almEsMovil()) {
                 // TELÉFONO: el iframe no muestra PDF → lo dibujamos con PDF.js en canvas.
                 if (frame) { frame.src = 'about:blank'; frame.style.display = 'none'; }
@@ -4215,7 +4278,7 @@
     // tabla, y volver a apretar "Vista previa" — se regenera el PDF.
     window.almPreviewEditar = function () {
         almCerrar('almPreviewModal');
-        open('almSalidaModal');
+        almOpen('almSalidaModal');
     };
 
     // Cerrar preview con la X: equivalente a "Editar" — vuelve al modal de salida
@@ -4228,7 +4291,7 @@
         if (almPreviewBlobUrl) { try { URL.revokeObjectURL(almPreviewBlobUrl); } catch (e) {} almPreviewBlobUrl = null; }
         var frame = el('almPreviewFrame'); if (frame) frame.src = 'about:blank';
         var cont = el('almPreviewCanvas'); if (cont) { cont.innerHTML = ''; cont.style.display = 'none'; }
-        open('almSalidaModal');
+        almOpen('almSalidaModal');
     };
 
     // "Registrar" del preview: POSTea el draft al endpoint real (movimientos-lote)
@@ -4383,26 +4446,35 @@
      Solo afecta a esta barra fija; no toca el resto del layout. --}}
 <script>
 (function () {
-    var vv = window.visualViewport;
-    var bar = document.getElementById('almBulkBar');
-    if (!vv || !bar) return; // navegador viejo sin visualViewport → comportamiento previo
-    function ajustarBarra() {
-        // Píxeles del layout tapados por el teclado (0 si está cerrado).
-        var tapado = Math.max(0, window.innerHeight - (vv.height + vv.offsetTop));
-        // +12px de respiro sobre el teclado. Sin teclado, '' → vuelve al CSS.
-        bar.style.bottom = tapado > 0 ? (tapado + 12) + 'px' : '';
-    }
-    vv.addEventListener('resize', ajustarBarra);
-    vv.addEventListener('scroll', ajustarBarra);
-    ajustarBarra();
-})();
+    // Guard idéntico al del IIFE principal (window.__almIndexInit): estos listeners viven
+    // en document / visualViewport, así que en un re-montaje SPA los <script> se re-ejecutan
+    // y se DUPLICARÍAN. El más grave es el keydown de abajo: dispararía window.almGuardarProducto()
+    // dos veces (tres tras la 2ª revisita…) → producto CREADO por duplicado (el AJUSTE es
+    // idempotente, pero CREATE no). Con el guard se bindean UNA sola vez, aunque se re-monte.
+    if (window.__almDocListenersInit) return;
+    window.__almDocListenersInit = true;
 
-// El tamaño del teclado numérico lo decide el SO/teclado del teléfono (no se puede
-// achicar por web sin perder el punto decimal que la cantidad necesita). Lo que SÍ
-// hacemos: al tocar el campo de cantidad, subir esa fila a la zona visible por encima
-// del teclado, así SIEMPRE se ve el producto + lo que se escribe, sea grande o chico
-// el teclado. Delegado en document para que aplique a las filas cargadas por AJAX.
-(function () {
+    // ── Barra de bulk-select por encima del teclado móvil (visualViewport) ──
+    (function () {
+        var vv = window.visualViewport;
+        var bar = document.getElementById('almBulkBar');
+        if (!vv || !bar) return; // navegador viejo sin visualViewport → comportamiento previo
+        function ajustarBarra() {
+            // Píxeles del layout tapados por el teclado (0 si está cerrado).
+            var tapado = Math.max(0, window.innerHeight - (vv.height + vv.offsetTop));
+            // +12px de respiro sobre el teclado. Sin teclado, '' → vuelve al CSS.
+            bar.style.bottom = tapado > 0 ? (tapado + 12) + 'px' : '';
+        }
+        vv.addEventListener('resize', ajustarBarra);
+        vv.addEventListener('scroll', ajustarBarra);
+        ajustarBarra();
+    })();
+
+    // El tamaño del teclado numérico lo decide el SO/teclado del teléfono (no se puede
+    // achicar por web sin perder el punto decimal que la cantidad necesita). Lo que SÍ
+    // hacemos: al tocar el campo de cantidad, subir esa fila a la zona visible por encima
+    // del teclado, así SIEMPRE se ve el producto + lo que se escribe, sea grande o chico
+    // el teclado. Delegado en document para que aplique a las filas cargadas por AJAX.
     document.addEventListener('focusin', function (e) {
         var inp = e.target;
         if (!inp || !inp.classList || !inp.classList.contains('alm-row-cant')) return;
@@ -4415,25 +4487,24 @@
             catch (_) { try { inp.scrollIntoView(); } catch (e2) {} }
         }, 300);
     });
-})();
-</script>
 
-<script>
-document.addEventListener('keydown', function (e) {
-    if (e.key !== 'Enter' || e.defaultPrevented) return;
-    var tag = e.target.tagName;
-    if (tag === 'TEXTAREA' || tag === 'SELECT') return;
-    var modal = e.target.closest('.alm-modal-overlay');
-    if (!modal || !modal.classList.contains('open')) return;
-    var id = modal.id;
-    if (id === 'almAjusteModal' && typeof window.almGuardarAjuste === 'function') {
-        e.preventDefault(); window.almGuardarAjuste();
-    } else if (id === 'almMinimoModal' && typeof window.almGuardarMinimo === 'function') {
-        e.preventDefault(); window.almGuardarMinimo();
-    } else if (id === 'almProductoModal' && typeof window.almGuardarProducto === 'function') {
-        e.preventDefault(); window.almGuardarProducto();
-    }
-});
+    // Enter dentro de un modal abierto = confirmar ese modal (sin submit nativo).
+    document.addEventListener('keydown', function (e) {
+        if (e.key !== 'Enter' || e.defaultPrevented) return;
+        var tag = e.target.tagName;
+        if (tag === 'TEXTAREA' || tag === 'SELECT') return;
+        var modal = e.target.closest('.alm-modal-overlay');
+        if (!modal || !modal.classList.contains('open')) return;
+        var id = modal.id;
+        if (id === 'almAjusteModal' && typeof window.almGuardarAjuste === 'function') {
+            e.preventDefault(); window.almGuardarAjuste();
+        } else if (id === 'almMinimoModal' && typeof window.almGuardarMinimo === 'function') {
+            e.preventDefault(); window.almGuardarMinimo();
+        } else if (id === 'almProductoModal' && typeof window.almGuardarProducto === 'function') {
+            e.preventDefault(); window.almGuardarProducto();
+        }
+    });
+})();
 </script>
 
 {{-- Modal "Dashboard de Consumo" (menú Acciones). Vista parcial compartida con
