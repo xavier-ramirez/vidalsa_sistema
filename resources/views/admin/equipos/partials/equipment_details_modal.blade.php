@@ -68,7 +68,7 @@ Estructura: overlay > modal-content > header + sub-header + body
         <div class="modal-body-scroll" style="padding: 25px; max-height: 80vh; overflow-y: auto; overflow-x: hidden;">
             <div style="display: flex; flex-direction: column; gap: 15px;">
 
-                {{-- Seccion 1: Documentacion Legal --}}
+                {{-- Documentacion Legal --}}
                 <details name="equipment_accordion"
                     style="background: white; border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden;">
                     <summary
@@ -169,7 +169,7 @@ Estructura: overlay > modal-content > header + sub-header + body
                     </div>
                 </details>
 
-                {{-- Seccion 2: Informacion General --}}
+                {{-- Informacion General --}}
                 <details name="equipment_accordion"
                     style="background: white; border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden;">
                     <summary
@@ -209,7 +209,7 @@ Estructura: overlay > modal-content > header + sub-header + body
                     </div>
                 </details>
 
-                {{-- Seccion 3: Responsable Asignado --}}
+                {{-- Responsable Asignado --}}
                 <details id="responsable_accordion" name="equipment_accordion"
                     style="background: white; border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden; display: none; position: relative;">
                     <summary
@@ -257,7 +257,7 @@ Estructura: overlay > modal-content > header + sub-header + body
                     </div>
                 </details>
 
-                {{-- Seccion 4: Equipo Anclado (REMOLCADOR/REMOLCABLE).
+                {{-- Equipo Anclado (REMOLCADOR/REMOLCABLE).
                      Solo visible si el equipo tiene ID_ANCLAJE. La poblacion la
                      hace fillEquipoAnclajeSection() en uicomponents.js. --}}
                 <details id="anclaje_accordion" name="equipment_accordion"

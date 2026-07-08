@@ -426,8 +426,8 @@
 
         // IMPORTANTE: solo campos NO presentes en la tabla del index.
         // En la tabla ya se ven: frente, foto, tipo, marca/modelo, serial, capacidad, estado.
-        // Aqui mostramos: codigo interno, año, observaciones, equipo vinculado,
-        // documentacion (propiedad + certificado + vencimiento) y auditoria.
+        // Aqui mostramos, en este orden: documentacion (propiedad + certificado + vencimiento),
+        // el equipo vinculado (host) y datos adicionales (codigo interno, año, observaciones).
         const body = document.getElementById('auxDetailsBody');
         body.innerHTML = `
             ${section('Documentación Legal y Soportes', 'description',
