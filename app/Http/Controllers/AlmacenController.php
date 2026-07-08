@@ -1530,10 +1530,10 @@ class AlmacenController extends Controller
                 return redirect()->back()->with('error', 'Almacén no accesible.');
             }
             $almacenesEnExport = collect([$almacenSel]);
-            $tituloProyecto = mb_strtoupper($almacenSel->NOMBRE);
+            $tituloFrente = mb_strtoupper($almacenSel->NOMBRE);
         } else {
             $almacenesEnExport = $almacenesVisibles;
-            $tituloProyecto = 'GLOBAL';
+            $tituloFrente = 'GLOBAL';
         }
 
         // Productos a exportar = EXACTAMENTE los que muestra la tabla en pantalla.
@@ -1580,7 +1580,7 @@ class AlmacenController extends Controller
             ->setCreator('Sistema de Gestión de Equipos Operacionales')
             ->setLastModifiedBy('Sistema de Gestión de Equipos Operacionales')
             ->setTitle('Copia de Inventario')
-            ->setSubject('Exportación de Inventario - ' . $tituloProyecto)
+            ->setSubject('Exportación de Inventario - ' . $tituloFrente)
             ->setCompany('Constructora Vidalsa 27, C.A.');
         $spreadsheet->getDefaultStyle()->getFont()->setName('Arial')->setSize(10);
 
@@ -1604,7 +1604,7 @@ class AlmacenController extends Controller
         $this->insertarLogoCorporativo($sheet, ['A','B'], [1,2,3]);
 
         $sheet->mergeCells('C1:E3');
-        $titleText = "COPIA DE INVENTARIO\n" . ($idAlmacenSel ? 'PROYECTO: "' . $tituloProyecto . '"' : 'COPIA DE BASE DE DATOS DEL INVENTARIO');
+        $titleText = "COPIA DE INVENTARIO\n" . ($idAlmacenSel ? 'FRENTE DE TRABAJO: "' . $tituloFrente . '"' : 'COPIA DE BASE DE DATOS DEL INVENTARIO');
         $sheet->setCellValue('C1', $titleText);
         $sheet->getStyle('C1')->getAlignment()->setWrapText(true);
         $sheet->getStyle('C1')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
@@ -1757,7 +1757,7 @@ class AlmacenController extends Controller
         $tempFile = tempnam(sys_get_temp_dir(), 'inv_');
         $writer->save($tempFile);
 
-        $fileName = 'Copia_Inventario_' . str_replace([' ', '/'], '_', $tituloProyecto) . '_' . date('Y-m-d_H-i') . '.xlsx';
+        $fileName = 'Copia_Inventario_' . str_replace([' ', '/'], '_', $tituloFrente) . '_' . date('Y-m-d_H-i') . '.xlsx';
 
         return response()->download($tempFile, $fileName, [
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
