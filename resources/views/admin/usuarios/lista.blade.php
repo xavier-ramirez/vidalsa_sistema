@@ -132,17 +132,18 @@
             </div>
         </div>
 
-        <!-- Action Buttons -->
+        {{-- Botones de acción COMPACTOS (solo íconos): flex:0 0 auto → ocupan el mínimo ancho
+             posible (2×45px), así los 3 filtros (flex:1 1 0) se quedan con casi todo el ancho.
+             Los filtros solo ceden lo justo para que estos botones aparezcan a la derecha. --}}
         <div class="filter-item aligned-filter responsive-btn-item usuarios-action-btns" style="display: flex; gap: 10px; flex: 0 0 auto;">
-            <!-- Limpiar Roles Button -->
-            <button type="button" onclick="window.checkUnusedRoles()" title="Limpiar roles inactivos" style="height: 45px; width: 45px; padding: 0; border-radius: 12px; background: white; border: 1px solid #fed7aa; color: #c2410c; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: background 0.2s;" onmouseover="this.style.background='#fff7ed'" onmouseout="this.style.background='white'">
+            <!-- Limpiar Roles (ícono) -->
+            <button type="button" onclick="window.checkUnusedRoles()" title="Limpiar roles inactivos" style="height: 45px; width: 45px; padding: 0; border-radius: 12px; background: white; border: 1px solid #fed7aa; color: #c2410c; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: background 0.2s; flex: 0 0 auto;" onmouseover="this.style.background='#fff7ed'" onmouseout="this.style.background='white'">
                 <i class="material-icons" style="font-size:20px;">delete_sweep</i>
             </button>
 
-            <!-- New User Button -->
-            <a href="{{ route('usuarios.create') }}" class="btn-primary-maquinaria btn-nuevo-usuario" style="height: 45px; display: flex; align-items: center; flex: 0 0 auto;">
+            <!-- Nuevo usuario (ícono compacto; tooltip para claridad) -->
+            <a href="{{ route('usuarios.create') }}" class="btn-primary-maquinaria btn-nuevo-usuario" title="Nuevo usuario" style="height: 45px; width: 45px; padding: 0; display: flex; align-items: center; justify-content: center; flex: 0 0 auto;">
                 <i class="material-icons">person_add</i>
-                Nuevo
             </a>
         </div>
     </div>
@@ -170,15 +171,10 @@
             min-width: 0;
         }
         @media (min-width: 769px) {
-            .usr-filter-row > .filter-item.responsive-filter-item:nth-child(1) {
-                flex: 3 1 0 !important;
-            }
-            .usr-filter-row > .filter-item.responsive-filter-item:nth-child(2) {
-                flex: 2.5 1 0 !important;
-            }
-            .usr-filter-row > .filter-item.responsive-filter-item:nth-child(3) {
-                flex: 2.5 1 0 !important;
-            }
+            /* PC (como /admin/equipos): los 3 filtros (Buscar / Frente / Rol) CRECEN por igual
+               —flex:1 1 0 vía la regla base— y llenan todo el ancho del contenedor de la tabla;
+               el bloque de botones (delete_sweep + Nuevo) es flex:0 0 auto, así queda empujado
+               al extremo derecho sin robar ancho a los filtros. */
             .table-usuarios-mobile { border-spacing: 0 5px !important; }
             .table-usuarios-mobile td { padding-top: 7px !important; padding-bottom: 7px !important; }
         }
