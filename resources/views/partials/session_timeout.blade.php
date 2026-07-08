@@ -51,10 +51,9 @@
          */
         (function() {
             // ── Configuración ──────────────────────────────────────────
-            // ⚠️ MODO PRUEBA (temporal): el aviso sale ~1 min tras cargar para poder probar el
-            //    botón "Mantener Sesión" sin esperar 20 min. La sesión del BACKEND sigue en
-            //    {{ config('session.lifetime') ?? 20 }} min, así que al pulsar "Mantener Sesión"
-            //    se renueva de verdad. REVERTIR a la línea de abajo cuando termines de probar.
+            // Vida de la sesión = config('session.lifetime') (SESSION_LIFETIME en .env, en minutos).
+            // El BACKEND garantiza el cierre por inactividad con esa misma config; el JS solo avisa
+            // (WARNING_DURATION_SEC antes) y renueva al pulsar "Mantener Sesión".
             const SESSION_LIFETIME_MS   = {{ config('session.lifetime') ?? 10 }} * 60 * 1000; // minutos desde config/session.php (SESSION_LIFETIME)
             // Avisar en el último 33% del tiempo (mín 15s, máx 60s)
             const WARNING_DURATION_SEC  = Math.max(15, Math.min(60, Math.floor(SESSION_LIFETIME_MS / 1000 * 0.33)));
