@@ -151,6 +151,24 @@ Estructura: overlay > modal-content > header + sub-header + body
                     </div>
                 </details>
 
+                {{-- Sub-activos vinculados (auxiliares) — colocado JUSTO debajo de "Documentación
+                     Legal y Soportes" (antes iba al final del modal). --}}
+                <details id="sa_accordion" name="equipment_accordion"
+                    style="background: white; border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden; display: none;">
+                    <summary
+                        style="padding: 15px 20px; font-weight: 700; color: #1e293b; display: flex; align-items: center; gap: 10px; background: #f8fafc; list-style: none;">
+                        <i class="material-icons" style="font-size: 20px; color: #64748b;">construction</i>
+                        <span>Sub-activos vinculados</span>
+                        <span id="sa_count_badge"
+                            style="margin-left: 6px; background: #475569; color: white; font-size: 11px; font-weight: 800; padding: 1px 8px; border-radius: 20px;">0</span>
+                    </summary>
+                    <div style="padding: 16px 20px; border-top: 1px solid #e2e8f0;">
+                        <div id="sa_list" style="display: flex; flex-direction: column; gap: 8px;">
+                            {{-- Llenado por JS --}}
+                        </div>
+                    </div>
+                </details>
+
                 {{-- Seccion 2: Informacion General --}}
                 <details name="equipment_accordion"
                     style="background: white; border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden;">
@@ -251,23 +269,6 @@ Estructura: overlay > modal-content > header + sub-header + body
                     </summary>
                     <div style="padding: 16px 20px; border-top: 1px solid #e2e8f0;">
                         <div id="anclaje_card" style="display:flex; align-items:center; gap:12px; padding:12px 14px; background:#f8fafc; border-radius:10px; border:1px solid #e2e8f0;">
-                            {{-- Llenado por JS --}}
-                        </div>
-                    </div>
-                </details>
-
-                {{-- Seccion 5: Sub-activos vinculados --}}
-                <details id="sa_accordion" name="equipment_accordion"
-                    style="background: white; border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden; display: none;">
-                    <summary
-                        style="padding: 15px 20px; font-weight: 700; color: #1e293b; display: flex; align-items: center; gap: 10px; background: #f8fafc; list-style: none;">
-                        <i class="material-icons" style="font-size: 20px; color: #64748b;">construction</i>
-                        <span>Sub-activos vinculados</span>
-                        <span id="sa_count_badge"
-                            style="margin-left: 6px; background: #475569; color: white; font-size: 11px; font-weight: 800; padding: 1px 8px; border-radius: 20px;">0</span>
-                    </summary>
-                    <div style="padding: 16px 20px; border-top: 1px solid #e2e8f0;">
-                        <div id="sa_list" style="display: flex; flex-direction: column; gap: 8px;">
                             {{-- Llenado por JS --}}
                         </div>
                     </div>
