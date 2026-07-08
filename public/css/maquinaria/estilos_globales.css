@@ -2798,7 +2798,7 @@ input:-webkit-autofill:active {
         border-radius: 12px !important;
         border: 1px solid #cbd5e1 !important;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important;
-        margin-bottom: 15px !important;
+        margin-bottom: 10px !important;
         overflow: hidden !important;
         position: relative !important;
     }
@@ -2880,15 +2880,23 @@ input:-webkit-autofill:active {
         gap: 8px 14px !important;
         height: auto !important;
     }
-    /* Botón Deshacer en móvil: SOLO ícono (se oculta el texto), botón cuadrado
-       moderno para que quepa en la fila del detalle. */
-    #movilizacionesTable tr.mv-row-card .mv-undo-btn {
+    /* Botón Deshacer en móvil: SOLO el ícono, SIN contenedor rojo (sin fondo,
+       borde ni sombra). Se conserva un área de toque de 34px. El :hover/:active
+       se neutralizan también: en táctil el hover rellenaba de rojo y ponía el
+       ícono blanco → sobre fondo transparente el ícono se volvía invisible. */
+    #movilizacionesTable tr.mv-row-card .mv-undo-btn,
+    #movilizacionesTable tr.mv-row-card .mv-undo-btn:hover,
+    #movilizacionesTable tr.mv-row-card .mv-undo-btn:active {
         margin-top: 0 !important;
         gap: 0 !important;
         width: 34px !important;
         height: 34px !important;
         padding: 0 !important;
         border-radius: 10px !important;
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        color: #dc2626 !important;
     }
     #movilizacionesTable tr.mv-row-card .mv-undo-btn .mv-undo-text {
         display: none !important;
@@ -2916,7 +2924,7 @@ input:-webkit-autofill:active {
         font-size: 20px;
         line-height: 1;
         color: #cbd5e1;
-        margin-top: 6px;
+        margin-top: 3px;
         transition: transform .2s ease, color .2s ease;
     }
     #movilizacionesTable tr.mv-row-card.mv-expanded td.mv-td-trayecto::after {
@@ -2927,8 +2935,9 @@ input:-webkit-autofill:active {
     /* ── 1. EQUIPO (Fila 1 de la tarjeta) ── */
     #movilizacionesTable td.mv-td-equipo {
         border-bottom: none !important;
-        padding-top: 12px !important;
+        padding-top: 7px !important;
         padding-bottom: 0px !important;
+        line-height: 1.25 !important; /* aprieta las 3 líneas (tipo / S: / P:) verticalmente */
     }
 
     #movilizacionesTable td.mv-td-equipo>div {
