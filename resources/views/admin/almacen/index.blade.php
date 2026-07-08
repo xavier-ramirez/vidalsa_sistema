@@ -3413,13 +3413,11 @@
         var bajo = (minStr !== undefined && minStr !== '') && saldo <= parseFloat(minStr);
         tr.classList.toggle('alm-row-bajo', bajo);
         tr.dataset.bajo = bajo ? '1' : '0';
-        // Sincronizar también el saldo CACHEADO de la selección (si la fila está seleccionada)
-        // para que el control "excede stock" de la salida use el saldo nuevo de inmediato.
-        if (almSeleccion[idProducto]) {
-            almSeleccion[idProducto].saldo = saldo;
-            var c = parseFloat(String(almSeleccion[idProducto].cantidad || '').replace(',', '.'));
-            if (!isNaN(c) && c > 0) { if (c > saldo) almExceden[idProducto] = true; else delete almExceden[idProducto]; }
-        }
+        // Sincronizar el saldo CACHEADO de la selección (si la fila está seleccionada) para que
+        // el control "excede stock" use el saldo nuevo. La RE-EVALUACIÓN del "excede" no se hace
+        // aquí: la auditoría siempre llama a almCargar() a continuación, y almSelApplyToRows la
+        // recalcula en la recarga (evitamos duplicar esa lógica).
+        if (almSeleccion[idProducto]) almSeleccion[idProducto].saldo = saldo;
     }
 
     window.almGuardarAjuste = function () {
