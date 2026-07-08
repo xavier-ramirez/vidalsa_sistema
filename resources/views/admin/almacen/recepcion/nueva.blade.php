@@ -393,16 +393,8 @@
                 var um   = escHtml(p.UM);
                 var cat  = escHtml(p.CATEGORIA || '');
                 // Filtros: mostrar el nº de PARTE que COINCIDE con lo tecleado (o el principal),
-                // como en /admin/almacen — así reconoces por qué salió al buscar un alterno.
-                // Normaliza sin espacios/guiones para tolerar "AL-7723" vs "AL7723".
-                var parteMostrar = p.PARTE || '';
-                if (rawTerm && p.PARTES && p.PARTES.length) {
-                    var tN = norm(rawTerm).replace(/[\s\-]/g, '');
-                    if (tN) for (var pi = 0; pi < p.PARTES.length; pi++) {
-                        var eN = norm(String(p.PARTES[pi])).replace(/[\s\-]/g, '');
-                        if (eN && (eN.indexOf(tN) !== -1 || tN.indexOf(eN) !== -1)) { parteMostrar = p.PARTES[pi]; break; }
-                    }
-                }
+                // como en /admin/almacen — helper compartido de FuzzySearch (una sola fuente).
+                var parteMostrar = window.FuzzySearch.matchedPart(rawTerm, p.PARTES, p.PARTE);
                 var partePrefix = parteMostrar ? '<span class="parte">' + escHtml(parteMostrar) + '</span>' : '';
                 // Sugerencia: nº de parte (si es filtro) + NOMBRE + UM (sin codigo — pedido cliente).
                 // La UM se pinta como tag al final porque un mismo material puede existir en varias

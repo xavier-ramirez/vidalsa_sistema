@@ -342,8 +342,11 @@ class AlmacenController extends Controller
                         }
                         // También por NÚMERO DE PARTE equivalente: escribir cualquier alterno
                         // (p.ej. "1000FG") encuentra el filtro aunque su código/nombre no lo
-                        // contenga. Solo la tabla del almacén lo pide (flag) — no toca el
-                        // whereHas('producto') de la bitácora, que no pasa este parámetro.
+                        // contenga. Lo piden (flag=true) la tabla del inventario y las búsquedas
+                        // de la pantalla de MOVIMIENTOS (bitácora y ranking "Consumo de Inventario"),
+                        // así el Enter encuentra lo mismo que sugiere el autocomplete y ambos listados
+                        // coinciden. El correlado usa productos_inventario.ID_PRODUCTO, que está en
+                        // scope tanto en la tabla como dentro del whereHas('producto').
                         if ($incluirEquivalencias) {
                             $t->orWhereExists(function ($sub) use ($v) {
                                 $sub->selectRaw('1')->from('producto_equivalencias')
@@ -432,8 +435,18 @@ class AlmacenController extends Controller
         // un producto puntual (clic en sugerencia = id_producto, o "ver solo
         // seleccionados" = id_producto_in): ahí dejamos pasar el saldo 0 para que
         // el producto seleccionado siempre se muestre.
+        //
+        // TAMBIÉN se exceptúa cuando el usuario pide EXPLÍCITAMENTE ver el catálogo:
+        // "Ver todo" (ver_todo), búsqueda por descripción (search) o categoría. Sin esto,
+        // un almacén nuevo/sin stock (p.ej. "PRUEBA") no mostraba NADA y esos filtros
+        // parecían rotos. En almacenes ya cargados NO cambia nada (todos sus productos
+        // tienen fila de stock). Los productos sin stock en el almacén aparecen con saldo 0.
+        // (solo_bajo / solo_con_saldo NO se exceptúan: por definición requieren stock.)
         $verProductoPuntual = $request->filled('id_producto') || $request->filled('id_producto_in');
-        if (!$verProductoPuntual) {
+        $verCatalogo        = $request->boolean('ver_todo')
+                            || $request->filled('search')
+                            || $request->filled('categoria');
+        if (!$verProductoPuntual && !$verCatalogo) {
             $q->whereNotNull('almacen_stock.ID_PRODUCTO');
         }
 
@@ -519,7 +532,13 @@ class AlmacenController extends Controller
         if ($idAlmacen === null) {
             return collect();
         }
+        // La Distribución cuenta STOCK REAL del almacén (productos con fila de stock), igual
+        // que el Consolidado (statsInventario, INNER join). Forzamos whereNotNull para ANULAR
+        // el bypass "verCatalogo" de inventarioBaseQuery: sin esto, al pedir "Ver todo"/buscar
+        // en un almacén sin stock, la Distribución contaba TODO el catálogo (saldo 0) mientras
+        // el Consolidado mostraba 0 → los dos paneles del sidebar se contradecían.
         return $this->inventarioBaseQuery($idAlmacen, $request)
+            ->whereNotNull('almacen_stock.ID_PRODUCTO')
             ->select(DB::raw("COALESCE(NULLIF(TRIM(productos_inventario.CATEGORIA), ''), 'SIN CATEGORÍA') as categoria"))
             ->selectRaw('COUNT(*) as total')
             ->selectRaw('COALESCE(SUM(almacen_stock.CANTIDAD), 0) as unidades')
@@ -1023,7 +1042,11 @@ class AlmacenController extends Controller
             // Misma tokenización que la tabla de /admin/almacen (ver aplicarBusquedaProducto).
             $term = trim((string) $request->input('search'));
             $q->whereHas('producto', function ($p) use ($term) {
-                $this->aplicarBusquedaProducto($p, $term, ['CODIGO', 'NOMBRE']);
+                // incluirEquivalencias=true: el autocomplete de movimientos sugiere por nº de
+                // parte equivalente (haystack con EQUIV), así que la búsqueda por Enter debe
+                // encontrar por ese alterno también. Sin esto, teclear un nº de parte y pulsar
+                // Enter devolvía bitácora vacía aunque el dropdown mostraba el producto.
+                $this->aplicarBusquedaProducto($p, $term, ['CODIGO', 'NOMBRE'], true);
             });
         }
         if ($request->filled('tipo') && $request->input('tipo') !== 'all') {
@@ -1139,7 +1162,10 @@ class AlmacenController extends Controller
             'frentesLista'    => $frentesMovimientos,
             // Lista de productos activos para el autocomplete del filtro de búsqueda.
             // CATEGORIA incluida para avisar en el buscador si un material es de otra categoría.
-            'productosLista'  => ProductoInventario::activos()->orderBy('NOMBRE')->get(['ID_PRODUCTO', 'CODIGO', 'NOMBRE', 'UM', 'CATEGORIA']),
+            // listaAutocomplete() trae EQUIV/PARTE/PARTES (nºs de parte equivalentes) para que el
+            // buscador de movimientos sugiera por equivalencia igual que el inventario. Es la
+            // misma fuente única que usan el índice de almacén y la recepción.
+            'productosLista'  => ProductoInventario::listaAutocomplete(),
             // Ranking de productos más consumidos (SALIDA + TRASPASO_SALIDA) aplicando los
             // mismos filtros visibles. Alimenta el sidebar "Consumo de Inventario".
             'consumo'         => $this->consumoRanking($request),
@@ -1284,7 +1310,9 @@ class AlmacenController extends Controller
             'categorias'      => $categorias,
             'almById'         => $almById,
             'freById'         => $freById,
-            'consumo'         => $this->consumoRanking($request),
+            // $aplicarBusqueda=false: aquí `search` es N° Nota/RQ/Contrato/Solicitante, no un
+            // producto. El sidebar "Consumo" sigue respondiendo a almacén/frente/categoría/período.
+            'consumo'         => $this->consumoRanking($request, 30, false),
         ]);
     }
 
@@ -1303,8 +1331,15 @@ class AlmacenController extends Controller
      *    dos veces.
      *
      * Retorna colección de stdClass con: {id_producto, codigo, nombre, um, total, movimientos}.
+     *
+     * @param bool $aplicarBusqueda  Si el `search` del request debe filtrar el ranking por
+     *   producto. TRUE en la bitácora (/almacen/movimientos), donde `search` ES búsqueda de
+     *   producto. FALSE en /almacen/notas, donde `search` significa N° Nota/RQ/Contrato/
+     *   Solicitante: aplicarlo como código/nombre de producto vaciaría el ranking (ningún
+     *   producto se llama "NE-2026-0001"). El resto de filtros (almacén/frente/categoría/
+     *   período) SÍ son compatibles y se siguen aplicando en ambas páginas.
      */
-    protected function consumoRanking(Request $request, int $limite = 30)
+    protected function consumoRanking(Request $request, int $limite = 30, bool $aplicarBusqueda = true)
     {
         $almacenFiltrado = $request->filled('id_almacen') && $request->input('id_almacen') !== 'all';
         $tipos = $almacenFiltrado ? ['SALIDA', 'TRASPASO_SALIDA'] : ['SALIDA'];
@@ -1323,12 +1358,15 @@ class AlmacenController extends Controller
             // dispara error 1052 → la pantalla queda en blanco.
             $q->where('movimientos_inventario.ID_PRODUCTO', $request->integer('id_producto'));
         }
-        if ($request->filled('search')) {
+        if ($aplicarBusqueda && $request->filled('search')) {
             // Antes era un LIKE plano que divergía del resto del módulo; ahora usa la
-            // misma búsqueda tokenizada que la tabla y la bitácora.
+            // misma búsqueda tokenizada CON equivalencias que la bitácora de la misma
+            // pantalla — así el ranking "Consumo de Inventario" y la bitácora coinciden
+            // (buscar por una parte/equivalente devuelve las mismas filas en ambos).
+            // En /almacen/notas se pasa $aplicarBusqueda=false porque ahí `search` es N° Nota.
             $term = trim((string) $request->input('search'));
             $q->whereHas('producto', function ($p) use ($term) {
-                $this->aplicarBusquedaProducto($p, $term, ['CODIGO', 'NOMBRE']);
+                $this->aplicarBusquedaProducto($p, $term, ['CODIGO', 'NOMBRE'], true);
             });
         }
         if ($request->filled('id_frente') && $request->input('id_frente') !== 'all') {

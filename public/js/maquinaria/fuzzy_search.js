@@ -143,5 +143,22 @@
         return scored.map(function (x) { return x.p; });
     }
 
-    w.FuzzySearch = { norm: norm, tokenize: tokenize, leven: leven, scoreToken: scoreToken, rank: rank };
+    // Devuelve el nº de parte de `partes` que COINCIDE con `rawTerm` (normalizado sin
+    // espacios/guiones, en ambos sentidos), o `fallback` si ninguno coincide. Lo usan los
+    // autocompletes de almacén (inventario, movimientos, recepción/bandeja, recepción/nueva)
+    // para mostrar delante del nombre el nº de parte alterno por el que salió el producto —
+    // antes este bloque estaba copiado en las 4 vistas (una sola fuente de verdad aquí).
+    function matchedPart(rawTerm, partes, fallback) {
+        fallback = fallback || '';
+        if (!rawTerm || !Array.isArray(partes) || !partes.length) return fallback;
+        var tN = norm(rawTerm).replace(/[\s\-]/g, '');
+        if (!tN) return fallback;
+        for (var i = 0; i < partes.length; i++) {
+            var eN = norm(String(partes[i])).replace(/[\s\-]/g, '');
+            if (eN && (eN.indexOf(tN) !== -1 || tN.indexOf(eN) !== -1)) return partes[i];
+        }
+        return fallback;
+    }
+
+    w.FuzzySearch = { norm: norm, tokenize: tokenize, leven: leven, scoreToken: scoreToken, rank: rank, matchedPart: matchedPart };
 })(window);

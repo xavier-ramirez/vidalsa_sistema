@@ -93,7 +93,8 @@
         margin-bottom:12px;
     }
     #trFilters .tr-item { flex:1 1 220px; min-width:180px; max-width:300px; }
-    #trFilters .tr-search-num  { flex:1 1 280px; max-width:400px; min-width:200px; position:relative; }
+    #trFilters .tr-search-num,
+    #trFilters .tr-search-prod { flex:1 1 280px; max-width:400px; min-width:200px; position:relative; }
     /* Toolbar alineado al estándar de /admin/almacen/movimientos: cajas de 45px,
        radio 12px, fondo suave #fbfcfd y letra 14px (antes 40px/8px/13px se veía
        más apretado que el resto de los módulos). Azul #e1effa cuando hay filtro. */
@@ -340,7 +341,8 @@
         /* Filtros en mobile: buscador y Estado a fila completa; Desde/Hasta lado a
            lado; el botón Limpiar (40x40) cierra la fila de fechas. */
         #trFilters { gap: 8px !important; }
-        #trFilters > .tr-search-num    { flex: 1 1 100% !important; max-width: none !important; min-width: 0 !important; }
+        #trFilters > .tr-search-num,
+        #trFilters > .tr-search-prod   { flex: 1 1 100% !important; max-width: none !important; min-width: 0 !important; }
         #trFilters > .tr-filter-estado { flex: 1 1 0 !important; max-width: none !important; }
 
         /* ══════════════════════════════════════════════
@@ -489,6 +491,29 @@
                  con lo que está escribiendo. Cargar la lista en el render evita un endpoint
                  extra — son strings cortos y vienen limitados a 300 desde el controller. --}}
             <div id="trSearchSuggest" class="tr-suggest"></div>
+        </div>
+
+        {{-- Buscador por PRODUCTO (con equivalencias, igual que inventario): sugiere productos
+             del catálogo (FuzzySearch + nºs de parte equivalentes). Al elegir uno se fija
+             id_producto y la bandeja muestra SOLO las notas que CONTIENEN ese producto. --}}
+        @php
+            $reqIdProd    = request('id_producto');
+            $reqProdLabel = $reqIdProd ? (collect($productosLista ?? [])->firstWhere('ID_PRODUCTO', (int) $reqIdProd)?->NOMBRE ?? '') : '';
+        @endphp
+        <div class="tr-item tr-search-prod">
+            <div class="tr-search-box {{ $reqIdProd ? 'active' : '' }}">
+                <i class="material-icons lupa">inventory_2</i>
+                <input type="text" id="trProdSearch" autocomplete="off" placeholder="Buscar por producto o nº de parte"
+                       value="{{ $reqProdLabel }}"
+                       oninput="window.trProdInput()"
+                       onfocus="window.trProdSuggest()"
+                       onblur="setTimeout(function(){ var s=document.getElementById('trProdSuggest'); if(s) s.classList.remove('open'); }, 150);">
+                <input type="hidden" id="trIdProducto" value="{{ $reqIdProd }}">
+                <i class="material-icons" id="trProdClear" title="Limpiar filtro por producto"
+                   style="display:{{ $reqIdProd ? 'flex' : 'none' }};align-items:center;padding:0 10px;color:#64748b;font-size:18px;cursor:pointer;"
+                   onclick="window.trProdClear()">close</i>
+            </div>
+            <div id="trProdSuggest" class="tr-suggest"></div>
         </div>
 
         {{-- Filtros en línea, al lado del buscador (antes vivían en un panel "Filtros
@@ -660,6 +685,11 @@
     // el controller en cada render; 300 más recientes — suficiente para el
     // autocomplete sin pedir un endpoint extra.
     var TR_NUMEROS = @json($numerosNotas ?? []);
+    // Catálogo para el buscador por PRODUCTO (con equivalencias), igual que inventario/movimientos.
+    window.trProductosLista = @json(($productosLista ?? collect())->map(fn($p) => [
+        'ID_PRODUCTO' => $p->ID_PRODUCTO, 'CODIGO' => $p->CODIGO, 'NOMBRE' => $p->NOMBRE,
+        'EQUIV' => $p->EQUIV ?? '', 'PARTE' => $p->PARTE ?? '', 'PARTES' => $p->PARTES ?? [],
+    ]));
 
     // KPI activo del panel "Resumen de la bandeja": '' | 'por_revisar' | 'recientes' |
     // 'urgentes'. Solo 'recientes'/'urgentes' se mandan al backend (filtro datetime);
@@ -750,6 +780,72 @@
         window.trLoad();
     };
 
+    // ── Buscador por PRODUCTO (con equivalencias) — mismo FuzzySearch compartido que
+    //    inventario/movimientos. Al ELEGIR una sugerencia se fija id_producto y se recarga
+    //    la bandeja (backend filtra las notas que contienen ese producto). Editar el texto
+    //    descarta el producto elegido (como en inventario). ──────────────────────────────
+    function trProdToggleClear() {
+        var input = el('trProdSearch'); if (!input) return;
+        var has = !!v('trIdProducto');
+        var x = el('trProdClear'); if (x) x.style.display = has ? 'flex' : 'none';
+        var box = input.closest('.tr-search-box'); if (box) box.classList.toggle('active', has);
+    }
+    window.trProdSuggest = function () {
+        var inp = el('trProdSearch'), box = el('trProdSuggest');
+        if (!inp || !box) return;
+        var rawTerm = inp.value.trim();
+        var lista = window.trProductosLista || [];
+        var matches = window.FuzzySearch.rank(lista, rawTerm, function (p) {
+            return { haystack: (p.CODIGO || '') + ' ' + (p.NOMBRE || '') + ' ' + (p.EQUIV || ''), label: p.NOMBRE || '' };
+        }).slice(0, 17);
+        var html = '';
+        if (!matches.length) {
+            html = '<div class="tr-suggest-empty">Sin coincidencias.</div>';
+        } else {
+            html = matches.map(function (p) {
+                var nom = (p.NOMBRE || '').replace(/[<>&"]/g, '');
+                var cod = (p.CODIGO || '').replace(/[<>&"]/g, '');
+                // Equivalencia que COINCIDE con lo buscado (nº de parte alterno) delante del
+                // nombre — helper compartido (misma lógica que inventario/movimientos).
+                var parteMostrar = window.FuzzySearch.matchedPart(rawTerm, p.PARTES, p.PARTE);
+                var codB   = cod ? '<span style="font-size:11px;font-weight:700;color:#64748b;margin-right:6px;">' + cod + '</span>' : '';
+                var parteB = parteMostrar ? '<span style="color:#475569;font-weight:600;margin-right:6px;white-space:nowrap;">' + String(parteMostrar).replace(/[<>&"]/g, '') + '</span>' : '';
+                return '<div class="tr-suggest-item" data-pid="' + (p.ID_PRODUCTO || '') + '" data-nom="' + nom + '">' + codB + parteB + '<span>' + nom + '</span></div>';
+            }).join('');
+        }
+        box.innerHTML = html;
+        box.classList.add('open');
+    };
+    // Escribir en el buscador de producto: si había uno elegido, editarlo lo DESCARTA
+    // (quita el filtro y recarga). Luego refresca las sugerencias.
+    window.trProdInput = function () {
+        var hid = el('trIdProducto');
+        if (hid && hid.value) { hid.value = ''; trProdToggleClear(); window.trResetKpi(); window.trLoad(); }
+        window.trProdSuggest();
+    };
+    // Clic en una sugerencia: fija id_producto + el nombre y recarga la bandeja.
+    // SPA-safe: se registra UNA sola vez por pestaña (guard _trBindGlobal), igual que los
+    // demás listeners globales; sin esto se duplicaba en cada navegación SPA → un clic
+    // disparaba N recargas de la bandeja (flicker + carrera de respuestas).
+    if (_trBindGlobal) document.addEventListener('click', function (e) {
+        var it = e.target.closest('#trProdSuggest .tr-suggest-item');
+        if (!it) return;
+        var hid = el('trIdProducto'); if (hid) hid.value = it.getAttribute('data-pid') || '';
+        var inp = el('trProdSearch'); if (inp) inp.value = it.getAttribute('data-nom') || '';
+        var box = el('trProdSuggest'); if (box) box.classList.remove('open');
+        trProdToggleClear();
+        window.trResetKpi();
+        window.trLoad();
+    });
+    window.trProdClear = function () {
+        var hid = el('trIdProducto'); if (hid) hid.value = '';
+        var inp = el('trProdSearch'); if (inp) inp.value = '';
+        var box = el('trProdSuggest'); if (box) box.classList.remove('open');
+        trProdToggleClear();
+        window.trResetKpi();
+        window.trLoad();
+    };
+
     function params(pageUrl) {
         // El backend muestra por defecto solo "En tránsito" (pendientes). Aquí mandamos
         // los filtros del UI (search/estado/destino/fechas). El estado SIEMPRE se envía
@@ -757,6 +853,7 @@
         // exactamente qué se pidió y no caiga en el default cuando el usuario eligió otro.
         var p = new URLSearchParams();
         if (v('trSearch'))                                 p.set('search', v('trSearch'));
+        if (v('trIdProducto'))                             p.set('id_producto', v('trIdProducto'));
 
         // Estado: ahora es un custom-dropdown → se lee del hidden input (data-filter-value).
         if (hv('estado'))                                  p.set('estado', hv('estado'));

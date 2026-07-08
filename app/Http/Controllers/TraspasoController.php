@@ -168,6 +168,12 @@ class TraspasoController extends Controller
             $s = '%' . trim((string) $request->input('search')) . '%';
             $q->where(fn ($w) => $w->where('NUMERO', 'like', $s)->orWhere('REFERENCIA', 'like', $s));
         }
+        // Filtro por PRODUCTO (bandeja): muestra solo las notas que CONTIENEN ese producto.
+        // El front sugiere productos (con equivalencias, igual que inventario) y al elegir uno
+        // manda su id_producto; aquí filtramos las notas cuyas líneas incluyen ese producto.
+        if ($request->filled('id_producto')) {
+            $q->whereHas('lineas', fn ($l) => $l->where('ID_PRODUCTO', $request->integer('id_producto')));
+        }
         if ($request->filled('desde')) {
             // OJO: el orWhere DEBE ir agrupado en un where(function) — si no, el OR queda
             // al nivel superior y se escapa de los filtros AND de estado/visibilidad
@@ -259,6 +265,8 @@ class TraspasoController extends Controller
             'idAlmacenDestinoActivo' => $idAlmacenDestinoActivo,
             'numerosNotas'           => $numerosNotas,
             'bandejaStats'           => $bandejaStats,
+            // Catálogo para el buscador por PRODUCTO (con equivalencias), igual que inventario.
+            'productosLista'         => ProductoInventario::listaAutocomplete(),
         ]);
     }
 

@@ -2101,18 +2101,10 @@
                 var rightBadge = multi
                     ? '<span class="alm-suggest-cod" style="color:#0067b1;display:inline-flex;align-items:center;gap:1px;" title="' + grp.count + ' presentaciones (distintas unidades)"><i class="material-icons" style="font-size:15px;line-height:1;">layers</i><span style="font-size:10.5px;font-weight:700;line-height:1;">' + grp.count + '</span></span>'
                     : '';
-                // Filtros: el nº de parte va DELANTE del tipo (gris, mismo color/letra de la
-                // lista). Se muestra la EQUIVALENCIA que COINCIDE con lo buscado — si buscas un
-                // alterno (ej. "APRO AL-7723") sale ese y no la principal, así reconoces por qué
-                // salió. Normaliza sin espacios/guiones para tolerar "AL-7723" vs "AL7723".
-                var parteMostrar = p.PARTE;
-                if (rawTerm && p.PARTES && p.PARTES.length) {
-                    var tN = almNorm(rawTerm).replace(/[\s\-]/g, '');
-                    if (tN) for (var pi = 0; pi < p.PARTES.length; pi++) {
-                        var eN = almNorm(String(p.PARTES[pi])).replace(/[\s\-]/g, '');
-                        if (eN && (eN.indexOf(tN) !== -1 || tN.indexOf(eN) !== -1)) { parteMostrar = p.PARTES[pi]; break; }
-                    }
-                }
+                // Filtros: el nº de parte va DELANTE del tipo. Se muestra la EQUIVALENCIA que
+                // COINCIDE con lo buscado (si buscas "AL-7723" sale ese, no la principal) —
+                // helper compartido de FuzzySearch (misma lógica que movimientos/recepción).
+                var parteMostrar = window.FuzzySearch.matchedPart(rawTerm, p.PARTES, p.PARTE);
                 // Mismo tipo de letra/color/tamaño que la descripción (.nom): 13.5px, #475569,
                 // peso 600 — para que el nº de parte se lea igual que el tipo, no más apagado.
                 var partePrefix = parteMostrar
@@ -2217,11 +2209,13 @@
     window.almCatEnter = function (ev) {
         if (ev && ev.key !== 'Enter') return;
         if (ev) ev.preventDefault();
+        almResetPick(); // filtrar por categoría no debe quedar anulado por un pick exacto pegado
         almCatSuggestHide();
         almCargar();
     };
     window.almCatPick = function (cat) {
         var inp = el('almFiltroCat'); if (inp) inp.value = cat;
+        almResetPick(); // filtrar por categoría no debe quedar anulado por un pick exacto pegado
         almCatSuggestHide();
         almCargar();
     };
@@ -2340,6 +2334,9 @@
         if (e) { e.preventDefault(); e.stopPropagation(); }
         if (!almSelCount()) { toast('No hay productos seleccionados todavía.', 'error'); return; }
         almSoloSel = !almSoloSel;
+        // "Ver solo seleccionados" es una acción global: descartar el pick exacto para no
+        // mandar id_producto e id_producto_in a la vez (query contradictoria + URL incoherente).
+        almResetPick();
         // El circulo ambar en el numero (.is-filtering) refleja el estado actual.
         var btn = el('almBulkCounter');
         if (btn) btn.classList.toggle('is-filtering', almSoloSel);
