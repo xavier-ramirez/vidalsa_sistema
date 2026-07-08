@@ -17,9 +17,11 @@
 <div class="admin-card" style="width: 100%; max-width: none; margin: 0; background: transparent; border: none; box-shadow: none; padding: 0;">
     {{-- Layout: tarjeta principal (filtros + tabla, como en /admin/equipos) a la izquierda
          y el panel de Usuarios Activos en su propia tarjeta a la derecha. --}}
-    <div class="usuarios-layout">
-    <div class="usuarios-main">
-    <div class="filter-toolbar-container usr-filter-row" style="margin-bottom: 6px;">
+    {{-- Filtros a ANCHO COMPLETO: van en su propia tarjeta blanca ARRIBA del layout de 2
+         columnas, NO dentro de .usuarios-main (que comparte fila con el sidebar de 300px). Así
+         los 3 filtros abarcan TODO el ancho horizontal del contenedor blanco. --}}
+    <div class="usuarios-filters-card">
+    <div class="filter-toolbar-container usr-filter-row" style="margin-bottom: 0;">
         <!-- Search Filter -->
         <div class="filter-item aligned-filter responsive-filter-item" style="position: relative;">
             <form id="search-form" style="width: 100%;" onsubmit="event.preventDefault();">
@@ -141,12 +143,17 @@
                 <i class="material-icons" style="font-size:20px;">delete_sweep</i>
             </button>
 
-            <!-- Nuevo usuario (ícono compacto; tooltip para claridad) -->
-            <a href="{{ route('usuarios.create') }}" class="btn-primary-maquinaria btn-nuevo-usuario" title="Nuevo usuario" style="height: 45px; width: 45px; padding: 0; display: flex; align-items: center; justify-content: center; flex: 0 0 auto;">
+            <!-- Nuevo usuario (con etiqueta) -->
+            <a href="{{ route('usuarios.create') }}" class="btn-primary-maquinaria btn-nuevo-usuario" style="height: 45px; padding: 0 20px; display: flex; align-items: center; gap: 6px; flex: 0 0 auto;">
                 <i class="material-icons">person_add</i>
+                Nuevo
             </a>
         </div>
     </div>
+    </div>{{-- /usuarios-filters-card --}}
+
+    <div class="usuarios-layout">
+    <div class="usuarios-main">
 
     <style>
         /* 2 columnas: izquierda = tarjeta blanca con FILTROS + TABLA (como /admin/equipos),
@@ -159,6 +166,13 @@
             padding: 16px; box-shadow: 0 4px 6px -1px rgba(15,23,42,0.06);
         }
         .usuarios-side { width: 300px; flex: 0 0 300px; }
+        /* Tarjeta blanca de los filtros a ANCHO COMPLETO (mismo estilo que .usuarios-main).
+           Va arriba del layout de 2 columnas → no la recorta el sidebar. */
+        .usuarios-filters-card {
+            background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+            padding: 14px 16px; margin-bottom: 16px;
+            box-shadow: 0 4px 6px -1px rgba(15,23,42,0.06);
+        }
         .usr-filter-row {
             display: flex;
             flex-wrap: nowrap;
