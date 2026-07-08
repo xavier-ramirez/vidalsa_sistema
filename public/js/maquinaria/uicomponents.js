@@ -1086,9 +1086,11 @@ window.showDetailsImproved = function (target, event) {
                     // para que se vean IGUALES: 3 líneas → (TIPO · MARCA · MODELO) gris / serial /
                     // estado con ícono. Sin badge a la derecha.
                     const marcaModelo = [sa.marca, sa.modelo].filter(Boolean).join(' · ');
-                    // Si el tipo es "OTRO" NO se antepone la palabra (no aporta y molesta): se
-                    // muestra solo la marca/modelo. Para tipos reales sí va "TIPO · MARCA · MODELO".
-                    const esOtro = sa.tipo && String(sa.tipo).toUpperCase() === 'OTRO';
+                    // Si el tipo cae al fallback OTRO (sea "OTRO" real o un tipo sin config, p.ej.
+                    // MAQUINA_DE_SOLDAR que no matchea la clave MAQUINA_SOLDAR) NO se antepone la
+                    // palabra "Otro" (no aporta y molesta): se muestra solo la marca/modelo. Para
+                    // tipos con config propia sí va "TIPO · MARCA · MODELO".
+                    const esOtro = (tc === SA_TIPO_CFG.OTRO);
                     const tipoMarcaLine = esOtro
                         ? (marcaModelo.toUpperCase() || tc.label)
                         : (marcaModelo
