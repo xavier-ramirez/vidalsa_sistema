@@ -434,13 +434,13 @@
                 rowPropiedad + rowCertificado
             )}
 
+            ${section('Vinculación', 'link', hostCard)}
+
             ${section('Información Adicional', 'info',
                 row('Código Interno',       d.codigo_interno ? '#' + d.codigo_interno : '—') +
                 row('Año',                  d.anio) +
                 row('Observaciones',        d.observaciones)
             )}
-
-            ${section('Vinculación', 'link', hostCard)}
         `;
     };
 
