@@ -137,6 +137,11 @@
     }
     .tr-suggest-item:hover, .tr-suggest-item.active { background:#e1effa; color:#0067b1; }
     .tr-suggest-empty { padding:10px 12px; font-size:12px; color:#94a3b8; font-style:italic; }
+    /* El buscador por PRODUCTO reusa .tr-suggest, pero sus ítems muestran una DESCRIPCIÓN
+       (texto largo), no un código corto: fuente normal (no monospace), peso 500 y con
+       ajuste de línea — igual que la lista del inventario/movimientos. El nº de parte
+       equivalente va en su propio <span> destacado delante del nombre. */
+    #trProdSuggest .tr-suggest-item { font-family:inherit; font-weight:500; letter-spacing:0; white-space:normal; display:flex; align-items:baseline; gap:2px; }
 
     /* ── Layout: la tabla (.admin-card) y el panel de resumen, cada uno en SU PROPIO
          contenedor, lado a lado. ── */
@@ -686,10 +691,17 @@
     // autocomplete sin pedir un endpoint extra.
     var TR_NUMEROS = @json($numerosNotas ?? []);
     // Catálogo para el buscador por PRODUCTO (con equivalencias), igual que inventario/movimientos.
-    window.trProductosLista = @json(($productosLista ?? collect())->map(fn($p) => [
-        'ID_PRODUCTO' => $p->ID_PRODUCTO, 'CODIGO' => $p->CODIGO, 'NOMBRE' => $p->NOMBRE,
-        'EQUIV' => $p->EQUIV ?? '', 'PARTE' => $p->PARTE ?? '', 'PARTES' => $p->PARTES ?? [],
-    ]));
+    // El map() se arma en un bloque PHP (no en línea dentro de la directiva json): esa
+    // directiva separa sus argumentos por comas y las comas del array literal la rompían
+    // ("Unclosed '["). OJO: no escribir tokens tipo arroba-php/arroba-json aquí — Blade
+    // los compila aunque estén dentro de un comentario // de JS.
+    @php
+        $trProductosLista = ($productosLista ?? collect())->map(fn($p) => [
+            'ID_PRODUCTO' => $p->ID_PRODUCTO, 'CODIGO' => $p->CODIGO, 'NOMBRE' => $p->NOMBRE,
+            'EQUIV' => $p->EQUIV ?? '', 'PARTE' => $p->PARTE ?? '', 'PARTES' => $p->PARTES ?? [],
+        ]);
+    @endphp
+    window.trProductosLista = @json($trProductosLista);
 
     // KPI activo del panel "Resumen de la bandeja": '' | 'por_revisar' | 'recientes' |
     // 'urgentes'. Solo 'recientes'/'urgentes' se mandan al backend (filtro datetime);
@@ -808,9 +820,13 @@
                 // Equivalencia que COINCIDE con lo buscado (nº de parte alterno) delante del
                 // nombre — helper compartido (misma lógica que inventario/movimientos).
                 var parteMostrar = window.FuzzySearch.matchedPart(rawTerm, p.PARTES, p.PARTE);
-                var codB   = cod ? '<span style="font-size:11px;font-weight:700;color:#64748b;margin-right:6px;">' + cod + '</span>' : '';
-                var parteB = parteMostrar ? '<span style="color:#475569;font-weight:600;margin-right:6px;white-space:nowrap;">' + String(parteMostrar).replace(/[<>&"]/g, '') + '</span>' : '';
-                return '<div class="tr-suggest-item" data-pid="' + (p.ID_PRODUCTO || '') + '" data-nom="' + nom + '">' + codB + parteB + '<span>' + nom + '</span></div>';
+                var parteSafe = parteMostrar ? String(parteMostrar).replace(/[<>&"]/g, '') : '';
+                var parteB = parteSafe ? '<span style="color:#475569;font-weight:700;margin-right:6px;white-space:nowrap;">' + parteSafe + '</span>' : '';
+                // data-pick = texto que va al cuadro al elegir: "Nº de parte · descripción",
+                // igual que el buscador del inventario. Así el nº de parte buscado (p.ej.
+                // P164378) queda VISIBLE en el cuadro y no se pierde. data-pid = match EXACTO.
+                var pickText = parteSafe ? (parteSafe + ' · ' + nom) : nom;
+                return '<div class="tr-suggest-item" data-pid="' + (p.ID_PRODUCTO || '') + '" data-pick="' + pickText + '" title="' + cod + '">' + parteB + '<span>' + nom + '</span></div>';
             }).join('');
         }
         box.innerHTML = html;
@@ -831,7 +847,7 @@
         var it = e.target.closest('#trProdSuggest .tr-suggest-item');
         if (!it) return;
         var hid = el('trIdProducto'); if (hid) hid.value = it.getAttribute('data-pid') || '';
-        var inp = el('trProdSearch'); if (inp) inp.value = it.getAttribute('data-nom') || '';
+        var inp = el('trProdSearch'); if (inp) inp.value = it.getAttribute('data-pick') || '';
         var box = el('trProdSuggest'); if (box) box.classList.remove('open');
         trProdToggleClear();
         window.trResetKpi();
