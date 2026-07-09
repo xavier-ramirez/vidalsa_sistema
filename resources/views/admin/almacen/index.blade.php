@@ -983,6 +983,13 @@
             <i class="material-icons alm-x" onclick="almCerrar('almAjusteModal')">close</i>
         </div>
         <div class="alm-modal-body">
+            {{-- Saldo actual (según el sistema): sin esto el usuario no sabía desde qué valor
+                 estaba ajustando y, si tecleaba justo el mismo número, el backend respondía
+                 "no cambia el saldo" y parecía un error. Mostrarlo hace obvia la diferencia. --}}
+            <div style="display:flex;justify-content:space-between;align-items:center;background:#f1f5f9;border-radius:8px;padding:8px 12px;margin-bottom:12px;">
+                <span style="font-size:12px;color:#64748b;font-weight:600;">Saldo actual (sistema)</span>
+                <span id="almAjSaldoActual" style="font-size:14px;color:#0f172a;font-weight:800;">—</span>
+            </div>
             <div>
                 <label for="almAjNuevoSaldo">Saldo según conteo físico</label>
                 <input type="number" id="almAjNuevoSaldo" min="0" step="any" placeholder="Cantidad real contada">
@@ -1323,7 +1330,7 @@
     <div class="alm-modal" style="max-width:420px;">
         <div class="alm-modal-head">
             <h3><i class="material-icons" style="font-size:20px;">inventory_2</i> Detalles del producto</h3>
-            <i class="material-icons alm-x" onclick="almCerrar('almDetalleModal')">close</i>
+            <i class="material-icons alm-x" onclick="almDetalleCerrar()">close</i>
         </div>
         <div class="alm-modal-body">
 
@@ -2073,9 +2080,11 @@
         if (!matches.length) {
             box.innerHTML = verTodoLink + '<div class="alm-suggest-empty">Sin coincidencias.</div>';
         } else {
-            // Mostrar SOLO el NOMBRE; data-pick guarda el NOMBRE para que escribir encima del
-            // texto pegado siga produciendo coincidencias via LIKE %term% del backend. (El badge
-            // "sin stock aquí" se retiró a pedido del cliente.) Los filtros muestran además su
+            // Mostrar SOLO el NOMBRE; data-pick guarda el texto que va al cuadro al elegir: el
+            // NOMBRE y —en filtros que matchearon por nº de parte— ese nº DELANTE del nombre, para
+            // que se vea CUÁL equivalencia buscaste. Escribir encima del texto pegado sigue dando
+            // coincidencias via LIKE %term% del backend (tokeniza y matchea nº de parte + nombre).
+            // (El badge "sin stock aquí" se retiró a pedido del cliente.) Los filtros muestran su
             // número de parte delante del nombre y NO se agrupan (cada uno es un modelo distinto).
             var html = verTodoLink + matches.map(function (p) {
                 var nom = (p.NOMBRE || '').replace(/[<>&"]/g, '');
@@ -2107,10 +2116,16 @@
                 var parteMostrar = window.FuzzySearch.matchedPart(rawTerm, p.PARTES, p.PARTE);
                 // Mismo tipo de letra/color/tamaño que la descripción (.nom): 13.5px, #475569,
                 // peso 600 — para que el nº de parte se lea igual que el tipo, no más apagado.
-                var partePrefix = parteMostrar
-                    ? '<span class="alm-suggest-parte" style="font-size:13.5px;color:#475569;font-weight:600;margin-right:7px;white-space:nowrap;">' + String(parteMostrar).replace(/[<>&"]/g, '') + '</span>'
+                var parteSafe   = parteMostrar ? String(parteMostrar).replace(/[<>&"]/g, '') : '';
+                var partePrefix = parteSafe
+                    ? '<span class="alm-suggest-parte" style="font-size:13.5px;color:#475569;font-weight:600;margin-right:7px;white-space:nowrap;">' + parteSafe + '</span>'
                     : '';
-                return '<div class="alm-suggest-item" data-pid="' + pid + '" data-pids="' + pids + '" data-pick="' + nom + '" title="' + cod + '">'
+                // Texto que queda en el cuadro al elegir: si la sugerencia matcheó por nº de parte
+                // (equivalencia, p.ej. "P164378"), ese nº va DELANTE de la descripción para que se
+                // vea CUÁL equivalencia buscaste — no solo la descripción. El filtrado real sigue
+                // usando id_producto (match exacto), así que este texto es solo lo que se muestra.
+                var pickText    = parteSafe ? (parteSafe + ' · ' + nom) : nom;
+                return '<div class="alm-suggest-item" data-pid="' + pid + '" data-pids="' + pids + '" data-pick="' + pickText + '" title="' + cod + '">'
                      {{-- nº de parte (si es filtro) + nom; el badge de presentaciones va a la derecha. --}}
                      + '<div class="alm-suggest-line">' + partePrefix + '<span class="nom">' + nom + '</span>' + rightBadge + '</div>'
                      + '</div>';
@@ -2286,10 +2301,12 @@
     // para que el usuario vea el valor inválido y lo corrija — la fila se pinta de rojo y el
     // modal "Registrar salida" queda bloqueado hasta que la cantidad baje al saldo o menos.
     var almExceden = {};
-    // Modo "filtro local" activado desde el contador de la barra flotante: cuando es true,
-    // se ocultan vía CSS (display:none) las filas que NO están en almSeleccion. Cliente puro
-    // — no recarga datos del backend, solo esconde filas en el DOM actual. Se desactiva
-    // automáticamente al limpiar la selección.
+    // Modo "Ver solo seleccionados" activado desde el contador de la barra flotante. Al
+    // (re)activarlo, almToggleSoloSel recarga vía AJAX mandando id_producto_in con la
+    // selección actual → el backend devuelve SOLO esos productos. Deseleccionar una fila NO
+    // la oculta al instante: queda visible (sin marcar) para poder re-seleccionarla si fue un
+    // clic accidental; desaparece recién al volver a pulsar el toggle (nueva recarga). Se
+    // desactiva automáticamente al limpiar la selección.
     var almSoloSel = false;
     function almSelCount() { return Object.keys(almSeleccion).length; }
     function almAplicarFaltantes() {
@@ -2320,15 +2337,6 @@
         almExceden[id] = true;
         var tr = document.querySelector('#almTableBody tr.alm-row[data-id-producto="' + id + '"]');
         if (tr) tr.classList.add('alm-row-exceeds-stock');
-    }
-    // Filtro local "Solo seleccionados": esconde/muestra filas según almSeleccion.
-    function almAplicarSoloSel() {
-        document.querySelectorAll('#almTableBody tr.alm-row').forEach(function (tr) {
-            var id = tr.getAttribute('data-id-producto');
-            tr.style.display = (almSoloSel && !almSeleccion[id]) ? 'none' : '';
-        });
-        var btn = el('almBulkCounter');
-        if (btn) btn.classList.toggle('is-filtering', almSoloSel);
     }
     window.almToggleSoloSel = function (e) {
         if (e) { e.preventDefault(); e.stopPropagation(); }
@@ -2540,7 +2548,6 @@
         tr.dataset.parteSel = parte;
         almSelEnsureRow(tr);
         if (almSeleccion[id]) almSeleccion[id].parte = parte;
-        if (almSoloSel) almAplicarSoloSel();
         almSelRefreshBar();
     };
     window.almSelClear = function (e) {
@@ -2598,10 +2605,9 @@
         var id = tr.getAttribute('data-id-producto'); if (!id) return;
         if (almSeleccion[id]) { delete almSeleccion[id]; almSelMarkRow(tr, false); almLimpiarFaltante(id); almLimpiarExceden(id); }
         else almSelEnsureRow(tr);
-        // Si el filtro "solo seleccionados" está activo, mantener consistencia visual:
-        // al deseleccionar, la fila debe ocultarse (ya no es "selected"); al seleccionar
-        // una nueva, la nueva ya estaba visible (era la que el usuario hizo clic).
-        if (almSoloSel) almAplicarSoloSel();
+        // En modo "Ver solo seleccionados" NO re-ocultamos la fila al deseleccionar: queda
+        // visible (sin marcar) para poder volver a seleccionarla si el clic fue accidental.
+        // La fila desaparece recién al volver a pulsar el toggle (recarga → almSelApplyToRows).
         almSelRefreshBar();
     });
     function almSelAlmacenActual() { var s = el('almSelAlmacen'); return s ? s.value : ''; }
@@ -2784,6 +2790,13 @@
         if (preview && preview.classList.contains('open') && typeof window.almPreviewCerrar === 'function') {
             window.almPreviewCerrar();
             return; // almPreviewCerrar ya manejo el cleanup + reabrir salida; no cerrar mas.
+        }
+        // Detalles del producto: cerrar con Escape también devuelve el foco al input de
+        // cantidad de la fila seleccionada (mismo criterio que la "✕", vía almDetalleCerrar).
+        var detalle = el('almDetalleModal');
+        if (detalle && detalle.classList.contains('open') && typeof window.almDetalleCerrar === 'function') {
+            window.almDetalleCerrar();
+            return;
         }
         document.querySelectorAll('.alm-modal-overlay.open').forEach(function (m) { m.classList.remove('open'); });
     });
@@ -3285,6 +3298,22 @@
 
         almOpen('almDetalleModal');
     };
+    // Cierra "Detalles del producto" y, si la fila de ese producto SIGUE seleccionada,
+    // devuelve el foco a su input de cantidad — así el usuario escribe la salida de una
+    // (como al recién seleccionar). Sin esto el registro quedaba seleccionado pero el input
+    // sin foco tras el modal, y había que deseleccionar/reseleccionar para poder escribir.
+    window.almDetalleCerrar = function () {
+        var m  = el('almDetalleModal');
+        var id = m ? (m.dataset.id || '') : '';
+        almCerrar('almDetalleModal');
+        if (!id || !almSeleccion[id]) return;
+        var tr = document.querySelector('#almTableBody tr.alm-row[data-id-producto="' + id + '"]');
+        if (!tr) return;
+        var inp = tr.querySelector('.alm-row-cant');
+        if (!inp) return;
+        inp.disabled = false; // la fila está seleccionada → ya debería estarlo; defensivo
+        setTimeout(function () { try { inp.focus(); } catch (e) {} }, 30);
+    };
     // Cancelar de un sub-modal (Auditoría / Stock mínimo / Editar): cierra ese modal y, si
     // venía de "Detalles del producto" (window.almDesdeDetalle), REABRE Detalles — sus datos
     // siguen en el dataset. La X de cada modal cierra del todo (no llama a esto). El flag se
@@ -3391,6 +3420,9 @@
         if (!ensurePerm(HAS_MOVER, 'No tienes permiso para registrar movimientos de inventario.')) return;
         var m = el('almAjusteModal');
         m.dataset.idProducto = idProducto;
+        // Mostrar el saldo actual (sistema) para que el usuario sepa desde qué valor ajusta.
+        var sv = el('almAjSaldoActual');
+        if (sv) { var s = parseFloat(saldo); sv.textContent = (isNaN(s) ? '—' : formatNum(s)) + (um ? ' ' + um : ''); }
         el('almAjNuevoSaldo').value = '';
         showErr('almAjError', ''); almOpen('almAjusteModal');
     };
