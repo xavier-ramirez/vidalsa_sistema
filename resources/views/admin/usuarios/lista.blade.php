@@ -15,13 +15,14 @@
 </section>
 
 <div class="admin-card" style="width: 100%; max-width: none; margin: 0; background: transparent; border: none; box-shadow: none; padding: 0;">
-    {{-- Layout: tarjeta principal (filtros + tabla, como en /admin/equipos) a la izquierda
-         y el panel de Usuarios Activos en su propia tarjeta a la derecha. --}}
-    {{-- Filtros a ANCHO COMPLETO: van en su propia tarjeta blanca ARRIBA del layout de 2
-         columnas, NO dentro de .usuarios-main (que comparte fila con el sidebar de 300px). Así
-         los 3 filtros abarcan TODO el ancho horizontal del contenedor blanco. --}}
-    <div class="usuarios-filters-card">
-    <div class="filter-toolbar-container usr-filter-row" style="margin-bottom: 0;">
+    {{-- Layout: filtros + tabla en UNA sola tarjeta blanca (.usuarios-main), como en
+         /admin/equipos, a la izquierda; y el panel de Usuarios Activos en su propia tarjeta a
+         la derecha. Los filtros van DENTRO de .usuarios-main, arriba de la tabla, para que
+         compartan el mismo contenedor blanco y queden alineados EXACTO a su ancho. (Antes iban
+         en una tarjeta aparte más ancha → el botón Nuevo quedaba fuera del borde de la tabla.) --}}
+    <div class="usuarios-layout">
+    <div class="usuarios-main">
+    <div class="filter-toolbar-container usr-filter-row" style="margin-bottom: 16px;">
         <!-- Search Filter -->
         <div class="filter-item aligned-filter responsive-filter-item" style="position: relative;">
             <form id="search-form" style="width: 100%;" onsubmit="event.preventDefault();">
@@ -150,10 +151,6 @@
             </a>
         </div>
     </div>
-    </div>{{-- /usuarios-filters-card --}}
-
-    <div class="usuarios-layout">
-    <div class="usuarios-main">
 
     <style>
         /* 2 columnas: izquierda = tarjeta blanca con FILTROS + TABLA (como /admin/equipos),
@@ -166,13 +163,6 @@
             padding: 16px; box-shadow: 0 4px 6px -1px rgba(15,23,42,0.06);
         }
         .usuarios-side { width: 300px; flex: 0 0 300px; }
-        /* Tarjeta blanca de los filtros a ANCHO COMPLETO (mismo estilo que .usuarios-main).
-           Va arriba del layout de 2 columnas → no la recorta el sidebar. */
-        .usuarios-filters-card {
-            background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
-            padding: 14px 16px; margin-bottom: 16px;
-            box-shadow: 0 4px 6px -1px rgba(15,23,42,0.06);
-        }
         .usr-filter-row {
             display: flex;
             flex-wrap: nowrap;
@@ -191,6 +181,15 @@
                al extremo derecho sin robar ancho a los filtros. */
             .table-usuarios-mobile { border-spacing: 0 5px !important; }
             .table-usuarios-mobile td { padding-top: 7px !important; padding-bottom: 7px !important; }
+            /* El bloque de botones (Limpiar roles + Nuevo) se ajusta a su CONTENIDO y queda
+               pegado al borde derecho de la tabla. Sin esto hereda width:100% de la clase
+               global .aligned-filter → el bloque medía 300px y dejaba un hueco vacío a la
+               derecha del botón Nuevo (los 3 filtros absorben ese espacio ahora). En móvil NO
+               se aplica: ahí los botones van full-width apilados (regla del media 768px). */
+            .usr-filter-row > .usuarios-action-btns {
+                flex: 0 0 auto !important;
+                width: auto !important;
+            }
         }
         @media (max-width: 1024px) {
             .usuarios-layout { flex-direction: column; }
