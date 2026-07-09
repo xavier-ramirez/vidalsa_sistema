@@ -520,10 +520,10 @@
                          El filtro se aplica cuando el usuario (a) elige una sugerencia, (b) pulsa Enter,
                          o (c) limpia el campo con la X. Mismo patrón que /admin/almacen (filtro Buscar). --}}
                     <input type="text" id="almMovSearch" autocomplete="off" placeholder="Buscar producto (código o descripción)…" value="{{ $reqSearch }}"
-                           oninput="window.almMovSuggestFn()"
+                           oninput="window.almMovPickedId=null; window.almMovSuggestFn()"
                            onfocus="window.almMovSuggestFn()"
-                           onkeydown="if(event.key==='Enter'){event.preventDefault();window.almMovSuggestHide();window.loadMovimientos();} if(event.key==='Escape') window.almMovSuggestHide();">
-                    <i class="material-icons clr" id="almMovSearchClear" style="display:{{ $reqSearch ? 'block' : 'none' }};" onclick="document.getElementById('almMovSearch').value=''; this.style.display='none'; window.almMovSuggestHide(); window.loadMovimientos();">close</i>
+                           onkeydown="if(event.key==='Enter'){event.preventDefault();window.almMovPickedId=null;window.almMovSuggestHide();window.loadMovimientos();} if(event.key==='Escape') window.almMovSuggestHide();">
+                    <i class="material-icons clr" id="almMovSearchClear" style="display:{{ $reqSearch ? 'block' : 'none' }};" onclick="document.getElementById('almMovSearch').value=''; this.style.display='none'; window.almMovPickedId=null; window.almMovSuggestHide(); window.loadMovimientos();">close</i>
                 </div>
                 <div class="amf-suggest" id="almMovSuggest"></div>
             </div>
@@ -782,6 +782,12 @@
     // `<select>` (tipo — vive ahora dentro del panel Filtros Avanzados).
     function hv(name) { var e = document.querySelector('[name="' + name + '"][data-filter-value]'); return e ? String(e.value).trim() : ''; }
 
+    // Producto elegido en la sugerencia = match EXACTO. Se siembra con el id_producto de la
+    // URL (al entrar desde el detalle de un producto) y se actualiza al elegir/limpiar en el
+    // buscador. Es lo que hace que la bitácora traiga SOLO ese producto (no todos los de igual
+    // descripción). Al teclear/Enter/limpiar se pone en null → vuelve la búsqueda por LIKE.
+    window.almMovPickedId = new URLSearchParams(window.location.search).get('id_producto') || null;
+
     function buildParams(pageUrl) {
         var p = new URLSearchParams();
         // OJO: cuando el usuario elige "Todos los almacenes" mandamos `id_almacen=all`
@@ -791,13 +797,18 @@
         var alm = hv('id_almacen'); if (alm) p.set('id_almacen', alm);
         var tipo = hv('tipo'); if (tipo && tipo !== 'all') p.set('tipo', tipo);
         var fr = hv('id_frente'); if (fr && fr !== 'all') p.set('id_frente', fr);
-        var s = el('almMovSearch'); if (s && s.value.trim()) p.set('search', s.value.trim());
         var d = el('almMovDesde'); if (d && d.value) p.set('desde', d.value);
         var h = el('almMovHasta'); if (h && h.value) p.set('hasta', h.value);
         var nt = el('almMovNota'); if (nt && nt.value.trim()) p.set('nota', nt.value.trim());
-        // conservar id_producto si vino en la URL (al entrar desde el detalle de un producto)
-        var urlProd = new URLSearchParams(window.location.search).get('id_producto');
-        if (urlProd) p.set('id_producto', urlProd);
+        // Match EXACTO del producto elegido (sugerencia) o el que vino en la URL: trae SOLO ese
+        // producto y sus equivalencias en el consumo. Tiene precedencia sobre `search` (LIKE),
+        // así que cuando hay pick NO mandamos `search` (el cuadro muestra "Nº · descripción").
+        var s = el('almMovSearch');
+        if (window.almMovPickedId) {
+            p.set('id_producto', window.almMovPickedId);
+        } else if (s && s.value.trim()) {
+            p.set('search', s.value.trim());
+        }
         // pageUrl presente = paginación: el ranking de consumo no cambia entre páginas,
         // así que pedimos al backend que lo omita (skip_consumo) y no recalcule el agregado.
         if (pageUrl) {
@@ -851,8 +862,10 @@
     };
 
     // ── Lista de productos para el autocomplete del filtro de búsqueda ──
-    // El map() va en un bloque @php (no inline en @json): la directiva @json separa sus
-    // argumentos por comas, y las comas del array literal la rompían ("Unclosed '['").
+    // El map() se arma en un bloque PHP (no en línea dentro de la directiva json): esa
+    // directiva separa sus argumentos por comas y las comas del array literal la rompían
+    // ("Unclosed '["). OJO: no escribir tokens tipo arroba-php/arroba-json aquí — Blade
+    // los compila aunque estén dentro de un comentario // de JS.
     @php
         $almMovProductosLista = ($productosLista ?? collect())->map(fn($p) => [
             'ID_PRODUCTO' => $p->ID_PRODUCTO, 'CODIGO' => $p->CODIGO, 'NOMBRE' => $p->NOMBRE,
@@ -882,15 +895,24 @@
             html = matches.map(function (p) {
                 var nom = (p.NOMBRE || '').replace(/[<>&"]/g, '');
                 var cod = (p.CODIGO || '').replace(/[<>&"]/g, '');
-                var codBadge = cod ? '<span class="amf-suggest-cod">' + cod + '</span>' : '';
-                // Equivalencia que COINCIDE con lo buscado (nº de parte alterno) delante del
-                // nombre — helper compartido (misma lógica que inventario/recepción).
+                // El código/serial NO se muestra en la lista (igual que el buscador del
+                // inventario): la sugerencia queda limpia con SOLO la descripción. Igual se
+                // PUEDE filtrar por serial/código — el ranking lo incluye en el haystack
+                // (CODIGO + NOMBRE + EQUIV) — y el código sigue en el title de la fila (hover).
                 var parteMostrar = window.FuzzySearch.matchedPart(rawTerm, p.PARTES, p.PARTE);
-                var partePrefix = parteMostrar
-                    ? '<span class="amf-suggest-parte" style="color:#475569;font-weight:600;margin-right:6px;white-space:nowrap;">' + String(parteMostrar).replace(/[<>&"]/g, '') + '</span>'
+                // Nº de parte / equivalencia que COINCIDE con lo buscado, DELANTE de la
+                // descripción (misma lógica que inventario/recepción). Mismo tamaño/tipo que la
+                // descripción (.nom): 13.5px, #475569, peso 600 — así toda la letra se ve igual.
+                var parteSafe   = parteMostrar ? String(parteMostrar).replace(/[<>&"]/g, '') : '';
+                var partePrefix = parteSafe
+                    ? '<span class="amf-suggest-parte" style="font-size:13.5px;color:#475569;font-weight:600;margin-right:6px;white-space:nowrap;">' + parteSafe + '</span>'
                     : '';
-                return '<div class="amf-suggest-item" data-pick="' + nom + '" title="' + cod + '">'
-                     + '<div class="amf-suggest-line">' + codBadge + partePrefix + '<span class="nom">' + nom + '</span></div>'
+                // data-pid = match EXACTO del producto; data-pick = texto que va al cuadro (el nº de
+                // parte que coincidió DELANTE de la descripción, si matcheó por equivalencia).
+                var pid      = p.ID_PRODUCTO || '';
+                var pickText = parteSafe ? (parteSafe + ' · ' + nom) : nom;
+                return '<div class="amf-suggest-item" data-pid="' + pid + '" data-pick="' + pickText + '" title="' + cod + '">'
+                     + '<div class="amf-suggest-line">' + partePrefix + '<span class="nom">' + nom + '</span></div>'
                      + '</div>';
             }).join('');
         }
@@ -903,6 +925,9 @@
         if (item) {
             var inp = document.getElementById('almMovSearch');
             if (inp) inp.value = item.getAttribute('data-pick') || '';
+            // Elegir una sugerencia = match EXACTO por id_producto (trae SOLO ese producto y sus
+            // equivalencias en el consumo), no LIKE por descripción.
+            window.almMovPickedId = item.getAttribute('data-pid') || null;
             window.almMovSuggestHide();
             window.loadMovimientos();
             return;

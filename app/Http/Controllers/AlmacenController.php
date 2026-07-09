@@ -1035,10 +1035,14 @@ class AlmacenController extends Controller
             // Limitar a almacenes visibles para el usuario.
             $q->whereIn('ID_ALMACEN', $visiblesIds);
         }
+        // id_producto = match EXACTO (viene de elegir una sugerencia del autocomplete, o de
+        // entrar desde el detalle de un producto). Tiene PRECEDENCIA sobre `search`: si se
+        // eligió un producto puntual, la bitácora muestra SOLO ese, no todos los que comparten
+        // descripción (mismo criterio que la tabla de /admin/almacen). `search` (LIKE + tokens)
+        // queda para el flujo "teclear + Enter" (similitudes), cuando NO se eligió uno exacto.
         if ($request->filled('id_producto')) {
             $q->where('ID_PRODUCTO', $request->integer('id_producto'));
-        }
-        if ($request->filled('search')) {
+        } elseif ($request->filled('search')) {
             // Misma tokenización que la tabla de /admin/almacen (ver aplicarBusquedaProducto).
             $term = trim((string) $request->input('search'));
             $q->whereHas('producto', function ($p) use ($term) {
