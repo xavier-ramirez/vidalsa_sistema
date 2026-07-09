@@ -1269,7 +1269,6 @@
                 <label for="almProdUbicacion">Ubicación en bodega</label>
                 <input type="text" id="almProdUbicacion" maxlength="150" autocomplete="off"
                        placeholder="Ej: Estante A3, Pasillo 2 lado izquierdo…">
-                <div style="font-size:11.5px;color:#94a3b8;margin-top:4px;">Aparecerá como tooltip al pasar el mouse sobre la fila.</div>
             </div>
             {{-- Equivalencias (nº de parte) — SOLO al EDITAR un FILTRO. Lista editable
                  (agregar/quitar como chips); se sincroniza al Guardar. Oculta para no-filtros
@@ -1281,7 +1280,6 @@
                        placeholder="Escribe un nº de parte y presiona Enter"
                        onkeydown="if(event.key==='Enter'){event.preventDefault();window.almProdEquivAdd();}"
                        style="margin-top:6px;">
-                <div style="font-size:11.5px;color:#94a3b8;margin-top:4px;">Se guardan al dar <b>Guardar</b>.</div>
             </div>
             <div id="almProdError" style="display:none;color:#dc2626;font-size:13px;font-weight:600;"></div>
         </div>
@@ -1655,6 +1653,12 @@
     // Solo dispara UNA VEZ: tras el primer almSelApplyToVisible se pone en false
     // para que clicks de deseleccion posteriores no se "deshagan" al recargar el tbody.
     var _almPendingAutoSelect = (almBuscarPickedId != null);
+
+    // ID de producto cuyo input de cantidad debe recibir el foco tras la PRÓXIMA recarga del
+    // tbody (lo consume almSelApplyToVisible una sola vez). Lo usa la Auditoría: al Guardar se
+    // recarga la tabla, la fila sigue seleccionada, y así el teclado queda listo en el input
+    // de cantidad sin tener que deseleccionar/reseleccionar. null = sin foco pendiente.
+    var _almPendingFocusId = null;
 
     // Descarta el "pick" de producto (match EXACTO id_producto / id_producto_in de una
     // sugerencia). Punto ÚNICO de reset: lo llaman tanto los helpers del buscador (al
@@ -2472,6 +2476,16 @@
             _almPendingAutoSelect = false;
         }
         almSelApplyToRows(document.querySelectorAll('#almTableBody tr.alm-row'));
+        // Foco pendiente (Auditoría): tras recargar, dejar el teclado listo en el input de
+        // cantidad de esa fila (si sigue seleccionada). Se consume UNA vez.
+        if (_almPendingFocusId) {
+            var trF = document.querySelector('#almTableBody tr.alm-row[data-id-producto="' + _almPendingFocusId + '"]');
+            _almPendingFocusId = null;
+            if (trF && almSeleccion[trF.getAttribute('data-id-producto')]) {
+                var inpF = trF.querySelector('.alm-row-cant');
+                if (inpF) { inpF.disabled = false; setTimeout(function () { try { inpF.focus(); } catch (e) {} }, 30); }
+            }
+        }
     }
     // Aplica TODO el estado de una fila (selección azul + faltante/exceso de stock +
     // filtro "solo seleccionados") en UNA sola pasada por fila. En el scroll-infinito
@@ -3479,6 +3493,9 @@
               // Feedback instantáneo del resaltado (rojo/normal) con el saldo auditado;
               // almCargar() recarga y confirma con el dato fresco del servidor.
               almReevaluarStockFila(m.dataset.idProducto, ns);
+              // Tras la recarga, dejar el teclado listo en el input de cantidad de esta fila
+              // (sigue seleccionada) — sin tener que deseleccionar/reseleccionar para escribir.
+              _almPendingFocusId = m.dataset.idProducto;
               almCerrar('almAjusteModal'); toast('Auditoría registrada.'); almCargar();
           }).catch(function () { unpre(); showErr('almAjError', 'Error de red.'); });
     };
