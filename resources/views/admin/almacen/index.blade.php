@@ -2254,7 +2254,15 @@
     //    recarga la tabla cuando el usuario elige un almacén distinto.
     window.addEventListener('dropdown-selection', function (e) {
         var id = e.detail && e.detail.dropdownId;
-        if (id === 'almSelAlmacenDropdown') almCargar();
+        if (id === 'almSelAlmacenDropdown') {
+            // Al cambiar de almacén, DESCARTAR la selección de productos del almacén anterior:
+            // una Salida / Nota de Entrega es SIEMPRE de un único almacén, así que arrastrar
+            // productos de otro permitiría un movimiento mezclado (los del otro almacén tienen
+            // saldo 0 aquí). Se limpia antes de recargar para que la barra flotante y la tabla
+            // reflejen solo el almacén nuevo.
+            if (typeof window.almSelClear === 'function') window.almSelClear();
+            almCargar();
+        }
         // Modal "Registrar salida": al elegir proyecto destino, auto-abrir el dropdown
         // de "Contrato N°" con los contratos de ese proyecto (o mensaje "sin contratos").
         if (id === 'almSalidaProyectoDropdown' && typeof window.almSalidaOnProyectoChange === 'function') {
