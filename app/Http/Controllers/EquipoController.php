@@ -3769,7 +3769,9 @@ class EquipoController extends Controller
                     ->update(['CONFIRMADO_EN_SITIO' => 1]);
             }
         }
-        // El front distingue "0 por confirmar" de "no te dejaron confirmar".
+        // Se eligió un frente (= se pidió confirmar) pero falta el permiso. El modal lo
+        // avisa en el resumen; sin esto la búsqueda salía bien y el usuario creía haber
+        // confirmado. Distinto de confirmed=0, que significa "no había nada que confirmar".
         $confirmDenied = ($frenteIdFiltro !== null && !$puedeConfirmar);
 
         return response()->json([
@@ -5166,48 +5168,48 @@ class EquipoController extends Controller
         // impide (no hay duplicado), pero sin capturar la QueryException el usuario recibía
         // un 500 crudo en vez de un error entendible. Mismo trato que el bulk de auxiliares.
         try {
-        DB::transaction(function () use ($resolvedRows, $user) {
-            $tipoCache = []; // cache en memoria para no crear duplicados dentro del mismo lote
-            foreach ($resolvedRows as $row) {
-                $idTipo = $row['id_tipo_equipo_resuelto'];
-                if ($idTipo === null && !empty($row['tipo_equipo'])) {
-                    $tipoNombre = strtoupper(trim($row['tipo_equipo']));
-                    if (isset($tipoCache[$tipoNombre])) {
-                        $idTipo = $tipoCache[$tipoNombre];
-                    } else {
-                        $tipo = TipoEquipo::firstOrCreate(
-                            ['nombre' => $tipoNombre],
-                            ['ROL_ANCLAJE' => 'NEUTRO']
-                        );
-                        $idTipo = $tipo->id;
-                        $tipoCache[$tipoNombre] = $idTipo;
+            DB::transaction(function () use ($resolvedRows, $user) {
+                $tipoCache = []; // cache en memoria para no crear duplicados dentro del mismo lote
+                foreach ($resolvedRows as $row) {
+                    $idTipo = $row['id_tipo_equipo_resuelto'];
+                    if ($idTipo === null && !empty($row['tipo_equipo'])) {
+                        $tipoNombre = strtoupper(trim($row['tipo_equipo']));
+                        if (isset($tipoCache[$tipoNombre])) {
+                            $idTipo = $tipoCache[$tipoNombre];
+                        } else {
+                            $tipo = TipoEquipo::firstOrCreate(
+                                ['nombre' => $tipoNombre],
+                                ['ROL_ANCLAJE' => 'NEUTRO']
+                            );
+                            $idTipo = $tipo->id;
+                            $tipoCache[$tipoNombre] = $idTipo;
+                        }
                     }
+                    $nuevoEquipo = Equipo::create([
+                        'id_tipo_equipo'           => $idTipo,
+                        'CATEGORIA_FLOTA'          => $row['categoria_flota'],
+                        'MARCA'                    => strtoupper($row['marca']),
+                        'MODELO'                   => strtoupper($row['modelo']),
+                        'ANIO'                     => (int)$row['anio'],
+                        'NUMERO_ETIQUETA'          => $row['numero_etiqueta'],
+                        'SERIAL_CHASIS'            => strtoupper($row['serial_chasis']),
+                        'SERIAL_DE_MOTOR'          => $row['serial_de_motor'] ? strtoupper($row['serial_de_motor']) : null,
+                        'ESTADO_OPERATIVO'         => $row['status'],
+                        'CONFIRMADO_EN_SITIO'      => 0,
+                        'ID_ESPEC'                 => null,
+                        'CODIGO_PATIO'             => null,
+                        'DETALLE_UBICACION_ACTUAL' => null,
+                        'FOTO_EQUIPO'              => null,
+                        'LINK_GPS'                 => null,
+                        'CREADO_POR'               => $user->ID_USUARIO,
+                    ]);
+                    // ID_FRENTE_ACTUAL NO es fillable (ver Equipo::$fillable) → se asigna por
+                    // propiedad tras crear. Con create([...]) se descartaba en silencio y el
+                    // equipo importado quedaba SIN frente asignado. (ID_ANCLAJE nace null por defecto.)
+                    $nuevoEquipo->ID_FRENTE_ACTUAL = $row['id_frente_resuelto'];
+                    $nuevoEquipo->save();
                 }
-                $nuevoEquipo = Equipo::create([
-                    'id_tipo_equipo'           => $idTipo,
-                    'CATEGORIA_FLOTA'          => $row['categoria_flota'],
-                    'MARCA'                    => strtoupper($row['marca']),
-                    'MODELO'                   => strtoupper($row['modelo']),
-                    'ANIO'                     => (int)$row['anio'],
-                    'NUMERO_ETIQUETA'          => $row['numero_etiqueta'],
-                    'SERIAL_CHASIS'            => strtoupper($row['serial_chasis']),
-                    'SERIAL_DE_MOTOR'          => $row['serial_de_motor'] ? strtoupper($row['serial_de_motor']) : null,
-                    'ESTADO_OPERATIVO'         => $row['status'],
-                    'CONFIRMADO_EN_SITIO'      => 0,
-                    'ID_ESPEC'                 => null,
-                    'CODIGO_PATIO'             => null,
-                    'DETALLE_UBICACION_ACTUAL' => null,
-                    'FOTO_EQUIPO'              => null,
-                    'LINK_GPS'                 => null,
-                    'CREADO_POR'               => $user->ID_USUARIO,
-                ]);
-                // ID_FRENTE_ACTUAL NO es fillable (ver Equipo::$fillable) → se asigna por
-                // propiedad tras crear. Con create([...]) se descartaba en silencio y el
-                // equipo importado quedaba SIN frente asignado. (ID_ANCLAJE nace null por defecto.)
-                $nuevoEquipo->ID_FRENTE_ACTUAL = $row['id_frente_resuelto'];
-                $nuevoEquipo->save();
-            }
-        });
+            });
         } catch (\Illuminate\Database\QueryException $e) {
             // 1062 = Duplicate entry (índice único: SERIAL_CHASIS / SERIAL_DE_MOTOR).
             if (($e->errorInfo[1] ?? null) === 1062) {

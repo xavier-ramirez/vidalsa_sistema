@@ -46,6 +46,21 @@ class EquipoAuxiliarController extends Controller
     }
 
     /**
+     * Query de los frentes ACTIVOS que el usuario puede usar (lista blanca LOCAL +
+     * lista negra de bloqueados), ordenada por nombre. Fuente UNICA para todo lo que
+     * OFRECE frentes al usuario o los ACEPTA de vuelta: formularios de alta/edicion,
+     * plantilla Excel, previsualizacion del lote y su guardado. Antes cada sitio
+     * repetia el where+scopeFrentes, y la plantilla/preview del bulk se lo saltaban:
+     * ofrecian frentes prohibidos que luego el alta rechazaba.
+     */
+    private function frentesActivosPermitidos()
+    {
+        $query = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->orderBy('NOMBRE_FRENTE');
+        $this->scopeFrentes($query, 'ID_FRENTE');
+        return $query;
+    }
+
+    /**
      * True si $frenteId está en la lista negra del usuario actual. Se usa en las
      * acciones de ESCRITURA (crear/mover auxiliar) para que nadie —ni GLOBAL— pueda
      * dar de alta o movilizar hacia un frente bloqueado.
@@ -1439,9 +1454,7 @@ class EquipoAuxiliarController extends Controller
     // ═══════════════════════════════════════════════════════════
     public function create()
     {
-        $frentesQuery = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->orderBy('NOMBRE_FRENTE');
-        $this->scopeFrentes($frentesQuery, 'ID_FRENTE');
-        $frentes = $frentesQuery->get();
+        $frentes = $this->frentesActivosPermitidos()->get();
         // TIPOS dinamicos: base del enum + los tipos custom guardados en DB.
         $tipos = $this->getTiposDinamicos();
         $estados = EquipoAuxiliar::estadosLabel();
@@ -1518,9 +1531,7 @@ class EquipoAuxiliarController extends Controller
     {
         $auxiliar = EquipoAuxiliar::findOrFail($id);
         $this->authorizeAuxScope($auxiliar);
-        $frentesQuery = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->orderBy('NOMBRE_FRENTE');
-        $this->scopeFrentes($frentesQuery, 'ID_FRENTE');
-        $frentes = $frentesQuery->get();
+        $frentes = $this->frentesActivosPermitidos()->get();
         // TIPOS dinamicos: base del enum + los tipos custom guardados en DB.
         $tipos    = $this->getTiposDinamicos();
         $estados  = EquipoAuxiliar::estadosLabel();
@@ -2496,7 +2507,9 @@ class EquipoAuxiliarController extends Controller
         $spreadsheet->addSheet($listSheet);
 
         $tiposArr   = array_values(array_map(fn($l) => mb_strtoupper($l), $this->getTiposDinamicos()));
-        $frentesArr = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->orderBy('NOMBRE_FRENTE')->pluck('NOMBRE_FRENTE')->toArray();
+        // Solo los frentes que el usuario puede usar: la lista desplegable de la plantilla no
+        // debe sugerir frentes que luego el guardado rechazará con 403.
+        $frentesArr = $this->frentesActivosPermitidos()->pluck('NOMBRE_FRENTE')->toArray();
         $estadosArr = array_keys(EquipoAuxiliar::estadosLabel());
 
         $listSheet->fromArray([['Tipos']], null, 'A1');
@@ -2598,9 +2611,8 @@ class EquipoAuxiliarController extends Controller
         // bulk de equipos: un frente fuera del scope no se resuelve → la fila da error. Sin
         // esto la previa aceptaba cualquier frente activo y el store lo guardaba (el alta
         // individual sí abortaba con 403).
-        $frentesQuery = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->orderBy('NOMBRE_FRENTE');
-        $this->scopeFrentes($frentesQuery, 'ID_FRENTE');
-        $frentesMap = $frentesQuery->get()->keyBy(fn($f) => mb_strtolower(trim($f->NOMBRE_FRENTE)));
+        $frentesMap = $this->frentesActivosPermitidos()->get()
+            ->keyBy(fn($f) => mb_strtolower(trim($f->NOMBRE_FRENTE)));
         $validEstados = array_keys(EquipoAuxiliar::estadosLabel());
 
         // Pre-scan para detectar duplicados en archivo y contra BD
@@ -2710,8 +2722,9 @@ class EquipoAuxiliarController extends Controller
             'rows'    => $rows,
             'options' => [
                 'tipos'   => array_values(array_map(fn($l) => mb_strtoupper($l), $tiposMap)),
-                'frentes' => FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')
-                                ->orderBy('NOMBRE_FRENTE')
+                // Mismo conjunto que acepta el store: el <select> de la tabla editable no
+                // puede ofrecer un frente que al guardar devolverá 403.
+                'frentes' => $this->frentesActivosPermitidos()
                                 ->get(['ID_FRENTE', 'NOMBRE_FRENTE'])
                                 ->map(fn($f) => ['id' => $f->ID_FRENTE, 'nombre' => $f->NOMBRE_FRENTE]),
                 'estados' => $validEstados,
@@ -2808,9 +2821,8 @@ class EquipoAuxiliarController extends Controller
         // con 403 (ver store()). Aquí resolvemos el conjunto permitido UNA vez y rechazamos
         // el lote completo si alguna fila apunta fuera: mismo criterio de barrera que el
         // bulk de equipos (lista blanca LOCAL + lista negra de bloqueados, también GLOBAL).
-        $frentesQuery = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO');
-        $this->scopeFrentes($frentesQuery, 'ID_FRENTE');
-        $frentesPermitidos = $frentesQuery->pluck('ID_FRENTE')->map(fn ($id) => (int) $id)->all();
+        $frentesPermitidos = $this->frentesActivosPermitidos()->pluck('ID_FRENTE')
+            ->map(fn ($id) => (int) $id)->all();
 
         $filasFuera = [];
         foreach ($data['rows'] as $i => $row) {

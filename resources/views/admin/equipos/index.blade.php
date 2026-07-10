@@ -2397,6 +2397,15 @@
                 </span>
             `;
         }
+        // El backend NO confirma en sitio sin el permiso 'equipos.edit' (es una escritura).
+        // Sin este aviso el usuario veía la búsqueda correcta y creía haber confirmado.
+        if (payload.confirm_denied) {
+            summaryHtml += `
+                <span style="font-size: 12px; font-weight: 700; color: #854d0e;">
+                    <i class="material-icons" style="font-size: 13px; vertical-align: -2px; color: #ca8a04;">lock</i> Sin permiso para confirmar en sitio
+                </span>
+            `;
+        }
         if (inOther > 0) {
             summaryHtml += `
                 <span style="font-size: 12px; font-weight: 700; color: #854d0e;">
