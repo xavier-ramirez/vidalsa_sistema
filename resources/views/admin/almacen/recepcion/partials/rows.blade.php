@@ -13,17 +13,16 @@
         <td style="font-family:monospace;font-weight:800;font-size:13px;color:#0f172a;white-space:nowrap;letter-spacing:.3px;">
             {{ $neNumero }}
         </td>
-        {{-- Trayecto Origen → Destino lado a lado, mismo diseño que el historial de
-             movilizaciones de equipos (admin/movilizaciones/partials/table_rows): dos
-             columnas (label arriba + nombre abajo) con una flecha `east` en medio.
-             Origen en gris, Destino en azul. --}}
+        {{-- Trayecto origen → destino lado a lado. SIN las etiquetas "Origen"/"Destino"
+             encima de cada nombre (pedido del cliente): la flecha `east` ya marca la
+             dirección, y el título de la columna lo dice. Origen en gris, destino en azul
+             y con más peso, que es la jerarquía que antes daban las etiquetas. --}}
         <td class="tr-ruta-dest">
             <div style="display:flex;align-items:center;justify-content:center;gap:12px;word-break:break-word;overflow-wrap:break-word;">
                 <div style="display:flex;flex-direction:column;align-items:center;max-width:160px;text-align:center;">
-                    <span style="font-size:11px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:.3px;">Origen</span>
                     <span style="font-weight:600;color:#4a5568;font-size:13px;line-height:1.2;">{{ optional($t->almacenOrigen)->NOMBRE ?: '—' }}</span>
                 </div>
-                <i class="material-icons" style="font-size:18px;color:#cbd5e0;flex-shrink:0;">east</i>
+                <i class="material-icons" style="font-size:18px;color:#cbd5e0;flex-shrink:0;" title="Origen → Destino">east</i>
                 {{-- Destino = el FRENTE al que se envió (Traspaso::getNombreDestinoAttribute),
                      no el almacén: un almacén de PROYECTO sirve a VARIOS frentes, así que
                      todas las notas salían con el mismo nombre y no se distinguía a quién
@@ -31,7 +30,6 @@
                      El almacén físico se conserva como segunda línea, salvo que repita lo
                      mismo que el frente (frenteDestinoEsRedundante). --}}
                 <div style="display:flex;flex-direction:column;align-items:center;max-width:160px;text-align:center;">
-                    <span style="font-size:11px;color:#0067b1;font-weight:800;text-transform:uppercase;letter-spacing:.3px;">Destino</span>
                     <span style="font-weight:700;color:var(--maquinaria-dark-blue,#1e3a5f);font-size:13px;line-height:1.2;">{{ $t->nombre_destino }}</span>
                     @if($t->frenteDestino && !$t->frenteDestinoEsRedundante())
                         <span style="font-size:10.5px;color:#94a3b8;font-weight:600;line-height:1.2;margin-top:1px;" title="Almacén que recibe físicamente">{{ optional($t->almacenDestino)->NOMBRE }}</span>
