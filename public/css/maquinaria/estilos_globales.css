@@ -3957,6 +3957,16 @@ html.is-ios .ent-capt-add-btn { display: flex !important; }
     /* Solo queda "Pantalla completa" — Ver toda Venezuela, Descargar imagen, Proyectos
        (linea de oleoductos) y Dibujar tuberia se ocultan (pedido del cliente). */
     .mapa-ctrl-mobile-hide { display: none !important; }
+
+    /* Buscador ANCHO en teléfono: ocupa la fila salvo el hueco del único botón que queda
+       a su lado (Pantalla completa, 34px) más los márgenes de Leaflet. Antes se encogía a
+       140px / 46vw "para no montarse sobre los botones de al lado" — pero esos botones ya
+       no están aquí, así que solo desperdiciaba ancho justo donde menos sobra. La lista de
+       resultados no necesita ajuste: va anclada left:0/right:0 al contenedor. */
+    .leaflet-control-geocoder-form input {
+        width: calc(100vw - 96px) !important;
+        max-width: none !important;
+    }
     /* Contenedor MAS ALTO: 100dvh (no 100vh) descuenta la barra de URL del navegador —
        con 100vh el mapa quedaba cortado por debajo del pliegue. Se resta solo el header
        de la app. min-height 560px se anula: en un telefono bajo forzaba scroll y sacaba
@@ -4063,9 +4073,6 @@ html.is-ios .ent-capt-add-btn { display: flex !important; }
 @media (max-width: 560px) {
     .mapa-dibujo-tip { display: none; }
     .mapa-dibujo-titulo { font-size: 12px; }
-    /* Buscador mas angosto: en pantallas chicas 58vw quedaba muy ancho y se
-       montaba sobre los botones de control de al lado. */
-    .leaflet-control-geocoder-form input { width: 140px !important; max-width: 46vw !important; }
 }
 
 /* Popup para guardar un punto en un proyecto */
