@@ -62,7 +62,7 @@
                         style="font-size: 11px; color: #64748b; font-weight: 800; text-transform: uppercase;">Origen</span>
                     <span class="mv-frente-nombre"
                         style="font-weight: 600; color: #4a5568; font-size: 13px; line-height: 1.2;">
-                        {{ $mov->frenteOrigen->NOMBRE_FRENTE ?? 'Sin Origen' }}
+                        {{ $mov->nombre_origen ?? 'Sin Origen' }}
                     </span>
                 </div>
                 <i class="material-icons mv-trayecto-arrow"
@@ -73,7 +73,7 @@
                         style="font-size: 11px; color: #0067b1; font-weight: 800; text-transform: uppercase;">Destino</span>
                     <span class="mv-frente-nombre"
                         style="font-weight: 700; color: var(--maquinaria-dark-blue); font-size: 13px; line-height: 1.2;">
-                        {{ $mov->frenteDestino->NOMBRE_FRENTE ?? 'Sin Destino' }}
+                        {{ $mov->nombre_destino ?? 'Sin Destino' }}
                     </span>
                 </div>
             </div>

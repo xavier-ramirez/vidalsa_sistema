@@ -18,12 +18,34 @@ class Movilizacion extends Model
         'ID_AUXILIAR',             // Movilizacion de un EquipoAuxiliar (XOR con ID_EQUIPO)
         'ID_FRENTE_ORIGEN',
         'ID_FRENTE_DESTINO',
+        // Nombre del frente CONGELADO al momento del movimiento (ver migración
+        // add_frente_name_snapshot_to_movilizacion_historial). Sin esto, renombrar un
+        // frente reescribía en silencio el nombre mostrado en TODO el historial pasado.
+        'NOMBRE_FRENTE_ORIGEN_SNAPSHOT',
+        'NOMBRE_FRENTE_DESTINO_SNAPSHOT',
         'DETALLE_UBICACION',       // Patio/Subdivisión específica de recepción
         'FECHA_DESPACHO',
         'TIPO_MOVIMIENTO',         // DESPACHO, RECEPCION_DIRECTA
         'USUARIO_REGISTRO',
         'client_uuid',             // Idempotencia offline (Fase 2): UUID del lote creado sin internet
     ];
+
+    /**
+     * Nombre del frente de origen tal como estaba EN EL MOMENTO del movimiento.
+     * Fuente única para pintar el historial — usa el snapshot congelado; si es una
+     * fila vieja creada antes de esta columna (snapshot null), cae a la relación en
+     * vivo (mejor un nombre posiblemente desactualizado que nada).
+     */
+    public function getNombreOrigenAttribute(): ?string
+    {
+        return $this->NOMBRE_FRENTE_ORIGEN_SNAPSHOT ?: optional($this->frenteOrigen)->NOMBRE_FRENTE;
+    }
+
+    /** Espejo de getNombreOrigenAttribute() para el frente de destino. */
+    public function getNombreDestinoAttribute(): ?string
+    {
+        return $this->NOMBRE_FRENTE_DESTINO_SNAPSHOT ?: optional($this->frenteDestino)->NOMBRE_FRENTE;
+    }
 
     // Accessor for formatted CODIGO_CONTROL (MV-0000X)
     public function getFormattedCodigoControlAttribute()

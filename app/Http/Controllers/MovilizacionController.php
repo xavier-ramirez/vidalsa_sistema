@@ -242,12 +242,15 @@ class MovilizacionController extends Controller
 
             $origen = $equipo->ID_FRENTE_ACTUAL ?? 1;
             $now = now();
-            
+
             Movilizacion::create([
                 'CODIGO_CONTROL' => $nextId,
                 'ID_EQUIPO' => $request->ID_EQUIPO,
                 'ID_FRENTE_ORIGEN' => $origen,
                 'ID_FRENTE_DESTINO' => $request->ID_FRENTE_DESTINO,
+                // Nombre congelado al momento del movimiento — ver Movilizacion::getNombreOrigenAttribute.
+                'NOMBRE_FRENTE_ORIGEN_SNAPSHOT'  => FrenteTrabajo::find($origen)?->NOMBRE_FRENTE,
+                'NOMBRE_FRENTE_DESTINO_SNAPSHOT' => FrenteTrabajo::find($request->ID_FRENTE_DESTINO)?->NOMBRE_FRENTE,
                 'FECHA_DESPACHO' => $now,
                 'TIPO_MOVIMIENTO' => 'DESPACHO',
                 'USUARIO_REGISTRO' => auth()->user()->CORREO_ELECTRONICO ?? 'SISTEMA',
@@ -374,6 +377,12 @@ class MovilizacionController extends Controller
 
             $nextId = $generarPdf ? self::generateNextCodigoControl() : null;
 
+            // Nombres de los frentes de ORIGEN a congelar en el snapshot — un solo query
+            // por lote (no N+1) para los distintos ID_FRENTE_ACTUAL que trae $aMovilizar.
+            // El destino es uno solo ($frente, ya cargado arriba).
+            $origenIds     = $aMovilizar->pluck('ID_FRENTE_ACTUAL')->filter()->unique()->values();
+            $origenNombres = FrenteTrabajo::whereIn('ID_FRENTE', $origenIds)->pluck('NOMBRE_FRENTE', 'ID_FRENTE');
+
             // Crear movilizaciones una por una para obtener IDs exactos
             // (sin depender de timestamp match entre Carbon Âµs y MySQL TIMESTAMP sin fracciÃ³n).
             $movilizacionIds = [];
@@ -383,6 +392,9 @@ class MovilizacionController extends Controller
                     'ID_EQUIPO'         => $equipo->ID_EQUIPO,
                     'ID_FRENTE_ORIGEN'  => $equipo->ID_FRENTE_ACTUAL ?? 1,
                     'ID_FRENTE_DESTINO' => $frente->ID_FRENTE,
+                    // Nombre congelado al momento del movimiento — ver Movilizacion::getNombreOrigenAttribute.
+                    'NOMBRE_FRENTE_ORIGEN_SNAPSHOT'  => $origenNombres[$equipo->ID_FRENTE_ACTUAL] ?? null,
+                    'NOMBRE_FRENTE_DESTINO_SNAPSHOT' => $frente->NOMBRE_FRENTE,
                     'FECHA_DESPACHO'    => $generarPdf ? $now : null,
                     'TIPO_MOVIMIENTO'   => $generarPdf ? 'DESPACHO' : 'ACT.',
                     'USUARIO_REGISTRO'  => $userEmail,
@@ -496,13 +508,22 @@ class MovilizacionController extends Controller
                 ->lockForUpdate()
                 ->get(['ID_EQUIPO', 'ID_FRENTE_ACTUAL']);
 
+            // Nombres de los frentes de ORIGEN a congelar en el snapshot — un solo query
+            // por lote (no N+1). El destino es uno solo ($frenteDestino, ya cargado arriba).
+            $origenIds     = $equipos->pluck('ID_FRENTE_ACTUAL')->filter()->unique()->values();
+            $origenNombres = FrenteTrabajo::whereIn('ID_FRENTE', $origenIds)->pluck('NOMBRE_FRENTE', 'ID_FRENTE');
+
             $insertData = [];
             foreach ($equipos as $equipo) {
                 $insertData[] = [
                     'CODIGO_CONTROL' => null, // Recepciones directas no tienen cÃ³digo de control
                     'ID_EQUIPO' => $equipo->ID_EQUIPO,
                     'ID_FRENTE_ORIGEN' => $equipo->ID_FRENTE_ACTUAL ?? $request->ID_FRENTE_DESTINO,
+                    // Nombre congelado al momento del movimiento — ver Movilizacion::getNombreOrigenAttribute.
+                    // Mismo fallback que ID_FRENTE_ORIGEN de arriba: sin origen real, usa el destino.
+                    'NOMBRE_FRENTE_ORIGEN_SNAPSHOT'  => $origenNombres[$equipo->ID_FRENTE_ACTUAL] ?? $frenteDestino->NOMBRE_FRENTE,
                     'ID_FRENTE_DESTINO' => $request->ID_FRENTE_DESTINO,
+                    'NOMBRE_FRENTE_DESTINO_SNAPSHOT' => $frenteDestino->NOMBRE_FRENTE,
                     'DETALLE_UBICACION' => $request->DETALLE_UBICACION,
                     'FECHA_DESPACHO' => null, // No hubo despacho
                     'TIPO_MOVIMIENTO' => 'RECEPCION_DIRECTA',
@@ -741,6 +762,23 @@ class MovilizacionController extends Controller
 
             if (!$frenteDestino) {
                 return back()->withErrors(['error' => 'No se encontrÃ³ el frente de destino']);
+            }
+
+            // Nombre impreso en el acta = el que tenÃ­a el frente EN EL MOMENTO del
+            // movimiento (snapshot congelado — ver Movilizacion::getNombreOrigenAttribute),
+            // no el nombre actual: si el frente se renombrÃ³ despuÃ©s, un acta ya emitida
+            // no debe cambiar de nombre retroactivamente al reabrirla/reimprimirla. Solo se
+            // pisa el atributo NOMBRE_FRENTE en memoria (no se persiste, no hay ->save() en
+            // este flujo) — ubicaciÃ³n y firmantes siguen viniendo del registro VIVO del
+            // frente, igual que antes (esos sÃ­ reflejan el estado actual a propÃ³sito).
+            if ($frenteOrigen) {
+                $nombreOrigenSnap = optional($movilizaciones->firstWhere('ID_FRENTE_ORIGEN', $idOrigenMayoria))->nombre_origen;
+                if ($nombreOrigenSnap) {
+                    $frenteOrigen->NOMBRE_FRENTE = $nombreOrigenSnap;
+                }
+            }
+            if ($movilizacion->nombre_destino) {
+                $frenteDestino->NOMBRE_FRENTE = $movilizacion->nombre_destino;
             }
 
             // N° de operacion (6 digitos) y fecha del renglon "lugar, fecha".
@@ -1151,8 +1189,10 @@ class MovilizacionController extends Controller
                     'TIPO'          => $m->equipo->tipo->nombre ?? 'N/A',
                     'PLACA'         => $m->equipo->documentacion->PLACA ?? 'S/P',
                 ] : null,
-                'frente_origen'  => $m->frenteOrigen ? ['ID_FRENTE' => $m->frenteOrigen->ID_FRENTE, 'NOMBRE_FRENTE' => $m->frenteOrigen->NOMBRE_FRENTE] : null,
-                'frente_destino' => $m->frenteDestino ? ['ID_FRENTE' => $m->frenteDestino->ID_FRENTE, 'NOMBRE_FRENTE' => $m->frenteDestino->NOMBRE_FRENTE] : null,
+                // NOMBRE_FRENTE congelado al momento del movimiento (ver
+                // Movilizacion::getNombreOrigenAttribute) — no el nombre actual del frente.
+                'frente_origen'  => $m->frenteOrigen ? ['ID_FRENTE' => $m->frenteOrigen->ID_FRENTE, 'NOMBRE_FRENTE' => $m->nombre_origen] : null,
+                'frente_destino' => $m->frenteDestino ? ['ID_FRENTE' => $m->frenteDestino->ID_FRENTE, 'NOMBRE_FRENTE' => $m->nombre_destino] : null,
             ];
         });
 
@@ -1187,11 +1227,15 @@ class MovilizacionController extends Controller
             $nextId = self::generateNextCodigoControl();
 
             $now = now();
+            $origen = $equipo->ID_FRENTE_ACTUAL ?? 1;
             Movilizacion::create([
                 'CODIGO_CONTROL'    => $nextId,
                 'ID_EQUIPO'         => $request->ID_EQUIPO,
-                'ID_FRENTE_ORIGEN'  => $equipo->ID_FRENTE_ACTUAL ?? 1,
+                'ID_FRENTE_ORIGEN'  => $origen,
                 'ID_FRENTE_DESTINO' => $request->ID_FRENTE_DESTINO,
+                // Nombre congelado al momento del movimiento — ver Movilizacion::getNombreOrigenAttribute.
+                'NOMBRE_FRENTE_ORIGEN_SNAPSHOT'  => FrenteTrabajo::find($origen)?->NOMBRE_FRENTE,
+                'NOMBRE_FRENTE_DESTINO_SNAPSHOT' => FrenteTrabajo::find($request->ID_FRENTE_DESTINO)?->NOMBRE_FRENTE,
                 'FECHA_DESPACHO'    => $now,
                 'TIPO_MOVIMIENTO'   => 'DESPACHO',
                 'USUARIO_REGISTRO'  => $usuario->CORREO_ELECTRONICO ?? 'SISTEMA',
