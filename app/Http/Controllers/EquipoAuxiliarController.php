@@ -492,7 +492,8 @@ class EquipoAuxiliarController extends Controller
         foreach ($tiposEnDB as $t) {
             // MAYUSCULAS para igualar el resto del modulo (los tipos de vehiculo ya
             // salen en mayuscula). Fuente unica de los labels de tipo de auxiliar en
-            // listados/filtros/widgets — los formularios usan tiposLabel() directo.
+            // listados, filtros, widgets y el desplegable "Tipo" del alta unificada
+            // (/admin/equipos/create en modo auxiliar).
             $tipos[$t] = mb_strtoupper($tiposLabels[$t] ?? str_replace('_', ' ', $t));
         }
         asort($tipos);
@@ -2593,10 +2594,13 @@ class EquipoAuxiliarController extends Controller
             $tiposByCodeLower[mb_strtolower($code)]   = $code;
             $tiposByLabelLower[mb_strtolower($label)] = $code;
         }
-        $frentesMap = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')
-            ->orderBy('NOMBRE_FRENTE')
-            ->get()
-            ->keyBy(fn($f) => mb_strtolower(trim($f->NOMBRE_FRENTE)));
+        // Barrera de frentes (lista blanca LOCAL + lista negra de bloqueados), igual que el
+        // bulk de equipos: un frente fuera del scope no se resuelve → la fila da error. Sin
+        // esto la previa aceptaba cualquier frente activo y el store lo guardaba (el alta
+        // individual sí abortaba con 403).
+        $frentesQuery = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->orderBy('NOMBRE_FRENTE');
+        $this->scopeFrentes($frentesQuery, 'ID_FRENTE');
+        $frentesMap = $frentesQuery->get()->keyBy(fn($f) => mb_strtolower(trim($f->NOMBRE_FRENTE)));
         $validEstados = array_keys(EquipoAuxiliar::estadosLabel());
 
         // Pre-scan para detectar duplicados en archivo y contra BD
@@ -2796,6 +2800,32 @@ class EquipoAuxiliarController extends Controller
                 'success' => false,
                 'message' => 'Algun serial ya existe en BD: ' . implode(', ', $conflictsBD),
             ], 422);
+        }
+
+        // Frentes: `id_frente_resuelto` llega del CLIENTE (el JS lo saca de un data-attr de
+        // la fila), así que `exists:frentes_trabajo` no basta — un id manipulado, o el de un
+        // frente fuera del scope/bloqueado, entraba tal cual. El alta individual sí lo corta
+        // con 403 (ver store()). Aquí resolvemos el conjunto permitido UNA vez y rechazamos
+        // el lote completo si alguna fila apunta fuera: mismo criterio de barrera que el
+        // bulk de equipos (lista blanca LOCAL + lista negra de bloqueados, también GLOBAL).
+        $frentesQuery = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO');
+        $this->scopeFrentes($frentesQuery, 'ID_FRENTE');
+        $frentesPermitidos = $frentesQuery->pluck('ID_FRENTE')->map(fn ($id) => (int) $id)->all();
+
+        $filasFuera = [];
+        foreach ($data['rows'] as $i => $row) {
+            $idFrente = $row['id_frente_resuelto'] ?? null;
+            if ($idFrente === null) continue; // sin frente = "Sin Asignar", permitido
+            if (!in_array((int) $idFrente, $frentesPermitidos, true)) {
+                $filasFuera[] = $i + 2; // +2 = nº de fila real en el Excel (cabecera + base 0)
+            }
+        }
+        if (!empty($filasFuera)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No tienes permiso para registrar auxiliares en el frente indicado (fila '
+                    . implode(', ', $filasFuera) . ').',
+            ], 403);
         }
 
         $creadoPor = auth()->id();

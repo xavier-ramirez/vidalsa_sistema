@@ -1451,6 +1451,29 @@ class EquipoController extends Controller
         return response()->json($results);
     }
 
+    /**
+     * Invalida las listas cacheadas de marca/modelo/año/color que alimentan los
+     * autocompletes del formulario (_v3, TTL 60s) y los filtros del indice (_dropdown).
+     * Punto UNICO: la lista estaba copiada en store() y update() y ya divergia
+     * (update no limpiaba 'equipos_modelos_list'), ademas de faltar por completo en
+     * bulkStoreBatch() — tras importar por Excel, marcas y modelos nuevos no aparecian.
+     */
+    private function olvidarCachesListasEquipos(): void
+    {
+        foreach ([
+            'equipos_modelos_list',     // autocomplete del catálogo
+            'equipos_modelos_dropdown', // filtros del índice
+            'equipos_marcas_dropdown',
+            'equipos_anios_dropdown',
+            'equipos_colores_dropdown',
+            'marcas_list_form_v3',      // formulario create/edit
+            'modelos_list_form_v3',
+            'anios_list_form_v3',
+        ] as $key) {
+            \Illuminate\Support\Facades\Cache::forget($key);
+        }
+    }
+
     public function create()
     {
         // Cache dropdown lists for 1 hour to avoid repeated DB queries
@@ -1507,7 +1530,13 @@ class EquipoController extends Controller
 
         $equipo = new Equipo(); // Empty instance for form partial
 
-        $tiposAux = \App\Models\EquipoAuxiliar::tiposLabel();
+        // buildTiposMap() (NO tiposLabel()): misma fuente que el indice y los filtros de
+        // auxiliares — devuelve los tipos REALMENTE usados, en MAYUSCULAS. Con tiposLabel()
+        // el desplegable salia en minusculas ("Máquina de Soldar"), ofrecia 2 tipos sin
+        // registros y ocultaba los 6 que si existen (MONTACARGA, MANLIFT, HIDROJET...).
+        // El input sigue siendo texto libre: un tipo nuevo se escribe y validateData() lo
+        // normaliza a MAYUSCULAS_CON_GUION_BAJO.
+        $tiposAux = app(\App\Http\Controllers\EquipoAuxiliarController::class)->buildTiposMap();
         $estadosAux = \App\Models\EquipoAuxiliar::estadosLabel();
         $auxiliar = new \App\Models\EquipoAuxiliar();
         $frentesAux = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->orderBy('NOMBRE_FRENTE', 'asc')->get();
@@ -1811,20 +1840,7 @@ class EquipoController extends Controller
             }
         });
 
-        // Invalidar caché del índice y del formulario al crear un equipo nuevo
-        // (clave marcas/modelos del formulario = _v3; del índice = _dropdown)
-        foreach ([
-            'equipos_modelos_list',    // autocomplete del catálogo
-            'equipos_modelos_dropdown', // filtro del índice
-            'equipos_marcas_dropdown',
-            'equipos_anios_dropdown',
-            'equipos_colores_dropdown',
-            'marcas_list_form_v3',     // formulario create/edit
-            'modelos_list_form_v3',
-            'anios_list_form_v3',
-        ] as $key) {
-            \Illuminate\Support\Facades\Cache::forget($key);
-        }
+        $this->olvidarCachesListasEquipos();
 
         if ($request->wantsJson()) {
             return response()->json(['success' => true, 'message' => 'Equipo registrado correctamente.', 'redirect' => route('equipos.index')]);
@@ -2137,17 +2153,7 @@ class EquipoController extends Controller
         });
 
         // Invalidar caché SIEMPRE (antes del return, aplique a JSON o redirect)
-        foreach ([
-            'marcas_list_form_v3',
-            'modelos_list_form_v3',
-            'anios_list_form_v3',
-            'equipos_marcas_dropdown',
-            'equipos_modelos_dropdown', // faltaba: editar el modelo no refrescaba el filtro del índice
-            'equipos_anios_dropdown',
-            'equipos_colores_dropdown', // faltaba: editar el color no refrescaba el filtro del índice
-        ] as $key) {
-            \Illuminate\Support\Facades\Cache::forget($key);
-        }
+        $this->olvidarCachesListasEquipos();
         if (auth()->check()) {
             \Illuminate\Support\Facades\Cache::forget('dashboard_user_data_' . auth()->id());
         }
@@ -3743,8 +3749,14 @@ class EquipoController extends Controller
         })->values();
 
         // Confirmar en sitio los equipos que coinciden con el frente seleccionado.
+        // Confirmar en sitio es una ESCRITURA y exige 'equipos.edit' — el mismo permiso que
+        // confirmarSitio() (ver constructor). La ruta bulk-lookup solo pide 'auth' porque la
+        // BUSQUEDA es de consulta; sin este guard cualquier usuario autenticado confirmaba
+        // equipos con solo elegir un frente en el modal.
+        $puedeConfirmar = auth()->user()?->can('equipos.edit') ?? false;
+
         $confirmed = 0;
-        if ($frenteIdFiltro !== null) {
+        if ($frenteIdFiltro !== null && $puedeConfirmar) {
             $idsToConfirm = $results
                 ->filter(fn($r) => ($r['found'] ?? false) && ($r['in_selected_frente'] ?? false))
                 ->pluck('id')
@@ -3757,6 +3769,8 @@ class EquipoController extends Controller
                     ->update(['CONFIRMADO_EN_SITIO' => 1]);
             }
         }
+        // El front distingue "0 por confirmar" de "no te dejaron confirmar".
+        $confirmDenied = ($frenteIdFiltro !== null && !$puedeConfirmar);
 
         return response()->json([
             'total'           => $results->count(),
@@ -3764,6 +3778,7 @@ class EquipoController extends Controller
             'missing'         => $results->count() - $found,
             'in_other_frente' => $inOtherFrente,
             'confirmed'       => $confirmed,
+            'confirm_denied'  => $confirmDenied,
             'results'         => $results,
         ]);
     }
@@ -5146,6 +5161,11 @@ class EquipoController extends Controller
 
         // Insertar todo en transacción, row por row para disparar EquipoObserver.
         // Si el tipo no existe todavía, lo creamos dentro de la misma transacción.
+        // try/catch: entre el chequeo de unicidad de arriba y estos INSERT hay una ventana
+        // en la que otra petición puede insertar el mismo serial. El índice único de BD lo
+        // impide (no hay duplicado), pero sin capturar la QueryException el usuario recibía
+        // un 500 crudo en vez de un error entendible. Mismo trato que el bulk de auxiliares.
+        try {
         DB::transaction(function () use ($resolvedRows, $user) {
             $tipoCache = []; // cache en memoria para no crear duplicados dentro del mismo lote
             foreach ($resolvedRows as $row) {
@@ -5188,6 +5208,20 @@ class EquipoController extends Controller
                 $nuevoEquipo->save();
             }
         });
+        } catch (\Illuminate\Database\QueryException $e) {
+            // 1062 = Duplicate entry (índice único: SERIAL_CHASIS / SERIAL_DE_MOTOR).
+            if (($e->errorInfo[1] ?? null) === 1062) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Otro usuario acaba de registrar uno de estos seriales. No se guardó nada; vuelve a previsualizar el archivo.',
+                ], 422);
+            }
+            throw $e;
+        }
+
+        // Marcas/modelos/años nuevos del Excel: sin esto no salían en los autocompletes
+        // del formulario ni en los filtros del índice hasta que expiraba la caché.
+        $this->olvidarCachesListasEquipos();
 
         $count = count($resolvedRows);
 
