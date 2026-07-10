@@ -222,7 +222,9 @@
     }
     .dtm-overlay.open { display:flex; }
     .dtm-box {
-        background:#fff; border-radius:16px; width:100%; max-width:760px;
+        /* 640px (antes 760): sin el bloque de metadatos ni la columna Recibido ancha, el
+           modal sobraba de ancho y la tabla quedaba desperdigada. */
+        background:#fff; border-radius:16px; width:100%; max-width:640px;
         max-height:95vh; min-height:60vh; display:flex; flex-direction:column; overflow:hidden;
         box-shadow:0 25px 50px -12px rgba(0,0,0,0.35);
         animation: dtmIn .2s ease-out;
@@ -264,7 +266,9 @@
     }
     .dtm-table thead th:first-child { text-align:left; }
     .dtm-table tbody td {
-        padding:6px 8px; border-bottom:1px solid #eef2f6;
+        /* 10px verticales (antes 6): las filas iban muy apretadas y ahora alojan el campo
+           editable de "Recibido" (30px de alto). */
+        padding:10px 8px; border-bottom:1px solid #eef2f6;
         text-align:center; vertical-align:middle; border-right:1px solid #f1f5f9;
     }
     .dtm-table tbody td:last-child { border-right:none; }
@@ -282,20 +286,24 @@
     .dtm-col-num { font-weight:600; font-size:13px; color:#0f172a; white-space:nowrap; }
     /* Columna "#": numeración de filas, gris y discreta. */
     .dtm-col-idx { font-size:13px; font-weight:700; color:#94a3b8; width:1%; white-space:nowrap; }
-    /* Recibido = check (llegó) + input de cantidad. El check marca recibido; la cantidad
-       sale del input contiguo, que arranca deshabilitado con lo enviado y se habilita al
-       marcar para registrar que llegó OTRA cantidad (parcial). */
-    /* Recepción activa: la fila se marca "recibida" tocándola (sin checkbox). Cursor
-       de mano + hover suave; al marcar, toda la fila se resalta en azul y la cantidad
-       recibida se resalta también. Sin marcar = cantidad en gris (no recibido aún). */
+    /* Recepción activa: tocar la fila la marca (azul) y rellena su campo "Recibido" con lo
+       enviado. Si llegó menos, se escribe el número a mano; el campo manda sobre el toque.
+       Columna estrecha: solo aloja una cifra corta. */
     .dtm-linea-rec { cursor:pointer; }
-    .dtm-linea-rec .dtm-rec-cant { color:#94a3b8; }
     .dtm-linea-rec.recibida td { background:#e1effa; }
     .dtm-linea-rec.recibida:hover td { background:#d6e9fb; }
-    .dtm-linea-rec.recibida .dtm-rec-cant { color:#0067b1; font-weight:800; }
-    /* Check verde de "tildado": oculto por defecto, aparece al marcar la fila (.recibida). */
-    .dtm-rec-cant .dtm-rec-ico { display:none; font-size:16px; vertical-align:middle; margin-right:3px; color:#16a34a; }
-    .dtm-linea-rec.recibida .dtm-rec-ico { display:inline; }
+    .dtm-rec-cant { width:1%; padding-left:4px !important; padding-right:4px !important; }
+    .dtm-rec-input {
+        width:64px; height:30px; padding:0 6px; text-align:center;
+        border:1px solid #cbd5e0; border-radius:8px; background:#fff;
+        font-family:inherit; font-size:13px; font-weight:600; color:#0f172a;
+        outline:none; cursor:text; -moz-appearance:textfield;
+    }
+    /* Sin las flechitas del type=number: roban ancho a una columna que queremos angosta. */
+    .dtm-rec-input::-webkit-outer-spin-button,
+    .dtm-rec-input::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
+    .dtm-rec-input:focus { border-color:#0067b1; box-shadow:0 0 0 2px rgba(0,103,177,.15); }
+    .dtm-linea-rec.recibida .dtm-rec-input { border-color:#0067b1; color:#0067b1; font-weight:800; }
     .dtm-diff-value { font-size:13px; font-weight:600; color:#64748b; }
 
     .dtm-footer {
@@ -335,9 +343,12 @@
         .dtm-box { max-width:100%; max-height:95vh; border-radius:16px 16px 0 0; }
         .dtm-footer { flex-direction:column; }
         .dtm-footer .dt-btn { width:100%; justify-content:center; }
-        /* Materiales (tabla): celdas y fuentes más compactas para el ancho del teléfono. */
+        /* Materiales (tabla): celdas y fuentes más compactas para el ancho del teléfono.
+           8px verticales (no 5): la fila aloja el campo editable de "Recibido" (30px). */
         .dtm-table { font-size:12px; }
-        .dtm-table thead th, .dtm-table tbody td { padding:5px 4px; }
+        .dtm-table thead th, .dtm-table tbody td { padding:8px 4px; }
+        /* Campo "Recibido" más angosto: en el teléfono cada px de la columna Producto cuenta. */
+        .dtm-rec-input { width:54px; height:28px; font-size:12px; }
         /* Misma letra (12px) para TODO el texto de la tabla también en móvil. La UM queda
            fuera: acompaña a la cantidad y debe seguir siendo más pequeña que la cifra. */
         .dtm-col-num, .dtm-diff-value, .dtm-linea-cod, .dtm-linea-nom, .dtm-col-idx { font-size:12px; }
@@ -1071,26 +1082,47 @@
 
     // Fila marcada (.recibida) = recibida por la cantidad enviada (data-enviada). Sin
     // marcar = no recibida (0 → el backend lo registra como faltante).
+    // La cantidad recibida sale del INPUT de cada fila, no de data-enviada: el usuario puede
+    // haber escrito menos (recepción parcial) o más (sobrante). Una fila sin marcar cuenta
+    // como 0 recibido aunque el input tenga texto — marcarla es lo que la da por recibida.
+    // El backend acepta cualquier valor ≥ 0 y calcula la diferencia contra lo enviado.
     function trCollectLineas() {
         var box = el('trDetalleBox');
         if (!box) return [];
         var lineas = [];
         box.querySelectorAll('.dtm-linea-rec').forEach(function (card) {
-            var enviada = parseFloat(card.dataset.enviada) || 0;
+            var inp = card.querySelector('.dtm-rec-input');
+            var cant = inp ? (parseFloat(inp.value) || 0) : (parseFloat(card.dataset.enviada) || 0);
             lineas.push({
                 id_linea:          parseInt(card.dataset.idLinea),
-                cantidad_recibida: card.classList.contains('recibida') ? enviada : 0,
+                cantidad_recibida: card.classList.contains('recibida') ? cant : 0,
             });
         });
         return lineas;
     }
 
-    // Tocar una fila de la recepción activa la marca/desmarca como recibida (azul).
+    // Tocar una fila de la recepción activa la marca/desmarca como recibida (azul) y rellena
+    // o vacía su campo "Recibido" con la cantidad enviada — el caso normal es "llegó todo".
     // Delegado en #trDetalleBox porque el contenido del modal se carga por AJAX.
+    // El input lleva su propio stopPropagation: escribir dentro no debe desmarcar la fila.
     if (_trBindGlobal) document.addEventListener('click', function (e) {
         var row = e.target.closest('#trDetalleBox .dtm-linea-rec');
-        if (row) { row.classList.toggle('recibida'); window.trUpdateConfirmBtn(); }
+        if (!row) return;
+        var marcada = row.classList.toggle('recibida');
+        var inp = row.querySelector('.dtm-rec-input');
+        if (inp) inp.value = marcada ? (parseFloat(row.dataset.enviada) || 0) : '';
+        window.trUpdateConfirmBtn();
     });
+
+    // Escribir una cantidad marca la fila; borrarla (o poner 0) la desmarca. Así el estado
+    // visual y lo que se enviará al backend no pueden contradecirse.
+    window.trRecInput = function (inp) {
+        var row = inp.closest('.dtm-linea-rec');
+        if (!row) return;
+        var v = parseFloat(inp.value);
+        row.classList.toggle('recibida', isFinite(v) && v > 0);
+        window.trUpdateConfirmBtn();
+    };
 
     // Botón "Aceptar (N)": única acción de confirmación. Siempre VISIBLE; se deshabilita
     // mientras no haya filas tildadas (.recibida), en vez de ocultarse — un pie con solo

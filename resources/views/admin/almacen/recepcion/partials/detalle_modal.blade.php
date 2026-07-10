@@ -75,11 +75,17 @@
                              parte de la descripción. --}}
                         <td class="dtm-col-num">{{ $cantEnvFmt }}<span class="dtm-linea-um">{{ optional($linea->producto)->UM }}</span></td>
                         @if($puedeRecibir)
-                            {{-- Recibido = TOCAR la fila (se resalta en azul + check verde).
-                                 Muestra la cantidad enviada (lo que se registra como recibido al
-                                 marcar). Sin marcar = no recibido → faltante. --}}
+                            {{-- Recibido = campo EDITABLE. Tocar la fila lo rellena con la cantidad
+                                 enviada (caso normal "llegó todo"); si llegó menos, se escribe el
+                                 número real. Vacío o 0 = no recibido → faltante. El clic sobre el
+                                 input no debe togglear la fila (stopPropagation), o escribir dentro
+                                 la desmarcaría. --}}
                             <td class="dtm-col-num dtm-rec-cant">
-                                <span class="material-icons dtm-rec-ico">check_circle</span>{{ $cantEnvFmt }}
+                                <input type="number" class="dtm-rec-input" inputmode="decimal"
+                                       min="0" step="any" placeholder="0" value=""
+                                       aria-label="Cantidad recibida"
+                                       onclick="event.stopPropagation();"
+                                       oninput="window.trRecInput(this)">
                             </td>
                         @elseif($traspaso->esRecibido() || $traspaso->esCancelado())
                             <td class="dtm-col-num" style="color:{{ $linea->CANTIDAD_RECIBIDA === null ? '#94a3b8' : ($diff < 0 ? '#dc2626' : ($diff > 0 ? '#1d4ed8' : '#0f172a')) }};">{{ $linea->CANTIDAD_RECIBIDA === null ? '—' : rtrim(rtrim(number_format((float) $linea->CANTIDAD_RECIBIDA, 3, ',', '.'), '0'), ',') }}</td>
