@@ -103,6 +103,34 @@ class Traspaso extends Model
         return $this->belongsTo(FrenteTrabajo::class, 'ID_FRENTE_DESTINO', 'ID_FRENTE');
     }
 
+    /**
+     * Nombre del DESTINO tal como debe leerlo el usuario: el FRENTE al que se envió, si lo
+     * hay; si no, el almacén. Mismo criterio que la columna Destino del kardex de salidas
+     * (ver partials/kardex_rows.blade.php): el frente es el dato que dice a quién se le
+     * entregó, y un almacén de PROYECTO puede servir a varios frentes — mostrar solo su
+     * nombre hacía que notas a frentes distintos se vieran todas iguales.
+     */
+    public function getNombreDestinoAttribute(): string
+    {
+        $frente  = trim((string) (optional($this->frenteDestino)->NOMBRE_FRENTE ?? ''));
+        $almacen = trim((string) (optional($this->almacenDestino)->NOMBRE ?? ''));
+        return $frente !== '' ? $frente : ($almacen !== '' ? $almacen : '—');
+    }
+
+    /**
+     * True cuando el nombre del frente destino no aporta nada sobre el del almacén (en
+     * almacenes de PROYECTO suelen coincidir). Comparación tolerante a tildes, mayúsculas
+     * y espacios repetidos. Fuente ÚNICA: la usan la bandeja de recepción y el modal de
+     * detalle para no repetir el mismo nombre dos veces.
+     */
+    public function frenteDestinoEsRedundante(): bool
+    {
+        $frente = optional($this->frenteDestino)->NOMBRE_FRENTE;
+        if (!$frente) return false;
+        $norm = static fn ($s) => mb_strtoupper(trim(preg_replace('/\s+/', ' ', \Illuminate\Support\Str::ascii((string) $s))));
+        return $norm($frente) === $norm(optional($this->almacenDestino)->NOMBRE ?? '');
+    }
+
     public function usuarioCreo()
     {
         return $this->belongsTo(Usuario::class, 'ID_USUARIO_CREO', 'ID_USUARIO');

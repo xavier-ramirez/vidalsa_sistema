@@ -123,6 +123,9 @@ class TraspasoController extends Controller
             ->with([
                 'almacenOrigen:ID_ALMACEN,NOMBRE,TIPO',
                 'almacenDestino:ID_ALMACEN,NOMBRE,TIPO',
+                // La columna Destino muestra el FRENTE (ver Traspaso::getNombreDestinoAttribute).
+                // Sin este eager-load serían N+1 consultas, una por fila de la bandeja.
+                'frenteDestino:ID_FRENTE,NOMBRE_FRENTE',
                 // El detalle de materiales NO se lista en la bandeja (se ve al abrir la
                 // nota), así que no se hace eager-load de lineas.producto aquí.
             ])

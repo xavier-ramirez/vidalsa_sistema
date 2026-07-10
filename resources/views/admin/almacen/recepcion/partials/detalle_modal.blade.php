@@ -8,12 +8,11 @@
 
     // Frente vs Destino: en almacenes de PROYECTO el nombre del almacén destino y el del
     // frente suelen coincidir → no repetir la fila "Frente" cuando dice lo mismo que
-    // "Destino" (comparación tolerante a tildes/mayúsculas/espacios). Si el frente es
-    // distinto (caso típico de un almacén GENERAL) se sigue mostrando.
+    // "Destino". La comparación (tolerante a tildes/mayúsculas/espacios) vive en el modelo,
+    // que es la misma fuente que usa la bandeja de recepción.
     $destNombre   = optional($traspaso->almacenDestino)->NOMBRE;
     $frenteNombre = optional($traspaso->frenteDestino)->NOMBRE_FRENTE;
-    $norm = fn ($s) => $s ? mb_strtoupper(trim(preg_replace('/\s+/', ' ', \Illuminate\Support\Str::ascii((string) $s)))) : '';
-    $frenteRedundante = $frenteNombre && $norm($frenteNombre) === $norm($destNombre);
+    $frenteRedundante = $traspaso->frenteDestinoEsRedundante();
 @endphp
 
 <div class="dtm-header">

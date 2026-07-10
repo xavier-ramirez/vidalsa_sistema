@@ -24,9 +24,18 @@
                     <span style="font-weight:600;color:#4a5568;font-size:13px;line-height:1.2;">{{ optional($t->almacenOrigen)->NOMBRE ?: '—' }}</span>
                 </div>
                 <i class="material-icons" style="font-size:18px;color:#cbd5e0;flex-shrink:0;">east</i>
+                {{-- Destino = el FRENTE al que se envió (Traspaso::getNombreDestinoAttribute),
+                     no el almacén: un almacén de PROYECTO sirve a VARIOS frentes, así que
+                     todas las notas salían con el mismo nombre y no se distinguía a quién
+                     iba cada una. Mismo criterio que la columna Destino de las salidas.
+                     El almacén físico se conserva como segunda línea, salvo que repita lo
+                     mismo que el frente (frenteDestinoEsRedundante). --}}
                 <div style="display:flex;flex-direction:column;align-items:center;max-width:160px;text-align:center;">
                     <span style="font-size:11px;color:#0067b1;font-weight:800;text-transform:uppercase;letter-spacing:.3px;">Destino</span>
-                    <span style="font-weight:700;color:var(--maquinaria-dark-blue,#1e3a5f);font-size:13px;line-height:1.2;">{{ optional($t->almacenDestino)->NOMBRE ?: '—' }}</span>
+                    <span style="font-weight:700;color:var(--maquinaria-dark-blue,#1e3a5f);font-size:13px;line-height:1.2;">{{ $t->nombre_destino }}</span>
+                    @if($t->frenteDestino && !$t->frenteDestinoEsRedundante())
+                        <span style="font-size:10.5px;color:#94a3b8;font-weight:600;line-height:1.2;margin-top:1px;" title="Almacén que recibe físicamente">{{ optional($t->almacenDestino)->NOMBRE }}</span>
+                    @endif
                 </div>
             </div>
         </td>
