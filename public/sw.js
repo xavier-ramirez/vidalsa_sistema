@@ -35,7 +35,22 @@ const PRECACHE_URLS = [
 self.addEventListener('install', (event) => {
     self.skipWaiting();
     event.waitUntil(
-        caches.open(STATIC_CACHE).then((cache) => cache.addAll(PRECACHE_URLS)).catch(() => {})
+        Promise.all([
+            caches.open(STATIC_CACHE).then((cache) => cache.addAll(PRECACHE_URLS)).catch(() => {}),
+            // '/' (el login) aparte de PRECACHE_URLS/addAll, con el MISMO guard que usa
+            // el handler de fetch en runtime más abajo: si el install corre con una
+            // sesión activa, '/' redirige a /menu — cachearlo tal cual pisaría el login
+            // con el menú, y la próxima vez que se abra la PWA ya deslogueado saldría
+            // el menú viejo en vez del login. Sin esto, el primer reinicio de la PWA
+            // tras instalarla no tenía nada cacheado bajo "/": la pantalla nativa de
+            // Android (icono sobre fondo blanco) se quedaba varios segundos de más
+            // esperando la red antes de poder pintar el login.
+            fetch('/', { credentials: 'same-origin' }).then((response) => {
+                if (response && response.status === 200 && !response.redirected) {
+                    return caches.open(RUNTIME_CACHE).then((cache) => cache.put('/', response));
+                }
+            }).catch(() => {})
+        ])
     );
 });
 
@@ -90,8 +105,12 @@ self.addEventListener('fetch', (event) => {
         url.pathname === '/favicon.ico';
 
     if (isStaticAsset) {
+        // ignoreSearch: PRECACHE_URLS guarda estos assets SIN el "?v=filemtime" que
+        // agrega el HTML (cache-busting) — sin esto, caches.match() nunca encontraba
+        // la entrada precacheada (clave distinta) y el primer arranque offline (o con
+        // red lenta) se quedaba sin CSS/JS crítico, ej. el preloader del login pegado.
         event.respondWith(
-            caches.match(request).then((cached) => {
+            caches.match(request, { ignoreSearch: true }).then((cached) => {
                 const networkFetch = fetch(request).then((response) => {
                     if (response && response.status === 200) {
                         const copy = response.clone();

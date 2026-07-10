@@ -146,6 +146,16 @@
         }
         if (input.value.trim()) input.classList.add('has-value');
     }
+    // Guard anti-preloader-pegado: independiente de DOMContentLoaded, corre apenas
+    // el navegador ejecuta este script (muy al inicio de la carga). Si a los 4s el
+    // preloader sigue de pie (CSS lento desde el cache del Service Worker, primer
+    // arranque de la PWA sin red, etc.) lo oculta a la fuerza — nunca debe quedar
+    // el usuario viendo solo el logo sin poder llegar al formulario.
+    setTimeout(function () {
+        var pl = document.getElementById('loginPreloader');
+        if (pl) pl.classList.add('fade-out');
+    }, 4000);
+
     document.addEventListener('DOMContentLoaded', () => {
         var preloader = document.getElementById('loginPreloader');
         if (preloader) preloader.classList.add('fade-out');
