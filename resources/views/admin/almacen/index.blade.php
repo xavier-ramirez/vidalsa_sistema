@@ -269,6 +269,30 @@
     .alm-cat-caret .material-icons { font-size:22px; transition:transform .15s; }
     .alm-cat-caret.open .material-icons { transform:rotate(180deg); }
 
+    /* ── Consolidado de Inventario: visible + apilado en TODO el rango donde
+       .page-layout-grid ya colapsa a 1 columna (≤1024px, ver estilos_globales.css)
+       — antes esta regla vivía solo dentro del @media ≤768px de abajo, mientras
+       que el grid colapsa desde 1024px y el JS (placeSidebarMobile) también movía
+       la tarjeta recién a los 768px. Entre 769px y 1024px (tablet, pantalla ancha
+       en horizontal, zoom del navegador) no coincidía NINGUNA de las tres reglas:
+       ni la de estilos_globales.css:2924 que lo OCULTA en ≤900px, ni esta que lo
+       muestra apilado, ni el JS que lo reubica arriba de la tabla — la tarjeta
+       quedaba en su posición de grid por defecto (debajo de la tabla) en vez de
+       arriba. Las tres ahora usan el MISMO corte: 1024px.
+       margin-bottom evita que la tabla/tarjetas queden pegadas a la caja del
+       Consolidado (cliente reporto que se veian "super pegados"). */
+    @media (max-width: 1024px) {
+        .page-layout-grid .counter-sidebar {
+            display: flex !important;
+            flex-direction: column !important;
+            width: 100% !important;
+            position: static !important;
+            gap: 10px !important;
+            margin-top: 10px !important;
+            margin-bottom: 16px !important;
+        }
+    }
+
     /* ── Responsive mobile (≤768px) — patron calcado de /admin/equipos ──
        En mobile: titulo OCULTO (el espacio vertical es caro en telefono — el
        usuario ya sabe que esta en el modulo de almacen por la nav); el selector
@@ -308,22 +332,6 @@
         #almBtnAcciones { width: 100% !important; justify-content: center; }
         #almAccionesMenu { left: 0 !important; right: 0 !important; width: 100% !important; max-width: calc(100vw - 20px) !important; }
 
-        /* Consolidado de Inventario en mobile: dos reglas globales lo
-           ocultan en pantallas chicas — catalogo.css:22 (≤768px) y
-           estilos_globales.css:2924 (`.page-layout-grid .counter-sidebar`
-           en ≤900px, mas especifica). Para ganarles la cascada usamos el
-           mismo selector compuesto. Va debajo del boton Acciones.
-           margin-bottom evita que la tabla/tarjetas queden pegadas a la
-           caja del Consolidado (cliente reporto que se veian "super pegados"). */
-        .page-layout-grid .counter-sidebar {
-            display: flex !important;
-            flex-direction: column !important;
-            width: 100% !important;
-            position: static !important;
-            gap: 10px !important;
-            margin-top: 10px !important;
-            margin-bottom: 16px !important;
-        }
         /* Espacio entre la ultima tarjeta de la tabla y el wrapper "En otros
            almacenes" que se mueve debajo en mobile — sin esto quedaban pegados. */
         #almDistWrapper { margin-top: 16px !important; }
@@ -4574,7 +4582,12 @@
     // Desktop: restaurar el #almDistWrapper DENTRO de .counter-sidebar y la
     // sidebar al .page-layout-grid — vuelve al layout original.
     (function placeSidebarMobile() {
-        var BREAKPOINT = 768;
+        // 1024px: MISMO corte que el colapso a 1 columna de .page-layout-grid y que
+        // la regla CSS que muestra/apila el Consolidado (ver el @media de arriba en
+        // este archivo). Antes era 768 — entre 769 y 1024px el grid ya colapsaba
+        // pero el JS no reubicaba nada, así que el Consolidado quedaba flotando en
+        // su posición de grid por defecto (debajo de la tabla).
+        var BREAKPOINT = 1024;
         function place() {
             var sidebar  = document.querySelector('.counter-sidebar');
             var distWrap = document.getElementById('almDistWrapper');
