@@ -2821,6 +2821,16 @@ input:-webkit-autofill:active {
         position: relative !important;
     }
 
+    /* ── Tarjeta ABIERTA (móvil): fondo gris para distinguirla de las cerradas (blancas)
+       de un vistazo. Va ANTES del bloque de selección: si además está seleccionada, el
+       celeste de .selected-row-maquinaria (misma especificidad, más abajo) gana. Los TD
+       son transparentes y muestran este fondo; la zona de detalle (mv-td-fechas/mv-col-op)
+       lo hereda también — su #f8fafc pasa a transparent más abajo para un gris uniforme. */
+    #movilizacionesTable tr.mv-row-card.mv-expanded {
+        background: #f1f5f9 !important;
+        border-color: #94a3b8 !important;
+    }
+
     /* ── Selección en móvil: resaltar la TARJETA COMPLETA, no por celda ──
        Los estilos de selección de escritorio aplican un border-left de 4px al
        primer TD; en la tarjeta apilada eso se ve como un "borde azul raro" en
@@ -2865,7 +2875,10 @@ input:-webkit-autofill:active {
         width: 100% !important;
         height: auto !important;
         margin: 0 !important;
-        background: #f8fafc !important;
+        /* transparent, NO #f8fafc: así hereda el gris de la tarjeta abierta y no quedan dos
+           tonos. Si la tarjeta está seleccionada, hereda el celeste — antes este #f8fafc lo
+           pisaba y dejaba una franja gris dentro de una tarjeta azul. */
+        background: transparent !important;
         text-align: center !important;
         border-bottom: none !important;
     }
