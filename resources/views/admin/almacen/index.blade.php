@@ -1982,11 +1982,11 @@
     // almBuscarPick, almCatEnter, almCatPick, almFilterByCategoria); esto lo adelanta al
     // FOCO, para que el badge no siga encendido mientras se escribe.
     // Punto ÚNICO de los dos campos: la lógica no se repite en cada onfocus.
-    // Devuelve/recarga solo si de verdad había un atajo activo — si no, un clic en el campo
+    // Recarga solo si de verdad había un atajo activo — si no, un clic en el campo
     // dispararía una petición inútil.
     function almSoltarAtajosStock() {
         if (!soloBajo && !soloConSaldo) return;
-        window.almResetBadges();
+        almResetBadges();
         almCargar();
     }
     // Reset COMPLETO del estado del módulo — lo llama el guard cuando la vista se re-monta por
@@ -2191,8 +2191,8 @@
         window.almScanIconToggle();   // ocultar el icono escanear mientras hay texto
         window.almBuscarSuggest();
     };
-    // Mismo criterio que almCatFocus: buscar por código o descripción suelta los atajos
-    // "Stock bajo"/"Con stock" (ver almSoltarAtajosStock).
+    // Buscar por código o descripción suelta los atajos "Stock bajo"/"Con stock"
+    // (ver almSoltarAtajosStock). Igual que el foco del filtro de Categoría.
     window.almBuscarFocus = function () { almSoltarAtajosStock(); window.almBuscarSuggest(); };
     window.almBuscarEnter = function (ev) {
         if (ev && ev.key !== 'Enter') return;
