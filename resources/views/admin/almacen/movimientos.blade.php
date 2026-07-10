@@ -268,12 +268,14 @@
            overflow:hidden: la banda del destino usa margins negativos. */
         .alm-mov-table tr.alm-mov-row {
             display: grid !important;
-            grid-template-columns: 1fr auto !important;
+            /* 3ª columna = el botón del PDF (grid-area "pdf"). Es `auto`: cuando el
+               movimiento no tiene nota, la celda va vacía y la columna colapsa a 0. */
+            grid-template-columns: 1fr auto auto !important;
             grid-template-rows: auto auto auto !important;
             grid-template-areas:
-                "producto cantidad"
-                "producto fecha"
-                "destino  destino" !important;
+                "producto cantidad pdf"
+                "producto fecha    pdf"
+                "destino  destino  destino" !important;
             column-gap: 10px !important;
             row-gap: 3px !important;
             background: #fff !important;
@@ -394,14 +396,15 @@
            este botón; el resto de la tarjeta solo selecciona (ver JS).
            Si el movimiento no tiene nota (ajustes, entradas sin NE) no hay <a> y la celda
            queda vacía: sin borde ni fondo propios, no se ve nada. */
+        /* Ocupa su propia columna de la grid ("pdf"), NO position:absolute: la esquina
+           superior derecha ya la usa mv-td-cantidad (justify-self:end), y un botón flotante
+           ahí se le montaba encima. */
         .alm-mov-table tr.alm-mov-row td.mv-td-ref {
-            display: block !important;
-            grid-area: unset !important;
-            position: absolute !important;
-            top: 6px !important;
-            right: 6px !important;
-            bottom: auto !important;
-            left: auto !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            grid-area: pdf !important;
+            position: static !important;
             transform: none !important;
             background: transparent !important;
             border: none !important;
@@ -410,8 +413,11 @@
             margin: 0 !important;
             min-width: 0 !important;
             max-width: none !important;
-            z-index: 5 !important;
-            pointer-events: auto !important;
+        }
+        /* Sin nota de entrega (ajustes, entradas sin NE) no hay enlace: la celda se quita del
+           todo para que su columna no reserve el column-gap de 10px al lado de la cantidad. */
+        .alm-mov-table tr.alm-mov-row td.mv-td-ref:not(:has(a.mv-nota-link)) {
+            display: none !important;
         }
         /* La flecha del antiguo tooltip. */
         .alm-mov-table tr.alm-mov-row td.mv-td-ref::after { content: none !important; }
