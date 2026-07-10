@@ -101,7 +101,19 @@
     .tr-search-box { display:flex; align-items:center; height:45px; border:1px solid #cbd5e0; border-radius:12px; background:#fbfcfd; overflow:hidden; }
     .tr-search-box.active { border-color:#0067b1; background:#e1effa; }
     .tr-search-box i.lupa { padding:0 10px; color:#64748b; font-size:18px; }
-    .tr-search-box input { flex:1; border:none; background:transparent; outline:none; padding:10px 5px; font-size:14px; min-width:0; color:#0f172a; }
+    /* font-family:inherit — los <input> NO heredan la fuente: se quedaban en el Arial del
+       navegador mientras el resto de la app (y la tabla del inventario) usa Nunito. Por eso
+       los buscadores se veían con otra letra que el listado. Aplica a nota y a producto. */
+    .tr-search-box input { flex:1; border:none; background:transparent; outline:none; padding:10px 5px; font-size:14px; min-width:0; color:#0f172a; font-family:inherit; }
+    /* Misma letra en las sugerencias de N° de nota que en la lista. */
+    .tr-suggest, .tr-suggest-item { font-family:inherit; }
+    /* Filtro "Estado" en MAYÚSCULAS (pedido del cliente). Se hace por CSS y NO tocando
+       Traspaso::ESTADOS_META: esa constante también rotula las pills de la tabla, que
+       siguen en su capitalización normal ("En tránsito"). El placeholder hereda el
+       text-transform, así que el estado elegido también se ve en mayúsculas. */
+    #trEstadoDropdown .dropdown-item,
+    #trEstadoDropdown .dropdown-trigger input { text-transform:uppercase; letter-spacing:.3px; }
+    #trEstadoDropdown .dropdown-trigger input::placeholder { text-transform:uppercase; }
     /* Filtro Estado (custom-dropdown) — misma altura (45px) y letra (14px global) que
        el buscador y el resto de filtros de la app. */
     #trFilters .tr-filter-estado { flex:0 1 180px; min-width:150px; max-width:220px; }
@@ -194,9 +206,12 @@
     .pill-linea { display:inline-flex; align-items:center; padding:2px 8px; border-radius:999px; font-size:10.5px; font-weight:800; text-transform:uppercase; letter-spacing:.2px; }
 
     /* ── Modal detalle/recepción ── */
+    /* Mismo velo que el modal "Auditoría de Inventario" (.alm-modal-overlay): rgba(15,23,42,.45)
+       y SIN backdrop-filter. El blur(3px) obligaba al navegador a recomponer toda la página
+       detrás del overlay en cada frame — se notaba al abrir/cerrar, sobre todo en teléfono. */
     .dtm-overlay {
         display:none; position:fixed; inset:0; z-index:99999;
-        background:rgba(0,0,0,0.55); backdrop-filter:blur(3px);
+        background:rgba(15,23,42,0.45);
         align-items:center; justify-content:center; padding:10px;
     }
     .dtm-overlay.open { display:flex; }
@@ -220,12 +235,8 @@
         color:#fff; opacity:.75; padding:4px; border-radius:6px; transition:opacity .15s;
     }
     .dtm-close:hover { opacity:1; }
-    .dtm-meta { display:flex; flex-wrap:wrap; gap:0; margin:13px 18px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; overflow:hidden; }
-    .dtm-meta-item { flex:1 1 130px; padding:5px 9px; border-right:1px solid #e2e8f0; }
-    .dtm-meta-item:last-child { border-right:none; }
-    .dtm-meta-label { display:block; font-size:8.5px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:.4px; }
-    .dtm-meta-value { font-size:11px; font-weight:600; color:#1e293b; }
-    .dtm-sub { font-size:10px; color:#94a3b8; font-weight:400; }
+    /* Sin bloque .dtm-meta: el encabezado Origen/Destino/Frente/Despachado se quitó del
+       modal (pedido del cliente). Sus estilos y los de .dtm-sub se fueron con él. */
 
     .dtm-body { flex:1; overflow-y:auto; padding:14px 20px; }
     .dtm-notas { display:flex; align-items:flex-start; gap:6px; padding:8px 10px; background:#fffbeb; border:1px solid #fef3c7; border-radius:8px; font-size:12.5px; color:#92400e; margin-bottom:10px; }
@@ -252,12 +263,14 @@
     .dtm-table tbody tr:last-child td { border-bottom:none; }
     .dtm-table tbody tr:hover td { background:#f8fafc; }
     .dtm-td-prod { text-align:left !important; min-width:0; }
-    .dtm-td-prod .dtm-linea-cod, .dtm-td-prod .dtm-linea-nom, .dtm-td-prod .dtm-linea-um { display:inline; }
-    /* Misma letra para TODA la tabla: 13px, misma familia (sin monospace), para que
-       código, nombre, UM y cantidades se vean uniformes (pedido del cliente). */
+    .dtm-td-prod .dtm-linea-cod, .dtm-td-prod .dtm-linea-nom { display:inline; }
+    /* Misma letra para TODA la tabla: 13px, misma familia (sin monospace), y todo en NEGRO
+       (#0f172a) — antes el nombre iba en gris #334155 y la UM en gris claro #94a3b8. */
     .dtm-linea-cod { font-weight:700; font-size:13px; color:#0f172a; }
-    .dtm-linea-nom { font-size:13px; font-weight:500; color:#334155; margin-left:4px; }
-    .dtm-linea-um { font-size:13px; font-weight:500; color:#94a3b8; text-transform:uppercase; margin-left:4px; }
+    .dtm-linea-nom { font-size:13px; font-weight:500; color:#0f172a; margin-left:4px; }
+    /* La UM vive junto a la CANTIDAD enviada, no junto al nombre: más pequeña que el número
+       para que se lea "10 UNIDAD" como una magnitud y no compita con la cifra. */
+    .dtm-linea-um { font-size:10px; font-weight:600; color:#0f172a; text-transform:uppercase; margin-left:3px; }
     .dtm-col-num { font-weight:600; font-size:13px; color:#0f172a; white-space:nowrap; }
     /* Columna "#": numeración de filas, gris y discreta. */
     .dtm-col-idx { font-size:13px; font-weight:700; color:#94a3b8; width:1%; white-space:nowrap; }
@@ -282,31 +295,45 @@
         padding:14px 20px; border-top:1px solid #e2e8f0; flex-shrink:0;
         background:#fff;
     }
+    /* Botones del modal: misma paleta que los del modal "Auditoría de Inventario"
+       (secundario gris plano #e2e8f0/#475569, primario en el azul global), pero MÁS BAJOS:
+       44px de alto con 22px laterales quedaban desproporcionados en un pie de dos botones.
+       .dt-btn-primary ya no se define aquí: su único usuario era "Confirmar todo", que se
+       eliminó. La página /recepcion/{id} tiene su propia hoja y su propio .dt-btn-primary. */
     .dt-btn {
-        height:44px; padding:0 22px; border-radius:10px; cursor:pointer;
-        font-size:13.5px; font-weight:700; letter-spacing:.2px;
+        height:36px; padding:0 16px; border-radius:10px; cursor:pointer;
+        font-size:13px; font-weight:700; letter-spacing:.2px;
         display:inline-flex; align-items:center; justify-content:center; gap:6px;
-        transition:background .15s, transform .1s;
+        border:none; transition:background .15s, transform .1s, opacity .15s;
     }
-    .dt-btn i { font-size:18px; }
-    /* Cancelar = botón blanco neutro (secundario); Aceptar = azul global (primario). */
-    .dt-btn-cancel { background:#fff; color:#334155; border:1px solid #cbd5e0; }
-    .dt-btn-cancel:hover { background:#f1f5f9; border-color:#94a3b8; }
-    .dt-btn-blue { background:var(--maquinaria-blue,#0067b1); color:#fff; border:none; box-shadow:0 4px 8px -2px rgba(0,103,177,0.3); }
+    .dt-btn i { font-size:17px; }
+    /* Secundario (Cancelar / Cancelar borrador / Cancelar y revertir). */
+    .dt-btn-cancel { background:#e2e8f0; color:#475569; box-shadow:none; }
+    .dt-btn-cancel:hover { background:#cbd5e0; }
+    /* Primario: la acción principal del modal (Aceptar / Enviar). Azul SÓLIDO: ya no compite
+       con un segundo botón azul, así que el perfilado que tenía "Confirmar (N)" sobra. */
+    .dt-btn-blue { background:var(--maquinaria-blue,#0067b1); color:#fff; box-shadow:0 4px 8px -2px rgba(0,103,177,0.3); }
     .dt-btn-blue:hover { background:#005391; }
     .dt-btn-blue:active { transform:scale(0.98); }
+    /* "Aceptar (0)": sin filas marcadas no hay nada que aceptar. El :hover se neutraliza
+       sobre .dt-btn-blue (el único botón que se deshabilita), no sobre .dt-btn: si no,
+       un Cancelar deshabilitado se pintaría de azul al pasar el ratón. */
+    .dt-btn:disabled { opacity:.5; cursor:not-allowed; box-shadow:none; }
+    .dt-btn-blue:disabled:hover { background:var(--maquinaria-blue,#0067b1); }
+    .dt-btn:disabled:active { transform:none; }
 
     @media (max-width: 768px) {
         .dtm-overlay { padding:0; align-items:flex-end; }
         .dtm-box { max-width:100%; max-height:95vh; border-radius:16px 16px 0 0; }
-        .dtm-meta-item { flex:1 1 45%; }
         .dtm-footer { flex-direction:column; }
         .dtm-footer .dt-btn { width:100%; justify-content:center; }
         /* Materiales (tabla): celdas y fuentes más compactas para el ancho del teléfono. */
         .dtm-table { font-size:12px; }
         .dtm-table thead th, .dtm-table tbody td { padding:5px 4px; }
-        /* Misma letra (12px) para TODO el texto de la tabla también en móvil. */
-        .dtm-col-num, .dtm-diff-value, .dtm-linea-cod, .dtm-linea-nom, .dtm-linea-um, .dtm-col-idx { font-size:12px; }
+        /* Misma letra (12px) para TODO el texto de la tabla también en móvil. La UM queda
+           fuera: acompaña a la cantidad y debe seguir siendo más pequeña que la cifra. */
+        .dtm-col-num, .dtm-diff-value, .dtm-linea-cod, .dtm-linea-nom, .dtm-col-idx { font-size:12px; }
+        .dtm-linea-um { font-size:9.5px; }
     }
 
     /* ── Responsive mobile (≤768px) — patron calcado de /admin/almacen ──
@@ -442,12 +469,16 @@
             grid-area: estado !important;
             text-align: right !important; align-self: center !important;
         }
-        /* td:4 = Fecha envío — fila "meta" propia. */
+        /* td:4 = Fecha envío — fila "meta" propia, CENTRADA en la tarjeta (antes quedaba
+           pegada a la izquierda). flex + wrap para que "hace 4 horas" baje a su renglón
+           si no cabe, sin perder el centrado. */
         .tr-table tbody tr[data-id] td:nth-child(4) {
-            display: inline-flex !important;
+            display: flex !important;
             align-items: center !important;
+            justify-content: center !important;
+            flex-wrap: wrap !important;
             gap: 4px !important;
-            font-size: 11.5px !important;
+            font-size: 12px !important;
             font-weight: 400 !important;
             color: #475569 !important;
             padding-top: 8px !important;
@@ -457,6 +488,25 @@
 
         /* Iconito sutil antes de la fecha de envío. */
         .tr-table tbody tr[data-id] td:nth-child(4)::before { content: 'event'; font-family: 'Material Icons'; font-size: 13px; color: #94a3b8; }
+
+        /* ── Tipografía de la tarjeta: escala CORTA y pareja ────────────────────────
+           En móvil convivían 14 / 13 / 12.5 / 11.5 / 10.5px y la tarjeta se leía a
+           saltos. Se reduce a dos tamaños: 13px para los datos (nº, origen, frente,
+           fecha) y 11.5px para lo secundario (almacén físico, "hace X"). Los spans de
+           rows.blade traen font-size inline, así que hace falta !important. */
+        .tr-table tbody tr[data-id] td:nth-child(1) { font-size: 13px !important; }
+        .tr-table tbody tr[data-id] .tr-ruta-origen,
+        .tr-table tbody tr[data-id] .tr-ruta-frente { font-size: 13px !important; }
+        .tr-table tbody tr[data-id] .tr-ruta-alm    { font-size: 11.5px !important; }
+        .tr-table tbody tr[data-id] .tr-fecha-rel span { font-size: 11.5px !important; }
+        /* El trayecto sí puede envolver en el ancho del teléfono: aquí la columna no
+           es ancha y un nowrap recortaría el nombre del frente con ellipsis. */
+        .tr-table tbody tr[data-id] .tr-ruta-origen,
+        .tr-table tbody tr[data-id] .tr-ruta-frente {
+            white-space: normal !important;
+            overflow: visible !important;
+            text-overflow: clip !important;
+        }
 
         /* Empty state: el <tr> SIN data-id (rama vacia del forelse) queda como bloque centrado sin tarjeta. */
         .tr-table tbody tr:not([data-id]) {
@@ -666,7 +716,10 @@
 </div>{{-- /.tr-layout --}}
 
 {{-- ── Modal detalle/recepción ── --}}
-<div class="dtm-overlay" id="trDetalleOverlay" onclick="if(event.target===this) window.trCloseModal();">
+{{-- SIN cierre por clic en el backdrop (pedido del cliente): el modal de recepción tiene
+     acciones destructivas (confirmar / cancelar la nota) y un clic fuera despistado las
+     abortaba a medio revisar. Se cierra solo con la ✕ del encabezado (window.trCloseModal). --}}
+<div class="dtm-overlay" id="trDetalleOverlay">
     <div class="dtm-box" id="trDetalleBox"></div>
 </div>
 
@@ -1029,14 +1082,15 @@
         if (row) { row.classList.toggle('recibida'); window.trUpdateConfirmBtn(); }
     });
 
-    // Botón "Confirmar (N)": aparece SOLO cuando hay filas tildadas (.recibida) y muestra
-    // el conteo. El botón "Confirmar todo" está siempre visible (un toque). Window-function
-    // porque el listener global (bind único) la llama.
+    // Botón "Aceptar (N)": única acción de confirmación. Siempre VISIBLE; se deshabilita
+    // mientras no haya filas tildadas (.recibida), en vez de ocultarse — un pie con solo
+    // "Cancelar" no dejaba ver que la nota se acepta marcando lo que llegó.
+    // Window-function porque el listener global (bind único) la llama.
     window.trUpdateConfirmBtn = function () {
         var box = el('trDetalleBox'); if (!box) return;
         var btnSel = box.querySelector('#trConfirmSelBtn'); if (!btnSel) return;
         var n = box.querySelectorAll('.dtm-linea-rec.recibida').length;
-        btnSel.style.display = n > 0 ? '' : 'none';
+        btnSel.disabled = (n === 0);
         var c = btnSel.querySelector('.tr-confirm-sel-count');
         if (c) c.textContent = n;
     };
@@ -1069,16 +1123,7 @@
         .finally(function () { if (window.hidePreloader) window.hidePreloader(); });
     }
 
-    // "Confirmar todo" (un solo toque): marca TODAS las filas y confirma — caso común
-    // "llegó todo", sin tener que tildar una por una.
-    window.trModalConfirmarTodo = function () {
-        if (!_trModalId) return;
-        var box = el('trDetalleBox');
-        if (box) box.querySelectorAll('.dtm-linea-rec').forEach(function (r) { r.classList.add('recibida'); });
-        window.trModalConfirmar();
-    };
-
-    // "Confirmar (N)": confirma SOLO las filas tildadas (.recibida); el resto queda como
+    // "Aceptar (N)": confirma SOLO las filas tildadas (.recibida); el resto queda como
     // faltante → el backend marca la nota "Confirmada parcial".
     window.trModalConfirmarSeleccionados = function () {
         if (!_trModalId) return;

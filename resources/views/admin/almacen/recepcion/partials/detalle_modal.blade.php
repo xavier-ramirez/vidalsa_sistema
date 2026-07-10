@@ -5,12 +5,6 @@
     $puedeEnviar   = $traspaso->esBorrador()  && auth()->user()?->can('almacen.movimiento');
     $puedeCancelar = !$traspaso->esFinal() && auth()->user()?->can('almacen.movimiento');
     $neNumero = $traspaso->REFERENCIA ?: $traspaso->NUMERO;
-
-    // Frente vs Destino: en almacenes de PROYECTO el nombre del almacén destino y el del
-    // frente suelen coincidir → no repetir la fila "Frente" cuando dice lo mismo que
-    // "Destino". La comparación (tolerante a tildes/mayúsculas/espacios) vive en el modelo,
-    // que es la misma fuente que usa la bandeja de recepción.
-    $frenteRedundante = $traspaso->frenteDestinoEsRedundante();
 @endphp
 
 <div class="dtm-header">
@@ -28,41 +22,6 @@
         </button>
     </div>
 
-    <div class="dtm-meta">
-        <div class="dtm-meta-item">
-            <span class="dtm-meta-label">Origen</span>
-            <span class="dtm-meta-value">{{ optional($traspaso->almacenOrigen)->NOMBRE }}</span>
-        </div>
-        <div class="dtm-meta-item">
-            <span class="dtm-meta-label">Destino</span>
-            <span class="dtm-meta-value">{{ optional($traspaso->almacenDestino)->NOMBRE }}</span>
-        </div>
-        @unless($frenteRedundante)
-        <div class="dtm-meta-item">
-            <span class="dtm-meta-label">Frente</span>
-            <span class="dtm-meta-value">{{ optional($traspaso->frenteDestino)->NOMBRE_FRENTE ?: '—' }}</span>
-        </div>
-        @endunless
-        <div class="dtm-meta-item">
-            <span class="dtm-meta-label">Despachado</span>
-            <span class="dtm-meta-value">
-                {{ optional($traspaso->usuarioEnvio)->NOMBRE_COMPLETO ?: optional($traspaso->usuarioCreo)->NOMBRE_COMPLETO ?: '—' }}
-                <span class="dtm-sub">{{ $traspaso->FECHA_ENVIO?->format('d/m/Y h:i A') }}</span>
-            </span>
-        </div>
-        {{-- Quién confirmó la recepción (ID_USUARIO_RECEPCION) + cuándo. Solo cuando ya
-             está confirmada (RECIBIDO / RECIBIDO_PARCIAL). El dato ya queda registrado en
-             el traspaso y en el movimiento TRASPASO_ENTRADA del kardex. --}}
-        @if($traspaso->esRecibido())
-        <div class="dtm-meta-item">
-            <span class="dtm-meta-label">Confirmado por</span>
-            <span class="dtm-meta-value">
-                {{ optional($traspaso->usuarioRecepcion)->NOMBRE_COMPLETO ?: '—' }}
-                <span class="dtm-sub">{{ $traspaso->FECHA_RECEPCION?->format('d/m/Y h:i A') }}</span>
-            </span>
-        </div>
-        @endif
-    </div>
 </div>
 
 <div class="dtm-body">
@@ -111,9 +70,11 @@
                         <td class="dtm-td-prod">
                             <span class="dtm-linea-cod">{{ optional($linea->producto)->CODIGO }}</span>
                             <span class="dtm-linea-nom">{{ optional($linea->producto)->NOMBRE }}</span>
-                            <span class="dtm-linea-um">{{ optional($linea->producto)->UM }}</span>
                         </td>
-                        <td class="dtm-col-num">{{ $cantEnvFmt }}</td>
+                        {{-- La UM acompaña a la CANTIDAD, no al nombre: "10 UNIDAD" se lee como una
+                             magnitud. Pegada al nombre alargaba la columna Producto y parecía
+                             parte de la descripción. --}}
+                        <td class="dtm-col-num">{{ $cantEnvFmt }}<span class="dtm-linea-um">{{ optional($linea->producto)->UM }}</span></td>
                         @if($puedeRecibir)
                             {{-- Recibido = TOCAR la fila (se resalta en azul + check verde).
                                  Muestra la cantidad enviada (lo que se registra como recibido al
@@ -140,19 +101,13 @@
 @if($puedeRecibir || $puedeEnviar || ($traspaso->esEnviado() && $puedeCancelar && auth()->user()->can('super.admin')))
 <div class="dtm-footer">
     @if($puedeRecibir)
-        <button type="button" class="dt-btn dt-btn-cancel" onclick="window.trModalCancelar('{{ addslashes($neNumero) }}')">
-            <i class="material-icons">block</i> Cancelar
-        </button>
-        {{-- "Confirmar (N)": confirma SOLO las filas tildadas. Oculto hasta que el usuario
-             toca al menos una fila (lo muestra trUpdateConfirmBtn). Texto corto para que el
-             botón no quede desproporcionado. --}}
-        <button type="button" id="trConfirmSelBtn" class="dt-btn dt-btn-blue" style="display:none;" onclick="window.trModalConfirmarSeleccionados()">
-            <i class="material-icons">playlist_add_check</i> Confirmar (<span class="tr-confirm-sel-count">0</span>)
-        </button>
-        {{-- "Confirmar todo": un solo toque marca todo y confirma (caso "llegó todo"). --}}
-        <button type="button" class="dt-btn dt-btn-primary" onclick="window.trModalConfirmarTodo()">
-            <i class="material-icons">check_circle</i> Confirmar todo
-        </button>
+        <button type="button" class="dt-btn dt-btn-cancel" onclick="window.trModalCancelar('{{ addslashes($neNumero) }}')">Cancelar</button>
+        {{-- "Aceptar (N)": confirma SOLO las filas tildadas; el resto queda como faltante.
+             Es la ÚNICA acción de confirmación (ya no existe "Confirmar todo"): siempre
+             visible, deshabilitado mientras no haya ninguna fila marcada — trUpdateConfirmBtn
+             actualiza el contador y el estado. Si el usuario quiere aceptar la nota entera,
+             marca todas las filas. --}}
+        <button type="button" id="trConfirmSelBtn" class="dt-btn dt-btn-blue" disabled onclick="window.trModalConfirmarSeleccionados()">Aceptar (<span class="tr-confirm-sel-count">0</span>)</button>
     @elseif($puedeEnviar)
         <button type="button" class="dt-btn dt-btn-cancel" onclick="window.trModalCancelar('{{ addslashes($neNumero) }}')">Cancelar borrador</button>
         <button type="button" class="dt-btn dt-btn-blue" onclick="window.trModalEnviar()">

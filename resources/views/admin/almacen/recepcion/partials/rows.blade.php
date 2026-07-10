@@ -17,12 +17,16 @@
              encima de cada nombre (pedido del cliente): la flecha `east` ya marca la
              dirección, y el título de la columna lo dice. Origen en gris, destino en azul
              y con más peso, que es la jerarquía que antes daban las etiquetas. --}}
+        {{-- La columna es ancha, así que origen y frente van en UNA sola línea (nowrap): antes
+             un frente largo como "TRANSVERSALES AYACUCHO" se partía en dos renglones y
+             desalineaba la fila. Si algún nombre no cupiera, se recorta con ellipsis en vez
+             de romperse. --}}
         <td class="tr-ruta-dest">
-            <div style="display:flex;align-items:center;justify-content:center;gap:12px;word-break:break-word;overflow-wrap:break-word;">
+            <div style="display:flex;align-items:center;justify-content:center;gap:12px;">
                 {{-- El origen es UN solo dato: sin el <span> de la etiqueta ya no hace falta
                      el div flex-column que los apilaba. El destino sí lo conserva (nombre del
                      frente + almacén debajo). --}}
-                <span style="max-width:160px;text-align:center;font-weight:600;color:#4a5568;font-size:13px;line-height:1.2;">{{ optional($t->almacenOrigen)->NOMBRE ?: '—' }}</span>
+                <span class="tr-ruta-origen" style="text-align:center;font-weight:600;color:#4a5568;font-size:13px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ optional($t->almacenOrigen)->NOMBRE ?: '—' }}</span>
                 <i class="material-icons" style="font-size:18px;color:#cbd5e0;flex-shrink:0;" title="Origen → Destino">east</i>
                 {{-- Destino = el FRENTE al que se envió (Traspaso::getNombreDestinoAttribute),
                      no el almacén: un almacén de PROYECTO sirve a VARIOS frentes, así que
@@ -30,10 +34,10 @@
                      iba cada una. Mismo criterio que la columna Destino de las salidas.
                      El almacén físico se conserva como segunda línea, salvo que repita lo
                      mismo que el frente (frenteDestinoEsRedundante). --}}
-                <div style="display:flex;flex-direction:column;align-items:center;max-width:160px;text-align:center;">
-                    <span style="font-weight:700;color:var(--maquinaria-dark-blue,#1e3a5f);font-size:13px;line-height:1.2;">{{ $t->nombre_destino }}</span>
+                <div style="display:flex;flex-direction:column;align-items:center;min-width:0;text-align:center;">
+                    <span class="tr-ruta-frente" style="font-weight:700;color:var(--maquinaria-dark-blue,#1e3a5f);font-size:13px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;">{{ $t->nombre_destino }}</span>
                     @if($t->frenteDestino && !$t->frenteDestinoEsRedundante())
-                        <span style="font-size:10.5px;color:#94a3b8;font-weight:600;line-height:1.2;margin-top:1px;" title="Almacén que recibe físicamente">{{ optional($t->almacenDestino)->NOMBRE }}</span>
+                        <span class="tr-ruta-alm" style="font-size:10.5px;color:#94a3b8;font-weight:600;line-height:1.2;margin-top:1px;white-space:nowrap;" title="Almacén que recibe físicamente">{{ optional($t->almacenDestino)->NOMBRE }}</span>
                     @endif
                 </div>
             </div>
@@ -45,7 +49,7 @@
             @if($t->FECHA_ENVIO)
                 {{ $t->FECHA_ENVIO->format('d/m/Y h:i A') }}
                 @if($t->esEnviado() && $horasDesdeEnvio !== null)
-                    <div style="display:flex;align-items:center;justify-content:center;gap:4px;margin-top:2px;">
+                    <div class="tr-fecha-rel" style="display:flex;align-items:center;justify-content:center;gap:4px;margin-top:2px;">
                         @if($horasDesdeEnvio < 24)
                             <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#22c55e;" title="Hace menos de 24h"></span>
                         @elseif($horasDesdeEnvio < 72)
