@@ -3963,6 +3963,8 @@ html.is-ios .ent-capt-add-btn { display: flex !important; }
         padding-left: 4px !important;
         padding-right: 4px !important;
         padding-top: 12px !important;
+        /* padding-bottom NO se toca: sigue el 20px del shorthand base, que deja aire
+           entre el mapa y el final de la página. Solo interesa recuperar ancho. */
         box-sizing: border-box !important;
         overflow-x: hidden;
     }
@@ -4087,10 +4089,9 @@ html.is-ios .ent-capt-add-btn { display: flex !important; }
 .mapa-dibujo-btn:hover { background: #334155; }
 .mapa-dibujo-btn.primary { background: #0067b1; }
 .mapa-dibujo-btn.primary:hover { background: #005699; }
-@media (max-width: 560px) {
-    .mapa-dibujo-tip { display: none; }
-    .mapa-dibujo-titulo { font-size: 12px; }
-}
+/* No hay reglas de la barra de dibujo para teléfono: su único disparador es el botón
+   "Dibujar tubería" (iniciarDibujo en mapa_index.js), que lleva .mapa-ctrl-mobile-hide y
+   está oculto en ≤640px. La barra nunca llega a existir ahí. */
 
 /* Popup para guardar un punto en un proyecto */
 .oleo-save { min-width: 210px; }
