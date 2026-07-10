@@ -629,11 +629,14 @@
         document.getElementById('input_estatus').value = 'OPERATIVO';
         document.getElementById('label_estatus').textContent = 'OPERATIVO';
 
-        // Tipo required
+        // Tipo required + disabled. Los dos inputs de tipo (TIPO_EQUIPO y TIPO) viven en
+        // el #tipoSlot COMÚN, fuera de las dos secciones que se deshabilitan más abajo, y
+        // solo se ocultaban con display → el del modo inactivo se enviaba igual. El
+        // backend ignora el sobrante, pero mandábamos un campo que no corresponde al modo.
         var tipoEq = document.getElementById('input_tipo_equipo');
         var tipoAux = document.getElementById('input_tipo_aux');
-        if (tipoEq) tipoEq.required = !isAux;
-        if (tipoAux) tipoAux.required = isAux;
+        if (tipoEq) { tipoEq.required = !isAux; tipoEq.disabled = isAux; }
+        if (tipoAux) { tipoAux.required = isAux; tipoAux.disabled = !isAux; }
 
         // Bulk upload toggle
         var bulkEq = document.getElementById('bulkEquipoWrapper');
@@ -705,10 +708,20 @@
     var form = document.getElementById('createUnifiedForm');
     if (form && form.dataset.ajaxBound !== '1') {
         form.dataset.ajaxBound = '1';
+        // El flag `submitting` ya bloquea el doble envío, pero el botón seguía habilitado
+        // y clicable: sin feedback visual el usuario vuelve a pulsar creyendo que no pasó
+        // nada. Se libera en los MISMOS puntos que el flag (422/error y catch de red);
+        // en el camino de éxito no se restaura porque navegamos fuera de la página.
+        var btnSubmit = document.getElementById('btnSubmitUnified');
+        function liberarSubmit() {
+            form.dataset.submitting = '0';
+            if (btnSubmit) btnSubmit.disabled = false;
+        }
         form.addEventListener('submit', function (e) {
             e.preventDefault();
             if (form.dataset.submitting === '1') return;
             form.dataset.submitting = '1';
+            if (btnSubmit) btnSubmit.disabled = true;
 
             if (typeof window.showPreloader === 'function') window.showPreloader();
 
@@ -736,7 +749,7 @@
                     return;
                 }
                 if (typeof window.hidePreloader === 'function') window.hidePreloader();
-                form.dataset.submitting = '0';
+                liberarSubmit();
 
                 if (res.status === 422 && res.body.errors) {
                     // Banner global
@@ -764,7 +777,7 @@
             })
             .catch(function (err) {
                 if (typeof window.hidePreloader === 'function') window.hidePreloader();
-                form.dataset.submitting = '0';
+                liberarSubmit();
                 if (window.showModal) window.showModal({ type: 'error', title: 'Error de red', message: 'No se pudo contactar el servidor.', confirmText: 'Entendido', hideCancel: true });
             });
         });
@@ -840,12 +853,20 @@
             }
         });
         // Al cambiar de modo: limpiar error/caché de los campos compartidos.
-        window.addEventListener('unified-mode-changed', function () {
-            FIELDS.forEach(function (id) {
-                var el = document.getElementById(id);
-                if (el) { clrErr(el); el.dataset.lastChecked = ''; el.dataset.isDuplicate = 'false'; }
+        // Guard: la navegación SPA re-ejecuta este <script>, y un listener sobre `window`
+        // NO muere con el DOM de la página (a diferencia de los de arriba, atados a los
+        // inputs vía data-liveBound). Sin la bandera se apilaba uno por cada visita.
+        // Resuelve los campos por getElementById en cada disparo, así el handler del
+        // primer montaje sigue siendo válido para los siguientes.
+        if (!window.__eqCreateModeListenerBound) {
+            window.__eqCreateModeListenerBound = true;
+            window.addEventListener('unified-mode-changed', function () {
+                FIELDS.forEach(function (id) {
+                    var el = document.getElementById(id);
+                    if (el) { clrErr(el); el.dataset.lastChecked = ''; el.dataset.isDuplicate = 'false'; }
+                });
             });
-        });
+        }
     })();
 })();
 </script>

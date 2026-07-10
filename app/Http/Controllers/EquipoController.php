@@ -49,8 +49,10 @@ class EquipoController extends Controller
         // guard sanctum — no pasan por el middleware 'auth' web del constructor.
         $this->middleware('auth')->except(['mobileIndex', 'mobileChangeStatus']);
         // Registro uno a uno + carga masiva via Excel: requieren 'equipos.create'.
-        // Gate::before resuelve super.admin.
-        $this->middleware('can:equipos.create')->only(['store', 'bulkTemplate', 'bulkPreview', 'bulkStoreBatch']);
+        // Gate::before resuelve super.admin. 'create' (el GET del formulario) va aqui
+        // tambien: sin el, un usuario sin permiso abria y llenaba el form para recibir
+        // un 403 al enviarlo.
+        $this->middleware('can:equipos.create')->only(['create', 'store', 'bulkTemplate', 'bulkPreview', 'bulkStoreBatch']);
         // edit/update: permiso 'user.edit' (boton lapiz del modal detalles
         // + formulario de edicion de ficha). changeStatus: 'equipos.edit'
         // (cambio de estatus inline, desacoplado de la edicion general).
@@ -1640,7 +1642,9 @@ class EquipoController extends Controller
             $tipo = TipoEquipo::firstOrCreate(['nombre' => $tipoName]);
             $data = $request->except(['specs', 'responsable', 'documentacion', 'TIPO_EQUIPO', 'doc_propiedad', 'poliza_seguro', 'doc_rotc', 'doc_racda', 'foto_equipo', 'foto_referencial']);
             $data['id_tipo_equipo'] = $tipo->id;
-            $data['TIPO_EQUIPO'] = $tipoName;
+            // NO se asigna $data['TIPO_EQUIPO']: esa columna se eliminó de `equipos` (la
+            // reemplazó id_tipo_equipo, migración 2026_01_12_044330) y no está en $fillable,
+            // así que Eloquent la descartaba en silencio. El tipo vive en la relación tipo().
             $data['CODIGO_PATIO'] = (trim($data['CODIGO_PATIO'] ?? '') === '') ? null : strtoupper($data['CODIGO_PATIO']);
             $data['MARCA'] = strtoupper($data['MARCA'] ?? '');
             $data['MODELO'] = strtoupper($data['MODELO'] ?? '');
@@ -1657,7 +1661,7 @@ class EquipoController extends Controller
             // de historial. Se hace en store() (no en el observer 'created') para auditar
             // solo el alta manual y no inundar el log si hubiera importación masiva.
             \App\Models\EquipoAuditLog::registrar($equipo->ID_EQUIPO, 'create', [
-                'TIPO'   => $equipo->TIPO_EQUIPO,
+                'TIPO'   => $tipoName, // NO $equipo->TIPO_EQUIPO: no es fillable → siempre null
                 'MARCA'  => $equipo->MARCA,
                 'MODELO' => $equipo->MODELO,
                 'SERIAL_CHASIS' => $equipo->SERIAL_CHASIS,
@@ -2013,7 +2017,9 @@ class EquipoController extends Controller
             $tipo = TipoEquipo::firstOrCreate(['nombre' => $tipoName]);
             $data = $request->except(['specs', 'responsable', 'documentacion', 'TIPO_EQUIPO', 'doc_propiedad', 'poliza_seguro', 'doc_rotc', 'doc_racda', 'foto_equipo', 'foto_referencial']);
             $data['id_tipo_equipo'] = $tipo->id;
-            $data['TIPO_EQUIPO'] = $tipoName;
+            // NO se asigna $data['TIPO_EQUIPO']: esa columna se eliminó de `equipos` (la
+            // reemplazó id_tipo_equipo, migración 2026_01_12_044330) y no está en $fillable,
+            // así que Eloquent la descartaba en silencio. El tipo vive en la relación tipo().
             $data['CODIGO_PATIO'] = (trim($data['CODIGO_PATIO'] ?? '') === '') ? null : strtoupper($data['CODIGO_PATIO']);
             $data['MARCA'] = strtoupper(trim($data['MARCA'] ?? ''));
             $data['MODELO'] = strtoupper(trim($data['MODELO'] ?? ''));

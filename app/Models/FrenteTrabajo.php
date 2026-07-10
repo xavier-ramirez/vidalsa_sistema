@@ -14,12 +14,16 @@ class FrenteTrabajo extends Model
     /**
      * Invalida caches derivados al guardar/borrar un frente:
      * - `frentes_especial_ids` (leido por especialIds()).
+     * - `frentes_activos_form`: selector de frente del formulario de alta de equipos
+     *   (EquipoController::create lo cachea 1h). Un frente creado por una movilización
+     *   a frente nuevo no aparecia ahi hasta que expiraba la cache.
      * - Generacion de la plantilla bulk (forzar regenerar el XLSX cacheado).
      */
     protected static function booted(): void
     {
         $bust = static function () {
             Cache::forget('frentes_especial_ids');
+            Cache::forget('frentes_activos_form');
             // Incrementa el contador para invalidar todas las variantes de plantilla cacheadas.
             if (!Cache::has('bulk_template_gen')) {
                 Cache::forever('bulk_template_gen', 1);

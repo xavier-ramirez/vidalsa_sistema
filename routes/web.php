@@ -144,7 +144,10 @@ Route::middleware(['auth'])->group(function () {
             Route::patch ('equipos/{id}/restore',    [App\Http\Controllers\EquipoController::class, 'restoreEquipo'])->middleware('can:super.admin')->name('equipos.restore');
             Route::delete('equipos/{id}/permanente', [App\Http\Controllers\EquipoController::class, 'forceDeleteEquipo'])->whereNumber('id')->middleware('can:super.admin')->name('equipos.forceDelete');
             Route::post ('equipos/store-unified',   [App\Http\Controllers\EquipoController::class, 'storeUnified'])->middleware('can:equipos.create')->name('equipos.storeUnified');
-            Route::resource('equipos', App\Http\Controllers\EquipoController::class);
+            // except('store'): el alta entra SIEMPRE por store-unified (es quien decide entre
+            // equipo y auxiliar segun __modo). El POST /admin/equipos del resource quedaba
+            // como segundo endpoint de creacion, alcanzable y sin usar por ninguna vista.
+            Route::resource('equipos', App\Http\Controllers\EquipoController::class)->except(['store']);
             Route::post('movilizaciones/bulk-delete', [App\Http\Controllers\MovilizacionController::class, 'bulkDestroy'])->name('movilizaciones.bulkDestroy');
             Route::post('movilizaciones/recepcion-directa', [App\Http\Controllers\MovilizacionController::class, 'recepcionDirecta'])->name('movilizaciones.recepcionDirecta');
             Route::get('movilizaciones/buscar-equipos-recepcion', [App\Http\Controllers\MovilizacionController::class, 'buscarEquiposParaRecepcion'])->name('movilizaciones.buscarEquipos');
