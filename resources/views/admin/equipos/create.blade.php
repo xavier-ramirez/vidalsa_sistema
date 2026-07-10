@@ -710,12 +710,53 @@
         form.dataset.ajaxBound = '1';
         // El flag `submitting` ya bloquea el doble envío, pero el botón seguía habilitado
         // y clicable: sin feedback visual el usuario vuelve a pulsar creyendo que no pasó
-        // nada. Se libera en los MISMOS puntos que el flag (422/error y catch de red);
-        // en el camino de éxito no se restaura porque navegamos fuera de la página.
+        // nada. Se libera en TODOS los desenlaces (éxito, 422, error de red): tras guardar
+        // el formulario se queda en pantalla listo para el siguiente equipo.
         var btnSubmit = document.getElementById('btnSubmitUnified');
         function liberarSubmit() {
             form.dataset.submitting = '0';
             if (btnSubmit) btnSubmit.disabled = false;
+        }
+
+        // Banner + marcas rojas del último 422. Se usa antes de enviar y al dejar el
+        // formulario listo para otro registro.
+        function limpiarErroresForm() {
+            form.querySelectorAll('.is-invalid').forEach(function (el) { el.classList.remove('is-invalid'); });
+            form.querySelectorAll('.error-message-inline').forEach(function (el) { el.remove(); });
+            var oldSummary = document.getElementById('errorSummary');
+            if (oldSummary) oldSummary.remove();
+        }
+
+        // Modo actualmente elegido, leído de la tarjeta activa (no de #__modo, que no
+        // distingue liviana de pesada — las dos valen 'equipo').
+        function modoActual() {
+            var card = document.querySelector('.cat-card.active');
+            if (!card) return 'liviana';
+            return card.id === 'catPesada' ? 'pesada' : (card.id === 'catAuxiliar' ? 'auxiliar' : 'liviana');
+        }
+
+        // Tras guardar NO se navega al listado: se deja el formulario vacío y en el MISMO
+        // modo, que es lo normal al cargar equipos en tanda. Volver a /admin/equipos
+        // obligaba a esperar el listado completo (cientos de filas + stats) y a elegir otra
+        // vez la categoría.
+        // form.reset() devuelve cada campo a su value del HTML, incluidos los <input file> y
+        // los del modo inactivo, y switchUnifiedMode() recompone lo que depende del modo
+        // (required/disabled, estado OPERATIVO, hidden __modo/__categoriaFlota) y dispara
+        // 'unified-mode-changed', que ya limpia el error y la caché de unicidad de los
+        // campos compartidos — por eso aquí no se repite esa lógica.
+        function prepararOtroRegistro() {
+            var modo = modoActual();
+            form.reset();
+            window.switchUnifiedMode(modo);
+            limpiarErroresForm();
+            // form.reset() vacía el hidden ID_ESPEC, pero el widget de catálogo guarda su
+            // propio `linkedId` y seguiría mostrándose vinculado al equipo anterior.
+            // ignoreCatalogSuggestion() es su limpieza oficial (hidden + estado + ocultar).
+            if (typeof window.ignoreCatalogSuggestion === 'function') window.ignoreCatalogSuggestion();
+            var card = document.getElementById('formUnificadoCard');
+            if (card && card.scrollIntoView) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            var primero = document.getElementById(modo === 'auxiliar' ? 'input_tipo_aux' : 'input_tipo_equipo');
+            if (primero) { try { primero.focus({ preventScroll: true }); } catch (_) { primero.focus(); } }
         }
         form.addEventListener('submit', function (e) {
             e.preventDefault();
@@ -725,11 +766,7 @@
 
             if (typeof window.showPreloader === 'function') window.showPreloader();
 
-            // Limpiar errores anteriores
-            form.querySelectorAll('.is-invalid').forEach(function (el) { el.classList.remove('is-invalid'); });
-            form.querySelectorAll('.error-message-inline').forEach(function (el) { el.remove(); });
-            var oldSummary = document.getElementById('errorSummary');
-            if (oldSummary) oldSummary.remove();
+            limpiarErroresForm();
 
             var formData = new FormData(form);
             fetch(form.action, {
@@ -741,11 +778,13 @@
             .then(function (r) { return r.json().then(function (body) { return { status: r.status, body: body }; }); })
             .then(function (res) {
                 if (res.status === 200 || res.status === 201) {
+                    // El backend sigue devolviendo `redirect` (lo usan otros clientes); aquí se
+                    // ignora a propósito: nos quedamos para registrar el siguiente equipo.
                     var msg = res.body.message || 'Registrado correctamente.';
-                    try { sessionStorage.setItem('vidalsa_flash_toast', JSON.stringify({ message: msg, type: 'success' })); } catch (_) {}
-                    var redirect = res.body.redirect || '{{ route("equipos.index") }}';
-                    if (typeof window.navigateTo === 'function') window.navigateTo(redirect);
-                    else window.location.href = redirect;
+                    if (typeof window.hidePreloader === 'function') window.hidePreloader();
+                    liberarSubmit();
+                    prepararOtroRegistro();
+                    if (typeof window.showToast === 'function') window.showToast(msg + ' Puedes registrar otro.', 'success');
                     return;
                 }
                 if (typeof window.hidePreloader === 'function') window.hidePreloader();
