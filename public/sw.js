@@ -105,20 +105,28 @@ self.addEventListener('fetch', (event) => {
         url.pathname === '/favicon.ico';
 
     if (isStaticAsset) {
-        // ignoreSearch: PRECACHE_URLS guarda estos assets SIN el "?v=filemtime" que
-        // agrega el HTML (cache-busting) — sin esto, caches.match() nunca encontraba
-        // la entrada precacheada (clave distinta) y el primer arranque offline (o con
-        // red lenta) se quedaba sin CSS/JS crítico, ej. el preloader del login pegado.
+        // Match EXACTO primero (respeta el "?v=filemtime" — cache-busting real: un
+        // JS/CSS editado cambia de URL y NUNCA sirve la copia vieja desde acá). Si
+        // no hay copia exacta (primer arranque, u OFFLINE) se cae a ignoreSearch
+        // como fallback — sirve CUALQUIER versión cacheada (ej. la precacheada sin
+        // "?v=" en el install) en vez de nada, mientras la red trae la correcta.
+        // OJO: ignoreSearch como estrategia PRINCIPAL (no fallback) fue un bug real
+        // acá — servía JS/CSS viejo indefinidamente hasta que sw.js mismo cambiara,
+        // aunque el archivo en el servidor ya estuviera corregido.
         event.respondWith(
-            caches.match(request, { ignoreSearch: true }).then((cached) => {
+            caches.match(request).then((exact) => {
                 const networkFetch = fetch(request).then((response) => {
                     if (response && response.status === 200) {
                         const copy = response.clone();
                         caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, copy)).catch(() => {});
                     }
                     return response;
-                }).catch(() => cached);
-                return cached || networkFetch;
+                });
+                if (exact) {
+                    networkFetch.catch(() => {}); // revalida en el fondo; el catch es solo para no dejar la promesa colgada
+                    return exact;
+                }
+                return networkFetch.catch(() => caches.match(request, { ignoreSearch: true }));
             })
         );
         return;
