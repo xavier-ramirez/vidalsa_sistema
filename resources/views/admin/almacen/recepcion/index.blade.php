@@ -293,15 +293,13 @@
     .dtm-linea-rec.recibida td { background:#e1effa; }
     .dtm-linea-rec.recibida:hover td { background:#d6e9fb; }
     .dtm-rec-cant { width:1%; padding-left:4px !important; padding-right:4px !important; }
+    /* El campo es type=text (ver el modal), así que no hay flechitas de spinner que ocultar. */
     .dtm-rec-input {
         width:64px; height:30px; padding:0 6px; text-align:center;
         border:1px solid #cbd5e0; border-radius:8px; background:#fff;
         font-family:inherit; font-size:13px; font-weight:600; color:#0f172a;
-        outline:none; cursor:text; -moz-appearance:textfield;
+        outline:none; cursor:text;
     }
-    /* Sin las flechitas del type=number: roban ancho a una columna que queremos angosta. */
-    .dtm-rec-input::-webkit-outer-spin-button,
-    .dtm-rec-input::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
     .dtm-rec-input:focus { border-color:#0067b1; box-shadow:0 0 0 2px rgba(0,103,177,.15); }
     .dtm-linea-rec.recibida .dtm-rec-input { border-color:#0067b1; color:#0067b1; font-weight:800; }
     .dtm-diff-value { font-size:13px; font-weight:600; color:#64748b; }
@@ -1082,6 +1080,13 @@
 
     // Fila marcada (.recibida) = recibida por la cantidad enviada (data-enviada). Sin
     // marcar = no recibida (0 → el backend lo registra como faltante).
+    // Punto ÚNICO de lectura del campo "Recibido": acepta coma o punto decimal (el campo es
+    // type=text, ver el modal) y devuelve 0 ante cualquier cosa no numérica. Mismo criterio
+    // que el campo de cantidad del inventario.
+    function trParseCant(valor) {
+        return parseFloat(String(valor == null ? '' : valor).replace(',', '.')) || 0;
+    }
+
     // La cantidad recibida sale del INPUT de cada fila, no de data-enviada: el usuario puede
     // haber escrito menos (recepción parcial) o más (sobrante). Una fila sin marcar cuenta
     // como 0 recibido aunque el input tenga texto — marcarla es lo que la da por recibida.
@@ -1092,7 +1097,7 @@
         var lineas = [];
         box.querySelectorAll('.dtm-linea-rec').forEach(function (card) {
             var inp = card.querySelector('.dtm-rec-input');
-            var cant = inp ? (parseFloat(inp.value) || 0) : (parseFloat(card.dataset.enviada) || 0);
+            var cant = inp ? trParseCant(inp.value) : trParseCant(card.dataset.enviada);
             lineas.push({
                 id_linea:          parseInt(card.dataset.idLinea),
                 cantidad_recibida: card.classList.contains('recibida') ? cant : 0,
@@ -1115,12 +1120,12 @@
     });
 
     // Escribir una cantidad marca la fila; borrarla (o poner 0) la desmarca. Así el estado
-    // visual y lo que se enviará al backend no pueden contradecirse.
+    // visual y lo que se enviará al backend no pueden contradecirse. Se lee con trParseCant,
+    // la misma función que usa trCollectLineas al enviar.
     window.trRecInput = function (inp) {
         var row = inp.closest('.dtm-linea-rec');
         if (!row) return;
-        var v = parseFloat(inp.value);
-        row.classList.toggle('recibida', isFinite(v) && v > 0);
+        row.classList.toggle('recibida', trParseCant(inp.value) > 0);
         window.trUpdateConfirmBtn();
     };
 

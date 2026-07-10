@@ -80,12 +80,16 @@
                                  número real. Vacío o 0 = no recibido → faltante. El clic sobre el
                                  input no debe togglear la fila (stopPropagation), o escribir dentro
                                  la desmarcaría. --}}
+                            {{-- type="text" + inputmode="decimal", NO type="number": igual que el
+                                 campo de cantidad del inventario (.alm-row-cant). Con type=number
+                                 el navegador descarta "1,5" (coma decimal) y deja el value vacío,
+                                 así que la cantidad se perdía sin aviso. El JS normaliza la coma. --}}
                             <td class="dtm-col-num dtm-rec-cant">
-                                <input type="number" class="dtm-rec-input" inputmode="decimal"
-                                       min="0" step="any" placeholder="0" value=""
+                                <input type="text" class="dtm-rec-input" inputmode="decimal"
+                                       placeholder="0" value="" autocomplete="off"
                                        aria-label="Cantidad recibida"
                                        onclick="event.stopPropagation();"
-                                       oninput="window.trRecInput(this)">
+                                       oninput="window.trRecInput && window.trRecInput(this)">
                             </td>
                         @elseif($traspaso->esRecibido() || $traspaso->esCancelado())
                             <td class="dtm-col-num" style="color:{{ $linea->CANTIDAD_RECIBIDA === null ? '#94a3b8' : ($diff < 0 ? '#dc2626' : ($diff > 0 ? '#1d4ed8' : '#0f172a')) }};">{{ $linea->CANTIDAD_RECIBIDA === null ? '—' : rtrim(rtrim(number_format((float) $linea->CANTIDAD_RECIBIDA, 3, ',', '.'), '0'), ',') }}</td>
