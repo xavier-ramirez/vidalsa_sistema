@@ -7,6 +7,7 @@ use App\Models\MovimientoInventario;
 use App\Models\ProductoInventario;
 use App\Models\Traspaso;
 use App\Models\TraspasoLinea;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use RuntimeException;
@@ -181,12 +182,48 @@ class TraspasoService
             }
 
             $traspasoLock->ESTADO            = Traspaso::ESTADO_ENVIADO;
-            $traspasoLock->FECHA_ENVIO       = $fecha ? \Illuminate\Support\Carbon::parse($fecha) : now();
+            $traspasoLock->FECHA_ENVIO       = $this->resolverFechaHora($fecha);
             $traspasoLock->ID_USUARIO_ENVIO  = $opUser ?: null;
             $traspasoLock->save();
 
             return $traspasoLock->fresh('lineas');
         });
+    }
+
+    /**
+     * FECHA_ENVIO y FECHA_RECEPCION son DATETIME, pero los formularios mandan la fecha SIN
+     * hora: usan <input type="date"> y llega "2026-07-10". Carbon::parse la fija a las
+     * 00:00:00, así que una nota enviada a las 08:54 quedaba grabada como enviada a
+     * medianoche — nueve horas más vieja de lo real.
+     *
+     * No es cosmético: de FECHA_ENVIO dependen el orden de la bandeja, el "hace X" de cada
+     * fila y los KPIs "Recientes 24h" / "Urgentes +3d". Con todo a medianoche, las notas del
+     * mismo día empataban y los KPIs se disparaban hasta un día antes de tiempo.
+     *
+     * Si la fecha recibida trae hora, se respeta tal cual (un envío retroactivo con hora
+     * exacta debe guardarse como se pidió). Si viene sólo el día, se le pega la hora actual:
+     * el día es el que eligió el usuario, la hora es cuándo pulsó el botón.
+     *
+     * OJO: NO usar esto para movimientos_inventario.FECHA — esa columna es DATE y su
+     * InventarioService::resolverFecha() aplica startOfDay() a propósito.
+     */
+    private function resolverFechaHora(mixed $fecha): Carbon
+    {
+        if (!$fecha) {
+            return now();
+        }
+
+        $c = Carbon::parse($fecha);
+
+        // "2026-07-10" no lleva hora; "2026-07-10 08:54" o un Carbon/DateTime sí. Sólo en el
+        // primer caso completamos con la hora actual (parse ya la dejó en 00:00:00).
+        $traeHora = !is_string($fecha) || preg_match('/\d{1,2}:\d{2}/', $fecha);
+        if (!$traeHora) {
+            $ahora = now();
+            $c->setTime($ahora->hour, $ahora->minute, $ahora->second);
+        }
+
+        return $c;
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -307,7 +344,7 @@ class TraspasoService
             }
 
             $traspaso->ESTADO              = $huboDiferencia ? Traspaso::ESTADO_RECIBIDO_PARCIAL : Traspaso::ESTADO_RECIBIDO;
-            $traspaso->FECHA_RECEPCION     = $fecha ? \Illuminate\Support\Carbon::parse($fecha) : now();
+            $traspaso->FECHA_RECEPCION     = $this->resolverFechaHora($fecha);
             $traspaso->ID_USUARIO_RECEPCION = $opUser ?: null;
             $traspaso->save();
 
@@ -375,7 +412,13 @@ class TraspasoService
     //  Helpers
     // ─────────────────────────────────────────────────────────────
 
-    private function validarOrigenDestino(int $origen, int $destino): void
+    /**
+     * Público porque TraspasoController::update() también lo necesita: en modo parcial no
+     * puede apoyarse en `different:id_almacen_origen` (el origen no viaja en el PATCH), y sin
+     * este chequeo se podía guardar un borrador con origen == destino que solo reventaba al
+     * enviarlo. Fuente única de la regla, en vez de repetirla en el controller.
+     */
+    public function validarOrigenDestino(int $origen, int $destino): void
     {
         if ($origen === $destino) {
             throw new InvalidArgumentException('El almacén de origen y destino no pueden ser el mismo.');
