@@ -893,17 +893,9 @@ window.addEventListener('spa:contentLoaded', function () {
         const frentesSeleccionados = formData.getAll('ID_FRENTE_ASIGNADO[]');
         // Frentes son opcionales (usuarios GLOBAL no necesitan frente)
 
-        // 3. Permissions
-        let hasPermissions = false;
-        for (const key of formData.keys()) {
-            if (key.startsWith('PERMISOS')) {
-                hasPermissions = true;
-                break;
-            }
-        }
-        if (!hasPermissions) {
-            errors['PERMISOS'] = ['Debes seleccionar al menos un permiso.'];
-        }
+        // Permisos: opcionales — un usuario puede registrarse sin ninguno (coherente con
+        // el backend, donde PERMISOS ya es 'nullable|array' en UserRequest). Se le pueden
+        // asignar después desde "Editar".
 
         // 4. Password (Only if creating)
         const method = formData.get('_method');
