@@ -93,8 +93,11 @@
         margin-bottom:12px;
     }
     #trFilters .tr-item { flex:1 1 220px; min-width:180px; max-width:300px; }
+    /* "Nota de entrega" solo aloja un código corto (NE-2026-0249): se le recorta ancho para
+       dárselo al buscador por producto/descripción, que sí muestra texto largo. */
+    #trFilters .tr-search-num { flex:0 1 200px; min-width:150px; max-width:220px; }
     #trFilters .tr-search-num,
-    #trFilters .tr-search-prod { flex:1 1 280px; max-width:400px; min-width:200px; position:relative; }
+    #trFilters .tr-search-prod { flex:1 1 360px; max-width:520px; min-width:240px; position:relative; }
     /* Toolbar alineado al estándar de /admin/almacen/movimientos: cajas de 45px,
        radio 12px, fondo suave #fbfcfd y letra 14px (antes 40px/8px/13px se veía
        más apretado que el resto de los módulos). Azul #e1effa cuando hay filtro. */
@@ -105,8 +108,6 @@
        navegador mientras el resto de la app (y la tabla del inventario) usa Nunito. Por eso
        los buscadores se veían con otra letra que el listado. Aplica a nota y a producto. */
     .tr-search-box input { flex:1; border:none; background:transparent; outline:none; padding:10px 5px; font-size:14px; min-width:0; color:#0f172a; font-family:inherit; }
-    /* Misma letra en las sugerencias de N° de nota que en la lista. */
-    .tr-suggest, .tr-suggest-item { font-family:inherit; }
     /* Filtro "Estado" en MAYÚSCULAS (pedido del cliente). Se hace por CSS y NO tocando
        Traspaso::ESTADOS_META: esa constante también rotula las pills de la tabla, que
        siguen en su capitalización normal ("En tránsito"). El placeholder hereda el
@@ -142,18 +143,23 @@
     .tr-suggest::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:999px; }
     .tr-suggest::-webkit-scrollbar-track { background:transparent; }
     .tr-suggest.open { display:block; }
+    /* MISMA letra que las listas de sugerencias del resto de la app (.alm-suggest-item del
+       inventario): la fuente de la app (inherit, no monospace), 13.5px y peso 600 — antes
+       era monospace 12.5px en NEGRITA (700), así que el N° de nota se veía con otro tipo de
+       letra y más gordo que todo lo demás. La regla `.tr-suggest, .tr-suggest-item
+       { font-family:inherit }` que había más arriba no servía de nada: esta la pisaba. */
     .tr-suggest-item {
         padding:8px 12px; border-radius:6px; cursor:pointer;
-        font-family:monospace; font-size:12.5px; font-weight:700; color:#0f172a;
-        letter-spacing:0.3px; transition:background .15s;
+        font-family:inherit; font-size:13.5px; font-weight:600; color:#0f172a;
+        letter-spacing:0; transition:background .15s;
     }
     .tr-suggest-item:hover, .tr-suggest-item.active { background:#e1effa; color:#0067b1; }
     .tr-suggest-empty { padding:10px 12px; font-size:12px; color:#94a3b8; font-style:italic; }
     /* El buscador por PRODUCTO reusa .tr-suggest, pero sus ítems muestran una DESCRIPCIÓN
-       (texto largo), no un código corto: fuente normal (no monospace), peso 500 y con
-       ajuste de línea — igual que la lista del inventario/movimientos. El nº de parte
-       equivalente va en su propio <span> destacado delante del nombre. */
-    #trProdSuggest .tr-suggest-item { font-family:inherit; font-weight:500; letter-spacing:0; white-space:normal; display:flex; align-items:baseline; gap:2px; }
+       (texto largo) en vez de un código corto: hereda ya la fuente y el tamaño; solo cambia
+       el peso y necesita ajuste de línea. El nº de parte equivalente va en su propio <span>
+       destacado delante del nombre. */
+    #trProdSuggest .tr-suggest-item { font-weight:500; white-space:normal; display:flex; align-items:baseline; gap:2px; }
 
     /* ── Layout: la tabla (.admin-card) y el panel de resumen, cada uno en SU PROPIO
          contenedor, lado a lado. ── */
@@ -609,15 +615,17 @@
                 </div>
                 <div class="dropdown-content" style="padding:5px;max-height:none;overflow:visible;">
                     <div class="dropdown-item-list" style="max-height:250px;overflow-y:auto;">
-                        {{-- Solo los estados accionables de la recepción: En tránsito (pendiente),
-                             Confirmada y Confirmada parcial. Se omiten:
+                        {{-- Solo los estados accionables de la recepción: En tránsito (pendiente)
+                             y Confirmada parcial. Se omiten:
                                • BORRADOR  → estado del almacén que EMITE; nunca llega al que recibe.
                                • CANCELADO → la nota cancelada deshace todo (reversa el stock), no
                                              es algo que se filtre en la bandeja.
+                               • RECIBIDO ("Confirmada") → quitado a pedido del cliente. Las notas
+                                             cerradas sin faltantes ya no se listan en la bandeja.
                              La X de arriba NO es un estado: limpia el filtro y vuelve al default
                              (dropdown en blanco → bandeja "En tránsito"). --}}
                         @foreach($badgesEstado as $k => $b)
-                            @continue($k === \App\Models\Traspaso::ESTADO_BORRADOR || $k === \App\Models\Traspaso::ESTADO_CANCELADO)
+                            @continue($k === \App\Models\Traspaso::ESTADO_BORRADOR || $k === \App\Models\Traspaso::ESTADO_CANCELADO || $k === \App\Models\Traspaso::ESTADO_RECIBIDO)
                             <div class="dropdown-item {{ $reqEstado === $k ? 'selected' : '' }}" data-value="{{ $k }}"
                                  onclick="selectOption('trEstadoDropdown','{{ $k }}','{{ addslashes($b[0]) }}');">{{ $b[0] }}</div>
                         @endforeach
