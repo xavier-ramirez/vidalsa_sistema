@@ -42,6 +42,9 @@ scratch_*.csv
 /*.xlsx
 /*.sql
 /*.png
+# Reportes generados sueltos en la raíz (p.ej. report_rotc_missing.txt): salida de
+# scripts puntuales, no forman parte de la app. No hay ningún .txt trackeado en la raíz.
+/*.txt
 # Scripts locales de importación de la BD: llevan rutas absolutas de una máquina
 # concreta y hacen DROP DATABASE. Nunca deben viajar en el repo.
 /*.bat
