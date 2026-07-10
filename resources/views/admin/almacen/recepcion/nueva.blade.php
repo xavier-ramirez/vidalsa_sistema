@@ -509,7 +509,17 @@
     };
 
     // Click en sugerencia → pick. Click fuera → cerrar dropdown.
-    document.addEventListener('click', function (e) {
+    // SPA: navegacion.js re-ejecuta los <script> inline en cada visita, así que este listener
+    // de `document` se registraría otra vez por cada navegación a esta página.
+    //
+    // No basta con una bandera "registrar sólo la primera vez": estos handlers llaman a
+    // entPick/entSuggestHide, que son funciones LOCALES y mutan el estado de SU corrida
+    // (entLineas / entSelected). El listener de la primera visita seguiría escribiendo en el
+    // array viejo mientras window.entAgregar lee el nuevo. Por eso REEMPLAZAMOS el listener:
+    // se quita el de la corrida anterior y se registra el de ésta. Siempre hay exactamente
+    // uno, y apunta al closure vivo.
+    if (window.__entDocClick) document.removeEventListener('click', window.__entDocClick);
+    window.__entDocClick = function (e) {
         var item = e.target.closest('#entSuggest .ent-suggest-item');
         if (item) { e.preventDefault(); entPick(item); return; }
         if (!e.target.closest('.ent-search-field')) entSuggestHide();
@@ -523,7 +533,8 @@
             return;
         }
         if (!e.target.closest('.ent-um-wrap')) entUmHide();
-    });
+    };
+    document.addEventListener('click', window.__entDocClick);
     // Teclas en el input search: Esc cierra; Enter elige la PRIMERA sugerencia.
     window.entSearchKey = function (ev) {
         if (ev.key === 'Escape') { ev.preventDefault(); entSuggestHide(); return; }
@@ -917,18 +928,28 @@
     // click cuando quiere empezar a buscar.
 
     // Esc global: cierra sugerencias antes de cualquier otra cosa.
-    document.addEventListener('keydown', function (e) {
+    // Mismo motivo que el listener de click: se reemplaza en cada montaje SPA (llama a
+    // entSuggestHide, que es local de esta corrida).
+    if (window.__entDocKeydown) document.removeEventListener('keydown', window.__entDocKeydown);
+    window.__entDocKeydown = function (e) {
         if (e.key === 'Escape') {
             var box = el('entSuggest');
             if (box && box.classList.contains('open')) { entSuggestHide(); return; }
         }
-    });
+    };
+    document.addEventListener('keydown', window.__entDocKeydown);
 })();
 
 // Móvil: el tamaño del teclado lo decide el teléfono (no se achica por web sin perder
 // el punto decimal). Para que el teclado no tape lo que se edita, al enfocar el campo
 // de cantidad lo subimos a la zona visible. Mismo criterio que /admin/almacen.
 (function () {
+    // Este handler NO captura estado de la corrida (solo mira e.target y el ancho de la
+    // ventana), así que aquí sí basta registrarlo UNA vez por pestaña: si se apilara, un
+    // solo focus dispararía N scrollIntoView.
+    if (window.__entFocusinBound) return;
+    window.__entFocusinBound = true;
+
     document.addEventListener('focusin', function (e) {
         var inp = e.target;
         if (!inp || !inp.classList || !inp.classList.contains('ent-cant-input')) return;

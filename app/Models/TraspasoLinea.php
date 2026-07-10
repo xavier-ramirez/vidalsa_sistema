@@ -93,8 +93,7 @@ class TraspasoLinea extends Model
         return round((float) $this->CANTIDAD_RECIBIDA - (float) $this->CANTIDAD_ENVIADA, 3);
     }
 
-    public function esFaltante(): bool { return $this->ESTADO_LINEA === self::ESTADO_FALTANTE; }
-    public function esSobrante(): bool { return $this->ESTADO_LINEA === self::ESTADO_SOBRANTE; }
-    public function esDanado(): bool   { return $this->ESTADO_LINEA === self::ESTADO_DANADO; }
-    public function esOk(): bool       { return $this->ESTADO_LINEA === self::ESTADO_OK; }
+    // Sin helpers esFaltante()/esSobrante()/esDanado()/esOk(): nadie los llamaba. Las vistas
+    // resuelven el estado de la línea con ESTADOS_META[$linea->ESTADO_LINEA], que es la única
+    // fuente de su etiqueta y sus colores.
 }

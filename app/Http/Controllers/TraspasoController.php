@@ -194,7 +194,17 @@ class TraspasoController extends Controller
             });
         }
 
-        $paginator = $q->orderByDesc('ID_TRASPASO')->paginate(30)->withQueryString();
+        // Orden: de la MÁS RECIENTE a la más vieja por la fecha que la tabla muestra en la
+        // columna "Enviado" (COALESCE con created_at para los borradores, que aún no tienen
+        // FECHA_ENVIO). ID_TRASPASO desempata: sin él, dos notas del mismo instante saldrían
+        // en orden indefinido y la lista bailaría entre recargas.
+        // Antes se ordenaba SOLO por ID_TRASPASO: coincide casi siempre con la antigüedad,
+        // pero no cuando se envía un borrador viejo o se elige una fecha de envío retroactiva
+        // — ahí la fila aparecía arriba con una fecha antigua.
+        $paginator = $q->orderByDesc(DB::raw('COALESCE(FECHA_ENVIO, created_at)'))
+            ->orderByDesc('ID_TRASPASO')
+            ->paginate(30)
+            ->withQueryString();
 
         // Lista de NÚMEROS de nota que alimenta el autocomplete del filtro "Buscar por
         // número de nota" del toolbar. Debe sugerir SOLO lo que la bandeja muestra por
@@ -427,6 +437,9 @@ class TraspasoController extends Controller
         // lo necesita; evita una segunda query al evaluar $puedeRecibir más abajo.
         $traspaso = Traspaso::with([
             'lineas.producto:ID_PRODUCTO,CODIGO,NOMBRE,UM',
+            // Nºs de parte: alimentan el buscador de materiales del modal (data-buscar).
+            // Sin este eager-load sería una query por línea.
+            'lineas.producto.equivalencias:ID_PRODUCTO,NUMERO_PARTE',
             'almacenOrigen:ID_ALMACEN,NOMBRE,TIPO',
             'almacenDestino:ID_ALMACEN,NOMBRE,TIPO,ESTATUS',
             'frenteDestino:ID_FRENTE,NOMBRE_FRENTE',
@@ -468,6 +481,17 @@ class TraspasoController extends Controller
         $data = $this->validarCabecera($request, parcial: true);
         $lineas = $this->validarLineas($request);
 
+        // El destino resultante debe seguir siendo válido contra el origen (que no cambia en
+        // un PATCH). La regla `different:id_almacen_origen` de store() no sirve aquí porque el
+        // origen no viaja en el payload parcial; sin esto se guardaba un borrador con
+        // origen == destino que solo fallaba al enviarlo.
+        $destinoResuelto = (int) ($data['id_almacen_destino'] ?? $traspaso->ID_ALMACEN_DESTINO);
+        try {
+            $this->traspasos->validarOrigenDestino((int) $traspaso->ID_ALMACEN_ORIGEN, $destinoResuelto);
+        } catch (Throwable $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
         try {
             DB::transaction(function () use ($traspaso, $data, $lineas) {
                 $traspaso->fill([
@@ -498,6 +522,11 @@ class TraspasoController extends Controller
     {
         $traspaso = Traspaso::with('lineas')->findOrFail($id);
         $this->assertPuedeOperarOrigen($request, (int) $traspaso->ID_ALMACEN_ORIGEN);
+
+        // Misma regla que `fecha_recepcion` en recibir(): ambas estampan un DATETIME vía
+        // TraspasoService::resolverFechaHora. Sin validar, una fecha basura llegaba a
+        // Carbon::parse y salía como un 422 con el mensaje crudo de la excepción.
+        $request->validate(['fecha_envio' => 'nullable|date']);
 
         try {
             $traspaso = $this->traspasos->enviar($traspaso, [

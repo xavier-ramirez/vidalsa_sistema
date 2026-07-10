@@ -93,11 +93,14 @@
         margin-bottom:12px;
     }
     #trFilters .tr-item { flex:1 1 220px; min-width:180px; max-width:300px; }
-    /* "Nota de entrega" solo aloja un código corto (NE-2026-0249): se le recorta ancho para
-       dárselo al buscador por producto/descripción, que sí muestra texto largo. */
-    #trFilters .tr-search-num { flex:0 1 200px; min-width:150px; max-width:220px; }
-    #trFilters .tr-search-num,
-    #trFilters .tr-search-prod { flex:1 1 360px; max-width:520px; min-width:240px; position:relative; }
+    /* Los dos buscadores llevan position:relative para anclar su panel de sugerencias
+       (absolute). UNA sola declaración por selector: antes .tr-search-num se declaraba dos
+       veces y la segunda —agrupada con .tr-search-prod— pisaba el ancho recortado de la
+       primera, así que el recorte nunca llegó a aplicarse.
+       "Nota de entrega" solo aloja un código corto (NE-2026-0249): se le recorta el ancho
+       para dárselo al buscador por producto/descripción, que sí muestra texto largo. */
+    #trFilters .tr-search-num  { position:relative; flex:0 1 190px; min-width:150px; max-width:210px; }
+    #trFilters .tr-search-prod { position:relative; flex:1 1 360px; min-width:240px; max-width:520px; }
     /* Toolbar alineado al estándar de /admin/almacen/movimientos: cajas de 45px,
        radio 12px, fondo suave #fbfcfd y letra 14px (antes 40px/8px/13px se veía
        más apretado que el resto de los módulos). Azul #e1effa cuando hay filtro. */
@@ -116,8 +119,10 @@
     #trEstadoDropdown .dropdown-trigger input { text-transform:uppercase; letter-spacing:.3px; }
     #trEstadoDropdown .dropdown-trigger input::placeholder { text-transform:uppercase; }
     /* Filtro Estado (custom-dropdown) — misma altura (45px) y letra (14px global) que
-       el buscador y el resto de filtros de la app. */
-    #trFilters .tr-filter-estado { flex:0 1 180px; min-width:150px; max-width:220px; }
+       el buscador y el resto de filtros de la app. Más ancho que antes (180→250px): sus
+       opciones van en MAYÚSCULAS y "CONFIRMADA PARCIAL" no entraba sin recortarse. El ancho
+       que gana sale del filtro "Nota de entrega", que solo aloja un código corto. */
+    #trFilters .tr-filter-estado { flex:0 1 250px; min-width:200px; max-width:280px; }
     /* Cajas de fecha (Desde/Hasta), ahora dentro del panel "Filtros avanzados". */
     .tr-date-box { display:flex; align-items:center; gap:5px; height:40px; border:1px solid #cbd5e0; border-radius:8px; padding:0 10px; cursor:pointer; box-sizing:border-box; }
     .tr-date-box i { font-size:16px; color:#94a3b8; pointer-events:none; }
@@ -292,10 +297,16 @@
     .dtm-linea-rec { cursor:pointer; }
     .dtm-linea-rec.recibida td { background:#e1effa; }
     .dtm-linea-rec.recibida:hover td { background:#d6e9fb; }
-    .dtm-rec-cant { width:1%; padding-left:4px !important; padding-right:4px !important; }
-    /* El campo es type=text (ver el modal), así que no hay flechitas de spinner que ocultar. */
+    .dtm-rec-cant { width:1%; white-space:nowrap; padding-left:4px !important; padding-right:4px !important; }
+    /* Check verde de "tildado": aparece al marcar la fila (.recibida). Reserva su hueco
+       siempre (visibility, no display) para que el input no se corra al marcar/desmarcar. */
+    .dtm-rec-ico { font-size:18px; color:#16a34a; vertical-align:middle; margin-right:5px; visibility:hidden; }
+    .dtm-linea-rec.recibida .dtm-rec-ico { visibility:visible; }
+    /* El campo es type=text (ver el modal), así que no hay flechitas de spinner que ocultar.
+       52px basta para las cantidades reales (1-4 dígitos); a 64px el recuadro se veía
+       desproporcionado frente al número que contiene. */
     .dtm-rec-input {
-        width:64px; height:30px; padding:0 6px; text-align:center;
+        width:52px; height:28px; padding:0 4px; text-align:center;
         border:1px solid #cbd5e0; border-radius:8px; background:#fff;
         font-family:inherit; font-size:13px; font-weight:600; color:#0f172a;
         outline:none; cursor:text;
@@ -303,6 +314,19 @@
     .dtm-rec-input:focus { border-color:#0067b1; box-shadow:0 0 0 2px rgba(0,103,177,.15); }
     .dtm-linea-rec.recibida .dtm-rec-input { border-color:#0067b1; color:#0067b1; font-weight:800; }
     .dtm-diff-value { font-size:13px; font-weight:600; color:#64748b; }
+
+    /* Buscador de materiales del modal — mismo lenguaje visual que .alm-filter-box del
+       módulo Inventario (lupa, borde #cbd5e0, radio 12, fondo #fbfcfd), a menor altura
+       porque vive dentro de un modal. font-family:inherit: los <input> no heredan la
+       fuente y se quedarían en el Arial del navegador. */
+    .dtm-buscar-box { display:flex; align-items:center; height:38px; margin:0 0 10px; border:1px solid #cbd5e0; border-radius:12px; background:#fbfcfd; overflow:hidden; }
+    .dtm-buscar-box.active { border-color:#0067b1; background:#e1effa; }
+    .dtm-buscar-box .lupa { padding:0 8px; color:#64748b; font-size:18px; }
+    .dtm-buscar-box input { flex:1; min-width:0; border:none; background:transparent; outline:none; padding:0 4px; font-family:inherit; font-size:13.5px; color:#0f172a; }
+    .dtm-buscar-clear { padding:0 8px; color:#64748b; font-size:18px; cursor:pointer; display:none; }
+    .dtm-buscar-box.active .dtm-buscar-clear { display:block; }
+    /* Fila "sin resultados" del buscador (la inyecta trFiltrarLineas). */
+    .dtm-sin-resultados td { text-align:center; color:#94a3b8; font-size:13px; padding:22px 10px; }
 
     .dtm-footer {
         display:flex; align-items:center; justify-content:center; gap:12px; flex-wrap:wrap;
@@ -345,8 +369,11 @@
            8px verticales (no 5): la fila aloja el campo editable de "Recibido" (30px). */
         .dtm-table { font-size:12px; }
         .dtm-table thead th, .dtm-table tbody td { padding:8px 4px; }
-        /* Campo "Recibido" más angosto: en el teléfono cada px de la columna Producto cuenta. */
-        .dtm-rec-input { width:54px; height:28px; font-size:12px; }
+        /* Campo "Recibido": el ancho (52px) y el alto (28px) del bloque base ya sirven en
+           teléfono; aquí sólo se achica la letra para igualar la de la tabla. Antes esta regla
+           repetía width:54px/height:28px — el height era idéntico al base y el width, tras
+           reducir el base a 52px, dejó de "angostar" nada: lo ensanchaba 2px. */
+        .dtm-rec-input { font-size:12px; }
         /* Misma letra (12px) para TODO el texto de la tabla también en móvil. La UM queda
            fuera: acompaña a la cantidad y debe seguir siendo más pequeña que la cifra. */
         .dtm-col-num, .dtm-diff-value, .dtm-linea-cod, .dtm-linea-nom, .dtm-col-idx { font-size:12px; }
@@ -472,7 +499,9 @@
         .tr-table tbody tr[data-id] td:nth-child(1) {
             grid-area: numero !important;
             font-family: monospace !important; font-weight: 800 !important;
-            font-size: 14px !important; color: #0f172a !important; white-space: nowrap !important;
+            /* 13px = la escala de la tarjeta (ver el bloque de tipografía más abajo). Una sola
+               declaración: antes esto ponía 14px y la regla de más abajo lo pisaba con 13px. */
+            font-size: 13px !important; color: #0f172a !important; white-space: nowrap !important;
             align-self: center !important;
         }
         /* td:2 = "Origen → Destino" (ya tiene su sub-layout con div+flecha interno) */
@@ -510,20 +539,20 @@
            En móvil convivían 14 / 13 / 12.5 / 11.5 / 10.5px y la tarjeta se leía a
            saltos. Se reduce a dos tamaños: 13px para los datos (nº, origen, frente,
            fecha) y 11.5px para lo secundario (almacén físico, "hace X"). Los spans de
-           rows.blade traen font-size inline, así que hace falta !important. */
-        .tr-table tbody tr[data-id] td:nth-child(1) { font-size: 13px !important; }
-        .tr-table tbody tr[data-id] .tr-ruta-origen,
-        .tr-table tbody tr[data-id] .tr-ruta-frente { font-size: 13px !important; }
-        .tr-table tbody tr[data-id] .tr-ruta-alm    { font-size: 11.5px !important; }
-        .tr-table tbody tr[data-id] .tr-fecha-rel span { font-size: 11.5px !important; }
-        /* El trayecto sí puede envolver en el ancho del teléfono: aquí la columna no
-           es ancha y un nowrap recortaría el nombre del frente con ellipsis. */
+           rows.blade traen font-size inline, así que hace falta !important. El nº de nota
+           (td:1) ya se fija arriba, en su propia regla; no se repite aquí. */
+        /* Origen y frente: una sola declaración. Envuelven (white-space:normal) porque en el
+           ancho del teléfono la columna es estrecha y el nowrap del escritorio los recortaría
+           con puntos suspensivos. */
         .tr-table tbody tr[data-id] .tr-ruta-origen,
         .tr-table tbody tr[data-id] .tr-ruta-frente {
+            font-size: 13px !important;
             white-space: normal !important;
             overflow: visible !important;
             text-overflow: clip !important;
         }
+        .tr-table tbody tr[data-id] .tr-ruta-alm    { font-size: 11.5px !important; }
+        .tr-table tbody tr[data-id] .tr-fecha-rel span { font-size: 11.5px !important; }
 
         /* Empty state: el <tr> SIN data-id (rama vacia del forelse) queda como bloque centrado sin tarjeta. */
         .tr-table tbody tr:not([data-id]) {
@@ -548,7 +577,9 @@
         <div class="tr-item tr-search-num">
             <div class="tr-search-box {{ $reqSearch ? 'active' : '' }}">
                 <i class="material-icons lupa">search</i>
-                <input type="text" id="trSearch" autocomplete="off" placeholder="Buscar por número de nota de entrega" value="{{ $reqSearch }}"
+                {{-- Placeholder corto: el campo mide ~190px (solo aloja un código NE-2026-0249),
+                     y "Buscar por número de nota de entrega" se cortaba a media palabra. --}}
+                <input type="text" id="trSearch" autocomplete="off" placeholder="N° de nota…" value="{{ $reqSearch }}"
                        oninput="window.trSearchInput()"
                        onfocus="window.trSearchSuggest()"
                        onkeydown="window.trSearchEnter(event)"
@@ -810,9 +841,20 @@
         if (matches.length === 0) {
             box.innerHTML = '<div class="tr-suggest-empty">Sin coincidencias</div>';
         } else {
+            // El N° de nota sale de REFERENCIA, que es TEXTO LIBRE capturado por el usuario.
+            // Se interpola en dos contextos y hay que escapar en los dos, o una referencia
+            // llamada `<img src=x onerror=...>` ejecuta al abrir las sugerencias (XSS
+            // almacenado). El buscador hermano (trProdSuggest) ya saneaba; este no.
+            //   escHtml → texto visible del <div> y valor del atributo onclick.
+            //   escAttr → además escapa la comilla que delimita la cadena JS del onclick.
             box.innerHTML = matches.map(function (n) {
-                var safe = String(n).replace(/'/g, "\\'");
-                return '<div class="tr-suggest-item" onclick="window.trSearchPick(\'' + safe + '\')">' + n + '</div>';
+                var s = String(n);
+                var escHtml = function (v) {
+                    return v.replace(/&/g, '&amp;').replace(/</g, '&lt;')
+                            .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                };
+                var safe = escHtml(s.replace(/\\/g, '\\\\').replace(/'/g, "\\'"));
+                return '<div class="tr-suggest-item" onclick="window.trSearchPick(\'' + safe + '\')">' + escHtml(s) + '</div>';
             }).join('');
         }
         box.classList.add('open');
@@ -1115,7 +1157,10 @@
         if (!row) return;
         var marcada = row.classList.toggle('recibida');
         var inp = row.querySelector('.dtm-rec-input');
-        if (inp) inp.value = marcada ? (parseFloat(row.dataset.enviada) || 0) : '';
+        // trParseCant, no parseFloat: es la MISMA función con la que trCollectLineas lee este
+        // data-enviada al enviar. Con dos parsers distintos para el mismo dato, cualquier
+        // formato que uno acepte y el otro no (una coma decimal) los pone en desacuerdo.
+        if (inp) inp.value = marcada ? trParseCant(row.dataset.enviada) : '';
         window.trUpdateConfirmBtn();
     });
 
@@ -1127,6 +1172,52 @@
         if (!row) return;
         row.classList.toggle('recibida', trParseCant(inp.value) > 0);
         window.trUpdateConfirmBtn();
+    };
+
+    // Buscador de materiales del modal. Filtra EN EL CLIENTE contra data-buscar (código +
+    // descripción + nºs de parte, ya en minúsculas desde el Blade): las líneas de una nota
+    // están todas en el DOM, así que no hay motivo para ir al servidor.
+    //
+    // OJO: sólo OCULTA filas, no las desmarca. Una línea tildada que queda fuera del filtro
+    // sigue contando para "Aceptar (N)" y se envía igual — si el filtro la des-tildara, buscar
+    // un producto perdería en silencio lo que el usuario ya había confirmado.
+    window.trFiltrarLineas = function (texto, limpiar) {
+        var box = el('trDetalleBox'); if (!box) return;
+        var input = box.querySelector('#dtmBuscar');
+        if (limpiar && input) input.value = '';
+        var q = (limpiar ? '' : String(texto || '')).trim().toLowerCase();
+
+        var caja = box.querySelector('#dtmBuscarBox');
+        if (caja) caja.classList.toggle('active', q !== '');
+
+        var visibles = 0;
+        box.querySelectorAll('.dtm-linea').forEach(function (tr) {
+            var hay = !q || (tr.getAttribute('data-buscar') || '').indexOf(q) !== -1;
+            tr.style.display = hay ? '' : 'none';
+            if (hay) visibles++;
+        });
+
+        // Mensaje de "sin resultados": se crea una sola vez y se reutiliza. No lleva
+        // .dtm-linea-rec, así que trCollectLineas no lo recoge al confirmar.
+        var tabla = box.querySelector('.dtm-table');
+        var tbody = tabla && tabla.querySelector('tbody'); if (!tbody) return;
+        var vacio = tbody.querySelector('.dtm-sin-resultados');
+        if (!visibles) {
+            if (!vacio) {
+                // La tabla tiene 4 columnas al recibir y 6 al consultar una nota cerrada:
+                // se lee del thead en vez de fijar un número.
+                var cols = tabla.querySelectorAll('thead th').length || 4;
+                vacio = document.createElement('tr');
+                vacio.className = 'dtm-sin-resultados';
+                vacio.innerHTML = '<td colspan="' + cols + '">Ningún material coincide con la búsqueda.</td>';
+                tbody.appendChild(vacio);
+            }
+            vacio.style.display = '';
+        } else if (vacio) {
+            vacio.style.display = 'none';
+        }
+
+        if (limpiar && input) input.focus();
     };
 
     // Botón "Aceptar (N)": única acción de confirmación. Siempre VISIBLE; se deshabilita

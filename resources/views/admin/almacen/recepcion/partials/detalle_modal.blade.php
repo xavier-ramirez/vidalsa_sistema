@@ -36,6 +36,21 @@
         @if($puedeRecibir)<span class="dtm-rec-hint"><i class="material-icons">touch_app</i> Toca los que llegaron</span>@endif
     </div>
 
+    {{-- Buscador de materiales: filtra las filas EN EL CLIENTE por código, descripción o
+         nº de parte (data-buscar). Mismo patrón visual que el buscador del módulo Inventario
+         (.alm-filter-box): lupa a la izquierda, ✕ para limpiar, letra heredada. No pega al
+         servidor — las líneas de una nota ya están todas en el DOM. --}}
+    @if($traspaso->lineas->count() > 1)
+        <div class="dtm-buscar-box" id="dtmBuscarBox">
+            <i class="material-icons lupa">search</i>
+            <input type="text" id="dtmBuscar" autocomplete="off"
+                   placeholder="Buscar por código, descripción o n° de parte…"
+                   oninput="window.trFiltrarLineas && window.trFiltrarLineas(this.value)">
+            <i class="material-icons dtm-buscar-clear" id="dtmBuscarClear" title="Limpiar"
+               onclick="window.trFiltrarLineas && window.trFiltrarLineas('', true)">close</i>
+        </div>
+    @endif
+
     <div class="dtm-table-wrap">
         <table class="dtm-table">
             <thead>
@@ -60,11 +75,16 @@
                         // Metadata visual del estado de línea — single source of truth en el modelo.
                         $el = \App\Models\TraspasoLinea::ESTADOS_META[$linea->ESTADO_LINEA] ?? \App\Models\TraspasoLinea::ESTADO_META_DEFAULT;
                         $cantEnvFmt = rtrim(rtrim(number_format((float) $linea->CANTIDAD_ENVIADA, 3, ',', '.'), '0'), ',');
+                        // Texto que consume el buscador del modal: código + descripción + todos
+                        // los nºs de parte del producto, en minúsculas y en un solo atributo.
+                        $prod   = $linea->producto;
+                        $partes = $prod?->equivalencias?->pluck('NUMERO_PARTE')->implode(' ') ?? '';
+                        $buscar = mb_strtolower(trim("{$prod?->CODIGO} {$prod?->NOMBRE} {$partes}"));
                     @endphp
                     {{-- .dtm-linea + data-* los usa el JS. Cuando $puedeRecibir, .dtm-linea-rec
                          hace la fila clicable: al tocarla se marca .recibida (azul) y
                          trCollectLineas registra data-enviada como cantidad recibida. --}}
-                    <tr class="dtm-linea{{ $puedeRecibir ? ' dtm-linea-rec' : '' }}" data-id-linea="{{ $linea->ID_LINEA }}" data-enviada="{{ (float) $linea->CANTIDAD_ENVIADA }}">
+                    <tr class="dtm-linea{{ $puedeRecibir ? ' dtm-linea-rec' : '' }}" data-id-linea="{{ $linea->ID_LINEA }}" data-enviada="{{ (float) $linea->CANTIDAD_ENVIADA }}" data-buscar="{{ $buscar }}">
                         <td class="dtm-col-idx">{{ $loop->iteration }}</td>
                         <td class="dtm-td-prod">
                             <span class="dtm-linea-cod">{{ optional($linea->producto)->CODIGO }}</span>
@@ -84,7 +104,11 @@
                                  campo de cantidad del inventario (.alm-row-cant). Con type=number
                                  el navegador descarta "1,5" (coma decimal) y deja el value vacío,
                                  así que la cantidad se perdía sin aviso. El JS normaliza la coma. --}}
+                            {{-- Check verde: reaparece al marcar la fila (.recibida). Es la señal
+                                 de "esta línea la doy por recibida"; el número dice cuánto. Sin él
+                                 la única pista era el tono azul, y en una nota larga se perdía. --}}
                             <td class="dtm-col-num dtm-rec-cant">
+                                <i class="material-icons dtm-rec-ico" aria-hidden="true">check_circle</i>
                                 <input type="text" class="dtm-rec-input" inputmode="decimal"
                                        placeholder="0" value="" autocomplete="off"
                                        aria-label="Cantidad recibida"

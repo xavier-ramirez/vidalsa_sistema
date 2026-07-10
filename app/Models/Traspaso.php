@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -152,12 +151,8 @@ class Traspaso extends Model
         return $this->hasMany(MovimientoInventario::class, 'ID_TRASPASO', 'ID_TRASPASO');
     }
 
-    // ── Scopes ───────────────────────────────────────────────────
-
-    public function scopeEstado(Builder $q, string|array $estados): Builder
-    {
-        return $q->whereIn('ESTADO', (array) $estados);
-    }
+    // Sin scopeEstado(): nadie lo usaba. Los filtros por estado se escriben con
+    // where('ESTADO', ...) / whereIn directo en TraspasoController y en el View Composer.
 
     // ── Helpers ──────────────────────────────────────────────────
 
