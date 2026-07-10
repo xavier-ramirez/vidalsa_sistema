@@ -561,7 +561,9 @@
         var FitVE = L.Control.extend({
             options: { position: 'topleft' },
             onAdd: function () {
-                var btn = L.DomUtil.create('button', 'mapa-fit-btn');
+                // mapa-ctrl-mobile-hide: en teléfono solo queda visible "Pantalla completa"
+                // (pedido del cliente) — este botón y Descargar/Proyectos se ocultan por CSS.
+                var btn = L.DomUtil.create('button', 'mapa-fit-btn mapa-ctrl-mobile-hide');
                 btn.type = 'button';
                 btn.title = 'Ver toda Venezuela';
                 btn.innerHTML = '<i class="material-icons">public</i>';
@@ -987,7 +989,8 @@
         var OleoCtrl = L.Control.extend({
             options: { position: 'topright' },
             onAdd: function () {
-                var wrap = L.DomUtil.create('div', 'oleo-ctrl');
+                // mapa-ctrl-mobile-hide: oculto en teléfono (ver FitVE arriba).
+                var wrap = L.DomUtil.create('div', 'oleo-ctrl mapa-ctrl-mobile-hide');
                 wrap.innerHTML =
                     '<button type="button" class="oleo-toggle" title="Proyectos (puntos unidos por una línea)"><i class="material-icons">timeline</i></button>' +
                     '<div class="oleo-panel" style="display:none;">' +
@@ -1327,7 +1330,8 @@
         var ExportarCtrl = L.Control.extend({
             options: { position: 'topleft' },
             onAdd: function () {
-                var btn = L.DomUtil.create('button', 'mapa-fit-btn');
+                // mapa-ctrl-mobile-hide: oculto en teléfono (ver FitVE arriba).
+                var btn = L.DomUtil.create('button', 'mapa-fit-btn mapa-ctrl-mobile-hide');
                 btn.type = 'button';
                 btn.title = 'Descargar imagen del mapa';
                 btn.innerHTML = '<i class="material-icons">photo_camera</i>';

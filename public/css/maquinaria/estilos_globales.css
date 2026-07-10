@@ -3953,8 +3953,14 @@ html.is-ios .ent-capt-add-btn { display: flex !important; }
     margin-bottom: 8px !important;
 }
 .mapa-creditos b { color: #0f172a; font-weight: 800; }
+/* Teléfono: el contenedor del mapa gana el espacio que le robaba el padding lateral de
+   .mapa-page, y se ocultan los créditos ("Elaborado por…") y el interruptor "Todos los
+   municipios" del control de capas — en una pantalla angosta solo tapan mapa útil, y el
+   usuario móvil no los necesita para consultar. Un solo breakpoint para todo el módulo. */
 @media (max-width: 640px) {
-    .mapa-creditos { max-width: 74vw; font-size: 9.5px; padding: 4px 7px; }
+    .mapa-page { padding: 0 0 16px; }
+    .mapa-creditos { display: none; }
+    .leaflet-control-layers { display: none; }
 }
 
 /* ── Panel de OLEODUCTOS (proyectos) ── */
@@ -4023,7 +4029,16 @@ html.is-ios .ent-capt-add-btn { display: flex !important; }
 .mapa-dibujo-btn:hover { background: #334155; }
 .mapa-dibujo-btn.primary { background: #0067b1; }
 .mapa-dibujo-btn.primary:hover { background: #005699; }
-@media (max-width: 560px) { .mapa-dibujo-tip { display: none; } .mapa-dibujo-titulo { font-size: 12px; } }
+@media (max-width: 560px) {
+    .mapa-dibujo-tip { display: none; }
+    .mapa-dibujo-titulo { font-size: 12px; }
+    /* En telefono solo queda "Pantalla completa" — Ver toda Venezuela, Descargar
+       imagen y Proyectos (linea de oleoductos) se ocultan (pedido del cliente). */
+    .mapa-ctrl-mobile-hide { display: none !important; }
+    /* Buscador mas angosto: en pantallas chicas 58vw quedaba muy ancho y se
+       montaba sobre los botones de control de al lado. */
+    .leaflet-control-geocoder-form input { width: 140px !important; max-width: 46vw !important; }
+}
 
 /* Popup para guardar un punto en un proyecto */
 .oleo-save { min-width: 210px; }
