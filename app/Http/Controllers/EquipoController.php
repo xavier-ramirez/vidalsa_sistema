@@ -1468,6 +1468,22 @@ class EquipoController extends Controller
                 ->pluck('nombre');
         });
 
+        // tipo_equipos no distingue Liviana/Pesada (catálogo global, ver migración de
+        // creación): se infiere de qué CATEGORIA_FLOTA se usó realmente con cada tipo en
+        // equipos ya registrados, para recomendar/avisar en el selector de "Tipo" del
+        // formulario (JS: __tipoCategoriaMap). Un tipo sin historial no aparece en el mapa
+        // (aún no está "casado" con ninguna categoría) y no dispara aviso.
+        $tipoCategoriaMap = \Illuminate\Support\Facades\Cache::remember('tipo_categoria_map_form', 3600, function () {
+            return Equipo::query()
+                ->join('tipo_equipos', 'tipo_equipos.id', '=', 'equipos.id_tipo_equipo')
+                ->whereNotNull('equipos.CATEGORIA_FLOTA')
+                ->select('tipo_equipos.nombre', 'equipos.CATEGORIA_FLOTA')
+                ->distinct()
+                ->get()
+                ->groupBy('nombre')
+                ->map(function ($rows) { return $rows->pluck('CATEGORIA_FLOTA')->unique()->values(); });
+        });
+
         // Performance Optimization: Don't pre-load models list
         // Models will be loaded dynamically via AJAX autocomplete (same as years)
         // This eliminates DOM bloat when there are thousands of models
@@ -1496,7 +1512,7 @@ class EquipoController extends Controller
 
         return view('admin.equipos.create', compact(
             'frentes', 'seguros', 'tipos_equipo', 'marcas', 'modelos', 'categorias', 'equipo', 'modelosList', 'aniosList',
-            'tiposAux', 'estadosAux', 'auxiliar', 'frentesAux'
+            'tiposAux', 'estadosAux', 'auxiliar', 'frentesAux', 'tipoCategoriaMap'
         ));
     }
 

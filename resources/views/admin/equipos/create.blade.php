@@ -127,13 +127,21 @@
                             <input type="text" id="input_tipo_equipo" name="TIPO_EQUIPO"
                                    class="form-input-custom" value="{{ old('TIPO_EQUIPO') }}"
                                    placeholder="Seleccione o escriba..." maxlength="35" autocomplete="off"
-                                   onfocus="showFormDropdown(this)" onblur="hideFormDropdownDelayed(this)" oninput="filterFormDropdown(this)">
+                                   onfocus="showFormDropdown(this); window.__reorderTipoDropdown(this);"
+                                   onblur="hideFormDropdownDelayed(this); window.__checkTipoEquipoCategoria();"
+                                   oninput="filterFormDropdown(this)"
+                                   onchange="window.__checkTipoEquipoCategoria();">
                             <div class="dropdown-list">
                                 @foreach($tipos_equipo as $tipo)
                                     <div class="dropdown-item" onmousedown="selectDropdownItem(this, '{{ $tipo }}')">{{ $tipo }}</div>
                                 @endforeach
                             </div>
                         </div>
+                        {{-- Aviso no-bloqueante: el tipo escrito/elegido ya está registrado con
+                             OTRA categoría de flota (tipo_equipos es un catálogo global, sin
+                             columna de categoría — se infiere del historial, ver
+                             EquipoController::create / __tipoCategoriaMap). --}}
+                        <div id="tipoEquipoWarn" style="display:none;font-size:12px;font-weight:600;color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:6px 10px;margin-top:6px;"></div>
                     </div>
                     {{-- Tipo Auxiliar (modo auxiliar) --}}
                     <div id="tipoAuxWrap" style="display: none;">
@@ -647,6 +655,50 @@
         // Avisar a la validación en vivo: el modo cambió, debe limpiar errores/caché de
         // los campos compartidos (un duplicado en un modo puede no serlo en el otro).
         window.dispatchEvent(new Event('unified-mode-changed'));
+        window.__checkTipoEquipoCategoria();
+    };
+
+    // ── Tipo de Equipo ↔ Categoría de flota (Liviana/Pesada) ──────────────────────
+    // tipo_equipos es un catálogo GLOBAL (sin columna de categoría): un mismo nombre de
+    // tipo puede en teoría usarse en cualquier categoría. __tipoCategoriaMap (inyectado por
+    // EquipoController::create) dice con qué categoría(s) se usó CADA tipo hasta ahora,
+    // inferido de los equipos ya registrados. Con eso: (a) al abrir el dropdown, los tipos
+    // de la categoría elegida se recomiendan primero; (b) si se escribe/elige un tipo que
+    // solo se ha usado con la OTRA categoría, se avisa (no bloquea: es una recomendación,
+    // no una regla de negocio — un tipo nuevo o mixto es válido).
+    window.__tipoCategoriaMap = @json($tipoCategoriaMap ?? []);
+    function __normTipo(s) { return String(s || '').trim().toUpperCase(); }
+
+    window.__reorderTipoDropdown = function (input) {
+        var actual = document.getElementById('__categoriaFlota').value;
+        if (!actual) return; // modo auxiliar: no aplica
+        var container = input.closest('.custom-form-autocomplete');
+        var dropdown = container && container.querySelector('.dropdown-list');
+        if (!dropdown) return;
+        var items = Array.prototype.slice.call(dropdown.querySelectorAll('.dropdown-item'));
+        items.sort(function (a, b) {
+            var ca = window.__tipoCategoriaMap[__normTipo(a.textContent)] || [];
+            var cb = window.__tipoCategoriaMap[__normTipo(b.textContent)] || [];
+            var scoreOf = function (cats) { return cats.length === 0 ? 1 : (cats.indexOf(actual) !== -1 ? 0 : 2); };
+            return scoreOf(ca) - scoreOf(cb);
+        });
+        items.forEach(function (it) { dropdown.appendChild(it); });
+    };
+
+    window.__checkTipoEquipoCategoria = function () {
+        var input = document.getElementById('input_tipo_equipo');
+        var warn  = document.getElementById('tipoEquipoWarn');
+        var actual = document.getElementById('__categoriaFlota').value;
+        if (!input || !warn) return;
+        var cats = window.__tipoCategoriaMap[__normTipo(input.value)];
+        if (actual && cats && cats.length && cats.indexOf(actual) === -1) {
+            var etiqueta = { 'FLOTA LIVIANA': 'Flota Liviana', 'FLOTA PESADA': 'Flota Pesada' };
+            var otras = cats.map(function (c) { return etiqueta[c] || c; }).join(' / ');
+            warn.textContent = '⚠ Este tipo ya está registrado como ' + otras + ', no como ' + (etiqueta[actual] || actual) + '.';
+            warn.style.display = '';
+        } else {
+            warn.style.display = 'none';
+        }
     };
 
     // ── AJAX Submit ──
