@@ -25,10 +25,10 @@ use Throwable;
  *  - Catálogo global de productos (CODIGO, PRODUCTO/NOMBRE, UM, CATEGORIA).
  *  - Stock por almacén + movimientos (entradas/salidas/ajustes/traspasos) vía InventarioService.
  *
- * Visibilidad (depende de `usuarios.NIVEL_ACCESO` + los frentes, ver Almacen::visiblesPara):
- *  - GLOBAL (NIVEL_ACCESO=1) → ve todos los almacenes. La UI abre preseleccionada en el
+ * Visibilidad (depende de `usuarios.NIVEL_ACCESO_ALMACEN` + los frentes, ver Almacen::visiblesPara):
+ *  - GLOBAL (NIVEL_ACCESO_ALMACEN=1) → ve todos los almacenes. La UI abre preseleccionada en el
  *    almacén ligado a su frente (Usuario::almacenPorDefecto) pero puede filtrar a otros.
- *  - LOCAL  (NIVEL_ACCESO=2) → los almacenes (GENERAL o PROYECTO) asociados a alguno de
+ *  - LOCAL  (NIVEL_ACCESO_ALMACEN=2) → los almacenes (GENERAL o PROYECTO) asociados a alguno de
  *    sus frentes — los que comparten frente con el usuario.
  *  - NO depende del rol ni de permisos (super.admin / almacen.view.all no influyen aquí).
  *

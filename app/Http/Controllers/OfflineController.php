@@ -72,7 +72,7 @@ class OfflineController extends Controller
         //    si el usuario realmente lo usa, para no inflar el cache con datos ajenos.
         //   · Equipos (flota): requiere alguna clave equipos.* (super.admin la hereda).
         //   · Almacén: requiere alguna clave almacen.* o super.admin. NO basta con que el
-        //     almacén sea "visible": un usuario GLOBAL (NIVEL_ACCESO=1) ve todos los
+        //     almacén sea "visible": un usuario GLOBAL (NIVEL_ACCESO_ALMACEN=1) ve todos los
         //     almacenes, así que la visibilidad solo ACOTA cuáles viajan, no DA acceso al
         //     módulo offline (si no, todo GLOBAL bajaría almacén aunque no lo use).
         $puedeEquipos = $user->can('equipos.create')
@@ -163,7 +163,7 @@ class OfflineController extends Controller
                 'frenteActual:ID_FRENTE,NOMBRE_FRENTE,ESTATUS_FRENTE',
                 'documentacion:ID_EQUIPO,PLACA',
             ])
-            ->when($user, fn ($q) => $user->aplicarScopeFrentes($q, 'ID_FRENTE_ACTUAL'))
+            ->when($user, fn ($q) => $user->aplicarScopeFrentesEquipos($q, 'ID_FRENTE_ACTUAL'))
             ->orderBy('NUMERO_ETIQUETA')
             ->get([
                 'ID_EQUIPO', 'NUMERO_ETIQUETA', 'CATEGORIA_FLOTA', 'MARCA', 'MODELO', 'ANIO',
@@ -234,8 +234,13 @@ class OfflineController extends Controller
 
         // ── FRENTES activos (para etiquetas/filtros) ── oculta los no visibles
         //    (whitelist LOCAL + blacklist de bloqueados), igual que los dropdowns online.
+        //
+        // Esta lista la consumen los DOS módulos offline (equipos y almacén), como delata
+        // el guard `$puedeEquipos || $puedeAlmacen` de arriba. Por eso se scopea con la
+        // UNIÓN de ambos niveles: acotarla con uno solo escondería frentes que el otro
+        // módulo necesita (un GLOBAL-equipos + LOCAL-almacén perdería frentes de equipos).
         $frentes = ! ($puedeEquipos || $puedeAlmacen) ? collect() : FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')
-            ->when($user, fn ($q) => $user->aplicarScopeFrentes($q, 'ID_FRENTE'))
+            ->when($user, fn ($q) => $user->aplicarScopeFrentesUnion($q, 'ID_FRENTE'))
             ->orderBy('NOMBRE_FRENTE')
             ->get(['ID_FRENTE', 'NOMBRE_FRENTE'])
             ->map(static fn ($f) => [

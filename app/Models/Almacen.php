@@ -15,7 +15,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  *  AMBOS se ligan a frentes de trabajo vía el pivote `almacen_frentes`.
  *
  * VISIBILIDAD: el TIPO ya NO restringe (ver visiblePara/visiblesPara). Depende SOLO de
- * Usuario::NIVEL_ACCESO + los frentes compartidos:
+ * Usuario::NIVEL_ACCESO_ALMACEN + los frentes compartidos:
  *   1 = GLOBAL → ve TODOS los almacenes (salvo los ligados en exclusiva a frentes bloqueados).
  *   2 = LOCAL  → ve cualquier almacén —GENERAL o PROYECTO— que comparta al menos un frente
  *                con él. Es decir, un LOCAL SÍ puede ver un almacén GENERAL si comparten frente.
@@ -99,20 +99,23 @@ class Almacen extends Model
      * True si el usuario tiene acceso "global" (ve todos los almacenes).
      *
      * Decisión de producto: la visibilidad de almacenes depende ÚNICAMENTE de
-     * `usuarios.NIVEL_ACCESO` (1 = GLOBAL, 2 = LOCAL). NO depende del rol ni de
-     * permisos como `super.admin` o `almacen.view.all` — un super.admin con
-     * NIVEL_ACCESO=2 debe ver solo los almacenes de sus frentes asignados, igual
-     * que cualquier usuario LOCAL.
+     * `usuarios.NIVEL_ACCESO_ALMACEN` (1 = GLOBAL, 2 = LOCAL). NO depende del rol ni
+     * de permisos como `super.admin` o `almacen.view.all` — un super.admin con
+     * NIVEL_ACCESO_ALMACEN=2 debe ver solo los almacenes de sus frentes asignados,
+     * igual que cualquier usuario LOCAL.
+     *
+     * Es un nivel INDEPENDIENTE del de equipos (NIVEL_ACCESO_EQUIPOS): un usuario
+     * puede ver todos los equipos y a la vez solo su almacén.
      */
     public static function usuarioEsGlobal($user): bool
     {
         if (!$user) {
             return false;
         }
-        // Criterio ÚNICO centralizado en Usuario::veTodosLosFrentes (mismo "==1").
-        return method_exists($user, 'veTodosLosFrentes')
-            ? $user->veTodosLosFrentes()
-            : (int) ($user->NIVEL_ACCESO ?? 0) === 1;
+        // Criterio ÚNICO centralizado en Usuario::veTodosLosAlmacenes.
+        return method_exists($user, 'veTodosLosAlmacenes')
+            ? $user->veTodosLosAlmacenes()
+            : (int) ($user->NIVEL_ACCESO_ALMACEN ?? 0) === 1;
     }
 
     /**
@@ -150,18 +153,18 @@ class Almacen extends Model
     /**
      * Almacenes que un usuario puede CONSULTAR.
      *
-     *  - GLOBAL (NIVEL_ACCESO=1):
+     *  - GLOBAL (NIVEL_ACCESO_ALMACEN=1):
      *      ve TODOS los almacenes (principales GENERAL + secundarios PROYECTO).
      *      Aún así, el módulo abre preseleccionado en el almacén ligado a su
      *      frente (ver Usuario::almacenPorDefecto + AlmacenController) — pero
      *      puede cambiar el filtro y ver los demás.
-     *  - LOCAL (NIVEL_ACCESO=2):
+     *  - LOCAL (NIVEL_ACCESO_ALMACEN=2):
      *      ve los almacenes (GENERAL o PROYECTO) ligados a alguno de sus frentes
      *      asignados — los que comparten frente con el usuario.
      *  - Sin usuario o sin frentes asignados (siendo LOCAL) → no ve ningún almacén.
      *
      * NOTA: la visibilidad NO depende de roles ni permisos (super.admin /
-     * almacen.view.all). Depende de `usuarios.NIVEL_ACCESO` + los frentes asignados.
+     * almacen.view.all). Depende de `usuarios.NIVEL_ACCESO_ALMACEN` + los frentes asignados.
      *
      * @param  \App\Models\Usuario|null  $user
      */

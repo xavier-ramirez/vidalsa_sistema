@@ -16,10 +16,22 @@
                         <td class="table-cell-bordered" style="font-size: 14px; padding: 8px 12px; text-align: left; color: #4a5568; font-weight: 600;">
                             {{ $user->rol->NOMBRE_ROL ?? 'S/R' }}
                         </td>
+                        {{-- Dos niveles independientes (equipos / almacén). Se muestran en la
+                             misma celda porque casi siempre coinciden; cuando divergen, es justo
+                             el dato que el admin necesita ver de un vistazo. --}}
                         <td class="table-cell-bordered" style="font-size: 14px; padding: 8px 12px; text-align: left !important; white-space: nowrap;">
-                            <span style="color: {{ $user->NIVEL_ACCESO == 1 ? '#2c7a7b' : '#6b46c1' }}; font-weight: 700;">
-                                {{ $user->nivel_acceso_texto }}
-                            </span>
+                            <div style="font-size: 12px; line-height: 1.5;">
+                                <span style="color: #94a3b8; font-weight: 600;">EQ</span>
+                                <span style="color: {{ $user->NIVEL_ACCESO_EQUIPOS == 1 ? '#2c7a7b' : '#6b46c1' }}; font-weight: 700;">
+                                    {{ $user->nivel_acceso_equipos_texto }}
+                                </span>
+                            </div>
+                            <div style="font-size: 12px; line-height: 1.5;">
+                                <span style="color: #94a3b8; font-weight: 600;">ALM</span>
+                                <span style="color: {{ $user->NIVEL_ACCESO_ALMACEN == 1 ? '#2c7a7b' : '#6b46c1' }}; font-weight: 700;">
+                                    {{ $user->nivel_acceso_almacen_texto }}
+                                </span>
+                            </div>
                         </td>
                         <td class="table-cell-bordered" style="font-size: 14px; padding: 8px 12px; color: var(--maquinaria-gray-text); white-space: nowrap;">
                             {{ $user->frenteAsignado->NOMBRE_FRENTE ?? 'Global' }}

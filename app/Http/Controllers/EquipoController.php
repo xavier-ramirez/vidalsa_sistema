@@ -63,7 +63,7 @@ class EquipoController extends Controller
     }
 
     /**
-     * Centralized lookup. NO aplica barrera por NIVEL_ACCESO / jurisdiccion:
+     * Centralized lookup. NO aplica barrera por NIVEL_ACCESO_EQUIPOS / jurisdiccion:
      * la filosofia del sistema es "solo la clave PERMISOS decide el acceso".
      * El control granular ya esta en el middleware/@can de cada operacion.
      */
@@ -124,7 +124,7 @@ class EquipoController extends Controller
         // combina ambas; closure reutilizable entre "solo seleccionados" y filtrado normal.
         $aplicarAccesoLocal = function ($q) use ($user) {
             if ($user) {
-                $user->aplicarScopeFrentes($q, 'ID_FRENTE_ACTUAL');
+                $user->aplicarScopeFrentesEquipos($q, 'ID_FRENTE_ACTUAL');
             }
         };
 
@@ -799,7 +799,7 @@ class EquipoController extends Controller
         // LOCAL + lista negra de bloqueados): un frente bloqueado no aparece como filtro.
         $frentesQuery = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->orderBy('NOMBRE_FRENTE', 'asc');
         if ($user) {
-            $user->aplicarScopeFrentes($frentesQuery, 'ID_FRENTE');
+            $user->aplicarScopeFrentesEquipos($frentesQuery, 'ID_FRENTE');
         }
         $frentes = $frentesQuery->get();
 
@@ -808,7 +808,7 @@ class EquipoController extends Controller
         // que no existen en sus frentes (antes traía TODOS los TipoEquipo del sistema).
         $tiposVisiblesBase = Equipo::query()->whereNotNull('id_tipo_equipo');
         if ($user) {
-            $user->aplicarScopeFrentes($tiposVisiblesBase, 'ID_FRENTE_ACTUAL');
+            $user->aplicarScopeFrentesEquipos($tiposVisiblesBase, 'ID_FRENTE_ACTUAL');
         }
 
         $tipoIdsVisibles = (clone $tiposVisiblesBase)
@@ -1671,7 +1671,7 @@ class EquipoController extends Controller
             $frenteNuevo = trim((string) $request->input('ID_FRENTE_ACTUAL', ''));
             if ($frenteNuevo !== '' && \App\Models\FrenteTrabajo::where('ID_FRENTE', $frenteNuevo)->exists()) {
                 $u = auth()->user();
-                $esLocal    = $u ? !$u->veTodosLosFrentes() : false;
+                $esLocal    = $u ? !$u->veTodosLosFrentesEquipos() : false;
                 $permitidos = $u ? array_map('strval', $u->getFrentesIds()) : [];
                 $bloqueados = $u ? array_map('strval', $u->getFrentesBloqueadosIds()) : [];
                 if (in_array($frenteNuevo, $bloqueados, true) || ($esLocal && !in_array($frenteNuevo, $permitidos, true))) {
@@ -3141,7 +3141,7 @@ class EquipoController extends Controller
     {
         try {
             $user              = auth()->user();
-            $isLocal           = ($user ? !$user->veTodosLosFrentes() : false);
+            $isLocal           = ($user ? !$user->veTodosLosFrentesEquipos() : false);
             $frentesPermitidos = $user ? $user->getFrentesIds() : [];
             $frentesBloqueados = $user ? $user->getFrentesBloqueadosIds() : [];
             $requestedFrenteId = $request->input('frente_id');
@@ -3323,7 +3323,7 @@ class EquipoController extends Controller
     {
         try {
             $user = auth()->user();
-            $isLocal = ($user ? !$user->veTodosLosFrentes() : false);
+            $isLocal = ($user ? !$user->veTodosLosFrentesEquipos() : false);
             $frentesPermitidos = $user ? $user->getFrentesIds() : [];
             $frentesBloqueados = $user ? $user->getFrentesBloqueadosIds() : [];
             $requestedFrenteId = $request->input('frente_id');
@@ -4330,7 +4330,7 @@ class EquipoController extends Controller
     // Permiso: equipos.assign (mismo que movilizar). Setear una ubicacion
     // especifica dentro del frente es operacionalmente afin a reasignar/mover,
     // no a editar la ficha del equipo. Filosofia del sistema: solo PERMISOS
-    // decide — NIVEL_ACCESO del usuario no restringe la operacion.
+    // decide — NIVEL_ACCESO_EQUIPOS del usuario no restringe la operacion.
     public function updateUbicacion(Request $request, $id)
     {
         if (! auth()->user()?->can('equipos.assign')) {
@@ -4363,7 +4363,7 @@ class EquipoController extends Controller
      * BULK update del DETALLE_UBICACION_ACTUAL sobre varios equipos del MISMO frente.
      * Permiso: equipos.assign (mismo que movilizar). Frontend valida mismo
      * frente; aqui hacemos la misma validacion como guard defensivo.
-     * NIVEL_ACCESO del usuario NO restringe la operacion — filosofia del
+     * NIVEL_ACCESO_EQUIPOS del usuario NO restringe la operacion — filosofia del
      * sistema: solo PERMISOS decide (ver AppServiceProvider::boot).
      */
     public function bulkUbicacion(Request $request)
@@ -4571,7 +4571,7 @@ class EquipoController extends Controller
     public function bulkTemplate(Request $request)
     {
         $user    = auth()->user();
-        $isLocal = ($user ? !$user->veTodosLosFrentes() : false);
+        $isLocal = ($user ? !$user->veTodosLosFrentesEquipos() : false);
 
         // Cache el binario XLSX en disco por usuario-scope (solo cambia si agregan frentes/tipos).
         // Se invalida automaticamente al guardar/borrar TipoEquipo o FrenteTrabajo: el
@@ -4659,7 +4659,7 @@ class EquipoController extends Controller
         // blacklist de bloqueados) para que no se pueda dar de alta en un frente prohibido.
         $frentesQuery = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->orderBy('NOMBRE_FRENTE');
         if ($user) {
-            $user->aplicarScopeFrentes($frentesQuery, 'ID_FRENTE');
+            $user->aplicarScopeFrentesEquipos($frentesQuery, 'ID_FRENTE');
         }
         $frentes    = $frentesQuery->pluck('NOMBRE_FRENTE')->toArray();
         $categorias = ['FLOTA LIVIANA', 'FLOTA PESADA'];
@@ -4813,7 +4813,7 @@ class EquipoController extends Controller
         $tiposMap   = TipoEquipo::orderBy('nombre')->get()->keyBy(fn($t) => strtolower(trim($t->nombre)));
         $frentesQuery = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->orderBy('NOMBRE_FRENTE');
         if ($user) {
-            $user->aplicarScopeFrentes($frentesQuery, 'ID_FRENTE');
+            $user->aplicarScopeFrentesEquipos($frentesQuery, 'ID_FRENTE');
         }
         $frentesMap = $frentesQuery->get()->keyBy(fn($f) => strtolower(trim($f->NOMBRE_FRENTE)));
 
@@ -4948,7 +4948,7 @@ class EquipoController extends Controller
 
         $frentesOptionsQuery = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->orderBy('NOMBRE_FRENTE');
         if ($user) {
-            $user->aplicarScopeFrentes($frentesOptionsQuery, 'ID_FRENTE');
+            $user->aplicarScopeFrentesEquipos($frentesOptionsQuery, 'ID_FRENTE');
         }
         $frentesOptions = $frentesOptionsQuery->get(['ID_FRENTE', 'NOMBRE_FRENTE'])
             ->map(fn($f) => ['id' => $f->ID_FRENTE, 'nombre' => $f->NOMBRE_FRENTE]);
@@ -5012,7 +5012,7 @@ class EquipoController extends Controller
         $tiposMap  = TipoEquipo::orderBy('nombre')->get()->keyBy(fn($t) => strtolower(trim($t->nombre)));
         $frentesQuery = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->orderBy('NOMBRE_FRENTE');
         if ($user) {
-            $user->aplicarScopeFrentes($frentesQuery, 'ID_FRENTE');
+            $user->aplicarScopeFrentesEquipos($frentesQuery, 'ID_FRENTE');
         }
         $frentesMap = $frentesQuery->get()->keyBy(fn($f) => strtolower(trim($f->NOMBRE_FRENTE)));
 

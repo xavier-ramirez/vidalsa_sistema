@@ -11,7 +11,7 @@
 @endphp
 
 @if(!$almacen)
-    {{-- Empty-state: solo lo ven los usuarios GLOBAL (NIVEL_ACCESO=1) cuando el
+    {{-- Empty-state: solo lo ven los usuarios GLOBAL (NIVEL_ACCESO_ALMACEN=1) cuando el
          sistema no tiene almacenes creados todavía. Los LOCAL nunca llegan aquí
          porque el controller los redirige al menú con flash_toast (ver AlmacenController::index). --}}
     <tr>

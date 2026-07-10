@@ -84,12 +84,12 @@ class HistorialDocumentosController extends Controller
     public function index(Request $request)
     {
         // ── Scope LOCAL ─────────────────────────────────────────────────────
-        // Usuarios NIVEL_ACCESO=2 (local) solo ven el historial de equipos en
+        // Usuarios NIVEL_ACCESO_EQUIPOS=2 (local) solo ven el historial de equipos en
         // los frentes que tienen asignados. Sin frentes => ven nada.
         // Los super.admin / global ven todo el historial.
         $user            = auth()->user();
         // null = ve todo (global) | [] = local sin frentes | [ids] (Usuario::frentesVisiblesIds).
-        $frentesVisibles = $user ? $user->frentesVisiblesIds() : [];
+        $frentesVisibles = $user ? $user->frentesVisiblesEquiposIds() : [];
         // Lista negra: frentes a OCULTAR siempre (también a GLOBAL).
         $frentesBloqueados = $user ? $user->getFrentesBloqueadosIds() : [];
 

@@ -64,7 +64,7 @@ class UserController extends Controller
     public function index(Request $request)
     {
         // Start with base query
-        $query = Usuario::select('ID_USUARIO', 'NOMBRE_COMPLETO', 'CORREO_ELECTRONICO', 'ID_ROL', 'ID_FRENTE_ASIGNADO', 'NIVEL_ACCESO', 'ESTATUS', 'created_at')
+        $query = Usuario::select('ID_USUARIO', 'NOMBRE_COMPLETO', 'CORREO_ELECTRONICO', 'ID_ROL', 'ID_FRENTE_ASIGNADO', 'NIVEL_ACCESO_EQUIPOS', 'NIVEL_ACCESO_ALMACEN', 'ESTATUS', 'created_at')
             ->with([
                 'rol:ID_ROL,NOMBRE_ROL', 
                 'frenteAsignado:ID_FRENTE,NOMBRE_FRENTE'
@@ -175,8 +175,9 @@ class UserController extends Controller
             'equipos.create'      => 'Registrar Equipos',
             'equipos.edit'        => 'Actualizar Equipos',
             'equipos.assign'      => 'Asignar Equipos',
-            // La visibilidad de almacenes depende solo de usuarios.NIVEL_ACCESO
-            // (1=GLOBAL ve todo, 2=LOCAL solo sus frentes), no de permisos.
+            // La visibilidad de almacenes depende solo de usuarios.NIVEL_ACCESO_ALMACEN
+            // (1=GLOBAL ve todo, 2=LOCAL solo sus frentes), no de permisos. Es un nivel
+            // independiente del de equipos (NIVEL_ACCESO_EQUIPOS).
             //
             // Modelo de permisos de almacen:
             //   super.admin        → CRUD de almacenes + acceso total al sistema,
@@ -225,7 +226,10 @@ class UserController extends Controller
             $roleObj = \App\Models\Role::firstOrCreate(['NOMBRE_ROL' => $rolName]);
         }
         $user->ID_ROL = $roleObj->ID_ROL;
-        $user->NIVEL_ACCESO = $request->NIVEL_ACCESO;
+        // Dos niveles independientes: equipos y almacen. Se asignan explicitamente
+        // (no via fill()) porque son campos sensibles fuera de $fillable.
+        $user->NIVEL_ACCESO_EQUIPOS = $request->NIVEL_ACCESO_EQUIPOS;
+        $user->NIVEL_ACCESO_ALMACEN = $request->NIVEL_ACCESO_ALMACEN;
         $user->ESTATUS = $request->ESTATUS;
         // Guardar frentes como CSV (igual que PERMISOS). NULL si usuario GLOBAL sin frente asignado.
         $frentesSeleccionados = $request->input('ID_FRENTE_ASIGNADO', []);
@@ -285,7 +289,10 @@ class UserController extends Controller
             $roleObj = \App\Models\Role::firstOrCreate(['NOMBRE_ROL' => $rolName]);
         }
         $user->ID_ROL = $roleObj->ID_ROL;
-        $user->NIVEL_ACCESO = $request->NIVEL_ACCESO;
+        // Dos niveles independientes: equipos y almacen. Se asignan explicitamente
+        // (no via fill()) porque son campos sensibles fuera de $fillable.
+        $user->NIVEL_ACCESO_EQUIPOS = $request->NIVEL_ACCESO_EQUIPOS;
+        $user->NIVEL_ACCESO_ALMACEN = $request->NIVEL_ACCESO_ALMACEN;
         $user->ESTATUS = $request->ESTATUS;
         // Guardar frentes como CSV (igual que PERMISOS). NULL si usuario GLOBAL sin frente asignado.
         $frentesSeleccionados = $request->input('ID_FRENTE_ASIGNADO', []);

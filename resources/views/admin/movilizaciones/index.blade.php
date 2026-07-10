@@ -19,7 +19,7 @@
         <div class="movilizaciones-filter-bar filter-toolbar-container" style="display: flex; gap: 15px; flex-wrap: wrap; align-items: center; margin-bottom: 5px;">
         @php
             $authUser       = auth()->user();
-            $isLocalUser    = $authUser && $authUser->NIVEL_ACCESO == 2;
+            $isLocalUser    = $authUser && !$authUser->veTodosLosFrentesEquipos();
             $dashFrenteIds  = $authUser ? $authUser->getFrentesIds() : [];
         @endphp
 

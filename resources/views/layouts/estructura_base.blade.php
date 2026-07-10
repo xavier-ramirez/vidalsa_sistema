@@ -456,8 +456,9 @@
             </div>
 
             @php
-                // URL de "Recepción" según el nivel del usuario (veTodosLosFrentes == el MISMO
-                // criterio que Almacen::usuarioEsGlobal del controller, así no hay desfase):
+                // URL de "Recepción" según el nivel de ALMACÉN del usuario (veTodosLosAlmacenes
+                // == el MISMO criterio que Almacen::usuarioEsGlobal del controller, así no hay
+                // desfase). Ojo: es el nivel de almacén, NO el de equipos:
                 //   LOCAL  → BANDEJA explícita (?force=1) PRESELECCIONADA a SU almacén (el
                 //     ligado a su frente, vía almacenPorDefecto). El id_almacen_destino en la
                 //     URL garantiza la preselección sin depender solo del merge del controller.
@@ -466,7 +467,7 @@
                 //     redirige a ODC (cuenta como filtro) y se quedaría en la bandeja.
                 // Se calcula una sola vez y se reutiliza en el menú desktop y móvil.
                 $__recUser     = auth()->user();
-                $__recEsGlobal = $__recUser && $__recUser->veTodosLosFrentes();
+                $__recEsGlobal = $__recUser && $__recUser->veTodosLosAlmacenes();
                 $__recAlmacen  = $__recUser ? $__recUser->almacenPorDefecto() : null; // almacén del frente
                 $recepcionUrl  = $__recEsGlobal
                     ? route('almacen.recepcion.index')

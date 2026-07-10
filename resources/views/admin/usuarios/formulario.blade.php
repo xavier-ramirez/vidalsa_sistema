@@ -99,16 +99,26 @@
                 @enderror
             </div>
 
+            {{-- Nivel de acceso: son DOS ejes INDEPENDIENTES, no una sola lista de 4 opciones.
+                 Un solo select no podría expresar "global en equipos + local en almacén", que es
+                 el caso que motiva la separación (p.ej. un almacenista que ve toda la flota pero
+                 solo el stock de su frente). En ambos: 1 = GLOBAL, 2 = LOCAL.
+
+                 La lista de frentes asignados (abajo) es COMPARTIDA: define "cuáles frentes son
+                 míos"; cada nivel decide si ese módulo ve los de todos o solo los míos. Por eso
+                 un usuario GLOBAL en los dos ejes ignora la lista, y uno LOCAL sin frentes no ve
+                 nada en el módulo correspondiente. --}}
             <div>
-                <span id="lbl_usuario_nivel_title" class="form-label">Nivel de Acceso</span>
-                <div class="custom-dropdown" id="levelSelect">
-                    <input type="hidden" name="NIVEL_ACCESO" id="input_nivel" value="{{ old('NIVEL_ACCESO', $user->NIVEL_ACCESO ?? '') }}" aria-label="Nivel de Acceso">
-                    <div class="dropdown-trigger" id="trigger_nivel" onclick="toggleDropdown('levelSelect', event)" tabindex="0" role="button" aria-haspopup="listbox" aria-labelledby="lbl_usuario_nivel_title label_nivel" style="cursor: default;">
-                        <span id="label_nivel">
-                            @if(old('NIVEL_ACCESO', $user->NIVEL_ACCESO ?? '') == 1)
-                                GLOBAL - ACCESO COMPLETO
-                            @elseif(old('NIVEL_ACCESO', $user->NIVEL_ACCESO ?? '') == 2)
-                                LOCAL - LIMITADO A UN FRENTE
+                <span id="lbl_usuario_nivel_eq_title" class="form-label">Nivel de Acceso — Equipos</span>
+                <div class="custom-dropdown" id="levelSelectEquipos" data-filter-type="nivel_equipos">
+                    <input type="hidden" name="NIVEL_ACCESO_EQUIPOS" id="input_nivel_equipos" data-filter-value
+                           value="{{ old('NIVEL_ACCESO_EQUIPOS', $user->NIVEL_ACCESO_EQUIPOS ?? '') }}" aria-label="Nivel de Acceso a Equipos">
+                    <div class="dropdown-trigger" id="trigger_nivel_equipos" onclick="toggleDropdown('levelSelectEquipos', event)" tabindex="0" role="button" aria-haspopup="listbox" aria-labelledby="lbl_usuario_nivel_eq_title label_nivel_equipos" style="cursor: default;">
+                        <span id="label_nivel_equipos" data-filter-label>
+                            @if(old('NIVEL_ACCESO_EQUIPOS', $user->NIVEL_ACCESO_EQUIPOS ?? '') == 1)
+                                GLOBAL - TODOS LOS FRENTES
+                            @elseif(old('NIVEL_ACCESO_EQUIPOS', $user->NIVEL_ACCESO_EQUIPOS ?? '') == 2)
+                                LOCAL - SOLO SUS FRENTES
                             @else
                                 Seleccione nivel de acceso...
                             @endif
@@ -116,15 +126,46 @@
                         <i class="material-icons">expand_more</i>
                     </div>
                     <div class="dropdown-content">
-                        <div class="dropdown-item {{ old('NIVEL_ACCESO', $user->NIVEL_ACCESO ?? '') == 1 ? 'selected' : '' }}" onclick="selectOption('levelSelect', '1', 'GLOBAL - ACCESO COMPLETO', 'nivel')">
-                            GLOBAL - ACCESO COMPLETO
+                        <div class="dropdown-item {{ old('NIVEL_ACCESO_EQUIPOS', $user->NIVEL_ACCESO_EQUIPOS ?? '') == 1 ? 'selected' : '' }}" onclick="selectOption('levelSelectEquipos', '1', 'GLOBAL - TODOS LOS FRENTES', 'nivel_equipos')">
+                            GLOBAL - TODOS LOS FRENTES
                         </div>
-                        <div class="dropdown-item {{ old('NIVEL_ACCESO', $user->NIVEL_ACCESO ?? '') == 2 ? 'selected' : '' }}" onclick="selectOption('levelSelect', '2', 'LOCAL - LIMITADO A UN FRENTE', 'nivel')">
-                            LOCAL - LIMITADO A UN FRENTE
+                        <div class="dropdown-item {{ old('NIVEL_ACCESO_EQUIPOS', $user->NIVEL_ACCESO_EQUIPOS ?? '') == 2 ? 'selected' : '' }}" onclick="selectOption('levelSelectEquipos', '2', 'LOCAL - SOLO SUS FRENTES', 'nivel_equipos')">
+                            LOCAL - SOLO SUS FRENTES
                         </div>
                     </div>
                 </div>
-                @error('NIVEL_ACCESO')
+                @error('NIVEL_ACCESO_EQUIPOS')
+                    <span class="error-message-inline">{{ $message }}</span>
+                @enderror
+            </div>
+
+            <div>
+                <span id="lbl_usuario_nivel_alm_title" class="form-label">Nivel de Acceso — Almacén</span>
+                <div class="custom-dropdown" id="levelSelectAlmacen" data-filter-type="nivel_almacen">
+                    <input type="hidden" name="NIVEL_ACCESO_ALMACEN" id="input_nivel_almacen" data-filter-value
+                           value="{{ old('NIVEL_ACCESO_ALMACEN', $user->NIVEL_ACCESO_ALMACEN ?? '') }}" aria-label="Nivel de Acceso a Almacén">
+                    <div class="dropdown-trigger" id="trigger_nivel_almacen" onclick="toggleDropdown('levelSelectAlmacen', event)" tabindex="0" role="button" aria-haspopup="listbox" aria-labelledby="lbl_usuario_nivel_alm_title label_nivel_almacen" style="cursor: default;">
+                        <span id="label_nivel_almacen" data-filter-label>
+                            @if(old('NIVEL_ACCESO_ALMACEN', $user->NIVEL_ACCESO_ALMACEN ?? '') == 1)
+                                GLOBAL - TODOS LOS ALMACENES
+                            @elseif(old('NIVEL_ACCESO_ALMACEN', $user->NIVEL_ACCESO_ALMACEN ?? '') == 2)
+                                LOCAL - SOLO SUS ALMACENES
+                            @else
+                                Seleccione nivel de acceso...
+                            @endif
+                        </span>
+                        <i class="material-icons">expand_more</i>
+                    </div>
+                    <div class="dropdown-content">
+                        <div class="dropdown-item {{ old('NIVEL_ACCESO_ALMACEN', $user->NIVEL_ACCESO_ALMACEN ?? '') == 1 ? 'selected' : '' }}" onclick="selectOption('levelSelectAlmacen', '1', 'GLOBAL - TODOS LOS ALMACENES', 'nivel_almacen')">
+                            GLOBAL - TODOS LOS ALMACENES
+                        </div>
+                        <div class="dropdown-item {{ old('NIVEL_ACCESO_ALMACEN', $user->NIVEL_ACCESO_ALMACEN ?? '') == 2 ? 'selected' : '' }}" onclick="selectOption('levelSelectAlmacen', '2', 'LOCAL - SOLO SUS ALMACENES', 'nivel_almacen')">
+                            LOCAL - SOLO SUS ALMACENES
+                        </div>
+                    </div>
+                </div>
+                @error('NIVEL_ACCESO_ALMACEN')
                     <span class="error-message-inline">{{ $message }}</span>
                 @enderror
             </div>

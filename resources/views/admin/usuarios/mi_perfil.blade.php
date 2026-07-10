@@ -180,14 +180,9 @@
                 <i class="material-icons" style="color: #94a3b8; font-size: 22px;">shield</i>
                 <div>
                     <div class="pi-label">Nivel de Acceso</div>
-                    <div class="pi-value">
-                        @if($user->NIVEL_ACCESO == 1)
-                            Global
-                        @elseif($user->NIVEL_ACCESO == 2)
-                            Local
-                        @else
-                            —
-                        @endif
+                    <div class="pi-value" style="font-size: 13px; line-height: 1.6;">
+                        Equipos: {{ $user->nivel_acceso_equipos_texto }}<br>
+                        Almacén: {{ $user->nivel_acceso_almacen_texto }}
                     </div>
                 </div>
             </div>

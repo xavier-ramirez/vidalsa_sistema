@@ -141,7 +141,7 @@
     <div class="admin-card" data-page="equipos" style="margin: 0; min-height: 80vh; min-width: 0; width: 100%;">
     @php
         $authUser        = auth()->user();
-        $isLocalUser     = $authUser && $authUser->NIVEL_ACCESO == 2;
+        $isLocalUser     = $authUser && !$authUser->veTodosLosFrentesEquipos();
         $dashFrenteIds   = $authUser ? $authUser->getFrentesIds() : [];
         $hasMultiple     = count($dashFrenteIds) > 1;
         $userFrenteObj   = count($dashFrenteIds) === 1 ? $frentes->firstWhere('ID_FRENTE', $dashFrenteIds[0]) : null;
@@ -1171,7 +1171,7 @@
                         <!-- Controls Group (Export + Filter) -->
                         @php
                             $dashUser       = auth()->user();
-                            $dashIsLocal    = $dashUser && $dashUser->NIVEL_ACCESO == 2;
+                            $dashIsLocal    = $dashUser && !$dashUser->veTodosLosFrentesEquipos();
                             $dashFrenteIds  = $dashUser ? $dashUser->getFrentesIds() : [];
 
                             // Prioridad 1: frente activo en el filtro de URL (id_frente=16)

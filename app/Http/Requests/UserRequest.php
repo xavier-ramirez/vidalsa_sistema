@@ -47,7 +47,10 @@ class UserRequest extends FormRequest
             'ID_FRENTE_ASIGNADO.*' => 'exists:frentes_trabajo,ID_FRENTE',
             'ID_FRENTE_BLOQUEADO' => 'nullable|array',
             'ID_FRENTE_BLOQUEADO.*' => 'exists:frentes_trabajo,ID_FRENTE',
-            'NIVEL_ACCESO' => 'required|integer|in:1,2',
+            // Dos niveles INDEPENDIENTES (1 = GLOBAL, 2 = LOCAL): uno gobierna la
+            // visibilidad por frente en Equipos y otro la de Almacén. Ambos obligatorios.
+            'NIVEL_ACCESO_EQUIPOS' => 'required|integer|in:1,2',
+            'NIVEL_ACCESO_ALMACEN' => 'required|integer|in:1,2',
             'ESTATUS' => 'required|in:ACTIVO,INACTIVO',
             'PERMISOS' => 'nullable|array',
             'PERMISOS.*' => Rule::in(array_keys(\App\Http\Controllers\UserController::availablePermissions())),
@@ -70,8 +73,10 @@ class UserRequest extends FormRequest
             'ID_ROL.max' => 'El rol no puede tener más de 150 caracteres.',
             'ID_FRENTE_ASIGNADO.required' => 'Debes asignar al menos un frente de trabajo.',
             'ID_FRENTE_ASIGNADO.min' => 'Debes asignar al menos un frente de trabajo.',
-            'NIVEL_ACCESO.required' => 'El nivel de acceso es obligatorio.',
-            'NIVEL_ACCESO.in' => 'El nivel de acceso seleccionado no es válido.',
+            'NIVEL_ACCESO_EQUIPOS.required' => 'El nivel de acceso a Equipos es obligatorio.',
+            'NIVEL_ACCESO_EQUIPOS.in' => 'El nivel de acceso a Equipos seleccionado no es válido.',
+            'NIVEL_ACCESO_ALMACEN.required' => 'El nivel de acceso a Almacén es obligatorio.',
+            'NIVEL_ACCESO_ALMACEN.in' => 'El nivel de acceso a Almacén seleccionado no es válido.',
             'ESTATUS.required' => 'El estatus es obligatorio.',
             'ESTATUS.in' => 'El estatus seleccionado no es válido.',
         ];

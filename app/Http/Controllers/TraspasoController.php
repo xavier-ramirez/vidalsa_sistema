@@ -25,7 +25,7 @@ use Throwable;
  *                          y confirmar recepción en el almacén destino.
  *
  * Visibilidad de traspasos: depende SOLO de `Almacen::visiblesPara($user)` (es decir, de
- * `NIVEL_ACCESO`). Los usuarios GLOBAL ven todos los traspasos; los LOCAL ven solo los
+ * `NIVEL_ACCESO_ALMACEN`). Los usuarios GLOBAL ven todos los traspasos; los LOCAL ven solo los
  * traspasos donde origen o destino son almacenes ligados a sus frentes.
  */
 class TraspasoController extends Controller
@@ -104,7 +104,7 @@ class TraspasoController extends Controller
         //   1) Si el cliente mando id_almacen_destino (filled), respetamos.
         //   2) Sino, intentamos el almacen ligado al frente (almacenPorDefecto).
         //   3) Fallback: el PRIMER almacen visible — cubre al usuario GLOBAL
-        //      (NIVEL_ACCESO=1) sin frente, para que tambien arranque con UNO
+        //      (NIVEL_ACCESO_ALMACEN=1) sin frente, para que tambien arranque con UNO
         //      solo, no con "Todos".
         // Validamos visibilidad para evitar un filtro fantasma.
         if (!$request->filled('id_almacen_destino')) {

@@ -21,13 +21,13 @@ class EquipoAuxiliarController extends Controller
 
     /**
      * Devuelve [isLocalUser, frentesPermitidos]. Aplicado en cualquier query
-     * que liste auxiliares para usuarios con NIVEL_ACCESO=2 (LOCAL).
+     * que liste auxiliares para usuarios con NIVEL_ACCESO_EQUIPOS=2 (LOCAL).
      */
     private function userScope(): array
     {
         $user = auth()->user();
-        // "Restringido" = NO ve todos los frentes (criterio ÚNICO: Usuario::veTodosLosFrentes).
-        $isLocalUser = $user ? !$user->veTodosLosFrentes() : false;
+        // "Restringido" = NO ve todos los frentes (criterio ÚNICO: Usuario::veTodosLosFrentesEquipos).
+        $isLocalUser = $user ? !$user->veTodosLosFrentesEquipos() : false;
         $frentesPermitidos = $user ? $user->getFrentesIds() : [];
         return [$isLocalUser, $frentesPermitidos];
     }
@@ -41,7 +41,7 @@ class EquipoAuxiliarController extends Controller
     {
         $user = auth()->user();
         if ($user) {
-            $user->aplicarScopeFrentes($query, $columna);
+            $user->aplicarScopeFrentesEquipos($query, $columna);
         }
     }
 
@@ -77,7 +77,7 @@ class EquipoAuxiliarController extends Controller
         }
 
         // Lista blanca: el LOCAL solo ve sus frentes asignados.
-        if ($user->veTodosLosFrentes()) return;
+        if ($user->veTodosLosFrentesEquipos()) return;
         $permitidos = array_map('strval', $user->getFrentesIds());
         if (!in_array($auxFrente, $permitidos, true)) {
             abort(404);
@@ -89,7 +89,7 @@ class EquipoAuxiliarController extends Controller
     // ═══════════════════════════════════════════════════════════
     public function index(Request $request)
     {
-        // Acceso global (NIVEL_ACCESO=1) ve todo. Local (NIVEL_ACCESO=2) queda
+        // Acceso global (NIVEL_ACCESO_EQUIPOS=1) ve todo. Local (NIVEL_ACCESO_EQUIPOS=2) queda
         // limitado a sus frentes asignados; si seleccionara un frente fuera
         // de su scope el filtro se ignora silenciosamente.
         $user = auth()->user();
@@ -154,7 +154,7 @@ class EquipoAuxiliarController extends Controller
         // blacklist de bloqueados) — un frente bloqueado no aparece como filtro.
         $frentesQuery = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->orderBy('NOMBRE_FRENTE');
         if ($user) {
-            $user->aplicarScopeFrentes($frentesQuery, 'ID_FRENTE');
+            $user->aplicarScopeFrentesEquipos($frentesQuery, 'ID_FRENTE');
         }
         $frentes = $frentesQuery->get();
         $estados = EquipoAuxiliar::estadosLabel();
@@ -351,7 +351,7 @@ class EquipoAuxiliarController extends Controller
     {
         $user = auth()->user();
         if ($user && !$bypassScope) {
-            $user->aplicarScopeFrentes($q, 'ID_FRENTE_ACTUAL');
+            $user->aplicarScopeFrentesEquipos($q, 'ID_FRENTE_ACTUAL');
         }
         // $exclude permite armar la query de Distribucion SIN el filtro de tipo
         // (para listar todos los tipos), igual que /admin/equipos con tiposStats.

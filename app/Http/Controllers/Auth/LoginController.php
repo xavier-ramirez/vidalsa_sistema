@@ -221,14 +221,20 @@ class LoginController extends Controller
             ->select('ID_FRENTE', 'NOMBRE_FRENTE')
             ->get();
 
+        // `nivel` se conserva por COMPATIBILIDAD con las APK ya instaladas, que lo leen de
+        // este payload. Apunta al nivel de EQUIPOS, que es el que gobierna la flota (lo que
+        // la app muestra). Las dos claves explícitas son las nuevas; cuando la APK migre a
+        // ellas, `nivel` se puede eliminar de aquí.
         return response()->json([
             'token' => $token,
             'user'  => [
-                'id'      => $user->ID_USUARIO,
-                'nombre'  => $user->NOMBRE_USUARIO,
-                'correo'  => $user->CORREO_ELECTRONICO,
-                'nivel'   => $user->NIVEL_ACCESO,
-                'frentes' => $frentes,
+                'id'             => $user->ID_USUARIO,
+                'nombre'         => $user->NOMBRE_USUARIO,
+                'correo'         => $user->CORREO_ELECTRONICO,
+                'nivel'          => $user->NIVEL_ACCESO_EQUIPOS,
+                'nivel_equipos'  => $user->NIVEL_ACCESO_EQUIPOS,
+                'nivel_almacen'  => $user->NIVEL_ACCESO_ALMACEN,
+                'frentes'        => $frentes,
             ]
         ]);
     }

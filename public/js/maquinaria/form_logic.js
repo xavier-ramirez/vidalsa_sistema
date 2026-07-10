@@ -776,7 +776,9 @@ window.addEventListener('spa:contentLoaded', function () {
 
                         const resets = [
                             { id: 'input_rol', label: 'label_rol', text: 'Seleccione un rol...' },
-                            { id: 'input_nivel', label: 'label_nivel', text: 'Seleccione nivel de acceso...' },
+                            // Un dropdown por nivel: equipos y almacén son ejes independientes.
+                            { id: 'input_nivel_equipos', label: 'label_nivel_equipos', text: 'Seleccione nivel de acceso...' },
+                            { id: 'input_nivel_almacen', label: 'label_nivel_almacen', text: 'Seleccione nivel de acceso...' },
                             { id: 'input_estatus', label: 'label_estatus', text: 'ACTIVO', val: 'ACTIVO' } // Default Active
                         ];
 
@@ -887,7 +889,11 @@ window.addEventListener('spa:contentLoaded', function () {
 
         // 2. Dropdowns (Hidden Inputs)
         if (!formData.get('ID_ROL')) errors['ID_ROL'] = ['Debes asignar un rol al usuario.'];
-        if (!formData.get('NIVEL_ACCESO')) errors['NIVEL_ACCESO'] = ['El nivel de acceso es obligatorio.'];
+        // Dos niveles independientes (equipos / almacén). Ambos obligatorios, igual que en
+        // UserRequest. Las claves coinciden con el `name` de cada hidden para que el mensaje
+        // se pinte bajo su propio dropdown.
+        if (!formData.get('NIVEL_ACCESO_EQUIPOS')) errors['NIVEL_ACCESO_EQUIPOS'] = ['El nivel de acceso a Equipos es obligatorio.'];
+        if (!formData.get('NIVEL_ACCESO_ALMACEN')) errors['NIVEL_ACCESO_ALMACEN'] = ['El nivel de acceso a Almacén es obligatorio.'];
         if (!formData.get('ESTATUS')) errors['ESTATUS'] = ['El estatus es obligatorio.'];
         // ID_FRENTE_ASIGNADO y PERMISOS son opcionales — sin validación aquí. Frentes:
         // los usuarios GLOBAL no necesitan frente. Permisos: coherente con el backend

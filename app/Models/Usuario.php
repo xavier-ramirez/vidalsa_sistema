@@ -59,7 +59,8 @@ class Usuario extends Authenticatable
      */
     /**
      * Campos seguros para mass-assignment (perfil / autoservicio).
-     * Los campos sensibles (ID_ROL, NIVEL_ACCESO, PERMISOS, ESTATUS, SESSION_TOKEN,
+     * Los campos sensibles (ID_ROL, NIVEL_ACCESO_EQUIPOS, NIVEL_ACCESO_ALMACEN,
+     * PERMISOS, ESTATUS, SESSION_TOKEN,
      * ID_FRENTE_ASIGNADO, REQUIERE_CAMBIO_CLAVE) NO van aqui — se asignan
      * explicitamente desde UserController bajo `can:manage.users` para evitar
      * escalacion de privilegios via $user->fill($request->all()).
@@ -163,58 +164,95 @@ class Usuario extends Authenticatable
     }
 
     /**
-     * Criterio ÚNICO de visibilidad: ¿el usuario ve TODOS los frentes (sin barrera)?
-     * GLOBAL = NIVEL_ACCESO 1; cualquier otro valor (2/LOCAL, null o inválido) → restringido.
+     * ¿El usuario ve los EQUIPOS de todos los frentes (sin barrera)?
+     * GLOBAL = NIVEL_ACCESO_EQUIPOS 1; cualquier otro valor (2/LOCAL, null o inválido)
+     * → restringido. Gobierna Equipos, Auxiliares, Movilizaciones, Historial y Dashboard.
      *
-     * Decisión de producto (documentada en App\Models\Almacen::usuarioEsGlobal): la
-     * visibilidad depende SOLO de NIVEL_ACCESO, NO del rol ni de super.admin — un
+     * Decisión de producto (ver también App\Models\Almacen::usuarioEsGlobal): la
+     * visibilidad depende SOLO del nivel, NO del rol ni de super.admin — un
      * super.admin LOCAL se restringe igual que cualquier LOCAL. Por eso acá NO hay
      * override de super.admin.
      *
-     * Antes este criterio estaba DISPERSO e incoherente: Almacén/Dashboard usaban "==1"
-     * y Equipos/Auxiliares/Movilizaciones/Historial "==2" (un NIVEL nulo/raro se trataba
-     * distinto entre módulos). Este método lo unifica.
+     * Este método y veTodosLosAlmacenes() son los DOS criterios canónicos. Antes había
+     * uno solo (veTodosLosFrentes, sobre la columna NIVEL_ACCESO), que forzaba a mover
+     * ambos módulos a la vez; se separó en dos columnas. No compares el entero a mano
+     * en un controller o una vista: usa estos métodos, o vuelve la incoherencia que la
+     * unificación original vino a arreglar (Almacén comparaba "==1" y Equipos "==2").
      */
-    public function veTodosLosFrentes(): bool
+    public function veTodosLosFrentesEquipos(): bool
     {
-        return (int) ($this->NIVEL_ACCESO ?? 0) === 1;
+        return (int) ($this->NIVEL_ACCESO_EQUIPOS ?? 0) === 1;
     }
 
     /**
-     * IDs de frentes que el usuario PUEDE ver. Convención:
-     *   - null  → SIN restricción (ve todos): usuario GLOBAL.
+     * ¿El usuario ve TODOS los almacenes? Espejo exacto de veTodosLosFrentesEquipos()
+     * sobre NIVEL_ACCESO_ALMACEN. Gobierna Almacén, Traspasos/Recepción y el snapshot
+     * offline de almacén. LOCAL → solo los almacenes ligados a sus frentes asignados
+     * (ver Almacen::visiblesPara).
+     */
+    public function veTodosLosAlmacenes(): bool
+    {
+        return (int) ($this->NIVEL_ACCESO_ALMACEN ?? 0) === 1;
+    }
+
+    /**
+     * IDs de frentes cuyos EQUIPOS puede ver el usuario. Convención:
+     *   - null  → SIN restricción (ve todos): usuario GLOBAL en equipos.
      *   - []    → no ve ninguno (LOCAL sin frentes asignados).
      *   - [ids] → restringido a esos frentes (LOCAL con asignados).
      *
      * OJO: esto es SOLO la lista blanca (nivel GLOBAL/LOCAL). La lista negra de
      * bloqueados es independiente y se aplica aparte (getFrentesBloqueadosIds /
-     * aplicarBloqueoIds). El punto que combina ambas es aplicarScopeFrentes().
+     * aplicarBloqueoIds). El punto que combina ambas es aplicarScopeFrentesEquipos().
      */
-    public function frentesVisiblesIds(): ?array
+    public function frentesVisiblesEquiposIds(): ?array
     {
-        if ($this->veTodosLosFrentes()) {
+        if ($this->veTodosLosFrentesEquipos()) {
             return null;
         }
         return $this->getFrentesIds();
     }
 
     /**
-     * Barrera COMPLETA de visibilidad por frente sobre $query/$columna:
+     * Barrera COMPLETA de visibilidad por frente para EQUIPOS sobre $query/$columna:
      *   1) lista blanca por nivel (whereIn asignados si LOCAL; nada si GLOBAL), y
      *   2) lista negra de bloqueados (whereNotIn), que aplica TAMBIÉN a GLOBAL.
      * Es el punto ÚNICO recomendado — centraliza el patrón que estaba duplicado en
      * los controladores. Devuelve el $query para encadenar.
      */
-    public function aplicarScopeFrentes($query, string $columna = 'ID_FRENTE_ACTUAL')
+    public function aplicarScopeFrentesEquipos($query, string $columna = 'ID_FRENTE_ACTUAL')
     {
-        static::aplicarScopeIds($query, $this->frentesVisiblesIds(), $columna);
+        static::aplicarScopeIds($query, $this->frentesVisiblesEquiposIds(), $columna);
+        return static::aplicarBloqueoIds($query, $this->getFrentesBloqueadosIds(), $columna);
+    }
+
+    /**
+     * Barrera por frente para superficies COMPARTIDAS por los dos módulos, donde una
+     * sola lista de frentes alimenta a equipos Y a almacén (hoy: el dropdown de frentes
+     * del snapshot offline).
+     *
+     * Usa la UNIÓN de ambos scopes: basta con ser GLOBAL en UNO de los dos módulos para
+     * ver todos los frentes en esa lista. Acotarla con un solo nivel escondería frentes
+     * que el otro módulo sí necesita (un GLOBAL-equipos + LOCAL-almacén perdería frentes
+     * de equipos si se filtrara por el nivel de almacén).
+     *
+     * La lista negra se resta igual, sin importar el nivel — un frente bloqueado no
+     * aparece por ninguna vía.
+     */
+    public function aplicarScopeFrentesUnion($query, string $columna = 'ID_FRENTE_ACTUAL')
+    {
+        $ids = ($this->veTodosLosFrentesEquipos() || $this->veTodosLosAlmacenes())
+            ? null                    // GLOBAL en algún módulo → sin lista blanca
+            : $this->getFrentesIds(); // LOCAL en ambos → solo sus frentes
+
+        static::aplicarScopeIds($query, $ids, $columna);
         return static::aplicarBloqueoIds($query, $this->getFrentesBloqueadosIds(), $columna);
     }
 
     /**
      * Aplica la convención de visibilidad (null = ve todo, [] = nada, [ids] = whereIn)
      * a $query sobre $columna, dado el set YA resuelto de frentes visibles. Útil cuando
-     * el set se calculó una vez (con frentesVisiblesIds()) y se reusa. Punto ÚNICO del
+     * el set se calculó una vez (con frentesVisiblesEquiposIds()) y se reusa. Punto ÚNICO del
      * idiom whereIn/whereRaw('1=0') que estaba duplicado por todos lados.
      */
     public static function aplicarScopeIds($query, ?array $ids, string $columna = 'ID_FRENTE_ACTUAL')
@@ -292,19 +330,22 @@ class Usuario extends Authenticatable
         return $cualquiera !== null ? (int) $cualquiera : null;
     }
 
-    /**
-     * Get the access level as descriptive text.
-     *
-     * @return string
-     */
-    public function getNivelAccesoTextoAttribute()
+    /** Texto del nivel (1 GLOBAL / 2 LOCAL). Punto único de la etiqueta. */
+    private function nivelTexto($valor): string
     {
-        $niveles = [
-            1 => 'GLOBAL',
-            2 => 'LOCAL'
-        ];
-        
-        return $niveles[$this->NIVEL_ACCESO] ?? 'Desconocido';
+        return [1 => 'GLOBAL', 2 => 'LOCAL'][(int) $valor] ?? 'Desconocido';
+    }
+
+    /** Nivel de acceso a EQUIPOS como texto (para vistas/listados). */
+    public function getNivelAccesoEquiposTextoAttribute(): string
+    {
+        return $this->nivelTexto($this->NIVEL_ACCESO_EQUIPOS);
+    }
+
+    /** Nivel de acceso a ALMACÉN como texto (para vistas/listados). */
+    public function getNivelAccesoAlmacenTextoAttribute(): string
+    {
+        return $this->nivelTexto($this->NIVEL_ACCESO_ALMACEN);
     }
     /**
      * Determine if the entity has the given abilities.

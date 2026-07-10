@@ -197,7 +197,7 @@ class MovilizacionController extends Controller
         $mvPadded5 = 'MV-' . $padded5;
         $mvPadded6 = 'MV-' . $padded6;
 
-        // Acceso controlado por permisos (no por NIVEL_ACCESO). Cualquier
+        // Acceso controlado por permisos (no por NIVEL_ACCESO_EQUIPOS). Cualquier
         // usuario autenticado puede buscar un acta por codigo de control.
         $query = Movilizacion::query();
 
@@ -338,7 +338,7 @@ class MovilizacionController extends Controller
 
             // Acceso a bulkStore se controla UNICAMENTE con el permiso
             // 'equipos.assign' (middleware del controller + @can en UI). El
-            // campo NIVEL_ACCESO del usuario NO limita la operacion â€” la
+            // campo NIVEL_ACCESO_EQUIPOS del usuario NO limita la operacion â€” la
             // filosofia del sistema es "solo la clave PERMISOS decide"
             // (ver AppServiceProvider::boot).
 
@@ -496,7 +496,7 @@ class MovilizacionController extends Controller
         ]);
 
         // Acceso controlado UNICAMENTE por el permiso 'equipos.assign' (middleware
-        // del controller). NIVEL_ACCESO del usuario NO restringe el frente destino.
+        // del controller). NIVEL_ACCESO_EQUIPOS del usuario NO restringe el frente destino.
 
         DB::beginTransaction();
         try {
@@ -577,7 +577,7 @@ class MovilizacionController extends Controller
         // ver PLACA de cualquier equipo, contradiciendo el resto de los flujos.
         $user = auth()->user();
         if ($user) {
-            $user->aplicarScopeFrentes($query, 'ID_FRENTE_ACTUAL');
+            $user->aplicarScopeFrentesEquipos($query, 'ID_FRENTE_ACTUAL');
         }
 
         if ($request->filled('search')) {
@@ -677,7 +677,7 @@ class MovilizacionController extends Controller
             $baseMov = Movilizacion::findOrFail($id);
 
             // Acceso a la descarga del acta: controlado solo por autenticacion
-            // (middleware 'auth'). NIVEL_ACCESO del usuario no restringe â€”
+            // (middleware 'auth'). NIVEL_ACCESO_EQUIPOS del usuario no restringe â€”
             // cualquier usuario autenticado puede descargar el acta PDF.
 
             // Para tandas sin CODIGO_CONTROL (recepciones directas / actualizaciones)

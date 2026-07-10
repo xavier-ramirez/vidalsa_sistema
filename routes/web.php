@@ -272,7 +272,7 @@ Route::middleware(['auth'])->group(function () {
             //   super.admin (CRUD almacenes) · almacen.productos (CRUD catalogo) · almacen.movimiento
             //   (entradas/salidas/ajustes/traspasos + confirmar recepcion).
             // (la consulta básica solo exige 'auth'; el alcance se acota con Almacen::visiblesPara,
-            //  que depende sólo de usuarios.NIVEL_ACCESO — ningún permiso da "ver todos los almacenes".)
+            //  que depende sólo de usuarios.NIVEL_ACCESO_ALMACEN — ningún permiso da "ver todos los almacenes".)
             // Rutas estáticas ANTES de wildcards. Los {id*} se restringen a numéricos.
             Route::get   ('almacen',                              [App\Http\Controllers\AlmacenController::class, 'index'])            ->name('almacen.index');
             // Exportación XLSX del inventario (sigue el patrón de /admin/equipos/export). Si hay

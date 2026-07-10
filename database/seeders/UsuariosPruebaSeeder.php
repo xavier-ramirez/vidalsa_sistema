@@ -32,7 +32,8 @@ class UsuariosPruebaSeeder extends Seeder
                 'PASSWORD_HASH' => Hash::make('password123'), // Contraseña genérica
                 'ID_ROL' => $rolesIds[array_rand($rolesIds)],
                 'ID_FRENTE_ASIGNADO' => !empty($frentesIds) ? $frentesIds[array_rand($frentesIds)] : null,
-                'NIVEL_ACCESO' => $faker->randomElement([1, 2]),
+                'NIVEL_ACCESO_EQUIPOS' => $faker->randomElement([1, 2]),
+                'NIVEL_ACCESO_ALMACEN' => $faker->randomElement([1, 2]),
                 'ESTATUS' => 'ACTIVO',
                 'PERMISOS' => 'ver_tablero',
             ]);

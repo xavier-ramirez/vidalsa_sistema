@@ -172,7 +172,7 @@ class CaracteristicaModeloController extends Controller
         if ($verAuxiliares) {
             $base = EquipoAuxiliar::query();
             if ($user = auth()->user()) {
-                $user->aplicarScopeFrentes($base, 'ID_FRENTE_ACTUAL');
+                $user->aplicarScopeFrentesEquipos($base, 'ID_FRENTE_ACTUAL');
             }
             if (str_starts_with($tipoFiltro, 'tipo_aux:')) {
                 $base->where('TIPO', substr($tipoFiltro, 9));

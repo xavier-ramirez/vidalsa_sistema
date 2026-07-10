@@ -13,7 +13,7 @@ class DashboardController extends Controller
     {
         $user      = auth()->user();
         // null = ve todos (GLOBAL) | [] = local sin frentes | [ids] (Usuario::frentesVisiblesIds).
-        $frentesVisibles = $user ? $user->frentesVisiblesIds() : [];
+        $frentesVisibles = $user ? $user->frentesVisiblesEquiposIds() : [];
         // Lista negra (se resta SIEMPRE, también a GLOBAL).
         $frentesBloqueados = $user ? $user->getFrentesBloqueadosIds() : [];
         $userId    = $user ? $user->ID_USUARIO : 'guest';
@@ -169,11 +169,11 @@ class DashboardController extends Controller
     public function getAlertsHtml()
     {
         $user        = auth()->user();
-        // frentesVisiblesIds(): null = ve todos (GLOBAL) | [] = local sin frentes | [ids].
+        // frentesVisiblesEquiposIds(): null = ve todos (GLOBAL) | [] = local sin frentes | [ids].
         // Es justo lo que generateAlertsList() espera como filtro por frente. Los bloqueados
         // (lista negra) se restan a todos, también a GLOBAL.
         $expiredList = $this->generateAlertsList(
-            $user ? $user->frentesVisiblesIds() : [],
+            $user ? $user->frentesVisiblesEquiposIds() : [],
             $user ? $user->getFrentesBloqueadosIds() : []
         );
         $totalAlerts = $expiredList->count();
