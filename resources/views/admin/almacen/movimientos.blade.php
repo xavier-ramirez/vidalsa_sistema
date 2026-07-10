@@ -605,8 +605,10 @@
                         <input type="text" id="almMovNota" autocomplete="off" placeholder="N° nota o referencia..." value="{{ $reqNota }}"
                                oninput="var c=document.getElementById('almMovNotaClear'); if(c) c.style.display=this.value?'block':'none'; window.almMovNotaSuggest();"
                                onfocus="window.almMovNotaSuggest()"
+                               {{-- Sin `onchange`: al pulsar Enter ya recargamos, y el `change` que dispara el blur
+                                    posterior lanzaba una SEGUNDA petición idéntica. El filtro se aplica con Enter,
+                                    con el clic en una sugerencia o con la ✕ — igual que el buscador de productos. --}}
                                onkeydown="if(event.key==='Enter'){event.preventDefault(); window.almMovNotaSuggestHide(); window.loadMovimientos();} if(event.key==='Escape') window.almMovNotaSuggestHide();"
-                               onchange="window.loadMovimientos()"
                                style="flex:1;border:none;background:transparent;padding:0 4px;font-size:13px;color:#0f172a;outline:none;min-width:0;">
                         <i class="material-icons" id="almMovNotaClear" style="padding:0 6px;color:#64748b;font-size:18px;display:{{ $reqNota ? 'block' : 'none' }};cursor:pointer;transform:none !important;"
                            onclick="document.getElementById('almMovNota').value=''; this.style.display='none'; window.almMovNotaSuggestHide(); window.loadMovimientos();">close</i>
@@ -782,6 +784,20 @@
     // `<select>` (tipo — vive ahora dentro del panel Filtros Avanzados).
     function hv(name) { var e = document.querySelector('[name="' + name + '"][data-filter-value]'); return e ? String(e.value).trim() : ''; }
 
+    // SPA: al re-montar esta vista el <script> se vuelve a ejecutar. Redefinir las funciones de
+    // window y releer el estado de la URL es DESEABLE (así el filtro por producto y la lista de
+    // notas se re-siembran con los datos frescos), pero volver a registrar los listeners de
+    // `document`/`window` los APILA: un clic de paginación dispararía loadMovimientos() una vez
+    // por cada visita a la página. Por eso el cuerpo de la IIFE sí se re-ejecuta y sólo el
+    // registro de listeners globales queda protegido por bandera.
+    //
+    // Los handlers cierran sobre ROUTE/el/hv (estables entre montajes) y llaman a las funciones
+    // por `window.*`, así que los del primer montaje siguen siendo válidos para los siguientes.
+    var _globalsBound = window._almMovGlobalsBound === true;
+    window._almMovGlobalsBound = true;
+    function docOn(type, fn, capture) { if (!_globalsBound) document.addEventListener(type, fn, capture); }
+    function winOn(type, fn) { if (!_globalsBound) window.addEventListener(type, fn); }
+
     // Producto elegido en la sugerencia = match EXACTO. Se siembra con el id_producto de la
     // URL (al entrar desde el detalle de un producto) y se actualiza al elegir/limpiar en el
     // buscador. Es lo que hace que la bitácora traiga SOLO ese producto (no todos los de igual
@@ -920,7 +936,7 @@
         box.classList.add('open');
     };
     // Delegación de clic en sugerencias
-    document.addEventListener('click', function (e) {
+    docOn('click', function (e) {
         var item = e.target.closest('#almMovSuggest .amf-suggest-item');
         if (item) {
             var inp = document.getElementById('almMovSearch');
@@ -961,7 +977,7 @@
         box.classList.add('open');
     };
     // Delegación de clic en las sugerencias del filtro de Nota (mismo patrón que el buscador).
-    document.addEventListener('click', function (e) {
+    docOn('click', function (e) {
         var item = e.target.closest('#almMovNotaSuggest .amf-suggest-item');
         if (item) {
             var inp = document.getElementById('almMovNota');
@@ -975,7 +991,7 @@
     });
 
     // Selección en los custom-dropdown → recargar
-    window.addEventListener('dropdown-selection', function (e) {
+    winOn('dropdown-selection', function (e) {
         if (!document.getElementById('almMovTableBody')) return;
         var id = e.detail && e.detail.dropdownId;
         if (id === 'almMovFiltroAlmacen' || id === 'almMovFiltroFrente' || id === 'almMovTipoDropdown') {
@@ -998,7 +1014,7 @@
     };
 
     // Paginación AJAX
-    document.addEventListener('click', function (e) {
+    docOn('click', function (e) {
         var a = e.target.closest('#almMovPagination a.page-link') || e.target.closest('#almMovPagination a');
         if (a) { e.preventDefault(); e.stopImmediatePropagation(); window.loadMovimientos(a.href); }
     }, true);
@@ -1012,7 +1028,7 @@
     // Early returns para que clicks en la burbuja NO togglee la seleccion:
     //   - Click dentro de .mv-td-ref (burbuja entera, incluido el <a> del PDF):
     //     deja que el onclick del enlace se ejecute (abre PDF preview); no togglear.
-    document.addEventListener('click', function (e) {
+    docOn('click', function (e) {
         if (e.target.closest('#almMovTableBody .mv-td-ref')) return;
         var tr = e.target.closest('#almMovTableBody tr.alm-mov-row');
         if (!tr) return;
@@ -1056,7 +1072,7 @@
             window.loadMovimientos();
         }
     };
-    document.addEventListener('click', function (e) {
+    docOn('click', function (e) {
         var p = el('almMovFechasPanel');
         if (p && p.style.display === 'block' && !e.target.closest('#almMovFechasPanel') && !e.target.closest('.amf-adv-btn')) p.style.display = 'none';
     });
@@ -1077,16 +1093,22 @@
         document.querySelectorAll('.dropdown-content').forEach(d => d.style.display = '');
 
         // Refrescar el href del link "Bitácora por Nota" con los filtros activos para
-        // que la vista por nota se abra ya filtrada por almacén / frente / fechas / tipo.
-        // Solo reenviamos el tipo si es el grupo "SALIDAS" (la vista por nota únicamente
-        // lista notas de salida; bitacoraNotas ignora un tipo que no sea de salida).
+        // que la vista por nota se abra ya filtrada por almacén / frente / fechas.
+        //
+        // Solo se reenvían los filtros que la vista por nota interpreta igual que la bitácora:
+        //   · El `search` de la bitácora es el PRODUCTO; en notas() matchea NUMERO_NOTA / RQ /
+        //     CONTRATO / SOLICITANTE. Reenviarlo filtraba números de nota por el nombre del
+        //     material y devolvía la lista vacía → no se manda.
+        //   · El filtro `nota` SÍ equivale al `search` de notas() (ambos son el N° de nota).
+        //   · El `tipo` de la bitácora son las claves de grupo ENTRADAS/SALIDAS; notas() espera
+        //     los TIPO exactos (SALIDA / TRASPASO_SALIDA) y ya lista ambos por defecto, que es
+        //     justo lo que significa el grupo SALIDAS → no hay nada que reenviar.
         var lnk = el('lnkBitNotas');
         if (lnk) {
             var p2 = new URLSearchParams();
             var alm = hv('id_almacen'); if (alm) p2.set('id_almacen', alm);
             var fr  = hv('id_frente'); if (fr && fr !== 'all') p2.set('id_frente', fr);
-            var tp  = hv('tipo'); if (tp === 'SALIDAS') p2.set('tipo', tp);
-            var s   = el('almMovSearch'); if (s && s.value.trim()) p2.set('search', s.value.trim());
+            var nt  = el('almMovNota'); if (nt && nt.value.trim()) p2.set('search', nt.value.trim());
             var d   = el('almMovDesde'); if (d && d.value) p2.set('desde', d.value);
             var h   = el('almMovHasta'); if (h && h.value) p2.set('hasta', h.value);
             var base = @json(route('almacen.notas'));
@@ -1103,7 +1125,7 @@
     // trigger es un .dropdown-trigger tambien, asi que al tocarlo el panel se
     // cerraba antes de que su lista pudiera abrirse. Ahora solo cerramos si el
     // trigger esta FUERA del contenedor correspondiente.
-    document.addEventListener('click', function (e) {
+    docOn('click', function (e) {
         var t = e.target.closest('.dropdown-trigger');
         if (!t) return;
         if (!t.closest('#almMovFechasPanel')) {
@@ -1113,7 +1135,7 @@
             var m = el('splitDropdownMenuMovInv'); if (m) m.style.display = 'none';
         }
     }, true);
-    document.addEventListener('click', function (e) {
+    docOn('click', function (e) {
         var m = el('splitDropdownMenuMovInv');
         if (m && m.style.display === 'block' && !e.target.closest('#splitDropdownMenuMovInv') && !e.target.closest('#btnAccionesMov')) m.style.display = 'none';
     });
