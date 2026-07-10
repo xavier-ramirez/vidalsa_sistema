@@ -3951,6 +3951,21 @@ html.is-ios .ent-capt-add-btn { display: flex !important; }
    municipios" del control de capas — en una pantalla angosta solo tapan mapa útil, y el
    usuario móvil no los necesita para consultar. Un solo breakpoint para todo el módulo. */
 @media (max-width: 640px) {
+    /* El mapa NO usa .page-layout-grid, así que no lo alcanzaba el override de
+       .main-viewport del @media 900px y seguía heredando `width:98%` + `padding:20px`:
+       ~44px de ancho perdidos a los lados justo en la pantalla más estrecha. Mismo patrón
+       que usan equipos/fallas/historial, con 4px laterales en vez de 8 — el mapa no tiene
+       tarjetas que necesiten aire, y así gana todo el ancho posible sin que el borde
+       redondeado quede pegado al filo de la pantalla. */
+    body:has(.mapa-page) .main-viewport {
+        width: 100% !important;
+        max-width: 100% !important;
+        padding-left: 4px !important;
+        padding-right: 4px !important;
+        padding-top: 12px !important;
+        box-sizing: border-box !important;
+        overflow-x: hidden;
+    }
     .mapa-page { padding: 0 0 6px; }
     .mapa-creditos { display: none; }
     .leaflet-control-layers { display: none; }
@@ -3959,12 +3974,14 @@ html.is-ios .ent-capt-add-btn { display: flex !important; }
     .mapa-ctrl-mobile-hide { display: none !important; }
 
     /* Buscador ANCHO en teléfono: ocupa la fila salvo el hueco del único botón que queda
-       a su lado (Pantalla completa, 34px) más los márgenes de Leaflet. Antes se encogía a
-       140px / 46vw "para no montarse sobre los botones de al lado" — pero esos botones ya
-       no están aquí, así que solo desperdiciaba ancho justo donde menos sobra. La lista de
-       resultados no necesita ajuste: va anclada left:0/right:0 al contenedor. */
+       a su lado (Pantalla completa, 34px) más los márgenes de Leaflet (10px por lado) y el
+       hueco entre ambos. Antes se encogía a 140px / 46vw "para no montarse sobre los
+       botones de al lado" — pero esos botones ya no están aquí, así que solo desperdiciaba
+       ancho justo donde menos sobra. 76px es el mínimo que deja el botón entero visible con
+       unos px de aire; con 96 sobraba margen inútil. La lista de resultados no necesita
+       ajuste: va anclada left:0/right:0 al contenedor. */
     .leaflet-control-geocoder-form input {
-        width: calc(100vw - 96px) !important;
+        width: calc(100vw - 76px) !important;
         max-width: none !important;
     }
     /* Contenedor MAS ALTO: 100dvh (no 100vh) descuenta la barra de URL del navegador —

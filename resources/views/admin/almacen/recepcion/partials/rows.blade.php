@@ -19,9 +19,10 @@
              y con más peso, que es la jerarquía que antes daban las etiquetas. --}}
         <td class="tr-ruta-dest">
             <div style="display:flex;align-items:center;justify-content:center;gap:12px;word-break:break-word;overflow-wrap:break-word;">
-                <div style="display:flex;flex-direction:column;align-items:center;max-width:160px;text-align:center;">
-                    <span style="font-weight:600;color:#4a5568;font-size:13px;line-height:1.2;">{{ optional($t->almacenOrigen)->NOMBRE ?: '—' }}</span>
-                </div>
+                {{-- El origen es UN solo dato: sin el <span> de la etiqueta ya no hace falta
+                     el div flex-column que los apilaba. El destino sí lo conserva (nombre del
+                     frente + almacén debajo). --}}
+                <span style="max-width:160px;text-align:center;font-weight:600;color:#4a5568;font-size:13px;line-height:1.2;">{{ optional($t->almacenOrigen)->NOMBRE ?: '—' }}</span>
                 <i class="material-icons" style="font-size:18px;color:#cbd5e0;flex-shrink:0;" title="Origen → Destino">east</i>
                 {{-- Destino = el FRENTE al que se envió (Traspaso::getNombreDestinoAttribute),
                      no el almacén: un almacén de PROYECTO sirve a VARIOS frentes, así que
