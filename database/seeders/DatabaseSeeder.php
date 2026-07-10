@@ -22,7 +22,12 @@ class DatabaseSeeder extends Seeder
             FrentesSeeder::class,
         ]);
 
-        \App\Models\Usuario::create([
+        // forceCreate: ID_ROL / NIVEL_ACCESO_* / PERMISOS / ID_FRENTE_ASIGNADO NO están en
+        // $fillable a proposito (campos sensibles: se asignan explicitamente desde
+        // UserController bajo can:manage.users). Con create() Eloquent los descartaba en
+        // silencio y este "super admin" nacia sin rol, sin permisos y LOCAL (default de la
+        // columna) — justo lo contrario de lo que declara el seeder.
+        \App\Models\Usuario::forceCreate([
             'NOMBRE_COMPLETO'      => 'Francisco Sanchez',
             'CORREO_ELECTRONICO'   => 'fsanchez@cvidalsa27.com',
             'PASSWORD_HASH'        => Hash::make('12345678'),

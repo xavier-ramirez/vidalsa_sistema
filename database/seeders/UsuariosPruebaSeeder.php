@@ -26,7 +26,11 @@ class UsuariosPruebaSeeder extends Seeder
         if (empty($frentesIds)) $frentesIds = [null]; // Permitir null si no hay frentes
 
         for ($i = 0; $i < 10; $i++) {
-            Usuario::create([
+            // forceCreate: ID_ROL / NIVEL_ACCESO_* / PERMISOS / ID_FRENTE_ASIGNADO NO están en
+            // $fillable a proposito (son campos sensibles, se asignan explicitamente desde
+            // UserController). Con create() Eloquent los descartaba en silencio y los usuarios
+            // de prueba salian sin rol, sin permisos y LOCAL por el default de la columna.
+            Usuario::forceCreate([
                 'NOMBRE_COMPLETO' => $faker->name,
                 'CORREO_ELECTRONICO' => $faker->unique()->email,
                 'PASSWORD_HASH' => Hash::make('password123'), // Contraseña genérica

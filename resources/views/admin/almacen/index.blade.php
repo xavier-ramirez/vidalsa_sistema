@@ -1001,9 +1001,6 @@
             <div>
                 <label for="almAjNuevoSaldo">Saldo según conteo físico</label>
                 <input type="number" id="almAjNuevoSaldo" min="0" step="any" placeholder="Cantidad real contada">
-                <small style="display:block;font-size:11px;color:#64748b;margin-top:3px;line-height:1.4;">
-                    La diferencia se registra en la bitácora como <b>Auditoría</b>.
-                </small>
             </div>
             <div id="almAjError" style="display:none;color:#dc2626;font-size:13px;font-weight:600;"></div>
         </div>
@@ -1029,9 +1026,6 @@
                 <label for="almMinValor">Stock mínimo (alerta)</label>
                 {{-- min="0.001" + step="any": cualquier valor > 0 vale (no se acepta 0). Vacio = sin alerta. --}}
                 <input type="number" id="almMinValor" min="0.001" step="any" placeholder="Vacío = sin alerta">
-                <small style="display:block;font-size:11px;color:#64748b;margin-top:3px;line-height:1.4;">
-                    Cuando el saldo llegue a este valor o menos, se marca como <b>stock bajo</b>.
-                </small>
             </div>
             <div id="almMinError" style="display:none;color:#dc2626;font-size:13px;font-weight:600;"></div>
         </div>
@@ -1260,7 +1254,6 @@
                              Mismo patrón que el suggest de UM (#almProdUmSuggestBox). --}}
                         <div class="alm-suggest-inline" id="almProdCatSuggest" style="position:absolute;top:100%;left:0;right:0;z-index:9999;margin-top:2px;"></div>
                     </div>
-                    <div style="font-size:11.5px;color:#94a3b8;margin-top:4px;">Elige de la lista o escribe una nueva categoría.</div>
                 </div>
                 {{-- Cantidad inicial: solo se muestra al CREAR (no al editar). Si está vacío o en 0
                      el producto queda registrado en el almacén actual con stock 0 (asegurarStock).
@@ -1268,7 +1261,6 @@
                 <div id="almProdCantInicialWrap" style="flex:1;">
                     <label for="almProdCantInicial">Cantidad</label>
                     <input type="number" id="almProdCantInicial" min="0" step="any" placeholder="0 (opcional)" autocomplete="off">
-                    <div style="font-size:11.5px;color:#94a3b8;margin-top:4px;">Vacío o 0</div>
                 </div>
             </div>
             {{-- Equivalencias (nº de parte) — SOLO al EDITAR un FILTRO. Lista editable
@@ -1348,15 +1340,17 @@
             {{-- Ubicación física en bodega (texto libre): se muestra como tooltip al pasar el
                  mouse sobre la fila en la tabla. Vive AQUÍ (no en "Editar producto") para
                  poder consultarla/actualizarla en un solo clic, sin entrar al modal completo
-                 de edición — a pedido del cliente. Guardado inline vía almGuardarUbicacionDetalle. --}}
+                 de edición — a pedido del cliente.
+
+                 SIN botón "Guardar" (pedido del cliente): se guarda con Enter y al abandonar el
+                 modal — sea cerrándolo (✕ / Escape, vía almDetalleCerrar) o saltando a un
+                 sub-modal (vía almDetalleAccion). almGuardarUbicacionDetalle compara contra el
+                 valor cargado, así que salir sin tocar el campo no dispara ningún PATCH. --}}
             <div style="border-top:1px solid #f1f5f9;padding-top:12px;">
                 <label for="almDetUbicacion" style="font-size:12.5px;font-weight:700;color:#475569;">📍 Ubicación en bodega</label>
-                <div style="display:flex;gap:8px;margin-top:4px;">
-                    <input type="text" id="almDetUbicacion" maxlength="150" autocomplete="off"
-                           placeholder="Ej: Estante A3, Pasillo 2 lado izquierdo…"
-                           style="flex:1;min-width:0;">
-                    <button type="button" class="btn-primary-maquinaria" style="padding:0 14px;white-space:nowrap;" onclick="window.almGuardarUbicacionDetalle()">Guardar</button>
-                </div>
+                <input type="text" id="almDetUbicacion" maxlength="150" autocomplete="off"
+                       onkeydown="if(event.key==='Enter'){event.preventDefault();window.almGuardarUbicacionDetalle();}"
+                       style="width:100%;min-width:0;margin-top:4px;">
                 <div id="almDetUbicacionError" style="display:none;color:#dc2626;font-size:12px;font-weight:600;margin-top:4px;"></div>
             </div>
             <div style="border-top:1px solid #f1f5f9;padding-top:12px;display:flex;flex-direction:column;gap:7px;">
@@ -3368,6 +3362,10 @@
     window.almDetalleCerrar = function () {
         var m  = el('almDetalleModal');
         var id = m ? (m.dataset.id || '') : '';
+        // Persistir la ubicación tecleada ANTES de cerrar (el modal ya no tiene botón
+        // "Guardar"). Es no-op si el texto no cambió. Único punto: por aquí pasan tanto
+        // la "✕" como el Escape del handler global.
+        if (window.almGuardarUbicacionDetalle) window.almGuardarUbicacionDetalle();
         almCerrar('almDetalleModal');
         if (!id || !almSeleccion[id]) return;
         var tr = document.querySelector('#almTableBody tr.alm-row[data-id-producto="' + id + '"]');
@@ -3393,6 +3391,18 @@
         var d = m.dataset, id = parseInt(d.id, 10);
         var minimo = (d.minimo === '' ? null : parseFloat(d.minimo));
         var saldo  = parseFloat(d.saldo || 0);
+        // Ubicación TECLEADA (puede diferir de d.ubicacion, que es la última guardada).
+        var ubicInput = el('almDetUbicacion');
+        var ubicViva  = ubicInput ? (ubicInput.value || '').trim() : (d.ubicacion || '');
+
+        // Salir a un sub-modal también abandona "Detalles", así que la ubicación tecleada se
+        // persiste igual que al cerrar — si no, escribirla y tocar "Auditoría" la perdía en
+        // silencio (ya no hay botón "Guardar" que la respalde). Dos excepciones:
+        //   · 'editar'  → el modal de edición YA guarda UBICACION; le pasamos el valor vivo y
+        //                 dejamos que él lo persista. Guardar aquí sería un PATCH duplicado.
+        //   · 'eliminar'→ el producto se va; guardarle la ubicación antes es trabajo perdido.
+        if (which !== 'editar' && which !== 'eliminar') window.almGuardarUbicacionDetalle();
+
         almCerrar('almDetalleModal');
         window.almDesdeDetalle = true;   // los sub-modales que siguen se abrieron desde Detalles
         switch (which) {
@@ -3403,7 +3413,7 @@
             // 'kardex' antes navegaba a /admin/almacen/movimientos; ahora abre un
             // modal local con los movimientos solo de este producto + filtros mínimos.
             case 'kardex':   if (window.almAbrirKardexProducto) window.almAbrirKardexProducto(id, d.cod, d.nom, d.um, saldo); break;
-            case 'editar':   if (window.almEditarProducto)      window.almEditarProducto(id, d.cod, d.nom, d.um, d.cat, d.ubicacion); break;
+            case 'editar':   if (window.almEditarProducto)      window.almEditarProducto(id, d.cod, d.nom, d.um, d.cat, ubicViva); break;
             case 'eliminar': if (window.almEliminarProducto)    window.almEliminarProducto(id); break;
         }
     };
@@ -3412,11 +3422,23 @@
     // completo de Editar). Reusa el mismo endpoint PATCH que almGuardarProducto, mandando
     // el resto de campos (NOMBRE/UM/CATEGORIA/CODIGO) tal cual están en el dataset del
     // modal para no pisarlos — este endpoint no soporta PATCH parcial (ver validarProducto).
+    //
+    // Se dispara desde DOS sitios (ya no hay botón "Guardar"): Enter en el input y el cierre
+    // del modal vía almDetalleCerrar. Por eso arranca comparando contra el valor con el que
+    // se abrió el modal: sin ese corte, cada cierre lanzaría un PATCH y un toast aunque el
+    // usuario no hubiera tocado el campo.
     window.almGuardarUbicacionDetalle = function () {
-        if (!ensurePerm(HAS_PRODUCTOS, 'No tienes permiso para editar la ubicación.')) return;
         var m = el('almDetalleModal'); if (!m || !m.dataset.id) return;
+        var input = el('almDetUbicacion'); if (!input) return;
+        var ubicacion = (input.value || '').trim();
+        if (ubicacion === (m.dataset.ubicacion || '').trim()) return; // sin cambios → no molestar
+        // El permiso se chequea DESPUÉS de detectar el cambio: si no, cerrar el modal sin
+        // tocar nada le lanzaría el toast de "no tienes permiso" a cualquier usuario de solo lectura.
+        if (!ensurePerm(HAS_PRODUCTOS, 'No tienes permiso para editar la ubicación.')) {
+            input.value = m.dataset.ubicacion || ''; // revertir lo tecleado
+            return;
+        }
         var id = parseInt(m.dataset.id, 10);
-        var ubicacion = (el('almDetUbicacion').value || '').trim();
         showErr('almDetUbicacionError', '');
         pre();
         fetch(ROUTE_PROD_ITEM(id), {
@@ -3435,10 +3457,18 @@
                 toast('Ubicación actualizada.');
                 if (window.almCargar) window.almCargar();
             } else {
-                showErr('almDetUbicacionError', (res.b && res.b.message) || 'No se pudo guardar la ubicación.');
+                // El error va TAMBIÉN por toast: si el guardado se disparó al cerrar el modal,
+                // el mensaje inline queda dentro de un modal ya oculto y nadie lo vería.
+                var msg = (res.b && res.b.message) || 'No se pudo guardar la ubicación.';
+                showErr('almDetUbicacionError', msg);
+                toast(msg, 'error');
             }
         })
-        .catch(function () { unpre(); showErr('almDetUbicacionError', 'Error de red.'); });
+        .catch(function () {
+            unpre();
+            showErr('almDetUbicacionError', 'Error de red.');
+            toast('Error de red al guardar la ubicación.', 'error');
+        });
     };
 
     // ── Modal "Movimientos del producto" (kardex local de UN producto) ──
