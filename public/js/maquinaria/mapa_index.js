@@ -1346,7 +1346,10 @@
         var DibujarCtrl = L.Control.extend({
             options: { position: 'topleft' },
             onAdd: function () {
-                var btn = L.DomUtil.create('button', 'mapa-fit-btn');
+                // mapa-ctrl-mobile-hide: oculto en teléfono (ver FitVE arriba). Dibujar a
+                // mano una curva con el dedo, sobre un mapa que también hace pan/zoom, no
+                // es usable en pantalla chica; se hace desde escritorio.
+                var btn = L.DomUtil.create('button', 'mapa-fit-btn mapa-ctrl-mobile-hide');
                 btn.type = 'button';
                 btn.title = 'Dibujar tubería a mano (curva)';
                 btn.innerHTML = '<i class="material-icons">gesture</i>';
@@ -1933,6 +1936,32 @@
         // Tras insertar el contenedor por SPA, Leaflet puede calcular mal el tamaño;
         // invalidar en el siguiente tick asegura que las teselas llenen el área.
         setTimeout(function () { map.invalidateSize(); }, 60);
+
+        // ── Redimensionamiento (sobre todo en TELÉFONO) ──────────────────────────────
+        // Leaflet solo mide el contenedor al montarse: si su alto cambia después, las
+        // teselas no se recalculan y quedan franjas grises. En móvil eso pasa seguido —
+        // al rotar el teléfono y cada vez que la barra de URL del navegador se oculta o
+        // reaparece (nuestro alto es 100dvh, así que se mueve con ella). Observamos el
+        // CONTENEDOR, no window: cubre además el teclado virtual y los cambios de layout
+        // por SPA, que un listener de 'resize' no ve. El observer se recolecta junto con
+        // el nodo cuando la SPA reemplaza la vista — no hay que desmontarlo a mano.
+        // rAF para colapsar la ráfaga de eventos de una rotación en un solo recálculo.
+        if (window.ResizeObserver) {
+            var rafId = 0;
+            new ResizeObserver(function () {
+                if (rafId) return;
+                rafId = requestAnimationFrame(function () {
+                    rafId = 0;
+                    map.invalidateSize({ pan: false }); // pan:false = no mover el centro
+                });
+            }).observe(el);
+        } else {
+            // Navegadores sin ResizeObserver: rotación vía window (orientationchange llega
+            // antes de que el layout se asiente, de ahí el respiro).
+            window.addEventListener('orientationchange', function () {
+                setTimeout(function () { map.invalidateSize({ pan: false }); }, 250);
+            });
+        }
 
         // Cuando existan equipos con lat/lng se agregarán marcadores aquí, p.ej:
         //   L.marker([lat, lng]).addTo(map).bindPopup(nombreEquipo);

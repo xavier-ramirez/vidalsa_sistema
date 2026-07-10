@@ -3960,9 +3960,23 @@ html.is-ios .ent-capt-add-btn { display: flex !important; }
    municipios" del control de capas — en una pantalla angosta solo tapan mapa útil, y el
    usuario móvil no los necesita para consultar. Un solo breakpoint para todo el módulo. */
 @media (max-width: 640px) {
-    .mapa-page { padding: 0 0 16px; }
+    .mapa-page { padding: 0 0 6px; }
     .mapa-creditos { display: none; }
     .leaflet-control-layers { display: none; }
+    /* Solo queda "Pantalla completa" — Ver toda Venezuela, Descargar imagen, Proyectos
+       (linea de oleoductos) y Dibujar tuberia se ocultan (pedido del cliente). */
+    .mapa-ctrl-mobile-hide { display: none !important; }
+    /* Contenedor MAS ALTO: 100dvh (no 100vh) descuenta la barra de URL del navegador —
+       con 100vh el mapa quedaba cortado por debajo del pliegue. Se resta solo el header
+       de la app. min-height 560px se anula: en un telefono bajo forzaba scroll y sacaba
+       parte del mapa de la vista. El JS reajusta Leaflet cuando esta altura cambia
+       (ResizeObserver en mapa_index.js) — sin eso quedan teselas grises al rotar. */
+    #mapa-leaflet {
+        height: calc(100vh - 72px); /* fallback: navegadores sin dvh */
+        height: calc(100dvh - 72px);
+        min-height: 0;
+        border-radius: 12px;
+    }
 }
 
 /* ── Panel de OLEODUCTOS (proyectos) ── */
@@ -4034,9 +4048,6 @@ html.is-ios .ent-capt-add-btn { display: flex !important; }
 @media (max-width: 560px) {
     .mapa-dibujo-tip { display: none; }
     .mapa-dibujo-titulo { font-size: 12px; }
-    /* En telefono solo queda "Pantalla completa" — Ver toda Venezuela, Descargar
-       imagen y Proyectos (linea de oleoductos) se ocultan (pedido del cliente). */
-    .mapa-ctrl-mobile-hide { display: none !important; }
     /* Buscador mas angosto: en pantallas chicas 58vw quedaba muy ancho y se
        montaba sobre los botones de control de al lado. */
     .leaflet-control-geocoder-form input { width: 140px !important; max-width: 46vw !important; }
