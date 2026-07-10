@@ -2470,11 +2470,13 @@ input:-webkit-autofill:active {
 /* Layout Responsive para Página de Equipos */
 .page-layout-grid {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 300px;
-    /* gap reducido (antes 40px) para ensanchar la tarjeta blanca de la tabla y
-       acercarla al sidebar — aplica a equipos, equipos-auxiliares, almacén y
-       movimientos (catálogo tiene su propio override en catalogo.css). */
-    gap: 14px;
+    /* Sidebar 320px (antes 300px): un poco más ancho para las cards "Equipos y
+       Maquinaria" / "Equipos Auxiliares". Gap 8px (antes 14, y 40 originalmente):
+       menos separación con la tarjeta blanca de la tabla — aplica a equipos,
+       equipos-auxiliares, almacén y movimientos (catálogo tiene su propio
+       override en catalogo.css). */
+    grid-template-columns: minmax(0, 1fr) 320px;
+    gap: 8px;
     align-items: start;
     width: 100%;
 }
