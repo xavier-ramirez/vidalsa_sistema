@@ -927,9 +927,13 @@ class AlmacenController extends Controller
 
     /**
      * Borra PERMANENTEMENTE un producto de la papelera (forceDelete) — irreversible,
-     * EXCLUSIVO super.admin (gate en el constructor). Resguardo: si el producto tiene
-     * movimientos en el kardex, NO se borra (rompería la trazabilidad y las FK); se
-     * mantiene en la papelera para auditoría.
+     * EXCLUSIVO super.admin (gate en el constructor).
+     *
+     * Resguardo: si el producto tiene movimientos en el kardex, NO se borra; se mantiene
+     * en la papelera para auditoría. OJO: la FK movimientos_inventario.ID_PRODUCTO es
+     * ON DELETE CASCADE, así que la BD SÍ lo dejaría pasar — borraría el kardex en
+     * silencio, y con él las líneas de las Notas de Entrega ya emitidas. El guard de
+     * abajo es la ÚNICA barrera; no hay una restricción del motor que respalde esto.
      */
     public function eliminarPermanenteProducto(int $id)
     {
