@@ -336,6 +336,16 @@
     };
 
     window._cdashCatsData = window._cdashCatsData || [];
+    // El nombre de categoría es texto libre editable desde el catálogo de productos: hay que
+    // escaparlo en LOS DOS contextos donde se interpola, o una categoría llamada
+    // `<img src=x onerror=...>` ejecuta al abrir la lista (XSS almacenado).
+    //   escAttr → dentro de la cadena JS del onmousedown (comillas + < > & para cerrar el atributo).
+    //   escHtml → como texto visible del <div>.
+    function escHtml(s) {
+        return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+    function escAttr(s) { return escHtml(String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'")); }
     window._cdashCatRenderList = function (filter) {
         var list = document.getElementById('cdashCatList'); if (!list) return;
         var q = (filter || '').toLowerCase();
@@ -343,8 +353,8 @@
         window._cdashCatsData.forEach(function (c) {
             var s = String(c);
             if (q && s.toLowerCase().indexOf(q) === -1) return;
-            var safe = s.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-            html += '<div class="cdash-cat-item" onmousedown="event.preventDefault();window._cdashCatSelect(\'' + safe + '\',\'' + safe + '\');">' + s + '</div>';
+            var safe = escAttr(s);
+            html += '<div class="cdash-cat-item" onmousedown="event.preventDefault();window._cdashCatSelect(\'' + safe + '\',\'' + safe + '\');">' + escHtml(s) + '</div>';
         });
         list.innerHTML = html;
     };

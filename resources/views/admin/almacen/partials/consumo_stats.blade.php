@@ -42,9 +42,14 @@
 @else
     @php
         // Distinguimos "no hay filtros y la BD no tiene salidas" vs "los filtros no devuelven resultados".
-        $hayFiltros = request()->filled('id_almacen') || request()->filled('id_frente')
+        // Se listan TODOS los filtros que movimientos() interpreta; faltaban `nota` y `tipo`, así que
+        // filtrar sólo por ellos mostraba "aún no se han registrado salidas" aunque sí las hubiera.
+        // Para `id_frente`/`tipo` el valor 'all' es el centinela de "sin filtro" (igual que en el
+        // controlador), y `id_almacen` cuenta como filtro: acota el ranking aunque venga por defecto.
+        $noEsAll = fn ($k) => request()->filled($k) && request()->input($k) !== 'all';
+        $hayFiltros = request()->filled('id_almacen') || $noEsAll('id_frente') || $noEsAll('tipo')
             || request()->filled('search') || request()->filled('desde') || request()->filled('hasta')
-            || request()->filled('id_producto');
+            || request()->filled('id_producto') || request()->filled('nota');
     @endphp
     <p style="color:#94a3b8;font-size:12px;margin:8px 0 0 0;">
         @if($hayFiltros)
