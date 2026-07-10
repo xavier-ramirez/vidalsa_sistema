@@ -1175,10 +1175,12 @@
                     if (window.showPreloader) window.showPreloader();
                     // Si el usuario editó origen/firmas en la vista previa, los pasa como
                     // override al POST del acta (mismo patron que /admin/equipos).
-                    const tieneOverride = (actaState.origin && actaState.origin.trim() !== '') || actaState.firmas !== null;
+                    const tieneOverride = (actaState.origin && actaState.origin.trim() !== '')
+                        || (actaState.destination_ubicacion && actaState.destination_ubicacion.trim() !== '')
+                        || actaState.firmas !== null;
                     const actaReq = tieneOverride
                         ? { method: 'POST', headers: { 'Accept': 'application/pdf', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf() }, credentials: 'same-origin',
-                            body: JSON.stringify({ override_origin: actaState.origin || '', override_origin_zona: actaState.origin_zona || '', override_firmas: actaState.firmas }) }
+                            body: JSON.stringify({ override_origin: actaState.origin || '', override_origin_zona: actaState.origin_zona || '', override_destino_ubicacion: actaState.destination_ubicacion || '', override_firmas: actaState.firmas }) }
                         : { headers: { 'Accept': 'application/pdf' }, credentials: 'same-origin' };
                     fetch('/admin/movilizaciones/' + firstId + '/acta-traslado', actaReq)
                         .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); })
@@ -1212,7 +1214,7 @@
         // ubicacion cuando no se genera el acta). generarPdf=true → Vista Previa del Acta;
         // frente nuevo/sin ubicacion abre el formulario de edicion directamente (editarDirecto).
         if (generarPdf && typeof window._mostrarVistaPreviaActa === 'function') {
-            window._mostrarVistaPreviaActa(actaState, ejecutarCommit, { editarDirecto: isNewFrente || needsUbicacion });
+            window._mostrarVistaPreviaActa(actaState, ejecutarCommit, { editarDirecto: needsUbicacion });
             return;
         }
         ejecutarCommit();

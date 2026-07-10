@@ -377,9 +377,10 @@ class MovilizacionController extends Controller
 
             $nextId = $generarPdf ? self::generateNextCodigoControl() : null;
 
-            // Nombres de los frentes de ORIGEN a congelar en el snapshot — un solo query
-            // por lote (no N+1) para los distintos ID_FRENTE_ACTUAL que trae $aMovilizar.
-            // El destino es uno solo ($frente, ya cargado arriba).
+            // Nombres de los frentes de ORIGEN — un solo query por lote (no N+1) para los
+            // distintos ID_FRENTE_ACTUAL que trae $aMovilizar. El destino es uno solo
+            // ($frente, ya cargado arriba). Se reutiliza más abajo TANTO para congelar el
+            // snapshot del historial como para el bloque de auditoría — un solo cómputo.
             $origenIds     = $aMovilizar->pluck('ID_FRENTE_ACTUAL')->filter()->unique()->values();
             $origenNombres = FrenteTrabajo::whereIn('ID_FRENTE', $origenIds)->pluck('NOMBRE_FRENTE', 'ID_FRENTE');
 
@@ -427,9 +428,8 @@ class MovilizacionController extends Controller
                 $ubicLabel    = $destUbicacion !== '' ? strtoupper($destUbicacion) : (string) ($frente->UBICACION ?? '');
                 $actaNum      = $generarPdf ? str_pad((string) $nextId, 6, '0', STR_PAD_LEFT) : null;
 
-                $origenNombres = FrenteTrabajo::whereIn('ID_FRENTE', $aMovilizar->pluck('ID_FRENTE_ACTUAL')->filter()->unique())
-                    ->pluck('NOMBRE_FRENTE', 'ID_FRENTE');
-
+                // $origenNombres ya se calculó arriba (para el snapshot del historial) con
+                // el mismo criterio — reusarlo evita repetir la misma query dos veces.
                 foreach ($aMovilizar as $equipo) {
                     $origenNom = $overrideOrig !== ''
                         ? $overrideOrig
@@ -798,6 +798,13 @@ class MovilizacionController extends Controller
             if ($overrideOrigin !== '') {
                 $frenteOrigen = $this->stubFrenteOrigen($overrideOrigin, (string) $request->input('override_origin_zona', ''));
             }
+            // Ubicacion del destino tecleada en la vista previa: se imprime tal cual (en
+            // memoria, sin ->save()) para que el acta FINAL sea identica a la previa
+            // aunque el frente ya tuviera otra UBICACION en BD.
+            $overrideDestUbic = trim((string) $request->input('override_destino_ubicacion', ''));
+            if ($overrideDestUbic !== '') {
+                $frenteDestino->UBICACION = $overrideDestUbic;
+            }
             $firmasOverride = $this->normalizeFirmasOverride($request->input('override_firmas'));
 
             // Armado del PDF centralizado en buildActaPdfBinary() — lo comparten la
@@ -1068,13 +1075,20 @@ class MovilizacionController extends Controller
             // creado) con lo tecleado en el modal. El blade del acta solo usa
             // NOMBRE_FRENTE / UBICACION / TIPO_FRENTE del destino (las firmas salen
             // del frente de ORIGEN).
-            $destNom = trim($data['destination']);
+            $destNom    = trim($data['destination']);
+            $destUbicac = trim($data['destination_ubicacion'] ?? '');
             $frenteDestino = FrenteTrabajo::whereRaw('UPPER(NOMBRE_FRENTE) = ?', [mb_strtoupper($destNom)])->first();
             if (!$frenteDestino) {
                 $frenteDestino = new FrenteTrabajo();
                 $frenteDestino->NOMBRE_FRENTE = $destNom;
-                $frenteDestino->UBICACION     = trim($data['destination_ubicacion'] ?? '');
                 $frenteDestino->TIPO_FRENTE   = 'OPERACION';
+            }
+            // La ubicacion tecleada en el formulario del acta SIEMPRE manda sobre la de
+            // BD (solo en memoria, sin ->save()): el frente puede existir con UBICACION
+            // vacia o desactualizada y el usuario la esta corrigiendo para ESTE acta. Sin
+            // esto el campo se ignoraba y el PDF salia sin "ubicado en ...".
+            if ($destUbicac !== '') {
+                $frenteDestino->UBICACION = $destUbicac;
             }
 
             // Firmas EFECTIVAS del acta: el override manual si lo hay, si no las del
@@ -1114,9 +1128,16 @@ class MovilizacionController extends Controller
         $data = $request->validate([
             'ids'   => 'required|array|min:1',
             'ids.*' => 'integer',
+            'type'  => 'nullable|in:equipo,auxiliar',
         ]);
 
-        $equipos = \App\Models\Equipo::whereIn('ID_EQUIPO', $data['ids'])->get();
+        // Los auxiliares viven en otra tabla: sin esto los ID_AUXILIAR se buscaban
+        // contra `equipos` y la precarga del formulario (origen/zona/firmas) salia vacia.
+        // extractFirmasActa() solo lee CATEGORIA_FLOTA de la coleccion → los auxiliares
+        // no la tienen y caen a FLOTA LIVIANA, igual que en previewActaLote().
+        $equipos = ($data['type'] ?? 'equipo') === 'auxiliar'
+            ? \App\Models\EquipoAuxiliar::whereIn('ID_AUXILIAR', $data['ids'])->get()
+            : \App\Models\Equipo::whereIn('ID_EQUIPO', $data['ids'])->get();
         if ($equipos->isEmpty()) {
             return response()->json(['message' => 'No se encontraron equipos.'], 422);
         }

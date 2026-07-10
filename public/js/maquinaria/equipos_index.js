@@ -2091,7 +2091,10 @@ window.openBulkModal = function (event) {
         // Estado EDITABLE del acta. Arranca con lo del modal; la vista previa puede
         // mutarlo (quitar equipos → ids; re-rutear destino; override cosmético de
         // origen/zona/firmas para el PDF). ejecutarCommit y la vista previa leen de aquí.
-        //   - ids / destination / destination_ubicacion → afectan el REGISTRO real.
+        //   - ids / destination → afectan el REGISTRO real.
+        //   - destination_ubicacion → se imprime SIEMPRE en el acta (previa y final), pero
+        //     solo se guarda en el frente si éste aún no tenía UBICACION (bulkStore): un
+        //     acta no pisa el dato maestro de un frente que ya la tiene.
         //   - origin / origin_zona / firmas → SOLO el documento impreso (override).
         const actaState = {
             ids: ids.slice(),
@@ -2225,7 +2228,9 @@ window.openBulkModal = function (event) {
                     // Si el usuario editó origen/firmas en la vista previa → POST con esos
                     // overrides (cosméticos) para que el acta FINAL salga igual a la previa.
                     // Sin ediciones → GET normal (acta directo del frente).
-                    const tieneOverride = (actaState.origin && actaState.origin.trim() !== '') || actaState.firmas !== null;
+                    const tieneOverride = (actaState.origin && actaState.origin.trim() !== '')
+                        || (actaState.destination_ubicacion && actaState.destination_ubicacion.trim() !== '')
+                        || actaState.firmas !== null;
                     const actaReq = tieneOverride
                         ? {
                             method: 'POST',
@@ -2238,6 +2243,9 @@ window.openBulkModal = function (event) {
                             body: JSON.stringify({
                                 override_origin: actaState.origin || '',
                                 override_origin_zona: actaState.origin_zona || '',
+                                // El frente puede existir con otra UBICACION (o ninguna) en BD:
+                                // el acta final imprime la que se validó en la vista previa.
+                                override_destino_ubicacion: actaState.destination_ubicacion || '',
                                 override_firmas: actaState.firmas // null o array
                             })
                         }
@@ -2323,7 +2331,10 @@ window.openBulkModal = function (event) {
         // generarPdf=true → Vista Previa del Acta: frente nuevo/sin ubicación abre el
         // editor de una (captura ubicación + firmas); frente completo muestra la previa.
         if (generarPdf) {
-            window._mostrarVistaPreviaActa(actaState, ejecutarCommit, { editarDirecto: isNewFrente });
+            // needsUbicacion (no isNewFrente): un frente que YA existe pero sin UBICACION
+            // en BD también necesita capturarla, o el commit lo rechaza con 422. Mismo
+            // criterio que el modal de auxiliares (_machinery.blade.php).
+            window._mostrarVistaPreviaActa(actaState, ejecutarCommit, { editarDirecto: needsUbicacion });
             return;
         }
         ejecutarCommit();
@@ -2527,14 +2538,18 @@ window._mostrarVistaPreviaActa = async function (actaState, onConfirm, opts) {
 
     // input con icono para el editor
     // listId (opcional): asocia el input a un <datalist> → muestra sugerencias de los frentes
-    // existentes pero deja escribir uno nuevo (autocompletado nativo). Lo usan origen/destino.
+    // existentes pero deja escribir uno nuevo. Lo usan origen/destino.
+    // Los campos SIN listId (zona de origen, ubicación del destino) son texto libre: se
+    // desactiva el historial de formularios del navegador para que NO sugieran lo tecleado
+    // en actas anteriores (autocomplete + autofill + corrección automática).
     function grpInput(id, label, value, icon, placeholder, listId) {
-        var listAttr = listId ? ' list="' + listId + '" autocomplete="off"' : '';
+        var listAttr = listId ? ' list="' + listId + '"' : '';
+        var offAttrs = ' autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" data-lpignore="true" data-form-type="other"';
         return '<div>' +
             '<label for="' + id + '" style="display:block;font-size:10.5px;font-weight:700;color:#64748b;margin-bottom:2px;text-transform:uppercase;letter-spacing:0.3px;">' + label + '</label>' +
             '<div style="display:flex;align-items:center;border:1px solid #e2e8f0;border-radius:8px;background:#fbfcfd;overflow:hidden;">' +
                 '<i class="material-icons" style="padding:0 6px;color:#94a3b8;font-size:16px;">' + icon + '</i>' +
-                '<input id="' + id + '"' + listAttr + ' value="' + escA(value) + '" placeholder="' + escA(placeholder || '') + '" style="flex:1;border:none;outline:none;padding:9px 8px;font-size:12.5px;background:transparent;text-transform:uppercase;">' +
+                '<input id="' + id + '"' + listAttr + offAttrs + ' value="' + escA(value) + '" placeholder="' + escA(placeholder || '') + '" style="flex:1;border:none;outline:none;padding:9px 8px;font-size:12.5px;background:transparent;text-transform:uppercase;">' +
             '</div>' +
         '</div>';
     }
@@ -2604,7 +2619,7 @@ window._mostrarVistaPreviaActa = async function (actaState, onConfirm, opts) {
                 var r = await fetch('/admin/movilizaciones/preview-acta-meta', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf(), 'Accept': 'application/json' },
-                    body: JSON.stringify({ ids: actaState.ids })
+                    body: JSON.stringify({ ids: actaState.ids, type: actaState.type || 'equipo' })
                 });
                 if (r.ok) {
                     var m = await r.json();
