@@ -113,12 +113,29 @@ self.addEventListener('fetch', (event) => {
         // OJO: ignoreSearch como estrategia PRINCIPAL (no fallback) fue un bug real
         // acá — servía JS/CSS viejo indefinidamente hasta que sw.js mismo cambiara,
         // aunque el archivo en el servidor ya estuviera corregido.
+        //
+        // Poda de versiones viejas: CACHE_VERSION (el nombre del bucket completo)
+        // solo cambia si se edita sw.js — NO cuando cambia equipos_index.js o
+        // cualquier otro asset. Sin poda, RUNTIME_CACHE va ACUMULANDO una entrada
+        // por cada "?v=" que ese archivo tuvo alguna vez (meses de historial), y el
+        // fallback ignoreSearch de arriba puede resucitar CUALQUIERA de esas viejas
+        // — se vio en producción: un modal eliminado hace semanas volvía a aparecer
+        // tras un simple fallo de red transitorio. Al guardar la respuesta fresca,
+        // borramos las demás entradas del MISMO pathname: ignoreSearch ya solo
+        // puede encontrar la última versión que sí llegó a cachearse.
         event.respondWith(
             caches.match(request).then((exact) => {
                 const networkFetch = fetch(request).then((response) => {
                     if (response && response.status === 200) {
                         const copy = response.clone();
-                        caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, copy)).catch(() => {});
+                        caches.open(RUNTIME_CACHE).then((cache) => {
+                            cache.put(request, copy);
+                            return cache.keys().then((keys) => Promise.all(
+                                keys
+                                    .filter((k) => k.url !== request.url && new URL(k.url).pathname === url.pathname)
+                                    .map((k) => cache.delete(k))
+                            ));
+                        }).catch(() => {});
                     }
                     return response;
                 });
