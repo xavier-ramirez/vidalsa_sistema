@@ -3977,6 +3977,30 @@ html.is-ios .ent-capt-add-btn { display: flex !important; }
         min-height: 0;
         border-radius: 12px;
     }
+
+    /* ── Leyenda en teléfono ──────────────────────────────────────────────────
+       Sigue VISIBLE (es la única forma de saber qué proyecto/municipio es cada
+       color, y el panel "Proyectos" está oculto acá), pero se compacta:
+       - max-height en dvh, no vh: con 46vh la leyenda se extendía por debajo de
+         la barra de URL del navegador y sus últimas filas quedaban inalcanzables.
+       - Una sola columna de municipios: a dos columnas cada nombre quedaba en
+         ~110px y se cortaba con puntos suspensivos.
+       - Ancho pegado al viewport (los 240px de min-width forzaban desborde en
+         pantallas de 320px) y tipografía menor.
+       Arranca RECOGIDA (lo fija el JS, ver legendColapsada en mapa_index.js):
+       expandida tapaba medio mapa en un teléfono. */
+    .mapa-leyenda {
+        max-height: 46vh; /* fallback: navegadores sin dvh */
+        max-height: 38dvh;
+        min-width: 0;
+        max-width: calc(100vw - 20px);
+        font-size: 11.5px;
+        padding: 7px 9px;
+    }
+    .mapa-leyenda:has(.mapa-leyenda-munis.dos-col) { max-width: calc(100vw - 20px); }
+    .mapa-leyenda-munis.dos-col { column-count: 1; }
+    .mapa-leyenda-titulo { font-size: 11px; }
+    .mapa-leyenda-t { font-size: 11px; }
 }
 
 /* ── Panel de OLEODUCTOS (proyectos) ── */
@@ -4106,7 +4130,10 @@ html.is-ios .ent-capt-add-btn { display: flex !important; }
 /* Municipios en DOS columnas cuando son varios (rellena de arriba a abajo). */
 .mapa-leyenda-munis.dos-col { column-count: 2; column-gap: 16px; }
 .mapa-leyenda-munis.dos-col .mapa-leyenda-row { break-inside: avoid; }
-.mapa-leyenda:has(.mapa-leyenda-munis.dos-col) { max-width: 340px; }
+/* min() y NO 340px pelado: este max-width pisa el `min(360px, calc(100vw - 32px))`
+   de .mapa-leyenda, así que un 340px fijo se salía del mapa en teléfonos angostos
+   (≤372px de viewport) en cuanto la leyenda tenía municipios a dos columnas. */
+.mapa-leyenda:has(.mapa-leyenda-munis.dos-col) { max-width: min(340px, calc(100vw - 32px)); }
 .mapa-leyenda-row { display: flex; align-items: center; gap: 7px; padding: 2px 0; }
 .mapa-leyenda-dot { width: 12px; height: 12px; border-radius: 3px; border: 1px solid rgba(255, 255, 255, 0.6); flex: none; }
 .mapa-leyenda-nom { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }

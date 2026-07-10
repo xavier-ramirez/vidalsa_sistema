@@ -1259,7 +1259,11 @@
         }
 
         // Estado de plegado de la leyenda: toda la leyenda + los puntos de cada proyecto.
-        var legendColapsada = false;
+        // En teléfono arranca RECOGIDA (solo la cabecera "Leyenda" + su botón): expandida
+        // tapaba medio mapa. Un toque en la cabecera la despliega. Mismo corte (640px) que
+        // el resto del módulo en estilos_globales.css. Solo es el estado INICIAL — si el
+        // usuario la abre, no se la volvemos a cerrar al rotar.
+        var legendColapsada = window.innerWidth <= 640;
         var proyColapsados = {};      // id de proyecto → true si sus puntos están recogidos
         var legendClickBound = false;
 
