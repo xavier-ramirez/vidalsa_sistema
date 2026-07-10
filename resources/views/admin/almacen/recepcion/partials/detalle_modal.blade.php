@@ -10,8 +10,6 @@
     // frente suelen coincidir → no repetir la fila "Frente" cuando dice lo mismo que
     // "Destino". La comparación (tolerante a tildes/mayúsculas/espacios) vive en el modelo,
     // que es la misma fuente que usa la bandeja de recepción.
-    $destNombre   = optional($traspaso->almacenDestino)->NOMBRE;
-    $frenteNombre = optional($traspaso->frenteDestino)->NOMBRE_FRENTE;
     $frenteRedundante = $traspaso->frenteDestinoEsRedundante();
 @endphp
 

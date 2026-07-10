@@ -620,7 +620,7 @@
                                  ancho NATURAL (nowrap, sin width:1%) para que tengan algo de aire;
                                  "Origen / Destino" absorbe el resto, pero sin acaparar tanto. --}}
                             <th style="width:1%;white-space:nowrap;" title="Número de la Nota de Entrega (NE-YYYY-NNNN).">Nº Nota</th>
-                            <th title="A la izquierda el almacén que ENVÍA; a la derecha el que RECIBE.">Origen / Destino</th>
+                            <th title="A la izquierda el almacén que ENVÍA; a la derecha el FRENTE al que va el material (debajo, el almacén que lo recibe).">Origen / Destino</th>
                             <th style="white-space:nowrap;text-align:center;" title="Estado actual de la nota.">Estado</th>
                             <th style="white-space:nowrap;" title="Fecha de despacho. Indicador: verde &lt;24h, amarillo 1-3d, rojo &gt;3d.">Enviado</th>
                         </tr>
