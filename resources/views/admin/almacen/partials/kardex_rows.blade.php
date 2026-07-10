@@ -113,14 +113,20 @@
                     {{-- Mismo visor in-page que usa /admin/almacen/notas y el resto del módulo
                          (#pdfPreviewModal vía window.openPdfPreview). Conserva fallback a abrir
                          en pestaña nueva si el layout no provee la función. --}}
+                    {{-- El icono `description` (mismo del menú Acciones → "Bitácora por Nota (PDF)")
+                         marca que el enlace abre un DOCUMENTO. En escritorio va oculto por CSS —
+                         ahí manda el N° de nota; en la tarjeta móvil pasa al revés: se oculta el
+                         número y queda solo el icono, que es el único punto que abre el PDF.
+                         El título del visor sale de data-pdf-title, NO de this.textContent: con el
+                         <i> dentro, textContent valdría "descriptionNE-2026-0041". --}}
                     <a href="{{ route('almacen.nota-entrega', ['numero' => $m->NUMERO_NOTA]) }}"
                        class="mv-nota-link"
                        data-pdf-url="{{ route('almacen.nota-entrega', ['numero' => $m->NUMERO_NOTA]) }}"
                        data-pdf-title="Nota {{ $m->NUMERO_NOTA }}"
-                       onclick="if (typeof window.openPdfPreview === 'function') { event.preventDefault(); window.openPdfPreview(this.href, 'nota_entrega', 'Nota ' + this.textContent.trim(), 0, '', true, 'almacen'); }"
+                       onclick="if (typeof window.openPdfPreview === 'function') { event.preventDefault(); window.openPdfPreview(this.dataset.pdfUrl, 'nota_entrega', this.dataset.pdfTitle, 0, '', true, 'almacen'); }"
                        target="_blank" rel="noopener"
                        style="color:#334155;text-decoration:none;font-weight:400;font-size:12.5px;"
-                       title="Ver Nota de Entrega (PDF)">{{ $m->NUMERO_NOTA }}</a>
+                       title="Ver Nota de Entrega (PDF)"><i class="material-icons mv-nota-ico">description</i><span class="mv-nota-num">{{ $m->NUMERO_NOTA }}</span></a>
                 @endif
                 @if($m->REFERENCIA && $m->REFERENCIA !== $m->NUMERO_NOTA)
                     {{-- Nota de entrega del proveedor (ENTRADA) / N° OC: MISMO estilo que la Nota de
@@ -144,7 +150,9 @@
                         <i class="material-icons" style="font-size:12px;">sticky_note_2</i><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:130px;">{{ $m->NOTAS }}</span>
                     </div>
                 @endif
-                @if(!$m->NUMERO_NOTA && !$m->REFERENCIA && !($esEntradaDirecta && $m->MOTIVO) && !$m->NOTAS)—@endif
+                {{-- Envuelto en un span para poder ocultarlo en la tarjeta móvil: ahí la celda
+                     solo muestra el icono del PDF, y un "—" suelto quedaría flotando. --}}
+                @if(!$m->NUMERO_NOTA && !$m->REFERENCIA && !($esEntradaDirecta && $m->MOTIVO) && !$m->NOTAS)<span class="mv-ref-empty">—</span>@endif
                 @can('super.admin')
                     {{-- Botón "eliminar SOLO del historial" CASI INVISIBLE — SOLO super.admin
                          (gateado también en la ruta DELETE almacen.movimientos.destroyHistorial).

@@ -143,6 +143,9 @@
        Casi invisible en reposo; se realza al pasar el mouse por la fila y se pone
        rojo al hover directo. Anclado al borde superior derecho de la celda Ref. */
     .alm-mov-table td.mv-td-ref { position:relative; }
+    /* Escritorio: el N° de nota es el enlace; el icono de documento solo aparece en la
+       tarjeta móvil (ver el @media de abajo), donde no cabe el número. */
+    .alm-mov-table td.mv-td-ref .mv-nota-ico { display:none; }
     .alm-mov-undo {
         position:absolute; top:3px; right:3px;
         width:20px; height:20px; padding:0; margin:0;
@@ -384,65 +387,74 @@
             display: none !important;
         }
 
+        /* Celda "Ref" en la TARJETA móvil = solo el botón del PDF, arriba a la derecha.
+           Antes era una burbuja tipo tooltip que nunca llegaba a verse (display:none en los
+           dos estados) y, en su lugar, tocar la tarjeta abría el PDF de golpe — sin que nada
+           anunciara que ese toque iba a abrir un documento. Ahora el único disparador es
+           este botón; el resto de la tarjeta solo selecciona (ver JS).
+           Si el movimiento no tiene nota (ajustes, entradas sin NE) no hay <a> y la celda
+           queda vacía: sin borde ni fondo propios, no se ve nada. */
         .alm-mov-table tr.alm-mov-row td.mv-td-ref {
-            display: none !important;
+            display: block !important;
             grid-area: unset !important;
             position: absolute !important;
-            bottom: calc(100% + 6px) !important;
-            left: 50% !important;
-            transform: translateX(-50%) !important;
-            background: #1e293b !important;
-            color: #fff !important;
-            padding: 8px 14px !important;
-            border-radius: 10px !important;
-            font-size: 11px !important;
-            font-weight: 500 !important;
-            white-space: normal !important;
-            max-width: 260px !important;
-            min-width: 100px !important;
-            box-shadow: 0 6px 16px rgba(0,0,0,0.2) !important;
-            z-index: 50 !important;
-            line-height: 1.4 !important;
-            text-align: center !important;
-            flex-direction: column !important;
-            align-items: center !important;
-            gap: 6px !important;
+            top: 6px !important;
+            right: 6px !important;
+            bottom: auto !important;
+            left: auto !important;
+            transform: none !important;
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            min-width: 0 !important;
+            max-width: none !important;
+            z-index: 5 !important;
             pointer-events: auto !important;
         }
-        .alm-mov-table tr.alm-mov-row td.mv-td-ref::after {
-            content: '';
-            position: absolute;
-            top: 100%;
-            left: 50%;
-            margin-left: -5px;
-            border-width: 5px;
-            border-style: solid;
-            border-color: #1e293b transparent transparent transparent;
-        }
-        .alm-mov-table tr.alm-mov-row.mv-row-selected td.mv-td-ref {
+        /* La flecha del antiguo tooltip. */
+        .alm-mov-table tr.alm-mov-row td.mv-td-ref::after { content: none !important; }
+        /* Todo lo que NO es el enlace del PDF (referencia/OC, proveedor, observaciones y el
+           "—" de las filas sin datos) se queda fuera de la tarjeta: el detalle se consulta
+           en escritorio o abriendo el propio PDF. */
+        .alm-mov-table tr.alm-mov-row td.mv-td-ref > div,
+        .alm-mov-table tr.alm-mov-row td.mv-td-ref .mv-notas-inline,
+        .alm-mov-table tr.alm-mov-row td.mv-td-ref .mv-ref-empty {
             display: none !important;
         }
-        .alm-mov-table tr.alm-mov-row td.mv-td-ref a {
-            background: rgba(255,255,255,0.15) !important;
-            color: #fff !important;
-            padding: 4px 10px !important;
-            border-radius: 6px !important;
-            font-size: 11px !important;
-            font-weight: 700 !important;
-            text-decoration: none !important;
-            white-space: nowrap !important;
-            border: 1px solid rgba(255,255,255,0.25) !important;
-        }
-        .alm-mov-table tr.alm-mov-row td.mv-td-ref div {
-            font-size: 10px !important;
-            color: rgba(255,255,255,0.7) !important;
-            margin: 0 !important;
-            white-space: normal !important;
-            font-style: italic !important;
-        }
-        .alm-mov-table tr.alm-mov-row td.mv-td-ref .mv-notas-inline {
-            display: flex !important;
+        /* Botón redondo con el icono de documento. 32px = objetivo táctil cómodo sin robar
+           ancho al nombre del producto. */
+        .alm-mov-table tr.alm-mov-row td.mv-td-ref a.mv-nota-link {
+            display: inline-flex !important;
+            align-items: center !important;
             justify-content: center !important;
+            width: 32px !important;
+            height: 32px !important;
+            padding: 0 !important;
+            border-radius: 50% !important;
+            background: #dcfce7 !important;
+            border: 1px solid #bbf7d0 !important;
+            color: #16a34a !important;
+            text-decoration: none !important;
+        }
+        .alm-mov-table tr.alm-mov-row td.mv-td-ref a.mv-nota-link .mv-nota-ico {
+            display: inline-block !important;
+            font-size: 18px !important;
+            line-height: 1 !important;
+        }
+        /* En la tarjeta manda el icono: el N° de nota se lee al abrir el PDF (va en su título). */
+        .alm-mov-table tr.alm-mov-row td.mv-td-ref a.mv-nota-link .mv-nota-num {
+            display: none !important;
+        }
+        /* Deshacer / eliminar del historial (super.admin) viven DENTRO de esta celda con
+           position:absolute en top:3px;right:3px — es decir, justo encima del icono del PDF,
+           y con opacity .08 se verían como un borrón capaz de robarle el toque. Dependen de
+           :hover, que en teléfono no existe. Ya estaban ocultos aquí (la celda entera lo
+           estaba); se mantienen así de forma explícita: son acciones de escritorio. */
+        .alm-mov-table tr.alm-mov-row td.mv-td-ref .alm-mov-undo,
+        .alm-mov-table tr.alm-mov-row td.mv-td-ref .alm-mov-purge {
+            display: none !important;
         }
 
         /* Destino: banda gris inferior full-width */
@@ -1019,15 +1031,14 @@
         if (a) { e.preventDefault(); e.stopImmediatePropagation(); window.loadMovimientos(a.href); }
     }, true);
 
-    // ── Seleccion de tarjeta en mobile (toggle azul + revela burbuja NE-AAAA-NNNN) ──
-    // Mismo patron de UX que /admin/equipos: tocar la tarjeta la resalta en azul y
-    // muestra una burbuja flotante con la info de referencia del movimiento
-    // (N° Nota NE-AAAA-NNNN + REFERENCIA + Proveedor + Observaciones, lo que aplique)
-    // por encima del centro de la tarjeta.
+    // ── Seleccion de tarjeta en mobile (toggle azul) ──
+    // Mismo patron de UX que /admin/equipos: tocar la tarjeta la resalta en azul. Nada mas:
+    // la tarjeta ya NO abre el PDF (lo hace su boton con el icono de documento) ni revela
+    // burbuja alguna — la de referencia estaba declarada display:none en sus dos estados y
+    // nunca llegaba a verse.
     //
-    // Early returns para que clicks en la burbuja NO togglee la seleccion:
-    //   - Click dentro de .mv-td-ref (burbuja entera, incluido el <a> del PDF):
-    //     deja que el onclick del enlace se ejecute (abre PDF preview); no togglear.
+    // Early return: un click dentro de .mv-td-ref (la celda que en movil ES el boton del PDF)
+    // deja correr el onclick del enlace y no toca la seleccion.
     docOn('click', function (e) {
         if (e.target.closest('#almMovTableBody .mv-td-ref')) return;
         var tr = e.target.closest('#almMovTableBody tr.alm-mov-row');
@@ -1035,14 +1046,13 @@
         document.querySelectorAll('#almMovTableBody tr.alm-mov-row.mv-row-selected').forEach(function (other) {
             if (other !== tr) other.classList.remove('mv-row-selected');
         });
-        var wasSelected = tr.classList.contains('mv-row-selected');
         tr.classList.toggle('mv-row-selected');
-        if (!wasSelected && window.innerWidth <= 768) {
-            var pdfLink = tr.querySelector('.mv-nota-link[data-pdf-url]');
-            if (pdfLink && typeof window.openPdfPreview === 'function') {
-                window.openPdfPreview(pdfLink.dataset.pdfUrl, 'nota_entrega', pdfLink.dataset.pdfTitle || 'Nota de Entrega', 0, '', true, 'almacen');
-            }
-        }
+        // Antes, en teléfono, seleccionar la tarjeta ABRÍA el PDF de la nota. Tocar en
+        // cualquier sitio para ver la fila resaltada te lanzaba el visor encima, sin aviso
+        // previo y sin poder seleccionar sin abrirlo. Ahora el PDF lo abre SOLO el botón con
+        // el icono de documento (.mv-nota-link, arriba a la derecha de la tarjeta), que además
+        // solo existe cuando el movimiento tiene nota. Ese botón entra por el early-return de
+        // .mv-td-ref de arriba, así que su onclick corre sin togglear la selección.
     });
 
     // Panel de fechas
