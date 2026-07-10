@@ -889,15 +889,11 @@ window.addEventListener('spa:contentLoaded', function () {
         if (!formData.get('ID_ROL')) errors['ID_ROL'] = ['Debes asignar un rol al usuario.'];
         if (!formData.get('NIVEL_ACCESO')) errors['NIVEL_ACCESO'] = ['El nivel de acceso es obligatorio.'];
         if (!formData.get('ESTATUS')) errors['ESTATUS'] = ['El estatus es obligatorio.'];
-        // ID_FRENTE_ASIGNADO es ahora un array (checkbox multiselect), usar getAll()
-        const frentesSeleccionados = formData.getAll('ID_FRENTE_ASIGNADO[]');
-        // Frentes son opcionales (usuarios GLOBAL no necesitan frente)
+        // ID_FRENTE_ASIGNADO y PERMISOS son opcionales — sin validación aquí. Frentes:
+        // los usuarios GLOBAL no necesitan frente. Permisos: coherente con el backend
+        // ('nullable|array' en UserRequest); se pueden asignar después desde "Editar".
 
-        // Permisos: opcionales — un usuario puede registrarse sin ninguno (coherente con
-        // el backend, donde PERMISOS ya es 'nullable|array' en UserRequest). Se le pueden
-        // asignar después desde "Editar".
-
-        // 4. Password (Only if creating)
+        // 3. Password (Only if creating)
         const method = formData.get('_method');
         const isUpdate = method === 'PUT' || method === 'PATCH';
 
