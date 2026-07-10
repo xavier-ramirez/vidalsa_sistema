@@ -676,7 +676,7 @@
                        value=""
                        data-active="{{ $cActivo }}"
                        data-placeholder-empty="Filtrar por categoría…"
-                       oninput="window.almCatInput()" onfocus="window.almCatSuggest()"
+                       oninput="window.almCatInput()" onfocus="window.almCatFocus()"
                        onkeydown="window.almCatEnter(event)">
                 <i class="material-icons filter-clear" style="display:{{ $cActivo ? 'flex' : 'none' }};"
                    onclick="window.almCatLimpiar()">close</i>
@@ -2261,6 +2261,17 @@
     // La tabla se filtra cuando el usuario (a) elige una sugerencia [almCatPick],
     // (b) pulsa Enter [almCatEnter], o (c) limpia el campo con la X [almCatLimpiar].
     window.almCatInput = function () { window.almCatSuggest(); };
+    // Enfocar el campo apaga los atajos "Stock bajo"/"Con stock" si estaban encendidos:
+    // son vistas globales excluyentes con filtrar por categoría, y dejarlos activos hacía
+    // que el producto buscado no apareciera si no calificaba para el atajo. Los otros
+    // puntos de entrada ya lo hacían al APLICAR (almCatEnter/almCatPick); aquí se adelanta
+    // al foco para que el badge no siga encendido mientras se escribe.
+    // Solo se recarga si de verdad había un atajo activo — evita una petición inútil por
+    // cada clic en el campo.
+    window.almCatFocus = function () {
+        if (soloBajo || soloConSaldo) { almResetBadges(); almCargar(); }
+        window.almCatSuggest();
+    };
     window.almCatEnter = function (ev) {
         if (ev && ev.key !== 'Enter') return;
         if (ev) ev.preventDefault();
@@ -2694,12 +2705,16 @@
         almFaltantes = {};
         var exceden = [];
         var faltan  = [];
+        // Sin cantidad + sin saldo: no es que el usuario "olvidara" escribirla, es que no hay
+        // nada que sacar. Se separa de `faltan` para no pedirle una cantidad que ningún valor
+        // válido podría satisfacer (cualquier c > 0 caería luego en `exceden`).
+        var sinSaldo = [];
         Object.keys(almSeleccion).forEach(function (id) {
             var s = almSeleccion[id] || {};
             var c = parseFloat(String(s.cantidad == null ? '' : s.cantidad).replace(',', '.').trim());
             var saldo = parseFloat(s.saldo) || 0;
             if (!isFinite(c) || c <= 0) {
-                faltan.push({ id: id, nombre: s.nombre || ('#' + id) });
+                (saldo <= 0 ? sinSaldo : faltan).push({ id: id, nombre: s.nombre || ('#' + id) });
                 almFaltantes[id] = true;
             } else if (c > saldo) {
                 exceden.push({ id: id, nombre: s.nombre || ('#' + id), cant: c, saldo: saldo, um: s.um || '' });
@@ -2725,6 +2740,14 @@
                 return e.nombre + ' (' + e.cant + ' > ' + e.saldo + (e.um ? ' ' + e.um : '') + ')';
             }).join(', ');
             toast('Stock insuficiente: ' + det + '.', 'error');
+            return;
+        }
+        // Se avisa ANTES que `faltan`: si un producto no tiene saldo, ese es el problema real
+        // y pedirle una cantidad solo lo mandaría al error de "stock insuficiente".
+        if (sinSaldo.length) {
+            var firstSsTr = document.querySelector('#almTableBody tr.alm-row[data-id-producto="' + sinSaldo[0].id + '"]');
+            if (firstSsTr) firstSsTr.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            toast('Stock insuficiente de: ' + sinSaldo.map(function (f) { return f.nombre; }).join(', ') + '.', 'error');
             return;
         }
         if (faltan.length) {
@@ -4402,17 +4425,21 @@
         var v = function (id) { var e = el(id); return e ? e.value.trim() : ''; };
         var idFrenteDest = v('almSalidaProyecto');
         if (!idFrenteDest) { showErr('almSalidaError', 'Elige el proyecto / frente destino.'); return null; }
-        var lineas = [], faltan = [];
+        // Mismo criterio que la validación previa a abrir el modal (ver almSelAccion):
+        // "sin cantidad + sin saldo" se reporta como stock insuficiente, no como un olvido.
+        var lineas = [], faltan = [], sinSaldo = [];
         Object.keys(almSeleccion).forEach(function (id) {
             var s   = almSeleccion[id] || {};
             var raw = String(s.cantidad == null ? '' : s.cantidad).replace(',', '.').trim();
             var c   = parseFloat(raw);
             var nombre = s.nombre || ('#' + id);
-            if (!isFinite(c) || c <= 0) faltan.push(nombre);
+            if (!isFinite(c) || c <= 0) ((parseFloat(s.saldo) || 0) <= 0 ? sinSaldo : faltan).push(nombre);
             else lineas.push({ id_producto: parseInt(id, 10), cantidad: c, numero_parte: s.parte || null });
         });
+        var listar = function (arr) { return arr.slice(0, 4).join(', ') + (arr.length > 4 ? '…' : ''); };
+        if (sinSaldo.length) { showErr('almSalidaError', 'Stock insuficiente de: ' + listar(sinSaldo) + '.'); return null; }
         if (!lineas.length) { showErr('almSalidaError', 'Indica una cantidad mayor que cero en al menos un producto (columna "Salida" de la tabla).'); return null; }
-        if (faltan.length)  { showErr('almSalidaError', 'Falta indicar la cantidad de salida (debe ser mayor que cero) en: ' + faltan.slice(0, 4).join(', ') + (faltan.length > 4 ? '…' : '') + '. Corrígelos en la tabla o deselecciónalos.'); return null; }
+        if (faltan.length)  { showErr('almSalidaError', 'Falta indicar la cantidad de salida (debe ser mayor que cero) en: ' + listar(faltan) + '. Corrígelos en la tabla o deselecciónalos.'); return null; }
         showErr('almSalidaError', '');
 
         // Único endpoint: registrarMovimientoLote tipo=SALIDA + id_frente_destino.
