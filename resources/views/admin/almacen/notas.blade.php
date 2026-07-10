@@ -57,7 +57,7 @@
                             @foreach(($almacenes ?? collect()) as $a)
                                 <div class="dropdown-item {{ $almSel && $almSel->ID_ALMACEN == $a->ID_ALMACEN ? 'selected' : '' }}" data-value="{{ $a->ID_ALMACEN }}"
                                      onclick="selectOption('almNotFiltroAlmacen','{{ $a->ID_ALMACEN }}','{{ addslashes($a->NOMBRE) }}');">
-                                    {{ $a->NOMBRE }}@if($a->TIPO !== 'GENERAL') <span class="alm-tipo-p">P</span>@endif
+                                    {{ $a->NOMBRE }}
                                 </div>
                             @endforeach
                         </div>

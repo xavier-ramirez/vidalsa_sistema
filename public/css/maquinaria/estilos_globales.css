@@ -3479,15 +3479,6 @@ input:-webkit-autofill:active {
    no afectar otras paginas.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-/* Badge compacto "P" para diferenciar almacenes PROYECTO de GENERAL. */
-.alm-tipo-p {
-    display:inline-block; font-size:8px; font-weight:800; line-height:1;
-    background:#fef3c7; color:#b45309;
-    padding:1px 3px; border-radius:3px;
-    text-transform:uppercase; vertical-align:middle;
-    margin-left:3px;
-}
-
 @media (max-width: 900px) {
     /* Layout 2 columnas → apilado: el panel "Resumen de la entrada" baja debajo del
        bloque formulario+tabla y pierde el sticky (no tiene sentido en una sola columna). */
