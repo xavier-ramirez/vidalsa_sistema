@@ -19,13 +19,16 @@
                     @php
                         $auxDriveId = $auxFoto ? basename(str_replace('/storage/google/', '', explode('?', $auxFoto)[0])) : null;
                     @endphp
+                    {{-- Misma miniatura que /admin/equipos: .table-image-wrapper (fondo
+                         transparente; el placeholder, solo borde punteado). El tamaño de esta
+                         celda lo fija estilos_globales.css. --}}
                     @if($auxDriveId)
-                        <div style="width: 68px; height: 48px; border-radius: 4px; overflow: hidden; flex-shrink: 0; background: #fff;">
-                            <img src="{{ url('/storage/google/' . $auxDriveId . '?sz=w120') }}" alt="Foto" style="width: 100%; height: 100%; object-fit: contain;">
+                        <div class="table-image-wrapper">
+                            <img src="{{ url('/storage/google/' . $auxDriveId . '?sz=w120') }}" alt="Foto">
                         </div>
                     @else
-                        <div style="width: 68px; height: 48px; border-radius: 4px; background: #f1f5f9; display: flex; align-items: center; justify-content: center; color: #cbd5e0; flex-shrink: 0; border: 1px dashed #e2e8f0;">
-                            <i class="material-icons" style="font-size: 20px;">image_not_supported</i>
+                        <div class="table-image-wrapper placeholder">
+                            <span class="material-icons">image_not_supported</span>
                         </div>
                     @endif
                     <div style="display: flex; flex-direction: column; flex: 1; min-width: 0; word-break: break-word; overflow-wrap: break-word;">
@@ -34,13 +37,14 @@
                         <div style="color: #475569; font-size: 12.5px; text-transform: uppercase;">{{ $mov->auxiliar->MARCA }} {{ $mov->auxiliar->MODELO }}</div>
                     </div>
                 @else
+                    {{-- Misma miniatura que /admin/equipos (ver el bloque del auxiliar). --}}
                     @if($equipoFoto)
-                        <div style="width: 68px; height: 48px; border-radius: 4px; overflow: hidden; flex-shrink: 0; background: #fff;">
-                            <img src="{{ route('drive.file', ['path' => str_replace('/storage/google/', '', $equipoFoto)]) }}" alt="Foto" style="width: 100%; height: 100%; object-fit: contain;">
+                        <div class="table-image-wrapper">
+                            <img src="{{ route('drive.file', ['path' => str_replace('/storage/google/', '', $equipoFoto)]) }}" alt="Foto">
                         </div>
                     @else
-                        <div style="width: 68px; height: 48px; border-radius: 4px; background: #f1f5f9; display: flex; align-items: center; justify-content: center; color: #cbd5e0; flex-shrink: 0; border: 1px dashed #e2e8f0;">
-                            <i class="material-icons" style="font-size: 20px;">image_not_supported</i>
+                        <div class="table-image-wrapper placeholder">
+                            <span class="material-icons">image_not_supported</span>
                         </div>
                     @endif
                     <div style="display: flex; flex-direction: column; flex: 1; min-width: 0; word-break: break-word; overflow-wrap: break-word;">

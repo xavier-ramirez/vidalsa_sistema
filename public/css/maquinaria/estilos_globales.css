@@ -2582,6 +2582,22 @@ input:-webkit-autofill:active {
     width: 26%;
 }
 
+/* La miniatura reusa .table-image-wrapper de /admin/equipos (fondo transparente, y el
+   placeholder solo con borde punteado). Antes esta celda repetía los estilos inline con
+   background:#fff cuando había foto y #f1f5f9 cuando no — de ahí el recuadro gris.
+   Aquí solo se ajusta el TAMAÑO: la fila es compacta y va junto al texto, no centrada. */
+#movilizacionesTable .mv-td-equipo .table-image-wrapper {
+    width: 68px;
+    height: 48px;
+    border-radius: 4px;
+    margin: 0;
+    flex-shrink: 0;
+}
+#movilizacionesTable .mv-td-equipo .table-image-wrapper.placeholder i,
+#movilizacionesTable .mv-td-equipo .table-image-wrapper.placeholder span {
+    font-size: 20px; /* 24px del original desborda una caja de 48px de alto */
+}
+
 #movilizacionesTable .mv-td-trayecto {
     text-align: center;
 }
