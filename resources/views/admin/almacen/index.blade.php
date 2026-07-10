@@ -174,7 +174,7 @@
     /* Inputs del modal "Nuevo / Editar producto": todo se guarda en mayúsculas,
        se ven en mayúsculas mientras se escribe para coincidir con lo que se guarda.
        El placeholder NO se transforma. CODIGO queda fuera (solo dígitos). */
-    #almProdNombre, #almProdUm, #almProdCategoria, #almProdUbicacion { text-transform: uppercase; }
+    #almProdNombre, #almProdUm, #almProdCategoria, #almDetUbicacion { text-transform: uppercase; }
     /* Multiselect de frentes dentro del modal de almacén: el panel empuja el contenido (no flota) para que el overflow del modal no lo recorte */
     #almAlmacenModal .multiselect-content { position: static; box-shadow: none; margin-top: 6px; }
     #almAlmacenModal .custom-multiselect.active .multiselect-content { animation: slideDown 0.18s ease-out; }
@@ -1234,7 +1234,7 @@
                     <div class="alm-suggest-inline" id="almProdUmSuggestBox" style="position:absolute;top:100%;left:0;right:0;z-index:9999;margin-top:2px;"></div>
                 </div>
             </div>
-            <div><label for="almProdNombre">Descripción / producto *</label><input type="text" id="almProdNombre" maxlength="200" autocomplete="off" placeholder="Ej: TORNILLO HEXAGONAL 1/2&quot;"></div>
+            <div><label for="almProdNombre">Descripción / producto *</label><input type="text" id="almProdNombre" maxlength="200" autocomplete="off"></div>
             {{-- Categoría (ancha, con suggest) + Cantidad inicial (angosta, solo al crear).
                  Misma fila usando display:flex — igual patrón que Código + UM más arriba. --}}
             <div style="display:flex;gap:10px;align-items:flex-start;">
@@ -1262,13 +1262,6 @@
                     <input type="number" id="almProdCantInicial" min="0" step="any" placeholder="0 (opcional)" autocomplete="off">
                     <div style="font-size:11.5px;color:#94a3b8;margin-top:4px;">Vacío o 0</div>
                 </div>
-            </div>
-            {{-- Ubicación física en bodega (texto libre). Se muestra como tooltip al pasar el
-                 mouse sobre la fila en la tabla — mismo patrón que DETALLE_UBICACION en /admin/equipos. --}}
-            <div>
-                <label for="almProdUbicacion">Ubicación en bodega</label>
-                <input type="text" id="almProdUbicacion" maxlength="150" autocomplete="off"
-                       placeholder="Ej: Estante A3, Pasillo 2 lado izquierdo…">
             </div>
             {{-- Equivalencias (nº de parte) — SOLO al EDITAR un FILTRO. Lista editable
                  (agregar/quitar como chips); se sincroniza al Guardar. Oculta para no-filtros
@@ -1343,6 +1336,20 @@
                     <div style="font-size:13px;font-weight:800;line-height:1.2;">Stock bajo en este almacén</div>
                     <div style="font-size:11.5px;font-weight:500;line-height:1.35;margin-top:2px;opacity:0.85;">El saldo está en o por debajo del mínimo configurado.</div>
                 </div>
+            </div>
+            {{-- Ubicación física en bodega (texto libre): se muestra como tooltip al pasar el
+                 mouse sobre la fila en la tabla. Vive AQUÍ (no en "Editar producto") para
+                 poder consultarla/actualizarla en un solo clic, sin entrar al modal completo
+                 de edición — a pedido del cliente. Guardado inline vía almGuardarUbicacionDetalle. --}}
+            <div style="border-top:1px solid #f1f5f9;padding-top:12px;">
+                <label for="almDetUbicacion" style="font-size:12.5px;font-weight:700;color:#475569;">📍 Ubicación en bodega</label>
+                <div style="display:flex;gap:8px;margin-top:4px;">
+                    <input type="text" id="almDetUbicacion" maxlength="150" autocomplete="off"
+                           placeholder="Ej: Estante A3, Pasillo 2 lado izquierdo…"
+                           style="flex:1;min-width:0;">
+                    <button type="button" class="btn-primary-maquinaria" style="padding:0 14px;white-space:nowrap;" onclick="window.almGuardarUbicacionDetalle()">Guardar</button>
+                </div>
+                <div id="almDetUbicacionError" style="display:none;color:#dc2626;font-size:12px;font-weight:600;margin-top:4px;"></div>
             </div>
             <div style="border-top:1px solid #f1f5f9;padding-top:12px;display:flex;flex-direction:column;gap:7px;">
                 {{-- Botones SIEMPRE visibles. La verificacion de permiso vive dentro de
@@ -1914,31 +1921,41 @@
     }
 
     // ── helpers desde el sidebar / distribución ──
-    window.almVerTodo = function () {
+    // Limpia buscar + categoría (mismo bloque que antes vivía inline solo en almVerTodo).
+    // Punto ÚNICO: lo reutilizan almVerTodo y los badges "Con stock"/"Stock bajo" al
+    // ENCENDERSE — encender un atajo global es una acción explícita para ver ESA vista,
+    // igual que "Ver todo", así que no debe quedar intersectada en silencio con una
+    // búsqueda/categoría que hubiera quedado activa de antes (misma causa que arregló
+    // almResetBadges, pero en la dirección inversa: aquí el atajo es la acción nueva y
+    // la búsqueda es la que quedaba pegada).
+    function almLimpiarBusquedaYCategoria() {
         var bi = el('almFiltroBuscar');
         if (bi) { bi.value = ''; bi.dataset.active = ''; bi.placeholder = bi.dataset.placeholderEmpty || 'Buscar por código o descripción…'; }
         var ci = el('almFiltroCat');
         if (ci) { ci.value = ''; ci.dataset.active = ''; ci.placeholder = ci.dataset.placeholderEmpty || 'Filtrar por categoría…'; }
         almSuggestHide(); almCatSuggestHide();
+    }
+    window.almVerTodo = function () {
+        almLimpiarBusquedaYCategoria();
         soloBajo = false; soloConSaldo = false;
         almPintarBadges();
         almResetPick(); // descartar match exacto (id_producto/_in) si quedó pegado de un clic previo
         almCargar({ verTodo: true }); // acción explícita: mostrar TODO el inventario del almacén
     };
-    window.almFilterByCategoria = function (cat) { var s = el('almFiltroCat'); if (s) { s.value = cat || ''; } almResetPick(); almCatSuggestHide(); almCargar(); };
+    window.almFilterByCategoria = function (cat) { var s = el('almFiltroCat'); if (s) { s.value = cat || ''; } almResetPick(); almResetBadges(); almCatSuggestHide(); almCargar(); };
     // Los dos badges del header son TOGGLES: clic con el mismo filtro activo lo apaga.
     // Clic en uno mientras el otro estaba encendido los hace mutuamente exclusivos.
     // En cualquier caso, almPintarBadges() refleja el estado para que el usuario VEA
     // cual filtro esta limitando la tabla (anillo blanco + fondo saturado en .is-on).
     window.almFiltrarConSaldo = function () {
         soloConSaldo = !soloConSaldo;
-        if (soloConSaldo) soloBajo = false;
+        if (soloConSaldo) { soloBajo = false; almLimpiarBusquedaYCategoria(); }
         almResetPick(); // un badge global no debe quedar anulado por un pick exacto pegado
         almPintarBadges(); almCargar();
     };
     window.almFiltrarBajo = function () {
         soloBajo = !soloBajo;
-        if (soloBajo) soloConSaldo = false;
+        if (soloBajo) { soloConSaldo = false; almLimpiarBusquedaYCategoria(); }
         almResetPick(); // un badge global no debe quedar anulado por un pick exacto pegado
         almPintarBadges(); almCargar();
     };
@@ -2157,6 +2174,12 @@
         if (ev && ev.key !== 'Enter') return;
         if (ev) ev.preventDefault();
         almResetPick();
+        // Buscar algo nuevo es una acción explícita del usuario para ver OTRA cosa —
+        // no debe quedar recortada en silencio por un atajo "Con stock"/"Stock bajo"
+        // que seguía encendido de antes (mismo bug que resolvía almVerTodo). Sin esto
+        // el backend hacía search AND solo_bajo y el usuario veía resultados
+        // incoherentes con lo que pidió. Ver almResetBadges().
+        almResetBadges();
         almSuggestHide();
         almCargar();
     };
@@ -2171,6 +2194,9 @@
         // Nota: las sugerencias ya se limitan a la categoría activa (ver almBuscarSuggest),
         // así que el clic nunca trae un material de otra categoría — no hay que tocar el
         // filtro de categoría aquí.
+        // Mismo motivo que almBuscarEnter: un clic en sugerencia pide ver ESE producto
+        // puntual — un "Stock bajo" pegado de antes podía ocultarlo si no calificaba.
+        almResetBadges();
         almSuggestHide();
         almCargar();
     };
@@ -2186,6 +2212,10 @@
         if (inp) { inp.value = ''; inp.dataset.active = ''; inp.placeholder = inp.dataset.placeholderEmpty || 'Buscar por código o descripción…'; }
         almBuscarPickedId  = idProducto ? parseInt(idProducto, 10) : null;
         almBuscarPickedIds = null;
+        // Un "Stock bajo"/"Con stock" pegado del almacén anterior podía ocultar este
+        // producto puntual en el nuevo almacén (solo_bajo/solo_con_saldo NO se
+        // exceptúan para id_producto — ver inventarioBaseQuery en el backend).
+        almResetBadges();
         if (window.almScanIconToggle) window.almScanIconToggle();
         almSuggestHide();
         if (typeof selectOption === 'function') {
@@ -2229,12 +2259,14 @@
         if (ev && ev.key !== 'Enter') return;
         if (ev) ev.preventDefault();
         almResetPick(); // filtrar por categoría no debe quedar anulado por un pick exacto pegado
+        almResetBadges(); // idem almBuscarEnter: no combinar en silencio con "Stock bajo"/"Con stock"
         almCatSuggestHide();
         almCargar();
     };
     window.almCatPick = function (cat) {
         var inp = el('almFiltroCat'); if (inp) inp.value = cat;
         almResetPick(); // filtrar por categoría no debe quedar anulado por un pick exacto pegado
+        almResetBadges(); // idem almBuscarEnter: no combinar en silencio con "Stock bajo"/"Con stock"
         almCatSuggestHide();
         almCargar();
     };
@@ -3314,6 +3346,7 @@
         // 'flex' (no '' ni 'block') porque el badge se layoutea con icono a la izquierda
         // y texto a la derecha (display:flex en el CSS inline del div). Ver markup arriba.
         el('almDetBajoBadge').style.display = bajo ? 'flex' : 'none';
+        if (el('almDetUbicacion')) { el('almDetUbicacion').value = ubicacion || ''; showErr('almDetUbicacionError', ''); }
 
         // Las EQUIVALENCIAS ya NO se muestran en "Detalles del producto" (pedido del cliente):
         // son solo para la lógica interna de búsqueda de filtros. Se gestionan al Editar un filtro.
@@ -3365,6 +3398,39 @@
             case 'editar':   if (window.almEditarProducto)      window.almEditarProducto(id, d.cod, d.nom, d.um, d.cat, d.ubicacion); break;
             case 'eliminar': if (window.almEliminarProducto)    window.almEliminarProducto(id); break;
         }
+    };
+
+    // Guarda SOLO la ubicación desde "Detalles del producto" (sin pasar por el modal
+    // completo de Editar). Reusa el mismo endpoint PATCH que almGuardarProducto, mandando
+    // el resto de campos (NOMBRE/UM/CATEGORIA/CODIGO) tal cual están en el dataset del
+    // modal para no pisarlos — este endpoint no soporta PATCH parcial (ver validarProducto).
+    window.almGuardarUbicacionDetalle = function () {
+        if (!ensurePerm(HAS_PRODUCTOS, 'No tienes permiso para editar la ubicación.')) return;
+        var m = el('almDetalleModal'); if (!m || !m.dataset.id) return;
+        var id = parseInt(m.dataset.id, 10);
+        var ubicacion = (el('almDetUbicacion').value || '').trim();
+        showErr('almDetUbicacionError', '');
+        pre();
+        fetch(ROUTE_PROD_ITEM(id), {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf(), 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+            body: JSON.stringify({
+                CODIGO: m.dataset.cod || null, NOMBRE: m.dataset.nom, UM: m.dataset.um, CATEGORIA: m.dataset.cat || null,
+                UBICACION: ubicacion || null
+            })
+        })
+        .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b }; }); })
+        .then(function (res) {
+            unpre();
+            if (res.ok) {
+                m.dataset.ubicacion = ubicacion;
+                toast('Ubicación actualizada.');
+                if (window.almCargar) window.almCargar();
+            } else {
+                showErr('almDetUbicacionError', (res.b && res.b.message) || 'No se pudo guardar la ubicación.');
+            }
+        })
+        .catch(function () { unpre(); showErr('almDetUbicacionError', 'Error de red.'); });
     };
 
     // ── Modal "Movimientos del producto" (kardex local de UN producto) ──
@@ -3768,8 +3834,8 @@
     function almResetProductoModal() {
         delete el('almProductoModal').dataset.idProducto;
         delete el('almProductoModal').dataset.codOriginal;
+        delete el('almProductoModal').dataset.ubicacion;
         el('almProdCodigo').value = ''; el('almProdNombre').value = ''; el('almProdUm').value = 'UND'; el('almProdCategoria').value = '';
-        if (el('almProdUbicacion')) el('almProdUbicacion').value = '';
         if (el('almProdCantInicial')) el('almProdCantInicial').value = '';
         var cs = el('almProdCatSuggest'); if (cs) cs.innerHTML = '';
         var us = el('almProdUmSuggestBox'); if (us) { us.innerHTML = ''; us.classList.remove('open'); }
@@ -3843,12 +3909,14 @@
         almResetProductoModal();
         el('almProductoModal').dataset.idProducto = id;
         el('almProductoModal').dataset.codOriginal = cod || ''; // para no exigir formato numérico si no cambia
+        // La ubicación ya NO se edita en este modal (se movió a "Detalles del producto"),
+        // pero almGuardarProducto la reenvía tal cual para no borrarla al editar otro campo.
+        el('almProductoModal').dataset.ubicacion = ubicacion || '';
         el('almProdTitulo').textContent = 'Editar producto'; el('almProdSubmit').textContent = 'Guardar';
         // El código AHORA es editable también al editar: el backend valida unicidad
         // ignorando el propio producto (Rule::unique->ignore). Solo dígitos (igual que al crear).
         el('almProdCodigo').value = cod || ''; el('almProdCodigo').readOnly = false; el('almProdCodigo').style.background = '';
         el('almProdNombre').value = nom || ''; el('almProdUm').value = um || 'UND'; el('almProdCategoria').value = cat || '';
-        if (el('almProdUbicacion')) el('almProdUbicacion').value = ubicacion || '';
         // Cantidad inicial: solo aplica al CREAR. Al editar se oculta — el saldo se cambia
         // desde el modal de Ajuste / Entrada / Salida.
         var wrap = el('almProdCantInicialWrap'); if (wrap) wrap.style.display = 'none';
@@ -3984,7 +4052,9 @@
             window.almProdEquivAdd();
         }
         var codigo = val('almProdCodigo'), nombre = val('almProdNombre'), um = val('almProdUm') || 'UND', cat = val('almProdCategoria');
-        var ubicacion = val('almProdUbicacion');
+        // La ubicación ya no se edita aquí (ver "Detalles del producto"): al crear no hay
+        // ninguna todavía; al editar viajó en el dataset (almEditarProducto) para no perderla.
+        var ubicacion = m.dataset.ubicacion || '';
         // Validaciones previas al envío.
         if (!nombre) { almProdFieldErr('almProdNombre', true); showErr('almProdError', 'La descripción es obligatoria.'); return; }
         // El código debe ser solo dígitos enteros positivos — PERO solo si es nuevo o cambió.
