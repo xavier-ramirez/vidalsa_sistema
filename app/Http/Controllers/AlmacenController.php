@@ -1403,9 +1403,10 @@ class AlmacenController extends Controller
     }
 
     /**
-     * Dashboard de Consumo (JSON para Chart.js). Devuelve KPIs + series para los
-     * gráficos del modal. "Consumo" = movimientos TIPO 'SALIDA' de TODOS los almacenes
-     * visibles (los TRASPASO_SALIDA son movimientos internos entre almacenes, NO consumo).
+     * Dashboard de Consumo (JSON para Chart.js). Devuelve las series de los gráficos del
+     * modal: por_mes, top_productos, por_almacen (+ la lista de categorías del filtro).
+     * "Consumo" = movimientos TIPO 'SALIDA' de TODOS los almacenes visibles (los
+     * TRASPASO_SALIDA son movimientos internos entre almacenes, NO consumo).
      *
      * IMPORTANTE: es INDEPENDIENTE de los filtros generales del módulo (almacén
      * seleccionado, frente, producto, búsqueda). Usa SOLO sus propios filtros: rango de
@@ -1453,11 +1454,6 @@ class AlmacenController extends Controller
             return $q;
         };
 
-        // ── KPIs ──────────────────────────────────────────────────────────────
-        $totalUnidades = (float) $base()->sum('CANTIDAD');
-        $totalMovs     = (int)   $base()->count();
-        $productosDist = (int)   $base()->distinct()->count('movimientos_inventario.ID_PRODUCTO');
-
         // ── Consumo por mes ── (todos los meses del rango; sin filtro, últimos 12)
         $porMes = $base()
             ->selectRaw("DATE_FORMAT(FECHA, '%Y-%m') as mes, SUM(CANTIDAD) as total")
@@ -1487,11 +1483,6 @@ class AlmacenController extends Controller
             ->map(fn ($r) => ['nombre' => \App\Casts\MojibakeFix::fix($r->nombre), 'total' => (float) $r->total]);
 
         return response()->json([
-            'kpis' => [
-                'total_unidades'     => $totalUnidades,
-                'total_movimientos'  => $totalMovs,
-                'productos_distintos'=> $productosDist,
-            ],
             'categorias'    => $this->categoriasDistintas()->values(),
             'por_mes'       => $porMes,
             'top_productos' => $topProductos,

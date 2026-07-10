@@ -1337,17 +1337,19 @@
                     <div style="font-size:11.5px;font-weight:500;line-height:1.35;margin-top:2px;opacity:0.85;">El saldo está en o por debajo del mínimo configurado.</div>
                 </div>
             </div>
-            {{-- Ubicación física en bodega (texto libre): se muestra como tooltip al pasar el
-                 mouse sobre la fila en la tabla. Vive AQUÍ (no en "Editar producto") para
-                 poder consultarla/actualizarla en un solo clic, sin entrar al modal completo
-                 de edición — a pedido del cliente.
+            {{-- Ubicación física del producto dentro de la bodega — estante, fila o nivel
+                 (texto libre): se muestra como tooltip al pasar el mouse sobre la fila en la
+                 tabla. No confundir con la UBICACION del ALMACÉN (#almNvUbicacion), que es
+                 otro campo. Vive AQUÍ (no en "Editar producto") para poder consultarla y
+                 actualizarla en un solo clic, sin entrar al modal completo de edición
+                 — a pedido del cliente.
 
                  SIN botón "Guardar" (pedido del cliente): se guarda con Enter y al abandonar el
                  modal — sea cerrándolo (✕ / Escape, vía almDetalleCerrar) o saltando a un
                  sub-modal (vía almDetalleAccion). almGuardarUbicacionDetalle compara contra el
                  valor cargado, así que salir sin tocar el campo no dispara ningún PATCH. --}}
             <div style="border-top:1px solid #f1f5f9;padding-top:12px;">
-                <label for="almDetUbicacion" style="font-size:12.5px;font-weight:700;color:#475569;">📍 Ubicación en bodega</label>
+                <label for="almDetUbicacion" style="font-size:12.5px;font-weight:700;color:#475569;">📍 Ubicación en estante, fila o nivel</label>
                 <input type="text" id="almDetUbicacion" maxlength="150" autocomplete="off"
                        onkeydown="if(event.key==='Enter'){event.preventDefault();window.almGuardarUbicacionDetalle();}"
                        style="width:100%;min-width:0;margin-top:4px;">
@@ -1428,9 +1430,11 @@
                                        placeholder="Selecciona uno"
                                        style="flex:1;border:none;background:transparent;padding:0 10px;font-size:13.5px;color:#0f172a;outline:none;min-width:0;"
                                        oninput="window.filterDropdownOptions(this)">
-                                <i class="material-icons" data-clear-btn style="padding:0 8px;color:#64748b;font-size:18px;display:none;cursor:pointer;"
+                                {{-- Este trigger NO lleva caret: la ✕ es su único icono. La lista se abre
+                                     igual, porque el handler global de uicomponents.js delega el clic en
+                                     .dropdown-trigger, no en el icono. --}}
+                                <i class="material-icons" data-clear-btn style="padding:0 12px;color:#64748b;font-size:18px;display:none;cursor:pointer;"
                                    onclick="event.stopPropagation(); clearDropdownFilter('almSalidaProyectoDropdown');">close</i>
-                                <i class="material-icons" style="padding:0 8px;color:#94a3b8;font-size:20px;">expand_more</i>
                             </div>
                             <div class="dropdown-content" style="padding:5px;max-height:none;overflow:visible;">
                                 <div class="dropdown-item-list" style="max-height:240px;overflow-y:auto;">

@@ -4,7 +4,7 @@
      Acciones con window.abrirConsumoDashboard()).
 
      INDEPENDIENTE de los filtros generales del módulo: tiene sus PROPIOS filtros
-     (rango de meses Desde/Hasta + categoría). Datos: GET almacen.consumoDashboard
+     (categoría + rango de meses Desde/Hasta). Datos: GET almacen.consumoDashboard
      (JSON) — consumo real (SALIDA) de todos los almacenes visibles.
 
      Chart.js se carga GLOBAL en el layout (la SPA omite <script src> en content).
@@ -36,18 +36,6 @@
     .cdash-cat-list.open { display:block; }
     .cdash-cat-item { padding:7px 10px; border-radius:6px; font-size:13px; font-weight:600; color:#1e293b; cursor:pointer; }
     .cdash-cat-item:hover { background:#f0f4f8; }
-    .cdash-kpis { display:flex; gap:12px; margin-bottom:18px; }
-    .cdash-kpi { display:flex; align-items:center; justify-content:space-between; gap:12px;
-        background:#fff; border:1px solid #e9eef5; border-radius:14px; padding:14px 16px; min-width:0; flex:1;
-        box-shadow:0 1px 2px rgba(15,23,42,.04); }
-    .cdash-kpi .k-val { font-size:24px; font-weight:800; color:#0f172a; line-height:1.05; letter-spacing:-.5px;
-        font-variant-numeric:tabular-nums; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .cdash-kpi .k-lbl { font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:.4px; margin-top:3px; }
-    .cdash-kpi .k-ico { flex:0 0 auto; width:40px; height:40px; border-radius:11px; display:flex; align-items:center; justify-content:center; }
-    .cdash-kpi .k-ico .material-icons { font-size:21px; }
-    .k-ico-blue   { background:#e1effa; color:#0067b1; }
-    .k-ico-teal   { background:#d6f3ee; color:#0d9488; }
-    .k-ico-indigo { background:#e8e9fd; color:#6366f1; }
     .cdash-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
     .cdash-card { background:#fff; border:1px solid #e9eef5; border-radius:14px; padding:16px 18px; min-width:0;
         box-shadow:0 1px 2px rgba(15,23,42,.04); }
@@ -62,10 +50,9 @@
     .cdash-loading .cdash-spin { animation:cdashSpin .8s linear infinite; font-size:28px; color:#0067b1; }
     @keyframes cdashSpin { 100% { transform:rotate(360deg); } }
     @media (max-width: 760px) {
-        .cdash-kpis { flex-direction:column; }
         .cdash-grid { grid-template-columns:1fr; }
         .cdash-body { padding-left:14px; padding-right:14px; }   /* más ancho útil en móvil */
-        /* Desde y Hasta UNO AL LADO DEL OTRO; Categoría en su propia fila. Ancho por FLEX.
+        /* Categoría en su propia fila (va primera); Desde y Hasta UNO AL LADO DEL OTRO. Ancho por FLEX.
            Gracias a box-sizing:border-box + min-width:0 el input de mes encoge y los dos caben
            sin salirse del modal en cualquier teléfono. Se reduce fuente/padding y se oculta el
            icono del calendario (el campo igual abre el selector al tocarlo) para más holgura. */
@@ -84,18 +71,10 @@
             <button type="button" class="cdash-x" onclick="window.cerrarConsumoDashboard()" aria-label="Cerrar"><i class="material-icons">close</i></button>
         </div>
         <div class="cdash-body">
-            {{-- Filtros propios del dashboard: rango de meses + categoría. --}}
+            {{-- Filtros propios del dashboard. Orden: Categoría primero (es el filtro principal
+                 y el que más se toca), luego el rango de meses. La categoría crece y ocupa el
+                 espacio sobrante; Desde/Hasta quedan a la derecha con ancho fijo. --}}
             <div class="cdash-filtros">
-                <div class="f-group">
-                    <label for="cdashDesde">Desde (mes)</label>
-                    <input type="month" id="cdashDesde" onchange="window._cdashFetch()"
-                           onclick="try{ this.showPicker(); }catch(e){}">
-                </div>
-                <div class="f-group">
-                    <label for="cdashHasta">Hasta (mes)</label>
-                    <input type="month" id="cdashHasta" onchange="window._cdashFetch()"
-                           onclick="try{ this.showPicker(); }catch(e){}">
-                </div>
                 <div class="f-group f-group-cat">
                     <label>Categoría</label>
                     <div class="cdash-cat-wrap">
@@ -111,24 +90,20 @@
                         <div class="cdash-cat-list" id="cdashCatList"></div>
                     </div>
                 </div>
+                <div class="f-group">
+                    <label for="cdashDesde">Desde (mes)</label>
+                    <input type="month" id="cdashDesde" onchange="window._cdashFetch()"
+                           onclick="try{ this.showPicker(); }catch(e){}">
+                </div>
+                <div class="f-group">
+                    <label for="cdashHasta">Hasta (mes)</label>
+                    <input type="month" id="cdashHasta" onchange="window._cdashFetch()"
+                           onclick="try{ this.showPicker(); }catch(e){}">
+                </div>
             </div>
 
             <div id="cdashLoading" class="cdash-loading"><i class="material-icons cdash-spin">refresh</i><span>Cargando datos de consumo…</span></div>
             <div id="cdashContent" style="display:none;">
-                <div class="cdash-kpis">
-                    <div class="cdash-kpi">
-                        <div><div class="k-val" id="cdashKpiUnidades">0</div><div class="k-lbl">Unidades consumidas</div></div>
-                        <span class="k-ico k-ico-blue"><i class="material-icons">inventory_2</i></span>
-                    </div>
-                    <div class="cdash-kpi">
-                        <div><div class="k-val" id="cdashKpiMovs">0</div><div class="k-lbl">Movimientos de salida</div></div>
-                        <span class="k-ico k-ico-teal"><i class="material-icons">logout</i></span>
-                    </div>
-                    <div class="cdash-kpi">
-                        <div><div class="k-val" id="cdashKpiProductos">0</div><div class="k-lbl">Productos distintos</div></div>
-                        <span class="k-ico k-ico-indigo"><i class="material-icons">category</i></span>
-                    </div>
-                </div>
                 <div class="cdash-grid">
                     <div class="cdash-card full"><h4>Consumo por mes</h4><div class="cdash-canvas-wrap"><canvas id="cdashChartMes"></canvas></div></div>
                     <div class="cdash-card full"><h4>Top 20 productos consumidos</h4><div class="cdash-canvas-wrap tall"><canvas id="cdashChartTop"></canvas></div></div>
@@ -220,11 +195,6 @@
             window._cdashCatsCargadas = true;
             window._cdashCatRenderList();
         }
-
-        var k = data.kpis || {};
-        document.getElementById('cdashKpiUnidades').textContent  = window.cdashFmt(k.total_unidades);
-        document.getElementById('cdashKpiMovs').textContent       = window.cdashFmt(k.total_movimientos);
-        document.getElementById('cdashKpiProductos').textContent  = window.cdashFmt(k.productos_distintos);
 
         var sinDatos = (!data.por_mes || !data.por_mes.length) &&
                        (!data.top_productos || !data.top_productos.length);
