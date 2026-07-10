@@ -755,8 +755,9 @@
             if (typeof window.ignoreCatalogSuggestion === 'function') window.ignoreCatalogSuggestion();
             var card = document.getElementById('formUnificadoCard');
             if (card && card.scrollIntoView) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            var primero = document.getElementById(modo === 'auxiliar' ? 'input_tipo_aux' : 'input_tipo_equipo');
-            if (primero) { try { primero.focus({ preventScroll: true }); } catch (_) { primero.focus(); } }
+            // Sin focus() automático en el campo "Tipo": su onfocus abre el desplegable
+            // (showFormDropdown / auxTipoOpen), así que enfocarlo tras guardar dejaba una
+            // lista desplegada sola, encima del toast y mientras la página aún hace scroll.
         }
         form.addEventListener('submit', function (e) {
             e.preventDefault();
