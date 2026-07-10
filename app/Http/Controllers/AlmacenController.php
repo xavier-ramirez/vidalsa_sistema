@@ -13,6 +13,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use App\Traits\ExcelLogoCorporativo;
+use RuntimeException;
 use Throwable;
 
 /**
@@ -596,9 +597,9 @@ class AlmacenController extends Controller
      * queda como "del almacén" sin proyecto específico, que es lo correcto:
      * no podemos adivinar a cuál de los frentes pertenece).
      *
-     * Lo usan registrarMovimientoLote (ENTRADA/AJUSTE) y storeProducto (stock
-     * inicial al crear un producto nuevo) — ambos comparten el mismo criterio
-     * para que la columna Destino se vea coherente sin importar el flujo.
+     * Único llamador: registrarMovimientoLote (ENTRADA/AJUSTE). storeProducto NO lo usa
+     * — aplica su propio criterio (primer frente asociado, sin exigir que sea el único);
+     * ver el comentario de contraste en storeProducto.
      */
     private function frenteImplicitoDelAlmacen(int $idAlmacen): ?int
     {
@@ -732,7 +733,7 @@ class AlmacenController extends Controller
             // con stock=0, hasta que llegue una entrada que lo incremente. Asi el buscador
             // de cualquier modulo lo encuentra desde el momento de creacion, sin importar
             // si el producto fue registrado desde un almacen especifico o sin contexto.
-            // Llamamos a asegurarStock (idempotente — usa firstOrCreate internamente)
+            // Llamamos a asegurarStock (idempotente — usa insertOrIgnore internamente)
             // para preservar la logica del service (locking, eventos, no pisar filas
             // existentes con CANTIDAD > 0).
             $idsAlmacenes = Almacen::where('ESTATUS', 'ACTIVO')->pluck('ID_ALMACEN');
@@ -1165,7 +1166,6 @@ class AlmacenController extends Controller
             'idAlmacenActivo' => $idAlmacenActivo,
             'frentesLista'    => $frentesMovimientos,
             // Lista de productos activos para el autocomplete del filtro de búsqueda.
-            // CATEGORIA incluida para avisar en el buscador si un material es de otra categoría.
             // listaAutocomplete() trae EQUIV/PARTE/PARTES (nºs de parte equivalentes) para que el
             // buscador de movimientos sugiera por equivalencia igual que el inventario. Es la
             // misma fuente única que usan el índice de almacén y la recepción.
@@ -2403,13 +2403,22 @@ class AlmacenController extends Controller
             ->whereIn('ID_PRODUCTO', $productos->keys()->all())
             ->get(['ID_PRODUCTO', 'CANTIDAD'])->keyBy('ID_PRODUCTO');
 
-        $excesos = [];
+        // Se agregan las cantidades POR PRODUCTO antes de comparar: el endpoint real
+        // (registrarMovimientoLote → registrarSalida) descuenta línea a línea sobre el mismo
+        // saldo bloqueado, así que dos líneas del mismo producto se suman. Comparar cada línea
+        // por separado dejaría pasar un preview que el "Confirmar" rechazaría.
+        $pedidoPorProducto = [];
         foreach ($data['lineas'] as $l) {
-            $idp   = (int) $l['id_producto'];
-            $disp  = (float) ($stocks[$idp]->CANTIDAD ?? 0);
-            if ((float) $l['cantidad'] > $disp) {
+            $idp = (int) $l['id_producto'];
+            $pedidoPorProducto[$idp] = ($pedidoPorProducto[$idp] ?? 0.0) + (float) $l['cantidad'];
+        }
+
+        $excesos = [];
+        foreach ($pedidoPorProducto as $idp => $pedido) {
+            $disp = (float) ($stocks[$idp]->CANTIDAD ?? 0);
+            if ($pedido > $disp) {
                 $excesos[] = ($productos[$idp]->NOMBRE ?? ('#' . $idp))
-                    . ' (' . rtrim(rtrim(number_format((float) $l['cantidad'], 3, '.', ''), '0'), '.')
+                    . ' (' . rtrim(rtrim(number_format($pedido, 3, '.', ''), '0'), '.')
                     . ' > ' . rtrim(rtrim(number_format($disp, 3, '.', ''), '0'), '.') . ')';
             }
         }
@@ -2585,35 +2594,50 @@ class AlmacenController extends Controller
             return response()->json(['message' => 'Ingresa un N° de Nota.'], 422);
         }
 
+        // Pre-chequeos FUERA de la transacción: sirven sólo para devolver un 404/422/400 barato
+        // con el mensaje correcto. La lectura autoritativa se repite bajo lock más abajo — sin
+        // eso, dos peticiones concurrentes (doble clic / dos pestañas) leerían ambas la misma
+        // nota vigente y acreditarían el stock DOS veces.
+        //
         // Buscamos por NUMERO_NOTA SIN filtrar el tipo: la misma nota puede ser una SALIDA pura
         // o una TRASPASO_SALIDA (envío a otro almacén/proyecto). Filtrar solo TIPO_SALIDA daba un
         // 404 engañoso para las notas de traspaso, que SÍ existen y se listan con su PDF.
-        $movs = MovimientoInventario::where('NUMERO_NOTA', $numero)
-            ->orderBy('ID_MOVIMIENTO')
-            ->get();
+        $previa = MovimientoInventario::where('NUMERO_NOTA', $numero)->get();
 
-        if ($movs->isEmpty()) {
+        if ($previa->isEmpty()) {
             return response()->json(['message' => 'No se encontró ninguna Nota con ese código.'], 404);
         }
 
         // Si la nota incluye un ENVÍO (traspaso), NO se revierte aquí: el traspaso movió stock por
         // su propio flujo (salida en origen + entrada al confirmar en destino) y tiene su propia
         // anulación. Revertirlo con una ENTRADA simple lo desincronizaría y duplicaría stock.
-        if ($movs->contains(fn ($m) => $m->TIPO === MovimientoInventario::TIPO_TRASPASO_SALIDA)) {
+        if ($previa->contains(fn ($m) => $m->TIPO === MovimientoInventario::TIPO_TRASPASO_SALIDA)) {
             return response()->json([
                 'message' => 'Esta Nota corresponde a un envío a otro almacén/proyecto (traspaso). Para anularla, cancela el traspaso desde Recepción, no desde aquí.',
             ], 422);
         }
 
         abort_if(
-            $movs->pluck('ID_ALMACEN')->unique()->count() > 1,
+            $previa->pluck('ID_ALMACEN')->unique()->count() > 1,
             400,
             'Los movimientos de la nota deben pertenecer a un único almacén.'
         );
-        $this->assertPuedeVerAlmacen($request, (int) $movs->first()->ID_ALMACEN);
+        $this->assertPuedeVerAlmacen($request, (int) $previa->first()->ID_ALMACEN);
 
         try {
-            DB::transaction(function () use ($movs, $request, $numero) {
+            DB::transaction(function () use ($request, $numero) {
+                // Relectura bajo lock: la primera transacción que llegue aquí gana. La segunda
+                // se queda esperando el lock y, cuando entra, ya ve NUMERO_NOTA=null → colección
+                // vacía → aborta sin revertir nada por segunda vez.
+                $movs = MovimientoInventario::where('NUMERO_NOTA', $numero)
+                    ->orderBy('ID_MOVIMIENTO')
+                    ->lockForUpdate()
+                    ->get();
+
+                if ($movs->isEmpty()) {
+                    throw new RuntimeException('Esta Nota ya fue eliminada por otra operación.');
+                }
+
                 foreach ($movs as $m) {
                     // Reversión = ENTRADA por la misma cantidad al mismo almacén/producto.
                     // El kardex queda con dos filas (SALIDA original + ENTRADA reversa)
