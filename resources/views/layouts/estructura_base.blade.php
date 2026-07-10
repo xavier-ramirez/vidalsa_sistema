@@ -492,9 +492,8 @@
                             <i class="material-icons">move_to_inbox</i> Recepción
                         </span>
                         @php $__nav_traspasosPorRecibir = $traspasosPorRecibir ?? 0; @endphp
-                        @if($__nav_traspasosPorRecibir > 0)
-                            <span style="background:#ef4444;color:#fff;border-radius:999px;padding:1px 7px;font-size:10.5px;font-weight:800;min-width:18px;text-align:center;line-height:1.5;">{{ $__nav_traspasosPorRecibir }}</span>
-                        @endif
+                        <span id="navBadgeRecepcion" data-count="{{ $__nav_traspasosPorRecibir }}"
+                            style="background:#ef4444;color:#fff;border-radius:999px;padding:1px 7px;font-size:10.5px;font-weight:800;min-width:18px;text-align:center;line-height:1.5;{{ $__nav_traspasosPorRecibir > 0 ? '' : 'display:none;' }}">{{ $__nav_traspasosPorRecibir }}</span>
                     </a>
                     <a href="{{ route('almacen.movimientos') }}"
                         class="nav-dropdown-link {{ request()->routeIs('almacen.movimientos') ? 'active' : '' }}">
@@ -652,9 +651,8 @@
                         <i class="material-icons">move_to_inbox</i> Recepción
                     </span>
                     @php $__nav_traspasosPorRecibir_m = $traspasosPorRecibir ?? 0; @endphp
-                    @if($__nav_traspasosPorRecibir_m > 0)
-                        <span style="background:#ef4444;color:#fff;border-radius:999px;padding:1px 7px;font-size:10.5px;font-weight:800;min-width:18px;text-align:center;line-height:1.5;">{{ $__nav_traspasosPorRecibir_m }}</span>
-                    @endif
+                    <span id="navBadgeRecepcionMobile" data-count="{{ $__nav_traspasosPorRecibir_m }}"
+                        style="background:#ef4444;color:#fff;border-radius:999px;padding:1px 7px;font-size:10.5px;font-weight:800;min-width:18px;text-align:center;line-height:1.5;{{ $__nav_traspasosPorRecibir_m > 0 ? '' : 'display:none;' }}">{{ $__nav_traspasosPorRecibir_m }}</span>
                 </a>
                 <a href="{{ route('almacen.movimientos') }}"
                     class="mobile-nav-link {{ request()->routeIs('almacen.movimientos') ? 'active' : '' }}">

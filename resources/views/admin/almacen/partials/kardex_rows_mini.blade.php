@@ -39,8 +39,15 @@
                 {{ $fmt($m->CANTIDAD_RESULTANTE) }}
             </td>
             <td style="padding:7px 8px;font-size:12px;color:#475569;">
+                {{-- Mismo criterio que kardex_rows.blade.php (Destino): el nombre del frente
+                     SIEMPRE se muestra (el cliente necesita ver a quién se le entregó cada
+                     cosa). Si es SALIDA pura (sin contraparte) se agrega la etiqueta chica
+                     "(consumo interno)" debajo, sin ocultar el frente. --}}
                 @if($m->frente)
                     <div style="font-weight:600;color:#0f172a;">{{ $m->frente->NOMBRE_FRENTE }}</div>
+                    @if($m->TIPO === 'SALIDA' && !$m->ID_ALMACEN_CONTRAPARTE)
+                        <div style="font-size:10px;color:#94a3b8;font-style:italic;" title="El material no salió de este almacén — fue consumido por el frente, no hubo traspaso">(consumo interno)</div>
+                    @endif
                 @elseif($m->ID_ALMACEN_CONTRAPARTE)
                     <div style="font-weight:600;color:#0f172a;">{{ $m->almacenContraparte?->NOMBRE ?? '—' }}</div>
                 @endif

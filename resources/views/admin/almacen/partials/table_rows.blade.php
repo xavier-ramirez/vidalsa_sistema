@@ -114,8 +114,11 @@
                     }
                 @endphp
                 @if($tip)
+                    {{-- Los bloques del tooltip (ubicación / equipos asociados) van separados por
+                         una raya sutil — no un simple <br>, que los dejaba pegados como si fueran
+                         una sola idea. Solo aparece la raya cuando hay MÁS de un bloque. --}}
                     <div class="tooltip-bubble" style="pointer-events:none;opacity:0;visibility:hidden;position:absolute;bottom:100%;left:0;transform:translateY(5px);background:#1e293b;color:#fff;padding:10px 14px;border-radius:6px;font-size:14px;font-weight:600;line-height:1.6;white-space:normal;width:max-content;max-width:420px;word-wrap:break-word;text-align:left;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);transition:all 0.2s ease-in-out;z-index:9001;margin-bottom:5px;">
-                        {!! implode('<br>', $tip) !!}
+                        {!! implode('<div style="border-top:1px solid rgba(255,255,255,.2);margin:7px 0;"></div>', $tip) !!}
                         <div style="position:absolute;top:100%;left:30px;margin-left:-4px;border-width:4px;border-style:solid;border-color:#1e293b transparent transparent transparent;"></div>
                     </div>
                 @endif

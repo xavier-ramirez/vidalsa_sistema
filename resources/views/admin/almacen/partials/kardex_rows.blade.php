@@ -75,7 +75,13 @@
             <td class="mv-td-stock" data-label="Stock" title="Antes: {{ $fmt($m->CANTIDAD_ANTERIOR) }} → Después: {{ $fmt($m->CANTIDAD_RESULTANTE) }}" style="white-space:nowrap;">{{ $fmt($m->CANTIDAD_RESULTANTE) }}</td>
             <td class="mv-td-destino" data-label="Destino" style="font-size:12.5px;">
                 {{-- Cadena de fallback para el Destino del movimiento:
-                     1) FRENTE asignado (lo elige el operario en SALIDA / TRASPASO / ENTRADA con frente).
+                     0/1) FRENTE asignado (lo elige el operario en SALIDA / TRASPASO / ENTRADA con
+                        frente): SIEMPRE se muestra el nombre del frente — es el dato que el
+                        cliente necesita para saber a quién se le entregó cada cosa, sin importar
+                        cuántos frentes maneje el almacén. Si es una SALIDA pura (no
+                        TRASPASO_SALIDA, sin ID_ALMACEN_CONTRAPARTE) el material no viajó a otro
+                        almacén — se agrega la etiqueta "(consumo interno)" debajo, SIN ocultar el
+                        frente, para aclarar que fue consumido ahí mismo y no un traspaso.
                      2) Almacén CONTRAPARTE (caso traspasos legacy o sin frente).
                      3) Almacén DEL MOVIMIENTO (caso STOCK INICIAL u otra ENTRADA en un almacén
                         sin frentes asignados — antes salía "—" sin info útil; ahora vemos al
@@ -83,6 +89,9 @@
                      4) "—" si por alguna razón nada de lo anterior está. --}}
                 @if($m->frente)
                     {{ $m->frente->NOMBRE_FRENTE }}
+                    @if($m->TIPO === 'SALIDA' && !$m->ID_ALMACEN_CONTRAPARTE)
+                        <div style="font-size:10.5px;color:#94a3b8;font-style:italic;margin-top:1px;" title="El material no salió de este almacén — fue consumido por el frente, no hubo traspaso">(consumo interno)</div>
+                    @endif
                 @elseif($m->ID_ALMACEN_CONTRAPARTE)
                     {{ $m->almacenContraparte?->NOMBRE ?? '—' }}
                 @elseif($m->almacen)

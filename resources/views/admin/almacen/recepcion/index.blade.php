@@ -897,6 +897,30 @@
         paint('trHastaBox', !!sel('trHasta'));
     }
 
+    // Actualiza las 3 métricas del panel "Resumen de la bandeja" con los conteos frescos
+    // que manda cada respuesta AJAX de la bandeja (ver trLoad). Sin esto el panel quedaba
+    // pegado al valor calculado en el render inicial de la página.
+    window.trUpdateBandejaStats = function (stats) {
+        var map = { por_revisar: 'tr-sub-rev', recientes: 'tr-sub-rec', urgentes: 'tr-sub-urg' };
+        Object.keys(map).forEach(function (key) {
+            var box = document.querySelector('.' + map[key] + '[data-kpi]');
+            var strong = box && box.querySelector('strong');
+            if (strong && typeof stats[key] === 'number') strong.textContent = stats[key];
+        });
+    };
+
+    // Actualiza el badge rojo "[N]" del menú "Recepción" (desktop + mobile) sin recargar
+    // la página. Mismo motivo que trUpdateBandejaStats: la bandeja se refresca por AJAX
+    // pero el badge vive en el layout, fuera de esta vista.
+    window.trUpdateNavBadge = function (count) {
+        ['navBadgeRecepcion', 'navBadgeRecepcionMobile'].forEach(function (id) {
+            var span = document.getElementById(id);
+            if (!span) return;
+            span.textContent = count;
+            span.style.display = count > 0 ? '' : 'none';
+        });
+    };
+
     window.trLoad = function (pageUrl) {
         var body = el('trTableBody'); if (!body) return;
         trUpdateChips();
@@ -912,6 +936,13 @@
                 // (el backend las recalcula y las manda en cada respuesta). Sin esto, al
                 // cambiar el "Almacén destino" seguían apareciendo notas del almacén anterior.
                 if (Array.isArray(data.numerosNotas)) TR_NUMEROS = data.numerosNotas;
+                // Panel "Resumen de la bandeja" y badge del menú: el backend ya manda los
+                // conteos frescos en cada respuesta AJAX. Sin esto, al confirmar/enviar/
+                // cancelar una nota la fila desaparecía de la tabla pero "Por revisar" y el
+                // badge rojo del menú "Recepción" seguían con el número de la carga inicial
+                // hasta recargar la página entera.
+                if (data.bandejaStats) window.trUpdateBandejaStats(data.bandejaStats);
+                if (typeof data.traspasosPorRecibir === 'number') window.trUpdateNavBadge(data.traspasosPorRecibir);
                 try { window.history.replaceState(null, '', url); } catch (e) {}
             })
             .catch(function () { body.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:24px;color:#dc2626;">No se pudieron cargar las notas de entrega.</td></tr>'; })

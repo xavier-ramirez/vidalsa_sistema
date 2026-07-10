@@ -223,25 +223,6 @@ class TraspasoController extends Controller
             ->unique()
             ->values();
 
-        if ($request->wantsJson()) {
-            return response()->json([
-                'html'         => view('admin.almacen.recepcion.partials.rows', ['traspasos' => $paginator])->render(),
-                'pagination'   => (string) $paginator->links('vendor.pagination.custom-sliding'),
-                'total'        => $paginator->total(),
-                'numerosNotas' => $numerosNotas,
-            ]);
-        }
-
-        // NOTA: el badge "[N] por recibir" del menú principal lo provee el View Composer
-        // global registrado en AppServiceProvider (en `layouts.estructura_base`), no esta
-        // vista — por eso aquí no se calcula ningún contador adicional.
-        // idAlmacenDestinoActivo: pasamos el id resuelto (con default por frente aplicado) a
-        // la vista para que el dropdown se preseleccione sin depender del helper global
-        // request(), que puede no reflejar el merge en algunos entornos.
-        $idAlmacenDestinoActivo = ($request->filled('id_almacen_destino') && $request->input('id_almacen_destino') !== 'all')
-            ? (int) $request->input('id_almacen_destino')
-            : null;
-
         // KPIs del panel lateral: resumen de notas POR REVISAR (ENVIADO) en los almacenes
         // visibles del usuario. Es un resumen ESTABLE de "tu bandeja" — NO depende de los
         // filtros de la tabla (estado/fechas/búsqueda), por eso se calcula aparte.
@@ -251,6 +232,10 @@ class TraspasoController extends Controller
         // COALESCE(FECHA_ENVIO, created_at): si no hubo envío explícito usamos la creación.
         // Las 3 claves DEBEN existir: la vista (panel "Resumen de la bandeja") las pinta como
         // héroe (por_revisar) + 2 sub-métricas (recientes / urgentes).
+        // Se calcula ANTES del wantsJson (igual que $numerosNotas): sin esto, al confirmar
+        // una recepción por AJAX (trModalConfirmar → trLoad) el panel y el badge del menú se
+        // quedaban con el conteo de la carga inicial de la página — la nota ya no aparecía
+        // en la tabla pero el "Por revisar" seguía contándola hasta recargar la página entera.
         $pendBase = Traspaso::where('ESTADO', Traspaso::ESTADO_ENVIADO)
             ->whereIn('ID_ALMACEN_DESTINO', $almacenesVisibles);
         $bandejaStats = [
@@ -258,6 +243,35 @@ class TraspasoController extends Controller
             'urgentes'    => (clone $pendBase)->whereRaw('COALESCE(FECHA_ENVIO, created_at) <= ?', [now()->subDays(3)])->count(),
             'recientes'   => (clone $pendBase)->whereRaw('COALESCE(FECHA_ENVIO, created_at) >= ?', [now()->subDay()])->count(),
         ];
+
+        // Badge "[N] por recibir" del menú principal: MISMO criterio que el View Composer
+        // global de AppServiceProvider (Almacen::asociadosIdsDe, no visiblesPara — la
+        // recepción es personal). Se recalcula aquí y se manda en la respuesta AJAX para
+        // que el menú se refresque sin recargar la página al confirmar/enviar/cancelar.
+        $almacenesAsociados = Almacen::asociadosIdsDe($user);
+        $traspasosPorRecibir = $almacenesAsociados->isNotEmpty()
+            ? Traspaso::where('ESTADO', Traspaso::ESTADO_ENVIADO)
+                ->whereIn('ID_ALMACEN_DESTINO', $almacenesAsociados)
+                ->count()
+            : 0;
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'html'                => view('admin.almacen.recepcion.partials.rows', ['traspasos' => $paginator])->render(),
+                'pagination'          => (string) $paginator->links('vendor.pagination.custom-sliding'),
+                'total'               => $paginator->total(),
+                'numerosNotas'        => $numerosNotas,
+                'bandejaStats'        => $bandejaStats,
+                'traspasosPorRecibir' => $traspasosPorRecibir,
+            ]);
+        }
+
+        // idAlmacenDestinoActivo: pasamos el id resuelto (con default por frente aplicado) a
+        // la vista para que el dropdown se preseleccione sin depender del helper global
+        // request(), que puede no reflejar el merge en algunos entornos.
+        $idAlmacenDestinoActivo = ($request->filled('id_almacen_destino') && $request->input('id_almacen_destino') !== 'all')
+            ? (int) $request->input('id_almacen_destino')
+            : null;
 
         return view('admin.almacen.recepcion.index', [
             'traspasos'              => $paginator,
