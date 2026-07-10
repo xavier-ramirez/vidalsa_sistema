@@ -7,21 +7,20 @@
     $neNumero = $traspaso->REFERENCIA ?: $traspaso->NUMERO;
 @endphp
 
-<div class="dtm-header">
-    <div class="dtm-title-row">
-        <i class="material-icons dtm-title-icon">receipt_long</i>
-        <span class="dtm-numero">{{ $neNumero }}</span>
-        {{-- El pill de estado solo se muestra cuando NO está "En tránsito" (en la bandeja
-             ya se sabe que está en tránsito; el cliente pidió quitar ese pill del modal).
-             Para notas confirmadas/canceladas (vistas vía "Todas") sí se muestra. --}}
-        @unless($traspaso->esEnviado())
-        <span class="estado-pill" style="background:{{ $em[1] }};color:{{ $em[2] }};">{{ $em[0] }}</span>
-        @endunless
-        <button type="button" class="dtm-close" onclick="window.trCloseModal()" title="Cerrar">
-            <i class="material-icons">close</i>
-        </button>
-    </div>
-
+{{-- Al quitar el bloque Origen/Destino/Frente/Despachado, .dtm-header quedaba envolviendo
+     un único hijo. Se fusionan: la barra del título ES ahora la cabecera del modal. --}}
+<div class="dtm-title-row">
+    <i class="material-icons dtm-title-icon">receipt_long</i>
+    <span class="dtm-numero">{{ $neNumero }}</span>
+    {{-- El pill de estado solo se muestra cuando NO está "En tránsito" (en la bandeja
+         ya se sabe que está en tránsito; el cliente pidió quitar ese pill del modal).
+         Para notas confirmadas/canceladas (vistas vía "Todas") sí se muestra. --}}
+    @unless($traspaso->esEnviado())
+    <span class="estado-pill" style="background:{{ $em[1] }};color:{{ $em[2] }};">{{ $em[0] }}</span>
+    @endunless
+    <button type="button" class="dtm-close" onclick="window.trCloseModal()" title="Cerrar">
+        <i class="material-icons">close</i>
+    </button>
 </div>
 
 <div class="dtm-body">

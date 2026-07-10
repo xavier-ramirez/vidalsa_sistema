@@ -222,11 +222,13 @@
         animation: dtmIn .2s ease-out;
     }
     @keyframes dtmIn { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
-    .dtm-header { padding:0; border-bottom:1px solid #e2e8f0; flex-shrink:0; }
     /* Barra superior estilo modal de Movilización: slate #1e293b, icono azul + número
        centrados, botón cerrar absoluto a la derecha. Va a sangre (las esquinas las
        redondea el overflow:hidden de .dtm-box). */
-    .dtm-title-row { position:relative; display:flex; align-items:center; justify-content:center; gap:9px; background:#1e293b; padding:15px 48px; }
+    /* Es la cabecera del modal (antes vivía dentro de .dtm-header, que se eliminó al quitar
+       el bloque de metadatos): hereda su flex-shrink:0 para no encogerse cuando la tabla
+       de materiales crece. El borde inferior no hace falta: la barra es oscura y a sangre. */
+    .dtm-title-row { position:relative; display:flex; align-items:center; justify-content:center; gap:9px; background:#1e293b; padding:15px 48px; flex-shrink:0; }
     .dtm-title-icon { color:#0067b1; font-size:19px; }
     .dtm-numero { font-family:monospace; font-size:15px; font-weight:800; color:#fff; }
     .dtm-close {
