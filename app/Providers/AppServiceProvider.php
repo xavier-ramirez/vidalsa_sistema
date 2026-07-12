@@ -88,18 +88,32 @@ class AppServiceProvider extends ServiceProvider
             try {
                 $user = auth()->user();
                 if ($user && Schema::hasTable('traspasos')) {
-                    // La recepción es PERSONAL: el badge cuenta SOLO las notas destinadas al
-                    // almacén del usuario (Almacen::asociadosIdsDe = ligados a sus frentes),
-                    // NO visiblesPara() — que para un GLOBAL/admin devuelve TODOS y hacía que
-                    // una cuenta que solo EMITE (origen) viera notas de OTROS almacenes que
-                    // ella no recibe. Sin almacén propio → 0.
-                    $almacenesAsociados = \App\Models\Almacen::asociadosIdsDe($user);
-                    if ($almacenesAsociados->isNotEmpty()) {
-                        $count = \App\Models\Traspaso::query()
-                            ->where('ESTADO', \App\Models\Traspaso::ESTADO_ENVIADO)
-                            ->whereIn('ID_ALMACEN_DESTINO', $almacenesAsociados)
-                            ->count();
-                    }
+                    // Cacheado por usuario: estas 2 consultas (whereHas + count) corrían
+                    // en CADA página. La clave lleva la versión que Traspaso::booted()
+                    // incrementa en cada escritura → el badge se refresca al instante
+                    // para TODOS. Nota: cambios en la asignación usuario↔frente↔almacén
+                    // no bumpean la versión; los acota el TTL de 120s.
+                    $ver = \App\Support\CacheVersion::current('traspasos_badge_ver');
+                    $count = \Illuminate\Support\Facades\Cache::remember(
+                        "traspasos_badge_u{$user->ID_USUARIO}_v{$ver}",
+                        120,
+                        function () use ($user) {
+                            // La recepción es PERSONAL: el badge cuenta SOLO las notas
+                            // destinadas al almacén del usuario (Almacen::asociadosIdsDe =
+                            // ligados a sus frentes), NO visiblesPara() — que para un
+                            // GLOBAL/admin devuelve TODOS y hacía que una cuenta que solo
+                            // EMITE (origen) viera notas de OTROS almacenes que ella no
+                            // recibe. Sin almacén propio → 0.
+                            $almacenesAsociados = \App\Models\Almacen::asociadosIdsDe($user);
+                            if ($almacenesAsociados->isEmpty()) {
+                                return 0;
+                            }
+                            return \App\Models\Traspaso::query()
+                                ->where('ESTADO', \App\Models\Traspaso::ESTADO_ENVIADO)
+                                ->whereIn('ID_ALMACEN_DESTINO', $almacenesAsociados)
+                                ->count();
+                        }
+                    );
                 }
             } catch (\Throwable $e) {
                 \Illuminate\Support\Facades\Log::warning('View composer traspasosPorRecibir: ' . $e->getMessage());

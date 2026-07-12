@@ -18,8 +18,23 @@ class DocumentacionObserver
     // ningún registro — este observer cubre ese hueco.
     private const AUDITED = ['PLACA', 'NRO_DE_DOCUMENTO', 'NOMBRE_DEL_TITULAR'];
 
+    // Las fechas de vencimiento de la documentación alimentan las alertas del
+    // dashboard /menu (cacheado por usuario con la versión en la clave): cualquier
+    // alta/edición/borrado la refresca para TODOS los usuarios.
+    public function created(Documentacion $doc): void
+    {
+        \App\Http\Controllers\DashboardController::bumpDataVersion();
+    }
+
+    public function deleted(Documentacion $doc): void
+    {
+        \App\Http\Controllers\DashboardController::bumpDataVersion();
+    }
+
     public function updated(Documentacion $doc): void
     {
+        \App\Http\Controllers\DashboardController::bumpDataVersion();
+
         try {
             $changes = $doc->getChanges();
             $original = $doc->getOriginal();

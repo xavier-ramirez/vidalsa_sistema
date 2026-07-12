@@ -16,6 +16,13 @@ class WebAuthnController extends Controller
     private const RP_ID   = null; // null = usar dominio del request
     private const RP_NAME = 'Vidalsa Sistema';
 
+    /**
+     * Vida útil del challenge de login (segundos). Se anuncia al cliente como
+     * expires_in en loginOptions(): webauthn.js deriva de ahí cuándo descartar
+     * su challenge pre-cargado (con margen), así el umbral vive en UN solo sitio.
+     */
+    private const LOGIN_CHALLENGE_TTL = 600;
+
     // ─── REGISTRO (usuario ya autenticado) ───────────────────────────────
 
     public function registerOptions(Request $request)
@@ -106,7 +113,12 @@ class WebAuthnController extends Controller
         }
 
         $challenge = random_bytes(32);
-        $request->session()->put('webauthn_login_challenge', $challenge);
+        // issued_at da al challenge un TTL propio (ver login()): el cliente lo
+        // mantiene pre-cargado entre refreshes y no debe firmar uno condenado.
+        $request->session()->put('webauthn_login_challenge', [
+            'bytes'     => $challenge,
+            'issued_at' => now()->timestamp,
+        ]);
 
         $rpId = $this->getRpId($request);
 
@@ -121,6 +133,7 @@ class WebAuthnController extends Controller
             'rpId'             => $rpId,
             'allowCredentials' => $allowCredentials,
             'userVerification' => 'required',
+            'expires_in'       => self::LOGIN_CHALLENGE_TTL,
         ]);
     }
 
@@ -148,8 +161,12 @@ class WebAuthnController extends Controller
             return response()->json(['error' => "Demasiados intentos. Intente en {$seconds} segundos."], 429);
         }
 
-        $challenge = $request->session()->pull('webauthn_login_challenge');
-        if (!$challenge) {
+        // TTL explícito (LOGIN_CHALLENGE_TTL), independiente de la vida de la
+        // sesión. El cliente descarta los suyos antes (expires_in menos margen),
+        // así que un challenge pre-cargado vigente siempre pasa este umbral.
+        $challengeData = $request->session()->pull('webauthn_login_challenge');
+        $challenge = is_array($challengeData) ? ($challengeData['bytes'] ?? null) : null;
+        if (!$challenge || (now()->timestamp - ($challengeData['issued_at'] ?? 0)) > self::LOGIN_CHALLENGE_TTL) {
             return response()->json(['error' => 'Challenge expirado. Recargue la página.'], 422);
         }
 

@@ -560,19 +560,27 @@ class EquipoController extends Controller
         // En modo aux se omiten: el Consolidado y la Distribucion los aporta el payload aux
         // (mas abajo $stats se reemplaza por $auxEmbed['stats']), asi no se malgastan COUNTs.
         if ($hasFilter && !$auxMode) {
-            // Stats: count directo con los mismos filtros, sin offset/limit
+            // Stats: UN solo agregado SUM(CASE) con los mismos filtros, sin offset/limit
+            // (antes 5 COUNTs secuenciales; en enlaces lentos la latencia por round-trip
+            // domina). Mismo patrón que fleetStats y AlmacenController::statsInventario.
             $statsBase = Equipo::query();
             $this->applyEquipoFilters($statsBase, $request);
+            $agg = $statsBase->selectRaw("
+                COUNT(*) as total_all,
+                SUM(CASE WHEN ESTADO_OPERATIVO != 'DESINCORPORADO' THEN 1 ELSE 0 END) as total_activa,
+                SUM(CASE WHEN ESTADO_OPERATIVO = 'OPERATIVO' THEN 1 ELSE 0 END) as activos,
+                SUM(CASE WHEN ESTADO_OPERATIVO = 'INOPERATIVO' THEN 1 ELSE 0 END) as inactivos,
+                SUM(CASE WHEN ESTADO_OPERATIVO = 'EN MANTENIMIENTO' THEN 1 ELSE 0 END) as mantenimiento,
+                SUM(CASE WHEN ESTADO_OPERATIVO = 'DESINCORPORADO' THEN 1 ELSE 0 END) as desincorporados
+            ")->first();
             // El "total" excluye DESINCORPORADO por defecto, PERO si el usuario filtra
             // explícitamente por estado=DESINCORPORADO el total refleja esos equipos.
             $filtroEstado = strtoupper(trim((string) $request->input('estado', '')));
-            $stats['total']           = $filtroEstado === 'DESINCORPORADO'
-                ? (clone $statsBase)->count()
-                : (clone $statsBase)->where('ESTADO_OPERATIVO', '!=', 'DESINCORPORADO')->count();
-            $stats['activos']         = (clone $statsBase)->where('ESTADO_OPERATIVO', 'OPERATIVO')->count();
-            $stats['inactivos']       = (clone $statsBase)->where('ESTADO_OPERATIVO', 'INOPERATIVO')->count();
-            $stats['mantenimiento']   = (clone $statsBase)->where('ESTADO_OPERATIVO', 'EN MANTENIMIENTO')->count();
-            $stats['desincorporados'] = (clone $statsBase)->where('ESTADO_OPERATIVO', 'DESINCORPORADO')->count();
+            $stats['total']           = (int) ($filtroEstado === 'DESINCORPORADO' ? $agg->total_all : $agg->total_activa);
+            $stats['activos']         = (int) $agg->activos;
+            $stats['inactivos']       = (int) $agg->inactivos;
+            $stats['mantenimiento']   = (int) $agg->mantenimiento;
+            $stats['desincorporados'] = (int) $agg->desincorporados;
 
             // Desglose "Con / Sin documento" para el Consolidado.
             // La LISTA sigue filtrada por documento (no se toca). Aquí solo
@@ -2152,11 +2160,10 @@ class EquipoController extends Controller
             }
         });
 
-        // Invalidar caché SIEMPRE (antes del return, aplique a JSON o redirect)
+        // Invalidar caché SIEMPRE (antes del return, aplique a JSON o redirect).
+        // El dashboard de /menu se invalida solo: los observers de Equipo y
+        // Documentacion hacen bumpDataVersion() en cada escritura.
         $this->olvidarCachesListasEquipos();
-        if (auth()->check()) {
-            \Illuminate\Support\Facades\Cache::forget('dashboard_user_data_' . auth()->id());
-        }
 
         // NOTA: NO registramos audit 'edit' aqui. El EquipoObserver::updated
         // (AppServiceProvider::boot) ya lo hace automaticamente cuando el
@@ -2640,10 +2647,8 @@ class EquipoController extends Controller
                 \Illuminate\Support\Facades\Cache::forget('gdrive_meta_' . $oldFileIdToDelete);
             }
 
-            // Clear Dashboard Cache to update alerts immediately
-            if (auth()->check()) {
-                \Illuminate\Support\Facades\Cache::forget('dashboard_user_data_' . auth()->id());
-            }
+            // El dashboard de /menu se invalida solo (bumpDataVersion en los
+            // observers de Documentacion/Equipo al guardar).
 
             if (ob_get_length())
                 ob_end_clean();
@@ -3038,10 +3043,11 @@ class EquipoController extends Controller
             );
         }
 
-        // Clear Dashboard Cache to update alerts immediately
-        if (auth()->check()) {
-            \Illuminate\Support\Facades\Cache::forget('dashboard_user_data_' . auth()->id());
-        }
+        // OJO: este camino escribe con saveQuietly()/updateQuietly() (para no
+        // duplicar auditoría), así que los observers NO disparan — el bump del
+        // dashboard debe ser explícito. Aquí se editan justamente las fechas de
+        // vencimiento que alimentan las alertas de /menu.
+        \App\Http\Controllers\DashboardController::bumpDataVersion();
 
         return response()->json(['success' => true, 'message' => 'Metadatos actualizados']);
     }
@@ -4272,6 +4278,9 @@ class EquipoController extends Controller
             // Create mutual anchor link
             Equipo::where('ID_EQUIPO', $sourceId)->update(['ID_ANCLAJE' => $targetId]);
             Equipo::where('ID_EQUIPO', $targetId)->update(['ID_ANCLAJE' => $sourceId]);
+            // Mass-update sin eventos Eloquent (el anclaje alimenta el modal de
+            // alertas de /menu) → bump explícito del dashboard.
+            \App\Http\Controllers\DashboardController::bumpDataVersion();
 
             DB::commit();
 
@@ -4330,6 +4339,9 @@ class EquipoController extends Controller
             // 5. Garantía de integridad: eliminar huérfanos que apunten a los IDs afectados
             Equipo::whereIn('ID_ANCLAJE', $idsAfectados)
                   ->update(['ID_ANCLAJE' => null]);
+            // Mass-update sin eventos Eloquent (el anclaje alimenta el modal de
+            // alertas de /menu) → bump explícito del dashboard.
+            \App\Http\Controllers\DashboardController::bumpDataVersion();
 
             DB::commit();
 

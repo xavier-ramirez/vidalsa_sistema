@@ -7,6 +7,11 @@
     $fmt = fn ($n) => rtrim(rtrim(number_format((float) $n, 3, ',', '.'), '0'), ',') ?: '0';
     // Metadata visual única (TIPO_META) definida en el modelo — coherencia con el partial grande.
     $tipoMeta = \App\Models\MovimientoInventario::TIPO_META;
+    // Pares almacén↔frente para "(consumo interno)" — mismo criterio que kardex_rows.blade.php.
+    $paresAlmFrente = \Illuminate\Support\Facades\DB::table('almacen_frentes')
+        ->whereIn('ID_ALMACEN', $rows->pluck('ID_ALMACEN')->filter()->unique())
+        ->get(['ID_ALMACEN', 'ID_FRENTE'])
+        ->mapWithKeys(fn ($p) => [$p->ID_ALMACEN . '-' . $p->ID_FRENTE => true]);
 @endphp
 
 @if($rows->count() === 0)
@@ -41,12 +46,13 @@
             <td style="padding:7px 8px;font-size:12px;color:#475569;">
                 {{-- Mismo criterio que kardex_rows.blade.php (Destino): el nombre del frente
                      SIEMPRE se muestra (el cliente necesita ver a quién se le entregó cada
-                     cosa). Si es SALIDA pura (sin contraparte) se agrega la etiqueta chica
-                     "(consumo interno)" debajo, sin ocultar el frente. --}}
+                     cosa). Si es SALIDA pura (sin contraparte) hacia un frente que el almacén
+                     SIRVE, se agrega la etiqueta chica "(consumo interno)" debajo, sin ocultar
+                     el frente; frente ajeno al almacén → sin etiqueta. --}}
                 @if($m->frente)
                     <div style="font-weight:600;color:#0f172a;">{{ $m->frente->NOMBRE_FRENTE }}</div>
-                    @if($m->TIPO === 'SALIDA' && !$m->ID_ALMACEN_CONTRAPARTE)
-                        <div style="font-size:10px;color:#94a3b8;font-style:italic;" title="El material no salió de este almacén — fue consumido por el frente, no hubo traspaso">(consumo interno)</div>
+                    @if($m->TIPO === 'SALIDA' && !$m->ID_ALMACEN_CONTRAPARTE && isset($paresAlmFrente[$m->ID_ALMACEN . '-' . $m->ID_FRENTE]))
+                        <div style="font-size:10px;color:#94a3b8;font-style:italic;" title="El material no salió de este almacén — fue consumido por un frente que este almacén sirve, no hubo traspaso">(consumo interno)</div>
                     @endif
                 @elseif($m->ID_ALMACEN_CONTRAPARTE)
                     <div style="font-weight:600;color:#0f172a;">{{ $m->almacenContraparte?->NOMBRE ?? '—' }}</div>

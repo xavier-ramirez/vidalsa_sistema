@@ -126,12 +126,19 @@ class MovilizacionController extends Controller
             }
         }
 
-        // Date range filter
+        // Date range filter — rangos sobre la columna cruda (NO whereDate: envolver
+        // la columna en DATE() impide usar el índice de created_at). Una fecha
+        // malformada en la URL se IGNORA (try/catch): Carbon::parse revienta con
+        // 500 y el whereDate viejo simplemente no devolvía filas.
         if ($request->filled('fecha_desde')) {
-            $query->whereDate('movilizacion_historial.created_at', '>=', $request->fecha_desde);
+            try {
+                $query->where('movilizacion_historial.created_at', '>=', \Carbon\Carbon::parse($request->fecha_desde)->toDateString());
+            } catch (\Throwable $e) { /* fecha inválida → sin filtro */ }
         }
         if ($request->filled('fecha_hasta')) {
-            $query->whereDate('movilizacion_historial.created_at', '<=', $request->fecha_hasta);
+            try {
+                $query->where('movilizacion_historial.created_at', '<', \Carbon\Carbon::parse($request->fecha_hasta)->addDay()->toDateString());
+            } catch (\Throwable $e) { /* fecha inválida → sin filtro */ }
         }
 
         // Fetch paginated results sin puntos suspensivos (mostrando hasta 50 pÃ¡ginas continuas)
@@ -170,61 +177,6 @@ class MovilizacionController extends Controller
         $frentes = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->orderBy('NOMBRE_FRENTE')->get();
 
         return view('admin.movilizaciones.create', compact('equipos', 'frentes'));
-    }
-
-    /**
-     * Busca la movilizacion mas reciente asociada al CODIGO_CONTROL dado
-     * y devuelve su ID para que el frontend dispare la descarga del acta PDF.
-     * Soporta codigos con o sin ceros a la izquierda (ej. "125" y "000125").
-     */
-    public function findByCodigoControl(Request $request)
-    {
-        $codigo = trim((string) $request->query('codigo', ''));
-        if ($codigo === '') {
-            return response()->json(['success' => false, 'message' => 'Debes indicar el NÂ° de OperaciÃ³n.'], 422);
-        }
-
-        // Extraer solo la parte numérica para soportar formatos "MV-00125", "00125" o "125"
-        $numericPart = preg_replace('/[^0-9]/', '', $codigo);
-        if ($numericPart === '') {
-            $numericPart = '0';
-        }
-        $numericInt = (int)$numericPart;
-
-        // Construir variaciones posibles (antiguos string literal y nuevos int)
-        $padded5 = str_pad((string)$numericInt, 5, '0', STR_PAD_LEFT);
-        $padded6 = str_pad((string)$numericInt, 6, '0', STR_PAD_LEFT);
-        $mvPadded5 = 'MV-' . $padded5;
-        $mvPadded6 = 'MV-' . $padded6;
-
-        // Acceso controlado por permisos (no por NIVEL_ACCESO_EQUIPOS). Cualquier
-        // usuario autenticado puede buscar un acta por codigo de control.
-        $query = Movilizacion::query();
-
-        $mov = (clone $query)
-            ->whereIn('CODIGO_CONTROL', [
-                $codigo,
-                (string)$numericInt,
-                $padded5,
-                $padded6,
-                $mvPadded5,
-                $mvPadded6
-            ])
-            ->orderBy('created_at', 'desc')
-            ->first();
-
-        if (!$mov) {
-            return response()->json([
-                'success' => false,
-                'message' => 'No se encontrÃ³ ninguna movilizaciÃ³n con ese NÂ° de OperaciÃ³n.',
-            ], 404);
-        }
-
-        return response()->json([
-            'success' => true,
-            'id'      => $mov->ID_MOVILIZACION,
-            'codigo'  => $mov->CODIGO_CONTROL,
-        ]);
     }
 
     public function store(Request $request)
@@ -410,6 +362,9 @@ class MovilizacionController extends Controller
                 'CONFIRMADO_EN_SITIO'      => 0,
                 'DETALLE_UBICACION_ACTUAL' => null,
             ]);
+            // El mass-update NO dispara EquipoObserver (ver auditoría de abajo):
+            // el bump del dashboard /menu hay que hacerlo explícito aquí.
+            \App\Http\Controllers\DashboardController::bumpDataVersion();
 
             DB::commit();
 
@@ -543,6 +498,8 @@ class MovilizacionController extends Controller
                 'DETALLE_UBICACION_ACTUAL' => $request->DETALLE_UBICACION,
                 'CONFIRMADO_EN_SITIO' => 1,
             ]);
+            // Mass-update sin eventos Eloquent → bump explícito del dashboard.
+            \App\Http\Controllers\DashboardController::bumpDataVersion();
 
             DB::commit();
 

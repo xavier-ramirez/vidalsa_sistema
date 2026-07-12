@@ -32,10 +32,9 @@ WORKDIR /var/www/html
 # Copiar archivos del proyecto
 COPY . .
 
-# Versiona el Service Worker en cada build: reemplaza el placeholder
-# __CACHE_VERSION__ por un timestamp único para que el PWA invalide sus caches
-# internos en cada deploy y nunca sirva assets viejos.
-RUN sed -i "s/__CACHE_VERSION__/$(date +%s)/g" public/sw.js || true
+# El Service Worker ya NO se estampa en build: la plantilla vive en
+# resources/sw.js y la ruta GET /sw.js (routes/web.php) reemplaza
+# __CACHE_VERSION__ con el filemtime en cada request, con headers no-cache.
 
 # Instalar dependencias de PHP
 RUN composer install --no-dev --optimize-autoloader --no-interaction

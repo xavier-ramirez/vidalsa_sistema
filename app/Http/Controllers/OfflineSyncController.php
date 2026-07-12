@@ -162,6 +162,8 @@ class OfflineSyncController extends Controller
                 'CONFIRMADO_EN_SITIO'      => 0,
                 'DETALLE_UBICACION_ACTUAL' => null,
             ]);
+            // Mass-update sin eventos Eloquent → bump explícito del dashboard.
+            \App\Http\Controllers\DashboardController::bumpDataVersion();
 
             return $this->ok($uuid, ['movilizacion_ids' => $movIds, 'codigo_control' => $codigo]);
         });

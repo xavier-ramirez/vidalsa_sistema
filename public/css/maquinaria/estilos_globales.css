@@ -2675,18 +2675,19 @@ input:-webkit-autofill:active {
     flex: 1.5 1 200px;
 }
 
-/* Filtro "Frente" un poco más ancho que los demás en PC (base 240px). En móvil
-   el media query `.mv-filter-item:not(.mv-search-item)` lo pone full-width con
-   !important, así que esto solo aplica en escritorio. */
+/* Filtro "Frente" más ancho que los demás en PC (base 320px, pedido del cliente:
+   los nombres de frente largos se cortaban). En móvil el media query
+   `.mv-filter-item:not(.mv-search-item)` lo pone full-width con !important,
+   así que esto solo aplica en escritorio. */
 .mv-filter-item.mv-frente-item {
-    flex: 1.4 1 240px;
+    flex: 1.8 1 320px;
 }
 
-/* Filtro "Tipo" un poco más ancho que los demás en PC (base 210px). En móvil el
+/* Filtro "Tipo" un poco más ancho que los demás en PC (base 240px). En móvil el
    media query `.mv-filter-item:not(.mv-search-item)` lo pone full-width, así que
    esto solo aplica en escritorio. */
 .mv-filter-item.mv-tipo-item {
-    flex: 1.3 1 210px;
+    flex: 1.4 1 240px;
 }
 
 @media (max-width: 1024px) {
@@ -3935,9 +3936,21 @@ html.is-ios .ent-capt-add-btn { display: flex !important; }
 .mapa-ctx-danger:hover { background: #fef2f2; }
 
 /* Escala del mapa: pastilla blanca limpia (mejor que el borde negro por defecto) */
-/* Escala al lado de la brújula (abajo-derecha). Aspecto de REGLA: barra azul con topes
-   en los extremos + distancia centrada. */
-.leaflet-control-scale { margin-right: 14px !important; margin-bottom: 10px !important; }
+/* Escala AL LADO de la brújula (no debajo): la esquina inferior-derecha se vuelve una
+   FILA (flex) alineada abajo — la brújula queda SOLA en la esquina y la escala a su
+   izquierda. Leaflet apila los controles de una esquina en vertical (float+clear);
+   float:none/clear:none anula ese apilado. Aplica en PC y teléfono. Aspecto de REGLA:
+   barra azul con topes en los extremos + distancia centrada. */
+#mapa-leaflet .leaflet-bottom.leaflet-right {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-end;
+}
+#mapa-leaflet .leaflet-bottom.leaflet-right .leaflet-control { float: none; clear: none; }
+#mapa-leaflet .mapa-compass { order: 2; }
+/* margin-bottom alinea la regla con el cuerpo de la brújula (el SVG de 96px llega
+   más abajo por la letra S); sin él la escala quedaría pegada al borde. */
+.leaflet-control-scale { order: 1; margin-right: 6px !important; margin-bottom: 34px !important; }
 .leaflet-control-scale-line {
     background: rgba(255, 255, 255, 0.95) !important;
     color: #0f172a !important;
@@ -3982,15 +3995,14 @@ html.is-ios .ent-capt-add-btn { display: flex !important; }
 @media (max-width: 640px) {
     /* El mapa NO usa .page-layout-grid, así que no lo alcanzaba el override de
        .main-viewport del @media 900px y seguía heredando `width:98%` + `padding:20px`:
-       ~44px de ancho perdidos a los lados justo en la pantalla más estrecha. Mismo patrón
-       que usan equipos/fallas/historial, con 4px laterales en vez de 8 — el mapa no tiene
-       tarjetas que necesiten aire, y así gana todo el ancho posible sin que el borde
-       redondeado quede pegado al filo de la pantalla. */
+       ~44px de ancho perdidos a los lados justo en la pantalla más estrecha. En teléfono
+       el mapa va DE BORDE A BORDE (0px laterales, pedido del cliente): el contenedor
+       pierde el radio/borde lateral abajo, así que no queda nada pegado al filo. */
     body:has(.mapa-page) .main-viewport {
         width: 100% !important;
         max-width: 100% !important;
-        padding-left: 4px !important;
-        padding-right: 4px !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
         padding-top: 12px !important;
         /* padding-bottom NO se toca: sigue el 20px del shorthand base, que deja aire
            entre el mapa y el final de la página. Solo interesa recuperar ancho. */
@@ -4024,7 +4036,11 @@ html.is-ios .ent-capt-add-btn { display: flex !important; }
         height: calc(100vh - 72px); /* fallback: navegadores sin dvh */
         height: calc(100dvh - 72px);
         min-height: 0;
-        border-radius: 12px;
+        /* De borde a borde: sin radio ni bordes laterales (el contenedor ocupa
+           el 100% del ancho de la pantalla — ver .main-viewport arriba). */
+        border-radius: 0;
+        border-left: none;
+        border-right: none;
     }
 
     /* ── Leyenda en teléfono ──────────────────────────────────────────────────

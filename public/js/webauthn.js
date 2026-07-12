@@ -147,10 +147,39 @@ const VidalsaWebAuthn = (() => {
 
     // ─── AUTENTICACIÓN ───────────────────────────────────────────────
 
-    // publicKey pre-cargado (challenge) para abrir el lector de huella SIN el
-    // "cargando" del fetch de opciones. Single-use: el challenge se consume en cada
-    // intento. Ver precargarOpciones() / autenticar().
+    // publicKey pre-cargado (challenge) para abrir el lector de huella SIN esperar
+    // la red al tocar el botón. El servidor solo consume el challenge cuando llega
+    // POST /webauthn/login (pull() en WebAuthnController::login): una cancelación
+    // del lector lo deja válido, así que el precache se CONSERVA hasta consumirse
+    // o reemplazarse por un refresh. Ver iniciarPrecarga() / autenticar().
     let _precachedPublicKey = null;
+    let _precachedAt = 0;        // timestamp del último prefetch exitoso
+    let _prefetchEnCurso = null; // promesa del fetch en vuelo (deduplica llamadas)
+    let _precargaIniciada = false;
+    // Pausa los refreshes mientras el lector está abierto: un refresh reemplazaría
+    // en la sesión el challenge que el usuario está firmando en ese momento.
+    let _autenticando = false;
+
+    // Vigencia del precache: el servidor anuncia el TTL del challenge en
+    // expires_in (WebAuthnController::loginOptions) y aquí se descuenta un margen
+    // para no firmar uno a punto de vencer. El fallback aplica si el servidor
+    // aún no manda expires_in.
+    const PRECACHE_MARGEN_MS   = 2 * 60 * 1000;
+    const PRECACHE_FALLBACK_MS = 8 * 60 * 1000;
+    let _precacheMaxMs = PRECACHE_FALLBACK_MS;
+    // Bajo los 10 min de SESSION_LIFETIME: cada refresh además mantiene viva la
+    // sesión guest que guarda el challenge.
+    const REFRESH_MS       = 4 * 60 * 1000;
+    const FETCH_TIMEOUT_MS = 6000;  // /webauthn/login-options
+    const LOGIN_TIMEOUT_MS = 10000; // /webauthn/login
+
+    // fetch con límite de tiempo: en redes malas evita esperas indefinidas. El
+    // llamador convierte el abort/fallo de red en 'SIN_CONEXION'.
+    function _fetchConTimeout(url, opts, ms) {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), ms);
+        return fetch(url, { ...opts, signal: ctrl.signal }).finally(() => clearTimeout(timer));
+    }
 
     // Pide /webauthn/login-options y arma el objeto publicKey listo para
     // navigator.credentials.get(). Devuelve null si la sesión caducó (recarga en curso).
@@ -158,11 +187,16 @@ const VidalsaWebAuthn = (() => {
         const credIds = getCredIds();
         if (!credIds.length) throw new Error('NO_CREDENTIALS');
 
-        const resOpt = await fetch('/webauthn/login-options', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', ...JSON_HEADERS },
-            body: JSON.stringify({ credential_ids: credIds }),
-        });
+        let resOpt;
+        try {
+            resOpt = await _fetchConTimeout('/webauthn/login-options', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...JSON_HEADERS },
+                body: JSON.stringify({ credential_ids: credIds }),
+            }, FETCH_TIMEOUT_MS);
+        } catch {
+            throw new Error('SIN_CONEXION');
+        }
         // Sesión/CSRF caducada o HTML del login servido en vez de JSON → recargar.
         // OJO: se comprueba ANTES de res.json() para no parsear "<!DOCTYPE...".
         if (esRespuestaDeSesion(resOpt)) { window.location.reload(); return null; }
@@ -173,6 +207,11 @@ const VidalsaWebAuthn = (() => {
         const options = await resOpt.json();
         if (!resOpt.ok) throw new Error(options.error || 'Error obteniendo opciones');
 
+        // Derivar la vigencia del TTL real del servidor (fuente única de verdad).
+        if (typeof options.expires_in === 'number' && options.expires_in > 0) {
+            _precacheMaxMs = Math.max(options.expires_in * 1000 - PRECACHE_MARGEN_MS, 60000);
+        }
+
         return {
             challenge:        base64UrlToBytes(options.challenge),
             timeout:          options.timeout,
@@ -182,53 +221,131 @@ const VidalsaWebAuthn = (() => {
         };
     }
 
-    // Pre-carga el challenge ANTES de tocar el botón. Al pulsar, autenticar() usa lo
-    // pre-cargado y llama a navigator.credentials.get() de inmediato (sin esperar la
-    // red): el lector de huella se abre al instante. Silencioso ante errores.
-    async function precargarOpciones() {
-        try { _precachedPublicKey = await _obtenerPublicKey(); }
-        catch { _precachedPublicKey = null; }
+    // Pre-carga/refresca el challenge. Deduplica: si ya hay un fetch en vuelo,
+    // devuelve esa misma promesa (autenticar() la espera en vez de duplicar).
+    // Sin retry propio: los fallos transitorios los curan el intervalo de
+    // REFRESH_MS, el evento 'online', el visibilitychange y, en último caso,
+    // el fetch de respaldo al tocar el botón.
+    function _precargar() {
+        if (_prefetchEnCurso) return _prefetchEnCurso;
+        _prefetchEnCurso = _obtenerPublicKey()
+            .then(pk => {
+                if (pk) {
+                    _precachedPublicKey = pk;
+                    _precachedAt = Date.now();
+                }
+                return pk;
+            })
+            .finally(() => { _prefetchEnCurso = null; });
+        return _prefetchEnCurso;
+    }
+
+    // Variante para llamadas en segundo plano (intervalo/eventos): nunca revienta.
+    // No corre con el lector abierto NI con la pestaña oculta — el servidor guarda
+    // UN solo challenge por sesión, y un refresh desde una pestaña de fondo
+    // pisaría el que otra pestaña visible está por firmar.
+    function _precargarSilencioso() {
+        if (_autenticando || document.hidden) return;
+        _precargar().catch(() => {});
+    }
+
+    function _precacheVigente() {
+        return !!_precachedPublicKey && (Date.now() - _precachedAt) < _precacheMaxMs;
+    }
+
+    // Punto de entrada del LOGIN: prefetch inmediato + refresh periódico +
+    // re-prefetch al recuperar conexión o volver a primer plano (justo cuando el
+    // usuario va a tocar el botón). Idempotente. El layout (estructura_base)
+    // también carga este módulo para el REGISTRO de huella y NO debe llamar esto:
+    // solo lo invoca inicio_sesion.blade.php.
+    function iniciarPrecarga() {
+        if (_precargaIniciada) return;
+        _precargaIniciada = true;
+
+        _precargarSilencioso();
+        setInterval(_precargarSilencioso, REFRESH_MS);
+        window.addEventListener('online', _precargarSilencioso);
+        document.addEventListener('visibilitychange', () => {
+            // Al volver a primer plano (el intervalo no corre oculto), re-primar
+            // solo si ya tocaría — sin esto cada alt-tab dispararía un POST
+            // aunque el challenge precargado siga vigente.
+            if (document.visibilityState === 'visible' && Date.now() - _precachedAt > REFRESH_MS) {
+                _precargarSilencioso();
+            }
+        });
     }
 
     async function autenticar() {
-        // Usa el challenge pre-cargado si existe (huella instantánea); si no, lo pide ahora.
-        let publicKey = _precachedPublicKey;
-        _precachedPublicKey = null; // single-use: el challenge se consume
-        if (!publicKey) {
-            publicKey = await _obtenerPublicKey();
-            if (!publicKey) return; // sesión caducada → recargando
-        }
-
-        let assertion;
+        _autenticando = true;
         try {
-            assertion = await navigator.credentials.get({ publicKey });
-        } catch {
-            throw new Error('USER_CANCELLED');
+            // Un refresh EN VUELO ya está reemplazando el challenge de la sesión
+            // en el servidor: firmar el precache viejo garantizaría "Challenge no
+            // coincide" + hit del rate-limiter. Se espera ese resultado (acotado
+            // por FETCH_TIMEOUT_MS) y se firma el challenge vigente.
+            let publicKey = null;
+            if (_prefetchEnCurso) {
+                publicKey = await _prefetchEnCurso.catch(() => null);
+            }
+            // Usa el challenge pre-cargado (lector instantáneo). NO se anula aquí:
+            // el servidor solo lo consume en POST /webauthn/login, así que una
+            // cancelación del lector lo deja listo para el siguiente toque.
+            if (!publicKey) publicKey = _precacheVigente() ? _precachedPublicKey : null;
+            if (!publicKey) {
+                // Solo si los refreshes llevan rato fallando o nunca corrieron.
+                if (!navigator.onLine) throw new Error('SIN_CONEXION'); // fallo rápido, sin colgarse
+                publicKey = await _precargar(); // acotado por FETCH_TIMEOUT_MS
+                if (!publicKey) return; // sesión caducada → recargando
+            }
+
+            let assertion;
+            try {
+                assertion = await navigator.credentials.get({ publicKey });
+            } catch {
+                throw new Error('USER_CANCELLED');
+            }
+
+            const body = {
+                credential_id:      bytesToBase64(new Uint8Array(assertion.rawId)),
+                authenticator_data: bytesToBase64(new Uint8Array(assertion.response.authenticatorData)),
+                client_data_json:   bytesToBase64(new Uint8Array(assertion.response.clientDataJSON)),
+                signature:          bytesToBase64(new Uint8Array(assertion.response.signature)),
+            };
+
+            _precachedPublicKey = null;
+            _precachedAt = 0;
+
+            let res;
+            try {
+                res = await _fetchConTimeout('/webauthn/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', ...JSON_HEADERS },
+                    body: JSON.stringify(body),
+                }, LOGIN_TIMEOUT_MS);
+            } catch {
+                // Timeout o bajón de red con el POST ya despachado: el botón no
+                // debe quedarse en "Verificando...".
+                throw new Error('SIN_CONEXION');
+            }
+            // 419 (CSRF/sesión), 422 (challenge expirado o vencido por el TTL de
+            // 10 min del servidor) y una respuesta redirigida/no-JSON (HTML del
+            // login servido en vez de JSON) son fallos TRANSITORIOS de sesión, no
+            // errores del usuario. En vez de mostrar el críptico "Unexpected
+            // token '<'" del JSON.parse sobre el HTML, recargamos para que el
+            // siguiente toque genere un challenge fresco. Los errores reales
+            // (401/403/429) sí caen abajo y se muestran.
+            if (esRespuestaDeSesion(res)) { window.location.reload(); return; }
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Error de autenticación');
+            return data;
+        } finally {
+            _autenticando = false;
+            // Re-primar si el challenge quedó consumido/vencido (el POST de login
+            // lo consume en el servidor; una cancelación del lector lo deja
+            // intacto y no dispara nada). Tras un login EXITOSO la página
+            // redirige y este POST extra se descarta — costo asumido a cambio
+            // de no mantener un flag más.
+            if (!_precacheVigente()) _precargarSilencioso();
         }
-
-        const body = {
-            credential_id:      bytesToBase64(new Uint8Array(assertion.rawId)),
-            authenticator_data: bytesToBase64(new Uint8Array(assertion.response.authenticatorData)),
-            client_data_json:   bytesToBase64(new Uint8Array(assertion.response.clientDataJSON)),
-            signature:          bytesToBase64(new Uint8Array(assertion.response.signature)),
-        };
-
-        const res = await fetch('/webauthn/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', ...JSON_HEADERS },
-            body: JSON.stringify(body),
-        });
-        // 419 (CSRF/sesión), 422 (challenge expirado: la sesión perdió el desafío
-        // entre login-options y login, p.ej. tras los 20 min de SESSION_LIFETIME) y
-        // una respuesta redirigida/no-JSON (HTML del login servido en vez de JSON)
-        // son fallos TRANSITORIOS de sesión, no errores del usuario. En vez de
-        // mostrar el críptico "Unexpected token '<'" del JSON.parse sobre el HTML,
-        // recargamos para que el siguiente toque genere un challenge fresco. Los
-        // errores reales (401/403/429) sí caen abajo y se muestran.
-        if (esRespuestaDeSesion(res)) { window.location.reload(); return; }
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Error de autenticación');
-        return data;
     }
 
     function tieneCredenciales() {
@@ -250,5 +367,5 @@ const VidalsaWebAuthn = (() => {
         localStorage.removeItem(STORAGE_KEY);
     }
 
-    return { soportado, plataformaDisponible, registrar, autenticar, precargarOpciones, tieneCredenciales, limpiarCredenciales };
+    return { soportado, plataformaDisponible, registrar, autenticar, iniciarPrecarga, tieneCredenciales, limpiarCredenciales };
 })();

@@ -601,11 +601,12 @@
          graficos sin aportar contexto de consumo. --}}
 
     {{-- Chart.js se carga GLOBAL en el layout (estructura_base) — NO se repite aquí.
-         El setInterval de abajo espera a que `Chart` exista (venga de donde venga) antes
-         de registrar el plugin, así que esta página funciona con la carga global.
-         Solo quedan los específicos de esta vista: datalabels (etiquetas) y html2canvas. --}}
-    <script src="{{ asset('js/chartjs-plugin-datalabels.min.js') }}"></script>
-    <script src="{{ asset('js/html2canvas.min.js') }}"></script>
+         El plugin datalabels NO va como <script> estático: su UMD exige que `Chart`
+         exista AL EJECUTARSE, y el chart.umd del layout corre DESPUÉS del contenido
+         en una carga completa (revienta con "reading 'helpers'" y las gráficas
+         quedan sin etiquetas). El setInterval de abajo lo inyecta recién cuando
+         Chart ya está definido — mismo patrón lazy que html2canvas (:1574). --}}
+    <script src="{{ asset('js/html2canvas.min.js') }}?v={{ @filemtime(public_path('js/html2canvas.min.js')) }}"></script>
     <script>
         // Paleta corporativa: variada y profunda
         window.COLORES = window.COLORES || {
@@ -625,13 +626,28 @@
         window.chartEqFrente = window.chartEqFrente || null;
         // chartCauchoModelo declarado removido junto con el panel de Cauchos.
 
+        // El intervalo SOLO espera a que el layout cargue Chart; en cuanto existe,
+        // inyecta el plugin una vez y termina. El registro pasa en el onload del
+        // script (no se pollea la llegada del plugin: en una red lenta el watchdog
+        // de 5s cortaría la espera y las gráficas quedarían sin etiquetas). En
+        // error de red el guard se libera para que la próxima visita SPA reintente.
         if (window.chartCheckInterval) clearInterval(window.chartCheckInterval);
         window.chartCheckInterval = setInterval(() => {
-            if (typeof Chart !== 'undefined' && typeof ChartDataLabels !== 'undefined') {
-                Chart.register(ChartDataLabels);
-                clearInterval(window.chartCheckInterval);
+            if (typeof Chart === 'undefined') return; // el layout aún no lo cargó
+            clearInterval(window.chartCheckInterval);
+            if (typeof ChartDataLabels !== 'undefined') {
+                Chart.register(ChartDataLabels); // registrar dos veces es inocuo
+                return;
             }
+            if (window._dlPluginInyectado) return; // ya en vuelo de una visita anterior
+            window._dlPluginInyectado = true;
+            var s = document.createElement('script');
+            s.src = "{{ asset('js/chartjs-plugin-datalabels.min.js') }}?v={{ @filemtime(public_path('js/chartjs-plugin-datalabels.min.js')) }}";
+            s.onload = () => { if (typeof ChartDataLabels !== 'undefined') Chart.register(ChartDataLabels); };
+            s.onerror = () => { window._dlPluginInyectado = false; };
+            document.head.appendChild(s);
         }, 100);
+        // Watchdog: solo acota la espera de Chart (el registro ya no depende de él).
         setTimeout(() => clearInterval(window.chartCheckInterval), 5000);
 
         var COLORES = window.COLORES;
@@ -660,10 +676,11 @@
             return p;
         }
 
-        window.clearAdvancedFilters = function () {
-            var d = document.getElementById('fMesDesde'); if (d) d.value = '';
-            var h = document.getElementById('fMesHasta'); if (h) h.value = '';
-        };
+        // NO redefinir window.clearAdvancedFilters aquí: es la función GLOBAL de uicomponents.js
+        // de la que depende /admin/equipos (5 llamadas). Esta copia la pisaba al visitar gráficos
+        // por SPA y, además, ningún control de gráficos la llamaba (los filtros de mes recargan
+        // con onchange="cargarDatos()"). Si hiciera falta limpiar los meses, sería una función
+        // con nombre propio, no un shadow del global.
 
         function show(id) { document.getElementById(id).style.display = ''; }
         function hide(id) { document.getElementById(id).style.display = 'none'; }
@@ -1573,7 +1590,7 @@
             if (typeof html2canvas === 'undefined') {
                 if (window.showPreloader) window.showPreloader();
                 const script = document.createElement('script');
-                script.src = "{{ asset('js/html2canvas.min.js') }}";
+                script.src = "{{ asset('js/html2canvas.min.js') }}?v={{ @filemtime(public_path('js/html2canvas.min.js')) }}";
                 script.onload = () => {
                     if (window.hidePreloader) window.hidePreloader();
                     capturaPanelHtml(panelId, nombre, callbackClone);

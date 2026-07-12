@@ -193,29 +193,31 @@
         try { sessionStorage.setItem('vidalsaJustLoggedIn', '1'); } catch (e) {}
     };
 
+    // Muestra un mensaje en #offlineLoginMsg, oculta el spinner y rehabilita el
+    // botón. Lo usan el aviso "sin conexión", los errores de credenciales y el
+    // login biométrico (script de abajo) — por eso viven a nivel de script, no
+    // dentro del bloque del formulario.
+    function mostrarMsgLogin(texto) {
+        const pl = document.getElementById('loginPreloader');
+        if (pl) { pl.classList.add('fade-out'); pl.style.display = 'none'; }
+        const msg = document.getElementById('offlineLoginMsg');
+        if (msg) { msg.textContent = texto; msg.style.display = 'block'; }
+        const btnOn = document.getElementById('btnOnlineLogin');
+        if (btnOn) btnOn.disabled = false;
+    }
+    // Aviso "sin conexión": evita que el navegador muestre su página de error (la
+    // "boba fea") cuando el login no puede contactar al servidor. Si hay credenciales
+    // offline guardadas, sugiere "Entrar sin conexión".
+    function avisarSinConexion() {
+        const btnOff = document.getElementById('btnOfflineLogin');
+        const hayOffline = btnOff && btnOff.style.display !== 'none';
+        mostrarMsgLogin(hayOffline
+            ? 'Sin conexión a internet. Puedes usar "Entrar sin conexión" o revisar tu red.'
+            : 'Sin conexión a internet. Revisa tu red e inténtalo de nuevo.');
+    }
+
     const loginForm = document.querySelector('form');
     if (loginForm) {
-        // Muestra un mensaje en #offlineLoginMsg, oculta el spinner y rehabilita el
-        // botón. Lo usan tanto el aviso "sin conexión" como los errores de credenciales.
-        function mostrarMsgLogin(texto) {
-            const pl = document.getElementById('loginPreloader');
-            if (pl) { pl.classList.add('fade-out'); pl.style.display = 'none'; }
-            const msg = document.getElementById('offlineLoginMsg');
-            if (msg) { msg.textContent = texto; msg.style.display = 'block'; }
-            const btnOn = document.getElementById('btnOnlineLogin');
-            if (btnOn) btnOn.disabled = false;
-        }
-        // Aviso "sin conexión": evita que el navegador muestre su página de error (la
-        // "boba fea") cuando el login no puede contactar al servidor. Si hay credenciales
-        // offline guardadas, sugiere "Entrar sin conexión".
-        function avisarSinConexion() {
-            const btnOff = document.getElementById('btnOfflineLogin');
-            const hayOffline = btnOff && btnOff.style.display !== 'none';
-            mostrarMsgLogin(hayOffline
-                ? 'Sin conexión a internet. Puedes usar "Entrar sin conexión" o revisar tu red.'
-                : 'Sin conexión a internet. Revisa tu red e inténtalo de nuevo.');
-        }
-
         loginForm.addEventListener('submit', function(e) {
             e.preventDefault(); // Stop native submission immediately
 
@@ -308,9 +310,10 @@ document.addEventListener('DOMContentLoaded', function() {
     VidalsaWebAuthn.plataformaDisponible().then(function(ok) {
         if (ok) {
             btnBio.style.display = 'flex';
-            // Pre-cargar el challenge YA, para que al tocar el botón el lector de
-            // huella se abra de inmediato (sin el "cargando" del fetch de opciones).
-            VidalsaWebAuthn.precargarOpciones();
+            // Arranca el ciclo de precarga del challenge (prefetch + refresh
+            // periódico + eventos online/visible): al tocar el botón el lector
+            // de huella se abre de inmediato, sin esperar la red.
+            VidalsaWebAuthn.iniciarPrecarga();
         }
     });
 
@@ -324,6 +327,8 @@ document.addEventListener('DOMContentLoaded', function() {
         var preloader = document.getElementById('loginPreloader');
         if (preloader) { preloader.classList.remove('fade-out'); preloader.style.display = 'flex'; }
 
+        // El re-primado del challenge tras cada intento lo maneja el propio
+        // módulo VidalsaWebAuthn (dueño único del precache).
         VidalsaWebAuthn.autenticar()
             .then(function(data) {
                 if (data && data.success && data.redirect) {
@@ -335,18 +340,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 btnBio.style.pointerEvents = '';
                 btnBio.style.opacity = '';
                 if (bioLabel) bioLabel.textContent = 'Identificación biométrica';
-                // Re-cargar el challenge para que el próximo toque sea instantáneo.
-                VidalsaWebAuthn.precargarOpciones();
             })
             .catch(function(err) {
                 if (preloader) preloader.classList.add('fade-out');
                 btnBio.style.pointerEvents = '';
                 btnBio.style.opacity = '';
                 if (bioLabel) bioLabel.textContent = 'Identificación biométrica';
-                // Re-cargar el challenge para que el próximo toque sea instantáneo.
-                VidalsaWebAuthn.precargarOpciones();
                 if (err.message === 'USER_CANCELLED') return;
                 if (err.message === 'NO_CREDENTIALS') return;
+                if (err.message === 'SIN_CONEXION') { avisarSinConexion(); return; }
                 var msgDiv = document.getElementById('offlineLoginMsg');
                 if (msgDiv) { msgDiv.style.display = 'block'; msgDiv.textContent = err.message || 'Error de autenticación biométrica'; }
             });

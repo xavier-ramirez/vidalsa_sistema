@@ -41,12 +41,19 @@ class FallaController extends Controller
             $query->where('ESTADO_REPORTE', $request->estatus);
         }
 
-        // Fechas
+        // Fechas — rangos sobre la columna cruda (NO whereDate: envolver la columna
+        // en DATE() impide usar el índice de FECHA_EMISION). Una fecha malformada
+        // en la URL se IGNORA (try/catch): Carbon::parse revienta con 500 y el
+        // whereDate viejo simplemente no devolvía filas.
         if ($request->filled('fecha_desde')) {
-            $query->whereDate('FECHA_EMISION', '>=', $request->fecha_desde);
+            try {
+                $query->where('FECHA_EMISION', '>=', \Carbon\Carbon::parse($request->fecha_desde)->toDateString());
+            } catch (\Throwable $e) { /* fecha inválida → sin filtro */ }
         }
         if ($request->filled('fecha_hasta')) {
-            $query->whereDate('FECHA_EMISION', '<=', $request->fecha_hasta);
+            try {
+                $query->where('FECHA_EMISION', '<', \Carbon\Carbon::parse($request->fecha_hasta)->addDay()->toDateString());
+            } catch (\Throwable $e) { /* fecha inválida → sin filtro */ }
         }
 
         // Responsable
@@ -72,29 +79,32 @@ class FallaController extends Controller
             }
         }
 
-        // Busqueda por serial / placa / codigo / etiqueta
+        // Busqueda por serial / placa / codigo / etiqueta.
+        // Subqueries whereIn (mismo patron que tipo_eq/tipo_aux arriba): antes se
+        // hacia pluck() de TODOS los IDs coincidentes a PHP y se reinyectaban como
+        // lista IN — dos queries extra por filtro y listas enormes en frentes grandes.
         if ($request->filled('search')) {
             $sClean = mb_strtoupper(ltrim(trim($request->input('search')), '#'));
             $like   = "%{$sClean}%";
 
-            $eqIds = Equipo::leftJoin('documentacion AS d', 'equipos.ID_EQUIPO', '=', 'd.ID_EQUIPO')
+            $eqSub = Equipo::leftJoin('documentacion AS d', 'equipos.ID_EQUIPO', '=', 'd.ID_EQUIPO')
                 ->where(function ($w) use ($like) {
                     $w->whereRaw('UPPER(equipos.SERIAL_CHASIS) like ?', [$like])
                       ->orWhereRaw('UPPER(equipos.SERIAL_DE_MOTOR) like ?', [$like])
                       ->orWhereRaw('UPPER(equipos.CODIGO_PATIO) like ?', [$like])
                       ->orWhereRaw('UPPER(d.PLACA) like ?', [$like]);
-                })->pluck('equipos.ID_EQUIPO')->toArray();
+                })->select('equipos.ID_EQUIPO');
 
-            $auxIds = EquipoAuxiliar::where(function ($w) use ($like) {
+            $auxSub = EquipoAuxiliar::where(function ($w) use ($like) {
                 $w->whereRaw('UPPER(SERIAL) like ?', [$like])
                   ->orWhereRaw('UPPER(CODIGO_INTERNO) like ?', [$like]);
-            })->pluck('ID_AUXILIAR')->toArray();
+            })->select('ID_AUXILIAR');
 
-            $query->where(function ($q) use ($eqIds, $auxIds, $like) {
-                $q->where(function ($i) use ($eqIds) {
-                    $i->where('ACTIVO_TIPO', 'equipo')->whereIn('ACTIVO_ID', $eqIds ?: [0]);
-                })->orWhere(function ($i) use ($auxIds) {
-                    $i->where('ACTIVO_TIPO', 'equipo_auxiliar')->whereIn('ACTIVO_ID', $auxIds ?: [0]);
+            $query->where(function ($q) use ($eqSub, $auxSub, $like) {
+                $q->where(function ($i) use ($eqSub) {
+                    $i->where('ACTIVO_TIPO', 'equipo')->whereIn('ACTIVO_ID', $eqSub);
+                })->orWhere(function ($i) use ($auxSub) {
+                    $i->where('ACTIVO_TIPO', 'equipo_auxiliar')->whereIn('ACTIVO_ID', $auxSub);
                 })->orWhere('CODIGO_REPORTE', 'like', $like);
             });
         }
@@ -102,33 +112,33 @@ class FallaController extends Controller
         // Marca
         if ($request->filled('marca')) {
             $mLike = '%' . mb_strtoupper(trim($request->marca)) . '%';
-            $eqIds  = Equipo::whereRaw('UPPER(MARCA) like ?', [$mLike])->pluck('ID_EQUIPO')->toArray();
-            $auxIds = EquipoAuxiliar::whereRaw('UPPER(MARCA) like ?', [$mLike])->pluck('ID_AUXILIAR')->toArray();
-            $query->where(function ($q) use ($eqIds, $auxIds) {
-                $q->where(fn($i) => $i->where('ACTIVO_TIPO','equipo')->whereIn('ACTIVO_ID',$eqIds ?: [0]))
-                  ->orWhere(fn($i) => $i->where('ACTIVO_TIPO','equipo_auxiliar')->whereIn('ACTIVO_ID',$auxIds ?: [0]));
+            $eqSub  = Equipo::whereRaw('UPPER(MARCA) like ?', [$mLike])->select('ID_EQUIPO');
+            $auxSub = EquipoAuxiliar::whereRaw('UPPER(MARCA) like ?', [$mLike])->select('ID_AUXILIAR');
+            $query->where(function ($q) use ($eqSub, $auxSub) {
+                $q->where(fn($i) => $i->where('ACTIVO_TIPO','equipo')->whereIn('ACTIVO_ID',$eqSub))
+                  ->orWhere(fn($i) => $i->where('ACTIVO_TIPO','equipo_auxiliar')->whereIn('ACTIVO_ID',$auxSub));
             });
         }
 
         // Modelo
         if ($request->filled('modelo')) {
             $moLike = '%' . mb_strtoupper(trim($request->modelo)) . '%';
-            $eqIds  = Equipo::whereRaw('UPPER(MODELO) like ?', [$moLike])->pluck('ID_EQUIPO')->toArray();
-            $auxIds = EquipoAuxiliar::whereRaw('UPPER(MODELO) like ?', [$moLike])->pluck('ID_AUXILIAR')->toArray();
-            $query->where(function ($q) use ($eqIds, $auxIds) {
-                $q->where(fn($i) => $i->where('ACTIVO_TIPO','equipo')->whereIn('ACTIVO_ID',$eqIds ?: [0]))
-                  ->orWhere(fn($i) => $i->where('ACTIVO_TIPO','equipo_auxiliar')->whereIn('ACTIVO_ID',$auxIds ?: [0]));
+            $eqSub  = Equipo::whereRaw('UPPER(MODELO) like ?', [$moLike])->select('ID_EQUIPO');
+            $auxSub = EquipoAuxiliar::whereRaw('UPPER(MODELO) like ?', [$moLike])->select('ID_AUXILIAR');
+            $query->where(function ($q) use ($eqSub, $auxSub) {
+                $q->where(fn($i) => $i->where('ACTIVO_TIPO','equipo')->whereIn('ACTIVO_ID',$eqSub))
+                  ->orWhere(fn($i) => $i->where('ACTIVO_TIPO','equipo_auxiliar')->whereIn('ACTIVO_ID',$auxSub));
             });
         }
 
         // Frente
         if ($request->filled('id_frente')) {
             $frId   = (int) $request->id_frente;
-            $eqIds  = Equipo::where('ID_FRENTE_ACTUAL', $frId)->pluck('ID_EQUIPO')->toArray();
-            $auxIds = EquipoAuxiliar::where('ID_FRENTE_ACTUAL', $frId)->pluck('ID_AUXILIAR')->toArray();
-            $query->where(function ($q) use ($eqIds, $auxIds) {
-                $q->where(fn($i) => $i->where('ACTIVO_TIPO','equipo')->whereIn('ACTIVO_ID',$eqIds ?: [0]))
-                  ->orWhere(fn($i) => $i->where('ACTIVO_TIPO','equipo_auxiliar')->whereIn('ACTIVO_ID',$auxIds ?: [0]));
+            $eqSub  = Equipo::where('ID_FRENTE_ACTUAL', $frId)->select('ID_EQUIPO');
+            $auxSub = EquipoAuxiliar::where('ID_FRENTE_ACTUAL', $frId)->select('ID_AUXILIAR');
+            $query->where(function ($q) use ($eqSub, $auxSub) {
+                $q->where(fn($i) => $i->where('ACTIVO_TIPO','equipo')->whereIn('ACTIVO_ID',$eqSub))
+                  ->orWhere(fn($i) => $i->where('ACTIVO_TIPO','equipo_auxiliar')->whereIn('ACTIVO_ID',$auxSub));
             });
         }
 
@@ -171,7 +181,9 @@ class FallaController extends Controller
             return response()->json([
                 'html'       => view('admin.fallas.partials.table_rows', compact('fallas'))->render(),
                 'stats'      => $stats,
-                'pagination' => $fallas->links('vendor.pagination.custom-sliding')->toHtml(),
+                // appends(query): los enlaces del paginador conservan los filtros activos (mismo
+                // criterio que MovilizacionController). Sin esto, "página 2" apuntaba al set sin filtrar.
+                'pagination' => $fallas->appends($request->query())->links('vendor.pagination.custom-sliding')->toHtml(),
             ]);
         }
 

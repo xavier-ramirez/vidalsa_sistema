@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * Pedido de Traspaso entre dos almacenes — cabecera.
@@ -58,6 +59,19 @@ class Traspaso extends Model
 
     /** Fallback cuando el ESTADO no figura en ESTADOS_META (defensivo, igual que TIPO_META_DEFAULT). */
     public const ESTADO_META_DEFAULT = ['—', '#f1f5f9', '#64748b'];
+
+    /**
+     * Invalida el badge "por recibir" del menú (View Composer en AppServiceProvider,
+     * cacheado por usuario con la versión en la clave). Vive en booted() —mismo
+     * patrón que FrenteTrabajo— para que NINGUNA transición de estado futura
+     * olvide el bump: cualquier alta/cambio/borrado puede alterar el conteo.
+     */
+    protected static function booted(): void
+    {
+        $bump = static fn () => \App\Support\CacheVersion::bump('traspasos_badge_ver');
+        static::saved($bump);
+        static::deleted($bump);
+    }
 
     protected $fillable = [
         'NUMERO',

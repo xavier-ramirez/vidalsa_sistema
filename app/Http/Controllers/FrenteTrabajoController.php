@@ -43,20 +43,36 @@ class FrenteTrabajoController extends Controller
     /**
      * Autocomplete de frentes para los formularios de OTROS módulos
      * (equipos/usuarios/almacén). Lo consume uicomponents.js → performFrentesFetch
-     * vía GET /admin/frentes/buscar?query=. Devuelve un array [{ID_FRENTE, NOMBRE_FRENTE}]
-     * (mismo set que el dropdown precargado de create(), pero filtrado por nombre).
+     * vía GET /admin/frentes/buscar?query=. Devuelve un array
+     * [{ID_FRENTE, NOMBRE_FRENTE, UBICACION}] (mismo set que el dropdown
+     * precargado de create(), pero filtrado por nombre).
+     *
+     * ?activos=1 — variante para REFRESCAR los modales de movilización al abrirse
+     * (equipos_index.js::refrescarFrentesMovilizacion): mismo universo que la
+     * lista server-render de esos modales (solo ACTIVO + scope de frentes del
+     * usuario) y sin recorte por query. Sin este refresh, un frente creado
+     * después de cargar la página no aparecía en el modal hasta recargar.
      */
     public function search(Request $request)
     {
-        $query = trim((string) $request->input('query', ''));
+        $query   = trim((string) $request->input('query', ''));
+        $activos = $request->boolean('activos');
 
-        $frentes = FrenteTrabajo::select('ID_FRENTE', 'NOMBRE_FRENTE')
-            ->when($query !== '', fn ($q) => $q->where('NOMBRE_FRENTE', 'like', "%{$query}%"))
-            ->orderBy('NOMBRE_FRENTE')
-            ->limit(50)
-            ->get();
+        $q = FrenteTrabajo::select('ID_FRENTE', 'NOMBRE_FRENTE', 'UBICACION')
+            ->when($query !== '', fn ($qq) => $qq->where('NOMBRE_FRENTE', 'like', "%{$query}%"))
+            ->orderBy('NOMBRE_FRENTE');
 
-        return response()->json($frentes);
+        if ($activos) {
+            $q->where('ESTATUS_FRENTE', 'ACTIVO');
+            if ($user = auth()->user()) {
+                $user->aplicarScopeFrentesEquipos($q, 'ID_FRENTE');
+            }
+            $q->limit(300); // lista completa para el modal (no es autocomplete)
+        } else {
+            $q->limit(50);
+        }
+
+        return response()->json($q->get());
     }
 
     /**

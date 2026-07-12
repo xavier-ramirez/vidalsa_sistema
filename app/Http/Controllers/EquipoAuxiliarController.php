@@ -544,8 +544,8 @@ class EquipoAuxiliarController extends Controller
      */
     /**
      * Consolidado (TOTAL / Operativos / Inoperativos) de AUXILIARES dentro del
-     * scope de frentes del usuario. Ligero (solo 3 COUNT, sin cargar filas) para
-     * pintar el panel "Consolidado de Equipos Auxiliares" en /admin/equipos.
+     * scope de frentes del usuario. Ligero (UN solo agregado SUM(CASE), sin cargar
+     * filas) para pintar el panel "Consolidado de Equipos Auxiliares" en /admin/equipos.
      * Mismas claves que el consolidado de equipos (total/activos/inactivos).
      */
     public function consolidadoStats(Request $request): array
@@ -563,26 +563,56 @@ class EquipoAuxiliarController extends Controller
         // igual que el Consolidado de equipos. El TIPO tampoco aplica al conteo de auxiliares.
         $base = EquipoAuxiliar::query();
         $this->applyAuxiliarFilters($base, $request, false, $isLocalUser, $frentesPermitidos, ['tipo', 'con_propiedad', 'con_certificado']);
-        $stats = [
-            'total'     => (clone $base)->count(),
-            'activos'   => (clone $base)->where('ESTADO_OPERATIVO', 'OPERATIVO')->count(),
-            'inactivos' => (clone $base)->where('ESTADO_OPERATIVO', 'INOPERATIVO')->count(),
-        ];
 
         // Modo documento: si hay un doc COMPARTIDO activo (propiedad/certificado) el card pasa a
         // mostrar TOTAL / Con [doc] / Sin [doc] (espejo de la card de equipos). doc_con+doc_sin =
-        // doc_total. Si están los dos, "Con" = tiene AMBOS (whereNotNull encadenado) y label genérico.
+        // doc_total. Si están los dos, "Con" = tiene AMBOS (condiciones AND) y label genérico.
+        // El desglose entra como predicados de columna en el MISMO agregado SUM(CASE)
+        // (antes 3-4 COUNTs clonados = 3-4 round-trips).
         $conProp = $request->boolean('con_propiedad');
         $conCert = $request->boolean('con_certificado');
+        $docConds = [];
+        if ($conProp) $docConds[] = "LINK_DOC_PROPIEDAD IS NOT NULL AND LINK_DOC_PROPIEDAD != ''";
+        if ($conCert) $docConds[] = "LINK_CERTIFICADO IS NOT NULL AND LINK_CERTIFICADO != ''";
+
+        $stats = $this->auxStatsAggregate($base, $docConds);
         if ($conProp || $conCert) {
-            $conDoc = clone $base;
-            if ($conProp) $conDoc->whereNotNull('LINK_DOC_PROPIEDAD')->where('LINK_DOC_PROPIEDAD', '!=', '');
-            if ($conCert) $conDoc->whereNotNull('LINK_CERTIFICADO')->where('LINK_CERTIFICADO', '!=', '');
             $stats['doc_mode']  = true;
             $stats['doc_label'] = ($conProp && $conCert) ? 'Documentos' : ($conProp ? 'Propiedad' : 'Certificado');
             $stats['doc_total'] = $stats['total'];
-            $stats['doc_con']   = $conDoc->count();
+            // doc_con lo trae el agregado (clave presente solo si hubo $docConds).
             $stats['doc_sin']   = max(0, $stats['doc_total'] - $stats['doc_con']);
+        }
+        return $stats;
+    }
+
+    /**
+     * Agregado ÚNICO del consolidado de auxiliares (TOTAL/Operativos/Inoperativos,
+     * opcionalmente doc_con) en un solo SUM(CASE) sobre el builder ya filtrado.
+     * Fuente única usada por consolidadoStats() y buildEmbedPayload() — sin esto
+     * cada uno mantenía su propia copia del selectRaw y podían divergir.
+     * $docConds: condiciones SQL (AND) para el desglose "Con documento".
+     */
+    private function auxStatsAggregate($base, array $docConds = []): array
+    {
+        $docSelect = $docConds
+            ? 'SUM(CASE WHEN ' . implode(' AND ', $docConds) . ' THEN 1 ELSE 0 END) as doc_con,'
+            : '';
+
+        $agg = $base->selectRaw("
+            COUNT(*) as total,
+            {$docSelect}
+            SUM(CASE WHEN ESTADO_OPERATIVO = 'OPERATIVO' THEN 1 ELSE 0 END) as activos,
+            SUM(CASE WHEN ESTADO_OPERATIVO = 'INOPERATIVO' THEN 1 ELSE 0 END) as inactivos
+        ")->first();
+
+        $stats = [
+            'total'     => (int) $agg->total,
+            'activos'   => (int) $agg->activos,
+            'inactivos' => (int) $agg->inactivos,
+        ];
+        if ($docConds) {
+            $stats['doc_con'] = (int) $agg->doc_con;
         }
         return $stats;
     }
@@ -676,7 +706,18 @@ class EquipoAuxiliarController extends Controller
 
         $PAGE_SIZE = 150;
         $offset = max(0, (int) $request->input('offset', 0));
-        $totalFound = (clone $query)->count();
+
+        // ── Consolidado (TOTAL / Operativos / Inoperativos) del tipo+frente+busqueda
+        // actuales, en UN solo agregado SUM(CASE) con los MISMOS filtros que $query:
+        // 'total' sirve también para la paginación (antes: 1 COUNT para paginar +
+        // 3 COUNTs clonados para el consolidado). Usa las MISMAS claves que el
+        // Consolidado de equipos (total/activos/inactivos) para que la vista y el
+        // JS lo pinten sin cambios. ──
+        $statsBase = EquipoAuxiliar::query();
+        $this->applyAuxiliarFilters($statsBase, $request, $bypassScope, $isLocalUser, $frentesPermitidos);
+        $stats = $this->auxStatsAggregate($statsBase);
+
+        $totalFound = $stats['total'];
         $auxiliares = $query->orderByDesc('created_at')->offset($offset)->limit($PAGE_SIZE)->get();
         $nextOffset = $offset + $auxiliares->count();
         $hasMore = $nextOffset < $totalFound;
@@ -688,17 +729,6 @@ class EquipoAuxiliarController extends Controller
         foreach ($auxiliares as $aux) {
             $auxDetailsMap[$aux->ID_AUXILIAR] = $this->buildAuxDetailsArray($aux, $tipos);
         }
-
-        // ── Consolidado (TOTAL / Operativos / Inoperativos) del tipo+frente+busqueda
-        // actuales. Usa las MISMAS claves que el Consolidado de equipos
-        // (total/activos/inactivos) para que la vista y el JS lo pinten sin cambios. ──
-        $statsBase = EquipoAuxiliar::query();
-        $this->applyAuxiliarFilters($statsBase, $request, $bypassScope, $isLocalUser, $frentesPermitidos);
-        $stats = [
-            'total'     => (clone $statsBase)->count(),
-            'activos'   => (clone $statsBase)->where('ESTADO_OPERATIVO', 'OPERATIVO')->count(),
-            'inactivos' => (clone $statsBase)->where('ESTADO_OPERATIVO', 'INOPERATIVO')->count(),
-        ];
 
         // ── Distribución (por TIPO; y por FRENTE si hay tipo sin frente) — fuente ÚNICA en
         // buildAuxDistribucion (compartida con el toggle de la card en /admin/equipos). ──

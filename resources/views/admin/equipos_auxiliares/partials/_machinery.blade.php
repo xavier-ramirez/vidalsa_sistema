@@ -1026,6 +1026,13 @@
         const pdfChk = document.getElementById('auxMovilizarGenerarPdf');
         if (pdfChk) pdfChk.checked = false;
 
+        // Sumar a #auxMovilizarList los frentes creados DESPUÉS de cargar la página
+        // (helper compartido de equipos_index.js; sin él, un frente nuevo salía en
+        // el filtro pero no aquí hasta recargar). Async: la lista se completa sola.
+        if (typeof window.refrescarFrentesMovilizacion === 'function') {
+            window.refrescarFrentesMovilizacion();
+        }
+
         modal.classList.add('active');
         document.body.style.overflow = 'hidden';
 

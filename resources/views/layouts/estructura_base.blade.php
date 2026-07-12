@@ -1122,8 +1122,23 @@
                 window.addEventListener('offline', mostrarOffline);
                 window.addEventListener('online', function () {
                     sinConexion = false;
-                    offlineActivo = false;
                     if (action) action.style.display = 'none';
+                    // Si se estaba TRABAJANDO en modo offline, el módulo quedó pintado
+                    // con la copia local y sus handlers en modo offline: sin esto la
+                    // pantalla se queda "congelada" en esa vista hasta que el usuario
+                    // adivine que debe recargar. Verificamos conexión REAL primero
+                    // (navigator.onLine miente en parpadeos de red) y recargamos: la
+                    // recarga restaura la vista de servidor — y si se entró con el
+                    // login offline (sin sesión de servidor), el redirect natural
+                    // lleva al login para reconectarse.
+                    if (offlineActivo) {
+                        showBanner('Conexión restaurada · actualizando…', 'wifi', '#16a34a', 0);
+                        fetch('/offline/version', { method: 'GET', cache: 'no-store', credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                            .then(function () { window.location.reload(); })
+                            .catch(function () { mostrarOffline(); }); // seguía sin servidor: volver al modo offline
+                        return;
+                    }
+                    offlineActivo = false;
                     showBanner('Conexión restaurada', 'wifi', '#16a34a', 2500);
                 });
                 // Si baja una copia nueva mientras se trabaja offline, repintar el módulo
@@ -1345,7 +1360,9 @@
         <script
             src="{{ asset('js/maquinaria/mapa_index.js') }}?v={{ @filemtime(public_path('js/maquinaria/mapa_index.js')) }}"></script>
 
-        <script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
+        {{-- tom-select vendorizado (antes jsdelivr): un CDN lento/bloqueado retrasaba
+             la carga de los scripts siguientes (frentes_spa, consumibles_index). --}}
+        <script src="{{ asset('js/vendor/tom-select.complete.min.js') }}?v={{ @filemtime(public_path('js/vendor/tom-select.complete.min.js')) }}"></script>
         <script
             src="{{ asset('js/maquinaria/frentes_spa.js') }}?v={{ @filemtime(public_path('js/maquinaria/frentes_spa.js')) }}"></script>
         <script
@@ -2377,25 +2394,11 @@
                 xhr.send(formData);
             };
 
-            window.filterDropdownOptions = function (input) {
-                const filter = input.value.toUpperCase();
-                // Generic lookup relative to input
-                const wrapper = input.closest('.custom-dropdown');
-                if (!wrapper) return;
-                const container = wrapper.querySelector('.dropdown-item-list');
-                if (!container) return;
-
-                const items = container.getElementsByClassName('dropdown-item');
-
-                for (let i = 0; i < items.length; i++) {
-                    const txtValue = items[i].textContent || items[i].innerText;
-                    if (txtValue.toUpperCase().indexOf(filter) > -1) {
-                        items[i].style.display = "";
-                    } else {
-                        items[i].style.display = "none";
-                    }
-                }
-            };
+            // filterDropdownOptions se define UNA sola vez en uicomponents.js (versión que
+            // normaliza acentos y respeta el filtrado por frente 'eq-tipo-oculto' de Equipos).
+            // Antes se redefinía aquí una versión más pobre (solo toUpperCase, sin acentos ni
+            // eq-tipo-oculto) que, al cargar DESPUÉS del <script src>, PISABA a la buena — el
+            // filtro de Tipo de equipos re-mostraba tipos que el frente había ocultado.
 
             // Delete Document Logic
             window.confirmDeleteDocument = function (equipoId, docType, label) {

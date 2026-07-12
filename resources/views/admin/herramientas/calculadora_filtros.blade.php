@@ -3,7 +3,7 @@
 
 @section('content')
 {{-- Arial se usa por defecto, no se necesita importar fuente externa --}}
-<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script src="{{ asset('js/html2canvas.min.js') }}?v={{ @filemtime(public_path('js/html2canvas.min.js')) }}"></script>
 
 <style>
     * { box-sizing: border-box; }

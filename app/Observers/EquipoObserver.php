@@ -27,6 +27,13 @@ class EquipoObserver
     public function created(Equipo $equipo): void
     {
         $this->bustTipoCategoriaMap();
+        \App\Http\Controllers\DashboardController::bumpDataVersion();
+    }
+
+    public function deleted(Equipo $equipo): void
+    {
+        $this->bustTipoCategoriaMap();
+        \App\Http\Controllers\DashboardController::bumpDataVersion();
     }
 
     /**
@@ -39,6 +46,15 @@ class EquipoObserver
     {
         if ($equipo->wasChanged(['id_tipo_equipo', 'CATEGORIA_FLOTA'])) {
             $this->bustTipoCategoriaMap();
+        }
+
+        // El dashboard /menu (alertas, salud de flota, catálogos) se cachea por
+        // usuario con la versión en la clave: este bump lo refresca para TODOS.
+        // Solo si cambió una columna que el dashboard realmente pinta — sin este
+        // gate, cualquier edición menor (horómetro, observaciones) mataría la
+        // caché de todos los usuarios y el TTL de 10 min nunca sobreviviría.
+        if ($equipo->wasChanged(['ESTADO_OPERATIVO', 'ID_FRENTE_ACTUAL', 'MODELO', 'MARCA', 'ID_ANCLAJE'])) {
+            \App\Http\Controllers\DashboardController::bumpDataVersion();
         }
 
         try {

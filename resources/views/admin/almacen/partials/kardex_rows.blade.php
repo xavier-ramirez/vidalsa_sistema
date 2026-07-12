@@ -4,6 +4,15 @@
     $rows = $movimientos ?? collect();
     $fmt = fn ($n) => rtrim(rtrim(number_format((float) $n, 3, ',', '.'), '0'), ',') ?: '0';
     $tipoMeta = \App\Models\MovimientoInventario::TIPO_META;
+    // Pares almacén↔frente (pivote almacen_frentes) de los almacenes de esta página:
+    // deciden la etiqueta "(consumo interno)". Una SALIDA a un frente que el almacén
+    // SIRVE es consumo interno (aplica también a almacenes multi-proyecto, ej. Patio
+    // El Tigre: cualquiera de SUS frentes cuenta); a un frente ajeno es material que
+    // salió del ámbito del almacén — se muestra solo el nombre del frente, sin etiqueta.
+    $paresAlmFrente = \Illuminate\Support\Facades\DB::table('almacen_frentes')
+        ->whereIn('ID_ALMACEN', $rows->pluck('ID_ALMACEN')->filter()->unique())
+        ->get(['ID_ALMACEN', 'ID_FRENTE'])
+        ->mapWithKeys(fn ($p) => [$p->ID_ALMACEN . '-' . $p->ID_FRENTE => true]);
 @endphp
 
 @if($rows->count() === 0)
@@ -79,9 +88,10 @@
                         frente): SIEMPRE se muestra el nombre del frente — es el dato que el
                         cliente necesita para saber a quién se le entregó cada cosa, sin importar
                         cuántos frentes maneje el almacén. Si es una SALIDA pura (no
-                        TRASPASO_SALIDA, sin ID_ALMACEN_CONTRAPARTE) el material no viajó a otro
-                        almacén — se agrega la etiqueta "(consumo interno)" debajo, SIN ocultar el
-                        frente, para aclarar que fue consumido ahí mismo y no un traspaso.
+                        TRASPASO_SALIDA, sin ID_ALMACEN_CONTRAPARTE) hacia un frente que el
+                        almacén SIRVE ($paresAlmFrente), se agrega "(consumo interno)" debajo,
+                        SIN ocultar el frente. Si el frente NO es del almacén, la etiqueta se
+                        omite: el material salió del ámbito del almacén.
                      2) Almacén CONTRAPARTE (caso traspasos legacy o sin frente).
                      3) Almacén DEL MOVIMIENTO (caso STOCK INICIAL u otra ENTRADA en un almacén
                         sin frentes asignados — antes salía "—" sin info útil; ahora vemos al
@@ -89,8 +99,8 @@
                      4) "—" si por alguna razón nada de lo anterior está. --}}
                 @if($m->frente)
                     {{ $m->frente->NOMBRE_FRENTE }}
-                    @if($m->TIPO === 'SALIDA' && !$m->ID_ALMACEN_CONTRAPARTE)
-                        <div style="font-size:10.5px;color:#94a3b8;font-style:italic;margin-top:1px;" title="El material no salió de este almacén — fue consumido por el frente, no hubo traspaso">(consumo interno)</div>
+                    @if($m->TIPO === 'SALIDA' && !$m->ID_ALMACEN_CONTRAPARTE && isset($paresAlmFrente[$m->ID_ALMACEN . '-' . $m->ID_FRENTE]))
+                        <div style="font-size:10.5px;color:#94a3b8;font-style:italic;margin-top:1px;" title="El material no salió de este almacén — fue consumido por un frente que este almacén sirve, no hubo traspaso">(consumo interno)</div>
                     @endif
                 @elseif($m->ID_ALMACEN_CONTRAPARTE)
                     {{ $m->almacenContraparte?->NOMBRE ?? '—' }}

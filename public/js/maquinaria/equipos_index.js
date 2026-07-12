@@ -1718,7 +1718,7 @@ window.openUbicacionBulkModal = function (event) {
         </div>
     `;
 
-    // Keyframe comparte el `reimprimirIn` ya inyectado en index.blade; si no existe, inyectamos.
+    // Keyframe propio del modal (ubBulkIn), inyectado una sola vez.
     if (!document.getElementById('ub-keyframes')) {
         const st = document.createElement('style');
         st.id = 'ub-keyframes';
@@ -1833,6 +1833,63 @@ window.openUbicacionBulkModal = function (event) {
     overlay.querySelector('#ub-submit').onclick = doSubmit;
 };
 
+// ── Refresco de frentes de los modales de movilización ─────────────────────────
+// Las listas de frente de los modales (datalist #dynamicFrentesList del modal de
+// equipos y #auxMovilizarList del modal de auxiliares) vienen server-render: si se
+// crea un frente DESPUÉS de cargar la página (otra pestaña, otro usuario, o una
+// copia servida por el Service Worker), el modal no lo tiene hasta recargar.
+// Al ABRIR cada modal se pide la lista fresca (?activos=1 = mismo universo que el
+// server-render: ACTIVO + scope del usuario) y se AÑADEN los que falten, en orden
+// alfabético. Fire-and-forget: si la red falla queda la lista embebida.
+// onNuevos(nuevos[]) permite al modal de equipos sumar los frentes a su copia en
+// memoria (frentesData) sin re-abrir.
+window.refrescarFrentesMovilizacion = function (onNuevos) {
+    fetch('/admin/frentes/buscar?activos=1', { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
+        .then((r) => (r.ok && (r.headers.get('content-type') || '').includes('json')) ? r.json() : null)
+        .then((frentes) => {
+            if (!Array.isArray(frentes) || !frentes.length) return;
+            const nuevos = [];
+
+            const dl = document.getElementById('dynamicFrentesList');
+            if (dl) {
+                const ids = new Set(Array.from(dl.querySelectorAll('option')).map((o) => String(o.dataset.id)));
+                frentes.forEach((f) => {
+                    if (ids.has(String(f.ID_FRENTE))) return;
+                    const o = document.createElement('option');
+                    o.value = f.NOMBRE_FRENTE;
+                    o.dataset.id = f.ID_FRENTE;
+                    o.dataset.ubicacion = (f.UBICACION || '').trim();
+                    dl.appendChild(o); // el datalist no se muestra: el orden no importa
+                    nuevos.push({ nombre: f.NOMBRE_FRENTE, id: String(f.ID_FRENTE), ubicacion: (f.UBICACION || '').trim() });
+                });
+            }
+
+            const list = document.getElementById('auxMovilizarList');
+            const tpl = list && list.querySelector('.aux-mov-opt');
+            if (list && tpl) {
+                const ids = new Set(Array.from(list.querySelectorAll('.aux-mov-opt')).map((o) => String(o.dataset.id)));
+                frentes.forEach((f) => {
+                    if (ids.has(String(f.ID_FRENTE))) return;
+                    const lbl = String(f.NOMBRE_FRENTE || '').toUpperCase();
+                    // Clonar una opción existente conserva estilos/hover sin duplicar el markup del blade.
+                    const n = tpl.cloneNode(false);
+                    n.dataset.id = f.ID_FRENTE;
+                    n.dataset.label = lbl;
+                    n.dataset.ubicacion = (f.UBICACION || '').trim();
+                    n.textContent = lbl;
+                    n.style.display = '';
+                    n.setAttribute('onmousedown', "event.preventDefault(); auxMovSelect(" + Number(f.ID_FRENTE) + ", '" + lbl.replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "');");
+                    // Insertar en orden alfabético (la lista SÍ se muestra ordenada).
+                    const sig = Array.from(list.querySelectorAll('.aux-mov-opt')).find((o) => (o.dataset.label || '') > lbl);
+                    list.insertBefore(n, sig || null);
+                });
+            }
+
+            if (nuevos.length && typeof onNuevos === 'function') onNuevos(nuevos);
+        })
+        .catch(() => {});
+};
+
 window.openBulkModal = function (event) {
     if (event) {
         event.preventDefault();
@@ -1886,6 +1943,12 @@ window.openBulkModal = function (event) {
             if (nombre) frentesData.push({ nombre, id, ubicacion });
         });
     }
+    // Refresco async: si hay frentes creados DESPUÉS de cargar la página, se suman
+    // al datalist y a frentesData en cuanto respondan — la lista del buscador se
+    // repinta sola en el próximo input/focus del usuario.
+    window.refrescarFrentesMovilizacion(function (nuevos) {
+        nuevos.forEach(function (f) { frentesData.push(f); });
+    });
 
     // 5. Create Overlay
     const overlay = document.createElement("div");
@@ -2450,8 +2513,8 @@ window._mostrarVistaPreviaActa = async function (actaState, onConfirm, opts) {
     // ── Render del PDF en TELÉFONO con PDF.js ───────────────────────────────────
     // Los navegadores móviles no renderizan PDF embebido en <iframe>, así que en
     // teléfono/tablet dibujamos el PDF en <canvas> con PDF.js (mismo enfoque que la
-    // vista previa del módulo de inventario). PDF.js se carga del CDN solo la 1ª vez
-    // y queda cacheado en window para no recargarlo en aperturas posteriores.
+    // vista previa del módulo de inventario). PDF.js se carga LOCAL (vendorizado,
+    // antes jsdelivr) solo la 1ª vez y queda cacheado en window para no recargarlo.
     function esMovilPdf() {
         return window.innerWidth <= 768 || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
     }
@@ -2460,9 +2523,12 @@ window._mostrarVistaPreviaActa = async function (actaState, onConfirm, opts) {
         if (window._equiposPdfJsPromise) return window._equiposPdfJsPromise;
         window._equiposPdfJsPromise = new Promise(function (resolve, reject) {
             var s = document.createElement('script');
-            s.src = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js';
+            // Versión EN el nombre del archivo: nginx sirve /js/* con caché
+            // inmutable de 1 año, así que al actualizar la librería hay que
+            // renombrar ambos archivos (lib y worker SIEMPRE de la misma versión).
+            s.src = '/js/vendor/pdf-3.11.174.min.js';
             s.onload = function () {
-                try { window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js'; } catch (e) {}
+                try { window.pdfjsLib.GlobalWorkerOptions.workerSrc = '/js/vendor/pdf.worker-3.11.174.min.js'; } catch (e) {}
                 resolve();
             };
             s.onerror = function () { window._equiposPdfJsPromise = null; reject(new Error('No se pudo cargar el visor de PDF.')); };

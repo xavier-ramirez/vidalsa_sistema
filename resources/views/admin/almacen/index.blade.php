@@ -3123,7 +3123,7 @@
     function almCargarQrLib() {
         if (typeof Html5Qrcode !== 'undefined') return Promise.resolve(true);
         if (almQrLibPromise) return almQrLibPromise;
-        var local = @json(asset('js/vendor/html5-qrcode.min.js'));
+        var local = @json(asset('js/vendor/html5-qrcode.min.js') . '?v=' . @filemtime(public_path('js/vendor/html5-qrcode.min.js')));
         var cdn   = 'https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js';
         almQrLibPromise = new Promise(function (resolve) {
             function load(src, next) {
@@ -4364,17 +4364,20 @@
     // ── Vista previa del PDF en TELÉFONO con PDF.js ─────────────────────────────
     // Los navegadores móviles no renderizan PDF embebido en <iframe>. Para que el
     // usuario VEA el diseño de la Nota en el teléfono, dibujamos el PDF en <canvas>
-    // con PDF.js. La librería (UMD) se carga desde CDN solo la 1ª vez que se usa,
-    // así no penaliza la carga normal del módulo.
+    // con PDF.js. La librería (UMD, vendorizada local — antes jsdelivr) se carga
+    // solo la 1ª vez que se usa, así no penaliza la carga normal del módulo.
     var _almPdfJsPromise = null;
     function almEnsurePdfJs() {
         if (window.pdfjsLib) return Promise.resolve();
         if (_almPdfJsPromise) return _almPdfJsPromise;
         _almPdfJsPromise = new Promise(function (resolve, reject) {
             var s = document.createElement('script');
-            s.src = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js';
+            // Versión EN el nombre del archivo: nginx sirve /js/* con caché
+            // inmutable de 1 año, así que al actualizar la librería hay que
+            // renombrar ambos archivos (lib y worker SIEMPRE de la misma versión).
+            s.src = '/js/vendor/pdf-3.11.174.min.js';
             s.onload = function () {
-                try { window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js'; } catch (e) {}
+                try { window.pdfjsLib.GlobalWorkerOptions.workerSrc = '/js/vendor/pdf.worker-3.11.174.min.js'; } catch (e) {}
                 resolve();
             };
             s.onerror = function () { _almPdfJsPromise = null; reject(new Error('No se pudo cargar el visor de PDF.')); };

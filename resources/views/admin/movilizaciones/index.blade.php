@@ -211,9 +211,12 @@
 
             </div>{{-- /mv-search-adv-row --}}
 
-            <!-- Botón Acciones -->
+            {{-- Botón Acciones — solo super.admin: su único ítem (Eliminar seleccionados)
+                 lo es. "Reimprimir Acta" se eliminó (pedido del cliente); sin este @can,
+                 el resto de usuarios vería un menú vacío. --}}
+            @can('super.admin')
             <div class="filter-item aligned-filter mv-acciones-btn-container" style="position: relative; width: auto; flex: 0 0 auto; margin-left: auto;">
-                
+
                 <!-- Main Trigger Button -->
                 <button type="button" id="btnAccionesMov" class="btn-primary-maquinaria" style="padding: 0 15px; height: 45px; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);" onclick="window.toggleAccionesMov(event);">
                     <i class="material-icons" style="font-size: 18px;">settings</i>
@@ -223,19 +226,7 @@
 
                 <!-- Dropdown Menu -->
                 <div id="splitDropdownMenuMov" style="display: none; position: absolute; top: calc(100% + 5px); right: 0; min-width: 240px; background: #e2e8f0; border: 1px solid #cbd5e1; border-radius: 10px; box-shadow: 0 10px 20px -5px rgba(15, 23, 42, 0.18); z-index: 50; overflow: hidden; animation: slideDown 0.2s ease-out;">
-                    {{-- Reimprimir Acta: disponible para cualquier usuario autenticado --}}
                     <div style="padding: 6px;">
-                        <button type="button"
-                            onclick="document.getElementById('splitDropdownMenuMov').style.display='none'; window.openReimprimirActaModal();"
-                            style="width: 100%; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 6px; border: none; background: transparent; color: #475569; font-size: 13px; font-weight: 700; cursor: pointer; text-align: left; transition: background 0.15s;"
-                            onmouseover="this.style.background='#cbd5e1'" onmouseout="this.style.background='transparent'">
-                            <div style="background:#e0f2fe;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;line-height:1;color:#0284c7;">print</i></div>
-                            <span>Reimprimir Acta</span>
-                        </button>
-                    </div>
-
-                    @can('super.admin')
-                    <div style="padding: 6px; border-top: 1px solid #cbd5e1;">
                         <button type="button"
                             onclick="document.getElementById('splitDropdownMenuMov').style.display='none'; window._eliminarSeleccionados();"
                             style="width: 100%; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 6px; border: none; background: transparent; color: #475569; font-size: 13px; font-weight: 700; cursor: pointer; text-align: left; transition: background 0.15s;"
@@ -244,10 +235,9 @@
                             <span>Eliminar seleccionados</span>
                         </button>
                     </div>
-
-                    @endcan
                 </div>
             </div>
+            @endcan
 
         </div>
 
@@ -463,162 +453,8 @@ window.movDeshacer = function (id) {
 </script>
 @endcan
 
-{{-- ═════════════════════════════════════════════════════════════════
-     MODAL: REIMPRIMIR ACTA POR CODIGO
-     Ingresa el N° de Operación (CODIGO_CONTROL) y descarga el PDF.
-═════════════════════════════════════════════════════════════════ --}}
-<div id="reimprimirActaOverlay"
-     style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.55); backdrop-filter: blur(3px); z-index:10000; align-items:center; justify-content:center; padding:20px;"
-     onclick="if(event.target===this) window.closeReimprimirActaModal()">
-    <div style="background:white; width:100%; max-width:440px; border-radius:16px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.35); overflow:hidden; animation:reimprimirIn 0.22s cubic-bezier(0.16,1,0.3,1);">
-        <!-- Header (misma paleta que el modal de Anclaje/Ubicacion: #1e293b solido) -->
-        <div style="background:#1e293b; padding:10px 16px; color:white; position:relative;">
-            <div style="display:flex; flex-direction:column; align-items:center; gap:2px; text-align:center;">
-                <div style="display:flex; align-items:center; gap:6px;">
-                    <i class="material-icons" style="font-size:20px;">print</i>
-                    <h2 style="margin:0; font-size:15px; font-weight:800;">Reimprimir Acta de Traslado</h2>
-                </div>
-            </div>
-            <button type="button" onclick="window.closeReimprimirActaModal()" aria-label="Cerrar"
-                style="background:rgba(255,255,255,0.15); border:none; color:white; width:28px; height:28px; border-radius:8px; display:flex; align-items:center; justify-content:center; cursor:pointer; position:absolute; top:10px; right:12px;">
-                <i class="material-icons" style="font-size:16px;">close</i>
-            </button>
-        </div>
-        <!-- Body -->
-        <div style="padding:16px 20px; display:flex; flex-direction:column; gap:12px;">
-            <div>
-                <label for="reimprimirCodigoInput" style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">
-                    <i class="material-icons" style="font-size:14px; vertical-align:middle; margin-right:2px; color:#1e293b;">tag</i>
-                    N° de Operación
-                </label>
-                <div id="reimprimirInputBox"
-                     style="display:flex; align-items:center; border:2px solid #e2e8f0; border-radius:8px; background:white; overflow:hidden; transition:border-color 0.2s, box-shadow 0.2s;">
-                    <i class="material-icons" style="padding:0 8px; color:#94a3b8; font-size:18px; flex-shrink:0;">search</i>
-                    <input type="text" id="reimprimirCodigoInput"
-                        placeholder="Ej: 000125"
-                        autocomplete="off"
-                        style="flex:1; border:none; outline:none; padding:8px 6px; font-size:13px; background:transparent; letter-spacing:0.5px;"
-                        onkeydown="if(event.key==='Enter'){event.preventDefault(); window.submitReimprimirActa();}">
-                </div>
-            </div>
-
-            <div id="reimprimirFeedback" style="display:none; padding:8px 10px; border-radius:8px; font-size:12px; font-weight:600;"></div>
-
-            <div style="display:flex; gap:10px; justify-content:center; margin-top:2px;">
-                <button type="button" onclick="window.closeReimprimirActaModal()"
-                    style="padding:8px 16px; border-radius:8px; border:1px solid #e2e8f0; background:white; color:#475569; font-size:13px; font-weight:700; cursor:pointer;">
-                    Cancelar
-                </button>
-                <button type="button" id="reimprimirSubmitBtn" onclick="window.submitReimprimirActa()"
-                    style="padding:8px 16px; border-radius:8px; border:none; background:#1e293b; color:white; font-size:13px; font-weight:800; cursor:pointer; display:flex; align-items:center; gap:6px;">
-                    <i class="material-icons" style="font-size:16px;">check</i> Aceptar
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<style>
-@keyframes reimprimirIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
-#reimprimirInputBox:focus-within { border-color:#1e293b; box-shadow:0 0 0 3px rgba(30,41,59,0.15); }
-</style>
-
-<script>
-(function(){
-    if (window._reimprimirActaReady) return;
-    window._reimprimirActaReady = true;
-
-    const overlay = () => document.getElementById('reimprimirActaOverlay');
-    const input   = () => document.getElementById('reimprimirCodigoInput');
-    const fb      = () => document.getElementById('reimprimirFeedback');
-    const btn     = () => document.getElementById('reimprimirSubmitBtn');
-    const box     = () => document.getElementById('reimprimirInputBox');
-
-    function showFb(type, msg) {
-        const el = fb(); if (!el) return;
-        const colors = {
-            info:    { bg:'#e0f2fe', border:'#bae6fd', color:'#075985' },
-            error:   { bg:'#fee2e2', border:'#fecaca', color:'#b91c1c' },
-            success: { bg:'#dcfce7', border:'#bbf7d0', color:'#15803d' },
-        };
-        const c = colors[type] || colors.info;
-        el.style.cssText = 'display:block; padding:10px 12px; border-radius:8px; font-size:12.5px; font-weight:600; background:' + c.bg + '; border:1px solid ' + c.border + '; color:' + c.color + ';';
-        el.textContent = msg;
-    }
-
-    window.openReimprimirActaModal = function () {
-        const ov = overlay(); if (!ov) return;
-        ov.style.display = 'flex';
-        const i = input(); if (i) { i.value = ''; setTimeout(() => i.focus(), 80); }
-        const el = fb(); if (el) el.style.display = 'none';
-        const b = box(); if (b) b.style.borderColor = '#e2e8f0';
-        document.body.style.overflow = 'hidden';
-    };
-
-    window.closeReimprimirActaModal = function () {
-        const ov = overlay(); if (ov) ov.style.display = 'none';
-        document.body.style.overflow = '';
-    };
-
-    window.submitReimprimirActa = async function () {
-        const raw = (input() && input().value || '').trim();
-        if (!raw) {
-            const b = box(); if (b) b.style.borderColor = '#ef4444';
-            showFb('error', 'Ingresa un N° de Operación para continuar.');
-            if (input()) input().focus();
-            return;
-        }
-        const submitBtn = btn();
-        const originalHtml = submitBtn ? submitBtn.innerHTML : '';
-        if (submitBtn) { submitBtn.disabled = true; submitBtn.innerHTML = '<i class="material-icons" style="font-size:17px;animation:spin 1s linear infinite;">sync</i> Buscando...'; }
-        showFb('info', 'Buscando el acta con N° ' + raw + '…');
-        try {
-            const res = await fetch('/admin/movilizaciones/find-by-codigo?codigo=' + encodeURIComponent(raw), {
-                headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '' },
-            });
-            if (res.status === 404) {
-                showFb('error', 'No se encontró ninguna movilización con ese N° de Operación.');
-                const b = box(); if (b) b.style.borderColor = '#ef4444';
-                return;
-            }
-            if (!res.ok) {
-                const errData = await res.json().catch(() => ({}));
-                showFb('error', errData.message || ('Error del servidor (' + res.status + ').'));
-                return;
-            }
-            const data = await res.json();
-            if (!data.success || !data.id) {
-                showFb('error', data.message || 'Respuesta inválida del servidor.');
-                return;
-            }
-            showFb('success', 'Acta encontrada. Abriendo visor…');
-            // Abrir en el visor modal global (#pdfPreviewModal) — el endpoint
-            // responde con Content-Disposition: inline; openPdfPreview lo carga
-            // en el iframe. Fallback: si la funcion no esta cargada, navegar
-            // directo a la URL (el browser abrira/descargara segun config).
-            const url = '/admin/movilizaciones/' + data.id + '/acta-traslado';
-            const label = 'Acta de Traslado MV-' + String(raw).replace(/^MV-/i, '').padStart(5, '0');
-            window.closeReimprimirActaModal();
-            if (typeof window.openPdfPreview === 'function') {
-                window.openPdfPreview(url, 'acta_traslado', label, 0, '', true, 'movilizaciones');
-            } else {
-                window.open(url, '_blank');
-            }
-        } catch (err) {
-            console.error('[Reimprimir Acta]', err);
-            showFb('error', 'No se pudo contactar al servidor. Intenta de nuevo.');
-        } finally {
-            if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = originalHtml; }
-        }
-    };
-
-    // Escape cierra el modal
-    document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape' && overlay() && overlay().style.display === 'flex') {
-            window.closeReimprimirActaModal();
-        }
-    });
-})();
-</script>
+{{-- El modal "Reimprimir Acta" se eliminó junto con su botón del menú Acciones
+     (pedido del cliente). El acta de una movilización se sigue abriendo desde
+     la fila de la tabla (icono PDF). --}}
 
 @endsection

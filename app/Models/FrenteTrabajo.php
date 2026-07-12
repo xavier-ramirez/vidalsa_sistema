@@ -18,6 +18,7 @@ class FrenteTrabajo extends Model
      *   (EquipoController::create lo cachea 1h). Un frente creado por una movilización
      *   a frente nuevo no aparecia ahi hasta que expiraba la cache.
      * - Generacion de la plantilla bulk (forzar regenerar el XLSX cacheado).
+     * - Dashboard /menu (el modal de Recepción Directa lista los frentes activos).
      */
     protected static function booted(): void
     {
@@ -30,6 +31,7 @@ class FrenteTrabajo extends Model
             } else {
                 Cache::increment('bulk_template_gen');
             }
+            \App\Http\Controllers\DashboardController::bumpDataVersion();
         };
         static::saved($bust);
         static::deleted($bust);

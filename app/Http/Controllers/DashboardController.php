@@ -9,20 +9,37 @@ use App\Models\CaracteristicaModelo;
 
 class DashboardController extends Controller
 {
+    /**
+     * Versión de los datos cacheados del dashboard. La incrementan los observers
+     * de Equipo/Documentacion, FrenteTrabajo::booted Y los mass-updates por query
+     * builder (whereIn->update / saveQuietly, que NO disparan observers — esos
+     * sitios llaman bumpDataVersion() explícitamente). Al ir la versión EN la
+     * clave, el bump invalida la caché de TODOS los usuarios a la vez (el
+     * Cache::forget per-user de antes solo limpiaba la del usuario que editaba,
+     * por eso el TTL tenía que ser de 1 minuto).
+     */
+    public const DATA_VER_KEY = 'dashboard_data_ver';
+
+    public static function bumpDataVersion(): void
+    {
+        \App\Support\CacheVersion::bump(self::DATA_VER_KEY);
+    }
+
     public function index()
     {
         $user      = auth()->user();
-        // null = ve todos (GLOBAL) | [] = local sin frentes | [ids] (Usuario::frentesVisiblesIds).
+        // null = ve todos (GLOBAL) | [] = local sin frentes | [ids] (Usuario::frentesVisiblesEquiposIds).
         $frentesVisibles = $user ? $user->frentesVisiblesEquiposIds() : [];
         // Lista negra (se resta SIEMPRE, también a GLOBAL).
         $frentesBloqueados = $user ? $user->getFrentesBloqueadosIds() : [];
         $userId    = $user ? $user->ID_USUARIO : 'guest';
 
-        // Ensure each user has their own cache key to avoid leaking data between users
-        $cacheKey = "dashboard_user_data_{$userId}";
+        // Clave por usuario (los datos van acotados a sus frentes) + versión
+        // global (ver DATA_VER_KEY): TTL largo sin sacrificar frescura.
+        $ver = \App\Support\CacheVersion::current(self::DATA_VER_KEY);
+        $cacheKey = "dashboard_user_data_{$userId}_v{$ver}";
 
-        // Cache the dashboard logic to improve speed
-        $data = \Illuminate\Support\Facades\Cache::remember($cacheKey, now()->addMinutes(1), function () use ($frentesVisibles, $frentesBloqueados) {
+        $data = \Illuminate\Support\Facades\Cache::remember($cacheKey, now()->addMinutes(10), function () use ($frentesVisibles, $frentesBloqueados) {
             // 1. Pending Mobilizations (disabled since transit is instant)
             $pendientes = 0;
 
@@ -55,12 +72,11 @@ class DashboardController extends Controller
                 ->get();
 
             // Garantizar que la MARCA se obtenga incluso si este ID_ESPEC no tiene equipos asignados directamente
+            $marcasFallback = $this->marcasPorModelo($catalogosDestacados);
             foreach ($catalogosDestacados as $cat) {
-                if ($cat->equipos->isNotEmpty()) {
-                    $cat->marca_calculada = $cat->equipos->first()->MARCA;
-                } else {
-                    $cat->marca_calculada = Equipo::where('MODELO', $cat->MODELO)->value('MARCA');
-                }
+                $cat->marca_calculada = $cat->equipos->isNotEmpty()
+                    ? $cat->equipos->first()->MARCA
+                    : ($marcasFallback[mb_strtoupper(trim((string) $cat->MODELO))] ?? null);
             }
 
             return compact(
@@ -96,10 +112,11 @@ class DashboardController extends Controller
             ->get();
 
         $payload = [];
+        $marcasFallback = $this->marcasPorModelo($destacados);
         foreach ($destacados as $cat) {
             $marca = $cat->equipos->isNotEmpty()
                 ? $cat->equipos->first()->MARCA
-                : Equipo::where('MODELO', $cat->MODELO)->value('MARCA');
+                : ($marcasFallback[mb_strtoupper(trim((string) $cat->MODELO))] ?? null);
 
             // Extraer el Drive file ID del FOTO_REFERENCIAL — mismo parsing
             // que hace menu.blade.php:897-899.
@@ -118,6 +135,30 @@ class DashboardController extends Controller
         }
 
         return response()->json($payload);
+    }
+
+    /**
+     * MARCA de fallback por MODELO para los catálogos SIN equipos ligados
+     * directamente, en UNA sola consulta whereIn (antes: un Equipo::where()
+     * ->value() POR catálogo dentro del loop = N+1). Devuelve [MODELO => MARCA].
+     * Usado por index() y mobileCatalogosDestacados().
+     */
+    private function marcasPorModelo($catalogos): array
+    {
+        $modelos = $catalogos->filter(fn ($c) => $c->equipos->isEmpty())
+            ->pluck('MODELO')->filter()->unique()->values();
+        if ($modelos->isEmpty()) {
+            return [];
+        }
+        // Claves normalizadas (MAYÚSCULAS + trim): el WHERE de SQL compara con
+        // collation case-insensitive pero el lookup del array PHP es byte a byte —
+        // sin normalizar, un catálogo 'Cat 320D' no encontraría equipos 'CAT 320D'.
+        return Equipo::whereIn('MODELO', $modelos)
+            ->whereNotNull('MARCA')
+            ->where('MARCA', '!=', '')
+            ->pluck('MARCA', 'MODELO')
+            ->mapWithKeys(fn ($marca, $modelo) => [mb_strtoupper(trim((string) $modelo)) => $marca])
+            ->toArray();
     }
 
     /**
@@ -386,10 +427,9 @@ class DashboardController extends Controller
 
         $doc->$frenteField = $frentes[0];
         $doc->$fechaField  = now();
+        // El save dispara DocumentacionObserver::updated → bumpDataVersion():
+        // invalida el dashboard cacheado de TODOS los usuarios, no solo este.
         $doc->save();
-
-        // Limpiar caché del dashboard del usuario que inicia la gestión
-        \Illuminate\Support\Facades\Cache::forget('dashboard_user_data_' . $user->ID_USUARIO);
 
         return response()->json(['success' => true, 'message' => 'Gestión iniciada correctamente.']);
     }
@@ -406,8 +446,14 @@ class DashboardController extends Controller
             $nombreFrente = $user->frenteAsignado ? $user->frenteAsignado->NOMBRE_FRENTE : 'Sin Frente Asignado';
             $fechaEmision = \Carbon\Carbon::now()->locale('es')->isoFormat('DD [de] MMMM [de] YYYY - HH:mm');
 
-            // Get alerts list
-            $alertsList = $this->generateAlertsList();
+            // Get alerts list — ACOTADA a los frentes visibles del usuario y restando su lista
+            // negra, igual que index() y getAlertsHtml(). Sin estos argumentos, generateAlertsList()
+            // usaba su default ($frenteIds=null = ve TODOS los frentes), así que un usuario LOCAL
+            // exportaba el PDF con los documentos de frentes que no le corresponden.
+            $alertsList = $this->generateAlertsList(
+                $user ? $user->frentesVisiblesEquiposIds() : [],
+                $user ? $user->getFrentesBloqueadosIds() : []
+            );
             
             // Separar por estado y ordenar cada tabla AGRUPANDO por frente: todas las filas
             // de un mismo frente quedan juntas (p. ej. primero todo PATIO MATURIN, luego el

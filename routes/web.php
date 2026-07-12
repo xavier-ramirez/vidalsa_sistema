@@ -19,8 +19,11 @@ Route::get('/preview/error/{code}', function (string $code) {
 // Service Worker con CACHE_VERSION dinámico: cada deploy cambia el filemtime del
 // sw.js → nuevo nombre de cache → activate purga los caches viejos automáticamente.
 // Sin esto __CACHE_VERSION__ queda literal y los caches nunca se invalidan.
+// La plantilla vive en resources/ (FUERA del docroot) a propósito: si estuviera
+// en public/, cualquier servidor que sirva estáticos antes que Laravel (nginx,
+// Apache, Caddy) la entregaría cruda con el placeholder sin reemplazar.
 Route::get('/sw.js', function () {
-    $path    = public_path('sw.js');
+    $path    = resource_path('sw.js');
     $version = (string) filemtime($path);
     $content = str_replace('__CACHE_VERSION__', $version, file_get_contents($path));
     return response($content, 200)
@@ -157,7 +160,6 @@ Route::middleware(['auth'])->group(function () {
             // (override de origen/firmas) hechas en la vista previa. La descarga normal
             // del historial sigue usando el GET de arriba (sin overrides).
             Route::post('movilizaciones/{id}/acta-traslado', [App\Http\Controllers\MovilizacionController::class, 'generarActaTraslado'])->name('movilizaciones.actaTrasladoEdit');
-            Route::get('movilizaciones/find-by-codigo', [App\Http\Controllers\MovilizacionController::class, 'findByCodigoControl'])->name('movilizaciones.findByCodigo');
             // Vista previa del acta desde el borrador del modal (sin commitear). El registro
             // real lo hace equipos/bulk-mobilize al confirmar en la vista previa.
             Route::post('movilizaciones/preview-acta', [App\Http\Controllers\MovilizacionController::class, 'previewActaLote'])->name('movilizaciones.previewActa');

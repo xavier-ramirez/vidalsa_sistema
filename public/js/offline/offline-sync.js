@@ -212,24 +212,36 @@
         }
     }
 
-    // ── Disparadores automáticos ───────────────────────────────────────────────
-    // Al cargar la app (con internet): asegura una copia fresca sin bloquear el render.
-    // PRIMERA VEZ (recién iniciada la sesión, aún sin copia local) → baja de una
-    // para que el offline quede listo cuanto antes. Cargas siguientes → cuando el
-    // navegador esté ocioso. Siempre en segundo plano (sync es async/no-bloqueante,
-    // la bajada usa priority:'low' y falla en silencio conservando la última copia).
-    if (navigator.onLine) {
+    // ¿Conexión demasiado lenta para el snapshot (varios MB)? En 2G una descarga
+    // de REFRESCO acapararía el ancho de banda de la página que el usuario está
+    // abriendo; se salta y quedan los reintentos del intervalo/evento 'online'.
+    function conexionMuyLenta() {
+        const t = navigator.connection && navigator.connection.effectiveType;
+        return typeof t === 'string' && /(^|-)2g$/.test(t);
+    }
+
+    // ── Disparadores automáticos (punto ÚNICO) ─────────────────────────────────
+    // Todos los disparos automáticos pasan por aquí: espera inactividad (sync es
+    // async/no-bloqueante, la bajada usa priority:'low' y falla en silencio
+    // conservando la última copia) y en 2G SOLO omite los refrescos — si aún no
+    // hay copia local (primera vez), baja igual: el usuario de campo en 2G es
+    // justamente quien más necesita el modo offline, y sin copia no hay nada que
+    // consultar al perder señal. La primera vez usa un timeout de idle CORTO
+    // (2s) para que el offline quede listo pronto sin pelear con la primera
+    // página; los refrescos usan el default (4s), que sí pueden esperar.
+    function syncAutomatico() {
+        if (!navigator.onLine) return;
         idbGet('meta')
             .then((meta) => {
                 const primeraVez = !meta || !meta.version;
-                if (primeraVez) sync(false);
-                else enInactividad(() => sync(false));
+                if (!primeraVez && conexionMuyLenta()) return;
+                enInactividad(() => sync(false), primeraVez ? 2000 : undefined);
             })
             .catch(() => enInactividad(() => sync(false)));
     }
-    // Revisión periódica mientras haya internet: SOLO cuando el navegador esté
-    // ocioso, para no interrumpir una búsqueda que el usuario esté haciendo.
-    setInterval(() => { if (navigator.onLine) enInactividad(() => sync(false)); }, CHECK_CADA_MS);
-    // Al recuperar la conexión, intenta ponerse al día (también en inactividad).
-    window.addEventListener('online', () => enInactividad(() => sync(false)));
+
+    // Al cargar la app; revisión periódica; y al recuperar la conexión.
+    syncAutomatico();
+    setInterval(syncAutomatico, CHECK_CADA_MS);
+    window.addEventListener('online', syncAutomatico);
 })();
