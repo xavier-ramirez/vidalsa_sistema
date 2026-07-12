@@ -454,10 +454,21 @@
 
     // Selección en cualquier custom-dropdown → recarga via AJAX.
     // uicomponents.js emite 'dropdown-selection' al seleccionar/limpiar.
-    var _almNotReady = false;
-    setTimeout(function () { _almNotReady = true; }, 500);
-    window.addEventListener('dropdown-selection', function (e) {
-        if (!_almNotReady) return;
+    //
+    // SPA: navegacion.js re-ejecuta este <script> en cada visita. Los listeners de
+    // document/window se APILAN si no se protegen → un cambio de filtro dispararía
+    // loadNotas() una vez por visita. Guardia por bandera (una sola vez por pestaña); las
+    // funciones window.* que invocan se redefinen en cada montaje, así siguen vivas.
+    var _almNotBound = window.__almNotGlobalBound === true;
+    window.__almNotGlobalBound = true;
+    // Supresión de la ráfaga de 'dropdown-selection' que emiten los custom-dropdown al
+    // inicializar su valor por defecto en cada montaje. En window (no var local) porque el
+    // listener se registra UNA vez pero el script corre en cada visita: se reinicia aquí y el
+    // handler persistente lee siempre el valor de la visita actual.
+    window.__almNotReady = false;
+    setTimeout(function () { window.__almNotReady = true; }, 500);
+    if (!_almNotBound) window.addEventListener('dropdown-selection', function (e) {
+        if (!window.__almNotReady) return;
         if (!document.getElementById('almNotTableBody')) return;
         var id = e.detail && e.detail.dropdownId;
         if (id === 'almNotFiltroAlmacen' || id === 'almNotFiltroFrente' || id === 'almNotFiltroTipo' || id === 'almNotFiltroCat') {
@@ -491,7 +502,7 @@
         _almNotReady = true;
         window.loadNotas();
     };
-    document.addEventListener('click', function (e) {
+    if (!_almNotBound) document.addEventListener('click', function (e) {
         var p = el('almNotFechasPanel'); var b = el('btnAdvancedFilterNot');
         if (!p || !b) return;
         if (p.style.display === 'block' && !p.contains(e.target) && !b.contains(e.target)) {
@@ -517,7 +528,7 @@
     }
 
     // Paginación AJAX
-    document.addEventListener('click', function (e) {
+    if (!_almNotBound) document.addEventListener('click', function (e) {
         var link = e.target.closest('#almNotPagination a.page-link');
         if (link) { e.preventDefault(); e.stopImmediatePropagation(); window.loadNotas(link.href); }
     });

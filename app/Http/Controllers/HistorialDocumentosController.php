@@ -88,7 +88,7 @@ class HistorialDocumentosController extends Controller
         // los frentes que tienen asignados. Sin frentes => ven nada.
         // Los super.admin / global ven todo el historial.
         $user            = auth()->user();
-        // null = ve todo (global) | [] = local sin frentes | [ids] (Usuario::frentesVisiblesIds).
+        // null = ve todo (global) | [] = local sin frentes | [ids] (Usuario::frentesVisiblesEquiposIds).
         $frentesVisibles = $user ? $user->frentesVisiblesEquiposIds() : [];
         // Lista negra: frentes a OCULTAR siempre (también a GLOBAL).
         $frentesBloqueados = $user ? $user->getFrentesBloqueadosIds() : [];

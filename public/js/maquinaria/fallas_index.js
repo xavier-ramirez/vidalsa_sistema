@@ -23,8 +23,12 @@
     };
 
     // â”€â”€â”€ Listado: AJAX recarga â”€â”€â”€
-    window.cargarFallas = function () {
+    window.cargarFallas = function (page) {
         const params = new URLSearchParams();
+        // La página llega SOLO al pulsar un enlace del paginador; los filtros se releen del
+        // DOM en cada carga, así que la paginación los conserva (antes el link "página 2" era
+        // /admin/fallas?page=2 SIN filtros → mostraba la página 2 del set sin filtrar).
+        if (page) params.set('page', page);
         const sv   = document.getElementById('fallasSearch')?.value || '';
         const es   = document.getElementById('fallasEstatus')?.value || '';
         const ta   = document.getElementById('fallasTipoActivo')?.value || '';
@@ -115,6 +119,23 @@
         if (panel) panel.style.display = 'none';
         window.cargarFallas();
     };
+
+    // Paginación AJAX: interceptar el clic en un enlace del paginador para recargar por fetch
+    // CONSERVANDO los filtros (mismo patrón que movilizaciones_index.js). Sin esto, el SPA
+    // navegaba el link /admin/fallas?page=2 como página completa, sin filtros. Guardia por
+    // bandera para no apilar el listener.
+    if (!window._fallasPaginationRegistered) {
+        window._fallasPaginationRegistered = true;
+        document.addEventListener('click', function (e) {
+            const link = e.target.closest('#fallasPagination a.page-link') || e.target.closest('#fallasPagination a');
+            if (link) {
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                const page = new URL(link.href, window.location.origin).searchParams.get('page');
+                window.cargarFallas(page || 1);
+            }
+        });
+    }
 
     // Cerrar panel avanzado al hacer clic fuera
     document.addEventListener('click', function (e) {

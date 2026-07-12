@@ -51,7 +51,10 @@ class EquipoAuditLog extends Model
                 'ID_EQUIPO'  => $equipoId,
                 'ID_USUARIO' => auth()->id(),
                 'ACCION'     => $accion,
-                'CAMBIOS'    => !empty($cambios) ? json_encode($cambios, JSON_UNESCAPED_UNICODE) : null,
+                // Array crudo: el cast 'array' de CAMBIOS ya lo serializa. El json_encode manual
+                // que había aquí lo codificaba DOS veces (cast sobre un string) → al leer salía
+                // un string JSON, no un array. Los consumidores lo compensaban con is_string()?decode.
+                'CAMBIOS'    => !empty($cambios) ? $cambios : null,
                 'created_at' => now(),
             ]);
         } catch (\Throwable $e) {
@@ -76,7 +79,8 @@ class EquipoAuditLog extends Model
                 'ID_AUXILIAR' => $auxId,
                 'ID_USUARIO'  => auth()->id(),
                 'ACCION'      => $accion,
-                'CAMBIOS'     => !empty($payload) ? json_encode($payload, JSON_UNESCAPED_UNICODE) : null,
+                // Array crudo (ver nota en registrar()): el cast 'array' lo serializa una vez.
+                'CAMBIOS'     => !empty($payload) ? $payload : null,
                 'created_at'  => now(),
             ]);
         } catch (\Throwable $e) {

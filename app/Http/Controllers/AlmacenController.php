@@ -2664,7 +2664,10 @@ class AlmacenController extends Controller
         return response()->json([
             'message'     => "Nota {$numero} eliminada y stock revertido.",
             'numero_nota' => $numero,
-            'lineas'      => $movs->count(),
+            // $previa, no $movs: $movs solo existe DENTRO del closure de la transacción (se lee
+            // bajo lock ahí). Fuera vale null → null->count() lanzaba un 500 tras un borrado que
+            // sí había commiteado. $previa (la lectura previa al lock) tiene el mismo recuento.
+            'lineas'      => $previa->count(),
         ]);
     }
 

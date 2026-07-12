@@ -229,7 +229,7 @@ class LoginController extends Controller
             'token' => $token,
             'user'  => [
                 'id'             => $user->ID_USUARIO,
-                'nombre'         => $user->NOMBRE_USUARIO,
+                'nombre'         => $user->NOMBRE_COMPLETO,
                 'correo'         => $user->CORREO_ELECTRONICO,
                 'nivel'          => $user->NIVEL_ACCESO_EQUIPOS,
                 'nivel_equipos'  => $user->NIVEL_ACCESO_EQUIPOS,

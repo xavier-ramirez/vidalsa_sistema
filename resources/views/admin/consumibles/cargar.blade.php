@@ -511,6 +511,11 @@
             }
         };
 
+        // Guardia SPA: navegacion.js re-ejecuta este <script> en cada visita; sin la bandera
+        // este listener de document se apila una vez por visita. Como es una arrow anónima no
+        // se puede quitar luego, así que se registra UNA sola vez por pestaña.
+        if (!window.__cargarClickBound) {
+        window.__cargarClickBound = true;
         document.addEventListener('click', e => {
             const dd = document.getElementById('frenteDropdown');
             if (dd && !e.target.closest('#frenteSearch') && !e.target.closest('#frenteDropdown')) {
@@ -522,6 +527,7 @@
                 accMenu.style.display = 'none';
             }
         });
+        } // /guardia __cargarClickBound
 
         // ── Gestión de filas ──────────────────────────────────────────────
         window.agregarFila = function (data = {}, idx = null) {

@@ -699,6 +699,12 @@ class ConsumiblesController extends Controller
         if ($idFrente && $idFrente !== 'all') {
             $query->where('consumibles.ID_FRENTE', $idFrente);
         }
+        // Filtro por tipo de equipo: lo aplican index() y resumenFrente(), y el botón de export
+        // manda request()->all(), pero aquí no se leía → el XLSX salía con todos los tipos. El
+        // join a `equipos` ya existe arriba.
+        if ($request->filled('id_tipo_equipo')) {
+            $query->where('equipos.id_tipo_equipo', $request->get('id_tipo_equipo'));
+        }
         if ($tipo) {
             $query->where('consumibles.TIPO_CONSUMIBLE', $tipo);
         }
