@@ -151,7 +151,12 @@
     // preloader sigue de pie (CSS lento desde el cache del Service Worker, primer
     // arranque de la PWA sin red, etc.) lo oculta a la fuerza — nunca debe quedar
     // el usuario viendo solo el logo sin poder llegar al formulario.
+    // EXCEPTO con un login EN CURSO (_loginEnCurso): ahí el spinner debe seguir
+    // hasta el redirect o el error — sin esta condición, un login de >4s quitaba
+    // el spinner, se veía el formulario un instante y recién después el menú.
+    window._loginEnCurso = false;
     setTimeout(function () {
+        if (window._loginEnCurso) return;
         var pl = document.getElementById('loginPreloader');
         if (pl) pl.classList.add('fade-out');
     }, 4000);
@@ -198,6 +203,7 @@
     // login biométrico (script de abajo) — por eso viven a nivel de script, no
     // dentro del bloque del formulario.
     function mostrarMsgLogin(texto) {
+        window._loginEnCurso = false; // el intento terminó: el guard de 4s vuelve a aplicar
         const pl = document.getElementById('loginPreloader');
         if (pl) { pl.classList.add('fade-out'); pl.style.display = 'none'; }
         const msg = document.getElementById('offlineLoginMsg');
@@ -225,7 +231,10 @@
             // error fea); avisa y quédate en el login.
             if (!navigator.onLine) { avisarSinConexion(); return; }
 
-            // Limpia un mensaje previo y muestra el spinner.
+            // Limpia un mensaje previo y muestra el spinner. La bandera evita que el
+            // guard de 4s lo oculte a mitad del intento (ver arriba); se limpia en
+            // mostrarMsgLogin (todos los caminos de fallo pasan por ahí).
+            window._loginEnCurso = true;
             const msgPrev = document.getElementById('offlineLoginMsg');
             if (msgPrev) msgPrev.style.display = 'none';
             const preloader = document.getElementById('loginPreloader');
@@ -320,6 +329,7 @@ document.addEventListener('DOMContentLoaded', function() {
     var bioLabel = document.getElementById('bioLabel');
 
     btnBio.addEventListener('click', function() {
+        window._loginEnCurso = true; // el guard de 4s no debe quitar el spinner a mitad del intento
         btnBio.style.pointerEvents = 'none';
         btnBio.style.opacity = '0.6';
         if (bioLabel) bioLabel.textContent = 'Verificando...';
@@ -336,12 +346,14 @@ document.addEventListener('DOMContentLoaded', function() {
                     window.location.href = data.redirect;
                     return;
                 }
+                window._loginEnCurso = false;
                 if (preloader) preloader.classList.add('fade-out');
                 btnBio.style.pointerEvents = '';
                 btnBio.style.opacity = '';
                 if (bioLabel) bioLabel.textContent = 'Identificación biométrica';
             })
             .catch(function(err) {
+                window._loginEnCurso = false;
                 if (preloader) preloader.classList.add('fade-out');
                 btnBio.style.pointerEvents = '';
                 btnBio.style.opacity = '';
