@@ -252,45 +252,58 @@
                 );
             }
 
-            // 1. Handshake: pedir un token CSRF fresco.
-            //    cache:'no-store' es OBLIGATORIO: el HTML del login se sirve desde la
-            //    caché del Service Worker (token viejo); forzamos red para el token actual.
-            fetch('/refresh-csrf', { cache: 'no-store', credentials: 'same-origin' })
-                .then(response => {
-                    if (!response.ok) throw new Error('HTTP ' + response.status);
-                    return response.text();
-                })
-                .then(newToken => {
-                    // 2. Inyectar el token nuevo (validando que sea un token, no HTML).
-                    newToken = (newToken || '').trim();
-                    const tokenInput = loginForm.querySelector('input[name="_token"]');
-                    if (tokenInput && newToken && newToken.length < 100 && newToken.indexOf('<') === -1) {
-                        tokenInput.value = newToken;
-                    }
-                    // 3. Enviar por FETCH (no navegación nativa): así un bajón de red en el
-                    //    POST se atrapa en el .catch de abajo y NO dispara la página de
-                    //    error del navegador — te quedas en el login para reintentar.
-                    return fetch(loginForm.action, {
-                        method: 'POST',
-                        body: new FormData(loginForm),
-                        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
-                        credentials: 'same-origin',
-                    }).then(function (resp) {
-                        if (resp.status === 419) { window.location.reload(); return; } // CSRF expiró → token fresco
-                        return resp.json().then(function (data) {
-                            if (resp.ok && data && data.success && data.redirect) {
-                                window.marcarLoginReciente();          // solo en éxito confirmado
-                                window.location.href = data.redirect;  // → menú
+            // Handshake + POST, con UN reintento automático si el primer intento da 419.
+            // Antes ese 419 hacía reload() silencioso: el usuario veía "presioné Entrar
+            // y no pasó nada" y tenía que darle Entrar otra vez. Ahora el segundo intento
+            // (con la cookie de sesión que dejó el POST fallido + token fresco) sale solo.
+            function intentarLogin(esReintento) {
+                // 1. Handshake: pedir un token CSRF fresco.
+                //    cache:'no-store' es OBLIGATORIO: el HTML del login se sirve desde la
+                //    caché del Service Worker (token viejo); forzamos red para el token actual.
+                return fetch('/refresh-csrf', { cache: 'no-store', credentials: 'same-origin' })
+                    .then(response => {
+                        if (!response.ok) throw new Error('HTTP ' + response.status);
+                        return response.text();
+                    })
+                    .then(newToken => {
+                        // 2. Inyectar el token nuevo (validando que sea un token, no HTML).
+                        newToken = (newToken || '').trim();
+                        const tokenInput = loginForm.querySelector('input[name="_token"]');
+                        if (tokenInput && newToken && newToken.length < 100 && newToken.indexOf('<') === -1) {
+                            tokenInput.value = newToken;
+                        }
+                        // 3. Enviar por FETCH (no navegación nativa): así un bajón de red en el
+                        //    POST se atrapa en el .catch de abajo y NO dispara la página de
+                        //    error del navegador — te quedas en el login para reintentar.
+                        return fetch(loginForm.action, {
+                            method: 'POST',
+                            body: new FormData(loginForm),
+                            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+                            credentials: 'same-origin',
+                        }).then(function (resp) {
+                            if (resp.status === 419) {
+                                // CSRF expiró pese al handshake (sesión recién recreada).
+                                if (!esReintento) return intentarLogin(true);
+                                window.location.reload(); // segundo 419 seguido: último recurso
                                 return;
                             }
-                            // Credenciales/negocio (422): mostrar el mensaje, quedarse en el login.
-                            mostrarMsgLogin((data && data.message) || 'Usuario o clave incorrecta.');
-                        }).catch(function () {
-                            // Respuesta no-JSON inesperada: recargar para mostrar el server-render.
-                            window.location.reload();
+                            return resp.json().then(function (data) {
+                                if (resp.ok && data && data.success && data.redirect) {
+                                    window.marcarLoginReciente();          // solo en éxito confirmado
+                                    window.location.href = data.redirect;  // → menú
+                                    return;
+                                }
+                                // Credenciales/negocio (422): mostrar el mensaje, quedarse en el login.
+                                mostrarMsgLogin((data && data.message) || 'Usuario o clave incorrecta.');
+                            }).catch(function () {
+                                // Respuesta no-JSON inesperada: recargar para mostrar el server-render.
+                                window.location.reload();
+                            });
                         });
                     });
-                })
+            }
+
+            intentarLogin(false)
                 .catch(error => {
                     console.error('Login failed:', error);
                     // Bajón de red / servidor inalcanzable en el handshake O en el POST: NO

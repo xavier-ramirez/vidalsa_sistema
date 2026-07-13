@@ -2998,9 +2998,10 @@ window.openAnchorModal = async function (event) {
             let fotoHtml = '';
             if (eq.FOTO) {
                 const driveId = eq.FOTO.replace(/^.*\/storage\/google\//, '').split('?')[0];
-                fotoHtml = `<img src="/storage/google/${driveId}" style="width:100%; height:100%; object-fit:cover;">`;
+                // contain (no cover): el equipo se ve completo, sin recorte horizontal
+                fotoHtml = `<img src="/storage/google/${driveId}" style="width:100%; height:100%; object-fit:contain;">`;
             } else {
-                fotoHtml = `<i class="material-icons" style="font-size:20px; color:#cbd5e0;">image_not_supported</i>`;
+                fotoHtml = `<i class="material-icons" style="font-size:24px; color:#cbd5e0;">image_not_supported</i>`;
             }
 
             // Badge de frente distinto (solo aparece en búsqueda global)
@@ -3009,7 +3010,7 @@ window.openAnchorModal = async function (event) {
                 : '';
 
             item.innerHTML = `
-                <div style="width:40px; height:40px; background:#f1f5f9; border-radius:6px; overflow:hidden; display:flex; align-items:center; justify-content:center; flex-shrink:0;">${fotoHtml}</div>
+                <div style="width:104px; height:64px; background:#f1f5f9; border-radius:6px; overflow:hidden; display:flex; align-items:center; justify-content:center; flex-shrink:0;">${fotoHtml}</div>
                 <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px;">
                     <span style="font-weight:800; font-size:13px; color:#1e293b; text-transform:uppercase; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${eq.TIPO_NOMBRE || 'S/TIPO'}</span>
                     <div style="font-size:11px; color:#475569; font-weight:600;">${eq.MARCA}</div>

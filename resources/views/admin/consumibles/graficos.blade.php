@@ -16,7 +16,7 @@
 
         .g-card {
             background: #fff;
-            border-radius: 16px;
+            border-radius: 14px;
             padding: 25px;
             box-shadow: 0 2px 8px rgba(0, 0, 0, .06), 0 8px 24px rgba(0, 0, 0, .06);
         }

@@ -13,7 +13,7 @@
     @media(max-width:900px){ .cm-grid { grid-template-columns: 1fr; } }
 
     /* ── Tabla Editable ───────────────────────────────────────── */
-    .cm-card { background: #fff; border-radius: 16px; padding: 22px; box-shadow: 0 4px 20px rgba(0,0,0,.06); border: 1px solid #e2e8f0; }
+    .cm-card { background: #fff; border-radius: 14px; padding: 22px; box-shadow: 0 4px 20px rgba(0,0,0,.06); border: 1px solid #e2e8f0; }
     .cm-card-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing:1.2px; color:#64748b; margin-bottom: 14px; display:flex; align-items:center; gap:6px; }
     .cm-hints { font-size: 12px; color: #94a3b8; margin-bottom: 12px; padding: 8px 12px; background: #f8fafc; border-radius: 8px; border: 1px dashed #cbd5e0; }
     .cm-hints b { color: #475569; }

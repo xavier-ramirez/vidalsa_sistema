@@ -15,7 +15,7 @@
     .cm-grid { display: flex; flex-direction: column; gap: 20px; }
 
     /* ── Tarjeta Izquierda (Tabla de Entradas) ── */
-    .cm-card { background: #fff; border-radius: 16px; padding: 25px; box-shadow: 0 4px 20px rgba(0,0,0,.04); border: 1px solid #e2e8f0; }
+    .cm-card { background: #fff; border-radius: 14px; padding: 25px; box-shadow: 0 4px 20px rgba(0,0,0,.04); border: 1px solid #e2e8f0; }
     .cm-card-title { font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing:1.2px; color:#475569; margin-bottom: 16px; display:flex; align-items:center; gap:8px; }
     .cm-hints { font-size: 13px; color: #0f766e; margin-bottom: 20px; padding: 12px 16px; background: #f0fdfa; border-radius: 8px; border: 1px dashed #5eead4; line-height: 1.5; font-weight: 500; }
     
@@ -149,7 +149,7 @@
                 </div>
 
                 {{-- Contenedor Gráfico Consumo Total por Frente Idéntico a consumibles --}}
-                <div style="background:#fff; border-radius:16px; padding:16px 20px; box-shadow:0 2px 8px rgba(0,0,0,.06), 0 8px 24px rgba(0,0,0,.06);">
+                <div style="background:#fff; border-radius:14px; padding:16px 20px; box-shadow:0 2px 8px rgba(0,0,0,.06), 0 8px 24px rgba(0,0,0,.06);">
                     <p style="font-size:14px; font-weight:700; color:#1e293b; margin:0 0 10px 0; display:flex; align-items:center; justify-content:space-between;">
                         <span style="display:flex;align-items:center;gap:8px;">
                             <i class="material-icons" style="font-size:18px; color:#0067b1;">bar_chart</i>

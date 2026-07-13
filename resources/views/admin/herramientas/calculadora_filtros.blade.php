@@ -17,7 +17,7 @@
     .cm-grid { display: flex; flex-direction: column; gap: 20px; }
 
     /* ── Tarjeta Izquierda (Tabla) ── */
-    .cm-card { background: #fff; border-radius: 16px; padding: 22px; box-shadow: 0 4px 20px rgba(0,0,0,.06); border: 1px solid #e2e8f0; }
+    .cm-card { background: #fff; border-radius: 14px; padding: 22px; box-shadow: 0 4px 20px rgba(0,0,0,.06); border: 1px solid #e2e8f0; }
     .cm-card-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing:1.2px; color:#64748b; margin-bottom: 14px; display:flex; align-items:center; gap:6px; }
     .cm-hints { font-size: 12px; color: #0f766e; margin-bottom: 12px; padding: 10px 14px; background: #f0fdfa; border-radius: 8px; border: 1px dashed #5eead4; line-height: 1.5; }
     
@@ -58,7 +58,7 @@
     .btn-clear:hover { background: #fee2e2; color: #dc2626; border-color: #fca5a5; }
 
     /* ── Panel Visual (debajo de la tabla) ── */
-    #reportPanel { background: #f1f5f9; border-radius: 16px; padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,.1); border: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 16px; }
+    #reportPanel { background: #f1f5f9; border-radius: 14px; padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,.1); border: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 16px; }
     
     /* Header azul oscuro (igual al de equipos) */
     .rp-top-card { background: linear-gradient(135deg, #1a365d 0%, #2c5282 100%); border-radius: 12px; padding: 16px; color: white; box-shadow: 0 4px 10px rgba(0,0,0,0.15); position: relative; overflow: hidden; }
@@ -100,7 +100,7 @@
     .btn-download:hover { background: #e1effa; border-color: #0ea5e9; color: #0ea5e9; box-shadow: 0 4px 10px rgba(14,165,233,0.1); }
 
     /* ── Panel Resumen por Tipo de Filtro ── */
-    #summaryPanel { background: #fff; border-radius: 16px; padding: 25px; box-shadow: 0 10px 30px rgba(0,0,0,.08); border: 1px solid #e2e8f0; margin-top: 20px; }
+    #summaryPanel { background: #fff; border-radius: 14px; padding: 25px; box-shadow: 0 10px 30px rgba(0,0,0,.08); border: 1px solid #e2e8f0; margin-top: 20px; }
     .sp-header { display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid #f1f5f9; padding-bottom: 12px; margin-bottom: 18px; flex-wrap: wrap; gap: 10px; }
     .sp-title { font-size: 14px; font-weight: 800; text-transform: uppercase; color: #1e293b; display: flex; align-items: center; gap: 8px; }
     .sp-badges { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }

@@ -9,13 +9,13 @@
                     <i class="material-icons" style="color: #f59e0b; font-size: 22px;">warning_amber</i>
                 </div>
                 <div style="text-align: left;">
-                    <h3 style="margin: 0; color: #fff; font-size: 14.5px; font-weight: 700; line-height: 1.25;">Tu sesión está por expirar</h3>
-                    <p style="margin: 2px 0 0 0; color: #94a3b8; font-size: 11.5px;">Inactividad detectada</p>
+                    <h3 id="stTitle" style="margin: 0; color: #fff; font-size: 14.5px; font-weight: 700; line-height: 1.25;">Tu sesión está por expirar</h3>
+                    <p id="stSubtitle" style="margin: 2px 0 0 0; color: #94a3b8; font-size: 11.5px;">Inactividad detectada</p>
                 </div>
             </div>
 
             {{-- BODY centrado: countdown + barra + boton --}}
-            <div style="padding: 16px 22px 18px; background: #f8fafc;">
+            <div id="stBody" style="padding: 16px 22px 18px; background: #f8fafc;">
                 <div style="margin: 0 0 12px 0; display: flex; align-items: baseline; justify-content: center; gap: 6px;">
                     <strong id="sessionCountdown" style="color: #dc2626; font-size: 32px; font-weight: 800; line-height: 1;">60</strong>
                     <span style="color:#64748b; font-size:13px; font-weight:600;">seg</span>
@@ -41,13 +41,16 @@
     <script>
         /**
          * Session Timeout Manager
-         * - Sesión: lee SESSION_LIFETIME de Laravel (local=20min, prod=25min)
+         * - Sesión: lee SESSION_LIFETIME de Laravel (config/session.php, en minutos)
          * - Throttle de 30s: actividad real no reinicia el timer en cada micro-evento
          * - Solo escucha: click y keydown (sin scroll/touchstart para evitar ruido)
          * - Ping al servidor SOLO si hubo actividad en el último ciclo de ping; si el
          *   usuario está inactivo NO se pinga y el backend deja expirar la sesión
          *   (cierre por inactividad garantizado por el servidor, no dependiente del JS)
          * - Modal de aviso aparece con 60s de antelación al cierre
+         * - Si la expiración se detecta DE GOLPE (volver a una pestaña dormida, ping que
+         *   encuentra la sesión ya caída), el mismo modal se muestra en modo "sesión
+         *   cerrada" unos segundos antes de salir — nunca se cierra sin avisar.
          */
         (function() {
             // ── Configuración ──────────────────────────────────────────
@@ -72,6 +75,9 @@
             // debe dispararse el auto-logout: sin esto una renovación lenta se cruzaba con el
             // cierre por contador=0 y cerraba la sesión justo al pedir mantenerla ("no continúa").
             let isRenewing = false;
+            // Cierre ya en curso (aviso "sesión cerrada" mostrado): evita que el interval de
+            // 1s o un ping tardío disparen el logout dos veces mientras corre la despedida.
+            let isClosing = false;
 
             // ── Inicialización ──────────────────────────────────────────
             function initSession() {
@@ -111,6 +117,7 @@
 
             // ── Verificación de estado cada segundo ─────────────────────
             function checkSessionStatus() {
+                if (isClosing) return; // despedida en curso: nada que recalcular ni ocultar
                 syncWithOtherTabs(); // Sincronizar antes de calcular el tiempo restante
 
                 const msRemaining  = sessionExpirationTime - Date.now();
@@ -119,7 +126,9 @@
                 if (secRemaining <= 0) {
                     // No auto-cerrar si hay una renovación en curso ("Mantener Sesión"): dejamos
                     // que la petición decida (renovar / ir al login), evitando el logout a mitad.
-                    if (!isRenewing) performLogout();
+                    // El caso típico aquí es volver a una pestaña dormida con el tiempo ya
+                    // vencido: el countdown nunca corrió, así que avisamos antes de salir.
+                    if (!isRenewing) showExpiredNotice(performLogout);
                 } else if (secRemaining <= WARNING_DURATION_SEC) {
                     showWarning(secRemaining);
                 } else {
@@ -171,7 +180,7 @@
                             });
                         } else {
                             console.warn('⚠️ Ping fallido: sesión expirada en servidor');
-                            performLogout();
+                            showExpiredNotice(performLogout);
                         }
                     })
                     .catch(() => {
@@ -271,16 +280,41 @@
                     .finally(() => { isRenewing = false; });
             };
 
+            // ── Aviso "sesión cerrada" antes de salir ───────────────────
+            // Reutiliza el mismo modal en modo despedida: sin countdown ni botón, solo el
+            // mensaje, y a los 3s ejecuta la salida (logout POST o ir al login). Cubre los
+            // caminos que antes cerraban EN SILENCIO: volver a una pestaña dormida con el
+            // tiempo vencido, y el ping que descubre la sesión ya caída en el backend.
+            function showExpiredNotice(accion) {
+                if (isClosing) return;
+                isClosing = true;
+                clearInterval(checkInterval);
+                clearInterval(serverPingInterval);
+                const modal    = document.getElementById('sessionTimeoutModal');
+                const title    = document.getElementById('stTitle');
+                const subtitle = document.getElementById('stSubtitle');
+                const body     = document.getElementById('stBody');
+                if (!modal || !body) { accion(); return; } // DOM raro: salir igual, sin aviso
+                if (title)    title.textContent    = 'Sesión cerrada';
+                if (subtitle) subtitle.textContent = 'Por inactividad';
+                body.innerHTML =
+                    '<p style="margin:0 0 10px 0; color:#334155; font-size:13.5px; line-height:1.5;">' +
+                    'Tu sesión expiró por inactividad.<br>Volviendo al inicio de sesión…</p>' +
+                    '<i class="material-icons" style="font-size:26px; color:#0067b1; animation:spin 1s linear infinite;">sync</i>';
+                modal.style.display = 'flex';
+                modal.classList.add('active');
+                modal.style.zIndex  = '1000002';
+                isModalVisible = true;
+                setTimeout(accion, 3000);
+            }
+
             // ── Sesión ya caída en el backend ───────────────────────────
             // La diferencia con performLogout: aquí la sesión del servidor YA no existe,
             // así que un POST /logout con el CSRF viejo daría 419. Vamos directo al login
             // por GET — outcome claro (el usuario aterriza en la pantalla de inicio de
             // sesión) y sin pantalla de error intermedia.
             function sessionAlreadyExpired() {
-                clearInterval(checkInterval);
-                clearInterval(serverPingInterval);
-                hideWarning();
-                window.location.href = '/';
+                showExpiredNotice(function () { window.location.href = '/'; });
             }
 
             // ── Logout automático al expirar ────────────────────────────

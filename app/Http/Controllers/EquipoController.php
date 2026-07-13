@@ -2908,6 +2908,12 @@ class EquipoController extends Controller
         $equipo = $this->findAndAuthorizeEquipo($id, ['documentacion']);
         $type = $request->input('doc_type');
 
+        // Mismos 6 tipos que deleteDoc/uploadDoc. Sin este check, un doc_type
+        // desconocido caía por el switch sin actualizar nada y respondía éxito.
+        if (!in_array($type, ['propiedad', 'poliza', 'rotc', 'racda', 'adicional', 'adicional_2'], true)) {
+            return response()->json(['success' => false, 'message' => 'Tipo de documento no válido.'], 400);
+        }
+
         if (!$equipo->documentacion) {
             return response()->json(['success' => false, 'message' => 'No existe documentación para este equipo'], 400);
         }
@@ -3018,6 +3024,21 @@ class EquipoController extends Controller
             return $value !== '';
         });
 
+        // Diff {antes,despues} de la Documentacion ANTES de updateQuietly (mismo esquema
+        // que EquipoObserver) para que el historial muestre valor viejo y nuevo. Los campos
+        // cuyo valor no cambió se omiten del log (p.ej. gestion_* que ya estaban en null).
+        $docDiff = [];
+        $doc = $equipo->documentacion;
+        foreach ($updateData as $field => $newValue) {
+            $oldValue = $doc->getRawOriginal($field);
+            // Los datetime salen de BD como "Y-m-d 00:00:00" pero el input llega "Y-m-d":
+            // se normalizan para comparar y mostrar en el mismo formato.
+            $oldCmp = is_string($oldValue) ? preg_replace('/ 00:00:00$/', '', $oldValue) : $oldValue;
+            $newCmp = is_string($newValue) ? preg_replace('/ 00:00:00$/', '', $newValue) : $newValue;
+            if ((string) $oldCmp === (string) $newCmp) continue;
+            $docDiff[$field] = ['antes' => $oldCmp, 'despues' => $newCmp];
+        }
+
         if (!empty($updateData)) {
             // updateQuietly: NO disparar DocumentacionObserver (que registraria un
             // 'edit' de PLACA/NRO/TITULAR). Esta edicion ya se audita explicitamente
@@ -3027,11 +3048,11 @@ class EquipoController extends Controller
         }
 
         // Auditoria: registra la edicion de metadata por tipo de documento.
-        // En el caso 'propiedad' tambien se modifican campos del Equipo (MARCA,
-        // MODELO, SERIAL_*); $equipoDiff fue capturado antes del saveQuietly().
-        // Lo mergeamos solo aqui para que el log refleje el cambio completo
-        // (Documentacion + Equipo) sin contaminar $updateData.
-        $logPayload = $updateData;
+        // Ambos diffs vienen en formato {antes,despues}. En el caso 'propiedad'
+        // tambien se modifican campos del Equipo (MARCA, MODELO, SERIAL_*);
+        // $equipoDiff fue capturado antes del saveQuietly(). Se mergean para que
+        // el log refleje el cambio completo (Documentacion + Equipo).
+        $logPayload = $docDiff;
         if (!empty($equipoDiff ?? [])) {
             $logPayload = array_merge($logPayload, $equipoDiff);
         }
