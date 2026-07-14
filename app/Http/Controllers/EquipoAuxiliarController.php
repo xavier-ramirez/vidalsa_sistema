@@ -2103,6 +2103,10 @@ class EquipoAuxiliarController extends Controller
      */
     public function uploadDoc(Request $request, $id)
     {
+        // PDFs grandes: mismos límites que EquipoController::uploadDoc.
+        set_time_limit(600);
+        ini_set('memory_limit', '512M');
+
         $request->validate([
             'file'     => 'required|file|mimes:pdf|max:51200',
             'doc_type' => 'required|in:propiedad,certificado',
@@ -2113,30 +2117,57 @@ class EquipoAuxiliarController extends Controller
         $this->authorizeAuxScope($aux);
         $type = $request->input('doc_type');
         $file = $request->file('file');
-        $name = $type . '_' . time() . '.pdf';
-        $path = $file->storeAs('equipos_auxiliares/' . $aux->ID_AUXILIAR, $name, 'public');
+        $col  = $type === 'propiedad' ? 'LINK_DOC_PROPIEDAD' : 'LINK_CERTIFICADO';
 
-        if ($type === 'propiedad') {
-            $aux->LINK_DOC_PROPIEDAD = '/storage/' . $path;
-        } else {
-            $aux->LINK_CERTIFICADO = '/storage/' . $path;
-            if ($request->filled('fecha_vencimiento_cert')) {
+        // Los documentos de auxiliares se guardan en Google Drive, en la MISMA carpeta
+        // raíz que los PDF de los vehículos (getRootFolderId), y se sirven vía el proxy
+        // /storage/google/{id} — idéntico a EquipoController::uploadDoc.
+        try {
+            $driveService = \App\Services\GoogleDriveService::getInstance();
+
+            // 1. Capturar el file id anterior (si ya vivía en Drive) para borrarlo TRAS el éxito.
+            $oldFileId = null;
+            if ($aux->$col && str_starts_with($aux->$col, '/storage/google/')) {
+                $oldFileId = str_replace('/storage/google/', '', parse_url($aux->$col, PHP_URL_PATH));
+            }
+
+            // 2. Subir el nuevo archivo a la carpeta raíz (la de los vehículos).
+            $folderId  = $driveService->getRootFolderId();
+            $filename  = 'aux_' . $type . '_' . time() . '.pdf';
+            $driveFile = $driveService->uploadFile($folderId, $file, $filename, $file->getMimeType());
+            if (!$driveFile || !isset($driveFile->id)) {
+                throw new \Exception('La subida a Google Drive no retornó un ID válido');
+            }
+
+            // 3. Guardar el link (?v= para cache-busting, igual que equipos).
+            $aux->$col = '/storage/google/' . $driveFile->id . '?v=' . time();
+            if ($type === 'certificado' && $request->filled('fecha_vencimiento_cert')) {
                 $aux->FECHA_VENCIMIENTO_CERT = $request->input('fecha_vencimiento_cert');
             }
-        }
-        $aux->save();
+            $aux->save();
 
-        return response()->json([
-            'success' => true,
-            'message' => 'PDF cargado correctamente.',
-            'link'    => $type === 'propiedad' ? $aux->LINK_DOC_PROPIEDAD : $aux->LINK_CERTIFICADO,
-            'fecha_vencimiento_cert' => $aux->FECHA_VENCIMIENTO_CERT,
-        ]);
+            // 4. Borrar el archivo viejo de Drive SOLO tras guardar el nuevo (safety first).
+            if ($oldFileId) {
+                \App\Jobs\DeleteGoogleDriveFile::dispatch($oldFileId);
+                \Illuminate\Support\Facades\Storage::disk('local')->delete('google_cache/' . $oldFileId);
+                \Illuminate\Support\Facades\Cache::forget('gdrive_meta_' . $oldFileId);
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'PDF cargado correctamente.',
+                'link'    => $aux->$col,
+                'fecha_vencimiento_cert' => $aux->FECHA_VENCIMIENTO_CERT,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error subiendo documento de auxiliar a Google Drive: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Error al subir archivo: ' . $e->getMessage()], 500);
+        }
     }
 
     /**
      * Elimina un documento (propiedad/certificado) del auxiliar: borra el archivo de
-     * storage/public y limpia la columna en BD (+ la fecha de venc. si es certificado).
+     * Google Drive y limpia la columna en BD (+ la fecha de venc. si es certificado).
      * Espejo de uploadDoc. Permiso: super.admin (igual que equipos.deleteDoc).
      */
     public function deleteDoc(Request $request, $id)
@@ -2150,11 +2181,16 @@ class EquipoAuxiliarController extends Controller
         $type = $request->input('doc_type');
         $col  = $type === 'propiedad' ? 'LINK_DOC_PROPIEDAD' : 'LINK_CERTIFICADO';
 
-        // Borrar el archivo físico (los docs de auxiliares viven en disco 'public',
-        // a diferencia de equipos que usan Drive). A prueba de fallos: si el archivo
-        // ya no existe, igual limpiamos la columna en BD.
+        // Borrar el archivo: los nuevos viven en Google Drive (/storage/google/{id}); los
+        // antiguos podían estar en disco 'public' (/storage/...). Se soportan ambos por
+        // compatibilidad. A prueba de fallos: si el archivo ya no existe igual limpiamos BD.
         $link = $aux->$col;
-        if ($link && str_starts_with($link, '/storage/')) {
+        if ($link && str_starts_with($link, '/storage/google/')) {
+            $fileId = str_replace('/storage/google/', '', parse_url($link, PHP_URL_PATH));
+            \App\Jobs\DeleteGoogleDriveFile::dispatch($fileId);
+            \Illuminate\Support\Facades\Storage::disk('local')->delete('google_cache/' . $fileId);
+            \Illuminate\Support\Facades\Cache::forget('gdrive_meta_' . $fileId);
+        } elseif ($link && str_starts_with($link, '/storage/')) {
             $rel = ltrim(substr($link, strlen('/storage/')), '/');
             \Illuminate\Support\Facades\Storage::disk('public')->delete($rel);
         }
