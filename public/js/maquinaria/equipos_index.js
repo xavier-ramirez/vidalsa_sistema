@@ -3370,10 +3370,12 @@ function initEquipos() {
             clearTimeout(window.searchTimeout);
             if (val.length >= 4 || val.length === 0) {
                 const self = this;
+                // Debounce reducido de 1000ms → 400ms: la búsqueda arranca mucho antes
+                // tras dejar de escribir. 400ms sigue evitando disparar en cada tecla.
                 window.searchTimeout = setTimeout(() => {
                     window.loadEquipos();
                     _hideMobileKeyboard(self);
-                }, 1000);
+                }, 400);
             }
             if (e.key === 'Enter') {
                 clearTimeout(window.searchTimeout);
