@@ -37,17 +37,11 @@
 
     function getBody() { return document.getElementById('almMovTableBody'); }
 
-    function norm(s) {
-        const base = (window.FuzzySearch && window.FuzzySearch.norm)
-            ? window.FuzzySearch.norm(s)
-            : String(s == null ? '' : s).toLowerCase();
-        return base.replace(/[^a-z0-9ñ]+/g, ' ').trim();
-    }
-
-    // Misma presentación numérica que el kardex online (coma decimal, punto de miles).
-    function fmt(n) {
-        return (Number(n) || 0).toLocaleString('es-ES', { maximumFractionDigits: 3 });
-    }
+    // Helpers compartidos del controlador offline (fuente única, ver estructura_base):
+    // norm = normalización de búsqueda; fmt = misma presentación numérica que el kardex
+    // online (coma decimal, punto de miles).
+    const norm = OM.norm;
+    const fmt  = OM.fmt;
 
     function fechaLatina(iso) { // 'YYYY-MM-DD' → 'DD/MM/YYYY'
         const p = String(iso || '').slice(0, 10).split('-');

@@ -1185,6 +1185,28 @@
                         return String(s == null ? '' : s)
                             .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
                     },
+                    // Normalización para buscar (sin acentos + minúsculas, vía FuzzySearch si
+                    // cargó) con separadores colapsados a espacio: el texto que deja una
+                    // sugerencia clickeada es "PARTE · NOMBRE" y sin esto nunca coincidiría
+                    // con el haystack "codigo nombre". La usan los motores de filtro offline.
+                    norm: function (s) {
+                        var base = (window.FuzzySearch && window.FuzzySearch.norm)
+                            ? window.FuzzySearch.norm(s)
+                            : String(s == null ? '' : s).toLowerCase();
+                        return base.replace(/[^a-z0-9ñ]+/g, ' ').trim();
+                    },
+                    // Números en formato latino (1.234,5 — hasta 3 decimales sin ceros
+                    // sobrantes), réplica EXACTA de number_format(n,3,',','.') de las tablas
+                    // online. No usa toLocaleString('es-ES'): ese locale NO agrupa miles en
+                    // números de 4 dígitos (1234,5) y desentonaría con las filas online.
+                    fmt: function (n) {
+                        var v = Number(n) || 0;
+                        var neg = v < 0 ? '-' : '';
+                        var s = Math.abs(v).toFixed(3).replace(/0+$/, '').replace(/\.$/, '');
+                        var p = s.split('.');
+                        p[0] = p[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+                        return neg + (p[1] ? p[0] + ',' + p[1] : p[0]);
+                    },
                     // Espera a que OfflineDB (offline-sync.js, al final del body) esté listo.
                     conOfflineDB: function (cb) {
                         if (window.OfflineDB) return cb();

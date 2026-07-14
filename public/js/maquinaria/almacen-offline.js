@@ -30,25 +30,11 @@
 
     function getBody() { return document.getElementById('almTableBody'); }
 
-    // Normalización compartida (sin acentos + minúsculas) — mismo criterio que el
-    // buscador online, que delega en window.FuzzySearch. Fallback si no cargó.
-    // Los separadores se colapsan a espacio: el texto que deja una sugerencia clickeada
-    // es "PARTE · NOMBRE" y sin esto nunca coincidiría con el haystack "codigo nombre".
-    function norm(s) {
-        const base = (window.FuzzySearch && window.FuzzySearch.norm)
-            ? window.FuzzySearch.norm(s)
-            : String(s == null ? '' : s).toLowerCase();
-        return base.replace(/[^a-z0-9ñ]+/g, ' ').trim();
-    }
-
-    function fmt(n) {
-        const v = Number(n) || 0;
-        let s = v.toFixed(3);
-        if (s.indexOf('.') >= 0) s = s.replace(/0+$/, '').replace(/\.$/, '');
-        const partes = s.split('.');
-        partes[0] = partes[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-        return partes.join('.') || '0';
-    }
+    // Helpers compartidos del controlador offline (fuente única, ver estructura_base):
+    // norm = normalización de búsqueda; fmt = números en formato latino, idéntico al
+    // number_format(n,3,',','.') de la tabla online — las filas deben verse iguales.
+    const norm = OM.norm;
+    const fmt  = OM.fmt;
 
     function filaMensaje(html) {
         return '<tr><td colspan="' + COLS + '" style="text-align:center;padding:40px 16px;color:#94a3b8;font-size:14px;">' + html + '</td></tr>';

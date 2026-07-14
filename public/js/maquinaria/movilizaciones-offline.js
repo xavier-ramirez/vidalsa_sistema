@@ -39,7 +39,7 @@
             return el && el.value ? String(el.value).trim() : '';
         };
         return {
-            q:         val('searchInput').toLowerCase(),
+            q:         OM.norm(val('searchInput')), // misma normalización que los otros módulos offline
             idFrente:  hv('id_frente') ? parseInt(hv('id_frente'), 10) : null,
             tipo:      hv('id_tipo'),
             desde:     val('filterFechaDesde'),   // YYYY-MM-DD
@@ -51,8 +51,8 @@
     function filtrar(movils, f) {
         return movils.filter(function (m) {
             if (f.q) {
-                const blob = [m.equipo_serial, m.equipo_placa, m.equipo_codigo, m.codigo, m.origen, m.destino, m.usuario, m.auxiliar]
-                    .filter(Boolean).join(' ').toLowerCase();
+                const blob = OM.norm([m.equipo_serial, m.equipo_placa, m.equipo_codigo, m.codigo, m.origen, m.destino, m.usuario, m.auxiliar]
+                    .filter(Boolean).join(' '));
                 if (blob.indexOf(f.q) < 0) return false;
             }
             if (f.idFrente) {
