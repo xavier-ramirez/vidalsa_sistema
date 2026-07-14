@@ -24,7 +24,7 @@
             @php $totalFrentes = $frentesStats->sum('total'); @endphp
             @foreach($frentesStats as $stat)
                 @php $percentage = $totalFrentes > 0 ? ($stat->total / $totalFrentes) * 100 : 0; @endphp
-                <li onclick="selectOption('frenteFilterSelect', '{{ $stat->ID_FRENTE_ACTUAL }}', '{{ $stat->NOMBRE_FRENTE }}'); loadEquipos();"
+                <li onclick="selectOption('frenteFilterSelect', '{{ $stat->ID_FRENTE_ACTUAL }}', '{{ addslashes(trim($stat->NOMBRE_FRENTE ?? '')) }}'); loadEquipos();"
                     style="padding-bottom: 4px; border-bottom: 1px dashed #f1f5f9; transition: opacity 0.2s; cursor: pointer;"
                     onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">
                     <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2px; gap: 4px;">
@@ -54,7 +54,7 @@
             @php $totalStats = $tiposStats->sum('total'); @endphp
             @foreach($tiposStats as $stat)
                 @php $percentage = $totalStats > 0 ? ($stat->total / $totalStats) * 100 : 0; @endphp
-                <li onclick="selectOption('tipoFilterSelect', '{{ $stat->id_tipo_equipo }}', '{{ $stat->nombre }}'); loadEquipos();"
+                <li onclick="selectOption('tipoFilterSelect', '{{ $stat->id_tipo_equipo }}', '{{ addslashes(trim($stat->nombre ?? '')) }}'); loadEquipos();"
                     style="padding-bottom: 4px; border-bottom: 1px dashed #f1f5f9; transition: opacity 0.2s; cursor: pointer;"
                     onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">
                     <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2px; gap: 4px;">
