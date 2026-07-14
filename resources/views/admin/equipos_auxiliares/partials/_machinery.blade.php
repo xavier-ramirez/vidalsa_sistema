@@ -1782,6 +1782,27 @@
     // ═══════════════════════════════════════════════════════════
     // SUBIR/ELIMINAR PDF DEL MODAL DE DETALLES (require equipos.edit)
     // ═══════════════════════════════════════════════════════════
+
+    // Sincroniza la cache del modal de detalles (auxDetailsMap) tras subir o borrar
+    // un documento y, si el modal sigue abierto, lo re-renderiza para que el icono
+    // cambie EN VIVO (description=Ver ↔ cloud_upload=Subir). link=null => se borró.
+    // Fuente única usada por auxUploadDoc (subir) y deletePdfFromPreview (borrar).
+    window.syncAuxDocCache = function (auxId, docType, link) {
+        const map = window.auxDetailsMap || {};
+        const d = map[auxId] || map[String(auxId)];
+        if (!d) return;
+        if (docType === 'propiedad') {
+            d.link_doc_propiedad = link || null;
+        } else if (docType === 'certificado') {
+            d.link_certificado = link || null;
+            if (!link) d.fecha_vencimiento_cert = null; // sin certificado no aplica la fecha
+        }
+        const modal = document.getElementById('auxDetailsModal');
+        if (modal && modal.classList.contains('active') && typeof window.renderAuxDetailsModal === 'function') {
+            window.renderAuxDetailsModal(d);
+        }
+    };
+
     window.auxUploadDoc = function (auxId, docType, input) {
         const file = input.files && input.files[0];
         if (!file) return;
@@ -1807,18 +1828,11 @@
             if (status === 200 && body.success) {
                 if (window.showToast) window.showToast(body.message || 'PDF cargado.', 'success');
 
-                // 0) Actualizar la caché en memoria (auxDetailsMap) con el link nuevo,
-                //    para que al REABRIR el modal de detalles el botón salga como
-                //    "cargado" (description) sin recargar la página. Igual que
-                //    applyDocUpload en el módulo de equipos: no dependemos del
-                //    refresco async de la tabla (que puede no traer este aux por
-                //    paginación/filtro y dejaba el icono viejo hasta un F5).
-                const _map = (window.auxDetailsMap = window.auxDetailsMap || {});
-                const _cached = _map[auxId] || _map[String(auxId)];
-                if (_cached && body.link) {
-                    if (docType === 'propiedad')        _cached.link_doc_propiedad = body.link;
-                    else if (docType === 'certificado') _cached.link_certificado   = body.link;
-                }
+                // 0) Actualizar la caché en memoria (auxDetailsMap) con el link nuevo y
+                //    refrescar el icono del modal de detalles (a "cargado"/description) sin
+                //    recargar la página. No dependemos del refresco async de la tabla (que
+                //    puede no traer este aux por paginación/filtro y dejaba el icono viejo).
+                if (body.link) window.syncAuxDocCache(auxId, docType, body.link);
 
                 // 1) Cerrar el modal de detalles para que el visor del PDF
                 //    no quede solapado por el card del aux.

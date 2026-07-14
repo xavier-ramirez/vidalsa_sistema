@@ -2184,6 +2184,10 @@
                         const d = await r.json().catch(() => ({}));
                         if (r.ok && d.success) {
                             if (window.showToast) window.showToast(d.message || 'Documento eliminado.', 'success');
+                            // Actualizar la cache + icono del modal de detalles (a "Subir"/cloud_upload)
+                            // EN VIVO: el modal de detalles queda abierto detrás del visor, así que al
+                            // cerrar el visor ya muestra el estado correcto sin recargar la página.
+                            if (typeof window.syncAuxDocCache === 'function') window.syncAuxDocCache(ctx.equipoId, ctx.docType, null);
                             const modal = document.getElementById('pdfPreviewModal');
                             if (modal) modal.classList.remove('active');
                             if (typeof window.cargarAuxiliares === 'function') window.cargarAuxiliares(); // refresca la lista
