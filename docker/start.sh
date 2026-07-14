@@ -34,6 +34,14 @@ php artisan route:clear
 echo "[5/6] Ejecutando migraciones..."
 php artisan migrate --force --no-interaction
 
+# Symlink public/storage -> storage/app/public. Necesario para servir los
+# documentos de equipos AUXILIARES (se guardan en disco 'public' y se sirven en
+# /storage/...). NO viene en el repo (public/storage está en .gitignore), así
+# que hay que crearlo en cada arranque o el PDF subido da 404 en el servidor.
+# `|| true`: si el enlace ya existe (redeploy con volumen persistente) no es error.
+echo "[5.1] Creando symlink storage..."
+php artisan storage:link --no-interaction || true
+
 # Optimizar para producción
 echo "[6/6] Optimizando para producción..."
 php artisan config:cache
