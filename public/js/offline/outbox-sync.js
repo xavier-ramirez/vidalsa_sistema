@@ -125,7 +125,15 @@
         uuid: uuid,
         add: function (item) {
             if (!window.OfflineDB) return Promise.resolve(false);
-            return window.OfflineDB.enqueue(item).then(function () { avisar(); return true; });
+            return window.OfflineDB.enqueue(item).then(function () {
+                avisar();
+                // Si HAY internet, subirlo al servidor AL INSTANTE (no esperar a recargar
+                // ni a un evento 'online'): así una movilización hecha en modo consulta
+                // local se refleja de inmediato para TODOS los usuarios. drain() es no-op
+                // si ya se está drenando o si no hay conexión, así que es seguro llamarlo.
+                if (navigator.onLine) drain();
+                return true;
+            });
         },
         drain: drain,
         razon: function (key) { return RAZONES[key] || key || 'Motivo desconocido'; },
