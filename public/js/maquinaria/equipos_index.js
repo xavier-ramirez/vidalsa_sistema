@@ -1300,7 +1300,11 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
 
             // Cargar datos en memoria ANTES de tocar el DOM
             if (data.equiposData) {
-                window.equiposData = { ...window.equiposData, ...data.equiposData };
+                // Object.assign muta en sitio (copia SOLO las claves nuevas). El spread
+                // { ...window.equiposData, ... } creaba un objeto nuevo copiando TODO el mapa
+                // acumulado (cientos de equipos) en cada búsqueda — trabajo que crece con el uso.
+                window.equiposData = window.equiposData || {};
+                Object.assign(window.equiposData, data.equiposData);
             }
 
             // Mapa de detalles de auxiliares: aplica tanto en modo aux (tabla 100% aux) como
@@ -1329,7 +1333,9 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
                 }
                 const hasActiveFilters = !!paramStr;
                 const displayStat = (val) => hasActiveFilters ? val : '--';
-                const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+                // Solo escribe si el valor REALMENTE cambió: si el número/etiqueta es el mismo
+                // que ya está en pantalla, no se toca el DOM (evita repintar lo que no cambia).
+                const setEl = (id, val) => { const el = document.getElementById(id); if (el && el.textContent !== String(val)) el.textContent = val; };
 
                 // Titulo de la tarjeta segun el modo (Equipos vs Auxiliares). El server-render
                 // pone el inicial; aqui se actualiza al cambiar de modo via AJAX.
@@ -1525,8 +1531,11 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
                 chunk.forEach(node => fragment.appendChild(node));
                 tableBody.appendChild(fragment);
 
-                // Registrar imágenes del chunk recién insertado con el loader controlado
-                if (window._registerLazyImages) window._registerLazyImages(tableBody);
+                // Registrar SOLO las imágenes de las filas de ESTE lote (no re-escanear todo el
+                // tableBody en cada lote: eso era O(n²) — cada lote re-recorría toda la tabla
+                // creciente). Las filas del chunk ya están insertadas, así que se consultan
+                // directas.
+                if (window._registerLazyImages) chunk.forEach(row => window._registerLazyImages(row));
 
                 index += CHUNK_SIZE;
 
