@@ -418,7 +418,10 @@ window.filterDropdownOptions = function (input) {
     );
 
     items.forEach((item) => {
-        const text = normalize(item.innerText);
+        // textContent en vez de innerText: innerText es "layout-aware" y FUERZA un reflow
+        // por cada item en cada tecla — con muchos frentes/tipos eso daba tirones en PC.
+        // textContent no reflowa; para estos items (texto plano) el resultado es el mismo.
+        const text = normalize(item.textContent);
         // Respeta el filtrado dependiente por frente del modulo Equipos: un item marcado
         // como oculto por frente (clase 'eq-tipo-oculto', la pone eqSyncTiposFrente) NO se
         // re-muestra aunque coincida con el texto buscado. Otros dropdowns no usan esa clase,
