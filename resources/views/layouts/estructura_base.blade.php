@@ -2845,6 +2845,7 @@
         <script src="{{ asset('js/maquinaria/almacen-offline.js') }}?v={{ @filemtime(public_path('js/maquinaria/almacen-offline.js')) }}" defer></script>
         <script src="{{ asset('js/maquinaria/equipos-offline.js') }}?v={{ @filemtime(public_path('js/maquinaria/equipos-offline.js')) }}" defer></script>
         <script src="{{ asset('js/maquinaria/movilizaciones-offline.js') }}?v={{ @filemtime(public_path('js/maquinaria/movilizaciones-offline.js')) }}" defer></script>
+        <script src="{{ asset('js/maquinaria/movimientos-offline.js') }}?v={{ @filemtime(public_path('js/maquinaria/movimientos-offline.js')) }}" defer></script>
 
         {{-- ── WebAuthn: prompt de registro biométrico tras login con contraseña ── --}}
         @if(session('webauthn_prompt'))

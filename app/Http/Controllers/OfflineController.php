@@ -47,6 +47,12 @@ class OfflineController extends Controller
     private function calcularVersion(Request $request): string
     {
         $parts = [
+            // Versión del ESQUEMA del snapshot: subirla fuerza una re-descarga en todos
+            // los clientes (la huella cambia aunque los datos no). Subir cuando se
+            // agreguen/cambien campos del payload — v2: ids para filtros offline
+            // (movimientos.id_frente/codigo, movilizaciones.id_origen/id_destino/
+            // id_tipo/aux_tipo).
+            'schema-v2',
             $request->user()?->getAuthIdentifier(),
             MovimientoInventario::max('ID_MOVIMIENTO'),
             AlmacenStock::max('FECHA_ULT_MOVIMIENTO'),
@@ -134,18 +140,27 @@ class OfflineController extends Controller
                 'movimientos_inventario.ID_MOVIMIENTO', 'movimientos_inventario.ID_ALMACEN',
                 'movimientos_inventario.ID_PRODUCTO', 'movimientos_inventario.TIPO',
                 'movimientos_inventario.CANTIDAD', 'movimientos_inventario.CANTIDAD_RESULTANTE',
+                'movimientos_inventario.CANTIDAD_ANTERIOR',
                 'movimientos_inventario.FECHA', 'movimientos_inventario.NUMERO_NOTA',
-                'p.NOMBRE as PROD_NOMBRE', 'p.UM as PROD_UM', 'f.NOMBRE_FRENTE',
+                'movimientos_inventario.ID_FRENTE',
+                'p.CODIGO as PROD_CODIGO', 'p.NOMBRE as PROD_NOMBRE', 'p.UM as PROD_UM', 'f.NOMBRE_FRENTE',
             ])
             ->map(static fn ($m) => [
                 'id' => (int) $m->ID_MOVIMIENTO,
                 'id_almacen' => (int) $m->ID_ALMACEN,
                 'id_producto' => (int) $m->ID_PRODUCTO,
+                // id_frente permite el filtro por frente del kardex offline (los nombres
+                // solos no bastan: el dropdown online filtra por ID).
+                'id_frente' => $m->ID_FRENTE ? (int) $m->ID_FRENTE : null,
                 'tipo' => $m->TIPO,
                 'cantidad' => (float) $m->CANTIDAD,
                 'resultante' => (float) $m->CANTIDAD_RESULTANTE,
+                // anterior: clasifica los AJUSTES como entrada/salida por su signo
+                // (resultante vs anterior), igual que el filtro Entradas/Salidas online.
+                'anterior' => (float) $m->CANTIDAD_ANTERIOR,
                 'fecha' => optional($m->FECHA)->format('Y-m-d') ?? (string) $m->FECHA,
                 'nota' => $m->NUMERO_NOTA,
+                'codigo' => MojibakeFix::fix($m->PROD_CODIGO),
                 'producto' => MojibakeFix::fix($m->PROD_NOMBRE),
                 'um' => MojibakeFix::fix($m->PROD_UM),
                 'frente' => MojibakeFix::fix($m->NOMBRE_FRENTE),
@@ -221,6 +236,12 @@ class OfflineController extends Controller
                     ?? optional($mv->created_at)->format('Y-m-d H:i')
                     ?? (string) $mv->FECHA_DESPACHO,
                 'id_equipo' => $mv->ID_EQUIPO ? (int) $mv->ID_EQUIPO : null,
+                // IDs para los filtros offline del historial (frente origen/destino, tipo de
+                // equipo y tipo de auxiliar) — replican los filtros del index online.
+                'id_origen' => $mv->ID_FRENTE_ORIGEN ? (int) $mv->ID_FRENTE_ORIGEN : null,
+                'id_destino' => $mv->ID_FRENTE_DESTINO ? (int) $mv->ID_FRENTE_DESTINO : null,
+                'id_tipo' => $mv->equipo?->id_tipo_equipo ? (int) $mv->equipo->id_tipo_equipo : null,
+                'aux_tipo' => MojibakeFix::fix($mv->auxiliar?->TIPO),
                 'equipo_tipo' => MojibakeFix::fix($mv->equipo?->tipo?->nombre),
                 'equipo_serial' => MojibakeFix::fix($mv->equipo?->SERIAL_CHASIS),
                 'equipo_placa' => MojibakeFix::fix($mv->equipo?->documentacion?->PLACA),

@@ -1,13 +1,22 @@
 /**
- * Almacén — render OFFLINE (Fase 1: consulta sin internet)
- * --------------------------------------------------------
+ * Almacén — render OFFLINE (consulta sin internet, filtros COMPLETOS)
+ * -------------------------------------------------------------------
  * Llena la tabla de inventario (#almTableBody) desde IndexedDB (copia de offline-sync.js).
  * NO se activa solo: se registra en OfflineMode (banner del layout) y solo pinta cuando el
  * usuario toca "Trabajar sin conexión". SOLO LECTURA. Con internet la página manda.
  *
+ * MOTOR DE FILTROS LOCAL: toda la UI de filtros online (buscador, categoría, badges
+ * "Con stock"/"Stock bajo", "Ver todo", selector de almacén) converge en window.almCargar().
+ * Con el modo offline activo, almCargar se INTERCEPTA y en vez del fetch al servidor se
+ * filtra la copia local leyendo el MISMO estado del DOM que usa el online:
+ *   - #almSelAlmacen (value), #almFiltroBuscar / #almFiltroCat (value || dataset.active —
+ *     patrón placeholder-background del online), badges por su clase .is-on.
+ * Semántica replicada del backend (AlmacenController::inventarioBaseQuery):
+ *   categoría = LIKE %cat%; solo_bajo = mínimo definido y saldo <= mínimo;
+ *   solo_con_saldo = saldo > 0. Los KPIs del header se recalculan de la copia local.
+ *
  * Se carga GLOBAL en el layout y se (re)inicializa en cada carga y navegación SPA
- * (init en DOMContentLoaded + 'spa:contentLoaded'). render() reconsulta el DOM cada vez,
- * así no quedan referencias viejas tras intercambiar el contenido.
+ * (init en DOMContentLoaded + 'spa:contentLoaded'). render() reconsulta el DOM cada vez.
  */
 (function () {
     'use strict';
@@ -20,6 +29,17 @@
     const COLS = 6;
 
     function getBody() { return document.getElementById('almTableBody'); }
+
+    // Normalización compartida (sin acentos + minúsculas) — mismo criterio que el
+    // buscador online, que delega en window.FuzzySearch. Fallback si no cargó.
+    // Los separadores se colapsan a espacio: el texto que deja una sugerencia clickeada
+    // es "PARTE · NOMBRE" y sin esto nunca coincidiría con el haystack "codigo nombre".
+    function norm(s) {
+        const base = (window.FuzzySearch && window.FuzzySearch.norm)
+            ? window.FuzzySearch.norm(s)
+            : String(s == null ? '' : s).toLowerCase();
+        return base.replace(/[^a-z0-9ñ]+/g, ' ').trim();
+    }
 
     function fmt(n) {
         const v = Number(n) || 0;
@@ -34,14 +54,57 @@
         return '<tr><td colspan="' + COLS + '" style="text-align:center;padding:40px 16px;color:#94a3b8;font-size:14px;">' + html + '</td></tr>';
     }
 
-    function aplicarFiltroBuscador() {
-        const tbody = getBody(); if (!tbody) return;
-        const inp = document.getElementById('almFiltroBuscar');
-        const q = (inp && inp.value ? inp.value : '').trim().toLowerCase();
-        tbody.querySelectorAll('tr[data-offline]').forEach(function (tr) {
-            const blob = tr.getAttribute('data-buscar') || '';
-            tr.style.display = (!q || blob.indexOf(q) >= 0) ? '' : 'none';
+    // ── Estado de filtros leído del DOM (misma fuente que usa el online) ─────────
+    // value || dataset.active: el online "promueve" el texto tecleado a dataset.active
+    // (patrón placeholder-background), así que un filtro aplicado vive ahí, no en value.
+    function valorFiltro(id) {
+        const e = document.getElementById(id);
+        if (!e) return '';
+        return String(e.value || '').trim() || String(e.dataset.active || '').trim();
+    }
+
+    function estadoFiltros() {
+        const selEl = document.getElementById('almSelAlmacen');
+        const bajo = document.getElementById('almBadgeBajo');
+        const conS = document.getElementById('almBadgeConSaldo');
+        return {
+            idAlm:        selEl && selEl.value ? parseInt(selEl.value, 10) : null,
+            q:            norm(valorFiltro('almFiltroBuscar')),
+            cat:          norm(valorFiltro('almFiltroCat')),
+            soloBajo:     !!(bajo && bajo.classList.contains('is-on')),
+            soloConSaldo: !!(conS && conS.classList.contains('is-on')),
+        };
+    }
+
+    // minima llega como float (null → 0 en el snapshot): mínimo > 0 = "tiene mínimo
+    // configurado", igual que el pintado de filas rojas online.
+    function esBajo(p) {
+        const min = Number(p.minima) || 0;
+        return min > 0 && (Number(p.cantidad) || 0) <= min;
+    }
+
+    function filtrar(stock, f) {
+        return stock.filter(function (p) {
+            if (f.idAlm && p.id_almacen !== f.idAlm) return false;
+            if (f.q && (norm(p.codigo) + ' ' + norm(p.nombre)).indexOf(f.q) < 0) return false;
+            if (f.cat && norm(p.categoria).indexOf(f.cat) < 0) return false;      // LIKE %cat%
+            if (f.soloBajo && !esBajo(p)) return false;
+            if (f.soloConSaldo && (Number(p.cantidad) || 0) <= 0) return false;
+            return true;
         });
+    }
+
+    // KPIs del header desde la copia local: sobre el almacén seleccionado, SIN los
+    // filtros de contenido (igual que online, donde stats no depende de search/cat).
+    function pintarStats(stock, idAlm) {
+        const base = idAlm ? stock.filter(function (s) { return s.id_almacen === idAlm; }) : stock;
+        const num = function (id, v) {
+            const e = document.getElementById(id);
+            if (e) e.textContent = Number(v).toLocaleString('es-ES');
+        };
+        num('almStatsTotal', base.length);
+        num('almStatsConSaldo', base.filter(function (p) { return (Number(p.cantidad) || 0) > 0; }).length);
+        num('almStatsBajo', base.filter(esBajo).length);
     }
 
     async function render() {
@@ -56,23 +119,22 @@
             return;
         }
 
-        const selEl = document.getElementById('almSelAlmacen');
-        const idAlm = selEl && selEl.value ? parseInt(selEl.value, 10) : null;
+        const f = estadoFiltros();
+        pintarStats(stock, f.idAlm);
 
-        let filas = idAlm ? stock.filter(function (s) { return s.id_almacen === idAlm; }) : stock.slice();
+        let filas = filtrar(stock, f);
         filas.sort(function (a, b) { return String(a.nombre).localeCompare(String(b.nombre), 'es'); });
 
         if (!filas.length) {
-            tbody.innerHTML = filaMensaje('No hay productos en la copia local para este almacén.');
+            tbody.innerHTML = filaMensaje('No hay productos en la copia local que coincidan con los filtros.');
             return;
         }
 
         tbody.innerHTML = filas.map(function (p) {
             const saldo = Number(p.cantidad) || 0;
-            const bajo = (Number(p.minima) || 0) > 0 && saldo <= Number(p.minima);
-            const buscar = (String(p.codigo) + ' ' + String(p.nombre)).toLowerCase();
+            const bajo = esBajo(p);
             return '' +
-                '<tr class="alm-row ' + (bajo ? 'alm-row-bajo' : '') + '" data-offline="1" data-buscar="' + esc(buscar) + '">' +
+                '<tr class="alm-row ' + (bajo ? 'alm-row-bajo' : '') + '" data-offline="1">' +
                 '<td class="alm-td-codigo" style="font-family:monospace;font-weight:700;color:#0f172a;white-space:nowrap;">' + esc(p.codigo) + '</td>' +
                 '<td class="alm-td-nombre" data-codigo="' + esc(p.codigo) + '" style="font-weight:600;color:#1e293b;">' + esc(p.nombre) + '</td>' +
                 '<td class="alm-td-cat" style="color:#475569;">' + (p.categoria ? esc(p.categoria) : '—') + '</td>' +
@@ -83,21 +145,37 @@
                 '<td class="alm-td-det" style="text-align:center;color:#cbd5e0;">—</td>' +
                 '</tr>';
         }).join('');
-
-        aplicarFiltroBuscador();
     }
 
-    // (Re)inicializa en cada carga/navegación: registra el render (por clave, sobreescribe)
-    // y cablea el buscador. Si el modo offline ya está activo (se navegó sin internet),
-    // pinta de una.
+    // (Re)inicializa en cada carga/navegación: registra el render (por clave, sobreescribe),
+    // parchea almCargar (el inline del blade lo REDEFINE en cada montaje SPA, así que se
+    // re-parchea aquí) y cablea el filtrado en vivo de los dos inputs de texto. Si el modo
+    // offline ya está activo (se navegó sin internet), pinta de una.
     function init() {
         if (!getBody()) return;      // no estamos en la página de inventario
         OM.registrar('almacen', function () { OM.conOfflineDB(render); });
-        const inp = document.getElementById('almFiltroBuscar');
-        if (inp && !inp.dataset.offWired) {
-            inp.dataset.offWired = '1';
-            inp.addEventListener('input', function () { if (OM.estaActivo()) aplicarFiltroBuscador(); });
+
+        // Punto ÚNICO de intercepción: badges, categoría, sugerencias, "Ver todo" y el
+        // selector de almacén terminan todos en almCargar() — offline se filtra local.
+        if (typeof window.almCargar === 'function' && window.almCargar !== window._almOffPatchedCargar) {
+            window._origAlmCargar = window.almCargar;
+            window._almOffPatchedCargar = function () {
+                if (OM.estaActivo()) { OM.conOfflineDB(render); return; }
+                return window._origAlmCargar.apply(null, arguments);
+            };
+            window.almCargar = window._almOffPatchedCargar;
         }
+
+        // Filtrado en vivo al teclear (el online espera Enter/sugerencia; offline no hay
+        // paginación del servidor de por medio, así que filtrar por tecla es gratis).
+        ['almFiltroBuscar', 'almFiltroCat'].forEach(function (id) {
+            const inp = document.getElementById(id);
+            if (inp && !inp.dataset.offWired) {
+                inp.dataset.offWired = '1';
+                inp.addEventListener('input', function () { if (OM.estaActivo()) OM.conOfflineDB(render); });
+            }
+        });
+
         if (OM.estaActivo()) OM.conOfflineDB(render);
     }
 
