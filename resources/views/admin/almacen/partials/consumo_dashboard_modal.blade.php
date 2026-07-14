@@ -23,15 +23,18 @@
     /* Barra de filtros PROPIA del dashboard (no depende de los filtros del módulo). */
     .cdash-filtros { display:flex; flex-wrap:wrap; align-items:flex-end; gap:10px; margin-bottom:16px; }
     .cdash-filtros .f-group { display:flex; flex-direction:column; gap:3px; min-width:0; }
-    .cdash-filtros .f-group-cat { flex:1 1 260px; }   /* Categoría: crece y queda ancha */
-    .cdash-filtros label { font-size:10.5px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.4px; }
-    .cdash-filtros input[type="month"] { box-sizing:border-box; height:36px; width:160px; max-width:100%; border:1px solid #cbd5e0; border-radius:8px; padding:0 10px; font-size:13px; color:#0f172a; background:#fff; outline:none; cursor:pointer; }
-    .cdash-cat-wrap { position:relative; width:100%; min-width:200px; }
-    .cdash-cat-box { display:flex; align-items:center; height:36px; border:1px solid #cbd5e0; border-radius:8px; background:#fff; overflow:hidden; cursor:pointer; }
-    .cdash-cat-box.active { border-color:var(--maquinaria-blue,#0067b1); background:#e1effa; }
-    .cdash-cat-box input { flex:1; border:none; background:transparent; outline:none; padding:0 8px; font-size:13px; color:#0f172a; min-width:0; cursor:pointer; }
-    .cdash-cat-box i.material-icons { padding:0 6px; color:#64748b; font-size:16px; }
-    .cdash-cat-box i.clr { cursor:pointer; }
+    .cdash-filtros .f-group-desc { flex:1 1 240px; }  /* Descripción: filtro principal, crece */
+    .cdash-filtros .f-group-cat  { flex:0 1 180px; }  /* Categoría: ancho reducido */
+    .cdash-filtros input[type="month"] { box-sizing:border-box; height:36px; width:130px; max-width:100%; border:1px solid #cbd5e0; border-radius:8px; padding:0 10px; font-size:13px; color:#0f172a; background:#fff; outline:none; cursor:pointer; }
+    /* Caja de texto compartida por Descripción y Categoría (mismo look). */
+    .cdash-inp-box { display:flex; align-items:center; height:36px; border:1px solid #cbd5e0; border-radius:8px; background:#fff; overflow:hidden; }
+    .cdash-inp-box.active { border-color:var(--maquinaria-blue,#0067b1); background:#e1effa; }
+    .cdash-inp-box input { flex:1; border:none; background:transparent; outline:none; padding:0 8px; font-size:13px; color:#0f172a; min-width:0; }
+    .cdash-inp-box i.material-icons { padding:0 6px; color:#64748b; font-size:16px; }
+    .cdash-inp-box i.clr { cursor:pointer; }
+    .cdash-cat-wrap { position:relative; width:100%; min-width:150px; }
+    .cdash-cat-box { cursor:pointer; }
+    .cdash-cat-box input { cursor:pointer; }
     .cdash-cat-list { display:none; position:absolute; top:calc(100% + 4px); left:0; right:0; background:#fff; border:1px solid #e2e8f0; border-radius:8px; box-shadow:0 10px 22px rgba(0,0,0,.12); max-height:220px; overflow-y:auto; padding:4px; z-index:20; }
     .cdash-cat-list.open { display:block; }
     .cdash-cat-item { padding:7px 10px; border-radius:6px; font-size:13px; font-weight:600; color:#1e293b; cursor:pointer; }
@@ -52,12 +55,14 @@
     @media (max-width: 760px) {
         .cdash-grid { grid-template-columns:1fr; }
         .cdash-body { padding-left:14px; padding-right:14px; }   /* más ancho útil en móvil */
-        /* Categoría en su propia fila (va primera); Desde y Hasta UNO AL LADO DEL OTRO. Ancho por FLEX.
-           Gracias a box-sizing:border-box + min-width:0 el input de mes encoge y los dos caben
-           sin salirse del modal en cualquier teléfono. Se reduce fuente/padding y se oculta el
-           icono del calendario (el campo igual abre el selector al tocarlo) para más holgura. */
+        /* Descripción y Categoría cada una en su propia fila (van primero); Desde y Hasta UNO AL
+           LADO DEL OTRO. Ancho por FLEX. Gracias a box-sizing:border-box + min-width:0 el input de
+           mes encoge y los dos caben sin salirse del modal en cualquier teléfono. Se reduce
+           fuente/padding y se oculta el icono del calendario (el campo igual abre el selector al
+           tocarlo) para más holgura. */
         .cdash-filtros { gap:8px; }
         .cdash-filtros .f-group { flex:1 1 0; min-width:0; }
+        .cdash-filtros .f-group-desc,
         .cdash-filtros .f-group-cat { flex:1 1 100%; }
         .cdash-filtros input[type="month"] { width:100%; min-width:0; font-size:12px; padding:0 6px; }
         .cdash-filtros input[type="month"]::-webkit-calendar-picker-indicator { display:none; }
@@ -71,15 +76,23 @@
             <button type="button" class="cdash-x" onclick="window.cerrarConsumoDashboard()" aria-label="Cerrar"><i class="material-icons">close</i></button>
         </div>
         <div class="cdash-body">
-            {{-- Filtros propios del dashboard. Orden: Categoría primero (es el filtro principal
-                 y el que más se toca), luego el rango de meses. La categoría crece y ocupa el
-                 espacio sobrante; Desde/Hasta quedan a la derecha con ancho fijo. --}}
+            {{-- Filtros propios del dashboard. Orden: Descripción primero (filtro principal),
+                 luego Categoría (ancho reducido) y el rango de meses Desde/Hasta a la derecha.
+                 Sin títulos: cada control se identifica por su placeholder/valor. --}}
             <div class="cdash-filtros">
+                <div class="f-group f-group-desc">
+                    <div class="cdash-inp-box" id="cdashDescBox">
+                        <i class="material-icons">search</i>
+                        <input type="text" id="cdashDescripcion" placeholder="Descripción del producto…" autocomplete="off"
+                               oninput="window._cdashDescInput()"
+                               onkeydown="if(event.key==='Enter'){event.preventDefault();clearTimeout(window._cdashDescTimer);window._cdashFetch();}">
+                        <i class="material-icons clr" id="cdashDescClear" style="display:none;" onclick="window._cdashDescClear()">close</i>
+                    </div>
+                </div>
                 <div class="f-group f-group-cat">
-                    <label>Categoría</label>
                     <div class="cdash-cat-wrap">
                         <input type="hidden" id="cdashCategoria" value="">
-                        <div class="cdash-cat-box" id="cdashCatBox" onclick="window._cdashCatToggle()">
+                        <div class="cdash-inp-box cdash-cat-box" id="cdashCatBox" onclick="window._cdashCatToggle()">
                             <i class="material-icons">search</i>
                             <input type="text" id="cdashCatInput" placeholder="Todas las categorías" autocomplete="off"
                                    oninput="window._cdashCatFilter(this.value)"
@@ -91,13 +104,11 @@
                     </div>
                 </div>
                 <div class="f-group">
-                    <label for="cdashDesde">Desde (mes)</label>
-                    <input type="month" id="cdashDesde" onchange="window._cdashFetch()"
+                    <input type="month" id="cdashDesde" title="Desde (mes)" onchange="window._cdashFetch()"
                            onclick="try{ this.showPicker(); }catch(e){}">
                 </div>
                 <div class="f-group">
-                    <label for="cdashHasta">Hasta (mes)</label>
-                    <input type="month" id="cdashHasta" onchange="window._cdashFetch()"
+                    <input type="month" id="cdashHasta" title="Hasta (mes)" onchange="window._cdashFetch()"
                            onclick="try{ this.showPicker(); }catch(e){}">
                 </div>
             </div>
@@ -157,6 +168,7 @@
         var desde = (document.getElementById('cdashDesde') || {}).value || '';
         var hasta = (document.getElementById('cdashHasta') || {}).value || '';
         var cat   = (document.getElementById('cdashCategoria') || {}).value || '';
+        var desc  = ((document.getElementById('cdashDescripcion') || {}).value || '').trim();
 
         // Los <input type="month"> dan "YYYY-MM", pero el backend filtra por FECHA (día)
         // con whereDate. Si se manda el mes crudo, "<= YYYY-MM" se toma como YYYY-MM-00
@@ -173,6 +185,7 @@
         if (desde) p.set('desde', desde);
         if (hasta) p.set('hasta', hasta);
         if (cat)   p.set('categoria', cat);
+        if (desc)  p.set('descripcion', desc);
         var qs = p.toString();
 
         fetch(window.CONSUMO_DASH_URL + (qs ? ('?' + qs) : ''), { headers: { 'Accept': 'application/json' } })
@@ -303,6 +316,26 @@
                 }
             }]
         });
+    };
+
+    // ── Filtro Descripción (texto libre sobre el NOMBRE del producto) ──────────
+    // Debounce: al escribir NO dispara en cada tecla; espera 350ms de pausa. Enter
+    // consulta al instante (ver onkeydown). Comparte estética con Categoría (.cdash-inp-box).
+    window._cdashDescTimer = null;
+    window._cdashDescInput = function () {
+        var inp = document.getElementById('cdashDescripcion');
+        var val = inp ? inp.value.trim() : '';
+        var clr = document.getElementById('cdashDescClear'); if (clr) clr.style.display = val ? 'block' : 'none';
+        var box = document.getElementById('cdashDescBox'); if (box) box.classList.toggle('active', !!val);
+        clearTimeout(window._cdashDescTimer);
+        window._cdashDescTimer = setTimeout(function () { window._cdashFetch(); }, 350);
+    };
+    window._cdashDescClear = function () {
+        var inp = document.getElementById('cdashDescripcion'); if (inp) inp.value = '';
+        var clr = document.getElementById('cdashDescClear'); if (clr) clr.style.display = 'none';
+        var box = document.getElementById('cdashDescBox'); if (box) box.classList.remove('active');
+        clearTimeout(window._cdashDescTimer);
+        window._cdashFetch();
     };
 
     window._cdashCatsData = window._cdashCatsData || [];

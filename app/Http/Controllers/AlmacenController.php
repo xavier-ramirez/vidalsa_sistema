@@ -1445,6 +1445,18 @@ class AlmacenController extends Controller
             $q = MovimientoInventario::query()
                 ->where('movimientos_inventario.TIPO', 'SALIDA')
                 ->whereIn('movimientos_inventario.ID_ALMACEN', $idsVisibles);
+            // Descripción: coincidencia parcial sobre el NOMBRE (la descripción) del producto.
+            // whereExists evita ambigüedad de columnas con los JOIN de top_productos/por_almacen
+            // (mismo patrón que el filtro de categoría de abajo).
+            if ($request->filled('descripcion')) {
+                $desc = trim((string) $request->input('descripcion'));
+                $q->whereExists(function ($sub) use ($desc) {
+                    $sub->select(DB::raw(1))
+                        ->from('productos_inventario as pd')
+                        ->whereColumn('pd.ID_PRODUCTO', 'movimientos_inventario.ID_PRODUCTO')
+                        ->where('pd.NOMBRE', 'like', "%{$desc}%");
+                });
+            }
             if ($request->filled('categoria') && $request->input('categoria') !== 'all') {
                 $cat = trim((string) $request->input('categoria'));
                 $q->whereExists(function ($sub) use ($cat) {
