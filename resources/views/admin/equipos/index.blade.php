@@ -861,19 +861,6 @@
     </div>
     @endif
 
-    {{-- Aviso "también hay auxiliares": la búsqueda de esta tabla solo cubre VEHÍCULOS.
-         Si el texto buscado coincide con equipos auxiliares, este banner los enlaza (modo
-         auxiliar). Se actualiza también vía AJAX desde equipos_index.js (data.auxMatchCount). --}}
-    <a id="auxMatchBanner"
-       href="{{ $auxMatchUrl ?? '#' }}"
-       style="display:{{ ($auxMatchCount ?? 0) > 0 ? 'flex' : 'none' }}; align-items:center; gap:10px; text-decoration:none; margin-top:8px; padding:10px 14px; border-radius:10px; background:#fffbeb; border:1px solid #fcd34d; color:#92400e; font-size:13px; font-weight:600;">
-        <i class="material-icons" style="font-size:20px; color:#d97706;">construction</i>
-        <span>
-            <strong id="auxMatchCountLabel">{{ $auxMatchCount ?? 0 }}</strong>
-            equipo(s) auxiliar(es) coinciden con tu búsqueda — <u>ver en Auxiliares</u>
-        </span>
-    </a>
-
     <div class="custom-scrollbar-container" style="margin-top: 5px; overflow-x: auto; max-width: 100%; -webkit-overflow-scrolling: touch;">
 
         <table class="admin-table table-equipos-mobile" style="width: 100%; min-width: 900px; border-collapse: separate; border-spacing: 0 8px;">

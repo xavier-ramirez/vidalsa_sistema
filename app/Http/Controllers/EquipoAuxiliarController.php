@@ -469,28 +469,6 @@ class EquipoAuxiliarController extends Controller
     }
 
     /**
-     * Cuenta los auxiliares que coinciden con una búsqueda de texto
-     * (serial / código interno / marca / modelo). Reutiliza EXACTAMENTE el mismo
-     * filtrado que index()/buildEmbedPayload() (applyAuxiliarFilters con bypass de
-     * scope en búsqueda) para que el conteo cuadre con lo que el usuario verá al
-     * abrir el modo auxiliar. Lo usa /admin/equipos para avisar "N auxiliares
-     * coinciden" cuando un serial buscado no está entre los vehículos.
-     */
-    public function countMatchingSearch(string $search): int
-    {
-        $search = trim($search);
-        if ($search === '') return 0;
-
-        [$isLocalUser, $frentesPermitidos] = $this->userScope();
-        $req = new Request(['search' => $search]);
-        $q = EquipoAuxiliar::query();
-        // bypassScope=true: la búsqueda debe encontrar el auxiliar aunque esté en un
-        // frente fuera del scope del usuario (mismo criterio que index/buildEmbedPayload).
-        $this->applyAuxiliarFilters($q, $req, true, $isLocalUser, $frentesPermitidos);
-        return $q->count();
-    }
-
-    /**
      * Mapa TIPO => label de los tipos de auxiliar presentes en el scope del
      * usuario (whitelist LOCAL + blacklist bloqueados). Solo incluye tipos que
      * existen en BD; aplica el label bonito del enum si el codigo existe alli.

@@ -1437,22 +1437,6 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
                 window.__distribUbiHtml = (showUbi && data.ubicaciones) ? data.ubicaciones : '';
                 _eqRenderDistribucion();
 
-                // Banner "también hay auxiliares": la búsqueda de esta tabla solo cubre
-                // vehículos; si el texto coincide con auxiliares, el server manda el conteo
-                // y el enlace al modo auxiliar. Lo mostramos/ocultamos según la respuesta.
-                const auxMatchBanner = document.getElementById('auxMatchBanner');
-                if (auxMatchBanner) {
-                    const auxCount = Number(data.auxMatchCount || 0);
-                    if (auxCount > 0 && data.auxMatchUrl) {
-                        const lbl = document.getElementById('auxMatchCountLabel');
-                        if (lbl) lbl.textContent = auxCount;
-                        auxMatchBanner.href = data.auxMatchUrl;
-                        auxMatchBanner.style.display = 'flex';
-                    } else {
-                        auxMatchBanner.style.display = 'none';
-                    }
-                }
-
                 // Al salir de un frente especial, limpiar el detalle para que no quede colgado.
                 const detalleUbicEl = document.getElementById('detalleUbicacionFilter');
                 if (!showUbi && detalleUbicEl && detalleUbicEl.value !== '') {

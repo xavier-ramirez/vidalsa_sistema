@@ -738,22 +738,6 @@ class EquipoController extends Controller
             ? app(\App\Http\Controllers\EquipoAuxiliarController::class)->distribucionHtml($auxSharedReq)
             : '';
 
-        // Aviso "también hay auxiliares": se muestra cuando hay auxiliares que coinciden con la
-        // BÚSQUEDA pero que TODAVÍA no están en la tabla. Dos casos: (a) no hay merge (enfoque
-        // solo-equipos), o (b) hay merge pero los auxiliares se anexan al FINAL del scroll y aún
-        // quedan lotes de equipos por cargar ($hasMore) — sin esto, en una búsqueda con muchos
-        // equipos el auxiliar quedaría invisible hasta llegar al último lote. Cuando el merge ya
-        // los anexó en este lote ($mergeAux && !$hasMore) el banner se oculta (auxMatchCount=0).
-        $auxYaEnTabla  = $mergeAux && !$hasMore;
-        $auxMatchCount = 0;
-        $auxMatchUrl = null;
-        if (trim((string) $search) !== '' && !$auxMode && !$auxYaEnTabla && !$request->filled('ids_in')) {
-            $auxMatchCount = app(\App\Http\Controllers\EquipoAuxiliarController::class)->countMatchingSearch((string) $search);
-            if ($auxMatchCount > 0) {
-                $auxMatchUrl = route('equipos.index', ['categoria' => 'AUXILIARES', 'search_query' => $search]);
-            }
-        }
-
         if ($request->wantsJson()) {
             return response()->json([
                 'mode'         => $auxMode ? 'aux' : 'equipos',
@@ -795,8 +779,6 @@ class EquipoController extends Controller
                 // HTML de la distribución de auxiliares para el toggle de la card (vacío si la card
                 // aux no aplica → el front desactiva el toggle).
                 'auxDistribution'   => $auxDistributionHtml,
-                'auxMatchCount'     => $auxMatchCount,
-                'auxMatchUrl'       => $auxMatchUrl,
             ])->withHeaders([
                 // Evita que el browser sirva respuestas JSON cacheadas con stats obsoletas
                 'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
@@ -874,7 +856,7 @@ class EquipoController extends Controller
         // $auxConsolidado y $showAuxConsolidado ya se calcularon arriba (antes del
         // return JSON), así están disponibles tanto para el AJAX como para esta vista.
 
-        return view('admin.equipos.index', compact('equipos', 'stats', 'frentes', 'allTipos', 'tiposPorFrente', 'tiposStats', 'frentesStats', 'ubicacionesStats', 'frenteEspecial', 'availableModelos', 'availableMarcas', 'availableAnios', 'availableColores', 'auxMarcas', 'auxModelos', 'auxAnios', 'jsonPayload', 'showFrentes', 'auxMode', 'auxModeByTipo', 'auxEmbed', 'tiposAux', 'auxConsolidado', 'showAuxConsolidado', 'auxDistributionHtml', 'auxMatchCount', 'auxMatchUrl', 'mergeAuxHtml', 'auxInitDetailsMap', 'hasFilter'));
+        return view('admin.equipos.index', compact('equipos', 'stats', 'frentes', 'allTipos', 'tiposPorFrente', 'tiposStats', 'frentesStats', 'ubicacionesStats', 'frenteEspecial', 'availableModelos', 'availableMarcas', 'availableAnios', 'availableColores', 'auxMarcas', 'auxModelos', 'auxAnios', 'jsonPayload', 'showFrentes', 'auxMode', 'auxModeByTipo', 'auxEmbed', 'tiposAux', 'auxConsolidado', 'showAuxConsolidado', 'auxDistributionHtml', 'mergeAuxHtml', 'auxInitDetailsMap', 'hasFilter'));
     }
 
     public function export(Request $request)
