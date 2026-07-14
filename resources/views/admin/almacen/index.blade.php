@@ -201,6 +201,10 @@
     .alm-modal-head { padding: 14px 40px; border-bottom: 1px solid #f1f5f9; display: flex; align-items: center; justify-content: center; position: relative; }
     .alm-modal-head h3 { margin: 0; font-size: 15px; font-weight: 800; color: #1e293b; display: flex; align-items: center; gap: 8px; text-align: center; }
     .alm-modal-head .alm-x { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); }
+    /* "Detalles del producto": sin raya bajo el título y cuerpo más pegado — el cliente
+       pidió quitar el separador entre el título y "Ubicación en estante..." y reducir el hueco. */
+    #almDetalleModal .alm-modal-head { border-bottom: none; }
+    #almDetalleModal .alm-modal-body { padding-top: 6px; }
     .alm-modal-body { padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; }
     .alm-modal-foot { padding: 12px 18px; border-top: 1px solid #f1f5f9; display: flex; justify-content: center; gap: 8px; }
     .alm-modal label,
@@ -1348,7 +1352,7 @@
                  modal — sea cerrándolo (✕ / Escape, vía almDetalleCerrar) o saltando a un
                  sub-modal (vía almDetalleAccion). almGuardarUbicacionDetalle compara contra el
                  valor cargado, así que salir sin tocar el campo no dispara ningún PATCH. --}}
-            <div style="border-top:1px solid #f1f5f9;padding-top:12px;">
+            <div style="padding-top:2px;">
                 <label for="almDetUbicacion" style="font-size:12.5px;font-weight:700;color:#475569;">📍 Ubicación en estante, fila o nivel</label>
                 <input type="text" id="almDetUbicacion" maxlength="150" autocomplete="off"
                        onkeydown="if(event.key==='Enter'){event.preventDefault();window.almGuardarUbicacionDetalle();}"
