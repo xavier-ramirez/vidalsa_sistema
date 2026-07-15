@@ -2822,11 +2822,13 @@ input:-webkit-autofill:active {
         position: relative !important;
     }
 
-    /* ── Tarjeta ABIERTA (móvil): fondo gris para distinguirla de las cerradas (blancas)
-       de un vistazo. Va ANTES del bloque de selección: si además está seleccionada, el
-       celeste de .selected-row-maquinaria (misma especificidad, más abajo) gana. Los TD
-       son transparentes y muestran este fondo; la zona de detalle (mv-td-fechas/mv-col-op)
-       lo hereda también — su #f8fafc pasa a transparent más abajo para un gris uniforme. */
+    /* ── Tarjeta ABIERTA (móvil): en el flujo normal el tap ata despliegue y
+       selección (ver movilizaciones_index.js), así que una tarjeta .mv-expanded
+       siempre lleva también .selected-row-maquinaria y se ve AZUL (el celeste de
+       más abajo gana, misma especificidad). Este fondo gris queda como fallback
+       por si alguna vez se despliega sin seleccionar. Los TD son transparentes y
+       muestran este fondo; la zona de detalle (mv-td-fechas/mv-col-op) lo hereda
+       también — su #f8fafc pasa a transparent más abajo para un tono uniforme. */
     #movilizacionesTable tr.mv-row-card.mv-expanded {
         background: #f1f5f9 !important;
         border-color: #94a3b8 !important;

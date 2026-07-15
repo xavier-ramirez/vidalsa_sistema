@@ -631,9 +631,14 @@ window.updateChipMv = function () {
 
 // ── Re-aplica estilos a todas las filas visibles tras carga AJAX ──
 window.reapplyStylesMv = function () {
+    // En móvil, selección ⟺ despliegue: una tarjeta seleccionada debe reabrir su
+    // detalle tras recargar el tbody (paginación AJAX), no quedar azul y colapsada.
+    const esMovil = window.innerWidth <= 1024;
     document.querySelectorAll('.mv-selectable-row').forEach(tr => {
         const id = tr.dataset.mvId;
-        window.applyRowStyleMv(tr, window._mvSelectedIds.has(id));
+        const sel = window._mvSelectedIds.has(id);
+        window.applyRowStyleMv(tr, sel);
+        if (esMovil) tr.classList.toggle('mv-expanded', sel);
     });
     window.updateChipMv();
 }
@@ -649,16 +654,26 @@ if (!window._mvRowClickRegistered) {
         const tr = e.target.closest('.mv-selectable-row');
         if (!tr) return;
 
-        // ── Móvil (tarjeta): el tap DESPLIEGA el detalle (fecha/hora + PDF +
-        // usuario + deshacer). Acordeón: solo una tarjeta abierta a la vez — al
-        // abrir una se cierran las demás, nunca hay dos desplegadas. La selección
-        // para borrado en lote es solo de escritorio. El layout de tarjeta se
+        // ── Móvil (tarjeta): el tap SELECCIONA la tarjeta (azul, IGUAL que los
+        // demás módulos: equipos, historial, etc.) y a la vez DESPLIEGA su detalle
+        // (fecha/hora + PDF + usuario + deshacer). Selección y despliegue van
+        // atados: seleccionada ⟺ desplegada, así el azul de selección es también
+        // la señal de "abierta". Es multi-selección (para borrado en lote de
+        // super.admin), por eso NO se cierran las demás. El layout de tarjeta se
         // activa a <=1024px (ver estilos_globales.css).
         if (window.innerWidth <= 1024) {
-            const abrir = !tr.classList.contains('mv-expanded');
-            document.querySelectorAll('#movilizacionesTable tr.mv-row-card.mv-expanded')
-                .forEach(function (r) { if (r !== tr) r.classList.remove('mv-expanded'); });
-            tr.classList.toggle('mv-expanded', abrir);
+            const mRowId = tr.dataset.mvId;
+            if (!mRowId) return;
+            if (window._mvSelectedIds.has(mRowId)) {
+                window._mvSelectedIds.delete(mRowId);
+                window.applyRowStyleMv(tr, false);
+                tr.classList.remove('mv-expanded');
+            } else {
+                window._mvSelectedIds.add(mRowId);
+                window.applyRowStyleMv(tr, true);
+                tr.classList.add('mv-expanded');
+            }
+            window.updateChipMv();
             return;
         }
 
@@ -681,6 +696,8 @@ if (!window._mvRowClickRegistered) {
 window.mvClearSelection = function () {
     window._mvSelectedIds.clear();
     document.querySelectorAll('.selected-row-maquinaria').forEach(tr => tr.classList.remove('selected-row-maquinaria'));
+    // Selección ⟺ despliegue en móvil: al limpiar la selección, colapsar el detalle.
+    document.querySelectorAll('#movilizacionesTable tr.mv-row-card.mv-expanded').forEach(tr => tr.classList.remove('mv-expanded'));
     window.updateChipMv();
 };
 
