@@ -55,13 +55,20 @@ class DashboardController extends Controller
             $frentes = $frentesQuery->get();
 
             // 4. Salud operacional — base query excluyendo DESINCORPORADO y frentes ESPECIAL.
-            $saludBase = Equipo::where('ESTADO_OPERATIVO', '!=', 'DESINCORPORADO')
-                ->excludeEspecial();
+            // Los 3 conteos (total / operativos / mantenimiento) se resuelven en UNA sola
+            // consulta con agregación condicional, en vez de 3 count() separados (3 round-trips
+            // → 1). Ayuda al rebuild frío del dashboard, sobre todo con BD remota en producción.
+            $salud = Equipo::where('ESTADO_OPERATIVO', '!=', 'DESINCORPORADO')
+                ->excludeEspecial()
+                ->selectRaw('COUNT(*) as total')
+                ->selectRaw("SUM(CASE WHEN ESTADO_OPERATIVO = 'OPERATIVO' THEN 1 ELSE 0 END) as operativos")
+                // "MANTENIMIENTO" agrupa "MANTENIMIENTO" y "EN MANTENIMIENTO" (inconsistencia en BD).
+                ->selectRaw("SUM(CASE WHEN ESTADO_OPERATIVO LIKE '%MANTENIMIENTO%' THEN 1 ELSE 0 END) as mantenimiento")
+                ->first();
 
-            $totalFlotaActiva     = (clone $saludBase)->count();
-            $equiposOperativos    = (clone $saludBase)->where('ESTADO_OPERATIVO', 'OPERATIVO')->count();
-            // En mantenimiento agrupa "MANTENIMIENTO" y "EN MANTENIMIENTO" (hay inconsistencia en BD)
-            $equiposMantenimiento = (clone $saludBase)->where('ESTADO_OPERATIVO', 'like', '%MANTENIMIENTO%')->count();
+            $totalFlotaActiva     = (int) $salud->total;
+            $equiposOperativos    = (int) $salud->operativos;
+            $equiposMantenimiento = (int) $salud->mantenimiento;
             // Inoperativos = resto (INOPERATIVO + DESCONOCIDO + otros) para que los 3 chips sumen exacto
             $equiposInoperativos  = max(0, $totalFlotaActiva - $equiposOperativos - $equiposMantenimiento);
 
