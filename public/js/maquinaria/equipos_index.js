@@ -3412,10 +3412,12 @@ function initEquipos() {
                 clearBtn.style.display = val.length > 0 ? "block" : "none";
 
             clearTimeout(window.searchTimeout);
-            if (val.length >= 4 || val.length === 0) {
+            // Solo busca con 4+ caracteres. Al BORRAR el campo hasta dejarlo vacío ya NO se
+            // dispara una "búsqueda vacía" (antes val.length===0 recargaba y mostraba todo /
+            // estado en blanco). Para resetear la vista está el botón X (clearAdvancedFilters).
+            if (val.length >= 4) {
                 const self = this;
-                // Debounce reducido de 1000ms → 400ms: la búsqueda arranca mucho antes
-                // tras dejar de escribir. 400ms sigue evitando disparar en cada tecla.
+                // Debounce 400ms: la búsqueda arranca poco después de dejar de escribir.
                 window.searchTimeout = setTimeout(() => {
                     window.loadEquipos();
                     _hideMobileKeyboard(self);
