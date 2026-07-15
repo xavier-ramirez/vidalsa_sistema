@@ -1841,7 +1841,10 @@
 
                 // Track timing to ensure loader shows for minimum duration
                 const loaderStartTime = Date.now();
-                const minimumLoaderDuration = 800; // Minimum time (ms) to show loader
+                // Minimo que el loader permanece visible. Bajado 800ms → 250ms: cuando el PDF
+                // carga rapido, el visor se siente mucho mas agil (antes se forzaba 800ms aunque
+                // ya estuviera listo). 250ms sigue evitando el parpadeo si carga casi instantaneo.
+                const minimumLoaderDuration = 250; // Minimum time (ms) to show loader
 
                 // Fallback: ocultar spinner y loader tras 5s máximo
                 const loaderTimeout = setTimeout(() => {
