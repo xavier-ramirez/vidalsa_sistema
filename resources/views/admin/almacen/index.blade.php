@@ -1385,10 +1385,10 @@
      es CONSUMO (mismo almacén del origen) o TRASPASO (envío a otro almacén) según el frente
      elegido en "Proyecto destino" — ambos casos generan Nota de Entrega NE-YYYY-NNNN. ── --}}
 <div id="almSalidaModal" class="alm-modal-overlay">
-    {{-- max-width reducido a 600px (de 680) — cliente pidio comprimir un poco mas.
+    {{-- max-width 660px — el cliente pidió agrandarlo un poco (venía de 600).
          El layout de 2-3 columnas (Proyecto/Contrato, Fecha/RQ/Solic) sigue
          acomodando bien — los inputs heredan width:100% del .alm-nota-input. --}}
-    <div class="alm-modal alm-modal-wide" style="max-width:600px;">
+    <div class="alm-modal alm-modal-wide" style="max-width:660px;">
         <div class="alm-modal-head">
             <h3><i class="material-icons" style="font-size:20px;">north_east</i> <span>Registrar salida</span></h3>
             <i class="material-icons alm-x" onclick="almCerrar('almSalidaModal')">close</i>
@@ -1957,8 +1957,10 @@
     // Clic en uno mientras el otro estaba encendido los hace mutuamente exclusivos.
     // En cualquier caso, almPintarBadges() refleja el estado para que el usuario VEA
     // cual filtro esta limitando la tabla (anillo blanco + fondo saturado en .is-on).
-    window.almFiltrarConSaldo = function () {
-        soloConSaldo = !soloConSaldo;
+    // `force`=true la ENCIENDE siempre (no togglea): lo usa la sugerencia "VER TODO
+    // EL STOCK" del buscador, que debe mostrar SOLO los productos con existencias (>0).
+    window.almFiltrarConSaldo = function (force) {
+        soloConSaldo = force ? true : !soloConSaldo;
         if (soloConSaldo) { soloBajo = false; almLimpiarBusquedaYCategoria(); }
         almResetPick(); // un badge global no debe quedar anulado por un pick exacto pegado
         almPintarBadges(); almCargar();
@@ -2049,7 +2051,7 @@
         // "VER TODO EL STOCK" se comporta como una recomendación más de la
         // lista, igual que "TODOS LOS FRENTES" en el filtro de /admin/equipos:
         // sale con el campo vacío y, al escribir, solo si el texto coincide con
-        // ella (substring). Al clickearla limpia el filtro (alias a almVerTodo).
+        // ella (substring). Al clickearla filtra a "Con stock" (solo con existencias >0).
         var verTodoLink = (tokens.length === 0 || (rawNorm && 'ver todo el stock'.indexOf(rawNorm) !== -1))
             ? '<div class="alm-suggest-item" data-action="ver-todo"><span class="nom">VER TODO EL STOCK</span></div>'
             : '';
@@ -2336,10 +2338,12 @@
         var item = e.target.closest('#almFiltroBuscarSuggest .alm-suggest-item');
         if (item) {
             e.preventDefault();
-            // Item especial "VER TODO EL STOCK" → reusa almVerTodo (limpia filtros + recarga).
+            // Item especial "VER TODO EL STOCK" → muestra SOLO los productos con
+            // existencias (>0), encendiendo el badge "Con stock". El catálogo completo
+            // (incl. stock 0) sigue disponible al pulsar el total "PRODUCTOS" del Consolidado.
             if (item.getAttribute('data-action') === 'ver-todo') {
                 almSuggestHide();
-                if (window.almVerTodo) window.almVerTodo();
+                if (window.almFiltrarConSaldo) window.almFiltrarConSaldo(true);
                 return;
             }
             // data-pid → match exacto en el backend; data-pick → texto visible en el input.
