@@ -1099,6 +1099,16 @@ class AlmacenController extends Controller
         }
         $q->periodo($request->input('desde'), $request->input('hasta'));
 
+        // Petición SOLO-consumo (consumo_only): el frontend carga la TABLA aparte con
+        // skip_consumo para que aparezca rápido, y pide el ranking de consumo EN PARALELO.
+        // Aquí saltamos la query de la tabla y la paginación (consumoRanking arma su propia
+        // query desde $request, no usa $paginator) — así este request solo paga el agregado.
+        if ($request->wantsJson() && $request->boolean('consumo_only')) {
+            return response()->json([
+                'consumo' => view('admin.almacen.partials.consumo_stats', ['consumo' => $this->consumoRanking($request)])->render(),
+            ]);
+        }
+
         // Orden por ORDEN DE REGISTRO (ID_MOVIMIENTO autoincremental), NO por FECHA: la
         // FECHA la teclea el usuario y puede ser pasada o incluso futura, así que ordenar
         // por ella hundía la última operación registrada bajo movimientos con fecha mayor.

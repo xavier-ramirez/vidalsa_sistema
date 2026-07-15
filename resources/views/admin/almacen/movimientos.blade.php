@@ -852,9 +852,26 @@
         return p;
     }
 
+    // Trae SOLO el ranking de consumo (agregado ~90ms) en una petición aparte, para que NO
+    // bloquee la aparición de la tabla. Se llama en paralelo al cambiar filtros/búsqueda
+    // (no en paginación: el ranking no cambia entre páginas). Si falla, se conserva el previo.
+    function cargarConsumoMov() {
+        var cc = el('almMovConsumoContainer'); if (!cc) return;
+        var p = buildParams();            // filtros actuales (sin pageUrl)
+        p.set('consumo_only', '1');
+        fetch(ROUTE + '?' + p.toString(), { headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' } })
+            .then(function (r) { return r.json(); })
+            .then(function (d) { if (d && d.consumo !== undefined) cc.innerHTML = d.consumo; })
+            .catch(function () {});
+    }
+
     window.loadMovimientos = function (pageUrl) {
         var body = el('almMovTableBody'); if (!body) return;
         var p = buildParams(pageUrl);
+        // URL "limpia" para el historial (sin flags internos de rendimiento).
+        var pHist = new URLSearchParams(p.toString()); pHist.delete('skip_consumo');
+        // La TABLA nunca espera el agregado de consumo (~90ms): siempre skip_consumo → aparece rápido.
+        p.set('skip_consumo', '1');
         var url = ROUTE + '?' + p.toString();
         body.style.opacity = '0.5';
         if (window.showPreloader) window.showPreloader();
@@ -864,16 +881,18 @@
                 if (data.html !== undefined) body.innerHTML = data.html;
                 var pg = el('almMovPagination'); if (pg) pg.innerHTML = data.pagination || '';
                 { var e = el('almMovTotal'); if (e && data.total !== undefined) e.textContent = data.total; }
-                // Refresca el ranking de consumo del sidebar (mismas dimensiones que /admin/equipos).
-                var cc = el('almMovConsumoContainer'); if (cc && data.consumo !== undefined) cc.innerHTML = data.consumo;
                 // marca "activo" del buscador
                 var sb = document.querySelector('.amf-search-box'); var si = el('almMovSearch');
                 if (sb && si) sb.classList.toggle('active', !!si.value.trim());
                 var sc = el('almMovSearchClear'); if (sc && si) sc.style.display = si.value.trim() ? 'block' : 'none';
-                try { window.history.replaceState(null, '', url); } catch (e) {}
+                try { window.history.replaceState(null, '', ROUTE + '?' + pHist.toString()); } catch (e) {}
             })
             .catch(function () { body.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:24px;color:#dc2626;">No se pudieron cargar los movimientos.</td></tr>'; })
             .finally(function () { body.style.opacity = '1'; if (window.hidePreloader) window.hidePreloader(); });
+
+        // El ranking de consumo se refresca SOLO al cambiar filtros/búsqueda (no en paginación),
+        // en paralelo — la tabla ya no lo espera.
+        if (!pageUrl) cargarConsumoMov();
     };
 
     // Filtro de fecha ROBUSTO (Desde/Hasta). Un <input type="date"> devuelve '' mientras
