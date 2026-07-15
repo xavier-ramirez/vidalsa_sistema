@@ -141,7 +141,8 @@ class MovilizacionController extends Controller
             } catch (\Throwable $e) { /* fecha inválida → sin filtro */ }
         }
 
-        // Fetch paginated results sin puntos suspensivos (mostrando hasta 50 pÃ¡ginas continuas)
+        // Paginación: ventana deslizante de tamaño FIJO (sin puntos suspensivos);
+        // la cantidad de botones no cambia al navegar (ver vendor.pagination.custom-sliding).
         $movilizaciones = $query->orderBy('movilizacion_historial.created_at', 'desc')->paginate(16);
 
         $totalTransito = $movilizaciones->total();

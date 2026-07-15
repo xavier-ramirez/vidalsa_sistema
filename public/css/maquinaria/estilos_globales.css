@@ -2618,44 +2618,43 @@ input:-webkit-autofill:active {
     width: 11%;
 }
 
-/* ── Botón Deshacer (movilizaciones) — PC: pill moderno con ícono + texto.
-   Rojo tenue, borde y sombra sutiles, con animación de hover (se rellena de
-   rojo). En móvil se reduce a solo-ícono (ver @media más abajo). ── */
+/* ── Botón Deshacer (movilizaciones) — PC: enlace compacto ícono + texto en rojo,
+   SIN contenedor (sin fondo, borde ni sombra): el pill rojo ocupaba demasiado alto
+   en la fila. El hover solo oscurece el texto y subraya. En móvil se reduce a
+   solo-ícono (ver @media más abajo). ── */
 .mv-undo-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
-    margin-top: 3px;
-    padding: 5px 12px;
-    border-radius: 999px;
-    background: #fef2f2;
+    gap: 4px;
+    margin-top: 0;
+    padding: 2px 4px;
+    border-radius: 6px;
+    background: transparent;
     color: #dc2626;
-    border: 1px solid #fecaca;
+    border: none;
     font-size: 12px;
     font-weight: 700;
     line-height: 1;
     white-space: nowrap;
     cursor: pointer;
-    box-shadow: 0 1px 2px rgba(220, 38, 38, 0.08);
-    transition: background .18s ease, color .18s ease, border-color .18s ease, box-shadow .18s ease, transform .1s ease;
+    box-shadow: none;
+    transition: color .18s ease, transform .1s ease;
 }
 .mv-undo-btn .material-icons {
     font-size: 16px;
     transition: transform .3s ease;
 }
 .mv-undo-btn:hover {
-    background: #dc2626;
-    color: #fff;
-    border-color: #dc2626;
-    box-shadow: 0 4px 10px rgba(220, 38, 38, 0.28);
+    color: #991b1b;
+    background: transparent;
+    text-decoration: underline;
 }
 .mv-undo-btn:hover .material-icons {
     transform: rotate(-28deg);
 }
 .mv-undo-btn:active {
     transform: translateY(1px);
-    box-shadow: 0 1px 2px rgba(220, 38, 38, 0.2);
 }
 
 /* En desktop: el wrapper de búsqueda+filtro avanzado es transparente
@@ -3404,9 +3403,9 @@ input:-webkit-autofill:active {
 
 /* ── Paginador "custom-sliding" en móvil (compartido por movilizaciones, almacén
    movimientos/notas/recepción, fallas, historial) ──
-   En desktop muestra hasta 11 números (actual ±5) + Anterior/Siguiente, que en
-   teléfono desbordaban el ancho. En ≤768px se compacta:
-     · solo los números cercanos (actual ±1) — el resto (.pag-far) se oculta;
+   En desktop muestra una ventana FIJA de hasta 11 números (actual ±5) +
+   Anterior/Siguiente, que en teléfono desbordaban el ancho. En ≤768px se compacta:
+     · solo los números de la ventana móvil fija (actual ±2) — el resto (.pag-far) se oculta;
      · "Anterior"/"Siguiente" se reducen a las flechas « » (.pag-nav-text oculto);
      · celdas más chicas y menos gap.
    Así el paginador entra siempre en una sola línea sin scroll lateral. */
