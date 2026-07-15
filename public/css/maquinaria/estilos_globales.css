@@ -2821,19 +2821,11 @@ input:-webkit-autofill:active {
         position: relative !important;
     }
 
-    /* ── Tarjeta ABIERTA (móvil): en el flujo normal el tap ata despliegue y
-       selección (ver movilizaciones_index.js), así que una tarjeta .mv-expanded
-       siempre lleva también .selected-row-maquinaria y se ve AZUL (el celeste de
-       más abajo gana, misma especificidad). Este fondo gris queda como fallback
-       por si alguna vez se despliega sin seleccionar. Los TD son transparentes y
-       muestran este fondo; la zona de detalle (mv-td-fechas/mv-col-op) lo hereda
-       también — su #f8fafc pasa a transparent más abajo para un tono uniforme. */
-    #movilizacionesTable tr.mv-row-card.mv-expanded {
-        background: #f1f5f9 !important;
-        border-color: #94a3b8 !important;
-    }
-
     /* ── Selección en móvil: resaltar la TARJETA COMPLETA, no por celda ──
+       En móvil el tap ata despliegue y selección (ver movilizaciones_index.js):
+       una tarjeta .mv-expanded siempre lleva también .selected-row-maquinaria, así
+       que el resaltado azul de aquí es TAMBIÉN la señal de "abierta" (no hace falta
+       un fondo gris aparte).
        Los estilos de selección de escritorio aplican un border-left de 4px al
        primer TD; en la tarjeta apilada eso se ve como un "borde azul raro" en
        la parte superior. Estos overrides (mas especificos por la clase
@@ -2863,8 +2855,9 @@ input:-webkit-autofill:active {
     }
 
     /* ── DETALLE DESPLEGABLE (móvil): fecha·hora + PDF + usuario + deshacer.
-       OCULTO por defecto; se revela SOLO al tocar la tarjeta (clase .mv-expanded).
-       Es un acordeón: solo una tarjeta abierta a la vez (ver movilizaciones_index.js).
+       OCULTO por defecto; se revela SOLO al tocar la tarjeta (clase .mv-expanded,
+       que va atada a la selección — ver movilizaciones_index.js). Es multi-selección:
+       pueden quedar varias tarjetas abiertas a la vez (para borrado en lote).
        La letra del detalle es UNIFORME (mismo tamaño y color) para que se vea
        ordenado; el enlace del acta conserva su azul y el deshacer su rojo. ── */
     #movilizacionesTable tr.mv-row-card td.mv-td-fechas,
@@ -2877,8 +2870,8 @@ input:-webkit-autofill:active {
         width: 100% !important;
         height: auto !important;
         margin: 0 !important;
-        /* transparent, NO #f8fafc: así hereda el gris de la tarjeta abierta y no quedan dos
-           tonos. Si la tarjeta está seleccionada, hereda el celeste — antes este #f8fafc lo
+        /* transparent, NO #f8fafc: así hereda el celeste de la tarjeta seleccionada
+           (una tarjeta abierta siempre está seleccionada). Antes este #f8fafc lo
            pisaba y dejaba una franja gris dentro de una tarjeta azul. */
         background: transparent !important;
         text-align: center !important;
@@ -2913,10 +2906,9 @@ input:-webkit-autofill:active {
         gap: 3px 14px !important;
         height: auto !important;
     }
-    /* Botón Deshacer en móvil: SOLO el ícono, SIN contenedor rojo (sin fondo,
-       borde ni sombra). Se conserva un área de toque de 34px. El :hover/:active
-       se neutralizan también: en táctil el hover rellenaba de rojo y ponía el
-       ícono blanco → sobre fondo transparente el ícono se volvía invisible. */
+    /* Botón Deshacer en móvil: SOLO el ícono (se oculta el texto), en un área de
+       toque de 34px. El :hover/:active se neutralizan (en táctil el hover queda
+       "pegado" tras tocar y no aporta nada útil aquí). */
     #movilizacionesTable tr.mv-row-card .mv-undo-btn,
     #movilizacionesTable tr.mv-row-card .mv-undo-btn:hover,
     #movilizacionesTable tr.mv-row-card .mv-undo-btn:active {
