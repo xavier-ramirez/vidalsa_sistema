@@ -128,7 +128,10 @@ class CaracteristicaModeloController extends Controller
 
         // ── VEHÍCULOS (caracteristicas_modelo) ──
         if ($verVehiculos) {
-            $q = CaracteristicaModelo::query();
+            // withCount('equipos'): nº de equipos ligados a cada modelo (por ID_ESPEC), en
+            // UNA subconsulta (sin N+1) — para mostrar la cantidad en la tarjeta, igual que
+            // los auxiliares muestran sus unidades.
+            $q = CaracteristicaModelo::withCount('equipos');
             if (str_starts_with($tipoFiltro, 'tipo_eq:')) {
                 $nombre = TipoEquipo::where('id', (int) substr($tipoFiltro, 8))->value('nombre');
                 $q->where('TIPO', $nombre ? strtoupper(trim($nombre)) : '__none__');
@@ -152,7 +155,7 @@ class CaracteristicaModeloController extends Controller
                     'anio'        => $cm->ANIO_ESPEC,
                     'foto_url'    => $driveId ? url('/storage/google/' . $driveId . '?sz=w300') : null,
                     'placeholder' => 'precision_manufacturing',
-                    'total'       => null,
+                    'total'       => $cm->equipos_count, // nº de equipos ligados a este modelo
                     'specs'       => array_filter([
                         'Motor'        => $cm->MOTOR,
                         'Combustible'  => $cm->COMBUSTIBLE,

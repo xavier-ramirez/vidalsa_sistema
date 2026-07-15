@@ -128,9 +128,12 @@ function catRefreshSentinel() {
     if (!sentinel || !('IntersectionObserver' in window)) return;
 
     if (!window.catScrollObserver) {
+        // rootMargin ALTO (1500px): dispara la carga de la siguiente página MUCHO antes de
+        // llegar al fondo, para que las tarjetas nuevas ya estén cuando el usuario llega —
+        // antes (800px) se alcanzaba el final y aún no habían cargado.
         window.catScrollObserver = new IntersectionObserver(function (entries) {
             if (entries[0].isIntersecting) catLoadMore();
-        }, { rootMargin: '800px 0px' });
+        }, { rootMargin: '1500px 0px' });
     }
     window.catScrollObserver.disconnect();
     if (window.catState.hasMore) window.catScrollObserver.observe(sentinel);

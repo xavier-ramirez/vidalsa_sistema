@@ -42,16 +42,17 @@
                       title="{{ $esVeh ? 'Vehículo' : 'Auxiliar' }}">{{ $esVeh ? 'VEHÍCULO' : 'AUXILIAR' }}</span>
             </div>
 
-            {{-- Esquina sup. derecha: año y (en auxiliares) cantidad de unidades. --}}
+            {{-- Esquina sup. derecha: año y cantidad asociada (equipos si es VEHÍCULO,
+                 unidades registradas si es AUXILIAR). Solo se muestra si hay > 0. --}}
             @if($item['anio'])
                 <span class="cat-anio-badge">
                     <i class="material-icons" style="font-size:12px;">event</i>
                     {{ $item['anio'] }}
                 </span>
             @endif
-            @if(!$esVeh && !empty($item['total']))
-                <span class="cat-anio-badge" style="top:{{ $item['anio'] ? '40px' : '10px' }}; background:rgba(15,23,42,0.85);" title="Unidades registradas">
-                    <i class="material-icons" style="font-size:12px;">inventory_2</i>
+            @if(!empty($item['total']))
+                <span class="cat-anio-badge" style="top:{{ $item['anio'] ? '40px' : '10px' }}; background:rgba(15,23,42,0.85);" title="{{ $esVeh ? 'Equipos registrados' : 'Unidades registradas' }}">
+                    <i class="material-icons" style="font-size:12px;">{{ $esVeh ? 'local_shipping' : 'inventory_2' }}</i>
                     {{ $item['total'] }}
                 </span>
             @endif
