@@ -1574,6 +1574,18 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
             if (abortController.signal.aborted) return;
             console.error('Error loading equipos:', error);
             tableBody.style.opacity = '1';
+
+            // Fallback OFFLINE: si el fetch falló por RED (servidor inalcanzable) — que es un
+            // TypeError de fetch, NO un error HTTP 4xx/5xx (esos resuelven y lanzan otro Error) —
+            // y hay copia local disponible, activamos el modo offline. Así el filtro que el
+            // usuario acaba de elegir se aplica sobre la copia local en vez de quedar mostrando
+            // todo sin filtrar. Necesario porque navigator.onLine a veces dice "online" con wifi
+            // sin internet real, y entonces la auto-activación por evento 'offline' no dispara.
+            if ((error instanceof TypeError)
+                && window.OfflineMode && !window.OfflineMode.estaActivo()
+                && window.netStatus && typeof window.netStatus.showOffline === 'function') {
+                window.netStatus.showOffline();
+            }
         })
         .finally(() => {
             // BUG #1 (race-condition por aborto): si una peticion mas nueva ABORTO esta
