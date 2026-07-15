@@ -2952,78 +2952,111 @@ window.openAnchorModal = async function (event) {
     const anchorSearchBox = content.querySelector('#anchor-search-box');
     const selectedIds = selections.map((s) => String(s[0]));
 
-    // ── Helper: renderiza items en el contenedor ──
+    // ── Render POR LOTES (chunked) ──────────────────────────────────────────
+    // Abrir el modal ya NO pinta los 150+ equipos de una: eso bloqueaba el hilo
+    // con 150 innerHTML complejos y el modal tardaba en aparecer. Ahora se pinta
+    // un primer lote inmediato (rápido) y el resto se agrega al hacer scroll cerca
+    // del fondo. Las fotos siguen siendo loading="lazy", así que solo se descargan
+    // las visibles del lote actual.
+    const ANCHOR_CHUNK = 25;
+    let _anchorItems = [];      // dataset actual (frente o resultado de búsqueda)
+    let _anchorRendered = 0;    // cuántos items ya se pintaron
+    let _anchorScrollBound = false;
+
+    // Construye UNA tarjeta de equipo (extraído del forEach para reutilizar por lote).
+    function buildAnchorItem(eq) {
+        const isSelected = selectedIds.includes(String(eq.ID_EQUIPO));
+        const item = document.createElement('div');
+        item.className = 'anchor-option-item';
+        item.style.cssText = `padding:10px; border-radius:8px; background:white; border:1px solid #e2e8f0; margin-bottom:6px; cursor:${isSelected ? 'not-allowed' : 'pointer'}; opacity:${isSelected ? '0.6' : '1'}; display:flex; align-items:center; gap:12px; transition:all 0.2s; position:relative;`;
+
+        if (!isSelected) {
+            item.onmouseover = () => { if (!item.dataset.selected) item.style.borderColor = '#10b981'; item.style.boxShadow = '0 4px 6px -1px rgba(0,0,0,0.05)'; };
+            item.onmouseout = () => { if (!item.dataset.selected) item.style.borderColor = '#e2e8f0'; item.style.boxShadow = 'none'; };
+            item.onclick = () => {
+                content.querySelectorAll('.anchor-option-item').forEach((el) => {
+                    el.style.borderColor = '#e2e8f0';
+                    el.style.background = 'white';
+                    el.dataset.selected = '';
+                    el.querySelector('.check-mark').style.display = 'none';
+                });
+                item.style.borderColor = '#10b981';
+                item.style.background = '#f0fdf4';
+                item.dataset.selected = 'true';
+                item.querySelector('.check-mark').style.display = 'block';
+                window.selectedMasterId = eq.ID_EQUIPO;
+                const btn = content.querySelector('#btnConfirmAnchor');
+                btn.disabled = false;
+                btn.style.opacity = '1';
+                btn.style.cursor = 'pointer';
+            };
+        }
+
+        // Foto
+        let fotoHtml = '';
+        if (eq.FOTO) {
+            const driveId = eq.FOTO.replace(/^.*\/storage\/google\//, '').split('?')[0];
+            // contain (no cover): el equipo se ve completo, sin recorte horizontal.
+            fotoHtml = `<img src="/storage/google/${driveId}" loading="lazy" style="width:100%; height:100%; object-fit:contain;">`;
+        } else {
+            fotoHtml = `<i class="material-icons" style="font-size:24px; color:#cbd5e0;">image_not_supported</i>`;
+        }
+
+        // Badge de frente distinto (solo aparece en búsqueda global)
+        const frenteBadge = eq.ES_FRENTE_DISTINTO && eq.FRENTE_NOMBRE
+            ? `<div style="font-size:10px; color:#f97316; font-weight:700; display:flex; align-items:center; gap:2px; margin-top:2px;"><i class="material-icons" style="font-size:10px;">location_on</i>${eq.FRENTE_NOMBRE}</div>`
+            : '';
+
+        item.innerHTML = `
+            <div style="width:104px; height:64px; background:#f1f5f9; border-radius:6px; overflow:hidden; display:flex; align-items:center; justify-content:center; flex-shrink:0;">${fotoHtml}</div>
+            <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px;">
+                <span style="font-weight:800; font-size:13px; color:#1e293b; text-transform:uppercase; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${eq.TIPO_NOMBRE || 'S/TIPO'}</span>
+                <div style="font-size:11px; color:#475569; font-weight:600;">${eq.MARCA}</div>
+                <div style="display:flex; align-items:center; gap:8px; margin-top:1px;">
+                    <span style="font-size:10px; color:#64748b; display:flex; align-items:center; gap:2px;"><i class="material-icons" style="font-size:10px;">fingerprint</i>${eq.SERIAL_CHASIS || 'S/S'}</span>
+                    ${eq.PLACA ? `<span style="font-size:10px; color:#0067b1; font-weight:700; display:flex; align-items:center; gap:2px;"><i class="material-icons" style="font-size:10px;">featured_play_list</i>${eq.PLACA}</span>` : ''}
+                </div>
+                ${frenteBadge}
+            </div>
+            <div class="check-mark" style="display:none; color:#10b981;"><i class="material-icons" style="font-size:20px;">check_circle</i></div>
+            ${isSelected ? `<i class="material-icons" style="color:#cbd5e0; font-size:20px; margin-left:auto;">lock</i>` : ''}
+        `;
+        return item;
+    }
+
+    // Pinta el siguiente lote (fragment = un solo reflow por lote).
+    function renderAnchorChunk() {
+        const slice = _anchorItems.slice(_anchorRendered, _anchorRendered + ANCHOR_CHUNK);
+        if (!slice.length) return;
+        const frag = document.createDocumentFragment();
+        slice.forEach((eq) => frag.appendChild(buildAnchorItem(eq)));
+        listContainer.appendChild(frag);
+        _anchorRendered += slice.length;
+    }
+
+    // ── Helper: (re)inicia la lista con un dataset y pinta el primer lote ──
     function renderAnchorItems(equipos) {
+        _anchorItems = equipos || [];
+        _anchorRendered = 0;
+        listContainer.scrollTop = 0;
         listContainer.innerHTML = '';
-        if (!equipos || equipos.length === 0) {
+        if (_anchorItems.length === 0) {
             listContainer.innerHTML = '<div style="padding:40px 20px; text-align:center; color:#94a3b8;"><i class="material-icons" style="font-size:32px; display:block; margin: 0 auto 10px;">search_off</i>Sin resultados</div>';
             return;
         }
-        // Fragment: se arma toda la lista fuera del DOM y se inserta de UNA (un solo reflow)
-        // en vez de appendChild por item (100+ reflows con muchos equipos).
-        const frag = document.createDocumentFragment();
-        equipos.forEach((eq) => {
-            const isSelected = selectedIds.includes(String(eq.ID_EQUIPO));
-            const item = document.createElement('div');
-            item.className = 'anchor-option-item';
-            item.style.cssText = `padding:10px; border-radius:8px; background:white; border:1px solid #e2e8f0; margin-bottom:6px; cursor:${isSelected ? 'not-allowed' : 'pointer'}; opacity:${isSelected ? '0.6' : '1'}; display:flex; align-items:center; gap:12px; transition:all 0.2s; position:relative;`;
+        renderAnchorChunk(); // primer lote, inmediato
 
-            if (!isSelected) {
-                item.onmouseover = () => { if (!item.dataset.selected) item.style.borderColor = '#10b981'; item.style.boxShadow = '0 4px 6px -1px rgba(0,0,0,0.05)'; };
-                item.onmouseout = () => { if (!item.dataset.selected) item.style.borderColor = '#e2e8f0'; item.style.boxShadow = 'none'; };
-                item.onclick = () => {
-                    content.querySelectorAll('.anchor-option-item').forEach((el) => {
-                        el.style.borderColor = '#e2e8f0';
-                        el.style.background = 'white';
-                        el.dataset.selected = '';
-                        el.querySelector('.check-mark').style.display = 'none';
-                    });
-                    item.style.borderColor = '#10b981';
-                    item.style.background = '#f0fdf4';
-                    item.dataset.selected = 'true';
-                    item.querySelector('.check-mark').style.display = 'block';
-                    window.selectedMasterId = eq.ID_EQUIPO;
-                    const btn = content.querySelector('#btnConfirmAnchor');
-                    btn.disabled = false;
-                    btn.style.opacity = '1';
-                    btn.style.cursor = 'pointer';
-                };
-            }
-
-            // Foto
-            let fotoHtml = '';
-            if (eq.FOTO) {
-                const driveId = eq.FOTO.replace(/^.*\/storage\/google\//, '').split('?')[0];
-                // contain (no cover): el equipo se ve completo, sin recorte horizontal.
-                // loading="lazy": con 100+ items en una lista con scroll, el navegador solo
-                // descarga las fotos visibles (no dispara 100+ requests al proxy de Drive al abrir).
-                fotoHtml = `<img src="/storage/google/${driveId}" loading="lazy" style="width:100%; height:100%; object-fit:contain;">`;
-            } else {
-                fotoHtml = `<i class="material-icons" style="font-size:24px; color:#cbd5e0;">image_not_supported</i>`;
-            }
-
-            // Badge de frente distinto (solo aparece en búsqueda global)
-            const frenteBadge = eq.ES_FRENTE_DISTINTO && eq.FRENTE_NOMBRE
-                ? `<div style="font-size:10px; color:#f97316; font-weight:700; display:flex; align-items:center; gap:2px; margin-top:2px;"><i class="material-icons" style="font-size:10px;">location_on</i>${eq.FRENTE_NOMBRE}</div>`
-                : '';
-
-            item.innerHTML = `
-                <div style="width:104px; height:64px; background:#f1f5f9; border-radius:6px; overflow:hidden; display:flex; align-items:center; justify-content:center; flex-shrink:0;">${fotoHtml}</div>
-                <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px;">
-                    <span style="font-weight:800; font-size:13px; color:#1e293b; text-transform:uppercase; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${eq.TIPO_NOMBRE || 'S/TIPO'}</span>
-                    <div style="font-size:11px; color:#475569; font-weight:600;">${eq.MARCA}</div>
-                    <div style="display:flex; align-items:center; gap:8px; margin-top:1px;">
-                        <span style="font-size:10px; color:#64748b; display:flex; align-items:center; gap:2px;"><i class="material-icons" style="font-size:10px;">fingerprint</i>${eq.SERIAL_CHASIS || 'S/S'}</span>
-                        ${eq.PLACA ? `<span style="font-size:10px; color:#0067b1; font-weight:700; display:flex; align-items:center; gap:2px;"><i class="material-icons" style="font-size:10px;">featured_play_list</i>${eq.PLACA}</span>` : ''}
-                    </div>
-                    ${frenteBadge}
-                </div>
-                <div class="check-mark" style="display:none; color:#10b981;"><i class="material-icons" style="font-size:20px;">check_circle</i></div>
-                ${isSelected ? `<i class="material-icons" style="color:#cbd5e0; font-size:20px; margin-left:auto;">lock</i>` : ''}
-            `;
-            frag.appendChild(item);
-        });
-        listContainer.appendChild(frag);
+        // Cargar más lotes al acercarse al fondo (infinite scroll). Se engancha una
+        // sola vez; usa _anchorItems/_anchorRendered, que cambian con cada dataset.
+        if (!_anchorScrollBound) {
+            _anchorScrollBound = true;
+            listContainer.addEventListener('scroll', () => {
+                if (_anchorRendered >= _anchorItems.length) return;
+                if (listContainer.scrollTop + listContainer.clientHeight >= listContainer.scrollHeight - 80) {
+                    renderAnchorChunk();
+                }
+            });
+        }
     }
 
     // ── Carga inicial: equipos del mismo frente ──

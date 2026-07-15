@@ -3593,7 +3593,17 @@ class EquipoController extends Controller
                 }
             })
             ->when($request->exclude_ids, fn($q) => $q->whereNotIn('ID_EQUIPO', $request->exclude_ids))
-            ->with(['especificaciones', 'documentacion', 'tipo', 'frenteActual:ID_FRENTE,NOMBRE_FRENTE'])
+            // Columnas acotadas en cada relación: solo se usan FOTO_REFERENCIAL, PLACA,
+            // nombre y NOMBRE_FRENTE. Cargar la fila completa de especificaciones/
+            // documentacion (tablas anchas) hidrataba decenas de columnas inútiles por
+            // equipo. Se incluyen las llaves (ID_ESPEC / ID_EQUIPO / id / ID_FRENTE) para
+            // que Eloquent pueda emparejar cada relación.
+            ->with([
+                'especificaciones:ID_ESPEC,FOTO_REFERENCIAL',
+                'documentacion:ID_EQUIPO,PLACA',
+                'tipo:id,nombre',
+                'frenteActual:ID_FRENTE,NOMBRE_FRENTE',
+            ])
             ->select('ID_EQUIPO', 'CODIGO_PATIO', 'MARCA', 'MODELO', 'ID_ESPEC', 'FOTO_EQUIPO', 'SERIAL_CHASIS', 'id_tipo_equipo', 'ID_FRENTE_ACTUAL');
 
         if ($search !== '') {
