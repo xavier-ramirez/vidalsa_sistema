@@ -2605,10 +2605,10 @@ window._mostrarVistaPreviaActa = async function (actaState, onConfirm, opts) {
         var listAttr = listId ? ' list="' + listId + '"' : '';
         var offAttrs = ' autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" data-lpignore="true" data-form-type="other"';
         return '<div>' +
-            '<label for="' + id + '" style="display:block;font-size:10.5px;font-weight:700;color:#64748b;margin-bottom:2px;text-transform:uppercase;letter-spacing:0.3px;">' + label + '</label>' +
+            '<label for="' + id + '" style="display:block;font-size:10.5px;font-weight:700;color:#64748b;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.3px;">' + label + '</label>' +
             '<div style="display:flex;align-items:center;border:1px solid #e2e8f0;border-radius:8px;background:#fbfcfd;overflow:hidden;">' +
                 '<i class="material-icons" style="padding:0 6px;color:#94a3b8;font-size:16px;">' + icon + '</i>' +
-                '<input id="' + id + '"' + listAttr + offAttrs + ' value="' + escA(value) + '" placeholder="' + escA(placeholder || '') + '" style="flex:1;border:none;outline:none;padding:9px 8px;font-size:12.5px;background:transparent;text-transform:uppercase;">' +
+                '<input id="' + id + '"' + listAttr + offAttrs + ' value="' + escA(value) + '" placeholder="' + escA(placeholder || '') + '" style="flex:1;border:none;outline:none;padding:11px 8px;font-size:12.5px;background:transparent;text-transform:uppercase;">' +
             '</div>' +
         '</div>';
     }
@@ -2629,14 +2629,14 @@ window._mostrarVistaPreviaActa = async function (actaState, onConfirm, opts) {
             // pero a partir de ahora solo se elige de las opciones del select.
             var roleOpts = ROLES_ACTA.slice();
             if (cur && roleOpts.indexOf(cur) === -1) roleOpts.unshift(cur);
-            var labelSelect = '<select class="ed-f-label" style="padding:8px 7px;border:1px solid #e2e8f0;border-radius:6px;font-size:11.5px;min-width:0;background:white;cursor:pointer;">' +
+            var labelSelect = '<select class="ed-f-label" style="padding:10px 7px;border:1px solid #e2e8f0;border-radius:6px;font-size:11.5px;min-width:0;background:white;cursor:pointer;">' +
                 roleOpts.map(function (o) { return '<option value="' + escA(o) + '"' + (o === cur ? ' selected' : '') + '>' + escA(o) + '</option>'; }).join('') +
                 '</select>';
-            return '<div class="ed-firma-row" data-i="' + i + '" style="display:grid;grid-template-columns:0.7fr 1.7fr 1.3fr 1fr 26px;gap:5px;align-items:center;margin-bottom:4px;">' +
+            return '<div class="ed-firma-row" data-i="' + i + '" style="display:grid;grid-template-columns:0.7fr 1.7fr 1.3fr 1fr 26px;gap:5px;align-items:center;margin-bottom:7px;">' +
                 labelSelect +
-                '<input class="ed-f-car" value="' + escA(f.car) + '" placeholder="Cargo" style="padding:8px 7px;border:1px solid #e2e8f0;border-radius:6px;font-size:11.5px;min-width:0;">' +
-                '<input class="ed-f-nom" value="' + escA(f.nom) + '" placeholder="Nombre y apellido" style="padding:8px 7px;border:1px solid #e2e8f0;border-radius:6px;font-size:11.5px;min-width:0;">' +
-                '<input class="ed-f-ced" value="' + escA(f.ced) + '" placeholder="Cédula" style="padding:8px 7px;border:1px solid #e2e8f0;border-radius:6px;font-size:11.5px;min-width:0;">' +
+                '<input class="ed-f-car" value="' + escA(f.car) + '" placeholder="Cargo" style="padding:10px 7px;border:1px solid #e2e8f0;border-radius:6px;font-size:11.5px;min-width:0;">' +
+                '<input class="ed-f-nom" value="' + escA(f.nom) + '" placeholder="Nombre y apellido" style="padding:10px 7px;border:1px solid #e2e8f0;border-radius:6px;font-size:11.5px;min-width:0;">' +
+                '<input class="ed-f-ced" value="' + escA(f.ced) + '" placeholder="Cédula" style="padding:10px 7px;border:1px solid #e2e8f0;border-radius:6px;font-size:11.5px;min-width:0;">' +
                 '<button type="button" class="ed-firma-del" title="Quitar firma" style="background:#fee2e2;border:none;color:#b91c1c;width:26px;height:26px;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;"><i class="material-icons" style="font-size:15px;">close</i></button>' +
             '</div>';
         }).join('');
@@ -2716,9 +2716,9 @@ window._mostrarVistaPreviaActa = async function (actaState, onConfirm, opts) {
         if (cardEl) cardEl.style.maxWidth = '720px'; // formulario: modal más angosto/compacto
         bodyEl.style.background = '#fff';
         bodyEl.innerHTML =
-            '<div style="padding:12px 16px;display:flex;flex-direction:column;gap:10px;">' +
+            '<div style="padding:15px 16px;display:flex;flex-direction:column;gap:13px;">' +
                 avisoSinResp +
-                '<div class="mov-ed-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px 10px;">' +
+                '<div class="mov-ed-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:12px 10px;">' +
                     grpInput('ed-origin', 'Frente de origen', actaState.origin, 'place', '', 'dynamicFrentesList') +
                     grpInput('ed-zona', 'Lugar / zona de origen (ciudad)', actaState.origin_zona, 'location_city', 'Ej: MATURÍN') +
                     grpInput('ed-dest', 'Frente de destino', actaState.destination, 'flag', '', 'dynamicFrentesList') +
@@ -2959,6 +2959,9 @@ window.openAnchorModal = async function (event) {
             listContainer.innerHTML = '<div style="padding:40px 20px; text-align:center; color:#94a3b8;"><i class="material-icons" style="font-size:32px; display:block; margin: 0 auto 10px;">search_off</i>Sin resultados</div>';
             return;
         }
+        // Fragment: se arma toda la lista fuera del DOM y se inserta de UNA (un solo reflow)
+        // en vez de appendChild por item (100+ reflows con muchos equipos).
+        const frag = document.createDocumentFragment();
         equipos.forEach((eq) => {
             const isSelected = selectedIds.includes(String(eq.ID_EQUIPO));
             const item = document.createElement('div');
@@ -2991,8 +2994,10 @@ window.openAnchorModal = async function (event) {
             let fotoHtml = '';
             if (eq.FOTO) {
                 const driveId = eq.FOTO.replace(/^.*\/storage\/google\//, '').split('?')[0];
-                // contain (no cover): el equipo se ve completo, sin recorte horizontal
-                fotoHtml = `<img src="/storage/google/${driveId}" style="width:100%; height:100%; object-fit:contain;">`;
+                // contain (no cover): el equipo se ve completo, sin recorte horizontal.
+                // loading="lazy": con 100+ items en una lista con scroll, el navegador solo
+                // descarga las fotos visibles (no dispara 100+ requests al proxy de Drive al abrir).
+                fotoHtml = `<img src="/storage/google/${driveId}" loading="lazy" style="width:100%; height:100%; object-fit:contain;">`;
             } else {
                 fotoHtml = `<i class="material-icons" style="font-size:24px; color:#cbd5e0;">image_not_supported</i>`;
             }
@@ -3016,8 +3021,9 @@ window.openAnchorModal = async function (event) {
                 <div class="check-mark" style="display:none; color:#10b981;"><i class="material-icons" style="font-size:20px;">check_circle</i></div>
                 ${isSelected ? `<i class="material-icons" style="color:#cbd5e0; font-size:20px; margin-left:auto;">lock</i>` : ''}
             `;
-            listContainer.appendChild(item);
+            frag.appendChild(item);
         });
+        listContainer.appendChild(frag);
     }
 
     // ── Carga inicial: equipos del mismo frente ──
