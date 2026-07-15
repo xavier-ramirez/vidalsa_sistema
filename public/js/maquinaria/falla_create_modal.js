@@ -13,9 +13,11 @@
  * Crear: el reporte EXTENSO pasa por una VISTA PREVIA del acta (Editar/Confirmar)
  * antes de guardar (flPreviewActa); el CORTO se guarda directo. Para abrir el modal
  * con el equipo YA elegido (desde equipos/auxiliares):
- *   window.flOpenForActivo(tipo, id, label, onCancel)
+ *   window.flOpenForActivo(tipo, id, label, onCancel, estadoDestino)
  *   - oculta el buscador y pre-selecciona el activo.
  *   - onCancel() se dispara si se cierra SIN crear (para revertir el estado).
+ *   - estadoDestino: estado del activo al crear ('INOPERATIVO' por defecto o
+ *     'EN MANTENIMIENTO'); se envía como estado_destino al backend.
  */
 (function () {
     if (window._fallaCreateModalReady) return;
@@ -38,9 +40,14 @@
     };
 
     // Abrir con el activo ya elegido (desde el desplegable de estado de equipos/aux).
-    window.flOpenForActivo = function (tipo, id, label, onCancel) {
+    // estadoDestino: estado en que queda el activo al crear el reporte —
+    // 'INOPERATIVO' (default) o 'EN MANTENIMIENTO' (opción "Mantenimiento").
+    window.flOpenForActivo = function (tipo, id, label, onCancel, estadoDestino) {
         _resetModal();
         _pendingCancel = (typeof onCancel === 'function') ? onCancel : null;
+        // Fija el estado destino DESPUÉS de _resetModal (que hace form.reset()).
+        const ed = document.getElementById('fl_estado_destino');
+        if (ed) ed.value = (estadoDestino === 'EN MANTENIMIENTO') ? 'EN MANTENIMIENTO' : 'INOPERATIVO';
         // Oculta el buscador y fija el activo.
         const block = document.getElementById('fl_search_block');
         if (block) block.style.display = 'none';
@@ -88,7 +95,8 @@
         document.getElementById('fl_fields_extenso').style.display = showExt;
         const tallerBlock = document.getElementById('fl_fields_extenso_taller');
         if (tallerBlock) tallerBlock.style.display = showExt;
-        // El equipo siempre queda INOPERATIVO al crear el reporte (forzado en backend).
+        // El equipo queda en el estado destino (INOPERATIVO o EN MANTENIMIENTO)
+        // al crear el reporte; lo decide fl_estado_destino (ver flOpenForActivo).
     };
 
     // ─── Buscador de activos ───

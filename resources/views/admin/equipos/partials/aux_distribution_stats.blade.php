@@ -34,7 +34,7 @@
 @else
     {{-- Distribución por TIPO (vista por defecto) --}}
     <h4 style="margin: 0 0 12px 0; font-size: 13px; text-transform: uppercase; color: #64748b; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
-        <i class="material-icons" style="font-size: 18px; color: #00004d;">autorenew</i>
+        <i class="material-icons" style="font-size: 18px; color: #10b981;">autorenew</i>
         Auxiliares
     </h4>
     <ul style="list-style: none; padding: 0; margin: 0; max-height: 62vh; overflow-y: auto; overflow-x: visible; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 4px;" class="custom-scrollbar">
@@ -53,7 +53,7 @@
                     </span>
                 </div>
                 <div style="width: 100%; height: 4px; background: #e2e8f0; border-radius: 2px; overflow: hidden;">
-                    <div style="width: {{ $percentage }}%; height: 100%; background: linear-gradient(90deg, #000d80 0%, #00004d 100%); border-radius: 2px;"></div>
+                    <div style="width: {{ $percentage }}%; height: 100%; background: linear-gradient(90deg, #10b981 0%, #059669 100%); border-radius: 2px;"></div>
                 </div>
             </li>
         @endforeach

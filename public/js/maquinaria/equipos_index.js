@@ -227,9 +227,10 @@ window.changeStatusLite = function (id, newStatus, url, triggerEl) {
     // ── OFFLINE (Fase 2): delega en el módulo offline (encola + copia local +
     // repinta). Lógica única en equipos-offline.js (window.eqOffSetEstado). ──
     if (window.OfflineMode && window.OfflineMode.estaActivo()) {
-        // INOPERATIVO exige crear un reporte de falla (modal no disponible offline).
-        if (newStatus === 'INOPERATIVO') {
-            if (window.showToast) window.showToast('INOPERATIVO requiere crear un reporte de falla; hazlo con internet.', 'error');
+        // INOPERATIVO y EN MANTENIMIENTO exigen crear un reporte de falla (modal no
+        // disponible offline).
+        if (newStatus === 'INOPERATIVO' || newStatus === 'EN MANTENIMIENTO') {
+            if (window.showToast) window.showToast('Ese estado requiere crear un reporte de falla; hazlo con internet.', 'error');
             return;
         }
         if (typeof window.eqOffSetEstado === 'function') {
@@ -238,21 +239,26 @@ window.changeStatusLite = function (id, newStatus, url, triggerEl) {
         return;
     }
 
-    // INOPERATIVO se gestiona CREANDO un reporte de falla (el backend deja el
-    // equipo inoperativo). Abrimos el modal "Nuevo Reporte" pre-seleccionado; si
-    // se cancela, no cambia nada; al crear, handleFallaCreatedEquipo marca el estado.
-    if (newStatus === 'INOPERATIVO' && typeof window.flOpenForActivo === 'function') {
-        window._fallaStatusCtx = { triggerEl: triggerEl, oldStatus: oldStatus };
+    // Poner un equipo (SIN reporte) en INOPERATIVO o EN MANTENIMIENTO se hace
+    // CREANDO un reporte de falla (el backend deja el equipo en ese estado
+    // destino). Abrimos el modal "Nuevo Reporte" pre-seleccionado; si se cancela,
+    // no cambia nada; al crear, handleFallaCreatedEquipo marca el estado destino.
+    // Guard oldStatus: si ya viene de INOPERATIVO/EN MANTENIMIENTO tiene un reporte
+    // ABIERTO, así que NO se abre uno nuevo — eso lo gestiona el cierre de abajo.
+    if ((newStatus === 'INOPERATIVO' || newStatus === 'EN MANTENIMIENTO')
+        && oldStatus !== 'INOPERATIVO' && oldStatus !== 'EN MANTENIMIENTO'
+        && typeof window.flOpenForActivo === 'function') {
+        window._fallaStatusCtx = { triggerEl: triggerEl, oldStatus: oldStatus, targetStatus: newStatus };
         window.flOpenForActivo('equipo', id, triggerEl.dataset.label || ('Equipo #' + id),
-            function () { window._fallaStatusCtx = null; });
+            function () { window._fallaStatusCtx = null; }, newStatus);
         return;
     }
 
-    // Atajo: un equipo INOPERATIVO siempre tiene un reporte ABIERTO, así que
-    // cambiarle el estado SIEMPRE responde 409. Si la fila ya trae los datos del
-    // reporte (data-falla-*, eager-loaded), abrimos el modal de cierre AL INSTANTE
-    // sin el round-trip al PATCH (ni el parpadeo de optimistic UI + revert).
-    if (oldStatus === 'INOPERATIVO' && triggerEl.dataset.fallaId && typeof window.flAbrirCierre === 'function') {
+    // Atajo: un equipo INOPERATIVO o EN MANTENIMIENTO tiene un reporte ABIERTO, así
+    // que cambiarle el estado responde 409. Si la fila ya trae los datos del reporte
+    // (data-falla-*, eager-loaded), abrimos el modal de cierre AL INSTANTE sin el
+    // round-trip al PATCH (ni el parpadeo de optimistic UI + revert).
+    if ((oldStatus === 'INOPERATIVO' || oldStatus === 'EN MANTENIMIENTO') && triggerEl.dataset.fallaId && typeof window.flAbrirCierre === 'function') {
         window.flAbrirCierre({
             id:     triggerEl.dataset.fallaId,
             codigo: triggerEl.dataset.fallaCodigo || '',
@@ -349,13 +355,15 @@ window.toggleConfirmacionSitio = function (el) {
     });
 };
 
-// Tras crear un reporte desde el desplegable de estado: marca el equipo INOPERATIVO.
+// Tras crear un reporte desde el desplegable de estado: marca el equipo en el
+// estado destino (INOPERATIVO o EN MANTENIMIENTO, según la opción presionada).
 window.handleFallaCreatedEquipo = function () {
     const ctx = window._fallaStatusCtx;
     window._fallaStatusCtx = null;
     if (!ctx || !ctx.triggerEl) return;
-    _applyStatusVisual(ctx.triggerEl, 'INOPERATIVO');
-    if (window.updateLocalStats) window.updateLocalStats(ctx.oldStatus, 'INOPERATIVO');
+    const target = ctx.targetStatus || 'INOPERATIVO';
+    _applyStatusVisual(ctx.triggerEl, target);
+    if (window.updateLocalStats) window.updateLocalStats(ctx.oldStatus, target);
 };
 
 // Selection UI Update Tracker

@@ -224,7 +224,8 @@ class FallaController extends Controller
 
     /**
      * Crear reporte de falla (modalidad corto o extenso).
-     * Pone el equipo en estado especificado (INOPERATIVO / EN MANTENIMIENTO).
+     * Deja el activo en el estado destino: INOPERATIVO (por defecto) o
+     * EN MANTENIMIENTO cuando se abre el reporte desde la opción "Mantenimiento".
      */
     public function store(Request $request)
     {
@@ -243,10 +244,14 @@ class FallaController extends Controller
             'fecha_recepcion'     => 'nullable|date',
             'diagnostico'         => 'nullable|string|max:5000',
             'acciones_realizadas' => 'nullable|string|max:5000',
+            // Estado en que queda el activo al crear el reporte. El desplegable de
+            // estado lo envía: "Inoperativo" → INOPERATIVO, "Mantenimiento" → EN
+            // MANTENIMIENTO. Ausente (botón "Reporte" de la página) ⇒ INOPERATIVO.
+            'estado_destino'      => 'nullable|in:INOPERATIVO,EN MANTENIMIENTO',
         ]);
 
-        // Al crear cualquier reporte de falla, el equipo SIEMPRE queda INOPERATIVO.
-        $estadoAlCrear = 'INOPERATIVO';
+        // Estado destino del activo al crear el reporte (default INOPERATIVO).
+        $estadoAlCrear = $request->input('estado_destino') ?: 'INOPERATIVO';
 
         return DB::transaction(function () use ($request, $estadoAlCrear) {
             // Lock del activo y guarda estado previo
@@ -266,7 +271,8 @@ class FallaController extends Controller
             $attrs['ESTADO_AL_CREAR'] = $estadoAlCrear;
             $falla = Falla::create($attrs);
 
-            // El equipo queda INOPERATIVO (se refleja en el módulo de equipos y sus totales).
+            // El equipo queda en el estado destino (INOPERATIVO o EN MANTENIMIENTO);
+            // se refleja en el módulo de equipos y sus totales.
             $activo->ESTADO_OPERATIVO = $estadoAlCrear;
             $activo->save();
 

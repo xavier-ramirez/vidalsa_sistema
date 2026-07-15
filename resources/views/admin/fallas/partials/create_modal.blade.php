@@ -97,6 +97,9 @@
             <div id="fl_activo_seleccionado" style="display:none; margin-top:8px;"></div>
             <input type="hidden" id="fl_activo_tipo" name="activo_tipo" value="">
             <input type="hidden" id="fl_activo_id" name="activo_id" value="">
+            {{-- Estado en que queda el activo al crear (lo fija flOpenForActivo desde el
+                 desplegable de estado). Default INOPERATIVO para el botón "Reporte". --}}
+            <input type="hidden" id="fl_estado_destino" name="estado_destino" value="INOPERATIVO">
 
             {{-- Campos extensos (visibles solo si tipo=extenso) — formato Acta REPORTE DE FALLAS --}}
             <div id="fl_fields_extenso" style="display:none; flex-direction:column; gap:10px;">
