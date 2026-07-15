@@ -1382,9 +1382,6 @@
         <script
             src="{{ asset('js/maquinaria/mapa_index.js') }}?v={{ @filemtime(public_path('js/maquinaria/mapa_index.js')) }}"></script>
 
-        {{-- tom-select vendorizado (antes jsdelivr): un CDN lento/bloqueado retrasaba
-             la carga de los scripts siguientes (frentes_spa, consumibles_index). --}}
-        <script src="{{ asset('js/vendor/tom-select.complete.min.js') }}?v={{ @filemtime(public_path('js/vendor/tom-select.complete.min.js')) }}"></script>
         <script
             src="{{ asset('js/maquinaria/frentes_spa.js') }}?v={{ @filemtime(public_path('js/maquinaria/frentes_spa.js')) }}"></script>
         <script
