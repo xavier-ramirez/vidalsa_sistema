@@ -157,7 +157,26 @@ async function catLoadMore() {
         // null = abortada por un cambio de filtro; loadCatalogo() ya recarga.
         if (!data) return;
 
-        if (data.html) tableBody.insertAdjacentHTML('beforeend', data.html);
+        // Insert PROGRESIVO: en vez de meter las 24 tarjetas del lote de golpe (un tirón que
+        // "congela" el scroll mientras el navegador calcula layout de las 24 a la vez), se
+        // parsea el HTML fuera del DOM y se agregan en grupos pequeños (6) por frame con
+        // requestAnimationFrame. Así el scroll sigue fluido y las tarjetas aparecen poco a poco.
+        if (data.html) {
+            const tmp = document.createElement('div');
+            tmp.innerHTML = data.html;
+            const nuevas = Array.from(tmp.children);
+            const CAT_INSERT_CHUNK = 6;
+            let i = 0;
+            (function pintarLote() {
+                if (i >= nuevas.length) return;
+                const frag = document.createDocumentFragment();
+                for (let n = 0; n < CAT_INSERT_CHUNK && i < nuevas.length; n++, i++) {
+                    frag.appendChild(nuevas[i]);
+                }
+                tableBody.appendChild(frag);
+                if (i < nuevas.length) requestAnimationFrame(pintarLote);
+            })();
+        }
         st.page    = data.page || (st.page + 1);
         st.hasMore = !!data.hasMore;
         catRefreshSentinel();
