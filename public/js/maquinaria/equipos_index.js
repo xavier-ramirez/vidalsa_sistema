@@ -1581,10 +1581,19 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
             // usuario acaba de elegir se aplica sobre la copia local en vez de quedar mostrando
             // todo sin filtrar. Necesario porque navigator.onLine a veces dice "online" con wifi
             // sin internet real, y entonces la auto-activación por evento 'offline' no dispara.
-            if ((error instanceof TypeError)
-                && window.OfflineMode && !window.OfflineMode.estaActivo()
-                && window.netStatus && typeof window.netStatus.showOffline === 'function') {
-                window.netStatus.showOffline();
+            if (error instanceof TypeError) {
+                // Intentar rescatar con la copia local (activa modo offline + banner + filtra local).
+                var _rescatado = false;
+                if (window.OfflineMode && !window.OfflineMode.estaActivo()
+                    && window.netStatus && typeof window.netStatus.showOffline === 'function') {
+                    window.netStatus.showOffline();
+                    _rescatado = !!window.OfflineMode.estaActivo();
+                }
+                // Si NO se pudo rescatar (sin copia local / sin modo offline), AVISAR: antes la
+                // tabla se quedaba en blanco/congelada sin explicación al fallar el filtro por red.
+                if (!_rescatado && typeof window.showToast === 'function') {
+                    window.showToast('Sin conexión: no se pudo aplicar el filtro. Revisa tu internet.', 'error');
+                }
             }
         })
         .finally(() => {
