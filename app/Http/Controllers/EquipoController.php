@@ -824,29 +824,29 @@ class EquipoController extends Controller
             ->toArray();
 
         // Advanced Filter Lists (Optimized with cache: Only needed for initial page load, not AJAX)
-        $availableModelos = \Illuminate\Support\Facades\Cache::remember('equipos_modelos_dropdown', 3600, function () {
+        $availableModelos = \Illuminate\Support\Facades\Cache::remember('equipos_modelos_dropdown', 1200, function () {
             return Equipo::distinct()->whereNotNull('MODELO')->where('MODELO', '!=', '')->orderBy('MODELO', 'asc')->pluck('MODELO');
         });
 
-        $availableMarcas = \Illuminate\Support\Facades\Cache::remember('equipos_marcas_dropdown', 3600, function () {
+        $availableMarcas = \Illuminate\Support\Facades\Cache::remember('equipos_marcas_dropdown', 1200, function () {
             return Equipo::distinct()->whereNotNull('MARCA')->where('MARCA', '!=', '')->orderBy('MARCA', 'asc')->pluck('MARCA');
         });
 
-        $availableAnios = \Illuminate\Support\Facades\Cache::remember('equipos_anios_dropdown', 3600, function () {
+        $availableAnios = \Illuminate\Support\Facades\Cache::remember('equipos_anios_dropdown', 1200, function () {
             return Equipo::distinct()->whereNotNull('ANIO')->orderBy('ANIO', 'desc')->pluck('ANIO');
         });
 
-        $availableColores = \Illuminate\Support\Facades\Cache::remember('equipos_colores_dropdown', 3600, function () {
+        $availableColores = \Illuminate\Support\Facades\Cache::remember('equipos_colores_dropdown', 1200, function () {
             return Equipo::distinct()->whereNotNull('COLOR')->where('COLOR', '!=', '')->orderBy('COLOR', 'asc')->pluck('COLOR');
         });
 
-        $auxMarcas = \Illuminate\Support\Facades\Cache::remember('aux_marcas_dropdown', 3600, function () {
+        $auxMarcas = \Illuminate\Support\Facades\Cache::remember('aux_marcas_dropdown', 1200, function () {
             return \App\Models\EquipoAuxiliar::distinct()->whereNotNull('MARCA')->where('MARCA', '!=', '')->orderBy('MARCA', 'asc')->pluck('MARCA');
         });
-        $auxModelos = \Illuminate\Support\Facades\Cache::remember('aux_modelos_dropdown', 3600, function () {
+        $auxModelos = \Illuminate\Support\Facades\Cache::remember('aux_modelos_dropdown', 1200, function () {
             return \App\Models\EquipoAuxiliar::distinct()->whereNotNull('MODELO')->where('MODELO', '!=', '')->orderBy('MODELO', 'asc')->pluck('MODELO');
         });
-        $auxAnios = \Illuminate\Support\Facades\Cache::remember('aux_anios_dropdown', 3600, function () {
+        $auxAnios = \Illuminate\Support\Facades\Cache::remember('aux_anios_dropdown', 1200, function () {
             return \App\Models\EquipoAuxiliar::distinct()->whereNotNull('ANIO')->orderBy('ANIO', 'desc')->pluck('ANIO');
         });
 
