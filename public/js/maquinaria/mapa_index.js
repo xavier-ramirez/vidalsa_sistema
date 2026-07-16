@@ -1867,11 +1867,15 @@
             overlayExport(true);
 
             // Zoom ENTERO de las teselas:
-            //  · "Pantalla" o SIN "Más detalle": mismo zoom que la PANTALLA (round de Z0) → la foto
-            //    muestra EXACTAMENTE los mismos nombres/detalles que ves, ni más ni menos.
             //  · CON "Más detalle" (solo hojas): sube el zoom para 4K más nítido (más nombres).
+            //  · SIN detalle / "Pantalla": antes se usaba round(Z0). Problema: en un zoom
+            //    intermedio (ej. 8.7) redondeaba a 9 (o a 8) y las teselas se REESCALABAN con
+            //    drawImage → los NOMBRES de las ubicaciones del mapa base salían borrosos
+            //    (más cuanto más lejos el zoom real del entero). Fix: usar el entero SUPERIOR
+            //    (ceil) → las teselas traen más resolución nativa y al ajustarse quedan nítidas
+            //    en todas las escalas. Cap a 17 (máx del proveedor).
             var zMax = Math.min(17, Math.max(0, Math.ceil(Z0 + Math.log(Pw / fw) / Math.LN2)));
-            var z = (detalle && !pantalla) ? zMax : Math.min(17, Math.max(0, Math.round(Z0)));
+            var z = (detalle && !pantalla) ? zMax : Math.min(17, Math.max(0, Math.ceil(Z0)));
             var pTL = map.project(b.getNorthWest(), z), pBR = map.project(b.getSouthEast(), z);
             var spanX = pBR.x - pTL.x || 1, scale = Pw / spanX;
             var proj4k = function (ll) {
