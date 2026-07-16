@@ -9,7 +9,10 @@ if (!window.CHART_COLORS) {
     window.CHART_COLORS = {
         // 'status' (doughnut Estado Operativo) e 'inoperative' (Inoperatividad por Tipo)
         // se eliminaron junto con esos gráficos. 'age' lo usan Flota por Tipo y Auxiliares.
-        age: ['#110a50ff', '#a31616ff']
+        // Paleta moderna y con significado: [0] Nueva = verde emerald, [1] Vieja = ámbar
+        // (mismos colores que los KPIs "Flota Nueva"/"Flota Antigua" → coherencia visual).
+        // CVD-safe validado (ΔE 46); las barras llevan datalabels + leyenda (relief de contraste).
+        age: ['#10b981', '#f59e0b']
     };
 }
 

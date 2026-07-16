@@ -26,6 +26,10 @@
     .cdash-filtros .f-group-desc { flex:1 1 240px; }  /* Descripción: filtro principal, crece */
     .cdash-filtros .f-group-cat  { flex:0 1 180px; }  /* Categoría: ancho reducido */
     .cdash-filtros input[type="month"] { box-sizing:border-box; height:36px; width:130px; max-width:100%; border:1px solid #cbd5e0; border-radius:8px; padding:0 10px; font-size:13px; color:#0f172a; background:#fff; outline:none; cursor:pointer; }
+    /* El navegador dibuja el <input type="month"> en español como "septiembre de 2026"
+       (vacío: "---------- de ----"). Esta pseudo oculta ESE separador "de" nativo; los
+       campos de mes y año siguen visibles. Solo WebKit/Blink (Chrome/Edge/Safari). */
+    .cdash-filtros input[type="month"]::-webkit-datetime-edit-text { color:transparent; }
     /* Caja de texto compartida por Descripción y Categoría (mismo look). */
     .cdash-inp-box { display:flex; align-items:center; height:36px; border:1px solid #cbd5e0; border-radius:8px; background:#fff; overflow:hidden; }
     .cdash-inp-box.active { border-color:var(--maquinaria-blue,#0067b1); background:#e1effa; }

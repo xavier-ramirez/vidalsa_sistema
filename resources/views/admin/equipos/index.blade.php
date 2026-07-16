@@ -1280,53 +1280,53 @@
                 <div class="fleet-stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin: 0 0 25px 0;">
 
                     <!-- Total Equipment -->
-                    <div style="background: white; border-radius: 12px; padding: 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); border: 1px solid #e2e8f0; border-left: 4px solid #08234dff;">
+                    <div style="background: white; border-radius: 14px; padding: 16px; box-shadow: 0 1px 3px rgba(15,23,42,0.06); border: 1px solid #e9eef5; border-left: 4px solid #0067b1;">
                         <div style="display: flex; align-items: center; justify-content: space-between;">
                             <div>
-                                <p style="margin: 0; font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Total Equipos</p>
-                                <h3 id="stat_total" style="margin: 5px 0 0 0; font-size: 24px; color: #0d3370ff; font-weight: 800;">0</h3>
+                                <p style="margin: 0; font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Total Equipos</p>
+                                <h3 id="stat_total" style="margin: 6px 0 0 0; font-size: 26px; color: #0f172a; font-weight: 800; letter-spacing: -0.5px;">0</h3>
                             </div>
-                            <div style="background: #eff6ff; padding: 8px; border-radius: 8px;">
-                                <i class="material-icons" style="font-size: 20px; color: #0d3370ff;">inventory_2</i>
+                            <div style="background: #e1effa; padding: 9px; border-radius: 10px; display: flex;">
+                                <i class="material-icons" style="font-size: 20px; color: #0067b1;">inventory_2</i>
                             </div>
                         </div>
                     </div>
 
                     <!-- Fleet New -->
-                    <div style="background: white; border-radius: 12px; padding: 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); border: 1px solid #e2e8f0; border-left: 4px solid #10b981;">
+                    <div style="background: white; border-radius: 14px; padding: 16px; box-shadow: 0 1px 3px rgba(15,23,42,0.06); border: 1px solid #e9eef5; border-left: 4px solid #10b981;">
                         <div style="display: flex; align-items: center; justify-content: space-between;">
                             <div>
-                                <p style="margin: 0; font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Flota Nueva (≥2025)</p>
-                                <h3 id="stat_fleet_new" style="margin: 5px 0 0 0; font-size: 24px; color: #1e293b; font-weight: 800;">0</h3>
+                                <p style="margin: 0; font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Flota Nueva (≥2025)</p>
+                                <h3 id="stat_fleet_new" style="margin: 6px 0 0 0; font-size: 26px; color: #0f172a; font-weight: 800; letter-spacing: -0.5px;">0</h3>
                             </div>
-                            <div style="background: #f0fdf4; padding: 8px; border-radius: 8px;">
+                            <div style="background: #dcfce7; padding: 9px; border-radius: 10px; display: flex;">
                                 <i class="material-icons" style="font-size: 20px; color: #10b981;">new_releases</i>
                             </div>
                         </div>
                     </div>
 
                     <!-- Fleet Old -->
-                    <div style="background: white; border-radius: 12px; padding: 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); border: 1px solid #e2e8f0; border-left: 4px solid #f59e0b;">
+                    <div style="background: white; border-radius: 14px; padding: 16px; box-shadow: 0 1px 3px rgba(15,23,42,0.06); border: 1px solid #e9eef5; border-left: 4px solid #f59e0b;">
                         <div style="display: flex; align-items: center; justify-content: space-between;">
                             <div>
-                                <p style="margin: 0; font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Flota Antigua (<2025)</p>
-                                <h3 id="stat_fleet_old" style="margin: 5px 0 0 0; font-size: 24px; color: #1e293b; font-weight: 800;">0</h3>
+                                <p style="margin: 0; font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Flota Antigua (<2025)</p>
+                                <h3 id="stat_fleet_old" style="margin: 6px 0 0 0; font-size: 26px; color: #0f172a; font-weight: 800; letter-spacing: -0.5px;">0</h3>
                             </div>
-                            <div style="background: #fffbeb; padding: 8px; border-radius: 8px;">
+                            <div style="background: #fef3c7; padding: 9px; border-radius: 10px; display: flex;">
                                 <i class="material-icons" style="font-size: 20px; color: #f59e0b;">history</i>
                             </div>
                         </div>
                     </div>
 
                     <!-- Estimated Consumption -->
-                    <div style="background: white; border-radius: 12px; padding: 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); border: 1px solid #e2e8f0; border-left: 4px solid #7e1010ff;">
+                    <div style="background: white; border-radius: 14px; padding: 16px; box-shadow: 0 1px 3px rgba(15,23,42,0.06); border: 1px solid #e9eef5; border-left: 4px solid #ef4444;">
                         <div style="display: flex; align-items: center; justify-content: space-between;">
                             <div>
-                                <p style="margin: 0; font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Consumo Est. (L/Día)</p>
-                                <h3 id="stat_consumption" style="margin: 5px 0 0 0; font-size: 24px; color: #1e293b; font-weight: 800;">0</h3>
+                                <p style="margin: 0; font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Consumo Est. (L/Día)</p>
+                                <h3 id="stat_consumption" style="margin: 6px 0 0 0; font-size: 26px; color: #0f172a; font-weight: 800; letter-spacing: -0.5px;">0</h3>
                             </div>
-                            <div style="background: #fef2f2; padding: 8px; border-radius: 8px;">
-                                <i class="material-icons" style="font-size: 20px; color: #8f0b0bff;">local_gas_station</i>
+                            <div style="background: #fee2e2; padding: 9px; border-radius: 10px; display: flex;">
+                                <i class="material-icons" style="font-size: 20px; color: #ef4444;">local_gas_station</i>
                             </div>
                         </div>
                     </div>
