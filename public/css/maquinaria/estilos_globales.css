@@ -3944,26 +3944,30 @@ html.is-ios .ent-capt-add-btn { display: flex !important; }
 /* margin-bottom alinea la regla con el cuerpo de la brújula (el SVG de 96px llega
    más abajo por la letra S); sin él la escala quedaría pegada al borde. */
 .leaflet-control-scale { order: 1; margin-right: 6px !important; margin-bottom: 34px !important; }
+/* Regla de escala en NEGRO: pastilla oscura, texto blanco y barra/topes blancos.
+   Diseño limpio tipo "regla" — más contraste sobre el mapa que el blanco anterior. */
 .leaflet-control-scale-line {
-    background: rgba(255, 255, 255, 0.95) !important;
-    color: #0f172a !important;
-    font-weight: 800 !important;
+    background: rgba(15, 23, 42, 0.88) !important;   /* negro/slate translúcido */
+    color: #ffffff !important;
+    font-weight: 700 !important;
     font-size: 12px !important;
-    letter-spacing: 0.2px !important;
-    padding: 3px 14px 6px !important;
-    border: none !important;
-    border-bottom: 3px solid #0067b1 !important;   /* la barra de la escala */
-    border-radius: 6px 6px 3px 3px !important;
-    box-shadow: 0 1px 5px rgba(0, 0, 0, 0.32) !important;
-    text-shadow: none !important;
+    letter-spacing: 0.3px !important;
+    padding: 4px 14px 7px !important;
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    border-bottom: 3px solid #ffffff !important;     /* la barra de la escala (blanca) */
+    border-radius: 7px 7px 3px 3px !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45) !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5) !important;
     text-align: center !important;
     position: relative !important;
     min-width: 44px !important;
+    backdrop-filter: blur(2px) !important;
+    -webkit-backdrop-filter: blur(2px) !important;
 }
 /* Topes verticales en los extremos de la barra → parece una regla */
 .leaflet-control-scale-line::before,
 .leaflet-control-scale-line::after {
-    content: ''; position: absolute; bottom: -3px; width: 3px; height: 9px; background: #0067b1;
+    content: ''; position: absolute; bottom: -3px; width: 3px; height: 9px; background: #ffffff;
 }
 .leaflet-control-scale-line::before { left: 0; }
 .leaflet-control-scale-line::after { right: 0; }
