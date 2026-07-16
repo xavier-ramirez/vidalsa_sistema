@@ -3442,7 +3442,13 @@ function initEquipos() {
             }
             if (e.key === 'Enter') {
                 clearTimeout(window.searchTimeout);
-                window.loadEquipos();
+                // Enter SOLO busca si hay texto: con el campo vacío ya NO dispara una
+                // "búsqueda vacía" (que recargaba/escaneaba todo y tardaba). Para resetear
+                // la vista está el botón X (clearAdvancedFilters). Con texto corto (1-3 chars)
+                // Enter sí busca — es la vía para buscar seriales cortos que el keyup (4+) no cubre.
+                if (val.trim() !== '') {
+                    window.loadEquipos();
+                }
                 _hideMobileKeyboard(this);
             }
         });
