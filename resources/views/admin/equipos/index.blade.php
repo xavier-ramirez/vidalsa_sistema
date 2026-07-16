@@ -1122,7 +1122,40 @@
             gap: 10px;
             flex-shrink: 0;
         }
-        
+
+        /* Grupo derecho: botones Descargar + Cerrar, mismo estilo (glass) */
+        .fleet-header-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-shrink: 0;
+        }
+
+        /* Mismo estilo EXACTO que tenía la X original de este modal:
+           fondo blanco translúcido 0.2, sin borde, 38px, radio 8px, ícono blanco 22px. */
+        .fleet-header-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            width: 38px;
+            height: 38px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            flex-shrink: 0;
+            transition: all 0.2s;
+        }
+
+        .fleet-header-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .fleet-header-btn .material-icons {
+            color: #fff;
+            font-size: 22px;
+        }
+
         .fleet-filter-container {
             position: relative;
             width: 300px;
@@ -1139,7 +1172,7 @@
     </style>
     
     <div id="fleetDashboardModal" class="modal-overlay">
-        <div class="modal-content" style="width: 95%; max-width: 1000px; height: 90vh; padding: 0; display: flex; flex-direction: column; background: #f8fafc; position: relative;">
+        <div class="modal-content" style="width: 95%; max-width: 1000px; height: 90vh; padding: 0; display: flex; flex-direction: column; background: #f8fafc; position: relative; border-radius: 18px; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.35);">
             <!-- Header -->
             <div class="fleet-dashboard-header">
                 <div class="fleet-header-wrapper">
@@ -1188,11 +1221,6 @@
                             }
                         @endphp
                         <div class="fleet-header-controls">
-                            <!-- Export Button -->
-                            <button onclick="exportFleetStats()" title="Descargar Reporte Excel" style="background: #10b981; border: none; width: 40px; height: 40px; border-radius: 8px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); flex-shrink: 0;" onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'">
-                                <i class="material-icons" style="color: white; font-size: 22px;">download</i>
-                            </button>
-
                             <!-- Filter: LOCAL = locked | GLOBAL = dropdown -->
                              <div class="fleet-filter-container">
                                  {{-- LOCAL y GLOBAL usan el mismo dropdown, la variable $frentesDropdown ya viene filtrada del Controller --}}
@@ -1228,10 +1256,15 @@
                         </div>
                     </div>
 
-                    <!-- Right: Close Button -->
-                    <button onclick="closeFleetDashboard()" style="background: rgba(255,255,255,0.2); border: none; width: 38px; height: 38px; border-radius: 8px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; flex-shrink: 0;" onmouseover="this.style.background='rgba(255,255,255,0.3)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'">
-                        <i class="material-icons" style="color: white; font-size: 22px;">close</i>
-                    </button>
+                    <!-- Right: Export + Close (mismo estilo, uno al lado del otro) -->
+                    <div class="fleet-header-right">
+                        <button onclick="exportFleetStats()" title="Descargar Reporte Excel" class="fleet-header-btn">
+                            <i class="material-icons">download</i>
+                        </button>
+                        <button onclick="closeFleetDashboard()" title="Cerrar" class="fleet-header-btn">
+                            <i class="material-icons">close</i>
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -1244,10 +1277,10 @@
             <!-- Dashboard Content -->
             <div style="flex: 1; overflow-y: auto; padding: 25px;">
                 <!-- Stats Cards Row -->
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin: 0 0 25px 0;">
+                <div class="fleet-stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin: 0 0 25px 0;">
 
                     <!-- Total Equipment -->
-                    <div style="background: white; border-radius: 12px; padding: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); border-left: 4px solid #08234dff;">
+                    <div style="background: white; border-radius: 12px; padding: 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); border: 1px solid #e2e8f0; border-left: 4px solid #08234dff;">
                         <div style="display: flex; align-items: center; justify-content: space-between;">
                             <div>
                                 <p style="margin: 0; font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Total Equipos</p>
@@ -1260,7 +1293,7 @@
                     </div>
 
                     <!-- Fleet New -->
-                    <div style="background: white; border-radius: 12px; padding: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); border-left: 4px solid #10b981;">
+                    <div style="background: white; border-radius: 12px; padding: 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); border: 1px solid #e2e8f0; border-left: 4px solid #10b981;">
                         <div style="display: flex; align-items: center; justify-content: space-between;">
                             <div>
                                 <p style="margin: 0; font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Flota Nueva (≥2025)</p>
@@ -1273,7 +1306,7 @@
                     </div>
 
                     <!-- Fleet Old -->
-                    <div style="background: white; border-radius: 12px; padding: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); border-left: 4px solid #f59e0b;">
+                    <div style="background: white; border-radius: 12px; padding: 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); border: 1px solid #e2e8f0; border-left: 4px solid #f59e0b;">
                         <div style="display: flex; align-items: center; justify-content: space-between;">
                             <div>
                                 <p style="margin: 0; font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Flota Antigua (<2025)</p>
@@ -1286,7 +1319,7 @@
                     </div>
 
                     <!-- Estimated Consumption -->
-                    <div style="background: white; border-radius: 12px; padding: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); border-left: 4px solid #7e1010ff;">
+                    <div style="background: white; border-radius: 12px; padding: 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); border: 1px solid #e2e8f0; border-left: 4px solid #7e1010ff;">
                         <div style="display: flex; align-items: center; justify-content: space-between;">
                             <div>
                                 <p style="margin: 0; font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Consumo Est. (L/Día)</p>
@@ -1305,10 +1338,10 @@
                      los valores de las barras dejan de solaparse. -->
                 <div id="fleetChartsGrid" style="display: grid; grid-template-columns: 1fr; gap: 20px;">
                     <!-- Flota Nueva vs Vieja por Tipo -->
-                    <div id="fdm-panel-age" style="background: white; border-radius: 12px; padding: 25px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
-                        <h4 style="margin: 0 0 20px 0; font-size: 16px; color: #1e293b; font-weight: 700; text-transform: uppercase; display: flex; align-items: center; justify-content: space-between;">
+                    <div id="fdm-panel-age" style="background: white; border-radius: 12px; padding: 22px 25px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+                        <h4 style="margin: 0 0 18px 0; padding-bottom: 14px; border-bottom: 1px solid #e2e8f0; font-size: 14px; color: #1e293b; font-weight: 700; display: flex; align-items: center; justify-content: space-between;">
                             <span style="display: flex; align-items: center; gap: 10px;">
-                                <i class="material-icons" style="font-size: 20px; color: #3b82f6;">bar_chart</i>
+                                <i class="material-icons" style="font-size: 20px; color: #64748b;">bar_chart</i>
                                 Flota Nueva vs Vieja por Tipo de Equipo
                             </span>
                             <button onclick="window.descargarPanelHtmlFDM('fdm-panel-age', 'flota_edad_tipo')" title="Descargar imagen" style="border:none;background:transparent;cursor:pointer;color:#94a3b8;display:flex;align-items:center;padding:4px 8px;border-radius:8px;transition:background .2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
@@ -1319,10 +1352,10 @@
                     </div>
 
                     <!-- Equipos Auxiliares por Tipo -->
-                    <div id="fdm-panel-auxiliares" style="background: white; border-radius: 12px; padding: 25px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
-                        <h4 style="margin: 0 0 20px 0; font-size: 16px; color: #1e293b; font-weight: 700; text-transform: uppercase; display: flex; align-items: center; justify-content: space-between;">
+                    <div id="fdm-panel-auxiliares" style="background: white; border-radius: 12px; padding: 22px 25px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+                        <h4 style="margin: 0 0 18px 0; padding-bottom: 14px; border-bottom: 1px solid #e2e8f0; font-size: 14px; color: #1e293b; font-weight: 700; display: flex; align-items: center; justify-content: space-between;">
                             <span style="display: flex; align-items: center; gap: 10px;">
-                                <i class="material-icons" style="font-size: 20px; color: #374151;">construction</i>
+                                <i class="material-icons" style="font-size: 20px; color: #64748b;">construction</i>
                                 Equipos Auxiliares por Tipo
                             </span>
                             <button onclick="window.descargarPanelHtmlFDM('fdm-panel-auxiliares', 'auxiliares_por_tipo')" title="Descargar imagen" style="border:none;background:transparent;cursor:pointer;color:#94a3b8;display:flex;align-items:center;padding:4px 8px;border-radius:8px;transition:background .2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
@@ -1334,10 +1367,10 @@
                 </div>
 
                 <!-- Equipos Asignados por Frente (al final) -->
-                <div id="fdm-panel-assigned" style="background: white; border-radius: 12px; padding: 20px 25px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); margin-top: 20px;">
-                    <div style="display:flex; align-items:center; justify-content: space-between; margin-bottom: 16px;">
+                <div id="fdm-panel-assigned" style="background: white; border-radius: 12px; padding: 18px 25px 22px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.04); margin-top: 20px;">
+                    <div style="display:flex; align-items:center; justify-content: space-between; margin-bottom: 16px; padding-bottom: 14px; border-bottom: 1px solid #e2e8f0;">
                         <span style="font-size:14px; font-weight:700; color:#1e293b; display:flex; align-items:center; gap:8px;">
-                            <i class="material-icons" style="font-size:18px; color:#475569;">directions_bus</i>
+                            <i class="material-icons" style="font-size:18px; color:#64748b;">directions_bus</i>
                             Equipos Asignados por Frente
                             <span style="font-size:11px; color:#94a3b8; font-weight:400; margin-left:4px;">— flota actual en cada frente</span>
                         </span>
@@ -1377,7 +1410,7 @@
                 flex-direction: column !important;
                 align-items: flex-start !important;
                 position: relative !important;
-                padding-right: 42px !important;
+                padding-right: 80px !important;
                 gap: 10px !important;
             }
 
@@ -1423,14 +1456,17 @@
                 width: 100% !important;
             }
 
-            /* Botón cerrar posicionado top-right absoluto */
-            .fleet-header-wrapper > button:last-child {
+            /* Grupo Descargar + Cerrar posicionado top-right absoluto */
+            .fleet-header-right {
                 position: absolute !important;
                 top: 0 !important;
                 right: 0 !important;
-                width: 32px !important;
-                height: 32px !important;
-                background: rgba(255,255,255,0.15) !important;
+                gap: 8px !important;
+            }
+
+            .fleet-header-right .fleet-header-btn {
+                width: 34px !important;
+                height: 34px !important;
             }
 
             /* Dashboard content: menos padding y prevención de overflow */
@@ -1441,8 +1477,8 @@
                 width: 100% !important;
             }
 
-            /* Stat cards: 2 columnas en mobile */
-            #fleetDashboardModal [style*="grid-template-columns: repeat(auto-fit, minmax(180px"] {
+            /* Stat cards: SIEMPRE 2 columnas en mobile (Flota Nueva / Antigua lado a lado) */
+            #fleetDashboardModal .fleet-stats-grid {
                 grid-template-columns: repeat(2, 1fr) !important;
                 gap: 8px !important;
                 margin-bottom: 14px !important;
@@ -1450,18 +1486,18 @@
             }
 
             /* Stat cards: menos padding y fuente más pequeña */
-            #fleetDashboardModal [style*="grid-template-columns: repeat(auto-fit, minmax(180px"] > div {
+            #fleetDashboardModal .fleet-stats-grid > div {
                 padding: 10px !important;
                 min-width: 0 !important;
                 box-sizing: border-box !important;
                 word-wrap: break-word !important;
             }
 
-            #fleetDashboardModal [style*="grid-template-columns: repeat(auto-fit, minmax(180px"] h3 {
+            #fleetDashboardModal .fleet-stats-grid h3 {
                 font-size: 18px !important;
             }
 
-            #fleetDashboardModal [style*="grid-template-columns: repeat(auto-fit, minmax(180px"] p {
+            #fleetDashboardModal .fleet-stats-grid p {
                 font-size: 9px !important; /* Ligeramente más pequeño para no desbordar */
                 white-space: normal !important;
             }

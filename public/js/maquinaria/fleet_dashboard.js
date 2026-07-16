@@ -534,7 +534,7 @@ function createCharts(data) {
                 data: ds.data,
                 backgroundColor: window.CHART_COLORS.age[idx],
                 borderWidth: 0,
-                borderRadius: 0,
+                borderRadius: 5,
                 borderSkipped: false
             }))
         });
@@ -552,7 +552,7 @@ function createCharts(data) {
                 data: ds.data,
                 backgroundColor: window.CHART_COLORS.age[idx] || '#64748b',
                 borderWidth: 0,
-                borderRadius: 0,
+                borderRadius: 5,
                 borderSkipped: false
             }))
         });
@@ -606,7 +606,10 @@ function createStackedBarChart(canvasId, config) {
     ctx.style.display = '';
 
     const labelCount = config.labels ? config.labels.length : 1;
-    const maxChars = window.innerWidth < 480 ? 12 : 16;
+    // maxChars más alto = menos cortes a mitad de palabra; Chart.js auto-ensancha el
+    // eje para mostrar la descripción COMPLETA del tipo de equipo (afterFit solo fija
+    // un mínimo). En móvil se subió de 12 a 15 para que no se vean nombres partidos.
+    const maxChars = window.innerWidth < 480 ? 15 : 18;
     const wrappedLabels = config.labels.map(function (l) { return wrapLabel(l, maxChars); });
     const totalLines = wrappedLabels.reduce(function (sum, l) {
         return sum + (Array.isArray(l) ? l.length : 1);
@@ -666,7 +669,7 @@ function createStackedBarChart(canvasId, config) {
         data: {
             labels: wrappedLabels,
             datasets: config.datasets.map(function (ds, idx) {
-                const base = Object.assign({}, ds, { maxBarThickness: 22 });
+                const base = Object.assign({}, ds, { maxBarThickness: 26, categoryPercentage: 0.82, barPercentage: 0.9 });
                 // Etiquetas SIEMPRE visibles (sin pasar el mouse). chartjs-plugin-datalabels
                 // exige el objeto { labels: {...} } para mostrar varias etiquetas por barra:
                 // un array NO es válido y dejaba el valor sin verse. El último dataset suma
@@ -710,7 +713,7 @@ function createStackedBarChart(canvasId, config) {
                         autoSkip: false
                     },
                     afterFit: function (scale) {
-                        const minW = window.innerWidth < 480 ? 100 : 140;
+                        const minW = window.innerWidth < 480 ? 118 : 150;
                         if (scale.width < minW) scale.width = minW;
                     }
                 }
