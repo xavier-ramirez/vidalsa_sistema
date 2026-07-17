@@ -1188,7 +1188,7 @@
                             </div>
                         </div>
                         
-                        <!-- Controls Group (Export + Filter) -->
+                        <!-- Controls Group (Filter) -->
                         @php
                             $dashUser       = auth()->user();
                             $dashIsLocal    = $dashUser && !$dashUser->veTodosLosFrentesEquipos();
@@ -1438,7 +1438,7 @@
                 font-size: 18px !important;
             }
 
-            /* Controls: Export + Filter Row */
+            /* Controls: Filter Row */
             .fleet-header-controls {
                 width: 100% !important;
                 justify-content: flex-start !important;
