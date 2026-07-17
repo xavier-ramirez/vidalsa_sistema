@@ -461,12 +461,14 @@ class EquipoController extends Controller
                 $tagSearch = str_replace('#', '', $searchUpper);
                 $equipos->where('NUMERO_ETIQUETA', 'like', "%{$tagSearch}%");
 
-            } elseif (strpos($searchUpper, '-') !== false) {
-                // Mode: Yard Code Search
-                $equipos->where('CODIGO_PATIO', 'like', "%{$searchUpper}%");
-
             } else {
-                // Standard search — O/0 ambiguity applied ONLY to PLACA
+                // Búsqueda estándar: cubre SERIAL_CHASIS, SERIAL_DE_MOTOR, CODIGO_PATIO,
+                // NUMERO_ETIQUETA y PLACA. (Antes había una rama que, si el texto tenía un
+                // guion, buscaba SOLO en CODIGO_PATIO — eso impedía encontrar seriales que
+                // incluyen guion. Eliminada: CODIGO_PATIO ya se busca aquí, así que los
+                // códigos de patio con guion siguen apareciendo y ya no se pierden los
+                // seriales ni la placa.)
+                // O/0 ambiguity applied ONLY to PLACA
                 // (plates are the only field where O and 0 are visually confused)
                 $placaVariants = collect([
                     $searchUpper,
