@@ -262,7 +262,13 @@
                             $ago = $minsAgo === 0 ? 'ahora' : ($minsAgo === 1 ? 'hace 1 min' : 'hace ' . $minsAgo . ' min');
                             $nombreCorto = $u->NOMBRE_COMPLETO ?: strtok($u->CORREO_ELECTRONICO, '@');
                         @endphp
-                        <div style="display: flex; justify-content: space-between; align-items: center; background: #f0fdf4; padding: 9px 12px; border-radius: 8px; border: 1px solid #dcfce7;" title="{{ $u->CORREO_ELECTRONICO }} | IP: {{ $u->ip_address ?? 'N/A' }}">
+                        {{-- Clic → filtra la tabla por este usuario (usa el buscador con su
+                             correo, que es único). Cursor + hover indican que es accionable. --}}
+                        <div role="button" tabindex="0"
+                             onclick="filtrarUsuarioActivo('{{ addslashes($u->CORREO_ELECTRONICO) }}')"
+                             onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();filtrarUsuarioActivo('{{ addslashes($u->CORREO_ELECTRONICO) }}');}"
+                             onmouseover="this.style.background='#dcfce7'" onmouseout="this.style.background='#f0fdf4'"
+                             style="display: flex; justify-content: space-between; align-items: center; background: #f0fdf4; padding: 9px 12px; border-radius: 8px; border: 1px solid #dcfce7; cursor: pointer; transition: background 0.15s ease;" title="Ver datos de {{ $u->CORREO_ELECTRONICO }} | IP: {{ $u->ip_address ?? 'N/A' }}">
                             <div style="display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1;">
                                 <span style="width: 9px; height: 9px; border-radius: 50%; background: #10b981; box-shadow: 0 0 0 3px rgba(16,185,129,0.25); flex-shrink: 0;"></span>
                                 <span style="font-size: 11px; font-weight: 600; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ $nombreCorto }}</span>

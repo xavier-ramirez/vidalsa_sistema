@@ -21,6 +21,23 @@ window.clearUsuariosFilter = function (filterName) {
     window.loadUsuarios();
 };
 
+// Filtra la tabla por un usuario concreto (clic en el panel "Usuarios Activos").
+// Reutiliza el buscador: mete el CORREO (único) como término, así el filtro de la
+// tabla —que matchea por nombre O correo— devuelve exactamente esa fila. No añade
+// una vía de filtrado nueva: es el mismo camino que escribir en el buscador.
+window.filtrarUsuarioActivo = function (correo) {
+    const input = document.getElementById('searchInput');
+    if (!input) return;
+    input.value = correo || '';
+    const clearBtn = document.getElementById('btn_clear_search');
+    if (clearBtn) clearBtn.style.display = correo ? 'block' : 'none';
+    if (typeof hideSearchSuggest === 'function') hideSearchSuggest();
+    window.loadUsuarios();
+    // En móvil el panel de activos queda arriba/aparte: llevar la vista a la tabla.
+    const table = document.getElementById('usuariosTableBody');
+    if (table && table.scrollIntoView) table.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+};
+
 // Main load function - Equipos-style architecture
 window.loadUsuarios = function (url = null) {
     const tableBody = document.getElementById('usuariosTableBody');

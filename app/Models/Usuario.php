@@ -151,6 +151,24 @@ class Usuario extends Authenticatable
     }
 
     /**
+     * Nombres de TODOS los frentes asignados. `frenteAsignado` solo devuelve el
+     * primero del CSV; esto lista los demás (p. ej. para el tooltip de la lista).
+     * [] = sin frente asignado (GLOBAL). El mapa id→nombre se cachea una sola vez
+     * por request para no disparar N+1 en la lista paginada.
+     */
+    public function getNombresFrentesAsignados(): array
+    {
+        $ids = $this->getFrentesIds();
+        if (empty($ids)) return [];
+
+        static $mapa = null;
+        if ($mapa === null) {
+            $mapa = FrenteTrabajo::pluck('NOMBRE_FRENTE', 'ID_FRENTE')->all();
+        }
+        return array_values(array_filter(array_map(fn ($id) => $mapa[$id] ?? null, $ids)));
+    }
+
+    /**
      * IDs de frentes BLOQUEADOS para el usuario (lista negra, CSV en ID_FRENTE_BLOQUEADO).
      * Se RESTAN de la visibilidad SIN importar GLOBAL/LOCAL: un GLOBAL ve todos los frentes
      * MENOS estos. Es el camino cómodo para "ve casi todo salvo unos pocos" (tildas lo

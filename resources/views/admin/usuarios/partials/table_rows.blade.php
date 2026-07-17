@@ -6,8 +6,12 @@
                                  global `.admin-table tr:hover .tooltip-bubble` lo dispara. --}}
                             <div class="tooltip-wrapper" style="position: relative; cursor: default; display: inline-block;">
                                 {{ $user->NOMBRE_COMPLETO }}
-                                <div class="tooltip-bubble" style="pointer-events:none; opacity:0; visibility:hidden; position:absolute; bottom:100%; left:0; transform:translateY(5px); background:#1e293b; color:#fff; padding:6px 10px; border-radius:6px; font-size:11px; font-weight:500; white-space:nowrap; width:max-content; text-align:center; box-shadow:0 4px 6px -1px rgba(0,0,0,0.1); transition:all 0.2s ease-in-out; z-index:50; margin-bottom:5px;">
-                                    📅 Creado: {{ optional($user->created_at)->format('d/m/Y H:i') ?: 'sin fecha' }}
+                                <div class="tooltip-bubble" style="pointer-events:none; opacity:0; visibility:hidden; position:absolute; bottom:100%; left:0; transform:translateY(5px); background:#1e293b; color:#fff; padding:6px 10px; border-radius:6px; font-size:11px; font-weight:500; white-space:nowrap; width:max-content; text-align:left; box-shadow:0 4px 6px -1px rgba(0,0,0,0.1); transition:all 0.2s ease-in-out; z-index:50; margin-bottom:5px;">
+                                    <div>📅 Creado: {{ optional($user->created_at)->format('d/m/Y H:i') ?: 'sin fecha' }}</div>
+                                    {{-- ID_FRENTE_ASIGNADO es CSV: mostramos TODOS los frentes (la
+                                         columna de al lado solo pinta el primero). Sin frente = GLOBAL. --}}
+                                    @php($frentesAsignados = $user->getNombresFrentesAsignados())
+                                    <div style="margin-top:3px;">📍 Frente{{ count($frentesAsignados) > 1 ? 's' : '' }}: {{ !empty($frentesAsignados) ? implode(', ', $frentesAsignados) : 'Global' }}</div>
                                     <div style="position:absolute; top:100%; left:20px; margin-left:-4px; border-width:4px; border-style:solid; border-color:#1e293b transparent transparent transparent;"></div>
                                 </div>
                             </div>
