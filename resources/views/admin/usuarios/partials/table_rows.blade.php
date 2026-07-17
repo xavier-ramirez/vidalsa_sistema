@@ -11,7 +11,14 @@
                                     {{-- ID_FRENTE_ASIGNADO es CSV: mostramos TODOS los frentes (la
                                          columna de al lado solo pinta el primero). Sin frente = GLOBAL. --}}
                                     @php($frentesAsignados = $user->getNombresFrentesAsignados())
-                                    <div style="margin-top:3px;">📍 Frente{{ count($frentesAsignados) > 1 ? 's' : '' }}: {{ !empty($frentesAsignados) ? implode(', ', $frentesAsignados) : 'Global' }}</div>
+                                    <div style="margin-top:3px;">
+                                        📍 Frente{{ count($frentesAsignados) > 1 ? 's' : '' }}:
+                                        @forelse($frentesAsignados as $f)
+                                            <div style="padding-left:16px;">• {{ $f }}</div>
+                                        @empty
+                                            <span>Global</span>
+                                        @endforelse
+                                    </div>
                                     <div style="position:absolute; top:100%; left:20px; margin-left:-4px; border-width:4px; border-style:solid; border-color:#1e293b transparent transparent transparent;"></div>
                                 </div>
                             </div>
