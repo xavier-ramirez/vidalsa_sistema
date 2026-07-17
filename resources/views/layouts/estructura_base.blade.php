@@ -1327,64 +1327,64 @@
 
         {{-- Helpers DOM compartidos (window.getCsrf / window.escapeHtml): DEBEN cargar
              primero para estar disponibles cuando el resto de scripts los invoque. --}}
-        <script defer
+        <script
             src="{{ asset('js/maquinaria/dom_helpers.js') }}?v={{ @filemtime(public_path('js/maquinaria/dom_helpers.js')) }}"></script>
-        <script defer
+        <script
             src="{{ asset('js/maquinaria/module_manager.js') }}?v={{ @filemtime(public_path('js/maquinaria/module_manager.js')) }}"></script>
-        <script defer
+        <script
             src="{{ asset('js/maquinaria/uicomponents.js') }}?v={{ @filemtime(public_path('js/maquinaria/uicomponents.js')) }}"></script>
         {{-- Buscador "estilo Google" compartido (window.FuzzySearch): lo usan Inventario
              y Recepción. Global aquí → sobrevive a la navegación SPA. --}}
-        <script defer
+        <script
             src="{{ asset('js/maquinaria/fuzzy_search.js') }}?v={{ @filemtime(public_path('js/maquinaria/fuzzy_search.js')) }}"></script>
-        <script defer
+        <script
             src="{{ asset('js/maquinaria/navegacion.js') }}?v={{ @filemtime(public_path('js/maquinaria/navegacion.js')) }}"></script>
-        <script defer
+        <script
             src="{{ asset('js/maquinaria/form_logic.js') }}?v={{ @filemtime(public_path('js/maquinaria/form_logic.js')) }}"></script>
-        <script defer
+        <script
             src="{{ asset('js/maquinaria/equipo_catalog_linking.js') }}?v={{ @filemtime(public_path('js/maquinaria/equipo_catalog_linking.js')) }}"></script>
 
         {{-- Chart.js GLOBAL: lo usa el modal "Dashboard de Consumo" (Acciones de
              /admin/almacen y /admin/almacen/movimientos). Debe ir aquí (global) y no
              en la vista: la SPA omite los <script src> dentro de @section('content'),
              así que cargarlo por página no sobreviviría la navegación. --}}
-        <script defer
+        <script
             src="{{ asset('js/chart.umd.min.js') }}?v={{ @filemtime(public_path('js/chart.umd.min.js')) }}"></script>
 
         {{-- Module Scripts (Global Load for SPA Navigation) --}}
         {{-- NOTE: These MUST be loaded globally because the SPA navigation --}}
         {{-- calls functions like window.loadEquipos(), window.loadCatalogo(), etc. --}}
         {{-- from navegacion.js when switching between pages without reload --}}
-        <script defer
+        <script
             src="{{ asset('js/maquinaria/menu.js') }}?v={{ @filemtime(public_path('js/maquinaria/menu.js')) }}"></script>
-        <script defer
+        <script
             src="{{ asset('js/maquinaria/catalogo_create.js') }}?v={{ @filemtime(public_path('js/maquinaria/catalogo_create.js')) }}"></script>
-        <script defer
+        <script
             src="{{ asset('js/maquinaria/equipos_index.js') }}?v={{ @filemtime(public_path('js/maquinaria/equipos_index.js')) }}"></script>
-        <script defer
+        <script
             src="{{ asset('js/maquinaria/catalogo_index.js') }}?v={{ @filemtime(public_path('js/maquinaria/catalogo_index.js')) }}"></script>
-        <script defer
+        <script
             src="{{ asset('js/maquinaria/movilizaciones_index.js') }}?v={{ @filemtime(public_path('js/maquinaria/movilizaciones_index.js')) }}"></script>
-        <script defer
+        <script
             src="{{ asset('js/maquinaria/fallas_index.js') }}?v={{ @filemtime(public_path('js/maquinaria/fallas_index.js')) }}"></script>
         {{-- Modal "Nuevo Reporte de Falla" COMPARTIDO (fallas/equipos/auxiliares). Global
              porque la SPA no re-ejecuta los <script> del contenido al navegar. --}}
-        <script defer
+        <script
             src="{{ asset('js/maquinaria/falla_create_modal.js') }}?v={{ @filemtime(public_path('js/maquinaria/falla_create_modal.js')) }}"></script>
-        <script defer
+        <script
             src="{{ asset('js/maquinaria/usuarios_index.js') }}?v={{ @filemtime(public_path('js/maquinaria/usuarios_index.js')) }}"></script>
-        <script defer
+        <script
             src="{{ asset('js/maquinaria/historial_documentos_index.js') }}?v={{ @filemtime(public_path('js/maquinaria/historial_documentos_index.js')) }}"></script>
-        <script defer
+        <script
             src="{{ asset('js/maquinaria/fleet_dashboard.js') }}?v={{ @filemtime(public_path('js/maquinaria/fleet_dashboard.js')) }}"></script>
         {{-- Módulo "Mapa Satelital": global (la SPA no re-ejecuta los <script> del
              contenido). Carga Leaflet de forma diferida e inicializa en spa:contentLoaded. --}}
-        <script defer
+        <script
             src="{{ asset('js/maquinaria/mapa_index.js') }}?v={{ @filemtime(public_path('js/maquinaria/mapa_index.js')) }}"></script>
 
-        <script defer
+        <script
             src="{{ asset('js/maquinaria/frentes_spa.js') }}?v={{ @filemtime(public_path('js/maquinaria/frentes_spa.js')) }}"></script>
-        <script defer
+        <script
             src="{{ asset('js/maquinaria/consumibles_index.js') }}?v={{ @filemtime(public_path('js/maquinaria/consumibles_index.js')) }}"></script>
         <script>
             // Colapsa todos los grupos expandidos del menu mobile (Flota,
@@ -2725,16 +2725,16 @@
         </script>
         {{-- Scripts de Formularios (Globales para soporte SPA) --}}
         {{-- NOTE: form_selects.js removed (deprecated, merged into form_logic.js) --}}
-        <script defer
+        <script
             src="{{ asset('js/maquinaria/equipos_form.js') }}?v={{ @filemtime(public_path('js/maquinaria/equipos_form.js')) }}"></script>
         {{-- Bulk upload: andamiaje compartido (window.createBulkPreview) ANTES de los módulos --}}
-        <script defer
+        <script
             src="{{ asset('js/maquinaria/bulk_preview_factory.js') }}?v={{ @filemtime(public_path('js/maquinaria/bulk_preview_factory.js')) }}"></script>
         {{-- Bulk upload de equipos (Global: @yield('extra_js') queda fuera del .main-viewport → SPA no lo re-ejecutaría) --}}
-        <script defer
+        <script
             src="{{ asset('js/maquinaria/equipos_bulk.js') }}?v={{ @filemtime(public_path('js/maquinaria/equipos_bulk.js')) }}"></script>
         {{-- Bulk upload de equipos auxiliares (mismo patron SPA-compat) --}}
-        <script defer
+        <script
             src="{{ asset('js/maquinaria/auxiliares_bulk.js') }}?v={{ @filemtime(public_path('js/maquinaria/auxiliares_bulk.js')) }}"></script>
 
         @yield('extra_js')
