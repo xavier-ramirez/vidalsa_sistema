@@ -547,12 +547,12 @@ class MovilizacionController extends Controller
                 $tagSearch = str_replace('#', '', $searchUpper);
                 $query->where('NUMERO_ETIQUETA', 'like', "%{$tagSearch}%");
 
-            } elseif (strpos($searchUpper, '-') !== false) {
-                // Mode: Yard Code Search
-                $query->where('CODIGO_PATIO', 'like', "%{$searchUpper}%");
-
             } else {
-                // Standard search â€” O/0 ambiguity applied ONLY to PLACA
+                // Búsqueda estándar: cubre SERIAL_CHASIS, SERIAL_DE_MOTOR, CODIGO_PATIO,
+                // NUMERO_ETIQUETA y PLACA. (Se quitó la rama que, si el texto tenía guion,
+                // buscaba SOLO en CODIGO_PATIO — impedía encontrar seriales con guion.
+                // CODIGO_PATIO ya se busca aquí, igual que en /admin/equipos.)
+                // O/0 ambiguity applied ONLY to PLACA
                 $placaVariants = collect([
                     $searchUpper,
                     str_replace('O', '0', $searchUpper),
