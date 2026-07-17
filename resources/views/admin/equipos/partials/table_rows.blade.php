@@ -170,7 +170,7 @@
         </td>
 
         {{-- 6. ACCIONES ─ ojo de detalles, 72px ancho como aux. --}}
-        <td class="table-cell-center" style="padding: 8px 5px; width: 72px; text-align: center; vertical-align: middle;">
+        <td class="table-cell-center" style="padding: 8px 2px; width: 44px; text-align: center; vertical-align: middle;">
             <div style="display:flex; justify-content:center; align-items:center; gap:4px;">
                 <button type="button"
                     data-equipo-id="{{ $equipo->ID_EQUIPO }}"

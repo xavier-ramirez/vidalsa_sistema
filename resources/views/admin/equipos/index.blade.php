@@ -869,9 +869,9 @@
                     <th class="table-header-custom" style="width: 150px;"></th> {{-- Foto + Frente --}}
                     <th class="table-header-custom" style="width: 24%;">TIPO</th>
                     <th class="table-header-custom" style="width: 18%;">MARCA / MODELO</th>
-                    <th class="table-header-custom" style="width: 20%;">SERIALES / PLACA</th>
+                    <th class="table-header-custom" style="width: 23%;">SERIALES / PLACA</th>
                     <th class="table-header-custom" style="width: 145px;">ESTATUS</th>
-                    <th class="table-cell-center" style="width: 72px;"></th> {{-- Acciones --}}
+                    <th class="table-cell-center" style="width: 44px;"></th> {{-- Acciones --}}
                 </tr>
             </thead>
             <tbody id="equiposTableBody" style="font-size: 15px;">
