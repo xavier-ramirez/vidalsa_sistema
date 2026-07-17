@@ -2605,8 +2605,24 @@ window._mostrarVistaPreviaActa = async function (actaState, onConfirm, opts) {
             bodyEl.innerHTML = '<div id="mov-prev-canvas" style="width:100%;min-height:520px;padding:10px;box-sizing:border-box;"></div>';
             renderPdfCanvas(bodyEl.querySelector('#mov-prev-canvas'), pdfBlob);
         } else {
-            // ESCRITORIO: visor PDF nativo del navegador en el iframe.
-            bodyEl.innerHTML = '<iframe src="' + pdfUrl + '#toolbar=0&navpanes=0&scrollbar=0&view=FitH" style="width:100%;height:72vh;min-height:520px;border:none;background:#fff;" title="Vista previa Acta de Traslado"></iframe>';
+            // ESCRITORIO: visor PDF nativo del navegador en el iframe. Mantenemos un
+            // indicador "Cargando…" ENCIMA del iframe hasta que dispare 'load' (el
+            // navegador ya renderizó el PDF). Antes el spinner global se quitaba al
+            // llegar el blob y el visor quedaba en blanco unos instantes con PDFs
+            // pesados ("se quita el spinner y aún no se ve"). Fallback a 8s por si
+            // algún visor no dispara onload.
+            bodyEl.style.position = 'relative';
+            bodyEl.innerHTML =
+                '<iframe src="' + pdfUrl + '#toolbar=0&navpanes=0&scrollbar=0&view=FitH" style="width:100%;height:72vh;min-height:520px;border:none;background:#fff;" title="Vista previa Acta de Traslado"></iframe>' +
+                '<div id="mov-prev-loading" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:#475569;color:#cbd5e0;z-index:2;">' +
+                    '<i class="material-icons" style="font-size:34px;animation:spin 1s linear infinite;">sync</i>' +
+                    '<span style="font-size:13px;">Cargando vista previa…</span>' +
+                '</div>';
+            var ifr = bodyEl.querySelector('iframe');
+            var loadingEl = bodyEl.querySelector('#mov-prev-loading');
+            var quitarLoader = function () { if (loadingEl) { loadingEl.remove(); loadingEl = null; } };
+            if (ifr) ifr.onload = quitarLoader;
+            setTimeout(quitarLoader, 8000);
         }
         footEl.innerHTML =
             '<button type="button" id="mov-prev-edit" style="padding:9px 16px;border-radius:10px;border:1px solid #e2e8f0;background:#e2e8f0;color:#475569;font-size:13px;font-weight:700;cursor:pointer;"><i class="material-icons" style="font-size:16px;vertical-align:-3px;margin-right:3px;">edit</i>Editar</button>' +
@@ -3458,8 +3474,14 @@ function initEquipos() {
     if (form) {
         form.onsubmit = function (e) {
             e.preventDefault();
-            window.loadEquipos();
-            _hideMobileKeyboard(document.getElementById("searchInput"));
+            // Solo busca si hay texto. Enter con el campo VACÍO ya NO dispara una
+            // búsqueda vacía (antes recargaba/escaneaba todo y perdía tiempo). Misma
+            // guarda que el keyup de Enter. Para resetear la vista está el botón X.
+            const si = document.getElementById("searchInput");
+            if (si && si.value.trim() !== '') {
+                window.loadEquipos();
+            }
+            _hideMobileKeyboard(si);
             return false;
         };
     }
