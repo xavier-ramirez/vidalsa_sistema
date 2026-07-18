@@ -3479,17 +3479,17 @@ function initEquipos() {
     if (form) {
         form.onsubmit = function (e) {
             e.preventDefault();
-            // FUENTE ÚNICA del Enter, con el MISMO umbral que la auto-búsqueda (4+ chars).
-            // Enter dispara la MISMA búsqueda que la automática, pero de forma INMEDIATA (sin
-            // esperar el debounce de 400ms). Con 1-3 chars NO busca (igual que la automática),
-            // evitando las búsquedas vagas/lentas. Cancela el debounce pendiente para no duplicar.
+            // FUENTE ÚNICA del Enter: dispara la MISMA búsqueda que la automática (loadEquipos),
+            // pero de forma INMEDIATA y desde 2 caracteres. La automática arranca sola con 4+;
+            // Enter permite forzar búsquedas más cortas (2-3 chars) sin esperar el debounce.
+            // Con 1 char no busca (demasiado amplio). Cancela el debounce pendiente para no duplicar.
             clearTimeout(window.searchTimeout);
             const si = document.getElementById("searchInput");
             const q = si ? si.value.trim() : '';
-            if (q.length >= 4) {
+            if (q.length >= 2) {
                 window.loadEquipos();
-            } else if (q.length >= 1 && window.showToast) {
-                window.showToast('Escribe al menos 4 caracteres para buscar.', 'info');
+            } else if (q.length === 1 && window.showToast) {
+                window.showToast('Escribe al menos 2 caracteres para buscar.', 'info');
             }
             _hideMobileKeyboard(si);
             return false;
