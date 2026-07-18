@@ -1271,7 +1271,12 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
     }
     tableBody.style.opacity = "0.5";
 
-    if (!silent && window.showPreloader) window.showPreloader();
+    // ¿Esta llamada mostró el preloader? Solo las no-silent lo muestran. Guardamos el
+    // flag para que el .finally cierre EXACTAMENTE lo que abrió (el show y el hide deben
+    // ser simétricos: antes el show era !silent pero el hide no, y las silent bajaban el
+    // ref de otra operación en curso — spinner apagado antes de tiempo).
+    const _didShowPreloader = !silent && !!window.showPreloader;
+    if (_didShowPreloader) window.showPreloader();
 
     return fetch(fetchUrl, {
         signal: abortController.signal,
@@ -1605,24 +1610,25 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
             }
         })
         .finally(() => {
-            // BUG #1 (race-condition por aborto): si una peticion mas nueva ABORTO esta
-            // (loadEquipos llamada de nuevo antes de que terminara la primera), .finally
-            // de la peticion abortada corria igual y ocultaba el spinner — pero el fetch
-            // nuevo seguia en vuelo y aun no habia traido el equipo. Sintoma del usuario:
-            // "el spinner desaparece tan rapido que el equipo buscado todavia no esta".
-            // Fix: si esta peticion fue abortada, dejar el spinner — el .finally del
-            // fetch ganador lo va a ocultar cuando corresponda.
-            if (abortController.signal.aborted) return;
-            //
-            // BUG #2 (PWA — solo en chromium standalone, Windows): el preloader se quitaba
-            // ANTES de que la fila aparezca → blank → fila. Causa: .finally corre como
-            // microtask justo despues de .then; renderNextChunk sincronicamente inserta el
-            // primer chunk en el DOM, pero el navegador todavia no ha commiteado un paint
-            // con esa insertion.
-            // Fix: doble rAF. El primer rAF agenda la callback para el frame siguiente
-            // (corre antes del layout/paint de ese frame); el segundo rAF la agenda para
-            // el frame DESPUES del paint que ya tiene la fila — recien ahi arranca el
-            // fade-out del preloader, garantizando "fila visible → spinner se va".
+            // Solo cierra el preloader la llamada que lo ABRIÓ (no-silent). Las silent no
+            // mostraron → no deben ocultar (antes bajaban el ref de otra operación en vuelo:
+            // scroll infinito / descarga de acta / export → spinner apagado a mitad).
+            if (!_didShowPreloader) return;
+
+            // Abortada por una petición más nueva: bajamos el ref DE INMEDIATO. El preloader
+            // es un CONTADOR (_preloaderRefs), así que el spinner NO desaparece antes de
+            // tiempo — la petición GANADORA mantiene su propio ref hasta que trae y pinta los
+            // datos. (Antes se retornaba sin ocultar, fugando el ref → spinner colgado hasta
+            // el watchdog de 8s. El comentario viejo asumía un preloader booleano, no contador.)
+            if (abortController.signal.aborted) {
+                if (window.hidePreloader) window.hidePreloader();
+                return;
+            }
+
+            // Doble rAF (PWA chromium standalone): el .finally corre como microtask tras el
+            // .then; renderNextChunk ya insertó la 1ª fila pero el navegador aún no commiteó
+            // el paint. El 2º rAF agenda el fade-out para DESPUÉS del paint que ya tiene la
+            // fila → garantiza "fila visible → spinner se va".
             if (window.hidePreloader) {
                 requestAnimationFrame(() => requestAnimationFrame(() => window.hidePreloader()));
             }

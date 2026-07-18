@@ -4498,6 +4498,9 @@ class EquipoController extends Controller
             $query->where(function ($q) use ($searchUpper) {
                 $q->where('CODIGO_PATIO', 'like', "%{$searchUpper}%")
                   ->orWhere('SERIAL_CHASIS', 'like', "%{$searchUpper}%")
+                  // SERIAL_DE_MOTOR: la búsqueda web (index/export) sí lo incluye; el móvil
+                  // lo omitía → buscar por nº de motor no encontraba el equipo en la APK.
+                  ->orWhere('SERIAL_DE_MOTOR', 'like', "%{$searchUpper}%")
                   ->orWhere('MARCA', 'like', "%{$searchUpper}%")
                   ->orWhere('MODELO', 'like', "%{$searchUpper}%")
                   ->orWhere('NUMERO_ETIQUETA', 'like', "%{$searchUpper}%")

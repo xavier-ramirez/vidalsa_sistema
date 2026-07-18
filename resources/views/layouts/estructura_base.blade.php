@@ -2379,9 +2379,14 @@
                                 // Solo re-renderiza el modal detalles si sigue abierto debajo del preview;
                                 // asi evitamos reabrirlo por encima del preview y manejamos race conditions
                                 // (nodo muerto, SPA nav) gracias al guard de activeEquipoButton.
+                                // SOLO para EQUIPOS. Sin este guard, al reemplazar un doc de un
+                                // AUXILIAR la rama de equipos igual corría (activeEquipoButton no se
+                                // resetea al abrir un aux) y escribía el link del doc del AUX en el
+                                // dataset/caché del EQUIPO → el equipo mostraba el PDF equivocado.
+                                const _esAux = window.currentPdfContext && window.currentPdfContext.module === 'auxiliar';
                                 const btnFP = window.activeEquipoButton;
                                 const btnFPAlive = btnFP && document.body.contains(btnFP);
-                                if (btnFPAlive && typeof window.applyDocUpload === 'function') {
+                                if (!_esAux && btnFPAlive && typeof window.applyDocUpload === 'function') {
                                     window.applyDocUpload(btnFP.dataset, type, data);
                                     if (window.equiposData && btnFP.dataset.equipoId && window.equiposData[btnFP.dataset.equipoId]) {
                                         window.applyDocUpload(window.equiposData[btnFP.dataset.equipoId], type, data);
