@@ -3479,13 +3479,17 @@ function initEquipos() {
     if (form) {
         form.onsubmit = function (e) {
             e.preventDefault();
-            // FUENTE ÚNICA del Enter. Cancela cualquier debounce pendiente del keyup para NO
-            // disparar loadEquipos() dos veces. Solo busca si hay texto (Enter con el campo
-            // vacío ya NO recarga/escanea todo). Para resetear la vista está el botón X.
+            // FUENTE ÚNICA del Enter, con el MISMO umbral que la auto-búsqueda (4+ chars).
+            // Enter dispara la MISMA búsqueda que la automática, pero de forma INMEDIATA (sin
+            // esperar el debounce de 400ms). Con 1-3 chars NO busca (igual que la automática),
+            // evitando las búsquedas vagas/lentas. Cancela el debounce pendiente para no duplicar.
             clearTimeout(window.searchTimeout);
             const si = document.getElementById("searchInput");
-            if (si && si.value.trim() !== '') {
+            const q = si ? si.value.trim() : '';
+            if (q.length >= 4) {
                 window.loadEquipos();
+            } else if (q.length >= 1 && window.showToast) {
+                window.showToast('Escribe al menos 4 caracteres para buscar.', 'info');
             }
             _hideMobileKeyboard(si);
             return false;
