@@ -2292,8 +2292,15 @@ window.openBulkModal = function (event) {
                 window.eqRegisterNuevoFrente(data.frente);
             }
 
-            // Refrescar tabla con preloader visible hasta completar el render inicial
+            // Refrescar tabla con preloader visible hasta completar el render inicial.
+            // loadEquipos(no-silent) hace su PROPIO show+hide del preloader (neto 0), así que
+            // muestra el spinner ANTES de que este hide corra → el contador nunca cae a 0 aquí.
             window.loadEquipos(null, false);
+            // Balance del showPreloader() del inicio de ejecutarCommit (línea ~2200): sin este
+            // hide, ese show quedaba SIN cerrar y _preloaderRefs se colgaba en 1 → el spinner
+            // seguía girando tras el toast de éxito hasta que un watchdog lo forzaba. loadEquipos
+            // (y, si aplica, la descarga del acta) mantienen el spinner visible hasta terminar.
+            if (window.hidePreloader) window.hidePreloader();
 
             // Descarga del acta si aplica.
             // Antes usabamos un <a href> + click(): el navegador inicia la
