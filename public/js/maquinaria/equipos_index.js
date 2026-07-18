@@ -3455,7 +3455,12 @@ function initEquipos() {
             // Solo busca con 4+ caracteres. Al BORRAR el campo hasta dejarlo vacío ya NO se
             // dispara una "búsqueda vacía" (antes val.length===0 recargaba y mostraba todo /
             // estado en blanco). Para resetear la vista está el botón X (clearAdvancedFilters).
-            if (val.length >= 4) {
+            // Auto-búsqueda por debounce SOLO con 4+ chars y SOLO al escribir (NO en Enter):
+            // el Enter lo dispara el submit del form como FUENTE ÚNICA. Antes el keyup TAMBIÉN
+            // llamaba loadEquipos() en Enter → doble búsqueda (keyup + submit), request abortado
+            // y preloader mostrado dos veces. El clearTimeout de arriba ya cancela el debounce
+            // pendiente al pulsar Enter, y aquí NO se re-arma (e.key !== 'Enter').
+            if (val.length >= 4 && e.key !== 'Enter') {
                 const self = this;
                 // Debounce 400ms: la búsqueda arranca poco después de dejar de escribir.
                 window.searchTimeout = setTimeout(() => {
@@ -3463,15 +3468,8 @@ function initEquipos() {
                     _hideMobileKeyboard(self);
                 }, 400);
             }
+            // Enter: solo cierra el teclado móvil; la búsqueda la dispara el submit del form.
             if (e.key === 'Enter') {
-                clearTimeout(window.searchTimeout);
-                // Enter SOLO busca si hay texto: con el campo vacío ya NO dispara una
-                // "búsqueda vacía" (que recargaba/escaneaba todo y tardaba). Para resetear
-                // la vista está el botón X (clearAdvancedFilters). Con texto corto (1-3 chars)
-                // Enter sí busca — es la vía para buscar seriales cortos que el keyup (4+) no cubre.
-                if (val.trim() !== '') {
-                    window.loadEquipos();
-                }
                 _hideMobileKeyboard(this);
             }
         });
@@ -3481,9 +3479,10 @@ function initEquipos() {
     if (form) {
         form.onsubmit = function (e) {
             e.preventDefault();
-            // Solo busca si hay texto. Enter con el campo VACÍO ya NO dispara una
-            // búsqueda vacía (antes recargaba/escaneaba todo y perdía tiempo). Misma
-            // guarda que el keyup de Enter. Para resetear la vista está el botón X.
+            // FUENTE ÚNICA del Enter. Cancela cualquier debounce pendiente del keyup para NO
+            // disparar loadEquipos() dos veces. Solo busca si hay texto (Enter con el campo
+            // vacío ya NO recarga/escanea todo). Para resetear la vista está el botón X.
+            clearTimeout(window.searchTimeout);
             const si = document.getElementById("searchInput");
             if (si && si.value.trim() !== '') {
                 window.loadEquipos();
