@@ -2394,19 +2394,27 @@
                                 }
 
                                 // AUXILIARES: el bloque de arriba solo refresca el modal de EQUIPOS.
-                                // Para aux, invalidamos su cache (auxDetailsMap) y re-renderizamos su
-                                // modal si sigue abierto, para que el documento recien subido se refleje
-                                // al instante (antes quedaba con el estado viejo). openAuxDetailsModal
-                                // refetch via /details (fresco) al no hallarlo en cache.
+                                // Para aux, traemos el detalle FRESCO de /details, actualizamos su
+                                // cache (auxDetailsMap) y re-renderizamos el modal si sigue abierto,
+                                // para que el documento recien subido se refleje al instante (antes
+                                // quedaba con el estado viejo). NOTA: openAuxDetailsModal espera un
+                                // BOTON (btn.dataset.auxId), no un id, por eso el refetch va directo.
                                 if (window.currentPdfContext && window.currentPdfContext.module === 'auxiliar') {
                                     var _auxId = window.currentPdfContext.equipoId;
-                                    if (window.auxDetailsMap) {
-                                        delete window.auxDetailsMap[_auxId];
-                                        delete window.auxDetailsMap[String(_auxId)];
-                                    }
                                     var _auxModal = document.getElementById('auxDetailsModal');
-                                    if (_auxModal && _auxModal.classList.contains('active') && typeof window.openAuxDetailsModal === 'function') {
-                                        window.openAuxDetailsModal(_auxId);
+                                    if (_auxId && _auxModal && _auxModal.classList.contains('active')
+                                        && typeof window.renderAuxDetailsModal === 'function') {
+                                        fetch('/admin/equipos-auxiliares/' + _auxId + '/details', {
+                                            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+                                            credentials: 'same-origin'
+                                        })
+                                        .then(function (r) { return r.ok ? r.json() : null; })
+                                        .then(function (d) {
+                                            if (!d) return;
+                                            (window.auxDetailsMap = window.auxDetailsMap || {})[_auxId] = d;
+                                            window.renderAuxDetailsModal(d);
+                                        })
+                                        .catch(function () { /* silencioso: el toast de exito ya salio */ });
                                     }
                                 }
 
