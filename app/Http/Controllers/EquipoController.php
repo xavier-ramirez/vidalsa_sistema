@@ -427,6 +427,48 @@ class EquipoController extends Controller
         ]);
     }
 
+    /**
+     * Aplica la búsqueda de texto (serial chasis/motor, código de patio, etiqueta y placa)
+     * a $query. FUENTE ÚNICA: la usan TANTO la tabla como los stats/Distribución para que el
+     * resumen lateral coincida con lo que se ve. Antes la búsqueda solo afectaba a la tabla y
+     * el Consolidado/Distribución seguían mostrando la flota completa (tabla=1, lado=1091).
+     * Usa whereHas para la PLACA (no leftJoin) → seguro para COUNT/GROUP BY (no duplica filas).
+     * La ambigüedad O↔0 se aplica SOLO a la placa.
+     */
+    private function applyBusquedaTexto($query, ?string $search): void
+    {
+        $searchUpper = strtoupper(trim((string) $search));
+        if ($searchUpper === '') return;
+
+        // Etiqueta: #NÚMERO → NUMERO_ETIQUETA
+        if (strpos($searchUpper, '#') !== false) {
+            $tag = str_replace('#', '', $searchUpper);
+            $query->where('equipos.NUMERO_ETIQUETA', 'like', "%{$tag}%");
+            return;
+        }
+
+        $placaVariants = collect([
+            $searchUpper,
+            str_replace('O', '0', $searchUpper),
+            str_replace('0', 'O', $searchUpper),
+            str_replace(['O', '0'], ['0', 'O'], $searchUpper),
+        ])->unique()->values()->all();
+
+        $query->where(function ($q) use ($searchUpper, $placaVariants) {
+            $q->where('equipos.SERIAL_CHASIS', 'like', "%{$searchUpper}%")
+              ->orWhere('equipos.SERIAL_DE_MOTOR', 'like', "%{$searchUpper}%")
+              ->orWhere('equipos.CODIGO_PATIO', 'like', "%{$searchUpper}%")
+              ->orWhere('equipos.NUMERO_ETIQUETA', 'like', "%{$searchUpper}%")
+              ->orWhereHas('documentacion', function ($d) use ($placaVariants) {
+                  $d->where(function ($pq) use ($placaVariants) {
+                      foreach ($placaVariants as $v) {
+                          $pq->orWhere('PLACA', 'like', "%{$v}%");
+                      }
+                  });
+              });
+        });
+    }
+
     public function index(Request $request)
     {
         $search = $request->input('search_query');
@@ -452,48 +494,11 @@ class EquipoController extends Controller
         // En modo "solo seleccionados" (ids_in) la whitelist es la única condición:
         // applyEquipoFilters ya hizo short-circuit, así que ignoramos la búsqueda.
         // trim()!=='' (no truthy): un serial/código exacto '0' es falsy en PHP y se perdería.
-        if (trim((string) $search) !== '' && !$request->filled('ids_in')) {
-            $searchUpper = strtoupper(trim($search));
-
-            // Smart Search by prefix
-            if (strpos($searchUpper, '#') !== false) {
-                // Mode: Tag Number Search
-                $tagSearch = str_replace('#', '', $searchUpper);
-                $equipos->where('NUMERO_ETIQUETA', 'like', "%{$tagSearch}%");
-
-            } else {
-                // Búsqueda estándar: cubre SERIAL_CHASIS, SERIAL_DE_MOTOR, CODIGO_PATIO,
-                // NUMERO_ETIQUETA y PLACA. (Antes había una rama que, si el texto tenía un
-                // guion, buscaba SOLO en CODIGO_PATIO — eso impedía encontrar seriales que
-                // incluyen guion. Eliminada: CODIGO_PATIO ya se busca aquí, así que los
-                // códigos de patio con guion siguen apareciendo y ya no se pierden los
-                // seriales ni la placa.)
-                // O/0 ambiguity applied ONLY to PLACA
-                // (plates are the only field where O and 0 are visually confused)
-                $placaVariants = collect([
-                    $searchUpper,
-                    str_replace('O', '0', $searchUpper),
-                    str_replace('0', 'O', $searchUpper),
-                    str_replace(['O', '0'], ['0', 'O'], $searchUpper),
-                ])->unique()->values()->all();
-
-                // To optimize PLACA search without full scanning documentacion table, we join it here
-                $equipos->leftJoin('documentacion AS doc_search', 'equipos.ID_EQUIPO', '=', 'doc_search.ID_EQUIPO');
-
-                $equipos->where(function ($q) use ($searchUpper, $placaVariants) {
-                    // Exact search for non-plate fields
-                    $q->where('equipos.SERIAL_CHASIS', 'like', "%{$searchUpper}%")
-                      ->orWhere('equipos.SERIAL_DE_MOTOR', 'like', "%{$searchUpper}%")
-                      ->orWhere('equipos.CODIGO_PATIO', 'like', "%{$searchUpper}%")
-                      ->orWhere('equipos.NUMERO_ETIQUETA', 'like', "%{$searchUpper}%")
-                      // O/0-aware search only for PLACA via Left Join
-                      ->orWhere(function ($pq) use ($placaVariants) {
-                          foreach ($placaVariants as $variant) {
-                              $pq->orWhere('doc_search.PLACA', 'like', "%{$variant}%");
-                          }
-                      });
-                });
-            }
+        // Búsqueda de texto (serial/motor/código/etiqueta/placa) — FUENTE ÚNICA reusada por
+        // la tabla Y los stats/Distribución (applyBusquedaTexto), para que el resumen lateral
+        // coincida con la tabla. En modo "ver solo seleccionados" (ids_in) la búsqueda se omite.
+        if (!$request->filled('ids_in')) {
+            $this->applyBusquedaTexto($equipos, $search);
         }
 
 
@@ -567,6 +572,7 @@ class EquipoController extends Controller
             // domina). Mismo patrón que fleetStats y AlmacenController::statsInventario.
             $statsBase = Equipo::query();
             $this->applyEquipoFilters($statsBase, $request);
+            $this->applyBusquedaTexto($statsBase, $search); // Consolidado refleja la búsqueda
             $agg = $statsBase->selectRaw("
                 COUNT(*) as total_all,
                 SUM(CASE WHEN ESTADO_OPERATIVO != 'DESINCORPORADO' THEN 1 ELSE 0 END) as total_activa,
@@ -593,6 +599,7 @@ class EquipoController extends Controller
             if (!empty($docFilters)) {
                 $docFreeBase = Equipo::query();
                 $this->applyEquipoFilters($docFreeBase, $request, array_keys(self::DOC_FILTER_COLS));
+                $this->applyBusquedaTexto($docFreeBase, $search); // "con/sin doc" refleja la búsqueda
                 if ($filtroEstado !== 'DESINCORPORADO') {
                     $docFreeBase->where('ESTADO_OPERATIVO', '!=', 'DESINCORPORADO');
                 }
@@ -609,6 +616,7 @@ class EquipoController extends Controller
             // Tipos Stats — siempre muestra todos los tipos (sin filtro por id_tipo) para no autolimitarse
             $tiposQuery = Equipo::query()->leftJoin('tipo_equipos', 'equipos.id_tipo_equipo', '=', 'tipo_equipos.id');
             $this->applyEquipoFilters($tiposQuery, $request, ['id_tipo']);
+            $this->applyBusquedaTexto($tiposQuery, $search); // Distribución por tipo refleja la búsqueda
             $tiposStats = $tiposQuery
                 ->select('equipos.id_tipo_equipo', 'tipo_equipos.nombre', DB::raw('COUNT(*) as total'))
                 ->groupBy('equipos.id_tipo_equipo', 'tipo_equipos.nombre')
@@ -620,6 +628,7 @@ class EquipoController extends Controller
             if ($request->filled('id_tipo') && !$auxMode) {
                 $frentesQuery = Equipo::query()->leftJoin('frentes_trabajo', 'equipos.ID_FRENTE_ACTUAL', '=', 'frentes_trabajo.ID_FRENTE');
                 $this->applyEquipoFilters($frentesQuery, $request, ['id_frente']);
+                $this->applyBusquedaTexto($frentesQuery, $search); // frentes stats reflejan la búsqueda
                 $frentesStats = $frentesQuery
                     ->whereNotNull('equipos.ID_FRENTE_ACTUAL')
                     ->select('equipos.ID_FRENTE_ACTUAL', 'frentes_trabajo.NOMBRE_FRENTE', DB::raw('COUNT(*) as total'))
@@ -637,6 +646,7 @@ class EquipoController extends Controller
                 if ($frenteEspecial) {
                     $ubicQuery = Equipo::query();
                     $this->applyEquipoFilters($ubicQuery, $request, ['detalle_ubicacion']);
+                    $this->applyBusquedaTexto($ubicQuery, $search); // ubicaciones reflejan la búsqueda
                     $rawUbicaciones = $ubicQuery
                         ->select(
                             DB::raw("COALESCE(NULLIF(TRIM(DETALLE_UBICACION_ACTUAL), ''), '__SIN_ASIGNAR__') as ubi_key"),
