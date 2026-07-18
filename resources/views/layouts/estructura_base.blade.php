@@ -1894,9 +1894,11 @@
                         // PDF nativo del navegador (PDFium / PDF.js) tarda algunos
                         // cientos de ms mas en renderizar la primera pagina.
                         // Buffer extra para que el visor pinte antes de revelar
-                        // el iframe. (loaderTimeout de 5s sigue como fallback
-                        // maximo si onload nunca dispara para el PDF real.)
-                        const PDF_RENDER_BUFFER = 1500;
+                        // el iframe. Bajado 1500 → 400ms: 1500 sobraba (el render
+                        // real son ~cientos de ms) y anadia ~1s de espera percibida
+                        // en CADA documento. (loaderTimeout de 5s sigue como
+                        // fallback maximo si onload nunca dispara para el PDF real.)
+                        const PDF_RENDER_BUFFER = 400;
                         setTimeout(hideLoaderWhenReady, PDF_RENDER_BUFFER);
                     };
 
