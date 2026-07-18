@@ -2393,6 +2393,23 @@
                                     }
                                 }
 
+                                // AUXILIARES: el bloque de arriba solo refresca el modal de EQUIPOS.
+                                // Para aux, invalidamos su cache (auxDetailsMap) y re-renderizamos su
+                                // modal si sigue abierto, para que el documento recien subido se refleje
+                                // al instante (antes quedaba con el estado viejo). openAuxDetailsModal
+                                // refetch via /details (fresco) al no hallarlo en cache.
+                                if (window.currentPdfContext && window.currentPdfContext.module === 'auxiliar') {
+                                    var _auxId = window.currentPdfContext.equipoId;
+                                    if (window.auxDetailsMap) {
+                                        delete window.auxDetailsMap[_auxId];
+                                        delete window.auxDetailsMap[String(_auxId)];
+                                    }
+                                    var _auxModal = document.getElementById('auxDetailsModal');
+                                    if (_auxModal && _auxModal.classList.contains('active') && typeof window.openAuxDetailsModal === 'function') {
+                                        window.openAuxDetailsModal(_auxId);
+                                    }
+                                }
+
                                 if (window.showToast) window.showToast('Documento actualizado exitosamente', 'success');
 
                                 // Refresh Dashboard Alerts if function exists
