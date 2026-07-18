@@ -59,7 +59,7 @@
                                    onclick="event.preventDefault(); showModal({ type: 'error', title: 'Acceso Denegado', message: 'No tienes permisos para editar usuarios.', confirmText: 'Entendido', hideCancel: true });" 
                                    @endcannot
                                    class="btn-action-maquinaria"
-                                   style="color: var(--maquinaria-blue);"
+                                   style="color: var(--maquinaria-blue); background: transparent;"
                                    title="Editar">
                                     <i class="material-icons" style="font-size: 18px;">edit</i>
                                 </a>
