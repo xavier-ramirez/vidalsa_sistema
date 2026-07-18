@@ -439,36 +439,41 @@
                         style="height: 45px; width: 45px; padding: 0; border-radius: 12px; background: {{ $hasAdvHd ? '#fee2e2' : 'white' }}; border: 1px solid {{ $hasAdvHd ? '#ef4444' : '#cbd5e0' }}; color: {{ $hasAdvHd ? '#ef4444' : '#64748b' }}; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;">
                         <i class="material-icons">filter_list</i>
                     </button>
-                    <div id="hdAdvancedFilterPanel" style="display:none; position:absolute; top:100%; right:0; width:280px; max-width:calc(100vw - 24px); background:#e2e8f0; border:1px solid #cbd5e1; border-radius:12px; box-shadow:0 10px 25px -5px rgba(0,0,0,0.15); margin-top:8px; padding:14px; z-index:100;">
+                    <div id="hdAdvancedFilterPanel" style="display:none; position:absolute; top:100%; right:0; width:340px; max-width:calc(100vw - 24px); background:#e2e8f0; border:1px solid #cbd5e1; border-radius:12px; box-shadow:0 10px 25px -5px rgba(0,0,0,0.15); margin-top:8px; padding:14px; z-index:100;">
                         <h4 style="margin:0 0 12px 0; font-size:13px; font-weight:700; color:#334155; display:flex; justify-content:space-between; align-items:center;">
                             Filtros Avanzados
                             <span style="font-size:11px; color:#64748b; font-weight:400; text-decoration:underline; cursor:pointer;"
                                   onclick="document.getElementById('hdFechaDesde').value=''; document.getElementById('hdFechaHasta').value=''; var x1=document.getElementById('hdClrFechaDesde'); if(x1)x1.style.display='none'; var x2=document.getElementById('hdClrFechaHasta'); if(x2)x2.style.display='none'; window.loadHistorialDocumentos && window.loadHistorialDocumentos();">Limpiar</span>
                         </h4>
-                        <div style="margin-bottom:10px;">
-                            <span style="display:block; font-size:11px; font-weight:600; color:#64748b; margin-bottom:5px;">Fecha desde</span>
-                            <div style="display:flex; align-items:center; gap:4px;">
-                                <input type="date" id="hdFechaDesde" name="fecha_desde" value="{{ request('fecha_desde') }}"
-                                    onchange="window.hdToggleDateClear && window.hdToggleDateClear('hdFechaDesde','hdClrFechaDesde'); window.loadHistorialDocumentos && window.loadHistorialDocumentos()"
-                                    onclick="try { this.showPicker(); } catch(e) {}"
-                                    style="flex:1; min-width:0; box-sizing:border-box; padding:7px 10px; border:1px solid {{ request('fecha_desde') ? '#0067b1' : '#cbd5e0' }}; border-radius:8px; font-size:13px; color:#334155; background:{{ request('fecha_desde') ? '#e1effa' : 'white' }}; cursor:pointer;">
-                                <i id="hdClrFechaDesde" class="material-icons"
-                                   style="display:{{ request('fecha_desde') ? 'inline-flex' : 'none' }}; cursor:pointer; color:#64748b; font-size:18px; padding:6px;"
-                                   onclick="event.stopPropagation(); var d=document.getElementById('hdFechaDesde'); d.value=''; this.style.display='none'; window.loadHistorialDocumentos && window.loadHistorialDocumentos();"
-                                   title="Limpiar fecha desde">close</i>
+                        {{-- Fecha desde / hasta EN FILA (uno al lado del otro). Cada columna
+                             flex:1 + min-width:0 para repartir el ancho sin desbordar el panel;
+                             los iconos de limpiar van compactos para que quepan los dos inputs. --}}
+                        <div style="display:flex; gap:10px;">
+                            <div style="flex:1; min-width:0;">
+                                <span style="display:block; font-size:11px; font-weight:600; color:#64748b; margin-bottom:5px;">Fecha desde</span>
+                                <div style="display:flex; align-items:center; gap:2px;">
+                                    <input type="date" id="hdFechaDesde" name="fecha_desde" value="{{ request('fecha_desde') }}"
+                                        onchange="window.hdToggleDateClear && window.hdToggleDateClear('hdFechaDesde','hdClrFechaDesde'); window.loadHistorialDocumentos && window.loadHistorialDocumentos()"
+                                        onclick="try { this.showPicker(); } catch(e) {}"
+                                        style="flex:1; min-width:0; box-sizing:border-box; padding:7px 8px; border:1px solid {{ request('fecha_desde') ? '#0067b1' : '#cbd5e0' }}; border-radius:8px; font-size:13px; color:#334155; background:{{ request('fecha_desde') ? '#e1effa' : 'white' }}; cursor:pointer;">
+                                    <i id="hdClrFechaDesde" class="material-icons"
+                                       style="display:{{ request('fecha_desde') ? 'inline-flex' : 'none' }}; cursor:pointer; color:#64748b; font-size:16px; padding:2px;"
+                                       onclick="event.stopPropagation(); var d=document.getElementById('hdFechaDesde'); d.value=''; this.style.display='none'; window.loadHistorialDocumentos && window.loadHistorialDocumentos();"
+                                       title="Limpiar fecha desde">close</i>
+                                </div>
                             </div>
-                        </div>
-                        <div>
-                            <span style="display:block; font-size:11px; font-weight:600; color:#64748b; margin-bottom:5px;">Fecha hasta</span>
-                            <div style="display:flex; align-items:center; gap:4px;">
-                                <input type="date" id="hdFechaHasta" name="fecha_hasta" value="{{ request('fecha_hasta') }}"
-                                    onchange="window.hdToggleDateClear && window.hdToggleDateClear('hdFechaHasta','hdClrFechaHasta'); window.loadHistorialDocumentos && window.loadHistorialDocumentos()"
-                                    onclick="try { this.showPicker(); } catch(e) {}"
-                                    style="flex:1; min-width:0; box-sizing:border-box; padding:7px 10px; border:1px solid {{ request('fecha_hasta') ? '#0067b1' : '#cbd5e0' }}; border-radius:8px; font-size:13px; color:#334155; background:{{ request('fecha_hasta') ? '#e1effa' : 'white' }}; cursor:pointer;">
-                                <i id="hdClrFechaHasta" class="material-icons"
-                                   style="display:{{ request('fecha_hasta') ? 'inline-flex' : 'none' }}; cursor:pointer; color:#64748b; font-size:18px; padding:6px;"
-                                   onclick="event.stopPropagation(); var d=document.getElementById('hdFechaHasta'); d.value=''; this.style.display='none'; window.loadHistorialDocumentos && window.loadHistorialDocumentos();"
-                                   title="Limpiar fecha hasta">close</i>
+                            <div style="flex:1; min-width:0;">
+                                <span style="display:block; font-size:11px; font-weight:600; color:#64748b; margin-bottom:5px;">Fecha hasta</span>
+                                <div style="display:flex; align-items:center; gap:2px;">
+                                    <input type="date" id="hdFechaHasta" name="fecha_hasta" value="{{ request('fecha_hasta') }}"
+                                        onchange="window.hdToggleDateClear && window.hdToggleDateClear('hdFechaHasta','hdClrFechaHasta'); window.loadHistorialDocumentos && window.loadHistorialDocumentos()"
+                                        onclick="try { this.showPicker(); } catch(e) {}"
+                                        style="flex:1; min-width:0; box-sizing:border-box; padding:7px 8px; border:1px solid {{ request('fecha_hasta') ? '#0067b1' : '#cbd5e0' }}; border-radius:8px; font-size:13px; color:#334155; background:{{ request('fecha_hasta') ? '#e1effa' : 'white' }}; cursor:pointer;">
+                                    <i id="hdClrFechaHasta" class="material-icons"
+                                       style="display:{{ request('fecha_hasta') ? 'inline-flex' : 'none' }}; cursor:pointer; color:#64748b; font-size:16px; padding:2px;"
+                                       onclick="event.stopPropagation(); var d=document.getElementById('hdFechaHasta'); d.value=''; this.style.display='none'; window.loadHistorialDocumentos && window.loadHistorialDocumentos();"
+                                       title="Limpiar fecha hasta">close</i>
+                                </div>
                             </div>
                         </div>
                     </div>
