@@ -4548,10 +4548,31 @@
                 if (cont)  { cont.style.display = 'block'; }
                 almRenderPdfCanvas(blob);
             } else {
-                // ESCRITORIO: visor nativo del navegador en el iframe. Los fragment hints
-                // (#toolbar=0&navpanes=0&scrollbar=0&view=FitH) ocultan el chrome del visor.
-                if (cont)  { cont.style.display = 'none'; cont.innerHTML = ''; }
-                if (frame) { frame.style.display = ''; frame.src = almPreviewBlobUrl + '#toolbar=0&navpanes=0&scrollbar=0&view=FitH'; }
+                // ESCRITORIO: visor nativo del navegador en el iframe. Mostramos "Cargando…"
+                // en el contenedor del canvas (oculto en escritorio) HASTA que el iframe dispare
+                // load — antes el spinner global se apagaba al llegar el blob y el iframe quedaba
+                // en blanco unos instantes mientras el navegador renderiza el PDF (mismo criterio
+                // que el visor del acta). Fallback a 8s por si onload no dispara.
+                if (cont) {
+                    cont.style.display = 'flex';
+                    cont.style.alignItems = 'center';
+                    cont.style.justifyContent = 'center';
+                    cont.style.color = '#cbd5e0';
+                    cont.innerHTML = '<div style="text-align:center;font-size:13px;"><i class="material-icons" style="font-size:34px;animation:spin 1s linear infinite;display:block;margin:0 auto 8px;">sync</i>Cargando vista previa…</div>';
+                }
+                if (frame) {
+                    frame.style.display = 'none';
+                    frame.onload = function () {
+                        if ((frame.src || '').indexOf('about:blank') !== -1) return;
+                        if (cont) { cont.style.display = 'none'; cont.innerHTML = ''; }
+                        frame.style.display = '';
+                    };
+                    frame.src = almPreviewBlobUrl + '#toolbar=0&navpanes=0&scrollbar=0&view=FitH';
+                    setTimeout(function () {
+                        if (cont && cont.style.display !== 'none') { cont.style.display = 'none'; cont.innerHTML = ''; }
+                        frame.style.display = '';
+                    }, 8000);
+                }
             }
         })
         .catch(function (err) {
