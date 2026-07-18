@@ -2147,7 +2147,13 @@
         }
 
         if (!matches.length) {
-            box.innerHTML = verTodoLink + '<div class="alm-suggest-empty">Sin coincidencias.</div>';
+            // Si el catálogo async aún no cargó, mostramos "Cargando…" en vez de "Sin
+            // coincidencias" (que sugeriría por error que el producto no existe → riesgo de
+            // crear duplicados). El fallback "teclear + Enter" contra el servidor sigue vivo.
+            var vacioHtml = (!window.almProductosCargados)
+                ? '<div class="alm-suggest-empty">Cargando productos…</div>'
+                : '<div class="alm-suggest-empty">Sin coincidencias.</div>';
+            box.innerHTML = verTodoLink + vacioHtml;
         } else {
             // Mostrar SOLO el NOMBRE; data-pick guarda el texto que va al cuadro al elegir: el
             // NOMBRE y —en filtros que matchearon por nº de parte— ese nº DELANTE del nombre, para
@@ -2220,7 +2226,13 @@
     };
     // Buscar por código o descripción suelta los atajos "Stock bajo"/"Con stock"
     // (ver almSoltarAtajosStock). Igual que el foco del filtro de Categoría.
-    window.almBuscarFocus = function () { almSoltarAtajosStock(); window.almBuscarSuggest(); };
+    window.almBuscarFocus = function () {
+        // Reintenta cargar el catálogo async si la 1ª carga falló (blip de red): al hacer foco
+        // en el buscador se vuelve a intentar. almCargarProductos está guardado (no re-fetchea
+        // si ya cargó o está en curso), así que es seguro llamarlo aquí.
+        if (!window.almProductosCargados && typeof window.almCargarProductos === 'function') window.almCargarProductos();
+        almSoltarAtajosStock(); window.almBuscarSuggest();
+    };
     window.almBuscarEnter = function (ev) {
         if (ev && ev.key !== 'Enter') return;
         if (ev) ev.preventDefault();
@@ -4105,7 +4117,7 @@
                 window.almPapeleraBuscar();
                 if (typeof window.almCargar === 'function') window.almCargar();
 
-                if (res.b && res.b.producto && Array.isArray(window.almProductosLista)) {
+                if (res.b && res.b.producto && window.almProductosCargados && Array.isArray(window.almProductosLista)) {
                     var p = res.b.producto;
                     var ya = window.almProductosLista.some(function (x) { return String(x.ID_PRODUCTO) === String(p.ID_PRODUCTO); });
                     if (!ya) {
@@ -4225,7 +4237,7 @@
                 // de sugerencias) para que el producto nuevo / editado aparezca en la busqueda
                 // sin tener que recargar la pestaña. Antes: el producto recien creado solo
                 // aparecia tras un F5 porque la lista se cargaba 1 vez al render del server.
-                if (res.b && res.b.producto && Array.isArray(window.almProductosLista)) {
+                if (res.b && res.b.producto && window.almProductosCargados && Array.isArray(window.almProductosLista)) {
                     var p = res.b.producto;
                     // Filtro editado → sus nºs de parte están en _almProdEquivs (el modal). Para
                     // no-filtros o creación, parts queda vacío. Así la entry cacheada conserva
@@ -4611,6 +4623,11 @@
     // viene del draft sin reconstruir, asi el PDF final = exactamente lo aprobado.
     window.almPreviewConfirmar = function () {
         if (!almSalidaDraft) { toast('Sin datos para registrar — vuelve a "Editar" y aprieta "Vista previa".', 'error'); return; }
+        // Anti doble-submit: si ya hay un registro en curso, no dispares otro (evita movimiento
+        // + Nota de Entrega DUPLICADOS). Antes solo lo tapaba el preloader; ahora es explícito,
+        // igual que "Registrar entrada" de recepción. Se libera en el .finally.
+        if (window._almConfirmando) return;
+        window._almConfirmando = true;
         var payload = almSalidaDraft;
 
         pre();
@@ -4673,7 +4690,8 @@
             var netMsg = 'Error de red al confirmar la salida.';
             showErr('almSalidaError', netMsg);
             toast(netMsg, 'error');
-        });
+        })
+        .finally(function () { window._almConfirmando = false; }); // libera la guarda anti doble-submit
     };
     @endif
 

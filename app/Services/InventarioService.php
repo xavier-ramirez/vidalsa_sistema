@@ -346,7 +346,7 @@ class InventarioService
         }
 
         // Persistir el acumulador (la fila ya quedó bloqueada arriba). Si ya no quedan
-        // movimientos, el saldo cae a 0.
+        // movimientos, el saldo vuelve a la APERTURA ($apertura), no a 0 (ver docblock arriba).
         if ($stock) {
             $stock->CANTIDAD             = $saldo;
             $stock->FECHA_ULT_MOVIMIENTO = now();

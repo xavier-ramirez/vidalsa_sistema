@@ -933,7 +933,7 @@
             credentials: 'same-origin'
         })
         .then(function (r) { return r.ok ? r.json() : []; })
-        .then(function (lista) { window.almMovProductosLista = Array.isArray(lista) ? lista : []; })
+        .then(function (lista) { window.almMovProductosLista = Array.isArray(lista) ? lista : []; window.almMovProductosCargados = true; })
         .catch(function () { /* silencioso: el buscador queda vacío hasta que reintente */ })
         .finally(function () { window.almMovProductosCargando = false; });
     })();
@@ -953,7 +953,11 @@
         }).slice(0, 17);
         var html = '';
         if (!matches.length) {
-            html = '<div class="amf-suggest-empty">Sin coincidencias.</div>';
+            // Mientras el catálogo async no cargó, "Cargando…" en vez de "Sin coincidencias"
+            // (que sugeriría por error que el producto no existe). El Enter→servidor sigue vivo.
+            html = (!window.almMovProductosCargados)
+                ? '<div class="amf-suggest-empty">Cargando productos…</div>'
+                : '<div class="amf-suggest-empty">Sin coincidencias.</div>';
         } else {
             html = matches.map(function (p) {
                 var nom = (p.NOMBRE || '').replace(/[<>&"]/g, '');
