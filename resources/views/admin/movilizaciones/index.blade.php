@@ -422,7 +422,7 @@ window._eliminarSeleccionados = function () {
 // Devuelve el equipo a su frente de ORIGEN y borra el registro (como si nunca ocurrió).
 window.movDeshacer = function (id) {
     if (!id) return;
-    var msg = 'El equipo volverá a su frente de ORIGEN y este registro se borrará por completo (como si nunca hubiera ocurrido).';
+    var msg = 'El equipo vuelve a su frente de origen y el registro se borra por completo.';
     var doIt = function () {
         var csrfToken = (document.querySelector('meta[name="csrf-token"]') || {}).content;
         var preloader = document.getElementById('preloader'); if (preloader) preloader.style.display = 'flex';
