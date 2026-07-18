@@ -145,18 +145,25 @@ document.addEventListener('click', function (e) {
     }
 });
 
-// Móvil: tocar una tarjeta de usuario muestra/oculta su detalle (fecha de creación +
-// frentes), que en escritorio sale al pasar el mouse. Solo aplica en el layout de tarjeta
-// (≤768px); no dispara al tocar los botones de acción (editar/eliminar) ni sus enlaces.
-// Listener único a nivel documento (SPA-safe: sobrevive a los re-render de la tabla).
+// Móvil: tocar una tarjeta de usuario muestra su detalle (fecha de creación + frentes) en
+// una burbuja flotante por encima (en escritorio sale al pasar el mouse). Solo en el layout
+// de tarjeta (≤768px). Una sola burbuja abierta a la vez; se cierra al tocar fuera o en un
+// botón de acción. Listener único a nivel documento (SPA-safe: sobrevive al re-render).
 document.addEventListener('click', function (e) {
     if (!window.matchMedia || !window.matchMedia('(max-width: 768px)').matches) return;
     const body = document.getElementById('usuariosTableBody');
     if (!body) return;
     const fila = e.target.closest('.table-usuarios-mobile tbody tr');
-    if (!fila || !body.contains(fila)) return;
-    if (e.target.closest('a, button, .btn-action-maquinaria')) return; // acciones no togglean
-    fila.classList.toggle('tip-abierto');
+    const enAccion = e.target.closest('a, button, .btn-action-maquinaria');
+    const abiertas = body.querySelectorAll('tr.tip-abierto');
+    // Tocar fuera de una tarjeta (o en un botón de acción) → cerrar lo que hubiera abierto.
+    if (!fila || !body.contains(fila) || enAccion) {
+        abiertas.forEach(function (t) { t.classList.remove('tip-abierto'); });
+        return;
+    }
+    const yaAbierta = fila.classList.contains('tip-abierto');
+    abiertas.forEach(function (t) { t.classList.remove('tip-abierto'); }); // solo una a la vez
+    if (!yaAbierta) fila.classList.add('tip-abierto');
 });
 
 // ── Autocompletado del buscador (nombre / correo) ───────────────────────────
