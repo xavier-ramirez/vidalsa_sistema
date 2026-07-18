@@ -145,6 +145,20 @@ document.addEventListener('click', function (e) {
     }
 });
 
+// Móvil: tocar una tarjeta de usuario muestra/oculta su detalle (fecha de creación +
+// frentes), que en escritorio sale al pasar el mouse. Solo aplica en el layout de tarjeta
+// (≤768px); no dispara al tocar los botones de acción (editar/eliminar) ni sus enlaces.
+// Listener único a nivel documento (SPA-safe: sobrevive a los re-render de la tabla).
+document.addEventListener('click', function (e) {
+    if (!window.matchMedia || !window.matchMedia('(max-width: 768px)').matches) return;
+    const body = document.getElementById('usuariosTableBody');
+    if (!body) return;
+    const fila = e.target.closest('.table-usuarios-mobile tbody tr');
+    if (!fila || !body.contains(fila)) return;
+    if (e.target.closest('a, button, .btn-action-maquinaria')) return; // acciones no togglean
+    fila.classList.toggle('tip-abierto');
+});
+
 // ── Autocompletado del buscador (nombre / correo) ───────────────────────────
 // La lista completa de usuarios (nombre + correo) viene embebida como JSON en el
 // DOM (#usuariosSugerenciasData). Filtramos en el cliente al escribir y mostramos

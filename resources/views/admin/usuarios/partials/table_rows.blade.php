@@ -58,15 +58,15 @@
                                    @cannot('manage.users') 
                                    onclick="event.preventDefault(); showModal({ type: 'error', title: 'Acceso Denegado', message: 'No tienes permisos para editar usuarios.', confirmText: 'Entendido', hideCancel: true });" 
                                    @endcannot
-                                   class="btn-action-maquinaria" 
-                                   style="color: var(--maquinaria-blue); background: #ebf4ff;" 
+                                   class="btn-action-maquinaria"
+                                   style="color: var(--maquinaria-blue);"
                                    title="Editar">
                                     <i class="material-icons" style="font-size: 18px;">edit</i>
                                 </a>
                                 <button type="button" 
                                     onclick="@can('manage.users') confirmDelete({{ $user->ID_USUARIO }}, '{{ addslashes($user->NOMBRE_COMPLETO) }}') @else showModal({ type: 'error', title: 'Acceso Denegado', message: 'No tienes permisos para eliminar usuarios.', confirmText: 'Entendido', hideCancel: true }); @endcan" 
-                                    class="btn-action-maquinaria" 
-                                    style="color: var(--maquinaria-red); background: #fff5f5;" 
+                                    class="btn-action-maquinaria"
+                                    style="color: var(--maquinaria-red); background: transparent;"
                                     title="Eliminar">
                                     <i class="material-icons" style="font-size: 18px;">delete</i>
                                 </button>

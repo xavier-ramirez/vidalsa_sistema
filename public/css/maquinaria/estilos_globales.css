@@ -1455,7 +1455,8 @@ nav[role="navigation"] {
         display: flex !important;
         align-items: center;
         justify-content: flex-end;
-        align-self: center;
+        align-self: start;   /* arriba, al nivel del nombre (antes centrado vertical) */
+        padding-top: 2px !important;
     }
 
     .table-usuarios-mobile tr td:nth-child(7) div {
@@ -1491,6 +1492,31 @@ nav[role="navigation"] {
     .table-usuarios-mobile tr td:nth-child(6)::before {
         content: none;
     }
+
+    /* Al TOCAR la tarjeta (móvil no tiene hover): se muestra el mismo detalle que en
+       escritorio sale al pasar el mouse — 📅 fecha de creación + 📍 frentes. El JS pone
+       .tip-abierto en la fila; aquí revelamos el tooltip como bloque dentro de la tarjeta
+       (sin recorte: overflow visible en la fila y en la celda del nombre). */
+    .table-usuarios-mobile tr.tip-abierto { overflow: visible !important; }
+    .table-usuarios-mobile tr.tip-abierto td:nth-child(1) {
+        overflow: visible !important;
+        white-space: normal !important;
+    }
+    .table-usuarios-mobile tr.tip-abierto .tooltip-wrapper { display: block !important; }
+    .table-usuarios-mobile tr.tip-abierto .tooltip-bubble {
+        position: static !important;
+        display: block !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+        transform: none !important;
+        width: auto !important;
+        max-width: 100% !important;
+        white-space: normal !important;
+        margin: 6px 0 0 0 !important;
+        box-shadow: none !important;
+    }
+    /* La flechita del tooltip (último div) no aplica en modo bloque. */
+    .table-usuarios-mobile tr.tip-abierto .tooltip-bubble > div:last-child { display: none !important; }
 }
 
 /* --- Search & Stats Container (Responsive) --- */
