@@ -342,13 +342,18 @@ input:-webkit-autofill:active {
 .login-alert i {
     color: var(--maquinaria-red);
     font-size: 20px;
+    flex: none;               /* el icono no se encoge; el texto de al lado sí puede envolver */
 }
 
 .login-alert span {
     color: var(--maquinaria-red);
     font-size: 13px;
     font-weight: 600;
-    white-space: nowrap;
+    /* Antes 'white-space: nowrap' forzaba una sola línea: en móvil un aviso largo
+       (ej. "Sin conexión…") se salía del contenedor. Ahora envuelve dentro del cuadro. */
+    line-height: 1.35;
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 .button-login-container {
