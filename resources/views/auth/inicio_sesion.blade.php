@@ -218,8 +218,8 @@
         const btnOff = document.getElementById('btnOfflineLogin');
         const hayOffline = btnOff && btnOff.style.display !== 'none';
         mostrarMsgLogin(hayOffline
-            ? 'Sin conexión a internet. Puedes usar "Entrar sin conexión" o revisar tu red.'
-            : 'Sin conexión a internet. Revisa tu red e inténtalo de nuevo.');
+            ? 'Sin conexión. Usa "Entrar sin conexión" o revisa tu red.'
+            : 'Sin conexión. Revisa tu red.');
     }
 
     const loginForm = document.querySelector('form');

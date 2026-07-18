@@ -14,6 +14,11 @@
  * CACHE_VERSION es inyectado por la ruta Laravel que sirve este archivo; el placeholder
  * __CACHE_VERSION__ se reemplaza con filemtime en cada response para que todo cambio
  * en el codigo invalide los caches del SW automaticamente.
+ *
+ * Al CAMBIAR un asset PRECACHEADO (p. ej. /css/maquinaria/inicio_sesion.css) hay que
+ * tocar ESTE archivo para bumpear CACHE_VERSION; si no, el SW sigue sirviendo la copia
+ * vieja precacheada (cache-first) y el cambio no llega al usuario.
+ * Última invalidación manual: 2026-07-18 (fix del wrap del aviso rojo del login).
  */
 const CACHE_VERSION = '__CACHE_VERSION__';
 const STATIC_CACHE  = 'vidalsa-static-' + CACHE_VERSION;
