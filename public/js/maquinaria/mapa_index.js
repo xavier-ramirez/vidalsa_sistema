@@ -641,8 +641,9 @@
         // Buscador: Photon (autocompletar, sin rate-limit) + detección de COORDENADAS.
         // Si escribes "lat, lng" (ej. 8.72370, -62.90443) va DIRECTO a ese punto.
         // bbox de Venezuela = restringe la búsqueda al país (antes lat/lon solo SESGABAN y
-        // colaban resultados de otros países). limit 15 para compensar el filtro por país de abajo.
-        var _photon = L.Control.Geocoder.photon({ geocodingQueryParams: { lat: 8, lon: -66, limit: 15, bbox: '-73.4,0.6,-59.8,12.6' } });
+        // colaban resultados de otros países). limit 10: suficiente tras el filtro por país y
+        // respuesta más liviana/rápida que el remoto (photon.komoot.io).
+        var _photon = L.Control.Geocoder.photon({ geocodingQueryParams: { lat: 8, lon: -66, limit: 10, bbox: '-73.4,0.6,-59.8,12.6' } });
         // UTM zona 20N (Venezuela oriental, meridiano central −63°). REGVEN ≈ WGS84.
         var UTM20N = '+proj=utm +zone=20 +datum=WGS84 +units=m +no_defs';
         function parseUTM(q) {
@@ -683,6 +684,15 @@
                 return !cc || cc === 'VE';
             }).slice(0, 8);
         }
+        // Caché de sugerencias por término: al reescribir/borrar hacia un término ya buscado,
+        // la lista sale INSTANTÁNEA sin volver a llamar al servidor remoto (photon.komoot.io,
+        // en Europa → es lo que tarda). Se limpia sola al pasar de ~80 términos por sesión.
+        var _sugCache = {};
+        function cacheSug(key, val) {
+            var ks = Object.keys(_sugCache);
+            if (ks.length > 80) delete _sugCache[ks[0]];
+            _sugCache[key] = val;
+        }
         var geocoderMapa = {
             geocode: function (q, cb, ctx) {
                 var c = parseCoord(q);
@@ -692,7 +702,11 @@
             suggest: function (q, cb, ctx) {
                 var c = parseCoord(q);
                 if (c) { cb.call(ctx, resCoord(c)); return; }
-                if (_photon.suggest) _photon.suggest(q, function (results) { cb.call(ctx, soloVenezuela(results)); }, ctx);
+                var key = String(q || '').trim().toLowerCase();
+                if (_sugCache[key]) { cb.call(ctx, _sugCache[key]); return; } // ya buscado → instantáneo
+                if (_photon.suggest) _photon.suggest(q, function (results) {
+                    var ve = soloVenezuela(results); cacheSug(key, ve); cb.call(ctx, ve);
+                }, ctx);
                 else cb.call(ctx, []);
             }
         };
@@ -730,7 +744,7 @@
             defaultMarkGeocode: false, // el marcador lo ponemos nosotros (bola azul fiable)
             collapsed: false,          // barra de búsqueda SIEMPRE visible (no el iconito)
             suggestMinLength: 2,       // sugiere desde 2 letras (más ágil)
-            suggestTimeout: 120,       // menos espera entre tecla y sugerencia
+            suggestTimeout: 80,        // dispara la sugerencia antes tras dejar de teclear
             geocoder: geocoderMapa
         }).on('markgeocode', function (e) {
             var c = e.geocode.center;
