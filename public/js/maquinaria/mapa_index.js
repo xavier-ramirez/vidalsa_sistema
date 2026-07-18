@@ -636,7 +636,9 @@
         // ── Buscador de zonas (geocoder) sesgado a Venezuela ──
         // Buscador: Photon (autocompletar, sin rate-limit) + detección de COORDENADAS.
         // Si escribes "lat, lng" (ej. 8.72370, -62.90443) va DIRECTO a ese punto.
-        var _photon = L.Control.Geocoder.photon({ geocodingQueryParams: { lat: 8, lon: -66, limit: 8 } });
+        // bbox de Venezuela = restringe la búsqueda al país (antes lat/lon solo SESGABAN y
+        // colaban resultados de otros países). limit 15 para compensar el filtro por país de abajo.
+        var _photon = L.Control.Geocoder.photon({ geocodingQueryParams: { lat: 8, lon: -66, limit: 15, bbox: '-73.4,0.6,-59.8,12.6' } });
         // UTM zona 20N (Venezuela oriental, meridiano central −63°). REGVEN ≈ WGS84.
         var UTM20N = '+proj=utm +zone=20 +datum=WGS84 +units=m +no_defs';
         function parseUTM(q) {
@@ -667,16 +669,27 @@
             return parseUTM(s);
         }
         function resCoord(c) { return [{ name: '📍 ' + c.lat.toFixed(5) + ', ' + c.lng.toFixed(5), center: c, bbox: c.toBounds(1200) }]; }
+        // Deja SOLO resultados de Venezuela (countrycode 'VE'). La bbox ya recorta en el
+        // servidor, pero puede colar bordes de Colombia/Brasil/Guyana; esto los descarta.
+        // Un resultado sin countrycode se conserva (por si Photon lo omite). Máx 8 tras filtrar.
+        function soloVenezuela(results) {
+            if (!results || !results.length) return results || [];
+            return results.filter(function (r) {
+                var cc = r && r.properties && r.properties.countrycode;
+                return !cc || cc === 'VE';
+            }).slice(0, 8);
+        }
         var geocoderMapa = {
             geocode: function (q, cb, ctx) {
                 var c = parseCoord(q);
                 if (c) { cb.call(ctx, resCoord(c)); return; }
-                _photon.geocode(q, cb, ctx);
+                _photon.geocode(q, function (results) { cb.call(ctx, soloVenezuela(results)); }, ctx);
             },
             suggest: function (q, cb, ctx) {
                 var c = parseCoord(q);
                 if (c) { cb.call(ctx, resCoord(c)); return; }
-                if (_photon.suggest) _photon.suggest(q, cb, ctx); else cb.call(ctx, []);
+                if (_photon.suggest) _photon.suggest(q, function (results) { cb.call(ctx, soloVenezuela(results)); }, ctx);
+                else cb.call(ctx, []);
             }
         };
         // VELA azul (pin de ubicación tipo Google Maps) para los puntos y la búsqueda.
