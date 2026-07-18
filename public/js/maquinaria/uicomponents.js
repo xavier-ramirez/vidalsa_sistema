@@ -250,14 +250,16 @@ window.selectOption = function (dropdownId, value, label, legacyType) {
         labelSpan.textContent = label;
     }
 
-    // Visual feedback on trigger
+    // Visual feedback on trigger. IMPORTANTE: la clase .filter-active (que pinta el
+    // servidor al cargar) tiene `!important`, así que GANA sobre estos estilos inline.
+    // Si no la sincronizamos aquí, al limpiar un filtro (Frente/Tipo) por AJAX el
+    // dropdown se quedaba azul con `!important` aunque ya no filtre nada. La toggleamos
+    // según el valor real → el resalte "filtro activo" siempre refleja el estado.
     const trigger = dropdown.querySelector(".dropdown-trigger");
     if (trigger) {
-        if (
-            effectiveValue &&
-            effectiveValue !== "all" &&
-            effectiveValue !== ""
-        ) {
+        const _activo = !!effectiveValue && effectiveValue !== "all" && effectiveValue !== "";
+        trigger.classList.toggle("filter-active", _activo);
+        if (_activo) {
             trigger.style.background = "#e1effa";
             trigger.style.borderColor = "#0067b1";
         } else {
