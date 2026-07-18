@@ -3469,6 +3469,12 @@ input:-webkit-autofill:active {
     font-weight: 600;
     font-style: italic;
 }
+/* Carga masiva de EQUIPOS: columna "Eliminar fila" (la X) más angosta → ese ancho se cede a
+   Status. Se estrecha aquí, scopeado a #bulkPreviewTable, para NO afectar la de auxiliares
+   (#bulkPreviewTableAux). El header ya va a 26px (deleteHeaderStyle); esto encoge la celda
+   (padding + botón) para que la columna realmente se angoste y no la fije el botón. */
+#bulkPreviewTable td.row-delete { padding-left: 2px !important; padding-right: 2px !important; }
+#bulkPreviewTable .bulk-row-delete { width: 22px !important; height: 22px !important; }
 .bulk-preview-table tbody td input,
 .bulk-preview-table tbody td select {
     width: 100%;
@@ -3758,6 +3764,29 @@ html.is-ios .ent-capt-add-btn { display: flex !important; }
     border: none !important;
 }
 
+/* PC (≥641px): mapa estilo GOOGLE MAPS — el contenedor va de BORDE A BORDE ocupando la
+   pantalla. Se anula el encajonado (max-width/padding de .main-viewport y .mapa-page) y el
+   radio/borde/sombra del mapa, para una vista inmersiva y limpia. El header flotante de la
+   app (fixed, 70px) queda ENCIMA, como la barra de búsqueda de Google Maps; el mapa arranca
+   justo debajo (body ya tiene padding-top:70px) y llega al borde inferior. El JS reajusta
+   Leaflet al cambiar el tamaño (ResizeObserver en mapa_index.js). El bloque móvil (≤640px)
+   mantiene su propio edge-to-edge más abajo. */
+@media (min-width: 641px) {
+    body:has(.mapa-page) .main-viewport {
+        width: 100% !important;
+        max-width: 100% !important;
+        padding: 0 !important;
+    }
+    body:has(.mapa-page) .mapa-page { max-width: none; padding: 0; }
+    body:has(.mapa-page) #mapa-leaflet {
+        height: calc(100vh - 70px); /* de justo debajo del header al borde inferior */
+        min-height: 0;
+        border-radius: 0;
+        border: none;
+        box-shadow: none;
+    }
+}
+
 /* Barra de búsqueda + botón "Ver toda Venezuela" EN FILA (el globo al lado del buscador) */
 #mapa-leaflet .leaflet-top.leaflet-left {
     display: flex;
@@ -3789,8 +3818,8 @@ html.is-ios .ent-capt-add-btn { display: flex !important; }
 .leaflet-control-geocoder-form input {
     font-size: 14px !important;
     height: 36px !important;
-    width: 250px !important;
-    max-width: 58vw !important;
+    width: 380px !important;      /* buscador más ancho en PC/tablet (antes 250px) */
+    max-width: 82vw !important;
     /* Lupa como FONDO dentro del propio input (no puede salirse) */
     padding: 0 12px 0 36px !important;
     background: transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cline x1='20.5' y1='20.5' x2='16.5' y2='16.5'/%3E%3C/svg%3E") no-repeat 11px center !important;
@@ -3943,26 +3972,27 @@ html.is-ios .ent-capt-add-btn { display: flex !important; }
 #mapa-leaflet .mapa-compass { order: 2; }
 /* margin-bottom alinea la regla con el cuerpo de la brújula (el SVG de 96px llega
    más abajo por la letra S); sin él la escala quedaría pegada al borde. */
-.leaflet-control-scale { order: 1; margin-right: 6px !important; margin-bottom: 34px !important; }
-/* Regla de escala en NEGRO: pastilla oscura, texto blanco y barra/topes blancos.
-   Diseño limpio tipo "regla" — más contraste sobre el mapa que el blanco anterior. */
+/* margin-right SEPARA la regla de la brújula (antes 6px, quedaban muy juntas). */
+.leaflet-control-scale { order: 1; margin-right: 22px !important; margin-bottom: 34px !important; }
+/* Regla de escala LIMPIA (sin caja): número blanco + barra/topes blancos, tal cual sale
+   en la foto exportada (dibujarEscala). Se quitó la pastilla oscura que envolvía el número;
+   el halo oscuro del texto lo mantiene legible sobre el satélite (equivale al strokeText
+   negro de la versión exportada). Así pantalla y foto quedan idénticas. */
 .leaflet-control-scale-line {
-    background: rgba(15, 23, 42, 0.88) !important;   /* negro/slate translúcido */
+    background: transparent !important;              /* sin contenedor gris tras el número */
     color: #ffffff !important;
     font-weight: 700 !important;
     font-size: 12px !important;
     letter-spacing: 0.3px !important;
-    padding: 4px 14px 7px !important;
-    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    padding: 0 6px 5px !important;                   /* solo lo justo para el número sobre la barra */
+    border: none !important;
     border-bottom: 3px solid #ffffff !important;     /* la barra de la escala (blanca) */
-    border-radius: 7px 7px 3px 3px !important;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45) !important;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5) !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    text-shadow: 0 0 3px rgba(0, 0, 0, 0.9), 0 1px 2px rgba(0, 0, 0, 0.9), 0 0 1px rgba(0, 0, 0, 0.9) !important;
     text-align: center !important;
     position: relative !important;
     min-width: 44px !important;
-    backdrop-filter: blur(2px) !important;
-    -webkit-backdrop-filter: blur(2px) !important;
 }
 /* Topes verticales en los extremos de la barra → parece una regla */
 .leaflet-control-scale-line::before,
@@ -4166,13 +4196,17 @@ html.is-ios .ent-capt-add-btn { display: flex !important; }
     padding: 8px 10px;
     color: #fff;
     font-size: 12.5px;
-    max-width: min(360px, calc(100vw - 32px));
-    min-width: min(240px, calc(100vw - 32px)); /* no forzar 240px en pantallas muy angostas → no desborda */
+    max-width: min(430px, calc(100vw - 24px)); /* mismo ancho que los créditos "ELABORADO POR" (.mapa-creditos) */
+    min-width: min(240px, calc(100vw - 24px)); /* no forzar 240px en pantallas muy angostas → no desborda */
     max-height: 46vh;
     overflow-y: auto;
     backdrop-filter: blur(2px);
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
 }
+/* Cuando la leyenda está RECOGIDA (solo la cabecera "Leyenda ⌄", sin cuerpo) se ve más
+   ancha para que no quede apretada y el botón de expandir tenga aire. min() para no
+   desbordar en pantallas angostas. */
+.mapa-leyenda:not(:has(.mapa-leyenda-body)) { min-width: min(300px, calc(100vw - 24px)); }
 /* Cabecera plegable de la leyenda (recoger toda) + fila de proyecto plegable (recoger sus puntos). */
 .mapa-leyenda-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .mapa-leyenda-titulo { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.92; }
@@ -4188,10 +4222,9 @@ html.is-ios .ent-capt-add-btn { display: flex !important; }
 /* Municipios en DOS columnas cuando son varios (rellena de arriba a abajo). */
 .mapa-leyenda-munis.dos-col { column-count: 2; column-gap: 16px; }
 .mapa-leyenda-munis.dos-col .mapa-leyenda-row { break-inside: avoid; }
-/* min() y NO 340px pelado: este max-width pisa el `min(360px, calc(100vw - 32px))`
-   de .mapa-leyenda, así que un 340px fijo se salía del mapa en teléfonos angostos
-   (≤372px de viewport) en cuanto la leyenda tenía municipios a dos columnas. */
-.mapa-leyenda:has(.mapa-leyenda-munis.dos-col) { max-width: min(340px, calc(100vw - 32px)); }
+/* Mismo ancho que el estado normal (430px = ancho de los créditos), con el min() para no
+   desbordar en teléfonos angostos aunque haya municipios a dos columnas. */
+.mapa-leyenda:has(.mapa-leyenda-munis.dos-col) { max-width: min(430px, calc(100vw - 24px)); }
 .mapa-leyenda-row { display: flex; align-items: center; gap: 7px; padding: 2px 0; }
 .mapa-leyenda-dot { width: 12px; height: 12px; border-radius: 3px; border: 1px solid rgba(255, 255, 255, 0.6); flex: none; }
 .mapa-leyenda-nom { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }

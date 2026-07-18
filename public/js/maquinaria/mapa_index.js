@@ -148,10 +148,82 @@
             '#06b6d4', '#0ea5e9', '#3b82f6', '#6366f1', '#8b5cf6', '#a855f7', '#d946ef', '#ec4899',
             '#f43f5e', '#92400e', '#b45309', '#78716c', '#64748b', '#334155', '#0f172a', '#65a30d'
         ];
-        function colorMuni(nombre) {
+        // Color base por nombre (hash estable). Es el fallback y el color de arranque de un
+        // municipio SIN vecinos coloreados; el coloreado por adyacencia lo puede sustituir.
+        function colorHash(nombre) {
             var h = 0, s = String(nombre || '');
             for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
             return PALETA_MUNI[h % PALETA_MUNI.length];
+        }
+        // Coloreado tipo MAPA: municipios que se tocan nunca comparten color ni uno parecido.
+        // _coloresMuni { muniKey(estado,municipio) → '#hex' } se calcula una vez
+        // (construirColoresMuni) al cargar el geojson; hasta entonces colorMuni cae al hash.
+        // Todos los sitios que pintan municipios (capa, leyenda, export) usan colorMuni, así
+        // que quedan coherentes. Se indexa por municipio ÚNICO (estado+municipio), NO por
+        // nombre: hay 27 nombres repetidos en varios estados (Sucre, Bolívar, Paéz…) que,
+        // fusionados, inflaban el grafo de vecindad. Por eso colorMuni recibe también el estado.
+        var _coloresMuni = null;
+        function colorMuni(nombre, estado) {
+            return (_coloresMuni && _coloresMuni[muniKey(estado, nombre)]) || colorHash(nombre);
+        }
+        function hexToRgb(h) {
+            h = String(h).replace('#', '');
+            return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+        }
+        // Distancia perceptual entre colores (aprox. "redmean"): 0 = idéntico, mayor = más
+        // distinto. Sirve para elegir el color MÁS diferente al de los vecinos.
+        function colorDist(a, b) {
+            var rm = (a[0] + b[0]) / 2, dr = a[0] - b[0], dg = a[1] - b[1], db = a[2] - b[2];
+            return (2 + rm / 256) * dr * dr + 4 * dg * dg + (2 + (255 - rm) / 256) * db * db;
+        }
+        // Construye _coloresMuni: grafo de adyacencia (vértices de borde compartidos) + coloreo
+        // voraz Welsh-Powell que, para cada municipio, toma el color de la paleta más distinto a
+        // los de sus vecinos ya coloreados. Determinista (mismo resultado en cada carga).
+        function construirColoresMuni(features) {
+            if (_coloresMuni || !features || !features.length) return;
+            var GRID = 1e4;    // 4 decimales (~11 m): detecta el vértice compartido en un borde común
+            var puntos = {};   // 'x_y' → { claveMuni: 1 }  municipios con un vértice en ese punto
+            var vecinos = {};  // claveMuni → { claveVecina: 1 }
+            var nombreDe = {}; // claveMuni → nombre (para el color de arranque por hash)
+            features.forEach(function (f) {
+                var p = f.properties || {}, m = p.municipio;
+                if (!m) return;
+                var clave = muniKey(p.estado, m); // ÚNICO por estado+municipio (evita fusionar homónimos)
+                nombreDe[clave] = m;
+                if (!vecinos[clave]) vecinos[clave] = {};
+                forEachCoord(f.geometry, function (x, y) {
+                    var key = Math.round(x * GRID) + '_' + Math.round(y * GRID);
+                    (puntos[key] || (puntos[key] = {}))[clave] = 1;
+                });
+            });
+            // Un punto compartido por >1 municipio ⇒ esos municipios son vecinos entre sí.
+            Object.keys(puntos).forEach(function (k) {
+                var ns = Object.keys(puntos[k]);
+                if (ns.length < 2) return;
+                for (var i = 0; i < ns.length; i++)
+                    for (var j = i + 1; j < ns.length; j++) {
+                        vecinos[ns[i]][ns[j]] = 1; vecinos[ns[j]][ns[i]] = 1;
+                    }
+            });
+            // Welsh-Powell: procesar los de MÁS vecinos primero (desempate por clave = estable).
+            var nodos = Object.keys(vecinos).sort(function (a, b) {
+                return Object.keys(vecinos[b]).length - Object.keys(vecinos[a]).length ||
+                       (a < b ? -1 : a > b ? 1 : 0);
+            });
+            var rgb = PALETA_MUNI.map(hexToRgb), asign = {};
+            nodos.forEach(function (n) {
+                var usados = [];
+                Object.keys(vecinos[n]).forEach(function (v) { if (asign[v]) usados.push(hexToRgb(asign[v])); });
+                if (!usados.length) { asign[n] = colorHash(nombreDe[n]); return; } // sin restricción → color natural
+                var mejorIdx = 0, mejorDist = -1;
+                for (var c = 0; c < rgb.length; c++) {
+                    var dmin = Infinity;
+                    for (var u = 0; u < usados.length; u++) dmin = Math.min(dmin, colorDist(rgb[c], usados[u]));
+                    if (dmin > mejorDist) { mejorDist = dmin; mejorIdx = c; }
+                }
+                asign[n] = PALETA_MUNI[mejorIdx];
+            });
+            _coloresMuni = asign;
         }
 
         // Fija/quita el resaltado de un ESTADO buscándolo por nombre (usado desde el menú de municipio).
@@ -182,7 +254,7 @@
         var muniEstado = L.geoJSON(null, {
             pane: 'muniIntPane',
             style: function (f) {
-                var c = colorMuni(f && f.properties && f.properties.municipio);
+                var c = colorMuni(f && f.properties && f.properties.municipio, f && f.properties && f.properties.estado);
                 // Relleno MÁS transparente para ver el satélite debajo.
                 return { color: c, weight: 1, opacity: 0.85, fill: true, fillColor: c, fillOpacity: 0.12 };
             },
@@ -212,6 +284,121 @@
             return estadosConMuni.has(normEstado(e)) || muniIndividuales.has(k);
         }
 
+        // ── Centro VISUAL de un municipio (polo de inaccesibilidad) ──
+        // getBounds().getCenter() usa el centro del RECTÁNGULO delimitador: en municipios
+        // con forma de L / media luna / con apéndices, ese punto cae FUERA del polígono y
+        // el número queda "por fuera". polylabel encuentra el punto interior más lejano de
+        // cualquier borde = el centro del espacio más grande. Adaptado de mapbox/polylabel (ISC).
+        function ppDistSq(px, py, ax, ay, bx, by) {
+            var x = ax, y = ay, dx = bx - ax, dy = by - ay;
+            if (dx || dy) {
+                var t = ((px - x) * dx + (py - y) * dy) / (dx * dx + dy * dy);
+                if (t > 1) { x = bx; y = by; } else if (t > 0) { x += dx * t; y += dy * t; }
+            }
+            dx = px - x; dy = py - y;
+            return dx * dx + dy * dy;
+        }
+        // Distancia con signo del punto al polígono (+ dentro, − fuera). rings = [exterior, ...huecos].
+        function distPuntoPoligono(x, y, rings) {
+            var inside = false, minDistSq = Infinity;
+            for (var k = 0; k < rings.length; k++) {
+                var ring = rings[k];
+                for (var i = 0, len = ring.length, j = len - 1; i < len; j = i++) {
+                    var a = ring[i], b = ring[j];
+                    if ((a[1] > y) !== (b[1] > y) &&
+                        (x < (b[0] - a[0]) * (y - a[1]) / (b[1] - a[1]) + a[0])) inside = !inside;
+                    minDistSq = Math.min(minDistSq, ppDistSq(x, y, a[0], a[1], b[0], b[1]));
+                }
+            }
+            return (inside ? 1 : -1) * Math.sqrt(minDistSq);
+        }
+        function areaAnillo(ring) {
+            var s = 0;
+            for (var i = 0, j = ring.length - 1; i < ring.length; j = i++)
+                s += (ring[j][0] * ring[i][1] - ring[i][0] * ring[j][1]);
+            return s / 2;
+        }
+        function polylabel(rings) {
+            var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity, ext = rings[0];
+            for (var i = 0; i < ext.length; i++) {
+                var p = ext[i];
+                if (p[0] < minX) minX = p[0];
+                if (p[1] < minY) minY = p[1];
+                if (p[0] > maxX) maxX = p[0];
+                if (p[1] > maxY) maxY = p[1];
+            }
+            var width = maxX - minX, height = maxY - minY, cellSize = Math.min(width, height);
+            if (cellSize === 0) return [minX, minY];
+            var precision = cellSize / 100, h = cellSize / 2, SQRT2 = Math.SQRT2;
+            function cell(cxx, cyy, hh) {
+                var d = distPuntoPoligono(cxx, cyy, rings);
+                return { x: cxx, y: cyy, h: hh, d: d, max: d + hh * SQRT2 };
+            }
+            var cells = [];
+            for (var cx = minX; cx < maxX; cx += cellSize)
+                for (var cy = minY; cy < maxY; cy += cellSize)
+                    cells.push(cell(cx + h, cy + h, h));
+            var best = cell((minX + maxX) / 2, (minY + maxY) / 2, 0), guard = 0;
+            while (cells.length && guard++ < 100000) {
+                var bi = 0;
+                for (var q = 1; q < cells.length; q++) if (cells[q].max > cells[bi].max) bi = q;
+                var c = cells.splice(bi, 1)[0];
+                if (c.d > best.d) best = c;
+                if (c.max - best.d <= precision) continue;
+                var hh = c.h / 2;
+                cells.push(cell(c.x - hh, c.y - hh, hh));
+                cells.push(cell(c.x + hh, c.y - hh, hh));
+                cells.push(cell(c.x - hh, c.y + hh, hh));
+                cells.push(cell(c.x + hh, c.y + hh, hh));
+            }
+            return [best.x, best.y];
+        }
+        // Recorre TODAS las coordenadas de una geometría Polygon/MultiPolygon → cb(lng,lat).
+        function forEachCoord(g, cb) {
+            if (!g) return;
+            var polys = g.type === 'MultiPolygon' ? g.coordinates : g.type === 'Polygon' ? [g.coordinates] : [];
+            for (var a = 0; a < polys.length; a++)
+                for (var b = 0; b < polys[a].length; b++)
+                    for (var c = 0; c < polys[a][b].length; c++)
+                        cb(polys[a][b][c][0], polys[a][b][c][1]);
+        }
+        // Centro VISUAL de una feature GeoJSON (donde va el número). Cachea en f.__centroVisual
+        // para computarlo una sola vez por municipio. Se usa tanto para dibujar el número como
+        // para ordenar la numeración de arriba a abajo (misma fuente = todo coherente).
+        function centroVisualFeature(f) {
+            if (f && f.__centroVisual) return f.__centroVisual;
+            var ll = null;
+            try {
+                var g = f && f.geometry;
+                var polys = g && g.type === 'MultiPolygon' ? g.coordinates
+                          : g && g.type === 'Polygon' ? [g.coordinates] : null;
+                if (polys && polys.length) {
+                    // Parte de MAYOR ÁREA: en municipios multi-parte (islas/exclaves) el
+                    // número va en la porción principal, no en un islote.
+                    var mejor = polys[0], mejorArea = -1;
+                    for (var i = 0; i < polys.length; i++) {
+                        var ar = Math.abs(areaAnillo(polys[i][0]));
+                        if (ar > mejorArea) { mejorArea = ar; mejor = polys[i]; }
+                    }
+                    var pt = polylabel(mejor); // [lng, lat]
+                    if (pt && !isNaN(pt[0]) && !isNaN(pt[1])) ll = L.latLng(pt[1], pt[0]);
+                }
+            } catch (e) { ll = null; }
+            if (!ll) { // fallback: centro del bounding box de la propia geometría
+                var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity, n = 0;
+                forEachCoord(f && f.geometry, function (x, y) {
+                    if (x < minX) minX = x; if (y < minY) minY = y;
+                    if (x > maxX) maxX = x; if (y > maxY) maxY = y; n++;
+                });
+                if (n) ll = L.latLng((minY + maxY) / 2, (minX + maxX) / 2);
+            }
+            if (ll && f) f.__centroVisual = ll;
+            return ll;
+        }
+        function centroVisualMunicipio(layer) {
+            return centroVisualFeature(layer.feature) || layer.getBounds().getCenter();
+        }
+
         function repintarMuniEstado() {
             muniEstado.clearLayers();
             muniNumeros.clearLayers();
@@ -227,7 +414,7 @@
                     var e = layer.feature.properties.estado, m = layer.feature.properties.municipio;
                     var num = byKey[muniKey(e, m)];
                     if (num && layer.getBounds) {
-                        muniNumeros.addLayer(L.marker(layer.getBounds().getCenter(), {
+                        muniNumeros.addLayer(L.marker(centroVisualMunicipio(layer), {
                             icon: L.divIcon({ className: 'muni-num', html: '<span>' + num + '</span>', iconSize: [20, 20], iconAnchor: [10, 10] }),
                             interactive: false, keyboard: false, pane: 'muniIntPane'
                         }));
@@ -305,6 +492,7 @@
         if (muniUrl) {
             fetch(muniUrl).then(function (r) { return r.json(); }).then(function (gj) {
                 muniData = gj;
+                construirColoresMuni(gj.features); // coloreado por adyacencia (vecinos ≠ color) antes de pintar
                 // Si marcaron "Todos los municipios" antes de que cargara el geojson, aplicarlo ahora.
                 if (todosMuniOn) activarTodosMunicipios(); else repintarMuniEstado();
             }).catch(function () {});
@@ -1252,9 +1440,18 @@
             if (!muniData || (!estadosConMuni.size && !muniIndividuales.size)) return out;
             muniData.features.forEach(function (fe) {
                 var e = fe.properties && fe.properties.estado, m = fe.properties && fe.properties.municipio;
-                if (muniVisible(e, m)) out.push({ municipio: m, estado: e, color: colorMuni(m) });
+                if (muniVisible(e, m)) out.push({ municipio: m, estado: e, color: colorMuni(m, e), _f: fe });
             });
-            out.forEach(function (mu, i) { mu.num = i + 1; });
+            // Numerar de ARRIBA a ABAJO: por latitud del centro visual (norte→sur) y, a igual
+            // altura, de oeste a este. Así el nº1 es el más alto en pantalla, el 2 el siguiente,
+            // etc. (antes se numeraba en el orden crudo del GeoJSON, sin criterio visual).
+            out.sort(function (a, b) {
+                var ca = centroVisualFeature(a._f), cb = centroVisualFeature(b._f);
+                var la = ca ? ca.lat : 0, lb = cb ? cb.lat : 0;
+                if (lb !== la) return lb - la;          // mayor latitud primero (más arriba)
+                return (ca ? ca.lng : 0) - (cb ? cb.lng : 0); // desempate: oeste→este
+            });
+            out.forEach(function (mu, i) { mu.num = i + 1; delete mu._f; });
             return out;
         }
 
@@ -1812,7 +2009,8 @@
             ctx.save(); ctx.lineJoin = 'round';
             muniEstado.eachLayer(function (layer) {
                 var m = layer.feature && layer.feature.properties && layer.feature.properties.municipio;
-                if (layer.getLatLngs) rellenarAnillos(ctx, layer.getLatLngs(), colorMuni(m), k, proj);
+                var e = layer.feature && layer.feature.properties && layer.feature.properties.estado;
+                if (layer.getLatLngs) rellenarAnillos(ctx, layer.getLatLngs(), colorMuni(m, e), k, proj);
             });
             var byKey = {};
             municipiosActivos().forEach(function (mu) { byKey[muniKey(mu.estado, mu.municipio)] = mu.num; });
@@ -1821,7 +2019,9 @@
                 var e = layer.feature.properties.estado, m = layer.feature.properties.municipio;
                 var num = byKey[muniKey(e, m)];
                 if (!num || !layer.getBounds) return;
-                var p = proj(layer.getBounds().getCenter()), r = 10 * k;
+                // Mismo centro visual (polylabel) que en pantalla → el número queda igual
+                // dentro del municipio en la foto exportada. Coherente con muniNumeros.
+                var p = proj(centroVisualMunicipio(layer)), r = 10 * k;
                 // Círculo transparente con borde blanco y número blanco (con halo oscuro para legibilidad).
                 ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
                 ctx.lineWidth = 3 * k; ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.stroke();

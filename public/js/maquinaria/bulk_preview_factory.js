@@ -107,7 +107,7 @@
                     const styleAttr = c.style ? ` style="${c.style}"` : '';
                     thead += `<th${styleAttr}>${c.label}</th>`;
                 });
-                thead += '<th style="width:40px;" title="Eliminar fila"></th></tr></thead>';
+                thead += `<th style="${config.deleteHeaderStyle || 'width:40px;'}" title="Eliminar fila"></th></tr></thead>`;
 
                 let tbody = '<tbody>';
                 rows.forEach((row, idx) => {
