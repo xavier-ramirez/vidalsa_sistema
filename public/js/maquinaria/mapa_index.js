@@ -517,7 +517,10 @@
                 '<button type="button" class="mapa-ctx-item" data-accion="muni">' +
                     '<i class="material-icons">' + (muniOn ? 'layers_clear' : 'account_tree') + '</i>' +
                     (muniOn ? 'Ocultar Municipios' : 'Ver Municipios') +
-                '</button>';
+                '</button>' +
+                // Guardar un punto (oleoducto) en esta coordenada — solo con permiso de gestión.
+                (PUEDE_EDITAR ? '<button type="button" class="mapa-ctx-item" data-accion="guardar">' +
+                    '<i class="material-icons">add_location_alt</i>Guardar Punto</button>' : '');
             var x = ev.originalEvent ? ev.originalEvent.clientX : 0;
             var y = ev.originalEvent ? ev.originalEvent.clientY : 0;
             menu.style.left = Math.min(x, window.innerWidth - 210) + 'px';
@@ -529,6 +532,7 @@
                 if (e.target.closest && e.target.closest('.mapa-ctx-coordcopy')) { copiarCoordenada(coordE); menu.remove(); return; }
                 var b = e.target.closest ? e.target.closest('.mapa-ctx-item') : null; if (!b) return;
                 var acc = b.getAttribute('data-accion');
+                if (acc === 'guardar') { menu.remove(); if (ev.latlng) oleoPopupGuardar(ev.latlng, ''); return; }
                 if (acc === 'resaltar') {
                     if (estadosFijados.has(layer)) { estadosFijados.delete(layer); estados.resetStyle(layer); }
                     else { estadosFijados.add(layer); layer.setStyle(estiloEstadoFijado); layer.bringToFront(); }
@@ -742,6 +746,33 @@
                 oleoPopupGuardar(c, nom);
             }, 420);
         }).addTo(map);
+
+        // Botón "X" para vaciar el buscador (la librería no lo trae). Se muestra solo cuando
+        // hay texto; al pulsarlo limpia el campo, cierra la lista de resultados y quita la
+        // vela de búsqueda. Se inyecta en el contenedor del geocoder (a la derecha del input).
+        (function () {
+            var cont  = document.querySelector('#mapa-leaflet .leaflet-control-geocoder');
+            var input = cont && cont.querySelector('.leaflet-control-geocoder-form input');
+            if (!cont || !input) return;
+            var clear = document.createElement('button');
+            clear.type = 'button';
+            clear.className = 'mapa-geo-clear';
+            clear.title = 'Vaciar búsqueda';
+            clear.innerHTML = '<i class="material-icons">close</i>';
+            cont.appendChild(clear);
+            var toggle = function () { clear.style.display = input.value ? 'inline-flex' : 'none'; };
+            input.addEventListener('input', toggle);
+            L.DomEvent.disableClickPropagation(clear);
+            clear.addEventListener('click', function (e) {
+                e.preventDefault(); e.stopPropagation();
+                input.value = '';
+                toggle();
+                cerrarBuscador();        // cierra la lista de sugerencias
+                marcarBusqueda(null);    // quita la vela de búsqueda si la hubiera
+                input.focus();
+            });
+            toggle();
+        })();
 
         // La vela de búsqueda es EFÍMERA: solo marca el lugar mientras está abierto el popup de
         // "Guardar punto". Al cerrarse ese popup (se guarde o se cancele) se quita, para no dejar

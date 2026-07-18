@@ -3832,6 +3832,23 @@ html.is-ios .ent-capt-add-btn { display: flex !important; }
 .leaflet-control-geocoder-form input::placeholder { color: #94a3b8 !important; }
 /* Ocultamos la lupa-botón de la librería: la nuestra va dentro del input */
 .leaflet-control-geocoder-icon { display: none !important; }
+/* Botón "X" para vaciar el buscador (lo inyecta el JS a la derecha del input). */
+.mapa-geo-clear {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    margin-right: 5px;
+    border: none;
+    background: transparent;
+    color: #94a3b8;
+    cursor: pointer;
+    border-radius: 8px;
+}
+.mapa-geo-clear:hover { color: #475569; background: #f1f5f9; }
+.mapa-geo-clear .material-icons { font-size: 18px; line-height: 1; }
 /* Lista de resultados — tarjeta flotante idéntica a .ts-dropdown de la app */
 .leaflet-control-geocoder-alternatives:empty { display: none !important; } /* sin franja vacía */
 .leaflet-control-geocoder-alternatives {
@@ -3916,12 +3933,13 @@ html.is-ios .ent-capt-add-btn { display: flex !important; }
 }
 .mapa-ctx-coord {
     flex: 1;
-    font-size: 12.5px;
-    font-weight: 700;
-    color: #0f172a;
+    font-size: 11px;                 /* más pequeña */
+    font-weight: 600;
+    color: #0f172a;                  /* oscura (casi negra) */
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
 }
+/* Icono de copiar SIN caja azul: solo la "hoja" en azul. Fondo transparente. */
 .mapa-ctx-coordcopy {
     flex: none;
     display: inline-flex;
@@ -3931,11 +3949,11 @@ html.is-ios .ent-capt-add-btn { display: flex !important; }
     height: 26px;
     border: none;
     border-radius: 6px;
-    background: #0067b1;
-    color: #fff;
+    background: transparent;
+    color: #0067b1;                  /* la hoja, en azul */
     cursor: pointer;
 }
-.mapa-ctx-coordcopy:hover { background: #005699; }
+.mapa-ctx-coordcopy:hover { background: #e6f0f9; color: #005699; }
 .mapa-ctx-coordcopy .material-icons { font-size: 16px; line-height: 1; }
 .mapa-ctx-item {
     display: flex;
@@ -4171,7 +4189,7 @@ html.is-ios .ent-capt-add-btn { display: flex !important; }
 .oleo-save-newp { width: 100%; box-sizing: border-box; border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 8px 10px; font-size: 13px; outline: none; margin-bottom: 6px; }
 .oleo-save-in:focus,
 .oleo-save-newp:focus { border-color: #0067b1; }
-.oleo-save-lbl { display: block; font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.3px; margin: 2px 0 4px; }
+.oleo-save-lbl { display: block; font-size: 11px; font-weight: 500; color: #475569; text-transform: uppercase; letter-spacing: 0.3px; margin: 2px 0 4px; }
 /* Selector de proyecto tipo BUSCADOR (recomienda al escribir) en el popup de guardar. */
 .oleo-save-pick { position: relative; margin-bottom: 8px; }
 .oleo-save-search { width: 100%; box-sizing: border-box; border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 8px 10px; font-size: 13px; outline: none; background: #fff; }
