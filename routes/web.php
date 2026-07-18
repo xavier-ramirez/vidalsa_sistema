@@ -302,6 +302,10 @@ Route::middleware(['auth'])->group(function () {
             // EXACTO sobre CODIGO y SOLO activos (el índice UNIQUE incluye soft-deleted,
             // por eso se filtra). Read-only, sin permiso (igual que la consulta del módulo).
             Route::get   ('almacen/buscar-codigo',                [App\Http\Controllers\AlmacenController::class, 'resolverPorCodigo'])->name('almacen.buscar-codigo');
+            // Catálogo de productos para el buscador FuzzySearch del cliente. Antes se embebía
+            // inline en la página (~500 KB de 1155 productos) → abría lenta. Ahora se carga por
+            // AJAX tras renderizar, así el módulo abre de una. Read-only, mismo criterio que el índice.
+            Route::get   ('almacen/productos-autocomplete',       [App\Http\Controllers\AlmacenController::class, 'productosAutocomplete'])->name('almacen.productos-autocomplete');
 
             // Datos (JSON) — el kardex de movimientos lo consume el modal "Movimientos".
             Route::get   ('almacen/movimientos',                  [App\Http\Controllers\AlmacenController::class, 'movimientos'])      ->name('almacen.movimientos');

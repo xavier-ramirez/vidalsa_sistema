@@ -250,7 +250,8 @@ class AlmacenController extends Controller
         // trae CODIGO/NOMBRE/UM/CATEGORIA + EQUIV/PARTE/PARTES (nºs de parte de los filtros) para
         // sugerir al teclear un alterno (p.ej. "MIS0531"), no solo por código/nombre. CATEGORIA
         // permite avisar cuando un material existe pero es de OTRA categoría (badge + toast).
-        $productosLista = ProductoInventario::listaAutocomplete();
+        // El catálogo de productos (window.almProductosLista) ya NO se embebe aquí: se pide
+        // por AJAX (productosAutocomplete) tras renderizar, para que el módulo abra rápido.
         // CONTRATOS se carga junto al frente para alimentar las sugerencias del campo
         // "Contrato N°" del modal "Registrar salida" (Nota de Entrega).
         $frentesLista  = \App\Models\FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')
@@ -271,7 +272,6 @@ class AlmacenController extends Controller
             'almacenSel'         => $almacenSel,
             'productos'          => null,
             'categorias'         => $categorias,
-            'productosLista'     => $productosLista,
             'frentesLista'       => $frentesLista,
             // El Consolidado de Inventario (KPIs: PRODUCTOS / Con stock / Stock bajo) SÍ se
             // calcula en la carga inicial — el cliente quiere verlo apenas abre el módulo,
@@ -283,6 +283,18 @@ class AlmacenController extends Controller
             'unidadesMedida'     => $unidadesMedida,
             'notasPendientes'    => $notasPendientes,
         ]);
+    }
+
+    /**
+     * Catálogo de productos para el buscador FuzzySearch del cliente (window.almProductosLista).
+     * Antes se embebía inline en index() (~500 KB de 1155 productos) → el módulo abría lento.
+     * Ahora la página arranca vacía y pide esta lista por AJAX tras renderizar. FUENTE ÚNICA:
+     * ProductoInventario::listaAutocomplete() (la misma que usa el índice y la recepción).
+     * Read-only (solo lectura del catálogo activo), sin permiso extra — igual que el índice.
+     */
+    public function productosAutocomplete(Request $request)
+    {
+        return response()->json(ProductoInventario::listaAutocomplete());
     }
 
     /**

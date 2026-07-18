@@ -1601,9 +1601,30 @@
     // para que el usuario vea como quedaria la Nota y pueda editar/confirmar.
     var ROUTE_PREVIEW_SALIDA = @json(route('almacen.salida.preview'));
     var ROUTE_PROD  = @json(route('almacen.productos.store'));
-    // Catálogo de productos (CODIGO/NOMBRE/UM) — lista global, alimenta los selects de los modales
-    // (Nuevo/Editar producto, modal de salida con productos seleccionados, etc.).
-    window.almProductosLista = @json($productosLista ?? collect());
+    // Catálogo de productos (CODIGO/NOMBRE/UM/PARTE) — lo usan el buscador FuzzySearch y los
+    // selects de los modales. ANTES se embebía inline aquí (~500 KB de los 1155 productos) y el
+    // módulo abría lento. AHORA arranca vacío y se carga por AJAX apenas la página queda lista
+    // (no bloquea el render → abre de una). El buscador "tipear + Enter" del servidor sigue como
+    // fallback mientras carga. La sincronización al crear/editar producto (más abajo) opera sobre
+    // esta misma lista una vez cargada.
+    window.almProductosLista = [];
+    window.almProductosCargados = false;
+    window.almCargarProductos = function () {
+        if (window.almProductosCargados || window._almProductosCargando) return Promise.resolve();
+        window._almProductosCargando = true;
+        return fetch(@json(route('almacen.productos-autocomplete')), {
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+            credentials: 'same-origin'
+        })
+        .then(function (r) { return r.ok ? r.json() : []; })
+        .then(function (lista) {
+            window.almProductosLista = Array.isArray(lista) ? lista : [];
+            window.almProductosCargados = true;
+        })
+        .catch(function () { /* silencioso: el buscador tipear+Enter del servidor sigue como fallback */ })
+        .finally(function () { window._almProductosCargando = false; });
+    };
+    window.almCargarProductos();
     // Categorías ya registradas — alimentan la lista del campo "Categoría" del modal de producto.
     window.almCategoriasLista = @json(($categorias ?? collect())->filter()->values());
     // Unidades de medida distintas ya registradas — alimentan el autocomplete del campo "UM" del modal.
