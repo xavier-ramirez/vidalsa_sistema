@@ -3434,6 +3434,24 @@ window.exportEquipos = function () {
         });
 };
 
+// Resalte azul de "filtro activo" de la barra de búsqueda, según su valor ACTUAL.
+// El servidor pinta el azul (borde/fondo) al cargar con ?search_query, pero al limpiar
+// por AJAX (X, borrar el texto, "Limpiar Todo") el azul quedaba pegado con el campo
+// VACÍO — y al escribir sin recargar no se ponía. Fuente única en cliente: la llaman el
+// keyup, la X y clearAdvancedFilters. Sincroniza también la visibilidad del botón X.
+window.syncSearchHighlight = function () {
+    const si = document.getElementById('searchInput');
+    if (!si) return;
+    const activo = si.value.trim() !== '';
+    const wrap = si.closest('.search-wrapper');
+    if (wrap) {
+        wrap.style.borderColor = activo ? '#0067b1' : '#cbd5e0';
+        wrap.style.background  = activo ? '#e1effa' : '#fff';
+    }
+    const x = document.getElementById('btn_clear_search');
+    if (x) x.style.display = activo ? 'block' : 'none';
+};
+
 function initEquipos() {
     if (!document.getElementById("equiposTableBody")) return;
 
@@ -3453,9 +3471,9 @@ function initEquipos() {
         searchInput.dataset.equiposInitialized = 'true';
         searchInput.addEventListener("keyup", function (e) {
             const val = this.value;
-            const clearBtn = document.getElementById("btn_clear_search");
-            if (clearBtn)
-                clearBtn.style.display = val.length > 0 ? "block" : "none";
+            // Sincroniza el resalte azul + el botón X según el valor actual (antes el azul
+            // solo lo ponía el servidor al cargar y no se quitaba al borrar el texto).
+            window.syncSearchHighlight();
 
             clearTimeout(window.searchTimeout);
             // Solo busca con 4+ caracteres. Al BORRAR el campo hasta dejarlo vacío ya NO se
@@ -3501,6 +3519,10 @@ function initEquipos() {
             return false;
         };
     }
+
+    // Al inicializar (carga / navegación SPA): asegura que el resalte azul coincida con el
+    // valor real del buscador (evita "azul con el campo vacío" si algo quedó desincronizado).
+    window.syncSearchHighlight();
 
     // Registrar las imágenes de las filas renderizadas SERVER-SIDE (carga inicial /
     // hard-reload / navegación SPA). El path AJAX (renderNextChunk) ya las registra al

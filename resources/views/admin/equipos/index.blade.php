@@ -334,7 +334,7 @@
                         onkeyup="if(this.value.length >= 4 || this.value.length == 0) { /* Debounce handled in script */ }">
                      <i id="btn_clear_search" class="material-icons clear-icon" 
                        style="display: {{ request('search_query') ? 'block' : 'none' }};" 
-                       onclick="event.preventDefault(); event.stopPropagation(); document.getElementById('searchInput').value=''; this.style.display='none'; window.clearAdvancedFilters();">close</i>
+                       onclick="event.preventDefault(); event.stopPropagation(); document.getElementById('searchInput').value=''; window.syncSearchHighlight && window.syncSearchHighlight(); window.clearAdvancedFilters();">close</i>
                 </div>
             </form>
 
