@@ -170,7 +170,12 @@
         // general en una página autenticada posterior.
         try { sessionStorage.removeItem('vidalsaJustLoggedIn'); } catch (e) {}
 
-        setInterval(() => { window.location.reload(); }, 1000 * 60 * 20);
+        // Recarga la página para refrescar el token CSRF ANTES de que expire la sesión (guest).
+        // Antes recargaba cada 20 min FIJO, pero ese token vive lo que dura la sesión
+        // (SESSION_LIFETIME, hoy 480 min) → recargaba ~24 veces de más, reiniciando la precarga
+        // WebAuthn y borrando lo tecleado. Ahora se alinea al 90% de esa vida: UNA sola recarga
+        // cerca del vencimiento. Deriva de config para no desincronizarse si cambia el lifetime.
+        setInterval(() => { window.location.reload(); }, {{ (int) (config('session.lifetime', 120) * 60 * 1000 * 0.9) }});
 
         const loginFormElement = document.getElementById('loginForm');
         if (loginFormElement) loginFormElement.reset();
