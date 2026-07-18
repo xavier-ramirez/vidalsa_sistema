@@ -919,14 +919,24 @@
     // directiva separa sus argumentos por comas y las comas del array literal la rompían
     // ("Unclosed '["). OJO: no escribir tokens tipo arroba-php/arroba-json aquí — Blade
     // los compila aunque estén dentro de un comentario // de JS.
-    @php
-        $almMovProductosLista = ($productosLista ?? collect())->map(fn($p) => [
-            'ID_PRODUCTO' => $p->ID_PRODUCTO, 'CODIGO' => $p->CODIGO, 'NOMBRE' => $p->NOMBRE,
-            // Equivalencias (nºs de parte) para buscar por alterno, igual que en inventario.
-            'EQUIV' => $p->EQUIV ?? '', 'PARTE' => $p->PARTE ?? '', 'PARTES' => $p->PARTES ?? [],
-        ]);
-    @endphp
-    window.almMovProductosLista = @json($almMovProductosLista);
+    // Catálogo para el buscador FuzzySearch de la bitácora. ANTES se embebía inline aquí
+    // (~300 KB de los 1155 productos) y el módulo abría pesado. AHORA arranca vacío y se carga
+    // por AJAX apenas la página queda lista, REUSANDO el mismo endpoint compartido del índice
+    // (almacen.productos-autocomplete, misma fuente listaAutocomplete) → no bloquea el render y
+    // no se duplica la lista. El buscador lo usa por evento, así que carga async es seguro.
+    window.almMovProductosLista = [];
+    (function () {
+        if (window.almMovProductosCargando) return;
+        window.almMovProductosCargando = true;
+        fetch(@json(route('almacen.productos-autocomplete')), {
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+            credentials: 'same-origin'
+        })
+        .then(function (r) { return r.ok ? r.json() : []; })
+        .then(function (lista) { window.almMovProductosLista = Array.isArray(lista) ? lista : []; })
+        .catch(function () { /* silencioso: el buscador queda vacío hasta que reintente */ })
+        .finally(function () { window.almMovProductosCargando = false; });
+    })();
 
     window.almMovSuggestHide = function () { var b = document.getElementById('almMovSuggest'); if (b) b.classList.remove('open'); };
     window.almMovSuggestFn = function () {

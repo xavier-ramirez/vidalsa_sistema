@@ -1191,11 +1191,9 @@ class AlmacenController extends Controller
             'almacenes'       => $almacenes,
             'idAlmacenActivo' => $idAlmacenActivo,
             'frentesLista'    => $frentesMovimientos,
-            // Lista de productos activos para el autocomplete del filtro de búsqueda.
-            // listaAutocomplete() trae EQUIV/PARTE/PARTES (nºs de parte equivalentes) para que el
-            // buscador de movimientos sugiera por equivalencia igual que el inventario. Es la
-            // misma fuente única que usan el índice de almacén y la recepción.
-            'productosLista'  => ProductoInventario::listaAutocomplete(),
+            // El catálogo del buscador (almMovProductosLista) ya NO se embebe aquí: la vista lo
+            // pide por AJAX al endpoint compartido almacen.productos-autocomplete tras renderizar,
+            // para que la bitácora abra rápido (antes embebía los 1155 productos inline).
             // Ranking de productos más consumidos (SALIDA + TRASPASO_SALIDA) aplicando los
             // mismos filtros visibles. Alimenta el sidebar "Consumo de Inventario".
             'consumo'         => $this->consumoRanking($request),
