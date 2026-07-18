@@ -14,9 +14,9 @@ class MovilizacionController extends Controller
     {
         $this->middleware('auth')->except(['mobileIndex', 'mobileStore']);
         // Permiso para MOVER equipos (Crear movilizaciones o registrar recepcion directa sin despacho previo)
-        $this->middleware('can:equipos.assign')->only(['create', 'store', 'bulkStore', 'recepcionDirecta']);
+        $this->middleware('can:equipos.assign')->only(['bulkStore', 'recepcionDirecta']);
         // Borrar/deshacer movilizaciones es destructivo: solo super.admin (consistente con el modulo de equipos).
-        $this->middleware('can:super.admin')->only(['destroy', 'bulkDestroy', 'deshacer']);
+        $this->middleware('can:super.admin')->only(['bulkDestroy', 'deshacer']);
     }
 
     public function index(Request $request)
@@ -166,65 +166,6 @@ class MovilizacionController extends Controller
         }
 
         return view('admin.movilizaciones.index', compact('movilizaciones', 'totalTransito', 'frentes', 'allTipos', 'tiposAux'));
-    }
-
-    public function create()
-    {
-        $equipos = \App\Models\Equipo::with(['tipo', 'frenteActual'])
-            ->where('ESTADO_OPERATIVO', 'OPERATIVO')
-            ->orderBy('CODIGO_PATIO')
-            ->get();
-
-        $frentes = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->orderBy('NOMBRE_FRENTE')->get();
-
-        return view('admin.movilizaciones.create', compact('equipos', 'frentes'));
-    }
-
-    public function store(Request $request)
-    {
-        $request->validate([
-            'ID_EQUIPO' => 'required|exists:equipos,ID_EQUIPO',
-            'ID_FRENTE_DESTINO' => 'required|exists:frentes_trabajo,ID_FRENTE',
-        ]);
-
-        DB::beginTransaction();
-        try {
-            $equipo = \App\Models\Equipo::lockForUpdate()->findOrFail($request->ID_EQUIPO);
-
-            $nextId = self::generateNextCodigoControl();
-
-            $origen = $equipo->ID_FRENTE_ACTUAL ?? 1;
-            $now = now();
-
-            Movilizacion::create([
-                'CODIGO_CONTROL' => $nextId,
-                'ID_EQUIPO' => $request->ID_EQUIPO,
-                'ID_FRENTE_ORIGEN' => $origen,
-                'ID_FRENTE_DESTINO' => $request->ID_FRENTE_DESTINO,
-                // Nombre congelado al momento del movimiento — ver Movilizacion::getNombreOrigenAttribute.
-                'NOMBRE_FRENTE_ORIGEN_SNAPSHOT'  => FrenteTrabajo::find($origen)?->NOMBRE_FRENTE,
-                'NOMBRE_FRENTE_DESTINO_SNAPSHOT' => FrenteTrabajo::find($request->ID_FRENTE_DESTINO)?->NOMBRE_FRENTE,
-                'FECHA_DESPACHO' => $now,
-                'TIPO_MOVIMIENTO' => 'DESPACHO',
-                'USUARIO_REGISTRO' => auth()->user()->CORREO_ELECTRONICO ?? 'SISTEMA',
-            ]);
-
-            // ID_FRENTE_ACTUAL NO es fillable (ver Equipo::$fillable): asignación por
-            // propiedad + save(), NO update([...]) que lo descartaría en silencio y el
-            // equipo no se movería al frente destino.
-            $equipo->ID_FRENTE_ACTUAL         = $request->ID_FRENTE_DESTINO;
-            $equipo->DETALLE_UBICACION_ACTUAL = null;
-            // Despacho → pendiente de confirmar en el frente destino (se tilda al llegar).
-            $equipo->CONFIRMADO_EN_SITIO      = 0;
-            $equipo->save();
-
-            DB::commit();
-            return redirect()->route('movilizaciones.index')->with('success', 'Movilizacion registrada correctamente.');
-        } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error('store movilizacion error: ' . $e->getMessage());
-            return back()->withErrors(['error' => 'No se pudo registrar la movilizacion. Intenta de nuevo.']);
-        }
     }
 
     public function bulkStore(Request $request)
@@ -1234,19 +1175,6 @@ class MovilizacionController extends Controller
             DB::rollBack();
             Log::error('mobileStore movilizacion error: ' . $e->getMessage());
             return response()->json(['success' => false, 'message' => 'No se pudo registrar el despacho.'], 500);
-        }
-    }
-
-    public function destroy($id)
-    {
-        // Permiso super.admin gateado en el middleware del constructor.
-        try {
-            $mov = Movilizacion::findOrFail($id);
-            $mov->delete();
-            return response()->json(['success' => true, 'message' => 'Registro de movilizacion eliminado con exito.']);
-        } catch (\Exception $e) {
-            Log::error('destroy movilizacion error: ' . $e->getMessage());
-            return response()->json(['success' => false, 'message' => 'No se pudo eliminar el registro.'], 500);
         }
     }
 

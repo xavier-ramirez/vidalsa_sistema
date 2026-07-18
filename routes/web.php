@@ -169,11 +169,12 @@ Route::middleware(['auth'])->group(function () {
             // también en el constructor del controlador).
             Route::post('movilizaciones/{id}/deshacer', [App\Http\Controllers\MovilizacionController::class, 'deshacer'])->name('movilizaciones.deshacer');
             // Resource route al final para que sus wildcards no capturen las rutas estáticas de arriba.
-            // ->only con los métodos que EXISTEN en el controller: show/edit/update no están
-            // implementados, así que registrarlos (resource completo) exponía rutas que lanzaban
-            // BadMethodCallException (500) si alguien las visitaba.
+            // Solo 'index' (el listado). create/store/destroy eran un flujo INDIVIDUAL legacy
+            // (página create.blade.php ya sin enlazar) INCOHERENTE con el flujo real: bulkStore deja
+            // auditoría + bump de dashboard, store() no; y destroy() borraba el registro SIN devolver
+            // el equipo a su origen (deshacer() sí). Eliminados. show/edit/update nunca se implementaron.
             Route::resource('movilizaciones', App\Http\Controllers\MovilizacionController::class)
-                ->only(['index', 'create', 'store', 'destroy']);
+                ->only(['index']);
 
             // Subida de foto desde la tarjeta del catálogo (sin abrir el form de edición).
             // ANTES del resource para que su wildcard {catalogo} no capture esta ruta.
