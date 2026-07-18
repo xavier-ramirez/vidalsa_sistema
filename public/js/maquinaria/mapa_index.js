@@ -739,11 +739,13 @@
             cerrarBuscador();
             marcarBusqueda(c); // bola azul en el punto encontrado
             // Ofrecer GUARDAR ese punto en un proyecto. Si el resultado es una coordenada
-            // (nombre "📍 …"), no sugerir nombre; si es un lugar, prefijarlo.
+            // (nombre "📍 …"), no sugerir nombre; si es un lugar, prefijarlo. YA NO se abre el
+            // formulario completo de una: se muestra un popup PEQUEÑO para que el usuario decida
+            // (con permiso). Sin permiso, solo la coordenada (lectura).
             if (c) setTimeout(function () {
                 var nom = e.geocode.name || '';
                 nom = (nom.indexOf('📍') === 0) ? '' : nom.split(',')[0];
-                oleoPopupGuardar(c, nom);
+                if (PUEDE_EDITAR) oleoPopupPreguntar(c, nom); else oleoPopupGuardar(c, nom);
             }, 420);
         }).addTo(map);
 
@@ -1119,6 +1121,19 @@
         // no se crean a mano). Al Guardar, el punto se PERSISTE en ese frente y aparece en la
         // leyenda. Si hay un proyecto activo, preselecciona SU frente (para cargar varios puntos
         // seguidos al mismo).
+        // Popup PEQUEÑO tras una búsqueda: muestra el lugar y un botón "Guardar punto". El
+        // formulario completo (oleoPopupGuardar) solo se abre si el usuario pulsa el botón —
+        // antes se abría solo, de una. La lógica del botón está en el handler 'popupopen'.
+        function oleoPopupPreguntar(latlng, nombreSugerido) {
+            var nom = nombreSugerido || '';
+            var titulo = nom || (latlng.lat.toFixed(5) + ', ' + latlng.lng.toFixed(5));
+            var html = '<div class="oleo-ask">' +
+                '<div class="oleo-ask-loc">📍 ' + esc(titulo) + '</div>' +
+                '<button type="button" class="oleo-ask-btn" data-nom="' + esc(nom) + '">' +
+                    '<i class="material-icons">add_location_alt</i>Guardar punto</button>' +
+                '</div>';
+            L.popup({ className: 'mapa-oleo-pop', minWidth: 180, autoPan: true }).setLatLng(latlng).setContent(html).openOn(map);
+        }
         function oleoPopupGuardar(latlng, nombreSugerido) {
             var coords = latlng.lat.toFixed(6) + ', ' + latlng.lng.toFixed(6);
             // Sin permiso 'super.admin' → solo consulta: se muestra la coordenada, sin formulario.
@@ -1151,6 +1166,17 @@
         // dos campos obligatorios (nombre del punto y proyecto) antes de persistir con "Guardar".
         map.on('popupopen', function (ev) {
             var cont = ev.popup.getElement(); if (!cont) return;
+            // Popup PEQUEÑO de "¿guardar?": su botón abre el formulario completo en la misma
+            // coordenada (y conserva la vela mientras se llena).
+            var ask = cont.querySelector('.oleo-ask-btn');
+            if (ask) {
+                var llAsk = ev.popup.getLatLng();
+                ask.addEventListener('click', function () {
+                    oleoPopupGuardar(llAsk, ask.getAttribute('data-nom') || '');
+                    marcarBusqueda(llAsk);
+                });
+                return;
+            }
             var pick = cont.querySelector('.oleo-save-pick');
             var btn  = cont.querySelector('.oleo-save-btn');
             if (!pick || !btn) return; // no es el popup de guardar punto

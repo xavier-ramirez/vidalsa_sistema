@@ -4190,6 +4190,12 @@ html.is-ios .ent-capt-add-btn { display: flex !important; }
 .oleo-save-in:focus,
 .oleo-save-newp:focus { border-color: #0067b1; }
 .oleo-save-lbl { display: block; font-size: 11px; font-weight: 500; color: #475569; text-transform: uppercase; letter-spacing: 0.3px; margin: 2px 0 4px; }
+/* Popup PEQUEÑO tras buscar: lugar + botón para decidir si abrir el formulario de guardar. */
+.oleo-ask { display: flex; flex-direction: column; gap: 8px; padding: 2px; min-width: 150px; }
+.oleo-ask-loc { font-size: 12.5px; font-weight: 600; color: #0f172a; line-height: 1.3; }
+.oleo-ask-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 12px; border: none; border-radius: 8px; background: #0067b1; color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; }
+.oleo-ask-btn:hover { background: #005699; }
+.oleo-ask-btn .material-icons { font-size: 17px; }
 /* Selector de proyecto tipo BUSCADOR (recomienda al escribir) en el popup de guardar. */
 .oleo-save-pick { position: relative; margin-bottom: 8px; }
 .oleo-save-search { width: 100%; box-sizing: border-box; border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 8px 10px; font-size: 13px; outline: none; background: #fff; }
