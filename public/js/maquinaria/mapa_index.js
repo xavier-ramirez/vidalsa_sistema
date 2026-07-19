@@ -520,11 +520,14 @@
                 '</button>' +
                 // Guardar un punto (oleoducto) en esta coordenada — solo con permiso de gestión.
                 (PUEDE_EDITAR ? '<button type="button" class="mapa-ctx-item" data-accion="guardar">' +
-                    '<i class="material-icons">add_location_alt</i>Guardar Punto</button>' : '');
+                    '<i class="material-icons">add_location_alt</i>Guardar Punto</button>' : '') +
+                // Abrir el panel de Proyectos (en táctil su control top-right está oculto).
+                '<button type="button" class="mapa-ctx-item" data-accion="proyectos">' +
+                    '<i class="material-icons">timeline</i>Proyectos</button>';
             var x = ev.originalEvent ? ev.originalEvent.clientX : 0;
             var y = ev.originalEvent ? ev.originalEvent.clientY : 0;
             menu.style.left = Math.min(x, window.innerWidth - 210) + 'px';
-            menu.style.top  = Math.min(y, window.innerHeight - 140) + 'px';
+            menu.style.top  = Math.min(y, window.innerHeight - 230) + 'px'; // 230: alto aprox. con todos los items
             // En pantalla completa, el menú debe ir DENTRO del elemento en fullscreen
             // (lo de fuera no se ve). Si no, va al body normal.
             (document.fullscreenElement || document.body).appendChild(menu);
@@ -532,6 +535,7 @@
                 if (e.target.closest && e.target.closest('.mapa-ctx-coordcopy')) { copiarCoordenada(coordE); menu.remove(); return; }
                 var b = e.target.closest ? e.target.closest('.mapa-ctx-item') : null; if (!b) return;
                 var acc = b.getAttribute('data-accion');
+                if (acc === 'proyectos') { menu.remove(); abrirPanelProyectos(); return; }
                 if (acc === 'guardar') { menu.remove(); if (ev.latlng) oleoPopupGuardar(ev.latlng, ''); return; }
                 if (acc === 'resaltar') {
                     if (estadosFijados.has(layer)) { estadosFijados.delete(layer); estados.resetStyle(layer); }
@@ -1257,7 +1261,9 @@
             }
         });
 
-        // Panel de control "Proyectos" (arriba-derecha).
+        // Panel de control "Proyectos" (arriba-derecha). oleoWrapEl/oleoPanelEl se exponen para
+        // poder abrirlo desde el menú de clic derecho (en táctil el control top-right está oculto).
+        var oleoWrapEl = null, oleoPanelEl = null;
         var OleoCtrl = L.Control.extend({
             options: { position: 'topright' },
             onAdd: function () {
@@ -1272,7 +1278,12 @@
                 L.DomEvent.disableClickPropagation(wrap);
                 L.DomEvent.disableScrollPropagation(wrap);
                 var panel = wrap.querySelector('.oleo-panel');
-                wrap.querySelector('.oleo-toggle').addEventListener('click', function () { panel.style.display = (panel.style.display === 'none') ? 'block' : 'none'; });
+                oleoWrapEl = wrap; oleoPanelEl = panel;
+                wrap.querySelector('.oleo-toggle').addEventListener('click', function () {
+                    var abrir = panel.style.display === 'none';
+                    panel.style.display = abrir ? 'block' : 'none';
+                    if (!abrir) wrap.classList.remove('oleo-forzar-visible'); // al cerrar, re-ocultar en táctil
+                });
                 wrap.querySelector('#oleoLista').addEventListener('click', function (e2) {
                     var del = e2.target.closest ? e2.target.closest('[data-del]') : null;
                     if (del) {
@@ -1299,6 +1310,16 @@
             }
         });
         map.addControl(new OleoCtrl());
+
+        // Abre el panel "Proyectos" desde el menú de clic derecho. En táctil el control
+        // top-right está oculto (mapa-ctrl-mobile-hide): lo forzamos visible, abrimos el panel
+        // y refrescamos la lista. En escritorio simplemente abre el panel (ya está visible).
+        function abrirPanelProyectos() {
+            if (!oleoWrapEl || !oleoPanelEl) return;
+            oleoWrapEl.classList.add('oleo-forzar-visible');
+            oleoPanelEl.style.display = 'block';
+            if (typeof oleoRenderLista === 'function') oleoRenderLista();
+        }
 
         // ══════════════════════════════════════════════════════════════════════
         //  EDITOR DE RECORRIDO (tubería): parte UNIENDO los puntos del proyecto (o el
