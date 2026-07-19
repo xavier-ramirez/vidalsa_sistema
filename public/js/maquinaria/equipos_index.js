@@ -1590,23 +1590,12 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
 
             // Fallback OFFLINE: si el fetch falló por RED (servidor inalcanzable) — que es un
             // TypeError de fetch, NO un error HTTP 4xx/5xx (esos resuelven y lanzan otro Error) —
-            // y hay copia local disponible, activamos el modo offline. Así el filtro que el
-            // usuario acaba de elegir se aplica sobre la copia local en vez de quedar mostrando
-            // todo sin filtrar. Necesario porque navigator.onLine a veces dice "online" con wifi
-            // sin internet real, y entonces la auto-activación por evento 'offline' no dispara.
-            if (error instanceof TypeError) {
-                // Intentar rescatar con la copia local (activa modo offline + banner + filtra local).
-                var _rescatado = false;
-                if (window.OfflineMode && !window.OfflineMode.estaActivo()
-                    && window.netStatus && typeof window.netStatus.showOffline === 'function') {
-                    window.netStatus.showOffline();
-                    _rescatado = !!window.OfflineMode.estaActivo();
-                }
-                // Si NO se pudo rescatar (sin copia local / sin modo offline), AVISAR: antes la
-                // tabla se quedaba en blanco/congelada sin explicación al fallar el filtro por red.
-                if (!_rescatado && typeof window.showToast === 'function') {
-                    window.showToast('Sin conexión: no se pudo aplicar el filtro. Revisa tu internet.', 'error');
-                }
+            // surgimos el banner "Sin conexión" con el botón "Trabajar sin conexión". El modo
+            // offline es MANUAL (opt-in): NO se activa solo; el usuario pulsa el botón para
+            // filtrar sobre la copia local. Forzamos el banner aquí porque navigator.onLine a
+            // veces miente ("online" con wifi sin internet real) y el evento 'offline' no dispara.
+            if (error instanceof TypeError && window.netStatus && typeof window.netStatus.showOffline === 'function') {
+                window.netStatus.showOffline();
             }
         })
         .finally(() => {

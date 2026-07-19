@@ -1088,15 +1088,6 @@
                     Object.keys(renders).forEach(function (k) { try { renders[k](); } catch (e) {} });
                 }
                 function hayRenders() { return Object.keys(renders).length > 0; }
-                // Espera a que OfflineDB (offline-sync.js) esté listo; llama cb igual al tope
-                // de 5s para NUNCA dejar el spinner pegado si la copia no cargó.
-                function esperarOfflineDB(cb) {
-                    if (window.OfflineDB) return cb();
-                    var n = 0, t = setInterval(function () {
-                        if (window.OfflineDB) { clearInterval(t); cb(); }
-                        else if (++n > 50) { clearInterval(t); cb(); }
-                    }, 100);
-                }
                 // El banner tiene UN botón (#netStatusAction) reutilizado según el estado:
                 // sin conexión → "Trabajar sin conexión" (activarOffline); reconectado mientras
                 // se trabajaba offline → "Activar uso con internet" (volverOnline).
@@ -1145,15 +1136,12 @@
                     offlineActivo = true;
                     if (action) action.style.display = 'none';
                     if (window.showPreloader) window.showPreloader();
-                    esperarOfflineDB(function () {
-                        correrRenders();        // pinta la copia local (lee IndexedDB, async)
-                        pintarBannerOffline();  // banner ámbar con la fecha de la copia
-                        // Un par de frames + margen para que el navegador pinte la tabla
-                        // antes de quitar el spinner.
-                        requestAnimationFrame(function () { requestAnimationFrame(function () {
-                            setTimeout(function () { if (window.hidePreloader) window.hidePreloader(true); }, 250);
-                        }); });
-                    });
+                    correrRenders();        // pinta la copia local; cada render self-espera a OfflineDB (conOfflineDB)
+                    pintarBannerOffline();  // banner ámbar con la fecha de la copia
+                    // Quitar el spinner tras dar tiempo a pintar (OfflineDB ya está cargado en
+                    // la práctica y la lectura de IndexedDB es de pocos ms). Tope fijo: nunca
+                    // dejar el spinner pegado.
+                    setTimeout(function () { if (window.hidePreloader) window.hidePreloader(true); }, 400);
                 }
                 // ── Transición OFFLINE → ONLINE (pulsar "Activar uso con internet") ──
                 // Spinner + confirmar que el servidor responde + recargar (restaura la vista
@@ -1163,7 +1151,15 @@
                     showBanner('Volviendo al modo con internet · actualizando…', 'wifi', '#16a34a', 0);
                     fetch('/offline/version', { method: 'GET', cache: 'no-store', credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
                         .then(function () { window.location.reload(); })
-                        .catch(function () { if (window.hidePreloader) window.hidePreloader(true); mostrarOffline(); });
+                        .catch(function () {
+                            if (window.hidePreloader) window.hidePreloader(true);
+                            // El servidor aún no responde: seguimos en modo offline (offlineActivo
+                            // sigue true) pero dejamos el botón para REINTENTAR — NO usamos
+                            // mostrarOffline() aquí porque ocultaría el botón y el usuario quedaría
+                            // sin forma de reintentar hasta el próximo evento 'online'.
+                            showBanner('El servidor no responde aún · seguí trabajando sin conexión', 'cloud_off', '#b45309', 0);
+                            configurarBoton('Reintentar conexión', volverOnline);
+                        });
                 }
                 if (action) action.addEventListener('click', function () { if (typeof accionBoton === 'function') accionBoton(); });
 

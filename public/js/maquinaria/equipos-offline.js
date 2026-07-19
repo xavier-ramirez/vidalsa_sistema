@@ -336,13 +336,10 @@
             inp.addEventListener('input', function () { if (OM.estaActivo()) aplicarFiltro(); });
         }
 
-        // Patch loadEquipos: intercepta la llamada AJAX y filtra local si offline.
-        if (typeof window.loadEquipos === 'function') {
-            if (!window._origLoadEquipos) {
-                window._origLoadEquipos = window.loadEquipos;
-            } else if (window.loadEquipos !== window._eqOffPatchedLoad) {
-                window._origLoadEquipos = window.loadEquipos;
-            }
+        // Patch loadEquipos: intercepta la llamada AJAX y filtra local si offline. Se re-parchea
+        // en cada init por si el blade redefinió loadEquipos (guarda el orig sin doble-wrap).
+        if (typeof window.loadEquipos === 'function' && window.loadEquipos !== window._eqOffPatchedLoad) {
+            window._origLoadEquipos = window.loadEquipos;
             window._eqOffPatchedLoad = function () {
                 if (OM.estaActivo()) { aplicarFiltro(); return Promise.resolve(); }
                 // Sin conexión pero SIN activar el modo offline: bloqueamos la búsqueda (no
