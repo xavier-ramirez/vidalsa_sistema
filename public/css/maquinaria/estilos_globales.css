@@ -3990,7 +3990,7 @@ html.is-ios .ent-capt-add-btn { display: flex !important; }
     background: #fff;
     color: #0f172a;
     font-size: 13px;
-    font-weight: 700;
+    font-weight: 600;   /* sin negrita: mismo peso que la coordenada (.mapa-ctx-coord) */
     cursor: pointer;
     text-align: left;
 }
