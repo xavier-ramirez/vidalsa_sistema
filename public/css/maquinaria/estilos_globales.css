@@ -4055,11 +4055,15 @@ body:has(.mapa-page) .main-viewport {
        Descargar imagen, Proyectos y Dibujar tubería); en teléfono solo queda el buscador. */
     .mapa-ctrl-mobile-hide { display: none !important; }
 
-    /* Buscador a lo ANCHO en teléfono: ya no hay botones a su lado (todos ocultos). Se capa la
-       BARRA completa al ancho de la pantalla (menos márgenes) para que NADA se salga — el input
-       la llena (border-box, así su padding de la lupa NO suma ancho de más) y deja sitio a la
-       "X" de limpiar. La lista de resultados va anclada left:0/right:0 al contenedor. */
-    .leaflet-control-geocoder { max-width: calc(100vw - 20px) !important; box-sizing: border-box !important; }
+    /* Buscador a lo ANCHO en teléfono: ya no hay botones a su lado (todos ocultos). La BARRA
+       toma un ANCHO FIJO = pantalla menos márgenes (width, no solo max-width: si no, se
+       encogía a su contenido y quedaba comprimida). border-box para que su padding no la
+       desborde. El input la llena y deja sitio a la "X". La lista va anclada left:0/right:0. */
+    .leaflet-control-geocoder {
+        width: calc(100vw - 20px) !important;
+        max-width: calc(100vw - 20px) !important;
+        box-sizing: border-box !important;
+    }
     .leaflet-control-geocoder-form { min-width: 0 !important; }
     .leaflet-control-geocoder-form input {
         width: 100% !important;
