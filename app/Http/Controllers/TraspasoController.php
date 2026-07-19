@@ -345,7 +345,9 @@ class TraspasoController extends Controller
         // parte de los FILTROS). Fuente ÚNICA compartida con /admin/almacen para que recepción
         // encuentre los filtros por su nº de parte igual que el inventario. CATEGORIA viaja para
         // que una presentacion nueva (cambiar la UM) herede la del original — ver entDoCreateProducto.
-        $productosLista = ProductoInventario::listaAutocomplete();
+        // El catálogo (PRODUCTOS del buscador) ya NO se embebe aquí: la vista lo pide por AJAX
+        // al endpoint compartido almacen.productos-autocomplete tras renderizar, para que la
+        // recepción abra rápido (antes embebía los 1155 productos inline).
 
         // Unidades de medida DISTINTAS ya registradas en el catalogo — alimentan el
         // autocomplete del campo UM (mismo patron que el modal "Nuevo producto" de
@@ -364,7 +366,6 @@ class TraspasoController extends Controller
 
         return view('admin.almacen.recepcion.nueva', [
             'almacenDestino'  => $almacenDestino,
-            'productosLista'  => $productosLista,
             'unidadesMedida'  => $unidadesMedida,
             'idFrenteDestino' => $idFrenteDestino,
         ]);

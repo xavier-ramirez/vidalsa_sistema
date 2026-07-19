@@ -312,10 +312,22 @@
 
     var ROUTE_ENTRADA = @json(route('almacen.movimientos.lote'));
     var ROUTE_PROD    = @json(route('almacen.productos.store'));
-    // PRODUCTOS no es `const` porque se agrega al vuelo cuando el usuario crea
-    // un producto que no estaba en el catalogo — asi la proxima busqueda lo
-    // encuentra como una sugerencia normal sin recargar la pagina.
-    var PRODUCTOS     = @json($productosLista ?? []);
+    // Catálogo de productos: antes se embebía inline (los 1155 productos) y la recepción abría
+    // pesada. Ahora arranca vacío y se carga por AJAX (endpoint compartido, misma fuente
+    // listaAutocomplete) al renderizar, sin bloquear. El buscador lo usa por EVENTO, así que es
+    // seguro. PRODUCTOS sigue siendo `var` porque la creación de producto le agrega entradas al
+    // vuelo; esa sync solo escribe si el catálogo ya cargó (PRODUCTOS_CARGADOS) para no perderlas.
+    var PRODUCTOS = [];
+    var PRODUCTOS_CARGADOS = false;
+    (function () {
+        fetch(@json(route('almacen.productos-autocomplete')), {
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+            credentials: 'same-origin'
+        })
+        .then(function (r) { return r.ok ? r.json() : []; })
+        .then(function (lista) { if (Array.isArray(lista)) { PRODUCTOS = lista; PRODUCTOS_CARGADOS = true; } })
+        .catch(function () { /* silencioso: el buscador tipear+servidor no depende de esta lista */ });
+    })();
     // UMs distintas ya registradas en el catalogo — sirven de sugerencias para el
     // autocomplete del campo UM. El usuario puede tipear una UM nueva libremente.
     var UNIDADES_MEDIDA = @json($unidadesMedida ?? []);
@@ -651,9 +663,11 @@
                 return;
             }
             var p = res.b.producto || {};
-            // Agregar al catalogo en memoria para que la proxima busqueda lo encuentre
-            // como sugerencia normal sin recargar la pagina.
-            PRODUCTOS.push({
+            // Agregar al catalogo en memoria para que la proxima busqueda lo encuentre como
+            // sugerencia normal sin recargar la pagina. Solo si el catalogo async ya cargo: si
+            // no, la carga pendiente traera el producto fresco de la BD (ya se guardo) y este
+            // push se perderia al reemplazar la lista.
+            if (PRODUCTOS_CARGADOS) PRODUCTOS.push({
                 ID_PRODUCTO: p.ID_PRODUCTO,
                 CODIGO:      p.CODIGO || '',
                 NOMBRE:      p.NOMBRE || nombre,
