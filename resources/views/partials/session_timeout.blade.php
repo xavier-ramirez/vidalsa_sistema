@@ -305,7 +305,9 @@
                 modal.classList.add('active');
                 modal.style.zIndex  = '1000002';
                 isModalVisible = true;
-                setTimeout(accion, 3000);
+                // 1200ms (antes 3000): solo lo justo para leer "Sesión cerrada" y ya redirige;
+                // 3s de spinner se sentían lentos ("ya pasó el tiempo, para qué esperar más").
+                setTimeout(accion, 1200);
             }
 
             // ── Sesión ya caída en el backend ───────────────────────────
