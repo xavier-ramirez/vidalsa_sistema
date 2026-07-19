@@ -23,8 +23,38 @@ Route::get('/preview/error/{code}', function (string $code) {
 // en public/, cualquier servidor que sirva estáticos antes que Laravel (nginx,
 // Apache, Caddy) la entregaría cruda con el placeholder sin reemplazar.
 Route::get('/sw.js', function () {
-    $path    = resource_path('sw.js');
-    $version = (string) filemtime($path);
+    $path = resource_path('sw.js');
+
+    // CACHE_VERSION = commit git actual + filemtime(sw.js). Así CADA deploy invalida el
+    // caché del SW AUTOMÁTICAMENTE (git pull → nuevo commit → nueva versión), sin tener
+    // que editar sw.js a mano; y en local, editar sw.js también bumpea (por el filemtime).
+    // Sin esto, un deploy que no tocara sw.js dejaba a los usuarios con el caché viejo.
+    $hash = null;
+    try {
+        $gitDir = base_path('.git');
+        $head = @file_get_contents($gitDir . '/HEAD');
+        if ($head !== false) {
+            if (strpos($head, 'ref:') === 0) {
+                $ref     = trim(substr($head, 4));          // p.ej. "refs/heads/main"
+                $refFile = $gitDir . '/' . $ref;
+                if (is_file($refFile)) {
+                    $hash = trim(@file_get_contents($refFile));
+                } else {                                    // ref empaquetada (git gc)
+                    $packed = @file_get_contents($gitDir . '/packed-refs');
+                    if ($packed !== false && preg_match('/^([0-9a-f]{40})\s+' . preg_quote($ref, '/') . '$/m', $packed, $m)) {
+                        $hash = $m[1];
+                    }
+                }
+            } else {
+                $hash = trim($head);                        // HEAD detached → hash directo
+            }
+        }
+    } catch (\Throwable $e) {
+        $hash = null;
+    }
+    $version = ($hash ? substr($hash, 0, 12) . '-' : '') . (string) @filemtime($path);
+    $version = preg_replace('/[^0-9a-zA-Z-]/', '', $version); // nombre de caché seguro
+
     $content = str_replace('__CACHE_VERSION__', $version, file_get_contents($path));
     return response($content, 200)
         ->header('Content-Type', 'application/javascript')
