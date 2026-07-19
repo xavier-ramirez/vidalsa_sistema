@@ -18,7 +18,7 @@
  * Al CAMBIAR un asset PRECACHEADO (p. ej. /css/maquinaria/inicio_sesion.css) hay que
  * tocar ESTE archivo para bumpear CACHE_VERSION; si no, el SW sigue sirviendo la copia
  * vieja precacheada (cache-first) y el cambio no llega al usuario.
- * Última invalidación manual: 2026-07-19 (overlay "Actualizando…" + propagar su script).
+ * Última invalidación manual: 2026-07-19 (overlay "Actualizando…": precachear su script).
  */
 const CACHE_VERSION = '__CACHE_VERSION__';
 const STATIC_CACHE  = 'vidalsa-static-' + CACHE_VERSION;
@@ -29,6 +29,7 @@ const PRECACHE_URLS = [
     '/icons/icon-512.png',
     '/css/fonts.css',
     '/css/maquinaria/inicio_sesion.css',
+    '/js/pwa-update-overlay.js',
     '/images/maquinaria/logo.webp',
     '/js/offline/offline-auth.js',
     '/js/webauthn.js',
