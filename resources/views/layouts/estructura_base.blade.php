@@ -1088,11 +1088,29 @@
                     Object.keys(renders).forEach(function (k) { try { renders[k](); } catch (e) {} });
                 }
                 function hayRenders() { return Object.keys(renders).length > 0; }
+                // Espera a que OfflineDB (offline-sync.js) esté listo; llama cb igual al tope
+                // de 5s para NUNCA dejar el spinner pegado si la copia no cargó.
+                function esperarOfflineDB(cb) {
+                    if (window.OfflineDB) return cb();
+                    var n = 0, t = setInterval(function () {
+                        if (window.OfflineDB) { clearInterval(t); cb(); }
+                        else if (++n > 50) { clearInterval(t); cb(); }
+                    }, 100);
+                }
+                // El banner tiene UN botón (#netStatusAction) reutilizado según el estado:
+                // sin conexión → "Trabajar sin conexión" (activarOffline); reconectado mientras
+                // se trabajaba offline → "Activar uso con internet" (volverOnline).
+                var accionBoton = null;
+                function configurarBoton(texto, handler) {
+                    accionBoton = handler;
+                    if (action) { action.textContent = texto; action.style.display = 'inline-flex'; }
+                }
                 // Ofrecer (NO activar) el modo offline: mostramos el botón "Trabajar sin
                 // conexión" SOLO si el módulo actual tiene vista offline registrada. El modo
                 // es OPT-IN: NINGÚN dato local se carga hasta que el usuario pulse el botón.
                 function ofrecerOffline() {
-                    if (action) action.style.display = hayRenders() ? 'inline-flex' : 'none';
+                    if (!hayRenders()) { if (action) action.style.display = 'none'; return; }
+                    configurarBoton('Trabajar sin conexión', activarOffline);
                 }
                 // Pinta el banner ámbar "Trabajando sin conexión · <fecha de la copia local>".
                 function pintarBannerOffline() {
@@ -1109,8 +1127,9 @@
                 }
                 function mostrarOffline() {
                     sinConexion = true;
-                    // Ya trabajando offline: mantener el banner ámbar (no volver al rojo).
-                    if (offlineActivo) { pintarBannerOffline(); return; }
+                    // Ya trabajando offline: mantener el banner ámbar (no volver al rojo) y
+                    // ocultar el botón (no hay nada que ofrecer estando ya en modo local).
+                    if (offlineActivo) { if (action) action.style.display = 'none'; pintarBannerOffline(); return; }
                     // MANUAL (opt-in): aviso rojo + OFRECEMOS el botón; NO se activa solo.
                     // Sin conexión, nada de copia local hasta que el usuario pulse "Trabajar
                     // sin conexión". Si no lo pulsa, la vista queda con los datos del servidor
@@ -1118,35 +1137,52 @@
                     showBanner('Sin conexión a internet', 'wifi_off', '#dc2626', 0);
                     ofrecerOffline();
                 }
+                // ── Transición ONLINE → OFFLINE (pulsar "Trabajar sin conexión") ──
+                // Spinner mientras se lee/pinta la copia local, para que el cambio de modo
+                // se sienta suave (antes saltaba de golpe). Se oculta cuando la tabla ya pintó.
                 function activarOffline() {
                     if (offlineActivo) return;
                     offlineActivo = true;
                     if (action) action.style.display = 'none';
-                    correrRenders();
-                    pintarBannerOffline();
+                    if (window.showPreloader) window.showPreloader();
+                    esperarOfflineDB(function () {
+                        correrRenders();        // pinta la copia local (lee IndexedDB, async)
+                        pintarBannerOffline();  // banner ámbar con la fecha de la copia
+                        // Un par de frames + margen para que el navegador pinte la tabla
+                        // antes de quitar el spinner.
+                        requestAnimationFrame(function () { requestAnimationFrame(function () {
+                            setTimeout(function () { if (window.hidePreloader) window.hidePreloader(true); }, 250);
+                        }); });
+                    });
                 }
-                if (action) action.addEventListener('click', activarOffline);
+                // ── Transición OFFLINE → ONLINE (pulsar "Activar uso con internet") ──
+                // Spinner + confirmar que el servidor responde + recargar (restaura la vista
+                // online normal). Si el servidor aún no responde, volvemos al modo offline.
+                function volverOnline() {
+                    if (window.showPreloader) window.showPreloader();
+                    showBanner('Volviendo al modo con internet · actualizando…', 'wifi', '#16a34a', 0);
+                    fetch('/offline/version', { method: 'GET', cache: 'no-store', credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                        .then(function () { window.location.reload(); })
+                        .catch(function () { if (window.hidePreloader) window.hidePreloader(true); mostrarOffline(); });
+                }
+                if (action) action.addEventListener('click', function () { if (typeof accionBoton === 'function') accionBoton(); });
 
                 window.addEventListener('offline', mostrarOffline);
                 window.addEventListener('online', function () {
                     sinConexion = false;
-                    if (action) action.style.display = 'none';
-                    // Si se estaba TRABAJANDO en modo offline, el módulo quedó pintado
-                    // con la copia local y sus handlers en modo offline: sin esto la
-                    // pantalla se queda "congelada" en esa vista hasta que el usuario
-                    // adivine que debe recargar. Verificamos conexión REAL primero
-                    // (navigator.onLine miente en parpadeos de red) y recargamos: la
-                    // recarga restaura la vista de servidor — y si se entró con el
-                    // login offline (sin sesión de servidor), el redirect natural
-                    // lleva al login para reconectarse.
+                    // Si se estaba TRABAJANDO en modo offline, la vista quedó pintada con la
+                    // copia local y sus handlers en modo offline. NO recargamos de golpe (eso
+                    // interrumpía el trabajo): mostramos el aviso verde y OFRECEMOS el botón
+                    // "Activar uso con internet". Al pulsarlo → volverOnline (spinner + confirma
+                    // servidor + recarga a la vista online). Así el usuario decide cuándo cambiar
+                    // y nunca queda "congelado" (el botón está a la vista).
                     if (offlineActivo) {
-                        showBanner('Conexión restaurada · actualizando…', 'wifi', '#16a34a', 0);
-                        fetch('/offline/version', { method: 'GET', cache: 'no-store', credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-                            .then(function () { window.location.reload(); })
-                            .catch(function () { mostrarOffline(); }); // seguía sin servidor: volver al modo offline
+                        showBanner('Conexión restaurada', 'wifi', '#16a34a', 0);
+                        configurarBoton('Activar uso con internet', volverOnline);
                         return;
                     }
                     offlineActivo = false;
+                    if (action) action.style.display = 'none';
                     showBanner('Conexión restaurada', 'wifi', '#16a34a', 2500);
                 });
                 // Si baja una copia nueva mientras se trabaja offline, repintar el módulo
