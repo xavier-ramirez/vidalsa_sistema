@@ -4055,12 +4055,17 @@ body:has(.mapa-page) .main-viewport {
        Descargar imagen, Proyectos y Dibujar tubería); en teléfono solo queda el buscador. */
     .mapa-ctrl-mobile-hide { display: none !important; }
 
-    /* Buscador a lo ANCHO en teléfono: ya no hay ningún botón a su lado (todos ocultos), así
-       que ocupa casi todo el ancho, restando solo los márgenes de Leaflet (~10px por lado).
-       La lista de resultados va anclada left:0/right:0 al contenedor. */
+    /* Buscador a lo ANCHO en teléfono: ya no hay botones a su lado (todos ocultos). Se capa la
+       BARRA completa al ancho de la pantalla (menos márgenes) para que NADA se salga — el input
+       la llena (border-box, así su padding de la lupa NO suma ancho de más) y deja sitio a la
+       "X" de limpiar. La lista de resultados va anclada left:0/right:0 al contenedor. */
+    .leaflet-control-geocoder { max-width: calc(100vw - 20px) !important; box-sizing: border-box !important; }
+    .leaflet-control-geocoder-form { min-width: 0 !important; }
     .leaflet-control-geocoder-form input {
-        width: calc(100vw - 24px) !important;
+        width: 100% !important;
+        min-width: 0 !important;
         max-width: none !important;
+        box-sizing: border-box !important;
     }
     /* ── Leyenda en teléfono ──────────────────────────────────────────────────
        Sigue VISIBLE (es la única forma de saber qué proyecto/municipio es cada
