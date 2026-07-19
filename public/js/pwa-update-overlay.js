@@ -1,29 +1,31 @@
 /**
- * Vidalsa PWA — Overlay "Actualizando…"
+ * Vidalsa PWA — Overlay "Actualizando…" (SOLO en el login)
  *
- * Problema: al desplegar muchos cambios, el service worker nuevo tiene que descargar
- * los assets frescos. Con internet flojo eso compite con el login → tarda o falla, y el
- * usuario no sabe si está roto o cargando.
+ * Problema: al desplegar muchos cambios, el service worker nuevo descarga los assets
+ * frescos. Con internet flojo eso compite con el login → tarda o falla, y el usuario no
+ * sabe si está roto o cargando.
  *
- * Este script muestra una pantalla "Actualizando aplicación…" SOLO cuando hay un SW
- * NUEVO instalándose (es decir, una actualización: ya había un SW controlando la página).
- * Al activarse el SW nuevo, recarga UNA vez para servir los assets frescos y seguir normal.
- * En primera instalación (sin controller) NO se muestra ni se recarga.
+ * Este script muestra "Actualizando aplicación…" mientras un SW NUEVO se está instalando
+ * (una actualización: ya había un SW controlando). Al terminar (activarse) se oculta y el
+ * usuario inicia sesión normal — la navegación natural del login a /menu ya sirve los assets
+ * frescos del SW nuevo, así que NO hace falta recargar a la fuerza.
  *
- * No re-registra el SW (eso ya lo hacen el login y pwa-install.js): solo se engancha a la
- * registración existente. Timeout de seguridad para no dejar al usuario atascado si el
- * internet no permite terminar la descarga (el SW viejo sigue sirviendo lo cacheado).
+ * A PROPÓSITO no recarga la página ni se carga fuera del login:
+ *  - Recargar en una página interna (formulario a medias) perdería el trabajo del usuario.
+ *  - En el login no hay nada que perder, por eso el overlay vive solo aquí.
+ * No re-registra el SW (el login ya lo registra): solo se engancha a la registración
+ * existente para vigilar la instalación. Timeout de seguridad para no dejar al usuario
+ * atrapado bajo el overlay si el internet no permite terminar (el SW viejo sigue sirviendo
+ * lo cacheado y puede iniciar sesión, incluso offline).
  */
 (function () {
     if (!('serviceWorker' in navigator)) return;
-    if (window._pwaUpdateOverlayReady) return; // guard anti-doble-ejecución (SPA / doble include)
+    if (window._pwaUpdateOverlayReady) return; // guard anti-doble-ejecución
     window._pwaUpdateOverlayReady = true;
 
     var OVERLAY_ID = 'pwaUpdateOverlay';
-    var MAX_MS = 25000;         // tope: si tarda demasiado (mal internet) se quita el overlay
+    var MAX_MS = 15000; // tope: si tarda demasiado (mal internet) se quita el overlay
     var timer = null;
-    var refreshing = false;     // recargar una sola vez
-    var hadController = !!navigator.serviceWorker.controller; // ¿ya había SW controlando?
 
     function showOverlay() {
         if (document.getElementById(OVERLAY_ID)) return;
@@ -49,13 +51,10 @@
             document.head.appendChild(st);
         }
         clearTimeout(timer);
-        timer = setTimeout(function () {
-            // Mal internet: no dejar al usuario atrapado. Quitamos el overlay y NO recargamos
-            // por esta actualización tardía (que se aplique en la próxima apertura, sin
-            // interrumpir el login en curso). El SW viejo sigue sirviendo lo cacheado.
-            hideOverlay();
-            refreshing = true;
-        }, MAX_MS);
+        // Mal internet: no dejar al usuario atrapado bajo el overlay. Se quita y puede iniciar
+        // sesión (el SW viejo sigue sirviendo lo cacheado / login offline). El SW nuevo termina
+        // en segundo plano y se aplica en la próxima apertura, sin interrumpir nada.
+        timer = setTimeout(hideOverlay, MAX_MS);
     }
 
     function hideOverlay() {
@@ -64,25 +63,16 @@
         if (d) d.remove();
     }
 
-    // Vigila un SW que está instalando. Solo es "actualización" si YA había un controller.
+    // Vigila un SW que está instalando. Solo es "actualización" si YA había un controller
+    // (en primera instalación no molestamos). Overlay mientras instala; se quita al activarse
+    // o si la instalación falla. No se recarga (ver cabecera).
     function watchInstalling(sw) {
         if (!sw || !navigator.serviceWorker.controller) return;
         showOverlay();
         sw.addEventListener('statechange', function () {
-            // 'activated' → el controllerchange de abajo recargará (mantenemos overlay hasta el reload).
-            // 'redundant' → la instalación falló: quitar overlay para no dejar atascado.
-            if (sw.state === 'redundant') hideOverlay();
+            if (sw.state === 'activated' || sw.state === 'redundant') hideOverlay();
         });
     }
-
-    // Al tomar el control un SW nuevo, recargar UNA vez (assets frescos). La primera toma de
-    // control (primer install, sin controller previo) NO recarga.
-    navigator.serviceWorker.addEventListener('controllerchange', function () {
-        if (!hadController) { hadController = true; return; }
-        if (refreshing) return;
-        refreshing = true;
-        window.location.reload();
-    });
 
     // Engancharse a la registración YA existente (no re-registrar). Dos vías por si una corre
     // antes de que register() resuelva; el flag __pwaOverlayBound evita doble-enganche.
