@@ -1363,7 +1363,7 @@
             if (!oleoActivo || !oleoMap[oleoActivo]) {
                 if (ids.length === 1) { oleoActivo = ids[0]; oleoRenderLista(); }
                 else if (!ids.length) { if (window.showToast) window.showToast('Primero vincula ubicaciones a un frente (busca un lugar en el mapa).', 'error'); abrirPanelOleo(); return; }
-                else { if (window.showToast) window.showToast('Selecciona en el panel (arriba-derecha) el proyecto a editar.', 'error'); abrirPanelOleo(); return; }
+                else { if (window.showToast) window.showToast('Selecciona en el panel Proyectos (arriba a la izquierda) el proyecto a editar.', 'error'); abrirPanelOleo(); return; }
             }
             entrarDibujo(oleoActivo);
         }

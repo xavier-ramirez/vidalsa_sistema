@@ -4051,19 +4051,15 @@ body:has(.mapa-page) .main-viewport {
        SOLO los ajustes propios del móvil. */
     .mapa-creditos { display: none; }
     .leaflet-control-layers { display: none; }
-    /* Solo queda "Pantalla completa" — Ver toda Venezuela, Descargar imagen, Proyectos
-       (linea de oleoductos) y Dibujar tuberia se ocultan (pedido del cliente). */
+    /* Se ocultan TODOS los botones de la barra (Ver toda Venezuela, Pantalla completa,
+       Descargar imagen, Proyectos y Dibujar tubería); en teléfono solo queda el buscador. */
     .mapa-ctrl-mobile-hide { display: none !important; }
 
-    /* Buscador ANCHO en teléfono: ocupa la fila salvo el hueco del único botón que queda
-       a su lado (Pantalla completa, 34px) más los márgenes de Leaflet (10px por lado) y el
-       hueco entre ambos. Antes se encogía a 140px / 46vw "para no montarse sobre los
-       botones de al lado" — pero esos botones ya no están aquí, así que solo desperdiciaba
-       ancho justo donde menos sobra. 76px es el mínimo que deja el botón entero visible con
-       unos px de aire; con 96 sobraba margen inútil. La lista de resultados no necesita
-       ajuste: va anclada left:0/right:0 al contenedor. */
+    /* Buscador a lo ANCHO en teléfono: ya no hay ningún botón a su lado (todos ocultos), así
+       que ocupa casi todo el ancho, restando solo los márgenes de Leaflet (~10px por lado).
+       La lista de resultados va anclada left:0/right:0 al contenedor. */
     .leaflet-control-geocoder-form input {
-        width: calc(100vw - 76px) !important;
+        width: calc(100vw - 24px) !important;
         max-width: none !important;
     }
     /* ── Leyenda en teléfono ──────────────────────────────────────────────────
