@@ -3796,12 +3796,20 @@ html.is-ios .ent-capt-add-btn { display: flex !important; }
     }
     body:has(.mapa-page) .mapa-page { max-width: none; padding: 0; }
     body:has(.mapa-page) #mapa-leaflet {
-        height: calc(100vh - 70px); /* de justo debajo del header al borde inferior */
+        height: calc(100vh - 70px);  /* fallback para navegadores sin dvh */
+        height: calc(100dvh - 70px); /* dvh descuenta la barra de URL en móvil (no deja gris) */
         min-height: 0;
         border-radius: 0;
         border: none;
         box-shadow: none;
     }
+}
+
+/* Controles no-esenciales del mapa (Exportar/Descargar imagen, Ver toda Venezuela, Proyectos,
+   Dibujar) ocultos en TODO dispositivo TÁCTIL — no solo ≤640px: en un teléfono ancho o en el
+   rango que toma el estilo de escritorio igual sobran y estorban. */
+@media (pointer: coarse) {
+    .mapa-ctrl-mobile-hide { display: none !important; }
 }
 
 /* Barra de búsqueda + botón "Ver toda Venezuela" EN FILA (el globo al lado del buscador) */
@@ -4065,13 +4073,14 @@ html.is-ios .ent-capt-add-btn { display: flex !important; }
         max-width: 100% !important;
         padding-left: 0 !important;
         padding-right: 0 !important;
-        padding-top: 12px !important;
-        /* padding-bottom NO se toca: sigue el 20px del shorthand base, que deja aire
-           entre el mapa y el final de la página. Solo interesa recuperar ancho. */
+        /* padding-top 0 (antes 12px): esos 12px dejaban una franja GRIS entre el header y el
+           mapa. Ahora el mapa sube hasta justo debajo del menú de navegación, sin recorte gris. */
+        padding-top: 0 !important;
+        padding-bottom: 0 !important;
         box-sizing: border-box !important;
         overflow-x: hidden;
     }
-    .mapa-page { padding: 0 0 6px; }
+    .mapa-page { padding: 0; }
     .mapa-creditos { display: none; }
     .leaflet-control-layers { display: none; }
     /* Solo queda "Pantalla completa" — Ver toda Venezuela, Descargar imagen, Proyectos
@@ -4095,8 +4104,10 @@ html.is-ios .ent-capt-add-btn { display: flex !important; }
        parte del mapa de la vista. El JS reajusta Leaflet cuando esta altura cambia
        (ResizeObserver en mapa_index.js) — sin eso quedan teselas grises al rotar. */
     #mapa-leaflet {
-        height: calc(100vh - 72px); /* fallback: navegadores sin dvh */
-        height: calc(100dvh - 72px);
+        /* 70px = alto del header (el mapa arranca justo debajo, sin franja gris). Antes 72
+           dejaba 2px + los 12 del padding = gris arriba. */
+        height: calc(100vh - 70px); /* fallback: navegadores sin dvh */
+        height: calc(100dvh - 70px);
         min-height: 0;
         /* De borde a borde: sin radio ni bordes laterales (el contenedor ocupa
            el 100% del ancho de la pantalla — ver .main-viewport arriba). */
