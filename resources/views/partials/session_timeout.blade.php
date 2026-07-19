@@ -318,22 +318,30 @@
             }
 
             // ── Logout automático al expirar ────────────────────────────
+            // Cerramos la sesión del backend por POST, pero con fetch (NO un <form>.submit()):
+            // así, pase lo que pase —302 OK, 419 por sesión YA caída (CSRF viejo), 5xx o red—
+            // SIEMPRE aterrizamos en el login y NUNCA se renderiza una página de error.
+            // Antes era form.submit(): si el backend ya había expirado (volver a una pestaña
+            // dormida cuyos timers se pausaron, o GC de sesión), el POST daba 419 y el usuario
+            // veía la pantalla de error en vez de salir limpio → "el backend cerró y el front no".
+            // El fetch descarta ese 419 (nunca lo pinta) y navegamos nosotros al login.
+            // Si la sesión SÍ vive, el 302 destruye la sesión y actualiza la cookie (el browser
+            // aplica el Set-Cookie al recibir la respuesta) antes de que naveguemos. En ambos
+            // casos: backend cerrado + front en login, sin estados colgados.
             function performLogout() {
                 clearInterval(checkInterval);
                 clearInterval(serverPingInterval);
-                const form = document.createElement('form');
-                form.method = 'POST';
-                form.action = '/logout';
-                const csrf = document.querySelector('meta[name="csrf-token"]');
-                if (csrf) {
-                    const input = document.createElement('input');
-                    input.type  = 'hidden';
-                    input.name  = '_token';
-                    input.value = csrf.getAttribute('content');
-                    form.appendChild(input);
-                }
-                document.body.appendChild(form);
-                form.submit();
+                const csrf  = document.querySelector('meta[name="csrf-token"]');
+                const token = csrf ? csrf.getAttribute('content') : '';
+                fetch('/logout', {
+                    method: 'POST',
+                    headers: { 'X-CSRF-TOKEN': token, 'Accept': 'application/json' },
+                    body: new URLSearchParams({ _token: token }),
+                    redirect: 'manual',   // no seguimos el 302: navegamos nosotros abajo
+                    cache: 'no-store',
+                })
+                .catch(function () { /* red caída: igual salimos al login abajo */ })
+                .finally(function () { window.location.replace('/'); }); // replace: sin volver "atrás" a la página protegida
             }
 
             // ── Actividad del usuario (con throttle) ────────────────────
