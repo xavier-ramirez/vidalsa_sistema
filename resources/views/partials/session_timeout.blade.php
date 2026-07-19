@@ -228,7 +228,7 @@
             // renovar en background NO se pudo confirmar (5xx o red caída), el frontend cree que
             // la sesión sigue viva cuando quizá ya cayó → la próxima petición real daría 419 y el
             // usuario perdería trabajo. Para no quedar en ese estado ciego, revalidamos PRONTO con
-            // pingServer (no esperamos al intervalo normal, que en producción son ~16 min):
+            // pingServer (no esperamos al intervalo normal = SERVER_PING_MS, 80% de la vida de sesión):
             //   • sesión caída  → pingServer detecta INVITADO → va al login;
             //   • 5xx persistente → pingServer hace logout limpio;
             //   • red aún caída  → pingServer no fuerza nada (offline ≠ sesión muerta) y otra
@@ -272,7 +272,7 @@
                     })
                     .catch(() => {
                         // Fallo/timeout de red al renovar el token: NO forzamos logout ni modal —
-                        // el timer ya se reinició, pero revalidamos PRONTO (no en ~16 min) para no
+                        // el timer ya se reinició, pero revalidamos PRONTO (no al intervalo normal de ping) para no
                         // quedar creyendo que la sesión vive si en realidad ya cayó.
                         clearTimeout(timeoutId);
                         reverificarSesionPronto();

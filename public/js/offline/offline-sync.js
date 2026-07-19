@@ -229,15 +229,33 @@
     // consultar al perder señal. La primera vez usa un timeout de idle CORTO
     // (2s) para que el offline quede listo pronto sin pelear con la primera
     // página; los refrescos usan el default (4s), que sí pueden esperar.
+    // El sync consulta /offline/version, que es una ruta CON SESIÓN → cada consulta cuenta como
+    // "actividad" y renueva la sesión del backend. Si lo hiciéramos cada 10 min sin importar la
+    // actividad del usuario, la sesión NUNCA vencería por inactividad (anula el cierre que
+    // session_timeout dice que garantiza el backend). Por eso, igual que el pingServer de sesión,
+    // saltamos el sync si el usuario está inactivo. Fuente de actividad: la MISMA marca
+    // 'vidalsa_last_activity' que escribe session_timeout en clic/tecla. Si no existe (esa
+    // partial no cargó), asumimos activo para no romper el sync offline.
+    const INACTIVIDAD_MAX_MS = 2 * 60 * 1000; // sin clic/tecla en 2 min = usuario ausente
+    function usuarioActivo() {
+        try {
+            const t = parseInt(localStorage.getItem('vidalsa_last_activity'), 10);
+            return !t || (Date.now() - t) < INACTIVIDAD_MAX_MS;
+        } catch (e) { return true; }
+    }
+
     function syncAutomatico() {
         if (!navigator.onLine) return;
         idbGet('meta')
             .then((meta) => {
                 const primeraVez = !meta || !meta.version;
+                // Ya hay snapshot Y el usuario está inactivo → NO consultamos el servidor, para
+                // no renovar la sesión. La PRIMERA vez sí procede (deja el cache offline listo).
+                if (!primeraVez && !usuarioActivo()) return;
                 if (!primeraVez && conexionMuyLenta()) return;
                 enInactividad(() => sync(false), primeraVez ? 2000 : undefined);
             })
-            .catch(() => enInactividad(() => sync(false)));
+            .catch(() => { if (usuarioActivo()) enInactividad(() => sync(false)); });
     }
 
     // Al cargar la app; revisión periódica; y al recuperar la conexión.
