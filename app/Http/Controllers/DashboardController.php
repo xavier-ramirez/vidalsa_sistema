@@ -72,7 +72,11 @@ class DashboardController extends Controller
             // Inoperativos = resto (INOPERATIVO + DESCONOCIDO + otros) para que los 3 chips sumen exacto
             $equiposInoperativos  = max(0, $totalFlotaActiva - $equiposOperativos - $equiposMantenimiento);
 
-            $catalogosDestacados = CaracteristicaModelo::with('equipos')
+            // Eager-load SOLO las columnas necesarias del equipo (PK + FK ID_ESPEC + MARCA):
+            // antes with('equipos') traía TODAS las columnas de TODOS los equipos de los 7
+            // modelos, solo para saber si hay equipos (isEmpty) y sacar la MARCA del primero.
+            // Con el select el payload cargado es mínimo (la lógica de abajo es idéntica).
+            $catalogosDestacados = CaracteristicaModelo::with(['equipos' => fn ($q) => $q->select('ID_EQUIPO', 'ID_ESPEC', 'MARCA')])
                 ->whereNotNull('FOTO_REFERENCIAL')
                 ->orderBy('ID_ESPEC', 'desc')
                 ->limit(7)
