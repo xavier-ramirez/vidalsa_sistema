@@ -520,14 +520,11 @@
                 '</button>' +
                 // Guardar un punto (oleoducto) en esta coordenada — solo con permiso de gestión.
                 (PUEDE_EDITAR ? '<button type="button" class="mapa-ctx-item" data-accion="guardar">' +
-                    '<i class="material-icons">add_location_alt</i>Guardar Punto</button>' : '') +
-                // Abrir el panel de Proyectos (en táctil su control top-right está oculto).
-                '<button type="button" class="mapa-ctx-item" data-accion="proyectos">' +
-                    '<i class="material-icons">timeline</i>Proyectos</button>';
+                    '<i class="material-icons">add_location_alt</i>Guardar Punto</button>' : '');
             var x = ev.originalEvent ? ev.originalEvent.clientX : 0;
             var y = ev.originalEvent ? ev.originalEvent.clientY : 0;
             menu.style.left = Math.min(x, window.innerWidth - 210) + 'px';
-            menu.style.top  = Math.min(y, window.innerHeight - 230) + 'px'; // 230: alto aprox. con todos los items
+            menu.style.top  = Math.min(y, window.innerHeight - 180) + 'px';
             // En pantalla completa, el menú debe ir DENTRO del elemento en fullscreen
             // (lo de fuera no se ve). Si no, va al body normal.
             (document.fullscreenElement || document.body).appendChild(menu);
@@ -535,7 +532,6 @@
                 if (e.target.closest && e.target.closest('.mapa-ctx-coordcopy')) { copiarCoordenada(coordE); menu.remove(); return; }
                 var b = e.target.closest ? e.target.closest('.mapa-ctx-item') : null; if (!b) return;
                 var acc = b.getAttribute('data-accion');
-                if (acc === 'proyectos') { menu.remove(); abrirPanelProyectos(); return; }
                 if (acc === 'guardar') { menu.remove(); if (ev.latlng) oleoPopupGuardar(ev.latlng, ''); return; }
                 if (acc === 'resaltar') {
                     if (estadosFijados.has(layer)) { estadosFijados.delete(layer); estados.resetStyle(layer); }
@@ -813,8 +809,9 @@
         var FitVE = L.Control.extend({
             options: { position: 'topleft' },
             onAdd: function () {
-                // mapa-ctrl-mobile-hide: en teléfono solo queda visible "Pantalla completa"
-                // (pedido del cliente) — este botón y Descargar/Proyectos se ocultan por CSS.
+                // mapa-ctrl-mobile-hide: en teléfono se ocultan TODOS los botones de la barra
+                // (Ver toda Venezuela, Pantalla completa, Descargar, Dibujar, Proyectos); solo
+                // queda el buscador. En PC se ven todos.
                 var btn = L.DomUtil.create('button', 'mapa-fit-btn mapa-ctrl-mobile-hide');
                 btn.type = 'button';
                 btn.title = 'Ver toda Venezuela';
@@ -830,7 +827,8 @@
         var FullScreen = L.Control.extend({
             options: { position: 'topleft' },
             onAdd: function () {
-                var btn = L.DomUtil.create('button', 'mapa-fit-btn');
+                // mapa-ctrl-mobile-hide: en teléfono NO se muestra "Pantalla completa" (pedido).
+                var btn = L.DomUtil.create('button', 'mapa-fit-btn mapa-ctrl-mobile-hide');
                 btn.type = 'button';
                 btn.title = 'Pantalla completa';
                 btn.innerHTML = '<i class="material-icons">fullscreen</i>';
@@ -1261,11 +1259,10 @@
             }
         });
 
-        // Panel de control "Proyectos" (arriba-derecha). oleoWrapEl/oleoPanelEl se exponen para
-        // poder abrirlo desde el menú de clic derecho (en táctil el control top-right está oculto).
-        var oleoWrapEl = null, oleoPanelEl = null;
+        // Panel de control "Proyectos": botón (timeline) que abre la lista de proyectos. Va en la
+        // barra TOP-LEFT junto a "Dibujar" (se agrega al mapa más abajo, tras DibujarCtrl).
         var OleoCtrl = L.Control.extend({
-            options: { position: 'topright' },
+            options: { position: 'topleft' },
             onAdd: function () {
                 // mapa-ctrl-mobile-hide: oculto en teléfono (ver FitVE arriba).
                 var wrap = L.DomUtil.create('div', 'oleo-ctrl mapa-ctrl-mobile-hide');
@@ -1278,12 +1275,7 @@
                 L.DomEvent.disableClickPropagation(wrap);
                 L.DomEvent.disableScrollPropagation(wrap);
                 var panel = wrap.querySelector('.oleo-panel');
-                oleoWrapEl = wrap; oleoPanelEl = panel;
-                wrap.querySelector('.oleo-toggle').addEventListener('click', function () {
-                    var abrir = panel.style.display === 'none';
-                    panel.style.display = abrir ? 'block' : 'none';
-                    if (!abrir) wrap.classList.remove('oleo-forzar-visible'); // al cerrar, re-ocultar en táctil
-                });
+                wrap.querySelector('.oleo-toggle').addEventListener('click', function () { panel.style.display = (panel.style.display === 'none') ? 'block' : 'none'; });
                 wrap.querySelector('#oleoLista').addEventListener('click', function (e2) {
                     var del = e2.target.closest ? e2.target.closest('[data-del]') : null;
                     if (del) {
@@ -1309,17 +1301,8 @@
                 return wrap;
             }
         });
-        map.addControl(new OleoCtrl());
-
-        // Abre el panel "Proyectos" desde el menú de clic derecho. En táctil el control
-        // top-right está oculto (mapa-ctrl-mobile-hide): lo forzamos visible, abrimos el panel
-        // y refrescamos la lista. En escritorio simplemente abre el panel (ya está visible).
-        function abrirPanelProyectos() {
-            if (!oleoWrapEl || !oleoPanelEl) return;
-            oleoWrapEl.classList.add('oleo-forzar-visible');
-            oleoPanelEl.style.display = 'block';
-            if (typeof oleoRenderLista === 'function') oleoRenderLista();
-        }
+        // OleoCtrl (Proyectos) se agrega al mapa MÁS ABAJO (tras DibujarCtrl) para que su botón
+        // quede JUNTO al de "Dibujar" en la barra top-left.
 
         // ══════════════════════════════════════════════════════════════════════
         //  EDITOR DE RECORRIDO (tubería): parte UNIENDO los puntos del proyecto (o el
@@ -1665,6 +1648,7 @@
             }
         });
         if (PUEDE_EDITAR) map.addControl(new DibujarCtrl()); // dibujar la línea: solo con permiso
+        map.addControl(new OleoCtrl()); // "Proyectos" (timeline) — JUNTO a Dibujar en la barra top-left
 
         // Exportación con MARCO DE RECORTE: muestra un recuadro (aspecto de la hoja) para
         // cuadrar; se exporta EXACTAMENTE lo que quede dentro del marco.

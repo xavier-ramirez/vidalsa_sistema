@@ -4092,9 +4092,6 @@ body:has(.mapa-page) .main-viewport {
 }
 
 /* ── Panel de OLEODUCTOS (proyectos) ── */
-/* Al abrir "Proyectos" desde el menú de clic derecho se fuerza visible el control (en táctil
-   está oculto por .mapa-ctrl-mobile-hide). 2 clases → gana en especificidad a esa regla. */
-.oleo-ctrl.oleo-forzar-visible { display: block !important; }
 .oleo-ctrl .oleo-toggle {
     background: #fff; border: none; border-radius: 8px; width: 34px; height: 34px;
     display: flex; align-items: center; justify-content: center; cursor: pointer;
