@@ -3756,20 +3756,27 @@ html.is-ios .ent-capt-add-btn { display: flex !important; }
    CSS global (no en la vista) para que aplique también en navegación SPA, igual
    que el resto de módulos. La lógica vive en js/maquinaria/mapa_index.js.
    ═══════════════════════════════════════════════════════════════════════════ */
-/* padding-top 0: el título arranca pegado arriba, con la MISMA separación vertical
-   respecto al menú que el módulo Equipos (que no tiene wrapper con padding superior). */
-.mapa-page { max-width: 1800px; margin: 0 auto; padding: 0 16px 24px; }
+/* Módulo Mapa: el mapa ocupa TODA la pantalla, DETRÁS del menú de navegación (header
+   flotante), para que el fondo GRIS de la app NO aparezca alrededor/detrás del header.
+   UNA sola definición para PC y teléfono (antes estaba duplicada en dos @media). */
+body:has(.mapa-page) { padding-top: 0 !important; }   /* el mapa arranca en y=0, tras el header */
+body:has(.mapa-page) .main-viewport {
+    width: 100% !important; max-width: 100% !important;
+    padding: 0 !important; margin: 0 !important; overflow-x: hidden;
+}
+.mapa-page { max-width: none; margin: 0; padding: 0; }
 
 #mapa-leaflet {
     width: 100%;
-    height: calc(100vh - 96px);
-    min-height: 560px;
-    border-radius: 16px;
-    border: 1px solid #e2e8f0;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 12px 28px -16px rgba(15, 23, 42, 0.18);
+    height: 100vh;   /* fallback para navegadores sin dvh */
+    height: 100dvh;  /* toda la pantalla (dvh descuenta la barra de URL en móvil) */
+    min-height: 0;
     overflow: hidden;
     z-index: 1; /* debajo del header flotante de la app */
 }
+/* Controles del mapa (buscador, pantalla completa) POR DEBAJO del header flotante
+   (top:5px + 70px de alto ≈ 75px). Sin esto el menú los taparía. */
+#mapa-leaflet .leaflet-top { margin-top: 80px; }
 
 /* Pantalla completa: el contenedor del mapa ocupa TODA la pantalla (sin bordes ni radio) */
 #mapa-leaflet:fullscreen,
@@ -3779,30 +3786,6 @@ html.is-ios .ent-capt-add-btn { display: flex !important; }
     min-height: 0 !important;
     border-radius: 0 !important;
     border: none !important;
-}
-
-/* PC (≥641px): mapa estilo GOOGLE MAPS — el contenedor va de BORDE A BORDE ocupando la
-   pantalla. Se anula el encajonado (max-width/padding de .main-viewport y .mapa-page) y el
-   radio/borde/sombra del mapa, para una vista inmersiva y limpia. El header flotante de la
-   app (fixed, 70px) queda ENCIMA, como la barra de búsqueda de Google Maps; el mapa arranca
-   justo debajo (body ya tiene padding-top:70px) y llega al borde inferior. El JS reajusta
-   Leaflet al cambiar el tamaño (ResizeObserver en mapa_index.js). El bloque móvil (≤640px)
-   mantiene su propio edge-to-edge más abajo. */
-@media (min-width: 641px) {
-    body:has(.mapa-page) .main-viewport {
-        width: 100% !important;
-        max-width: 100% !important;
-        padding: 0 !important;
-    }
-    body:has(.mapa-page) .mapa-page { max-width: none; padding: 0; }
-    body:has(.mapa-page) #mapa-leaflet {
-        height: calc(100vh - 70px);  /* fallback para navegadores sin dvh */
-        height: calc(100dvh - 70px); /* dvh descuenta la barra de URL en móvil (no deja gris) */
-        min-height: 0;
-        border-radius: 0;
-        border: none;
-        box-shadow: none;
-    }
 }
 
 /* Controles no-esenciales del mapa (Exportar/Descargar imagen, Ver toda Venezuela, Proyectos,
@@ -4063,24 +4046,9 @@ html.is-ios .ent-capt-add-btn { display: flex !important; }
    municipios" del control de capas — en una pantalla angosta solo tapan mapa útil, y el
    usuario móvil no los necesita para consultar. Un solo breakpoint para todo el módulo. */
 @media (max-width: 640px) {
-    /* El mapa NO usa .page-layout-grid, así que no lo alcanzaba el override de
-       .main-viewport del @media 900px y seguía heredando `width:98%` + `padding:20px`:
-       ~44px de ancho perdidos a los lados justo en la pantalla más estrecha. En teléfono
-       el mapa va DE BORDE A BORDE (0px laterales, pedido del cliente): el contenedor
-       pierde el radio/borde lateral abajo, así que no queda nada pegado al filo. */
-    body:has(.mapa-page) .main-viewport {
-        width: 100% !important;
-        max-width: 100% !important;
-        padding-left: 0 !important;
-        padding-right: 0 !important;
-        /* padding-top 0 (antes 12px): esos 12px dejaban una franja GRIS entre el header y el
-           mapa. Ahora el mapa sube hasta justo debajo del menú de navegación, sin recorte gris. */
-        padding-top: 0 !important;
-        padding-bottom: 0 !important;
-        box-sizing: border-box !important;
-        overflow-x: hidden;
-    }
-    .mapa-page { padding: 0; }
+    /* El layout full-screen (main-viewport/mapa-page/#mapa-leaflet a pantalla completa detrás
+       del header) vive ahora en la base, arriba — aplica igual en PC y teléfono. Aquí quedan
+       SOLO los ajustes propios del móvil. */
     .mapa-creditos { display: none; }
     .leaflet-control-layers { display: none; }
     /* Solo queda "Pantalla completa" — Ver toda Venezuela, Descargar imagen, Proyectos
@@ -4098,24 +4066,6 @@ html.is-ios .ent-capt-add-btn { display: flex !important; }
         width: calc(100vw - 76px) !important;
         max-width: none !important;
     }
-    /* Contenedor MAS ALTO: 100dvh (no 100vh) descuenta la barra de URL del navegador —
-       con 100vh el mapa quedaba cortado por debajo del pliegue. Se resta solo el header
-       de la app. min-height 560px se anula: en un telefono bajo forzaba scroll y sacaba
-       parte del mapa de la vista. El JS reajusta Leaflet cuando esta altura cambia
-       (ResizeObserver en mapa_index.js) — sin eso quedan teselas grises al rotar. */
-    #mapa-leaflet {
-        /* 70px = alto del header (el mapa arranca justo debajo, sin franja gris). Antes 72
-           dejaba 2px + los 12 del padding = gris arriba. */
-        height: calc(100vh - 70px); /* fallback: navegadores sin dvh */
-        height: calc(100dvh - 70px);
-        min-height: 0;
-        /* De borde a borde: sin radio ni bordes laterales (el contenedor ocupa
-           el 100% del ancho de la pantalla — ver .main-viewport arriba). */
-        border-radius: 0;
-        border-left: none;
-        border-right: none;
-    }
-
     /* ── Leyenda en teléfono ──────────────────────────────────────────────────
        Sigue VISIBLE (es la única forma de saber qué proyecto/municipio es cada
        color, y el panel "Proyectos" está oculto acá), pero se compacta:
