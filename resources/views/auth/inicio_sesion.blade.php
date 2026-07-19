@@ -324,6 +324,9 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js', { scope: '/', updateViaCache: 'none' }).catch(function(){});
 }
 </script>
+{{-- Overlay "Actualizando…": si hay un SW nuevo bajándose (tras un despliegue), avisa y
+     recarga al terminar. Solo en ese caso; en login normal no aparece. --}}
+<script src="{{ asset('js/pwa-update-overlay.js') }}?v={{ @filemtime(public_path('js/pwa-update-overlay.js')) }}" defer></script>
 {{-- Login OFFLINE: botón "Entrar sin conexión" + verificación por hash local. --}}
 <script src="{{ asset('js/offline/offline-auth.js') }}?v={{ @filemtime(public_path('js/offline/offline-auth.js')) }}" defer></script>
 {{-- WebAuthn: login biométrico (huella/rostro) sin contraseña. --}}

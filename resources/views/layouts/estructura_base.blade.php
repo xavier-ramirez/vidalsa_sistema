@@ -2789,6 +2789,8 @@
 
         {{-- ===== PWA: registro del Service Worker + banner "Instalar aplicacion" ===== --}}
         <script src="{{ asset('js/pwa-install.js') }}?v={{ @filemtime(public_path('js/pwa-install.js')) }}" defer></script>
+        {{-- Overlay "Actualizando…" cuando se está bajando una versión nueva del SW. --}}
+        <script src="{{ asset('js/pwa-update-overlay.js') }}?v={{ @filemtime(public_path('js/pwa-update-overlay.js')) }}" defer></script>
 
         {{-- ===== OFFLINE (Fase 1): baja la copia de datos a IndexedDB para consultar sin internet ===== --}}
         <script src="{{ asset('js/offline/offline-sync.js') }}?v={{ @filemtime(public_path('js/offline/offline-sync.js')) }}" defer></script>
