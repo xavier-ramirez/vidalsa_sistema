@@ -345,6 +345,9 @@
             }
             window._eqOffPatchedLoad = function () {
                 if (OM.estaActivo()) { aplicarFiltro(); return Promise.resolve(); }
+                // Sin conexión pero SIN activar el modo offline: bloqueamos la búsqueda (no
+                // pegarle al servidor caído) y avisamos que pulse "Trabajar sin conexión".
+                if (OM.pendienteActivar && OM.pendienteActivar()) { OM.avisarActivar(); return Promise.resolve(); }
                 return window._origLoadEquipos.apply(null, arguments);
             };
             window.loadEquipos = window._eqOffPatchedLoad;

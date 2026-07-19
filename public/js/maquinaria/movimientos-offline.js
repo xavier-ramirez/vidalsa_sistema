@@ -162,6 +162,9 @@
             window._origLoadMovimientos = window.loadMovimientos;
             window._movOffPatchedLoad = function () {
                 if (OM.estaActivo()) { OM.conOfflineDB(render); return; }
+                // Sin conexión pero SIN activar el modo offline: bloqueamos el filtro (no
+                // pegarle al servidor caído) y avisamos que pulse "Trabajar sin conexión".
+                if (OM.pendienteActivar && OM.pendienteActivar()) { OM.avisarActivar(); return; }
                 return window._origLoadMovimientos.apply(null, arguments);
             };
             window.loadMovimientos = window._movOffPatchedLoad;

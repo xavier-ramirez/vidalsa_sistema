@@ -1082,30 +1082,20 @@
                 let offlineActivo = false;
                 let sinConexion   = false; // true mientras el banner muestra estado offline
                                            // (NO usar navigator.onLine: miente con el server caído)
+                let ultimoAvisoOffline = 0; // throttle del toast "activá el modo offline" (evita spam al teclear)
 
                 function correrRenders() {
                     Object.keys(renders).forEach(function (k) { try { renders[k](); } catch (e) {} });
                 }
-                function mostrarOffline() {
-                    sinConexion = true;
-                    showBanner('Sin conexión a internet', 'wifi_off', '#dc2626', 0);
-                    // AUTO-activar el modo offline si el módulo actual tiene vista offline
-                    // registrada. Antes era MANUAL (botón "Trabajar sin conexión"); si el
-                    // usuario no lo pulsaba, los filtros seguían llamando al servidor caído y
-                    // "no filtraban nada". Ahora funciona solo. El botón queda de respaldo si
-                    // aún no hay render registrado en este instante.
-                    if (Object.keys(renders).length && !offlineActivo) {
-                        activarOffline();
-                    } else if (action) {
-                        action.style.display = 'none';
-                    }
+                function hayRenders() { return Object.keys(renders).length > 0; }
+                // Ofrecer (NO activar) el modo offline: mostramos el botón "Trabajar sin
+                // conexión" SOLO si el módulo actual tiene vista offline registrada. El modo
+                // es OPT-IN: NINGÚN dato local se carga hasta que el usuario pulse el botón.
+                function ofrecerOffline() {
+                    if (action) action.style.display = hayRenders() ? 'inline-flex' : 'none';
                 }
-                function activarOffline() {
-                    if (offlineActivo) return;
-                    offlineActivo = true;
-                    if (action) action.style.display = 'none';
-                    correrRenders();
-                    // Banner ámbar con la fecha de la copia local (si OfflineDB ya cargó).
+                // Pinta el banner ámbar "Trabajando sin conexión · <fecha de la copia local>".
+                function pintarBannerOffline() {
                     var pintar = function (cuando) {
                         showBanner('Trabajando sin conexión' + (cuando || ''), 'cloud_off', '#b45309', 0);
                     };
@@ -1116,6 +1106,24 @@
                             pintar(c);
                         }).catch(function () { pintar(''); });
                     } else { pintar(''); }
+                }
+                function mostrarOffline() {
+                    sinConexion = true;
+                    // Ya trabajando offline: mantener el banner ámbar (no volver al rojo).
+                    if (offlineActivo) { pintarBannerOffline(); return; }
+                    // MANUAL (opt-in): aviso rojo + OFRECEMOS el botón; NO se activa solo.
+                    // Sin conexión, nada de copia local hasta que el usuario pulse "Trabajar
+                    // sin conexión". Si no lo pulsa, la vista queda con los datos del servidor
+                    // y los filtros quedan bloqueados (ver pendienteActivar/avisarActivar).
+                    showBanner('Sin conexión a internet', 'wifi_off', '#dc2626', 0);
+                    ofrecerOffline();
+                }
+                function activarOffline() {
+                    if (offlineActivo) return;
+                    offlineActivo = true;
+                    if (action) action.style.display = 'none';
+                    correrRenders();
+                    pintarBannerOffline();
                 }
                 if (action) action.addEventListener('click', activarOffline);
 
@@ -1174,13 +1182,31 @@
                 window.OfflineMode = {
                     registrar: function (clave, fn) {
                         renders[clave] = fn;
-                        // Si YA estamos sin conexión cuando el módulo se registra (p.ej. se
-                        // navegó a equipos estando offline), auto-activar en vez de solo
-                        // ofrecer el botón — así los filtros offline funcionan de inmediato.
-                        if (sinConexion && !offlineActivo) activarOffline();
+                        // Si YA estamos sin conexión cuando el módulo se registra (p.ej. la
+                        // app se abrió offline), OFRECEMOS el botón (opt-in) en vez de activar
+                        // solo — el usuario decide pasar a la copia local.
+                        if (sinConexion && !offlineActivo) ofrecerOffline();
                     },
                     activar: activarOffline,
                     estaActivo: function () { return offlineActivo; },
+                    // Sin conexión detectada pero el usuario AÚN no activó el modo offline
+                    // (opt-in pendiente). Los patches de carga de cada módulo consultan esto
+                    // para BLOQUEAR sus filtros/búsqueda en vez de pegarle al servidor caído.
+                    pendienteActivar: function () { return sinConexion && !offlineActivo; },
+                    // Aviso (con throttle) + resalte del botón cuando el usuario intenta
+                    // filtrar sin haber activado el modo offline. Lo llaman esos patches.
+                    avisarActivar: function () {
+                        var ahora = Date.now();
+                        if (ahora - ultimoAvisoOffline > 2500) {
+                            ultimoAvisoOffline = ahora;
+                            if (window.showToast) window.showToast("Sin conexión — presioná 'Trabajar sin conexión' para usar la copia local.", 'warning');
+                        }
+                        if (action && action.style.display !== 'none') {
+                            action.style.transition = 'transform .15s ease';
+                            action.style.transform  = 'scale(1.12)';
+                            setTimeout(function () { action.style.transform = 'scale(1)'; }, 180);
+                        }
+                    },
                     esc: function (s) {
                         return String(s == null ? '' : s)
                             .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
