@@ -43,6 +43,10 @@
     .cdash-cat-list.open { display:block; }
     .cdash-cat-item { padding:7px 10px; border-radius:6px; font-size:13px; font-weight:600; color:#1e293b; cursor:pointer; }
     .cdash-cat-item:hover { background:#f0f4f8; }
+    /* Filtro de CATEGORÍA en mayúsculas (placeholder, texto tecleado y opciones). */
+    #cdashCatInput { text-transform: uppercase; }
+    #cdashCatInput::placeholder { text-transform: uppercase; }
+    #cdashCatList .cdash-cat-item { text-transform: uppercase; }
     .cdash-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
     .cdash-card { background:#fff; border:1px solid #e9eef5; border-radius:14px; padding:16px 18px; min-width:0;
         box-shadow:0 1px 2px rgba(15,23,42,.04); }
@@ -85,18 +89,25 @@
                  Sin títulos: cada control se identifica por su placeholder/valor. --}}
             <div class="cdash-filtros">
                 <div class="f-group f-group-desc">
-                    <div class="cdash-inp-box" id="cdashDescBox">
-                        <i class="material-icons">search</i>
-                        <input type="text" id="cdashDescripcion" placeholder="Descripción del producto…" autocomplete="off"
-                               oninput="window._cdashDescInput()"
-                               onkeydown="if(event.key==='Enter'){event.preventDefault();clearTimeout(window._cdashDescTimer);window._cdashFetch();}">
-                        <i class="material-icons clr" id="cdashDescClear" style="display:none;" onclick="window._cdashDescClear()">close</i>
+                    {{-- .cdash-cat-wrap: reutiliza el posicionamiento (position:relative) para
+                         que el dropdown de recomendaciones (#cdashDescList) caiga bajo el input. --}}
+                    <div class="cdash-cat-wrap">
+                        <div class="cdash-inp-box" id="cdashDescBox">
+                            <i class="material-icons">search</i>
+                            <input type="text" id="cdashDescripcion" placeholder="Descripción del producto…" autocomplete="off"
+                                   oninput="window._cdashDescInput()"
+                                   onkeydown="if(event.key==='Enter'){event.preventDefault();window._cdashDescCloseSug();clearTimeout(window._cdashDescTimer);window._cdashFetch();}"
+                                   onblur="setTimeout(function(){window._cdashDescCloseSug();},180)">
+                            <i class="material-icons clr" id="cdashDescClear" style="display:none;" onclick="window._cdashDescClear()">close</i>
+                        </div>
+                        {{-- Recomendaciones (nombres de producto) — mismo look que la lista de Categoría. --}}
+                        <div class="cdash-cat-list" id="cdashDescList"></div>
                     </div>
                 </div>
                 <div class="f-group f-group-cat">
                     <div class="cdash-cat-wrap">
                         <input type="hidden" id="cdashCategoria" value="">
-                        <div class="cdash-inp-box cdash-cat-box" id="cdashCatBox" onclick="window._cdashCatToggle()">
+                        <div class="cdash-inp-box cdash-cat-box" id="cdashCatBox" onclick="window._cdashCatOpen()">
                             <i class="material-icons">search</i>
                             <input type="text" id="cdashCatInput" placeholder="Todas las categorías" autocomplete="off"
                                    oninput="window._cdashCatFilter(this.value)"
@@ -140,6 +151,9 @@
     window._cdashCharts = window._cdashCharts || {};
     // El <select> de categoría se llena una sola vez (con lo que devuelve el endpoint).
     window._cdashCatsCargadas = false;
+    // Las recomendaciones del filtro Descripción (nombres de producto) también se cargan
+    // UNA sola vez: el modal pide la lista con con_productos=1 en el primer fetch y la cachea.
+    window._cdashProdsCargados = false;
 
     // Formato de número estilo VE: miles con punto, decimales con coma. Sin decimales
     // si es entero (las unidades suelen serlo, pero soporta fraccionarios).
@@ -147,6 +161,15 @@
         n = Number(n) || 0;
         var dec = (n % 1 === 0) ? 0 : 2;
         return n.toLocaleString('es-VE', { minimumFractionDigits: dec, maximumFractionDigits: 2 });
+    };
+
+    // "2026-06" → "Jun 2026" (mes en palabra, no en número). Robusto si no llega bien formado.
+    window.cdashMesLabel = function (ym) {
+        var M = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+        var p = String(ym || '').split('-');
+        if (p.length < 2) return String(ym || '');
+        var i = parseInt(p[1], 10) - 1;
+        return (M[i] || p[1]) + ' ' + p[0];
     };
 
     window.cerrarConsumoDashboard = function () {
@@ -163,6 +186,9 @@
 
     // Lee los filtros PROPIOS del modal y pide los datos. Independiente del módulo.
     window._cdashFetch = function () {
+        // Cierra las sugerencias de Descripción para que el spinner de carga quede
+        // visible (mismo feedback que al filtrar por Categoría).
+        if (window._cdashDescCloseSug) window._cdashDescCloseSug();
         var ldEl = document.getElementById('cdashLoading');
         ldEl.style.display = 'flex';
         ldEl.innerHTML = '<i class="material-icons cdash-spin">refresh</i><span>Cargando datos de consumo…</span>';
@@ -190,6 +216,8 @@
         if (hasta) p.set('hasta', hasta);
         if (cat)   p.set('categoria', cat);
         if (desc)  p.set('descripcion', desc);
+        // Pide la lista de nombres para las recomendaciones SOLO la primera vez (luego se cachea).
+        if (!window._cdashProdsCargados) p.set('con_productos', '1');
         var qs = p.toString();
 
         fetch(window.CONSUMO_DASH_URL + (qs ? ('?' + qs) : ''), { headers: { 'Accept': 'application/json' } })
@@ -211,6 +239,12 @@
             window._cdashCatsData = data.categorias;
             window._cdashCatsCargadas = true;
             window._cdashCatRenderList();
+        }
+
+        // Recomendaciones del filtro Descripción: se cachean la primera vez que llegan.
+        if (!window._cdashProdsCargados && Array.isArray(data.productos)) {
+            window._cdashProdsData = data.productos;
+            window._cdashProdsCargados = true;
         }
 
         var sinDatos = (!data.por_mes || !data.por_mes.length) &&
@@ -244,12 +278,49 @@
         // Degradado horizontal (marca izq → claro der) para barras horizontales.
         function cdHGrad(c, a, b) { var ar = c.chart.chartArea; if (!ar) return a; var g = c.chart.ctx.createLinearGradient(ar.left, 0, ar.right, 0); g.addColorStop(0, a); g.addColorStop(1, b); return g; }
 
+        // Plugin: dibuja la CANTIDAD sobre cada barra/segmento (visible SIN pasar el mouse).
+        // Soporta barras verticales (encima), horizontales (al final; dentro si la barra es
+        // muy larga) y dona (en el centro del segmento).
+        var cdValLabels = {
+            id: 'cdValLabels',
+            afterDatasetsDraw: function (chart) {
+                var ctx = chart.ctx;
+                var horizontal = chart.options.indexAxis === 'y';
+                var isDoughnut = chart.config.type === 'doughnut';
+                var area = chart.chartArea;
+                chart.data.datasets.forEach(function (ds, di) {
+                    chart.getDatasetMeta(di).data.forEach(function (el, i) {
+                        var v = ds.data[i];
+                        if (v == null || v === 0) return;
+                        var txt = fmt(v);
+                        ctx.save();
+                        ctx.font = "700 11px 'Inter','Segoe UI',sans-serif";
+                        if (isDoughnut) {
+                            var p = el.tooltipPosition ? el.tooltipPosition() : { x: el.x, y: el.y };
+                            ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                            ctx.fillText(txt, p.x, p.y);
+                        } else if (horizontal) {
+                            var dentro = area && el.x > area.left + (area.right - area.left) * 0.82;
+                            ctx.textBaseline = 'middle';
+                            if (dentro) { ctx.fillStyle = '#fff'; ctx.textAlign = 'right'; ctx.fillText(txt, el.x - 6, el.y); }
+                            else { ctx.fillStyle = '#334155'; ctx.textAlign = 'left'; ctx.fillText(txt, el.x + 6, el.y); }
+                        } else {
+                            ctx.fillStyle = '#334155'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+                            ctx.fillText(txt, el.x, el.y - 4);
+                        }
+                        ctx.restore();
+                    });
+                });
+            }
+        };
+
         // ── 1) Consumo por mes (barras, azul con degradado) ──────────────────
         var mes = data.por_mes || [];
         window._cdashCharts.mes = new Chart(document.getElementById('cdashChartMes'), {
             type: 'bar',
+            plugins: [cdValLabels],
             data: {
-                labels: mes.map(function (x) { return x.mes; }),
+                labels: mes.map(function (x) { return window.cdashMesLabel(x.mes); }),
                 datasets: [{ label: 'Consumo', data: mes.map(function (x) { return x.total; }),
                     backgroundColor: function (c) { return cdVGrad(c, '#38bdf8', '#0067b1'); },
                     hoverBackgroundColor: function (c) { return cdVGrad(c, '#0ea5e9', '#005a9e'); },
@@ -269,8 +340,12 @@
         var top = data.top_productos || [];
         window._cdashCharts.top = new Chart(document.getElementById('cdashChartTop'), {
             type: 'bar',
+            plugins: [cdValLabels],
             data: {
-                labels: top.map(function (x) { return x.nombre; }),
+                // Rótulo = Nº DE PARTE principal (identifica el filtro exacto). Muchos filtros
+                // comparten descripción, así que rotular por descripción se veía "combinado".
+                // El total ya es por producto (ID_PRODUCTO), no por descripción.
+                labels: top.map(function (x) { return x.parte || x.nombre; }),
                 datasets: [{ label: 'Consumo', data: top.map(function (x) { return x.total; }),
                     backgroundColor: function (c) { return cdHGrad(c, '#0067b1', '#7dd3fc'); },
                     hoverBackgroundColor: function (c) { return cdHGrad(c, '#005a9e', '#38bdf8'); },
@@ -278,7 +353,32 @@
             },
             options: {
                 indexAxis: 'y', responsive: true, maintainAspectRatio: false,
-                plugins: { legend: { display: false }, tooltip: Object.assign({}, cdTooltip, { callbacks: { label: function (c) { return fmt(c.parsed.x) + ' und'; } } }) },
+                plugins: { legend: { display: false }, tooltip: Object.assign({}, cdTooltip, {
+                    // Título en NEGRITA (titleFont weight 700): nombre + cantidad y unidad.
+                    // El cuerpo (normal) lleva nº de parte y equipos, uno debajo del otro.
+                    // La cantidad va SOLO en el título (no se repite en el cuerpo).
+                    callbacks: {
+                        title: function (items) {
+                            var c = items[0] || {}; var d = top[c.dataIndex] || {};
+                            return [ (d.nombre || c.label || ''), fmt(c.parsed.x) + '   ' + (d.um || 'UND') ];
+                        },
+                        label: function (c) {
+                            var d = top[c.dataIndex] || {};
+                            var out = [];
+                            // Nº de parte: lista completa (el eje ya muestra el principal).
+                            if (d.partes && d.partes.length) {
+                                out.push('Nº de parte: ' + d.partes.slice(0, 6).join(' / ') +
+                                         (d.partes.length > 6 ? ' …' : ''));
+                            }
+                            if (d.equipos && d.equipos.length) {
+                                out.push('Equipos que lo usan:');
+                                d.equipos.slice(0, 8).forEach(function (e) { out.push('•  ' + e); });
+                                if (d.equipos.length > 8) out.push('… y ' + (d.equipos.length - 8) + ' más');
+                            }
+                            return out;
+                        }
+                    }
+                }) },
                 scales: {
                     x: { beginAtZero: true, grid: cdGrid, ticks: Object.assign({ callback: function (v) { return fmt(v); } }, cdTick) },
                     y: { grid: { display: false, drawBorder: false }, ticks: { color: '#475569', font: { size: 10 }, callback: function (v) { var l = this.getLabelForValue(v); return l.length > 28 ? l.slice(0, 28) + '…' : l; } } }
@@ -308,7 +408,7 @@
                     } } })
                 }
             },
-            plugins: [{
+            plugins: [cdValLabels, {
                 id: 'cdashCenter',
                 beforeDraw: function (chart) {
                     var ar = chart.chartArea; if (!ar) return;
@@ -331,6 +431,7 @@
         var val = inp ? inp.value.trim() : '';
         var clr = document.getElementById('cdashDescClear'); if (clr) clr.style.display = val ? 'block' : 'none';
         var box = document.getElementById('cdashDescBox'); if (box) box.classList.toggle('active', !!val);
+        window._cdashDescRenderSug();   // recomendaciones en vivo (NO dispara fetch)
         clearTimeout(window._cdashDescTimer);
         window._cdashDescTimer = setTimeout(function () { window._cdashFetch(); }, 350);
     };
@@ -338,8 +439,45 @@
         var inp = document.getElementById('cdashDescripcion'); if (inp) inp.value = '';
         var clr = document.getElementById('cdashDescClear'); if (clr) clr.style.display = 'none';
         var box = document.getElementById('cdashDescBox'); if (box) box.classList.remove('active');
+        window._cdashDescCloseSug();
         clearTimeout(window._cdashDescTimer);
         window._cdashFetch();
+    };
+
+    // ── Recomendaciones del filtro Descripción (nombres de producto) ───────────
+    // Mismo look que la lista de Categoría (.cdash-cat-list/.cdash-cat-item) y mismos
+    // escapes (escHtml/escAttr, definidos más abajo). Los nombres se cargaron 1 vez en
+    // _cdashProdsData. Solo filtran/rellenan el input — NO tocan el back más allá del fetch.
+    window._cdashProdsData = window._cdashProdsData || [];
+    window._cdashDescRenderSug = function () {
+        var list = document.getElementById('cdashDescList'); if (!list) return;
+        var inp = document.getElementById('cdashDescripcion');
+        var q = (inp ? inp.value : '').trim().toLowerCase();
+        if (!q) { list.classList.remove('open'); list.innerHTML = ''; return; }
+        // Primero los que EMPIEZAN por lo escrito, luego los que lo CONTIENEN. Máx 12.
+        var starts = [], contains = [];
+        window._cdashProdsData.forEach(function (n) {
+            var i = String(n).toLowerCase().indexOf(q);
+            if (i === 0) starts.push(n); else if (i > 0) contains.push(n);
+        });
+        var res = starts.concat(contains).slice(0, 12);
+        if (!res.length) { list.classList.remove('open'); list.innerHTML = ''; return; }
+        list.innerHTML = res.map(function (n) {
+            var safe = escAttr(n);
+            return '<div class="cdash-cat-item" onmousedown="event.preventDefault();window._cdashDescSelectSug(\'' + safe + '\');">' + escHtml(n) + '</div>';
+        }).join('');
+        list.classList.add('open');
+    };
+    window._cdashDescSelectSug = function (name) {
+        var inp = document.getElementById('cdashDescripcion'); if (inp) inp.value = name;
+        var clr = document.getElementById('cdashDescClear'); if (clr) clr.style.display = 'block';
+        var box = document.getElementById('cdashDescBox'); if (box) box.classList.add('active');
+        window._cdashDescCloseSug();
+        clearTimeout(window._cdashDescTimer);
+        window._cdashFetch();
+    };
+    window._cdashDescCloseSug = function () {
+        var list = document.getElementById('cdashDescList'); if (list) list.classList.remove('open');
     };
 
     window._cdashCatsData = window._cdashCatsData || [];

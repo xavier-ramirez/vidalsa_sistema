@@ -1,0 +1,6189 @@
+[
+ {
+  "codigo": "001163",
+  "item_excel": 1,
+  "nombre": "FILTRO DE ACEITE DE MOTOR",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "LF-3977"
+  ],
+  "equipos": [
+   {
+    "tipo": "Cosechadora/Tractor CASE IH-NEW HOLLAND (T9, Steiger, CR/CX) / camion IVECO",
+    "marca": "(ver resumen)",
+    "modelo": "(ver resumen)",
+    "fuente": "Internet"
+   }
+  ]
+ },
+ {
+  "codigo": "001164",
+  "item_excel": 2,
+  "nombre": "FILTRO TRAMPA DE AGUA",
+  "alias": "Separador de agua",
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "MIS0070",
+   "PL420",
+   "1000424916"
+  ],
+  "equipos": [
+   {
+    "tipo": "BRAZO HIDRAULICO 6 TON",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ1168K541NC1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CAMION ELEVADOR 12T / CON BRAZO ARTUCULADO 6 TN",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ1168K541NC1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CHUTO",
+    "marca": "JAC",
+    "modelo": "HFC3252KR1K3",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CHUTO",
+    "marca": "JAC",
+    "modelo": "HFC4250KR1K3",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CHUTO",
+    "marca": "SINOTRUCK",
+    "modelo": "HOWO 344JB1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CHUTO",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ4257V324JB1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CHUTO CON BRAZO HIDRAULICO 16T",
+    "marca": "SINOTRUCK",
+    "modelo": "HOWO 344JB1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CHUTO/ CHUTO CON BRAZO HIDRAULICO 16T",
+    "marca": "SINOTRUCK",
+    "modelo": "HOWO 344JB1/ 324JB1/424JB1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CHUTO/BRAZO 16T",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ4257V324JB1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CHUTO/BRAZO 6T",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ1168K541NC1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "EXCAVADORA",
+    "marca": "LOVOL",
+    "modelo": "FR420F",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "GRUA TELESCOPICA",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ5317V4667B1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "JUMBO",
+    "marca": "LOVOL",
+    "modelo": "FR420F",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "PAYLOADER",
+    "marca": "LOVOL",
+    "modelo": "FL956H",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "PAYLOADER",
+    "marca": "LOVOL",
+    "modelo": "FL976K",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "PAYLOADER",
+    "marca": "VOLVO",
+    "modelo": "L120E",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "VACUUM",
+    "marca": "SINOTRUCK",
+    "modelo": "SGZ9400GXW",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "VOLTEO",
+    "marca": "JAC",
+    "modelo": "GALLOP",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "VOLTEO",
+    "marca": "JAC",
+    "modelo": "HFC3252KR1K3/GALLOP",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "VOLTEO",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ3257V464JB1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "VOLTEO (CAMION CON BRAZO ART 6T, PLATAFORMA 8T, 12T)",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ1168K541NC1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "VOLTEO/BRAZO ARTICULADO",
+    "marca": "JAC",
+    "modelo": "HFC3252KR1K3/GALLOP",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001165",
+  "item_excel": 3,
+  "nombre": "FILTRO SEPARADOR DE AGUA (RACOR)",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "MIS0531",
+   "1000FG"
+  ],
+  "equipos": [
+   {
+    "tipo": "BRAZO HIDRAULICO 6 TON",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ1168K541NC1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CAMION CON BRAZO 4 TON",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ1168G4525C1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CAMION CON BRAZO ARTICULADO 4 TN/CAMION DE SOLDADURA/ CAMION ELEVADOR DE 8 TN",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ1168G4525C1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CAMION DE PLATAFORMA",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ1168G4525C1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CAMION ELEVADOR 12T / CON BRAZO ARTUCULADO 6 TN",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ1168K541NC1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CHUTO",
+    "marca": "SINOTRUCK",
+    "modelo": "HOWO 344JB1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CHUTO",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ4257V324JB1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CHUTO CON BRAZO HIDRAULICO 16T",
+    "marca": "SINOTRUCK",
+    "modelo": "HOWO 344JB1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CHUTO/ CHUTO CON BRAZO HIDRAULICO 16T",
+    "marca": "SINOTRUCK",
+    "modelo": "HOWO 344JB1/ 324JB1/424JB1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CHUTO/BRAZO 16T",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ4257V324JB1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CHUTO/BRAZO 6T",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ1168K541NC1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "GRUA TELESCOPICA",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ5317V4667B1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "JUMBO",
+    "marca": "LOVOL",
+    "modelo": "FR220D",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "JUMBO",
+    "marca": "LOVOL",
+    "modelo": "FR420F",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "PAYLOADER",
+    "marca": "LOVOL",
+    "modelo": "FL956H",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "VOLTEO",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ3257V464JB1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "VOLTEO (CAMION CON BRAZO ART 6T, PLATAFORMA 8T, 12T)",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ1168K541NC1",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001166",
+  "item_excel": 4,
+  "nombre": "FILTRO DE COMBUSTIBLE",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "MIS0067",
+   "100442956",
+   "CX1334",
+   "1007167053"
+  ],
+  "equipos": [
+   {
+    "tipo": "CAMION CON BRAZO 4 TON",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ1168G4525C1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CAMION CON BRAZO ARTICULADO 4 TN/CAMION DE SOLDADURA/ CAMION ELEVADOR DE 8 TN",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ1168G4525C1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CAMION DE PLATAFORMA",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ1168G4525C1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CAMION ELEVADOR 12T / CON BRAZO ARTUCULADO 6 TN",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ1168K541NC1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CHUTO",
+    "marca": "JAC",
+    "modelo": "HFC3252KR1K3",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CHUTO",
+    "marca": "JAC",
+    "modelo": "HFC4250KR1K3",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CHUTO",
+    "marca": "SINOTRUCK",
+    "modelo": "HOWO 344JB1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CHUTO",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ4257V324JB1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CHUTO CON BRAZO HIDRAULICO 16T",
+    "marca": "SINOTRUCK",
+    "modelo": "HOWO 344JB1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CHUTO/ CHUTO CON BRAZO HIDRAULICO 16T",
+    "marca": "SINOTRUCK",
+    "modelo": "HOWO 344JB1/ 324JB1/424JB1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CHUTO/BRAZO 16T",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ4257V324JB1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CHUTO/BRAZO 6T",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ1168K541NC1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "GRUA TELESCOPICA",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ5317V4667B1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "PAYLOADER",
+    "marca": "LOVOL",
+    "modelo": "FL956H",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "PAYLOADER",
+    "marca": "NEW HOLLAND",
+    "modelo": "W170",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "RETROEXCAVADORA",
+    "marca": "SINOTRUCK",
+    "modelo": "FLB468-II",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "VACUUM",
+    "marca": "SINOTRUCK",
+    "modelo": "SGZ9400GXW",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "VOLTEO",
+    "marca": "JAC",
+    "modelo": "GALLOP",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "VOLTEO",
+    "marca": "JAC",
+    "modelo": "HFC3252KR1K3",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "VOLTEO",
+    "marca": "JAC",
+    "modelo": "HFC3252KR1K3/GALLOP",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "VOLTEO",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ3257V464JB1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "VOLTEO (CAMION CON BRAZO ART 6T, PLATAFORMA 8T, 12T)",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ1168K541NC1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "VOLTEO/BRAZO ARTICULADO",
+    "marca": "JAC",
+    "modelo": "HFC3252KR1K3/GALLOP",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001167",
+  "item_excel": 5,
+  "nombre": "FILTRO DE AIRE PRIMARIO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "710W08405-0017",
+   "1-RS5361"
+  ],
+  "equipos": [
+   {
+    "tipo": "BRAZO HIDRAULICO 6 TON",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ1168K541NC1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CAMION ELEVADOR 12T / CON BRAZO ARTUCULADO 6 TN",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ1168K541NC1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CHUTO",
+    "marca": "SINOTRUCK",
+    "modelo": "HOWO 344JB1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CHUTO",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ4257V324JB1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CHUTO CON BRAZO HIDRAULICO 16T",
+    "marca": "SINOTRUCK",
+    "modelo": "HOWO 344JB1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CHUTO/ CHUTO CON BRAZO HIDRAULICO 16T",
+    "marca": "SINOTRUCK",
+    "modelo": "HOWO 344JB1/ 324JB1/424JB1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CHUTO/BRAZO 16T",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ4257V324JB1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "VOLTEO",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ3257V464JB1",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001168",
+  "item_excel": 6,
+  "nombre": "FILTRO DE AIRE SECUNDARIO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "WG9525195201",
+   "1-RS4971"
+  ],
+  "equipos": [
+   {
+    "tipo": "BRAZO HIDRAULICO 6 TON",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ1168K541NC1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CHUTO",
+    "marca": "SINOTRUCK",
+    "modelo": "HOWO 344JB1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CHUTO",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ4257V324JB1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CHUTO CON BRAZO HIDRAULICO 16T",
+    "marca": "SINOTRUCK",
+    "modelo": "HOWO 344JB1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CHUTO/ CHUTO CON BRAZO HIDRAULICO 16T",
+    "marca": "SINOTRUCK",
+    "modelo": "HOWO 344JB1/ 324JB1/424JB1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CHUTO/BRAZO 16T",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ4257V324JB1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "VOLTEO",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ3257V464JB1",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001169",
+  "item_excel": 7,
+  "nombre": "FILTRO SECANTE",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "AD4374",
+   "4329211012"
+  ],
+  "equipos": [
+   {
+    "tipo": "BRAZO HIDRAULICO 6 TON",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ1168K541NC1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CAMION CON BRAZO 4 TON",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ1168G4525C1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CAMION CON BRAZO ARTICULADO 4 TN/CAMION DE SOLDADURA/ CAMION ELEVADOR DE 8 TN",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ1168G4525C1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CAMION DE PLATAFORMA",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ1168G4525C1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CAMION ELEVADOR 12T / CON BRAZO ARTUCULADO 6 TN",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ1168K541NC1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CHUTO",
+    "marca": "JAC",
+    "modelo": "HFC3252KR1K3",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CHUTO",
+    "marca": "JAC",
+    "modelo": "HFC4250KR1K3",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CHUTO",
+    "marca": "SINOTRUCK",
+    "modelo": "HOWO 344JB1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CHUTO",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ4257V324JB1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CHUTO CON BRAZO HIDRAULICO 16T",
+    "marca": "SINOTRUCK",
+    "modelo": "HOWO 344JB1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CHUTO/ CHUTO CON BRAZO HIDRAULICO 16T",
+    "marca": "SINOTRUCK",
+    "modelo": "HOWO 344JB1/ 324JB1/424JB1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CHUTO/BRAZO 16T",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ4257V324JB1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CHUTO/BRAZO 6T",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ1168K541NC1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CUADRILLERA",
+    "marca": "JAC",
+    "modelo": "HFC1061K",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "GRUA TELESCOPICA",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ5317V4667B1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "GRÚA TELESCOPICA",
+    "marca": "SINOTRUCK",
+    "modelo": "HOWO 8 X 4",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "VOLTEO",
+    "marca": "JAC",
+    "modelo": "GALLOP",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "VOLTEO",
+    "marca": "JAC",
+    "modelo": "HFC3252KR1K3/GALLOP",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "VOLTEO",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ3257V464JB1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "VOLTEO (CAMION CON BRAZO ART 6T, PLATAFORMA 8T, 12T)",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ1168K541NC1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "VOLTEO/BRAZO ARTICULADO",
+    "marca": "JAC",
+    "modelo": "HFC3252KR1K3/GALLOP",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001170",
+  "item_excel": 8,
+  "nombre": "FILTRO DE ACEITE DE MOTOR",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "T202 24111501",
+   "WCH-38030"
+  ],
+  "equipos": [
+   {
+    "tipo": "BRAZO HIDRAULICO 6 TON",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ1168K541NC1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CAMION ELEVADOR 12T / CON BRAZO ARTUCULADO 6 TN",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ1168K541NC1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "VOLTEO (CAMION CON BRAZO ART 6T, PLATAFORMA 8T, 12T)",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ1168K541NC1",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001171",
+  "item_excel": 9,
+  "nombre": "FILTRO DE AIRE PRIMARIO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "WG9725190103",
+   "1-WRACK-1050"
+  ],
+  "equipos": [
+   {
+    "tipo": "CAMION ELEVADOR 12T / CON BRAZO ARTUCULADO 6 TN",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ1168K541NC1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CHUTO/BRAZO 6T",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ1168K541NC1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "GRUA TELESCOPICA",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ5317V4667B1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "VOLTEO (CAMION CON BRAZO ART 6T, PLATAFORMA 8T, 12T)",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ1168K541NC1",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001172",
+  "item_excel": 10,
+  "nombre": "FILTRO DE AIRE SECUNDARIO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "WG9725190122",
+   "1-WRACK-1050"
+  ],
+  "equipos": [
+   {
+    "tipo": "CAMION ELEVADOR 12T / CON BRAZO ARTUCULADO 6 TN",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ1168K541NC1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CHUTO/BRAZO 6T",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ1168K541NC1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "GRUA TELESCOPICA",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ5317V4667B1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "VOLTEO",
+    "marca": "JAC",
+    "modelo": "HFC3252KR1K3",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "VOLTEO (CAMION CON BRAZO ART 6T, PLATAFORMA 8T, 12T)",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ1168K541NC1",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001173",
+  "item_excel": 11,
+  "nombre": "FILTRO ANTIPOLEN",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "H200053006"
+  ],
+  "equipos": [
+   {
+    "tipo": "CAMION ELEVADOR 12T / CON BRAZO ARTUCULADO 6 TN",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ1168K541NC1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CHUTO",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ4257V324JB1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CHUTO/BRAZO 16T",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ4257V324JB1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CHUTO/BRAZO 6T",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ1168K541NC1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "VOLTEO (CAMION CON BRAZO ART 6T, PLATAFORMA 8T, 12T)",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ1168K541NC1",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001174",
+  "item_excel": 12,
+  "nombre": "FILTRO DE AIRE PRIMARIO + SECUNDARIO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "LG9704190655",
+   "1-LG9704190654",
+   "1 - WRAK-2100"
+  ],
+  "equipos": [
+   {
+    "tipo": "CAMION CON BRAZO 4 TON",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ1168G4525C1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CAMION CON BRAZO ARTICULADO 4 TN/CAMION DE SOLDADURA/ CAMION ELEVADOR DE 8 TN",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ1168G4525C1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CAMION DE PLATAFORMA",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ1168G4525C1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "VOLTEO",
+    "marca": "JAC",
+    "modelo": "HFC3252KR1K3",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001175",
+  "item_excel": 13,
+  "nombre": "FILTRO SEPARADOR DE AGUA (RACOR)",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "FG9804550080",
+   "1"
+  ],
+  "equipos": [
+   {
+    "tipo": "CAMION CON BRAZO 4 TON",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ1168G4525C1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CAMION CON BRAZO ARTICULADO 4 TN/CAMION DE SOLDADURA/ CAMION ELEVADOR DE 8 TN",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ1168G4525C1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CAMION DE PLATAFORMA",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ1168G4525C1",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001176",
+  "item_excel": 14,
+  "nombre": "FILTRO DE ACEITE DE MOTOR",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "MIS0066",
+   "1000588581",
+   "1000424655",
+   "2164",
+   "1000736512",
+   "W2801",
+   "LF4054",
+   "CLX251"
+  ],
+  "equipos": [
+   {
+    "tipo": "CAMION CON BRAZO 4 TON",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ1168G4525C1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CAMION CON BRAZO ARTICULADO 4 TN/CAMION DE SOLDADURA/ CAMION ELEVADOR DE 8 TN",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ1168G4525C1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CAMION DE PLATAFORMA",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ1168G4525C1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CHUTO",
+    "marca": "JAC",
+    "modelo": "HFC3252KR1K3",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CHUTO",
+    "marca": "JAC",
+    "modelo": "HFC4250KR1K3",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "PAYLOADER",
+    "marca": "LOVOL",
+    "modelo": "FL956H",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "PAYLOADER",
+    "marca": "LOVOL",
+    "modelo": "FL976K",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "PIPELAYER",
+    "marca": "SHANTUI",
+    "modelo": "SP25Y",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "PIPELAYER/SIDEBOOM",
+    "marca": "SHANTUI",
+    "modelo": "SP25Y",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "RETROEXCAVADORA",
+    "marca": "SINOTRUCK",
+    "modelo": "FLB468-II",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "VACUUM",
+    "marca": "SINOTRUCK",
+    "modelo": "SGZ9400GXW",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "VOLTEO",
+    "marca": "JAC",
+    "modelo": "GALLOP",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "VOLTEO",
+    "marca": "JAC",
+    "modelo": "HFC3252KR1K3",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "VOLTEO",
+    "marca": "JAC",
+    "modelo": "HFC3252KR1K3/GALLOP",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "VOLTEO/BRAZO ARTICULADO",
+    "marca": "JAC",
+    "modelo": "HFC3252KR1K3/GALLOP",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001177",
+  "item_excel": 15,
+  "nombre": "FILTRO DE AIRE",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "K2640"
+  ],
+  "equipos": [
+   {
+    "tipo": "CHUTO",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ4257V324JB1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "VACUUM",
+    "marca": "SINOTRUCK",
+    "modelo": "SGZ9400GXW",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001178",
+  "item_excel": 16,
+  "nombre": "FILTRO DE COMBUSTIBLE",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "WC-1191"
+  ],
+  "equipos": [
+   {
+    "tipo": "CHUTO",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ4257V324JB1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "VACUUM",
+    "marca": "REMORCA",
+    "modelo": "TSCVC2E",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001179",
+  "item_excel": 17,
+  "nombre": "FILTRO DE ACEITE DE MOTOR",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "AL1372",
+   "51372",
+   "W2",
+   "PH2",
+   "FL820S",
+   "ML2",
+   "AF-2C",
+   "AL-2",
+   "4WDL-2C"
+  ],
+  "equipos": [
+   {
+    "tipo": "AMBULANCIA",
+    "marca": "FORD",
+    "modelo": "TRITON",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CAMION",
+    "marca": "FORD",
+    "modelo": "F-350 4X4 / F-350",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CAMION DE SOLDADURA",
+    "marca": "FORD",
+    "modelo": "F-350 4X4 / F-350",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CAMION DE SOLDADURA / AMBULANCIA",
+    "marca": "FORD",
+    "modelo": "F-350 4X4 / F-350",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CAMION DE SOLDADURA / BOMBA",
+    "marca": "FORD",
+    "modelo": "F-350 4X4 / F-350",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CAMION DE SOLDADURA /CUADRILLERA/AMBULANCIA",
+    "marca": "FORD",
+    "modelo": "F-350 4X4 / F-350",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CAMIONETA PICK UP",
+    "marca": "TOYOTA",
+    "modelo": "HILUX 4X4",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CHUTO",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ4257V324JB1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "VACUUM",
+    "marca": "REMORCA",
+    "modelo": "TSCVC2E",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001180",
+  "item_excel": 18,
+  "nombre": "FILTRO (item 18)",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "1000588"
+  ],
+  "equipos": [
+   {
+    "tipo": "PIPELAYER",
+    "marca": "SHANTUI",
+    "modelo": "SP25Y",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "PIPELAYER/SIDEBOOM",
+    "marca": "SHANTUI",
+    "modelo": "SP25Y",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001181",
+  "item_excel": 19,
+  "nombre": "FILTRO DE AIRE PRIMARIO + SECUNDARIO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "612600114993"
+  ],
+  "equipos": [
+   {
+    "tipo": "PAYLOADER",
+    "marca": "LOVOL",
+    "modelo": "FL976K",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "PIPELAYER",
+    "marca": "SHANTUI",
+    "modelo": "SP25Y",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "PIPELAYER/SIDEBOOM",
+    "marca": "SHANTUI",
+    "modelo": "SP25Y",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001182",
+  "item_excel": 20,
+  "nombre": "FILTRO DE AIRE PRIMARIO + SECUNDARIO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "25032501031"
+  ],
+  "equipos": [
+   {
+    "tipo": "PIPELAYER",
+    "marca": "SHANTUI",
+    "modelo": "SP25Y",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "PIPELAYER/SIDEBOOM",
+    "marca": "SHANTUI",
+    "modelo": "SP25Y",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001183",
+  "item_excel": 21,
+  "nombre": "FILTRO DE ACEITE DE MOTOR",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "P553000",
+   "WF-51748"
+  ],
+  "equipos": [
+   {
+    "tipo": "TRACTOR",
+    "marca": "SHANTUI",
+    "modelo": "SD22",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001184",
+  "item_excel": 22,
+  "nombre": "FILTRO DE COMBUSTIBLE",
+  "alias": "Separador de agua (combustible)",
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "WF-33405",
+   "WBF1212",
+   "WPS3712",
+   "WIX 33405",
+   "DONALDSON P558000",
+   "FS1212"
+  ],
+  "equipos": [
+   {
+    "tipo": "CHUTO",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ4257V324JB1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "MOTONIVELADORA",
+    "marca": "CATERPILLAR",
+    "modelo": "140H",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "PATROL",
+    "marca": "CATERPILLAR",
+    "modelo": "140H",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "PAYLOADER",
+    "marca": "CATERPILLAR",
+    "modelo": "938G",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "RETROEXCAVADORA",
+    "marca": "SINOTRUCK",
+    "modelo": "FLB468-II",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "TRACTOR",
+    "marca": "SHANTUI",
+    "modelo": "SD22",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001185",
+  "item_excel": 23,
+  "nombre": "FILTRO TRAMPA DE AGUA",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "MHW-24074"
+  ],
+  "equipos": [
+   {
+    "tipo": "TRACTOR",
+    "marca": "CATERPILLAR",
+    "modelo": "D8N",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "TRACTOR",
+    "marca": "SHANTUI",
+    "modelo": "SD22",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001186",
+  "item_excel": 24,
+  "nombre": "FILTRO DE AIRE PRIMAIRO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "CTP1421340"
+  ],
+  "equipos": [
+   {
+    "tipo": "TRACTOR",
+    "marca": "SHANTUI",
+    "modelo": "SD22",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001187",
+  "item_excel": 26,
+  "nombre": "FILTRO DE COMBUSTIBLE",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "1447",
+   "1000700909",
+   "3522"
+  ],
+  "equipos": [
+   {
+    "tipo": "BRAZO HIDRAULICO 6 TON",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ1168K541NC1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "GRÚA TELESCOPICA",
+    "marca": "SINOTRUCK",
+    "modelo": "HOWO 8 X 4",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "PAYLOADER",
+    "marca": "LOVOL",
+    "modelo": "FL956H",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "RETROEXCAVADORA",
+    "marca": "SINOTRUCK",
+    "modelo": "FLB468-II",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001188",
+  "item_excel": 27,
+  "nombre": "FILTRO DE AIRE",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "1305689189",
+   "1305889"
+  ],
+  "equipos": [
+   {
+    "tipo": "GRÚA TELESCOPICA",
+    "marca": "SINOTRUCK",
+    "modelo": "HOWO 8 X 4",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "RETROEXCAVADORA",
+    "marca": "SINOTRUCK",
+    "modelo": "FLB468-II",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001189",
+  "item_excel": 28,
+  "nombre": "FILTRO DE CAJA",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "CA372273",
+   "P179342"
+  ],
+  "equipos": [
+   {
+    "tipo": "CAMIONETA PICK UP",
+    "marca": "SINOTRUCK",
+    "modelo": "PORTEN 4X4",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "RETROEXCAVADORA",
+    "marca": "SINOTRUCK",
+    "modelo": "FLB468-II",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001190",
+  "item_excel": 29,
+  "nombre": "FILTRO DE ACEITE DE MOTOR",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "LF9050"
+  ],
+  "equipos": [
+   {
+    "tipo": "RETROEXCAVADORA",
+    "marca": "JOHN DEERE",
+    "modelo": "310J",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "RETROEXCAVADORA",
+    "marca": "JOHN DEERE",
+    "modelo": "310SJ",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001191",
+  "item_excel": 30,
+  "nombre": "FILTRO DE ACEITE DE MOTOR",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "RE504836"
+  ],
+  "equipos": [
+   {
+    "tipo": "RETROEXCAVADORA",
+    "marca": "JOHN DEERE",
+    "modelo": "310J",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "RETROEXCAVADORA",
+    "marca": "JOHN DEERE",
+    "modelo": "310SJ",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "RETROEXCAVADORA",
+    "marca": "JOHN DEERE",
+    "modelo": "410J",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001192",
+  "item_excel": 31,
+  "nombre": "FILTRO DE COMBUSTIBLE",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "F3532",
+   "33531"
+  ],
+  "equipos": [
+   {
+    "tipo": "RETROEXCAVADORA",
+    "marca": "JOHN DEERE",
+    "modelo": "310J",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001193",
+  "item_excel": 32,
+  "nombre": "FILTRO TRAMPA DE AGUA",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "ELEMENTO BF7673-D"
+  ],
+  "equipos": [
+   {
+    "tipo": "RETROEXCAVADORA",
+    "marca": "JOHN DEERE",
+    "modelo": "310J",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "RETROEXCAVADORA",
+    "marca": "JOHN DEERE",
+    "modelo": "310SJ",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "RETROEXCAVADORA",
+    "marca": "JOHN DEERE",
+    "modelo": "410J",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001194",
+  "item_excel": 33,
+  "nombre": "FILTRO DE AIRE",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "ELEMENTO G082630"
+  ],
+  "equipos": [
+   {
+    "tipo": "RETROEXCAVADORA",
+    "marca": "JOHN DEERE",
+    "modelo": "310J",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "RETROEXCAVADORA",
+    "marca": "JOHN DEERE",
+    "modelo": "310SJ",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001195",
+  "item_excel": 34,
+  "nombre": "FILTRO DE COMBUSTIBLE",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "117-4089"
+  ],
+  "equipos": [
+   {
+    "tipo": "RETROEXCAVADORA",
+    "marca": "JOHN DEERE",
+    "modelo": "410J",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001196",
+  "item_excel": 35,
+  "nombre": "FILTRO DE ACEITE HIDRAULICO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "BT9367-MPG"
+  ],
+  "equipos": [
+   {
+    "tipo": "RETROEXCAVADORA",
+    "marca": "JOHN DEERE",
+    "modelo": "410J",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001197",
+  "item_excel": 37,
+  "nombre": "FILTRO DE AIRE SECUNDARIO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "CTP 2934053"
+  ],
+  "equipos": [
+   {
+    "tipo": "RETROEXCAVADORA",
+    "marca": "CATERPILLAR",
+    "modelo": "420 - E",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "RETROEXCAVADORA",
+    "marca": "CATERPILLAR",
+    "modelo": "420E",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001198",
+  "item_excel": 38,
+  "nombre": "FILTRO DE ACEITE DE MOTOR",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "WIX 10455A",
+   "BL-8"
+  ],
+  "equipos": [
+   {
+    "tipo": "RETROEXCAVADORA",
+    "marca": "CATERPILLAR",
+    "modelo": "420 - E",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001199",
+  "item_excel": 39,
+  "nombre": "FILTRO DE CAJA",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "BALDWIN BT8417"
+  ],
+  "equipos": [
+   {
+    "tipo": "RETROEXCAVADORA",
+    "marca": "CATERPILLAR",
+    "modelo": "420 - E",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "RETROEXCAVADORA",
+    "marca": "CATERPILLAR",
+    "modelo": "420E",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001200",
+  "item_excel": 40,
+  "nombre": "FILTRO DE GASOIL",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "540-5119"
+  ],
+  "equipos": [
+   {
+    "tipo": "Retroexcavadora CATERPILLAR 415-444; cargador 906-908 (motor C2.8/C3.6)",
+    "marca": "(ver resumen)",
+    "modelo": "(ver resumen)",
+    "fuente": "Internet"
+   }
+  ]
+ },
+ {
+  "codigo": "001201",
+  "item_excel": 41,
+  "nombre": "FILTRO DE ACEITE DE MOTOR",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "569-8036"
+  ],
+  "equipos": [
+   {
+    "tipo": "Excavadora CATERPILLAR 308-317 (motor C2.8/C3.6)",
+    "marca": "(ver resumen)",
+    "modelo": "(ver resumen)",
+    "fuente": "Internet"
+   }
+  ]
+ },
+ {
+  "codigo": "001202",
+  "item_excel": 42,
+  "nombre": "FILTRO DE AIRE PRIMARIO + SECUNDARIO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": true,
+  "conjunto": "AIRE-346",
+  "rol": "KIT (ref)",
+  "equivalencias": [
+   "346-6687",
+   "346-6688"
+  ],
+  "equipos": [
+   {
+    "tipo": "Retroexcavadora CATERPILLAR serie F/F2 (416F-450F)",
+    "marca": "(ver resumen)",
+    "modelo": "(ver resumen)",
+    "fuente": "Internet"
+   }
+  ]
+ },
+ {
+  "codigo": "001203",
+  "item_excel": 43,
+  "nombre": "FILTRO DE ACEITE DE MOTOR",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "7W-2326CAT"
+  ],
+  "equipos": [
+   {
+    "tipo": "Excavadora/Cargador CATERPILLAR M312-920 (motor 3054/C4.4)",
+    "marca": "(ver resumen)",
+    "modelo": "(ver resumen)",
+    "fuente": "Internet"
+   }
+  ]
+ },
+ {
+  "codigo": "001204",
+  "item_excel": 44,
+  "nombre": "FILTRO DE GASES DE MOTOR",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "339-1048"
+  ],
+  "equipos": [
+   {
+    "tipo": "Excavadora CATERPILLAR 314E-324E (respiradero de carter/CCV)",
+    "marca": "(ver resumen)",
+    "modelo": "(ver resumen)",
+    "fuente": "Internet"
+   }
+  ]
+ },
+ {
+  "codigo": "001205",
+  "item_excel": 45,
+  "nombre": "FILTRO DE GASOIL BOMBA ELECTRICA",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "APF24069"
+  ],
+  "equipos": [
+   {
+    "tipo": "NO IDENTIFICADO (filtro de bomba de trasvase de gasoil)",
+    "marca": "(ver resumen)",
+    "modelo": "(ver resumen)",
+    "fuente": "Internet"
+   }
+  ]
+ },
+ {
+  "codigo": "001206",
+  "item_excel": 46,
+  "nombre": "FILTRO TRAMPA DE AGUA",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "479-4133"
+  ],
+  "equipos": [
+   {
+    "tipo": "Retroexcavadora/Cargador CATERPILLAR serie F 416F-450F (motor C4.4)",
+    "marca": "(ver resumen)",
+    "modelo": "(ver resumen)",
+    "fuente": "Internet"
+   }
+  ]
+ },
+ {
+  "codigo": "001207",
+  "item_excel": 47,
+  "nombre": "FILTRO DE AIRE PRIMARIO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": "AIRE-346",
+  "rol": "PRIMARIO",
+  "equivalencias": [
+   "346-6687"
+  ],
+  "equipos": [
+   {
+    "tipo": "Retroexcavadora CATERPILLAR serie F/F2 (416F-450F)",
+    "marca": "(ver resumen)",
+    "modelo": "(ver resumen)",
+    "fuente": "Internet"
+   }
+  ]
+ },
+ {
+  "codigo": "001208",
+  "item_excel": 48,
+  "nombre": "FILTRO DE AIRE SECUNDARIO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": "AIRE-346",
+  "rol": "SECUNDARIO",
+  "equivalencias": [
+   "346-6688"
+  ],
+  "equipos": [
+   {
+    "tipo": "Retroexcavadora CATERPILLAR serie F/F2 (416F-450F)",
+    "marca": "(ver resumen)",
+    "modelo": "(ver resumen)",
+    "fuente": "Internet"
+   }
+  ]
+ },
+ {
+  "codigo": "001209",
+  "item_excel": 51,
+  "nombre": "FILTRO DE CAJA",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "NR0750131056"
+  ],
+  "equipos": [
+   {
+    "tipo": "RETROEXCAVADORA",
+    "marca": "JOHN DEERE",
+    "modelo": "310SJ",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001210",
+  "item_excel": 52,
+  "nombre": "FILTRO SEPARADOR DE AGUA (RACOR)",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "T800-344-3286 PARKER"
+  ],
+  "equipos": [
+   {
+    "tipo": "PAYLOADER",
+    "marca": "LOVOL",
+    "modelo": "FL956H",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001211",
+  "item_excel": 53,
+  "nombre": "FILTRO DE ACEITE HIDRAULICO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "B00714",
+   "9F569-31A010102A0"
+  ],
+  "equipos": [
+   {
+    "tipo": "PAYLOADER",
+    "marca": "LOVOL",
+    "modelo": "FL956H",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001212",
+  "item_excel": 54,
+  "nombre": "FILTRO SECANTE",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "9F580-35A010000A1"
+  ],
+  "equipos": [
+   {
+    "tipo": "PAYLOADER",
+    "marca": "LOVOL",
+    "modelo": "FL956H",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001213",
+  "item_excel": 55,
+  "nombre": "FILTRO DE COMBUSTIBLE",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "1000422382"
+  ],
+  "equipos": [
+   {
+    "tipo": "PAYLOADER",
+    "marca": "LOVOL",
+    "modelo": "FL976K",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001214",
+  "item_excel": 56,
+  "nombre": "FILTRO DE AIRE PRIMARIO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "WRA5672"
+  ],
+  "equipos": [
+   {
+    "tipo": "NO CONFIRMADO (aire radial marca WEB; probable motor CAT industrial)",
+    "marca": "(ver resumen)",
+    "modelo": "(ver resumen)",
+    "fuente": "Internet"
+   }
+  ]
+ },
+ {
+  "codigo": "001215",
+  "item_excel": 57,
+  "nombre": "FILTRO DE AIRE SECUNDARIO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "WRA5672SY"
+  ],
+  "equipos": [
+   {
+    "tipo": "NO CONFIRMADO (aire radial marca WEB; probable motor CAT industrial)",
+    "marca": "(ver resumen)",
+    "modelo": "(ver resumen)",
+    "fuente": "Internet"
+   }
+  ]
+ },
+ {
+  "codigo": "001216",
+  "item_excel": 58,
+  "nombre": "FILTRO DE REFRIGERANTE",
+  "alias": "antes: trampa de agua",
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "APROAW4071"
+  ],
+  "equipos": [
+   {
+    "tipo": "Motor CUMMINS (filtro de REFRIGERANTE con aditivo, = WF2073)",
+    "marca": "(ver resumen)",
+    "modelo": "(ver resumen)",
+    "fuente": "Internet"
+   }
+  ]
+ },
+ {
+  "codigo": "001217",
+  "item_excel": 59,
+  "nombre": "FILTRO DE COMBUSTIBLE",
+  "alias": "Trampa / separador de agua",
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "WIX 34024",
+   "WF-34024",
+   "AS4024",
+   "WF33405",
+   "WORDFIL33352",
+   "WL10585",
+   "P550625",
+   "CAT1219868"
+  ],
+  "equipos": [
+   {
+    "tipo": "PAYLOADER",
+    "marca": "CATERPILLAR",
+    "modelo": "938G",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "RETROEXCAVADORA",
+    "marca": "SINOTRUCK",
+    "modelo": "FLB468-II",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "TRACTOR",
+    "marca": "SHANTUI",
+    "modelo": "SD22",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001218",
+  "item_excel": 60,
+  "nombre": "FILTRO DE ACEITE DE MOTOR",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "57746XD",
+   "A-9080SP"
+  ],
+  "equipos": [
+   {
+    "tipo": "Motor CUMMINS ISX/ISM (camiones Kenworth T600)",
+    "marca": "(ver resumen)",
+    "modelo": "(ver resumen)",
+    "fuente": "Internet"
+   }
+  ]
+ },
+ {
+  "codigo": "001219",
+  "item_excel": 62,
+  "nombre": "FILTRO DE ACEITE HIDRAULICO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "BT9422",
+   "050102154",
+   "APRO AL-7723"
+  ],
+  "equipos": [
+   {
+    "tipo": "Hidraulico/transmision JOHN DEERE / transmision ZF (cargadores/motoniveladoras)",
+    "marca": "(ver resumen)",
+    "modelo": "(ver resumen)",
+    "fuente": "Internet"
+   }
+  ]
+ },
+ {
+  "codigo": "001220",
+  "item_excel": 64,
+  "nombre": "FILTRO SEPARADOR DE AGUA (RACOR)",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "CAT 1512409",
+   "DONALDSON P551436"
+  ],
+  "equipos": [
+   {
+    "tipo": "PAYLOADER",
+    "marca": "CATERPILLAR",
+    "modelo": "938G",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001221",
+  "item_excel": 65,
+  "nombre": "FILTRO DE ACEITE DE MOTOR",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "WIX 51791",
+   "ML1807",
+   "DLDSON P551807"
+  ],
+  "equipos": [
+   {
+    "tipo": "PATROL",
+    "marca": "CATERPILLAR",
+    "modelo": "120H",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "PAYLOADER",
+    "marca": "CATERPILLAR",
+    "modelo": "938G",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001222",
+  "item_excel": 66,
+  "nombre": "FILTRO DE AIRE PRIMARIO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "DONALDSON P532504",
+   "CAT - 6I2509"
+  ],
+  "equipos": [
+   {
+    "tipo": "PAYLOADER",
+    "marca": "CATERPILLAR",
+    "modelo": "938G",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001223",
+  "item_excel": 67,
+  "nombre": "FILTRO DE AIRE SECUNDARIO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "DONALDSON P532503",
+   "CAT -6I2509"
+  ],
+  "equipos": [
+   {
+    "tipo": "PAYLOADER",
+    "marca": "CATERPILLAR",
+    "modelo": "938G",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001224",
+  "item_excel": 68,
+  "nombre": "FILTRO DE ACEITE DE MOTOR",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "BALDWIN B76"
+  ],
+  "equipos": [
+   {
+    "tipo": "PAYLOADER",
+    "marca": "CATERPILLAR",
+    "modelo": "950G",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001225",
+  "item_excel": 70,
+  "nombre": "FILTRO DE COMBUSTIBLE PRIMARIO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "LFF-3336"
+  ],
+  "equipos": [
+   {
+    "tipo": "PAYLOADER",
+    "marca": "CATERPILLAR",
+    "modelo": "950G",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001226",
+  "item_excel": 71,
+  "nombre": "FILTRO DE COMBUSTIBLE SECUNDARIO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "LFF-3377"
+  ],
+  "equipos": [
+   {
+    "tipo": "PAYLOADER",
+    "marca": "CATERPILLAR",
+    "modelo": "950G",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001227",
+  "item_excel": 72,
+  "nombre": "FILTRO ACEITE HIDRAULICO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "WIX 551721",
+   "AL1494",
+   "P164378"
+  ],
+  "equipos": [
+   {
+    "tipo": "PAYLOADER",
+    "marca": "CATERPILLAR",
+    "modelo": "938G",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "PAYLOADER",
+    "marca": "CATERPILLAR",
+    "modelo": "950G",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "RETROEXCAVADORA",
+    "marca": "CATERPILLAR",
+    "modelo": "420 - E",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001228",
+  "item_excel": 73,
+  "nombre": "FILTRO DE COMBUSTIBLE",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "WORLDFIL WF-33352",
+   "CAT 1R0762"
+  ],
+  "equipos": [
+   {
+    "tipo": "Excavadora CATERPILLAR 320/330/336",
+    "marca": "(ver resumen)",
+    "modelo": "(ver resumen)",
+    "fuente": "Internet"
+   }
+  ]
+ },
+ {
+  "codigo": "001229",
+  "item_excel": 74,
+  "nombre": "FILTRO DE ACEITE DE MOTOR",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "DONALDSON P554005",
+   "CAT 1R1808"
+  ],
+  "equipos": [
+   {
+    "tipo": "TRACTOR",
+    "marca": "CATERPILLAR",
+    "modelo": "D8N",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001230",
+  "item_excel": 75,
+  "nombre": "FILTRO DE AIRE PRIMARIO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "WIX 42980",
+   "CAT7M1674",
+   "P181130"
+  ],
+  "equipos": [
+   {
+    "tipo": "CHUTO",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ4257V324JB1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "PATROL",
+    "marca": "CATERPILLAR",
+    "modelo": "140H",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001231",
+  "item_excel": 76,
+  "nombre": "FILTRO DE AIRE SECUNDARIO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "WIX42981",
+   "CATIP7360",
+   "P158670"
+  ],
+  "equipos": [
+   {
+    "tipo": "Motor CATERPILLAR 3306 (compactador 825C/826C, cargador 950/966)",
+    "marca": "(ver resumen)",
+    "modelo": "(ver resumen)",
+    "fuente": "Internet"
+   }
+  ]
+ },
+ {
+  "codigo": "001232",
+  "item_excel": 77,
+  "nombre": "FILTRO DE  ACEITE HIDRÁULICO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "CAT 1R-0719",
+   "DONALSON P164200"
+  ],
+  "equipos": [
+   {
+    "tipo": "Mototrailla/Motoniveladora/Skidder CATERPILLAR (621-633, 12H-160H)",
+    "marca": "(ver resumen)",
+    "modelo": "(ver resumen)",
+    "fuente": "Internet"
+   }
+  ]
+ },
+ {
+  "codigo": "001233",
+  "item_excel": 78,
+  "nombre": "FILTRO DE COMBUSTIBLE",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "CAT 1R-0750",
+   "DONALDSON P551313"
+  ],
+  "equipos": [
+   {
+    "tipo": "Motor CATERPILLAR (universal: 3116-C15, multiples maquinas)",
+    "marca": "(ver resumen)",
+    "modelo": "(ver resumen)",
+    "fuente": "Internet"
+   }
+  ]
+ },
+ {
+  "codigo": "001234",
+  "item_excel": 79,
+  "nombre": "FILTRO DE AIRE PRIMARIO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "DONALDSON P532473",
+   "CAT6I-0273"
+  ],
+  "equipos": [
+   {
+    "tipo": "MOTONIVELADORA",
+    "marca": "CATERPILLAR",
+    "modelo": "140H",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001235",
+  "item_excel": 80,
+  "nombre": "FILTRO DE AIRE SECUNDARIO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "DONALDSON P532474",
+   "CAT6I-0274"
+  ],
+  "equipos": [
+   {
+    "tipo": "MOTONIVELADORA",
+    "marca": "CATERPILLAR",
+    "modelo": "140H",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001236",
+  "item_excel": 81,
+  "nombre": "FILTRO ACEITE HIDRAULICO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "WIX 51730",
+   "CAT 225-4118"
+  ],
+  "equipos": [
+   {
+    "tipo": "Cargador de ruedas CATERPILLAR 938H-980C",
+    "marca": "(ver resumen)",
+    "modelo": "(ver resumen)",
+    "fuente": "Internet"
+   }
+  ]
+ },
+ {
+  "codigo": "001237",
+  "item_excel": 82,
+  "nombre": "FILTRO DE COMBUSTIBLE",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "360-8960 CAT"
+  ],
+  "equipos": [
+   {
+    "tipo": "PAYLOADER",
+    "marca": "CATERPILLAR",
+    "modelo": "938K",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001238",
+  "item_excel": 83,
+  "nombre": "FILTRO DE ACEITE DE MOTOR PRIMARIO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "273-5711 CAT"
+  ],
+  "equipos": [
+   {
+    "tipo": "PAYLOADER",
+    "marca": "CATERPILLAR",
+    "modelo": "938K",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001239",
+  "item_excel": 84,
+  "nombre": "FILTRO DE ACEITE DE MOTOR SECUNDARIO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "269-8325 CAT"
+  ],
+  "equipos": [
+   {
+    "tipo": "PAYLOADER",
+    "marca": "CATERPILLAR",
+    "modelo": "938K",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001240",
+  "item_excel": 85,
+  "nombre": "FILTRO TRAMPA DE AGUA",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "391-3764 CAT"
+  ],
+  "equipos": [
+   {
+    "tipo": "PAYLOADER",
+    "marca": "CATERPILLAR",
+    "modelo": "938K",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001241",
+  "item_excel": 86,
+  "nombre": "FILTRO DE AIRE PRIMARIO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "CAT 365-7606",
+   "49783"
+  ],
+  "equipos": [
+   {
+    "tipo": "PAYLOADER",
+    "marca": "CATERPILLAR",
+    "modelo": "938K",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001242",
+  "item_excel": 87,
+  "nombre": "FILTRO DE AIRE SECUNDARIO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "CAT 353-5058",
+   "49782"
+  ],
+  "equipos": [
+   {
+    "tipo": "PAYLOADER",
+    "marca": "CATERPILLAR",
+    "modelo": "938K",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001243",
+  "item_excel": 88,
+  "nombre": "KIT FILTRO DE AIRE",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "P811225"
+  ],
+  "equipos": [
+   {
+    "tipo": "EXCAVADORA",
+    "marca": "LOVOL",
+    "modelo": "FR220D",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "JUMBO",
+    "marca": "LOVOL",
+    "modelo": "FR220D",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "RETROEXCAVADORA",
+    "marca": "SINOTRUCK",
+    "modelo": "FLB468-II",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001244",
+  "item_excel": 89,
+  "nombre": "FILTRO DE ACEITE DE MOTOR",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "DONALSON P550596"
+  ],
+  "equipos": [
+   {
+    "tipo": "EXCAVADORA",
+    "marca": "LOVOL",
+    "modelo": "FR220D",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001245",
+  "item_excel": 90,
+  "nombre": "FILTRO DE ACEITE HIDRAULICO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "TLX625A",
+   "10"
+  ],
+  "equipos": [
+   {
+    "tipo": "EXCAVADORA",
+    "marca": "LOVOL",
+    "modelo": "FR220D",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001246",
+  "item_excel": 91,
+  "nombre": "FILTRO DE GASOIL",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "509-5694"
+  ],
+  "equipos": [
+   {
+    "tipo": "EXCAVADORA",
+    "marca": "CATERPILLAR",
+    "modelo": "CAT333",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001247",
+  "item_excel": 92,
+  "nombre": "FILTRO DE GASOIL",
+  "alias": "Trampa de agua (separador agua-combustible)",
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "523-4987"
+  ],
+  "equipos": [
+   {
+    "tipo": "EXCAVADORA",
+    "marca": "CATERPILLAR",
+    "modelo": "CAT333",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001248",
+  "item_excel": 93,
+  "nombre": "FILTRO DE ACEITE DE MOTOR",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "322-3154"
+  ],
+  "equipos": [
+   {
+    "tipo": "EXCAVADORA",
+    "marca": "CATERPILLAR",
+    "modelo": "CAT333",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001249",
+  "item_excel": 94,
+  "nombre": "FILTRO DE AIRE",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": true,
+  "conjunto": "AIRE-496",
+  "rol": "KIT",
+  "equivalencias": [
+   "496-9845",
+   "496-9846"
+  ],
+  "equipos": [
+   {
+    "tipo": "EXCAVADORA",
+    "marca": "CATERPILLAR",
+    "modelo": "CAT333",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "TRACTOR",
+    "marca": "CATERPILLAR",
+    "modelo": "D8N",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001250",
+  "item_excel": 95,
+  "nombre": "FILTRO DE COMBUSTIBLE",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "CAT360-8956"
+  ],
+  "equipos": [
+   {
+    "tipo": "Excavadora CATERPILLAR (motor C4.4/C7.1) - verificar numero",
+    "marca": "(ver resumen)",
+    "modelo": "(ver resumen)",
+    "fuente": "Internet"
+   }
+  ]
+ },
+ {
+  "codigo": "001251",
+  "item_excel": 97,
+  "nombre": "FILTRO HIDRAULICO PRIMARIO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "CAT51-8670",
+   "518670"
+  ],
+  "equipos": [
+   {
+    "tipo": "Excavadora CATERPILLAR 320-349 (hidraulico primario)",
+    "marca": "(ver resumen)",
+    "modelo": "(ver resumen)",
+    "fuente": "Internet"
+   }
+  ]
+ },
+ {
+  "codigo": "001252",
+  "item_excel": 98,
+  "nombre": "FILTRO HIDRAULICO SEGUNDARIO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "CAT093-7521"
+  ],
+  "equipos": [
+   {
+    "tipo": "Excavadora CATERPILLAR 320B-325D (hidraulico)",
+    "marca": "(ver resumen)",
+    "modelo": "(ver resumen)",
+    "fuente": "Internet"
+   }
+  ]
+ },
+ {
+  "codigo": "001253",
+  "item_excel": 99,
+  "nombre": "FILTRO DE AIRE  PRIMARIO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "WRA-7486 SY"
+  ],
+  "equipos": [
+   {
+    "tipo": "Motor CATERPILLAR (toma de aire 6I-2501/6I-2502)",
+    "marca": "(ver resumen)",
+    "modelo": "(ver resumen)",
+    "fuente": "Internet"
+   }
+  ]
+ },
+ {
+  "codigo": "001254",
+  "item_excel": 100,
+  "nombre": "FILTRO DE AIRE SECUNDARIO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "WRA-7486"
+  ],
+  "equipos": [
+   {
+    "tipo": "Motor CATERPILLAR (toma de aire 6I-2501/6I-2502)",
+    "marca": "(ver resumen)",
+    "modelo": "(ver resumen)",
+    "fuente": "Internet"
+   }
+  ]
+ },
+ {
+  "codigo": "001255",
+  "item_excel": 101,
+  "nombre": "FILTRO DE ACEITE DE MOTOR",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "51334",
+   "51365"
+  ],
+  "equipos": [
+   {
+    "tipo": "MAQUINA DE SOLDAR",
+    "marca": "DENYO",
+    "modelo": "400 LSW",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001256",
+  "item_excel": 104,
+  "nombre": "FILTRO DE AIRE PRIMARIO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "479-8989CAT"
+  ],
+  "equipos": [
+   {
+    "tipo": "Excavadora CATERPILLAR 320/323 + Motoniveladora 120 (motor C4.4/C7.1)",
+    "marca": "(ver resumen)",
+    "modelo": "(ver resumen)",
+    "fuente": "Internet"
+   }
+  ]
+ },
+ {
+  "codigo": "001257",
+  "item_excel": 105,
+  "nombre": "FILTRO DE AIRE SECUNDARIO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "479-8991CAT"
+  ],
+  "equipos": [
+   {
+    "tipo": "Excavadora CATERPILLAR 320/323 + Motoniveladora 120 (motor C4.4/C7.1)",
+    "marca": "(ver resumen)",
+    "modelo": "(ver resumen)",
+    "fuente": "Internet"
+   }
+  ]
+ },
+ {
+  "codigo": "001258",
+  "item_excel": 106,
+  "nombre": "FILTRO DE AIRE PRIMARIO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": "AIRE-496",
+  "rol": "PRIMARIO",
+  "equivalencias": [
+   "496-9845CAT"
+  ],
+  "equipos": [
+   {
+    "tipo": "EXCAVADORA",
+    "marca": "CATERPILLAR",
+    "modelo": "CAT333",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "TRACTOR",
+    "marca": "CATERPILLAR",
+    "modelo": "D8N",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001259",
+  "item_excel": 107,
+  "nombre": "FILTRO DE AIRE SECUNDARIO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": "AIRE-496",
+  "rol": "SECUNDARIO",
+  "equivalencias": [
+   "496-9846CAT"
+  ],
+  "equipos": [
+   {
+    "tipo": "EXCAVADORA",
+    "marca": "CATERPILLAR",
+    "modelo": "CAT333",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "TRACTOR",
+    "marca": "CATERPILLAR",
+    "modelo": "D8N",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001260",
+  "item_excel": 108,
+  "nombre": "FILTRO DE COMBUSTIBLE",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "WP-5694"
+  ],
+  "equipos": [
+   {
+    "tipo": "EXCAVADORA",
+    "marca": "VOLVO",
+    "modelo": "VOLVO210",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "PLATAFORMA",
+    "marca": "CHEVROLET",
+    "modelo": "NPR CAB /F/A T/M",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001261",
+  "item_excel": 109,
+  "nombre": "FILTRO DE GASOIL SECUNDARIO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "MHW 33683"
+  ],
+  "equipos": [
+   {
+    "tipo": "EXCAVADORA",
+    "marca": "VOLVO",
+    "modelo": "VOLVO210",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001262",
+  "item_excel": 110,
+  "nombre": "FILTRO DE ACEITE DE MOTOR",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "FC51820"
+  ],
+  "equipos": [
+   {
+    "tipo": "EXCAVADORA",
+    "marca": "VOLVO",
+    "modelo": "VOLVO210",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001263",
+  "item_excel": 111,
+  "nombre": "FILTRO DE ACEITE HIDRAULICO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "11518FSP"
+  ],
+  "equipos": [
+   {
+    "tipo": "EXCAVADORA",
+    "marca": "VOLVO",
+    "modelo": "VOLVO210",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001264",
+  "item_excel": 112,
+  "nombre": "FILTRO DE AIRE",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "WRA-11581"
+  ],
+  "equipos": [
+   {
+    "tipo": "EXCAVADORA",
+    "marca": "VOLVO",
+    "modelo": "VOLVO210",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001265",
+  "item_excel": 113,
+  "nombre": "FILTRO DE COMBUSTIBLE",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "LFF 1007"
+  ],
+  "equipos": [
+   {
+    "tipo": "Motor CUMMINS ISX/QSX15/N14 (separador combustible/agua)",
+    "marca": "(ver resumen)",
+    "modelo": "(ver resumen)",
+    "fuente": "Internet"
+   }
+  ]
+ },
+ {
+  "codigo": "001266",
+  "item_excel": 114,
+  "nombre": "FILTRO DE COMBUSTIBLE",
+  "alias": "antes: aceite de motor",
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "1R0755"
+  ],
+  "equipos": [
+   {
+    "tipo": "Cargador CATERPILLAR 990/992, tractor D10/D11, generadores 3412-3516",
+    "marca": "(ver resumen)",
+    "modelo": "(ver resumen)",
+    "fuente": "Internet"
+   }
+  ]
+ },
+ {
+  "codigo": "001267",
+  "item_excel": 115,
+  "nombre": "FILTRO DE ACEITE DE MOTOR",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "1R0716"
+  ],
+  "equipos": [
+   {
+    "tipo": "Motor CATERPILLAR (universal: 3304-C18, multiples maquinas)",
+    "marca": "(ver resumen)",
+    "modelo": "(ver resumen)",
+    "fuente": "Internet"
+   }
+  ]
+ },
+ {
+  "codigo": "001268",
+  "item_excel": 116,
+  "nombre": "FILTRO DE AIRE PRIMARIO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "1236858"
+  ],
+  "equipos": [
+   {
+    "tipo": "CATERPILLAR mineria: cargador 992G, bulldozer D11, topador 854G",
+    "marca": "(ver resumen)",
+    "modelo": "(ver resumen)",
+    "fuente": "Internet"
+   }
+  ]
+ },
+ {
+  "codigo": "001269",
+  "item_excel": 117,
+  "nombre": "FILTRO DE AIRE SECUNDARIO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "R53713"
+  ],
+  "equipos": [
+   {
+    "tipo": "NO IDENTIFICADO - verificar numero: R53713 aparece como pieza CASE, no filtro de aire",
+    "marca": "(ver resumen)",
+    "modelo": "(ver resumen)",
+    "fuente": "Internet"
+   }
+  ]
+ },
+ {
+  "codigo": "001270",
+  "item_excel": 119,
+  "nombre": "FILTRO DE COMBUSTIBLE",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "APRO AF-3352"
+  ],
+  "equipos": [
+   {
+    "tipo": "AUTOBUS",
+    "marca": "YUTONG",
+    "modelo": "ZK6896HGA",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001271",
+  "item_excel": 120,
+  "nombre": "FILTRO DE  SEPARADOR DE AGUA (RACOR)",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "DONALDSON P550900",
+   "WIX33751",
+   "3261644",
+   "NR-070"
+  ],
+  "equipos": [
+   {
+    "tipo": "PAYLOADER",
+    "marca": "VOLVO",
+    "modelo": "L120E",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "RETROEXCAVADORA",
+    "marca": "JOHN DEERE",
+    "modelo": "410J",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001272",
+  "item_excel": 121,
+  "nombre": "FILTRO DE ACEITE DE MOTOR",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "WIX 51791E",
+   "DONALDSON P554004"
+  ],
+  "equipos": [
+   {
+    "tipo": "PATROL",
+    "marca": "CATERPILLAR",
+    "modelo": "120H",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "PAYLOADER",
+    "marca": "CATERPILLAR",
+    "modelo": "938G",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001273",
+  "item_excel": 122,
+  "nombre": "FILTRO AIRE PRIMARIO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "CAT61-2503",
+   "P532503",
+   "WIX46607"
+  ],
+  "equipos": [
+   {
+    "tipo": "PAYLOADER",
+    "marca": "CATERPILLAR",
+    "modelo": "938G",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001274",
+  "item_excel": 123,
+  "nombre": "FILTRO AIRE PRIMARIO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "CAT61-2504",
+   "P532504",
+   "WIX46595"
+  ],
+  "equipos": [
+   {
+    "tipo": "PAYLOADER",
+    "marca": "CATERPILLAR",
+    "modelo": "938G",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001275",
+  "item_excel": 124,
+  "nombre": "FILTRO ACEITE HIDRÁULICO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "51621"
+  ],
+  "equipos": [
+   {
+    "tipo": "Hidraulico KIOTI/KUBOTA/CAT (tractores compactos/construccion)",
+    "marca": "(ver resumen)",
+    "modelo": "(ver resumen)",
+    "fuente": "Internet"
+   }
+  ]
+ },
+ {
+  "codigo": "001276",
+  "item_excel": 125,
+  "nombre": "FILTRO ACEITE HIDRÁULICO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "CAT1261813",
+   "DONALDSONP551348"
+  ],
+  "equipos": [
+   {
+    "tipo": "Hidraulico CATERPILLAR/Mitsubishi/JLG (= mismo filtro que item 124)",
+    "marca": "(ver resumen)",
+    "modelo": "(ver resumen)",
+    "fuente": "Internet"
+   }
+  ]
+ },
+ {
+  "codigo": "001277",
+  "item_excel": 127,
+  "nombre": "FILTRO DE COMBUSTIBLE",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "33352",
+   "AS3751",
+   "FS-2007"
+  ],
+  "equipos": [
+   {
+    "tipo": "Cosechadora NEW HOLLAND TR (motor CAT 3208); tractores/varios",
+    "marca": "(ver resumen)",
+    "modelo": "(ver resumen)",
+    "fuente": "Internet"
+   }
+  ]
+ },
+ {
+  "codigo": "001278",
+  "item_excel": 128,
+  "nombre": "FILTRO DE AIRE PRIMARIO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "P5322473"
+  ],
+  "equipos": [
+   {
+    "tipo": "Motoniveladora CATERPILLAR 12H/14H/160H (motor 3306)",
+    "marca": "(ver resumen)",
+    "modelo": "(ver resumen)",
+    "fuente": "Internet"
+   }
+  ]
+ },
+ {
+  "codigo": "001279",
+  "item_excel": 129,
+  "nombre": "FILTRO DE AIRE  SECUNDARIO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "P5322474"
+  ],
+  "equipos": [
+   {
+    "tipo": "Motoniveladora CATERPILLAR 12H/14H/160H (motor 3306)",
+    "marca": "(ver resumen)",
+    "modelo": "(ver resumen)",
+    "fuente": "Internet"
+   }
+  ]
+ },
+ {
+  "codigo": "001280",
+  "item_excel": 130,
+  "nombre": "FILTRO ACEITE MOTOR",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "51792"
+  ],
+  "equipos": [
+   {
+    "tipo": "Motor CATERPILLAR (= 1R-0716, universal 3306-C15)",
+    "marca": "(ver resumen)",
+    "modelo": "(ver resumen)",
+    "fuente": "Internet"
+   }
+  ]
+ },
+ {
+  "codigo": "001281",
+  "item_excel": 131,
+  "nombre": "FILTRO DE GASOIL",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "P557440"
+  ],
+  "equipos": [
+   {
+    "tipo": "Motor CATERPILLAR/KOMATSU/ISUZU 3304-3406 (universal)",
+    "marca": "(ver resumen)",
+    "modelo": "(ver resumen)",
+    "fuente": "Internet"
+   }
+  ]
+ },
+ {
+  "codigo": "001282",
+  "item_excel": 132,
+  "nombre": "FILTRO DE AIRE  PRIMARIO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "42681"
+  ],
+  "equipos": [
+   {
+    "tipo": "Tractor/Bulldozer CATERPILLAR familia D9 (aire INTERNO/seguridad)",
+    "marca": "(ver resumen)",
+    "modelo": "(ver resumen)",
+    "fuente": "Internet"
+   }
+  ]
+ },
+ {
+  "codigo": "001283",
+  "item_excel": 133,
+  "nombre": "FILTRO DE AIRE  SECUNDARIO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "P181120"
+  ],
+  "equipos": [
+   {
+    "tipo": "Tractor/Bulldozer CATERPILLAR familia D9 (aire PRIMARIO/externo)",
+    "marca": "(ver resumen)",
+    "modelo": "(ver resumen)",
+    "fuente": "Internet"
+   }
+  ]
+ },
+ {
+  "codigo": "001284",
+  "item_excel": 134,
+  "nombre": "FILTRO DE AIRE PRIMARIO + SECUNDARIO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "QAY2520305030",
+   "MISS0244"
+  ],
+  "equipos": [
+   {
+    "tipo": "CHUTO",
+    "marca": "JAC",
+    "modelo": "HFC3252KR1K3",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CHUTO",
+    "marca": "JAC",
+    "modelo": "HFC4250KR1K3",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CHUTO",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ4257V324JB1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "VOLTEO",
+    "marca": "JAC",
+    "modelo": "GALLOP",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "VOLTEO",
+    "marca": "JAC",
+    "modelo": "HFC3252KR1K3/GALLOP",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "VOLTEO/BRAZO ARTICULADO",
+    "marca": "JAC",
+    "modelo": "HFC3252KR1K3/GALLOP",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001285",
+  "item_excel": 135,
+  "nombre": "FILTRO DE ACEITE DE MOTOR",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "AL1970",
+   "MOT0103",
+   "LFP-734"
+  ],
+  "equipos": [
+   {
+    "tipo": "CHUTO",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ4257V324JB1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "JUMBO",
+    "marca": "LOVOL",
+    "modelo": "FR220D",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "PATROL",
+    "marca": "CATERPILLAR",
+    "modelo": "120H",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "PATROL",
+    "marca": "CATERPILLAR",
+    "modelo": "140H",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001286",
+  "item_excel": 136,
+  "nombre": "FILTRO DE AIRE",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "42980",
+   "WCA-598"
+  ],
+  "equipos": [
+   {
+    "tipo": "CHUTO",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ4257V324JB1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "PATROL",
+    "marca": "CATERPILLAR",
+    "modelo": "140H",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001287",
+  "item_excel": 137,
+  "nombre": "FILTRO DE COMBUSTIBLE",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "WPS-3712",
+   "AS3405"
+  ],
+  "equipos": [
+   {
+    "tipo": "CHUTO",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ4257V324JB1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "MOTONIVELADORA",
+    "marca": "CATERPILLAR",
+    "modelo": "140H",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "PATROL",
+    "marca": "CATERPILLAR",
+    "modelo": "140H",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "RETROEXCAVADORA",
+    "marca": "SINOTRUCK",
+    "modelo": "FLB468-II",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001288",
+  "item_excel": 138,
+  "nombre": "FILTRO DE ACEITE HIDRAULICO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "1R-0722",
+   "PT9555"
+  ],
+  "equipos": [
+   {
+    "tipo": "MOTONIVELADORA",
+    "marca": "CATERPILLAR",
+    "modelo": "120H",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "PATROL",
+    "marca": "CATERPILLAR",
+    "modelo": "140H",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001289",
+  "item_excel": 139,
+  "nombre": "FILTRO DE GASOIL PRIMARIO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "1R0753"
+  ],
+  "equipos": [
+   {
+    "tipo": "MOTONIVELADORA",
+    "marca": "CATERPILLAR",
+    "modelo": "120H",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "PATROL",
+    "marca": "CATERPILLAR",
+    "modelo": "120H",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001290",
+  "item_excel": 140,
+  "nombre": "FILTRO DE GASOIL SEGUNDARIO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "3959612"
+  ],
+  "equipos": [
+   {
+    "tipo": "MOTONIVELADORA",
+    "marca": "CATERPILLAR",
+    "modelo": "120H",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "PATROL",
+    "marca": "CATERPILLAR",
+    "modelo": "120H",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001291",
+  "item_excel": 141,
+  "nombre": "FILTRO DE AIRE PRIMARIO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "6I2499"
+  ],
+  "equipos": [
+   {
+    "tipo": "MOTONIVELADORA",
+    "marca": "CATERPILLAR",
+    "modelo": "120H",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "PATROL",
+    "marca": "CATERPILLAR",
+    "modelo": "120H",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001292",
+  "item_excel": 142,
+  "nombre": "FILTRO DE AIRE SECUNDARIO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "6I2500"
+  ],
+  "equipos": [
+   {
+    "tipo": "MOTONIVELADORA",
+    "marca": "CATERPILLAR",
+    "modelo": "120H",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "PATROL",
+    "marca": "CATERPILLAR",
+    "modelo": "120H",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001293",
+  "item_excel": 143,
+  "nombre": "FILTRO DE ACEITE HIDRAULICO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "1R0722"
+  ],
+  "equipos": [
+   {
+    "tipo": "MOTONIVELADORA",
+    "marca": "CATERPILLAR",
+    "modelo": "120H",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "PATROL",
+    "marca": "CATERPILLAR",
+    "modelo": "140H",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001294",
+  "item_excel": 144,
+  "nombre": "FILTRO DE ACEITE DE MOTOR",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "1R-1807 ADVANCE"
+  ],
+  "equipos": [
+   {
+    "tipo": "PATROL",
+    "marca": "CATERPILLAR",
+    "modelo": "12K",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001295",
+  "item_excel": 145,
+  "nombre": "FILTRO DE COMBUSTIBLE",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "33674",
+   "P551311",
+   "1R0749",
+   "AF3674"
+  ],
+  "equipos": [
+   {
+    "tipo": "PATROL",
+    "marca": "CATERPILLAR",
+    "modelo": "12K",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "TRACTOR",
+    "marca": "CATERPILLAR",
+    "modelo": "D8N",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001296",
+  "item_excel": 146,
+  "nombre": "FILTRO DE AIRE PRIMARIO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": "AIRE-245",
+  "rol": "PRIMARIO",
+  "equivalencias": [
+   "245-6375"
+  ],
+  "equipos": [
+   {
+    "tipo": "PATROL",
+    "marca": "CATERPILLAR",
+    "modelo": "12K",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001297",
+  "item_excel": 147,
+  "nombre": "FILTRO DE AIRE SECUNDARIO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": "AIRE-245",
+  "rol": "SECUNDARIO",
+  "equivalencias": [
+   "245-6376"
+  ],
+  "equipos": [
+   {
+    "tipo": "PATROL",
+    "marca": "CATERPILLAR",
+    "modelo": "12K",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001298",
+  "item_excel": 148,
+  "nombre": "FILTRO DE AIRE SECANTE (RACOR)",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "GFC 24374"
+  ],
+  "equipos": [
+   {
+    "tipo": "PATROL",
+    "marca": "CATERPILLAR",
+    "modelo": "12K",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001299",
+  "item_excel": 149,
+  "nombre": "FILTRO DE COMBUSTIBLE",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "DONALDSONP551313",
+   "CAT 1R-1740"
+  ],
+  "equipos": [
+   {
+    "tipo": "Motor CATERPILLAR (universal; tambien equipo forestal)",
+    "marca": "(ver resumen)",
+    "modelo": "(ver resumen)",
+    "fuente": "Internet"
+   }
+  ]
+ },
+ {
+  "codigo": "001300",
+  "item_excel": 150,
+  "nombre": "FILTRO DE AIRE PRIMARIO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "6I-2501",
+   "WIX46479",
+   "P532499",
+   "WRA7486"
+  ],
+  "equipos": [
+   {
+    "tipo": "Excavadora CATERPILLAR 320B-325 (motor 3306/C9)",
+    "marca": "(ver resumen)",
+    "modelo": "(ver resumen)",
+    "fuente": "Internet"
+   }
+  ]
+ },
+ {
+  "codigo": "001301",
+  "item_excel": 151,
+  "nombre": "FILTRO DE AIRE SECUNDARIO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "6I-2500",
+   "WIX46475",
+   "P532500"
+  ],
+  "equipos": [
+   {
+    "tipo": "MOTONIVELADORA",
+    "marca": "CATERPILLAR",
+    "modelo": "120H",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "PATROL",
+    "marca": "CATERPILLAR",
+    "modelo": "120H",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001302",
+  "item_excel": 152,
+  "nombre": "FILTRO DE ACEITE HIDRAULICO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "CAT IR-0719",
+   "WIX 51455"
+  ],
+  "equipos": [
+   {
+    "tipo": "Minicargador BOBCAT / hidraulico CATERPILLAR",
+    "marca": "(ver resumen)",
+    "modelo": "(ver resumen)",
+    "fuente": "Internet"
+   }
+  ]
+ },
+ {
+  "codigo": "001303",
+  "item_excel": 153,
+  "nombre": "FILTRO DE ACEITE DE MOTOR",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "P554005"
+  ],
+  "equipos": [
+   {
+    "tipo": "TRACTOR",
+    "marca": "CATERPILLAR",
+    "modelo": "D8N",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001304",
+  "item_excel": 154,
+  "nombre": "FILTRO DE ACEITE HIDRAULICO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "PH-725",
+   "LF680"
+  ],
+  "equipos": [
+   {
+    "tipo": "TRACTOR",
+    "marca": "CATERPILLAR",
+    "modelo": "D8N",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001305",
+  "item_excel": 155,
+  "nombre": "FILTRO DE ACEITE HIDRAULICO SECUNDARIO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "WIX 51168"
+  ],
+  "equipos": [
+   {
+    "tipo": "TRACTOR",
+    "marca": "CATERPILLAR",
+    "modelo": "D8N",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001306",
+  "item_excel": 156,
+  "nombre": "FILTRO DE COMBUSTIBLE",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "MHW 24074"
+  ],
+  "equipos": [
+   {
+    "tipo": "TRACTOR",
+    "marca": "CATERPILLAR",
+    "modelo": "D8N",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "TRACTOR",
+    "marca": "SHANTUI",
+    "modelo": "SD22",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001307",
+  "item_excel": 157,
+  "nombre": "FILTRO DE COMBUSTIBLE",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "1010724121",
+   "51516"
+  ],
+  "equipos": [
+   {
+    "tipo": "CAMIONETA PICK UP",
+    "marca": "SINOTRUCK",
+    "modelo": "PB5BM",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CAMIONETA PICK UP",
+    "marca": "SINOTRUCK",
+    "modelo": "PORTEN 4X4",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "VACUUM",
+    "marca": "SINOTRUCK",
+    "modelo": "SGZ9400GXW",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001308",
+  "item_excel": 158,
+  "nombre": "FILTRO DE COMBUSTIBLE",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "1010834170"
+  ],
+  "equipos": [
+   {
+    "tipo": "CAMIONETA PICK UP",
+    "marca": "SINOTRUCK",
+    "modelo": "PB5BM",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CAMIONETA PICK UP",
+    "marca": "SINOTRUCK",
+    "modelo": "PORTEN 4X4",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001309",
+  "item_excel": 159,
+  "nombre": "FILTRO DE COMBUSTIBLE ELEMENTO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "1013630118",
+   "WPS-P31F0"
+  ],
+  "equipos": [
+   {
+    "tipo": "CAMIONETA PICK UP",
+    "marca": "SINOTRUCK",
+    "modelo": "PB5BM",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CAMIONETA PICK UP",
+    "marca": "SINOTRUCK",
+    "modelo": "PORTEN 4X4",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001310",
+  "item_excel": 160,
+  "nombre": "FILTRO DE AIRE DE MOTOR",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "UZ970319100007",
+   "1"
+  ],
+  "equipos": [
+   {
+    "tipo": "CAMIONETA PICK UP",
+    "marca": "SINOTRUCK",
+    "modelo": "PB5BM",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CAMIONETA PICK UP",
+    "marca": "SINOTRUCK",
+    "modelo": "PORTEN 4X4",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001311",
+  "item_excel": 161,
+  "nombre": "FILTRO ANTIPOLEN",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "C00089344"
+  ],
+  "equipos": [
+   {
+    "tipo": "CAMIONETA PICK UP",
+    "marca": "SINOTRUCK",
+    "modelo": "PB5BM",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CAMIONETA PICK UP",
+    "marca": "SINOTRUCK",
+    "modelo": "PORTEN 4X4",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CAMIONETA PICK UP",
+    "marca": "TOYOTA",
+    "modelo": "HILUX 4X4",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CAMIONETA PICK UP",
+    "marca": "TOYOTA",
+    "modelo": "TACOMA",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "VACUUM",
+    "marca": "SINOTRUCK",
+    "modelo": "SGZ9400GXW",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001312",
+  "item_excel": 162,
+  "nombre": "FILTRO DE ACEITE DE MOTOR",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "WL7570",
+   "AL1348",
+   "BL-2004"
+  ],
+  "equipos": [
+   {
+    "tipo": "CAMIONETA PICK UP",
+    "marca": "TOYOTA",
+    "modelo": "HILUX 4X4",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CAMIONETA PICK UP",
+    "marca": "TOYOTA",
+    "modelo": "TACOMA",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CHUTO",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ4257V324JB1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "PATROL",
+    "marca": "CATERPILLAR",
+    "modelo": "140H",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "VACUUM",
+    "marca": "REMORCA",
+    "modelo": "TSCVC2E",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001313",
+  "item_excel": 163,
+  "nombre": "FILTROD E GASOLINA",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "75140A",
+   "23300",
+   "AF-31100"
+  ],
+  "equipos": [
+   {
+    "tipo": "CAMIONETA PICK UP",
+    "marca": "TOYOTA",
+    "modelo": "HILUX 4X4",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CAMIONETA PICK UP",
+    "marca": "TOYOTA",
+    "modelo": "TACOMA",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "VACUUM",
+    "marca": "SINOTRUCK",
+    "modelo": "SGZ9400GXW",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001314",
+  "item_excel": 164,
+  "nombre": "FILTRO DE AIRE",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "QA-10835",
+   "17801-38050",
+   "49350",
+   "WA-10835"
+  ],
+  "equipos": [
+   {
+    "tipo": "CAMIONETA PICK UP",
+    "marca": "TOYOTA",
+    "modelo": "HILUX 4X4",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CAMIONETA PICK UP",
+    "marca": "TOYOTA",
+    "modelo": "TACOMA",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "VACUUM",
+    "marca": "SINOTRUCK",
+    "modelo": "SGZ9400GXW",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001315",
+  "item_excel": 166,
+  "nombre": "FILTRO DE AIRE",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "WA- 10835",
+   "17801-38050",
+   "17801-YZZ13"
+  ],
+  "equipos": [
+   {
+    "tipo": "CAMIONETA PICK UP",
+    "marca": "TOYOTA",
+    "modelo": "HILUX 4X4",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CAMIONETA PICK UP",
+    "marca": "TOYOTA",
+    "modelo": "TACOMA",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "VACUUM",
+    "marca": "SINOTRUCK",
+    "modelo": "SGZ9400GXW",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001316",
+  "item_excel": 167,
+  "nombre": "FILTRO DE ACEITE",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "ELEMENTO APRO AL7037"
+  ],
+  "equipos": [
+   {
+    "tipo": "AUTOBUS",
+    "marca": "YUTONG",
+    "modelo": "ZK6896HGA",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "PAYLOADER",
+    "marca": "NEW HOLLAND",
+    "modelo": "W170",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001317",
+  "item_excel": 168,
+  "nombre": "FILTRO TRAMPA DE AGUA",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "ELEMENTO MHW 34039"
+  ],
+  "equipos": [
+   {
+    "tipo": "AUTOBUS",
+    "marca": "YUTONG",
+    "modelo": "ZK6896HGA",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001318",
+  "item_excel": 169,
+  "nombre": "FILTRO DE COMBUSTIBLE",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "PRIMARIO:  APRO FF5612"
+  ],
+  "equipos": [
+   {
+    "tipo": "AUTOBUS",
+    "marca": "YUTONG",
+    "modelo": "ZK6896HGA",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001319",
+  "item_excel": 170,
+  "nombre": "FILTRO DE COMBUSTIBLE SECUNDARIO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "APRO AF3352"
+  ],
+  "equipos": [
+   {
+    "tipo": "AUTOBUS",
+    "marca": "YUTONG",
+    "modelo": "ZK6896HGA",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001320",
+  "item_excel": 171,
+  "nombre": "FILTRO DE AIRE PRIMARIO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "ELEMENTO 15340-910319 AF26549"
+  ],
+  "equipos": [
+   {
+    "tipo": "AUTOBUS",
+    "marca": "YUTONG",
+    "modelo": "ZK6896HGA",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001321",
+  "item_excel": 172,
+  "nombre": "FILTRO DE AIRE SECUNDARIO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "ELEMENTO 15340-910310 AF26550"
+  ],
+  "equipos": [
+   {
+    "tipo": "AUTOBUS",
+    "marca": "YUTONG",
+    "modelo": "ZK6896HGA",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001322",
+  "item_excel": 173,
+  "nombre": "FILTRO DE AIRE SECANTE",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "HIGHFIL T250W"
+  ],
+  "equipos": [
+   {
+    "tipo": "AUTOBUS",
+    "marca": "YUTONG",
+    "modelo": "ZK6896HGA",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001323",
+  "item_excel": 174,
+  "nombre": "FILTRO DE AIRE",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "MIS0050",
+   "47085"
+  ],
+  "equipos": [
+   {
+    "tipo": "CUADRILLERA",
+    "marca": "JAC",
+    "modelo": "HFC1061K",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "VACUUM",
+    "marca": "REMORCA",
+    "modelo": "TSCVC2E",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001324",
+  "item_excel": 175,
+  "nombre": "FILTRO DE ACEITE DE MOTOR",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "MOT0163",
+   "51602"
+  ],
+  "equipos": [
+   {
+    "tipo": "CUADRILLERA",
+    "marca": "JAC",
+    "modelo": "HFC1061K",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001325",
+  "item_excel": 176,
+  "nombre": "FILTRO DE COMBUSTIBLE",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "PSEL00381",
+   "33358"
+  ],
+  "equipos": [
+   {
+    "tipo": "CUADRILLERA",
+    "marca": "JAC",
+    "modelo": "HFC1061K",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001326",
+  "item_excel": 177,
+  "nombre": "FILTRO TRAMPA DE AGUA",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "MISS0348"
+  ],
+  "equipos": [
+   {
+    "tipo": "CUADRILLERA",
+    "marca": "JAC",
+    "modelo": "HFC1061K",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001327",
+  "item_excel": 179,
+  "nombre": "FILTRO DE AIRE",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "QA-10262",
+   "AF-2883",
+   "CA 10262"
+  ],
+  "equipos": [
+   {
+    "tipo": "CAMION",
+    "marca": "FORD",
+    "modelo": "F-350 4X4 / F-350",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CAMION DE SOLDADURA",
+    "marca": "FORD",
+    "modelo": "F-350 4X4 / F-350",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CAMION DE SOLDADURA / AMBULANCIA",
+    "marca": "FORD",
+    "modelo": "F-350 4X4 / F-350",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CAMION DE SOLDADURA / BOMBA",
+    "marca": "FORD",
+    "modelo": "F-350 4X4 / F-350",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CAMION DE SOLDADURA /CUADRILLERA/AMBULANCIA",
+    "marca": "FORD",
+    "modelo": "F-350 4X4 / F-350",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CAMIONETA PICK UP",
+    "marca": "TOYOTA",
+    "modelo": "HILUX 4X4",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001328",
+  "item_excel": 180,
+  "nombre": "FILTRO DE COMBUSTIBLE",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "ITF009"
+  ],
+  "equipos": [
+   {
+    "tipo": "AMBULANCIA",
+    "marca": "FORD",
+    "modelo": "TRITON",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CAMION",
+    "marca": "FORD",
+    "modelo": "F-350 4X4 / F-350",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CAMION DE SOLDADURA",
+    "marca": "FORD",
+    "modelo": "F-350 4X4 / F-350",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CAMION DE SOLDADURA / AMBULANCIA",
+    "marca": "FORD",
+    "modelo": "F-350 4X4 / F-350",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CAMION DE SOLDADURA / BOMBA",
+    "marca": "FORD",
+    "modelo": "F-350 4X4 / F-350",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CAMION DE SOLDADURA /CUADRILLERA/AMBULANCIA",
+    "marca": "FORD",
+    "modelo": "F-350 4X4 / F-350",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "VACUUM",
+    "marca": "REMORCA",
+    "modelo": "TSCVC2E",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001329",
+  "item_excel": 181,
+  "nombre": "PILA DE GASOLINA",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "4X4U-9350-AA"
+  ],
+  "equipos": [
+   {
+    "tipo": "AMBULANCIA",
+    "marca": "FORD",
+    "modelo": "TRITON",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CAMION",
+    "marca": "FORD",
+    "modelo": "F-350 4X4 / F-350",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CAMION DE SOLDADURA",
+    "marca": "FORD",
+    "modelo": "F-350 4X4 / F-350",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CAMION DE SOLDADURA / AMBULANCIA",
+    "marca": "FORD",
+    "modelo": "F-350 4X4 / F-350",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CAMION DE SOLDADURA / BOMBA",
+    "marca": "FORD",
+    "modelo": "F-350 4X4 / F-350",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CAMION DE SOLDADURA /CUADRILLERA/AMBULANCIA",
+    "marca": "FORD",
+    "modelo": "F-350 4X4 / F-350",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "VACUUM",
+    "marca": "REMORCA",
+    "modelo": "TSCVC2E",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001330",
+  "item_excel": 182,
+  "nombre": "FILTRO DE ACEITE DE MOTOR",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "1001740613 WEICHAI"
+  ],
+  "equipos": [
+   {
+    "tipo": "CAMION CON BRAZO 4 TON",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ1168G4525C1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CAMION CON BRAZO ARTICULADO 4 TN/CAMION DE SOLDADURA/ CAMION ELEVADOR DE 8 TN",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ1168G4525C1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "CAMION DE PLATAFORMA",
+    "marca": "SINOTRUCK",
+    "modelo": "ZZ1168G4525C1",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "GENERADOR ELECTRICO",
+    "marca": "SMARTGEN",
+    "modelo": "APW-60",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "VOLTEO",
+    "marca": "JAC",
+    "modelo": "HFC3252KR1K3",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001331",
+  "item_excel": 183,
+  "nombre": "FILTRO DE GASOIL",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "1000871108 WEICHAI"
+  ],
+  "equipos": [
+   {
+    "tipo": "GENERADOR ELECTRICO",
+    "marca": "SMARTGEN",
+    "modelo": "APW-60",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001332",
+  "item_excel": 184,
+  "nombre": "FILTRO DE GASOIL SECUNDARIO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "WP-4102"
+  ],
+  "equipos": [
+   {
+    "tipo": "GENERADOR ELECTRICO",
+    "marca": "SMARTGEN",
+    "modelo": "APW-60",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001333",
+  "item_excel": 185,
+  "nombre": "FILTRO DE AIRE",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "1001069804"
+  ],
+  "equipos": [
+   {
+    "tipo": "GENERADOR ELECTRICO",
+    "marca": "SMARTGEN",
+    "modelo": "APW-60",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001334",
+  "item_excel": 186,
+  "nombre": "FILTRO DE TRANSMISION",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "AT179323"
+  ],
+  "equipos": [
+   {
+    "tipo": "Retroexcavadora/Cargador JOHN DEERE 310/410 (filtro de transmision)",
+    "marca": "(ver resumen)",
+    "modelo": "(ver resumen)",
+    "fuente": "Internet"
+   }
+  ]
+ },
+ {
+  "codigo": "001335",
+  "item_excel": 187,
+  "nombre": "FILTRO DE ACEITE HIDRAULICO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "1R0774",
+   "P550775"
+  ],
+  "equipos": [
+   {
+    "tipo": "MOTONIVELADORA",
+    "marca": "CATERPILLAR",
+    "modelo": "140H",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001336",
+  "item_excel": 188,
+  "nombre": "FILTRO DE COMBUSTIBLE",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "363-6572",
+   "110217"
+  ],
+  "equipos": [
+   {
+    "tipo": "Retroexcavadora/Excavadora CATERPILLAR serie F (motor C3.4B/C4.4)",
+    "marca": "(ver resumen)",
+    "modelo": "(ver resumen)",
+    "fuente": "Internet"
+   }
+  ]
+ },
+ {
+  "codigo": "001337",
+  "item_excel": 189,
+  "nombre": "FILTRO DE AIRE",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "Wix 42276"
+  ],
+  "equipos": [
+   {
+    "tipo": "MAQUINA DE SOLDAR",
+    "marca": "DANYO",
+    "modelo": "",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001338",
+  "item_excel": 190,
+  "nombre": "FILTRO DE ACEITE",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "QL-16",
+   "33386",
+   "3627"
+  ],
+  "equipos": [
+   {
+    "tipo": "MAQUINA DE SOLDAR",
+    "marca": "MILLER",
+    "modelo": "400 X PRO",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "PLATAFORMA",
+    "marca": "CHEVROLET",
+    "modelo": "NPR CAB /F/A T/M",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001339",
+  "item_excel": 191,
+  "nombre": "FILTRO DE ACEITE HIDRAULICO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "RH23-52B020000A0"
+  ],
+  "equipos": [
+   {
+    "tipo": "Excavadora LOVOL FR210 / ZOOMLION ZE260 / Lishide",
+    "marca": "(ver resumen)",
+    "modelo": "(ver resumen)",
+    "fuente": "Internet"
+   }
+  ]
+ },
+ {
+  "codigo": "001340",
+  "item_excel": 192,
+  "nombre": "FILTRO DE ACEITE",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "WL-7171",
+   "BL6607"
+  ],
+  "equipos": [
+   {
+    "tipo": "MACHINA DE SOLDAR",
+    "marca": "MILLER",
+    "modelo": "BIG BLUE",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "MAQUINA DE SOLDAR",
+    "marca": "MILLER",
+    "modelo": "400 X PRO",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001341",
+  "item_excel": 193,
+  "nombre": "FILTRO DE AIRE",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "46434",
+   "WCA-256"
+  ],
+  "equipos": [
+   {
+    "tipo": "Camion/Autobus motor CUMMINS y equipo CATERPILLAR (multi)",
+    "marca": "(ver resumen)",
+    "modelo": "(ver resumen)",
+    "fuente": "Internet"
+   }
+  ]
+ },
+ {
+  "codigo": "001342",
+  "item_excel": 194,
+  "nombre": "FILTRO DE COMBUSTIBLE",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "WP-9457",
+   "MIS0507",
+   "WP-8263"
+  ],
+  "equipos": [
+   {
+    "tipo": "BRAZO ARTICULADO",
+    "marca": "CHEVROLET",
+    "modelo": "FVR 33K/T/M S/A",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "MACHINA DE SOLDAR",
+    "marca": "MILLER",
+    "modelo": "BIG BLUE",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "PLATAFORMA",
+    "marca": "CHEVROLET",
+    "modelo": "NPR CAB /F/A T/M",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001343",
+  "item_excel": 195,
+  "nombre": "FILTROD E AIRE",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "MISS0019"
+  ],
+  "equipos": [
+   {
+    "tipo": "BRAZO ARTICULADO",
+    "marca": "CHEVROLET",
+    "modelo": "FVR 33K/T/M S/A",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001344",
+  "item_excel": 196,
+  "nombre": "FILTRO DE AIRE",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "WA80-04"
+  ],
+  "equipos": [
+   {
+    "tipo": "AMBULANCIA",
+    "marca": "FORD",
+    "modelo": "TRITON",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001345",
+  "item_excel": 197,
+  "nombre": "FILTRO DE COMBUSTIBLE",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "33398"
+  ],
+  "equipos": [
+   {
+    "tipo": "BRAZO ARTICULADO",
+    "marca": "CHEVROLET",
+    "modelo": "FVR 33K/T/M S/A",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001346",
+  "item_excel": 198,
+  "nombre": "FILTRO DE COMBUSTIBLE",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "PF9897"
+  ],
+  "equipos": [
+   {
+    "tipo": "Camion ISUZU FRR",
+    "marca": "(ver resumen)",
+    "modelo": "(ver resumen)",
+    "fuente": "Internet"
+   }
+  ]
+ },
+ {
+  "codigo": "001347",
+  "item_excel": 199,
+  "nombre": "FILTRO DE AIRE",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "MISS0014"
+  ],
+  "equipos": [
+   {
+    "tipo": "PLATAFORMA",
+    "marca": "CHEVROLET",
+    "modelo": "NPR CAB /F/A T/M",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001348",
+  "item_excel": 200,
+  "nombre": "FILTRO DE ACEITE HIDRAULICO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "P550575"
+  ],
+  "equipos": [
+   {
+    "tipo": "PATROL",
+    "marca": "CATERPILLAR",
+    "modelo": "12K",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001349",
+  "item_excel": 201,
+  "nombre": "FILTRO DE ACEITE",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "4WDL-4558"
+  ],
+  "equipos": [
+   {
+    "tipo": "NO IDENTIFICADO (aceite; = Millard ML-4558)",
+    "marca": "(ver resumen)",
+    "modelo": "(ver resumen)",
+    "fuente": "Internet"
+   }
+  ]
+ },
+ {
+  "codigo": "001350",
+  "item_excel": 202,
+  "nombre": "FILTRO DE ACEITE",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "51810"
+  ],
+  "equipos": [
+   {
+    "tipo": "BRAZO ARTICULADO",
+    "marca": "CHEVROLET",
+    "modelo": "FVR 33K/T/M S/A",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001351",
+  "item_excel": 203,
+  "nombre": "FILTRO DE AIRE",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "11172902"
+  ],
+  "equipos": [
+   {
+    "tipo": "PAYLOADER",
+    "marca": "VOLVO",
+    "modelo": "L120E",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001352",
+  "item_excel": 204,
+  "nombre": "FILTRO DE AIRE MOTOR PRIMARIO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "11110175"
+  ],
+  "equipos": [
+   {
+    "tipo": "PAYLOADER",
+    "marca": "VOLVO",
+    "modelo": "L120E",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001353",
+  "item_excel": 205,
+  "nombre": "FILTRO DE AIRE MOTORSECUNDARIO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "11110176"
+  ],
+  "equipos": [
+   {
+    "tipo": "PAYLOADER",
+    "marca": "VOLVO",
+    "modelo": "L120E",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001354",
+  "item_excel": 207,
+  "nombre": "FILTRO DE COMBUSTIBLE",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "BF7997"
+  ],
+  "equipos": [
+   {
+    "tipo": "PAYLOADER",
+    "marca": "VOLVO",
+    "modelo": "L120E",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001355",
+  "item_excel": 208,
+  "nombre": "FILTRO DE ACEITE DE MOTOR",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "AL1820"
+  ],
+  "equipos": [
+   {
+    "tipo": "PAYLOADER",
+    "marca": "VOLVO",
+    "modelo": "L120E",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001356",
+  "item_excel": 210,
+  "nombre": "FILTRO HIDRAULICO",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "P550575"
+  ],
+  "equipos": [
+   {
+    "tipo": "PATROL",
+    "marca": "CATERPILLAR",
+    "modelo": "12K",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001357",
+  "item_excel": 211,
+  "nombre": "FILTRO DE COMBUSTIBLE",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "1012940937"
+  ],
+  "equipos": [
+   {
+    "tipo": "EXCAVADORA",
+    "marca": "LOVOL",
+    "modelo": "FR420F",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "JUMBO",
+    "marca": "LOVOL",
+    "modelo": "FR420F",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001358",
+  "item_excel": 212,
+  "nombre": "FILTRO DE ACEITE",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "1012940927"
+  ],
+  "equipos": [
+   {
+    "tipo": "EXCAVADORA",
+    "marca": "LOVOL",
+    "modelo": "FR420F",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "JUMBO",
+    "marca": "LOVOL",
+    "modelo": "FR420F",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001359",
+  "item_excel": 213,
+  "nombre": "FILTRO ED AIRE",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "P777868"
+  ],
+  "equipos": [
+   {
+    "tipo": "EXCAVADORA",
+    "marca": "LOVOL",
+    "modelo": "FR420F",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "JUMBO",
+    "marca": "LOVOL",
+    "modelo": "FR420F",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001360",
+  "item_excel": 214,
+  "nombre": "FILTRO TRAMPA DE AGUA",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "1012940933"
+  ],
+  "equipos": [
+   {
+    "tipo": "EXCAVADORA",
+    "marca": "LOVOL",
+    "modelo": "FR420F",
+    "fuente": "Formatos flota"
+   },
+   {
+    "tipo": "JUMBO",
+    "marca": "LOVOL",
+    "modelo": "FR420F",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001361",
+  "item_excel": 215,
+  "nombre": "FILTRO TRAMPA DE AGUA - COMPRESOR",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "5405297"
+  ],
+  "equipos": [
+   {
+    "tipo": "COMPRESOR (motor CUMMINS, separador agua = FS20124) - compresor no identificado",
+    "marca": "(ver resumen)",
+    "modelo": "(ver resumen)",
+    "fuente": "Internet"
+   }
+  ]
+ },
+ {
+  "codigo": "001362",
+  "item_excel": 216,
+  "nombre": "FILTRO DE ACEITE - COMPRESOR",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "WIX 57746",
+   "7600 MILLARD"
+  ],
+  "equipos": [
+   {
+    "tipo": "COMPRESOR (motor CUMMINS ISX/ISM, aceite) - compresor no identificado",
+    "marca": "(ver resumen)",
+    "modelo": "(ver resumen)",
+    "fuente": "Internet"
+   }
+  ]
+ },
+ {
+  "codigo": "001363",
+  "item_excel": 217,
+  "nombre": "FILTRO DE COMBUSTIBLE - COMPRESOR",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "WIX 33711",
+   "MF52200"
+  ],
+  "equipos": [
+   {
+    "tipo": "COMPRESOR (motor diesel, combustible) - compresor no identificado",
+    "marca": "(ver resumen)",
+    "modelo": "(ver resumen)",
+    "fuente": "Internet"
+   }
+  ]
+ },
+ {
+  "codigo": "001364",
+  "item_excel": 218,
+  "nombre": "FILTRO SEPARADOR DE AGUA - COMPRESOR",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "WIX 33774"
+  ],
+  "equipos": [
+   {
+    "tipo": "COMPRESOR (separador agua tipo Racor 4120R) - compresor no identificado",
+    "marca": "(ver resumen)",
+    "modelo": "(ver resumen)",
+    "fuente": "Internet"
+   }
+  ]
+ },
+ {
+  "codigo": "001365",
+  "item_excel": 219,
+  "nombre": "FILTRO DE ACEITE - COMPRESOR",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "51748"
+  ],
+  "equipos": [
+   {
+    "tipo": "TRACTOR",
+    "marca": "SHANTUI",
+    "modelo": "SD22",
+    "fuente": "Formatos flota"
+   }
+  ]
+ },
+ {
+  "codigo": "001366",
+  "item_excel": 220,
+  "nombre": "FILTRO DE COMBUSTIBLE - COMPRESOR",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "WP1121",
+   "33377"
+  ],
+  "equipos": [
+   {
+    "tipo": "COMPRESOR (motor diesel, combustible) - compresor no identificado",
+    "marca": "(ver resumen)",
+    "modelo": "(ver resumen)",
+    "fuente": "Internet"
+   }
+  ]
+ },
+ {
+  "codigo": "001367",
+  "item_excel": 221,
+  "nombre": "FILTRO DE COMBUSTIBLE - COMPRESOR",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "R18489-30"
+  ],
+  "equipos": [
+   {
+    "tipo": "COMPRESOR (filtro trasiego tipo Gilbarco R18189-30) - no identificado",
+    "marca": "(ver resumen)",
+    "modelo": "(ver resumen)",
+    "fuente": "Internet"
+   }
+  ]
+ },
+ {
+  "codigo": "001368",
+  "item_excel": 222,
+  "nombre": "FILTRO COMBUSTIBLE CON PURGA - COMPRESOR",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "4327370"
+  ],
+  "equipos": [
+   {
+    "tipo": "COMPRESOR ATLAS COPCO V1200 (motor Cummins QSZ13)",
+    "marca": "(ver resumen)",
+    "modelo": "(ver resumen)",
+    "fuente": "Internet"
+   }
+  ]
+ },
+ {
+  "codigo": "001369",
+  "item_excel": 223,
+  "nombre": "FILTRO DE ACEITE HIDRAULICO - COMPRESOR",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "1562B104",
+   "LF4051"
+  ],
+  "equipos": [
+   {
+    "tipo": "COMPRESOR (hidraulico Fleetguard LF4051) - compresor no identificado",
+    "marca": "(ver resumen)",
+    "modelo": "(ver resumen)",
+    "fuente": "Internet"
+   }
+  ]
+ },
+ {
+  "codigo": "001370",
+  "item_excel": 224,
+  "nombre": "FILTRO COMBUSTIBLE - COMPRESOR",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": false,
+  "conjunto": null,
+  "rol": null,
+  "equivalencias": [
+   "FS90HP",
+   "8187"
+  ],
+  "equipos": [
+   {
+    "tipo": "COMPRESOR (separador agua Fleetguard FS90HP) - compresor no identificado",
+    "marca": "(ver resumen)",
+    "modelo": "(ver resumen)",
+    "fuente": "Internet"
+   }
+  ]
+ },
+ {
+  "codigo": "001371",
+  "item_excel": 225,
+  "nombre": "KIT FILTRO DE AIRE - COMPRESOR",
+  "alias": null,
+  "um": "UND",
+  "categoria": "FILTRO",
+  "es_kit": true,
+  "conjunto": "AIRE-245",
+  "rol": "KIT (compresor)",
+  "equivalencias": [
+   "2456375",
+   "2456376"
+  ],
+  "equipos": [
+   {
+    "tipo": "PATROL",
+    "marca": "CATERPILLAR",
+    "modelo": "12K",
+    "fuente": "Formatos flota"
+   }
+  ]
+ }
+]

@@ -26,6 +26,7 @@ class ProductoInventario extends Model
         'NOMBRE',
         'UM',
         'CATEGORIA',
+        'ES_KIT',
         'UBICACION',
         'ESTATUS',
         'NOTAS',
@@ -42,6 +43,7 @@ class ProductoInventario extends Model
         'CATEGORIA' => MojibakeFix::class,
         'UBICACION' => MojibakeFix::class,
         'NOTAS'     => MojibakeFix::class,
+        'ES_KIT'    => 'boolean',
     ];
 
     // ── Relaciones ───────────────────────────────────────────────
@@ -70,6 +72,29 @@ class ProductoInventario extends Model
                     ->withTimestamps();
     }
 
+    /**
+     * Piezas (componentes) que integran este producto cuando es un KIT (BOM).
+     * El stock vive en cada pieza, no en el kit. Auto-referencia kit → componentes.
+     */
+    public function componentes()
+    {
+        return $this->belongsToMany(self::class, 'producto_kit_componentes', 'ID_PRODUCTO_KIT', 'ID_PRODUCTO_COMPONENTE')
+                    ->withPivot(['CANTIDAD', 'ROL', 'ORDEN'])
+                    ->withTimestamps()
+                    ->orderBy('producto_kit_componentes.ORDEN');
+    }
+
+    /**
+     * Kits que incluyen este producto como componente (relación inversa): "¿de
+     * qué juegos forma parte esta pieza?".
+     */
+    public function kitsQueLoIncluyen()
+    {
+        return $this->belongsToMany(self::class, 'producto_kit_componentes', 'ID_PRODUCTO_COMPONENTE', 'ID_PRODUCTO_KIT')
+                    ->withPivot(['CANTIDAD', 'ROL', 'ORDEN'])
+                    ->withTimestamps();
+    }
+
     public function creadoPor()
     {
         return $this->belongsTo(Usuario::class, 'CREADO_POR', 'ID_USUARIO');
@@ -80,6 +105,12 @@ class ProductoInventario extends Model
     public function scopeActivos(Builder $q): Builder
     {
         return $q->where('ESTATUS', 'ACTIVO');
+    }
+
+    /** Solo productos tipo KIT (juegos). */
+    public function scopeKits(Builder $q): Builder
+    {
+        return $q->where('ES_KIT', true);
     }
 
     /**

@@ -150,7 +150,7 @@
     /* Botón "ojo" de detalles por fila: mismo look que el de /admin/equipos */
     .alm-table tbody td .btn-details-mini { margin: 0 auto; }
     /* Acciones dentro del modal "Detalles del producto" */
-    .alm-det-act { display:flex; align-items:center; gap:10px; width:100%; text-align:left; background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:8px 12px; font-size:14px; font-weight:600; color:#334155; cursor:default; transition:background .15s, border-color .15s; }
+    .alm-det-act { display:flex; align-items:center; gap:10px; width:100%; text-align:left; background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:8px 12px; font-size:14px; font-weight:600; color:#334155; cursor:default; transition:background .15s, border-color .15s; text-transform:uppercase; letter-spacing:.2px; }
     .alm-det-act:hover { background:#f8fafc; border-color:#cbd5e0; }
     .dropdown-item-custom:hover { background: #f8fafc !important; }
     .alm-det-ic { width:30px; height:30px; border-radius:8px; display:flex; align-items:center; justify-content:center; flex:0 0 auto; }
@@ -205,6 +205,9 @@
        pidió quitar el separador entre el título y "Ubicación en estante..." y reducir el hueco. */
     #almDetalleModal .alm-modal-head { border-bottom: none; }
     #almDetalleModal .alm-modal-body { padding-top: 6px; }
+    /* El detalle aparece SIN deslizamiento (como los detalles del módulo Equipos):
+       se quita la animación de entrada almIn solo para este modal. */
+    #almDetalleModal .alm-modal { animation: none; }
     .alm-modal-body { padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; }
     .alm-modal-foot { padding: 12px 18px; border-top: 1px solid #f1f5f9; display: flex; justify-content: center; gap: 8px; }
     .alm-modal label,
@@ -1359,6 +1362,22 @@
                        style="width:100%;min-width:0;margin-top:4px;">
                 <div id="almDetUbicacionError" style="display:none;color:#dc2626;font-size:12px;font-weight:600;margin-top:4px;"></div>
             </div>
+
+            {{-- Compatibilidad del filtro: nº de parte (equivalencias) + equipos que lo usan.
+                 Se carga al abrir el detalle (almAbrirDetalle → fetch a productoCompatibilidad).
+                 Se oculta si el producto no tiene ni equivalencias ni equipos. --}}
+            <div id="almDetCompat" style="display:none;border-top:1px solid #f1f5f9;padding-top:12px;">
+                <div id="almDetPartesWrap" style="display:none;margin-bottom:10px;">
+                    <div style="font-size:11px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;">Nº de parte / equivalencias</div>
+                    <div id="almDetPartes" style="display:flex;flex-wrap:wrap;gap:5px;"></div>
+                </div>
+                <div id="almDetEquiposWrap" style="display:none;">
+                    <div style="font-size:11px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;display:flex;align-items:center;gap:6px;"><i class="material-icons" style="font-size:16px;color:#0067b1;">precision_manufacturing</i> Equipos que lo usan <span id="almDetEquiposCount" style="color:#94a3b8;font-weight:700;"></span></div>
+                    <div id="almDetEquipos" style="display:flex;flex-direction:column;gap:4px;max-height:180px;overflow-y:auto;"></div>
+                </div>
+                <div id="almDetCompatVacio" style="display:none;font-size:12px;color:#94a3b8;font-style:italic;">Sin equipos registrados para este filtro.</div>
+            </div>
+
             <div style="border-top:1px solid #f1f5f9;padding-top:12px;display:flex;flex-direction:column;gap:7px;">
                 {{-- Botones SIEMPRE visibles. La verificacion de permiso vive dentro de
                      almDetalleAccion / almAbrirAjuste / almEditarProducto / almEliminarProducto
@@ -3426,10 +3445,49 @@
         el('almDetBajoBadge').style.display = bajo ? 'flex' : 'none';
         if (el('almDetUbicacion')) { el('almDetUbicacion').value = ubicacion || ''; showErr('almDetUbicacionError', ''); }
 
-        // Las EQUIVALENCIAS ya NO se muestran en "Detalles del producto" (pedido del cliente):
-        // son solo para la lógica interna de búsqueda de filtros. Se gestionan al Editar un filtro.
+        // Compatibilidad (nº de parte + EQUIPOS que usan el filtro): carga bajo demanda.
+        window.almCargarCompat(id);
 
         almOpen('almDetalleModal');
+    };
+
+    // Trae equivalencias + equipos del filtro y los pinta en el detalle. Si el usuario abre
+    // otro producto mientras carga, se ignora la respuesta vieja (compara el id del modal).
+    window.almCargarCompat = function (id) {
+        var esc = function (s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); };
+        var wrap = el('almDetCompat'); if (!wrap) return;
+        var partesWrap = el('almDetPartesWrap'), equiposWrap = el('almDetEquiposWrap'), vacio = el('almDetCompatVacio'),
+            partesBox = el('almDetPartes'), equiposBox = el('almDetEquipos'), countEl = el('almDetEquiposCount');
+        wrap.style.display = 'none';
+        partesWrap.style.display = 'none'; equiposWrap.style.display = 'none'; vacio.style.display = 'none';
+        partesBox.innerHTML = ''; equiposBox.innerHTML = ''; countEl.textContent = '';
+
+        var url = "{{ route('almacen.productos.compatibilidad', ['id' => '__PID__']) }}".replace('__PID__', id);
+        fetch(url, { headers: { 'Accept': 'application/json' } })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                var m = el('almDetalleModal');
+                if (!m || String(m.dataset.id) !== String(id)) return; // cambió de producto mientras cargaba
+                var partes = d.equivalencias || [], equipos = d.equipos || [];
+                if (partes.length) {
+                    partesBox.innerHTML = partes.map(function (p) {
+                        return '<span style="background:#eff6ff;color:#0067b1;border:1px solid #dbeafe;border-radius:6px;padding:2px 8px;font-size:12px;font-weight:700;">' + esc(p) + '</span>';
+                    }).join('');
+                    partesWrap.style.display = 'block';
+                }
+                if (equipos.length) {
+                    countEl.textContent = '(' + equipos.length + ')';
+                    equiposBox.innerHTML = equipos.map(function (e) {
+                        return '<div style="display:flex;align-items:center;gap:8px;background:#f8fafc;border:1px solid #eef2f7;border-radius:7px;padding:6px 9px;">' +
+                               '<span style="font-size:11px;font-weight:800;color:#0067b1;text-transform:uppercase;min-width:104px;">' + esc(e.tipo) + '</span>' +
+                               '<span style="font-size:12.5px;font-weight:600;color:#334155;">' + esc(e.modelo) + '</span></div>';
+                    }).join('');
+                    equiposWrap.style.display = 'block';
+                }
+                if (!partes.length && !equipos.length) vacio.style.display = 'block';
+                wrap.style.display = 'block';
+            })
+            .catch(function () { /* silencioso: el detalle sigue usable sin la compatibilidad */ });
     };
     // Cierra "Detalles del producto" y, si la fila de ese producto SIGUE seleccionada,
     // devuelve el foco a su input de cantidad — así el usuario escribe la salida de una

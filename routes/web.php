@@ -348,6 +348,9 @@ Route::middleware(['auth'])->group(function () {
             // Dashboard de Consumo (JSON para Chart.js) — alimenta el modal abrible desde el
             // botón Acciones de /admin/almacen y /admin/almacen/movimientos. Solo lectura.
             Route::get   ('almacen/consumo-dashboard',            [App\Http\Controllers\AlmacenController::class, 'consumoDashboard'])  ->name('almacen.consumoDashboard');
+            // Compatibilidad de un filtro: equivalencias (nº de parte) + equipos que lo usan.
+            // Se carga al abrir "Detalles del producto".
+            Route::get   ('almacen/productos/{id}/compatibilidad', [App\Http\Controllers\AlmacenController::class, 'productoCompatibilidad'])->whereNumber('id')->name('almacen.productos.compatibilidad');
             // Vista alterna de la bitácora agrupada por NUMERO_NOTA — una fila por Nota de
             // Entrega (SALIDA / TRASPASO_SALIDA con N° NE-YYYY-NNNN); clic en la fila abre el
             // PDF oficial. Acceso desde el botón "Bitácora por Nota" del menú Acciones de

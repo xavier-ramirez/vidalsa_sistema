@@ -1438,6 +1438,61 @@ class AlmacenController extends Controller
      * reflejo de la tabla filtrada. Los nombres se pasan por MojibakeFix porque las queries
      * crudas (con JOIN) NO aplican el cast del modelo.
      */
+    /**
+     * Compatibilidad de un filtro para el modal "Detalles del producto":
+     * sus números de parte (equivalencias, el principal primero) y los EQUIPOS
+     * (tipo + modelo) que lo usan, tomados de modelo_filtro. Ligero: se llama al
+     * abrir el detalle.
+     */
+    public function productoCompatibilidad($id)
+    {
+        $equivalencias = ProductoEquivalencia::where('ID_PRODUCTO', $id)
+            ->orderByDesc('ES_PRINCIPAL')
+            ->pluck('NUMERO_PARTE')
+            ->values()->all();
+
+        // Vehículos (caracteristicas_modelo) que usan el filtro. La MARCA no vive en
+        // caracteristicas_modelo, así que se toma de los `equipos` de ese modelo (la más común).
+        $especIds = DB::table('modelo_filtro')->where('ID_PRODUCTO', $id)->pluck('ID_ESPEC');
+        $marcaPorEspec = DB::table('equipos')
+            ->whereIn('ID_ESPEC', $especIds)->whereNotNull('ID_ESPEC')->whereNull('deleted_at')
+            ->select('ID_ESPEC', 'MARCA', DB::raw('COUNT(*) as n'))
+            ->groupBy('ID_ESPEC', 'MARCA')->orderByDesc('n')
+            ->get()->groupBy('ID_ESPEC')->map(fn ($g) => $g->first()->MARCA);
+
+        $equipos = DB::table('modelo_filtro as mf')
+            ->join('caracteristicas_modelo as cm', 'cm.ID_ESPEC', '=', 'mf.ID_ESPEC')
+            ->where('mf.ID_PRODUCTO', $id)
+            ->orderBy('cm.TIPO')->orderBy('cm.MODELO')
+            ->get(['mf.ID_ESPEC as espec', 'cm.TIPO', 'cm.MODELO'])
+            ->map(function ($x) use ($marcaPorEspec) {
+                $marca = $marcaPorEspec->get($x->espec);
+                return [
+                    'tipo'   => (string) $x->TIPO,
+                    'modelo' => trim(($marca ? $marca.' ' : '').((string) $x->MODELO)),
+                ];
+            });
+
+        // Auxiliares (generador, soldadora, compresor…) que usan el filtro.
+        $aux = DB::table('auxiliar_filtro')
+            ->where('ID_PRODUCTO', $id)
+            ->orderBy('TIPO')->orderBy('MARCA')->orderBy('MODELO')
+            ->get(['TIPO', 'MARCA', 'MODELO'])
+            ->map(fn ($x) => [
+                'tipo'   => str_replace('_', ' ', (string) $x->TIPO),
+                'modelo' => trim(((string) $x->MARCA).' '.((string) $x->MODELO)),
+            ]);
+
+        $equipos = $equipos->concat($aux)
+            ->unique(fn ($x) => $x['tipo'].'|'.$x['modelo'])
+            ->values();
+
+        return response()->json([
+            'equivalencias' => $equivalencias,
+            'equipos'       => $equipos,
+        ]);
+    }
+
     public function consumoDashboard(Request $request)
     {
         // El dashboard es INDEPENDIENTE de los filtros generales del módulo
@@ -1502,13 +1557,64 @@ class AlmacenController extends Controller
         $porMes = $porMes->values();
 
         // ── Top 20 productos más consumidos ────────────────────────────────────
-        $topProductos = $base()
+        // Se enriquece con el nº de parte PRINCIPAL (+ alternos) y los EQUIPOS que
+        // usan el filtro, para mostrarlos en el tooltip del gráfico (al pasar el mouse).
+        $topRows = $base()
             ->join('productos_inventario as p', 'p.ID_PRODUCTO', '=', 'movimientos_inventario.ID_PRODUCTO')
-            ->groupBy('p.ID_PRODUCTO', 'p.NOMBRE')
+            ->groupBy('p.ID_PRODUCTO', 'p.NOMBRE', 'p.UM')
             ->orderByDesc(DB::raw('SUM(movimientos_inventario.CANTIDAD)'))
             ->limit(20)
-            ->get(['p.NOMBRE as nombre', DB::raw('SUM(movimientos_inventario.CANTIDAD) as total')])
-            ->map(fn ($r) => ['nombre' => \App\Casts\MojibakeFix::fix($r->nombre), 'total' => (float) $r->total]);
+            ->get(['p.ID_PRODUCTO as id', 'p.NOMBRE as nombre', 'p.UM as um', DB::raw('SUM(movimientos_inventario.CANTIDAD) as total')]);
+
+        $idsTop = $topRows->pluck('id')->all();
+
+        // Nº de parte por producto (principal primero).
+        $partesPorProd = ProductoEquivalencia::whereIn('ID_PRODUCTO', $idsTop)
+            ->orderByDesc('ES_PRINCIPAL')
+            ->get(['ID_PRODUCTO', 'NUMERO_PARTE'])
+            ->groupBy('ID_PRODUCTO');
+
+        // Equipos VEHÍCULO (modelo_filtro) que usan cada filtro.
+        $equiposPorProd = DB::table('modelo_filtro as mf')
+            ->join('caracteristicas_modelo as cm', 'cm.ID_ESPEC', '=', 'mf.ID_ESPEC')
+            ->whereIn('mf.ID_PRODUCTO', $idsTop)
+            ->get(['mf.ID_PRODUCTO as id', 'mf.ID_ESPEC as espec', 'cm.TIPO', 'cm.MODELO'])
+            ->groupBy('id');
+
+        // Marca real por modelo (de los equipos de ese modelo).
+        $especsTop = DB::table('modelo_filtro')->whereIn('ID_PRODUCTO', $idsTop)->pluck('ID_ESPEC');
+        $marcaPorEspec = DB::table('equipos')
+            ->whereIn('ID_ESPEC', $especsTop)->whereNotNull('ID_ESPEC')->whereNull('deleted_at')
+            ->select('ID_ESPEC', 'MARCA', DB::raw('COUNT(*) as n'))
+            ->groupBy('ID_ESPEC', 'MARCA')->orderByDesc('n')
+            ->get()->groupBy('ID_ESPEC')->map(fn ($g) => $g->first()->MARCA);
+
+        // Equipos AUXILIARES (generador/soldadora/compresor) que usan cada filtro.
+        $auxPorProd = DB::table('auxiliar_filtro')
+            ->whereIn('ID_PRODUCTO', $idsTop)
+            ->get(['ID_PRODUCTO as id', 'TIPO', 'MARCA', 'MODELO'])
+            ->groupBy('id');
+
+        $topProductos = $topRows->map(function ($r) use ($partesPorProd, $equiposPorProd, $auxPorProd, $marcaPorEspec) {
+            $pp = $partesPorProd->get($r->id);
+            $partes = $pp ? $pp->pluck('NUMERO_PARTE')->take(8)->values()->all() : [];
+            $eq = $equiposPorProd->get($r->id);
+            $vehic = $eq ? $eq->map(function ($x) use ($marcaPorEspec) {
+                $m = $marcaPorEspec->get($x->espec);
+                return trim(($x->TIPO ? $x->TIPO.' ' : '').($m ? $m.' ' : '').$x->MODELO);
+            }) : collect();
+            $ax = $auxPorProd->get($r->id);
+            $auxs = $ax ? $ax->map(fn ($x) => trim(str_replace('_', ' ', (string) $x->TIPO).' '.trim(((string) $x->MARCA).' '.((string) $x->MODELO)))) : collect();
+            $equipos = collect($vehic)->concat($auxs)->filter()->unique()->take(8)->values()->all();
+            return [
+                'nombre'  => \App\Casts\MojibakeFix::fix($r->nombre),
+                'total'   => (float) $r->total,
+                'um'      => $r->um ?: 'UND',
+                'parte'   => $partes[0] ?? null,
+                'partes'  => $partes,
+                'equipos' => $equipos,
+            ];
+        })->values();
 
         // ── Consumo por almacén ─────────────────────────────────────────────────
         $porAlmacen = $base()
@@ -1520,6 +1626,14 @@ class AlmacenController extends Controller
 
         return response()->json([
             'categorias'    => $this->categoriasDistintas()->values(),
+            // Nombres (descripciones) DISTINTOS para las recomendaciones del filtro
+            // "Descripción". Se envían SOLO cuando el modal los pide (con_productos=1, una
+            // vez al abrir) para no re-transmitir el catálogo completo en cada cambio de
+            // filtro; el front los cachea. MojibakeFix::fix porque pluck() no hidrata el cast.
+            'productos'     => $request->boolean('con_productos')
+                ? ProductoInventario::activos()->orderBy('NOMBRE')->distinct()->pluck('NOMBRE')
+                    ->map(fn ($n) => \App\Casts\MojibakeFix::fix($n))->filter()->unique()->values()
+                : null,
             'por_mes'       => $porMes,
             'top_productos' => $topProductos,
             'por_almacen'   => $porAlmacen,
