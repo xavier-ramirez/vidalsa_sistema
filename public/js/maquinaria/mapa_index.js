@@ -1,10 +1,11 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // Módulo "Mapa Satelital" — compatible con navegación SPA.
 //
-// La SPA (navegacion.js) IGNORA los <script> dentro de @section('content'), así
-// que este archivo se carga UNA sola vez en el layout y se engancha a
-// DOMContentLoaded + spa:contentLoaded para inicializar el mapa cuando aparece
-// el contenedor #mapa-leaflet. Leaflet + el geocoder se cargan de forma diferida
+// Este archivo se carga UNA sola vez en el layout y se engancha a DOMContentLoaded +
+// spa:contentLoaded para montar el mapa cuando aparece el contenedor #mapa-leaflet.
+// (La SPA de navegacion.js SÍ re-ejecuta los <script> inline del contenido, clonándolos
+// antes de disparar spa:contentLoaded — de ahí salen window.mapaFrentes y
+// window.mapaPuedeEditar, que la vista define en un <script> propio.) Leaflet + el geocoder se cargan de forma diferida
 // (una sola vez, sin bloquear otras páginas) desde el PROPIO servidor
 // (public/vendor/leaflet) — antes venían de unpkg.com; alojarlos local hace que el
 // mapa cargue más rápido y no dependa de un CDN externo. Los tiles satelitales SÍ
@@ -242,12 +243,27 @@
         map.createPane('muniIntPane');
         map.getPane('muniIntPane').style.zIndex = 462;
 
+        // Pane SOLO para los NÚMEROS de municipio, justo encima del de los polígonos.
+        // Sin él, número y polígono compartían pane y competían por z-index: Leaflet le pone
+        // al SVG de los polígonos un z-index fijo de 200 y a cada marcador uno igual a su
+        // posición VERTICAL, así que los números de la mitad de arriba (z < 200) quedaban
+        // DEBAJO del polígono y no se podían agarrar para moverlos — unos sí y otros no,
+        // según dónde cayeran. Con pane propio el orden ya no depende de la altura.
+        map.createPane('muniNumPane');
+        map.getPane('muniNumPane').style.zIndex = 463;
+
         // Pane propio para la TUBERÍA, POR ENCIMA de los estados (overlayPane, z 400) y de los
         // municipios (muniIntPane, z 462). Esos polígonos hacían bringToFront() al pasar el mouse
         // y quedaban encima de la línea, robándole el hover/clic → no salía la longitud. Aquí la
         // tubería queda siempre encima de ellos, y debajo de las velas (markerPane, z 600).
         map.createPane('tuberiaPane');
         map.getPane('tuberiaPane').style.zIndex = 465;
+        // Las etiquetas de las velas y sus líneas van por encima de los pines (markerPane, z 600)
+        // y por debajo de los popups, igual que estaban los tooltips.
+        map.createPane('etqPane');
+        map.getPane('etqPane').style.zIndex = 655;
+        map.getPane('etqPane').style.pointerEvents = 'none';
+        var etqCapa = L.layerGroup().addTo(map); // cada capa de dentro fija su propio pane
 
         var muniData = null; // GeoJSON completo (para filtrar por estado)
         // Capa "municipios de los estados activados por clic derecho" — COLORES + nombre al pasar el mouse.
@@ -277,6 +293,78 @@
         var muniExcluidos = new Set();    // municipios quitados de la selección (aunque su estado esté activo)
 
         function muniKey(estado, municipio) { return normEstado(estado) + '|' + String(municipio || '').trim().toUpperCase(); }
+
+        // ── Números de municipio MOVIDOS A MANO ────────────────────────────────────────────
+        // El número se puede arrastrar a un hueco donde no tape nada. Se guarda su LatLng (no un
+        // desplazamiento en píxeles) para que aguante zoom/paneo y salga en el MISMO sitio en la
+        // foto, que también proyecta latlng→canvas. Vive en localStorage: la selección de
+        // municipios tampoco se persiste en el servidor, así que sería incoherente (y una tabla
+        // de más) guardar esto en la BD. Clave "ESTADO|MUNICIPIO" → [lat, lng].
+        var MUNI_POS_LS = 'mapa.muniNumPos';
+        var muniNumPos = (function () {
+            try { return JSON.parse(localStorage.getItem(MUNI_POS_LS)) || {}; } catch (e) { return {}; }
+        })();
+        function guardarMuniNumPos() {
+            try { localStorage.setItem(MUNI_POS_LS, JSON.stringify(muniNumPos)); } catch (e) { /* cuota llena: se pierde al recargar, no rompe */ }
+        }
+        // Posición del número: la que puso el usuario o, si no la movió, el centro visual.
+        function posNumeroMuni(layer, key) {
+            var p = muniNumPos[key];
+            return (p && p.length === 2) ? L.latLng(p[0], p[1]) : centroVisualMunicipio(layer);
+        }
+        // Arrastre PROPIO del número, con pointer events sobre el icono. NO se usa el
+        // `draggable` de L.marker: en el pane de municipios Leaflet no llega a enganchar el
+        // mousedown del icono y quien acababa arrastrando era el MAPA (el número parecía
+        // moverse solo porque se movía todo el mapa con él).
+        // Se mueve por latlng, no por márgenes, así lo que se guarda es exactamente lo que se ve.
+        var UMBRAL_ARRASTRE = 3; // px que hay que mover para que cuente como arrastre y no como clic
+        function habilitarArrastreNumero(mk) {
+            var ic = mk._icon;
+            if (!ic || ic._arrastreListo) return;
+            ic._arrastreListo = true;
+            var off = null;      // desfase entre el puntero y el centro del número al agarrarlo
+            var origen = null;   // latlng de partida, para poder revertir si fue solo un clic
+            var movio = false;   // ¿se llegó a arrastrar de verdad? (ver UMBRAL_ARRASTRE)
+            L.DomEvent.on(ic, 'pointerdown', function (e) {
+                if (e.button !== 0) return;
+                L.DomEvent.stop(e); // sin esto el mapa se desplaza en vez de moverse el número
+                var p = map.mouseEventToContainerPoint(e);
+                // El esquive automático aparta el número con un margin sobre el icono: ese
+                // desplazamiento se ve pero no está en la latlng, así que se incorpora ANTES de
+                // empezar a arrastrar y se deja de usar el margin.
+                var mx = parseFloat(ic.style.marginLeft) || 0, my = parseFloat(ic.style.marginTop) || 0;
+                var m = map.latLngToContainerPoint(mk.getLatLng()).add(L.point(mx, my));
+                ic.style.marginLeft = '0px'; ic.style.marginTop = '0px';
+                origen = mk.getLatLng();
+                mk.setLatLng(map.containerPointToLatLng(m));
+                off = m.subtract(p);
+                movio = false;
+                if (ic.setPointerCapture) ic.setPointerCapture(e.pointerId);
+            });
+            L.DomEvent.on(ic, 'pointermove', function (e) {
+                if (!off) return;
+                L.DomEvent.stop(e);
+                var destino = map.mouseEventToContainerPoint(e).add(off);
+                if (!movio && destino.distanceTo(map.latLngToContainerPoint(mk.getLatLng())) < UMBRAL_ARRASTRE) return;
+                movio = true;
+                mk.setLatLng(map.containerPointToLatLng(destino));
+            });
+            // pointercancel además de pointerup: si el navegador aborta el gesto, se guarda
+            // igual donde quedó en vez de dejarlo a medias.
+            L.DomEvent.on(ic, 'pointerup pointercancel', function (e) {
+                if (!off) return;
+                off = null;
+                L.DomEvent.stop(e);
+                // Un CLIC sin arrastrar no debe fijar nada: si se guardara, el municipio quedaría
+                // excluido para siempre del esquive automático y, peor, se congelaría la posición
+                // temporal que le hubiera dado ese esquive. Se revierte y no se toca lo guardado.
+                if (!movio) { mk.setLatLng(origen); declutterVelas(true); return; }
+                var ll = mk.getLatLng();
+                muniNumPos[mk._muniKey] = [ll.lat, ll.lng];
+                guardarMuniNumPos();
+                declutterVelas(true); // el número cambió de sitio → recolocar etiquetas
+            });
+        }
         // ¿Debe mostrarse este municipio? (por estado o individual, y NO excluido)
         function muniVisible(e, m) {
             var k = muniKey(e, m);
@@ -412,16 +500,32 @@
                 municipiosActivos().forEach(function (mu) { byKey[muniKey(mu.estado, mu.municipio)] = mu.num; });
                 muniEstado.eachLayer(function (layer) {
                     var e = layer.feature.properties.estado, m = layer.feature.properties.municipio;
-                    var num = byKey[muniKey(e, m)];
+                    var key = muniKey(e, m);
+                    var num = byKey[key];
                     if (num && layer.getBounds) {
-                        muniNumeros.addLayer(L.marker(centroVisualMunicipio(layer), {
+                        // interactive: el número se arrastra (habilitarArrastreNumero) y el clic
+                        // derecho lo devuelve al centro del municipio.
+                        var mk = L.marker(posNumeroMuni(layer, key), {
                             icon: L.divIcon({ className: 'muni-num', html: '<span>' + num + '</span>', iconSize: [20, 20], iconAnchor: [10, 10] }),
-                            interactive: false, keyboard: false, pane: 'muniIntPane'
-                        }));
+                            keyboard: false, pane: 'muniNumPane',
+                            title: 'Arrastra para moverlo · clic derecho para devolverlo a su sitio'
+                        });
+                        mk._muniKey = key;
+                        mk._muniLayer = layer;
+                        mk.on('add', function () { habilitarArrastreNumero(this); });
+                        mk.on('contextmenu', function (ev) {
+                            L.DomEvent.stop(ev);
+                            delete muniNumPos[this._muniKey];
+                            guardarMuniNumPos();
+                            this.setLatLng(centroVisualMunicipio(this._muniLayer));
+                            declutterVelas(true);
+                        });
+                        muniNumeros.addLayer(mk);
                     }
                 });
             }
-            if (typeof actualizarLeyenda === 'function') actualizarLeyenda(); // refleja municipios en la leyenda
+            actualizarLeyenda(); // refleja municipios en la leyenda
+            declutterVelas(true); // los números cambiaron → recolocar velas/etiquetas
         }
         function limpiarClavesEstado(set, k) { set.forEach(function (key) { if (key.indexOf(k + '|') === 0) set.delete(key); }); }
         function toggleMuniEstado(nombreEstado) {
@@ -640,7 +744,8 @@
         // ── Buscador de zonas (geocoder) sesgado a Venezuela ──
         // Buscador: Photon (autocompletar, sin rate-limit) + detección de COORDENADAS.
         // Si escribes "lat, lng" (ej. 8.72370, -62.90443) va DIRECTO a ese punto.
-        // bbox de Venezuela = restringe la búsqueda al país (antes lat/lon solo SESGABAN y
+        // lat/lon aquí son solo el valor inicial: sesgarPorMapa() los sustituye por el centro del
+        // mapa antes de cada consulta. bbox restringe al país (antes lat/lon solo SESGABAN y
         // colaban resultados de otros países). limit 10: suficiente tras el filtro por país y
         // respuesta más liviana/rápida que el remoto (photon.komoot.io).
         var _photon = L.Control.Geocoder.photon({ geocodingQueryParams: { lat: 8, lon: -66, limit: 10, bbox: '-73.4,0.6,-59.8,12.6' } });
@@ -684,6 +789,24 @@
                 return !cc || cc === 'VE';
             }).slice(0, 8);
         }
+        // Sesga la búsqueda hacia DONDE ESTÁ MIRANDO EL MAPA (como Google Maps): antes lat/lon
+        // estaban fijos en el centro del país, así que buscar "Arecuna" estando en Anzoátegui
+        // recomendaba las de cualquier otro estado. Se actualiza en cada consulta.
+        function sesgarPorMapa() {
+            var c = map.getCenter();
+            _photon.options.geocodingQueryParams.lat = c.lat;
+            _photon.options.geocodingQueryParams.lon = c.lng;
+            return c;
+        }
+        // Y además ordena los resultados por CERCANÍA a ese centro: el sesgo del servidor solo
+        // desempata, esto garantiza que "Arecuna 2 / Arecuna 3" salgan primero si estás encima.
+        function porCercania(results, centro) {
+            return (results || []).slice().sort(function (a, b) {
+                var ca = a && a.center, cb2 = b && b.center;
+                if (!ca || !cb2) return 0;
+                return centro.distanceTo(ca) - centro.distanceTo(cb2);
+            });
+        }
         // Caché de sugerencias por término: al reescribir/borrar hacia un término ya buscado,
         // la lista sale INSTANTÁNEA sin volver a llamar al servidor remoto (photon.komoot.io,
         // en Europa → es lo que tarda). Se limpia sola al pasar de ~80 términos por sesión.
@@ -697,15 +820,23 @@
             geocode: function (q, cb, ctx) {
                 var c = parseCoord(q);
                 if (c) { cb.call(ctx, resCoord(c)); return; }
-                _photon.geocode(q, function (results) { cb.call(ctx, soloVenezuela(results)); }, ctx);
+                var centro = sesgarPorMapa();
+                _photon.geocode(q, function (results) {
+                    cb.call(ctx, porCercania(soloVenezuela(results), centro));
+                }, ctx);
             },
             suggest: function (q, cb, ctx) {
                 var c = parseCoord(q);
                 if (c) { cb.call(ctx, resCoord(c)); return; }
-                var key = String(q || '').trim().toLowerCase();
+                var centro = sesgarPorMapa();
+                // La clave incluye la zona del mapa (redondeada a ~0.1°): el mismo término
+                // buscado desde otro estado debe recomendar lo de ALLÁ, no lo cacheado de acá.
+                var key = String(q || '').trim().toLowerCase() + '@' +
+                          centro.lat.toFixed(1) + ',' + centro.lng.toFixed(1);
                 if (_sugCache[key]) { cb.call(ctx, _sugCache[key]); return; } // ya buscado → instantáneo
                 if (_photon.suggest) _photon.suggest(q, function (results) {
-                    var ve = soloVenezuela(results); cacheSug(key, ve); cb.call(ctx, ve);
+                    var ve = porCercania(soloVenezuela(results), centro);
+                    cacheSug(key, ve); cb.call(ctx, ve);
                 }, ctx);
                 else cb.call(ctx, []);
             }
@@ -713,14 +844,68 @@
         // VELA azul (pin de ubicación tipo Google Maps) para los puntos y la búsqueda.
         // Logo de la empresa (el mismo del favicon de la pestaña) para ponerlo dentro de la vela.
         var LOGO_URL = (document.querySelector('link[rel~="icon"]') || {}).href || '/favicon.png';
+        // El MISMO logo, precargado como <img>, para poder dibujarlo en el canvas del export
+        // (el SVG de la vela en pantalla lo trae por <image href>, que el canvas no puede usar).
+        var logoImg = null;
+        var logoListo = cargarImg(LOGO_URL).then(function (img) { logoImg = img; });
         var velaSeq = 0; // ids únicos para el clip-path de cada vela (evita que se mezclen entre SVGs)
+        // Tamaño del pin en pantalla. Se dejó más pequeño que antes (era 34×45): con varios
+        // proyectos el pin tapaba los puntos vecinos y sus etiquetas. VELA_TIP_Y = a qué altura
+        // sobre la punta queda el bulbo (donde se ancla la etiqueta).
+        var VELA_W = 20, VELA_H = 26, VELA_TIP_Y = 18;
+        // Dos velas a menos de VELA_THRESH px se funden en una. ESC_LEJOS = cuánto encoge el pin
+        // en vista lejana (debe coincidir con .mapa-velas-lejos del CSS). LEJOS_KM = a partir de
+        // qué escala se considera "lejos". Estaban escritos a mano en pantalla y en el export por
+        // separado: si se cambiaba uno, la foto dejaba de salir igual que el mapa.
+        var VELA_THRESH = 24, ESC_LEJOS = 0.65, LEJOS_KM = 300;
+        // DETALLE_KM = escala a partir de la cual la etiqueta muestra el nombre del PUNTO además
+        // del proyecto: hasta 50 km salen los dos, más lejos solo el proyecto (no hay sitio y se
+        // pisarían). Es un umbral APARTE de LEJOS_KM a propósito: aquel decide cuánto encoge el
+        // pin, que es otra cosa. Vale igual para la pantalla y para la foto.
+        var DETALLE_KM = 50;
+        // Colocación de la cajita respecto al pin: ETQ_SEP_X = separación a su costado (deja
+        // sitio para la línea que la une con la vela),
+        // ETQ_SUBE_Y = cuánto queda por encima del bulbo. Valores pequeños = etiqueta pegada al
+        // pin y a su altura, en vez de flotando arriba y separada. Los usan IGUAL la pantalla y
+        // la foto, así que tocarlos aquí mueve las dos.
+        var ETQ_SEP_X = 18, ETQ_SUBE_Y = 4;
+        // Cajas apiladas de un punto compartido: aire entre ellas y cuántas ranuras verticales se
+        // prueban antes de rendirse (0 = a la altura del pin, luego arriba/abajo alternando).
+        var ETQ_HUECO_Y = 4, ETQ_RANURAS = 7;
+        // Anillos de separación: si la cajita no cabe junto al pin, se prueba a ETQ_ANILLO_PASO px
+        // más de distancia cada vez, hasta ETQ_ANILLOS intentos. La línea guía la sigue uniendo,
+        // así que alejarla no la deja huérfana. Sirve para que al apiñarse los frentes (mapa lejos)
+        // los nombres se abran hacia afuera en vez de irse al hover.
+        var ETQ_ANILLOS = 5, ETQ_ANILLO_PASO = 26;
+        // De CADA cajita sale su propia línea curva, que arranca en el BORDE de la vela. Vale
+        // igual para un punto normal (una cajita) y para uno compartido (una por proyecto).
+        // Grosores: cada línea se pinta DOS veces, un borde oscuro debajo y el blanco encima, para
+        // que se lea igual sobre satélite claro y oscuro. Un solo sitio donde están los valores:
+        // los usan la pantalla y la foto.
+        var ETQ_TRAZO_W = 1.8, ETQ_BORDE_W = 3.4, ETQ_BORDE_OP = 0.5;
+        // Color de la línea y de su halo. El halo va del color contrario para que la línea se lea
+        // igual sobre satélite claro y oscuro.
+        var ETQ_TRAZO_COLOR = '#ffffff', ETQ_BORDE_COLOR = '#0f172a';
+        // Cuánto se arquea la línea (parábola). 0 = recta; 0.35 = arco marcado.
+        var ETQ_COMBA = 0.28;
+        // En pantalla la curva se aproxima con tramos rectos (Leaflet no dibuja bezier); en la
+        // foto se traza con bezierCurveTo, que es exacto. Con estos tramos no se nota.
+        var ETQ_CURVA_PASOS = 18;
+        // Radio del circulito con el número del municipio. Debe cuadrar con .muni-num del CSS
+        // (20 px de lado). Antes estaba escrito como 11, como 10 y como width/2 en sitios distintos:
+        // la caja que se reservaba para no taparlo no era del tamaño del círculo que se dibujaba.
+        var MUNI_NUM_R = 10;
+        // Fondo del PNG de "solo la leyenda": gris neutro, el tono con el que se ve el panel
+        // translúcido encima del mapa. Sin esto el archivo salía azul marino.
+        var LEYENDA_BG_SOLA = '#32363c';
+        function vistaLejana() { return escalaKm() > LEJOS_KM; }
         function velaIcon(color) {
             var c = color || '#0067b1';
             var cid = 'vclip' + (++velaSeq);
             // Pin de gota con el LOGO de la empresa recortado en círculo dentro del bulbo.
             return L.divIcon({
                 className: 'mapa-vela',
-                html: '<svg width="34" height="45" viewBox="0 0 24 32" xmlns="http://www.w3.org/2000/svg">' +
+                html: '<svg width="' + VELA_W + '" height="' + VELA_H + '" viewBox="0 0 24 32" xmlns="http://www.w3.org/2000/svg">' +
                       '<defs><clipPath id="' + cid + '"><circle cx="12" cy="11.4" r="7.5"/></clipPath></defs>' +
                       '<path d="M12 .6C6 .6 1.2 5.4 1.2 11.4c0 7.6 9.2 18.4 10 19.4.4.5 1.2.5 1.6 0 .8-1 10-11.8 10-19.4C22.8 5.4 18 .6 12 .6z" fill="' + c + '" stroke="#ffffff" stroke-width="1.5"/>' +
                       '<circle cx="12" cy="11.4" r="7.8" fill="#ffffff"/>' +
@@ -728,7 +913,8 @@
                         ? '<image href="' + LOGO_URL + '" x="6.2" y="6" width="11.6" height="11" clip-path="url(#' + cid + ')" preserveAspectRatio="xMidYMid meet"/>'
                         : '<circle cx="12" cy="11.4" r="5" fill="' + c + '"/>') +
                       '</svg>',
-                iconSize: [34, 45], iconAnchor: [17, 44], popupAnchor: [0, -41], tooltipAnchor: [0, -41]
+                iconSize: [VELA_W, VELA_H], iconAnchor: [VELA_W / 2, VELA_H - 1],
+                popupAnchor: [0, -(VELA_H - 4)], tooltipAnchor: [0, -VELA_TIP_Y]
             });
         }
         var buscadorMarker = null;
@@ -823,39 +1009,72 @@
         });
         map.addControl(new FitVE());
 
-        // ── Botón "Pantalla completa" (usa el contenedor del mapa como raíz) ──
+        // ── Pantalla completa (usa el contenedor del mapa como raíz) ──
+        // Salir NO se hace con este mismo botón: en pantalla completa se oculta (CSS) y
+        // aparece la "X" de arriba-derecha (control CerrarFS). Así hay UN solo control
+        // para salir, no dos que hagan lo mismo.
+        function salirPantallaCompleta() {
+            var exit = document.exitFullscreen || document.webkitExitFullscreen;
+            if (exit) exit.call(document);
+        }
         var FullScreen = L.Control.extend({
             options: { position: 'topleft' },
             onAdd: function () {
                 // mapa-ctrl-mobile-hide: en teléfono NO se muestra "Pantalla completa" (pedido).
-                var btn = L.DomUtil.create('button', 'mapa-fit-btn mapa-ctrl-mobile-hide');
+                var btn = L.DomUtil.create('button', 'mapa-fit-btn mapa-fs-toggle mapa-ctrl-mobile-hide');
                 btn.type = 'button';
                 btn.title = 'Pantalla completa';
                 btn.innerHTML = '<i class="material-icons">fullscreen</i>';
                 L.DomEvent.disableClickPropagation(btn);
                 L.DomEvent.on(btn, 'click', function () {
-                    var enFS = document.fullscreenElement || document.webkitFullscreenElement;
-                    if (!enFS) {
-                        var req = el.requestFullscreen || el.webkitRequestFullscreen;
-                        if (req) req.call(el);
-                    } else {
-                        var exit = document.exitFullscreen || document.webkitExitFullscreen;
-                        if (exit) exit.call(document);
-                    }
+                    var req = el.requestFullscreen || el.webkitRequestFullscreen;
+                    if (req) req.call(el);
                 });
-                // Cambia el icono y recalcula el tamaño al entrar/salir de pantalla completa.
-                var onFsChange = function () {
-                    var enFS = (document.fullscreenElement === el) || (document.webkitFullscreenElement === el);
-                    var ic = btn.querySelector('i');
-                    if (ic) ic.textContent = enFS ? 'fullscreen_exit' : 'fullscreen';
-                    setTimeout(function () { map.invalidateSize(); }, 120);
-                };
-                document.addEventListener('fullscreenchange', onFsChange);
-                document.addEventListener('webkitfullscreenchange', onFsChange);
                 return btn;
             }
         });
         map.addControl(new FullScreen());
+
+        // ── Botón "X" para SALIR de pantalla completa (solo visible en pantalla completa,
+        //    lo controla el CSS con #mapa-leaflet:fullscreen). Va arriba-derecha porque
+        //    arriba-izquierda queda el buscador. ──
+        var CerrarFS = L.Control.extend({
+            options: { position: 'topright' },
+            onAdd: function () {
+                var btn = L.DomUtil.create('button', 'mapa-fit-btn mapa-fs-close');
+                btn.type = 'button';
+                btn.title = 'Salir de pantalla completa';
+                btn.innerHTML = '<i class="material-icons">close</i>';
+                L.DomEvent.disableClickPropagation(btn);
+                L.DomEvent.on(btn, 'click', salirPantallaCompleta);
+                return btn;
+            }
+        });
+        map.addControl(new CerrarFS());
+
+        // Recalcula el tamaño del mapa al entrar/salir de pantalla completa (cambia el alto).
+        var onFsChange = function () { setTimeout(function () { map.invalidateSize(); }, 120); };
+        document.addEventListener('fullscreenchange', onFsChange);
+        document.addEventListener('webkitfullscreenchange', onFsChange);
+
+        // ── DESMONTAJE al navegar por la SPA ──────────────────────────────────────────────
+        // Estos listeners cuelgan de document/window, no del contenedor, así que NO se van
+        // solos cuando la SPA reemplaza la vista: sin esto cada visita a /mapa dejaba un par
+        // vivos, cada uno reteniendo el mapa anterior entero y llamando invalidateSize()
+        // sobre mapas ya huérfanos. Se comprueba en cada navegación si el contenedor sigue en
+        // el documento; si ya no está, se sueltan los listeners y se destruye el mapa.
+        var obsTam = null;   // ResizeObserver del contenedor (se asigna más abajo)
+        var onOrientacion = function () { setTimeout(function () { map.invalidateSize({ pan: false }); }, 250); };
+        var alNavegar = function () {
+            if (document.body.contains(el)) return;   // seguimos en el mapa
+            window.removeEventListener('spa:contentLoaded', alNavegar);
+            document.removeEventListener('fullscreenchange', onFsChange);
+            document.removeEventListener('webkitfullscreenchange', onFsChange);
+            window.removeEventListener('orientationchange', onOrientacion);
+            if (obsTam) obsTam.disconnect();
+            map.remove();   // suelta también todos los listeners internos de Leaflet
+        };
+        window.addEventListener('spa:contentLoaded', alNavegar);
 
         // ── Brújula (N/S/E/O): indicador fijo del norte (el mapa siempre está al norte). ──
         var Brujula = L.Control.extend({
@@ -899,7 +1118,7 @@
         // La coordenada YA NO sale en un popup al hacer clic; se consulta con clic DERECHO
         // (menú de contexto), donde aparece junto a su botón de copiar.
         map.on('click', function () {
-            if (typeof edMode !== 'undefined' && edMode) return; // en modo edición el clic dibuja
+            if (edMode) return; // en modo edición el clic dibuja
             cerrarBuscador();
         });
 
@@ -914,6 +1133,12 @@
         // Frentes de trabajo = proyectos. Vienen del backend (window.mapaFrentes = [{id, nombre}]).
         // El selector "Proyecto" del popup se arma con estos; NO se crean proyectos a mano.
         var oleoFrentes = Array.isArray(window.mapaFrentes) ? window.mapaFrentes : [];
+        // Ubicaciones SIN frente: en el buscador del formulario son una opción más de la lista
+        // (SUELTO_ID es un id centinela, no existe en frentes_trabajo) y en la leyenda/panel el
+        // grupo se rotula con SUELTO_LABEL. Cambiar ese texto aquí lo cambia en todas partes.
+        var SUELTO_ID = '__sin_proyecto__';
+        // En MAYÚSCULAS como los nombres de los frentes, para que la leyenda se lea pareja.
+        var SUELTO_LABEL = 'CONVERGENCIA ADMINISTRATIVA';
         // ¿Puede GESTIONAR proyectos? Depende del PERMISO 'super.admin' (window.mapaPuedeEditar,
         // que pone MapaController según usuarios.PERMISOS). Si es false → mapa de CONSULTA: sin
         // crear/asociar puntos, sin dibujar, sin borrar. El backend además valida las rutas.
@@ -978,16 +1203,21 @@
                 if (ls[2]) ls[2].setStyle({ weight: p.brillo });
             };
             Object.keys(oleoMap).forEach(function (id) { aplicar(oleoMap[id].lines); });
-            if (typeof edLineLayers !== 'undefined') aplicar(edLineLayers);
+            if (edLineLayers) aplicar(edLineLayers);
         }
         map.on('zoomend', actualizarPesoTuberias);
 
         function oleoDibujar(o) {
+            // El grupo de ubicaciones sin frente se rotula SIEMPRE con SUELTO_LABEL: el nombre
+            // guardado en BD no manda, así cambiar el texto es tocar una sola constante y no
+            // hace falta renombrar la fila. Se normaliza aquí, el único sitio por el que pasan
+            // TODOS los grupos, para que leyenda, panel y exportación digan lo mismo.
+            if (o.suelto) o.nombre = SUELTO_LABEL;
             if (oleoMap[o.id]) {
                 (oleoMap[o.id].lines || []).forEach(function (l) { map.removeLayer(l); });
                 (oleoMap[o.id].markers || []).forEach(function (m) { map.removeLayer(m); });
             }
-            var pts = (o.puntos || []).slice().sort(function (a, b) { return (a.orden || 0) - (b.orden || 0); });
+            var pts = puntosOrdenados(o);
             // La tubería SOLO aparece si se dibujó a mano con el lápiz (recorrido). Los puntos
             // NO se unen con una línea automática: cada punto es una "vela" (marcador de ubicación).
             var lines = (o.recorrido && o.recorrido.length >= 2)
@@ -1018,25 +1248,19 @@
             }
             var markers = pts.map(function (p) {
                 var mk = L.marker([p.lat, p.lng], { icon: velaIcon('#0067b1'), zIndexOffset: 500 }).addTo(map);
-                // Etiqueta de la vela: nombre del PROYECTO arriba y, debajo, el nombre que el
-                // usuario le puso al punto (ej. "PROGRESIVA 47+100"). La COORDENADA NO va aquí:
-                // solo se muestra en el historial (leyenda).
-                mk._velaTip = '<span class="vela-proj">' + esc(o.nombre) + '</span>' +
-                              '<b>' + esc(p.nombre || 'Punto') + '</b>';
+                // Nombre que el usuario le puso al punto (ej. "PROGRESIVA 47+100"), la línea de
+                // abajo de la etiqueta. El nombre del PROYECTO lo pone declutterVelas y el HTML
+                // lo arma colocarEtiquetas, que necesita medir el texto para evitar solapes.
+                // La COORDENADA NO va aquí: solo se muestra en el historial (leyenda).
+                mk._velaPunto = p.nombre || 'Punto';
                 // Clic derecho sobre la vela: eliminar ese punto del proyecto (solo con permiso).
-                if (PUEDE_EDITAR) mk.on('contextmenu', function (ev) { menuVela(ev, p.id, p.nombre); });
+                if (PUEDE_EDITAR) mk.on('contextmenu', function (ev) { menuVela(ev, o.id, p); });
                 return mk;
             });
             oleoMap[o.id] = { data: o, lines: lines, markers: markers };
             declutterVelas(true); // (re)etiqueta las velas recién creadas de este proyecto
         }
 
-        // Velas: SIEMPRE se agrupan las del MISMO proyecto que se superponen (<THRESH px) en una
-        // sola, contando cuántas se juntan. La ETIQUETA depende del zoom:
-        //  · MÁS DE 300 km (zoom < 6): NO hay etiqueta fija (se pegaban entre proyectos), solo el
-        //    PIN y el nombre del proyecto al pasar el mouse (hover).
-        //  · Más cerca: etiqueta FIJA — si VARIAS velas se juntaron en una (count>1) solo el nombre
-        //    del PROYECTO; si es un punto suelto, proyecto arriba + nombre del punto (mk._velaTip).
         // Escala en km que muestra la barra del mapa (lo que ve el usuario: 300 km, 500 km…).
         // Se lee del control de escala; con moveend/zoomend la barra ya está actualizada.
         function escalaKm() {
@@ -1047,61 +1271,415 @@
             var v = parseFloat(m[1]);
             return m[2] === 'km' ? v : v / 1000; // metros → km
         }
-        var declutterZoom = null, declutterLejos = null; // último estado para evitar recálculos en paneo
-        function declutterVelas(force) {
-            var THRESH = 38; // px — mayor que el ancho del pin (34) para que dos velas que se solapan se unan en una
-            var z = map.getZoom();
-            // A 300 km se ve el nombre del proyecto; a MÁS de 300 km (500 km…) solo los pines
-            // (el nombre aparece al hacer foco). Umbral por la ESCALA, referencia del usuario.
-            var lejos = escalaKm() > 300;
-            // En un PAN puro (mismo zoom y misma condición lejos) las distancias en px entre velas
-            // son idénticas (coordenadas globales de Mercator): no hace falta re-agrupar ni re-enlazar
-            // todos los tooltips (evita flicker/jank). `force` re-ejecuta al crear/recargar velas.
-            if (!force && z === declutterZoom && lejos === declutterLejos) return;
-            declutterZoom = z; declutterLejos = lejos;
-            // A más de 300 km el pin se ve exageradamente grande → se encoge por CSS (clase en el mapa).
-            el.classList.toggle('mapa-velas-lejos', lejos);
-            Object.keys(oleoMap).forEach(function (id) {
-                var o = oleoMap[id].data, mks = oleoMap[id].markers || [];
-                var proyLbl = '<span class="vela-proj">' + esc(o.nombre) + '</span>';
-                // Se AGRUPAN las velas del mismo proyecto que se solapan (<THRESH px) en una sola:
-                // se cuenta cuántas se juntan y se ocultan las demás.
-                var reps = [];
-                mks.forEach(function (mk) {
-                    if (!map.hasLayer(mk)) mk.addTo(map);
-                    var p = map.latLngToContainerPoint(mk.getLatLng()), rep = null;
-                    for (var i = 0; i < reps.length; i++) { if (reps[i].p.distanceTo(p) < THRESH) { rep = reps[i]; break; } }
-                    if (rep) { rep.count++; map.removeLayer(mk); } else reps.push({ p: p, mk: mk, count: 1 });
-                });
-                reps.forEach(function (r) {
-                    r.mk.unbindTooltip();
-                    if (lejos) {
-                        // >300 km: solo el pin; el nombre del proyecto aparece al pasar el mouse (no fijo).
-                        r.mk.bindTooltip(proyLbl, { permanent: false, direction: 'right', offset: [10, -12], className: 'estado-tooltip vela-label' });
-                    } else {
-                        // Cerca: etiqueta FIJA. Si VARIAS velas se juntaron en una (count>1) → solo el
-                        // nombre del PROYECTO (no los nombres de cada punto). Punto suelto → proyecto + punto.
-                        r.mk.bindTooltip(r.count > 1 ? proyLbl : r.mk._velaTip, { permanent: true, direction: 'right', offset: [10, -12], className: 'estado-tooltip vela-label' });
+        var FAM_ETQ = 'Inter, "Segoe UI", sans-serif'; // fuente de la etiqueta al pintarla en canvas
+        // Cuánto se agranda la LETRA de las etiquetas en la imagen descargada respecto a la
+        // pantalla (pedido: en la descarga se leía muy chica). 1 = igual que en pantalla.
+        var ETQ_EXPORT_K = 1.35;
+        // Tamaño EXACTO (px) de la cajita de una etiqueta. Se mide con un clon oculto que lleva
+        // las mismas clases CSS que el tooltip real (misma fuente, mismo padding, mismo
+        // interlineado): medirlo con canvas se quedaba corto y las cajas que se reservaban para
+        // repartir salían más chicas que las de verdad, así que aún se rozaban.
+        // `k` escala la medida (1 = pantalla; en el export, el factor de la hoja).
+        var _probeEtq = null;
+        function medidaEtiqueta(proyectos, puntos, k) {
+            k = k || 1;
+            if (!_probeEtq) {
+                _probeEtq = document.createElement('div');
+                _probeEtq.className = 'leaflet-tooltip estado-tooltip vela-label';
+                _probeEtq.style.cssText = 'position:absolute;left:-9999px;top:-9999px;opacity:0;pointer-events:none;';
+                el.appendChild(_probeEtq);
+            }
+            _probeEtq.innerHTML = etiquetaHtml(proyectos, puntos);
+            return { w: Math.ceil(_probeEtq.offsetWidth) * k, h: Math.ceil(_probeEtq.offsetHeight) * k };
+        }
+        // Máximo de nombres de punto listados en una etiqueta; el resto se resume en "+N más"
+        // (si no, un montón de velas juntas generaría una cajita enorme).
+        var MAX_PUNTOS_ETQ = 4;
+        // Nombres de punto que se pintan, con el resumen "+N más" al final si se pasan.
+        function lineasPunto(puntos) {
+            if (!puntos || !puntos.length) return [];
+            if (puntos.length <= MAX_PUNTOS_ETQ) return puntos.slice();
+            return puntos.slice(0, MAX_PUNTOS_ETQ).concat('+' + (puntos.length - MAX_PUNTOS_ETQ) + ' más');
+        }
+        // HTML de la etiqueta: una línea azul por PROYECTO (varias cuando las velas de proyectos
+        // distintos quedan encimadas y se funden en una sola) y, debajo, UNA LÍNEA POR PUNTO
+        // (varias cuando dos velas del mismo proyecto se juntan: así se ven los dos nombres).
+        function etiquetaHtml(proyectos, puntos) {
+            return proyectos.map(function (n) { return '<span class="vela-proj">' + esc(n) + '</span>'; }).join('') +
+                   lineasPunto(puntos).map(function (n) { return '<b>' + esc(n) + '</b>'; }).join('');
+        }
+        function chocaCaja(a, b) { return a.x1 < b.x2 && a.x2 > b.x1 && a.y1 < b.y2 && a.y2 > b.y1; }
+        // Qué nombres de punto lleva una vela: todos hasta DETALLE_KM y ninguno más lejos (ahí
+        // solo cabe el nombre del frente). Única definición de la regla — la usan pantalla y foto.
+        function conDetalle() { return escalaKm() <= DETALLE_KM; }
+        function puntosVisibles(r) { return conDetalle() ? r.puntos : null; }
+
+        // Reparte las etiquetas de TODAS las velas (de todos los proyectos) evitando solapes:
+        // se prueba a la DERECHA del pin y, si ahí choca con otra etiqueta o con un pin, a la
+        // IZQUIERDA (solo a los costados). Si la etiqueta completa no cabe en ningún lado, se
+        // reintenta con SOLO el nombre del proyecto (cajita más chica) antes de renunciar: con
+        // varios puntos apiñados es preferible ver de qué proyecto son que no ver nada.
+        // Antes cada proyecto se resolvía por separado y siempre a la derecha: por eso dos puntos
+        // cercanos de proyectos distintos pegaban sus burbujas una encima de la otra.
+        // reps: [{ x, y, proys, puntos }] — a cada uno se le añade .lado y .caja ({x1,y1,w,h}), y
+        // .puntos queda en null si hubo que recortar. .caja = null si no hubo sitio de ninguna
+        // forma. La usan IGUAL la pantalla y la foto que se descarga.
+        // kEtq = escala SOLO del texto de la cajita (la foto la agranda; por defecto = k).
+        function repartirEtiquetas(reps, k, bloqueos, kEtq) {
+            k = k || 1; kEtq = kEtq || k;
+            var pinW = VELA_W * k, tipY = VELA_TIP_Y * k;
+            var sepX = pinW / 2 + ETQ_SEP_X * k;   // del centro del pin al borde de la cajita
+            var hueco = ETQ_HUECO_Y * kEtq;             // aire entre cajas apiladas
+            // Los pines ocupan sitio, y `bloqueos` añade los números de municipio: ninguna
+            // etiqueta debe tapar ni un pin ni el número identificador de un municipio.
+            var duros = cajasPines(reps, k);            // pines y otras etiquetas: nunca se pisan
+            var blandos = bloqueos || [];               // números de municipio: se evitan SI se puede
+            // Orden estable (arriba→abajo, izquierda→derecha): no cambia al hacer pan, así las
+            // etiquetas no saltan de lado solas.
+            reps.slice().sort(function (a, b) { return (a.y - b.y) || (a.x - b.x); }).forEach(function (r) {
+                // Un punto que está en VARIOS proyectos saca UNA CAJITA POR PROYECTO (no una
+                // cajita con varios nombres dentro), y uno normal saca una sola. En los dos casos
+                // las cajitas se apilan al costado, a la misma separación, y cada una se une a la
+                // vela con su propia línea (ver pintarLineasEtq / dibujarLineasEtq).
+                var grupos = r.proys.length ? r.proys.map(function (n) { return [n]; }) : [[]];
+                r.cajas = [];
+                var yc = r.y - tipY - ETQ_SUBE_Y * k;   // centro vertical de la primera cajita
+                grupos.forEach(function (proys) {
+                    // Cada cajita lleva su proyecto Y el nombre del punto, también cuando el
+                    // punto está compartido: así cada contenedor se entiende por sí solo.
+                    var textos = (r.puntos && r.puntos.length) ? [r.puntos, null] : [null];
+                    var puesta = null, medidas = {};
+                    // Se prueba, en orden: (1) texto completo sin tapar NADA, (2) solo el nombre
+                    // del proyecto, y (3)(4) lo mismo admitiendo tapar un número de municipio.
+                    // Los números son obstáculos BLANDOS: con muchos municipios encendidos cubren
+                    // el mapa entero y, si fueran duros, ninguna etiqueta cabría en ningún lado.
+                    var intentos = [];
+                    [true, false].forEach(function (evitarNum) {
+                        textos.forEach(function (tx) { intentos.push({ txt: tx, evitarNum: evitarNum }); });
+                    });
+                    for (var t = 0; t < intentos.length && !puesta; t++) {
+                        var ocupado = intentos[t].evitarNum ? duros.concat(blandos) : duros;
+                        var clave = String(intentos[t].txt);
+                        // medidaEtiqueta hace un reflow del DOM: se cachea por texto.
+                        var m = medidas[clave] || (medidas[clave] = medidaEtiqueta(proys, intentos[t].txt, kEtq));
+                        // Anillos: se prueba pegada al pin y, si no cabe, cada vez más lejos (la
+                        // línea la sigue conectando). Con los frentes apiñados al alejar el mapa,
+                        // los nombres se abren hacia afuera en vez de esconderse en el hover.
+                        for (var ring = 0; ring < ETQ_ANILLOS && !puesta; ring++) {
+                            var sepXr = sepX + ring * ETQ_ANILLO_PASO * k;
+                            // Ranuras verticales: la primera a la altura del pin y las siguientes
+                            // arriba/abajo alternando, para que las cajas de un mismo punto queden
+                            // apiladas en columna y no una encima de otra.
+                            for (var slot = 0; slot < ETQ_RANURAS && !puesta; slot++) {
+                                var dy = (slot === 0) ? 0 : (Math.ceil(slot / 2) * (m.h + hueco) * (slot % 2 ? -1 : 1));
+                                var lados = [
+                                    { lado: 'right', x1: r.x + sepXr },
+                                    { lado: 'left', x1: r.x - sepXr - m.w }
+                                ];
+                                for (var i = 0; i < lados.length && !puesta; i++) {
+                                    var y1 = yc + dy - m.h / 2;
+                                    var c = { x1: lados[i].x1 - 2 * k, x2: lados[i].x1 + m.w + 2 * k, y1: y1 - 2 * k, y2: y1 + m.h + 2 * k };
+                                    var libre = true;
+                                    for (var j = 0; j < ocupado.length && libre; j++) libre = !chocaCaja(c, ocupado[j]);
+                                    if (libre) {
+                                        puesta = { x1: lados[i].x1, y1: y1, w: m.w, h: m.h, lado: lados[i].lado,
+                                                   proys: proys, puntos: intentos[t].txt };
+                                        duros.push(c); // la etiqueta ya colocada estorba a las demás
+                                    }
+                                }
+                            }
+                        }
                     }
+                    if (puesta) r.cajas.push(puesta);
+                });
+                // Los proyectos que no cupieron: su nombre sale al pasar el mouse por el pin.
+                r.sinSitio = r.proys.filter(function (n) {
+                    return !r.cajas.some(function (c) { return c.proys.indexOf(n) > -1; });
                 });
             });
+            return reps;
+        }
+
+        // Botón del OJO (arriba-izq): oculta los rótulos de proyecto/punto dejando SOLO las
+        // velas; el nombre y las coordenadas del punto salen al pasar el mouse por la vela.
+        // Se recuerda entre recargas en localStorage.
+        var soloVelas = false;
+        try { soloVelas = localStorage.getItem('mapaSoloVelas') === '1'; } catch (e) {}
+
+        // Pantalla: pinta las cajas que decidió repartirEtiquetas como marcadores propios, cada
+        // una unida al pin por su línea guía. Se usan marcadores (y no tooltips) porque un
+        // marcador solo admite UN tooltip y un punto compartido necesita una caja por proyecto;
+        // además así Leaflet las mueve solo al arrastrar el mapa, igual que los pines.
+        // Todo vive en `etqCapa`, que se vacía y se vuelve a llenar en cada recálculo.
+        function colocarEtiquetas(reps, lejos, bloqueos) {
+            var escala = lejos ? ESC_LEJOS : 1;
+            // Modo "solo velas" (botón del ojo): sin rótulos ni líneas guía. El dato del punto
+            // (proyecto + nombre) aparece al pasar el mouse por la vela, justo encima de ella.
+            if (soloVelas) {
+                etqCapa.clearLayers();
+                reps.forEach(function (r) {
+                    r.mk.unbindTooltip();
+                    r.mk.bindTooltip(etiquetaHtml(r.proys, r.puntos), {
+                        permanent: false, direction: 'top', opacity: 1,
+                        offset: [0, -VELA_H * escala],
+                        className: 'estado-tooltip vela-label'
+                    });
+                });
+                return;
+            }
+            var pts = reps.map(function (r) {
+                return {
+                    x: r.x, y: r.y, mk: r.mk, proys: r.proys,
+                    // Varias velas fundidas en una → se listan TODOS sus nombres de punto (antes
+                    // se perdían y solo quedaba el proyecto).
+                    puntos: puntosVisibles(r)
+                };
+            });
+            // kEtq = 1 SIEMPRE: en vista lejana el CSS encoge el pin pero NO la etiqueta, así que
+            // medirla al 65% reservaba cajas más chicas que las reales y volvían a solaparse.
+            repartirEtiquetas(pts, escala, bloqueos, 1);
+
+            etqCapa.clearLayers();
+            pts.forEach(function (r) {
+                pintarLineasEtq(r, escala);   // toda cajita va unida a su vela por una línea
+                r.cajas.forEach(function (c) {
+                    var caja = '<div class="estado-tooltip vela-label">' +
+                        etiquetaHtml(c.proys, c.puntos) + '</div>';
+                    etqCapa.addLayer(L.marker(map.containerPointToLatLng([c.x1, c.y1]), {
+                        icon: L.divIcon({ className: 'vela-etq', html: caja, iconSize: null, iconAnchor: [0, 0] }),
+                        interactive: false, keyboard: false, pane: 'etqPane'
+                    }));
+                });
+                // Los proyectos que no cupieron salen al pasar el mouse por el pin.
+                r.mk.unbindTooltip();
+                if (r.sinSitio && r.sinSitio.length) {
+                    r.mk.bindTooltip(etiquetaHtml(r.sinSitio, r.puntos), {
+                        permanent: false, direction: 'right',
+                        offset: [VELA_W / 2 * escala + ETQ_SEP_X * escala, -ETQ_SUBE_Y * escala],
+                        className: 'estado-tooltip vela-label'
+                    });
+                }
+            });
+        }
+
+        // Líneas en PANTALLA: una curva por cajita, del borde de la vela hasta ella. Misma
+        // geometría que la foto (curvaEtiqueta), así salen idénticas.
+        function pintarLineasEtq(r, k) {
+            var aLL = function (p) { return map.containerPointToLatLng(p); };
+            var comun = { pane: 'etqPane', interactive: false, lineCap: 'round', lineJoin: 'round' };
+            // Cada línea se pinta dos veces: halo debajo y trazo encima.
+            var trazo = function (puntos) {
+                var lls = puntos.map(aLL);
+                etqCapa.addLayer(L.polyline(lls, Object.assign({ color: ETQ_BORDE_COLOR, weight: ETQ_BORDE_W * k, opacity: ETQ_BORDE_OP }, comun)));
+                etqCapa.addLayer(L.polyline(lls, Object.assign({ color: ETQ_TRAZO_COLOR, weight: ETQ_TRAZO_W * k, opacity: 0.97 }, comun)));
+            };
+            r.cajas.forEach(function (c) { trazo(puntosCurva(curvaEtiqueta(r, c, k), ETQ_CURVA_PASOS)); });
+        }
+
+        // Geometría de la línea de una cajita. Única definición — la usan la pantalla y la foto,
+        // así salen idénticas. Arranca en el BORDE de la vela (del lado hacia el que va la cajita,
+        // a la altura del bulbo) y llega al borde interior de la cajita, con una curva suave.
+        function curvaEtiqueta(r, c, k) {
+            var haciaDerecha = (c.lado === 'right');
+            var desde = [r.x + (haciaDerecha ? 1 : -1) * (VELA_W / 2) * k, r.y - VELA_TIP_Y * k];
+            var hasta = [haciaDerecha ? c.x1 : (c.x1 + c.w), c.y1 + c.h / 2];
+            // PARÁBOLA: los dos tiradores se separan de la recta hacia ARRIBA, en proporción a lo
+            // larga que sea la línea. Así cada cajita sale con su propio arco en vez de una recta.
+            var dx = hasta[0] - desde[0], dy = hasta[1] - desde[1];
+            var comba = ETQ_COMBA * Math.sqrt(dx * dx + dy * dy);
+            return {
+                desde: desde,
+                c1: [desde[0] + dx * 0.33, desde[1] + dy * 0.33 - comba],
+                c2: [desde[0] + dx * 0.66, desde[1] + dy * 0.66 - comba],
+                hasta: hasta
+            };
+        }
+        // Puntos de la curva (para dibujarla con polilíneas en pantalla).
+        function puntosCurva(rama, n) {
+            var pts = [];
+            for (var i = 0; i <= n; i++) {
+                var t = i / n, u = 1 - t;
+                pts.push([
+                    u * u * u * rama.desde[0] + 3 * u * u * t * rama.c1[0] + 3 * u * t * t * rama.c2[0] + t * t * t * rama.hasta[0],
+                    u * u * u * rama.desde[1] + 3 * u * u * t * rama.c1[1] + 3 * u * t * t * rama.c2[1] + t * t * t * rama.hasta[1]
+                ]);
+            }
+            return pts;
+        }
+
+
+        // Caja (px) que ocupa cada pin en pantalla/canvas. La usan tanto el reparto de etiquetas
+        // como el esquive de los números de municipio.
+        function cajasPines(reps, k) {
+            var w = VELA_W * k, h = VELA_H * k;
+            return reps.map(function (r) { return { x1: r.x - w / 2, x2: r.x + w / 2, y1: r.y - h, y2: r.y }; });
+        }
+        // Saltos que se prueban (px, sin escalar) para apartar el número de un municipio cuando
+        // una vela le cae encima: primero donde está, luego abajo/arriba/lados y diagonales.
+        var DESPL_NUM = [[0, 0], [0, 24], [0, -24], [-24, 0], [24, 0], [-22, 22], [22, 22], [-22, -22], [22, -22], [0, 44], [0, -44]];
+        // Devuelve el desplazamiento [dx, dy] que deja el número libre de obstáculos, o [0,0] si
+        // no encuentra hueco (entonces se queda en su sitio: mejor tapado que fuera del municipio).
+        function esquivarNumero(x, y, r, obstaculos, k) {
+            for (var i = 0; i < DESPL_NUM.length; i++) {
+                var dx = DESPL_NUM[i][0] * k, dy = DESPL_NUM[i][1] * k;
+                var caja = { x1: x + dx - r, x2: x + dx + r, y1: y + dy - r, y2: y + dy + r };
+                var libre = true;
+                for (var j = 0; j < obstaculos.length && libre; j++) libre = !chocaCaja(caja, obstaculos[j]);
+                if (libre) return [dx, dy];
+            }
+            return [0, 0];
+        }
+
+        // Funde en una sola vela las que quedan encimadas (<thresh px) AUNQUE sean de proyectos
+        // distintos: la primera se queda y absorbe los nombres de proyecto de las demás (sin
+        // repetir). `ocultar` esconde el marcador absorbido (solo aplica en pantalla).
+        // Se usa igual en el mapa y en la foto que se descarga.
+        function fundirVelas(reps, thresh, ocultar) {
+            var out = [];
+            reps.forEach(function (r) {
+                for (var i = 0; i < out.length; i++) {
+                    var dx = out[i].x - r.x, dy = out[i].y - r.y;
+                    if (dx * dx + dy * dy < thresh * thresh) {
+                        r.proys.forEach(function (n) { if (out[i].proys.indexOf(n) < 0) out[i].proys.push(n); });
+                        // Los nombres de punto también se acumulan: la etiqueta única los lista todos.
+                        (r.puntos || []).forEach(function (n) { if (out[i].puntos.indexOf(n) < 0) out[i].puntos.push(n); });
+                        if (ocultar && r.mk) ocultar(r.mk);
+                        return;
+                    }
+                }
+                out.push(r);
+            });
+            return out;
+        }
+
+        // ÚNICA implementación de la regla de agrupación (antes estaba escrita dos veces, una para
+        // la pantalla y otra para la foto, y podían desincronizarse):
+        //  1) las velas del MISMO proyecto que se solapan (<thresh px) se funden en una, que se
+        //     lleva los NOMBRES de todas (así se leen los dos puntos, no solo el del proyecto);
+        //  2) después se funden también entre proyectos DISTINTOS que queden encimados.
+        // `puntosDe(o)` devuelve los puntos ya proyectados a píxeles: [{x, y, nombre, mk?}].
+        // `ocultar(mk)` esconde el marcador absorbido (solo lo usa la pantalla).
+        function agruparVelas(puntosDe, thresh, ocultar) {
+            var todas = [];
+            // gruposOrdenados y no Object.keys: al fundirse velas de frentes distintos, sus
+            // nombres se acumulan EN ESTE ORDEN, y debe ser el mismo que muestran la leyenda
+            // y el panel (Object.keys los daba por id).
+            gruposOrdenados().forEach(function (o) {
+                if (proyOculto(o)) return;   // oculto → no genera velas
+                var grupo = [];
+                puntosDe(o).forEach(function (p) {
+                    var rep = null;
+                    for (var i = 0; i < grupo.length; i++) {
+                        var dx = grupo[i].x - p.x, dy = grupo[i].y - p.y;
+                        if (dx * dx + dy * dy < thresh * thresh) { rep = grupo[i]; break; }
+                    }
+                    if (rep) {
+                        if (rep.puntos.indexOf(p.nombre) < 0) rep.puntos.push(p.nombre);
+                        if (ocultar && p.mk) ocultar(p.mk);
+                    } else {
+                        grupo.push({ x: p.x, y: p.y, mk: p.mk, proys: [o.nombre], puntos: [p.nombre] });
+                    }
+                });
+                todas = todas.concat(grupo);
+            });
+            return fundirVelas(todas, thresh, ocultar);
+        }
+
+        var declutterZoom = null, declutterLejos = null, declutterDetalle = null; // último estado, para no recalcular en paneo
+        function declutterVelas(force) {
+            var z = map.getZoom();
+            // A MÁS de 300 km (500 km…) el pin se encoge. El nombre del PUNTO es otro umbral
+            // (DETALLE_KM): hasta 50 km sale, más lejos solo el proyecto. Ambos por ESCALA.
+            var lejos = vistaLejana(), detalle = conDetalle();
+            // En un PAN puro (mismo zoom y mismos umbrales) las distancias en px entre velas son
+            // idénticas (coordenadas globales de Mercator): no hace falta re-agrupar ni re-enlazar
+            // todos los tooltips (evita flicker/jank). Se vigilan LOS DOS umbrales porque al
+            // desplazarse en latitud la escala cambia sin cambiar el zoom. `force` re-ejecuta al
+            // crear/recargar velas.
+            if (!force && z === declutterZoom && lejos === declutterLejos && detalle === declutterDetalle) return;
+            declutterZoom = z; declutterLejos = lejos; declutterDetalle = detalle;
+            // A más de 300 km el pin se ve exageradamente grande → se encoge por CSS (clase en el mapa).
+            el.classList.toggle('mapa-velas-lejos', lejos);
+            // Los pines/tuberías de un proyecto oculto se quitan del mapa; los visibles se
+            // reponen. Los pines visibles los vuelve a añadir agruparVelas; las tuberías, aquí.
+            Object.keys(oleoMap).forEach(function (id) {
+                var g = oleoMap[id], oculto = !!proyOcultos[id];
+                (g.markers || []).forEach(function (mk) { if (oculto) map.removeLayer(mk); });
+                (g.lines || []).forEach(function (l) {
+                    if (oculto) map.removeLayer(l); else if (!map.hasLayer(l)) l.addTo(map);
+                });
+            });
+            // El umbral de fusión va con el tamaño al que se DIBUJA el pin (en vista lejana el CSS
+            // lo encoge): así dos velas se funden justo cuando se pisarían. Mismo criterio que la foto.
+            var escalaPin = lejos ? ESC_LEJOS : 1;
+            var THRESH = VELA_THRESH * escalaPin;
+            // 1+2) Agrupar y fundir con la MISMA regla que usa la foto (agruparVelas).
+            var todas = agruparVelas(function (o) {
+                return (oleoMap[o.id].markers || []).map(function (mk) {
+                    if (!map.hasLayer(mk)) mk.addTo(map);
+                    var p = map.latLngToContainerPoint(mk.getLatLng());
+                    return { x: p.x, y: p.y, nombre: mk._velaPunto, mk: mk };
+                });
+            }, THRESH, function (mk) { map.removeLayer(mk); });
+            // 3) Los NÚMEROS de municipio que queden debajo de una vela se apartan un poco
+            //    (siguen dentro del municipio) y se reservan para que tampoco los tape una
+            //    etiqueta: antes la vela o su cajita escondían el número por completo.
+            var numeros = apartarNumerosMuni(escalaPin);
+            // 4) Las etiquetas de todas las velas se reparten juntas (derecha/izquierda).
+            colocarEtiquetas(todas, lejos, numeros);
+        }
+        // Aparta los números de municipio que queden bajo una vela. Trabaja con las cajas REALES
+        // del DOM (no recalculando coordenadas) para que lo que se compara sea exactamente lo que
+        // se ve. Devuelve las cajas donde quedaron, para que las etiquetas también los respeten.
+        function apartarNumerosMuni(escalaPin) {
+            var cajas = [];
+            // getBoundingClientRect da coordenadas de VENTANA; el reparto de etiquetas trabaja en
+            // coordenadas del CONTENEDOR del mapa. Se resta el origen del contenedor para que ambos
+            // hablen el mismo idioma (antes coincidían solo si el mapa arrancaba pegado a 0,0).
+            var org = el.getBoundingClientRect();
+            function aCont(r) {
+                return { x1: r.left - org.left, y1: r.top - org.top, x2: r.right - org.left, y2: r.bottom - org.top };
+            }
+            // El div del pin mide siempre 20×26: el scale() del CSS va en el <svg> de dentro y no
+            // cambia esa caja de layout. Se encoge aquí a mano (desde la PUNTA, como hace
+            // transform-origin) para que los números esquiven el pin que de verdad se ve, que es el
+            // mismo que reservan las etiquetas.
+            var e = escalaPin || 1, pines = [];
+            el.querySelectorAll('.mapa-vela').forEach(function (n) {
+                var b = aCont(n.getBoundingClientRect()), cx = (b.x1 + b.x2) / 2, w = (b.x2 - b.x1) * e;
+                pines.push({ x1: cx - w / 2, x2: cx + w / 2, y1: b.y2 - (b.y2 - b.y1) * e, y2: b.y2 });
+            });
+            muniNumeros.eachLayer(function (mk) {
+                if (!mk._icon) return;
+                mk._icon.style.marginLeft = '0px'; mk._icon.style.marginTop = '0px'; // partir de su sitio
+                var b = aCont(mk._icon.getBoundingClientRect()), r = MUNI_NUM_R;
+                // Si el usuario lo colocó a mano, se respeta tal cual: el esquive automático solo
+                // actúa sobre los que siguen en el centro del municipio.
+                var d = muniNumPos[mk._muniKey] ? [0, 0] : esquivarNumero(b.x1 + r, b.y1 + r, r, pines, 1);
+                if (d[0] || d[1]) { mk._icon.style.marginLeft = d[0] + 'px'; mk._icon.style.marginTop = d[1] + 'px'; }
+                cajas.push({ x1: b.x1 + d[0], y1: b.y1 + d[1], x2: b.x2 + d[0], y2: b.y2 + d[1] });
+            });
+            return cajas;
         }
         map.on('zoomend moveend', function () { declutterVelas(); }); // moveend: recalcula tras asentarse la vista (carga/fit)
+        // Al cambiar de escala las cajitas y sus líneas se recolocan (zoomend). Durante la
+        // animación del zoom se ocultan: si no, la línea se estira y se despega de la vela
+        // hasta que termina el recálculo.
+        map.on('zoomstart', function () { etqCapa.clearLayers(); });
 
         function oleoRenderLista() {
             actualizarLeyenda(); // mantiene sincronizada la tabla-leyenda del mapa
             var cont = document.getElementById('oleoLista');
             if (!cont) return;
-            var ids = Object.keys(oleoMap);
-            if (!ids.length) { cont.innerHTML = '<div class="oleo-vacio">Sin proyectos aún. Busca un lugar y vincúlalo a un frente.</div>'; return; }
-            cont.innerHTML = ids.map(function (id) {
-                var o = oleoMap[id].data;
-                var act = String(oleoActivo) === String(id);
-                return '<div class="oleo-item' + (act ? ' oleo-item-activo' : '') + '" data-id="' + id + '">' +
+            var grupos = gruposOrdenados(); // mismo orden que la leyenda y la foto
+            if (!grupos.length) { cont.innerHTML = '<div class="oleo-vacio">Sin frentes aún. Busca un lugar y vincúlalo a un frente.</div>'; return; }
+            cont.innerHTML = grupos.map(function (o) {
+                var act = String(oleoActivo) === String(o.id);
+                return '<div class="oleo-item' + (act ? ' oleo-item-activo' : '') + '" data-id="' + o.id + '">' +
                     '<span class="oleo-dot" style="background:' + o.color + '"></span>' +
                     '<span class="oleo-nom">' + esc(o.nombre) + '</span>' +
                     '<span class="oleo-cnt">' + (o.puntos ? o.puntos.length : 0) + '</span>' +
-                    (PUEDE_EDITAR ? '<button class="oleo-del" title="Borrar" data-del="' + id + '">&times;</button>' : '') +
+                    (PUEDE_EDITAR ? '<button class="oleo-del" title="Borrar" data-del="' + o.id + '">&times;</button>' : '') +
                 '</div>';
             }).join('');
         }
@@ -1109,10 +1687,12 @@
         // Guarda un punto en el proyecto de un FRENTE (el backend find-or-crea el oleoducto de
         // ese frente) + redibuja. Si el proyecto se creó ahora, lo dibuja; si ya existía, agrega
         // el punto y redibuja. cb(ok).
+        // idFrente = null → ubicación SUELTA (sin proyecto): va al endpoint del grupo reservado.
         function oleoGuardarPuntoFrente(idFrente, latlng, nombre, cb) {
             var color = OLEO_PALETA[Object.keys(oleoMap).length % OLEO_PALETA.length];
+            var url = idFrente ? ('/mapa/oleoductos/frente/' + idFrente + '/puntos') : '/mapa/oleoductos/puntos';
             spinOn();
-            oleoApi('/mapa/oleoductos/frente/' + idFrente + '/puntos', 'POST',
+            oleoApi(url, 'POST',
                 { nombre: nombre || '', lat: latlng.lat, lng: latlng.lng, color: color }).then(function (res) {
                 spinOff();
                 if (res && res.success && res.oleoducto_id) {
@@ -1126,7 +1706,7 @@
                     }
                     oleoActivo = oid;
                     oleoRenderLista();
-                    if (window.showToast) window.showToast('Ubicación guardada en el proyecto.', 'success');
+                    if (window.showToast) window.showToast(idFrente ? 'Ubicación guardada en el frente.' : 'Ubicación guardada sin frente.', 'success');
                     if (cb) cb(true);
                 } else { if (window.showToast) window.showToast('No se pudo guardar la ubicación.', 'error'); if (cb) cb(false); }
             }).catch(function () { spinOff(); if (cb) cb(false); });
@@ -1159,17 +1739,22 @@
                 L.popup({ className: 'mapa-oleo-pop', minWidth: 220, autoPan: true }).setLatLng(latlng).setContent(htmlRO).openOn(map);
                 return;
             }
-            var frenteActivo = (oleoActivo && oleoMap[oleoActivo]) ? oleoMap[oleoActivo].data.id_frente : null;
+            var activo = (oleoActivo && oleoMap[oleoActivo]) ? oleoMap[oleoActivo].data : null;
+            // Igual que se preselecciona el frente activo, si lo último que guardaste fue una
+            // ubicación suelta se deja marcado "sin proyecto" (para cargar varias seguidas).
+            var sueltoActivo = !!(activo && activo.suelto);
+            var frenteActivo = activo ? activo.id_frente : null;
             var faObj = frenteActivo ? oleoFrentes.filter(function (f) { return String(f.id) === String(frenteActivo); })[0] : null;
             // Selector de proyecto tipo BUSCADOR (recomienda al escribir), no un <select> plano.
             var html = '<div class="oleo-save">' +
                 '<label class="oleo-save-lbl">Nombre del punto <span class="oleo-req">*</span></label>' +
                 '<input type="text" class="oleo-save-in" placeholder="Ej. PROGRESIVA 47+100" value="' + esc(nombreSugerido || '') + '">' +
                 '<div class="oleo-save-c">' + coords + '</div>' +
-                '<label class="oleo-save-lbl">Proyecto <span class="oleo-req">*</span></label>' +
+                '<label class="oleo-save-lbl">Frente de trabajo <span class="oleo-req">*</span></label>' +
                 '<div class="oleo-save-pick">' +
-                    '<input type="hidden" class="oleo-save-frente" value="' + (frenteActivo ? esc(String(frenteActivo)) : '') + '">' +
-                    '<input type="text" class="oleo-save-search" placeholder="Escribe para buscar el frente…" autocomplete="off" value="' + esc(faObj ? faObj.nombre : '') + '">' +
+                    '<input type="hidden" class="oleo-save-frente" value="' + (sueltoActivo ? SUELTO_ID : (frenteActivo ? esc(String(frenteActivo)) : '')) + '">' +
+                    '<input type="text" class="oleo-save-search" placeholder="Escribe para buscar el frente…" autocomplete="off"' +
+                        ' value="' + esc(sueltoActivo ? SUELTO_LABEL : (faObj ? faObj.nombre : '')) + '">' +
                     '<div class="oleo-save-list"></div>' +
                 '</div>' +
                 '<button type="button" class="oleo-save-btn">Guardar punto</button>' +
@@ -1206,6 +1791,9 @@
 
             function mostrarErr(msg) { if (err) { err.textContent = msg || ''; err.style.display = msg ? '' : 'none'; } }
 
+            // La opción "sin frente" va SIEMPRE la primera de la lista, como una más: así no hace
+            // falta ningún control extra en el formulario.
+            var OP_SUELTO = { id: SUELTO_ID, nombre: SUELTO_LABEL };
             // Sugerencias del buscador: RECOMIENDA al escribir (reutiliza window.FuzzySearch.rank).
             function renderSug() {
                 var term = search.value || '', arr;
@@ -1215,48 +1803,50 @@
                     var q = term.toLowerCase();
                     arr = oleoFrentes.filter(function (f) { return !q || String(f.nombre).toLowerCase().indexOf(q) > -1; });
                 }
-                var h = '';
+                var h = '<div class="oleo-save-op oleo-save-op-sin" data-fid="' + SUELTO_ID + '">' + esc(SUELTO_LABEL) + '</div>';
                 arr.slice(0, 8).forEach(function (f) { h += '<div class="oleo-save-op" data-fid="' + esc(String(f.id)) + '">' + esc(f.nombre) + '</div>'; });
-                list.innerHTML = h || '<div class="oleo-save-op oleo-save-op-none">Sin coincidencias</div>';
+                list.innerHTML = h;
                 list.style.display = 'block';
             }
-            // Resuelve el frente: por selección de la lista, o por el nombre EXACTO tecleado.
+            // Resuelve el frente: por selección de la lista, o por el nombre EXACTO tecleado
+            // (incluida la opción "sin frente", que devuelve el centinela SUELTO_ID).
             function resolverFrente() {
                 if (hid.value) return hid.value;
                 var t = (search.value || '').trim().toLowerCase();
                 if (!t) return '';
-                var m = oleoFrentes.filter(function (f) { return String(f.nombre).toLowerCase() === t; })[0];
+                var m = oleoFrentes.concat(OP_SUELTO).filter(function (f) { return String(f.nombre).toLowerCase() === t; })[0];
                 return m ? String(m.id) : '';
             }
-            if (!btn._ob) {
-                btn._ob = true;
-                search.addEventListener('focus', renderSug);
-                search.addEventListener('input', function () { hid.value = ''; mostrarErr(''); renderSug(); });
-                search.addEventListener('blur', function () { setTimeout(function () { list.style.display = 'none'; }, 150); });
-                list.addEventListener('mousedown', function (e) {
-                    var op = e.target.closest ? e.target.closest('.oleo-save-op') : null;
-                    if (!op || op.classList.contains('oleo-save-op-none')) return;
-                    e.preventDefault();
-                    hid.value = op.getAttribute('data-fid') || '';
-                    search.value = op.textContent;
-                    list.style.display = 'none';
-                    mostrarErr('');
+            // Los listeners se enganchan sin guarda: el popup y su botón se crean de cero en cada apertura,
+            // así que no hay riesgo de engancharlos dos veces sobre el mismo elemento.
+            search.addEventListener('focus', renderSug);
+            search.addEventListener('input', function () { hid.value = ''; mostrarErr(''); renderSug(); });
+            search.addEventListener('blur', function () { setTimeout(function () { list.style.display = 'none'; }, 150); });
+            list.addEventListener('mousedown', function (e) {
+                var op = e.target.closest ? e.target.closest('.oleo-save-op') : null;
+                if (!op) return;
+                e.preventDefault();
+                hid.value = op.getAttribute('data-fid') || '';
+                search.value = op.textContent;
+                list.style.display = 'none';
+                mostrarErr('');
+            });
+            // AMBOS campos son OBLIGATORIOS: nombre del punto + una opción de la lista (un
+            // frente o SUELTO_LABEL, que guarda el punto sin frente).
+            btn.addEventListener('click', function () {
+                var nombre = ((input && input.value) || '').trim();
+                if (!nombre) { mostrarErr('Escribe el nombre del punto.'); if (input) input.focus(); return; }
+                var elegido = resolverFrente();
+                if (!elegido) { mostrarErr('Elige una opción de la lista.'); search.focus(); renderSug(); return; }
+                var idFrente = (elegido === SUELTO_ID) ? '' : elegido; // vacío = sin frente
+                mostrarErr('');
+                var ll = ev.popup.getLatLng();
+                btn.disabled = true; btn.textContent = 'Guardando…';
+                oleoGuardarPuntoFrente(idFrente, ll, nombre, function (ok) {
+                    if (ok) { marcarBusqueda(null); map.closePopup(); }
+                    else { btn.disabled = false; btn.textContent = 'Guardar punto'; }
                 });
-                // AMBOS campos son OBLIGATORIOS: nombre del punto + proyecto.
-                btn.addEventListener('click', function () {
-                    var nombre = ((input && input.value) || '').trim();
-                    if (!nombre) { mostrarErr('Escribe el nombre del punto.'); if (input) input.focus(); return; }
-                    var idFrente = resolverFrente();
-                    if (!idFrente) { mostrarErr('Elige un proyecto de la lista.'); search.focus(); renderSug(); return; }
-                    mostrarErr('');
-                    var ll = ev.popup.getLatLng();
-                    btn.disabled = true; btn.textContent = 'Guardando…';
-                    oleoGuardarPuntoFrente(idFrente, ll, nombre, function (ok) {
-                        if (ok) { marcarBusqueda(null); map.closePopup(); }
-                        else { btn.disabled = false; btn.textContent = 'Guardar punto'; }
-                    });
-                });
-            }
+            });
         });
 
         // Panel de control "Proyectos": botón (timeline) que abre la lista de proyectos. Va en la
@@ -1267,9 +1857,9 @@
                 // mapa-ctrl-mobile-hide: oculto en teléfono (ver FitVE arriba).
                 var wrap = L.DomUtil.create('div', 'oleo-ctrl mapa-ctrl-mobile-hide');
                 wrap.innerHTML =
-                    '<button type="button" class="oleo-toggle" title="Proyectos (puntos unidos por una línea)"><i class="material-icons">timeline</i></button>' +
+                    '<button type="button" class="oleo-toggle" title="Frentes de trabajo (puntos unidos por una línea)"><i class="material-icons">timeline</i></button>' +
                     '<div class="oleo-panel" style="display:none;">' +
-                        '<div class="oleo-panel-h">Proyectos</div>' +
+                        '<div class="oleo-panel-h">Frentes de trabajo</div>' +
                         '<div id="oleoLista" class="oleo-panel-lista"></div>' +
                     '</div>';
                 L.DomEvent.disableClickPropagation(wrap);
@@ -1280,7 +1870,7 @@
                     var del = e2.target.closest ? e2.target.closest('[data-del]') : null;
                     if (del) {
                         var idd = del.getAttribute('data-del');
-                        if (!confirm('¿Borrar este proyecto y todos sus puntos?')) return;
+                        if (!confirm('¿Borrar este frente del mapa y todos sus puntos?')) return;
                         // Optimista: quita del mapa/lista YA (no espera al servidor) → se siente instantáneo.
                         if (oleoMap[idd]) {
                             (oleoMap[idd].lines || []).forEach(function (l) { map.removeLayer(l); });
@@ -1291,7 +1881,7 @@
                         }
                         spinOn();
                         oleoApi('/mapa/oleoductos/' + idd, 'DELETE').then(function () {
-                            spinOff(); if (window.showToast) window.showToast('Proyecto borrado.', 'success');
+                            spinOff(); if (window.showToast) window.showToast('Frente borrado.', 'success');
                         }).catch(function () { spinOff(); });
                         return;
                     }
@@ -1363,21 +1953,23 @@
             if (!oleoActivo || !oleoMap[oleoActivo]) {
                 if (ids.length === 1) { oleoActivo = ids[0]; oleoRenderLista(); }
                 else if (!ids.length) { if (window.showToast) window.showToast('Primero vincula ubicaciones a un frente (busca un lugar en el mapa).', 'error'); abrirPanelOleo(); return; }
-                else { if (window.showToast) window.showToast('Selecciona en el panel Proyectos (arriba a la izquierda) el proyecto a editar.', 'error'); abrirPanelOleo(); return; }
+                else { if (window.showToast) window.showToast('Selecciona en el panel Frentes de trabajo (arriba a la izquierda) el frente a editar.', 'error'); abrirPanelOleo(); return; }
             }
             entrarDibujo(oleoActivo);
         }
         function entrarDibujo(id) {
-            if (!id || !oleoMap[id]) { if (window.showToast) window.showToast('Selecciona un proyecto primero.', 'error'); return; }
+            if (!id || !oleoMap[id]) { if (window.showToast) window.showToast('Selecciona un frente primero.', 'error'); return; }
             if (edMode) return;
             var o = oleoMap[id].data;
+            // Las ubicaciones sin frente son puntos sueltos, no un tendido: NO se les traza línea
+            // (el backend rechaza igual el recorrido de ese grupo).
+            if (o.suelto) { if (window.showToast) window.showToast('Los puntos sin frente no llevan línea.', 'error'); return; }
             var base = (o.recorrido && o.recorrido.length >= 2)
                 ? edSubmuestrear(o.recorrido, 24).map(function (c) { return L.latLng(c[0], c[1]); })
-                : (o.puntos || []).slice().sort(function (a, b) { return (a.orden || 0) - (b.orden || 0); }).map(function (p) { return L.latLng(p.lat, p.lng); });
-            if (base.length < 2) { if (window.showToast) window.showToast('Agrega al menos 2 puntos al proyecto para trazar la línea.', 'error'); return; }
+                : puntosOrdenados(o).map(function (p) { return L.latLng(p.lat, p.lng); });
+            if (base.length < 2) { if (window.showToast) window.showToast('Agrega al menos 2 puntos al frente para trazar la línea.', 'error'); return; }
             edMode = true; edId = id; edPts = base;
             if (oleoMap[id]) { (oleoMap[id].lines || []).forEach(function (l) { map.removeLayer(l); }); } // oculta la tubería normal mientras se edita
-            el.classList.add('mapa-editando');
             edRender();
             mostrarBarraDibujo();
             var panel = document.querySelector('.oleo-panel'); if (panel) panel.style.display = 'none';
@@ -1385,7 +1977,6 @@
         function salirDibujo() {
             edMode = false;
             edQuitarCapas();
-            el.classList.remove('mapa-editando');
             var bar = document.getElementById('mapaDibujoBar'); if (bar) bar.remove();
             var id = edId; edId = null; edPts = [];
             if (id && oleoMap[id]) oleoDibujar(oleoMap[id].data); // re-dibuja la tubería normal
@@ -1446,7 +2037,7 @@
             setTimeout(function () { document.addEventListener('click', cerrar); }, 0);
         }
         function eliminarLinea(id) {
-            if (!confirm('¿Eliminar la línea (recorrido) de este proyecto? Los puntos se conservan.')) return;
+            if (!confirm('¿Eliminar la línea (recorrido) de este frente? Los puntos se conservan.')) return;
             spinOn();
             oleoApi('/mapa/oleoductos/' + id + '/recorrido', 'POST', { recorrido: [] }).then(function (res) {
                 spinOff();
@@ -1459,14 +2050,20 @@
         }
 
         // Menú de CLIC DERECHO sobre una VELA (punto): eliminar ese punto del proyecto.
-        function menuVela(ev, puntoId, puntoNombre) {
+        function menuVela(ev, oleoId, punto) {
             if (ev.originalEvent) { ev.originalEvent.preventDefault(); }
             L.DomEvent.stop(ev);
             document.querySelectorAll('.mapa-ctx-menu').forEach(function (m) { m.remove(); });
             var menu = document.createElement('div'); menu.className = 'mapa-ctx-menu';
+            // Si el punto está compartido se dice en cuántos proyectos está: así queda claro que
+            // "quitar" solo lo saca de ESTE, no lo borra de los demás.
+            var enVarios = (punto.proyectos || 1) > 1;
             menu.innerHTML =
-                '<div class="mapa-ctx-title">' + esc(puntoNombre || 'Punto') + '</div>' +
-                '<button type="button" class="mapa-ctx-item mapa-ctx-danger" data-a="del"><i class="material-icons">delete_outline</i>Eliminar Punto</button>';
+                '<div class="mapa-ctx-title">' + esc(punto.nombre || 'Punto') +
+                    (enVarios ? '<span class="mapa-ctx-sub">En ' + punto.proyectos + ' proyectos</span>' : '') + '</div>' +
+                '<button type="button" class="mapa-ctx-item" data-a="vinc"><i class="material-icons">playlist_add</i>Agregar a otro proyecto</button>' +
+                '<button type="button" class="mapa-ctx-item mapa-ctx-danger" data-a="del"><i class="material-icons">delete_outline</i>' +
+                    (enVarios ? 'Quitar de este proyecto' : 'Eliminar Punto') + '</button>';
             var x = ev.originalEvent ? ev.originalEvent.clientX : 0, y = ev.originalEvent ? ev.originalEvent.clientY : 0;
             menu.style.left = Math.min(x, window.innerWidth - 200) + 'px';
             menu.style.top = Math.min(y, window.innerHeight - 100) + 'px';
@@ -1474,29 +2071,109 @@
             menu.addEventListener('click', function (e2) {
                 var b = e2.target.closest ? e2.target.closest('.mapa-ctx-item') : null; if (!b) return;
                 menu.remove();
-                if (b.getAttribute('data-a') === 'del') eliminarPunto(puntoId);
+                var a = b.getAttribute('data-a');
+                if (a === 'del') eliminarPunto(oleoId, punto);
+                else if (a === 'vinc') popupVincularProyecto(punto);
             });
             var cerrar = function () { menu.remove(); document.removeEventListener('click', cerrar); };
             setTimeout(function () { document.addEventListener('click', cerrar); }, 0);
         }
-        // Elimina un punto de un proyecto (backend: DELETE /mapa/oleoductos/puntos/{id}).
-        // Quita el punto de su proyecto en memoria, redibuja las velas y refresca la leyenda.
-        function eliminarPunto(puntoId) {
-            if (!confirm('¿Eliminar este punto del proyecto? No se puede deshacer.')) return;
+        // Mete un punto QUE YA EXISTE en otro proyecto. Se elige entre los proyectos que YA
+        // existen (no entre los frentes): el punto ya está creado, aquí solo se vincula, así que
+        // no tiene sentido dar de alta un proyecto vacío desde aquí. Se ocultan los proyectos en
+        // los que el punto ya está y el grupo de ubicaciones sueltas (esas no se comparten).
+        var _vincPunto = null;   // punto del popup "agregar a otro proyecto" que está abierto
+        function popupVincularProyecto(punto) {
+            _vincPunto = punto;
+            var destinos = Object.keys(oleoMap).map(function (id) { return oleoMap[id].data; })
+                .filter(function (o) {
+                    if (o.suelto) return false;
+                    return !(o.puntos || []).some(function (p) { return String(p.id) === String(punto.id); });
+                });
+            if (!destinos.length) {
+                if (window.showToast) window.showToast('Este punto ya está en todos los proyectos.', 'info');
+                return;
+            }
+            var html = '<div class="oleo-save">' +
+                '<label class="oleo-save-lbl">Agregar "' + esc(punto.nombre || 'Punto') + '" a:</label>' +
+                '<div class="oleo-vinc-list">' +
+                destinos.map(function (o) {
+                    return '<button type="button" class="oleo-vinc-op" data-oid="' + esc(String(o.id)) + '">' +
+                        '<span class="oleo-dot" style="background:' + esc(o.color) + '"></span>' + esc(o.nombre) + '</button>';
+                }).join('') +
+                '</div>' +
+                '<div style="font-size:11px;color:#64748b;line-height:1.35;margin-top:6px;">' +
+                'Es el MISMO punto, no una copia: si se corrige, cambia en todos los proyectos.</div>' +
+                '</div>';
+            L.popup({ className: 'mapa-oleo-pop', minWidth: 240, autoPan: true })
+                .setLatLng(L.latLng(punto.lat, punto.lng)).setContent(html).openOn(map);
+        }
+
+        // Clic en un proyecto del popup de "agregar a otro proyecto".
+        map.on('popupopen', function (ev) {
+            var cont = ev.popup.getElement(); if (!cont) return;
+            var lista = cont.querySelector('.oleo-vinc-list'); if (!lista) return;
+            // El punto que abrió este popup (lo dejó popupVincularProyecto). Se consume aquí y
+            // se borra: es un traspaso de una sola vez, no un estado que deba quedar vivo.
+            lista._punto = _vincPunto;
+            _vincPunto = null;
+            lista.addEventListener('click', function (e) {
+                var b = e.target.closest ? e.target.closest('.oleo-vinc-op') : null; if (!b) return;
+                var destino = b.getAttribute('data-oid');
+                // El punto va en el propio botón: buscarlo por coordenada podía enganchar OTRO
+                // punto que estuviera en la misma coordenada.
+                var punto = lista._punto;
+                if (!punto) { map.closePopup(); return; }
+                spinOn();
+                oleoApi('/mapa/oleoductos/' + destino + '/puntos/' + punto.id + '/vincular', 'POST').then(function (res) {
+                    spinOff(); map.closePopup();
+                    if (!res || !res.success) { if (window.showToast) window.showToast('No se pudo agregar el punto.', 'error'); return; }
+                    if (oleoMap[destino]) {
+                        oleoMap[destino].data.puntos.push(res.punto);
+                        oleoDibujar(oleoMap[destino].data);
+                    }
+                    sincronizarConteoProyectos(punto.id, res.punto.proyectos);
+                    oleoRenderLista();
+                    if (window.showToast) window.showToast('Punto agregado al proyecto.', 'success');
+                }).catch(function () { spinOff(); if (window.showToast) window.showToast('No se pudo agregar el punto.', 'error'); });
+            });
+        });
+
+        // Quita el punto DE ESE proyecto. Si estaba compartido sigue en los demás; si era su
+        // último proyecto, el backend lo borra del todo y responde borrado = true.
+        function eliminarPunto(oleoId, punto) {
+            var enVarios = (punto.proyectos || 1) > 1;
+            var aviso = enVarios
+                ? '¿Quitar "' + (punto.nombre || 'este punto') + '" de este proyecto?' + '\n\n' +
+                  'Seguirá en los otros ' + (punto.proyectos - 1) + ' proyecto(s) donde está.'
+                : '¿Eliminar este punto? No se puede deshacer.';
+            if (!confirm(aviso)) return;
             spinOn();
-            oleoApi('/mapa/oleoductos/puntos/' + puntoId, 'DELETE').then(function (res) {
+            oleoApi('/mapa/oleoductos/' + oleoId + '/puntos/' + punto.id, 'DELETE').then(function (res) {
                 spinOff();
-                if (res && res.success) {
-                    Object.keys(oleoMap).forEach(function (id) {
-                        var pts = oleoMap[id].data.puntos || [];
-                        var idx = -1;
-                        for (var i = 0; i < pts.length; i++) { if (String(pts[i].id) === String(puntoId)) { idx = i; break; } }
-                        if (idx > -1) { pts.splice(idx, 1); oleoDibujar(oleoMap[id].data); }
-                    });
-                    oleoRenderLista(); // refresca la leyenda
-                    if (window.showToast) window.showToast('Punto eliminado.', 'success');
-                } else if (window.showToast) window.showToast('No se pudo eliminar el punto.', 'error');
-            }).catch(function () { spinOff(); if (window.showToast) window.showToast('No se pudo eliminar el punto.', 'error'); });
+                if (!res || !res.success) { if (window.showToast) window.showToast('No se pudo quitar el punto.', 'error'); return; }
+                // Se quita SOLO del proyecto del que se desvinculó; si el backend lo borró del todo
+                // (era su último proyecto), entonces sí se quita de todos.
+                Object.keys(oleoMap).forEach(function (id) {
+                    if (!res.borrado && String(id) !== String(oleoId)) return;
+                    var pts = oleoMap[id].data.puntos || [], idx = -1;
+                    for (var i = 0; i < pts.length; i++) { if (String(pts[i].id) === String(punto.id)) { idx = i; break; } }
+                    if (idx > -1) { pts.splice(idx, 1); oleoDibujar(oleoMap[id].data); }
+                });
+                // Al quedar en menos proyectos, las copias que sobreviven deben reflejar el conteo.
+                if (!res.borrado) sincronizarConteoProyectos(punto.id, res.quedan);
+                oleoRenderLista(); // refresca la leyenda
+                if (window.showToast) window.showToast(res.borrado ? 'Punto eliminado.' : 'Punto quitado de este proyecto.', 'success');
+            }).catch(function () { spinOff(); if (window.showToast) window.showToast('No se pudo quitar el punto.', 'error'); });
+        }
+
+        // Mantiene al día el "en cuántos proyectos está" de un punto en TODAS sus copias en memoria.
+        function sincronizarConteoProyectos(puntoId, n) {
+            Object.keys(oleoMap).forEach(function (id) {
+                (oleoMap[id].data.puntos || []).forEach(function (p) {
+                    if (String(p.id) === String(puntoId)) p.proyectos = n;
+                });
+            });
         }
 
         // ══════════════════════════════════════════════════════════════════════
@@ -1505,9 +2182,29 @@
         //  - Exportar: arma un PNG nítido del encuadre actual, a la escala de
         //    pantalla, en el tamaño de hoja elegido, con escala gráfica + leyenda.
         // ══════════════════════════════════════════════════════════════════════
-        function proyectosConPuntos() {
+        // Orden en que se PRESENTAN los grupos (panel, leyenda y foto). Se decide aquí y no en
+        // el backend porque el orden de la API se pierde: oleoMap se indexa por id y
+        // Object.keys devuelve las claves numéricas ordenadas por NÚMERO, no por inserción.
+        // Frentes alfabéticos y el grupo sin frente SIEMPRE al final (no es un frente).
+        function gruposOrdenados() {
             return Object.keys(oleoMap).map(function (id) { return oleoMap[id].data; })
-                .filter(function (o) { return o.puntos && o.puntos.length > 0; });
+                .sort(function (a, b) {
+                    if (!!a.suelto !== !!b.suelto) return a.suelto ? 1 : -1;
+                    return String(a.nombre || '').localeCompare(String(b.nombre || ''), 'es');
+                });
+        }
+        function proyectosConPuntos() {
+            return gruposOrdenados().filter(function (o) { return o.puntos && o.puntos.length > 0; });
+        }
+        // Reglas de la LEYENDA compartidas por la pantalla y la foto, para que no diverjan:
+        // los puntos van por su campo `orden`, y el rótulo "Coordenadas" lo lleva el primer
+        // frente DESPLEGADO (si fuera el primero a secas y estuviera recogido, quedaría
+        // rotulando una columna sin ninguna coordenada debajo).
+        function puntosOrdenados(o) {
+            return (o.puntos || []).slice().sort(function (a, b) { return (a.orden || 0) - (b.orden || 0); });
+        }
+        function indiceCoordHead(items) {
+            return items.findIndex(function (o) { return !proyColapsados[o.id]; });
         }
 
         // Tabla-leyenda en el mapa (se sincroniza desde oleoRenderLista).
@@ -1528,7 +2225,7 @@
             if (!muniData || (!estadosConMuni.size && !muniIndividuales.size)) return out;
             muniData.features.forEach(function (fe) {
                 var e = fe.properties && fe.properties.estado, m = fe.properties && fe.properties.municipio;
-                if (muniVisible(e, m)) out.push({ municipio: m, estado: e, color: colorMuni(m, e), _f: fe });
+                if (muniVisible(e, m)) out.push({ municipio: m, estado: e, _f: fe });
             });
             // Numerar de ARRIBA a ABAJO: por latitud del centro visual (norte→sur) y, a igual
             // altura, de oeste a este. Así el nº1 es el más alto en pantalla, el 2 el siguiente,
@@ -1549,7 +2246,11 @@
         // el resto del módulo en estilos_globales.css. Solo es el estado INICIAL — si el
         // usuario la abre, no se la volvemos a cerrar al rotar.
         var legendColapsada = window.innerWidth <= 640;
-        var proyColapsados = {};      // id de proyecto → true si sus puntos están recogidos
+        var proyColapsados = {};      // id de proyecto → true si sus puntos están RECOGIDOS en la leyenda
+        var proyOcultos = {};         // id de proyecto → true si está OCULTO del mapa (ojo tachado)
+        // Un proyecto oculto no dibuja ni pin, ni etiqueta, ni tubería (en el mapa y en la foto).
+        // Sirve para ver uno solo: se ocultan los demás. Sigue en la leyenda, para volver a verlo.
+        function proyOculto(o) { return !!proyOcultos[o.id]; }
         var legendClickBound = false;
 
         function actualizarLeyenda() {
@@ -1565,8 +2266,24 @@
                 legendClickBound = true;
                 d.addEventListener('click', function (e) {
                     var del = e.target.closest && e.target.closest('[data-ptdel]');
-                    if (del) { e.stopPropagation(); eliminarPunto(del.getAttribute('data-ptdel')); return; }
+                    if (del) {
+                        e.stopPropagation();
+                        var oid = del.getAttribute('data-ptoleo'), pid = del.getAttribute('data-ptdel');
+                        var pt = (((oleoMap[oid] || {}).data || {}).puntos || []).filter(function (x) { return String(x.id) === String(pid); })[0];
+                        if (pt) eliminarPunto(oid, pt);
+                        return;
+                    }
+                    if (e.target.closest && e.target.closest('[data-descargar]')) { e.stopPropagation(); descargarLeyendaSola(); return; }
                     if (e.target.closest && e.target.closest('[data-fold="all"]')) { legendColapsada = !legendColapsada; actualizarLeyenda(); return; }
+                    var ver = e.target.closest && e.target.closest('[data-ver]');
+                    if (ver) {
+                        e.stopPropagation();
+                        var vid = ver.getAttribute('data-ver');
+                        proyOcultos[vid] = !proyOcultos[vid];
+                        declutterVelas(true); // aplica el cambio en el mapa (pines/tuberías/etiquetas)
+                        actualizarLeyenda();  // refresca el icono del ojo
+                        return;
+                    }
                     var pr = e.target.closest && e.target.closest('[data-proy]');
                     if (pr) { var id = pr.getAttribute('data-proy'); proyColapsados[id] = !proyColapsados[id]; actualizarLeyenda(); }
                 });
@@ -1575,43 +2292,60 @@
             // Cabecera con botón para recoger/expandir toda la leyenda.
             var html = '<div class="mapa-leyenda-head">' +
                 '<span class="mapa-leyenda-titulo">Leyenda</span>' +
+                '<span class="mapa-leyenda-acciones">' +
+                '<button type="button" class="mapa-leyenda-fold" data-descargar="1" title="Descargar solo la leyenda (PNG)">' +
+                    '<i class="material-icons">file_download</i></button>' +
                 '<button type="button" class="mapa-leyenda-fold" data-fold="all" title="' + (legendColapsada ? 'Expandir leyenda' : 'Recoger leyenda') + '">' +
                     '<i class="material-icons">' + (legendColapsada ? 'expand_more' : 'expand_less') + '</i></button>' +
-                '</div>';
+                '</span></div>';
 
-            if (!legendColapsada) {
-                html += '<div class="mapa-leyenda-body">';
-                if (items.length) {
-                    html += '<div class="mapa-leyenda-t">Proyectos</div>';
-                    items.forEach(function (o) {
-                        var col = !!proyColapsados[o.id];
-                        html += '<div class="mapa-leyenda-row mapa-leyenda-proy" data-proy="' + o.id + '" title="' + (col ? 'Mostrar puntos' : 'Recoger puntos') + '">' +
-                            '<span class="mapa-leyenda-dot" style="background:' + o.color + '"></span>' +
-                            '<span class="mapa-leyenda-nom">' + esc(o.nombre) + '</span>' +
-                            '<i class="material-icons mapa-leyenda-chevron">' + (col ? 'chevron_right' : 'expand_more') + '</i></div>';
-                        if (!col) {
-                            o.puntos.slice().sort(function (a, b) { return (a.orden || 0) - (b.orden || 0); }).forEach(function (p) {
-                                html += '<div class="mapa-leyenda-pt"><span class="mapa-leyenda-pt-n">' + esc(p.nombre || 'Punto') + '</span>' +
-                                    '<span class="mapa-leyenda-pt-c">' + p.lat.toFixed(5) + ', ' + p.lng.toFixed(5) + '</span>' +
-                                    (PUEDE_EDITAR ? '<button type="button" class="mapa-leyenda-pt-del" data-ptdel="' + p.id + '" title="Eliminar Punto">&times;</button>' : '') + '</div>';
-                            });
-                        }
-                    });
-                }
-                if (munis.length) {
-                    html += '<div class="mapa-leyenda-t mapa-leyenda-t2">Municipios</div>';
-                    // Con varios municipios se reparten en DOS columnas para que la leyenda no
-                    // quede tan larga verticalmente (rellena de arriba a abajo: 1-N | N+1-…).
-                    html += '<div class="mapa-leyenda-munis' + (munis.length > 6 ? ' dos-col' : '') + '">';
-                    munis.forEach(function (mu) {
-                        html += '<div class="mapa-leyenda-row">' +
-                            '<span class="mapa-leyenda-num">' + mu.num + '</span>' +
-                            '<span class="mapa-leyenda-nom">' + esc(nombreBonito(mu.municipio)) + '</span></div>';
-                    });
-                    html += '</div>';
-                }
+            // El cuerpo SIEMPRE se arma, aunque esté recogido: colapsado se le pone la clase
+            // -plegado (alto 0 + overflow oculto en el CSS) en vez de quitarlo del DOM, así el
+            // contenido sigue marcando el ANCHO y la leyenda recogida mide igual que expandida.
+            html += '<div class="mapa-leyenda-body' + (legendColapsada ? ' mapa-leyenda-body-plegado' : '') + '">';
+            if (items.length) {
+                html += '<div class="mapa-leyenda-t">Frentes de trabajo</div>';
+                // Sin fila de cabecera propia: "Coordenadas" rotula la columna desde la MISMA
+                // línea del frente, así no se gasta un renglón en un encabezado suelto (y "Punto"
+                // sobraba: los nombres ya se leen como tales). Va en el primer frente DESPLEGADO,
+                // no en el primero a secas: si ese está recogido, el rótulo quedaría sin ninguna
+                var idxCoordHead = indiceCoordHead(items);
+                items.forEach(function (o, iO) {
+                    var col = !!proyColapsados[o.id];
+                    var oculto = !!proyOcultos[o.id];
+                    html += '<div class="mapa-leyenda-row mapa-leyenda-proy' + (oculto ? ' mapa-leyenda-proy-oculto' : '') + '" data-proy="' + o.id + '" title="' + (col ? 'Mostrar puntos' : 'Recoger puntos') + '">' +
+                        '<button type="button" class="mapa-leyenda-ver" data-ver="' + o.id + '" title="' + (oculto ? 'Mostrar en el mapa' : 'Ocultar del mapa') + '">' +
+                            '<i class="material-icons">' + (oculto ? 'visibility_off' : 'visibility') + '</i></button>' +
+                        '<span class="mapa-leyenda-nom">' + esc(o.nombre) + '</span>' +
+                        (iO === idxCoordHead ? '<span class="mapa-leyenda-coord-head">Coordenadas</span>' : '') +
+                        '<i class="material-icons mapa-leyenda-chevron">' + (col ? 'chevron_right' : 'expand_more') + '</i></div>';
+                    if (!col) {
+                        puntosOrdenados(o).forEach(function (p) {
+                            html += '<div class="mapa-leyenda-pt"><span class="mapa-leyenda-pt-n">' + esc(p.nombre || 'Punto') + '</span>' +
+                                '<span class="mapa-leyenda-pt-c">' + p.lat.toFixed(5) + ', ' + p.lng.toFixed(5) + '</span>' +
+                                // Sin permiso no hay botón, pero el hueco se reserva igual: si no,
+                                // las coordenadas se corren a la derecha y dejan de cuadrar con el
+                                // rótulo "COORDENADAS" de la fila del frente.
+                                (PUEDE_EDITAR
+                                    ? '<button type="button" class="mapa-leyenda-pt-del" data-ptdel="' + p.id + '" data-ptoleo="' + o.id + '" title="' + ((p.proyectos || 1) > 1 ? 'Quitar de este proyecto' : 'Eliminar Punto') + '">&times;</button>'
+                                    : '<span class="mapa-leyenda-pt-del"></span>') + '</div>';
+                        });
+                    }
+                });
+            }
+            if (munis.length) {
+                html += '<div class="mapa-leyenda-t mapa-leyenda-t2">Municipios</div>';
+                // Con varios municipios se reparten en DOS columnas para que la leyenda no
+                // quede tan larga verticalmente (rellena de arriba a abajo: 1-N | N+1-...).
+                html += '<div class="mapa-leyenda-munis' + (munis.length > 6 ? ' dos-col' : '') + '">';
+                munis.forEach(function (mu) {
+                    html += '<div class="mapa-leyenda-row">' +
+                        '<span class="mapa-leyenda-num">' + mu.num + '</span>' +
+                        '<span class="mapa-leyenda-nom">' + esc(nombreBonito(mu.municipio)) + '</span></div>';
+                });
                 html += '</div>';
             }
+            html += '</div>';
             d.innerHTML = html;
         }
 
@@ -1630,6 +2364,36 @@
             }
         });
         map.addControl(new ExportarCtrl());
+
+        // Botón OJO (arriba-izq): oculta/muestra los rótulos de proyecto y punto. Con los
+        // rótulos ocultos, el dato del punto sale al pasar el mouse por su vela (ver `soloVelas`
+        // en colocarEtiquetas). Visible para TODOS: es preferencia de vista, no edición.
+        var OjoCtrl = L.Control.extend({
+            options: { position: 'topleft' },
+            onAdd: function () {
+                // mapa-ctrl-mobile-hide: oculto en teléfono, igual que el resto de la barra.
+                var btn = L.DomUtil.create('button', 'mapa-fit-btn mapa-ctrl-mobile-hide');
+                btn.type = 'button';
+                btn.innerHTML = '<i class="material-icons"></i>';
+                var sync = function () {
+                    btn.classList.toggle('activo', soloVelas);
+                    btn.title = soloVelas
+                        ? 'Mostrar nombres de proyectos y puntos'
+                        : 'Ocultar nombres (solo velas; el dato sale al pasar el mouse)';
+                    btn.querySelector('.material-icons').textContent = soloVelas ? 'visibility_off' : 'visibility';
+                };
+                sync();
+                L.DomEvent.disableClickPropagation(btn);
+                L.DomEvent.on(btn, 'click', function () {
+                    soloVelas = !soloVelas;
+                    try { localStorage.setItem('mapaSoloVelas', soloVelas ? '1' : '0'); } catch (e) {}
+                    sync();
+                    declutterVelas(true); // re-renderiza velas/rótulos con el nuevo estado
+                });
+                return btn;
+            }
+        });
+        map.addControl(new OjoCtrl());
 
         // Botón LÁPIZ (arriba-izq): dibuja a mano el recorrido/curva de la tubería.
         var DibujarCtrl = L.Control.extend({
@@ -1652,8 +2416,19 @@
 
         // Exportación con MARCO DE RECORTE: muestra un recuadro (aspecto de la hoja) para
         // cuadrar; se exporta EXACTAMENTE lo que quede dentro del marco.
-        var EXPORT_MM = { carta: [279, 216], a4: [297, 210], a3: [420, 297], a2: [594, 420] };
+        var EXPORT_MM = { carta: [279, 216], a4: [297, 210] };
+        // "Personalizado": el usuario da el tamaño EXACTO en píxeles y la imagen sale con esas
+        // medidas justas. El resto de la lógica es la misma que la de Carta/A4 (marco de recorte
+        // con esa proporción, k para el tamaño de los rótulos, teselas al zoom que toque).
+        var EXPORT_PX_MIN = 200, EXPORT_PX_MAX = 8000;
+        var expPersW = 3840, expPersH = 2160;
         var expTamSel = 'carta', expOriSel = 'horizontal', expDetalleSel = false;
+        // Orientación solo aplica a las hojas: en "Pantalla" manda lo que se ve y en
+        // "Personalizado" el propio ancho×alto ya la define.
+        function expUsaOrientacion(tam) {
+            var t = (tam === undefined) ? expTamSel : tam;
+            return t !== 'pantalla' && t !== 'personalizado';
+        }
         function abrirDialogoExport() {
             cerrarDialogoExport();
             var frame = document.createElement('div'); frame.id = 'mapaExportFrame'; frame.className = 'mapa-export-frame';
@@ -1666,7 +2441,7 @@
                     '<select id="expTam">' +
                         opt('pantalla', 'Pantalla (tal cual)', expTamSel) +
                         opt('carta', 'Carta', expTamSel) + opt('a4', 'A4', expTamSel) +
-                        opt('a3', 'A3', expTamSel) + opt('a2', 'A2', expTamSel) +
+                        opt('personalizado', 'Personalizado', expTamSel) +
                     '</select>' +
                 '</label>' +
                 '<label class="mapa-export-field">Orientación' +
@@ -1674,20 +2449,54 @@
                         opt('horizontal', 'Horizontal', expOriSel) + opt('vertical', 'Vertical', expOriSel) +
                     '</select>' +
                 '</label>' +
-                '<label class="mapa-export-check" title="Sin marcar: la foto sale IGUAL a lo que ves en pantalla. Marcado: más nitidez y más detalle (más nombres).">' +
+                // Solo visible con "Personalizado": ancho × alto en píxeles de la imagen final.
+                '<label class="mapa-export-field mapa-export-pers" style="display:none;">Tamaño (px)' +
+                    '<span class="mapa-export-pers-in">' +
+                        '<input type="number" id="expPersW" min="' + EXPORT_PX_MIN + '" max="' + EXPORT_PX_MAX + '" step="10" value="' + expPersW + '">' +
+                        '<i>×</i>' +
+                        '<input type="number" id="expPersH" min="' + EXPORT_PX_MIN + '" max="' + EXPORT_PX_MAX + '" step="10" value="' + expPersH + '">' +
+                    '</span>' +
+                '</label>' +
+                '<label class="mapa-export-check" title="Sin marcar: la foto sale IGUAL a lo que ves en pantalla. Marcado: más nitidez y más detalle. No aplica al tamaño «Pantalla».">' +
                     '<input type="checkbox" id="expDetalle"' + (expDetalleSel ? ' checked' : '') + '>' +
                     '<span>Más detalle</span>' +
                 '</label>' +
                 '<button type="button" class="mapa-dibujo-btn mapa-export-cancel">Cancelar</button>' +
-                '<button type="button" class="mapa-dibujo-btn primary mapa-export-go">Descargar 4K</button>';
+                '<button type="button" class="mapa-dibujo-btn primary mapa-export-go">Descargar</button>';
             (document.fullscreenElement || el).appendChild(bar);
             L.DomEvent.disableClickPropagation(bar); L.DomEvent.disableScrollPropagation(bar);
             var oriSel = bar.querySelector('#expOri');
-            var sincOri = function () { oriSel.disabled = (expTamSel === 'pantalla'); }; // orientación no aplica en "Pantalla"
-            bar.querySelector('#expTam').addEventListener('change', function () { expTamSel = this.value; sincOri(); ajustarFrameExport(); });
+            var persBox = bar.querySelector('.mapa-export-pers');
+            var persW = bar.querySelector('#expPersW'), persH = bar.querySelector('#expPersH');
+            var detChk = bar.querySelector('#expDetalle');
+            // Muestra/oculta los campos de tamaño y activa la orientación según el tipo elegido.
+            var sincTipo = function () {
+                oriSel.disabled = !expUsaOrientacion();
+                persBox.style.display = (expTamSel === 'personalizado') ? '' : 'none';
+                // "Más detalle" solo tiene efecto fuera del modo "Pantalla" (ver exportarImagen):
+                // ahí se deshabilita en vez de dejar una casilla que no hace nada.
+                detChk.disabled = (expTamSel === 'pantalla');
+                detChk.parentElement.style.opacity = detChk.disabled ? '0.45' : '';
+            };
+            var leerPers = function () {
+                var lim = function (v, def) {
+                    v = Math.round(parseFloat(v));
+                    if (!isFinite(v)) return def;
+                    return Math.max(EXPORT_PX_MIN, Math.min(EXPORT_PX_MAX, v));
+                };
+                expPersW = lim(persW.value, expPersW);
+                expPersH = lim(persH.value, expPersH);
+                persW.value = expPersW; persH.value = expPersH; // refleja el valor ya acotado
+                ajustarFrameExport();
+            };
+            bar.querySelector('#expTam').addEventListener('change', function () { expTamSel = this.value; sincTipo(); ajustarFrameExport(); });
+            // 'change' y no 'input': acotar mientras se teclea impide escribir (al poner "1" de
+            // "1920" saltaría al mínimo). Se valida al salir del campo o pulsar Enter.
+            persW.addEventListener('change', leerPers);
+            persH.addEventListener('change', leerPers);
             oriSel.addEventListener('change', function () { expOriSel = this.value; ajustarFrameExport(); });
-            bar.querySelector('#expDetalle').addEventListener('change', function () { expDetalleSel = this.checked; });
-            sincOri();
+            detChk.addEventListener('change', function () { expDetalleSel = this.checked; });
+            sincTipo();
             bar.querySelector('.mapa-export-cancel').addEventListener('click', cerrarDialogoExport);
             bar.querySelector('.mapa-export-go').addEventListener('click', function () { exportarImagen(expTamSel, expOriSel, expDetalleSel); });
             // Recoloca el marco si el usuario hace scroll o cambia el tamaño de la ventana.
@@ -1711,8 +2520,15 @@
                 frame.style.width = Math.round(vw) + 'px'; frame.style.height = Math.round(visH) + 'px';
                 return;
             }
-            var mm = EXPORT_MM[expTamSel] || EXPORT_MM.carta;
-            var aspect = (expOriSel === 'vertical') ? mm[1] / mm[0] : mm[0] / mm[1]; // ancho/alto
+            // Proporción del marco: en "Personalizado" la marca el ancho×alto pedido; en las
+            // hojas, sus milímetros según la orientación.
+            var aspect;
+            if (expTamSel === 'personalizado') {
+                aspect = expPersW / expPersH;
+            } else {
+                var mm = EXPORT_MM[expTamSel] || EXPORT_MM.carta;
+                aspect = (expOriSel === 'vertical') ? mm[1] / mm[0] : mm[0] / mm[1]; // ancho/alto
+            }
             var maxW = vw * 0.96;
             var maxH = visH - 92;          // deja hueco para la barra inferior y el rótulo
             var fw, fh;
@@ -1757,8 +2573,6 @@
             return pow10 * d;
         }
 
-        // Proyección por defecto (pantalla). En el export se pasa una que apunta al canvas 4K.
-        function projPantalla(ll) { return map.latLngToContainerPoint(ll); }
         // Traza recursivamente anillos de lat/lng (polígonos de estados) con la proyección dada.
         function trazarAnillos(ctx, arr, proj) {
             if (!arr || !arr.length) return;
@@ -1773,12 +2587,10 @@
                 for (var j = 0; j < arr.length; j++) trazarAnillos(ctx, arr[j], proj);
             }
         }
-        // Dibuja bordes de estados + líneas/puntos de proyectos (proyectados al canvas).
-        // `k` escala el grosor; `proj` proyecta lat/lng → píxel del canvas.
         // Dibuja la VELA (pin de gota, igual que velaIcon) con la PUNTA en (x, y).
         function dibujarVela(ctx, x, y, k, color) {
             color = color || '#0067b1';
-            var s = k; // proporcional a los rótulos (en pantalla el pin es 24×32)
+            var s = k * VELA_W / 24; // el SVG mide 24×32 en su viewBox → mismo tamaño que en pantalla
             ctx.save();
             ctx.translate(x - 12 * s, y - 31 * s); ctx.scale(s, s); ctx.lineJoin = 'round';
             ctx.beginPath();
@@ -1791,41 +2603,79 @@
             ctx.closePath();
             ctx.fillStyle = color; ctx.fill();
             ctx.lineWidth = 1.8; ctx.strokeStyle = '#ffffff'; ctx.stroke();
-            ctx.beginPath(); ctx.arc(12, 11.4, 4, 0, Math.PI * 2); ctx.fillStyle = '#ffffff'; ctx.fill();
-            ctx.restore();
-        }
-        // Etiqueta FIJA de la vela (igual que en pantalla): cajita blanca a la derecha del pin,
-        // con el nombre del PROYECTO (azul) y, si el punto está separado, el nombre del PUNTO debajo.
-        function dibujarEtiquetaVela(ctx, tipX, tipY, proyecto, punto, k) {
-            var padX = 8 * k, padY = 4 * k, fProj = Math.round(9.5 * k), fPt = Math.round(12 * k), lineGap = 2 * k;
-            var proj = (proyecto || '').toUpperCase();
-            ctx.save();
-            ctx.font = '800 ' + fProj + 'px Arial, sans-serif'; var wProj = ctx.measureText(proj).width;
-            var wPt = 0; if (punto) { ctx.font = '700 ' + fPt + 'px Arial, sans-serif'; wPt = ctx.measureText(punto).width; }
-            var boxW = Math.max(wProj, wPt) + padX * 2;
-            var boxH = padY * 2 + fProj + (punto ? (lineGap + fPt) : 0);
-            var bx = tipX + 11 * k, by = (tipY - 24 * k) - boxH / 2; // a la derecha del pin, junto al bulbo
-            rrect(ctx, bx, by, boxW, boxH, 6 * k);
-            ctx.fillStyle = '#ffffff'; ctx.fill();
-            ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-            var ty = by + padY + fProj;
-            ctx.font = '800 ' + fProj + 'px Arial, sans-serif'; ctx.fillStyle = '#0067b1';
-            ctx.fillText(proj, bx + padX, ty);
-            if (punto) {
-                ty += lineGap + fPt;
-                ctx.font = '700 ' + fPt + 'px Arial, sans-serif'; ctx.fillStyle = '#0f172a';
-                ctx.fillText(punto, bx + padX, ty);
+            // Bulbo blanco + LOGO de la empresa recortado en círculo: lo MISMO que velaIcon()
+            // dibuja en pantalla (antes el export ponía solo un puntito blanco y la foto salía
+            // distinta a lo que se ve en el mapa).
+            ctx.beginPath(); ctx.arc(12, 11.4, 7.8, 0, Math.PI * 2); ctx.fillStyle = '#ffffff'; ctx.fill();
+            if (logoImg) {
+                ctx.save();
+                ctx.beginPath(); ctx.arc(12, 11.4, 7.5, 0, Math.PI * 2); ctx.clip();
+                // "contain" dentro del círculo, igual que preserveAspectRatio="xMidYMid meet".
+                var cw = 11.6, ch = 11, r = Math.min(cw / logoImg.width, ch / logoImg.height);
+                var iw = logoImg.width * r, ih = logoImg.height * r;
+                ctx.drawImage(logoImg, 12 - iw / 2, 11.4 - ih / 2, iw, ih);
+                ctx.restore();
+            } else {
+                ctx.beginPath(); ctx.arc(12, 11.4, 5, 0, Math.PI * 2); ctx.fillStyle = color; ctx.fill();
             }
             ctx.restore();
         }
-        function dibujarVectores(ctx, k, proj) {
-            k = k || 1; proj = proj || projPantalla;
+        // Etiqueta FIJA de la vela en el canvas: cajita blanca con el nombre del PROYECTO (azul)
+        // y debajo una línea por cada PUNTO. La POSICIÓN (`caja`) la decide
+        // repartirEtiquetas(), la misma que usa la pantalla, así la foto sale igual a lo que se ve.
+        // `k` aquí es la escala del TEXTO (kEtq): debe ser la misma con la que se midió la caja.
+        // Líneas en la FOTO: idénticas a pantalla (misma geometría, curvaEtiqueta).
+        function dibujarLineasEtq(ctx, r, k) {
+            ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+            var trazo = function (dibujo) {
+                ctx.beginPath(); dibujo();
+                ctx.globalAlpha = ETQ_BORDE_OP;
+                ctx.strokeStyle = ETQ_BORDE_COLOR; ctx.lineWidth = ETQ_BORDE_W * k; ctx.stroke();
+                ctx.globalAlpha = 0.97;
+                ctx.strokeStyle = ETQ_TRAZO_COLOR; ctx.lineWidth = ETQ_TRAZO_W * k; ctx.stroke();
+                ctx.globalAlpha = 1;
+            };
+            r.cajas.forEach(function (c) {
+                var b = curvaEtiqueta(r, c, k);
+                trazo(function () {
+                    ctx.moveTo(b.desde[0], b.desde[1]);
+                    ctx.bezierCurveTo(b.c1[0], b.c1[1], b.c2[0], b.c2[1], b.hasta[0], b.hasta[1]);
+                });
+            });
+            ctx.restore();
+        }
+        function dibujarEtiquetaVela(ctx, caja, proyectos, puntos, k) {
+            var padX = 5 * k, fProj = 8.5 * k, fPt = 8 * k;   // cuadran con .vela-label del CSS
+            ctx.save();
+            rrect(ctx, caja.x1, caja.y1, caja.w, caja.h, 6 * k);
+            ctx.fillStyle = '#ffffff'; ctx.fill();
+            ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+            var ty = caja.y1 + 3 * k;
+            ctx.font = '800 ' + fProj + 'px ' + FAM_ETQ; ctx.fillStyle = '#0067b1';
+            proyectos.forEach(function (n) {   // una línea azul por proyecto
+                ty += fProj;
+                ctx.fillText(String(n).toUpperCase(), caja.x1 + padX, ty);
+                ty += 2.5 * k;
+            });
+            ctx.font = '600 ' + fPt + 'px ' + FAM_ETQ; ctx.fillStyle = '#0f172a';
+            lineasPunto(puntos).forEach(function (n) {   // una línea negra por punto
+                ty += fPt;
+                ctx.fillText(n, caja.x1 + padX, ty);
+                ty += 2.5 * k;
+            });
+            ctx.restore();
+        }
+        // `velas` viene ya calculado por el llamador (lo necesita antes para los números de
+        // municipio); `bloqueos` son las cajas de esos números, que las etiquetas deben esquivar.
+        function dibujarVectores(ctx, k, proj, velas, bloqueos, kPin) {
+            k = k || 1;
             ctx.save();
             ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 1.4 * k; ctx.lineJoin = 'round';
             estados.eachLayer(function (layer) { if (layer.getLatLngs) trazarAnillos(ctx, layer.getLatLngs(), proj); });
-            Object.keys(oleoMap).forEach(function (id) {
-                var o = oleoMap[id].data;
-                var pts = (o.puntos || []).slice().sort(function (a, b) { return (a.orden || 0) - (b.orden || 0); });
+            // Mismo orden de apilado que en pantalla (la API entrega los grupos con este
+            // criterio): con dos tuberías superpuestas, la de encima es la misma en los dos.
+            gruposOrdenados().forEach(function (o) {
+                if (proyOculto(o)) return;   // oculto → sin tubería
                 if (o.recorrido && o.recorrido.length >= 2) {
                     var line = o.recorrido.map(function (c) { return proj([c[0], c[1]]); });
                     ctx.lineJoin = 'round'; ctx.lineCap = 'round';
@@ -1835,38 +2685,54 @@
                     ctx.strokeStyle = o.color; ctx.lineWidth = pw.cuerpo * k; ctx.stroke();
                     ctx.strokeStyle = aclararColor(o.color, 0.65); ctx.lineWidth = pw.brillo * k; ctx.stroke();
                 }
-                // Velas IGUAL que en pantalla (declutterVelas): se AGRUPAN las que se solapan
-                // (<38px proporcional) contando cuántas se juntan.
-                //  · >300 km (lejos): etiqueta solo con el nombre del proyecto.
-                //  · Cerca: varias juntas (count>1) → solo el proyecto; punto suelto → proyecto + punto.
-                var lejos = escalaKm() > 300, THRESH = 38 * k, reps = [];
-                pts.forEach(function (p) {
-                    var pt = proj([p.lat, p.lng]), rep = null;
-                    for (var i = 0; i < reps.length; i++) {
-                        var dx = reps[i].pt.x - pt.x, dy = reps[i].pt.y - pt.y;
-                        if (dx * dx + dy * dy < THRESH * THRESH) { rep = reps[i]; break; }
-                    }
-                    if (rep) rep.count++; else reps.push({ pt: pt, count: 1, nombre: p.nombre });
-                });
-                reps.forEach(function (r) { dibujarVela(ctx, r.pt.x, r.pt.y, k, '#0067b1'); }); // pines primero
-                reps.forEach(function (r) {
-                    var punto = (lejos || r.count > 1) ? null : (r.nombre || 'Punto');
-                    dibujarEtiquetaVela(ctx, r.pt.x, r.pt.y, o.nombre, punto, k);
-                });
+            });
+            // La foto sale a más resolución que la pantalla y la letra se veía diminuta: el TEXTO
+            // de las etiquetas se agranda ETQ_EXPORT_K. Se aplica igual a la medida de la cajita
+            // y a la fuente del canvas, si no el texto no cuadraría con la caja reservada.
+            var kEtq = k * ETQ_EXPORT_K;
+            repartirEtiquetas(velas, kPin, bloqueos, kEtq);
+            velas.forEach(function (r) { dibujarVela(ctx, r.x, r.y, kPin, '#0067b1'); }); // pines primero
+            // Una cajita por proyecto, cada una con su línea guía al pin: EXACTAMENTE lo mismo
+            // que se ve en pantalla (misma geometría: curvaEtiqueta).
+            velas.forEach(function (r) {
+                dibujarLineasEtq(ctx, r, kPin);
+                r.cajas.forEach(function (c) { dibujarEtiquetaVela(ctx, c, c.proys, c.puntos, kEtq); });
             });
             ctx.restore();
         }
 
-        // Escala gráfica (abajo-derecha) tipo regla.
+        // Agrupa/funde las velas del export EXACTAMENTE igual que declutterVelas en pantalla y
+        // decide qué texto lleva cada una. Se calcula aparte (antes de pintar) porque los
+        // números de municipio necesitan saber dónde van los pines para apartarse.
+        // kPin = escala a la que se DIBUJAN los pines en el canvas. El umbral de fusion va
+        // con ella (no con `k`, la escala de diseno de la hoja): asi en la foto dos velas se
+        // funden exactamente cuando se pisarian, igual que en pantalla.
+        function calcularVelas(proj, kPin) {
+            var velas = agruparVelas(function (o) {
+                return puntosOrdenados(o).map(function (p) {
+                    var pt = proj([p.lat, p.lng]);
+                    return { x: pt.x, y: pt.y, nombre: p.nombre || 'Punto' };
+                });
+            }, VELA_THRESH * kPin);
+            // Misma regla que en pantalla (puntosVisibles), para que la foto salga igual.
+            velas.forEach(function (r) { r.puntos = puntosVisibles(r); });
+            return velas;
+        }
+
         function recortarTexto(ctx, txt, maxW) {
             if (ctx.measureText(txt).width <= maxW) return txt;
             var t = txt;
             while (t.length > 1 && ctx.measureText(t + '…').width > maxW) t = t.slice(0, -1);
             return t + '…';
         }
+        // Escala gráfica (abajo-derecha) tipo regla.
+        // Deben cuadrar con el control de la pantalla: maxWidth de L.control.scale y el
+        // font-size de .leaflet-control-scale-line. Con otro ancho máximo la foto puede elegir
+        // un escalón redondo distinto al que se ve en el mapa.
+        var ESCALA_MAX_PX = 160, ESCALA_FONT = 12;
         function dibujarEscala(ctx, rightX, bottomY, mppx, k) {
             k = k || 1;
-            var maxPx = 200 * k, m = numRedondo(maxPx * mppx), px = m / mppx;
+            var maxPx = ESCALA_MAX_PX * k, m = numRedondo(maxPx * mppx), px = m / mppx;
             var label = m >= 1000 ? (m / 1000) + ' km' : m + ' m';
             var x = rightX - px, y = bottomY;
             ctx.save();
@@ -1876,7 +2742,7 @@
             ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3 * k;
             ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + px, y); ctx.stroke();
             ctx.beginPath(); ctx.moveTo(x, y - 8 * k); ctx.lineTo(x, y + 2 * k); ctx.moveTo(x + px, y - 8 * k); ctx.lineTo(x + px, y + 2 * k); ctx.stroke();
-            ctx.font = 'bold ' + Math.round(15 * k) + 'px Arial, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+            ctx.font = 'bold ' + Math.round(ESCALA_FONT * k) + 'px Arial, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
             ctx.lineWidth = 3 * k; ctx.strokeStyle = 'rgba(0,0,0,0.75)'; ctx.strokeText(label, x + px / 2, y - 12 * k);
             ctx.fillStyle = '#ffffff'; ctx.fillText(label, x + px / 2, y - 12 * k);
             ctx.restore();
@@ -1915,20 +2781,30 @@
 
         // Tabla-leyenda (historial) sobre el canvas: proyectos + sus puntos con coordenadas,
         // y los municipios activos con su color. `k` = escala según el tamaño de hoja.
-        function dibujarLeyendaCanvas(ctx, x, y, fechaTxt, k, bottomY) {
+        function dibujarLeyendaCanvas(ctx, x, y, fechaTxt, k, bottomY, soloLeyenda) {
             k = k || 1;
+            // Si el usuario tiene la leyenda RECOGIDA en pantalla, tampoco va en la foto.
+            if (legendColapsada && !soloLeyenda) return;
             var items = proyectosConPuntos(), munis = municipiosActivos();
             if (!items.length && !munis.length) return;
             var pad = 12 * k, sw = 12 * k, gap = 8 * k;
+            var sangriaPt = 19 * k; // = padding-left de .mapa-leyenda-pt en el CSS
             var fT = Math.round(13 * k), fRow = Math.round(13 * k), fPt = Math.round(11 * k), fDate = Math.round(10 * k);
             var rowH = 20 * k, ptH = 15 * k, titleH = 24 * k;
             // ── Sección PROYECTOS (una columna) ──
             var filas = [];
             if (items.length) {
-                filas.push({ t: 'titulo', txt: 'PROYECTOS', fecha: fechaTxt });
-                items.forEach(function (o) {
-                    filas.push({ t: 'row', color: o.color, txt: o.nombre });
-                    o.puntos.slice().sort(function (a, b) { return (a.orden || 0) - (b.orden || 0); }).forEach(function (p) {
+                filas.push({ t: 'titulo', txt: 'FRENTES DE TRABAJO', fecha: fechaTxt });
+                var idxCoordHead = indiceCoordHead(items);
+                items.forEach(function (o, iO) {
+                    // "Coordenadas" rotula la columna desde la línea del frente, sin fila de
+                    // cabecera aparte y sin la palabra "Punto".
+                    filas.push({ t: 'row', txt: o.nombre, coordHead: iO === idxCoordHead });
+                    // Un frente RECOGIDO en pantalla tampoco lista sus puntos en la foto: ya se
+                    // respeta el plegado global (legendColapsada), sería incoherente honrar uno
+                    // y el otro no, y la leyenda saldría mucho más alta de lo que el usuario ve.
+                    if (proyColapsados[o.id]) return;
+                    puntosOrdenados(o).forEach(function (p) {
                         filas.push({ t: 'pt', nom: (p.nombre || 'Punto'), coord: p.lat.toFixed(5) + ', ' + p.lng.toFixed(5) });
                     });
                 });
@@ -1947,8 +2823,15 @@
             // ── Ancho total (con tope) ──
             var W = 200 * k, cap = 540 * k;
             filas.forEach(function (fi) {
-                if (fi.t === 'row') { ctx.font = '600 ' + fRow + 'px Arial, sans-serif'; W = Math.max(W, pad * 2 + sw + gap + ctx.measureText(fi.txt).width); }
-                else if (fi.t === 'pt') { ctx.font = fPt + 'px Arial, sans-serif'; W = Math.max(W, pad * 2 + 16 * k + ctx.measureText(fi.nom + '    ' + fi.coord).width); }
+                if (fi.t === 'row') {
+                    ctx.font = '600 ' + fRow + 'px Arial, sans-serif';
+                    var wRow = pad * 2 + ctx.measureText(fi.txt).width;
+                    // El primer frente comparte línea con el rótulo "COORDENADAS": si no se suma
+                    // aquí, la caja sale corta y el nombre se recorta contra el rótulo.
+                    if (fi.coordHead) { ctx.font = 'bold ' + Math.round(fPt * 0.85) + 'px Arial, sans-serif'; wRow += gap + ctx.measureText('COORDENADAS').width; }
+                    W = Math.max(W, wRow);
+                }
+                else if (fi.t === 'pt') { ctx.font = fPt + 'px Arial, sans-serif'; W = Math.max(W, pad * 2 + sangriaPt + ctx.measureText(fi.nom + '    ' + fi.coord).width); }
                 else { ctx.font = 'bold ' + fT + 'px Arial, sans-serif'; W = Math.max(W, pad * 2 + ctx.measureText(fi.txt).width + 46 * k); }
             });
             if (munis.length) W = Math.max(W, pad * 2 + muniBlockW);
@@ -1958,12 +2841,16 @@
             var H = pad * 2;
             filas.forEach(function (fi) { H += (fi.t === 'titulo') ? titleH : (fi.t === 'pt' ? ptH : rowH); });
             if (munis.length) H += titleH + muniRowsPerCol * rowH;
+            if (soloLeyenda === 'medir') return { W: W, H: H };  // solo se pidió el tamaño
             if (bottomY != null) y = bottomY - H; // anclar abajo (modo "Pantalla")
 
             // ── Fondo ──
             ctx.save();
             rrect(ctx, x, y, W, H, 12 * k);
-            ctx.fillStyle = 'rgba(15,23,42,0.62)'; ctx.fill();
+            // Sobre el mapa el panel es translúcido y el satélite lo tiñe de gris. Suelto no hay
+            // mapa detrás, así que se pinta OPACO con ese mismo gris; con el azul marino de la
+            // regla translúcida el PNG salía azulado y no se parecía a lo que se ve en pantalla.
+            ctx.fillStyle = soloLeyenda ? LEYENDA_BG_SOLA : 'rgba(15,23,42,0.62)'; ctx.fill();
             ctx.strokeStyle = 'rgba(255,255,255,0.28)'; ctx.lineWidth = 1 * k; ctx.stroke();
             ctx.textBaseline = 'alphabetic';
 
@@ -1987,15 +2874,25 @@
                     if (fi.fecha) { ctx.textAlign = 'right'; ctx.font = fDate + 'px Arial, sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.75)'; ctx.fillText(fi.fecha, x + W - pad, yy + fT - 1); }
                     yy += titleH;
                 } else if (fi.t === 'row') {
-                    ctx.fillStyle = fi.color; rrect(ctx, x + pad, yy + (rowH - sw) / 2 - 1 * k, sw, sw, 3 * k); ctx.fill();
-                    ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.lineWidth = 1 * k; ctx.stroke();
+                    // Sin cuadrito de color: el nombre del frente arranca en el margen (igual
+                    // que en la leyenda de la pantalla).
+                    var yTxt = yy + fRow + (rowH - fRow) / 2 - 2 * k;
+                    // El primer frente lleva a su derecha el rótulo de la columna de coordenadas.
+                    var headW = 0;
+                    if (fi.coordHead) {
+                        ctx.font = 'bold ' + Math.round(fPt * 0.85) + 'px Arial, sans-serif';
+                        ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.textAlign = 'right';
+                        ctx.fillText('COORDENADAS', x + W - pad, yTxt);
+                        headW = ctx.measureText('COORDENADAS').width + gap;
+                    }
                     ctx.textAlign = 'left'; ctx.fillStyle = '#fff'; ctx.font = '600 ' + fRow + 'px Arial, sans-serif';
-                    ctx.fillText(recortarTexto(ctx, fi.txt, W - pad * 2 - sw - gap), x + pad + sw + gap, yy + fRow + (rowH - fRow) / 2 - 2 * k);
+                    ctx.fillText(recortarTexto(ctx, fi.txt, W - pad * 2 - headW), x + pad, yTxt);
                     yy += rowH;
                 } else {
-                    ctx.font = fPt + 'px Arial, sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.85)';
+                    ctx.font = fPt + 'px Arial, sans-serif';
+                    ctx.fillStyle = 'rgba(255,255,255,0.85)';
                     var coordW = fi.coord ? ctx.measureText(fi.coord).width + gap : 0;
-                    ctx.textAlign = 'left'; ctx.fillText(recortarTexto(ctx, fi.nom, W - pad * 2 - 16 * k - coordW), x + pad + 16 * k, yy + fPt);
+                    ctx.textAlign = 'left'; ctx.fillText(recortarTexto(ctx, fi.nom, W - pad * 2 - sangriaPt - coordW), x + pad + sangriaPt, yy + fPt);
                     if (fi.coord) { ctx.textAlign = 'right'; ctx.fillText(fi.coord, x + W - pad, yy + fPt); }
                     yy += ptH;
                 }
@@ -2013,6 +2910,30 @@
                 });
             }
             ctx.restore();
+            return { W: W, H: H };
+        }
+
+        // Descarga la LEYENDA SOLA como PNG (sin el mapa): el mismo dibujo que va en la foto,
+        // recortado a su cajita. Se ofrece desde el iconito de la cabecera de la leyenda.
+        function descargarLeyendaSola() {
+            var k = 2, fecha = new Date().toLocaleDateString('es-VE');
+            var med = dibujarLeyendaCanvas(document.createElement('canvas').getContext('2d'), 0, 0, fecha, k, null, 'medir');
+            if (!med) { if (window.showToast) window.showToast('No hay nada en la leyenda todavía.', 'info'); return; }
+            var m = 10 * k; // margen para que no se coma el borde redondeado
+            var cv = document.createElement('canvas');
+            cv.width = Math.ceil(med.W + m * 2); cv.height = Math.ceil(med.H + m * 2);
+            var cx = cv.getContext('2d');
+            // Sin fondo propio: el margen queda TRANSPARENTE y solo se ve el panel, con el mismo
+            // diseño (bordes redondeados + borde blanco) que cuando sale dentro de la foto.
+            dibujarLeyendaCanvas(cx, m, m, fecha, k, null, true);
+            cv.toBlob(function (blob) {
+                if (!blob) return;
+                var a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = 'leyenda_' + new Date().toISOString().slice(0, 10) + '.png';
+                document.body.appendChild(a); a.click(); a.remove();
+                setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
+            }, 'image/png');
         }
 
         // Créditos sobre el canvas (abajo-izq), escalados.
@@ -2092,9 +3013,11 @@
             } else { for (var j = 0; j < arr.length; j++) rellenarAnillos(ctx, arr[j], col, k, proj); }
         }
         // Municipios ACTIVOS resaltados (color pleno) + su NÚMERO (círculo blanco) en la foto.
-        function dibujarMunicipios(ctx, k, proj) {
-            if (!muniEstado) return;
-            proj = proj || projPantalla;
+        // `pines` = cajas de las velas, para que los números se aparten de ellas.
+        // Devuelve las cajas donde quedaron los números.
+        function dibujarMunicipios(ctx, k, proj, pines) {
+            var cajas = [];
+            if (!muniEstado) return cajas;
             ctx.save(); ctx.lineJoin = 'round';
             muniEstado.eachLayer(function (layer) {
                 var m = layer.feature && layer.feature.properties && layer.feature.properties.municipio;
@@ -2106,20 +3029,27 @@
             ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
             muniEstado.eachLayer(function (layer) {
                 var e = layer.feature.properties.estado, m = layer.feature.properties.municipio;
-                var num = byKey[muniKey(e, m)];
+                var key = muniKey(e, m);
+                var num = byKey[key];
                 if (!num || !layer.getBounds) return;
-                // Mismo centro visual (polylabel) que en pantalla → el número queda igual
-                // dentro del municipio en la foto exportada. Coherente con muniNumeros.
-                var p = proj(centroVisualMunicipio(layer)), r = 10 * k;
+                // Misma posición que en pantalla (la que arrastró el usuario o, si no la tocó, el
+                // centro visual polylabel) → la foto sale igual a lo que se ve. Coherente con muniNumeros.
+                var p = proj(posNumeroMuni(layer, key)), r = MUNI_NUM_R * k;
+                // Si una vela le cae encima, el número se aparta — salvo que lo haya puesto el
+                // usuario a mano, que entonces manda su posición (igual que en pantalla).
+                var d = muniNumPos[key] ? [0, 0] : esquivarNumero(p.x, p.y, r, pines || [], k);
+                var cx2 = p.x + d[0], cy2 = p.y + d[1];
+                cajas.push({ x1: cx2 - r, x2: cx2 + r, y1: cy2 - r, y2: cy2 + r });
                 // Círculo transparente con borde blanco y número blanco (con halo oscuro para legibilidad).
-                ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+                ctx.beginPath(); ctx.arc(cx2, cy2, r, 0, Math.PI * 2);
                 ctx.lineWidth = 3 * k; ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.stroke();
                 ctx.lineWidth = 1.6 * k; ctx.strokeStyle = '#ffffff'; ctx.stroke();
                 ctx.font = 'bold ' + Math.round(11 * k) + 'px Arial, sans-serif';
-                ctx.lineWidth = 3 * k; ctx.strokeStyle = 'rgba(0,0,0,0.75)'; ctx.strokeText(String(num), p.x, p.y);
-                ctx.fillStyle = '#ffffff'; ctx.fillText(String(num), p.x, p.y);
+                ctx.lineWidth = 3 * k; ctx.strokeStyle = 'rgba(0,0,0,0.75)'; ctx.strokeText(String(num), cx2, cy2);
+                ctx.fillStyle = '#ffffff'; ctx.fillText(String(num), cx2, cy2);
             });
             ctx.restore();
+            return cajas; // para que las etiquetas de las velas tampoco los tapen
         }
 
         // Exporta la imagen en 4K NÍTIDA con EXACTAMENTE lo que quedó dentro del marco.
@@ -2145,6 +3075,12 @@
                 if (fw >= fh) { Pw = LONG; Ph = Math.round(LONG * fh / fw); }
                 else { Ph = LONG; Pw = Math.round(LONG * fw / fh); }
                 k = Pw / fw;
+            } else if (tam === 'personalizado') {
+                // Tamaño EXACTO pedido por el usuario: el PNG sale con estos píxeles justos.
+                // La misma k que las hojas, así los rótulos, la leyenda y los trazos guardan
+                // la misma proporción que en Carta/A4.
+                Pw = expPersW; Ph = expPersH;
+                k = Math.max(Pw, Ph) / 1650;
             } else {
                 var mm = EXPORT_MM[tam] || EXPORT_MM.carta;
                 var cortoPx = Math.round(LONG * mm[1] / mm[0]);
@@ -2156,7 +3092,7 @@
             overlayExport(true);
 
             // Zoom ENTERO de las teselas:
-            //  · CON "Más detalle" (solo hojas): sube el zoom para 4K más nítido (más nombres).
+            //  · CON "Más detalle" (hojas y tamaño personalizado): sube el zoom → más nítido.
             //  · SIN detalle / "Pantalla": antes se usaba round(Z0). Problema: en un zoom
             //    intermedio (ej. 8.7) redondeaba a 9 (o a 8) y las teselas se REESCALABAN con
             //    drawImage → los NOMBRES de las ubicaciones del mapa base salían borrosos
@@ -2164,55 +3100,78 @@
             //    (ceil) → las teselas traen más resolución nativa y al ajustarse quedan nítidas
             //    en todas las escalas. Cap a 17 (máx del proveedor).
             var zMax = Math.min(17, Math.max(0, Math.ceil(Z0 + Math.log(Pw / fw) / Math.LN2)));
-            var z = (detalle && !pantalla) ? zMax : Math.min(17, Math.max(0, Math.ceil(Z0)));
+            var zBase = Math.min(17, Math.max(0, Math.ceil(Z0)));
+            // max(zBase, zMax): con un tamaño personalizado MÁS CHICO que el marco de pantalla,
+            // zMax sale por debajo de zBase y "Más detalle" habría BAJADO el zoom — la foto
+            // marcada saldría más borrosa que sin marcar. Nunca por debajo del zoom normal.
+            var z = (detalle && !pantalla) ? Math.max(zBase, zMax) : zBase;
+            // Los NOMBRES del mapa base (ciudades, carreteras) van SIEMPRE al zoom zBase, aunque
+            // el satélite suba a zMax con "Más detalle". El texto de una tesela mide lo mismo en
+            // píxeles sea cual sea el zoom, así que al pedirlas a zMax entraban ~Pw/fw veces más
+            // teselas en la misma hoja y los nombres salían minúsculos e ilegibles — parecía que
+            // ya no se guardaban las ubicaciones. Separando el zoom por capa, la imagen conserva
+            // la nitidez extra y los nombres recuperan el tamaño con el que se veían antes.
             var pTL = map.project(b.getNorthWest(), z), pBR = map.project(b.getSouthEast(), z);
             var spanX = pBR.x - pTL.x || 1, scale = Pw / spanX;
             var proj4k = function (ll) {
                 var wp = map.project(ll instanceof L.LatLng ? ll : L.latLng(ll[0], ll[1]), z);
                 return { x: (wp.x - pTL.x) * scale, y: (wp.y - pTL.y) * scale };
             };
-            var TS = 256, n = Math.pow(2, z);
-            var tx0 = Math.floor(pTL.x / TS), tx1 = Math.floor((pBR.x - 0.001) / TS);
-            var ty0 = Math.floor(pTL.y / TS), ty1 = Math.floor((pBR.y - 0.001) / TS);
+            var TS = 256;
 
             var canvas = document.createElement('canvas'); canvas.width = Pw; canvas.height = Ph;
             var ctx = canvas.getContext('2d');
             ctx.fillStyle = '#0b1a2b'; ctx.fillRect(0, 0, Pw, Ph);
 
-            var pintarCapa = function (tipo) {
+            // Cada capa calcula su PROPIA geometría a partir de su zoom: satélite y nombres ya no
+            // comparten zoom, así que no pueden compartir el recorte de teselas ni la escala.
+            var pintarCapa = function (tipo, zc) {
+                var cTL = map.project(b.getNorthWest(), zc), cBR = map.project(b.getSouthEast(), zc);
+                var cScale = Pw / ((cBR.x - cTL.x) || 1), nc = Math.pow(2, zc);
+                var cx0 = Math.floor(cTL.x / TS), cx1 = Math.floor((cBR.x - 0.001) / TS);
+                var cy0 = Math.floor(cTL.y / TS), cy1 = Math.floor((cBR.y - 0.001) / TS);
                 var tasks = [];
-                for (var tx = tx0; tx <= tx1; tx++) {
-                    for (var ty = ty0; ty <= ty1; ty++) {
-                        if (ty < 0 || ty >= n) continue;
+                for (var tx = cx0; tx <= cx1; tx++) {
+                    for (var ty = cy0; ty <= cy1; ty++) {
+                        if (ty < 0 || ty >= nc) continue;
                         (function (tx, ty) {
-                            var dx = (tx * TS - pTL.x) * scale, dy = (ty * TS - pTL.y) * scale, ds = TS * scale + 1;
-                            tasks.push(cargarImg(tileURL(z, tx, ty, tipo)).then(function (img) { if (img) { try { ctx.drawImage(img, dx, dy, ds, ds); } catch (e) {} } }));
+                            var dx = (tx * TS - cTL.x) * cScale, dy = (ty * TS - cTL.y) * cScale, ds = TS * cScale + 1;
+                            tasks.push(cargarImg(tileURL(zc, tx, ty, tipo)).then(function (img) { if (img) { try { ctx.drawImage(img, dx, dy, ds, ds); } catch (e) {} } }));
                         })(tx, ty);
                     }
                 }
                 return Promise.all(tasks);
             };
 
-            pintarCapa('sat').then(function () { return pintarCapa('lbl'); }).then(function () {
-                dibujarMunicipios(ctx, k, proj4k);
-                dibujarVectores(ctx, k, proj4k);
+            // logoListo: asegura que el logo de la vela ya esté cargado antes de dibujarla.
+            pintarCapa('sat', z).then(function () { return pintarCapa('lbl', zBase); }).then(function () { return logoListo; }).then(function () {
+                // Orden: se calculan las velas → los números de municipio se apartan de ellas →
+                // las etiquetas de las velas esquivan esos números ya reubicados.
+                var kPin4k = k * (vistaLejana() ? ESC_LEJOS : 1);
+                var velas4k = calcularVelas(proj4k, kPin4k);
+                var cajasNum = dibujarMunicipios(ctx, k, proj4k, cajasPines(velas4k, kPin4k));
+                dibujarVectores(ctx, k, proj4k, velas4k, cajasNum, kPin4k);
                 var outMppx = 156543.03392 * Math.cos(b.getCenter().lat * Math.PI / 180) / Math.pow(2, z) / scale;
                 var fecha = new Date().toLocaleDateString('es-VE');
                 // Créditos en su cajita abajo-izquierda (devuelve su tope). En "Pantalla" la leyenda
                 // se apila ENCIMA de esa caja (igual que en la pantalla); en hojas va arriba-izquierda.
                 var credTop = dibujarCreditos(ctx, 26 * k, Ph - 22 * k, k);
                 dibujarLeyendaCanvas(ctx, 26 * k, 26 * k, fecha, k, pantalla ? (credTop - 12 * k) : null);
-                dibujarEscala(ctx, Pw - 34 * k, Ph - 40 * k, outMppx, k);
-                dibujarNorte(ctx, Pw - 74 * k, Ph - 116 * k, k);
+                // Brújula y regla colocadas COMO EN LA PANTALLA: la brújula sola en la esquina
+                // (96 px de lado, 10 de margen → su centro cae a 58 del borde) y la regla a su
+                // IZQUIERDA, no debajo. Antes la regla se dibujaba pegada al borde derecho y
+                // quedaba justo bajo la brújula, encimadas.
+                dibujarNorte(ctx, Pw - 58 * k, Ph - 58 * k, k);
+                dibujarEscala(ctx, Pw - 128 * k, Ph - 34 * k, outMppx, k); // 10 + 96 de brújula + 22 de aire
                 canvas.toBlob(function (blob) {
                     overlayExport(false);
                     if (!blob) { if (window.showToast) window.showToast('No se pudo generar la imagen.', 'error'); return; }
                     var a = document.createElement('a');
                     a.href = URL.createObjectURL(blob);
-                    a.download = 'mapa_' + tam + '_' + ori + '_4k_' + new Date().toISOString().slice(0, 10) + '.png';
+                    a.download = 'mapa_' + tam + (expUsaOrientacion(tam) ? '_' + ori : '') + '_' + Pw + 'x' + Ph + '_' + new Date().toISOString().slice(0, 10) + '.png';
                     document.body.appendChild(a); a.click(); a.remove();
                     setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
-                    if (window.showToast) window.showToast('Imagen 4K descargada (' + tam.toUpperCase() + ', ' + ori + ').', 'success');
+                    if (window.showToast) window.showToast('Imagen descargada · ' + tam.toUpperCase() + ' · ' + Pw + '×' + Ph + ' px', 'success');
                 }, 'image/png');
             }).catch(function () {
                 overlayExport(false);
@@ -2222,13 +3181,19 @@
 
         // Cargar los oleoductos existentes y dibujarlos.
         oleoApi('/mapa/oleoductos').then(function (res) {
-            (res && res.oleoductos ? res.oleoductos : []).forEach(oleoDibujar);
+            // Se dibujan en el MISMO orden que usa la foto (gruposOrdenados): con dos tuberías
+            // superpuestas, la que queda encima debe ser la misma en el mapa y en el PNG.
+            // Antes la pantalla usaba el orden que trae la API (ordenado en SQL, con la
+            // colación de la BD) y la foto lo reordenaba en JS con localeCompare: podían
+            // discrepar por acentos o mayúsculas.
+            (res && res.oleoductos ? res.oleoductos : []).forEach(function (o) { oleoMap[o.id] = { data: o }; });
+            gruposOrdenados().forEach(oleoDibujar);
             oleoRenderLista();
             // Recalcular las etiquetas cuando la escala/vista ya se asentó (el setView inicial no
             // dispara moveend, y la barra de escala se renderiza un instante después).
             setTimeout(function () { declutterVelas(true); }, 300);
             setTimeout(function () { declutterVelas(true); }, 900);
-        }).catch(function () {});
+        }).catch(function (e) { console.error('[mapa] fallo al cargar/dibujar los frentes:', e); });
 
         // Tras insertar el contenedor por SPA, Leaflet puede calcular mal el tamaño;
         // invalidar en el siguiente tick asegura que las teselas llenen el área.
@@ -2240,24 +3205,23 @@
         // al rotar el teléfono y cada vez que la barra de URL del navegador se oculta o
         // reaparece (nuestro alto es 100dvh, así que se mueve con ella). Observamos el
         // CONTENEDOR, no window: cubre además el teclado virtual y los cambios de layout
-        // por SPA, que un listener de 'resize' no ve. El observer se recolecta junto con
-        // el nodo cuando la SPA reemplaza la vista — no hay que desmontarlo a mano.
+        // por SPA, que un listener de 'resize' no ve. Se guarda en obsTam para desconectarlo
+        // en el desmontaje (ver alNavegar), junto con el resto.
         // rAF para colapsar la ráfaga de eventos de una rotación en un solo recálculo.
         if (window.ResizeObserver) {
             var rafId = 0;
-            new ResizeObserver(function () {
+            obsTam = new ResizeObserver(function () {
                 if (rafId) return;
                 rafId = requestAnimationFrame(function () {
                     rafId = 0;
                     map.invalidateSize({ pan: false }); // pan:false = no mover el centro
                 });
-            }).observe(el);
+            });
+            obsTam.observe(el);
         } else {
             // Navegadores sin ResizeObserver: rotación vía window (orientationchange llega
             // antes de que el layout se asiente, de ahí el respiro).
-            window.addEventListener('orientationchange', function () {
-                setTimeout(function () { map.invalidateSize({ pan: false }); }, 250);
-            });
+            window.addEventListener('orientationchange', onOrientacion);
         }
 
         // Cuando existan equipos con lat/lng se agregarán marcadores aquí, p.ej:

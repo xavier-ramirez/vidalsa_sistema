@@ -30,28 +30,43 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('usuarios', function (Blueprint $table) {
-            // default 2 (LOCAL) = el mismo default que tenía NIVEL_ACCESO: si algo
-            // inserta un usuario sin nivel, queda restringido, no abierto.
-            $table->integer('NIVEL_ACCESO_EQUIPOS')->default(2)->after('ID_FRENTE_BLOQUEADO');
-            $table->integer('NIVEL_ACCESO_ALMACEN')->default(2)->after('NIVEL_ACCESO_EQUIPOS');
-        });
+        // IDEMPOTENTE (igual que las demás migraciones del proyecto): el cambio ya está
+        // aplicado en alguna base de datos sin que quedara anotado en la tabla `migrations`,
+        // y al re-ejecutarse reventaba con "Duplicate column name 'NIVEL_ACCESO_EQUIPOS'",
+        // lo que BLOQUEABA todas las migraciones posteriores.
+        $tieneViejo   = Schema::hasColumn('usuarios', 'NIVEL_ACCESO');
+        $faltaEquipos = !Schema::hasColumn('usuarios', 'NIVEL_ACCESO_EQUIPOS');
+        $faltaAlmacen = !Schema::hasColumn('usuarios', 'NIVEL_ACCESO_ALMACEN');
+
+        if ($faltaEquipos || $faltaAlmacen) {
+            Schema::table('usuarios', function (Blueprint $table) use ($faltaEquipos, $faltaAlmacen) {
+                // default 2 (LOCAL) = el mismo default que tenía NIVEL_ACCESO: si algo
+                // inserta un usuario sin nivel, queda restringido, no abierto.
+                if ($faltaEquipos) $table->integer('NIVEL_ACCESO_EQUIPOS')->default(2)->after('ID_FRENTE_BLOQUEADO');
+                if ($faltaAlmacen) $table->integer('NIVEL_ACCESO_ALMACEN')->default(2)->after($faltaEquipos ? 'NIVEL_ACCESO_EQUIPOS' : 'ID_FRENTE_BLOQUEADO');
+            });
+        }
 
         // Backfill desde el nivel único. Un NIVEL_ACCESO nulo o inválido (≠1) se
         // normaliza a 2/LOCAL, que es como lo trataba Usuario::veTodosLosFrentes()
-        // ("cualquier valor distinto de 1 → restringido").
-        DB::table('usuarios')->update([
-            'NIVEL_ACCESO_EQUIPOS' => DB::raw('CASE WHEN NIVEL_ACCESO = 1 THEN 1 ELSE 2 END'),
-            'NIVEL_ACCESO_ALMACEN' => DB::raw('CASE WHEN NIVEL_ACCESO = 1 THEN 1 ELSE 2 END'),
-        ]);
+        // ("cualquier valor distinto de 1 → restringido"). Solo tiene sentido si la
+        // columna vieja sigue estando: si ya no está, el traspaso se hizo antes.
+        if ($tieneViejo) {
+            DB::table('usuarios')->update([
+                'NIVEL_ACCESO_EQUIPOS' => DB::raw('CASE WHEN NIVEL_ACCESO = 1 THEN 1 ELSE 2 END'),
+                'NIVEL_ACCESO_ALMACEN' => DB::raw('CASE WHEN NIVEL_ACCESO = 1 THEN 1 ELSE 2 END'),
+            ]);
 
-        Schema::table('usuarios', function (Blueprint $table) {
-            $table->dropColumn('NIVEL_ACCESO');
-        });
+            Schema::table('usuarios', function (Blueprint $table) {
+                $table->dropColumn('NIVEL_ACCESO');
+            });
+        }
     }
 
     public function down(): void
     {
+        if (Schema::hasColumn('usuarios', 'NIVEL_ACCESO') || !Schema::hasColumn('usuarios', 'NIVEL_ACCESO_EQUIPOS')) return;
+
         Schema::table('usuarios', function (Blueprint $table) {
             $table->integer('NIVEL_ACCESO')->default(2)->after('ID_FRENTE_BLOQUEADO');
         });

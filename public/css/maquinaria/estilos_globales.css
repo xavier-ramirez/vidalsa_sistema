@@ -1573,6 +1573,25 @@ input[type="password"]::-ms-clear {
     transition: all 0.2s;
 }
 
+/* Filtros con ícono (lupa/almacén) + campo dentro de un .dropdown-trigger: el
+   texto quedaba muy separado del ícono por tres motivos combinados — el `gap: 8px`
+   del trigger, el padding derecho del contenedor del ícono y el padding izquierdo
+   del campo. Aquí, EN UN SOLO PUNTO, lo dejamos pegado (≈4px, igual que el buscador
+   de Seriales) para TODOS los filtros de este patrón: equipos (Frente/Tipo + filtros
+   avanzados), movilizaciones, almacén, historial y usuarios. Los dropdowns tipo-select
+   (label + chevron, sin <input>) usan space-between y NO se ven afectados.
+   Se usa !important porque cada filtro trae su padding en estilo inline. */
+.dropdown-trigger:has(> input) {
+    gap: 0;
+}
+.dropdown-trigger:has(> input) > div:first-child,
+.dropdown-trigger:has(> input) > span:first-child {
+    padding-right: 0 !important;   /* pega el ícono al campo */
+}
+.dropdown-trigger:has(> input) > input {
+    padding-left: 4px !important;  /* separación mínima uniforme ícono→texto */
+}
+
 .custom-multiselect.active .multiselect-trigger {
     border-color: #0067b1;
     box-shadow: 0 0 0 3px rgba(0, 103, 177, 0.1);
@@ -3778,8 +3797,18 @@ body:has(.mapa-page) .main-viewport {
    (top:5px + 70px de alto ≈ 75px). Sin esto el menú los taparía. */
 #mapa-leaflet .leaflet-top { margin-top: 80px; }
 
-/* Pantalla completa: el contenedor del mapa ocupa TODA la pantalla (sin bordes ni radio) */
-#mapa-leaflet:fullscreen,
+/* PANTALLA COMPLETA. OJO: :fullscreen y :-webkit-full-screen van en reglas SEPARADAS, nunca
+   agrupadas con coma. Un selector que el navegador no entienda invalida TODA la regla, así que
+   agrupándolos Firefox (no conoce :-webkit-full-screen) descartaba el bloque entero y se quedaba
+   sin salida visible de pantalla completa. Duplicar la regla es aquí la forma correcta. */
+/* El contenedor del mapa ocupa TODA la pantalla (sin bordes ni radio) */
+#mapa-leaflet:fullscreen {
+    width: 100vw !important;
+    height: 100vh !important;
+    min-height: 0 !important;
+    border-radius: 0 !important;
+    border: none !important;
+}
 #mapa-leaflet:-webkit-full-screen {
     width: 100vw !important;
     height: 100vh !important;
@@ -3787,10 +3816,29 @@ body:has(.mapa-page) .main-viewport {
     border-radius: 0 !important;
     border: none !important;
 }
+/* En pantalla completa NO existe el header flotante de la app → los controles (buscador,
+   botones de al lado, capas) suben al tope: se anula el margin-top: 80px de arriba.
+   La "X" para salir SOLO existe aquí, y el botón que ENTRA se oculta (si no, habría dos
+   controles para lo mismo). order:-1 la deja ARRIBA del control de capas (Leaflet apila en
+   orden de alta). */
+#mapa-leaflet:fullscreen .leaflet-top { margin-top: 10px; }
+#mapa-leaflet:fullscreen .mapa-fs-close { display: flex; order: -1; }
+#mapa-leaflet:fullscreen .mapa-fs-toggle { display: none; }
+#mapa-leaflet:fullscreen .leaflet-top.leaflet-right { display: flex; flex-direction: column; }
 
-/* Controles no-esenciales del mapa (Exportar/Descargar imagen, Ver toda Venezuela, Proyectos,
-   Dibujar) ocultos en TODO dispositivo TÁCTIL — no solo ≤640px: en un teléfono ancho o en el
-   rango que toma el estilo de escritorio igual sobran y estorban. */
+#mapa-leaflet:-webkit-full-screen .leaflet-top { margin-top: 10px; }
+#mapa-leaflet:-webkit-full-screen .mapa-fs-close { display: flex; order: -1; }
+#mapa-leaflet:-webkit-full-screen .mapa-fs-toggle { display: none; }
+#mapa-leaflet:-webkit-full-screen .leaflet-top.leaflet-right { display: flex; flex-direction: column; }
+
+/* Fuera de pantalla completa la "X" no existe (con #id para ganarle al display:flex de
+   .mapa-fit-btn, que se define más abajo). */
+#mapa-leaflet .mapa-fs-close { display: none; }
+
+/* Controles no-esenciales del mapa (Exportar/Descargar imagen, Ver toda Venezuela, Frentes de
+   trabajo, Dibujar) ocultos en TODO dispositivo TÁCTIL — no solo ≤640px: en un teléfono ancho o
+   en el rango que toma el estilo de escritorio igual sobran y estorban. La regla se repite en el
+   @media (max-width: 640px) del final para cubrir el otro eje (ventana angosta con ratón). */
 @media (pointer: coarse) {
     .mapa-ctrl-mobile-hide { display: none !important; }
 }
@@ -3983,7 +4031,6 @@ body:has(.mapa-page) .main-viewport {
 .mapa-ctx-danger, .mapa-ctx-danger .material-icons { color: #e11d48; }
 .mapa-ctx-danger:hover { background: #fef2f2; }
 
-/* Escala del mapa: pastilla blanca limpia (mejor que el borde negro por defecto) */
 /* Escala AL LADO de la brújula (no debajo): la esquina inferior-derecha se vuelve una
    FILA (flex) alineada abajo — la brújula queda SOLA en la esquina y la escala a su
    izquierda. Leaflet apila los controles de una esquina en vertical (float+clear);
@@ -4052,7 +4099,10 @@ body:has(.mapa-page) .main-viewport {
     .mapa-creditos { display: none; }
     .leaflet-control-layers { display: none; }
     /* Se ocultan TODOS los botones de la barra (Ver toda Venezuela, Pantalla completa,
-       Descargar imagen, Proyectos y Dibujar tubería); en teléfono solo queda el buscador. */
+       Descargar imagen, Frentes de trabajo y Dibujar tubería): solo queda el buscador.
+       DUPLICA a propósito la regla de @media (pointer: coarse) de más arriba: aquella cubre
+       el táctil ancho (tablet) y esta la ventana angosta con ratón. Son dos ejes distintos,
+       no la misma condición escrita dos veces — si se borra una, se destapa uno de los casos. */
     .mapa-ctrl-mobile-hide { display: none !important; }
 
     /* Buscador a lo ANCHO en teléfono: ya no hay botones a su lado (todos ocultos). La BARRA
@@ -4105,7 +4155,7 @@ body:has(.mapa-page) .main-viewport {
 .oleo-ctrl .oleo-toggle:hover { background: #f1f5f9; }
 .oleo-ctrl .oleo-toggle .material-icons { font-size: 20px; }
 .oleo-panel {
-    margin-top: 6px; width: 250px; max-width: 78vw; background: #fff;
+    margin-top: 6px; width: 330px; max-width: 86vw; background: #fff;
     border-radius: 10px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28); overflow: hidden;
     font-family: 'Inter', 'Segoe UI', sans-serif;
 }
@@ -4114,21 +4164,35 @@ body:has(.mapa-page) .main-viewport {
 .oleo-vacio { padding: 12px; font-size: 12px; color: #94a3b8; text-align: center; }
 .oleo-item { display: flex; align-items: center; gap: 7px; padding: 7px 10px; cursor: pointer; border-bottom: 1px solid #f1f5f9; }
 .oleo-item:hover { background: #f8fafc; }
-.oleo-item-activo { background: #e1effa; }
-.oleo-item-activo .oleo-nom { color: #0067b1; }
+/* Proyecto en FOCO: fondo gris (antes azul) y el nombre sigue en negro, no cambia de color. */
+.oleo-item-activo { background: #e9edf2; }
 .oleo-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 0 1px rgba(0,0,0,0.15); }
-.oleo-nom { flex: 1; font-size: 13px; font-weight: 700; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Nombre del proyecto: negro y de trazo normal (antes 700 azulado, se veía muy grueso). */
+.oleo-nom { flex: 1; font-size: 13px; font-weight: 500; color: #111827; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .oleo-cnt { font-size: 11px; font-weight: 700; color: #64748b; background: #f1f5f9; border-radius: 999px; padding: 1px 7px; }
 .oleo-del { background: transparent; border: none; color: #cbd5e1; font-size: 18px; line-height: 1; cursor: pointer; padding: 0 2px; }
 .oleo-del:hover { color: #ef4444; }
 
 /* Vela (pin de ubicación tipo Google Maps) — el divIcon no debe tener fondo */
+/* Subtitulo del menu de la vela ("En N proyectos") y lista para agregar el punto a otro. */
+.mapa-ctx-sub { display: block; font-size: 10.5px; font-weight: 600; color: #64748b; text-transform: none; letter-spacing: 0; margin-top: 2px; }
+.oleo-vinc-list { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
+.oleo-vinc-op { display: flex; align-items: center; gap: 7px; width: 100%; text-align: left; cursor: pointer;
+    background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 8px; padding: 7px 9px; font-size: 12.5px; font-weight: 600; color: #1e293b; }
+.oleo-vinc-op:hover { background: #e1effa; border-color: #0067b1; color: #0067b1; }
+
+/* Etiqueta de una vela como marcador propio (un punto en varios proyectos saca UNA CAJA POR
+   PROYECTO, y cada caja es su propio marcador). El divIcon no pinta nada: la cajita blanca la
+   pone el .vela-label de dentro, con el MISMO aspecto que tenían los tooltips. */
+.vela-etq { background: none !important; border: none !important; width: auto !important; height: auto !important; }
+.vela-etq .vela-label { position: static !important; display: inline-block; }
+
 .mapa-vela { background: none !important; border: none !important; }
 .mapa-vela svg { display: block; filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.4)); transition: transform .15s ease; }
 /* A más de 300 km (clase que pone declutterVelas) el pin se encoge para no verse enorme.
    El escalado es sobre el SVG (no sobre el div, que Leaflet usa para posicionar) y con
    origen en la PUNTA (abajo-centro) para que la punta siga clavada en la ubicación. */
-.mapa-velas-lejos .mapa-vela svg { transform: scale(0.6); transform-origin: 50% 100%; }
+.mapa-velas-lejos .mapa-vela svg { transform: scale(0.65); transform-origin: 50% 100%; }
 
 /* Tiradores del editor de línea: vértice (arrastrar) y "+" (agregar/curvar) */
 .mapa-ed-vert {
@@ -4168,11 +4232,16 @@ body:has(.mapa-page) .main-viewport {
 
 /* Popup para guardar un punto en un proyecto */
 .oleo-save { min-width: 210px; }
-.oleo-save-in,
-.oleo-save-newp { width: 100%; box-sizing: border-box; border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 8px 10px; font-size: 13px; outline: none; margin-bottom: 6px; }
-.oleo-save-in:focus,
-.oleo-save-newp:focus { border-color: #0067b1; }
 .oleo-save-lbl { display: block; font-size: 11px; font-weight: 500; color: #475569; text-transform: uppercase; letter-spacing: 0.3px; margin: 2px 0 4px; }
+/* Los DOS campos (nombre del punto y frente) comparten UNA regla: son el mismo control visual,
+   así no pueden volver a divergir. .oleo-save-in se había colado dentro del selector de
+   .oleo-save-lbl y se pintaba como una etiqueta —sin borde, sin caja y en versalitas— mientras
+   el del frente sí tenía su recuadro. */
+.oleo-save-in,
+.oleo-save-search { width: 100%; box-sizing: border-box; border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 8px 10px; font-size: 13px; outline: none; background: #fff; }
+.oleo-save-in:focus,
+.oleo-save-search:focus { border-color: #0067b1; }
+.oleo-save-in { margin-bottom: 8px; }
 /* Popup PEQUEÑO tras buscar: lugar + botón para decidir si abrir el formulario de guardar. */
 .oleo-ask { display: flex; flex-direction: column; gap: 8px; padding: 2px; min-width: 150px; }
 .oleo-ask-loc { font-size: 12.5px; font-weight: 600; color: #0f172a; line-height: 1.3; }
@@ -4181,8 +4250,6 @@ body:has(.mapa-page) .main-viewport {
 .oleo-ask-btn .material-icons { font-size: 17px; }
 /* Selector de proyecto tipo BUSCADOR (recomienda al escribir) en el popup de guardar. */
 .oleo-save-pick { position: relative; margin-bottom: 8px; }
-.oleo-save-search { width: 100%; box-sizing: border-box; border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 8px 10px; font-size: 13px; outline: none; background: #fff; }
-.oleo-save-search:focus { border-color: #0067b1; }
 .oleo-save-list { display: none; position: absolute; top: calc(100% + 3px); left: 0; right: 0; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 10px 22px rgba(0, 0, 0, 0.14); max-height: 180px; overflow-y: auto; padding: 4px; z-index: 30; }
 .oleo-save-op { padding: 7px 9px; border-radius: 6px; font-size: 13px; font-weight: 600; color: #1e293b; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .oleo-save-op:hover { background: #eef4fb; color: #0067b1; }
@@ -4191,8 +4258,9 @@ body:has(.mapa-page) .main-viewport {
 .oleo-save-btn:hover { background: #005699; }
 .oleo-save-btn:disabled { opacity: 0.6; cursor: default; }
 .oleo-req { color: #e11d48; font-weight: 800; }
-.oleo-save-op-none { color: #94a3b8; cursor: default; font-weight: 500; }
-.oleo-save-op-none:hover { background: transparent; color: #94a3b8; }
+/* Primera opción de la lista: guardar el punto SIN frente. Separada del resto con una línea
+   para que se lea como lo que es (no es un frente más). */
+.oleo-save-op-sin { color: #64748b; font-style: italic; border-bottom: 1px solid #e2e8f0; border-radius: 6px 6px 0 0; margin-bottom: 2px; }
 .oleo-save-err { font-size: 12px; font-weight: 600; color: #e11d48; margin-top: 6px; }
 
 /* Tabla-leyenda (historial de proyectos) — transparente, sobre el mapa */
@@ -4210,18 +4278,29 @@ body:has(.mapa-page) .main-viewport {
     backdrop-filter: blur(2px);
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
 }
-/* Cuando la leyenda está RECOGIDA (solo la cabecera "Leyenda ⌄", sin cuerpo) se ve más
-   ancha para que no quede apretada y el botón de expandir tenga aire. min() para no
-   desbordar en pantallas angostas. */
-.mapa-leyenda:not(:has(.mapa-leyenda-body)) { min-width: min(300px, calc(100vw - 24px)); }
+/* Leyenda RECOGIDA: el cuerpo sigue en el DOM (lo arma siempre actualizarLeyenda) pero con
+   alto 0 y oculto. Así su contenido sigue marcando el ANCHO de la caja y la leyenda recogida
+   mide exactamente lo mismo que expandida, en vez de encogerse a la cabecera. */
+.mapa-leyenda-body-plegado { height: 0; margin-top: 0; overflow: hidden; visibility: hidden; }
 /* Cabecera plegable de la leyenda (recoger toda) + fila de proyecto plegable (recoger sus puntos). */
 .mapa-leyenda-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .mapa-leyenda-titulo { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.92; }
 .mapa-leyenda-fold { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0; border: none; border-radius: 6px; background: rgba(255, 255, 255, 0.12); color: #fff; cursor: pointer; }
 .mapa-leyenda-fold:hover { background: rgba(255, 255, 255, 0.22); }
+/* Botonera de la cabecera: descargar la leyenda sola + recoger/expandir. */
+.mapa-leyenda-acciones { display: inline-flex; align-items: center; gap: 4px; flex: none; }
 .mapa-leyenda-fold .material-icons { font-size: 18px; }
 .mapa-leyenda-body { margin-top: 8px; }
 .mapa-leyenda-proy { cursor: pointer; border-radius: 6px; padding-left: 2px; padding-right: 2px; }
+/* Ojo por frente: oculta/muestra ese frente en el mapa (para ver uno solo). No tapa el
+   toggle de recoger: es un botón propio con su data-ver. */
+.mapa-leyenda-ver { flex: none; display: inline-flex; align-items: center; justify-content: center;
+    width: 20px; height: 20px; padding: 0; border: none; background: transparent; cursor: pointer;
+    color: inherit; opacity: 0.75; border-radius: 4px; }
+.mapa-leyenda-ver:hover { opacity: 1; background: rgba(255, 255, 255, 0.14); }
+.mapa-leyenda-ver .material-icons { font-size: 16px !important; }
+/* Frente oculto: nombre atenuado, para que se note que no está en el mapa. */
+.mapa-leyenda-proy-oculto .mapa-leyenda-nom { opacity: 0.45; }
 .mapa-leyenda-proy:hover { background: rgba(255, 255, 255, 0.08); }
 .mapa-leyenda-chevron { font-size: 18px !important; opacity: 0.7; flex: none; }
 .mapa-leyenda-t { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 5px; opacity: 0.95; }
@@ -4229,37 +4308,51 @@ body:has(.mapa-page) .main-viewport {
 /* Municipios en DOS columnas cuando son varios (rellena de arriba a abajo). */
 .mapa-leyenda-munis.dos-col { column-count: 2; column-gap: 16px; }
 .mapa-leyenda-munis.dos-col .mapa-leyenda-row { break-inside: avoid; }
-/* Mismo ancho que el estado normal (430px = ancho de los créditos), con el min() para no
-   desbordar en teléfonos angostos aunque haya municipios a dos columnas. */
-.mapa-leyenda:has(.mapa-leyenda-munis.dos-col) { max-width: min(430px, calc(100vw - 24px)); }
-.mapa-leyenda-row { display: flex; align-items: center; gap: 7px; padding: 2px 0; }
-.mapa-leyenda-dot { width: 12px; height: 12px; border-radius: 3px; border: 1px solid rgba(255, 255, 255, 0.6); flex: none; }
+/* gap 8px = el mismo de .mapa-leyenda-pt, para que las dos filas alineen su última columna. */
+.mapa-leyenda-row { display: flex; align-items: center; gap: 8px; padding: 2px 0; }
 .mapa-leyenda-nom { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
-.mapa-leyenda-n { font-size: 11px; font-weight: 700; background: rgba(255, 255, 255, 0.18); border-radius: 999px; padding: 1px 8px; flex: none; white-space: nowrap; }
 /* Número identificador del municipio en la leyenda (círculo blanco) */
 .mapa-leyenda-num {
     flex: none; width: 18px; height: 18px; border-radius: 50%;
     background: #fff; color: #0f172a; font-size: 11px; font-weight: 800;
     display: inline-flex; align-items: center; justify-content: center; border: 1px solid #0f172a;
 }
-/* Número identificador del municipio SOBRE el mapa (círculo transparente, borde+número blancos) */
+/* Número identificador del municipio SOBRE el mapa (círculo transparente, borde+número blancos).
+   Se arrastra a mano (habilitarArrastreNumero): cursor:move con !important porque Leaflet pone
+   cursor:pointer en .leaflet-interactive, y touch-action:none para que en pantalla táctil el
+   gesto mueva el número en vez de desplazar el mapa. */
 .muni-num {
     background: transparent !important; border: 2px solid #fff; border-radius: 50%;
     width: 20px !important; height: 20px !important; box-sizing: border-box;
     display: flex !important; align-items: center; justify-content: center;
     box-shadow: 0 0 3px rgba(0, 0, 0, 0.7);
+    cursor: move !important; touch-action: none;
 }
 .muni-num span {
     color: #fff; font-size: 11px; font-weight: 800; line-height: 1;
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
 }
-.mapa-leyenda-pt { display: flex; justify-content: space-between; gap: 8px; padding: 1px 0 1px 19px; font-size: 11px; opacity: 0.82; }
-.mapa-leyenda-pt-n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.mapa-leyenda-pt-c { flex: none; font-variant-numeric: tabular-nums; opacity: 0.85; }
+.mapa-leyenda-pt { display: flex; align-items: center; gap: 8px; padding: 1px 0 1px 19px; font-size: 11px; opacity: 0.82; }
+/* El nombre ocupa el sobrante y la COORDENADA queda pegada a la derecha, en columna: con
+   tabular-nums todas las filas alinean dígito con dígito. */
+.mapa-leyenda-pt-n { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mapa-leyenda-pt-c { flex: none; text-align: right; font-variant-numeric: tabular-nums; opacity: 0.85; }
+/* Rótulo de la columna de coordenadas. Va en la MISMA línea del frente (no en una fila de
+   cabecera propia), así que no ocupa renglón. pointer-events:none porque la fila entera es el
+   botón de recoger/expandir: sin esto, pulsar el rótulo colapsaba el frente. */
+.mapa-leyenda-coord-head {
+    flex: none; opacity: 0.55; font-size: 9.5px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.4px; pointer-events: none;
+}
+/* La última columna mide lo mismo en la fila del frente (chevron) que en la de un punto (× o su
+   hueco): así el rótulo "COORDENADAS" cae justo encima de las coordenadas que rotula.
+   El chevron se cualifica con .mapa-leyenda-row porque .material-icons le fija min-width:1em
+   con la misma especificidad y, al ir después en la cascada, ganaba. */
+.mapa-leyenda-row .mapa-leyenda-chevron,
+.mapa-leyenda-pt-del { min-width: 22px; box-sizing: border-box; }
 /* Botón para eliminar un punto desde la leyenda (× rojo al pasar el mouse). */
 .mapa-leyenda-pt-del { flex: none; border: none; background: transparent; color: rgba(255, 255, 255, 0.45); font-size: 15px; line-height: 1; cursor: pointer; padding: 0 3px; border-radius: 4px; }
 .mapa-leyenda-pt-del:hover { color: #fff; background: #e11d48; }
-.mapa-leyenda-mas { font-size: 11px; opacity: 0.7; padding: 2px 0 0 19px; }
 
 /* Diálogo de exportación de imagen */
 /* Marco de recorte del export (muestra el área que se descargará; atenúa lo de afuera) */
@@ -4295,6 +4388,18 @@ body:has(.mapa-page) .main-viewport {
 }
 .mapa-export-field select:hover { border-color: rgba(255, 255, 255, 0.65); }
 .mapa-export-field select:focus { outline: none; border-color: #0067b1; }
+/* "Personalizado": ancho × alto en píxeles de la imagen final. Mismo aspecto que los <select>
+   de al lado para que la barra se vea de una pieza. */
+.mapa-export-pers-in { display: flex; align-items: center; gap: 5px; }
+.mapa-export-pers-in i { font-style: normal; opacity: 0.6; font-size: 12px; }
+.mapa-export-pers-in input {
+    width: 66px; background: #1e293b; color: #fff;
+    border: 1.5px solid rgba(255, 255, 255, 0.35); border-radius: 7px;
+    padding: 6px 8px; font-size: 12.5px; font-weight: 700; text-align: center;
+    font-family: inherit;
+}
+.mapa-export-pers-in input:hover { border-color: rgba(255, 255, 255, 0.65); }
+.mapa-export-pers-in input:focus { outline: none; border-color: #0067b1; }
 /* Check "Más detalle": sin marcar la foto sale igual a la pantalla. */
 .mapa-export-check {
     display: flex; align-items: center; gap: 6px; align-self: flex-end;
@@ -4337,6 +4442,9 @@ body:has(.mapa-page) .main-viewport {
 }
 .mapa-fit-btn:hover { background: #f1f5f9; }
 .mapa-fit-btn .material-icons { font-size: 20px; }
+/* Estado activo (ej. botón del ojo cuando los nombres están ocultos). */
+.mapa-fit-btn.activo { background: #0067b1; color: #fff; }
+.mapa-fit-btn.activo:hover { background: #005a9e; }
 
 /* Tooltip con el nombre del estado/municipio/proyecto — compacto (sin espacio vertical de más) */
 .estado-tooltip {
@@ -4357,16 +4465,17 @@ body:has(.mapa-page) .main-viewport {
 
 /* Etiqueta FIJA de cada vela (punto de proyecto): proyecto arriba, nombre del punto y
    coordenada debajo. Cada dato en su propia línea. */
-.estado-tooltip.vela-label { text-align: left !important; line-height: 1.25 !important; padding: 3px 9px !important; }
+.estado-tooltip.vela-label { text-align: left !important; line-height: 1.25 !important; padding: 3px 5px !important; }
 .vela-label .vela-proj {
     display: block;
-    font-size: 9.5px !important;
+    font-size: 8.5px !important;
     font-weight: 800;
     color: #0067b1 !important;
     text-transform: uppercase;
     letter-spacing: 0.03em;
 }
-.vela-label b { display: block; font-size: 12px; font-weight: 700; color: #0f172a; }
+/* Nombre del PUNTO: en negro y más chico que el del proyecto (que va en azul arriba). */
+.vela-label b { display: block; font-size: 8px; font-weight: 600; color: #0f172a; }
 .estado-tooltip::before { display: none !important; } /* sin flecha */
 
 /* Popup de LONGITUD de la tubería (clic sobre la línea): etiqueta pequeña + los km. Compacto. */

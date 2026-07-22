@@ -90,8 +90,14 @@ Route::middleware(['auth'])->group(function () {
         // PERMISO 'super.admin' (depende del permiso en usuarios.PERMISOS, no del rol). Ver el
         // mapa e index (GET) queda abierto a todos los usuarios con acceso al módulo.
         Route::post  ('/mapa/oleoductos/frente/{idFrente}/puntos', [App\Http\Controllers\OleoductoController::class, 'addPuntoFrente'])->middleware('can:super.admin')->name('mapa.oleoductos.addPuntoFrente');
+        // Ubicación SUELTA: punto con nombre sin proyecto (grupo reservado suelto = true).
+        Route::post  ('/mapa/oleoductos/puntos',       [App\Http\Controllers\OleoductoController::class, 'addPuntoSuelto'])->middleware('can:super.admin')->name('mapa.oleoductos.addPuntoSuelto');
         Route::post  ('/mapa/oleoductos/{id}/recorrido', [App\Http\Controllers\OleoductoController::class, 'saveRecorrido'])->middleware('can:super.admin')->name('mapa.oleoductos.recorrido');
-        Route::delete('/mapa/oleoductos/puntos/{id}',  [App\Http\Controllers\OleoductoController::class, 'destroyPunto'])->middleware('can:super.admin')->name('mapa.oleoductos.destroyPunto');
+        // Un punto puede estar en VARIOS proyectos: por eso ambas rutas llevan el proyecto.
+        // vincular = meter un punto que ya existe en otro proyecto (sin duplicar la coordenada).
+        // destroyPunto = quitarlo DE ESE proyecto; si era el ultimo, el punto se borra.
+        Route::post  ('/mapa/oleoductos/{idOleoducto}/puntos/{idPunto}/vincular', [App\Http\Controllers\OleoductoController::class, 'vincularPunto'])->middleware('can:super.admin')->name('mapa.oleoductos.vincularPunto');
+        Route::delete('/mapa/oleoductos/{idOleoducto}/puntos/{idPunto}', [App\Http\Controllers\OleoductoController::class, 'destroyPunto'])->middleware('can:super.admin')->name('mapa.oleoductos.destroyPunto');
         Route::delete('/mapa/oleoductos/{id}',         [App\Http\Controllers\OleoductoController::class, 'destroy'])->middleware('can:super.admin')->name('mapa.oleoductos.destroy');
         Route::post('/system/reset-cache', [App\Http\Controllers\DashboardController::class, 'resetCache'])->name('system.reset-cache');
         Route::get('/dashboard/alerts-html', [App\Http\Controllers\DashboardController::class, 'getAlertsHtml'])->name('dashboard.alertsHtml');

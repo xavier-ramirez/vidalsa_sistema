@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Usuario;
 use App\Models\Role;
 use App\Models\FrenteTrabajo;
+use App\Models\BloqueoIp;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 
@@ -140,7 +141,12 @@ class UserController extends Controller
         // Auditoría (Usuario::sesionesActivas), para el panel lateral. No duplica lógica.
         $activeUsers = \App\Models\Usuario::sesionesActivas(30);
 
-        return view('admin.usuarios.lista', compact('users', 'frentes', 'roles', 'totalUsuarios', 'usuariosActivos', 'usuariosInactivos', 'usuariosSugerencias', 'activeUsers'));
+        // IPs efectivamente bloqueadas — mismo criterio/umbral que Auditoría vía el scope
+        // BloqueoIp::bloqueadas() (fuente única). El panel lateral "IPs Bloqueadas" reutiliza
+        // el JS global (unlockIp/filterBlockedIps) ya cargado en todas las páginas.
+        $blockedIps = BloqueoIp::bloqueadas()->get();
+
+        return view('admin.usuarios.lista', compact('users', 'frentes', 'roles', 'totalUsuarios', 'usuariosActivos', 'usuariosInactivos', 'usuariosSugerencias', 'activeUsers', 'blockedIps'));
     }
 
     /**

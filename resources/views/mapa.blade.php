@@ -7,8 +7,8 @@
     {{-- Sin título "Mapa Satelital" (a pedido del cliente): el contenedor del mapa sube al tope. --}}
     {{-- El JS global mapa_index.js (cargado en el layout) detecta este contenedor y
          monta el mapa, tanto en carga directa como en navegación SPA. Leaflet + el
-         geocoder se cargan de forma diferida desde CDN. data-geojson = límites de los
-         estados de Venezuela (archivo local, mismo origen). --}}
+         geocoder se cargan de forma diferida desde /vendor/leaflet (servidor propio,
+         ya no desde un CDN). data-geojson = límites de los estados de Venezuela. --}}
     <div id="mapa-leaflet"
          data-geojson="{{ asset('geo/venezuela-estados.geojson') }}?v={{ @filemtime(public_path('geo/venezuela-estados.geojson')) }}"
          data-municipios="{{ asset('geo/venezuela-municipios.geojson') }}?v={{ @filemtime(public_path('geo/venezuela-municipios.geojson')) }}"></div>

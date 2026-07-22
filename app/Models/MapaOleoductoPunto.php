@@ -11,16 +11,21 @@ class MapaOleoductoPunto extends Model
 {
     protected $table = 'mapa_oleoducto_puntos';
 
-    protected $fillable = ['oleoducto_id', 'nombre', 'latitud', 'longitud', 'orden'];
+    protected $fillable = ['nombre', 'latitud', 'longitud'];
 
     protected $casts = [
         'latitud'  => 'float',
         'longitud' => 'float',
-        'orden'    => 'integer',
     ];
 
-    public function oleoducto()
+    /**
+     * Proyectos en los que está este punto. El mismo punto puede estar en varios: se guarda una
+     * sola vez y se vincula a cada uno (con su propio 'orden' dentro de la línea de ese proyecto).
+     */
+    public function oleoductos()
     {
-        return $this->belongsTo(MapaOleoducto::class, 'oleoducto_id');
+        return $this->belongsToMany(MapaOleoducto::class, 'mapa_oleoducto_punto_vinculos', 'punto_id', 'oleoducto_id')
+            ->withPivot('orden')
+            ->withTimestamps();
     }
 }

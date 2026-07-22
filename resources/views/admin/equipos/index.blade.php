@@ -165,19 +165,19 @@
             <div class="custom-dropdown" id="frenteFilterSelect" data-filter-type="id_frente" data-default-label="{{ $isLocalUser ? 'Todos Mis Frentes' : 'Filtrar Frente...' }}">
                 <input type="hidden" name="id_frente" data-filter-value value="{{ $currentFrenteId }}" form="search-form">
 
-                <div class="dropdown-trigger {{ $currentFrenteId && $currentFrenteId != 'all' ? 'filter-active' : '' }}" style="padding:0; display:flex; align-items:center; background:#fbfcfd; overflow:hidden; border:1px solid #cbd5e0; border-radius:12px; height:45px;">
-                    <div style="padding:0 10px; display:flex; align-items:center; color:var(--maquinaria-gray-text);">
-                        <i class="material-icons" style="font-size:18px;">search</i>
+                <div class="dropdown-trigger {{ $currentFrenteId && $currentFrenteId != 'all' ? 'filter-active' : '' }}" style="padding: 0; display: flex; align-items: center; background: #fbfcfd; overflow: hidden; border: 1px solid #cbd5e0; border-radius: 12px; height: 45px;">
+                    <div style="padding: 0 10px; display: flex; align-items: center; color: var(--maquinaria-gray-text);">
+                        <i class="material-icons" style="font-size: 18px;">search</i>
                     </div>
                     <input type="text" name="filter_search_dropdown" data-filter-search
                         placeholder="{{ $placeholderText }}"
                         aria-label="Filtrar Frente"
-                        style="width:100%; border:none; background:transparent; padding:10px 5px; font-size:14px; outline:none;"
+                        style="width: 100%; border: none; background: transparent; padding: 10px 5px; font-size: 14px; outline: none;"
                         oninput="window.filterDropdownOptions(this)"
                         autocomplete="off">
                     <i class="material-icons" data-clear-btn
-                       style="padding:0 5px; color:var(--maquinaria-gray-text); font-size:18px; display:{{ $currentFrenteId && $currentFrenteId != 'all' ? 'block' : 'none' }};"
-                       onclick="event.stopPropagation(); clearDropdownFilter('frenteFilterSelect'); window.clearAdvancedFilters();">close</i>
+                       style="padding: 0 5px; color: var(--maquinaria-gray-text); font-size: 18px; display: {{ $currentFrenteId && $currentFrenteId != 'all' ? 'block' : 'none' }};"
+                       onclick="event.stopPropagation(); clearDropdownFilter('frenteFilterSelect'); window.eqSyncTiposFrente && window.eqSyncTiposFrente(); window.clearAdvancedFilters();">close</i>
                 </div>
 
                 <div class="dropdown-content" style="padding:5px; max-height:none; overflow:visible; z-index:1000;">

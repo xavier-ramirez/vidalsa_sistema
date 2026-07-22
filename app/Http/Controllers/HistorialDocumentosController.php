@@ -648,12 +648,9 @@ class HistorialDocumentosController extends Controller
             ['path' => $request->url(), 'query' => $request->query()]
         );
 
-        // Fetch blocked IPs (solo las EFECTIVAMENTE bloqueadas: >= 10 intentos
-        // fallidos). Antes salian todas las IPs trackeadas, incluyendo las
-        // que aun estaban en seguimiento sin alcanzar el umbral de bloqueo.
-        $blockedIps = BloqueoIp::where('CANTIDAD_INTENTOS', '>=', 10)
-            ->orderBy('ULTIMO_INTENTO', 'desc')
-            ->get();
+        // IPs EFECTIVAMENTE bloqueadas (>= umbral de intentos fallidos), no las que aún
+        // están en seguimiento. Criterio/umbral en un solo lugar: BloqueoIp::bloqueadas().
+        $blockedIps = BloqueoIp::bloqueadas()->get();
 
         // Usuarios con sesion activa en los ultimos 30 min (driver database).
         // Se lee directamente la tabla `sessions` (Laravel la crea cuando SESSION_DRIVER=database).
