@@ -36,7 +36,7 @@
     </div>
 
     <div class="login-container">
-        <!-- SVG Background: Parcial reutilizado -->
+        <!-- Figuras geométricas (nuevo diseño), compartidas con el menú vía background_svg. -->
         @include('partials.background_svg')
 
         <!-- Título independiente -->

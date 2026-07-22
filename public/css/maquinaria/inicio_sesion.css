@@ -112,8 +112,8 @@ body {
 }
 
 .feature-card {
-    /* Gradiente púrpura oscuro elegante */
-    background: linear-gradient(135deg, rgba(48, 25, 52, 0.85) 0%, rgba(75, 0, 130, 0.85) 100%);
+    /* Gradiente AZUL de marca (navy → azul) */
+    background: linear-gradient(135deg, #00004d 0%, #0067b1 100%);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
     border: 1px solid rgba(255, 255, 255, 0.15);
@@ -134,7 +134,7 @@ body {
 
 .feature-card:hover {
     transform: translateX(12px) scale(1.02);
-    background: linear-gradient(135deg, rgba(48, 25, 52, 0.95) 0%, rgba(75, 0, 130, 0.95) 100%);
+    background: linear-gradient(135deg, #000a6b 0%, #0a7bd0 100%);
     /* box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4); REMOVED */
 }
 
@@ -184,6 +184,9 @@ body {
     height: auto;
     display: block;
     filter: drop-shadow(0 10px 30px rgba(0, 0, 0, 0.15));
+    /* Borde IZQUIERDO desvanecido para que la foto se funda con el fondo blanco (sin canto duro). */
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 15%);
+            mask-image: linear-gradient(to right, transparent 0%, #000 15%);
     position: relative;
     z-index: 10;
     /* Imagen al frente de la figura azul */
@@ -364,7 +367,8 @@ input:-webkit-autofill:active {
 .btn-maquinaria-primary {
     width: 100%;
     height: 50px;
-    background-color: var(--maquinaria-blue);
+    /* Azul de marca (navy → azul), coherente con las feature cards. */
+    background: linear-gradient(135deg, #00004d 0%, #0067b1 100%);
     color: white;
     border: none;
     border-radius: 8px;
@@ -373,11 +377,11 @@ input:-webkit-autofill:active {
     cursor: default;
     /* Removed pointer cursor */
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    transition: background-color 0.2s;
+    transition: filter 0.2s;
 }
 
 .btn-maquinaria-primary:hover {
-    background-color: #656565;
+    filter: brightness(1.1);
 }
 
 @media (max-width: 768px) {
