@@ -19,13 +19,8 @@
         <rect x="82" y="410" width="34" height="34" rx="8" fill="none" stroke="#00004d" stroke-width="3" opacity="0.34" transform="rotate(15 99 427)"/>
         <circle cx="48" cy="200" r="6" fill="#00004d" opacity="0.40"/>
         <polygon points="55,470 105,470 80,432" fill="#0067b1" opacity="0.30"/>
-        {{-- ABAJO de la tarjeta --}}
-        <circle cx="195" cy="555" r="24" fill="none" stroke="#0067b1" stroke-width="3" opacity="0.40"/>
-        <circle cx="195" cy="555" r="14" fill="none" stroke="#0067b1" stroke-width="3" opacity="0.50"/>
-        <polygon points="150,592 188,592 169,560" fill="#0067b1" opacity="0.30"/>
-        <rect x="300" y="535" width="36" height="36" rx="8" fill="none" stroke="#00004d" stroke-width="3" opacity="0.34" transform="rotate(15 318 553)"/>
-        <path d="M395 586 h20 M405 576 v20" stroke="#0067b1" stroke-width="3" opacity="0.45"/>
-        <polygon points="465,546 491,562 491,590 465,606 439,590 439,562" fill="none" stroke="#00004d" stroke-width="3" opacity="0.30"/>
-        <circle cx="250" cy="548" r="6" fill="#00004d" opacity="0.40"/>
+        {{-- (Las figuras de ABAJO ya NO van aquí: se anclan relativas a la tarjeta en el login
+             — ver .login-figs-abajo en inicio_sesion — para que la tarjeta nunca las tape,
+             sin importar el alto de pantalla. En el menu no hay tarjeta, asi que no aplican.) --}}
     </svg>
 </div>

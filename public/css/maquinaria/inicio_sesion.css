@@ -231,6 +231,22 @@ body {
     padding: 10px 10px 30px 10px;
 }
 
+/* Figuras geométricas ancladas JUSTO DEBAJO de la tarjeta (top:100% relativo a
+   .login-container-float-center, que es position:relative). Así siempre quedan debajo,
+   sin que la tarjeta las tape, sin importar el alto de la pantalla (la tarjeta va centrada). */
+.login-figs-abajo {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    height: 120px;
+    margin-top: 8px;
+    pointer-events: none;
+    z-index: 0;
+    overflow: visible;
+}
+.login-figs-abajo svg { width: 100%; height: 100%; display: block; }
+
 .login-container-logo {
     display: block;
     padding: 40px 0 20px 0;
