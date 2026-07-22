@@ -76,6 +76,20 @@
         <div class="login-container-float-center">
 
 
+            {{-- Figuras geométricas ARRIBA de la tarjeta, ancladas a ella (bottom:100%).
+                 Solo se muestran en móvil (en escritorio las de arriba van en background_svg). --}}
+            <div class="login-figs-arriba" aria-hidden="true">
+                <svg viewBox="0 0 400 80" preserveAspectRatio="xMidYMax meet" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="55" cy="45" r="20" fill="none" stroke="#0067b1" stroke-width="3" opacity="0.40"/>
+                    <circle cx="55" cy="45" r="11" fill="none" stroke="#0067b1" stroke-width="3" opacity="0.50"/>
+                    <circle cx="120" cy="22" r="6" fill="#00004d" opacity="0.40"/>
+                    <rect x="170" y="30" width="28" height="28" rx="7" fill="none" stroke="#00004d" stroke-width="3" opacity="0.34" transform="rotate(15 184 44)"/>
+                    <path d="M255 32 h18 M264 23 v18" stroke="#0067b1" stroke-width="3" opacity="0.45"/>
+                    <polygon points="315,68 349,68 332,40" fill="#0067b1" opacity="0.30"/>
+                    <circle cx="365" cy="30" r="6" fill="#00004d" opacity="0.40"/>
+                </svg>
+            </div>
+
             <div class="login-container-logo">
                 <img class="logo-login" src="{{ asset('images/maquinaria/logo.webp') }}" alt="Vidalsa Logo">
             </div>
