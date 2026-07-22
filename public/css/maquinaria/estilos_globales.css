@@ -1048,7 +1048,10 @@ body {
     position: absolute;
     left: 12px;
     color: #a0aec0;
-    font-size: 18px;
+    /* !important necesario: fonts.css (.material-icons { font-size:24px }) se carga DESPUÉS que
+       este archivo y, a igual especificidad, ganaba → la lupa de Seriales salía a 24px (más
+       grande que las de Frente/Tipo, que usan font-size:18px inline). Así queda igual: 18px. */
+    font-size: 18px !important;
     pointer-events: none;
 }
 

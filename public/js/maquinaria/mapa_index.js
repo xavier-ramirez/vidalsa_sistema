@@ -2241,11 +2241,10 @@
         }
 
         // Estado de plegado de la leyenda: toda la leyenda + los puntos de cada proyecto.
-        // En teléfono arranca RECOGIDA (solo la cabecera "Leyenda" + su botón): expandida
-        // tapaba medio mapa. Un toque en la cabecera la despliega. Mismo corte (640px) que
-        // el resto del módulo en estilos_globales.css. Solo es el estado INICIAL — si el
-        // usuario la abre, no se la volvemos a cerrar al rotar.
-        var legendColapsada = window.innerWidth <= 640;
+        // Arranca RECOGIDA (solo la cabecera "Leyenda" + su botón) en TODOS los dispositivos:
+        // expandida tapaba parte del mapa al abrir. Un clic en el botón la despliega. Solo es
+        // el estado INICIAL — si el usuario la abre, no se la volvemos a cerrar.
+        var legendColapsada = true;
         var proyColapsados = {};      // id de proyecto → true si sus puntos están RECOGIDOS en la leyenda
         var proyOcultos = {};         // id de proyecto → true si está OCULTO del mapa (ojo tachado)
         // Un proyecto oculto no dibuja ni pin, ni etiqueta, ni tubería (en el mapa y en la foto).
