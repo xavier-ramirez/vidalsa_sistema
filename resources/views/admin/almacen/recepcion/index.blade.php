@@ -868,6 +868,25 @@
         var box = input.closest('.tr-search-box'); if (box) box.classList.toggle('active', has);
     }
 
+    // ── Al ABRIR la bandeja los buscadores arrancan en el valor del SERVIDOR (vacíos si la URL
+    //    no trae filtro ?search / ?id_producto). El HTML ya viene vacío en ese caso, pero algunos
+    //    navegadores / la restauración de formularios (bfcache) reponen lo que se había tecleado;
+    //    esto revierte los campos a su defaultValue (valor del servidor) al abrir y al restaurar. ──
+    window.trResetBuscadores = function () {
+        var s = el('trSearch');     if (s) s.value = s.defaultValue;
+        var p = el('trProdSearch'); if (p) p.value = p.defaultValue;
+        var h = el('trIdProducto'); if (h) h.value = h.defaultValue;
+        trSearchToggleClear();
+        var pHas = !!(p && p.value.trim());
+        var pBox = p ? p.closest('.tr-search-box') : null; if (pBox) pBox.classList.toggle('active', pHas);
+        var pX = el('trProdClear'); if (pX) pX.style.display = pHas ? 'flex' : 'none';
+    };
+    window.trResetBuscadores();
+    // bfcache (botón "atrás"): el <script> NO se re-ejecuta, pero el evento pageshow sí dispara.
+    if (_trBindGlobal) window.addEventListener('pageshow', function (ev) {
+        if (ev.persisted && typeof window.trResetBuscadores === 'function') window.trResetBuscadores();
+    });
+
     // Escribir: sale del modo KPI, refresca la X y las sugerencias. NO recarga la tabla.
     window.trSearchInput = function () {
         window.trResetKpi();
