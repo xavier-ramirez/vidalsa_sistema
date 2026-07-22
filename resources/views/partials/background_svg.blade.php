@@ -1,7 +1,7 @@
-<!-- background_svg.blade.php
-     Figuras geométricas decorativas del NUEVO diseño, COMPARTIDAS por el login y el menú
-     (ambos hacen @include de este partial). Dispersas a la izquierda (posición/altura/tamaño
-     variados, no en columna) y en azul de marca. Antes eran 3 acentos navy planos. -->
+{{-- background_svg.blade.php
+     Figuras geometricas decorativas del nuevo diseno, compartidas por el login y el menu.
+     Dispersas a la izquierda (posicion, altura y tamano variados, no en columna); azul de marca.
+     Antes eran 3 acentos navy planos. --}}
 <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 0; pointer-events: none; overflow: hidden;">
     <svg viewBox="0 0 1440 900" preserveAspectRatio="xMinYMin slice" xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: 100%;">
         <polygon points="30,118 90,118 60,70" fill="#0067b1" opacity="0.30"/>
