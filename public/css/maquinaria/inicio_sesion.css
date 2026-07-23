@@ -425,7 +425,7 @@ input:-webkit-autofill:active {
     }
 
     .login-container-float-center {
-        width: 94%;              /* más ancho horizontal */
+        width: 88%;              /* un poco menos ancho (deja margen a los lados, no ocupa casi toda la pantalla) */
         max-width: 460px;
         margin: 12px 0;          /* menos alto */
         padding: 8px 12px 18px 12px;
