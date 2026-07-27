@@ -1172,7 +1172,7 @@
     </style>
     
     <div id="fleetDashboardModal" class="modal-overlay">
-        <div class="modal-content" style="width: 95%; max-width: 1000px; height: 90vh; padding: 0; display: flex; flex-direction: column; background: #f8fafc; position: relative; border-radius: 18px; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.35);">
+        <div class="modal-content" style="width: 94%; max-width: 880px; height: 90vh; padding: 0; display: flex; flex-direction: column; background: #f8fafc; position: relative; border-radius: 18px; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.35);">
             <!-- Header -->
             <div class="fleet-dashboard-header">
                 <div class="fleet-header-wrapper">
@@ -1277,7 +1277,7 @@
             <!-- Dashboard Content -->
             <div style="flex: 1; overflow-y: auto; padding: 25px;">
                 <!-- Stats Cards Row -->
-                <div class="fleet-stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin: 0 0 25px 0;">
+                <div class="fleet-stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin: 0 0 16px 0;">
 
                     <!-- Total Equipment -->
                     <div style="background: white; border-radius: 14px; padding: 16px; box-shadow: 0 1px 3px rgba(15,23,42,0.06); border: 1px solid #e9eef5; border-left: 4px solid #0067b1;">
@@ -1336,10 +1336,10 @@
                 <!-- Charts Row — una sola columna (gráficos apilados uno debajo del otro)
                      a pedido del cliente: con muchos equipos, a todo el ancho del modal
                      los valores de las barras dejan de solaparse. -->
-                <div id="fleetChartsGrid" style="display: grid; grid-template-columns: 1fr; gap: 20px;">
+                <div id="fleetChartsGrid" style="display: grid; grid-template-columns: 1fr; gap: 14px;">
                     <!-- Flota Nueva vs Vieja por Tipo -->
-                    <div id="fdm-panel-age" style="background: white; border-radius: 12px; padding: 22px 25px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
-                        <h4 style="margin: 0 0 18px 0; padding-bottom: 14px; border-bottom: 1px solid #e2e8f0; font-size: 14px; color: #1e293b; font-weight: 700; display: flex; align-items: center; justify-content: space-between;">
+                    <div id="fdm-panel-age" style="background: white; border-radius: 12px; padding: 16px 20px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+                        <h4 style="margin: 0 0 12px 0; padding-bottom: 10px; border-bottom: 1px solid #e2e8f0; font-size: 14px; color: #1e293b; font-weight: 700; display: flex; align-items: center; justify-content: space-between;">
                             <span style="display: flex; align-items: center; gap: 10px;">
                                 <i class="material-icons" style="font-size: 20px; color: #64748b;">bar_chart</i>
                                 Flota Nueva vs Vieja por Tipo de Equipo
@@ -1352,8 +1352,8 @@
                     </div>
 
                     <!-- Equipos Auxiliares por Tipo -->
-                    <div id="fdm-panel-auxiliares" style="background: white; border-radius: 12px; padding: 22px 25px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
-                        <h4 style="margin: 0 0 18px 0; padding-bottom: 14px; border-bottom: 1px solid #e2e8f0; font-size: 14px; color: #1e293b; font-weight: 700; display: flex; align-items: center; justify-content: space-between;">
+                    <div id="fdm-panel-auxiliares" style="background: white; border-radius: 12px; padding: 16px 20px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+                        <h4 style="margin: 0 0 12px 0; padding-bottom: 10px; border-bottom: 1px solid #e2e8f0; font-size: 14px; color: #1e293b; font-weight: 700; display: flex; align-items: center; justify-content: space-between;">
                             <span style="display: flex; align-items: center; gap: 10px;">
                                 <i class="material-icons" style="font-size: 20px; color: #64748b;">construction</i>
                                 Equipos Auxiliares por Tipo

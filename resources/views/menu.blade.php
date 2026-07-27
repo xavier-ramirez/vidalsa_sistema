@@ -287,7 +287,7 @@
         font-weight: 800;
         text-transform: uppercase;
         letter-spacing: 0.1em;
-        color: #1e3a8a;
+        color: #00004d; /* navy del panel de usuario (antes #1e3a8a) */
     }
     .salud-main {
         display: flex;
@@ -298,14 +298,14 @@
     .salud-percent {
         font-size: 22px;
         font-weight: 900;
-        color: #0b1c30;
+        color: #00004d; /* navy del panel de usuario (antes #0b1c30) */
         letter-spacing: -0.02em;
         line-height: 1;
     }
     .salud-percent-sub {
         font-size: 10.5px;
         font-weight: 800;
-        color: #1e40af;
+        color: #00004d; /* navy del panel de usuario (antes #1e40af) */
         text-transform: uppercase;
         letter-spacing: 0.08em;
     }
@@ -341,7 +341,7 @@
     .salud-stat-value {
         font-size: 20px;
         font-weight: 900;
-        color: #0b1c30;
+        color: #00004d; /* navy del panel de usuario (antes #0b1c30) */
         letter-spacing: -0.02em;
         line-height: 1;
     }
@@ -453,7 +453,7 @@
         width: 54px;
         height: 54px;
         border-radius: 16px;
-        background: #1e293b;
+        background: #00004d; /* navy del panel de usuario (antes degradado a #0067b1 claro) */
         display: flex;
         align-items: center;
         justify-content: center;
@@ -472,7 +472,7 @@
         font-weight: 800;
         text-transform: uppercase;
         letter-spacing: 0.1em;
-        color: #1e293b;
+        color: #00004d; /* navy del panel de usuario (antes #1e293b) */
         margin-bottom: 2px;
     }
     .mapa-card-sub {
@@ -533,7 +533,7 @@
         width: 54px;
         height: 54px;
         border-radius: 16px;
-        background: #1e293b;
+        background: #00004d; /* navy del panel de usuario (antes degradado a #0067b1 claro) */
         display: flex;
         align-items: center;
         justify-content: center;
@@ -552,7 +552,7 @@
         font-weight: 800;
         text-transform: uppercase;
         letter-spacing: 0.1em;
-        color: #1e293b;
+        color: #00004d; /* navy del panel de usuario (antes #1e293b) */
         margin-bottom: 2px;
     }
     .alertas-card-main {
@@ -564,7 +564,7 @@
     .alertas-card-value {
         font-size: 36px;
         font-weight: 900;
-        color: #0b1c30;
+        color: #00004d; /* navy del panel de usuario (antes #0b1c30) */
         letter-spacing: -0.02em;
         line-height: 1;
     }

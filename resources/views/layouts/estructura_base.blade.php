@@ -139,7 +139,8 @@
             gap: 10px;
             padding: 8px 10px;
             margin: 0 -8px 8px -8px;
-            background: linear-gradient(135deg, #00004d 0%, #0067b1 100%);
+            /* Azul general del proyecto (#00004d sólido); mismo que el avatar en PC */
+            background: #00004d;
             color: #fff;
             border-radius: 10px;
             line-height: 1.15;
@@ -187,7 +188,8 @@
             gap: 14px;
             padding: 18px 20px;
             margin: 0 -16px 12px -16px;
-            background: linear-gradient(135deg, #00004d 0%, #0067b1 100%);
+            /* Azul general del proyecto (#00004d sólido) — bloque legacy sin uso */
+            background: #00004d;
             color: #fff;
             border-radius: 14px;
             box-shadow: 0 6px 18px -8px rgba(0, 0, 77, 0.55);
@@ -259,7 +261,7 @@
             width: 34px;
             height: 34px;
             border-radius: 50%;
-            /* Azul general del proyecto (matches #00004d usado en el fondo del menú) */
+            /* Azul general del proyecto (#00004d sólido); mismo color en PC y teléfono */
             background: #00004d;
             color: #fff;
             font-weight: 800;

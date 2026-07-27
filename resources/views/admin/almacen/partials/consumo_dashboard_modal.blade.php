@@ -47,12 +47,27 @@
     #cdashCatInput { text-transform: uppercase; }
     #cdashCatInput::placeholder { text-transform: uppercase; }
     #cdashCatList .cdash-cat-item { text-transform: uppercase; }
+    /* Botón + panel de Filtros Avanzados (rango de meses + frente de destino). */
+    .cdash-adv-btn { display:flex; align-items:center; justify-content:center; height:36px; width:36px; padding:0; border:1px solid #cbd5e0; border-radius:8px; background:#fff; color:#334155; cursor:pointer; transition:background .15s, border-color .15s; }
+    .cdash-adv-btn:hover { background:#f8fafc; border-color:#94a3b8; }
+    .cdash-adv-btn.active { background:#eff6ff; border-color:#0067b1; color:#0067b1; }
+    .cdash-adv-btn .material-icons { font-size:18px; }
+    .cdash-avanzados { background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px 14px; margin-bottom:12px; animation:slideDown .18s ease-out; }
+    .cdash-adv-lbl { display:block; font-size:11px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:.4px; margin-bottom:8px; }
+    .cdash-adv-row { display:flex; gap:12px; flex-wrap:wrap; }
+    .cdash-adv-field { display:flex; flex-direction:column; gap:4px; font-size:11px; font-weight:700; color:#64748b; }
+    .cdash-adv-field input, .cdash-adv-field select { height:36px; border:1px solid #cbd5e0; border-radius:8px; padding:0 10px; font-size:13px; color:#0f172a; background:#fff; outline:none; min-width:150px; }
+    .cdash-adv-field input:focus, .cdash-adv-field select:focus { border-color:var(--maquinaria-blue,#0067b1); }
     .cdash-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
     .cdash-card { background:#fff; border:1px solid #e9eef5; border-radius:14px; padding:16px 18px; min-width:0;
         box-shadow:0 1px 2px rgba(15,23,42,.04); }
     .cdash-card.full { grid-column:1 / -1; }
     .cdash-card h4 { margin:0 0 14px 0; font-size:13px; font-weight:800; color:#1e293b; display:flex; align-items:center; gap:8px; letter-spacing:.2px; }
     .cdash-card h4::before { content:''; width:4px; height:15px; border-radius:3px; background:linear-gradient(180deg,#0ea5e9,#0067b1); flex:0 0 auto; }
+    /* Ícono para descargar cada gráfico individual (cámara, arriba a la derecha de la tarjeta). */
+    .cdash-chart-dl { margin-left:auto; display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; padding:0; border:1px solid #e2e8f0; border-radius:7px; background:#fff; color:#64748b; cursor:pointer; transition:background .15s, color .15s, border-color .15s; }
+    .cdash-chart-dl:hover { background:#eff6ff; color:#0067b1; border-color:#bfdbfe; }
+    .cdash-chart-dl .material-icons { font-size:16px; }
     .cdash-canvas-wrap { position:relative; height:240px; }
     /* Top productos: más alto para que entren las 20 barras legibles. */
     .cdash-canvas-wrap.tall { height:520px; }
@@ -80,8 +95,14 @@
 <div id="consumoDashModal" class="cdash-overlay" onclick="if(event.target===this) window.cerrarConsumoDashboard()">
     <div class="cdash-modal">
         <div class="cdash-head">
-            <h3><i class="material-icons">insights</i> Dashboard de Consumo</h3>
-            <button type="button" class="cdash-x" onclick="window.cerrarConsumoDashboard()" aria-label="Cerrar"><i class="material-icons">close</i></button>
+            <div>
+                <h3><i class="material-icons">insights</i> Dashboard de Consumo</h3>
+                <span style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-top:3px;padding-left:29px;">Consumo y rotación de los productos más consumidos</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:4px;">
+                <button type="button" class="cdash-x" onclick="window._cdashDescargarImagen()" aria-label="Descargar imagen" title="Descargar como imagen (PNG)"><i class="material-icons">download</i></button>
+                <button type="button" class="cdash-x" onclick="window.cerrarConsumoDashboard()" aria-label="Cerrar"><i class="material-icons">close</i></button>
+            </div>
         </div>
         <div class="cdash-body">
             {{-- Filtros propios del dashboard. Orden: Descripción primero (filtro principal),
@@ -118,22 +139,38 @@
                         <div class="cdash-cat-list" id="cdashCatList"></div>
                     </div>
                 </div>
-                <div class="f-group">
-                    <input type="month" id="cdashDesde" title="Desde (mes)" onchange="window._cdashFetch()"
-                           onclick="try{ this.showPicker(); }catch(e){}">
+                <div class="f-group f-group-adv">
+                    <button type="button" id="cdashAdvBtn" class="cdash-adv-btn" onclick="window._cdashToggleAvanzados()" title="Filtros avanzados (fechas + frente)" aria-label="Filtros avanzados">
+                        <i class="material-icons">tune</i>
+                    </button>
                 </div>
-                <div class="f-group">
-                    <input type="month" id="cdashHasta" title="Hasta (mes)" onchange="window._cdashFetch()"
-                           onclick="try{ this.showPicker(); }catch(e){}">
+            </div>
+
+            {{-- Panel de Filtros Avanzados: rango de meses + frente de destino del consumo.
+                 Oculto hasta abrir con el botón "Filtros avanzados". --}}
+            <div id="cdashAvanzados" class="cdash-avanzados" style="display:none;">
+                <span class="cdash-adv-lbl">Filtros avanzados</span>
+                <div class="cdash-adv-row">
+                    <label class="cdash-adv-field"><span>Desde (mes)</span>
+                        <input type="month" id="cdashDesde" title="Desde (mes)" onchange="window._cdashFetch()" onclick="try{ this.showPicker(); }catch(e){}">
+                    </label>
+                    <label class="cdash-adv-field"><span>Hasta (mes)</span>
+                        <input type="month" id="cdashHasta" title="Hasta (mes)" onchange="window._cdashFetch()" onclick="try{ this.showPicker(); }catch(e){}">
+                    </label>
+                    <label class="cdash-adv-field"><span>Frente de destino</span>
+                        <select id="cdashFrente" onchange="window._cdashFetch()">
+                            <option value="">Todos los frentes</option>
+                        </select>
+                    </label>
                 </div>
             </div>
 
             <div id="cdashLoading" class="cdash-loading"><i class="material-icons cdash-spin">refresh</i><span>Cargando datos de consumo…</span></div>
             <div id="cdashContent" style="display:none;">
                 <div class="cdash-grid">
-                    <div class="cdash-card full"><h4>Consumo por mes</h4><div class="cdash-canvas-wrap"><canvas id="cdashChartMes"></canvas></div></div>
-                    <div class="cdash-card full"><h4>Top 20 productos consumidos</h4><div class="cdash-canvas-wrap tall"><canvas id="cdashChartTop"></canvas></div></div>
-                    <div class="cdash-card full"><h4>Consumo por almacén</h4><div class="cdash-canvas-wrap"><canvas id="cdashChartAlm"></canvas></div></div>
+                    <div class="cdash-card full"><h4>Consumo por mes<button type="button" class="cdash-chart-dl" onclick="window._cdashDescargarGrafico('mes','consumo-por-mes')" title="Descargar gráfico" aria-label="Descargar gráfico"><i class="material-icons">photo_camera</i></button></h4><div class="cdash-canvas-wrap"><canvas id="cdashChartMes"></canvas></div></div>
+                    <div class="cdash-card full"><h4>Top 20 productos consumidos<button type="button" class="cdash-chart-dl" onclick="window._cdashDescargarGrafico('top','top-20-consumidos')" title="Descargar gráfico" aria-label="Descargar gráfico"><i class="material-icons">photo_camera</i></button></h4><div class="cdash-canvas-wrap tall"><canvas id="cdashChartTop"></canvas></div></div>
+                    <div class="cdash-card full"><h4>Consumo por almacén<button type="button" class="cdash-chart-dl" onclick="window._cdashDescargarGrafico('alm','consumo-por-almacen')" title="Descargar gráfico" aria-label="Descargar gráfico"><i class="material-icons">photo_camera</i></button></h4><div class="cdash-canvas-wrap"><canvas id="cdashChartAlm"></canvas></div></div>
                 </div>
             </div>
             <div id="cdashEmpty" class="cdash-empty" style="display:none;">No hay consumo registrado para los filtros seleccionados.</div>
@@ -154,6 +191,8 @@
     // Las recomendaciones del filtro Descripción (nombres de producto) también se cargan
     // UNA sola vez: el modal pide la lista con con_productos=1 en el primer fetch y la cachea.
     window._cdashProdsCargados = false;
+    // El <select> de "Frente de destino" del panel avanzado también se llena una sola vez.
+    window._cdashFrentesCargados = false;
 
     // Formato de número estilo VE: miles con punto, decimales con coma. Sin decimales
     // si es entero (las unidades suelen serlo, pero soporta fraccionarios).
@@ -177,6 +216,61 @@
         if (m) m.classList.remove('open');
     };
 
+    // Muestra/oculta el panel de Filtros Avanzados (rango de meses + frente de destino).
+    window._cdashToggleAvanzados = function () {
+        var panel = document.getElementById('cdashAvanzados');
+        var btn = document.getElementById('cdashAdvBtn');
+        if (!panel) return;
+        var abrir = panel.style.display === 'none';
+        panel.style.display = abrir ? 'block' : 'none';
+        if (btn) btn.classList.toggle('active', abrir);
+    };
+
+    // Descarga el dashboard (los gráficos) como imagen PNG. Carga html2canvas bajo
+    // demanda la primera vez. Solo exporta si hay datos renderizados.
+    window._cdashDescargarImagen = function () {
+        var cont = document.getElementById('cdashContent');
+        if (!cont || cont.style.display === 'none') return; // aún cargando o sin datos
+        function run() {
+            html2canvas(cont, { backgroundColor: '#ffffff', scale: 2, useCORS: true }).then(function (canvas) {
+                var a = document.createElement('a');
+                a.href = canvas.toDataURL('image/png');
+                a.download = 'dashboard-consumo.png';
+                document.body.appendChild(a); a.click(); a.remove();
+            }).catch(function () {});
+        }
+        if (typeof html2canvas === 'undefined') {
+            var s = document.createElement('script');
+            s.src = "{{ asset('js/html2canvas.min.js') }}";
+            s.onload = run;
+            document.head.appendChild(s);
+        } else {
+            run();
+        }
+    };
+
+    // Descarga UN gráfico individual como PNG. Usa el canvas de Chart.js directo
+    // (más limpio que capturar la tarjeta). Lo pinta sobre blanco porque el canvas
+    // de Chart.js es transparente.
+    window._cdashDescargarGrafico = function (key, nombre) {
+        var ch = window._cdashCharts && window._cdashCharts[key];
+        if (!ch || !ch.canvas) return;
+        var src = ch.canvas, url;
+        try {
+            var tmp = document.createElement('canvas');
+            tmp.width = src.width; tmp.height = src.height;
+            var ctx = tmp.getContext('2d');
+            ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, tmp.width, tmp.height);
+            ctx.drawImage(src, 0, 0);
+            url = tmp.toDataURL('image/png');
+        } catch (e) {
+            try { url = ch.toBase64Image(); } catch (e2) { return; }
+        }
+        var a = document.createElement('a');
+        a.href = url; a.download = (nombre || 'grafico') + '.png';
+        document.body.appendChild(a); a.click(); a.remove();
+    };
+
     window.abrirConsumoDashboard = function () {
         var m = document.getElementById('consumoDashModal');
         if (!m) return;
@@ -197,8 +291,9 @@
 
         var desde = (document.getElementById('cdashDesde') || {}).value || '';
         var hasta = (document.getElementById('cdashHasta') || {}).value || '';
-        var cat   = (document.getElementById('cdashCategoria') || {}).value || '';
-        var desc  = ((document.getElementById('cdashDescripcion') || {}).value || '').trim();
+        var cat    = (document.getElementById('cdashCategoria') || {}).value || '';
+        var desc   = ((document.getElementById('cdashDescripcion') || {}).value || '').trim();
+        var frente = (document.getElementById('cdashFrente') || {}).value || '';
 
         // Los <input type="month"> dan "YYYY-MM", pero el backend filtra por FECHA (día)
         // con whereDate. Si se manda el mes crudo, "<= YYYY-MM" se toma como YYYY-MM-00
@@ -214,8 +309,9 @@
         var p = new URLSearchParams();
         if (desde) p.set('desde', desde);
         if (hasta) p.set('hasta', hasta);
-        if (cat)   p.set('categoria', cat);
-        if (desc)  p.set('descripcion', desc);
+        if (cat)    p.set('categoria', cat);
+        if (desc)   p.set('descripcion', desc);
+        if (frente) p.set('frente', frente);
         // Pide la lista de nombres para las recomendaciones SOLO la primera vez (luego se cachea).
         if (!window._cdashProdsCargados) p.set('con_productos', '1');
         var qs = p.toString();
@@ -239,6 +335,19 @@
             window._cdashCatsData = data.categorias;
             window._cdashCatsCargadas = true;
             window._cdashCatRenderList();
+        }
+
+        // Frentes de destino (panel avanzado): se llenan la primera vez que llegan.
+        if (!window._cdashFrentesCargados && Array.isArray(data.frentes)) {
+            window._cdashFrentesCargados = true;
+            var selFr = document.getElementById('cdashFrente');
+            if (selFr) {
+                data.frentes.forEach(function (f) {
+                    var o = document.createElement('option');
+                    o.value = f.id; o.textContent = f.nombre;
+                    selFr.appendChild(o);
+                });
+            }
         }
 
         // Recomendaciones del filtro Descripción: se cachean la primera vez que llegan.
@@ -503,7 +612,6 @@
         });
         list.innerHTML = html;
     };
-    window._cdashCatToggle = function () { var l = document.getElementById('cdashCatList'); if (l) { l.classList.toggle('open'); if (l.classList.contains('open')) window._cdashCatRenderList(); } };
     window._cdashCatOpen = function () { var l = document.getElementById('cdashCatList'); if (l) { l.classList.add('open'); window._cdashCatRenderList(); } };
     window._cdashCatClose = function () { var l = document.getElementById('cdashCatList'); if (l) l.classList.remove('open'); };
     window._cdashCatFilter = function (v) { window._cdashCatRenderList(v); var l = document.getElementById('cdashCatList'); if (l) l.classList.add('open'); };

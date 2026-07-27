@@ -9,10 +9,9 @@ if (!window.CHART_COLORS) {
     window.CHART_COLORS = {
         // 'status' (doughnut Estado Operativo) e 'inoperative' (Inoperatividad por Tipo)
         // se eliminaron junto con esos gráficos. 'age' lo usan Flota por Tipo y Auxiliares.
-        // Paleta moderna y con significado: [0] Nueva = verde emerald, [1] Vieja = ámbar
-        // (mismos colores que los KPIs "Flota Nueva"/"Flota Antigua" → coherencia visual).
-        // CVD-safe validado (ΔE 46); las barras llevan datalabels + leyenda (relief de contraste).
-        age: ['#10b981', '#f59e0b']
+        // Colores de marca (sin "arcoíris"): [0] Nueva = azul #0067b1, [1] Vieja = rojo #a91d28.
+        // Las barras llevan datalabels blancos + leyenda; azul y rojo dan buen contraste entre sí.
+        age: ['#0067b1', '#a91d28']
     };
 }
 
@@ -622,8 +621,8 @@ function createStackedBarChart(canvasId, config) {
     // valores se solapaban (sobre todo en la captura de imagen). Ahora que los
     // gráficos van en una sola columna a todo el ancho, el gráfico puede crecer y el
     // contenedor del modal hace scroll. pxPerLine también sube un poco con >10 tipos.
-    const pxPerLine = labelCount <= 5 ? 26 : labelCount <= 10 ? 22 : 20;
-    const dynamicHeight = Math.min(1200, Math.max(120, totalLines * pxPerLine + 55));
+    const pxPerLine = labelCount <= 5 ? 20 : labelCount <= 10 ? 17 : 15;
+    const dynamicHeight = Math.min(900, Math.max(100, totalLines * pxPerLine + 40));
     ctx.style.height = dynamicHeight + 'px';
     ctx.style.maxHeight = dynamicHeight + 'px';
 
@@ -672,7 +671,7 @@ function createStackedBarChart(canvasId, config) {
         data: {
             labels: wrappedLabels,
             datasets: config.datasets.map(function (ds, idx) {
-                const base = Object.assign({}, ds, { maxBarThickness: 26, categoryPercentage: 0.82, barPercentage: 0.9 });
+                const base = Object.assign({}, ds, { maxBarThickness: 18, categoryPercentage: 0.82, barPercentage: 0.9 });
                 // Etiquetas SIEMPRE visibles (sin pasar el mouse). chartjs-plugin-datalabels
                 // exige el objeto { labels: {...} } para mostrar varias etiquetas por barra:
                 // un array NO es válido y dejaba el valor sin verse. El último dataset suma

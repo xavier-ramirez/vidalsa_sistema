@@ -1541,6 +1541,10 @@ class AlmacenController extends Controller
                         ->where('pc.CATEGORIA', 'like', "%{$cat}%");
                 });
             }
+            // Filtro por FRENTE de destino del consumo (salida hacia ese proyecto).
+            if ($request->filled('frente') && $request->input('frente') !== 'all') {
+                $q->where('movimientos_inventario.ID_FRENTE', (int) $request->input('frente'));
+            }
             $q->periodo($desde, $hasta);
             return $q;
         };
@@ -1624,8 +1628,20 @@ class AlmacenController extends Controller
             ->get(['a.NOMBRE as nombre', DB::raw('SUM(movimientos_inventario.CANTIDAD) as total')])
             ->map(fn ($r) => ['nombre' => \App\Casts\MojibakeFix::fix($r->nombre), 'total' => (float) $r->total]);
 
+        // Frentes de destino con consumo (para el filtro del panel avanzado). Independiente
+        // de los filtros activos, para que el <select> siempre tenga todas las opciones.
+        $frentesLista = DB::table('movimientos_inventario as m')
+            ->join('frentes_trabajo as f', 'f.ID_FRENTE', '=', 'm.ID_FRENTE')
+            ->where('m.TIPO', 'SALIDA')
+            ->whereIn('m.ID_ALMACEN', $idsVisibles)
+            ->whereNotNull('m.ID_FRENTE')
+            ->distinct()->orderBy('f.NOMBRE_FRENTE')
+            ->get(['f.ID_FRENTE as id', 'f.NOMBRE_FRENTE as nombre'])
+            ->map(fn ($x) => ['id' => (int) $x->id, 'nombre' => \App\Casts\MojibakeFix::fix($x->nombre)]);
+
         return response()->json([
             'categorias'    => $this->categoriasDistintas()->values(),
+            'frentes'       => $frentesLista,
             // Nombres (descripciones) DISTINTOS para las recomendaciones del filtro
             // "Descripción". Se envían SOLO cuando el modal los pide (con_productos=1, una
             // vez al abrir) para no re-transmitir el catálogo completo en cada cambio de
