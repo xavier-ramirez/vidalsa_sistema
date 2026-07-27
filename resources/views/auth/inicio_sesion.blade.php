@@ -255,6 +255,37 @@
             : 'Sin conexión. Revisa tu red.');
     }
 
+    // ── Precalentar sesión + token CSRF ANTES de que el usuario pulse "Entrar" ──
+    // El HTML del login se sirve stale-while-revalidate desde la caché del Service
+    // Worker, así que su @csrf puede venir de una sesión de invitado ya caducada
+    // (SESSION_LIFETIME corto + pestaña abierta un rato). Con ese token viejo, el
+    // primer POST daba 419 y, aunque el submit reintenta, a veces caían DOS 419
+    // seguidos → window.location.reload(): el usuario veía el spinner irse y tenía
+    // que pulsar el botón otra vez para entrar. Pidiendo el token fresco al cargar
+    // (y al volver a la pestaña) la sesión queda viva y el primer clic ya entra.
+    // Reutiliza el mismo handshake /refresh-csrf del submit (no-store, excluido del SW).
+    function precalentarCsrf() {
+        if (!navigator.onLine) return; // sin red: el submit ya avisa "sin conexión"
+        fetch('/refresh-csrf', { cache: 'no-store', credentials: 'same-origin' })
+            .then(function (r) { return r.ok ? r.text() : null; })
+            .then(function (token) {
+                token = (token || '').trim();
+                // Validar que sea un token, no HTML de una página de error.
+                if (!token || token.length >= 100 || token.indexOf('<') !== -1) return;
+                var form = document.getElementById('loginForm');
+                var input = form && form.querySelector('input[name="_token"]');
+                if (input) input.value = token;
+            })
+            .catch(function () {});
+    }
+    precalentarCsrf();
+    // Al volver de otra pestaña o del bfcache el token pudo caducar: refréscalo para
+    // que el primer clic siga entrando a la primera.
+    document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'visible') precalentarCsrf();
+    });
+    window.addEventListener('pageshow', function (e) { if (e.persisted) precalentarCsrf(); });
+
     const loginForm = document.querySelector('form');
     if (loginForm) {
         loginForm.addEventListener('submit', function(e) {
