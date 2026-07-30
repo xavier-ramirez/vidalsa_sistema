@@ -1164,6 +1164,57 @@
             font-size: 22px;
         }
 
+        /* ── Tarjetas KPI (Total / Flota Nueva / Flota Antigua / Consumo) ──────────
+           Las cuatro son IDÉNTICAS salvo etiqueta, id e ícono, con el acento azul del
+           proyecto. Antes cada una llevaba su propio color (verde/ámbar/rojo) en styles
+           inline; al unificarlas quedaban 4 copias byte a byte, así que el estilo vive
+           aquí y el color se cambia en un solo sitio.
+           OJO: el bloque mobile de más abajo ajusta padding y tamaños apuntando a
+           `.fleet-stats-grid > div`, `h3` y `p`, así que sigue aplicando sin tocar. */
+        .fleet-kpi {
+            background: #fff;
+            border-radius: 14px;
+            padding: 16px;
+            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+            border: 1px solid #e9eef5;
+            border-left: 4px solid var(--maquinaria-blue, #0067b1);
+        }
+
+        .fleet-kpi-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .fleet-kpi-lbl {
+            margin: 0;
+            font-size: 11px;
+            color: #64748b;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .fleet-kpi-val {
+            margin: 6px 0 0 0;
+            font-size: 26px;
+            color: #0f172a;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+        }
+
+        .fleet-kpi-ic {
+            background: #e1effa;
+            padding: 9px;
+            border-radius: 10px;
+            display: flex;
+        }
+
+        .fleet-kpi-ic .material-icons {
+            font-size: 20px;
+            color: var(--maquinaria-blue, #0067b1);
+        }
+
         .fleet-filter-container {
             position: relative;
             width: 300px;
@@ -1292,63 +1343,56 @@
                 <!-- Stats Cards Row -->
                 <div class="fleet-stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin: 0 0 16px 0;">
 
-                    <!-- Total Equipment -->
-                    <div style="background: white; border-radius: 14px; padding: 16px; box-shadow: 0 1px 3px rgba(15,23,42,0.06); border: 1px solid #e9eef5; border-left: 4px solid #0067b1;">
-                        <div style="display: flex; align-items: center; justify-content: space-between;">
+                    {{-- Las 4 tarjetas comparten el MISMO estilo (ver .fleet-kpi*): solo cambian
+                         etiqueta, id e ícono. El estilo vive en clases y no en styles inline
+                         para no repetirlo 4 veces idéntico. --}}
+                    <div class="fleet-kpi">
+                        <div class="fleet-kpi-row">
                             <div>
-                                <p style="margin: 0; font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Total Equipos</p>
-                                <h3 id="stat_total" style="margin: 6px 0 0 0; font-size: 26px; color: #0f172a; font-weight: 800; letter-spacing: -0.5px;">0</h3>
+                                <p class="fleet-kpi-lbl">Total Equipos</p>
+                                <h3 id="stat_total" class="fleet-kpi-val">0</h3>
                             </div>
-                            <div style="background: #e1effa; padding: 9px; border-radius: 10px; display: flex;">
-                                <i class="material-icons" style="font-size: 20px; color: #0067b1;">inventory_2</i>
-                            </div>
+                            <div class="fleet-kpi-ic"><i class="material-icons">inventory_2</i></div>
                         </div>
                     </div>
 
-                    <!-- Fleet New -->
-                    <div style="background: white; border-radius: 14px; padding: 16px; box-shadow: 0 1px 3px rgba(15,23,42,0.06); border: 1px solid #e9eef5; border-left: 4px solid #0067b1;">
-                        <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <div class="fleet-kpi">
+                        <div class="fleet-kpi-row">
                             <div>
-                                <p style="margin: 0; font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Flota Nueva (≥2025)</p>
-                                <h3 id="stat_fleet_new" style="margin: 6px 0 0 0; font-size: 26px; color: #0f172a; font-weight: 800; letter-spacing: -0.5px;">0</h3>
+                                <p class="fleet-kpi-lbl">Flota Nueva (≥2025)</p>
+                                <h3 id="stat_fleet_new" class="fleet-kpi-val">0</h3>
                             </div>
-                            <div style="background: #e1effa; padding: 9px; border-radius: 10px; display: flex;">
-                                <i class="material-icons" style="font-size: 20px; color: #0067b1;">new_releases</i>
-                            </div>
+                            <div class="fleet-kpi-ic"><i class="material-icons">new_releases</i></div>
                         </div>
                     </div>
 
-                    <!-- Fleet Old -->
-                    <div style="background: white; border-radius: 14px; padding: 16px; box-shadow: 0 1px 3px rgba(15,23,42,0.06); border: 1px solid #e9eef5; border-left: 4px solid #0067b1;">
-                        <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <div class="fleet-kpi">
+                        <div class="fleet-kpi-row">
                             <div>
-                                <p style="margin: 0; font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Flota Antigua (<2025)</p>
-                                <h3 id="stat_fleet_old" style="margin: 6px 0 0 0; font-size: 26px; color: #0f172a; font-weight: 800; letter-spacing: -0.5px;">0</h3>
+                                <p class="fleet-kpi-lbl">Flota Antigua (&lt;2025)</p>
+                                <h3 id="stat_fleet_old" class="fleet-kpi-val">0</h3>
                             </div>
-                            <div style="background: #e1effa; padding: 9px; border-radius: 10px; display: flex;">
-                                <i class="material-icons" style="font-size: 20px; color: #0067b1;">history</i>
-                            </div>
+                            <div class="fleet-kpi-ic"><i class="material-icons">history</i></div>
                         </div>
                     </div>
 
-                    <!-- Estimated Consumption -->
-                    <div style="background: white; border-radius: 14px; padding: 16px; box-shadow: 0 1px 3px rgba(15,23,42,0.06); border: 1px solid #e9eef5; border-left: 4px solid #0067b1;">
-                        <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <div class="fleet-kpi">
+                        <div class="fleet-kpi-row">
                             <div>
-                                <p style="margin: 0; font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Consumo Est. (L/Día)</p>
-                                <h3 id="stat_consumption" style="margin: 6px 0 0 0; font-size: 26px; color: #0f172a; font-weight: 800; letter-spacing: -0.5px;">0</h3>
+                                <p class="fleet-kpi-lbl">Consumo Est. (L/Día)</p>
+                                <h3 id="stat_consumption" class="fleet-kpi-val">0</h3>
                             </div>
-                            <div style="background: #e1effa; padding: 9px; border-radius: 10px; display: flex;">
-                                <i class="material-icons" style="font-size: 20px; color: #0067b1;">local_gas_station</i>
-                            </div>
+                            <div class="fleet-kpi-ic"><i class="material-icons">local_gas_station</i></div>
                         </div>
                     </div>
                 </div>
 
 
-                <!-- Charts Row — una sola columna (gráficos apilados uno debajo del otro)
-                     a pedido del cliente: con muchos equipos, a todo el ancho del modal
-                     los valores de las barras dejan de solaparse. -->
+                {{-- Charts Row — una sola columna (gráficos apilados uno debajo del otro) a
+                     pedido del cliente: a todo el ancho del modal los VALORES de las barras
+                     dejan de solaparse entre sí. Eso resolvió el solape horizontal; el de las
+                     ETIQUETAS del eje Y (nombres de tipo, verticalmente) es otro problema y se
+                     arregla en el cálculo de altura de createStackedBarChart(). --}}
                 {{-- minmax(0, 1fr) y no 1fr: un <canvas> aporta ancho INTRÍNSECO (su atributo
                      width), así que con 1fr el track de la grilla crecía hasta ese ancho, Chart.js
                      volvía a medir el contenedor ya ensanchado y lo agrandaba otra vez. El panel
