@@ -9,10 +9,34 @@ if (!window.CHART_COLORS) {
     window.CHART_COLORS = {
         // 'status' (doughnut Estado Operativo) e 'inoperative' (Inoperatividad por Tipo)
         // se eliminaron junto con esos gráficos. 'age' lo usan Flota por Tipo y Auxiliares.
-        // Colores de marca (sin "arcoíris"): [0] Nueva = azul #0067b1, [1] Vieja = rojo #a91d28.
-        // Las barras llevan datalabels blancos + leyenda; azul y rojo dan buen contraste entre sí.
-        age: ['#0067b1', '#a91d28']
+        // [0] Nueva = azul de marca #0067b1, [1] Antigua = ocre #d97a1f.
+        // El rojo anterior era un color de ESTADO: "flota antigua" se leia como alarma
+        // cuando solo es una categoria. El ocre no arrastra ese significado y ademas
+        // separa mejor: validado con scripts/validate_palette.js — las 6 comprobaciones
+        // pasan, y para protanopia mejora de dE 22.3 (rojo) a 25.7.
+        // FUENTE UNICA de estos colores: los puntos de la cabecera (.fdm-dot) tambien se
+        // pintan desde aqui, no los repite el blade.
+        age: ['#0067b1', '#d97a1f']
     };
+}
+
+/**
+ * Devuelve la tinta legible ENCIMA de un relleno: blanco o casi negro, la que mas
+ * contraste da. Necesario porque los rellenos no son igual de oscuros — sobre el ocre
+ * #d97a1f el blanco da 3.11:1 (no llega a 4.5) y la tinta oscura da 5.96:1.
+ * Asi la etiqueta sigue siendo legible aunque se cambie la paleta.
+ */
+function tintaSobre(relleno) {
+    const lum = function (hex) {
+        const c = [1, 3, 5].map(function (i) { return parseInt(hex.substr(i, 2), 16) / 255; })
+            .map(function (v) { return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); });
+        return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+    };
+    const ratio = function (a, b) {
+        const l1 = lum(a), l2 = lum(b);
+        return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+    };
+    return ratio('#ffffff', relleno) >= ratio('#1a1205', relleno) ? '#ffffff' : '#1a1205';
 }
 
 // Shared professional legend style
@@ -48,6 +72,15 @@ const TOOLTIP_STYLES = {
 /**
  * Update stat cards with data
  */
+function pintarPuntosDeSerie() {
+    // Los puntos de color de la cabecera del grafico de edad salen de CHART_COLORS.age,
+    // no de un hex repetido en el blade: si se cambia la paleta, se cambian solos.
+    document.querySelectorAll('#fleetDashboardModal .fdm-dot[data-serie]').forEach(function (el) {
+        const c = window.CHART_COLORS.age[Number(el.dataset.serie)];
+        if (c) el.style.background = c;
+    });
+}
+
 function updateStatCards(stats) {
     const total = document.getElementById('stat_total');
     const fleetNew = document.getElementById('stat_fleet_new');
@@ -58,6 +91,8 @@ function updateStatCards(stats) {
     if (fleetNew) fleetNew.textContent = stats.fleet_new || 0;
     if (fleetOld) fleetOld.textContent = stats.fleet_old || 0;
     if (consumption) consumption.textContent = stats.total_consumption || 0;
+
+    pintarPuntosDeSerie();
 }
 
 /**
@@ -639,9 +674,13 @@ function createStackedBarChart(canvasId, config) {
     const segmentLabel = {
         anchor: 'center',
         align: 'center',
-        color: '#fff',
-        // Sin textShadow: los dos rellenos (azul y rojo) son suficientemente oscuros para
-        // que el blanco contraste solo; la sombra emborronaba un numero de 9px.
+        // La tinta se decide POR TRAMO segun su relleno (ver tintaSobre): sobre el azul
+        // va blanca, sobre el ocre va oscura. Sin textShadow: con la tinta correcta no
+        // hace falta, y la sombra emborronaba un numero de 9px.
+        color: function (ctx) {
+            const bg = ctx.dataset.backgroundColor;
+            return tintaSobre(typeof bg === 'string' ? bg : '#0067b1');
+        },
         font: { weight: '600', size: 9.5, family: "'Inter', 'Segoe UI', sans-serif" },
         // Muestra el valor de TODO segmento con dato (> 0), sin importar su tamaño,
         // para no tener que pasar el mouse por encima para verlo.

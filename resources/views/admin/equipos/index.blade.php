@@ -1286,6 +1286,22 @@
             font-weight: 500;
         }
 
+        /* La unidad va PEGADA a la cifra, no metida entre paréntesis en la etiqueta:
+           "0.00 L/día" se lee de un golpe, "Consumo est. (L/día) / 0.00" obliga a ir y
+           volver. Alineadas por la linea base para que la unidad no "flote". */
+        .fleet-kpi-figure {
+            display: flex;
+            align-items: baseline;
+            gap: 5px;
+            flex-wrap: wrap;
+        }
+
+        .fleet-kpi-unit {
+            font-size: 11px;
+            font-weight: 500;
+            color: var(--fd-ink-2);
+        }
+
         /* Cifras proporcionales a propósito (sin tabular-nums): en un número grande y
            suelto los dígitos de ancho fijo hacen que "61" se vea desparramado. */
         .fleet-kpi-val {
@@ -1449,13 +1465,19 @@
                     {{-- Las 4 tarjetas comparten el MISMO estilo (ver .fleet-kpi*): solo cambian
                          etiqueta e id. Etiqueta + cifra, sin ícono. --}}
                     <div class="fleet-kpi">
-                        <p class="fleet-kpi-lbl">Total equipos</p>
-                        <h3 id="stat_total" class="fleet-kpi-val">0</h3>
+                        <p class="fleet-kpi-lbl">Total</p>
+                        <div class="fleet-kpi-figure">
+                            <h3 id="stat_total" class="fleet-kpi-val">0</h3>
+                            <span class="fleet-kpi-unit">equipos</span>
+                        </div>
                     </div>
 
                     <div class="fleet-kpi">
-                        <p class="fleet-kpi-lbl">Consumo est. (L/día)</p>
-                        <h3 id="stat_consumption" class="fleet-kpi-val">0</h3>
+                        <p class="fleet-kpi-lbl">Consumo est.</p>
+                        <div class="fleet-kpi-figure">
+                            <h3 id="stat_consumption" class="fleet-kpi-val">0</h3>
+                            <span class="fleet-kpi-unit">L/día</span>
+                        </div>
                     </div>
                 </div>
 
@@ -1484,8 +1506,8 @@
                                  tarjetas sueltas arriba): son el desglose de este grafico. Los
                                  ids no cambian, asi que updateStatCards() los sigue llenando. --}}
                             <span class="fdm-keys">
-                                <span class="fdm-key"><i class="fdm-dot" style="background:#0067b1;"></i>Nueva (&ge;2025) <b id="stat_fleet_new">0</b></span>
-                                <span class="fdm-key"><i class="fdm-dot" style="background:#a91d28;"></i>Antigua (&lt;2025) <b id="stat_fleet_old">0</b></span>
+                                <span class="fdm-key"><i class="fdm-dot" data-serie="0"></i>Nueva (&ge;2025) <b id="stat_fleet_new">0</b></span>
+                                <span class="fdm-key"><i class="fdm-dot" data-serie="1"></i>Antigua (&lt;2025) <b id="stat_fleet_old">0</b></span>
                             </span>
                             <button onclick="window.descargarPanelHtmlFDM('fdm-panel-age', 'flota_edad_tipo')" title="Descargar imagen" class="fdm-cam">
                                 <i class="material-icons">photo_camera</i>
@@ -1577,11 +1599,19 @@
                 font-size: 18px !important;
             }
 
-            /* La fila superior se APILA: contadores arriba, buscador debajo a todo lo ancho. */
+            /* La fila superior se APILA: buscador arriba, contadores debajo a todo lo ancho. */
             #fleetDashboardModal .fleet-topline {
                 flex-direction: column !important;
                 align-items: stretch !important;
                 gap: 8px !important;
+            }
+
+            /* En ESCRITORIO el grid lleva `flex: 0 1 320px` para repartir el ancho con el
+               buscador. Al pasar la fila a COLUMNA ese 320px deja de ser ancho y pasa a ser
+               ALTURA (flex-basis sigue al eje principal), y las tarjetas se estiraban a 320px
+               de alto. Aqui vuelve a tamaño de contenido. */
+            #fleetDashboardModal .fleet-topline .fleet-stats-grid {
+                flex: none !important;
             }
 
             .fleet-filter-container {
