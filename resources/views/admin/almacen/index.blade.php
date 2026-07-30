@@ -14,10 +14,15 @@
         border-radius: 12px; height: 45px; overflow: hidden;
     }
     .alm-filter.active .alm-filter-box { background: #e1effa; border-color: var(--maquinaria-blue, #0067b1); }
-    .alm-filter .alm-ic { padding: 0 10px; display: flex; align-items: center; color: #64748b; }
+    /* El icono NO lleva padding a la derecha y el campo solo 4px a la izquierda: así el texto
+       que se escribe queda pegado a la lupa (antes eran 10+6=16px de hueco). Misma separación
+       que los filtros de /admin/equipos, que lo resuelven con la regla
+       `.dropdown-trigger:has(> input)` de estilos_globales.css — aquí el patrón es otro
+       (.alm-filter-box), por eso se ajusta en su propia regla en vez de duplicar aquella. */
+    .alm-filter .alm-ic { padding: 0 0 0 10px; display: flex; align-items: center; color: #64748b; }
     .alm-filter input[type="text"], .alm-filter select {
         flex: 1; border: none; background: transparent; outline: none; font-size: 14px;
-        color: #1e293b; padding: 10px 6px; min-width: 0; height: 100%; cursor: text;
+        color: #1e293b; padding: 10px 6px 10px 4px; min-width: 0; height: 100%; cursor: text;
     }
     .alm-filter select { cursor: pointer; -webkit-appearance: none; appearance: none; }
     .alm-filter .filter-clear { padding: 0 8px; color: #64748b; font-size: 18px; cursor: pointer; }
