@@ -19,11 +19,11 @@ if (!window.CHART_COLORS) {
 const LEGEND_STYLE = {
     position: 'bottom',
     labels: {
-        padding: 18,
-        font: { size: 12, weight: '600', family: "'Inter', 'Segoe UI', sans-serif" },
-        boxWidth: 12,
-        boxHeight: 12,
-        color: '#374151',
+        padding: 16,
+        font: { size: 11.5, weight: '500', family: "'Inter', 'Segoe UI', sans-serif" },
+        boxWidth: 9,
+        boxHeight: 9,
+        color: '#8a94a6',   /* tinta apagada: la leyenda es referencia, no protagonista */
         usePointStyle: true,
         pointStyle: 'rectRounded'
     }
@@ -31,13 +31,13 @@ const LEGEND_STYLE = {
 
 // Common tooltip styles
 const TOOLTIP_STYLES = {
-    backgroundColor: '#1e293b',
+    backgroundColor: 'rgba(15,23,42,0.94)',
     titleColor: '#ffffff',
     bodyColor: '#e2e8f0',
-    borderColor: '#334155',
-    borderWidth: 1,
-    padding: 10,
-    cornerRadius: 8,
+    borderColor: 'transparent',
+    borderWidth: 0,
+    padding: 11,
+    cornerRadius: 10,
     displayColors: true,
     boxWidth: 10,
     boxHeight: 10
@@ -77,30 +77,28 @@ function renderFleetEquiposAsignados(lista) {
     // Ordenar de mayor a menor por cantidad de equipos asignados
     lista = [...lista].sort((a, b) => (Number(b.total) || 0) - (Number(a.total) || 0));
 
-    const COLOR = '#475569'; // gris corporativo fijo
-
-    body.innerHTML = `<div style="display:flex;flex-wrap:wrap;gap:10px;">${lista.map((row, i) => `
+    // Mismo lenguaje que las tarjetas KPI de arriba: fondo blanco, anillo de un pelo y la
+    // CIFRA como único elemento con peso. Antes eran bloques grises saturados con sombra y
+    // texto en 900 — leían muy fuerte y no encajaban con el resto del modal.
+    body.innerHTML = `<div style="display:flex;flex-wrap:wrap;gap:8px;">${lista.map((row, i) => `
             <div style="
-                background:${COLOR};
-                color:#fff;
-                border-radius:12px;
-                padding:12px 16px;
-                min-width:180px;
+                background:#fff;
+                border:1px solid rgba(15,23,42,0.08);
+                border-radius:10px;
+                padding:10px 13px;
+                min-width:150px;
                 flex:1;
                 display:flex;
                 flex-direction:column;
-                align-items:flex-start;
-                justify-content:center;
-                gap:8px;
-                box-shadow:0 2px 8px rgba(0,0,0,.15);
+                gap:3px;
             ">
-                <div style="display:flex; align-items:center; gap:8px; width:100%;">
-                    <span style="font-size:12px;font-weight:700;color:#fff;opacity:0.85;flex-shrink:0;">#${i + 1}</span>
-                    <span style="font-size:12px;font-weight:700;line-height:1.2;word-break:break-word;flex:1;" title="${row.frente}">${row.frente}</span>
+                <div style="display:flex; align-items:baseline; gap:6px; width:100%;">
+                    <span style="font-size:10.5px;font-weight:600;color:#b3bac6;flex-shrink:0;">${i + 1}</span>
+                    <span style="font-size:11px;font-weight:500;color:#8a94a6;line-height:1.25;word-break:break-word;flex:1;" title="${row.frente}">${row.frente}</span>
                 </div>
                 <div style="display:flex;align-items:baseline;gap:5px;">
-                    <span style="font-size:26px;font-weight:900;line-height:1;">${row.total}</span>
-                    <span style="font-size:13px;font-weight:600;opacity:.85;">equipo${row.total !== 1 ? 's' : ''}</span>
+                    <span style="font-size:21px;font-weight:700;line-height:1.1;color:#0f172a;letter-spacing:-0.5px;">${row.total}</span>
+                    <span style="font-size:11px;font-weight:500;color:#8a94a6;">equipo${row.total !== 1 ? 's' : ''}</span>
                 </div>
             </div>`
     ).join('')
@@ -634,10 +632,10 @@ function createStackedBarChart(canvasId, config) {
     const segmentLabel = {
         anchor: 'center',
         align: 'center',
-        color: 'white',
-        textShadowBlur: 4,
-        textShadowColor: 'rgba(0,0,0,0.6)',
-        font: { weight: '700', size: 9, family: "'Inter', 'Segoe UI', sans-serif" },
+        color: '#fff',
+        // Sin textShadow: los dos rellenos (azul y rojo) son suficientemente oscuros para
+        // que el blanco contraste solo; la sombra emborronaba un numero de 9px.
+        font: { weight: '600', size: 9.5, family: "'Inter', 'Segoe UI', sans-serif" },
         // Muestra el valor de TODO segmento con dato (> 0), sin importar su tamaño,
         // para no tener que pasar el mouse por encima para verlo.
         display: function (ctx) {
@@ -652,9 +650,9 @@ function createStackedBarChart(canvasId, config) {
         anchor: 'end',
         align: 'right',
         offset: 5,
-        color: '#1e293b',
+        color: '#64748b',
         textShadowBlur: 0,
-        font: { weight: '700', size: 10, family: "'Inter', 'Segoe UI', sans-serif" },
+        font: { weight: '600', size: 10.5, family: "'Inter', 'Segoe UI', sans-serif" },
         display: function (ctx) {
             const total = ctx.chart.data.datasets.reduce(
                 function (s, d) { return s + (Number(d.data[ctx.dataIndex]) || 0); }, 0
@@ -729,7 +727,7 @@ function createStackedBarChart(canvasId, config) {
                     grid: { display: false },
                     ticks: {
                         font: { size: window.innerWidth < 480 ? 10 : 11, weight: '500', family: "'Inter', 'Segoe UI', sans-serif" },
-                        color: '#475569',
+                        color: '#8a94a6',   /* mobiliario del grafico: recesivo */
                         maxRotation: 0,
                         minRotation: 0,
                         autoSkip: false
