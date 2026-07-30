@@ -1268,6 +1268,14 @@
             background: #fff;
             border-radius: 10px;
             padding: 12px 14px;
+            /* Etiqueta y cifra en la MISMA linea, no una debajo de otra. Alineadas por
+               linea base para que "Total" y "61" se apoyen en el mismo renglon. Si no
+               cabe (pantalla estrecha), la cifra baja de linea en vez de desbordar. */
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 10px;
+            flex-wrap: wrap;
             /* Anillo de un pelo (translúcido) en vez de un borde sólido: se apoya en el
                fondo en vez de dibujar una caja. Y SIN la barra azul de 3px que llevaba
                cada tarjeta: cuatro franjas saturadas seguidas son ruido, y al ser las
@@ -1280,6 +1288,7 @@
             margin: 0;
             font-size: 11px;
             line-height: 1.25;
+            white-space: nowrap;
             /* --fd-ink-2 y NO la tinta de mobiliario: es TEXTO. Con #8a94a6 el contraste
                sobre blanco era 3.06:1 y AA exige 4.5:1 para texto normal. */
             color: var(--fd-ink-2);
@@ -1305,7 +1314,7 @@
         /* Cifras proporcionales a propósito (sin tabular-nums): en un número grande y
            suelto los dígitos de ancho fijo hacen que "61" se vea desparramado. */
         .fleet-kpi-val {
-            margin: 3px 0 0 0;
+            margin: 0;
             font-size: 24px;
             line-height: 1.1;
             color: var(--fd-ink);    /* el único elemento con peso */
@@ -1323,8 +1332,9 @@
 
         /* El buscador va PRIMERO y es quien crece; los dos contadores ocupan lo suyo
            a la derecha. Antes el grid crecia y el buscador iba al final. */
+        /* 430px y no 320: en horizontal "Consumo est.  0.00 L/dia" necesita mas ancho. */
         .fleet-topline .fleet-stats-grid {
-            flex: 0 1 320px;
+            flex: 0 1 430px;
             min-width: 0;
             margin: 0 !important;
         }

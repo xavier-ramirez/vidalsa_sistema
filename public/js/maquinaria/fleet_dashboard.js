@@ -9,13 +9,17 @@ if (!window.CHART_COLORS) {
     window.CHART_COLORS = {
         // 'status' (doughnut Estado Operativo) e 'inoperative' (Inoperatividad por Tipo)
         // se eliminaron junto con esos gráficos. 'age' lo usan Flota por Tipo y Auxiliares.
-        // [0] Nueva = azul oscuro #005a9c, [1] Antigua = rojo #a91d28. Elegidos por el
-        // cliente (2026-07-30) sobre la propuesta ocre: NO volver a cambiarlos por criterio
-        // de estilo. Validado igualmente con scripts/validate_palette.js: las 6
-        // comprobaciones PASAN (protan dE 18.7, normal 28.0, contraste >= 3:1).
+        // [0] Nueva = azul #004a80, [1] Antigua = rojo #911a24. Tonos OSCUROS pedidos
+        // expresamente por el cliente (2026-07-30): NO aclararlos por criterio de estilo.
+        // Validado con scripts/validate_palette.js: separacion para daltonismo holgada
+        // (protan dE 15.3, normal 24.5 — los minimos son 8 y 15) y contraste >= 3:1.
+        // La UNICA comprobacion que no pasa es la banda de luminosidad (L 0.401 y 0.429
+        // frente a un minimo de 0.43): al ser tan oscuros las barras pesan mas sobre el
+        // fondo blanco. Es el intercambio aceptado a cambio del tono pedido.
+        // Referencia: el par mas claro que aprobaba TODO era #005a9c + #a91d28.
         // FUENTE UNICA de estos colores: los puntos de la cabecera (.fdm-dot) tambien se
         // pintan desde aqui, no los repite el blade.
-        age: ['#005a9c', '#a91d28']
+        age: ['#004a80', '#911a24']
     };
 }
 
@@ -23,7 +27,7 @@ if (!window.CHART_COLORS) {
  * Devuelve la tinta legible ENCIMA de un relleno: blanco o casi negro, la que mas
  * contraste da.
  *
- * Con la paleta ACTUAL (#005a9c 7.14:1 y #a91d28 7.26:1 en blanco) siempre sale blanco,
+ * Con la paleta ACTUAL (#004a80 9.17:1 y #911a24 8.83:1 en blanco) siempre sale blanco,
  * asi que hoy no cambia nada: es un SEGURO para cuando se toque la paleta. Se anadio
  * porque al probar un ocre #d97a1f el numero blanco dentro del tramo se quedo en 3.11:1
  * — ilegible — y eso paso desapercibido hasta medirlo. Con esto, cambiar CHART_COLORS
@@ -682,7 +686,9 @@ function createStackedBarChart(canvasId, config) {
         // hace falta, y la sombra emborronaba un numero de 9px.
         color: function (ctx) {
             const bg = ctx.dataset.backgroundColor;
-            return tintaSobre(typeof bg === 'string' ? bg : '#0067b1');
+            // El respaldo sale de CHART_COLORS, no de un hex suelto: escrito a mano se
+            // quedaba apuntando a un color que ya no estaba en la paleta.
+            return tintaSobre(typeof bg === 'string' ? bg : window.CHART_COLORS.age[0]);
         },
         font: { weight: '600', size: 9.5, family: "'Inter', 'Segoe UI', sans-serif" },
         // Muestra el valor de TODO segmento con dato (> 0), sin importar su tamaño,
