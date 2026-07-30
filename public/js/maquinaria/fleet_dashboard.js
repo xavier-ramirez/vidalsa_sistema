@@ -616,13 +616,19 @@ function createStackedBarChart(canvasId, config) {
     const totalLines = wrappedLabels.reduce(function (sum, l) {
         return sum + (Array.isArray(l) ? l.length : 1);
     }, 0);
-    // Altura dinámica según la cantidad de barras. El tope se subió de 400 a 1200 px
-    // porque con muchos tipos de equipo las barras quedaban demasiado finas y los
-    // valores se solapaban (sobre todo en la captura de imagen). Ahora que los
-    // gráficos van en una sola columna a todo el ancho, el gráfico puede crecer y el
-    // contenedor del modal hace scroll. pxPerLine también sube un poco con >10 tipos.
-    const pxPerLine = labelCount <= 5 ? 20 : labelCount <= 10 ? 17 : 15;
-    const dynamicHeight = Math.min(900, Math.max(100, totalLines * pxPerLine + 40));
+    // Altura dinámica según la cantidad de barras. Se reservan DOS cosas por separado:
+    // el alto de cada LÍNEA de texto del tick y un HUECO entre categorías. El cálculo
+    // anterior usaba un solo "px por línea" (15-20) que hacía de las dos cosas a la vez,
+    // así que con etiquetas de 2+ líneas dos categorías vecinas quedaban pegadas y los
+    // nombres se solapaban en pantalla (p.ej. "CAMION DE SOLDADURA" encima de "CAMION
+    // ELEVADOR 8 TON"). Al separarlos, cada categoría recibe SIEMPRE el alto real de su
+    // etiqueta envuelta más el aire entre barras.
+    const lineH = window.innerWidth < 480 ? 13 : 14;   // alto de línea del tick (fuente 10/11px)
+    const gapPorBarra = labelCount <= 10 ? 14 : 10;    // aire entre barras
+    const dynamicHeight = Math.min(
+        1400,
+        Math.max(120, totalLines * lineH + labelCount * gapPorBarra + 50)
+    );
     ctx.style.height = dynamicHeight + 'px';
     ctx.style.maxHeight = dynamicHeight + 'px';
 

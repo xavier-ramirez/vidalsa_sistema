@@ -1088,8 +1088,11 @@
             text-transform: none;
         }
 
+        /* Cabecera BLANCA, igual que la del "Dashboard de Consumo" (.cdash-head):
+           fondo blanco, título oscuro, ícono azul y una línea de separación abajo.
+           Antes era un degradado azul marino con texto blanco. */
         .fleet-dashboard-header {
-            background: linear-gradient(135deg, #00004d 0%, #000033 100%);
+            background: #fff;
             padding: 15px 25px;
             border-bottom: 1px solid #e2e8f0;
         }
@@ -1131,10 +1134,11 @@
             flex-shrink: 0;
         }
 
-        /* Mismo estilo EXACTO que tenía la X original de este modal:
-           fondo blanco translúcido 0.2, sin borde, 38px, radio 8px, ícono blanco 22px. */
+        /* Botones Descargar/Cerrar sobre cabecera BLANCA: transparentes con ícono gris y
+           hover gris claro, igual que la X del "Dashboard de Consumo" (.cdash-x).
+           Antes eran "glass" (blanco translúcido) porque la cabecera era azul oscura. */
         .fleet-header-btn {
-            background: rgba(255, 255, 255, 0.2);
+            background: transparent;
             border: none;
             width: 38px;
             height: 38px;
@@ -1148,11 +1152,15 @@
         }
 
         .fleet-header-btn:hover {
-            background: rgba(255, 255, 255, 0.3);
+            background: #f1f5f9;
+        }
+
+        .fleet-header-btn:hover .material-icons {
+            color: #0f172a;
         }
 
         .fleet-header-btn .material-icons {
-            color: #fff;
+            color: #64748b;
             font-size: 22px;
         }
 
@@ -1172,7 +1180,9 @@
     </style>
     
     <div id="fleetDashboardModal" class="modal-overlay">
-        <div class="modal-content" style="width: 94%; max-width: 880px; height: 90vh; padding: 0; display: flex; flex-direction: column; background: #f8fafc; position: relative; border-radius: 18px; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.35);">
+        {{-- Fondo BLANCO en todo el modal (antes #f8fafc). Los paneles internos se
+             siguen distinguiendo por su borde #e2e8f0, no por el contraste del fondo. --}}
+        <div class="modal-content" style="width: 94%; max-width: 880px; height: 90vh; padding: 0; display: flex; flex-direction: column; background: #fff; position: relative; border-radius: 18px; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.35);">
             <!-- Header -->
             <div class="fleet-dashboard-header">
                 <div class="fleet-header-wrapper">
@@ -1180,11 +1190,11 @@
                     <div class="fleet-header-left">
                         <!-- Icon + Title -->
                         <div class="fleet-header-title-group">
-                            <div style="background: rgba(255,255,255,0.2); padding: 8px; border-radius: 10px;">
-                                <i class="material-icons" style="font-size: 24px; color: white;">analytics</i>
+                            <div style="background: #e1effa; padding: 8px; border-radius: 10px;">
+                                <i class="material-icons" style="font-size: 24px; color: var(--maquinaria-blue, #0067b1);">analytics</i>
                             </div>
                             <div>
-                                <h2 style="margin: 0; color: white; font-size: 18px; font-weight: 700; white-space: nowrap;">Dashboard de Flota</h2>
+                                <h2 style="margin: 0; color: #0f172a; font-size: 18px; font-weight: 800; white-space: nowrap;">Dashboard de Flota</h2>
                             </div>
                         </div>
                         
@@ -1227,7 +1237,10 @@
                                  <input type="hidden" id="dashboardSelectedFrenteId" value="{{ $defaultDashboardId }}">
                                  <input type="hidden" id="dashboardSelectedFrenteNombre" value="{{ $defaultDashboardNombre }}">
                                  <div class="custom-dropdown" id="dashboardFrenteDropdown" style="width: 100%;">
-                                 <div class="dropdown-trigger" onclick="dashboardToggleFrente(event)" style="padding: 0; display: flex; align-items: center; background: rgba(255,255,255,0.95); overflow: hidden; border: none; border-radius: 8px; height: 38px; cursor: default;">
+                                 {{-- Sobre cabecera blanca el campo necesita BORDE para verse (antes se
+                                      distinguía solo por contraste con el azul oscuro). Mismo look que
+                                      .cdash-inp-box del Dashboard de Consumo. --}}
+                                 <div class="dropdown-trigger" onclick="dashboardToggleFrente(event)" style="padding: 0; display: flex; align-items: center; background: #fff; overflow: hidden; border: 1px solid #cbd5e0; border-radius: 8px; height: 38px; cursor: default;">
                                      <div style="padding: 0 10px; display: flex; align-items: center; color: #64748b; flex-shrink:0;">
                                          <i class="material-icons" style="font-size: 18px;">search</i>
                                      </div>
@@ -1293,40 +1306,40 @@
                     </div>
 
                     <!-- Fleet New -->
-                    <div style="background: white; border-radius: 14px; padding: 16px; box-shadow: 0 1px 3px rgba(15,23,42,0.06); border: 1px solid #e9eef5; border-left: 4px solid #10b981;">
+                    <div style="background: white; border-radius: 14px; padding: 16px; box-shadow: 0 1px 3px rgba(15,23,42,0.06); border: 1px solid #e9eef5; border-left: 4px solid #0067b1;">
                         <div style="display: flex; align-items: center; justify-content: space-between;">
                             <div>
                                 <p style="margin: 0; font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Flota Nueva (≥2025)</p>
                                 <h3 id="stat_fleet_new" style="margin: 6px 0 0 0; font-size: 26px; color: #0f172a; font-weight: 800; letter-spacing: -0.5px;">0</h3>
                             </div>
-                            <div style="background: #dcfce7; padding: 9px; border-radius: 10px; display: flex;">
-                                <i class="material-icons" style="font-size: 20px; color: #10b981;">new_releases</i>
+                            <div style="background: #e1effa; padding: 9px; border-radius: 10px; display: flex;">
+                                <i class="material-icons" style="font-size: 20px; color: #0067b1;">new_releases</i>
                             </div>
                         </div>
                     </div>
 
                     <!-- Fleet Old -->
-                    <div style="background: white; border-radius: 14px; padding: 16px; box-shadow: 0 1px 3px rgba(15,23,42,0.06); border: 1px solid #e9eef5; border-left: 4px solid #f59e0b;">
+                    <div style="background: white; border-radius: 14px; padding: 16px; box-shadow: 0 1px 3px rgba(15,23,42,0.06); border: 1px solid #e9eef5; border-left: 4px solid #0067b1;">
                         <div style="display: flex; align-items: center; justify-content: space-between;">
                             <div>
                                 <p style="margin: 0; font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Flota Antigua (<2025)</p>
                                 <h3 id="stat_fleet_old" style="margin: 6px 0 0 0; font-size: 26px; color: #0f172a; font-weight: 800; letter-spacing: -0.5px;">0</h3>
                             </div>
-                            <div style="background: #fef3c7; padding: 9px; border-radius: 10px; display: flex;">
-                                <i class="material-icons" style="font-size: 20px; color: #f59e0b;">history</i>
+                            <div style="background: #e1effa; padding: 9px; border-radius: 10px; display: flex;">
+                                <i class="material-icons" style="font-size: 20px; color: #0067b1;">history</i>
                             </div>
                         </div>
                     </div>
 
                     <!-- Estimated Consumption -->
-                    <div style="background: white; border-radius: 14px; padding: 16px; box-shadow: 0 1px 3px rgba(15,23,42,0.06); border: 1px solid #e9eef5; border-left: 4px solid #ef4444;">
+                    <div style="background: white; border-radius: 14px; padding: 16px; box-shadow: 0 1px 3px rgba(15,23,42,0.06); border: 1px solid #e9eef5; border-left: 4px solid #0067b1;">
                         <div style="display: flex; align-items: center; justify-content: space-between;">
                             <div>
                                 <p style="margin: 0; font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Consumo Est. (L/Día)</p>
                                 <h3 id="stat_consumption" style="margin: 6px 0 0 0; font-size: 26px; color: #0f172a; font-weight: 800; letter-spacing: -0.5px;">0</h3>
                             </div>
-                            <div style="background: #fee2e2; padding: 9px; border-radius: 10px; display: flex;">
-                                <i class="material-icons" style="font-size: 20px; color: #ef4444;">local_gas_station</i>
+                            <div style="background: #e1effa; padding: 9px; border-radius: 10px; display: flex;">
+                                <i class="material-icons" style="font-size: 20px; color: #0067b1;">local_gas_station</i>
                             </div>
                         </div>
                     </div>
@@ -1336,9 +1349,14 @@
                 <!-- Charts Row — una sola columna (gráficos apilados uno debajo del otro)
                      a pedido del cliente: con muchos equipos, a todo el ancho del modal
                      los valores de las barras dejan de solaparse. -->
-                <div id="fleetChartsGrid" style="display: grid; grid-template-columns: 1fr; gap: 14px;">
+                {{-- minmax(0, 1fr) y no 1fr: un <canvas> aporta ancho INTRÍNSECO (su atributo
+                     width), así que con 1fr el track de la grilla crecía hasta ese ancho, Chart.js
+                     volvía a medir el contenedor ya ensanchado y lo agrandaba otra vez. El panel
+                     terminaba más ancho que el modal (1068 px dentro de 880) y aparecía scroll
+                     horizontal con las barras cortadas. min-width:0 deja que el panel encoja. --}}
+                <div id="fleetChartsGrid" style="display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px;">
                     <!-- Flota Nueva vs Vieja por Tipo -->
-                    <div id="fdm-panel-age" style="background: white; border-radius: 12px; padding: 16px 20px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+                    <div id="fdm-panel-age" style="background: white; border-radius: 12px; padding: 16px 20px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.04); min-width: 0; overflow: hidden;">
                         <h4 style="margin: 0 0 12px 0; padding-bottom: 10px; border-bottom: 1px solid #e2e8f0; font-size: 14px; color: #1e293b; font-weight: 700; display: flex; align-items: center; justify-content: space-between;">
                             <span style="display: flex; align-items: center; gap: 10px;">
                                 <i class="material-icons" style="font-size: 20px; color: #64748b;">bar_chart</i>
@@ -1352,7 +1370,7 @@
                     </div>
 
                     <!-- Equipos Auxiliares por Tipo -->
-                    <div id="fdm-panel-auxiliares" style="background: white; border-radius: 12px; padding: 16px 20px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+                    <div id="fdm-panel-auxiliares" style="background: white; border-radius: 12px; padding: 16px 20px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.04); min-width: 0; overflow: hidden;">
                         <h4 style="margin: 0 0 12px 0; padding-bottom: 10px; border-bottom: 1px solid #e2e8f0; font-size: 14px; color: #1e293b; font-weight: 700; display: flex; align-items: center; justify-content: space-between;">
                             <span style="display: flex; align-items: center; gap: 10px;">
                                 <i class="material-icons" style="font-size: 20px; color: #64748b;">construction</i>
