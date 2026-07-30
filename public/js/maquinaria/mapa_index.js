@@ -738,8 +738,12 @@
         map.on('overlayadd',    function (e) { if (e.layer === todosMuniToggle) activarTodosMunicipios(); });
         map.on('overlayremove', function (e) { if (e.layer === todosMuniToggle) ocultarTodosMunicipios(); });
 
+        // Ancho máximo (px) de la barra de escala. Fuente única: lo usan el control de la
+        // pantalla, el cálculo de escalaKm() y la regla que dibuja la foto, así los tres eligen
+        // SIEMPRE el mismo escalón redondo (50 km, 100 km…).
+        var ESCALA_MAX_PX = 160;
         // Escala al lado de la brújula (abajo-derecha), más grande.
-        L.control.scale({ imperial: false, position: 'bottomright', maxWidth: 160 }).addTo(map);
+        L.control.scale({ imperial: false, position: 'bottomright', maxWidth: ESCALA_MAX_PX }).addTo(map);
 
         // ── Buscador de zonas (geocoder) sesgado a Venezuela ──
         // Buscador: Photon (autocompletar, sin rate-limit) + detección de COORDENADAS.
@@ -749,23 +753,69 @@
         // colaban resultados de otros países). limit 10: suficiente tras el filtro por país y
         // respuesta más liviana/rápida que el remoto (photon.komoot.io).
         var _photon = L.Control.Geocoder.photon({ geocodingQueryParams: { lat: 8, lon: -66, limit: 10, bbox: '-73.4,0.6,-59.8,12.6' } });
-        // UTM zona 20N (Venezuela oriental, meridiano central −63°). REGVEN ≈ WGS84.
-        var UTM20N = '+proj=utm +zone=20 +datum=WGS84 +units=m +no_defs';
+        // Zonas UTM que cubren Venezuela: 20 = oriente (meridiano central −63°), 19 = centro,
+        // 18 = occidente. Así no hay que escribir la zona. OJO: el MISMO par de metros puede caer
+        // dentro del país en dos zonas distintas, así que esto no la "adivina": manda la 20 (donde
+        // están los frentes, y la única que se usaba antes) y solo se prueban 19 y 18 cuando con
+        // la 20 el punto se sale de Venezuela. REGVEN ≈ WGS84.
+        var UTM_ZONAS = [20, 19, 18];
+        function utmAlatLng(E, N) {
+            for (var i = 0; i < UTM_ZONAS.length; i++) {
+                try {
+                    var ll = proj4('+proj=utm +zone=' + UTM_ZONAS[i] + ' +datum=WGS84 +units=m +no_defs', 'WGS84', [E, N]);
+                    var p = L.latLng(ll[1], ll[0]); // proj4 devuelve [lng, lat]
+                    if (VENEZUELA.contains(p)) return p;
+                } catch (e) {}
+            }
+            return null;
+        }
+        // Texto es-VE a número: el "." separa MILES (siempre va seguido de 3 dígitos) y la ","
+        // es el decimal. "1.108.784" → 1108784 · "317.429,25" → 317429.25 · "317429.25" → 317429.25.
+        function aNumero(t) {
+            return parseFloat(String(t).replace(/\.(?=\d{3}(?:\D|$))/g, '').replace(',', '.'));
+        }
+        // Números de la línea que pueden ser metros UTM. Los pequeños se descartan (las
+        // profundidades "20,5 / 20,00 m" y el 39 de "P-39"): una coordenada UTM del país nunca
+        // baja de 100.000 m. La expresión se crea aquí dentro a propósito: una /g compartida
+        // arrastra lastIndex entre llamadas y se saltaría números.
+        function numerosUTM(s) {
+            var re = /\d{1,3}(?:\.\d{3})+(?:,\d+)?|\d{6,8}(?:[.,]\d+)?/g;
+            var out = [], m;
+            while ((m = re.exec(s))) {
+                var v = aNumero(m[0]);
+                if (!isNaN(v) && v >= 100000 && v <= 9999999) out.push(v);
+            }
+            return out;
+        }
+        // Coordenada UTM. Acepta DOS formas:
+        //  · Con la letra delante: "N- 1.032.594,40 E- 501.623,42" (en cualquier orden).
+        //  · Solo los dos números, como vienen en las tablas de perforaciones/calicatas:
+        //    "Perforación P-39 Este 1.108.784 317.429 20,5 20,00 m" → Norte y luego Este.
         function parseUTM(q) {
             if (typeof proj4 === 'undefined') return null;
             var s = String(q || '').toUpperCase();
-            // Captura N y E (con o sin guion, en cualquier orden). Miles con "." y decimal con ",".
-            var mN = s.match(/N\s*[-:]?\s*([\d.]+,?\d*)/);
-            var mE = s.match(/E\s*[-:]?\s*([\d.]+,?\d*)/);
-            if (!mN || !mE) return null;
-            var N = parseFloat(mN[1].replace(/\./g, '').replace(',', '.'));
-            var E = parseFloat(mE[1].replace(/\./g, '').replace(',', '.'));
-            if (isNaN(N) || isNaN(E) || E < 100000 || E > 900000 || N < 0 || N > 10000000) return null;
-            try {
-                var ll = proj4(UTM20N, 'WGS84', [E, N]); // [lng, lat]
-                if (ll[1] < -5 || ll[1] > 20 || ll[0] < -80 || ll[0] > -55) return null; // sanity: Venezuela
-                return L.latLng(ll[1], ll[0]);
-            } catch (e) { return null; }
+            // El \b es imprescindible: sin él, la E final de "ESTE 1.108.784" se tomaba como la
+            // letra del Este y se llevaba el valor del Norte.
+            var mN = s.match(/\bN\b\s*[-:]?\s*(\d[\d.,]*)/);
+            var mE = s.match(/\bE\b\s*[-:]?\s*(\d[\d.,]*)/);
+            var etiquetado = !!(mN && mE), N, E;
+            if (etiquetado) { N = aNumero(mN[1]); E = aNumero(mE[1]); }
+            else {
+                var nums = numerosUTM(s);
+                if (nums.length < 2) return null;
+                N = nums[0]; E = nums[1];   // orden de las tablas: Norte y después Este
+            }
+            if (isNaN(N) || isNaN(E)) return null;
+            // El Este de una zona UTM nunca pasa de 999.999 m: si llega uno mayor, los dos
+            // números venían al revés (esto vale también con letras: es imposible, no una duda).
+            if (E > 999999 && N <= 999999) { var aux = N; N = E; E = aux; }
+            if (E < 100000 || E > 999999 || N < 0 || N > 10000000) return null;
+            var pt = utmAlatLng(E, N);
+            // SIN letras el orden es una suposición (hay tablas que ponen el Este primero): si
+            // así no cae en Venezuela, se prueba cambiado. CON letras no se toca — el usuario ya
+            // dijo cuál es cuál, y devolver otro punto sería inventarse una ubicación.
+            if (!pt && !etiquetado && N >= 100000 && N <= 999999) pt = utmAlatLng(N, E);
+            return pt;
         }
         function parseCoord(q) {
             var s = String(q || '').trim();
@@ -775,7 +825,8 @@
                 var lat = parseFloat(m[1]), lng = parseFloat(m[2]);
                 if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) return L.latLng(lat, lng);
             }
-            // 2) UTM "N- 1.032.594,40 E- 501.623,42".
+            // 2) UTM: con letra ("N- 1.032.594,40 E- 501.623,42") o los dos números sueltos
+            //    dentro de una fila pegada ("Perforación P-39 Este 1.108.784 317.429 20,5").
             return parseUTM(s);
         }
         function resCoord(c) { return [{ name: '📍 ' + c.lat.toFixed(5) + ', ' + c.lng.toFixed(5), center: c, bbox: c.toBounds(1200) }]; }
@@ -858,10 +909,12 @@
         // qué escala se considera "lejos". Estaban escritos a mano en pantalla y en el export por
         // separado: si se cambiaba uno, la foto dejaba de salir igual que el mapa.
         var VELA_THRESH = 24, ESC_LEJOS = 0.65, LEJOS_KM = 300;
-        // DETALLE_KM = escala a partir de la cual la etiqueta muestra el nombre del PUNTO además
-        // del proyecto: hasta 50 km salen los dos, más lejos solo el proyecto (no hay sitio y se
-        // pisarían). Es un umbral APARTE de LEJOS_KM a propósito: aquel decide cuánto encoge el
-        // pin, que es otra cosa. Vale igual para la pantalla y para la foto.
+        // DETALLE_KM = escala hasta la que la etiqueta muestra el nombre del PUNTO además del
+        // proyecto: hasta 50 km salen los dos; del siguiente escalón de la barra (100 km) en
+        // adelante SOLO el nombre del proyecto, porque ahí las velas ya se funden y un mismo
+        // contenedor junta varios proyectos: los nombres de punto sobran y no cabrían.
+        // Es un umbral APARTE de LEJOS_KM a propósito: aquel decide cuánto encoge el pin, que es
+        // otra cosa. Vale igual para la pantalla y para la foto.
         var DETALLE_KM = 50;
         // Colocación de la cajita respecto al pin: ETQ_SEP_X = separación a su costado (deja
         // sitio para la línea que la une con la vela),
@@ -1261,15 +1314,18 @@
             declutterVelas(true); // (re)etiqueta las velas recién creadas de este proyecto
         }
 
-        // Escala en km que muestra la barra del mapa (lo que ve el usuario: 300 km, 500 km…).
-        // Se lee del control de escala; con moveend/zoomend la barra ya está actualizada.
+        // Escala en km que muestra la barra del mapa (lo que ve el usuario: 100 km, 300 km…).
+        // Se CALCULA con la misma cuenta que hace Leaflet para pintar la barra: la distancia real
+        // que abarcan ESCALA_MAX_PX px a media altura, redondeada a 1/2/3/5×10ⁿ. Antes se leía el
+        // TEXTO del control (document.querySelector), y eso daba 0 —o el valor de otro mapa— si la
+        // barra aún no estaba pintada o quedaba un contenedor viejo en el DOM tras navegar por la
+        // SPA; con 0 el mapa se creía en vista de detalle y sacaba los nombres de los puntos a
+        // cualquier escala. Calculándolo sobre ESTE mapa el dato no puede estar desfasado.
         function escalaKm() {
-            var el2 = document.querySelector('.leaflet-control-scale-line');
-            if (!el2) return 0;
-            var m = (el2.textContent || '').match(/([\d.]+)\s*(km|m)\b/);
-            if (!m) return 0;
-            var v = parseFloat(m[1]);
-            return m[2] === 'km' ? v : v / 1000; // metros → km
+            var y = map.getSize().y / 2;
+            var m = map.distance(map.containerPointToLatLng([0, y]), map.containerPointToLatLng([ESCALA_MAX_PX, y]));
+            if (!m || !isFinite(m)) return 0;
+            return numRedondo(m) / 1000; // metros redondeados (lo que rotula la barra) → km
         }
         var FAM_ETQ = 'Inter, "Segoe UI", sans-serif'; // fuente de la etiqueta al pintarla en canvas
         // Cuánto se agranda la LETRA de las etiquetas en la imagen descargada respecto a la
@@ -1292,25 +1348,38 @@
             _probeEtq.innerHTML = etiquetaHtml(proyectos, puntos);
             return { w: Math.ceil(_probeEtq.offsetWidth) * k, h: Math.ceil(_probeEtq.offsetHeight) * k };
         }
+        // Viñeta que lleva delante cada nombre de punto (se leen como lista cuando una etiqueta
+        // junta varios). En PANTALLA la pinta el CSS (.vela-label b::before); esta constante es
+        // la de la FOTO, que se dibuja a mano en el canvas: si se cambia una, cambiar la otra.
+        var VINETA_PUNTO = '•';
         // Máximo de nombres de punto listados en una etiqueta; el resto se resume en "+N más"
         // (si no, un montón de velas juntas generaría una cajita enorme).
         var MAX_PUNTOS_ETQ = 4;
         // Nombres de punto que se pintan, con el resumen "+N más" al final si se pasan.
+        // Devuelve {txt, resumen}: el resumen es un contador, no un punto, así que va SIN viñeta.
         function lineasPunto(puntos) {
             if (!puntos || !puntos.length) return [];
-            if (puntos.length <= MAX_PUNTOS_ETQ) return puntos.slice();
-            return puntos.slice(0, MAX_PUNTOS_ETQ).concat('+' + (puntos.length - MAX_PUNTOS_ETQ) + ' más');
+            var lista = puntos.slice(0, MAX_PUNTOS_ETQ).map(function (n) { return { txt: n, resumen: false }; });
+            if (puntos.length > MAX_PUNTOS_ETQ) {
+                lista.push({ txt: '+' + (puntos.length - MAX_PUNTOS_ETQ) + ' más', resumen: true });
+            }
+            return lista;
         }
         // HTML de la etiqueta: una línea azul por PROYECTO (varias cuando las velas de proyectos
         // distintos quedan encimadas y se funden en una sola) y, debajo, UNA LÍNEA POR PUNTO
         // (varias cuando dos velas del mismo proyecto se juntan: así se ven los dos nombres).
+        // La viñeta • de cada punto la pone el CSS (.vela-label b::before); la línea "+N más"
+        // lleva la clase vela-mas para quedarse sin viñeta.
         function etiquetaHtml(proyectos, puntos) {
             return proyectos.map(function (n) { return '<span class="vela-proj">' + esc(n) + '</span>'; }).join('') +
-                   lineasPunto(puntos).map(function (n) { return '<b>' + esc(n) + '</b>'; }).join('');
+                   lineasPunto(puntos).map(function (l) {
+                       return '<b' + (l.resumen ? ' class="vela-mas"' : '') + '>' + esc(l.txt) + '</b>';
+                   }).join('');
         }
         function chocaCaja(a, b) { return a.x1 < b.x2 && a.x2 > b.x1 && a.y1 < b.y2 && a.y2 > b.y1; }
-        // Qué nombres de punto lleva una vela: todos hasta DETALLE_KM y ninguno más lejos (ahí
-        // solo cabe el nombre del frente). Única definición de la regla — la usan pantalla y foto.
+        // Qué nombres de punto lleva una vela: todos hasta DETALLE_KM (50 km) y NINGUNO de 100 km
+        // en adelante (ahí solo cabe el nombre del frente). Única definición de la regla — la usan
+        // pantalla y foto.
         function conDetalle() { return escalaKm() <= DETALLE_KM; }
         function puntosVisibles(r) { return conDetalle() ? r.puntos : null; }
 
@@ -2417,9 +2486,15 @@
         // cuadrar; se exporta EXACTAMENTE lo que quede dentro del marco.
         var EXPORT_MM = { carta: [279, 216], a4: [297, 210] };
         // "Personalizado": el usuario da el tamaño EXACTO en píxeles y la imagen sale con esas
-        // medidas justas. El resto de la lógica es la misma que la de Carta/A4 (marco de recorte
-        // con esa proporción, k para el tamaño de los rótulos, teselas al zoom que toque).
+        // medidas justas. El resto de la lógica es la misma que la de Carta/A4 (k para el tamaño
+        // de los rótulos, teselas al zoom que toque); lo único distinto es cómo se dimensiona el
+        // marco de recorte: a ESCALA FIJA en vez de estirarlo hasta llenar la pantalla (ver
+        // EXPORT_PERS_REF y ajustarFrameExport).
         var EXPORT_PX_MIN = 200, EXPORT_PX_MAX = 8000;
+        // Tamaño de referencia de "Personalizado": ESTOS píxeles son los que llenan el área
+        // visible del mapa. Cualquier otro tamaño se dibuja a esa misma escala, así el campo de
+        // ancho mueve solo el ANCHO del marco y el de alto solo su ALTO.
+        var EXPORT_PERS_REF = [3600, 2400];
         var expPersW = 3840, expPersH = 2160;
         var expTamSel = 'carta', expOriSel = 'horizontal', expDetalleSel = false;
         // Orientación solo aplica a las hojas: en "Pantalla" manda lo que se ve y en
@@ -2435,33 +2510,41 @@
             el.appendChild(frame);
             var bar = document.createElement('div'); bar.id = 'mapaExportBar'; bar.className = 'mapa-export-bar';
             var opt = function (val, txt, sel) { return '<option value="' + val + '"' + (sel === val ? ' selected' : '') + '>' + txt + '</option>'; };
+            // DOS bloques: los CAMPOS (se reparten en varias líneas si no caben) y los BOTONES,
+            // que van siempre AL LADO. Antes todo colgaba directo de la barra con flex-wrap y, al
+            // aparecer el campo "Tamaño (px)" de Personalizado, Cancelar/Descargar se iban a una
+            // segunda línea debajo de todo.
             bar.innerHTML =
-                '<label class="mapa-export-field">Tamaño de hoja' +
-                    '<select id="expTam">' +
-                        opt('pantalla', 'Pantalla (tal cual)', expTamSel) +
-                        opt('carta', 'Carta', expTamSel) + opt('a4', 'A4', expTamSel) +
-                        opt('personalizado', 'Personalizado', expTamSel) +
-                    '</select>' +
-                '</label>' +
-                '<label class="mapa-export-field">Orientación' +
-                    '<select id="expOri">' +
-                        opt('horizontal', 'Horizontal', expOriSel) + opt('vertical', 'Vertical', expOriSel) +
-                    '</select>' +
-                '</label>' +
-                // Solo visible con "Personalizado": ancho × alto en píxeles de la imagen final.
-                '<label class="mapa-export-field mapa-export-pers" style="display:none;">Tamaño (px)' +
-                    '<span class="mapa-export-pers-in">' +
-                        '<input type="number" id="expPersW" min="' + EXPORT_PX_MIN + '" max="' + EXPORT_PX_MAX + '" step="10" value="' + expPersW + '">' +
-                        '<i>×</i>' +
-                        '<input type="number" id="expPersH" min="' + EXPORT_PX_MIN + '" max="' + EXPORT_PX_MAX + '" step="10" value="' + expPersH + '">' +
-                    '</span>' +
-                '</label>' +
-                '<label class="mapa-export-check" title="Sin marcar: la foto sale IGUAL a lo que ves en pantalla. Marcado: más nitidez y más detalle. No aplica al tamaño «Pantalla».">' +
-                    '<input type="checkbox" id="expDetalle"' + (expDetalleSel ? ' checked' : '') + '>' +
-                    '<span>Más detalle</span>' +
-                '</label>' +
-                '<button type="button" class="mapa-dibujo-btn mapa-export-cancel">Cancelar</button>' +
-                '<button type="button" class="mapa-dibujo-btn primary mapa-export-go">Descargar</button>';
+                '<div class="mapa-export-fields">' +
+                    '<label class="mapa-export-field">Tamaño de hoja' +
+                        '<select id="expTam">' +
+                            opt('pantalla', 'Pantalla (tal cual)', expTamSel) +
+                            opt('carta', 'Carta', expTamSel) + opt('a4', 'A4', expTamSel) +
+                            opt('personalizado', 'Personalizado', expTamSel) +
+                        '</select>' +
+                    '</label>' +
+                    '<label class="mapa-export-field">Orientación' +
+                        '<select id="expOri">' +
+                            opt('horizontal', 'Horizontal', expOriSel) + opt('vertical', 'Vertical', expOriSel) +
+                        '</select>' +
+                    '</label>' +
+                    // Solo visible con "Personalizado": ancho × alto en píxeles de la imagen final.
+                    '<label class="mapa-export-field mapa-export-pers" style="display:none;">Tamaño (px)' +
+                        '<span class="mapa-export-pers-in">' +
+                            '<input type="number" id="expPersW" min="' + EXPORT_PX_MIN + '" max="' + EXPORT_PX_MAX + '" step="10" value="' + expPersW + '">' +
+                            '<i>×</i>' +
+                            '<input type="number" id="expPersH" min="' + EXPORT_PX_MIN + '" max="' + EXPORT_PX_MAX + '" step="10" value="' + expPersH + '">' +
+                        '</span>' +
+                    '</label>' +
+                    '<label class="mapa-export-check" title="Sin marcar: la foto sale IGUAL a lo que ves en pantalla. Marcado: más nitidez y más detalle. No aplica al tamaño «Pantalla».">' +
+                        '<input type="checkbox" id="expDetalle"' + (expDetalleSel ? ' checked' : '') + '>' +
+                        '<span>Más detalle</span>' +
+                    '</label>' +
+                '</div>' +
+                '<div class="mapa-export-acts">' +
+                    '<button type="button" class="mapa-dibujo-btn mapa-export-cancel">Cancelar</button>' +
+                    '<button type="button" class="mapa-dibujo-btn primary mapa-export-go">Descargar</button>' +
+                '</div>';
             (document.fullscreenElement || el).appendChild(bar);
             L.DomEvent.disableClickPropagation(bar); L.DomEvent.disableScrollPropagation(bar);
             var oriSel = bar.querySelector('#expOri');
@@ -2503,8 +2586,9 @@
             window.addEventListener('resize', ajustarFrameExport);
             ajustarFrameExport();
         }
-        // Coloca el marco de recorte lo más GRANDE posible y CENTRADO en la parte del mapa que
-        // el usuario ve en pantalla, respetando la proporción de la hoja elegida.
+        // Dimensiona y CENTRA el marco de recorte en la parte del mapa que el usuario ve en
+        // pantalla: las hojas se estiran lo más GRANDE que quepa con su proporción; "Personalizado"
+        // va a escala fija (ver EXPORT_PERS_REF) y "Pantalla" cubre todo lo visible.
         function ajustarFrameExport() {
             var frame = document.getElementById('mapaExportFrame'); if (!frame) return;
             var rect = el.getBoundingClientRect();
@@ -2519,19 +2603,27 @@
                 frame.style.width = Math.round(vw) + 'px'; frame.style.height = Math.round(visH) + 'px';
                 return;
             }
-            // Proporción del marco: en "Personalizado" la marca el ancho×alto pedido; en las
-            // hojas, sus milímetros según la orientación.
-            var aspect;
-            if (expTamSel === 'personalizado') {
-                aspect = expPersW / expPersH;
-            } else {
-                var mm = EXPORT_MM[expTamSel] || EXPORT_MM.carta;
-                aspect = (expOriSel === 'vertical') ? mm[1] / mm[0] : mm[0] / mm[1]; // ancho/alto
-            }
             var maxW = vw * 0.96;
             var maxH = visH - 92;          // deja hueco para la barra inferior y el rótulo
             var fw, fh;
-            if (maxW / maxH > aspect) { fh = maxH; fw = fh * aspect; } else { fw = maxW; fh = fw / aspect; }
+            if (expTamSel === 'personalizado') {
+                // ESCALA FIJA px-de-exportación → px-de-pantalla: el campo de ancho mueve solo el
+                // ancho del marco y el de alto solo su alto (más px = marco más grande = más mapa
+                // dentro de la foto). Antes el marco se estiraba hasta llenar el área visible
+                // respetando solo la PROPORCIÓN, y como esa área es apaisada el alto quedaba
+                // siempre clavado en su máximo: los dos campos acababan moviendo únicamente el
+                // ancho y el recorte vertical no cambiaba nunca.
+                var f = Math.min(maxW / EXPORT_PERS_REF[0], maxH / EXPORT_PERS_REF[1]);
+                // Tope: por muchos px que se pidan, el marco no puede salirse de lo que se ve.
+                f = Math.min(f, maxW / expPersW, maxH / expPersH);
+                fw = expPersW * f; fh = expPersH * f;
+            } else {
+                // Hojas: el marco se estira todo lo que cabe, con la proporción de sus milímetros
+                // según la orientación.
+                var mm = EXPORT_MM[expTamSel] || EXPORT_MM.carta;
+                var aspect = (expOriSel === 'vertical') ? mm[1] / mm[0] : mm[0] / mm[1]; // ancho/alto
+                if (maxW / maxH > aspect) { fh = maxH; fw = fh * aspect; } else { fw = maxW; fh = fw / aspect; }
+            }
             frame.style.width = Math.round(fw) + 'px';
             frame.style.height = Math.round(fh) + 'px';
             frame.style.left = Math.round((vw - fw) / 2) + 'px';
@@ -2657,9 +2749,14 @@
                 ty += 2.5 * k;
             });
             ctx.font = '600 ' + fPt + 'px ' + FAM_ETQ; ctx.fillStyle = '#0f172a';
-            lineasPunto(puntos).forEach(function (n) {   // una línea negra por punto
+            var lineas = lineasPunto(puntos);
+            // Hueco que deja la viñeta antes del nombre: su ancho + los 3px que el CSS pone como
+            // margin-right en .vela-label b::before, para que la foto salga igual a la pantalla.
+            var vinAncho = lineas.length ? ctx.measureText(VINETA_PUNTO).width + 3 * k : 0;
+            lineas.forEach(function (l) {   // una línea negra por punto
                 ty += fPt;
-                ctx.fillText(n, caja.x1 + padX, ty);
+                if (!l.resumen) ctx.fillText(VINETA_PUNTO, caja.x1 + padX, ty);
+                ctx.fillText(l.txt, caja.x1 + padX + (l.resumen ? 0 : vinAncho), ty);
                 ty += 2.5 * k;
             });
             ctx.restore();
@@ -2724,11 +2821,10 @@
             while (t.length > 1 && ctx.measureText(t + '…').width > maxW) t = t.slice(0, -1);
             return t + '…';
         }
-        // Escala gráfica (abajo-derecha) tipo regla.
-        // Deben cuadrar con el control de la pantalla: maxWidth de L.control.scale y el
-        // font-size de .leaflet-control-scale-line. Con otro ancho máximo la foto puede elegir
-        // un escalón redondo distinto al que se ve en el mapa.
-        var ESCALA_MAX_PX = 160, ESCALA_FONT = 12;
+        // Escala gráfica (abajo-derecha) tipo regla. El ancho es ESCALA_MAX_PX (el mismo del
+        // control de la pantalla): con otro ancho máximo la foto elegiría un escalón redondo
+        // distinto al que se ve en el mapa. ESCALA_FONT cuadra con .leaflet-control-scale-line.
+        var ESCALA_FONT = 12;
         function dibujarEscala(ctx, rightX, bottomY, mppx, k) {
             k = k || 1;
             var maxPx = ESCALA_MAX_PX * k, m = numRedondo(maxPx * mppx), px = m / mppx;

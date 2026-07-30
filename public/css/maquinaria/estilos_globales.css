@@ -4370,12 +4370,32 @@ body:has(.mapa-page) .main-viewport {
     background: rgba(15, 23, 42, 0.92); color: #fff; font-size: 11px; font-weight: 600;
     padding: 3px 10px; border-radius: 7px; white-space: nowrap;
 }
-/* Barra de controles del export */
+/* Barra de controles del export: DOS bloques, los CAMPOS y los BOTONES. Los campos son los
+   únicos que se reparten en varias líneas cuando no caben (flex-wrap dentro de
+   .mapa-export-fields); los botones van siempre AL LADO (flex:none y nowrap en la barra). Con
+   todo colgando directo de la barra, al elegir "Personalizado" aparecía el campo "Tamaño (px)"
+   y Cancelar/Descargar caían a una segunda línea debajo de todo. */
+/* Centrado con left/right:0 + margin:auto y NO con left:50%+translateX: al estar anclada en el
+   50% el ancho DISPONIBLE para la barra era solo la mitad derecha del mapa (~768px), así que el
+   max-width:94% no servía de nada y el contenido se envolvía mucho antes de tiempo. */
 .mapa-export-bar {
-    position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 1500;
-    display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center;
+    position: absolute; left: 0; right: 0; bottom: 16px; margin: 0 auto; z-index: 1500;
+    width: max-content; max-width: 94%;
+    display: flex; align-items: flex-end; gap: 10px; flex-wrap: nowrap; justify-content: center;
     background: rgba(15, 23, 42, 0.94); color: #fff; padding: 8px 12px;
-    border-radius: 12px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45); max-width: 94%;
+    border-radius: 12px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+/* min-width:0 para que el bloque de campos SÍ pueda encogerse (y envolver por dentro) en vez de
+   desbordar la barra: es lo que deja sitio a los botones. */
+.mapa-export-fields {
+    display: flex; align-items: flex-end; gap: 8px; flex-wrap: wrap; justify-content: center;
+    min-width: 0;
+}
+.mapa-export-acts { display: flex; align-items: flex-end; gap: 8px; flex: none; }
+/* Teléfono: no hay ancho para campos + botones en la misma línea; ahí sí se deja que bajen
+   (es eso o que la barra se salga del mapa). */
+@media (max-width: 560px) {
+    .mapa-export-bar { flex-wrap: wrap; }
 }
 /* Campos (lista desplegable) del export: etiqueta arriba + <select> */
 .mapa-export-field {
@@ -4403,17 +4423,15 @@ body:has(.mapa-page) .main-viewport {
 }
 .mapa-export-pers-in input:hover { border-color: rgba(255, 255, 255, 0.65); }
 .mapa-export-pers-in input:focus { outline: none; border-color: #0067b1; }
-/* Check "Más detalle": sin marcar la foto sale igual a la pantalla. */
+/* Check "Más detalle": sin marcar la foto sale igual a la pantalla. El padding-bottom lo deja a
+   la misma altura que los <select> (los campos son más altos: etiqueta arriba + select); el
+   alineado al fondo lo pone el align-items de .mapa-export-fields. */
 .mapa-export-check {
-    display: flex; align-items: center; gap: 6px; align-self: flex-end;
+    display: flex; align-items: center; gap: 6px;
     color: #fff; font-size: 12px; font-weight: 700; cursor: pointer; user-select: none;
     padding-bottom: 6px;
 }
 .mapa-export-check input { width: 16px; height: 16px; accent-color: #0067b1; cursor: pointer; }
-/* Botones Cancelar / Descargar: alinear al FONDO de la barra (como el check) para que queden
-   a la MISMA altura que los <select>. Los campos son más altos (etiqueta arriba + select), así
-   que con el align-items:center de la barra los botones salían "muy arriba" respecto al select. */
-.mapa-export-cancel, .mapa-export-go { align-self: flex-end; }
 
 /* Overlay "Generando imagen…" */
 .mapa-export-load {
@@ -4477,8 +4495,13 @@ body:has(.mapa-page) .main-viewport {
     text-transform: uppercase;
     letter-spacing: 0.03em;
 }
-/* Nombre del PUNTO: en negro y más chico que el del proyecto (que va en azul arriba). */
+/* Nombre del PUNTO: en negro y más chico que el del proyecto (que va en azul arriba).
+   Cada punto lleva delante una viñeta redonda (•) para que se lean como lista cuando la
+   etiqueta junta varios. El hueco (3px) debe cuadrar con el que deja la foto en
+   dibujarEtiquetaVela(), si no el texto de la descarga no coincide con el de la pantalla. */
 .vela-label b { display: block; font-size: 8px; font-weight: 600; color: #0f172a; }
+.vela-label b::before { content: '•'; margin-right: 3px; }
+.vela-label b.vela-mas::before { content: none; } /* "+N más" es un contador, no un punto */
 .estado-tooltip::before { display: none !important; } /* sin flecha */
 
 /* Popup de LONGITUD de la tubería (clic sobre la línea): etiqueta pequeña + los km. Compacto. */
