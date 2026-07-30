@@ -24,15 +24,30 @@ class EquipoObserver
         Cache::forget('tipo_categoria_map_form');
     }
 
+    /**
+     * El historial de documentos lista una fila "Registro de Vehículo" por equipo con
+     * CREADO_POR, así que nacer o morir lo cambia. NO basta con el bump que hace
+     * EquipoAuditLog al registrar 'create'/'delete': la importación masiva crea equipos
+     * SIN registrar auditoría, y forceDeleteEquipo borra los logs por query builder
+     * (sin eventos de modelo) y cascadea `documentacion`. Aquí se cubren TODOS los
+     * caminos. La edición no necesita bump: siempre pasa por EquipoAuditLog 'edit'.
+     */
+    private function bustHistorialDocs(): void
+    {
+        \App\Http\Controllers\HistorialDocumentosController::bumpDataVersion();
+    }
+
     public function created(Equipo $equipo): void
     {
         $this->bustTipoCategoriaMap();
+        $this->bustHistorialDocs();
         \App\Http\Controllers\DashboardController::bumpDataVersion();
     }
 
     public function deleted(Equipo $equipo): void
     {
         $this->bustTipoCategoriaMap();
+        $this->bustHistorialDocs();
         \App\Http\Controllers\DashboardController::bumpDataVersion();
     }
 

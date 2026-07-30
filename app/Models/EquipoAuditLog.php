@@ -24,6 +24,16 @@ class EquipoAuditLog extends Model
         'created_at' => 'datetime',
     ];
 
+    /**
+     * Toda fila de auditoría es una fila del historial de documentos, que se sirve
+     * desde una caché versionada: al nacer o morir un log, se invalida.
+     */
+    protected static function booted(): void
+    {
+        static::created(fn () => \App\Http\Controllers\HistorialDocumentosController::bumpDataVersion());
+        static::deleted(fn () => \App\Http\Controllers\HistorialDocumentosController::bumpDataVersion());
+    }
+
     public function equipo()
     {
         return $this->belongsTo(Equipo::class, 'ID_EQUIPO', 'ID_EQUIPO');

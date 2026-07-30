@@ -81,6 +81,36 @@ class HistorialDocumentosController extends Controller
         ],
     ];
 
+    /**
+     * Versión de la caché de eventos del historial (ver construirEventos): cambia
+     * con cada escritura y hace que la entrada cacheada se considere obsoleta.
+     *
+     * Quién la bumpea:
+     *   · EquipoAuditLog::booted y CatalogoAuditLog::booted (created/deleted) — cubren
+     *     las subidas/borrados de PDF (upload_X / delete_X), las ediciones de equipo y
+     *     de PLACA ('edit', vía EquipoObserver / DocumentacionObserver) y el catálogo.
+     *   · EquipoObserver created/deleted — el alta y la baja de un equipo cambian la
+     *     fila "Registro de Vehículo"; hay caminos que NO dejan auditoría (importación
+     *     masiva) o que borran los logs por query builder (forceDeleteEquipo).
+     *   · deleteRegistro — borra logs por query builder, sin eventos de modelo.
+     *
+     * Queda fuera a propósito: renombrar un usuario o un auxiliar cambia solo la
+     * ETIQUETA mostrada, no el conjunto de eventos; se refresca al vencer el TTL.
+     *
+     * A DIFERENCIA del dashboard (DashboardController::DATA_VER_KEY), aquí la versión
+     * NO va en la clave sino DENTRO del valor: el payload pesa ~2 MB y con la versión
+     * en la clave cada bump dejaría una fila huérfana de 2 MB en la tabla `cache`
+     * (el driver database solo purga una entrada caducada cuando alguien la lee, y a
+     * esa clave vieja ya nadie vuelve). Con la clave estable, cada rebuild sobrescribe
+     * su propia fila.
+     */
+    public const DATA_VER_KEY = 'historial_docs_ver';
+
+    public static function bumpDataVersion(): void
+    {
+        \App\Support\CacheVersion::bump(self::DATA_VER_KEY);
+    }
+
     public function index(Request $request)
     {
         // ── Scope LOCAL ─────────────────────────────────────────────────────
@@ -103,6 +133,119 @@ class HistorialDocumentosController extends Controller
             : null;
         $searchEquipoSql = trim((string) $request->input('search_equipo', ''));
 
+        // ── CACHÉ de la lista completa de eventos ───────────────────────────
+        // Construirla cuesta ~1.8 s de request completo (4 queries de hasta 5000 filas
+        // + dedup + sort en PHP) y ANTES se rehacía entera en CADA clic de paginación
+        // solo para devolver 15 filas — de ahí la lentitud al navegar entre páginas.
+        // Ahora pasar de página es un slice en memoria sobre la lista ya cacheada
+        // (~250 ms de request, medido end-to-end en el navegador).
+        // La clave identifica el CONJUNTO de eventos: usuario + su scope de frentes
+        // (así un cambio de permisos cambia la clave sola) + la firma de todos los
+        // filtros que afectan al resultado. `page` NO entra: es lo que se reutiliza.
+        // La versión (DATA_VER_KEY) viaja en el VALOR, no en la clave — ver el
+        // comentario de la constante.
+        $ver      = \App\Support\CacheVersion::current(self::DATA_VER_KEY);
+        $cacheKey = 'historial_docs_' . md5(json_encode([
+            $user ? $user->ID_USUARIO : 'guest',
+            $frentesVisibles,
+            $frentesBloqueados,
+            $request->only(['fecha_desde', 'fecha_hasta', 'search_equipo', 'search_correo', 'search_tipo', 'hd_ids']),
+        ]));
+
+        $cached = \Illuminate\Support\Facades\Cache::get($cacheKey);
+        if (is_array($cached) && ($cached['ver'] ?? null) === $ver) {
+            $events = collect($cached['events']);
+        } else {
+            $events = collect($this->construirEventos(
+                $request, $frentesVisibles, $frentesBloqueados,
+                $fechaDesdeSql, $fechaHastaSql, $searchEquipoSql
+            ));
+            \Illuminate\Support\Facades\Cache::put(
+                $cacheKey,
+                ['ver' => $ver, 'events' => $events->all()],
+                now()->addMinutes(10)
+            );
+        }
+
+        $total = $events->count();
+
+        // Paginación manual (LengthAwarePaginator) sobre la colección de eventos.
+        $perPage = 15;
+        $page = $request->input('page', 1);
+
+        $paginatedEvents = new \Illuminate\Pagination\LengthAwarePaginator(
+            $events->forPage($page, $perPage)->values(), // important: values() to reset keys for blade loop
+            $total,
+            $perPage,
+            $page,
+            ['path' => $request->url(), 'query' => $request->query()]
+        );
+
+        // La respuesta AJAX (paginación y filtros) solo necesita filas + paginador,
+        // por eso sale ANTES de consultar IPs bloqueadas, sesiones activas y autores:
+        // esos 3 queries solo alimentan la carga inicial de la vista completa.
+        if ($request->wantsJson()) {
+            return response()->json([
+                'html' => view('admin.historial_documentos.partials.table_rows', ['events' => $paginatedEvents])->render(),
+                'pagination' => $paginatedEvents->links('vendor.pagination.custom-sliding')->toHtml(),
+                'total' => $total
+            ]);
+        }
+
+        // IPs EFECTIVAMENTE bloqueadas (>= umbral de intentos fallidos), no las que aún
+        // están en seguimiento. Criterio/umbral en un solo lugar: BloqueoIp::bloqueadas().
+        $blockedIps = BloqueoIp::bloqueadas()->get();
+
+        // Usuarios con sesion activa en los ultimos 30 min (driver database).
+        // Se lee directamente la tabla `sessions` (Laravel la crea cuando SESSION_DRIVER=database).
+        // NOTA: el JOIN usa `sessions.user_id = usuarios.ID_USUARIO` — esto funciona porque
+        // App\Models\Usuario sobrescribe $primaryKey = 'ID_USUARIO', asi Auth::id() devuelve
+        // ese valor y Laravel lo persiste en sessions.user_id. La FK formal del schema
+        // apunta a la tabla default `users` que NO se usa en este proyecto.
+        // Ambas columnas del filtro (user_id y last_activity) estan indexadas.
+        // Fuente ÚNICA: App\Models\Usuario::sesionesActivas() (reutilizada por /admin/usuarios).
+        $activeUsers = \App\Models\Usuario::sesionesActivas(30);
+
+        // Autores (nombre + correo) → autocompletado del filtro "Buscar por nombre o
+        // correo del autor". Se sugieren ambos para que el usuario ubique por cualquiera.
+        $autoresSugeridos = \App\Models\Usuario::whereNotNull('CORREO_ELECTRONICO')
+            ->where('CORREO_ELECTRONICO', '!=', '')
+            ->orderBy('NOMBRE_COMPLETO')
+            ->get(['NOMBRE_COMPLETO', 'CORREO_ELECTRONICO'])
+            ->map(fn ($u) => [
+                'nombre' => (string) ($u->NOMBRE_COMPLETO ?? ''),
+                'correo' => (string) $u->CORREO_ELECTRONICO,
+            ])
+            ->values();
+
+        return view('admin.historial_documentos.index', [
+            'events'           => $paginatedEvents,
+            'total'            => $total,
+            'blockedIps'       => $blockedIps,
+            'activeUsers'      => $activeUsers,
+            'autoresSugeridos' => $autoresSugeridos,
+        ]);
+    }
+
+    /**
+     * Construye la lista COMPLETA de eventos del historial, ya deduplicada, ordenada
+     * y filtrada. Mezcla 4 fuentes: subidas de documento (flags en `documentacion`),
+     * creación de equipos, auditoría de equipos/auxiliares y auditoría del catálogo.
+     *
+     * Es el trabajo caro de la pantalla; vive separado de index() para que ese pueda
+     * saltárselo cuando la lista ya está en caché (ver DATA_VER_KEY).
+     *
+     * @param  array|null  $frentesVisibles  null = ve todo (GLOBAL) | [] = local sin frentes | [ids]
+     * @return array  Eventos (stdClass) ordenados por fecha desc.
+     */
+    private function construirEventos(
+        Request $request,
+        ?array $frentesVisibles,
+        array $frentesBloqueados,
+        ?Carbon $fechaDesdeSql,
+        ?Carbon $fechaHastaSql,
+        string $searchEquipoSql
+    ): array {
         // Helper que aplica el scope LOCAL a un query Eloquent que tiene relacion
         // 'equipo'. Usado en Documentacion y EquipoAuditLog (que SI tienen relacion).
         $applyLocalScopeViaWhereHas = function ($query) use ($frentesVisibles, $frentesBloqueados) {
@@ -180,6 +323,13 @@ class HistorialDocumentosController extends Controller
             $eName = $doc->equipo
                 ? ($doc->equipo->tipo->nombre ?? 'Equipo') . ' ' . $doc->equipo->MARCA . ' ' . $doc->equipo->MODELO
                 : 'Equipo Eliminado';
+            // La documentacion del equipo ES $doc (relacion hasOne). Se inyecta para
+            // que el fallback de buildEquipoId la lea de aqui en vez de dispararla
+            // como lazy load: sin esto eran ~134 queries extra (`select * from
+            // documentacion where ID_EQUIPO = ?`), el 60% del SQL de la pagina.
+            if ($doc->equipo) {
+                $doc->equipo->setRelation('documentacion', $doc);
+            }
             $eId   = $this->buildEquipoId($doc->equipo, $doc->PLACA ?? null);
 
             foreach (self::DOC_FIELD_MAP as $docKey => $cfg) {
@@ -634,61 +784,7 @@ class HistorialDocumentosController extends Controller
             }
         }
 
-        $total = $events->count();
-
-        // 5. Paginación manual (LengthAwarePaginator) sobre la colección de eventos.
-        $perPage = 15;
-        $page = $request->input('page', 1);
-        
-        $paginatedEvents = new \Illuminate\Pagination\LengthAwarePaginator(
-            $events->forPage($page, $perPage)->values(), // important: values() to reset keys for blade loop
-            $total,
-            $perPage,
-            $page,
-            ['path' => $request->url(), 'query' => $request->query()]
-        );
-
-        // IPs EFECTIVAMENTE bloqueadas (>= umbral de intentos fallidos), no las que aún
-        // están en seguimiento. Criterio/umbral en un solo lugar: BloqueoIp::bloqueadas().
-        $blockedIps = BloqueoIp::bloqueadas()->get();
-
-        // Usuarios con sesion activa en los ultimos 30 min (driver database).
-        // Se lee directamente la tabla `sessions` (Laravel la crea cuando SESSION_DRIVER=database).
-        // NOTA: el JOIN usa `sessions.user_id = usuarios.ID_USUARIO` — esto funciona porque
-        // App\Models\Usuario sobrescribe $primaryKey = 'ID_USUARIO', asi Auth::id() devuelve
-        // ese valor y Laravel lo persiste en sessions.user_id. La FK formal del schema
-        // apunta a la tabla default `users` que NO se usa en este proyecto.
-        // Ambas columnas del filtro (user_id y last_activity) estan indexadas.
-        // Fuente ÚNICA: App\Models\Usuario::sesionesActivas() (reutilizada por /admin/usuarios).
-        $activeUsers = \App\Models\Usuario::sesionesActivas(30);
-
-        if ($request->wantsJson()) {
-            return response()->json([
-                'html' => view('admin.historial_documentos.partials.table_rows', ['events' => $paginatedEvents])->render(),
-                'pagination' => $paginatedEvents->links('vendor.pagination.custom-sliding')->toHtml(),
-                'total' => $total
-            ]);
-        }
-
-        // Autores (nombre + correo) → autocompletado del filtro "Buscar por nombre o
-        // correo del autor". Se sugieren ambos para que el usuario ubique por cualquiera.
-        $autoresSugeridos = \App\Models\Usuario::whereNotNull('CORREO_ELECTRONICO')
-            ->where('CORREO_ELECTRONICO', '!=', '')
-            ->orderBy('NOMBRE_COMPLETO')
-            ->get(['NOMBRE_COMPLETO', 'CORREO_ELECTRONICO'])
-            ->map(fn ($u) => [
-                'nombre' => (string) ($u->NOMBRE_COMPLETO ?? ''),
-                'correo' => (string) $u->CORREO_ELECTRONICO,
-            ])
-            ->values();
-
-        return view('admin.historial_documentos.index', [
-            'events'           => $paginatedEvents,
-            'total'            => $total,
-            'blockedIps'       => $blockedIps,
-            'activeUsers'      => $activeUsers,
-            'autoresSugeridos' => $autoresSugeridos,
-        ]);
+        return $events->all();
     }
 
     /**
@@ -759,6 +855,10 @@ class HistorialDocumentosController extends Controller
             if (!$borrados) {
                 return response()->json(['success' => false, 'message' => 'El registro ya no existe.'], 404);
             }
+
+            // Borrado por query builder: NO dispara el evento `deleted` del modelo,
+            // así que la caché de eventos se invalida aquí a mano.
+            self::bumpDataVersion();
 
             return response()->json(['success' => true, 'message' => 'Registro eliminado del historial.']);
         } catch (\Throwable $e) {
