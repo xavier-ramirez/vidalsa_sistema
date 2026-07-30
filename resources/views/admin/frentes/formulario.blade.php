@@ -558,6 +558,11 @@
                             }));
                         } catch (_) {}
                         var dest = data.redirect || '{{ route("frentes.create") }}';
+                        // HANDOFF del spinner (ver loadPage en navegacion.js): cedemos el
+                        // show() de este flujo, que aquí no se balancea. Sin el flag,
+                        // loadPage suma otro show() y su único hide() deja el contador en
+                        // 1 → el spinner se queda tapando el módulo destino ya cargado.
+                        window.__vidalsaRedirecting = true;
                         if (window.navigateTo) window.navigateTo(dest);
                         else window.location.href = dest;
                     } else {

@@ -124,6 +124,11 @@
                     sessionStorage.setItem('vidalsa_flash_toast', JSON.stringify({ message: msg, type: 'success' }));
                 } catch (_) {}
                 const redirect = body.redirect || '{{ route("equipos-auxiliares.index") }}';
+                // HANDOFF del spinner (ver loadPage en navegacion.js): cedemos el show()
+                // de arriba, que aquí no se balancea. Sin el flag, loadPage suma otro
+                // show() y su único hide() deja el contador en 1 → el spinner se queda
+                // tapando el módulo destino ya cargado.
+                window.__vidalsaRedirecting = true;
                 if (typeof window.navigateTo === 'function') window.navigateTo(redirect);
                 else window.location.href = redirect;
                 return;
