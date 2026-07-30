@@ -531,13 +531,12 @@ function createCharts(data) {
     if (canvasAge && data.ageByType && data.ageByType.labels && data.ageByType.labels.length > 0) {
         window.fleetCharts.ageByType = createStackedBarChart('chartAgeByType', {
             labels: data.ageByType.labels,
+            // Solo etiqueta, datos y color: el ASPECTO de la barra (grosor, hueco entre
+            // tramos, redondeo) lo pone createStackedBarChart en un único sitio.
             datasets: data.ageByType.datasets.map((ds, idx) => ({
                 label: ds.label,
                 data: ds.data,
-                backgroundColor: window.CHART_COLORS.age[idx],
-                borderWidth: 0,
-                borderRadius: 5,
-                borderSkipped: false
+                backgroundColor: window.CHART_COLORS.age[idx]
             }))
         });
     } else {
@@ -552,10 +551,7 @@ function createCharts(data) {
             datasets: data.auxByType.datasets.map((ds, idx) => ({
                 label: ds.label,
                 data: ds.data,
-                backgroundColor: window.CHART_COLORS.age[idx] || '#64748b',
-                borderWidth: 0,
-                borderRadius: 5,
-                borderSkipped: false
+                backgroundColor: window.CHART_COLORS.age[idx] || '#64748b'
             }))
         });
     } else if (canvasAux) {
@@ -677,7 +673,25 @@ function createStackedBarChart(canvasId, config) {
         data: {
             labels: wrappedLabels,
             datasets: config.datasets.map(function (ds, idx) {
-                const base = Object.assign({}, ds, { maxBarThickness: 18, categoryPercentage: 0.82, barPercentage: 0.9 });
+                // Separación entre segmentos: un borde de 2px del COLOR DE LA SUPERFICIE
+                // (blanco), no un contorno de color. Se lee como aire entre los tramos y no
+                // como tinta extra; antes los tramos se tocaban y el límite entre azul y rojo
+                // quedaba duro.
+                //
+                // BARRAS CUADRADAS por decisión del cliente (2026-07-30): sin borderRadius.
+                // NO volver a redondearlas "por estilo" — se pidió expresamente así.
+                const base = Object.assign({}, ds, {
+                    maxBarThickness: 18,
+                    categoryPercentage: 0.82,
+                    barPercentage: 0.9,
+                    borderColor: '#fff',
+                    // Solo el lado IZQUIERDO, que es por donde un tramo toca al anterior.
+                    // Con los 4 lados a 2px la barra perdía 4px de grosor (18 -> 14) porque
+                    // Chart.js dibuja el borde DENTRO de la caja de la barra.
+                    borderWidth: { left: 2, top: 0, right: 0, bottom: 0 },
+                    borderSkipped: false,
+                    borderRadius: 0
+                });
                 // Etiquetas SIEMPRE visibles (sin pasar el mouse). chartjs-plugin-datalabels
                 // exige el objeto { labels: {...} } para mostrar varias etiquetas por barra:
                 // un array NO es válido y dejaba el valor sin verse. El último dataset suma

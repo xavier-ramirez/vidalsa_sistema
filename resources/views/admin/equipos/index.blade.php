@@ -1088,13 +1088,12 @@
             text-transform: none;
         }
 
-        /* Cabecera BLANCA, igual que la del "Dashboard de Consumo" (.cdash-head):
-           fondo blanco, título oscuro, ícono azul y una línea de separación abajo.
-           Antes era un degradado azul marino con texto blanco. */
+        /* Cabecera AZUL del proyecto (#00004d), con título/íconos blancos. El CUERPO del
+           modal sí es blanco: el contraste cabecera-cuerpo es lo que separa el encabezado,
+           así que aquí no hace falta borde inferior. */
         .fleet-dashboard-header {
-            background: #fff;
-            padding: 15px 25px;
-            border-bottom: 1px solid #e2e8f0;
+            background: #00004d;
+            padding: 13px 22px;
         }
         
         .fleet-header-wrapper {
@@ -1119,13 +1118,6 @@
             flex-shrink: 0;
         }
         
-        .fleet-header-controls {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            flex-shrink: 0;
-        }
-
         /* Grupo derecho: botones Descargar + Cerrar, mismo estilo (glass) */
         .fleet-header-right {
             display: flex;
@@ -1134,90 +1126,90 @@
             flex-shrink: 0;
         }
 
-        /* Botones Descargar/Cerrar sobre cabecera BLANCA: transparentes con ícono gris y
-           hover gris claro, igual que la X del "Dashboard de Consumo" (.cdash-x).
-           Antes eran "glass" (blanco translúcido) porque la cabecera era azul oscura. */
+        /* Botones Descargar/Cerrar sobre la cabecera azul: "glass" (blanco translúcido)
+           con ícono blanco. 34px en vez de 38px para que la cabecera sea más baja. */
         .fleet-header-btn {
-            background: transparent;
+            background: rgba(255, 255, 255, 0.14);
             border: none;
-            width: 38px;
-            height: 38px;
+            width: 34px;
+            height: 34px;
             border-radius: 8px;
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
             flex-shrink: 0;
-            transition: all 0.2s;
+            transition: background 0.2s;
         }
 
         .fleet-header-btn:hover {
-            background: #f1f5f9;
-        }
-
-        .fleet-header-btn:hover .material-icons {
-            color: #0f172a;
+            background: rgba(255, 255, 255, 0.28);
         }
 
         .fleet-header-btn .material-icons {
-            color: #64748b;
-            font-size: 22px;
+            color: #fff;
+            font-size: 20px;
         }
 
-        /* ── Tarjetas KPI (Total / Flota Nueva / Flota Antigua / Consumo) ──────────
-           Las cuatro son IDÉNTICAS salvo etiqueta, id e ícono, con el acento azul del
-           proyecto. Antes cada una llevaba su propio color (verde/ámbar/rojo) en styles
-           inline; al unificarlas quedaban 4 copias byte a byte, así que el estilo vive
-           aquí y el color se cambia en un solo sitio.
+        /* ── Tarjetas KPI (Total / Flota nueva / Flota antigua / Consumo) ──────────
+           Las cuatro son IDÉNTICAS salvo etiqueta e id, con el acento azul del proyecto.
+           El estilo vive aquí y no en styles inline: si no, son 4 copias byte a byte.
+
+           Contrato de "tarjeta de dato": ETIQUETA + CIFRA, nada más. Se quitó el ícono
+           (era decoración y obligaba a la tarjeta a tener el alto de su caja) y la
+           etiqueta pasa de MAYÚSCULAS con letter-spacing a formato oración: en mayúsculas
+           "FLOTA ANTIGUA (<2025)" ocupaba dos líneas y competía con la cifra, que es lo
+           único que debe destacar.
+
            OJO: el bloque mobile de más abajo ajusta padding y tamaños apuntando a
            `.fleet-stats-grid > div`, `h3` y `p`, así que sigue aplicando sin tocar. */
         .fleet-kpi {
             background: #fff;
-            border-radius: 14px;
-            padding: 16px;
-            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+            border-radius: 10px;
+            padding: 10px 13px;
             border: 1px solid #e9eef5;
-            border-left: 4px solid var(--maquinaria-blue, #0067b1);
-        }
-
-        .fleet-kpi-row {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
+            border-left: 3px solid var(--maquinaria-blue, #0067b1);
         }
 
         .fleet-kpi-lbl {
             margin: 0;
-            font-size: 11px;
+            font-size: 11.5px;
+            line-height: 1.25;
             color: #64748b;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+            font-weight: 600;
         }
 
+        /* Cifras proporcionales a propósito (sin tabular-nums): en un número grande y
+           suelto los dígitos de ancho fijo hacen que "61" se vea desparramado. */
         .fleet-kpi-val {
-            margin: 6px 0 0 0;
-            font-size: 26px;
+            margin: 1px 0 0 0;
+            font-size: 23px;
+            line-height: 1.15;
             color: #0f172a;
-            font-weight: 800;
-            letter-spacing: -0.5px;
+            font-weight: 700;
+            letter-spacing: -0.4px;
         }
 
-        .fleet-kpi-ic {
-            background: #e1effa;
-            padding: 9px;
-            border-radius: 10px;
+        /* Fila superior del cuerpo: contadores (crecen) + buscador de frente (ancho fijo). */
+        .fleet-topline {
             display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 0 0 12px 0;
         }
 
-        .fleet-kpi-ic .material-icons {
-            font-size: 20px;
-            color: var(--maquinaria-blue, #0067b1);
+        .fleet-topline .fleet-stats-grid {
+            flex: 1 1 auto;
+            min-width: 0;
+            margin: 0 !important;
         }
 
+        /* 190px: con 210 las 4 tarjetas ya no entraban en UNA fila (el grid se quedaba en
+           620px y con minmax(150px) saltaba a dos filas). */
         .fleet-filter-container {
             position: relative;
-            width: 300px;
+            width: 190px;
+            flex: none;
         }
 
         .fleet-filter-container .dropdown-trigger {
@@ -1231,8 +1223,9 @@
     </style>
     
     <div id="fleetDashboardModal" class="modal-overlay">
-        {{-- Fondo BLANCO en todo el modal (antes #f8fafc). Los paneles internos se
-             siguen distinguiendo por su borde #e2e8f0, no por el contraste del fondo. --}}
+        {{-- CUERPO blanco (antes #f8fafc); la cabecera va azul aparte (.fleet-dashboard-header).
+             Los paneles internos se distinguen por su borde #e2e8f0, no por el contraste
+             del fondo. --}}
         <div class="modal-content" style="width: 94%; max-width: 880px; height: 90vh; padding: 0; display: flex; flex-direction: column; background: #fff; position: relative; border-radius: 18px; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.35);">
             <!-- Header -->
             <div class="fleet-dashboard-header">
@@ -1241,83 +1234,15 @@
                     <div class="fleet-header-left">
                         <!-- Icon + Title -->
                         <div class="fleet-header-title-group">
-                            <div style="background: #e1effa; padding: 8px; border-radius: 10px;">
-                                <i class="material-icons" style="font-size: 24px; color: var(--maquinaria-blue, #0067b1);">analytics</i>
+                            <div style="background: rgba(255,255,255,0.16); padding: 7px; border-radius: 9px; display: flex;">
+                                <i class="material-icons" style="font-size: 21px; color: #fff;">analytics</i>
                             </div>
                             <div>
-                                <h2 style="margin: 0; color: #0f172a; font-size: 18px; font-weight: 800; white-space: nowrap;">Dashboard de Flota</h2>
+                                <h2 style="margin: 0; color: #fff; font-size: 17px; font-weight: 700; white-space: nowrap;">Dashboard de Flota</h2>
                             </div>
                         </div>
                         
                         <!-- Controls Group (Filter) -->
-                        @php
-                            $dashUser       = auth()->user();
-                            $dashIsLocal    = $dashUser && !$dashUser->veTodosLosFrentesEquipos();
-                            $dashFrenteIds  = $dashUser ? $dashUser->getFrentesIds() : [];
-
-                            // Prioridad 1: frente activo en el filtro de URL (id_frente=16)
-                            $activeFrenteId   = request('id_frente');
-                            $activeFrenteObj  = ($activeFrenteId && $activeFrenteId !== 'all')
-                                ? $frentes->firstWhere('ID_FRENTE', $activeFrenteId)
-                                : null;
-
-                            // Prioridad 2: primer frente asignado del usuario local
-                            $firstAsigFrenteObj = count($dashFrenteIds) > 0
-                                ? $frentes->firstWhere('ID_FRENTE', $dashFrenteIds[0])
-                                : null;
-
-                            // Prioridad 3: primer frente de la lista global
-                            $fallbackFrenteObj = $frentes->first();
-
-                            // Escoger el mejor frente default
-                            if ($activeFrenteObj) {
-                                $defaultDashboardId     = $activeFrenteObj->ID_FRENTE;
-                                $defaultDashboardNombre = $activeFrenteObj->NOMBRE_FRENTE;
-                            } elseif ($firstAsigFrenteObj) {
-                                $defaultDashboardId     = $firstAsigFrenteObj->ID_FRENTE;
-                                $defaultDashboardNombre = $firstAsigFrenteObj->NOMBRE_FRENTE;
-                            } else {
-                                $defaultDashboardId     = $fallbackFrenteObj->ID_FRENTE ?? '';
-                                $defaultDashboardNombre = $fallbackFrenteObj->NOMBRE_FRENTE ?? '';
-                            }
-                        @endphp
-                        <div class="fleet-header-controls">
-                            <!-- Filter: LOCAL = locked | GLOBAL = dropdown -->
-                             <div class="fleet-filter-container">
-                                 {{-- LOCAL y GLOBAL usan el mismo dropdown, la variable $frentesDropdown ya viene filtrada del Controller --}}
-                                 <input type="hidden" id="dashboardSelectedFrenteId" value="{{ $defaultDashboardId }}">
-                                 <input type="hidden" id="dashboardSelectedFrenteNombre" value="{{ $defaultDashboardNombre }}">
-                                 <div class="custom-dropdown" id="dashboardFrenteDropdown" style="width: 100%;">
-                                 {{-- Sobre cabecera blanca el campo necesita BORDE para verse (antes se
-                                      distinguía solo por contraste con el azul oscuro). Mismo look que
-                                      .cdash-inp-box del Dashboard de Consumo. --}}
-                                 <div class="dropdown-trigger" onclick="dashboardToggleFrente(event)" style="padding: 0; display: flex; align-items: center; background: #fff; overflow: hidden; border: 1px solid #cbd5e0; border-radius: 8px; height: 38px; cursor: default;">
-                                     <div style="padding: 0 10px; display: flex; align-items: center; color: #64748b; flex-shrink:0;">
-                                         <i class="material-icons" style="font-size: 18px;">search</i>
-                                     </div>
-                                     <input type="text" id="dashboardFrenteSearch"
-                                         placeholder="Buscar frente..."
-                                         onkeyup="dashboardFilterFrentes(); dashboardToggleClearBtn()"
-                                         style="flex: 1; min-width: 0; border: none; background: transparent; padding: 8px 5px; font-size: 13px; font-weight: 500; outline: none; color: #1e293b; cursor: text;"
-                                         autocomplete="off">
-                                     <i id="dashboardFrenteClearBtn" class="material-icons"
-                                        onclick="event.stopPropagation(); dashboardClearFrenteSearch()"
-                                        style="padding: 0 8px; color: #64748b; font-size: 20px; display: none; flex-shrink:0;">close</i>
-                                 </div>
-                                     <!-- Custom Dropdown List -->
-                                     <div id="dashboardFrenteList" style="display: none; position: absolute; top: 105%; left: 0; right: 0; max-height: 250px; overflow-y: auto; background: white; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); z-index: 50; padding: 5px;">
-                                         <div onclick="dashboardSelectFrente('all', 'Todos los Frentes', event)" class="dashboard-frente-option dropdown-item" style="padding: 8px 12px; cursor: default; border-radius: 6px; color: #1e293b; font-size: 13px; font-weight: 700; transition: background 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
-                                             TODOS LOS FRENTES
-                                         </div>
-                                         @foreach($frentesDropdown as $frente)
-                                             <div onclick="dashboardSelectFrente('{{ $frente->ID_FRENTE }}', '{{ addslashes(trim($frente->NOMBRE_FRENTE)) }}', event)" class="dashboard-frente-option dropdown-item" style="padding: 8px 12px; cursor: default; border-radius: 6px; color: #1e293b; font-size: 13px; transition: background 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
-                                                 {{ $frente->NOMBRE_FRENTE }}
-                                             </div>
-                                         @endforeach
-                                     </div>
-                                 </div>
-                             </div>
-                        </div>
                     </div>
 
                     <!-- Right: Export + Close (mismo estilo, uno al lado del otro) -->
@@ -1339,52 +1264,102 @@
             </div>
 
             <!-- Dashboard Content -->
-            <div style="flex: 1; overflow-y: auto; padding: 25px;">
+            <div class="fleet-dashboard-body" style="flex: 1; overflow-y: auto; padding: 16px 20px 20px;">
+                @php
+                $dashUser       = auth()->user();
+                $dashIsLocal    = $dashUser && !$dashUser->veTodosLosFrentesEquipos();
+                $dashFrenteIds  = $dashUser ? $dashUser->getFrentesIds() : [];
+
+                // Prioridad 1: frente activo en el filtro de URL (id_frente=16)
+                $activeFrenteId   = request('id_frente');
+                $activeFrenteObj  = ($activeFrenteId && $activeFrenteId !== 'all')
+                ? $frentes->firstWhere('ID_FRENTE', $activeFrenteId)
+                : null;
+
+                // Prioridad 2: primer frente asignado del usuario local
+                $firstAsigFrenteObj = count($dashFrenteIds) > 0
+                ? $frentes->firstWhere('ID_FRENTE', $dashFrenteIds[0])
+                : null;
+
+                // Prioridad 3: primer frente de la lista global
+                $fallbackFrenteObj = $frentes->first();
+
+                // Escoger el mejor frente default
+                if ($activeFrenteObj) {
+                $defaultDashboardId     = $activeFrenteObj->ID_FRENTE;
+                $defaultDashboardNombre = $activeFrenteObj->NOMBRE_FRENTE;
+                } elseif ($firstAsigFrenteObj) {
+                $defaultDashboardId     = $firstAsigFrenteObj->ID_FRENTE;
+                $defaultDashboardNombre = $firstAsigFrenteObj->NOMBRE_FRENTE;
+                } else {
+                $defaultDashboardId     = $fallbackFrenteObj->ID_FRENTE ?? '';
+                $defaultDashboardNombre = $fallbackFrenteObj->NOMBRE_FRENTE ?? '';
+                }
+                @endphp
+
+                {{-- Fila superior: los contadores y, AL LADO, el buscador de frente. El
+                     buscador vivía en la cabecera azul; se bajó aquí para que quede junto a
+                     los números que filtra. --}}
+                <div class="fleet-topline">
                 <!-- Stats Cards Row -->
-                <div class="fleet-stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin: 0 0 16px 0;">
+                <div class="fleet-stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); gap: 10px; margin: 0 0 12px 0;">
 
                     {{-- Las 4 tarjetas comparten el MISMO estilo (ver .fleet-kpi*): solo cambian
-                         etiqueta, id e ícono. El estilo vive en clases y no en styles inline
-                         para no repetirlo 4 veces idéntico. --}}
+                         etiqueta e id. Etiqueta + cifra, sin ícono. --}}
                     <div class="fleet-kpi">
-                        <div class="fleet-kpi-row">
-                            <div>
-                                <p class="fleet-kpi-lbl">Total Equipos</p>
-                                <h3 id="stat_total" class="fleet-kpi-val">0</h3>
-                            </div>
-                            <div class="fleet-kpi-ic"><i class="material-icons">inventory_2</i></div>
-                        </div>
+                        <p class="fleet-kpi-lbl">Total equipos</p>
+                        <h3 id="stat_total" class="fleet-kpi-val">0</h3>
                     </div>
 
                     <div class="fleet-kpi">
-                        <div class="fleet-kpi-row">
-                            <div>
-                                <p class="fleet-kpi-lbl">Flota Nueva (≥2025)</p>
-                                <h3 id="stat_fleet_new" class="fleet-kpi-val">0</h3>
-                            </div>
-                            <div class="fleet-kpi-ic"><i class="material-icons">new_releases</i></div>
-                        </div>
+                        <p class="fleet-kpi-lbl">Flota nueva (≥2025)</p>
+                        <h3 id="stat_fleet_new" class="fleet-kpi-val">0</h3>
                     </div>
 
                     <div class="fleet-kpi">
-                        <div class="fleet-kpi-row">
-                            <div>
-                                <p class="fleet-kpi-lbl">Flota Antigua (&lt;2025)</p>
-                                <h3 id="stat_fleet_old" class="fleet-kpi-val">0</h3>
-                            </div>
-                            <div class="fleet-kpi-ic"><i class="material-icons">history</i></div>
-                        </div>
+                        <p class="fleet-kpi-lbl">Flota antigua (&lt;2025)</p>
+                        <h3 id="stat_fleet_old" class="fleet-kpi-val">0</h3>
                     </div>
 
                     <div class="fleet-kpi">
-                        <div class="fleet-kpi-row">
-                            <div>
-                                <p class="fleet-kpi-lbl">Consumo Est. (L/Día)</p>
-                                <h3 id="stat_consumption" class="fleet-kpi-val">0</h3>
-                            </div>
-                            <div class="fleet-kpi-ic"><i class="material-icons">local_gas_station</i></div>
-                        </div>
+                        <p class="fleet-kpi-lbl">Consumo est. (L/día)</p>
+                        <h3 id="stat_consumption" class="fleet-kpi-val">0</h3>
                     </div>
+                </div>
+
+                                     <div class="fleet-filter-container">
+                                         {{-- LOCAL y GLOBAL usan el mismo dropdown, la variable $frentesDropdown ya viene filtrada del Controller --}}
+                                         <input type="hidden" id="dashboardSelectedFrenteId" value="{{ $defaultDashboardId }}">
+                                         <input type="hidden" id="dashboardSelectedFrenteNombre" value="{{ $defaultDashboardNombre }}">
+                                         <div class="custom-dropdown" id="dashboardFrenteDropdown" style="width: 100%;">
+                                         {{-- Ahora va sobre el CUERPO blanco, así que necesita BORDE para verse
+                                              (en la cabecera azul se distinguía por contraste). --}}
+                                         <div class="dropdown-trigger" onclick="dashboardToggleFrente(event)" style="padding: 0; display: flex; align-items: center; background: #fff; overflow: hidden; border: 1px solid #cbd5e0; border-radius: 8px; height: 36px; cursor: default;">
+                                             <div style="padding: 0 10px; display: flex; align-items: center; color: #64748b; flex-shrink:0;">
+                                                 <i class="material-icons" style="font-size: 18px;">search</i>
+                                             </div>
+                                             <input type="text" id="dashboardFrenteSearch"
+                                                 placeholder="Buscar frente..."
+                                                 onkeyup="dashboardFilterFrentes(); dashboardToggleClearBtn()"
+                                                 style="flex: 1; min-width: 0; border: none; background: transparent; padding: 8px 5px; font-size: 13px; font-weight: 500; outline: none; color: #1e293b; cursor: text;"
+                                                 autocomplete="off">
+                                             <i id="dashboardFrenteClearBtn" class="material-icons"
+                                                onclick="event.stopPropagation(); dashboardClearFrenteSearch()"
+                                                style="padding: 0 8px; color: #64748b; font-size: 20px; display: none; flex-shrink:0;">close</i>
+                                         </div>
+                                             <!-- Custom Dropdown List -->
+                                             <div id="dashboardFrenteList" style="display: none; position: absolute; top: 105%; left: 0; right: 0; max-height: 250px; overflow-y: auto; background: white; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); z-index: 50; padding: 5px;">
+                                                 <div onclick="dashboardSelectFrente('all', 'Todos los Frentes', event)" class="dashboard-frente-option dropdown-item" style="padding: 8px 12px; cursor: default; border-radius: 6px; color: #1e293b; font-size: 13px; font-weight: 700; transition: background 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
+                                                     TODOS LOS FRENTES
+                                                 </div>
+                                                 @foreach($frentesDropdown as $frente)
+                                                     <div onclick="dashboardSelectFrente('{{ $frente->ID_FRENTE }}', '{{ addslashes(trim($frente->NOMBRE_FRENTE)) }}', event)" class="dashboard-frente-option dropdown-item" style="padding: 8px 12px; cursor: default; border-radius: 6px; color: #1e293b; font-size: 13px; transition: background 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
+                                                         {{ $frente->NOMBRE_FRENTE }}
+                                                     </div>
+                                                 @endforeach
+                                             </div>
+                                         </div>
+                                     </div>
                 </div>
 
 
@@ -1487,10 +1462,6 @@
                 font-size: 14px !important;
             }
 
-            .fleet-header-title-group p {
-                font-size: 10px !important;
-            }
-
             /* Icono del dashboard más pequeño */
             .fleet-header-title-group > div:first-child {
                 padding: 6px !important;
@@ -1500,17 +1471,16 @@
                 font-size: 18px !important;
             }
 
-            /* Controls: Filter Row */
-            .fleet-header-controls {
-                width: 100% !important;
-                justify-content: flex-start !important;
+            /* La fila superior se APILA: contadores arriba, buscador debajo a todo lo ancho. */
+            #fleetDashboardModal .fleet-topline {
+                flex-direction: column !important;
+                align-items: stretch !important;
                 gap: 8px !important;
             }
 
-            /* Filter Container crece para llenar espacio */
             .fleet-filter-container {
-                width: auto !important;
-                flex: 1 !important;
+                width: 100% !important;
+                flex: none !important;
                 min-width: 0 !important;
             }
 
@@ -1526,13 +1496,11 @@
                 gap: 8px !important;
             }
 
-            .fleet-header-right .fleet-header-btn {
-                width: 34px !important;
-                height: 34px !important;
-            }
-
-            /* Dashboard content: menos padding y prevención de overflow */
-            #fleetDashboardModal .modal-content > div[style*="overflow-y: auto"] {
+            /* Dashboard content: menos padding y prevención de overflow.
+               Apunta por CLASE y no por `div[style*="overflow-y: auto"]`: ese selector
+               dependía de un trozo literal del style inline, así que cualquier reorden o
+               quitarle el espacio ("overflow-y:auto") lo rompía en silencio. */
+            #fleetDashboardModal .fleet-dashboard-body {
                 padding: 14px !important;
                 overflow-x: hidden !important;
                 box-sizing: border-box !important;
@@ -1560,14 +1528,18 @@
             }
 
             #fleetDashboardModal .fleet-stats-grid p {
-                font-size: 9px !important; /* Ligeramente más pequeño para no desbordar */
+                /* 10.5px: los 9px de antes se calibraron para la etiqueta en MAYÚSCULAS,
+                   que era más ancha. En formato oración entra holgada a este tamaño. */
+                font-size: 10.5px !important;
                 white-space: normal !important;
             }
 
 
-            /* Charts: 1 columna y sin overflow */
+            /* Charts: 1 columna y sin overflow. minmax(0, 1fr) y NO 1fr por lo mismo que en
+               la regla de escritorio: con 1fr el track crece hasta el ancho intrínseco del
+               <canvas> y el panel se sale del modal. */
             #fleetChartsGrid {
-                grid-template-columns: 1fr !important;
+                grid-template-columns: minmax(0, 1fr) !important;
                 gap: 12px !important;
                 max-width: 100% !important;
                 overflow: hidden !important;
