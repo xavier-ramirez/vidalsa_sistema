@@ -532,6 +532,10 @@ function createCharts(data) {
     if (canvasAge && data.ageByType && data.ageByType.labels && data.ageByType.labels.length > 0) {
         window.fleetCharts.ageByType = createStackedBarChart('chartAgeByType', {
             labels: data.ageByType.labels,
+            // Sin leyenda de Chart.js: la cabecera del panel ya lleva las claves de serie
+            // CON su total (.fdm-keys), asi que repetirla abajo seria decir lo mismo dos
+            // veces. El de auxiliares si la conserva, que no tiene claves en cabecera.
+            sinLeyenda: true,
             // Solo etiqueta, datos y color: el ASPECTO de la barra (grosor, hueco entre
             // tramos, redondeo) lo pone createStackedBarChart en un único sitio.
             datasets: data.ageByType.datasets.map((ds, idx) => ({
@@ -710,7 +714,7 @@ function createStackedBarChart(canvasId, config) {
             // Espacio derecho para la etiqueta de total fuera de la barra
             layout: { padding: { right: 38 } },
             plugins: {
-                legend: LEGEND_STYLE,
+                legend: config.sinLeyenda ? { display: false } : LEGEND_STYLE,
                 tooltip: {
                     ...TOOLTIP_STYLES,
                     callbacks: {

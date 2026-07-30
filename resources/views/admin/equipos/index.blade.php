@@ -1167,6 +1167,91 @@
             font-size: 20px;
         }
 
+        /* ── Paneles y su cabecera ────────────────────────────────────────────────
+           El contenedor, la cabecera y el boton de captura estaban escritos con styles
+           inline IDENTICOS en los tres paneles. Aqui una sola vez. */
+        .fdm-panel {
+            background: #fff;
+            border-radius: 12px;
+            padding: 16px 20px 12px;
+            border: 1px solid var(--fd-ring);
+            min-width: 0;
+            overflow: hidden;
+        }
+
+        .fdm-panel-head {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin: 0 0 12px 0;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--fd-ring);
+        }
+
+        .fdm-panel-title {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            font-size: 13.5px;
+            color: #334155;
+            font-weight: 600;
+            min-width: 0;
+        }
+
+        .fdm-panel-title .material-icons { font-size: 18px; color: var(--fd-ink-3); }
+
+        /* Claves de serie CON su total: hacen de leyenda y de contador a la vez, por eso
+           el grafico de edad lleva la leyenda de Chart.js desactivada (seria repetirla).
+           Aqui viven los totales de flota nueva/antigua, que antes eran dos tarjetas
+           sueltas arriba: pertenecen a este grafico, que es justo lo que desglosan. */
+        .fdm-keys {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-left: auto;
+            flex-wrap: wrap;
+        }
+
+        .fdm-key {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11.5px;
+            font-weight: 500;
+            color: var(--fd-ink-2);
+            white-space: nowrap;
+        }
+
+        .fdm-dot {
+            width: 9px;
+            height: 9px;
+            border-radius: 3px;
+            flex-shrink: 0;
+        }
+
+        .fdm-key b {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--fd-ink);
+            letter-spacing: -0.3px;
+        }
+
+        .fdm-cam {
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            color: var(--fd-ink-3);
+            display: flex;
+            align-items: center;
+            padding: 4px 6px;
+            border-radius: 8px;
+            transition: background .2s;
+            flex-shrink: 0;
+        }
+
+        .fdm-cam:hover { background: #f1f5f9; }
+        .fdm-cam .material-icons { font-size: 17px; }
+
         /* ── Tarjetas KPI (Total / Flota nueva / Flota antigua / Consumo) ──────────
            Las cuatro son IDÉNTICAS salvo etiqueta e id, con el acento azul del proyecto.
            El estilo vive aquí y no en styles inline: si no, son 4 copias byte a byte.
@@ -1220,8 +1305,10 @@
             margin: 0 0 12px 0;
         }
 
+        /* El buscador va PRIMERO y es quien crece; los dos contadores ocupan lo suyo
+           a la derecha. Antes el grid crecia y el buscador iba al final. */
         .fleet-topline .fleet-stats-grid {
-            flex: 1 1 auto;
+            flex: 0 1 320px;
             min-width: 0;
             margin: 0 !important;
         }
@@ -1230,8 +1317,8 @@
            620px y con minmax(150px) saltaba a dos filas). */
         .fleet-filter-container {
             position: relative;
-            width: 190px;
-            flex: none;
+            flex: 1 1 auto;
+            min-width: 0;
         }
 
         .fleet-filter-container .dropdown-trigger {
@@ -1286,7 +1373,7 @@
             </div>
 
             <!-- Dashboard Content -->
-            <div class="fleet-dashboard-body" style="flex: 1; overflow-y: auto; padding: 16px 20px 20px;">
+            <div class="fleet-dashboard-body" style="flex: 1; overflow-y: auto; padding: 16px 20px 20px; background: #f6f8fb;">
                 @php
                 $dashUser       = auth()->user();
                 $dashIsLocal    = $dashUser && !$dashUser->veTodosLosFrentesEquipos();
@@ -1323,32 +1410,6 @@
                      buscador vivía en la cabecera azul; se bajó aquí para que quede junto a
                      los números que filtra. --}}
                 <div class="fleet-topline">
-                <!-- Stats Cards Row -->
-                <div class="fleet-stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); gap: 10px; margin: 0 0 12px 0;">
-
-                    {{-- Las 4 tarjetas comparten el MISMO estilo (ver .fleet-kpi*): solo cambian
-                         etiqueta e id. Etiqueta + cifra, sin ícono. --}}
-                    <div class="fleet-kpi">
-                        <p class="fleet-kpi-lbl">Total equipos</p>
-                        <h3 id="stat_total" class="fleet-kpi-val">0</h3>
-                    </div>
-
-                    <div class="fleet-kpi">
-                        <p class="fleet-kpi-lbl">Flota nueva (≥2025)</p>
-                        <h3 id="stat_fleet_new" class="fleet-kpi-val">0</h3>
-                    </div>
-
-                    <div class="fleet-kpi">
-                        <p class="fleet-kpi-lbl">Flota antigua (&lt;2025)</p>
-                        <h3 id="stat_fleet_old" class="fleet-kpi-val">0</h3>
-                    </div>
-
-                    <div class="fleet-kpi">
-                        <p class="fleet-kpi-lbl">Consumo est. (L/día)</p>
-                        <h3 id="stat_consumption" class="fleet-kpi-val">0</h3>
-                    </div>
-                </div>
-
                                      <div class="fleet-filter-container">
                                          {{-- LOCAL y GLOBAL usan el mismo dropdown, la variable $frentesDropdown ya viene filtrada del Controller --}}
                                          <input type="hidden" id="dashboardSelectedFrenteId" value="{{ $defaultDashboardId }}">
@@ -1382,6 +1443,22 @@
                                              </div>
                                          </div>
                                      </div>
+                <!-- Stats Cards Row -->
+                <div class="fleet-stats-grid" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 0 0 12px 0;">
+
+                    {{-- Las 4 tarjetas comparten el MISMO estilo (ver .fleet-kpi*): solo cambian
+                         etiqueta e id. Etiqueta + cifra, sin ícono. --}}
+                    <div class="fleet-kpi">
+                        <p class="fleet-kpi-lbl">Total equipos</p>
+                        <h3 id="stat_total" class="fleet-kpi-val">0</h3>
+                    </div>
+
+                    <div class="fleet-kpi">
+                        <p class="fleet-kpi-lbl">Consumo est. (L/día)</p>
+                        <h3 id="stat_consumption" class="fleet-kpi-val">0</h3>
+                    </div>
+                </div>
+
                 </div>
 
 
@@ -1397,44 +1474,51 @@
                      horizontal con las barras cortadas. min-width:0 deja que el panel encoja. --}}
                 <div id="fleetChartsGrid" style="display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px;">
                     <!-- Flota Nueva vs Vieja por Tipo -->
-                    <div id="fdm-panel-age" style="background: white; border-radius: 12px; padding: 18px 22px 14px; border: 1px solid var(--fd-ring); min-width: 0; overflow: hidden;">
-                        <h4 style="margin: 0 0 12px 0; padding-bottom: 10px; border-bottom: 1px solid var(--fd-ring); font-size: 13.5px; color: #334155; font-weight: 600; display: flex; align-items: center; justify-content: space-between;">
-                            <span style="display: flex; align-items: center; gap: 10px;">
-                                <i class="material-icons" style="font-size: 18px; color: var(--fd-ink-3);">bar_chart</i>
-                                Flota Nueva vs Vieja por Tipo de Equipo
+                    <div id="fdm-panel-age" class="fdm-panel">
+                        <div class="fdm-panel-head">
+                            <span class="fdm-panel-title">
+                                <i class="material-icons">bar_chart</i>
+                                Flota Nueva vs Vieja por Tipo
                             </span>
-                            <button onclick="window.descargarPanelHtmlFDM('fdm-panel-age', 'flota_edad_tipo')" title="Descargar imagen" style="border:none;background:transparent;cursor:pointer;color:#94a3b8;display:flex;align-items:center;padding:4px 8px;border-radius:8px;transition:background .2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
-                                <i class="material-icons" style="font-size:17px;">photo_camera</i>
+                            {{-- Los totales de flota nueva/antigua viven AQUI (antes eran dos
+                                 tarjetas sueltas arriba): son el desglose de este grafico. Los
+                                 ids no cambian, asi que updateStatCards() los sigue llenando. --}}
+                            <span class="fdm-keys">
+                                <span class="fdm-key"><i class="fdm-dot" style="background:#0067b1;"></i>Nueva (&ge;2025) <b id="stat_fleet_new">0</b></span>
+                                <span class="fdm-key"><i class="fdm-dot" style="background:#a91d28;"></i>Antigua (&lt;2025) <b id="stat_fleet_old">0</b></span>
+                            </span>
+                            <button onclick="window.descargarPanelHtmlFDM('fdm-panel-age', 'flota_edad_tipo')" title="Descargar imagen" class="fdm-cam">
+                                <i class="material-icons">photo_camera</i>
                             </button>
-                        </h4>
+                        </div>
                         <canvas id="chartAgeByType"></canvas>
                     </div>
 
                     <!-- Equipos Auxiliares por Tipo -->
-                    <div id="fdm-panel-auxiliares" style="background: white; border-radius: 12px; padding: 18px 22px 14px; border: 1px solid var(--fd-ring); min-width: 0; overflow: hidden;">
-                        <h4 style="margin: 0 0 12px 0; padding-bottom: 10px; border-bottom: 1px solid var(--fd-ring); font-size: 13.5px; color: #334155; font-weight: 600; display: flex; align-items: center; justify-content: space-between;">
-                            <span style="display: flex; align-items: center; gap: 10px;">
-                                <i class="material-icons" style="font-size: 18px; color: var(--fd-ink-3);">construction</i>
+                    <div id="fdm-panel-auxiliares" class="fdm-panel">
+                        <div class="fdm-panel-head">
+                            <span class="fdm-panel-title">
+                                <i class="material-icons">construction</i>
                                 Equipos Auxiliares por Tipo
                             </span>
-                            <button onclick="window.descargarPanelHtmlFDM('fdm-panel-auxiliares', 'auxiliares_por_tipo')" title="Descargar imagen" style="border:none;background:transparent;cursor:pointer;color:#94a3b8;display:flex;align-items:center;padding:4px 8px;border-radius:8px;transition:background .2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
-                                <i class="material-icons" style="font-size:17px;">photo_camera</i>
+                            <button onclick="window.descargarPanelHtmlFDM('fdm-panel-auxiliares', 'auxiliares_por_tipo')" title="Descargar imagen" class="fdm-cam" style="margin-left:auto;">
+                                <i class="material-icons">photo_camera</i>
                             </button>
-                        </h4>
+                        </div>
                         <canvas id="chartAuxByType"></canvas>
                     </div>
                 </div>
 
                 <!-- Equipos Asignados por Frente (al final) -->
-                <div id="fdm-panel-assigned" style="background: white; border-radius: 12px; padding: 18px 22px 20px; border: 1px solid var(--fd-ring); margin-top: 14px;">
-                    <div style="display:flex; align-items:center; justify-content: space-between; margin-bottom: 16px; padding-bottom: 14px; border-bottom: 1px solid #e2e8f0;">
-                        <span style="font-size:14px; font-weight:700; color:#1e293b; display:flex; align-items:center; gap:8px;">
-                            <i class="material-icons" style="font-size:18px; color:#64748b;">directions_bus</i>
+                <div id="fdm-panel-assigned" class="fdm-panel" style="padding-bottom: 18px; margin-top: 14px;">
+                    <div class="fdm-panel-head">
+                        <span class="fdm-panel-title">
+                            <i class="material-icons">directions_bus</i>
                             Equipos Asignados por Frente
-                            <span style="font-size:11px; color:#94a3b8; font-weight:400; margin-left:4px;">— flota actual en cada frente</span>
+                            <span style="font-size:11px; color:var(--fd-ink-2); font-weight:400;">— flota actual en cada frente</span>
                         </span>
-                        <button onclick="window.descargarPanelHtmlFDM('fdm-panel-assigned', 'equipos_asignados_por_frente')" title="Descargar imagen" style="border:none;background:transparent;cursor:pointer;color:#94a3b8;display:flex;align-items:center;padding:4px 8px;border-radius:8px;transition:background .2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
-                            <i class="material-icons" style="font-size:17px;">photo_camera</i>
+                        <button onclick="window.descargarPanelHtmlFDM('fdm-panel-assigned', 'equipos_asignados_por_frente')" title="Descargar imagen" class="fdm-cam" style="margin-left:auto;">
+                            <i class="material-icons">photo_camera</i>
                         </button>
                     </div>
                     <div id="fleetEqAsigLoading" style="display:flex; align-items:center; justify-content:center; height:80px; color:#94a3b8; font-size:13px; gap:8px;">
@@ -1591,12 +1675,18 @@
                 height: auto !important;
             }
 
-            /* Título de paneles */
-            #fdm-panel-age h4,
-            #fdm-panel-auxiliares h4 {
+            /* Título de paneles (antes se apuntaba a `h4`, que ya no existe) */
+            #fleetDashboardModal .fdm-panel-title {
                 font-size: 13px !important;
-                margin-bottom: 12px !important;
             }
+
+            /* Las claves con total bajan a su propia linea para no apretar el titulo. */
+            #fleetDashboardModal .fdm-panel-head {
+                flex-wrap: wrap !important;
+                gap: 8px 12px !important;
+            }
+
+            #fleetDashboardModal .fdm-keys { margin-left: 0 !important; }
         }
 
     </style>
