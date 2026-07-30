@@ -1088,6 +1088,22 @@
             text-transform: none;
         }
 
+        /* ── Tokens del modal ──────────────────────────────────────────────────────
+           Los valores viven aquí y no repetidos por cada regla/style inline.
+           Contraste sobre blanco COMPROBADO (AA texto normal = 4.5:1):
+             --fd-ink   #0f172a  17.9:1  cifras
+             --fd-ink-2 #64748b   4.8:1  etiquetas y textos pequeños (PASA texto)
+             --fd-ink-3 #8a94a6   3.1:1  SOLO mobiliario no textual (íconos, ejes,
+                                         leyenda). NO usar para texto: no llega a 4.5.
+           #fleetDashboardModal es el ámbito, así que las cajas que pinta el JS dentro
+           del modal también pueden usar estas variables. */
+        #fleetDashboardModal {
+            --fd-ring: rgba(15, 23, 42, 0.08);
+            --fd-ink: #0f172a;
+            --fd-ink-2: #64748b;
+            --fd-ink-3: #8a94a6;
+        }
+
         /* Cabecera AZUL del proyecto (#00004d), con título/íconos blancos. El CUERPO del
            modal sí es blanco: el contraste cabecera-cuerpo es lo que separa el encabezado,
            así que aquí no hace falta borde inferior. */
@@ -1172,14 +1188,16 @@
                cada tarjeta: cuatro franjas saturadas seguidas son ruido, y al ser las
                cuatro del mismo color no distinguían nada. El acento de color se reserva
                para marcas pequeñas; aquí quien manda es la cifra. */
-            border: 1px solid rgba(15, 23, 42, 0.08);
+            border: 1px solid var(--fd-ring);
         }
 
         .fleet-kpi-lbl {
             margin: 0;
             font-size: 11px;
             line-height: 1.25;
-            color: #8a94a6;          /* tinta apagada: la etiqueta acompaña, no compite */
+            /* --fd-ink-2 y NO la tinta de mobiliario: es TEXTO. Con #8a94a6 el contraste
+               sobre blanco era 3.06:1 y AA exige 4.5:1 para texto normal. */
+            color: var(--fd-ink-2);
             font-weight: 500;
         }
 
@@ -1189,7 +1207,7 @@
             margin: 3px 0 0 0;
             font-size: 24px;
             line-height: 1.1;
-            color: #0f172a;          /* tinta principal: el único elemento con peso */
+            color: var(--fd-ink);    /* el único elemento con peso */
             font-weight: 700;
             letter-spacing: -0.6px;
         }
@@ -1338,7 +1356,7 @@
                                          <div class="custom-dropdown" id="dashboardFrenteDropdown" style="width: 100%;">
                                          {{-- Ahora va sobre el CUERPO blanco, así que necesita BORDE para verse
                                               (en la cabecera azul se distinguía por contraste). --}}
-                                         <div class="dropdown-trigger" onclick="dashboardToggleFrente(event)" style="padding: 0; display: flex; align-items: center; background: #fff; overflow: hidden; border: 1px solid rgba(15,23,42,0.12); border-radius: 10px; height: 38px; cursor: default;">
+                                         <div class="dropdown-trigger" onclick="dashboardToggleFrente(event)" style="padding: 0; display: flex; align-items: center; background: #fff; overflow: hidden; border: 1px solid var(--fd-ring); border-radius: 10px; height: 38px; cursor: default;">
                                              <div style="padding: 0 10px; display: flex; align-items: center; color: #64748b; flex-shrink:0;">
                                                  <i class="material-icons" style="font-size: 18px;">search</i>
                                              </div>
@@ -1379,10 +1397,10 @@
                      horizontal con las barras cortadas. min-width:0 deja que el panel encoja. --}}
                 <div id="fleetChartsGrid" style="display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px;">
                     <!-- Flota Nueva vs Vieja por Tipo -->
-                    <div id="fdm-panel-age" style="background: white; border-radius: 12px; padding: 18px 22px 14px; border: 1px solid rgba(15,23,42,0.08); min-width: 0; overflow: hidden;">
-                        <h4 style="margin: 0 0 12px 0; padding-bottom: 10px; border-bottom: 1px solid rgba(15,23,42,0.07); font-size: 13.5px; color: #334155; font-weight: 600; display: flex; align-items: center; justify-content: space-between;">
+                    <div id="fdm-panel-age" style="background: white; border-radius: 12px; padding: 18px 22px 14px; border: 1px solid var(--fd-ring); min-width: 0; overflow: hidden;">
+                        <h4 style="margin: 0 0 12px 0; padding-bottom: 10px; border-bottom: 1px solid var(--fd-ring); font-size: 13.5px; color: #334155; font-weight: 600; display: flex; align-items: center; justify-content: space-between;">
                             <span style="display: flex; align-items: center; gap: 10px;">
-                                <i class="material-icons" style="font-size: 18px; color: #a3aab8;">bar_chart</i>
+                                <i class="material-icons" style="font-size: 18px; color: var(--fd-ink-3);">bar_chart</i>
                                 Flota Nueva vs Vieja por Tipo de Equipo
                             </span>
                             <button onclick="window.descargarPanelHtmlFDM('fdm-panel-age', 'flota_edad_tipo')" title="Descargar imagen" style="border:none;background:transparent;cursor:pointer;color:#94a3b8;display:flex;align-items:center;padding:4px 8px;border-radius:8px;transition:background .2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
@@ -1393,10 +1411,10 @@
                     </div>
 
                     <!-- Equipos Auxiliares por Tipo -->
-                    <div id="fdm-panel-auxiliares" style="background: white; border-radius: 12px; padding: 18px 22px 14px; border: 1px solid rgba(15,23,42,0.08); min-width: 0; overflow: hidden;">
-                        <h4 style="margin: 0 0 12px 0; padding-bottom: 10px; border-bottom: 1px solid rgba(15,23,42,0.07); font-size: 13.5px; color: #334155; font-weight: 600; display: flex; align-items: center; justify-content: space-between;">
+                    <div id="fdm-panel-auxiliares" style="background: white; border-radius: 12px; padding: 18px 22px 14px; border: 1px solid var(--fd-ring); min-width: 0; overflow: hidden;">
+                        <h4 style="margin: 0 0 12px 0; padding-bottom: 10px; border-bottom: 1px solid var(--fd-ring); font-size: 13.5px; color: #334155; font-weight: 600; display: flex; align-items: center; justify-content: space-between;">
                             <span style="display: flex; align-items: center; gap: 10px;">
-                                <i class="material-icons" style="font-size: 18px; color: #a3aab8;">construction</i>
+                                <i class="material-icons" style="font-size: 18px; color: var(--fd-ink-3);">construction</i>
                                 Equipos Auxiliares por Tipo
                             </span>
                             <button onclick="window.descargarPanelHtmlFDM('fdm-panel-auxiliares', 'auxiliares_por_tipo')" title="Descargar imagen" style="border:none;background:transparent;cursor:pointer;color:#94a3b8;display:flex;align-items:center;padding:4px 8px;border-radius:8px;transition:background .2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
@@ -1408,7 +1426,7 @@
                 </div>
 
                 <!-- Equipos Asignados por Frente (al final) -->
-                <div id="fdm-panel-assigned" style="background: white; border-radius: 12px; padding: 18px 22px 20px; border: 1px solid rgba(15,23,42,0.08); margin-top: 14px;">
+                <div id="fdm-panel-assigned" style="background: white; border-radius: 12px; padding: 18px 22px 20px; border: 1px solid var(--fd-ring); margin-top: 14px;">
                     <div style="display:flex; align-items:center; justify-content: space-between; margin-bottom: 16px; padding-bottom: 14px; border-bottom: 1px solid #e2e8f0;">
                         <span style="font-size:14px; font-weight:700; color:#1e293b; display:flex; align-items:center; gap:8px;">
                             <i class="material-icons" style="font-size:18px; color:#64748b;">directions_bus</i>

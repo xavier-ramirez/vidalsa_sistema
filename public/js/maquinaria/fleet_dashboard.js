@@ -23,7 +23,9 @@ const LEGEND_STYLE = {
         font: { size: 11.5, weight: '500', family: "'Inter', 'Segoe UI', sans-serif" },
         boxWidth: 9,
         boxHeight: 9,
-        color: '#8a94a6',   /* tinta apagada: la leyenda es referencia, no protagonista */
+        // Literal y no var(--fd-ink-3): Chart.js pinta en canvas y no resuelve variables CSS.
+        // Equivale a --fd-ink-3 (3.06:1 sobre blanco) — vale porque es mobiliario, no texto.
+        color: '#8a94a6',
         usePointStyle: true,
         pointStyle: 'rectRounded'
     }
@@ -70,7 +72,7 @@ function renderFleetEquiposAsignados(lista) {
     body.style.display = 'block';
 
     if (!lista || lista.length === 0) {
-        body.innerHTML = '<p style="color:#94a3b8;font-size:13px;text-align:center;padding:20px;">Sin datos de equipos asignados.</p>';
+        body.innerHTML = '<p style="color:var(--fd-ink-2);font-size:13px;text-align:center;padding:20px;">Sin datos de equipos asignados.</p>';
         return;
     }
 
@@ -83,7 +85,7 @@ function renderFleetEquiposAsignados(lista) {
     body.innerHTML = `<div style="display:flex;flex-wrap:wrap;gap:8px;">${lista.map((row, i) => `
             <div style="
                 background:#fff;
-                border:1px solid rgba(15,23,42,0.08);
+                border:1px solid var(--fd-ring);
                 border-radius:10px;
                 padding:10px 13px;
                 min-width:150px;
@@ -93,12 +95,12 @@ function renderFleetEquiposAsignados(lista) {
                 gap:3px;
             ">
                 <div style="display:flex; align-items:baseline; gap:6px; width:100%;">
-                    <span style="font-size:10.5px;font-weight:600;color:#b3bac6;flex-shrink:0;">${i + 1}</span>
-                    <span style="font-size:11px;font-weight:500;color:#8a94a6;line-height:1.25;word-break:break-word;flex:1;" title="${row.frente}">${row.frente}</span>
+                    <span style="font-size:10.5px;font-weight:600;color:var(--fd-ink-2);opacity:.55;flex-shrink:0;">${i + 1}</span>
+                    <span style="font-size:11px;font-weight:500;color:var(--fd-ink-2);line-height:1.25;word-break:break-word;flex:1;" title="${row.frente}">${row.frente}</span>
                 </div>
                 <div style="display:flex;align-items:baseline;gap:5px;">
-                    <span style="font-size:21px;font-weight:700;line-height:1.1;color:#0f172a;letter-spacing:-0.5px;">${row.total}</span>
-                    <span style="font-size:11px;font-weight:500;color:#8a94a6;">equipo${row.total !== 1 ? 's' : ''}</span>
+                    <span style="font-size:21px;font-weight:700;line-height:1.1;color:var(--fd-ink);letter-spacing:-0.5px;">${row.total}</span>
+                    <span style="font-size:11px;font-weight:500;color:var(--fd-ink-2);">equipo${row.total !== 1 ? 's' : ''}</span>
                 </div>
             </div>`
     ).join('')
@@ -512,7 +514,8 @@ function createCharts(data) {
         if (canvas) {
             const parent = canvas.parentElement;
             const msg = document.createElement('p');
-            msg.style.cssText = 'color:#94a3b8;font-size:13px;text-align:center;padding:30px 0;width:100%;';
+            // var(--fd-ink-2): es texto, y #94a3b8 daba 2.56:1 sobre blanco.
+            msg.style.cssText = 'color:var(--fd-ink-2);font-size:13px;text-align:center;padding:30px 0;width:100%;';
             msg.textContent = emptyText;
             canvas.style.display = 'none';
             if (!parent.querySelector('.fleet-empty-msg')) {
@@ -727,7 +730,7 @@ function createStackedBarChart(canvasId, config) {
                     grid: { display: false },
                     ticks: {
                         font: { size: window.innerWidth < 480 ? 10 : 11, weight: '500', family: "'Inter', 'Segoe UI', sans-serif" },
-                        color: '#8a94a6',   /* mobiliario del grafico: recesivo */
+                        color: '#8a94a6',   // = --fd-ink-3 (ver LEGEND_STYLE)
                         maxRotation: 0,
                         minRotation: 0,
                         autoSkip: false
