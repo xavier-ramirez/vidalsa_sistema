@@ -1699,10 +1699,14 @@
                 box-sizing: border-box !important;
             }
 
-            /* Asegurar que el canvas respete el contenedor */
+            /* El canvas no debe desbordar a lo ancho. OJO: NO poner `height: auto` aqui.
+               La altura del grafico la calcula createStackedBarChart() segun cuantas barras
+               hay (y ya usa una linea mas baja en pantallas < 480px). Con `height: auto` el
+               canvas adoptaba la proporcion de su buffer y se quedaba en ~218px para 17
+               barras = 13px por barra, contra los ~30px de escritorio: barras aplastadas y
+               etiquetas del eje solapadas, justo el problema que se corrigio en escritorio. */
             #fleetChartsGrid canvas {
                 max-width: 100% !important;
-                height: auto !important;
             }
 
             /* Título de paneles (antes se apuntaba a `h4`, que ya no existe) */

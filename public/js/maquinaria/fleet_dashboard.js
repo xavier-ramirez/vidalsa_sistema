@@ -9,22 +9,25 @@ if (!window.CHART_COLORS) {
     window.CHART_COLORS = {
         // 'status' (doughnut Estado Operativo) e 'inoperative' (Inoperatividad por Tipo)
         // se eliminaron junto con esos gráficos. 'age' lo usan Flota por Tipo y Auxiliares.
-        // [0] Nueva = azul de marca #0067b1, [1] Antigua = ocre #d97a1f.
-        // El rojo anterior era un color de ESTADO: "flota antigua" se leia como alarma
-        // cuando solo es una categoria. El ocre no arrastra ese significado y ademas
-        // separa mejor: validado con scripts/validate_palette.js — las 6 comprobaciones
-        // pasan, y para protanopia mejora de dE 22.3 (rojo) a 25.7.
+        // [0] Nueva = azul oscuro #005a9c, [1] Antigua = rojo #a91d28. Elegidos por el
+        // cliente (2026-07-30) sobre la propuesta ocre: NO volver a cambiarlos por criterio
+        // de estilo. Validado igualmente con scripts/validate_palette.js: las 6
+        // comprobaciones PASAN (protan dE 18.7, normal 28.0, contraste >= 3:1).
         // FUENTE UNICA de estos colores: los puntos de la cabecera (.fdm-dot) tambien se
         // pintan desde aqui, no los repite el blade.
-        age: ['#0067b1', '#d97a1f']
+        age: ['#005a9c', '#a91d28']
     };
 }
 
 /**
  * Devuelve la tinta legible ENCIMA de un relleno: blanco o casi negro, la que mas
- * contraste da. Necesario porque los rellenos no son igual de oscuros — sobre el ocre
- * #d97a1f el blanco da 3.11:1 (no llega a 4.5) y la tinta oscura da 5.96:1.
- * Asi la etiqueta sigue siendo legible aunque se cambie la paleta.
+ * contraste da.
+ *
+ * Con la paleta ACTUAL (#005a9c 7.14:1 y #a91d28 7.26:1 en blanco) siempre sale blanco,
+ * asi que hoy no cambia nada: es un SEGURO para cuando se toque la paleta. Se anadio
+ * porque al probar un ocre #d97a1f el numero blanco dentro del tramo se quedo en 3.11:1
+ * — ilegible — y eso paso desapercibido hasta medirlo. Con esto, cambiar CHART_COLORS
+ * no puede volver a romper la legibilidad en silencio.
  */
 function tintaSobre(relleno) {
     const lum = function (hex) {
