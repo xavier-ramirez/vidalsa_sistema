@@ -799,8 +799,16 @@
                         var msg = Array.isArray(msgs) ? msgs[0] : String(msgs);
                         var input = document.getElementById(field) || document.querySelector('[name="' + field + '"]');
                         if (!input) return;
-                        input.classList.add('is-invalid');
-                        var parent = input.closest('.custom-dropdown') ? input.closest('.custom-dropdown').parentNode : input.parentNode;
+                        // Los desplegables propios guardan el valor en un <input type="hidden">, que NO
+                        // tiene caja: marcarlo de rojo no se veia y el scrollIntoView de abajo no movia
+                        // la pantalla, asi que el error del Frente pasaba desapercibido y parecia que el
+                        // boton "no hacia nada". Se marca el disparador VISIBLE del desplegable.
+                        var dd = input.closest('.custom-dropdown');
+                        var visible = (input.type === 'hidden' && dd)
+                            ? (dd.querySelector('.dropdown-trigger') || dd)
+                            : input;
+                        visible.classList.add('is-invalid');
+                        var parent = dd ? dd.parentNode : input.parentNode;
                         if (parent) {
                             var fb = document.createElement('span');
                             fb.className = 'error-message-inline';
