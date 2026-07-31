@@ -1380,8 +1380,19 @@ class EquipoController extends Controller
             if ($equiposSheet !== null) {
                 $spreadsheet->removeSheetByIndex($spreadsheet->getIndex($equiposSheet));
             }
-            $spreadsheet->setActiveSheetIndex(0);
         }
+
+        // El libro debe ABRIRSE en la PRIMERA hoja. No es cosmetico: PhpSpreadsheet marca
+        // como activa la hoja a la que se le pide getStyle(), asi que al pintar la hoja de
+        // auxiliares (lo ultimo que se hace) el libro se guardaba con activeTab="1" y Excel
+        // abria en "Equipos Auxiliares". Se fija aqui, DESPUES de todo el pintado y de la
+        // posible eliminacion de hojas, y justo antes de escribir.
+        // Ademas se deja A1 seleccionada en cada hoja: getStyle() tambien mueve la seleccion,
+        // asi que si no, el archivo abre con un rango cualquiera marcado y desplazado.
+        foreach ($spreadsheet->getAllSheets() as $hoja) {
+            $hoja->setSelectedCell('A1');
+        }
+        $spreadsheet->setActiveSheetIndex(0);
 
         // Limpiar TODOS los buffers de salida activos de forma segura.
         // ob_end_clean() simple puede fallar en php-fpm de producción (nginx) si hay
