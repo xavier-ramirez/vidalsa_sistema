@@ -292,7 +292,12 @@
                         {{-- SIN padding:0 en el trigger: el .dropdown-trigger ya trae su relleno (8px 15px)
                              y quitarlo dejaba la caja en 26px de alto frente a los 42 del Estatus de al lado.
                              El input va sin relleno propio para no sumar altura sobre la del componente. --}}
-                        <div class="dropdown-trigger" onclick="toggleDropdown('frenteSelect', event)" tabindex="0" role="button"
+                        {{-- SIN onclick inline: el manejador delegado de uicomponents.js ya atiende
+                             todos los .dropdown-trigger y sabe distinguir un clic en la CAJA (abrir y
+                             dejar teclear) de uno en el contenedor (alternar). Teniendo ademas el
+                             onclick, cada clic ejecutaba la apertura DOS veces. Es el mismo montaje
+                             que el filtro de Frente de /admin/equipos, que tampoco lleva onclick. --}}
+                        <div class="dropdown-trigger" tabindex="0" role="button"
                              style="display: flex; align-items: center; gap: 6px; overflow: hidden;">
                             <input type="text" data-filter-search id="label_frente_trabajo"
                                    placeholder="{{ old('ID_FRENTE_ACTUAL') ? ($frentes[old('ID_FRENTE_ACTUAL')] ?? 'SELECCIONE') : 'SELECCIONE' }}"

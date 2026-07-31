@@ -52,6 +52,27 @@ if (!window.clearDocFields) {
 
 // Global click handler for dropdowns (event delegation)
 // Helper to close all dropdowns except the one passed
+/**
+ * Efectos de ABRIR un dropdown, en un solo sitio: limpiar el texto de busqueda que
+ * quedara de una apertura anterior (si no, la lista aparece filtrada sin motivo) y
+ * enfocar la caja para poder teclear directo.
+ *
+ * Existe porque hay DOS caminos de apertura —el manejador delegado de mas abajo y
+ * window.toggleDropdown()— y antes cada uno hacia su propia version.
+ */
+window.prepararAperturaDropdown = function (dropdown) {
+    if (!dropdown) return;
+    const input = dropdown.querySelector('input[type="text"]');
+    if (!input) return;
+    if (input.value) {
+        input.value = "";
+        if (typeof window.filterDropdownOptions === "function") {
+            window.filterDropdownOptions(input);
+        }
+    }
+    setTimeout(() => input.focus(), 50);
+};
+
 window.closeAllDropdowns = function (exceptElement) {
     // Close standard .custom-dropdown components
     document
@@ -138,6 +159,9 @@ document.addEventListener("click", function (e) {
         // If clicking the input and it's closed -> Open it
         if (!isOpen) {
             parent.classList.add("active");
+            // Se limpia el filtro viejo tambien por esta via: antes solo se hacia al
+            // pulsar el contenedor, asi que abriendo por la caja la lista seguia filtrada.
+            window.prepararAperturaDropdown(parent);
         }
         // If it's already open and we clicked the input, DO NOTHING (let user type)
     } else {
@@ -146,8 +170,7 @@ document.addEventListener("click", function (e) {
 
         // If we just opened it, focus the input if it exists
         if (parent.classList.contains("active")) {
-            const input = parent.querySelector('input[type="text"]');
-            if (input) setTimeout(() => input.focus(), 50);
+            window.prepararAperturaDropdown(parent);
         }
     }
 
@@ -389,23 +412,9 @@ window.toggleDropdown = function (dropdownId, event) {
     // Toggle this one
     dropdown.classList.toggle("active");
 
-    // Focus input automatically when opening
+    // Limpiar el filtro viejo + enfocar: mismo helper que usa el manejador delegado.
     if (dropdown.classList.contains("active")) {
-        const input = dropdown.querySelector('input[type="text"]');
-        if (input) {
-            // Caso "escribio y cerro SIN elegir": el texto viejo seguiria filtrando y el
-            // desplegable apareceria medio vacio sin motivo. (El caso de SI elegir lo
-            // resuelve selectOption, que limpia la caja y restaura la lista.) Solo se
-            // toca el VALUE: el placeholder sigue mostrando la opcion elegida, que es
-            // como estos desplegables indican su seleccion.
-            if (input.value) {
-                input.value = "";
-                if (typeof window.filterDropdownOptions === "function") {
-                    window.filterDropdownOptions(input);
-                }
-            }
-            setTimeout(() => input.focus(), 50);
-        }
+        window.prepararAperturaDropdown(dropdown);
     }
 };
 
