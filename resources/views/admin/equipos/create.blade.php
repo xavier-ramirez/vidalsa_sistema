@@ -282,21 +282,23 @@
                     </span>
                     <div class="custom-dropdown" id="frenteSelect" data-fuzzy>
                         <input type="hidden" name="ID_FRENTE_ACTUAL" id="input_frente_trabajo" data-filter-value value="{{ old('ID_FRENTE_ACTUAL') }}">
-                        <div class="dropdown-trigger" onclick="toggleDropdown('frenteSelect', event)" tabindex="0" role="button" style="cursor: default;">
-                            <span id="label_frente_trabajo" data-filter-label>SELECCIONE</span>
+                        {{-- El campo ES la caja de texto: se escribe directamente y la lista se va
+                             reduciendo, en vez de abrir y buscar dentro. Es el patron canonico del
+                             proyecto (mismo montaje que el filtro de Frente en /admin/equipos):
+                             el placeholder muestra la seleccion actual, `data-filter-search` hace que
+                             selectOption lo limpie al elegir y toggleDropdown lo enfoca al abrir.
+                             El filtrado lo hace el helper CENTRAL window.filterDropdownOptions y
+                             `data-fuzzy` le pide ordenar por relevancia (tolera erratas). --}}
+                        <div class="dropdown-trigger" onclick="toggleDropdown('frenteSelect', event)" tabindex="0" role="button"
+                             style="padding: 0; display: flex; align-items: center; overflow: hidden;">
+                            <input type="text" data-filter-search id="label_frente_trabajo"
+                                   placeholder="{{ old('ID_FRENTE_ACTUAL') ? ($frentes[old('ID_FRENTE_ACTUAL')] ?? 'SELECCIONE') : 'SELECCIONE' }}"
+                                   autocomplete="off" aria-label="Frente de Trabajo"
+                                   oninput="window.filterDropdownOptions(this)"
+                                   style="flex:1; min-width:0; border:none; background:transparent; padding:0 4px; font-size:14px; outline:none; color:#0f172a; cursor:text;">
                             <i class="material-icons">expand_more</i>
                         </div>
                         <div class="dropdown-content">
-            {{-- Buscador: con ~38 frentes la lista obligaba a recorrerla a ojo. Se usa el
-                                 helper CENTRAL window.filterDropdownOptions (uicomponents.js), el mismo de los
-                                 otros ~30 desplegables; `data-fuzzy` en el .custom-dropdown le pide ademas
-                                 ordenar por relevancia. `data-filter-search` hace que selectOption limpie la
-                                 caja al elegir, y toggleDropdown ya la enfoca al abrir: sin JS propio. --}}
-                            <div style="position:sticky; top:0; background:#fff; padding:6px 6px 4px; border-bottom:1px solid #e2e8f0; z-index:1;">
-                                <input type="text" data-filter-search placeholder="Escribe para buscar..." autocomplete="off"
-                                       oninput="window.filterDropdownOptions(this)"
-                                       style="width:100%; box-sizing:border-box; border:1px solid #cbd5e0; border-radius:8px; padding:7px 10px; font-size:13px; outline:none; color:#0f172a;">
-                            </div>
                             <div class="dropdown-item" onclick="selectOption('frenteSelect', '', 'Sin Asignar', 'frente_trabajo')">Sin Asignar</div>
                             @foreach($frentes as $id => $nombre)
                                 <div class="dropdown-item" onclick="selectOption('frenteSelect', '{{ $id }}', '{{ $nombre }}', 'frente_trabajo')">{{ $nombre }}</div>
@@ -304,6 +306,41 @@
                         </div>
                     </div>
                 </div>
+                {{-- EQUIPO VINCULADO (solo auxiliar) — vive en la rejilla COMUN, al lado del
+                     Frente de Trabajo, porque es la otra pregunta de "donde esta". Se muestra y se
+                     deshabilita por modo igual que #serialMotorWrap, en vez de vivir dentro de
+                     #auxiliarFieldsSection: alli quedaba en otra fila, lejos del frente. --}}
+                <div id="hostFieldWrap" style="display:none;">
+                        <div>
+                            <label for="hostSearchInput" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">Equipo Vinculado</label>
+                            <div id="auxHostPicker" style="position: relative;">
+                                <input type="hidden" name="ID_EQUIPO_HOST" id="ID_EQUIPO_HOST" value="{{ old('ID_EQUIPO_HOST') }}">
+                                <div id="hostSearchWrapper" style="position:relative;">
+                                    <input type="text" id="hostSearchInput" autocomplete="off" class="form-input-custom"
+                                           placeholder="Buscar por serial, placa o código..."
+                                           oninput="window.auxHostSearch && window.auxHostSearch(this)"
+                                           onfocus="window.auxHostSearch && window.auxHostSearch(this)"
+                                           onblur="setTimeout(()=>window.auxHostClose && window.auxHostClose(),200)">
+                                    <div id="hostResultsBox" style="display:none; position:absolute; top:calc(100% + 4px); left:0; right:0; background:white; border:1px solid #e2e8f0; border-radius:10px; box-shadow:0 10px 20px -5px rgba(15,23,42,0.18); max-height:360px; overflow-y:auto; z-index:50;"></div>
+                                </div>
+                                <div id="hostSelectedCard" style="display:none; background:linear-gradient(135deg,#eff6ff 0%,#dbeafe 100%); border:1px solid #93c5fd; border-radius:10px; padding:10px 12px; align-items:center; gap:12px;">
+                                    <div style="background:#1e40af; color:white; padding:8px; border-radius:8px; display:flex; flex-shrink:0;">
+                                        <i class="material-icons" style="font-size:20px;">directions_car</i>
+                                    </div>
+                                    <div style="flex:1; min-width:0;">
+                                        <div id="hostSelectedPrimary" style="font-weight:800; color:#1e293b; font-size:14px;"></div>
+                                        <div id="hostSelectedSecondary" style="color:#475569; font-size:12px; margin-top:2px;"></div>
+                                        <div id="hostSelectedTertiary" style="color:#64748b; font-size:11px; margin-top:2px;"></div>
+                                    </div>
+                                    <button type="button" onclick="window.auxHostClear && window.auxHostClear()" title="Cambiar" style="background:white; border:1px solid #cbd5e1; color:#475569; cursor:pointer; border-radius:6px; padding:6px 10px; display:flex; align-items:center; gap:4px; font-size:12px; font-weight:600;">
+                                        <i class="material-icons" style="font-size:16px;">swap_horiz</i> Cambiar
+                                    </button>
+                                </div>
+                            </div>
+                            <small style="display:block;margin-top:4px;font-size:11px;color:#94a3b8;">Opcional. Máx. {{ \App\Models\EquipoAuxiliar::ANCHOR_MAX_PER_HOST }} por equipo.</small>
+                        </div>
+                </div>
+
 
                 {{-- DETALLE UBICACIÓN: no se pide al registrar; se asigna después via edición o movilización. --}}
             </div>
@@ -427,38 +464,6 @@
 
             {{-- ═══ CAMPOS EXCLUSIVOS AUXILIAR ═══ --}}
             <div id="auxiliarFieldsSection" style="display: none;">
-                <div class="grid-responsive-5" style="margin-top: 12px;">
-
-                    {{-- Equipo Vinculado --}}
-                    <div>
-                        <label for="hostSearchInput" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">Equipo Vinculado</label>
-                        <div id="auxHostPicker" style="position: relative;">
-                            <input type="hidden" name="ID_EQUIPO_HOST" id="ID_EQUIPO_HOST" value="{{ old('ID_EQUIPO_HOST') }}">
-                            <div id="hostSearchWrapper" style="position:relative;">
-                                <input type="text" id="hostSearchInput" autocomplete="off" class="form-input-custom"
-                                       placeholder="Buscar por serial, placa o código..."
-                                       oninput="window.auxHostSearch && window.auxHostSearch(this)"
-                                       onfocus="window.auxHostSearch && window.auxHostSearch(this)"
-                                       onblur="setTimeout(()=>window.auxHostClose && window.auxHostClose(),200)">
-                                <div id="hostResultsBox" style="display:none; position:absolute; top:calc(100% + 4px); left:0; right:0; background:white; border:1px solid #e2e8f0; border-radius:10px; box-shadow:0 10px 20px -5px rgba(15,23,42,0.18); max-height:360px; overflow-y:auto; z-index:50;"></div>
-                            </div>
-                            <div id="hostSelectedCard" style="display:none; background:linear-gradient(135deg,#eff6ff 0%,#dbeafe 100%); border:1px solid #93c5fd; border-radius:10px; padding:10px 12px; align-items:center; gap:12px;">
-                                <div style="background:#1e40af; color:white; padding:8px; border-radius:8px; display:flex; flex-shrink:0;">
-                                    <i class="material-icons" style="font-size:20px;">directions_car</i>
-                                </div>
-                                <div style="flex:1; min-width:0;">
-                                    <div id="hostSelectedPrimary" style="font-weight:800; color:#1e293b; font-size:14px;"></div>
-                                    <div id="hostSelectedSecondary" style="color:#475569; font-size:12px; margin-top:2px;"></div>
-                                    <div id="hostSelectedTertiary" style="color:#64748b; font-size:11px; margin-top:2px;"></div>
-                                </div>
-                                <button type="button" onclick="window.auxHostClear && window.auxHostClear()" title="Cambiar" style="background:white; border:1px solid #cbd5e1; color:#475569; cursor:pointer; border-radius:6px; padding:6px 10px; display:flex; align-items:center; gap:4px; font-size:12px; font-weight:600;">
-                                    <i class="material-icons" style="font-size:16px;">swap_horiz</i> Cambiar
-                                </button>
-                            </div>
-                        </div>
-                        <small style="display:block;margin-top:4px;font-size:11px;color:#94a3b8;">Opcional. Máx. {{ \App\Models\EquipoAuxiliar::ANCHOR_MAX_PER_HOST }} por equipo.</small>
-                    </div>
-                </div>
 
                 {{-- Documentación Auxiliar --}}
                 <h3 style="color: var(--maquinaria-blue); font-size: 16px; border-bottom: 2px solid #f0f2f5; padding-bottom: 8px; margin: 18px 0 12px 0;">Documentación Legal</h3>
@@ -620,6 +625,18 @@
             if (smInput) smInput.disabled = isAux;
         }
 
+        // Equipo Vinculado (solo auxiliar). Mismo patron que serialMotorWrap: al vivir en la
+        // rejilla COMUN ya no lo alcanza el disabled masivo de #auxiliarFieldsSection, asi que
+        // sus dos inputs se deshabilitan aqui para no enviar ID_EQUIPO_HOST en modo equipo.
+        var hostFieldWrap = document.getElementById('hostFieldWrap');
+        if (hostFieldWrap) {
+            hostFieldWrap.style.display = isAux ? '' : 'none';
+            ['ID_EQUIPO_HOST', 'hostSearchInput'].forEach(function (id) {
+                var el = document.getElementById(id);
+                if (el) el.disabled = !isAux;
+            });
+        }
+
         // Código Interno name (CODIGO_PATIO en equipos, CODIGO_INTERNO en auxiliares)
         var codigoInput = document.getElementById('codigo_interno');
         if (codigoInput) codigoInput.name = isAux ? 'CODIGO_INTERNO' : 'CODIGO_PATIO';
@@ -655,7 +672,7 @@
         if (bulkAux) bulkAux.style.display = isAux ? '' : 'none';
 
         // Title
-        var titleMap = { liviana: 'Registro de Equipos y Maquinarias — Flota Liviana', pesada: 'Registro de Equipos y Maquinarias — Flota Pesada', auxiliar: 'Registro de Equipo Auxiliar' };
+        var titleMap = { liviana: 'Registro de Equipos — Flota Liviana', pesada: 'Registro de Maquinarias — Flota Pesada', auxiliar: 'Registro de Equipo Auxiliar' };
         document.getElementById('pageTitleText').textContent = titleMap[mode] || 'Registro de Equipos y Maquinarias';
 
         // Submit label
