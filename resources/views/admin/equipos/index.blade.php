@@ -1267,7 +1267,13 @@
         .fleet-kpi {
             background: #fff;
             border-radius: 10px;
-            padding: 12px 14px;
+            /* Relleno vertical de 6px para que la tarjeta mida lo MISMO que el buscador de
+               al lado (38px de caja + 1px de borde arriba y abajo = 40): 6 + 6 + 26 de la
+               cifra + 2 de borde = 40. Si se cambia el tamano de .fleet-kpi-val hay que
+               recalcular este 6, o las dos cajas dejan de estar a la misma altura. */
+            min-height: 40px;
+            box-sizing: border-box;
+            padding: 6px 14px;
             /* Etiqueta y cifra en la MISMA linea, no una debajo de otra. Alineadas por
                linea base para que "Total" y "61" se apoyen en el mismo renglon. Si no
                cabe (pantalla estrecha), la cifra baja de linea en vez de desbordar. */
