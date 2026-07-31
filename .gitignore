@@ -48,3 +48,16 @@ scratch_*.csv
 # Scripts locales de importación de la BD: llevan rutas absolutas de una máquina
 # concreta y hacen DROP DATABASE. Nunca deben viajar en el repo.
 /*.bat
+
+# Scripts PHP de diagnóstico/migración puntuales sueltos en la RAÍZ (check_*, list_*,
+# fix_*, report_*, migrate_*, update_tables*, export_sql, compare_*): se escriben para
+# una consulta concreta y se abandonan; no forman parte de la app. Se anclan con "/"
+# para que solo apliquen a la raíz — dentro de app/, database/, etc. sí son código real.
+/check_*.php
+/list_*.php
+/fix_*.php
+/report_*.php
+/migrate_*.php
+/update_tables*.php
+/export_sql.php
+/compare_*.php
