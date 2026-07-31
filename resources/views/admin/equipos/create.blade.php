@@ -289,19 +289,27 @@
                              selectOption lo limpie al elegir y toggleDropdown lo enfoca al abrir.
                              El filtrado lo hace el helper CENTRAL window.filterDropdownOptions y
                              `data-fuzzy` le pide ordenar por relevancia (tolera erratas). --}}
+                        {{-- SIN padding:0 en el trigger: el .dropdown-trigger ya trae su relleno (8px 15px)
+                             y quitarlo dejaba la caja en 26px de alto frente a los 42 del Estatus de al lado.
+                             El input va sin relleno propio para no sumar altura sobre la del componente. --}}
                         <div class="dropdown-trigger" onclick="toggleDropdown('frenteSelect', event)" tabindex="0" role="button"
-                             style="padding: 0; display: flex; align-items: center; overflow: hidden;">
+                             style="display: flex; align-items: center; gap: 6px; overflow: hidden;">
                             <input type="text" data-filter-search id="label_frente_trabajo"
                                    placeholder="{{ old('ID_FRENTE_ACTUAL') ? ($frentes[old('ID_FRENTE_ACTUAL')] ?? 'SELECCIONE') : 'SELECCIONE' }}"
                                    autocomplete="off" aria-label="Frente de Trabajo"
                                    oninput="window.filterDropdownOptions(this)"
-                                   style="flex:1; min-width:0; border:none; background:transparent; padding:0 4px; font-size:14px; outline:none; color:#0f172a; cursor:text;">
+                                   style="flex:1; min-width:0; border:none; background:transparent; padding:0; font-size:14px; line-height:normal; outline:none; color:#0f172a; cursor:text;">
                             <i class="material-icons">expand_more</i>
                         </div>
                         <div class="dropdown-content">
                             <div class="dropdown-item" onclick="selectOption('frenteSelect', '', 'Sin Asignar', 'frente_trabajo')">Sin Asignar</div>
                             @foreach($frentes as $id => $nombre)
-                                <div class="dropdown-item" onclick="selectOption('frenteSelect', '{{ $id }}', '{{ $nombre }}', 'frente_trabajo')">{{ $nombre }}</div>
+                                {{-- addslashes en el nombre: hay frentes con apostrofes (TUBERÍA DE 12'' AGUA
+                                     SALADA). Blade los escapa a &#039;, pero el navegador los DEVUELVE a ' antes
+                                     de leer el onclick como JS, asi que la llamada quedaba rota
+                                     ("SyntaxError: missing ) after argument list") y ESOS frentes no se podian
+                                     elegir. Mismo escape que ya usan el estado de arriba y los filtros del indice. --}}
+                                <div class="dropdown-item" onclick="selectOption('frenteSelect', '{{ $id }}', '{{ addslashes($nombre) }}', 'frente_trabajo')">{{ $nombre }}</div>
                             @endforeach
                         </div>
                     </div>

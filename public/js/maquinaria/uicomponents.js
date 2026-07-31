@@ -242,7 +242,14 @@ window.selectOption = function (dropdownId, value, label, legacyType) {
     // Update search input placeholder (for filter dropdowns)
     if (searchInput) {
         searchInput.placeholder = label;
+        const teniaFiltro = searchInput.value !== "";
         searchInput.value = "";
+        // Vaciar la caja NO devuelve por si solo las opciones que el filtro escondio:
+        // se quedaban con display:none y al reabrir el desplegable aparecia con una sola
+        // linea. Quien limpia el filtro es quien debe restaurar la lista.
+        if (teniaFiltro && typeof window.filterDropdownOptions === "function") {
+            window.filterDropdownOptions(searchInput);
+        }
     }
 
     // Update label span text (for form dropdowns)
@@ -386,11 +393,11 @@ window.toggleDropdown = function (dropdownId, event) {
     if (dropdown.classList.contains("active")) {
         const input = dropdown.querySelector('input[type="text"]');
         if (input) {
-            // Al ABRIR se parte de la lista completa. Si el usuario escribio, cerro sin
-            // elegir y volvio a abrir, el texto viejo seguia filtrando y el desplegable
-            // aparecia medio vacio (o vacio del todo) sin motivo aparente. Solo se limpia
-            // el VALUE: el placeholder sigue mostrando la opcion ya elegida, que es como
-            // estos desplegables indican su seleccion.
+            // Caso "escribio y cerro SIN elegir": el texto viejo seguiria filtrando y el
+            // desplegable apareceria medio vacio sin motivo. (El caso de SI elegir lo
+            // resuelve selectOption, que limpia la caja y restaura la lista.) Solo se
+            // toca el VALUE: el placeholder sigue mostrando la opcion elegida, que es
+            // como estos desplegables indican su seleccion.
             if (input.value) {
                 input.value = "";
                 if (typeof window.filterDropdownOptions === "function") {
