@@ -385,7 +385,20 @@ window.toggleDropdown = function (dropdownId, event) {
     // Focus input automatically when opening
     if (dropdown.classList.contains("active")) {
         const input = dropdown.querySelector('input[type="text"]');
-        if (input) setTimeout(() => input.focus(), 50);
+        if (input) {
+            // Al ABRIR se parte de la lista completa. Si el usuario escribio, cerro sin
+            // elegir y volvio a abrir, el texto viejo seguia filtrando y el desplegable
+            // aparecia medio vacio (o vacio del todo) sin motivo aparente. Solo se limpia
+            // el VALUE: el placeholder sigue mostrando la opcion ya elegida, que es como
+            // estos desplegables indican su seleccion.
+            if (input.value) {
+                input.value = "";
+                if (typeof window.filterDropdownOptions === "function") {
+                    window.filterDropdownOptions(input);
+                }
+            }
+            setTimeout(() => input.focus(), 50);
+        }
     }
 };
 
@@ -437,6 +450,34 @@ window.filterDropdownOptions = function (input) {
             "important",
         );
     });
+
+    // ORDEN POR RELEVANCIA (opt-in con data-fuzzy en el .custom-dropdown).
+    // Sin ese atributo el comportamiento es el de siempre: filtrar por "contiene" y dejar
+    // el orden del HTML. Con el atributo, ademas se reordenan los visibles para que el
+    // mejor resultado quede arriba y se toleran erratas ("barcelna" -> BARCELONA), usando
+    // el MISMO window.FuzzySearch que el resto del proyecto. Es opt-in a proposito: hay
+    // ~30 dropdowns usando esta funcion y en listas cortas el orden del HTML es preferible.
+    if (filter.length > 0 && dropdown.dataset.fuzzy !== undefined &&
+        window.FuzzySearch && window.FuzzySearch.rank) {
+        const elegibles = Array.prototype.filter.call(
+            items,
+            (i) => !i.classList.contains("eq-tipo-oculto"),
+        );
+        const rank = window.FuzzySearch.rank(elegibles, input.value, (i) => {
+            const t = i.textContent.trim();
+            return { label: t, haystack: t };
+        });
+        const enRank = new Set(rank);
+        elegibles.forEach((i) =>
+            i.style.setProperty("display", enRank.has(i) ? "block" : "none", "important"),
+        );
+        // Reordenar: el contenedor real puede ser .dropdown-item-list (algunos modulos lo
+        // usan para el scroll) o el propio .dropdown-content.
+        if (rank.length) {
+            const lista = rank[0].parentNode;
+            rank.forEach((i) => lista.appendChild(i));
+        }
+    }
 
     // Reset scroll position to top to ensure results are seen
     const content =

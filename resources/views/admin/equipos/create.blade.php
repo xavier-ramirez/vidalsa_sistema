@@ -280,13 +280,23 @@
                     <span style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">
                         Frente de Trabajo <span id="frenteReqMark" style="color: var(--maquinaria-red); display: none;">*</span>
                     </span>
-                    <div class="custom-dropdown" id="frenteSelect">
+                    <div class="custom-dropdown" id="frenteSelect" data-fuzzy>
                         <input type="hidden" name="ID_FRENTE_ACTUAL" id="input_frente_trabajo" data-filter-value value="{{ old('ID_FRENTE_ACTUAL') }}">
                         <div class="dropdown-trigger" onclick="toggleDropdown('frenteSelect', event)" tabindex="0" role="button" style="cursor: default;">
                             <span id="label_frente_trabajo" data-filter-label>SELECCIONE</span>
                             <i class="material-icons">expand_more</i>
                         </div>
                         <div class="dropdown-content">
+            {{-- Buscador: con ~38 frentes la lista obligaba a recorrerla a ojo. Se usa el
+                                 helper CENTRAL window.filterDropdownOptions (uicomponents.js), el mismo de los
+                                 otros ~30 desplegables; `data-fuzzy` en el .custom-dropdown le pide ademas
+                                 ordenar por relevancia. `data-filter-search` hace que selectOption limpie la
+                                 caja al elegir, y toggleDropdown ya la enfoca al abrir: sin JS propio. --}}
+                            <div style="position:sticky; top:0; background:#fff; padding:6px 6px 4px; border-bottom:1px solid #e2e8f0; z-index:1;">
+                                <input type="text" data-filter-search placeholder="Escribe para buscar..." autocomplete="off"
+                                       oninput="window.filterDropdownOptions(this)"
+                                       style="width:100%; box-sizing:border-box; border:1px solid #cbd5e0; border-radius:8px; padding:7px 10px; font-size:13px; outline:none; color:#0f172a;">
+                            </div>
                             <div class="dropdown-item" onclick="selectOption('frenteSelect', '', 'Sin Asignar', 'frente_trabajo')">Sin Asignar</div>
                             @foreach($frentes as $id => $nombre)
                                 <div class="dropdown-item" onclick="selectOption('frenteSelect', '{{ $id }}', '{{ $nombre }}', 'frente_trabajo')">{{ $nombre }}</div>

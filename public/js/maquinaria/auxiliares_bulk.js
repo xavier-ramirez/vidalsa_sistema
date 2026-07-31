@@ -13,7 +13,13 @@ var initAuxiliaresBulk = window.createBulkPreview({
     datalistId: 'bulkTiposAuxDatalist',
     previewUrl: '/admin/equipos-auxiliares/bulk-preview',
     storeUrl: '/admin/equipos-auxiliares/bulk-store-batch',
-    redirect: '/admin/equipos-auxiliares',
+    // Tras la carga masiva se vuelve al modulo UNIFICADO (/admin/equipos), donde ya se ven
+    // equipos y auxiliares juntos. Antes apuntaba a '/admin/equipos-auxiliares': la carga
+    // masiva de auxiliares se lanza desde /admin/equipos/create (mismo formUnificadoCard),
+    // asi que al guardar el usuario acababa en el modulo VIEJO de solo-auxiliares sin
+    // haberlo pedido. Misma forma que equipos_bulk.js, por si el server empieza a mandar
+    // su propio `redirect` en el body. NO se toca la logica de guardado, solo el destino.
+    redirect: (body) => body.redirect || '/admin/equipos',
     redirectDelay: 800,
     successMessage: 'Equipos auxiliares creados correctamente',
     // El detalle de errores ya se ve en cada celda; en el 422 basta un toast efímero.
