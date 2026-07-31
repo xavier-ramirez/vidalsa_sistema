@@ -488,6 +488,13 @@
         }
 
         function repintarMuniEstado() {
+            // Punto unico donde se dispara la carga perezosa: si hay municipios que pintar y el
+            // geojson aun no esta, se pide y se repinta al llegar. Asi las 5 llamadas que
+            // existen a esta funcion no tienen que saber nada de la descarga.
+            if (!muniData && (estadosConMuni.size || muniIndividuales.size)) {
+                cargarMunicipios().then(function (gj) { if (gj) repintarMuniEstado(); });
+                return;
+            }
             muniEstado.clearLayers();
             muniNumeros.clearLayers();
             if (muniData && (estadosConMuni.size || muniIndividuales.size)) {
@@ -592,14 +599,30 @@
             setTimeout(function () { document.addEventListener('click', cerrar); }, 0);
         }
 
+        // ── Municipios: carga PEREZOSA ────────────────────────────────────────────
+        // El geojson de municipios es el archivo mas pesado del mapa y solo hace falta si el
+        // usuario activa "Todos los municipios" o pide los de un estado concreto. Antes se
+        // descargaba SIEMPRE al abrir el mapa, aunque no se tocara la capa. Ahora se pide la
+        // primera vez que se necesita; el resultado se memoriza en muniPromesa para que varias
+        // llamadas seguidas compartan una sola descarga.
         var muniUrl = el.getAttribute('data-municipios');
-        if (muniUrl) {
-            fetch(muniUrl).then(function (r) { return r.json(); }).then(function (gj) {
+        var muniPromesa = null;
+        function cargarMunicipios() {
+            if (muniPromesa) return muniPromesa;
+            if (!muniUrl) return Promise.resolve(null);
+            muniPromesa = fetch(muniUrl).then(function (r) { return r.json(); }).then(function (gj) {
                 muniData = gj;
                 construirColoresMuni(gj.features); // coloreado por adyacencia (vecinos ≠ color) antes de pintar
-                // Si marcaron "Todos los municipios" antes de que cargara el geojson, aplicarlo ahora.
-                if (todosMuniOn) activarTodosMunicipios(); else repintarMuniEstado();
-            }).catch(function () {});
+                return gj;
+            }).catch(function () {
+                // Si fallo se limpia la promesa para permitir un reintento en el SIGUIENTE
+                // uso (otro clic del usuario). Quien llama debe comprobar que el resultado
+                // no sea null antes de repintar: si no, el .then() volveria a pedir la
+                // descarga al instante y se entraria en un bucle infinito de peticiones.
+                muniPromesa = null;
+                return null;
+            });
+            return muniPromesa;
         }
 
         // ── Menú de CLIC DERECHO sobre un estado: resaltar + ver municipios de ESE estado ──
@@ -714,7 +737,12 @@
         // Activa TODOS los municipios de TODOS los estados (limpia exclusiones previas).
         function activarTodosMunicipios() {
             todosMuniOn = true;
-            if (!muniData) return; // aún no cargó el geojson; al terminar la carga se reaplica
+            if (!muniData) {
+                // Carga perezosa: se pide el geojson y, al llegar, se reintenta (si el usuario
+                // no ha desmarcado la capa mientras tanto).
+                cargarMunicipios().then(function (gj) { if (gj && todosMuniOn) activarTodosMunicipios(); });
+                return;
+            }
             muniExcluidos.clear();
             muniData.features.forEach(function (f) {
                 var e = f.properties && f.properties.estado;
