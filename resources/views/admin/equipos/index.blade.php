@@ -1274,9 +1274,10 @@
             min-height: 40px;
             box-sizing: border-box;
             padding: 6px 14px;
-            /* Etiqueta y cifra en la MISMA linea, no una debajo de otra. Alineadas por
-               linea base para que "Total" y "61" se apoyen en el mismo renglon. Si no
-               cabe (pantalla estrecha), la cifra baja de linea en vez de desbordar. */
+            /* En una sola linea: TODO el texto (etiqueta + unidad) a la izquierda y SOLO
+               el numero a la derecha — "Total equipos ....... 61". Alineados por linea
+               base para que se apoyen en el mismo renglon. Si no cabe (pantalla
+               estrecha), el numero baja de linea en vez de desbordar. */
             display: flex;
             align-items: baseline;
             justify-content: space-between;
@@ -1299,22 +1300,6 @@
                sobre blanco era 3.06:1 y AA exige 4.5:1 para texto normal. */
             color: var(--fd-ink-2);
             font-weight: 500;
-        }
-
-        /* La unidad va PEGADA a la cifra, no metida entre paréntesis en la etiqueta:
-           "0.00 L/día" se lee de un golpe, "Consumo est. (L/día) / 0.00" obliga a ir y
-           volver. Alineadas por la linea base para que la unidad no "flote". */
-        .fleet-kpi-figure {
-            display: flex;
-            align-items: baseline;
-            gap: 5px;
-            flex-wrap: wrap;
-        }
-
-        .fleet-kpi-unit {
-            font-size: 11px;
-            font-weight: 500;
-            color: var(--fd-ink-2);
         }
 
         /* Cifras proporcionales a propósito (sin tabular-nums): en un número grande y
@@ -1481,19 +1466,13 @@
                     {{-- Las 4 tarjetas comparten el MISMO estilo (ver .fleet-kpi*): solo cambian
                          etiqueta e id. Etiqueta + cifra, sin ícono. --}}
                     <div class="fleet-kpi">
-                        <p class="fleet-kpi-lbl">Total</p>
-                        <div class="fleet-kpi-figure">
-                            <h3 id="stat_total" class="fleet-kpi-val">0</h3>
-                            <span class="fleet-kpi-unit">equipos</span>
-                        </div>
+                        <p class="fleet-kpi-lbl">Total equipos</p>
+                        <h3 id="stat_total" class="fleet-kpi-val">0</h3>
                     </div>
 
                     <div class="fleet-kpi">
-                        <p class="fleet-kpi-lbl">Consumo est.</p>
-                        <div class="fleet-kpi-figure">
-                            <h3 id="stat_consumption" class="fleet-kpi-val">0</h3>
-                            <span class="fleet-kpi-unit">L/día</span>
-                        </div>
+                        <p class="fleet-kpi-lbl">Consumo est. (L/día)</p>
+                        <h3 id="stat_consumption" class="fleet-kpi-val">0</h3>
                     </div>
                 </div>
 
