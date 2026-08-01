@@ -104,6 +104,17 @@ class EquipoAuxiliarController extends Controller
     // ═══════════════════════════════════════════════════════════
     public function index(Request $request)
     {
+        // ── El modulo de SOLO auxiliares ya no existe como PANTALLA ──────────────────
+        // Equipos y auxiliares se ven juntos en /admin/equipos. Esta ruta sobrevive solo
+        // como ENDPOINT DE DATOS: el partial _machinery (que el modulo unificado incluye)
+        // la consulta por AJAX para pintar su tabla y sus contadores. Por eso el corte se
+        // hace por wantsJson y no borrando la ruta: si alguien abre la URL a pelo —marcador,
+        // historial, enlace viejo— se le lleva al modulo unificado en vez de mostrarle una
+        // segunda pantalla de auxiliares que ya no debe existir.
+        if (! $request->wantsJson()) {
+            return redirect()->route('equipos.index');
+        }
+
         // Acceso global (NIVEL_ACCESO_EQUIPOS=1) ve todo. Local (NIVEL_ACCESO_EQUIPOS=2) queda
         // limitado a sus frentes asignados; si seleccionara un frente fuera
         // de su scope el filtro se ignora silenciosamente.
@@ -1462,6 +1473,11 @@ class EquipoAuxiliarController extends Controller
     // ═══════════════════════════════════════════════════════════
     public function create()
     {
+        // El formulario de creacion vive ahora en /admin/equipos/create (unificado: registra
+        // equipos y auxiliares desde el mismo sitio). Esta ruta se mantiene para que los
+        // enlaces y marcadores viejos no den 404, pero lleva alli.
+        return redirect()->route('equipos.create');
+
         $frentes = $this->frentesActivosPermitidos()->get();
         // TIPOS dinamicos: base del enum + los tipos custom guardados en DB.
         $tipos = $this->getTiposDinamicos();
