@@ -22,6 +22,19 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  */
 class Almacen extends Model
 {
+    /**
+     * Snapshot offline: este modelo forma parte del dominio "catalogos", asi que al
+     * escribirlo hay que marcar esa version como obsoleta para que los clientes
+     * que SI cachean ese dominio se traigan el cambio. Los que no lo cachean ni
+     * se enteran, que es justo el objetivo de separar las versiones.
+     */
+    protected static function booted(): void
+    {
+        $marcar = static fn () => \App\Support\OfflineVersion::invalidar();
+        static::saved($marcar);
+        static::deleted($marcar);
+    }
+
     use SoftDeletes;
 
     protected $table      = 'almacenes';

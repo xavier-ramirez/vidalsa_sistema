@@ -1245,6 +1245,9 @@ class MovilizacionController extends Controller
 
         try {
             Movilizacion::whereIn('ID_MOVILIZACION', $request->ids)->delete();
+            // Borrado masivo por query builder: no dispara eventos de modelo y el delta
+            // no puede detectar filas que desaparecen. Se pide la copia completa.
+            \App\Support\OfflineVersion::resetear('equipos');
             return response()->json(['success' => true, 'message' => count($request->ids) . ' registros eliminados con exito.']);
         } catch (\Exception $e) {
             Log::error('bulkDestroy movilizacion error: ' . $e->getMessage());

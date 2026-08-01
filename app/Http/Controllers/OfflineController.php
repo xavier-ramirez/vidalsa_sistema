@@ -44,29 +44,75 @@ class OfflineController extends Controller
      * snapshot ya viene gateado y vacío para ese módulo). Preferimos eso a duplicar aquí
      * la lógica de accesos de snapshot() en un endpoint que el teléfono consulta seguido.
      */
+    /**
+     * Huella COMBINADA de los dominios que el usuario puede ver.
+     *
+     * Se conserva por COMPATIBILIDAD: un cliente con el offline-sync.js viejo en caché
+     * sigue leyendo `version` y funcionando igual que antes. El cliente nuevo usa el
+     * mapa por dominio de `v` (ver version()), que es lo que evita que un cambio de
+     * almacén invalide la copia de quien solo usa equipos.
+     *
+     * Ya no consulta la BD: las huellas vienen cacheadas de OfflineVersion.
+     */
     private function calcularVersion(Request $request): string
     {
-        $parts = [
-            // Versión del ESQUEMA del snapshot: subirla fuerza una re-descarga en todos
-            // los clientes (la huella cambia aunque los datos no). Subir cuando se
-            // agreguen/cambien campos del payload — v2: ids para filtros offline
-            // (movimientos.id_frente/codigo, movilizaciones.id_origen/id_destino/
-            // id_tipo/aux_tipo).
-            'schema-v2',
-            $request->user()?->getAuthIdentifier(),
-            MovimientoInventario::max('ID_MOVIMIENTO'),
-            AlmacenStock::max('FECHA_ULT_MOVIMIENTO'),
-            ProductoInventario::max('updated_at'),
-            Equipo::max('updated_at'),
-            Movilizacion::max('ID_MOVILIZACION'),
-        ];
+        $v = $this->versionesVisibles($request->user());
 
-        return substr(md5(implode('|', array_map(static fn ($v) => (string) $v, $parts))), 0, 12);
+        return substr(md5(implode('|', $v)), 0, 12);
+    }
+
+    /**
+     * Huellas SOLO de los dominios que este usuario realmente cachea.
+     *
+     * Es la pieza clave del aislamiento: si un usuario no tiene permisos de almacén,
+     * la clave 'almacen' NO viaja, así que un movimiento de inventario le resulta
+     * literalmente invisible y no dispara ninguna descarga.
+     *
+     * @return array<string,string>
+     */
+    private function versionesVisibles($user): array
+    {
+        $todas   = \App\Support\OfflineVersion::todas();
+        [$puedeEquipos, $puedeAlmacen] = $this->alcanceDe($user);
+
+        $v = ['catalogos' => $todas['catalogos']];   // frentes/almacenes: los usan ambos
+        if ($puedeEquipos) $v['equipos'] = $todas['equipos'];
+        if ($puedeAlmacen) $v['almacen'] = $todas['almacen'];
+
+        return $v;
+    }
+
+    /**
+     * Alcance por permisos — snapshot ADITIVO: cada módulo viaja al teléfono solo si el
+     * usuario realmente lo usa, para no inflar el caché con datos ajenos.
+     *   · Equipos (flota): requiere alguna clave equipos.* (super.admin la hereda).
+     *   · Almacén: requiere alguna clave almacen.* o super.admin. NO basta con que el
+     *     almacén sea "visible": un usuario GLOBAL (NIVEL_ACCESO_ALMACEN=1) ve todos los
+     *     almacenes, así que la visibilidad solo ACOTA cuáles viajan, no DA acceso al
+     *     módulo offline (si no, todo GLOBAL bajaría almacén aunque no lo use).
+     *
+     * @return array{0:bool,1:bool} [puedeEquipos, puedeAlmacen]
+     */
+    private function alcanceDe($user): array
+    {
+        return [
+            $user->can('equipos.create') || $user->can('equipos.edit') || $user->can('equipos.assign'),
+            $user->can('almacen.productos') || $user->can('almacen.movimiento')
+                || $user->can('almacen.nota.eliminar') || $user->can('super.admin'),
+        ];
     }
 
     public function version(Request $request)
     {
-        return response()->json(['version' => $this->calcularVersion($request)]);
+        $todas = \App\Support\OfflineVersion::todas();
+
+        return response()->json([
+            'version' => $this->calcularVersion($request),   // compatibilidad cliente viejo
+            'e'       => \App\Support\OfflineVersion::ESQUEMA,
+            'u'       => $request->user()?->getAuthIdentifier(),
+            'v'       => $this->versionesVisibles($request->user()),
+            'r'       => $todas['reset'],
+        ]);
     }
 
     public function snapshot(Request $request)
@@ -74,20 +120,8 @@ class OfflineController extends Controller
         $user    = $request->user();
         $version = $this->calcularVersion($request);
 
-        // ── Alcance por permisos — snapshot ADITIVO: cada módulo viaja al teléfono solo
-        //    si el usuario realmente lo usa, para no inflar el cache con datos ajenos.
-        //   · Equipos (flota): requiere alguna clave equipos.* (super.admin la hereda).
-        //   · Almacén: requiere alguna clave almacen.* o super.admin. NO basta con que el
-        //     almacén sea "visible": un usuario GLOBAL (NIVEL_ACCESO_ALMACEN=1) ve todos los
-        //     almacenes, así que la visibilidad solo ACOTA cuáles viajan, no DA acceso al
-        //     módulo offline (si no, todo GLOBAL bajaría almacén aunque no lo use).
-        $puedeEquipos = $user->can('equipos.create')
-            || $user->can('equipos.edit')
-            || $user->can('equipos.assign');
-        $puedeAlmacen = $user->can('almacen.productos')
-            || $user->can('almacen.movimiento')
-            || $user->can('almacen.nota.eliminar')
-            || $user->can('super.admin');
+        // Alcance por permisos (fuente única: alcanceDe()).
+        [$puedeEquipos, $puedeAlmacen] = $this->alcanceDe($user);
 
         // Almacenes visibles (acotan TODO el inventario). Sin acceso a almacén ni se
         // consultan: la lista queda vacía y, como stock/movimientos se acotan con $almIds,

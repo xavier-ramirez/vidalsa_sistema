@@ -12,6 +12,19 @@ use Illuminate\Database\Eloquent\Model;
  */
 class AlmacenStock extends Model
 {
+    /**
+     * Snapshot offline: este modelo forma parte del dominio "almacen", asi que al
+     * escribirlo hay que marcar esa version como obsoleta para que los clientes
+     * que SI cachean ese dominio se traigan el cambio. Los que no lo cachean ni
+     * se enteran, que es justo el objetivo de separar las versiones.
+     */
+    protected static function booted(): void
+    {
+        $marcar = static fn () => \App\Support\OfflineVersion::invalidar();
+        static::saved($marcar);
+        static::deleted($marcar);
+    }
+
     protected $table      = 'almacen_stock';
     protected $primaryKey = 'ID_STOCK';
 

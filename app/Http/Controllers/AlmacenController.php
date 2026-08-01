@@ -960,6 +960,9 @@ class AlmacenController extends Controller
         try {
             $producto->stock()->delete();   // limpia stock huérfano (sin movimientos, debe estar en 0)
             $producto->forceDelete();
+            // forceDelete cascadea almacen_stock: filas que desaparecen sin rastro para
+            // el delta. Se pide la copia completa de almacen.
+            \App\Support\OfflineVersion::resetear('almacen');
         } catch (\Throwable $e) {
             return response()->json([
                 'message' => 'No se puede eliminar permanentemente: el producto tiene registros asociados.',

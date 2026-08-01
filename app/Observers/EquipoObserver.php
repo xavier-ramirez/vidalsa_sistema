@@ -37,10 +37,21 @@ class EquipoObserver
         \App\Http\Controllers\HistorialDocumentosController::bumpDataVersion();
     }
 
+    /**
+     * Snapshot offline (dominio "equipos"). SIN gate por columna, a diferencia del
+     * bump del dashboard: el offline pinta casi todos los campos del equipo, asi que
+     * cualquier edicion es relevante para el telefono.
+     */
+    private function bustOffline(): void
+    {
+        \App\Support\OfflineVersion::invalidar();
+    }
+
     public function created(Equipo $equipo): void
     {
         $this->bustTipoCategoriaMap();
         $this->bustHistorialDocs();
+        $this->bustOffline();
         \App\Http\Controllers\DashboardController::bumpDataVersion();
     }
 
@@ -48,6 +59,7 @@ class EquipoObserver
     {
         $this->bustTipoCategoriaMap();
         $this->bustHistorialDocs();
+        $this->bustOffline();
         \App\Http\Controllers\DashboardController::bumpDataVersion();
     }
 
@@ -59,6 +71,8 @@ class EquipoObserver
      */
     public function updated(Equipo $equipo): void
     {
+        $this->bustOffline();
+
         if ($equipo->wasChanged(['id_tipo_equipo', 'CATEGORIA_FLOTA'])) {
             $this->bustTipoCategoriaMap();
         }
