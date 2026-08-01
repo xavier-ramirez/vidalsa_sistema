@@ -75,9 +75,15 @@ class OfflineController extends Controller
         $todas   = \App\Support\OfflineVersion::todas();
         [$puedeEquipos, $puedeAlmacen] = $this->alcanceDe($user);
 
-        $v = ['catalogos' => $todas['catalogos']];   // frentes/almacenes: los usan ambos
+        $v = [];
         if ($puedeEquipos) $v['equipos'] = $todas['equipos'];
         if ($puedeAlmacen) $v['almacen'] = $todas['almacen'];
+
+        // `catalogos` (frentes + almacenes) SOLO si el usuario recibe alguno de los dos
+        // modulos: snapshot() ya deja `frentes` vacio cuando no tiene ninguno, asi que
+        // incluir su huella aqui haria que un usuario sin permisos se descargase el
+        // snapshot cada vez que alguien toca un frente... para recibir listas vacias.
+        if ($v !== []) $v['catalogos'] = $todas['catalogos'];
 
         return $v;
     }
