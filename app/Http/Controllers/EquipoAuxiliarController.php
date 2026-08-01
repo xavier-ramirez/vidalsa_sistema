@@ -1523,7 +1523,11 @@ class EquipoAuxiliarController extends Controller
         // Guardar archivos PDF (si vinieron) en storage/app/public/equipos_auxiliares/{id}/
         $this->storeAuxDocs($request, $auxiliar);
 
-        $redirectUrl = $request->input('__unified_redirect', route('equipos-auxiliares.index'));
+        // Por defecto se vuelve al modulo UNIFICADO (/admin/equipos), que es donde se ven
+        // equipos y auxiliares juntos. `__unified_redirect` (o el ?ref= del formulario)
+        // sigue mandando si viene. Antes el defecto era el modulo VIEJO de solo-auxiliares,
+        // asi que guardar sin ese parametro te sacaba del modulo unificado sin pedirlo.
+        $redirectUrl = $request->input('__unified_redirect', route('equipos.index'));
 
         if ($request->wantsJson()) {
             return response()->json([
@@ -1599,7 +1603,11 @@ class EquipoAuxiliarController extends Controller
 
         $this->storeAuxDocs($request, $auxiliar);
 
-        $redirectUrl = $request->input('__unified_redirect', route('equipos-auxiliares.index'));
+        // Por defecto se vuelve al modulo UNIFICADO (/admin/equipos), que es donde se ven
+        // equipos y auxiliares juntos. `__unified_redirect` (o el ?ref= del formulario)
+        // sigue mandando si viene. Antes el defecto era el modulo VIEJO de solo-auxiliares,
+        // asi que guardar sin ese parametro te sacaba del modulo unificado sin pedirlo.
+        $redirectUrl = $request->input('__unified_redirect', route('equipos.index'));
 
         if ($request->wantsJson()) {
             return response()->json([
@@ -1623,7 +1631,7 @@ class EquipoAuxiliarController extends Controller
         if ($request->wantsJson()) {
             return response()->json(['success' => true]);
         }
-        return redirect()->route('equipos-auxiliares.index')->with('success', 'Equipo auxiliar eliminado.');
+        return redirect()->route('equipos.index')->with('success', 'Equipo auxiliar eliminado.');
     }
 
     /**

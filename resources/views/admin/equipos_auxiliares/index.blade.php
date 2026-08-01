@@ -516,7 +516,10 @@
                 </button>
                 <div id="auxAccionesDropdown" style="display:none;position:absolute;top:calc(100% + 5px);right:0;min-width:240px;background:#e2e8f0;border:1px solid #cbd5e1;border-radius:10px;box-shadow:0 10px 20px -5px rgba(15,23,42,0.18);overflow:hidden;z-index:50;">
                     @php $canCreateAux = auth()->user() && auth()->user()->can('equipos.create'); @endphp
-                    <a href="{{ $canCreateAux ? route('equipos-auxiliares.create') : '#' }}"
+                    {{-- Al formulario UNIFICADO (/admin/equipos/create), que registra equipos y
+                         auxiliares desde el mismo sitio. Apuntaba al formulario viejo de
+                         solo-auxiliares, que es el que al guardar sacaba del modulo unificado. --}}
+                    <a href="{{ $canCreateAux ? route('equipos.create') : '#' }}"
                        @if(!$canCreateAux) onclick="event.preventDefault(); if(window.showToast){window.showToast('No tienes permiso para crear equipos auxiliares.', 'warning');} document.getElementById('auxAccionesDropdown').style.display='none';" @endif
                        style="display:flex;align-items:center;gap:10px;padding:12px 14px;text-decoration:none;color:#475569;font-size:13px;font-weight:600;border-bottom:1px solid #f1f5f9;{{ $canCreateAux ? '' : 'cursor:not-allowed;' }}"
                        onmouseover="this.style.background='#cbd5e1'" onmouseout="this.style.background='transparent'">

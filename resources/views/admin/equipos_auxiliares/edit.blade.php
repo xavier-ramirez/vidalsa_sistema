@@ -41,7 +41,7 @@
         @include('admin.equipos_auxiliares.partials.form_fields')
 
         <div style="margin-top: 40px; display: flex; gap: 12px; justify-content: center; align-items: center; flex-wrap: wrap;">
-            <a href="{{ $ref ?: route('equipos-auxiliares.index') }}" class="btn-primary-maquinaria btn-secondary">
+            <a href="{{ $ref ?: route('equipos.index') }}" class="btn-primary-maquinaria btn-secondary">
                 Cancelar
             </a>
             <button type="submit" class="btn-primary-maquinaria">
@@ -123,7 +123,8 @@
                 try {
                     sessionStorage.setItem('vidalsa_flash_toast', JSON.stringify({ message: msg, type: 'success' }));
                 } catch (_) {}
-                const redirect = body.redirect || '{{ route("equipos-auxiliares.index") }}';
+                // Al modulo UNIFICADO por defecto (si no vino ?ref=), no al viejo de solo-auxiliares.
+                const redirect = body.redirect || '{{ route("equipos.index") }}';
                 // HANDOFF del spinner (ver loadPage en navegacion.js): cedemos el show()
                 // de arriba, que aquí no se balancea. Sin el flag, loadPage suma otro
                 // show() y su único hide() deja el contador en 1 → el spinner se queda
