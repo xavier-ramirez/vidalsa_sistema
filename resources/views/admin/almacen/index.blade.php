@@ -3482,10 +3482,20 @@
                 }
                 if (equipos.length) {
                     countEl.textContent = '(' + equipos.length + ')';
+                    // La ETAPA (primario/secundario) va por EQUIPO, no por producto: el mismo
+                    // filtro puede ser primario en una máquina y secundario en otra. Sin
+                    // confirmar se muestra "—" en gris: el hueco es deliberado, no un fallo.
                     equiposBox.innerHTML = equipos.map(function (e) {
+                        var etapa = e.etapa
+                            ? '<span style="font-size:11px;font-weight:700;color:#0f766e;background:#f0fdfa;border:1px solid #ccfbf1;border-radius:5px;padding:1px 7px;">' + esc(e.etapa) + '</span>'
+                            : '<span style="font-size:11px;color:#cbd5e0;">&mdash;</span>';
+                        var cant = e.cant > 1
+                            ? '<span style="font-size:11px;font-weight:700;color:#64748b;">x' + e.cant + '</span>'
+                            : '';
                         return '<div style="display:flex;align-items:center;gap:8px;background:#f8fafc;border:1px solid #eef2f7;border-radius:7px;padding:6px 9px;">' +
                                '<span style="font-size:11px;font-weight:800;color:#0067b1;text-transform:uppercase;min-width:104px;">' + esc(e.tipo) + '</span>' +
-                               '<span style="font-size:12.5px;font-weight:600;color:#334155;">' + esc(e.modelo) + '</span></div>';
+                               '<span style="font-size:12.5px;font-weight:600;color:#334155;flex:1;min-width:0;">' + esc(e.modelo) + '</span>' +
+                               cant + etapa + '</div>';
                     }).join('');
                     equiposWrap.style.display = 'block';
                 }

@@ -1441,8 +1441,11 @@ class AlmacenController extends Controller
     /**
      * Compatibilidad de un filtro para el modal "Detalles del producto":
      * sus números de parte (equivalencias, el principal primero) y los EQUIPOS
-     * (tipo + modelo) que lo usan, tomados de modelo_filtro. Ligero: se llama al
-     * abrir el detalle.
+     * (tipo + modelo + ETAPA + cantidad) que lo usan, tomados de modelo_filtro.
+     * Ligero: se llama al abrir el detalle.
+     *
+     * La ETAPA viaja por equipo, no por producto: el mismo filtro es PRIMARIO en
+     * una máquina y SECUNDARIO en otra. Vacía = sin confirmar.
      */
     public function productoCompatibilidad($id)
     {
@@ -1464,12 +1467,14 @@ class AlmacenController extends Controller
             ->join('caracteristicas_modelo as cm', 'cm.ID_ESPEC', '=', 'mf.ID_ESPEC')
             ->where('mf.ID_PRODUCTO', $id)
             ->orderBy('cm.TIPO')->orderBy('cm.MODELO')
-            ->get(['mf.ID_ESPEC as espec', 'cm.TIPO', 'cm.MODELO'])
+            ->get(['mf.ID_ESPEC as espec', 'cm.TIPO', 'cm.MODELO', 'mf.ETAPA', 'mf.CANTIDAD'])
             ->map(function ($x) use ($marcaPorEspec) {
                 $marca = $marcaPorEspec->get($x->espec);
                 return [
                     'tipo'   => (string) $x->TIPO,
                     'modelo' => trim(($marca ? $marca.' ' : '').((string) $x->MODELO)),
+                    'etapa'  => $x->ETAPA ? ucfirst(mb_strtolower((string) $x->ETAPA)) : null,
+                    'cant'   => (int) $x->CANTIDAD,
                 ];
             });
 
@@ -1477,10 +1482,12 @@ class AlmacenController extends Controller
         $aux = DB::table('auxiliar_filtro')
             ->where('ID_PRODUCTO', $id)
             ->orderBy('TIPO')->orderBy('MARCA')->orderBy('MODELO')
-            ->get(['TIPO', 'MARCA', 'MODELO'])
+            ->get(['TIPO', 'MARCA', 'MODELO', 'ETAPA', 'CANTIDAD'])
             ->map(fn ($x) => [
                 'tipo'   => str_replace('_', ' ', (string) $x->TIPO),
                 'modelo' => trim(((string) $x->MARCA).' '.((string) $x->MODELO)),
+                'etapa'  => $x->ETAPA ? ucfirst(mb_strtolower((string) $x->ETAPA)) : null,
+                'cant'   => (int) $x->CANTIDAD,
             ]);
 
         $equipos = $equipos->concat($aux)

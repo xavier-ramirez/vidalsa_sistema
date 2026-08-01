@@ -18,6 +18,7 @@ class ModeloFiltro extends Model
         'ID_ESPEC',
         'ID_PRODUCTO',
         'CANTIDAD',
+        'ETAPA',
     ];
 
     protected $casts = [

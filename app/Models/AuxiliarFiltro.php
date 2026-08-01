@@ -20,6 +20,7 @@ class AuxiliarFiltro extends Model
         'MARCA',
         'MODELO',
         'CANTIDAD',
+        'ETAPA',
     ];
 
     protected $casts = [
