@@ -62,7 +62,14 @@ if (!window.clearDocFields) {
  */
 window.prepararAperturaDropdown = function (dropdown) {
     if (!dropdown) return;
-    const input = dropdown.querySelector('input[type="text"]');
+    // MISMA resolucion que selectOption: primero [data-filter-search] y si no el input del
+    // .dropdown-trigger. NO vale un `input[type=text]` cualquiera del componente: hay
+    // dropdowns cuyo primer input es un CAMPO DE DATOS (p.ej. #auxTipoCombo, donde es el
+    // TIPO con name="TIPO"), y como aqui se BORRA el valor —no solo se enfoca— con el
+    // selector amplio se perderia lo que el usuario escribio.
+    const input =
+        dropdown.querySelector("[data-filter-search]") ||
+        dropdown.querySelector('.dropdown-trigger input[type="text"]');
     if (!input) return;
     if (input.value) {
         input.value = "";
@@ -491,7 +498,28 @@ window.filterDropdownOptions = function (input) {
         // usan para el scroll) o el propio .dropdown-content.
         if (rank.length) {
             const lista = rank[0].parentNode;
+            // Guardar la posicion original UNA vez, antes de mover nada. Sin esto, mover
+            // los nodos era permanente: al borrar la busqueda la lista seguia con los
+            // resultados de la ultima consulta al final, fuera de su orden alfabetico.
+            if (!lista.dataset.ordenGuardado) {
+                Array.prototype.forEach.call(lista.children, (n, idx) => {
+                    n.dataset.ordenOriginal = idx;
+                });
+                lista.dataset.ordenGuardado = "1";
+            }
             rank.forEach((i) => lista.appendChild(i));
+        }
+    }
+
+    // Sin texto de busqueda se devuelve la lista a su orden original (ver arriba).
+    if (filter.length === 0 && dropdown.dataset.fuzzy !== undefined) {
+        const lista = dropdown.querySelector(".dropdown-item-list") ||
+                      dropdown.querySelector(".dropdown-content");
+        if (lista && lista.dataset.ordenGuardado) {
+            Array.prototype.slice
+                .call(lista.children)
+                .sort((a, b) => (a.dataset.ordenOriginal || 0) - (b.dataset.ordenOriginal || 0))
+                .forEach((n) => lista.appendChild(n));
         }
     }
 
