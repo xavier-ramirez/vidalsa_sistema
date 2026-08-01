@@ -4092,15 +4092,15 @@ body:has(.mapa-page) .main-viewport {
 }
 .mapa-creditos b { color: #0f172a; font-weight: 800; }
 /* Teléfono: el contenedor del mapa gana el espacio que le robaba el padding lateral de
-   .mapa-page, y se ocultan los créditos ("Elaborado por…") y el interruptor "Todos los
-   municipios" del control de capas — en una pantalla angosta solo tapan mapa útil, y el
-   usuario móvil no los necesita para consultar. Un solo breakpoint para todo el módulo. */
+   .mapa-page, y se ocultan los créditos ("Elaborado por…") y el botón-miniatura de municipios
+   — en una pantalla angosta solo tapan mapa útil, y el usuario móvil no los necesita para
+   consultar. Un solo breakpoint para todo el módulo. */
 @media (max-width: 640px) {
     /* El layout full-screen (main-viewport/mapa-page/#mapa-leaflet a pantalla completa detrás
        del header) vive ahora en la base, arriba — aplica igual en PC y teléfono. Aquí quedan
        SOLO los ajustes propios del móvil. */
     .mapa-creditos { display: none; }
-    .leaflet-control-layers { display: none; }
+    .mapa-mini-capa { display: none; }
     /* Se ocultan TODOS los botones de la barra (Ver toda Venezuela, Pantalla completa,
        Descargar imagen, Frentes de trabajo y Dibujar tubería): solo queda el buscador.
        DUPLICA a propósito la regla de @media (pointer: coarse) de más arriba: aquella cubre
@@ -4466,6 +4466,68 @@ body:has(.mapa-page) .main-viewport {
 /* Estado activo (ej. botón del ojo cuando los nombres están ocultos). */
 .mapa-fit-btn.activo { background: #0067b1; color: #fff; }
 .mapa-fit-btn.activo:hover { background: #005a9e; }
+
+/* Botones MINIATURA de capas (arriba-derecha): "Municipios", "Faja" y "Bloques". Sustituyen al
+   control de capas de Leaflet (icono gris que al pasar el mouse se abría en un checkbox): cada
+   uno enseña un mini mapa de Venezuela con lo que enciende. Las imágenes están pre-generadas
+   (generar_miniaturas_mapa.php), así los botones no descargan los geojson pesados. */
+.mapa-mini-capa {
+    display: block;
+    position: relative;
+    width: 66px;
+    height: 62px;
+    padding: 0;
+    border: 2px solid #fff;
+    border-radius: 8px;
+    background: #12324d;                 /* azul oscuro tipo satélite: hace resaltar los colores */
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+    cursor: pointer;
+    overflow: hidden;
+}
+.mapa-mini-capa:hover { border-color: #cbd5e1; }
+/* La imagen ocupa todo menos la franja del rótulo (13 px). */
+.mapa-mini-capa-img {
+    display: block;
+    width: 100%;
+    height: calc(100% - 13px);
+    object-fit: contain;
+    padding: 2px;
+    box-sizing: border-box;
+}
+.mapa-mini-capa-lbl {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    height: 13px;
+    background: rgba(15, 23, 42, 0.8);
+    color: #fff;
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+    line-height: 13px;
+    text-align: center;
+}
+/* Encendido: marco azul de la marca + rótulo sólido (mismo azul que .mapa-fit-btn.activo). */
+.mapa-mini-capa.activo { border-color: #0067b1; box-shadow: 0 0 0 2px rgba(0, 103, 177, 0.35), 0 1px 4px rgba(0, 0, 0, 0.35); }
+.mapa-mini-capa.activo .mapa-mini-capa-lbl { background: #0067b1; }
+
+/* Rótulo FIJO de cada división de la Faja (Boyacá, Junín, Ayacucho, Carabobo): chip pequeño con
+   el nombre en el color de su área. Sin ratón, para no robarle el hover a los bloques de encima. */
+.faja-etq {
+    font-size: 11px !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.4px !important;
+    text-transform: uppercase;
+    padding: 1px 7px !important;
+    pointer-events: none !important;
+    background: rgba(255, 255, 255, 0.92) !important;
+}
+/* Vista alejada (regla ≥ 200 km): el chip tapaba el área entera → letra chica y sin aire.
+   La clase la pone declutterVelas en el contenedor del mapa. */
+.mapa-faja-lejos .faja-etq {
+    font-size: 8px !important;
+    letter-spacing: 0 !important;
+    padding: 0 4px !important;
+}
 
 /* Tooltip con el nombre del estado/municipio/proyecto — compacto (sin espacio vertical de más) */
 .estado-tooltip {

@@ -252,6 +252,12 @@
         map.createPane('muniNumPane');
         map.getPane('muniNumPane').style.zIndex = 463;
 
+        // Pane de la CAPA PETROLERA (Faja + bloques): encima del satélite y de los estados
+        // (400), y DEBAJO de los municipios (462) y de la tubería (465), que son la información
+        // propia de la empresa y deben quedar siempre legibles.
+        map.createPane('fajaPane');
+        map.getPane('fajaPane').style.zIndex = 458;
+
         // Pane propio para la TUBERÍA, POR ENCIMA de los estados (overlayPane, z 400) y de los
         // municipios (muniIntPane, z 462). Esos polígonos hacían bringToFront() al pasar el mouse
         // y quedaban encima de la línea, robándole el hover/clic → no salía la longitud. Aquí la
@@ -532,6 +538,7 @@
                 });
             }
             actualizarLeyenda(); // refleja municipios en la leyenda
+            sincronizarBotonMuni(); // encendido/apagado del botón-miniatura de municipios
             declutterVelas(true); // los números cambiaron → recolocar velas/etiquetas
         }
         function limpiarClavesEstado(set, k) { set.forEach(function (key) { if (key.indexOf(k + '|') === 0) set.delete(key); }); }
@@ -606,6 +613,10 @@
         // primera vez que se necesita; el resultado se memoriza en muniPromesa para que varias
         // llamadas seguidas compartan una sola descarga.
         var muniUrl = el.getAttribute('data-municipios');
+        // Miniaturas de los botones de capas (imágenes pre-generadas: generar_miniaturas_mapa.php).
+        var miniMuniUrl    = el.getAttribute('data-mini-muni');
+        var miniFajaUrl    = el.getAttribute('data-mini-faja');
+        var miniBloquesUrl = el.getAttribute('data-mini-bloques');
         var muniPromesa = null;
         function cargarMunicipios() {
             if (muniPromesa) return muniPromesa;
@@ -722,18 +733,57 @@
             }
         }).addTo(map);
 
+        // ¿En qué ESTADO cae una coordenada? (ray casting sobre sus anillos).
+        // Hace falta para el clic derecho sobre un BLOQUE petrolero: ese polígono se queda con el
+        // evento, así que hay que buscar a mano el estado de debajo y abrir SU menú (resaltar /
+        // ver municipios). Si no, con la capa de bloques encendida no habría forma de activar los
+        // municipios desde el mapa.
+        function puntoEnAnillo(ll, anillo) {
+            var dentro = false;
+            for (var i = 0, j = anillo.length - 1; i < anillo.length; j = i++) {
+                var yi = anillo[i].lat, xi = anillo[i].lng, yj = anillo[j].lat, xj = anillo[j].lng;
+                if (((yi > ll.lat) !== (yj > ll.lat)) && (ll.lng < (xj - xi) * (ll.lat - yi) / (yj - yi) + xi)) dentro = !dentro;
+            }
+            return dentro;
+        }
+        function puntoEnLatLngs(ll, latlngs) {
+            if (!latlngs || !latlngs.length) return false;
+            if (latlngs[0] instanceof L.LatLng) return puntoEnAnillo(ll, latlngs);
+            // Polígono: el PRIMER anillo es el exterior y los siguientes son huecos (un punto en
+            // un hueco no cuenta). Multipolígono: basta con que caiga en una de sus partes.
+            if (latlngs[0][0] instanceof L.LatLng) {
+                if (!puntoEnAnillo(ll, latlngs[0])) return false;
+                for (var h = 1; h < latlngs.length; h++) if (puntoEnAnillo(ll, latlngs[h])) return false;
+                return true;
+            }
+            for (var i = 0; i < latlngs.length; i++) if (puntoEnLatLngs(ll, latlngs[i])) return true;
+            return false;
+        }
+        function estadoEnPunto(ll) {
+            var res = null;
+            estados.eachLayer(function (l) {
+                if (res || !l.getBounds().contains(ll)) return; // el bounds descarta rápido
+                if (puntoEnLatLngs(ll, l.getLatLngs())) res = l;
+            });
+            return res;
+        }
+        // Menú de clic derecho para una capa que TAPA a los estados (bloques petroleros): abre el
+        // menú del estado de debajo y, si no hay ninguno (mar), solo la coordenada.
+        function menuSobreEstadoOCoordenada(ev) {
+            var e = estadoEnPunto(ev.latlng);
+            if (e) menuEstado(ev, e, (e.feature && e.feature.properties && e.feature.properties.shapeName) || 'Estado');
+            else menuCoordenada(ev);
+        }
+
         var geojsonUrl = el.getAttribute('data-geojson');
         if (geojsonUrl) {
             fetch(geojsonUrl).then(function (r) { return r.json(); }).then(function (gj) { estados.addData(gj); }).catch(function () {});
         }
 
-        // Control de capas: un único interruptor "Todos los municipios". Los bordes de los
-        // estados quedan SIEMPRE visibles (estados.addTo(map) arriba). Como los municipios no
-        // son una capa simple (se pintan según estadosConMuni + repintarMuniEstado), usamos una
-        // capa "fantasma" (layerGroup vacío) como respaldo del checkbox y reaccionamos a
-        // overlayadd/overlayremove: marcar = activar todos, desmarcar = ocultar todos.
-        var todosMuniOn = false;                 // estado del interruptor "Todos los municipios"
-        var todosMuniToggle = L.layerGroup();    // capa fantasma solo para tener el checkbox
+        // Interruptor "Todos los municipios" (botón-miniatura de arriba-derecha, ver controlMiniCapa).
+        // Los bordes de los estados quedan SIEMPRE visibles (estados.addTo(map) arriba); los
+        // municipios no son una capa simple: se pintan según estadosConMuni + repintarMuniEstado.
+        var todosMuniOn = false;
         // Activa TODOS los municipios de TODOS los estados (limpia exclusiones previas).
         function activarTodosMunicipios() {
             todosMuniOn = true;
@@ -758,13 +808,175 @@
             muniExcluidos.clear();
             repintarMuniEstado();
         }
-        L.control.layers(
-            null,
-            { 'Todos los municipios': todosMuniToggle },
-            { position: 'topright', collapsed: true }
-        ).addTo(map);
-        map.on('overlayadd',    function (e) { if (e.layer === todosMuniToggle) activarTodosMunicipios(); });
-        map.on('overlayremove', function (e) { if (e.layer === todosMuniToggle) ocultarTodosMunicipios(); });
+        // ── Botón MINIATURA de municipios (arriba-derecha) ────────────────────────────────
+        // Sustituye al control de capas de Leaflet (icono gris que al pasar el mouse se abría en
+        // un checkbox): ahora se ve un mini mapa de Venezuela ya pintado con los MISMOS colores
+        // que tendrán los municipios, así se sabe qué enciende el botón sin leer nada.
+        // La miniatura es una imagen pre-generada (php generar_miniaturas_mapa.php, ~40 KB que el
+        // navegador cachea): NO descarga el geojson de municipios (≈1 MB), que se sigue pidiendo
+        // solo cuando el usuario enciende la capa de verdad.
+        var _btnMuni = null;
+        // ¿Hay municipios encendidos? (todos por el botón, o los de un estado por clic derecho).
+        // Incluye todosMuniOn para que el botón se vea encendido ya durante la descarga del geojson.
+        function hayMunicipiosVisibles() { return !!(todosMuniOn || estadosConMuni.size || muniIndividuales.size); }
+        // Mantiene el botón al día: lo llama repintarMuniEstado, el único sitio por el que pasan
+        // TODOS los cambios de la capa (botón, menús de clic derecho, etc.).
+        function sincronizarBotonMuni() {
+            if (!_btnMuni) return;
+            _btnMuni.classList.toggle('activo', hayMunicipiosVisibles());
+            _btnMuni.title = todosMuniOn ? 'Ocultar los municipios' : 'Ver TODOS los municipios (colores por municipio)';
+        }
+        // Molde del botón-miniatura, COMPARTIDO por las tres capas (Municipios, Faja y Bloques):
+        // imagen pre-generada + rótulo. Cada capa pone qué hace el clic y qué necesita del botón
+        // recién creado (guardarlo para poder encenderlo/apagarlo).
+        function controlMiniCapa(urlImagen, rotulo, alClic, alCrear) {
+            return L.Control.extend({
+                options: { position: 'topright' },
+                onAdd: function () {
+                    var btn = L.DomUtil.create('button', 'mapa-mini-capa');
+                    btn.type = 'button';
+                    btn.innerHTML = '<img class="mapa-mini-capa-img" src="' + esc(urlImagen) + '" alt="" draggable="false">' +
+                                    '<span class="mapa-mini-capa-lbl">' + esc(rotulo) + '</span>';
+                    alCrear(btn);
+                    L.DomEvent.disableClickPropagation(btn);
+                    L.DomEvent.disableScrollPropagation(btn);
+                    L.DomEvent.on(btn, 'click', alClic);
+                    return btn;
+                }
+            });
+        }
+        if (miniMuniUrl) map.addControl(new (controlMiniCapa(miniMuniUrl, 'Municipios', function () {
+            // El botón es el de TODOS: si no están todos (aunque haya municipios sueltos
+            // encendidos por clic derecho), enciéndelos; solo apaga cuando ya están todos.
+            // Antes miraba hayMunicipiosVisibles() y con un estado suelto encendido el primer
+            // clic apagaba en vez de activar todos.
+            if (todosMuniOn) ocultarTodosMunicipios(); else activarTodosMunicipios();
+            sincronizarBotonMuni(); // por si la carga perezosa aún no repintó
+        }, function (btn) { _btnMuni = btn; sincronizarBotonMuni(); }))());
+
+        // ── CAPA PETROLERA: Faja Petrolífera del Orinoco + bloques ────────────────────────
+        // Sirve para ubicar los frentes: en qué área de la Faja (Boyacá, Junín, Ayacucho,
+        // Carabobo) y en qué bloque petrolero cae cada punto.
+        // Los datos son de los servicios PÚBLICOS de ArcGIS Online del "Mapa Petrolífero de
+        // Venezuela" (LSIGMA), pero NO se consultan en vivo: generar_geo_faja.php los descarga y
+        // adelgaza a GeoJSON propio en public/geo (faja-poligonal / faja-bloques). Se sirven
+        // desde nuestro servidor — rápido, sin depender de Esri.
+        // Son DOS capas con su propio botón, independientes: se puede ver solo la Faja, solo los
+        // bloques o las dos superpuestas. Cada una baja su geojson la PRIMERA vez que se enciende
+        // (carga perezosa, igual que los municipios).
+        var fajaPoligonalUrl = el.getAttribute('data-faja-poligonal');
+        var fajaBloquesUrl   = el.getAttribute('data-faja-bloques');
+        // Un color por DIVISIÓN de la Faja (de oeste a este). Ninguno es azul: ese es el color de
+        // los frentes/velas y se confundirían.
+        var COLOR_AREA_FAJA = { 'BOYACA': '#22c55e', 'JUNIN': '#f59e0b', 'AYACUCHO': '#a855f7', 'CARABOBO': '#ef4444' };
+        function colorAreaFaja(nombre) { return COLOR_AREA_FAJA[normEstado(nombre)] || '#fb923c'; }
+        // Escala (km de la regla) a partir de la cual el rótulo del área se ve desproporcionado
+        // y se encoge por CSS (.mapa-faja-lejos). Lo aplica declutterVelas, con la vista ya asentada.
+        var FAJA_ETQ_LEJOS_KM = 200;
+        // Bloques en GRIS a propósito: son cientos y en color tapaban el mapa. El color queda para
+        // la Faja (4 áreas) y para los municipios.
+        var estiloBloque      = { color: '#e2e8f0', weight: 0.9, opacity: 0.85, fill: true, fillColor: '#64748b', fillOpacity: 0.16 };
+        var estiloBloqueHover = { color: '#ffffff', weight: 2.2, fillOpacity: 0.38 };
+
+        // Ficha del bloque al pasar el mouse: nombre, área de la Faja/zona, empresa y superficie.
+        // 116 de los 336 bloques (los del Lago y Costa Afuera) vienen SIN nombre propio en la
+        // fuente: ahí el título es el campo ("Bloque XV", "La Ceiba") y no se repite abajo.
+        function tooltipBloque(p) {
+            var conNombre = !!p.nombre;
+            var titulo = conNombre ? 'Bloque ' + nombreBonito(p.nombre) : (p.campo ? nombreBonito(p.campo) : 'Bloque petrolero');
+            // La etiqueta corta (J5, A4…) es la que aparece en el mapa petrolero oficial.
+            if (p.etiqueta && String(p.etiqueta).length <= 4 && p.etiqueta !== p.nombre) titulo += ' (' + p.etiqueta + ')';
+            var html = '<b>' + esc(titulo) + '</b>';
+            if (p.campo && conNombre) html += '<br><span style="opacity:.85;">Área ' + esc(nombreBonito(p.campo)) + '</span>';
+            // La empresa va TAL CUAL viene (en mayúsculas): son razones sociales con siglas
+            // (PDVSA, CVP, S.A.) que nombreBonito estropearía ("Pdvsa").
+            if (p.empresa) html += '<br>' + esc(p.empresa) + (p.pais ? ' <span style="opacity:.85;">(' + esc(nombreBonito(p.pais)) + ')</span>' : '');
+            if (p.caracteristica) html += '<br><span style="opacity:.85;">' + esc(nombreBonito(p.caracteristica)) + '</span>';
+            if (p.area_km2) html += '<br><span style="opacity:.85;">' + Number(p.area_km2).toLocaleString('es-VE', { maximumFractionDigits: 0 }) + ' km²</span>';
+            return html;
+        }
+        // Molde de "capa perezosa con botón-miniatura": descarga (una sola vez), encendido/apagado
+        // y estado del botón. Lo comparten la Faja y los Bloques — solo cambia cómo se pinta.
+        function capaPetrolera(url, crearCapa, tituloOff, tituloOn) {
+            var est = { on: false, capa: null, promesa: null, btn: null };
+            est.sincronizar = function () {
+                if (!est.btn) return;
+                est.btn.classList.toggle('activo', est.on);
+                est.btn.title = est.on ? tituloOn : tituloOff;
+            };
+            est.montar = function (btn) { est.btn = btn; est.sincronizar(); }; // se lo pasa controlMiniCapa
+            est.cargar = function () {
+                if (est.promesa) return est.promesa;
+                if (!url) return Promise.resolve(false);
+                spinOn();
+                est.promesa = fetch(url).then(function (r) { return r.json(); }).then(function (gj) {
+                    spinOff();
+                    est.capa = crearCapa(gj);
+                    return true;
+                }).catch(function () {
+                    // Igual que en los municipios: se limpia la promesa para poder reintentar en el
+                    // siguiente clic (si no, quedaría rota para siempre).
+                    spinOff();
+                    est.promesa = null;
+                    if (window.showToast) window.showToast('No se pudo cargar la capa petrolera.', 'error');
+                    return false;
+                });
+                return est.promesa;
+            };
+            est.alternar = function () {
+                est.on = !est.on;
+                est.sincronizar(); // responde al instante, aunque el geojson aún se esté bajando
+                if (!est.on) { if (est.capa) map.removeLayer(est.capa); return; }
+                est.cargar().then(function (ok) {
+                    if (!ok) { est.on = false; est.sincronizar(); return; }
+                    if (est.on) est.capa.addTo(map); // si la apagó mientras cargaba, no se pinta
+                });
+            };
+            return est;
+        }
+
+        // Faja: las 4 divisiones, cada una de su color y con su nombre encima. No son
+        // interactivas a propósito: son fondo de referencia y, si recibieran el ratón, se
+        // comerían el clic derecho (coordenada) y el hover de los bloques que van encima.
+        var capaFaja = capaPetrolera(fajaPoligonalUrl, function (gj) {
+            return L.geoJSON(gj, {
+                pane: 'fajaPane',
+                interactive: false,
+                style: function (f) {
+                    var c = colorAreaFaja(f && f.properties && f.properties.nombre);
+                    return { color: c, weight: 2, opacity: 0.95, dashArray: '7 5', fill: true, fillColor: c, fillOpacity: 0.16 };
+                },
+                onEachFeature: function (f, layer) {
+                    var p = f.properties || {}, c = colorAreaFaja(p.nombre);
+                    // Rótulo FIJO (solo son 4): sin él no se sabe cuál área es cada color.
+                    layer.bindTooltip('<span style="color:' + c + '">' + esc(nombreBonito(p.nombre || '')) + '</span>',
+                        { permanent: true, direction: 'center', className: 'estado-tooltip faja-etq' });
+                }
+            });
+        }, 'Ver la Faja Petrolífera del Orinoco (Boyacá, Junín, Ayacucho y Carabobo)', 'Ocultar la Faja Petrolífera');
+
+        // Bloques petroleros de todo el país, en gris, con su ficha al pasar el mouse.
+        var capaBloques = capaPetrolera(fajaBloquesUrl, function (gj) {
+            var capa = L.geoJSON(gj, {
+                pane: 'fajaPane',
+                style: function () { return estiloBloque; },
+                onEachFeature: function (f, layer) {
+                    layer.bindTooltip(tooltipBloque(f.properties || {}), { sticky: true, direction: 'top', className: 'estado-tooltip' });
+                    layer.on({
+                        mouseover: function (ev) { ev.target.setStyle(estiloBloqueHover); ev.target.bringToFront(); },
+                        mouseout:  function (ev) { capa.resetStyle(ev.target); },
+                        // Sin esto el clic derecho sobre un bloque no abriría NADA (el polígono se
+                        // lo queda y el handler general del mapa lo ignora por interactivo) y con
+                        // los bloques encendidos no se podrían activar los municipios de un estado.
+                        contextmenu: function (ev) { L.DomEvent.stop(ev); menuSobreEstadoOCoordenada(ev); }
+                    });
+                }
+            });
+            return capa;
+        }, 'Ver los bloques petroleros', 'Ocultar los bloques petroleros');
+
+        if (miniFajaUrl && fajaPoligonalUrl) map.addControl(new (controlMiniCapa(miniFajaUrl, 'Faja', capaFaja.alternar, capaFaja.montar))());
+        if (miniBloquesUrl && fajaBloquesUrl) map.addControl(new (controlMiniCapa(miniBloquesUrl, 'Bloques', capaBloques.alternar, capaBloques.montar))());
 
         // Ancho máximo (px) de la barra de escala. Fuente única: lo usan el control de la
         // pantalla, el cálculo de escalaKm() y la regla que dibuja la foto, así los tres eligen
@@ -1183,13 +1395,18 @@
         map.addControl(new Brujula());
 
         // ── Créditos / fuente cartográfica (abajo-izquierda) ──
+        // Fuente ÚNICA del texto: lo pintan igual la pantalla (aquí) y la foto (dibujarCreditos).
+        var CREDITOS = [
+            ['ELABORADO POR:', ' Fernando Sánchez | Ingeniero Industrial'],
+            ['FUENTE CARTOGRÁFICA:', ' Delimitación Municipal, Instituto Geográfico de Venezuela Simón Bolívar (IGVSB). Cartografía Oficial 2016.']
+        ];
         var Creditos = L.Control.extend({
             options: { position: 'bottomleft' },
             onAdd: function () {
                 var d = L.DomUtil.create('div', 'mapa-creditos');
-                d.innerHTML =
-                    '<div><b>ELABORADO POR:</b> Fernando Sánchez | Ingeniero Industrial</div>' +
-                    '<div><b>FUENTE CARTOGRÁFICA:</b> Delimitación Municipal, Instituto Geográfico de Venezuela Simón Bolívar (IGVSB). Cartografía Oficial 2016.</div>';
+                d.innerHTML = CREDITOS.map(function (c) {
+                    return '<div><b>' + c[0] + '</b>' + esc(c[1]) + '</div>';
+                }).join('');
                 return d;
             }
         });
@@ -1499,9 +1716,9 @@
 
         // Botón del OJO (arriba-izq): oculta los rótulos de proyecto/punto dejando SOLO las
         // velas; el nombre y las coordenadas del punto salen al pasar el mouse por la vela.
-        // Se recuerda entre recargas en localStorage.
-        var soloVelas = false;
-        try { soloVelas = localStorage.getItem('mapaSoloVelas') === '1'; } catch (e) {}
+        // A PEDIDO DEL CLIENTE arranca SIEMPRE encendido (mapa limpio al abrir) y NO se recuerda:
+        // el botón lo apaga mientras dure la visita, pero al volver a entrar vuelve a estar activo.
+        var soloVelas = true;
 
         // Pantalla: pinta las cajas que decidió repartirEtiquetas como marcadores propios, cada
         // una unida al pin por su línea guía. Se usan marcadores (y no tooltips) porque un
@@ -1682,21 +1899,25 @@
             return fundirVelas(todas, thresh, ocultar);
         }
 
-        var declutterZoom = null, declutterLejos = null, declutterDetalle = null; // último estado, para no recalcular en paneo
+        var declutterZoom = null, declutterLejos = null, declutterDetalle = null, declutterFajaLejos = null; // último estado, para no recalcular en paneo
         function declutterVelas(force) {
             var z = map.getZoom();
             // A MÁS de 300 km (500 km…) el pin se encoge. El nombre del PUNTO es otro umbral
             // (DETALLE_KM): hasta 50 km sale, más lejos solo el proyecto. Ambos por ESCALA.
             var lejos = vistaLejana(), detalle = conDetalle();
+            // Tercer umbral, el de los rótulos de las áreas de la Faja (200 km): de ahí en adelante
+            // el chip tapa el área entera, así que se encoge ANTES que los pines.
+            var fajaLejos = escalaKm() >= FAJA_ETQ_LEJOS_KM;
             // En un PAN puro (mismo zoom y mismos umbrales) las distancias en px entre velas son
             // idénticas (coordenadas globales de Mercator): no hace falta re-agrupar ni re-enlazar
-            // todos los tooltips (evita flicker/jank). Se vigilan LOS DOS umbrales porque al
+            // todos los tooltips (evita flicker/jank). Se vigilan LOS TRES umbrales porque al
             // desplazarse en latitud la escala cambia sin cambiar el zoom. `force` re-ejecuta al
             // crear/recargar velas.
-            if (!force && z === declutterZoom && lejos === declutterLejos && detalle === declutterDetalle) return;
-            declutterZoom = z; declutterLejos = lejos; declutterDetalle = detalle;
+            if (!force && z === declutterZoom && lejos === declutterLejos && detalle === declutterDetalle && fajaLejos === declutterFajaLejos) return;
+            declutterZoom = z; declutterLejos = lejos; declutterDetalle = detalle; declutterFajaLejos = fajaLejos;
             // A más de 300 km el pin se ve exageradamente grande → se encoge por CSS (clase en el mapa).
             el.classList.toggle('mapa-velas-lejos', lejos);
+            el.classList.toggle('mapa-faja-lejos', fajaLejos);
             // Los pines/tuberías de un proyecto oculto se quitan del mapa; los visibles se
             // reponen. Los pines visibles los vuelve a añadir agruparVelas; las tuberías, aquí.
             Object.keys(oleoMap).forEach(function (id) {
@@ -2482,7 +2703,6 @@
                 L.DomEvent.disableClickPropagation(btn);
                 L.DomEvent.on(btn, 'click', function () {
                     soloVelas = !soloVelas;
-                    try { localStorage.setItem('mapaSoloVelas', soloVelas ? '1' : '0'); } catch (e) {}
                     sync();
                     declutterVelas(true); // re-renderiza velas/rótulos con el nuevo estado
                 });
@@ -3067,13 +3287,10 @@
             k = k || 1;
             var padX = 10 * k, padY = 6 * k, fs = Math.round(11 * k), lh = Math.round(fs * 1.35), maxTW = 440 * k;
             var fontB = '800 ' + fs + 'px Arial, sans-serif', fontN = fs + 'px Arial, sans-serif';
-            var entradas = [
-                ['ELABORADO POR:', ' Fernando Sánchez | Ingeniero Industrial'],
-                ['FUENTE CARTOGRÁFICA:', ' Delimitación Municipal, Instituto Geográfico de Venezuela Simón Bolívar (IGVSB). Cartografía Oficial 2016.']
-            ];
             // Construye las líneas (segmentos negrita/normal) envolviendo al ancho máximo.
+            // CREDITOS es el mismo texto que la cajita de la pantalla.
             var lineas = [], maxLineW = 0;
-            entradas.forEach(function (e) {
+            CREDITOS.forEach(function (e) {
                 ctx.font = fontB; var segs = [{ t: e[0], bold: true }], curW = ctx.measureText(e[0]).width;
                 e[1].split(' ').forEach(function (w) {
                     if (!w) return;
@@ -3123,17 +3340,32 @@
             if (tipo === 'lbl') return 'https://mt' + (Math.abs(x + y) % 4) + '.google.com/vt/lyrs=h&x=' + x + '&y=' + y + '&z=' + z;
             return 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/' + z + '/' + y + '/' + x;
         }
-        // Rellena anillos de polígono (lat/lng) con color — municipios resaltados en la foto.
-        function rellenarAnillos(ctx, arr, col, k, proj) {
+        // Rellena anillos de polígono (lat/lng) con color — municipios resaltados y capa petrolera
+        // en la foto. `alpha` = opacidad del relleno (0.42 por defecto, el de los municipios).
+        function rellenarAnillos(ctx, arr, col, k, proj, alpha) {
             if (!arr || !arr.length) return;
             if (arr[0] instanceof L.LatLng) {
                 ctx.beginPath();
                 for (var i = 0; i < arr.length; i++) { var p = proj(arr[i]); if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y); }
                 ctx.closePath();
-                ctx.globalAlpha = 0.42; ctx.fillStyle = col; ctx.fill();
+                ctx.globalAlpha = (alpha == null) ? 0.42 : alpha; ctx.fillStyle = col; ctx.fill();
                 ctx.globalAlpha = 0.95; ctx.strokeStyle = col; ctx.lineWidth = 1.4 * k; ctx.stroke();
                 ctx.globalAlpha = 1;
-            } else { for (var j = 0; j < arr.length; j++) rellenarAnillos(ctx, arr[j], col, k, proj); }
+            } else { for (var j = 0; j < arr.length; j++) rellenarAnillos(ctx, arr[j], col, k, proj, alpha); }
+        }
+        // Capa petrolera en la foto: las MISMAS áreas de la Faja y bloques que se ven en pantalla
+        // (cada una solo si su botón está encendido). Va antes que los municipios para quedar
+        // debajo, igual que en pantalla (fajaPane 458 < muniIntPane 462).
+        function dibujarFaja(ctx, k, proj) {
+            ctx.save(); ctx.lineJoin = 'round';
+            if (capaBloques.on && capaBloques.capa) capaBloques.capa.eachLayer(function (l) {
+                if (l.getLatLngs) rellenarAnillos(ctx, l.getLatLngs(), '#94a3b8', k, proj, 0.18);
+            });
+            if (capaFaja.on && capaFaja.capa) capaFaja.capa.eachLayer(function (l) {
+                var n = l.feature && l.feature.properties && l.feature.properties.nombre;
+                if (l.getLatLngs) rellenarAnillos(ctx, l.getLatLngs(), colorAreaFaja(n), k, proj, 0.16);
+            });
+            ctx.restore();
         }
         // Municipios ACTIVOS resaltados (color pleno) + su NÚMERO (círculo blanco) en la foto.
         // `pines` = cajas de las velas, para que los números se aparten de ellas.
@@ -3272,6 +3504,7 @@
                 // las etiquetas de las velas esquivan esos números ya reubicados.
                 var kPin4k = k * (vistaLejana() ? ESC_LEJOS : 1);
                 var velas4k = calcularVelas(proj4k, kPin4k);
+                dibujarFaja(ctx, k, proj4k); // capa petrolera (si está encendida), debajo de todo lo demás
                 var cajasNum = dibujarMunicipios(ctx, k, proj4k, cajasPines(velas4k, kPin4k));
                 dibujarVectores(ctx, k, proj4k, velas4k, cajasNum, kPin4k);
                 var outMppx = 156543.03392 * Math.cos(b.getCenter().lat * Math.PI / 180) / Math.pow(2, z) / scale;
