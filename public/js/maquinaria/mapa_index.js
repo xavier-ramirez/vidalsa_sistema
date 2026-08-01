@@ -252,11 +252,22 @@
         map.createPane('muniNumPane');
         map.getPane('muniNumPane').style.zIndex = 463;
 
-        // Pane de la CAPA PETROLERA (Faja + bloques): encima del satélite y de los estados
-        // (400), y DEBAJO de los municipios (462) y de la tubería (465), que son la información
-        // propia de la empresa y deben quedar siempre legibles.
+        // Panes de la CAPA PETROLERA: encima del satélite y de los estados (400), y DEBAJO de los
+        // municipios (462) y de la tubería (465), que son la información propia de la empresa y
+        // deben quedar siempre legibles.
+        // Son DOS panes para que el orden NO dependa de en qué orden se enciendan las capas: las
+        // áreas de la Faja son el fondo y los bloques van siempre encima.
         map.createPane('fajaPane');
         map.getPane('fajaPane').style.zIndex = 458;
+        map.createPane('bloquesPane');
+        map.getPane('bloquesPane').style.zIndex = 459;
+        // El CONTORNO de las divisiones de la Faja va aparte y MÁS ALTO que las etiquetas de
+        // Google (labelsPane, 466): una carretera pintada encima del borde lo partía y dejaba
+        // trozos sin línea. El relleno se queda abajo (fajaPane) para no tapar los nombres.
+        // Sin eventos: el hover/clic derecho lo siguen recibiendo los bloques de debajo.
+        map.createPane('fajaBordePane');
+        map.getPane('fajaBordePane').style.zIndex = 467;
+        map.getPane('fajaBordePane').style.pointerEvents = 'none';
 
         // Pane propio para la TUBERÍA, POR ENCIMA de los estados (overlayPane, z 400) y de los
         // municipios (muniIntPane, z 462). Esos polígonos hacían bringToFront() al pasar el mouse
@@ -724,9 +735,18 @@
             onEachFeature: function (feature, layer) {
                 var nombre = (feature.properties && feature.properties.shapeName) || 'Estado';
                 layer.bindTooltip(nombre, { sticky: true, direction: 'top', className: 'estado-tooltip' });
+                // Con la Faja encendida el tooltip dice ADEMÁS en qué división está el cursor.
+                // Se recalcula al mover el ratón (no al entrar) porque un estado puede cruzar
+                // dos divisiones — o entrar y salir de la Faja sin cambiar de estado.
+                var ponerTexto = function (e) {
+                    var div = divisionFajaEnPunto(e.latlng);
+                    e.target.setTooltipContent(esc(nombre) +
+                        (div ? '<br><span style="opacity:.85;">Faja · Área ' + esc(div) + '</span>' : ''));
+                };
                 layer.on({
                     // No tocar el estilo si el estado está FIJADO (clic derecho).
-                    mouseover: function (e) { if (!estadosFijados.has(e.target)) e.target.setStyle(estiloEstadoHover); e.target.bringToFront(); },
+                    mouseover: function (e) { if (!estadosFijados.has(e.target)) e.target.setStyle(estiloEstadoHover); e.target.bringToFront(); ponerTexto(e); },
+                    mousemove: ponerTexto,
                     mouseout:  function (e) { if (!estadosFijados.has(e.target)) estados.resetStyle(e.target); },
                     contextmenu: function (e) { menuEstado(e, e.target, nombre); }
                 });
@@ -866,17 +886,41 @@
         // (carga perezosa, igual que los municipios).
         var fajaPoligonalUrl = el.getAttribute('data-faja-poligonal');
         var fajaBloquesUrl   = el.getAttribute('data-faja-bloques');
-        // Un color por DIVISIÓN de la Faja (de oeste a este). Ninguno es azul: ese es el color de
-        // los frentes/velas y se confundirían.
-        var COLOR_AREA_FAJA = { 'BOYACA': '#22c55e', 'JUNIN': '#f59e0b', 'AYACUCHO': '#a855f7', 'CARABOBO': '#ef4444' };
-        function colorAreaFaja(nombre) { return COLOR_AREA_FAJA[normEstado(nombre)] || '#fb923c'; }
-        // Escala (km de la regla) a partir de la cual el rótulo del área se ve desproporcionado
-        // y se encoge por CSS (.mapa-faja-lejos). Lo aplica declutterVelas, con la vista ya asentada.
-        var FAJA_ETQ_LEJOS_KM = 200;
+        // Las 4 divisiones de la Faja, de oeste a este: color (en tonos OSCUROS, para que se lean
+        // sobre el satélite) y nombre con acentos (el geojson los trae sin ellos). Este mismo
+        // orden es el de la leyenda. A pedido del cliente: Junín en azul (antes ámbar) — distinto
+        // al de las velas (#0067b1) para no confundirlos — y Carabobo en negro (antes rojo, que
+        // sobre el verde del satélite tiraba a naranja).
+        // OJO: los mismos colores están en generar_miniaturas_mapa.php (la miniatura del botón).
+        var AREAS_FAJA = [
+            { clave: 'BOYACA',   nombre: 'Boyacá',   color: '#15803d' },
+            { clave: 'JUNIN',    nombre: 'Junín',    color: '#1d4ed8' },
+            { clave: 'AYACUCHO', nombre: 'Ayacucho', color: '#a21caf' },
+            { clave: 'CARABOBO', nombre: 'Carabobo', color: '#000000' }
+        ];
+        var _areaFaja = {};
+        AREAS_FAJA.forEach(function (a) { _areaFaja[a.clave] = a; });
+        function colorAreaFaja(nombre) { var a = _areaFaja[normEstado(nombre)]; return a ? a.color : '#c2410c'; }
+        function nombreAreaFaja(nombre) { var a = _areaFaja[normEstado(nombre)]; return a ? a.nombre : nombreBonito(nombre); }
+        // Divisiones que van en la leyenda: solo cuando la capa está encendida. La comprobación
+        // de capaFaja es por orden: esto se declara ANTES que la capa y la leyenda podría
+        // dibujarse primero.
+        function areasFajaVisibles() { return (capaFaja && capaFaja.on) ? AREAS_FAJA : []; }
+        // Borde NEGRO en las divisiones de la Faja: el relleno ya dice cuál es cada área y así el
+        // contorno se distingue del de los bloques (que va en gris claro). El MISMO trazo lo usan
+        // las dos capas de la Faja: la del relleno y la copia solo-contorno de fajaBordePane.
+        var COLOR_BORDE_FAJA = '#000000';
+        function trazoFaja(extra) {
+            var t = { color: COLOR_BORDE_FAJA, weight: 2, opacity: 0.95, dashArray: '7 5', fill: false };
+            for (var k in extra) t[k] = extra[k];
+            return t;
+        }
         // Bloques en GRIS a propósito: son cientos y en color tapaban el mapa. El color queda para
         // la Faja (4 áreas) y para los municipios.
-        var estiloBloque      = { color: '#e2e8f0', weight: 0.9, opacity: 0.85, fill: true, fillColor: '#64748b', fillOpacity: 0.16 };
-        var estiloBloqueHover = { color: '#ffffff', weight: 2.2, fillOpacity: 0.38 };
+        // El borde se queda CLARO a propósito: con el relleno oscuro es lo único que separa un
+        // bloque del de al lado. La foto lee estos mismos valores de la capa (ver dibujarFaja).
+        var estiloBloque      = { color: '#cbd5e1', weight: 0.9, opacity: 0.85, fill: true, fillColor: '#1e293b', fillOpacity: 0.4 };
+        var estiloBloqueHover = { color: '#ffffff', weight: 2.2, fillOpacity: 0.6 };
 
         // Ficha del bloque al pasar el mouse: nombre, área de la Faja/zona, empresa y superficie.
         // 116 de los 336 bloques (los del Lago y Costa Afuera) vienen SIN nombre propio en la
@@ -925,10 +969,11 @@
             };
             est.alternar = function () {
                 est.on = !est.on;
-                est.sincronizar(); // responde al instante, aunque el geojson aún se esté bajando
+                est.sincronizar();   // responde al instante, aunque el geojson aún se esté bajando
+                actualizarLeyenda(); // la Faja pone/quita su bloque de colores en la leyenda
                 if (!est.on) { if (est.capa) map.removeLayer(est.capa); return; }
                 est.cargar().then(function (ok) {
-                    if (!ok) { est.on = false; est.sincronizar(); return; }
+                    if (!ok) { est.on = false; est.sincronizar(); actualizarLeyenda(); return; }
                     if (est.on) est.capa.addTo(map); // si la apagó mientras cargaba, no se pinta
                 });
             };
@@ -939,26 +984,28 @@
         // interactivas a propósito: son fondo de referencia y, si recibieran el ratón, se
         // comerían el clic derecho (coordenada) y el hover de los bloques que van encima.
         var capaFaja = capaPetrolera(fajaPoligonalUrl, function (gj) {
-            return L.geoJSON(gj, {
+            // Sin rótulos fijos encima del mapa (tapaban demasiado): qué área es cada color lo
+            // dice la LEYENDA, y al pasar el mouse el nombre sale junto al del estado.
+            var relleno = L.geoJSON(gj, {
                 pane: 'fajaPane',
                 interactive: false,
                 style: function (f) {
-                    var c = colorAreaFaja(f && f.properties && f.properties.nombre);
-                    return { color: c, weight: 2, opacity: 0.95, dashArray: '7 5', fill: true, fillColor: c, fillOpacity: 0.16 };
-                },
-                onEachFeature: function (f, layer) {
-                    var p = f.properties || {}, c = colorAreaFaja(p.nombre);
-                    // Rótulo FIJO (solo son 4): sin él no se sabe cuál área es cada color.
-                    layer.bindTooltip('<span style="color:' + c + '">' + esc(nombreBonito(p.nombre || '')) + '</span>',
-                        { permanent: true, direction: 'center', className: 'estado-tooltip faja-etq' });
+                    return trazoFaja({ fill: true, fillColor: colorAreaFaja(f && f.properties && f.properties.nombre), fillOpacity: 0.28 });
                 }
             });
+            // Copia SOLO-CONTORNO en fajaBordePane: es la que garantiza que la línea negra se vea
+            // siempre, aunque encima pase una carretera o un nombre del mapa base. La de abajo
+            // también lo trae para que la FOTO salga igual con una sola pasada (ver dibujarFaja).
+            var borde = L.geoJSON(gj, { pane: 'fajaBordePane', interactive: false, style: function () { return trazoFaja(); } });
+            var grupo = L.layerGroup([relleno, borde]);
+            grupo.areas = relleno; // el "¿en qué división estoy?" mira solo esta (la del contorno es una copia)
+            return grupo;
         }, 'Ver la Faja Petrolífera del Orinoco (Boyacá, Junín, Ayacucho y Carabobo)', 'Ocultar la Faja Petrolífera');
 
         // Bloques petroleros de todo el país, en gris, con su ficha al pasar el mouse.
         var capaBloques = capaPetrolera(fajaBloquesUrl, function (gj) {
             var capa = L.geoJSON(gj, {
-                pane: 'fajaPane',
+                pane: 'bloquesPane',
                 style: function () { return estiloBloque; },
                 onEachFeature: function (f, layer) {
                     layer.bindTooltip(tooltipBloque(f.properties || {}), { sticky: true, direction: 'top', className: 'estado-tooltip' });
@@ -975,6 +1022,17 @@
             return capa;
         }, 'Ver los bloques petroleros', 'Ocultar los bloques petroleros');
 
+        // ¿En qué división de la Faja cae una coordenada? Devuelve su nombre bonito, o null si la
+        // capa está apagada o el punto queda fuera. Lo usa el tooltip del estado.
+        function divisionFajaEnPunto(ll) {
+            if (!capaFaja.on || !capaFaja.capa || !capaFaja.capa.areas) return null;
+            var res = null;
+            capaFaja.capa.areas.eachLayer(function (l) {
+                if (res || !l.getLatLngs || !l.getBounds().contains(ll)) return; // el bounds descarta rápido
+                if (puntoEnLatLngs(ll, l.getLatLngs())) res = l.feature && l.feature.properties && l.feature.properties.nombre;
+            });
+            return res ? nombreAreaFaja(res) : null;
+        }
         if (miniFajaUrl && fajaPoligonalUrl) map.addControl(new (controlMiniCapa(miniFajaUrl, 'Faja', capaFaja.alternar, capaFaja.montar))());
         if (miniBloquesUrl && fajaBloquesUrl) map.addControl(new (controlMiniCapa(miniBloquesUrl, 'Bloques', capaBloques.alternar, capaBloques.montar))());
 
@@ -1899,25 +1957,21 @@
             return fundirVelas(todas, thresh, ocultar);
         }
 
-        var declutterZoom = null, declutterLejos = null, declutterDetalle = null, declutterFajaLejos = null; // último estado, para no recalcular en paneo
+        var declutterZoom = null, declutterLejos = null, declutterDetalle = null; // último estado, para no recalcular en paneo
         function declutterVelas(force) {
             var z = map.getZoom();
             // A MÁS de 300 km (500 km…) el pin se encoge. El nombre del PUNTO es otro umbral
             // (DETALLE_KM): hasta 50 km sale, más lejos solo el proyecto. Ambos por ESCALA.
             var lejos = vistaLejana(), detalle = conDetalle();
-            // Tercer umbral, el de los rótulos de las áreas de la Faja (200 km): de ahí en adelante
-            // el chip tapa el área entera, así que se encoge ANTES que los pines.
-            var fajaLejos = escalaKm() >= FAJA_ETQ_LEJOS_KM;
             // En un PAN puro (mismo zoom y mismos umbrales) las distancias en px entre velas son
             // idénticas (coordenadas globales de Mercator): no hace falta re-agrupar ni re-enlazar
-            // todos los tooltips (evita flicker/jank). Se vigilan LOS TRES umbrales porque al
+            // todos los tooltips (evita flicker/jank). Se vigilan LOS DOS umbrales porque al
             // desplazarse en latitud la escala cambia sin cambiar el zoom. `force` re-ejecuta al
             // crear/recargar velas.
-            if (!force && z === declutterZoom && lejos === declutterLejos && detalle === declutterDetalle && fajaLejos === declutterFajaLejos) return;
-            declutterZoom = z; declutterLejos = lejos; declutterDetalle = detalle; declutterFajaLejos = fajaLejos;
+            if (!force && z === declutterZoom && lejos === declutterLejos && detalle === declutterDetalle) return;
+            declutterZoom = z; declutterLejos = lejos; declutterDetalle = detalle;
             // A más de 300 km el pin se ve exageradamente grande → se encoge por CSS (clase en el mapa).
             el.classList.toggle('mapa-velas-lejos', lejos);
-            el.classList.toggle('mapa-faja-lejos', fajaLejos);
             // Los pines/tuberías de un proyecto oculto se quitan del mapa; los visibles se
             // reponen. Los pines visibles los vuelve a añadir agruparVelas; las tuberías, aquí.
             Object.keys(oleoMap).forEach(function (id) {
@@ -2574,7 +2628,8 @@
             var d = document.getElementById('mapaLeyenda'); if (!d) return;
             var items = proyectosConPuntos();
             var munis = municipiosActivos();
-            if (!items.length && !munis.length) { d.style.display = 'none'; d.innerHTML = ''; return; }
+            var areas = areasFajaVisibles();
+            if (!items.length && !munis.length && !areas.length) { d.style.display = 'none'; d.innerHTML = ''; return; }
             d.style.display = 'block';
 
             // Delegación de clics (una sola vez, sobrevive a los re-render de innerHTML):
@@ -2661,6 +2716,15 @@
                         '<span class="mapa-leyenda-nom">' + esc(nombreBonito(mu.municipio)) + '</span></div>';
                 });
                 html += '</div>';
+            }
+            // ── Faja Petrolífera: qué división es cada color (va al final, como en la foto) ──
+            if (areas.length) {
+                html += '<div class="mapa-leyenda-t mapa-leyenda-t2">Faja Petrolífera del Orinoco</div>';
+                areas.forEach(function (a) {
+                    html += '<div class="mapa-leyenda-row">' +
+                        '<span class="mapa-leyenda-color" style="background:' + a.color + '"></span>' +
+                        '<span class="mapa-leyenda-nom">' + esc(a.nombre) + '</span></div>';
+                });
             }
             html += '</div>';
             d.innerHTML = html;
@@ -3128,8 +3192,8 @@
             k = k || 1;
             // Si el usuario tiene la leyenda RECOGIDA en pantalla, tampoco va en la foto.
             if (legendColapsada && !soloLeyenda) return;
-            var items = proyectosConPuntos(), munis = municipiosActivos();
-            if (!items.length && !munis.length) return;
+            var items = proyectosConPuntos(), munis = municipiosActivos(), areas = areasFajaVisibles();
+            if (!items.length && !munis.length && !areas.length) return;
             var pad = 12 * k, sw = 12 * k, gap = 8 * k;
             var sangriaPt = 19 * k; // = padding-left de .mapa-leyenda-pt en el CSS
             var fT = Math.round(13 * k), fRow = Math.round(13 * k), fPt = Math.round(11 * k), fDate = Math.round(10 * k);
@@ -3178,12 +3242,17 @@
                 else { ctx.font = 'bold ' + fT + 'px Arial, sans-serif'; W = Math.max(W, pad * 2 + ctx.measureText(fi.txt).width + 46 * k); }
             });
             if (munis.length) W = Math.max(W, pad * 2 + muniBlockW);
+            areas.forEach(function (a) {
+                ctx.font = '600 ' + fRow + 'px Arial, sans-serif';
+                W = Math.max(W, pad * 2 + sw + gap + ctx.measureText(a.nombre).width);
+            });
             W = Math.min(W, cap);
 
             // ── Alto total ──
             var H = pad * 2;
             filas.forEach(function (fi) { H += (fi.t === 'titulo') ? titleH : (fi.t === 'pt' ? ptH : rowH); });
             if (munis.length) H += titleH + muniRowsPerCol * rowH;
+            if (areas.length) H += titleH + areas.length * rowH;
             if (soloLeyenda === 'medir') return { W: W, H: H };  // solo se pidió el tamaño
             if (bottomY != null) y = bottomY - H; // anclar abajo (modo "Pantalla")
 
@@ -3250,6 +3319,22 @@
                 munis.forEach(function (mu, i) {
                     var col = Math.floor(i / muniRowsPerCol), rowInCol = i % muniRowsPerCol;
                     muniRow(x + pad + col * (colW + colGap), yy + rowInCol * rowH, mu.num, nombreBonito(mu.municipio), colW);
+                });
+                yy += muniRowsPerCol * rowH;
+            }
+            // ── FAJA: un cuadrito del color de cada división + su nombre (igual que en pantalla) ──
+            if (areas.length) {
+                ctx.textAlign = 'left'; ctx.fillStyle = '#fff'; ctx.font = 'bold ' + fT + 'px Arial, sans-serif';
+                ctx.fillText('FAJA PETROLÍFERA DEL ORINOCO', x + pad, yy + fT);
+                yy += titleH;
+                areas.forEach(function (a, i) {
+                    var cy = yy + i * rowH + (rowH - sw) / 2 - 1 * k;
+                    ctx.fillStyle = a.color; ctx.fillRect(x + pad, cy, sw, sw);
+                    // Borde claro: Carabobo es negro y sin él se perdería contra el panel oscuro.
+                    ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 1 * k;
+                    ctx.strokeRect(x + pad, cy, sw, sw);
+                    ctx.fillStyle = '#fff'; ctx.font = '600 ' + fRow + 'px Arial, sans-serif';
+                    ctx.fillText(a.nombre, x + pad + sw + gap, yy + i * rowH + fRow + (rowH - fRow) / 2 - 2 * k);
                 });
             }
             ctx.restore();
@@ -3340,31 +3425,41 @@
             if (tipo === 'lbl') return 'https://mt' + (Math.abs(x + y) % 4) + '.google.com/vt/lyrs=h&x=' + x + '&y=' + y + '&z=' + z;
             return 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/' + z + '/' + y + '/' + x;
         }
-        // Rellena anillos de polígono (lat/lng) con color — municipios resaltados y capa petrolera
-        // en la foto. `alpha` = opacidad del relleno (0.42 por defecto, el de los municipios).
-        function rellenarAnillos(ctx, arr, col, k, proj, alpha) {
+        // Rellena anillos de polígono (lat/lng) — municipios resaltados y capa petrolera en la
+        // foto. `alpha` = opacidad del relleno (0.42 por defecto, el de los municipios) y
+        // `colBorde` = color del contorno cuando no es el mismo del relleno (la Faja lo lleva
+        // negro con relleno de color).
+        function rellenarAnillos(ctx, arr, col, k, proj, alpha, colBorde) {
             if (!arr || !arr.length) return;
             if (arr[0] instanceof L.LatLng) {
                 ctx.beginPath();
                 for (var i = 0; i < arr.length; i++) { var p = proj(arr[i]); if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y); }
                 ctx.closePath();
                 ctx.globalAlpha = (alpha == null) ? 0.42 : alpha; ctx.fillStyle = col; ctx.fill();
-                ctx.globalAlpha = 0.95; ctx.strokeStyle = col; ctx.lineWidth = 1.4 * k; ctx.stroke();
+                ctx.globalAlpha = 0.95; ctx.strokeStyle = colBorde || col; ctx.lineWidth = 1.4 * k; ctx.stroke();
                 ctx.globalAlpha = 1;
-            } else { for (var j = 0; j < arr.length; j++) rellenarAnillos(ctx, arr[j], col, k, proj, alpha); }
+            } else { for (var j = 0; j < arr.length; j++) rellenarAnillos(ctx, arr[j], col, k, proj, alpha, colBorde); }
         }
         // Capa petrolera en la foto: las MISMAS áreas de la Faja y bloques que se ven en pantalla
         // (cada una solo si su botón está encendido). Va antes que los municipios para quedar
-        // debajo, igual que en pantalla (fajaPane 458 < muniIntPane 462).
+        // debajo, igual que en pantalla (fajaPane 458 / bloquesPane 459 < muniIntPane 462).
+        // El orden del array es el de los panes (áreas al fondo, bloques encima) y los colores se
+        // leen de la PROPIA capa (l.options): así la foto no puede desincronizarse de la pantalla.
         function dibujarFaja(ctx, k, proj) {
             ctx.save(); ctx.lineJoin = 'round';
-            if (capaBloques.on && capaBloques.capa) capaBloques.capa.eachLayer(function (l) {
-                if (l.getLatLngs) rellenarAnillos(ctx, l.getLatLngs(), '#94a3b8', k, proj, 0.18);
-            });
-            if (capaFaja.on && capaFaja.capa) capaFaja.capa.eachLayer(function (l) {
-                var n = l.feature && l.feature.properties && l.feature.properties.nombre;
-                if (l.getLatLngs) rellenarAnillos(ctx, l.getLatLngs(), colorAreaFaja(n), k, proj, 0.16);
-            });
+            var pintar = function (capa) {
+                capa.eachLayer(function (l) {
+                    if (l.eachLayer) { pintar(l); return; }   // la Faja es un grupo (relleno + contorno)
+                    var o = l.options || {};
+                    // La copia solo-contorno se salta: en la foto no hay etiquetas por encima que
+                    // tapen nada y, sin relleno, se pintaría como una mancha negra.
+                    if (!l.getLatLngs || o.fill === false) return;
+                    // El punteado del borde (las áreas lo llevan) también va a la foto, a escala.
+                    ctx.setLineDash(String(o.dashArray || '').split(/[\s,]+/).filter(Boolean).map(function (n) { return n * k; }));
+                    rellenarAnillos(ctx, l.getLatLngs(), o.fillColor || o.color, k, proj, o.fillOpacity, o.color);
+                });
+            };
+            [capaFaja, capaBloques].forEach(function (c) { if (c.on && c.capa) pintar(c.capa); });
             ctx.restore();
         }
         // Municipios ACTIVOS resaltados (color pleno) + su NÚMERO (círculo blanco) en la foto.

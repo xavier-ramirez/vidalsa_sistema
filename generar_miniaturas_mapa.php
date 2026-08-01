@@ -210,7 +210,7 @@ $lienzo->guardar($DIR_SALIDA . '/mini-municipios.png');
 // ── 2) y 3) Miniaturas de la capa petrolera: son DOS botones distintos en el mapa ──
 // Los colores tienen que ser los mismos que usa mapa_index.js: cada división de la Faja con su
 // color (COLOR_AREA_FAJA) y los bloques en gris (estiloBloque).
-$COLOR_AREA_FAJA = ['BOYACA' => '#22c55e', 'JUNIN' => '#f59e0b', 'AYACUCHO' => '#a855f7', 'CARABOBO' => '#ef4444'];
+$COLOR_AREA_FAJA = ['BOYACA' => '#15803d', 'JUNIN' => '#1d4ed8', 'AYACUCHO' => '#a21caf', 'CARABOBO' => '#000000'];
 $estados  = cargarGeo($GEO_ESTADOS);
 $fajaPoli = cargarGeo($GEO_FAJA_POLI);
 $fajaBloq = cargarGeo($GEO_FAJA_BLOQ);
@@ -224,12 +224,14 @@ $lienzo = new Lienzo($bbox, $ANCHO, $SS);
 if ($estados) $lienzo->pintar($estados, '#475569', '#94a3b8');   // país de fondo, apagado
 $lienzo->pintar($fajaPoli, function ($f) use ($COLOR_AREA_FAJA) {
     $n = normEstado($f['properties']['nombre'] ?? '');
-    return $COLOR_AREA_FAJA[$n] ?? '#fb923c';
-}, '#ffffff');
+    return $COLOR_AREA_FAJA[$n] ?? '#c2410c';
+}, '#000000');   // borde negro, igual que en el mapa
 $lienzo->guardar($DIR_SALIDA . '/mini-faja.png');
 
 echo "Miniatura de los bloques…\n";
 $lienzo = new Lienzo($bbox, $ANCHO, $SS);
 if ($estados) $lienzo->pintar($estados, '#475569', '#94a3b8');
-$lienzo->pintar($fajaBloq, '#cbd5e1', '#f8fafc');                // bloques en gris, como en el mapa
+// Gris más claro que el del mapa a propósito: aquí el relleno va OPACO sobre el país oscuro,
+// mientras que en el mapa es translúcido sobre el satélite. La impresión final es la misma.
+$lienzo->pintar($fajaBloq, '#94a3b8', '#e2e8f0');
 $lienzo->guardar($DIR_SALIDA . '/mini-bloques.png');
