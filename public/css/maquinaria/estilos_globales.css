@@ -4100,7 +4100,7 @@ body:has(.mapa-page) .main-viewport {
        del header) vive ahora en la base, arriba — aplica igual en PC y teléfono. Aquí quedan
        SOLO los ajustes propios del móvil. */
     .mapa-creditos { display: none; }
-    .mapa-mini-capa { display: none; }
+    .mapa-mini-capa, .mapa-bloque-buscador { display: none !important; }
     /* Se ocultan TODOS los botones de la barra (Ver toda Venezuela, Pantalla completa,
        Descargar imagen, Frentes de trabajo y Dibujar tubería): solo queda el buscador.
        DUPLICA a propósito la regla de @media (pointer: coarse) de más arriba: aquella cubre
@@ -4320,6 +4320,38 @@ body:has(.mapa-page) .main-viewport {
     background: #fff; color: #0f172a; font-size: 11px; font-weight: 800;
     display: inline-flex; align-items: center; justify-content: center; border: 1px solid #0f172a;
 }
+/* Buscador de BLOQUES (arriba-derecha, debajo de los botones de capa). Solo se muestra con la
+   capa de bloques encendida (lo decide sincronizarBuscadorBloques). Es OTRO buscador que el de
+   lugares de arriba-izquierda: este solo mira los bloques ya cargados. */
+.mapa-bloque-buscador { width: 232px; position: relative; }
+.mapa-bloque-in {
+    display: flex; align-items: center; gap: 6px;
+    height: 36px; padding: 0 8px;
+    background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+}
+.mapa-bloque-in > .material-icons { font-size: 18px; color: #64748b; flex: none; }
+.mapa-bloque-in input {
+    flex: 1; min-width: 0; border: none; outline: none; background: transparent;
+    font-size: 13px; color: #0f172a;
+}
+/* La "X" solo cuando hay algo escrito (la clase la pone renderSugBloques). */
+.mapa-bloque-x { display: none; align-items: center; border: none; background: transparent; padding: 0; cursor: pointer; color: #64748b; }
+.mapa-bloque-x .material-icons { font-size: 17px; }
+.mapa-bloque-buscador.con-texto .mapa-bloque-x { display: inline-flex; }
+/* Lista de sugerencias: flota bajo la barra, sin empujar nada. */
+.mapa-bloque-lista {
+    display: none; position: absolute; left: 0; right: 0; top: 41px;
+    max-height: 264px; overflow-y: auto;
+    background: #fff; border-radius: 10px; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+}
+.mapa-bloque-lista.abierta { display: block; }
+.mapa-bloque-item { padding: 6px 10px; cursor: pointer; line-height: 1.25; }
+.mapa-bloque-item:hover { background: #f1f5f9; }
+.mapa-bloque-item b { display: block; font-size: 12.5px; font-weight: 700; color: #0f172a; }
+.mapa-bloque-item span { font-size: 11px; color: #64748b; }
+.mapa-bloque-vacio { padding: 8px 10px; font-size: 12px; color: #64748b; }
+
 /* Cuadrito de color de cada división de la Faja en la leyenda. Mismo hueco que el número del
    municipio (18 px) para que las dos secciones alineen sus nombres. Borde claro porque Carabobo
    es negro y sin él se perdería contra el panel oscuro. */

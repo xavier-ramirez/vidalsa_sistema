@@ -741,7 +741,7 @@
                 var ponerTexto = function (e) {
                     var div = divisionFajaEnPunto(e.latlng);
                     e.target.setTooltipContent(esc(nombre) +
-                        (div ? '<br><span style="opacity:.85;">Faja · Área ' + esc(div) + '</span>' : ''));
+                        (div ? '<br><span style="opacity:.85;">División ' + esc(div) + '</span>' : ''));
                 };
                 layer.on({
                     // No tocar el estilo si el estado está FIJADO (clic derecho).
@@ -921,17 +921,25 @@
         // bloque del de al lado. La foto lee estos mismos valores de la capa (ver dibujarFaja).
         var estiloBloque      = { color: '#cbd5e1', weight: 0.9, opacity: 0.85, fill: true, fillColor: '#1e293b', fillOpacity: 0.4 };
         var estiloBloqueHover = { color: '#ffffff', weight: 2.2, fillOpacity: 0.6 };
+        // Bloque encontrado con el buscador: se queda MARCADO (mismo amarillo que el resaltado de
+        // estados) hasta que se busque otro o se limpie. Antes solo se resaltaba 4 s y, con el
+        // mapa aún acercándose, no daba tiempo a ver cuál era.
+        var estiloBloqueMarcado = { color: '#ffd23f', weight: 3.5, opacity: 1, fill: true, fillColor: '#ffd23f', fillOpacity: 0.45 };
+        var _bloqueMarcado = null;
 
         // Ficha del bloque al pasar el mouse: nombre, área de la Faja/zona, empresa y superficie.
         // 116 de los 336 bloques (los del Lago y Costa Afuera) vienen SIN nombre propio en la
         // fuente: ahí el título es el campo ("Bloque XV", "La Ceiba") y no se repite abajo.
-        function tooltipBloque(p) {
-            var conNombre = !!p.nombre;
-            var titulo = conNombre ? 'Bloque ' + nombreBonito(p.nombre) : (p.campo ? nombreBonito(p.campo) : 'Bloque petrolero');
+        function tituloBloque(p) {
+            var titulo = p.nombre ? 'Bloque ' + nombreBonito(p.nombre) : (p.campo ? nombreBonito(p.campo) : 'Bloque petrolero');
             // La etiqueta corta (J5, A4…) es la que aparece en el mapa petrolero oficial.
             if (p.etiqueta && String(p.etiqueta).length <= 4 && p.etiqueta !== p.nombre) titulo += ' (' + p.etiqueta + ')';
-            var html = '<b>' + esc(titulo) + '</b>';
-            if (p.campo && conNombre) html += '<br><span style="opacity:.85;">Área ' + esc(nombreBonito(p.campo)) + '</span>';
+            return titulo;
+        }
+        function tooltipBloque(p) {
+            var conNombre = !!p.nombre;
+            var html = '<b>' + esc(tituloBloque(p)) + '</b>';
+            if (p.campo && conNombre) html += '<br><span style="opacity:.85;">División ' + esc(nombreAreaFaja(p.campo)) + '</span>';
             // La empresa va TAL CUAL viene (en mayúsculas): son razones sociales con siglas
             // (PDVSA, CVP, S.A.) que nombreBonito estropearía ("Pdvsa").
             if (p.empresa) html += '<br>' + esc(p.empresa) + (p.pais ? ' <span style="opacity:.85;">(' + esc(nombreBonito(p.pais)) + ')</span>' : '');
@@ -941,7 +949,7 @@
         }
         // Molde de "capa perezosa con botón-miniatura": descarga (una sola vez), encendido/apagado
         // y estado del botón. Lo comparten la Faja y los Bloques — solo cambia cómo se pinta.
-        function capaPetrolera(url, crearCapa, tituloOff, tituloOn) {
+        function capaPetrolera(url, crearCapa, tituloOff, tituloOn, alCambiar) {
             var est = { on: false, capa: null, promesa: null, btn: null };
             est.sincronizar = function () {
                 if (!est.btn) return;
@@ -969,12 +977,13 @@
             };
             est.alternar = function () {
                 est.on = !est.on;
-                est.sincronizar();   // responde al instante, aunque el geojson aún se esté bajando
-                actualizarLeyenda(); // la Faja pone/quita su bloque de colores en la leyenda
+                est.sincronizar();  // responde al instante, aunque el geojson aún se esté bajando
+                if (alCambiar) alCambiar(est); // cada capa refresca LO SUYO (leyenda / buscador)
                 if (!est.on) { if (est.capa) map.removeLayer(est.capa); return; }
                 est.cargar().then(function (ok) {
-                    if (!ok) { est.on = false; est.sincronizar(); actualizarLeyenda(); return; }
-                    if (est.on) est.capa.addTo(map); // si la apagó mientras cargaba, no se pinta
+                    if (!ok) { est.on = false; est.sincronizar(); if (alCambiar) alCambiar(est); return; }
+                    if (est.on) est.capa.addTo(map);   // si la apagó mientras cargaba, no se pinta
+                    if (alCambiar) alCambiar(est);     // ya con la capa cargada (el buscador la necesita)
                 });
             };
             return est;
@@ -1000,7 +1009,8 @@
             var grupo = L.layerGroup([relleno, borde]);
             grupo.areas = relleno; // el "¿en qué división estoy?" mira solo esta (la del contorno es una copia)
             return grupo;
-        }, 'Ver la Faja Petrolífera del Orinoco (Boyacá, Junín, Ayacucho y Carabobo)', 'Ocultar la Faja Petrolífera');
+        }, 'Ver la Faja Petrolífera del Orinoco (Boyacá, Junín, Ayacucho y Carabobo)', 'Ocultar la Faja Petrolífera',
+           function () { actualizarLeyendaFaja(); });
 
         // Bloques petroleros de todo el país, en gris, con su ficha al pasar el mouse.
         var capaBloques = capaPetrolera(fajaBloquesUrl, function (gj) {
@@ -1010,8 +1020,10 @@
                 onEachFeature: function (f, layer) {
                     layer.bindTooltip(tooltipBloque(f.properties || {}), { sticky: true, direction: 'top', className: 'estado-tooltip' });
                     layer.on({
-                        mouseover: function (ev) { ev.target.setStyle(estiloBloqueHover); ev.target.bringToFront(); },
-                        mouseout:  function (ev) { capa.resetStyle(ev.target); },
+                        // El bloque MARCADO por el buscador conserva su amarillo: si el hover lo
+                        // pisara, bastaría pasar el ratón por encima para perder la marca.
+                        mouseover: function (ev) { if (ev.target !== _bloqueMarcado) ev.target.setStyle(estiloBloqueHover); ev.target.bringToFront(); },
+                        mouseout:  function (ev) { if (ev.target !== _bloqueMarcado) capa.resetStyle(ev.target); },
                         // Sin esto el clic derecho sobre un bloque no abriría NADA (el polígono se
                         // lo queda y el handler general del mapa lo ignora por interactivo) y con
                         // los bloques encendidos no se podrían activar los municipios de un estado.
@@ -1019,8 +1031,21 @@
                     });
                 }
             });
+            // Índice para el buscador: se arma UNA vez, al cargar. `buscable` junta nombre,
+            // etiqueta, división y empresa para poder encontrar el bloque por cualquiera.
+            capa.indice = [];
+            capa.eachLayer(function (l) {
+                var p = (l.feature && l.feature.properties) || {};
+                capa.indice.push({
+                    titulo: tituloBloque(p),
+                    sub: [p.campo ? 'División ' + nombreAreaFaja(p.campo) : '', p.empresa || ''].filter(Boolean).join(' · '),
+                    buscable: [p.nombre, p.etiqueta, p.campo, p.empresa, p.pais].filter(Boolean).join(' '),
+                    poligono: l
+                });
+            });
             return capa;
-        }, 'Ver los bloques petroleros', 'Ocultar los bloques petroleros');
+        }, 'Ver los bloques petroleros', 'Ocultar los bloques petroleros',
+           function () { sincronizarBuscadorBloques(); });
 
         // ¿En qué división de la Faja cae una coordenada? Devuelve su nombre bonito, o null si la
         // capa está apagada o el punto queda fuera. Lo usa el tooltip del estado.
@@ -2628,8 +2653,7 @@
             var d = document.getElementById('mapaLeyenda'); if (!d) return;
             var items = proyectosConPuntos();
             var munis = municipiosActivos();
-            var areas = areasFajaVisibles();
-            if (!items.length && !munis.length && !areas.length) { d.style.display = 'none'; d.innerHTML = ''; return; }
+            if (!items.length && !munis.length) { d.style.display = 'none'; d.innerHTML = ''; return; }
             d.style.display = 'block';
 
             // Delegación de clics (una sola vez, sobrevive a los re-render de innerHTML):
@@ -2717,18 +2741,163 @@
                 });
                 html += '</div>';
             }
-            // ── Faja Petrolífera: qué división es cada color (va al final, como en la foto) ──
-            if (areas.length) {
-                html += '<div class="mapa-leyenda-t mapa-leyenda-t2">Faja Petrolífera del Orinoco</div>';
-                areas.forEach(function (a) {
-                    html += '<div class="mapa-leyenda-row">' +
-                        '<span class="mapa-leyenda-color" style="background:' + a.color + '"></span>' +
-                        '<span class="mapa-leyenda-nom">' + esc(a.nombre) + '</span></div>';
-                });
-            }
             html += '</div>';
             d.innerHTML = html;
         }
+
+        // ── Buscador de BLOQUES (arriba-derecha, bajo los botones de capa) ────────────────
+        // Aparte del buscador de lugares (ese es el geocoder de arriba-izquierda): este solo
+        // busca dentro de los bloques ya cargados y solo existe mientras la capa está encendida.
+        // Recomienda al escribir con el MISMO ranking del resto de la app (window.FuzzySearch).
+        var _busBloques = null;   // { caja, input, lista } una vez creado el control
+        var BUS_MAX = 8;          // sugerencias visibles: más no caben sin tapar el mapa
+
+        // Muestra u oculta el buscador según esté la capa de bloques (y limpia lo escrito).
+        function sincronizarBuscadorBloques() {
+            if (!_busBloques) return;
+            var visible = !!(capaBloques.on && capaBloques.capa && capaBloques.capa.indice);
+            _busBloques.caja.style.display = visible ? '' : 'none';
+            if (!visible) { _busBloques.input.value = ''; cerrarListaBloques(); limpiarMarcaBloque(); }
+        }
+        function cerrarListaBloques() {
+            if (!_busBloques) return;
+            _busBloques.lista.innerHTML = '';
+            _busBloques.lista.classList.remove('abierta');
+            _busBloques._sug = null; // si no, el Enter saltaría a una sugerencia ya descartada
+        }
+        // Quita la marca del bloque encontrado (al buscar otro, al limpiar o al apagar la capa).
+        function limpiarMarcaBloque() {
+            if (!_bloqueMarcado) return;
+            if (capaBloques.capa) capaBloques.capa.resetStyle(_bloqueMarcado);
+            _bloqueMarcado.closeTooltip();
+            _bloqueMarcado = null;
+        }
+        // Lleva el mapa al bloque elegido y lo deja MARCADO en amarillo, con su ficha abierta,
+        // hasta que se busque otro o se limpie el buscador.
+        function irABloque(item) {
+            if (!item || !item.poligono.getBounds) return;
+            limpiarMarcaBloque();
+            _bloqueMarcado = item.poligono;
+            item.poligono.setStyle(estiloBloqueMarcado);
+            item.poligono.bringToFront(); // que no lo tape el borde de un bloque vecino
+            // La ficha se abre al TERMINAR el encuadre: durante la animación Leaflet la coloca con
+            // las coordenadas viejas y queda descuadrada. El once() va ANTES del fitBounds porque
+            // en un salto grande Leaflet no anima y dispara moveend en el acto: registrado
+            // después, el handler no llegaba a tiempo y la ficha no se abría nunca.
+            map.once('moveend', function () {
+                if (_bloqueMarcado === item.poligono) item.poligono.openTooltip(item.poligono.getBounds().getCenter());
+            });
+            map.fitBounds(item.poligono.getBounds(), { maxZoom: 11, padding: [40, 40] });
+        }
+        function renderSugBloques() {
+            if (!_busBloques) return;
+            var term = _busBloques.input.value || '';
+            var indice = (capaBloques.capa && capaBloques.capa.indice) || [];
+            _busBloques.caja.classList.toggle('con-texto', !!term);
+            if (!term.trim()) { cerrarListaBloques(); return; }
+            var arr;
+            if (window.FuzzySearch && window.FuzzySearch.rank) {
+                arr = window.FuzzySearch.rank(indice, term, function (b) { return { label: b.titulo, haystack: b.buscable }; });
+            } else {
+                var q = term.toLowerCase();
+                arr = indice.filter(function (b) { return b.buscable.toLowerCase().indexOf(q) > -1; });
+            }
+            if (!arr.length) {
+                _busBloques.lista.innerHTML = '<div class="mapa-bloque-vacio">Sin bloques que coincidan</div>';
+                _busBloques.lista.classList.add('abierta');
+                _busBloques._sug = null;
+                return;
+            }
+            _busBloques.lista.innerHTML = arr.slice(0, BUS_MAX).map(function (b, i) {
+                return '<div class="mapa-bloque-item" data-i="' + i + '"><b>' + esc(b.titulo) + '</b>' +
+                       (b.sub ? '<span>' + esc(b.sub) + '</span>' : '') + '</div>';
+            }).join('');
+            _busBloques.lista.classList.add('abierta');
+            _busBloques._sug = arr.slice(0, BUS_MAX); // lo que se está mostrando, para el clic/Enter
+        }
+        var BuscadorBloquesCtrl = L.Control.extend({
+            options: { position: 'topright' },
+            onAdd: function () {
+                var caja = L.DomUtil.create('div', 'mapa-bloque-buscador mapa-ctrl-mobile-hide');
+                caja.style.display = 'none';
+                caja.innerHTML =
+                    '<div class="mapa-bloque-in">' +
+                        '<i class="material-icons">search</i>' +
+                        '<input type="text" placeholder="Buscar bloque…" autocomplete="off">' +
+                        '<button type="button" class="mapa-bloque-x" title="Limpiar"><i class="material-icons">close</i></button>' +
+                    '</div><div class="mapa-bloque-lista"></div>';
+                L.DomEvent.disableClickPropagation(caja);
+                L.DomEvent.disableScrollPropagation(caja);
+                _busBloques = { caja: caja, input: caja.querySelector('input'), lista: caja.querySelector('.mapa-bloque-lista') };
+                _busBloques.input.addEventListener('input', renderSugBloques);
+                _busBloques.input.addEventListener('keydown', function (e) {
+                    if (e.key === 'Escape') { _busBloques.input.value = ''; renderSugBloques(); limpiarMarcaBloque(); }
+                    // Enter = la primera sugerencia, sin tener que apuntar con el ratón.
+                    else if (e.key === 'Enter' && _busBloques._sug && _busBloques._sug.length) { irABloque(_busBloques._sug[0]); cerrarListaBloques(); }
+                });
+                caja.querySelector('.mapa-bloque-x').addEventListener('click', function () {
+                    _busBloques.input.value = ''; renderSugBloques(); limpiarMarcaBloque(); _busBloques.input.focus();
+                });
+                _busBloques.lista.addEventListener('click', function (e) {
+                    var it = e.target.closest && e.target.closest('.mapa-bloque-item');
+                    if (!it || !_busBloques._sug) return;
+                    irABloque(_busBloques._sug[+it.getAttribute('data-i')]);
+                    cerrarListaBloques();
+                });
+                return caja;
+            }
+        });
+        if (fajaBloquesUrl) map.addControl(new BuscadorBloquesCtrl());
+
+        // ── Leyenda PROPIA de la Faja (panel aparte del de los frentes) ──────────────────
+        // Tiene lo mismo que aquella: se recoge, se descarga sola en PNG y sale en la foto solo
+        // si NO está recogida. Va en su propio panel porque la de frentes lista puntos y
+        // municipios: mezclarlas obligaba a recoger las dos a la vez.
+        var fajaLegendColapsada = false;
+        var fajaLegendClickBound = false;
+
+        function actualizarLeyendaFaja() {
+            var d = document.getElementById('mapaLeyendaFaja'); if (!d) return;
+            var areas = areasFajaVisibles();
+            if (!areas.length) { d.style.display = 'none'; d.innerHTML = ''; return; }
+            d.style.display = 'block';
+            if (!fajaLegendClickBound) {
+                fajaLegendClickBound = true;
+                d.addEventListener('click', function (e) {
+                    if (e.target.closest && e.target.closest('[data-descargar]')) { e.stopPropagation(); descargarLeyendaFajaSola(); return; }
+                    if (e.target.closest && e.target.closest('[data-fold]')) { fajaLegendColapsada = !fajaLegendColapsada; actualizarLeyendaFaja(); }
+                });
+            }
+            var html = '<div class="mapa-leyenda-head">' +
+                '<span class="mapa-leyenda-titulo">Faja Petrolífera del Orinoco</span>' +
+                '<span class="mapa-leyenda-acciones">' +
+                '<button type="button" class="mapa-leyenda-fold" data-descargar="1" title="Descargar solo esta leyenda (PNG)">' +
+                    '<i class="material-icons">file_download</i></button>' +
+                '<button type="button" class="mapa-leyenda-fold" data-fold="1" title="' + (fajaLegendColapsada ? 'Expandir' : 'Recoger') + '">' +
+                    '<i class="material-icons">' + (fajaLegendColapsada ? 'expand_more' : 'expand_less') + '</i></button>' +
+                '</span></div>';
+            // El cuerpo se arma siempre (recogido solo se le pone la clase -plegado), para que el
+            // panel mida igual abierto que cerrado. Mismo criterio que la leyenda de frentes.
+            html += '<div class="mapa-leyenda-body' + (fajaLegendColapsada ? ' mapa-leyenda-body-plegado' : '') + '">';
+            areas.forEach(function (a) {
+                html += '<div class="mapa-leyenda-row">' +
+                    '<span class="mapa-leyenda-color" style="background:' + a.color + '"></span>' +
+                    '<span class="mapa-leyenda-nom">' + esc(a.nombre) + '</span></div>';
+            });
+            html += '</div>';
+            d.innerHTML = html;
+        }
+
+        var LeyendaFajaCtrl = L.Control.extend({
+            options: { position: 'bottomleft' },
+            onAdd: function () {
+                var d = L.DomUtil.create('div', 'mapa-leyenda');
+                d.id = 'mapaLeyendaFaja'; d.style.display = 'none';
+                L.DomEvent.disableClickPropagation(d);
+                return d;
+            }
+        });
+        map.addControl(new LeyendaFajaCtrl()); // debajo de la leyenda de frentes, sobre los créditos
 
         // Botón de descarga (arriba-izq, junto al buscador/globo/pantalla completa).
         var ExportarCtrl = L.Control.extend({
@@ -3188,12 +3357,21 @@
 
         // Tabla-leyenda (historial) sobre el canvas: proyectos + sus puntos con coordenadas,
         // y los municipios activos con su color. `k` = escala según el tamaño de hoja.
+        // Cajita de fondo de un panel de leyenda (la misma para el de frentes y el de la Faja).
+        // Sobre el mapa es translúcida y el satélite la tiñe de gris; SUELTA (descarga del panel)
+        // no hay mapa detrás, así que se pinta OPACA con ese mismo gris — con el azul marino de la
+        // versión translúcida el PNG salía azulado y no se parecía a lo que se ve en pantalla.
+        function fondoPanelLeyenda(ctx, x, y, W, H, k, suelta) {
+            rrect(ctx, x, y, W, H, 12 * k);
+            ctx.fillStyle = suelta ? LEYENDA_BG_SOLA : 'rgba(15,23,42,0.62)'; ctx.fill();
+            ctx.strokeStyle = 'rgba(255,255,255,0.28)'; ctx.lineWidth = 1 * k; ctx.stroke();
+        }
         function dibujarLeyendaCanvas(ctx, x, y, fechaTxt, k, bottomY, soloLeyenda) {
             k = k || 1;
             // Si el usuario tiene la leyenda RECOGIDA en pantalla, tampoco va en la foto.
             if (legendColapsada && !soloLeyenda) return;
-            var items = proyectosConPuntos(), munis = municipiosActivos(), areas = areasFajaVisibles();
-            if (!items.length && !munis.length && !areas.length) return;
+            var items = proyectosConPuntos(), munis = municipiosActivos();
+            if (!items.length && !munis.length) return;
             var pad = 12 * k, sw = 12 * k, gap = 8 * k;
             var sangriaPt = 19 * k; // = padding-left de .mapa-leyenda-pt en el CSS
             var fT = Math.round(13 * k), fRow = Math.round(13 * k), fPt = Math.round(11 * k), fDate = Math.round(10 * k);
@@ -3242,28 +3420,18 @@
                 else { ctx.font = 'bold ' + fT + 'px Arial, sans-serif'; W = Math.max(W, pad * 2 + ctx.measureText(fi.txt).width + 46 * k); }
             });
             if (munis.length) W = Math.max(W, pad * 2 + muniBlockW);
-            areas.forEach(function (a) {
-                ctx.font = '600 ' + fRow + 'px Arial, sans-serif';
-                W = Math.max(W, pad * 2 + sw + gap + ctx.measureText(a.nombre).width);
-            });
             W = Math.min(W, cap);
 
             // ── Alto total ──
             var H = pad * 2;
             filas.forEach(function (fi) { H += (fi.t === 'titulo') ? titleH : (fi.t === 'pt' ? ptH : rowH); });
             if (munis.length) H += titleH + muniRowsPerCol * rowH;
-            if (areas.length) H += titleH + areas.length * rowH;
             if (soloLeyenda === 'medir') return { W: W, H: H };  // solo se pidió el tamaño
             if (bottomY != null) y = bottomY - H; // anclar abajo (modo "Pantalla")
 
             // ── Fondo ──
             ctx.save();
-            rrect(ctx, x, y, W, H, 12 * k);
-            // Sobre el mapa el panel es translúcido y el satélite lo tiñe de gris. Suelto no hay
-            // mapa detrás, así que se pinta OPACO con ese mismo gris; con el azul marino de la
-            // regla translúcida el PNG salía azulado y no se parecía a lo que se ve en pantalla.
-            ctx.fillStyle = soloLeyenda ? LEYENDA_BG_SOLA : 'rgba(15,23,42,0.62)'; ctx.fill();
-            ctx.strokeStyle = 'rgba(255,255,255,0.28)'; ctx.lineWidth = 1 * k; ctx.stroke();
+            fondoPanelLeyenda(ctx, x, y, W, H, k, soloLeyenda);
             ctx.textBaseline = 'alphabetic';
 
             // Dibuja un municipio (círculo blanco con número + nombre) en (cx, yy).
@@ -3320,48 +3488,85 @@
                     var col = Math.floor(i / muniRowsPerCol), rowInCol = i % muniRowsPerCol;
                     muniRow(x + pad + col * (colW + colGap), yy + rowInCol * rowH, mu.num, nombreBonito(mu.municipio), colW);
                 });
-                yy += muniRowsPerCol * rowH;
-            }
-            // ── FAJA: un cuadrito del color de cada división + su nombre (igual que en pantalla) ──
-            if (areas.length) {
-                ctx.textAlign = 'left'; ctx.fillStyle = '#fff'; ctx.font = 'bold ' + fT + 'px Arial, sans-serif';
-                ctx.fillText('FAJA PETROLÍFERA DEL ORINOCO', x + pad, yy + fT);
-                yy += titleH;
-                areas.forEach(function (a, i) {
-                    var cy = yy + i * rowH + (rowH - sw) / 2 - 1 * k;
-                    ctx.fillStyle = a.color; ctx.fillRect(x + pad, cy, sw, sw);
-                    // Borde claro: Carabobo es negro y sin él se perdería contra el panel oscuro.
-                    ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 1 * k;
-                    ctx.strokeRect(x + pad, cy, sw, sw);
-                    ctx.fillStyle = '#fff'; ctx.font = '600 ' + fRow + 'px Arial, sans-serif';
-                    ctx.fillText(a.nombre, x + pad + sw + gap, yy + i * rowH + fRow + (rowH - fRow) / 2 - 2 * k);
-                });
             }
             ctx.restore();
-            return { W: W, H: H };
+            return { W: W, H: H, y: y }; // y = tope real, para apilar el panel de la Faja al lado
         }
 
-        // Descarga la LEYENDA SOLA como PNG (sin el mapa): el mismo dibujo que va en la foto,
-        // recortado a su cajita. Se ofrece desde el iconito de la cabecera de la leyenda.
-        function descargarLeyendaSola() {
-            var k = 2, fecha = new Date().toLocaleDateString('es-VE');
-            var med = dibujarLeyendaCanvas(document.createElement('canvas').getContext('2d'), 0, 0, fecha, k, null, 'medir');
+        // Panel de la leyenda de la FAJA en el canvas: la misma cajita que la de frentes, pero
+        // solo con el color y el nombre de cada división. Recogido en pantalla ⇒ no sale en la
+        // foto (igual que la otra). `bottomY` la ancla por abajo; 'medir' devuelve solo su tamaño.
+        function dibujarLeyendaFajaCanvas(ctx, x, y, k, bottomY, solo) {
+            k = k || 1;
+            if (fajaLegendColapsada && !solo) return;
+            var areas = areasFajaVisibles();
+            if (!areas.length) return;
+            var pad = 12 * k, sw = 12 * k, gap = 8 * k;
+            var fT = Math.round(13 * k), fRow = Math.round(13 * k);
+            var rowH = 20 * k, titleH = 24 * k;
+
+            var W = 200 * k;
+            ctx.font = 'bold ' + fT + 'px Arial, sans-serif';
+            W = Math.max(W, pad * 2 + ctx.measureText('FAJA PETROLÍFERA DEL ORINOCO').width);
+            areas.forEach(function (a) {
+                ctx.font = '600 ' + fRow + 'px Arial, sans-serif';
+                W = Math.max(W, pad * 2 + sw + gap + ctx.measureText(a.nombre).width);
+            });
+            var H = pad * 2 + titleH + areas.length * rowH;
+            if (solo === 'medir') return { W: W, H: H };
+            if (bottomY != null) y = bottomY - H;
+
+            ctx.save();
+            fondoPanelLeyenda(ctx, x, y, W, H, k, solo);
+            ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+            var yy = y + pad;
+            ctx.fillStyle = '#fff'; ctx.font = 'bold ' + fT + 'px Arial, sans-serif';
+            ctx.fillText('FAJA PETROLÍFERA DEL ORINOCO', x + pad, yy + fT);
+            yy += titleH;
+            areas.forEach(function (a, i) {
+                var cy = yy + i * rowH + (rowH - sw) / 2 - 1 * k;
+                ctx.fillStyle = a.color; ctx.fillRect(x + pad, cy, sw, sw);
+                // Borde claro: Carabobo es negro y sin él se perdería contra el panel oscuro.
+                ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 1 * k; ctx.strokeRect(x + pad, cy, sw, sw);
+                ctx.fillStyle = '#fff'; ctx.font = '600 ' + fRow + 'px Arial, sans-serif';
+                ctx.fillText(a.nombre, x + pad + sw + gap, yy + i * rowH + fRow + (rowH - fRow) / 2 - 2 * k);
+            });
+            ctx.restore();
+            return { W: W, H: H, y: y };
+        }
+
+        // Descarga un PANEL de leyenda SOLO como PNG (sin el mapa): el mismo dibujo que va en la
+        // foto, recortado a su cajita. Lo comparten los dos paneles (frentes y Faja); `dibujar`
+        // recibe (ctx, x, y, bottomY, solo) y devuelve {W,H} al medir.
+        function descargarPanelLeyenda(dibujar, nombre) {
+            var med = dibujar(document.createElement('canvas').getContext('2d'), 0, 0, null, 'medir');
             if (!med) { if (window.showToast) window.showToast('No hay nada en la leyenda todavía.', 'info'); return; }
-            var m = 10 * k; // margen para que no se coma el borde redondeado
+            var m = 20; // margen transparente fijo, para que no se coma el borde redondeado
             var cv = document.createElement('canvas');
             cv.width = Math.ceil(med.W + m * 2); cv.height = Math.ceil(med.H + m * 2);
-            var cx = cv.getContext('2d');
             // Sin fondo propio: el margen queda TRANSPARENTE y solo se ve el panel, con el mismo
             // diseño (bordes redondeados + borde blanco) que cuando sale dentro de la foto.
-            dibujarLeyendaCanvas(cx, m, m, fecha, k, null, true);
+            dibujar(cv.getContext('2d'), m, m, null, true);
             cv.toBlob(function (blob) {
                 if (!blob) return;
                 var a = document.createElement('a');
                 a.href = URL.createObjectURL(blob);
-                a.download = 'leyenda_' + new Date().toISOString().slice(0, 10) + '.png';
+                a.download = nombre + '_' + new Date().toISOString().slice(0, 10) + '.png';
                 document.body.appendChild(a); a.click(); a.remove();
                 setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
             }, 'image/png');
+        }
+        function descargarLeyendaSola() {
+            var k = 2, fecha = new Date().toLocaleDateString('es-VE');
+            descargarPanelLeyenda(function (ctx, x, y, bottomY, solo) {
+                return dibujarLeyendaCanvas(ctx, x, y, fecha, k, bottomY, solo);
+            }, 'leyenda');
+        }
+        function descargarLeyendaFajaSola() {
+            var k = 2;
+            descargarPanelLeyenda(function (ctx, x, y, bottomY, solo) {
+                return dibujarLeyendaFajaCanvas(ctx, x, y, k, bottomY, solo);
+            }, 'leyenda_faja');
         }
 
         // Créditos sobre el canvas (abajo-izq), escalados.
@@ -3607,7 +3812,23 @@
                 // Créditos en su cajita abajo-izquierda (devuelve su tope). En "Pantalla" la leyenda
                 // se apila ENCIMA de esa caja (igual que en la pantalla); en hojas va arriba-izquierda.
                 var credTop = dibujarCreditos(ctx, 26 * k, Ph - 22 * k, k);
-                dibujarLeyendaCanvas(ctx, 26 * k, 26 * k, fecha, k, pantalla ? (credTop - 12 * k) : null);
+                // Los DOS paneles se apilan en el MISMO orden que en pantalla, donde (de abajo
+                // arriba) van créditos → leyenda de frentes → leyenda de la Faja: en las esquinas
+                // de ABAJO Leaflet mete cada control con insertBefore, así que el último añadido
+                // (la Faja) queda ARRIBA. Si uno no sale (vacío o recogido), el otro ocupa su
+                // sitio y no queda hueco.
+                var yPila = pantalla ? (credTop - 12 * k) : (26 * k);
+                if (pantalla) {
+                    // La pila crece hacia ARRIBA desde los créditos → primero el de abajo (frentes).
+                    var legFrentes = dibujarLeyendaCanvas(ctx, 26 * k, yPila, fecha, k, yPila);
+                    if (legFrentes) yPila = legFrentes.y - 12 * k;
+                    dibujarLeyendaFajaCanvas(ctx, 26 * k, yPila, k, yPila);
+                } else {
+                    // Hoja: crece hacia ABAJO desde la esquina → primero el de arriba (la Faja).
+                    var legFaja = dibujarLeyendaFajaCanvas(ctx, 26 * k, yPila, k, null);
+                    if (legFaja) yPila = legFaja.y + legFaja.H + 12 * k;
+                    dibujarLeyendaCanvas(ctx, 26 * k, yPila, fecha, k, null);
+                }
                 // Brújula y regla colocadas COMO EN LA PANTALLA: la brújula sola en la esquina
                 // (96 px de lado, 10 de margen → su centro cae a 58 del borde) y la regla a su
                 // IZQUIERDA, no debajo. Antes la regla se dibujaba pegada al borde derecho y
