@@ -67,8 +67,7 @@ class OfflineVersion
     private const CLAVE_VERSIONES = 'offline_versiones';
     private const TTL_SEGUNDOS    = 300;
 
-    /** Claves ya invalidadas en este request (ver invalidar()). */
-    private static bool $invalidadaEnEsteRequest = false;
+    use DeDuplicaPorRequest;
 
     private static function store()
     {
@@ -120,6 +119,11 @@ class OfflineVersion
                 self::ESQUEMA,
                 $reset['almacen'],
                 MovimientoInventario::max('ID_MOVIMIENTO'),
+                // updated_at y NO FECHA_ULT_MOVIMIENTO (que era lo que miraba la huella
+                // global anterior): el snapshot lleva tambien CANTIDAD_MINIMA, y editar
+                // el minimo NO es un movimiento, asi que no toca FECHA_ULT_MOVIMIENTO
+                // pero si updated_at. Con la columna vieja, cambiar un minimo no llegaba
+                // nunca a los telefonos y el KPI "bajo minimo" offline quedaba mal.
                 AlmacenStock::max('updated_at'),
                 ProductoInventario::max('updated_at'),
             ]),
@@ -140,13 +144,8 @@ class OfflineVersion
      */
     public static function invalidar(): void
     {
-        if (self::$invalidadaEnEsteRequest) {
+        if (! self::marcarUnaVez(self::CLAVE_VERSIONES)) {
             return;
-        }
-        self::$invalidadaEnEsteRequest = true;
-
-        if (function_exists('app')) {
-            app()->terminating(fn () => self::olvidarInvalidacionDelRequest());
         }
 
         self::store()->forget(self::CLAVE_VERSIONES);
@@ -172,17 +171,15 @@ class OfflineVersion
         if (! $store->add($clave, 1)) {
             $store->increment($clave);
         }
-        // El token vive DENTRO de la huella, así que hay que recalcularla.
-        self::$invalidadaEnEsteRequest = false;
+        // El token vive DENTRO de la huella, así que hay que recalcularla SI o SI,
+        // aunque ya se hubiera invalidado antes en este mismo request.
+        self::olvidarMarcasDelRequest();
         self::invalidar();
     }
 
-    /**
-     * Reabre la ventana de invalidación. La llama el terminating() de invalidar();
-     * en CLI/tests sirve para marcar a mano el límite entre operaciones.
-     */
+    /** Alias legible de olvidarMarcasDelRequest() (trait DeDuplicaPorRequest). */
     public static function olvidarInvalidacionDelRequest(): void
     {
-        self::$invalidadaEnEsteRequest = false;
+        self::olvidarMarcasDelRequest();
     }
 }

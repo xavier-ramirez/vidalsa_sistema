@@ -16,8 +16,7 @@ use Illuminate\Support\Facades\Cache;
  */
 class CacheVersion
 {
-    /** Claves ya bumpeadas en este request. Ver bump(). */
-    private static array $bumpeadasEnEsteRequest = [];
+    use DeDuplicaPorRequest;
 
     /**
      * Sube la versión UNA sola vez por request y por clave.
@@ -36,15 +35,7 @@ class CacheVersion
      */
     public static function bump(string $key): void
     {
-        if (isset(self::$bumpeadasEnEsteRequest[$key])) return;
-        self::$bumpeadasEnEsteRequest[$key] = true;
-
-        // El guard vive lo que vive el proceso; en web eso es un request. Se limpia al
-        // terminar para no bloquear el bump de un contexto posterior (worker, comando
-        // artisan largo) que reutilice el mismo proceso.
-        if (function_exists('app')) {
-            app()->terminating(fn () => self::olvidarBumpsDelRequest());
-        }
+        if (! self::marcarUnaVez($key)) return;
 
         if (!Cache::add($key, 1)) {
             Cache::increment($key);
@@ -52,12 +43,12 @@ class CacheVersion
     }
 
     /**
-     * Reabre la ventana de bump. La llama el terminating() de bump(); en CLI/tests, que
-     * no tienen ciclo de request, sirve para marcar a mano el límite entre operaciones.
+     * Alias histórico de olvidarMarcasDelRequest() (trait DeDuplicaPorRequest). Se
+     * conserva porque ya hay llamadas a este nombre en scripts y pruebas.
      */
     public static function olvidarBumpsDelRequest(): void
     {
-        self::$bumpeadasEnEsteRequest = [];
+        self::olvidarMarcasDelRequest();
     }
 
     public static function current(string $key): int
