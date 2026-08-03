@@ -41,14 +41,19 @@ class TraspasoController extends Controller
     // ─────────────────────────────────────────────────────────────
 
     /**
-     * Bandeja de Recepción: SOLO envíos en tránsito que el usuario destino tiene
-     * que confirmar (ESTADO=ENVIADO en sus almacenes visibles). El historial completo
-     * de traspasos confirmados/cancelados se ve en "Historial de Movimientos" del nav
+     * Bandeja de Recepción: las notas que el almacén destino todavía tiene que atender, en
+     * sus almacenes visibles — por defecto Traspaso::ESTADOS_BANDEJA_DEFAULT (En tránsito +
+     * Confirmada parcial). El historial completo se ve en "Historial de Movimientos" del nav
      * (TIPO=TRASPASO_ENTRADA / TRASPASO_SALIDA en el kardex).
      *
-     * Filtros del UI: estado (raramente útil porque siempre será ENVIADO),
+     * Filtros del UI: estado → sin valor = el default de arriba; un ESTADO concreto; o un
+     *                           pseudo-estado de Traspaso::FILTROS_META (`con_faltantes` =
+     *                           confirmadas con material faltante; `all` = sin filtro de
+     *                           estado, aceptado por URL pero NO ofrecido en el dropdown).
      *                 id_almacen_origen, id_almacen_destino, desde, hasta.
-     *                 search          → busca por NUMERO de la nota de entrega (TR-2026-…)
+     *                 search      → busca por NUMERO / REFERENCIA de la nota (NE-2026-…)
+     *                 id_producto → solo las notas que contienen ese producto.
+     *                 kpi         → atajo de las 3 métricas del panel; siempre pendientes.
      */
     public function index(Request $request)
     {
@@ -91,7 +96,7 @@ class TraspasoController extends Controller
             $user !== null
             && ! $request->wantsJson()
             && ! $request->boolean('force')
-            && ! $request->hasAny(['search', 'estado', 'id_almacen_origen', 'id_almacen_destino', 'desde', 'hasta', 'kpi'])
+            && ! $request->hasAny(['search', 'estado', 'id_almacen_origen', 'id_almacen_destino', 'id_producto', 'desde', 'hasta', 'kpi'])
             && Almacen::usuarioEsGlobal($user)
         ) {
             return redirect()->route('almacen.recepcion.nueva');
@@ -128,34 +133,84 @@ class TraspasoController extends Controller
                 'frenteDestino:ID_FRENTE,NOMBRE_FRENTE',
                 // El detalle de materiales NO se lista en la bandeja (se ve al abrir la
                 // nota), así que no se hace eager-load de lineas.producto aquí.
-            ])
-            ->whereIn('ID_ALMACEN_DESTINO', $almacenesVisibles);
+            ]);
+        // La visibilidad y el resto de filtros se aplican con $filtrosBandeja (más abajo),
+        // que es la MISMA fuente para la tabla y para las sugerencias del buscador.
 
-        // Filtro de estado. POR DEFECTO (sin parámetro) la bandeja muestra SOLO las
-        // notas "En tránsito" (ENVIADO) = pendientes de confirmar; las ya confirmadas
-        // o canceladas salen de la vista. El usuario puede pedir explícitamente otro
-        // estado, o "Todos" (all) para ver el historial completo de sus almacenes.
+        // ── Filtro de estado ─────────────────────────────────────────────────────────
+        // UN solo punto que decide el WHERE ESTADO. Antes el WHERE base fijaba ENVIADO y
+        // este filtro se aplicaba encima → ESTADO=ENVIADO AND ESTADO=X = 0 resultados para
+        // cualquier estado distinto de "En tránsito"; por eso se resuelve todo aquí.
         //
-        // OJO: antes el WHERE base fijaba ESTADO=ENVIADO y ADEMÁS se aplicaba este
-        // filtro encima → al elegir cualquier estado distinto de ENVIADO la consulta
-        // quedaba ESTADO=ENVIADO AND ESTADO=X = 0 resultados. Ese era el bug: el filtro
-        // solo "funcionaba" para En tránsito y devolvía vacío para los demás estados.
-        // Atajo desde los KPIs del panel "Resumen de la bandeja": "Recientes 24h" y
-        // "Urgentes +3d" son SIEMPRE sobre pendientes (ENVIADO), igual que su conteo en
-        // $bandejaStats. Por eso fuerzan el estado a ENVIADO (sobrescriben cualquier
-        // 'estado' pedido, incluido all) y se resuelve aquí mismo para NO duplicar el
-        // WHERE ESTADO. El filtro de estado normal (default ENVIADO / estado elegido /
-        // all=historial) aplica solo cuando NO hay un KPI activo.
-        $kpi = $request->input('kpi');
-        $kpiPendiente = $kpi === 'recientes' || $kpi === 'urgentes';
-        if ($kpiPendiente || !$request->filled('estado')) {
-            $q->where('ESTADO', Traspaso::ESTADO_ENVIADO);
-        } elseif ($request->input('estado') !== 'all') {
-            $q->where('ESTADO', $request->string('estado'));
-        }
-        // Ventana temporal del KPI: MISMO criterio (datetime) que usa $bandejaStats, así
-        // al tocar la métrica se ven EXACTAMENTE esas notas.
-        if ($kpiPendiente) {
+        // Los 3 KPIs del panel "Resumen de la bandeja" cuentan SOLO pendientes (ENVIADO),
+        // así que los 3 fuerzan ese estado y pisan cualquier 'estado' pedido (incluido all).
+        // 'por_revisar' también: desde que el default de la bandeja incluye las parciales,
+        // dejarlo caer en el default listaba notas que ese número no cuenta.
+        $kpi          = $request->input('kpi');
+        $kpiPendiente = in_array($kpi, ['por_revisar', 'recientes', 'urgentes'], true);
+        // Estado EFECTIVO, resuelto una sola vez:
+        //   · KPI activo                          → ENVIADO (ver arriba).
+        //   · estado conocido (real o pseudo)     → ese.
+        //   · sin parámetro o basura en la URL    → null = default de la bandeja
+        //     (Traspaso::ESTADOS_BANDEJA_DEFAULT: En tránsito + Confirmada parcial).
+        // Lo de la basura importa: antes entraba tal cual al WHERE y devolvía la bandeja
+        // vacía sin explicación. El criterio de cada pseudo-estado (all, con_faltantes)
+        // está documentado en el modelo, junto a la constante — aquí solo se traduce a SQL.
+        $estadoPedido = (string) $request->input('estado', '');
+        $estadoValido = array_key_exists($estadoPedido, Traspaso::ESTADOS_META)
+                     || array_key_exists($estadoPedido, Traspaso::FILTROS_META);
+        $estadoActivo = $kpiPendiente ? Traspaso::ESTADO_ENVIADO : ($estadoValido ? $estadoPedido : null);
+
+        // TODOS los filtros que definen "lo que la bandeja está mostrando" viven en ESTE
+        // closure, porque se aplican a DOS consultas: la tabla y las sugerencias del buscador
+        // por N° de nota. Si divergen, el autocomplete ofrece notas que la tabla no muestra y
+        // al elegirlas la bandeja sale vacía (ya pasó con el estado, que estaba fijo en
+        // ENVIADO del lado de las sugerencias).
+        // NO entran aquí, a propósito: `search` (es justo lo que el usuario está tecleando en
+        // ese buscador) y la ventana temporal del KPI ni el almacén ORIGEN, que solo acotan la
+        // tabla.
+        $filtrosBandeja = function ($query) use ($request, $estadoActivo, $almacenesVisibles) {
+            // Visibilidad: la bandeja es un inbox, importa el DESTINO (quién debe recibir).
+            $query->whereIn('ID_ALMACEN_DESTINO', $almacenesVisibles);
+
+            // Estado (incluye los pseudo-estados; ver Traspaso::FILTRO_*).
+            if ($estadoActivo === null) {                              // sin filtro: los dos estados accionables
+                $query->whereIn('ESTADO', Traspaso::ESTADOS_BANDEJA_DEFAULT);
+            } elseif ($estadoActivo === Traspaso::FILTRO_CON_FALTANTES) {
+                $query->whereIn('ESTADO', Traspaso::ESTADOS_RECIBIDOS)
+                    ->whereHas('lineas', fn ($l) => $l->where('ESTADO_LINEA', TraspasoLinea::ESTADO_FALTANTE));
+            } elseif ($estadoActivo !== Traspaso::FILTRO_TODAS) {       // FILTRO_TODAS = sin WHERE de estado
+                $query->where('ESTADO', $estadoActivo);
+            }
+
+            if ($request->filled('id_almacen_destino') && $request->input('id_almacen_destino') !== 'all') {
+                $query->where('ID_ALMACEN_DESTINO', $request->integer('id_almacen_destino'));
+            }
+            // Filtro por PRODUCTO: solo las notas que CONTIENEN ese producto. El front sugiere
+            // productos (con equivalencias, igual que inventario) y manda su id_producto.
+            if ($request->filled('id_producto')) {
+                $query->whereHas('lineas', fn ($l) => $l->where('ID_PRODUCTO', $request->integer('id_producto')));
+            }
+            // Fechas: el orWhere DEBE ir agrupado en un where(function) — suelto, el OR sube al
+            // nivel superior y se escapa de los AND de estado/visibilidad (mostraría notas de
+            // otro estado o de almacenes que el usuario no ve).
+            foreach ([['desde', '>='], ['hasta', '<=']] as [$campo, $op]) {
+                if (!$request->filled($campo)) continue;
+                $valor = $request->input($campo);
+                $query->where(function ($w) use ($valor, $op) {
+                    $w->whereDate('FECHA_ENVIO', $op, $valor)
+                      ->orWhere(fn ($o) => $o->whereNull('FECHA_ENVIO')->whereDate('created_at', $op, $valor));
+                });
+            }
+            return $query;
+        };
+        $filtrosBandeja($q);
+
+        // ── Filtros que acotan SOLO la tabla ──
+        // Ventana temporal del KPI: MISMO criterio (datetime) que usa $bandejaStats, así al
+        // tocar la métrica se ven EXACTAMENTE esas notas. Solo la tienen estas dos:
+        // 'por_revisar' son TODAS las pendientes, sin recorte por fecha.
+        if ($kpi === 'recientes' || $kpi === 'urgentes') {
             $q->whereRaw(
                 'COALESCE(FECHA_ENVIO, created_at) ' . ($kpi === 'recientes' ? '>=' : '<=') . ' ?',
                 [$kpi === 'recientes' ? now()->subDay() : now()->subDays(3)]
@@ -164,34 +219,9 @@ class TraspasoController extends Controller
         if ($request->filled('id_almacen_origen') && $request->input('id_almacen_origen') !== 'all') {
             $q->where('ID_ALMACEN_ORIGEN', $request->integer('id_almacen_origen'));
         }
-        if ($request->filled('id_almacen_destino') && $request->input('id_almacen_destino') !== 'all') {
-            $q->where('ID_ALMACEN_DESTINO', $request->integer('id_almacen_destino'));
-        }
         if ($request->filled('search')) {
             $s = '%' . trim((string) $request->input('search')) . '%';
             $q->where(fn ($w) => $w->where('NUMERO', 'like', $s)->orWhere('REFERENCIA', 'like', $s));
-        }
-        // Filtro por PRODUCTO (bandeja): muestra solo las notas que CONTIENEN ese producto.
-        // El front sugiere productos (con equivalencias, igual que inventario) y al elegir uno
-        // manda su id_producto; aquí filtramos las notas cuyas líneas incluyen ese producto.
-        if ($request->filled('id_producto')) {
-            $q->whereHas('lineas', fn ($l) => $l->where('ID_PRODUCTO', $request->integer('id_producto')));
-        }
-        if ($request->filled('desde')) {
-            // OJO: el orWhere DEBE ir agrupado en un where(function) — si no, el OR queda
-            // al nivel superior y se escapa de los filtros AND de estado/visibilidad
-            // (mostraría traspasos no-ENVIADO o de almacenes no visibles). Mismo patrón
-            // que el filtro `hasta` de abajo.
-            $q->where(function ($w) use ($request) {
-                $w->whereDate('FECHA_ENVIO', '>=', $request->input('desde'))
-                  ->orWhere(function ($o) use ($request) { $o->whereNull('FECHA_ENVIO')->whereDate('created_at', '>=', $request->input('desde')); });
-            });
-        }
-        if ($request->filled('hasta')) {
-            $q->where(function ($w) use ($request) {
-                $w->whereDate('FECHA_ENVIO', '<=', $request->input('hasta'))
-                  ->orWhere(function ($o) use ($request) { $o->whereNull('FECHA_ENVIO')->whereDate('created_at', '<=', $request->input('hasta')); });
-            });
         }
 
         // Orden: de la MÁS RECIENTE a la más vieja por la fecha que la tabla muestra en la
@@ -207,24 +237,17 @@ class TraspasoController extends Controller
             ->withQueryString();
 
         // Lista de NÚMEROS de nota que alimenta el autocomplete del filtro "Buscar por
-        // número de nota" del toolbar. Debe sugerir SOLO lo que la bandeja muestra por
-        // defecto: notas EN TRÁNSITO (ENVIADO = pendientes de confirmar) cuyo DESTINO es
-        // un almacén visible del usuario (es un inbox: importa el destino, no el origen),
-        // y acotado al almacén destino filtrado (por defecto el del propio usuario). Antes
-        // sugería TODAS las notas (cualquier estado, origen o destino) de todos los
-        // almacenes visibles. Limitada a 300 para no inflar el HTML.
+        // número de nota" del toolbar. Sugiere EXACTAMENTE lo que la bandeja está mostrando:
+        // mismos filtros que la tabla ($filtrosBandeja — estado, visibilidad, almacén destino,
+        // producto y fechas). Antes fijaba ENVIADO a mano e ignoraba producto/fechas, así que
+        // al filtrar por otro estado o por un producto seguía ofreciendo notas fuera de la
+        // lista y elegirlas devolvía 0 resultados. Limitada a 300 para no inflar el HTML.
         //
         // Se calcula ANTES del wantsJson y se devuelve también en la respuesta AJAX: al
         // cambiar el "Almacén destino" (que recarga la tabla por AJAX) las sugerencias se
         // refrescan al nuevo almacén. Antes solo se generaba en el render inicial → quedaban
         // pegadas las notas del almacén anterior y sugería notas que no van a ese almacén.
-        $numerosNotas = Traspaso::query()
-            ->where('ESTADO', Traspaso::ESTADO_ENVIADO)
-            ->whereIn('ID_ALMACEN_DESTINO', $almacenesVisibles)
-            ->when(
-                $request->filled('id_almacen_destino') && $request->input('id_almacen_destino') !== 'all',
-                fn ($w) => $w->where('ID_ALMACEN_DESTINO', $request->integer('id_almacen_destino'))
-            )
+        $numerosNotas = $filtrosBandeja(Traspaso::query())
             ->orderByDesc('ID_TRASPASO')
             ->take(300)
             ->get(['NUMERO', 'REFERENCIA'])
@@ -441,7 +464,9 @@ class TraspasoController extends Controller
             // Nºs de parte: alimentan el buscador de materiales del modal (data-buscar).
             // Sin este eager-load sería una query por línea.
             'lineas.producto.equivalencias:ID_PRODUCTO,NUMERO_PARTE',
-            'almacenOrigen:ID_ALMACEN,NOMBRE,TIPO',
+            // ESTATUS también en el ORIGEN: lo necesita visiblePara() al calcular
+            // $puedeCancelar (cancelar opera sobre el almacén que despachó).
+            'almacenOrigen:ID_ALMACEN,NOMBRE,TIPO,ESTATUS',
             'almacenDestino:ID_ALMACEN,NOMBRE,TIPO,ESTATUS',
             'frenteDestino:ID_FRENTE,NOMBRE_FRENTE',
             'usuarioCreo:ID_USUARIO,NOMBRE_COMPLETO',
@@ -451,24 +476,41 @@ class TraspasoController extends Controller
 
         $this->assertPuedeVerTraspaso($request, $traspaso);
 
+        $user = $request->user();
+
+        // Las 3 acciones del pie se deciden AQUÍ y se pasan a las dos vistas (el modal de la
+        // bandeja y la página de detalle). Antes $puedeEnviar/$puedeCancelar se calculaban
+        // dentro de cada Blade —la misma regla escrita dos veces— y encima $puedeCancelar no
+        // coincidía con lo que exige cancelar(): el botón "Cancelar" se le pintaba a
+        // cualquier receptor con almacen.movimiento y el POST le devolvía 403.
         $puedeRecibir = $traspaso->esEnviado()
-            && $request->user()?->can('almacen.movimiento')
-            && $traspaso->almacenDestino?->visiblePara($request->user());
+            && $user?->can('almacen.movimiento')
+            && $traspaso->almacenDestino?->visiblePara($user);
+
+        $puedeEnviar = $traspaso->esBorrador() && $user?->can('almacen.movimiento');
+
+        // MISMAS condiciones que cancelar(): nada terminal, permiso de movimiento, el almacén
+        // ORIGEN visible (assertPuedeOperarOrigen) y, si la nota ya salió, super.admin.
+        $puedeCancelar = !$traspaso->esFinal()
+            && $user?->can('almacen.movimiento')
+            && $traspaso->almacenOrigen?->visiblePara($user)
+            && (!$traspaso->esEnviado() || $user->can('super.admin'));
+
+        $datos = [
+            'traspaso'      => $traspaso,
+            'puedeRecibir'  => (bool) $puedeRecibir,
+            'puedeEnviar'   => (bool) $puedeEnviar,
+            'puedeCancelar' => (bool) $puedeCancelar,
+        ];
 
         if ($request->wantsJson()) {
             return response()->json([
-                'html' => view('admin.almacen.recepcion.partials.detalle_modal', [
-                    'traspaso'     => $traspaso,
-                    'puedeRecibir' => (bool) $puedeRecibir,
-                ])->render(),
-                'id' => $traspaso->ID_TRASPASO,
+                'html' => view('admin.almacen.recepcion.partials.detalle_modal', $datos)->render(),
+                'id'   => $traspaso->ID_TRASPASO,
             ]);
         }
 
-        return view('admin.almacen.recepcion.detalle', [
-            'traspaso'     => $traspaso,
-            'puedeRecibir' => (bool) $puedeRecibir,
-        ]);
+        return view('admin.almacen.recepcion.detalle', $datos);
     }
 
     public function update(Request $request, int $id)
@@ -590,6 +632,19 @@ class TraspasoController extends Controller
         return response()->json(['message' => "Traspaso {$traspaso->NUMERO} cancelado.", 'traspaso' => $traspaso]);
     }
 
+    /**
+     * Elimina un BORRADOR. Borrado DURO (forceDelete), igual que el resto de los "eliminar"
+     * de la app (productos, equipos, auxiliares, fallas): lo que se borra en el módulo deja
+     * de existir, no queda en una papelera invisible. Antes era `delete()` a secas — el
+     * único soft delete de todo el flujo — así que el borrador desaparecía de la pantalla
+     * pero seguía en la tabla ocupando su folio para siempre.
+     *
+     * Es seguro porque solo se llega aquí en BORRADOR: todavía no movió stock ni creó
+     * movimientos de kardex (eso pasa al ENVIAR), así que no hay nada que auditar. Sus
+     * líneas se van con él por la FK traspaso_lineas.ID_TRASPASO ON DELETE CASCADE.
+     * Lo que YA movió mercancía no se borra: se cancela (ver cancelar(), que reversa el
+     * stock y deja la nota como CANCELADA).
+     */
     public function destroy(Request $request, int $id)
     {
         $traspaso = Traspaso::findOrFail($id);
@@ -597,7 +652,7 @@ class TraspasoController extends Controller
             return response()->json(['message' => 'Solo se eliminan traspasos en BORRADOR; los que ya tuvieron movimiento se cancelan.'], 422);
         }
         $this->assertPuedeOperarOrigen($request, (int) $traspaso->ID_ALMACEN_ORIGEN);
-        $traspaso->delete(); // soft delete
+        $traspaso->forceDelete();
         return response()->json(['message' => 'Borrador eliminado.']);
     }
 

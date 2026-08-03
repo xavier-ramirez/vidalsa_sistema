@@ -61,6 +61,43 @@ class Traspaso extends Model
     public const ESTADO_META_DEFAULT = ['—', '#f1f5f9', '#64748b'];
 
     /**
+     * Estados que trae la bandeja de Recepción CUANDO NO SE FILTRA NADA: los dos que aún
+     * piden acción del almacén que recibe.
+     *   · ENVIADO          → "En tránsito": llegó la nota, falta confirmarla.
+     *   · RECIBIDO_PARCIAL → "Confirmada parcial": se confirmó con diferencias (faltantes,
+     *                        sobrantes o dañados) y todavía necesita seguimiento.
+     * Quedan fuera del default —solo se ven si se piden por el filtro— RECIBIDO (cerrada sin
+     * novedad), BORRADOR (es del almacén que emite) y CANCELADO (ya revirtió el stock).
+     */
+    public const ESTADOS_BANDEJA_DEFAULT = [
+        self::ESTADO_ENVIADO,
+        self::ESTADO_RECIBIDO_PARCIAL,
+    ];
+
+    /**
+     * PSEUDO-estados del filtro "Estado" de la bandeja de Recepción. NO son valores de la
+     * columna ESTADO: son atajos del UI que TraspasoController@index traduce a su propio
+     * WHERE. Van en minúscula justamente para que se distingan de los ESTADOS reales y
+     * nunca colisionen con ellos.
+     *   · all           → sin filtro de estado (historial completo de sus almacenes). NO se
+     *                     ofrece en el dropdown (el cliente no quiere el histórico en la
+     *                     bandeja); se acepta por URL y por eso conserva su rótulo.
+     *   · con_faltantes → notas YA CONFIRMADAS (ESTADOS_RECIBIDOS) con al menos una línea
+     *                     FALTANTE, es decir: se recibió MENOS cantidad de la que el origen
+     *                     despachó. Es un subconjunto de "Confirmada parcial" (ese estado
+     *                     también agrupa sobrantes y dañados), por eso se ofrece aparte:
+     *                     el almacén necesita ver solo las notas donde falta material.
+     */
+    public const FILTRO_TODAS         = 'all';
+    public const FILTRO_CON_FALTANTES = 'con_faltantes';
+
+    /** Rótulo humano de cada pseudo-estado (dropdown del filtro). */
+    public const FILTROS_META = [
+        self::FILTRO_TODAS         => 'Todas',
+        self::FILTRO_CON_FALTANTES => 'Confirmada con faltantes',
+    ];
+
+    /**
      * Invalida el badge "por recibir" del menú (View Composer en AppServiceProvider,
      * cacheado por usuario con la versión en la clave). Vive en booted() —mismo
      * patrón que FrenteTrabajo— para que NINGUNA transición de estado futura
@@ -181,6 +218,11 @@ class Traspaso extends Model
      * transacción que crea el registro para evitar choques en el índice único.
      * El año va embebido en el folio porque el contador NO se reinicia anualmente
      * (es global) — el año solo indica la cohorte, así nunca chocan.
+     *
+     * El withTrashed() de abajo NO significa que el módulo tenga papelera: eliminar un
+     * borrador borra la fila de verdad (TraspasoController@destroy usa forceDelete). Se
+     * mantiene como red de seguridad — si alguna vez quedara una fila con deleted_at, su
+     * NUMERO sigue ocupando el UNIQUE y reusarlo reventaría el INSERT.
      */
     public static function generarNumero(): string
     {
