@@ -3827,12 +3827,19 @@ body:has(.mapa-page) .main-viewport {
 #mapa-leaflet:fullscreen .leaflet-top { margin-top: 10px; }
 #mapa-leaflet:fullscreen .mapa-fs-close { display: flex; order: -1; }
 #mapa-leaflet:fullscreen .mapa-fs-toggle { display: none; }
-#mapa-leaflet:fullscreen .leaflet-top.leaflet-right { display: flex; flex-direction: column; }
+/* align-items: flex-end — la columna flex mide lo que su hijo MÁS ANCHO (el buscador de
+   bloques, 232px, que aparece al encender esa capa). Sin esto los demás controles (la "X"
+   de salir y los botones de capa, de 66px) se alineaban al borde IZQUIERDO de esa caja y
+   se veían corridos hacia el centro del mapa en cuanto salía el buscador. Todos pegados a
+   la derecha, que es el lado donde vive esta esquina. */
+#mapa-leaflet:fullscreen .leaflet-top.leaflet-right { display: flex; flex-direction: column; align-items: flex-end; }
 
 #mapa-leaflet:-webkit-full-screen .leaflet-top { margin-top: 10px; }
 #mapa-leaflet:-webkit-full-screen .mapa-fs-close { display: flex; order: -1; }
 #mapa-leaflet:-webkit-full-screen .mapa-fs-toggle { display: none; }
-#mapa-leaflet:-webkit-full-screen .leaflet-top.leaflet-right { display: flex; flex-direction: column; }
+/* Variante -webkit- de la regla de arriba (los selectores no se pueden agrupar: un
+   pseudo-elemento desconocido invalidaría toda la regla). Ver la nota de align-items ahí. */
+#mapa-leaflet:-webkit-full-screen .leaflet-top.leaflet-right { display: flex; flex-direction: column; align-items: flex-end; }
 
 /* Fuera de pantalla completa la "X" no existe (con #id para ganarle al display:flex de
    .mapa-fit-btn, que se define más abajo). */
