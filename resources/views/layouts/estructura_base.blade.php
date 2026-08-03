@@ -1186,7 +1186,13 @@
                 // Si baja una copia nueva mientras se trabaja offline, repintar el módulo
                 // visible. (La re-pintada al navegar por SPA la hace cada módulo en su
                 // propio init sobre 'spa:contentLoaded', no aquí, para no duplicar.)
-                window.addEventListener('offline-datos-actualizados', function () { if (offlineActivo) correrRenders(); });
+                // El segundo evento no sobra: los datos del servidor llegan primero y
+                // encima de ellos outbox-sync repone (de forma asíncrona) los cambios que
+                // todavía no han subido. Repintando solo con el primero, el usuario vería
+                // su propio cambio desaparecer un instante y volver.
+                ['offline-datos-actualizados', 'offline-optimistas-reaplicados'].forEach(function (ev) {
+                    window.addEventListener(ev, function () { if (offlineActivo) correrRenders(); });
+                });
 
                 // ── Detección de conexión REAL ──────────────────────────────────
                 // navigator.onLine NO es confiable: en el navegador suele decir "online"

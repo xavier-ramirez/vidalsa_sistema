@@ -194,11 +194,13 @@
             status: 'pending', created: Date.now(),
             label: 'Estado · ' + (label || ('Equipo #' + id)) + ' → ' + status,
         });
-        window.OfflineDB.get('equipos').then(function (arr) {
+        // mutar (y no get+put): entre una lectura y su escritura puede colarse una
+        // sincronización y pisar este cambio, que aún no ha subido al servidor.
+        window.OfflineDB.mutar('equipos', function (arr) {
             var e = arr.find(function (x) { return Number(x.id) === Number(id); });
-            if (e) { e.estado = status; window.OfflineDB.put('equipos', arr).then(render); }
-            else { render(); }
-        });
+            if (e) e.estado = status;
+            return arr;
+        }).then(render);
         if (window.showToast) window.showToast('Cambio guardado. Se subirá al volver internet.', 'success');
     };
 
@@ -311,14 +313,16 @@
                     status: 'pending', created: Date.now(),
                     label: 'Movilizar ' + ids.length + ' equipo(s) → ' + sel.nombre,
                 });
-                // Optimista en la copia local + limpiar selección + repintar.
-                window.OfflineDB.get('equipos').then(function (arr) {
+                // Optimista en la copia local + limpiar selección + repintar. mutar (y no
+                // get+put) para que una sincronización no se cuele entre ambos y revierta
+                // una movilización que todavía no ha subido.
+                window.OfflineDB.mutar('equipos', function (arr) {
                     arr.forEach(function (e) { if (ids.indexOf(Number(e.id)) >= 0) { e.id_frente = sel.id; e.frente = sel.nombre; e.confirmado = 0; } });
-                    window.OfflineDB.put('equipos', arr).then(function () {
-                        window.selectedEquipos = {};
-                        var bar = document.getElementById('bulkFloatingBar'); if (bar) bar.classList.remove('active');
-                        render();
-                    });
+                    return arr;
+                }).then(function () {
+                    window.selectedEquipos = {};
+                    var bar = document.getElementById('bulkFloatingBar'); if (bar) bar.classList.remove('active');
+                    render();
                 });
                 if (window.showToast) window.showToast('Movilización guardada. El acta estará disponible al sincronizar.', 'success');
                 cerrar();

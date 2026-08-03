@@ -2833,6 +2833,12 @@ class AlmacenController extends Controller
             return response()->json(['message' => $e->getMessage()], 422);
         }
 
+        // El update masivo de arriba es por query builder: no emite eventos de modelo, así
+        // que ningún observer invalida. La huella SÍ lo vería (Eloquent pone updated_at en
+        // los update masivos), pero solo al vencer el TTL de 5 min. Este aviso lo baja a
+        // inmediato. No hace falta resetear: se editan filas, no se borran.
+        \App\Support\OfflineVersion::invalidar('almacen');
+
         return response()->json([
             'message'     => "Nota {$numero} eliminada y stock revertido.",
             'numero_nota' => $numero,
@@ -2999,6 +3005,12 @@ class AlmacenController extends Controller
         // Se asocian frentes a CUALQUIER tipo de almacen (GENERAL o PROYECTO): los
         // frentes definen que usuarios LOCAL ven el almacen (ver Almacen::visiblesPara).
         $almacen->frentes()->sync($ids);
+
+        // Esta tabla pivote decide QUÉ ALMACENES ve un usuario LOCAL, y con ello qué stock
+        // y qué movimientos entran en su snapshot. Al cambiarla, el alcance del cliente
+        // offline cambia sin que se haya editado ni una fila de inventario: ninguna huella
+        // lo notaría. El reseteo le pide la copia completa del dominio.
+        \App\Support\OfflineVersion::resetear('almacen');
     }
 
     /**

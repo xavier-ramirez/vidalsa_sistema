@@ -15,7 +15,7 @@ class Movilizacion extends Model
      */
     protected static function booted(): void
     {
-        $marcar = static fn () => \App\Support\OfflineVersion::invalidar();
+        $marcar = static fn () => \App\Support\OfflineVersion::invalidar('equipos');
         static::saved($marcar);
         static::deleted($marcar);
     }

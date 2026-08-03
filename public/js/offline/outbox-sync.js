@@ -115,6 +115,54 @@
         }
     }
 
+    /**
+     * Vuelve a aplicar sobre la copia local los cambios que AÚN NO han subido.
+     *
+     * Hace falta desde que la sincronización es incremental y por tanto frecuente: un
+     * delta trae del servidor la versión que él conoce del equipo, que todavía no
+     * incluye lo que el usuario hizo sin internet. Sin esto, el usuario vería su propio
+     * cambio DESHACERSE solo en pantalla y volver más tarde — o sea, la mejora de
+     * frescura introduciría un bug visible.
+     *
+     * Solo toca 'equipos', que es lo único que la UI modifica de forma optimista, y
+     * repite exactamente lo que hicieron esas escrituras (ver equipos-offline.js).
+     *
+     * Devuelve si REPUSO algo, para que quien escucha no repinte de balde.
+     */
+    async function reaplicarOptimistas() {
+        if (!window.OfflineDB || !window.OfflineDB.mutar) return false;
+
+        var pendientes = (await window.OfflineDB.outboxList()).filter(function (it) {
+            return it.status === 'pending' || it.status === 'error';
+        });
+        if (!pendientes.length) return false;
+
+        // El nombre del frente no viaja en el payload (solo su id): se resuelve del
+        // catálogo local, que es de donde salió al encolar.
+        var frentes = await window.OfflineDB.get('frentes');
+
+        await window.OfflineDB.mutar('equipos', function (arr) {
+            pendientes.forEach(function (it) {
+                var p = it.payload || {};
+                if (it.action === 'estado') {
+                    var e = arr.find(function (x) { return Number(x.id) === Number(p.id_equipo); });
+                    if (e) e.estado = p.status;
+                } else if (it.action === 'movilizar') {
+                    var destino = frentes.find(function (f) { return Number(f.id) === Number(p.id_frente_destino); });
+                    (p.ids || []).forEach(function (id) {
+                        var eq = arr.find(function (x) { return Number(x.id) === Number(id); });
+                        if (!eq) return;
+                        eq.id_frente   = p.id_frente_destino;
+                        eq.frente      = destino ? destino.nombre : eq.frente;
+                        eq.confirmado  = 0;
+                    });
+                }
+            });
+            return arr;
+        });
+        return true;
+    }
+
     // UUID v4 para identificar cada acción/lote (idempotencia en el servidor).
     function uuid() {
         if (window.crypto && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
@@ -143,6 +191,16 @@
                 .then(function (a) { return { pending: a[0], error: a[1] }; });
         },
     };
+
+    // Cada vez que entran datos nuevos del servidor, reponer encima lo que aún está en
+    // la cola. Se re-pinta después para que el usuario no llegue a ver el parpadeo.
+    window.addEventListener('offline-datos-actualizados', function () {
+        reaplicarOptimistas().then(function (repuso) {
+            // Solo si de verdad se repuso algo: avisar siempre obligaría a repintar DOS
+            // veces por cada sincronizacion, y lo normal es que la cola este vacia.
+            if (repuso) window.dispatchEvent(new CustomEvent('offline-optimistas-reaplicados'));
+        }).catch(function () { /* si falla, el drain acabará dejando la verdad del servidor */ });
+    });
 
     // Disparadores automáticos: al cargar con internet y al volver la conexión.
     // (estructura_base.blade.php también llama drain() al confirmar servidor en

@@ -2375,6 +2375,13 @@ class EquipoController extends Controller
 
                 $equipo->forceDelete();
             });
+
+            // Borrado DURO: al desaparecer las filas, MAX(updated_at) puede quedar IGUAL
+            // (o incluso bajar), así que la huella no distingue "se borró un equipo" de
+            // "no pasó nada" y el cliente offline conservaría el equipo fantasma. Las
+            // movilizaciones de arriba se borran por query builder, que ni siquiera emite
+            // eventos de modelo. El reseteo fuerza la recarga completa del dominio.
+            \App\Support\OfflineVersion::resetear('equipos');
         } catch (\Throwable $e) {
             Log::error("forceDeleteEquipo: fallo al borrar equipo {$id}: " . $e->getMessage());
             return response()->json([

@@ -30,9 +30,18 @@ class Almacen extends Model
      */
     protected static function booted(): void
     {
-        $marcar = static fn () => \App\Support\OfflineVersion::invalidar();
+        $marcar = static fn () => \App\Support\OfflineVersion::invalidar('catalogos');
         static::saved($marcar);
-        static::deleted($marcar);
+
+        // Al BORRAR un almacén no basta con marcar el catálogo: su stock y sus
+        // movimientos salen del alcance del cliente sin que ninguna de esas dos tablas
+        // se haya tocado, así que un delta no vería nada que enviar y el teléfono se
+        // quedaría con las existencias de un almacén que ya no existe. Reseteo → copia
+        // completa del dominio. Es un evento raro, el coste no importa.
+        static::deleted(static function () use ($marcar) {
+            $marcar();
+            \App\Support\OfflineVersion::resetear('almacen');
+        });
     }
 
     use SoftDeletes;

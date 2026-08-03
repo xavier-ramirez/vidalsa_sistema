@@ -24,7 +24,7 @@ class ProductoInventario extends Model
      */
     protected static function booted(): void
     {
-        $marcar = static fn () => \App\Support\OfflineVersion::invalidar();
+        $marcar = static fn () => \App\Support\OfflineVersion::invalidar('almacen');
         static::saved($marcar);
         static::deleted($marcar);
     }

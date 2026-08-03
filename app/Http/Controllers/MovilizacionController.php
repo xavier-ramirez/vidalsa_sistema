@@ -1227,6 +1227,14 @@ class MovilizacionController extends Controller
             $mov->delete();
 
             DB::commit();
+
+            // Un borrado duro NO se detecta por huella: si la fila borrada no era la
+            // última, MAX(ID) y MAX(updated_at) siguen igual y el cliente offline se
+            // quedaría con la movilización deshecha para siempre. El reseteo le pide la
+            // copia completa del dominio. Va tras el commit para no resetear un rollback.
+            \App\Support\OfflineVersion::resetear('equipos');
+
+
             return response()->json(['success' => true, 'message' => 'Movilización deshecha: el equipo volvió a su frente de origen.']);
         } catch (\Exception $e) {
             DB::rollBack();

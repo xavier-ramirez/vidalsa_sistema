@@ -48,6 +48,15 @@ use Illuminate\Support\Facades\Cache;
  * El TTL corto es el PISO que garantiza que un cambio así se detecte en ≤5 min
  * aunque nadie llame a invalidar(). No lo quites pensando que los bumps bastan.
  *
+ * ── Las tres piezas de una huella y qué cubre cada una ──────────────────────
+ *   · pulso    → un contador que suben los observers. Es lo que hace que la huella
+ *                cambie SIEMPRE ante un evento de modelo, sin depender de que el
+ *                reloj tenga resolución suficiente (ver invalidar()).
+ *   · MAX(...) → cubre las escrituras SIN eventos descritas arriba, que solo se
+ *                detectan al recalcular por TTL.
+ *   · reset    → borrados que un incremental no puede deducir (ver resetear()).
+ * Quitar cualquiera de las tres deja un agujero distinto.
+ *
  * @see \App\Support\CacheVersion  patrón hermano (dashboard e historial)
  */
 class OfflineVersion
@@ -61,8 +70,16 @@ class OfflineVersion
      */
     public const ESQUEMA = 3;
 
-    /** Dominios válidos. El orden no importa; se usa para validar resetear(). */
+    /** Dominios válidos. El orden no importa; valida el argumento de invalidar(). */
     public const DOMINIOS = ['equipos', 'almacen', 'catalogos'];
+
+    /**
+     * Dominios que admiten reseteo (recarga completa).
+     *
+     * `catalogos` queda fuera porque ya viaja ENTERO cada vez que cambia: no hay nada
+     * que "recargar completo" en él, sería un modo que no significa nada.
+     */
+    private const DOMINIOS_RESETEABLES = ['equipos', 'almacen'];
 
     private const CLAVE_VERSIONES = 'offline_versiones';
     private const TTL_SEGUNDOS    = 300;
@@ -93,13 +110,25 @@ class OfflineVersion
 
     /**
      * Recalcula desde la BD. Solo MAX() sobre columnas indexadas: no trae filas.
-     * (almacen_stock.updated_at se indexó en 2026_08_01_090000 justo para esto.)
+     * (los índices de updated_at se crearon en 2026_08_01_090000 y _100000 para esto.)
+     *
+     * OJO con withTrashed(): Equipo, ProductoInventario y Almacen usan SoftDeletes, así
+     * que un MAX() normal EXCLUYE las filas borradas. Al borrar la fila que tenía el
+     * updated_at más alto, el MAX volvía al valor anterior y la huella quedaba IGUAL que
+     * antes del borrado: el teléfono no se enteraba nunca de la baja. Con withTrashed la
+     * fila borrada sigue contando y su updated_at (que el borrado suave actualiza) mueve
+     * la huella hacia adelante.
      */
     private static function calcular(): array
     {
         $reset = [
             'equipos' => (int) (self::store()->get('offline_reset_equipos') ?? 0),
             'almacen' => (int) (self::store()->get('offline_reset_almacen') ?? 0),
+        ];
+        $pulso = [
+            'equipos'   => (int) (self::store()->get('offline_pulso_equipos') ?? 0),
+            'almacen'   => (int) (self::store()->get('offline_pulso_almacen') ?? 0),
+            'catalogos' => (int) (self::store()->get('offline_pulso_catalogos') ?? 0),
         ];
 
         $huella = static fn (array $partes) => substr(
@@ -112,24 +141,37 @@ class OfflineVersion
             'equipos' => $huella([
                 self::ESQUEMA,
                 $reset['equipos'],
-                Equipo::max('updated_at'),
+                $pulso['equipos'],
+                Equipo::withTrashed()->max('updated_at'),
                 Movilizacion::max('ID_MOVILIZACION'),
+                // MAX(ID) detecta ALTAS; updated_at detecta EDICIONES. Hacen falta los
+                // dos: `deshacer` y `anular` reescriben filas ya existentes (115 de 1198
+                // filas están editadas), y con solo el ID esos cambios eran invisibles
+                // hasta que vencía el TTL. Al revés tampoco basta: Movilizacion::insert()
+                // (MovilizacionController:434) escribe en crudo y deja updated_at nulo.
+                Movilizacion::max('updated_at'),
             ]),
             'almacen' => $huella([
                 self::ESQUEMA,
                 $reset['almacen'],
+                $pulso['almacen'],
                 MovimientoInventario::max('ID_MOVIMIENTO'),
+                // Mismo motivo que en movilizaciones: recalcularSaldoProducto reescribe
+                // CANTIDAD_ANTERIOR/RESULTANTE de filas viejas y anular una nota vacía su
+                // NUMERO_NOTA, todo sin tocar el ID.
+                MovimientoInventario::max('updated_at'),
                 // updated_at y NO FECHA_ULT_MOVIMIENTO (que era lo que miraba la huella
                 // global anterior): el snapshot lleva tambien CANTIDAD_MINIMA, y editar
                 // el minimo NO es un movimiento, asi que no toca FECHA_ULT_MOVIMIENTO
                 // pero si updated_at. Con la columna vieja, cambiar un minimo no llegaba
                 // nunca a los telefonos y el KPI "bajo minimo" offline quedaba mal.
                 AlmacenStock::max('updated_at'),
-                ProductoInventario::max('updated_at'),
+                ProductoInventario::withTrashed()->max('updated_at'),
             ]),
             'catalogos' => $huella([
                 self::ESQUEMA,
-                Almacen::max('updated_at'),
+                $pulso['catalogos'],
+                Almacen::withTrashed()->max('updated_at'),
                 FrenteTrabajo::max('updated_at'),
             ]),
             'reset' => $reset,
@@ -137,17 +179,40 @@ class OfflineVersion
     }
 
     /**
-     * Marca las versiones como obsoletas: la próxima consulta las recalcula.
+     * Marca un dominio como cambiado: la próxima consulta recalcula su huella, y el
+     * PULSO garantiza que además salga distinta.
      *
-     * De-duplicado por request igual que CacheVersion::bump — sin esto, una carga
-     * masiva de 200 equipos haría 200 escrituras de caché para el mismo efecto.
+     * ── Por qué hace falta el pulso y no basta con recalcular ───────────────────
+     * Las columnas updated_at son DATETIME, con resolución de UN SEGUNDO. Si dos filas
+     * se editan dentro del mismo segundo, el MAX(updated_at) sale IDÉNTICO en las dos
+     * ocasiones: la huella no cambia y el segundo cambio se vuelve invisible. Peor aún,
+     * no se arregla solo — al recalcular más tarde da el mismo valor otra vez, así que
+     * esa fila podía no llegar NUNCA al teléfono. Con un contador que sube en cada
+     * evento, la huella cambia sí o sí, sin depender de la precisión del reloj.
+     *
+     * Los MAX() siguen siendo necesarios: cubren las escrituras que NO emiten eventos de
+     * modelo (updates masivos por query builder, comandos artisan), donde nadie llama
+     * aquí y el único aviso es el recálculo al vencer el TTL.
+     *
+     * El pulso es POR DOMINIO a propósito: uno global reintroduciría justo el problema
+     * que todo esto viene a resolver — que un movimiento de almacén invalide la copia de
+     * quien solo usa equipos.
+     *
+     * De-duplicado por request igual que CacheVersion::bump — sin esto, una carga masiva
+     * de 200 equipos haría 200 escrituras de caché para el mismo efecto.
+     *
+     * @param string $dominio uno de self::DOMINIOS
      */
-    public static function invalidar(): void
+    public static function invalidar(string $dominio): void
     {
-        if (! self::marcarUnaVez(self::CLAVE_VERSIONES)) {
+        if (! in_array($dominio, self::DOMINIOS, true)) {
+            return;
+        }
+        if (! self::marcarUnaVez('pulso_' . $dominio)) {
             return;
         }
 
+        self::subirContador('offline_pulso_' . $dominio);
         self::store()->forget(self::CLAVE_VERSIONES);
     }
 
@@ -161,20 +226,31 @@ class OfflineVersion
      */
     public static function resetear(string $dominio): void
     {
-        if (! in_array($dominio, ['equipos', 'almacen'], true)) {
+        if (! in_array($dominio, self::DOMINIOS_RESETEABLES, true)) {
             return;
         }
-        $clave = 'offline_reset_' . $dominio;
-        $store = self::store();
-        // add-or-increment: increment() sobre una clave inexistente no la crea en
-        // todos los drivers (mismo idioma que CacheVersion::bump).
-        if (! $store->add($clave, 1)) {
-            $store->increment($clave);
-        }
+        self::subirContador('offline_reset_' . $dominio);
         // El token vive DENTRO de la huella, así que hay que recalcularla SI o SI,
         // aunque ya se hubiera invalidado antes en este mismo request.
         self::olvidarMarcasDelRequest();
-        self::invalidar();
+        self::invalidar($dominio);
+    }
+
+    /**
+     * Sube un contador en el store del offline (add-or-increment).
+     *
+     * increment() sobre una clave que NO existe devuelve false y NO la crea — con el
+     * driver `database` de este proyecto está comprobado. Sin el add previo, un contador
+     * recién creado (o tras un cache:clear) se quedaría clavado en su valor por defecto y
+     * las huellas no cambiarían nunca. Mismo idiom que CacheVersion::bump; aquí va aparte
+     * porque este store no es el de por defecto.
+     */
+    private static function subirContador(string $clave): void
+    {
+        $store = self::store();
+        if (! $store->add($clave, 1)) {
+            $store->increment($clave);
+        }
     }
 
     /** Alias legible de olvidarMarcasDelRequest() (trait DeDuplicaPorRequest). */

@@ -44,7 +44,7 @@ class EquipoObserver
      */
     private function bustOffline(): void
     {
-        \App\Support\OfflineVersion::invalidar();
+        \App\Support\OfflineVersion::invalidar('equipos');
     }
 
     public function created(Equipo $equipo): void

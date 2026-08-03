@@ -25,16 +25,15 @@ class FrenteTrabajo extends Model
         $bust = static function () {
             Cache::forget('frentes_especial_ids');
             Cache::forget('frentes_activos_form');
-            // Incrementa el contador para invalidar todas las variantes de plantilla cacheadas.
-            if (!Cache::has('bulk_template_gen')) {
-                Cache::forever('bulk_template_gen', 1);
-            } else {
-                Cache::increment('bulk_template_gen');
-            }
+            // Sube el contador que invalida todas las variantes de plantilla cacheadas.
+            // Por CacheVersion (punto único del idiom add-or-increment): la primera vez
+            // deja el contador en 1, igual que el `Cache::get(..., 1)` que lo lee, así
+            // que el generador de la plantilla no nota ningún cambio.
+            \App\Support\CacheVersion::bump('bulk_template_gen');
             \App\Http\Controllers\DashboardController::bumpDataVersion();
             // Los frentes viajan en el snapshot offline (dominio "catalogos"): al
             // cambiarlos hay que marcar esa version como obsoleta.
-            \App\Support\OfflineVersion::invalidar();
+            \App\Support\OfflineVersion::invalidar('catalogos');
         };
         static::saved($bust);
         static::deleted($bust);
