@@ -184,9 +184,13 @@ document.addEventListener("click", function (e) {
     e.stopPropagation();
 });
 
-// Global focus handler to open dropdowns on tab/click-focus and close others
+// Global focus handler to open dropdowns on tab/click-focus and close others.
+// Cubre los DOS tipos de componente: .dropdown-trigger (selección simple) y
+// .multiselect-trigger (selección múltiple con buscador, p.ej. Frentes o Permisos del
+// formulario de usuarios). Antes solo miraba el primero, así que enfocar el buscador de un
+// multiselect lo abría SIN cerrar el que estuviera abierto y quedaban dos listas desplegadas.
 document.addEventListener("focusin", function (e) {
-    if (e.target.matches('.dropdown-trigger input[type="text"]')) {
+    if (e.target.matches('.dropdown-trigger input[type="text"], .multiselect-trigger input[type="text"]')) {
         const parent = e.target.closest(
             ".custom-dropdown, .custom-multiselect",
         );

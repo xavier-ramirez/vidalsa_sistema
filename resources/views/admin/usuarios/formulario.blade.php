@@ -81,7 +81,6 @@
                                required autocomplete="off" 
                                style="flex: 1; border: none; background: transparent; padding: 12px 15px; outline: none; color: var(--maquinaria-text); font-size: 14px; font-family: inherit; text-transform: uppercase;"
                                oninput="const val = this.value.toLowerCase().trim(); document.querySelectorAll('.role-item-opt').forEach(i => i.style.display = i.textContent.toLowerCase().includes(val) ? 'block' : 'none');"
-                               onfocus="document.getElementById('roleSelect').classList.add('active');"
                                onclick="event.stopPropagation();">
                         <i class="material-icons" style="padding-right: 15px; cursor: pointer; color: var(--maquinaria-gray-text);">expand_more</i>
                     </div>
@@ -191,7 +190,6 @@
                                autocomplete="off"
                                style="flex: 1; min-width: 120px; border: none; background: transparent; padding: 12px 8px; outline: none; color: var(--maquinaria-text); font-size: 14px; font-family: inherit;"
                                oninput="const val = this.value.toLowerCase().trim(); document.querySelectorAll('.frente-item-opt').forEach(i => i.style.display = i.textContent.toLowerCase().includes(val) ? '' : 'none');"
-                               onfocus="document.getElementById('frentesSelect').classList.add('active');"
                                onclick="event.stopPropagation();">
                         <i class="material-icons" style="padding-right: 15px; color: var(--maquinaria-gray-text);">expand_more</i>
                     </div>
@@ -242,7 +240,6 @@
                                autocomplete="off"
                                style="flex: 1; min-width: 120px; border: none; background: transparent; padding: 12px 8px; outline: none; color: var(--maquinaria-text); font-size: 14px; font-family: inherit;"
                                oninput="const val = this.value.toLowerCase().trim(); document.querySelectorAll('.frente-bloq-item-opt').forEach(i => i.style.display = i.textContent.toLowerCase().includes(val) ? '' : 'none');"
-                               onfocus="document.getElementById('frentesBloqueadosSelect').classList.add('active');"
                                onclick="event.stopPropagation();">
                         <i class="material-icons" style="padding-right: 15px; color: var(--maquinaria-gray-text);">expand_more</i>
                     </div>
