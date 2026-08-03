@@ -168,6 +168,26 @@
             '</tr>';
     }
 
+    // Milisegundos que se le conceden al servidor antes de adelantar con la copia local.
+    // Por debajo de esto la respuesta real llega primero y el usuario no ve el adelanto.
+    var ADELANTO_MS = 700;
+
+    // Pinta la copia local YA FILTRADA mientras el servidor responde. `sigueEsperando` se
+    // consulta DOS veces (antes y después de leer IndexedDB, que es asíncrono) para no pisar
+    // una tabla que el servidor ya devolvió — sería mostrar datos peores que los buenos.
+    // Si no hay copia local todavía no se pinta nada: mejor la tabla anterior que un aviso
+    // de "sin copia" tapando una petición que va a responder.
+    function adelantarConCopiaLocal(sigueEsperando) {
+        if (!sigueEsperando() || !window.OfflineDB || !getBody()) return;
+        window.OfflineDB.get('equipos').then(function (equipos) {
+            var tbody = getBody();
+            if (!sigueEsperando() || !tbody || !equipos || !equipos.length) return;
+            ensureHideStyle();
+            tbody.innerHTML = equipos.map(filaEquipo).join('');
+            aplicarFiltro();
+        }).catch(function () {});
+    }
+
     async function render() {
         const tbody = getBody(); if (!tbody) return;
         ensureHideStyle();
@@ -349,7 +369,21 @@
                 // Sin conexión pero SIN activar el modo offline: bloqueamos la búsqueda (no
                 // pegarle al servidor caído) y avisamos que pulse "Trabajar sin conexión".
                 if (OM.pendienteActivar && OM.pendienteActivar()) { OM.avisarActivar(); return Promise.resolve(); }
-                return window._origLoadEquipos.apply(null, arguments);
+                // INTERNET LENTO (servidor vivo pero la respuesta no llega): el usuario se
+                // quedaba mirando la tabla anterior con cada filtro. Si a los ADELANTO_MS el
+                // servidor no ha contestado, pintamos la COPIA LOCAL ya filtrada — resultados
+                // al instante — y la respuesta real la reemplaza al llegar (loadEquipos
+                // reescribe el tbody entero). Con internet bueno nunca llega a dispararse.
+                var pendiente = true;
+                var temporizador = setTimeout(function () {
+                    adelantarConCopiaLocal(function () { return pendiente; });
+                }, ADELANTO_MS);
+                var prom = window._origLoadEquipos.apply(null, arguments);
+                Promise.resolve(prom).catch(function () {}).then(function () {
+                    pendiente = false;
+                    clearTimeout(temporizador);
+                });
+                return prom;
             };
             window.loadEquipos = window._eqOffPatchedLoad;
         }
