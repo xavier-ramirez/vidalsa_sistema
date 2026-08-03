@@ -3200,13 +3200,17 @@ class EquipoController extends Controller
             // No excluir ESPECIAL si el usuario está filtrando explícitamente por uno (drill-down).
             $applyEspecialExclusion = !FrenteTrabajo::isEspecialId($requestedFrenteId);
 
-            // Cache key — v6: cambió la estructura del payload (se quitaron los gráficos
-            // Estado Operativo e Inoperatividad y los auxiliares ahora se filtran por frente).
+            // Cache key — v7: cambió la estructura del payload (los auxiliares se agrupan
+            // por EDAD nueva/antigua, no por operativo/no operativo, y traen sus totales).
+            // v6 fue quitar los gráficos Estado Operativo e Inoperatividad y filtrar los
+            // auxiliares por frente. Subir la versión es OBLIGATORIO al cambiar la forma del
+            // payload: si no, durante 2 minutos el front recibe el JSON viejo y pinta series
+            // que ya no existen.
             // OJO: el PK de Usuario es ID_USUARIO (no existe columna `id`), así que hay que
             // usar auth()->id()/ID_USUARIO — con $user->id todos caían en 'guest' y compartían
             // caché entre usuarios de distinto alcance (fuga de datos). Se hashea también el
             // scope (isLocal + frentes permitidos) por robustez si cambian los permisos.
-            $cacheKey = 'fleet_stats_v6_u' . ($user?->ID_USUARIO ?? 'guest')
+            $cacheKey = 'fleet_stats_v7_u' . ($user?->ID_USUARIO ?? 'guest')
                       . '_f' . ($requestedFrenteId ?: 'all')
                       . '_s' . md5(($isLocal ? 'L' : 'G') . '|' . implode(',', $frentesPermitidos))
                       . '_b' . md5(implode(',', $frentesBloqueados));
@@ -3268,7 +3272,12 @@ class EquipoController extends Controller
                     ->sum(DB::raw('CAST(caracteristicas_modelo.CONSUMO_PROMEDIO AS DECIMAL(10,2))'));
 
                 // ── Query agrupada por tipo (flota nueva vs vieja) ──────────────────
+                // El WHERE de DESINCORPORADO no es opcional: los totales de la cabecera
+                // ($basicStats) SI los excluyen, asi que sin este filtro las barras sumaban
+                // mas que sus propias claves — 1014 en las barras contra "584 + 421 = 1005"
+                // escrito encima. Un equipo desincorporado ya no es flota.
                 $byTypeRaw = (clone $baseQuery)
+                    ->where('equipos.ESTADO_OPERATIVO', '!=', 'DESINCORPORADO')
                     ->select(
                         'tipo_equipos.nombre as tipo_nombre',
                         DB::raw('SUM(CASE WHEN equipos.ANIO >= 2025 THEN 1 ELSE 0 END) as new_count'),
@@ -3312,20 +3321,41 @@ class EquipoController extends Controller
                         });
                     }
                 }
+                // Mismo corte de edad que los equipos (>= 2025 = nueva) para que los dos
+                // gráficos del dashboard se lean igual. Antes este se agrupaba por
+                // operativo/no operativo: dos gráficos con la misma pinta pero midiendo
+                // cosas distintas.
+                //
+                // El tercer grupo NO es un capricho: hoy 30 de 160 auxiliares no tienen ANIO
+                // cargado. Con solo dos series (>= 2025 y < 2025) esos 30 no caen en ninguna
+                // y desaparecían del gráfico sin avisar — las barras no sumarían el total real
+                // del tipo y nadie sabría por qué. ANIO = 0 cuenta como sin cargar.
                 $auxByTypeRaw = $auxBase
                     ->select(
                         'TIPO',
                         DB::raw('COUNT(*) as total'),
-                        DB::raw("SUM(CASE WHEN ESTADO_OPERATIVO = 'OPERATIVO' THEN 1 ELSE 0 END) as operativo_count"),
-                        DB::raw("SUM(CASE WHEN ESTADO_OPERATIVO != 'OPERATIVO' THEN 1 ELSE 0 END) as no_operativo_count")
+                        DB::raw('SUM(CASE WHEN ANIO >= 2025 THEN 1 ELSE 0 END) as new_count'),
+                        DB::raw('SUM(CASE WHEN ANIO > 0 AND ANIO < 2025 THEN 1 ELSE 0 END) as old_count'),
+                        DB::raw('SUM(CASE WHEN ANIO IS NULL OR ANIO = 0 THEN 1 ELSE 0 END) as sin_anio_count')
                     )
                     ->groupBy('TIPO')
                     ->orderByDesc('total')
                     ->get();
 
-                $auxLabels         = $auxByTypeRaw->map(fn($r) => ucwords(str_replace('_', ' ', strtolower($r->TIPO))))->toArray();
-                $auxOperativoData  = $auxByTypeRaw->pluck('operativo_count')->map(fn($v) => (int)$v)->toArray();
-                $auxNoOperativoData = $auxByTypeRaw->pluck('no_operativo_count')->map(fn($v) => (int)$v)->toArray();
+                $auxLabels      = $auxByTypeRaw->map(fn($r) => ucwords(str_replace('_', ' ', strtolower($r->TIPO))))->toArray();
+                $auxNewData     = $auxByTypeRaw->pluck('new_count')->map(fn($v) => (int)$v)->toArray();
+                $auxOldData     = $auxByTypeRaw->pluck('old_count')->map(fn($v) => (int)$v)->toArray();
+                $auxSinAnioData = $auxByTypeRaw->pluck('sin_anio_count')->map(fn($v) => (int)$v)->toArray();
+
+                // La serie "Sin año" solo viaja si hay alguno: con el año cargado en todos,
+                // el gráfico queda idéntico al de equipos (dos series y ya).
+                $auxDatasets = [
+                    ['label' => 'Nueva (≥2025)',   'data' => $auxNewData],
+                    ['label' => 'Antigua (<2025)', 'data' => $auxOldData],
+                ];
+                if (array_sum($auxSinAnioData) > 0) {
+                    $auxDatasets[] = ['label' => 'Sin año', 'data' => $auxSinAnioData];
+                }
 
                 return [
                     'success' => true,
@@ -3333,7 +3363,12 @@ class EquipoController extends Controller
                         'total'             => $total,
                         'fleet_new'         => $fleetNew,
                         'fleet_old'         => $fleetOld,
-                        'total_consumption' => number_format((float)$totalConsumption, 2)
+                        'total_consumption' => number_format((float)$totalConsumption, 2),
+                        // Totales de auxiliares: alimentan las claves de la cabecera de su
+                        // panel, igual que fleet_new/fleet_old alimentan las del de equipos.
+                        'aux_new'           => array_sum($auxNewData),
+                        'aux_old'           => array_sum($auxOldData),
+                        'aux_sin_anio'      => array_sum($auxSinAnioData),
                     ],
                     'ageByType' => [
                         'labels'   => $ageLabels,
@@ -3348,10 +3383,7 @@ class EquipoController extends Controller
                     ])->values()->toArray(),
                     'auxByType' => [
                         'labels'   => $auxLabels,
-                        'datasets' => [
-                            ['label' => 'Operativo',     'data' => $auxOperativoData],
-                            ['label' => 'No Operativo',  'data' => $auxNoOperativoData],
-                        ],
+                        'datasets' => $auxDatasets,
                     ],
                 ];
             });

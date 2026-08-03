@@ -1515,14 +1515,23 @@
                         <canvas id="chartAgeByType"></canvas>
                     </div>
 
-                    <!-- Equipos Auxiliares por Tipo -->
+                    <!-- Equipos Auxiliares por Tipo (mismo corte de edad que el de arriba) -->
                     <div id="fdm-panel-auxiliares" class="fdm-panel">
                         <div class="fdm-panel-head">
                             <span class="fdm-panel-title">
                                 <i class="material-icons">construction</i>
-                                Equipos Auxiliares por Tipo
+                                Auxiliares Nuevos vs Viejos por Tipo
                             </span>
-                            <button onclick="window.descargarPanelHtmlFDM('fdm-panel-auxiliares', 'auxiliares_por_tipo')" title="Descargar imagen" class="fdm-cam" style="margin-left:auto;">
+                            {{-- Mismas claves que el panel de equipos: este grafico mide lo
+                                 mismo (edad por tipo), asi que se lee igual. La tercera,
+                                 "Sin año", solo aparece si hay auxiliares sin ANIO cargado
+                                 — la muestra/oculta updateStatCards. --}}
+                            <span class="fdm-keys">
+                                <span class="fdm-key"><i class="fdm-dot" data-serie="0"></i>Nueva (&ge;2025) <b id="stat_aux_new">0</b></span>
+                                <span class="fdm-key"><i class="fdm-dot" data-serie="1"></i>Antigua (&lt;2025) <b id="stat_aux_old">0</b></span>
+                                <span class="fdm-key" id="stat_aux_sin_key" style="display:none;"><i class="fdm-dot" data-serie="2"></i>Sin año <b id="stat_aux_sin">0</b></span>
+                            </span>
+                            <button onclick="window.descargarPanelHtmlFDM('fdm-panel-auxiliares', 'auxiliares_por_tipo')" title="Descargar imagen" class="fdm-cam">
                                 <i class="material-icons">photo_camera</i>
                             </button>
                         </div>

@@ -19,7 +19,11 @@ if (!window.CHART_COLORS) {
         // Referencia: el par mas claro que aprobaba TODO era #005a9c + #a91d28.
         // FUENTE UNICA de estos colores: los puntos de la cabecera (.fdm-dot) tambien se
         // pintan desde aqui, no los repite el blade.
-        age: ['#004a80', '#911a24']
+        // [2] Gris = "Sin año", solo lo usa el grafico de auxiliares (los equipos siempre
+        // tienen ANIO). Es neutro a proposito: no compite con los dos tonos del cliente y
+        // se lee como "dato faltante", no como una tercera categoria de flota. Antes este
+        // mismo gris estaba escrito a mano como respaldo en createCharts.
+        age: ['#004a80', '#911a24', '#64748b']
     };
 }
 
@@ -98,6 +102,17 @@ function updateStatCards(stats) {
     if (fleetNew) fleetNew.textContent = stats.fleet_new || 0;
     if (fleetOld) fleetOld.textContent = stats.fleet_old || 0;
     if (consumption) consumption.textContent = stats.total_consumption || 0;
+
+    // Claves del panel de auxiliares. La de "Sin año" solo se muestra si hay alguno:
+    // con el año cargado en todos, la cabecera queda igual que la de equipos.
+    const auxNew = document.getElementById('stat_aux_new');
+    const auxOld = document.getElementById('stat_aux_old');
+    const auxSin = document.getElementById('stat_aux_sin');
+    const auxSinKey = document.getElementById('stat_aux_sin_key');
+    if (auxNew) auxNew.textContent = stats.aux_new || 0;
+    if (auxOld) auxOld.textContent = stats.aux_old || 0;
+    if (auxSin) auxSin.textContent = stats.aux_sin_anio || 0;
+    if (auxSinKey) auxSinKey.style.display = (stats.aux_sin_anio || 0) > 0 ? '' : 'none';
 
     pintarPuntosDeSerie();
 }
@@ -578,7 +593,7 @@ function createCharts(data) {
             labels: data.ageByType.labels,
             // Sin leyenda de Chart.js: la cabecera del panel ya lleva las claves de serie
             // CON su total (.fdm-keys), asi que repetirla abajo seria decir lo mismo dos
-            // veces. El de auxiliares si la conserva, que no tiene claves en cabecera.
+            // veces. Los DOS graficos van igual, los dos tienen claves en cabecera.
             sinLeyenda: true,
             // Solo etiqueta, datos y color: el ASPECTO de la barra (grosor, hueco entre
             // tramos, redondeo) lo pone createStackedBarChart en un único sitio.
@@ -592,15 +607,18 @@ function createCharts(data) {
         showEmptyState(canvasAge, 'Sin equipos registrados para este frente.');
     }
 
-    // 2. Equipos Auxiliares por Tipo - Stacked Horizontal Bar (global)
+    // 2. Auxiliares por Tipo, con el MISMO corte de edad que el grafico de arriba
+    //    (nueva >= 2025 / antigua < 2025, y "Sin año" si los hay). Mismos colores, mismas
+    //    claves en cabecera y misma ausencia de leyenda: son dos vistas de lo mismo.
     const canvasAux = document.getElementById('chartAuxByType');
     if (canvasAux && data.auxByType && data.auxByType.labels && data.auxByType.labels.length > 0) {
         window.fleetCharts.auxByType = createStackedBarChart('chartAuxByType', {
             labels: data.auxByType.labels,
+            sinLeyenda: true,
             datasets: data.auxByType.datasets.map((ds, idx) => ({
                 label: ds.label,
                 data: ds.data,
-                backgroundColor: window.CHART_COLORS.age[idx] || '#64748b'
+                backgroundColor: window.CHART_COLORS.age[idx]
             }))
         });
     } else if (canvasAux) {
