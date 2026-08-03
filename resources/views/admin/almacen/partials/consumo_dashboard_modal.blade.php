@@ -241,7 +241,10 @@
         }
         if (typeof html2canvas === 'undefined') {
             var s = document.createElement('script');
-            s.src = "{{ asset('js/html2canvas.min.js') }}";
+            {{-- ?v= obligatorio: nginx sirve /js con Cache-Control immutable, así que un
+                 asset sin versión se queda pegado en el navegador PARA SIEMPRE y una
+                 actualización de la librería no llegaría nunca. Era el único de 54 sin él. --}}
+            s.src = "{{ asset('js/html2canvas.min.js') . '?v=' . @filemtime(public_path('js/html2canvas.min.js')) }}";
             s.onload = run;
             document.head.appendChild(s);
         } else {

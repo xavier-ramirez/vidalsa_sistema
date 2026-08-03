@@ -5,11 +5,25 @@ namespace App\Http\Controllers;
 use App\Models\Consumible;
 use App\Models\FrenteTrabajo;
 use Illuminate\Http\Request;
+use App\Support\CacheVersion;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class ConsumiblesController extends Controller
 {
+    /**
+     * Versión de los datos de consumibles. Viaja DENTRO de la clave del caché de
+     * gráficos, así que subirla invalida de golpe todas las combinaciones de filtros.
+     *
+     * Va por CacheVersion y no por Cache::increment() suelto: increment() sobre una
+     * clave que NO existe devuelve false y no la crea (comprobado con el driver
+     * `database` de este proyecto). Como nadie creaba esta clave, la versión se quedaba
+     * en el valor por defecto PARA SIEMPRE y los gráficos seguían mostrando datos viejos
+     * hasta que vencía su TTL de 30 minutos — justo lo contrario de lo que decía el
+     * comentario que había aquí.
+     */
+    public const DATA_VER_KEY = 'consumibles_data_version';
+
     use \App\Traits\ExcelLogoCorporativo;
 
     // ══════════════════════════════════════════════════════════════
@@ -204,7 +218,7 @@ class ConsumiblesController extends Controller
         }
 
         // Invalidar caché de gráficos — los datos cambiaron
-        Cache::increment('consumibles_data_version');
+        CacheVersion::bump(self::DATA_VER_KEY);
 
         $mensaje = "$insertados registros cargados exitosamente.";
 
@@ -237,7 +251,7 @@ class ConsumiblesController extends Controller
         ]);
 
         // Invalidar caché de gráficos
-        Cache::increment('consumibles_data_version');
+        CacheVersion::bump(self::DATA_VER_KEY);
 
         return response()->json(['ok' => true]);
     }
@@ -260,7 +274,7 @@ class ConsumiblesController extends Controller
         ]);
 
         // Invalidar caché de gráficos
-        Cache::increment('consumibles_data_version');
+        CacheVersion::bump(self::DATA_VER_KEY);
 
         return response()->json(['ok' => true, 'identificador' => $consumible->IDENTIFICADOR]);
     }
@@ -279,7 +293,7 @@ class ConsumiblesController extends Controller
         $consumible->update(['ID_FRENTE' => $request->id_frente]);
 
         // Invalidar caché de gráficos
-        Cache::increment('consumibles_data_version');
+        CacheVersion::bump(self::DATA_VER_KEY);
 
         $nombreFrente = FrenteTrabajo::find($request->id_frente)?->NOMBRE_FRENTE ?? '—';
 
@@ -295,7 +309,7 @@ class ConsumiblesController extends Controller
         Consumible::findOrFail($id)->delete();
 
         // Invalidar caché de gráficos
-        Cache::increment('consumibles_data_version');
+        CacheVersion::bump(self::DATA_VER_KEY);
 
         if ($request->expectsJson()) {
             return response()->json(['ok' => true]);
@@ -346,7 +360,7 @@ class ConsumiblesController extends Controller
 
         // ── Clave de caché única por combinación de filtros + versión de datos ──
         // La versión sube cada vez que se escriben datos → invalida todo el caché anterior.
-        $version = Cache::get('consumibles_data_version', 1);
+        $version = CacheVersion::current(self::DATA_VER_KEY);
         $cacheKey = 'graficos_v' . $version
             . '_d' . ($desde ?? 'null')
             . '_h' . ($hasta ?? 'null')
@@ -999,7 +1013,7 @@ class ConsumiblesController extends Controller
         }
 
         // Invalidar caché de gráficos — el match puede cambiar muchos registros
-        Cache::increment('consumibles_data_version');
+        CacheVersion::bump(self::DATA_VER_KEY);
 
         return response()->json([
             'total' => $pendientes->count(),

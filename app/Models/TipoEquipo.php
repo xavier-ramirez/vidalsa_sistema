@@ -19,11 +19,8 @@ class TipoEquipo extends Model
     {
         $bust = static function () {
             Cache::forget('tipos_equipo_list_form');
-            if (!Cache::has('bulk_template_gen')) {
-                Cache::forever('bulk_template_gen', 1);
-            } else {
-                Cache::increment('bulk_template_gen');
-            }
+            // Mismo contador que FrenteTrabajo, por el punto único (ver allí).
+            \App\Support\CacheVersion::bump('bulk_template_gen');
         };
         static::saved($bust);
         static::deleted($bust);

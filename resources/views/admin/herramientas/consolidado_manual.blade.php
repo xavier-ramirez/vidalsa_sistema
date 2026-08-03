@@ -2,7 +2,11 @@
 @section('title', 'Consolidado Manual de Equipos')
 
 @section('content')
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+{{-- Inter desde el SERVIDOR, no desde Google. Los cuatro pesos que se usan aquí
+     (400/600/700/800) ya están en public/fonts, así que se ve exactamente igual pero
+     sin una petición a un dominio externo que bloquea el pintado — y funciona sin
+     internet, que es lo que se espera de esta app. --}}
+<link href="{{ asset('css/fonts.css') }}?v={{ @filemtime(public_path('css/fonts.css')) }}" rel="stylesheet">
 <script src="{{ asset('js/html2canvas.min.js') }}?v={{ @filemtime(public_path('js/html2canvas.min.js')) }}"></script>
 
 <style>
