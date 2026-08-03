@@ -497,6 +497,32 @@ class HistorialDocumentosController extends Controller
                     continue;
                 }
 
+                // ── Cambios de ESTADO OPERATIVO con etiqueta propia ──────────────────
+                // Parar un equipo, devolverlo a trabajar o desincorporarlo es lo que la
+                // operación necesita ver de un vistazo, y hasta aquí caía en el genérico
+                // "Edición de Datos" mezclado con cualquier otra edición (cambiar el modelo,
+                // el código de patio…): no había forma de filtrarlos.
+                //
+                // Se clasifica al LEER y no al escribir a propósito:
+                //   · el diff con ESTADO_OPERATIVO ya viene guardado por EquipoObserver, así
+                //     que TODO el historial anterior queda reetiquetado sin migrar nada;
+                //   · no hace falta un segundo log por cada guardado (sería un evento
+                //     duplicado para el mismo cambio).
+                // Cubre TODAS las vías porque todas guardan el modelo: el chip de la lista,
+                // el modal de detalles, la APK (mobileChangeStatus) y el paso automático a
+                // INOPERATIVO / OPERATIVO al abrir y cerrar un reporte de falla.
+                // Si el guardado tocó además otros campos, el evento se rotula por el estado
+                // (es lo importante) y la columna "ver cambios" sigue mostrándolos todos.
+                if ($log->ACCION === 'edit' && is_array($cambiosRaw) && isset($cambiosRaw['ESTADO_OPERATIVO'])) {
+                    $estAntes   = mb_strtoupper(trim((string) ($cambiosRaw['ESTADO_OPERATIVO']['antes'] ?? '')));
+                    $estDespues = mb_strtoupper(trim((string) ($cambiosRaw['ESTADO_OPERATIVO']['despues'] ?? '')));
+                    $tipoLabel  = match (true) {
+                        $estDespues === 'DESINCORPORADO' => 'Desincorporación',
+                        $estAntes   === 'DESINCORPORADO' => 'Reincorporación',
+                        default                          => 'Cambio de Estado',
+                    };
+                }
+
                 $events->push((object)[
                     'doc_key'       => $log->ACCION,
                     'tipo'          => $tipoLabel,

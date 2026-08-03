@@ -404,6 +404,13 @@
                                 <div style="padding:4px 8px 2px; font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; border-top:1px solid #e2e8f0; margin-top:4px;">SOBRE EL EQUIPO</div>
                                 <div class="dropdown-item {{ $reqTipo === 'Registro de Vehículo' ? 'selected' : '' }}" data-value="Registro de Vehículo" onclick="selectOption('tipoDocFilterSelect', 'Registro de Vehículo', 'Registro de Vehículo'); window.loadHistorialDocumentos();">Registro de Vehículo</div>
                                 <div class="dropdown-item {{ $reqTipo === 'Edición de Datos' ? 'selected' : '' }}" data-value="Edición de Datos" onclick="selectOption('tipoDocFilterSelect', 'Edición de Datos', 'Edición de Datos'); window.loadHistorialDocumentos();">Edición de Datos</div>
+                                {{-- Cambios de ESTATUS: los separa el controller a partir del diff
+                                     (ver "Cambios de ESTADO OPERATIVO con etiqueta propia"). Antes
+                                     caían todos dentro de "Edición de Datos" y no había forma de
+                                     pedirle al historial "muéstrame qué equipos se pararon". --}}
+                                <div class="dropdown-item {{ $reqTipo === 'Cambio de Estado' ? 'selected' : '' }}" data-value="Cambio de Estado" onclick="selectOption('tipoDocFilterSelect', 'Cambio de Estado', 'Cambio de Estado'); window.loadHistorialDocumentos();">Cambio de Estado</div>
+                                <div class="dropdown-item {{ $reqTipo === 'Desincorporación' ? 'selected' : '' }}" data-value="Desincorporación" onclick="selectOption('tipoDocFilterSelect', 'Desincorporación', 'Desincorporación'); window.loadHistorialDocumentos();">Desincorporación</div>
+                                <div class="dropdown-item {{ $reqTipo === 'Reincorporación' ? 'selected' : '' }}" data-value="Reincorporación" onclick="selectOption('tipoDocFilterSelect', 'Reincorporación', 'Reincorporación'); window.loadHistorialDocumentos();">Reincorporación</div>
                                 <div class="dropdown-item {{ $reqTipo === 'Detalle Masivo' ? 'selected' : '' }}" data-value="Detalle Masivo" onclick="selectOption('tipoDocFilterSelect', 'Detalle Masivo', 'Detalle Masivo'); window.loadHistorialDocumentos();">Detalle Masivo</div>
                                 <div class="dropdown-item {{ $reqTipo === 'Eliminación de Equipo' ? 'selected' : '' }}" data-value="Eliminación de Equipo" onclick="selectOption('tipoDocFilterSelect', 'Eliminación de Equipo', 'Eliminación de Equipo'); window.loadHistorialDocumentos();">Eliminación de Equipo</div>
 

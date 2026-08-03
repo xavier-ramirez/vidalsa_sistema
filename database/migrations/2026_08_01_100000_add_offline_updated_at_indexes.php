@@ -19,21 +19,21 @@ use Illuminate\Support\Facades\Schema;
  */
 return new class extends Migration
 {
-    /** [tabla, columna, nombre del índice] */
+    /** Pares [tabla, columna] — un índice simple por entrada. */
     private const INDEXES = [
-        ['movilizacion_historial', 'updated_at', 'movilizacion_historial_updated_at_index'],
-        ['movimientos_inventario', 'updated_at', 'movimientos_inventario_updated_at_index'],
+        ['movilizacion_historial', 'updated_at'],
+        ['movimientos_inventario', 'updated_at'],
     ];
 
     public function up(): void
     {
-        foreach (self::INDEXES as [$tabla, $columna, $nombre]) {
+        foreach (self::INDEXES as [$tabla, $columna]) {
             if (! Schema::hasTable($tabla) || ! Schema::hasColumn($tabla, $columna)) {
                 continue;
             }
             try {
-                Schema::table($tabla, function (Blueprint $table) use ($columna, $nombre) {
-                    $table->index($columna, $nombre);
+                Schema::table($tabla, function (Blueprint $table) use ($columna) {
+                    $table->index($columna);
                 });
             } catch (\Throwable $e) { /* ya existe — saltar */ }
         }
@@ -41,13 +41,13 @@ return new class extends Migration
 
     public function down(): void
     {
-        foreach (self::INDEXES as [$tabla, , $nombre]) {
+        foreach (self::INDEXES as [$tabla, $columna]) {
             if (! Schema::hasTable($tabla)) {
                 continue;
             }
             try {
-                Schema::table($tabla, function (Blueprint $table) use ($nombre) {
-                    $table->dropIndex($nombre);
+                Schema::table($tabla, function (Blueprint $table) use ($columna) {
+                    $table->dropIndex([$columna]);
                 });
             } catch (\Throwable $e) { /* no existe — saltar */ }
         }

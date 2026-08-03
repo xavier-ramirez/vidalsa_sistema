@@ -1529,26 +1529,26 @@
                         <canvas id="chartAuxByType"></canvas>
                     </div>
 
-                <!-- Equipos Asignados por Frente (al final) — DENTRO de #fleetChartsGrid: es un
-                     panel más de la misma pila, así la separación se la da el `gap` de la
-                     grilla en escritorio y en móvil. Con margin-top propio había que
-                     sincronizar dos números a mano y en móvil (gap 12px) ya no coincidían. -->
-                <div id="fdm-panel-assigned" class="fdm-panel">
-                    <div class="fdm-panel-head">
-                        <span class="fdm-panel-title">
-                            <i class="material-icons">directions_bus</i>
-                            Equipos Asignados por Frente
-                            <span style="font-size:11px; color:var(--fd-ink-2); font-weight:400;">— flota actual en cada frente</span>
-                        </span>
-                        <button onclick="window.descargarPanelHtmlFDM('fdm-panel-assigned', 'equipos_asignados_por_frente')" title="Descargar imagen" class="fdm-cam" style="margin-left:auto;">
-                            <i class="material-icons">photo_camera</i>
-                        </button>
+                    <!-- Equipos Asignados por Frente (al final) — DENTRO de #fleetChartsGrid: es un
+                         panel más de la misma pila, así la separación se la da el `gap` de la
+                         grilla en escritorio y en móvil. Con margin-top propio había que
+                         sincronizar dos números a mano y en móvil (gap 12px) ya no coincidían. -->
+                    <div id="fdm-panel-assigned" class="fdm-panel">
+                        <div class="fdm-panel-head">
+                            <span class="fdm-panel-title">
+                                <i class="material-icons">directions_bus</i>
+                                Equipos Asignados por Frente
+                                <span style="font-size:11px; color:var(--fd-ink-2); font-weight:400;">— flota actual en cada frente</span>
+                            </span>
+                            <button onclick="window.descargarPanelHtmlFDM('fdm-panel-assigned', 'equipos_asignados_por_frente')" title="Descargar imagen" class="fdm-cam" style="margin-left:auto;">
+                                <i class="material-icons">photo_camera</i>
+                            </button>
+                        </div>
+                        <div id="fleetEqAsigLoading" style="display:flex; align-items:center; justify-content:center; height:80px; color:#94a3b8; font-size:13px; gap:8px;">
+                            <i class="material-icons" style="animation:fleetSpin 1s linear infinite; font-size:18px;">refresh</i> Cargando...
+                        </div>
+                        <div id="fleetEqAsigBody" style="display:none;"></div>
                     </div>
-                    <div id="fleetEqAsigLoading" style="display:flex; align-items:center; justify-content:center; height:80px; color:#94a3b8; font-size:13px; gap:8px;">
-                        <i class="material-icons" style="animation:fleetSpin 1s linear infinite; font-size:18px;">refresh</i> Cargando...
-                    </div>
-                    <div id="fleetEqAsigBody" style="display:none;"></div>
-                </div>
                 </div>{{-- /#fleetChartsGrid --}}
 
             </div>

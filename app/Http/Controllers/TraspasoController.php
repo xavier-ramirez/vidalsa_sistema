@@ -183,6 +183,10 @@ class TraspasoController extends Controller
                 $query->where('ESTADO', $estadoActivo);
             }
 
+            // El !== 'all' NO es porque la interfaz lo ofrezca (ya no: el dropdown solo lista
+            // almacenes concretos). Es red de seguridad para un enlace guardado o la APK con
+            // ?id_almacen_destino=all: sin el guard, integer('all') da 0 y la bandeja saldría
+            // vacía en vez de sin filtrar.
             if ($request->filled('id_almacen_destino') && $request->input('id_almacen_destino') !== 'all') {
                 $query->where('ID_ALMACEN_DESTINO', $request->integer('id_almacen_destino'));
             }
