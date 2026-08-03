@@ -884,6 +884,10 @@
         // Son DOS capas con su propio botón, independientes: se puede ver solo la Faja, solo los
         // bloques o las dos superpuestas. Cada una baja su geojson la PRIMERA vez que se enciende
         // (carga perezosa, igual que los municipios).
+        // NO usar renderizador de CANVAS aquí, por más que el SVG sea más lento con 336 bloques:
+        // el canvas es UN elemento que tapa todo el mapa y se queda con los eventos del ratón, así
+        // que los ESTADOS de debajo dejan de recibir el hover — se pierden su tooltip (con la
+        // división de la Faja) y el cursor normal. Probado y revertido.
         var fajaPoligonalUrl = el.getAttribute('data-faja-poligonal');
         var fajaBloquesUrl   = el.getAttribute('data-faja-bloques');
         // Las 4 divisiones de la Faja, de oeste a este: color (en tonos OSCUROS, para que se lean
@@ -1018,7 +1022,10 @@
                 pane: 'bloquesPane',
                 style: function () { return estiloBloque; },
                 onEachFeature: function (f, layer) {
-                    layer.bindTooltip(tooltipBloque(f.properties || {}), { sticky: true, direction: 'top', className: 'estado-tooltip' });
+                    // Contenido en FUNCIÓN: Leaflet lo evalúa al abrir la ficha. Armar el HTML de
+                    // los 336 bloques al cargar la capa solo servía para retrasar el encendido.
+                    var p = f.properties || {};
+                    layer.bindTooltip(function () { return tooltipBloque(p); }, { sticky: true, direction: 'top', className: 'estado-tooltip' });
                     layer.on({
                         // El bloque MARCADO por el buscador conserva su amarillo: si el hover lo
                         // pisara, bastaría pasar el ratón por encima para perder la marca.
@@ -1048,15 +1055,25 @@
            function () { sincronizarBuscadorBloques(); });
 
         // ¿En qué división de la Faja cae una coordenada? Devuelve su nombre bonito, o null si la
-        // capa está apagada o el punto queda fuera. Lo usa el tooltip del estado.
+        // capa está apagada o el punto queda fuera. Lo usa el tooltip del estado, que lo pide en
+        // CADA mousemove: como el cálculo recorre miles de vértices, se guarda el último resultado
+        // y solo se recalcula si el puntero se movió de verdad (o pasaron 150 ms). Mover el ratón
+        // dentro de la misma división no vuelve a calcular nada.
+        var _divCache = { lat: null, lng: null, t: 0, val: null };
         function divisionFajaEnPunto(ll) {
             if (!capaFaja.on || !capaFaja.capa || !capaFaja.capa.areas) return null;
+            var ahora = Date.now();
+            if (_divCache.lat !== null && (ahora - _divCache.t) < 150 &&
+                Math.abs(ll.lat - _divCache.lat) < 0.01 && Math.abs(ll.lng - _divCache.lng) < 0.01) {
+                return _divCache.val;
+            }
             var res = null;
             capaFaja.capa.areas.eachLayer(function (l) {
                 if (res || !l.getLatLngs || !l.getBounds().contains(ll)) return; // el bounds descarta rápido
                 if (puntoEnLatLngs(ll, l.getLatLngs())) res = l.feature && l.feature.properties && l.feature.properties.nombre;
             });
-            return res ? nombreAreaFaja(res) : null;
+            _divCache = { lat: ll.lat, lng: ll.lng, t: ahora, val: res ? nombreAreaFaja(res) : null };
+            return _divCache.val;
         }
         if (miniFajaUrl && fajaPoligonalUrl) map.addControl(new (controlMiniCapa(miniFajaUrl, 'Faja', capaFaja.alternar, capaFaja.montar))());
         if (miniBloquesUrl && fajaBloquesUrl) map.addControl(new (controlMiniCapa(miniBloquesUrl, 'Bloques', capaBloques.alternar, capaBloques.montar))());
