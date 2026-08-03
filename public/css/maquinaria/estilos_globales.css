@@ -4184,12 +4184,8 @@ body:has(.mapa-page) .main-viewport {
 .oleo-del:hover { color: #ef4444; }
 
 /* Vela (pin de ubicación tipo Google Maps) — el divIcon no debe tener fondo */
-/* Subtitulo del menu de la vela ("En N proyectos") y lista para agregar el punto a otro. */
+/* Subtitulo del menu de la vela ("En N proyectos"). */
 .mapa-ctx-sub { display: block; font-size: 10.5px; font-weight: 600; color: #64748b; text-transform: none; letter-spacing: 0; margin-top: 2px; }
-.oleo-vinc-list { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
-.oleo-vinc-op { display: flex; align-items: center; gap: 7px; width: 100%; text-align: left; cursor: pointer;
-    background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 8px; padding: 7px 9px; font-size: 12.5px; font-weight: 600; color: #1e293b; }
-.oleo-vinc-op:hover { background: #e1effa; border-color: #0067b1; color: #0067b1; }
 
 /* Etiqueta de una vela como marcador propio (un punto en varios proyectos saca UNA CAJA POR
    PROYECTO, y cada caja es su propio marcador). El divIcon no pinta nada: la cajita blanca la
@@ -4271,6 +4267,10 @@ body:has(.mapa-page) .main-viewport {
 /* Primera opción de la lista: guardar el punto SIN frente. Separada del resto con una línea
    para que se lea como lo que es (no es un frente más). */
 .oleo-save-op-sin { color: #64748b; font-style: italic; border-bottom: 1px solid #e2e8f0; border-radius: 6px 6px 0 0; margin-bottom: 2px; }
+/* "Sin coincidencias": es un AVISO, no una opcion. Sin cursor de mano ni realce al pasar por
+   encima, para que no invite a pulsarlo (el JS tambien lo ignora). */
+.oleo-save-op-vacio { color: #94a3b8; font-style: italic; font-weight: 500; cursor: default; }
+.oleo-save-op-vacio:hover { background: transparent; color: #94a3b8; }
 .oleo-save-err { font-size: 12px; font-weight: 600; color: #e11d48; margin-top: 6px; }
 
 /* Tabla-leyenda (historial de proyectos) — transparente, sobre el mapa */

@@ -2126,6 +2126,95 @@
             }).catch(function () { spinOff(); if (cb) cb(false); });
         }
 
+        // ── Selector de FRENTE con recomendaciones ──────────────────────────────────
+        // Lo usan los DOS popups que piden un proyecto: "Guardar punto" y "Agregar a otro
+        // proyecto". Antes solo lo tenía el de guardar; el otro pintaba una lista fija de
+        // botones y por eso solo dejaba elegir entre proyectos que YA tenían puntos.
+        //
+        //   pickFrenteHtml(cfg) → markup      cfg: { valor, etiqueta, placeholder }
+        //   pickFrenteWire(cont, cfg) → api   cfg: { conSuelto, excluir:[ids], alElegir }
+        //
+        // api.valor() resuelve el frente elegido: el de la lista o, si se tecleó el nombre
+        // exacto sin tocar la lista, el que coincida. '' si no hay nada válido.
+        function pickFrenteHtml(cfg) {
+            cfg = cfg || {};
+            return '<div class="oleo-save-pick">' +
+                '<input type="hidden" class="oleo-save-frente" value="' + esc(cfg.valor || '') + '">' +
+                '<input type="text" class="oleo-save-search" autocomplete="off"' +
+                    ' placeholder="' + esc(cfg.placeholder || 'Escribe para buscar el frente…') + '"' +
+                    ' value="' + esc(cfg.etiqueta || '') + '">' +
+                '<div class="oleo-save-list"></div>' +
+            '</div>';
+        }
+        // Mensaje de error del popup (.oleo-save-err). Devuelve la función que lo pinta o lo
+        // limpia. Los dos popups que piden proyecto lo tenían escrito igual por separado.
+        function errorPopup(cont) {
+            var err = cont.querySelector('.oleo-save-err');
+            return function (msg) { if (err) { err.textContent = msg || ''; err.style.display = msg ? '' : 'none'; } };
+        }
+        function pickFrenteWire(cont, cfg) {
+            cfg = cfg || {};
+            var pick = cont.querySelector('.oleo-save-pick'); if (!pick) return null;
+            var hid    = pick.querySelector('.oleo-save-frente');
+            var search = pick.querySelector('.oleo-save-search');
+            var list   = pick.querySelector('.oleo-save-list');
+
+            var excluir  = (cfg.excluir || []).map(String);
+            var opciones = oleoFrentes.filter(function (f) { return excluir.indexOf(String(f.id)) === -1; });
+            // "Sin proyecto" es una opción más de la lista (siempre la primera) donde aplica.
+            var OP_SUELTO = { id: SUELTO_ID, nombre: SUELTO_LABEL };
+
+            function renderSug() {
+                var term = search.value || '', arr;
+                if (window.FuzzySearch && window.FuzzySearch.rank) {
+                    arr = window.FuzzySearch.rank(opciones, term, function (f) { return { label: f.nombre, haystack: f.nombre }; });
+                } else {
+                    var q = term.toLowerCase();
+                    arr = opciones.filter(function (f) { return !q || String(f.nombre).toLowerCase().indexOf(q) > -1; });
+                }
+                var h = cfg.conSuelto
+                    ? '<div class="oleo-save-op oleo-save-op-sin" data-fid="' + SUELTO_ID + '">' + esc(SUELTO_LABEL) + '</div>'
+                    : '';
+                arr.slice(0, 8).forEach(function (f) { h += '<div class="oleo-save-op" data-fid="' + esc(String(f.id)) + '">' + esc(f.nombre) + '</div>'; });
+                if (!h) h = '<div class="oleo-save-op oleo-save-op-vacio">Sin coincidencias</div>';
+                list.innerHTML = h;
+                list.style.display = 'block';
+            }
+            function valor() {
+                if (hid.value) return hid.value;
+                var t = (search.value || '').trim().toLowerCase();
+                if (!t) return '';
+                var m = opciones.concat(cfg.conSuelto ? [OP_SUELTO] : []).filter(function (f) {
+                    return String(f.nombre).toLowerCase() === t;
+                })[0];
+                return m ? String(m.id) : '';
+            }
+
+            search.addEventListener('focus', renderSug);
+            search.addEventListener('input', function () { hid.value = ''; renderSug(); if (cfg.alElegir) cfg.alElegir(''); });
+            search.addEventListener('blur',  function () { setTimeout(function () { list.style.display = 'none'; }, 150); });
+            // 'pointerdown' y NO 'mousedown': en pantalla táctil el navegador retrasa los
+            // eventos de ratón hasta ~300 ms después de levantar el dedo, así que el blur del
+            // campo (que esconde la lista a los 150 ms) llegaba ANTES y el toque caía en el
+            // vacío — la lista "se quitaba" y no se elegía nada. pointerdown llega enseguida
+            // con dedo y con ratón. Fallback a mousedown para navegadores sin Pointer Events.
+            var EV_ELEGIR = ('onpointerdown' in window) ? 'pointerdown' : 'mousedown';
+            list.addEventListener(EV_ELEGIR, function (e) {
+                var op = e.target.closest ? e.target.closest('.oleo-save-op') : null;
+                if (!op || op.classList.contains('oleo-save-op-vacio')) return;
+                e.preventDefault();           // no mover el foco: el campo sigue activo
+                hid.value    = op.getAttribute('data-fid') || '';
+                search.value = op.textContent;
+                list.style.display = 'none';
+                if (cfg.alElegir) cfg.alElegir(hid.value);
+            });
+
+            return {
+                valor:   valor,
+                enfocar: function () { search.focus(); renderSug(); }
+            };
+        }
+
         // Popup tras buscar/colocar una ubicación. AMBOS campos son OBLIGATORIOS: el NOMBRE del
         // punto y el PROYECTO (se elige de tus FRENTES de trabajo con un buscador que recomienda;
         // no se crean a mano). Al Guardar, el punto se PERSISTE en ese frente y aparece en la
@@ -2165,12 +2254,10 @@
                 '<input type="text" class="oleo-save-in" placeholder="Ej. PROGRESIVA 47+100" value="' + esc(nombreSugerido || '') + '">' +
                 '<div class="oleo-save-c">' + coords + '</div>' +
                 '<label class="oleo-save-lbl">Frente de trabajo <span class="oleo-req">*</span></label>' +
-                '<div class="oleo-save-pick">' +
-                    '<input type="hidden" class="oleo-save-frente" value="' + (sueltoActivo ? SUELTO_ID : (frenteActivo ? esc(String(frenteActivo)) : '')) + '">' +
-                    '<input type="text" class="oleo-save-search" placeholder="Escribe para buscar el frente…" autocomplete="off"' +
-                        ' value="' + esc(sueltoActivo ? SUELTO_LABEL : (faObj ? faObj.nombre : '')) + '">' +
-                    '<div class="oleo-save-list"></div>' +
-                '</div>' +
+                pickFrenteHtml({
+                    valor:    sueltoActivo ? SUELTO_ID : (frenteActivo ? String(frenteActivo) : ''),
+                    etiqueta: sueltoActivo ? SUELTO_LABEL : (faObj ? faObj.nombre : '')
+                }) +
                 '<button type="button" class="oleo-save-btn">Guardar punto</button>' +
                 '<div class="oleo-save-err" style="display:none;"></div>' +
                 '</div>';
@@ -2192,66 +2279,27 @@
                 });
                 return;
             }
-            var pick = cont.querySelector('.oleo-save-pick');
-            var btn  = cont.querySelector('.oleo-save-btn');
-            if (!pick || !btn) return; // no es el popup de guardar punto
+            // El popup de "agregar a otro proyecto" comparte el estilo .oleo-save-btn, asi que
+            // se descarta por su clase PROPIA: ese lo atiende su propio handler mas abajo.
+            var btn   = cont.querySelector('.oleo-save-btn');
+            var input = cont.querySelector('.oleo-save-in');
+            if (!btn || !input || btn.classList.contains('oleo-vinc-btn')) return;
 
-            var hid    = pick.querySelector('.oleo-save-frente');
-            var search = pick.querySelector('.oleo-save-search');
-            var list   = pick.querySelector('.oleo-save-list');
-            var input  = cont.querySelector('.oleo-save-in');
-            var err    = cont.querySelector('.oleo-save-err');
+            var mostrarErr = errorPopup(cont);
             if (input) setTimeout(function () { input.focus(); }, 30);
 
-            function mostrarErr(msg) { if (err) { err.textContent = msg || ''; err.style.display = msg ? '' : 'none'; } }
+            // conSuelto: aquí "sin proyecto" SÍ es una opción (guarda la ubicación suelta).
+            // Los listeners se enganchan sin guarda: el popup se crea de cero en cada apertura.
+            var picker = pickFrenteWire(cont, { conSuelto: true, alElegir: function () { mostrarErr(''); } });
+            if (!picker) return;
 
-            // La opción "sin frente" va SIEMPRE la primera de la lista, como una más: así no hace
-            // falta ningún control extra en el formulario.
-            var OP_SUELTO = { id: SUELTO_ID, nombre: SUELTO_LABEL };
-            // Sugerencias del buscador: RECOMIENDA al escribir (reutiliza window.FuzzySearch.rank).
-            function renderSug() {
-                var term = search.value || '', arr;
-                if (window.FuzzySearch && window.FuzzySearch.rank) {
-                    arr = window.FuzzySearch.rank(oleoFrentes, term, function (f) { return { label: f.nombre, haystack: f.nombre }; });
-                } else {
-                    var q = term.toLowerCase();
-                    arr = oleoFrentes.filter(function (f) { return !q || String(f.nombre).toLowerCase().indexOf(q) > -1; });
-                }
-                var h = '<div class="oleo-save-op oleo-save-op-sin" data-fid="' + SUELTO_ID + '">' + esc(SUELTO_LABEL) + '</div>';
-                arr.slice(0, 8).forEach(function (f) { h += '<div class="oleo-save-op" data-fid="' + esc(String(f.id)) + '">' + esc(f.nombre) + '</div>'; });
-                list.innerHTML = h;
-                list.style.display = 'block';
-            }
-            // Resuelve el frente: por selección de la lista, o por el nombre EXACTO tecleado
-            // (incluida la opción "sin frente", que devuelve el centinela SUELTO_ID).
-            function resolverFrente() {
-                if (hid.value) return hid.value;
-                var t = (search.value || '').trim().toLowerCase();
-                if (!t) return '';
-                var m = oleoFrentes.concat(OP_SUELTO).filter(function (f) { return String(f.nombre).toLowerCase() === t; })[0];
-                return m ? String(m.id) : '';
-            }
-            // Los listeners se enganchan sin guarda: el popup y su botón se crean de cero en cada apertura,
-            // así que no hay riesgo de engancharlos dos veces sobre el mismo elemento.
-            search.addEventListener('focus', renderSug);
-            search.addEventListener('input', function () { hid.value = ''; mostrarErr(''); renderSug(); });
-            search.addEventListener('blur', function () { setTimeout(function () { list.style.display = 'none'; }, 150); });
-            list.addEventListener('mousedown', function (e) {
-                var op = e.target.closest ? e.target.closest('.oleo-save-op') : null;
-                if (!op) return;
-                e.preventDefault();
-                hid.value = op.getAttribute('data-fid') || '';
-                search.value = op.textContent;
-                list.style.display = 'none';
-                mostrarErr('');
-            });
             // AMBOS campos son OBLIGATORIOS: nombre del punto + una opción de la lista (un
             // frente o SUELTO_LABEL, que guarda el punto sin frente).
             btn.addEventListener('click', function () {
                 var nombre = ((input && input.value) || '').trim();
                 if (!nombre) { mostrarErr('Escribe el nombre del punto.'); if (input) input.focus(); return; }
-                var elegido = resolverFrente();
-                if (!elegido) { mostrarErr('Elige una opción de la lista.'); search.focus(); renderSug(); return; }
+                var elegido = picker.valor();
+                if (!elegido) { mostrarErr('Elige una opción de la lista.'); picker.enfocar(); return; }
                 var idFrente = (elegido === SUELTO_ID) ? '' : elegido; // vacío = sin frente
                 mostrarErr('');
                 var ll = ev.popup.getLatLng();
@@ -2492,64 +2540,91 @@
             var cerrar = function () { menu.remove(); document.removeEventListener('click', cerrar); };
             setTimeout(function () { document.addEventListener('click', cerrar); }, 0);
         }
-        // Mete un punto QUE YA EXISTE en otro proyecto. Se elige entre los proyectos que YA
-        // existen (no entre los frentes): el punto ya está creado, aquí solo se vincula, así que
-        // no tiene sentido dar de alta un proyecto vacío desde aquí. Se ocultan los proyectos en
-        // los que el punto ya está y el grupo de ubicaciones sueltas (esas no se comparten).
+        // Mete un punto QUE YA EXISTE en otro proyecto. Se elige entre TODOS los frentes con el
+        // mismo buscador que "Guardar punto" (se escribe y recomienda). Antes era una lista fija
+        // con los proyectos que YA tenían puntos: como un proyecto solo nace al guardar su primer
+        // punto, no había forma de compartir un punto con un frente que aún no tuviera ninguno.
+        // Se excluyen los frentes donde el punto ya está; las ubicaciones sueltas no se comparten.
         var _vincPunto = null;   // punto del popup "agregar a otro proyecto" que está abierto
         function popupVincularProyecto(punto) {
-            _vincPunto = punto;
-            var destinos = Object.keys(oleoMap).map(function (id) { return oleoMap[id].data; })
-                .filter(function (o) {
-                    if (o.suelto) return false;
-                    return !(o.puntos || []).some(function (p) { return String(p.id) === String(punto.id); });
-                });
-            if (!destinos.length) {
-                if (window.showToast) window.showToast('Este punto ya está en todos los proyectos.', 'info');
+            // Frentes donde YA está: se sacan de los proyectos que lo contienen (los sueltos no
+            // tienen frente, así que se caen solos al no aportar id_frente).
+            var yaEn = Object.keys(oleoMap).map(function (id) { return oleoMap[id].data; })
+                .filter(function (o) { return (o.puntos || []).some(function (p) { return String(p.id) === String(punto.id); }); })
+                .map(function (o) { return String(o.id_frente || ''); })
+                .filter(function (x) { return x !== ''; });
+
+            if (oleoFrentes.filter(function (f) { return yaEn.indexOf(String(f.id)) === -1; }).length === 0) {
+                if (window.showToast) window.showToast('Este punto ya está en todos tus frentes.', 'info');
                 return;
             }
             var html = '<div class="oleo-save">' +
                 '<label class="oleo-save-lbl">Agregar "' + esc(punto.nombre || 'Punto') + '" a:</label>' +
-                '<div class="oleo-vinc-list">' +
-                destinos.map(function (o) {
-                    return '<button type="button" class="oleo-vinc-op" data-oid="' + esc(String(o.id)) + '">' +
-                        '<span class="oleo-dot" style="background:' + esc(o.color) + '"></span>' + esc(o.nombre) + '</button>';
-                }).join('') +
-                '</div>' +
+                pickFrenteHtml({ placeholder: 'Escribe para buscar el proyecto…' }) +
+                '<button type="button" class="oleo-save-btn oleo-vinc-btn">Agregar al proyecto</button>' +
+                '<div class="oleo-save-err" style="display:none;"></div>' +
                 '<div style="font-size:11px;color:#64748b;line-height:1.35;margin-top:6px;">' +
                 'Es el MISMO punto, no una copia: si se corrige, cambia en todos los proyectos.</div>' +
                 '</div>';
+            // ANTES de abrir, no después: openOn() dispara 'popupopen' de forma SÍNCRONA, así
+            // que el handler lee esto durante la propia llamada. Dejándolo debajo, encontraba
+            // null y cerraba el popup en el acto.
+            _vincPunto = { punto: punto, yaEn: yaEn };
             L.popup({ className: 'mapa-oleo-pop', minWidth: 240, autoPan: true })
                 .setLatLng(L.latLng(punto.lat, punto.lng)).setContent(html).openOn(map);
         }
 
-        // Clic en un proyecto del popup de "agregar a otro proyecto".
+        // Popup de "agregar a otro proyecto": buscador de frentes + botón.
         map.on('popupopen', function (ev) {
             var cont = ev.popup.getElement(); if (!cont) return;
-            var lista = cont.querySelector('.oleo-vinc-list'); if (!lista) return;
-            // El punto que abrió este popup (lo dejó popupVincularProyecto). Se consume aquí y
-            // se borra: es un traspaso de una sola vez, no un estado que deba quedar vivo.
-            lista._punto = _vincPunto;
-            _vincPunto = null;
-            lista.addEventListener('click', function (e) {
-                var b = e.target.closest ? e.target.closest('.oleo-vinc-op') : null; if (!b) return;
-                var destino = b.getAttribute('data-oid');
-                // El punto va en el propio botón: buscarlo por coordenada podía enganchar OTRO
-                // punto que estuviera en la misma coordenada.
-                var punto = lista._punto;
-                if (!punto) { map.closePopup(); return; }
+            var btn = cont.querySelector('.oleo-vinc-btn'); if (!btn) return;
+            // Lo que dejó popupVincularProyecto. Se consume aquí y se borra: es un traspaso de
+            // una sola vez, no un estado que deba quedar vivo. El punto viaja por aquí y no se
+            // busca por coordenada, que podía enganchar OTRO punto en la misma coordenada.
+            var ctx = _vincPunto; _vincPunto = null;
+            if (!ctx || !ctx.punto) { map.closePopup(); return; }
+            var punto = ctx.punto;
+            var mostrarErr = errorPopup(cont);
+
+            // Sin conSuelto: una ubicación suelta no es un proyecto que compartir.
+            var picker = pickFrenteWire(cont, { excluir: ctx.yaEn, alElegir: function () { mostrarErr(''); } });
+            if (!picker) return;
+            picker.enfocar();
+
+            btn.addEventListener('click', function () {
+                var idFrente = picker.valor();
+                if (!idFrente) { mostrarErr('Elige un proyecto de la lista.'); picker.enfocar(); return; }
+                mostrarErr('');
+                btn.disabled = true; btn.textContent = 'Agregando…';
                 spinOn();
-                oleoApi('/mapa/oleoductos/' + destino + '/puntos/' + punto.id + '/vincular', 'POST').then(function (res) {
-                    spinOff(); map.closePopup();
-                    if (!res || !res.success) { if (window.showToast) window.showToast('No se pudo agregar el punto.', 'error'); return; }
-                    if (oleoMap[destino]) {
-                        oleoMap[destino].data.puntos.push(res.punto);
-                        oleoDibujar(oleoMap[destino].data);
+                // Color por si el frente todavía no tenía proyecto y hay que crearlo: el mismo
+                // criterio de paleta que al guardar un punto nuevo.
+                var color = OLEO_PALETA[Object.keys(oleoMap).length % OLEO_PALETA.length];
+                oleoApi('/mapa/oleoductos/frente/' + idFrente + '/puntos/' + punto.id + '/vincular', 'POST', { color: color })
+                    .then(function (res) {
+                    spinOff();
+                    if (!res || !res.success) {
+                        btn.disabled = false; btn.textContent = 'Agregar al proyecto';
+                        if (window.showToast) window.showToast('No se pudo agregar el punto.', 'error');
+                        return;
+                    }
+                    map.closePopup();
+                    var oid = res.oleoducto_id;
+                    if (res.oleoducto_nuevo) {                 // el frente no tenía proyecto: nace aquí
+                        res.oleoducto_nuevo.puntos = [res.punto];
+                        oleoDibujar(res.oleoducto_nuevo);
+                    } else if (oleoMap[oid]) {
+                        oleoMap[oid].data.puntos.push(res.punto);
+                        oleoDibujar(oleoMap[oid].data);
                     }
                     sincronizarConteoProyectos(punto.id, res.punto.proyectos);
                     oleoRenderLista();
                     if (window.showToast) window.showToast('Punto agregado al proyecto.', 'success');
-                }).catch(function () { spinOff(); if (window.showToast) window.showToast('No se pudo agregar el punto.', 'error'); });
+                }).catch(function () {
+                    spinOff();
+                    btn.disabled = false; btn.textContent = 'Agregar al proyecto';
+                    if (window.showToast) window.showToast('No se pudo agregar el punto.', 'error');
+                });
             });
         });
 

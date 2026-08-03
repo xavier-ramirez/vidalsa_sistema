@@ -131,10 +131,23 @@ class OleoductoController extends Controller
         ]);
         $orden = $this->vincular($o, $p);
 
+        return $this->respuestaPunto($o, $p, $orden, $creado);
+    }
+
+    /**
+     * Forma ÚNICA de la respuesta de "punto dentro de un proyecto". La comparten los tres
+     * caminos que dejan un punto colgando de un grupo (crear en un frente, crear suelto y
+     * vincular uno existente), porque el front los procesa con el mismo código: si el JSON
+     * de uno se desviaba del de los otros, el mapa se dibujaba a medias solo por ese camino.
+     *
+     * `oleoducto_nuevo` va relleno SOLO cuando el grupo nació en esta misma llamada: es lo
+     * que el front necesita para dibujar un proyecto que hasta ahora no existía.
+     */
+    private function respuestaPunto(MapaOleoducto $o, MapaOleoductoPunto $p, int $orden, bool $creado)
+    {
         return response()->json([
-            'success'      => true,
-            'oleoducto_id' => $o->id,
-            // Si el grupo se creó en esta llamada, se devuelve completo para dibujarlo.
+            'success'         => true,
+            'oleoducto_id'    => $o->id,
             'oleoducto_nuevo' => $creado ? [
                 'id' => $o->id, 'id_frente' => $o->id_frente, 'suelto' => (bool) $o->suelto,
                 'nombre' => $o->nombre, 'color' => $o->color, 'recorrido' => $o->recorrido, 'puntos' => [],
@@ -183,19 +196,29 @@ class OleoductoController extends Controller
      * Vincula un punto QUE YA EXISTE a otro proyecto: el mismo sitio pasa a estar en los dos sin
      * duplicar la coordenada. Editarlo o moverlo después vale para todos los proyectos a la vez.
      */
-    public function vincularPunto($idOleoducto, $idPunto)
+    /**
+     * Agrega un punto YA EXISTENTE al proyecto de un FRENTE, creando ese proyecto si el
+     * frente todavía no tenía ninguno.
+     *
+     * Sustituye a un vincularPunto($idOleoducto, $idPunto) que exigía el id de un proyecto:
+     * como un proyecto solo nace al guardar su primer punto, aquello solo dejaba compartir
+     * el punto con frentes que YA tuvieran puntos en el mapa; el resto ni salía en la lista.
+     * Reusa grupoUnico() —el mismo "uno por frente" de addPuntoFrente— así que los dos
+     * caminos no pueden crear proyectos duplicados para el mismo frente.
+     */
+    public function vincularPuntoFrente(Request $request, $idFrente, $idPunto)
     {
-        $o = MapaOleoducto::findOrFail($idOleoducto);
-        abort_if($o->suelto, 422, 'Las ubicaciones sin proyecto no se vinculan.');
-        $p = MapaOleoductoPunto::findOrFail($idPunto);
+        $frente = FrenteTrabajo::findOrFail($idFrente);
+        $p      = MapaOleoductoPunto::findOrFail($idPunto);
+        $data   = $request->validate(['color' => 'nullable|string|max:9']);
 
-        $orden = $this->vincular($o, $p);
+        $o = $this->grupoUnico(
+            ['id_frente' => $frente->ID_FRENTE],
+            ['nombre' => $frente->NOMBRE_FRENTE, 'color' => $data['color'] ?? '#00e5ff']
+        );
+        $creado = $o->wasRecentlyCreated;
 
-        return response()->json([
-            'success'      => true,
-            'oleoducto_id' => $o->id,
-            'punto'        => ['id' => $p->id, 'nombre' => $p->nombre, 'lat' => (float) $p->latitud, 'lng' => (float) $p->longitud, 'orden' => $orden, 'proyectos' => $p->oleoductos()->count()],
-        ]);
+        return $this->respuestaPunto($o, $p, $this->vincular($o, $p), $creado);
     }
 
     /**

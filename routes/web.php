@@ -96,7 +96,11 @@ Route::middleware(['auth'])->group(function () {
         // Un punto puede estar en VARIOS proyectos: por eso ambas rutas llevan el proyecto.
         // vincular = meter un punto que ya existe en otro proyecto (sin duplicar la coordenada).
         // destroyPunto = quitarlo DE ESE proyecto; si era el ultimo, el punto se borra.
-        Route::post  ('/mapa/oleoductos/{idOleoducto}/puntos/{idPunto}/vincular', [App\Http\Controllers\OleoductoController::class, 'vincularPunto'])->middleware('can:super.admin')->name('mapa.oleoductos.vincularPunto');
+        // Compartir un punto que YA existe con otro proyecto. Se direcciona por FRENTE, no por
+        // proyecto: un proyecto solo nace al guardar su primer punto, así que por-proyecto solo
+        // se podía compartir con frentes que ya tuvieran puntos. Si el frente no tiene proyecto,
+        // se crea aquí (mismo grupoUnico que addPuntoFrente, sin riesgo de duplicarlo).
+        Route::post  ('/mapa/oleoductos/frente/{idFrente}/puntos/{idPunto}/vincular', [App\Http\Controllers\OleoductoController::class, 'vincularPuntoFrente'])->middleware('can:super.admin')->name('mapa.oleoductos.vincularPuntoFrente');
         Route::delete('/mapa/oleoductos/{idOleoducto}/puntos/{idPunto}', [App\Http\Controllers\OleoductoController::class, 'destroyPunto'])->middleware('can:super.admin')->name('mapa.oleoductos.destroyPunto');
         Route::delete('/mapa/oleoductos/{id}',         [App\Http\Controllers\OleoductoController::class, 'destroy'])->middleware('can:super.admin')->name('mapa.oleoductos.destroy');
         Route::post('/system/reset-cache', [App\Http\Controllers\DashboardController::class, 'resetCache'])->name('system.reset-cache');
