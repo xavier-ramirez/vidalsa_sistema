@@ -85,8 +85,13 @@
            tocarlo) para más holgura. */
         .cdash-filtros { gap:8px; }
         .cdash-filtros .f-group { flex:1 1 0; min-width:0; }
-        .cdash-filtros .f-group-desc,
-        .cdash-filtros .f-group-cat { flex:1 1 100%; }
+        /* Descripción ocupa su propia fila (es el filtro principal y su texto es largo).
+           Categoría y el botón de filtros avanzados COMPARTEN la siguiente: el botón mide lo
+           suyo (flex:0 0 auto) y Categoría se queda con el resto. Antes el botón caía a una
+           tercera fila él solo, desperdiciando alto en la pantalla más estrecha. */
+        .cdash-filtros .f-group-desc { flex:1 1 100%; }
+        .cdash-filtros .f-group-cat  { flex:1 1 auto; }
+        .cdash-filtros .f-group-adv  { flex:0 0 auto; }
         .cdash-filtros input[type="month"] { width:100%; min-width:0; font-size:12px; padding:0 6px; }
         .cdash-filtros input[type="month"]::-webkit-calendar-picker-indicator { display:none; }
     }
@@ -130,11 +135,11 @@
                         <input type="hidden" id="cdashCategoria" value="">
                         <div class="cdash-inp-box cdash-cat-box" id="cdashCatBox" onclick="window._cdashCatOpen()">
                             <i class="material-icons">search</i>
-                            <input type="text" id="cdashCatInput" placeholder="Todas las categorías" autocomplete="off"
+                            <input type="text" id="cdashCatInput" placeholder="Categoría" autocomplete="off"
                                    oninput="window._cdashCatFilter(this.value)"
                                    onfocus="window._cdashCatOpen()"
                                    onblur="setTimeout(function(){window._cdashCatClose()},180)">
-                            <i class="material-icons clr" id="cdashCatClear" style="display:none;" onmousedown="event.preventDefault();window._cdashCatSelect('','Todas las categorías');">close</i>
+                            <i class="material-icons clr" id="cdashCatClear" style="display:none;" onmousedown="event.preventDefault();window._cdashCatSelect('',CDASH_CAT_LBL);">close</i>
                         </div>
                         <div class="cdash-cat-list" id="cdashCatList"></div>
                     </div>
@@ -603,10 +608,17 @@
                         .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
     function escAttr(s) { return escHtml(String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'")); }
+    // Rótulo del campo cuando NO hay categoría elegida. Una sola definición: la comparten
+    // la ✕, la opción "todas" de la lista y el respaldo de _cdashCatSelect — antes el mismo
+    // literal estaba escrito en cuatro sitios.
+    var CDASH_CAT_LBL = 'Categoría';
     window._cdashCatRenderList = function (filter) {
         var list = document.getElementById('cdashCatList'); if (!list) return;
         var q = (filter || '').toLowerCase();
-        var html = '<div class="cdash-cat-item" onmousedown="event.preventDefault();window._cdashCatSelect(\'\',\'Todas las categorías\');">Todas las categorías</div>';
+        // La opción DICE "Todas las categorías" (describe qué hace al elegirla) pero deja el
+        // campo rotulado con CDASH_CAT_LBL: el nombre del filtro, no su valor. Sin esto,
+        // limpiar desde la lista devolvía el rótulo viejo y contradecía a la ✕.
+        var html = '<div class="cdash-cat-item" onmousedown="event.preventDefault();window._cdashCatSelect(\'\',CDASH_CAT_LBL);">Todas las categorías</div>';
         window._cdashCatsData.forEach(function (c) {
             var s = String(c);
             if (q && s.toLowerCase().indexOf(q) === -1) return;
@@ -620,7 +632,7 @@
     window._cdashCatFilter = function (v) { window._cdashCatRenderList(v); var l = document.getElementById('cdashCatList'); if (l) l.classList.add('open'); };
     window._cdashCatSelect = function (val, label) {
         var h = document.getElementById('cdashCategoria'); if (h) h.value = val;
-        var inp = document.getElementById('cdashCatInput'); if (inp) { inp.value = ''; inp.placeholder = label || 'Todas las categorías'; }
+        var inp = document.getElementById('cdashCatInput'); if (inp) { inp.value = ''; inp.placeholder = label || CDASH_CAT_LBL; }
         var box = document.getElementById('cdashCatBox'); if (box) box.classList.toggle('active', !!val);
         var clr = document.getElementById('cdashCatClear'); if (clr) clr.style.display = val ? 'block' : 'none';
         window._cdashCatClose();

@@ -481,6 +481,11 @@
                     class="nav-link {{ request()->is('admin/almacen*') ? 'active' : '' }}"
                     style="display: flex; align-items: center; gap: 4px;">
                     <i class="material-icons" style="font-size: 18px;">warehouse</i>Almacén
+                    {{-- Mismo contador que Recepción, para verlo SIN desplegar el menú. Al
+                         desplegarlo se oculta por CSS (.nav-dropdown.active) y queda el de
+                         Recepción, que es el que dice de qué se trata. --}}
+                    @php $__nav_porRecibir_p = $traspasosPorRecibir ?? 0; @endphp
+                    <span id="navBadgeAlmacen" class="nav-badge nav-badge-almacen" data-count="{{ $__nav_porRecibir_p }}">{{ $__nav_porRecibir_p }}</span>
                     <i class="material-icons" style="font-size: 16px;">expand_more</i>
                 </a>
                 <div class="nav-dropdown-content">
@@ -495,8 +500,7 @@
                             <i class="material-icons">move_to_inbox</i> Recepción
                         </span>
                         @php $__nav_traspasosPorRecibir = $traspasosPorRecibir ?? 0; @endphp
-                        <span id="navBadgeRecepcion" data-count="{{ $__nav_traspasosPorRecibir }}"
-                            style="background:#ef4444;color:#fff;border-radius:999px;padding:1px 7px;font-size:10.5px;font-weight:800;min-width:18px;text-align:center;line-height:1.5;{{ $__nav_traspasosPorRecibir > 0 ? '' : 'display:none;' }}">{{ $__nav_traspasosPorRecibir }}</span>
+                        <span id="navBadgeRecepcion" class="nav-badge" data-count="{{ $__nav_traspasosPorRecibir }}">{{ $__nav_traspasosPorRecibir }}</span>
                     </a>
                     <a href="{{ route('almacen.movimientos') }}"
                         class="nav-dropdown-link {{ request()->routeIs('almacen.movimientos') ? 'active' : '' }}">
@@ -654,8 +658,7 @@
                         <i class="material-icons">move_to_inbox</i> Recepción
                     </span>
                     @php $__nav_traspasosPorRecibir_m = $traspasosPorRecibir ?? 0; @endphp
-                    <span id="navBadgeRecepcionMobile" data-count="{{ $__nav_traspasosPorRecibir_m }}"
-                        style="background:#ef4444;color:#fff;border-radius:999px;padding:1px 7px;font-size:10.5px;font-weight:800;min-width:18px;text-align:center;line-height:1.5;{{ $__nav_traspasosPorRecibir_m > 0 ? '' : 'display:none;' }}">{{ $__nav_traspasosPorRecibir_m }}</span>
+                    <span id="navBadgeRecepcionMobile" class="nav-badge" data-count="{{ $__nav_traspasosPorRecibir_m }}">{{ $__nav_traspasosPorRecibir_m }}</span>
                 </a>
                 <a href="{{ route('almacen.movimientos') }}"
                     class="mobile-nav-link {{ request()->routeIs('almacen.movimientos') ? 'active' : '' }}">

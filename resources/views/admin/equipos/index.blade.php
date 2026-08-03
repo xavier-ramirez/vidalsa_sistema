@@ -1252,9 +1252,11 @@
         .fdm-cam:hover { background: #f1f5f9; }
         .fdm-cam .material-icons { font-size: 17px; }
 
-        /* ── Tarjetas KPI (Total / Flota nueva / Flota antigua / Consumo) ──────────
-           Las cuatro son IDÉNTICAS salvo etiqueta e id, con el acento azul del proyecto.
-           El estilo vive aquí y no en styles inline: si no, son 4 copias byte a byte.
+        /* ── Tarjetas KPI (Total equipos / Consumo est.) ──────────
+           Las dos son IDÉNTICAS salvo etiqueta e id, con el acento azul del proyecto.
+           (Flota nueva/antigua ya no son tarjetas: viven como claves de serie dentro de
+           #fdm-panel-age.) El estilo vive aquí y no en styles inline: si no, son copias
+           byte a byte.
 
            Contrato de "tarjeta de dato": ETIQUETA + CIFRA, nada más. Se quitó el ícono
            (era decoración y obligaba a la tarjeta a tener el alto de su caja) y la
@@ -1463,7 +1465,7 @@
                 <!-- Stats Cards Row -->
                 <div class="fleet-stats-grid" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 0 0 12px 0;">
 
-                    {{-- Las 4 tarjetas comparten el MISMO estilo (ver .fleet-kpi*): solo cambian
+                    {{-- Las 2 tarjetas comparten el MISMO estilo (ver .fleet-kpi*): solo cambian
                          etiqueta e id. Etiqueta + cifra, sin ícono. --}}
                     <div class="fleet-kpi">
                         <p class="fleet-kpi-lbl">Total equipos</p>
@@ -1489,7 +1491,9 @@
                      volvía a medir el contenedor ya ensanchado y lo agrandaba otra vez. El panel
                      terminaba más ancho que el modal (1068 px dentro de 880) y aparecía scroll
                      horizontal con las barras cortadas. min-width:0 deja que el panel encoja. --}}
-                <div id="fleetChartsGrid" style="display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px;">
+                {{-- gap 8px (antes 14): apilados en una sola columna, 14px separaba demasiado un
+                     gráfico del siguiente. En móvil la media query lo sube a 12px. --}}
+                <div id="fleetChartsGrid" style="display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px;">
                     <!-- Flota Nueva vs Vieja por Tipo -->
                     <div id="fdm-panel-age" class="fdm-panel">
                         <div class="fdm-panel-head">
@@ -1524,10 +1528,12 @@
                         </div>
                         <canvas id="chartAuxByType"></canvas>
                     </div>
-                </div>
 
-                <!-- Equipos Asignados por Frente (al final) -->
-                <div id="fdm-panel-assigned" class="fdm-panel" style="padding-bottom: 18px; margin-top: 14px;">
+                <!-- Equipos Asignados por Frente (al final) — DENTRO de #fleetChartsGrid: es un
+                     panel más de la misma pila, así la separación se la da el `gap` de la
+                     grilla en escritorio y en móvil. Con margin-top propio había que
+                     sincronizar dos números a mano y en móvil (gap 12px) ya no coincidían. -->
+                <div id="fdm-panel-assigned" class="fdm-panel">
                     <div class="fdm-panel-head">
                         <span class="fdm-panel-title">
                             <i class="material-icons">directions_bus</i>
@@ -1543,6 +1549,7 @@
                     </div>
                     <div id="fleetEqAsigBody" style="display:none;"></div>
                 </div>
+                </div>{{-- /#fleetChartsGrid --}}
 
             </div>
         </div>
@@ -1638,7 +1645,7 @@
                 width: 100% !important;
             }
 
-            /* Stat cards: SIEMPRE 2 columnas en mobile (Flota Nueva / Antigua lado a lado) */
+            /* Stat cards: SIEMPRE 2 columnas en mobile (Total equipos / Consumo est. lado a lado) */
             #fleetDashboardModal .fleet-stats-grid {
                 grid-template-columns: repeat(2, 1fr) !important;
                 gap: 8px !important;

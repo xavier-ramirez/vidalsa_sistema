@@ -44,20 +44,22 @@
         </div>
         <span aria-hidden="true" style="display:inline-block;width:1px;height:34px;background:#cbd5e0;flex:0 0 auto;"></span>
         <div style="flex:1 1 260px;max-width:360px;">
-            <div class="custom-dropdown" id="trDestHeaderDropdown" data-filter-type="id_almacen_destino" data-default-label="Todos">
+            {{-- Almacén de la bandeja. La lista YA viene acotada por Almacen::visiblesPara():
+                 un usuario LOCAL solo ve los almacenes ligados a SUS frentes; un GLOBAL, todos.
+                 NO hay opción "Todos los almacenes" ni X para quitarla (pedido del cliente):
+                 la bandeja es de UN almacén — mezclarlos no dice nada útil, y el controller
+                 siempre preselecciona uno (el del frente del usuario, o el primero visible). --}}
+            <div class="custom-dropdown" id="trDestHeaderDropdown" data-filter-type="id_almacen_destino">
                 <input type="hidden" name="id_almacen_destino" data-filter-value value="{{ $destSel ? $destSel->ID_ALMACEN : '' }}">
                 <div class="dropdown-trigger" style="padding:0;display:flex;align-items:center;background:#f8fafc;overflow:hidden;border:1px solid #cbd5e0;border-radius:10px;height:40px;">
                     <span style="padding:0 10px;display:flex;align-items:center;color:#0067b1;"><i class="material-icons" style="font-size:18px;transform:none !important;">warehouse</i></span>
                     <input type="text" name="filter_search_dropdown" data-filter-search autocomplete="off"
-                           placeholder="{{ $destSel ? $destSel->NOMBRE : 'Todos los almacenes' }}"
+                           placeholder="{{ $destSel ? $destSel->NOMBRE : 'Selecciona un almacén' }}"
                            style="flex:1;border:none;background:transparent;padding:8px 5px;font-size:13.5px;font-weight:600;color:#0f172a;outline:none;min-width:0;"
                            oninput="window.filterDropdownOptions(this)">
-                    <i class="material-icons" data-clear-btn style="padding:0 8px;color:#64748b;font-size:18px;display:{{ $destSel ? 'block' : 'none' }};cursor:pointer;transform:none !important;"
-                       onclick="event.stopPropagation(); selectOption('trDestHeaderDropdown','all','TODOS LOS ALMACENES DESTINO');">close</i>
                 </div>
                 <div class="dropdown-content" style="padding:5px;max-height:none;overflow:visible;">
                     <div class="dropdown-item-list" style="max-height:250px;overflow-y:auto;">
-                        <div class="dropdown-item {{ !$destSel ? 'selected' : '' }}" data-value="all" onclick="selectOption('trDestHeaderDropdown','all','TODOS LOS ALMACENES DESTINO');">TODOS LOS ALMACENES</div>
                         @foreach(($almacenes ?? collect()) as $a)
                             <div class="dropdown-item {{ $destSel && $destSel->ID_ALMACEN == $a->ID_ALMACEN ? 'selected' : '' }}" data-value="{{ $a->ID_ALMACEN }}"
                                  onclick="selectOption('trDestHeaderDropdown','{{ $a->ID_ALMACEN }}','{{ addslashes($a->NOMBRE) }}');">
@@ -98,11 +100,14 @@
        veces y la segunda —agrupada con .tr-search-prod— pisaba el ancho recortado de la
        primera, así que el recorte nunca llegó a aplicarse.
        Reparto del toolbar (el Estado ya no vive aquí: se mudó al panel "Filtros avanzados",
-       así que el ancho que ocupaba se reparte entre los dos buscadores):
-         · producto/descripción → PRIMERO y elástico; muestra descripciones largas.
-         · nota de entrega      → después y fijo; solo aloja un código corto (NE-2026-0249). */
-    #trFilters .tr-search-prod { position:relative; flex:1 1 420px; min-width:240px; max-width:none; }
-    #trFilters .tr-search-num  { position:relative; flex:0 1 260px; min-width:190px; max-width:280px; }
+       así que el ancho que ocupaba se reparte entre los dos buscadores). Los DOS crecen y se
+       llenan la fila —no uno elástico y otro fijo, que dejaba hueco muerto a la derecha— en
+       proporción 2:1, porque producto/descripción muestra texto largo y la nota de entrega
+       solo aloja un código corto (NE-2026-0249):
+         · producto/descripción → PRIMERO (pedido del cliente) y con el doble de peso.
+         · nota de entrega      → después, con la mitad. */
+    #trFilters .tr-search-prod { position:relative; flex:2 1 300px; min-width:240px; }
+    #trFilters .tr-search-num  { position:relative; flex:1 1 200px; min-width:190px; }
     /* Toolbar alineado al estándar de /admin/almacen/movimientos: cajas de 45px,
        radio 12px, fondo suave #fbfcfd y letra 14px (antes 40px/8px/13px se veía
        más apretado que el resto de los módulos). Azul #e1effa cuando hay filtro. */
@@ -151,12 +156,16 @@
     .tr-adv-btn.activo { background:#fee2e2; border-color:#ef4444; color:#ef4444; }
 
     /* Dropdown de sugerencias */
+    /* Mismas medidas que .amf-suggest (/almacen/movimientos) y .alm-suggest (/almacen):
+       separación 5px, radio 12, sombra 0 10px 25px y padding 5. Antes eran 4/10/18/4, una
+       diferencia que no respondía a nada. z-index 1000 también como allá: el 60 anterior
+       quedaba por DEBAJO del panel "Filtros avanzados" (z-index:100) que se abre al lado. */
     .tr-suggest {
-        position:absolute; top:calc(100% + 4px); left:0; right:0;
-        background:#fff; border:1px solid #e2e8f0; border-radius:10px;
-        box-shadow:0 8px 18px rgba(15,23,42,0.10);
-        max-height:260px; overflow-y:auto; padding:4px;
-        z-index:60; display:none;
+        position:absolute; top:calc(100% + 5px); left:0; right:0;
+        background:#fff; border:1px solid #e2e8f0; border-radius:12px;
+        box-shadow:0 10px 25px rgba(0,0,0,0.1);
+        max-height:260px; overflow-y:auto; padding:5px;
+        z-index:1000; display:none;
         scrollbar-width:thin; scrollbar-color:#cbd5e1 transparent;
     }
     .tr-suggest::-webkit-scrollbar { width:5px; }
@@ -164,22 +173,27 @@
     .tr-suggest::-webkit-scrollbar-track { background:transparent; }
     .tr-suggest.open { display:block; }
     /* MISMA letra que las listas de sugerencias del resto de la app (.alm-suggest-item del
-       inventario): la fuente de la app (inherit, no monospace), 13.5px y peso 600 — antes
+       inventario): la fuente de la app (inherit, no monospace) y 13.5px — antes
        era monospace 12.5px en NEGRITA (700), así que el N° de nota se veía con otro tipo de
        letra y más gordo que todo lo demás. La regla `.tr-suggest, .tr-suggest-item
        { font-family:inherit }` que había más arriba no servía de nada: esta la pisaba. */
+    /* La MISMA letra en las dos listas (N° de nota y producto/descripción): el peso 500 se
+       declara aquí, no por buscador. Antes la de N° de nota iba en 600 y la de producto en
+       500, así que una se veía más gorda que la otra. */
+    /* Geometría y hover calcados de .amf-suggest-item (/almacen/movimientos) y
+       .alm-suggest-item (/almacen): 10px 15px, radio 8 y realce #f0f4f8. Recepción iba por
+       su cuenta (8px 12px, radio 6, realce azul) y su lista se veía de otro módulo. */
     .tr-suggest-item {
-        padding:8px 12px; border-radius:6px; cursor:pointer;
-        font-family:inherit; font-size:13.5px; font-weight:600; color:#0f172a;
-        letter-spacing:0; transition:background .15s;
+        padding:10px 15px; border-radius:8px; cursor:pointer;
+        font-family:inherit; font-size:13.5px; font-weight:500; color:#0f172a;
+        letter-spacing:0; transition:background .2s;
     }
-    .tr-suggest-item:hover, .tr-suggest-item.active { background:#e1effa; color:#0067b1; }
+    .tr-suggest-item:hover, .tr-suggest-item.active { background:#f0f4f8; }
     .tr-suggest-empty { padding:10px 12px; font-size:12px; color:#94a3b8; font-style:italic; }
     /* El buscador por PRODUCTO reusa .tr-suggest, pero sus ítems muestran una DESCRIPCIÓN
-       (texto largo) en vez de un código corto: hereda ya la fuente y el tamaño; solo cambia
-       el peso y necesita ajuste de línea. El nº de parte equivalente va en su propio <span>
-       destacado delante del nombre. */
-    #trProdSuggest .tr-suggest-item { font-weight:500; white-space:normal; display:flex; align-items:baseline; gap:2px; }
+       (texto largo) en vez de un código corto: solo necesita ajuste de línea, la tipografía
+       ya la comparte. El nº de parte equivalente va en su propio <span> delante del nombre. */
+    #trProdSuggest .tr-suggest-item { white-space:normal; display:flex; align-items:baseline; gap:2px; }
 
     /* ── Layout: la tabla (.admin-card) y el panel de resumen, cada uno en SU PROPIO
          contenedor, lado a lado. ── */
@@ -270,11 +284,16 @@
 
     .dtm-body { flex:1; overflow-y:auto; padding:14px 20px; }
     .dtm-notas { display:flex; align-items:flex-start; gap:6px; padding:8px 10px; background:#fffbeb; border:1px solid #fef3c7; border-radius:8px; font-size:12.5px; color:#92400e; margin-bottom:10px; }
-    .dtm-lineas-header { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px; }
-    .dtm-lineas-header span:first-child { font-size:12px; font-weight:700; color:#334155; text-transform:uppercase; letter-spacing:.5px; }
-    /* Hint "Toca los que llegaron" (solo en recepción activa): gris, discreto, a la derecha. */
-    .dtm-rec-hint { display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:600; color:#94a3b8; font-style:italic; }
-    .dtm-rec-hint .material-icons { font-size:14px; }
+    /* "Marcar todas": atajo para la nota que llegó completa. Misma altura (38px) que la caja
+       del buscador, con la que comparte la fila .dtm-buscar-row, y el MISMO radio (12px) que
+       el botón "Acciones" del resto de la app — no de píldora, que desentonaba. */
+    .dtm-marcar-todas { display:inline-flex; align-items:center; gap:5px; flex:none; height:38px; padding:0 12px;
+        border:1px solid #cbd5e0; border-radius:12px; background:#fff; color:#0067b1;
+        font-family:inherit; font-size:11.5px; font-weight:800; text-transform:uppercase; letter-spacing:.3px; cursor:pointer; }
+    .dtm-marcar-todas:hover { background:#e1effa; border-color:#0067b1; }
+    .dtm-marcar-todas .material-icons { font-size:16px; }
+    /* Todas tildadas → el botón pasa a ser "Quitar todas" y se ve encendido. */
+    .dtm-marcar-todas.activo { background:#0067b1; border-color:#0067b1; color:#fff; }
     /* Materiales = TABLA real (<table>): encabezado + filas con columnas alineadas y
        valores centrados — se ve como una tabla, consistente con el modal. */
     .dtm-table-wrap { border:1px solid #e2e8f0; border-radius:8px; overflow:hidden; }
@@ -334,7 +353,15 @@
        módulo Inventario (lupa, borde #cbd5e0, radio 12, fondo #fbfcfd), a menor altura
        porque vive dentro de un modal. font-family:inherit: los <input> no heredan la
        fuente y se quedarían en el Arial del navegador. */
-    .dtm-buscar-box { display:flex; align-items:center; height:38px; margin:0 0 10px; border:1px solid #cbd5e0; border-radius:12px; background:#fbfcfd; overflow:hidden; }
+    /* Buscador de materiales + "Marcar todas" en la MISMA línea: el buscador crece y el
+       botón mide lo suyo. El margen inferior vive en la fila, no en la caja, para que los dos
+       queden alineados por arriba y el hueco de abajo sea uno solo. */
+    .dtm-buscar-row { display:flex; align-items:center; gap:8px; margin:0 0 10px; }
+    .dtm-buscar-row .dtm-buscar-box { flex:1 1 auto; }
+    /* Sin margen propio: la caja SIEMPRE va dentro de .dtm-buscar-row, que es quien pone el
+       hueco de abajo. Tenía `margin:0 0 10px` y la regla de arriba se lo anulaba — dos
+       declaraciones peleando la misma propiedad, y editar el 10px de aquí no hacía nada. */
+    .dtm-buscar-box { display:flex; align-items:center; height:38px; border:1px solid #cbd5e0; border-radius:12px; background:#fbfcfd; overflow:hidden; }
     .dtm-buscar-box.active { border-color:#0067b1; background:#e1effa; }
     .dtm-buscar-box .lupa { padding:0 8px; color:#64748b; font-size:18px; }
     .dtm-buscar-box input { flex:1; min-width:0; border:none; background:transparent; outline:none; padding:0 4px; font-family:inherit; font-size:13.5px; color:#0f172a; }
@@ -380,6 +407,11 @@
         .dtm-box { max-width:100%; max-height:95vh; border-radius:16px 16px 0 0; }
         .dtm-footer { flex-direction:column; }
         .dtm-footer .dt-btn { width:100%; justify-content:center; }
+        /* "Marcar todas" se queda SOLO con el icono: el ancho del teléfono lo necesita el
+           buscador, que es donde se escribe. El rótulo sigue disponible en el `title` y el
+           estado se ve igual (el botón se enciende cuando están todas marcadas). */
+        .dtm-marcar-todas .desktop-text { display:none; }
+        .dtm-marcar-todas { padding:0 10px; }
         /* Materiales (tabla): celdas y fuentes más compactas para el ancho del teléfono.
            8px verticales (no 5): la fila aloja el campo editable de "Recibido" (30px). */
         .dtm-table { font-size:12px; }
@@ -807,7 +839,8 @@
 {{-- ── Modal detalle/recepción ── --}}
 {{-- SIN cierre por clic en el backdrop (pedido del cliente): el modal de recepción tiene
      acciones destructivas (confirmar / cancelar la nota) y un clic fuera despistado las
-     abortaba a medio revisar. Se cierra solo con la ✕ del encabezado (window.trCloseModal). --}}
+     abortaba a medio revisar. Se cierra con la ✕ del encabezado (guarda lo marcado) o con Cancelar/Escape
+     (descartan lo marcado). --}}
 <div class="dtm-overlay" id="trDetalleOverlay">
     <div class="dtm-box" id="trDetalleBox"></div>
 </div>
@@ -875,10 +908,13 @@
         var input = el('trSearch');
         var box   = el('trSearchSuggest');
         if (!input || !box) return;
+        // 12 sugerencias, el mismo tope que el buscador de nota de /almacen/movimientos
+        // (antes 8 aquí: con dos notas del mismo día la lista se cortaba antes de tiempo).
+        var TOPE = 12;
         var q = String(input.value || '').trim().toUpperCase();
-        var matches = (q === '')
-            ? TR_NUMEROS.slice(0, 8)
-            : TR_NUMEROS.filter(function (n) { return String(n).toUpperCase().indexOf(q) !== -1; }).slice(0, 8);
+        var matches = (q === '' ? TR_NUMEROS
+            : TR_NUMEROS.filter(function (n) { return String(n).toUpperCase().indexOf(q) !== -1; })
+        ).slice(0, TOPE);
 
         if (matches.length === 0) {
             box.innerHTML = '<div class="tr-suggest-empty">Sin coincidencias</div>';
@@ -929,11 +965,22 @@
         if (ev.persisted && typeof window.trResetBuscadores === 'function') window.trResetBuscadores();
     });
 
-    // Escribir: sale del modo KPI, refresca la X y las sugerencias. NO recarga la tabla.
+    // Escribir: sale del modo KPI, refresca la X y las sugerencias, y BUSCA SOLO con un
+    // respiro (TR_MIN_BUSCA / TR_ESPERA_MS, arriba). Antes solo buscaba con
+    // Enter o eligiendo una sugerencia: tras filtrar una vez, seguir escribiendo no cambiaba
+    // nada y había que pulsar la X para poder buscar otra cosa.
+    //   · 3+ caracteres → busca (un N° de nota se reconoce con poco: "249", "NE-2026").
+    //   · campo vacío   → recarga sin filtro, sin tener que tocar la X.
+    //   · 1-2 caracteres → no busca (demasiado amplio); Enter sigue forzando la búsqueda.
+    var TR_MIN_BUSCA = 3, TR_ESPERA_MS = 450, _trST;
     window.trSearchInput = function () {
         window.trResetKpi();
         trSearchToggleClear();
         window.trSearchSuggest();
+        var txt = (el('trSearch') ? el('trSearch').value : '').trim();
+        if (txt.length >= TR_MIN_BUSCA || txt.length === 0) {
+            _trST = setTimeout(function () { window.trLoad(); }, TR_ESPERA_MS);
+        }
     };
 
     window.trSearchPick = function (numero) {
@@ -941,7 +988,6 @@
         input.value = numero;
         var box = el('trSearchSuggest'); if (box) box.classList.remove('open');
         trSearchToggleClear();
-        clearTimeout(window._trST);
         window.trLoad();
     };
 
@@ -951,7 +997,6 @@
         if (ev && ev.key !== 'Enter') return;
         if (ev) ev.preventDefault();
         var box = el('trSearchSuggest'); if (box) box.classList.remove('open');
-        clearTimeout(window._trST);
         window.trLoad();
     };
 
@@ -963,7 +1008,6 @@
         var box = el('trSearchSuggest'); if (box) box.classList.remove('open');
         trSearchToggleClear();
         window.trResetKpi();
-        clearTimeout(window._trST);
         window.trLoad();
     };
 
@@ -1050,8 +1094,6 @@
         if (hv('estado'))                                  p.set('estado', hv('estado'));
         // El "Almacén destino" ahora vive en el dropdown del header (no en el panel
         // avanzado). Se lee del hidden input que el custom-dropdown mantiene.
-        // Pasar `all` explícito para que el controller NO re-aplique el default
-        // por frente cuando el usuario eligió "Todos los almacenes destino".
         var dest = hv('id_almacen_destino');
         if (dest)                                          p.set('id_almacen_destino', dest);
         if (v('trDesde'))                                  p.set('desde', v('trDesde'));
@@ -1101,16 +1143,31 @@
     // la página. Mismo motivo que trUpdateBandejaStats: la bandeja se refresca por AJAX
     // pero el badge vive en el layout, fuera de esta vista.
     window.trUpdateNavBadge = function (count) {
-        ['navBadgeRecepcion', 'navBadgeRecepcionMobile'].forEach(function (id) {
-            var span = document.getElementById(id);
-            if (!span) return;
+        // TODOS los .nav-badge del layout (Recepción escritorio, Recepción móvil y el del
+        // menú padre Almacén, que se ve con el menú contraído) pintan el MISMO
+        // $traspasosPorRecibir, así que se actualizan por clase y no por una lista de ids:
+        // el día que se agregue un cuarto sitio no hay que acordarse de tocar esta vista.
+        document.querySelectorAll('.nav-badge').forEach(function (span) {
             span.textContent = count;
-            span.style.display = count > 0 ? '' : 'none';
+            // data-count NO es decorativo: de él cuelga la regla .nav-badge[data-count="0"]
+            // de menu.css, que es la única que decide si el badge se ve. Por eso aquí no se
+            // toca style.display — sería la misma regla escrita por segunda vez.
+            span.dataset.count = count;
         });
     };
 
+    // Nº de la última carga pedida. Con la búsqueda por debounce es normal tener DOS
+    // peticiones en vuelo (se teclea mientras la anterior viaja) y la que responde última
+    // gana, aunque traiga la consulta vieja. Cada respuesta se descarta si ya no es la
+    // última pedida — más barato que abortar y sin tocar el fetch.
+    var _trSeq = 0;
     window.trLoad = function (pageUrl) {
         var body = el('trTableBody'); if (!body) return;
+        // Punto ÚNICO donde se cancela el debounce del buscador: da igual por dónde se pida
+        // la recarga (sugerencia, Enter, X, estado, fechas, KPI, paginación…), ninguna deja
+        // atrás un temporizador que dispare una segunda carga 450 ms después.
+        clearTimeout(_trST);
+        var miSeq = ++_trSeq;
         trUpdateChips();
         var url = ROUTE + '?' + params(pageUrl).toString();
         body.style.opacity = '0.5';
@@ -1118,6 +1175,7 @@
         fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' } })
             .then(function (r) { return r.json(); })
             .then(function (data) {
+                if (miSeq !== _trSeq) return;   // llegó tarde: ya se pidió otra búsqueda
                 if (data.html !== undefined) body.innerHTML = data.html;
                 var pg = el('trPagination'); if (pg) pg.innerHTML = data.pagination || '';
                 // Refrescar las sugerencias del buscador con las del almacén/filtros actuales
@@ -1190,8 +1248,48 @@
         _trModalSubmitted = false;
     };
 
+    // Botón "Cancelar" del pie: cerrar SIN guardar nada. Desmarca todo ANTES de cerrar, porque
+    // trCloseModal auto-guarda lo marcado (ver arriba) — sin este paso, "Cancelar" habría
+    // confirmado la recepción parcial, exactamente lo contrario de lo que dice el botón.
+    // Avisa solo si había algo marcado: salir con la nota intacta no necesita confirmación.
+    window.trDescartarYCerrar = function () {
+        var box = el('trDetalleBox');
+        var marcadas = box ? box.querySelectorAll('.dtm-linea-rec.recibida').length : 0;
+
+        var descartar = function () {
+            if (box) {
+                Array.prototype.forEach.call(box.querySelectorAll('.dtm-linea-rec'), function (r) { trMarcarFila(r, false); });
+                window.trUpdateConfirmBtn();
+            }
+            window.trCloseModal();
+        };
+
+        // Sin nada marcado no hay nada que perder: se sale directo.
+        if (!marcadas) { descartar(); return; }
+
+        // Confirmación con el modal estándar de la app (window.showModal), igual que el
+        // "Cancelar" de /almacen/recepcion/nueva — no con el confirm() del navegador, que
+        // saca un cuadro del sistema encima del modal y desentona con el resto del módulo.
+        var mensaje = 'Perderás <strong>' + marcadas + ' línea' + (marcadas === 1 ? '' : 's') + '</strong> que ya marcaste. La nota queda sin confirmar.';
+        if (typeof window.showModal === 'function') {
+            window.showModal({
+                type:        'warning',
+                title:       'Salir sin confirmar',
+                message:     mensaje,
+                confirmText: 'Salir',
+                cancelText:  'Seguir revisando',
+                onConfirm:   descartar,
+            });
+        } else if (window.confirm(mensaje.replace(/<[^>]+>/g, ''))) {
+            descartar();
+        }
+    };
+
+    // Escape = el gesto reflejo de "salir sin hacer nada", así que va por trDescartarYCerrar
+    // igual que el botón Cancelar. Con trCloseModal a secas POSTEABA la recepción parcial sin
+    // avisar (ese auto-guardado es a propósito, pero solo al cerrar con la ✕).
     if (_trBindGlobal) document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape') window.trCloseModal();
+        if (e.key === 'Escape') window.trDescartarYCerrar();
     });
 
     // Fila marcada (.recibida) = recibida por la cantidad enviada (data-enviada). Sin
@@ -1222,6 +1320,25 @@
         return lineas;
     }
 
+    // Marca/desmarca UNA fila (clase + campo "Recibido"). Fuente única: la usan el clic en la
+    // fila y "Marcar todas", así las dos rutas dejan exactamente el mismo estado.
+    // trParseCant, no parseFloat: es la MISMA función con la que trCollectLineas lee este
+    // data-enviada al enviar. Con dos parsers distintos para el mismo dato, cualquier
+    // formato que uno acepte y el otro no (una coma decimal) los pone en desacuerdo.
+    function trMarcarFila(row, marcada) {
+        row.classList.toggle('recibida', marcada);
+        var inp = row.querySelector('.dtm-rec-input');
+        if (inp) inp.value = marcada ? trParseCant(row.dataset.enviada) : '';
+    }
+
+    // Filas de recepción que el buscador del modal NO está ocultando.
+    function trFilasVisibles(box) {
+        return Array.prototype.filter.call(
+            box.querySelectorAll('.dtm-linea-rec'),
+            function (r) { return r.style.display !== 'none'; }
+        );
+    }
+
     // Tocar una fila de la recepción activa la marca/desmarca como recibida (azul) y rellena
     // o vacía su campo "Recibido" con la cantidad enviada — el caso normal es "llegó todo".
     // Delegado en #trDetalleBox porque el contenido del modal se carga por AJAX.
@@ -1229,14 +1346,22 @@
     if (_trBindGlobal) document.addEventListener('click', function (e) {
         var row = e.target.closest('#trDetalleBox .dtm-linea-rec');
         if (!row) return;
-        var marcada = row.classList.toggle('recibida');
-        var inp = row.querySelector('.dtm-rec-input');
-        // trParseCant, no parseFloat: es la MISMA función con la que trCollectLineas lee este
-        // data-enviada al enviar. Con dos parsers distintos para el mismo dato, cualquier
-        // formato que uno acepte y el otro no (una coma decimal) los pone en desacuerdo.
-        if (inp) inp.value = marcada ? trParseCant(row.dataset.enviada) : '';
+        trMarcarFila(row, !row.classList.contains('recibida'));
         window.trUpdateConfirmBtn();
     });
+
+    // "Marcar todas" (va al lado del buscador de materiales): el atajo para la nota completa.
+    // Actúa sobre las filas VISIBLES — si el buscador del modal está filtrando, marca lo que
+    // el usuario tiene delante, no líneas que no puede ver. Si ya están todas marcadas,
+    // el mismo botón las quita (es un interruptor, no una acción de una sola dirección).
+    window.trMarcarTodas = function () {
+        var box = el('trDetalleBox'); if (!box) return;
+        var filas = trFilasVisibles(box);
+        if (!filas.length) return;
+        var faltaAlguna = filas.some(function (r) { return !r.classList.contains('recibida'); });
+        filas.forEach(function (r) { trMarcarFila(r, faltaAlguna); });
+        window.trUpdateConfirmBtn();
+    };
 
     // Escribir una cantidad marca la fila; borrarla (o poner 0) la desmarca. Así el estado
     // visual y lo que se enviará al backend no pueden contradecirse. Se lee con trParseCant,
@@ -1291,6 +1416,9 @@
             vacio.style.display = 'none';
         }
 
+        // Cambió el conjunto visible → "Marcar todas" puede tener que cambiar de rótulo.
+        window.trUpdateConfirmBtn();
+
         if (limpiar && input) input.focus();
     };
 
@@ -1300,7 +1428,24 @@
     // Window-function porque el listener global (bind único) la llama.
     window.trUpdateConfirmBtn = function () {
         var box = el('trDetalleBox'); if (!box) return;
+
+        // "Marcar todas" ↔ "Quitar todas": el rótulo sigue al estado de las filas visibles,
+        // se llegue como se llegue (botón, clic en una fila, escribir una cantidad o filtrar).
+        // Por eso vive aquí, el único punto por el que pasan todas esas rutas.
+        var btnTodas = box.querySelector('#dtmMarcarTodas');
+        if (btnTodas) {
+            var filas  = trFilasVisibles(box);
+            var todas  = filas.length > 0 && filas.every(function (r) { return r.classList.contains('recibida'); });
+            btnTodas.classList.toggle('activo', todas);
+            var rotulo = todas ? 'Quitar todas' : 'Marcar todas';
+            var txt = btnTodas.querySelector('.desktop-text');
+            if (txt) txt.textContent = rotulo;
+            btnTodas.title = rotulo; // en teléfono el texto se oculta y solo queda el title
+        }
+
         var btnSel = box.querySelector('#trConfirmSelBtn'); if (!btnSel) return;
+        // Cuenta TODAS las marcadas, incluidas las que el buscador esté ocultando: son las
+        // que se van a enviar (ver trFiltrarLineas).
         var n = box.querySelectorAll('.dtm-linea-rec.recibida').length;
         btnSel.disabled = (n === 0);
         var c = btnSel.querySelector('.tr-confirm-sel-count');

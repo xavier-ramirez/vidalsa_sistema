@@ -107,6 +107,23 @@
     align-items: center;
 }
 
+/* Badge rojo de "por recibir". UNA definición para los tres sitios donde aparece
+   (Recepción de escritorio, Recepción de móvil y el padre Almacén); antes el mismo bloque
+   de estilos estaba escrito EN LÍNEA en cada uno. El display lo maneja el HTML/JS: se
+   oculta cuando el contador es 0. */
+.nav-badge {
+    background: #ef4444; color: #fff; border-radius: 999px; padding: 1px 7px;
+    font-size: 10.5px; font-weight: 800; min-width: 18px; text-align: center; line-height: 1.5;
+}
+/* Sin nada pendiente no se pinta. El contador vive en data-count (lo escribe el Blade y lo
+   mantiene al día trUpdateNavBadge), así que el CSS es el ÚNICO que decide la visibilidad —
+   antes la misma regla estaba repetida en el estilo en línea de los tres spans y otra vez en
+   el JS. Sin display en línea que ganarle, tampoco hace falta !important abajo. */
+.nav-badge[data-count="0"] { display: none; }
+/* El badge del PADRE solo tiene sentido con el menú CONTRAÍDO: al desplegarlo ya se ve el de
+   Recepción, y tenerlos los dos a la vez repite el mismo aviso. */
+.nav-dropdown.active .nav-badge-almacen { display: none; }
+
 .nav-dropdown-content {
     position: absolute;
     top: 100%;

@@ -32,16 +32,12 @@
         </div>
     @endif
 
-    <div class="dtm-lineas-header">
-        <span>Materiales</span>
-        @if($puedeRecibir)<span class="dtm-rec-hint"><i class="material-icons">touch_app</i> Toca los que llegaron</span>@endif
-    </div>
-
     {{-- Buscador de materiales: filtra las filas EN EL CLIENTE por código, descripción o
          nº de parte (data-buscar). Mismo patrón visual que el buscador del módulo Inventario
          (.alm-filter-box): lupa a la izquierda, ✕ para limpiar, letra heredada. No pega al
          servidor — las líneas de una nota ya están todas en el DOM. --}}
     @if($traspaso->lineas->count() > 1)
+    <div class="dtm-buscar-row">
         <div class="dtm-buscar-box" id="dtmBuscarBox">
             <i class="material-icons lupa">search</i>
             <input type="text" id="dtmBuscar" autocomplete="off"
@@ -50,6 +46,17 @@
             <i class="material-icons dtm-buscar-clear" id="dtmBuscarClear" title="Limpiar"
                onclick="window.trFiltrarLineas && window.trFiltrarLineas('', true)">close</i>
         </div>
+        {{-- Atajo para el caso más común: llegó la nota completa. Marca/desmarca de una todas
+             las líneas VISIBLES (si el buscador de al lado está filtrando, actúa sobre lo que
+             el usuario tiene delante). En teléfono se queda solo el icono — el rótulo lo dice
+             el `title`, y si están todas marcadas el botón se ve encendido. --}}
+        @if($puedeRecibir)
+            <button type="button" id="dtmMarcarTodas" class="dtm-marcar-todas" title="Marcar todas"
+                    onclick="window.trMarcarTodas()">
+                <i class="material-icons">done_all</i><span class="desktop-text">Marcar todas</span>
+            </button>
+        @endif
+    </div>
     @endif
 
     <div class="dtm-table-wrap">
@@ -135,13 +142,20 @@
 @if($puedeRecibir || $puedeEnviar || $puedeCancelar)
 <div class="dtm-footer">
     @if($puedeRecibir)
-        {{-- "Cancelar" = cancelar LA NOTA (reversa el stock al origen), no cerrar el modal.
-             Solo para quien de verdad puede: en una nota ya enviada eso es super.admin con
-             el almacén origen visible. Antes se le mostraba a cualquier receptor y el POST
-             respondía 403. --}}
+        {{-- "Cancelar NOTA" (no "Cancelar" a secas): anula la nota y reversa el stock al
+             origen. Convive en este pie con el botón de salir, así que el rótulo tiene que
+             decir sobre QUÉ actúa — con los dos diciendo "Cancelar" era una trampa.
+             Mismo rótulo que la página de detalle. Solo para quien de verdad puede: en una
+             nota ya enviada, super.admin con el almacén origen visible (antes se le mostraba
+             a cualquier receptor y el POST respondía 403). --}}
         @if($puedeCancelar)
-        <button type="button" class="dt-btn dt-btn-cancel" onclick="window.trModalCancelar('{{ addslashes($neNumero) }}')">Cancelar</button>
+        <button type="button" class="dt-btn dt-btn-cancel" onclick="window.trModalCancelar('{{ addslashes($neNumero) }}')">Cancelar nota</button>
         @endif
+        {{-- Cancelar = salir SIN guardar. NO llama a trCloseModal directo: ese auto-guarda si quedaron
+             filas marcadas (cerrar con la ✕ = guardado parcial deliberado), así que un botón
+             "Cancelar" que lo llamara CONFIRMARÍA la recepción — justo lo contrario de lo que
+             promete. trDescartarYCerrar desmarca primero y avisa si había algo marcado. --}}
+        <button type="button" class="dt-btn dt-btn-cancel" onclick="window.trDescartarYCerrar()">Cancelar</button>
         {{-- "Aceptar (N)": confirma SOLO las filas tildadas; el resto queda como faltante.
              Es la ÚNICA acción de confirmación (ya no existe "Confirmar todo"): siempre
              visible, deshabilitado mientras no haya ninguna fila marcada — trUpdateConfirmBtn

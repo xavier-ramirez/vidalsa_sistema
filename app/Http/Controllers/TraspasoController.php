@@ -103,9 +103,9 @@ class TraspasoController extends Controller
         }
 
         // Default suave del filtro "Almacén destino" — TODOS los usuarios (LOCAL y GLOBAL)
-        // abren con UN almacén preseleccionado. Nunca con "Todos" por default. El usuario
-        // que quiere ver todos los almacenes destino lo elige explicito (X o "Todos" en el
-        // dropdown del header).
+        // abren con UN almacén preseleccionado. La bandeja es SIEMPRE de un solo almacén:
+        // el dropdown del header ya no ofrece "Todos" ni la X para quitar la selección
+        // (pedido del cliente, ver el comentario del dropdown en recepcion/index).
         //   1) Si el cliente mando id_almacen_destino (filled), respetamos.
         //   2) Sino, intentamos el almacen ligado al frente (almacenPorDefecto).
         //   3) Fallback: el PRIMER almacen visible — cubre al usuario GLOBAL

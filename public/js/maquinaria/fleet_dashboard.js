@@ -552,12 +552,14 @@ function createCharts(data) {
 
 
     // Función auxiliar para mostrar mensaje de vacío
-    const showEmptyState = (canvas, parentId, emptyText) => {
+    const showEmptyState = (canvas, emptyText) => {
         if (canvas) {
             const parent = canvas.parentElement;
             const msg = document.createElement('p');
             // var(--fd-ink-2): es texto, y #94a3b8 daba 2.56:1 sobre blanco.
-            msg.style.cssText = 'color:var(--fd-ink-2);font-size:13px;text-align:center;padding:30px 0;width:100%;';
+            // padding 12px (antes 30px): un panel vacío son 3 renglones de aire arriba y abajo
+            // del mensaje, y dejaba un hueco enorme entre este panel y el de arriba.
+            msg.style.cssText = 'color:var(--fd-ink-2);font-size:13px;text-align:center;padding:12px 0;width:100%;';
             msg.textContent = emptyText;
             canvas.style.display = 'none';
             if (!parent.querySelector('.fleet-empty-msg')) {
@@ -587,7 +589,7 @@ function createCharts(data) {
             }))
         });
     } else {
-        showEmptyState(canvasAge, 'chartAgeByType', 'Sin equipos registrados para este frente.');
+        showEmptyState(canvasAge, 'Sin equipos registrados para este frente.');
     }
 
     // 2. Equipos Auxiliares por Tipo - Stacked Horizontal Bar (global)
@@ -602,7 +604,7 @@ function createCharts(data) {
             }))
         });
     } else if (canvasAux) {
-        showEmptyState(canvasAux, 'chartAuxByType', 'Sin equipos auxiliares registrados.');
+        showEmptyState(canvasAux, 'Sin equipos auxiliares registrados.');
     }
 }
 
@@ -839,13 +841,10 @@ window.descargarPanelHtmlFDM = async function(panelId, nombre) {
                 const btns = clonedEl.querySelectorAll('button');
                 btns.forEach(b => b.style.display = 'none');
                 
-                // Fix Material Icons text misalignments in headings
-                const titles = clonedEl.querySelectorAll('span, h4');
-                titles.forEach(t => {
-                    if (t.style.display === 'flex') {
-                        t.style.alignItems = 'center'; // Ensure alignment is preserved
-                    }
-                });
+                // (Se quitó un bucle que buscaba <span>/<h4> con display:flex INLINE para
+                //  centrarlos: los <h4> ya no existen en estos paneles y el display:flex de
+                //  .fdm-panel-title vive en una clase CSS, no en el style inline — la
+                //  condición nunca era cierta y el bucle no hacía nada.)
 
                 // Force column layout for the "Equipos Asignados" panel list to avoid squeezing
                 if (panelId === 'fdm-panel-assigned') {
@@ -859,8 +858,11 @@ window.descargarPanelHtmlFDM = async function(panelId, nombre) {
                         clonedEl.style.margin = '0 auto';
                     }
                     
-                    // Fix the title wrapping specifically for Equipos Asignados
-                    const headerSpan = clonedEl.querySelector('.material-icons').parentElement;
+                    // Fix the title wrapping specifically for Equipos Asignados.
+                    // Se busca por .fdm-panel-title (la clase del título) y no por el primer
+                    // .material-icons + parentElement: eso llegaba al título de casualidad y
+                    // reventaba con TypeError si el panel no tuviera iconos.
+                    const headerSpan = clonedEl.querySelector('.fdm-panel-title');
                     if (headerSpan) {
                         headerSpan.style.flexWrap = 'wrap';
                     }
