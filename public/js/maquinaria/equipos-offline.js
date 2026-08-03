@@ -30,7 +30,8 @@
         if (document.getElementById('eqOfflineHideStyle')) return;
         const st = document.createElement('style');
         st.id = 'eqOfflineHideStyle';
-        st.textContent = '@media(max-width:900px){.eq-hide-mobile{display:none!important;}}';
+        st.textContent = '@media(max-width:900px){.eq-hide-mobile{display:none!important;}' +
+            '.table-equipos-mobile tbody td:nth-child(3) .eq-modelo{display:inline!important;font-size:11px!important;color:#64748b!important;margin:0 0 0 5px!important;}}';
         document.head.appendChild(st);
     }
 
@@ -90,11 +91,12 @@
               '</div>' : '';
         const etiqueta = e.etiqueta
             ? '<span style="font-weight:700;color:var(--maquinaria-blue);margin-left:6px;white-space:nowrap;"><i class="material-icons" style="font-size:13px;vertical-align:-2px;">tag</i>' + esc(e.etiqueta) + '</span>' : '';
-        // eq-hide-mobile: CATEGORIA/MODELO/AÑO se OCULTAN en móvil (≤900px), igual que la
-        // tabla online (partials/table_rows.blade.php) — así la tarjeta offline luce idéntica.
+        // eq-hide-mobile: CATEGORIA/AÑO se OCULTAN en móvil (≤900px) y el MODELO pasa a la
+        // línea de la MARCA en 11px (.eq-modelo), igual que la tabla online
+        // (partials/table_rows.blade.php) — así la tarjeta offline luce idéntica.
         const categoria = e.categoria
             ? '<div class="eq-hide-mobile" style="font-size:12px;color:#64748b;font-weight:600;text-transform:uppercase;margin-top:5px;letter-spacing:0.3px;">' + esc(e.categoria) + '</div>' : '';
-        const modelo = e.modelo ? '<div class="eq-hide-mobile" style="font-size:13.5px;color:#475569;font-weight:500;text-transform:uppercase;margin-top:4px;line-height:1.3;">' + esc(e.modelo) + '</div>' : '';
+        const modelo = e.modelo ? '<span class="eq-modelo" style="display:block;font-size:13.5px;color:#475569;font-weight:500;text-transform:uppercase;margin-top:4px;line-height:1.3;">' + esc(e.modelo) + '</span>' : '';
         const anio = e.anio ? '<div class="eq-hide-mobile" style="font-size:12.5px;color:#64748b;margin-top:5px;font-weight:500;">Año: ' + esc(e.anio) + '</div>' : '';
         const motor = e.serial_motor ? '<div style="line-height:1.5;margin-top:3px;word-break:break-all;"><strong style="color:#64748b;">M:</strong> <span style="color:#1e293b;font-weight:600;text-transform:uppercase;">' + esc(e.serial_motor) + '</span></div>' : '';
         const placa = e.placa
@@ -124,7 +126,7 @@
                 '<div style="font-weight:700;text-transform:uppercase;line-height:1.3;">' + esc(e.tipo || '—') + etiqueta + '</div>' + categoria +
             '</td>' +
             '<td class="table-cell-custom" style="font-size:13px;color:#000;word-wrap:break-word;">' +
-                '<div style="font-weight:700;text-transform:uppercase;line-height:1.3;">' + esc(e.marca || '—') + '</div>' + modelo + anio +
+                '<div style="font-weight:700;text-transform:uppercase;line-height:1.3;">' + esc(e.marca || '—') + modelo + '</div>' + anio +
             '</td>' +
             '<td class="table-cell-custom" style="font-size:14px;color:#4a5568;">' +
                 '<div style="line-height:1.5;word-break:break-all;"><strong style="color:#64748b;">S:</strong> <span style="color:#1e293b;font-weight:600;text-transform:uppercase;">' + esc(e.serial_chasis || '—') + '</span></div>' +

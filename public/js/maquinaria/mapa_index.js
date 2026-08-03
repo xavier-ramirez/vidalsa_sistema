@@ -849,11 +849,13 @@
         // Molde del botón-miniatura, COMPARTIDO por las tres capas (Municipios, Faja y Bloques):
         // imagen pre-generada + rótulo. Cada capa pone qué hace el clic y qué necesita del botón
         // recién creado (guardarlo para poder encenderlo/apagarlo).
-        function controlMiniCapa(urlImagen, rotulo, alClic, alCrear) {
+        // `clasePropia` permite darle a UNA capa un trato distinto sin tocar a las otras: hoy lo
+        // usa Municipios para esconderse en teléfono (ver .mapa-mini-capa-muni en el CSS).
+        function controlMiniCapa(urlImagen, rotulo, alClic, alCrear, clasePropia) {
             return L.Control.extend({
                 options: { position: 'topright' },
                 onAdd: function () {
-                    var btn = L.DomUtil.create('button', 'mapa-mini-capa');
+                    var btn = L.DomUtil.create('button', 'mapa-mini-capa' + (clasePropia ? ' ' + clasePropia : ''));
                     btn.type = 'button';
                     btn.innerHTML = '<img class="mapa-mini-capa-img" src="' + esc(urlImagen) + '" alt="" draggable="false">' +
                                     '<span class="mapa-mini-capa-lbl">' + esc(rotulo) + '</span>';
@@ -872,7 +874,7 @@
             // clic apagaba en vez de activar todos.
             if (todosMuniOn) ocultarTodosMunicipios(); else activarTodosMunicipios();
             sincronizarBotonMuni(); // por si la carga perezosa aún no repintó
-        }, function (btn) { _btnMuni = btn; sincronizarBotonMuni(); }))());
+        }, function (btn) { _btnMuni = btn; sincronizarBotonMuni(); }, 'mapa-mini-capa-muni'))());
 
         // ── CAPA PETROLERA: Faja Petrolífera del Orinoco + bloques ────────────────────────
         // Sirve para ubicar los frentes: en qué área de la Faja (Boyacá, Junín, Ayacucho,
