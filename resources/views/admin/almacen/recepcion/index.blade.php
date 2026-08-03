@@ -1288,8 +1288,15 @@
     // Escape = el gesto reflejo de "salir sin hacer nada", así que va por trDescartarYCerrar
     // igual que el botón Cancelar. Con trCloseModal a secas POSTEABA la recepción parcial sin
     // avisar (ese auto-guardado es a propósito, pero solo al cerrar con la ✕).
+    // El guard del overlay NO es de adorno: el listener es GLOBAL y vive mientras se esté en
+    // el módulo. Sin él, cualquier Escape con el modal cerrado entraba igual a trCloseModal,
+    // que suelta `body.style.overflow` sin mirar si hay OTRO overlay abierto (el showModal de
+    // la app lo pone en 'hidden'): el fondo se ponía a hacer scroll por debajo de un modal
+    // todavía abierto. uicomponents.js ya tiene ese cuidado; aquí faltaba.
     if (_trBindGlobal) document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape') window.trDescartarYCerrar();
+        if (e.key !== 'Escape') return;
+        var ov = el('trDetalleOverlay');
+        if (ov && ov.classList.contains('open')) window.trDescartarYCerrar();
     });
 
     // Fila marcada (.recibida) = recibida por la cantidad enviada (data-enviada). Sin

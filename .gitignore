@@ -61,3 +61,9 @@ scratch_*.csv
 /update_tables*.php
 /export_sql.php
 /compare_*.php
+# Misma familia: extractores puntuales (leer un Excel/PPTX, buscar un producto en la BD)
+# escritos para responder UNA pregunta. Ojo: generar_geo_faja.php y generar_miniaturas_mapa.php
+# SÍ van en el repo — esos regeneran assets que están versionados.
+/find_*.php
+/get_*.php
+/valvulas_excel.php
