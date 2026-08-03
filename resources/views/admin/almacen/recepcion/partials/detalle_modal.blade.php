@@ -142,14 +142,19 @@
 @if($puedeRecibir || $puedeEnviar || $puedeCancelar)
 <div class="dtm-footer">
     @if($puedeRecibir)
-        {{-- "Cancelar NOTA" (no "Cancelar" a secas): anula la nota y reversa el stock al
-             origen. Convive en este pie con el botón de salir, así que el rótulo tiene que
-             decir sobre QUÉ actúa — con los dos diciendo "Cancelar" era una trampa.
-             Mismo rótulo que la página de detalle. Solo para quien de verdad puede: en una
-             nota ya enviada, super.admin con el almacén origen visible (antes se le mostraba
-             a cualquier receptor y el POST respondía 403). --}}
+        {{-- ANULAR la nota: la deja CANCELADA y devuelve el stock al almacén de origen. No
+             se llama "Cancelar" a propósito — el botón de al lado también dice "Cancelar" y
+             solo cierra la ventana: dos rótulos iguales, uno inofensivo y otro irreversible,
+             era una trampa. "Anular" es otro verbo y no se confunde con cerrar.
+             Se separa del grupo (margin-right:auto) y va en rojo por la misma razón que en la
+             página de detalle: una acción destructiva no se pone a tocar codos con "Aceptar".
+             Solo para quien de verdad puede: en una nota ya enviada, super.admin con el
+             almacén origen visible (antes se le mostraba a cualquier receptor y el POST
+             respondía 403). --}}
         @if($puedeCancelar)
-        <button type="button" class="dt-btn dt-btn-cancel" onclick="window.trModalCancelar('{{ addslashes($neNumero) }}')">Cancelar nota</button>
+        <button type="button" class="dt-btn dt-btn-anular" onclick="window.trModalCancelar('{{ addslashes($neNumero) }}')">
+            <i class="material-icons">block</i> Anular nota
+        </button>
         @endif
         {{-- Cancelar = salir SIN guardar. NO llama a trCloseModal directo: ese auto-guarda si quedaron
              filas marcadas (cerrar con la ✕ = guardado parcial deliberado), así que un botón

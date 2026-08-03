@@ -1553,6 +1553,29 @@
              * Generic Modal System
              * @param {Object} options { type, title, message, onConfirm, onCancel, confirmText, cancelText, hideCancel }
              */
+            // Confirmar-antes-de-actuar. Envuelve showModal con el respaldo al confirm() del
+            // navegador para cuando el modal aún no está montado (carga directa, error de JS).
+            // Vive aquí, al lado de showModal, porque cada módulo que lo necesitaba repetía
+            // el mismo if/else de doce líneas: recepción lo tenía cuatro veces.
+            //   confirmarAccion({title, message, confirmText, cancelText, type}, alConfirmar)
+            // `message` admite HTML (se muestra con innerHTML); en el respaldo se le quitan
+            // las etiquetas, que en un confirm() del sistema saldrían crudas.
+            window.confirmarAccion = function (opciones, alConfirmar) {
+                var o = opciones || {};
+                if (typeof window.showModal === 'function') {
+                    window.showModal({
+                        type:        o.type || 'warning',
+                        title:       o.title || 'Confirmar',
+                        message:     o.message || '',
+                        confirmText: o.confirmText || 'Continuar',
+                        cancelText:  o.cancelText || 'Volver',
+                        onConfirm:   alConfirmar,
+                    });
+                    return;
+                }
+                if (window.confirm(String(o.message || '').replace(/<[^>]+>/g, ''))) alConfirmar();
+            };
+
             window.showModal = function (options) {
                 const config = {
                     type: 'info', // success, error, warning, info

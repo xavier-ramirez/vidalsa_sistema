@@ -244,13 +244,14 @@
     @if($puedeRecibir || $puedeEnviar || $puedeCancelar)
     <div class="dt-footer">
         @if($puedeRecibir)
-            {{-- "Cancelar nota" reversa el stock: solo para quien puede de verdad (nota ya
+            {{-- "Anular nota" reversa el stock: solo para quien puede de verdad (nota ya
                  enviada = super.admin con el almacén origen visible). Ver $puedeCancelar en
-                 TraspasoController@show, que replica las condiciones de cancelar(). --}}
+                 TraspasoController@show, que replica las condiciones de cancelar().
+                 MISMO verbo que en el modal de la bandeja: es la misma acción. --}}
             @if($puedeCancelar)
             <button type="button" class="dt-btn dt-btn-cancel"
                     onclick="window.trCancelar('{{ $traspaso->REFERENCIA ?: $traspaso->NUMERO }}')">
-                <i class="material-icons">block</i> Cancelar nota
+                <i class="material-icons">block</i> Anular nota
             </button>
             @endif
             <div style="flex:1;"></div>
@@ -337,9 +338,14 @@
             });
         });
         if (lineas.length === 0) { toast('No hay líneas para recibir.', 'error'); return; }
-        if (!confirm('¿Confirmar que TODOS los materiales (' + lineas.length + ' línea' + (lineas.length > 1 ? 's' : '') + ') llegaron completos y en buen estado?')) return;
-        post(BASE + '/' + ID_T + '/recibir', { lineas: lineas, fecha_recepcion: new Date().toISOString().slice(0,10) }, function () {
-            setTimeout(function () { window.location.reload(); }, 700);
+        window.confirmarAccion({
+            title:       'Recibir todo',
+            message:     '¿Confirmar que TODOS los materiales (' + lineas.length + ' línea' + (lineas.length > 1 ? 's' : '') + ') llegaron completos y en buen estado?',
+            confirmText: 'Sí, llegó todo',
+        }, function () {
+            post(BASE + '/' + ID_T + '/recibir', { lineas: lineas, fecha_recepcion: new Date().toISOString().slice(0,10) }, function () {
+                setTimeout(function () { window.location.reload(); }, 700);
+            });
         });
     };
 
@@ -355,21 +361,41 @@
             });
         });
         if (lineas.length === 0) { toast('No hay líneas para recibir.', 'error'); return; }
-        if (!confirm('Vas a confirmar la nota de entrega (' + lineas.length + ' material' + (lineas.length > 1 ? 'es' : '') + '). ¿Continuar?')) return;
-        post(BASE + '/' + ID_T + '/recibir', { lineas: lineas, fecha_recepcion: new Date().toISOString().slice(0,10) }, function () {
-            setTimeout(function () { window.location.reload(); }, 700);
+        window.confirmarAccion({
+            title:       'Confirmar recepción',
+            message:     'Vas a confirmar la nota de entrega (' + lineas.length + ' material' + (lineas.length > 1 ? 'es' : '') + ').',
+            confirmText: 'Confirmar',
+        }, function () {
+            post(BASE + '/' + ID_T + '/recibir', { lineas: lineas, fecha_recepcion: new Date().toISOString().slice(0,10) }, function () {
+                setTimeout(function () { window.location.reload(); }, 700);
+            });
         });
     };
 
     window.trEnviar = function () {
-        if (!confirm('Vas a despachar esta nota. El stock se restará del origen. ¿Continuar?')) return;
-        post(BASE + '/' + ID_T + '/enviar', {}, function () { setTimeout(function () { window.location.reload(); }, 700); });
+        window.confirmarAccion({
+            title:       'Despachar la nota',
+            message:     'El stock se restará del almacén de origen y la nota quedará EN TRÁNSITO.',
+            confirmText: 'Despachar',
+        }, function () {
+            post(BASE + '/' + ID_T + '/enviar', {}, function () { setTimeout(function () { window.location.reload(); }, 700); });
+        });
     };
 
+    // Misma acción y MISMA confirmación que el botón del modal de la bandeja
+    // (window.trModalCancelar): modal estándar en rojo, no el confirm() del navegador.
     window.trCancelar = function (numero) {
-        if (!confirm('¿Cancelar ' + numero + '? Si ya estaba en tránsito, se revertirá el stock al origen.')) return;
-        // ?force=1: tras cancelar volvemos a la BANDEJA (no a recepcion/nueva).
-        post(BASE + '/' + ID_T + '/cancelar', {}, function () { setTimeout(function () { window.location = @json(route('almacen.recepcion.index', ['force' => 1])); }, 700); });
+        var anular = function () {
+            // ?force=1: tras anular volvemos a la BANDEJA (no a recepcion/nueva).
+            post(BASE + '/' + ID_T + '/cancelar', {}, function () { setTimeout(function () { window.location = @json(route('almacen.recepcion.index', ['force' => 1])); }, 700); });
+        };
+        window.confirmarAccion({
+            type:        'danger',
+            title:       'Anular la nota',
+            message:     'La nota <strong>' + numero + '</strong> quedará ANULADA. Si ya estaba en tránsito, el stock volverá al almacén de origen. No se puede deshacer.',
+            confirmText: 'Anular',
+            cancelText:  'No, volver',
+        }, anular);
     };
 })();
 </script>

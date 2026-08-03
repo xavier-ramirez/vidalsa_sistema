@@ -390,6 +390,13 @@
     /* Secundario (Cancelar / Cancelar borrador / Cancelar y revertir). */
     .dt-btn-cancel { background:#e2e8f0; color:#475569; box-shadow:none; }
     .dt-btn-cancel:hover { background:#cbd5e0; }
+    /* "Anular nota": destructivo. En rojo y EMPUJADO al extremo contrario del pie
+       (margin-right:auto) para que no comparta borde con "Aceptar". En hueco y no en rojo
+       macizo: tiene que distinguirse de los otros dos, no gritar más que la acción principal.
+       El margen automático no estorba en teléfono — allí .dtm-footer va en columna y cada
+       botón ocupa el ancho completo. */
+    .dt-btn-anular { margin-right:auto; background:#fff; color:#dc2626; border:1px solid #fecaca; box-shadow:none; }
+    .dt-btn-anular:hover { background:#dc2626; color:#fff; border-color:#dc2626; }
     /* Primario: la acción principal del modal (Aceptar / Enviar). Azul SÓLIDO: ya no compite
        con un segundo botón azul, así que el perfilado que tenía "Confirmar (N)" sobra. */
     .dt-btn-blue { background:var(--maquinaria-blue,#0067b1); color:#fff; box-shadow:0 4px 8px -2px rgba(0,103,177,0.3); }
@@ -1270,19 +1277,13 @@
         // Confirmación con el modal estándar de la app (window.showModal), igual que el
         // "Cancelar" de /almacen/recepcion/nueva — no con el confirm() del navegador, que
         // saca un cuadro del sistema encima del modal y desentona con el resto del módulo.
-        var mensaje = 'Perderás <strong>' + marcadas + ' línea' + (marcadas === 1 ? '' : 's') + '</strong> que ya marcaste. La nota queda sin confirmar.';
-        if (typeof window.showModal === 'function') {
-            window.showModal({
-                type:        'warning',
-                title:       'Salir sin confirmar',
-                message:     mensaje,
-                confirmText: 'Salir',
-                cancelText:  'Seguir revisando',
-                onConfirm:   descartar,
-            });
-        } else if (window.confirm(mensaje.replace(/<[^>]+>/g, ''))) {
-            descartar();
-        }
+        window.confirmarAccion({
+            type:        'warning',
+            title:       'Salir sin confirmar',
+            message:     'Perderás <strong>' + marcadas + ' línea' + (marcadas === 1 ? '' : 's') + '</strong> que ya marcaste. La nota queda sin confirmar.',
+            confirmText: 'Salir',
+            cancelText:  'Seguir revisando',
+        }, descartar);
     };
 
     // Escape = el gesto reflejo de "salir sin hacer nada", así que va por trDescartarYCerrar
@@ -1478,10 +1479,15 @@
                 window.trCloseModal();
                 window.trLoad();
             } else {
+                // La acción NO se aplicó: se deshace la marca de "ya enviado" para que el
+                // modal, que sigue abierto, vuelva a comportarse como uno sin confirmar. Sin
+                // esto, tras un 403 el cierre con la ✕ dejaba de auto-guardar lo marcado.
+                _trModalSubmitted = false;
                 if (window.showToast) window.showToast(res.data.message || 'Error en la operación', 'error');
             }
         })
         .catch(function () {
+            _trModalSubmitted = false;
             if (window.showToast) window.showToast('Error de conexión', 'error');
         })
         .finally(function () { if (window.hidePreloader) window.hidePreloader(); });
@@ -1508,15 +1514,25 @@
         );
     };
 
+    // ANULAR la nota: la deja CANCELADA y devuelve el stock al origen. Confirma con el modal
+    // estándar (window.showModal, type danger = botón rojo), igual que trDescartarYCerrar: el
+    // confirm() del navegador saca un cuadro del sistema ENCIMA del modal y, en la acción más
+    // destructiva del módulo, era justo donde peor quedaba.
     window.trModalCancelar = function (neNumero) {
         if (!_trModalId) return;
-        if (!confirm('¿Cancelar la nota ' + (neNumero || _trModalId) + '? Esta acción no se puede deshacer.')) return;
-        _trModalSubmitted = true; // acción explícita → el cierre posterior no auto-guarda
-        trModalPost(
-            DETALLE_URL + '/' + _trModalId + '/cancelar',
-            {},
-            'Nota cancelada'
-        );
+        var anular = function () {
+            _trModalSubmitted = true; // acción explícita → el cierre posterior no auto-guarda
+            trModalPost(DETALLE_URL + '/' + _trModalId + '/cancelar', {}, 'Nota anulada');
+        };
+        // El mensaje dice lo que PASA (el stock vuelve al origen), no solo que es irreversible:
+        // quien la anula tiene que saber dónde queda la mercancía.
+        window.confirmarAccion({
+            type:        'danger',
+            title:       'Anular la nota',
+            message:     'La nota <strong>' + (neNumero || _trModalId) + '</strong> quedará ANULADA y el stock volverá al almacén de origen. No se puede deshacer.',
+            confirmText: 'Anular',
+            cancelText:  'No, volver',
+        }, anular);
     };
 
     window.trModalEnviar = function () {
