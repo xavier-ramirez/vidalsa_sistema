@@ -13,7 +13,6 @@ use Carbon\Carbon;
 
 class WebAuthnController extends Controller
 {
-    private const RP_ID   = null; // null = usar dominio del request
     private const RP_NAME = 'Vidalsa Sistema';
 
     /**
@@ -109,7 +108,15 @@ class WebAuthnController extends Controller
         $credentials = WebAuthnCredential::whereIn('credential_id', $request->input('credential_ids'))->get();
 
         if ($credentials->isEmpty()) {
-            return response()->json(['error' => 'No se encontraron credenciales registradas.'], 404);
+            // `code` es una MARCA EXPLÍCITA de "el servidor miró y de verdad no están".
+            // El cliente solo borra las credenciales del teléfono cuando ve esta marca:
+            // sin ella, cualquier 404 pasajero (rutas recacheándose durante un despliegue,
+            // el móvil pegándole a otro host, un proxy devolviendo su propia página de
+            // error) borraba la huella de todos y obligaba a registrarla de cero.
+            return response()->json([
+                'error' => 'No se encontraron credenciales registradas.',
+                'code'  => 'sin_credenciales',
+            ], 404);
         }
 
         $challenge = random_bytes(32);
@@ -262,9 +269,19 @@ class WebAuthnController extends Controller
 
     // ─── Helpers ─────────────────────────────────────────────────────────
 
+    /**
+     * Dominio al que quedan atadas las huellas.
+     *
+     * Por defecto es el host de la petición, que funciona mientras se entre SIEMPRE por
+     * la misma URL. Con dos formas de llegar (con y sin www, un dominio nuevo, una IP)
+     * las credenciales se parten en dos juegos incompatibles. config/webauthn.php permite
+     * fijarlo al dominio registrable para que deje de depender de por dónde entren.
+     */
     private function getRpId(Request $request): string
     {
-        return self::RP_ID ?? $request->getHost();
+        $fijado = config('webauthn.rp_id');
+
+        return is_string($fijado) && $fijado !== '' ? $fijado : $request->getHost();
     }
 
     private function spkiToPem(string $spkiDer): string

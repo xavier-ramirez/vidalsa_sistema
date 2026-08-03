@@ -183,7 +183,11 @@ const VidalsaWebAuthn = (() => {
 
     // Pide /webauthn/login-options y arma el objeto publicKey listo para
     // navigator.credentials.get(). Devuelve null si la sesión caducó (recarga en curso).
-    async function _obtenerPublicKey() {
+    //
+    // `silencioso` = la llamada viene de la precarga de fondo, no de que el usuario
+    // tocara el botón. En ese caso NUNCA se borran las credenciales: un fallo del que
+    // el usuario ni se entera no puede dejarlo sin huella (ver el 404 más abajo).
+    async function _obtenerPublicKey(silencioso) {
         const credIds = getCredIds();
         if (!credIds.length) throw new Error('NO_CREDENTIALS');
 
@@ -201,7 +205,20 @@ const VidalsaWebAuthn = (() => {
         // OJO: se comprueba ANTES de res.json() para no parsear "<!DOCTYPE...".
         if (esRespuestaDeSesion(resOpt)) { window.location.reload(); return null; }
         if (resOpt.status === 404) {
-            localStorage.removeItem(STORAGE_KEY);
+            // Borrar aquí es IRREVERSIBLE: deja al usuario sin huella y obligado a
+            // registrarla de cero. Así que solo se borra cuando se cumplen las DOS cosas:
+            //   1) el intento lo pidió el usuario (no la precarga de fondo), y
+            //   2) el servidor marcó explícitamente `code: 'sin_credenciales'`.
+            // Sin la marca, un 404 puede ser pasajero — rutas recacheándose en pleno
+            // despliegue, el móvil pegándole a otro host, o un proxy metiendo su página
+            // de error — y eso borraba la huella de TODOS con cada actualización.
+            let esBorradoReal = false;
+            if (!silencioso) {
+                try {
+                    esBorradoReal = (await resOpt.clone().json()).code === 'sin_credenciales';
+                } catch { esBorradoReal = false; }
+            }
+            if (esBorradoReal) localStorage.removeItem(STORAGE_KEY);
             throw new Error('NO_CREDENTIALS');
         }
         const options = await resOpt.json();
@@ -226,9 +243,9 @@ const VidalsaWebAuthn = (() => {
     // Sin retry propio: los fallos transitorios los curan el intervalo de
     // REFRESH_MS, el evento 'online', el visibilitychange y, en último caso,
     // el fetch de respaldo al tocar el botón.
-    function _precargar() {
+    function _precargar(silencioso) {
         if (_prefetchEnCurso) return _prefetchEnCurso;
-        _prefetchEnCurso = _obtenerPublicKey()
+        _prefetchEnCurso = _obtenerPublicKey(silencioso)
             .then(pk => {
                 if (pk) {
                     _precachedPublicKey = pk;
@@ -246,7 +263,10 @@ const VidalsaWebAuthn = (() => {
     // pisaría el que otra pestaña visible está por firmar.
     function _precargarSilencioso() {
         if (_autenticando || document.hidden) return;
-        _precargar().catch(() => {});
+        // silencioso=true: este fallo se traga con el catch de abajo, así que no puede
+        // tener efectos destructivos. Es la llamada que borraba la huella en cada
+        // despliegue sin que el usuario tocara nada.
+        _precargar(true).catch(() => {});
     }
 
     function _precacheVigente() {
