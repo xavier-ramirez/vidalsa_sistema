@@ -6,8 +6,9 @@
 @php
     // Metadata visual de los estados — single source of truth en Traspaso::ESTADOS_META.
     $e = \App\Models\Traspaso::ESTADOS_META[$traspaso->ESTADO] ?? \App\Models\Traspaso::ESTADO_META_DEFAULT;
-    $puedeEnviar   = $traspaso->esBorrador()  && auth()->user()?->can('almacen.movimiento');
-    $puedeCancelar = !$traspaso->esFinal() && auth()->user()?->can('almacen.movimiento');
+    // $puedeRecibir / $puedeEnviar / $puedeCancelar llegan del controller (fuente única, con
+    // las mismas condiciones que exigen sus endpoints). Antes se recalculaban aquí y en el
+    // partial del modal — la misma regla en dos sitios, y ninguna igual a la del backend.
 
     // Frente vs Destino: en almacenes de PROYECTO el nombre del almacén destino y el del
     // frente suelen coincidir → no repetir la fila "Frente" cuando dice lo mismo que
@@ -240,13 +241,18 @@
     </div>
 
     {{-- ── Acciones ── --}}
-    @if($puedeRecibir || $puedeEnviar || ($traspaso->esEnviado() && $puedeCancelar && auth()->user()->can('super.admin')))
+    @if($puedeRecibir || $puedeEnviar || $puedeCancelar)
     <div class="dt-footer">
         @if($puedeRecibir)
+            {{-- "Cancelar nota" reversa el stock: solo para quien puede de verdad (nota ya
+                 enviada = super.admin con el almacén origen visible). Ver $puedeCancelar en
+                 TraspasoController@show, que replica las condiciones de cancelar(). --}}
+            @if($puedeCancelar)
             <button type="button" class="dt-btn dt-btn-cancel"
                     onclick="window.trCancelar('{{ $traspaso->REFERENCIA ?: $traspaso->NUMERO }}')">
                 <i class="material-icons">block</i> Cancelar nota
             </button>
+            @endif
             <div style="flex:1;"></div>
             <button type="button" class="dt-btn dt-btn-confirm-all"
                     onclick="window.trConfirmarTodoOk()">
@@ -264,7 +270,7 @@
                     onclick="window.trEnviar()">
                 <i class="material-icons">local_shipping</i> Enviar ahora
             </button>
-        @elseif($traspaso->esEnviado() && $puedeCancelar && auth()->user()->can('super.admin'))
+        @elseif($puedeCancelar)
             <div style="flex:1;"></div>
             <button type="button" class="dt-btn dt-btn-cancel"
                     onclick="window.trCancelar('{{ $traspaso->NUMERO }}')">Cancelar y revertir</button>
@@ -279,7 +285,10 @@
     var ID_T   = {{ $traspaso->ID_TRASPASO }};
     var BASE   = @json(url('/admin/almacen/recepcion'));
 
-    function toast(m, t) { if (window.toast) window.toast(m, t); else alert(m); }
+    // El helper global es window.showToast (uicomponents.js). Preguntaba por window.toast,
+    // que no existe en ninguna parte, así que esta página SIEMPRE caía al alert() del
+    // navegador mientras el resto del módulo mostraba toasts. Mismo patrón que nueva.blade.
+    function toast(m, t) { if (window.showToast) window.showToast(m, t || 'success'); else if (t === 'error') alert(m); }
     function pre()  { if (window.showPreloader) window.showPreloader(); }
     function unp()  { if (window.hidePreloader) window.hidePreloader(); }
     function csrf() { return document.querySelector('meta[name="csrf-token"]')?.content || ''; }

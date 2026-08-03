@@ -3,12 +3,13 @@
 @section('title', 'Recepción de materiales')
 
 @section('content')
+@use('App\Models\Traspaso')
 @php
-    // Filtro de Estado. Por defecto (sin parámetro) la bandeja muestra solo "En tránsito"
-    // (ENVIADO) = pendientes de confirmar; ese default lo resuelve el TraspasoController@index
-    // server-side. El DROPDOWN, en cambio, arranca en BLANCO ("Estado", sin tinte azul ni X):
-    // pedido del cliente — no debe verse "filtrado" al abrir. El azul y la X aparecen solo
-    // cuando el usuario elige un estado concreto de la lista.
+    // Filtro de Estado. Sin parámetro la bandeja muestra el default que resuelve
+    // TraspasoController@index server-side (Traspaso::ESTADOS_BANDEJA_DEFAULT = En tránsito +
+    // Confirmada parcial). El DROPDOWN, en cambio, arranca SIN tinte azul ni X: pedido del
+    // cliente — no debe verse "filtrado" al abrir. El azul y la X aparecen solo cuando el
+    // usuario elige un estado concreto de la lista.
     $reqEstado     = request('estado', '');
     // `idAlmacenDestinoActivo` lo provee el controller incluyendo el default-merge por frente
     // del usuario. Es la fuente de verdad — no usamos request('id_almacen_destino') porque
@@ -19,8 +20,8 @@
     $reqDesde      = request('desde');
     $reqHasta      = request('hasta');
 
-    // Metadata visual de los estados — definida en \App\Models\Traspaso::ESTADOS_META.
-    $badgesEstado = \App\Models\Traspaso::ESTADOS_META;
+    // Metadata visual de los estados — definida en Traspaso::ESTADOS_META.
+    $badgesEstado = Traspaso::ESTADOS_META;
 @endphp
 
 @php
@@ -92,15 +93,16 @@
         display:flex; gap:10px; flex-wrap:wrap; align-items:center;
         margin-bottom:12px;
     }
-    #trFilters .tr-item { flex:1 1 220px; min-width:180px; max-width:300px; }
     /* Los dos buscadores llevan position:relative para anclar su panel de sugerencias
        (absolute). UNA sola declaración por selector: antes .tr-search-num se declaraba dos
        veces y la segunda —agrupada con .tr-search-prod— pisaba el ancho recortado de la
        primera, así que el recorte nunca llegó a aplicarse.
-       "Nota de entrega" solo aloja un código corto (NE-2026-0249): se le recorta el ancho
-       para dárselo al buscador por producto/descripción, que sí muestra texto largo. */
-    #trFilters .tr-search-num  { position:relative; flex:0 1 190px; min-width:150px; max-width:210px; }
-    #trFilters .tr-search-prod { position:relative; flex:1 1 360px; min-width:240px; max-width:520px; }
+       Reparto del toolbar (el Estado ya no vive aquí: se mudó al panel "Filtros avanzados",
+       así que el ancho que ocupaba se reparte entre los dos buscadores):
+         · producto/descripción → PRIMERO y elástico; muestra descripciones largas.
+         · nota de entrega      → después y fijo; solo aloja un código corto (NE-2026-0249). */
+    #trFilters .tr-search-prod { position:relative; flex:1 1 420px; min-width:240px; max-width:none; }
+    #trFilters .tr-search-num  { position:relative; flex:0 1 260px; min-width:190px; max-width:280px; }
     /* Toolbar alineado al estándar de /admin/almacen/movimientos: cajas de 45px,
        radio 12px, fondo suave #fbfcfd y letra 14px (antes 40px/8px/13px se veía
        más apretado que el resto de los módulos). Azul #e1effa cuando hay filtro. */
@@ -114,26 +116,39 @@
     /* Filtro "Estado" en MAYÚSCULAS (pedido del cliente). Se hace por CSS y NO tocando
        Traspaso::ESTADOS_META: esa constante también rotula las pills de la tabla, que
        siguen en su capitalización normal ("En tránsito"). El placeholder hereda el
-       text-transform, así que el estado elegido también se ve en mayúsculas. */
+       text-transform, así que el estado elegido también se ve en mayúsculas.
+       12px (no 14px): el filtro vive dentro del panel "Filtros avanzados" (300px) y en
+       mayúsculas "CONFIRMADA PARCIAL" no entra a 14px. Misma escala que Desde/Hasta. */
     #trEstadoDropdown .dropdown-item,
-    #trEstadoDropdown .dropdown-trigger input { text-transform:uppercase; letter-spacing:.3px; }
+    #trEstadoDropdown .dropdown-trigger input { text-transform:uppercase; letter-spacing:.3px; font-size:12px; }
     #trEstadoDropdown .dropdown-trigger input::placeholder { text-transform:uppercase; }
-    /* Filtro Estado (custom-dropdown) — misma altura (45px) y letra (14px global) que
-       el buscador y el resto de filtros de la app. Más ancho que antes (180→250px): sus
-       opciones van en MAYÚSCULAS y "CONFIRMADA PARCIAL" no entraba sin recortarse. El ancho
-       que gana sale del filtro "Nota de entrega", que solo aloja un código corto. */
-    #trFilters .tr-filter-estado { flex:0 1 250px; min-width:200px; max-width:280px; }
-    /* Cajas de fecha (Desde/Hasta), ahora dentro del panel "Filtros avanzados". */
-    .tr-date-box { display:flex; align-items:center; gap:5px; height:40px; border:1px solid #cbd5e0; border-radius:8px; padding:0 10px; cursor:pointer; box-sizing:border-box; }
+    /* Los tres campos del panel (Estado / Desde / Hasta) comparten caja para verse como una
+       sola familia: UNA declaración de la métrica, no una copia por control. */
+    #trEstadoDropdown .dropdown-trigger,
+    .tr-date-box { height:40px; border-radius:8px; }
+    /* Cajas de fecha (Desde/Hasta), dentro del panel "Filtros avanzados". */
+    .tr-date-box { display:flex; align-items:center; gap:5px; border:1px solid #cbd5e0; padding:0 10px; cursor:pointer; box-sizing:border-box; }
     .tr-date-box i { font-size:16px; color:#94a3b8; pointer-events:none; }
     .tr-date-box input[type=date] { flex:1; min-width:0; border:none; background:transparent; padding:0; font-size:12px; outline:none; color:#0f172a; cursor:pointer; }
 
-    /* Panel "Filtros avanzados": Desde/Hasta en 2 columnas (lado a lado). El min-width:0
-       en las celdas deja que los inputs de fecha encojan y NO se desborden del panel. */
-    .tr-adv-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    /* Panel "Filtros avanzados": UNA grilla de 2 columnas para los tres campos — el Estado
+       ocupa las dos (.tr-adv-full) y Desde/Hasta una cada uno, así el mismo `gap` separa las
+       dos filas. El min-width:0 en las celdas deja que los inputs de fecha encojan y NO se
+       desborden del panel. */
+    .tr-adv-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px 8px; }
     .tr-adv-grid > div { min-width:0; }
+    .tr-adv-grid > .tr-adv-full { grid-column:1 / -1; }
     .tr-adv-grid .tr-date-box { padding:0 6px; gap:4px; }
     .tr-adv-grid .tr-date-box input[type=date] { font-size:11px; }
+    /* Rótulo de cada campo del panel (Estado / Desde / Hasta): un solo estilo compartido
+       en vez de repetir el mismo `style=""` inline en los tres. */
+    .tr-adv-label { display:block; font-size:12px; font-weight:600; color:#64748b; margin-bottom:5px; }
+    /* Botón que abre el panel. Rojo = hay algún filtro activo DENTRO del panel; el render lo
+       marca con .activo y trUpdateChips lo alterna al filtrar por AJAX (antes los 6 hex vivían
+       repetidos en el style inline y otra vez en el JS). */
+    .tr-adv-btn { height:45px; width:45px; min-width:45px; padding:0; display:flex; align-items:center; justify-content:center;
+                  border-radius:12px; background:#fbfcfd; border:1px solid #cbd5e0; color:#64748b; box-shadow:none; }
+    .tr-adv-btn.activo { background:#fee2e2; border-color:#ef4444; color:#ef4444; }
 
     /* Dropdown de sugerencias */
     .tr-suggest {
@@ -414,12 +429,15 @@
         .page-title-card > div.tr-tabs { flex-direction: row !important; gap: 0 !important; }
         .tr-tabs a { flex: 1 1 0 !important; justify-content: center !important; padding-left: 8px !important; padding-right: 8px !important; }
 
-        /* Filtros en mobile: buscador y Estado a fila completa; Desde/Hasta lado a
-           lado; el botón Limpiar (40x40) cierra la fila de fechas. */
+        /* Filtros en mobile: los dos buscadores a fila completa (producto arriba, nota
+           debajo) y el botón de "Filtros avanzados" —que ya contiene Estado/Desde/Hasta—
+           al final de la fila de la nota. */
         #trFilters { gap: 8px !important; }
-        #trFilters > .tr-search-num,
-        #trFilters > .tr-search-prod   { flex: 1 1 100% !important; max-width: none !important; min-width: 0 !important; }
-        #trFilters > .tr-filter-estado { flex: 1 1 0 !important; max-width: none !important; }
+        /* Producto ocupa su propia fila (es el que más texto muestra); la nota comparte
+           renglón con el botón 45x45 — de ahí `flex:1 1 0` en vez de 100%, que lo dejaría
+           solo en su fila y al botón huérfano en la siguiente. */
+        #trFilters > .tr-search-prod { flex: 1 1 100% !important; max-width: none !important; min-width: 0 !important; }
+        #trFilters > .tr-search-num  { flex: 1 1 0 !important;    max-width: none !important; min-width: 0 !important; }
 
         /* ══════════════════════════════════════════════
            MOBILE CARD LAYOUT — Recepción (bandeja)
@@ -570,16 +588,41 @@
 <div class="tr-layout">
 <div class="admin-card" style="margin:0;min-height:70vh;padding:14px;flex:1 1 0;min-width:0;">
 
-    {{-- ── Filtros (search por N° de nota + filtros avanzados estilo equipos) ──
-         trSearch → por NUMERO de la nota de entrega (TR-2026-…) con autocomplete
-         sobre la lista pre-cargada (`numerosNotas`). --}}
+    {{-- ── Filtros ──────────────────────────────────────────────────────────────
+         Orden del toolbar (pedido del cliente): PRIMERO el buscador por producto /
+         descripción (el que más se usa y más texto muestra), DESPUÉS el de N° de nota.
+         El Estado y las fechas viven en el panel "Filtros avanzados" (botón filter_list),
+         igual que en /admin/equipos. --}}
     <div id="trFilters">
-        <div class="tr-item tr-search-num">
+        {{-- Buscador por PRODUCTO (con equivalencias, igual que inventario): sugiere productos
+             del catálogo (FuzzySearch + nºs de parte equivalentes). Al elegir uno se fija
+             id_producto y la bandeja muestra SOLO las notas que CONTIENEN ese producto. --}}
+        @php
+            $reqIdProd    = request('id_producto');
+            $reqProdLabel = $reqIdProd ? (collect($productosLista ?? [])->firstWhere('ID_PRODUCTO', (int) $reqIdProd)?->NOMBRE ?? '') : '';
+        @endphp
+        <div class="tr-search-prod">
+            <div class="tr-search-box {{ $reqIdProd ? 'active' : '' }}">
+                <i class="material-icons lupa">inventory_2</i>
+                <input type="text" id="trProdSearch" autocomplete="off" placeholder="Buscar por producto o nº de parte"
+                       value="{{ $reqProdLabel }}"
+                       oninput="window.trProdInput()"
+                       onfocus="window.trProdSuggest()"
+                       onblur="setTimeout(function(){ var s=document.getElementById('trProdSuggest'); if(s) s.classList.remove('open'); }, 150);">
+                <input type="hidden" id="trIdProducto" value="{{ $reqIdProd }}">
+                <i class="material-icons" id="trProdClear" title="Limpiar filtro por producto"
+                   style="display:{{ $reqIdProd ? 'flex' : 'none' }};align-items:center;padding:0 10px;color:#64748b;font-size:18px;cursor:pointer;"
+                   onclick="window.trProdClear()">close</i>
+            </div>
+            <div id="trProdSuggest" class="tr-suggest"></div>
+        </div>
+
+        {{-- Buscador por N° de nota de entrega (NE-2026-…) con autocomplete sobre la lista
+             pre-cargada (`numerosNotas`). --}}
+        <div class="tr-search-num">
             <div class="tr-search-box {{ $reqSearch ? 'active' : '' }}">
                 <i class="material-icons lupa">search</i>
-                {{-- Placeholder corto: el campo mide ~190px (solo aloja un código NE-2026-0249),
-                     y "Buscar por número de nota de entrega" se cortaba a media palabra. --}}
-                <input type="text" id="trSearch" autocomplete="off" placeholder="N° de nota…" value="{{ $reqSearch }}"
+                <input type="text" id="trSearch" autocomplete="off" placeholder="Buscar por N° de nota" value="{{ $reqSearch }}"
                        oninput="window.trSearchInput()"
                        onfocus="window.trSearchSuggest()"
                        onkeydown="window.trSearchEnter(event)"
@@ -596,102 +639,98 @@
             <div id="trSearchSuggest" class="tr-suggest"></div>
         </div>
 
-        {{-- Buscador por PRODUCTO (con equivalencias, igual que inventario): sugiere productos
-             del catálogo (FuzzySearch + nºs de parte equivalentes). Al elegir uno se fija
-             id_producto y la bandeja muestra SOLO las notas que CONTIENEN ese producto. --}}
+        {{-- Filtros avanzados (Estado + Desde/Hasta) dentro de un panel — mismo patrón que
+             /admin/equipos: un botón filter_list que abre el panel. Rojo si hay algún filtro
+             del panel activo. Cierra al hacer clic fuera (ver listener abajo). --}}
         @php
-            $reqIdProd    = request('id_producto');
-            $reqProdLabel = $reqIdProd ? (collect($productosLista ?? [])->firstWhere('ID_PRODUCTO', (int) $reqIdProd)?->NOMBRE ?? '') : '';
-        @endphp
-        <div class="tr-item tr-search-prod">
-            <div class="tr-search-box {{ $reqIdProd ? 'active' : '' }}">
-                <i class="material-icons lupa">inventory_2</i>
-                <input type="text" id="trProdSearch" autocomplete="off" placeholder="Buscar por producto o nº de parte"
-                       value="{{ $reqProdLabel }}"
-                       oninput="window.trProdInput()"
-                       onfocus="window.trProdSuggest()"
-                       onblur="setTimeout(function(){ var s=document.getElementById('trProdSuggest'); if(s) s.classList.remove('open'); }, 150);">
-                <input type="hidden" id="trIdProducto" value="{{ $reqIdProd }}">
-                <i class="material-icons" id="trProdClear" title="Limpiar filtro por producto"
-                   style="display:{{ $reqIdProd ? 'flex' : 'none' }};align-items:center;padding:0 10px;color:#64748b;font-size:18px;cursor:pointer;"
-                   onclick="window.trProdClear()">close</i>
-            </div>
-            <div id="trProdSuggest" class="tr-suggest"></div>
-        </div>
-
-        {{-- Filtros en línea, al lado del buscador (antes vivían en un panel "Filtros
-             Avanzados" desplegable). Mismo border/radius/altura (45px) que el buscador.
-             Azul = filtro activo: en Estado, "En tránsito" es el default → se ve neutro. --}}
-        {{-- Filtro Estado con el mismo custom-dropdown que el resto de la app (igual que
-             "Almacén destino" del header). El <select> nativo se reemplazó para unificar
-             el estilo. Azul = filtro activo (cualquier estado distinto del default "En
-             tránsito"). selectOption actualiza el hidden input y dispara 'dropdown-selection'
-             → trLoad (ver listener abajo). --}}
-        @php
-            // Activo (azul + X) = el usuario eligió un estado concreto. Blanco/sin X para el
+            // Rótulo del dropdown SIN filtro: el default REAL de la bandeja
+            // (Traspaso::ESTADOS_BANDEJA_DEFAULT = En tránsito + Confirmada parcial), en corto
+            // porque el rótulo completo no entra en el ancho del panel. Antes decía solo
+            // "Estado" y había que adivinar qué estaba mostrando la bandeja. Se declara UNA
+            // vez: lo usan data-default-label (lo lee clearDropdownFilter al limpiar) y el
+            // placeholder, así no pueden desincronizarse.
+            $estadoLabelDefault = 'En tránsito + parciales';
+            // Activo (azul + X) = el usuario eligió un estado concreto. Neutro/sin X para el
             // default (vacío) y para "all" (que selectOption global trata como neutro).
-            $reqEstadoLabel = $badgesEstado[$reqEstado][0] ?? ($reqEstado === 'all' ? 'Todas' : 'Estado');
-            $estadoActivo   = $reqEstado !== '' && $reqEstado !== 'all';
+            // El rótulo sale de ESTADOS_META (estados reales) o de FILTROS_META (pseudo-
+            // estados: Todas / Confirmada con faltantes) — misma fuente que las opciones.
+            $estadoActivo   = $reqEstado !== '' && $reqEstado !== Traspaso::FILTRO_TODAS;
+            $reqEstadoLabel = $badgesEstado[$reqEstado][0]
+                ?? (Traspaso::FILTROS_META[$reqEstado] ?? $estadoLabelDefault);
+            $panelActivo    = $estadoActivo || $reqDesde || $reqHasta;
+            // Opciones del dropdown: los estados accionables de la recepción + el pseudo-estado.
+            // Se omiten de ESTADOS_META:
+            //   • BORRADOR  → estado del almacén que EMITE; nunca llega al que recibe.
+            //   • CANCELADO → la nota cancelada deshace todo (reversa el stock), no es algo
+            //                 que se filtre en la bandeja.
+            //   • RECIBIDO ("Confirmada") → quitado a pedido del cliente: las notas cerradas
+            //                 sin novedad no se listan en la bandeja.
+            // La X del trigger NO es una opción: limpia el filtro y vuelve al default.
+            $opcionesEstado = collect($badgesEstado)
+                ->except([Traspaso::ESTADO_BORRADOR, Traspaso::ESTADO_CANCELADO, Traspaso::ESTADO_RECIBIDO])
+                ->map(fn ($b) => $b[0])
+                ->put(Traspaso::FILTRO_CON_FALTANTES, Traspaso::FILTROS_META[Traspaso::FILTRO_CON_FALTANTES]);
+            // Ayuda solo donde el rótulo no se explica solo (el pseudo-estado).
+            $titulosEstado = [
+                Traspaso::FILTRO_CON_FALTANTES => 'Notas ya confirmadas donde se recibió menos cantidad de la que se envió',
+            ];
         @endphp
-        <div class="tr-item tr-filter-estado">
-            <div class="custom-dropdown" id="trEstadoDropdown" data-filter-type="estado" data-default-label="Estado">
-                <input type="hidden" name="estado" data-filter-value value="{{ $reqEstado }}">
-                <div class="dropdown-trigger" style="padding:0;display:flex;align-items:center;background:{{ $estadoActivo ? '#e1effa' : '#fbfcfd' }};overflow:hidden;border:1px solid {{ $estadoActivo ? '#0067b1' : '#cbd5e0' }};border-radius:12px;height:45px;">
-                    {{-- Letra normal (14px / peso 400), igual que el filtro "Nota de entrega"
-                         (.tr-search-box input) y que los filtros del módulo Inventario
-                         (.alm-filter input). Antes era peso 600 → el estado elegido se veía
-                         en negrita y desentonaba con el resto (pedido del cliente). --}}
-                    <input type="text" name="filter_search_dropdown" data-filter-search autocomplete="off"
-                           placeholder="{{ $reqEstadoLabel }}"
-                           style="flex:1;border:none;background:transparent;padding:8px 10px;font-size:14px;font-weight:400;color:#0f172a;outline:none;min-width:0;cursor:pointer;"
-                           oninput="window.filterDropdownOptions(this)">
-                    {{-- X = quitar el filtro de estado → vuelve al default (dropdown en blanco;
-                         la bandeja muestra "En tránsito"). El selectOption global la muestra
-                         solo cuando hay un estado concreto elegido. --}}
-                    <i class="material-icons" data-clear-btn title="Quitar filtro de estado"
-                       style="padding:0 6px;color:#64748b;font-size:18px;cursor:pointer;transform:none !important;display:{{ $estadoActivo ? 'block' : 'none' }};"
-                       onclick="event.stopPropagation(); selectOption('trEstadoDropdown','','Estado');">close</i>
-                    <i class="material-icons" style="padding:0 8px;color:#64748b;font-size:18px;pointer-events:none;transform:none !important;">expand_more</i>
-                </div>
-                <div class="dropdown-content" style="padding:5px;max-height:none;overflow:visible;">
-                    <div class="dropdown-item-list" style="max-height:250px;overflow-y:auto;">
-                        {{-- Solo los estados accionables de la recepción: En tránsito (pendiente)
-                             y Confirmada parcial. Se omiten:
-                               • BORRADOR  → estado del almacén que EMITE; nunca llega al que recibe.
-                               • CANCELADO → la nota cancelada deshace todo (reversa el stock), no
-                                             es algo que se filtre en la bandeja.
-                               • RECIBIDO ("Confirmada") → quitado a pedido del cliente. Las notas
-                                             cerradas sin faltantes ya no se listan en la bandeja.
-                             La X de arriba NO es un estado: limpia el filtro y vuelve al default
-                             (dropdown en blanco → bandeja "En tránsito"). --}}
-                        @foreach($badgesEstado as $k => $b)
-                            @continue($k === \App\Models\Traspaso::ESTADO_BORRADOR || $k === \App\Models\Traspaso::ESTADO_CANCELADO || $k === \App\Models\Traspaso::ESTADO_RECIBIDO)
-                            <div class="dropdown-item {{ $reqEstado === $k ? 'selected' : '' }}" data-value="{{ $k }}"
-                                 onclick="selectOption('trEstadoDropdown','{{ $k }}','{{ addslashes($b[0]) }}');">{{ $b[0] }}</div>
-                        @endforeach
-                    </div>
-                </div>
-            </div>
-        </div>
-        {{-- Filtros avanzados (Desde/Hasta + atajos de rango) dentro de un panel — mismo
-             patrón que /admin/equipos: un botón filter_list que abre el panel. Rojo si hay
-             alguna fecha activa. Cierra al hacer clic fuera (ver listener abajo). --}}
-        @php $fechasActivas = $reqDesde || $reqHasta; @endphp
         <div style="position:relative;flex:0 0 auto;">
-            <button type="button" id="trAdvBtn" class="btn-primary-maquinaria"
-                    style="height:45px;width:45px;min-width:45px;padding:0;display:flex;align-items:center;justify-content:center;border-radius:12px;background:{{ $fechasActivas ? '#fee2e2' : '#fbfcfd' }};border:1px solid {{ $fechasActivas ? '#ef4444' : '#cbd5e0' }};color:{{ $fechasActivas ? '#ef4444' : '#64748b' }};box-shadow:none;"
+            {{-- Colores del botón (neutro / rojo = hay filtro dentro) en .tr-adv-btn: el JS
+                 solo hace toggle de la clase al filtrar por AJAX, sin repetir los hex. --}}
+            <button type="button" id="trAdvBtn" class="btn-primary-maquinaria tr-adv-btn {{ $panelActivo ? 'activo' : '' }}"
                     onclick="window.trToggleAdvanced(event)" title="Filtros avanzados">
                 <i class="material-icons" style="font-size:20px;">filter_list</i>
             </button>
             <div id="trAdvPanel" style="display:none;position:absolute;top:100%;right:0;width:300px;max-width:calc(100vw - 20px);box-sizing:border-box;background:#e2e8f0;border-radius:12px;box-shadow:0 10px 25px -5px rgba(0,0,0,0.15);border:1px solid #cbd5e1;z-index:100;margin-top:10px;padding:15px;">
                 <h4 style="margin:0 0 12px 0;font-size:14px;font-weight:700;color:#334155;display:flex;justify-content:space-between;align-items:center;">
                     Filtros avanzados
-                    <span style="font-size:12px;color:#64748b;font-weight:400;text-decoration:underline;cursor:pointer;" onclick="window.trClearFechas()">Limpiar</span>
+                    <span style="font-size:12px;color:#64748b;font-weight:400;text-decoration:underline;cursor:pointer;" onclick="window.trClearAvanzados()">Limpiar</span>
                 </h4>
-                {{-- Desde / Hasta lado a lado (2 columnas). --}}
+
+                {{-- Estado: ocupa las 2 columnas de la grilla, arriba de las fechas. Mismo
+                     custom-dropdown que el resto de la app (igual que "Almacén destino" del
+                     header). selectOption actualiza el hidden input y dispara
+                     'dropdown-selection' → trLoad. --}}
                 <div class="tr-adv-grid">
+                <div class="tr-adv-full">
+                    <span class="tr-adv-label">Estado de la nota</span>
+                    <div class="custom-dropdown" id="trEstadoDropdown" data-filter-type="estado" data-default-label="{{ $estadoLabelDefault }}">
+                        <input type="hidden" name="estado" data-filter-value value="{{ $reqEstado }}">
+                        {{-- Neutro #fbfcfd (no #fff): es el color que el selectOption global
+                             repinta al limpiar el filtro; usar otro dejaría el trigger de un
+                             tono al cargar y de otro tras limpiar. --}}
+                        <div class="dropdown-trigger" style="padding:0;display:flex;align-items:center;background:{{ $estadoActivo ? '#e1effa' : '#fbfcfd' }};overflow:hidden;border:1px solid {{ $estadoActivo ? '#0067b1' : '#cbd5e0' }};">
+                            <input type="text" name="filter_search_dropdown" data-filter-search autocomplete="off"
+                                   placeholder="{{ $reqEstadoLabel }}"
+                                   style="flex:1;border:none;background:transparent;padding:8px 10px;font-weight:400;color:#0f172a;outline:none;min-width:0;cursor:pointer;"
+                                   oninput="window.filterDropdownOptions(this)">
+                            {{-- X = quitar el filtro de estado → vuelve al default de la bandeja.
+                                 clearDropdownFilter usa el data-default-label de arriba, así no
+                                 se repite el literal. El selectOption global la muestra solo
+                                 cuando hay un estado concreto elegido. --}}
+                            <i class="material-icons" data-clear-btn title="Quitar filtro de estado"
+                               style="padding:0 4px;color:#64748b;font-size:16px;cursor:pointer;transform:none !important;display:{{ $estadoActivo ? 'block' : 'none' }};"
+                               onclick="event.stopPropagation(); clearDropdownFilter('trEstadoDropdown');">close</i>
+                            <i class="material-icons" style="padding:0 6px;color:#64748b;font-size:16px;pointer-events:none;transform:none !important;">expand_more</i>
+                        </div>
+                        <div class="dropdown-content" style="padding:5px;max-height:none;overflow:visible;">
+                            <div class="dropdown-item-list" style="max-height:250px;overflow-y:auto;">
+                                {{-- $opcionesEstado (arriba) ya trae los estados reales que se
+                                     ofrecen + el pseudo-estado, así que aquí hay UN solo item. --}}
+                                @foreach($opcionesEstado as $k => $label)
+                                    <div class="dropdown-item {{ $reqEstado === $k ? 'selected' : '' }}" data-value="{{ $k }}"
+                                         @if(isset($titulosEstado[$k])) title="{{ $titulosEstado[$k] }}" @endif
+                                         onclick="selectOption('trEstadoDropdown','{{ $k }}','{{ addslashes($label) }}');">{{ $label }}</div>
+                                @endforeach
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                    {{-- Desde / Hasta: una columna cada uno, debajo del Estado. --}}
                     <div>
-                        <span style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:5px;">Desde</span>
+                        <span class="tr-adv-label">Desde</span>
                         <div id="trDesdeBox" class="tr-date-box" style="width:100%;box-sizing:border-box;background:{{ $reqDesde ? '#e1effa' : '#fff' }};"
                              onclick="var i=document.getElementById('trDesde'); if(i){ i.focus(); if(i.showPicker) try{i.showPicker();}catch(e){} }">
                             <i class="material-icons">event</i>
@@ -699,7 +738,7 @@
                         </div>
                     </div>
                     <div>
-                        <span style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:5px;">Hasta</span>
+                        <span class="tr-adv-label">Hasta</span>
                         <div id="trHastaBox" class="tr-date-box" style="width:100%;box-sizing:border-box;background:{{ $reqHasta ? '#e1effa' : '#fff' }};"
                              onclick="var i=document.getElementById('trHasta'); if(i){ i.focus(); if(i.showPicker) try{i.showPicker();}catch(e){} }">
                             <i class="material-icons">event</i>
@@ -778,6 +817,9 @@
     'use strict';
     if (!document.getElementById('trTableBody')) return;
     var ROUTE = @json(route('almacen.recepcion.index'));
+    // Valor del pseudo-estado "sin filtro de estado". Sale del modelo para que el JS no
+    // repita el literal 'all' que ya define Traspaso::FILTRO_TODAS.
+    var TR_FILTRO_TODAS = @json(Traspaso::FILTRO_TODAS);
 
     // SPA-safe: la navegación SPA (navegacion.js) RE-EJECUTA este <script> inline en cada
     // visita a la página. Las funciones window.* se redefinen sin problema, PERO los
@@ -996,8 +1038,8 @@
     };
 
     function params(pageUrl) {
-        // El backend muestra por defecto solo "En tránsito" (pendientes). Aquí mandamos
-        // los filtros del UI (search/estado/destino/fechas). El estado SIEMPRE se envía
+        // Sin `estado` el backend aplica su default (En tránsito + Confirmada parcial). Aquí
+        // mandamos los filtros del UI (search/estado/destino/fechas). El estado SIEMPRE se envía
         // —incluido 'all' (Todas/historial) y 'ENVIADO'— para que el backend sepa
         // exactamente qué se pidió y no caiga en el default cuando el usuario eligió otro.
         var p = new URLSearchParams();
@@ -1014,20 +1056,33 @@
         if (dest)                                          p.set('id_almacen_destino', dest);
         if (v('trDesde'))                                  p.set('desde', v('trDesde'));
         if (v('trHasta'))                                  p.set('hasta', v('trHasta'));
-        // KPI del panel (solo recientes/urgentes llevan su ventana de tiempo al backend).
-        if (_trKpi === 'recientes' || _trKpi === 'urgentes') p.set('kpi', _trKpi);
+        // KPI del panel: las 3 métricas van al backend (fuerza ESTADO=ENVIADO en las tres;
+        // recientes/urgentes añaden además su ventana de tiempo). Antes 'por_revisar' no se
+        // mandaba y la tabla caía en el default de la bandeja, que hoy incluye las parciales
+        // → se listaban notas que ese número no cuenta.
+        if (_trKpi)                                        p.set('kpi', _trKpi);
         if (pageUrl) { try { var pg = new URL(pageUrl, window.location.origin).searchParams.get('page'); if (pg) p.set('page', pg); } catch (e) {} }
         return p;
     }
 
-    // Refresca el tinte azul de los filtros de FECHA (Desde / Hasta) según si tienen valor.
-    // El Estado ahora es un custom-dropdown que maneja su propio estado activo (azul en el
-    // trigger desde el render). Se llama en trLoad para mantener UI = estado.
+    // Refresca el tinte azul de los filtros de FECHA (Desde / Hasta) según si tienen valor,
+    // y el tinte rojo del botón que abre "Filtros avanzados" si HAY algo activo ahí dentro
+    // (estado concreto o alguna fecha). El trigger del Estado se pinta solo: lo maneja el
+    // selectOption global del custom-dropdown. Se llama en trLoad para mantener UI = filtros.
+    // Sin el repintado del botón, elegir una fecha o un estado por AJAX dejaba el botón gris
+    // (el panel quedaba filtrando "en secreto") hasta recargar la página entera.
     function trUpdateChips() {
         var paint = function (id, on) { var e = el(id); if (e) e.style.background = on ? '#e1effa' : '#fff'; };
         var sel   = function (id) { var e = el(id); return e ? e.value : ''; };
-        paint('trDesdeBox', !!sel('trDesde'));
-        paint('trHastaBox', !!sel('trHasta'));
+        var desde = !!sel('trDesde'), hasta = !!sel('trHasta');
+        paint('trDesdeBox', desde);
+        paint('trHastaBox', hasta);
+
+        // MISMO criterio que $panelActivo del render (estado concreto = distinto de vacío y
+        // de "Todas"). Los colores viven en .tr-adv-btn.activo, aquí solo se alterna la clase.
+        var estado = hv('estado');
+        var btn = el('trAdvBtn');
+        if (btn) btn.classList.toggle('activo', desde || hasta || (estado !== '' && estado !== TR_FILTRO_TODAS));
     }
 
     // Actualiza las 3 métricas del panel "Resumen de la bandeja" con los conteos frescos
@@ -1332,8 +1387,11 @@
     // opcion. Recargamos la tabla al cambiar el almacen destino (header) o el Estado.
     if (_trBindGlobal) window.addEventListener('dropdown-selection', function (e) {
         var id = e.detail && e.detail.dropdownId;
-        // Cambiar Estado/Almacén a mano sale del modo KPI (trKpiFilter fija el Estado
-        // sin emitir este evento, así que no se auto-resetea solo).
+        // trSetEstadoDefault limpia el Estado con el helper global y recarga por su cuenta:
+        // sin este guard el evento del helper dispararía un segundo trLoad y, peor, un
+        // trResetKpi que borraría el KPI que trKpiFilter acaba de fijar.
+        if (window.__trSkipDropEvt) return;
+        // Cambiar Estado/Almacén a mano sale del modo KPI.
         if (id === 'trDestHeaderDropdown' || id === 'trEstadoDropdown') { window.trResetKpi(); window.trLoad(); }
     });
 
@@ -1346,7 +1404,11 @@
         if (opening && window.closeAllDropdowns) window.closeAllDropdowns(null);
         p.style.display = opening ? 'block' : 'none';
     };
-    window.trClearFechas = function () {
+    // "Limpiar" del panel: vacía TODO lo que vive dentro (Estado + Desde/Hasta) — antes solo
+    // limpiaba las fechas y el Estado, ya mudado al panel, quedaba filtrando por detrás.
+    // NO toca los buscadores del toolbar (producto / N° de nota): esos tienen su propia X.
+    window.trClearAvanzados = function () {
+        trSetEstadoDefault();
         ['trDesde', 'trHasta'].forEach(function (id) { var e = el(id); if (e) e.value = ''; });
         window.trResetKpi();
         window.trLoad();
@@ -1362,19 +1424,23 @@
     // Sale del modo KPI (lo llaman búsqueda/fechas/estado al cambiar a mano).
     window.trResetKpi = function () { _trKpi = ''; trPaintKpi(); };
 
-    // Deja el dropdown de Estado en BLANCO ("Estado") SOLO visualmente (hidden vacío +
-    // placeholder + color neutro + sin X), sin emitir 'dropdown-selection' para no recargar
-    // dos veces. Lo usan los KPIs: filtran pendientes vía `kpi`, no vía estado, así que el
-    // dropdown debe verse sin filtro de estado activo.
+    // Deja el dropdown de Estado sin filtro, con el MISMO helper global que usa su X
+    // (clearDropdownFilter → selectOption con el data-default-label): hidden vacío,
+    // placeholder del default, colores neutros, sin X y sin opción resaltada. Antes esto
+    // se reimplementaba a mano aquí y ya divergía del global (no restauraba las opciones
+    // que el buscador del dropdown hubiera ocultado).
+    // La bandera evita la recarga DOBLE: el helper emite 'dropdown-selection' y quien llama
+    // aquí (KPIs / "Limpiar") hace su propio trLoad después. Los KPIs filtran vía `kpi`, no
+    // vía estado, así que el dropdown debe quedar visualmente sin filtro.
+    // La bandera vive en window (no en el IIFE): el listener se registra UNA vez por pestaña
+    // (_trBindGlobal) y en una navegación SPA seguiría leyendo la variable de la primera
+    // corrida mientras esta función escribiría la de la nueva → el guard no dispararía.
     function trSetEstadoDefault() {
-        var hidden = document.querySelector('#trEstadoDropdown input[name="estado"][data-filter-value]');
-        if (hidden) hidden.value = '';
-        var trigger = document.querySelector('#trEstadoDropdown .dropdown-trigger');
-        if (trigger) { trigger.style.background = '#fbfcfd'; trigger.style.borderColor = '#cbd5e0'; }
-        var search = document.querySelector('#trEstadoDropdown input[data-filter-search]');
-        if (search) { search.value = ''; search.placeholder = 'Estado'; }
-        var clearX = document.querySelector('#trEstadoDropdown [data-clear-btn]');
-        if (clearX) clearX.style.display = 'none';
+        if (!el('trEstadoDropdown') || typeof window.clearDropdownFilter !== 'function') return;
+        window.__trSkipDropEvt = true;
+        // finally: el evento se despacha síncrono dentro del helper, así que al salir del
+        // try la bandera ya cumplió su función — y no queda encendida si el helper lanza.
+        try { window.clearDropdownFilter('trEstadoDropdown'); } finally { window.__trSkipDropEvt = false; }
     }
 
     // Clic en una métrica: filtra por ese criterio. Las 3 son de pendientes (ENVIADO);
@@ -1388,12 +1454,12 @@
         window.trLoad();
     };
 
-    // Resaltado inicial según la URL (o 'por_revisar' = vista default de pendientes).
+    // Resaltado inicial: solo si la URL trae un KPI. La carga SIN filtros ya NO equivale a
+    // "Por revisar" — el default de la bandeja incluye las confirmadas parciales — así que
+    // marcar esa métrica al abrir mentía sobre lo que se está viendo.
     (function () {
-        var u = new URLSearchParams(window.location.search);
-        var k = u.get('kpi');
-        if (k === 'recientes' || k === 'urgentes') _trKpi = k;
-        else if (!u.get('desde') && !u.get('hasta') && (!u.get('estado') || u.get('estado') === 'ENVIADO')) _trKpi = 'por_revisar';
+        var k = new URLSearchParams(window.location.search).get('kpi');
+        if (k === 'por_revisar' || k === 'recientes' || k === 'urgentes') _trKpi = k;
         trPaintKpi();
     })();
     // Cerrar el panel al hacer clic fuera (ni en el panel ni en su botón).

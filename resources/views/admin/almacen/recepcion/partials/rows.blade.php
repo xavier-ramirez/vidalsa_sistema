@@ -6,8 +6,13 @@
     @php
         $e = \App\Models\Traspaso::ESTADOS_META[$t->ESTADO] ?? \App\Models\Traspaso::ESTADO_META_DEFAULT;
         $neNumero = $t->REFERENCIA ?: $t->NUMERO;
-        // Antigüedad desde el envío para indicador visual
-        $horasDesdeEnvio = $t->FECHA_ENVIO ? now()->diffInHours($t->FECHA_ENVIO) : null;
+        // Antigüedad desde el envío para el indicador de color.
+        // OJO con el orden: en Carbon 3 diffInHours() devuelve un FLOAT CON SIGNO, así que
+        // `now()->diffInHours($fechaPasada)` da NEGATIVO (-120 para 5 días) y caía siempre en
+        // la rama "< 24" → todas las notas salían con el punto verde y los puntos ámbar/rojo
+        // eran código muerto, contradiciendo al KPI "Urgentes +3d" (que se calcula en SQL).
+        // El (int) además es obligatorio para el intdiv() de abajo, que no acepta float.
+        $horasDesdeEnvio = $t->FECHA_ENVIO ? (int) $t->FECHA_ENVIO->diffInHours(now()) : null;
     @endphp
     <tr data-id="{{ $t->ID_TRASPASO }}">
         <td style="font-family:monospace;font-weight:800;font-size:13px;color:#0f172a;white-space:nowrap;letter-spacing:.3px;">

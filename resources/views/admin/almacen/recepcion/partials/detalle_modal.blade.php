@@ -1,9 +1,9 @@
 {{-- Contenido del modal de detalle/recepción. Renderizado via AJAX desde
-     TraspasoController@show (wantsJson). Variables: $traspaso, $puedeRecibir. --}}
+     TraspasoController@show (wantsJson). Variables: $traspaso, $puedeRecibir, $puedeEnviar,
+     $puedeCancelar — las 3 banderas las calcula el controller (fuente única, con las MISMAS
+     condiciones que exigen sus endpoints); esta vista solo las pinta. --}}
 @php
     $em = \App\Models\Traspaso::ESTADOS_META[$traspaso->ESTADO] ?? \App\Models\Traspaso::ESTADO_META_DEFAULT;
-    $puedeEnviar   = $traspaso->esBorrador()  && auth()->user()?->can('almacen.movimiento');
-    $puedeCancelar = !$traspaso->esFinal() && auth()->user()?->can('almacen.movimiento');
     $neNumero = $traspaso->REFERENCIA ?: $traspaso->NUMERO;
 @endphp
 
@@ -14,7 +14,8 @@
     <span class="dtm-numero">{{ $neNumero }}</span>
     {{-- El pill de estado solo se muestra cuando NO está "En tránsito" (en la bandeja
          ya se sabe que está en tránsito; el cliente pidió quitar ese pill del modal).
-         Para notas confirmadas/canceladas (vistas vía "Todas") sí se muestra. --}}
+         Para notas ya cerradas (Confirmada parcial en la propia bandeja, o
+         confirmadas/canceladas al filtrar por estado) sí se muestra. --}}
     @unless($traspaso->esEnviado())
     <span class="estado-pill" style="background:{{ $em[1] }};color:{{ $em[2] }};">{{ $em[0] }}</span>
     @endunless
@@ -59,9 +60,9 @@
                     <th>Producto</th>
                     <th>Enviado</th>
                     <th>Recibido</th>
-                    {{-- Las columnas Dif./Estado solo aplican a una nota ya cerrada (vista
-                         vía "Todas"). En la recepción activa, "Recibido" se marca tocando la
-                         fila (se resalta en azul). --}}
+                    {{-- Las columnas Dif./Estado solo aplican a una nota ya cerrada (las parciales
+                         salen en la bandeja por defecto). En la recepción activa, "Recibido"
+                         se marca tocando la fila (se resalta en azul). --}}
                     @unless($puedeRecibir)
                         <th>Dif.</th>
                         <th>Estado</th>
@@ -131,10 +132,16 @@
     </div>
 </div>
 
-@if($puedeRecibir || $puedeEnviar || ($traspaso->esEnviado() && $puedeCancelar && auth()->user()->can('super.admin')))
+@if($puedeRecibir || $puedeEnviar || $puedeCancelar)
 <div class="dtm-footer">
     @if($puedeRecibir)
+        {{-- "Cancelar" = cancelar LA NOTA (reversa el stock al origen), no cerrar el modal.
+             Solo para quien de verdad puede: en una nota ya enviada eso es super.admin con
+             el almacén origen visible. Antes se le mostraba a cualquier receptor y el POST
+             respondía 403. --}}
+        @if($puedeCancelar)
         <button type="button" class="dt-btn dt-btn-cancel" onclick="window.trModalCancelar('{{ addslashes($neNumero) }}')">Cancelar</button>
+        @endif
         {{-- "Aceptar (N)": confirma SOLO las filas tildadas; el resto queda como faltante.
              Es la ÚNICA acción de confirmación (ya no existe "Confirmar todo"): siempre
              visible, deshabilitado mientras no haya ninguna fila marcada — trUpdateConfirmBtn
@@ -146,7 +153,7 @@
         <button type="button" class="dt-btn dt-btn-blue" onclick="window.trModalEnviar()">
             <i class="material-icons">local_shipping</i> Enviar
         </button>
-    @elseif($traspaso->esEnviado() && $puedeCancelar && auth()->user()->can('super.admin'))
+    @elseif($puedeCancelar)
         <button type="button" class="dt-btn dt-btn-cancel" onclick="window.trModalCancelar('{{ addslashes($neNumero) }}')">Cancelar y revertir</button>
     @endif
 </div>
