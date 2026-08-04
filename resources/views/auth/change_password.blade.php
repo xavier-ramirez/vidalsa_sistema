@@ -3,16 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    {{-- Pagina SOLO clara: sin esto, con el telefono en modo nocturno Chrome invierte los
-         colores por su cuenta y pinta en oscuro los campos nativos --incluido el de
-         contraseña--. Esta vista NO extiende estructura_base, asi que lleva su propia
-         declaracion. --}}
+    {{-- Solo modo claro. El porqué, en :root de estilos_globales.css. Esta vista tiene su
+         PROPIO <head> (no extiende estructura_base), por eso lo declara aparte. --}}
     <meta name="color-scheme" content="light">
     <title>Cambio de Contraseña</title>
     <!-- Fonts -->
     <link href="{{ asset('css/fonts.css') }}?v={{ @filemtime(public_path('css/fonts.css')) }}" rel="stylesheet">
     <style>
-        /* Solo modo claro — ver el meta de arriba. */
         :root { color-scheme: only light; }
         /* --- PRELOADER STYLES --- */
         .preloader {

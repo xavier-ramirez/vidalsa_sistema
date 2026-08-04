@@ -3744,8 +3744,6 @@ class EquipoController extends Controller
             return response()->json(['results' => [], 'total' => 0, 'found' => 0, 'missing' => 0, 'confirmed' => 0]);
         }
 
-        $termsArr = $terms->all();
-
         // Tolerancia a la confusión CERO ↔ letra O al transcribir placas y seriales: es el
         // error de tipeo más común de este dato. Se compara por el valor NORMALIZADO (la O
         // pasa a 0) en los dos lados —término y columna—, así "ABCO12" encuentra "ABC012" y
@@ -3755,7 +3753,7 @@ class EquipoController extends Controller
         // valores distintos colisiona al normalizar, así que no se inventan coincidencias.
         $normPhp = fn ($v) => str_replace('O', '0', mb_strtoupper((string) $v));
         $normSql = fn (string $col) => DB::raw("REPLACE(UPPER({$col}), 'O', '0')");
-        $termsNorm = array_values(array_unique(array_map($normPhp, $termsArr)));
+        $termsNorm = $terms->map($normPhp)->unique()->values()->all();
 
         $rows = DB::table('equipos as e')
             ->leftJoin('documentacion as d',   'd.ID_EQUIPO', '=', 'e.ID_EQUIPO')
