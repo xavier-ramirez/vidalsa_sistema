@@ -1,7 +1,18 @@
-{{-- Mobile-only: oculta CATEGORÍA/MODELO/AÑO en tarjetas pequeñas. Va UNA sola vez
-     antes del bucle (antes se emitía por cada fila). El repintado offline inyecta su
-     propia copia porque reemplaza el tbody y este style desaparece (equipos-offline.js). --}}
-<style>@media(max-width:900px){.eq-hide-mobile{display:none!important;}}</style>
+{{-- Mobile-only: oculta CATEGORÍA/AÑO en tarjetas pequeñas y pasa el MODELO a la
+     misma línea de la MARCA (más pequeño). Va UNA sola vez antes del bucle (antes se
+     emitía por cada fila). El repintado offline inyecta su propia copia porque
+     reemplaza el tbody y este style desaparece (equipos-offline.js). --}}
+<style>
+@media(max-width:900px){
+    .eq-hide-mobile{display:none!important;}
+    /* MODELO al lado de la MARCA, letra más chica que la marca. El selector lleva
+       td:nth-child(3) a propósito: en estilos_globales.css la card móvil fuerza
+       "td:nth-child(3) * {font-size:13px!important}" y hay que ganarle en especificidad. */
+    .table-equipos-mobile tbody td:nth-child(3) .eq-modelo{
+        display:inline!important; font-size:11px!important; color:#64748b!important; margin:0 0 0 5px!important;
+    }
+}
+</style>
 @forelse($equipos as $equipo)
     @php
         // Foto: prioriza FOTO_REFERENCIAL del catalogo (ID_ESPEC), cae a FOTO_EQUIPO
@@ -90,16 +101,12 @@
 
         {{-- 3. MARCA / MODELO ─ marca queda en 13px (feedback del usuario:
              "menos la marca ya se ve bien"). Modelo y año subidos para
-             igualar la legibilidad del resto. --}}
+             igualar la legibilidad del resto. En móvil el modelo pasa a la misma
+             línea de la marca y en 11px (regla .eq-modelo del <style> de arriba). --}}
         <td class="table-cell-custom" style="font-size: 13px; color: #000; word-wrap: break-word;">
             <div style="font-weight: 700; text-transform: uppercase; line-height: 1.3;">
-                {{ $equipo->MARCA ?: '—' }}
+                {{ $equipo->MARCA ?: '—' }}@if($equipo->MODELO)<span class="eq-modelo" style="display: block; font-size: 13.5px; color: #475569; font-weight: 500; text-transform: uppercase; margin-top: 4px; line-height: 1.3;">{{ $equipo->MODELO }}</span>@endif
             </div>
-            @if($equipo->MODELO)
-                <div class="eq-hide-mobile" style="font-size: 13.5px; color: #475569; font-weight: 500; text-transform: uppercase; margin-top: 4px; line-height: 1.3;">
-                    {{ $equipo->MODELO }}
-                </div>
-            @endif
             @if($equipo->ANIO)
                 <div class="eq-hide-mobile" style="font-size: 12.5px; color: #64748b; margin-top: 5px; font-weight: 500;">
                     Año: {{ $equipo->ANIO }}
