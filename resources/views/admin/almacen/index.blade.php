@@ -1408,7 +1408,7 @@
                  sub-modal (vía almDetalleAccion). almGuardarUbicacionDetalle compara contra el
                  valor cargado, así que salir sin tocar el campo no dispara ningún PATCH. --}}
             <div style="padding-top:2px;text-align:center;">
-                <label for="almDetUbicacion" style="font-size:12.5px;font-weight:700;color:#475569;">Ubicación en estante, fila o nivel</label>
+                <label for="almDetUbicacion" style="font-size:12.5px;font-weight:700;color:#475569;"><i class="material-icons" style="font-size:15px;vertical-align:-3px;margin-right:3px;color:#0067b1;">place</i>Ubicación en estante, fila o nivel</label>
                 {{-- max-width: deja aire a los lados sin llegar al borde del modal. Se conserva
                      width:100% para que encoja solo en pantallas angostas. Lo centra el
                      text-align del div padre (el input es inline-block: margin:auto NO lo
@@ -4212,9 +4212,10 @@
                     return;
                 }
                 // Misma fila que "Gestionar almacenes" (.alm-admin-row): icono + bloque de
-                // texto + botones SOLO icono (.alm-btn). Código y descripción van en la MISMA
-                // línea, y la descripción se muestra completa (envuelve en varias líneas si
-                // hace falta) — antes se cortaba con puntos suspensivos.
+                // texto + botones SOLO icono (.alm-btn), estos apilados en columna. Código y
+                // descripción van en la MISMA línea, sin negrita y en cuerpo chico, y la
+                // descripción se muestra completa (envuelve en varias líneas si hace falta)
+                // — antes se cortaba con puntos suspensivos.
                 cont.innerHTML = rows.map(function (p) {
                     // escHtml en TODO: CODIGO/NOMBRE/UM/CATEGORIA son texto libre editable en el
                     // modal de producto. Sin escapar, una categoría tipo "<img src=x onerror=…>"
@@ -4225,16 +4226,18 @@
                     return '<div class="alm-admin-row">' +
                         '<i class="material-icons" style="font-size:18px;color:#94a3b8;flex:0 0 auto;">inventory_2</i>' +
                         '<div style="flex:1;min-width:0;">' +
-                            '<div style="font-size:13.5px;color:#1e293b;font-weight:700;line-height:1.35;">' +
-                                '<span style="font-weight:400;color:#64748b;">' + cod + '</span> ' + nom +
+                            '<div style="font-size:12.5px;color:#1e293b;line-height:1.35;">' +
+                                '<span style="color:#64748b;">' + cod + '</span> ' + nom +
                             '</div>' +
-                            '<div style="font-size:11.5px;color:#94a3b8;">' + meta + '</div>' +
+                            '<div style="font-size:11px;color:#94a3b8;">' + meta + '</div>' +
                         '</div>' +
-                        '<button type="button" onclick="window.almRestaurarProducto(' + p.ID_PRODUCTO + ')" class="alm-btn alm-btn-restore" title="Restaurar">' +
-                            '<i class="material-icons" style="font-size:16px;">restore</i></button>' +
-                        // Borrado permanente: solo super.admin (HAS_ALM_MANAGE).
-                        (HAS_ALM_MANAGE ? ('<button type="button" onclick="window.almEliminarPermanenteProducto(' + p.ID_PRODUCTO + ')" class="alm-btn alm-btn-del" title="Eliminar de la papelera (permanente)">' +
-                            '<i class="material-icons" style="font-size:16px;">delete_forever</i></button>') : '') +
+                        '<div style="display:flex;flex-direction:column;gap:4px;flex:0 0 auto;">' +
+                            '<button type="button" onclick="window.almRestaurarProducto(' + p.ID_PRODUCTO + ')" class="alm-btn alm-btn-restore" title="Restaurar">' +
+                                '<i class="material-icons" style="font-size:16px;">restore</i></button>' +
+                            // Borrado permanente: solo super.admin (HAS_ALM_MANAGE).
+                            (HAS_ALM_MANAGE ? ('<button type="button" onclick="window.almEliminarPermanenteProducto(' + p.ID_PRODUCTO + ')" class="alm-btn alm-btn-del" title="Eliminar de la papelera (permanente)">' +
+                                '<i class="material-icons" style="font-size:16px;">delete_forever</i></button>') : '') +
+                        '</div>' +
                     '</div>';
                 }).join('');
             })
