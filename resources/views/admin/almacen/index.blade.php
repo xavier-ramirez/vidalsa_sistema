@@ -1122,7 +1122,10 @@
                     </select>
                 </div>
 
-                <div style="display:flex;align-items:center;gap:6px;flex:1;min-width:280px;">
+                {{-- Sin flex:1: solo servía para empujar el botón "Limpiar" al extremo derecho
+                     con margin-left:auto. Quitado ese botón, el grupo mide lo suyo y el
+                     justify-content:center del contenedor centra Tipo + Fechas de verdad. --}}
+                <div style="display:flex;align-items:center;gap:6px;">
                     <span style="font-size:10.5px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;">Fechas:</span>
                     <div style="display:flex;align-items:center;gap:4px;flex-wrap:nowrap;">
                         {{-- Wrapper clickable: cualquier click en la caja abre el calendario
@@ -1141,21 +1144,28 @@
                                    style="flex:1;width:auto;min-width:0;height:28px;padding:0 6px;border:none;background:transparent;font-size:12px;color:#334155;outline:none;cursor:pointer;">
                         </div>
                     </div>
-                    <button type="button" onclick="window.almKpLimpiar()" style="background:transparent;border:none;color:#64748b;font-size:11px;font-weight:700;text-decoration:underline;cursor:pointer;margin-left:auto;white-space:nowrap;">Limpiar</button>
                 </div>
             </div>
 
             {{-- Tabla compacta: 4 columnas (sin Producto, ya conocido; sin Fecha, que el
                  cliente pidió quitar — el rango sigue filtrable arriba). El thead queda
-                 sticky para que se vea al hacer scroll. --}}
+                 sticky para que se vea al hacer scroll.
+
+                 Anchos en PORCENTAJE que suman 100. Antes las tres primeras columnas llevaban
+                 width:1% (encoger al contenido), así que quedaban apretadas contra el borde
+                 izquierdo y "Destino / Ref" se quedaba con todo el ancho sobrante. Con la
+                 columna Fecha fuera, ese reparto dejaba la tabla muy desbalanceada.
+                 Sin table-layout:fixed a propósito: los porcentajes mandan mientras el
+                 contenido quepa, pero una cantidad larga puede ensanchar su columna en vez
+                 de desbordarse (las celdas de Tipo/Cantidad/Stock son white-space:nowrap). --}}
             <div style="overflow:auto;max-height:48vh;border:1px solid #e2e8f0;border-radius:8px;">
                 <table style="width:100%;border-collapse:separate;border-spacing:0;">
                     <thead>
                         <tr style="background:#1e293b;color:#fff;position:sticky;top:0;z-index:1;">
-                            <th style="width:1%;padding:7px 8px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;text-align:center;white-space:nowrap;">Tipo</th>
-                            <th style="width:1%;padding:7px 8px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;text-align:center;white-space:nowrap;">Cantidad</th>
-                            <th style="width:1%;padding:7px 8px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;text-align:center;white-space:nowrap;">Stock</th>
-                            <th style="padding:7px 8px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;text-align:left;">Destino / Ref</th>
+                            <th style="width:20%;padding:7px 8px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;text-align:center;white-space:nowrap;">Tipo</th>
+                            <th style="width:24%;padding:7px 8px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;text-align:center;white-space:nowrap;">Cantidad</th>
+                            <th style="width:14%;padding:7px 8px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;text-align:center;white-space:nowrap;">Stock</th>
+                            <th style="width:42%;padding:7px 8px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;text-align:left;">Destino / Ref</th>
                         </tr>
                     </thead>
                     <tbody id="almKpBody">
@@ -1398,14 +1408,14 @@
                  sub-modal (vía almDetalleAccion). almGuardarUbicacionDetalle compara contra el
                  valor cargado, así que salir sin tocar el campo no dispara ningún PATCH. --}}
             <div style="padding-top:2px;text-align:center;">
-                <label for="almDetUbicacion" style="font-size:12.5px;font-weight:700;color:#475569;">📍 Ubicación en estante, fila o nivel</label>
-                {{-- max-width: el valor típico es corto ("A-3", "ESTANTE 2 NIVEL 1") y a lo
-                     ancho del modal el campo se veía desproporcionado. Se conserva width:100%
-                     para que encoja solo en pantallas angostas. Lo centra el text-align del
-                     div padre (el input es inline-block: margin:auto NO lo centraría). --}}
+                <label for="almDetUbicacion" style="font-size:12.5px;font-weight:700;color:#475569;">Ubicación en estante, fila o nivel</label>
+                {{-- max-width: deja aire a los lados sin llegar al borde del modal. Se conserva
+                     width:100% para que encoja solo en pantallas angostas. Lo centra el
+                     text-align del div padre (el input es inline-block: margin:auto NO lo
+                     centraría). --}}
                 <input type="text" id="almDetUbicacion" maxlength="150" autocomplete="off"
                        onkeydown="if(event.key==='Enter'){event.preventDefault();window.almGuardarUbicacionDetalle();}"
-                       style="width:100%;max-width:220px;min-width:0;margin-top:4px;text-align:center;">
+                       style="width:100%;max-width:320px;min-width:0;margin-top:4px;text-align:center;">
                 <div id="almDetUbicacionError" style="display:none;color:#dc2626;font-size:12px;font-weight:600;margin-top:4px;"></div>
             </div>
 
@@ -3705,14 +3715,6 @@
     // almKpChipSelect: gestiona el filtro de tipo desde el <select> del modal kardex.
     window.almKpChipSelect = function (tipo) {
         window.__almKp.tipo = tipo || '';
-        window.almKpCargar();
-    };
-
-    window.almKpLimpiar = function () {
-        window.__almKp.tipo = ''; window.__almKp.desde = ''; window.__almKp.hasta = '';
-        if (el('almKpDesde'))      el('almKpDesde').value = '';
-        if (el('almKpHasta'))      el('almKpHasta').value = '';
-        if (el('almKpTipoSelect')) el('almKpTipoSelect').value = '';
         window.almKpCargar();
     };
 
