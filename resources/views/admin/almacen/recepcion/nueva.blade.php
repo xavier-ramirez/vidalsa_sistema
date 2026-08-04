@@ -88,7 +88,7 @@
     .ent-input { width:100%; min-width:0; height:38px; border:1px solid #cbd5e0; border-radius:8px; padding:0 10px; font-size:13px; background:#fff; outline:none; box-sizing:border-box; color:#0f172a; }
     .ent-input:focus { border-color:var(--maquinaria-blue,#0067b1); box-shadow:0 0 0 2px rgba(0,103,177,0.10); }
     .ent-input::placeholder { color:#94a3b8; opacity:1; }
-    select.ent-input { cursor:pointer; }
+    select.ent-input { cursor:default; }
 
     /* UM autocomplete */
     .ent-um-wrap { position:relative; }
@@ -108,7 +108,7 @@
         z-index:9000; display:none;
     }
     .ent-um-suggest.open { display:block; }
-    .ent-um-suggest-item { padding:6px 10px; border-radius:6px; cursor:pointer; font-size:12.5px; font-weight:600; color:#0f172a; }
+    .ent-um-suggest-item { padding:6px 10px; border-radius:6px; cursor:default; font-size:12.5px; font-weight:600; color:#0f172a; }
     .ent-um-suggest-item:hover, .ent-um-suggest-item.active { background:#e1effa; }
     .ent-um-suggest-empty { padding:8px 10px; font-size:11.5px; color:#94a3b8; font-style:italic; }
 
@@ -122,7 +122,7 @@
        — sin override propio — para que todo el badge se vea uniforme. */
     .ent-selected-badge { display:none; position:absolute; inset:0; z-index:2; align-items:center; gap:6px; padding:0 12px; background:#fff; border:1px solid #cbd5e0; border-radius:10px; color:#0f172a; font-size:13.5px; font-weight:600; white-space:nowrap; overflow:hidden; box-sizing:border-box; }
     .ent-selected-badge.show { display:flex; }
-    .ent-selected-badge .clear { cursor:pointer; color:#475569; margin-left:auto; font-size:18px; }
+    .ent-selected-badge .clear { cursor:default; color:#475569; margin-left:auto; font-size:18px; }
     .ent-selected-badge .clear:hover { color:#dc2626; }
 
     .ent-suggest {
@@ -133,7 +133,7 @@
         z-index:9000; display:none;
     }
     .ent-suggest.open { display:block; }
-    .ent-suggest-item { display:flex; flex-direction:row; align-items:baseline; gap:8px; padding:8px 12px; border-radius:6px; cursor:pointer; transition:background .12s; }
+    .ent-suggest-item { display:flex; flex-direction:row; align-items:baseline; gap:8px; padding:8px 12px; border-radius:6px; cursor:default; transition:background .12s; }
     .ent-suggest-item:hover, .ent-suggest-item.active { background:#e1effa; }
     /* Nº de parte del filtro que coincidió con lo buscado — gris, delante del nombre (como /admin/almacen). */
     .ent-suggest-item .parte { flex:0 0 auto; font-size:12.5px; font-weight:600; color:#475569; white-space:nowrap; }
@@ -158,7 +158,7 @@
     .ent-capt-bar .ent-um-wrap      { flex:0 1 150px; }
     .ent-capt-bar .ent-cant-stepper { flex:0 1 130px; }
     .ent-capt-add-btn {
-        flex:0 0 auto; width:40px; height:40px; border-radius:10px; border:none; cursor:pointer;
+        flex:0 0 auto; width:40px; height:40px; border-radius:10px; border:none; cursor:default;
         background:var(--maquinaria-blue,#0067b1); color:#fff;
         display:flex; align-items:center; justify-content:center;
         transition:background .15s, transform .1s;
@@ -185,7 +185,7 @@
     .ent-list-table tbody .col-del  { text-align:center; }
     .ent-list-nom { font-size:13.5px; font-weight:600; color:#0f172a; display:block; }
     .ent-list-meta { font-size:11px; color:#94a3b8; }
-    .ent-row-del-btn { background:none; border:none; cursor:pointer; color:#dc2626; padding:4px; border-radius:6px; transition:background .12s; }
+    .ent-row-del-btn { background:none; border:none; cursor:default; color:#dc2626; padding:4px; border-radius:6px; transition:background .12s; }
     .ent-row-del-btn:hover { background:#fee2e2; }
 
     /* Responsive mobile — en estilos_globales.css scopeado con body:has(.ent-layout). */
@@ -210,7 +210,7 @@
        todo el ancho del panel y apilados. */
     .ent-summary-actions { display:flex; flex-direction:column; gap:10px; }
     /* Botones más bajos que el global (12px 24px): aquí van apilados y a todo el ancho. */
-    .ent-summary-actions .btn-primary-maquinaria { width:100%; justify-content:center; cursor:pointer; padding:8px 18px; }
+    .ent-summary-actions .btn-primary-maquinaria { width:100%; justify-content:center; cursor:default; padding:8px 18px; }
 
 </style>
 
@@ -233,9 +233,9 @@
         </div>
         <div class="ent-field-group">
             <label class="ent-field-label" for="entFecha">Fecha</label>
-            <div class="ent-input" style="display:flex;align-items:center;cursor:pointer;"
+            <div class="ent-input" style="display:flex;align-items:center;cursor:default;"
                  onclick="var i=document.getElementById('entFecha'); if(i){ i.focus(); if(i.showPicker) try{i.showPicker();}catch(e){} }">
-                <input type="date" id="entFecha" style="flex:1;min-width:0;height:100%;border:none;background:transparent;padding:0;font-size:13px;outline:none;color:#0f172a;cursor:pointer;">
+                <input type="date" id="entFecha" style="flex:1;min-width:0;height:100%;border:none;background:transparent;padding:0;font-size:13px;outline:none;color:#0f172a;cursor:default;">
             </div>
         </div>
     </div>

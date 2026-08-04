@@ -132,9 +132,9 @@
     #trEstadoDropdown .dropdown-trigger,
     .tr-date-box { height:40px; border-radius:8px; }
     /* Cajas de fecha (Desde/Hasta), dentro del panel "Filtros avanzados". */
-    .tr-date-box { display:flex; align-items:center; gap:5px; border:1px solid #cbd5e0; padding:0 10px; cursor:pointer; box-sizing:border-box; }
+    .tr-date-box { display:flex; align-items:center; gap:5px; border:1px solid #cbd5e0; padding:0 10px; cursor:default; box-sizing:border-box; }
     .tr-date-box i { font-size:16px; color:#94a3b8; pointer-events:none; }
-    .tr-date-box input[type=date] { flex:1; min-width:0; border:none; background:transparent; padding:0; font-size:12px; outline:none; color:#0f172a; cursor:pointer; }
+    .tr-date-box input[type=date] { flex:1; min-width:0; border:none; background:transparent; padding:0; font-size:12px; outline:none; color:#0f172a; cursor:default; }
 
     /* Panel "Filtros avanzados": UNA grilla de 2 columnas para los tres campos — el Estado
        ocupa las dos (.tr-adv-full) y Desde/Hasta una cada uno, así el mismo `gap` separa las
@@ -184,7 +184,7 @@
        .alm-suggest-item (/almacen): 10px 15px, radio 8 y realce #f0f4f8. Recepción iba por
        su cuenta (8px 12px, radio 6, realce azul) y su lista se veía de otro módulo. */
     .tr-suggest-item {
-        padding:10px 15px; border-radius:8px; cursor:pointer;
+        padding:10px 15px; border-radius:8px; cursor:default;
         font-family:inherit; font-size:13.5px; font-weight:500; color:#0f172a;
         letter-spacing:0; transition:background .2s;
     }
@@ -213,7 +213,7 @@
        (flex:1 1 100% lo fuerza al siguiente renglón). */
     /* Cada métrica: contenido centrado (icono+número en una línea, label debajo),
        clicable para filtrar la bandeja. */
-    .tr-stats-sub { display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:3px 6px; padding:8px 4px; border-radius:8px; text-align:center; cursor:pointer; user-select:none; transition:transform .12s ease, box-shadow .15s ease, filter .15s ease; }
+    .tr-stats-sub { display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:3px 6px; padding:8px 4px; border-radius:8px; text-align:center; cursor:default; user-select:none; transition:transform .12s ease, box-shadow .15s ease, filter .15s ease; }
     .tr-stats-sub i { font-size:18px; }
     .tr-stats-sub strong { flex:0 0 auto; font-weight:800; font-size:18px; color:#fff; }
     .tr-stats-sub span { flex:1 1 100%; font-size:10px; opacity:0.9; font-weight:700; text-transform:uppercase; line-height:1.1; }
@@ -239,7 +239,7 @@
     .tr-table thead th:last-child { border-right:none; }
     .tr-table tbody td { padding:12px 14px; color:#000; border-bottom:1px solid #e2e8f0; border-right:1px solid #e2e8f0; text-align:center; vertical-align:middle; }
     .tr-table tbody td:last-child { border-right:none; }
-    .tr-table tbody tr:hover td { background:#e0f2fe; cursor:pointer; }
+    .tr-table tbody tr:hover td { background:#e0f2fe; cursor:default; }
     .tr-table tbody tr:nth-child(even) td { background:#fafbfc; }
     .tr-table tbody tr:nth-child(even):hover td { background:#e0f2fe; }
     .estado-pill { display:inline-flex; align-items:center; gap:4px; padding:3px 9px; border-radius:999px; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.3px; }
@@ -275,7 +275,7 @@
     .dtm-numero { font-family:monospace; font-size:15px; font-weight:800; color:#fff; }
     .dtm-close {
         position:absolute; right:12px; top:50%; transform:translateY(-50%);
-        background:transparent; border:none; cursor:pointer;
+        background:transparent; border:none; cursor:default;
         color:#fff; opacity:.75; padding:4px; border-radius:6px; transition:opacity .15s;
     }
     .dtm-close:hover { opacity:1; }
@@ -289,7 +289,7 @@
        el botón "Acciones" del resto de la app — no de píldora, que desentonaba. */
     .dtm-marcar-todas { display:inline-flex; align-items:center; gap:5px; flex:none; height:38px; padding:0 12px;
         border:1px solid #cbd5e0; border-radius:12px; background:#fff; color:#0067b1;
-        font-family:inherit; font-size:11.5px; font-weight:800; text-transform:uppercase; letter-spacing:.3px; cursor:pointer; }
+        font-family:inherit; font-size:11.5px; font-weight:800; text-transform:uppercase; letter-spacing:.3px; cursor:default; }
     .dtm-marcar-todas:hover { background:#e1effa; border-color:#0067b1; }
     .dtm-marcar-todas .material-icons { font-size:16px; }
     /* Todas tildadas → el botón pasa a ser "Quitar todas" y se ve encendido. */
@@ -328,7 +328,7 @@
     /* Recepción activa: tocar la fila la marca (azul) y rellena su campo "Recibido" con lo
        enviado. Si llegó menos, se escribe el número a mano; el campo manda sobre el toque.
        Columna estrecha: solo aloja una cifra corta. */
-    .dtm-linea-rec { cursor:pointer; }
+    .dtm-linea-rec { cursor:default; }
     .dtm-linea-rec.recibida td { background:#e1effa; }
     .dtm-linea-rec.recibida:hover td { background:#d6e9fb; }
     .dtm-rec-cant { width:1%; white-space:nowrap; padding-left:4px !important; padding-right:4px !important; }
@@ -365,7 +365,7 @@
     .dtm-buscar-box.active { border-color:#0067b1; background:#e1effa; }
     .dtm-buscar-box .lupa { padding:0 8px; color:#64748b; font-size:18px; }
     .dtm-buscar-box input { flex:1; min-width:0; border:none; background:transparent; outline:none; padding:0 4px; font-family:inherit; font-size:13.5px; color:#0f172a; }
-    .dtm-buscar-clear { padding:0 8px; color:#64748b; font-size:18px; cursor:pointer; display:none; }
+    .dtm-buscar-clear { padding:0 8px; color:#64748b; font-size:18px; cursor:default; display:none; }
     .dtm-buscar-box.active .dtm-buscar-clear { display:block; }
     /* Fila "sin resultados" del buscador (la inyecta trFiltrarLineas). */
     .dtm-sin-resultados td { text-align:center; color:#94a3b8; font-size:13px; padding:22px 10px; }
@@ -381,7 +381,7 @@
        .dt-btn-primary ya no se define aquí: su único usuario era "Confirmar todo", que se
        eliminó. La página /recepcion/{id} tiene su propia hoja y su propio .dt-btn-primary. */
     .dt-btn {
-        height:36px; padding:0 16px; border-radius:10px; cursor:pointer;
+        height:36px; padding:0 16px; border-radius:10px; cursor:default;
         font-size:13px; font-weight:700; letter-spacing:.2px;
         display:inline-flex; align-items:center; justify-content:center; gap:6px;
         border:none; transition:background .15s, transform .1s, opacity .15s;
@@ -442,7 +442,14 @@
         .main-viewport { padding-left: 8px !important; padding-right: 8px !important; width: 100% !important; max-width: 100% !important; box-sizing: border-box !important; padding-top: 12px !important; }
         /* Contenedor blanco (.admin-card): padding interno chico y full-width.
            box-sizing:border-box ya viene de la clase global .admin-card. */
-        .admin-card { padding: 4px !important; margin: 0 !important; width: 100% !important; }
+        /* flex:0 0 auto — RESETEA el `flex:1 1 0` inline que la tarjeta necesita en
+           escritorio. Allí .tr-layout es una FILA y ese flex reparte el ancho sobrante;
+           aquí pasa a COLUMNA (regla de arriba), así que el mismo flex-basis:0 se aplica a
+           la ALTURA: la tarjeta se quedaba en su min-height (70vh) sin crecer con el
+           contenido, y las tarjetas de las notas se salían por debajo del recuadro blanco.
+           Con `auto` la altura la manda el contenido y el min-height solo hace de suelo. */
+        .admin-card { padding: 4px !important; margin: 0 !important; width: 100% !important;
+            flex: 0 0 auto !important; }
         /* page-title-card: el global mobile le pone width:100% y menu.css le mete
            padding:8px 12px — SIN box-sizing:border-box el ancho real es 100%+24px
            y se desborda 24px a la derecha (clippeado), dejando el contenido
@@ -521,7 +528,7 @@
             box-shadow: 0 4px 12px rgba(15,23,42,0.04) !important;
             padding: 14px 16px !important;
             overflow: hidden !important;
-            cursor: pointer !important;
+            cursor: default !important;
             transition: box-shadow 0.2s ease, transform 0.15s ease !important;
         }
         .tr-table tbody tr[data-id]:active {
@@ -643,7 +650,7 @@
                        onblur="setTimeout(function(){ var s=document.getElementById('trProdSuggest'); if(s) s.classList.remove('open'); }, 150);">
                 <input type="hidden" id="trIdProducto" value="{{ $reqIdProd }}">
                 <i class="material-icons" id="trProdClear" title="Limpiar filtro por producto"
-                   style="display:{{ $reqIdProd ? 'flex' : 'none' }};align-items:center;padding:0 10px;color:#64748b;font-size:18px;cursor:pointer;"
+                   style="display:{{ $reqIdProd ? 'flex' : 'none' }};align-items:center;padding:0 10px;color:#64748b;font-size:18px;cursor:default;"
                    onclick="window.trProdClear()">close</i>
             </div>
             <div id="trProdSuggest" class="tr-suggest"></div>
@@ -662,7 +669,7 @@
                 {{-- X = vaciar el filtro (mismo patrón que el buscador del módulo Inventario).
                      Visible solo cuando hay texto. --}}
                 <i class="material-icons" id="trSearchClear" title="Limpiar filtro"
-                   style="display:{{ $reqSearch ? 'flex' : 'none' }};align-items:center;padding:0 10px;color:#64748b;font-size:18px;cursor:pointer;"
+                   style="display:{{ $reqSearch ? 'flex' : 'none' }};align-items:center;padding:0 10px;color:#64748b;font-size:18px;cursor:default;"
                    onclick="window.trSearchClear()">close</i>
             </div>
             {{-- Sugerencias en vivo: lista los N° de nota visibles al usuario que coinciden
@@ -717,7 +724,7 @@
             <div id="trAdvPanel" style="display:none;position:absolute;top:100%;right:0;width:300px;max-width:calc(100vw - 20px);box-sizing:border-box;background:#e2e8f0;border-radius:12px;box-shadow:0 10px 25px -5px rgba(0,0,0,0.15);border:1px solid #cbd5e1;z-index:100;margin-top:10px;padding:15px;">
                 <h4 style="margin:0 0 12px 0;font-size:14px;font-weight:700;color:#334155;display:flex;justify-content:space-between;align-items:center;">
                     Filtros avanzados
-                    <span style="font-size:12px;color:#64748b;font-weight:400;text-decoration:underline;cursor:pointer;" onclick="window.trClearAvanzados()">Limpiar</span>
+                    <span style="font-size:12px;color:#64748b;font-weight:400;text-decoration:underline;cursor:default;" onclick="window.trClearAvanzados()">Limpiar</span>
                 </h4>
 
                 {{-- Estado: ocupa las 2 columnas de la grilla, arriba de las fechas. Mismo
@@ -735,14 +742,14 @@
                         <div class="dropdown-trigger" style="padding:0;display:flex;align-items:center;background:{{ $estadoActivo ? '#e1effa' : '#fbfcfd' }};overflow:hidden;border:1px solid {{ $estadoActivo ? '#0067b1' : '#cbd5e0' }};">
                             <input type="text" name="filter_search_dropdown" data-filter-search autocomplete="off"
                                    placeholder="{{ $reqEstadoLabel }}"
-                                   style="flex:1;border:none;background:transparent;padding:8px 10px;font-weight:400;color:#0f172a;outline:none;min-width:0;cursor:pointer;"
+                                   style="flex:1;border:none;background:transparent;padding:8px 10px;font-weight:400;color:#0f172a;outline:none;min-width:0;cursor:default;"
                                    oninput="window.filterDropdownOptions(this)">
                             {{-- X = quitar el filtro de estado → vuelve al default de la bandeja.
                                  clearDropdownFilter usa el data-default-label de arriba, así no
                                  se repite el literal. El selectOption global la muestra solo
                                  cuando hay un estado concreto elegido. --}}
                             <i class="material-icons" data-clear-btn title="Quitar filtro de estado"
-                               style="padding:0 4px;color:#64748b;font-size:16px;cursor:pointer;transform:none !important;display:{{ $estadoActivo ? 'block' : 'none' }};"
+                               style="padding:0 4px;color:#64748b;font-size:16px;cursor:default;transform:none !important;display:{{ $estadoActivo ? 'block' : 'none' }};"
                                onclick="event.stopPropagation(); clearDropdownFilter('trEstadoDropdown');">close</i>
                             <i class="material-icons" style="padding:0 6px;color:#64748b;font-size:16px;pointer-events:none;transform:none !important;">expand_more</i>
                         </div>

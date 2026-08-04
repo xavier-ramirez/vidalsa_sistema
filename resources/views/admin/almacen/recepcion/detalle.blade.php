@@ -91,7 +91,7 @@
         background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px;
     }
     .dt-btn {
-        height:42px; padding:0 20px; border-radius:10px; cursor:pointer;
+        height:42px; padding:0 20px; border-radius:10px; cursor:default;
         font-size:13.5px; font-weight:700; letter-spacing:.2px;
         display:inline-flex; align-items:center; gap:6px;
         transition:background .15s, transform .1s;
@@ -229,7 +229,7 @@
                             </td>
                             <td class="rec-diff" style="text-align:right;color:#64748b;font-weight:700;font-family:monospace;font-size:13px;">0</td>
                             <td style="text-align:center;">
-                                <label style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:#b45309;cursor:pointer;">
+                                <label style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:#b45309;cursor:default;">
                                     <input type="checkbox" class="rec-danado" style="margin:0;accent-color:#b45309;">Dañado
                                 </label>
                             </td>
