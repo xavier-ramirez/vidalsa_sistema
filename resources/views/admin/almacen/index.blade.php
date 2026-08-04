@@ -765,7 +765,11 @@
                     </button>
                     {{-- Papelera: productos eliminados (soft-delete) — buscar y restaurar. --}}
                     <button type="button" onclick="document.getElementById('almAccionesMenu').style.display='none'; window.almAbrirPapelera();" class="dropdown-item-custom" style="display:flex;align-items:center;gap:10px;padding:11px 14px;color:#475569;background:transparent;border:none;width:100%;text-align:left;cursor:pointer;">
-                        <div style="background:#fef3c7;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#d97706;">restore_from_trash</i></div>
+                        {{-- Papelera: MISMO glifo que usa /admin/equipos en su menú Acciones
+                             (delete_outline). El color se queda en ámbar, no en el rojo de
+                             Equipos: allá la acción borra al instante, aquí solo ABRE la
+                             papelera para restaurar — pintarla de rojo prometería un borrado. --}}
+                        <div style="background:#fef3c7;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#d97706;">delete_outline</i></div>
                         <span style="font-size:14px;font-weight:500;">Papelera de productos</span>
                     </button>
                 </div>
@@ -955,7 +959,10 @@
         {{-- Encabezado oscuro --}}
         <div style="background:#1e293b; padding:12px 16px; color:white; display:flex; justify-content:center; align-items:center; position:relative; flex-shrink:0;">
             <div style="display:flex; align-items:center; gap:8px;">
-                <i class="material-icons" style="color:#f59e0b; font-size:18px;">restore_from_trash</i>
+                {{-- Mismo glifo que el item "Papelera de productos" del menú Acciones que abre
+                     este modal (delete_outline): si el encabezado usara otro icono parecería
+                     otra pantalla. --}}
+                <i class="material-icons" style="color:#f59e0b; font-size:18px;">delete_outline</i>
                 <h2 style="margin:0; font-size:14px; font-weight:700;">Papelera de productos</h2>
             </div>
             <button type="button" onclick="almCerrar('almPapeleraModal')" style="position:absolute; right:12px; background:transparent; border:none; color:white; cursor:pointer; opacity:0.7; transition:opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">
