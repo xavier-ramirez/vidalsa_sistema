@@ -8,11 +8,9 @@
     $fmt = fn ($n) => rtrim(rtrim(number_format((float) $n, 3, ',', '.'), '0'), ',') ?: '0';
     // Metadata visual única (TIPO_META) definida en el modelo — coherencia con el partial grande.
     $tipoMeta = \App\Models\MovimientoInventario::TIPO_META;
-    // Pares almacén↔frente para "(consumo interno)" — mismo criterio que kardex_rows.blade.php.
-    $paresAlmFrente = \Illuminate\Support\Facades\DB::table('almacen_frentes')
-        ->whereIn('ID_ALMACEN', $rows->pluck('ID_ALMACEN')->filter()->unique())
-        ->get(['ID_ALMACEN', 'ID_FRENTE'])
-        ->mapWithKeys(fn ($p) => [$p->ID_ALMACEN . '-' . $p->ID_FRENTE => true]);
+    // NOTA: aquí NO se consulta almacen_frentes. La etiqueta "(consumo interno)" que la
+    // necesitaba se quitó de este modal a pedido del cliente; el partial grande
+    // (kardex_rows.blade.php) sí la conserva y hace su propia consulta.
 @endphp
 
 @if($rows->count() === 0)
@@ -37,25 +35,24 @@
                 </span>
             </td>
             <td style="padding:7px 8px;text-align:center;font-weight:800;color:{{ $entra || ($m->TIPO==='AJUSTE' && $signo==='+') ? '#16a34a' : '#dc2626' }};white-space:nowrap;font-size:12.5px;">
-                {{ $signo }}{{ $fmt($mag) }} <span style="color:#64748b;font-weight:600;font-size:11px;">{{ $m->producto?->UM }}</span>
+                {{ $signo }}{{ $fmt($mag) }} <span style="color:#64748b;font-weight:600;font-size:9.5px;">{{ $m->producto?->UM }}</span>
             </td>
             <td title="Antes: {{ $fmt($m->CANTIDAD_ANTERIOR) }} → Después: {{ $fmt($m->CANTIDAD_RESULTANTE) }}"
                 style="padding:7px 8px;text-align:center;font-weight:700;white-space:nowrap;font-size:12.5px;">
                 {{ $fmt($m->CANTIDAD_RESULTANTE) }}
             </td>
-            <td style="padding:7px 8px;font-size:12px;color:#475569;">
-                {{-- Mismo criterio que kardex_rows.blade.php (Destino): el nombre del frente
-                     SIEMPRE se muestra (el cliente necesita ver a quién se le entregó cada
-                     cosa). Si es SALIDA pura (sin contraparte) hacia un frente que el almacén
-                     SIRVE, se agrega la etiqueta chica "(consumo interno)" debajo, sin ocultar
-                     el frente; frente ajeno al almacén → sin etiqueta. --}}
+            {{-- overflow-wrap:anywhere — es la única columna con texto libre (frente,
+                 proveedor, notas): garantiza que nada la ensanche más allá de su
+                 porcentaje y se salga del modal. --}}
+            <td style="padding:7px 8px;font-size:12px;color:#475569;overflow-wrap:anywhere;">
+                {{-- El nombre del frente SIEMPRE se muestra: el cliente necesita ver a quién
+                     se le entregó cada cosa. A diferencia de kardex_rows.blade.php, aquí NO
+                     va la etiqueta "(consumo interno)" — el cliente la pidió fuera de este
+                     modal. --}}
                 @if($m->frente)
-                    <div style="font-weight:600;color:#0f172a;">{{ $m->frente->NOMBRE_FRENTE }}</div>
-                    @if($m->TIPO === 'SALIDA' && !$m->ID_ALMACEN_CONTRAPARTE && isset($paresAlmFrente[$m->ID_ALMACEN . '-' . $m->ID_FRENTE]))
-                        <div style="font-size:10px;color:#94a3b8;font-style:italic;" title="El material no salió de este almacén — fue consumido por un frente que este almacén sirve, no hubo traspaso">(consumo interno)</div>
-                    @endif
+                    <div style="font-size:11px;font-weight:600;color:#0f172a;">{{ $m->frente->NOMBRE_FRENTE }}</div>
                 @elseif($m->ID_ALMACEN_CONTRAPARTE)
-                    <div style="font-weight:600;color:#0f172a;">{{ $m->almacenContraparte?->NOMBRE ?? '—' }}</div>
+                    <div style="font-size:11px;font-weight:600;color:#0f172a;">{{ $m->almacenContraparte?->NOMBRE ?? '—' }}</div>
                 @endif
                 @if($m->NUMERO_NOTA)
                     <div style="font-size:10.5px;margin-top:2px;">
