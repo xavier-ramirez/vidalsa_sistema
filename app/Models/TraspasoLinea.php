@@ -41,6 +41,17 @@ class TraspasoLinea extends Model
         self::ESTADO_DANADO    => ['Dañado',    '#fef3c7', '#b45309'],
     ];
 
+    /**
+     * Estados de línea que son una DISCREPANCIA con lo despachado: lo que alimenta el filtro
+     * "Con discrepancias" de la bandeja de Recepción. PENDIENTE no entra (no es una diferencia,
+     * es que aún no se revisó) y OK tampoco (cuadró).
+     */
+    public const ESTADOS_DISCREPANCIA = [
+        self::ESTADO_FALTANTE,
+        self::ESTADO_SOBRANTE,
+        self::ESTADO_DANADO,
+    ];
+
     /** Fallback cuando ESTADO_LINEA no figura en ESTADOS_META (defensivo). */
     public const ESTADO_META_DEFAULT = ['—', '#f1f5f9', '#64748b'];
 
@@ -96,4 +107,25 @@ class TraspasoLinea extends Model
     // Sin helpers esFaltante()/esSobrante()/esDanado()/esOk(): nadie los llamaba. Las vistas
     // resuelven el estado de la línea con ESTADOS_META[$linea->ESTADO_LINEA], que es la única
     // fuente de su etiqueta y sus colores.
+
+    /**
+     * ¿Ya se confirmó esta línea? Es EL concepto sobre el que gira la recepción parcial:
+     * decide si la nota queda RECIBIDO o RECIBIDO_PARCIAL, si la fila del modal se puede
+     * volver a tildar y si el servidor debe ignorarla para no duplicar stock.
+     *
+     * La marca es CANTIDAD_RECIBIDA (NULL = sin confirmar) y no ESTADO_LINEA: los dos campos
+     * se escriben siempre juntos —TraspasoService los pone en el alta y en la recepción— pero
+     * la cantidad es el dato, y el estado su etiqueta. Estaba deletreado a mano en el servicio,
+     * en las dos vistas de recepción y en la migración; aquí queda en un solo sitio.
+     */
+    public function estaConfirmada(): bool
+    {
+        return $this->CANTIDAD_RECIBIDA !== null;
+    }
+
+    /** Líneas todavía sin confirmar. Contraparte en consulta de estaConfirmada(). */
+    public function scopePendiente($query)
+    {
+        return $query->whereNull('CANTIDAD_RECIBIDA');
+    }
 }

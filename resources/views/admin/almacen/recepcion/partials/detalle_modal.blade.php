@@ -82,17 +82,28 @@
                         $diff = $linea->diferencia;
                         // Metadata visual del estado de línea — single source of truth en el modelo.
                         $el = \App\Models\TraspasoLinea::ESTADOS_META[$linea->ESTADO_LINEA] ?? \App\Models\TraspasoLinea::ESTADO_META_DEFAULT;
-                        $cantEnvFmt = rtrim(rtrim(number_format((float) $linea->CANTIDAD_ENVIADA, 3, ',', '.'), '0'), ',');
+                        // Formateo de cantidades en UN solo sitio: la misma expresión estaba
+                        // escrita 3 veces en este archivo.
+                        $fmtCant    = fn ($n) => rtrim(rtrim(number_format((float) $n, 3, ',', '.'), '0'), ',');
+                        $cantEnvFmt = $fmtCant($linea->CANTIDAD_ENVIADA);
+                        $cantRecFmt = $linea->estaConfirmada() ? $fmtCant($linea->CANTIDAD_RECIBIDA) : '—';
                         // Texto que consume el buscador del modal: código + descripción + todos
                         // los nºs de parte del producto, en minúsculas y en un solo atributo.
                         $prod   = $linea->producto;
                         $partes = $prod?->equivalencias?->pluck('NUMERO_PARTE')->implode(' ') ?? '';
                         $buscar = mb_strtolower(trim("{$prod?->CODIGO} {$prod?->NOMBRE} {$partes}"));
+                        // Línea YA confirmada en una recepción anterior. Pasa cuando la nota quedó
+                        // en RECIBIDO_PARCIAL (alguien confirmó una parte) y vuelve a abrirse desde
+                        // la bandeja para completar lo que falta. Se pinta hecha y NO vuelve a ser
+                        // marcable: el servidor la ignora (ver TraspasoService::recibir), así que un
+                        // input vacío aquí prometería un guardado que no va a ocurrir.
+                        $lineaConfirmada = $linea->estaConfirmada();
                     @endphp
                     {{-- .dtm-linea + data-* los usa el JS. Cuando $puedeRecibir, .dtm-linea-rec
                          hace la fila clicable: al tocarla se marca .recibida (azul) y
-                         trCollectLineas registra data-enviada como cantidad recibida. --}}
-                    <tr class="dtm-linea{{ $puedeRecibir ? ' dtm-linea-rec' : '' }}" data-id-linea="{{ $linea->ID_LINEA }}" data-enviada="{{ (float) $linea->CANTIDAD_ENVIADA }}" data-buscar="{{ $buscar }}">
+                         trCollectLineas la recoge leyendo su input. data-enviada solo lo usa
+                         trMarcarFila para precargar ese input al tildar. --}}
+                    <tr class="dtm-linea{{ $puedeRecibir && !$lineaConfirmada ? ' dtm-linea-rec' : '' }}" data-id-linea="{{ $linea->ID_LINEA }}" data-enviada="{{ (float) $linea->CANTIDAD_ENVIADA }}" data-buscar="{{ $buscar }}">
                         <td class="dtm-col-idx">{{ $loop->iteration }}</td>
                         <td class="dtm-td-prod">
                             <span class="dtm-linea-cod">{{ optional($linea->producto)->CODIGO }}</span>
@@ -115,16 +126,33 @@
                             {{-- Check verde: reaparece al marcar la fila (.recibida). Es la señal
                                  de "esta línea la doy por recibida"; el número dice cuánto. Sin él
                                  la única pista era el tono azul, y en una nota larga se perdía. --}}
-                            <td class="dtm-col-num dtm-rec-cant">
-                                <i class="material-icons dtm-rec-ico" aria-hidden="true">check_circle</i>
-                                <input type="text" class="dtm-rec-input" inputmode="decimal"
-                                       placeholder="0" value="" autocomplete="off"
-                                       aria-label="Cantidad recibida"
-                                       onclick="event.stopPropagation();"
-                                       oninput="window.trRecInput && window.trRecInput(this)">
-                            </td>
+                            @if($lineaConfirmada)
+                                {{-- Ya confirmada antes: se muestra el número recibido, sin input.
+                                     Misma columna (la tabla sigue teniendo 4), solo cambia el
+                                     contenido — así el usuario ve de un vistazo qué falta por
+                                     confirmar y qué no. --}}
+                                {{-- El color sale de ESTADOS_META ($el), NO de un verde fijo: una
+                                     línea confirmada como FALTANTE o DAÑADO tiene que verse roja
+                                     o ámbar aquí igual que en la página de detalle. Con el verde
+                                     de "OK" quemado a mano, un faltante ya confirmado se leía
+                                     como correcto justo en la pantalla donde se decide. --}}
+                                <td class="dtm-col-num" style="color:{{ $el[2] }};font-weight:700;"
+                                    title="Ya confirmada en una recepción anterior — {{ $el[0] }}">
+                                    <i class="material-icons" style="font-size:15px;vertical-align:-3px;">check_circle</i>
+                                    {{ $cantRecFmt }}
+                                </td>
+                            @else
+                                <td class="dtm-col-num dtm-rec-cant">
+                                    <i class="material-icons dtm-rec-ico" aria-hidden="true">check_circle</i>
+                                    <input type="text" class="dtm-rec-input" inputmode="decimal"
+                                           placeholder="0" value="" autocomplete="off"
+                                           aria-label="Cantidad recibida"
+                                           onclick="event.stopPropagation();"
+                                           oninput="window.trRecInput && window.trRecInput(this)">
+                                </td>
+                            @endif
                         @elseif($traspaso->esRecibido() || $traspaso->esCancelado())
-                            <td class="dtm-col-num" style="color:{{ $linea->CANTIDAD_RECIBIDA === null ? '#94a3b8' : ($diff < 0 ? '#dc2626' : ($diff > 0 ? '#1d4ed8' : '#0f172a')) }};">{{ $linea->CANTIDAD_RECIBIDA === null ? '—' : rtrim(rtrim(number_format((float) $linea->CANTIDAD_RECIBIDA, 3, ',', '.'), '0'), ',') }}</td>
+                            <td class="dtm-col-num" style="color:{{ !$linea->estaConfirmada() ? '#94a3b8' : ($diff < 0 ? '#dc2626' : ($diff > 0 ? '#1d4ed8' : '#0f172a')) }};">{{ $cantRecFmt }}</td>
                             <td><span class="dtm-diff-value" style="color:{{ $diff < 0 ? '#dc2626' : ($diff > 0 ? '#1d4ed8' : '#64748b') }};">{{ $diff > 0 ? '+' : '' }}{{ rtrim(rtrim(number_format($diff, 3, ',', '.'), '0'), ',') }}</span></td>
                             <td><span class="pill-linea" style="background:{{ $el[1] }};color:{{ $el[2] }};">{{ $el[0] }}</span></td>
                         @else

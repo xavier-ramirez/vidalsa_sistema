@@ -109,7 +109,9 @@ class AppServiceProvider extends ServiceProvider
                                 return 0;
                             }
                             return \App\Models\Traspaso::query()
-                                ->where('ESTADO', \App\Models\Traspaso::ESTADO_ENVIADO)
+                                // ESTADOS_RECIBIBLES, no solo ENVIADO: una nota parcial sigue
+                                // pidiendo accion (le faltan lineas por confirmar) y tiene que sumar.
+                                ->whereIn('ESTADO', \App\Models\Traspaso::ESTADOS_RECIBIBLES)
                                 ->whereIn('ID_ALMACEN_DESTINO', $almacenesAsociados)
                                 ->count();
                         }

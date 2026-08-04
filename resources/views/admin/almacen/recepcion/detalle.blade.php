@@ -202,6 +202,12 @@
                         $diff = $linea->diferencia;
                         // Metadata visual del estado de línea — single source of truth en el modelo.
                         $el = \App\Models\TraspasoLinea::ESTADOS_META[$linea->ESTADO_LINEA] ?? \App\Models\TraspasoLinea::ESTADO_META_DEFAULT;
+                        // Ya confirmada en una recepción anterior (nota RECIBIDO_PARCIAL que se
+                        // reabre para completar lo que falta): se muestra en solo lectura como en
+                        // una nota cerrada. Sin esto salía un input con la cantidad enviada
+                        // precargada, invitando a re-confirmar algo que el servidor ignora
+                        // (ver TraspasoService::recibir) — mismo criterio que en detalle_modal.
+                        $lineaConfirmada = $linea->CANTIDAD_RECIBIDA !== null;
                     @endphp
                     <tr data-id-linea="{{ $linea->ID_LINEA }}">
                         <td>
@@ -212,7 +218,7 @@
                             </div>
                         </td>
                         <td style="text-align:right;font-weight:700;font-family:monospace;font-size:13.5px;color:#0f172a;">{{ rtrim(rtrim(number_format((float) $linea->CANTIDAD_ENVIADA, 3, ',', '.'), '0'), ',') }}</td>
-                        @if($puedeRecibir)
+                        @if($puedeRecibir && !$lineaConfirmada)
                             <td style="text-align:right;">
                                 <input type="number" min="0" step="0.001" class="rec-cantidad"
                                        value="{{ rtrim(rtrim(number_format((float) $linea->CANTIDAD_ENVIADA, 3, '.', ''), '0'), '.') }}">
@@ -223,7 +229,7 @@
                                     <input type="checkbox" class="rec-danado" style="margin:0;accent-color:#b45309;">Dañado
                                 </label>
                             </td>
-                        @elseif($traspaso->esRecibido() || $traspaso->esCancelado())
+                        @elseif($lineaConfirmada || $traspaso->esRecibido() || $traspaso->esCancelado())
                             <td style="text-align:right;font-weight:700;font-family:monospace;font-size:13.5px;color:{{ $linea->CANTIDAD_RECIBIDA === null ? '#94a3b8' : ($diff < 0 ? '#dc2626' : ($diff > 0 ? '#1d4ed8' : '#0f172a')) }};">
                                 {{ $linea->CANTIDAD_RECIBIDA === null ? '—' : rtrim(rtrim(number_format((float) $linea->CANTIDAD_RECIBIDA, 3, ',', '.'), '0'), ',') }}
                             </td>
@@ -331,6 +337,11 @@
     window.trConfirmarTodoOk = function () {
         var lineas = [];
         document.querySelectorAll('tr[data-id-linea]').forEach(function (tr) {
+            // Sin input = línea YA confirmada en una recepción anterior (nota RECIBIDO_PARCIAL
+            // reabierta). Mismo criterio que trConfirmarRecepcion. El servidor igual las ignora,
+            // pero si se enviaran, el conteo del mensaje ("TODOS los materiales, N líneas")
+            // prometería confirmar más de lo que realmente se va a procesar.
+            if (!tr.querySelector('.rec-cantidad')) return;
             var enviada = parseFloat(tr.children[1].textContent.replace(/\./g, '').replace(',', '.')) || 0;
             lineas.push({
                 id_linea:          parseInt(tr.dataset.idLinea, 10),

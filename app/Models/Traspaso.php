@@ -28,7 +28,13 @@ class Traspaso extends Model
     public const ESTADO_RECIBIDO_PARCIAL = 'RECIBIDO_PARCIAL';
     public const ESTADO_CANCELADO        = 'CANCELADO';
 
-    /** Estados terminales — no admiten más transiciones. */
+    /**
+     * Estados que NO admiten anulación. Se llaman "finales" por historia: RECIBIDO_PARCIAL sí
+     * admite una transición más —volver a recibirse para completar las líneas pendientes, ver
+     * puedeRecibirse()—, pero igual que los otros dos ya movió stock al destino y no se puede
+     * revertir. Su único uso es esFinal(), y esFinal() solo lo consulta quien decide si se
+     * puede cancelar (TraspasoService::cancelar y $puedeCancelar del controller).
+     */
     public const ESTADOS_FINALES = [
         self::ESTADO_RECIBIDO,
         self::ESTADO_RECIBIDO_PARCIAL,
@@ -72,7 +78,15 @@ class Traspaso extends Model
      * Quedan fuera del default —solo se ven si se piden por el filtro— RECIBIDO (cerrada sin
      * novedad), BORRADOR (es del almacén que emite) y CANCELADO (ya revirtió el stock).
      */
-    public const ESTADOS_BANDEJA_DEFAULT = [
+    public const ESTADOS_BANDEJA_DEFAULT = self::ESTADOS_RECIBIBLES;
+
+    /**
+     * Notas que TODAVÍA admiten confirmación de mercancía — la definición de "pide acción del
+     * almacén que recibe". De aquí salen TRES cosas que antes se escribían por separado y
+     * podían desincronizarse: el default de la bandeja, puedeRecibirse() y los contadores
+     * ("Por revisar", el badge del menú). Si mañana se suma un estado, se suma una sola vez.
+     */
+    public const ESTADOS_RECIBIBLES = [
         self::ESTADO_ENVIADO,
         self::ESTADO_RECIBIDO_PARCIAL,
     ];
@@ -85,10 +99,11 @@ class Traspaso extends Model
      *   · all           → sin filtro de estado (historial completo de sus almacenes). NO se
      *                     ofrece en el dropdown (el cliente no quiere el histórico en la
      *                     bandeja); se acepta por URL y por eso conserva su rótulo.
-     *   · con_faltantes → notas YA CONFIRMADAS (ESTADOS_RECIBIDOS) con al menos una línea
-     *                     FALTANTE, es decir: se recibió MENOS cantidad de la que el origen
-     *                     despachó. Es la ÚNICA forma de encontrarlas: al confirmarse
-     *                     completas ya no aparecen en la bandeja por defecto.
+     *   · con_faltantes → notas YA CONFIRMADAS (ESTADOS_RECIBIDOS) con al menos una línea en
+     *                     discrepancia (TraspasoLinea::ESTADOS_DISCREPANCIA: faltante, sobrante
+     *                     o dañado). Es la ÚNICA forma de encontrarlas: al confirmarse completas
+     *                     ya no aparecen en la bandeja por defecto. (La constante conserva el
+     *                     nombre `con_faltantes` porque viaja en la URL y hay enlaces guardados.)
      */
     public const FILTRO_TODAS         = 'all';
     public const FILTRO_CON_FALTANTES = 'con_faltantes';
@@ -214,6 +229,24 @@ class Traspaso extends Model
     public function esRecibido(): bool   { return in_array($this->ESTADO, self::ESTADOS_RECIBIDOS, true); }
     public function esCancelado(): bool  { return $this->ESTADO === self::ESTADO_CANCELADO; }
     public function esFinal(): bool      { return in_array($this->ESTADO, self::ESTADOS_FINALES, true); }
+
+    /**
+     * ¿Se le puede (seguir) confirmando mercancía?
+     *
+     * ENVIADO es la primera confirmación. RECIBIDO_PARCIAL significa que quedaron líneas SIN
+     * confirmar y la nota SIGUE EN LA BANDEJA esperando que se completen (ver ESTADOS_BANDEJA_DEFAULT
+     * y el mensaje de TraspasoController::recibir). Sin incluirlo aquí, el mismo estado que la deja
+     * en la bandeja era el que impedía volver a recibirla: el modal se abría en solo lectura
+     * ($puedeRecibir) y el POST respondía 422 — la nota quedaba atascada para siempre y el material
+     * pendiente no se podía registrar nunca.
+     *
+     * Punto ÚNICO de la regla: lo usan TraspasoService::recibir (guarda del POST) y
+     * TraspasoController ($puedeRecibir, que decide si la vista pinta los inputs).
+     */
+    public function puedeRecibirse(): bool
+    {
+        return in_array($this->ESTADO, self::ESTADOS_RECIBIBLES, true);
+    }
 
     /**
      * Genera el siguiente folio (TR-YYYY-NNNN). Debe llamarse dentro de la misma

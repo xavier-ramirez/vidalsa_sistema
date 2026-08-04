@@ -2,27 +2,45 @@
 document.addEventListener('DOMContentLoaded', () => {
     const mainViewport = document.querySelector('.main-viewport');
 
-    // Intercept clicks on links
-    document.addEventListener('click', async (e) => {
-        const link = e.target.closest('a');
+    // Cabeceras de toda petición de navegación SPA. Fuente ÚNICA: las usan loadPage() y
+    // la precarga al pasar el mouse — deben ser IDÉNTICAS o el servidor podría responder
+    // distinto a la copia precargada que a la que pide el clic.
+    //   · Cache-Control/Pragma + cache:'no-store' → SIEMPRE el HTML actualizado, nunca una
+    //     copia vieja del navegador con código roto.
+    //   · X-SPA-Navigate: marca propia para que el Service Worker trate esto como
+    //     navegación → la cachea (network-first) y, SIN internet, sirve la copia cacheada
+    //     para poder moverse entre módulos offline. Es una cabecera CUSTOM a propósito (no
+    //     'Accept: text/html'): así NO cambia el expectsJson() de Laravel y el manejo online
+    //     de errores/permisos (403) queda IDÉNTICO.
+    const CABECERAS_SPA = {
+        'X-Requested-With': 'XMLHttpRequest',
+        'X-SPA-Navigate': '1',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache'
+    };
 
-        if (!link || !link.href) return;
+    // ¿Este <a> lo maneja la navegación SPA? Fuente ÚNICA de la regla: la usan el
+    // handler de clic y la PRECARGA al pasar el mouse (más abajo). Si las dos listas de
+    // exclusiones vivieran por separado, la precarga podría hacer un GET a una ruta que
+    // el clic descarta (ej. un <a href="#" onclick="exportar()">) → 405 en el servidor
+    // por un simple hover.
+    function esNavegableSPA(link) {
+        if (!link || !link.href) return false;
 
-        // Skip if link has target="_blank", or it's not a primary click (left click), or has alt/ctrl/meta keys
-        if (link.target === '_blank' || e.button !== 0 || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) {
-            return;
-        }
+        // Skip if link has target="_blank"
+        if (link.target === '_blank') return false;
 
         // Only internal links, ignore logout or external
-        const url = new URL(link.href);
+        let url;
+        try { url = new URL(link.href); } catch (_) { return false; }
 
         // Skip blob, data, and javascript URLs
         if (url.protocol === 'blob:' || url.protocol === 'data:' || url.protocol === 'javascript:') {
-            return;
+            return false;
         }
 
         if (url.origin !== window.location.origin || link.hasAttribute('data-no-spa') || link.href.includes('logout')) {
-            return;
+            return false;
         }
 
         // Saltar links que NO son navegación de página — los maneja su propio JS
@@ -36,11 +54,76 @@ document.addEventListener('DOMContentLoaded', () => {
         if (rawHref === '' || rawHref.charAt(0) === '#'
             || link.hasAttribute('onclick')
             || link.hasAttribute('download')) {
-            return;
+            return false;
         }
+
+        return true;
+    }
+
+    // Intercept clicks on links
+    document.addEventListener('click', async (e) => {
+        const link = e.target.closest('a');
+
+        // No es un clic primario limpio (botón central, Ctrl/Cmd para abrir en pestaña
+        // nueva, etc.) → que lo maneje el navegador.
+        if (e.button !== 0 || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+
+        if (!esNavegableSPA(link)) return;
 
         e.preventDefault();
         navigateTo(link.href);
+    });
+
+    // ── PRECARGA AL PASAR EL MOUSE ───────────────────────────────────────────────
+    // Al apuntar a un link del menú se pide su HTML por adelantado. Cuando el usuario
+    // hace clic (normalmente 300-600 ms después) la respuesta ya llegó y el módulo abre
+    // sin espera. Es la MISMA petición que haría el clic, solo que arrancada antes.
+    //
+    // NO es un caché de datos: la copia se usa UNA sola vez, en el clic inmediato, y se
+    // borra al usarla. Además vence a los PREFETCH_TTL_MS — si el usuario apunta y no
+    // hace clic, se descarta y el clic pide de nuevo. Así nunca se pinta un módulo con
+    // información que se quedó vieja esperando.
+    //
+    // Solo en dispositivos con puntero real: en táctil no hay "hover" previo al toque
+    // (el navegador lo emula EN el toque), así que precargar ahí no adelantaría nada y
+    // duplicaría peticiones.
+    const PREFETCH_TTL_MS = 5000;
+    const prefetchStore   = new Map(); // url -> { html, ts }
+    let   prefetchEnVuelo = null;      // evita disparar dos veces por el mismo link
+
+    const hayPunteroReal = () => !window.matchMedia || window.matchMedia('(hover: hover)').matches;
+
+    // Devuelve el HTML precargado de `url` si sigue vigente, y lo CONSUME (un solo uso).
+    // Si venció, lo borra igual: una entrada caduca no debe sobrevivir a la siguiente vuelta.
+    function tomarPrefetch(url) {
+        const hit = prefetchStore.get(url);
+        if (!hit) return null;
+        prefetchStore.delete(url);
+        return (Date.now() - hit.ts) < PREFETCH_TTL_MS ? hit.html : null;
+    }
+
+    function precargar(url) {
+        if (!hayPunteroReal()) return;
+        if (prefetchEnVuelo === url || prefetchStore.has(url)) return;
+        prefetchEnVuelo = url;
+        fetch(url, { headers: CABECERAS_SPA, cache: 'no-store' })
+            .then((r) => {
+                // Solo se guarda una página completa y sana. Un 403/302/PDF se descarta:
+                // esos casos tienen su propio manejo en loadPage (toast de permiso,
+                // navegación normal…) y hay que dejar que corran cuando el usuario clique.
+                const ct = r.headers.get('Content-Type') || '';
+                return (r.ok && ct.includes('text/html')) ? r.text() : null;
+            })
+            .then((html) => { if (html) prefetchStore.set(url, { html: html, ts: Date.now() }); })
+            .catch(() => { /* silencioso: si falla, el clic hará la petición normal */ })
+            .finally(() => { if (prefetchEnVuelo === url) prefetchEnVuelo = null; });
+    }
+
+    document.addEventListener('mouseover', (e) => {
+        const link = e.target.closest('a');
+        if (!esNavegableSPA(link)) return;
+        if (link.href === window.location.href) return; // ya estamos ahí
+        precargar(link.href);
     });
 
     // Handle back/forward buttons
@@ -169,63 +252,62 @@ document.addEventListener('DOMContentLoaded', () => {
             // Si NO heredamos el spinner de un redirect, lo encendemos nosotros.
             if (window.showPreloader && !_inheritSpinner) window.showPreloader();
 
-            // Deshabilitar caché para garantizar que SIEMPRE se obtenga el HTML
-            // actualizado y nunca el código viejo roto en la navegación SPA.
-            const response = await fetch(url, {
-                signal: controller.signal,
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    // Marca propia para que el Service Worker trate esta navegación SPA como
-                    // navegación → la cachea (network-first) y, SIN internet, le sirve la copia
-                    // cacheada para navegar entre módulos offline. Se usa una cabecera CUSTOM
-                    // (no 'Accept: text/html') a propósito: así NO cambia el expectsJson() de
-                    // Laravel y el manejo online de errores/permisos (403) queda IDÉNTICO.
-                    'X-SPA-Navigate': '1',
-                    'Cache-Control': 'no-cache, no-store, must-revalidate',
-                    'Pragma': 'no-cache'
-                },
-                cache: 'no-store'
-            });
+            // ¿El hover ya trajo esta página? (ver "PRECARGA AL PASAR EL MOUSE"). Se
+            // CONSUME: la copia se usa una vez y desaparece. Solo se guardan respuestas
+            // 200 text/html, así que por esta vía nunca llega un 403, un redirect ni un
+            // PDF — sus comprobaciones siguen viviendo en la rama de red, que es la única
+            // que puede producirlos.
+            let html = tomarPrefetch(url);
 
-            clearTimeout(timeoutId);
+            if (html !== null) {
+                clearTimeout(timeoutId);
+            } else {
+                const response = await fetch(url, {
+                    signal: controller.signal,
+                    headers: CABECERAS_SPA,
+                    cache: 'no-store'
+                });
 
-            // 403 de AuthorizationException: servidor devuelve JSON con
-            // {success:false, message, forbidden:true}. Mostrar toast y
-            // ABORTAR la navegacion (no reload, o caeriamos en bucle: el
-            // destino seguira devolviendo 403 al no tener el permiso).
-            if (response.status === 403) {
-                handledCleanup = true;
-                if (window.hidePreloader) window.hidePreloader();
-                let msg = 'No tienes permiso para acceder a esa sección.';
-                try {
-                    const body = await response.json();
-                    if (body && body.message) msg = body.message;
-                } catch (_) { /* sin body JSON, usar default */ }
-                if (typeof window.showToast === 'function') {
-                    window.showToast(msg, 'error');
-                } else if (typeof window.showModal === 'function') {
-                    window.showModal({ type: 'error', title: 'Acceso Denegado', message: msg, confirmText: 'Entendido', hideCancel: true });
+                clearTimeout(timeoutId);
+
+                // 403 de AuthorizationException: servidor devuelve JSON con
+                // {success:false, message, forbidden:true}. Mostrar toast y
+                // ABORTAR la navegacion (no reload, o caeriamos en bucle: el
+                // destino seguira devolviendo 403 al no tener el permiso).
+                if (response.status === 403) {
+                    handledCleanup = true;
+                    if (window.hidePreloader) window.hidePreloader();
+                    let msg = 'No tienes permiso para acceder a esa sección.';
+                    try {
+                        const body = await response.json();
+                        if (body && body.message) msg = body.message;
+                    } catch (_) { /* sin body JSON, usar default */ }
+                    if (typeof window.showToast === 'function') {
+                        window.showToast(msg, 'error');
+                    } else if (typeof window.showModal === 'function') {
+                        window.showModal({ type: 'error', title: 'Acceso Denegado', message: msg, confirmText: 'Entendido', hideCancel: true });
+                    }
+                    return;
                 }
-                return;
-            }
 
-            // Respuesta HTTP con error → navegación normal
-            if (!response.ok) {
-                handledCleanup = true;
-                window.location.href = url;
-                return;
-            }
+                // Respuesta HTTP con error → navegación normal
+                if (!response.ok) {
+                    handledCleanup = true;
+                    window.location.href = url;
+                    return;
+                }
 
-            // Si la respuesta no es HTML (PDF, JSON, archivo) → navegación normal
-            const contentType = response.headers.get('Content-Type') || '';
-            if (!contentType.includes('text/html')) {
-                handledCleanup = true;
-                if (window.hidePreloader) window.hidePreloader();
-                window.location.href = url;
-                return;
-            }
+                // Si la respuesta no es HTML (PDF, JSON, archivo) → navegación normal
+                const contentType = response.headers.get('Content-Type') || '';
+                if (!contentType.includes('text/html')) {
+                    handledCleanup = true;
+                    if (window.hidePreloader) window.hidePreloader();
+                    window.location.href = url;
+                    return;
+                }
 
-            const html = await response.text();
+                html = await response.text();
+            }
 
             // Extraer contenido del viewport
             const parser = new DOMParser();

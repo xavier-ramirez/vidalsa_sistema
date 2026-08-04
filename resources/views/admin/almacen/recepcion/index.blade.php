@@ -390,8 +390,6 @@
     /* Secundario (Cancelar / Cancelar borrador / Cancelar y revertir). */
     .dt-btn-cancel { background:#e2e8f0; color:#475569; box-shadow:none; }
     .dt-btn-cancel:hover { background:#cbd5e0; }
-    /* (Aquí vivía .dt-btn-anular. Se borró con el botón "Anular nota" del modal: era su
-       único uso — la página de detalle pinta el suyo con .dt-btn-cancel.) */
     /* Primario: la acción principal del modal (Aceptar / Enviar). Azul SÓLIDO: ya no compite
        con un segundo botón azul, así que el perfilado que tenía "Confirmar (N)" sobra. */
     .dt-btn-blue { background:var(--maquinaria-blue,#0067b1); color:#fff; box-shadow:0 4px 8px -2px rgba(0,103,177,0.3); }
@@ -687,7 +685,7 @@
             // Activo (azul + X) = el usuario eligió un estado concreto. Neutro/sin X para el
             // default (vacío) y para "all" (que selectOption global trata como neutro).
             // El rótulo sale de ESTADOS_META (estados reales) o de FILTROS_META (pseudo-
-            // estados: Todas / Confirmada con faltantes) — misma fuente que las opciones.
+            // estados: Todas / Con discrepancias) — misma fuente que las opciones.
             $estadoActivo   = $reqEstado !== '' && $reqEstado !== Traspaso::FILTRO_TODAS;
             $reqEstadoLabel = $badgesEstado[$reqEstado][0]
                 ?? (Traspaso::FILTROS_META[$reqEstado] ?? $estadoLabelDefault);
@@ -706,7 +704,7 @@
                 ->put(Traspaso::FILTRO_CON_FALTANTES, Traspaso::FILTROS_META[Traspaso::FILTRO_CON_FALTANTES]);
             // Ayuda solo donde el rótulo no se explica solo (el pseudo-estado).
             $titulosEstado = [
-                Traspaso::FILTRO_CON_FALTANTES => 'Notas ya confirmadas donde se recibió menos cantidad de la que se envió',
+                Traspaso::FILTRO_CON_FALTANTES => 'Notas ya confirmadas con alguna diferencia contra lo despachado: faltantes, sobrantes o dañados',
             ];
         @endphp
         <div style="position:relative;flex:0 0 auto;">
@@ -1297,7 +1295,7 @@
     });
 
     // Fila marcada (.recibida) = recibida por la cantidad enviada (data-enviada). Sin
-    // marcar = no recibida (0 → el backend lo registra como faltante).
+    // marcar = no se envia esa linea: queda PENDIENTE y la nota sigue en la bandeja.
     // Punto ÚNICO de lectura del campo "Recibido": acepta coma o punto decimal (el campo es
     // type=text, ver el modal) y devuelve 0 ante cualquier cosa no numérica. Mismo criterio
     // que el campo de cantidad del inventario.
@@ -1316,11 +1314,12 @@
         var box = el('trDetalleBox');
         if (!box) return [];
         var lineas = [];
+        // Sin fallback a data-enviada: .dtm-linea-rec solo se pinta cuando también se pinta
+        // el input (ver detalle_modal), así que aquí inp existe siempre.
         box.querySelectorAll('.dtm-linea-rec.recibida').forEach(function (card) {
-            var inp = card.querySelector('.dtm-rec-input');
             lineas.push({
                 id_linea:          parseInt(card.dataset.idLinea),
-                cantidad_recibida: inp ? trParseCant(inp.value) : trParseCant(card.dataset.enviada),
+                cantidad_recibida: trParseCant(card.querySelector('.dtm-rec-input').value),
             });
         });
         return lineas;
@@ -1384,7 +1383,7 @@
     // están todas en el DOM, así que no hay motivo para ir al servidor.
     //
     // OJO: sólo OCULTA filas, no las desmarca. Una línea tildada que queda fuera del filtro
-    // sigue contando para "Aceptar (N)" y se envía igual — si el filtro la des-tildara, buscar
+    // sigue habilitando "Aceptar" y se envía igual — si el filtro la des-tildara, buscar
     // un producto perdería en silencio lo que el usuario ya había confirmado.
     window.trFiltrarLineas = function (texto, limpiar) {
         var box = el('trDetalleBox'); if (!box) return;
@@ -1428,7 +1427,7 @@
         if (limpiar && input) input.focus();
     };
 
-    // Botón "Aceptar (N)": única acción de confirmación. Siempre VISIBLE; se deshabilita
+    // Botón "Aceptar": única acción de confirmación. Siempre VISIBLE; se deshabilita
     // mientras no haya filas tildadas (.recibida), en vez de ocultarse — un pie con solo
     // "Cancelar" no dejaba ver que la nota se acepta marcando lo que llegó.
     // Window-function porque el listener global (bind único) la llama.
@@ -1450,11 +1449,9 @@
         }
 
         var btnSel = box.querySelector('#trConfirmSelBtn'); if (!btnSel) return;
-        // Cuenta TODAS las marcadas, incluidas las que el buscador esté ocultando: son las
-        // que se van a enviar (ver trFiltrarLineas). El botón ya no muestra el número —solo
-        // se habilita o no—, pero el conteo sigue siendo lo que decide eso.
-        var n = box.querySelectorAll('.dtm-linea-rec.recibida').length;
-        btnSel.disabled = (n === 0);
+        // Habilitado si hay AL MENOS una marcada, incluidas las que el buscador esté ocultando:
+        // son las que se van a enviar (ver trFiltrarLineas).
+        btnSel.disabled = !box.querySelector('.dtm-linea-rec.recibida');
     };
 
     function trModalPost(url, payload, successMsg) {

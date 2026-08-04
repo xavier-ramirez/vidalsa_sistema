@@ -25,7 +25,10 @@ use RuntimeException;
  *    (resta del origen), pasa a ENVIADO.
  *  - Recibir: por cada línea registra TRASPASO_ENTRADA en el destino con la cantidad
  *    REAL recibida (puede ser != enviada). Enlaza salida↔entrada con
- *    ID_MOVIMIENTO_RELACIONADO. Decide RECIBIDO vs RECIBIDO_PARCIAL según diferencias.
+ *    ID_MOVIMIENTO_RELACIONADO. Queda RECIBIDO_PARCIAL si sobraron líneas SIN confirmar
+ *    (no por diferencias de cantidad: una nota aceptada entera pasa a RECIBIDO aunque las
+ *    cantidades no cuadren). Una nota RECIBIDO_PARCIAL puede volver a recibirse para
+ *    completar lo que falta; las líneas ya confirmadas se ignoran (no duplican stock).
  *  - Cancelar (ENVIADO): registra ENTRADA de retorno al origen por cada línea no
  *    recibida; el stock vuelve y el pedido queda CANCELADO con trazo completo.
  */
@@ -243,13 +246,17 @@ class TraspasoService
      */
     public function recibir(Traspaso $traspaso, array $lineasRecibidas, array $opts = []): Traspaso
     {
-        if (!$traspaso->esEnviado()) {
-            throw new RuntimeException("Solo un traspaso ENVIADO puede recibirse (actual: {$traspaso->ESTADO}).");
+        if (!$traspaso->puedeRecibirse()) {
+            throw new RuntimeException("Solo un traspaso ENVIADO o con líneas pendientes puede recibirse (actual: {$traspaso->ESTADO}).");
         }
 
         return DB::transaction(function () use ($traspaso, $lineasRecibidas, $opts) {
             $lock = Traspaso::where('ID_TRASPASO', $traspaso->ID_TRASPASO)->lockForUpdate()->first();
-            if (!$lock || !$lock->esEnviado()) {
+            // MISMA regla que la guarda de arriba (puedeRecibirse), no esEnviado(): esta es la
+            // comprobación real bajo lock —contra dos recepciones simultáneas— y si aquí se
+            // exigiera ENVIADO, completar una nota RECIBIDO_PARCIAL fallaría igual dentro de la
+            // transacción por más que la guarda previa la dejara pasar.
+            if (!$lock || !$lock->puedeRecibirse()) {
                 throw new RuntimeException('El traspaso cambió de estado mientras se intentaba recibir.');
             }
 
@@ -273,6 +280,17 @@ class TraspasoService
                     throw new InvalidArgumentException("La línea #{$idLinea} viene duplicada en la recepción.");
                 }
                 $vistos[$idLinea] = true;
+
+                // Línea YA confirmada en una recepción anterior (nota en RECIBIDO_PARCIAL que
+                // vuelve a la bandeja para completar lo pendiente): se SALTA. Sin esto, volver a
+                // tildarla aplicaría la entrada al destino por segunda vez → stock duplicado y el
+                // movimiento anterior huérfano. Es el mismo riesgo que cubre $vistos, pero ENTRE
+                // recepciones distintas en vez de dentro del mismo payload. Se ignora en silencio
+                // (no es un error del usuario: la vista ya las muestra confirmadas y solo se
+                // envían las pendientes; esto es la red de seguridad del servidor).
+                if ($linea->estaConfirmada()) {
+                    continue;
+                }
                 $recibida = max(0.0, (float) ($rec['cantidad_recibida'] ?? 0));
                 $estado   = $rec['estado'] ?? null; // opcional: DANADO sobrescribe el cálculo automático
                 $notas    = $rec['notas'] ?? null;
@@ -334,13 +352,10 @@ class TraspasoService
             // PENDIENTE con CANTIDAD_RECIBIDA en NULL. Antes se les forzaba 0 + FALTANTE, y eso
             // borraba la diferencia entre "no la confirmé" y "confirmé que llegaron 0": las dos
             // quedaban idénticas en la base. Las vistas ya pintan "—" cuando la cantidad es NULL.
-            $idsReportados = collect($lineasRecibidas)->pluck('id_linea')->filter()->map('intval')->all();
-            $quedaronPendientes = false;
-            foreach ($lineas as $linea) {
-                if (!in_array((int) $linea->ID_LINEA, $idsReportados, true) && $linea->CANTIDAD_RECIBIDA === null) {
-                    $quedaronPendientes = true;
-                }
-            }
+            // No hace falta cruzar contra los ids del payload: toda línea reportada sale del
+            // bucle de arriba con su CANTIDAD_RECIBIDA puesta, así que "sin confirmar" ya las
+            // excluye. $lineas son los MISMOS objetos que se acaban de guardar.
+            $quedaronPendientes = $lineas->contains(fn ($l) => !$l->estaConfirmada());
 
             // "Confirmada parcial" = QUEDARON PRODUCTOS SIN CONFIRMAR, no "hubo diferencias de
             // cantidad". Antes bastaba un faltante para marcar la nota como parcial y dejarla

@@ -263,7 +263,7 @@ class AlmacenController extends Controller
         // contra los almacenes ASOCIADOS al usuario (Almacen::asociadosIdsDe = ligados a sus
         // frentes), NO visiblesPara (= TODOS para un GLOBAL) — si no, una cuenta que solo
         // EMITE veía notas de otros almacenes que no recibe. Mismo criterio que el badge.
-        $notasPendientes = Traspaso::where('ESTADO', Traspaso::ESTADO_ENVIADO)
+        $notasPendientes = Traspaso::whereIn('ESTADO', Traspaso::ESTADOS_RECIBIBLES)
             ->whereIn('ID_ALMACEN_DESTINO', Almacen::asociadosIdsDe($user))
             ->count();
 

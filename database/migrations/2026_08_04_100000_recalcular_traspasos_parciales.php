@@ -1,9 +1,7 @@
 <?php
 
 use App\Models\Traspaso;
-use App\Models\TraspasoLinea;
 use Illuminate\Database\Migrations\Migration;
-use Illuminate\Support\Facades\DB;
 
 /**
  * Alinea los traspasos ya cerrados con la NUEVA definición de "Confirmada parcial".
@@ -22,16 +20,12 @@ return new class extends Migration
     public function up(): void
     {
         // Notas parciales SIN líneas pendientes = se confirmaron completas → RECIBIDO.
-        $ids = Traspaso::where('ESTADO', Traspaso::ESTADO_RECIBIDO_PARCIAL)
-            ->whereDoesntHave('lineas', fn ($q) => $q
-                ->where('ESTADO_LINEA', TraspasoLinea::ESTADO_PENDIENTE)
-                ->orWhereNull('CANTIDAD_RECIBIDA'))
-            ->pluck('ID_TRASPASO');
-
-        if ($ids->isNotEmpty()) {
-            DB::table('traspasos')->whereIn('ID_TRASPASO', $ids)
-                ->update(['ESTADO' => Traspaso::ESTADO_RECIBIDO]);
-        }
+        // "Pendiente" se pregunta con el MISMO scope que usa el resto del código
+        // (TraspasoLinea::scopePendiente), no con un predicado reescrito aquí.
+        Traspaso::where('ESTADO', Traspaso::ESTADO_RECIBIDO_PARCIAL)
+            ->whereDoesntHave('lineas', fn ($q) => $q->pendiente())
+            ->toBase()
+            ->update(['ESTADO' => Traspaso::ESTADO_RECIBIDO]);
     }
 
     /**

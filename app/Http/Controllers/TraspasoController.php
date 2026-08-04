@@ -177,8 +177,11 @@ class TraspasoController extends Controller
             if ($estadoActivo === null) {                              // sin filtro: los dos estados accionables
                 $query->whereIn('ESTADO', Traspaso::ESTADOS_BANDEJA_DEFAULT);
             } elseif ($estadoActivo === Traspaso::FILTRO_CON_FALTANTES) {
+                // TODAS las discrepancias (faltante, sobrante y dañado), no solo los faltantes:
+                // el filtro se llama "Con discrepancias" y es el ÚNICO sitio donde se ven, porque
+                // una nota confirmada entera ya no sale en la bandeja por defecto.
                 $query->whereIn('ESTADO', Traspaso::ESTADOS_RECIBIDOS)
-                    ->whereHas('lineas', fn ($l) => $l->where('ESTADO_LINEA', TraspasoLinea::ESTADO_FALTANTE));
+                    ->whereHas('lineas', fn ($l) => $l->whereIn('ESTADO_LINEA', TraspasoLinea::ESTADOS_DISCREPANCIA));
             } elseif ($estadoActivo !== Traspaso::FILTRO_TODAS) {       // FILTRO_TODAS = sin WHERE de estado
                 $query->where('ESTADO', $estadoActivo);
             }
@@ -276,7 +279,9 @@ class TraspasoController extends Controller
         // una recepción por AJAX (trModalConfirmar → trLoad) el panel y el badge del menú se
         // quedaban con el conteo de la carga inicial de la página — la nota ya no aparecía
         // en la tabla pero el "Por revisar" seguía contándola hasta recargar la página entera.
-        $pendBase = Traspaso::where('ESTADO', Traspaso::ESTADO_ENVIADO)
+        // ESTADOS_RECIBIBLES = mismo criterio que la bandeja: una nota parcial tambien esta
+        // "por revisar", porque le quedan lineas sin confirmar.
+        $pendBase = Traspaso::whereIn('ESTADO', Traspaso::ESTADOS_RECIBIBLES)
             ->whereIn('ID_ALMACEN_DESTINO', $almacenesVisibles);
         $bandejaStats = [
             'por_revisar' => (clone $pendBase)->count(),
@@ -290,7 +295,7 @@ class TraspasoController extends Controller
         // que el menú se refresque sin recargar la página al confirmar/enviar/cancelar.
         $almacenesAsociados = Almacen::asociadosIdsDe($user);
         $traspasosPorRecibir = $almacenesAsociados->isNotEmpty()
-            ? Traspaso::where('ESTADO', Traspaso::ESTADO_ENVIADO)
+            ? Traspaso::whereIn('ESTADO', Traspaso::ESTADOS_RECIBIBLES)
                 ->whereIn('ID_ALMACEN_DESTINO', $almacenesAsociados)
                 ->count()
             : 0;
@@ -487,7 +492,10 @@ class TraspasoController extends Controller
         // dentro de cada Blade —la misma regla escrita dos veces— y encima $puedeCancelar no
         // coincidía con lo que exige cancelar(): el botón "Cancelar" se le pintaba a
         // cualquier receptor con almacen.movimiento y el POST le devolvía 403.
-        $puedeRecibir = $traspaso->esEnviado()
+        // puedeRecibirse() (no esEnviado()): una nota RECIBIDO_PARCIAL sigue en la bandeja
+        // porque le faltan líneas por confirmar — tiene que poder abrirse con los inputs, o el
+        // usuario ve la nota pendiente y no tiene con qué completarla.
+        $puedeRecibir = $traspaso->puedeRecibirse()
             && $user?->can('almacen.movimiento')
             && $traspaso->almacenDestino?->visiblePara($user);
 
