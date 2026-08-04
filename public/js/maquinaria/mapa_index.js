@@ -800,7 +800,7 @@
             fetch(geojsonUrl).then(function (r) { return r.json(); }).then(function (gj) { estados.addData(gj); }).catch(function () {});
         }
 
-        // Interruptor "Todos los municipios" (botón-miniatura de arriba-derecha, ver controlMiniCapa).
+        // Interruptor "Todos los municipios" (botón-miniatura de arriba-derecha, ver agregarMiniCapa).
         // Los bordes de los estados quedan SIEMPRE visibles (estados.addTo(map) arriba); los
         // municipios no son una capa simple: se pintan según estadosConMuni + repintarMuniEstado.
         var todosMuniOn = false;
@@ -846,35 +846,59 @@
             _btnMuni.classList.toggle('activo', hayMunicipiosVisibles());
             _btnMuni.title = todosMuniOn ? 'Ocultar los municipios' : 'Ver TODOS los municipios (colores por municipio)';
         }
+        // ── CAJA DE CAPAS (arriba-derecha) ────────────────────────────────────────────
+        // UN solo control que agrupa los tres botones-miniatura (Municipios, Faja, Bloques).
+        // En PC se ven los tres siempre, como antes. En TELÉFONO la caja se recoge en un
+        // único cuadrado con icono de capas: al tocarlo se despliegan las tres miniaturas,
+        // cada una marcada si está encendida. El CSS decide cuál de las dos formas se ve,
+        // así que rotar el teléfono ajusta solo (no hay medición de ancho en el JS).
+        var capasBox, capasPanel; // los rellena onAdd, síncrono en el addControl de abajo
+        var CapasCtrl = L.Control.extend({
+            options: { position: 'topright' },
+            onAdd: function () {
+                capasBox = L.DomUtil.create('div', 'mapa-capas-box');
+                var toggle = L.DomUtil.create('button', 'mapa-fit-btn mapa-capas-toggle', capasBox);
+                toggle.type = 'button';
+                toggle.title = 'Capas del mapa';
+                toggle.innerHTML = '<i class="material-icons">layers</i>';
+                capasPanel = L.DomUtil.create('div', 'mapa-capas-panel', capasBox);
+                L.DomEvent.disableClickPropagation(capasBox);
+                L.DomEvent.disableScrollPropagation(capasBox);
+                L.DomEvent.on(toggle, 'click', function () { capasBox.classList.toggle('abierto'); });
+                // El cuadrado se pinta ENCENDIDO cuando alguna capa lo está. Se vigila la clase
+                // .activo de las miniaturas en vez de avisar desde cada capa: así CUALQUIER
+                // camino que las encienda (su botón, el menú de clic derecho de un estado, la
+                // carga perezosa del geojson) queda reflejado sin tocar esas rutas.
+                new MutationObserver(function () {
+                    toggle.classList.toggle('activo', !!capasPanel.querySelector('.mapa-mini-capa.activo'));
+                }).observe(capasPanel, { subtree: true, attributes: true, attributeFilter: ['class'] });
+                return capasBox;
+            }
+        });
+        map.addControl(new CapasCtrl()); // deja listos capasBox/capasPanel (onAdd es síncrono)
+        // Cierra la caja de capas (la usa el clic en el mapa: tocar fuera la recoge).
+        function cerrarCapas() { capasBox.classList.remove('abierto'); }
+
         // Molde del botón-miniatura, COMPARTIDO por las tres capas (Municipios, Faja y Bloques):
         // imagen pre-generada + rótulo. Cada capa pone qué hace el clic y qué necesita del botón
-        // recién creado (guardarlo para poder encenderlo/apagarlo).
-        // `clasePropia` permite darle a UNA capa un trato distinto sin tocar a las otras: hoy lo
-        // usa Municipios para esconderse en teléfono (ver .mapa-mini-capa-muni en el CSS).
-        function controlMiniCapa(urlImagen, rotulo, alClic, alCrear, clasePropia) {
-            return L.Control.extend({
-                options: { position: 'topright' },
-                onAdd: function () {
-                    var btn = L.DomUtil.create('button', 'mapa-mini-capa' + (clasePropia ? ' ' + clasePropia : ''));
-                    btn.type = 'button';
-                    btn.innerHTML = '<img class="mapa-mini-capa-img" src="' + esc(urlImagen) + '" alt="" draggable="false">' +
-                                    '<span class="mapa-mini-capa-lbl">' + esc(rotulo) + '</span>';
-                    alCrear(btn);
-                    L.DomEvent.disableClickPropagation(btn);
-                    L.DomEvent.disableScrollPropagation(btn);
-                    L.DomEvent.on(btn, 'click', alClic);
-                    return btn;
-                }
-            });
+        // recién creado (guardarlo para poder encenderlo/apagarlo). Todos cuelgan de capasPanel:
+        // el disableClickPropagation de la caja ya cubre a los hijos.
+        function agregarMiniCapa(urlImagen, rotulo, alClic, alCrear) {
+            var btn = L.DomUtil.create('button', 'mapa-mini-capa', capasPanel);
+            btn.type = 'button';
+            btn.innerHTML = '<img class="mapa-mini-capa-img" src="' + esc(urlImagen) + '" alt="" draggable="false">' +
+                            '<span class="mapa-mini-capa-lbl">' + esc(rotulo) + '</span>';
+            alCrear(btn);
+            L.DomEvent.on(btn, 'click', alClic);
         }
-        if (miniMuniUrl) map.addControl(new (controlMiniCapa(miniMuniUrl, 'Municipios', function () {
+        if (miniMuniUrl) agregarMiniCapa(miniMuniUrl, 'Municipios', function () {
             // El botón es el de TODOS: si no están todos (aunque haya municipios sueltos
             // encendidos por clic derecho), enciéndelos; solo apaga cuando ya están todos.
             // Antes miraba hayMunicipiosVisibles() y con un estado suelto encendido el primer
             // clic apagaba en vez de activar todos.
             if (todosMuniOn) ocultarTodosMunicipios(); else activarTodosMunicipios();
             sincronizarBotonMuni(); // por si la carga perezosa aún no repintó
-        }, function (btn) { _btnMuni = btn; sincronizarBotonMuni(); }, 'mapa-mini-capa-muni'))());
+        }, function (btn) { _btnMuni = btn; sincronizarBotonMuni(); });
 
         // ── CAPA PETROLERA: Faja Petrolífera del Orinoco + bloques ────────────────────────
         // Sirve para ubicar los frentes: en qué área de la Faja (Boyacá, Junín, Ayacucho,
@@ -962,7 +986,7 @@
                 est.btn.classList.toggle('activo', est.on);
                 est.btn.title = est.on ? tituloOn : tituloOff;
             };
-            est.montar = function (btn) { est.btn = btn; est.sincronizar(); }; // se lo pasa controlMiniCapa
+            est.montar = function (btn) { est.btn = btn; est.sincronizar(); }; // se lo pasa agregarMiniCapa
             est.cargar = function () {
                 if (est.promesa) return est.promesa;
                 if (!url) return Promise.resolve(false);
@@ -1077,8 +1101,8 @@
             _divCache = { lat: ll.lat, lng: ll.lng, t: ahora, val: res ? nombreAreaFaja(res) : null };
             return _divCache.val;
         }
-        if (miniFajaUrl && fajaPoligonalUrl) map.addControl(new (controlMiniCapa(miniFajaUrl, 'Faja', capaFaja.alternar, capaFaja.montar))());
-        if (miniBloquesUrl && fajaBloquesUrl) map.addControl(new (controlMiniCapa(miniBloquesUrl, 'Bloques', capaBloques.alternar, capaBloques.montar))());
+        if (miniFajaUrl && fajaPoligonalUrl) agregarMiniCapa(miniFajaUrl, 'Faja', capaFaja.alternar, capaFaja.montar);
+        if (miniBloquesUrl && fajaBloquesUrl) agregarMiniCapa(miniBloquesUrl, 'Bloques', capaBloques.alternar, capaBloques.montar);
 
         // Ancho máximo (px) de la barra de escala. Fuente única: lo usan el control de la
         // pantalla, el cálculo de escalaKm() y la regla que dibuja la foto, así los tres eligen
@@ -1319,6 +1343,34 @@
             buscadorMarker = L.marker(c, { icon: velaIcon('#0067b1'), zIndexOffset: 2000 }).addTo(map);
         }
 
+        // ── Botón para RECOGER/DESPLEGAR el buscador (solo teléfono) ──────────────────
+        // Se añade ANTES del geocoder para que quede a su izquierda (la barra topleft es
+        // un flex en fila y respeta el orden de alta). En PC el CSS lo esconde y la barra
+        // de búsqueda va siempre abierta, como hasta ahora; en teléfono ocupaba TODO el
+        // ancho del mapa de forma permanente, así que allí arranca recogida detrás de este
+        // cuadrado con lupa. Volver a tocarlo la recoge. La clase la lleva el contenedor
+        // del mapa (#mapa-leaflet.mapa-buscar-abierto) y es el CSS quien decide qué se ve,
+        // así que rotar el teléfono ajusta solo.
+        var BuscadorToggle = L.Control.extend({
+            options: { position: 'topleft' },
+            onAdd: function () {
+                var btn = L.DomUtil.create('button', 'mapa-fit-btn mapa-buscar-toggle');
+                btn.type = 'button';
+                btn.title = 'Buscar un lugar';
+                btn.innerHTML = '<i class="material-icons">search</i>';
+                L.DomEvent.disableClickPropagation(btn);
+                L.DomEvent.on(btn, 'click', function () {
+                    var abierto = el.classList.toggle('mapa-buscar-abierto');
+                    btn.classList.toggle('activo', abierto);
+                    if (!abierto) { cerrarBuscador(); return; }
+                    var input = el.querySelector('.leaflet-control-geocoder-form input');
+                    if (input) input.focus();
+                });
+                return btn;
+            }
+        });
+        map.addControl(new BuscadorToggle());
+
         L.Control.geocoder({
             position: 'topleft',
             placeholder: 'Buscar lugar o coordenada…',
@@ -1514,12 +1566,13 @@
         });
         map.addControl(new Creditos());
 
-        // ── Clic izquierdo en el mapa: solo cierra el buscador. ──
+        // ── Clic izquierdo en el mapa: solo recoge lo que esté desplegado. ──
         // La coordenada YA NO sale en un popup al hacer clic; se consulta con clic DERECHO
         // (menú de contexto), donde aparece junto a su botón de copiar.
         map.on('click', function () {
             if (edMode) return; // en modo edición el clic dibuja
             cerrarBuscador();
+            cerrarCapas();      // tocar el mapa recoge la caja de capas del teléfono
         });
 
         // ══════════════════════════════════════════════════════════════════════

@@ -4107,27 +4107,44 @@ body:has(.mapa-page) .main-viewport {
        del header) vive ahora en la base, arriba — aplica igual en PC y teléfono. Aquí quedan
        SOLO los ajustes propios del móvil. */
     .mapa-creditos { display: none; }
-    /* SOLO Municipios (.mapa-mini-capa-muni), no las tres. La regla decía .mapa-mini-capa a
-       secas: se escribió cuando esa era la ÚNICA capa con botón-miniatura, y al añadir Faja y
-       Bloques —que reusan el mismo molde y la misma clase— se los llevó por delante sin que
-       nadie lo pidiera. En teléfono son justo las dos que hacen falta para ver en qué bloque
-       cae un frente. El buscador de bloques sí sigue oculto: es una caja de texto ancha que
-       en pantalla angosta tapa medio mapa (los bloques se identifican tocándolos). */
-    .mapa-mini-capa-muni, .mapa-bloque-buscador { display: none !important; }
+    /* Buscador de bloques oculto: es una caja de texto ancha que en pantalla angosta tapa
+       medio mapa (los bloques se identifican tocándolos). Las tres capas SÍ se ven en
+       teléfono, dentro de la caja desplegable de capas (ver .mapa-capas-box más abajo). */
+    .mapa-bloque-buscador { display: none !important; }
+    /* Regla de escala (abajo-derecha): fuera en teléfono, a pedido del cliente. Solo se
+       oculta el control de PANTALLA — escalaKm() la calcula del propio mapa y la regla de
+       la foto exportada la dibuja su código, así que ninguno de los dos se ve afectado. */
+    .leaflet-control-scale { display: none !important; }
+    /* Leyenda fuera en teléfono (pedido del cliente): en una pantalla angosta tapaba mapa
+       útil. !important porque el JS le pone display inline al mostrarla/ocultarla. */
+    .mapa-leyenda { display: none !important; }
     /* Se ocultan TODOS los botones de la barra (Ver toda Venezuela, Pantalla completa,
-       Descargar imagen, Frentes de trabajo y Dibujar tubería): solo queda el buscador.
+       Descargar imagen, Frentes de trabajo y Dibujar tubería): solo queda el cuadrado de la
+       lupa, que despliega el buscador.
        DUPLICA a propósito la regla de @media (pointer: coarse) de más arriba: aquella cubre
        el táctil ancho (tablet) y esta la ventana angosta con ratón. Son dos ejes distintos,
        no la misma condición escrita dos veces — si se borra una, se destapa uno de los casos. */
     .mapa-ctrl-mobile-hide { display: none !important; }
 
-    /* Buscador a lo ANCHO en teléfono: ya no hay botones a su lado (todos ocultos). La BARRA
-       toma un ANCHO FIJO = pantalla menos márgenes (width, no solo max-width: si no, se
-       encogía a su contenido y quedaba comprimida). border-box para que su padding no la
-       desborde. El input la llena y deja sitio a la "X". La lista va anclada left:0/right:0. */
-    .leaflet-control-geocoder {
-        width: calc(100vw - 20px) !important;
-        max-width: calc(100vw - 20px) !important;
+    /* Buscador RECOGIDO por defecto: en su lugar se ve el cuadrado con lupa
+       (.mapa-buscar-toggle), y solo al tocarlo aparece la barra. Antes ocupaba de forma
+       permanente todo el ancho del mapa. Encender ese cuadrado NO se hace aquí sino al
+       final del archivo, junto a su declaración base: es la misma trampa de cascada que ya
+       documenta la leyenda — un @media no aporta especificidad, así que a igualdad de
+       selector gana el que va DESPUÉS, y la base (display:none) está más abajo. */
+    #mapa-leaflet .leaflet-control-geocoder { display: none !important; }
+    /* Desplegado: la BARRA toma un ANCHO FIJO (width, no solo max-width: si no, se encogía a
+       su contenido y quedaba comprimida) = pantalla menos todo lo que comparte esa primera
+       fila. A la IZQUIERDA el cuadrado de la lupa, que sigue al lado y sirve para volver a
+       recogerla: 10 (su margen) + 34 (botón) + 10 (margen de la barra). A la DERECHA el
+       cuadrado de capas, que está a la misma altura: 34 + 10 de margen, más 10 de aire para
+       que no se toquen. Total 108 px — sin descontar la parte derecha, en una pantalla de
+       412 px la barra se metía debajo del botón de capas. border-box para que su padding no
+       la desborde. El input la llena y deja sitio a la "X". La lista va anclada left/right:0. */
+    #mapa-leaflet.mapa-buscar-abierto .leaflet-control-geocoder {
+        display: flex !important;
+        width: calc(100vw - 108px) !important;
+        max-width: calc(100vw - 108px) !important;
         box-sizing: border-box !important;
     }
     .leaflet-control-geocoder-form { min-width: 0 !important; }
@@ -4390,36 +4407,7 @@ body:has(.mapa-page) .main-viewport {
 .mapa-leyenda-pt-del { flex: none; border: none; background: transparent; color: rgba(255, 255, 255, 0.45); font-size: 15px; line-height: 1; cursor: pointer; padding: 0 3px; border-radius: 4px; }
 .mapa-leyenda-pt-del:hover { color: #fff; background: #e11d48; }
 
-/* ── Leyenda en teléfono ──────────────────────────────────────────────────────
-   Va AQUÍ, después de las declaraciones base de la leyenda, y no en el @media
-   general del módulo (más arriba): un @media no aporta especificidad, así que
-   una regla igual escrita ANTES de la base la pierde. Estuvo allá arriba y por
-   eso NADA de esto llegó a aplicarse nunca — en el teléfono la leyenda seguía
-   con las medidas de escritorio, justo los tres problemas que este bloque dice
-   arreglar.
-
-   Sigue VISIBLE (es la única forma de saber qué proyecto/municipio es cada
-   color, y el panel "Proyectos" está oculto acá), pero se compacta:
-   - max-height en dvh, no vh: con 46vh la leyenda se extendía por debajo de la
-     barra de URL del navegador y sus últimas filas quedaban inalcanzables.
-   - Una sola columna de municipios: a dos columnas cada nombre quedaba en
-     ~110px y se cortaba con puntos suspensivos.
-   - Ancho pegado al viewport (los 240px de min-width forzaban desborde en
-     pantallas de 320px) y tipografía menor.
-   Arranca RECOGIDA (lo fija el JS, ver legendColapsada en mapa_index.js):
-   expandida tapaba medio mapa en un teléfono. */
-@media (max-width: 640px) {
-    .mapa-leyenda {
-        max-height: 46vh; /* fallback: navegadores sin dvh */
-        max-height: 38dvh;
-        min-width: 0;
-        max-width: calc(100vw - 20px);
-        font-size: 11.5px;
-        padding: 7px 9px;
-    }
-    .mapa-leyenda:has(.mapa-leyenda-munis.dos-col) { max-width: calc(100vw - 20px); }
-    .mapa-leyenda-munis.dos-col { column-count: 1; }
-}
+/* En TELÉFONO la leyenda no se muestra: la regla vive en el @media del módulo, más arriba. */
 
 /* Diálogo de exportación de imagen */
 /* Marco de recorte del export (muestra el área que se descargará; atenúa lo de afuera) */
@@ -4531,6 +4519,29 @@ body:has(.mapa-page) .main-viewport {
 .mapa-fit-btn.activo { background: #0067b1; color: #fff; }
 .mapa-fit-btn.activo:hover { background: #005a9e; }
 
+/* Los dos cuadrados que solo existen en TELÉFONO: recoger/desplegar el buscador y recoger/
+   desplegar las capas. En PC no hacen falta (la barra de búsqueda va siempre abierta y las
+   tres miniaturas se ven sueltas), así que se ocultan. Con #mapa-leaflet para ganarle al
+   display:flex de .mapa-fit-btn, que tienen los dos.
+   El @media que los ENCIENDE va pegado aquí debajo, y no en el bloque móvil del módulo
+   (más arriba): un @media no aporta especificidad, así que con el mismo selector gana el
+   que va DESPUÉS en el archivo. Escrito allá arriba, este display:none lo pisaba y el
+   cuadrado de la lupa no aparecía nunca en el teléfono. */
+#mapa-leaflet .mapa-buscar-toggle,
+#mapa-leaflet .mapa-capas-toggle { display: none; }
+@media (max-width: 640px) {
+    #mapa-leaflet .mapa-buscar-toggle,
+    #mapa-leaflet .mapa-capas-toggle { display: flex; }
+}
+
+/* Caja de capas (arriba-derecha): un único control que agrupa los tres botones-miniatura.
+   En PC se ve solo el panel, con las tres miniaturas apiladas. El hueco entre ellas lo da
+   ahora el gap y ya no los márgenes de Leaflet (cuando eran tres controles sueltos, cada
+   uno traía el margin-top:10px de .leaflet-top .leaflet-control). De ahí el 10px exacto:
+   con cualquier otro valor el módulo se vería distinto en PC, que debe quedar igual. */
+.mapa-capas-box { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
+.mapa-capas-panel { display: flex; flex-direction: column; gap: 10px; }
+
 /* Botones MINIATURA de capas (arriba-derecha): "Municipios", "Faja" y "Bloques". Sustituyen al
    control de capas de Leaflet (icono gris que al pasar el mouse se abría en un checkbox): cada
    uno enseña un mini mapa de Venezuela con lo que enciende. Las imágenes están pre-generadas
@@ -4573,11 +4584,19 @@ body:has(.mapa-page) .main-viewport {
 /* Encendido: marco azul de la marca + rótulo sólido (mismo azul que .mapa-fit-btn.activo). */
 .mapa-mini-capa.activo { border-color: #0067b1; box-shadow: 0 0 0 2px rgba(0, 103, 177, 0.35), 0 1px 4px rgba(0, 0, 0, 0.35); }
 .mapa-mini-capa.activo .mapa-mini-capa-lbl { background: #0067b1; }
-/* Teléfono: algo más chicos, que son DOS apilados (Faja y Bloques) y a 62 px de alto comen
-   demasiada pantalla en vertical. Va aquí y no en el @media del módulo (más arriba) porque
-   la declaración base está en ESTE punto del archivo: con la misma especificidad gana la
-   última, así que allá arriba el ajuste no llegaba a aplicarse nunca. */
+/* Teléfono: las tres miniaturas se RECOGEN detrás de un solo cuadrado con icono de capas —
+   sueltas comían media pantalla en vertical. Al tocarlo se despliegan las tres (incluida
+   Municipios, que antes se ocultaba en teléfono) y cada una sigue mostrando con su marco
+   azul si está encendida; el propio cuadrado se pinta azul mientras haya alguna activa.
+   Van algo más chicas que en PC para que las tres quepan sin tapar el mapa.
+   Este bloque va aquí y no en el @media del módulo (más arriba) porque las declaraciones
+   base están en ESTE punto del archivo: con la misma especificidad gana la última, así que
+   allá arriba los ajustes no llegarían a aplicarse nunca. */
 @media (max-width: 640px) {
+    /* El cuadrado de capas se enciende junto al de la lupa, más arriba (misma trampa de
+       cascada); aquí solo va el panel que despliega y el tamaño de las miniaturas. */
+    .mapa-capas-panel { display: none; }
+    .mapa-capas-box.abierto .mapa-capas-panel { display: flex; }
     .mapa-mini-capa { width: 54px; height: 51px; }
     .mapa-mini-capa-lbl { font-size: 8.5px; }
 }
