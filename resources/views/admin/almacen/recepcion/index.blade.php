@@ -1351,7 +1351,16 @@
     if (_trBindGlobal) document.addEventListener('click', function (e) {
         var row = e.target.closest('#trDetalleBox .dtm-linea-rec');
         if (!row) return;
-        trMarcarFila(row, !row.classList.contains('recibida'));
+        var marcar = !row.classList.contains('recibida');
+        trMarcarFila(row, marcar);
+        // Al MARCAR una fila suelta, el campo queda enfocado con la cantidad seleccionada:
+        // el caso normal es "llegó todo" (ya viene puesta), y si llegó menos basta teclear el
+        // número real encima sin tener que borrar. Solo al marcar una a una — "Marcar todas"
+        // usa trMarcarFila directo y no roba el foco a 20 campos.
+        if (marcar) {
+            var inp = row.querySelector('.dtm-rec-input');
+            if (inp) { inp.focus(); if (inp.select) inp.select(); }
+        }
         window.trUpdateConfirmBtn();
     });
 

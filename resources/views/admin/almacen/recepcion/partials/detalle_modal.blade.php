@@ -3,7 +3,6 @@
      $puedeCancelar — las 3 banderas las calcula el controller (fuente única, con las MISMAS
      condiciones que exigen sus endpoints); esta vista solo las pinta. --}}
 @php
-    $em = \App\Models\Traspaso::ESTADOS_META[$traspaso->ESTADO] ?? \App\Models\Traspaso::ESTADO_META_DEFAULT;
     $neNumero = $traspaso->REFERENCIA ?: $traspaso->NUMERO;
 @endphp
 
@@ -12,13 +11,8 @@
 <div class="dtm-title-row">
     <i class="material-icons dtm-title-icon">receipt_long</i>
     <span class="dtm-numero">{{ $neNumero }}</span>
-    {{-- El pill de estado solo se muestra cuando NO está "En tránsito" (en la bandeja
-         ya se sabe que está en tránsito; el cliente pidió quitar ese pill del modal).
-         Para notas ya cerradas (Confirmada parcial en la propia bandeja, o
-         confirmadas/canceladas al filtrar por estado) sí se muestra. --}}
-    @unless($traspaso->esEnviado())
-    <span class="estado-pill" style="background:{{ $em[1] }};color:{{ $em[2] }};">{{ $em[0] }}</span>
-    @endunless
+    {{-- Sin pill de estado (pedido del cliente): el estado ya se ve en la columna Estado de la
+         bandeja, de donde se abre este modal, y aquí solo robaba sitio al número de nota. --}}
     <button type="button" class="dtm-close" onclick="window.trCloseModal()" title="Cerrar">
         <i class="material-icons">close</i>
     </button>

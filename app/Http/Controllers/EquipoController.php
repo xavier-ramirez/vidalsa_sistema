@@ -3775,14 +3775,36 @@ class EquipoController extends Controller
             ])
             ->get();
 
+        // Equipos AUXILIARES: se buscan también aquí (antes solo se miraba `equipos` y un
+        // serial de auxiliar salía como "no encontrado"). Sus columnas identificadoras son
+        // SERIAL y CODIGO_INTERNO; no tienen placa ni seriales de motor/chasis.
+        $auxRows = DB::table('equipos_auxiliares as a')
+            ->leftJoin('frentes_trabajo as f', 'f.ID_FRENTE', '=', 'a.ID_FRENTE_ACTUAL')
+            ->whereNull('a.deleted_at')
+            ->where(function ($q) use ($termsArr) {
+                $q->whereIn(DB::raw('UPPER(a.SERIAL)'), $termsArr)
+                  ->orWhereIn(DB::raw('UPPER(a.CODIGO_INTERNO)'), $termsArr);
+            })
+            ->select([
+                'a.ID_AUXILIAR', 'a.TIPO', 'a.MARCA', 'a.MODELO', 'a.SERIAL', 'a.CODIGO_INTERNO',
+                'a.ID_FRENTE_ACTUAL', 'a.ESTADO_OPERATIVO', 'f.NOMBRE_FRENTE',
+            ])
+            ->get();
+
         // Indice por columna (clave en mayusculas) para resolver cada termino en O(1).
         $indexByField = [
-            'chasis'   => [],
-            'motor'    => [],
-            'etiqueta' => [],
-            'patio'    => [],
-            'placa'    => [],
+            'chasis'     => [],
+            'motor'      => [],
+            'etiqueta'   => [],
+            'patio'      => [],
+            'placa'      => [],
+            'aux_serial' => [],
+            'aux_codigo' => [],
         ];
+        foreach ($auxRows as $a) {
+            if ($a->SERIAL)         { $indexByField['aux_serial'][mb_strtoupper($a->SERIAL)]         = $a; }
+            if ($a->CODIGO_INTERNO) { $indexByField['aux_codigo'][mb_strtoupper($a->CODIGO_INTERNO)] = $a; }
+        }
         foreach ($rows as $r) {
             if ($r->SERIAL_CHASIS)    { $indexByField['chasis'][mb_strtoupper($r->SERIAL_CHASIS)]    = $r; }
             if ($r->SERIAL_DE_MOTOR)  { $indexByField['motor'][mb_strtoupper($r->SERIAL_DE_MOTOR)]   = $r; }
@@ -3791,11 +3813,14 @@ class EquipoController extends Controller
             if ($r->PLACA)            { $indexByField['placa'][mb_strtoupper($r->PLACA)]             = $r; }
         }
 
-        $priority = ['placa', 'chasis', 'motor', 'etiqueta', 'patio'];
+        // Los campos de AUXILIAR van al final: si un mismo valor existe como serial de equipo
+        // y como serial de auxiliar, gana el equipo (es el catálogo principal).
+        $priority    = ['placa', 'chasis', 'motor', 'etiqueta', 'patio', 'aux_serial', 'aux_codigo'];
+        $camposAux   = ['aux_serial', 'aux_codigo'];
 
         $found = 0;
         $inOtherFrente = 0;
-        $results = $terms->map(function ($term) use ($indexByField, $priority, $frenteIdFiltro, &$found, &$inOtherFrente) {
+        $results = $terms->map(function ($term) use ($indexByField, $priority, $camposAux, $frenteIdFiltro, &$found, &$inOtherFrente) {
             foreach ($priority as $field) {
                 if (isset($indexByField[$field][$term])) {
                     $r = $indexByField[$field][$term];
@@ -3805,6 +3830,32 @@ class EquipoController extends Controller
                     // ESTA en el frente seleccionado. false → renderiza amarillo.
                     $inFrente = ($frenteIdFiltro === null) || ($idFrenteActual === (int) $frenteIdFiltro);
                     if (!$inFrente) $inOtherFrente++;
+
+                    if (in_array($field, $camposAux, true)) {
+                        return [
+                            'term'               => $term,
+                            'found'              => true,
+                            // id en NULL a propósito: el front arma con él la selección para
+                            // MOVILIZAR equipos (_bulkLookupFound filtra por r.id) y un auxiliar
+                            // no se moviliza por esa vía. Se encuentra y se muestra, pero no
+                            // entra en esa acción.
+                            'id'                 => null,
+                            'es_auxiliar'        => true,
+                            'id_auxiliar'        => (int) $r->ID_AUXILIAR,
+                            'codigo'             => $r->CODIGO_INTERNO,
+                            'placa'              => null,
+                            'chasis'             => $r->SERIAL,
+                            'tipo_nombre'        => $r->TIPO,
+                            'marca'              => trim(($r->MARCA ?? '') . ' ' . ($r->MODELO ?? '')) ?: null,
+                            'frente_nombre'      => $r->NOMBRE_FRENTE ?: 'SIN ASIGNAR',
+                            'id_frente_actual'   => $idFrenteActual,
+                            'estado'             => $r->ESTADO_OPERATIVO ?: 'N/A',
+                            'rol_anclaje'        => null,
+                            'anchor_id'          => null,
+                            'in_selected_frente' => $inFrente,
+                        ];
+                    }
+
                     return [
                         'term'                => $term,
                         'found'               => true,

@@ -2670,6 +2670,12 @@
                     </tr>
                 `;
             }
+            // Distintivo para los AUXILIARES: la búsqueda mira las dos tablas, así que hay que
+            // poder ver de un vistazo si el serial resultó ser un equipo o un auxiliar (que
+            // además NO entra en la selección para movilizar; el backend les manda id null).
+            const auxTag = r.es_auxiliar
+                ? '<span style="display:inline-block;background:#ede9fe;color:#6d28d9;border:1px solid #ddd6fe;border-radius:5px;padding:0 5px;font-size:10px;font-weight:800;margin-right:6px;vertical-align:1px;">AUX</span>'
+                : '';
             const equipoInfo = [r.tipo_nombre, r.marca].filter(Boolean).join(' · ') || '—';
             const frente = r.frente_nombre === 'SIN ASIGNAR'
                 ? '<span style="font-style: italic;">SIN ASIGNAR</span>'
@@ -2679,7 +2685,7 @@
                 return `
                     <tr style="background: #fef9c3;">
                         <td data-label="Buscado" style="${cellOther}">${escapeHtml(r.term)}</td>
-                        <td data-label="Equipo" style="${cellOther}">${escapeHtml(equipoInfo)}</td>
+                        <td data-label="Equipo" style="${cellOther}">${auxTag}${escapeHtml(equipoInfo)}</td>
                         <td data-label="Estado" style="${cellOther}">${estadoTexto(r.estado)}</td>
                         <td data-label="Frente" style="${cellOther} text-align: center;">${frente}</td>
                     </tr>
@@ -2688,7 +2694,7 @@
             return `
                 <tr style="background: white;">
                     <td data-label="Buscado" style="${cellBase}">${buscadoPrefix}${escapeHtml(r.term)}</td>
-                    <td data-label="Equipo" style="${cellBase}">${escapeHtml(equipoInfo)}</td>
+                    <td data-label="Equipo" style="${cellBase}">${auxTag}${escapeHtml(equipoInfo)}</td>
                     <td data-label="Estado" style="${cellBase}">${estadoTexto(r.estado)}</td>
                     <td data-label="Frente" style="${cellBase} text-align: center;">${frente}</td>
                 </tr>

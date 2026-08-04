@@ -54,14 +54,14 @@
             @if($t->FECHA_ENVIO)
                 {{ $t->FECHA_ENVIO->format('d/m/Y h:i A') }}
                 @if($t->esEnviado() && $horasDesdeEnvio !== null)
+                    {{-- El punto toma el color del ESTADO ($e[2], el mismo del pill de la columna
+                         de al lado) en vez de su propia escala verde/ámbar/roja: en la misma fila
+                         convivían dos colores distintos para la misma nota y se leía como si
+                         dijeran cosas contradictorias. La antigüedad se sigue diciendo con
+                         palabras ("hace 3 semanas") y en el title. --}}
                     <div class="tr-fecha-rel" style="display:flex;align-items:center;justify-content:center;gap:4px;margin-top:2px;">
-                        @if($horasDesdeEnvio < 24)
-                            <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#22c55e;" title="Hace menos de 24h"></span>
-                        @elseif($horasDesdeEnvio < 72)
-                            <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#f59e0b;" title="Hace {{ intdiv($horasDesdeEnvio, 24) }} día(s)"></span>
-                        @else
-                            <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#ef4444;" title="Hace {{ intdiv($horasDesdeEnvio, 24) }} días"></span>
-                        @endif
+                        <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:{{ $e[2] }};"
+                              title="{{ $horasDesdeEnvio < 24 ? 'Hace menos de 24h' : 'Hace '.intdiv($horasDesdeEnvio, 24).' día(s)' }}"></span>
                         <span style="font-size:10.5px;color:#94a3b8;">{{ $t->FECHA_ENVIO->locale('es')->diffForHumans() }}</span>
                     </div>
                 @endif
