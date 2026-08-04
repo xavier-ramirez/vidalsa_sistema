@@ -2207,6 +2207,34 @@
             var err = cont.querySelector('.oleo-save-err');
             return function (msg) { if (err) { err.textContent = msg || ''; err.style.display = msg ? '' : 'none'; } };
         }
+        // La lista de sugerencias es position:absolute y casi siempre sobresale del popup.
+        // Al elegir una opción se esconde en el pointerdown, así que cuando el usuario SUELTA
+        // el botón el cursor ya está sobre el MAPA: el navegador dispara ese clic contra el
+        // mapa y Leaflet cierra el popup entero (closePopupOnClick) antes de que se pueda
+        // pulsar "Agregar al proyecto". No sirve apagar map.options.closePopupOnClick: Leaflet
+        // engancha su handler al abrir el popup y ya no lo relee.
+        //
+        // Se traga ESE clic huérfano y solo ese: en fase de captura para llegar antes que
+        // Leaflet, y dejando pasar cualquier clic que sí caiga dentro del popup (si no, el
+        // propio botón dejaría de funcionar). Se desarma solo, y el timeout es la red por si
+        // el usuario arrastra fuera y el clic nunca llega.
+        function tragarClicHuerfano() {
+            var contMapa = map && map.getContainer ? map.getContainer() : null;
+            if (!contMapa) return;
+            var quitar;
+            var tragar = function (ev) {
+                if (ev.target && ev.target.closest && ev.target.closest('.leaflet-popup')) return;
+                ev.stopPropagation();
+                quitar();
+            };
+            quitar = function () {
+                clearTimeout(tmr);
+                contMapa.removeEventListener('click', tragar, true);
+            };
+            var tmr = setTimeout(quitar, 700);
+            contMapa.addEventListener('click', tragar, true);
+        }
+
         function pickFrenteWire(cont, cfg) {
             cfg = cfg || {};
             var pick = cont.querySelector('.oleo-save-pick'); if (!pick) return null;
@@ -2261,6 +2289,7 @@
                 hid.value    = op.getAttribute('data-fid') || '';
                 search.value = op.textContent;
                 list.style.display = 'none';
+                tragarClicHuerfano();
                 if (cfg.alElegir) cfg.alElegir(hid.value);
             });
 

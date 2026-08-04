@@ -128,8 +128,16 @@ document.addEventListener('DOMContentLoaded', () => {
             .finally(() => { if (prefetchEnVuelo === url) prefetchEnVuelo = null; });
     }
 
+    // `mouseover` burbujea: pasar el mouse por un link con hijos (<i>, <span>…) lo dispara
+    // una vez por cada hijo. Recordar el último <a> evaluado evita repetir el trabajo de
+    // esNavegableSPA —que construye un `new URL()`— en uno de los eventos más frecuentes
+    // del DOM. El de verdad caro (el fetch) ya estaba cubierto dentro de precargar().
+    let ultimoHover = null;
     document.addEventListener('mouseover', (e) => {
         const link = e.target.closest('a');
+        if (!link) { ultimoHover = null; return; }
+        if (link === ultimoHover) return;
+        ultimoHover = link;
         if (!esNavegableSPA(link)) return;
         if (link.href === window.location.href) return; // ya estamos ahí
         precargar(link.href);
