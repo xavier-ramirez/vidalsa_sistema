@@ -4137,27 +4137,9 @@ body:has(.mapa-page) .main-viewport {
         max-width: none !important;
         box-sizing: border-box !important;
     }
-    /* ── Leyenda en teléfono ──────────────────────────────────────────────────
-       Sigue VISIBLE (es la única forma de saber qué proyecto/municipio es cada
-       color, y el panel "Proyectos" está oculto acá), pero se compacta:
-       - max-height en dvh, no vh: con 46vh la leyenda se extendía por debajo de
-         la barra de URL del navegador y sus últimas filas quedaban inalcanzables.
-       - Una sola columna de municipios: a dos columnas cada nombre quedaba en
-         ~110px y se cortaba con puntos suspensivos.
-       - Ancho pegado al viewport (los 240px de min-width forzaban desborde en
-         pantallas de 320px) y tipografía menor.
-       Arranca RECOGIDA (lo fija el JS, ver legendColapsada en mapa_index.js):
-       expandida tapaba medio mapa en un teléfono. */
-    .mapa-leyenda {
-        max-height: 46vh; /* fallback: navegadores sin dvh */
-        max-height: 38dvh;
-        min-width: 0;
-        max-width: calc(100vw - 20px);
-        font-size: 11.5px;
-        padding: 7px 9px;
-    }
-    .mapa-leyenda:has(.mapa-leyenda-munis.dos-col) { max-width: calc(100vw - 20px); }
-    .mapa-leyenda-munis.dos-col { column-count: 1; }
+    /* La leyenda en teléfono se compacta MÁS ABAJO, junto a su declaración base:
+       aquí arriba las reglas quedaban por delante de esa base y, sin especificidad
+       extra, la base ganaba. Ver "Leyenda en teléfono" al final de la sección. */
 }
 
 /* ── Panel de OLEODUCTOS (proyectos) ── */
@@ -4407,6 +4389,37 @@ body:has(.mapa-page) .main-viewport {
 /* Botón para eliminar un punto desde la leyenda (× rojo al pasar el mouse). */
 .mapa-leyenda-pt-del { flex: none; border: none; background: transparent; color: rgba(255, 255, 255, 0.45); font-size: 15px; line-height: 1; cursor: pointer; padding: 0 3px; border-radius: 4px; }
 .mapa-leyenda-pt-del:hover { color: #fff; background: #e11d48; }
+
+/* ── Leyenda en teléfono ──────────────────────────────────────────────────────
+   Va AQUÍ, después de las declaraciones base de la leyenda, y no en el @media
+   general del módulo (más arriba): un @media no aporta especificidad, así que
+   una regla igual escrita ANTES de la base la pierde. Estuvo allá arriba y por
+   eso NADA de esto llegó a aplicarse nunca — en el teléfono la leyenda seguía
+   con las medidas de escritorio, justo los tres problemas que este bloque dice
+   arreglar.
+
+   Sigue VISIBLE (es la única forma de saber qué proyecto/municipio es cada
+   color, y el panel "Proyectos" está oculto acá), pero se compacta:
+   - max-height en dvh, no vh: con 46vh la leyenda se extendía por debajo de la
+     barra de URL del navegador y sus últimas filas quedaban inalcanzables.
+   - Una sola columna de municipios: a dos columnas cada nombre quedaba en
+     ~110px y se cortaba con puntos suspensivos.
+   - Ancho pegado al viewport (los 240px de min-width forzaban desborde en
+     pantallas de 320px) y tipografía menor.
+   Arranca RECOGIDA (lo fija el JS, ver legendColapsada en mapa_index.js):
+   expandida tapaba medio mapa en un teléfono. */
+@media (max-width: 640px) {
+    .mapa-leyenda {
+        max-height: 46vh; /* fallback: navegadores sin dvh */
+        max-height: 38dvh;
+        min-width: 0;
+        max-width: calc(100vw - 20px);
+        font-size: 11.5px;
+        padding: 7px 9px;
+    }
+    .mapa-leyenda:has(.mapa-leyenda-munis.dos-col) { max-width: calc(100vw - 20px); }
+    .mapa-leyenda-munis.dos-col { column-count: 1; }
+}
 
 /* Diálogo de exportación de imagen */
 /* Marco de recorte del export (muestra el área que se descargará; atenúa lo de afuera) */
