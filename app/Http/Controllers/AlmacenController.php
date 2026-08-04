@@ -2509,22 +2509,34 @@ class AlmacenController extends Controller
             return; // etiqueta muy angosta: queda solo el QR.
         }
 
-        // Letra más pequeña que antes (era 7,5 / 5,5): la celda de 'carta' pasó de 80 a
-        // 66 mm de ancho, así que con el cuerpo viejo la descripción se partía en muchas
-        // líneas y se salía del alto de la etiqueta.
-        $pt = $w > 55.0 ? 6.0 : 5.0;
-
         $codigo = htmlspecialchars((string) $p->CODIGO, ENT_QUOTES, 'UTF-8');
         $nombre = htmlspecialchars((string) $p->NOMBRE, ENT_QUOTES, 'UTF-8');
         $um     = htmlspecialchars((string) $p->UM, ENT_QUOTES, 'UTF-8');
 
-        // Medir líneas del nombre con fuente bold (la que se usa en el HTML).
-        $pdf->SetFont('helvetica', 'B', $pt);
-        $lineMm  = ($pt / 72 * 25.4) * 1.3;
-        $nLineas = 1 + max(1, $pdf->getNumLines((string) $p->NOMBRE, $tw))
-                     + ($um !== '' ? 1 : 0);
-        $textoH  = $nLineas * $lineMm;
-        $ty      = $y + max($pad, ($h - $textoH) / 2.0);
+        // Cuerpo AUTOAJUSTADO. Antes era fijo (6 pt en carta, 5 en rollo) para que cupiera
+        // la descripción MÁS larga del catálogo — con lo que TODAS salían diminutas, incluso
+        // las cortas, que son la mayoría. Ahora se empieza grande y solo se baja medio punto
+        // a la vez mientras el texto no quepa en el alto útil de la etiqueta: las
+        // descripciones normales se imprimen legibles y solo las kilométricas se achican.
+        // El alto se mide con la fuente en NEGRITA, que es la del nombre y la más ancha, así
+        // que el ajuste va por el lado seguro.
+        $altoUtil = $h - 2 * $pad;
+        $ptMax    = $w > 55.0 ? 9.0 : 7.0;
+        $ptMin    = $w > 55.0 ? 6.0 : 5.0;   // suelo = el tamaño fijo de antes
+        $pt = $ptMax;
+        $textoH = 0.0;
+        while (true) {
+            $pdf->SetFont('helvetica', 'B', $pt);
+            $lineMm  = ($pt / 72 * 25.4) * 1.3;
+            $nLineas = 1 + max(1, $pdf->getNumLines((string) $p->NOMBRE, $tw))
+                         + ($um !== '' ? 1 : 0);
+            $textoH  = $nLineas * $lineMm;
+            if ($textoH <= $altoUtil || $pt <= $ptMin) {
+                break;
+            }
+            $pt -= 0.5;
+        }
+        $ty = $y + max($pad, ($h - $textoH) / 2.0);
 
         $pdf->SetFont('helvetica', '', $pt);
         $html = '<div style="font-family:helvetica;color:#0f172a;font-size:' . $pt . 'pt;line-height:1.3;">'

@@ -249,8 +249,7 @@
     #almDetalleModal .alm-modal { animation: none; }
     .alm-modal-body { padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; }
     .alm-modal-foot { padding: 12px 18px; border-top: 1px solid #f1f5f9; display: flex; justify-content: center; gap: 8px; }
-    .alm-modal label,
-    .alm-modal .alm-fake-label { font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.3px; display: block; margin-bottom: 4px; }
+    .alm-modal label { font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.3px; display: block; margin-bottom: 4px; }
     .alm-modal input, .alm-modal select, .alm-modal textarea {
         width: 100%; border: 1px solid #cbd5e0; border-radius: 8px; padding: 9px 10px; font-size: 14px; outline: none; box-sizing: border-box;
     }
@@ -412,7 +411,6 @@
         /* Empty state del modo cruzado: mensaje "Este producto solo existe…"
            AHORA SE MUESTRA en mobile (cliente lo pidio explicitamente). Margenes
            comprimidos para no malgastar alto. */
-        .alm-otros-almacenes .alm-otros-empty-msg,
         .alm-otros-almacenes > p { margin: 4px 0 0 !important; font-size: 11.5px !important; line-height: 1.35 !important; }
         /* "Distribucion de Inventario" (grafico por categoria, modo default): se
            oculta en mobile. Cliente lo encontro redundante con la columna
@@ -3196,12 +3194,11 @@
                     var cod = escHtml(String(it.codigo || ''));
                     // it.label es el formato viejo "COD — NOMBRE"; se conserva como respaldo.
                     var nom = escHtml(String(it.nombre || it.label || ('#' + it.id)));
-                    var texto = '<div style="flex:1;min-width:0;text-align:center;font-size:13px;color:#1e293b;line-height:1.35;">'
-                        + (cod ? '<div>' + cod + '</div>' : '')
-                        + '<div title="' + nom + '">' + nom + '</div>'
-                        + '</div>';
                     return '<div style="display:flex;align-items:center;gap:10px;">'
-                        +   texto
+                        +   '<div style="flex:1;min-width:0;text-align:center;font-size:13px;color:#1e293b;line-height:1.35;">'
+                        +     (cod ? '<div>' + cod + '</div>' : '')
+                        +     '<div title="' + nom + '">' + nom + '</div>'
+                        +   '</div>'
                         +   '<input type="number" class="alm-etq-cant" id="almEtqCant' + id + '" name="etq_cant_' + id + '" data-id="' + id + '" value="1" min="1" max="200" step="1" '
                         +     'aria-label="Cantidad de etiquetas de ' + nom + '" '
                         +     'style="width:62px;height:32px;border:1px solid #cbd5e0;border-radius:6px;padding:0 8px;font-size:13px;text-align:center;outline:none;flex:0 0 auto;">'
