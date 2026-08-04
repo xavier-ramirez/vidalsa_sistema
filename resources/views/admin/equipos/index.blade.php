@@ -2715,6 +2715,10 @@
         document.getElementById('bulkLookupCopyMissingBtn').style.display = lastMissingTerms.length > 0 ? 'flex' : 'none';
 
         // Equipos ENCONTRADOS (con id) → para movilizarlos/asignarles detalle en bloque.
+        // El filtro por `r.id` deja fuera a los AUXILIARES a propósito: la búsqueda también
+        // los encuentra, pero el backend les manda id null porque no se movilizan por esta
+        // vía. Por eso "Encontrados: N" del resumen puede ser mayor que el "(N)" del botón
+        // Movilizar — la diferencia son los auxiliares.
         window._bulkLookupFound = results.filter(function (r) { return r.found && r.id; });
         var hayEncontrados = window._bulkLookupFound.length > 0;
         var movBtn = document.getElementById('bulkLookupMovilizarBtn');
