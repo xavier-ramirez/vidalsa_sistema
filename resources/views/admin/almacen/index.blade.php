@@ -3166,13 +3166,13 @@
         var m = el('almEtiquetasModal'); if (!m) return;
         m.dataset.ids = idsCsv || '';
 
-        var hayLista = Array.isArray(lista) && lista.length > 0;
-        // Con UN solo producto no se pinta su campo de cantidad al lado: la cantidad la toma
-        // el campo de abajo (junto al formato), que es donde el usuario espera encontrarla.
-        // Con VARIOS sí hace falta uno por producto, y entonces el de abajo sobra.
-        var porProducto = hayLista && lista.length > 1;
+        // El bloque de productos SOLO aparece cuando hay VARIOS: ahí cada uno lleva su propio
+        // campo de cantidad al lado y el código + descripción es lo que dice cuál es cuál.
+        // Con UN solo producto ese rótulo sobra —se acaba de elegir ese producto— y el
+        // cliente pidió quitarlo; su cantidad la toma el campo de abajo, junto al formato.
+        var porProducto = Array.isArray(lista) && lista.length > 1;
         var wrapLista = el('almEtqModoLista'), copias = el('almEtqCopias');
-        if (wrapLista) wrapLista.style.display = hayLista    ? '' : 'none';
+        if (wrapLista) wrapLista.style.display = porProducto ? '' : 'none';
         if (copias)    copias.style.display    = porProducto ? 'none' : '';
 
         var cont = el('almEtqLista');
@@ -3182,7 +3182,7 @@
         // "por producto" → se etiquetaba lo de la vez anterior en vez de lo pedido ahora.
         if (cont) cont.innerHTML = '';
 
-        if (hayLista) {
+        if (porProducto) {
             if (cont) {
                 // Ficha por producto CENTRADA y sin recuadro: código y descripción con el
                 // MISMO color y cuerpo, uno debajo del otro. Antes cada una iba en una caja
@@ -3197,7 +3197,6 @@
                         + (cod ? '<div>' + cod + '</div>' : '')
                         + '<div title="' + nom + '">' + nom + '</div>'
                         + '</div>';
-                    if (!porProducto) return '<div style="display:flex;">' + texto + '</div>';
                     return '<div style="display:flex;align-items:center;gap:10px;">'
                         +   texto
                         +   '<input type="number" class="alm-etq-cant" id="almEtqCant' + id + '" name="etq_cant_' + id + '" data-id="' + id + '" value="1" min="1" max="200" step="1" '
