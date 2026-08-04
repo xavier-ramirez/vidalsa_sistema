@@ -2294,7 +2294,8 @@ class AlmacenController extends Controller
             : 'carta';
 
         // Tope total de etiquetas — red de seguridad ante combinaciones grandes (muchos
-        // productos × muchas copias). ~84 páginas A4: más que suficiente para imprimir.
+        // productos × muchas copias). Con la grilla actual (30 por hoja) son ~67 páginas:
+        // más que suficiente para imprimir de una tanda.
         $MAX  = 2000;
         $cols = ['ID_PRODUCTO', 'CODIGO', 'NOMBRE', 'UM', 'CATEGORIA', 'UBICACION'];
         // Base común: solo activos y con código (un QR sin CODIGO no sería escaneable).
@@ -2418,8 +2419,14 @@ class AlmacenController extends Controller
         // 'carta': 3 columnas. Con márgenes de hoja de 6 mm quedan 198 mm útiles → celdas de
         // 66 mm. Antes eran 2 columnas de 80 mm con 25 mm de margen izquierdo, que
         // desperdiciaba casi un tercio del ancho y gastaba el doble de papel.
+        //
+        // La página se declara A4, pero la opción se ofrece como "Carta/A4" y hay que poder
+        // imprimirla en las DOS: por eso la celda mide 27 y no 28 mm. Con 28 la grilla ocupaba
+        // 286 mm de alto —cabe en A4 (297) pero NO en Carta (279,4)— y al imprimir en carta se
+        // perdía la última fila. Con 27 son 276 mm: entra en ambos formatos y siguen saliendo
+        // las mismas 30 etiquetas por hoja (10 filas × 3).
         $presets = [
-            'carta' => ['orient' => 'P', 'page' => 'A4',      'cols' => 3, 'cellW' => 66.0, 'cellH' => 28.0, 'mLeft' => 6.0, 'mTop' => 6.0],
+            'carta' => ['orient' => 'P', 'page' => 'A4',      'cols' => 3, 'cellW' => 66.0, 'cellH' => 27.0, 'mLeft' => 6.0, 'mTop' => 6.0],
             '50x30' => ['orient' => 'L', 'page' => [50, 30],  'cols' => 1, 'cellW' => 50.0, 'cellH' => 30.0, 'mLeft' => 0.0, 'mTop' => 0.0],
             '40x25' => ['orient' => 'L', 'page' => [40, 25],  'cols' => 1, 'cellW' => 40.0, 'cellH' => 25.0, 'mLeft' => 0.0, 'mTop' => 0.0],
         ];

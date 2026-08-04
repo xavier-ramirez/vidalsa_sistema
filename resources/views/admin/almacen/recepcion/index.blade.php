@@ -608,7 +608,10 @@
             overflow: visible !important;
             text-overflow: clip !important;
         }
-        .tr-table tbody tr[data-id] .tr-ruta-alm    { font-size: 11.5px !important; }
+        /* white-space:normal como sus hermanos de arriba: el renglón del almacén pasó a
+           llevar el prefijo "Almacén", así que es bastante más largo y con el nowrap del
+           style inline se salía de la tarjeta en las pantallas más estrechas. */
+        .tr-table tbody tr[data-id] .tr-ruta-alm    { font-size: 11.5px !important; white-space: normal !important; }
         .tr-table tbody tr[data-id] .tr-fecha-rel span { font-size: 11.5px !important; }
 
         /* Empty state: el <tr> SIN data-id (rama vacia del forelse) queda como bloque centrado sin tarjeta. */
