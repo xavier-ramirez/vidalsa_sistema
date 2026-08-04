@@ -6,6 +6,8 @@
 <html lang="es">
 <head>
     <meta charset="utf-8">
+    {{-- Solo modo claro, igual que el resto de la app (ver estructura_base). --}}
+    <meta name="color-scheme" content="light">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     @php($__code = trim($__env->yieldContent('code')))
     <title>{{ $__code !== '' ? $__code . ' · ' : '' }}Sistema Vidalsa</title>

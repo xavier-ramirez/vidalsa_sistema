@@ -7,6 +7,8 @@
 <html lang="es">
 <head>
     <meta charset="utf-8">
+    {{-- Solo modo claro, igual que el resto de la app (ver estructura_base). --}}
+    <meta name="color-scheme" content="light">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Documento no disponible · Sistema Vidalsa</title>
     <link rel="icon" type="image/png" href="{{ asset('favicon.png') }}">

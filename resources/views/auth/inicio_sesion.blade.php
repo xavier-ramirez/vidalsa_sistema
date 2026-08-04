@@ -6,6 +6,11 @@
     <title>Sistema de Gestión de Maquinaria - Inicio de Sesión</title>
     <link rel="icon" type="image/png" href="{{ asset('favicon.png') }}">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    {{-- Pagina SOLO clara: sin esto, con el telefono en modo nocturno Chrome invierte los
+         colores por su cuenta y pinta en oscuro los campos nativos --incluido el de
+         contraseña--. Esta vista NO extiende estructura_base, asi que lleva su propia
+         declaracion. --}}
+    <meta name="color-scheme" content="light">
     <!-- Fonts (Local) -->
     <link href="{{ asset('css/fonts.css') }}?v={{ @filemtime(public_path('css/fonts.css')) }}" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('css/maquinaria/inicio_sesion.css') }}?v={{ @filemtime(public_path('css/maquinaria/inicio_sesion.css')) }}">

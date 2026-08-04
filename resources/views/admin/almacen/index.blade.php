@@ -901,33 +901,30 @@
             <i class="material-icons alm-x" onclick="almCerrar('almEtiquetasModal')">close</i>
         </div>
         <div class="alm-modal-body" style="gap:10px;">
-            {{-- MODO A — una sola cantidad para todos (menú Acciones / categoría / 1 producto). --}}
-            <div id="almEtqModoUnico">
-                <label for="almEtqCopias">Copias por producto</label>
-                <input type="number" id="almEtqCopias" class="alm-nota-input" value="1" min="1" max="200" step="1" style="max-width:120px;">
-            </div>
-            {{-- MODO B — cantidad POR producto (cuando se seleccionan varias filas). La lista
-                 la arma almSelEtiquetas desde almSeleccion; almEtiquetasGenerar lee cada input
-                 .alm-etq-cant y manda ?items=ID:CANT,ID:CANT al backend. --}}
+            {{-- Producto(s) a etiquetar, arriba. Con UNO solo se muestra centrado y su cantidad
+                 baja a la fila de abajo (junto al formato); con VARIOS, cada uno lleva su propio
+                 campo al lado. Lo pinta almAbrirEtiquetas. --}}
             <div id="almEtqModoLista" style="display:none;">
-                <label>Copias por producto</label>
-                <div id="almEtqLista" style="max-height:190px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;border:1px solid #e2e8f0;border-radius:8px;padding:8px;"></div>
+                <div id="almEtqLista" style="max-height:190px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;"></div>
             </div>
-            <div>
+            {{-- Fila inferior: cantidad de etiquetas + tamaño de hoja, uno al lado del otro.
+                 El campo de cantidad se OCULTA cuando hay varios productos, porque entonces
+                 cada uno lleva el suyo arriba (ver almAbrirEtiquetas). --}}
+            <div style="display:flex;gap:10px;align-items:center;">
+                <input type="number" id="almEtqCopias" class="alm-nota-input" value="1" min="1" max="200" step="1"
+                       aria-label="Cantidad de etiquetas" title="Cantidad de etiquetas"
+                       style="width:78px;flex:0 0 auto;text-align:center;">
                 {{-- Desplegable "Formato": mismo componente custom-dropdown del resto de la app
                      (selectOption escribe en el hidden #almEtqFormato, que lee almEtiquetasGenerar).
                      data-filter-type no engancha filtros: el listener de dropdown-selection solo
                      recarga para almSelAlmacenDropdown.
-                     El for= apunta al input VISIBLE #almEtqFormatoSearch, no al hidden
-                     #almEtqFormato: Chrome reporta como inválido un <label for=> que rotula un
-                     <input type="hidden"> (no es focuseable ni autofillable) y rompe la asociación
-                     a11y. Mismo criterio que #almSalidaProyectoSearch más abajo. --}}
-                <label class="alm-nota-label" for="almEtqFormatoSearch">Formato</label>
-                <div class="custom-dropdown" id="almEtqFormatoDropdown" data-filter-type="formato_etq" data-default-label="Carta/A4 — grilla">
+                     Ya no lleva <label> encima: el propio campo muestra el tamaño elegido
+                     ("Carta/A4 — grilla") y va rotulado por aria-label. --}}
+                <div class="custom-dropdown" id="almEtqFormatoDropdown" data-filter-type="formato_etq" data-default-label="Carta/A4 — grilla" style="flex:1;min-width:0;">
                     <input type="hidden" id="almEtqFormato" data-filter-value value="carta">
                     <div class="dropdown-trigger" style="padding:0;display:flex;align-items:center;background:#fff;overflow:hidden;border:1px solid #cbd5e0;border-radius:7px;height:38px;">
                         <input type="text" id="almEtqFormatoSearch" data-filter-search autocomplete="off" readonly
-                               placeholder="Carta/A4 — grilla"
+                               placeholder="Carta/A4 — grilla" aria-label="Tamaño de hoja"
                                style="flex:1;border:none;background:transparent;padding:0 10px;font-size:13.5px;color:#0f172a;outline:none;min-width:0;cursor:pointer;">
                         <i class="material-icons" style="padding:0 8px;color:#94a3b8;font-size:20px;">expand_more</i>
                     </div>
@@ -3144,40 +3141,54 @@
         sc.style.display = tiene ? 'none' : 'flex';
     };
 
-    // Abre el modal de etiquetas en uno de dos modos:
-    //   · lista vacía/ausente  → MODO ÚNICO: una sola cantidad (#almEtqCopias) para todo
-    //     lo que indique idsCsv (o el filtro de categoría si idsCsv viene vacío).
-    //   · lista con items      → MODO POR PRODUCTO: pinta una fila por producto con su
-    //     propio campo de cantidad; al generar manda ?items=ID:CANT,ID:CANT.
-    //     lista = [{ id, label }].
+    // Abre el modal de etiquetas. Según cuántos productos lleguen en `lista`
+    // ([{ id, codigo, nombre }]) se arma de tres formas:
+    //   · sin lista      → solo la fila de abajo: cantidad (#almEtqCopias) + formato. Se
+    //     etiqueta lo que indique idsCsv, o el filtro de categoría si viene vacío.
+    //   · UN producto    → se muestra su ficha arriba (centrada, sin campo propio) y la
+    //     cantidad sigue siendo la de abajo → se genera igual que el caso anterior (?copias).
+    //   · VARIOS         → cada ficha lleva su propio campo y la cantidad de abajo se
+    //     esconde; al generar manda ?items=ID:CANT,ID:CANT.
     window.almAbrirEtiquetas = function (idsCsv, lista) {
         var m = el('almEtiquetasModal'); if (!m) return;
         m.dataset.ids = idsCsv || '';
 
-        var modoLista = Array.isArray(lista) && lista.length > 0;
-        var unico = el('almEtqModoUnico'), wrapLista = el('almEtqModoLista');
-        if (unico)     unico.style.display     = modoLista ? 'none' : '';
-        if (wrapLista) wrapLista.style.display = modoLista ? ''     : 'none';
+        var hayLista = Array.isArray(lista) && lista.length > 0;
+        // Con UN solo producto no se pinta su campo de cantidad al lado: la cantidad la toma
+        // el campo de abajo (junto al formato), que es donde el usuario espera encontrarla.
+        // Con VARIOS sí hace falta uno por producto, y entonces el de abajo sobra.
+        var porProducto = hayLista && lista.length > 1;
+        var wrapLista = el('almEtqModoLista'), copias = el('almEtqCopias');
+        if (wrapLista) wrapLista.style.display = hayLista    ? '' : 'none';
+        if (copias)    copias.style.display    = porProducto ? 'none' : '';
 
-        if (modoLista) {
-            var cont = el('almEtqLista');
+        var cont = el('almEtqLista');
+        // Vaciar SIEMPRE antes de repintar: si no, al abrir el modal desde el menú Acciones
+        // después de haberlo usado con varios productos, los campos .alm-etq-cant de aquella
+        // selección seguían en el DOM (ocultos) y almEtiquetasGenerar los tomaba como modo
+        // "por producto" → se etiquetaba lo de la vez anterior en vez de lo pedido ahora.
+        if (cont) cont.innerHTML = '';
+
+        if (hayLista) {
             if (cont) {
-                // Ficha por producto: CÓDIGO arriba (monospace, como en la tabla) y la
-                // descripción debajo en dos líneas. Antes iba todo en UNA línea truncada con
-                // "…", así que de una descripción larga solo se leía el principio y no se
-                // distinguía un producto de otro al elegir cuántas etiquetas imprimir.
+                // Ficha por producto CENTRADA y sin recuadro: código y descripción con el
+                // MISMO color y cuerpo, uno debajo del otro. Antes cada una iba en una caja
+                // gris con el código en azul y más chico que la descripción — tres estilos
+                // distintos para dos datos del mismo producto.
                 cont.innerHTML = lista.map(function (it) {
                     var id  = escHtml(String(it.id));
                     var cod = escHtml(String(it.codigo || ''));
                     // it.label es el formato viejo "COD — NOMBRE"; se conserva como respaldo.
                     var nom = escHtml(String(it.nombre || it.label || ('#' + it.id)));
-                    return '<div style="display:flex;align-items:center;gap:10px;padding:6px 8px;border:1px solid #e2e8f0;border-radius:8px;background:#f8fafc;">'
-                        +   '<div style="flex:1;min-width:0;">'
-                        +     (cod ? '<div style="font-family:monospace;font-size:11px;font-weight:800;color:#0067b1;letter-spacing:.3px;">' + cod + '</div>' : '')
-                        +     '<div style="font-size:12px;font-weight:600;color:#334155;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;" title="' + nom + '">' + nom + '</div>'
-                        +   '</div>'
+                    var texto = '<div style="flex:1;min-width:0;text-align:center;font-size:13px;color:#1e293b;line-height:1.35;">'
+                        + (cod ? '<div>' + cod + '</div>' : '')
+                        + '<div title="' + nom + '">' + nom + '</div>'
+                        + '</div>';
+                    if (!porProducto) return '<div style="display:flex;">' + texto + '</div>';
+                    return '<div style="display:flex;align-items:center;gap:10px;">'
+                        +   texto
                         +   '<input type="number" class="alm-etq-cant" id="almEtqCant' + id + '" name="etq_cant_' + id + '" data-id="' + id + '" value="1" min="1" max="200" step="1" '
-                        +     'aria-label="Copias de ' + nom + '" '
+                        +     'aria-label="Cantidad de etiquetas de ' + nom + '" '
                         +     'style="width:62px;height:32px;border:1px solid #cbd5e0;border-radius:6px;padding:0 8px;font-size:13px;text-align:center;outline:none;flex:0 0 auto;">'
                         + '</div>';
                 }).join('');
@@ -3191,12 +3202,15 @@
         var u = new URL(ROUTE_ETIQUETAS, window.location.origin);
         u.searchParams.set('formato', fmt);
 
-        var wrapLista = el('almEtqModoLista');
-        var modoLista = wrapLista && wrapLista.style.display !== 'none';
-        if (modoLista) {
+        // El modo se decide por la PRESENCIA de campos por producto, no por si la lista está
+        // visible: con un solo producto la ficha se muestra igual pero SIN campo propio (su
+        // cantidad es la de abajo), y mirar el display mandaba items= vacío → "No hay
+        // productos para etiquetar" con el producto a la vista.
+        var camposPorProducto = el('almEtqLista') ? el('almEtqLista').querySelectorAll('.alm-etq-cant') : [];
+        if (camposPorProducto.length) {
             // MODO POR PRODUCTO → items=ID:CANT,ID:CANT (cada uno con su cantidad).
             var pares = [];
-            (el('almEtqLista') ? el('almEtqLista').querySelectorAll('.alm-etq-cant') : []).forEach(function (inp) {
+            camposPorProducto.forEach(function (inp) {
                 var id = inp.getAttribute('data-id');
                 var q = parseInt(inp.value, 10);
                 if (!isFinite(q) || q < 1) q = 1;
@@ -4252,13 +4266,15 @@
                     var cod = escHtml(p.CODIGO ? String(p.CODIGO) : '—');
                     var nom = escHtml(String(p.NOMBRE || ''));
                     var meta = escHtml((p.UM || '') + (p.CATEGORIA ? (' · ' + p.CATEGORIA) : ''));
+                    // Código, descripción y unidad/categoría van con el MISMO cuerpo y el MISMO
+                    // color: son datos del mismo producto y antes se veían en tres tonos y dos
+                    // tamaños distintos (código gris, descripción oscura, meta aún más clara y
+                    // pequeña), lo que hacía parecer que la última línea era menos fiable.
                     return '<div class="alm-admin-row">' +
                         '<i class="material-icons" style="font-size:18px;color:#94a3b8;flex:0 0 auto;">inventory_2</i>' +
-                        '<div style="flex:1;min-width:0;">' +
-                            '<div style="font-size:12.5px;color:#1e293b;line-height:1.35;">' +
-                                '<span style="color:#64748b;">' + cod + '</span> ' + nom +
-                            '</div>' +
-                            '<div style="font-size:11px;color:#94a3b8;">' + meta + '</div>' +
+                        '<div style="flex:1;min-width:0;font-size:12.5px;color:#1e293b;line-height:1.35;">' +
+                            '<div>' + cod + ' ' + nom + '</div>' +
+                            '<div>' + meta + '</div>' +
                         '</div>' +
                         '<div style="display:flex;flex-direction:column;gap:4px;flex:0 0 auto;">' +
                             '<button type="button" onclick="window.almRestaurarProducto(' + p.ID_PRODUCTO + ')" class="alm-btn alm-btn-restore" title="Restaurar">' +

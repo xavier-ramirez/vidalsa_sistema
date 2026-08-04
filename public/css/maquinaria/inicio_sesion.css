@@ -2,6 +2,11 @@
 @charset "UTF-8";
 
 :root {
+    /* Misma proteccion que estilos_globales.css: la pantalla de inicio de sesion se pinta
+       SIEMPRE en claro. Es la mas sensible al modo oscuro automatico del navegador porque
+       son casi todo campos nativos (correo y contraseña). */
+    color-scheme: only light;
+
     --maquinaria-blue: #00004d;
     --maquinaria-light-grey: #d1d3d4;
     --maquinaria-white: #ffffff;
