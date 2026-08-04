@@ -149,13 +149,21 @@
         transition: transform 0.12s, background 0.12s;
     }
     .alm-btn:hover { transform: scale(1.06); }
-    /* (se usan en la lista "Gestionar almacenes" — editar / eliminar almacén) */
+    /* (se usan en la lista "Gestionar almacenes" — editar / eliminar almacén — y en la
+       papelera de productos, que reusa .alm-btn-del para el borrado permanente) */
     .alm-btn-edit { color: #0891b2; border-color: #cffafe; } .alm-btn-edit:hover { background: #0891b2; color: #fff; }
     .alm-btn-del  { color: #ef4444; border-color: #fecaca; } .alm-btn-del:hover  { background: #ef4444; color: #fff; }
+    /* Restaurar (papelera de productos) — mismo tamaño/forma que .alm-btn-edit y
+       .alm-btn-del, en azul corporativo. El botón rojo de la papelera REUSA
+       .alm-btn-del: es la misma acción destructiva, no hace falta otra clase. */
+    .alm-btn-restore { color: #0067b1; border-color: #bfdbfe; } .alm-btn-restore:hover { background: #0067b1; color: #fff; }
     /* Botón "ojo" de detalles por fila: mismo look que el de /admin/equipos */
     .alm-table tbody td .btn-details-mini { margin: 0 auto; }
     /* Acciones dentro del modal "Detalles del producto" */
-    .alm-det-act { display:flex; align-items:center; gap:10px; width:100%; text-align:left; background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:8px 12px; font-size:14px; font-weight:600; color:#334155; cursor:default; transition:background .15s, border-color .15s; text-transform:uppercase; letter-spacing:.2px; }
+    /* font-family:inherit — los <button> NO heredan la fuente del body por defecto:
+       sin esto el texto salía en la fuente del navegador (Arial) y desentonaba con
+       el resto de la app (Nunito). Sin mayúsculas forzadas: se lee tal cual se escribe. */
+    .alm-det-act { display:flex; align-items:center; gap:10px; width:100%; text-align:left; background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:8px 12px; font-family:inherit; font-size:14px; font-weight:600; color:#334155; cursor:default; transition:background .15s, border-color .15s; }
     .alm-det-act:hover { background:#f8fafc; border-color:#cbd5e0; }
     .dropdown-item-custom:hover { background: #f8fafc !important; }
     .alm-det-ic { width:30px; height:30px; border-radius:8px; display:flex; align-items:center; justify-content:center; flex:0 0 auto; }
@@ -193,6 +201,11 @@
     .alm-admin-list { display: flex; flex-direction: column; gap: 6px; }
     .alm-admin-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid #e2e8f0; border-radius: 8px; }
     .alm-admin-row:hover { background: #f8fafc; }
+    /* La papelera reusa .alm-admin-row, pero su modal tiene el cuerpo gris (#f8fafc):
+       ahí las filas van en blanco para despegarse del fondo, e invierten el hover.
+       Con id + clase le ganan en especificidad a las dos reglas de arriba. */
+    #almPapeleraLista .alm-admin-row { background: #fff; }
+    #almPapeleraLista .alm-admin-row:hover { background: #f1f5f9; }
     @keyframes almIn { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
     @keyframes slideDown { from { transform: translateY(-8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
     @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
@@ -886,8 +899,12 @@
                 {{-- Desplegable "Formato": mismo componente custom-dropdown del resto de la app
                      (selectOption escribe en el hidden #almEtqFormato, que lee almEtiquetasGenerar).
                      data-filter-type no engancha filtros: el listener de dropdown-selection solo
-                     recarga para almSelAlmacenDropdown. --}}
-                <label class="alm-nota-label" for="almEtqFormato">Formato</label>
+                     recarga para almSelAlmacenDropdown.
+                     El for= apunta al input VISIBLE #almEtqFormatoSearch, no al hidden
+                     #almEtqFormato: Chrome reporta como inválido un <label for=> que rotula un
+                     <input type="hidden"> (no es focuseable ni autofillable) y rompe la asociación
+                     a11y. Mismo criterio que #almSalidaProyectoSearch más abajo. --}}
+                <label class="alm-nota-label" for="almEtqFormatoSearch">Formato</label>
                 <div class="custom-dropdown" id="almEtqFormatoDropdown" data-filter-type="formato_etq" data-default-label="Carta/A4 — grilla">
                     <input type="hidden" id="almEtqFormato" data-filter-value value="carta">
                     <div class="dropdown-trigger" style="padding:0;display:flex;align-items:center;background:#fff;overflow:hidden;border:1px solid #cbd5e0;border-radius:7px;height:38px;">
@@ -1005,14 +1022,20 @@
         <div class="alm-modal-body">
             {{-- Saldo actual (según el sistema): sin esto el usuario no sabía desde qué valor
                  estaba ajustando y, si tecleaba justo el mismo número, el backend respondía
-                 "no cambia el saldo" y parecía un error. Mostrarlo hace obvia la diferencia. --}}
-            <div style="display:flex;justify-content:space-between;align-items:center;background:#f1f5f9;border-radius:8px;padding:8px 12px;margin-bottom:12px;">
-                <span style="font-size:12px;color:#64748b;font-weight:600;">Saldo actual (sistema)</span>
-                <span id="almAjSaldoActual" style="font-size:14px;color:#0f172a;font-weight:800;">—</span>
+                 "no cambia el saldo" y parecía un error. Mostrarlo hace obvia la diferencia.
+                 Fondo azul (#e1effa / #bfdbfe): el mismo tinte que la app usa para marcar un
+                 campo activo (.dropdown-trigger.filter-active, .cdash-inp-box.active). Antes
+                 era gris y se perdía contra el blanco del modal. --}}
+            <div style="display:flex;flex-direction:column;align-items:center;gap:2px;background:#e1effa;border:1px solid #bfdbfe;border-radius:8px;padding:8px 12px;margin-bottom:12px;text-align:center;">
+                <span style="font-size:12px;color:#475569;font-weight:600;">Saldo actual (sistema)</span>
+                <span id="almAjSaldoActual" style="font-size:14px;color:#0067b1;font-weight:800;">—</span>
             </div>
-            <div>
+            {{-- El conteo es un número corto: campo angosto y centrado bajo el saldo, en vez
+                 de un input a todo el ancho del modal. --}}
+            <div style="text-align:center;">
                 <label for="almAjNuevoSaldo">Saldo según conteo físico</label>
-                <input type="number" id="almAjNuevoSaldo" min="0" step="any" placeholder="Cantidad real contada">
+                <input type="number" id="almAjNuevoSaldo" min="0" step="any" placeholder="Cantidad real contada"
+                       style="max-width:200px;text-align:center;">
             </div>
             <div id="almAjError" style="display:none;color:#dc2626;font-size:13px;font-weight:600;"></div>
         </div>
@@ -1035,9 +1058,12 @@
         </div>
         <div class="alm-modal-body">
             <div>
-                <label for="almMinValor">Stock mínimo (alerta)</label>
-                {{-- min="0.001" + step="any": cualquier valor > 0 vale (no se acepta 0). Vacio = sin alerta. --}}
-                <input type="number" id="almMinValor" min="0.001" step="any" placeholder="Vacío = sin alerta">
+                {{-- Sin <label>: el título del modal ya dice "Stock mínimo (alerta)" y repetirlo
+                     encima del input era redundante. El placeholder explica qué hace el campo.
+                     min="0.001" + step="any": cualquier valor > 0 vale (no se acepta 0).
+                     Vacio = sin alerta. --}}
+                <input type="number" id="almMinValor" min="0.001" step="any" placeholder="Vacío = sin alerta"
+                       aria-label="Stock mínimo (alerta)">
             </div>
             <div id="almMinError" style="display:none;color:#dc2626;font-size:13px;font-weight:600;"></div>
         </div>
@@ -1056,7 +1082,8 @@
      id_producto + id_almacen actual + opcional tipo / desde / hasta.
 ═════════════════════════════════════════════════════════════════ --}}
 <div id="almKardexProductoModal" class="alm-modal-overlay">
-    <div class="alm-modal" style="max-width:680px;">
+    {{-- 540px: sin la columna Fecha la tabla ya no necesita los 680 de antes. --}}
+    <div class="alm-modal" style="max-width:540px;">
         <div class="alm-modal-head">
             <h3><i class="material-icons" style="font-size:20px;">history</i> Movimientos del producto</h3>
             <i class="material-icons alm-x" onclick="almCerrar('almKardexProductoModal')">close</i>
@@ -1110,13 +1137,13 @@
                 </div>
             </div>
 
-            {{-- Tabla compacta: 5 columnas (sin Producto, ya conocido). El thead
-                 queda sticky para que se vea al hacer scroll. --}}
+            {{-- Tabla compacta: 4 columnas (sin Producto, ya conocido; sin Fecha, que el
+                 cliente pidió quitar — el rango sigue filtrable arriba). El thead queda
+                 sticky para que se vea al hacer scroll. --}}
             <div style="overflow:auto;max-height:48vh;border:1px solid #e2e8f0;border-radius:8px;">
                 <table style="width:100%;border-collapse:separate;border-spacing:0;">
                     <thead>
                         <tr style="background:#1e293b;color:#fff;position:sticky;top:0;z-index:1;">
-                            <th style="width:1%;padding:7px 8px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;text-align:center;white-space:nowrap;">Fecha</th>
                             <th style="width:1%;padding:7px 8px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;text-align:center;white-space:nowrap;">Tipo</th>
                             <th style="width:1%;padding:7px 8px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;text-align:center;white-space:nowrap;">Cantidad</th>
                             <th style="width:1%;padding:7px 8px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;text-align:center;white-space:nowrap;">Stock</th>
@@ -1124,7 +1151,7 @@
                         </tr>
                     </thead>
                     <tbody id="almKpBody">
-                        <tr><td colspan="5" style="text-align:center;padding:30px;color:#94a3b8;font-size:12px;">Cargando…</td></tr>
+                        <tr><td colspan="4" style="text-align:center;padding:30px;color:#94a3b8;font-size:12px;">Cargando…</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -1241,14 +1268,14 @@
             <div style="display:flex;gap:10px;">
                 <div style="flex:1;"><label for="almProdCodigo">Código</label><input type="text" id="almProdCodigo" maxlength="20" inputmode="numeric" pattern="[0-9]*" placeholder="Número (opcional)" autocomplete="off"></div>
                 <div style="flex:0.9;position:relative;">
-                    <label for="almProdUm">Unidad de Medida *</label>
+                    <label for="almProdUm">Unidad de Medida</label>
                     <input type="text" id="almProdUm" maxlength="20" placeholder="UND, KG, LTS..." value="UND" autocomplete="off"
                            oninput="window.almProdUmSuggest()" onfocus="window.almProdUmSuggest(true)"
                            style="width:100%;box-sizing:border-box;">
                     <div class="alm-suggest-inline" id="almProdUmSuggestBox" style="position:absolute;top:100%;left:0;right:0;z-index:9999;margin-top:2px;"></div>
                 </div>
             </div>
-            <div><label for="almProdNombre">Descripción / producto *</label><input type="text" id="almProdNombre" maxlength="200" autocomplete="off"></div>
+            <div><label for="almProdNombre">Descripción / producto</label><input type="text" id="almProdNombre" maxlength="200" autocomplete="off"></div>
             {{-- Categoría (ancha, con suggest) + Cantidad inicial (angosta, solo al crear).
                  Misma fila usando display:flex — igual patrón que Código + UM más arriba. --}}
             <div style="display:flex;gap:10px;align-items:flex-start;">
@@ -1360,11 +1387,15 @@
                  modal — sea cerrándolo (✕ / Escape, vía almDetalleCerrar) o saltando a un
                  sub-modal (vía almDetalleAccion). almGuardarUbicacionDetalle compara contra el
                  valor cargado, así que salir sin tocar el campo no dispara ningún PATCH. --}}
-            <div style="padding-top:2px;">
+            <div style="padding-top:2px;text-align:center;">
                 <label for="almDetUbicacion" style="font-size:12.5px;font-weight:700;color:#475569;">📍 Ubicación en estante, fila o nivel</label>
+                {{-- max-width: el valor típico es corto ("A-3", "ESTANTE 2 NIVEL 1") y a lo
+                     ancho del modal el campo se veía desproporcionado. Se conserva width:100%
+                     para que encoja solo en pantallas angostas. Lo centra el text-align del
+                     div padre (el input es inline-block: margin:auto NO lo centraría). --}}
                 <input type="text" id="almDetUbicacion" maxlength="150" autocomplete="off"
                        onkeydown="if(event.key==='Enter'){event.preventDefault();window.almGuardarUbicacionDetalle();}"
-                       style="width:100%;min-width:0;margin-top:4px;">
+                       style="width:100%;max-width:220px;min-width:0;margin-top:4px;text-align:center;">
                 <div id="almDetUbicacionError" style="display:none;color:#dc2626;font-size:12px;font-weight:600;margin-top:4px;"></div>
             </div>
 
@@ -1380,7 +1411,6 @@
                     <div style="font-size:11px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;display:flex;align-items:center;gap:6px;"><i class="material-icons" style="font-size:16px;color:#0067b1;">precision_manufacturing</i> Equipos que lo usan <span id="almDetEquiposCount" style="color:#94a3b8;font-weight:700;"></span></div>
                     <div id="almDetEquipos" style="display:flex;flex-direction:column;gap:4px;max-height:180px;overflow-y:auto;"></div>
                 </div>
-                <div id="almDetCompatVacio" style="display:none;font-size:12px;color:#94a3b8;font-style:italic;">Sin equipos registrados para este filtro.</div>
             </div>
 
             <div style="border-top:1px solid #f1f5f9;padding-top:12px;display:flex;flex-direction:column;gap:7px;">
@@ -3461,10 +3491,10 @@
     window.almCargarCompat = function (id) {
         var esc = function (s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); };
         var wrap = el('almDetCompat'); if (!wrap) return;
-        var partesWrap = el('almDetPartesWrap'), equiposWrap = el('almDetEquiposWrap'), vacio = el('almDetCompatVacio'),
+        var partesWrap = el('almDetPartesWrap'), equiposWrap = el('almDetEquiposWrap'),
             partesBox = el('almDetPartes'), equiposBox = el('almDetEquipos'), countEl = el('almDetEquiposCount');
         wrap.style.display = 'none';
-        partesWrap.style.display = 'none'; equiposWrap.style.display = 'none'; vacio.style.display = 'none';
+        partesWrap.style.display = 'none'; equiposWrap.style.display = 'none';
         partesBox.innerHTML = ''; equiposBox.innerHTML = ''; countEl.textContent = '';
 
         var url = "{{ route('almacen.productos.compatibilidad', ['id' => '__PID__']) }}".replace('__PID__', id);
@@ -3499,8 +3529,9 @@
                     }).join('');
                     equiposWrap.style.display = 'block';
                 }
-                if (!partes.length && !equipos.length) vacio.style.display = 'block';
-                wrap.style.display = 'block';
+                // Sin equivalencias ni equipos el bloque entero queda oculto (no hay
+                // mensaje de "vacío": el cliente lo pidió fuera).
+                if (partes.length || equipos.length) wrap.style.display = 'block';
             })
             .catch(function () { /* silencioso: el detalle sigue usable sin la compatibilidad */ });
     };
@@ -3679,7 +3710,7 @@
             var pg = el('almKpPag'); if (pg) pg.innerHTML = data.pagination || '';
         })
         .catch(function () {
-            if (body) body.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:#dc2626;font-size:12px;">No se pudieron cargar los movimientos.</td></tr>';
+            if (body) body.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:24px;color:#dc2626;font-size:12px;">No se pudieron cargar los movimientos.</td></tr>';
         })
         .finally(function () { if (body) body.style.opacity = '1'; });
     };
@@ -4146,6 +4177,10 @@
                     cont.innerHTML = '<div style="text-align:center;color:#94a3b8;font-size:13px;padding:24px 0;">No hay productos eliminados' + (term ? ' que coincidan.' : '.') + '</div>';
                     return;
                 }
+                // Misma fila que "Gestionar almacenes" (.alm-admin-row): icono + bloque de
+                // texto + botones SOLO icono (.alm-btn). Código y descripción van en la MISMA
+                // línea, y la descripción se muestra completa (envuelve en varias líneas si
+                // hace falta) — antes se cortaba con puntos suspensivos.
                 cont.innerHTML = rows.map(function (p) {
                     // escHtml en TODO: CODIGO/NOMBRE/UM/CATEGORIA son texto libre editable en el
                     // modal de producto. Sin escapar, una categoría tipo "<img src=x onerror=…>"
@@ -4153,19 +4188,19 @@
                     var cod = escHtml(p.CODIGO ? String(p.CODIGO) : '—');
                     var nom = escHtml(String(p.NOMBRE || ''));
                     var meta = escHtml((p.UM || '') + (p.CATEGORIA ? (' · ' + p.CATEGORIA) : ''));
-                    return '<div style="display:flex;align-items:center;gap:10px;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;">' +
+                    return '<div class="alm-admin-row">' +
+                        '<i class="material-icons" style="font-size:18px;color:#94a3b8;flex:0 0 auto;">inventory_2</i>' +
                         '<div style="flex:1;min-width:0;">' +
-                            '<div style="font-family:monospace;font-weight:700;color:#0f172a;font-size:12.5px;">' + cod + '</div>' +
-                            '<div style="font-size:13px;color:#334155;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + nom + '</div>' +
-                            '<div style="font-size:11px;color:#94a3b8;">' + meta + '</div>' +
+                            '<div style="font-size:13.5px;color:#1e293b;font-weight:700;line-height:1.35;">' +
+                                '<span style="font-weight:400;color:#64748b;">' + cod + '</span> ' + nom +
+                            '</div>' +
+                            '<div style="font-size:11.5px;color:#94a3b8;">' + meta + '</div>' +
                         '</div>' +
-                        '<div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;align-items:stretch;">' +
-                            '<button type="button" onclick="window.almRestaurarProducto(' + p.ID_PRODUCTO + ')" class="btn-primary-maquinaria" style="background:var(--maquinaria-blue, #0067b1);box-shadow:none;padding:6px 12px;font-size:12.5px;white-space:nowrap;justify-content:center;">' +
-                                '<i class="material-icons" style="font-size:15px;vertical-align:-3px;margin-right:4px;">restore</i>Restaurar</button>' +
-                            // Borrado permanente: solo super.admin (HAS_ALM_MANAGE).
-                            (HAS_ALM_MANAGE ? ('<button type="button" onclick="window.almEliminarPermanenteProducto(' + p.ID_PRODUCTO + ')" class="btn-primary-maquinaria" title="Eliminar de la papelera (permanente)" style="background:#dc2626;box-shadow:none;padding:6px 12px;font-size:12.5px;white-space:nowrap;justify-content:center;">' +
-                                '<i class="material-icons" style="font-size:15px;vertical-align:-3px;margin-right:4px;">delete_forever</i>Eliminar</button>') : '') +
-                        '</div>' +
+                        '<button type="button" onclick="window.almRestaurarProducto(' + p.ID_PRODUCTO + ')" class="alm-btn alm-btn-restore" title="Restaurar">' +
+                            '<i class="material-icons" style="font-size:16px;">restore</i></button>' +
+                        // Borrado permanente: solo super.admin (HAS_ALM_MANAGE).
+                        (HAS_ALM_MANAGE ? ('<button type="button" onclick="window.almEliminarPermanenteProducto(' + p.ID_PRODUCTO + ')" class="alm-btn alm-btn-del" title="Eliminar de la papelera (permanente)">' +
+                            '<i class="material-icons" style="font-size:16px;">delete_forever</i></button>') : '') +
                     '</div>';
                 }).join('');
             })

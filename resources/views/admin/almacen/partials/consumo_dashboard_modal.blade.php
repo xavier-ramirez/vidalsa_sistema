@@ -14,7 +14,7 @@
     .cdash-overlay { display:none; position:fixed; inset:0; background:rgba(15,23,42,0.55); z-index:10050; align-items:flex-start; justify-content:center; padding:24px 14px; overflow-y:auto; }
     .cdash-overlay.open { display:flex; }
     .cdash-modal { background:#f1f5f9; border-radius:16px; width:100%; max-width:980px; box-shadow:0 20px 40px -12px rgba(0,0,0,0.35); overflow:hidden; animation:slideDown .2s ease-out; }
-    .cdash-head { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:16px 20px; background:#fff; border-bottom:1px solid #e2e8f0; }
+    .cdash-head { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 20px; background:#fff; border-bottom:1px solid #e2e8f0; }
     .cdash-head h3 { margin:0; font-size:16px; font-weight:800; color:#0f172a; display:flex; align-items:center; gap:9px; }
     .cdash-head h3 .material-icons { color:var(--maquinaria-blue,#0067b1); }
     .cdash-x { cursor:pointer; color:#64748b; border:none; background:transparent; display:flex; padding:4px; border-radius:8px; transition:background .15s; }
@@ -53,7 +53,6 @@
     .cdash-adv-btn.active { background:#eff6ff; border-color:#0067b1; color:#0067b1; }
     .cdash-adv-btn .material-icons { font-size:18px; }
     .cdash-avanzados { background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px 14px; margin-bottom:12px; animation:slideDown .18s ease-out; }
-    .cdash-adv-lbl { display:block; font-size:11px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:.4px; margin-bottom:8px; }
     .cdash-adv-row { display:flex; gap:12px; flex-wrap:wrap; }
     .cdash-adv-field { display:flex; flex-direction:column; gap:4px; font-size:11px; font-weight:700; color:#64748b; }
     .cdash-adv-field input, .cdash-adv-field select { height:36px; border:1px solid #cbd5e0; border-radius:8px; padding:0 10px; font-size:13px; color:#0f172a; background:#fff; outline:none; min-width:150px; }
@@ -63,7 +62,12 @@
         box-shadow:0 1px 2px rgba(15,23,42,.04); }
     .cdash-card.full { grid-column:1 / -1; }
     .cdash-card h4 { margin:0 0 14px 0; font-size:13px; font-weight:800; color:#1e293b; display:flex; align-items:center; gap:8px; letter-spacing:.2px; }
+    /* Barrita de acento del título: por defecto azul corporativo (Consumo por mes).
+       Cada tarjeta con gráfico de otro color la sobreescribe para que el título y su
+       gráfico se lean como una sola pieza. */
     .cdash-card h4::before { content:''; width:4px; height:15px; border-radius:3px; background:linear-gradient(180deg,#0ea5e9,#0067b1); flex:0 0 auto; }
+    .cdash-card-top h4::before { background:linear-gradient(180deg,#5eead4,#0d9488); }
+    .cdash-card-alm h4::before { background:linear-gradient(180deg,#f59e0b,#0d9488); }
     /* Ícono para descargar cada gráfico individual (cámara, arriba a la derecha de la tarjeta). */
     .cdash-chart-dl { margin-left:auto; display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; padding:0; border:1px solid #e2e8f0; border-radius:7px; background:#fff; color:#64748b; cursor:pointer; transition:background .15s, color .15s, border-color .15s; }
     .cdash-chart-dl:hover { background:#eff6ff; color:#0067b1; border-color:#bfdbfe; }
@@ -100,10 +104,9 @@
 <div id="consumoDashModal" class="cdash-overlay" onclick="if(event.target===this) window.cerrarConsumoDashboard()">
     <div class="cdash-modal">
         <div class="cdash-head">
-            <div>
-                <h3><i class="material-icons">insights</i> Dashboard de Consumo</h3>
-                <span style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-top:3px;padding-left:29px;">Consumo y rotación de los productos más consumidos</span>
-            </div>
+            {{-- Solo el título: el subtítulo descriptivo se quitó para que el encabezado
+                 ocupe menos alto y quede más contenido a la vista sin hacer scroll. --}}
+            <h3><i class="material-icons">insights</i> Dashboard de Consumo</h3>
             <div style="display:flex;align-items:center;gap:4px;">
                 <button type="button" class="cdash-x" onclick="window._cdashDescargarImagen()" aria-label="Descargar imagen" title="Descargar como imagen (PNG)"><i class="material-icons">download</i></button>
                 <button type="button" class="cdash-x" onclick="window.cerrarConsumoDashboard()" aria-label="Cerrar"><i class="material-icons">close</i></button>
@@ -152,9 +155,9 @@
             </div>
 
             {{-- Panel de Filtros Avanzados: rango de meses + frente de destino del consumo.
-                 Oculto hasta abrir con el botón "Filtros avanzados". --}}
+                 Oculto hasta abrir con el botón de embudo (#cdashAdvBtn). Sin título propio:
+                 el botón que lo abre ya lo identifica y cada campo lleva su etiqueta. --}}
             <div id="cdashAvanzados" class="cdash-avanzados" style="display:none;">
-                <span class="cdash-adv-lbl">Filtros avanzados</span>
                 <div class="cdash-adv-row">
                     <label class="cdash-adv-field"><span>Desde (mes)</span>
                         <input type="month" id="cdashDesde" title="Desde (mes)" onchange="window._cdashFetch()" onclick="try{ this.showPicker(); }catch(e){}">
@@ -173,9 +176,9 @@
             <div id="cdashLoading" class="cdash-loading"><i class="material-icons cdash-spin">refresh</i><span>Cargando datos de consumo…</span></div>
             <div id="cdashContent" style="display:none;">
                 <div class="cdash-grid">
-                    <div class="cdash-card full"><h4>Consumo por mes<button type="button" class="cdash-chart-dl" onclick="window._cdashDescargarGrafico('mes','consumo-por-mes')" title="Descargar gráfico" aria-label="Descargar gráfico"><i class="material-icons">photo_camera</i></button></h4><div class="cdash-canvas-wrap"><canvas id="cdashChartMes"></canvas></div></div>
-                    <div class="cdash-card full"><h4>Top 20 productos consumidos<button type="button" class="cdash-chart-dl" onclick="window._cdashDescargarGrafico('top','top-20-consumidos')" title="Descargar gráfico" aria-label="Descargar gráfico"><i class="material-icons">photo_camera</i></button></h4><div class="cdash-canvas-wrap tall"><canvas id="cdashChartTop"></canvas></div></div>
-                    <div class="cdash-card full"><h4>Consumo por almacén<button type="button" class="cdash-chart-dl" onclick="window._cdashDescargarGrafico('alm','consumo-por-almacen')" title="Descargar gráfico" aria-label="Descargar gráfico"><i class="material-icons">photo_camera</i></button></h4><div class="cdash-canvas-wrap"><canvas id="cdashChartAlm"></canvas></div></div>
+                    <div class="cdash-card full"><h4>Consumo por mes<button type="button" class="cdash-chart-dl" onclick="window._cdashDescargarGrafico(this,'consumo-por-mes')" title="Descargar gráfico" aria-label="Descargar gráfico"><i class="material-icons">photo_camera</i></button></h4><div class="cdash-canvas-wrap"><canvas id="cdashChartMes"></canvas></div></div>
+                    <div class="cdash-card full cdash-card-top"><h4>Top 20 productos consumidos<button type="button" class="cdash-chart-dl" onclick="window._cdashDescargarGrafico(this,'top-20-consumidos')" title="Descargar gráfico" aria-label="Descargar gráfico"><i class="material-icons">photo_camera</i></button></h4><div class="cdash-canvas-wrap tall"><canvas id="cdashChartTop"></canvas></div></div>
+                    <div class="cdash-card full cdash-card-alm"><h4>Consumo por almacén<button type="button" class="cdash-chart-dl" onclick="window._cdashDescargarGrafico(this,'consumo-por-almacen')" title="Descargar gráfico" aria-label="Descargar gráfico"><i class="material-icons">photo_camera</i></button></h4><div class="cdash-canvas-wrap"><canvas id="cdashChartAlm"></canvas></div></div>
                 </div>
             </div>
             <div id="cdashEmpty" class="cdash-empty" style="display:none;">No hay consumo registrado para los filtros seleccionados.</div>
@@ -231,52 +234,53 @@
         if (btn) btn.classList.toggle('active', abrir);
     };
 
-    // Descarga el dashboard (los gráficos) como imagen PNG. Carga html2canvas bajo
-    // demanda la primera vez. Solo exporta si hay datos renderizados.
+    // Carga html2canvas bajo demanda (una sola vez) y ejecuta el callback. Punto único:
+    // lo usan tanto la descarga del dashboard completo como la de cada gráfico.
+    window._cdashConHtml2Canvas = function (cb) {
+        if (typeof html2canvas !== 'undefined') { cb(); return; }
+        var s = document.createElement('script');
+        {{-- ?v= obligatorio: nginx sirve /js con Cache-Control immutable, así que un
+             asset sin versión se queda pegado en el navegador PARA SIEMPRE y una
+             actualización de la librería no llegaría nunca. Era el único de 54 sin él. --}}
+        s.src = "{{ asset('js/html2canvas.min.js') . '?v=' . @filemtime(public_path('js/html2canvas.min.js')) }}";
+        s.onload = cb;
+        document.head.appendChild(s);
+    };
+
+    // Captura un elemento del DOM y lo baja como PNG. Los botones de cámara se ocultan
+    // en el CLON que html2canvas renderiza (onclone) — no en el DOM real: así la foto
+    // sale limpia sin que la pantalla parpadee. Mismo patrón que descargarPanelHtmlFDM
+    // (fleet_dashboard.js) y capturaPanelHtml (consumibles/graficos).
+    window._cdashCapturarPng = function (elemento, nombre) {
+        if (!elemento) return;
+        window._cdashConHtml2Canvas(function () {
+            html2canvas(elemento, {
+                backgroundColor: '#ffffff', scale: 2, useCORS: true, logging: false,
+                onclone: function (doc) {
+                    doc.querySelectorAll('.cdash-chart-dl').forEach(function (b) { b.style.display = 'none'; });
+                }
+            }).then(function (canvas) {
+                var a = document.createElement('a');
+                a.href = canvas.toDataURL('image/png');
+                a.download = (nombre || 'grafico') + '.png';
+                document.body.appendChild(a); a.click(); a.remove();
+            }).catch(function () {});
+        });
+    };
+
+    // Descarga el dashboard entero (los tres gráficos) como una sola imagen PNG.
     window._cdashDescargarImagen = function () {
         var cont = document.getElementById('cdashContent');
         if (!cont || cont.style.display === 'none') return; // aún cargando o sin datos
-        function run() {
-            html2canvas(cont, { backgroundColor: '#ffffff', scale: 2, useCORS: true }).then(function (canvas) {
-                var a = document.createElement('a');
-                a.href = canvas.toDataURL('image/png');
-                a.download = 'dashboard-consumo.png';
-                document.body.appendChild(a); a.click(); a.remove();
-            }).catch(function () {});
-        }
-        if (typeof html2canvas === 'undefined') {
-            var s = document.createElement('script');
-            {{-- ?v= obligatorio: nginx sirve /js con Cache-Control immutable, así que un
-                 asset sin versión se queda pegado en el navegador PARA SIEMPRE y una
-                 actualización de la librería no llegaría nunca. Era el único de 54 sin él. --}}
-            s.src = "{{ asset('js/html2canvas.min.js') . '?v=' . @filemtime(public_path('js/html2canvas.min.js')) }}";
-            s.onload = run;
-            document.head.appendChild(s);
-        } else {
-            run();
-        }
+        window._cdashCapturarPng(cont, 'dashboard-consumo');
     };
 
-    // Descarga UN gráfico individual como PNG. Usa el canvas de Chart.js directo
-    // (más limpio que capturar la tarjeta). Lo pinta sobre blanco porque el canvas
-    // de Chart.js es transparente.
-    window._cdashDescargarGrafico = function (key, nombre) {
-        var ch = window._cdashCharts && window._cdashCharts[key];
-        if (!ch || !ch.canvas) return;
-        var src = ch.canvas, url;
-        try {
-            var tmp = document.createElement('canvas');
-            tmp.width = src.width; tmp.height = src.height;
-            var ctx = tmp.getContext('2d');
-            ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, tmp.width, tmp.height);
-            ctx.drawImage(src, 0, 0);
-            url = tmp.toDataURL('image/png');
-        } catch (e) {
-            try { url = ch.toBase64Image(); } catch (e2) { return; }
-        }
-        var a = document.createElement('a');
-        a.href = url; a.download = (nombre || 'grafico') + '.png';
-        document.body.appendChild(a); a.click(); a.remove();
+    // Descarga UN gráfico como PNG. Captura la TARJETA completa (título + gráfico +
+    // fondo blanco con su borde), no solo el canvas: así la foto se entiende sola.
+    // `btn` es el propio botón de cámara — de él se cuelga el .cdash-card contenedor.
+    window._cdashDescargarGrafico = function (btn, nombre) {
+        var card = btn && btn.closest ? btn.closest('.cdash-card') : null;
+        window._cdashCapturarPng(card, nombre);
     };
 
     window.abrirConsumoDashboard = function () {
@@ -453,7 +457,10 @@
             }
         });
 
-        // ── 2) Top productos (barras horizontales, escala secuencial azul) ───
+        // ── 2) Top productos (barras horizontales, escala secuencial TEAL) ───
+        // Teal (no azul) a propósito: los tres gráficos en el mismo azul se confundían
+        // entre sí de un vistazo. El azul corporativo se reserva para "Consumo por mes"
+        // (el principal); teal contrasta con él incluso en daltonismo y en B/N.
         var top = data.top_productos || [];
         window._cdashCharts.top = new Chart(document.getElementById('cdashChartTop'), {
             type: 'bar',
@@ -464,8 +471,8 @@
                 // El total ya es por producto (ID_PRODUCTO), no por descripción.
                 labels: top.map(function (x) { return x.parte || x.nombre; }),
                 datasets: [{ label: 'Consumo', data: top.map(function (x) { return x.total; }),
-                    backgroundColor: function (c) { return cdHGrad(c, '#0067b1', '#7dd3fc'); },
-                    hoverBackgroundColor: function (c) { return cdHGrad(c, '#005a9e', '#38bdf8'); },
+                    backgroundColor: function (c) { return cdHGrad(c, '#0d9488', '#5eead4'); },
+                    hoverBackgroundColor: function (c) { return cdHGrad(c, '#0f766e', '#2dd4bf'); },
                     borderRadius: 5, borderSkipped: false }]
             },
             options: {
@@ -505,7 +512,14 @@
 
         // ── 3) Consumo por almacén (dona con total al centro) ────────────────
         var alm = data.por_almacen || [];
-        var paleta = ['#0067b1', '#0ea5e9', '#14b8a6', '#6366f1', '#f59e0b', '#ec4899', '#22c55e', '#64748b'];
+        // Paleta CATEGÓRICA (un color por almacén, sin relación de orden). Arranca en
+        // teal y no en azul: dos azules seguidos hacían que los primeros dos almacenes
+        // —normalmente los más grandes— se vieran casi iguales. Colores alternados por
+        // tono para que segmentos vecinos nunca se parezcan.
+        // Todos en versión OSCURA (700/600) a propósito: cdValLabels escribe la cantidad
+        // en BLANCO dentro del segmento, y sobre un ámbar o verde claro esa cifra no se
+        // leía. Con estos tonos el texto blanco contrasta en los ocho.
+        var paleta = ['#0f766e', '#4f46e5', '#b45309', '#db2777', '#0067b1', '#15803d', '#c2410c', '#475569'];
         var almTotal = alm.reduce(function (s, x) { return s + (Number(x.total) || 0); }, 0);
         window._cdashCharts.alm = new Chart(document.getElementById('cdashChartAlm'), {
             type: 'doughnut',

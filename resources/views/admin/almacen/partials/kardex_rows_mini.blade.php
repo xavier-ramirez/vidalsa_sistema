@@ -1,7 +1,8 @@
 {{-- Filas compactas del kardex para el modal "Movimientos del producto"
      (almKardexProductoModal). Igual que kardex_rows.blade.php pero SIN la
-     columna Producto — ya estamos viendo movimientos de UN producto.
-     5 columnas: Fecha · Tipo · Cantidad · Stock · Destino/Ref. --}}
+     columna Producto — ya estamos viendo movimientos de UN producto — y SIN
+     la de Fecha (el cliente la pidió fuera; el rango se sigue filtrando arriba).
+     4 columnas: Tipo · Cantidad · Stock · Destino/Ref. --}}
 @php
     $rows = $movimientos ?? collect();
     $fmt = fn ($n) => rtrim(rtrim(number_format((float) $n, 3, ',', '.'), '0'), ',') ?: '0';
@@ -15,7 +16,7 @@
 @endphp
 
 @if($rows->count() === 0)
-    <tr><td colspan="5" style="text-align:center;padding:30px 14px;color:#94a3b8;font-size:13px;">
+    <tr><td colspan="4" style="text-align:center;padding:30px 14px;color:#94a3b8;font-size:13px;">
         <i class="material-icons" style="font-size:34px;color:#cbd5e0;display:block;margin:0 auto 6px;">receipt_long</i>
         Este producto no tiene movimientos con esos filtros.
     </td></tr>
@@ -30,7 +31,6 @@
             $mag = $m->TIPO === 'AJUSTE' ? abs((float) $m->CANTIDAD_RESULTANTE - (float) $m->CANTIDAD_ANTERIOR) : (float) $m->CANTIDAD;
         @endphp
         <tr>
-            <td style="padding:7px 8px;text-align:center;white-space:nowrap;font-size:12px;">{{ optional($m->FECHA)->format('d/m/Y') }} <span style="color:#94a3b8;font-size:11px;">{{ optional($m->created_at)->format('h:i A') }}</span></td>
             <td style="padding:7px 8px;text-align:center;white-space:nowrap;">
                 <span style="display:inline-flex;align-items:center;gap:3px;background:{{ $meta[2] }};color:{{ $meta[1] }};font-weight:700;font-size:10.5px;padding:2px 7px;border-radius:999px;">
                     <i class="material-icons" style="font-size:12px;">{{ $meta[3] }}</i>{{ $meta[0] }}
