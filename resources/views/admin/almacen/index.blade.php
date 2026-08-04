@@ -282,6 +282,12 @@
     .alm-suggest-empty { padding:10px 15px; font-size:13px; color:#94a3b8; }
     /* Variante "en línea" para los modales (no flota: empuja el contenido — así no la recorta el overflow del modal) */
     .alm-suggest-inline { margin-top:6px; border:1px solid #e2e8f0; border-radius:12px; background:#fff; box-shadow:0 6px 16px rgba(0,0,0,0.06); max-height:200px; overflow-y:auto; padding:5px; display:none; }
+    /* Sugerencias que viven DENTRO de un modal (Categoría y Unidad de Medida del modal de
+       producto). Van en position:fixed —no absolute— porque .alm-modal-body tiene
+       overflow-y:auto: una lista absolute estiraba el contenido y le sacaba al modal una
+       barra de desplazamiento vertical. Fixed la saca del flujo y del recorte, así que se
+       despliega por encima del modal. left/top/width los calcula almSuggestAnclar(). */
+    .alm-suggest-float { position:fixed; margin-top:0; z-index:10001; }
     .alm-suggest-inline.open { display:block; animation:slideDown 0.18s ease-out; }
     .alm-suggest-inline .si-item { display:flex; align-items:center; gap:10px; padding:10px 15px; border-radius:8px; cursor:default; font-size:14px; font-weight:600; color:var(--maquinaria-dark-blue,#1e3a5f); transition:background 0.2s; }
     .alm-suggest-inline .si-item:hover { background:#f0f4f8; }
@@ -1269,12 +1275,14 @@
         <div class="alm-modal-body">
             <div style="display:flex;gap:10px;">
                 <div style="flex:1;"><label for="almProdCodigo">Código</label><input type="text" id="almProdCodigo" maxlength="20" inputmode="numeric" pattern="[0-9]*" placeholder="Número (opcional)" autocomplete="off"></div>
-                <div style="flex:0.9;position:relative;">
+                {{-- Sin position:relative: solo existía para anclar la lista de sugerencias,
+                     que ahora es position:fixed (.alm-suggest-float). --}}
+                <div style="flex:0.9;">
                     <label for="almProdUm">Unidad de Medida</label>
                     <input type="text" id="almProdUm" maxlength="20" placeholder="UND, KG, LTS..." value="UND" autocomplete="off"
                            oninput="window.almProdUmSuggest()" onfocus="window.almProdUmSuggest(true)"
                            style="width:100%;box-sizing:border-box;">
-                    <div class="alm-suggest-inline" id="almProdUmSuggestBox" style="position:absolute;top:100%;left:0;right:0;z-index:9999;margin-top:2px;"></div>
+                    <div class="alm-suggest-inline alm-suggest-float" id="almProdUmSuggestBox"></div>
                 </div>
             </div>
             <div><label for="almProdNombre">Descripción / producto</label><input type="text" id="almProdNombre" maxlength="200" autocomplete="off"></div>
@@ -1290,10 +1298,10 @@
                                onclick="event.stopPropagation(); window.almProdCatSuggest(true);">
                         <button type="button" class="alm-cat-caret" id="almProdCatCaret" tabindex="-1" title="Ver categorías registradas"
                                 onclick="window.almProdCatToggle(event)"><i class="material-icons">arrow_drop_down</i></button>
-                        {{-- Suggest FLOTANTE (position:absolute) anclado a .alm-cat-field: se monta
-                             ENCIMA del contenido en vez de empujarlo, así NO crece el alto del modal.
-                             Mismo patrón que el suggest de UM (#almProdUmSuggestBox). --}}
-                        <div class="alm-suggest-inline" id="almProdCatSuggest" style="position:absolute;top:100%;left:0;right:0;z-index:9999;margin-top:2px;"></div>
+                        {{-- Suggest FLOTANTE (position:fixed, ver .alm-suggest-float): se monta
+                             ENCIMA del contenido y FUERA del modal, así no le saca barra de
+                             desplazamiento. Mismo patrón que el suggest de UM. --}}
+                        <div class="alm-suggest-inline alm-suggest-float" id="almProdCatSuggest"></div>
                     </div>
                 </div>
                 {{-- Cantidad inicial: solo se muestra al CREAR (no al editar). Si está vacío o en 0
@@ -2105,7 +2113,29 @@
         if (accMenu && accMenu.style.display === 'block') accMenu.style.display = 'none';
         box.innerHTML = html || (emptyHtml || '<div class="alm-suggest-empty">Sin coincidencias.</div>');
         box.classList.add('open');
+        almSuggestAnclar(box);
     }
+    // Coloca una lista .alm-suggest-float (position:fixed) justo debajo de su campo.
+    // Solo actúa sobre esas: las sugerencias de la barra de filtros son absolute normales
+    // y no necesitan anclaje. Si no cabe debajo, se abre hacia arriba.
+    function almSuggestAnclar(box) {
+        if (!box || !box.classList.contains('alm-suggest-float') || !box.classList.contains('open')) return;
+        var campo = box.parentElement; if (!campo) return;
+        var r = campo.getBoundingClientRect();
+        box.style.left  = r.left + 'px';
+        box.style.width = r.width + 'px';   // el ancho se fija ANTES de medir el alto
+        var alto = box.offsetHeight;
+        var cabeAbajo = (window.innerHeight - r.bottom - 8) >= alto;
+        box.style.top = (!cabeAbajo && r.top > alto ? (r.top - alto - 2) : (r.bottom + 2)) + 'px';
+    }
+    // Al ser fixed, la lista no sigue sola a su campo: se reancla si la ventana cambia de
+    // tamaño o si algo se desplaza (el cuerpo del modal, con scroll en captura porque el
+    // evento scroll de un elemento no burbujea).
+    function almSuggestReanclar() {
+        document.querySelectorAll('.alm-suggest-float.open').forEach(almSuggestAnclar);
+    }
+    window.addEventListener('resize', almSuggestReanclar);
+    document.addEventListener('scroll', almSuggestReanclar, true);
     // ── Buscador "estilo Google" — fuzzy + ranking por relevancia ─────────────
     //   El algoritmo (normaliza, tokeniza, tolera typos por Levenshtein y rankea por
     //   relevancia) vive en el módulo compartido window.FuzzySearch
