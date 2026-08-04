@@ -474,7 +474,10 @@
                 labels: top.map(function (x) { return x.parte || x.nombre; }),
                 datasets: [{ label: 'Consumo', data: top.map(function (x) { return x.total; }),
                     backgroundColor: function (c) { return cdHGrad(c, '#005a9e', '#38bdf8'); },
-                    hoverBackgroundColor: function (c) { return cdHGrad(c, '#0067b1', '#7dd3fc'); },
+                    {{-- El hover OSCURECE, igual que en "Consumo por mes". Con el degradado
+                         invertido (hover más claro que la barra) los dos gráficos reaccionaban
+                         al revés uno del otro. --}}
+                    hoverBackgroundColor: function (c) { return cdHGrad(c, '#005a9e', '#0ea5e9'); },
                     borderRadius: 5, borderSkipped: false }]
             },
             options: {

@@ -956,7 +956,9 @@
                        style="flex:1;border:none;outline:none;padding:0 6px;font-size:13px;background:transparent;height:100%;"
                        oninput="window.almPapeleraBuscar()">
             </div>
-            <div id="almPapeleraLista" style="max-height:360px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;">
+            {{-- Reusa .alm-admin-list (columna + gap): las filas son las mismas de
+                 "Gestionar almacenes". Aquí solo se agrega el alto máximo con scroll. --}}
+            <div id="almPapeleraLista" class="alm-admin-list" style="max-height:360px;overflow-y:auto;">
                 <div style="text-align:center;color:#94a3b8;font-size:13px;padding:24px 0;">Cargando…</div>
             </div>
         </div>
