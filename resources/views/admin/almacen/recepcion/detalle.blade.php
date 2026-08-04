@@ -224,13 +224,19 @@
                         <td style="text-align:right;font-weight:700;font-family:monospace;font-size:13.5px;color:#0f172a;">{{ rtrim(rtrim(number_format((float) $linea->CANTIDAD_ENVIADA, 3, ',', '.'), '0'), ',') }}</td>
                         @if($puedeRecibir && !$lineaConfirmada)
                             <td style="text-align:right;">
+                                {{-- name/aria-label por línea: sin ellos Chrome avisa en consola
+                                     ("A form field element should have an id or name attribute")
+                                     una vez por fila. El JS los localiza por CLASE, así que el
+                                     name es solo identificación (no hay <form>: se envía por AJAX). --}}
                                 <input type="number" min="0" step="0.001" class="rec-cantidad"
+                                       name="rec_cant_{{ $linea->ID_LINEA }}"
+                                       aria-label="Cantidad recibida de {{ optional($linea->producto)->NOMBRE }}"
                                        value="{{ rtrim(rtrim(number_format((float) $linea->CANTIDAD_ENVIADA, 3, '.', ''), '0'), '.') }}">
                             </td>
                             <td class="rec-diff" style="text-align:right;color:#64748b;font-weight:700;font-family:monospace;font-size:13px;">0</td>
                             <td style="text-align:center;">
                                 <label style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:#b45309;cursor:default;">
-                                    <input type="checkbox" class="rec-danado" style="margin:0;accent-color:#b45309;">Dañado
+                                    <input type="checkbox" class="rec-danado" name="rec_danado_{{ $linea->ID_LINEA }}" style="margin:0;accent-color:#b45309;">Dañado
                                 </label>
                             </td>
                         @elseif($lineaConfirmada || $traspaso->esRecibido() || $traspaso->esCancelado())

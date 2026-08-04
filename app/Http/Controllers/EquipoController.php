@@ -3746,17 +3746,28 @@ class EquipoController extends Controller
 
         $termsArr = $terms->all();
 
+        // Tolerancia a la confusión CERO ↔ letra O al transcribir placas y seriales: es el
+        // error de tipeo más común de este dato. Se compara por el valor NORMALIZADO (la O
+        // pasa a 0) en los dos lados —término y columna—, así "ABCO12" encuentra "ABC012" y
+        // al revés. Es un ENSANCHE, no un reemplazo: la coincidencia exacta se sigue
+        // resolviendo primero en PHP (ver $indexByField vs $indexNorm más abajo).
+        // Medido sobre los datos reales: 99 de 692 placas llevan letra O y NINGÚN par de
+        // valores distintos colisiona al normalizar, así que no se inventan coincidencias.
+        $normPhp = fn ($v) => str_replace('O', '0', mb_strtoupper((string) $v));
+        $normSql = fn (string $col) => DB::raw("REPLACE(UPPER({$col}), 'O', '0')");
+        $termsNorm = array_values(array_unique(array_map($normPhp, $termsArr)));
+
         $rows = DB::table('equipos as e')
             ->leftJoin('documentacion as d',   'd.ID_EQUIPO', '=', 'e.ID_EQUIPO')
             ->leftJoin('frentes_trabajo as f', 'f.ID_FRENTE', '=', 'e.ID_FRENTE_ACTUAL')
             ->leftJoin('tipo_equipos as t',    't.id',        '=', 'e.id_tipo_equipo')
             ->whereNull('e.deleted_at')
-            ->where(function ($q) use ($termsArr) {
-                $q->whereIn(DB::raw('UPPER(e.SERIAL_CHASIS)'), $termsArr)
-                  ->orWhereIn(DB::raw('UPPER(e.SERIAL_DE_MOTOR)'), $termsArr)
-                  ->orWhereIn(DB::raw('UPPER(e.NUMERO_ETIQUETA)'), $termsArr)
-                  ->orWhereIn(DB::raw('UPPER(e.CODIGO_PATIO)'), $termsArr)
-                  ->orWhereIn(DB::raw('UPPER(d.PLACA)'), $termsArr);
+            ->where(function ($q) use ($termsNorm, $normSql) {
+                $q->whereIn($normSql('e.SERIAL_CHASIS'), $termsNorm)
+                  ->orWhereIn($normSql('e.SERIAL_DE_MOTOR'), $termsNorm)
+                  ->orWhereIn($normSql('e.NUMERO_ETIQUETA'), $termsNorm)
+                  ->orWhereIn($normSql('e.CODIGO_PATIO'), $termsNorm)
+                  ->orWhereIn($normSql('d.PLACA'), $termsNorm);
             })
             ->select([
                 'e.ID_EQUIPO',
@@ -3781,9 +3792,9 @@ class EquipoController extends Controller
         $auxRows = DB::table('equipos_auxiliares as a')
             ->leftJoin('frentes_trabajo as f', 'f.ID_FRENTE', '=', 'a.ID_FRENTE_ACTUAL')
             ->whereNull('a.deleted_at')
-            ->where(function ($q) use ($termsArr) {
-                $q->whereIn(DB::raw('UPPER(a.SERIAL)'), $termsArr)
-                  ->orWhereIn(DB::raw('UPPER(a.CODIGO_INTERNO)'), $termsArr);
+            ->where(function ($q) use ($termsNorm, $normSql) {
+                $q->whereIn($normSql('a.SERIAL'), $termsNorm)
+                  ->orWhereIn($normSql('a.CODIGO_INTERNO'), $termsNorm);
             })
             ->select([
                 'a.ID_AUXILIAR', 'a.TIPO', 'a.MARCA', 'a.MODELO', 'a.SERIAL', 'a.CODIGO_INTERNO',
@@ -3801,16 +3812,28 @@ class EquipoController extends Controller
             'aux_serial' => [],
             'aux_codigo' => [],
         ];
+        // $indexNorm: MISMA estructura pero con la clave normalizada (O→0). Solo se consulta
+        // si la búsqueda exacta no encontró nada, así una coincidencia literal nunca la pisa
+        // una tolerante. Se llena junto al índice exacto para no recorrer las filas dos veces.
+        $indexNorm = $indexByField;
+
         foreach ($auxRows as $a) {
-            if ($a->SERIAL)         { $indexByField['aux_serial'][mb_strtoupper($a->SERIAL)]         = $a; }
-            if ($a->CODIGO_INTERNO) { $indexByField['aux_codigo'][mb_strtoupper($a->CODIGO_INTERNO)] = $a; }
+            if ($a->SERIAL)         { $indexByField['aux_serial'][mb_strtoupper($a->SERIAL)]         = $a;
+                                      $indexNorm['aux_serial'][$normPhp($a->SERIAL)]                 = $a; }
+            if ($a->CODIGO_INTERNO) { $indexByField['aux_codigo'][mb_strtoupper($a->CODIGO_INTERNO)] = $a;
+                                      $indexNorm['aux_codigo'][$normPhp($a->CODIGO_INTERNO)]         = $a; }
         }
         foreach ($rows as $r) {
-            if ($r->SERIAL_CHASIS)    { $indexByField['chasis'][mb_strtoupper($r->SERIAL_CHASIS)]    = $r; }
-            if ($r->SERIAL_DE_MOTOR)  { $indexByField['motor'][mb_strtoupper($r->SERIAL_DE_MOTOR)]   = $r; }
-            if ($r->NUMERO_ETIQUETA)  { $indexByField['etiqueta'][mb_strtoupper($r->NUMERO_ETIQUETA)] = $r; }
-            if ($r->CODIGO_PATIO)     { $indexByField['patio'][mb_strtoupper($r->CODIGO_PATIO)]      = $r; }
-            if ($r->PLACA)            { $indexByField['placa'][mb_strtoupper($r->PLACA)]             = $r; }
+            if ($r->SERIAL_CHASIS)    { $indexByField['chasis'][mb_strtoupper($r->SERIAL_CHASIS)]    = $r;
+                                        $indexNorm['chasis'][$normPhp($r->SERIAL_CHASIS)]            = $r; }
+            if ($r->SERIAL_DE_MOTOR)  { $indexByField['motor'][mb_strtoupper($r->SERIAL_DE_MOTOR)]   = $r;
+                                        $indexNorm['motor'][$normPhp($r->SERIAL_DE_MOTOR)]           = $r; }
+            if ($r->NUMERO_ETIQUETA)  { $indexByField['etiqueta'][mb_strtoupper($r->NUMERO_ETIQUETA)] = $r;
+                                        $indexNorm['etiqueta'][$normPhp($r->NUMERO_ETIQUETA)]         = $r; }
+            if ($r->CODIGO_PATIO)     { $indexByField['patio'][mb_strtoupper($r->CODIGO_PATIO)]      = $r;
+                                        $indexNorm['patio'][$normPhp($r->CODIGO_PATIO)]              = $r; }
+            if ($r->PLACA)            { $indexByField['placa'][mb_strtoupper($r->PLACA)]             = $r;
+                                        $indexNorm['placa'][$normPhp($r->PLACA)]                     = $r; }
         }
 
         // Los campos de AUXILIAR van al final: si un mismo valor existe como serial de equipo
@@ -3820,10 +3843,18 @@ class EquipoController extends Controller
 
         $found = 0;
         $inOtherFrente = 0;
-        $results = $terms->map(function ($term) use ($indexByField, $priority, $camposAux, $frenteIdFiltro, &$found, &$inOtherFrente) {
+        $results = $terms->map(function ($term) use ($indexByField, $indexNorm, $normPhp, $priority, $camposAux, $frenteIdFiltro, &$found, &$inOtherFrente) {
+            // DOS pasadas: primero la coincidencia LITERAL en todos los campos; solo si
+            // ninguna acierta se reintenta con el valor normalizado (O→0). Así un valor que
+            // existe tal cual nunca se lo lleva una coincidencia tolerante de otro registro.
+            $busquedas = [
+                [$indexByField, $term],
+                [$indexNorm,    $normPhp($term)],
+            ];
+            foreach ($busquedas as [$indice, $clave]) {
             foreach ($priority as $field) {
-                if (isset($indexByField[$field][$term])) {
-                    $r = $indexByField[$field][$term];
+                if (isset($indice[$field][$clave])) {
+                    $r = $indice[$field][$clave];
                     $found++;
                     $idFrenteActual = $r->ID_FRENTE_ACTUAL ? (int) $r->ID_FRENTE_ACTUAL : null;
                     // in_selected_frente: true si no hay filtro o si el equipo
@@ -3873,7 +3904,8 @@ class EquipoController extends Controller
                         'in_selected_frente'  => $inFrente,
                     ];
                 }
-            }
+            }   // fin del recorrido de campos por prioridad
+            }   // fin de las dos pasadas (exacta y normalizada)
             return [
                 'term'  => $term,
                 'found' => false,

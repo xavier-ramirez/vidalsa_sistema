@@ -3,6 +3,16 @@
 /* @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Nunito:wght@400;600;700&display=swap'); REMOVED FOR PERFORMANCE - USING LOCAL FONTS */
 
 :root {
+    /* color-scheme: only light — la pagina se pinta SIEMPRE en claro, aunque el telefono
+       o el sistema esten en modo nocturno. Sin esto, Chrome (sobre todo en Android, con
+       "Tema oscuro automatico") invierte por su cuenta fondos y textos, y el navegador
+       pinta en oscuro los controles nativos: inputs, selects, date pickers, barras de
+       scroll y el autocompletado. El resultado eran pantallas con los colores corporativos
+       alterados y campos ilegibles. Con `only` se descarta tambien la variante oscura, asi
+       que ninguna media query prefers-color-scheme de terceros puede reactivarla.
+       Si algun dia se quiere modo oscuro DE VERDAD, se quita esta linea y se disena. */
+    color-scheme: only light;
+
     --maquinaria-blue: #0067b1;
     --maquinaria-red: #a91d28;
     --maquinaria-dark-blue: #00004d;

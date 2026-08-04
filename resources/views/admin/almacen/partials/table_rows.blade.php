@@ -142,7 +142,15 @@
                  confirmar la Nota de Entrega (las filas faltantes se resaltan en rojo). --}}
             <td class="alm-td-cant" style="text-align:center;white-space:nowrap;width:100px;" data-no-toggle>
                 <div class="alm-cant-stepper" style="display:inline-flex;align-items:stretch;border:1px solid #cbd5e0;border-radius:6px;overflow:hidden;background:#f1f5f9;height:30px;">
+                    {{-- name/aria-label por fila: sin ellos Chrome avisa en consola ("A form
+                         field element should have an id or name attribute") una vez por fila y
+                         en cada filtrado, porque el tbody se vuelve a pintar entero. No hay
+                         <form> alrededor —la salida se manda por AJAX— así que el name solo
+                         sirve para identificar el campo; el aria-label es el que da el nombre
+                         accesible, que antes se apoyaba solo en el placeholder "0". --}}
                     <input type="text" inputmode="decimal" class="alm-row-cant" placeholder="0"
+                           name="cant_{{ $p->ID_PRODUCTO }}"
+                           aria-label="Cantidad de salida de {{ $p->NOMBRE }}"
                            disabled autocomplete="off"
                            style="width:56px;border:none;background:transparent;text-align:center;font-size:13px;font-weight:700;color:#94a3b8;outline:none;padding:0;"
                            onclick="event.stopPropagation();"

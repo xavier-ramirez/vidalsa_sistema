@@ -138,7 +138,11 @@
                             @else
                                 <td class="dtm-col-num dtm-rec-cant">
                                     <i class="material-icons dtm-rec-ico" aria-hidden="true">check_circle</i>
+                                    {{-- name por línea: sin él Chrome avisa en consola una vez por
+                                         fila. El JS localiza el input por CLASE (trCollectLineas),
+                                         así que es solo identificación — no hay <form>. --}}
                                     <input type="text" class="dtm-rec-input" inputmode="decimal"
+                                           name="dtm_rec_cant_{{ $linea->ID_LINEA }}"
                                            placeholder="0" value="" autocomplete="off"
                                            aria-label="Cantidad recibida"
                                            onclick="event.stopPropagation();"

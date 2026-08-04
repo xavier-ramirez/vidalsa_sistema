@@ -18,6 +18,12 @@
     {{-- theme-color blanco: la barra de notificaciones del teléfono se muestra
          en blanco (pedido del cliente). --}}
     <meta name="theme-color" content="#ffffff">
+    {{-- La pagina es SOLO clara: el navegador no debe aplicar su modo oscuro automatico ni
+         pintar en oscuro los controles nativos. Va tambien en el <head> --y no solo en el
+         CSS-- para que aplique desde el primer pintado, antes de descargar la hoja de
+         estilos. La regla de verdad esta en :root { color-scheme: only light } de
+         estilos_globales.css. --}}
+    <meta name="color-scheme" content="light">
     <meta name="application-name" content="Sistema Vidalsa">
     <meta name="mobile-web-app-capable" content="yes">
     {{-- iOS: homescreen / standalone. 'default' = barra de estado blanca con texto/iconos oscuros. --}}

@@ -191,9 +191,17 @@
     /* Multiselect de frentes dentro del modal de almacén: el panel empuja el contenido (no flota) para que el overflow del modal no lo recorte */
     #almAlmacenModal .multiselect-content { position: static; box-shadow: none; margin-top: 6px; }
     #almAlmacenModal .custom-multiselect.active .multiselect-content { animation: slideDown 0.18s ease-out; }
-    /* Desplegable "Formato" del modal de etiquetas: igual que el multiselect de frentes,
-       el panel empuja el contenido (position:static) para que el overflow:hidden del modal no lo recorte. */
-    #almEtiquetasModal .dropdown-content { position: static; box-shadow: none; margin-top: 6px; max-height: none; }
+    /* Desplegable "Formato" del modal de etiquetas: FLOTA por encima del modal (el
+       position:absolute que ya trae .dropdown-content de serie). Antes se forzaba a
+       position:static para que el overflow:hidden del modal no lo recortara, pero eso lo
+       metía en el flujo: al abrirlo EMPUJABA el contenido y el modal crecía de golpe.
+       Para que flote sin recortarse hay que soltar el overflow de sus dos contenedores.
+       Es seguro en ESTE modal —y solo en este— porque su contenido es corto y la única
+       parte que puede crecer (#almEtqLista, la lista de productos) lleva su propio
+       max-height con scroll, así que no se pierde nada al quitar el del cuerpo. */
+    #almEtiquetasModal .alm-modal { overflow: visible; }
+    #almEtiquetasModal .alm-modal .alm-modal-body { overflow: visible; }
+    #almEtiquetasModal .dropdown-content { z-index: 60; max-height: 190px; overflow-y: auto; }
     #almEtiquetasModal .custom-dropdown.active .dropdown-content { animation: slideDown 0.18s ease-out; }
     /* El "Formato" muestra su valor en el placeholder del input readonly: lo pintamos como
        texto sólido (no gris) para que "Carta/A4 — grilla" se vea como la opción elegida por defecto. */
@@ -865,7 +873,7 @@
         </button>
         {{-- Botón único "Salida". Abre el modal Nota de Entrega; el backend decide si es
              consumo (mismo almacén) o envío a otro proyecto (TRASPASO) según el frente destino. --}}
-        <button type="button" onclick="window.almSelAccion()" class="btn-bulk-action" style="background:#dc2626;">
+        <button type="button" onclick="window.almSelAccion()" class="btn-bulk-action" style="background:#16a34a;">
             <i class="material-icons" style="font-size:18px;">north_east</i><span class="desktop-text">Salida</span>
         </button>
         {{-- Etiquetas QR de los productos seleccionados (flujo "marcar filas → imprimir
@@ -931,7 +939,7 @@
         </div>
         <div class="alm-modal-foot">
             <button type="button" class="btn-primary-maquinaria" style="background:#e2e8f0;color:#475569;box-shadow:none;" onclick="almCerrar('almEtiquetasModal')">Cancelar</button>
-            <button type="button" class="btn-primary-maquinaria" onclick="window.almEtiquetasGenerar()"><i class="material-icons" style="font-size:17px;vertical-align:-3px;margin-right:4px;">&#xe00a;</i>Generar PDF</button>
+            <button type="button" class="btn-primary-maquinaria" onclick="window.almEtiquetasGenerar()"><i class="material-icons" style="font-size:17px;vertical-align:-3px;margin-right:4px;">&#xe00a;</i>Aceptar</button>
         </div>
     </div>
 </div>
@@ -3147,11 +3155,23 @@
         if (modoLista) {
             var cont = el('almEtqLista');
             if (cont) {
+                // Ficha por producto: CÓDIGO arriba (monospace, como en la tabla) y la
+                // descripción debajo en dos líneas. Antes iba todo en UNA línea truncada con
+                // "…", así que de una descripción larga solo se leía el principio y no se
+                // distinguía un producto de otro al elegir cuántas etiquetas imprimir.
                 cont.innerHTML = lista.map(function (it) {
-                    return '<div style="display:flex;align-items:center;gap:8px;">'
-                        + '<span style="flex:1;font-size:12px;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="' + escHtml(it.label) + '">' + escHtml(it.label) + '</span>'
-                        + '<input type="number" class="alm-etq-cant" data-id="' + escHtml(String(it.id)) + '" value="1" min="1" max="200" step="1" '
-                        + 'style="width:62px;height:32px;border:1px solid #cbd5e0;border-radius:6px;padding:0 8px;font-size:13px;text-align:center;outline:none;flex:0 0 auto;">'
+                    var id  = escHtml(String(it.id));
+                    var cod = escHtml(String(it.codigo || ''));
+                    // it.label es el formato viejo "COD — NOMBRE"; se conserva como respaldo.
+                    var nom = escHtml(String(it.nombre || it.label || ('#' + it.id)));
+                    return '<div style="display:flex;align-items:center;gap:10px;padding:6px 8px;border:1px solid #e2e8f0;border-radius:8px;background:#f8fafc;">'
+                        +   '<div style="flex:1;min-width:0;">'
+                        +     (cod ? '<div style="font-family:monospace;font-size:11px;font-weight:800;color:#0067b1;letter-spacing:.3px;">' + cod + '</div>' : '')
+                        +     '<div style="font-size:12px;font-weight:600;color:#334155;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;" title="' + nom + '">' + nom + '</div>'
+                        +   '</div>'
+                        +   '<input type="number" class="alm-etq-cant" id="almEtqCant' + id + '" name="etq_cant_' + id + '" data-id="' + id + '" value="1" min="1" max="200" step="1" '
+                        +     'aria-label="Copias de ' + nom + '" '
+                        +     'style="width:62px;height:32px;border:1px solid #cbd5e0;border-radius:6px;padding:0 8px;font-size:13px;text-align:center;outline:none;flex:0 0 auto;">'
                         + '</div>';
                 }).join('');
             }
@@ -3207,8 +3227,10 @@
         var ids = Object.keys(almSeleccion);
         var lista = ids.map(function (id) {
             var s = almSeleccion[id] || {};
+            // codigo y nombre van SEPARADOS para que la ficha del modal los maquete en dos
+            // renglones; `label` se mantiene por compatibilidad con el render de respaldo.
             var label = (s.codigo || '') + (s.codigo && s.nombre ? ' — ' : '') + (s.nombre || ('#' + id));
-            return { id: id, label: label };
+            return { id: id, codigo: s.codigo || '', nombre: s.nombre || '', label: label };
         });
         window.almAbrirEtiquetas(ids.join(','), lista);
     };

@@ -2415,8 +2415,11 @@ class AlmacenController extends Controller
     {
         // Geometría por formato (mm). En 'carta' la grilla la definen cols + el nº de
         // filas que caben por alto; en los rollos es 1 etiqueta por página.
+        // 'carta': 3 columnas. Con márgenes de hoja de 6 mm quedan 198 mm útiles → celdas de
+        // 66 mm. Antes eran 2 columnas de 80 mm con 25 mm de margen izquierdo, que
+        // desperdiciaba casi un tercio del ancho y gastaba el doble de papel.
         $presets = [
-            'carta' => ['orient' => 'P', 'page' => 'A4',      'cols' => 2, 'cellW' => 80.0, 'cellH' => 30.0, 'mLeft' => 25.0, 'mTop' => 12.0],
+            'carta' => ['orient' => 'P', 'page' => 'A4',      'cols' => 3, 'cellW' => 66.0, 'cellH' => 28.0, 'mLeft' => 6.0, 'mTop' => 6.0],
             '50x30' => ['orient' => 'L', 'page' => [50, 30],  'cols' => 1, 'cellW' => 50.0, 'cellH' => 30.0, 'mLeft' => 0.0, 'mTop' => 0.0],
             '40x25' => ['orient' => 'L', 'page' => [40, 25],  'cols' => 1, 'cellW' => 40.0, 'cellH' => 25.0, 'mLeft' => 0.0, 'mTop' => 0.0],
         ];
@@ -2474,10 +2477,13 @@ class AlmacenController extends Controller
         $pdf->Rect($x, $y, $w, $h, 'D');
         $pdf->SetLineStyle(['width' => 0.1, 'dash' => 0, 'color' => [0, 0, 0]]);
 
-        // QR a la izquierda, cuadrado al 85% del alto útil, centrado verticalmente.
-        // Margen interno (quiet zone) para que cualquier lector lo capture.
-        $pad    = 2.0;
-        $qrSize = ($h - 2 * $pad) * 0.85;           // un poco más pequeño que el alto útil
+        // QR a la izquierda, cuadrado al 72% del alto útil, centrado verticalmente.
+        // Margen interno (quiet zone) para que cualquier lector lo capture: 1,2 mm sigue
+        // siendo holgado para el nivel de corrección H que usa el código.
+        // El pad y el QR se achicaron al pasar la hoja a 3 columnas — así entra más
+        // descripción al lado sin que la etiqueta crezca.
+        $pad    = 1.2;
+        $qrSize = ($h - 2 * $pad) * 0.72;           // bastante más pequeño que el alto útil
         if ($qrSize < 6.0) {
             $qrSize = max(6.0, $h - 2 * $pad);
         }
@@ -2495,14 +2501,18 @@ class AlmacenController extends Controller
         $qrY = $y + ($h - $qrSize) / 2;
         $pdf->write2DBarcode($p->qr_payload, 'QRCODE,H', $qrX, $qrY, $qrSize, $qrSize, $style, 'N');
 
-        // Texto a la derecha del QR.
-        $tx = $qrX + $qrSize + 2.5;
+        // Texto a la derecha del QR. La separación baja de 2,5 a 1,5 mm por el mismo motivo
+        // que el pad: con 3 columnas cada milímetro se nota en cuánta descripción entra.
+        $tx = $qrX + $qrSize + 1.5;
         $tw = $w - ($tx - $x) - $pad;
         if ($tw < 8.0) {
             return; // etiqueta muy angosta: queda solo el QR.
         }
 
-        $pt = $w > 55.0 ? 7.5 : 5.5;
+        // Letra más pequeña que antes (era 7,5 / 5,5): la celda de 'carta' pasó de 80 a
+        // 66 mm de ancho, así que con el cuerpo viejo la descripción se partía en muchas
+        // líneas y se salía del alto de la etiqueta.
+        $pt = $w > 55.0 ? 6.0 : 5.0;
 
         $codigo = htmlspecialchars((string) $p->CODIGO, ENT_QUOTES, 'UTF-8');
         $nombre = htmlspecialchars((string) $p->NOMBRE, ENT_QUOTES, 'UTF-8');
