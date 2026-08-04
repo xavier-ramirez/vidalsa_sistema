@@ -3,31 +3,16 @@
 namespace Tests\Feature;
 
 use App\Models\Usuario;
-use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\DB;
-use Tests\TestCase;
+use Tests\MySqlTestCase;
 
 /**
  * Búsqueda Masiva (/admin/equipos): comprueba POR HTTP —ruta, sesión, permisos y
- * controlador— que un serial de equipo AUXILIAR se encuentra. Contra MySQL con los datos
- * reales, envuelto en transacción; ver RecepcionParcialTest para el mismo montaje.
+ * controlador— que un serial de equipo AUXILIAR se encuentra.
+ * Corre contra MySQL con los datos reales y se revierte; ver MySqlTestCase.
  */
-class BusquedaMasivaAuxiliaresTest extends TestCase
+class BusquedaMasivaAuxiliaresTest extends MySqlTestCase
 {
-    use DatabaseTransactions;
-
-    protected $connectionsToTransact = ['mysql'];
-
-    protected function setUp(): void
-    {
-        putenv('DB_CONNECTION=mysql');
-        putenv('DB_DATABASE');
-        unset($_ENV['DB_DATABASE'], $_SERVER['DB_DATABASE']);
-        $_ENV['DB_CONNECTION'] = $_SERVER['DB_CONNECTION'] = 'mysql';
-        parent::setUp();
-        config(['database.default' => 'mysql']);
-    }
-
     private function usuario(): Usuario
     {
         $u = Usuario::whereNotNull('ID_USUARIO')->get()->first(fn ($x) => $x->can('super.admin'))

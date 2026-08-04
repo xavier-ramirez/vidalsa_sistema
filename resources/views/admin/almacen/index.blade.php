@@ -206,6 +206,19 @@
     /* El "Formato" muestra su valor en el placeholder del input readonly: lo pintamos como
        texto sólido (no gris) para que "Carta/A4 — grilla" se vea como la opción elegida por defecto. */
     #almEtiquetasModal .dropdown-trigger input::placeholder { font-style: normal; color: #0f172a; opacity: 1; }
+    /* Filtros del modal "Movimientos del producto": Tipo y Fechas EN LA MISMA FILA.
+       Iban con flex-wrap:wrap y en un modal de 540 px los dos campos de fecha no entraban
+       junto al selector, así que "Fechas" caía a un renglón aparte y los filtros se veían
+       desalineados (uno arriba, los otros abajo). Con nowrap el grupo de fechas cede ancho
+       (flex:1 + min-width:0 hasta los inputs) en vez de romper la fila. */
+    .alm-kp-filtros { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: nowrap; background: #fff; padding: 4px 0; }
+    .alm-kp-filtros .alm-kp-grupo-tipo { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
+    .alm-kp-filtros .alm-kp-grupo-fechas { display: flex; align-items: center; gap: 6px; flex: 1 1 auto; min-width: 0; }
+    .alm-kp-filtros .alm-kp-rango { display: flex; align-items: center; gap: 4px; flex: 1 1 auto; min-width: 0; }
+    .alm-kp-filtros .alm-kp-fecha-box { flex: 1 1 0; min-width: 0; }
+    /* Pantallas angostas (tablet en vertical): ahí sí se permite el salto de línea, pero
+       centrado, antes que aplastar los campos hasta que no se lea la fecha. */
+    @media (max-width: 560px) { .alm-kp-filtros { flex-wrap: wrap; } }
     .alm-admin-list { display: flex; flex-direction: column; gap: 6px; }
     .alm-admin-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid #e2e8f0; border-radius: 8px; }
     .alm-admin-row:hover { background: #f8fafc; }
@@ -1122,8 +1135,8 @@
             </div>
 
             {{-- Filtros: select Tipo + rango de fechas --}}
-            <div style="display:flex;align-items:center;justify-content:center;gap:15px;flex-wrap:wrap;background:#fff;padding:4px 0;">
-                <div style="display:flex;align-items:center;gap:8px;">
+            <div class="alm-kp-filtros">
+                <div class="alm-kp-grupo-tipo">
                     <span style="font-size:10.5px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;">Tipo:</span>
                     <select id="almKpTipoSelect" onchange="window.almKpChipSelect(this.value)"
                             style="height:30px;padding:0 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;color:#334155;background:#fff;cursor:pointer;">
@@ -1134,23 +1147,23 @@
                     </select>
                 </div>
 
-                {{-- Sin flex:1: solo servía para empujar el botón "Limpiar" al extremo derecho
-                     con margin-left:auto. Quitado ese botón, el grupo mide lo suyo y el
-                     justify-content:center del contenedor centra Tipo + Fechas de verdad. --}}
-                <div style="display:flex;align-items:center;gap:6px;">
+                {{-- El grupo de fechas es el que cede ancho (.alm-kp-grupo-fechas: flex:1 +
+                     min-width:0, hasta las cajas de cada input) para que Tipo y Fechas quepan
+                     SIEMPRE en la misma fila dentro de los 540 px del modal. --}}
+                <div class="alm-kp-grupo-fechas">
                     <span style="font-size:10.5px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;">Fechas:</span>
-                    <div style="display:flex;align-items:center;gap:4px;flex-wrap:nowrap;">
+                    <div class="alm-kp-rango">
                         {{-- Wrapper clickable: cualquier click en la caja abre el calendario
                              (focus()+showPicker(), mismo patrón que la fecha de la Nota de
                              Entrega). Antes el onclick iba en el input sin focus() → solo abría
                              al tocar el ícono nativo. --}}
-                        <div style="display:flex;align-items:center;background:#fff;border:1px solid #e2e8f0;border-radius:6px;height:30px;overflow:hidden;cursor:pointer;"
+                        <div class="alm-kp-fecha-box" style="display:flex;align-items:center;background:#fff;border:1px solid #e2e8f0;border-radius:6px;height:30px;overflow:hidden;cursor:pointer;"
                              onclick="var i=document.getElementById('almKpDesde'); if(i){ i.focus(); if(i.showPicker){ try{ i.showPicker(); }catch(e){} } }">
                             <input type="date" id="almKpDesde" onchange="window.almKpCargar()"
                                    style="flex:1;width:auto;min-width:0;height:28px;padding:0 6px;border:none;background:transparent;font-size:12px;color:#334155;outline:none;cursor:pointer;">
                         </div>
                         <span style="color:#94a3b8;font-size:14px;">→</span>
-                        <div style="display:flex;align-items:center;background:#fff;border:1px solid #e2e8f0;border-radius:6px;height:30px;overflow:hidden;cursor:pointer;"
+                        <div class="alm-kp-fecha-box" style="display:flex;align-items:center;background:#fff;border:1px solid #e2e8f0;border-radius:6px;height:30px;overflow:hidden;cursor:pointer;"
                              onclick="var i=document.getElementById('almKpHasta'); if(i){ i.focus(); if(i.showPicker){ try{ i.showPicker(); }catch(e){} } }">
                             <input type="date" id="almKpHasta" onchange="window.almKpCargar()"
                                    style="flex:1;width:auto;min-width:0;height:28px;padding:0 6px;border:none;background:transparent;font-size:12px;color:#334155;outline:none;cursor:pointer;">

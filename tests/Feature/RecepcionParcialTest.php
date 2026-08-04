@@ -6,39 +6,14 @@ use App\Models\Almacen;
 use App\Models\Traspaso;
 use App\Models\TraspasoLinea;
 use App\Models\Usuario;
-use Illuminate\Foundation\Testing\DatabaseTransactions;
-use Tests\TestCase;
+use Tests\MySqlTestCase;
 
 /**
  * Recepción parcial de una nota de entrega, de punta a punta por HTTP.
- *
- * DatabaseTransactions (NO RefreshDatabase): envuelve cada test en una transacción y la
- * revierte al terminar, así corre contra la base real sin dejar rastro ni borrar datos.
+ * Corre contra MySQL con los datos reales y se revierte; ver MySqlTestCase.
  */
-class RecepcionParcialTest extends TestCase
+class RecepcionParcialTest extends MySqlTestCase
 {
-    use DatabaseTransactions;
-
-    /**
-     * Contra MySQL, no contra el sqlite :memory: de phpunit.xml: estos casos verifican el
-     * comportamiento con los datos REALES (notas en tránsito, permisos, almacenes). La
-     * transacción de DatabaseTransactions se abre sobre esta misma conexión y se revierte.
-     */
-    protected $connectionsToTransact = ['mysql'];
-
-    protected function setUp(): void
-    {
-        // phpunit.xml fuerza DB_CONNECTION=sqlite y DB_DATABASE=:memory:. Se revierte a los
-        // valores del .env ANTES de arrancar la app, si no la conexión mysql hereda el
-        // ":memory:" como nombre de base y falla.
-        putenv('DB_CONNECTION=mysql');
-        putenv('DB_DATABASE');
-        unset($_ENV['DB_DATABASE'], $_SERVER['DB_DATABASE']);
-        $_ENV['DB_CONNECTION'] = $_SERVER['DB_CONNECTION'] = 'mysql';
-        parent::setUp();
-        config(['database.default' => 'mysql']);
-    }
-
     /** Usuario + nota ENVIADO cuyo almacén destino ese usuario puede operar. */
     private function notaOperable(): array
     {

@@ -5,7 +5,6 @@ namespace Tests\Unit;
 use Tests\TestCase;
 use App\Models\FrenteTrabajo;
 use App\Models\Equipo;
-use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 class FrenteTrabajoExpansionTest extends TestCase
