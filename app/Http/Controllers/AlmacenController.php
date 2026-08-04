@@ -1133,7 +1133,8 @@ class AlmacenController extends Controller
 
         if ($request->wantsJson()) {
             // El modal "Movimientos del producto" pide ?mini=1 para usar el partial
-            // de 5 columnas (sin la columna Producto, que sería redundante allí).
+            // de 4 columnas: sin la de Producto (redundante allí, ya se ve arriba) y sin
+            // la de Fecha (el cliente la pidió fuera; el rango se sigue filtrando).
             $partial = $request->boolean('mini')
                 ? 'admin.almacen.partials.kardex_rows_mini'
                 : 'admin.almacen.partials.kardex_rows';
