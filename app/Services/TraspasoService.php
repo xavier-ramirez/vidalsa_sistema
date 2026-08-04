@@ -259,7 +259,6 @@ class TraspasoService
             // Indexar líneas por ID para emparejarlas con lo que llega del request.
             $lineas = $traspaso->lineas()->lockForUpdate()->get()->keyBy('ID_LINEA');
 
-            $huboDiferencia = false;
             $vistos = []; // id_linea ya procesados → rechazar duplicados en el payload
 
             foreach ($lineasRecibidas as $rec) {
@@ -279,18 +278,17 @@ class TraspasoService
                 $notas    = $rec['notas'] ?? null;
 
                 // Comparación enviada vs recibida (tolerancia EPS).
+                // El estado de la LÍNEA sí registra la diferencia (alimenta el filtro
+                // "Con discrepancias"); lo que ya NO hace es decidir el estado de la NOTA.
                 $diff = round($recibida - (float) $linea->CANTIDAD_ENVIADA, 3);
                 if ($estado === TraspasoLinea::ESTADO_DANADO) {
                     $estadoFinal = TraspasoLinea::ESTADO_DANADO;
-                    $huboDiferencia = true;
                 } elseif (abs($diff) < self::EPS) {
                     $estadoFinal = TraspasoLinea::ESTADO_OK;
                 } elseif ($diff < 0) {
                     $estadoFinal = TraspasoLinea::ESTADO_FALTANTE;
-                    $huboDiferencia = true;
                 } else {
                     $estadoFinal = TraspasoLinea::ESTADO_SOBRANTE;
-                    $huboDiferencia = true;
                 }
 
                 // Aplicamos la entrada al destino — SOLO si la cantidad recibida > 0 y la línea
@@ -332,18 +330,24 @@ class TraspasoService
                 $linea->save();
             }
 
-            // Líneas que NO se reportaron explícitamente: quedan en PENDIENTE y se tratan como faltantes.
+            // Líneas que NO se reportaron: el usuario no las tildó, así que se quedan en
+            // PENDIENTE con CANTIDAD_RECIBIDA en NULL. Antes se les forzaba 0 + FALTANTE, y eso
+            // borraba la diferencia entre "no la confirmé" y "confirmé que llegaron 0": las dos
+            // quedaban idénticas en la base. Las vistas ya pintan "—" cuando la cantidad es NULL.
             $idsReportados = collect($lineasRecibidas)->pluck('id_linea')->filter()->map('intval')->all();
+            $quedaronPendientes = false;
             foreach ($lineas as $linea) {
                 if (!in_array((int) $linea->ID_LINEA, $idsReportados, true) && $linea->CANTIDAD_RECIBIDA === null) {
-                    $linea->CANTIDAD_RECIBIDA = 0;
-                    $linea->ESTADO_LINEA      = TraspasoLinea::ESTADO_FALTANTE;
-                    $linea->save();
-                    $huboDiferencia = true;
+                    $quedaronPendientes = true;
                 }
             }
 
-            $traspaso->ESTADO              = $huboDiferencia ? Traspaso::ESTADO_RECIBIDO_PARCIAL : Traspaso::ESTADO_RECIBIDO;
+            // "Confirmada parcial" = QUEDARON PRODUCTOS SIN CONFIRMAR, no "hubo diferencias de
+            // cantidad". Antes bastaba un faltante para marcar la nota como parcial y dejarla
+            // atascada en la bandeja aunque el usuario hubiera revisado y aceptado la lista
+            // entera. Las diferencias de cantidad se siguen viendo en el estado de cada línea
+            // y por el filtro "Con discrepancias" — no retienen la nota en la bandeja.
+            $traspaso->ESTADO              = $quedaronPendientes ? Traspaso::ESTADO_RECIBIDO_PARCIAL : Traspaso::ESTADO_RECIBIDO;
             $traspaso->FECHA_RECEPCION     = $this->resolverFechaHora($fecha);
             $traspaso->ID_USUARIO_RECEPCION = $opUser ?: null;
             $traspaso->save();

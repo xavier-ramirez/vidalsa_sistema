@@ -390,13 +390,8 @@
     /* Secundario (Cancelar / Cancelar borrador / Cancelar y revertir). */
     .dt-btn-cancel { background:#e2e8f0; color:#475569; box-shadow:none; }
     .dt-btn-cancel:hover { background:#cbd5e0; }
-    /* "Anular nota": destructivo. En rojo y EMPUJADO al extremo contrario del pie
-       (margin-right:auto) para que no comparta borde con "Aceptar". En hueco y no en rojo
-       macizo: tiene que distinguirse de los otros dos, no gritar más que la acción principal.
-       El margen automático no estorba en teléfono — allí .dtm-footer va en columna y cada
-       botón ocupa el ancho completo. */
-    .dt-btn-anular { margin-right:auto; background:#fff; color:#dc2626; border:1px solid #fecaca; box-shadow:none; }
-    .dt-btn-anular:hover { background:#dc2626; color:#fff; border-color:#dc2626; }
+    /* (Aquí vivía .dt-btn-anular. Se borró con el botón "Anular nota" del modal: era su
+       único uso — la página de detalle pinta el suyo con .dt-btn-cancel.) */
     /* Primario: la acción principal del modal (Aceptar / Enviar). Azul SÓLIDO: ya no compite
        con un segundo botón azul, así que el perfilado que tenía "Confirmar (N)" sobra. */
     .dt-btn-blue { background:var(--maquinaria-blue,#0067b1); color:#fff; box-shadow:0 4px 8px -2px rgba(0,103,177,0.3); }
@@ -1240,9 +1235,10 @@
     window.trCloseModal = function () {
         // Auto-guardado PARCIAL al cerrar: si el modal es una recepción activa, hay AL
         // MENOS una fila marcada (.recibida) y no se confirmó/canceló ya con un botón
-        // (_trModalSubmitted), al cerrar se guarda lo marcado (las no marcadas quedan como
-        // faltante → el backend la marca "Confirmada parcial"). Si no hay nada marcado,
-        // cerrar NO guarda nada (evita confirmaciones accidentales).
+        // (_trModalSubmitted), al cerrar se guarda lo marcado (las no marcadas quedan
+        // PENDIENTES → el backend marca la nota "Confirmada parcial" y sigue en la
+        // bandeja). Si no hay nada marcado, cerrar NO guarda nada (evita confirmaciones
+        // accidentales).
         var box = el('trDetalleBox');
         if (!_trModalSubmitted && box && box.querySelector('.dtm-linea-rec.recibida')) {
             window.trModalConfirmar(); // postea (marca _trModalSubmitted) y al terminar reentra aquí para cerrar
@@ -1309,20 +1305,22 @@
         return parseFloat(String(valor == null ? '' : valor).replace(',', '.')) || 0;
     }
 
-    // La cantidad recibida sale del INPUT de cada fila, no de data-enviada: el usuario puede
-    // haber escrito menos (recepción parcial) o más (sobrante). Una fila sin marcar cuenta
-    // como 0 recibido aunque el input tenga texto — marcarla es lo que la da por recibida.
-    // El backend acepta cualquier valor ≥ 0 y calcula la diferencia contra lo enviado.
+    // Envía SOLO las filas tildadas (.recibida). Las que no se tildaron NO viajan: el backend
+    // las deja PENDIENTES y por eso la nota queda "Confirmada parcial" y sigue en la bandeja.
+    // Antes se mandaban todas, las no marcadas con cantidad 0, así que el backend no podía
+    // distinguir "no la revisé" de "revisé y no llegó nada" — y toda nota salía confirmada.
+    // La cantidad sale del INPUT de cada fila, no de data-enviada: el usuario puede haber
+    // escrito menos (faltante) o más (sobrante). El backend acepta cualquier valor ≥ 0 y
+    // calcula la diferencia contra lo enviado.
     function trCollectLineas() {
         var box = el('trDetalleBox');
         if (!box) return [];
         var lineas = [];
-        box.querySelectorAll('.dtm-linea-rec').forEach(function (card) {
+        box.querySelectorAll('.dtm-linea-rec.recibida').forEach(function (card) {
             var inp = card.querySelector('.dtm-rec-input');
-            var cant = inp ? trParseCant(inp.value) : trParseCant(card.dataset.enviada);
             lineas.push({
                 id_linea:          parseInt(card.dataset.idLinea),
-                cantidad_recibida: card.classList.contains('recibida') ? cant : 0,
+                cantidad_recibida: inp ? trParseCant(inp.value) : trParseCant(card.dataset.enviada),
             });
         });
         return lineas;
@@ -1453,11 +1451,10 @@
 
         var btnSel = box.querySelector('#trConfirmSelBtn'); if (!btnSel) return;
         // Cuenta TODAS las marcadas, incluidas las que el buscador esté ocultando: son las
-        // que se van a enviar (ver trFiltrarLineas).
+        // que se van a enviar (ver trFiltrarLineas). El botón ya no muestra el número —solo
+        // se habilita o no—, pero el conteo sigue siendo lo que decide eso.
         var n = box.querySelectorAll('.dtm-linea-rec.recibida').length;
         btnSel.disabled = (n === 0);
-        var c = btnSel.querySelector('.tr-confirm-sel-count');
-        if (c) c.textContent = n;
     };
 
     function trModalPost(url, payload, successMsg) {
@@ -1493,8 +1490,9 @@
         .finally(function () { if (window.hidePreloader) window.hidePreloader(); });
     }
 
-    // "Aceptar (N)": confirma SOLO las filas tildadas (.recibida); el resto queda como
-    // faltante → el backend marca la nota "Confirmada parcial".
+    // "Aceptar": confirma SOLO las filas tildadas (.recibida); las demás quedan PENDIENTES
+    // → el backend marca la nota "Confirmada parcial" y la deja en la bandeja. Si se tildan
+    // todas, la nota queda cerrada (RECIBIDO) aunque alguna cantidad no cuadre.
     window.trModalConfirmarSeleccionados = function () {
         if (!_trModalId) return;
         var box = el('trDetalleBox');

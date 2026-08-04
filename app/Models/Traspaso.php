@@ -64,8 +64,11 @@ class Traspaso extends Model
      * Estados que trae la bandeja de Recepción CUANDO NO SE FILTRA NADA: los dos que aún
      * piden acción del almacén que recibe.
      *   · ENVIADO          → "En tránsito": llegó la nota, falta confirmarla.
-     *   · RECIBIDO_PARCIAL → "Confirmada parcial": se confirmó con diferencias (faltantes,
-     *                        sobrantes o dañados) y todavía necesita seguimiento.
+     *   · RECIBIDO_PARCIAL → "Confirmada parcial": QUEDARON PRODUCTOS SIN CONFIRMAR (líneas
+     *                        en PENDIENTE). NO significa "se confirmó con diferencias": una
+     *                        nota aceptada entera pasa a RECIBIDO aunque las cantidades no
+     *                        cuadren, y sale de la bandeja. Las diferencias se consultan por
+     *                        el filtro "Con discrepancias".
      * Quedan fuera del default —solo se ven si se piden por el filtro— RECIBIDO (cerrada sin
      * novedad), BORRADOR (es del almacén que emite) y CANCELADO (ya revirtió el stock).
      */
@@ -84,9 +87,8 @@ class Traspaso extends Model
      *                     bandeja); se acepta por URL y por eso conserva su rótulo.
      *   · con_faltantes → notas YA CONFIRMADAS (ESTADOS_RECIBIDOS) con al menos una línea
      *                     FALTANTE, es decir: se recibió MENOS cantidad de la que el origen
-     *                     despachó. Es un subconjunto de "Confirmada parcial" (ese estado
-     *                     también agrupa sobrantes y dañados), por eso se ofrece aparte:
-     *                     el almacén necesita ver solo las notas donde falta material.
+     *                     despachó. Es la ÚNICA forma de encontrarlas: al confirmarse
+     *                     completas ya no aparecen en la bandeja por defecto.
      */
     public const FILTRO_TODAS         = 'all';
     public const FILTRO_CON_FALTANTES = 'con_faltantes';
@@ -94,7 +96,7 @@ class Traspaso extends Model
     /** Rótulo humano de cada pseudo-estado (dropdown del filtro). */
     public const FILTROS_META = [
         self::FILTRO_TODAS         => 'Todas',
-        self::FILTRO_CON_FALTANTES => 'Confirmada con faltantes',
+        self::FILTRO_CON_FALTANTES => 'Con discrepancias',
     ];
 
     /**

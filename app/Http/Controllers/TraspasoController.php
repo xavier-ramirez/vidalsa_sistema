@@ -610,9 +610,11 @@ class TraspasoController extends Controller
             return response()->json(['message' => $e->getMessage()], 422);
         }
 
+        // El estado ya NO depende de las diferencias de cantidad, sino de si quedaron
+        // productos sin confirmar — el mensaje tiene que decir eso mismo.
         $mensaje = $traspaso->ESTADO === Traspaso::ESTADO_RECIBIDO
-            ? "Recepción confirmada — {$traspaso->NUMERO} llegó completo."
-            : "Recepción confirmada — {$traspaso->NUMERO} tuvo diferencias (ver detalle).";
+            ? "Recepción confirmada — {$traspaso->NUMERO} quedó cerrada."
+            : "Recepción parcial — {$traspaso->NUMERO} tiene productos sin confirmar y sigue en la bandeja.";
         return response()->json(['message' => $mensaje, 'traspaso' => $traspaso]);
     }
 

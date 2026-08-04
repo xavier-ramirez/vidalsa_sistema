@@ -247,7 +247,8 @@
             {{-- "Anular nota" reversa el stock: solo para quien puede de verdad (nota ya
                  enviada = super.admin con el almacén origen visible). Ver $puedeCancelar en
                  TraspasoController@show, que replica las condiciones de cancelar().
-                 MISMO verbo que en el modal de la bandeja: es la misma acción. --}}
+                 Vive SOLO aquí: el modal de la bandeja ya no lo ofrece (pedido del cliente),
+                 porque es una acción irreversible dentro de la pantalla de trabajo diario. --}}
             @if($puedeCancelar)
             <button type="button" class="dt-btn dt-btn-cancel"
                     onclick="window.trCancelar('{{ $traspaso->REFERENCIA ?: $traspaso->NUMERO }}')">

@@ -142,31 +142,21 @@
 @if($puedeRecibir || $puedeEnviar || $puedeCancelar)
 <div class="dtm-footer">
     @if($puedeRecibir)
-        {{-- ANULAR la nota: la deja CANCELADA y devuelve el stock al almacén de origen. No
-             se llama "Cancelar" a propósito — el botón de al lado también dice "Cancelar" y
-             solo cierra la ventana: dos rótulos iguales, uno inofensivo y otro irreversible,
-             era una trampa. "Anular" es otro verbo y no se confunde con cerrar.
-             Se separa del grupo (margin-right:auto) y va en rojo por la misma razón que en la
-             página de detalle: una acción destructiva no se pone a tocar codos con "Aceptar".
-             Solo para quien de verdad puede: en una nota ya enviada, super.admin con el
-             almacén origen visible (antes se le mostraba a cualquier receptor y el POST
-             respondía 403). --}}
-        @if($puedeCancelar)
-        <button type="button" class="dt-btn dt-btn-anular" onclick="window.trModalCancelar('{{ addslashes($neNumero) }}')">
-            <i class="material-icons">block</i> Anular nota
-        </button>
-        @endif
+        {{-- Sin botón "Anular nota" (pedido del cliente): anular una nota ya enviada revierte
+             stock y es irreversible, así que su sitio es la PÁGINA de detalle, no este modal
+             de trabajo diario. La ruta y el permiso siguen intactos — solo se quitó el atajo
+             de aquí. --}}
         {{-- Cancelar = salir SIN guardar. NO llama a trCloseModal directo: ese auto-guarda si quedaron
              filas marcadas (cerrar con la ✕ = guardado parcial deliberado), así que un botón
              "Cancelar" que lo llamara CONFIRMARÍA la recepción — justo lo contrario de lo que
              promete. trDescartarYCerrar desmarca primero y avisa si había algo marcado. --}}
         <button type="button" class="dt-btn dt-btn-cancel" onclick="window.trDescartarYCerrar()">Cancelar</button>
-        {{-- "Aceptar (N)": confirma SOLO las filas tildadas; el resto queda como faltante.
-             Es la ÚNICA acción de confirmación (ya no existe "Confirmar todo"): siempre
-             visible, deshabilitado mientras no haya ninguna fila marcada — trUpdateConfirmBtn
-             actualiza el contador y el estado. Si el usuario quiere aceptar la nota entera,
-             marca todas las filas. --}}
-        <button type="button" id="trConfirmSelBtn" class="dt-btn dt-btn-blue" disabled onclick="window.trModalConfirmarSeleccionados()">Aceptar (<span class="tr-confirm-sel-count">0</span>)</button>
+        {{-- "Aceptar": confirma SOLO las filas tildadas; las no tildadas quedan PENDIENTES y
+             la nota se queda en la bandeja hasta que se confirmen. Es la ÚNICA acción de
+             confirmación: siempre visible, deshabilitado mientras no haya ninguna fila marcada
+             (trUpdateConfirmBtn). Sin el contador entre paréntesis — el cliente lo pidió fuera;
+             las filas marcadas ya se ven tildadas en la lista. --}}
+        <button type="button" id="trConfirmSelBtn" class="dt-btn dt-btn-blue" disabled onclick="window.trModalConfirmarSeleccionados()">Aceptar</button>
     @elseif($puedeEnviar)
         <button type="button" class="dt-btn dt-btn-cancel" onclick="window.trModalCancelar('{{ addslashes($neNumero) }}')">Cancelar borrador</button>
         <button type="button" class="dt-btn dt-btn-blue" onclick="window.trModalEnviar()">
