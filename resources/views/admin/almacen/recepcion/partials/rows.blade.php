@@ -42,7 +42,11 @@
                 <div style="display:flex;flex-direction:column;align-items:center;min-width:0;text-align:center;">
                     <span class="tr-ruta-frente" style="font-weight:700;color:var(--maquinaria-dark-blue,#1e3a5f);font-size:13px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;">{{ $t->nombre_destino }}</span>
                     @if($t->frenteDestino && !$t->frenteDestinoEsRedundante())
-                        <span class="tr-ruta-alm" style="font-size:10.5px;color:#94a3b8;font-weight:600;line-height:1.2;margin-top:1px;white-space:nowrap;" title="Almacén que recibe físicamente">{{ optional($t->almacenDestino)->NOMBRE }}</span>
+                        {{-- Prefijo "Almacén": el nombre suelto debajo del frente se leía como
+                             si fuera otro frente. Un almacén de PROYECTO sirve a VARIOS frentes,
+                             así que ese segundo renglón se repite en notas de frentes distintos
+                             (p. ej. PATIO EL TIGRE) y sin la palabra no se entendía qué era. --}}
+                        <span class="tr-ruta-alm" style="font-size:10.5px;color:#94a3b8;font-weight:600;line-height:1.2;margin-top:1px;white-space:nowrap;" title="Almacén que recibe físicamente">Almacén {{ optional($t->almacenDestino)->NOMBRE }}</span>
                     @endif
                 </div>
             </div>

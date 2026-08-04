@@ -1047,7 +1047,10 @@
      cliente con ensurePerm(HAS_MOVER). --}}
 @if($puedeMover)
 <div id="almAjusteModal" class="alm-modal-overlay">
-    <div class="alm-modal">
+    {{-- 340px en vez de los 440 por defecto: aquí solo hay el saldo actual y UN campo corto
+         (el conteo, que ya va limitado a 200px). Con el ancho normal quedaba medio modal
+         vacío a los lados. Es el mínimo que no aprieta el título del encabezado. --}}
+    <div class="alm-modal" style="max-width:340px;">
         <div class="alm-modal-head">
             <h3><i class="material-icons" style="font-size:20px;">fact_check</i> Auditoría de Inventario</h3>
             <i class="material-icons alm-x" onclick="almCerrar('almAjusteModal')">close</i>
