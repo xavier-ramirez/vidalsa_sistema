@@ -1162,10 +1162,10 @@
                 <table style="width:100%;border-collapse:separate;border-spacing:0;">
                     <thead>
                         <tr style="background:#1e293b;color:#fff;position:sticky;top:0;z-index:1;">
-                            <th style="width:22%;padding:7px 8px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;text-align:center;white-space:nowrap;">Tipo</th>
+                            <th style="width:16%;padding:7px 8px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;text-align:center;white-space:nowrap;">Tipo</th>
                             <th style="width:24%;padding:7px 8px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;text-align:center;white-space:nowrap;">Cantidad</th>
                             <th style="width:16%;padding:7px 8px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;text-align:center;white-space:nowrap;">Stock</th>
-                            <th style="width:38%;padding:7px 8px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;text-align:left;">Destino / Ref</th>
+                            <th style="width:44%;padding:7px 8px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;text-align:center;">Destino / Ref</th>
                         </tr>
                     </thead>
                     <tbody id="almKpBody">

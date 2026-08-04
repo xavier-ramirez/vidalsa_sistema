@@ -29,8 +29,11 @@
             $mag = $m->TIPO === 'AJUSTE' ? abs((float) $m->CANTIDAD_RESULTANTE - (float) $m->CANTIDAD_ANTERIOR) : (float) $m->CANTIDAD;
         @endphp
         <tr>
+            {{-- Sin la píldora de fondo que llevaba el partial grande ($meta[2]): el cliente
+                 la pidió fuera de este modal, y sin ella la columna necesita menos ancho.
+                 El color del tipo ($meta[1]) se mantiene en el icono y el texto. --}}
             <td style="padding:7px 8px;text-align:center;white-space:nowrap;">
-                <span style="display:inline-flex;align-items:center;gap:3px;background:{{ $meta[2] }};color:{{ $meta[1] }};font-weight:700;font-size:10.5px;padding:2px 7px;border-radius:999px;">
+                <span style="display:inline-flex;align-items:center;gap:3px;color:{{ $meta[1] }};font-weight:700;font-size:10.5px;">
                     <i class="material-icons" style="font-size:12px;">{{ $meta[3] }}</i>{{ $meta[0] }}
                 </span>
             </td>
