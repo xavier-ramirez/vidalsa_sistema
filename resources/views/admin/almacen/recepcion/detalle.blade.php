@@ -207,7 +207,11 @@
                         // una nota cerrada. Sin esto salía un input con la cantidad enviada
                         // precargada, invitando a re-confirmar algo que el servidor ignora
                         // (ver TraspasoService::recibir) — mismo criterio que en detalle_modal.
-                        $lineaConfirmada = $linea->CANTIDAD_RECIBIDA !== null;
+                        $lineaConfirmada = $linea->estaConfirmada();
+                        // Formateo de cantidades en UN solo sitio (igual que en detalle_modal):
+                        // la misma expresión estaba escrita a mano más abajo.
+                        $fmtCant    = fn ($n) => rtrim(rtrim(number_format((float) $n, 3, ',', '.'), '0'), ',');
+                        $cantRecFmt = $lineaConfirmada ? $fmtCant($linea->CANTIDAD_RECIBIDA) : '—';
                     @endphp
                     <tr data-id-linea="{{ $linea->ID_LINEA }}">
                         <td>
@@ -230,8 +234,8 @@
                                 </label>
                             </td>
                         @elseif($lineaConfirmada || $traspaso->esRecibido() || $traspaso->esCancelado())
-                            <td style="text-align:right;font-weight:700;font-family:monospace;font-size:13.5px;color:{{ $linea->CANTIDAD_RECIBIDA === null ? '#94a3b8' : ($diff < 0 ? '#dc2626' : ($diff > 0 ? '#1d4ed8' : '#0f172a')) }};">
-                                {{ $linea->CANTIDAD_RECIBIDA === null ? '—' : rtrim(rtrim(number_format((float) $linea->CANTIDAD_RECIBIDA, 3, ',', '.'), '0'), ',') }}
+                            <td style="text-align:right;font-weight:700;font-family:monospace;font-size:13.5px;color:{{ !$lineaConfirmada ? '#94a3b8' : ($diff < 0 ? '#dc2626' : ($diff > 0 ? '#1d4ed8' : '#0f172a')) }};">
+                                {{ $cantRecFmt }}
                             </td>
                             <td style="text-align:right;font-family:monospace;font-size:13px;color:{{ $diff < 0 ? '#dc2626' : ($diff > 0 ? '#1d4ed8' : '#64748b') }};font-weight:700;">
                                 {{ $diff > 0 ? '+' : '' }}{{ rtrim(rtrim(number_format($diff, 3, ',', '.'), '0'), ',') }}

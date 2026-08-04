@@ -101,7 +101,7 @@
         <div class="cdash-head">
             {{-- Solo el título: el subtítulo descriptivo se quitó para que el encabezado
                  ocupe menos alto y quede más contenido a la vista sin hacer scroll. --}}
-            <h3><i class="material-icons">insights</i> Dashboard de Consumo</h3>
+            <h3><i class="material-icons">analytics</i> Dashboard de Consumo</h3>
             <div style="display:flex;align-items:center;gap:4px;">
                 <button type="button" class="cdash-x" onclick="window._cdashDescargarImagen()" aria-label="Descargar imagen" title="Descargar como imagen (PNG)"><i class="material-icons">download</i></button>
                 <button type="button" class="cdash-x" onclick="window.cerrarConsumoDashboard()" aria-label="Cerrar"><i class="material-icons">close</i></button>

@@ -231,7 +231,7 @@
                             onclick="document.getElementById('splitDropdownMenuMov').style.display='none'; window._eliminarSeleccionados();"
                             style="width: 100%; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 6px; border: none; background: transparent; color: #475569; font-size: 13px; font-weight: 700; cursor: pointer; text-align: left; transition: background 0.15s;"
                             onmouseover="this.style.background='#cbd5e1'" onmouseout="this.style.background='transparent'">
-                            <div style="background:#fee2e2;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;line-height:1;color:#dc2626;">delete</i></div>
+                            <div style="background:#fee2e2;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;line-height:1;color:#dc2626;">delete_outline</i></div>
                             <span>Eliminar seleccionados</span>
                         </button>
                     </div>

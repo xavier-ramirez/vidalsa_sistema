@@ -699,7 +699,7 @@
                         onclick="document.getElementById('splitDropdownMenuMovInv').style.display='none'; window.abrirConsumoDashboard();"
                         style="width:100%;display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:6px;border:none;background:transparent;color:#475569;font-size:13px;font-weight:700;cursor:pointer;text-align:left;transition:background 0.15s;"
                         onmouseover="this.style.background='#cbd5e1'" onmouseout="this.style.background='transparent'">
-                        <div style="background:#e0f2fe;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;line-height:1;color:#0067b1;">insights</i></div>
+                        <div style="background:#e0f2fe;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;line-height:1;color:#0067b1;">analytics</i></div>
                         <span>Dashboard de consumo</span>
                     </button>
                 </div>
@@ -722,7 +722,7 @@
                         onclick="document.getElementById('splitDropdownMenuMovInv').style.display='none'; window.openEliminarNotaModal();"
                         style="width:100%;display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:6px;border:none;background:transparent;color:#475569;font-size:13px;font-weight:700;cursor:pointer;text-align:left;transition:background 0.15s;"
                         onmouseover="this.style.background='#cbd5e1'" onmouseout="this.style.background='transparent'">
-                        <div style="background:#fee2e2;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;line-height:1;color:#dc2626;">delete</i></div>
+                        <div style="background:#fee2e2;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;line-height:1;color:#dc2626;">delete_outline</i></div>
                         <span>Eliminar Nota por código</span>
                     </button>
                 </div>

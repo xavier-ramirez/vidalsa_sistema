@@ -108,11 +108,20 @@ document.addEventListener('DOMContentLoaded', () => {
         prefetchEnVuelo = url;
         fetch(url, { headers: CABECERAS_SPA, cache: 'no-store' })
             .then((r) => {
-                // Solo se guarda una página completa y sana. Un 403/302/PDF se descarta:
-                // esos casos tienen su propio manejo en loadPage (toast de permiso,
-                // navegación normal…) y hay que dejar que corran cuando el usuario clique.
+                // Solo se guarda una página completa, sana y DE ESTA MISMA URL. Un 403 o un
+                // PDF se descartan porque tienen su propio manejo en loadPage (toast de
+                // permiso, navegación normal…) y hay que dejar que corra cuando el usuario
+                // clique.
+                //
+                // !r.redirected es imprescindible: fetch SIGUE los redirects solo, así que un
+                // 302 llega aquí como un 200 del destino. Guardarlo bajo la URL de origen
+                // pintaría el contenido de una página con la dirección de otra. Pasa de
+                // verdad en esta app: /admin/almacen y /admin/almacen/recepcion redirigen al
+                // menú cuando el usuario no tiene almacenes visibles (AlmacenController:119,
+                // TraspasoController:81) — sin este guard, apuntar al módulo y entrar dejaba
+                // el menú pintado con la URL del módulo y sin el toast que explica por qué.
                 const ct = r.headers.get('Content-Type') || '';
-                return (r.ok && ct.includes('text/html')) ? r.text() : null;
+                return (r.ok && !r.redirected && ct.includes('text/html')) ? r.text() : null;
             })
             .then((html) => { if (html) prefetchStore.set(url, { html: html, ts: Date.now() }); })
             .catch(() => { /* silencioso: si falla, el clic hará la petición normal */ })

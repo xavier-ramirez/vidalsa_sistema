@@ -731,7 +731,7 @@
                     {{-- Dashboard de Consumo: abre el modal con gráficos (Chart.js). Mismo
                          modal/endpoint que en /admin/almacen/movimientos. --}}
                     <button type="button" onclick="document.getElementById('almAccionesMenu').style.display='none'; window.abrirConsumoDashboard();" class="dropdown-item-custom" style="display:flex;align-items:center;gap:10px;padding:11px 14px;color:#475569;background:transparent;border:none;border-bottom:1px solid #f1f5f9;width:100%;text-align:left;cursor:pointer;">
-                        <div style="background:#e0f2fe;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#0067b1;">insights</i></div>
+                        <div style="background:#e0f2fe;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#0067b1;">analytics</i></div>
                         <span style="font-size:14px;font-weight:500;">Dashboard de consumo</span>
                     </button>
                     <button type="button" onclick="window.almAccion('export')" class="dropdown-item-custom" style="display:flex;align-items:center;gap:10px;padding:11px 14px;color:#475569;background:transparent;border:none;border-bottom:1px solid #f1f5f9;width:100%;text-align:left;cursor:pointer;">
