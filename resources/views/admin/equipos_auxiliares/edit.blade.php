@@ -24,11 +24,12 @@
         }
     }
 </style>
-<section class="page-title-card" style="margin: 0 auto 6px auto; padding: 4px 0; text-align: center;">
-    <h1 class="page-title">
-        <span class="page-title-line2" style="color: #000;">Edición de Equipo Auxiliar</span>
-    </h1>
-</section>
+@include('admin.partials.page_header', [
+    'titulo'  => 'Edición de Equipo Auxiliar',
+    'align'   => 'center',
+    'margin'  => '0 auto 6px auto',
+    'padding' => '4px 0',
+])
 
 <div id="formEquipoAuxiliarCard" class="admin-card" style="max-width: 95%; margin: 0 auto;">
     <form id="equipoAuxiliarForm" action="{{ route('equipos-auxiliares.update', $auxiliar->ID_AUXILIAR) }}" method="POST" enctype="multipart/form-data" novalidate data-is-edit="1">

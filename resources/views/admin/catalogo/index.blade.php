@@ -311,11 +311,11 @@
     }
 </style>
 
-<section class="page-title-card" style="text-align: left; margin: 0 0 10px 0;">
-    <h1 class="page-title">
-        <span class="page-title-line2" style="color: #000;">Catálogo por Modelo</span>
-    </h1>
-</section>
+@include('admin.partials.page_header', [
+    'titulo' => 'Catálogo por Modelo',
+    'align'  => 'left',
+    'margin' => '0 0 10px 0',
+])
 
 <div class="page-layout-grid">
 <div class="admin-card" style="margin: 0; min-height: 80vh; min-width: 0; width: 100%; padding: 14px;">

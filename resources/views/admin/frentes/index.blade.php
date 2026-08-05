@@ -3,11 +3,12 @@
 @section('title', 'Gestión de Frentes')
 
 @section('content')
-<section class="page-title-card" style="text-align:left;margin:0 0 16px 0;padding:0;">
-    <h1 class="page-title">
-        <span class="page-title-line2" style="color: #000;">Gestión de Frentes de Trabajo</span>
-    </h1>
-</section>
+@include('admin.partials.page_header', [
+    'titulo'  => 'Gestión de Frentes de Trabajo',
+    'align'   => 'left',
+    'margin'  => '0 0 16px 0',
+    'padding' => '0',
+])
 
 <!-- Stats Cards -->
 <div class="dashboard-stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 20px;">

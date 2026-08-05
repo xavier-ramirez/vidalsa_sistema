@@ -64,12 +64,13 @@
         }
     </style>
 
-    <section class="page-title-card" style="text-align: center; margin: 0 auto 8px auto;">
-        <h1 class="page-title">
-            <span class="page-title-line2" style="color: #000; font-size: 26px;"
-                id="formTitle">{{ (isset($frente) && $frente->exists) ? 'Edición de Frente de Trabajo' : 'Registro de Frente de Trabajo' }}</span>
-        </h1>
-    </section>
+    @include('admin.partials.page_header', [
+    'titulo'       => (isset($frente) && $frente->exists) ? 'Edición de Frente de Trabajo' : 'Registro de Frente de Trabajo',
+    'tituloId'     => 'formTitle',
+    'tituloEstilo' => 'font-size:26px;',
+    'align'        => 'center',
+    'margin'       => '0 auto 8px auto',
+])
 
 
 

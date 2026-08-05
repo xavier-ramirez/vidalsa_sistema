@@ -307,11 +307,15 @@
     }
 </style>
 
-<section class="page-title-card" style="text-align: left; margin: 0 auto 16px auto; padding: 0; width: 98%; max-width: 1600px;">
-    <h1 class="page-title" style="display: flex; align-items: center; gap: 12px; font-size: 24px;">
-        <span class="page-title-line2" style="color: #000; margin: 0;">Auditoría de Documentos</span>
-    </h1>
-</section>
+@include('admin.partials.page_header', [
+    'titulo'       => 'Auditoría de Documentos',
+    'tituloEstilo' => 'margin:0;',
+    'align'        => 'left',
+    'margin'       => '0 auto 16px auto',
+    'padding'      => '0',
+    'extra'        => 'width:98%;max-width:1600px;',
+    'h1Estilo'     => 'display:flex;align-items:center;gap:12px;font-size:24px;',
+])
 
 <div class="maquinaria-layout-container hd-layout-grid" style="display: grid; grid-template-columns: 1fr 280px; gap: 20px; width: 98%; max-width: 1600px; margin: 0 auto;">
     

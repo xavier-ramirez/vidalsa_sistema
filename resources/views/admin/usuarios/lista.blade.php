@@ -4,15 +4,18 @@
 
 @section('content')
 <div>
-<section class="page-title-card" style="text-align: left; width: 100%; max-width: none; margin: 0 0 16px 0; padding: 0;">
-    <h1 class="page-title" style="display: flex; align-items: center; gap: 12px; font-size: 24px;">
-        <span class="page-title-line2" style="color: #000; margin: 0;">Gestión de Usuarios</span>
-        <span id="user-count-badge" style="background: rgba(0, 103, 177, 0.08); color: #0067b1; padding: 4px 12px; border-radius: 20px; font-size: 14px; font-weight: 700; border: 1px solid rgba(0, 103, 177, 0.15); display: inline-flex; align-items: center; justify-content: center; min-width: 30px; height: 26px; gap: 6px;">
-            <i class="material-icons" style="font-size: 16px;">people</i>
-            <span id="user-count-text">{{ $users->total() }}</span>
-        </span>
-    </h1>
-</section>
+@include('admin.partials.page_header', [
+    'titulo'        => 'Gestión de Usuarios',
+    'tituloEstilo'  => 'margin:0;',
+    'align'         => 'left',
+    'margin'        => '0 0 16px 0',
+    'padding'       => '0',
+    'extra'         => 'width:100%;max-width:none;',
+    'h1Estilo'      => 'display:flex;align-items:center;gap:12px;font-size:24px;',
+    'despuesTitulo' => '<span id="user-count-badge" style="background: rgba(0, 103, 177, 0.08); color: #0067b1; padding: 4px 12px; border-radius: 20px; font-size: 14px; font-weight: 700; border: 1px solid rgba(0, 103, 177, 0.15); display: inline-flex; align-items: center; justify-content: center; min-width: 30px; height: 26px; gap: 6px;">'
+                       . '<i class="material-icons" style="font-size: 16px;">people</i>'
+                       . '<span id="user-count-text">' . $users->total() . '</span></span>',
+])
 
 <div class="admin-card" style="width: 100%; max-width: none; margin: 0; background: transparent; border: none; box-shadow: none; padding: 0;">
     {{-- Layout: filtros + tabla en UNA sola tarjeta blanca (.usuarios-main), como en

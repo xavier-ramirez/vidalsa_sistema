@@ -59,11 +59,13 @@
     .custom-form-autocomplete .dropdown-item:hover { background: #f7fafc; color: #2b6cb0; padding-left: 20px; }
 </style>
 
-<section class="page-title-card" style="margin: 0 auto 6px auto; padding: 18px 0 4px 0; text-align: center;">
-    <h1 class="page-title">
-        <span class="page-title-line2" style="color: #000;" id="pageTitleText">Registro de Equipos y Maquinarias</span>
-    </h1>
-</section>
+@include('admin.partials.page_header', [
+    'titulo'   => 'Registro de Equipos y Maquinarias',
+    'tituloId' => 'pageTitleText',
+    'align'    => 'center',
+    'margin'   => '0 auto 6px auto',
+    'padding'  => '18px 0 4px 0',
+])
 
 {{-- ══ Bulk Upload: Equipos ══ --}}
 @can('equipos.create')

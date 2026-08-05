@@ -30,48 +30,14 @@
     $frenteSel    = ($reqFrente && $reqFrente !== 'all') ? ($frentesLista ?? collect())->firstWhere('ID_FRENTE', (int) $reqFrente) : null;
 @endphp
 
-<section class="page-title-card" style="text-align:left;margin:0 0 10px 0;">
-    {{-- Layout: título a la izquierda + separador vertical + filtro de almacén.
-         Mismo patrón visual que /admin/almacen para consistencia entre módulos. --}}
-    <div style="display:flex;justify-content:flex-start;align-items:center;gap:20px;flex-wrap:wrap;">
-        <h1 class="page-title" style="margin:0;">
-            <span class="page-title-line2" style="color:#000;">Bitácora de Movimientos de Inventario</span>
-        </h1>
-        {{-- Separador vertical sutil entre título y filtro --}}
-        <span aria-hidden="true" style="display:inline-block;width:1px;height:34px;background:#cbd5e0;flex:0 0 auto;"></span>
-        {{-- Filtro de almacén junto al título (mismo patrón visual que /admin/almacen) --}}
-        <div style="display:flex;align-items:center;gap:10px;flex:0 1 auto;">
-            <div style="width:280px;min-width:200px;max-width:100%;">
-                {{-- NO se aplica .filter-active aunque haya almacén seleccionado: el filtro
-                     queda con estilo neutro (sin tinte azul) porque junto al título se ve
-                     como parte del encabezado, no como un filtro avanzado por accionar.
-                     El estado "activo" se lee del nombre del almacén que aparece como
-                     placeholder ya seleccionado. --}}
-                <div class="custom-dropdown" id="almMovFiltroAlmacen" data-filter-type="id_almacen" data-default-label="Todos los almacenes">
-                    <input type="hidden" name="id_almacen" data-filter-value value="{{ $reqAlmacen ?: '' }}">
-                    <div class="dropdown-trigger" style="padding:0;display:flex;align-items:center;background:#f8fafc;overflow:hidden;border:1px solid #cbd5e0;border-radius:10px;height:40px;transition:border-color .15s,background .15s;">
-                        <span style="padding:0 10px;display:flex;align-items:center;color:#0067b1;"><i class="material-icons" style="font-size:18px;transform:none !important;">warehouse</i></span>
-                        <input type="text" name="filter_search_dropdown" data-filter-search autocomplete="off"
-                               placeholder="{{ $almSel ? $almSel->NOMBRE : 'Todos los almacenes' }}"
-                               style="flex:1;border:none;background:transparent;padding:8px 5px;font-size:13.5px;font-weight:600;color:#0f172a;outline:none;min-width:0;"
-                               oninput="window.filterDropdownOptions(this)">
-                    </div>
-                    <div class="dropdown-content" style="padding:5px;max-height:none;overflow:visible;">
-                        <div class="dropdown-item-list" style="max-height:250px;overflow-y:auto;">
-                            <div class="dropdown-item {{ !$almSel ? 'selected' : '' }}" data-value="all" onclick="selectOption('almMovFiltroAlmacen','all','TODOS LOS ALMACENES');">TODOS LOS ALMACENES</div>
-                            @foreach(($almacenes ?? collect()) as $a)
-                                <div class="dropdown-item {{ $almSel && $almSel->ID_ALMACEN == $a->ID_ALMACEN ? 'selected' : '' }}" data-value="{{ $a->ID_ALMACEN }}"
-                                     onclick="selectOption('almMovFiltroAlmacen','{{ $a->ID_ALMACEN }}','{{ addslashes($a->NOMBRE) }}');">
-                                    {{ $a->NOMBRE }}
-                                </div>
-                            @endforeach
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</section>
+@include('admin.partials.page_header', [
+    'titulo'    => 'Bitácora de Movimientos de Inventario',
+    'align'     => 'left',
+    'margin'    => '0 0 10px 0',
+    'separador' => true,
+    'acciones'  => 'admin.almacen.partials.filtro_almacen_header',
+    'filtroId'  => 'almMovFiltroAlmacen',
+])
 
 <style>
     #almMovFilters { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-bottom:8px; }

@@ -34,39 +34,14 @@
     ], fn ($v) => $v !== null && $v !== '');
 @endphp
 
-<section class="page-title-card" style="text-align:left;margin:0 0 10px 0;">
-    <div style="display:flex;justify-content:flex-start;align-items:center;gap:20px;flex-wrap:wrap;">
-        <h1 class="page-title" style="margin:0;">
-            <span class="page-title-line2" style="color:#000;">Bitácora por Nota de Entrega</span>
-        </h1>
-        <span aria-hidden="true" style="display:inline-block;width:1px;height:34px;background:#cbd5e0;flex:0 0 auto;"></span>
-        <div style="display:flex;align-items:center;gap:10px;flex:0 1 auto;">
-            <div style="width:280px;min-width:200px;max-width:100%;">
-                <div class="custom-dropdown" id="almNotFiltroAlmacen" data-filter-type="id_almacen" data-default-label="Todos los almacenes">
-                    <input type="hidden" name="id_almacen" data-filter-value value="{{ $reqAlmacen ?: '' }}">
-                    <div class="dropdown-trigger" style="padding:0;display:flex;align-items:center;background:#f8fafc;overflow:hidden;border:1px solid #cbd5e0;border-radius:10px;height:40px;transition:border-color .15s,background .15s;">
-                        <span style="padding:0 10px;display:flex;align-items:center;color:#0067b1;"><i class="material-icons" style="font-size:18px;transform:none !important;">warehouse</i></span>
-                        <input type="text" name="filter_search_dropdown" data-filter-search autocomplete="off"
-                               placeholder="{{ $almSel ? $almSel->NOMBRE : 'Todos los almacenes' }}"
-                               style="flex:1;border:none;background:transparent;padding:8px 5px;font-size:13.5px;font-weight:600;color:#0f172a;outline:none;min-width:0;"
-                               oninput="window.filterDropdownOptions(this)">
-                    </div>
-                    <div class="dropdown-content" style="padding:5px;max-height:none;overflow:visible;">
-                        <div class="dropdown-item-list" style="max-height:250px;overflow-y:auto;">
-                            <div class="dropdown-item {{ !$almSel ? 'selected' : '' }}" data-value="all" onclick="selectOption('almNotFiltroAlmacen','all','TODOS LOS ALMACENES');">TODOS LOS ALMACENES</div>
-                            @foreach(($almacenes ?? collect()) as $a)
-                                <div class="dropdown-item {{ $almSel && $almSel->ID_ALMACEN == $a->ID_ALMACEN ? 'selected' : '' }}" data-value="{{ $a->ID_ALMACEN }}"
-                                     onclick="selectOption('almNotFiltroAlmacen','{{ $a->ID_ALMACEN }}','{{ addslashes($a->NOMBRE) }}');">
-                                    {{ $a->NOMBRE }}
-                                </div>
-                            @endforeach
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</section>
+@include('admin.partials.page_header', [
+    'titulo'    => 'Bitácora por Nota de Entrega',
+    'align'     => 'left',
+    'margin'    => '0 0 10px 0',
+    'separador' => true,
+    'acciones'  => 'admin.almacen.partials.filtro_almacen_header',
+    'filtroId'  => 'almNotFiltroAlmacen',
+])
 
 <style>
     #almNotFilters { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-bottom:8px; }

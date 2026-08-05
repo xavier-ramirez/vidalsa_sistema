@@ -3,11 +3,12 @@
 @section('title', isset($user) ? 'Editar Usuario' : 'Nuevo Usuario')
 
 @section('content')
-<section class="page-title-card" style="text-align: center; margin: 0 auto 16px auto; padding: 0;">
-    <h1 class="page-title">
-        <span class="page-title-line2" style="color: #000;">{{ isset($user) ? 'Edición de Usuario' : 'Registro de Usuario' }}</span>
-    </h1>
-</section>
+@include('admin.partials.page_header', [
+    'titulo'  => isset($user) ? 'Edición de Usuario' : 'Registro de Usuario',
+    'align'   => 'center',
+    'margin'  => '0 auto 16px auto',
+    'padding' => '0',
+])
 
 <div class="admin-card" style="max-width: 800px; margin: 0 auto;">
     <form id="userForm" action="{{ isset($user) ? route('usuarios.update', $user->ID_USUARIO) : route('usuarios.store') }}" method="POST">

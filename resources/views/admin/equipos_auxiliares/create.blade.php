@@ -24,11 +24,12 @@
         }
     }
 </style>
-<section class="page-title-card" style="margin: 0 auto 6px auto; padding: 4px 0; text-align: center;">
-    <h1 class="page-title">
-        <span class="page-title-line2" style="color: #000;">Registro de Equipo Auxiliar</span>
-    </h1>
-</section>
+@include('admin.partials.page_header', [
+    'titulo'  => 'Registro de Equipo Auxiliar',
+    'align'   => 'center',
+    'margin'  => '0 auto 6px auto',
+    'padding' => '4px 0',
+])
 
 @can('equipos.create')
 @include('admin.partials.bulk_upload_card', [
