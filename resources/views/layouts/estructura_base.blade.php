@@ -2855,7 +2855,7 @@
         <script>
             window.descargarSnapshotOffline = function (ev) {
                 if (ev) ev.preventDefault();
-                var toast = function (m, t) { if (window.showToast) window.showToast(m, t || 'info'); };
+                var toast = window.toast;   // helper central (dom_helpers.js)
                 if (!navigator.onLine) {
                     return toast('Necesitas conexión a internet para descargar la copia.', 'error');
                 }

@@ -306,7 +306,8 @@
     // El helper global es window.showToast (uicomponents.js). Preguntaba por window.toast,
     // que no existe en ninguna parte, así que esta página SIEMPRE caía al alert() del
     // navegador mientras el resto del módulo mostraba toasts. Mismo patrón que nueva.blade.
-    function toast(m, t) { if (window.showToast) window.showToast(m, t || 'success'); else if (t === 'error') alert(m); }
+    // Delega en window.toast (dom_helpers.js); aqui solo el default de esta pantalla.
+    function toast(m, t) { if (!window.toast(m, t || 'success') && t === 'error') alert(m); }
     function pre()  { if (window.showPreloader) window.showPreloader(); }
     function unp()  { if (window.hidePreloader) window.hidePreloader(); }
     var csrf = window.getCsrf;   // helper central (dom_helpers.js)

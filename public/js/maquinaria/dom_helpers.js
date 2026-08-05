@@ -19,6 +19,9 @@
  *   window.apiFetch()       fetch() con las cabeceras que TODA llamada a la app
  *                           necesitaba y cada sitio se armaba a mano.
  *
+ *   window.toast()          Aviso al usuario, con el guard y el respaldo a alert()
+ *                           que estaban repetidos en 6 envoltorios locales.
+ *
  * SPA-safe: sin estado, idempotente (re-evaluarlo solo reasigna las mismas funciones).
  *
  * OJO: las pantallas que NO extienden layouts.estructura_base (auth/inicio_sesion,
@@ -68,6 +71,30 @@
             .replace(/"/g, '&quot;')
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;');
+    };
+
+    /**
+     * Aviso al usuario. Delega en window.showToast (uicomponents.js) y centraliza
+     * el guard que estaba copiado en 6 envoltorios `function toast(...)`.
+     *
+     * Por que el guard: uicomponents.js se carga al FINAL del body, asi que un
+     * `var toast = window.showToast` evaluado en un <script> del contenido
+     * guardaria undefined. Aqui se resuelve en tiempo de LLAMADA.
+     *
+     * DEVUELVE si se pudo mostrar. Esto es a proposito y no es un detalle: los
+     * cuatro envoltorios de Almacen/Recepcion caian a alert() cuando no habia
+     * toasts, y los de estructura_base y outbox-sync NO. Metiendo el alert aqui
+     * le habria aparecido un alert bloqueante a esos dos —y un alert nativo
+     * congela la pestana, incluido el sincronizador que corre de fondo—. Con el
+     * booleano, cada quien conserva su comportamiento sin repetir el guard.
+     *
+     * El tipo por defecto es 'info'; las pantallas que asumen otro lo declaran
+     * en su alias de una linea.
+     */
+    window.toast = function (mensaje, tipo) {
+        if (typeof window.showToast !== 'function') return false;
+        window.showToast(mensaje, tipo || 'info');
+        return true;
     };
 
     var SIN_CSRF = { GET: 1, HEAD: 1, OPTIONS: 1 };   // los que VerifyCsrfToken no valida

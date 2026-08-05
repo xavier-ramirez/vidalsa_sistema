@@ -20,7 +20,7 @@
 (function () {
     'use strict';
 
-    function toast(m, t) { if (window.showToast) window.showToast(m, t || 'info'); }
+    var toast = window.toast;   // helper central (dom_helpers.js)
     // CSRF leído FRESCO en cada drain (no cachear: tras re-login el token cambia).
     // Helper central (dom_helpers.js): lee el <meta> en cada llamada, con guard.
     var csrf = window.getCsrf;

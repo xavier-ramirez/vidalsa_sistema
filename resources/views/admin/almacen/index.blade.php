@@ -1793,7 +1793,8 @@
     window.almFrenteContratos = @json(($frentesLista ?? collect())->mapWithKeys(fn ($f) => [$f->ID_FRENTE => array_values(array_filter((array) ($f->CONTRATOS ?? [])))]));
     function ROUTE_MIN(idAlm)   { return ROUTE_INDEX + '/almacenes/' + idAlm + '/minimo'; }
     var csrf = window.getCsrf;   // helper central (dom_helpers.js)
-    function toast(msg, type) { if (window.showToast) window.showToast(msg, type || 'success'); else if (type === 'error') alert(msg); }
+    // Delega en window.toast (dom_helpers.js); aqui solo el default de esta pantalla.
+    function toast(msg, type) { if (!window.toast(msg, type || 'success') && type === 'error') alert(msg); }
     function pre()  { if (typeof window.showPreloader === 'function') window.showPreloader(); }
     function unpre(){ if (typeof window.hidePreloader === 'function') window.hidePreloader(); }
     function el(id){ return document.getElementById(id); }

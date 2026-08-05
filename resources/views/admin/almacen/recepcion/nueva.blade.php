@@ -382,7 +382,8 @@
     function el(id) { return document.getElementById(id); }
     function v(id)  { var e = el(id); return e ? String(e.value).trim() : ''; }
     var csrf = window.getCsrf;   // helper central (dom_helpers.js)
-    function toast(msg, type) { if (window.showToast) window.showToast(msg, type || 'success'); else if (type === 'error') alert(msg); }
+    // Delega en window.toast (dom_helpers.js); aqui solo el default de esta pantalla.
+    function toast(msg, type) { if (!window.toast(msg, type || 'success') && type === 'error') alert(msg); }
     var escHtml = window.escapeHtml;   // helper central (dom_helpers.js)
     function showErr(msg) {
         var e = el('entError'); if (!e) return;
