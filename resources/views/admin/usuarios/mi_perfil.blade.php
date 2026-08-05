@@ -5,62 +5,172 @@
 @section('content')
 
     <style>
-        .perfil-avatar {
-            width: 72px;
-            height: 72px;
-            background: linear-gradient(135deg, #0067b1, #1e293b);
-            border-radius: 50%;
+        /* ══ Mi Perfil ═══════════════════════════════════════════════════════════
+           Paleta y tipografía heredadas del sistema (azul #0067b1 + Nunito). Los
+           neutros llevan una pizca de azul en vez de gris puro, para que la pantalla
+           se lea como parte de la marca y no como un formulario genérico.
+           Todo vive dentro de UNA .admin-card angosta: cabecera (avatar + nombre +
+           estado), una fila de etiquetas con rol y niveles, y debajo el formulario.
+           Antes eran cinco bloques apilados —dos de ellos tarjetas con título propio
+           para mostrar dos palabras— que estiraban la pantalla sin aportar nada. */
+        /* La tarjeta se centra también EN VERTICAL dentro del área de contenido. El 190px
+           descuenta el encabezado del layout; min-height (no height) para que en pantallas
+           bajas o con el teclado abierto la tarjeta empuje y siga siendo scrollable en vez
+           de quedar recortada. */
+        .perfil-centro {
+            min-height: calc(100vh - 190px);
             display: flex;
             align-items: center;
             justify-content: center;
-            color: white;
-            font-size: 28px;
-            font-weight: 800;
-            flex-shrink: 0;
-            box-shadow: 0 4px 15px rgba(0, 103, 177, 0.35);
         }
 
-        .perfil-info-block {
-            background: #f8fafc;
-            border: 1px solid #e2e8f0;
-            border-radius: 10px;
-            padding: 14px 18px;
+        .perfil-wrap {
+            --pf-azul: #0067b1;
+            --pf-tinta: #0f172a;
+            --pf-gris: #5b6b7f;
+            --pf-borde: #e3e9f0;
+            /* Angosta a propósito: el contenido son tres datos de lectura y dos campos.
+               A 720 px las líneas quedaban perdidas en un ancho que no usaban. */
+            width: 100%;
+            max-width: 520px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        /* ── Identidad: avatar + nombre, correo, estado y etiquetas ── */
+        /* Cabecera en HORIZONTAL: el avatar a la izquierda y toda la identidad a su
+           derecha. Antes eran cinco bloques centrados uno debajo del otro (avatar, nombre,
+           correo, estado y la fila de etiquetas), que para seis datos cortos gastaba media
+           pantalla antes de llegar al formulario, que es a lo que se entra. */
+        .perfil-hero {
             display: flex;
+            flex-direction: row;
             align-items: center;
-            gap: 12px;
+            text-align: left;
+            gap: 14px;
         }
-
-        .perfil-info-block .pi-label {
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 0.8px;
-            color: #94a3b8;
-            font-weight: 700;
-            margin-bottom: 4px;
+        .perfil-avatar {
+            width: 56px;
+            height: 56px;
+            flex: 0 0 auto;
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            color: #fff;
+            background: linear-gradient(135deg, #00355c, var(--pf-azul));
         }
-
-        .perfil-info-block .pi-value {
-            font-size: 15px;
-            color: #1e293b;
+        /* Columna de identidad: nombre + estado en la primera línea, correo en la segunda
+           y las etiquetas debajo. min-width:0 para que un correo largo recorte en vez de
+           empujar el avatar fuera de la tarjeta. */
+        .perfil-ident { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+        .perfil-linea1 { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .perfil-avatar .material-icons { font-size: 30px; }
+        .perfil-nombre {
+            font-size: 18px;
+            font-weight: 800;
+            line-height: 1.2;
+            color: var(--pf-tinta);
+        }
+        .perfil-correo {
+            font-size: 13px;
             font-weight: 600;
+            color: var(--pf-gris);
+            word-break: break-word;
+        }
+
+        /* Estado: el color es semántico (verde/rojo), aparte del azul de marca */
+        .pf-estado {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            flex-shrink: 0;
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: .4px;
+        }
+        .pf-estado-punto {
+            width: 8px; height: 8px; border-radius: 50%;
+            background: currentColor;
+            box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 18%, transparent);
+        }
+
+        /* ── Etiquetas de rol y niveles: tres datos cortos en una sola fila ── */
+        .perfil-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 8px;
+        }
+        .pf-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 4px 10px;
+            border-radius: 7px;
+            font-size: 11.5px;
+            font-weight: 700;
+            color: var(--pf-gris);
+            background: #f6f9fc;
+            border: 1px solid var(--pf-borde);
+        }
+        .pf-chip .material-icons { font-size: 14px; color: var(--pf-azul); }
+        .pf-chip b { color: var(--pf-azul); font-weight: 800; letter-spacing: .3px; }
+        .pf-chip-rol {
+            color: var(--pf-azul);
+            background: rgba(0, 103, 177, .07);
+            border-color: rgba(0, 103, 177, .2);
+            text-transform: uppercase;
+            letter-spacing: .5px;
+            font-size: 11px;
+        }
+
+        .perfil-sep {
+            border: none;
+            border-top: 1px solid var(--pf-borde);
+            margin: 14px 0 14px;
         }
 
         .perfil-section-title {
-            font-size: 13px;
+            font-size: 11px;
             font-weight: 800;
             text-transform: uppercase;
-            letter-spacing: 0.8px;
-            color: #0067b1;
-            margin-bottom: 14px;
+            letter-spacing: 1px;
+            color: var(--pf-tinta);
+            margin-bottom: 4px;
             display: flex;
             align-items: center;
             gap: 8px;
         }
+        .perfil-section-title .material-icons { font-size: 16px; color: var(--pf-azul); }
+        .perfil-section-sub {
+            font-size: 13px;
+            color: var(--pf-gris);
+            margin-bottom: 16px;
+        }
+        .pw-label {
+            display: block;
+            font-size: 10.5px;
+            font-weight: 800;
+            color: var(--pf-gris);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+        }
 
-        .perfil-divider {
-            border: none;
-            border-top: 1px solid #e2e8f0;
-            margin: 16px 0;
+        /* En pantallas bajas el centrado vertical estorba: deja de centrar y la tarjeta
+           arranca arriba, para que no haya que hacer scroll dentro de un hueco vacío. */
+        @media (max-height: 700px) {
+            .perfil-centro { min-height: 0; align-items: flex-start; }
+        }
+        /* Teléfono: la cabecera SIGUE horizontal (apilarla devolvería el alto que este
+           cambio vino a recortar), pero el avatar y las separaciones ceden unos píxeles
+           para que al nombre y al correo les quede ancho útil. */
+        @media (max-width: 420px) {
+            .perfil-wrap { padding: 18px; }
+            .perfil-hero { gap: 11px; }
+            .perfil-avatar { width: 46px; height: 46px; }
+            .perfil-avatar .material-icons { font-size: 25px; }
+            .perfil-nombre { font-size: 16.5px; }
         }
 
         .pw-input-wrap {
@@ -73,7 +183,7 @@
             border: 1.5px solid #cbd5e0;
             border-radius: 10px;
             font-size: 14px;
-            background: #f8fafc;
+            background: #fff;
             outline: none;
             box-sizing: border-box;
             transition: border-color 0.2s, box-shadow 0.2s;
@@ -103,21 +213,6 @@
             color: #0067b1;
         }
 
-        .alert-success-perfil {
-            background: linear-gradient(135deg, #d1fae5, #a7f3d0);
-            border: 1px solid #6ee7b7;
-            color: #065f46;
-            border-radius: 10px;
-            padding: 12px 18px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-weight: 600;
-            font-size: 14px;
-            margin-bottom: 20px;
-            animation: fadeIn 0.4s ease;
-        }
-
         @keyframes fadeIn {
             from {
                 opacity: 0;
@@ -130,18 +225,21 @@
             }
         }
 
-        .badge-rol {
-            background: rgba(0, 103, 177, 0.1);
-            color: #0067b1;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 700;
-            border: 1px solid rgba(0, 103, 177, 0.2);
+        /* Botonera de "Cambiar contraseña": los botones quedan EXACTAMENTE como los del
+           resto de la app (tamaño, radio y relleno los pone .btn-primary-maquinaria).
+           Aquí solo se coloca la fila; nada de altos ni anchos propios, que era lo que
+           hacía que esta pantalla se viera distinta a los demás módulos. */
+        .perfil-acciones {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            margin-top: 8px;
+            flex-wrap: wrap;
         }
     </style>
 
-    <div class="admin-card" style="max-width: 680px; margin: 0 auto; padding: 20px 30px;">
+    <div class="perfil-centro">
+    <div class="admin-card perfil-wrap">
 
         {{-- Alertas Globales (Fallback si no usa AJAX) --}}
         @if(session('success_perfil'))
@@ -154,56 +252,39 @@
             </script>
         @endif
 
-        {{-- ── Información del Usuario (solo lectura) ── --}}
-        <div class="perfil-section-title">
-            <i class="material-icons" style="font-size: 16px;">person</i>
-            Información de la Cuenta
-        </div>
-
-        <div style="display: flex; align-items: center; gap: 20px; margin-bottom: 12px;">
-            <div class="perfil-avatar">
-                {{ strtoupper(substr($user->NOMBRE_COMPLETO ?? 'U', 0, 1)) }}
-            </div>
-            <div>
-                <div style="font-size: 20px; font-weight: 800; color: #1e293b; line-height: 1.2;">
-                    {{ $user->NOMBRE_COMPLETO ?? '—' }}
+        {{-- ── Identidad + datos, en una sola cabecera compacta ── --}}
+        @php $activo = ($user->ESTATUS ?? '') === 'ACTIVO'; @endphp
+        <div class="perfil-hero">
+            <div class="perfil-avatar"><i class="material-icons">person</i></div>
+            <div class="perfil-ident">
+                {{-- Nombre y estado comparten renglón: el estado es lo único que puede estar
+                     "mal" en esta pantalla, así que va pegado al nombre y no en una línea
+                     propia. --}}
+                <div class="perfil-linea1">
+                    <span class="perfil-nombre">{{ $user->NOMBRE_COMPLETO ?? '—' }}</span>
+                    <span class="pf-estado" style="color: {{ $activo ? '#16a34a' : '#dc2626' }};">
+                        <span class="pf-estado-punto"></span>{{ $user->ESTATUS ?? '—' }}
+                    </span>
                 </div>
-                <div style="margin-top: 6px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                    <span style="font-size: 13px; color: #64748b;">{{ $user->CORREO_ELECTRONICO ?? '—' }}</span>
-                    <span class="badge-rol">{{ $user->rol->NOMBRE_ROL ?? 'Sin Rol' }}</span>
-                </div>
-            </div>
-        </div>
-
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 8px;">
-            <div class="perfil-info-block">
-                <i class="material-icons" style="color: #94a3b8; font-size: 22px;">shield</i>
-                <div>
-                    <div class="pi-label">Nivel de Acceso</div>
-                    <div class="pi-value" style="font-size: 13px; line-height: 1.6;">
-                        Equipos: {{ $user->nivel_acceso_equipos_texto }}<br>
-                        Almacén: {{ $user->nivel_acceso_almacen_texto }}
-                    </div>
-                </div>
-            </div>
-            <div class="perfil-info-block">
-                <i class="material-icons" style="color: #94a3b8; font-size: 22px;">fiber_manual_record</i>
-                <div>
-                    <div class="pi-label">Estado</div>
-                    <div class="pi-value" style="color: {{ $user->ESTATUS === 'ACTIVO' ? '#059669' : '#dc2626' }};">
-                        {{ $user->ESTATUS ?? '—' }}
-                    </div>
+                <div class="perfil-correo">{{ $user->CORREO_ELECTRONICO ?? '—' }}</div>
+                {{-- Cargo y niveles en UNA fila de etiquetas: tres datos cortos de solo
+                     lectura que no merecen una tarjeta cada uno. --}}
+                <div class="perfil-chips">
+                    <span class="pf-chip pf-chip-rol">{{ $user->rol->NOMBRE_ROL ?? 'Sin Rol' }}</span>
+                    <span class="pf-chip"><i class="material-icons">shield</i>Equipos<b>{{ $user->nivel_acceso_equipos_texto }}</b></span>
+                    <span class="pf-chip"><i class="material-icons">inventory_2</i>Almacén<b>{{ $user->nivel_acceso_almacen_texto }}</b></span>
                 </div>
             </div>
         </div>
 
-        <hr class="perfil-divider">
+        <hr class="perfil-sep">
 
         {{-- ── Cambio de Contraseña ── --}}
         <div class="perfil-section-title">
-            <i class="material-icons" style="font-size: 16px;">lock</i>
-            Cambiar Contraseña
+            <i class="material-icons">lock</i>
+            Cambiar contraseña
         </div>
+        <p class="perfil-section-sub">Usa al menos 6 caracteres. Se cierra la sesión en los demás dispositivos.</p>
 
         @if($errors->any())
             <script>
@@ -222,8 +303,7 @@
             <div style="display: flex; flex-direction: column; gap: 10px;">
 
                 <div>
-                    <label
-                        style="display: block; font-size: 12px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 4px;">
+                    <label class="pw-label">
                         Nueva Contraseña
                     </label>
                     <div class="pw-input-wrap">
@@ -235,8 +315,7 @@
                 </div>
 
                 <div>
-                    <label
-                        style="display: block; font-size: 12px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 4px;">
+                    <label class="pw-label">
                         Confirmar Contraseña
                     </label>
                     <div class="pw-input-wrap">
@@ -250,16 +329,17 @@
                 <div id="pw-strength-msg" style="font-size: 12px; font-weight: 600; color: #94a3b8; min-height: 18px;">
                 </div>
 
-                <div style="display: flex; gap: 12px; justify-content: center; margin-top: 4px;">
+                <div class="perfil-acciones">
                     <a href="{{ route('menu') }}" class="btn-primary-maquinaria btn-secondary">
                         Cancelar
                     </a>
                     <button type="submit" class="btn-primary-maquinaria" id="btnGuardarClave">
-                        Actualizar Contraseña
+                        Actualizar
                     </button>
                 </div>
             </div>
         </form>
+    </div>
     </div>
 
     <script>
@@ -297,7 +377,7 @@
                 e.preventDefault(); // Evita la recarga de la página
 
                 const btn = document.getElementById('btnGuardarClave');
-                const originalHtml = btn ? btn.innerHTML : 'Actualizar Contraseña';
+                const originalHtml = btn ? btn.innerHTML : 'Actualizar';
 
                 if (btn) {
                     btn.disabled = true;

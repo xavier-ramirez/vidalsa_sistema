@@ -290,11 +290,23 @@ body {
     font-weight: 700;
     display: inline-flex;
     align-items: center;
+    /* Texto centrado: con min-width o en botones de distinto largo puestos en fila, sin
+       esto el rótulo se pega a la izquierda y el par se ve descuadrado. */
+    justify-content: center;
     gap: 10px;
     border: none;
     cursor: default;
     /* Removed pointer cursor */
     transition: all 0.2s ease;
+    /* font-family/size EXPLÍCITOS: los <button> NO heredan la tipografía de la página
+       (los navegadores les imponen su fuente de sistema a ~13,3px), así que un
+       <a class="btn-primary-maquinaria"> y un <button class="btn-primary-maquinaria">
+       puestos uno al lado del otro salían con LETRAS DISTINTAS y de distinto tamaño.
+       Se veía en /admin/usuarios/mi-perfil ("Cancelar" vs "Actualizar Contraseña") y en
+       cualquier otro par enlace+botón de la app. */
+    font-family: inherit;
+    font-size: 14px;
+    line-height: 1.2;
 }
 
 .btn-primary-maquinaria:hover {

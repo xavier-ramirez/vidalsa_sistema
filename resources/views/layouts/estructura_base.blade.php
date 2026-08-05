@@ -148,6 +148,9 @@
             border-radius: 10px;
             line-height: 1.15;
         }
+        /* Mismo criterio que .hup-avatar: dentro va el icono `person` y el tamaño lo fija
+           el glifo, así que el contenedor no necesita font-weight ni font-size. */
+        .mobile-user-header-compact .muhc-avatar .material-icons { font-size: 19px; }
         .mobile-user-header-compact .muhc-avatar {
             flex-shrink: 0;
             width: 32px;
@@ -156,8 +159,6 @@
             background: rgba(255,255,255,0.18);
             border: 1.5px solid rgba(255,255,255,0.3);
             color: #fff;
-            font-weight: 800;
-            font-size: 13px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -184,62 +185,9 @@
             color: rgba(255,255,255,0.78);
         }
 
-        /* (Legacy — panel grande removido) Encabezado original del drawer, ya no se usa */
-        .mobile-user-header {
-            display: flex;
-            align-items: center;
-            gap: 14px;
-            padding: 18px 20px;
-            margin: 0 -16px 12px -16px;
-            /* Azul general del proyecto (#00004d sólido) — bloque legacy sin uso */
-            background: #00004d;
-            color: #fff;
-            border-radius: 14px;
-            box-shadow: 0 6px 18px -8px rgba(0, 0, 77, 0.55);
-        }
-        .mobile-user-header .mobile-user-avatar {
-            flex-shrink: 0;
-            width: 46px;
-            height: 46px;
-            border-radius: 50%;
-            background: rgba(255, 255, 255, 0.18);
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            color: #fff;
-            font-weight: 800;
-            font-size: 18px;
-            letter-spacing: 0.5px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            backdrop-filter: blur(6px);
-        }
-        .mobile-user-header .mobile-user-info {
-            display: flex;
-            flex-direction: column;
-            min-width: 0;
-            flex: 1;
-        }
-        .mobile-user-header .mobile-user-name {
-            font-size: 15px;
-            font-weight: 800;
-            color: #fff;
-            line-height: 1.15;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-        .mobile-user-header .mobile-user-role {
-            margin-top: 3px;
-            font-size: 10px;
-            font-weight: 800;
-            letter-spacing: 0.8px;
-            text-transform: uppercase;
-            color: rgba(255, 255, 255, 0.8);
-            background: rgba(255, 255, 255, 0.12);
-            border-radius: 999px;
-            padding: 2px 10px;
-            align-self: flex-start;
-        }
+        /* El encabezado grande del drawer (.mobile-user-header y sus hijas) se eliminó:
+           llevaba tiempo marcado como legacy, no lo usaba ninguna vista ni ningún JS, y
+           su reemplazo es .mobile-user-header-compact, justo arriba. */
 
         /* ── Panel de usuario en el navbar (solo desktop) ── */
         .header-user-panel {
@@ -259,6 +207,10 @@
             background: rgba(15, 23, 42, 0.06);
             border-color: rgba(15, 23, 42, 0.12);
         }
+        /* Dentro va el icono `person`, no una inicial: el tamaño lo fija el glifo. Por eso
+           el contenedor ya no lleva font-weight/font-size/letter-spacing — eran para la
+           letra y sobre un <i> no pintan nada. */
+        .header-user-panel .hup-avatar .material-icons { font-size: 20px; }
         .header-user-panel .hup-avatar {
             position: relative;
             width: 34px;
@@ -267,9 +219,6 @@
             /* Azul general del proyecto (#00004d sólido); mismo color en PC y teléfono */
             background: #00004d;
             color: #fff;
-            font-weight: 800;
-            font-size: 14px;
-            letter-spacing: 0.3px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -573,8 +522,11 @@
             {{-- ── Panel de usuario (avatar + nombre + rol) — estilo moderno en el navbar ── --}}
             @auth
                 <div class="header-user-panel" title="{{ auth()->user()->NOMBRE_COMPLETO ?? 'Usuario' }}">
+                    {{-- Icono de persona en vez de la inicial: el nombre completo ya está
+                         al lado, así que la letra suelta no aportaba nada y con nombres que
+                         empiezan igual todos los avatares se veían idénticos. --}}
                     <div class="hup-avatar">
-                        {{ strtoupper(substr(auth()->user()->NOMBRE_COMPLETO ?? 'U', 0, 1)) }}
+                        <i class="material-icons">person</i>
                     </div>
                     <div class="hup-info">
                         <span class="hup-name">{{ auth()->user()->NOMBRE_COMPLETO ?? 'Usuario' }}</span>
@@ -606,7 +558,7 @@
         @auth
             <div class="mobile-user-header-compact">
                 <div class="muhc-avatar">
-                    {{ strtoupper(substr(auth()->user()->NOMBRE_COMPLETO ?? 'U', 0, 1)) }}
+                    <i class="material-icons">person</i>
                 </div>
                 <div class="muhc-text">
                     <span class="muhc-name">{{ auth()->user()->NOMBRE_COMPLETO ?? 'Usuario' }}</span>
