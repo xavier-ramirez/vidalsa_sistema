@@ -12,6 +12,7 @@ use App\Models\MovimientoInventario;
 use App\Models\ProductoInventario;
 use App\Support\OfflineVersion;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Snapshot OFFLINE — copia de solo lectura de los datos que el teléfono necesita
@@ -431,15 +432,26 @@ class OfflineController extends Controller
      */
     private function consultaStock($almIds, ?string $desde = null)
     {
+        // El saldo se lleva POR PROYECTO (ID_FRENTE), así que un producto puede tener
+        // varias filas en el mismo almacén. Aquí se SUMAN: la copia offline es de solo
+        // consulta y muestra "cuánto hay en el almacén", igual que la vista "Todos" de la
+        // web. Se agrega en el servidor y no en el cliente a propósito — así la clave
+        // (id_almacen:id_producto) de IndexedDB sigue siendo única y no hay que migrar la
+        // base local de los teléfonos que ya tienen datos bajados.
+        // Contrapartida asumida: sin conexión no se ve el desglose por proyecto, solo el
+        // total del almacén.
         return AlmacenStock::query()
             ->join('productos_inventario as p', 'p.ID_PRODUCTO', '=', 'almacen_stock.ID_PRODUCTO')
             ->whereIn('almacen_stock.ID_ALMACEN', $almIds)
             ->when($desde, fn ($q) => $q->where(fn ($w) => $w
                 ->where('almacen_stock.updated_at', '>=', $desde)
                 ->orWhere('p.updated_at', '>=', $desde)))
+            ->groupBy('almacen_stock.ID_ALMACEN', 'almacen_stock.ID_PRODUCTO',
+                      'p.CODIGO', 'p.NOMBRE', 'p.UM', 'p.CATEGORIA')
             ->get([
                 'almacen_stock.ID_ALMACEN', 'almacen_stock.ID_PRODUCTO',
-                'almacen_stock.CANTIDAD', 'almacen_stock.CANTIDAD_MINIMA',
+                DB::raw('SUM(almacen_stock.CANTIDAD) as CANTIDAD'),
+                DB::raw('MAX(almacen_stock.CANTIDAD_MINIMA) as CANTIDAD_MINIMA'),
                 'p.CODIGO', 'p.NOMBRE', 'p.UM', 'p.CATEGORIA',
             ])
             ->map(static fn ($r) => [

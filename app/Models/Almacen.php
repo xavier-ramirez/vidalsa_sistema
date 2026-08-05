@@ -91,10 +91,39 @@ class Almacen extends Model
         )->withTimestamps();
     }
 
-    /** Existencias (una fila por producto) en este almacén. */
+    /** Existencias (una fila por producto y proyecto) en este almacén. */
     public function stock()
     {
         return $this->hasMany(AlmacenStock::class, 'ID_ALMACEN', 'ID_ALMACEN');
+    }
+
+    /**
+     * ¿Este almacén lleva el saldo SEPARADO POR PROYECTO?
+     *
+     * Solo lo hacen los almacenes de PROYECTO que sirven a más de un frente: es el caso
+     * de PATIO EL TIGRE, donde el material de 6 proyectos se sumaba en un único número.
+     * Un almacén con un solo frente (o GENERAL, como BARCELONA) no tiene nada que
+     * separar y opera SIEMPRE contra la bolsa común (ID_FRENTE = 0), así que su
+     * comportamiento es idéntico al de antes de existir esta columna.
+     *
+     * Es el ÚNICO interruptor de la separación: lo consultan InventarioService (para
+     * decidir a qué saldo aplica cada movimiento) y AlmacenController (para saber si
+     * debe ofrecer el selector de proyecto). Si se decidiera separar también los
+     * mono-frente, se cambia aquí y no en cada sitio.
+     *
+     * Ojo: usa la relación ya cargada si existe (`with('frentes')`), y solo cuenta
+     * contra la BD cuando no lo está — este método se llama por cada movimiento de un
+     * lote y una consulta por línea se nota.
+     */
+    public function separaPorProyecto(): bool
+    {
+        if ($this->TIPO !== self::TIPO_PROYECTO) {
+            return false;
+        }
+
+        return $this->relationLoaded('frentes')
+            ? $this->frentes->count() > 1
+            : $this->frentes()->count() > 1;
     }
 
     /** Movimientos (kardex) de este almacén. */

@@ -31,6 +31,9 @@ class AlmacenStock extends Model
     protected $fillable = [
         'ID_ALMACEN',
         'ID_PRODUCTO',
+        // Proyecto dueño del saldo; 0 = bolsa común del almacén. Solo se separa en los
+        // almacenes multi-proyecto (ver Almacen::separaPorProyecto).
+        'ID_FRENTE',
         'CANTIDAD',
         'CANTIDAD_MINIMA',
         'ULTIMA_ENTRADA',
