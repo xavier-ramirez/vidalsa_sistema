@@ -71,6 +71,15 @@
         min-width: 0;
     }
     .ent-field-group { display:flex; flex-direction:column; gap:4px; }
+    /* Proyecto dueño del stock: franja propia arriba de la cabecera, con fondo tenue para que se
+       lea como contexto de TODA la entrada y no como un campo mas del formulario. */
+    .ent-proyecto-row { display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+        margin-bottom:14px; padding:11px 13px; background:#f8fafc;
+        border:1px solid #e2e8f0; border-radius:10px; }
+    .ent-proyecto-row select { flex:1 1 220px; min-width:0; height:38px; font-family:inherit; }
+    /* Sin elegir → borde rojo suave. No es un error todavia (nadie intento registrar aun),
+       solo la senal de que falta ese dato. Se apaga en cuanto se elige. */
+    .ent-proyecto-row select.falta { border-color:#f87171; background:#fef2f2; }
     .ent-field-label { font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.4px; }
     /* Mobile responsive (≤900px y ≤480px) en estilos_globales.css scopeado con body:has(.ent-layout). */
 
@@ -222,6 +231,25 @@
     {{-- Cabecera del lote: N° Doc | Proveedor | Fecha. Los 3 bloques son hijos
          DIRECTOS del grid. Las acciones (Cancelar / Registrar) viven ahora en el
          panel lateral de la derecha. --}}
+    {{-- Proyecto dueño del stock. Solo en almacenes que reparten el saldo entre varios proyectos;
+         en el resto no hay nada que elegir (todo va a la bolsa comun) y la franja no se pinta.
+         Va ARRIBA de la cabecera del lote porque no es un dato del documento: define a que
+         bolsa entra TODO lo que se capture debajo. Obligatorio — el backend lo exige igual
+         (AlmacenController::registrarMovimientoLote). --}}
+    @if($separaProyectos ?? false)
+    <div class="ent-proyecto-row">
+        <label class="ent-field-label" for="entProyecto">Proyecto dueño del stock <span style="color:#dc2626;">*</span></label>
+        <select id="entProyecto" class="ent-input falta" onchange="window.entProyectoCambio()">
+            {{-- Sin preseleccion a proposito: elegir por el usuario es justo lo que ensuciaba
+                 el saldo antes (se mandaba el primer proyecto del almacen, acertara o no). --}}
+            <option value="">Selecciona el proyecto…</option>
+            @foreach($frentesDestino as $f)
+                <option value="{{ $f['id'] }}">{{ $f['nombre'] }}</option>
+            @endforeach
+        </select>
+    </div>
+    @endif
+
     <div class="ent-form-grid">
         <div class="ent-field-group">
             <label class="ent-field-label" for="entNotaEntrega">Nota de entrega</label>
@@ -331,12 +359,28 @@
     // UMs distintas ya registradas en el catalogo — sirven de sugerencias para el
     // autocomplete del campo UM. El usuario puede tipear una UM nueva libremente.
     var UNIDADES_MEDIDA = @json($unidadesMedida ?? []);
-    // Frente implicito del almacen destino: primer frente asociado (si lo tiene).
-    // Se incluye en el payload de la entrada para que el kardex muestre el frente
-    // en "Destino" en vez de "—". Null cuando el almacen no tiene frentes asociados
-    // (el backend cae a su logica habitual y el partial del kardex muestra el nombre
-    // del almacen como fallback — fix b6c326b).
+    // Proyecto al que se atribuye la entrada.
+    //   SEPARA_PROYECTOS=true  → el almacen reparte el saldo entre varios proyectos: el
+    //     usuario elige cual recibe en el desplegable #entProyecto (obligatorio).
+    //   SEPARA_PROYECTOS=false → no hay nada que elegir; ID_FRENTE_DESTINO lleva el frente
+    //     implicito solo para que el kardex muestre "Destino" con nombre en vez de "—".
+    //     Null cuando el almacen no tiene frentes: el backend cae a su logica habitual y el
+    //     partial del kardex usa el nombre del almacen como fallback (fix b6c326b).
+    var SEPARA_PROYECTOS  = @json($separaProyectos ?? false);
     var ID_FRENTE_DESTINO = @json($idFrenteDestino ?? null);
+
+    // Proyecto elegido, o undefined si el almacen separa y todavia no se eligio.
+    function entFrenteElegido() {
+        if (!SEPARA_PROYECTOS) return ID_FRENTE_DESTINO;
+        var s = el('entProyecto');
+        var n = s ? parseInt(s.value, 10) : NaN;
+        return (isFinite(n) && n > 0) ? n : undefined;
+    }
+    window.entProyectoCambio = function () {
+        var s = el('entProyecto'); if (!s) return;
+        s.classList.toggle('falta', !s.value);
+        if (s.value) showErr('');
+    };
 
     function el(id) { return document.getElementById(id); }
     function v(id)  { var e = el(id); return e ? String(e.value).trim() : ''; }
@@ -812,6 +856,14 @@
             var inp = el('entSearch'); if (inp) inp.focus();
             return;
         }
+        // El proyecto define a que bolsa entra el material: sin el, el saldo terminaria en
+        // un proyecto cualquiera. El backend lo rechaza igual; esto solo evita el viaje.
+        if (entFrenteElegido() === undefined) {
+            var mPro = 'Indica el proyecto que recibe el material.';
+            showErr(mPro); toast(mPro, 'error');
+            var sp = el('entProyecto'); if (sp) { sp.classList.add('falta'); sp.focus(); }
+            return;
+        }
 
         // Trazabilidad del lote — cada dato en SU columna del kardex (no apilados en
         // texto libre, así se ven limpios y se pueden filtrar/devolver):
@@ -820,12 +872,9 @@
         var payload = {
             tipo:       'ENTRADA',
             id_almacen: parseInt(idAlm, 10),
-            // id_frente: cuando el almacen destino tiene al menos un frente asociado,
-            // lo mandamos en el payload para que la columna "Destino" del kardex
-            // muestre el frente. Si es null, el backend cae a su logica
-            // (frenteImplicitoDelAlmacen estricto) y el partial del kardex muestra
-            // el nombre del almacen como fallback (b6c326b).
-            id_frente:  ID_FRENTE_DESTINO,
+            // id_frente: el proyecto que recibe (si el almacen separa) o el frente implicito
+            // del almacen (si no). Ver entFrenteElegido arriba.
+            id_frente:  entFrenteElegido(),
             fecha:      v('entFecha') || null,
             referencia: v('entNotaEntrega')   || null,   // Nota de entrega (doc. del proveedor)
             motivo:     v('entProveedor')     || null,   // Proveedor (a quién devolver)
@@ -895,10 +944,13 @@
         // la auto-apertura del dropdown de sugerencias al refocar el buscador.
         window.entClearSelected(true);
         var c = el('entCant'); if (c) c.value = '';
-        // Reset de la cabecera del lote.
+        // Reset de la cabecera del lote. El proyecto tambien vuelve a vacio: la siguiente
+        // entrada puede ser de otro frente y dejarlo pegado del anterior es justo el error
+        // que este campo vino a evitar.
         ['entNotaEntrega', 'entProveedor'].forEach(function (id) {
             var e = el(id); if (e) e.value = '';
         });
+        var pro = el('entProyecto'); if (pro) { pro.value = ''; pro.classList.add('falta'); }
         var fch = el('entFecha'); if (fch) fch.value = new Date().toISOString().slice(0, 10);
         showErr('');
     }

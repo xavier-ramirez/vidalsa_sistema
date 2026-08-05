@@ -225,6 +225,9 @@ class AlmacenController extends Controller
                     $resp['distribucionHtml'] = view('admin.almacen.partials.distribucion_stats', [
                         'distribucion'  => $this->distribucionPorCategoria($idAlmacenSel, $request),
                         'productoOtros' => $productoOtros,
+                        // Reparto dentro de ESTE almacén (vacío si no separa por proyecto).
+                        'productoProyectos' => $idProductoSel ? $this->productoPorProyecto($idProductoSel, $idAlmacenSel) : collect(),
+                        'almacenActualNombre' => $almacenSel?->NOMBRE,
                     ])->render();
                 } else {
                     // Sin filtro = estado inicial. Los KPIs (Consolidado) muestran el total
@@ -235,6 +238,8 @@ class AlmacenController extends Controller
                     $resp['distribucionHtml'] = view('admin.almacen.partials.distribucion_stats', [
                         'distribucion'  => collect(),
                         'productoOtros' => null,
+                        'productoProyectos'   => collect(),
+                        'almacenActualNombre' => $almacenSel?->NOMBRE,
                     ])->render();
                 }
             }
@@ -430,18 +435,46 @@ class AlmacenController extends Controller
         return false;
     }
 
+    /**
+     * Saldo del almacén AGREGADO POR PRODUCTO, listo para unir al catálogo.
+     *
+     * Desde que el saldo se lleva por proyecto (ID_FRENTE), un producto puede tener
+     * VARIAS filas en `almacen_stock` dentro del mismo almacén. Unir la tabla directa
+     * duplicaría ese producto en la tabla —una fila por proyecto— así que se une esta
+     * subconsulta, que devuelve exactamente una fila por producto.
+     *
+     * Se conservan los nombres de columna originales (CANTIDAD, CANTIDAD_MINIMA,
+     * FECHA_ULT_MOVIMIENTO) y el alias `almacen_stock` a propósito: así todo lo que ya
+     * consultaba `almacen_stock.CANTIDAD` —el listado, los KPIs, la distribución, el
+     * export— sigue funcionando sin cambiar una línea.
+     *
+     * SIEMPRE suma todos los proyectos del almacén. La tabla muestra el saldo total por
+     * producto; el reparto entre proyectos lo enseña el panel lateral "¿dónde está este
+     * producto?" (ver productoPorProyecto). Por eso el módulo ya no tiene un filtro por
+     * proyecto en la barra: obligaba a ir probando de a uno para ver lo que el panel
+     * contesta de un golpe.
+     */
+    private function stockAgregadoSub(?int $idAlmacen)
+    {
+        return DB::table('almacen_stock')
+            ->select('ID_PRODUCTO')
+            ->selectRaw('SUM(CANTIDAD) as CANTIDAD')
+            ->selectRaw('MAX(CANTIDAD_MINIMA) as CANTIDAD_MINIMA')
+            ->selectRaw('MAX(FECHA_ULT_MOVIMIENTO) as FECHA_ULT_MOVIMIENTO')
+            // Sin almacén no hay inventario que mostrar (mismo efecto que el 1=0 anterior).
+            ->where('ID_ALMACEN', $idAlmacen ?? -1)
+            ->groupBy('ID_PRODUCTO');
+    }
+
     private function inventarioBaseQuery(?int $idAlmacen, Request $request)
     {
         $q = ProductoInventario::query()->activos();
 
-        $q->leftJoin('almacen_stock', function ($j) use ($idAlmacen) {
-            $j->on('almacen_stock.ID_PRODUCTO', '=', 'productos_inventario.ID_PRODUCTO');
-            if ($idAlmacen !== null) {
-                $j->where('almacen_stock.ID_ALMACEN', '=', $idAlmacen);
-            } else {
-                $j->whereRaw('1 = 0'); // sin almacén → no devolver nada
-            }
-        });
+        $q->leftJoinSub(
+            $this->stockAgregadoSub($idAlmacen),
+            'almacen_stock',
+            fn ($j) => $j->on('almacen_stock.ID_PRODUCTO', '=', 'productos_inventario.ID_PRODUCTO'),
+        );
 
         // Navegación normal → solo productos con fila de stock en este almacén
         // (replica el INNER JOIN clásico). Se EXCEPTÚA cuando el usuario pidió ver
@@ -518,11 +551,18 @@ class AlmacenController extends Controller
         //   con_saldo  → CANTIDAD > 0
         //   stock_bajo → tiene mínimo definido y CANTIDAD <= mínimo
         //   unidades   → suma física de existencias
+        //
+        // Se une la MISMA subconsulta agregada que el listado (stockAgregadoSub) y no la
+        // tabla: en un almacén multi-proyecto un producto tiene una fila por proyecto, así
+        // que unir la tabla contaría ese producto varias veces en "total" y en "con saldo",
+        // y el Consolidado dejaría de cuadrar con la tabla que tiene al lado. El KPI es del
+        // almacén COMPLETO — igual que la tabla, que también suma todos los proyectos.
         $row = ProductoInventario::query()->activos()
-            ->join('almacen_stock', function ($j) use ($idAlmacen) {
-                $j->on('almacen_stock.ID_PRODUCTO', '=', 'productos_inventario.ID_PRODUCTO')
-                  ->where('almacen_stock.ID_ALMACEN', '=', $idAlmacen);
-            })
+            ->joinSub(
+                $this->stockAgregadoSub($idAlmacen),
+                'almacen_stock',
+                fn ($j) => $j->on('almacen_stock.ID_PRODUCTO', '=', 'productos_inventario.ID_PRODUCTO'),
+            )
             ->select(
                 DB::raw('COUNT(*) as total'),
                 DB::raw('SUM(CASE WHEN almacen_stock.CANTIDAD > 0 THEN 1 ELSE 0 END) as con_saldo'),
@@ -572,17 +612,61 @@ class AlmacenController extends Controller
      * INNER JOIN con `almacenes` para descartar filas huerfanas (almacen eliminado
      * via soft-delete) y obtener el nombre/tipo para pintar la lista.
      */
+    /**
+     * Reparto de UN producto entre los PROYECTOS del almacén actual.
+     *
+     * Responde de un vistazo "de qué proyectos es este stock", que es lo que el filtro
+     * "Todos los proyectos" NO resuelve: ese filtra de a uno y obliga a ir probando.
+     * Alimenta la sección "En este almacén" del panel lateral, arriba de "En otros
+     * almacenes" — juntos contestan la pregunta completa: dónde está el producto, primero
+     * puertas adentro y después en el resto de la red.
+     *
+     * Solo devuelve filas cuando el almacén REALMENTE separa por proyecto (PROYECTO con
+     * más de un frente, ver Almacen::separaPorProyecto). En los demás todo el saldo vive
+     * en la bolsa común y el desglose sería una sola línea repitiendo el total.
+     *
+     * Incluye la bolsa común (frente 0 = material del almacén sin proyecto asignado) como
+     * una fila más, con su propio rótulo: es saldo real y disponible, no un hueco.
+     * Descarta los saldos en cero — son las filas base que crea asegurarStock y llenarían
+     * la lista de proyectos que no tienen nada de este producto.
+     */
+    private function productoPorProyecto(int $idProducto, ?int $idAlmacen)
+    {
+        if ($idAlmacen === null) {
+            return collect();
+        }
+        $almacen = Almacen::with('frentes:ID_FRENTE')->find($idAlmacen);
+        if (!$almacen || !$almacen->separaPorProyecto()) {
+            return collect();
+        }
+
+        return AlmacenStock::query()
+            ->leftJoin('frentes_trabajo as f', 'f.ID_FRENTE', '=', 'almacen_stock.ID_FRENTE')
+            ->where('almacen_stock.ID_ALMACEN', $idAlmacen)
+            ->where('almacen_stock.ID_PRODUCTO', $idProducto)
+            ->where('almacen_stock.CANTIDAD', '>', 0)
+            ->select('almacen_stock.ID_FRENTE', 'almacen_stock.CANTIDAD', 'f.NOMBRE_FRENTE')
+            ->orderByDesc('almacen_stock.CANTIDAD')
+            ->orderBy('f.NOMBRE_FRENTE')
+            ->get();
+    }
+
     private function productoEnOtrosAlmacenes(int $idProducto, ?int $idAlmacenActual, $user)
     {
         $visibles = Almacen::visiblesPara($user)->pluck('almacenes.ID_ALMACEN');
         if ($visibles->isEmpty()) {
             return collect();
         }
+        // Un almacén multi-proyecto tiene VARIAS filas de saldo del mismo producto (una
+        // por proyecto), así que se agrupa por almacén: aquí interesa "cuánto hay en ese
+        // almacén" para pedirle un traspaso, no de qué proyecto es cada parte. Sin el
+        // GROUP BY, el mismo almacén saldría repetido en la lista del sidebar.
         $q = AlmacenStock::query()
             ->join('almacenes', 'almacenes.ID_ALMACEN', '=', 'almacen_stock.ID_ALMACEN')
             ->where('almacen_stock.ID_PRODUCTO', $idProducto)
             ->whereIn('almacen_stock.ID_ALMACEN', $visibles)
-            ->where('almacen_stock.CANTIDAD', '>', 0);
+            ->groupBy('almacenes.ID_ALMACEN', 'almacenes.NOMBRE', 'almacenes.TIPO')
+            ->havingRaw('SUM(almacen_stock.CANTIDAD) > 0');
         if ($idAlmacenActual !== null) {
             $q->where('almacen_stock.ID_ALMACEN', '!=', $idAlmacenActual);
         }
@@ -590,10 +674,10 @@ class AlmacenController extends Controller
                 'almacenes.ID_ALMACEN',
                 'almacenes.NOMBRE',
                 'almacenes.TIPO',
-                'almacen_stock.CANTIDAD',
-                'almacen_stock.CANTIDAD_MINIMA'
             )
-            ->orderByDesc('almacen_stock.CANTIDAD')
+            ->selectRaw('SUM(almacen_stock.CANTIDAD) as CANTIDAD')
+            ->selectRaw('MAX(almacen_stock.CANTIDAD_MINIMA) as CANTIDAD_MINIMA')
+            ->orderByDesc('CANTIDAD')
             ->orderBy('almacenes.NOMBRE')
             ->get();
     }
@@ -609,9 +693,10 @@ class AlmacenController extends Controller
      * queda como "del almacén" sin proyecto específico, que es lo correcto:
      * no podemos adivinar a cuál de los frentes pertenece).
      *
-     * Único llamador: registrarMovimientoLote (ENTRADA/AJUSTE). storeProducto NO lo usa
-     * — aplica su propio criterio (primer frente asociado, sin exigir que sea el único);
-     * ver el comentario de contraste en storeProducto.
+     * Único llamador: registrarMovimientoLote (ENTRADA/AJUSTE). storeProducto NO lo
+     * usa: aplica su propio criterio para el stock inicial (ver el comentario de
+     * contraste allí). Los dos coinciden en lo esencial — cuando el almacén reparte
+     * entre varios proyectos, ninguno adivina.
      */
     private function frenteImplicitoDelAlmacen(int $idAlmacen): ?int
     {
@@ -759,16 +844,24 @@ class AlmacenController extends Controller
             // recepcion/nueva) pasan id_almacen pero cantidad_inicial=0 — solo crean
             // las filas de stock, sin movimiento.
             if ($idAlmacen && $cantInicial > 0) {
-                // STOCK INICIAL: atribuimos la entrada al PRIMER frente del almacen
-                // (si tiene alguno), independiente del TIPO de almacen o de cuantos
-                // frentes tenga. A diferencia de frenteImplicitoDelAlmacen (que es
-                // estricto y se usa en movimientos manuales donde la ambiguedad debe
-                // forzar al usuario a elegir), aca el sistema necesita SI O SI un
-                // destino para que la columna "Destino" del kardex no se vea "—" en
-                // cada producto nuevo — el primer frente del almacen es siempre el
-                // mas representativo.
-                $almForFrente   = Almacen::with('frentes:ID_FRENTE')->find($idAlmacen);
-                $idFrenteInicial = optional($almForFrente?->frentes->first())->ID_FRENTE;
+                // STOCK INICIAL: atribuimos la entrada al PRIMER frente del almacen, para
+                // que la columna "Destino" del kardex no se vea "—" en cada producto nuevo.
+                // A diferencia de frenteImplicitoDelAlmacen (estricto, para movimientos
+                // manuales donde la ambiguedad debe forzar al usuario a elegir), aca somos
+                // permisivos porque el sistema necesita un destino y no hay a quien preguntar.
+                //
+                // EXCEPCION: si el almacen REPARTE el saldo entre varios proyectos, no se
+                // adivina. Ahi el frente no es una etiqueta del kardex sino la bolsa a la que
+                // entra el material (almacen_stock lleva ID_FRENTE), y "el primero de la
+                // lista" acertaria 1 de cada N: le sumaria stock a un proyecto ajeno sin que
+                // nadie se entere. Va a la bolsa comun del almacen —material que existe pero
+                // todavia no es de nadie— que es exactamente lo que es un stock inicial.
+                // Para decir de quien es, se registra la entrada por Compra directa o por
+                // Entrada por ODC, que si piden el proyecto.
+                $almForFrente    = Almacen::with('frentes:ID_FRENTE')->find($idAlmacen);
+                $idFrenteInicial = $almForFrente?->separaPorProyecto()
+                    ? null
+                    : optional($almForFrente?->frentes->first())->ID_FRENTE;
 
                 $this->inventario->registrarEntrada(
                     $idAlmacen,
@@ -858,6 +951,15 @@ class AlmacenController extends Controller
                     'ES_PRINCIPAL' => false,
                 ]);
             }
+        }
+
+        // Si el usuario borró justo el que era principal, el producto quedaría sin
+        // ninguno y el nº de parte que sugieren el buscador y la Nota de Entrega
+        // (listaAutocomplete ordena por ES_PRINCIPAL) pasaría a ser arbitrario y
+        // distinto en cada consulta. Se asciende el primero de la lista.
+        $quedan = $producto->equivalencias()->orderBy('ID_EQUIVALENCIA')->get();
+        if ($quedan->isNotEmpty() && ! $quedan->contains('ES_PRINCIPAL', true)) {
+            $quedan->first()->update(['ES_PRINCIPAL' => true]);
         }
     }
 
@@ -2053,6 +2155,33 @@ class AlmacenController extends Controller
             $idFrente = $idFrenteRequest;
         } else {
             $idFrente = $idFrenteRequest ?? $this->frenteImplicitoDelAlmacen((int) $data['id_almacen']);
+        }
+
+        // ── ENTRADA en un almacén que separa por proyecto: el proyecto es OBLIGATORIO ──
+        // El saldo se guarda por proyecto (almacen_stock lleva ID_FRENTE), así que una
+        // entrada sin proyecto tendría que caer en algún lado: antes caía en el PRIMER
+        // frente asociado al almacén, que es una suposición —en un almacén de 6 proyectos
+        // acertaba 1 de cada 6— y ensuciaba el saldo de un proyecto ajeno sin avisar.
+        // Se exige aquí, en el backend, y no solo en el formulario: es el único punto por
+        // el que pasan TODAS las vías de entrada (compra directa, Entrada por ODC y
+        // cualquier cliente externo). Se valida además que el frente sea REALMENTE de este
+        // almacén, para que un id inventado no meta stock en un proyecto que no le toca.
+        if ($data['tipo'] === 'ENTRADA') {
+            $almacenEntrada = Almacen::with('frentes:frentes_trabajo.ID_FRENTE')->find((int) $data['id_almacen']);
+            if ($almacenEntrada && $almacenEntrada->separaPorProyecto()) {
+                if (!$idFrente) {
+                    return response()->json([
+                        'message' => 'Indica el proyecto que recibe el material: «' . $almacenEntrada->NOMBRE . '» maneja el inventario separado por proyecto.',
+                        'errors'  => ['id_frente' => ['El proyecto que recibe el material es obligatorio en este almacén.']],
+                    ], 422);
+                }
+                if (!$almacenEntrada->frentes->contains('ID_FRENTE', (int) $idFrente)) {
+                    return response()->json([
+                        'message' => 'El proyecto indicado no pertenece al almacén «' . $almacenEntrada->NOMBRE . '».',
+                        'errors'  => ['id_frente' => ['El proyecto no pertenece a este almacén.']],
+                    ], 422);
+                }
+            }
         }
 
         // Los campos de la Nota de Entrega solo se preservan en SALIDA. Para ENTRADA/AJUSTE se ignoran

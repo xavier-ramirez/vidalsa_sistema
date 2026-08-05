@@ -326,6 +326,31 @@ class TraspasoController extends Controller
             'bandejaStats'           => $bandejaStats,
             // Catálogo para el buscador por PRODUCTO (con equivalencias), igual que inventario.
             'productosLista'         => ProductoInventario::listaAutocomplete(),
+            // Proyectos de CADA almacén visible. Lo consume el modal de compra directa para
+            // saber, en caliente, qué mandar como `id_frente` — el almacén de la bandeja se
+            // cambia desde el dropdown del header sin recargar la página, por eso es un mapa
+            // y no un solo valor. Dos casos por almacén:
+            //   · separa=true  → el almacén lleva el saldo repartido entre varios proyectos,
+            //                    así que el usuario DEBE elegir uno (`frentes` alimenta el
+            //                    desplegable). El backend lo exige igual — ver
+            //                    AlmacenController::registrarMovimientoLote.
+            //   · separa=false → no hay nada que elegir: todo el saldo va a la bolsa común.
+            //                    Se manda `implicito` solo para que el kardex muestre el
+            //                    frente en la columna "Destino" en vez de "—".
+            // OJO con el select: TIPO es imprescindible aquí. separaPorProyecto() arranca
+            // comparando TIPO contra PROYECTO, así que sin esa columna el modelo la ve NULL
+            // y devuelve false para TODOS los almacenes — el selector no aparecería nunca.
+            'proyectosPorAlmacen'    => Almacen::with('frentes:frentes_trabajo.ID_FRENTE,NOMBRE_FRENTE')
+                ->whereIn('ID_ALMACEN', $almacenesVisibles)
+                ->get(['ID_ALMACEN', 'TIPO'])
+                ->mapWithKeys(fn ($a) => [$a->ID_ALMACEN => [
+                    'separa'    => $a->separaPorProyecto(),
+                    'implicito' => optional($a->frentes->first())->ID_FRENTE,
+                    'frentes'   => $a->frentes
+                        ->sortBy('NOMBRE_FRENTE')
+                        ->map(fn ($f) => ['id' => $f->ID_FRENTE, 'nombre' => $f->NOMBRE_FRENTE])
+                        ->values(),
+                ]]),
         ]);
     }
 
@@ -387,19 +412,30 @@ class TraspasoController extends Controller
         $unidadesMedida = ProductoInventario::activos()
             ->select('UM')->distinct()->orderBy('UM')->pluck('UM')->filter()->values();
 
-        // Frente implicito del almacen destino: el PRIMER frente asociado (si tiene
-        // alguno) — se manda en el payload de la entrada para que el kardex muestre
-        // "Destino" con el nombre del frente en vez de "—". A diferencia del helper
-        // `frenteImplicitoDelAlmacen` de AlmacenController (que solo retorna frente
-        // si el almacen es PROYECTO con UN solo frente), aca somos permisivos: para
-        // STOCK INICIAL / ENTRADA via Recepcion ODC siempre queremos atribuir destino.
-        $almForFrente   = \App\Models\Almacen::with('frentes:ID_FRENTE')->find($almacenDestino->ID_ALMACEN);
-        $idFrenteDestino = optional($almForFrente?->frentes->first())->ID_FRENTE;
+        // Proyecto al que se atribuye la entrada. Dos escenarios, y la diferencia importa
+        // porque el saldo se guarda POR PROYECTO (almacen_stock.ID_FRENTE):
+        //   · El almacen reparte entre varios proyectos → el usuario DEBE elegir cual recibe.
+        //     Antes se mandaba el PRIMER frente asociado, que en un almacen de 6 proyectos
+        //     acertaba 1 de cada 6 y ensuciaba el saldo de un proyecto ajeno sin avisar.
+        //     AlmacenController::registrarMovimientoLote tambien lo exige.
+        //   · El almacen no reparte → no hay nada que elegir (todo va a la bolsa comun) y el
+        //     frente implicito viaja solo para que el kardex muestre "Destino" con nombre en
+        //     vez de "—".
+        $almForFrente    = \App\Models\Almacen::with('frentes:frentes_trabajo.ID_FRENTE,NOMBRE_FRENTE')
+            ->find($almacenDestino->ID_ALMACEN);
+        $separaProyectos = (bool) $almForFrente?->separaPorProyecto();
+        $idFrenteDestino = $separaProyectos ? null : optional($almForFrente?->frentes->first())->ID_FRENTE;
+        $frentesDestino  = $separaProyectos
+            ? $almForFrente->frentes->sortBy('NOMBRE_FRENTE')
+                ->map(fn ($f) => ['id' => $f->ID_FRENTE, 'nombre' => $f->NOMBRE_FRENTE])->values()
+            : collect();
 
         return view('admin.almacen.recepcion.nueva', [
             'almacenDestino'  => $almacenDestino,
             'unidadesMedida'  => $unidadesMedida,
             'idFrenteDestino' => $idFrenteDestino,
+            'separaProyectos' => $separaProyectos,
+            'frentesDestino'  => $frentesDestino,
         ]);
     }
 

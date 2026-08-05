@@ -136,10 +136,73 @@
         font-weight:800; line-height:1; box-sizing:border-box;
     }
 
-    /* Badges "Con stock" / "Stock bajo" en el header del almacen — cuando uno de los dos
-       filtros esta aplicado, el badge correspondiente se marca como activo (anillo blanco
-       + fondo mas saturado). Asi el usuario VE cual filtro esta filtrando la tabla y puede
-       clickearlo otra vez para apagarlo (toggle). */
+    /* ── Panel "¿dónde está este producto?" (modo cruzado del sidebar) ────────────
+       Las dos secciones —el reparto por proyecto del almacén actual y el resto de los
+       almacenes— comparten encabezado, lista y filas. Vivían como `style=""` repetidos en
+       cada bloque del partial; al unificarlos aquí, ajustar el alto es un solo sitio.
+       COMPACTO a pedido del cliente: encabezado 12px con 6px de aire, filas de 5px y
+       separación de 12px entre secciones (antes 13px/8px/7px/16px). */
+    .alm-panel-h4 { margin:0 0 7px 0; font-size:12px; text-transform:uppercase; color:#64748b;
+        border-bottom:1px solid #f1f5f9; padding-bottom:6px; font-weight:700;
+        display:flex; align-items:center; gap:7px; }
+    .alm-panel-h4 .material-icons { font-size:17px; }
+    .alm-panel-h4.sep { margin-top:12px; }
+    .alm-panel-list { list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:2px; }
+    .alm-panel-list.scroll { max-height:52vh; overflow-y:auto; }
+    .alm-panel-row { padding:5px 8px; border-radius:6px; display:flex; justify-content:space-between;
+        align-items:center; gap:8px; border:1px solid transparent; }
+    .alm-panel-row .nom { flex:1; min-width:0; color:#334155; font-size:12.5px; font-weight:600;
+        line-height:1.25; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    /* Bolsa común: es saldo real, pero no es un proyecto con nombre propio. */
+    .alm-panel-row .nom.comun { font-style:italic; color:#64748b; }
+    .alm-panel-row .qty { font-weight:700; font-size:12.5px; padding:2px 8px; border-radius:4px;
+        white-space:nowrap; background:#f1f5f9; color:#1e293b; }
+    .alm-panel-row .qty.proy { background:#e1effa; color:#0067b1; }
+    .alm-panel-row .qty.bajo { background:#fee2e2; color:#b91c1c; }
+    /* Solo las filas de otros almacenes llevan a algún lado (abren ese almacén). */
+    .alm-panel-row.clicable { cursor:pointer; transition:background .15s, border-color .15s; }
+    .alm-panel-row.clicable:hover { background:#f8fafc; border-color:#e2e8f0; }
+    .alm-panel-total { display:flex; justify-content:space-between; align-items:center; gap:8px;
+        margin-top:2px; padding:6px 8px 0; border-top:1px solid #e2e8f0; }
+    .alm-panel-total span { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.3px; color:#64748b; }
+    .alm-panel-total strong { font-weight:800; font-size:13px; color:#0f172a; white-space:nowrap; }
+
+    /* ── Consolidado de Inventario (tarjeta del sidebar) ──────────────────────────
+       Vive en clases y no en `style=""` para poder ajustarlo desde los @media sin
+       repetir cada valor. Está COMPRIMIDO verticalmente respecto de la versión
+       anterior (pedido del cliente): padding 15→11px, el número grande 34→28px y —lo
+       que más altura ahorra— los dos badges dejaron de apilar icono/número/etiqueta en
+       tres renglones: ahora el icono va AL LADO del número y solo la etiqueta baja a su
+       propia línea. Es el mismo patrón del panel "Resumen de la bandeja" de Recepción
+       (.tr-stats-sub), así que los dos módulos se ven como la misma familia. */
+    .alm-cons-card { position:relative; overflow:hidden; border-radius:12px; padding:11px 13px; color:#fff;
+        background:linear-gradient(135deg,#1a365d 0%,#2c5282 100%); box-shadow:0 4px 6px -1px rgba(0,0,0,0.1); }
+    .alm-cons-bgicon { position:absolute; right:-15px; bottom:-15px; font-size:80px; opacity:0.1; transform:rotate(-15deg); }
+    .alm-cons-inner { position:relative; z-index:2; }
+    .alm-consolidado-title { display:flex; align-items:center; gap:6px; font-size:12px; font-weight:700;
+        text-transform:uppercase; letter-spacing:1px; opacity:0.8; margin-bottom:6px; }
+    .alm-consolidado-title .material-icons { font-size:14px; }
+    .alm-cons-row { display:flex; align-items:stretch; gap:6px; }
+    /* Total: clic = quitar filtros. line-height:1 en el número para que no arrastre el
+       interlineado de la fuente (era la mitad del alto sobrante de la tarjeta). */
+    .alm-cons-total { display:flex; flex-direction:column; align-items:center; justify-content:center;
+        min-width:62px; padding:5px 7px; border-radius:10px; background:rgba(255,255,255,0.15); cursor:pointer; }
+    .alm-cons-total .num { font-size:28px; font-weight:800; line-height:1; }
+    .alm-cons-total .lbl { font-size:10.5px; font-weight:700; text-transform:uppercase; opacity:0.8; margin-top:3px; }
+    .alm-cons-badges { flex:1; display:grid; grid-template-columns:repeat(2,1fr); gap:6px; }
+    /* Icono + número en la MISMA línea; la etiqueta cae debajo (flex:1 1 100%). */
+    .alm-cons-badge { display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:2px 5px;
+        padding:6px 3px; border-radius:8px; cursor:pointer; text-align:center;
+        transition:background .15s, border-color .15s, box-shadow .15s; }
+    .alm-cons-badge .material-icons { font-size:17px; }
+    .alm-cons-badge strong { font-size:16px; font-weight:800; color:#fff; line-height:1; }
+    .alm-cons-badge span { flex:1 1 100%; font-size:10.5px; font-weight:700; text-transform:uppercase; opacity:0.9; line-height:1.1; }
+    .alm-cons-saldo { background:rgba(34,197,94,0.15); border:1px solid rgba(34,197,94,0.25); }
+    .alm-cons-saldo .material-icons { color:#22c55e; }
+    .alm-cons-bajo  { background:rgba(245,158,11,0.18); border:1px solid rgba(245,158,11,0.3); }
+    .alm-cons-bajo .material-icons { color:#f59e0b; }
+    /* Filtro aplicado → el badge se marca (anillo blanco + fondo más saturado). Así el
+       usuario VE cuál filtro está filtrando la tabla y puede apagarlo con otro clic. */
     #almBadgeConSaldo.is-on { background:rgba(34,197,94,0.45) !important; border-color:rgba(255,255,255,0.6) !important; box-shadow:0 0 0 2px rgba(255,255,255,0.5), 0 0 10px rgba(34,197,94,0.55); }
     #almBadgeBajo.is-on     { background:rgba(245,158,11,0.45) !important; border-color:rgba(255,255,255,0.6) !important; box-shadow:0 0 0 2px rgba(255,255,255,0.5), 0 0 10px rgba(245,158,11,0.55); }
 
@@ -386,14 +449,16 @@
         /* Espacio entre la ultima tarjeta de la tabla y el wrapper "En otros
            almacenes" que se mueve debajo en mobile — sin esto quedaban pegados. */
         #almDistWrapper { margin-top: 16px !important; }
-        /* Mismo redimensionamiento que /admin/equipos para el sidebar:
-           tipografias mas chicas en pantallas de telefono. */
-        .counter-sidebar [style*="font-size: 13px"] { font-size: 11px !important; }
-        .counter-sidebar [style*="font-size: 14px"] { font-size: 12px !important; }
-        .counter-sidebar [style*="font-size: 16px"] { font-size: 14px !important; }
-        .counter-sidebar [style*="font-size: 18px"] { font-size: 15px !important; }
-        .counter-sidebar [style*="font-size: 34px"] { font-size: 26px !important; }
-        .counter-sidebar [style*="font-size: 36px"] { font-size: 26px !important; }
+        /* Consolidado más chico en teléfono. Antes esto se intentaba con selectores de
+           atributo (`[style*="font-size: 34px"]`) que NUNCA llegaron a aplicar: los
+           style inline de la tarjeta se escriben sin espacio tras los dos puntos
+           (`font-size:34px`), así que ninguno de los seis casaba. Ahora la tarjeta usa
+           clases (.alm-cons-*) y se ajusta directo. */
+        .alm-cons-card { padding: 9px 11px !important; }
+        .alm-cons-total { min-width: 56px !important; }
+        .alm-cons-total .num { font-size: 24px !important; }
+        .alm-cons-badge strong { font-size: 14px !important; }
+        .alm-cons-badge .material-icons { font-size: 15px !important; }
         /* Ocultar el titulo "Consolidado de Inventario" en mobile — no aporta
            cuando el usuario ya esta dentro del modulo y los iconos PRODUCTOS /
            inventory_2 / warning explican por si mismos. */
@@ -823,31 +888,28 @@
 {{-- ── Sidebar: Consolidado de Inventario ── --}}
 <div class="counter-sidebar" style="position:sticky;top:20px;display:flex;flex-direction:column;gap:8px;">
 
-    <div style="background:linear-gradient(135deg,#1a365d 0%,#2c5282 100%);border-radius:12px;padding:15px;color:white;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);position:relative;overflow:hidden;">
-        <i class="material-icons" style="position:absolute;right:-15px;bottom:-15px;font-size:80px;opacity:0.1;transform:rotate(-15deg);">inventory</i>
-        <div style="position:relative;z-index:2;">
-            <div class="alm-consolidado-title" style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;opacity:0.8;margin-bottom:4px;display:flex;align-items:center;gap:6px;">
-                <i class="material-icons" style="font-size:14px;">pie_chart</i> Consolidado de Inventario
+    <div class="alm-cons-card">
+        <i class="material-icons alm-cons-bgicon">inventory</i>
+        <div class="alm-cons-inner">
+            <div class="alm-consolidado-title">
+                <i class="material-icons">pie_chart</i> Consolidado de Inventario
             </div>
 
-            <div style="display:flex;align-items:center;gap:8px;">
-                <div onclick="window.almVerTodo()" title="Quitar filtros"
-                     style="display:flex;flex-direction:column;align-items:center;background:rgba(255,255,255,0.15);padding:8px 6px;border-radius:10px;min-width:65px;cursor:pointer;">
-                    <span id="almStatsTotal" style="font-size:34px;font-weight:800;line-height:1;">{{ $st['total'] }}</span>
-                    <span style="font-size:12px;opacity:0.8;font-weight:700;margin-top:2px;">PRODUCTOS</span>
+            <div class="alm-cons-row">
+                <div class="alm-cons-total" onclick="window.almVerTodo()" title="Quitar filtros">
+                    <span id="almStatsTotal" class="num">{{ $st['total'] }}</span>
+                    <span class="lbl">Productos</span>
                 </div>
-                <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:4px;flex:1;">
-                    <div id="almBadgeConSaldo" onclick="window.almFiltrarConSaldo()" title="Solo con saldo (clic para activar/desactivar)"
-                         style="display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(34,197,94,0.15);padding:6px 2px;border-radius:8px;border:1px solid rgba(34,197,94,0.25);cursor:pointer;transition:background .15s,border-color .15s,box-shadow .15s;">
-                        <i class="material-icons" style="font-size:18px;color:#22c55e;margin-bottom:2px;">inventory_2</i>
-                        <strong id="almStatsConSaldo" style="font-weight:800;font-size:16px;color:white;">{{ $st['con_saldo'] }}</strong>
-                        <span style="font-size:10.5px;opacity:0.9;font-weight:700;text-transform:uppercase;">Con stock</span>
+                <div class="alm-cons-badges">
+                    <div id="almBadgeConSaldo" class="alm-cons-badge alm-cons-saldo" onclick="window.almFiltrarConSaldo()" title="Solo con saldo (clic para activar/desactivar)">
+                        <i class="material-icons">inventory_2</i>
+                        <strong id="almStatsConSaldo">{{ $st['con_saldo'] }}</strong>
+                        <span>Con stock</span>
                     </div>
-                    <div id="almBadgeBajo" onclick="window.almFiltrarBajo()" title="Solo stock bajo (clic para activar/desactivar)"
-                         style="display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(245,158,11,0.18);padding:6px 2px;border-radius:8px;border:1px solid rgba(245,158,11,0.3);cursor:pointer;transition:background .15s,border-color .15s,box-shadow .15s;">
-                        <i class="material-icons" style="font-size:18px;color:#f59e0b;margin-bottom:2px;">warning</i>
-                        <strong id="almStatsBajo" style="font-weight:800;font-size:16px;color:white;">{{ $st['stock_bajo'] }}</strong>
-                        <span style="font-size:10.5px;opacity:0.9;font-weight:700;text-transform:uppercase;">Stock bajo</span>
+                    <div id="almBadgeBajo" class="alm-cons-badge alm-cons-bajo" onclick="window.almFiltrarBajo()" title="Solo stock bajo (clic para activar/desactivar)">
+                        <i class="material-icons">warning</i>
+                        <strong id="almStatsBajo">{{ $st['stock_bajo'] }}</strong>
+                        <span>Stock bajo</span>
                     </div>
                 </div>
             </div>

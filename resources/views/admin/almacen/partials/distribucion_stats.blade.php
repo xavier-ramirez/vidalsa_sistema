@@ -1,7 +1,12 @@
 {{-- Sidebar "Distribución de Inventario" — DOS MODOS:
-      A) Cruzado por almacen: cuando $productoOtros está seteado (el usuario clickeó
-         una sugerencia del filtro Buscar → la URL trae id_producto). Muestra el
-         producto enfocado en TODOS los demas almacenes visibles para el usuario.
+      A) Cruzado: cuando $productoOtros está seteado (el usuario clickeó una sugerencia
+         del filtro Buscar → la URL trae id_producto). Responde "¿dónde está este
+         producto?" en dos niveles, de adentro hacia afuera:
+           1. En ESTE almacén, repartido por proyecto ($productoProyectos). Solo sale en
+              almacenes que separan por proyecto — en el resto todo el saldo vive en la
+              bolsa común y el desglose repetiría el total en una sola línea.
+           2. En los OTROS almacenes visibles ($productoOtros), para pedir un traspaso
+              si el actual quedó corto.
       B) Por categoria: comportamiento default — agrupa los productos del almacen
          actual segun su categoria.
 
@@ -10,46 +15,76 @@
     $modoCruzado = isset($productoOtros) && $productoOtros !== null;
     $dist        = $distribucion ?? collect();
     $totalDist   = $dist->sum('total');
+    $porProyecto = $productoProyectos ?? collect();
+    // Saldo latino "12" / "12,5" / "1.800" — sin ceros sobrantes ni separador roto.
+    // Se declara UNA vez y lo usan las dos listas del modo cruzado (antes el bloque de
+    // otros almacenes repetía este number_format inline dentro de su bucle). OJO: sin
+    // escribir directivas Blade en este comentario — dentro de un bloque PHP quedarían a
+    // merced del compilador.
+    $fmtQty = function ($n) {
+        $q = rtrim(rtrim(number_format((float) $n, 3, ',', '.'), '0'), ',');
+        return ($q === '' || $q === '-') ? '0' : $q;
+    };
 @endphp
 
 @if($modoCruzado)
-    @php $otrosVacio = $productoOtros->count() === 0; @endphp
-    {{-- Modo cruzado: lista minimal "almacen — cantidad". Pensado para responder
-         rapido "¿donde mas hay de este producto?". El nombre del producto NO se
-         repite aqui porque ya esta en la cabecera de la tabla principal (el chip
-         "Filtros: ...") — duplicarlo confundia al cliente.
+    {{-- Modo cruzado: listas minimales "nombre — cantidad" que responden "¿dónde está este
+         producto?". El nombre del producto NO se repite aqui porque ya esta en la cabecera
+         de la tabla principal (el chip "Filtros: ...") — duplicarlo confundia al cliente.
 
-         La clase .alm-otros-empty se aplica cuando el producto NO existe en mas
-         almacenes. Permite ocultar todo el bloque en mobile (regla en index
-         @media ≤768px) — el mensaje "Este producto solo existe…" no aporta y
-         ocupa espacio. En desktop sigue mostrandose porque hay sitio. --}}
-    <div class="alm-otros-almacenes {{ $otrosVacio ? 'alm-otros-empty' : '' }}">
-    <h4 style="margin:0 0 10px 0;font-size:13px;text-transform:uppercase;color:#64748b;border-bottom:2px solid #f1f5f9;padding-bottom:8px;font-weight:700;display:flex;align-items:center;gap:8px;">
-        <i class="material-icons" style="font-size:18px;color:#10b981;">place</i>
+         El wrapper conserva la clase .alm-otros-almacenes: de ella cuelgan las reglas de
+         mobile del index (tipografias compactas y el :has() que decide si el panel se
+         muestra), asi que renombrarla apagaria el panel en telefono. --}}
+    <div class="alm-otros-almacenes">
+
+    {{-- ── 1. Puertas adentro: reparto por proyecto ────────────────────────────────
+         Solo en almacenes que separan por proyecto. Es la ÚNICA forma de ver el reparto:
+         el módulo ya no tiene filtro por proyecto en la barra de arriba, porque obligaba a
+         ir probando de a un proyecto por vez para responder lo que esta lista contesta de
+         un golpe. --}}
+    @if($porProyecto->count() > 0)
+        @php $totalAqui = $porProyecto->sum('CANTIDAD'); @endphp
+        <h4 class="alm-panel-h4">
+            <i class="material-icons" style="color:#0067b1;">warehouse</i>
+            Almacén {{ $almacenActualNombre ?? 'actual' }}
+        </h4>
+        <ul class="alm-panel-list">
+            @foreach($porProyecto as $fila)
+                @php
+                    // Frente 0 = bolsa común: material del almacén que todavía no es de ningún
+                    // proyecto. Es saldo real y disponible, por eso se lista como una fila más
+                    // — en cursiva para que se lea distinto de un proyecto con nombre propio.
+                    $esComun = (int) $fila->ID_FRENTE === 0 || $fila->NOMBRE_FRENTE === null;
+                @endphp
+                <li class="alm-panel-row">
+                    <span class="nom {{ $esComun ? 'comun' : '' }}">{{ $esComun ? 'Sin proyecto (común)' : $fila->NOMBRE_FRENTE }}</span>
+                    <span class="qty proy">{{ $fmtQty($fila->CANTIDAD) }}</span>
+                </li>
+            @endforeach
+        </ul>
+        <div class="alm-panel-total">
+            <span>Total en el almacén</span>
+            <strong>{{ $fmtQty($totalAqui) }}</strong>
+        </div>
+    @endif
+
+    {{-- ── 2. Puertas afuera: el resto de la red ── --}}
+    <h4 class="alm-panel-h4 {{ $porProyecto->count() > 0 ? 'sep' : '' }}">
+        <i class="material-icons" style="color:#10b981;">place</i>
         En otros almacenes
     </h4>
 
     @if($productoOtros->count() > 0)
-        <ul style="list-style:none;padding:0;margin:0;max-height:64vh;overflow-y:auto;display:flex;flex-direction:column;gap:3px;" class="custom-scrollbar">
+        <ul class="alm-panel-list scroll custom-scrollbar">
             @foreach($productoOtros as $row)
                 @php
-                    // Saldo limpio formato latino: "12" o "12,5" / "1.800" (miles con punto,
-                    // decimal con coma, sin ceros sobrantes ni separador roto).
-                    $qty = rtrim(rtrim(number_format((float) $row->CANTIDAD, 3, ',', '.'), '0'), ',');
-                    if ($qty === '' || $qty === '-') { $qty = '0'; }
                     $bajo = $row->CANTIDAD_MINIMA !== null && (float) $row->CANTIDAD <= (float) $row->CANTIDAD_MINIMA;
                 @endphp
-                <li onclick="window.almVerProductoEnAlmacen('{{ $row->ID_ALMACEN }}', '{{ addslashes($row->NOMBRE) }}', '{{ request('id_producto') }}')"
-                    title="Ver este producto en {{ $row->NOMBRE }}"
-                    style="padding:7px 9px;border-radius:6px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:8px;transition:background 0.15s;border:1px solid transparent;"
-                    onmouseover="this.style.background='#f8fafc';this.style.borderColor='#e2e8f0';"
-                    onmouseout="this.style.background='transparent';this.style.borderColor='transparent';">
-                    <span style="color:#334155;font-size:12.5px;font-weight:600;line-height:1.25;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
-                        {{ $row->NOMBRE }}
-                    </span>
-                    <span style="font-weight:700;font-size:12.5px;padding:2px 9px;border-radius:4px;white-space:nowrap;{{ $bajo ? 'background:#fee2e2;color:#b91c1c;' : 'background:#f1f5f9;color:#1e293b;' }}">
-                        {{ $qty }}
-                    </span>
+                <li class="alm-panel-row clicable"
+                    onclick="window.almVerProductoEnAlmacen('{{ $row->ID_ALMACEN }}', '{{ addslashes($row->NOMBRE) }}', '{{ request('id_producto') }}')"
+                    title="Ver este producto en {{ $row->NOMBRE }}">
+                    <span class="nom">{{ $row->NOMBRE }}</span>
+                    <span class="qty {{ $bajo ? 'bajo' : '' }}">{{ $fmtQty($row->CANTIDAD) }}</span>
                 </li>
             @endforeach
         </ul>

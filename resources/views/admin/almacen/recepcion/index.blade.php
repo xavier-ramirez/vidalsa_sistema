@@ -105,9 +105,12 @@
        proporción 2:1, porque producto/descripción muestra texto largo y la nota de entrega
        solo aloja un código corto (NE-2026-0249):
          · producto/descripción → PRIMERO (pedido del cliente) y con el doble de peso.
-         · nota de entrega      → después, con la mitad. */
-    #trFilters .tr-search-prod { position:relative; flex:2 1 300px; min-width:240px; }
-    #trFilters .tr-search-num  { position:relative; flex:1 1 200px; min-width:190px; }
+         · nota de entrega      → después, con la mitad.
+       Bases y mínimos RECORTADOS respecto del reparto original (300/240 y 200/190): el
+       toolbar ahora también aloja el botón "Compra directa", que necesita su espacio
+       propio. La proporción 2:1 se conserva — solo baja el ancho de partida. */
+    #trFilters .tr-search-prod { position:relative; flex:2 1 210px; min-width:170px; }
+    #trFilters .tr-search-num  { position:relative; flex:1 1 150px; min-width:140px; }
     /* Toolbar alineado al estándar de /admin/almacen/movimientos: cajas de 45px,
        radio 12px, fondo suave #fbfcfd y letra 14px (antes 40px/8px/13px se veía
        más apretado que el resto de los módulos). Azul #e1effa cuando hay filtro. */
@@ -154,6 +157,22 @@
     .tr-adv-btn { height:45px; width:45px; min-width:45px; padding:0; display:flex; align-items:center; justify-content:center;
                   border-radius:12px; background:#fbfcfd; border:1px solid #cbd5e0; color:#64748b; box-shadow:none; }
     .tr-adv-btn.activo { background:#fee2e2; border-color:#ef4444; color:#ef4444; }
+    /* Botón "Compra directa": misma altura/radio que el resto del toolbar (45px/12px)
+       pero SÓLIDO azul de marca — es la única ACCIÓN de la barra (los demás controles
+       filtran), así que se distingue de ellos por relleno, no por tamaño. flex:0 0 auto
+       para que no lo estire el reparto de los buscadores. */
+    .tr-compra-btn { height:45px; flex:0 0 auto; padding:0 16px; display:flex; align-items:center; gap:7px;
+        border-radius:12px; background:#0067b1; border:1px solid #0067b1; color:#fff;
+        font-family:inherit; font-size:13px; font-weight:700; white-space:nowrap; box-shadow:none; }
+    .tr-compra-btn:hover { background:#005596; border-color:#005596; }
+    .tr-compra-btn .material-icons { font-size:20px; }
+    /* Pantallas angostas: el botón se queda solo con el icono (cuadrado 45px, como el de
+       filtros avanzados) para no comerse la fila de los buscadores. El title del botón
+       sigue explicando qué hace. */
+    @media (max-width: 900px) {
+        .tr-compra-btn { padding:0; width:45px; min-width:45px; justify-content:center; gap:0; }
+        .tr-compra-txt { display:none; }
+    }
 
     /* Dropdown de sugerencias */
     /* Mismas medidas que .amf-suggest (/almacen/movimientos) y .alm-suggest (/almacen):
@@ -201,11 +220,16 @@
     /* Panel estilo "Consolidado de Inventario" (/admin/almacen): tarjeta con gradiente
        azul y texto blanco, un número héroe (Por revisar) + dos sub-métricas
        (Recientes / Urgentes) en cajas semitransparentes de color. */
-    .tr-stats { flex:0 0 300px; position:relative; overflow:hidden; align-self:flex-start;
+    /* 250px (antes 300): el panel solo muestra 3 métricas cortas y le sobraba ancho,
+       mientras la tabla —que sí tiene columnas largas (Origen/Destino)— se apretaba.
+       El recorte va todo a la tabla, que es flex:1 en .tr-layout. El interlineado del
+       título también se ajusta (letter-spacing 1.5→1px) para que "Resumen de la bandeja"
+       siga entrando en una sola línea a este ancho. */
+    .tr-stats { flex:0 0 250px; position:relative; overflow:hidden; align-self:flex-start;
         background:linear-gradient(135deg,#1a365d 0%,#2c5282 100%); border-radius:12px;
-        padding:15px; color:#fff; box-shadow:0 4px 6px -1px rgba(0,0,0,0.1); }
+        padding:13px; color:#fff; box-shadow:0 4px 6px -1px rgba(0,0,0,0.1); }
     .tr-stats-bgicon { position:absolute; right:-15px; bottom:-15px; font-size:80px; opacity:0.1; transform:rotate(-15deg); }
-    .tr-stats-title { display:flex; align-items:center; gap:6px; font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:1.5px; opacity:0.8; margin-bottom:10px; }
+    .tr-stats-title { display:flex; align-items:center; gap:6px; font-size:12.5px; font-weight:700; text-transform:uppercase; letter-spacing:1px; opacity:0.8; margin-bottom:10px; }
     .tr-stats-title i { font-size:14px; }
     /* Las 3 métricas, TODAS del mismo tamaño: grid de 3 columnas iguales. */
     .tr-stats-row { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; }
@@ -468,13 +492,13 @@
         .page-title-card > div.tr-tabs { flex-direction: row !important; gap: 0 !important; }
         .tr-tabs a { flex: 1 1 0 !important; justify-content: center !important; padding-left: 8px !important; padding-right: 8px !important; }
 
-        /* Filtros en mobile: los dos buscadores a fila completa (producto arriba, nota
-           debajo) y el botón de "Filtros avanzados" —que ya contiene Estado/Desde/Hasta—
-           al final de la fila de la nota. */
+        /* Filtros en mobile: producto a fila completa arriba y, debajo, la nota junto a los
+           dos botones cuadrados —"Filtros avanzados" (que ya contiene Estado/Desde/Hasta) y
+           "Compra directa", que a este ancho se queda solo con su icono. */
         #trFilters { gap: 8px !important; }
         /* Producto ocupa su propia fila (es el que más texto muestra); la nota comparte
-           renglón con el botón 45x45 — de ahí `flex:1 1 0` en vez de 100%, que lo dejaría
-           solo en su fila y al botón huérfano en la siguiente. */
+           renglón con los botones 45x45 — de ahí `flex:1 1 0` en vez de 100%, que la dejaría
+           sola en su fila y a los botones huérfanos en la siguiente. */
         #trFilters > .tr-search-prod { flex: 1 1 100% !important; max-width: none !important; min-width: 0 !important; }
         #trFilters > .tr-search-num  { flex: 1 1 0 !important;    max-width: none !important; min-width: 0 !important; }
 
@@ -685,13 +709,12 @@
              /admin/equipos: un botón filter_list que abre el panel. Rojo si hay algún filtro
              del panel activo. Cierra al hacer clic fuera (ver listener abajo). --}}
         @php
-            // Rótulo del dropdown SIN filtro: el default REAL de la bandeja
-            // (Traspaso::ESTADOS_BANDEJA_DEFAULT = En tránsito + Confirmada parcial), en corto
-            // porque el rótulo completo no entra en el ancho del panel. Antes decía solo
-            // "Estado" y había que adivinar qué estaba mostrando la bandeja. Se declara UNA
-            // vez: lo usan data-default-label (lo lee clearDropdownFilter al limpiar) y el
-            // placeholder, así no pueden desincronizarse.
-            $estadoLabelDefault = 'En tránsito + parciales';
+            // SIN filtro el campo va VACÍO (pedido del cliente): antes mostraba
+            // "En tránsito + parciales" —el default real de la bandeja— y parecía que ya
+            // había algo elegido. La bandeja SIGUE mostrando ese default; lo que cambia es
+            // que el campo ya no lo anuncia. Los dos sitios que limpian el filtro (la X y
+            // trSetEstadoDefault) pasan '' a selectOption, que es lo mismo que sale aquí.
+            $estadoLabelDefault = '';
             // Activo (azul + X) = el usuario eligió un estado concreto. Neutro/sin X para el
             // default (vacío) y para "all" (que selectOption global trata como neutro).
             // El rótulo sale de ESTADOS_META (estados reales) o de FILTROS_META (pseudo-
@@ -737,7 +760,7 @@
                 <div class="tr-adv-grid">
                 <div class="tr-adv-full">
                     <span class="tr-adv-label">Estado de la nota</span>
-                    <div class="custom-dropdown" id="trEstadoDropdown" data-filter-type="estado" data-default-label="{{ $estadoLabelDefault }}">
+                    <div class="custom-dropdown" id="trEstadoDropdown" data-filter-type="estado">
                         <input type="hidden" name="estado" data-filter-value value="{{ $reqEstado }}">
                         {{-- Neutro #fbfcfd (no #fff): es el color que el selectOption global
                              repinta al limpiar el filtro; usar otro dejaría el trigger de un
@@ -747,13 +770,14 @@
                                    placeholder="{{ $reqEstadoLabel }}"
                                    style="flex:1;border:none;background:transparent;padding:8px 10px;font-weight:400;color:#0f172a;outline:none;min-width:0;cursor:default;"
                                    oninput="window.filterDropdownOptions(this)">
-                            {{-- X = quitar el filtro de estado → vuelve al default de la bandeja.
-                                 clearDropdownFilter usa el data-default-label de arriba, así no
-                                 se repite el literal. El selectOption global la muestra solo
-                                 cuando hay un estado concreto elegido. --}}
+                            {{-- X = quitar el filtro de estado → el campo vuelve a quedar VACÍO y la
+                                 bandeja a su default. No se usa clearDropdownFilter: ese helper
+                                 rellena con "Seleccionar..." cuando la etiqueta va vacía, que es
+                                 justo lo que el cliente pidió no ver. El selectOption global
+                                 muestra la X solo cuando hay un estado concreto elegido. --}}
                             <i class="material-icons" data-clear-btn title="Quitar filtro de estado"
                                style="padding:0 4px;color:#64748b;font-size:16px;cursor:default;transform:none !important;display:{{ $estadoActivo ? 'block' : 'none' }};"
-                               onclick="event.stopPropagation(); clearDropdownFilter('trEstadoDropdown');">close</i>
+                               onclick="event.stopPropagation(); selectOption('trEstadoDropdown','','');">close</i>
                             <i class="material-icons" style="padding:0 6px;color:#64748b;font-size:16px;pointer-events:none;transform:none !important;">expand_more</i>
                         </div>
                         <div class="dropdown-content" style="padding:5px;max-height:none;overflow:visible;">
@@ -790,6 +814,27 @@
                 </div>
             </div>
         </div>
+
+        {{-- Botón de acción del toolbar: NO despliega menú — abre directo el modal de
+             COMPRA DIRECTA. La bandeja de al lado lista la otra vía de entrada, y la
+             diferencia entre las dos es de dónde viene el material, no si trae papeles
+             (casi siempre los trae):
+               · Bandeja  → REPOSICIÓN: el almacén general despachó y emitió su nota; aquí
+                            solo se confirma lo que llegó.
+               · Este botón → COMPRA DIRECTA: la empresa le compró a un proveedor y el
+                            vendedor despachó el material directo a ESTE almacén, sin pasar
+                            por el general. No hay nada que confirmar porque no hay nota
+                            interna: la entrada se captura completa aquí. La nota del
+                            proveedor se anota si la hubo (es opcional).
+             El registro es una ENTRADA normal al almacén de la bandeja, así que exige la
+             misma clave que confirmar una recepción — por eso va dentro del @can, igual
+             que el tab "Entrada por ODC". --}}
+        @can('almacen.movimiento')
+        <button type="button" id="trCompraDirectaBtn" class="btn-primary-maquinaria tr-compra-btn"
+                onclick="window.cdirAbrir()" title="Registrar una compra que el proveedor despachó directo a este almacén (no vino del almacén general)">
+            <i class="material-icons">shopping_cart</i><span class="tr-compra-txt">Compra directa</span>
+        </button>
+        @endcan
     </div>
 
     {{-- ── Tabla ── --}}
@@ -855,6 +900,930 @@
     <div class="dtm-box" id="trDetalleBox"></div>
 </div>
 
+@can('almacen.movimiento')
+{{-- ── Modal "Entrada por compra directa" ────────────────────────────────────────
+     Registra el material que la empresa COMPRÓ a un proveedor y que el vendedor despachó
+     directo a este almacén, sin pasar por el almacén general. Es la otra vía de entrada
+     del módulo: la bandeja de al lado es la REPOSICIÓN (el general despacha con su nota y
+     acá solo se confirma). Aquí no hay nada que confirmar —no existe nota interna— así
+     que la entrada se captura completa. La nota del proveedor se anota si la hubo.
+
+     Es una ENTRADA normal: POSTea al MISMO endpoint que la pantalla "Entrada por ODC"
+     (almacen.movimientos-lote, tipo=ENTRADA) con el mismo mapeo de columnas — nota de
+     entrega → REFERENCIA, proveedor → MOTIVO. No hay backend nuevo.
+
+     Por qué es un modal aparte y no un enlace a esa pantalla: la bandeja es el sitio donde
+     el almacenista está parado cuando le llega el material; sacarlo a otra pantalla le
+     hacía perder el filtro y la posición de la bandeja.
+
+     Se captura en DOS pasos, porque los datos del documento son opcionales y estorbaban
+     arriba mientras se cargaban productos:
+       1) Líneas de entrada  → qué llegó y cuánto.
+       2) Datos del proveedor → nota / proveedor / fecha. Se puede dejar en blanco.
+     Layout del paso 1: SOLO la tabla hace scroll. La barra de captura queda fija arriba
+     (así el buscador está siempre a mano y ningún contenedor con overflow le recorta el
+     desplegable) y los botones fijos abajo. --}}
+<style>
+    .cdir-overlay { display:none; position:fixed; inset:0; z-index:99999; background:rgba(15,23,42,0.45); align-items:center; justify-content:center; padding:10px; }
+    .cdir-overlay.open { display:flex; }
+    /* 760px de ancho y 82vh de alto. Alto FIJO —no automático— para que el modal no cambie
+       de tamaño al pasar de un paso a otro: lo único que se intercambia es el bloque de
+       arriba. Los tres campos del paso 2 siguen entrando en fila a este ancho (≈263px para
+       nota y proveedor, 170 para la fecha). */
+    .cdir-box { background:#fff; border-radius:16px; width:100%; max-width:760px; height:82vh; max-height:94vh;
+        display:flex; flex-direction:column; overflow:hidden; box-shadow:0 25px 50px -12px rgba(0,0,0,0.35);
+        animation:dtmIn .2s ease-out; }
+
+    /* Barra superior: mismo slate #1e293b + icono azul del modal de detalle, para que los
+       dos modales del módulo se lean como la misma familia. */
+    .cdir-title-row { position:relative; display:flex; align-items:center; justify-content:center; gap:9px; background:#1e293b; padding:15px 48px; flex-shrink:0; }
+    .cdir-title-row .material-icons { color:#0067b1; font-size:20px; }
+    .cdir-title { font-size:14.5px; font-weight:800; color:#fff; letter-spacing:.2px; }
+    .cdir-close { position:absolute; right:12px; top:50%; transform:translateY(-50%); background:transparent; border:none;
+        cursor:default; color:#fff; opacity:.75; padding:4px; border-radius:6px; transition:opacity .15s; }
+    .cdir-close:hover { opacity:1; }
+    /* Simétrico a la ✕ pero a la izquierda. Mismo tratamiento visual: transparente sobre la
+       barra oscura, y solo se enciende al pasar por encima. */
+    .cdir-atras { position:absolute; left:12px; top:50%; transform:translateY(-50%); background:transparent;
+        border:none; cursor:default; color:#fff; opacity:.75; padding:4px; border-radius:6px; transition:opacity .15s; }
+    .cdir-atras:hover { opacity:1; }
+
+    /* Pasos: solo uno visible a la vez, y los dos son bloques FIJOS en la parte de arriba
+       (el paso 1 trae proyecto + barra de captura; el paso 2, los datos del proveedor). El
+       alto sobrante se lo queda la tabla de líneas, que vive fuera de los pasos. */
+    .cdir-paso { display:none; flex-direction:column; flex-shrink:0; }
+    .cdir-paso.on { display:flex; }
+
+    /* Proyecto dueño del stock: franja propia ARRIBA DEL TODO, con fondo tenue, para que se lea
+       como "contexto de toda la entrada" y no como un campo más del formulario. La etiqueta
+       va ENCIMA del campo (no al lado): así el proyecto elegido queda alineado con el resto
+       del modal y se lee de un vistazo al abrir.
+       z-index:6 — por encima de .cdir-capt (5), para que sus sugerencias tapen la barra de
+       captura que queda debajo. */
+    .cdir-proyecto { position:relative; z-index:6; flex-shrink:0; display:flex; align-items:center;
+        gap:12px; padding:10px 20px; background:#f8fafc; border-bottom:1px solid #e2e8f0; }
+    .cdir-proyecto .ayuda { flex:0 0 auto; font-size:17px; color:#94a3b8; cursor:default; }
+    /* Etiqueta y campo en la MISMA línea: apilados ocupaban dos renglones de alto sin dar
+       nada a cambio. nowrap para que el rótulo no se parta en dos. */
+    .cdir-proyecto label { flex:0 0 auto; white-space:nowrap; font-size:11px; font-weight:800;
+        text-transform:uppercase; letter-spacing:.4px; color:#64748b; }
+    .cdir-proyecto .req { color:#dc2626; }
+    /* Campo CON BUSCADOR (no un <select> nativo): el almacén puede tener muchos proyectos y
+       teclear tres letras es más rápido que recorrer la lista. Misma caja que el resto del
+       modal para que no desentone. */
+    .cdir-proy-field { position:relative; flex:1 1 auto; min-width:0; }
+    .cdir-proy-field .cdir-input { padding-right:34px; }
+    .cdir-proy-caret { position:absolute; right:9px; top:50%; transform:translateY(-50%);
+        color:#64748b; font-size:20px; pointer-events:none; }
+    /* Sin elegir → borde rojo suave. No es un error todavía (nadie ha intentado seguir),
+       solo la señal de que falta ese dato. Se apaga en cuanto se elige. */
+    .cdir-proy-field .cdir-input.falta { border-color:#f87171; background:#fef2f2; }
+    /* Elegido → verde tenue: confirma de un golpe que ese dato ya está resuelto. */
+    .cdir-proy-field .cdir-input.listo { border-color:#22c55e; background:#f0fdf4; font-weight:700; }
+
+    /* Zona de captura (fija). z-index para que el desplegable de sugerencias tape la tabla. */
+    .cdir-capt { position:relative; z-index:5; flex-shrink:0; padding:14px 20px 10px; background:#fff; }
+    .cdir-section-title { font-size:11.5px; font-weight:800; text-transform:uppercase; letter-spacing:.6px; color:#64748b; margin-bottom:8px; }
+    .cdir-capt-bar { display:flex; gap:8px; align-items:stretch; }
+    .cdir-field { position:relative; flex:1 1 auto; min-width:0; }
+    .cdir-input { width:100%; box-sizing:border-box; height:42px; border:1px solid #cbd5e0; border-radius:10px;
+        background:#fbfcfd; padding:0 12px; font-family:inherit; font-size:13.5px; color:#0f172a; outline:none; }
+    .cdir-input:focus { border-color:#0067b1; background:#fff; }
+    .cdir-um-input  { width:78px; flex:0 0 78px; text-align:center; text-transform:uppercase; font-weight:700; font-size:12.5px; }
+    .cdir-cant-input{ width:92px; flex:0 0 92px; text-align:center; font-weight:700; }
+    .cdir-um-wrap { position:relative; flex:0 0 78px; }
+    /* Verde y con un check (pedido del cliente): el gesto es "confirmar esta línea", no
+       "sumar un número", y el verde lo separa del azul de las acciones del pie. */
+    .cdir-add-btn { flex:0 0 42px; width:42px; height:42px; display:flex; align-items:center; justify-content:center;
+        border:1px solid #16a34a; border-radius:10px; background:#16a34a; color:#fff; cursor:default; }
+    .cdir-add-btn:hover { background:#15803d; }
+
+    /* Producto ya elegido: el input se oculta y en su lugar va este chip. */
+    .cdir-badge { display:none; position:absolute; inset:0; align-items:center; gap:6px; padding:0 8px 0 10px;
+        border:1px solid #0067b1; border-radius:10px; background:#e1effa; overflow:hidden; }
+    .cdir-badge.show { display:flex; }
+    /* Una sola tipografía y un solo color de texto en TODO el modal (pedido del cliente):
+       el código ya no va en monospace azul — se distingue por el peso, no por ser otra
+       letra de otro color, que hacía ver la línea como dos textos pegados. */
+    .cdir-badge .cod { font-weight:800; font-size:13px; color:#0f172a; flex:0 0 auto; }
+    .cdir-badge .nom { font-size:13px; font-weight:600; color:#0f172a; flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .cdir-badge .material-icons { font-size:17px; color:#64748b; flex:0 0 auto; cursor:default; }
+
+    /* Desplegables (producto y UM): mismas medidas que .tr-suggest del toolbar. */
+    .cdir-suggest, .cdir-um-suggest { display:none; position:absolute; top:calc(100% + 5px); left:0; right:0; z-index:20;
+        background:#fff; border:1px solid #e2e8f0; border-radius:12px; box-shadow:0 10px 25px rgba(0,0,0,0.1);
+        max-height:230px; overflow-y:auto; padding:5px; }
+    .cdir-suggest.open, .cdir-um-suggest.open { display:block; }
+    /* El de UM se ancla a la DERECHA y se ensancha hacia la izquierda: el campo mide 78px y
+       a ese ancho el aviso de "sin coincidencias" quedaba en una columna de una palabra por
+       renglón. Anclado a la derecha crece hacia dentro del modal, nunca hacia afuera. */
+    .cdir-um-suggest { left:auto; right:0; min-width:210px; }
+    .cdir-suggest-item, .cdir-um-item { padding:8px 10px; border-radius:8px; font-size:13px; color:#0f172a; cursor:default;
+        display:flex; align-items:baseline; gap:6px; }
+    .cdir-suggest-item:hover, .cdir-um-item:hover { background:#e1effa; }
+    .cdir-suggest-item .parte { font-weight:800; font-size:12.5px; color:#0f172a; flex:0 0 auto; }
+    .cdir-suggest-item .nom { flex:1 1 auto; min-width:0; }
+    /* La UM conserva su recuadro gris (es una etiqueta, no texto corrido) pero el color de
+       la letra es el mismo del resto. */
+    .cdir-suggest-item .um { flex:0 0 auto; font-size:10px; font-weight:800; text-transform:uppercase; color:#0f172a;
+        background:#f1f5f9; border-radius:5px; padding:2px 5px; }
+    .cdir-suggest-empty { padding:10px; font-size:12.5px; color:#64748b; line-height:1.45; }
+
+    /* Tabla de líneas — la ÚNICA zona con scroll, y la que absorbe el alto sobrante. */
+    .cdir-list-wrap { flex:1 1 auto; min-height:0; display:flex; flex-direction:column; padding:12px 20px 0; }
+    .cdir-list-wrap .cdir-section-title { margin-bottom:8px; }
+    .cdir-list { flex:1 1 auto; min-height:120px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:10px; }
+    .cdir-table { width:100%; border-collapse:collapse; font-size:13px; }
+    .cdir-table thead th { position:sticky; top:0; z-index:1; background:#1e293b; color:#fff; font-size:10.5px; font-weight:800;
+        text-transform:uppercase; letter-spacing:.5px; padding:8px 10px; text-align:center; white-space:nowrap; }
+    .cdir-table thead th.c-desc { text-align:left; }
+    .cdir-table tbody td { padding:8px 10px; border-bottom:1px solid #f1f5f9; text-align:center; color:#0f172a; }
+    .cdir-table tbody tr:last-child td { border-bottom:none; }
+    .cdir-table tbody tr:hover td { background:#f8fafc; }
+    .cdir-table .c-num  { width:1%; white-space:nowrap; font-weight:800; color:#94a3b8; }
+    .cdir-table .c-cod  { width:1%; white-space:nowrap; font-weight:700; }
+    .cdir-table .c-desc { text-align:left; font-weight:600; }
+    .cdir-table .c-cant { width:1%; white-space:nowrap; font-weight:800; }
+    .cdir-table .c-cant .um { font-size:10px; font-weight:700; color:#0f172a; margin-left:3px; }
+    .cdir-table .c-del  { width:1%; }
+    .cdir-del-btn { background:transparent; border:none; color:#cbd5e0; cursor:default; padding:2px; display:flex; }
+    .cdir-del-btn:hover { color:#ef4444; }
+    .cdir-empty { padding:26px 16px; text-align:center; font-size:12.5px; color:#94a3b8; }
+
+    /* Paso 2 — datos del documento del proveedor. */
+    .cdir-paso2-head { flex-shrink:0; padding:14px 20px 0; }
+    /* Los tres campos SIEMPRE en fila (pedido del cliente). Con la caja en 900px sobra
+       ancho: nota y proveedor se reparten lo elástico y la fecha se queda con lo justo. */
+    .cdir-meta { flex-shrink:0; display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr) 170px; gap:12px; padding:8px 20px 0; }
+    .cdir-meta label { display:block; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.4px; color:#64748b; margin-bottom:4px; }
+    .cdir-date { display:flex; align-items:center; gap:6px; cursor:default; }
+    .cdir-date input { flex:1; min-width:0; border:none; background:transparent; padding:0; font-family:inherit; font-size:13.5px; color:#0f172a; outline:none; cursor:default; }
+    .cdir-error { display:none; flex-shrink:0; margin:10px 20px 0; padding:9px 12px; background:#fee2e2; border:1px solid #fecaca;
+        border-radius:10px; color:#b91c1c; font-size:12.5px; font-weight:600; }
+
+    /* Botonera CENTRADA (pedido del cliente). Solo se muestra la del paso activo. */
+    .cdir-footer { flex-shrink:0; display:none; align-items:center; justify-content:center; gap:10px; padding:14px 20px; margin-top:12px; border-top:1px solid #e2e8f0; background:#f8fafc; }
+    .cdir-footer.on { display:flex; }
+    /* min-width igual en los dos: antes "Cancelar" salía más angosto que "Aceptar" porque
+       cada uno se medía por su texto y el segundo además lleva icono. */
+    .cdir-btn { height:44px; min-width:170px; padding:0 18px; display:flex; align-items:center;
+        justify-content:center; gap:6px; border-radius:10px;
+        font-family:inherit; font-size:13.5px; font-weight:800; cursor:default; }
+    .cdir-btn .material-icons { font-size:18px; }
+    .cdir-btn-cancel { background:#fff; border:1px solid #cbd5e0; color:#475569; }
+    .cdir-btn-cancel:hover { background:#f1f5f9; }
+    .cdir-btn-ok { background:#0067b1; border:1px solid #0067b1; color:#fff; }
+    .cdir-btn-ok:hover { background:#005596; }
+    .cdir-btn-ok:disabled { opacity:.6; }
+
+    /* Teléfono: la barra de captura pasa a 2 renglones (buscador arriba; UM, cantidad y el
+       check abajo) y los datos del proveedor a una sola columna. La caja va a pantalla
+       completa. */
+    @media (max-width: 640px) {
+        .cdir-overlay { padding:0; }
+        .cdir-box { max-width:none; max-height:100vh; height:100vh; border-radius:0; }
+        .cdir-capt-bar { flex-wrap:wrap; }
+        .cdir-field { flex:1 1 100%; }
+        .cdir-um-wrap, .cdir-um-input { flex:0 0 76px; width:76px; }
+        .cdir-cant-input { flex:1 1 auto; width:auto; }
+        {{-- Los tres campos del paso 2 sí se apilan en teléfono: uno al lado del otro
+             (como van en escritorio) dejaría cada caja en ~90px, sin ancho útil. --}}
+        .cdir-meta { grid-template-columns:1fr; }
+        {{-- min-width:0 obligatorio: los 170px de escritorio × 2 botones no caben en un
+             teléfono de 360px y la botonera se salía de la caja. Aquí se reparten el ancho
+             a partes iguales, que igual los deja del mismo tamaño. --}}
+        .cdir-btn { flex:1 1 0; min-width:0; justify-content:center; }
+        {{-- Franja del proyecto: el rótulo va en nowrap y ocupa ~190px, así que en un
+             teléfono de 360px al buscador le quedaban ~90px — inservible para leer el
+             nombre de un proyecto. Aquí el campo baja a su propio renglón. --}}
+        .cdir-proyecto { flex-wrap:wrap; row-gap:6px; }
+        .cdir-proy-field { flex:1 1 100%; }
+    }
+</style>
+
+<div class="cdir-overlay" id="cdirOverlay">
+    <div class="cdir-box" role="dialog" aria-modal="true" aria-labelledby="cdirTitulo">
+        <div class="cdir-title-row">
+            {{-- Volver al paso 1. Vive en el encabezado y no en el pie porque el pie lo ocupan
+                 las dos acciones de la operación (Cancelar / Aceptar); "atrás" es navegación,
+                 no una decisión sobre la entrada. Solo se ve en el paso 2. --}}
+            <button type="button" class="cdir-atras" id="cdirAtras" onclick="window.cdirPaso(1)" title="Volver a las líneas" style="display:none;">
+                <i class="material-icons" style="color:#fff;">arrow_back</i>
+            </button>
+            <i class="material-icons">shopping_cart</i>
+            <span class="cdir-title" id="cdirTitulo">Entrada por compra directa</span>
+            {{-- La ✕ CIERRA SIN PREGUNTAR y CONSERVA lo capturado (mismo criterio que la ✕
+                 del modal de detalle): es el gesto de "ahorita vuelvo", no el de descartar.
+                 Descartar es el botón Cancelar, que sí avisa. --}}
+            <button type="button" class="cdir-close" onclick="window.cdirOcultar()" title="Cerrar sin perder lo capturado"><i class="material-icons" style="color:#fff;">close</i></button>
+        </div>
+
+        {{-- ── Paso 1: proyecto + barra de captura ── --}}
+        <div class="cdir-paso on" id="cdirPaso1">
+        {{-- Proyecto dueño del stock. Solo aparece en almacenes que reparten el saldo entre
+             varios proyectos; en los demás no hay nada que elegir y la fila no se pinta.
+             Va ARRIBA de las líneas y no en el paso 2 porque no es un dato del documento:
+             define a qué bolsa entra TODO lo que se capture debajo. Es obligatorio, y el
+             backend lo exige igual por si alguien entra por otra vía. --}}
+        <div class="cdir-proyecto" id="cdirProyectoRow" style="display:none;">
+            <label for="cdirProyecto">Proyecto dueño del stock <span class="req">*</span></label>
+            {{-- El rótulo dice a quién queda amarrado el material; el signo de ayuda explica
+                 la consecuencia real sin gastar un renglón en la franja. --}}
+            <i class="material-icons ayuda" title="Todo lo que captures abajo se suma al saldo de ESTE proyecto dentro del almacén. Cada proyecto lleva su stock por separado.">help_outline</i>
+            <div class="cdir-proy-field">
+                <input type="text" id="cdirProyecto" class="cdir-input falta" autocomplete="off"
+                       placeholder="Escribe para buscar el proyecto…"
+                       oninput="window.cdirProySuggest()" onfocus="window.cdirProySuggest(true)"
+                       onkeydown="window.cdirProyKey(event)">
+                <input type="hidden" id="cdirProyectoId">
+                <i class="material-icons cdir-proy-caret">expand_more</i>
+                <div class="cdir-suggest" id="cdirProySuggest"></div>
+            </div>
+        </div>
+        <div class="cdir-capt">
+            <div class="cdir-capt-bar">
+                <div class="cdir-field">
+                    <input type="text" id="cdirSearch" class="cdir-input" autocomplete="off"
+                           placeholder="Buscar por código o descripción…"
+                           oninput="window.cdirSuggest()" onfocus="window.cdirSuggest()" onkeydown="window.cdirSearchKey(event)">
+                    <div class="cdir-badge" id="cdirBadge">
+                        <span class="cod" id="cdirBadgeCod"></span>
+                        <span class="nom" id="cdirBadgeNom"></span>
+                        <i class="material-icons" onclick="window.cdirQuitarSeleccion()" title="Cambiar producto">close</i>
+                    </div>
+                    <div class="cdir-suggest" id="cdirSuggest"></div>
+                </div>
+                <div class="cdir-um-wrap" title="Unidad de medida">
+                    <input type="text" id="cdirUm" class="cdir-input cdir-um-input" value="UND" maxlength="20" autocomplete="off"
+                           aria-label="Unidad de medida" placeholder="UND"
+                           oninput="window.cdirUmSuggest()" onfocus="window.cdirUmSuggest(true)" onkeydown="window.cdirUmKey(event)">
+                    <div class="cdir-um-suggest" id="cdirUmSuggest"></div>
+                </div>
+                <input type="text" inputmode="decimal" enterkeyhint="done" id="cdirCant" class="cdir-input cdir-cant-input"
+                       placeholder="Cant." autocomplete="off" aria-label="Cantidad" onkeydown="window.cdirCantKey(event)">
+                <button type="button" class="cdir-add-btn" onclick="window.cdirAgregar()" title="Agregar línea (Enter)">
+                    <i class="material-icons">check_circle</i>
+                </button>
+            </div>
+        </div>
+        </div>{{-- /#cdirPaso1 --}}
+
+        {{-- ── Paso 2: datos del documento del proveedor (todos opcionales) ──
+             Reemplazan arriba a la barra de captura en vez de compartir pantalla con ella:
+             a veces la compra llega sin papeles y a veces con ellos, así que tenerlos a la
+             vista mientras se cargan productos solo estorbaba. --}}
+        <div class="cdir-paso" id="cdirPaso2">
+        <div class="cdir-paso2-head">
+            <div class="cdir-section-title">Datos del proveedor — opcional</div>
+        </div>
+        <div class="cdir-meta">
+            <div>
+                <label for="cdirNota">Nota de entrega</label>
+                <input type="text" id="cdirNota" class="cdir-input" maxlength="100" placeholder="Opcional" autocomplete="off">
+            </div>
+            <div>
+                <label for="cdirProveedor">Proveedor</label>
+                <input type="text" id="cdirProveedor" class="cdir-input" maxlength="200" placeholder="Razón social o nombre" autocomplete="off">
+            </div>
+            <div>
+                <label for="cdirFecha">Fecha</label>
+                <div class="cdir-input cdir-date" onclick="var i=document.getElementById('cdirFecha'); if(i){ i.focus(); if(i.showPicker) try{i.showPicker();}catch(e){} }">
+                    <i class="material-icons" style="font-size:16px;color:#64748b;">event</i>
+                    <input type="date" id="cdirFecha">
+                </div>
+            </div>
+        </div>
+        </div>{{-- /#cdirPaso2 --}}
+
+        {{-- Tabla de líneas: FUERA de los pasos, visible en los dos. En el paso 2 el usuario
+             sigue viendo —y puede corregir— lo que está a punto de registrar, y de paso la
+             caja no queda con un hueco enorme debajo de tres campos. Es la única zona que
+             hace scroll; todo lo demás (encabezado, bloque del paso, pie) queda fijo. --}}
+        <div class="cdir-list-wrap">
+            <div class="cdir-section-title">Líneas de entrada</div>
+            <div class="cdir-list">
+                <table class="cdir-table">
+                    <thead>
+                        <tr>
+                            <th class="c-num">Nº</th>
+                            <th class="c-cod">Código</th>
+                            <th class="c-desc">Descripción</th>
+                            <th class="c-cant">Cantidad</th>
+                            <th class="c-del"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="cdirTbody"></tbody>
+                </table>
+                <div class="cdir-empty" id="cdirEmpty">Busca un producto, escribe la cantidad y presiona Enter para agregarlo.</div>
+            </div>
+        </div>
+
+        <div class="cdir-error" id="cdirError"></div>
+
+        {{-- Sin bloque de resumen (Líneas / Unidades): el cliente ya lo mandó quitar de la
+             pantalla "Entrada por ODC" y además sumar cantidades de distintas UM (3 UND + 2
+             CAJA) no da un número que signifique nada. La tabla de arriba ya numera las líneas. --}}
+        <div class="cdir-footer on" id="cdirFooter1">
+            <button type="button" class="cdir-btn cdir-btn-cancel" onclick="window.cdirCancelar()">Cancelar</button>
+            <button type="button" class="cdir-btn cdir-btn-ok" onclick="window.cdirPaso(2)">
+                <i class="material-icons">check_circle</i> Aceptar
+            </button>
+        </div>
+        {{-- Mismos rótulos que el paso 1 (pedido del cliente): Cancelar descarta la entrada
+             completa —avisando— y Aceptar la registra. Para volver a las líneas sin perder
+             nada está la flecha del encabezado. --}}
+        <div class="cdir-footer" id="cdirFooter2">
+            <button type="button" class="cdir-btn cdir-btn-cancel" onclick="window.cdirCancelar()">Cancelar</button>
+            <button type="button" class="cdir-btn cdir-btn-ok" id="cdirRegistrar" onclick="window.cdirGuardar()">
+                <i class="material-icons">check_circle</i> Aceptar
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    'use strict';
+    if (!document.getElementById('cdirTbody')) return;
+
+    // Endpoints. La ENTRADA usa el mismo de la pantalla "Entrada por ODC" — un lote
+    // tipo=ENTRADA — así que una compra directa deja en el kardex EXACTAMENTE el mismo
+    // rastro que una entrada por orden de compra. El de productos solo se usa cuando el
+    // material que llegó todavía no existe en el catálogo (pasa seguido comprando por fuera).
+    var ROUTE_ENTRADA = @json(route('almacen.movimientos.lote'));
+    var ROUTE_PROD    = @json(route('almacen.productos.store'));
+    // Proyectos por almacén: { idAlmacen: { separa, implicito, frentes:[{id,nombre}] } }.
+    //   separa=true  → el almacén reparte el saldo entre proyectos: el usuario elige uno
+    //                  (obligatorio) y ese va en `id_frente`.
+    //   separa=false → no hay nada que elegir; se manda `implicito` solo para que el kardex
+    //                  muestre el frente en "Destino" en vez de "—".
+    var CDIR_PROYECTOS = @json($proyectosPorAlmacen ?? []);
+
+    function el(id) { return document.getElementById(id); }
+    function v(id) { var e = el(id); return e ? String(e.value).trim() : ''; }
+    function csrf() { var m = document.querySelector('meta[name="csrf-token"]'); return m ? m.getAttribute('content') : ''; }
+    function toast(msg, type) { if (window.showToast) window.showToast(msg, type || 'success'); else if (type === 'error') alert(msg); }
+    function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); }
+    function norm(s) { return window.FuzzySearch.norm(s); }
+    function showErr(msg) {
+        var e = el('cdirError'); if (!e) return;
+        if (msg) { e.style.display = 'block'; e.textContent = msg; }
+        else     { e.style.display = 'none';  e.textContent = ''; }
+    }
+    // Catálogo: el MISMO que ya usa el filtro por producto del toolbar (window.trProductosLista,
+    // embebido una sola vez en el render). Se lee por llamada —no se copia a una variable del
+    // módulo— para que las altas al vuelo se vean desde los dos buscadores sin sincronizar nada.
+    // Si todavía no existiera se crea el array en window (no uno local): devolver `[]` suelto
+    // haría que el push de un producto nuevo se perdiera en silencio.
+    function catalogo() {
+        if (!window.trProductosLista) window.trProductosLista = [];
+        return window.trProductosLista;
+    }
+
+    // ── Estado ────────────────────────────────────────────────────────────
+    var lineas   = [];     // {id_producto, codigo, nombre, um, cantidad}
+    var elegido  = null;   // producto tomado del autocomplete, esperando cantidad
+    var creando  = false;  // guard anti doble-POST mientras se registra un producto nuevo
+    var enviando = false;  // guard anti doble-POST del submit
+    var skipSuggest = false; // suprime UNA apertura del desplegable al refocar el buscador
+
+    // ── Almacén destino: se lee del dropdown del header en cada uso ──
+    // El almacén de la bandeja se cambia en caliente (el dropdown recarga la tabla por AJAX
+    // sin recargar la página), así que fijarlo al renderizar registraría la entrada en el
+    // almacén equivocado tras cambiar de bandeja. Devuelve el id o null.
+    function destinoActual() {
+        var h = document.querySelector('#trDestHeaderDropdown input[data-filter-value]');
+        var id = h ? parseInt(h.value, 10) : NaN;
+        return (isFinite(id) && id > 0) ? id : null;
+    }
+    /** Config de proyectos del almacén destino; forma estable aunque el mapa no lo traiga. */
+    function proyectosDe(idAlmacen) {
+        var c = CDIR_PROYECTOS[idAlmacen];
+        return c || { separa: false, implicito: null, frentes: [] };
+    }
+
+    // ── Proyecto dueño del stock ──────────────────────────────────────────
+    // La franja se muestra SOLO si el almacén reparte el saldo entre varios proyectos. Con
+    // uno solo no hay nada que preguntar: todo entra a esa única bolsa.
+    // Se rearma en cada apertura porque el almacén de la bandeja cambia en caliente, y una
+    // lista pintada para el almacén anterior ofrecería proyectos que no son de éste.
+    var proyectosVisibles = [];   // los del almacén abierto, para el buscador
+
+    function montarProyectos(idAlmacen) {
+        var cfg = proyectosDe(idAlmacen), row = el('cdirProyectoRow');
+        proyectosVisibles = cfg.separa ? cfg.frentes : [];
+        row.style.display = cfg.separa ? 'block' : 'none';
+        // Se limpia SIEMPRE, también cuando el almacén nuevo no separa: si no, el id del
+        // proyecto del almacén anterior se quedaba pegado en el campo oculto.
+        // Y nunca se preselecciona: elegir por el usuario es justo lo que ensuciaba el saldo
+        // antes (se mandaba el primer proyecto del almacén, acertara o no).
+        limpiarProyecto();
+    }
+    function limpiarProyecto() {
+        var inp = el('cdirProyecto');
+        inp.value = '';
+        el('cdirProyectoId').value = '';
+        inp.classList.add('falta');
+        inp.classList.remove('listo');
+        proySuggestHide();
+    }
+    function proySuggestHide() { var b = el('cdirProySuggest'); if (b) b.classList.remove('open'); }
+
+    // Buscador del proyecto: mismo ranking que el resto del módulo (FuzzySearch), así
+    // "corta" encuentra "CORTAFUEGO AYACUCHO FASE II" sin escribirlo entero. Con la lista
+    // vacía o al enfocar se ofrecen TODOS los del almacén — son pocos y verlos completos
+    // ahorra teclear cuando el usuario no recuerda el nombre exacto.
+    window.cdirProySuggest = function (todos) {
+        var inp = el('cdirProyecto'), box = el('cdirProySuggest');
+        if (!inp || !box) return;
+        // Sin `todos` = viene de oninput, o sea el texto CAMBIÓ: la elección anterior deja de
+        // valer. Se invalida aquí y no en keydown porque allí Tab, las flechas o Ctrl+C
+        // también contaban como cambio y borraban un proyecto ya elegido al salir del campo.
+        if (!todos && el('cdirProyectoId').value) {
+            el('cdirProyectoId').value = '';
+            inp.classList.remove('listo');
+            inp.classList.add('falta');
+        }
+        var term = inp.value.trim();
+        var lista = (todos || term === '')
+            ? proyectosVisibles
+            : window.FuzzySearch.rank(proyectosVisibles, term, function (f) {
+                return { haystack: f.nombre, label: f.nombre };
+              });
+        box.innerHTML = lista.length
+            ? lista.map(function (f) {
+                return '<div class="cdir-suggest-item" data-id="' + f.id + '" data-nom="' + esc(f.nombre) + '">'
+                     + '<span class="nom">' + esc(f.nombre) + '</span></div>';
+              }).join('')
+            : '<div class="cdir-suggest-empty">Ningún proyecto de este almacén coincide con «' + esc(term) + '».</div>';
+        box.classList.add('open');
+    };
+    function elegirProyecto(item) {
+        var inp = el('cdirProyecto');
+        inp.value = item.getAttribute('data-nom') || '';
+        el('cdirProyectoId').value = item.getAttribute('data-id') || '';
+        inp.classList.remove('falta');
+        inp.classList.add('listo');
+        proySuggestHide();
+        showErr('');
+    }
+    window.cdirProyKey = function (ev) {
+        if (ev.key === 'Escape') { ev.preventDefault(); proySuggestHide(); return; }
+        if (ev.key === 'Enter') {
+            ev.preventDefault();
+            var first = document.querySelector('#cdirProySuggest .cdir-suggest-item');
+            if (first) elegirProyecto(first);
+        }
+    };
+    /** Proyecto a mandar en el payload, o undefined si falta elegirlo. */
+    function frenteElegido(idAlmacen) {
+        var cfg = proyectosDe(idAlmacen);
+        if (!cfg.separa) return cfg.implicito || null;
+        var v = parseInt(el('cdirProyectoId').value, 10);
+        return isFinite(v) && v > 0 ? v : undefined;
+    }
+
+    // ── Autocomplete de producto ──────────────────────────────────────────
+    function suggestHide() { var b = el('cdirSuggest'); if (b) b.classList.remove('open'); }
+    window.cdirSuggest = function () {
+        var box = el('cdirSuggest'), inp = el('cdirSearch');
+        if (!box || !inp) return;
+        if (skipSuggest) { skipSuggest = false; box.classList.remove('open'); return; }
+        if (elegido) { box.classList.remove('open'); return; }   // ya hay uno elegido
+        var term = inp.value.trim();
+        // Mismo ranking y mismo haystack (código + nombre + nºs de parte equivalentes) que el
+        // resto de buscadores del módulo — window.FuzzySearch es la fuente única.
+        var matches = window.FuzzySearch.rank(catalogo(), term, function (p) {
+            return { haystack: (p.CODIGO || '') + ' ' + (p.NOMBRE || '') + ' ' + (p.EQUIV || ''), label: p.NOMBRE || '' };
+        }).slice(0, 12);
+        if (!matches.length) {
+            box.innerHTML = term
+                ? '<div class="cdir-suggest-empty">Sin coincidencias. Escribe la cantidad y presiona Enter para registrar <strong>"' + esc(term) + '"</strong> como producto nuevo.</div>'
+                : '<div class="cdir-suggest-empty">Empieza a escribir para buscar.</div>';
+        } else {
+            box.innerHTML = matches.map(function (p) {
+                var parte = window.FuzzySearch.matchedPart(term, p.PARTES, p.PARTE);
+                return '<div class="cdir-suggest-item" data-id="' + p.ID_PRODUCTO + '" data-cod="' + esc(p.CODIGO) + '" data-nom="' + esc(p.NOMBRE) + '" data-um="' + esc(p.UM) + '" data-cat="' + esc(p.CATEGORIA || '') + '">'
+                    + (parte ? '<span class="parte">' + esc(parte) + '</span>' : '')
+                    + '<span class="nom">' + esc(p.NOMBRE) + '</span>'
+                    + (p.UM ? '<span class="um">' + esc(p.UM) + '</span>' : '')
+                    + '</div>';
+            }).join('');
+        }
+        box.classList.add('open');
+    };
+    // Elegir sugerencia: chip encima del input, UM prefijada (editable) y salto a Cantidad.
+    function elegir(item) {
+        elegido = {
+            id_producto: parseInt(item.getAttribute('data-id'), 10),
+            codigo:      item.getAttribute('data-cod') || '',
+            nombre:      item.getAttribute('data-nom') || '',
+            um:          item.getAttribute('data-um')  || '',
+            categoria:   item.getAttribute('data-cat') || '',
+        };
+        el('cdirBadgeCod').textContent = elegido.codigo;
+        el('cdirBadgeNom').textContent = elegido.nombre;
+        el('cdirBadge').classList.add('show');
+        var inp = el('cdirSearch'); inp.value = ''; inp.style.visibility = 'hidden';
+        suggestHide();
+        var um = el('cdirUm'); if (um && elegido.um) { um.value = elegido.um; umHide(); }
+        setTimeout(function () { var c = el('cdirCant'); if (c) c.focus(); }, 30);
+    }
+    // Punto ÚNICO que devuelve la barra de captura (buscador + chip + UM + cantidad) a su
+    // estado inicial. `foco` decide qué pasa con el cursor:
+    //   'buscar'    → al buscador CON sugerencias — la X del chip: el usuario quiere otro producto.
+    //   'siguiente' → al buscador SIN sugerencias — acaba de agregar una línea; el refoco es
+    //                 automático, no una intención de ver la lista.
+    //   false       → sin foco — se está vaciando para CERRAR el modal; enfocar ahí dejaría el
+    //                 cursor en un campo que desaparece (y en el teléfono asomaría el teclado).
+    function resetCaptura(foco) {
+        elegido = null;
+        el('cdirBadge').classList.remove('show');
+        var inp = el('cdirSearch'); inp.style.visibility = ''; inp.value = '';
+        var um = el('cdirUm'); if (um) um.value = 'UND';
+        el('cdirCant').value = '';
+        if (!foco) return;
+        if (foco === 'siguiente') skipSuggest = true;
+        inp.focus();
+    }
+    window.cdirQuitarSeleccion = function () { resetCaptura('buscar'); };
+    window.cdirSearchKey = function (ev) {
+        if (ev.key === 'Escape') { ev.preventDefault(); suggestHide(); return; }
+        if (ev.key === 'Enter')  {
+            ev.preventDefault();
+            var first = document.querySelector('#cdirSuggest .cdir-suggest-item');
+            if (first) elegir(first);
+            else { var c = el('cdirCant'); if (c) c.focus(); }   // producto nuevo → a cantidad
+        }
+    };
+
+    // ── Autocomplete de UM ────────────────────────────────────────────────
+    // Las UMs se derivan del catálogo ya embebido (no hay consulta aparte). El usuario
+    // puede escribir una UM que no esté en la lista: se guarda tal cual.
+    function umHide() { var b = el('cdirUmSuggest'); if (b) b.classList.remove('open'); }
+    window.cdirUmSuggest = function (todas) {
+        var inp = el('cdirUm'), box = el('cdirUmSuggest');
+        if (!inp || !box) return;
+        // Object.create(null) y no {}: una UM llamada "constructor"/"toString" daría positivo
+        // contra el prototipo de Object y desaparecería de la lista.
+        var term = norm(inp.value.trim()), vistas = Object.create(null), lista = [];
+        catalogo().forEach(function (p) {
+            var u = String(p.UM || '').trim();
+            if (!u || vistas[u]) return;
+            if (todas || term === '' || norm(u).indexOf(term) !== -1) { vistas[u] = 1; lista.push(u); }
+        });
+        lista.sort();
+        box.innerHTML = lista.length
+            ? lista.slice(0, 20).map(function (u) { return '<div class="cdir-um-item" data-um="' + esc(u) + '">' + esc(u) + '</div>'; }).join('')
+            : '<div class="cdir-suggest-empty">Sin coincidencias. La UM se guardará tal cual la escribiste.</div>';
+        box.classList.add('open');
+    };
+    window.cdirUmKey = function (ev) {
+        if (ev.key === 'Escape') { umHide(); return; }
+        if (ev.key === 'Enter') {
+            ev.preventDefault();
+            var first = document.querySelector('#cdirUmSuggest .cdir-um-item'), inp = el('cdirUm');
+            if (first && inp) inp.value = first.getAttribute('data-um') || inp.value;
+            umHide();
+            var c = el('cdirCant'); if (c) c.focus();
+        }
+    };
+
+    // ── Cantidad ──────────────────────────────────────────────────────────
+    // type=text (no number) para conservar el estilo del resto del módulo: las teclas no
+    // numéricas se bloquean aquí y Enter equivale al botón del check.
+    window.cdirCantKey = function (ev) {
+        if (['Backspace','Delete','Tab','ArrowLeft','ArrowRight','Home','End'].indexOf(ev.key) !== -1) return;
+        if (ev.key === 'Enter') { ev.preventDefault(); window.cdirAgregar(); return; }
+        if (/^[0-9]$/.test(ev.key)) return;
+        if ((ev.key === '.' || ev.key === ',') && ev.target.value.indexOf('.') === -1 && ev.target.value.indexOf(',') === -1) return;
+        if (!ev.ctrlKey && !ev.metaKey) ev.preventDefault();
+    };
+
+    // ── Líneas ────────────────────────────────────────────────────────────
+    // Producto repetido → SUMA la cantidad en vez de duplicar la fila (captura tipo POS).
+    function insertar(prod, cant) {
+        var ya = lineas.find(function (l) { return l.id_producto === prod.id_producto; });
+        if (ya) ya.cantidad = +(ya.cantidad + cant).toFixed(3);
+        else lineas.push({ id_producto: prod.id_producto, codigo: prod.codigo, nombre: prod.nombre, um: prod.um, cantidad: cant });
+        render();
+        resetCaptura('siguiente');
+    }
+    window.cdirQuitarLinea = function (idx) {
+        if (idx < 0 || idx >= lineas.length) return;
+        lineas.splice(idx, 1);
+        render();
+    };
+    function fmt(n) {
+        var x = parseFloat(Number(n).toFixed(3));
+        return isNaN(x) ? '0' : x.toLocaleString('es-ES', { maximumFractionDigits: 3 });
+    }
+    function render() {
+        var tb = el('cdirTbody'), vacio = el('cdirEmpty');
+        if (!tb) return;
+        tb.innerHTML = lineas.map(function (l, i) {
+            return '<tr>'
+                + '<td class="c-num">' + (i + 1) + '</td>'
+                + '<td class="c-cod">' + esc(l.codigo) + '</td>'
+                + '<td class="c-desc">' + esc(l.nombre) + '</td>'
+                + '<td class="c-cant">' + esc(fmt(l.cantidad)) + '<span class="um">' + esc(l.um) + '</span></td>'
+                + '<td class="c-del"><button type="button" class="cdir-del-btn" onclick="window.cdirQuitarLinea(' + i + ')" title="Quitar"><i class="material-icons" style="font-size:19px;">delete</i></button></td>'
+                + '</tr>';
+        }).join('');
+        if (vacio) vacio.style.display = lineas.length ? 'none' : '';
+    }
+
+    // ── Alta de producto al vuelo ─────────────────────────────────────────
+    // El backend normaliza NOMBRE/UM a mayúsculas; lo hacemos aquí también para que el
+    // payload, la fila de la tabla y el catálogo en memoria queden iguales.
+    // cantidad_inicial=0 (con id_almacen) crea la fila de stock en CERO sin disparar el
+    // check de permiso de movimiento: la cantidad real entra después, en el lote.
+    function crearProducto(nombre, cant, um, categoria) {
+        nombre = String(nombre || '').trim().toUpperCase();
+        um     = String(um || 'UND').trim().toUpperCase() || 'UND';
+        var dest = destinoActual();
+        var body = { NOMBRE: nombre, UM: um };
+        if (String(categoria || '').trim()) body.CATEGORIA = String(categoria).trim();
+        if (dest) { body.id_almacen = dest; body.cantidad_inicial = 0; }
+        creando = true;
+        fetch(ROUTE_PROD, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf(), 'X-Requested-With': 'XMLHttpRequest' },
+            credentials: 'same-origin',
+            body: JSON.stringify(body),
+        })
+        .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b }; }); })
+        .then(function (res) {
+            creando = false;
+            if (!res.ok) {
+                var msg = (res.b && res.b.message) || 'No se pudo registrar el producto nuevo.';
+                if (res.b && res.b.errors) msg = Object.values(res.b.errors).map(function (a) { return a.join(' '); }).join(' ');
+                showErr(msg); toast(msg, 'error');
+                var i = el('cdirSearch'); if (i) i.focus();
+                return;
+            }
+            var p = res.b.producto || {};
+            catalogo().push({
+                ID_PRODUCTO: p.ID_PRODUCTO, CODIGO: p.CODIGO || '', NOMBRE: p.NOMBRE || nombre,
+                UM: p.UM || um, CATEGORIA: p.CATEGORIA || categoria || '', EQUIV: '', PARTE: '', PARTES: [],
+            });
+            insertar({ id_producto: p.ID_PRODUCTO, codigo: p.CODIGO || '', nombre: p.NOMBRE || nombre, um: p.UM || um }, cant);
+            toast('Producto nuevo registrado: ' + (p.CODIGO || '') + ' · ' + (p.NOMBRE || nombre));
+        })
+        .catch(function () {
+            creando = false;
+            var m = 'Error de red al registrar el producto.';
+            showErr(m); toast(m, 'error');
+        });
+    }
+
+    window.cdirAgregar = function () {
+        if (creando) return;
+        showErr('');
+        var cant = parseFloat(String(el('cdirCant').value || '').replace(',', '.').trim());
+        if (!isFinite(cant) || cant <= 0) {
+            var m = 'Indica una cantidad mayor que cero.';
+            showErr(m); toast(m, 'error'); el('cdirCant').focus(); return;
+        }
+        var umEscrita = String(el('cdirUm').value || '').trim().toUpperCase();
+
+        // Caso 1 — producto del catálogo.
+        if (elegido) {
+            // Misma UM (o el producto no tiene una registrada) → es el mismo producto.
+            if (!elegido.um || !umEscrita || norm(umEscrita) === norm(elegido.um)) { insertar(elegido, cant); return; }
+            // UM distinta → es OTRA presentación del mismo material (UND→CAJA…). Se reusa la
+            // presentación si ya existe en el catálogo; si no, se registra. El producto
+            // original NUNCA se toca: la conversión de unidades es manual por diseño.
+            var variante = catalogo().find(function (p) { return norm(p.NOMBRE) === norm(elegido.nombre) && norm(p.UM) === norm(umEscrita); });
+            if (variante) {
+                insertar({ id_producto: variante.ID_PRODUCTO, codigo: variante.CODIGO || '', nombre: variante.NOMBRE, um: variante.UM || umEscrita }, cant);
+                return;
+            }
+            // Categoría heredada: la del elegido, o la de cualquier presentación con el mismo
+            // nombre que sí la tenga (así una presentación nueva no nace sin categoría).
+            var cat = (elegido.categoria || '').trim();
+            if (!cat) {
+                var conCat = catalogo().find(function (p) { return norm(p.NOMBRE) === norm(elegido.nombre) && p.CATEGORIA && String(p.CATEGORIA).trim(); });
+                if (conCat) cat = String(conCat.CATEGORIA).trim();
+            }
+            crearProducto(elegido.nombre, cant, umEscrita, cat);
+            return;
+        }
+
+        // Caso 2 — texto que no está en el catálogo → producto nuevo al vuelo.
+        var texto = String(el('cdirSearch').value || '').trim();
+        if (texto.length >= 2) { crearProducto(texto, cant, umEscrita || 'UND', ''); return; }
+
+        // Caso 3 — no hay ni selección ni texto útil.
+        var m3 = 'Escribe la descripción del producto o elige uno de la lista.';
+        showErr(m3); toast(m3, 'error');
+        var i = el('cdirSearch'); if (i) i.focus();
+    };
+
+    // ── Pasos ─────────────────────────────────────────────────────────────
+    // 1 = líneas de entrada · 2 = datos del proveedor. Pasar al 2 exige al menos una línea:
+    // es el único requisito real de la operación (los datos del paso 2 son todos opcionales).
+    window.cdirPaso = function (n) {
+        if (n === 2 && !lineas.length) {
+            var m = 'Agrega al menos un producto antes de continuar.';
+            showErr(m); toast(m, 'error');
+            var s = el('cdirSearch'); if (s) s.focus();
+            return;
+        }
+        // El proyecto define a qué bolsa entra TODO lo capturado, así que se exige antes de
+        // avanzar — no al final, cuando ya estaría todo cargado y volver sería más molesto.
+        if (n === 2 && frenteElegido(destinoActual()) === undefined) {
+            var mp = 'Indica el proyecto que recibe el material.';
+            showErr(mp); toast(mp, 'error');
+            var sp = el('cdirProyecto'); if (sp) { sp.classList.add('falta'); sp.focus(); }
+            return;
+        }
+        el('cdirAtras').style.display = (n === 2) ? 'block' : 'none';
+        showErr('');
+        el('cdirPaso1').classList.toggle('on', n === 1);
+        el('cdirPaso2').classList.toggle('on', n === 2);
+        el('cdirFooter1').classList.toggle('on', n === 1);
+        el('cdirFooter2').classList.toggle('on', n === 2);
+        // Los desplegables viven en el paso 1; al salir de él quedarían abiertos sobre nada.
+        if (n !== 1) { suggestHide(); umHide(); proySuggestHide(); }
+        if (n === 2) setTimeout(function () { var i = el('cdirNota'); if (i) i.focus(); }, 40);
+    };
+
+    // ── Abrir / cerrar ────────────────────────────────────────────────────
+    window.cdirAbrir = function () {
+        if (!destinoActual()) {
+            toast('Selecciona primero el almacén de la bandeja para registrar la entrada.', 'error');
+            return;
+        }
+        // El desplegable de proyectos se arma en CADA apertura: el almacén de la bandeja se
+        // cambia en caliente y uno pintado para el anterior ofrecería proyectos que no son.
+        montarProyectos(destinoActual());
+        var f = el('cdirFecha'); if (f && !f.value) f.value = new Date().toISOString().slice(0, 10);
+        // Sin render() aquí: la tabla ya está pintada — al montar el módulo por el render
+        // inicial del final de este script, y después de cada cambio por insertar/quitar/limpiar.
+        // Siempre se entra por el paso 1, aunque se haya salido con la ✕ desde el 2.
+        window.cdirPaso(1);
+        el('cdirOverlay').classList.add('open');
+        // Bloquear el scroll del fondo mientras el modal está abierto — mismo cuidado que
+        // el modal de detalle. Los dos nunca coexisten: con este abierto, el overlay tapa
+        // las filas de la bandeja.
+        document.body.style.overflow = 'hidden';
+        setTimeout(function () { var s = el('cdirSearch'); if (s) { skipSuggest = true; s.focus(); } }, 60);
+    };
+    function cerrar() {
+        el('cdirOverlay').classList.remove('open');
+        document.body.style.overflow = '';
+        suggestHide(); umHide();
+    }
+    // ✕ del encabezado: cierra y CONSERVA la captura, sin preguntar nada. Al volver a abrir,
+    // las líneas siguen ahí. Preguntar aquí era ruido: la ✕ no destruye nada.
+    window.cdirOcultar = function () { cerrar(); };
+    // Vacía la captura completa. Lo reusan Cancelar y el ÉXITO del registro; no notifica
+    // (cada quien muestra su propio mensaje).
+    function limpiar() {
+        lineas = [];
+        render();
+        resetCaptura(false);
+        ['cdirNota', 'cdirProveedor'].forEach(function (id) { var e = el(id); if (e) e.value = ''; });
+        // El proyecto también: la siguiente entrada puede ser de otro frente y dejarlo pegado
+        // del anterior es justo el error que este campo vino a evitar.
+        if (proyectosVisibles.length) limpiarProyecto();
+        el('cdirFecha').value = new Date().toISOString().slice(0, 10);
+        showErr('');
+    }
+    // Cancelar cierra SIEMPRE, pero si hay líneas capturadas pide confirmación antes:
+    // cerrar sin avisar se llevaría por delante toda la captura.
+    window.cdirCancelar = function () {
+        var hacer = function () { limpiar(); cerrar(); };
+        if (!lineas.length) { hacer(); return; }
+        var n = lineas.length;
+        var msg = 'Perderás <strong>' + n + (n === 1 ? ' producto</strong> capturado.' : ' productos</strong> capturados.');
+        if (typeof window.showModal === 'function') {
+            window.showModal({ type: 'warning', title: 'Cancelar entrada', message: msg, confirmText: 'Aceptar', cancelText: 'Cancelar', onConfirm: hacer });
+        } else if (window.confirm(msg.replace(/<[^>]+>/g, ''))) {
+            hacer();
+        }
+    };
+
+    // ── Registrar ─────────────────────────────────────────────────────────
+    window.cdirGuardar = function () {
+        if (enviando) return;
+        showErr('');
+        var dest = destinoActual();
+        if (!dest) { var mA = 'No se pudo determinar el almacén destino. Recarga la página.'; showErr(mA); toast(mA, 'error'); return; }
+        // Última puerta antes del POST. En la práctica no se llega sin líneas (para entrar al
+        // paso 2 ya hace falta al menos una); si pasara, se vuelve al paso 1 y la tabla vacía
+        // se explica sola — sin repetir aquí el mensaje que ya da cdirPaso.
+        if (!lineas.length) { window.cdirPaso(1); return; }
+        // Cada dato en SU columna del kardex — MISMO mapeo que la pantalla "Entrada por ODC",
+        // para que las dos vías de entrada se lean igual en la bitácora:
+        //   · Nota de entrega → referencia (REFERENCIA)
+        //   · Proveedor       → motivo     (MOTIVO)
+        var payload = {
+            tipo:       'ENTRADA',
+            id_almacen: dest,
+            id_frente:  frenteElegido(dest),
+            fecha:      v('cdirFecha') || null,
+            referencia: v('cdirNota') || null,
+            motivo:     v('cdirProveedor') || null,
+            lineas:     lineas.map(function (l) { return { id_producto: l.id_producto, cantidad: l.cantidad }; }),
+        };
+
+        enviando = true;
+        var btn = el('cdirRegistrar'); if (btn) btn.disabled = true;
+        if (window.showPreloader) window.showPreloader();
+        fetch(ROUTE_ENTRADA, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf(), 'X-Requested-With': 'XMLHttpRequest' },
+            credentials: 'same-origin',
+            body: JSON.stringify(payload),
+        })
+        .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, status: r.status, b: b }; }); })
+        .then(function (res) {
+            enviando = false;
+            if (window.hidePreloader) window.hidePreloader();
+            if (btn) btn.disabled = false;
+            if (res.ok) {
+                // La bandeja NO se recarga a propósito: una compra directa no genera nota
+                // interna (esa la emite el almacén general cuando repone), así que ni la
+                // tabla ni los KPIs —que cuentan notas por confirmar— cambian. Recargar solo
+                // costaría un viaje al servidor y un parpadeo. El movimiento sí queda
+                // visible en el kardex de /admin/almacen.
+                limpiar(); cerrar();
+                toast((res.b && res.b.message) || 'Entrada registrada correctamente.', 'success');
+                return;
+            }
+            // Error: el modal se queda abierto con la captura intacta.
+            var msg = (res.b && res.b.message) || 'No se pudo registrar la entrada.';
+            if (res.b && res.b.errors) msg = Object.values(res.b.errors).map(function (a) { return a.join(' '); }).join(' ');
+            // 403 = falta la clave 'almacen.movimiento' → solo notificación (no es un error
+            // de un campo del formulario).
+            if (res.status === 403 || (res.b && res.b.forbidden)) { toast(msg, 'error'); return; }
+            showErr(msg); toast(msg, 'error');
+        })
+        .catch(function () {
+            enviando = false;
+            if (window.hidePreloader) window.hidePreloader();
+            if (btn) btn.disabled = false;
+            var m = 'Error de red al registrar la entrada.';
+            showErr(m); toast(m, 'error');
+        });
+    };
+
+    // ── Listeners globales ────────────────────────────────────────────────
+    // La navegación SPA (navegacion.js) RE-EJECUTA este <script> en cada visita al módulo.
+    // Los listeners de `document` se REEMPLAZAN (no basta con registrarlos "una sola vez"):
+    // llaman a funciones locales que mutan el estado de SU corrida, así que el listener de
+    // la visita anterior seguiría escribiendo en el array de líneas viejo.
+    function modalAbierto() {
+        var ov = el('cdirOverlay');
+        return !!(ov && ov.classList.contains('open'));
+    }
+    if (window.__cdirDocClick) document.removeEventListener('click', window.__cdirDocClick);
+    window.__cdirDocClick = function (e) {
+        if (!modalAbierto()) return;
+        var item = e.target.closest('#cdirSuggest .cdir-suggest-item');
+        if (item) { e.preventDefault(); elegir(item); return; }
+        var proy = e.target.closest('#cdirProySuggest .cdir-suggest-item');
+        if (proy) { e.preventDefault(); elegirProyecto(proy); return; }
+        var um = e.target.closest('#cdirUmSuggest .cdir-um-item');
+        if (um) {
+            e.preventDefault();
+            var i = el('cdirUm'); if (i) i.value = um.getAttribute('data-um') || '';
+            umHide();
+            return;
+        }
+        if (!e.target.closest('.cdir-field'))      suggestHide();
+        if (!e.target.closest('.cdir-um-wrap'))    umHide();
+        if (!e.target.closest('.cdir-proy-field')) proySuggestHide();
+    };
+    document.addEventListener('click', window.__cdirDocClick);
+
+    if (window.__cdirDocKeydown) document.removeEventListener('keydown', window.__cdirDocKeydown);
+    // Escape: cierra primero el desplegable abierto; si no hay ninguno, hace lo MISMO que la
+    // ✕ — cerrar conservando la captura. Es el gesto reflejo de "salir", no el de descartar:
+    // por eso no dispara la confirmación (esa vive en el botón Cancelar).
+    window.__cdirDocKeydown = function (e) {
+        if (e.key !== 'Escape') return;
+        if (!modalAbierto()) return;
+        // Con la confirmación de "Cancelar entrada" encima (#standardModal del layout, que no
+        // tiene su propio Escape), este handler cerraría el modal por debajo del diálogo.
+        // Mientras esté activa, Escape no es asunto nuestro.
+        var std = document.getElementById('standardModal');
+        if (std && std.classList.contains('active')) return;
+        var sug = el('cdirSuggest'), umS = el('cdirUmSuggest'), proS = el('cdirProySuggest');
+        if (sug  && sug.classList.contains('open'))  { suggestHide();    return; }
+        if (umS  && umS.classList.contains('open'))  { umHide();         return; }
+        if (proS && proS.classList.contains('open')) { proySuggestHide(); return; }
+        window.cdirOcultar();
+    };
+    document.addEventListener('keydown', window.__cdirDocKeydown);
+
+    render();
+})();
+</script>
+@endcan
+
 <script>
 (function () {
     'use strict';
@@ -884,8 +1853,13 @@
     // ("Unclosed '["). OJO: no escribir tokens tipo arroba-php/arroba-json aquí — Blade
     // los compila aunque estén dentro de un comentario // de JS.
     @php
+        // UM y CATEGORIA viajan además de lo que necesita el filtro: el modal "Entrada sin
+        // nota" reusa ESTE mismo catálogo (no pide otro AJAX) y sí los usa — la UM prefija
+        // el campo de la barra de captura y la CATEGORIA se hereda si hay que registrar una
+        // presentación nueva.
         $trProductosLista = ($productosLista ?? collect())->map(fn($p) => [
             'ID_PRODUCTO' => $p->ID_PRODUCTO, 'CODIGO' => $p->CODIGO, 'NOMBRE' => $p->NOMBRE,
+            'UM' => $p->UM ?? '', 'CATEGORIA' => $p->CATEGORIA ?? '',
             'EQUIV' => $p->EQUIV ?? '', 'PARTE' => $p->PARTE ?? '', 'PARTES' => $p->PARTES ?? [],
         ]);
     @endphp
@@ -1606,11 +2580,11 @@
     // Sale del modo KPI (lo llaman búsqueda/fechas/estado al cambiar a mano).
     window.trResetKpi = function () { _trKpi = ''; trPaintKpi(); };
 
-    // Deja el dropdown de Estado sin filtro, con el MISMO helper global que usa su X
-    // (clearDropdownFilter → selectOption con el data-default-label): hidden vacío,
-    // placeholder del default, colores neutros, sin X y sin opción resaltada. Antes esto
-    // se reimplementaba a mano aquí y ya divergía del global (no restauraba las opciones
-    // que el buscador del dropdown hubiera ocultado).
+    // Deja el dropdown de Estado sin filtro, con la MISMA llamada que usa su X
+    // (selectOption con valor y etiqueta vacíos): hidden vacío, placeholder vacío, colores
+    // neutros, sin X y sin opción resaltada. Antes esto se reimplementaba a mano aquí y ya
+    // divergía del helper global (no restauraba las opciones que el buscador del dropdown
+    // hubiera ocultado).
     // La bandera evita la recarga DOBLE: el helper emite 'dropdown-selection' y quien llama
     // aquí (KPIs / "Limpiar") hace su propio trLoad después. Los KPIs filtran vía `kpi`, no
     // vía estado, así que el dropdown debe quedar visualmente sin filtro.
@@ -1618,11 +2592,13 @@
     // (_trBindGlobal) y en una navegación SPA seguiría leyendo la variable de la primera
     // corrida mientras esta función escribiría la de la nueva → el guard no dispararía.
     function trSetEstadoDefault() {
-        if (!el('trEstadoDropdown') || typeof window.clearDropdownFilter !== 'function') return;
+        if (!el('trEstadoDropdown') || typeof window.selectOption !== 'function') return;
         window.__trSkipDropEvt = true;
+        // selectOption con etiqueta VACÍA, no clearDropdownFilter: ese helper pone
+        // "Seleccionar..." cuando no hay data-default-label, y este campo debe quedar vacío.
         // finally: el evento se despacha síncrono dentro del helper, así que al salir del
         // try la bandera ya cumplió su función — y no queda encendida si el helper lanza.
-        try { window.clearDropdownFilter('trEstadoDropdown'); } finally { window.__trSkipDropEvt = false; }
+        try { window.selectOption('trEstadoDropdown', '', ''); } finally { window.__trSkipDropEvt = false; }
     }
 
     // Clic en una métrica: filtra por ese criterio. Las 3 son de pendientes (ENVIADO);
