@@ -309,7 +309,7 @@
     function toast(m, t) { if (window.showToast) window.showToast(m, t || 'success'); else if (t === 'error') alert(m); }
     function pre()  { if (window.showPreloader) window.showPreloader(); }
     function unp()  { if (window.hidePreloader) window.hidePreloader(); }
-    function csrf() { return document.querySelector('meta[name="csrf-token"]')?.content || ''; }
+    var csrf = window.getCsrf;   // helper central (dom_helpers.js)
 
     function post(url, body, onOk) {
         pre();

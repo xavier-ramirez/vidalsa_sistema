@@ -1261,9 +1261,9 @@
 
     function el(id) { return document.getElementById(id); }
     function v(id) { var e = el(id); return e ? String(e.value).trim() : ''; }
-    function csrf() { var m = document.querySelector('meta[name="csrf-token"]'); return m ? m.getAttribute('content') : ''; }
+    var csrf = window.getCsrf;   // helper central (dom_helpers.js)
     function toast(msg, type) { if (window.showToast) window.showToast(msg, type || 'success'); else if (type === 'error') alert(msg); }
-    function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); }
+    var esc = window.escapeHtml;   // helper central (dom_helpers.js)
     function norm(s) { return window.FuzzySearch.norm(s); }
     function showErr(msg) {
         var e = el('cdirError'); if (!e) return;
@@ -1907,16 +1907,13 @@
             // Se interpola en dos contextos y hay que escapar en los dos, o una referencia
             // llamada `<img src=x onerror=...>` ejecuta al abrir las sugerencias (XSS
             // almacenado). El buscador hermano (trProdSuggest) ya saneaba; este no.
-            //   escHtml → texto visible del <div> y valor del atributo onclick.
-            //   escAttr → además escapa la comilla que delimita la cadena JS del onclick.
+            //   escapeHtml   → texto visible del <div>.
+            //   escapeAttrJs → además escapa la comilla que delimita la cadena JS del onclick.
+            // Los dos son los helpers centrales (dom_helpers.js).
             box.innerHTML = matches.map(function (n) {
                 var s = String(n);
-                var escHtml = function (v) {
-                    return v.replace(/&/g, '&amp;').replace(/</g, '&lt;')
-                            .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-                };
-                var safe = escHtml(s.replace(/\\/g, '\\\\').replace(/'/g, "\\'"));
-                return '<div class="tr-suggest-item" onclick="window.trSearchPick(\'' + safe + '\')">' + escHtml(s) + '</div>';
+                return '<div class="tr-suggest-item" onclick="window.trSearchPick(\''
+                    + window.escapeAttrJs(s) + '\')">' + window.escapeHtml(s) + '</div>';
             }).join('');
         }
         box.classList.add('open');
@@ -2455,7 +2452,7 @@
                 'X-Requested-With': 'XMLHttpRequest',
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                'X-CSRF-TOKEN': window.getCsrf(),
             },
             body: JSON.stringify(payload),
         })

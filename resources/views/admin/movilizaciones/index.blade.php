@@ -367,7 +367,7 @@ window._eliminarSeleccionados = function () {
         : 'Se eliminarán ' + ids.length + ' registros de movilización.';
 
         const doDelete = function () {
-            const csrfToken = (document.querySelector('meta[name="csrf-token"]') || {}).content;
+            const csrfToken = window.getCsrf();   // helper central (dom_helpers.js)
             
             fetch('/admin/movilizaciones/bulk-delete', {
                 method: 'POST',
@@ -424,7 +424,7 @@ window.movDeshacer = function (id) {
     if (!id) return;
     var msg = 'El equipo vuelve a su frente de origen y el registro se borra por completo.';
     var doIt = function () {
-        var csrfToken = (document.querySelector('meta[name="csrf-token"]') || {}).content;
+        var csrfToken = window.getCsrf();   // helper central (dom_helpers.js)
         var preloader = document.getElementById('preloader'); if (preloader) preloader.style.display = 'flex';
         fetch('/admin/movilizaciones/' + id + '/deshacer', {
             method: 'POST',

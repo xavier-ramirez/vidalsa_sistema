@@ -384,9 +384,9 @@
 
     function el(id) { return document.getElementById(id); }
     function v(id)  { var e = el(id); return e ? String(e.value).trim() : ''; }
-    function csrf() { var m = document.querySelector('meta[name="csrf-token"]'); return m ? m.getAttribute('content') : ''; }
+    var csrf = window.getCsrf;   // helper central (dom_helpers.js)
     function toast(msg, type) { if (window.showToast) window.showToast(msg, type || 'success'); else if (type === 'error') alert(msg); }
-    function escHtml(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); }
+    var escHtml = window.escapeHtml;   // helper central (dom_helpers.js)
     function showErr(msg) {
         var e = el('entError'); if (!e) return;
         if (msg) { e.style.display = 'block'; e.textContent = msg; }

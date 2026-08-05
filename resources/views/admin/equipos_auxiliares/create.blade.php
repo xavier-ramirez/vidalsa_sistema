@@ -122,7 +122,7 @@
             headers: {
                 'X-Requested-With': 'XMLHttpRequest',
                 'Accept': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content ?? ''
+                'X-CSRF-TOKEN': window.getCsrf()
             },
             body: formData,
             credentials: 'same-origin'

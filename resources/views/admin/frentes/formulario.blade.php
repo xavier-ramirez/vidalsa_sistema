@@ -520,8 +520,7 @@
                 // confirmaciones destructivas — coherente con showModal API).
                 const proceed = function () {
                     if (window.showPreloader) window.showPreloader();
-                    const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ||
-                                 document.querySelector('input[name="_token"]')?.value || '';
+                    const csrf = window.getCsrf();   // helper central (dom_helpers.js)
                     fetch('{{ url("admin/frentes") }}/' + id, {
                         method: 'DELETE',
                         headers: {
@@ -592,14 +591,9 @@
                 }
             }
 
-            function escapeHtml(s) {
-                return String(s == null ? '' : s)
-                    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-                    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-            }
-            function escapeAttr(s) {
-                return String(s == null ? '' : s).replace(/'/g, "\\'").replace(/"/g, '&quot;');
-            }
+            // Helpers centrales (dom_helpers.js). escapeAttr no escapaba \ ni & < >.
+            const escapeHtml = window.escapeHtml;
+            const escapeAttr = window.escapeAttrJs;
 
             // Acordeón de responsables: expande/colapsa el bloque de campos al
             // hacer clic en su encabezado y gira el chevron.
@@ -679,8 +673,7 @@
 
             function _sinEquiposAction(method, url, okMsg, errFallback, nombre) {
                 if (window.showPreloader) window.showPreloader();
-                var csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ||
-                           document.querySelector('input[name="_token"]')?.value || '';
+                var csrf = window.getCsrf();   // helper central (dom_helpers.js)
                 fetch(url, { method: method, headers: { 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
                 .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { return { ok: r.ok, body: d }; }); })
                 .then(function (res) {

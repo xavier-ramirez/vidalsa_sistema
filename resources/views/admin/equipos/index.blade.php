@@ -1805,7 +1805,7 @@
                 const auxGroups = (data && Array.isArray(data.aux)) ? data.aux : [];
 
                 const grid = document.getElementById('anclajesGrid');
-                const esc = (s) => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+                const esc = window.escapeHtml;   // helper central (dom_helpers.js)
 
                 // ── Encabezado de sección reutilizable ──────────────────────
                 const sectionHeader = (icon, color, title, count) =>
@@ -2053,7 +2053,7 @@
 </script>
 <script>
 (function () {
-    const csrf = () => document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+    const csrf = window.getCsrf;   // helper central (dom_helpers.js)
 
     function getSelectedIds() {
         // Reusa el selectedEquipos global (selection bar de equipos_index.js).
@@ -2401,19 +2401,13 @@
 (function () {
     const URL_BULK_LOOKUP = '{{ route('equipos.bulkLookup') }}';
     const MAX_TERMS = 2000;
-    const csrf = () => document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+    const csrf = window.getCsrf;   // helper central (dom_helpers.js)
 
     let lastMissingTerms = [];
 
-    function escapeHtml(str) {
-        if (str === null || str === undefined) return '';
-        return String(str)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#039;');
-    }
+    // escapeHtml lo aporta dom_helpers.js (global). La copia que vivia aqui era una
+    // 'function' de nivel superior, asi que SOBRESCRIBIA window.escapeHtml para toda la
+    // pagina — se elimino para que haya una sola fuente de verdad.
 
     function getTextarea() { return document.getElementById('bulkLookupTextarea'); }
     // Devuelve el input oculto del custom-dropdown de frente (tiene .value con el ID).

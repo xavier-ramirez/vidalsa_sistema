@@ -333,8 +333,7 @@
             function performLogout() {
                 clearInterval(checkInterval);
                 clearInterval(serverPingInterval);
-                const csrf  = document.querySelector('meta[name="csrf-token"]');
-                const token = csrf ? csrf.getAttribute('content') : '';
+                const token = window.getCsrf();   // helper central (dom_helpers.js)
                 fetch('/logout', {
                     method: 'POST',
                     headers: { 'X-CSRF-TOKEN': token, 'Accept': 'application/json' },

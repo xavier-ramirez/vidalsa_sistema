@@ -378,7 +378,7 @@
             box.style.display = 'block';
             return;
         }
-        const esc = (s) => (s || '').toString().replace(/"/g, '&quot;');
+        const esc = window.escapeHtml;   // helper central (dom_helpers.js): antes solo escapaba "
         box.innerHTML = rows.map(r => {
             const dis = r.disponible ? '' : 'opacity:0.55; pointer-events:none;';
             const badge = r.disponible

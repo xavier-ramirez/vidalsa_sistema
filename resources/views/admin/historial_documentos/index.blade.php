@@ -808,8 +808,8 @@
 @can('super.admin')
 <script>
 (function () {
-    var csrfTok = function () { return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''; };
-    var esc = function (s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); };
+    var csrfTok = function () { return window.getCsrf(); };
+    var esc = window.escapeHtml;   // helper central (dom_helpers.js)
 
     // Cache de los items cargados por lista (keyed por listElId) para filtrar
     // en cliente sin volver a pedir al backend. Guarda { items, kind }.
@@ -1025,7 +1025,7 @@
     if (window.__hdCorreoAutoInit) return;
     window.__hdCorreoAutoInit = true;
     var AUTORES = @json($autoresSugeridos ?? []);
-    var esc = function (s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); };
+    var esc = window.escapeHtml;   // helper central (dom_helpers.js)
 
     window.hdCorreoSuggest = function () {
         var inp = document.getElementById('searchCorreo');
@@ -1104,7 +1104,7 @@ window.hdDeleteRegistro = function (source, id, btn) {
         headers: {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+            'X-CSRF-TOKEN': window.getCsrf(),
         },
         body: JSON.stringify({ source: source, id: id }),
     })

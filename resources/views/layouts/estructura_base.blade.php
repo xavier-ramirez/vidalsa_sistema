@@ -47,6 +47,15 @@
 
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="base-url" content="{{ url('/') }}">
+
+    {{-- Helpers DOM compartidos (window.getCsrf / escapeHtml / escapeAttrJs).
+         VAN EN EL <head>, no abajo con el resto de los scripts: los <script> inline
+         de @yield('content') corren ANTES que el bloque de scripts del final, y varios
+         hacen `var esc = window.escapeHtml;` al evaluarse. Si el helper cargara después,
+         esos alias guardarían undefined y reventarían al primer uso.
+         Es seguro en el <head>: solo define funciones, no toca el DOM al cargar. --}}
+    <script
+        src="{{ asset('js/maquinaria/dom_helpers.js') }}?v={{ @filemtime(public_path('js/maquinaria/dom_helpers.js')) }}"></script>
     <style>
         /* Standard Material Icons definition */
         .material-icons {
@@ -1210,10 +1219,12 @@
                             setTimeout(function () { action.style.transform = 'scale(1)'; }, 180);
                         }
                     },
-                    esc: function (s) {
-                        return String(s == null ? '' : s)
-                            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-                    },
+                    // Delega en el helper central (dom_helpers.js). Se llama en tiempo de
+                    // USO, no aquí: este bloque se evalúa ANTES del <script> de
+                    // dom_helpers, así que un alias directo guardaría undefined.
+                    // La copia que había aquí no escapaba ' — la usan los 4 módulos
+                    // offline vía OM.esc.
+                    esc: function (s) { return window.escapeHtml(s); },
                     // Normalización para buscar (sin acentos + minúsculas, vía FuzzySearch si
                     // cargó) con separadores colapsados a espacio: el texto que deja una
                     // sugerencia clickeada es "PARTE · NOMBRE" y sin esto nunca coincidiría
@@ -1354,10 +1365,8 @@
 
         {{-- Core Scripts (Always Loaded) --}}
 
-        {{-- Helpers DOM compartidos (window.getCsrf / window.escapeHtml): DEBEN cargar
-             primero para estar disponibles cuando el resto de scripts los invoque. --}}
-        <script
-            src="{{ asset('js/maquinaria/dom_helpers.js') }}?v={{ @filemtime(public_path('js/maquinaria/dom_helpers.js')) }}"></script>
+        {{-- dom_helpers.js NO va aquí: se carga en el <head> (ver arriba) porque los
+             scripts inline del contenido lo usan antes de llegar a este bloque. --}}
         <script
             src="{{ asset('js/maquinaria/module_manager.js') }}?v={{ @filemtime(public_path('js/maquinaria/module_manager.js')) }}"></script>
         <script
@@ -2141,7 +2150,7 @@
                         : `/admin/equipos/${ctx.equipoId}/update-metadata`;
                     const res = await fetch(saveUrl, {
                         method: 'POST',
-                        headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'), 'Accept': 'application/json' },
+                        headers: { 'X-CSRF-TOKEN': window.getCsrf(), 'Accept': 'application/json' },
                         body: formData
                     });
                     const data = await res.json();
@@ -2225,10 +2234,9 @@
                     if (btnAux) btnAux.disabled = true;
                     if (typeof window.showPreloader === 'function') window.showPreloader();
                     try {
-                        const csrfA = document.querySelector('meta[name="csrf-token"]');
                         const r = await fetch(`/admin/equipos-auxiliares/${ctx.equipoId}/delete-doc?doc_type=${encodeURIComponent(ctx.docType)}`, {
                             method: 'DELETE',
-                            headers: { 'X-CSRF-TOKEN': csrfA ? csrfA.getAttribute('content') : '', 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+                            headers: { 'X-CSRF-TOKEN': window.getCsrf(), 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
                         });
                         const d = await r.json().catch(() => ({}));
                         if (r.ok && d.success) {
@@ -2262,8 +2270,10 @@
                 if (typeof window.showPreloader === 'function') window.showPreloader();
 
                 try {
-                    const csrfMeta = document.querySelector('meta[name="csrf-token"]');
-                    if (!csrfMeta) {
+                    // getCsrf() ya cubre el <meta> y el input _token de un form Blade;
+                    // solo si NINGUNO existe no hay con que firmar el DELETE.
+                    const csrfTok = window.getCsrf();
+                    if (!csrfTok) {
                         if (window.showToast) window.showToast('Token CSRF no disponible. Recarga la página.', 'error');
                         return;
                     }
@@ -2273,7 +2283,7 @@
                     const res = await fetch(`/admin/equipos/${ctx.equipoId}/delete-doc?doc_type=${encodeURIComponent(ctx.docType)}`, {
                         method: 'DELETE',
                         headers: {
-                            'X-CSRF-TOKEN': csrfMeta.getAttribute('content'),
+                            'X-CSRF-TOKEN': csrfTok,
                             'X-Requested-With': 'XMLHttpRequest',
                             'Accept': 'application/json',
                         },
@@ -2358,7 +2368,7 @@
                     ? window.currentPdfContext.uploadUrl
                     : `/admin/equipos/${equipoId}/upload-doc`;
                 xhr.open('POST', targetUrl, true);
-                xhr.setRequestHeader('X-CSRF-TOKEN', document.querySelector('meta[name="csrf-token"]').getAttribute('content'));
+                xhr.setRequestHeader('X-CSRF-TOKEN', window.getCsrf());
                 xhr.setRequestHeader('Accept', 'application/json');
 
                 xhr.upload.onprogress = function (e) {
@@ -2523,7 +2533,7 @@
                             const response = await fetch(`/admin/equipos/${equipoId}/delete-doc`, {
                                 method: 'DELETE',
                                 headers: {
-                                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                                    'X-CSRF-TOKEN': window.getCsrf(),
                                     'Content-Type': 'application/json'
                                 },
                                 body: JSON.stringify({ doc_type: docType })
@@ -2877,7 +2887,7 @@
         <script>
             (function () {
                 function $(id) { return document.getElementById(id); }
-                function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+                var esc = window.escapeHtml;   // helper central (dom_helpers.js)
                 function razon(k) { return (window.OfflineOutbox && window.OfflineOutbox.razon) ? window.OfflineOutbox.razon(k) : (k || ''); }
 
                 function refrescar() {

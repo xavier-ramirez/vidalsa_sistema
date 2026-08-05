@@ -728,7 +728,7 @@
     }
 
     function _uploadBlob(url, fd, onSuccess, onError) {
-        var csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+        var csrf = window.getCsrf();   // helper central (dom_helpers.js)
         if (typeof window.showPreloader === 'function') window.showPreloader();
         fetch(url, {
             method: 'POST',
@@ -781,7 +781,7 @@
     // ── Borrar foto VEHÍCULO (solo super.admin) ──
     window.catDeletePhoto = function (id, photoEl) {
         if (!confirm('¿Eliminar la foto de este modelo?')) return;
-        var csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+        var csrf = window.getCsrf();   // helper central (dom_helpers.js)
         if (typeof window.showPreloader === 'function') window.showPreloader();
         fetch('{{ url("admin/catalogo") }}/' + id + '/photo', {
             method: 'DELETE',
@@ -818,7 +818,7 @@
             if (window.showToast) window.showToast('No se pudo identificar el modelo.', 'error');
             return;
         }
-        var csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+        var csrf = window.getCsrf();   // helper central (dom_helpers.js)
         var fd = new FormData();
         fd.append('_method', 'DELETE');
         fd.append('tipo', tipo); fd.append('marca', marca); fd.append('modelo', modelo);

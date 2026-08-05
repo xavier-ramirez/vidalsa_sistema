@@ -564,7 +564,7 @@
         var box = document.getElementById('hostResultsBox');
         if (!box) return;
         if (!rows || !rows.length) { box.innerHTML = '<div style="padding:14px; text-align:center; color:#94a3b8; font-size:12px;">Sin resultados.</div>'; box.style.display = 'block'; return; }
-        var esc = function (s) { return (s || '').toString().replace(/"/g, '&quot;'); };
+        var esc = window.escapeHtml;   // helper central (dom_helpers.js): antes solo escapaba "
         box.innerHTML = rows.map(function (r) {
             var dis = r.disponible ? '' : 'opacity:0.55; pointer-events:none;';
             var badge = r.disponible
@@ -812,7 +812,7 @@
             var formData = new FormData(form);
             fetch(form.action, {
                 method: 'POST',
-                headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content ?? '' },
+                headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json', 'X-CSRF-TOKEN': window.getCsrf() },
                 body: formData,
                 credentials: 'same-origin'
             })

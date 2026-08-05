@@ -404,7 +404,7 @@
             .then(roles => {
                 if (roles.length > 0) {
                     // Escapa el nombre del rol antes de inyectarlo como HTML (defensa básica XSS).
-                    const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+                    const esc = window.escapeHtml;   // helper central (dom_helpers.js): antes no escapaba '
                     const plural = roles.length === 1 ? 'rol' : 'roles';
                     let html = `<div style="padding: 10px 16px; font-size: 12px; color: #64748b; background: white; border-bottom: 1px solid #e2e8f0; text-align: center;">Se ${roles.length === 1 ? 'encontró' : 'encontraron'} <strong style="color:#c2410c;">${roles.length}</strong> ${plural} sin usuarios que se pueden eliminar:</div>`;
                     html += '<div style="overflow-y: auto; background: #f8fafc; padding: 10px; flex: 1; min-height: 160px; max-height: 400px;">';
@@ -454,7 +454,7 @@
         fetch("{{ route('usuarios.delete-unused-roles') }}", {
             method: 'DELETE',
             headers: {
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                'X-CSRF-TOKEN': window.getCsrf(),
                 'Accept': 'application/json'
             }
         })

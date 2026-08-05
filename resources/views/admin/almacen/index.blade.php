@@ -1795,13 +1795,13 @@
     // Los contratos se gestionan en /admin/frentes (columna CONTRATOS JSON de frentes_trabajo).
     window.almFrenteContratos = @json(($frentesLista ?? collect())->mapWithKeys(fn ($f) => [$f->ID_FRENTE => array_values(array_filter((array) ($f->CONTRATOS ?? [])))]));
     function ROUTE_MIN(idAlm)   { return ROUTE_INDEX + '/almacenes/' + idAlm + '/minimo'; }
-    function csrf() { var m = document.querySelector('meta[name="csrf-token"]'); return m ? m.getAttribute('content') : ''; }
+    var csrf = window.getCsrf;   // helper central (dom_helpers.js)
     function toast(msg, type) { if (window.showToast) window.showToast(msg, type || 'success'); else if (type === 'error') alert(msg); }
     function pre()  { if (typeof window.showPreloader === 'function') window.showPreloader(); }
     function unpre(){ if (typeof window.hidePreloader === 'function') window.hidePreloader(); }
     function el(id){ return document.getElementById(id); }
     function val(id){ var e = el(id); return e ? String(e.value).trim() : ''; }
-    function escHtml(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c]; }); }
+    var escHtml = window.escapeHtml;   // helper central (dom_helpers.js)
 
     // ── estado de los filtros que no tienen control visible propio ──
     // Estos dos atajos del header (Con stock / Stock bajo) son SIEMPRE off al entrar al
@@ -3648,7 +3648,7 @@
     // Trae equivalencias + equipos del filtro y los pinta en el detalle. Si el usuario abre
     // otro producto mientras carga, se ignora la respuesta vieja (compara el id del modal).
     window.almCargarCompat = function (id) {
-        var esc = function (s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); };
+        var esc = window.escapeHtml;   // helper central (dom_helpers.js)
         var wrap = el('almDetCompat'); if (!wrap) return;
         var partesWrap = el('almDetPartesWrap'), equiposWrap = el('almDetEquiposWrap'),
             partesBox = el('almDetPartes'), equiposBox = el('almDetEquipos'), countEl = el('almDetEquiposCount');
@@ -4231,7 +4231,7 @@
             return;
         }
         box.innerHTML = window._almProdEquivs.map(function (np, i) {
-            var safe = String(np).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+            var safe = window.escapeHtml(np);   // helper central: antes solo escapaba & y <
             return '<span style="display:inline-flex;align-items:center;gap:6px;background:#f1f5f9;border:1px solid #e2e8f0;color:#334155;border-radius:14px;padding:3px 6px 3px 10px;font-size:12.5px;font-weight:600;">'
                  + safe
                  + '<button type="button" title="Quitar" onclick="window.almProdEquivRemove(' + i + ')" style="border:none;background:#e2e8f0;color:#475569;border-radius:50%;width:18px;height:18px;line-height:1;cursor:pointer;font-weight:700;padding:0;">&times;</button>'

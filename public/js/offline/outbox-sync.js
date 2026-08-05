@@ -22,10 +22,8 @@
 
     function toast(m, t) { if (window.showToast) window.showToast(m, t || 'info'); }
     // CSRF leído FRESCO en cada drain (no cachear: tras re-login el token cambia).
-    function csrf() {
-        var el = document.querySelector('meta[name="csrf-token"]');
-        return el ? el.getAttribute('content') : '';
-    }
+    // Helper central (dom_helpers.js): lee el <meta> en cada llamada, con guard.
+    var csrf = window.getCsrf;
     function avisar() { window.dispatchEvent(new CustomEvent('outbox-actualizado')); }
 
     var RAZONES = {

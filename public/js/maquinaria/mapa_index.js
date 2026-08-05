@@ -121,8 +121,10 @@
         etiquetas.addTo(map);
         map.fitBounds(VENEZUELA);
 
-        // Escapa HTML (para tooltips/menús).
-        function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+        // Escapa HTML (para tooltips/menús). Helper central (dom_helpers.js): la copia
+        // local que había aquí no escapaba " ni ', así que un nombre con comillas
+        // rompía los atributos de los tooltips.
+        var esc = window.escapeHtml;
         // "ANZOÁTEGUI" → "Anzoátegui" (para mostrar bonito).
         function nombreBonito(s) { return String(s || '').toLowerCase().replace(/(^|\s)\S/g, function (c) { return c.toUpperCase(); }); }
 
@@ -1597,7 +1599,7 @@
         // crear/asociar puntos, sin dibujar, sin borrar. El backend además valida las rutas.
         var PUEDE_EDITAR = !!window.mapaPuedeEditar;
         var OLEO_PALETA = ['#00e5ff', '#ff4081', '#76ff03', '#ffea00', '#ff6d00', '#d500f9', '#00e676', '#2979ff'];
-        var oleoCSRF = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
+        var oleoCSRF = window.getCsrf();   // helper central (dom_helpers.js)
 
         function oleoApi(url, method, body) {
             return fetch(url, {

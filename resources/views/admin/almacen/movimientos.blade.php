@@ -1284,7 +1284,7 @@
     if (window._almNotaModalsReady) return;
     window._almNotaModalsReady = true;
 
-    var CSRF = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+    var CSRF = window.getCsrf();
     var URL_DESTROY  = @json(route('almacen.nota-entrega.destroy'));
 
     function fb(id, type, msg) {
@@ -1418,7 +1418,7 @@
         if (!url) return;
 
         var ejecutar = function () {
-            var CSRF = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+            var CSRF = window.getCsrf();
             btn.disabled = true;
             if (window.showPreloader) window.showPreloader();
             fetch(url, {

@@ -44,10 +44,8 @@ const VidalsaWebAuthn = (() => {
         return btoa(bin);
     }
 
-    function getCsrf() {
-        const meta = document.querySelector('meta[name="csrf-token"]');
-        return meta ? meta.getAttribute('content') : '';
-    }
+    // Helper central (dom_helpers.js), que carga antes que este archivo.
+    const getCsrf = window.getCsrf;
 
     // Cabeceras que identifican la petición como AJAX/JSON. Sin esto, cuando el
     // servidor lanza una excepción (sesión/auth/CSRF caducada) sus handlers

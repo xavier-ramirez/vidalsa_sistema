@@ -620,11 +620,10 @@
     // `<img src=x onerror=...>` ejecuta al abrir la lista (XSS almacenado).
     //   escAttr → dentro de la cadena JS del onmousedown (comillas + < > & para cerrar el atributo).
     //   escHtml → como texto visible del <div>.
-    function escHtml(s) {
-        return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
-                        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-    }
-    function escAttr(s) { return escHtml(String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'")); }
+    // Ambos son los helpers centrales (dom_helpers.js): la pareja que estaba escrita aquí
+    // se repetía casi igual en recepcion/index y _machinery.
+    var escHtml = window.escapeHtml;
+    var escAttr = window.escapeAttrJs;
     // Rótulo del campo cuando NO hay categoría elegida. Una sola definición: la comparten
     // la ✕, la opción "todas" de la lista y el respaldo de _cdashCatSelect — antes el mismo
     // literal estaba escrito en cuatro sitios.

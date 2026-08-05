@@ -832,7 +832,7 @@
         overlay.id = 'auxUbicacionBulkOverlay';
         overlay.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.55);backdrop-filter:blur(3px);z-index:10001;display:flex;align-items:center;justify-content:center;padding:20px;';
 
-        const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        const esc = window.escapeHtml;   // helper central (dom_helpers.js)
         const chipsHtml = ids.slice(0, 12).map(k => {
             const lbl = window._auxSelectedMap[k].codigo || ('#' + k);
             return `<span style="background:#e1effa;color:#0c4a6e;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;">${esc(lbl)}</span>`;
@@ -942,7 +942,7 @@
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                        'X-CSRF-TOKEN': window.getCsrf(),
                         'Accept': 'application/json',
                     },
                     body: JSON.stringify({ ids: ids.map(Number), detalle_ubicacion: valorFinal }),
@@ -1003,7 +1003,7 @@
         if (!modal) return;
 
         // Poblar chips: 1 chip por auxiliar seleccionado (codigo/serial).
-        const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        const esc = window.escapeHtml;   // helper central (dom_helpers.js)
         const chips = document.getElementById('auxMovilizarChips');
         if (chips) {
             chips.innerHTML = ids.map(k => {
@@ -1137,7 +1137,7 @@
         const destUbicacion  = needsUbicacion ? '' : ((matchedOpt && matchedOpt.dataset.ubicacion) || '');
 
         const bulkMoveUrl = '{{ route("equipos-auxiliares.bulkMove") }}';
-        const csrf = () => document.querySelector('meta[name="csrf-token"]')?.content ?? '';
+        const csrf = window.getCsrf;   // helper central (dom_helpers.js)
 
         const actaState = {
             ids: ids,
@@ -1345,7 +1345,7 @@
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
                 'X-Requested-With': 'XMLHttpRequest',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content ?? ''
+                'X-CSRF-TOKEN': window.getCsrf()
             },
             body: JSON.stringify({ ESTADO_OPERATIVO: newStatus })
         })
@@ -1634,7 +1634,11 @@
                     // (equipos_index.js L1667): foto 40x40 + TIPO uppercase +
                     // MARCA + [fingerprint serial] [featured_play_list placa]
                     // + location_on frente.
-                    const esc = (s) => (s || '').toString().replace(/"/g, '&quot;').replace(/'/g, "\\'");
+                    // Dos contextos distintos, dos helpers (dom_helpers.js). La definicion
+                    // hibrida que habia aqui servia a medias para ambos: no escapaba < > &,
+                    // asi que una placa con `<img onerror=...>` ejecutaba al abrir la lista.
+                    const esc  = window.escapeHtml;     // texto y atributos HTML
+                    const escJ = window.escapeAttrJs;   // dentro de la cadena JS del onclick
                     list.innerHTML = rows.map(r => {
                         const dis = r.disponible ? '' : 'cursor:not-allowed;opacity:0.6;';
                         const badge = r.disponible
@@ -1656,7 +1660,7 @@
                         // (verde + check) y habilita el boton Confirmar Anclaje. NO
                         // dispara el anclaje hasta que el usuario presione Confirmar.
                         const clickHandler = r.disponible
-                            ? `onclick="window.auxABSelectHost(this, ${r.id}, '${esc(r.placa || r.serial_chasis || ('#' + r.id))}')"`
+                            ? `onclick="window.auxABSelectHost(this, ${r.id}, '${escJ(r.placa || r.serial_chasis || ('#' + r.id))}')"`
                             : '';
                         return `
                             <div class="aux-ab-host-card" style="padding:10px;border-radius:8px;background:white;border:1px solid #e2e8f0;margin-bottom:6px;display:flex;align-items:center;gap:12px;transition:all 0.2s;position:relative;${dis}"
@@ -1761,7 +1765,7 @@
         // una capa de friccion innecesaria.
         document.getElementById('auxAnclarBulkOverlay')?.remove();
         if (window.showPreloader) window.showPreloader();
-        const csrf = document.querySelector('meta[name="csrf-token"]').content;
+        const csrf = window.getCsrf();   // helper central (dom_helpers.js): antes .content sin guard
         let ok = 0, fail = 0;
         Promise.allSettled(ids.map(auxId => fetch('/admin/equipos-auxiliares/' + auxId + '/anchor', {
             method:'POST',
@@ -1818,7 +1822,7 @@
             headers: {
                 'Accept': 'application/json',
                 'X-Requested-With': 'XMLHttpRequest',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                'X-CSRF-TOKEN': window.getCsrf()
             },
             body: fd
         })
@@ -1969,7 +1973,7 @@
                 grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:30px; color:#94a3b8; background:#fff; border-radius:8px; border:1px dashed #cbd5e1;">No hay auxiliares anclados actualmente.</div>';
                 return;
             }
-            const esc = (s) => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+            const esc = window.escapeHtml;   // helper central (dom_helpers.js)
 
             // Agrupar por host: 1 tarjeta por equipo host con TODOS sus auxiliares anclados.
             // Antes se renderizaba 1 tarjeta por (auxiliar, host) — duplicaba el host.
@@ -2082,7 +2086,7 @@ window.bulkDeleteAuxiliaresSeleccionados = function () {
     }
     var proceed = function () {
         if (window.showPreloader) window.showPreloader();
-        var csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+        var csrf = window.getCsrf();   // helper central (dom_helpers.js)
         fetch('{{ route("equipos-auxiliares.bulkDelete") }}', {
             method: 'POST',
             headers: {

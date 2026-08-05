@@ -560,10 +560,8 @@
             return tr;
         };
 
-        function limpiar(v) {
-            if (v === undefined || v === null) return '';
-            return String(v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        }
+        // Helper central (dom_helpers.js): la copia de aqui no escapaba la comilla simple.
+        var limpiar = window.escapeHtml;
 
         window.eliminarFila = function (n) {
             const el = document.getElementById(`fila_${n}`);
@@ -697,7 +695,7 @@
                     headers: {
                         'X-Requested-With': 'XMLHttpRequest',
                         'Accept': 'application/json',
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                        'X-CSRF-TOKEN': window.getCsrf()
                     },
                     body: formData
                 })
