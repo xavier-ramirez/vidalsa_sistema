@@ -1283,9 +1283,9 @@
             if (window.showPreloader) window.showPreloader();
 
             try {
-                const response = await fetch(url, {
+                const response = await window.apiFetch(url, {
                     method: 'GET',
-                    headers: { 'Accept': 'application/pdf', 'X-Requested-With': 'XMLHttpRequest' }
+                    headers: { 'Accept': 'application/pdf'}
                 });
 
                 if (!response.ok) throw new Error('Error generando PDF');

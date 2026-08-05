@@ -44,16 +44,7 @@ const VidalsaWebAuthn = (() => {
         return btoa(bin);
     }
 
-    // Helper central (dom_helpers.js), que carga antes que este archivo.
-    const getCsrf = window.getCsrf;
-
-    // Cabeceras que identifican la petición como AJAX/JSON. Sin esto, cuando el
-    // servidor lanza una excepción (sesión/auth/CSRF caducada) sus handlers
-    // (bootstrap/app.php) calculan wantsJson=false y devuelven un REDIRECT a /login
-    // (HTML), no JSON. fetch sigue el redirect y res.json() revienta con el críptico
-    // "Unexpected token '<', <!DOCTYPE...". Con estas cabeceras el servidor responde
-    // JSON con su status real (401/419) y el flujo de recarga de abajo lo maneja.
-    const JSON_HEADERS = { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' };
+    // El CSRF y las cabeceras de AJAX/JSON las pone window.apiFetch (dom_helpers.js).
 
     // ¿La respuesta es realmente JSON? Un redirect a /login o una página de error
     // vienen como text/html y NO se deben pasar a res.json().
@@ -81,9 +72,9 @@ const VidalsaWebAuthn = (() => {
 
         let options;
         try {
-            const res = await fetch('/webauthn/register-options', {
+            const res = await window.apiFetch('/webauthn/register-options', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': getCsrf(), ...JSON_HEADERS },
+                headers: { 'Content-Type': 'application/json' }
             });
             if (esRespuestaDeSesion(res)) { window.location.reload(); return false; }
             options = await res.json();
@@ -99,12 +90,12 @@ const VidalsaWebAuthn = (() => {
             user: {
                 id:          base64UrlToBytes(options.user.id),
                 name:        options.user.name,
-                displayName: options.user.displayName,
+                displayName: options.user.displayName
             },
             pubKeyCredParams:       options.pubKeyCredParams,
             timeout:                options.timeout,
             authenticatorSelection: options.authenticatorSelection,
-            attestation:            options.attestation,
+            attestation:            options.attestation
         };
 
         let credential;
@@ -123,14 +114,14 @@ const VidalsaWebAuthn = (() => {
         const body = {
             credential_id:      bytesToBase64(new Uint8Array(credential.rawId)),
             public_key_spki:    bytesToBase64(new Uint8Array(spkiKey)),
-            nombre_dispositivo: detectarDispositivo(),
+            nombre_dispositivo: detectarDispositivo()
         };
 
         try {
-            const res = await fetch('/webauthn/register', {
+            const res = await window.apiFetch('/webauthn/register', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': getCsrf(), ...JSON_HEADERS },
-                body: JSON.stringify(body),
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
             });
             if (esRespuestaDeSesion(res)) { window.location.reload(); return false; }
             const data = await res.json();
@@ -176,7 +167,7 @@ const VidalsaWebAuthn = (() => {
     function _fetchConTimeout(url, opts, ms) {
         const ctrl = new AbortController();
         const timer = setTimeout(() => ctrl.abort(), ms);
-        return fetch(url, { ...opts, signal: ctrl.signal }).finally(() => clearTimeout(timer));
+        return window.apiFetch(url, { ...opts, signal: ctrl.signal }).finally(() => clearTimeout(timer));
     }
 
     // Pide /webauthn/login-options y arma el objeto publicKey listo para
@@ -193,8 +184,8 @@ const VidalsaWebAuthn = (() => {
         try {
             resOpt = await _fetchConTimeout('/webauthn/login-options', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', ...JSON_HEADERS },
-                body: JSON.stringify({ credential_ids: credIds }),
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ credential_ids: credIds })
             }, FETCH_TIMEOUT_MS);
         } catch {
             throw new Error('SIN_CONEXION');
@@ -232,7 +223,7 @@ const VidalsaWebAuthn = (() => {
             timeout:          options.timeout,
             rpId:             options.rpId,
             allowCredentials: options.allowCredentials.map(c => ({ type: c.type, id: base64UrlToBytes(c.id) })),
-            userVerification: options.userVerification,
+            userVerification: options.userVerification
         };
     }
 
@@ -326,7 +317,7 @@ const VidalsaWebAuthn = (() => {
                 credential_id:      bytesToBase64(new Uint8Array(assertion.rawId)),
                 authenticator_data: bytesToBase64(new Uint8Array(assertion.response.authenticatorData)),
                 client_data_json:   bytesToBase64(new Uint8Array(assertion.response.clientDataJSON)),
-                signature:          bytesToBase64(new Uint8Array(assertion.response.signature)),
+                signature:          bytesToBase64(new Uint8Array(assertion.response.signature))
             };
 
             _precachedPublicKey = null;
@@ -336,8 +327,8 @@ const VidalsaWebAuthn = (() => {
             try {
                 res = await _fetchConTimeout('/webauthn/login', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', ...JSON_HEADERS },
-                    body: JSON.stringify(body),
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
                 }, LOGIN_TIMEOUT_MS);
             } catch {
                 // Timeout o bajón de red con el POST ya despachado: el botón no

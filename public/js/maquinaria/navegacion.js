@@ -106,7 +106,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!hayPunteroReal()) return;
         if (prefetchEnVuelo === url || prefetchStore.has(url)) return;
         prefetchEnVuelo = url;
-        fetch(url, { headers: CABECERAS_SPA, cache: 'no-store' })
+        window.apiFetch(url, { headers: CABECERAS_SPA, cache: 'no-store' })
             .then((r) => {
                 // Solo se guarda una página completa, sana y DE ESTA MISMA URL. Un 403 o un
                 // PDF se descartan porque tienen su propio manejo en loadPage (toast de
@@ -279,7 +279,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (html !== null) {
                 clearTimeout(timeoutId);
             } else {
-                const response = await fetch(url, {
+                const response = await window.apiFetch(url, {
                     signal: controller.signal,
                     headers: CABECERAS_SPA,
                     cache: 'no-store'

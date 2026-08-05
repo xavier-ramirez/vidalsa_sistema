@@ -27,15 +27,12 @@
 
         const formData = new FormData(form);
 
-        fetch(form.action, {
+        window.apiFetch(form.action, {
             method: 'POST',
             body: formData,
             headers: {
-                'X-Requested-With': 'XMLHttpRequest',
-                'Accept': 'application/json',
                 // Add CSRF Token explicitly if needed, though cookie usually handles it. 
                 // equipso_form.js adds it manually, so we should too for consistency.
-                'X-CSRF-TOKEN': window.getCsrf()
             }
         })
             .then(response => {
@@ -139,7 +136,7 @@
         const tipo = (tipoInput.value || '').trim();
         const url = '/admin/catalogo/models-from-equipos' + (tipo ? ('?tipo=' + encodeURIComponent(tipo)) : '');
 
-        fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' } })
+        window.apiFetch(url)
             .then(r => r.json())
             .then(models => {
                 dropdown.innerHTML = '';

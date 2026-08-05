@@ -786,7 +786,7 @@ window.searchFrentes = function (input) {
 window.performFrentesFetch = function (query, resultsDiv) {
     if (!resultsDiv) return;
 
-    fetch(`/admin/frentes/buscar?query=${encodeURIComponent(query)}`)
+    window.apiFetch(`/admin/frentes/buscar?query=${encodeURIComponent(query)}`)
         .then((response) => response.json())
         .then((data) => {
             resultsDiv.innerHTML = "";
@@ -1145,7 +1145,7 @@ window.showDetailsImproved = function (target, event) {
             const now      = Date.now();
             const cachedPromise = (cached && (now - cached.t) < 30000)
                 ? Promise.resolve(cached.data)
-                : fetch(`/admin/equipos-auxiliares/by-host/${eqId}`, { headers:{'X-Requested-With':'XMLHttpRequest'} })
+                : window.apiFetch(`/admin/equipos-auxiliares/by-host/${eqId}`)
                     .then(r => r.json())
                     .then(data => {
                         window._byHostCache.set(cacheKey, { data, t: Date.now() });
@@ -1303,9 +1303,7 @@ window.loadResponsables = (function () {
         // accordion (ver equipment_details_modal.blade.php #responsable_edit_pencil_header).
         // Aqui ya no inyectamos ninguno al final de la lista.
 
-        fetch(`/admin/equipos/${equipoId}/responsables`, {
-            headers: { 'X-Requested-With': 'XMLHttpRequest' }
-        })
+        window.apiFetch(`/admin/equipos/${equipoId}/responsables`)
         .then(r => r.json())
         .then(res => {
             // Regla UX:
@@ -1380,12 +1378,10 @@ window.saveResponsable = function(isAutoSave = false) {
     }
 
     // Al guardar al cerrar, la lista puede que no sea visible, pero mostramos un toast
-    fetch(`/admin/equipos/${equipoId}/responsables`, {
+    window.apiFetch(`/admin/equipos/${equipoId}/responsables`, {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': window.getCsrf(),
-            'X-Requested-With': 'XMLHttpRequest'
+            'Content-Type': 'application/json'
         },
         body: JSON.stringify({
             CEDULA_RESPONSABLE: cedula,
@@ -1636,14 +1632,12 @@ window.toggleConfirmacionSitioAux = function (el) {
     var nuevo = !actual;
     window._pintarConfirmSitioAux(id, nuevo); // optimista
 
-    fetch('/admin/equipos-auxiliares/' + id + '/confirmar-sitio', {
+    window.apiFetch('/admin/equipos-auxiliares/' + id + '/confirmar-sitio', {
         method: 'PATCH',
         headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': window.getCsrf(),
-            'X-Requested-With': 'XMLHttpRequest',
+            'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ confirmado: nuevo ? 1 : 0 }),
+        body: JSON.stringify({ confirmado: nuevo ? 1 : 0 })
     })
     .then(function (r) { return r.json().then(function (b) { return { status: r.status, body: b }; }); })
     .then(function (res) {

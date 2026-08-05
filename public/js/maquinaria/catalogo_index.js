@@ -14,14 +14,8 @@ window.confirmDeleteCatalogo = function (id, modelName) {
         onConfirm: async function () {
             if (typeof window.showPreloader === 'function') window.showPreloader();
             try {
-                const response = await fetch(`/admin/catalogo/${id}`, {
-                    method: 'DELETE',
-                    headers: {
-                        'X-CSRF-TOKEN': window.getCsrf(),
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'Accept': 'application/json'
-                    }
-                });
+                const response = await window.apiFetch(`/admin/catalogo/${id}`, {
+                    method: 'DELETE'});
 
                 let data = {};
                 try { data = await response.json(); } catch (e) {}
@@ -98,9 +92,8 @@ async function catFetch(url) {
     window.currentRequestController = controller;
     let resp;
     try {
-        resp = await fetch(url, {
-            signal: controller.signal,
-            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+        resp = await window.apiFetch(url, {
+            signal: controller.signal
         });
     } catch (e) {
         if (e.name === 'AbortError') return null;

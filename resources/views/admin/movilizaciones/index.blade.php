@@ -369,9 +369,9 @@ window._eliminarSeleccionados = function () {
         const doDelete = function () {
             const csrfToken = window.getCsrf();   // helper central (dom_helpers.js)
             
-            fetch('/admin/movilizaciones/bulk-delete', {
+            window.apiFetch('/admin/movilizaciones/bulk-delete', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken },
+                headers: { 'Content-Type': 'application/json'},
                 body: JSON.stringify({ ids: ids })
             })
             .then(function (r) { return r.json(); })
@@ -426,9 +426,9 @@ window.movDeshacer = function (id) {
     var doIt = function () {
         var csrfToken = window.getCsrf();   // helper central (dom_helpers.js)
         var preloader = document.getElementById('preloader'); if (preloader) preloader.style.display = 'flex';
-        fetch('/admin/movilizaciones/' + id + '/deshacer', {
+        window.apiFetch('/admin/movilizaciones/' + id + '/deshacer', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken, 'Accept': 'application/json' }
+            headers: { 'Content-Type': 'application/json'}
         })
         .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b }; }); })
         .then(function (res) {

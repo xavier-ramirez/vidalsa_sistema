@@ -112,7 +112,7 @@
                 if (spinner) spinner.style.display = 'none';
                 return;
             }
-            fetch(CFG().urlSearch + '?q=' + encodeURIComponent(q), { headers: { 'Accept': 'application/json' } })
+            window.apiFetch(CFG().urlSearch + '?q=' + encodeURIComponent(q))
             .then(r => r.json())
             .then(data => {
                 if (spinner) spinner.style.display = 'none';
@@ -215,9 +215,8 @@
         fd.append('observaciones_cierre', obs ? obs.value : '');
         if (btn) btn.disabled = true;
         if (window.showPreloader) window.showPreloader();
-        fetch(CFG().urlBase + '/' + _cierreId + '/close', {
+        window.apiFetch(CFG().urlBase + '/' + _cierreId + '/close', {
             method: 'POST',
-            headers: { 'X-CSRF-TOKEN': csrf(), 'Accept': 'application/json' },
             body: fd
         })
         .then(r => r.json())
@@ -245,9 +244,8 @@
             return;
         }
         if (window.showPreloader) window.showPreloader();
-        fetch(CFG().urlStore, {
+        window.apiFetch(CFG().urlStore, {
             method: 'POST',
-            headers: { 'X-CSRF-TOKEN': csrf(), 'Accept': 'application/json' },
             body: fd
         })
         .then(r => r.json().then(b => ({ status: r.status, body: b })))
@@ -295,9 +293,9 @@
     window.flPreviewActa = function () {
         const fd = new FormData(document.getElementById('nuevoReporteForm'));
         if (window.showPreloader) window.showPreloader();
-        fetch(CFG().urlBase + '/preview', {
+        window.apiFetch(CFG().urlBase + '/preview', {
             method: 'POST',
-            headers: { 'X-CSRF-TOKEN': csrf(), 'Accept': 'application/pdf' },
+            headers: { 'Accept': 'application/pdf' },
             body: fd
         })
         .then(r => {

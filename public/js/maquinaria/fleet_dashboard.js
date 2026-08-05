@@ -249,7 +249,7 @@ window.exportFleetStats = function () {
     
     if (window.showPreloader) window.showPreloader();
 
-    fetch(url, { method: 'GET' })
+    window.apiFetch(url, { method: 'GET' })
         .then(response => {
             if (!response.ok) throw new Error('Error al generar el archivo');
             return response.blob();
@@ -491,12 +491,7 @@ async function loadFleetDashboardData(frenteId) {
             url.searchParams.set('frente_id', frenteId);
         }
 
-        const response = await fetch(url, {
-            headers: {
-                'Accept': 'application/json',
-                'X-CSRF-TOKEN': window.getCsrf()
-            }
-        });
+        const response = await window.apiFetch(url);
 
         if (!response.ok) {
             const errText = await response.text();

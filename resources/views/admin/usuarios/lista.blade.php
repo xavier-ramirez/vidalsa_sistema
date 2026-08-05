@@ -399,7 +399,7 @@
         const body = document.getElementById('modalLimpiarRolesBody');
         body.innerHTML = '<div style="padding: 24px; text-align: center; color: #94a3b8;"><i class="material-icons" style="animation: spin 1s linear infinite; font-size: 22px;">sync</i></div>';
 
-        fetch("{{ route('usuarios.unused-roles') }}")
+        window.apiFetch("{{ route('usuarios.unused-roles') }}")
             .then(response => response.json())
             .then(roles => {
                 if (roles.length > 0) {
@@ -451,13 +451,8 @@
     window.deleteUnusedRoles = function() {
         if (!confirm('¿Confirma que desea eliminar estos roles permanentemente?')) return;
         
-        fetch("{{ route('usuarios.delete-unused-roles') }}", {
-            method: 'DELETE',
-            headers: {
-                'X-CSRF-TOKEN': window.getCsrf(),
-                'Accept': 'application/json'
-            }
-        })
+        window.apiFetch("{{ route('usuarios.delete-unused-roles') }}", {
+            method: 'DELETE'})
         .then(response => response.json())
         .then(data => {
             if (data.success) {

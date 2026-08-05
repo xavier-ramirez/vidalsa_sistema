@@ -690,13 +690,8 @@
 
                 const formData = new FormData(this);
 
-                fetch(this.action, {
+                window.apiFetch(this.action, {
                     method: 'POST',
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'Accept': 'application/json',
-                        'X-CSRF-TOKEN': window.getCsrf()
-                    },
                     body: formData
                 })
                     .then(async response => {

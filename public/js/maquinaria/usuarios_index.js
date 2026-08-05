@@ -86,12 +86,7 @@ window.loadUsuarios = function (url = null) {
     tableBody.style.opacity = '0.5';
     if (window.showPreloader) window.showPreloader();
 
-    fetch(finalUrl, {
-        headers: {
-            'X-Requested-With': 'XMLHttpRequest',
-            'Accept': 'application/json'
-        }
-    })
+    window.apiFetch(finalUrl)
         .then(response => {
             if (!response.ok) throw new Error('Network response was not ok');
             return response.json();

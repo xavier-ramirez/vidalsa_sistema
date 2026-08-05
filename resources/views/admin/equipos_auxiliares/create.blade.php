@@ -117,16 +117,9 @@
         if (typeof window.showPreloader === 'function') window.showPreloader();
 
         const formData = new FormData(form);
-        fetch(form.action, {
+        window.apiFetch(form.action, {
             method: 'POST',
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest',
-                'Accept': 'application/json',
-                'X-CSRF-TOKEN': window.getCsrf()
-            },
-            body: formData,
-            credentials: 'same-origin'
-        })
+            body: formData})
         .then(r => r.json().then(body => ({ status: r.status, body })))
         .then(({ status, body }) => {
             if (status === 200 || status === 201) {

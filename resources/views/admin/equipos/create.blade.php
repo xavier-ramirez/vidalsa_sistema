@@ -554,9 +554,7 @@
         _hostLastQuery = q;
         clearTimeout(_hostDebounce);
         _hostDebounce = setTimeout(function () {
-            fetch('{{ route("equipos-auxiliares.searchHosts") }}?q=' + encodeURIComponent(q), {
-                headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
-            }).then(function (r) { return r.json(); }).then(function (data) { window.auxHostRender(data); })
+            window.apiFetch('{{ route("equipos-auxiliares.searchHosts") }}?q=' + encodeURIComponent(q)).then(function (r) { return r.json(); }).then(function (data) { window.auxHostRender(data); })
             .catch(function (e) { console.error('searchHosts:', e); });
         }, 280);
     };
@@ -810,12 +808,9 @@
             limpiarErroresForm();
 
             var formData = new FormData(form);
-            fetch(form.action, {
+            window.apiFetch(form.action, {
                 method: 'POST',
-                headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json', 'X-CSRF-TOKEN': window.getCsrf() },
-                body: formData,
-                credentials: 'same-origin'
-            })
+                body: formData})
             .then(function (r) { return r.json().then(function (body) { return { status: r.status, body: body }; }); })
             .then(function (res) {
                 if (res.status === 200 || res.status === 201) {
@@ -920,10 +915,8 @@
 
             var ctrl = new AbortController();
             var to = setTimeout(function () { ctrl.abort(); }, 8000);
-            fetch(m.url + '?field=' + encodeURIComponent(m.field) + '&value=' + encodeURIComponent(val), {
-                headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
-                signal: ctrl.signal, credentials: 'same-origin'
-            })
+            window.apiFetch(m.url + '?field=' + encodeURIComponent(m.field) + '&value=' + encodeURIComponent(val), {
+                signal: ctrl.signal})
             .then(function (r) { return r.json(); })
             .then(function (d) {
                 clearTimeout(to);

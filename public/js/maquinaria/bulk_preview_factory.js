@@ -64,13 +64,8 @@
                 const fd = new FormData();
                 fd.append('archivo_excel', file);
                 if (window.showPreloader) window.showPreloader();
-                fetch(config.previewUrl, {
+                window.apiFetch(config.previewUrl, {
                     method: 'POST',
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'Accept': 'application/json',
-                        'X-CSRF-TOKEN': window.getCsrf()
-                    },
                     body: fd
                 })
                 .then(r => r.json().then(body => ({ status: r.status, body })))
@@ -288,13 +283,10 @@
                 const rows = collectRows();
                 if (!rows.length) return;
                 if (window.showPreloader) window.showPreloader();
-                fetch(config.storeUrl, {
+                window.apiFetch(config.storeUrl, {
                     method: 'POST',
                     headers: {
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'Accept': 'application/json',
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': window.getCsrf()
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({ rows })
                 })

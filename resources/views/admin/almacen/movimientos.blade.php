@@ -859,7 +859,7 @@
         var cc = el('almMovConsumoContainer'); if (!cc) return;
         var p = buildParams();            // filtros actuales (sin pageUrl)
         p.set('consumo_only', '1');
-        fetch(ROUTE + '?' + p.toString(), { headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' } })
+        window.apiFetch(ROUTE + '?' + p.toString())
             .then(function (r) { return r.json(); })
             .then(function (d) { if (d && d.consumo !== undefined) cc.innerHTML = d.consumo; })
             .catch(function () {});
@@ -875,7 +875,7 @@
         var url = ROUTE + '?' + p.toString();
         body.style.opacity = '0.5';
         if (window.showPreloader) window.showPreloader();
-        fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' } })
+        window.apiFetch(url)
             .then(function (r) { return r.json(); })
             .then(function (data) {
                 if (data.html !== undefined) body.innerHTML = data.html;
@@ -928,10 +928,7 @@
     (function () {
         if (window.almMovProductosCargando) return;
         window.almMovProductosCargando = true;
-        fetch(@json(route('almacen.productos-autocomplete')), {
-            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
-            credentials: 'same-origin'
-        })
+        window.apiFetch(@json(route('almacen.productos-autocomplete')), {})
         .then(function (r) { return r.ok ? r.json() : []; })
         .then(function (lista) { window.almMovProductosLista = Array.isArray(lista) ? lista : []; window.almMovProductosCargados = true; })
         .catch(function () { /* silencioso: el buscador queda vacío hasta que reintente */ })
@@ -1365,9 +1362,8 @@
             if (btn) { btn.disabled = true; btn.innerHTML = '<i class="material-icons" style="font-size:17px;animation:spin 1s linear infinite;">sync</i> Eliminando...'; }
             fb('eliminarNotaFeedback', 'info', 'Eliminando la nota ' + raw + ' y reversando stock…');
             try {
-                var r = await fetch(URL_DESTROY + '?numero=' + encodeURIComponent(raw), {
-                    method: 'DELETE',
-                    headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF, 'X-Requested-With': 'XMLHttpRequest' },
+                var r = await window.apiFetch(URL_DESTROY + '?numero=' + encodeURIComponent(raw), {
+                    method: 'DELETE'
                 });
                 var data = await r.json().catch(function(){ return {}; });
                 if (!r.ok) {
@@ -1421,9 +1417,8 @@
             var CSRF = window.getCsrf();
             btn.disabled = true;
             if (window.showPreloader) window.showPreloader();
-            fetch(url, {
-                method: 'DELETE',
-                headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF, 'X-Requested-With': 'XMLHttpRequest' },
+            window.apiFetch(url, {
+                method: 'DELETE'
             })
             .then(function (r) {
                 return r.json().catch(function () { return {}; }).then(function (d) { return { ok: r.ok, status: r.status, d: d }; });

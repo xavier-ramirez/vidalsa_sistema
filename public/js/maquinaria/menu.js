@@ -42,7 +42,7 @@ window.refreshDashboardAlerts = async function () {
 
     try {
         // Add timestamp to prevent browser caching
-        const response = await fetch(`/dashboard/alerts-html?t=${Date.now()}`);
+        const response = await window.apiFetch(`/dashboard/alerts-html?t=${Date.now()}`);
         if (!response.ok) throw new Error('Network response was not ok');
 
         const data = await response.json();
@@ -215,12 +215,10 @@ window.iniciarGestionCustom = function (equipoId, docType, event) {
 
         try {
             const csrf = window.getCsrf();
-            const response = await fetch('/dashboard/iniciar-gestion', {
+            const response = await window.apiFetch('/dashboard/iniciar-gestion', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': csrf,
-                    'Accept': 'application/json'
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
                     equipo_id: equipoId,

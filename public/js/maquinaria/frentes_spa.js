@@ -169,12 +169,7 @@ window.selectFrenteSPA = function (id) {
 
     if (window.showPreloader) window.showPreloader();
 
-    fetch(`/admin/frentes/${id}/edit?json=true`, {
-        headers: {
-            "X-Requested-With": "XMLHttpRequest",
-            Accept: "application/json",
-        },
-    })
+    window.apiFetch(`/admin/frentes/${id}/edit?json=true`)
         .then((response) => {
             if (!response.ok) throw new Error("HTTP Status " + response.status);
             return response.json();
@@ -206,14 +201,9 @@ function submitFrenteForm(form) {
     // Append force json param
     url += (url.includes("?") ? "&" : "?") + "json=true";
 
-    fetch(url, {
+    window.apiFetch(url, {
         method: "POST",
-        headers: {
-            "X-Requested-With": "XMLHttpRequest",
-            "X-CSRF-TOKEN": window.getCsrf(),
-            Accept: "application/json",
-        },
-        body: formData,
+        body: formData
     })
         .then((response) =>
             response

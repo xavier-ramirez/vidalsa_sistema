@@ -128,7 +128,7 @@ function initEquiposForm() {
         const ctrl = new AbortController();
         const timeoutId = setTimeout(() => ctrl.abort(), 8000);
 
-        fetch(`/admin/equipos/check-unique?field=${fieldName}&value=${encodeURIComponent(input.value.trim())}${idParam}`, { signal: ctrl.signal })
+        window.apiFetch(`/admin/equipos/check-unique?field=${fieldName}&value=${encodeURIComponent(input.value.trim())}${idParam}`, { signal: ctrl.signal })
             .then(r => r.json())
             .then(data => {
                 clearTimeout(timeoutId);
@@ -283,13 +283,8 @@ function initEquiposForm() {
         // D. Submit
         const formData = new FormData(form);
 
-        fetch(form.action, {
+        window.apiFetch(form.action, {
             method: 'POST',
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest',
-                'Accept': 'application/json',
-                'X-CSRF-TOKEN': window.getCsrf()
-            },
             body: formData
         })
             .then(r => {

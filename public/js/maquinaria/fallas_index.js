@@ -57,9 +57,7 @@
         }
 
         if (window.showPreloader) window.showPreloader();
-        fetch(cfg().urlIndex + '?' + params.toString(), {
-            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
-        })
+        window.apiFetch(cfg().urlIndex + '?' + params.toString())
         .then(r => r.json())
         .then(data => {
             document.getElementById('fallasTableBody').innerHTML = data.html;
@@ -219,9 +217,8 @@
         const fd = new FormData();
         fd.append('_method', 'DELETE');
         if (window.showPreloader) window.showPreloader();
-        fetch(cfg().urlBase + '/' + id, {
+        window.apiFetch(cfg().urlBase + '/' + id, {
             method: 'POST',
-            headers: { 'X-CSRF-TOKEN': csrf(), 'Accept': 'application/json' },
             body: fd
         })
         .then(r => r.json())
@@ -253,9 +250,8 @@
         }
         btn.disabled = true;
         if (window.showPreloader) window.showPreloader();
-        fetch(cfg().urlBase + '/' + _cierreId + '/close', {
+        window.apiFetch(cfg().urlBase + '/' + _cierreId + '/close', {
             method: 'POST',
-            headers: { 'X-CSRF-TOKEN': csrf(), 'Accept': 'application/json' },
             body: fd
         })
         .then(r => r.json())

@@ -348,10 +348,7 @@
     var PRODUCTOS = [];
     var PRODUCTOS_CARGADOS = false;
     (function () {
-        fetch(@json(route('almacen.productos-autocomplete')), {
-            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
-            credentials: 'same-origin'
-        })
+        window.apiFetch(@json(route('almacen.productos-autocomplete')), {})
         .then(function (r) { return r.ok ? r.json() : []; })
         .then(function (lista) { if (Array.isArray(lista)) { PRODUCTOS = lista; PRODUCTOS_CARGADOS = true; } })
         .catch(function () { /* silencioso: el buscador tipear+servidor no depende de esta lista */ });
@@ -691,10 +688,10 @@
             body.id_almacen      = parseInt(idAlmacenForm, 10);
             body.cantidad_inicial = 0;
         }
-        fetch(ROUTE_PROD, {
+        window.apiFetch(ROUTE_PROD, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf(), 'X-Requested-With': 'XMLHttpRequest' },
-            body: JSON.stringify(body),
+            headers: { 'Content-Type': 'application/json'},
+            body: JSON.stringify(body)
         })
         .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b }; }); })
         .then(function (res) {
@@ -885,10 +882,10 @@
 
         if (window.showPreloader) window.showPreloader();
         var btn = el('entSubmit'); if (btn) btn.disabled = true;
-        fetch(ROUTE_ENTRADA, {
+        window.apiFetch(ROUTE_ENTRADA, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf(), 'X-Requested-With': 'XMLHttpRequest' },
-            body: JSON.stringify(payload),
+            headers: { 'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
         })
         .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, status: r.status, b: b }; }); })
         .then(function (res) {

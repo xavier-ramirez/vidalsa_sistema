@@ -242,10 +242,7 @@
         // (cache stale, navegacion SPA con datos parciales), hace fetch con
         // preloader global y SIN spinner interno en el modal.
         if (typeof window.showPreloader === 'function') window.showPreloader();
-        fetch('/admin/equipos-auxiliares/' + id + '/details', {
-            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
-            credentials: 'same-origin'
-        })
+        window.apiFetch('/admin/equipos-auxiliares/' + id + '/details')
         .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
         .then(d => {
             (window.auxDetailsMap = window.auxDetailsMap || {})[id] = d;
@@ -495,9 +492,7 @@
             if (typeof window.showPreloader === 'function') window.showPreloader();
         }
 
-        return fetch('{{ route("equipos-auxiliares.index") }}?' + params.toString(), {
-            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
-        })
+        return window.apiFetch('{{ route("equipos-auxiliares.index") }}?' + params.toString())
         .then(r => r.json())
         .then(data => {
             const tbody = document.getElementById('auxTableBody');
@@ -637,9 +632,7 @@
             var form = document.getElementById('auxFiltersForm');
             var params = form ? new URLSearchParams(new FormData(form)) : new URLSearchParams();
             params.set('offset', '0');
-            fetch('{{ route("equipos-auxiliares.index") }}?' + params.toString(), {
-                headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
-            })
+            window.apiFetch('{{ route("equipos-auxiliares.index") }}?' + params.toString())
             .then(function (r) { return r.json(); })
             .then(function (data) {
                 if (data && data.stats) {
@@ -938,14 +931,12 @@
             submitBtn.disabled = true;
             if (typeof window.showPreloader === 'function') window.showPreloader();
             try {
-                const res = await fetch('/admin/equipos-auxiliares/bulk-ubicacion', {
+                const res = await window.apiFetch('/admin/equipos-auxiliares/bulk-ubicacion', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': window.getCsrf(),
-                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ ids: ids.map(Number), detalle_ubicacion: valorFinal }),
+                    body: JSON.stringify({ ids: ids.map(Number), detalle_ubicacion: valorFinal })
                 });
                 if (!res.ok) {
                     const err = await res.json().catch(() => ({}));
@@ -1154,9 +1145,9 @@
         const ejecutarCommit = async function () {
             if (window.showPreloader) window.showPreloader();
             try {
-                const res = await fetch(bulkMoveUrl, {
+                const res = await window.apiFetch(bulkMoveUrl, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf() },
+                    headers: { 'Content-Type': 'application/json'},
                     body: JSON.stringify({
                         ids: actaState.ids,
                         id_frente:   frenteId ? parseInt(frenteId, 10) : null,
@@ -1189,7 +1180,7 @@
                         ? { method: 'POST', headers: { 'Accept': 'application/pdf', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf() }, credentials: 'same-origin',
                             body: JSON.stringify({ override_origin: actaState.origin || '', override_origin_zona: actaState.origin_zona || '', override_destino_ubicacion: actaState.destination_ubicacion || '', override_firmas: actaState.firmas }) }
                         : { headers: { 'Accept': 'application/pdf' }, credentials: 'same-origin' };
-                    fetch('/admin/movilizaciones/' + firstId + '/acta-traslado', actaReq)
+                    window.apiFetch('/admin/movilizaciones/' + firstId + '/acta-traslado', actaReq)
                         .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); })
                         .then(blob => {
                             const url = URL.createObjectURL(blob);
@@ -1339,13 +1330,10 @@
         // Optimistic UI
         _applyAuxStatusVisual(trigger, newStatus);
 
-        fetch(url, {
+        window.apiFetch(url, {
             method: 'PATCH',
             headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest',
-                'X-CSRF-TOKEN': window.getCsrf()
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify({ ESTADO_OPERATIVO: newStatus })
         })
@@ -1383,7 +1371,7 @@
     // FALLA_MODAL_CFG.onClosed (más abajo) recarga el listado de auxiliares.
 
     // Exportar XLSX respetando filtros activos.
-    // Usamos fetch() + Blob en vez de <a> click para que el navegador NO muestre
+    // Usamos window.apiFetch() + Blob en vez de <a> click para que el navegador NO muestre
     // el spinner de pestana: solo el preloader propio de la app.
     window.exportAuxiliaresXlsx = function () {
         const form = document.getElementById('auxFiltersForm');
@@ -1391,7 +1379,7 @@
         const url = '{{ route("equipos-auxiliares.export") }}' + (params.toString() ? '?' + params.toString() : '');
 
         if (typeof window.showPreloader === 'function') window.showPreloader();
-        fetch(url, { credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        window.apiFetch(url)
             .then(r => {
                 if (!r.ok) throw new Error('HTTP ' + r.status);
                 const cd = r.headers.get('Content-Disposition') || '';
@@ -1621,9 +1609,7 @@
                     label.innerHTML = '<i class="material-icons" style="font-size:14px;color:#0067b1;">search</i>Resultados de búsqueda';
                 }
             }
-            fetch('{{ route("equipos-auxiliares.searchHosts") }}?' + urlParams, {
-                headers: {'X-Requested-With':'XMLHttpRequest','Accept':'application/json'}
-            })
+            window.apiFetch('{{ route("equipos-auxiliares.searchHosts") }}?' + urlParams)
             .then(r => r.json())
                 .then(rows => {
                     if (!rows || !rows.length) {
@@ -1767,9 +1753,9 @@
         if (window.showPreloader) window.showPreloader();
         const csrf = window.getCsrf();   // helper central (dom_helpers.js): antes .content sin guard
         let ok = 0, fail = 0;
-        Promise.allSettled(ids.map(auxId => fetch('/admin/equipos-auxiliares/' + auxId + '/anchor', {
+        Promise.allSettled(ids.map(auxId => window.apiFetch('/admin/equipos-auxiliares/' + auxId + '/anchor', {
             method:'POST',
-            headers:{'Content-Type':'application/json','Accept':'application/json','X-Requested-With':'XMLHttpRequest','X-CSRF-TOKEN':csrf},
+            headers:{'Content-Type':'application/json'},
             body: JSON.stringify({id_equipo_host: hostId})
         }).then(r => r.json().then(b => r.status === 200 && b.success ? ok++ : fail++))))
         .then(() => {
@@ -1817,13 +1803,8 @@
         // que /admin/equipos: el spinner queda visible hasta que el PDF
         // esta listo en el iframe del visor).
         if (window.showPreloader) window.showPreloader();
-        fetch('/admin/equipos-auxiliares/' + auxId + '/upload-doc', {
+        window.apiFetch('/admin/equipos-auxiliares/' + auxId + '/upload-doc', {
             method: 'POST',
-            headers: {
-                'Accept': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest',
-                'X-CSRF-TOKEN': window.getCsrf()
-            },
             body: fd
         })
         .then(r => r.json().then(b => ({status:r.status, body:b})))
@@ -1941,7 +1922,7 @@
                 var qs = window._auxBuildAnclajesFilterQS ? window._auxBuildAnclajesFilterQS() : '';
                 var url = '{{ route("equipos-auxiliares.exportAnclajes") }}' + (qs ? ('?' + qs) : '');
                 if (typeof window.showPreloader === 'function') window.showPreloader();
-                fetch(url, { credentials:'same-origin', headers:{'X-Requested-With':'XMLHttpRequest'} })
+                window.apiFetch(url)
                     .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); var cd=r.headers.get('content-disposition')||''; var m=cd.match(/filename="?([^";]+)"?/i); var fname=m?m[1]:('Anclajes_Auxiliares_'+new Date().toISOString().slice(0,10)+'.xlsx'); return r.blob().then(function(b){return {blob:b, fname:fname};}); })
                     .then(function(o){ var u=URL.createObjectURL(o.blob); var a=document.createElement('a'); a.href=u; a.download=o.fname; a.style.display='none'; document.body.appendChild(a); a.click(); setTimeout(function(){document.body.removeChild(a); URL.revokeObjectURL(u);},300); if(window.showToast) window.showToast('Descarga lista: '+o.fname,'success'); })
                     .catch(function(err){ console.error('[exportAuxAnclajes]', err); if(window.showToast) window.showToast('Error al descargar el Excel.','error'); })
@@ -1957,10 +1938,7 @@
         // listado AJAX mantiene actualizados — la URL no siempre tiene los params.
         var _qsIn = window._auxBuildAnclajesFilterQS ? window._auxBuildAnclajesFilterQS() : '';
         var _urlIn = '{{ route("equipos-auxiliares.anchoredList") }}' + (_qsIn ? ('?' + _qsIn) : '');
-        fetch(_urlIn, {
-            headers: { 'X-Requested-With':'XMLHttpRequest', 'Accept':'application/json' },
-            credentials: 'same-origin'
-        })
+        window.apiFetch(_urlIn)
         .then(r => r.ok ? r.json() : Promise.reject('HTTP ' + r.status))
         .then(data => {
             const items = Array.isArray(data.items) ? data.items : [];
@@ -2087,13 +2065,10 @@ window.bulkDeleteAuxiliaresSeleccionados = function () {
     var proceed = function () {
         if (window.showPreloader) window.showPreloader();
         var csrf = window.getCsrf();   // helper central (dom_helpers.js)
-        fetch('{{ route("equipos-auxiliares.bulkDelete") }}', {
+        window.apiFetch('{{ route("equipos-auxiliares.bulkDelete") }}', {
             method: 'POST',
             headers: {
-                'X-CSRF-TOKEN': csrf,
-                'Accept': 'application/json',
-                'Content-Type': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest'
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify({ ids: ids })
         })

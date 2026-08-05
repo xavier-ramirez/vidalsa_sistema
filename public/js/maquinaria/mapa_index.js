@@ -634,7 +634,7 @@
         function cargarMunicipios() {
             if (muniPromesa) return muniPromesa;
             if (!muniUrl) return Promise.resolve(null);
-            muniPromesa = fetch(muniUrl).then(function (r) { return r.json(); }).then(function (gj) {
+            muniPromesa = window.apiFetch(muniUrl).then(function (r) { return r.json(); }).then(function (gj) {
                 muniData = gj;
                 construirColoresMuni(gj.features); // coloreado por adyacencia (vecinos ≠ color) antes de pintar
                 return gj;
@@ -799,7 +799,7 @@
 
         var geojsonUrl = el.getAttribute('data-geojson');
         if (geojsonUrl) {
-            fetch(geojsonUrl).then(function (r) { return r.json(); }).then(function (gj) { estados.addData(gj); }).catch(function () {});
+            window.apiFetch(geojsonUrl).then(function (r) { return r.json(); }).then(function (gj) { estados.addData(gj); }).catch(function () {});
         }
 
         // Interruptor "Todos los municipios" (botón-miniatura de arriba-derecha, ver agregarMiniCapa).
@@ -993,7 +993,7 @@
                 if (est.promesa) return est.promesa;
                 if (!url) return Promise.resolve(false);
                 spinOn();
-                est.promesa = fetch(url).then(function (r) { return r.json(); }).then(function (gj) {
+                est.promesa = window.apiFetch(url).then(function (r) { return r.json(); }).then(function (gj) {
                     spinOff();
                     est.capa = crearCapa(gj);
                     return true;
@@ -1602,9 +1602,9 @@
         var oleoCSRF = window.getCsrf();   // helper central (dom_helpers.js)
 
         function oleoApi(url, method, body) {
-            return fetch(url, {
+            return window.apiFetch(url, {
                 method: method || 'GET',
-                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': oleoCSRF, 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+                headers: { 'Content-Type': 'application/json'},
                 body: body ? JSON.stringify(body) : undefined
             }).then(function (r) { return r.json().catch(function () { return {}; }); });
         }

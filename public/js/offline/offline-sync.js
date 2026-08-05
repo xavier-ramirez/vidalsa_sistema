@@ -153,13 +153,11 @@
     // `signal` (opcional) permite ABORTAR los fetch: si una descarga forzada
     // (botón manual) cancela la automática que estaba en curso.
     function fetchJson(url, signal) {
-        return fetch(url, {
-            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-            credentials: 'same-origin', // manda la cookie de sesión (la ruta es auth)
+        return window.apiFetch(url, { // manda la cookie de sesión (la ruta es auth)
             priority: 'low',            // PRIORIDAD: que esta bajada NO le quite ancho de
                                         // banda a las búsquedas del usuario. El navegador
                                         // atiende primero las peticiones de prioridad normal.
-            signal: signal || undefined,
+            signal: signal || undefined
         }).then((r) => {
             if (!r.ok) throw new Error('HTTP ' + r.status);
             return r.json();

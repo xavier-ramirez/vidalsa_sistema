@@ -62,12 +62,7 @@ window.loadMovilizaciones = async function (pageUrl = null) {
 
         const finalUrl = '/admin/movilizaciones?' + params.toString();
 
-        const response = await fetch(finalUrl, {
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest',
-                'Accept': 'application/json'
-            }
-        });
+        const response = await window.apiFetch(finalUrl);
 
         if (!response.ok) throw new Error('HTTP ' + response.status);
 
@@ -169,7 +164,7 @@ window.abrirRecepcionDirecta = function () {
     // Pre-cargar subdivisiones del frente del usuario
     const idFrente = document.getElementById('rdFrenteInput').value;
     if (idFrente) {
-        fetch(`/admin/movilizaciones/subdivisiones/${idFrente}`)
+        window.apiFetch(`/admin/movilizaciones/subdivisiones/${idFrente}`)
             .then(r => r.json())
             .then(data => {
                 const subs = data.tiene_subdivisiones ? (data.subdivisiones || []) : [];
@@ -204,9 +199,7 @@ window.buscarEquiposRD = function (fromEnter = false) {
     list.innerHTML = '<div style="padding:15px;text-align:center;color:#94a3b8;"><i class="material-icons spin">sync</i> Buscando...</div>';
     container.style.display = 'block';
 
-    fetch(`/admin/movilizaciones/buscar-equipos-recepcion?search=${encodeURIComponent(search)}`, {
-        headers: { 'X-Requested-With': 'XMLHttpRequest' }
-    })
+    window.apiFetch(`/admin/movilizaciones/buscar-equipos-recepcion?search=${encodeURIComponent(search)}`)
         .then(r => r.json())
         .then(data => {
             if (!data.length) {
@@ -373,12 +366,10 @@ window.confirmarRecepcionDirecta = function () {
 
     const csrf = window.getCsrf();
 
-    fetch('/admin/movilizaciones/recepcion-directa', {
+    window.apiFetch('/admin/movilizaciones/recepcion-directa', {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': csrf,
-            'X-Requested-With': 'XMLHttpRequest'
+            'Content-Type': 'application/json'
         },
         body: JSON.stringify({ ids, ID_FRENTE_DESTINO: idFrente, DETALLE_UBICACION: ubicacion })
     })

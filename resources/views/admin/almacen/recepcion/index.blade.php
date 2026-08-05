@@ -1546,11 +1546,10 @@
         if (String(categoria || '').trim()) body.CATEGORIA = String(categoria).trim();
         if (dest) { body.id_almacen = dest; body.cantidad_inicial = 0; }
         creando = true;
-        fetch(ROUTE_PROD, {
+        window.apiFetch(ROUTE_PROD, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf(), 'X-Requested-With': 'XMLHttpRequest' },
-            credentials: 'same-origin',
-            body: JSON.stringify(body),
+            headers: { 'Content-Type': 'application/json'},
+            body: JSON.stringify(body)
         })
         .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b }; }); })
         .then(function (res) {
@@ -1732,11 +1731,10 @@
         enviando = true;
         var btn = el('cdirRegistrar'); if (btn) btn.disabled = true;
         if (window.showPreloader) window.showPreloader();
-        fetch(ROUTE_ENTRADA, {
+        window.apiFetch(ROUTE_ENTRADA, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf(), 'X-Requested-With': 'XMLHttpRequest' },
-            credentials: 'same-origin',
-            body: JSON.stringify(payload),
+            headers: { 'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
         })
         .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, status: r.status, b: b }; }); })
         .then(function (res) {
@@ -2153,7 +2151,7 @@
         var url = ROUTE + '?' + params(pageUrl).toString();
         body.style.opacity = '0.5';
         if (window.showPreloader) window.showPreloader();
-        fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' } })
+        window.apiFetch(url)
             .then(function (r) { return r.json(); })
             .then(function (data) {
                 if (miSeq !== _trSeq) return;   // llegó tarde: ya se pidió otra búsqueda
@@ -2200,7 +2198,7 @@
         overlay.classList.add('open');
         document.body.style.overflow = 'hidden';
 
-        fetch(DETALLE_URL + '/' + id, { headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' } })
+        window.apiFetch(DETALLE_URL + '/' + id)
             .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
             .then(function (data) {
                 box.innerHTML = data.html || '';
@@ -2446,15 +2444,12 @@
 
     function trModalPost(url, payload, successMsg) {
         if (window.showPreloader) window.showPreloader();
-        fetch(url, {
+        window.apiFetch(url, {
             method: 'POST',
             headers: {
-                'X-Requested-With': 'XMLHttpRequest',
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'X-CSRF-TOKEN': window.getCsrf(),
+                'Content-Type': 'application/json'
             },
-            body: JSON.stringify(payload),
+            body: JSON.stringify(payload)
         })
         .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
         .then(function (res) {

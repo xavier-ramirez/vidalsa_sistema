@@ -15,13 +15,8 @@ window.borrarDirecto = function(id, url, btn) {
 
     var csrfToken = window.getCsrf();
 
-    fetch(url, {
-        method: 'DELETE',
-        headers: {
-            'X-CSRF-TOKEN': csrfToken,
-            'Accept': 'application/json',
-        }
-    })
+    window.apiFetch(url, {
+        method: 'DELETE'})
     .then(function(r) { return r.json(); })
     .then(function(data) {
         if (data.ok || data.success || !data.error) {
@@ -65,10 +60,8 @@ if (typeof window.ModuleManager !== 'undefined') {
                 if (btn) btn.disabled = true;
                 if (window.showPreloader) window.showPreloader();
 
-                fetch(routeMatch, {
-                    method: 'POST',
-                    headers: { 'X-CSRF-TOKEN': window.getCsrf(), 'Accept': 'application/json' }
-                })
+                window.apiFetch(routeMatch, {
+                    method: 'POST'})
                 .then(function(r) { return r.json(); })
                 .then(function(data) {
                     var confirmados = data.confirmados || 0;
@@ -123,9 +116,9 @@ if (typeof window.ModuleManager !== 'undefined') {
                 if (!nuevo) { inp.style.border = '1px solid #ef4444'; return; }
                 inp.disabled = true;
 
-                fetch('/admin/consumibles/' + id + '/identificador', {
+                window.apiFetch('/admin/consumibles/' + id + '/identificador', {
                     method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': window.getCsrf() },
+                    headers: { 'Content-Type': 'application/json'},
                     body: JSON.stringify({ identificador: nuevo })
                 })
                 .then(function(r) { return r.json(); })
@@ -192,9 +185,9 @@ if (typeof window.ModuleManager !== 'undefined') {
                 var idFrente = sel.value;
                 sel.disabled = true;
 
-                fetch('/admin/consumibles/' + id + '/frente', {
+                window.apiFetch('/admin/consumibles/' + id + '/frente', {
                     method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': window.getCsrf() },
+                    headers: { 'Content-Type': 'application/json'},
                     body: JSON.stringify({ id_frente: idFrente })
                 })
                 .then(function(r) { return r.json(); })

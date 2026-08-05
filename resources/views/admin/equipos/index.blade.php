@@ -1790,7 +1790,7 @@
         if (fValue) _qsAnch.set('frente_id', fValue);
         if (tValue) _qsAnch.set('id_tipo', tValue);
 
-        fetch('{{ route("equipos.getAnchors") }}' + (_qsAnch.toString() ? ('?' + _qsAnch.toString()) : ''))
+        window.apiFetch('{{ route("equipos.getAnchors") }}' + (_qsAnch.toString() ? ('?' + _qsAnch.toString()) : ''))
             .then(res => res.json())
             .then(data => {
                 window.lastAnclajesData = data; // Store globally for export
@@ -1961,7 +1961,7 @@
         // de la app mientras se genera el XLSX en el servidor.
         if (typeof window.showPreloader === 'function') window.showPreloader();
 
-        fetch(url, { credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        window.apiFetch(url)
             .then(r => {
                 if (!r.ok) throw new Error('HTTP ' + r.status);
                 const cd = r.headers.get('content-disposition') || '';
@@ -2082,13 +2082,10 @@
         }
         const proceed = function () {
             if (window.showPreloader) window.showPreloader();
-            fetch('{{ route("equipos.bulkDelete") }}', {
+            window.apiFetch('{{ route("equipos.bulkDelete") }}', {
                 method: 'POST',
                 headers: {
-                    'X-CSRF-TOKEN': csrf(),
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest'
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({ ids: ids.map(x => parseInt(x, 10)) })
             })
@@ -2749,13 +2746,10 @@
         }
 
         if (window.showPreloader) window.showPreloader();
-        fetch(URL_BULK_LOOKUP, {
+        window.apiFetch(URL_BULK_LOOKUP, {
             method: 'POST',
             headers: {
-                'X-CSRF-TOKEN': csrf(),
-                'Accept': 'application/json',
-                'Content-Type': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest'
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify(body)
         })

@@ -313,10 +313,10 @@
 
     function post(url, body, onOk) {
         pre();
-        fetch(url, {
+        window.apiFetch(url, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf(), 'X-Requested-With': 'XMLHttpRequest' },
-            body: JSON.stringify(body || {}),
+            headers: { 'Content-Type': 'application/json'},
+            body: JSON.stringify(body || {})
         })
         .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b }; }); })
         .then(function (res) {

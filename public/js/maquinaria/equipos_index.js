@@ -273,12 +273,10 @@ window.changeStatusLite = function (id, newStatus, url, triggerEl) {
     // Actualizar visualmente el trigger de inmediato (optimistic UI)
     _applyStatusVisual(triggerEl, newStatus);
 
-    fetch(url, {
+    window.apiFetch(url, {
         method: 'PATCH',
         headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': window.getCsrf(),
-            'X-Requested-With': 'XMLHttpRequest',
+            'Content-Type': 'application/json'
         },
         body: JSON.stringify({ status: newStatus })
     })
@@ -331,14 +329,12 @@ window.toggleConfirmacionSitio = function (el) {
     var nuevo = !actual;
     _pintarConfirmSitio(id, nuevo); // optimista
 
-    fetch('/admin/equipos/' + id + '/confirmar-sitio', {
+    window.apiFetch('/admin/equipos/' + id + '/confirmar-sitio', {
         method: 'PATCH',
         headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': window.getCsrf(),
-            'X-Requested-With': 'XMLHttpRequest',
+            'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ confirmado: nuevo ? 1 : 0 }),
+        body: JSON.stringify({ confirmado: nuevo ? 1 : 0 })
     })
     .then(function (r) { return r.json().then(function (b) { return { status: r.status, body: b }; }); })
     .then(function (res) {
@@ -722,13 +718,10 @@ window.unanchorEquipos = async function (e) {
             const baseUrl = document.querySelector('meta[name="base-url"]')?.content || '';
             const url = `${baseUrl}/admin/equipos/clear-anchor`;
 
-            const resp = await fetch(url, {
+            const resp = await window.apiFetch(url, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': token,
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'Accept': 'application/json'
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({ ids: idsArray })
             });
@@ -1278,14 +1271,12 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
     const _didShowPreloader = !silent && !!window.showPreloader;
     if (_didShowPreloader) window.showPreloader();
 
-    return fetch(fetchUrl, {
+    return window.apiFetch(fetchUrl, {
         signal: abortController.signal,
         headers: {
-            "X-Requested-With": "XMLHttpRequest",
-            Accept: "application/json",
             "Cache-Control": "no-cache, no-store, must-revalidate",
-            "Pragma": "no-cache",
-        },
+            "Pragma": "no-cache"
+        }
     })
         .then((response) => {
             // Si fue abortada por una nueva petición, ignorar silenciosamente
@@ -1798,14 +1789,12 @@ window.openUbicacionBulkModal = function (event) {
         // del micro-spinner inline dentro del boton.
         if (typeof window.showPreloader === 'function') window.showPreloader();
         try {
-            const res = await fetch('/admin/equipos/bulk-ubicacion', {
+            const res = await window.apiFetch('/admin/equipos/bulk-ubicacion', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': window.getCsrf(),
-                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ ids: ids, detalle_ubicacion: valorFinal }),
+                body: JSON.stringify({ ids: ids, detalle_ubicacion: valorFinal })
             });
             if (!res.ok) {
                 const err = await res.json().catch(() => ({}));
@@ -1861,7 +1850,7 @@ window.openUbicacionBulkModal = function (event) {
 // onNuevos(nuevos[]) permite al modal de equipos sumar los frentes a su copia en
 // memoria (frentesData) sin re-abrir.
 window.refrescarFrentesMovilizacion = function (onNuevos) {
-    fetch('/admin/frentes/buscar?activos=1', { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
+    window.apiFetch('/admin/frentes/buscar?activos=1')
         .then((r) => (r.ok && (r.headers.get('content-type') || '').includes('json')) ? r.json() : null)
         .then((frentes) => {
             if (!Array.isArray(frentes) || !frentes.length) return;
@@ -2195,12 +2184,10 @@ window.openBulkModal = function (event) {
         if (window.showPreloader) window.showPreloader();
 
         try {
-            const res = await fetch("/admin/equipos/bulk-mobilize", {
+            const res = await window.apiFetch("/admin/equipos/bulk-mobilize", {
                 method: "POST",
                 headers: {
-                    "Content-Type": "application/json",
-                    "X-CSRF-TOKEN": window.getCsrf(),
-                    Accept: "application/json",
+                    "Content-Type": "application/json"
                 },
                 body: JSON.stringify({
                     ids: actaState.ids,
@@ -2212,7 +2199,7 @@ window.openBulkModal = function (event) {
                     origin: actaState.origin || '',
                     origin_zona: actaState.origin_zona || '',
                     firmas: actaState.firmas // null si no se editaron firmas
-                }),
+                })
             });
 
             // Sesión expirada
@@ -2337,7 +2324,7 @@ window.openBulkModal = function (event) {
                             })
                         }
                         : { headers: { 'Accept': 'application/pdf' }, credentials: 'same-origin' };
-                    fetch(`/admin/movilizaciones/${firstId}/acta-traslado`, actaReq)
+                    window.apiFetch(`/admin/movilizaciones/${firstId}/acta-traslado`, actaReq)
                         .then(r => {
                             if (!r.ok) throw new Error('HTTP ' + r.status);
                             return r.blob();
@@ -2454,9 +2441,9 @@ window._mostrarVistaPreviaActa = async function (actaState, onConfirm, opts) {
 
     // Pide el PDF al backend con los overrides actuales del estado → blob URL.
     async function pedirPreview() {
-        var res = await fetch('/admin/movilizaciones/preview-acta', {
+        var res = await window.apiFetch('/admin/movilizaciones/preview-acta', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf(), 'Accept': 'application/pdf' },
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/pdf' },
             body: JSON.stringify({
                 ids: actaState.ids,
                 type: actaState.type || 'equipo',
@@ -2722,9 +2709,9 @@ window._mostrarVistaPreviaActa = async function (actaState, onConfirm, opts) {
             metaCargada = true;
             try {
                 if (window.showPreloader) window.showPreloader();
-                var r = await fetch('/admin/movilizaciones/preview-acta-meta', {
+                var r = await window.apiFetch('/admin/movilizaciones/preview-acta-meta', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf(), 'Accept': 'application/json' },
+                    headers: { 'Content-Type': 'application/json'},
                     body: JSON.stringify({ ids: actaState.ids, type: actaState.type || 'equipo' })
                 });
                 if (r.ok) {
@@ -3108,7 +3095,7 @@ window.openAnchorModal = async function (event) {
 
     // ── Carga inicial: equipos del mismo frente ──
     try {
-        const response = await fetch(baseUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+        const response = await window.apiFetch(baseUrl);
         const equipos = await response.json();
 
         if (equipos.length === 0) {
@@ -3137,7 +3124,7 @@ window.openAnchorModal = async function (event) {
             searchTimer = setTimeout(async () => {
                 try {
                     const url = `${baseUrl}&search=${encodeURIComponent(val)}`;
-                    const res = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                    const res = await window.apiFetch(url);
                     const result = await res.json();
                     renderAnchorItems(result);
                 } catch (e) {
@@ -3166,18 +3153,15 @@ window.openAnchorModal = async function (event) {
         btn.innerHTML = '<i class="material-icons spin">sync</i> Procesando...';
 
         try {
-            const response = await fetch("/admin/equipos/bulk-anchor", {
+            const response = await window.apiFetch("/admin/equipos/bulk-anchor", {
                 method: "POST",
                 headers: {
-                    "Content-Type": "application/json",
-                    "Accept": "application/json",
-                    "X-Requested-With": "XMLHttpRequest",
-                    "X-CSRF-TOKEN": window.getCsrf(),
+                    "Content-Type": "application/json"
                 },
                 body: JSON.stringify({
                     ids: selections.map((s) => s[0]),
-                    master_id: window.selectedMasterId,
-                }),
+                    master_id: window.selectedMasterId
+                })
             });
 
             // 403 permiso denegado: cerramos modal y mostramos toast.
@@ -3390,10 +3374,8 @@ window.exportEquipos = function () {
     var d = new Date();
     var fname = 'Listado_Maquinarias_Equipos_' + d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + '_' + pad(d.getHours()) + '-' + pad(d.getMinutes()) + '.xlsx';
 
-    fetch(url, {
-        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' },
-        credentials: 'same-origin'
-    })
+    window.apiFetch(url, {
+        headers: { 'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }})
         .then(function (r) {
             if (!r.ok) throw new Error('No se pudo generar el Excel.');
             // Si el backend respondió HTML (p.ej. redirect por falta de filtro) en vez del

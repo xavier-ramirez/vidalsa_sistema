@@ -164,7 +164,7 @@ window.updateYearsList = function (model) {
 
     dropdown.innerHTML = '<div class="dropdown-item" style="color: #ecc94b; font-style: italic;">Cargando años...</div>';
 
-    fetch(`/admin/catalogo/years-from-equipos?model=${encodeURIComponent(model)}`)
+    window.apiFetch(`/admin/catalogo/years-from-equipos?model=${encodeURIComponent(model)}`)
         .then(response => response.json())
         .then(years => {
             dropdown.innerHTML = '';
@@ -200,7 +200,7 @@ window.loadBrandsList = function () {
 
     dropdown.innerHTML = '<div class="dropdown-item" style="color: #ecc94b; font-style: italic;">Cargando marcas...</div>';
 
-    fetch('/admin/catalogo/brands-from-equipos')
+    window.apiFetch('/admin/catalogo/brands-from-equipos')
         .then(response => response.json())
         .then(brands => {
             dropdown.innerHTML = '';
@@ -235,7 +235,7 @@ window.loadModelsList = function () {
 
     dropdown.innerHTML = '<div class="dropdown-item" style="color: #ecc94b; font-style: italic;">Cargando modelos...</div>';
 
-    fetch('/admin/catalogo/models-from-equipos')
+    window.apiFetch('/admin/catalogo/models-from-equipos')
         .then(response => response.json())
         .then(models => {
             dropdown.innerHTML = '';
@@ -275,7 +275,7 @@ window.scopeByTipo = function () {
         if (!dropdown) return;
 
         var url = pair[1] + (tipo ? ('?tipo=' + encodeURIComponent(tipo)) : '');
-        fetch(url)
+        window.apiFetch(url)
             .then(function (r) { return r.json(); })
             .then(function (items) {
                 dropdown.innerHTML = '';
@@ -576,7 +576,7 @@ window.addEventListener('spa:contentLoaded', function () {
 
                 clearTimeout(timeout);
                 timeout = setTimeout(() => {
-                    fetch(`/admin/equipos/search-field?field=${field.type}&query=${encodeURIComponent(val)}`)
+                    window.apiFetch(`/admin/equipos/search-field?field=${field.type}&query=${encodeURIComponent(val)}`)
                         .then(r => r.json())
                         .then(data => {
                             dataList.innerHTML = '';
@@ -661,7 +661,7 @@ window.addEventListener('spa:contentLoaded', function () {
         specsTimeout = setTimeout(() => {
             list.innerHTML = '<div style="padding:10px; color:#cbd5e0; font-size:12px; text-align:center;">Buscando...</div>';
 
-            fetch(`/admin/equipos/search-specs?query=${encodeURIComponent(val)}`)
+            window.apiFetch(`/admin/equipos/search-specs?query=${encodeURIComponent(val)}`)
                 .then(r => r.json())
                 .then(data => {
                     list.innerHTML = '';
@@ -735,15 +735,9 @@ window.addEventListener('spa:contentLoaded', function () {
         const methodInput = form.querySelector('input[name="_method"]');
         const method = methodInput ? methodInput.value : 'POST';
 
-        fetch(url, {
+        window.apiFetch(url, {
             method: method === 'GET' ? 'GET' : 'POST',
-            body: formData,
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest',
-                'Accept': 'application/json',
-                'X-CSRF-TOKEN': window.getCsrf()
-            }
-        })
+            body: formData})
             .then(async response => {
                 if (response.status === 419 || response.status === 401 || (response.redirected && response.url.includes('/login'))) {
                     window.location.href = '/login';

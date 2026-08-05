@@ -130,7 +130,7 @@
         let url = `${CONFIG.searchUrl}?model=${encodeURIComponent(model)}&year=${encodeURIComponent(year)}`;
         if (tipo) url += `&tipo=${encodeURIComponent(tipo)}`;
 
-        fetch(url)
+        window.apiFetch(url)
             .then(r => r.json())
             .then(res => {
                 if (res.found && res.data.length > 0) {

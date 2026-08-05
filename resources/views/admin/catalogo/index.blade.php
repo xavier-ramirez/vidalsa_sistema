@@ -730,11 +730,9 @@
     function _uploadBlob(url, fd, onSuccess, onError) {
         var csrf = window.getCsrf();   // helper central (dom_helpers.js)
         if (typeof window.showPreloader === 'function') window.showPreloader();
-        fetch(url, {
+        window.apiFetch(url, {
             method: 'POST',
-            headers: { 'X-CSRF-TOKEN': csrf, 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
-            body: fd, credentials: 'same-origin'
-        })
+            body: fd})
         .then(function (r) { return r.json().catch(function () { return {}; }).then(function (b) { return { ok: r.ok, body: b }; }); })
         .then(function (res) {
             if (window.hidePreloader) window.hidePreloader();
@@ -783,11 +781,8 @@
         if (!confirm('¿Eliminar la foto de este modelo?')) return;
         var csrf = window.getCsrf();   // helper central (dom_helpers.js)
         if (typeof window.showPreloader === 'function') window.showPreloader();
-        fetch('{{ url("admin/catalogo") }}/' + id + '/photo', {
-            method: 'DELETE',
-            headers: { 'X-CSRF-TOKEN': csrf, 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
-            credentials: 'same-origin'
-        })
+        window.apiFetch('{{ url("admin/catalogo") }}/' + id + '/photo', {
+            method: 'DELETE'})
         .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, body: b }; }); })
         .then(function (res) {
             if (window.hidePreloader) window.hidePreloader();
@@ -824,11 +819,9 @@
         fd.append('tipo', tipo); fd.append('marca', marca); fd.append('modelo', modelo);
         if (anio) fd.append('anio', anio);
         if (typeof window.showPreloader === 'function') window.showPreloader();
-        fetch('{{ route("equipos-auxiliares.catalogo.deletePhoto") }}', {
+        window.apiFetch('{{ route("equipos-auxiliares.catalogo.deletePhoto") }}', {
             method: 'POST',
-            headers: { 'X-CSRF-TOKEN': csrf, 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
-            body: fd, credentials: 'same-origin'
-        })
+            body: fd})
         .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, body: b }; }); })
         .then(function (res) {
             if (window.hidePreloader) window.hidePreloader();

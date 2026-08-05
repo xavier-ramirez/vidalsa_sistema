@@ -521,14 +521,8 @@
                 const proceed = function () {
                     if (window.showPreloader) window.showPreloader();
                     const csrf = window.getCsrf();   // helper central (dom_helpers.js)
-                    fetch('{{ url("admin/frentes") }}/' + id, {
-                        method: 'DELETE',
-                        headers: {
-                            'X-CSRF-TOKEN': csrf,
-                            'Accept': 'application/json',
-                            'X-Requested-With': 'XMLHttpRequest'
-                        }
-                    }).then(handleDeleteResponse).catch(handleDeleteError);
+                    window.apiFetch('{{ url("admin/frentes") }}/' + id, {
+                        method: 'DELETE'}).then(handleDeleteResponse).catch(handleDeleteError);
                 };
 
                 if (typeof window.showModal === 'function') {
@@ -642,9 +636,7 @@
             window.cargarFrentesSinEquipos = function () {
                 var list = document.getElementById('sinEquiposList');
                 if (!list) return;
-                fetch('{{ route("frentes.sinEquipos") }}', {
-                    headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
-                })
+                window.apiFetch('{{ route("frentes.sinEquipos") }}')
                 .then(function (r) { return r.json(); })
                 .then(function (data) {
                     if (!data.frentes || data.frentes.length === 0) {
@@ -674,7 +666,7 @@
             function _sinEquiposAction(method, url, okMsg, errFallback, nombre) {
                 if (window.showPreloader) window.showPreloader();
                 var csrf = window.getCsrf();   // helper central (dom_helpers.js)
-                fetch(url, { method: method, headers: { 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
+                window.apiFetch(url, { method: method})
                 .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { return { ok: r.ok, body: d }; }); })
                 .then(function (res) {
                     if (window.hidePreloader) window.hidePreloader();

@@ -54,16 +54,12 @@
 
             var res;
             try {
-                res = await fetch('/offline/sync', {
+                res = await window.apiFetch('/offline/sync', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'X-CSRF-TOKEN': csrf(),
+                        'Content-Type': 'application/json'
                     },
-                    credentials: 'same-origin',
-                    body: JSON.stringify({ operations: operations }),
+                    body: JSON.stringify({ operations: operations })
                 });
             } catch (e) {
                 return; // red caída a mitad: la cola queda intacta, se reintenta luego

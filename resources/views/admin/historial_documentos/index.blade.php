@@ -903,7 +903,7 @@
 
     function loadList(url, kind, listElId) {
         var list = document.getElementById(listElId);
-        fetch(url, { headers: { 'Accept':'application/json', 'X-Requested-With':'XMLHttpRequest' }})
+        window.apiFetch(url)
             .then(function (r) { return r.json(); })
             .then(function (data) {
                 papeleraCache[listElId] = { items: data.items || [], kind: kind };
@@ -936,7 +936,7 @@
     function restoreItem(url, label, refreshFn) {
         var doRestore = function () {
             if (window.showPreloader) window.showPreloader();
-            fetch(url, { method: 'PATCH', headers: { 'X-CSRF-TOKEN': csrfTok(), 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }})
+            window.apiFetch(url, { method: 'PATCH'})
                 .then(function (r) { return r.json().catch(function () { return {}; }).then(function (b) { return { ok: r.ok, body: b }; }); })
                 .then(function (res) {
                     if (window.hidePreloader) window.hidePreloader();
@@ -978,7 +978,7 @@
     function forceDeleteItem(url, refreshFn) {
         var doDelete = function () {
             if (window.showPreloader) window.showPreloader();
-            fetch(url, { method: 'DELETE', headers: { 'X-CSRF-TOKEN': csrfTok(), 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }})
+            window.apiFetch(url, { method: 'DELETE'})
                 .then(function (r) { return r.json().catch(function () { return {}; }).then(function (b) { return { ok: r.ok, body: b }; }); })
                 .then(function (res) {
                     if (window.hidePreloader) window.hidePreloader();
@@ -1099,14 +1099,12 @@ window.hdDeleteRegistro = function (source, id, btn) {
 
     var tr = btn.closest('tr');
     if (window.showPreloader) window.showPreloader();
-    fetch(@json(route('historial-documentos.deleteRegistro')), {
+    window.apiFetch(@json(route('historial-documentos.deleteRegistro')), {
         method: 'DELETE',
         headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'X-CSRF-TOKEN': window.getCsrf(),
+            'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ source: source, id: id }),
+        body: JSON.stringify({ source: source, id: id })
     })
     .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
     .then(function (res) {

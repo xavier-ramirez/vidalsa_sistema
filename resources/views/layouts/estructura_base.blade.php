@@ -945,7 +945,7 @@
             // Motivo: un ÚNICO spinner global es compartido por varias operaciones
             // async. El caso más común: al entrar a un módulo (navegación SPA) se
             // muestra el spinner, se inyecta el HTML del módulo y su script de init
-            // lanza un SEGUNDO fetch (los datos de la tabla/filtro). SIN contador, el
+            // lanza un SEGUNDO window.apiFetch(los datos de la tabla/filtro). SIN contador, el
             // hidePreloader de la navegación ocultaba el spinner apenas llegaba el
             // cascarón HTML, aunque el fetch de datos siguiera en vuelo → con internet
             // lento el spinner desaparecía y los datos filtrados aparecían unos
@@ -991,7 +991,7 @@
 
             // Ocultar el preloader INICIAL cuando todo (imágenes/iconos) haya cargado,
             // PERO solo si ninguna operación lo está usando (refs===0). Si el script de
-            // init de un módulo ya pidió el spinner para su primer fetch (refs>0), NO lo
+            // init de un módulo ya pidió el spinner para su primer window.apiFetch(refs>0), NO lo
             // tocamos aquí: se ocultará cuando ese fetch termine de pintar los datos.
             // Sin esta guarda, en una carga de página COMPLETA (no-SPA) el window.load
             // bajaba el contador del init y reaparecía el mismo bug (spinner antes que datos).
@@ -1123,7 +1123,7 @@
                 function volverOnline() {
                     if (window.showPreloader) window.showPreloader();
                     showBanner('Volviendo al modo con internet · actualizando…', 'wifi', '#16a34a', 0);
-                    fetch('/offline/version', { method: 'GET', cache: 'no-store', credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                    window.apiFetch('/offline/version', { method: 'GET', cache: 'no-store'})
                         .then(function () { window.location.reload(); })
                         .catch(function () {
                             if (window.hidePreloader) window.hidePreloader(true);
@@ -1179,7 +1179,7 @@
                     if (!navigator.onLine) { mostrarOffline(); return; }
                     // Cualquier RESPUESTA (aunque sea 401/500) significa que el servidor
                     // responde → estamos online. Solo el fallo de red (catch) = sin conexión.
-                    fetch('/offline/version', { method: 'GET', cache: 'no-store', credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                    window.apiFetch('/offline/version', { method: 'GET', cache: 'no-store'})
                         .then(function () { if (window.OfflineOutbox) window.OfflineOutbox.drain(); }) // servidor OK → subir outbox
                         .catch(function () { mostrarOffline(); });
                 }
@@ -1759,6 +1759,10 @@
                 // el navegador ignore el atributo `download` (lo ignora cuando la URL no es del
                 // mismo origen — p.ej. si redirige a Drive). Mismo enfoque que printPdfFromPreview.
                 // Si el fetch falla (CORS, red), caemos al enlace directo (comportamiento previo).
+                // NO usa window.apiFetch a proposito: la URL puede redirigir a Drive
+                // (cross-origin) y las cabeceras que apiFetch agrega (X-Requested-With)
+                // convierten esto en una peticion con preflight CORS que el otro dominio
+                // rechaza. Aqui va fetch pelado.
                 fetch(url, { credentials: 'include', cache: 'force-cache' })
                     .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); })
                     .then(function (blob) { downloadViaAnchor(URL.createObjectURL(blob), true); })
@@ -1801,6 +1805,10 @@
 
                 // 2) Fetch (usa cache HTTP si existe) -> Blob -> iframe oculto
                 setBtnLoading(true);
+                // NO usa window.apiFetch a proposito: la URL puede redirigir a Drive
+                // (cross-origin) y las cabeceras que apiFetch agrega (X-Requested-With)
+                // convierten esto en una peticion con preflight CORS que el otro dominio
+                // rechaza. Aqui va fetch pelado.
                 fetch(url, { credentials: 'include', cache: 'force-cache' })
                     .then(r => {
                         if (!r.ok) throw new Error('HTTP ' + r.status);
@@ -2054,7 +2062,7 @@
                     const baseUrl = ctx.module === 'auxiliar'
                         ? `/admin/equipos-auxiliares/${ctx.equipoId}/metadata`
                         : `/admin/equipos/${ctx.equipoId}/metadata`;
-                    const res = await fetch(`${baseUrl}?type=${ctx.docType}`);
+                    const res = await window.apiFetch(`${baseUrl}?type=${ctx.docType}`);
                     const data = await res.json();
                     if (data.success) {
                         const info = data.data;
@@ -2148,9 +2156,8 @@
                     const saveUrl = ctx.module === 'auxiliar'
                         ? `/admin/equipos-auxiliares/${ctx.equipoId}/update-metadata`
                         : `/admin/equipos/${ctx.equipoId}/update-metadata`;
-                    const res = await fetch(saveUrl, {
+                    const res = await window.apiFetch(saveUrl, {
                         method: 'POST',
-                        headers: { 'X-CSRF-TOKEN': window.getCsrf(), 'Accept': 'application/json' },
                         body: formData
                     });
                     const data = await res.json();
@@ -2234,9 +2241,8 @@
                     if (btnAux) btnAux.disabled = true;
                     if (typeof window.showPreloader === 'function') window.showPreloader();
                     try {
-                        const r = await fetch(`/admin/equipos-auxiliares/${ctx.equipoId}/delete-doc?doc_type=${encodeURIComponent(ctx.docType)}`, {
-                            method: 'DELETE',
-                            headers: { 'X-CSRF-TOKEN': window.getCsrf(), 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+                        const r = await window.apiFetch(`/admin/equipos-auxiliares/${ctx.equipoId}/delete-doc?doc_type=${encodeURIComponent(ctx.docType)}`, {
+                            method: 'DELETE'
                         });
                         const d = await r.json().catch(() => ({}));
                         if (r.ok && d.success) {
@@ -2280,13 +2286,8 @@
                     // doc_type como query param: la ruta es DELETE, asi que enviamos
                     // los datos en la URL para evitar problemas con bodies en DELETE
                     // (algunos middlewares y proxies los strippean).
-                    const res = await fetch(`/admin/equipos/${ctx.equipoId}/delete-doc?doc_type=${encodeURIComponent(ctx.docType)}`, {
-                        method: 'DELETE',
-                        headers: {
-                            'X-CSRF-TOKEN': csrfTok,
-                            'X-Requested-With': 'XMLHttpRequest',
-                            'Accept': 'application/json',
-                        },
+                    const res = await window.apiFetch(`/admin/equipos/${ctx.equipoId}/delete-doc?doc_type=${encodeURIComponent(ctx.docType)}`, {
+                        method: 'DELETE'
                     });
                     const data = await res.json().catch(() => ({}));
 
@@ -2466,10 +2467,7 @@
                                     var _auxModal = document.getElementById('auxDetailsModal');
                                     if (_auxId && _auxModal && _auxModal.classList.contains('active')
                                         && typeof window.renderAuxDetailsModal === 'function') {
-                                        fetch('/admin/equipos-auxiliares/' + _auxId + '/details', {
-                                            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
-                                            credentials: 'same-origin'
-                                        })
+                                        window.apiFetch('/admin/equipos-auxiliares/' + _auxId + '/details')
                                         .then(function (r) { return r.ok ? r.json() : null; })
                                         .then(function (d) {
                                             if (!d) return;
@@ -2530,10 +2528,9 @@
                         }
 
                         try {
-                            const response = await fetch(`/admin/equipos/${equipoId}/delete-doc`, {
+                            const response = await window.apiFetch(`/admin/equipos/${equipoId}/delete-doc`, {
                                 method: 'DELETE',
                                 headers: {
-                                    'X-CSRF-TOKEN': window.getCsrf(),
                                     'Content-Type': 'application/json'
                                 },
                                 body: JSON.stringify({ doc_type: docType })

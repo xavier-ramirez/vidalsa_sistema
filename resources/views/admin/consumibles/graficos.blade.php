@@ -724,7 +724,7 @@
             document.getElementById('resumenGrid').innerHTML =
                 '<div class="loading-overlay" style="width:100%;"><i class="material-icons" style="animation:spin 1s linear infinite;">refresh</i> Cargando...</div>';
 
-            fetch(`{{ route('consumibles.graficosData') }}?${params}`)
+            window.apiFetch(`{{ route('consumibles.graficosData') }}?${params}`)
                 .then(r => r.json())
                 .then(data => {
                     const frenteSeleccionado = document.getElementById('fFrente').value;

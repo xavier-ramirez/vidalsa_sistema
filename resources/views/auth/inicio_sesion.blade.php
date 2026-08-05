@@ -391,6 +391,12 @@ if ('serviceWorker' in navigator) {
 <script src="{{ asset('js/pwa-update-overlay.js') }}?v={{ @filemtime(public_path('js/pwa-update-overlay.js')) }}" defer></script>
 {{-- Login OFFLINE: botón "Entrar sin conexión" + verificación por hash local. --}}
 <script src="{{ asset('js/offline/offline-auth.js') }}?v={{ @filemtime(public_path('js/offline/offline-auth.js')) }}" defer></script>
+{{-- Helpers DOM compartidos (window.getCsrf / escapeHtml / escapeAttrJs / apiFetch).
+     Esta pantalla NO extiende layouts.estructura_base, así que hay que cargarlos aquí:
+     webauthn.js (abajo) usa window.getCsrf y corre tanto en el login como dentro de
+     la app. SIN defer y ANTES que webauthn.js, para que ya exista cuando este evalúe
+     su alias. --}}
+<script src="{{ asset('js/maquinaria/dom_helpers.js') }}?v={{ @filemtime(public_path('js/maquinaria/dom_helpers.js')) }}"></script>
 {{-- WebAuthn: login biométrico (huella/rostro) sin contraseña. --}}
 <script src="{{ asset('js/webauthn.js') }}?v={{ @filemtime(public_path('js/webauthn.js')) }}" defer></script>
 <script>
