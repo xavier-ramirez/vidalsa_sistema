@@ -15,10 +15,6 @@
 /.vscode
 /.zed
 /auth.json
-/clean_placas.php
-/node_modules
-/public/build
-/public/hot
 /public/storage
 /skills-lock.json
 /storage/*.key
@@ -31,12 +27,6 @@ Homestead.yaml
 Thumbs.db
 scratch_*.php
 scratch_*.csv
-/node-bin
-/import_temp.sql
-/run_import.php
-/muestra_stock_30.sql
-/inventory_from_excel.sql
-/setup_almacen_22.php
 # Generadores y entregables desechables sueltos en la raíz (no forman parte de la app)
 /*.py
 /*.xlsx
@@ -62,8 +52,10 @@ scratch_*.csv
 /export_sql.php
 /compare_*.php
 # Misma familia: extractores puntuales (leer un Excel/PPTX, buscar un producto en la BD)
-# escritos para responder UNA pregunta. Ojo: generar_geo_faja.php y generar_miniaturas_mapa.php
-# SÍ van en el repo — esos regeneran assets que están versionados.
+# escritos para responder UNA pregunta.
+#
+# Los scripts que SÍ hay que conservar (los que regeneran assets versionados: la faja
+# petrolífera y las miniaturas del mapa) viven en tools/ — esa carpeta no está ignorada.
+# Si escribes un generador que valga la pena guardar, va en tools/, no en la raíz.
 /find_*.php
 /get_*.php
-/valvulas_excel.php

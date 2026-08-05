@@ -14,15 +14,17 @@
  * por adyacencia, así la miniatura enseña exactamente los colores que verá al encender la capa.
  *
  * Solo hay que volver a correrlo si cambian los geojson o la paleta:
- *     php generar_miniaturas_mapa.php
- * (La capa petrolera se descarga con generar_geo_faja.php, que hay que correr ANTES que esto.)
+ *     php tools/generar_miniaturas_mapa.php
+ * (La capa petrolera se descarga con tools/generar_geo_faja.php, que hay que correr ANTES que esto.)
  */
 
-$GEO_MUNI      = __DIR__ . '/public/geo/venezuela-municipios.geojson';
-$GEO_ESTADOS   = __DIR__ . '/public/geo/venezuela-estados.geojson';
-$GEO_FAJA_POLI = __DIR__ . '/public/geo/faja-poligonal.geojson';
-$GEO_FAJA_BLOQ = __DIR__ . '/public/geo/faja-bloques.geojson';
-$DIR_SALIDA    = __DIR__ . '/public/img/mapa';
+// dirname(__DIR__) = raiz del proyecto: este script vive en tools/, no en la raiz.
+$RAIZ          = dirname(__DIR__);
+$GEO_MUNI      = $RAIZ . '/public/geo/venezuela-municipios.geojson';
+$GEO_ESTADOS   = $RAIZ . '/public/geo/venezuela-estados.geojson';
+$GEO_FAJA_POLI = $RAIZ . '/public/geo/faja-poligonal.geojson';
+$GEO_FAJA_BLOQ = $RAIZ . '/public/geo/faja-bloques.geojson';
+$DIR_SALIDA    = $RAIZ . '/public/img/mapa';
 $ANCHO = 256;   // px del PNG final (el botón lo muestra a ~60 px: da margen para pantallas retina)
 $SS    = 3;     // supersampling: se dibuja a 3× y se reduce → bordes suaves (GD no antialiasea polígonos)
 
@@ -215,7 +217,7 @@ $estados  = cargarGeo($GEO_ESTADOS);
 $fajaPoli = cargarGeo($GEO_FAJA_POLI);
 $fajaBloq = cargarGeo($GEO_FAJA_BLOQ);
 if (!$fajaPoli || !$fajaBloq) {
-    fwrite(STDERR, "  Faltan los geojson de la faja: corre antes 'php generar_geo_faja.php'\n");
+    fwrite(STDERR, "  Faltan los geojson de la faja: corre antes 'php tools/generar_geo_faja.php'\n");
     exit(1);
 }
 

@@ -624,7 +624,7 @@
         // primera vez que se necesita; el resultado se memoriza en muniPromesa para que varias
         // llamadas seguidas compartan una sola descarga.
         var muniUrl = el.getAttribute('data-municipios');
-        // Miniaturas de los botones de capas (imágenes pre-generadas: generar_miniaturas_mapa.php).
+        // Miniaturas de los botones de capas (imágenes pre-generadas: tools/generar_miniaturas_mapa.php).
         var miniMuniUrl    = el.getAttribute('data-mini-muni');
         var miniFajaUrl    = el.getAttribute('data-mini-faja');
         var miniBloquesUrl = el.getAttribute('data-mini-bloques');
@@ -832,7 +832,7 @@
         // Sustituye al control de capas de Leaflet (icono gris que al pasar el mouse se abría en
         // un checkbox): ahora se ve un mini mapa de Venezuela ya pintado con los MISMOS colores
         // que tendrán los municipios, así se sabe qué enciende el botón sin leer nada.
-        // La miniatura es una imagen pre-generada (php generar_miniaturas_mapa.php, ~40 KB que el
+        // La miniatura es una imagen pre-generada (php tools/generar_miniaturas_mapa.php, ~40 KB que el
         // navegador cachea): NO descarga el geojson de municipios (≈1 MB), que se sigue pidiendo
         // solo cuando el usuario enciende la capa de verdad.
         var _btnMuni = null;
@@ -904,7 +904,7 @@
         // Sirve para ubicar los frentes: en qué área de la Faja (Boyacá, Junín, Ayacucho,
         // Carabobo) y en qué bloque petrolero cae cada punto.
         // Los datos son de los servicios PÚBLICOS de ArcGIS Online del "Mapa Petrolífero de
-        // Venezuela" (LSIGMA), pero NO se consultan en vivo: generar_geo_faja.php los descarga y
+        // Venezuela" (LSIGMA), pero NO se consultan en vivo: tools/generar_geo_faja.php los descarga y
         // adelgaza a GeoJSON propio en public/geo (faja-poligonal / faja-bloques). Se sirven
         // desde nuestro servidor — rápido, sin depender de Esri.
         // Son DOS capas con su propio botón, independientes: se puede ver solo la Faja, solo los
@@ -921,7 +921,7 @@
         // orden es el de la leyenda. A pedido del cliente: Junín en azul (antes ámbar) — distinto
         // al de las velas (#0067b1) para no confundirlos — y Carabobo en negro (antes rojo, que
         // sobre el verde del satélite tiraba a naranja).
-        // OJO: los mismos colores están en generar_miniaturas_mapa.php (la miniatura del botón).
+        // OJO: los mismos colores están en tools/generar_miniaturas_mapa.php (la miniatura del botón).
         var AREAS_FAJA = [
             { clave: 'BOYACA',   nombre: 'Boyacá',   color: '#15803d' },
             { clave: 'JUNIN',    nombre: 'Junín',    color: '#1d4ed8' },

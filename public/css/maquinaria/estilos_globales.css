@@ -4567,7 +4567,7 @@ body:has(.mapa-page) .main-viewport {
 /* Botones MINIATURA de capas (arriba-derecha): "Municipios", "Faja" y "Bloques". Sustituyen al
    control de capas de Leaflet (icono gris que al pasar el mouse se abría en un checkbox): cada
    uno enseña un mini mapa de Venezuela con lo que enciende. Las imágenes están pre-generadas
-   (generar_miniaturas_mapa.php), así los botones no descargan los geojson pesados. */
+   (tools/generar_miniaturas_mapa.php), así los botones no descargan los geojson pesados. */
 .mapa-mini-capa {
     display: block;
     position: relative;

@@ -9,8 +9,8 @@
          monta el mapa, tanto en carga directa como en navegación SPA. Leaflet + el
          geocoder se cargan de forma diferida desde /vendor/leaflet (servidor propio,
          ya no desde un CDN). data-geojson = límites de los estados de Venezuela;
-         data-faja-* = Faja Petrolífera del Orinoco y bloques petroleros (php generar_geo_faja.php);
-         data-mini-* = miniaturas de los botones de capas (php generar_miniaturas_mapa.php).
+         data-faja-* = Faja Petrolífera del Orinoco y bloques petroleros (php tools/generar_geo_faja.php);
+         data-mini-* = miniaturas de los botones de capas (php tools/generar_miniaturas_mapa.php).
          Todos los geojson son LOCALES y se cargan solo cuando se enciende su capa. --}}
     @php $geo = fn ($ruta) => asset($ruta) . '?v=' . (@filemtime(public_path($ruta)) ?: 0); @endphp
     <div id="mapa-leaflet"

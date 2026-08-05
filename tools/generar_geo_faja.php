@@ -9,7 +9,7 @@
  * https://hub.arcgis.com/apps/af3603ea8e844248a8df4f34024bb60f/explore
  * Los datos son estáticos (bloques 2018): solo hay que volver a correr esto si la fuente cambia.
  *
- *     php generar_geo_faja.php
+ *     php tools/generar_geo_faja.php
  *
  * El archivo se ADELGAZA antes de guardarlo (solo los campos que usa el mapa, coordenadas a 5
  * decimales ≈ 1 m y simplificación suave): el original pesa ~1 MB y queda en menos de la mitad.
@@ -106,7 +106,8 @@ function limpiarGeometria($g, $tol) {
     return null; // esta capa solo trae polígonos
 }
 
-$dir = __DIR__ . '/public/geo';
+// dirname(__DIR__) = raiz del proyecto: este script vive en tools/, no en la raiz.
+$dir = dirname(__DIR__) . '/public/geo';
 if (!is_dir($dir)) mkdir($dir, 0777, true);
 
 foreach ($CAPAS as $capa) {

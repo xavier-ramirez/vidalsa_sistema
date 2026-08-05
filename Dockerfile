@@ -39,12 +39,11 @@ COPY . .
 # Instalar dependencias de PHP
 RUN composer install --no-dev --optimize-autoloader --no-interaction
 
-# Instalar Node.js y NPM para compilar assets
-RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
-    && apt-get install -y nodejs
-
-# Compilar assets
-RUN npm install && npm run build
+# NO hay paso de build de assets: el front no usa bundler. El CSS y el JS se
+# sirven ya escritos desde public/css y public/js (versionados con ?v=filemtime
+# en estructura_base.blade.php). Antes esta imagen instalaba Node 20 + npm y
+# corria `npm run build`, pero ningun blade usaba @vite ni el manifest de
+# public/build: el bundle se compilaba y se tiraba a la basura en cada build.
 
 # Configurar permisos
 RUN chown -R www-data:www-data /var/www/html \
