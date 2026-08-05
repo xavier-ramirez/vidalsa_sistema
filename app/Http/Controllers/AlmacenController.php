@@ -1830,9 +1830,17 @@ class AlmacenController extends Controller
             $productos = $productosQuery->get(['ID_PRODUCTO', 'CODIGO', 'NOMBRE', 'UM', 'CATEGORIA']);
         }
 
+        // AGRUPADO por producto+almacén, no fila por fila: desde que el saldo se lleva por
+        // proyecto, un producto tiene VARIAS filas dentro del mismo almacén. Recorrerlas
+        // sueltas y asignar $stockMap[producto][almacen] hacía que la última pisara a las
+        // anteriores, así que la columna del almacén exportaba el saldo de UN proyecto (o
+        // un 0 de la fila base que crea asegurarStock) en vez del total. Mismo criterio de
+        // agregación que la tabla del módulo y que el Consolidado.
         $stocks = AlmacenStock::query()
             ->whereIn('ID_ALMACEN', $almacenesEnExport->pluck('ID_ALMACEN'))
-            ->get(['ID_ALMACEN', 'ID_PRODUCTO', 'CANTIDAD', 'CANTIDAD_MINIMA']);
+            ->groupBy('ID_ALMACEN', 'ID_PRODUCTO')
+            ->selectRaw('ID_ALMACEN, ID_PRODUCTO, SUM(CANTIDAD) as CANTIDAD, MAX(CANTIDAD_MINIMA) as CANTIDAD_MINIMA')
+            ->get();
         $stockMap = [];
         $minimoMap = [];
         foreach ($stocks as $s) {
