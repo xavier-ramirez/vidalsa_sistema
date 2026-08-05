@@ -62,7 +62,7 @@ window.loadMovilizaciones = async function (pageUrl = null) {
 
         const finalUrl = '/admin/movilizaciones?' + params.toString();
 
-        const response = await window.apiFetch(finalUrl);
+        const response = await window.apiFetch(finalUrl, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } });
 
         if (!response.ok) throw new Error('HTTP ' + response.status);
 
@@ -199,7 +199,7 @@ window.buscarEquiposRD = function (fromEnter = false) {
     list.innerHTML = '<div style="padding:15px;text-align:center;color:#94a3b8;"><i class="material-icons spin">sync</i> Buscando...</div>';
     container.style.display = 'block';
 
-    window.apiFetch(`/admin/movilizaciones/buscar-equipos-recepcion?search=${encodeURIComponent(search)}`)
+    window.apiFetch(`/admin/movilizaciones/buscar-equipos-recepcion?search=${encodeURIComponent(search)}`, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
         .then(r => r.json())
         .then(data => {
             if (!data.length) {
@@ -368,7 +368,7 @@ window.confirmarRecepcionDirecta = function () {
 
     window.apiFetch('/admin/movilizaciones/recepcion-directa', {
         method: 'POST',
-        headers: {
+        headers: { 'X-Requested-With': 'XMLHttpRequest', 
             'Content-Type': 'application/json'
         },
         body: JSON.stringify({ ids, ID_FRENTE_DESTINO: idFrente, DETALLE_UBICACION: ubicacion })

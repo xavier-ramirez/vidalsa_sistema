@@ -491,7 +491,7 @@ async function loadFleetDashboardData(frenteId) {
             url.searchParams.set('frente_id', frenteId);
         }
 
-        const response = await window.apiFetch(url);
+        const response = await window.apiFetch(url, { headers: { 'Accept': 'application/json' } });
 
         if (!response.ok) {
             const errText = await response.text();

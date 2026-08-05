@@ -454,7 +454,7 @@
     window.deleteUnusedRoles = function() {
         if (!confirm('¿Confirma que desea eliminar estos roles permanentemente?')) return;
         
-        window.apiFetch("{{ route('usuarios.delete-unused-roles') }}", {
+        window.apiFetch("{{ route('usuarios.delete-unused-roles') }}", { headers: { 'Accept': 'application/json' },
             method: 'DELETE'})
         .then(response => response.json())
         .then(data => {

@@ -825,7 +825,7 @@
         var cc = el('almMovConsumoContainer'); if (!cc) return;
         var p = buildParams();            // filtros actuales (sin pageUrl)
         p.set('consumo_only', '1');
-        window.apiFetch(ROUTE + '?' + p.toString())
+        window.apiFetch(ROUTE + '?' + p.toString(), { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
             .then(function (r) { return r.json(); })
             .then(function (d) { if (d && d.consumo !== undefined) cc.innerHTML = d.consumo; })
             .catch(function () {});
@@ -841,7 +841,7 @@
         var url = ROUTE + '?' + p.toString();
         body.style.opacity = '0.5';
         if (window.showPreloader) window.showPreloader();
-        window.apiFetch(url)
+        window.apiFetch(url, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
             .then(function (r) { return r.json(); })
             .then(function (data) {
                 if (data.html !== undefined) body.innerHTML = data.html;
@@ -894,7 +894,7 @@
     (function () {
         if (window.almMovProductosCargando) return;
         window.almMovProductosCargando = true;
-        window.apiFetch(@json(route('almacen.productos-autocomplete')), {})
+        window.apiFetch(@json(route('almacen.productos-autocomplete')), { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
         .then(function (r) { return r.ok ? r.json() : []; })
         .then(function (lista) { window.almMovProductosLista = Array.isArray(lista) ? lista : []; window.almMovProductosCargados = true; })
         .catch(function () { /* silencioso: el buscador queda vacío hasta que reintente */ })
@@ -1328,7 +1328,7 @@
             if (btn) { btn.disabled = true; btn.innerHTML = '<i class="material-icons" style="font-size:17px;animation:spin 1s linear infinite;">sync</i> Eliminando...'; }
             fb('eliminarNotaFeedback', 'info', 'Eliminando la nota ' + raw + ' y reversando stock…');
             try {
-                var r = await window.apiFetch(URL_DESTROY + '?numero=' + encodeURIComponent(raw), {
+                var r = await window.apiFetch(URL_DESTROY + '?numero=' + encodeURIComponent(raw), { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
                     method: 'DELETE'
                 });
                 var data = await r.json().catch(function(){ return {}; });
@@ -1383,7 +1383,7 @@
             var CSRF = window.getCsrf();
             btn.disabled = true;
             if (window.showPreloader) window.showPreloader();
-            window.apiFetch(url, {
+            window.apiFetch(url, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
                 method: 'DELETE'
             })
             .then(function (r) {

@@ -316,7 +316,7 @@
         pre();
         window.apiFetch(url, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json'},
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest',  'Content-Type': 'application/json'},
             body: JSON.stringify(body || {})
         })
         .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b }; }); })

@@ -106,7 +106,7 @@
         if (typeof window.showPreloader === 'function') window.showPreloader();
 
         const formData = new FormData(form);
-        window.apiFetch(form.action, {
+        window.apiFetch(form.action, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
             method: 'POST',
             body: formData})
         .then(r => r.json().then(body => ({ status: r.status, body })))

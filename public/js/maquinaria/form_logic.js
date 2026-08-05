@@ -735,7 +735,7 @@ window.addEventListener('spa:contentLoaded', function () {
         const methodInput = form.querySelector('input[name="_method"]');
         const method = methodInput ? methodInput.value : 'POST';
 
-        window.apiFetch(url, {
+        window.apiFetch(url, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
             method: method === 'GET' ? 'GET' : 'POST',
             body: formData})
             .then(async response => {

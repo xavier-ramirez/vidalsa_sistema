@@ -556,7 +556,7 @@
         _hostLastQuery = q;
         clearTimeout(_hostDebounce);
         _hostDebounce = setTimeout(function () {
-            window.apiFetch('{{ route("equipos-auxiliares.searchHosts") }}?q=' + encodeURIComponent(q)).then(function (r) { return r.json(); }).then(function (data) { window.auxHostRender(data); })
+            window.apiFetch('{{ route("equipos-auxiliares.searchHosts") }}?q=' + encodeURIComponent(q), { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } }).then(function (r) { return r.json(); }).then(function (data) { window.auxHostRender(data); })
             .catch(function (e) { console.error('searchHosts:', e); });
         }, 280);
     };
@@ -810,7 +810,7 @@
             limpiarErroresForm();
 
             var formData = new FormData(form);
-            window.apiFetch(form.action, {
+            window.apiFetch(form.action, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
                 method: 'POST',
                 body: formData})
             .then(function (r) { return r.json().then(function (body) { return { status: r.status, body: body }; }); })
@@ -917,7 +917,7 @@
 
             var ctrl = new AbortController();
             var to = setTimeout(function () { ctrl.abort(); }, 8000);
-            window.apiFetch(m.url + '?field=' + encodeURIComponent(m.field) + '&value=' + encodeURIComponent(val), {
+            window.apiFetch(m.url + '?field=' + encodeURIComponent(m.field) + '&value=' + encodeURIComponent(val), { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
                 signal: ctrl.signal})
             .then(function (r) { return r.json(); })
             .then(function (d) {

@@ -16,7 +16,16 @@ document.addEventListener('DOMContentLoaded', () => {
         'X-Requested-With': 'XMLHttpRequest',
         'X-SPA-Navigate': '1',
         'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache'
+        'Pragma': 'no-cache',
+        // Accept: text/html es OBLIGATORIO aquí y no es decorativo. La SPA pide la
+        // PÁGINA (el HTML que se inyecta en el contenedor), y varios controladores
+        // —AlmacenController::index, EquipoController, EquipoAuxiliarController…—
+        // hacen `if ($request->wantsJson())` para devolver solo las filas de la
+        // tabla en JSON. Sin este Accept, window.apiFetch pone su
+        // 'application/json' por defecto, wantsJson() da true y la navegación
+        // recibe JSON en vez de la página: loadPage no puede inyectarlo y cae a
+        // recarga completa (spinner, recarga, y recién ahí el módulo).
+        'Accept': 'text/html, application/xhtml+xml'
     };
 
     // ¿Este <a> lo maneja la navegación SPA? Fuente ÚNICA de la regla: la usan el

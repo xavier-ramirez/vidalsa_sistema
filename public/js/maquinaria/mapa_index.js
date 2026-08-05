@@ -1604,7 +1604,7 @@
         function oleoApi(url, method, body) {
             return window.apiFetch(url, {
                 method: method || 'GET',
-                headers: { 'Content-Type': 'application/json'},
+                headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest',  'Content-Type': 'application/json'},
                 body: body ? JSON.stringify(body) : undefined
             }).then(function (r) { return r.json().catch(function () { return {}; }); });
         }

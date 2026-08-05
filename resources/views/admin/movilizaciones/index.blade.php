@@ -428,7 +428,7 @@ window.movDeshacer = function (id) {
         var preloader = document.getElementById('preloader'); if (preloader) preloader.style.display = 'flex';
         window.apiFetch('/admin/movilizaciones/' + id + '/deshacer', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json'}
+            headers: { 'Accept': 'application/json',  'Content-Type': 'application/json'}
         })
         .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b }; }); })
         .then(function (res) {

@@ -64,7 +64,7 @@
                 const fd = new FormData();
                 fd.append('archivo_excel', file);
                 if (window.showPreloader) window.showPreloader();
-                window.apiFetch(config.previewUrl, {
+                window.apiFetch(config.previewUrl, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
                     method: 'POST',
                     body: fd
                 })
@@ -285,7 +285,7 @@
                 if (window.showPreloader) window.showPreloader();
                 window.apiFetch(config.storeUrl, {
                     method: 'POST',
-                    headers: {
+                    headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({ rows })

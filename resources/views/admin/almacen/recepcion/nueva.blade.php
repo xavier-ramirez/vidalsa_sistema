@@ -71,7 +71,7 @@
         min-width: 0;
     }
     .ent-field-group { display:flex; flex-direction:column; gap:4px; }
-    /* Proyecto dueño del stock: franja propia arriba de la cabecera, con fondo tenue para que se
+    /* Asociar material a un proyecto: franja propia arriba de la cabecera, con fondo tenue para que se
        lea como contexto de TODA la entrada y no como un campo mas del formulario. */
     .ent-proyecto-row { display:flex; align-items:center; gap:10px; flex-wrap:wrap;
         margin-bottom:14px; padding:11px 13px; background:#f8fafc;
@@ -231,14 +231,14 @@
     {{-- Cabecera del lote: N° Doc | Proveedor | Fecha. Los 3 bloques son hijos
          DIRECTOS del grid. Las acciones (Cancelar / Registrar) viven ahora en el
          panel lateral de la derecha. --}}
-    {{-- Proyecto dueño del stock. Solo en almacenes que reparten el saldo entre varios proyectos;
+    {{-- Asociar material a un proyecto. Solo en almacenes que reparten el saldo entre varios proyectos;
          en el resto no hay nada que elegir (todo va a la bolsa comun) y la franja no se pinta.
          Va ARRIBA de la cabecera del lote porque no es un dato del documento: define a que
          bolsa entra TODO lo que se capture debajo. Obligatorio — el backend lo exige igual
          (AlmacenController::registrarMovimientoLote). --}}
     @if($separaProyectos ?? false)
     <div class="ent-proyecto-row">
-        <label class="ent-field-label" for="entProyecto">Proyecto dueño del stock <span style="color:#dc2626;">*</span></label>
+        <label class="ent-field-label" for="entProyecto">Asociar material a un proyecto <span style="color:#dc2626;">*</span></label>
         <select id="entProyecto" class="ent-input falta" onchange="window.entProyectoCambio()">
             {{-- Sin preseleccion a proposito: elegir por el usuario es justo lo que ensuciaba
                  el saldo antes (se mandaba el primer proyecto del almacen, acertara o no). --}}
@@ -348,7 +348,7 @@
     var PRODUCTOS = [];
     var PRODUCTOS_CARGADOS = false;
     (function () {
-        window.apiFetch(@json(route('almacen.productos-autocomplete')), {})
+        window.apiFetch(@json(route('almacen.productos-autocomplete')), { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
         .then(function (r) { return r.ok ? r.json() : []; })
         .then(function (lista) { if (Array.isArray(lista)) { PRODUCTOS = lista; PRODUCTOS_CARGADOS = true; } })
         .catch(function () { /* silencioso: el buscador tipear+servidor no depende de esta lista */ });
@@ -691,7 +691,7 @@
         }
         window.apiFetch(ROUTE_PROD, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json'},
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest',  'Content-Type': 'application/json'},
             body: JSON.stringify(body)
         })
         .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b }; }); })
@@ -885,7 +885,7 @@
         var btn = el('entSubmit'); if (btn) btn.disabled = true;
         window.apiFetch(ROUTE_ENTRADA, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json'},
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest',  'Content-Type': 'application/json'},
             body: JSON.stringify(payload)
         })
         .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, status: r.status, b: b }; }); })

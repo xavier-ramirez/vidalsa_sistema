@@ -14,7 +14,7 @@ window.confirmDeleteCatalogo = function (id, modelName) {
         onConfirm: async function () {
             if (typeof window.showPreloader === 'function') window.showPreloader();
             try {
-                const response = await window.apiFetch(`/admin/catalogo/${id}`, {
+                const response = await window.apiFetch(`/admin/catalogo/${id}`, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
                     method: 'DELETE'});
 
                 let data = {};
@@ -92,7 +92,7 @@ async function catFetch(url) {
     window.currentRequestController = controller;
     let resp;
     try {
-        resp = await window.apiFetch(url, {
+        resp = await window.apiFetch(url, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
             signal: controller.signal
         });
     } catch (e) {

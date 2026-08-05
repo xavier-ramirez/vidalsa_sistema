@@ -398,7 +398,7 @@
             var qs = p.toString();
             var finalUrl = baseUrl + (qs ? ('?' + qs) : '');
 
-            var resp = await window.apiFetch(finalUrl);
+            var resp = await window.apiFetch(finalUrl, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } });
             if (!resp.ok) throw new Error('HTTP ' + resp.status);
             var data = await resp.json();
 

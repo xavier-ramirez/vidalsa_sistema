@@ -1285,7 +1285,7 @@
             try {
                 const response = await window.apiFetch(url, {
                     method: 'GET',
-                    headers: { 'Accept': 'application/pdf'}
+                    headers: { 'X-Requested-With': 'XMLHttpRequest',  'Accept': 'application/pdf'}
                 });
 
                 if (!response.ok) throw new Error('Error generando PDF');

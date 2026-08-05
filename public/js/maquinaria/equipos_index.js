@@ -275,7 +275,7 @@ window.changeStatusLite = function (id, newStatus, url, triggerEl) {
 
     window.apiFetch(url, {
         method: 'PATCH',
-        headers: {
+        headers: { 'X-Requested-With': 'XMLHttpRequest', 
             'Content-Type': 'application/json'
         },
         body: JSON.stringify({ status: newStatus })
@@ -331,7 +331,7 @@ window.toggleConfirmacionSitio = function (el) {
 
     window.apiFetch('/admin/equipos/' + id + '/confirmar-sitio', {
         method: 'PATCH',
-        headers: {
+        headers: { 'X-Requested-With': 'XMLHttpRequest', 
             'Content-Type': 'application/json'
         },
         body: JSON.stringify({ confirmado: nuevo ? 1 : 0 })
@@ -720,7 +720,7 @@ window.unanchorEquipos = async function (e) {
 
             const resp = await window.apiFetch(url, {
                 method: 'POST',
-                headers: {
+                headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({ ids: idsArray })
@@ -1273,7 +1273,7 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
 
     return window.apiFetch(fetchUrl, {
         signal: abortController.signal,
-        headers: {
+        headers: { 'Accept': "application/json", 'X-Requested-With': 'XMLHttpRequest', 
             "Cache-Control": "no-cache, no-store, must-revalidate",
             "Pragma": "no-cache"
         }
@@ -1791,7 +1791,7 @@ window.openUbicacionBulkModal = function (event) {
         try {
             const res = await window.apiFetch('/admin/equipos/bulk-ubicacion', {
                 method: 'POST',
-                headers: {
+                headers: { 'Accept': 'application/json', 
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({ ids: ids, detalle_ubicacion: valorFinal })
@@ -1850,7 +1850,7 @@ window.openUbicacionBulkModal = function (event) {
 // onNuevos(nuevos[]) permite al modal de equipos sumar los frentes a su copia en
 // memoria (frentesData) sin re-abrir.
 window.refrescarFrentesMovilizacion = function (onNuevos) {
-    window.apiFetch('/admin/frentes/buscar?activos=1')
+    window.apiFetch('/admin/frentes/buscar?activos=1', { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
         .then((r) => (r.ok && (r.headers.get('content-type') || '').includes('json')) ? r.json() : null)
         .then((frentes) => {
             if (!Array.isArray(frentes) || !frentes.length) return;
@@ -2186,7 +2186,7 @@ window.openBulkModal = function (event) {
         try {
             const res = await window.apiFetch("/admin/equipos/bulk-mobilize", {
                 method: "POST",
-                headers: {
+                headers: { 'Accept': "application/json", 
                     "Content-Type": "application/json"
                 },
                 body: JSON.stringify({
@@ -2711,7 +2711,7 @@ window._mostrarVistaPreviaActa = async function (actaState, onConfirm, opts) {
                 if (window.showPreloader) window.showPreloader();
                 var r = await window.apiFetch('/admin/movilizaciones/preview-acta-meta', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json'},
+                    headers: { 'Accept': 'application/json',  'Content-Type': 'application/json'},
                     body: JSON.stringify({ ids: actaState.ids, type: actaState.type || 'equipo' })
                 });
                 if (r.ok) {
@@ -3095,7 +3095,7 @@ window.openAnchorModal = async function (event) {
 
     // ── Carga inicial: equipos del mismo frente ──
     try {
-        const response = await window.apiFetch(baseUrl);
+        const response = await window.apiFetch(baseUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
         const equipos = await response.json();
 
         if (equipos.length === 0) {
@@ -3124,7 +3124,7 @@ window.openAnchorModal = async function (event) {
             searchTimer = setTimeout(async () => {
                 try {
                     const url = `${baseUrl}&search=${encodeURIComponent(val)}`;
-                    const res = await window.apiFetch(url);
+                    const res = await window.apiFetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
                     const result = await res.json();
                     renderAnchorItems(result);
                 } catch (e) {
@@ -3155,7 +3155,7 @@ window.openAnchorModal = async function (event) {
         try {
             const response = await window.apiFetch("/admin/equipos/bulk-anchor", {
                 method: "POST",
-                headers: {
+                headers: { 'Accept': "application/json", 'X-Requested-With': 'XMLHttpRequest', 
                     "Content-Type": "application/json"
                 },
                 body: JSON.stringify({
@@ -3375,7 +3375,7 @@ window.exportEquipos = function () {
     var fname = 'Listado_Maquinarias_Equipos_' + d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + '_' + pad(d.getHours()) + '-' + pad(d.getMinutes()) + '.xlsx';
 
     window.apiFetch(url, {
-        headers: { 'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }})
+        headers: { 'X-Requested-With': 'XMLHttpRequest',  'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }})
         .then(function (r) {
             if (!r.ok) throw new Error('No se pudo generar el Excel.');
             // Si el backend respondió HTML (p.ej. redirect por falta de filtro) en vez del

@@ -522,7 +522,7 @@
                 const proceed = function () {
                     if (window.showPreloader) window.showPreloader();
                     const csrf = window.getCsrf();   // helper central (dom_helpers.js)
-                    window.apiFetch('{{ url("admin/frentes") }}/' + id, {
+                    window.apiFetch('{{ url("admin/frentes") }}/' + id, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
                         method: 'DELETE'}).then(handleDeleteResponse).catch(handleDeleteError);
                 };
 
@@ -637,7 +637,7 @@
             window.cargarFrentesSinEquipos = function () {
                 var list = document.getElementById('sinEquiposList');
                 if (!list) return;
-                window.apiFetch('{{ route("frentes.sinEquipos") }}')
+                window.apiFetch('{{ route("frentes.sinEquipos") }}', { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
                 .then(function (r) { return r.json(); })
                 .then(function (data) {
                     if (!data.frentes || data.frentes.length === 0) {
@@ -667,7 +667,7 @@
             function _sinEquiposAction(method, url, okMsg, errFallback, nombre) {
                 if (window.showPreloader) window.showPreloader();
                 var csrf = window.getCsrf();   // helper central (dom_helpers.js)
-                window.apiFetch(url, { method: method})
+                window.apiFetch(url, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, method: method})
                 .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { return { ok: r.ok, body: d }; }); })
                 .then(function (res) {
                     if (window.hidePreloader) window.hidePreloader();

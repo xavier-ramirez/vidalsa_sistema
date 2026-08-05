@@ -361,7 +361,7 @@
         _hostLastQuery = q;
         clearTimeout(_hostDebounce);
         _hostDebounce = setTimeout(() => {
-            window.apiFetch('{{ route("equipos-auxiliares.searchHosts") }}?q=' + encodeURIComponent(q))
+            window.apiFetch('{{ route("equipos-auxiliares.searchHosts") }}?q=' + encodeURIComponent(q), { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
             .then(r => r.json())
             .then(data => window.auxHostRender(data))
             .catch(err => console.error('searchHosts:', err));

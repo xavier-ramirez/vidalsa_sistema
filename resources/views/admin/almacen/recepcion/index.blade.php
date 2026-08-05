@@ -954,7 +954,7 @@
     .cdir-paso { display:none; flex-direction:column; flex-shrink:0; }
     .cdir-paso.on { display:flex; }
 
-    /* Proyecto dueño del stock: franja propia ARRIBA DEL TODO, con fondo tenue, para que se lea
+    /* Asociar material a un proyecto: franja propia ARRIBA DEL TODO, con fondo tenue, para que se lea
        como "contexto de toda la entrada" y no como un campo más del formulario. La etiqueta
        va ENCIMA del campo (no al lado): así el proyecto elegido queda alineado con el resto
        del modal y se lee de un vistazo al abrir.
@@ -971,7 +971,9 @@
     /* Campo CON BUSCADOR (no un <select> nativo): el almacén puede tener muchos proyectos y
        teclear tres letras es más rápido que recorrer la lista. Misma caja que el resto del
        modal para que no desentone. */
-    .cdir-proy-field { position:relative; flex:1 1 auto; min-width:0; }
+    /* margin-left: separa el buscador del rótulo (el gap de 12px los dejaba pegados y se
+       leían como una sola pieza). El icono de ayuda sigue junto a su etiqueta. */
+    .cdir-proy-field { position:relative; flex:1 1 auto; min-width:0; margin-left:10px; }
     .cdir-proy-field .cdir-input { padding-right:34px; }
     .cdir-proy-caret { position:absolute; right:9px; top:50%; transform:translateY(-50%);
         color:#64748b; font-size:20px; pointer-events:none; }
@@ -994,8 +996,12 @@
     .cdir-um-wrap { position:relative; flex:0 0 78px; }
     /* Verde y con un check (pedido del cliente): el gesto es "confirmar esta línea", no
        "sumar un número", y el verde lo separa del azul de las acciones del pie. */
+    /* REDONDO (border-radius:50%), no cuadrado: es una acción puntual —"confirmar esta
+       línea"— y el círculo la separa de los campos rectangulares de al lado, que es donde
+       se escribe. Los 42px de alto son los mismos de .cdir-input, así que queda a ras con
+       los campos sin necesidad de alinearlo a mano. */
     .cdir-add-btn { flex:0 0 42px; width:42px; height:42px; display:flex; align-items:center; justify-content:center;
-        border:1px solid #16a34a; border-radius:10px; background:#16a34a; color:#fff; cursor:default; }
+        border:1px solid #16a34a; border-radius:50%; background:#16a34a; color:#fff; cursor:default; }
     .cdir-add-btn:hover { background:#15803d; }
 
     /* Producto ya elegido: el input se oculta y en su lugar va este chip. */
@@ -1030,8 +1036,11 @@
     .cdir-suggest-empty { padding:10px; font-size:12.5px; color:#64748b; line-height:1.45; }
 
     /* Tabla de líneas — la ÚNICA zona con scroll, y la que absorbe el alto sobrante. */
-    .cdir-list-wrap { flex:1 1 auto; min-height:0; display:flex; flex-direction:column; padding:12px 20px 0; }
-    .cdir-list-wrap .cdir-section-title { margin-bottom:8px; }
+    /* padding-top 0: el rótulo de la sección se mudó arriba del buscador, así que la lista
+       arranca pegada a la barra de captura en vez de dejar un hueco donde estaba el título.
+       (Se fue con él la regla `.cdir-list-wrap .cdir-section-title`, que ya no aplicaba a
+       ningún elemento.) */
+    .cdir-list-wrap { flex:1 1 auto; min-height:0; display:flex; flex-direction:column; padding:0 20px; }
     .cdir-list { flex:1 1 auto; min-height:120px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:10px; }
     .cdir-table { width:100%; border-collapse:collapse; font-size:13px; }
     .cdir-table thead th { position:sticky; top:0; z-index:1; background:#1e293b; color:#fff; font-size:10.5px; font-weight:800;
@@ -1065,11 +1074,14 @@
     .cdir-footer { flex-shrink:0; display:none; align-items:center; justify-content:center; gap:10px; padding:14px 20px; margin-top:12px; border-top:1px solid #e2e8f0; background:#f8fafc; }
     .cdir-footer.on { display:flex; }
     /* min-width igual en los dos: antes "Cancelar" salía más angosto que "Aceptar" porque
-       cada uno se medía por su texto y el segundo además lleva icono. */
-    .cdir-btn { height:44px; min-width:170px; padding:0 18px; display:flex; align-items:center;
+       cada uno se medía por su texto y el segundo además lleva icono.
+       38px de alto y 130px de ancho: los del resto de los modales de Almacén rondan eso
+       (.btn-primary-maquinaria, padding 12px 24px sobre 13px de letra). Estaban en 44×170
+       y se veían desproporcionados al lado de los de "Auditoría de Inventario". */
+    .cdir-btn { height:38px; min-width:130px; padding:0 16px; display:flex; align-items:center;
         justify-content:center; gap:6px; border-radius:10px;
-        font-family:inherit; font-size:13.5px; font-weight:800; cursor:default; }
-    .cdir-btn .material-icons { font-size:18px; }
+        font-family:inherit; font-size:13px; font-weight:800; cursor:default; }
+    .cdir-btn .material-icons { font-size:17px; }
     .cdir-btn-cancel { background:#fff; border:1px solid #cbd5e0; color:#475569; }
     .cdir-btn-cancel:hover { background:#f1f5f9; }
     .cdir-btn-ok { background:#0067b1; border:1px solid #0067b1; color:#fff; }
@@ -1089,15 +1101,17 @@
         {{-- Los tres campos del paso 2 sí se apilan en teléfono: uno al lado del otro
              (como van en escritorio) dejaría cada caja en ~90px, sin ancho útil. --}}
         .cdir-meta { grid-template-columns:1fr; }
-        {{-- min-width:0 obligatorio: los 170px de escritorio × 2 botones no caben en un
-             teléfono de 360px y la botonera se salía de la caja. Aquí se reparten el ancho
-             a partes iguales, que igual los deja del mismo tamaño. --}}
+        {{-- Se reparten el ancho de la fila a partes iguales (flex:1 1 0), que igual los deja
+             del mismo tamaño. min-width:0 anula los 130px de escritorio para que quepan
+             holgados en un teléfono angosto. --}}
         .cdir-btn { flex:1 1 0; min-width:0; justify-content:center; }
         {{-- Franja del proyecto: el rótulo va en nowrap y ocupa ~190px, así que en un
              teléfono de 360px al buscador le quedaban ~90px — inservible para leer el
              nombre de un proyecto. Aquí el campo baja a su propio renglón. --}}
         .cdir-proyecto { flex-wrap:wrap; row-gap:6px; }
-        .cdir-proy-field { flex:1 1 100%; }
+        {{-- margin-left:0 — el hueco que separa el rótulo del buscador en escritorio
+             aquí sobra: el campo ya está en su propio renglón y solo lo sangraba. --}}
+        .cdir-proy-field { flex:1 1 100%; margin-left:0; }
     }
 </style>
 
@@ -1120,13 +1134,13 @@
 
         {{-- ── Paso 1: proyecto + barra de captura ── --}}
         <div class="cdir-paso on" id="cdirPaso1">
-        {{-- Proyecto dueño del stock. Solo aparece en almacenes que reparten el saldo entre
+        {{-- Asociar material a un proyecto. Solo aparece en almacenes que reparten el saldo entre
              varios proyectos; en los demás no hay nada que elegir y la fila no se pinta.
              Va ARRIBA de las líneas y no en el paso 2 porque no es un dato del documento:
              define a qué bolsa entra TODO lo que se capture debajo. Es obligatorio, y el
              backend lo exige igual por si alguien entra por otra vía. --}}
         <div class="cdir-proyecto" id="cdirProyectoRow" style="display:none;">
-            <label for="cdirProyecto">Proyecto dueño del stock <span class="req">*</span></label>
+            <label for="cdirProyecto">Asociar material a un proyecto <span class="req">*</span></label>
             {{-- El rótulo dice a quién queda amarrado el material; el signo de ayuda explica
                  la consecuencia real sin gastar un renglón en la franja. --}}
             <i class="material-icons ayuda" title="Todo lo que captures abajo se suma al saldo de ESTE proyecto dentro del almacén. Cada proyecto lleva su stock por separado.">help_outline</i>
@@ -1141,6 +1155,10 @@
             </div>
         </div>
         <div class="cdir-capt">
+            {{-- El rótulo encabeza TODA la sección (buscador + tabla), no solo la tabla: por
+                 eso va aquí arriba y no pegado a la lista. Así se lee "esto es la captura de
+                 líneas" antes de empezar a escribir. --}}
+            <div class="cdir-section-title">Líneas de entrada</div>
             <div class="cdir-capt-bar">
                 <div class="cdir-field">
                     <input type="text" id="cdirSearch" class="cdir-input" autocomplete="off"
@@ -1199,8 +1217,10 @@
              sigue viendo —y puede corregir— lo que está a punto de registrar, y de paso la
              caja no queda con un hueco enorme debajo de tres campos. Es la única zona que
              hace scroll; todo lo demás (encabezado, bloque del paso, pie) queda fijo. --}}
+        {{-- Sin rótulo propio: "Líneas de entrada" ahora encabeza la sección completa desde
+             arriba del buscador (ver .cdir-capt). Repetirlo aquí era decir dos veces lo mismo
+             a cuatro renglones de distancia. --}}
         <div class="cdir-list-wrap">
-            <div class="cdir-section-title">Líneas de entrada</div>
             <div class="cdir-list">
                 <table class="cdir-table">
                     <thead>
@@ -1303,7 +1323,7 @@
         return c || { separa: false, implicito: null, frentes: [] };
     }
 
-    // ── Proyecto dueño del stock ──────────────────────────────────────────
+    // ── Asociar material a un proyecto ───────────────────────────────────
     // La franja se muestra SOLO si el almacén reparte el saldo entre varios proyectos. Con
     // uno solo no hay nada que preguntar: todo entra a esa única bolsa.
     // Se rearma en cada apertura porque el almacén de la bandeja cambia en caliente, y una
@@ -1549,7 +1569,7 @@
         creando = true;
         window.apiFetch(ROUTE_PROD, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json'},
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest',  'Content-Type': 'application/json'},
             body: JSON.stringify(body)
         })
         .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b }; }); })
@@ -1734,7 +1754,7 @@
         if (window.showPreloader) window.showPreloader();
         window.apiFetch(ROUTE_ENTRADA, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json'},
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest',  'Content-Type': 'application/json'},
             body: JSON.stringify(payload)
         })
         .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, status: r.status, b: b }; }); })
@@ -2152,7 +2172,7 @@
         var url = ROUTE + '?' + params(pageUrl).toString();
         body.style.opacity = '0.5';
         if (window.showPreloader) window.showPreloader();
-        window.apiFetch(url)
+        window.apiFetch(url, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
             .then(function (r) { return r.json(); })
             .then(function (data) {
                 if (miSeq !== _trSeq) return;   // llegó tarde: ya se pidió otra búsqueda
@@ -2199,7 +2219,7 @@
         overlay.classList.add('open');
         document.body.style.overflow = 'hidden';
 
-        window.apiFetch(DETALLE_URL + '/' + id)
+        window.apiFetch(DETALLE_URL + '/' + id, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
             .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
             .then(function (data) {
                 box.innerHTML = data.html || '';
@@ -2447,7 +2467,7 @@
         if (window.showPreloader) window.showPreloader();
         window.apiFetch(url, {
             method: 'POST',
-            headers: {
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify(payload)

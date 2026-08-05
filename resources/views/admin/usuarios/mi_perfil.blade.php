@@ -389,7 +389,7 @@
 
                 try {
                     const formData = new FormData(frmClave);
-                    const response = await window.apiFetch(frmClave.action, {
+                    const response = await window.apiFetch(frmClave.action, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
                         method: 'POST',
                         body: formData});
 

@@ -30,7 +30,7 @@
         window.apiFetch(form.action, {
             method: 'POST',
             body: formData,
-            headers: {
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 
                 // Add CSRF Token explicitly if needed, though cookie usually handles it. 
                 // equipso_form.js adds it manually, so we should too for consistency.
             }
@@ -136,7 +136,7 @@
         const tipo = (tipoInput.value || '').trim();
         const url = '/admin/catalogo/models-from-equipos' + (tipo ? ('?tipo=' + encodeURIComponent(tipo)) : '');
 
-        window.apiFetch(url)
+        window.apiFetch(url, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
             .then(r => r.json())
             .then(models => {
                 dropdown.innerHTML = '';

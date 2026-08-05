@@ -217,7 +217,7 @@ window.iniciarGestionCustom = function (equipoId, docType, event) {
             const csrf = window.getCsrf();
             const response = await window.apiFetch('/dashboard/iniciar-gestion', {
                 method: 'POST',
-                headers: {
+                headers: { 'Accept': 'application/json', 
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({

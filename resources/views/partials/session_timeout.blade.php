@@ -334,7 +334,7 @@
                 clearInterval(checkInterval);
                 clearInterval(serverPingInterval);
                 const token = window.getCsrf();   // helper central (dom_helpers.js)
-                window.apiFetch('/logout', {
+                window.apiFetch('/logout', { headers: { 'Accept': 'application/json' },
                     method: 'POST',
                     body: new URLSearchParams({ _token: token }),
                     redirect: 'manual',   // no seguimos el 302: navegamos nosotros abajo

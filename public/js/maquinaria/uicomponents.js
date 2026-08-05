@@ -1145,7 +1145,7 @@ window.showDetailsImproved = function (target, event) {
             const now      = Date.now();
             const cachedPromise = (cached && (now - cached.t) < 30000)
                 ? Promise.resolve(cached.data)
-                : window.apiFetch(`/admin/equipos-auxiliares/by-host/${eqId}`)
+                : window.apiFetch(`/admin/equipos-auxiliares/by-host/${eqId}`, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
                     .then(r => r.json())
                     .then(data => {
                         window._byHostCache.set(cacheKey, { data, t: Date.now() });
@@ -1303,7 +1303,7 @@ window.loadResponsables = (function () {
         // accordion (ver equipment_details_modal.blade.php #responsable_edit_pencil_header).
         // Aqui ya no inyectamos ninguno al final de la lista.
 
-        window.apiFetch(`/admin/equipos/${equipoId}/responsables`)
+        window.apiFetch(`/admin/equipos/${equipoId}/responsables`, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
         .then(r => r.json())
         .then(res => {
             // Regla UX:
@@ -1380,7 +1380,7 @@ window.saveResponsable = function(isAutoSave = false) {
     // Al guardar al cerrar, la lista puede que no sea visible, pero mostramos un toast
     window.apiFetch(`/admin/equipos/${equipoId}/responsables`, {
         method: 'POST',
-        headers: {
+        headers: { 'X-Requested-With': 'XMLHttpRequest', 
             'Content-Type': 'application/json'
         },
         body: JSON.stringify({
@@ -1634,7 +1634,7 @@ window.toggleConfirmacionSitioAux = function (el) {
 
     window.apiFetch('/admin/equipos-auxiliares/' + id + '/confirmar-sitio', {
         method: 'PATCH',
-        headers: {
+        headers: { 'X-Requested-With': 'XMLHttpRequest', 
             'Content-Type': 'application/json'
         },
         body: JSON.stringify({ confirmado: nuevo ? 1 : 0 })

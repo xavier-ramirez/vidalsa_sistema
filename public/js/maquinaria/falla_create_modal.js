@@ -112,7 +112,7 @@
                 if (spinner) spinner.style.display = 'none';
                 return;
             }
-            window.apiFetch(CFG().urlSearch + '?q=' + encodeURIComponent(q))
+            window.apiFetch(CFG().urlSearch + '?q=' + encodeURIComponent(q), { headers: { 'Accept': 'application/json' } })
             .then(r => r.json())
             .then(data => {
                 if (spinner) spinner.style.display = 'none';
@@ -215,7 +215,7 @@
         fd.append('observaciones_cierre', obs ? obs.value : '');
         if (btn) btn.disabled = true;
         if (window.showPreloader) window.showPreloader();
-        window.apiFetch(CFG().urlBase + '/' + _cierreId + '/close', {
+        window.apiFetch(CFG().urlBase + '/' + _cierreId + '/close', { headers: { 'Accept': 'application/json' },
             method: 'POST',
             body: fd
         })
@@ -244,7 +244,7 @@
             return;
         }
         if (window.showPreloader) window.showPreloader();
-        window.apiFetch(CFG().urlStore, {
+        window.apiFetch(CFG().urlStore, { headers: { 'Accept': 'application/json' },
             method: 'POST',
             body: fd
         })

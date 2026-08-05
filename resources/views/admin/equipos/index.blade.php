@@ -1961,7 +1961,7 @@
         // de la app mientras se genera el XLSX en el servidor.
         if (typeof window.showPreloader === 'function') window.showPreloader();
 
-        window.apiFetch(url)
+        window.apiFetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
             .then(r => {
                 if (!r.ok) throw new Error('HTTP ' + r.status);
                 const cd = r.headers.get('content-disposition') || '';
@@ -2084,7 +2084,7 @@
             if (window.showPreloader) window.showPreloader();
             window.apiFetch('{{ route("equipos.bulkDelete") }}', {
                 method: 'POST',
-                headers: {
+                headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({ ids: ids.map(x => parseInt(x, 10)) })
@@ -2748,7 +2748,7 @@
         if (window.showPreloader) window.showPreloader();
         window.apiFetch(URL_BULK_LOOKUP, {
             method: 'POST',
-            headers: {
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify(body)

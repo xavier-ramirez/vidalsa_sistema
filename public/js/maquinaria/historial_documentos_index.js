@@ -66,7 +66,7 @@ window.loadHistorialDocumentos = async function (pageUrl = null) {
             if (pg) fetchUrl += '&page=' + pg;
         }
 
-        const response = await window.apiFetch(fetchUrl);
+        const response = await window.apiFetch(fetchUrl, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } });
 
         if (!response.ok) throw new Error('HTTP ' + response.status);
 
@@ -323,7 +323,7 @@ window.unlockIp = function(id, ipAddress) {
             if (window.showPreloader) window.showPreloader();
             
             try {
-                const response = await window.apiFetch('/admin/historial-documentos/unlock-ip/' + id, {
+                const response = await window.apiFetch('/admin/historial-documentos/unlock-ip/' + id, { headers: { 'Accept': 'application/json' },
                     method: 'DELETE'});
                 
                 const data = await response.json();

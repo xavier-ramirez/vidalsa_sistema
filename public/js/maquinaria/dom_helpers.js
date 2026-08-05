@@ -100,35 +100,34 @@
     var SIN_CSRF = { GET: 1, HEAD: 1, OPTIONS: 1 };   // los que VerifyCsrfToken no valida
 
     /**
-     * fetch() con lo que TODA llamada a la app necesita, y que estaba escrito a mano
-     * en ~160 sitios (81 de ellos rearmando el header CSRF, alguno leyendo el <meta>
-     * sin guard):
+     * fetch() que pone el CSRF por ti. Nacio para quitar los 81 sitios que rearmaban
+     * el header a mano (alguno leyendo el <meta> sin guard).
      *
-     *   X-Requested-With   Laravel lo usa para responder JSON en vez de un redirect
-     *                      de formulario cuando la validacion falla (422).
-     *   Accept             idem. Sin estas dos, cuando el servidor lanza una excepcion
-     *                      (sesion/auth/CSRF caducada) sus handlers calculan
-     *                      wantsJson=false y devuelven un REDIRECT a /login en HTML;
-     *                      fetch sigue el redirect y res.json() revienta con el
-     *                      criptico "Unexpected token '<', <!DOCTYPE...".
-     *   X-CSRF-TOKEN       SIEMPRE fresco (getCsrf lee el <meta> en cada llamada, y el
-     *                      ping de sesion lo rota en runtime). Solo en los metodos que
-     *                      Laravel valida.
-     *   credentials        la cookie de sesion viaja aunque el caller no lo piense.
+     *   X-CSRF-TOKEN   SIEMPRE fresco (getCsrf lee el <meta> en cada llamada, y el
+     *                  ping de sesion lo rota en runtime). Solo en los metodos que
+     *                  Laravel valida.
+     *   credentials    la cookie de sesion viaja aunque el caller no lo piense.
+     *
+     * NO pone Accept ni X-Requested-With, y esto es deliberado: los dos cambian la
+     * RESPUESTA del servidor. Laravel decide con wantsJson() (mira Accept) y con
+     * expectsJson() (mira X-Requested-With) si devuelve la pagina HTML o solo datos
+     * en JSON, y una docena de controladores —Almacen, Equipo, EquipoAuxiliar,
+     * Traspaso…— tienen esa rama. Ponerlos por defecto hizo que la navegacion SPA
+     * recibiera JSON en lugar de la pagina y cayera a recarga completa. Cada llamada
+     * declara el Accept que de verdad espera; el helper no adivina.
      *
      * Devuelve la MISMA Promise<Response> que fetch, asi que es sustituible tal cual.
      * Pasa por window.fetch (no por el original) para no saltarse el interceptor
      * global de 401/419 de estructura_base.
      *
-     * Todo es sobreescribible: lo que venga en opts.headers gana, y un
-     * Content-Type NO se pone solo — FormData necesita que lo ponga el navegador
+     * Un Content-Type NO se pone solo: FormData necesita que lo ponga el navegador
      * con su boundary.
      */
     window.apiFetch = function (url, opts) {
         opts = opts || {};
         var metodo = String(opts.method || 'GET').toUpperCase();
 
-        var headers = { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' };
+        var headers = {};
         var propios = opts.headers || {};
         // Headers puede venir como objeto plano o como Headers(); se normaliza a plano.
         if (typeof Headers !== 'undefined' && propios instanceof Headers) {

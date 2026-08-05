@@ -690,7 +690,7 @@
 
                 const formData = new FormData(this);
 
-                window.apiFetch(this.action, {
+                window.apiFetch(this.action, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
                     method: 'POST',
                     body: formData
                 })

@@ -1123,7 +1123,7 @@
                 function volverOnline() {
                     if (window.showPreloader) window.showPreloader();
                     showBanner('Volviendo al modo con internet · actualizando…', 'wifi', '#16a34a', 0);
-                    window.apiFetch('/offline/version', { method: 'GET', cache: 'no-store'})
+                    window.apiFetch('/offline/version', { headers: { 'X-Requested-With': 'XMLHttpRequest' }, method: 'GET', cache: 'no-store'})
                         .then(function () { window.location.reload(); })
                         .catch(function () {
                             if (window.hidePreloader) window.hidePreloader(true);
@@ -1179,7 +1179,7 @@
                     if (!navigator.onLine) { mostrarOffline(); return; }
                     // Cualquier RESPUESTA (aunque sea 401/500) significa que el servidor
                     // responde → estamos online. Solo el fallo de red (catch) = sin conexión.
-                    window.apiFetch('/offline/version', { method: 'GET', cache: 'no-store'})
+                    window.apiFetch('/offline/version', { headers: { 'X-Requested-With': 'XMLHttpRequest' }, method: 'GET', cache: 'no-store'})
                         .then(function () { if (window.OfflineOutbox) window.OfflineOutbox.drain(); }) // servidor OK → subir outbox
                         .catch(function () { mostrarOffline(); });
                 }
@@ -2242,7 +2242,8 @@
                     if (typeof window.showPreloader === 'function') window.showPreloader();
                     try {
                         const r = await window.apiFetch(`/admin/equipos-auxiliares/${ctx.equipoId}/delete-doc?doc_type=${encodeURIComponent(ctx.docType)}`, {
-                            method: 'DELETE'
+                            method: 'DELETE',
+                            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
                         });
                         const d = await r.json().catch(() => ({}));
                         if (r.ok && d.success) {
@@ -2287,7 +2288,8 @@
                     // los datos en la URL para evitar problemas con bodies en DELETE
                     // (algunos middlewares y proxies los strippean).
                     const res = await window.apiFetch(`/admin/equipos/${ctx.equipoId}/delete-doc?doc_type=${encodeURIComponent(ctx.docType)}`, {
-                        method: 'DELETE'
+                        method: 'DELETE',
+                        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
                     });
                     const data = await res.json().catch(() => ({}));
 
@@ -2467,7 +2469,7 @@
                                     var _auxModal = document.getElementById('auxDetailsModal');
                                     if (_auxId && _auxModal && _auxModal.classList.contains('active')
                                         && typeof window.renderAuxDetailsModal === 'function') {
-                                        window.apiFetch('/admin/equipos-auxiliares/' + _auxId + '/details')
+                                        window.apiFetch('/admin/equipos-auxiliares/' + _auxId + '/details', { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
                                         .then(function (r) { return r.ok ? r.json() : null; })
                                         .then(function (d) {
                                             if (!d) return;

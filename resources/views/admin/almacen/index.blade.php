@@ -1122,7 +1122,11 @@
                  Fondo azul (#e1effa / #bfdbfe): el mismo tinte que la app usa para marcar un
                  campo activo (.dropdown-trigger.filter-active, .cdash-inp-box.active). Antes
                  era gris y se perdía contra el blanco del modal. --}}
-            <div style="display:flex;flex-direction:column;align-items:center;gap:2px;background:#e1effa;border:1px solid #bfdbfe;border-radius:8px;padding:8px 12px;margin-bottom:12px;text-align:center;">
+            {{-- El recuadro azul y el campo de abajo comparten ANCHO (240px, centrados): son
+                 los dos lados de la misma comparación —lo que dice el sistema contra lo que
+                 se contó— y con anchos distintos (el azul a todo el modal y el campo a 200px)
+                 se leían como dos bloques sin relación. --}}
+            <div style="max-width:240px;margin:0 auto 12px;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;gap:2px;background:#e1effa;border:1px solid #bfdbfe;border-radius:8px;padding:8px 12px;text-align:center;">
                 <span style="font-size:12px;color:#475569;font-weight:600;">Saldo actual (sistema)</span>
                 <span id="almAjSaldoActual" style="font-size:14px;color:#0067b1;font-weight:800;">—</span>
             </div>
@@ -1130,8 +1134,10 @@
                  de un input a todo el ancho del modal. --}}
             <div style="text-align:center;">
                 <label for="almAjNuevoSaldo">Saldo según conteo físico</label>
+                {{-- Lo centra el text-align:center del contenedor (el input es inline-block);
+                     un `margin:0 auto` aquí no haría nada. --}}
                 <input type="number" id="almAjNuevoSaldo" min="0" step="any" placeholder="Cantidad real contada"
-                       style="max-width:200px;text-align:center;">
+                       style="max-width:240px;text-align:center;">
             </div>
             <div id="almAjError" style="display:none;color:#dc2626;font-size:13px;font-weight:600;"></div>
         </div>
@@ -1774,7 +1780,7 @@
     window.almCargarProductos = function () {
         if (window.almProductosCargados || window._almProductosCargando) return Promise.resolve();
         window._almProductosCargando = true;
-        return window.apiFetch(@json(route('almacen.productos-autocomplete')), {})
+        return window.apiFetch(@json(route('almacen.productos-autocomplete')), { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
         .then(function (r) { return r.ok ? r.json() : []; })
         .then(function (lista) {
             window.almProductosLista = Array.isArray(lista) ? lista : [];
@@ -2015,7 +2021,7 @@
             body.style.opacity = '0.5';
             pre();
         }
-        window.apiFetch(finalUrl)
+        window.apiFetch(finalUrl, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
             .then(function (r) { return r.json(); })
             .then(function (data) {
                 // Si una recarga nueva cambió la generación mientras volaba este fetch,
@@ -3484,7 +3490,7 @@
         almScanBusy = true;
         var u = new URL(ROUTE_BUSCAR_CODIGO, window.location.origin);
         u.searchParams.set('codigo', codigo);
-        window.apiFetch(u.toString())
+        window.apiFetch(u.toString(), { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
             .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
             .then(function (res) {
                 var j = res.j || {};
@@ -3655,7 +3661,7 @@
         partesBox.innerHTML = ''; equiposBox.innerHTML = ''; countEl.textContent = '';
 
         var url = "{{ route('almacen.productos.compatibilidad', ['id' => '__PID__']) }}".replace('__PID__', id);
-        window.apiFetch(url)
+        window.apiFetch(url, { headers: { 'Accept': 'application/json' } })
             .then(function (r) { return r.json(); })
             .then(function (d) {
                 var m = el('almDetalleModal');
@@ -3780,7 +3786,7 @@
         pre();
         window.apiFetch(ROUTE_PROD_ITEM(id), {
             method: 'PATCH',
-            headers: { 'Content-Type': 'application/json'},
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest',  'Content-Type': 'application/json'},
             body: JSON.stringify({
                 CODIGO: m.dataset.cod || null, NOMBRE: m.dataset.nom, UM: m.dataset.um, CATEGORIA: m.dataset.cat || null,
                 UBICACION: ubicacion || null
@@ -3850,7 +3856,7 @@
         }
 
         var body = el('almKpBody'); if (body) body.style.opacity = '0.5';
-        window.apiFetch(ROUTE_MOVIMIENTOS + '?' + p.toString())
+        window.apiFetch(ROUTE_MOVIMIENTOS + '?' + p.toString(), { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
         .then(function (r) { return r.json(); })
         .then(function (data) {
             if (body && data.html !== undefined) body.innerHTML = data.html;
@@ -3918,7 +3924,7 @@
         // tipo=AJUSTE. El backend ignora los campos de Nota de Entrega para AJUSTE.
         window.apiFetch(ROUTE_LOTE, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json'},
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest',  'Content-Type': 'application/json'},
             body: JSON.stringify({
                 id_almacen: idAlm,
                 tipo: 'AJUSTE',
@@ -3968,7 +3974,7 @@
         pre();
         window.apiFetch(ROUTE_MIN(idAlm), {
             method: 'PATCH',
-            headers: { 'Content-Type': 'application/json'},
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest',  'Content-Type': 'application/json'},
             body: JSON.stringify({ id_producto: m.dataset.idProducto, cantidad_minima: (minimoRaw === '' ? null : nuevoMinimo) })
         }).then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b }; }); })
           .then(function (res) {
@@ -4129,7 +4135,7 @@
         pre();
         window.apiFetch(url, {
             method: id ? 'PATCH' : 'POST',
-            headers: { 'Content-Type': 'application/json'},
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest',  'Content-Type': 'application/json'},
             body: JSON.stringify({
                 NOMBRE:            nombre,
                 TIPO:              tipo,
@@ -4166,7 +4172,7 @@
         if (!ensurePerm(HAS_ALM_MANAGE, 'No tienes permiso para eliminar almacenes.')) return;
         almConfirm('¿Eliminar el almacén "<strong>' + nombre + '</strong>"? Si tiene movimientos registrados se desactivará en lugar de borrarse.', function () {
             pre();
-            window.apiFetch(ROUTE_ALM_ITEM(id), { method: 'DELETE'})
+            window.apiFetch(ROUTE_ALM_ITEM(id), { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, method: 'DELETE'})
             .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b }; }); })
             .then(function (res) {
                 unpre();
@@ -4314,7 +4320,7 @@
             var cont = el('almPapeleraLista'); if (!cont) return;
             var term = (el('almPapeleraSearch') ? el('almPapeleraSearch').value : '').trim();
             cont.innerHTML = '<div style="text-align:center;color:#94a3b8;font-size:13px;padding:24px 0;">Cargando…</div>';
-            window.apiFetch(ROUTE_PROD_PAPELERA + (term ? ('?search=' + encodeURIComponent(term)) : ''), {})
+            window.apiFetch(ROUTE_PROD_PAPELERA + (term ? ('?search=' + encodeURIComponent(term)) : ''), { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
             .then(function (r) { return r.json(); })
             .then(function (data) {
                 var rows = (data && data.productos) || [];
@@ -4363,7 +4369,7 @@
     window.almRestaurarProducto = function (id) {
         if (!ensurePerm(HAS_NOTA_ELIMINAR, 'No tienes permiso para restaurar productos.')) return;
         pre();
-        window.apiFetch(ROUTE_PROD_RESTAURAR(id), {
+        window.apiFetch(ROUTE_PROD_RESTAURAR(id), { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
             method: 'POST'})
         .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b }; }); })
         .then(function (res) {
@@ -4394,7 +4400,7 @@
         if (!ensurePerm(HAS_ALM_MANAGE, 'No tienes permiso para eliminar productos de la papelera.')) return;
         almConfirm('Vas a eliminar este producto <strong>de forma permanente</strong>. No se puede deshacer.', function () {
             pre();
-            window.apiFetch(ROUTE_PROD_ELIMINAR_PERM(id), {
+            window.apiFetch(ROUTE_PROD_ELIMINAR_PERM(id), { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
                 method: 'DELETE'})
             .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b }; }); })
             .then(function (res) {
@@ -4459,7 +4465,7 @@
         }
         window.apiFetch(id ? ROUTE_PROD_ITEM(id) : ROUTE_PROD, {
             method: id ? 'PATCH' : 'POST',
-            headers: { 'Content-Type': 'application/json'},
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest',  'Content-Type': 'application/json'},
             body: JSON.stringify(id
                 // Al editar: ahora SÍ se incluye CODIGO (editable). Si va vacío, el backend
                 // conserva el actual (updateProducto hace unset cuando llega vacío). En FILTROS
@@ -4532,7 +4538,7 @@
         if (!ensurePerm(HAS_NOTA_ELIMINAR, 'No tienes permiso para eliminar productos.')) return;
         almConfirm('¿Eliminar este producto?', function () {
             pre();
-            window.apiFetch(ROUTE_PROD_ITEM(id), { method: 'DELETE'})
+            window.apiFetch(ROUTE_PROD_ITEM(id), { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, method: 'DELETE'})
             .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b }; }); })
             .then(function (res) { unpre(); if (res.ok) { toast(res.b.message || 'Producto eliminado.'); almCargar(); } else { toast((res.b && res.b.message) || 'No se pudo eliminar.', 'error'); } })
             .catch(function () { unpre(); toast('Error de red.', 'error'); });
@@ -4781,7 +4787,7 @@
         pre();
         window.apiFetch(ROUTE_PREVIEW_SALIDA, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Accept': 'application/pdf, application/json' },
+            headers: { 'X-Requested-With': 'XMLHttpRequest',  'Content-Type': 'application/json', 'Accept': 'application/pdf, application/json' },
             body: JSON.stringify(payload)
         })
         .then(function (r) {
@@ -4887,7 +4893,7 @@
         pre();
         window.apiFetch(ROUTE_LOTE, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json'},
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest',  'Content-Type': 'application/json'},
             body: JSON.stringify(payload)
         })
         .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b }; }); })
@@ -4912,7 +4918,7 @@
                     // navegan a la URL en la misma pestaña y el usuario "pierde" la pagina
                     // del inventario — con blob URL eso no ocurre nunca.
                     var dlName = res.b.numero_nota ? ('Nota_' + res.b.numero_nota + '.pdf') : 'nota_entrega.pdf';
-                    window.apiFetch(res.b.nota_url, { headers: { 'Accept': 'application/pdf'}})
+                    window.apiFetch(res.b.nota_url, { headers: { 'X-Requested-With': 'XMLHttpRequest',  'Accept': 'application/pdf'}})
                         .then(function (rr) { return rr.ok ? rr.blob() : null; })
                         .then(function (blob) {
                             if (!blob) return;

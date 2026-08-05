@@ -907,7 +907,7 @@
 
     function loadList(url, kind, listElId) {
         var list = document.getElementById(listElId);
-        window.apiFetch(url)
+        window.apiFetch(url, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
             .then(function (r) { return r.json(); })
             .then(function (data) {
                 papeleraCache[listElId] = { items: data.items || [], kind: kind };
@@ -940,7 +940,7 @@
     function restoreItem(url, label, refreshFn) {
         var doRestore = function () {
             if (window.showPreloader) window.showPreloader();
-            window.apiFetch(url, { method: 'PATCH'})
+            window.apiFetch(url, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, method: 'PATCH'})
                 .then(function (r) { return r.json().catch(function () { return {}; }).then(function (b) { return { ok: r.ok, body: b }; }); })
                 .then(function (res) {
                     if (window.hidePreloader) window.hidePreloader();
@@ -982,7 +982,7 @@
     function forceDeleteItem(url, refreshFn) {
         var doDelete = function () {
             if (window.showPreloader) window.showPreloader();
-            window.apiFetch(url, { method: 'DELETE'})
+            window.apiFetch(url, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, method: 'DELETE'})
                 .then(function (r) { return r.json().catch(function () { return {}; }).then(function (b) { return { ok: r.ok, body: b }; }); })
                 .then(function (res) {
                     if (window.hidePreloader) window.hidePreloader();
@@ -1105,7 +1105,7 @@ window.hdDeleteRegistro = function (source, id, btn) {
     if (window.showPreloader) window.showPreloader();
     window.apiFetch(@json(route('historial-documentos.deleteRegistro')), {
         method: 'DELETE',
-        headers: {
+        headers: { 'Accept': 'application/json', 
             'Content-Type': 'application/json'
         },
         body: JSON.stringify({ source: source, id: id })

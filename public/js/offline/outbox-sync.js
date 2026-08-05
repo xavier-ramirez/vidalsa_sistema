@@ -56,7 +56,7 @@
             try {
                 res = await window.apiFetch('/offline/sync', {
                     method: 'POST',
-                    headers: {
+                    headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({ operations: operations })

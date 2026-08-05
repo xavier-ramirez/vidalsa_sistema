@@ -242,7 +242,7 @@
         // (cache stale, navegacion SPA con datos parciales), hace fetch con
         // preloader global y SIN spinner interno en el modal.
         if (typeof window.showPreloader === 'function') window.showPreloader();
-        window.apiFetch('/admin/equipos-auxiliares/' + id + '/details')
+        window.apiFetch('/admin/equipos-auxiliares/' + id + '/details', { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
         .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
         .then(d => {
             (window.auxDetailsMap = window.auxDetailsMap || {})[id] = d;
@@ -492,7 +492,7 @@
             if (typeof window.showPreloader === 'function') window.showPreloader();
         }
 
-        return window.apiFetch('{{ route("equipos-auxiliares.index") }}?' + params.toString())
+        return window.apiFetch('{{ route("equipos-auxiliares.index") }}?' + params.toString(), { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
         .then(r => r.json())
         .then(data => {
             const tbody = document.getElementById('auxTableBody');
@@ -632,7 +632,7 @@
             var form = document.getElementById('auxFiltersForm');
             var params = form ? new URLSearchParams(new FormData(form)) : new URLSearchParams();
             params.set('offset', '0');
-            window.apiFetch('{{ route("equipos-auxiliares.index") }}?' + params.toString())
+            window.apiFetch('{{ route("equipos-auxiliares.index") }}?' + params.toString(), { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
             .then(function (r) { return r.json(); })
             .then(function (data) {
                 if (data && data.stats) {
@@ -933,7 +933,7 @@
             try {
                 const res = await window.apiFetch('/admin/equipos-auxiliares/bulk-ubicacion', {
                     method: 'POST',
-                    headers: {
+                    headers: { 'Accept': 'application/json', 
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({ ids: ids.map(Number), detalle_ubicacion: valorFinal })
@@ -1147,7 +1147,7 @@
             try {
                 const res = await window.apiFetch(bulkMoveUrl, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json'},
+                    headers: { 'Accept': 'application/json',  'Content-Type': 'application/json'},
                     body: JSON.stringify({
                         ids: actaState.ids,
                         id_frente:   frenteId ? parseInt(frenteId, 10) : null,
@@ -1332,7 +1332,7 @@
 
         window.apiFetch(url, {
             method: 'PATCH',
-            headers: {
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({ ESTADO_OPERATIVO: newStatus })
@@ -1379,7 +1379,7 @@
         const url = '{{ route("equipos-auxiliares.export") }}' + (params.toString() ? '?' + params.toString() : '');
 
         if (typeof window.showPreloader === 'function') window.showPreloader();
-        window.apiFetch(url)
+        window.apiFetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
             .then(r => {
                 if (!r.ok) throw new Error('HTTP ' + r.status);
                 const cd = r.headers.get('Content-Disposition') || '';
@@ -1609,7 +1609,7 @@
                     label.innerHTML = '<i class="material-icons" style="font-size:14px;color:#0067b1;">search</i>Resultados de búsqueda';
                 }
             }
-            window.apiFetch('{{ route("equipos-auxiliares.searchHosts") }}?' + urlParams)
+            window.apiFetch('{{ route("equipos-auxiliares.searchHosts") }}?' + urlParams, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
             .then(r => r.json())
                 .then(rows => {
                     if (!rows || !rows.length) {
@@ -1755,7 +1755,7 @@
         let ok = 0, fail = 0;
         Promise.allSettled(ids.map(auxId => window.apiFetch('/admin/equipos-auxiliares/' + auxId + '/anchor', {
             method:'POST',
-            headers:{'Content-Type':'application/json'},
+            headers:{ 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'Content-Type':'application/json'},
             body: JSON.stringify({id_equipo_host: hostId})
         }).then(r => r.json().then(b => r.status === 200 && b.success ? ok++ : fail++))))
         .then(() => {
@@ -1803,7 +1803,7 @@
         // que /admin/equipos: el spinner queda visible hasta que el PDF
         // esta listo en el iframe del visor).
         if (window.showPreloader) window.showPreloader();
-        window.apiFetch('/admin/equipos-auxiliares/' + auxId + '/upload-doc', {
+        window.apiFetch('/admin/equipos-auxiliares/' + auxId + '/upload-doc', { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
             method: 'POST',
             body: fd
         })
@@ -1922,7 +1922,7 @@
                 var qs = window._auxBuildAnclajesFilterQS ? window._auxBuildAnclajesFilterQS() : '';
                 var url = '{{ route("equipos-auxiliares.exportAnclajes") }}' + (qs ? ('?' + qs) : '');
                 if (typeof window.showPreloader === 'function') window.showPreloader();
-                window.apiFetch(url)
+                window.apiFetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
                     .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); var cd=r.headers.get('content-disposition')||''; var m=cd.match(/filename="?([^";]+)"?/i); var fname=m?m[1]:('Anclajes_Auxiliares_'+new Date().toISOString().slice(0,10)+'.xlsx'); return r.blob().then(function(b){return {blob:b, fname:fname};}); })
                     .then(function(o){ var u=URL.createObjectURL(o.blob); var a=document.createElement('a'); a.href=u; a.download=o.fname; a.style.display='none'; document.body.appendChild(a); a.click(); setTimeout(function(){document.body.removeChild(a); URL.revokeObjectURL(u);},300); if(window.showToast) window.showToast('Descarga lista: '+o.fname,'success'); })
                     .catch(function(err){ console.error('[exportAuxAnclajes]', err); if(window.showToast) window.showToast('Error al descargar el Excel.','error'); })
@@ -1938,7 +1938,7 @@
         // listado AJAX mantiene actualizados — la URL no siempre tiene los params.
         var _qsIn = window._auxBuildAnclajesFilterQS ? window._auxBuildAnclajesFilterQS() : '';
         var _urlIn = '{{ route("equipos-auxiliares.anchoredList") }}' + (_qsIn ? ('?' + _qsIn) : '');
-        window.apiFetch(_urlIn)
+        window.apiFetch(_urlIn, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
         .then(r => r.ok ? r.json() : Promise.reject('HTTP ' + r.status))
         .then(data => {
             const items = Array.isArray(data.items) ? data.items : [];
@@ -2067,7 +2067,7 @@ window.bulkDeleteAuxiliaresSeleccionados = function () {
         var csrf = window.getCsrf();   // helper central (dom_helpers.js)
         window.apiFetch('{{ route("equipos-auxiliares.bulkDelete") }}', {
             method: 'POST',
-            headers: {
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({ ids: ids })

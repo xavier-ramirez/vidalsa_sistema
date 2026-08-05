@@ -15,7 +15,7 @@ window.borrarDirecto = function(id, url, btn) {
 
     var csrfToken = window.getCsrf();
 
-    window.apiFetch(url, {
+    window.apiFetch(url, { headers: { 'Accept': 'application/json' },
         method: 'DELETE'})
     .then(function(r) { return r.json(); })
     .then(function(data) {
@@ -60,7 +60,7 @@ if (typeof window.ModuleManager !== 'undefined') {
                 if (btn) btn.disabled = true;
                 if (window.showPreloader) window.showPreloader();
 
-                window.apiFetch(routeMatch, {
+                window.apiFetch(routeMatch, { headers: { 'Accept': 'application/json' },
                     method: 'POST'})
                 .then(function(r) { return r.json(); })
                 .then(function(data) {

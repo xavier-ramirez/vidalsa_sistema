@@ -323,7 +323,7 @@
         if (!window._cdashProdsCargados) p.set('con_productos', '1');
         var qs = p.toString();
 
-        window.apiFetch(window.CONSUMO_DASH_URL + (qs ? ('?' + qs) : ''), {})
+        window.apiFetch(window.CONSUMO_DASH_URL + (qs ? ('?' + qs) : ''), { headers: { 'Accept': 'application/json' } })
             .then(function (r) { return r.json(); })
             .then(function (data) { window._cdashRender(data); })
             .catch(function () {

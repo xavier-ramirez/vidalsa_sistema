@@ -57,7 +57,7 @@
         }
 
         if (window.showPreloader) window.showPreloader();
-        window.apiFetch(cfg().urlIndex + '?' + params.toString())
+        window.apiFetch(cfg().urlIndex + '?' + params.toString(), { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
         .then(r => r.json())
         .then(data => {
             document.getElementById('fallasTableBody').innerHTML = data.html;
@@ -217,7 +217,7 @@
         const fd = new FormData();
         fd.append('_method', 'DELETE');
         if (window.showPreloader) window.showPreloader();
-        window.apiFetch(cfg().urlBase + '/' + id, {
+        window.apiFetch(cfg().urlBase + '/' + id, { headers: { 'Accept': 'application/json' },
             method: 'POST',
             body: fd
         })
@@ -250,7 +250,7 @@
         }
         btn.disabled = true;
         if (window.showPreloader) window.showPreloader();
-        window.apiFetch(cfg().urlBase + '/' + _cierreId + '/close', {
+        window.apiFetch(cfg().urlBase + '/' + _cierreId + '/close', { headers: { 'Accept': 'application/json' },
             method: 'POST',
             body: fd
         })

@@ -730,7 +730,7 @@
     function _uploadBlob(url, fd, onSuccess, onError) {
         var csrf = window.getCsrf();   // helper central (dom_helpers.js)
         if (typeof window.showPreloader === 'function') window.showPreloader();
-        window.apiFetch(url, {
+        window.apiFetch(url, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
             method: 'POST',
             body: fd})
         .then(function (r) { return r.json().catch(function () { return {}; }).then(function (b) { return { ok: r.ok, body: b }; }); })
@@ -781,7 +781,7 @@
         if (!confirm('¿Eliminar la foto de este modelo?')) return;
         var csrf = window.getCsrf();   // helper central (dom_helpers.js)
         if (typeof window.showPreloader === 'function') window.showPreloader();
-        window.apiFetch('{{ url("admin/catalogo") }}/' + id + '/photo', {
+        window.apiFetch('{{ url("admin/catalogo") }}/' + id + '/photo', { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
             method: 'DELETE'})
         .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, body: b }; }); })
         .then(function (res) {
@@ -819,7 +819,7 @@
         fd.append('tipo', tipo); fd.append('marca', marca); fd.append('modelo', modelo);
         if (anio) fd.append('anio', anio);
         if (typeof window.showPreloader === 'function') window.showPreloader();
-        window.apiFetch('{{ route("equipos-auxiliares.catalogo.deletePhoto") }}', {
+        window.apiFetch('{{ route("equipos-auxiliares.catalogo.deletePhoto") }}', { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
             method: 'POST',
             body: fd})
         .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, body: b }; }); })
