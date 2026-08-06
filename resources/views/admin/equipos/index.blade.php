@@ -987,6 +987,11 @@
          hace SCROLL a la siguiente sección (no intercambia contenido); los clics sobre una fila
          (li) conservan su acción de filtrar. La sección Auxiliares solo se agrega cuando hay
          distribución de auxiliares (con filtro — ver $auxDistributionHtml). --}}
+    {{-- Ancla del sitio de ESCRITORIO de la card de abajo: en teléfono la card se muda al
+         Dashboard de Flota y hay que saber dónde devolverla al volver a pantalla ancha.
+         Se usa un ancla y no "el último hijo del sidebar" para que no se rompa si algún día
+         se agrega otra card debajo. Ver colocarDistribucionMovil() en equipos_index.js. --}}
+    <div id="eqDistribHome" style="display: none;"></div>
     <div id="distribucionCard" onclick="onDistribucionCardClick(event)" style="background: white; border-radius: 12px; padding: 15px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); overflow: hidden;">
         <div id="distributionStatsContainer">
             {{-- Modo aux: usamos el HTML ya renderizado por buildEmbedPayload (mismo que
@@ -1481,6 +1486,14 @@
                 </div>
 
 
+                {{-- Hueco donde aterriza la card de Distribución ("Ubicación por Frente" o
+                     "Equipos y Maquinaria", según el filtro) SOLO en teléfono: allí el sidebar
+                     entero se oculta (estilos_globales.css) y esa lista se perdía. NO se
+                     duplica el HTML — se muda el mismo nodo #distribucionCard, que
+                     _eqRenderDistribucion() localiza por id, así que se sigue pintando igual
+                     esté colgado donde esté. En escritorio este hueco queda vacío. --}}
+                <div id="fdmDistribucionSlot"></div>
+
                 {{-- Charts Row — una sola columna (gráficos apilados uno debajo del otro) a
                      pedido del cliente: a todo el ancho del modal los VALORES de las barras
                      dejan de solaparse entre sí. Eso resolvió el solape horizontal; el de las
@@ -1732,6 +1745,21 @@
             }
 
             #fleetDashboardModal .fdm-keys { margin-left: 0 !important; }
+
+            /* Card de Distribución mudada aquí desde el sidebar. Pierde su sombra propia
+               (ya vive dentro del modal, dos sombras se ven sucias) y se queda solo con el
+               borde, igual que los .fdm-panel de al lado. */
+            #fleetDashboardModal #fdmDistribucionSlot { margin-bottom: 12px; }
+            #fleetDashboardModal #fdmDistribucionSlot #distribucionCard {
+                box-shadow: none !important; padding: 12px !important;
+            }
+            /* Sin scroll propio: el cuerpo del modal YA hace scroll y anidar dos áreas
+               desplazables en una pantalla táctil es un incordio (se arrastra la de dentro
+               cuando quieres mover la de fuera). La lista se despliega entera y el modal la
+               desplaza. Anula el max-height:62vh del sidebar. */
+            #fleetDashboardModal #fdmDistribucionSlot #distributionStatsContainer {
+                max-height: none !important; overflow: visible !important;
+            }
         }
 
     </style>

@@ -942,6 +942,36 @@ window.toggleMobileStatsCard = function (cardId) {
     }
 };
 
+// ── En TELÉFONO la card de Distribución vive dentro del Dashboard de Flota ──
+// En móvil el sidebar completo se oculta (estilos_globales.css) y con él desaparecía la
+// lista de "Ubicación por Frente" / "Equipos y Maquinaria". En vez de duplicar el HTML
+// (dos nodos que habría que repintar en cada AJAX y que acaban desincronizados), se MUDA
+// el mismo nodo al hueco #fdmDistribucionSlot del modal: _eqRenderDistribucion() lo busca
+// por id, así que sigue pintándose igual esté colgado donde esté.
+// Al volver a pantalla ancha se devuelve junto a su ancla #eqDistribHome, en el sidebar.
+// El breakpoint 768px es el mismo con el que estilos_globales.css oculta el sidebar: si
+// allá cambia, aquí también, o la card se quedaría en tierra de nadie.
+window.colocarDistribucionMovil = function () {
+    var card = document.getElementById('distribucionCard');
+    var slot = document.getElementById('fdmDistribucionSlot');
+    var home = document.getElementById('eqDistribHome');
+    if (!card || !slot || !home) return;
+    if (window.matchMedia('(max-width: 768px)').matches) {
+        if (card.parentElement !== slot) slot.appendChild(card);
+    } else if (card.previousElementSibling !== home) {
+        home.parentElement.insertBefore(card, home.nextSibling);
+    }
+};
+// Guard SPA: los listeners se registran UNA sola vez aunque el script se re-ejecute.
+// Se re-coloca también en spa:contentLoaded porque al navegar a equipos el DOM es nuevo
+// (card, slot y ancla son otros nodos) y DOMContentLoaded ya no vuelve a dispararse.
+if (!window._eqDistribMovilReady) {
+    window._eqDistribMovilReady = true;
+    document.addEventListener('DOMContentLoaded', window.colocarDistribucionMovil);
+    window.addEventListener('spa:contentLoaded', window.colocarDistribucionMovil);
+    window.matchMedia('(max-width: 768px)').addEventListener('change', window.colocarDistribucionMovil);
+}
+
 // Scroll sincronizado: mueve el sidebar proporcionalmente al scroll de la página
 // para que la card de distribución (última del sidebar) quede visible al bajar.
 // max-height/overflow se aplican inline solo cuando pageMax > 0; si la página

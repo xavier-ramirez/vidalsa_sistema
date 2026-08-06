@@ -3305,7 +3305,11 @@ input:-webkit-autofill:active {
         border-color: rgba(245, 158, 11, 0.4);
     }
 
-    /* Ocultar la sidebar de stats ya que está duplicada en el bloque móvil */
+    /* Ocultar la sidebar de stats: sus CONSOLIDADOS (equipos y auxiliares) están repetidos
+       en el bloque móvil de la propia vista. OJO: la card de Distribución NO está repetida
+       ahí — se MUDA al Dashboard de Flota (colocarDistribucionMovil en equipos_index.js,
+       mismo breakpoint 768px). Si aquí se cambia el ancho, hay que cambiarlo allá o esa
+       card queda escondida en el sidebar y sin destino. */
     .page-layout-grid .counter-sidebar {
         display: none !important;
     }
