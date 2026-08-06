@@ -961,13 +961,11 @@
        z-index:6 — por encima de .cdir-capt (5), para que sus sugerencias tapen la barra de
        captura que queda debajo. */
     .cdir-proyecto { position:relative; z-index:6; flex-shrink:0; display:flex; align-items:center;
-        gap:12px; padding:10px 20px; background:#f8fafc; border-bottom:1px solid #e2e8f0; }
-    .cdir-proyecto .ayuda { flex:0 0 auto; font-size:17px; color:#94a3b8; cursor:default; }
+        gap:12px; padding:7px 20px; background:#f8fafc; border-bottom:1px solid #e2e8f0; }
     /* Etiqueta y campo en la MISMA línea: apilados ocupaban dos renglones de alto sin dar
        nada a cambio. nowrap para que el rótulo no se parta en dos. */
     .cdir-proyecto label { flex:0 0 auto; white-space:nowrap; font-size:11px; font-weight:800;
         text-transform:uppercase; letter-spacing:.4px; color:#64748b; }
-    .cdir-proyecto .req { color:#dc2626; }
     /* Campo CON BUSCADOR (no un <select> nativo): el almacén puede tener muchos proyectos y
        teclear tres letras es más rápido que recorrer la lista. Misma caja que el resto del
        modal para que no desentone. */
@@ -984,11 +982,20 @@
     .cdir-proy-field .cdir-input.listo { border-color:#22c55e; background:#f0fdf4; font-weight:700; }
 
     /* Zona de captura (fija). z-index para que el desplegable de sugerencias tape la tabla. */
-    .cdir-capt { position:relative; z-index:5; flex-shrink:0; padding:14px 20px 10px; background:#fff; }
-    .cdir-section-title { font-size:11.5px; font-weight:800; text-transform:uppercase; letter-spacing:.6px; color:#64748b; margin-bottom:8px; }
+    .cdir-capt { position:relative; z-index:5; flex-shrink:0; padding:10px 20px 8px; background:#fff; }
+    .cdir-section-title { font-size:11.5px; font-weight:800; text-transform:uppercase; letter-spacing:.6px; color:#64748b; margin-bottom:6px; }
     .cdir-capt-bar { display:flex; gap:8px; align-items:stretch; }
     .cdir-field { position:relative; flex:1 1 auto; min-width:0; }
-    .cdir-input { width:100%; box-sizing:border-box; height:42px; border:1px solid #cbd5e0; border-radius:10px;
+    /* Lupa del buscador de producto. Mismo tamaño y color que la de .tr-search-box para que
+       los dos buscadores del módulo se lean igual. pointer-events:none para que el clic
+       caiga siempre en el input y no en el icono. */
+    .cdir-lupa { position:absolute; left:10px; top:50%; transform:translateY(-50%);
+        color:#64748b; font-size:18px; pointer-events:none; }
+    .cdir-field .cdir-input { padding-left:34px; }
+    /* 36px (antes 42): el modal entraba justo en pantallas bajas y los campos se veían
+       inflados. Alto compartido por el buscador, UM, cantidad y el botón de agregar — si se
+       cambia aquí hay que cambiar .cdir-add-btn, que se alinea con ellos. */
+    .cdir-input { width:100%; box-sizing:border-box; height:36px; border:1px solid #cbd5e0; border-radius:10px;
         background:#fbfcfd; padding:0 12px; font-family:inherit; font-size:13.5px; color:#0f172a; outline:none; }
     .cdir-input:focus { border-color:#0067b1; background:#fff; }
     .cdir-um-input  { width:78px; flex:0 0 78px; text-align:center; text-transform:uppercase; font-weight:700; font-size:12.5px; }
@@ -998,9 +1005,9 @@
        "sumar un número", y el verde lo separa del azul de las acciones del pie. */
     /* REDONDO (border-radius:50%), no cuadrado: es una acción puntual —"confirmar esta
        línea"— y el círculo la separa de los campos rectangulares de al lado, que es donde
-       se escribe. Los 42px de alto son los mismos de .cdir-input, así que queda a ras con
-       los campos sin necesidad de alinearlo a mano. */
-    .cdir-add-btn { flex:0 0 42px; width:42px; height:42px; display:flex; align-items:center; justify-content:center;
+       se escribe. Su alto es el MISMO de .cdir-input (36px), así que queda a ras con los
+       campos sin alinearlo a mano; si allá cambia, aquí también. */
+    .cdir-add-btn { flex:0 0 36px; width:36px; height:36px; display:flex; align-items:center; justify-content:center;
         border:1px solid #16a34a; border-radius:50%; background:#16a34a; color:#fff; cursor:default; }
     .cdir-add-btn:hover { background:#15803d; }
 
@@ -1140,12 +1147,14 @@
              define a qué bolsa entra TODO lo que se capture debajo. Es obligatorio, y el
              backend lo exige igual por si alguien entra por otra vía. --}}
         <div class="cdir-proyecto" id="cdirProyectoRow" style="display:none;">
-            <label for="cdirProyecto">Asociar material a un proyecto <span class="req">*</span></label>
-            {{-- El rótulo dice a quién queda amarrado el material; el signo de ayuda explica
-                 la consecuencia real sin gastar un renglón en la franja. --}}
-            <i class="material-icons ayuda" title="Todo lo que captures abajo se suma al saldo de ESTE proyecto dentro del almacén. Cada proyecto lleva su stock por separado.">help_outline</i>
+            {{-- Rótulo a secas. El asterisco y el icono de ayuda se quitaron por pedido del
+                 cliente: la señal de "falta este dato" ya la da el borde rojo del campo
+                 (.falta), que es más visible que un asterisco, y la explicación del proyecto
+                 vive en el title del propio campo. --}}
+            <label for="cdirProyecto">Asociar material a un proyecto</label>
             <div class="cdir-proy-field">
                 <input type="text" id="cdirProyecto" class="cdir-input falta" autocomplete="off"
+                       title="Todo lo que captures abajo se suma al saldo de ESTE proyecto dentro del almacén. Cada proyecto lleva su stock por separado."
                        placeholder="Escribe para buscar el proyecto…"
                        oninput="window.cdirProySuggest()" onfocus="window.cdirProySuggest(true)"
                        onkeydown="window.cdirProyKey(event)">
@@ -1161,6 +1170,10 @@
             <div class="cdir-section-title">Líneas de entrada</div>
             <div class="cdir-capt-bar">
                 <div class="cdir-field">
+                    {{-- Lupa como en el resto de los buscadores del módulo (.tr-search-box).
+                         Va ANTES de .cdir-badge en el DOM a propósito: la insignia del
+                         producto elegido se pinta encima (inset:0) y debe taparla. --}}
+                    <i class="material-icons lupa cdir-lupa">search</i>
                     <input type="text" id="cdirSearch" class="cdir-input" autocomplete="off"
                            placeholder="Buscar por código o descripción…"
                            oninput="window.cdirSuggest()" onfocus="window.cdirSuggest()" onkeydown="window.cdirSearchKey(event)">
