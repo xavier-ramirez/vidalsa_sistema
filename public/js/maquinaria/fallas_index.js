@@ -224,13 +224,13 @@
         .then(r => r.json())
         .then(body => {
             if (body.success) {
-                if (window.showToast) window.showToast(body.message, 'success');
+                window.toast(body.message, 'success');
                 window.cargarFallas();
             } else {
-                if (window.showToast) window.showToast(body.message || 'Error al eliminar', 'error');
+                window.toast(body.message || 'Error al eliminar', 'error');
             }
         })
-        .catch(e => { console.error(e); if (window.showToast) window.showToast('Error de red', 'error'); })
+        .catch(e => { console.error(e); window.toast('Error de red', 'error'); })
         .finally(() => { if (window.hidePreloader) window.hidePreloader(); });
     };
 
@@ -257,14 +257,14 @@
         .then(r => r.json())
         .then(body => {
             if (body.success) {
-                if (window.showToast) window.showToast(body.message, 'success');
+                window.toast(body.message, 'success');
                 window.closeCierreModal();
                 window.cargarFallas();
             } else {
-                if (window.showToast) window.showToast(body.message || 'Error al cerrar', 'error');
+                window.toast(body.message || 'Error al cerrar', 'error');
             }
         })
-        .catch(e => { console.error(e); if (window.showToast) window.showToast('Error de red', 'error'); })
+        .catch(e => { console.error(e); window.toast('Error de red', 'error'); })
         .finally(() => { btn.disabled = false; if (window.hidePreloader) window.hidePreloader(); });
     };
 })();

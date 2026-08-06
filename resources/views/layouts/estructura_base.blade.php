@@ -1211,7 +1211,7 @@
                         var ahora = Date.now();
                         if (ahora - ultimoAvisoOffline > 2500) {
                             ultimoAvisoOffline = ahora;
-                            if (window.showToast) window.showToast("Sin conexión — presioná 'Trabajar sin conexión' para usar la copia local.", 'warning');
+                            window.toast("Sin conexión — presioná 'Trabajar sin conexión' para usar la copia local.", 'warning');
                         }
                         if (action && action.style.display !== 'none') {
                             action.style.transition = 'transform .15s ease';
@@ -2142,7 +2142,7 @@
             window.saveMetadata = async function (e) {
                 e.preventDefault();
                 if (!window.CAN_UPDATE_INFO) {
-                    if (window.showToast) window.showToast('No tienes permisos para actualizar', 'error');
+                    window.toast('No tienes permisos para actualizar', 'error');
                     return;
                 }
                 const ctx = window.currentPdfContext;
@@ -2162,7 +2162,7 @@
                     });
                     const data = await res.json();
                     if (data.success) {
-                        if (window.showToast) window.showToast('Datos actualizados correctamente', 'success');
+                        window.toast('Datos actualizados correctamente', 'success');
                         // Modulo auxiliares: refresca la tabla y termina (no aplica el
                         // flujo de showDetailsImproved/activeEquipoButton del modulo equipos).
                         if (ctx.module === 'auxiliar') {
@@ -2199,7 +2199,7 @@
                     } else { throw new Error(data.message); }
                 } catch (error) {
                     console.error(error);
-                    if (window.showToast) window.showToast('Error: No se pudieron guardar los cambios', 'error');
+                    window.toast('Error: No se pudieron guardar los cambios', 'error');
                 } finally {
                     btn.innerHTML = originalHTML;
                     btn.disabled = false;
@@ -2227,12 +2227,12 @@
             // queda detras del pdfPreviewModal por el stacking context.
             window.deletePdfFromPreview = async function () {
                 if (!window.CAN_DELETE_DOCS) {
-                    if (window.showToast) window.showToast('No tienes permisos para eliminar documentos.', 'error');
+                    window.toast('No tienes permisos para eliminar documentos.', 'error');
                     return;
                 }
                 const ctx = window.currentPdfContext;
                 if (!ctx || !ctx.equipoId || !ctx.docType) {
-                    if (window.showToast) window.showToast('Contexto de documento no disponible.', 'error');
+                    window.toast('Contexto de documento no disponible.', 'error');
                     return;
                 }
                 if (ctx.module === 'auxiliar') {
@@ -2247,7 +2247,7 @@
                         });
                         const d = await r.json().catch(() => ({}));
                         if (r.ok && d.success) {
-                            if (window.showToast) window.showToast(d.message || 'Documento eliminado.', 'success');
+                            window.toast(d.message || 'Documento eliminado.', 'success');
                             // Actualizar la cache + icono del modal de detalles (a "Subir"/cloud_upload)
                             // EN VIVO: el modal de detalles queda abierto detrás del visor, así que al
                             // cerrar el visor ya muestra el estado correcto sin recargar la página.
@@ -2256,10 +2256,10 @@
                             if (modal) modal.classList.remove('active');
                             if (typeof window.cargarAuxiliares === 'function') window.cargarAuxiliares(); // refresca la lista
                         } else {
-                            if (window.showToast) window.showToast(d.message || 'No se pudo eliminar el documento.', 'error');
+                            window.toast(d.message || 'No se pudo eliminar el documento.', 'error');
                         }
                     } catch (e) {
-                        if (window.showToast) window.showToast('Error de red al eliminar el documento.', 'error');
+                        window.toast('Error de red al eliminar el documento.', 'error');
                     } finally {
                         if (typeof window.hidePreloader === 'function') window.hidePreloader();
                         if (btnAux) btnAux.disabled = false;
@@ -2281,7 +2281,7 @@
                     // solo si NINGUNO existe no hay con que firmar el DELETE.
                     const csrfTok = window.getCsrf();
                     if (!csrfTok) {
-                        if (window.showToast) window.showToast('Token CSRF no disponible. Recarga la página.', 'error');
+                        window.toast('Token CSRF no disponible. Recarga la página.', 'error');
                         return;
                     }
                     // doc_type como query param: la ruta es DELETE, asi que enviamos
@@ -2294,7 +2294,7 @@
                     const data = await res.json().catch(() => ({}));
 
                     if (res.ok && data.success) {
-                        if (window.showToast) window.showToast(data.message || 'Documento eliminado.', 'success');
+                        window.toast(data.message || 'Documento eliminado.', 'success');
 
                         // ── Sincronizar la UI in-memory para que NO haya que recargar la pagina ──
                         // 1) Limpiar campos en el dataset del boton del listado (icono de PDF cargado).
@@ -2326,12 +2326,12 @@
                         if (typeof window.loadHistorialDocumentos === 'function') window.loadHistorialDocumentos();
                     } else {
                         const msg = (data && data.message) ? data.message : `Error HTTP ${res.status}`;
-                        if (window.showToast) window.showToast(msg, 'error');
+                        window.toast(msg, 'error');
                         console.error('deletePdfFromPreview: backend rechazo', res.status, data);
                     }
                 } catch (e) {
                     console.error('deletePdfFromPreview: excepcion de red', e);
-                    if (window.showToast) window.showToast('Error de red al eliminar el documento.', 'error');
+                    window.toast('Error de red al eliminar el documento.', 'error');
                 } finally {
                     if (btn) btn.disabled = false;
                     if (typeof window.hidePreloader === 'function') window.hidePreloader();
@@ -2343,7 +2343,7 @@
                 // PERMISSION CHECK
                 if (!window.CAN_UPDATE_INFO) {
                     input.value = ''; // Clear input
-                    if (window.showToast) window.showToast('No tienes permisos para actualizar documentos', 'error');
+                    window.toast('No tienes permisos para actualizar documentos', 'error');
                     return;
                 }
 
@@ -2480,7 +2480,7 @@
                                     }
                                 }
 
-                                if (window.showToast) window.showToast('Documento actualizado exitosamente', 'success');
+                                window.toast('Documento actualizado exitosamente', 'success');
 
                                 // Refresh Dashboard Alerts if function exists
                                 if (typeof window.refreshDashboardAlerts === 'function') {
@@ -2492,18 +2492,18 @@
                         } catch (error) {
                             console.error(error);
                             if (progressOverlay) progressOverlay.style.display = 'none';
-                            if (window.showToast) window.showToast('Error: Respuesta inválida del servidor', 'error');
+                            window.toast('Error: Respuesta inválida del servidor', 'error');
                         }
                     } else {
                         if (progressOverlay) progressOverlay.style.display = 'none';
-                        if (window.showToast) window.showToast('Error al cargar documento', 'error');
+                        window.toast('Error al cargar documento', 'error');
                     }
                 };
 
                 xhr.onerror = function () {
                     const progressOverlay = document.getElementById('pdfUploadProgressOverlay');
                     if (progressOverlay) progressOverlay.style.display = 'none';
-                    if (window.showToast) window.showToast('Error de red', 'error');
+                    window.toast('Error de red', 'error');
                 };
 
                 xhr.send(formData);
@@ -2525,7 +2525,7 @@
                     onConfirm: async () => {
                         // PERMISSION CHECK
                         if (!window.CAN_UPDATE_INFO) {
-                            if (window.showToast) window.showToast("No tienes permisos para eliminar documentos.", "error");
+                            window.toast("No tienes permisos para eliminar documentos.", "error");
                             return;
                         }
 
@@ -2572,13 +2572,13 @@
                                     }
                                 }
 
-                                if (window.showToast) window.showToast("Documento eliminado correctamente.", "success");
+                                window.toast("Documento eliminado correctamente.", "success");
                             } else {
                                 throw new Error(data.message);
                             }
                         } catch (error) {
                             console.error(error);
-                            if (window.showToast) window.showToast("No se pudo eliminar el documento.", "error");
+                            window.toast("No se pudo eliminar el documento.", "error");
                         }
                     }
                 });

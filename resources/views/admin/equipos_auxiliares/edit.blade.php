@@ -140,7 +140,7 @@
 
             const msg = body.message || 'No se pudo actualizar el equipo auxiliar.';
             if (window.showModal) window.showModal({ type:'error', title:'Error', message: msg, confirmText:'Entendido', hideCancel:true });
-            else if (window.showToast) window.showToast(msg, 'error');
+            else window.toast(msg, 'error');
         })
         .catch(err => {
             if (typeof window.hidePreloader === 'function') window.hidePreloader();

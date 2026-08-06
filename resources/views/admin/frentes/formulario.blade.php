@@ -672,7 +672,7 @@
                 .then(function (res) {
                     if (window.hidePreloader) window.hidePreloader();
                     if (res.ok && res.body.success) {
-                        if (window.showToast) window.showToast(res.body.message || okMsg, 'success');
+                        window.toast(res.body.message || okMsg, 'success');
                         window.cargarFrentesSinEquipos();
                         if (typeof window.removeFromSearchList === 'function') window.removeFromSearchList(nombre);
                     } else {
@@ -682,7 +682,7 @@
                 })
                 .catch(function () {
                     if (window.hidePreloader) window.hidePreloader();
-                    if (window.showToast) window.showToast('Error de red.', 'error');
+                    window.toast('Error de red.', 'error');
                 });
             }
 

@@ -3192,7 +3192,7 @@
             })
             .catch(function () {
                 unpre();
-                if (window.showToast) window.showToast(errMsg, 'error');
+                window.toast(errMsg, 'error');
             });
     }
 

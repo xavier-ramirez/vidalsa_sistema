@@ -732,7 +732,7 @@
     window.toggleAuxSoloSel = function (e) {
         if (e) e.stopPropagation();
         if (Object.keys(window._auxSelectedMap || {}).length === 0) {
-            if (window.showToast) window.showToast('No hay auxiliares seleccionados.', 'error');
+            window.toast('No hay auxiliares seleccionados.', 'error');
             return;
         }
         window._auxSoloSel = !window._auxSoloSel;
@@ -782,13 +782,13 @@
         if (event) { event.preventDefault(); event.stopPropagation(); }
 
         if (window.CAN_ASSIGN_AUX === false || window.CAN_ASSIGN_AUX === 'false') {
-            if (window.showToast) window.showToast('No tienes permiso para actualizar detalles.', 'error');
+            window.toast('No tienes permiso para actualizar detalles.', 'error');
             return;
         }
 
         const ids = Object.keys(window._auxSelectedMap || {});
         if (ids.length === 0) {
-            if (window.showToast) window.showToast('Selecciona al menos un auxiliar.', 'error');
+            window.toast('Selecciona al menos un auxiliar.', 'error');
             return;
         }
 
@@ -964,7 +964,7 @@
                 const toastMsg = valorFinal
                     ? 'Detalle actualizado en ' + (data.count || ids.length) + ' auxiliar(es).'
                     : 'Detalle borrado en ' + (data.count || ids.length) + ' auxiliar(es).';
-                if (typeof window.showToast === 'function') window.showToast(toastMsg, 'success');
+                window.toast(toastMsg, 'success');
             } catch (err) {
                 console.error('[Aux Ubicacion bulk]', err);
                 showFb('error', err.message || 'No se pudo actualizar.');
@@ -1108,7 +1108,7 @@
         const generarPdf  = !!document.getElementById('auxMovilizarGenerarPdf')?.checked;
 
         if (!destination) {
-            if (window.showToast) window.showToast('Selecciona o escribe un frente destino.', 'warning');
+            window.toast('Selecciona o escribe un frente destino.', 'warning');
             return;
         }
         const ids = Object.keys(window._auxSelectedMap).map(x => parseInt(x, 10));
@@ -1190,9 +1190,9 @@
                             document.body.appendChild(a); a.click();
                             setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
                         })
-                        .catch(() => { if (window.showToast) window.showToast('No se pudo descargar el acta.', 'error'); })
+                        .catch(() => { window.toast('No se pudo descargar el acta.', 'error'); })
                         .finally(() => { if (window.hidePreloader) window.hidePreloader(); });
-                    if (window.showToast) window.showToast('Movilización exitosa. Descargando acta...', 'success');
+                    window.toast('Movilización exitosa. Descargando acta...', 'success');
                 } else if (window.showToast) {
                     window.showToast(body.message || 'Movilización exitosa.', 'success');
                 }
@@ -1340,7 +1340,7 @@
         .then(r => r.json().then(body => ({ status: r.status, body })))
         .then(({ status, body }) => {
             if (status === 200) {
-                if (window.showToast) window.showToast('Estado actualizado.', 'success');
+                window.toast('Estado actualizado.', 'success');
                 return;
             }
             // El auxiliar tiene un reporte ABIERTO: revertir y abrir el modal de cierre
@@ -1354,7 +1354,7 @@
         })
         .catch(err => {
             revert();
-            if (window.showToast) window.showToast('No se pudo actualizar el estado.', 'error');
+            window.toast('No se pudo actualizar el estado.', 'error');
             console.error('auxChangeStatus:', err);
         });
     };
@@ -1399,7 +1399,7 @@
             })
             .catch(err => {
                 console.error('export auxiliares:', err);
-                if (window.showToast) window.showToast('No se pudo exportar. Intenta nuevamente.', 'error');
+                window.toast('No se pudo exportar. Intenta nuevamente.', 'error');
             })
             .finally(() => { if (typeof window.hidePreloader === 'function') window.hidePreloader(); });
     };
@@ -1811,7 +1811,7 @@
         .then(({status, body}) => {
             input.value = '';
             if (status === 200 && body.success) {
-                if (window.showToast) window.showToast(body.message || 'PDF cargado.', 'success');
+                window.toast(body.message || 'PDF cargado.', 'success');
 
                 // 0) Actualizar la caché en memoria (auxDetailsMap) con el link nuevo y
                 //    refrescar el icono del modal de detalles (a "cargado"/description) sin
@@ -1844,14 +1844,14 @@
                 if (window.hidePreloader) window.hidePreloader();
             } else {
                 if (window.hidePreloader) window.hidePreloader();
-                if (window.showToast) window.showToast(body.message || 'No se pudo cargar el PDF.', 'error');
+                window.toast(body.message || 'No se pudo cargar el PDF.', 'error');
             }
         })
         .catch(err => {
             if (window.hidePreloader) window.hidePreloader();
             input.value = '';
             console.error('uploadDoc:', err);
-            if (window.showToast) window.showToast('Error de red al cargar el PDF.', 'error');
+            window.toast('Error de red al cargar el PDF.', 'error');
         });
     };
 
@@ -1924,8 +1924,8 @@
                 if (typeof window.showPreloader === 'function') window.showPreloader();
                 window.apiFetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
                     .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); var cd=r.headers.get('content-disposition')||''; var m=cd.match(/filename="?([^";]+)"?/i); var fname=m?m[1]:('Anclajes_Auxiliares_'+new Date().toISOString().slice(0,10)+'.xlsx'); return r.blob().then(function(b){return {blob:b, fname:fname};}); })
-                    .then(function(o){ var u=URL.createObjectURL(o.blob); var a=document.createElement('a'); a.href=u; a.download=o.fname; a.style.display='none'; document.body.appendChild(a); a.click(); setTimeout(function(){document.body.removeChild(a); URL.revokeObjectURL(u);},300); if(window.showToast) window.showToast('Descarga lista: '+o.fname,'success'); })
-                    .catch(function(err){ console.error('[exportAuxAnclajes]', err); if(window.showToast) window.showToast('Error al descargar el Excel.','error'); })
+                    .then(function(o){ var u=URL.createObjectURL(o.blob); var a=document.createElement('a'); a.href=u; a.download=o.fname; a.style.display='none'; document.body.appendChild(a); a.click(); setTimeout(function(){document.body.removeChild(a); URL.revokeObjectURL(u);},300); window.toast('Descarga lista: '+o.fname,'success'); })
+                    .catch(function(err){ console.error('[exportAuxAnclajes]', err); window.toast('Error al descargar el Excel.','error'); })
                     .finally(function(){ if(typeof window.hidePreloader==='function') window.hidePreloader(); });
             });
         }
@@ -2076,16 +2076,16 @@ window.bulkDeleteAuxiliaresSeleccionados = function () {
         .then(function (res) {
             if (window.hidePreloader) window.hidePreloader();
             if (res.ok && res.body.success) {
-                if (window.showToast) window.showToast(res.body.message || 'Auxiliares eliminados.', 'success');
+                window.toast(res.body.message || 'Auxiliares eliminados.', 'success');
                 if (typeof window.auxClearSelection === 'function') window.auxClearSelection();
                 if (typeof window.cargarAuxiliares === 'function') window.cargarAuxiliares();
             } else {
-                if (window.showToast) window.showToast((res.body && res.body.message) || 'No se pudo eliminar.', 'error');
+                window.toast((res.body && res.body.message) || 'No se pudo eliminar.', 'error');
             }
         })
         .catch(function () {
             if (window.hidePreloader) window.hidePreloader();
-            if (window.showToast) window.showToast('Error de red al eliminar.', 'error');
+            window.toast('Error de red al eliminar.', 'error');
         });
     };
     if (typeof window.showModal === 'function') {

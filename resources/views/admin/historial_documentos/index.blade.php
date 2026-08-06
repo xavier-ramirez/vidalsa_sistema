@@ -945,15 +945,15 @@
                 .then(function (res) {
                     if (window.hidePreloader) window.hidePreloader();
                     if (res.ok && res.body.success) {
-                        if (window.showToast) window.showToast(res.body.message || 'Restaurado.', 'success');
+                        window.toast(res.body.message || 'Restaurado.', 'success');
                         refreshFn();
                     } else {
-                        if (window.showToast) window.showToast((res.body && res.body.message) || 'No se pudo restaurar.', 'error');
+                        window.toast((res.body && res.body.message) || 'No se pudo restaurar.', 'error');
                     }
                 })
                 .catch(function () {
                     if (window.hidePreloader) window.hidePreloader();
-                    if (window.showToast) window.showToast('Error de red.', 'error');
+                    window.toast('Error de red.', 'error');
                 });
         };
         // Modal moderno (showModal global) en lugar del confirm() nativo
@@ -987,15 +987,15 @@
                 .then(function (res) {
                     if (window.hidePreloader) window.hidePreloader();
                     if (res.ok && res.body.success) {
-                        if (window.showToast) window.showToast(res.body.message || 'Eliminado permanentemente.', 'success');
+                        window.toast(res.body.message || 'Eliminado permanentemente.', 'success');
                         refreshFn();
                     } else {
-                        if (window.showToast) window.showToast((res.body && res.body.message) || 'No se pudo eliminar.', 'error');
+                        window.toast((res.body && res.body.message) || 'No se pudo eliminar.', 'error');
                     }
                 })
                 .catch(function () {
                     if (window.hidePreloader) window.hidePreloader();
-                    if (window.showToast) window.showToast('Error de red.', 'error');
+                    window.toast('Error de red.', 'error');
                 });
         };
         if (typeof window.showModal === 'function') {
@@ -1114,12 +1114,12 @@ window.hdDeleteRegistro = function (source, id, btn) {
     .then(function (res) {
         if (res.ok && res.data.success) {
             if (tr) { tr.style.transition = 'opacity .2s'; tr.style.opacity = '0'; setTimeout(function () { tr.remove(); }, 200); }
-            if (window.showToast) window.showToast(res.data.message || 'Registro eliminado.', 'success');
+            window.toast(res.data.message || 'Registro eliminado.', 'success');
         } else {
-            if (window.showToast) window.showToast(res.data.message || 'No se pudo eliminar.', 'error');
+            window.toast(res.data.message || 'No se pudo eliminar.', 'error');
         }
     })
-    .catch(function () { if (window.showToast) window.showToast('Error de conexión.', 'error'); })
+    .catch(function () { window.toast('Error de conexión.', 'error'); })
     .finally(function () { if (window.hidePreloader) window.hidePreloader(); });
 };
 // Los listeners van DELEGADOS en `document`, así funcionan con las filas cargadas por

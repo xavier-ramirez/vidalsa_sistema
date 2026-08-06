@@ -36,7 +36,7 @@
                 </a>
                 <button type="submit" class="btn-primary-maquinaria"
                     @cannot('equipos.create')
-                    onclick="event.preventDefault(); if(window.showToast) window.showToast('Acceso denegado: No tienes permiso para guardar este modelo.', 'error');"
+                    onclick="event.preventDefault(); window.toast('Acceso denegado: No tienes permiso para guardar este modelo.', 'error');"
                     @endcannot
                 >
                     <i class="material-icons">save</i>

@@ -268,7 +268,7 @@
                             if (window.jQuery) window.jQuery.ajaxSetup({ headers: { 'X-CSRF-TOKEN': token } });
                         }
                         startServerPing();
-                        if (window.showToast) window.showToast('Sesión renovada', 'success');
+                        window.toast('Sesión renovada', 'success');
                     })
                     .catch(() => {
                         // Fallo/timeout de red al renovar el token: NO forzamos logout ni modal —

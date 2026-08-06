@@ -448,7 +448,7 @@
         <a href="{{ route('catalogo.create') }}" class="btn-primary-maquinaria"
            style="height:45px; display:inline-flex; align-items:center; padding:0 28px; text-decoration:none; gap:8px; flex:0 0 auto; min-width:180px; justify-content:center;"
            @cannot('equipos.create')
-               onclick="event.preventDefault(); if(window.showToast) window.showToast('No tienes permiso para registrar nuevos modelos.', 'error');"
+               onclick="event.preventDefault(); window.toast('No tienes permiso para registrar nuevos modelos.', 'error');"
            @endcannot>
             <i class="material-icons" style="font-size:18px;">add_circle</i>
             Nuevo
@@ -691,7 +691,7 @@
         if (!window._cropperInstance || !window._cropPending) return;
         var canvas = window._cropperInstance.getCroppedCanvas({ maxWidth: 1200, maxHeight: 1200, imageSmoothingQuality: 'high' });
         canvas.toBlob(function (blob) {
-            if (!blob) { if (window.showToast) window.showToast('Error al recortar la imagen.', 'error'); return; }
+            if (!blob) { window.toast('Error al recortar la imagen.', 'error'); return; }
             var croppedFile = new File([blob], 'foto_recortada.webp', { type: 'image/webp' });
             window._cropPending(croppedFile);
             window._closeCropModal();
@@ -717,7 +717,7 @@
             if (!input.files || !input.files[0]) return;
             var file = input.files[0];
             if (file.size > 10 * 1024 * 1024) {
-                if (window.showToast) window.showToast('La foto supera los 10 MB.', 'error');
+                window.toast('La foto supera los 10 MB.', 'error');
                 return;
             }
             window._openCropModal(file, onCropped);
@@ -750,7 +750,7 @@
         var tipo = photoEl.dataset.tipo || '', marca = photoEl.dataset.marca || '',
             modelo = photoEl.dataset.modelo || '', anio = photoEl.dataset.anio || '';
         if (!tipo || !marca || !modelo) {
-            if (window.showToast) window.showToast('Este modelo no tiene marca registrada; no se puede asociar la foto.', 'error');
+            window.toast('Este modelo no tiene marca registrada; no se puede asociar la foto.', 'error');
             return;
         }
         _pickFileAndCrop(function (croppedFile) {
@@ -759,7 +759,7 @@
             if (anio) fd.append('anio', anio);
             _uploadBlob('{{ route("equipos-auxiliares.catalogo.uploadPhoto") }}', fd,
                 function (body) {
-                    if (window.showToast) window.showToast(body.message || 'Foto actualizada.', 'success');
+                    window.toast(body.message || 'Foto actualizada.', 'success');
                     if (body.foto) {
                         var img = photoEl.querySelector('img');
                         if (img) { img.src = body.foto; }
@@ -771,7 +771,7 @@
                         }
                     }
                 },
-                function (msg) { if (window.showToast) window.showToast(msg, 'error'); }
+                function (msg) { window.toast(msg, 'error'); }
             );
         });
     };
@@ -787,7 +787,7 @@
         .then(function (res) {
             if (window.hidePreloader) window.hidePreloader();
             if (res.ok && res.body.success) {
-                if (window.showToast) window.showToast(res.body.message || 'Foto eliminada.', 'success');
+                window.toast(res.body.message || 'Foto eliminada.', 'success');
                 if (photoEl) {
                     var img = photoEl.querySelector('img');
                     if (img) img.outerHTML = '<i class="material-icons placeholder">precision_manufacturing</i>';
@@ -795,12 +795,12 @@
                     if (delBtn) delBtn.remove();
                 }
             } else {
-                if (window.showToast) window.showToast((res.body && res.body.message) || 'No se pudo eliminar la foto.', 'error');
+                window.toast((res.body && res.body.message) || 'No se pudo eliminar la foto.', 'error');
             }
         })
         .catch(function () {
             if (window.hidePreloader) window.hidePreloader();
-            if (window.showToast) window.showToast('Error de red al eliminar la foto.', 'error');
+            window.toast('Error de red al eliminar la foto.', 'error');
         });
     };
 
@@ -810,7 +810,7 @@
         var tipo = photoEl.dataset.tipo || '', marca = photoEl.dataset.marca || '',
             modelo = photoEl.dataset.modelo || '', anio = photoEl.dataset.anio || '';
         if (!tipo || !marca || !modelo) {
-            if (window.showToast) window.showToast('No se pudo identificar el modelo.', 'error');
+            window.toast('No se pudo identificar el modelo.', 'error');
             return;
         }
         var csrf = window.getCsrf();   // helper central (dom_helpers.js)
@@ -826,7 +826,7 @@
         .then(function (res) {
             if (window.hidePreloader) window.hidePreloader();
             if (res.ok && res.body.success) {
-                if (window.showToast) window.showToast(res.body.message || 'Foto eliminada.', 'success');
+                window.toast(res.body.message || 'Foto eliminada.', 'success');
                 if (photoEl) {
                     var img = photoEl.querySelector('img');
                     if (img) img.outerHTML = '<i class="material-icons placeholder">construction</i>';
@@ -834,12 +834,12 @@
                     if (delBtn) delBtn.remove();
                 }
             } else {
-                if (window.showToast) window.showToast((res.body && res.body.message) || 'No se pudo eliminar la foto.', 'error');
+                window.toast((res.body && res.body.message) || 'No se pudo eliminar la foto.', 'error');
             }
         })
         .catch(function () {
             if (window.hidePreloader) window.hidePreloader();
-            if (window.showToast) window.showToast('Error de red al eliminar la foto.', 'error');
+            window.toast('Error de red al eliminar la foto.', 'error');
         });
     };
 
@@ -850,7 +850,7 @@
             fd.append('foto', croppedFile);
             _uploadBlob('{{ url("admin/catalogo") }}/' + id + '/photo', fd,
                 function (body) {
-                    if (window.showToast) window.showToast(body.message || 'Foto actualizada correctamente.', 'success');
+                    window.toast(body.message || 'Foto actualizada correctamente.', 'success');
                     if (body.foto && photoEl) {
                         var img = photoEl.querySelector('img');
                         if (img) { img.src = body.foto; }
@@ -863,7 +863,7 @@
                         }
                     }
                 },
-                function (msg) { if (window.showToast) window.showToast(msg, 'error'); }
+                function (msg) { window.toast(msg, 'error'); }
             );
         });
     };

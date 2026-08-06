@@ -27,16 +27,16 @@ window.borrarDirecto = function(id, url, btn) {
                 row.style.transform = 'scale(0.95)';
                 setTimeout(function() { row.remove(); }, 200);
             }
-            if (window.showToast) window.showToast('Registro eliminado al instante.', 'success');
+            window.toast('Registro eliminado al instante.', 'success');
         } else {
             console.error('Error al borrar', data);
-            if (window.showToast) window.showToast('No se pudo eliminar', 'error');
+            window.toast('No se pudo eliminar', 'error');
             if (btn) { btn.disabled = false; btn.innerHTML = '<i class="material-icons" style="font-size:17px;">delete</i>'; btn.style.opacity = '1'; }
         }
     })
     .catch(function(e) {
         console.error(e);
-        if (window.showToast) window.showToast('Error de red', 'error');
+        window.toast('Error de red', 'error');
         if (btn) { btn.disabled = false; btn.innerHTML = '<i class="material-icons" style="font-size:17px;">delete</i>'; btn.style.opacity = '1'; }
     });
 };
@@ -74,7 +74,7 @@ if (typeof window.ModuleManager !== 'undefined') {
                     var msg = confirmados + ' equipos confirmados';
                     if (sinMatch > 0) msg += ' · ' + sinMatch + ' sin match';
                     // Show toast which will persist across SPA navigation
-                    if (window.showToast) window.showToast(msg, 'success');
+                    window.toast(msg, 'success');
 
                     // Instantly reload without hiding the preloader, 
                     // avoiding the double-spinner glitch.
@@ -88,7 +88,7 @@ if (typeof window.ModuleManager !== 'undefined') {
                     if (window.hidePreloader) window.hidePreloader();
                     if (btn) btn.disabled = false;
                     console.error('Error match:', err);
-                    if (window.showToast) window.showToast('Error al ejecutar match', 'error');
+                    window.toast('Error al ejecutar match', 'error');
                 });
             };
 

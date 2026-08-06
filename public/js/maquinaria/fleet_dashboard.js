@@ -270,7 +270,7 @@ window.exportFleetStats = function () {
             window.URL.revokeObjectURL(downloadUrl);
             document.body.removeChild(a);
             
-            if (window.showToast) window.showToast('Descarga completada', 'success');
+            window.toast('Descarga completada', 'success');
         })
         .catch(err => {
             if (window.hidePreloader) window.hidePreloader();

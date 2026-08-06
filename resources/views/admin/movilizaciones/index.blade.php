@@ -433,7 +433,7 @@ window.movDeshacer = function (id) {
         .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b }; }); })
         .then(function (res) {
             if (res.ok && res.b.success) {
-                if (window.showToast) window.showToast(res.b.message || 'Movilización deshecha.', 'success');
+                window.toast(res.b.message || 'Movilización deshecha.', 'success');
                 if (window.loadMovilizaciones) window.loadMovilizaciones(); else window.location.reload();
             } else {
                 if (preloader) preloader.style.display = 'none';

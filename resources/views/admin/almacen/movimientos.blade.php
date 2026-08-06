@@ -1341,7 +1341,7 @@
                 // Toast global: la notificación persiste DESPUÉS de que el modal se
                 // cierre. Sin esto el único aviso era el recuadro dentro del modal,
                 // que desaparecía con él (800ms) y era fácil de no ver.
-                if (window.showToast) window.showToast(okMsg, 'success');
+                window.toast(okMsg, 'success');
                 // Recargar la tabla de movimientos para que aparezcan las ENTRADAS reversa.
                 if (window.loadMovimientos) window.loadMovimientos();
                 setTimeout(function(){ window.closeEliminarNotaModal(); }, 800);
@@ -1392,11 +1392,11 @@
             .then(function (res) {
                 if (window.hidePreloader) window.hidePreloader();
                 if (!res.ok) {
-                    if (window.showToast) window.showToast(res.d.message || ('Error del servidor (' + res.status + ').'), 'error');
+                    window.toast(res.d.message || ('Error del servidor (' + res.status + ').'), 'error');
                     btn.disabled = false;
                     return;
                 }
-                if (window.showToast) window.showToast(res.d.message || opts.okMsg, 'success');
+                window.toast(res.d.message || opts.okMsg, 'success');
                 // Recargar la bitácora: la fila desaparece. En el deshacer los saldos
                 // posteriores ya vienen recalculados; en el borrado solo-historial NO
                 // (a propósito) — el stock no se tocó.
@@ -1404,7 +1404,7 @@
             })
             .catch(function () {
                 if (window.hidePreloader) window.hidePreloader();
-                if (window.showToast) window.showToast('No se pudo contactar al servidor.', 'error');
+                window.toast('No se pudo contactar al servidor.', 'error');
                 btn.disabled = false;
             });
         };

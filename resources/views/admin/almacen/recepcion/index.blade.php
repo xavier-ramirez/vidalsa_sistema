@@ -2475,7 +2475,7 @@
         .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
         .then(function (res) {
             if (res.ok) {
-                if (window.showToast) window.showToast(successMsg || res.data.message || 'Operación exitosa', 'success');
+                window.toast(successMsg || res.data.message || 'Operación exitosa', 'success');
                 window.trCloseModal();
                 window.trLoad();
             } else {
@@ -2483,12 +2483,12 @@
                 // modal, que sigue abierto, vuelva a comportarse como uno sin confirmar. Sin
                 // esto, tras un 403 el cierre con la ✕ dejaba de auto-guardar lo marcado.
                 _trModalSubmitted = false;
-                if (window.showToast) window.showToast(res.data.message || 'Error en la operación', 'error');
+                window.toast(res.data.message || 'Error en la operación', 'error');
             }
         })
         .catch(function () {
             _trModalSubmitted = false;
-            if (window.showToast) window.showToast('Error de conexión', 'error');
+            window.toast('Error de conexión', 'error');
         })
         .finally(function () { if (window.hidePreloader) window.hidePreloader(); });
     }

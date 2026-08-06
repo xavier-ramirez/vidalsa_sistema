@@ -708,8 +708,8 @@
         // Copia una coordenada al portapapeles con aviso.
         function copiarCoordenada(coord) {
             if (!coord) return;
-            copyToClipboard(coord).then(function () { if (window.showToast) window.showToast('Coordenada copiada: ' + coord, 'success'); })
-                .catch(function () { if (window.showToast) window.showToast('No se pudo copiar la coordenada.', 'error'); });
+            copyToClipboard(coord).then(function () { window.toast('Coordenada copiada: ' + coord, 'success'); })
+                .catch(function () { window.toast('No se pudo copiar la coordenada.', 'error'); });
         }
         // Menú de CLIC DERECHO en zona sin estado (mar/vacío): muestra la coordenada + copiar.
         function menuCoordenada(ev) {
@@ -1002,7 +1002,7 @@
                     // siguiente clic (si no, quedaría rota para siempre).
                     spinOff();
                     est.promesa = null;
-                    if (window.showToast) window.showToast('No se pudo cargar la capa petrolera.', 'error');
+                    window.toast('No se pudo cargar la capa petrolera.', 'error');
                     return false;
                 });
                 return est.promesa;
@@ -2177,9 +2177,9 @@
                     }
                     oleoActivo = oid;
                     oleoRenderLista();
-                    if (window.showToast) window.showToast(idFrente ? 'Ubicación guardada en el frente.' : 'Ubicación guardada sin frente.', 'success');
+                    window.toast(idFrente ? 'Ubicación guardada en el frente.' : 'Ubicación guardada sin frente.', 'success');
                     if (cb) cb(true);
-                } else { if (window.showToast) window.showToast('No se pudo guardar la ubicación.', 'error'); if (cb) cb(false); }
+                } else { window.toast('No se pudo guardar la ubicación.', 'error'); if (cb) cb(false); }
             }).catch(function () { spinOff(); if (cb) cb(false); });
         }
 
@@ -2429,7 +2429,7 @@
                         }
                         spinOn();
                         oleoApi('/mapa/oleoductos/' + idd, 'DELETE').then(function () {
-                            spinOff(); if (window.showToast) window.showToast('Frente borrado.', 'success');
+                            spinOff(); window.toast('Frente borrado.', 'success');
                         }).catch(function () { spinOff(); });
                         return;
                     }
@@ -2500,22 +2500,22 @@
             var ids = Object.keys(oleoMap);
             if (!oleoActivo || !oleoMap[oleoActivo]) {
                 if (ids.length === 1) { oleoActivo = ids[0]; oleoRenderLista(); }
-                else if (!ids.length) { if (window.showToast) window.showToast('Primero vincula ubicaciones a un frente (busca un lugar en el mapa).', 'error'); abrirPanelOleo(); return; }
-                else { if (window.showToast) window.showToast('Selecciona en el panel Frentes de trabajo (arriba a la izquierda) el frente a editar.', 'error'); abrirPanelOleo(); return; }
+                else if (!ids.length) { window.toast('Primero vincula ubicaciones a un frente (busca un lugar en el mapa).', 'error'); abrirPanelOleo(); return; }
+                else { window.toast('Selecciona en el panel Frentes de trabajo (arriba a la izquierda) el frente a editar.', 'error'); abrirPanelOleo(); return; }
             }
             entrarDibujo(oleoActivo);
         }
         function entrarDibujo(id) {
-            if (!id || !oleoMap[id]) { if (window.showToast) window.showToast('Selecciona un frente primero.', 'error'); return; }
+            if (!id || !oleoMap[id]) { window.toast('Selecciona un frente primero.', 'error'); return; }
             if (edMode) return;
             var o = oleoMap[id].data;
             // Las ubicaciones sin frente son puntos sueltos, no un tendido: NO se les traza línea
             // (el backend rechaza igual el recorrido de ese grupo).
-            if (o.suelto) { if (window.showToast) window.showToast('Los puntos sin frente no llevan línea.', 'error'); return; }
+            if (o.suelto) { window.toast('Los puntos sin frente no llevan línea.', 'error'); return; }
             var base = (o.recorrido && o.recorrido.length >= 2)
                 ? edSubmuestrear(o.recorrido, 24).map(function (c) { return L.latLng(c[0], c[1]); })
                 : puntosOrdenados(o).map(function (p) { return L.latLng(p.lat, p.lng); });
-            if (base.length < 2) { if (window.showToast) window.showToast('Agrega al menos 2 puntos al frente para trazar la línea.', 'error'); return; }
+            if (base.length < 2) { window.toast('Agrega al menos 2 puntos al frente para trazar la línea.', 'error'); return; }
             edMode = true; edId = id; edPts = base;
             if (oleoMap[id]) { (oleoMap[id].lines || []).forEach(function (l) { map.removeLayer(l); }); } // oculta la tubería normal mientras se edita
             edRender();
@@ -2536,10 +2536,10 @@
                 spinOff();
                 if (res && res.success && oleoMap[id]) {
                     oleoMap[id].data.recorrido = res.recorrido;
-                    if (window.showToast) window.showToast(res.recorrido ? 'Línea guardada.' : 'Línea quitada.', 'success');
+                    window.toast(res.recorrido ? 'Línea guardada.' : 'Línea quitada.', 'success');
                     salirDibujo();
-                } else if (window.showToast) window.showToast('No se pudo guardar la línea.', 'error');
-            }).catch(function () { spinOff(); if (window.showToast) window.showToast('No se pudo guardar la línea.', 'error'); });
+                } else window.toast('No se pudo guardar la línea.', 'error');
+            }).catch(function () { spinOff(); window.toast('No se pudo guardar la línea.', 'error'); });
         }
         function mostrarBarraDibujo() {
             var old = document.getElementById('mapaDibujoBar'); if (old) old.remove();
@@ -2592,7 +2592,7 @@
                 if (res && res.success && oleoMap[id]) {
                     oleoMap[id].data.recorrido = null;
                     oleoDibujar(oleoMap[id].data);
-                    if (window.showToast) window.showToast('Línea eliminada (los puntos quedan).', 'success');
+                    window.toast('Línea eliminada (los puntos quedan).', 'success');
                 }
             }).catch(function () { spinOff(); });
         }
@@ -2641,7 +2641,7 @@
                 .filter(function (x) { return x !== ''; });
 
             if (oleoFrentes.filter(function (f) { return yaEn.indexOf(String(f.id)) === -1; }).length === 0) {
-                if (window.showToast) window.showToast('Este punto ya está en todos tus frentes.', 'info');
+                window.toast('Este punto ya está en todos tus frentes.', 'info');
                 return;
             }
             var html = '<div class="oleo-save">' +
@@ -2691,7 +2691,7 @@
                     spinOff();
                     if (!res || !res.success) {
                         btn.disabled = false; btn.textContent = 'Agregar al proyecto';
-                        if (window.showToast) window.showToast('No se pudo agregar el punto.', 'error');
+                        window.toast('No se pudo agregar el punto.', 'error');
                         return;
                     }
                     map.closePopup();
@@ -2705,11 +2705,11 @@
                     }
                     sincronizarConteoProyectos(punto.id, res.punto.proyectos);
                     oleoRenderLista();
-                    if (window.showToast) window.showToast('Punto agregado al proyecto.', 'success');
+                    window.toast('Punto agregado al proyecto.', 'success');
                 }).catch(function () {
                     spinOff();
                     btn.disabled = false; btn.textContent = 'Agregar al proyecto';
-                    if (window.showToast) window.showToast('No se pudo agregar el punto.', 'error');
+                    window.toast('No se pudo agregar el punto.', 'error');
                 });
             });
         });
@@ -2726,7 +2726,7 @@
             spinOn();
             oleoApi('/mapa/oleoductos/' + oleoId + '/puntos/' + punto.id, 'DELETE').then(function (res) {
                 spinOff();
-                if (!res || !res.success) { if (window.showToast) window.showToast('No se pudo quitar el punto.', 'error'); return; }
+                if (!res || !res.success) { window.toast('No se pudo quitar el punto.', 'error'); return; }
                 // Se quita SOLO del proyecto del que se desvinculó; si el backend lo borró del todo
                 // (era su último proyecto), entonces sí se quita de todos.
                 Object.keys(oleoMap).forEach(function (id) {
@@ -2738,8 +2738,8 @@
                 // Al quedar en menos proyectos, las copias que sobreviven deben reflejar el conteo.
                 if (!res.borrado) sincronizarConteoProyectos(punto.id, res.quedan);
                 oleoRenderLista(); // refresca la leyenda
-                if (window.showToast) window.showToast(res.borrado ? 'Punto eliminado.' : 'Punto quitado de este proyecto.', 'success');
-            }).catch(function () { spinOff(); if (window.showToast) window.showToast('No se pudo quitar el punto.', 'error'); });
+                window.toast(res.borrado ? 'Punto eliminado.' : 'Punto quitado de este proyecto.', 'success');
+            }).catch(function () { spinOff(); window.toast('No se pudo quitar el punto.', 'error'); });
         }
 
         // Mantiene al día el "en cuántos proyectos está" de un punto en TODAS sus copias en memoria.
@@ -3718,7 +3718,7 @@
         // recibe (ctx, x, y, bottomY, solo) y devuelve {W,H} al medir.
         function descargarPanelLeyenda(dibujar, nombre) {
             var med = dibujar(document.createElement('canvas').getContext('2d'), 0, 0, null, 'medir');
-            if (!med) { if (window.showToast) window.showToast('No hay nada en la leyenda todavía.', 'info'); return; }
+            if (!med) { window.toast('No hay nada en la leyenda todavía.', 'info'); return; }
             var m = 20; // margen transparente fijo, para que no se coma el borde redondeado
             var cv = document.createElement('canvas');
             cv.width = Math.ceil(med.W + m * 2); cv.height = Math.ceil(med.H + m * 2);
@@ -4015,17 +4015,17 @@
                 dibujarEscala(ctx, Pw - 128 * k, Ph - 34 * k, outMppx, k); // 10 + 96 de brújula + 22 de aire
                 canvas.toBlob(function (blob) {
                     overlayExport(false);
-                    if (!blob) { if (window.showToast) window.showToast('No se pudo generar la imagen.', 'error'); return; }
+                    if (!blob) { window.toast('No se pudo generar la imagen.', 'error'); return; }
                     var a = document.createElement('a');
                     a.href = URL.createObjectURL(blob);
                     a.download = 'mapa_' + tam + (expUsaOrientacion(tam) ? '_' + ori : '') + '_' + Pw + 'x' + Ph + '_' + new Date().toISOString().slice(0, 10) + '.png';
                     document.body.appendChild(a); a.click(); a.remove();
                     setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
-                    if (window.showToast) window.showToast('Imagen descargada · ' + tam.toUpperCase() + ' · ' + Pw + '×' + Ph + ' px', 'success');
+                    window.toast('Imagen descargada · ' + tam.toUpperCase() + ' · ' + Pw + '×' + Ph + ' px', 'success');
                 }, 'image/png');
             }).catch(function () {
                 overlayExport(false);
-                if (window.showToast) window.showToast('No se pudo exportar el mapa.', 'error');
+                window.toast('No se pudo exportar el mapa.', 'error');
             });
         }
 

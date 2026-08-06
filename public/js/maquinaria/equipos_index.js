@@ -230,7 +230,7 @@ window.changeStatusLite = function (id, newStatus, url, triggerEl) {
         // INOPERATIVO y EN MANTENIMIENTO exigen crear un reporte de falla (modal no
         // disponible offline).
         if (newStatus === 'INOPERATIVO' || newStatus === 'EN MANTENIMIENTO') {
-            if (window.showToast) window.showToast('Ese estado requiere crear un reporte de falla; hazlo con internet.', 'error');
+            window.toast('Ese estado requiere crear un reporte de falla; hazlo con internet.', 'error');
             return;
         }
         if (typeof window.eqOffSetEstado === 'function') {
@@ -284,7 +284,7 @@ window.changeStatusLite = function (id, newStatus, url, triggerEl) {
     .then(({ status, body }) => {
         if (status === 200 && body && body.success) {
             if (window.updateLocalStats) window.updateLocalStats(oldStatus, newStatus);
-            if (window.showToast) window.showToast('Estatus actualizado correctamente.', 'success');
+            window.toast('Estatus actualizado correctamente.', 'success');
             return;
         }
         // El equipo tiene un reporte ABIERTO: revertir y abrir el modal de cierre.
@@ -297,7 +297,7 @@ window.changeStatusLite = function (id, newStatus, url, triggerEl) {
     })
     .catch(err => {
         revert();
-        if (window.showToast) window.showToast('Error al cambiar el estatus: ' + err.message, 'error');
+        window.toast('Error al cambiar el estatus: ' + err.message, 'error');
     });
 };
 
@@ -340,14 +340,14 @@ window.toggleConfirmacionSitio = function (el) {
     .then(function (res) {
         if (res.status === 200 && res.body && res.body.success) {
             _pintarConfirmSitio(id, res.body.confirmado === 1);
-            if (window.showToast) window.showToast(res.body.confirmado === 1 ? 'Confirmado en sitio.' : 'Marcado como sin confirmar.', 'success');
+            window.toast(res.body.confirmado === 1 ? 'Confirmado en sitio.' : 'Marcado como sin confirmar.', 'success');
             return;
         }
         throw new Error((res.body && res.body.message) || 'Error desconocido');
     })
     .catch(function (err) {
         _pintarConfirmSitio(id, actual); // revertir
-        if (window.showToast) window.showToast('No se pudo actualizar la confirmación: ' + err.message, 'error');
+        window.toast('No se pudo actualizar la confirmación: ' + err.message, 'error');
     });
 };
 
@@ -741,7 +741,7 @@ window.unanchorEquipos = async function (e) {
                     await window.loadEquipos(null, true);
                 }
 
-                if (window.showToast) window.showToast('Desanclaje completado con éxito', 'success');
+                window.toast('Desanclaje completado con éxito', 'success');
             } else {
                 throw new Error(data.message || data.error || 'Ocurrió un error en el servidor al intentar desanclar.');
             }
@@ -1634,7 +1634,7 @@ window.openUbicacionBulkModal = function (event) {
 
     const selections = Object.values(window.selectedEquipos || {});
     if (selections.length === 0) {
-        if (typeof window.showToast === 'function') window.showToast('Selecciona al menos un equipo.', 'error');
+        window.toast('Selecciona al menos un equipo.', 'error');
         return;
     }
 
@@ -1827,7 +1827,7 @@ window.openUbicacionBulkModal = function (event) {
             const toastMsg = valorFinal
                 ? 'Detalle actualizado en ' + (data.count || selections.length) + ' equipo(s).'
                 : 'Detalle borrado en ' + (data.count || selections.length) + ' equipo(s).';
-            if (typeof window.showToast === 'function') window.showToast(toastMsg, 'success');
+            window.toast(toastMsg, 'success');
         } catch (err) {
             console.error('[Ubicacion bulk]', err);
             showFb('error', err.message || 'No se pudo actualizar.');
@@ -2470,7 +2470,7 @@ window._mostrarVistaPreviaActa = async function (actaState, onConfirm, opts) {
     try { pdfUrl = await pedirPreview(); }
     catch (e) {
         if (window.hidePreloader) window.hidePreloader();
-        if (window.showToast) window.showToast(e.message || 'No se pudo generar la vista previa.', 'error');
+        window.toast(e.message || 'No se pudo generar la vista previa.', 'error');
         return;
     }
     if (window.hidePreloader) window.hidePreloader();
@@ -2620,7 +2620,7 @@ window._mostrarVistaPreviaActa = async function (actaState, onConfirm, opts) {
         footEl.querySelector('#mov-prev-ok').onclick = function () {
             // Firmas siempre obligatorias: al menos un firmante completo (cargo+nombre+cédula).
             if (!firmasCompletas()) {
-                if (window.showToast) window.showToast('Indica quién revisa y quién aprueba (cargo, nombre y cédula) antes de registrar.', 'error');
+                window.toast('Indica quién revisa y quién aprueba (cargo, nombre y cédula) antes de registrar.', 'error');
                 abrirEditor();
                 return;
             }
@@ -2805,8 +2805,8 @@ window._mostrarVistaPreviaActa = async function (actaState, onConfirm, opts) {
         actaState.destination_ubicacion = bodyEl.querySelector('#ed-destubic').value.trim();
         syncFirmasFromDOM();
 
-        if (!actaState.destination) { if (window.showToast) window.showToast('El frente de destino no puede quedar vacío.', 'error'); return; }
-        if (!actaState.ids.length) { if (window.showToast) window.showToast('Debe quedar al menos un equipo.', 'error'); return; }
+        if (!actaState.destination) { window.toast('El frente de destino no puede quedar vacío.', 'error'); return; }
+        if (!actaState.ids.length) { window.toast('Debe quedar al menos un equipo.', 'error'); return; }
 
         // Frente de origen, Lugar/zona de origen y Ubicación del destino son OBLIGATORIOS: el
         // acta los imprime en el encabezado y junto al frente de destino. El origen se exige
@@ -2825,7 +2825,7 @@ window._mostrarVistaPreviaActa = async function (actaState, onConfirm, opts) {
             if (c.vacio && !faltante) faltante = c;
         });
         if (faltante) {
-            if (window.showToast) window.showToast(faltante.msg, 'error');
+            window.toast(faltante.msg, 'error');
             var fInp = bodyEl.querySelector(faltante.sel);
             if (fInp) fInp.focus();
             return;
@@ -2837,7 +2837,7 @@ window._mostrarVistaPreviaActa = async function (actaState, onConfirm, opts) {
         var filas = bodyEl.querySelectorAll('.ed-firma-row');
         if (filas.length === 0) {
             if (firmasEl) firmasEl.style.outline = '2px solid #ef4444';
-            if (window.showToast) window.showToast('Agrega al menos un firmante (quién revisa y quién aprueba).', 'error');
+            window.toast('Agrega al menos un firmante (quién revisa y quién aprueba).', 'error');
             return;
         }
         if (firmasEl) firmasEl.style.outline = '';
@@ -2852,7 +2852,7 @@ window._mostrarVistaPreviaActa = async function (actaState, onConfirm, opts) {
             });
         });
         if (primerVacio) {
-            if (window.showToast) window.showToast('Completa cargo, nombre y cédula de cada firma.', 'error');
+            window.toast('Completa cargo, nombre y cédula de cada firma.', 'error');
             primerVacio.focus();
             return;
         }
@@ -2863,7 +2863,7 @@ window._mostrarVistaPreviaActa = async function (actaState, onConfirm, opts) {
             pdfUrl = await pedirPreview();
             renderPreview();
         } catch (e) {
-            if (window.showToast) window.showToast(e.message || 'No se pudo actualizar la vista previa.', 'error');
+            window.toast(e.message || 'No se pudo actualizar la vista previa.', 'error');
         } finally {
             if (window.hidePreloader) window.hidePreloader();
         }
@@ -3199,7 +3199,7 @@ window.openAnchorModal = async function (event) {
             }
         } catch (error) {
             console.error('[bulkAnchor]', error);
-            if (typeof window.showToast === 'function') window.showToast('Error de red al anclar equipos.', 'error');
+            window.toast('Error de red al anclar equipos.', 'error');
         } finally {
             btn.disabled = false;
             btn.innerHTML =
@@ -3398,7 +3398,7 @@ window.exportEquipos = function () {
             setTimeout(function () { try { URL.revokeObjectURL(burl); } catch (e) {} }, 1500);
         })
         .catch(function (e) {
-            if (window.showToast) window.showToast(e.message || 'Error al exportar el Excel.', 'error');
+            window.toast(e.message || 'Error al exportar el Excel.', 'error');
         })
         .finally(function () {
             if (window.hidePreloader) window.hidePreloader();

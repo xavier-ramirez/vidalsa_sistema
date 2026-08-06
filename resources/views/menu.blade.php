@@ -1306,11 +1306,11 @@
                 a.click();
                 setTimeout(() => { document.body.removeChild(a); window.URL.revokeObjectURL(objUrl); }, 100);
 
-                if (window.showToast) window.showToast('Reporte descargado correctamente.', 'success');
+                window.toast('Reporte descargado correctamente.', 'success');
 
             } catch (err) {
                 console.error(err);
-                if (window.showToast) window.showToast('Error generando el PDF. Intente de nuevo.', 'error');
+                window.toast('Error generando el PDF. Intente de nuevo.', 'error');
             } finally {
                 if (window.hidePreloader) window.hidePreloader();
                 if (btn) btn.disabled = false;

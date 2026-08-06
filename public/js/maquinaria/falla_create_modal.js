@@ -222,15 +222,15 @@
         .then(r => r.json())
         .then(body => {
             if (body.success) {
-                if (window.showToast) window.showToast(body.message || 'Reporte cerrado. El equipo vuelve a OPERATIVO.', 'success');
+                window.toast(body.message || 'Reporte cerrado. El equipo vuelve a OPERATIVO.', 'success');
                 window.flCerrarCierreModal();
                 const cb = CFG().onClosed;
                 if (typeof cb === 'function') cb();
             } else {
-                if (window.showToast) window.showToast(body.message || 'No se pudo cerrar el reporte.', 'error');
+                window.toast(body.message || 'No se pudo cerrar el reporte.', 'error');
             }
         })
-        .catch(() => { if (window.showToast) window.showToast('Error de red al cerrar el reporte.', 'error'); })
+        .catch(() => { window.toast('Error de red al cerrar el reporte.', 'error'); })
         .finally(() => { if (btn) btn.disabled = false; if (window.hidePreloader) window.hidePreloader(); });
     };
 
@@ -240,7 +240,7 @@
         const form = document.getElementById('nuevoReporteForm');
         const fd = new FormData(form);
         if (!fd.get('activo_id')) {
-            if (window.showToast) window.showToast('Selecciona un equipo primero.', 'error');
+            window.toast('Selecciona un equipo primero.', 'error');
             return;
         }
         if (window.showPreloader) window.showPreloader();
@@ -251,17 +251,17 @@
         .then(r => r.json().then(b => ({ status: r.status, body: b })))
         .then(({ status, body }) => {
             if (status === 200 && body.success) {
-                if (window.showToast) window.showToast(body.message, 'success');
+                window.toast(body.message, 'success');
                 _pendingCancel = null;           // creado: NO revertir el estado
                 window.closeNuevoReporteModal();
                 const cb = CFG().onCreated;
                 if (typeof cb === 'function') cb(body.falla);
                 if (typeof opts.onSuccess === 'function') opts.onSuccess(body.falla);
             } else {
-                if (window.showToast) window.showToast(body.message || 'No se pudo crear el reporte', 'error');
+                window.toast(body.message || 'No se pudo crear el reporte', 'error');
             }
         })
-        .catch(e => { console.error(e); if (window.showToast) window.showToast('Error de red', 'error'); })
+        .catch(e => { console.error(e); window.toast('Error de red', 'error'); })
         .finally(() => { if (window.hidePreloader) window.hidePreloader(); });
     };
 
@@ -278,7 +278,7 @@
     window.flCrearReporte = function () {
         const form = document.getElementById('nuevoReporteForm');
         if (!document.getElementById('fl_activo_id').value) {
-            if (window.showToast) window.showToast('Selecciona un equipo primero.', 'error');
+            window.toast('Selecciona un equipo primero.', 'error');
             return;
         }
         if (!form.checkValidity()) { form.reportValidity(); return; }   // exige descripción
@@ -313,7 +313,7 @@
             document.getElementById('nuevoReporteOverlay').classList.remove('active');   // oculta el form
             document.getElementById('flActaPreviewOverlay').classList.add('active');
         })
-        .catch(e => { if (window.showToast) window.showToast(e.message || 'Error al generar la vista previa.', 'error'); })
+        .catch(e => { window.toast(e.message || 'Error al generar la vista previa.', 'error'); })
         .finally(() => { if (window.hidePreloader) window.hidePreloader(); });
     };
 

@@ -1370,9 +1370,9 @@ window.saveResponsable = function(isAutoSave = false) {
 
     if (!cedula || !nombre) {
         if (isAutoSave && (cedula || nombre)) {
-            if (window.showToast) window.showToast('No se guardó el responsable: Cédula y nombre son obligatorios.', 'warning');
+            window.toast('No se guardó el responsable: Cédula y nombre son obligatorios.', 'warning');
         } else if (!isAutoSave) {
-            if (window.showToast) window.showToast('La cédula y el nombre son obligatorios.', 'error');
+            window.toast('La cédula y el nombre son obligatorios.', 'error');
         }
         return;
     }
@@ -1393,16 +1393,16 @@ window.saveResponsable = function(isAutoSave = false) {
         if (res.success) {
             cedulaInput.value = '';
             nombreInput.value = '';
-            if (window.showToast) window.showToast('Responsable asignado con éxito.', 'success');
+            window.toast('Responsable asignado con éxito.', 'success');
             // Recargamos historial en caso de que el modal siga vivo (ej. guardado manual si se volviera a agregar el botón)
             window.loadResponsables(equipoId); 
         } else {
-            if (window.showToast) window.showToast(res.message || 'Error al guardar responsable', 'error');
+            window.toast(res.message || 'Error al guardar responsable', 'error');
         }
     })
     .catch(err => {
         console.error(err);
-        if (window.showToast) window.showToast('Error de conexión al guardar responsable', 'error');
+        window.toast('Error de conexión al guardar responsable', 'error');
     });
 };
 
@@ -1643,13 +1643,13 @@ window.toggleConfirmacionSitioAux = function (el) {
     .then(function (res) {
         if (res.status === 200 && res.body && res.body.success) {
             window._pintarConfirmSitioAux(id, res.body.confirmado === 1);
-            if (window.showToast) window.showToast(res.body.confirmado === 1 ? 'Confirmado en sitio.' : 'Marcado como sin confirmar.', 'success');
+            window.toast(res.body.confirmado === 1 ? 'Confirmado en sitio.' : 'Marcado como sin confirmar.', 'success');
             return;
         }
         throw new Error((res.body && res.body.message) || 'Error desconocido');
     })
     .catch(function (err) {
         window._pintarConfirmSitioAux(id, actual); // revertir
-        if (window.showToast) window.showToast('No se pudo actualizar la confirmación: ' + err.message, 'error');
+        window.toast('No se pudo actualizar la confirmación: ' + err.message, 'error');
     });
 };

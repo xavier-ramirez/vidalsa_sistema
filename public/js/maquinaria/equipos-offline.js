@@ -223,7 +223,7 @@
             if (e) e.estado = status;
             return arr;
         }).then(render);
-        if (window.showToast) window.showToast('Cambio guardado. Se subirá al volver internet.', 'success');
+        window.toast('Cambio guardado. Se subirá al volver internet.', 'success');
     };
 
     // Menú flotante de estado sobre el chip (solo estados permitidos offline).
@@ -261,7 +261,7 @@
     // selectedList = valores de window.selectedEquipos: {id, tipo, frenteId, ...}.
     window.abrirModalMovilizarOffline = function (selectedList) {
         if (!selectedList || !selectedList.length) {
-            if (window.showToast) window.showToast('Selecciona equipos primero.', 'error');
+            window.toast('Selecciona equipos primero.', 'error');
             return;
         }
         document.querySelectorAll('.eq-off-mov-modal').forEach(function (m) { m.remove(); });
@@ -346,7 +346,7 @@
                     var bar = document.getElementById('bulkFloatingBar'); if (bar) bar.classList.remove('active');
                     render();
                 });
-                if (window.showToast) window.showToast('Movilización guardada. El acta estará disponible al sincronizar.', 'success');
+                window.toast('Movilización guardada. El acta estará disponible al sincronizar.', 'success');
                 cerrar();
             };
         });

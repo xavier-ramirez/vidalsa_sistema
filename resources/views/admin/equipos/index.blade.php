@@ -2093,7 +2093,7 @@
             .then(res => {
                 if (window.hidePreloader) window.hidePreloader();
                 if (res.ok && res.body.success) {
-                    if (window.showToast) window.showToast(res.body.message || 'Equipos eliminados.', 'success');
+                    window.toast(res.body.message || 'Equipos eliminados.', 'success');
                     if (typeof window.clearSelection === 'function') window.clearSelection();
                     if (typeof window.loadEquipos === 'function') window.loadEquipos();
                 } else {
@@ -2104,7 +2104,7 @@
             })
             .catch(() => {
                 if (window.hidePreloader) window.hidePreloader();
-                if (window.showToast) window.showToast('Error de red al eliminar.', 'error');
+                window.toast('Error de red al eliminar.', 'error');
             });
         };
         if (typeof window.showModal === 'function') {
@@ -2492,11 +2492,11 @@
     window.movilizarEncontrados = function () {
         var found = window._bulkLookupFound || [];
         if (!found.length) {
-            if (window.showToast) window.showToast('No hay equipos encontrados para movilizar.', 'error');
+            window.toast('No hay equipos encontrados para movilizar.', 'error');
             return;
         }
         if (window.CAN_ASSIGN_EQUIPOS === false || window.CAN_ASSIGN_EQUIPOS === 'false') {
-            if (window.showToast) window.showToast('No tienes permiso para movilizar equipos.', 'error');
+            window.toast('No tienes permiso para movilizar equipos.', 'error');
             return;
         }
         seleccionarEncontrados(found);
@@ -2510,11 +2510,11 @@
     window.detalleEncontrados = function () {
         var found = window._bulkLookupFound || [];
         if (!found.length) {
-            if (window.showToast) window.showToast('No hay equipos encontrados para asignar detalle.', 'error');
+            window.toast('No hay equipos encontrados para asignar detalle.', 'error');
             return;
         }
         if (window.CAN_ASSIGN_EQUIPOS === false || window.CAN_ASSIGN_EQUIPOS === 'false') {
-            if (window.showToast) window.showToast('No tienes permiso para actualizar detalles.', 'error');
+            window.toast('No tienes permiso para actualizar detalles.', 'error');
             return;
         }
         seleccionarEncontrados(found);
@@ -2557,9 +2557,9 @@
     window.bulkLookupCopyMissing = function () {
         if (!lastMissingTerms.length) return;
         navigator.clipboard.writeText(lastMissingTerms.join('\n')).then(() => {
-            if (window.showToast) window.showToast(lastMissingTerms.length + ' término(s) no encontrado(s) copiado(s) al portapapeles.', 'success');
+            window.toast(lastMissingTerms.length + ' término(s) no encontrado(s) copiado(s) al portapapeles.', 'success');
         }).catch(() => {
-            if (window.showToast) window.showToast('No se pudo copiar al portapapeles.', 'error');
+            window.toast('No se pudo copiar al portapapeles.', 'error');
         });
     };
 

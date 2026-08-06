@@ -331,7 +331,7 @@ window.unlockIp = function(id, ipAddress) {
                 if (window.hidePreloader) window.hidePreloader();
                 
                 if (data.success) {
-                    if (window.showToast) window.showToast(data.message, 'success');
+                    window.toast(data.message, 'success');
                     
                     const ipElement = document.getElementById('blocked-ip-' + id);
                     if (ipElement) {
@@ -353,12 +353,12 @@ window.unlockIp = function(id, ipAddress) {
                         }, 300);
                     }
                 } else {
-                    if (window.showToast) window.showToast(data.message || 'Error al desbloquear la IP', 'error');
+                    window.toast(data.message || 'Error al desbloquear la IP', 'error');
                 }
             } catch (error) {
                 if (window.hidePreloader) window.hidePreloader();
                 console.error('Error unlocking IP:', error);
-                if (window.showToast) window.showToast('Error de red al intentar desbloquear la IP', 'error');
+                window.toast('Error de red al intentar desbloquear la IP', 'error');
             }
         }
     });

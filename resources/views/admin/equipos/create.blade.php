@@ -822,7 +822,7 @@
                     if (typeof window.hidePreloader === 'function') window.hidePreloader();
                     liberarSubmit();
                     prepararOtroRegistro();
-                    if (typeof window.showToast === 'function') window.showToast(msg + ' Puedes registrar otro.', 'success');
+                    window.toast(msg + ' Puedes registrar otro.', 'success');
                     return;
                 }
                 if (typeof window.hidePreloader === 'function') window.hidePreloader();
