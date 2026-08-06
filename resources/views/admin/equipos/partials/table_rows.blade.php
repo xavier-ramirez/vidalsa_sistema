@@ -5,11 +5,16 @@
 <style>
 @media(max-width:900px){
     .eq-hide-mobile{display:none!important;}
-    /* MODELO al lado de la MARCA, letra más chica que la marca. El selector lleva
-       td:nth-child(3) a propósito: en estilos_globales.css la card móvil fuerza
-       "td:nth-child(3) * {font-size:13px!important}" y hay que ganarle en especificidad. */
+    /* MODELO al lado de la MARCA, con la MISMA letra que la marca (negrita y negro,
+       no gris claro) pero un punto y medio más chica para que la marca siga mandando.
+       El selector lleva td:nth-child(3) a propósito: en estilos_globales.css la card
+       móvil fuerza "td:nth-child(3) * {font-size:13px!important}" y hay que ganarle en
+       especificidad. El !important de color/peso es porque el <span> los trae inline.
+       OJO: esta regla está duplicada en equipos-offline.js (el repintado offline
+       reemplaza el tbody y pierde este <style>) — cambiar SIEMPRE las dos. */
     .table-equipos-mobile tbody td:nth-child(3) .eq-modelo{
-        display:inline!important; font-size:11px!important; color:#64748b!important; margin:0 0 0 5px!important;
+        display:inline!important; font-size:11.5px!important; color:#000!important;
+        font-weight:700!important; margin:0 0 0 5px!important;
     }
 }
 </style>
@@ -102,7 +107,8 @@
         {{-- 3. MARCA / MODELO ─ marca queda en 13px (feedback del usuario:
              "menos la marca ya se ve bien"). Modelo y año subidos para
              igualar la legibilidad del resto. En móvil el modelo pasa a la misma
-             línea de la marca y en 11px (regla .eq-modelo del <style> de arriba). --}}
+             línea de la marca, con su misma letra (negrita/negro) y en 11.5px
+             (regla .eq-modelo del <style> de arriba, que pisa estos inline). --}}
         <td class="table-cell-custom" style="font-size: 13px; color: #000; word-wrap: break-word;">
             <div style="font-weight: 700; text-transform: uppercase; line-height: 1.3;">
                 {{ $equipo->MARCA ?: '—' }}@if($equipo->MODELO)<span class="eq-modelo" style="display: block; font-size: 13.5px; color: #475569; font-weight: 500; text-transform: uppercase; margin-top: 4px; line-height: 1.3;">{{ $equipo->MODELO }}</span>@endif

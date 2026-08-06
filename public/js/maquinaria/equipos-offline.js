@@ -31,7 +31,7 @@
         const st = document.createElement('style');
         st.id = 'eqOfflineHideStyle';
         st.textContent = '@media(max-width:900px){.eq-hide-mobile{display:none!important;}' +
-            '.table-equipos-mobile tbody td:nth-child(3) .eq-modelo{display:inline!important;font-size:11px!important;color:#64748b!important;margin:0 0 0 5px!important;}}';
+            '.table-equipos-mobile tbody td:nth-child(3) .eq-modelo{display:inline!important;font-size:11.5px!important;color:#000!important;font-weight:700!important;margin:0 0 0 5px!important;}}';
         document.head.appendChild(st);
     }
 
@@ -92,7 +92,7 @@
         const etiqueta = e.etiqueta
             ? '<span style="font-weight:700;color:var(--maquinaria-blue);margin-left:6px;white-space:nowrap;"><i class="material-icons" style="font-size:13px;vertical-align:-2px;">tag</i>' + esc(e.etiqueta) + '</span>' : '';
         // eq-hide-mobile: CATEGORIA/AÑO se OCULTAN en móvil (≤900px) y el MODELO pasa a la
-        // línea de la MARCA en 11px (.eq-modelo), igual que la tabla online
+        // línea de la MARCA en 11.5px negrita (.eq-modelo), igual que la tabla online
         // (partials/table_rows.blade.php) — así la tarjeta offline luce idéntica.
         const categoria = e.categoria
             ? '<div class="eq-hide-mobile" style="font-size:12px;color:#64748b;font-weight:600;text-transform:uppercase;margin-top:5px;letter-spacing:0.3px;">' + esc(e.categoria) + '</div>' : '';
