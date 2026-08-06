@@ -970,6 +970,22 @@ if (!window._eqDistribMovilReady) {
     document.addEventListener('DOMContentLoaded', window.colocarDistribucionMovil);
     window.addEventListener('spa:contentLoaded', window.colocarDistribucionMovil);
     window.matchMedia('(max-width: 768px)').addEventListener('change', window.colocarDistribucionMovil);
+
+    // Tocar un frente/tipo de esa lista DENTRO del Dashboard CIERRA el modal. El filtro sí
+    // se aplicaba, pero sobre la tabla que queda DETRÁS: con el modal encima parecía que el
+    // toque no hacía nada. Y el Dashboard no recarga sus cifras al filtrar, así que se
+    // quedaba mostrando un total que ya no correspondía al filtro recién puesto.
+    // Delegado en document y no en cada <li>: las filas las repinta _eqRenderDistribucion()
+    // en cada AJAX y sus onclick viven en los partials de Blade (distribution_stats,
+    // ubicaciones_stats y la variante de auxiliares) — así el cierre se resuelve en UN solo
+    // sitio en vez de repetirlo en cada plantilla. Corre DESPUÉS del onclick de la fila
+    // (burbujeo), de modo que primero filtra y luego cierra.
+    document.addEventListener('click', function (e) {
+        if (!e.target.closest) return;
+        if (!e.target.closest('#fdmDistribucionSlot')) return;  // solo dentro del Dashboard
+        if (!e.target.closest('li')) return;                    // fuera de una fila no filtra
+        if (window.closeFleetDashboard) window.closeFleetDashboard();
+    });
 }
 
 // Scroll sincronizado: mueve el sidebar proporcionalmente al scroll de la página
