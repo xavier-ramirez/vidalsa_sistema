@@ -101,8 +101,6 @@
             background: #f6f9fc;
             border: 1px solid var(--pf-borde);
         }
-        .pf-chip .material-icons { font-size: 14px; color: var(--pf-azul); }
-        .pf-chip b { color: var(--pf-azul); font-weight: 800; letter-spacing: .3px; }
         .pf-chip-rol {
             color: var(--pf-azul);
             background: rgba(0, 103, 177, .07);
