@@ -26,10 +26,8 @@
     }
     .alm-filter select { cursor: pointer; -webkit-appearance: none; appearance: none; }
     .alm-filter .filter-clear { padding: 0 8px; color: #64748b; font-size: 18px; cursor: pointer; }
-    /* Icono "escanear QR" DENTRO del buscador (patrón apps de súper). Mutuamente
-       excluyente con la "x" de limpiar: visible solo cuando el buscador está vacío. */
-    .alm-filter .alm-scan-ic { padding: 0 8px; color: #64748b; font-size: 20px; cursor: pointer; transition: color .15s; align-items: center; }
-    .alm-filter .alm-scan-ic:hover { color: #7c3aed; }
+    /* El icono "escanear QR" que va dentro del buscador (.qrs-ic) trae su propio estilo
+       en el partial compartido admin.almacen.partials.scan_modal. */
 
     /* Tabla de inventario: estilo igualado a /admin/equipos (.table-row-header + .table-header-custom):
        thead oscuro con texto blanco uppercase, body con texto negro y bordes claros entre columnas. */
@@ -769,12 +767,12 @@
                        onkeydown="window.almBuscarEnter(event)">
                 {{-- Escanear QR: icono dentro del propio buscador. Visible cuando el campo
                      está vacío; al escribir/filtrar se oculta y aparece la "x" de limpiar
-                     (toggle en almScanIconToggle, llamado desde filtros()/almBuscarInput).
+                     (toggle en QrScan.iconToggle, llamado desde filtros()/almBuscarInput).
                      En teléfono abre el modal de cámara; en PC NO abre nada: enfoca este
-                     mismo buscador para que el lector USB teclee aquí (almEscanear). --}}
-                <i class="material-icons alm-scan-ic" id="almBuscarScan" title="Escanear código QR"
+                     mismo buscador para que el lector USB teclee aquí. --}}
+                <i class="material-icons qrs-ic" id="almBuscarScan" title="Escanear código QR"
                    style="display:{{ $bActivo ? 'none' : 'flex' }};"
-                   onclick="window.almEscanear()">&#xf206;</i>
+                   onclick="window.QrScan.abrir()">&#xf206;</i>
                 <i class="material-icons filter-clear" style="display:{{ $bActivo ? 'flex' : 'none' }};"
                    onclick="window.almBuscarLimpiar()">close</i>
             </div>
@@ -1056,40 +1054,11 @@
     </div>
 </div>
 
-{{-- ── Modal: Escanear QR (cámara de teléfono) ──────────────────────────────
-     Read-only y SOLO móvil. La cámara (html5-qrcode) arranca en contexto seguro
-     (HTTPS/localhost) pidiendo el permiso de una al abrir. Resuelve el CODIGO vía
-     almacen.buscar-codigo y filtra la tabla a ese producto. (El input manual se
-     quitó; en PC el lector USB sigue resolviendo por el listener global, sin modal.) --}}
-<div id="almEscanearModal" class="alm-modal-overlay">
-    <div class="alm-modal" style="max-width:340px;">
-        <div class="alm-modal-head">
-            <h3><i class="material-icons" style="font-size:20px;color:#7c3aed;">&#xf206;</i> Escanear producto</h3>
-            <i class="material-icons alm-x" onclick="window.almEscanearCerrar()">close</i>
-        </div>
-        <div class="alm-modal-body">
-            {{-- Recuadro de cámara: oculto por defecto. almScanIniciarCamara() lo muestra
-                 cuando la cámara arranca (teléfono/HTTPS). El modal es SOLO móvil; el
-                 escaneo por cámara es la única vía aquí (el input manual se quitó). --}}
-            <div id="almScanReader" style="display:none;width:100%;border-radius:10px;overflow:hidden;background:#0f172a;"></div>
-            <div id="almScanHint" style="font-size:12px;color:#64748b;text-align:center;"></div>
-            {{-- Botón de reintento: aparece SOLO si el arranque/permiso de la cámara falla.
-                 En el flujo normal queda oculto (la cámara pide permiso de una al abrir).
-                 Tocarlo vuelve a pedir permiso y reintenta EN LA PÁGINA (no abre apps). --}}
-            <button type="button" id="almScanActivar" onclick="window.almScanReintentar()"
-                    style="display:none;width:100%;padding:11px;border:none;border-radius:8px;background:#7c3aed;color:#fff;font-weight:700;font-size:14px;cursor:pointer;">
-                <i class="material-icons" style="font-size:19px;vertical-align:-4px;margin-right:6px;">photo_camera</i>Activar cámara
-            </button>
-        </div>
-    </div>
-</div>
-{{-- Librería de escaneo por cámara (html5-qrcode, servida LOCALMENTE desde
-     public/js/vendor/). Ya NO se carga con un <script> de página: se inyecta BAJO
-     DEMANDA al pulsar "Escanear" vía almCargarQrLib() (local → CDN, verificando que
-     Html5Qrcode quede definida). Así se evita el caso en que el servidor devuelve el
-     index.html en vez del .js (try_files de nginx) sin disparar onerror. Si ni local
-     ni CDN cargan, el lector USB y el tecleo manual siguen intactos. Para (re)descargar
-     el archivo en el servidor, ver public/js/vendor/README-html5-qrcode.txt. --}}
+{{-- Escaneo QR (modal de cámara + estilo del icono del buscador): partial COMPARTIDO
+     con Movimientos y Recepción. La lógica vive en window.QrScan
+     (public/js/maquinaria/qr_scan.js, global → SPA-safe); aquí solo se engancha al
+     buscador más abajo con QrScan.init. --}}
+@include('admin.almacen.partials.scan_modal')
 
 {{-- Modal antiguo "Registrar entrada / Registrar salida" por producto individual:
      ELIMINADO en 2026-05-13. Las entradas reales ahora se hacen desde
@@ -1875,12 +1844,12 @@
         almBuscarPickedIds = null;
     }
 
-    // Criterio ÚNICO "es filtro": la categoría CONTIENE 'FILTRO' (así "FILTROS DE ACEITE" o
-    // "FILTRO DE AIRE" también cuentan), coherente con el backend (updateProducto). Definidos en
-    // el scope del IIFE (no dentro de una función) para que los compartan el buscador, la sección
-    // de equivalencias del modal y el guardado — un solo punto de verdad, sin duplicar.
-    var esCatFiltro = function (cat) { return String(cat || '').toUpperCase().indexOf('FILTRO') !== -1; };
-    var esFiltroCat = function (x) { return esCatFiltro(x && x.CATEGORIA); };
+    // Criterio ÚNICO "es filtro" (categoría que CONTIENE 'FILTRO'): vive en el módulo compartido
+    // window.ProductoSuggest, que es donde lo consultan también los autocompletes de Movimientos.
+    // Los alias quedan en el scope del IIFE (no dentro de una función) para que los compartan el
+    // buscador, la sección de equivalencias del modal y el guardado.
+    var esCatFiltro = window.ProductoSuggest.esCategoriaFiltro;   // recibe la CATEGORIA
+    var esFiltroCat = window.ProductoSuggest.esFiltro;            // recibe el PRODUCTO
     // Construye una entry del autocomplete con la MISMA forma que listaAutocomplete (backend):
     // ID_PRODUCTO, CODIGO, NOMBRE, UM, CATEGORIA, EQUIV, PARTE, PARTES. Punto ÚNICO para que el
     // producto creado/editado/restaurado se cachee completo — antes solo se guardaba
@@ -1920,6 +1889,16 @@
         return String(e.dataset.active || '').trim();
     }
 
+    // ¿Este campo de filtro tiene algo puesto? Patrón placeholder-background: texto recién
+    // tecleado (value) o el filtro ya aplicado (data-active, que es lo que se ve en gris).
+    // Criterio ÚNICO: lo usan la "x" de limpiar y el icono de escaneo (que comparten sitio
+    // dentro del cuadro y nunca deben verse a la vez).
+    function filtroPuesto(i) {
+        if (!i) return false;
+        return !!((i.value && i.value.trim()) || (i.dataset.active && i.dataset.active.trim()));
+    }
+    function buscarActivo() { return filtroPuesto(el('almFiltroBuscar')); }
+
     // ── filtros → params (única fuente de verdad de los filtros activos) ──
     function filtros() {
         var p = new URLSearchParams();
@@ -1949,15 +1928,14 @@
         // reflejar estado "active" en los wrappers
         var setActive = function (sel, on) { var w = sel && sel.closest('.alm-filter'); if (w) w.classList.toggle('active', !!on); };
         setActive(el('almFiltroBuscar'), b); setActive(el('almFiltroCat'), cat && cat !== 'all');
-        // toggle de la "x" de limpiar — visible si hay typed value O data-active.
+        // toggle de la "x" de limpiar — visible si hay typed value O data-active (filtroPuesto).
         var tx = function (inputId) {
             var i = el(inputId); if (!i) return;
             var x = i.parentElement.querySelector('.filter-clear'); if (!x) return;
-            var hasFilter = (i.value && i.value.trim()) || (i.dataset.active && i.dataset.active.trim());
-            x.style.display = hasFilter ? 'flex' : 'none';
+            x.style.display = filtroPuesto(i) ? 'flex' : 'none';
         };
         tx('almFiltroBuscar'); tx('almFiltroCat');
-        window.almScanIconToggle();   // escanear visible solo si el buscador quedó vacío
+        window.QrScan.iconToggle();   // escanear visible solo si el buscador quedó vacío
         return p;
     }
 
@@ -2278,23 +2256,13 @@
             return almNorm(catProd || '').indexOf(catActivaNorm) !== -1;
         }
 
-        // Agrupacion por DESCRIPCION: desde que Recepcion permite la misma descripcion en
-        // varias presentaciones (distinta UM = producto aparte), el catalogo puede tener N
-        // productos con identico NOMBRE. Para que el buscador no repita la misma descripcion,
-        // contamos cuantas presentaciones tiene cada nombre y si ALGUNA esta en el almacen
-        // actual. En la sugerencia se muestra UNA sola entrada por nombre; al clickearla, si
-        // tiene >1 presentacion se busca por texto (LIKE) para que la tabla liste TODAS; si es
-        // unica se fija id_producto (match exacto, como antes).
-        var gruposNombre = {};
-        for (var gI = 0; gI < lista.length; gI++) {
-            var gKey = almNorm(lista[gI].NOMBRE || '');
-            if (!gruposNombre[gKey]) gruposNombre[gKey] = { count: 0, ids: [], enCat: false };
-            gruposNombre[gKey].count++;
-            gruposNombre[gKey].ids.push(lista[gI].ID_PRODUCTO);
-            // enCat = ALGUNA presentación del grupo pertenece a la categoría filtrada
-            // (las presentaciones suelen compartir categoría). Filtra las sugerencias.
-            if (perteneceACat(lista[gI].CATEGORIA)) gruposNombre[gKey].enCat = true;
-        }
+        // Agrupacion por DESCRIPCION (regla compartida, window.ProductoSuggest): desde que
+        // Recepcion permite la misma descripcion en varias presentaciones (distinta UM =
+        // producto aparte), el catalogo puede tener N productos con identico NOMBRE. La lista
+        // muestra UNA sola entrada por descripcion con un badge de cuantas presentaciones
+        // tiene; al clickearla, si tiene >1 se mandan TODOS sus ids (id_producto_in) para que
+        // la tabla liste exactamente esas, y si es unica se fija id_producto (match exacto).
+        var grupos = window.ProductoSuggest.agrupar(lista);
 
         // Recorremos la lista una vez y recogemos TODOS los matches del catalogo (esten o no
         // en este almacen). Razon (pedido del cliente 2026-05-19): si un producto existe en el
@@ -2304,35 +2272,22 @@
         // Con la invariante de storeProducto (asegurarStock para todos los almacenes activos)
         // este caso debería ser raro, pero es defensa en profundidad por si un almacén nuevo
         // se crea después de un producto o por importaciones legacy.
-        var matches = [];
-        // vistosNom: dedupe por nombre normalizado — una sola entrada por descripcion.
-        var vistosNom = {};
-        // Ranking robusto compartido (window.FuzzySearch): término vacío → catálogo en su
-        // orden natural (NOMBRE); con término → mejores por relevancia (fuzzy + score).
-        // Sobre el resultado aplicamos el dedupe por descripción (una entrada por nombre,
-        // con badge de N presentaciones) y el filtro por categoría activa, hasta 17.
-        var ranked = window.FuzzySearch.rank(lista, rawTerm, function (p) {
-            // haystack incluye EQUIV (números de parte equivalentes) para que teclear un
-            // alterno (p.ej. "MIS0531" / "1000FG" / "LF-3977") sugiera el filtro, aunque su
-            // código/nombre no lo contenga. label sigue siendo solo el NOMBRE (lo que se ve).
-            return { haystack: (p.CODIGO || '') + ' ' + (p.NOMBRE || '') + ' ' + (p.EQUIV || ''), label: p.NOMBRE || '' };
-        });
-        // ¿El producto es un FILTRO? Los filtros del mismo nombre son MODELOS DISTINTOS (distinto
-        // nº de parte), NO "presentaciones" → no se agrupan por descripción: cada uno es su propia
-        // sugerencia. Se usa esFiltroCat/esCatFiltro (definidos en el scope del IIFE, ver arriba)
-        // para que el dedupe y el render compartan el MISMO criterio con el resto del módulo.
-        for (var s = 0; s < ranked.length && matches.length < 17; s++) {
-            var rp = ranked[s];
-            var esFiltro = esFiltroCat(rp);
-            var kS = esFiltro ? ('__f' + rp.ID_PRODUCTO) : almNorm(rp.NOMBRE || '');
-            if (vistosNom[kS]) continue;
-            var enCat = esFiltro
-                ? perteneceACat(rp.CATEGORIA)
-                : (gruposNombre[almNorm(rp.NOMBRE || '')] && gruposNombre[almNorm(rp.NOMBRE || '')].enCat);
-            if (catActivaNorm && !enCat) continue;
-            vistosNom[kS] = true;
-            matches.push(rp);
-        }
+        //
+        // Ranking + dedupe compartidos: término vacío → catálogo en su orden natural (NOMBRE);
+        // con término → mejores por relevancia (fuzzy + score, incluyendo nºs de parte
+        // equivalentes). El dedupe deja una entrada por descripción (los filtros, una por
+        // producto: son modelos distintos) hasta 17. Lo ÚNICO propio de esta vista es el
+        // filtro por categoría activa, que va como predicado `aceptar`.
+        var matches = window.ProductoSuggest.dedupe(
+            window.ProductoSuggest.rankear(lista, rawTerm), grupos, 17,
+            function (p, grp) {
+                if (!catActivaNorm) return true;
+                // Un filtro se juzga por su propia categoría; una descripción agrupada entra si
+                // ALGUNA de sus presentaciones pertenece (suelen compartir categoría).
+                if (esFiltroCat(p)) return perteneceACat(p.CATEGORIA);
+                return !!(grp && grp.items.some(function (x) { return perteneceACat(x.CATEGORIA); }));
+            }
+        );
 
         if (!matches.length) {
             // Si el catálogo async aún no cargó, mostramos "Cargando…" en vez de "Sin
@@ -2352,10 +2307,10 @@
             var html = verTodoLink + matches.map(function (p) {
                 var nom = (p.NOMBRE || '').replace(/[<>&"]/g, '');
                 var cod = (p.CODIGO || '').replace(/[<>&"]/g, '');
-                var esFiltroP = esFiltroCat(p);
-                var grp = gruposNombre[almNorm(p.NOMBRE || '')] || { count: 1, ids: [p.ID_PRODUCTO], enCat: perteneceACat(p.CATEGORIA) };
-                // Filtros NUNCA son "multi": cada uno es un modelo aparte, no una presentación.
-                var multi = !esFiltroP && grp.count > 1;
+                // grupo de ESTA sugerencia (los filtros tienen el suyo propio, de 1: cada uno
+                // es un modelo aparte, no una presentación — lo resuelve claveGrupo).
+                var grp = grupos[window.ProductoSuggest.claveGrupo(p)] || { count: 1, ids: [p.ID_PRODUCTO] };
+                var multi = grp.count > 1;
                 // Clic en la sugerencia:
                 //  - Descripcion UNICA → data-pid = id exacto (match de 1 producto).
                 //  - VARIAS presentaciones → data-pids = CSV de los IDs de ESAS presentaciones;
@@ -2370,9 +2325,7 @@
                 // presentaciones se muestra un ICONO compacto (layers) + el numero, en
                 // vez del texto "N pres." (robaba ancho a la descripcion). El detalle
                 // completo queda en el tooltip.
-                var rightBadge = multi
-                    ? '<span class="alm-suggest-cod" style="color:#0067b1;display:inline-flex;align-items:center;gap:1px;" title="' + grp.count + ' presentaciones (distintas unidades)"><i class="material-icons" style="font-size:15px;line-height:1;">layers</i><span style="font-size:10.5px;font-weight:700;line-height:1;">' + grp.count + '</span></span>'
-                    : '';
+                var rightBadge = window.ProductoSuggest.badgePresentaciones(grp, 'alm-suggest-cod');
                 // Filtros: el nº de parte va DELANTE del tipo. Se muestra la EQUIVALENCIA que
                 // COINCIDE con lo buscado (si buscas "AL-7723" sale ese, no la principal) —
                 // helper compartido de FuzzySearch (misma lógica que movimientos/recepción).
@@ -2409,7 +2362,7 @@
         // Si el texto ya no coincide con la última sugerencia elegida, el id pegado deja
         // de aplicar. Lo más simple: descartar siempre que se vuelva a teclear.
         almResetPick();
-        window.almScanIconToggle();   // ocultar el icono escanear mientras hay texto
+        window.QrScan.iconToggle();   // ocultar el icono escanear mientras hay texto
         window.almBuscarSuggest();
     };
     // Buscar por código o descripción suelta los atajos "Stock bajo"/"Con stock"
@@ -2467,7 +2420,7 @@
         // producto puntual en el nuevo almacén (solo_bajo/solo_con_saldo NO se
         // exceptúan para id_producto — ver inventarioBaseQuery en el backend).
         almResetBadges();
-        if (window.almScanIconToggle) window.almScanIconToggle();
+        window.QrScan.iconToggle();
         almSuggestHide();
         if (typeof selectOption === 'function') {
             selectOption('almSelAlmacenDropdown', String(idAlmacen), nombre);
@@ -2484,9 +2437,8 @@
             inp.placeholder = inp.dataset.placeholderEmpty || 'Buscar por código o descripción…';
         }
         almResetPick();
-        window.almScanIconToggle();   // buscador vacío → reaparece el icono escanear
         almSuggestHide();
-        almCargar();
+        almCargar();   // → filtros() sincroniza la "x" y el icono de escanear
     };
     // ── Autocompletado del filtro "Categoría" (lista de categorías ya registradas), mismo look que "Buscar" ──
     window.almCatSuggest = function () {
@@ -3203,23 +3155,24 @@
     // ═══════════════════════════════════════════════════════════════════════
     //  ETIQUETAS QR + ESCANEO  (como las etiquetas de producto del supermercado)
     //   · Imprimir: almEtiquetasModal (elige formato) → PDF GET almacen.etiquetas.
-    //   · Escanear: almEscanearModal (cámara html5-qrcode o lector USB/tecleo) →
+    //   · Escanear: window.QrScan (módulo compartido con Movimientos y Recepción) →
     //     resuelve el CODIGO vía almacen.buscar-codigo → filtra la tabla a ese producto.
     //  Read-only: sin permiso especial (mismo criterio que el export del inventario).
     // ═══════════════════════════════════════════════════════════════════════
-    var ROUTE_ETIQUETAS     = @json(route('almacen.etiquetas'));
-    var ROUTE_BUSCAR_CODIGO = @json(route('almacen.buscar-codigo'));
+    var ROUTE_ETIQUETAS = @json(route('almacen.etiquetas'));
 
-    // Muestra el icono "escanear" SOLO cuando el buscador está vacío (si hay texto o
-    // filtro activo, su lugar lo ocupa la "x" de limpiar). Mantiene ambos iconos
-    // mutuamente excluyentes dentro del cuadro del buscador. En window.* para poder
-    // llamarse desde filtros() sin depender del scope donde se definió.
-    window.almScanIconToggle = function () {
-        var sc = el('almBuscarScan'), bi = el('almFiltroBuscar');
-        if (!sc || !bi) return;
-        var tiene = (bi.value && bi.value.trim()) || (bi.dataset.active && bi.dataset.active.trim());
-        sc.style.display = tiene ? 'none' : 'flex';
-    };
+    // Engancha el escaneo (icono del buscador + cámara + lector USB) a ESTE buscador.
+    // Al resolver un código, reusa el "pick" del filtro (almBuscarPick → almCargar),
+    // que ya deja la tabla en ese producto y muestra su saldo en el almacén activo.
+    window.QrScan.init({
+        input:      'almFiltroBuscar',
+        icono:      'almBuscarScan',
+        // Mismo criterio que la "x" de limpiar en filtros() (patrón placeholder-background:
+        // texto tecleado o filtro aplicado en data-active) → los dos iconos, que comparten
+        // sitio dentro del cuadro, nunca se ven a la vez.
+        activo:     function () { return !!buscarActivo(); },
+        onProducto: function (p, label) { window.almBuscarPick(label, p.id); },
+    });
 
     // Abre el modal de etiquetas. Según cuántos productos lleguen en `lista`
     // ([{ id, codigo, nombre }]) se arma de tres formas:
@@ -3333,222 +3286,6 @@
         });
         window.almAbrirEtiquetas(ids.join(','), lista);
     };
-
-    // ── Escaneo ────────────────────────────────────────────────────────────
-    var almScanner  = null;   // instancia Html5Qrcode (si la cámara arrancó)
-    var almScanBusy = false;  // evita resolver dos veces el mismo código
-
-    window.almEscanear = function () {
-        // En PC NO se abre el modal de cámara (no hay cámara → salía el feo "No se
-        // pudo abrir la cámara"). La búsqueda SIEMPRE se hace en el buscador general
-        // (#almFiltroBuscar): un lector USB teclea ahí (y el lector global ya resuelve
-        // los escaneos sin abrir nada). El modal de cámara solo tiene sentido en
-        // teléfono. Detección por user-agent móvil (los equipos de campo son Android).
-        var esMovil = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
-        if (!esMovil) {
-            var bi = el('almFiltroBuscar');
-            if (bi) { bi.focus(); if (bi.select) bi.select(); }
-            toast('Escanea con el lector USB o escribe el código en el buscador.', 'info');
-            return;
-        }
-        var m = el('almEscanearModal'); if (!m) return;
-        almScanBusy = false;
-        var actBtn = el('almScanActivar'); if (actBtn) actBtn.style.display = 'none';
-        almOpen('almEscanearModal');
-        // El modal es SOLO móvil (en PC se enfoca el buscador). La cámara es la única
-        // vía: arranca al abrir y pide el permiso de una (la lib se precargó en idle).
-        almScanIniciarCamara();
-    };
-
-    // Estado de fallback del modal de escaneo: oculta el recuadro de cámara, pone el
-    // mensaje y muestra (o no) el botón "Activar cámara". Centralizado aquí para no
-    // repetir el mismo bloque en los 3 puntos donde la cámara no arranca (sin librería,
-    // sin HTTPS, o error al iniciar). mostrarBtn=true solo cuando reintentar tiene
-    // sentido (un fallo de arranque/permiso), no cuando es imposible (sin HTTPS).
-    function almScanFallback(msg, mostrarBtn) {
-        var reader = el('almScanReader'), hint = el('almScanHint'), btn = el('almScanActivar');
-        if (reader) reader.style.display = 'none';
-        if (btn) btn.style.display = mostrarBtn ? '' : 'none';
-        if (hint) hint.textContent = msg;
-    }
-
-    // Carga la librería html5-qrcode BAJO DEMANDA (al escanear), probando primero el
-    // archivo local y, si no quedó definida, el CDN. Comprueba `typeof Html5Qrcode`
-    // DESPUÉS de cada carga: así detecta el caso en que el servidor devuelve el
-    // index.html (HTML 200, por el try_files de nginx) en vez del .js — que NO dispara
-    // onerror — y cae al CDN igual. Cachea la promesa para no recargar en cada intento.
-    var almQrLibPromise = null;
-    function almCargarQrLib() {
-        if (typeof Html5Qrcode !== 'undefined') return Promise.resolve(true);
-        if (almQrLibPromise) return almQrLibPromise;
-        var local = @json(asset('js/vendor/html5-qrcode.min.js') . '?v=' . @filemtime(public_path('js/vendor/html5-qrcode.min.js')));
-        var cdn   = 'https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js';
-        almQrLibPromise = new Promise(function (resolve) {
-            function load(src, next) {
-                var s = document.createElement('script');
-                s.async = true; s.src = src;
-                s.onload  = function () { (typeof Html5Qrcode !== 'undefined') ? resolve(true) : (next ? next() : resolve(false)); };
-                s.onerror = function () { next ? next() : resolve(false); };
-                document.head.appendChild(s);
-            }
-            load(local, function () { load(cdn, null); });   // local → si no, CDN
-        });
-        return almQrLibPromise;
-    }
-
-    function almScanIniciarCamara() {
-        var hint = el('almScanHint'), reader = el('almScanReader'), btn = el('almScanActivar');
-        if (hint) hint.textContent = 'Cargando cámara…';
-        // Aseguramos la librería ANTES de arrancar (carga local/CDN bajo demanda).
-        almCargarQrLib().then(function (cargada) {
-            if (!cargada) {
-                almScanFallback('Cámara no disponible en este dispositivo.', false);
-                return;
-            }
-            // La cámara requiere contexto seguro (HTTPS/localhost). Si no, lector/tecleo.
-            if (!window.isSecureContext) {
-                almScanFallback('La cámara necesita HTTPS para funcionar.', false);
-                return;
-            }
-            if (reader) reader.style.display = '';
-            if (hint) hint.textContent = 'Iniciando cámara…';
-            var cfg    = { fps: 10, qrbox: { width: 220, height: 220 } };
-            var onOk   = function (texto) { almScanResolver(texto); };
-            var onTick = function () { /* frames sin código: ignorar */ };
-            var ok     = function () { if (hint) hint.textContent = 'Apunta la cámara al código QR…'; if (btn) btn.style.display = 'none'; };
-            // Si TODO falla mostramos el motivo REAL (NotAllowedError = permiso denegado,
-            // NotFoundError = sin cámara, etc.) y dejamos visible el botón "Activar cámara"
-            // para reintentar con un gesto explícito (vuelve a pedir permiso).
-            var fail = function (err) {
-                var msg = (err && (err.name || err.message)) ? (err.name || err.message) : 'desconocido';
-                almScanFallback('No se pudo abrir la cámara (' + msg + '). Toca "Activar cámara" y permite el acceso.', true);
-            };
-            try {
-                almScanner = new Html5Qrcode('almScanReader', { verbose: false });
-                // 1) Intento directo con la cámara trasera (facingMode environment).
-                almScanner.start({ facingMode: 'environment' }, cfg, onOk, onTick)
-                    .then(ok)
-                    .catch(function (e1) {
-                        // 2) Fallback: enumerar cámaras y usar la última (suele ser la trasera).
-                        //    Cubre teléfonos donde facingMode falla pero el deviceId sí sirve.
-                        return Html5Qrcode.getCameras().then(function (cams) {
-                            if (!cams || !cams.length) throw e1;
-                            return almScanner.start(cams[cams.length - 1].id, cfg, onOk, onTick).then(ok);
-                        });
-                    })
-                    .catch(fail);
-            } catch (e) {
-                fail(e);
-            }
-        });
-    }
-
-    function almScanDetenerCamara() {
-        if (!almScanner) return;
-        try {
-            almScanner.stop()
-                .then(function () { try { almScanner.clear(); } catch (e) {} almScanner = null; })
-                .catch(function () { almScanner = null; });
-        } catch (e) { almScanner = null; }
-    }
-
-    // Reintenta la cámara con un gesto EXPLÍCITO del usuario (botón "Activar cámara").
-    // Detiene cualquier intento previo, espera un instante a que libere el dispositivo
-    // y vuelve a arrancar — esto re-dispara el pedido de permiso del navegador cuando
-    // el arranque automático falló (gesto de usuario).
-    window.almScanReintentar = function () {
-        var btn = el('almScanActivar'); if (btn) btn.style.display = 'none';
-        var hint = el('almScanHint'); if (hint) hint.textContent = 'Iniciando cámara…';
-        almScanDetenerCamara();
-        setTimeout(almScanIniciarCamara, 250);
-    };
-
-    window.almEscanearCerrar = function () {
-        almScanDetenerCamara();
-        almCerrar('almEscanearModal');
-    };
-
-    // Pre-carga la librería de cámara en MÓVIL (en idle, sin competir con el render).
-    // Clave para que al tocar "Escanear" el .start() corra DENTRO del gesto del usuario
-    // y el navegador pida el permiso de cámara DE UNA — si la lib se bajara recién al
-    // tocar, el .then() caería en una tarea posterior, se perdería el gesto y saldría el
-    // paso extra "Activar cámara". En PC no hace falta (el modal no se abre).
-    (function () {
-        if (!/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '')) return;
-        var pre = function () { try { almCargarQrLib(); } catch (e) {} };
-        if (typeof requestIdleCallback === 'function') requestIdleCallback(pre, { timeout: 3000 });
-        else setTimeout(pre, 2000);
-    })();
-
-    // Resuelve el CODIGO contra el catálogo y, si existe, filtra la tabla a ese producto
-    // reusando el "pick" del buscador (almBuscarPick → almCargar), que ya muestra el
-    // saldo del producto en el almacén seleccionado. Si no existe, no cierra el modal
-    // (deja seguir escaneando) y avisa.
-    function almScanResolver(codigo) {
-        codigo = String(codigo || '').trim();
-        if (!codigo || almScanBusy) return;
-        almScanBusy = true;
-        var u = new URL(ROUTE_BUSCAR_CODIGO, window.location.origin);
-        u.searchParams.set('codigo', codigo);
-        window.apiFetch(u.toString(), { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
-            .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
-            .then(function (res) {
-                var j = res.j || {};
-                if (!res.ok || !j.found || !j.producto) {
-                    almScanBusy = false;
-                    toast(j.message || ('No se encontró el código ' + codigo + '.'), 'error');
-                    return;
-                }
-                var p = j.producto;
-                window.almEscanearCerrar();
-                var label = (p.codigo || '') + (p.codigo && p.nombre ? ' — ' : '') + (p.nombre || '');
-                if (window.almBuscarPick) window.almBuscarPick(label, p.id);
-                toast('Producto: ' + label, 'success');
-            })
-            .catch(function () {
-                almScanBusy = false;
-                toast('Error al consultar el código.', 'error');
-            });
-    }
-
-    // ── Lector USB global (escanear en PC SIN abrir el modal) ──────────────
-    // Un lector de código de barras/QR por USB se comporta como teclado: "teclea"
-    // el código completo + Enter en milisegundos. Para que en PC NO haga falta
-    // abrir el modal de escaneo (que sin cámara solo ofrecía tecleo manual),
-    // escuchamos a nivel de documento: si los caracteres llegan en RÁFAGA (propio
-    // del lector, no del tecleo humano) y NO hay un campo enfocado ni un modal
-    // abierto, los acumulamos y al Enter resolvemos el código con el MISMO
-    // almScanResolver del modal → lo busca en el catálogo y lo muestra en el
-    // buscador general (almBuscarPick). Si hay un input/textarea enfocado o un
-    // modal abierto NO interceptamos: el lector entra por el flujo normal (la
-    // caja de búsqueda o el campo manual del modal) y el tecleo humano no se afecta.
-    (function () {
-        var buf = '', lastT = 0;
-        var GAP_MS = 50, MIN_LEN = 3;   // ráfaga < 50ms entre teclas; código de >= 3 chars
-        function enCampoEditable() {
-            var a = document.activeElement; if (!a) return false;
-            var t = (a.tagName || '').toLowerCase();
-            return t === 'input' || t === 'textarea' || t === 'select' || a.isContentEditable;
-        }
-        function hayModalAbierto() { return !!document.querySelector('.alm-modal-overlay.open'); }
-        document.addEventListener('keydown', function (e) {
-            if (enCampoEditable() || hayModalAbierto()) { buf = ''; return; }
-            if (e.ctrlKey || e.metaKey || e.altKey) return;   // atajos de teclado: no son del lector
-            var now = (window.performance && performance.now) ? performance.now() : Date.now();
-            if (now - lastT > GAP_MS) buf = '';   // pausa larga entre teclas → reinicia (descarta tecleo humano)
-            lastT = now;
-            if (e.key === 'Enter') {
-                var cod = buf.trim(); buf = '';
-                if (cod.length >= MIN_LEN) {
-                    e.preventDefault();
-                    almScanBusy = false;          // permite resolver aunque no se haya abierto el modal
-                    almScanResolver(cod);
-                }
-                return;
-            }
-            if (e.key && e.key.length === 1) buf += e.key;   // solo caracteres imprimibles del código
-        }, true);
-    })();
 
     function hoy() { var d = new Date(); var p = function (n) { return (n < 10 ? '0' : '') + n; }; return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); }
     function showErr(id, msg) { var e = el(id); if (e) { e.textContent = msg; e.style.display = msg ? 'block' : 'none'; } }
@@ -4386,6 +4123,9 @@
                         // Restaurar no trae los nºs de parte en la respuesta; quedan vacíos hasta el
                         // próximo F5 (la relación sigue en BD). La forma de la entry sí es completa.
                         window.almProductosLista.push(almProdEntry(p));
+                        // El catálogo se mutó EN SITIO → la agrupación cacheada por descripción
+                        // quedó vieja (ver ProductoSuggest.agrupar).
+                        window.ProductoSuggest.invalidar();
                     }
                 }
             } else {
@@ -4515,6 +4255,10 @@
                         // CREACION: agregar al final
                         window.almProductosLista.push(entry);
                     }
+                    // El catálogo se mutó EN SITIO (no se reemplazó el array) → hay que tirar la
+                    // agrupación cacheada por descripción, o el producto nuevo/renombrado se
+                    // seguiría agrupando con los datos viejos (ver ProductoSuggest.agrupar).
+                    window.ProductoSuggest.invalidar();
                 }
 
                 almCargar();

@@ -379,6 +379,55 @@ class AlmacenController extends Controller
     }
 
     /**
+     * IDs de producto de un parámetro CSV (`id_producto_in`): enteros > 0, sin repetidos.
+     * Lo mandan los buscadores del inventario y de la bitácora al elegir una sugerencia
+     * AGRUPADA (una descripción con varias presentaciones) y el modo "ver solo seleccionados".
+     * Devuelve [] si no vino nada usable — el llamador cae entonces a los demás filtros.
+     */
+    private function idsDesdeCsv($csv): array
+    {
+        return collect(explode(',', (string) $csv))
+            ->map(fn ($s) => (int) trim($s))
+            ->filter(fn ($n) => $n > 0)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Filtro de PRODUCTO de las pantallas de movimientos (bitácora y ranking de consumo),
+     * con su orden de precedencia en UN SOLO SITIO:
+     *   1) id_producto_in → los IDs de una descripción con varias presentaciones (o el id
+     *      suelto que manda el buscador al elegir una sugerencia / escanear un QR).
+     *   2) id_producto    → compatibilidad con links puntuales de otras pantallas.
+     *   3) search         → "teclear + Enter": LIKE tokenizado CON equivalencias, la misma
+     *      búsqueda que el resto del módulo (así el Enter encuentra lo que sugiere el
+     *      autocomplete). En /almacen/notas se pasa $aplicarBusqueda=false porque allí
+     *      `search` es el N° de Nota, no el producto.
+     *
+     * Que sea excluyente importa: la bitácora y su ranking de consumo TIENEN que filtrar
+     * igual o la pantalla se contradice a sí misma.
+     *
+     * @param string $col columna calificada (consumoRanking hace JOIN con productos_inventario,
+     *                    donde ID_PRODUCTO existe en ambas tablas y sin prefijo es ambigua
+     *                    → MySQL 1052 y pantalla en blanco).
+     */
+    private function aplicarFiltroProductoMovimientos($q, Request $request, string $col = 'ID_PRODUCTO', bool $aplicarBusqueda = true): void
+    {
+        $ids = $this->idsDesdeCsv($request->input('id_producto_in'));
+        if ($ids) {
+            $q->whereIn($col, $ids);
+        } elseif ($request->filled('id_producto')) {
+            $q->where($col, $request->integer('id_producto'));
+        } elseif ($aplicarBusqueda && $request->filled('search')) {
+            $term = trim((string) $request->input('search'));
+            $q->whereHas('producto', function ($p) use ($term) {
+                $this->aplicarBusquedaProducto($p, $term, ['CODIGO', 'NOMBRE'], true);
+            });
+        }
+    }
+
+    /**
      * Aplica los filtros de CONTENIDO (los que operan sobre columnas de
      * productos_inventario) a una query: id_producto_in, id_producto, search, categoria.
      * NO toca el JOIN con almacen_stock ni los filtros por stock (solo_bajo/solo_con_saldo),
@@ -402,17 +451,10 @@ class AlmacenController extends Controller
         // activar "solo seleccionados" quiere ver los 5, no la interseccion con la
         // categoria activa). id_almacen NO se ignora porque la seleccion vive en
         // el contexto del almacen actual de la tabla.
-        if ($request->filled('id_producto_in')) {
-            $ids = collect(explode(',', (string) $request->input('id_producto_in')))
-                ->map(fn ($s) => (int) trim($s))
-                ->filter(fn ($n) => $n > 0)
-                ->unique()
-                ->values()
-                ->all();
-            if (!empty($ids)) {
-                $q->whereIn('productos_inventario.ID_PRODUCTO', $ids);
-                return true; // short-circuit: ignoramos los demas filtros
-            }
+        $ids = $this->idsDesdeCsv($request->input('id_producto_in'));
+        if (!empty($ids)) {
+            $q->whereIn('productos_inventario.ID_PRODUCTO', $ids);
+            return true; // short-circuit: ignoramos los demas filtros
         }
 
         // `id_producto`: match EXACTO — lo envía el filtro "Descripción" cuando el usuario
@@ -1157,24 +1199,9 @@ class AlmacenController extends Controller
             // Limitar a almacenes visibles para el usuario.
             $q->whereIn('ID_ALMACEN', $visiblesIds);
         }
-        // id_producto = match EXACTO (viene de elegir una sugerencia del autocomplete, o de
-        // entrar desde el detalle de un producto). Tiene PRECEDENCIA sobre `search`: si se
-        // eligió un producto puntual, la bitácora muestra SOLO ese, no todos los que comparten
-        // descripción (mismo criterio que la tabla de /admin/almacen). `search` (LIKE + tokens)
-        // queda para el flujo "teclear + Enter" (similitudes), cuando NO se eligió uno exacto.
-        if ($request->filled('id_producto')) {
-            $q->where('ID_PRODUCTO', $request->integer('id_producto'));
-        } elseif ($request->filled('search')) {
-            // Misma tokenización que la tabla de /admin/almacen (ver aplicarBusquedaProducto).
-            $term = trim((string) $request->input('search'));
-            $q->whereHas('producto', function ($p) use ($term) {
-                // incluirEquivalencias=true: el autocomplete de movimientos sugiere por nº de
-                // parte equivalente (haystack con EQUIV), así que la búsqueda por Enter debe
-                // encontrar por ese alterno también. Sin esto, teclear un nº de parte y pulsar
-                // Enter devolvía bitácora vacía aunque el dropdown mostraba el producto.
-                $this->aplicarBusquedaProducto($p, $term, ['CODIGO', 'NOMBRE'], true);
-            });
-        }
+        // Filtro de producto (id_producto_in → id_producto → search) en su punto Único, para
+        // que la bitácora y el ranking de consumo de esta misma pantalla filtren igual.
+        $this->aplicarFiltroProductoMovimientos($q, $request);
         if ($request->filled('tipo') && $request->input('tipo') !== 'all') {
             // Filtro Tipo SIMPLIFICADO a 2 grupos (Entradas / Salidas). El frontend manda
             // las claves de grupo ENTRADAS/SALIDAS; aquí se pliegan los traspasos y las
@@ -1485,24 +1512,11 @@ class AlmacenController extends Controller
         } else {
             $q->whereIn('ID_ALMACEN', Almacen::visiblesPara($request->user())->pluck('ID_ALMACEN'));
         }
-        if ($request->filled('id_producto')) {
-            // PREFIJAR con `movimientos_inventario.` — sin esto, el JOIN con
-            // `productos_inventario as p` que hacemos al final (linea ~836) deja
-            // la columna ID_PRODUCTO ambigua (existe en AMBAS tablas) y MySQL
-            // dispara error 1052 → la pantalla queda en blanco.
-            $q->where('movimientos_inventario.ID_PRODUCTO', $request->integer('id_producto'));
-        }
-        if ($aplicarBusqueda && $request->filled('search')) {
-            // Antes era un LIKE plano que divergía del resto del módulo; ahora usa la
-            // misma búsqueda tokenizada CON equivalencias que la bitácora de la misma
-            // pantalla — así el ranking "Consumo de Inventario" y la bitácora coinciden
-            // (buscar por una parte/equivalente devuelve las mismas filas en ambos).
-            // En /almacen/notas se pasa $aplicarBusqueda=false porque ahí `search` es N° Nota.
-            $term = trim((string) $request->input('search'));
-            $q->whereHas('producto', function ($p) use ($term) {
-                $this->aplicarBusquedaProducto($p, $term, ['CODIGO', 'NOMBRE'], true);
-            });
-        }
+        // Mismo filtro de producto que la bitácora (punto único). La columna va PREFIJADA:
+        // el JOIN con `productos_inventario as p` del final deja ID_PRODUCTO ambigua (existe
+        // en AMBAS tablas) y MySQL dispara el error 1052 → la pantalla queda en blanco.
+        // $aplicarBusqueda=false en /almacen/notas, donde `search` es el N° de Nota.
+        $this->aplicarFiltroProductoMovimientos($q, $request, 'movimientos_inventario.ID_PRODUCTO', $aplicarBusqueda);
         if ($request->filled('id_frente') && $request->input('id_frente') !== 'all') {
             $q->where('ID_FRENTE', $request->integer('id_frente'));
         }
@@ -2460,9 +2474,7 @@ class AlmacenController extends Controller
             $q = $base()->orderBy('NOMBRE');
             $idsRaw = trim((string) $request->query('ids', ''));
             if ($idsRaw !== '') {
-                $ids = collect(explode(',', $idsRaw))
-                    ->map(fn ($v) => (int) trim($v))
-                    ->filter()->unique()->values()->all();
+                $ids = $this->idsDesdeCsv($idsRaw);
                 abort_if(empty($ids), 404, 'No se indicaron productos válidos para las etiquetas.');
                 $q->whereIn('ID_PRODUCTO', $ids);
             } elseif ($request->filled('categoria') && $request->query('categoria') !== 'all') {
@@ -2887,7 +2899,7 @@ class AlmacenController extends Controller
         if ($numero !== '') {
             $q->where('NUMERO_NOTA', $numero);
         } elseif ($idsRaw !== '') {
-            $ids = array_values(array_unique(array_filter(array_map('intval', explode(',', $idsRaw)))));
+            $ids = $this->idsDesdeCsv($idsRaw);
             if (empty($ids)) return null;
             $q->whereIn('ID_MOVIMIENTO', $ids);
         } else {

@@ -15,6 +15,9 @@
     $reqDesde    = request('desde');
     $reqHasta    = request('hasta');
     $reqNota     = request('nota');
+    // Filtro de PRODUCTO activo = texto libre (search) O un producto / sus presentaciones
+    // elegidos por clic en una sugerencia (id_producto / id_producto_in, que llegan SIN `search`).
+    $prodActivo  = $reqSearch || request('id_producto') || request('id_producto_in');
     // Filtro Tipo: Entradas (grupo), Salidas (grupo), Auditoría (tipo exacto AJUSTE).
     $tipos = [
         'ENTRADAS' => ['label' => 'Entradas', 'sub' => ''],
@@ -495,19 +498,28 @@
     {{-- ── Filtros ── (el filtro de almacén está junto al título, no aquí) --}}
     <div id="almMovFilters">
 
-        {{-- Buscar producto --}}
+        {{-- Buscar producto — MISMAS funciones que el filtro "Descripción" de /admin/almacen:
+             sugerencias fuzzy (código, descripción y nº de parte equivalente), clic en una
+             sugerencia = match exacto (o TODAS las presentaciones si esa descripción tiene
+             varias), Enter = similitudes por LIKE, X = limpiar, e icono de escaneo QR.
+             Escribir SOLO refresca las sugerencias — NO dispara la consulta a la tabla. --}}
         <div class="amf-item amf-search">
             <div class="amf-search-wrap">
-                <div class="amf-search-box {{ $reqSearch ? 'active' : '' }}">
+                <div class="amf-search-box {{ $prodActivo ? 'active' : '' }}">
                     <i class="material-icons lupa">search</i>
-                    {{-- Escribir SOLO refresca las sugerencias — NO dispara la consulta a la tabla.
-                         El filtro se aplica cuando el usuario (a) elige una sugerencia, (b) pulsa Enter,
-                         o (c) limpia el campo con la X. Mismo patrón que /admin/almacen (filtro Buscar). --}}
                     <input type="text" id="almMovSearch" autocomplete="off" placeholder="Buscar producto (código o descripción)…" value="{{ $reqSearch }}"
-                           oninput="window.almMovPickedId=null; window.almMovSuggestFn()"
+                           oninput="window.almMovBuscarInput()"
                            onfocus="window.almMovSuggestFn()"
-                           onkeydown="if(event.key==='Enter'){event.preventDefault();window.almMovPickedId=null;window.almMovSuggestHide();window.loadMovimientos();} if(event.key==='Escape') window.almMovSuggestHide();">
-                    <i class="material-icons clr" id="almMovSearchClear" style="display:{{ $reqSearch ? 'block' : 'none' }};" onclick="document.getElementById('almMovSearch').value=''; this.style.display='none'; window.almMovPickedId=null; window.almMovSuggestHide(); window.loadMovimientos();">close</i>
+                           onkeydown="window.almMovBuscarKey(event)">
+                    {{-- Escanear QR: icono dentro del propio buscador, visible solo con el campo
+                         vacío (comparte lugar con la "x" de limpiar). En teléfono abre la cámara;
+                         en PC enfoca este buscador para que el lector USB teclee aquí. --}}
+                    <i class="material-icons qrs-ic" id="almMovBuscarScan" title="Escanear código QR"
+                       style="display:{{ $prodActivo ? 'none' : 'flex' }};"
+                       onclick="window.QrScan.abrir()">&#xf206;</i>
+                    <i class="material-icons clr" id="almMovSearchClear"
+                       style="display:{{ $prodActivo ? 'block' : 'none' }};"
+                       onclick="window.almMovBuscarLimpiar()">close</i>
                 </div>
                 <div class="amf-suggest" id="almMovSuggest"></div>
             </div>
@@ -754,6 +766,11 @@
 
 </div>{{-- /page-layout-grid --}}
 
+{{-- Escaneo QR (modal de cámara + estilo del icono del buscador): partial COMPARTIDO con
+     Inventario y Recepción. Va ANTES del script de la vista porque su <script> registra
+     las rutas que usa el QrScan.init de más abajo. --}}
+@include('admin.almacen.partials.scan_modal')
+
 <script>
 (function () {
     'use strict';
@@ -782,11 +799,17 @@
     function docOn(type, fn, capture) { if (!_globalsBound) document.addEventListener(type, fn, capture); }
     function winOn(type, fn) { if (!_globalsBound) window.addEventListener(type, fn); }
 
-    // Producto elegido en la sugerencia = match EXACTO. Se siembra con el id_producto de la
-    // URL (al entrar desde el detalle de un producto) y se actualiza al elegir/limpiar en el
-    // buscador. Es lo que hace que la bitácora traiga SOLO ese producto (no todos los de igual
-    // descripción). Al teclear/Enter/limpiar se pone en null → vuelve la búsqueda por LIKE.
-    window.almMovPickedId = new URLSearchParams(window.location.search).get('id_producto') || null;
+    // Producto(s) elegido(s) en el buscador, como CSV de IDs — ESTADO ÚNICO del filtro de
+    // producto. Un clic en una sugerencia manda todos los IDs de esa descripción (uno solo si
+    // no tiene varias presentaciones), así la bitácora filtra por ID y no por substring.
+    // Se siembra desde la URL aceptando las DOS formas: id_producto_in (sugerencia agrupada) e
+    // id_producto (link puntual, p.ej. desde el detalle de un producto). Al teclear / Enter /
+    // limpiar vuelve a null → manda la búsqueda por texto (LIKE).
+    // Lo lee también el modo offline (movimientos-offline.js), que replica estos filtros.
+    window.almMovPickedIds = (function () {
+        var q = new URLSearchParams(window.location.search);
+        return q.get('id_producto_in') || q.get('id_producto') || null;
+    })();
 
     function buildParams(pageUrl) {
         var p = new URLSearchParams();
@@ -800,12 +823,12 @@
         var d = el('almMovDesde'); if (d && d.value) p.set('desde', d.value);
         var h = el('almMovHasta'); if (h && h.value) p.set('hasta', h.value);
         var nt = el('almMovNota'); if (nt && nt.value.trim()) p.set('nota', nt.value.trim());
-        // Match EXACTO del producto elegido (sugerencia) o el que vino en la URL: trae SOLO ese
-        // producto y sus equivalencias en el consumo. Tiene precedencia sobre `search` (LIKE),
-        // así que cuando hay pick NO mandamos `search` (el cuadro muestra "Nº · descripción").
+        // Producto(s) elegido(s): trae SOLO esos y sus equivalencias en el consumo. Tiene
+        // precedencia sobre `search` (LIKE), así que cuando hay pick NO mandamos `search`
+        // (el cuadro muestra "Nº · descripción", que como texto no encontraría nada).
         var s = el('almMovSearch');
-        if (window.almMovPickedId) {
-            p.set('id_producto', window.almMovPickedId);
+        if (window.almMovPickedIds) {
+            p.set('id_producto_in', window.almMovPickedIds);
         } else if (s && s.value.trim()) {
             p.set('search', s.value.trim());
         }
@@ -847,10 +870,7 @@
                 if (data.html !== undefined) body.innerHTML = data.html;
                 var pg = el('almMovPagination'); if (pg) pg.innerHTML = data.pagination || '';
                 { var e = el('almMovTotal'); if (e && data.total !== undefined) e.textContent = data.total; }
-                // marca "activo" del buscador
-                var sb = document.querySelector('.amf-search-box'); var si = el('almMovSearch');
-                if (sb && si) sb.classList.toggle('active', !!si.value.trim());
-                var sc = el('almMovSearchClear'); if (sc && si) sc.style.display = si.value.trim() ? 'block' : 'none';
+                almMovBuscarUI();   // marca "activo" del buscador + iconos (x / escanear)
                 try { window.history.replaceState(null, '', ROUTE + '?' + pHist.toString()); } catch (e) {}
             })
             .catch(function () { body.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:24px;color:#dc2626;">No se pudieron cargar los movimientos.</td></tr>'; })
@@ -902,18 +922,21 @@
     })();
 
     window.almMovSuggestHide = function () { var b = document.getElementById('almMovSuggest'); if (b) b.classList.remove('open'); };
+
     window.almMovSuggestFn = function () {
         var inp = document.getElementById('almMovSearch'), box = document.getElementById('almMovSuggest');
         if (!inp || !box) return;
         var rawTerm = inp.value.trim();
         var lista = window.almMovProductosLista || [];
-        // Ranking compartido (window.FuzzySearch): el MISMO buscador "estilo Google" del
-        // inventario, en vez de reimplementar el fuzzy aquí. El haystack incluye EQUIV (nºs de
-        // parte equivalentes) para sugerir por alterno; el label es solo el NOMBRE. Término
-        // vacío → catálogo en su orden natural.
-        var matches = window.FuzzySearch.rank(lista, rawTerm, function (p) {
-            return { haystack: (p.CODIGO || '') + ' ' + (p.NOMBRE || '') + ' ' + (p.EQUIV || ''), label: p.NOMBRE || '' };
-        }).slice(0, 17);
+
+        // Agrupación por descripción + ranking + dedupe: reglas COMPARTIDAS con el filtro
+        // "Descripción" del inventario (window.ProductoSuggest). Una descripción con varias
+        // presentaciones (distinta UM = producto aparte) sale UNA vez con un badge de cuántas
+        // tiene; al elegirla se filtran TODAS (id_producto_in). Los filtros no se agrupan:
+        // los del mismo nombre son modelos distintos.
+        var grupos  = window.ProductoSuggest.agrupar(lista);
+        var matches = window.ProductoSuggest.dedupe(window.ProductoSuggest.rankear(lista, rawTerm), grupos, 17);
+
         var html = '';
         if (!matches.length) {
             // Mientras el catálogo async no cargó, "Cargando…" en vez de "Sin coincidencias"
@@ -929,6 +952,12 @@
                 // inventario): la sugerencia queda limpia con SOLO la descripción. Igual se
                 // PUEDE filtrar por serial/código — el ranking lo incluye en el haystack
                 // (CODIGO + NOMBRE + EQUIV) — y el código sigue en el title de la fila (hover).
+                var grp = grupos[window.ProductoSuggest.claveGrupo(p)] || { count: 1, ids: [p.ID_PRODUCTO] };
+                // data-pids = los IDs de ESTA descripción cuando tiene varias presentaciones;
+                // si es única, es su solo id. En ambos casos el clic filtra por id (nunca por
+                // substring, a diferencia del LIKE de `search`).
+                var pids  = (grp.ids || [p.ID_PRODUCTO]).join(',');
+                var badge = window.ProductoSuggest.badgePresentaciones(grp, 'amf-suggest-cod');
                 var parteMostrar = window.FuzzySearch.matchedPart(rawTerm, p.PARTES, p.PARTE);
                 // Nº de parte / equivalencia que COINCIDE con lo buscado, DELANTE de la
                 // descripción (misma lógica que inventario/recepción). Mismo tamaño/tipo que la
@@ -937,29 +966,92 @@
                 var partePrefix = parteSafe
                     ? '<span class="amf-suggest-parte" style="font-size:13.5px;color:#475569;font-weight:600;margin-right:6px;white-space:nowrap;">' + parteSafe + '</span>'
                     : '';
-                // data-pid = match EXACTO del producto; data-pick = texto que va al cuadro (el nº de
-                // parte que coincidió DELANTE de la descripción, si matcheó por equivalencia).
-                var pid      = p.ID_PRODUCTO || '';
+                // data-pick = texto que va al cuadro (el nº de parte que coincidió DELANTE de la
+                // descripción, si matcheó por equivalencia).
                 var pickText = parteSafe ? (parteSafe + ' · ' + nom) : nom;
-                return '<div class="amf-suggest-item" data-pid="' + pid + '" data-pick="' + pickText + '" title="' + cod + '">'
-                     + '<div class="amf-suggest-line">' + partePrefix + '<span class="nom">' + nom + '</span></div>'
+                return '<div class="amf-suggest-item" data-pids="' + pids + '" data-pick="' + pickText + '" title="' + cod + '">'
+                     + '<div class="amf-suggest-line">' + partePrefix + '<span class="nom">' + nom + '</span>' + badge + '</div>'
                      + '</div>';
             }).join('');
         }
         box.innerHTML = html;
         box.classList.add('open');
     };
+
+    // ── Reglas del filtro de producto (las MISMAS que el filtro "Descripción" de
+    //    /admin/almacen) ─────────────────────────────────────────────────────────
+    //   (a) Escribir refresca solo la LISTA, NO la tabla; y descarta el producto elegido antes
+    //       (si el usuario vuelve a teclear, ya quiere otra cosa).
+    //   (b) Clic en una sugerencia → los IDs de esa descripción (uno, o todos si tiene varias
+    //       presentaciones) → id_producto_in: filtra por ID, nunca por substring.
+    //   (c) Enter → similitudes vía LIKE %term% del backend (sin IDs).
+    //   (d) X → limpia texto + producto elegido y recarga sin filtro.
+
+    // ¿Hay filtro de producto puesto? Texto tecleado O IDs elegidos por clic (que pueden venir
+    // de la URL con el cuadro vacío). Criterio ÚNICO: lo consultan el estado visual de abajo,
+    // el icono de escaneo (cfg.activo de QrScan) y el modo offline.
+    function almMovProdActivo() {
+        var i = el('almMovSearch');
+        return !!((i && i.value.trim()) || window.almMovPickedIds);
+    }
+    // Estado visual del buscador: fondo azul si hay filtro de producto activo y los iconos
+    // "x" / "escanear" alternándose (solo uno a la vez). Punto ÚNICO para los cuatro flujos.
+    function almMovBuscarUI() {
+        var inp = el('almMovSearch'); if (!inp) return;
+        var activo = almMovProdActivo();
+        var caja = inp.closest('.amf-search-box'); if (caja) caja.classList.toggle('active', activo);
+        var x = el('almMovSearchClear'); if (x) x.style.display = activo ? 'block' : 'none';
+        window.QrScan.iconToggle();   // escanear visible solo si NO hay filtro de producto
+    }
+
+    /**
+     * ÚNICO punto de escritura del filtro de producto.
+     *   texto  → lo que queda en el cuadro ('' lo vacía)
+     *   idsCsv → IDs elegidos ('' / null = sin pick, vuelve la búsqueda por texto)
+     * Los tres flujos que lo cambian (clic en sugerencia, Enter, X) pasan por aquí, así que
+     * el estado, la UI y la recarga no se pueden desincronizar.
+     */
+    window.almMovBuscarPick = function (texto, idsCsv) {
+        var inp = el('almMovSearch'); if (inp) inp.value = texto || '';
+        window.almMovPickedIds = idsCsv ? String(idsCsv) : null;
+        almMovBuscarUI();
+        window.almMovSuggestHide();
+        window.loadMovimientos();
+    };
+    window.almMovBuscarLimpiar = function () { window.almMovBuscarPick('', null); };
+
+    window.almMovBuscarInput = function () {
+        // Editar el texto descarta el producto elegido, pero NO recarga la tabla todavía
+        // (eso lo hacen Enter / clic en sugerencia / X).
+        window.almMovPickedIds = null;
+        almMovBuscarUI();
+        window.almMovSuggestFn();
+    };
+    window.almMovBuscarKey = function (ev) {
+        if (!ev) return;
+        if (ev.key === 'Escape') { window.almMovSuggestHide(); return; }
+        if (ev.key !== 'Enter') return;
+        ev.preventDefault();
+        var inp = el('almMovSearch');
+        // Enter = buscar por TEXTO (LIKE), descartando el pick anterior.
+        window.almMovBuscarPick(inp ? inp.value : '', null);
+    };
+
+    // Escaneo QR sobre ESTE buscador (icono + cámara en teléfono + lector USB en PC). El
+    // código escaneado se resuelve contra el catálogo y entra por el MISMO pick que un clic
+    // en la sugerencia → filtra por el ID de ese producto.
+    window.QrScan.init({
+        input:      'almMovSearch',
+        icono:      'almMovBuscarScan',
+        activo:     almMovProdActivo,
+        onProducto: function (p, label) { window.almMovBuscarPick(label, String(p.id)); },
+    });
+
     // Delegación de clic en sugerencias
     docOn('click', function (e) {
         var item = e.target.closest('#almMovSuggest .amf-suggest-item');
         if (item) {
-            var inp = document.getElementById('almMovSearch');
-            if (inp) inp.value = item.getAttribute('data-pick') || '';
-            // Elegir una sugerencia = match EXACTO por id_producto (trae SOLO ese producto y sus
-            // equivalencias en el consumo), no LIKE por descripción.
-            window.almMovPickedId = item.getAttribute('data-pid') || null;
-            window.almMovSuggestHide();
-            window.loadMovimientos();
+            window.almMovBuscarPick(item.getAttribute('data-pick') || '', item.getAttribute('data-pids') || null);
             return;
         }
         if (!e.target.closest('#almMovSearch') && !e.target.closest('#almMovSuggest')) window.almMovSuggestHide();
@@ -1013,18 +1105,11 @@
         }
     });
 
-    // Click en una fila del ranking de consumo → pega el nombre del producto en el
-    // buscador y recarga la tabla. El filtro backend hace LIKE %nombre%, suficiente
-    // para acotar a los movimientos de ese producto sin requerir id_producto exacto.
-    window.almMovFiltrarPorProducto = function (_idProducto, nombre) {
-        var inp = el('almMovSearch');
-        if (inp) {
-            inp.value = nombre || '';
-            var sb = document.querySelector('.amf-search-box'); if (sb) sb.classList.add('active');
-            var sc = el('almMovSearchClear'); if (sc) sc.style.display = inp.value ? 'block' : 'none';
-        }
-        window.almMovSuggestHide && window.almMovSuggestHide();
-        window.loadMovimientos();
+    // Click en una fila del ranking de consumo → filtra la bitácora a ESE producto. Reusa el
+    // mismo "pick" del buscador (filtra por ID): antes solo pegaba el nombre y recargaba, así
+    // que un producto elegido antes en el buscador seguía pegado y ganaba.
+    window.almMovFiltrarPorProducto = function (idProducto, nombre) {
+        window.almMovBuscarPick(nombre || '', idProducto ? String(idProducto) : null);
     };
 
     // Paginación AJAX

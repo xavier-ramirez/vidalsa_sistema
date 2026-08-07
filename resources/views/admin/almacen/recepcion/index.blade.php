@@ -676,6 +676,12 @@
                        onfocus="window.trProdSuggest()"
                        onblur="setTimeout(function(){ var s=document.getElementById('trProdSuggest'); if(s) s.classList.remove('open'); }, 150);">
                 <input type="hidden" id="trIdProducto" value="{{ $reqIdProd }}">
+                {{-- Escanear QR: icono dentro del propio buscador, visible solo mientras no
+                     haya producto elegido (comparte lugar con la "x" de limpiar). En teléfono
+                     abre la cámara; en PC enfoca este buscador para el lector USB. --}}
+                <i class="material-icons qrs-ic" id="trProdScan" title="Escanear código QR"
+                   style="display:{{ $reqIdProd ? 'none' : 'flex' }};"
+                   onclick="window.QrScan.abrir()">&#xf206;</i>
                 <i class="material-icons" id="trProdClear" title="Limpiar filtro por producto"
                    style="display:{{ $reqIdProd ? 'flex' : 'none' }};align-items:center;padding:0 10px;color:#64748b;font-size:18px;cursor:default;"
                    onclick="window.trProdClear()">close</i>
@@ -1273,6 +1279,11 @@
         </div>
     </div>
 </div>
+
+{{-- Escaneo QR (modal de cámara + estilo del icono del buscador): partial COMPARTIDO con
+     Inventario y Movimientos. Va ANTES de los scripts de la vista porque su <script>
+     registra las rutas que usa el QrScan.init del buscador de producto. --}}
+@include('admin.almacen.partials.scan_modal')
 
 <script>
 (function () {
@@ -1968,10 +1979,21 @@
         var p = el('trProdSearch'); if (p) p.value = p.defaultValue;
         var h = el('trIdProducto'); if (h) h.value = h.defaultValue;
         trSearchToggleClear();
-        var pHas = !!(p && p.value.trim());
-        var pBox = p ? p.closest('.tr-search-box') : null; if (pBox) pBox.classList.toggle('active', pHas);
-        var pX = el('trProdClear'); if (pX) pX.style.display = pHas ? 'flex' : 'none';
+        trProdToggleClear();   // tinte + X + icono de escaneo del buscador de producto
     };
+    // Escaneo QR sobre el buscador de producto (icono + cámara en teléfono + lector USB en PC):
+    // el código resuelto entra por el MISMO pick que un clic en la sugerencia. `activo` = hay
+    // producto elegido (el texto del cuadro solo lo acompaña), así el icono de escaneo y la "x"
+    // de limpiar nunca se ven a la vez. Va ANTES de trResetBuscadores porque ese ya sincroniza
+    // el icono (via trProdToggleClear) y necesita el enganche puesto. Las funciones que usa
+    // —trProdPick, trProdToggleClear— se resuelven al invocarse, más abajo en este mismo script.
+    window.QrScan.init({
+        input:      'trProdSearch',
+        icono:      'trProdScan',
+        activo:     function () { return !!v('trIdProducto'); },
+        onProducto: function (p, label) { window.trProdPick(label, p.id); },
+    });
+
     window.trResetBuscadores();
     // bfcache (botón "atrás"): el <script> NO se re-ejecuta, pero el evento pageshow sí dispara.
     if (_trBindGlobal) window.addEventListener('pageshow', function (ev) {
@@ -2033,6 +2055,7 @@
         var has = !!v('trIdProducto');
         var x = el('trProdClear'); if (x) x.style.display = has ? 'flex' : 'none';
         var box = input.closest('.tr-search-box'); if (box) box.classList.toggle('active', has);
+        window.QrScan.iconToggle();   // escanear visible solo mientras no haya producto elegido
     }
     window.trProdSuggest = function () {
         var inp = el('trProdSearch'), box = el('trProdSuggest');
@@ -2078,21 +2101,20 @@
     if (_trBindGlobal) document.addEventListener('click', function (e) {
         var it = e.target.closest('#trProdSuggest .tr-suggest-item');
         if (!it) return;
-        var hid = el('trIdProducto'); if (hid) hid.value = it.getAttribute('data-pid') || '';
-        var inp = el('trProdSearch'); if (inp) inp.value = it.getAttribute('data-pick') || '';
-        var box = el('trProdSuggest'); if (box) box.classList.remove('open');
-        trProdToggleClear();
-        window.trResetKpi();
-        window.trLoad();
+        window.trProdPick(it.getAttribute('data-pick') || '', it.getAttribute('data-pid') || '');
     });
-    window.trProdClear = function () {
-        var hid = el('trIdProducto'); if (hid) hid.value = '';
-        var inp = el('trProdSearch'); if (inp) inp.value = '';
+    // Fija el producto del filtro y recarga la bandeja. Punto único: lo usan el clic en una
+    // sugerencia y el escaneo de un QR (que resuelve el CODIGO contra el catálogo).
+    window.trProdPick = function (texto, idProducto) {
+        var hid = el('trIdProducto'); if (hid) hid.value = idProducto || '';
+        var inp = el('trProdSearch'); if (inp) inp.value = texto || '';
         var box = el('trProdSuggest'); if (box) box.classList.remove('open');
         trProdToggleClear();
         window.trResetKpi();
         window.trLoad();
     };
+    // Limpiar = elegir "ningún producto": mismo camino que el pick, sin duplicar el cuerpo.
+    window.trProdClear = function () { window.trProdPick('', ''); };
 
     function params(pageUrl) {
         // Sin `estado` el backend aplica su default (En tránsito + Confirmada parcial). Aquí

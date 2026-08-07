@@ -9,7 +9,7 @@
  * (inline de movimientos.blade.php). Con el modo offline activo se INTERCEPTA y se filtra
  * la copia local leyendo el mismo estado del DOM que usa el online: los hidden de los
  * custom-dropdowns ([name=id_almacen|tipo|id_frente][data-filter-value]), #almMovSearch
- * (o window.almMovPickedId si se clickeó una sugerencia = match exacto por producto),
+ * (o window.almMovPickedIds si se clickeó una sugerencia = filtro por ID de producto),
  * #almMovDesde/#almMovHasta y #almMovNota. Semántica replicada del backend
  * (AlmacenController::movimientos): ENTRADAS/SALIDAS pliegan traspasos y AJUSTES por su
  * signo (resultante vs anterior); nota = LIKE. La fila replica kardex_rows degradada:
@@ -66,7 +66,11 @@
             desde:    val('almMovDesde'),         // YYYY-MM-DD
             hasta:    val('almMovHasta'),
             nota:     norm(val('almMovNota')),
-            pickedId: window.almMovPickedId ? parseInt(window.almMovPickedId, 10) : null,
+            // CSV de IDs del producto elegido en el buscador (una descripción puede tener
+            // varias presentaciones). Mismo estado que usa el online en buildParams.
+            pickedIds: (String(window.almMovPickedIds || '')
+                .split(',').map(function (x) { return parseInt(x, 10); })
+                .filter(function (n) { return n > 0; })),
             q:        norm(val('almMovSearch')),
         };
     }
@@ -94,7 +98,8 @@
             if (f.desde && dia < f.desde) return false;
             if (f.hasta && dia > f.hasta) return false;
             if (f.nota && norm(m.nota).indexOf(f.nota) < 0) return false;
-            if (f.pickedId) { if (m.id_producto !== f.pickedId) return false; }
+            // Producto elegido = filtro por ID (igual que el online); si no hay pick, texto libre.
+            if (f.pickedIds.length) { if (f.pickedIds.indexOf(m.id_producto) < 0) return false; }
             else if (f.q && (norm(m.codigo) + ' ' + norm(m.producto)).indexOf(f.q) < 0) return false;
             return true;
         });
