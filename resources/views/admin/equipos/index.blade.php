@@ -177,21 +177,23 @@
                         autocomplete="off">
                     <i class="material-icons" data-clear-btn
                        style="padding: 0 5px; color: var(--maquinaria-gray-text); font-size: 18px; display: {{ $currentFrenteId && $currentFrenteId != 'all' ? 'block' : 'none' }};"
-                       onclick="event.stopPropagation(); clearDropdownFilter('frenteFilterSelect'); window.eqSyncTiposFrente && window.eqSyncTiposFrente(); window.clearAdvancedFilters();">close</i>
+                       {{-- Sin llamar aquí a eqSyncTiposFrente: clearAdvancedFilters() termina
+                            invocando loadEquipos(), que ya la ejecuta. --}}
+                       onclick="event.stopPropagation(); clearDropdownFilter('frenteFilterSelect'); window.clearAdvancedFilters();">close</i>
                 </div>
 
                 <div class="dropdown-content" style="padding:5px; max-height:none; overflow:visible; z-index:1000;">
                     <div class="dropdown-item-list" style="max-height:250px; overflow-y:auto;">
                         <div class="dropdown-item {{ !$currentFrenteId || $currentFrenteId == 'all' ? 'selected' : '' }}"
                              data-value="all"
-                             onclick="selectOption('frenteFilterSelect', 'all', '{{ $isLocalUser ? 'Todos Mis Frentes' : 'TODOS LOS FRENTES' }}'); window.eqSyncTiposFrente && window.eqSyncTiposFrente(); loadEquipos();">
+                             onclick="selectOption('frenteFilterSelect', 'all', '{{ $isLocalUser ? 'Todos Mis Frentes' : 'TODOS LOS FRENTES' }}'); loadEquipos();">
                             {{ $isLocalUser ? 'TODOS MIS FRENTES' : 'TODOS LOS FRENTES' }}
                         </div>
                         {{-- Sentinel "none": filtra equipos sin ID_FRENTE_ACTUAL en BD --}}
                         @if(!$isLocalUser)
                         <div class="dropdown-item {{ $currentFrenteId == 'none' ? 'selected' : '' }}"
                              data-value="none"
-                             onclick="selectOption('frenteFilterSelect', 'none', 'SIN ASIGNAR'); window.eqSyncTiposFrente && window.eqSyncTiposFrente(); loadEquipos();"
+                             onclick="selectOption('frenteFilterSelect', 'none', 'SIN ASIGNAR'); loadEquipos();"
                              style="font-style: italic; color: #94a3b8;">
                             SIN ASIGNAR
                         </div>
@@ -199,7 +201,7 @@
                         @foreach($frentesDropdown as $frente)
                             <div class="dropdown-item {{ $currentFrenteId == $frente->ID_FRENTE ? 'selected' : '' }}"
                                  data-value="{{ $frente->ID_FRENTE }}"
-                                 onclick="selectOption('frenteFilterSelect', '{{ $frente->ID_FRENTE }}', '{{ addslashes(trim($frente->NOMBRE_FRENTE)) }}'); window.eqSyncTiposFrente && window.eqSyncTiposFrente(); loadEquipos();">
+                                 onclick="selectOption('frenteFilterSelect', '{{ $frente->ID_FRENTE }}', '{{ addslashes(trim($frente->NOMBRE_FRENTE)) }}'); loadEquipos();">
                                 {{ $frente->NOMBRE_FRENTE }}
                             </div>
                         @endforeach
@@ -286,7 +288,18 @@
                 var frente = fInput && fInput.value ? fInput.value : 'all';
                 var map = window.EQ_TIPOS_POR_FRENTE || {};
                 // permitidos = null → sin restricción (mostrar todos los tipos).
-                var permitidos = (frente && frente !== 'all') ? (map[frente] || []) : null;
+                // hasOwnProperty y NO `map[frente] || []`: hay que distinguir un frente CONOCIDO
+                // sin equipos (lista vacía legítima → no ofrecer tipos) de un frente que el mapa
+                // NO conoce. Con `|| []` los dos caían en "ocultar TODOS los tipos" y el dropdown
+                // quedaba vacío sin explicación. Pasa de verdad: eqRegisterNuevoFrente() inyecta
+                // un frente recién creado en el filtro sin recargar, pero EQ_TIPOS_POR_FRENTE se
+                // serializa una sola vez en el render, así que ese frente no está en el mapa.
+                // Ante un frente desconocido se prefiere NO restringir antes que dejar al usuario
+                // sin ningún tipo que elegir.
+                var permitidos = null;
+                if (frente && frente !== 'all') {
+                    permitidos = Object.prototype.hasOwnProperty.call(map, frente) ? map[frente] : null;
+                }
 
                 var cont = document.querySelector('#tipoFilterSelect .dropdown-item-list');
                 if (!cont) return;
@@ -1257,8 +1270,8 @@
         .fdm-cam:hover { background: #f1f5f9; }
         .fdm-cam .material-icons { font-size: 17px; }
 
-        /* ── Tarjetas KPI (Total equipos / Consumo est.) ──────────
-           Las dos son IDÉNTICAS salvo etiqueta e id, con el acento azul del proyecto.
+        /* ── Tarjetas KPI (Σ Equipos / Σ Auxiliares / Consumo est.) ──────────
+           Las tres son IDÉNTICAS salvo etiqueta e id, con el acento azul del proyecto.
            (Flota nueva/antigua ya no son tarjetas: viven como claves de serie dentro de
            #fdm-panel-age.) El estilo vive aquí y no en styles inline: si no, son copias
            byte a byte.
@@ -1277,19 +1290,28 @@
             /* Relleno vertical de 6px para que la tarjeta mida lo MISMO que el buscador de
                al lado (38px de caja + 1px de borde arriba y abajo = 40): 6 + 6 + 26 de la
                cifra + 2 de borde = 40. Si se cambia el tamano de .fleet-kpi-val hay que
-               recalcular este 6, o las dos cajas dejan de estar a la misma altura. */
+               recalcular este 6, o las dos cajas dejan de estar a la misma altura.
+               OJO: ese calculo vale con la etiqueta en UNA linea, donde manda la cifra. Si
+               el texto se parte en DOS (columna estrecha), mandan las dos lineas de la
+               etiqueta —11 x 1.25 x 2 = 27.5— y la tarjeta sube a ~41.5: 1.5px mas alta que
+               el buscador. Se acepta a proposito: el cliente prefiere el texto en dos lineas
+               antes que la cifra debajo, y el align-items:center de .fleet-topline mantiene
+               todo centrado, asi que el desfase no se nota. */
             min-height: 40px;
             box-sizing: border-box;
             padding: 6px 14px;
-            /* En una sola linea: TODO el texto (etiqueta + unidad) a la izquierda y SOLO
-               el numero a la derecha — "Total equipos ....... 61". Alineados por linea
-               base para que se apoyen en el mismo renglon. Si no cabe (pantalla
-               estrecha), el numero baja de linea en vez de desbordar. */
+            /* Etiqueta a la izquierda, cifra a la derecha — "Σ Equipos ....... 61".
+               La CIFRA SIEMPRE va AL LADO, nunca debajo: `nowrap` aqui y `flex:none` en
+               .fleet-kpi-val. Cuando no cabe, quien cede es el TEXTO, que se reparte en dos
+               lineas (.fleet-kpi-lbl con white-space:normal). Antes era al reves —
+               flex-wrap:wrap + etiqueta en nowrap— y el numero era el que caia de linea.
+               align-items:center y no baseline: con la etiqueta en dos lineas, baseline
+               pegaba la cifra al renglon de la PRIMERA y quedaba descolgada. */
             display: flex;
-            align-items: baseline;
+            align-items: center;
             justify-content: space-between;
             gap: 10px;
-            flex-wrap: wrap;
+            flex-wrap: nowrap;
             /* Anillo de un pelo (translúcido) en vez de un borde sólido: se apoya en el
                fondo en vez de dibujar una caja. Y SIN la barra azul de 3px que llevaba
                cada tarjeta: cuatro franjas saturadas seguidas son ruido, y al ser las
@@ -1300,9 +1322,15 @@
 
         .fleet-kpi-lbl {
             margin: 0;
-            font-size: 11px;
+            /* 12px (antes 11): se pidió la etiqueta un punto más grande. Mismo valor que
+               el override de móvil, para que no cambie de tamaño entre PC y teléfono. */
+            font-size: 12px;
             line-height: 1.25;
-            white-space: nowrap;
+            /* Se parte en dos lineas cuando hace falta (p. ej. "Consumo est. (L/dia)" en
+               una columna estrecha). Es el texto el que cede, no la cifra. min-width:0 para
+               que pueda encogerse de verdad dentro del flex. */
+            white-space: normal;
+            min-width: 0;
             /* --fd-ink-2 y NO la tinta de mobiliario: es TEXTO. Con #8a94a6 el contraste
                sobre blanco era 3.06:1 y AA exige 4.5:1 para texto normal. */
             color: var(--fd-ink-2);
@@ -1313,6 +1341,10 @@
            suelto los dígitos de ancho fijo hacen que "61" se vea desparramado. */
         .fleet-kpi-val {
             margin: 0;
+            /* flex:none + nowrap: la cifra no se encoge ni se parte nunca. Es lo que
+               garantiza que se quede AL LADO de la etiqueta por estrecha que sea la caja. */
+            flex: none;
+            white-space: nowrap;
             font-size: 24px;
             line-height: 1.1;
             color: var(--fd-ink);    /* el único elemento con peso */
@@ -1320,19 +1352,25 @@
             letter-spacing: -0.6px;
         }
 
-        /* Fila superior del cuerpo: contadores (crecen) + buscador de frente (ancho fijo). */
+        /* Fila superior del cuerpo: contadores (crecen) + buscador de frente (ancho fijo).
+           margin-bottom 8 (antes 12): separaba de mas los contadores del primer grafico. */
         .fleet-topline {
             display: flex;
             align-items: center;
             gap: 10px;
-            margin: 0 0 12px 0;
+            margin: 0 0 8px 0;
         }
 
-        /* El buscador va PRIMERO y es quien crece; los dos contadores ocupan lo suyo
-           a la derecha. Antes el grid crecia y el buscador iba al final. */
-        /* 430px y no 320: en horizontal "Consumo est.  0.00 L/dia" necesita mas ancho. */
+        /* El buscador va PRIMERO y es quien crece; los contadores ocupan lo suyo a la
+           derecha. Antes el grid crecia y el buscador iba al final. */
+        /* 620px y no 430: el 430 estaba calculado para DOS tarjetas (~210 cada una, el ancho
+           que "Consumo est.  0.00 L/dia" necesita para no partirse en horizontal). Al entrar
+           la tercera (Σ Auxiliares) ese mismo 430 dejaba ~137 por tarjeta y la etiqueta de
+           consumo volvia a romperse. 3 x 200 + 2 x 10 de gap = 620 mantiene el ancho por
+           tarjeta. Sigue siendo `0 1`: si el modal es estrecho, el grid cede antes que el
+           buscador. Si algun dia se agrega o quita una tarjeta, recalcular este numero. */
         .fleet-topline .fleet-stats-grid {
-            flex: 0 1 430px;
+            flex: 0 1 620px;
             min-width: 0;
             margin: 0 !important;
         }
@@ -1468,13 +1506,28 @@
                                          </div>
                                      </div>
                 <!-- Stats Cards Row -->
-                <div class="fleet-stats-grid" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 0 0 12px 0;">
+                {{-- Sin margin aquí: la grid vive dentro de .fleet-topline, que lo anula con
+                     `margin: 0 !important`. El que separa de los gráficos es el margen
+                     inferior del propio .fleet-topline. --}}
+                <div class="fleet-stats-grid" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px;">
 
-                    {{-- Las 2 tarjetas comparten el MISMO estilo (ver .fleet-kpi*): solo cambian
-                         etiqueta e id. Etiqueta + cifra, sin ícono. --}}
+                    {{-- Las 3 tarjetas comparten el MISMO estilo (ver .fleet-kpi*): solo cambian
+                         etiqueta e id. Etiqueta + cifra, sin ícono.
+                         Σ (sumatoria) en vez de la palabra "Total", a pedido del cliente: ocupa
+                         menos y deja sitio para que quepan las tres en una fila, también en
+                         teléfono. --}}
                     <div class="fleet-kpi">
-                        <p class="fleet-kpi-lbl">Total equipos</p>
+                        <p class="fleet-kpi-lbl">&Sigma; Equipos</p>
                         <h3 id="stat_total" class="fleet-kpi-val">0</h3>
+                    </div>
+
+                    {{-- Total de auxiliares. No viene como campo propio del backend: se suma en
+                         updateStatCards a partir de aux_new + aux_old + aux_sin_anio, que son
+                         las mismas cifras que ya alimentan las claves del panel de auxiliares
+                         (así no puede descuadrar respecto a ese gráfico). --}}
+                    <div class="fleet-kpi">
+                        <p class="fleet-kpi-lbl">&Sigma; Auxiliares</p>
+                        <h3 id="stat_aux_total" class="fleet-kpi-val">0</h3>
                     </div>
 
                     <div class="fleet-kpi">
@@ -1667,11 +1720,16 @@
                 width: 100% !important;
             }
 
-            /* Stat cards: SIEMPRE 2 columnas en mobile (Total equipos / Consumo est. lado a lado) */
+            /* Stat cards: SIEMPRE en UNA fila en móvil (Σ Equipos / Σ Auxiliares / Consumo).
+               Son 3 desde que se agregó el total de auxiliares; con la Σ en vez de la palabra
+               "Total" las etiquetas caben sin partirse. */
+            /* margin-bottom 0 (antes 14): en móvil la grid va DENTRO de .fleet-topline, que
+               ya aporta su propio margen inferior; los dos se sumaban y dejaban un hueco
+               enorme entre los contadores y el primer gráfico. */
             #fleetDashboardModal .fleet-stats-grid {
-                grid-template-columns: repeat(2, 1fr) !important;
+                grid-template-columns: repeat(3, 1fr) !important;
                 gap: 8px !important;
-                margin-bottom: 14px !important;
+                margin-bottom: 0 !important;
                 width: 100% !important;
             }
 
@@ -1688,10 +1746,13 @@
             }
 
             #fleetDashboardModal .fleet-stats-grid p {
-                /* 10.5px: los 9px de antes se calibraron para la etiqueta en MAYÚSCULAS,
-                   que era más ancha. En formato oración entra holgada a este tamaño. */
-                font-size: 10.5px !important;
-                white-space: normal !important;
+                /* 12px (antes 10.5): a pedido del cliente, en el teléfono se leían muy
+                   chicas. Es el MISMO tamaño que en escritorio, así que la etiqueta ya no
+                   encoge al pasar a móvil. Con tres columnas estrechas el texto largo se
+                   reparte en dos líneas, que es justo el comportamiento que se pidió.
+                   Ya NO se repite aquí `white-space: normal`: ahora es el comportamiento
+                   normal de .fleet-kpi-lbl en todas las pantallas. */
+                font-size: 12px !important;
             }
 
 
@@ -1714,10 +1775,16 @@
                 overflow: hidden !important;
             }
 
-            /* Panels de gráficos: menos padding */
-            #fdm-panel-age,
-            #fdm-panel-assigned,
-            #fdm-panel-auxiliares {
+            /* En TELÉFONO estos dos gráficos no se muestran: a pedido del cliente, en el
+               móvil interesan los contadores y la lista de Ubicación por Frente; los
+               gráficos por tipo se consultan desde la PC, que es donde se leen bien.
+               No se quita su markup — en escritorio siguen igual. */
+            #fleetDashboardModal #fdm-panel-age,
+            #fleetDashboardModal #fdm-panel-auxiliares { display: none !important; }
+
+            /* Panels de gráficos: menos padding. Solo queda el de asignados: los otros dos
+               están ocultos aquí arriba y no tiene sentido darles estilo. */
+            #fdm-panel-assigned {
                 padding: 14px !important;
                 width: 100% !important;
                 box-sizing: border-box !important;

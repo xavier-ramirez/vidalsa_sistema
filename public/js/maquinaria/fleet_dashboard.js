@@ -114,6 +114,14 @@ function updateStatCards(stats) {
     if (auxSin) auxSin.textContent = stats.aux_sin_anio || 0;
     if (auxSinKey) auxSinKey.style.display = (stats.aux_sin_anio || 0) > 0 ? '' : 'none';
 
+    // Tarjeta "Σ Auxiliares": el backend no manda un total propio, se suma de las tres
+    // cifras de arriba. Se calcula AQUI y no aparte para que salga siempre de los mismos
+    // numeros que las claves del panel de auxiliares y no puedan descuadrar entre si.
+    const auxTotal = document.getElementById('stat_aux_total');
+    if (auxTotal) {
+        auxTotal.textContent = (stats.aux_new || 0) + (stats.aux_old || 0) + (stats.aux_sin_anio || 0);
+    }
+
     pintarPuntosDeSerie();
 }
 

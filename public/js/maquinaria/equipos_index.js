@@ -1159,7 +1159,7 @@ window.eqRegisterNuevoFrente = function (frente) {
         item.setAttribute('data-value', fid);
         const safeNombre = nombre.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
         item.setAttribute('onclick',
-            `selectOption('frenteFilterSelect', '${fid}', '${safeNombre}'); window.eqSyncTiposFrente && window.eqSyncTiposFrente(); loadEquipos();`);
+            `selectOption('frenteFilterSelect', '${fid}', '${safeNombre}'); loadEquipos();`);
         item.textContent = nombre;
         const ref = Array.from(list.querySelectorAll('.dropdown-item')).find((el) => {
             const v = el.getAttribute('data-value');
@@ -1180,6 +1180,18 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
     const append = !!opts.append;
     const tableBody = document.getElementById("equiposTableBody");
     if (!tableBody) return Promise.resolve();
+
+    // El filtro Tipo depende del Frente: eqSyncTiposFrente() marca con 'eq-tipo-oculto' los
+    // tipos que NO existen en el frente elegido, y el buscador del dropdown respeta esa clase
+    // (uicomponents.js). Se sincroniza AQUI, en el punto por el que pasan TODOS los cambios de
+    // filtro, y no en cada onclick: antes cada sitio tenia que acordarse de llamarla y las
+    // cards de Distribucion ("Ubicacion por Frente" y la de auxiliares) no lo hacian, asi que
+    // al cambiar de frente desde una card el dropdown de Tipo se quedaba con las marcas del
+    // frente ANTERIOR y dejaba de sugerir tipos que si estaban en el nuevo.
+    // En `append` (scroll infinito) NO se toca: ahi no cambio ningun filtro, solo se piden
+    // mas filas, y eqSyncTiposFrente puede resetear el Tipo a "TODOS" si deja de pertenecer
+    // al frente — algo que no debe pasar en mitad de una paginacion.
+    if (!append && typeof window.eqSyncTiposFrente === 'function') window.eqSyncTiposFrente();
 
     // Cancelar cualquier petición anterior en vuelo antes de iniciar una nueva.
     if (window._loadEquiposAbortController) {

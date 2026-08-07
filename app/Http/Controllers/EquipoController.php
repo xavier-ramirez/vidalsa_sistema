@@ -613,30 +613,6 @@ class EquipoController extends Controller
                 $stats['doc_sin']   = max(0, $stats['doc_total'] - $stats['doc_con']);
             }
 
-            // Tipos Stats — siempre muestra todos los tipos (sin filtro por id_tipo) para no autolimitarse
-            $tiposQuery = Equipo::query()->leftJoin('tipo_equipos', 'equipos.id_tipo_equipo', '=', 'tipo_equipos.id');
-            $this->applyEquipoFilters($tiposQuery, $request, ['id_tipo']);
-            $this->applyBusquedaTexto($tiposQuery, $search); // Distribución por tipo refleja la búsqueda
-            $tiposStats = $tiposQuery
-                ->select('equipos.id_tipo_equipo', 'tipo_equipos.nombre', DB::raw('COUNT(*) as total'))
-                ->groupBy('equipos.id_tipo_equipo', 'tipo_equipos.nombre')
-                ->orderBy('tipo_equipos.nombre', 'asc')
-                ->get();
-
-            // Frentes Stats — se muestra cuando hay un tipo filtrado; listamos TODOS los frentes que coinciden (sin filtro id_frente)
-            // En modo aux no aplica: la Distribucion sigue siendo la de equipos por tipo.
-            if ($request->filled('id_tipo') && !$auxMode) {
-                $frentesQuery = Equipo::query()->leftJoin('frentes_trabajo', 'equipos.ID_FRENTE_ACTUAL', '=', 'frentes_trabajo.ID_FRENTE');
-                $this->applyEquipoFilters($frentesQuery, $request, ['id_frente']);
-                $this->applyBusquedaTexto($frentesQuery, $search); // frentes stats reflejan la búsqueda
-                $frentesStats = $frentesQuery
-                    ->whereNotNull('equipos.ID_FRENTE_ACTUAL')
-                    ->select('equipos.ID_FRENTE_ACTUAL', 'frentes_trabajo.NOMBRE_FRENTE', DB::raw('COUNT(*) as total'))
-                    ->groupBy('equipos.ID_FRENTE_ACTUAL', 'frentes_trabajo.NOMBRE_FRENTE')
-                    ->orderBy('frentes_trabajo.NOMBRE_FRENTE', 'asc')
-                    ->get();
-            }
-
             // Ubicaciones (DETALLE_UBICACION_ACTUAL) — solo si el frente filtrado es ESPECIAL;
             // se listan TODAS las ubicaciones del frente (excluyendo el filtro detalle_ubicacion)
             if ($request->filled('id_frente') && $request->id_frente !== 'all') {
@@ -663,6 +639,41 @@ class EquipoController extends Controller
             }
         }
         // else: $stats queda en ceros => la vista muestra '--' (comportamiento original)
+
+        // ── Distribución (card lateral / Dashboard en teléfono) ─────────────────────────
+        // Va FUERA del if($hasFilter) de arriba a proposito: antes se calculaba solo con un
+        // filtro activo, asi que al entrar a /admin/equipos sin filtrar la card salia VACIA y
+        // el usuario tenia que filtrar primero desde el modulo para poder usarla. Ahora se
+        // calcula siempre y sirve de punto de partida: se toca un tipo (o un frente) y ese
+        // toque aplica el filtro.
+        // El coste es bajo y NO contradice el "sin filtro no se vuelca la tabla": eso protege
+        // del dump de FILAS (la tabla sigue vacia sin filtro); esto son dos GROUP BY que
+        // devuelven una fila por tipo/frente, no el listado de equipos.
+        // Sigue omitiendose en modo aux: alli la Distribucion la aporta el payload auxiliar.
+        if (!$auxMode) {
+            // Tipos Stats — siempre muestra todos los tipos (sin filtro por id_tipo) para no autolimitarse
+            $tiposQuery = Equipo::query()->leftJoin('tipo_equipos', 'equipos.id_tipo_equipo', '=', 'tipo_equipos.id');
+            $this->applyEquipoFilters($tiposQuery, $request, ['id_tipo']);
+            $this->applyBusquedaTexto($tiposQuery, $search); // Distribución por tipo refleja la búsqueda
+            $tiposStats = $tiposQuery
+                ->select('equipos.id_tipo_equipo', 'tipo_equipos.nombre', DB::raw('COUNT(*) as total'))
+                ->groupBy('equipos.id_tipo_equipo', 'tipo_equipos.nombre')
+                ->orderBy('tipo_equipos.nombre', 'asc')
+                ->get();
+
+            // Frentes Stats — se muestra cuando hay un tipo filtrado; listamos TODOS los frentes que coinciden (sin filtro id_frente)
+            if ($request->filled('id_tipo')) {
+                $frentesQuery = Equipo::query()->leftJoin('frentes_trabajo', 'equipos.ID_FRENTE_ACTUAL', '=', 'frentes_trabajo.ID_FRENTE');
+                $this->applyEquipoFilters($frentesQuery, $request, ['id_frente']);
+                $this->applyBusquedaTexto($frentesQuery, $search); // frentes stats reflejan la búsqueda
+                $frentesStats = $frentesQuery
+                    ->whereNotNull('equipos.ID_FRENTE_ACTUAL')
+                    ->select('equipos.ID_FRENTE_ACTUAL', 'frentes_trabajo.NOMBRE_FRENTE', DB::raw('COUNT(*) as total'))
+                    ->groupBy('equipos.ID_FRENTE_ACTUAL', 'frentes_trabajo.NOMBRE_FRENTE')
+                    ->orderBy('frentes_trabajo.NOMBRE_FRENTE', 'asc')
+                    ->get();
+            }
+        }
 
         // Build JSON payload (needed for AJAX response AND initial page load script tag)
         // En modo aux la tabla es de auxiliares: el payload de modal de equipos no aplica.

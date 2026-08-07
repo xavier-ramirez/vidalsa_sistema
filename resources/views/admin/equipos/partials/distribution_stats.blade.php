@@ -19,28 +19,30 @@
         <i class="material-icons" style="font-size: 18px; color: #10b981;">map</i>
         Ubicación por Frente
     </h4>
+    {{-- Ya no se envuelve en una condición $hasFilter: la lista se pinta SIEMPRE. Antes, al entrar sin filtrar salía
+         vacía y había que filtrar primero desde el módulo para poder usarla — molesto sobre
+         todo en el teléfono, donde esta card es el punto de partida. El controller ya calcula
+         tiposStats/frentesStats aunque no haya filtro (ver EquipoController::index). --}}
     <ul style="list-style: none; padding: 0; margin: 0; max-height: 62vh; overflow-y: auto; overflow-x: visible; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 4px;" class="custom-scrollbar">
-        @if($hasFilter ?? request('search_query') || request('id_frente') || request('id_tipo'))
-            @php $totalFrentes = $frentesStats->sum('total'); @endphp
-            @foreach($frentesStats as $stat)
-                @php $percentage = $totalFrentes > 0 ? ($stat->total / $totalFrentes) * 100 : 0; @endphp
-                <li onclick="selectOption('frenteFilterSelect', '{{ $stat->ID_FRENTE_ACTUAL }}', '{{ addslashes(trim($stat->NOMBRE_FRENTE ?? '')) }}'); loadEquipos();"
-                    style="padding-bottom: 4px; border-bottom: 1px dashed #f1f5f9; transition: opacity 0.2s; cursor: pointer;"
-                    onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">
-                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2px; gap: 4px;">
-                        <span style="color: #334155; font-size: 12.5px; font-weight: 600; word-break: break-word; line-height: 1.25; flex: 1;">
-                            {{ $stat->NOMBRE_FRENTE ?? 'Sin Asignar' }}
-                        </span>
-                        <span style="font-weight: 700; color: #1e293b; font-size: 12.5px; background: #f1f5f9; padding: 2px 8px; border-radius: 4px; flex-shrink: 0; white-space: nowrap;">
-                            {{ $stat->total }}
-                        </span>
-                    </div>
-                    <div style="width: 100%; height: 4px; background: #e2e8f0; border-radius: 2px; overflow: hidden;">
-                        <div style="width: {{ $percentage }}%; height: 100%; background: linear-gradient(90deg, #10b981 0%, #059669 100%); border-radius: 2px;"></div>
-                    </div>
-                </li>
-            @endforeach
-        @endif
+        @php $totalFrentes = $frentesStats->sum('total'); @endphp
+        @foreach($frentesStats as $stat)
+            @php $percentage = $totalFrentes > 0 ? ($stat->total / $totalFrentes) * 100 : 0; @endphp
+            <li onclick="selectOption('frenteFilterSelect', '{{ $stat->ID_FRENTE_ACTUAL }}', '{{ addslashes(trim($stat->NOMBRE_FRENTE ?? '')) }}'); loadEquipos();"
+                style="padding-bottom: 4px; border-bottom: 1px dashed #f1f5f9; transition: opacity 0.2s; cursor: pointer;"
+                onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2px; gap: 4px;">
+                    <span style="color: #334155; font-size: 12.5px; font-weight: 600; word-break: break-word; line-height: 1.25; flex: 1;">
+                        {{ $stat->NOMBRE_FRENTE ?? 'Sin Asignar' }}
+                    </span>
+                    <span style="font-weight: 700; color: #1e293b; font-size: 12.5px; background: #f1f5f9; padding: 2px 8px; border-radius: 4px; flex-shrink: 0; white-space: nowrap;">
+                        {{ $stat->total }}
+                    </span>
+                </div>
+                <div style="width: 100%; height: 4px; background: #e2e8f0; border-radius: 2px; overflow: hidden;">
+                    <div style="width: {{ $percentage }}%; height: 100%; background: linear-gradient(90deg, #10b981 0%, #059669 100%); border-radius: 2px;"></div>
+                </div>
+            </li>
+        @endforeach
     </ul>
 
 @else
@@ -50,26 +52,26 @@
         Equipos y Maquinaria
     </h4>
     <ul style="list-style: none; padding: 0; margin: 0; max-height: 62vh; overflow-y: auto; overflow-x: visible; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 4px;" class="custom-scrollbar">
-        @if($hasFilter ?? request('search_query') || request('id_frente') || request('id_tipo'))
-            @php $totalStats = $tiposStats->sum('total'); @endphp
-            @foreach($tiposStats as $stat)
-                @php $percentage = $totalStats > 0 ? ($stat->total / $totalStats) * 100 : 0; @endphp
-                <li onclick="selectOption('tipoFilterSelect', '{{ $stat->id_tipo_equipo }}', '{{ addslashes(trim($stat->nombre ?? '')) }}'); loadEquipos();"
-                    style="padding-bottom: 4px; border-bottom: 1px dashed #f1f5f9; transition: opacity 0.2s; cursor: pointer;"
-                    onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">
-                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2px; gap: 4px;">
-                        <span style="color: #334155; font-size: 12.5px; font-weight: 600; word-break: break-word; line-height: 1.25; flex: 1;">
-                            {{ $stat->nombre ?? 'Desconocido' }}
-                        </span>
-                        <span style="font-weight: 700; color: #1e293b; font-size: 12.5px; background: #f1f5f9; padding: 2px 8px; border-radius: 4px; flex-shrink: 0; white-space: nowrap;">
-                            {{ $stat->total }}
-                        </span>
-                    </div>
-                    <div style="width: 100%; height: 4px; background: #e2e8f0; border-radius: 2px; overflow: hidden;">
-                        <div style="width: {{ $percentage }}%; height: 100%; background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%); border-radius: 2px;"></div>
-                    </div>
-                </li>
-            @endforeach
-        @endif
+        {{-- Igual que la lista de frentes de arriba: se pinta siempre, sin depender de que
+             haya un filtro activo. --}}
+        @php $totalStats = $tiposStats->sum('total'); @endphp
+        @foreach($tiposStats as $stat)
+            @php $percentage = $totalStats > 0 ? ($stat->total / $totalStats) * 100 : 0; @endphp
+            <li onclick="selectOption('tipoFilterSelect', '{{ $stat->id_tipo_equipo }}', '{{ addslashes(trim($stat->nombre ?? '')) }}'); loadEquipos();"
+                style="padding-bottom: 4px; border-bottom: 1px dashed #f1f5f9; transition: opacity 0.2s; cursor: pointer;"
+                onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2px; gap: 4px;">
+                    <span style="color: #334155; font-size: 12.5px; font-weight: 600; word-break: break-word; line-height: 1.25; flex: 1;">
+                        {{ $stat->nombre ?? 'Desconocido' }}
+                    </span>
+                    <span style="font-weight: 700; color: #1e293b; font-size: 12.5px; background: #f1f5f9; padding: 2px 8px; border-radius: 4px; flex-shrink: 0; white-space: nowrap;">
+                        {{ $stat->total }}
+                    </span>
+                </div>
+                <div style="width: 100%; height: 4px; background: #e2e8f0; border-radius: 2px; overflow: hidden;">
+                    <div style="width: {{ $percentage }}%; height: 100%; background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%); border-radius: 2px;"></div>
+                </div>
+            </li>
+        @endforeach
     </ul>
 @endif
