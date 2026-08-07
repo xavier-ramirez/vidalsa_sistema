@@ -1191,7 +1191,12 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
     // En `append` (scroll infinito) NO se toca: ahi no cambio ningun filtro, solo se piden
     // mas filas, y eqSyncTiposFrente puede resetear el Tipo a "TODOS" si deja de pertenecer
     // al frente — algo que no debe pasar en mitad de una paginacion.
-    if (!append && typeof window.eqSyncTiposFrente === 'function') window.eqSyncTiposFrente();
+    // Marca y Modelo dependen del TIPO por el mismo motivo, y se sincronizan en el mismo
+    // punto: si se llamaran desde cada onclick volveria el problema de arriba.
+    if (!append) {
+        if (typeof window.eqSyncTiposFrente === 'function') window.eqSyncTiposFrente();
+        if (typeof window.eqSyncMarcaModeloTipo === 'function') window.eqSyncMarcaModeloTipo();
+    }
 
     // Cancelar cualquier petición anterior en vuelo antes de iniciar una nueva.
     if (window._loadEquiposAbortController) {

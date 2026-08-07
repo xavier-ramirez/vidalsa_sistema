@@ -846,6 +846,24 @@ class EquipoController extends Controller
             ->map(fn ($g) => $g->pluck('id_tipo_equipo')->map(fn ($v) => (int) $v)->values())
             ->toArray();
 
+        // Mapas { id_tipo : [MARCA...] } y { id_tipo : [MODELO...] } para que los filtros
+        // avanzados Marca y Modelo sugieran SOLO lo que existe en el tipo elegido, igual que
+        // el filtro Tipo depende del Frente. Salen de $tiposVisiblesBase, asi que respetan el
+        // scope del usuario (las listas $availableMarcas/$availableModelos de abajo son un
+        // cache GLOBAL y no lo hacen). distinct (tipo, marca) → una fila por combinacion.
+        $porTipo = function (string $col) use ($tiposVisiblesBase) {
+            return (clone $tiposVisiblesBase)
+                ->whereNotNull($col)->where($col, '!=', '')
+                ->select('id_tipo_equipo', $col)
+                ->distinct()
+                ->get()
+                ->groupBy('id_tipo_equipo')
+                ->map(fn ($g) => $g->pluck($col)->map(fn ($v) => trim((string) $v))->unique()->values())
+                ->toArray();
+        };
+        $marcasPorTipo  = $porTipo('MARCA');
+        $modelosPorTipo = $porTipo('MODELO');
+
         // Advanced Filter Lists (Optimized with cache: Only needed for initial page load, not AJAX)
         $availableModelos = \Illuminate\Support\Facades\Cache::remember('equipos_modelos_dropdown', 1200, function () {
             return Equipo::distinct()->whereNotNull('MODELO')->where('MODELO', '!=', '')->orderBy('MODELO', 'asc')->pluck('MODELO');
@@ -879,7 +897,7 @@ class EquipoController extends Controller
         // $auxConsolidado y $showAuxConsolidado ya se calcularon arriba (antes del
         // return JSON), así están disponibles tanto para el AJAX como para esta vista.
 
-        return view('admin.equipos.index', compact('equipos', 'stats', 'frentes', 'allTipos', 'tiposPorFrente', 'tiposStats', 'frentesStats', 'ubicacionesStats', 'frenteEspecial', 'availableModelos', 'availableMarcas', 'availableAnios', 'availableColores', 'auxMarcas', 'auxModelos', 'auxAnios', 'jsonPayload', 'showFrentes', 'auxMode', 'auxModeByTipo', 'auxEmbed', 'tiposAux', 'auxConsolidado', 'showAuxConsolidado', 'auxDistributionHtml', 'mergeAuxHtml', 'auxInitDetailsMap', 'hasFilter'));
+        return view('admin.equipos.index', compact('equipos', 'stats', 'frentes', 'allTipos', 'tiposPorFrente', 'marcasPorTipo', 'modelosPorTipo', 'tiposStats', 'frentesStats', 'ubicacionesStats', 'frenteEspecial', 'availableModelos', 'availableMarcas', 'availableAnios', 'availableColores', 'auxMarcas', 'auxModelos', 'auxAnios', 'jsonPayload', 'showFrentes', 'auxMode', 'auxModeByTipo', 'auxEmbed', 'tiposAux', 'auxConsolidado', 'showAuxConsolidado', 'auxDistributionHtml', 'mergeAuxHtml', 'auxInitDetailsMap', 'hasFilter'));
     }
 
     public function export(Request $request)

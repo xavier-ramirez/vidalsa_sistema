@@ -328,9 +328,51 @@
                 }
             };
 
-            // Init: aplica el filtrado según el frente activo al cargar la página (incluye
-            // el caso de llegar por URL con ?id_frente=NN ya seleccionado).
+            window.EQ_MARCAS_POR_TIPO  = @json($marcasPorTipo ?? []);
+            window.EQ_MODELOS_POR_TIPO = @json($modelosPorTipo ?? []);
+
+            // Filtros Marca y Modelo dependientes del TIPO: al elegir un tipo, sus dropdowns
+            // ofrecen solo las marcas/modelos que existen en ese tipo. Mismo mecanismo que
+            // eqSyncTiposFrente: se marca con 'eq-tipo-oculto', la clase que filterDropdownOptions
+            // (uicomponents.js) ya respeta — así el buscador tampoco los re-muestra al escribir,
+            // sin tener que tocar esa función ni inventar una segunda clase.
+            window.eqSyncMarcaModeloTipo = function () {
+                var tInput = document.querySelector('#tipoFilterSelect input[name="id_tipo"]');
+                var tipo = tInput && tInput.value ? tInput.value : 'all';
+                // Sin tipo, o en un tipo de AUXILIAR (esos dropdowns se alimentan de otra
+                // fuente, $auxMarcas/$auxModelos), no se restringe nada.
+                var libre = (!tipo || tipo === 'all' || tipo.indexOf('tipo_aux:') === 0);
+
+                [['#marcaAdvFilter', window.EQ_MARCAS_POR_TIPO],
+                 ['#modeloAdvFilter', window.EQ_MODELOS_POR_TIPO]].forEach(function (par) {
+                    var cont = document.querySelector(par[0] + ' .dropdown-item-list');
+                    if (!cont) return;
+                    var map = par[1] || {};
+                    // Mismo criterio que en eqSyncTiposFrente: un tipo que el mapa NO conoce
+                    // no restringe (fail-open), en vez de dejar el dropdown vacío.
+                    var permitidas = (!libre && Object.prototype.hasOwnProperty.call(map, tipo))
+                        ? map[tipo].map(function (s) { return String(s).toUpperCase(); })
+                        : null;
+                    cont.querySelectorAll('.dropdown-item').forEach(function (it) {
+                        var v = it.getAttribute('data-value');
+                        // Las cabeceras de sección no llevan data-value; el item "limpiar"
+                        // (value vacío) siempre debe poder elegirse.
+                        if (v === null || v === '') { it.style.display = ''; it.classList.remove('eq-tipo-oculto'); return; }
+                        var ok = (permitidas === null) || (permitidas.indexOf(v.trim().toUpperCase()) !== -1);
+                        it.classList.toggle('eq-tipo-oculto', !ok);
+                        it.style.setProperty('display', ok ? '' : 'none', ok ? '' : 'important');
+                    });
+                });
+            };
+
+            // Init: aplica el filtrado según el frente/tipo activos al cargar la página (incluye
+            // el caso de llegar por URL con ?id_frente=NN o ?id_tipo=NN ya seleccionados).
             window.eqSyncTiposFrente();
+            // Diferido un tick a propósito: el panel de filtros avanzados (Marca/Modelo) se
+            // pinta MÁS ABAJO en este mismo HTML, así que en este punto todavía no está en el
+            // DOM y la función no encontraría sus dropdowns. El de Tipo sí existe ya (va
+            // arriba), por eso la llamada de la línea anterior sí puede ser directa.
+            setTimeout(window.eqSyncMarcaModeloTipo, 0);
         </script>
 
         <!-- Search Filter / Seriales + Advanced Filter Button -->
