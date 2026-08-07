@@ -312,6 +312,8 @@
                     // La clase 'eq-tipo-oculto' marca los tipos que NO son del frente: el buscador
                     // interno del dropdown (filterDropdownOptions) la respeta y NO los re-muestra
                     // aunque coincidan con el texto buscado (antes los re-mostraba con !important).
+                    // Igual que en eqSyncMarcaModeloTipo: solo se escribe si el estado cambia.
+                    if (it.classList.contains('eq-tipo-oculto') === !ok) return;
                     it.classList.toggle('eq-tipo-oculto', !ok);
                     it.style.setProperty('display', ok ? '' : 'none', ok ? '' : 'important');
                 });
@@ -357,8 +359,14 @@
                         var v = it.getAttribute('data-value');
                         // Las cabeceras de sección no llevan data-value; el item "limpiar"
                         // (value vacío) siempre debe poder elegirse.
-                        if (v === null || v === '') { it.style.display = ''; it.classList.remove('eq-tipo-oculto'); return; }
-                        var ok = (permitidas === null) || (permitidas.indexOf(v.trim().toUpperCase()) !== -1);
+                        var ok = (v === null || v === '') ? true
+                               : (permitidas === null) || (permitidas.indexOf(v.trim().toUpperCase()) !== -1);
+                        // Solo se escribe si el estado CAMBIA. Estos dos dropdowns suman ~290
+                        // items y setProperty fuerza recalculo de estilos en cada uno: hacerlo
+                        // a ciegas en cada loadEquipos() se notaba al pulsar la "x" de los
+                        // filtros desde el telefono. Al limpiar, lo normal es que casi ninguno
+                        // cambie, asi que el bucle sale sin tocar el DOM.
+                        if (it.classList.contains('eq-tipo-oculto') === !ok) return;
                         it.classList.toggle('eq-tipo-oculto', !ok);
                         it.style.setProperty('display', ok ? '' : 'none', ok ? '' : 'important');
                     });
