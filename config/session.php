@@ -32,7 +32,12 @@ return [
     |
     */
 
-    'lifetime' => (int) env('SESSION_LIFETIME', 10),
+    // 15 minutos de inactividad. El modal de aviso (partials/session_timeout.blade.php) se
+    // calibra SOLO a partir de este valor: avisa 60s antes de expirar y hace ping al servidor
+    // al 80% del tiempo. Si se cambia aqui, el aviso se ajusta solo — no hay que tocar el JS.
+    // Este es el valor por defecto; en produccion manda SESSION_LIFETIME del .env, y despues
+    // de cambiarlo hay que correr `php artisan config:cache` o seguira leyendo el cacheado.
+    'lifetime' => (int) env('SESSION_LIFETIME', 15),
 
     'expire_on_close' => env('SESSION_EXPIRE_ON_CLOSE', false),
 
