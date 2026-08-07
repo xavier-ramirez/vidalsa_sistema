@@ -42,12 +42,15 @@
            derecha. Antes eran cinco bloques centrados uno debajo del otro (avatar, nombre,
            correo, estado y la fila de etiquetas), que para seis datos cortos gastaba media
            pantalla antes de llegar al formulario, que es a lo que se entra. */
+        /* En COLUMNA y centrada: el avatar arriba y debajo nombre, correo y cargo.
+           Antes iba en fila con el texto a la izquierda, pero al quitar el estado y las
+           etiquetas de nivel quedaba un bloque corto descolgado al lado del avatar. */
         .perfil-hero {
             display: flex;
-            flex-direction: row;
+            flex-direction: column;
             align-items: center;
-            text-align: left;
-            gap: 14px;
+            text-align: center;
+            gap: 10px;
         }
         .perfil-avatar {
             width: 56px;
@@ -62,8 +65,8 @@
         /* Columna de identidad: nombre + estado en la primera línea, correo en la segunda
            y las etiquetas debajo. min-width:0 para que un correo largo recorte en vez de
            empujar el avatar fuera de la tarjeta. */
-        .perfil-ident { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-        .perfil-linea1 { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        /* align-items:center para que los chips también queden centrados bajo el correo. */
+        .perfil-ident { min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; }
         .perfil-avatar .material-icons { font-size: 30px; }
         .perfil-nombre {
             font-size: 18px;
@@ -78,21 +81,6 @@
             word-break: break-word;
         }
 
-        /* Estado: el color es semántico (verde/rojo), aparte del azul de marca */
-        .pf-estado {
-            display: inline-flex;
-            align-items: center;
-            gap: 7px;
-            flex-shrink: 0;
-            font-size: 12px;
-            font-weight: 800;
-            letter-spacing: .4px;
-        }
-        .pf-estado-punto {
-            width: 8px; height: 8px; border-radius: 50%;
-            background: currentColor;
-            box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 18%, transparent);
-        }
 
         /* ── Etiquetas de rol y niveles: tres datos cortos en una sola fila ── */
         .perfil-chips {
@@ -253,26 +241,17 @@
         @endif
 
         {{-- ── Identidad + datos, en una sola cabecera compacta ── --}}
-        @php $activo = ($user->ESTATUS ?? '') === 'ACTIVO'; @endphp
+        {{-- Cabecera EN COLUMNA y centrada: avatar arriba, y debajo nombre, correo y cargo.
+             Se quitaron a pedido del cliente el estado ACTIVO/INACTIVO y las etiquetas de
+             nivel (Equipos/Almacén): son datos que el usuario no puede cambiar desde aquí y
+             esta pantalla es solo para su contraseña. --}}
         <div class="perfil-hero">
             <div class="perfil-avatar"><i class="material-icons">person</i></div>
             <div class="perfil-ident">
-                {{-- Nombre y estado comparten renglón: el estado es lo único que puede estar
-                     "mal" en esta pantalla, así que va pegado al nombre y no en una línea
-                     propia. --}}
-                <div class="perfil-linea1">
-                    <span class="perfil-nombre">{{ $user->NOMBRE_COMPLETO ?? '—' }}</span>
-                    <span class="pf-estado" style="color: {{ $activo ? '#16a34a' : '#dc2626' }};">
-                        <span class="pf-estado-punto"></span>{{ $user->ESTATUS ?? '—' }}
-                    </span>
-                </div>
+                <div class="perfil-nombre">{{ $user->NOMBRE_COMPLETO ?? '—' }}</div>
                 <div class="perfil-correo">{{ $user->CORREO_ELECTRONICO ?? '—' }}</div>
-                {{-- Cargo y niveles en UNA fila de etiquetas: tres datos cortos de solo
-                     lectura que no merecen una tarjeta cada uno. --}}
                 <div class="perfil-chips">
                     <span class="pf-chip pf-chip-rol">{{ $user->rol->NOMBRE_ROL ?? 'Sin Rol' }}</span>
-                    <span class="pf-chip"><i class="material-icons">shield</i>Equipos<b>{{ $user->nivel_acceso_equipos_texto }}</b></span>
-                    <span class="pf-chip"><i class="material-icons">inventory_2</i>Almacén<b>{{ $user->nivel_acceso_almacen_texto }}</b></span>
                 </div>
             </div>
         </div>
