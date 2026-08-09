@@ -40,6 +40,11 @@
  *   .meta()           -> Promise<{version, generado, descargado, c}|null>.
  *   .sync(force)      -> sincroniza ahora; force=true además CANCELA la descarga
  *                        en curso para tomar prioridad (botón "Actualizar datos").
+ *                        Resuelve con {ok, cambios}: `ok` es si la sincronización se
+ *                        pudo completar y `cambios` si además trajo datos nuevos. Los
+ *                        dos hacen falta — "ya estabas al día" y "no se pudo" son el
+ *                        mismo resultado en datos pero lo contrario para el usuario.
+ *                        Nunca rechaza: el fallo viaja en ok=false.
  *   .estaListo()      -> Promise<bool> (¿hay copia local usable?).
  * Evento: window dispatch 'offline-datos-actualizados' tras cada descarga nueva.
  */
@@ -188,8 +193,12 @@
 
     // Descarga real. Si `signal` se aborta (porque una forzada la canceló), los
     // fetch lanzan AbortError y la copia anterior queda intacta.
+    // Devuelve si HUBO cambios, o LANZA si la sincronización no se pudo completar. Que el
+    // fallo se propague (en vez de devolver false) es lo que permite a sync() distinguir
+    // "no había nada nuevo" de "no se pudo": son lo mismo en datos pero opuestos para el
+    // usuario, y el botón manual llegó a decir "revisa tu conexión" con la copia al día.
     async function _syncReal(signal) {
-        if (!navigator.onLine) return false;
+        if (!navigator.onLine) throw new Error('sin conexión');
         const meta = await idbGet('meta');
 
         // SIEMPRE se manda un cursor, aunque no tengamos uno bueno: `{e:0}` significa
@@ -206,7 +215,7 @@
         const cursor = (meta && meta.c) || { e: 0 };
         const url    = '/offline/snapshot?c=' + encodeURIComponent(JSON.stringify(cursor));
         const snap   = await fetchJson(url, signal);
-        if (!snap || !snap.version) return false;
+        if (!snap || !snap.version) throw new Error('respuesta inválida del servidor');
 
         // Servidor sin delta (despliegue a medias, o primera carga sin cursor): forma
         // histórica, se sustituye todo. Es también la vía por la que una copia vieja se
@@ -269,19 +278,19 @@
     //  - Una descarga FORZADA (botón manual) CANCELA la que esté en curso para tener
     //    prioridad y bajar YA la copia que pide el usuario.
     function sync(force) {
-        if (!navigator.onLine) return Promise.resolve(false);
+        if (!navigator.onLine) return Promise.resolve({ ok: false, cambios: false });
         if (force && abortActual) abortActual.abort(); // cede el paso a la forzada
         const controller = (typeof AbortController === 'function') ? new AbortController() : null;
         const corre = cadena.then(async () => {
             abortActual = controller;
             try {
-                return await _syncReal(controller ? controller.signal : undefined);
+                return { ok: true, cambios: await _syncReal(controller ? controller.signal : undefined) };
             } catch (e) {
                 // AbortError = la cancelamos a propósito; no es un fallo real.
                 if (e && e.name !== 'AbortError' && window.console) {
                     console.warn('[offline] sync falló:', e && e.message);
                 }
-                return false; // conservamos la última copia buena
+                return { ok: false, cambios: false, abortada: !!(e && e.name === 'AbortError') };
             } finally {
                 if (abortActual === controller) abortActual = null;
             }

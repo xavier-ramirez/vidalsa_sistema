@@ -2979,9 +2979,13 @@
                 window._descargandoSnapshot = true;
                 toast('Descargando copia de la base de datos…', 'info');
                 window.OfflineDB.sync(true)
-                    .then(function (ok) {
-                        if (ok) toast('Copia actualizada. Ya puedes trabajar sin internet.', 'success');
-                        else    toast('No se pudo descargar la copia. Revisa tu conexión e inténtalo de nuevo.', 'error');
+                    .then(function (r) {
+                        // sync() resuelve con {ok, cambios}. Se distinguen los TRES casos: antes
+                        // "ya estabas al día" (cambios=false) salía como "revisa tu conexión",
+                        // que es el error opuesto — la copia estaba perfecta.
+                        if (!r || !r.ok) toast('No se pudo descargar la copia. Revisa tu conexión e inténtalo de nuevo.', 'error');
+                        else if (r.cambios) toast('Copia actualizada. Ya puedes trabajar sin internet.', 'success');
+                        else toast('Tu copia local ya estaba al día.', 'success');
                     })
                     .catch(function () { toast('Error al descargar la copia.', 'error'); })
                     .finally(function () { window._descargandoSnapshot = false; });
