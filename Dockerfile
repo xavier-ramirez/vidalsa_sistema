@@ -17,11 +17,19 @@ RUN apt-get update && apt-get install -y \
 # Limpiar cache
 RUN apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Instalar extensiones PHP
-RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd zip intl
+# Instalar extensiones PHP.
+# opcache va aparte (docker-php-ext-enable): la imagen php:8.3-fpm lo trae
+# COMPILADO pero APAGADO, y docker-php-ext-install no lo cubre. Sin el, PHP
+# reparsea en CADA peticion los ~700 archivos que carga el framework (medido en
+# el entorno de desarrollo: ~3,5x mas lento por peticion). Ajustes en docker/php.ini.
+RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd zip intl \
+    && docker-php-ext-enable opcache
 
-# Configuración personalizada de PHP
-COPY docker/php.ini /usr/local/etc/php/conf.d/app-php.ini
+# Configuración personalizada de PHP.
+# El prefijo zz- NO es cosmetico: conf.d se lee en orden alfabetico y este
+# archivo TIENE que cargarse despues de docker-php-ext-opcache.ini, o los
+# ajustes de opcache de aqui se quedan en los valores por defecto.
+COPY docker/php.ini /usr/local/etc/php/conf.d/zz-app-php.ini
 
 # Instalar Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
