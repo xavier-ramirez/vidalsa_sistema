@@ -214,6 +214,21 @@
         poner('mobile_stats_activos', v(oper));
         poner('mobile_stats_inactivos', v(inop));
 
+        // Las ETIQUETAS también, o los números quedan bajo un rótulo que no les
+        // corresponde: si la página se cargó con un filtro de documento (?filter_poliza=1)
+        // los bloques dicen "Con Póliza / Sin Póliza", y sin conexión esos filtros no se
+        // pueden aplicar — lo que se cuenta es OPERATIVO/INOPERATIVO. Se devuelven a su
+        // texto normal (mismos valores que usa el online fuera del modo documento) y se
+        // quita .is-doc, la clase que achica el rótulo largo.
+        poner('stats_oper_label', 'Operativo');
+        poner('stats_inop_label', 'Inoperativo');
+        poner('mobile_oper_label', 'OPER.');
+        poner('mobile_inop_label', 'INOP.');
+        ['stats_oper_label', 'stats_inop_label'].forEach(function (id) {
+            const e = document.getElementById(id);
+            if (e) e.classList.remove('is-doc');
+        });
+
         ['aux_stats_total', 'aux_stats_activos', 'aux_stats_inactivos',
          'aux_mobile_stats_total', 'aux_mobile_stats_activos', 'aux_mobile_stats_inactivos']
             .forEach(function (id) { poner(id, '--'); });
