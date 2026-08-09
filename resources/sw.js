@@ -24,14 +24,28 @@ const CACHE_VERSION = '__CACHE_VERSION__';
 const STATIC_CACHE  = 'vidalsa-static-' + CACHE_VERSION;
 const RUNTIME_CACHE = 'vidalsa-runtime-' + CACHE_VERSION;
 
+// Todo lo que la pantalla de LOGIN necesita para pintarse ENTERA sin red: al tocar el
+// ícono de la PWA instalada, '/' sale del caché (stale-while-revalidate, más abajo) y sus
+// assets de aquí, así que no queda esperando a nadie.
+//
+// NO se precachea /images/maquinaria_login_new.webp (585 KB) a propósito: el CSS la pone
+// en display:none por debajo de 768px, o sea que en TELÉFONO —el caso que importa para
+// arrancar rápido— no se pinta nunca, y encima va con loading="lazy", así que tampoco
+// bloquea el primer pintado en escritorio. Precacharla sería medio mega por dispositivo y
+// por versión de caché a cambio de nada.
 const PRECACHE_URLS = [
     '/icons/icon-192.png',
     '/icons/icon-512.png',
+    '/favicon.png',
     '/css/fonts.css',
     '/css/maquinaria/inicio_sesion.css',
     '/js/pwa-update-overlay.js',
     '/images/maquinaria/logo.webp',
     '/js/offline/offline-auth.js',
+    // dom_helpers.js lo carga el login (y offline-auth lo necesita para escapeAttrJs y
+    // compañía): faltaba, así que el primer arranque tras cada versión de caché se quedaba
+    // esperándolo por red antes de poder usar el formulario. Pesa 7 KB.
+    '/js/maquinaria/dom_helpers.js',
     '/js/webauthn.js',
     '/fonts/Nunito-Regular.ttf',
     '/fonts/Nunito-Bold.ttf',
