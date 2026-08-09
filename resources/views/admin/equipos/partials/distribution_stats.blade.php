@@ -1,3 +1,8 @@
+{{-- OJO: esta lista está DUPLICADA en pintarDistribucion() de equipos-offline.js, que la
+     reconstruye desde la copia local (sin internet el AJAX que la repinta no existe, y en
+     teléfono esta card es lo único que se ve dentro del Dashboard de Flota). Si cambia la
+     regla de qué lista se muestra, el markup o los onclick, hay que cambiar SIEMPRE LAS DOS
+     o la vista sin conexión deja de parecerse a la web. --}}
 @php
     // Lógica de qué card mostrar:
     //   - Si filtra por id_frente (con o sin id_tipo) → mostrar "Distribución" por TIPO

@@ -71,6 +71,12 @@
 
     const up  = (s) => String(s == null ? '' : s).toUpperCase();
     const txt = (s) => String(s == null ? '' : s);
+    // Nombre que va DENTRO de un literal JS, dentro de un atributo onclick: necesita el
+    // escape de dos capas de dom_helpers (JS primero, HTML después). NO sirve esc/escapeHtml
+    // aquí — convertiría ' en &#39;, el navegador lo decodifica antes de ejecutar el JS y el
+    // literal se cierra antes de tiempo. Se resuelve en tiempo de USO porque dom_helpers.js
+    // se carga después que este archivo.
+    const escAttr = (s) => window.escapeAttrJs(s);
 
     // ── Lectura de filtros: los MISMOS inputs y el MISMO alcance que loadEquipos ──
     // Los avanzados se leen dentro de #advancedFilterPanel igual que online; leerlos de
@@ -204,7 +210,7 @@
     // las visibles son las mobile_, que es donde el cliente reportó no ver los totales.
     // Los de AUXILIARES van a '--' a proposito: no viajan en el snapshot, y dejar la cifra
     // del servidor seria mostrar un dato que no se puede sostener sin conexión.
-    function pintarStats(filas, hay) {
+    function pintarStats(filas, hay, f) {
         const poner = function (id, valor) {
             const e = document.getElementById(id);
             if (e && e.textContent !== String(valor)) e.textContent = valor;
@@ -216,7 +222,7 @@
         // El TOTAL del backend NO es el número de filas: excluye los DESINCORPORADOS
         // (usa total_activa), salvo que el usuario filtre justamente por ese estado, en
         // cuyo caso pasa a contarlos. Se replica igual o el total offline saldría inflado.
-        const filtroDesinc = up((leerFiltros().estado || '')) === 'DESINCORPORADO';
+        const filtroDesinc = up(f && f.estado) === 'DESINCORPORADO';
         const total = filtroDesinc ? filas.length : (filas.length - cuenta('DESINCORPORADO'));
         const oper = cuenta('OPERATIVO'), inop = cuenta('INOPERATIVO');
 
@@ -285,17 +291,23 @@
             }), function (e) { return e.id_frente; }, function (e) { return e.frente; });
             titulo = 'Ubicación por Frente'; icono = 'map'; colorIcono = '#10b981';
             barra = 'linear-gradient(90deg, #10b981 0%, #059669 100%)';
-            alTocar = function (g) { return "selectOption('frenteFilterSelect', '" + g.id + "', '" + esc(txt(g.nombre).replace(/'/g, "\\'")) + "'); loadEquipos();"; };
+            alTocar = function (g) { return "selectOption('frenteFilterSelect', '" + g.id + "', '" + escAttr(g.nombre) + "'); loadEquipos();"; };
         } else {
             filas = agrupar(datos.filter(function (e) { return coincide(e, f, especifico, 'tipo'); }),
                 function (e) { return e.id_tipo; }, function (e) { return e.tipo; });
             titulo = 'Equipos y Maquinaria'; icono = 'autorenew'; colorIcono = '#3b82f6';
             barra = 'linear-gradient(90deg, #3b82f6 0%, #2563eb 100%)';
-            alTocar = function (g) { return "selectOption('tipoFilterSelect', '" + g.id + "', '" + esc(txt(g.nombre).replace(/'/g, "\\'")) + "'); loadEquipos();"; };
+            alTocar = function (g) { return "selectOption('tipoFilterSelect', '" + g.id + "', '" + escAttr(g.nombre) + "'); loadEquipos();"; };
         }
 
         const suma = filas.reduce(function (n, g) { return n + g.total; }, 0);
-        cont.innerHTML =
+        // Envuelto en .eq-distrib-sec[data-vista=equipos] como hace _eqRenderDistribucion:
+        // no es cosmético. eqSyncDistribToggle() captura el contenido del contenedor como
+        // "HTML base" del servidor SOLO si no encuentra esa clase — sin el envoltorio, una
+        // llamada suya con el modo offline activo guardaría ESTA lista local como si fuera
+        // la del servidor y seguiría saliendo al volver online. De paso, el salto entre
+        // secciones (onDistribucionCardClick) sigue encontrando su ancla.
+        cont.innerHTML = '<div class="eq-distrib-sec" data-vista="equipos">' +
             '<h4 style="margin:0 0 12px 0;font-size:13px;text-transform:uppercase;color:#64748b;border-bottom:2px solid #f1f5f9;padding-bottom:8px;font-weight:700;display:flex;align-items:center;gap:8px;">' +
                 '<i class="material-icons" style="font-size:18px;color:' + colorIcono + ';">' + icono + '</i>' + titulo +
             '</h4>' +
@@ -312,7 +324,8 @@
                     '</div>' +
                 '</li>';
             }).join('') +
-            '</ul>';
+            '</ul>' +
+        '</div>';
     }
 
     // Mensaje a pantalla completa dentro de la tabla, con el mismo formato que los estados
@@ -342,7 +355,7 @@
 
         const f = leerFiltros();
         if (!hayFiltro(f)) {
-            pintarStats([], false);        // sin filtros el Consolidado va en '--', igual que online
+            pintarStats([], false, f);        // sin filtros el Consolidado va en '--', igual que online
             // La Distribución SÍ se pinta sin filtros: el backend la calcula fuera del
             // `if ($hasFilter)` a propósito, para que la tarjeta sirva de punto de partida
             // (se toca un tipo y ese toque aplica el filtro). Ver EquipoController::index.
@@ -351,7 +364,7 @@
             return;
         }
         if (esModoAux(f)) {
-            pintarStats([], false);
+            pintarStats([], false, f);
             tbody.innerHTML = filaMensaje('cloud_off', 'LOS EQUIPOS AUXILIARES NO ESTÁN EN LA COPIA LOCAL. CONÉCTATE A INTERNET PARA VERLOS.');
             return;
         }
@@ -369,7 +382,7 @@
         const especifico = filtroEspecifico(f);
         const filas = datos.filter(function (e) { return coincide(e, f, especifico); });
         // Sobre el conjunto filtrado COMPLETO, no sobre el lote de 150 que se pinta.
-        pintarStats(filas, true);
+        pintarStats(filas, true, f);
         pintarDistribucion(f, especifico);
 
         if (!filas.length) {
