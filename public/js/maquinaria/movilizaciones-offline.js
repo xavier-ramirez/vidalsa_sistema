@@ -23,6 +23,8 @@
     if (!OM) return;
     const esc = OM.esc;
     const COLS = 5;
+    // Filas por lote: el mismo paginate(16) del historial online (MovilizacionController).
+    const PAGE_SIZE = 16;
 
     function getBody() { return document.getElementById('movilizacionesTableBody'); }
 
@@ -122,6 +124,9 @@
 
     async function render() {
         const tbody = getBody(); if (!tbody) return;
+        // Cancela el scroll infinito del pintado anterior: los caminos que terminan en un
+        // MENSAJE no pasan por porLotes y dejarían su observador vivo.
+        OM.detenerLotes(tbody);
         const movils = await window.OfflineDB.get('movilizaciones').catch(() => []);
 
         if (!movils || !movils.length) {
@@ -134,13 +139,15 @@
             tbody.innerHTML = '<tr><td colspan="' + COLS + '" style="text-align:center;padding:40px;color:#94a3b8;">No hay movilizaciones en la copia local que coincidan con los filtros.</td></tr>';
             return;
         }
-        tbody.innerHTML = filas.map(fila).join('');
+        // Por lotes con scroll infinito (helper compartido): la primera pantalla aparece
+        // al instante en vez de construir las hasta 1.000 movilizaciones de una vez.
+        OM.porLotes(tbody, filas, fila, PAGE_SIZE);
     }
 
     function init() {
         if (!getBody()) return;      // no estamos en /admin/movilizaciones
 
-        OM.registrar('movilizaciones', function () { OM.conOfflineDB(render); });
+        OM.registrar('movilizaciones', function () { return OM.conOfflineDB(render); });
 
         // Punto ÚNICO de intercepción: buscador (oninput con debounce), dropdowns de
         // frente/tipo, fechas y dirección terminan todos en loadMovilizaciones() —

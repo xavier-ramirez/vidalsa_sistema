@@ -6,6 +6,19 @@
  * El botón de detalle abre el HISTORIAL DE MOVILIZACIONES del equipo (también local).
  * La foto no viaja offline (vive en Drive) → ícono placeholder.
  *
+ * MISMAS REGLAS QUE ONLINE (EquipoController::index) — la vista sin internet no puede
+ * mostrar un listado distinto al de la vista con internet:
+ *   · SIN filtros no se pinta NINGUNA fila ("SELECCIONE UN FILTRO..."), igual que el
+ *     $hasFilter del backend. Antes se volcaban los ~1.200 equipos de golpe: además de
+ *     no parecerse a la web, construía megas de HTML y dejaba el teléfono trabado.
+ *   · Se pinta de 150 en 150 con scroll infinito (PAGE_SIZE del backend).
+ *   · El filtrado ocurre sobre los DATOS en memoria (no ocultando <tr>), con la misma
+ *     semántica del backend: marca/modelo/año/categoría/ubicación son IGUALDAD exacta
+ *     (no "contiene"), la búsqueda mira serial/motor/código/etiqueta/placa (con las
+ *     variantes O↔0) y '#123' busca por nº de etiqueta.
+ *   · Los ejes que NO viajan en el snapshot (GPS, color, documentos) no se pueden
+ *     aplicar: en vez de devolver un listado más grande en silencio, se avisa.
+ *
  * Fase 2 (escritura sin internet): el chip de estado es clickeable (encola un cambio
  * de estado, salvo INOPERATIVO que requiere reporte de falla) y la acción masiva
  * "Movilizar" abre un modal simple (frente EXISTENTE del snapshot). Ambas encolan en
@@ -44,44 +57,191 @@
 
     function getBody() { return document.getElementById('equiposTableBody'); }
 
-    function valFiltro(sel) {
-        var el = document.querySelector(sel);
-        return el && el.value && el.value.trim() !== '' ? el.value.trim() : null;
+    // Filas por lote: el MISMO $PAGE_SIZE del backend (EquipoController::index), para que
+    // el scroll infinito sin internet se sienta igual que con internet.
+    const PAGE_SIZE = 150;
+
+    // Copia EN MEMORIA de kv.equipos + IDs de frentes ESPECIAL. Filtrar 1.200 objetos son
+    // décimas de milisegundo, así que cada tecla puede re-filtrar sin tocar IndexedDB.
+    // Se refrescan en cada render() (el que corre al activar el modo offline y cada vez
+    // que entra una copia nueva), nunca quedan viejos.
+    let datos      = null;
+    let especiales = new Set();
+    let avisoEjes  = '';     // último aviso de ejes no soportados (evita repetirlo)
+
+    const up = (s) => String(s == null ? '' : s).toUpperCase();
+
+    // ── Lectura de filtros: los MISMOS inputs y el MISMO alcance que loadEquipos ──
+    // Los avanzados se leen dentro de #advancedFilterPanel igual que online; leerlos de
+    // todo el documento podría enganchar otro input homónimo de un modal.
+    function leerFiltros() {
+        const panel = document.getElementById('advancedFilterPanel') || document;
+        const v = function (sel, raiz) {
+            const el = (raiz || document).querySelector(sel);
+            return el && el.value && el.value.trim() !== '' ? el.value.trim() : '';
+        };
+        const chk = function (id) { const e = document.getElementById(id); return !!(e && e.checked); };
+        return {
+            q:          v('#searchInput'),
+            frente:     v('input[name="id_frente"]'),
+            tipo:       v('input[name="id_tipo"]'),
+            modelo:     v('input[name="modelo"]', panel),
+            marca:      v('input[name="marca"]', panel),
+            ubicacion:  v('input[name="detalle_ubicacion"]', panel),
+            anio:       v('input[name="anio"]', panel),
+            categoria:  v('input[name="categoria"]', panel),
+            estado:     v('input[name="estado"]', panel),
+            gps:        v('input[name="gps"]', panel),
+            color:      v('input[name="color"]', panel),
+            confirmado: v('input[name="confirmado"]', panel),
+            docs:       ['chk_propiedad', 'chk_poliza', 'chk_rotc', 'chk_racda', 'chk_adicional', 'chk_adicional_2'].filter(chk),
+        };
     }
 
-    function aplicarFiltro() {
-        const tbody = getBody(); if (!tbody) return;
-        const q = (valFiltro('#searchInput') || '').toLowerCase();
-        const fFrente = valFiltro('input[name="id_frente"]');
-        const fTipo   = valFiltro('input[name="id_tipo"]');
-        const fEstado = valFiltro('input[name="estado"]');
-        const fMarca  = valFiltro('input[name="marca"]');
-        const fModelo = valFiltro('input[name="modelo"]');
-        const fAnio   = valFiltro('input[name="anio"]');
-        const fCat    = valFiltro('input[name="categoria"]');
-        const fUbic   = valFiltro('input[name="detalle_ubicacion"]');
-        const fConf   = valFiltro('input[name="confirmado"]');
+    // Réplica del $hasFilter del backend: sin ningún eje activo la tabla NO lista nada.
+    // Ojo: 'all' (TODOS LOS FRENTES / TODOS LOS TIPOS) SÍ cuenta como filtro, igual que
+    // el filled() de Laravel — es la forma de pedir el listado completo a propósito.
+    function hayFiltro(f) {
+        return !!(f.q || f.frente || f.tipo || f.modelo || f.marca || f.ubicacion || f.anio ||
+                  f.categoria || f.estado || f.gps || f.color || f.confirmado || f.docs.length);
+    }
 
-        tbody.querySelectorAll('tr[data-offline]').forEach(function (tr) {
-            var ok = true;
-            if (q) { var blob = (tr.getAttribute('data-buscar') || ''); if (blob.indexOf(q) < 0) ok = false; }
-            if (ok && fFrente && fFrente !== 'all') { var fid = tr.getAttribute('data-frente-id') || ''; if (fFrente === 'none' ? fid !== '' : fid !== fFrente) ok = false; }
-            if (ok && fTipo && fTipo !== 'all' && tr.getAttribute('data-tipo-id') !== fTipo) ok = false;
-            if (ok && fEstado && tr.getAttribute('data-estado') !== fEstado) ok = false;
-            if (ok && fMarca && (tr.getAttribute('data-marca') || '').indexOf(fMarca.toLowerCase()) < 0) ok = false;
-            if (ok && fModelo && (tr.getAttribute('data-modelo') || '').indexOf(fModelo.toLowerCase()) < 0) ok = false;
-            if (ok && fAnio && tr.getAttribute('data-anio') !== fAnio) ok = false;
-            if (ok && fCat && (tr.getAttribute('data-categoria') || '').indexOf(fCat.toLowerCase()) < 0) ok = false;
-            if (ok && fUbic && (tr.getAttribute('data-ubicacion') || '').indexOf(fUbic.toLowerCase()) < 0) ok = false;
-            if (ok && fConf) { var cv = tr.getAttribute('data-confirmado'); var fc = fConf === 'SI' ? '1' : fConf === 'NO' ? '0' : fConf; if (fc === '1' && cv !== '1') ok = false; if (fc === '0' && cv !== '0') ok = false; }
-            tr.style.display = ok ? '' : 'none';
-        });
+    // Réplica de tieneFiltroEspecifico(): decide si los frentes ESPECIAL se ocultan.
+    function filtroEspecifico(f) {
+        if (f.q || f.modelo || f.marca || f.ubicacion || f.anio || f.categoria || f.estado || f.color) return true;
+        if (['SI', 'NO'].indexOf(up(f.gps)) >= 0) return true;
+        if (['SI', 'NO'].indexOf(up(f.confirmado)) >= 0) return true;
+        return f.docs.length > 0;
+    }
+
+    // Réplica de esModoAux(): la tabla pasa a listar AUXILIARES, que no viajan offline.
+    function esModoAux(f) {
+        return f.tipo.indexOf('tipo_aux:') === 0 || up(f.categoria) === 'AUXILIARES';
+    }
+
+    // Ejes que el snapshot no trae (LINK_GPS, COLOR y los LINK_* de documentos). Se avisan
+    // en vez de ignorarlos calladamente: si no, el listado offline saldría MÁS grande que
+    // el online y parecería que el filtro "no hace nada".
+    function ejesNoSoportados(f) {
+        const faltan = [];
+        if (f.gps) faltan.push('GPS');
+        if (f.color) faltan.push('color');
+        if (f.docs.length) faltan.push('documentos');
+        if (window.__equiposDocPresence && window.__equiposDocPresence !== 'con') faltan.push('documentos');
+        return faltan.filter(function (x, i, a) { return a.indexOf(x) === i; });
+    }
+
+    // Búsqueda: MISMOS campos y misma semántica que applyBusquedaTexto() del backend
+    // (subcadena en mayúsculas). '#123' busca por nº de etiqueta y las variantes O↔0
+    // cubren la placa, que se teclea indistintamente con letra o cero.
+    function coincideBusqueda(e, texto) {
+        const s = up(texto).trim();
+        if (!s) return true;
+        if (s.indexOf('#') >= 0) return up(e.etiqueta).indexOf(s.replace(/#/g, '')) >= 0;
+        if (up(e.serial_chasis).indexOf(s) >= 0) return true;
+        if (up(e.serial_motor).indexOf(s) >= 0) return true;
+        if (up(e.codigo_patio).indexOf(s) >= 0) return true;
+        if (up(e.etiqueta).indexOf(s) >= 0) return true;
+        const placa = up(e.placa);
+        // El 4º str_replace del backend es secuencial (O→0 y luego 0→O), se replica igual.
+        return [s, s.replace(/O/g, '0'), s.replace(/0/g, 'O'), s.replace(/O/g, '0').replace(/0/g, 'O')]
+            .some(function (v) { return placa.indexOf(v) >= 0; });
+    }
+
+    // Igualdad como la del backend: where('COLUMNA', valor) sobre una colación _ci, o sea
+    // exacta pero sin distinguir mayúsculas.
+    function igual(valorFila, valorFiltro) {
+        return !valorFiltro || up(valorFila) === up(valorFiltro);
+    }
+
+    function coincide(e, f, especifico) {
+        if (!coincideBusqueda(e, f.q)) return false;
+
+        if (f.frente === 'none') {
+            if (e.id_frente != null) return false;
+        } else if (f.frente && f.frente !== 'all') {
+            if (String(e.id_frente == null ? '' : e.id_frente) !== f.frente) return false;
+        } else if (!especifico && e.id_frente != null && especiales.has(Number(e.id_frente))) {
+            return false;   // excludeEspecial(): asignaciones especiales fuera del listado general
+        }
+
+        if (f.tipo && f.tipo !== 'all') {
+            // El dropdown manda el id pelado; 'tipo_eq:N' lo acepta el backend y se replica.
+            const idTipo = f.tipo.indexOf('tipo_eq:') === 0 ? f.tipo.slice(8) : f.tipo;
+            if (String(e.id_tipo == null ? '' : e.id_tipo) !== String(idTipo)) return false;
+        }
+
+        if (!igual(e.modelo, f.modelo)) return false;
+        if (!igual(e.marca, f.marca)) return false;
+        if (!igual(e.ubicacion, f.ubicacion)) return false;
+        if (f.anio && String(e.anio == null ? '' : e.anio) !== f.anio) return false;
+        if (!igual(e.categoria, f.categoria)) return false;
+        if (!igual(e.estado, f.estado)) return false;
+
+        const conf = up(f.confirmado);
+        if (conf === 'SI' && Number(e.confirmado) !== 1) return false;
+        if (conf === 'NO' && Number(e.confirmado) !== 0) return false;
+
+        return true;
+    }
+
+    // Mensaje a pantalla completa dentro de la tabla, con el mismo formato que los estados
+    // vacíos online (partials/table_rows.blade.php).
+    function filaMensaje(icono, texto) {
+        return '<tr><td colspan="' + COLS + '" class="table-empty-state" style="text-align:center;padding:40px;color:#94a3b8;">' +
+            '<i class="material-icons" style="font-size:48px;display:block;margin:0 auto 10px auto;color:#cbd5e0;">' + icono + '</i>' + texto + '</td></tr>';
+    }
+
+    // Filtra la copia en memoria y repinta. Es lo que corre en cada tecla del buscador y
+    // en cada clic de dropdown mientras el modo offline está activo.
+    function pintar() {
+        const tbody = getBody(); if (!tbody) return;
+        // Primera pintada del módulo (o repintado tras navegar): la copia aún no está en
+        // memoria. render() la trae y vuelve aquí; conOfflineDB espera a que IndexedDB
+        // esté abierto, porque este camino también lo dispara una tecla del buscador.
+        if (!datos) { OM.conOfflineDB(render); return; }
+        // Cancela el scroll infinito del pintado anterior: los caminos que terminan en un
+        // MENSAJE no pasan por porLotes y dejarían su observador vivo.
+        OM.detenerLotes(tbody);
+        ensureHideStyle();
+
+        if (!datos.length) {
+            tbody.innerHTML = filaMensaje('cloud_off', 'No hay copia local de datos todavía. Conéctate a internet una vez para descargarla.');
+            return;
+        }
+
+        const f = leerFiltros();
+        if (!hayFiltro(f)) {
+            tbody.innerHTML = filaMensaje('filter_alt', 'SELECCIONE UN FILTRO PARA VER LOS EQUIPOS.');
+            return;
+        }
+        if (esModoAux(f)) {
+            tbody.innerHTML = filaMensaje('cloud_off', 'LOS EQUIPOS AUXILIARES NO ESTÁN EN LA COPIA LOCAL. CONÉCTATE A INTERNET PARA VERLOS.');
+            return;
+        }
+
+        // El aviso SOLO en modo offline: pintar() también corre con internet lento
+        // (adelantarConCopiaLocal), y ahí decir "sin conexión" sería mentira — además esa
+        // pintada la reemplaza la respuesta real del servidor, que sí aplica esos filtros.
+        const faltan = OM.estaActivo() ? ejesNoSoportados(f) : [];
+        const firma  = faltan.join(',');
+        if (firma && firma !== avisoEjes && window.toast) {
+            window.toast('Sin conexión no se puede filtrar por ' + faltan.join(' / ') + '. Se muestra el resto de los filtros.', 'warning');
+        }
+        avisoEjes = firma;
+
+        const especifico = filtroEspecifico(f);
+        const filas = datos.filter(function (e) { return coincide(e, f, especifico); });
+
+        if (!filas.length) {
+            tbody.innerHTML = filaMensaje('search_off', 'NO SE ENCONTRARON EQUIPOS CON LOS FILTROS APLICADOS.');
+            return;
+        }
+        OM.porLotes(tbody, filas, filaEquipo, PAGE_SIZE);
     }
 
     function filaEquipo(e) {
         const est = ESTADOS[e.estado] || ESTADOS['DESINCORPORADO'];
-        const buscar = [e.serial_chasis, e.serial_motor, e.placa, e.etiqueta, e.marca, e.modelo, e.tipo, e.codigo_patio]
-            .filter(Boolean).join(' ').toLowerCase();
 
         // FINALIZADO: mismo badge que online (wrapper flex centrado + icono ⚠).
         const finalizado = e.frente_finalizado
@@ -102,18 +262,16 @@
         const placa = e.placa
             ? '<div style="line-height:1.4;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><strong style="color:#64748b;">P:</strong> <span style="color:var(--maquinaria-blue);font-weight:700;text-transform:uppercase;">' + esc(e.placa) + '</span></div>'
             : '<div style="line-height:1.4;margin-top:3px;"><strong style="color:#64748b;">P:</strong> <span style="color:#a0aec0;font-style:italic;">Sin Placa</span></div>';
+        // "ID: #<código de patio>" SOLO si lo tiene, igual que online: sin este @if la fila
+        // offline mostraba un "ID: #—" que en la web no existe.
+        const idPatio = e.codigo_patio
+            ? '<div class="eq-id-line" style="line-height:1.4;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><strong style="color:#64748b;">ID:</strong> <span style="color:#1e293b;font-weight:600;">#' + esc(e.codigo_patio) + '</span></div>'
+            : '';
 
+        // El filtrado va sobre los datos en memoria, no sobre el DOM: la fila no necesita
+        // data-* de búsqueda (online tampoco los tiene) y así pesa lo mismo que la online.
         return '' +
-            '<tr data-offline="1" data-buscar="' + esc(buscar) + '"' +
-            ' data-frente-id="' + (e.id_frente || '') + '"' +
-            ' data-tipo-id="' + (e.id_tipo || '') + '"' +
-            ' data-estado="' + esc(e.estado || '') + '"' +
-            ' data-marca="' + esc((e.marca || '').toLowerCase()) + '"' +
-            ' data-modelo="' + esc((e.modelo || '').toLowerCase()) + '"' +
-            ' data-anio="' + esc(e.anio || '') + '"' +
-            ' data-categoria="' + esc((e.categoria || '').toLowerCase()) + '"' +
-            ' data-ubicacion="' + esc((e.ubicacion || '').toLowerCase()) + '"' +
-            ' data-confirmado="' + (e.confirmado ? '1' : '0') + '">' +
+            '<tr data-offline="1">' +
             '<td class="table-cell-custom table-cell-center" style="padding:6px 4px;width:150px;">' +
                 '<div class="tooltip-wrapper" style="font-size:13px;color:#000;margin-bottom:5px;line-height:1.25;font-weight:700;text-align:center;text-transform:uppercase;word-wrap:break-word;position:relative;cursor:default;">' +
                     '<span style="display:inline-flex;align-items:center;gap:3px;justify-content:center;">' + esc(e.frente || 'SIN ASIGNAR') +
@@ -130,8 +288,7 @@
             '</td>' +
             '<td class="table-cell-custom" style="font-size:14px;color:#4a5568;">' +
                 '<div style="line-height:1.5;word-break:break-all;"><strong style="color:#64748b;">S:</strong> <span style="color:#1e293b;font-weight:600;text-transform:uppercase;">' + esc(e.serial_chasis || '—') + '</span></div>' +
-                motor + placa +
-                '<div style="line-height:1.4;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><strong style="color:#64748b;">ID:</strong> <span style="color:#1e293b;font-weight:600;">#' + esc(e.codigo_patio || '—') + '</span></div>' +
+                motor + placa + idPatio +
             '</td>' +
             // Estatus: mismo look que el trigger online (chip blanco + chevron + sombra).
             // Fase 2: clickeable sin conexión → menú con OPERATIVO/MANTENIMIENTO/DESINCORP.
@@ -181,27 +338,32 @@
     // de "sin copia" tapando una petición que va a responder.
     function adelantarConCopiaLocal(sigueEsperando) {
         if (!sigueEsperando() || !window.OfflineDB || !getBody()) return;
-        window.OfflineDB.get('equipos').then(function (equipos) {
-            var tbody = getBody();
-            if (!sigueEsperando() || !tbody || !equipos || !equipos.length) return;
-            ensureHideStyle();
-            tbody.innerHTML = equipos.map(filaEquipo).join('');
-            aplicarFiltro();
+        cargarCopia().then(function () {
+            if (!sigueEsperando() || !getBody() || !datos.length) return;
+            pintar();
         }).catch(function () {});
     }
 
-    async function render() {
-        const tbody = getBody(); if (!tbody) return;
-        ensureHideStyle();
-        const equipos = await window.OfflineDB.get('equipos').catch(() => []);
+    // Trae la copia local a memoria: los equipos y qué frentes son ESPECIAL.
+    function cargarCopia() {
+        return Promise.all([
+            window.OfflineDB.get('equipos').catch(function () { return []; }),
+            window.OfflineDB.get('frentes').catch(function () { return []; }),
+        ]).then(function (r) {
+            datos = r[0] || [];
+            // Copias bajadas antes de que el snapshot mandara el tipo de frente no traen la
+            // marca: el conjunto queda vacío y no se excluye nada (el comportamiento de
+            // antes) hasta que entre la siguiente copia de catálogos.
+            especiales = new Set((r[1] || []).filter(function (f) { return f.especial; })
+                                             .map(function (f) { return Number(f.id); }));
+        });
+    }
 
-        if (!equipos || !equipos.length) {
-            tbody.innerHTML = '<tr><td colspan="' + COLS + '" style="text-align:center;padding:40px;color:#94a3b8;"><i class="material-icons" style="font-size:42px;color:#cbd5e0;display:block;margin:0 auto 8px;">cloud_off</i>No hay copia local de datos todavía. Conéctate a internet una vez para descargarla.</td></tr>';
-            return;
-        }
-
-        tbody.innerHTML = equipos.map(filaEquipo).join('');
-        aplicarFiltro();
+    // Punto de entrada del módulo (lo llama OfflineMode al activar el modo sin conexión y
+    // cada vez que entra una copia nueva): refresca la copia en memoria y repinta.
+    function render() {
+        if (!getBody()) return Promise.resolve();
+        return cargarCopia().then(pintar).catch(function () {});
     }
 
     // ── Fase 2: CAMBIO DE ESTADO sin internet ────────────────────────────────
@@ -354,12 +516,12 @@
 
     function init() {
         if (!getBody()) return;
-        OM.registrar('equipos', function () { OM.conOfflineDB(render); });
+        OM.registrar('equipos', function () { return OM.conOfflineDB(render); });
 
         var inp = document.getElementById('searchInput');
         if (inp && !inp.dataset.offWiredEq) {
             inp.dataset.offWiredEq = '1';
-            inp.addEventListener('input', function () { if (OM.estaActivo()) aplicarFiltro(); });
+            inp.addEventListener('input', function () { if (OM.estaActivo()) pintar(); });
         }
 
         // Patch loadEquipos: intercepta la llamada AJAX y filtra local si offline. Se re-parchea
@@ -367,7 +529,7 @@
         if (typeof window.loadEquipos === 'function' && window.loadEquipos !== window._eqOffPatchedLoad) {
             window._origLoadEquipos = window.loadEquipos;
             window._eqOffPatchedLoad = function () {
-                if (OM.estaActivo()) { aplicarFiltro(); return Promise.resolve(); }
+                if (OM.estaActivo()) { pintar(); return Promise.resolve(); }
                 // Sin conexión pero SIN activar el modo offline: bloqueamos la búsqueda (no
                 // pegarle al servidor caído) y avisamos que pulse "Trabajar sin conexión".
                 if (OM.pendienteActivar && OM.pendienteActivar()) { OM.avisarActivar(); return Promise.resolve(); }
@@ -404,12 +566,12 @@
         document.addEventListener('click', function (e) {
             if (!OM.estaActivo() || !getBody()) return;
             if (e.target.closest && e.target.closest('.dropdown-item')) {
-                setTimeout(aplicarFiltro, 0);
+                setTimeout(pintar, 0);
             }
         }, true);
 
         window.addEventListener('dropdown-selection', function () {
-            if (OM.estaActivo() && getBody()) aplicarFiltro();
+            if (OM.estaActivo() && getBody()) pintar();
         });
     }
 

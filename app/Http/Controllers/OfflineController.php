@@ -749,6 +749,14 @@ class OfflineController extends Controller
      * scopea con la UNIÓN de ambos niveles: acotarla con uno solo escondería frentes que
      * el otro módulo necesita (un GLOBAL-equipos + LOCAL-almacén perdería frentes de
      * equipos).
+     *
+     * `especial` marca los TIPO_FRENTE=ESPECIAL (asignaciones especiales, no flota
+     * propia). Lo necesita el listado offline de equipos para reproducir el
+     * excludeEspecial() del backend: sin él la tabla sin internet mostraba ~180 equipos
+     * que la web esconde en el listado general. Va en catálogos (pocos KB) y no en cada
+     * equipo para no tocar el esquema del snapshot grande: los teléfonos con una copia
+     * anterior no traen la marca y siguen como hasta ahora hasta que entre la siguiente
+     * copia de catálogos, que es cualquier alta o edición de frente.
      */
     private function consultaFrentes($user, bool $puedeEquipos, bool $puedeAlmacen)
     {
@@ -757,10 +765,11 @@ class OfflineController extends Controller
         return FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')
             ->when($user, fn ($q) => $user->aplicarScopeFrentesUnion($q, 'ID_FRENTE'))
             ->orderBy('NOMBRE_FRENTE')
-            ->get(['ID_FRENTE', 'NOMBRE_FRENTE'])
+            ->get(['ID_FRENTE', 'NOMBRE_FRENTE', 'TIPO_FRENTE'])
             ->map(static fn ($f) => [
                 'id' => (int) $f->ID_FRENTE,
                 'nombre' => MojibakeFix::fix($f->NOMBRE_FRENTE),
+                'especial' => $f->TIPO_FRENTE === 'ESPECIAL',
             ])
             ->values();
     }

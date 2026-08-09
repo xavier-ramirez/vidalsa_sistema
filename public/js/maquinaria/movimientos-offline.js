@@ -24,6 +24,8 @@
     if (!OM) return;
     const esc = OM.esc;
     const COLS = 6;
+    // Filas por lote: el mismo per_page del kardex online (AlmacenController::movimientos).
+    const PAGE_SIZE = 50;
 
     // Réplica de MovimientoInventario::TIPO_META — [label, color, icono].
     const TIPO_META = {
@@ -137,6 +139,9 @@
 
     async function render() {
         const tbody = getBody(); if (!tbody) return;
+        // Cancela el scroll infinito del pintado anterior: los caminos que terminan en un
+        // MENSAJE no pasan por porLotes y dejarían su observador vivo.
+        OM.detenerLotes(tbody);
         const movs = await window.OfflineDB.get('movimientos').catch(() => []);
 
         if (!movs || !movs.length) {
@@ -146,11 +151,12 @@
 
         const filas = filtrar(movs, estadoFiltros());
         // El snapshot ya viene ordenado del más reciente al más viejo (orderByDesc ID).
-        tbody.innerHTML = filas.length
-            ? filas.map(fila).join('')
-            : '<tr><td colspan="' + COLS + '" style="text-align:center;padding:36px 16px;color:#94a3b8;font-size:14px;"><i class="material-icons" style="font-size:40px;color:#cbd5e0;display:block;margin:0 auto 8px;">receipt_long</i>No hay movimientos en la copia local que coincidan con los filtros.</td></tr>';
+        // Por lotes con scroll infinito (helper compartido) en vez de volcar los hasta
+        // 1.500 movimientos de una vez: la primera pantalla aparece al instante.
+        if (filas.length) OM.porLotes(tbody, filas, fila, PAGE_SIZE);
+        else tbody.innerHTML = '<tr><td colspan="' + COLS + '" style="text-align:center;padding:36px 16px;color:#94a3b8;font-size:14px;"><i class="material-icons" style="font-size:40px;color:#cbd5e0;display:block;margin:0 auto 8px;">receipt_long</i>No hay movimientos en la copia local que coincidan con los filtros.</td></tr>';
 
-        // Total + paginación: offline se pinta TODO lo filtrado en una sola página.
+        // Total + paginación: offline se pinta TODO lo filtrado (por lotes), sin páginas.
         const tot = document.getElementById('almMovTotal'); if (tot) tot.textContent = String(filas.length);
         const pag = document.getElementById('almMovPagination'); if (pag) pag.innerHTML = '';
     }
@@ -158,7 +164,7 @@
     function init() {
         if (!getBody()) return;      // no estamos en /admin/almacen/movimientos
 
-        OM.registrar('movimientos', function () { OM.conOfflineDB(render); });
+        OM.registrar('movimientos', function () { return OM.conOfflineDB(render); });
 
         // Punto ÚNICO de intercepción: dropdowns, fechas, nota, buscador y paginación
         // terminan todos en loadMovimientos() — offline se filtra local en vez del fetch.

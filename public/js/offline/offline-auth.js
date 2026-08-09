@@ -102,10 +102,36 @@
     const pwEl   = document.getElementById('password');
     const msgEl  = document.getElementById('offlineLoginMsg');
 
+    // ── ¿Hay SERVIDOR de verdad? ────────────────────────────────────────────────
+    // navigator.onLine MIENTE: dice "online" con el wifi levantado y el servidor caído,
+    // que es justo el caso que este botón existe para cubrir. El resto de la app ya dejó
+    // de confiar en él (comprobarConexion() en estructura_base) y aquí se hace lo mismo:
+    // se sondea /offline/version y SOLO un fallo de red cuenta como sin conexión —
+    // cualquier respuesta HTTP significa servidor vivo, incluida la redirección a /login
+    // que devuelve por no haber sesión todavía (la ruta va detrás del middleware auth).
+    // El service worker nunca cachea /offline/, así que el sondeo siempre va a la red.
+    // Se arranca en `!navigator.onLine` para no ofrecer el botón antes de saber nada: si
+    // el navegador ya se declara sin red, no hace falta preguntar.
+    let sinServidor = !navigator.onLine;
+    function sondearServidor() {
+        if (!navigator.onLine) { sinServidor = true; refrescarBoton(); return; }
+        // Tope de 4s: sin él, una red que traga los paquetes sin contestar dejaría el
+        // botón de acceso local sin aparecer nunca.
+        const corta = (typeof AbortController === 'function') ? new AbortController() : null;
+        const tope = corta ? setTimeout(function () { corta.abort(); }, 4000) : null;
+        fetch('/offline/version', {
+            method: 'GET', cache: 'no-store', credentials: 'same-origin',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            signal: corta ? corta.signal : undefined
+        })
+            .then(function () { sinServidor = false; }, function () { sinServidor = true; })
+            .then(function () { if (tope) clearTimeout(tope); refrescarBoton(); });
+    }
+
     function refrescarBoton() {
         if (!btnOff) return;
-        // Solo se ofrece el acceso offline si NO hay internet y ya hay credencial local.
-        const mostrarOffline = !navigator.onLine && window.OfflineAuth.tieneOffline();
+        // Solo se ofrece el acceso offline si NO hay servidor y ya hay credencial local.
+        const mostrarOffline = sinServidor && window.OfflineAuth.tieneOffline();
         btnOff.style.display = mostrarOffline ? 'flex' : 'none';
         // En ese caso ocultamos "Iniciar sesión" (requiere servidor y fallaría sin
         // internet) para no mostrar DOS botones: offline → solo "Entrar sin conexión",
@@ -141,7 +167,13 @@
         });
     }
 
-    window.addEventListener('online', refrescarBoton);
-    window.addEventListener('offline', refrescarBoton);
-    refrescarBoton();
+    // 'online' vuelve a SONDEAR (que haya red no significa que el servidor conteste);
+    // 'offline' es concluyente, así que ahí basta con repintar.
+    window.addEventListener('online', sondearServidor);
+    window.addEventListener('offline', function () { sinServidor = true; refrescarBoton(); });
+    // Un solo arranque: sondearServidor() ya pinta en las dos ramas — sin red llama a
+    // refrescarBoton() de inmediato, y con red la llama al resolverse el sondeo. Mientras
+    // tanto no hay hueco: el blade ya renderiza "Iniciar sesión" visible y "Entrar sin
+    // conexión" con display:none, que es exactamente el estado con internet.
+    sondearServidor();
 })();

@@ -673,10 +673,11 @@
                     class="mobile-nav-link {{ request()->is('admin/frentes*') ? 'active' : '' }}">
                     <i class="material-icons">business</i> Frentes de trabajo
                 </a>
-                <a href="{{ route('catalogo.index') }}"
-                    class="mobile-nav-link {{ request()->is('admin/catalogo*') ? 'active' : '' }}">
-                    <i class="material-icons">menu_book</i> Catálogo de Modelos
-                </a>
+                {{-- "Catálogo de Modelos" NO va en el menú de TELÉFONO (pedido del cliente):
+                     es una pantalla de mantenimiento de escritorio. NO queda huérfana — se
+                     sigue llegando desde la tarjeta del menú principal (/menu), desde el
+                     desplegable de Equipos y desde el de Auxiliares. Este menú lateral de
+                     escritorio nunca la tuvo. --}}
                 @can('super.admin')
                 <a href="{{ route('historial-documentos.index') }}"
                     class="mobile-nav-link {{ request()->routeIs('historial-documentos.*') ? 'active' : '' }}">
@@ -1065,13 +1066,38 @@
                 // sigue en el DOM), así los módulos que ya no están en pantalla no hacen nada.
                 const action = document.getElementById('netStatusAction');
                 const renders = {};
+                // Observador de scroll infinito vivo por tabla (ver OfflineMode.porLotes).
+                const observadoresLote = new WeakMap();
+                function detenerLotes(tbody) {
+                    const obs = observadoresLote.get(tbody);
+                    if (obs) { obs.disconnect(); observadoresLote.delete(tbody); }
+                }
+
+                // Devuelve el apagador del spinner emparejado con SU showPreloader: se ejecuta
+                // UNA sola vez, así en el par "terminó / watchdog" el que llegue primero apaga
+                // y el otro ya no vuelve a restar del contador de referencias.
+                // force SOLO desde el watchdog, que es la excepción documentada del contador.
+                function quitarSpinner() {
+                    let hecho = false;
+                    return function (forzar) {
+                        if (hecho) return;
+                        hecho = true;
+                        if (window.hidePreloader) window.hidePreloader(forzar === true);
+                    };
+                }
                 let offlineActivo = false;
                 let sinConexion   = false; // true mientras el banner muestra estado offline
                                            // (NO usar navigator.onLine: miente con el server caído)
                 let ultimoAvisoOffline = 0; // throttle del toast "activá el modo offline" (evita spam al teclear)
 
+                // Devuelve una promesa que resuelve cuando TODOS los módulos terminaron de
+                // pintar. Los renders leen IndexedDB (asíncrono), así que sin esperarlos el
+                // spinner se iría antes de que la tabla tenga datos.
                 function correrRenders() {
-                    Object.keys(renders).forEach(function (k) { try { renders[k](); } catch (e) {} });
+                    const ps = Object.keys(renders).map(function (k) {
+                        try { return Promise.resolve(renders[k]()); } catch (e) { return Promise.resolve(); }
+                    });
+                    return Promise.all(ps).catch(function () {});
                 }
                 function hayRenders() { return Object.keys(renders).length > 0; }
                 // El banner tiene UN botón (#netStatusAction) reutilizado según el estado:
@@ -1115,30 +1141,52 @@
                     ofrecerOffline();
                 }
                 // ── Transición ONLINE → OFFLINE (pulsar "Trabajar sin conexión") ──
-                // Spinner mientras se lee/pinta la copia local, para que el cambio de modo
-                // se sienta suave (antes saltaba de golpe). Se oculta cuando la tabla ya pintó.
+                // Spinner mientras se PREPARA todo para trabajar sin señal: abrir IndexedDB,
+                // leer la copia local y pintar el módulo. Se quita cuando la tabla YA está
+                // pintada, no antes: los renders son asíncronos y con un tope fijo el spinner
+                // se iba mientras la pantalla seguía vacía.
                 function activarOffline() {
                     if (offlineActivo) return;
                     offlineActivo = true;
                     if (action) action.style.display = 'none';
                     if (window.showPreloader) window.showPreloader();
-                    correrRenders();        // pinta la copia local; cada render self-espera a OfflineDB (conOfflineDB)
                     pintarBannerOffline();  // banner ámbar con la fecha de la copia
-                    // Quitar el spinner tras dar tiempo a pintar (OfflineDB ya está cargado en
-                    // la práctica y la lectura de IndexedDB es de pocos ms). Tope fijo: nunca
-                    // dejar el spinner pegado.
-                    setTimeout(function () { if (window.hidePreloader) window.hidePreloader(true); }, 400);
+
+                    const quitar = quitarSpinner();
+                    // Watchdog: si un render se cuelga, el spinner NUNCA queda pegado.
+                    const perro = setTimeout(function () { quitar(true); }, 8000);
+                    correrRenders().then(function () { clearTimeout(perro); quitar(); });
                 }
                 // ── Transición OFFLINE → ONLINE (pulsar "Activar uso con internet") ──
-                // Spinner + confirmar que el servidor responde + recargar (restaura la vista
-                // online normal). Si el servidor aún no responde, volvemos al modo offline.
+                // Spinner mientras se SINCRONIZA de verdad, en este orden:
+                //   1) confirmar que el servidor responde,
+                //   2) SUBIR la cola de lo hecho sin internet — antes de recargar, porque si
+                //      no la página recargada mostraría los datos del servidor sin esos
+                //      cambios y el usuario vería su trabajo desaparecer unos segundos,
+                //   3) BAJAR la copia fresca, para quedar listo si la señal se vuelve a ir,
+                //   4) recargar, que restaura la vista online normal.
+                // Si el servidor aún no responde, seguimos offline con botón de reintento.
                 function volverOnline() {
                     if (window.showPreloader) window.showPreloader();
-                    showBanner('Volviendo al modo con internet · actualizando…', 'wifi', '#16a34a', 0);
+                    showBanner('Volviendo al modo con internet · sincronizando…', 'sync', '#16a34a', 0);
+
+                    const quitar = quitarSpinner();
+                    // Watchdog: pase lo que pase se recarga. La cola vive en IndexedDB, así que
+                    // lo que no alcanzó a subir se sube solo después de la recarga.
+                    const perro = setTimeout(function () { quitar(true); window.location.reload(); }, 20000);
+
                     window.apiFetch('/offline/version', { headers: { 'X-Requested-With': 'XMLHttpRequest' }, method: 'GET', cache: 'no-store'})
-                        .then(function () { window.location.reload(); })
+                        .then(function () {
+                            const subir = window.OfflineOutbox ? Promise.resolve(window.OfflineOutbox.drain()) : Promise.resolve();
+                            return subir
+                                .catch(function () {})
+                                .then(function () { return window.OfflineDB ? window.OfflineDB.sync(true) : null; })
+                                .catch(function () {})   // bajar la copia es deseable, no imprescindible: la recarga trae la verdad
+                                .then(function () { clearTimeout(perro); quitar(); window.location.reload(); });
+                        })
                         .catch(function () {
-                            if (window.hidePreloader) window.hidePreloader(true);
+                            clearTimeout(perro);
+                            quitar();   // resta del contador (no forzar: puede haber otra operación con spinner)
                             // El servidor aún no responde: seguimos en modo offline (offlineActivo
                             // sigue true) pero dejamos el botón para REINTENTAR — NO usamos
                             // mostrarOffline() aquí porque ocultaría el botón y el usuario quedaría
@@ -1201,8 +1249,12 @@
 
                 window.netStatus = { showOffline: mostrarOffline, hide: hideBanner, comprobar: comprobarConexion };
 
-                // API para los módulos. registrar(clave, fn): clave única por módulo.
-                // Helpers compartidos (esc, conOfflineDB) para no duplicarlos en cada módulo.
+                // API para los módulos. registrar(clave, fn): clave única por módulo; `fn`
+                // debe DEVOLVER la promesa de su render (por eso los 4 módulos hacen
+                // `return OM.conOfflineDB(render)`) — es lo que deja esperar el pintado antes
+                // de apagar el spinner del cambio de modo.
+                // Helpers compartidos (esc, norm, fmt, porLotes/detenerLotes, conOfflineDB)
+                // para no duplicarlos en cada módulo.
                 window.OfflineMode = {
                     registrar: function (clave, fn) {
                         renders[clave] = fn;
@@ -1259,14 +1311,57 @@
                         p[0] = p[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
                         return neg + (p[1] ? p[0] + ',' + p[1] : p[0]);
                     },
+                    // ── Pintado POR LOTES (scroll infinito) ────────────────────────
+                    // Las tablas online paginan (150 equipos / 120 productos por lote) y las
+                    // offline volcaban TODAS las filas de una sola vez: con ~1.200 equipos el
+                    // teléfono construía megas de HTML y se quedaba trabado, además de verse
+                    // distinto de la web. Aquí se inyecta el primer lote y se observa la
+                    // última fila para traer el siguiente, igual que el IntersectionObserver
+                    // de las tablas online (mismo rootMargin de 400px).
+                    // UN solo observador por tabla: repintar (otro filtro) cancela el anterior.
+                    porLotes: function (tbody, filas, hacerFila, tam) {
+                        detenerLotes(tbody);
+
+                        var lote = function (desde) {
+                            var trozo = filas.slice(desde, desde + tam);
+                            var html  = trozo.map(hacerFila).join('');
+                            if (desde === 0) tbody.innerHTML = html;
+                            else tbody.insertAdjacentHTML('beforeend', html);
+
+                            var sig    = desde + trozo.length;
+                            var ultima = tbody.lastElementChild;
+                            if (sig >= filas.length || !ultima) return;
+
+                            var obs = new IntersectionObserver(function (entradas) {
+                                if (!entradas[0] || !entradas[0].isIntersecting) return;
+                                obs.disconnect();
+                                if (observadoresLote.get(tbody) === obs) observadoresLote.delete(tbody);
+                                if (!document.contains(tbody)) return;   // navegó por SPA: no seguir
+                                lote(sig);
+                            }, { root: null, rootMargin: '400px', threshold: 0 });
+                            observadoresLote.set(tbody, obs);
+                            obs.observe(ultima);
+                        };
+                        lote(0);
+                    },
+                    // Cancela el scroll infinito de una tabla. Lo llaman los módulos al empezar
+                    // a repintar: si el pintado termina en un MENSAJE (sin filtro, sin
+                    // resultados) no pasa por porLotes, y el observador del pintado anterior
+                    // se quedaría vivo hasta que el navegador recogiera el <tbody>.
+                    detenerLotes: detenerLotes,
                     // Espera a que OfflineDB (offline-sync.js, al final del body) esté listo.
+                    // Devuelve una PROMESA que resuelve cuando `cb` terminó (adopta la suya si
+                    // devuelve una): es lo que permite que el spinner del cambio de modo se
+                    // apague recién cuando la tabla ya está pintada.
                     conOfflineDB: function (cb) {
-                        if (window.OfflineDB) return cb();
-                        var n = 0;
-                        var t = setInterval(function () {
-                            if (window.OfflineDB) { clearInterval(t); cb(); }
-                            else if (++n > 50) { clearInterval(t); }
-                        }, 100);
+                        return new Promise(function (resolve) {
+                            if (window.OfflineDB) return resolve(cb());
+                            var n = 0;
+                            var t = setInterval(function () {
+                                if (window.OfflineDB) { clearInterval(t); resolve(cb()); }
+                                else if (++n > 50) { clearInterval(t); resolve(); }
+                            }, 100);
+                        });
                     }
                 };
             })();

@@ -27,6 +27,8 @@
     // 6 columnas: Código · Descripción · Categoría · Stock (con unidad) · Salida · Detalles.
     // (La columna "UND" se fusionó en Stock — debe coincidir con el thead y $cols del partial.)
     const COLS = 6;
+    // Filas por lote: el MISMO $PAGE_SIZE del backend (AlmacenController::inventario).
+    const PAGE_SIZE = 120;
 
     function getBody() { return document.getElementById('almTableBody'); }
 
@@ -95,6 +97,9 @@
 
     async function render() {
         const tbody = getBody(); if (!tbody) return;
+        // Cancela el scroll infinito del pintado anterior: los caminos que terminan en un
+        // MENSAJE no pasan por porLotes y dejarían su observador vivo.
+        OM.detenerLotes(tbody);
         const stock = await window.OfflineDB.get('stock').catch(() => []);
 
         if (!stock || !stock.length) {
@@ -116,7 +121,9 @@
             return;
         }
 
-        tbody.innerHTML = filas.map(function (p) {
+        // Por lotes con scroll infinito (helper compartido), igual que la tabla online:
+        // volcar los ~1.600 productos de una vez trababa el teléfono sin necesidad.
+        OM.porLotes(tbody, filas, function (p) {
             const saldo = Number(p.cantidad) || 0;
             const bajo = esBajo(p);
             return '' +
@@ -130,7 +137,7 @@
                 '<td class="alm-td-cant" style="text-align:center;color:#cbd5e0;">—</td>' +
                 '<td class="alm-td-det" style="text-align:center;color:#cbd5e0;">—</td>' +
                 '</tr>';
-        }).join('');
+        }, PAGE_SIZE);
     }
 
     // (Re)inicializa en cada carga/navegación: registra el render (por clave, sobreescribe),
@@ -139,7 +146,7 @@
     // offline ya está activo (se navegó sin internet), pinta de una.
     function init() {
         if (!getBody()) return;      // no estamos en la página de inventario
-        OM.registrar('almacen', function () { OM.conOfflineDB(render); });
+        OM.registrar('almacen', function () { return OM.conOfflineDB(render); });
 
         // Punto ÚNICO de intercepción: badges, categoría, sugerencias, "Ver todo" y el
         // selector de almacén terminan todos en almCargar() — offline se filtra local.
