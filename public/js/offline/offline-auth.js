@@ -114,6 +114,12 @@
     // el navegador ya se declara sin red, no hace falta preguntar.
     let sinServidor = !navigator.onLine;
     function sondearServidor() {
+        // Sin credencial local guardada el boton NO puede aparecer pase lo que pase
+        // (refrescarBoton exige tieneOffline()), asi que el sondeo no cambiaria nada:
+        // seria una peticion de mas —y un arranque de Laravel de mas en el servidor— en
+        // CADA carga del login. Se corta aca, que es el caso de la mayoria de las
+        // sesiones: equipos nuevos y quien nunca entro sin internet.
+        if (!window.OfflineAuth.tieneOffline()) return;
         if (!navigator.onLine) { sinServidor = true; refrescarBoton(); return; }
         // Tope de 4s: sin él, una red que traga los paquetes sin contestar dejaría el
         // botón de acceso local sin aparecer nunca.
