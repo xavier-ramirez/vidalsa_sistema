@@ -175,6 +175,38 @@ function renderFleetEquiposAsignados(lista) {
 /**
  * Open Fleet Dashboard Modal
  */
+/**
+ * Muestra/quita el aviso de "esto necesita internet" dentro del área de gráficos.
+ *
+ * Los paneles se OCULTAN, no se borran, y esto NO es un detalle de estilo: createCharts()
+ * busca sus <canvas> por id (chartAgeByType, …), así que reemplazar el innerHTML del
+ * contenedor los destruye para siempre. Si después vuelve la conexión SIN recargar la
+ * página —caso real: el banner de "Conexión restaurada" no recarga si el usuario nunca
+ * activó el modo offline— el Dashboard ya no podría dibujar ningún gráfico.
+ */
+function avisoSinConexion(activo) {
+    const charts = document.getElementById('fleetChartsGrid');
+    if (!charts) return;
+    const ID = 'fdmAvisoOffline';
+
+    Array.prototype.forEach.call(charts.children, (el) => {
+        if (el.id !== ID) el.style.display = activo ? 'none' : '';
+    });
+
+    const previo = document.getElementById(ID);
+    if (!activo) { if (previo) previo.remove(); return; }
+    if (previo) return;
+
+    const aviso = document.createElement('div');
+    aviso.id = ID;
+    aviso.style.cssText = 'background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:28px 20px;text-align:center;color:#94a3b8;font-size:13px;';
+    aviso.innerHTML =
+        '<i class="material-icons" style="font-size:40px;color:#cbd5e0;display:block;margin:0 auto 10px;">cloud_off</i>' +
+        'Los gráficos y el resumen de flota se calculan en el servidor: se ven al recuperar internet.<br>' +
+        '<span style="font-size:12px;">La lista de abajo sí sale de la copia local.</span>';
+    charts.appendChild(aviso);
+}
+
 window.openFleetDashboard = async function () {
     const modal = document.getElementById('fleetDashboardModal');
     if (!modal) return;
@@ -201,19 +233,10 @@ window.openFleetDashboard = async function () {
             const e = document.getElementById(id);
             if (e) e.textContent = '--';
         });
-        const charts = document.getElementById('fleetChartsGrid');
-        if (charts) {
-            charts.innerHTML =
-                '<div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:28px 20px;text-align:center;color:#94a3b8;font-size:13px;">' +
-                    '<i class="material-icons" style="font-size:40px;color:#cbd5e0;display:block;margin:0 auto 10px;">cloud_off</i>' +
-                    'Los gráficos y el resumen de flota se calculan en el servidor: se ven al recuperar internet.<br>' +
-                    '<span style="font-size:12px;">La lista de abajo sí sale de la copia local.</span>' +
-                '</div>';
-        }
-        const asignados = document.getElementById('fdm-panel-assigned');
-        if (asignados) asignados.style.display = 'none';
+        avisoSinConexion(true);
         return;
     }
+    avisoSinConexion(false);   // por si el modal se abrió sin conexión en esta misma página
 
     modal.classList.add('active');
     modal.style.display = 'flex';
