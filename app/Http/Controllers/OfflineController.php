@@ -442,6 +442,13 @@ class OfflineController extends Controller
         // total del almacén.
         return AlmacenStock::query()
             ->join('productos_inventario as p', 'p.ID_PRODUCTO', '=', 'almacen_stock.ID_PRODUCTO')
+            // El join es CRUDO: no le aplica ni el scope activos() ni el de SoftDeletes del
+            // modelo, así que sin estas dos condiciones viajaban filas de stock de productos
+            // BORRADOS o INACTIVOS y el inventario offline los listaba aunque la web no
+            // (online usa ProductoInventario::query()->activos(), que exige las dos).
+            // Detectado con dos productos con deleted_at que seguían apareciendo sin conexión.
+            ->whereNull('p.deleted_at')
+            ->where('p.ESTATUS', 'ACTIVO')
             ->whereIn('almacen_stock.ID_ALMACEN', $almIds)
             ->when($desde, fn ($q) => $q->where(fn ($w) => $w
                 ->where('almacen_stock.updated_at', '>=', $desde)

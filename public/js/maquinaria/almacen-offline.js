@@ -51,6 +51,12 @@
         return String(e.value || '').trim() || String(e.dataset.active || '').trim();
     }
 
+    // "Ver todo el stock": el online lo lleva en una variable de su closure
+    // (almVerTodoActivo), que desde aquí no se puede leer. Se replica su MISMA regla —
+    // lo enciende almCargar({verTodo:true}) y cualquier otra recarga lo apaga — leyendo
+    // el argumento en el punto donde ya se intercepta almCargar (ver init).
+    let verTodo = false;
+
     function estadoFiltros() {
         const selEl = document.getElementById('almSelAlmacen');
         const bajo = document.getElementById('almBadgeBajo');
@@ -61,7 +67,18 @@
             cat:          norm(valorFiltro('almFiltroCat')),
             soloBajo:     !!(bajo && bajo.classList.contains('is-on')),
             soloConSaldo: !!(conS && conS.classList.contains('is-on')),
+            verTodo:      verTodo,
         };
+    }
+
+    // Réplica del $hayFiltro del backend (AlmacenController::inventario): la tabla del
+    // almacén ARRANCA VACÍA y solo lista cuando hay un filtro de CONTENIDO. Sin esta
+    // puerta, al abrir Inventario sin conexión se volcaba el inventario entero, que no
+    // es lo que hace la web.
+    // OJO: el almacén seleccionado NO cuenta — es el contexto, no un filtro (mismo
+    // criterio que el backend, que lo excluye a propósito de esta comprobación).
+    function hayFiltro(f) {
+        return !!(f.q || f.cat || f.soloBajo || f.soloConSaldo || f.verTodo);
     }
 
     // minima llega como float (null → 0 en el snapshot): mínimo > 0 = "tiene mínimo
@@ -100,7 +117,13 @@
         // Cancela el scroll infinito del pintado anterior: los caminos que terminan en un
         // MENSAJE no pasan por porLotes y dejarían su observador vivo.
         OM.detenerLotes(tbody);
-        const stock = await window.OfflineDB.get('stock').catch(() => []);
+        // Los almacenes viajan en el snapshot: hacen falta para nombrar el almacén en el
+        // estado vacío igual que online (#almSelAlmacen es un input hidden con el ID, no
+        // un <select>, así que el nombre no está en el DOM).
+        const [stock, almacenes] = await Promise.all([
+            window.OfflineDB.get('stock').catch(() => []),
+            window.OfflineDB.get('almacenes').catch(() => []),
+        ]);
 
         if (!stock || !stock.length) {
             tbody.innerHTML = filaMensaje(
@@ -113,11 +136,25 @@
         const f = estadoFiltros();
         pintarStats(stock, f.idAlm);
 
+        // Sin filtro de contenido: mismo estado inicial que online, no el inventario entero.
+        if (!hayFiltro(f)) {
+            const alm = (almacenes || []).find(function (a) { return Number(a.id) === Number(f.idAlm); });
+            const nombre = alm ? alm.nombre : '';
+            tbody.innerHTML = filaMensaje(
+                '<i class="material-icons" style="font-size:46px;color:#cbd5e0;display:block;margin:0 auto 10px;">filter_alt</i>' +
+                'Usa los filtros para ver el inventario' + (nombre ? ' de <strong>' + esc(nombre) + '</strong>' : '') + '.'
+            );
+            return;
+        }
+
         let filas = filtrar(stock, f);
         filas.sort(function (a, b) { return String(a.nombre).localeCompare(String(b.nombre), 'es'); });
 
         if (!filas.length) {
-            tbody.innerHTML = filaMensaje('No hay productos en la copia local que coincidan con los filtros.');
+            tbody.innerHTML = filaMensaje(
+                '<i class="material-icons" style="font-size:42px;color:#cbd5e0;display:block;margin:0 auto 8px;">search_off</i>' +
+                'Sin coincidencias en la copia local.'
+            );
             return;
         }
 
@@ -152,7 +189,12 @@
         // selector de almacén terminan todos en almCargar() — offline se filtra local.
         if (typeof window.almCargar === 'function' && window.almCargar !== window._almOffPatchedCargar) {
             window._origAlmCargar = window.almCargar;
-            window._almOffPatchedCargar = function () {
+            window._almOffPatchedCargar = function (opts) {
+                // MISMA regla que el online (`if (!append) almVerTodoActivo = !!opts.verTodo`):
+                // solo almCargar({verTodo:true}) lo enciende y cualquier otra recarga lo apaga;
+                // el append del scroll infinito lo conserva.
+                if (typeof opts === 'string' || opts == null) opts = {};
+                if (!(opts.append && opts.offset > 0)) verTodo = !!opts.verTodo;
                 if (OM.estaActivo()) { OM.conOfflineDB(render); return; }
                 // Sin conexión pero SIN activar el modo offline: bloqueamos el filtro (no
                 // pegarle al servidor caído) y avisamos que pulse "Trabajar sin conexión".
