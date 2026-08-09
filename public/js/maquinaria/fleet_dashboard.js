@@ -179,6 +179,17 @@ window.openFleetDashboard = async function () {
     const modal = document.getElementById('fleetDashboardModal');
     if (!modal) return;
 
+    // SIN CONEXIÓN no se abre. Sus cifras salen de /admin/equipos/fleet-stats — consultas
+    // de agregación que el snapshot offline no replica (auxiliares y consumo ni siquiera
+    // viajan). Antes el modal se abría igual, el fetch fallaba y encima quedaba un segundo
+    // modal de error con el detalle técnico ("Failed to fetch"), que es lo que el cliente
+    // reportó en teléfono. Mejor no abrirlo y decir por qué.
+    const OM = window.OfflineMode;
+    if (OM && (OM.estaActivo() || (OM.pendienteActivar && OM.pendienteActivar()))) {
+        if (window.toast) window.toast('El Dashboard de Flota necesita internet: sus cifras se calculan en el servidor.', 'warning');
+        return;
+    }
+
     modal.classList.add('active');
     modal.style.display = 'flex';
 

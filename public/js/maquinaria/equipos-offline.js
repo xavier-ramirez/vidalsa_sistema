@@ -185,6 +185,40 @@
         return true;
     }
 
+    // ── Consolidado (contadores del sidebar) ────────────────────────────────────
+    // Offline nadie los escribía: los actualiza la respuesta AJAX de loadEquipos, que
+    // sin conexión no existe, así que se quedaban con las cifras que pintó el servidor
+    // al cargar la página — o en '--' — sin importar el filtro. Se recalculan de la copia
+    // local siguiendo las MISMAS reglas del online (equipos_index.js):
+    //   · sin filtros activos → '--' (no un cero, que se leería como "no hay equipos")
+    //   · con filtros → cuenta sobre TODO el conjunto filtrado, no sobre el lote pintado
+    // Se escriben las dos variantes, escritorio y teléfono (mobile_*): en pantalla chica
+    // las visibles son las mobile_, que es donde el cliente reportó no ver los totales.
+    // Los de AUXILIARES van a '--' a proposito: no viajan en el snapshot, y dejar la cifra
+    // del servidor seria mostrar un dato que no se puede sostener sin conexión.
+    function pintarStats(filas, hay) {
+        const poner = function (id, valor) {
+            const e = document.getElementById(id);
+            if (e && e.textContent !== String(valor)) e.textContent = valor;
+        };
+        const v = function (n) { return hay ? n : '--'; };
+        const cuenta = function (estado) {
+            return filas.reduce(function (n, e) { return n + (e.estado === estado ? 1 : 0); }, 0);
+        };
+        const total = filas.length, oper = cuenta('OPERATIVO'), inop = cuenta('INOPERATIVO');
+
+        poner('stats_total', v(total));
+        poner('stats_activos', v(oper));
+        poner('stats_inactivos', v(inop));
+        poner('mobile_stats_total', v(total));
+        poner('mobile_stats_activos', v(oper));
+        poner('mobile_stats_inactivos', v(inop));
+
+        ['aux_stats_total', 'aux_stats_activos', 'aux_stats_inactivos',
+         'aux_mobile_stats_total', 'aux_mobile_stats_activos', 'aux_mobile_stats_inactivos']
+            .forEach(function (id) { poner(id, '--'); });
+    }
+
     // Mensaje a pantalla completa dentro de la tabla, con el mismo formato que los estados
     // vacíos online (partials/table_rows.blade.php).
     function filaMensaje(icono, texto) {
@@ -212,10 +246,12 @@
 
         const f = leerFiltros();
         if (!hayFiltro(f)) {
+            pintarStats([], false);        // sin filtros el Consolidado va en '--', igual que online
             tbody.innerHTML = filaMensaje('filter_alt', 'SELECCIONE UN FILTRO PARA VER LOS EQUIPOS.');
             return;
         }
         if (esModoAux(f)) {
+            pintarStats([], false);
             tbody.innerHTML = filaMensaje('cloud_off', 'LOS EQUIPOS AUXILIARES NO ESTÁN EN LA COPIA LOCAL. CONÉCTATE A INTERNET PARA VERLOS.');
             return;
         }
@@ -232,6 +268,8 @@
 
         const especifico = filtroEspecifico(f);
         const filas = datos.filter(function (e) { return coincide(e, f, especifico); });
+        // Sobre el conjunto filtrado COMPLETO, no sobre el lote de 150 que se pinta.
+        pintarStats(filas, true);
 
         if (!filas.length) {
             tbody.innerHTML = filaMensaje('search_off', 'NO SE ENCONTRARON EQUIPOS CON LOS FILTROS APLICADOS.');
