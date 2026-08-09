@@ -1320,7 +1320,7 @@
         .fdm-cam:hover { background: #f1f5f9; }
         .fdm-cam .material-icons { font-size: 17px; }
 
-        /* ── Tarjetas KPI (Σ Equipos / Σ Auxiliares / Consumo est.) ──────────
+        /* ── Tarjetas KPI (Σ Equipos / Σ Auxiliares / Gasoil estimado) ───────
            Las tres son IDÉNTICAS salvo etiqueta e id, con el acento azul del proyecto.
            (Flota nueva/antigua ya no son tarjetas: viven como claves de serie dentro de
            #fdm-panel-age.) El estilo vive aquí y no en styles inline: si no, son copias
@@ -1376,14 +1376,16 @@
                el override de móvil, para que no cambie de tamaño entre PC y teléfono. */
             font-size: 12px;
             line-height: 1.25;
-            /* Se parte en dos lineas cuando hace falta (p. ej. "Consumo est. (L/dia)" en
-               una columna estrecha). Es el texto el que cede, no la cifra. min-width:0 para
+            /* Se parte en dos lineas cuando hace falta (p. ej. "Gasoil estimado por dia (L)"
+               en una columna estrecha). Es el texto el que cede, no la cifra. min-width:0 para
                que pueda encogerse de verdad dentro del flex. */
             white-space: normal;
             min-width: 0;
-            /* --fd-ink-2 y NO la tinta de mobiliario: es TEXTO. Con #8a94a6 el contraste
-               sobre blanco era 3.06:1 y AA exige 4.5:1 para texto normal. */
-            color: var(--fd-ink-2);
+            /* NEGRO a pedido del cliente (antes var(--fd-ink-2) = #64748b, gris): la etiqueta
+               se leía apagada al lado de la cifra. 21:1 de contraste, muy por encima del 4.5:1
+               que exige AA — el motivo por el que NUNCA debe usarse aquí --fd-ink-3 (#8a94a6,
+               3.06:1) sigue vigente. */
+            color: #000;
             font-weight: 500;
         }
 
@@ -1413,14 +1415,16 @@
 
         /* El buscador va PRIMERO y es quien crece; los contadores ocupan lo suyo a la
            derecha. Antes el grid crecia y el buscador iba al final. */
-        /* 620px y no 430: el 430 estaba calculado para DOS tarjetas (~210 cada una, el ancho
-           que "Consumo est.  0.00 L/dia" necesita para no partirse en horizontal). Al entrar
-           la tercera (Σ Auxiliares) ese mismo 430 dejaba ~137 por tarjeta y la etiqueta de
-           consumo volvia a romperse. 3 x 200 + 2 x 10 de gap = 620 mantiene el ancho por
-           tarjeta. Sigue siendo `0 1`: si el modal es estrecho, el grid cede antes que el
-           buscador. Si algun dia se agrega o quita una tarjeta, recalcular este numero. */
+        /* 540px (antes 620): el cliente pidio MAS ancho para el buscador de frente y menos
+           para las tarjetas. En el modal (880 max, menos 40 de padding = ~840 utiles) eso
+           lleva al buscador de ~210px a ~290px. Las tarjetas absorben el recorte sin perder
+           legibilidad porque ya NO se reparten en tres partes iguales: las dos Σ (etiqueta
+           corta) ceden su ancho y la de gasoil conserva el suyo — ver grid-template-columns
+           en el HTML.
+           Sigue siendo `0 1`: si el modal es estrecho, el grid cede antes que el buscador.
+           Si algun dia se agrega o quita una tarjeta, recalcular este numero. */
         .fleet-topline .fleet-stats-grid {
-            flex: 0 1 620px;
+            flex: 0 1 540px;
             min-width: 0;
             margin: 0 !important;
         }
@@ -1559,7 +1563,14 @@
                 {{-- Sin margin aquí: la grid vive dentro de .fleet-topline, que lo anula con
                      `margin: 0 !important`. El que separa de los gráficos es el margen
                      inferior del propio .fleet-topline. --}}
-                <div class="fleet-stats-grid" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px;">
+                {{-- Columnas DESIGUALES a proposito. "Σ Equipos" y "Σ Auxiliares" son etiquetas
+                     cortas y con tres partes iguales les sobraba ancho; la de gasoil es la
+                     larga y es la unica que lo necesita. Con 0.8 / 0.8 / 1 sobre los 520px
+                     utiles (540 de grid menos los dos gaps de 10) sale 160 + 160 + 200: las dos
+                     Σ bajan de 200 a 160 y la de gasoil CONSERVA sus 200, o sea que el recorte
+                     que ensancha el buscador no se lo come la tarjeta apretada.
+                     Si se cambia el flex-basis del grid, rehacer esta cuenta. --}}
+                <div class="fleet-stats-grid" style="display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 0.8fr) minmax(0, 1fr); gap: 10px;">
 
                     {{-- Las 3 tarjetas comparten el MISMO estilo (ver .fleet-kpi*): solo cambian
                          etiqueta e id. Etiqueta + cifra, sin ícono.
@@ -1581,7 +1592,7 @@
                     </div>
 
                     <div class="fleet-kpi">
-                        <p class="fleet-kpi-lbl">Consumo est. (L/día)</p>
+                        <p class="fleet-kpi-lbl">Gasoil estimado L/día</p>
                         <h3 id="stat_consumption" class="fleet-kpi-val">0</h3>
                     </div>
                 </div>
@@ -1733,10 +1744,10 @@
                 gap: 8px !important;
             }
 
-            /* En ESCRITORIO el grid lleva `flex: 0 1 320px` para repartir el ancho con el
-               buscador. Al pasar la fila a COLUMNA ese 320px deja de ser ancho y pasa a ser
-               ALTURA (flex-basis sigue al eje principal), y las tarjetas se estiraban a 320px
-               de alto. Aqui vuelve a tamaño de contenido. */
+            /* En ESCRITORIO el grid lleva un `flex-basis` en px (hoy 540) para repartir el
+               ancho con el buscador. Al pasar la fila a COLUMNA ese valor deja de ser ancho y
+               pasa a ser ALTURA (flex-basis sigue al eje principal), y las tarjetas se
+               estiraban a esa medida de alto. Aqui vuelve a tamaño de contenido. */
             #fleetDashboardModal .fleet-topline .fleet-stats-grid {
                 flex: none !important;
             }
