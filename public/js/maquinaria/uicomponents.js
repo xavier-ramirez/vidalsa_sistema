@@ -1131,7 +1131,7 @@ window.showDetailsImproved = function (target, event) {
 
             // Tipos alineados con el nuevo modulo Equipos Auxiliares (App\Models\EquipoAuxiliar).
             const SA_TIPO_CFG = {
-                MAQUINA_SOLDAR:   { icon: 'flash_on',     color: '#f59e0b', bg: '#fff7ed', label: 'Máq. Soldar'   },
+                MAQUINA_DE_SOLDAR: { icon: 'flash_on',    color: '#f59e0b', bg: '#fff7ed', label: 'Máq. Soldar'   },
                 LUMINARIA:        { icon: 'lightbulb',    color: '#eab308', bg: '#fefce8', label: 'Luminaria'     },
                 COMPRESOR:        { icon: 'compress',     color: '#0ea5e9', bg: '#f0f9ff', label: 'Compresor'     },
                 PLANTA_ELECTRICA: { icon: 'bolt',         color: '#eab308', bg: '#fefce8', label: 'Planta Eléc.'  },
@@ -1180,10 +1180,10 @@ window.showDetailsImproved = function (target, event) {
                     // para que se vean IGUALES: 3 líneas → (TIPO · MARCA · MODELO) gris / serial /
                     // estado con ícono. Sin badge a la derecha.
                     const marcaModelo = [sa.marca, sa.modelo].filter(Boolean).join(' · ');
-                    // Si el tipo cae al fallback OTRO (sea "OTRO" real o un tipo sin config, p.ej.
-                    // MAQUINA_DE_SOLDAR que no matchea la clave MAQUINA_SOLDAR) NO se antepone la
-                    // palabra "Otro" (no aporta y molesta): se muestra solo la marca/modelo. Para
-                    // tipos con config propia sí va "TIPO · MARCA · MODELO".
+                    // Si el tipo cae al fallback OTRO (sea "OTRO" real o un tipo sin config
+                    // propia, p.ej. HIDROJET o MONTACARGA) NO se antepone la palabra "Otro"
+                    // (no aporta y molesta): se muestra solo la marca/modelo. Para tipos con
+                    // config propia sí va "TIPO · MARCA · MODELO".
                     const esOtro = (tc === SA_TIPO_CFG.OTRO);
                     const tipoMarcaLine = esOtro
                         ? (marcaModelo.toUpperCase() || tc.label)

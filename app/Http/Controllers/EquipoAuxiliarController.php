@@ -2422,9 +2422,11 @@ class EquipoAuxiliarController extends Controller
 
         // TIPO: si el usuario seleccionó una etiqueta legible del datalist
         // (ej. "Maquina de Soldar"), mapearla al codigo enum correspondiente
-        // (MAQUINA_SOLDAR) para preservar la consistencia con los registros
+        // (MAQUINA_DE_SOLDAR) para preservar la consistencia con los registros
         // existentes. Comparacion case-insensitive. Si no hay match, se
-        // normaliza como tipo custom (uppercase + underscores).
+        // normaliza como tipo custom (uppercase + underscores) — y las claves de
+        // tiposLabel() estan escritas para COINCIDIR con esa normalizacion, para
+        // que las dos vias produzcan el MISMO codigo y no se dupliquen tipos.
         if ($request->filled('TIPO')) {
             $input = trim($request->input('TIPO'));
             $labels = EquipoAuxiliar::tiposLabel(); // [code => label]
@@ -2503,7 +2505,7 @@ class EquipoAuxiliarController extends Controller
         ]);
 
         // Normaliza TIPO: uppercase + espacios por guiones_bajos para mantener consistencia
-        // con los codigos existentes (MAQUINA_SOLDAR, etc.) cuando el usuario escribe uno nuevo.
+        // con los codigos existentes (MAQUINA_DE_SOLDAR, etc.) cuando el usuario escribe uno nuevo.
         if (isset($validated['TIPO'])) {
             $validated['TIPO'] = mb_strtoupper(preg_replace('/\s+/', '_', trim($validated['TIPO'])));
         }

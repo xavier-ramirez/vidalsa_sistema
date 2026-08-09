@@ -242,14 +242,34 @@ class CaracteristicaModeloController extends Controller
         return $items->sortBy('sort')->values();
     }
 
-    /** Mapa TIPO => etiqueta legible de auxiliares (mismo criterio que el módulo aux). */
+    /**
+     * Mapa TIPO => etiqueta de auxiliares para el catálogo, EN MAYÚSCULAS y solo con los
+     * tipos que EXISTEN de verdad — mismo criterio que $tiposVehiculo, que también se acota
+     * a los tipos presentes en el catálogo (y con el mismo scope de frentes que la lista, así
+     * el filtro no ofrece opciones que a ese usuario le darían cero resultados).
+     *
+     * Antes se partía del mapa fijo EquipoAuxiliar::tiposLabel() y se le añadían los tipos
+     * sueltos, lo que dejaba dos defectos en el filtro "Tipo":
+     *   · Opciones muertas: 'OTRO' no lo usa ningún auxiliar.
+     *   · Los auxiliares se veían en minúscula ("Planta Eléctrica") junto a los vehículos,
+     *     que van en mayúscula porque TipoEquipo.nombre se guarda así.
+     * El mapa fijo se sigue usando como fuente de la etiqueta bonita (CONTAINER → CONTENEDOR);
+     * para los tipos que no están en él, el propio TIPO sin guiones bajos.
+     */
     private function tiposAuxLabels(): array
     {
-        $tipos = EquipoAuxiliar::tiposLabel();
-        foreach (EquipoAuxiliar::whereNotNull('TIPO')->where('TIPO', '!=', '')->distinct()->orderBy('TIPO')->pluck('TIPO') as $t) {
-            if (!isset($tipos[$t])) {
-                $tipos[$t] = ucwords(mb_strtolower(str_replace('_', ' ', $t)));
-            }
+        $fijos = EquipoAuxiliar::tiposLabel();
+
+        $q = EquipoAuxiliar::query();
+        if ($user = auth()->user()) {
+            $user->aplicarScopeFrentesEquipos($q, 'ID_FRENTE_ACTUAL');
+        }
+        $presentes = $q->whereNotNull('TIPO')->where('TIPO', '!=', '')
+            ->distinct()->orderBy('TIPO')->pluck('TIPO');
+
+        $tipos = [];
+        foreach ($presentes as $t) {
+            $tipos[$t] = mb_strtoupper($fijos[$t] ?? str_replace('_', ' ', $t));
         }
         return $tipos;
     }

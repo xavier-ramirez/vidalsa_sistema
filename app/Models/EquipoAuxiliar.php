@@ -31,7 +31,11 @@ class EquipoAuxiliar extends Model
     public static function tiposLabel(): array
     {
         return [
-            'MAQUINA_SOLDAR'   => 'Máquina de Soldar',
+            // MAQUINA_DE_SOLDAR (no MAQUINA_SOLDAR): es la clave que tienen los registros
+            // reales y la que produce la normalización "uppercase + guiones bajos" de
+            // EquipoAuxiliarController. Tenerla distinta aquí generaba DOS tipos para lo
+            // mismo — el del datalist y el del texto normalizado.
+            'MAQUINA_DE_SOLDAR' => 'Máquina de Soldar',
             'LUMINARIA'        => 'Luminaria / Torre',
             'COMPRESOR'        => 'Compresor',
             'PLANTA_ELECTRICA' => 'Planta Eléctrica',
@@ -43,7 +47,7 @@ class EquipoAuxiliar extends Model
     public static function tiposIcono(): array
     {
         return [
-            'MAQUINA_SOLDAR'   => 'flash_on',
+            'MAQUINA_DE_SOLDAR' => 'flash_on',
             'LUMINARIA'        => 'lightbulb',
             'COMPRESOR'        => 'compress',
             'PLANTA_ELECTRICA' => 'bolt',
