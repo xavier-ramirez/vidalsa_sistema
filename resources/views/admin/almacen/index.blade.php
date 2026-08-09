@@ -2168,6 +2168,9 @@
         if (typeof almResetPick === 'function') almResetPick();
         almVerTodoActivo = false;
         if (typeof window.almSelClear === 'function') window.almSelClear();
+        // Recolocar Consolidado y "En otros almacenes" en el DOM NUEVO: el cuerpo del IIFE
+        // (que los coloca al montar) no vuelve a correr en una re-entrada por SPA.
+        if (typeof window.almColocarSidebarMovil === 'function') window.almColocarSidebarMovil();
     };
     // Pintar al inicio para reflejar el estado leido de la URL.
     almPintarBadges();
@@ -4763,6 +4766,15 @@
             }
         }
         place();
+        // Se expone porque este IIFE vive DENTRO del bloque protegido por
+        // window.__almIndexInit: en una re-entrada por SPA ese guard sale antes y place()
+        // NO se vuelve a ejecutar, aunque el DOM sea nuevo. Sin esto el Consolidado se
+        // quedaba en su posición por defecto del grid (debajo de la tabla) en vez de subir
+        // bajo el botón Acciones — el "a veces sí, a veces no" que reportó el cliente:
+        // salía bien al entrar por URL o al recargar (primer montaje) y mal al llegar por
+        // el menú. Lo llama almResetOnRemount(), que es el punto por el que ya pasa todo
+        // re-montaje para resincronizarse contra el DOM nuevo.
+        window.almColocarSidebarMovil = place;
         var resizeTimer;
         window.addEventListener('resize', function () {
             clearTimeout(resizeTimer);
