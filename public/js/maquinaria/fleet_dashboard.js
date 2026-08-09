@@ -179,14 +179,39 @@ window.openFleetDashboard = async function () {
     const modal = document.getElementById('fleetDashboardModal');
     if (!modal) return;
 
-    // SIN CONEXIÓN no se abre. Sus cifras salen de /admin/equipos/fleet-stats — consultas
-    // de agregación que el snapshot offline no replica (auxiliares y consumo ni siquiera
-    // viajan). Antes el modal se abría igual, el fetch fallaba y encima quedaba un segundo
-    // modal de error con el detalle técnico ("Failed to fetch"), que es lo que el cliente
-    // reportó en teléfono. Mejor no abrirlo y decir por qué.
+    // SIN CONEXIÓN el modal SÍ se abre, pero no se le pide nada al servidor.
+    //
+    // No se puede simplemente bloquearlo: en TELÉFONO la tarjeta de Distribución
+    // ("Equipos y Maquinaria" / "Ubicación por Frente") se muda DENTRO de este modal
+    // (colocarDistribucionMovil), así que cerrarlo dejaba sin acceso a una lista que sí
+    // se calcula de la copia local — la pinta equipos-offline.js.
+    //
+    // Lo que sí necesita servidor son las cifras de /admin/equipos/fleet-stats (Σ
+    // Auxiliares y el gasoil ni siquiera viajan en el snapshot) y los gráficos. Antes se
+    // intentaba el fetch igual, fallaba y quedaba encima un segundo modal de error con el
+    // detalle técnico ("Failed to fetch"). Ahora esas partes se marcan como no disponibles
+    // y el resto del modal queda usable.
     const OM = window.OfflineMode;
     if (OM && (OM.estaActivo() || (OM.pendienteActivar && OM.pendienteActivar()))) {
-        if (window.toast) window.toast('El Dashboard de Flota necesita internet: sus cifras se calculan en el servidor.', 'warning');
+        modal.classList.add('active');
+        modal.style.display = 'flex';
+        const spinner = document.getElementById('fleetDashboardSpinner');
+        if (spinner) spinner.style.display = 'none';
+        ['stat_total', 'stat_aux_total', 'stat_consumption'].forEach((id) => {
+            const e = document.getElementById(id);
+            if (e) e.textContent = '--';
+        });
+        const charts = document.getElementById('fleetChartsGrid');
+        if (charts) {
+            charts.innerHTML =
+                '<div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:28px 20px;text-align:center;color:#94a3b8;font-size:13px;">' +
+                    '<i class="material-icons" style="font-size:40px;color:#cbd5e0;display:block;margin:0 auto 10px;">cloud_off</i>' +
+                    'Los gráficos y el resumen de flota se calculan en el servidor: se ven al recuperar internet.<br>' +
+                    '<span style="font-size:12px;">La lista de abajo sí sale de la copia local.</span>' +
+                '</div>';
+        }
+        const asignados = document.getElementById('fdm-panel-assigned');
+        if (asignados) asignados.style.display = 'none';
         return;
     }
 

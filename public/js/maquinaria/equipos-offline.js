@@ -69,7 +69,8 @@
     let especiales = new Set();
     let avisoEjes  = '';     // último aviso de ejes no soportados (evita repetirlo)
 
-    const up = (s) => String(s == null ? '' : s).toUpperCase();
+    const up  = (s) => String(s == null ? '' : s).toUpperCase();
+    const txt = (s) => String(s == null ? '' : s);
 
     // ── Lectura de filtros: los MISMOS inputs y el MISMO alcance que loadEquipos ──
     // Los avanzados se leen dentro de #advancedFilterPanel igual que online; leerlos de
@@ -154,10 +155,17 @@
         return !valorFiltro || up(valorFila) === up(valorFiltro);
     }
 
-    function coincide(e, f, especifico) {
+    // `omitir` replica el 3er argumento $exclude de applyEquipoFilters: deja fuera UN eje
+    // para poder contar sin autolimitarse. Lo usan las dos listas de Distribución, igual
+    // que el backend — la de tipos ignora el filtro de tipo y la de frentes el de frente.
+    // Ojo: al omitir 'frente' se salta el bloque ENTERO, incluido excludeEspecial(), que
+    // en el backend vive dentro de ese mismo `if`.
+    function coincide(e, f, especifico, omitir) {
         if (!coincideBusqueda(e, f.q)) return false;
 
-        if (f.frente === 'none') {
+        if (omitir === 'frente') {
+            // nada: el eje de frente no participa
+        } else if (f.frente === 'none') {
             if (e.id_frente != null) return false;
         } else if (f.frente && f.frente !== 'all') {
             if (String(e.id_frente == null ? '' : e.id_frente) !== f.frente) return false;
@@ -165,7 +173,7 @@
             return false;   // excludeEspecial(): asignaciones especiales fuera del listado general
         }
 
-        if (f.tipo && f.tipo !== 'all') {
+        if (omitir !== 'tipo' && f.tipo && f.tipo !== 'all') {
             // El dropdown manda el id pelado; 'tipo_eq:N' lo acepta el backend y se replica.
             const idTipo = f.tipo.indexOf('tipo_eq:') === 0 ? f.tipo.slice(8) : f.tipo;
             if (String(e.id_tipo == null ? '' : e.id_tipo) !== String(idTipo)) return false;
@@ -205,7 +213,12 @@
         const cuenta = function (estado) {
             return filas.reduce(function (n, e) { return n + (e.estado === estado ? 1 : 0); }, 0);
         };
-        const total = filas.length, oper = cuenta('OPERATIVO'), inop = cuenta('INOPERATIVO');
+        // El TOTAL del backend NO es el número de filas: excluye los DESINCORPORADOS
+        // (usa total_activa), salvo que el usuario filtre justamente por ese estado, en
+        // cuyo caso pasa a contarlos. Se replica igual o el total offline saldría inflado.
+        const filtroDesinc = up((leerFiltros().estado || '')) === 'DESINCORPORADO';
+        const total = filtroDesinc ? filas.length : (filas.length - cuenta('DESINCORPORADO'));
+        const oper = cuenta('OPERATIVO'), inop = cuenta('INOPERATIVO');
 
         poner('stats_total', v(total));
         poner('stats_activos', v(oper));
@@ -232,6 +245,74 @@
         ['aux_stats_total', 'aux_stats_activos', 'aux_stats_inactivos',
          'aux_mobile_stats_total', 'aux_mobile_stats_activos', 'aux_mobile_stats_inactivos']
             .forEach(function (id) { poner(id, '--'); });
+    }
+
+    // ── Distribución ("Equipos y Maquinaria" / "Ubicación por Frente") ──────────
+    // En TELÉFONO esta tarjeta se muda dentro del Dashboard de Flota, así que es la
+    // única forma de consultarla ahí — y su contenido lo pintaba el AJAX, o sea que
+    // sin conexión se quedaba con las cifras del momento en que cargó la página.
+    // Se recalcula de la copia local replicando distribution_stats.blade.php:
+    //   · qué lista se muestra: por FRENTE si hay filtro de tipo y NO de frente; si no,
+    //     por TIPO (misma regla $showFrentes del partial)
+    //   · cada lista IGNORA su propio eje para no autolimitarse, igual que el backend
+    //     (applyEquipoFilters con $exclude), y la de frentes omite los equipos sin frente
+    //   · se ordenan por nombre y la barra es el porcentaje sobre el total de la lista
+    function agrupar(filas, idDe, nombreDe) {
+        const mapa = new Map();
+        filas.forEach(function (e) {
+            const id = idDe(e), nom = nombreDe(e) || '';
+            const clave = String(id == null ? '' : id);
+            const acc = mapa.get(clave);
+            if (acc) acc.total++;
+            else mapa.set(clave, { id: id, nombre: nom, total: 1 });
+        });
+        return Array.from(mapa.values())
+            .sort(function (a, b) { return txt(a.nombre).localeCompare(txt(b.nombre), 'es', { sensitivity: 'base' }); });
+    }
+
+    function pintarDistribucion(f, especifico) {
+        const cont = document.getElementById('distributionStatsContainer');
+        if (!cont) return;
+
+        const hayTipo   = !!(f.tipo && f.tipo !== 'all');
+        const hayFrente = !!(f.frente && f.frente !== 'all');
+        const porFrente = hayTipo && !hayFrente;
+
+        let filas, titulo, icono, colorIcono, barra, alTocar;
+        if (porFrente) {
+            filas = agrupar(datos.filter(function (e) {
+                return e.id_frente != null && coincide(e, f, especifico, 'frente');
+            }), function (e) { return e.id_frente; }, function (e) { return e.frente; });
+            titulo = 'Ubicación por Frente'; icono = 'map'; colorIcono = '#10b981';
+            barra = 'linear-gradient(90deg, #10b981 0%, #059669 100%)';
+            alTocar = function (g) { return "selectOption('frenteFilterSelect', '" + g.id + "', '" + esc(txt(g.nombre).replace(/'/g, "\\'")) + "'); loadEquipos();"; };
+        } else {
+            filas = agrupar(datos.filter(function (e) { return coincide(e, f, especifico, 'tipo'); }),
+                function (e) { return e.id_tipo; }, function (e) { return e.tipo; });
+            titulo = 'Equipos y Maquinaria'; icono = 'autorenew'; colorIcono = '#3b82f6';
+            barra = 'linear-gradient(90deg, #3b82f6 0%, #2563eb 100%)';
+            alTocar = function (g) { return "selectOption('tipoFilterSelect', '" + g.id + "', '" + esc(txt(g.nombre).replace(/'/g, "\\'")) + "'); loadEquipos();"; };
+        }
+
+        const suma = filas.reduce(function (n, g) { return n + g.total; }, 0);
+        cont.innerHTML =
+            '<h4 style="margin:0 0 12px 0;font-size:13px;text-transform:uppercase;color:#64748b;border-bottom:2px solid #f1f5f9;padding-bottom:8px;font-weight:700;display:flex;align-items:center;gap:8px;">' +
+                '<i class="material-icons" style="font-size:18px;color:' + colorIcono + ';">' + icono + '</i>' + titulo +
+            '</h4>' +
+            '<ul class="custom-scrollbar" style="list-style:none;padding:0;margin:0;max-height:62vh;overflow-y:auto;overflow-x:visible;overscroll-behavior:contain;display:flex;flex-direction:column;gap:4px;">' +
+            filas.map(function (g) {
+                const pct = suma > 0 ? (g.total / suma) * 100 : 0;
+                return '<li onclick="' + alTocar(g) + '" style="padding-bottom:4px;border-bottom:1px dashed #f1f5f9;transition:opacity .2s;cursor:pointer;">' +
+                    '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:2px;gap:4px;">' +
+                        '<span style="color:#334155;font-size:12.5px;font-weight:600;word-break:break-word;line-height:1.25;flex:1;">' + esc(g.nombre || (porFrente ? 'Sin Asignar' : 'Desconocido')) + '</span>' +
+                        '<span style="font-weight:700;color:#1e293b;font-size:12.5px;background:#f1f5f9;padding:2px 8px;border-radius:4px;flex-shrink:0;white-space:nowrap;">' + g.total + '</span>' +
+                    '</div>' +
+                    '<div style="width:100%;height:4px;background:#e2e8f0;border-radius:2px;overflow:hidden;">' +
+                        '<div style="width:' + pct + '%;height:100%;background:' + barra + ';border-radius:2px;"></div>' +
+                    '</div>' +
+                '</li>';
+            }).join('') +
+            '</ul>';
     }
 
     // Mensaje a pantalla completa dentro de la tabla, con el mismo formato que los estados
@@ -262,6 +343,10 @@
         const f = leerFiltros();
         if (!hayFiltro(f)) {
             pintarStats([], false);        // sin filtros el Consolidado va en '--', igual que online
+            // La Distribución SÍ se pinta sin filtros: el backend la calcula fuera del
+            // `if ($hasFilter)` a propósito, para que la tarjeta sirva de punto de partida
+            // (se toca un tipo y ese toque aplica el filtro). Ver EquipoController::index.
+            pintarDistribucion(f, filtroEspecifico(f));
             tbody.innerHTML = filaMensaje('filter_alt', 'SELECCIONE UN FILTRO PARA VER LOS EQUIPOS.');
             return;
         }
@@ -285,6 +370,7 @@
         const filas = datos.filter(function (e) { return coincide(e, f, especifico); });
         // Sobre el conjunto filtrado COMPLETO, no sobre el lote de 150 que se pinta.
         pintarStats(filas, true);
+        pintarDistribucion(f, especifico);
 
         if (!filas.length) {
             tbody.innerHTML = filaMensaje('search_off', 'NO SE ENCONTRARON EQUIPOS CON LOS FILTROS APLICADOS.');
