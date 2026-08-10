@@ -22,8 +22,13 @@ class GoogleDriveService
     public static function getInstance()
     {
         if (self::$instance === null) {
-            self::$instance = new self();
-            self::$instance->initialize();
+            // Se cachea SOLO si initialize() termino bien. Antes se asignaba self::$instance
+            // antes de inicializar, asi que si el token fallaba (red caida) la excepcion salia
+            // pero el singleton quedaba a medias: la siguiente llamada del mismo request
+            // devolvia ese objeto sin token, fallando despues con un error sin relacion.
+            $instance = new self();
+            $instance->initialize();
+            self::$instance = $instance;
         }
         return self::$instance;
     }

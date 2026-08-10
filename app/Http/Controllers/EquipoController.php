@@ -1708,7 +1708,7 @@ class EquipoController extends Controller
         }
 
         // NOW start DB transaction
-        DB::transaction(function () use ($request, $filesToProcess) {
+        $registrar = function () use ($request, $filesToProcess) {
             $tipoName = strtoupper($request->input('TIPO_EQUIPO'));
             $tipo = TipoEquipo::firstOrCreate(['nombre' => $tipoName]);
             $data = $request->except(['specs', 'responsable', 'documentacion', 'TIPO_EQUIPO', 'doc_propiedad', 'poliza_seguro', 'doc_rotc', 'doc_racda', 'foto_equipo', 'foto_referencial']);
@@ -1771,11 +1771,23 @@ class EquipoController extends Controller
             Documentacion::where('ID_EQUIPO', $equipo->ID_EQUIPO)->delete();
 
             // --- DOCUMENTATION & PHOTOS UPLOAD (SYNCHRONOUS DIRECT TO DRIVE) ---
-            $driveService = \App\Services\GoogleDriveService::getInstance();
-            $folderId = $driveService->getRootFolderId();
             $docDataUpdates = []; // FIX: Initialize variable to avoid 500 Error if no files are uploaded
 
             if (count($filesToProcess) > 0) {
+                // Drive SOLO si hay algo que subir. getInstance() abre conexion a Google para
+                // refrescar el token: si la red esta lenta lanza (cURL 28: SSL timeout) y tumba
+                // la transaccion entera. Estaba FUERA de este if, asi que un equipo sin fotos ni
+                // documentos tambien fallaba por una caida de internet, sin necesitar Drive.
+                try {
+                    $driveService = \App\Services\GoogleDriveService::getInstance();
+                } catch (\Throwable $e) {
+                    Log::error('Registro de equipo: sin conexion con Google Drive: ' . $e->getMessage());
+                    // 503 con mensaje: los HttpException SI exponen su texto al cliente aunque
+                    // APP_DEBUG este en false (un Exception normal sale como "Server Error").
+                    abort(503, 'No hay conexión con Google Drive: los archivos no se pudieron subir y el equipo NO se registró. Reintente en un momento, o regístrelo sin archivos y súbalos luego desde Editar.');
+                }
+                $folderId = $driveService->getRootFolderId();
+
                 // Folders Configuration (Same as Job)
                 $folders = [
                     'foto_equipo' => '1Pmm9WI6YSi6Wb6-2_L0D5wk5whHs-mCf',
@@ -1836,9 +1848,9 @@ class EquipoController extends Controller
 
                     } catch (\Exception $e) {
                         Log::error("Store Upload Error ({$type}): " . $e->getMessage());
-                        // Rethrow exception to trigger DB Loopback. 
+                        // Rethrow exception to trigger DB Loopback.
                         // We want "All or Nothing": If file fails, don't create the Equipment.
-                        throw new \Exception("Error subiendo el archivo {$type}: " . $e->getMessage());
+                        abort(503, "No se pudo subir «{$type}» a Google Drive, así que el equipo NO se registró. Reintente en un momento.");
                     }
                 }
             }
@@ -1880,7 +1892,19 @@ class EquipoController extends Controller
                     Responsable::create($reqResp);
                 }
             }
-        });
+        };
+
+        try {
+            DB::transaction($registrar);
+        } catch (\Throwable $e) {
+            // El rollback deshace el equipo, pero NO los archivos que se dejaron en
+            // temp_staging antes de abrir la transaccion (solo se borran uno a uno tras
+            // subirlos con exito). Sin esto, cada intento fallido dejaba basura en storage.
+            foreach ($filesToProcess as $fileData) {
+                Storage::disk('local')->delete($fileData['path']);
+            }
+            throw $e;
+        }
 
         $this->olvidarCachesListasEquipos();
 
@@ -2012,8 +2036,19 @@ class EquipoController extends Controller
         $validator = \Illuminate\Support\Facades\Validator::make($request->all(), []);
         // Custom validation for update: Check if file exists or is being uploaded if meta is present
         $validator->after(function ($validator) use ($request, $equipo) {
+            // Un dato de documentacion (nro/fecha) exige su archivo solo cuando el usuario lo
+            // ESCRIBE O LO CAMBIA en esta edicion. Muchas fichas vienen de la carga inicial con
+            // el dato pero sin PDF: exigirlo siempre dejaba esos equipos imposibles de editar
+            // —ni el color se podia guardar— pidiendo un archivo que nadie tiene. El dato ya
+            // guardado se respeta tal cual; en cuanto se toca, vuelve a pedir su archivo.
+            $sinCambios = function (string $campo) use ($request, $equipo) {
+                $enviado = trim((string) $request->input('documentacion.' . $campo, ''));
+                $actual  = trim((string) ($equipo->documentacion->$campo ?? ''));
+                return $enviado !== '' && $enviado === $actual;
+            };
+
             // Propiedad
-            if ($request->filled('documentacion.NRO_DE_DOCUMENTO')) {
+            if ($request->filled('documentacion.NRO_DE_DOCUMENTO') && !$sinCambios('NRO_DE_DOCUMENTO')) {
                 $hasFile = $request->hasFile('doc_propiedad');
                 $hasExisting = $equipo->documentacion && $equipo->documentacion->LINK_DOC_PROPIEDAD;
                 if (!$hasFile && !$hasExisting) {
@@ -2027,7 +2062,7 @@ class EquipoController extends Controller
             }
 
             // Poliza
-            if ($request->filled('documentacion.FECHA_VENC_POLIZA')) {
+            if ($request->filled('documentacion.FECHA_VENC_POLIZA') && !$sinCambios('FECHA_VENC_POLIZA')) {
                 $hasFile = $request->hasFile('poliza_seguro');
                 $hasExisting = $equipo->documentacion && $equipo->documentacion->LINK_POLIZA_SEGURO;
                 if (!$hasFile && !$hasExisting) {
@@ -2041,7 +2076,7 @@ class EquipoController extends Controller
             }
 
             // ROTC
-            if ($request->filled('documentacion.FECHA_ROTC')) {
+            if ($request->filled('documentacion.FECHA_ROTC') && !$sinCambios('FECHA_ROTC')) {
                 $hasFile = $request->hasFile('doc_rotc');
                 $hasExisting = $equipo->documentacion && $equipo->documentacion->LINK_ROTC;
                 if (!$hasFile && !$hasExisting) {
@@ -2055,7 +2090,7 @@ class EquipoController extends Controller
             }
 
             // RACDA
-            if ($request->filled('documentacion.FECHA_RACDA')) {
+            if ($request->filled('documentacion.FECHA_RACDA') && !$sinCambios('FECHA_RACDA')) {
                 $hasFile = $request->hasFile('doc_racda');
                 $hasExisting = $equipo->documentacion && $equipo->documentacion->LINK_RACDA;
                 if (!$hasFile && !$hasExisting) {
@@ -2090,8 +2125,22 @@ class EquipoController extends Controller
             unset($data['ID_FRENTE_ACTUAL']);
             $equipo->update($data);
 
-            $driveService = \App\Services\GoogleDriveService::getInstance();
-            $folderId = $driveService->getRootFolderId();
+            // Drive PEREZOSO: getInstance() conecta con Google para refrescar el token y, si la
+            // red esta lenta, lanza (cURL 28: SSL timeout) y hace rollback de TODA la edicion.
+            // Al instanciarlo aqui de entrada, guardar cambios de texto —sin tocar una sola foto
+            // ni PDF— tambien fallaba por internet. Ahora solo conecta cuando hay archivo.
+            $driveService = null;
+            $drive = function () use (&$driveService) {
+                if ($driveService === null) {
+                    try {
+                        $driveService = \App\Services\GoogleDriveService::getInstance();
+                    } catch (\Throwable $e) {
+                        Log::error('Edicion de equipo: sin conexion con Google Drive: ' . $e->getMessage());
+                        abort(503, 'No hay conexión con Google Drive: los archivos no se pudieron subir y los cambios NO se guardaron. Reintente en un momento.');
+                    }
+                }
+                return $driveService;
+            };
 
             if ($request->filled('ID_ESPEC')) {
                 $equipo->ID_ESPEC = $request->input('ID_ESPEC');
@@ -2102,7 +2151,7 @@ class EquipoController extends Controller
                         $catalogFolderId = config('filesystems.disks.google.catalog_folder'); // Specific folder for model photos
                         $file = $request->file('foto_referencial');
                         $filename = 'catalog_ref_' . time() . '.' . $file->getClientOriginalExtension();
-                        $driveFile = $driveService->uploadFile($catalogFolderId, $file, $filename, $file->getMimeType());
+                        $driveFile = $drive()->uploadFile($catalogFolderId, $file, $filename, $file->getMimeType());
                         if ($driveFile && isset($driveFile->id)) {
                             $espec->update(['FOTO_REFERENCIAL' => '/storage/google/' . $driveFile->id]);
                         }
@@ -2113,7 +2162,7 @@ class EquipoController extends Controller
             if ($request->hasFile('foto_equipo')) {
                 $file = $request->file('foto_equipo');
                 $photoFolderId = config('filesystems.disks.google.equipment_folder'); // Specific folder for equipment photos
-                $driveFile = $driveService->uploadFile($photoFolderId, $file, 'foto_unidad_' . time() . '.' . $file->getClientOriginalExtension(), $file->getMimeType());
+                $driveFile = $drive()->uploadFile($photoFolderId, $file, 'foto_unidad_' . time() . '.' . $file->getClientOriginalExtension(), $file->getMimeType());
                 if ($driveFile && isset($driveFile->id)) {
                     $timestamp = time();
                     $equipo->update(['FOTO_EQUIPO' => '/storage/google/' . $driveFile->id . '?v=' . $timestamp]);
@@ -2161,6 +2210,10 @@ class EquipoController extends Controller
                 foreach ($docTypes as $fileKey => $dbCol) {
                     if ($request->hasFile($fileKey)) {
                         $file = $request->file($fileKey);
+                        // Se resuelve UNA vez aqui: si se pidiera dentro del try de abajo, el
+                        // catch se tragaria el abort(503) de "sin conexion" y lo registraria
+                        // como un fallo de borrado, ademas de reintentar la conexion despues.
+                        $svc = $drive();
 
                         // Check for old file and delete it (Correctly using DB relation)
                         if ($equipo->documentacion && $equipo->documentacion->$dbCol && str_starts_with($equipo->documentacion->$dbCol, '/storage/google/')) {
@@ -2168,7 +2221,7 @@ class EquipoController extends Controller
                             $oldUrl = $equipo->documentacion->$dbCol;
                             $oldFileId = str_replace('/storage/google/', '', parse_url($oldUrl, PHP_URL_PATH));
                             try {
-                                $driveService->deleteFile($oldFileId);
+                                $svc->deleteFile($oldFileId);
                                 // Invalidate local cache
                                 \Illuminate\Support\Facades\Storage::disk('local')->delete('google_cache/' . $oldFileId);
                                 \Illuminate\Support\Facades\Cache::forget('gdrive_meta_' . $oldFileId);
@@ -2177,7 +2230,7 @@ class EquipoController extends Controller
                             }
                         }
 
-                        $driveFile = $driveService->uploadFile($folderId, $file, $fileKey . '_' . time() . '.pdf', 'application/pdf');
+                        $driveFile = $svc->uploadFile($svc->getRootFolderId(), $file, $fileKey . '_' . time() . '.pdf', 'application/pdf');
                         if ($driveFile && isset($driveFile->id)) {
                             $timestamp = time();
                             $docData[$dbCol] = '/storage/google/' . $driveFile->id . '?v=' . $timestamp;
