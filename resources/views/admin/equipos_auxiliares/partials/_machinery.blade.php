@@ -404,8 +404,12 @@
                     <summary style="display:flex;align-items:center;gap:10px;padding:8px 10px;cursor:pointer;list-style:none;">
                         ${fotoThumb}
                         <div style="display:flex;flex-direction:column;flex:1;min-width:0;gap:2px;">
-                            <span style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${tipoMarcaLine}</span>
-                            <span style="font-size:11px;font-weight:700;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.25;">${idPrincipal}</span>
+                            {{-- Tipo·marca y serial en NEGRO (antes #94a3b8 y #1e293b): son los
+                                 datos que identifican al equipo vinculado y en gris se perdían
+                                 sobre el fondo #f8fafc de la tarjeta. Mismo criterio que la
+                                 tarjeta gemela del modal de Equipos (uicomponents.js). --}}
+                            <span style="font-size:10px;font-weight:700;color:#000;text-transform:uppercase;letter-spacing:0.4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${tipoMarcaLine}</span>
+                            <span style="font-size:11px;font-weight:700;color:#000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.25;">${idPrincipal}</span>
                             ${frente ? `<span style="font-size:11px;color:#059669;font-weight:600;display:inline-flex;align-items:center;gap:3px;margin-top:1px;"><i class="material-icons" style="font-size:13px;">place</i>${frente}</span>` : `<span style="font-size:11px;color:#94a3b8;font-style:italic;display:inline-flex;align-items:center;gap:3px;margin-top:1px;"><i class="material-icons" style="font-size:13px;">location_off</i>Sin frente</span>`}
                         </div>
                         <i class="material-icons" style="font-size:18px;color:#94a3b8;flex-shrink:0;" title="Ver documentos del equipo">expand_more</i>
