@@ -1099,12 +1099,15 @@ window.showDetailsImproved = function (target, event) {
                 ${fotoHtml}
                 <div style="flex:1;min-width:0;">
                     <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;flex-wrap:wrap;">
-                        <strong style="font-size:13px;color:#1e293b;text-transform:uppercase;letter-spacing:0.3px;">${anchorTipo}</strong>
+                        <strong style="font-size:13px;color:#000;text-transform:uppercase;letter-spacing:0.3px;">${anchorTipo}</strong>
                         ${rolBadge}
                     </div>
-                    <div style="font-size:12px;color:#475569;font-weight:600;">${anchorMarca || '<em style=\"color:#94a3b8;font-weight:400;\">Sin marca</em>'}</div>
-                    <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:4px;font-size:11px;color:#64748b;">
-                        <span style="display:flex;align-items:center;gap:3px;"><i class="material-icons" style="font-size:11px;">${anchorPlaca?'featured_play_list':(anchorSerial?'fingerprint':'tag')}</i><strong style="color:#1e293b;">${idLabel}:</strong> ${idPrincipal}</span>
+                    <!-- Datos en NEGRO (antes #475569 y #64748b, gris): costaba leerlos.
+                         "Sin marca" se queda gris a propósito — es la AUSENCIA de un dato y
+                         en negro se leería como si el equipo tuviera esa marca. -->
+                    <div style="font-size:12px;color:#000;font-weight:600;">${anchorMarca || '<em style=\"color:#94a3b8;font-weight:400;\">Sin marca</em>'}</div>
+                    <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:4px;font-size:11px;color:#000;">
+                        <span style="display:flex;align-items:center;gap:3px;"><i class="material-icons" style="font-size:11px;">${anchorPlaca?'featured_play_list':(anchorSerial?'fingerprint':'tag')}</i><strong style="color:#000;">${idLabel}:</strong> ${idPrincipal}</span>
                         ${anchorCode && idLabel !== 'Código' ? `<span style="display:flex;align-items:center;gap:3px;"><i class="material-icons" style="font-size:11px;">qr_code_2</i>${anchorCode}</span>` : ''}
                     </div>
                 </div>
@@ -1211,8 +1214,11 @@ window.showDetailsImproved = function (target, event) {
                         <summary style="display:flex;align-items:center;gap:10px;padding:8px 10px;cursor:pointer;list-style:none;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
                             ${foto}
                             <div style="display:flex;flex-direction:column;flex:1;min-width:0;gap:2px;">
-                                <span style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${tipoMarcaLine}</span>
-                                <span style="font-size:11px;font-weight:700;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.25;">${sa.serial || '—'}</span>
+                                <!-- Tipo·marca·modelo y serial en NEGRO (antes #94a3b8 y
+                                     #1e293b): son los datos que identifican al auxiliar y en
+                                     gris claro se perdían sobre el fondo #f8fafc de la tarjeta. -->
+                                <span style="font-size:10px;font-weight:700;color:#000;text-transform:uppercase;letter-spacing:0.4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${tipoMarcaLine}</span>
+                                <span style="font-size:11px;font-weight:700;color:#000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.25;">${sa.serial || '—'}</span>
                                 ${estadoLine}
                             </div>
                             <i class="material-icons" style="font-size:18px;color:#94a3b8;flex-shrink:0;" title="Ver documentos">expand_more</i>
