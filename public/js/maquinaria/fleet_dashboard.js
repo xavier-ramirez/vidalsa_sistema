@@ -244,11 +244,9 @@ window.openFleetDashboard = async function () {
     // Dispara la carga de Chart.js (+DataLabels) en paralelo con el fetch.
     // loadFleetDashboardData consulta _fleetChartReady antes de instanciar
     // `new Chart(...)`, asi el fetch avanza mientras Chart.js se descarga.
-    // SIEMPRE llamamos loadChartJS(): aunque Chart ya venga del layout (chart.umd
-    // estatico), el plugin DataLabels NO se carga ahi y hay que cargarlo+registrarlo
-    // para que los valores salgan dentro de cada barra. loadChartJS es idempotente
-    // (loadScriptOnce no re-inyecta Chart si ya existe).
-    window._fleetChartReady = loadChartJS();
+    // Chart.js + DataLabels los trae el cargador compartido (js/maquinaria/lazy_loader.js):
+    // es idempotente, asi que si otra pantalla ya los pidio reusa esa misma descarga.
+    window._fleetChartReady = window.ensureChartJS();
     const chartReady = window._fleetChartReady;
 
     setupDropdownEvents();
@@ -480,59 +478,16 @@ window.closeFleetDashboard = function () {
 };
 
 /**
- * Helper: carga un <script> externo una sola vez. Devuelve la misma Promise
- * si ya se estaba cargando (evita duplicados en SPA re-entries).
- */
-function loadScriptOnce(src, testLoaded) {
-    if (testLoaded && testLoaded()) return Promise.resolve();
-    if (!window._fleetScriptCache) window._fleetScriptCache = {};
-    if (window._fleetScriptCache[src]) return window._fleetScriptCache[src];
-
-    const p = new Promise((resolve, reject) => {
-        const s = document.createElement('script');
-        s.src = src;
-        s.async = true;
-        s.onload = () => resolve();
-        s.onerror = () => reject(new Error('Failed to load ' + src));
-        document.head.appendChild(s);
-    });
-    window._fleetScriptCache[src] = p;
-    return p;
-}
-
-/**
- * Load Chart.js + DataLabels plugin EN PARALELO.
- * html2canvas NO se carga aqui: es on-demand desde exportFleetStats (solo se
- * necesita al exportar, no para el render inicial del dashboard).
- */
-async function loadChartJS() {
-    const baseUrl = document.querySelector('meta[name="base-url"]')?.getAttribute('content') || '';
-    const chartLoaded  = () => typeof Chart !== 'undefined';
-    const labelsLoaded = () => typeof ChartDataLabels !== 'undefined';
-
-    // Core Chart.js primero (DataLabels lo necesita disponible para registrarse)
-    await loadScriptOnce(baseUrl + '/js/chart.umd.min.js', chartLoaded);
-
-    // DataLabels plugin — si falla, charts funcionan sin labels
-    try {
-        await loadScriptOnce(baseUrl + '/js/chartjs-plugin-datalabels.min.js', labelsLoaded);
-        if (typeof ChartDataLabels !== 'undefined' && typeof Chart !== 'undefined') {
-            const _alreadyReg = Chart.registry?.plugins?.items &&
-                Object.values(Chart.registry.plugins.items).some(p => p.id === 'datalabels');
-            if (!_alreadyReg) Chart.register(ChartDataLabels);
-        }
-    } catch (e) {
-        console.warn('DataLabels plugin no cargo, charts continuan sin etiquetas:', e.message);
-    }
-}
-
-/**
- * Lazy-load html2canvas — solo cuando se pulsa Exportar.
+ * Lazy-load html2canvas — solo cuando se pulsa Exportar. La inyeccion la hace el
+ * cargador compartido (js/maquinaria/lazy_loader.js), que garantiza una sola descarga
+ * aunque lo pidan varias pantallas.
  */
 async function ensureHtml2Canvas() {
-    const baseUrl = document.querySelector('meta[name="base-url"]')?.getAttribute('content') || '';
     try {
-        await loadScriptOnce(baseUrl + '/js/html2canvas.min.js', () => typeof html2canvas !== 'undefined');
+        await window.cargarScriptUnaVez(
+            window.lazyBaseUrl() + '/js/html2canvas.min.js',
+            () => typeof html2canvas !== 'undefined'
+        );
     } catch (e) {
         console.warn('html2canvas no cargo, downloads podrian fallar:', e.message);
     }

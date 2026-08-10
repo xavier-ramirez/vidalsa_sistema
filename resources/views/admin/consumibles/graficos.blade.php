@@ -600,60 +600,36 @@
          (cada modelo tiene su historial). El panel saturaba la vista de
          graficos sin aportar contexto de consumo. --}}
 
-    {{-- Chart.js se carga GLOBAL en el layout (estructura_base) — NO se repite aquí.
-         El plugin datalabels NO va como <script> estático: su UMD exige que `Chart`
-         exista AL EJECUTARSE, y el chart.umd del layout corre DESPUÉS del contenido
-         en una carga completa (revienta con "reading 'helpers'" y las gráficas
-         quedan sin etiquetas). El setInterval de abajo lo inyecta recién cuando
-         Chart ya está definido — mismo patrón lazy que html2canvas (:1574). --}}
-    <script src="{{ asset('js/html2canvas.min.js') }}?v={{ @filemtime(public_path('js/html2canvas.min.js')) }}"></script>
+    {{-- Nada de librerías como <script> estático en esta pantalla:
+         · Chart.js + datalabels los pide window.ensureChartJS(). El UMD del plugin exige
+           que `Chart` exista AL EJECUTARSE, y en una carga completa este contenido corre
+           antes que los scripts del final del body (reventaba con "reading 'helpers'" y
+           las gráficas quedaban sin etiquetas); el cargador respeta ese orden.
+         · html2canvas (195 KB) lo pide capturaPanelHtml() al pulsar capturar, que para eso
+           ya traía su propio cargador — pero aquí había además un <script src> fijo que lo
+           bajaba SIEMPRE y dejaba ese cargador como código muerto. --}}
     <script>
-        // Paleta corporativa: variada y profunda
-        window.COLORES = window.COLORES || {
-            'GASOIL': '#003a70',   // azul marino
-            'GASOLINA': '#c41c00',   // rojo intenso
-            'ACEITE': '#0077cc',   // azul eléctrico
-            'CAUCHO': '#1b5e20',   // verde oscuro
-            'REFRIGERANTE': '#00838f',   // teal
-            'OTRO': '#546e7a',   // gris azulado
-        };
         window.TIPO_LABEL = window.TIPO_LABEL || {
             'GASOIL': 'Gasoil', 'GASOLINA': 'Gasolina', 'ACEITE': 'Aceite',
             'CAUCHO': 'Caucho', 'REFRIGERANTE': 'Refrigerante', 'OTRO': 'Otro'
         };
 
-        window.chartTipoEq = window.chartTipoEq || null;
+        // La gráfica viva de esta pantalla. Se guarda en window (y no en una var del
+        // <script>) porque la SPA re-evalúa este bloque en cada visita y hay que poder
+        // destruir la instancia anterior antes de crear la nueva.
         window.chartEqFrente = window.chartEqFrente || null;
         // chartCauchoModelo declarado removido junto con el panel de Cauchos.
+        // window.COLORES y chartTipoEq removidos: ni la paleta ni esa gráfica existían
+        // ya en la pantalla, solo se declaraban y se copiaban a una var que nadie leía.
 
-        // El intervalo SOLO espera a que el layout cargue Chart; en cuanto existe,
-        // inyecta el plugin una vez y termina. El registro pasa en el onload del
-        // script (no se pollea la llegada del plugin: en una red lenta el watchdog
-        // de 5s cortaría la espera y las gráficas quedarían sin etiquetas). En
-        // error de red el guard se libera para que la próxima visita SPA reintente.
-        if (window.chartCheckInterval) clearInterval(window.chartCheckInterval);
-        window.chartCheckInterval = setInterval(() => {
-            if (typeof Chart === 'undefined') return; // el layout aún no lo cargó
-            clearInterval(window.chartCheckInterval);
-            if (typeof ChartDataLabels !== 'undefined') {
-                Chart.register(ChartDataLabels); // registrar dos veces es inocuo
-                return;
-            }
-            if (window._dlPluginInyectado) return; // ya en vuelo de una visita anterior
-            window._dlPluginInyectado = true;
-            var s = document.createElement('script');
-            s.src = "{{ asset('js/chartjs-plugin-datalabels.min.js') }}?v={{ @filemtime(public_path('js/chartjs-plugin-datalabels.min.js')) }}";
-            s.onload = () => { if (typeof ChartDataLabels !== 'undefined') Chart.register(ChartDataLabels); };
-            s.onerror = () => { window._dlPluginInyectado = false; };
-            document.head.appendChild(s);
-        }, 100);
-        // Watchdog: solo acota la espera de Chart (el registro ya no depende de él).
-        setTimeout(() => clearInterval(window.chartCheckInterval), 5000);
+        // Chart.js + el plugin de etiquetas se piden AQUÍ, al entrar a la pantalla.
+        // Antes el layout traía Chart en todas las páginas y esto era un setInterval
+        // esperándolo a ciegas ("el layout aún no lo cargó") con watchdog de 5 s; el
+        // cargador compartido resuelve descarga, registro del plugin e idempotencia,
+        // así que la espera se hace sobre una promesa concreta en vez de por sondeo.
+        window.chartListo = window.ensureChartJS();
 
-        var COLORES = window.COLORES;
         var TIPO_LABEL = window.TIPO_LABEL;
-        var chartTipoEq = window.chartTipoEq;
-        var chartEqFrente = window.chartEqFrente;
 
         function getParams() {
             var p = new URLSearchParams();
@@ -977,12 +953,10 @@
             loadEl.style.display = 'none';
             canvEl.style.display = 'block';
 
-            let retriesE = 0;
+            // Se espera la promesa del cargador en vez de sondear `typeof Chart` 50 veces:
+            // la descarga la comparte con el resto de la pantalla y no se puede agotar
+            // antes de tiempo.
             const drawE = () => {
-                if (typeof Chart === 'undefined') {
-                    if (retriesE++ < 50) setTimeout(drawE, 100);
-                    return;
-                }
                 try { if (window.chartEqFrente) { window.chartEqFrente.destroy(); window.chartEqFrente = null; } } catch (e) { }
                 try { const existingE = Chart.getChart(canvEl); if (existingE) existingE.destroy(); } catch (e) { }
 
@@ -1037,7 +1011,9 @@
                     });
                 } catch (e) { console.error(e); }
             };
-            drawE();
+            window.chartListo.then(drawE).catch(function (e) {
+                console.error('No se pudo cargar Chart.js para el gráfico de equipos:', e);
+            });
         }
 
         // ── Equipos Inoperativos ────────────────────────────────────────────────
@@ -1589,17 +1565,15 @@
             }
             if (typeof html2canvas === 'undefined') {
                 if (window.showPreloader) window.showPreloader();
-                const script = document.createElement('script');
-                script.src = "{{ asset('js/html2canvas.min.js') }}?v={{ @filemtime(public_path('js/html2canvas.min.js')) }}";
-                script.onload = () => {
-                    if (window.hidePreloader) window.hidePreloader();
-                    capturaPanelHtml(panelId, nombre, callbackClone);
-                };
-                script.onerror = () => {
-                    if (window.hidePreloader) window.hidePreloader();
-                    alert('Error al cargar la librería de captura. Revisa tu conexión.');
-                };
-                document.head.appendChild(script);
+                window.cargarScriptUnaVez("{{ asset('js/html2canvas.min.js') }}?v={{ @filemtime(public_path('js/html2canvas.min.js')) }}")
+                    .then(function () {
+                        if (window.hidePreloader) window.hidePreloader();
+                        capturaPanelHtml(panelId, nombre, callbackClone);
+                    })
+                    .catch(function () {
+                        if (window.hidePreloader) window.hidePreloader();
+                        alert('Error al cargar la librería de captura. Revisa tu conexión.');
+                    });
                 return;
             }
             const fecha = new Date().toISOString().slice(0, 10);

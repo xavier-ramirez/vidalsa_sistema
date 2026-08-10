@@ -68,6 +68,11 @@
         src="{{ asset('js/maquinaria/producto_suggest.js') }}?v={{ @filemtime(public_path('js/maquinaria/producto_suggest.js')) }}"></script>
     <script
         src="{{ asset('js/maquinaria/qr_scan.js') }}?v={{ @filemtime(public_path('js/maquinaria/qr_scan.js')) }}"></script>
+    {{-- Y por lo mismo lazy_loader.js (window.cargarScriptUnaVez / ensureChartJS): los
+         <script> inline de los gráficos de consumibles lo llaman al evaluarse. Pesa 3 KB
+         y NO trae nada consigo — solo sabe pedir lo pesado cuando de verdad hace falta. --}}
+    <script
+        src="{{ asset('js/maquinaria/lazy_loader.js') }}?v={{ @filemtime(public_path('js/maquinaria/lazy_loader.js')) }}"></script>
     <style>
         /* Standard Material Icons definition */
         .material-icons {
@@ -1491,12 +1496,9 @@
         <script
             src="{{ asset('js/maquinaria/equipo_catalog_linking.js') }}?v={{ @filemtime(public_path('js/maquinaria/equipo_catalog_linking.js')) }}"></script>
 
-        {{-- Chart.js GLOBAL: lo usa el modal "Dashboard de Consumo" (Acciones de
-             /admin/almacen y /admin/almacen/movimientos). Debe ir aquí (global) y no
-             en la vista: la SPA omite los <script src> dentro de @section('content'),
-             así que cargarlo por página no sobreviviría la navegación. --}}
-        <script
-            src="{{ asset('js/chart.umd.min.js') }}?v={{ @filemtime(public_path('js/chart.umd.min.js')) }}"></script>
+        {{-- Chart.js NO va aquí: son 205 KB que solo usan tres pantallas, y estos <script>
+             son síncronos, así que parsearlo en todas retrasaba la interactividad de todas.
+             Lo piden con window.ensureChartJS() — ver js/maquinaria/lazy_loader.js. --}}
 
         {{-- Module Scripts (Global Load for SPA Navigation) --}}
         {{-- NOTE: These MUST be loaded globally because the SPA navigation --}}
@@ -1524,10 +1526,28 @@
             src="{{ asset('js/maquinaria/historial_documentos_index.js') }}?v={{ @filemtime(public_path('js/maquinaria/historial_documentos_index.js')) }}"></script>
         <script
             src="{{ asset('js/maquinaria/fleet_dashboard.js') }}?v={{ @filemtime(public_path('js/maquinaria/fleet_dashboard.js')) }}"></script>
-        {{-- Módulo "Mapa Satelital": global (la SPA no re-ejecuta los <script> del
-             contenido). Carga Leaflet de forma diferida e inicializa en spa:contentLoaded. --}}
-        <script
-            src="{{ asset('js/maquinaria/mapa_index.js') }}?v={{ @filemtime(public_path('js/maquinaria/mapa_index.js')) }}"></script>
+        {{-- Módulo "Mapa Satelital": 265 KB que solo usa /mapa. Iba como <script> fijo,
+             o sea que TODAS las páginas lo parseaban para nada. Se pide al detectar su
+             contenedor, en la carga inicial y en cada navegación SPA (ModuleManager ya
+             reevalúa los detectores en spa:contentLoaded). Sigue siendo global: se
+             inyecta en el <head>, no dentro del contenido, así que la navegación SPA no
+             lo pierde. Al llegar con el DOM ya listo, mapa_index se autoinicializa
+             —su initMapa() corre solo si readyState !== 'loading'—, y es idempotente
+             (sale si #mapa-leaflet ya tiene mapa montado). --}}
+        <script>
+            window.ModuleManager.register('mapa_satelital',
+                function () { return !!document.getElementById('mapa-leaflet'); },
+                function () {
+                    // Sin test de "ya cargado": cargarScriptUnaVez cachea la promesa por
+                    // URL, así que volver a /mapa reusa la descarga y no re-inyecta nada.
+                    // A partir de la segunda visita monta el propio listener de
+                    // spa:contentLoaded que mapa_index registró al cargarse.
+                    window.cargarScriptUnaVez(
+                        window.lazyBaseUrl() + '/js/maquinaria/mapa_index.js?v={{ @filemtime(public_path('js/maquinaria/mapa_index.js')) }}'
+                    ).catch(function (e) { console.error('Mapa Satelital no cargó:', e); });
+                }
+            );
+        </script>
 
         <script
             src="{{ asset('js/maquinaria/frentes_spa.js') }}?v={{ @filemtime(public_path('js/maquinaria/frentes_spa.js')) }}"></script>

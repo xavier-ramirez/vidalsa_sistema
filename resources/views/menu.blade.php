@@ -967,9 +967,10 @@
 
                 {{-- ── Boton "Mapa" (entre Salud y Alertas): abre el modulo de mapa.
                      Mismo estilo que Salud/Alertas: icono Material en caja oscura a la
-                     izquierda + texto. Navegación SPA (como Equipos): el JS global
-                     mapa_index.js carga Leaflet e inicializa en spa:contentLoaded, así que
-                     NO necesita recarga completa (data-no-spa) ni preloader manual. --}}
+                     izquierda + texto. Navegación SPA (como Equipos): mapa_index.js se
+                     pide al detectar el contenedor del mapa y carga Leaflet e inicializa
+                     en spa:contentLoaded, así que NO necesita recarga completa
+                     (data-no-spa) ni preloader manual. --}}
                 <a href="{{ route('mapa') }}" class="mapa-card"
                    title="Abrir mapa de ubicación de los proyectos">
                     <div class="mapa-card-icon">

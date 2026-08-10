@@ -229,17 +229,19 @@
         if (btn) btn.classList.toggle('active', abrir);
     };
 
-    // Carga html2canvas bajo demanda (una sola vez) y ejecuta el callback. Punto único:
-    // lo usan tanto la descarga del dashboard completo como la de cada gráfico.
+    // Carga html2canvas bajo demanda y ejecuta el callback. Lo usan tanto la descarga
+    // del dashboard completo como la de cada gráfico. La inyección la hace el cargador
+    // compartido (js/maquinaria/lazy_loader.js), que ya garantiza una sola descarga.
     window._cdashConHtml2Canvas = function (cb) {
-        if (typeof html2canvas !== 'undefined') { cb(); return; }
-        var s = document.createElement('script');
         {{-- ?v= obligatorio: nginx sirve /js con Cache-Control immutable, así que un
              asset sin versión se queda pegado en el navegador PARA SIEMPRE y una
-             actualización de la librería no llegaría nunca. Era el único de 54 sin él. --}}
-        s.src = "{{ asset('js/html2canvas.min.js') . '?v=' . @filemtime(public_path('js/html2canvas.min.js')) }}";
-        s.onload = cb;
-        document.head.appendChild(s);
+             actualización de la librería no llegaría nunca. --}}
+        window.cargarScriptUnaVez(
+            "{{ asset('js/html2canvas.min.js') . '?v=' . @filemtime(public_path('js/html2canvas.min.js')) }}",
+            function () { return typeof html2canvas !== 'undefined'; }
+        ).then(cb).catch(function () {
+            alert('No se pudo cargar la librería de captura. Revisa tu conexión.');
+        });
     };
 
     // Captura un elemento del DOM y lo baja como PNG. Los botones de cámara se ocultan
@@ -323,20 +325,27 @@
         if (!window._cdashProdsCargados) p.set('con_productos', '1');
         var qs = p.toString();
 
-        window.apiFetch(window.CONSUMO_DASH_URL + (qs ? ('?' + qs) : ''), { headers: { 'Accept': 'application/json' } })
-            .then(function (r) { return r.json(); })
-            .then(function (data) { window._cdashRender(data); })
+        // Chart.js va EN PARALELO con el fetch: el modal ya no depende de que el layout
+        // lo hubiera cargado en todas las páginas, lo pide al abrirse (idempotente, así
+        // que reabrirlo no vuelve a descargar nada).
+        var chartListo = window.ensureChartJS();
+
+        Promise.all([
+            window.apiFetch(window.CONSUMO_DASH_URL + (qs ? ('?' + qs) : ''), { headers: { 'Accept': 'application/json' } })
+                .then(function (r) { return r.json(); }),
+            chartListo
+        ])
+            .then(function (res) { window._cdashRender(res[0]); })
             .catch(function () {
                 var ldErr = document.getElementById('cdashLoading');
                 ldErr.innerHTML = '<i class="material-icons" style="font-size:28px;color:#ef4444;">error_outline</i><span>No se pudo cargar el dashboard.</span>';
             });
     };
 
+    // Su único llamador la invoca tras el Promise.all de arriba, así que aquí Chart ya
+    // está cargado: sobra comprobarlo (si la carga falla, el .catch de allí es quien
+    // avisa). Antes hacía falta porque dependía de que el layout lo hubiera traído.
     window._cdashRender = function (data) {
-        if (typeof Chart === 'undefined') {
-            document.getElementById('cdashLoading').textContent = 'Chart.js no está disponible.';
-            return;
-        }
 
         if (!window._cdashCatsCargadas && Array.isArray(data.categorias)) {
             window._cdashCatsData = data.categorias;

@@ -5,8 +5,9 @@
 @section('content')
 <div class="mapa-page">
     {{-- Sin título "Mapa Satelital" (a pedido del cliente): el contenedor del mapa sube al tope. --}}
-    {{-- El JS global mapa_index.js (cargado en el layout) detecta este contenedor y
-         monta el mapa, tanto en carga directa como en navegación SPA. Leaflet + el
+    {{-- El JS global mapa_index.js monta el mapa detectando este contenedor, tanto en
+         carga directa como en navegación SPA. El layout no lo trae en todas las páginas:
+         lo pide al ver este #mapa-leaflet (ModuleManager, ver estructura_base). Leaflet + el
          geocoder se cargan de forma diferida desde /vendor/leaflet (servidor propio,
          ya no desde un CDN). data-geojson = límites de los estados de Venezuela;
          data-faja-* = Faja Petrolífera del Orinoco y bloques petroleros (php tools/generar_geo_faja.php);
