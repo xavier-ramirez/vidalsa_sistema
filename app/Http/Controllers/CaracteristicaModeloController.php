@@ -451,11 +451,12 @@ class CaracteristicaModeloController extends Controller
     }
 
     /**
-     * Punto ÚNICO de la lógica de foto del catálogo (store / update / uploadFoto):
-     * sube el WebP a Drive, apunta FOTO_REFERENCIAL a la nueva, y SOLO entonces
-     * borra la anterior de Drive + caché (best-effort). Devuelve false si Drive
-     * falla — el caller decide loguear (store/update) o abortar (uploadFoto).
+     * Punto ÚNICO de la lógica de foto del catálogo: sube el WebP a Drive, apunta
+     * FOTO_REFERENCIAL a la nueva, y SOLO entonces borra la anterior de Drive + caché
+     * (best-effort). Devuelve false si Drive falla, para que el caller aborte en vez
+     * de dejar el catálogo apuntando a una foto que no existe.
      * Debe llamarse DENTRO de la transacción que persiste el catálogo.
+     * Lo llama uploadFoto(); store()/update() no tocan la foto (ver sus comentarios).
      *
      * @param  string|null $oldFileId  File-id de Drive de la foto previa a borrar (null = no borrar).
      */

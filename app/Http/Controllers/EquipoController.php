@@ -2041,9 +2041,11 @@ class EquipoController extends Controller
             // el dato pero sin PDF: exigirlo siempre dejaba esos equipos imposibles de editar
             // —ni el color se podia guardar— pidiendo un archivo que nadie tiene. El dato ya
             // guardado se respeta tal cual; en cuanto se toca, vuelve a pedir su archivo.
+            // Se compara en MAYUSCULAS porque asi normaliza el propio update() al guardar
+            // (NRO_DE_DOCUMENTO): reescribir el mismo texto en minusculas no es un cambio.
             $sinCambios = function (string $campo) use ($request, $equipo) {
-                $enviado = trim((string) $request->input('documentacion.' . $campo, ''));
-                $actual  = trim((string) ($equipo->documentacion->$campo ?? ''));
+                $enviado = mb_strtoupper(trim((string) $request->input('documentacion.' . $campo, '')));
+                $actual  = mb_strtoupper(trim((string) ($equipo->documentacion->$campo ?? '')));
                 return $enviado !== '' && $enviado === $actual;
             };
 
