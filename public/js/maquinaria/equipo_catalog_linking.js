@@ -224,19 +224,14 @@
         }
 
         // Data Grid (Right Column) - Responsive Class
+        // Sin "Combustible" ni "Consumo": son datos de la UNIDAD (equipos.COMBUSTIBLE
+        // y equipos.CONSUMO_PROMEDIO), no de la ficha del modelo. Se editan en el
+        // formulario del equipo.
         html += `
             <div style="flex: 1;" class="catalog-grid">
                 <div>
                     <span style="display: block; font-size: 10px; color: #64748b; font-weight: 700; text-transform: uppercase;">Motor</span>
                     <span style="color: #1e293b; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block;">${data.MOTOR || '--'}</span>
-                </div>
-                <div>
-                    <span style="display: block; font-size: 10px; color: #64748b; font-weight: 700; text-transform: uppercase;">Combustible</span>
-                    <span style="color: #1e293b; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block;">${data.COMBUSTIBLE || '--'}</span>
-                </div>
-                <div>
-                    <span style="display: block; font-size: 10px; color: #64748b; font-weight: 700; text-transform: uppercase;">Consumo</span>
-                    <span style="color: #1e293b; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block;">${data.CONSUMO_PROMEDIO || '--'}</span>
                 </div>
                 <div>
                     <span style="display: block; font-size: 10px; color: #64748b; font-weight: 700; text-transform: uppercase;">Batería</span>

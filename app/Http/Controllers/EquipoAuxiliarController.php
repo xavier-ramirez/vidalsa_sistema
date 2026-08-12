@@ -969,6 +969,8 @@ class EquipoAuxiliarController extends Controller
                 'modelo'         => $a->MODELO,
                 'serial'         => $a->SERIAL,
                 'capacidad'      => $a->CAPACIDAD,
+                'combustible'    => $a->COMBUSTIBLE,
+                'consumo'        => Equipo::consumoFormateado($a->CONSUMO_PROMEDIO),
                 'foto'           => $a->FOTO ? asset($a->FOTO) : null,
                 'frente'         => optional($a->frente)->NOMBRE_FRENTE,
                 'host_id'        => $host?->ID_EQUIPO,
@@ -1370,6 +1372,8 @@ class EquipoAuxiliarController extends Controller
             'serial'         => $aux->SERIAL,
             'codigo_interno' => $aux->CODIGO_INTERNO,
             'capacidad'      => $aux->CAPACIDAD,
+            'combustible'    => $aux->COMBUSTIBLE,
+            'consumo'        => Equipo::consumoFormateado($aux->CONSUMO_PROMEDIO),
             'anio'           => $aux->ANIO,
             'estado'         => $aux->ESTADO_OPERATIVO,
             'estado_label'   => EquipoAuxiliar::estadosLabel()[$aux->ESTADO_OPERATIVO] ?? $aux->ESTADO_OPERATIVO,
@@ -1451,6 +1455,8 @@ class EquipoAuxiliarController extends Controller
                     'marca'          => $a->MARCA,
                     'modelo'         => $a->MODELO,
                     'capacidad'      => $a->CAPACIDAD,
+                'combustible'    => $a->COMBUSTIBLE,
+                'consumo'        => Equipo::consumoFormateado($a->CONSUMO_PROMEDIO),
                     'anio'           => $a->ANIO,
                     'estado'         => $a->ESTADO_OPERATIVO,
                     // Foto del auxiliar para el modal de detalles del equipo host
@@ -2414,7 +2420,7 @@ class EquipoAuxiliarController extends Controller
         // guardamos uppercase, para que el check unique compare consistente
         // (sino "ms-01" pasa unique aunque la BD tenga "MS-01" y al
         // guardar con strtoupper se crearia un duplicado logico).
-        foreach (['SERIAL', 'CODIGO_INTERNO', 'MARCA', 'MODELO', 'CAPACIDAD'] as $f) {
+        foreach (['SERIAL', 'CODIGO_INTERNO', 'MARCA', 'MODELO', 'CAPACIDAD', 'COMBUSTIBLE'] as $f) {
             if ($request->filled($f)) {
                 $request->merge([$f => mb_strtoupper(trim($request->input($f)))]);
             }
@@ -2467,6 +2473,9 @@ class EquipoAuxiliarController extends Controller
             ],
             'CAPACIDAD'        => 'nullable|string|max:80',
             'ANIO'             => 'nullable|integer|min:1950|max:2100',
+            // MISMA lista que `equipos`: una sola fuente para las dos tablas.
+            'COMBUSTIBLE'      => 'nullable|in:' . implode(',', \App\Models\Equipo::COMBUSTIBLES),
+            'CONSUMO_PROMEDIO' => 'nullable|numeric|min:0|max:99999',
             // FIX: exists:frentes_trabajo,ID_FRENTE without ESTATUS_FRENTE=ACTIVO filter:
             // a record may be assigned to a frente that was deactivated later. The FK
             // just needs to exist in the table — active-only filtering belongs in the UI,

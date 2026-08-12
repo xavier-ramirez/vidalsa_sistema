@@ -140,7 +140,6 @@ class DashboardController extends Controller
                 'marca'       => $marca,
                 'anio'        => $cat->ANIO_ESPEC,
                 'motor'       => $cat->MOTOR,
-                'combustible' => $cat->COMBUSTIBLE,
                 'foto_base64' => $fotoBase64, // null si no se pudo bajar
             ];
         }

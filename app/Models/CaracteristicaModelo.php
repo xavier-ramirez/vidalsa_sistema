@@ -14,8 +14,6 @@ class CaracteristicaModelo extends Model
         'TIPO',
         'ANIO_ESPEC',
         'MOTOR',
-        'COMBUSTIBLE',
-        'CONSUMO_PROMEDIO',
         'ACEITE_MOTOR',
         'ACEITE_CAJA',
         'LIGA_FRENO',

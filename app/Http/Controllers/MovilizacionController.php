@@ -27,7 +27,7 @@ class MovilizacionController extends Controller
 
         $query = Movilizacion::with([
             'equipo.tipo',
-            'equipo.especificaciones:ID_ESPEC,COMBUSTIBLE,CONSUMO_PROMEDIO,FOTO_REFERENCIAL',
+            'equipo.especificaciones:ID_ESPEC,FOTO_REFERENCIAL',
             'equipo.documentacion',
             // Cargar tambien el aux cuando la movilizacion sea de un auxiliar
             // (ID_AUXILIAR != null). Asi el listado renderiza vehiculos y

@@ -175,6 +175,36 @@
         @error('SERIAL_DE_MOTOR') <span class="error-message-inline">{{ $message }}</span> @enderror
     </div>
 
+    <!-- Combustible (por UNIDAD, no por modelo: un mismo MODELO puede traer motor a
+         gasolina o a gasoil — HILUX 2.7 vs 2.4 diésel, F-350 Triton vs Power Stroke.
+         Las opciones salen de Equipo::COMBUSTIBLES, fuente única compartida
+         con la validación. "NO APLICA" es para remolques: bateas, lowboys, camas bajas. -->
+    <div>
+        <span id="lbl_combustible_title" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">Combustible</span>
+        <div class="custom-dropdown @error('COMBUSTIBLE') is-invalid @enderror" id="combustibleSelect">
+            <input type="hidden" name="COMBUSTIBLE" id="input_combustible" data-filter-value value="{{ old('COMBUSTIBLE', $equipo->COMBUSTIBLE ?? '') }}" aria-label="Combustible">
+            <div class="dropdown-trigger" id="trigger_combustible" onclick="toggleDropdown('combustibleSelect', event)" tabindex="0" role="button" aria-haspopup="listbox" aria-labelledby="lbl_combustible_title label_combustible" style="cursor: default;">
+                <span id="label_combustible" data-filter-label>{{ old('COMBUSTIBLE', $equipo->COMBUSTIBLE ?? '') ?: 'SELECCIONE' }}</span>
+                <i class="material-icons">expand_more</i>
+            </div>
+            <div class="dropdown-content">
+                @foreach(\App\Models\Equipo::COMBUSTIBLES as $comb)
+                    <div class="dropdown-item" onclick="selectOption('combustibleSelect', '{{ $comb }}', '{{ $comb }}', 'combustible')">{{ $comb }}</div>
+                @endforeach
+            </div>
+        </div>
+        @error('COMBUSTIBLE') <span class="error-message-inline">{{ $message }}</span> @enderror
+    </div>
+
+    <!-- Consumo diario (por UNIDAD, no por modelo): tres chutos del MISMO chasis ZZ4257
+         gastan 150, 80 y 50 L/día según el trabajo que hagan. Alimenta la proyección de
+         gasoil por frente, por eso es numérico y no texto. -->
+    <div>
+        <label for="CONSUMO_PROMEDIO" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">Consumo (L/día)</label>
+        <input type="number" id="CONSUMO_PROMEDIO" name="CONSUMO_PROMEDIO" class="form-input-custom no-spinner @error('CONSUMO_PROMEDIO') is-invalid @enderror" value="{{ old('CONSUMO_PROMEDIO', \App\Models\Equipo::consumoFormateado($equipo->CONSUMO_PROMEDIO ?? null)) }}" placeholder="Ej: 200" min="0" max="99999" step="0.01" autocomplete="off">
+        @error('CONSUMO_PROMEDIO') <span class="error-message-inline">{{ $message }}</span> @enderror
+    </div>
+
     <!-- Color (después de los seriales) -->
     <div>
         <label for="color" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">Color</label>

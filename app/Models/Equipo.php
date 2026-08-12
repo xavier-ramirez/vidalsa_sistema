@@ -15,6 +15,20 @@ class Equipo extends Model
     // el ID_USUARIO que ejecuto el borrado (auditoria + papelera).
 
     /**
+     * Valores válidos de `equipos.COMBUSTIBLE`. FUENTE ÚNICA: la usan la validación de
+     * EquipoController::store()/update() y el desplegable del formulario del equipo.
+     *
+     * NO existe "DIESEL": es lo mismo que GASOIL, y tenerlos como dos opciones partía
+     * en dos cualquier reporte por combustible. "NO APLICA" es para los remolques
+     * (bateas, lowboys, camas bajas, taras), que no tienen motor.
+     *
+     * El combustible es dato de la UNIDAD, no del modelo: un mismo MODELO puede traer
+     * motor a gasolina o a gasoil (HILUX 2.7 vs 2.4 diésel, F-350 Triton vs Power
+     * Stroke). Por eso vive aquí y no en `caracteristicas_modelo`.
+     */
+    public const COMBUSTIBLES = ['GASOIL', 'GASOLINA', 'GAS', 'ELECTRICO', 'HIBRIDO', 'NO APLICA'];
+
+    /**
      * Mass-assignment seguro. ID_FRENTE_ACTUAL y ID_ANCLAJE fueron removidos:
      * su mutacion debe pasar por flujos controlados (bulkStore de movilizacion,
      * bulkAnchor, recepcionDirecta) que validan permisos, scope LOCAL y hacen
@@ -34,6 +48,8 @@ class Equipo extends Model
         'ID_ESPEC',
         'SERIAL_CHASIS',
         'SERIAL_DE_MOTOR',
+        'COMBUSTIBLE',
+        'CONSUMO_PROMEDIO',
         'LINK_GPS',
         'FOTO_EQUIPO',
         'DETALLE_UBICACION_ACTUAL',
@@ -63,6 +79,22 @@ class Equipo extends Model
     public function tipo()
     {
         return $this->belongsTo(TipoEquipo::class, 'id_tipo_equipo');
+    }
+
+    /**
+     * CONSUMO_PROMEDIO es decimal(8,2), así que Eloquent lo devuelve como "200.00".
+     * Esto lo deja en "200" (y en "12.5" si tiene decimales de verdad), que es como se
+     * pinta en los formularios y en los modales de detalle.
+     *
+     * Es estático y vive aquí, junto a COMBUSTIBLES, porque lo usan las DOS tablas:
+     * `equipos` y `equipos_auxiliares` tienen la misma columna y deben mostrarla igual.
+     * Antes esta misma línea estaba copiada en 6 sitios.
+     */
+    public static function consumoFormateado($valor): ?string
+    {
+        if ($valor === null || $valor === '') return null;
+
+        return rtrim(rtrim(number_format((float) $valor, 2, '.', ''), '0'), '.');
     }
 
     /**
@@ -171,8 +203,10 @@ class Equipo extends Model
             'ubicacion'       => optional($this->frenteActual)->NOMBRE_FRENTE ?? 'Sin Asignar',
             'motorSerial'     => $this->SERIAL_DE_MOTOR,
             'chasis'          => $this->SERIAL_CHASIS,
-            'combustible'     => optional($this->especificaciones)->COMBUSTIBLE ?? 'N/A',
-            'consumo'         => optional($this->especificaciones)->CONSUMO_PROMEDIO ?? 'N/A',
+            // COMBUSTIBLE vive en `equipos`, NO en la ficha del modelo: un mismo
+            // MODELO puede traer motor a gasolina o a gasoil segun la unidad.
+            'combustible'     => $this->COMBUSTIBLE ?? 'N/A',
+            'consumo'         => self::consumoFormateado($this->CONSUMO_PROMEDIO) ?? 'N/A',
             'placa'           => optional($this->documentacion)->PLACA ?? 'N/A',
             'titular'         => optional($this->documentacion)->NOMBRE_DEL_TITULAR ?? 'N/A',
             'nroDoc'          => optional($this->documentacion)->NRO_DE_DOCUMENTO ?? 'N/A',

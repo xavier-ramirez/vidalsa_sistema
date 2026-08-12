@@ -18,7 +18,7 @@ class CaracteristicaModeloController extends Controller
 
     /** Campos string que se normalizan a MAYÚSCULAS antes de persistir. */
     private const UPPERCASE_FIELDS = [
-        'MODELO', 'TIPO', 'MOTOR', 'COMBUSTIBLE', 'CONSUMO_PROMEDIO',
+        'MODELO', 'TIPO', 'MOTOR',
         'ACEITE_MOTOR', 'ACEITE_CAJA', 'LIGA_FRENO', 'REFRIGERANTE', 'TIPO_BATERIA',
     ];
 
@@ -37,8 +37,6 @@ class CaracteristicaModeloController extends Controller
             'TIPO'               => 'nullable|max:35',
             'ANIO_ESPEC'         => 'required|integer',
             'MOTOR'              => 'nullable|max:150',
-            'COMBUSTIBLE'        => 'nullable|max:100',
-            'CONSUMO_PROMEDIO'   => 'nullable|max:50',
             'ACEITE_MOTOR'       => 'nullable|max:100',
             'ACEITE_CAJA'        => 'nullable|max:100',
             'LIGA_FRENO'         => 'nullable|max:50',
@@ -158,8 +156,6 @@ class CaracteristicaModeloController extends Controller
                     'total'       => $cm->equipos_count, // nº de equipos ligados a este modelo
                     'specs'       => array_filter([
                         'Motor'        => $cm->MOTOR,
-                        'Combustible'  => $cm->COMBUSTIBLE,
-                        'Consumo'      => $cm->CONSUMO_PROMEDIO ? $cm->CONSUMO_PROMEDIO . ' L/día' : null,
                         'Batería'      => $cm->TIPO_BATERIA,
                         'Aceite Motor' => $cm->ACEITE_MOTOR,
                         'Aceite Caja'  => $cm->ACEITE_CAJA,
@@ -382,7 +378,7 @@ class CaracteristicaModeloController extends Controller
             $oldModelo = $catalogo->MODELO;
             $oldAnio = $catalogo->ANIO_ESPEC;
             // Snapshot original para diff de auditoria (solo campos auditables)
-            $auditFields = ['MODELO','ANIO_ESPEC','MOTOR','COMBUSTIBLE','CONSUMO_PROMEDIO',
+            $auditFields = ['MODELO','ANIO_ESPEC','MOTOR',
                             'ACEITE_MOTOR','ACEITE_CAJA','LIGA_FRENO','REFRIGERANTE','TIPO_BATERIA'];
             $originalSnapshot = collect($auditFields)->mapWithKeys(fn($f) => [$f => $catalogo->{$f} ?? null])->toArray();
 
@@ -716,8 +712,6 @@ class CaracteristicaModeloController extends Controller
             'TIPO' => 'Tipo de Equipo',
             'ANIO_ESPEC' => 'Año de Ficha',
             'MOTOR' => 'Motor',
-            'COMBUSTIBLE' => 'Combustible',
-            'CONSUMO_PROMEDIO' => 'Consumo Promedio',
             'ACEITE_MOTOR' => 'Aceite de Motor',
             'ACEITE_CAJA' => 'Aceite de Caja',
             'LIGA_FRENO' => 'Liga de Freno',

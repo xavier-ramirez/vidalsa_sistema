@@ -239,6 +239,35 @@
                     <input type="text" id="serial_motor" name="SERIAL_DE_MOTOR" class="form-input-custom" value="{{ old('SERIAL_DE_MOTOR') }}" placeholder="Opcional" autocomplete="off" style="text-transform: uppercase;">
                 </div>
 
+                {{-- COMBUSTIBLE (solo equipo: `equipos_auxiliares` no tiene esa columna).
+                     Es dato de la UNIDAD, no del modelo: un mismo MODELO puede traer motor
+                     a gasolina o a gasoil (HILUX 2.7 vs 2.4 diésel, F-350 Triton vs Power
+                     Stroke). Opciones desde Equipo::COMBUSTIBLES, la misma fuente que valida
+                     el controlador. Se oculta/deshabilita por modo igual que #serialMotorWrap. --}}
+                <div id="combustibleWrap">
+                    <span style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">Combustible</span>
+                    <div class="custom-dropdown" id="combustibleSelect">
+                        <input type="hidden" name="COMBUSTIBLE" id="input_combustible" data-filter-value value="{{ old('COMBUSTIBLE') }}">
+                        <div class="dropdown-trigger" onclick="toggleDropdown('combustibleSelect', event)" tabindex="0" role="button" style="cursor: default;">
+                            <span id="label_combustible" data-filter-label>{{ old('COMBUSTIBLE') ?: 'SELECCIONE' }}</span>
+                            <i class="material-icons">expand_more</i>
+                        </div>
+                        <div class="dropdown-content">
+                            @foreach(\App\Models\Equipo::COMBUSTIBLES as $comb)
+                                <div class="dropdown-item" onclick="selectOption('combustibleSelect', '{{ $comb }}', '{{ $comb }}', 'combustible')">{{ $comb }}</div>
+                            @endforeach
+                        </div>
+                    </div>
+                    @error('COMBUSTIBLE') <span class="error-message-inline">{{ $message }}</span> @enderror
+                </div>
+
+                {{-- CONSUMO DIARIO (solo equipo, misma razón que COMBUSTIBLE). Alimenta la
+                     proyección de gasoil por frente: por eso es numérico, para poder sumarse. --}}
+                <div id="consumoWrap">
+                    <label for="CONSUMO_PROMEDIO" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">Consumo (L/día)</label>
+                    <input type="number" id="CONSUMO_PROMEDIO" name="CONSUMO_PROMEDIO" class="form-input-custom no-spinner" value="{{ old('CONSUMO_PROMEDIO') }}" placeholder="Ej: 200" min="0" max="99999" step="0.01" autocomplete="off">
+                </div>
+
                 {{-- CAPACIDAD --}}
                 <div>
                     <label for="CAPACIDAD" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">Capacidad</label>
@@ -636,6 +665,23 @@
             serialMotorWrap.style.display = isAux ? 'none' : '';
             var smInput = document.getElementById('serial_motor');
             if (smInput) smInput.disabled = isAux;
+        }
+
+        // Combustible (solo equipo): `equipos_auxiliares` no tiene esa columna, asi que en
+        // modo auxiliar se oculta Y se deshabilita el hidden para no enviarlo en el POST.
+        var combustibleWrap = document.getElementById('combustibleWrap');
+        if (combustibleWrap) {
+            combustibleWrap.style.display = isAux ? 'none' : '';
+            var combInput = document.getElementById('input_combustible');
+            if (combInput) combInput.disabled = isAux;
+        }
+
+        // Consumo diario (solo equipo): mismo patron que #combustibleWrap.
+        var consumoWrap = document.getElementById('consumoWrap');
+        if (consumoWrap) {
+            consumoWrap.style.display = isAux ? 'none' : '';
+            var consInput = document.getElementById('CONSUMO_PROMEDIO');
+            if (consInput) consInput.disabled = isAux;
         }
 
         // Equipo Vinculado (solo auxiliar). Mismo patron que serialMotorWrap: al vivir en la

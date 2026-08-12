@@ -512,7 +512,7 @@ class EquipoController extends Controller
             ->leftJoin('tipo_equipos', 'equipos.id_tipo_equipo', '=', 'tipo_equipos.id')
             ->with([
                 'documentacion.seguro',
-                'especificaciones:ID_ESPEC,COMBUSTIBLE,CONSUMO_PROMEDIO,FOTO_REFERENCIAL',
+                'especificaciones:ID_ESPEC,FOTO_REFERENCIAL',
                 'tipo',
                 'frenteActual',
                 // Reporte abierto: permite abrir el modal de cierre al instante al
@@ -1612,6 +1612,7 @@ class EquipoController extends Controller
             'SERIAL_CHASIS' => strtoupper($request->SERIAL_CHASIS),
             'SERIAL_DE_MOTOR' => (trim($request->SERIAL_DE_MOTOR ?? '') === '') ? null : strtoupper(trim($request->SERIAL_DE_MOTOR)),
             'DETALLE_UBICACION_ACTUAL' => (trim($request->DETALLE_UBICACION_ACTUAL ?? '') === '') ? null : mb_strtoupper(trim($request->DETALLE_UBICACION_ACTUAL)),
+            'COMBUSTIBLE' => (trim($request->COMBUSTIBLE ?? '') === '') ? null : mb_strtoupper(trim($request->COMBUSTIBLE)),
         ]);
 
         if ($request->has('documentacion.PLACA')) {
@@ -1634,6 +1635,8 @@ class EquipoController extends Controller
                 'ANIO' => 'required|integer',
                 'COLOR' => 'nullable|string|max:50',
                 'CAPACIDAD' => 'nullable|string|max:80',
+                'COMBUSTIBLE' => 'nullable|in:' . implode(',', \App\Models\Equipo::COMBUSTIBLES),
+                'CONSUMO_PROMEDIO' => 'nullable|numeric|min:0|max:99999',
                 'SERIAL_CHASIS' => 'required|unique:equipos,SERIAL_CHASIS',
                 'SERIAL_DE_MOTOR' => 'nullable|unique:equipos,SERIAL_DE_MOTOR',
                 'documentacion.PLACA' => 'nullable|unique:documentacion,PLACA',
@@ -1999,6 +2002,7 @@ class EquipoController extends Controller
             'SERIAL_CHASIS' => strtoupper($request->SERIAL_CHASIS),
             'SERIAL_DE_MOTOR' => (trim($request->SERIAL_DE_MOTOR ?? '') === '') ? null : strtoupper(trim($request->SERIAL_DE_MOTOR)),
             'DETALLE_UBICACION_ACTUAL' => (trim($request->DETALLE_UBICACION_ACTUAL ?? '') === '') ? null : mb_strtoupper(trim($request->DETALLE_UBICACION_ACTUAL)),
+            'COMBUSTIBLE' => (trim($request->COMBUSTIBLE ?? '') === '') ? null : mb_strtoupper(trim($request->COMBUSTIBLE)),
         ]);
 
         if ($request->has('documentacion.PLACA')) {
@@ -2017,6 +2021,8 @@ class EquipoController extends Controller
             'ANIO' => 'required|integer',
             'COLOR' => 'nullable|string|max:50',
             'CAPACIDAD' => 'nullable|string|max:80',
+            'COMBUSTIBLE' => 'nullable|in:' . implode(',', \App\Models\Equipo::COMBUSTIBLES),
+            'CONSUMO_PROMEDIO' => 'nullable|numeric|min:0|max:99999',
             // ID_ESPEC se gestiona desde el widget del catálogo, no desde
             // el formulario de edición general. Se acepta cualquier valor
             // (o null) sin validar existencia para evitar errores con vínculos huérfanos.
@@ -2805,6 +2811,8 @@ class EquipoController extends Controller
             'ANIO' => 'Año',
             'SERIAL_CHASIS' => 'Serial de Chasis',
             'SERIAL_DE_MOTOR' => 'Serial de Motor',
+            'COMBUSTIBLE' => 'Combustible',
+            'CONSUMO_PROMEDIO' => 'Consumo (L/día)',
             'documentacion.PLACA' => 'Placa',
             'ESTADO_OPERATIVO' => 'Estatus',
             'doc_propiedad' => 'Documento de Propiedad',
@@ -3204,8 +3212,6 @@ class EquipoController extends Controller
                 'TIPO',
                 'ANIO_ESPEC',
                 'MOTOR',
-                'COMBUSTIBLE',
-                'CONSUMO_PROMEDIO',
                 'ACEITE_MOTOR',
                 'ACEITE_CAJA',
                 'LIGA_FRENO',
@@ -3228,8 +3234,6 @@ class EquipoController extends Controller
                     'TIPO' => $entry->TIPO,
                     'ANIO_ESPEC' => $entry->ANIO_ESPEC,
                     'MOTOR' => $entry->MOTOR,
-                    'COMBUSTIBLE' => $entry->COMBUSTIBLE,
-                    'CONSUMO_PROMEDIO' => $entry->CONSUMO_PROMEDIO,
                     'ACEITE_MOTOR' => $entry->ACEITE_MOTOR,
                     'ACEITE_CAJA' => $entry->ACEITE_CAJA,
                     'LIGA_FRENO' => $entry->LIGA_FRENO,
@@ -3284,7 +3288,13 @@ class EquipoController extends Controller
             // No excluir ESPECIAL si el usuario está filtrando explícitamente por uno (drill-down).
             $applyEspecialExclusion = !FrenteTrabajo::isEspecialId($requestedFrenteId);
 
-            // Cache key — v7: cambió la estructura del payload (los auxiliares se agrupan
+            // Cache key — v9: el consumo total descuenta los chutos que andan con lowboy
+            // (ProyeccionCombustible), para dar el MISMO numero que el reporte Excel.
+            // v8: el consumo total pasó a sumar equipos + auxiliares y solo
+            // cuenta los de GASOIL (antes era un JOIN al catalogo que se comia a los
+            // equipos sin ficha). Cambia el NUMERO, no la forma: igual hay que subir la
+            // version o durante 2 minutos se sigue sirviendo el total viejo.
+            // v7: cambió la estructura del payload (los auxiliares se agrupan
             // por EDAD nueva/antigua, no por operativo/no operativo, y traen sus totales).
             // v6 fue quitar los gráficos Estado Operativo e Inoperatividad y filtrar los
             // auxiliares por frente. Subir la versión es OBLIGATORIO al cambiar la forma del
@@ -3294,7 +3304,7 @@ class EquipoController extends Controller
             // usar auth()->id()/ID_USUARIO — con $user->id todos caían en 'guest' y compartían
             // caché entre usuarios de distinto alcance (fuga de datos). Se hashea también el
             // scope (isLocal + frentes permitidos) por robustez si cambian los permisos.
-            $cacheKey = 'fleet_stats_v7_u' . ($user?->ID_USUARIO ?? 'guest')
+            $cacheKey = 'fleet_stats_v9_u' . ($user?->ID_USUARIO ?? 'guest')
                       . '_f' . ($requestedFrenteId ?: 'all')
                       . '_s' . md5(($isLocal ? 'L' : 'G') . '|' . implode(',', $frentesPermitidos))
                       . '_b' . md5(implode(',', $frentesBloqueados));
@@ -3350,11 +3360,6 @@ class EquipoController extends Controller
                 $fleetNew = (int) ($basicStats->fleet_new ?? 0);
                 $fleetOld = (int) ($basicStats->fleet_old ?? 0);
 
-                // ── Consumo total: JOIN con especificaciones ──────────────────────
-                $totalConsumption = (clone $baseQuery)
-                    ->join('caracteristicas_modelo', 'equipos.ID_ESPEC', '=', 'caracteristicas_modelo.ID_ESPEC')
-                    ->sum(DB::raw('CAST(caracteristicas_modelo.CONSUMO_PROMEDIO AS DECIMAL(10,2))'));
-
                 // ── Query agrupada por tipo (flota nueva vs vieja) ──────────────────
                 // El WHERE de DESINCORPORADO no es opcional: los totales de la cabecera
                 // ($basicStats) SI los excluyen, asi que sin este filtro las barras sumaban
@@ -3405,6 +3410,35 @@ class EquipoController extends Controller
                         });
                     }
                 }
+                // ── Consumo total de gasoil: LAS DOS TABLAS ──────────────────────
+                // Un frente quema lo de sus equipos MAS lo de sus auxiliares: en la
+                // proyeccion del frente TUBERIA 12'' las 20 maquinas de soldar y los 2
+                // compresores son 1.000 L/dia, el 15% del total. Sumar solo `equipos`
+                // dejaba fuera ese 15% sin avisar.
+                //
+                // Va aqui y no arriba porque necesita $auxBase ya construido y con el
+                // MISMO scope de frente aplicado — si no, los auxiliares ignorarian el
+                // frente seleccionado y el total saldria inflado.
+                //
+                // Se filtra por GASOIL a proposito: la proyeccion es de gasoil. Los
+                // equipos a gasolina y los remolques ('NO APLICA') no suman litros aqui.
+                $consumoEquipos = (clone $baseQuery)
+                    ->where('equipos.COMBUSTIBLE', 'GASOIL')
+                    ->sum('equipos.CONSUMO_PROMEDIO');
+                $consumoAuxiliares = (clone $auxBase)
+                    ->where('COMBUSTIBLE', 'GASOIL')
+                    ->sum('CONSUMO_PROMEDIO');
+
+                // Un chuto con lowboy no gasta lo mismo que uno con batea: trabaja por
+                // tandas. La suma plana los cuenta a todos como si halaran batea, asi que
+                // se descuenta la diferencia. La regla vive en UN solo sitio —
+                // ProyeccionCombustible— y es la MISMA que usa el reporte Excel; si cada
+                // uno la implementara aparte, los dos numeros no coincidirian.
+                $frentesEnScope = (clone $baseQuery)->distinct()->pluck('ID_FRENTE_ACTUAL')->all();
+                $descuentoLowboy = \App\Support\ProyeccionCombustible::descuentoLowboy($frentesEnScope);
+
+                $totalConsumption = (float) $consumoEquipos + (float) $consumoAuxiliares - $descuentoLowboy;
+
                 // Mismo corte de edad que los equipos (>= 2025 = nueva) para que los dos
                 // gráficos del dashboard se lean igual. Antes este se agrupaba por
                 // operativo/no operativo: dos gráficos con la misma pinta pero midiendo

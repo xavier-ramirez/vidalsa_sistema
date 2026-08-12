@@ -149,33 +149,13 @@
         @error('MOTOR') <span class="error-message-inline">{{ $message }}</span> @enderror
     </div>
 
-    <!-- 5. COMBUSTIBLE (Strict Selection) -->
-    <div class="catalog-field-group">
-        <span class="catalog-label">Combustible</span>
-        <div class="custom-dropdown @error('COMBUSTIBLE') is-invalid @enderror" id="combustibleSelect">
-            <input type="hidden" name="COMBUSTIBLE" id="combustible_value" value="{{ old('COMBUSTIBLE', $catalogo->COMBUSTIBLE ?? '') }}">
-            <div class="dropdown-trigger" id="combustible_trigger" onclick="toggleDropdown('combustibleSelect', event)" tabindex="0" role="button" style="cursor: default;">
-                <span id="label_combustible">{{ old('COMBUSTIBLE', $catalogo->COMBUSTIBLE ?? '') ?: 'SELECCIONE' }}</span>
-                <i class="material-icons">expand_more</i>
-            </div>
-            <div class="dropdown-content">
-                @foreach(['GASOLINA', 'DIESEL', 'GASOIL', 'GAS', 'ELÉCTRICO', 'HIBRIDO'] as $val)
-                    <div class="dropdown-item" onclick="selectOption('combustibleSelect', '{{ $val }}', '{{ $val }}', 'combustible')">{{ $val }}</div>
-                @endforeach
-            </div>
-        </div>
-        @error('COMBUSTIBLE') <span class="error-message-inline">{{ $message }}</span> @enderror
-    </div>
-
-    <!-- 6. CONSUMO -->
-    <div class="catalog-field-group">
-        <label for="CONSUMO_PROMEDIO" class="catalog-label">Consumo (L/Día)</label>
-        <input type="text" id="CONSUMO_PROMEDIO" name="CONSUMO_PROMEDIO"
-               class="form-input-custom"
-               value="{{ old('CONSUMO_PROMEDIO', $catalogo->CONSUMO_PROMEDIO ?? '') }}"
-               placeholder="Ej: 120"
-               autocomplete="off">
-    </div>
+    {{-- El COMBUSTIBLE ya no vive aquí: se mudó a `equipos` (form de la unidad).
+         Un mismo MODELO puede traer motor a gasolina o a gasoil según la unidad
+         (HILUX 2.7 vs 2.4 diésel, F-350 Triton vs Power Stroke), así que la ficha
+         del modelo no podía representarlo. El CONSUMO se mudó por lo mismo: tres
+         unidades del MISMO chasis SINOTRUK ZZ4257 gastan 150, 80 y 50 L/día según el
+         trabajo que hagan. Aquí solo quedan datos de referencia del modelo: MOTOR,
+         aceites, refrigerante, batería. --}}
 
     <!-- 7. ACEITE MOTOR -->
     <div class="catalog-field-group">

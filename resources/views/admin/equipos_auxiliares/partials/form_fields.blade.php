@@ -118,6 +118,38 @@
                placeholder="Ej: 300A, 50kVA, 20 pies" maxlength="80" autocomplete="off">
     </div>
 
+    {{-- COMBUSTIBLE y CONSUMO: un auxiliar con motor (soldadora, compresor, luminaria,
+         planta) sí quema gasoil y tiene que entrar en la proyección del frente. Las
+         opciones salen de Equipo::COMBUSTIBLES — la MISMA lista que los equipos, no una
+         paralela. 'NO APLICA' es para contenedores, tanques y la rastra. --}}
+    <div>
+        <span id="lbl_aux_combustible" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">Combustible</span>
+        <div class="custom-dropdown @error('COMBUSTIBLE') is-invalid @enderror" id="auxCombustibleSelect">
+            <input type="hidden" name="COMBUSTIBLE" id="input_aux_combustible" data-filter-value value="{{ old('COMBUSTIBLE', $auxiliar->COMBUSTIBLE) }}" aria-label="Combustible">
+            <div class="dropdown-trigger" onclick="toggleDropdown('auxCombustibleSelect', event)" tabindex="0" role="button" aria-haspopup="listbox" aria-labelledby="lbl_aux_combustible label_aux_combustible" style="cursor: default;">
+                <span id="label_aux_combustible" data-filter-label>{{ old('COMBUSTIBLE', $auxiliar->COMBUSTIBLE) ?: 'SELECCIONE' }}</span>
+                <i class="material-icons">expand_more</i>
+            </div>
+            <div class="dropdown-content">
+                @foreach(\App\Models\Equipo::COMBUSTIBLES as $comb)
+                    <div class="dropdown-item" onclick="selectOption('auxCombustibleSelect', '{{ $comb }}', '{{ $comb }}', 'aux_combustible')">{{ $comb }}</div>
+                @endforeach
+            </div>
+        </div>
+        @error('COMBUSTIBLE') <span class="error-message-inline">{{ $message }}</span> @enderror
+    </div>
+
+    <div>
+        <label for="AUX_CONSUMO_PROMEDIO" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">
+            Consumo (L/día)
+        </label>
+        <input type="number" id="AUX_CONSUMO_PROMEDIO" name="CONSUMO_PROMEDIO"
+               value="{{ old('CONSUMO_PROMEDIO', \App\Models\Equipo::consumoFormateado($auxiliar->CONSUMO_PROMEDIO)) }}"
+               class="form-input-custom no-spinner @error('CONSUMO_PROMEDIO') is-invalid @enderror"
+               placeholder="Ej: 30" min="0" max="99999" step="0.01" autocomplete="off">
+        @error('CONSUMO_PROMEDIO') <span class="error-message-inline">{{ $message }}</span> @enderror
+    </div>
+
     <div>
         @php
             $frenteVal  = old('ID_FRENTE_ACTUAL', $auxiliar->ID_FRENTE_ACTUAL);

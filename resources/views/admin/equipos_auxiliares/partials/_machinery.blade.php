@@ -437,6 +437,11 @@
 
             ${section('Vinculación', 'link', hostCard)}
 
+            ${section('Combustible y Consumo', 'local_gas_station',
+                row('Tipo de Combustible',  d.combustible) +
+                row('Consumo Promedio',     d.consumo ? d.consumo + ' L/día' : null)
+            )}
+
             ${section('Información Adicional', 'info',
                 row('Código Interno',       d.codigo_interno ? '#' + d.codigo_interno : '—') +
                 row('Año',                  d.anio) +
