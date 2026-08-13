@@ -1159,15 +1159,16 @@
         /* ── Tokens del modal ──────────────────────────────────────────────────────
            Los valores viven aquí y no repetidos por cada regla/style inline.
            Contraste sobre blanco COMPROBADO (AA texto normal = 4.5:1):
-             --fd-ink   #0f172a  17.9:1  cifras
-             --fd-ink-2 #64748b   4.8:1  etiquetas y textos pequeños (PASA texto)
+             --fd-ink   #000000  21.0:1  cifras y etiquetas de los gráficos. NEGRO puro
+                                         a pedido del cliente (era #0f172a, 17.9:1).
+             --fd-ink-2 #64748b   4.8:1  textos pequeños de apoyo (PASA texto)
              --fd-ink-3 #8a94a6   3.1:1  SOLO mobiliario no textual (íconos, ejes,
                                          leyenda). NO usar para texto: no llega a 4.5.
            #fleetDashboardModal es el ámbito, así que las cajas que pinta el JS dentro
            del modal también pueden usar estas variables. */
         #fleetDashboardModal {
             --fd-ring: rgba(15, 23, 42, 0.08);
-            --fd-ink: #0f172a;
+            --fd-ink: #000;
             --fd-ink-2: #64748b;
             --fd-ink-3: #8a94a6;
         }
@@ -1286,10 +1287,9 @@
             gap: 6px;
             font-size: 11.5px;
             font-weight: 500;
-            /* NEGRO a pedido del cliente (antes var(--fd-ink-2) = #64748b, gris), igual
-               que .fleet-kpi-label: son las claves "Nueva (≥2025) / Antigua (<2025) /
-               Sin año" que acompañan a cada gráfico. */
-            color: #000;
+            /* Negro (antes var(--fd-ink-2) = #64748b, gris): son las claves "Nueva
+               (≥2025) / Antigua (<2025) / Sin año" que acompañan a cada gráfico. */
+            color: var(--fd-ink);
             white-space: nowrap;
         }
 
@@ -1303,7 +1303,7 @@
         .fdm-key b {
             font-size: 15px;
             font-weight: 700;
-            color: #000;   /* NEGRO a pedido del cliente (antes var(--fd-ink) = #0f172a) */
+            color: var(--fd-ink);
             letter-spacing: -0.3px;
         }
 
@@ -1384,11 +1384,10 @@
                que pueda encogerse de verdad dentro del flex. */
             white-space: normal;
             min-width: 0;
-            /* NEGRO a pedido del cliente (antes var(--fd-ink-2) = #64748b, gris): la etiqueta
-               se leía apagada al lado de la cifra. 21:1 de contraste, muy por encima del 4.5:1
-               que exige AA — el motivo por el que NUNCA debe usarse aquí --fd-ink-3 (#8a94a6,
-               3.06:1) sigue vigente. */
-            color: #000;
+            /* Negro (antes var(--fd-ink-2) = #64748b, gris): la etiqueta se leía apagada al
+               lado de la cifra. Sigue vigente el motivo por el que NUNCA debe usarse aquí
+               --fd-ink-3 (#8a94a6, 3.06:1): no llega al 4.5:1 que exige AA. */
+            color: var(--fd-ink);
             font-weight: 500;
         }
 
@@ -1402,9 +1401,9 @@
             white-space: nowrap;
             font-size: 24px;
             line-height: 1.1;
-            /* NEGRO a pedido del cliente (antes var(--fd-ink) = #0f172a). Son las cifras
-               Σ Equipos / Σ Auxiliares / Gasoil estimado. */
-            color: #000;
+            /* Misma tinta que la etiqueta: lo que separa la cifra es el tamaño y el
+               grosor, no el color (antes la etiqueta iba en gris). */
+            color: var(--fd-ink);
             font-weight: 700;
             letter-spacing: -0.6px;
         }

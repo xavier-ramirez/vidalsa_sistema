@@ -164,7 +164,7 @@ function renderFleetEquiposAsignados(lista) {
                     <span style="font-size:11px;font-weight:500;color:var(--fd-ink-2);line-height:1.25;word-break:break-word;flex:1;" title="${row.frente}">${row.frente}</span>
                 </div>
                 <div style="display:flex;align-items:baseline;gap:5px;">
-                    <span style="font-size:21px;font-weight:700;line-height:1.1;color:#000;letter-spacing:-0.5px;">${row.total}</span>
+                    <span style="font-size:21px;font-weight:700;line-height:1.1;color:var(--fd-ink);letter-spacing:-0.5px;">${row.total}</span>
                     <span style="font-size:11px;font-weight:500;color:var(--fd-ink-2);">equipo${row.total !== 1 ? 's' : ''}</span>
                 </div>
             </div>`
@@ -742,8 +742,9 @@ function createStackedBarChart(canvasId, config) {
         anchor: 'end',
         align: 'right',
         offset: 5,
-        // NEGRO a pedido del cliente (antes #64748b, gris). Va FUERA de la barra, sobre el
-        // blanco de la tarjeta, asi que el negro es lo que mas contrasta (21:1).
+        // Literal y no var(--fd-ink): Chart.js pinta en canvas y no resuelve variables CSS
+        // (mismo motivo que LEGEND_STYLE). Equivale a --fd-ink. Va FUERA de la barra, sobre
+        // el blanco de la tarjeta, asi que el negro es lo que mas contrasta (21:1).
         color: '#000',
         textShadowBlur: 0,
         font: { weight: '600', size: 10.5, family: "'Inter', 'Segoe UI', sans-serif" },
@@ -821,8 +822,9 @@ function createStackedBarChart(canvasId, config) {
                     grid: { display: false },
                     ticks: {
                         font: { size: window.innerWidth < 480 ? 10 : 11, weight: '500', family: "'Inter', 'Segoe UI', sans-serif" },
-                        // NEGRO a pedido del cliente (antes #8a94a6 = --fd-ink-3, gris): son
-                        // los TIPOS DE EQUIPO, texto que se lee, no mobiliario del eje.
+                        // = --fd-ink, literal porque el canvas no resuelve variables CSS
+                        // (ver LEGEND_STYLE). Antes #8a94a6 (--fd-ink-3), que es mobiliario
+                        // de eje: estos rotulos son los TIPOS DE EQUIPO, texto que se lee.
                         color: '#000',
                         maxRotation: 0,
                         minRotation: 0,
