@@ -164,7 +164,7 @@ function renderFleetEquiposAsignados(lista) {
                     <span style="font-size:11px;font-weight:500;color:var(--fd-ink-2);line-height:1.25;word-break:break-word;flex:1;" title="${row.frente}">${row.frente}</span>
                 </div>
                 <div style="display:flex;align-items:baseline;gap:5px;">
-                    <span style="font-size:21px;font-weight:700;line-height:1.1;color:var(--fd-ink);letter-spacing:-0.5px;">${row.total}</span>
+                    <span style="font-size:21px;font-weight:700;line-height:1.1;color:#000;letter-spacing:-0.5px;">${row.total}</span>
                     <span style="font-size:11px;font-weight:500;color:var(--fd-ink-2);">equipo${row.total !== 1 ? 's' : ''}</span>
                 </div>
             </div>`
@@ -742,7 +742,9 @@ function createStackedBarChart(canvasId, config) {
         anchor: 'end',
         align: 'right',
         offset: 5,
-        color: '#64748b',
+        // NEGRO a pedido del cliente (antes #64748b, gris). Va FUERA de la barra, sobre el
+        // blanco de la tarjeta, asi que el negro es lo que mas contrasta (21:1).
+        color: '#000',
         textShadowBlur: 0,
         font: { weight: '600', size: 10.5, family: "'Inter', 'Segoe UI', sans-serif" },
         display: function (ctx) {
@@ -819,7 +821,9 @@ function createStackedBarChart(canvasId, config) {
                     grid: { display: false },
                     ticks: {
                         font: { size: window.innerWidth < 480 ? 10 : 11, weight: '500', family: "'Inter', 'Segoe UI', sans-serif" },
-                        color: '#8a94a6',   // = --fd-ink-3 (ver LEGEND_STYLE)
+                        // NEGRO a pedido del cliente (antes #8a94a6 = --fd-ink-3, gris): son
+                        // los TIPOS DE EQUIPO, texto que se lee, no mobiliario del eje.
+                        color: '#000',
                         maxRotation: 0,
                         minRotation: 0,
                         autoSkip: false

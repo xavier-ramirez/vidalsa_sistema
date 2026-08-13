@@ -1286,7 +1286,10 @@
             gap: 6px;
             font-size: 11.5px;
             font-weight: 500;
-            color: var(--fd-ink-2);
+            /* NEGRO a pedido del cliente (antes var(--fd-ink-2) = #64748b, gris), igual
+               que .fleet-kpi-label: son las claves "Nueva (≥2025) / Antigua (<2025) /
+               Sin año" que acompañan a cada gráfico. */
+            color: #000;
             white-space: nowrap;
         }
 
@@ -1300,7 +1303,7 @@
         .fdm-key b {
             font-size: 15px;
             font-weight: 700;
-            color: var(--fd-ink);
+            color: #000;   /* NEGRO a pedido del cliente (antes var(--fd-ink) = #0f172a) */
             letter-spacing: -0.3px;
         }
 
@@ -1399,7 +1402,9 @@
             white-space: nowrap;
             font-size: 24px;
             line-height: 1.1;
-            color: var(--fd-ink);    /* el único elemento con peso */
+            /* NEGRO a pedido del cliente (antes var(--fd-ink) = #0f172a). Son las cifras
+               Σ Equipos / Σ Auxiliares / Gasoil estimado. */
+            color: #000;
             font-weight: 700;
             letter-spacing: -0.6px;
         }
