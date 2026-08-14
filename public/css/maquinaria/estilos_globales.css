@@ -4211,6 +4211,12 @@ body:has(.mapa-page) .main-viewport {
 .oleo-cnt { font-size: 11px; font-weight: 700; color: #64748b; background: #f1f5f9; border-radius: 999px; padding: 1px 7px; }
 .oleo-del { background: transparent; border: none; color: #cbd5e1; font-size: 18px; line-height: 1; cursor: pointer; padding: 0 2px; }
 .oleo-del:hover { color: #ef4444; }
+/* Lápiz de la fila: dibuja la tubería de ESE frente (antes era un botón suelto en la barra).
+   Mismo peso visual que la ✕ para que ninguna de las dos acciones domine. */
+.oleo-draw { background: transparent; border: none; color: #cbd5e1; line-height: 1; cursor: pointer; padding: 0 2px;
+    display: flex; align-items: center; }
+.oleo-draw i { font-size: 17px; }
+.oleo-draw:hover { color: #0067b1; }
 
 /* Vela (pin de ubicación tipo Google Maps) — el divIcon no debe tener fondo */
 /* Subtitulo del menu de la vela ("En N proyectos"). */
@@ -4261,9 +4267,9 @@ body:has(.mapa-page) .main-viewport {
 .mapa-dibujo-btn:hover { background: #334155; }
 .mapa-dibujo-btn.primary { background: #0067b1; }
 .mapa-dibujo-btn.primary:hover { background: #005699; }
-/* No hay reglas de la barra de dibujo para teléfono: su único disparador es el botón
-   "Dibujar tubería" (iniciarDibujo en mapa_index.js), que lleva .mapa-ctrl-mobile-hide y
-   está oculto en ≤640px. La barra nunca llega a existir ahí. */
+/* No hay reglas de la barra de dibujo para teléfono: su único disparador es el lápiz de
+   cada frente, dentro del panel "Frentes de trabajo" (.oleo-ctrl en mapa_index.js), que
+   lleva .mapa-ctrl-mobile-hide y está oculto en ≤640px. La barra nunca existe ahí. */
 
 /* Popup para guardar un punto en un proyecto */
 .oleo-save { min-width: 210px; }

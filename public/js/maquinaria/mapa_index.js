@@ -1284,6 +1284,12 @@
         // Es un umbral APARTE de LEJOS_KM a propósito: aquel decide cuánto encoge el pin, que es
         // otra cosa. Vale igual para la pantalla y para la foto.
         var DETALLE_KM = 50;
+        // TUBERIAS_KM = escala hasta la que se dibujan los TRAZOS de las tuberías. Más lejos
+        // (300 km, 500 km…) un oleoducto entero mide pocos píxeles: se ve como una rayita
+        // suelta sobre el país que no dice nada y ensucia la vista general. Los pines de los
+        // puntos sí siguen, que son los que ubican el proyecto. Tercer umbral APARTE de
+        // LEJOS_KM y DETALLE_KM: cada uno decide una cosa distinta.
+        var TUBERIAS_KM = 200;
         // Colocación de la cajita respecto al pin: ETQ_SEP_X = separación a su costado (deja
         // sitio para la línea que la une con la vela),
         // ETQ_SUBE_Y = cuánto queda por encima del bulbo. Valores pequeños = etiqueta pegada al
@@ -1783,6 +1789,8 @@
         // en adelante (ahí solo cabe el nombre del frente). Única definición de la regla — la usan
         // pantalla y foto.
         function conDetalle() { return escalaKm() <= DETALLE_KM; }
+        // ¿Se dibujan los trazos de las tuberías? Solo hasta TUBERIAS_KM (ver allí el motivo).
+        function conTuberias() { return escalaKm() <= TUBERIAS_KM; }
         function puntosVisibles(r) { return conDetalle() ? r.puntos : null; }
 
         // Reparte las etiquetas de TODAS las velas (de todos los proyectos) evitando solapes:
@@ -2056,28 +2064,33 @@
             return fundirVelas(todas, thresh, ocultar);
         }
 
-        var declutterZoom = null, declutterLejos = null, declutterDetalle = null; // último estado, para no recalcular en paneo
+        var declutterZoom = null, declutterLejos = null, declutterDetalle = null, declutterTubos = null; // último estado, para no recalcular en paneo
         function declutterVelas(force) {
             var z = map.getZoom();
             // A MÁS de 300 km (500 km…) el pin se encoge. El nombre del PUNTO es otro umbral
-            // (DETALLE_KM): hasta 50 km sale, más lejos solo el proyecto. Ambos por ESCALA.
-            var lejos = vistaLejana(), detalle = conDetalle();
+            // (DETALLE_KM): hasta 50 km sale, más lejos solo el proyecto. Y los TRAZOS de las
+            // tuberías se dejan de dibujar pasados TUBERIAS_KM. Los tres van por ESCALA.
+            var lejos = vistaLejana(), detalle = conDetalle(), conTubos = conTuberias();
             // En un PAN puro (mismo zoom y mismos umbrales) las distancias en px entre velas son
             // idénticas (coordenadas globales de Mercator): no hace falta re-agrupar ni re-enlazar
-            // todos los tooltips (evita flicker/jank). Se vigilan LOS DOS umbrales porque al
+            // todos los tooltips (evita flicker/jank). Se vigilan LOS TRES umbrales porque al
             // desplazarse en latitud la escala cambia sin cambiar el zoom. `force` re-ejecuta al
             // crear/recargar velas.
-            if (!force && z === declutterZoom && lejos === declutterLejos && detalle === declutterDetalle) return;
-            declutterZoom = z; declutterLejos = lejos; declutterDetalle = detalle;
+            if (!force && z === declutterZoom && lejos === declutterLejos
+                && detalle === declutterDetalle && conTubos === declutterTubos) return;
+            declutterZoom = z; declutterLejos = lejos; declutterDetalle = detalle; declutterTubos = conTubos;
             // A más de 300 km el pin se ve exageradamente grande → se encoge por CSS (clase en el mapa).
             el.classList.toggle('mapa-velas-lejos', lejos);
             // Los pines/tuberías de un proyecto oculto se quitan del mapa; los visibles se
             // reponen. Los pines visibles los vuelve a añadir agruparVelas; las tuberías, aquí.
+            // Los TRAZOS se quitan además cuando la escala pasa de TUBERIAS_KM: de tan lejos no
+            // aportan y ensucian (los pines del proyecto se quedan).
             Object.keys(oleoMap).forEach(function (id) {
                 var g = oleoMap[id], oculto = !!proyOcultos[id];
                 (g.markers || []).forEach(function (mk) { if (oculto) map.removeLayer(mk); });
                 (g.lines || []).forEach(function (l) {
-                    if (oculto) map.removeLayer(l); else if (!map.hasLayer(l)) l.addTo(map);
+                    if (oculto || !conTubos) map.removeLayer(l);
+                    else if (!map.hasLayer(l)) l.addTo(map);
                 });
             });
             // El umbral de fusión va con el tamaño al que se DIBUJA el pin (en vista lejana el CSS
@@ -2146,10 +2159,16 @@
             if (!grupos.length) { cont.innerHTML = '<div class="oleo-vacio">Sin frentes aún. Busca un lugar y vincúlalo a un frente.</div>'; return; }
             cont.innerHTML = grupos.map(function (o) {
                 var act = String(oleoActivo) === String(o.id);
+                // El LÁPIZ vive aquí, en la fila de cada frente, y no en un botón suelto de la
+                // barra: dibujar exige saber SOBRE QUÉ frente, y ese dato solo existe en esta
+                // lista. Antes eran dos botones y el de la barra terminaba abriendo este panel
+                // para preguntar lo mismo. Los puntos sueltos no llevan línea → sin lápiz.
+                var puedeTrazar = PUEDE_EDITAR && !o.suelto;
                 return '<div class="oleo-item' + (act ? ' oleo-item-activo' : '') + '" data-id="' + o.id + '">' +
                     '<span class="oleo-dot" style="background:' + o.color + '"></span>' +
                     '<span class="oleo-nom">' + esc(o.nombre) + '</span>' +
                     '<span class="oleo-cnt">' + (o.puntos ? o.puntos.length : 0) + '</span>' +
+                    (puedeTrazar ? '<button class="oleo-draw" title="Dibujar la tubería de este frente a mano" data-draw="' + o.id + '"><i class="material-icons">gesture</i></button>' : '') +
                     (PUEDE_EDITAR ? '<button class="oleo-del" title="Borrar" data-del="' + o.id + '">&times;</button>' : '') +
                 '</div>';
             }).join('');
@@ -2398,7 +2417,8 @@
         });
 
         // Panel de control "Proyectos": botón (timeline) que abre la lista de proyectos. Va en la
-        // barra TOP-LEFT junto a "Dibujar" (se agrega al mapa más abajo, tras DibujarCtrl).
+        // barra TOP-LEFT (se agrega al mapa más abajo). Desde aquí se elige el frente y, con
+        // el lápiz de su fila, se dibuja su tubería: es el único control de frentes del mapa.
         var OleoCtrl = L.Control.extend({
             options: { position: 'topleft' },
             onAdd: function () {
@@ -2414,7 +2434,33 @@
                 L.DomEvent.disableScrollPropagation(wrap);
                 var panel = wrap.querySelector('.oleo-panel');
                 wrap.querySelector('.oleo-toggle').addEventListener('click', function () { panel.style.display = (panel.style.display === 'none') ? 'block' : 'none'; });
+                // El panel se RECOGE al tocar cualquier otra cosa (otro control, el mapa…).
+                // disableClickPropagation(wrap) frena los clics de dentro, así que si el evento
+                // llega hasta aquí es porque fue fuera del panel.
+                // Se da de baja SOLO al ver que su panel ya no está en el documento, además de
+                // en onRemove: al navegar por la SPA el DOM del mapa se reemplaza sin que nadie
+                // llame a map.remove(), así que onRemove puede no llegar nunca y cada visita a
+                // /mapa dejaría otro listener vivo en `document`. Mismo patrón de autolimpieza
+                // que los menús contextuales de este archivo.
+                var cerrarFuera = function () {
+                    if (!document.body.contains(panel)) {
+                        document.removeEventListener('click', cerrarFuera);
+                        return;
+                    }
+                    panel.style.display = 'none';
+                };
+                this._cerrarFuera = cerrarFuera;
+                document.addEventListener('click', cerrarFuera);
                 wrap.querySelector('#oleoLista').addEventListener('click', function (e2) {
+                    // Lápiz de la fila: entra a dibujar la tubería DE ESE frente.
+                    var draw = e2.target.closest ? e2.target.closest('[data-draw]') : null;
+                    if (draw) {
+                        var idd2 = draw.getAttribute('data-draw');
+                        oleoActivo = idd2; oleoRenderLista();
+                        panel.style.display = 'none';   // estorba encima del trazo
+                        entrarDibujo(idd2);
+                        return;
+                    }
                     var del = e2.target.closest ? e2.target.closest('[data-del]') : null;
                     if (del) {
                         var idd = del.getAttribute('data-del');
@@ -2437,10 +2483,12 @@
                     if (item) { oleoActivo = item.getAttribute('data-id'); oleoRenderLista(); }
                 });
                 return wrap;
+            },
+            onRemove: function () {
+                if (this._cerrarFuera) { document.removeEventListener('click', this._cerrarFuera); this._cerrarFuera = null; }
             }
         });
-        // OleoCtrl (Proyectos) se agrega al mapa MÁS ABAJO (tras DibujarCtrl) para que su botón
-        // quede JUNTO al de "Dibujar" en la barra top-left.
+        // OleoCtrl (Frentes de trabajo) se agrega al mapa MÁS ABAJO, en la barra top-left.
 
         // ══════════════════════════════════════════════════════════════════════
         //  EDITOR DE RECORRIDO (tubería): parte UNIENDO los puntos del proyecto (o el
@@ -2494,17 +2542,7 @@
             }
         }
 
-        function abrirPanelOleo() { var p = document.querySelector('.oleo-panel'); if (p) p.style.display = 'block'; }
-        // Punto de entrada del botón LÁPIZ: elige el proyecto y entra a editar la línea.
-        function iniciarDibujo() {
-            var ids = Object.keys(oleoMap);
-            if (!oleoActivo || !oleoMap[oleoActivo]) {
-                if (ids.length === 1) { oleoActivo = ids[0]; oleoRenderLista(); }
-                else if (!ids.length) { window.toast('Primero vincula ubicaciones a un frente (busca un lugar en el mapa).', 'error'); abrirPanelOleo(); return; }
-                else { window.toast('Selecciona en el panel Frentes de trabajo (arriba a la izquierda) el frente a editar.', 'error'); abrirPanelOleo(); return; }
-            }
-            entrarDibujo(oleoActivo);
-        }
+        // Se entra a dibujar desde el lápiz de cada fila del panel de frentes (oleoRenderLista).
         function entrarDibujo(id) {
             if (!id || !oleoMap[id]) { window.toast('Selecciona un frente primero.', 'error'); return; }
             if (edMode) return;
@@ -3122,24 +3160,11 @@
         });
         map.addControl(new OjoCtrl());
 
-        // Botón LÁPIZ (arriba-izq): dibuja a mano el recorrido/curva de la tubería.
-        var DibujarCtrl = L.Control.extend({
-            options: { position: 'topleft' },
-            onAdd: function () {
-                // mapa-ctrl-mobile-hide: oculto en teléfono (ver FitVE arriba). Dibujar a
-                // mano una curva con el dedo, sobre un mapa que también hace pan/zoom, no
-                // es usable en pantalla chica; se hace desde escritorio.
-                var btn = L.DomUtil.create('button', 'mapa-fit-btn mapa-ctrl-mobile-hide');
-                btn.type = 'button';
-                btn.title = 'Dibujar tubería a mano (curva)';
-                btn.innerHTML = '<i class="material-icons">gesture</i>';
-                L.DomEvent.disableClickPropagation(btn);
-                L.DomEvent.on(btn, 'click', iniciarDibujo);
-                return btn;
-            }
-        });
-        if (PUEDE_EDITAR) map.addControl(new DibujarCtrl()); // dibujar la línea: solo con permiso
-        map.addControl(new OleoCtrl()); // "Proyectos" (timeline) — JUNTO a Dibujar en la barra top-left
+        // El botón suelto del LÁPIZ ya no existe: hacía lo mismo que este panel. Dibujar exige
+        // saber sobre QUÉ frente, dato que solo está en la lista, así que aquel botón acababa
+        // abriendo este mismo panel para preguntarlo. Ahora el lápiz es una acción por fila
+        // (ver oleoRenderLista) y queda un solo control en la barra.
+        map.addControl(new OleoCtrl()); // "Frentes de trabajo" (timeline), barra top-left
 
         // Exportación con MARCO DE RECORTE: muestra un recuadro (aspecto de la hoja) para
         // cuadrar; se exporta EXACTAMENTE lo que quede dentro del marco.
@@ -3429,8 +3454,12 @@
             estados.eachLayer(function (layer) { if (layer.getLatLngs) trazarAnillos(ctx, layer.getLatLngs(), proj); });
             // Mismo orden de apilado que en pantalla (la API entrega los grupos con este
             // criterio): con dos tuberías superpuestas, la de encima es la misma en los dos.
+            // Pasada TUBERIAS_KM la pantalla no dibuja los trazos: la foto tampoco, o saldría
+            // con unas rayitas que el usuario no está viendo (igual que puntosVisibles y
+            // vistaLejana, que también se consultan aquí para que foto y pantalla coincidan).
+            var conTubos = conTuberias();
             gruposOrdenados().forEach(function (o) {
-                if (proyOculto(o)) return;   // oculto → sin tubería
+                if (!conTubos || proyOculto(o)) return;   // oculto o demasiado lejos → sin tubería
                 if (o.recorrido && o.recorrido.length >= 2) {
                     var line = o.recorrido.map(function (c) { return proj([c[0], c[1]]); });
                     ctx.lineJoin = 'round'; ctx.lineCap = 'round';
