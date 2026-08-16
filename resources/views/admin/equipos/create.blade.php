@@ -57,6 +57,12 @@
     }
     .custom-form-autocomplete .dropdown-item:last-child { border-bottom: none; }
     .custom-form-autocomplete .dropdown-item:hover { background: #f7fafc; color: #2b6cb0; padding-left: 20px; }
+
+    /* Marca y Modelo sugieren según el modo: en EQUIPO las de `equipos`, en AUXILIAR las de
+       `equipos_auxiliares`. Va con !important porque filterFormDropdown() escribe
+       display:block inline al teclear y si no, reaparecerían las del otro mundo. */
+    .dropdown-list[data-modo="equipo"] .dropdown-item[data-scope="aux"],
+    .dropdown-list[data-modo="aux"]    .dropdown-item[data-scope="equipo"] { display: none !important; }
 </style>
 
 @include('admin.partials.page_header', [
@@ -177,9 +183,12 @@
                                placeholder="Escribe marca..." autocomplete="off" required
                                onfocus="showFormDropdown(this)" onblur="hideFormDropdownDelayed(this)" oninput="filterFormDropdown(this)"
                                style="text-transform: uppercase;">
-                        <div class="dropdown-list">
-                            @foreach($marcas as $m)
-                                <div class="dropdown-item" onmousedown="selectDropdownItem(this, '{{ $m }}')">{{ $m }}</div>
+                        {{-- data-scope: de qué mundo viene cada marca (equipo / aux / ambos). El
+                             CSS de .dropdown-list[data-modo] oculta las que no aplican al modo
+                             activo, y switchUnifiedMode() cambia ese data-modo. --}}
+                        <div class="dropdown-list" data-modo="equipo">
+                            @foreach($marcasScope as $op)
+                                <div class="dropdown-item" data-scope="{{ $op['s'] }}" onmousedown="selectDropdownItem(this, @js($op['v']))">{{ $op['v'] }}</div>
                             @endforeach
                         </div>
                     </div>
@@ -196,9 +205,9 @@
                                placeholder="Escribe modelo..." autocomplete="off" required
                                onfocus="showFormDropdown(this)" onblur="hideFormDropdownDelayed(this)" oninput="filterFormDropdown(this)"
                                style="text-transform: uppercase;">
-                        <div class="dropdown-list">
-                            @foreach($modelos as $mod)
-                                <div class="dropdown-item" onmousedown="selectDropdownItem(this, '{{ $mod }}')">{{ $mod }}</div>
+                        <div class="dropdown-list" data-modo="equipo">
+                            @foreach($modelosScope as $op)
+                                <div class="dropdown-item" data-scope="{{ $op['s'] }}" onmousedown="selectDropdownItem(this, @js($op['v']))">{{ $op['v'] }}</div>
                             @endforeach
                         </div>
                     </div>
@@ -653,6 +662,15 @@
         // Tipo slot
         document.getElementById('tipoEquipoWrap').style.display = isAux ? 'none' : '';
         document.getElementById('tipoAuxWrap').style.display = isAux ? '' : 'none';
+
+        // Marca y Modelo: el mismo campo sirve a los dos mundos, así que se cambia el juego
+        // de sugerencias. El CSS oculta las opciones fuera de ámbito (ver data-scope arriba).
+        ['marca', 'modelo'].forEach(function (id) {
+            var inp = document.getElementById(id);
+            var lista = inp && inp.closest('.custom-form-autocomplete');
+            lista = lista && lista.querySelector('.dropdown-list');
+            if (lista) lista.dataset.modo = isAux ? 'aux' : 'equipo';
+        });
 
         // Serial name
         var serialInput = document.getElementById('serial_principal');

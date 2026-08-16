@@ -1568,6 +1568,51 @@ class EquipoController extends Controller
             return Equipo::distinct()->whereNotNull('MODELO')->orderBy('MODELO', 'asc')->limit(1000)->pluck('MODELO');
         });
 
+        // Marcas y modelos de los AUXILIARES. El formulario unificado sugiere Tipo desde
+        // `equipos_auxiliares` ($tiposAux) pero Marca y Modelo salían solo de `equipos`, así
+        // que en modo auxiliar el desplegable ofrecía marcas de camiones. Se cargan aparte y
+        // la vista muestra el juego que corresponde al modo. TTL 60s como el resto de listas
+        // del formulario: un auxiliar nuevo se guarda por EquipoAuxiliarController (otro
+        // controlador), así que no pasa por olvidarCachesListasEquipos() y se refresca solo.
+        $marcasAux = \Illuminate\Support\Facades\Cache::remember('marcas_aux_list_form_v3', 60, function () {
+            return \App\Models\EquipoAuxiliar::distinct()->whereNotNull('MARCA')->where('MARCA', '!=', '')
+                ->orderBy('MARCA', 'asc')->limit(1000)->pluck('MARCA');
+        });
+
+        $modelosAux = \Illuminate\Support\Facades\Cache::remember('modelos_aux_list_form_v3', 60, function () {
+            return \App\Models\EquipoAuxiliar::distinct()->whereNotNull('MODELO')->where('MODELO', '!=', '')
+                ->orderBy('MODELO', 'asc')->limit(1000)->pluck('MODELO');
+        });
+
+        // Un solo listado por campo: [['v' => valor, 's' => ámbito]] con ámbito 'equipo',
+        // 'aux' o 'both'. La vista pinta cada opción con su data-scope y el CSS oculta las
+        // que no aplican al modo activo — así un valor común (CATERPILLAR) no sale duplicado.
+        //
+        // El valor NO se usa como clave del arreglo de salida a propósito: hay modelos que
+        // son solo dígitos (333, 631, 740) y PHP convertiría esas claves a entero, de modo
+        // que un futuro "007" se mostraría como "7". El mapa $vistos sí indexa por valor,
+        // pero solo para deduplicar; lo que se pinta sale siempre de 'v', que es string.
+        $ambito = function ($deEquipo, $deAux) {
+            $lista = [];
+            $vistos = [];
+            $agregar = function ($v, $scope) use (&$lista, &$vistos) {
+                $v = trim((string) $v);
+                if ($v === '') return;
+                if (isset($vistos[$v])) {
+                    if ($lista[$vistos[$v]]['s'] !== $scope) $lista[$vistos[$v]]['s'] = 'both';
+                    return;
+                }
+                $lista[] = ['v' => $v, 's' => $scope];
+                $vistos[$v] = array_key_last($lista);
+            };
+            foreach ($deEquipo as $v) { $agregar($v, 'equipo'); }
+            foreach ($deAux as $v)    { $agregar($v, 'aux'); }
+            usort($lista, fn ($a, $b) => strnatcasecmp($a['v'], $b['v']));
+            return $lista;
+        };
+        $marcasScope  = $ambito($marcas, $marcasAux);
+        $modelosScope = $ambito($modelos, $modelosAux);
+
         $categorias = ['FLOTA LIVIANA', 'FLOTA PESADA'];
 
         $equipo = new Equipo(); // Empty instance for form partial
@@ -1583,9 +1628,12 @@ class EquipoController extends Controller
         $auxiliar = new \App\Models\EquipoAuxiliar();
         $frentesAux = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->orderBy('NOMBRE_FRENTE', 'asc')->get();
 
+        // 'marcas' y 'modelos' ya no viajan a la vista: se consumen aquí para armar
+        // marcasScope / modelosScope, que es lo único que pinta el formulario.
         return view('admin.equipos.create', compact(
-            'frentes', 'seguros', 'tipos_equipo', 'marcas', 'modelos', 'categorias', 'equipo', 'modelosList', 'aniosList',
-            'tiposAux', 'estadosAux', 'auxiliar', 'frentesAux', 'tipoCategoriaMap'
+            'frentes', 'seguros', 'tipos_equipo', 'categorias', 'equipo', 'modelosList', 'aniosList',
+            'tiposAux', 'estadosAux', 'auxiliar', 'frentesAux', 'tipoCategoriaMap',
+            'marcasScope', 'modelosScope'
         ));
     }
 
