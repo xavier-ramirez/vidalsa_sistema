@@ -23,6 +23,7 @@
     <h4 style="margin: 0 0 12px 0; font-size: 13px; text-transform: uppercase; color: #64748b; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
         <i class="material-icons" style="font-size: 18px; color: #10b981;">map</i>
         Ubicación por Frente
+        @include('admin.equipos.partials.distribution_stats_cam', ['nombre' => 'ubicacion_por_frente'])
     </h4>
     {{-- Ya no se envuelve en una condición $hasFilter: la lista se pinta SIEMPRE. Antes, al entrar sin filtrar salía
          vacía y había que filtrar primero desde el módulo para poder usarla — molesto sobre
@@ -55,6 +56,7 @@
     <h4 style="margin: 0 0 12px 0; font-size: 13px; text-transform: uppercase; color: #64748b; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
         <i class="material-icons" style="font-size: 18px; color: #3b82f6;">autorenew</i>
         Equipos y Maquinaria
+        @include('admin.equipos.partials.distribution_stats_cam', ['nombre' => 'equipos_y_maquinaria'])
     </h4>
     <ul style="list-style: none; padding: 0; margin: 0; max-height: 62vh; overflow-y: auto; overflow-x: visible; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 4px;" class="custom-scrollbar">
         {{-- Igual que la lista de frentes de arriba: se pinta siempre, sin depender de que

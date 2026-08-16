@@ -881,6 +881,18 @@ window.descargarPanelHtmlFDM = async function(panelId, nombre) {
                 // Remove the camera button from the screenshot
                 const btns = clonedEl.querySelectorAll('button');
                 btns.forEach(b => b.style.display = 'none');
+
+                // Un panel con scroll saldría RECORTADO a lo que se ve en pantalla (la card
+                // de distribución lista ~50 tipos dentro de 62vh). En una foto debe salir la
+                // lista completa. Solo se tocan los nodos que REALMENTE desbordan, así los
+                // paneles sin scroll no cambian en nada.
+                [clonedEl, ...clonedEl.querySelectorAll('*')].forEach(n => {
+                    const ov = clonedDoc.defaultView.getComputedStyle(n).overflowY;
+                    if (ov === 'auto' || ov === 'scroll') {
+                        n.style.maxHeight = 'none';
+                        n.style.overflow = 'visible';
+                    }
+                });
                 
                 // (Se quitó un bucle que buscaba <span>/<h4> con display:flex INLINE para
                 //  centrarlos: los <h4> ya no existen en estos paneles y el display:flex de
