@@ -64,12 +64,17 @@
             const ACTIVITY_THROTTLE_MS  = Math.max(5000, Math.min(30000, Math.floor(SESSION_LIFETIME_MS * 0.25)));
             // Ping cada 80% del tiempo de sesión
             const SERVER_PING_MS        = Math.floor(SESSION_LIFETIME_MS * 0.80);
+            // Reintento de un ping perdido: 5% de la vida de sesión (mín 15s, máx 60s). Ligado a
+            // SESSION_LIFETIME como los demás umbrales, para que siga cayendo MUY dentro del
+            // ciclo de ping por corta que sea la sesión y el reintento sirva de algo.
+            const PING_REINTENTO_MS     = Math.max(15000, Math.min(60000, Math.floor(SESSION_LIFETIME_MS * 0.05)));
 
             // ── Estado interno ──────────────────────────────────────────
             let sessionExpirationTime;
             let lastActivityReset = 0;
             let checkInterval;
             let serverPingInterval;
+            let pingReintento = null;   // timeout del reintento de ping (uno solo a la vez)
             let isModalVisible = false;
             // Mientras el usuario pulsa "Mantener Sesión" y la renovación está en vuelo, NO
             // debe dispararse el auto-logout: sin esto una renovación lenta se cruzaba con el
@@ -179,13 +184,29 @@
                                 console.log('🔄 Ping OK: sesión backend activa (usuario activo)');
                             });
                         } else {
-                            console.warn('⚠️ Ping fallido: sesión expirada en servidor');
-                            showExpiredNotice(performLogout);
+                            // Un no-OK NO significa sesión caída. /refresh-csrf es PÚBLICA: cuando
+                            // la sesión muere de verdad responde 200 con X-Auth-Status: guest, y
+                            // ese caso se atiende en el if de arriba. Aquí solo cabe un fallo del
+                            // servidor o del proxy (502/503 en un despliegue, un 500 puntual), y
+                            // cerrar por eso expulsaba al usuario con la sesión perfectamente viva
+                            // ("se abrió y luego se cerró sola"). Se reintenta una vez.
+                            console.warn(`⚠️ Ping no-OK (${response.status}): no es expiración, se reintenta`);
+                            programarReintentoPing();
                         }
                     })
                     .catch(() => {
+                        // Red caída: mismo criterio. Tampoco se cierra la sesión por esto.
                         console.warn('⚠️ Ping sin respuesta (sin conexión)');
+                        programarReintentoPing();
                     });
+            }
+
+            // Un ping perdido (5xx o red) no debe costar el ciclo entero: se reintenta UNA vez.
+            // Si el reintento tampoco llega, no se insiste ni se cierra nada — manda el backend,
+            // que expira solo por inactividad. Un único timeout vivo a la vez.
+            function programarReintentoPing() {
+                if (pingReintento) return;
+                pingReintento = setTimeout(() => { pingReintento = null; pingServer(); }, PING_REINTENTO_MS);
             }
 
             // ── Modal de advertencia ────────────────────────────────────
@@ -290,6 +311,7 @@
                 isClosing = true;
                 clearInterval(checkInterval);
                 clearInterval(serverPingInterval);
+                clearTimeout(pingReintento); pingReintento = null; // que no pingue tras despedirse
                 const modal    = document.getElementById('sessionTimeoutModal');
                 const title    = document.getElementById('stTitle');
                 const subtitle = document.getElementById('stSubtitle');
@@ -333,6 +355,7 @@
             function performLogout() {
                 clearInterval(checkInterval);
                 clearInterval(serverPingInterval);
+                clearTimeout(pingReintento); pingReintento = null; // idem: nada en vuelo al salir
                 const token = window.getCsrf();   // helper central (dom_helpers.js)
                 window.apiFetch('/logout', { headers: { 'Accept': 'application/json' },
                     method: 'POST',

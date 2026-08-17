@@ -267,11 +267,20 @@
     // que pulsar el botón otra vez para entrar. Pidiendo el token fresco al cargar
     // (y al volver a la pestaña) la sesión queda viva y el primer clic ya entra.
     // Reutiliza el mismo handshake /refresh-csrf del submit (no-store, excluido del SW).
+    // NUNCA pisar el token mientras hay un submit en vuelo: el submit hace su PROPIO
+    // handshake y arma el FormData justo después. Si un precalentamiento aterrizaba en
+    // medio, el POST salía con un token MÁS VIEJO → 419; y si el reintento pillaba otra
+    // carrera, el segundo 419 hacía reload() y el usuario veía "presioné Entrar y no pasó
+    // nada, tuve que darle otra vez". El guard va DOS VECES a propósito: al entrar (evita
+    // la petición inútil) y antes de escribir (una petición YA en vuelo cuando empieza el
+    // submit resolvería igual y pisaría el token bueno).
     function precalentarCsrf() {
         if (!navigator.onLine) return; // sin red: el submit ya avisa "sin conexión"
+        if (window._loginEnCurso) return;
         fetch('/refresh-csrf', { cache: 'no-store', credentials: 'same-origin' })
             .then(function (r) { return r.ok ? r.text() : null; })
             .then(function (token) {
+                if (window._loginEnCurso) return; // el submit manda: no le pises el token
                 token = (token || '').trim();
                 // Validar que sea un token, no HTML de una página de error.
                 if (!token || token.length >= 100 || token.indexOf('<') !== -1) return;
