@@ -4670,12 +4670,10 @@ body:has(.mapa-page) .main-viewport {
 .vela-label b.vela-mas::before { content: none; } /* "+N más" es un contador, no un punto */
 .estado-tooltip::before { display: none !important; } /* sin flecha */
 
-/* Popup de LONGITUD de la tubería (clic sobre la línea): etiqueta pequeña + los km. Compacto. */
+/* Popup de LONGITUD de la tubería (clic sobre la línea): SOLO los km, compacto. */
 .oleo-km-popup .leaflet-popup-content-wrapper { border-radius: 8px; box-shadow: 0 4px 14px rgba(15, 23, 42, 0.16); }
 .oleo-km-popup .leaflet-popup-content { margin: 7px 10px; }
-.oleo-km-pop { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 1px; }
-.oleo-km-pop .oleo-km-lbl { font-size: 9.5px; color: #64748b; }
-.oleo-km-pop .oleo-km-val { font-size: 13px; font-weight: 700; color: #0f172a; line-height: 1.15; }
+.oleo-km-pop { font-size: 13px; font-weight: 700; color: #0f172a; line-height: 1.15; text-align: center; }
 
 /* Al hacer clic en un estado, el navegador dibuja un RECTÁNGULO de foco alrededor
    del SVG (bounding box). Lo quitamos: queda solo el resaltado de la forma. */

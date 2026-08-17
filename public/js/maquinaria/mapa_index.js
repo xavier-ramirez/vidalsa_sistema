@@ -1120,7 +1120,10 @@
         // mapa antes de cada consulta. bbox restringe al país (antes lat/lon solo SESGABAN y
         // colaban resultados de otros países). limit 10: suficiente tras el filtro por país y
         // respuesta más liviana/rápida que el remoto (photon.komoot.io).
-        var _photon = L.Control.Geocoder.photon({ geocodingQueryParams: { lat: 8, lon: -66, limit: 10, bbox: '-73.4,0.6,-59.8,12.6' } });
+        // Caja que encierra Venezuela: es el ÁMBITO MÁXIMO de la búsqueda y el que se usa
+        // cuando el mapa está lejos o cuando cerca no aparece nada (ver sesgarPorMapa).
+        var BBOX_VE = '-73.4,0.6,-59.8,12.6';
+        var _photon = L.Control.Geocoder.photon({ geocodingQueryParams: { lat: 8, lon: -66, limit: 10, bbox: BBOX_VE } });
         // Zonas UTM que cubren Venezuela: 20 = oriente (meridiano central −63°), 19 = centro,
         // 18 = occidente. Así no hay que escribir la zona. OJO: el MISMO par de metros puede caer
         // dentro del país en dos zonas distintas, así que esto no la "adivina": manda la 20 (donde
@@ -1211,11 +1214,49 @@
         // Sesga la búsqueda hacia DONDE ESTÁ MIRANDO EL MAPA (como Google Maps): antes lat/lon
         // estaban fijos en el centro del país, así que buscar "Arecuna" estando en Anzoátegui
         // recomendaba las de cualquier otro estado. Se actualiza en cada consulta.
+        // Acercado = la vista abarca menos que BUSQUEDA_LOCAL_KM de ancho. Por debajo de eso se
+        // asume que el usuario busca algo de LA ZONA que está viendo, no del país.
+        var BUSQUEDA_LOCAL_KM = 120;
+        function vistaLocalKm() {
+            var b = map.getBounds();
+            return map.distance(b.getNorthWest(), b.getNorthEast()) / 1000;
+        }
         function sesgarPorMapa() {
             var c = map.getCenter();
-            _photon.options.geocodingQueryParams.lat = c.lat;
-            _photon.options.geocodingQueryParams.lon = c.lng;
+            var p = _photon.options.geocodingQueryParams;
+            p.lat = c.lat;
+            p.lon = c.lng;
+            // lat/lon solos son un sesgo MUY flojo (Photon usa location_bias_scale 0.2 por
+            // defecto): devolvía calles del mismo nombre de todo el país y, aunque porCercania
+            // las ordenaba, si ninguna de las 8 que llegaban era de la zona no había nada que
+            // ordenar. Con `zoom` + peso alto la cercanía pesa de verdad en el ranking.
+            p.zoom = Math.round(map.getZoom());
+            p.location_bias_scale = 0.9;
+            // Y lo decisivo: acotar la CAJA a lo que se ve (con margen) cuando estás acercado,
+            // para que el servidor busque ahí. Lejos se mantiene el país entero.
+            if (vistaLocalKm() <= BUSQUEDA_LOCAL_KM) {
+                var b = map.getBounds().pad(0.5);
+                p.bbox = [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()]
+                    .map(function (n) { return n.toFixed(4); }).join(',');
+            } else {
+                p.bbox = BBOX_VE;
+            }
             return c;
+        }
+        // Busca en la caja que dejó sesgarPorMapa y, si ahí no hay NADA, repite en todo el país:
+        // lo cercano manda, pero seguir buscando algo lejano (otro estado) sigue funcionando.
+        // La comparten geocode y suggest para no tener dos veces la misma secuencia.
+        function buscarConFallback(metodo, q, centro, entregar, ctx) {
+            var p = _photon.options.geocodingQueryParams;
+            var acotado = p.bbox !== BBOX_VE;
+            _photon[metodo](q, function (results) {
+                var ve = soloVenezuela(results);
+                if (ve.length || !acotado) { entregar(porCercania(ve, centro)); return; }
+                p.bbox = BBOX_VE; // nada cerca: segunda pasada a nivel país
+                _photon[metodo](q, function (r2) {
+                    entregar(porCercania(soloVenezuela(r2), centro));
+                }, ctx);
+            }, ctx);
         }
         // Y además ordena los resultados por CERCANÍA a ese centro: el sesgo del servidor solo
         // desempata, esto garantiza que "Arecuna 2 / Arecuna 3" salgan primero si estás encima.
@@ -1240,9 +1281,7 @@
                 var c = parseCoord(q);
                 if (c) { cb.call(ctx, resCoord(c)); return; }
                 var centro = sesgarPorMapa();
-                _photon.geocode(q, function (results) {
-                    cb.call(ctx, porCercania(soloVenezuela(results), centro));
-                }, ctx);
+                buscarConFallback('geocode', q, centro, function (res) { cb.call(ctx, res); }, ctx);
             },
             suggest: function (q, cb, ctx) {
                 var c = parseCoord(q);
@@ -1250,12 +1289,14 @@
                 var centro = sesgarPorMapa();
                 // La clave incluye la zona del mapa (redondeada a ~0.1°): el mismo término
                 // buscado desde otro estado debe recomendar lo de ALLÁ, no lo cacheado de acá.
+                // Y el ÁMBITO (vista acotada vs país): con el mismo centro, acercado y alejado
+                // devuelven cosas distintas, así que no pueden compartir entrada de caché.
+                var ambito = _photon.options.geocodingQueryParams.bbox === BBOX_VE ? 've' : 'loc';
                 var key = String(q || '').trim().toLowerCase() + '@' +
-                          centro.lat.toFixed(1) + ',' + centro.lng.toFixed(1);
+                          centro.lat.toFixed(1) + ',' + centro.lng.toFixed(1) + '/' + ambito;
                 if (_sugCache[key]) { cb.call(ctx, _sugCache[key]); return; } // ya buscado → instantáneo
-                if (_photon.suggest) _photon.suggest(q, function (results) {
-                    var ve = porCercania(soloVenezuela(results), centro);
-                    cacheSug(key, ve); cb.call(ctx, ve);
+                if (_photon.suggest) buscarConFallback('suggest', q, centro, function (res) {
+                    cacheSug(key, res); cb.call(ctx, res);
                 }, ctx);
                 else cb.call(ctx, []);
             }
@@ -1688,21 +1729,23 @@
             if (PUEDE_EDITAR) lines.forEach(function (l) { l.on('contextmenu', function (ev) { menuLinea(ev, o.id); }); });
             // LONGITUD total (km) de la tubería. Solo si hay recorrido dibujado. Visible para
             // todos (es info, no edición). Se ofrece de dos formas:
-            //  · CLIC en la línea: popup con la longitud destacada (se cierra con la ✕).
+            //  · CLIC en la línea: popup con la longitud destacada.
             //    (Sin tooltip de hover: la longitud sale SOLO al hacer clic, no al pasar el mouse.)
             if (lines.length) {
                 var km = longitudKm(o.recorrido);
                 var kmTxt = km.toFixed(2).replace('.', ',') + ' km';
-                // Sin el nombre del proyecto (ya se ve en las velas de los puntos): solo la etiqueta
-                // y los km, en letra compacta.
-                var popKm = '<div class="oleo-km-pop"><span class="oleo-km-lbl">Longitud de la tubería</span>' +
-                            '<span class="oleo-km-val">' + kmTxt + '</span></div>';
+                // SOLO los km. Ni el nombre del proyecto (ya se ve en las velas de los puntos)
+                // ni un rótulo "Longitud de…": si el dato sale al pinchar la tubería, no hace
+                // falta explicar de qué es.
+                var popKm = '<div class="oleo-km-pop">' + kmTxt + '</div>';
                 // Sale al CLIC y se CIERRA AL PERDER EL FOCO (cuando el mouse sale de la línea). El
                 // timeout con cancelación evita parpadeo entre las 3 capas superpuestas de la tubería:
                 // al pasar de una a otra, el mouseover cancela el cierre pendiente.
+                // Sin ✕: como ya se cierra solo al salir de la línea, el botón no aporta y solo
+                // roba ancho a una burbuja que muestra un dato de dos líneas.
                 var kmCierra = null;
                 lines.forEach(function (l) {
-                    l.bindPopup(popKm, { className: 'oleo-km-popup', closeButton: true });
+                    l.bindPopup(popKm, { className: 'oleo-km-popup', closeButton: false });
                     l.on('mouseover', function () { if (kmCierra) { clearTimeout(kmCierra); kmCierra = null; } });
                     l.on('mouseout',  function () { kmCierra = setTimeout(function () { map.closePopup(); }, 150); });
                 });
@@ -3470,18 +3513,25 @@
                     ctx.strokeStyle = aclararColor(o.color, 0.65); ctx.lineWidth = pw.brillo * k; ctx.stroke();
                 }
             });
-            // La foto sale a más resolución que la pantalla y la letra se veía diminuta: el TEXTO
-            // de las etiquetas se agranda ETQ_EXPORT_K. Se aplica igual a la medida de la cajita
-            // y a la fuente del canvas, si no el texto no cuadraría con la caja reservada.
-            var kEtq = k * ETQ_EXPORT_K;
-            repartirEtiquetas(velas, kPin, bloqueos, kEtq);
-            velas.forEach(function (r) { dibujarVela(ctx, r.x, r.y, kPin, '#0067b1'); }); // pines primero
-            // Una cajita por proyecto, cada una con su línea guía al pin: EXACTAMENTE lo mismo
-            // que se ve en pantalla (misma geometría: curvaEtiqueta).
-            velas.forEach(function (r) {
-                dibujarLineasEtq(ctx, r, kPin);
-                r.cajas.forEach(function (c) { dibujarEtiquetaVela(ctx, c, c.proys, c.puntos, kEtq); });
-            });
+            // Los pines van SIEMPRE, con rótulos o sin ellos.
+            velas.forEach(function (r) { dibujarVela(ctx, r.x, r.y, kPin, '#0067b1'); });
+            // Modo "solo velas" (botón del ojo): la FOTO sale igual que la pantalla — pines
+            // pelados, sin rótulos ni líneas guía. Lee la MISMA variable que colocarEtiquetas()
+            // usa en pantalla, así las dos vistas no pueden discrepar. repartirEtiquetas() ni
+            // se llama: su único efecto es calcular r.cajas, que en este modo no se dibuja.
+            if (!soloVelas) {
+                // La foto sale a más resolución que la pantalla y la letra se veía diminuta: el
+                // TEXTO de las etiquetas se agranda ETQ_EXPORT_K. Se aplica igual a la medida de
+                // la cajita y a la fuente del canvas, si no el texto no cuadraría con la caja.
+                var kEtq = k * ETQ_EXPORT_K;
+                repartirEtiquetas(velas, kPin, bloqueos, kEtq);
+                // Una cajita por proyecto, cada una con su línea guía al pin: EXACTAMENTE lo
+                // mismo que se ve en pantalla (misma geometría: curvaEtiqueta).
+                velas.forEach(function (r) {
+                    dibujarLineasEtq(ctx, r, kPin);
+                    r.cajas.forEach(function (c) { dibujarEtiquetaVela(ctx, c, c.proys, c.puntos, kEtq); });
+                });
+            }
             ctx.restore();
         }
 
