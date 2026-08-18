@@ -59,3 +59,6 @@ scratch_*.csv
 # Si escribes un generador que valga la pena guardar, va en tools/, no en la raíz.
 /find_*.php
 /get_*.php
+# Recargas puntuales de tablas desde un .sql de respaldo (hacen TRUNCATE y leen de una
+# ruta del disco de quien lo escribio): de un solo uso y peligrosas fuera de local.
+/reload_*.php
