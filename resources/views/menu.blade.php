@@ -656,27 +656,33 @@
         border-color: #0067b1;
         box-shadow: 0 0 0 3px rgba(0, 103, 177, 0.14);
     }
-    .alertas-export-btn {
+    /* Botones del encabezado del panel de alertas: descargar y cerrar. UNA definición para
+       los dos, que son gemelos y estaban desparejos —36x36 con radio 10 el de descargar,
+       34x34 con radio 8 el de cerrar— porque uno tomaba el tamaño de aquí y el otro de sus
+       estilos en línea. Se ven juntos, así que la diferencia cantaba.
+       Bajados de 36 a 30 px (icono 18 -> 16): al lado de un título de 14 px se veían enormes.
+       Los colores translúcidos viven aquí y ya no en línea: este encabezado SIEMPRE es
+       oscuro (#1e293b), así que la variante clara que traía la clase no se usaba nunca. */
+    .alertas-header-btn {
         flex-shrink: 0;
-        width: 36px;
-        height: 36px;
-        border-radius: 10px;
-        border: 1px solid #e2e8f0;
-        background: #fff;
-        color: #64748b;
+        width: 30px;
+        height: 30px;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        background: rgba(255, 255, 255, 0.15);
+        color: #fff;
         cursor: pointer;
         display: flex;
         align-items: center;
         justify-content: center;
         transition: all 0.2s ease;
     }
-    .alertas-export-btn:hover:not(:disabled) {
-        color: #0067b1;
-        border-color: #0067b1;
-        background: #eff6ff;
+    .alertas-header-btn:hover:not(:disabled) {
+        background: rgba(255, 255, 255, 0.28);
+        border-color: rgba(255, 255, 255, 0.45);
     }
-    .alertas-export-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    .alertas-export-btn .material-icons { font-size: 18px; }
+    .alertas-header-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .alertas-header-btn .material-icons { font-size: 16px; }
     .alertas-panel-body {
         max-height: 420px;
         overflow-y: auto;
@@ -1012,17 +1018,16 @@
                                 <i class="material-icons">description</i>
                                 <span>Alertas de Documentos</span>
                             </div>
-                            <div style="display:flex; gap:8px; align-items:center;">
+                            <div style="display:flex; gap:6px; align-items:center;">
                                 <button type="button"
                                         onclick="downloadDashboardPdf(this, '{{ route('dashboard.exportDocumentsPDF') }}')"
-                                        class="alertas-export-btn"
-                                        title="Descargar Reporte PDF"
-                                        style="background: rgba(255,255,255,0.15); border-color: rgba(255,255,255,0.2); color: #fff;">
+                                        class="alertas-header-btn"
+                                        title="Descargar Reporte PDF">
                                     <i class="material-icons">file_download</i>
                                 </button>
-                                <button type="button" onclick="toggleExpiredDocs()" title="Cerrar"
-                                        style="background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.2); color: #fff; border-radius: 8px; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; cursor: pointer;">
-                                    <i class="material-icons" style="font-size:18px;">close</i>
+                                <button type="button" onclick="toggleExpiredDocs()"
+                                        class="alertas-header-btn" title="Cerrar">
+                                    <i class="material-icons">close</i>
                                 </button>
                             </div>
                         </div>
