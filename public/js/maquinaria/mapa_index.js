@@ -1243,17 +1243,18 @@
             }
             return c;
         }
-        // Busca en la caja que dejó sesgarPorMapa y, si ahí no hay NADA, repite en todo el país:
-        // lo cercano manda, pero seguir buscando algo lejano (otro estado) sigue funcionando.
-        // La comparten geocode y suggest para no tener dos veces la misma secuencia.
-        function buscarConFallback(metodo, q, centro, entregar, ctx) {
+        // Búsqueda REAL (Enter): en la caja que dejó sesgarPorMapa y, si ahí no hay NADA, una
+        // segunda pasada a nivel país. Así lo cercano manda pero seguir buscando algo de otro
+        // estado funciona. Solo aquí: mientras se teclea (suggest) la segunda pasada costaría
+        // ~300 ms por letra y lo que se quiere ver es justamente lo de la zona.
+        function geocodeConFallback(q, centro, entregar, ctx) {
             var p = _photon.options.geocodingQueryParams;
             var acotado = p.bbox !== BBOX_VE;
-            _photon[metodo](q, function (results) {
+            _photon.geocode(q, function (results) {
                 var ve = soloVenezuela(results);
                 if (ve.length || !acotado) { entregar(porCercania(ve, centro)); return; }
                 p.bbox = BBOX_VE; // nada cerca: segunda pasada a nivel país
-                _photon[metodo](q, function (r2) {
+                _photon.geocode(q, function (r2) {
                     entregar(porCercania(soloVenezuela(r2), centro));
                 }, ctx);
             }, ctx);
@@ -1276,12 +1277,20 @@
             if (ks.length > 80) delete _sugCache[ks[0]];
             _sugCache[key] = val;
         }
+        // (Se descartó cachear los prefijos VACÍOS para saltarse la petición al escribir una
+        //  letra más: Photon hace búsqueda DIFUSA, así que un término más largo y completo
+        //  puede acertar donde el prefijo corto falló —"arecu" sin resultados y "arecuna" con
+        //  ellos—. Saltar esa consulta escondería sugerencias que sí existen.)
+        // Las respuestas pueden llegar DESORDENADAS: la de "arec" después de la de "arecuna"
+        // repintaba la lista con lo viejo y parecía que el buscador iba lento o se equivocaba.
+        // Solo se pinta la respuesta de la última consulta lanzada.
+        var _sugSeq = 0;
         var geocoderMapa = {
             geocode: function (q, cb, ctx) {
                 var c = parseCoord(q);
                 if (c) { cb.call(ctx, resCoord(c)); return; }
                 var centro = sesgarPorMapa();
-                buscarConFallback('geocode', q, centro, function (res) { cb.call(ctx, res); }, ctx);
+                geocodeConFallback(q, centro, function (res) { cb.call(ctx, res); }, ctx);
             },
             suggest: function (q, cb, ctx) {
                 var c = parseCoord(q);
@@ -1292,13 +1301,21 @@
                 // Y el ÁMBITO (vista acotada vs país): con el mismo centro, acercado y alejado
                 // devuelven cosas distintas, así que no pueden compartir entrada de caché.
                 var ambito = _photon.options.geocodingQueryParams.bbox === BBOX_VE ? 've' : 'loc';
-                var key = String(q || '').trim().toLowerCase() + '@' +
-                          centro.lat.toFixed(1) + ',' + centro.lng.toFixed(1) + '/' + ambito;
+                var term = String(q || '').trim().toLowerCase();
+                var zona = centro.lat.toFixed(1) + ',' + centro.lng.toFixed(1) + '/' + ambito;
+                var key  = term + '@' + zona;
                 if (_sugCache[key]) { cb.call(ctx, _sugCache[key]); return; } // ya buscado → instantáneo
-                if (_photon.suggest) buscarConFallback('suggest', q, centro, function (res) {
-                    cacheSug(key, res); cb.call(ctx, res);
+                if (!_photon.suggest) { cb.call(ctx, []); return; }
+                // Mientras se TECLEA no se hace la segunda pasada a nivel país: son ~300 ms más
+                // de espera por cada letra, y lo que se pide aquí es justamente lo de la zona.
+                // El fallback sigue vivo en geocode(), o sea al pulsar Enter para buscar de veras.
+                var seq = ++_sugSeq;
+                _photon.suggest(q, function (results) {
+                    if (seq !== _sugSeq) return; // llegó tarde: ya hay una consulta más nueva
+                    var res = porCercania(soloVenezuela(results), centro);
+                    cacheSug(key, res);   // también se cachea el vacío: repetir ese término es gratis
+                    cb.call(ctx, res);
                 }, ctx);
-                else cb.call(ctx, []);
             }
         };
         // VELA azul (pin de ubicación tipo Google Maps) para los puntos y la búsqueda.
