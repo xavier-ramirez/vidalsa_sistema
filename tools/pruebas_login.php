@@ -172,5 +172,36 @@ check('comprobaciones de pantalla completa sueltas', [], $sueltos);
 check('raizVisible tiene una sola definicion', 1,
     substr_count(file_get_contents('public/js/maquinaria/dom_helpers.js'), 'window.raizVisible = function'));
 
+// ── K. Globales pisadas en la superficie SIEMPRE cargada ───────────────────
+// Dos archivos que se cargan JUNTOS no pueden definir la misma window.X: la segunda pisa
+// a la primera en silencio y gana la que quede mas abajo. Paso de verdad con
+// window.clearFilter, que tenia DOS implementaciones distintas (una limpiaba solo la
+// interfaz, la otra reaplicaba el filtro) y encima no la llamaba nadie.
+//
+// Solo se mira lo que carga SIEMPRE el layout: dos vistas distintas pueden repetir un
+// nombre sin problema porque nunca coinciden en la misma pagina.
+$layoutSrc = file_get_contents('resources/views/layouts/estructura_base.blade.php');
+preg_match_all("~asset\('(js/[^']+\.js)'\)~", $layoutSrc, $m);
+$siempre = ['resources/views/layouts/estructura_base.blade.php'];
+foreach (array_unique($m[1]) as $rel) {
+    if (is_file('public/' . $rel)) $siempre[] = 'public/' . $rel;
+}
+// navegacion.js ENVUELVE showPreloader/hidePreloader a proposito (watchdog anti-congelado):
+// guarda las originales y las llama. No es una segunda definicion que pise, es un decorador.
+$permitidas = ['showPreloader', 'hidePreloader'];
+$globales = [];
+foreach ($siempre as $f) {
+    preg_match_all('/window\.([A-Za-z_$][\w$]*)\s*=\s*(?:async\s*)?function/', file_get_contents($f), $g);
+    foreach (array_unique($g[1]) as $nombre) $globales[$nombre][] = basename($f);
+}
+$pisadas = [];
+foreach ($globales as $nombre => $archivos) {
+    if (count($archivos) > 1 && !in_array($nombre, $permitidas, true)) {
+        $pisadas[] = $nombre . ' (' . implode(', ', $archivos) . ')';
+    }
+}
+check('globales pisadas entre archivos siempre cargados', [], $pisadas);
+check('archivos de la superficie comun analizados', true, count($siempre) >= 5);
+
 printf("\n%d OK, %d FALLAS\n", $ok, $fail);
 exit($fail === 0 ? 0 : 1);

@@ -727,6 +727,19 @@ window.clearAdvancedFilters = function () {
     }
 };
 
+// EQUIPOS: Helper alias for inline onclick (maps view filter names to internal keys)
+window.clearFilter = function (filterName) {
+    const map = {
+        id_frente: "frente",
+        id_tipo: "tipo",
+        modelo: "modelo",
+        anio: "anio",
+        marca: "marca",
+    };
+
+    const key = map[filterName] || filterName;
+    window.selectAdvancedFilter(key, "");
+};
 
 // Register with Module Manager
 // Since we use Event Delegation now, we don't need to re-attach listeners on navigation!
