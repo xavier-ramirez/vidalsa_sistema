@@ -352,6 +352,8 @@ Route::middleware(['auth'])->group(function () {
             // Dashboard de Consumo (JSON para Chart.js) — alimenta el modal abrible desde el
             // botón Acciones de /admin/almacen y /admin/almacen/movimientos. Solo lectura.
             Route::get   ('almacen/consumo-dashboard',            [App\Http\Controllers\AlmacenController::class, 'consumoDashboard'])  ->name('almacen.consumoDashboard');
+            // Mismo filtro que el dashboard, pero devuelve los DATOS en XLSX en vez de los graficos.
+            Route::get   ('almacen/consumo-dashboard/export',     [App\Http\Controllers\AlmacenController::class, 'consumoDashboardExport'])->name('almacen.consumoDashboardExport');
             // Compatibilidad de un filtro: equivalencias (nº de parte) + equipos que lo usan.
             // Se carga al abrir "Detalles del producto".
             Route::get   ('almacen/productos/{id}/compatibilidad', [App\Http\Controllers\AlmacenController::class, 'productoCompatibilidad'])->whereNumber('id')->name('almacen.productos.compatibilidad');

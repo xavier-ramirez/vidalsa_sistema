@@ -7,7 +7,8 @@
      (categoría + rango de meses Desde/Hasta). Datos: GET almacen.consumoDashboard
      (JSON) — consumo real (SALIDA) de todos los almacenes visibles.
 
-     Chart.js se carga GLOBAL en el layout (la SPA omite <script src> en content).
+     Chart.js lo pide este modal al abrirse, con window.ensureChartJS() — ya no viene
+     del layout, que lo cargaba en todas las páginas para tres pantallas.
      Las funciones se cuelgan de window para sobrevivir la navegación SPA.
 ═══════════════════════════════════════════════════════════════════════════ --}}
 <style>
@@ -23,8 +24,10 @@
     /* Barra de filtros PROPIA del dashboard (no depende de los filtros del módulo). */
     .cdash-filtros { display:flex; flex-wrap:wrap; align-items:flex-end; gap:10px; margin-bottom:16px; }
     .cdash-filtros .f-group { display:flex; flex-direction:column; gap:3px; min-width:0; }
-    .cdash-filtros .f-group-desc { flex:1 1 240px; }  /* Descripción: filtro principal, crece */
-    .cdash-filtros .f-group-cat  { flex:0 1 180px; }  /* Categoría: ancho reducido */
+    /* Descripción y Categoría comparten el MISMO ancho: son los dos filtros principales
+       y la fila se lee pareja. Crecen juntos al ensanchar el modal. */
+    .cdash-filtros .f-group-desc,
+    .cdash-filtros .f-group-cat { flex:1 1 220px; }
     .cdash-filtros input[type="month"] { box-sizing:border-box; height:36px; width:130px; max-width:100%; border:1px solid #cbd5e0; border-radius:8px; padding:0 10px; font-size:13px; color:#0f172a; background:#fff; outline:none; cursor:pointer; }
     /* El navegador dibuja el <input type="month"> en español como "septiembre de 2026"
        (vacío: "---------- de ----"). Esta pseudo oculta ESE separador "de" nativo; los
@@ -47,14 +50,10 @@
     #cdashCatInput { text-transform: uppercase; }
     #cdashCatInput::placeholder { text-transform: uppercase; }
     #cdashCatList .cdash-cat-item { text-transform: uppercase; }
-    /* Botón + panel de Filtros Avanzados (rango de meses + frente de destino). */
-    .cdash-adv-btn { display:flex; align-items:center; justify-content:center; height:36px; width:36px; padding:0; border:1px solid #cbd5e0; border-radius:8px; background:#fff; color:#334155; cursor:pointer; transition:background .15s, border-color .15s; }
-    .cdash-adv-btn:hover { background:#f8fafc; border-color:#94a3b8; }
-    .cdash-adv-btn.active { background:#eff6ff; border-color:#0067b1; color:#0067b1; }
-    .cdash-adv-btn .material-icons { font-size:18px; }
-    .cdash-avanzados { background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px 14px; margin-bottom:12px; animation:slideDown .18s ease-out; }
-    .cdash-adv-row { display:flex; gap:12px; flex-wrap:wrap; }
-    .cdash-adv-field { display:flex; flex-direction:column; gap:4px; font-size:11px; font-weight:700; color:#64748b; }
+    /* Segunda fila de filtros: Frente + rango de meses. Ya no hay panel plegable ni
+       botón que lo abra — los tres se usan a diario y estar siempre a la vista ahorra
+       un clic. Cada campo lleva su etiqueta encima. */
+    .cdash-adv-field { display:flex; flex-direction:column; gap:4px; font-size:11px; font-weight:700; color:#0f172a; }
     .cdash-adv-field input, .cdash-adv-field select { height:36px; border:1px solid #cbd5e0; border-radius:8px; padding:0 10px; font-size:13px; color:#0f172a; background:#fff; outline:none; min-width:150px; }
     .cdash-adv-field input:focus, .cdash-adv-field select:focus { border-color:var(--maquinaria-blue,#0067b1); }
     .cdash-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
@@ -84,13 +83,11 @@
            tocarlo) para más holgura. */
         .cdash-filtros { gap:8px; }
         .cdash-filtros .f-group { flex:1 1 0; min-width:0; }
-        /* Descripción ocupa su propia fila (es el filtro principal y su texto es largo).
-           Categoría y el botón de filtros avanzados COMPARTEN la siguiente: el botón mide lo
-           suyo (flex:0 0 auto) y Categoría se queda con el resto. Antes el botón caía a una
-           tercera fila él solo, desperdiciando alto en la pantalla más estrecha. */
-        .cdash-filtros .f-group-desc { flex:1 1 100%; }
-        .cdash-filtros .f-group-cat  { flex:1 1 auto; }
-        .cdash-filtros .f-group-adv  { flex:0 0 auto; }
+        /* En pantalla estrecha cada filtro ocupa su propia fila: apretar dos campos de
+           texto en un ancho de telefono los deja ilegibles. */
+        .cdash-filtros .f-group-desc,
+        .cdash-filtros .f-group-cat  { flex:1 1 100%; }
+        .cdash-filtros .cdash-adv-field { flex:1 1 100%; }
         .cdash-filtros input[type="month"] { width:100%; min-width:0; font-size:12px; padding:0 6px; }
         .cdash-filtros input[type="month"]::-webkit-calendar-picker-indicator { display:none; }
     }
@@ -103,7 +100,10 @@
                  ocupe menos alto y quede más contenido a la vista sin hacer scroll. --}}
             <h3><i class="material-icons">analytics</i> Dashboard de Consumo</h3>
             <div style="display:flex;align-items:center;gap:4px;">
-                <button type="button" class="cdash-x" onclick="window._cdashDescargarImagen()" aria-label="Descargar imagen" title="Descargar como imagen (PNG)"><i class="material-icons">download</i></button>
+                {{-- Descarga los DATOS (XLSX) con los filtros puestos, no una foto de los
+                     graficos: una imagen se ve pero no se puede trabajar. Las camaras de
+                     cada tarjeta siguen bajando su grafico como PNG. --}}
+                <button type="button" class="cdash-x" onclick="window._cdashDescargarExcel(this)" aria-label="Descargar Excel" title="Descargar los datos filtrados en Excel"><i class="material-icons">download</i></button>
                 <button type="button" class="cdash-x" onclick="window.cerrarConsumoDashboard()" aria-label="Cerrar"><i class="material-icons">close</i></button>
             </div>
         </div>
@@ -131,7 +131,7 @@
                 <div class="f-group f-group-cat">
                     <div class="cdash-cat-wrap">
                         <input type="hidden" id="cdashCategoria" value="">
-                        <div class="cdash-inp-box cdash-cat-box" id="cdashCatBox" onclick="window._cdashCatOpen()">
+                        <div class="cdash-inp-box cdash-cat-box" id="cdashCatBox" onmousedown="window._cdashCatToggle(event)">
                             <i class="material-icons">search</i>
                             <input type="text" id="cdashCatInput" placeholder="Categoría" autocomplete="off"
                                    oninput="window._cdashCatFilter(this.value)"
@@ -142,30 +142,36 @@
                         <div class="cdash-cat-list" id="cdashCatList"></div>
                     </div>
                 </div>
-                <div class="f-group f-group-adv">
-                    <button type="button" id="cdashAdvBtn" class="cdash-adv-btn" onclick="window._cdashToggleAvanzados()" title="Filtros avanzados (fechas + frente)" aria-label="Filtros avanzados">
-                        <i class="material-icons">tune</i>
-                    </button>
-                </div>
             </div>
 
-            {{-- Panel de Filtros Avanzados: rango de meses + frente de destino del consumo.
-                 Oculto hasta abrir con el botón de embudo (#cdashAdvBtn). Sin título propio:
-                 el botón que lo abre ya lo identifica y cada campo lleva su etiqueta. --}}
-            <div id="cdashAvanzados" class="cdash-avanzados" style="display:none;">
-                <div class="cdash-adv-row">
-                    <label class="cdash-adv-field"><span>Desde (mes)</span>
-                        <input type="month" id="cdashDesde" title="Desde (mes)" onchange="window._cdashFetch()" onclick="try{ this.showPicker(); }catch(e){}">
-                    </label>
-                    <label class="cdash-adv-field"><span>Hasta (mes)</span>
-                        <input type="month" id="cdashHasta" title="Hasta (mes)" onchange="window._cdashFetch()" onclick="try{ this.showPicker(); }catch(e){}">
-                    </label>
-                    <label class="cdash-adv-field"><span>Frente de destino</span>
-                        <select id="cdashFrente" onchange="window._cdashFetch()">
-                            <option value="">Todos los frentes</option>
-                        </select>
-                    </label>
-                </div>
+            {{-- Segunda fila: Frente de destino + rango de meses. Frente va debajo de
+                 Descripción y los dos meses a su lado. Sin panel plegable: los tres son
+                 de uso corriente y tenerlos recogidos obligaba a un clic extra. --}}
+            <div class="cdash-filtros">
+                {{-- Frente: buscador con sugerencias, no un <select>. Son decenas de
+                     frentes y desplegarlos todos obligaba a recorrer la lista a ojo.
+                     Misma mecánica que Categoría: el hidden guarda el ID (que es lo que
+                     viaja al backend) y el input visible solo sirve para buscar. --}}
+                <label class="cdash-adv-field" style="flex:1 1 240px;"><span>Frente de destino</span>
+                    <div class="cdash-cat-wrap">
+                        <input type="hidden" id="cdashFrente" value="">
+                        <div class="cdash-inp-box cdash-cat-box" id="cdashFrenteBox" onmousedown="window._cdashFrenteToggle(event)">
+                            <i class="material-icons">search</i>
+                            <input type="text" id="cdashFrenteInput" placeholder="Todos los frentes" autocomplete="off"
+                                   oninput="window._cdashFrenteFilter(this.value)"
+                                   onfocus="window._cdashFrenteOpen()"
+                                   onblur="setTimeout(function(){window._cdashFrenteClose()},180)">
+                            <i class="material-icons clr" id="cdashFrenteClear" style="display:none;" onmousedown="event.preventDefault();window._cdashFrenteSelect('',CDASH_FRE_LBL);">close</i>
+                        </div>
+                        <div class="cdash-cat-list" id="cdashFrenteList"></div>
+                    </div>
+                </label>
+                <label class="cdash-adv-field"><span>Desde (mes)</span>
+                    <input type="month" id="cdashDesde" title="Desde (mes)" onchange="window._cdashFetch()" onclick="try{ this.showPicker(); }catch(e){}">
+                </label>
+                <label class="cdash-adv-field"><span>Hasta (mes)</span>
+                    <input type="month" id="cdashHasta" title="Hasta (mes)" onchange="window._cdashFetch()" onclick="try{ this.showPicker(); }catch(e){}">
+                </label>
             </div>
 
             <div id="cdashLoading" class="cdash-loading"><i class="material-icons cdash-spin">refresh</i><span>Cargando datos de consumo…</span></div>
@@ -185,6 +191,7 @@
     // URL del endpoint (sin querystring). El dashboard NO usa los filtros del módulo:
     // arma su propio querystring desde sus controles (desde/hasta/categoría).
     window.CONSUMO_DASH_URL = "{{ route('almacen.consumoDashboard') }}";
+    window.CONSUMO_DASH_EXPORT_URL = "{{ route('almacen.consumoDashboardExport') }}";
 
     // Instancias de Chart para destruirlas antes de re-renderizar (evita el error
     // "Canvas is already in use" al reabrir el modal o al cambiar un filtro).
@@ -219,15 +226,6 @@
         if (m) m.classList.remove('open');
     };
 
-    // Muestra/oculta el panel de Filtros Avanzados (rango de meses + frente de destino).
-    window._cdashToggleAvanzados = function () {
-        var panel = document.getElementById('cdashAvanzados');
-        var btn = document.getElementById('cdashAdvBtn');
-        if (!panel) return;
-        var abrir = panel.style.display === 'none';
-        panel.style.display = abrir ? 'block' : 'none';
-        if (btn) btn.classList.toggle('active', abrir);
-    };
 
     // Carga html2canvas bajo demanda y ejecuta el callback. Lo usan tanto la descarga
     // del dashboard completo como la de cada gráfico. La inyección la hace el cargador
@@ -265,13 +263,6 @@
         });
     };
 
-    // Descarga el dashboard entero (los tres gráficos) como una sola imagen PNG.
-    window._cdashDescargarImagen = function () {
-        var cont = document.getElementById('cdashContent');
-        if (!cont || cont.style.display === 'none') return; // aún cargando o sin datos
-        window._cdashCapturarPng(cont, 'dashboard-consumo');
-    };
-
     // Descarga UN gráfico como PNG. Captura la TARJETA completa (título + gráfico +
     // fondo blanco con su borde), no solo el canvas: así la foto se entiende sola.
     // `btn` es el propio botón de cámara — de él se cuelga el .cdash-card contenedor.
@@ -287,6 +278,78 @@
         window._cdashFetch();
     };
 
+    // Lee los filtros del modal y arma el querystring. FUENTE UNICA: la usan el fetch de
+    // los graficos Y la descarga a Excel, para que el archivo salga con EXACTAMENTE lo
+    // que se esta viendo en pantalla.
+    window._cdashParams = function () {
+        var desde  = (document.getElementById('cdashDesde') || {}).value || '';
+        var hasta  = (document.getElementById('cdashHasta') || {}).value || '';
+        var cat    = (document.getElementById('cdashCategoria') || {}).value || '';
+        var desc   = ((document.getElementById('cdashDescripcion') || {}).value || '').trim();
+        var frente = (document.getElementById('cdashFrente') || {}).value || '';
+
+        // Los <input type="month"> dan "YYYY-MM", pero el backend filtra por FECHA (dia)
+        // con whereDate. Si se manda el mes crudo, "<= YYYY-MM" se toma como YYYY-MM-00
+        // y EXCLUYE todo el mes (el dashboard quedaba en 0 al elegir "Hasta"). Por eso
+        // AMBOS se expanden igual: Desde -> primer dia del mes; Hasta -> ultimo dia.
+        if (desde && desde.length === 7) desde = desde + '-01';
+        if (hasta && hasta.length === 7) {
+            var hp = hasta.split('-');
+            var ultimoDia = new Date(parseInt(hp[0], 10), parseInt(hp[1], 10), 0).getDate();
+            hasta = hasta + '-' + String(ultimoDia).padStart(2, '0');
+        }
+
+        var p = new URLSearchParams();
+        if (desde)  p.set('desde', desde);
+        if (hasta)  p.set('hasta', hasta);
+        if (cat)    p.set('categoria', cat);
+        if (desc)   p.set('descripcion', desc);
+        if (frente) p.set('frente', frente);
+        return p;
+    };
+
+    // Descarga los DATOS filtrados en XLSX (4 hojas: detalle + las 3 agregaciones).
+    // Via fetch -> blob y NO window.open: asi se muestra el spinner mientras el backend
+    // arma el archivo, y se avisa si algo falla en vez de abrir una pestana en blanco.
+    window._cdashDescargarExcel = function (btn) {
+        if (btn && btn.dataset.bajando === '1') return;   // doble clic mientras genera
+        if (btn) { btn.dataset.bajando = '1'; btn.style.opacity = '.5'; }
+        if (window.showPreloader) window.showPreloader();
+
+        var qs = window._cdashParams().toString();
+        var url = window.CONSUMO_DASH_EXPORT_URL + (qs ? ('?' + qs) : '');
+
+        window.apiFetch(url, { headers: { 'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' } })
+            .then(function (r) {
+                if (!r.ok) throw new Error('No se pudo generar el Excel.');
+                // Si respondio HTML (p.ej. redireccion por sesion vencida) no lo bajamos
+                // como .xlsx corrupto.
+                var ct = (r.headers.get('Content-Type') || '').toLowerCase();
+                if (ct.indexOf('spreadsheet') === -1 && ct.indexOf('octet-stream') === -1) {
+                    throw new Error('La sesion expiro o no hay permiso para exportar.');
+                }
+                return r.blob();
+            })
+            .then(function (blob) {
+                var pad = function (n) { return (n < 10 ? '0' : '') + n; };
+                var d = new Date();
+                var nombre = 'Dashboard_Consumo_' + d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate())
+                           + '_' + pad(d.getHours()) + '-' + pad(d.getMinutes()) + '.xlsx';
+                var burl = URL.createObjectURL(blob);
+                var a = document.createElement('a');
+                a.href = burl; a.download = nombre; a.style.display = 'none';
+                document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                setTimeout(function () { try { URL.revokeObjectURL(burl); } catch (e) {} }, 1500);
+            })
+            .catch(function (e) {
+                if (window.toast) window.toast(e.message || 'Error al exportar el Excel.', 'error');
+            })
+            .finally(function () {
+                if (window.hidePreloader) window.hidePreloader();
+                if (btn) { btn.dataset.bajando = ''; btn.style.opacity = ''; }
+            });
+    };
+
     // Lee los filtros PROPIOS del modal y pide los datos. Independiente del módulo.
     window._cdashFetch = function () {
         // Cierra las sugerencias de Descripción para que el spinner de carga quede
@@ -298,29 +361,7 @@
         document.getElementById('cdashContent').style.display = 'none';
         document.getElementById('cdashEmpty').style.display = 'none';
 
-        var desde = (document.getElementById('cdashDesde') || {}).value || '';
-        var hasta = (document.getElementById('cdashHasta') || {}).value || '';
-        var cat    = (document.getElementById('cdashCategoria') || {}).value || '';
-        var desc   = ((document.getElementById('cdashDescripcion') || {}).value || '').trim();
-        var frente = (document.getElementById('cdashFrente') || {}).value || '';
-
-        // Los <input type="month"> dan "YYYY-MM", pero el backend filtra por FECHA (día)
-        // con whereDate. Si se manda el mes crudo, "<= YYYY-MM" se toma como YYYY-MM-00
-        // y EXCLUYE todo el mes (el dashboard quedaba en 0 al elegir "Hasta"). Por eso
-        // AMBOS se expanden igual: Desde → primer día del mes; Hasta → último día del mes.
-        if (desde && desde.length === 7) desde = desde + '-01';
-        if (hasta && hasta.length === 7) {
-            var hp = hasta.split('-');
-            var ultimoDia = new Date(parseInt(hp[0], 10), parseInt(hp[1], 10), 0).getDate();
-            hasta = hasta + '-' + String(ultimoDia).padStart(2, '0');
-        }
-
-        var p = new URLSearchParams();
-        if (desde) p.set('desde', desde);
-        if (hasta) p.set('hasta', hasta);
-        if (cat)    p.set('categoria', cat);
-        if (desc)   p.set('descripcion', desc);
-        if (frente) p.set('frente', frente);
+        var p = window._cdashParams();
         // Pide la lista de nombres para las recomendaciones SOLO la primera vez (luego se cachea).
         if (!window._cdashProdsCargados) p.set('con_productos', '1');
         var qs = p.toString();
@@ -353,17 +394,11 @@
             window._cdashCatRenderList();
         }
 
-        // Frentes de destino (panel avanzado): se llenan la primera vez que llegan.
+        // Frentes de destino: se cachean la primera vez que llegan y alimentan las
+        // sugerencias del buscador (antes rellenaban los <option> de un select).
         if (!window._cdashFrentesCargados && Array.isArray(data.frentes)) {
             window._cdashFrentesCargados = true;
-            var selFr = document.getElementById('cdashFrente');
-            if (selFr) {
-                data.frentes.forEach(function (f) {
-                    var o = document.createElement('option');
-                    o.value = f.id; o.textContent = f.nombre;
-                    selFr.appendChild(o);
-                });
-            }
+            window._cdashFrentesData = data.frentes;
         }
 
         // Recomendaciones del filtro Descripción: se cachean la primera vez que llegan.
@@ -390,12 +425,12 @@
 
         var fmt = window.cdashFmt;
 
-        // chartjs-plugin-datalabels se registra GLOBALMENTE en Chart cuando el usuario pasa
-        // por /admin/consumibles/graficos o por el dashboard de flota (Chart.register(...)).
-        // Como la app es SPA, ese registro sobrevive a la navegación y este dashboard —que
-        // pinta sus valores con el plugin propio cdValLabels— terminaba mostrando CADA
-        // cantidad dos veces: la del plugin global dentro de la barra y la de cdValLabels
-        // fuera. Apagarlo por gráfico es inofensivo si el plugin nunca llegó a cargarse.
+        // chartjs-plugin-datalabels queda registrado GLOBALMENTE en Chart: lo hace el propio
+        // ensureChartJS() de arriba, y también /admin/consumibles/graficos y el dashboard de
+        // flota. Como la app es SPA, ese registro sobrevive a la navegación y este dashboard
+        // —que pinta sus valores con el plugin propio cdValLabels— mostraría CADA cantidad
+        // dos veces: la del plugin global dentro de la barra y la de cdValLabels fuera. Por
+        // eso los TRES gráficos de aquí lo apagan uno por uno.
         var CD_SIN_DATALABELS = { display: false };
 
         // Estilo COMÚN, formal y coherente (paleta corporativa azul, sin arcoíris).
@@ -414,6 +449,9 @@
         // Plugin: dibuja la CANTIDAD sobre cada barra/segmento (visible SIN pasar el mouse).
         // Soporta barras verticales (encima), horizontales (al final; dentro si la barra es
         // muy larga) y dona (en el centro del segmento).
+        // Alto aproximado del texto del valor (font-size 11px). Se usa para saber si la
+        // etiqueta cabe encima de la barra sin salirse del area del grafico.
+        var CD_ALTO_VALOR = 11;
         var cdValLabels = {
             id: 'cdValLabels',
             afterDatasetsDraw: function (chart) {
@@ -438,8 +476,19 @@
                             if (dentro) { ctx.fillStyle = '#fff'; ctx.textAlign = 'right'; ctx.fillText(txt, el.x - 6, el.y); }
                             else { ctx.fillStyle = '#334155'; ctx.textAlign = 'left'; ctx.fillText(txt, el.x + 6, el.y); }
                         } else {
-                            ctx.fillStyle = '#334155'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-                            ctx.fillText(txt, el.x, el.y - 4);
+                            // Barras verticales: el valor va ENCIMA de la barra, pero la barra
+                            // mas alta llega al techo del area y el texto quedaba recortado —
+                            // en el mes de mayor consumo no se veia el numero. Si no cabe
+                            // arriba, se pinta DENTRO en blanco, igual que en las horizontales.
+                            var cabeArriba = !area || (el.y - 4 - CD_ALTO_VALOR) >= area.top;
+                            ctx.textAlign = 'center';
+                            if (cabeArriba) {
+                                ctx.fillStyle = '#334155'; ctx.textBaseline = 'bottom';
+                                ctx.fillText(txt, el.x, el.y - 4);
+                            } else {
+                                ctx.fillStyle = '#fff'; ctx.textBaseline = 'top';
+                                ctx.fillText(txt, el.x, el.y + 5);
+                            }
                         }
                         ctx.restore();
                     });
@@ -609,6 +658,7 @@
             var safe = escAttr(n);
             return '<div class="cdash-cat-item" onmousedown="event.preventDefault();window._cdashDescSelectSug(\'' + safe + '\');">' + escHtml(n) + '</div>';
         }).join('');
+        window._cdashCerrarListas('cdashDescList');
         list.classList.add('open');
     };
     window._cdashDescSelectSug = function (name) {
@@ -652,15 +702,90 @@
         });
         list.innerHTML = html;
     };
-    window._cdashCatOpen = function () { var l = document.getElementById('cdashCatList'); if (l) { l.classList.add('open'); window._cdashCatRenderList(); } };
+    // Las tres listas del modal (Descripción, Categoría, Frente). Solo UNA puede estar
+    // abierta: al abrir cualquiera se cierran las otras, para que no queden dos
+    // desplegadas tapándose entre sí.
+    window._cdashListas = ['cdashDescList', 'cdashCatList', 'cdashFrenteList'];
+    window._cdashCerrarListas = function (excepto) {
+        window._cdashListas.forEach(function (id) {
+            if (id === excepto) return;
+            var l = document.getElementById(id);
+            if (l) l.classList.remove('open');
+        });
+    };
+
+    window._cdashCatOpen = function () {
+        window._cdashCerrarListas('cdashCatList');
+        var l = document.getElementById('cdashCatList');
+        if (l) { l.classList.add('open'); window._cdashCatRenderList(); }
+    };
     window._cdashCatClose = function () { var l = document.getElementById('cdashCatList'); if (l) l.classList.remove('open'); };
-    window._cdashCatFilter = function (v) { window._cdashCatRenderList(v); var l = document.getElementById('cdashCatList'); if (l) l.classList.add('open'); };
+    window._cdashCatFilter = function (v) { window._cdashCatRenderList(v); window._cdashCatOpen(); };
+
+    // Alterna en MOUSEDOWN, no en click: el foco llega antes que el click y volvía a
+    // abrir la lista, asi que al segundo clic nunca se recogía. Al cerrar se quita el
+    // foco a mano para que onfocus no la reabra.
+    window._cdashCatToggle = function (ev) {
+        var l = document.getElementById('cdashCatList');
+        if (l && l.classList.contains('open')) {
+            ev.preventDefault();
+            window._cdashCatClose();
+            var inp = document.getElementById('cdashCatInput'); if (inp) inp.blur();
+            return;
+        }
+        window._cdashCatOpen();
+    };
     window._cdashCatSelect = function (val, label) {
         var h = document.getElementById('cdashCategoria'); if (h) h.value = val;
         var inp = document.getElementById('cdashCatInput'); if (inp) { inp.value = ''; inp.placeholder = label || CDASH_CAT_LBL; }
         var box = document.getElementById('cdashCatBox'); if (box) box.classList.toggle('active', !!val);
         var clr = document.getElementById('cdashCatClear'); if (clr) clr.style.display = val ? 'block' : 'none';
         window._cdashCatClose();
+        window._cdashFetch();
+    };
+
+    // ── Filtro FRENTE DE DESTINO ───────────────────────────────────────────────
+    // Copia exacta de la mecánica de Categoría, con una diferencia: aquí el valor que
+    // viaja al backend es el ID del frente y lo que se busca es su NOMBRE, así que el
+    // hidden y el texto visible no guardan lo mismo.
+    window._cdashFrentesData = window._cdashFrentesData || [];
+    var CDASH_FRE_LBL = 'Todos los frentes';
+
+    window._cdashFrenteRenderList = function (filter) {
+        var list = document.getElementById('cdashFrenteList'); if (!list) return;
+        var q = (filter || '').toLowerCase();
+        var html = '<div class="cdash-cat-item" onmousedown="event.preventDefault();window._cdashFrenteSelect(\'\',CDASH_FRE_LBL);">Todos los frentes</div>';
+        window._cdashFrentesData.forEach(function (f) {
+            var nombre = String(f.nombre || '');
+            if (q && nombre.toLowerCase().indexOf(q) === -1) return;
+            html += '<div class="cdash-cat-item" onmousedown="event.preventDefault();window._cdashFrenteSelect(\'' + escAttr(String(f.id)) + '\',\'' + escAttr(nombre) + '\');">' + escHtml(nombre) + '</div>';
+        });
+        list.innerHTML = html;
+    };
+    window._cdashFrenteOpen = function () {
+        window._cdashCerrarListas('cdashFrenteList');
+        var l = document.getElementById('cdashFrenteList');
+        if (l) { l.classList.add('open'); window._cdashFrenteRenderList(); }
+    };
+    window._cdashFrenteClose = function () { var l = document.getElementById('cdashFrenteList'); if (l) l.classList.remove('open'); };
+    window._cdashFrenteFilter = function (v) { window._cdashFrenteRenderList(v); window._cdashFrenteOpen(); };
+    window._cdashFrenteToggle = function (ev) {
+        var l = document.getElementById('cdashFrenteList');
+        if (l && l.classList.contains('open')) {
+            ev.preventDefault();
+            window._cdashFrenteClose();
+            var inp = document.getElementById('cdashFrenteInput'); if (inp) inp.blur();
+            return;
+        }
+        window._cdashFrenteOpen();
+    };
+    window._cdashFrenteSelect = function (val, label) {
+        var h = document.getElementById('cdashFrente'); if (h) h.value = val;
+        var inp = document.getElementById('cdashFrenteInput');
+        if (inp) { inp.value = ''; inp.placeholder = label || CDASH_FRE_LBL; }
+        var box = document.getElementById('cdashFrenteBox'); if (box) box.classList.toggle('active', !!val);
+        var clr = document.getElementById('cdashFrenteClear'); if (clr) clr.style.display = val ? 'block' : 'none';
+        window._cdashFrenteClose();
         window._cdashFetch();
     };
 </script>

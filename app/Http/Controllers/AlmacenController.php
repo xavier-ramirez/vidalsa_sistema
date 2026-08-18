@@ -1620,6 +1620,223 @@ class AlmacenController extends Controller
         ]);
     }
 
+    /**
+     * Query base del Dashboard de Consumo: SALIDAS de los almacenes visibles, con los
+     * filtros propios del modal (descripcion, categoria, frente y rango de meses).
+     *
+     * FUENTE UNICA del filtro — la usan consumoDashboard() y consumoDashboardExport().
+     * Si cada uno armara el suyo, el Excel podria traer un universo distinto al que el
+     * usuario esta viendo en los graficos.
+     *
+     * Las columnas van PREFIJADAS con `movimientos_inventario.`: las agregaciones hacen
+     * JOIN con productos_inventario y almacenes, que tienen columnas homonimas (almacenes
+     * tambien tiene TIPO e ID_ALMACEN) → sin prefijo, MySQL lanza el error 1052.
+     */
+    private function consumoDashboardQuery(Request $request, $idsVisibles, $desde, $hasta)
+    {
+        $q = MovimientoInventario::query()
+            ->where('movimientos_inventario.TIPO', 'SALIDA')
+            ->whereIn('movimientos_inventario.ID_ALMACEN', $idsVisibles);
+
+        // Descripcion: coincidencia parcial sobre el NOMBRE del producto. whereExists
+        // evita ambiguedad de columnas con los JOIN de las agregaciones.
+        if ($request->filled('descripcion')) {
+            $desc = trim((string) $request->input('descripcion'));
+            $q->whereExists(function ($sub) use ($desc) {
+                $sub->select(DB::raw(1))
+                    ->from('productos_inventario as pd')
+                    ->whereColumn('pd.ID_PRODUCTO', 'movimientos_inventario.ID_PRODUCTO')
+                    ->where('pd.NOMBRE', 'like', "%{$desc}%");
+            });
+        }
+
+        if ($request->filled('categoria') && $request->input('categoria') !== 'all') {
+            $cat = trim((string) $request->input('categoria'));
+            $q->whereExists(function ($sub) use ($cat) {
+                $sub->select(DB::raw(1))
+                    ->from('productos_inventario as pc')
+                    ->whereColumn('pc.ID_PRODUCTO', 'movimientos_inventario.ID_PRODUCTO')
+                    ->where('pc.CATEGORIA', 'like', "%{$cat}%");
+            });
+        }
+
+        // Frente de DESTINO del consumo (la salida se despacho hacia ese proyecto).
+        if ($request->filled('frente') && $request->input('frente') !== 'all') {
+            $q->where('movimientos_inventario.ID_FRENTE', (int) $request->input('frente'));
+        }
+
+        return $q->periodo($desde, $hasta);
+    }
+
+    /**
+     * Consumo agrupado por MES. Devuelve [['mes' => 'YYYY-MM', 'total' => float], ...].
+     *
+     * FUENTE UNICA: la comparten el grafico del dashboard y su exportacion a Excel.
+     * Cuando estaba escrita en los dos sitios, cualquier ajuste habia que hacerlo dos
+     * veces o los numeros dejaban de coincidir.
+     */
+    private function consumoPorMes(callable $base)
+    {
+        return $base()
+            ->selectRaw("DATE_FORMAT(FECHA, '%Y-%m') as mes, SUM(CANTIDAD) as total")
+            ->groupBy('mes')->orderBy('mes')->get()
+            ->map(fn ($r) => ['mes' => $r->mes, 'total' => (float) $r->total])
+            ->values();
+    }
+
+    /**
+     * Consumo agrupado por PRODUCTO, de mayor a menor.
+     *
+     * @param  int|null  $limite  Tope de filas. El grafico pide 20 (mas barras no se
+     *                            leen); el Excel no pasa nada y se lleva la lista entera.
+     */
+    private function consumoPorProducto(callable $base, ?int $limite = null)
+    {
+        $q = $base()
+            ->join('productos_inventario as p', 'p.ID_PRODUCTO', '=', 'movimientos_inventario.ID_PRODUCTO')
+            ->groupBy('p.ID_PRODUCTO', 'p.NOMBRE', 'p.UM')
+            ->orderByDesc(DB::raw('SUM(movimientos_inventario.CANTIDAD)'));
+
+        if ($limite !== null) {
+            $q->limit($limite);
+        }
+
+        return $q->get([
+                'p.ID_PRODUCTO as id', 'p.NOMBRE as nombre', 'p.UM as um',
+                DB::raw('SUM(movimientos_inventario.CANTIDAD) as total'),
+            ])
+            ->map(fn ($r) => (object) [
+                'id'     => $r->id,
+                'nombre' => \App\Casts\MojibakeFix::fix($r->nombre),
+                'um'     => $r->um ?: 'UND',
+                'total'  => (float) $r->total,
+            ]);
+    }
+
+    /** Consumo agrupado por ALMACEN, de mayor a menor. */
+    private function consumoPorAlmacen(callable $base)
+    {
+        return $base()
+            ->join('almacenes as a', 'a.ID_ALMACEN', '=', 'movimientos_inventario.ID_ALMACEN')
+            ->groupBy('a.ID_ALMACEN', 'a.NOMBRE')
+            ->orderByDesc(DB::raw('SUM(movimientos_inventario.CANTIDAD)'))
+            ->get(['a.NOMBRE as nombre', DB::raw('SUM(movimientos_inventario.CANTIDAD) as total')])
+            ->map(fn ($r) => ['nombre' => \App\Casts\MojibakeFix::fix($r->nombre), 'total' => (float) $r->total])
+            ->values();
+    }
+
+    /**
+     * Exporta a XLSX lo MISMO que muestra el Dashboard de Consumo, con sus filtros.
+     *
+     * La hoja CONSUMO reproduce los tres gráficos LADO A LADO: al filtrar por "BRAGAS" o
+     * por la categoría EPP se ve de un golpe el total por mes, el total por producto y el
+     * total por almacén — que es justo lo que se está mirando en pantalla.
+     *
+     * Reutiliza consumoDashboardQuery(), la misma fábrica de filtros que alimenta los
+     * gráficos, para que el archivo no pueda traer un universo distinto al de pantalla.
+     *
+     * Son TOTALES, no un historico: al filtrar "BRAGAS" salen "BRAGA TALLA 40 → 30" y
+     * "BRAGA TALLA 50 → 60", igual que en la grafica. El movimiento a movimiento no va
+     * aqui — para eso esta el Kardex del modulo.
+     *
+     * RENDIMIENTO: se escribe con fromArray() en bloque, nunca celda por celda, y no se
+     * pintan bordes sobre rangos grandes. Ambas cosas son las que hacian lenta la
+     * descarga: PhpSpreadsheet mide y estila celda por celda.
+     */
+    public function consumoDashboardExport(Request $request)
+    {
+        [$desde, $hasta] = MovimientoInventario::expandirRangoMes(
+            $request->input('desde'),
+            $request->input('hasta')
+        );
+        $idsVisibles = Almacen::visiblesPara($request->user())->pluck('ID_ALMACEN');
+        $base = fn () => $this->consumoDashboardQuery($request, $idsVisibles, $desde, $hasta);
+
+        $libro = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $libro->removeSheetByIndex(0);
+
+        $AZUL = 'FF00004D';
+        $GRIS = 'FFF1F5F9';
+        $BORDE = \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN;
+        $SOLIDO = \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID;
+        $CENTRO = \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER;
+
+        // Las MISMAS tres agregaciones que pintan los graficos. Sin limite en productos:
+        // el grafico recorta a 20 barras para poder dibujarse, el Excel se lleva todo.
+        $porMes = $this->consumoPorMes($base)
+            ->map(fn ($r) => [$r['mes'], $r['total']])->all();
+
+        $porProducto = $this->consumoPorProducto($base)
+            ->map(fn ($r) => [$r->nombre, $r->um, $r->total])->all();
+
+        $porAlmacen = $this->consumoPorAlmacen($base)
+            ->map(fn ($r) => [$r['nombre'], $r['total']])->all();
+
+        // ── HOJA 1: los tres gráficos, uno al lado del otro ─────────────────────
+        $hoja = $libro->createSheet();
+        $hoja->setTitle('CONSUMO');
+
+        // Encabezado con los filtros aplicados: el archivo se explica solo cuando se
+        // comparte por fuera del sistema.
+        $filtros = array_filter([
+            $request->input('descripcion') ? 'Descripción: ' . $request->input('descripcion') : null,
+            $request->input('categoria')   ? 'Categoría: ' . $request->input('categoria') : null,
+            $request->input('frente')      ? 'Frente: ' . (\App\Models\FrenteTrabajo::where('ID_FRENTE', (int) $request->input('frente'))->value('NOMBRE_FRENTE') ?: $request->input('frente')) : null,
+            $desde ? 'Desde: ' . $desde : null,
+            $hasta ? 'Hasta: ' . $hasta : null,
+        ]);
+        $hoja->setCellValue('A1', 'DASHBOARD DE CONSUMO');
+        $hoja->mergeCells('A1:I1');
+        $hoja->getStyle('A1')->getFont()->setBold(true)->setSize(13)->getColor()->setARGB('FFFFFFFF');
+        $hoja->getStyle('A1')->getFill()->setFillType($SOLIDO)->getStartColor()->setARGB($AZUL);
+        $hoja->getStyle('A1')->getAlignment()->setHorizontal($CENTRO);
+        $hoja->setCellValue('A2', $filtros ? implode('   ·   ', $filtros) : 'Sin filtros: todo el consumo visible');
+        $hoja->mergeCells('A2:I2');
+        $hoja->getStyle('A2')->getFont()->setItalic(true)->setSize(10)->getColor()->setARGB('FF64748B');
+
+        // Tres bloques: A-B (mes), D-F (producto), H-I (almacén).
+        $bloques = [
+            ['A', 'B', 'CONSUMO POR MES',        ['MES', 'CANTIDAD'],              $porMes],
+            ['D', 'F', 'CONSUMO POR PRODUCTO',   ['PRODUCTO', 'UM', 'CANTIDAD'],   $porProducto],
+            ['H', 'I', 'CONSUMO POR ALMACÉN',    ['ALMACÉN', 'CANTIDAD'],          $porAlmacen],
+        ];
+        foreach ($bloques as [$ini, $fin, $titulo, $cab, $filas]) {
+            $hoja->setCellValue($ini . '4', $titulo);
+            $hoja->mergeCells($ini . '4:' . $fin . '4');
+            $hoja->getStyle($ini . '4')->getFont()->setBold(true)->getColor()->setARGB('FF00004D');
+            $hoja->fromArray([$cab], null, $ini . '5', true);
+            $hoja->getStyle($ini . '5:' . $fin . '5')->getFont()->setBold(true);
+            $hoja->getStyle($ini . '5:' . $fin . '5')->getFill()->setFillType($SOLIDO)->getStartColor()->setARGB($GRIS);
+            if ($filas) {
+                $hoja->fromArray($filas, null, $ini . '6', true);
+                $hoja->getStyle($ini . '5:' . $fin . (5 + count($filas)))->getBorders()->getAllBorders()
+                    ->setBorderStyle($BORDE)->getColor()->setARGB('FFCBD5E0');
+            }
+            // TOTAL al pie de cada bloque, para poder cuadrar contra el gráfico.
+            $filaTotal = 6 + count($filas);
+            $hoja->setCellValue($ini . $filaTotal, 'TOTAL');
+            $hoja->setCellValue($fin . $filaTotal, array_sum(array_column($filas, count($cab) - 1)));
+            $hoja->getStyle($ini . $filaTotal . ':' . $fin . $filaTotal)->getFont()->setBold(true);
+        }
+        foreach (['A', 'B', 'D', 'E', 'F', 'H', 'I'] as $c) {
+            $hoja->getColumnDimension($c)->setAutoSize(true);
+        }
+        $hoja->getColumnDimension('C')->setWidth(2);   // separadores entre bloques
+        $hoja->getColumnDimension('G')->setWidth(2);
+        $hoja->freezePane('A6');
+
+        $libro->setActiveSheetIndex(0);
+
+        $writer = \PhpOffice\PhpSpreadsheet\IOFactory::createWriter($libro, 'Xlsx');
+        $writer->setPreCalculateFormulas(false);
+        $tmp = tempnam(sys_get_temp_dir(), 'cdash_');
+        $writer->save($tmp);
+
+        return response()->download($tmp, 'Dashboard_Consumo_' . date('Y-m-d_H-i') . '.xlsx', [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ])->deleteFileAfterSend(true);
+    }
+
     public function consumoDashboard(Request $request)
     {
         // El dashboard es INDEPENDIENTE de los filtros generales del módulo
@@ -1643,59 +1860,22 @@ class AlmacenController extends Controller
         // `movimientos_inventario.` — las queries top_productos/por_almacen hacen JOIN
         // con productos_inventario y almacenes, que tienen columnas homónimas (almacenes
         // también tiene TIPO e ID_ALMACEN) → sin prefijo, MySQL lanza error 1052 (ambiguo).
-        $base = function () use ($request, $idsVisibles, $desde, $hasta) {
-            $q = MovimientoInventario::query()
-                ->where('movimientos_inventario.TIPO', 'SALIDA')
-                ->whereIn('movimientos_inventario.ID_ALMACEN', $idsVisibles);
-            // Descripción: coincidencia parcial sobre el NOMBRE (la descripción) del producto.
-            // whereExists evita ambigüedad de columnas con los JOIN de top_productos/por_almacen
-            // (mismo patrón que el filtro de categoría de abajo).
-            if ($request->filled('descripcion')) {
-                $desc = trim((string) $request->input('descripcion'));
-                $q->whereExists(function ($sub) use ($desc) {
-                    $sub->select(DB::raw(1))
-                        ->from('productos_inventario as pd')
-                        ->whereColumn('pd.ID_PRODUCTO', 'movimientos_inventario.ID_PRODUCTO')
-                        ->where('pd.NOMBRE', 'like', "%{$desc}%");
-                });
-            }
-            if ($request->filled('categoria') && $request->input('categoria') !== 'all') {
-                $cat = trim((string) $request->input('categoria'));
-                $q->whereExists(function ($sub) use ($cat) {
-                    $sub->select(DB::raw(1))
-                        ->from('productos_inventario as pc')
-                        ->whereColumn('pc.ID_PRODUCTO', 'movimientos_inventario.ID_PRODUCTO')
-                        ->where('pc.CATEGORIA', 'like', "%{$cat}%");
-                });
-            }
-            // Filtro por FRENTE de destino del consumo (salida hacia ese proyecto).
-            if ($request->filled('frente') && $request->input('frente') !== 'all') {
-                $q->where('movimientos_inventario.ID_FRENTE', (int) $request->input('frente'));
-            }
-            $q->periodo($desde, $hasta);
-            return $q;
-        };
+        // El armado del filtro vive en consumoDashboardQuery(): lo comparten este
+        // dashboard y su exportacion a Excel, para que el archivo salga EXACTAMENTE con
+        // lo que se ve en pantalla. Cada agregacion necesita su propio builder (sum/count
+        // ejecutan la consulta), por eso es una fabrica y no una query suelta.
+        $base = fn () => $this->consumoDashboardQuery($request, $idsVisibles, $desde, $hasta);
 
         // ── Consumo por mes ── (todos los meses del rango; sin filtro, últimos 12)
-        $porMes = $base()
-            ->selectRaw("DATE_FORMAT(FECHA, '%Y-%m') as mes, SUM(CANTIDAD) as total")
-            ->groupBy('mes')->orderBy('mes')
-            ->get()
-            ->map(fn ($r) => ['mes' => $r->mes, 'total' => (float) $r->total]);
+        $porMes = $this->consumoPorMes($base);
         if (!$desde && !$hasta) {
-            $porMes = $porMes->slice(-12);
+            $porMes = $porMes->slice(-12)->values();
         }
-        $porMes = $porMes->values();
 
         // ── Top 20 productos más consumidos ────────────────────────────────────
         // Se enriquece con el nº de parte PRINCIPAL (+ alternos) y los EQUIPOS que
         // usan el filtro, para mostrarlos en el tooltip del gráfico (al pasar el mouse).
-        $topRows = $base()
-            ->join('productos_inventario as p', 'p.ID_PRODUCTO', '=', 'movimientos_inventario.ID_PRODUCTO')
-            ->groupBy('p.ID_PRODUCTO', 'p.NOMBRE', 'p.UM')
-            ->orderByDesc(DB::raw('SUM(movimientos_inventario.CANTIDAD)'))
-            ->limit(20)
-            ->get(['p.ID_PRODUCTO as id', 'p.NOMBRE as nombre', 'p.UM as um', DB::raw('SUM(movimientos_inventario.CANTIDAD) as total')]);
+        $topRows = $this->consumoPorProducto($base, 20);
 
         $idsTop = $topRows->pluck('id')->all();
 
@@ -1738,9 +1918,9 @@ class AlmacenController extends Controller
             $auxs = $ax ? $ax->map(fn ($x) => trim(str_replace('_', ' ', (string) $x->TIPO).' '.trim(((string) $x->MARCA).' '.((string) $x->MODELO)))) : collect();
             $equipos = collect($vehic)->concat($auxs)->filter()->unique()->take(8)->values()->all();
             return [
-                'nombre'  => \App\Casts\MojibakeFix::fix($r->nombre),
-                'total'   => (float) $r->total,
-                'um'      => $r->um ?: 'UND',
+                'nombre'  => $r->nombre,
+                'total'   => $r->total,
+                'um'      => $r->um,
                 'parte'   => $partes[0] ?? null,
                 'partes'  => $partes,
                 'equipos' => $equipos,
@@ -1748,12 +1928,7 @@ class AlmacenController extends Controller
         })->values();
 
         // ── Consumo por almacén ─────────────────────────────────────────────────
-        $porAlmacen = $base()
-            ->join('almacenes as a', 'a.ID_ALMACEN', '=', 'movimientos_inventario.ID_ALMACEN')
-            ->groupBy('a.ID_ALMACEN', 'a.NOMBRE')
-            ->orderByDesc(DB::raw('SUM(movimientos_inventario.CANTIDAD)'))
-            ->get(['a.NOMBRE as nombre', DB::raw('SUM(movimientos_inventario.CANTIDAD) as total')])
-            ->map(fn ($r) => ['nombre' => \App\Casts\MojibakeFix::fix($r->nombre), 'total' => (float) $r->total]);
+        $porAlmacen = $this->consumoPorAlmacen($base);
 
         // Frentes de destino con consumo (para el filtro del panel avanzado). Independiente
         // de los filtros activos, para que el <select> siempre tenga todas las opciones.
