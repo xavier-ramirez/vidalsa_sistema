@@ -103,7 +103,6 @@ Route::middleware(['auth'])->group(function () {
         Route::post  ('/mapa/oleoductos/frente/{idFrente}/puntos/{idPunto}/vincular', [App\Http\Controllers\OleoductoController::class, 'vincularPuntoFrente'])->middleware('can:super.admin')->name('mapa.oleoductos.vincularPuntoFrente');
         Route::delete('/mapa/oleoductos/{idOleoducto}/puntos/{idPunto}', [App\Http\Controllers\OleoductoController::class, 'destroyPunto'])->middleware('can:super.admin')->name('mapa.oleoductos.destroyPunto');
         Route::delete('/mapa/oleoductos/{id}',         [App\Http\Controllers\OleoductoController::class, 'destroy'])->middleware('can:super.admin')->name('mapa.oleoductos.destroy');
-        Route::post('/system/reset-cache', [App\Http\Controllers\DashboardController::class, 'resetCache'])->name('system.reset-cache');
         Route::get('/dashboard/alerts-html', [App\Http\Controllers\DashboardController::class, 'getAlertsHtml'])->name('dashboard.alertsHtml');
         Route::post('/dashboard/iniciar-gestion', [App\Http\Controllers\DashboardController::class, 'iniciarGestion'])->name('dashboard.iniciarGestion');
         Route::get('/dashboard/export-documents-pdf', [App\Http\Controllers\DashboardController::class, 'exportDocumentsPDF'])->name('dashboard.exportDocumentsPDF');

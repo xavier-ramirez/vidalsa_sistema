@@ -199,24 +199,6 @@ class DashboardController extends Controller
         return 'data:image/jpeg;base64,' . base64_encode($bytes);
     }
 
-    public function resetCache()
-    {
-        try {
-            // 1. Clear Application Cache
-            \Illuminate\Support\Facades\Artisan::call('cache:clear');
-            \Illuminate\Support\Facades\Artisan::call('config:clear');
-            \Illuminate\Support\Facades\Artisan::call('view:clear');
-
-            // 2. Specific Google Drive Circuit Breaker (Redundant but safe)
-            \Illuminate\Support\Facades\Cache::forget('google_drive_connection_error');
-
-            return back()->with('success', 'Sistema reiniciado correctamente. Las conexiones han sido restablecidas.');
-        } catch (\Exception $e) {
-            \Illuminate\Support\Facades\Log::error('Reset Cache Error: ' . $e->getMessage());
-            return back()->withErrors(['error' => 'Error al reiniciar el sistema: ' . $e->getMessage()]);
-        }
-    }
-
     public function getAlertsHtml()
     {
         $user        = auth()->user();

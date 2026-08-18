@@ -2644,17 +2644,41 @@
             var id = edId; edId = null; edPts = [];
             if (id && oleoMap[id]) oleoDibujar(oleoMap[id].data); // re-dibuja la tubería normal
         }
-        function guardarDibujo() {
-            var id = edId, ruta = edPts.map(function (ll) { return [ll.lat, ll.lng]; });
+        // Guarda el trazo de un proyecto y deja el dato ya actualizado en oleoMap. Lo comparten
+        // el lápiz (trazo hecho a mano) y "Unir los puntos" del clic derecho de una vela: la
+        // petición y el manejo del error son idénticos, solo cambia qué se repinta al terminar.
+        function guardarRecorrido(id, ruta, alGuardar) {
             spinOn();
             oleoApi('/mapa/oleoductos/' + id + '/recorrido', 'POST', { recorrido: ruta }).then(function (res) {
                 spinOff();
                 if (res && res.success && oleoMap[id]) {
                     oleoMap[id].data.recorrido = res.recorrido;
-                    window.toast(res.recorrido ? 'Línea guardada.' : 'Línea quitada.', 'success');
-                    salirDibujo();
+                    alGuardar(res);
                 } else window.toast('No se pudo guardar la línea.', 'error');
             }).catch(function () { spinOff(); window.toast('No se pudo guardar la línea.', 'error'); });
+        }
+        function guardarDibujo() {
+            guardarRecorrido(edId, edPts.map(function (ll) { return [ll.lat, ll.lng]; }), function (res) {
+                window.toast(res.recorrido ? 'Línea guardada.' : 'Línea quitada.', 'success');
+                salirDibujo();
+            });
+        }
+        // Une los puntos del proyecto DE UNA VEZ, en su orden, sin pasar por el editor a mano.
+        // El trazo que deja es el mismo `recorrido` que guarda el lápiz, así que lo pinta
+        // tuberiaCapas con el mismo aspecto de tubería; después se puede retocar con el lápiz.
+        function unirPuntos(oleoId) {
+            var g = oleoMap[oleoId]; if (!g) return;
+            // Con el editor abierto, repintar por debajo dejaría la tubería encima del trazo
+            // que se está moviendo (el mismo choque que arregla el guard de declutterVelas).
+            if (edMode) { window.toast('Sal del modo dibujo primero.', 'info'); return; }
+            var pts = puntosOrdenados(g.data);
+            if (pts.length < 2) { window.toast('Hacen falta al menos 2 puntos en el proyecto.', 'error'); return; }
+            guardarRecorrido(oleoId, pts.map(function (p) { return [p.lat, p.lng]; }), function () {
+                // Se relee de oleoMap y no del `g` de arriba: entre la petición y la respuesta
+                // pudo entrar una recarga de proyectos y dejar ese `data` obsoleto.
+                oleoDibujar(oleoMap[oleoId].data);
+                window.toast('Puntos unidos.', 'success');
+            });
         }
         function mostrarBarraDibujo() {
             var old = document.getElementById('mapaDibujoBar'); if (old) old.remove();
@@ -2699,20 +2723,17 @@
             var cerrar = function () { menu.remove(); document.removeEventListener('click', cerrar); };
             setTimeout(function () { document.addEventListener('click', cerrar); }, 0);
         }
+        // Trazo vacío = el backend guarda null (exige 2 puntos para dar por buena una línea).
         function eliminarLinea(id) {
             if (!confirm('¿Eliminar la línea (recorrido) de este frente? Los puntos se conservan.')) return;
-            spinOn();
-            oleoApi('/mapa/oleoductos/' + id + '/recorrido', 'POST', { recorrido: [] }).then(function (res) {
-                spinOff();
-                if (res && res.success && oleoMap[id]) {
-                    oleoMap[id].data.recorrido = null;
-                    oleoDibujar(oleoMap[id].data);
-                    window.toast('Línea eliminada (los puntos quedan).', 'success');
-                }
-            }).catch(function () { spinOff(); });
+            guardarRecorrido(id, [], function () {
+                oleoDibujar(oleoMap[id].data);
+                window.toast('Línea eliminada (los puntos quedan).', 'success');
+            });
         }
 
-        // Menú de CLIC DERECHO sobre una VELA (punto): eliminar ese punto del proyecto.
+        // Menú de CLIC DERECHO sobre una VELA (punto): unir los puntos del proyecto con una
+        // línea, meter el punto en otro proyecto o quitarlo de este.
         function menuVela(ev, oleoId, punto) {
             if (ev.originalEvent) { ev.originalEvent.preventDefault(); }
             L.DomEvent.stop(ev);
@@ -2721,15 +2742,24 @@
             // Si el punto está compartido se dice en cuántos proyectos está: así queda claro que
             // "quitar" solo lo saca de ESTE, no lo borra de los demás.
             var enVarios = (punto.proyectos || 1) > 1;
+            // "Unir los puntos": traza la línea por los puntos de ESTE proyecto (el del pin sobre
+            // el que se hizo clic derecho, que es lo que desambigua cuando el punto está en
+            // varios). Solo si el grupo es un tendido y hay al menos dos puntos que unir.
+            var oVela = (oleoMap[oleoId] || {}).data || {};
+            var puedeUnir = !oVela.suelto && (oVela.puntos || []).length >= 2;
             menu.innerHTML =
                 '<div class="mapa-ctx-title">' + esc(punto.nombre || 'Punto') +
                     (enVarios ? '<span class="mapa-ctx-sub">En ' + punto.proyectos + ' proyectos</span>' : '') + '</div>' +
+                (puedeUnir
+                    ? '<button type="button" class="mapa-ctx-item" data-a="unir"><i class="material-icons">timeline</i>' +
+                        (oVela.recorrido ? 'Rehacer la línea' : 'Unir los puntos') + '</button>'
+                    : '') +
                 '<button type="button" class="mapa-ctx-item" data-a="vinc"><i class="material-icons">playlist_add</i>Agregar a otro proyecto</button>' +
                 '<button type="button" class="mapa-ctx-item mapa-ctx-danger" data-a="del"><i class="material-icons">delete_outline</i>' +
                     (enVarios ? 'Quitar de este proyecto' : 'Eliminar Punto') + '</button>';
             var x = ev.originalEvent ? ev.originalEvent.clientX : 0, y = ev.originalEvent ? ev.originalEvent.clientY : 0;
             menu.style.left = Math.min(x, window.innerWidth - 200) + 'px';
-            menu.style.top = Math.min(y, window.innerHeight - 100) + 'px';
+            menu.style.top = Math.min(y, window.innerHeight - (puedeUnir ? 140 : 100)) + 'px';
             window.raizVisible().appendChild(menu);
             menu.addEventListener('click', function (e2) {
                 var b = e2.target.closest ? e2.target.closest('.mapa-ctx-item') : null; if (!b) return;
@@ -2737,6 +2767,7 @@
                 var a = b.getAttribute('data-a');
                 if (a === 'del') eliminarPunto(oleoId, punto);
                 else if (a === 'vinc') popupVincularProyecto(punto);
+                else if (a === 'unir') unirPuntos(oleoId);
             });
             var cerrar = function () { menu.remove(); document.removeEventListener('click', cerrar); };
             setTimeout(function () { document.addEventListener('click', cerrar); }, 0);
