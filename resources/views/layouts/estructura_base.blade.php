@@ -330,8 +330,9 @@
                 // caso típico: navigator.onLine sigue en true mientras haya cualquier interfaz
                 // levantada (wifi sin internet, ethernet, VPN).
                 //
-                // Se descartan los abortos (AbortController de las búsquedas) y las peticiones
-                // a otros dominios: ni unos ni otras dicen nada de NUESTRA conexión.
+                // Los abortos (AbortController de las búsquedas) quedan fuera solos: lanzan un
+                // DOMException, no un TypeError. Y las peticiones a otros dominios se descartan
+                // por origen: que falle un servicio externo no dice nada de NUESTRO servidor.
                 var _url = String((args[0] && args[0].url) || args[0] || '');
                 var _propia = true;   // sin URL legible se asume nuestra (es lo normal)
                 try { _propia = new URL(_url, location.href).origin === location.origin; } catch (e) {}
@@ -1280,13 +1281,21 @@
                     // responde → estamos online. Solo el fallo de red (catch) = sin conexión.
                     window.apiFetch('/offline/version', { headers: { 'X-Requested-With': 'XMLHttpRequest' }, method: 'GET', cache: 'no-store'})
                         .then(function () { if (window.OfflineOutbox) window.OfflineOutbox.drain(); }) // servidor OK → subir outbox
-                        .catch(function () { mostrarOffline(); });
+                        // El aviso NO se saca aquí: esta petición va por window.apiFetch, o sea
+                        // por el interceptor global de fetch, que es el único que decide que se
+                        // fue la red. Sacarlo también aquí serían dos dueños del mismo banner.
+                        // El catch existe solo para atender el rechazo (si no, queda una promesa
+                        // rechazada sin manejar en cada carga sin conexión).
+                        .catch(function () {});
                 }
+
+                // Se publica ANTES de la primera comprobación: así el interceptor ya lo
+                // encuentra si esa misma petición falla, sin depender de que el rechazo llegue
+                // después de esta línea (que llega, pero por un detalle de orden asíncrono).
+                window.netStatus = { showOffline: mostrarOffline, hide: hideBanner, comprobar: comprobarConexion };
 
                 // Estado inicial al cargar: comprobar conexión real (no solo navigator.onLine).
                 comprobarConexion();
-
-                window.netStatus = { showOffline: mostrarOffline, hide: hideBanner, comprobar: comprobarConexion };
 
                 // API para los módulos. registrar(clave, fn): clave única por módulo; `fn`
                 // debe DEVOLVER la promesa de su render (por eso los 4 módulos hacen

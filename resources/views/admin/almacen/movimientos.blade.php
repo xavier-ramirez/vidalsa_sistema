@@ -873,7 +873,7 @@
                 almMovBuscarUI();   // marca "activo" del buscador + iconos (x / escanear)
                 try { window.history.replaceState(null, '', ROUTE + '?' + pHist.toString()); } catch (e) {}
             })
-            .catch(function (e) {
+            .catch(function () {
                 body.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:24px;color:#dc2626;">No se pudieron cargar los movimientos.</td></tr>';
                 // El aviso "Sin conexión" con su botón lo saca el interceptor global de
                 // fetch (estructura_base) para CUALQUIER petición de la app.

@@ -2076,7 +2076,7 @@
                     }
                 }
             })
-            .catch(function (e) {
+            .catch(function () {
                 toast('No se pudo cargar el inventario.', 'error');
                 // El aviso "Sin conexión" con su botón lo saca el interceptor global de
                 // fetch (estructura_base) para CUALQUIER petición de la app.

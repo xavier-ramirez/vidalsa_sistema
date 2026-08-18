@@ -7,7 +7,9 @@
  * NO escribe nada en la base de datos: usa modelos en memoria y peticiones sintéticas.
  * Cubre lo que se rompió alguna vez y no debe volver a romperse: las rutas que el
  * middleware de sesión única NO puede cortar, el motivo con el que expulsa, los avisos
- * que el login tiene que saber traducir, y que nadie cambie claves saltándose el modelo.
+ * que el login tiene que saber traducir, que nadie cambie claves saltándose el modelo, y
+ * los tres "dueños únicos" del cliente —sesión caída, red caída y pantalla completa—, que
+ * ya estuvieron copiados a mano por media aplicación.
  */
 require __DIR__ . '/../vendor/autoload.php';
 $app = require_once __DIR__ . '/../bootstrap/app.php';
@@ -135,6 +137,40 @@ check('aviso de pendientes traducido', true, str_contains($html, 'sesion_expirad
 $wa = file_get_contents('public/js/webauthn.js');
 check('webauthn lee error Y message', true, str_contains($wa, 'function textoError'));
 check('webauthn sin lecturas a pelo',  0,    substr_count($wa, ".error || '"));
+
+// ── I. Sin conexion: un solo dueno tambien ──────────────────────────────────
+// El interceptor global de fetch decide que se fue la red y saca el banner con su boton.
+// Antes esa deteccion estaba copiada a mano en cinco modulos y solo se enteraba quien se
+// acordara de ponerla. Ninguno debe volver a hacerlo por su cuenta.
+$fuera = [];
+foreach ($clientes as $f) {
+    if (basename($f) === 'estructura_base.blade.php') continue;
+    if (str_contains(file_get_contents($f), 'netStatus.showOffline(')) $fuera[] = basename($f);
+}
+check('detectores de red fuera del interceptor', [], $fuera);
+
+$layout = file_get_contents('resources/views/layouts/estructura_base.blade.php');
+check('el interceptor saca el aviso', 1, substr_count($layout, 'window.netStatus.showOffline();'));
+// Que falle un servicio externo (el buscador del mapa) no puede confundirse con que se
+// haya caido NUESTRO servidor: se compara por ORIGEN, no por prefijo de texto.
+check('descarta peticiones de otro origen', true,
+    str_contains($layout, 'new URL(_url, location.href).origin === location.origin'));
+// El sondeo va por apiFetch a proposito: si alguien lo pasa a fetch() a pelo se salta el
+// interceptor y el banner deja de salir en la carga inicial sin conexion.
+check('el sondeo pasa por apiFetch', true, str_contains($layout, "window.apiFetch('/offline/version'"));
+
+// ── J. Pantalla completa: una sola respuesta ────────────────────────────────
+// En pantalla completa el navegador solo pinta el subarbol del elemento que la ocupa, asi
+// que lo que cuelga del body no se ve. La pregunta vive en dom_helpers (raizVisible) y
+// nadie mas debe responderla por su cuenta: nueve sitios lo hacian y no todos igual.
+$sueltos = [];
+foreach ($clientes as $f) {
+    if (basename($f) === 'dom_helpers.js') continue;   // ahi vive la unica definicion
+    if (str_contains(file_get_contents($f), 'fullscreenElement')) $sueltos[] = basename($f);
+}
+check('comprobaciones de pantalla completa sueltas', [], $sueltos);
+check('raizVisible tiene una sola definicion', 1,
+    substr_count(file_get_contents('public/js/maquinaria/dom_helpers.js'), 'window.raizVisible = function'));
 
 printf("\n%d OK, %d FALLAS\n", $ok, $fail);
 exit($fail === 0 ? 0 : 1);
