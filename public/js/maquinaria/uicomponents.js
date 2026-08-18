@@ -1582,12 +1582,24 @@ window.uploadDocument = function (input, type, equipoId, containerId, label) {
  */
 window.showToast = function (message, type = "info") {
     // 1. Create or get container
+    //
+    // El contenedor va DENTRO del elemento en pantalla completa cuando lo hay, y no
+    // siempre en <body>. En pantalla completa el navegador solo pinta el subarbol de ese
+    // elemento: un aviso colgado del body simplemente NO SE VE. Se noto en /mapa, que se
+    // usa a pantalla completa: al pulsar el lapiz para trazar la tuberia salia el aviso
+    // que explicaba por que no se podia ("Agrega al menos 2 puntos al frente...") y el
+    // usuario no veia absolutamente nada. La barra de dibujo de ese modulo ya se colgaba
+    // del elemento en pantalla completa por este mismo motivo; los avisos, no.
+    //
+    // appendChild MUEVE el nodo si ya existia, asi que el contenedor sigue al modo
+    // pantalla completa al entrar y al salir sin necesidad de escuchar fullscreenchange.
+    const raiz = document.fullscreenElement || document.webkitFullscreenElement || document.body;
     let container = document.querySelector(".toast-container");
     if (!container) {
         container = document.createElement("div");
         container.className = "toast-container";
-        document.body.appendChild(container);
     }
+    if (container.parentNode !== raiz) raiz.appendChild(container);
 
     // 2. Create toast element
     const toast = document.createElement("div");

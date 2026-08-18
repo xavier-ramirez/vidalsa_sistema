@@ -2147,10 +2147,15 @@
             // aportan y ensucian (los pines del proyecto se quedan).
             Object.keys(oleoMap).forEach(function (id) {
                 var g = oleoMap[id], oculto = !!proyOcultos[id];
+                // El frente que se está EDITANDO no cuenta: entrarDibujo quitó su tubería
+                // del mapa a propósito (estorba encima del trazo que se está moviendo) pero
+                // sus capas siguen en g.lines, así que el primer zoom o arrastre del mapa la
+                // devolvía encima de la previsualización. Se deja en manos de salirDibujo.
+                var editando = edMode && String(edId) === String(id);
                 (g.markers || []).forEach(function (mk) { if (oculto) map.removeLayer(mk); });
                 (g.lines || []).forEach(function (l) {
                     if (oculto || !conTubos) map.removeLayer(l);
-                    else if (!map.hasLayer(l)) l.addTo(map);
+                    else if (!editando && !map.hasLayer(l)) l.addTo(map);
                 });
             });
             // El umbral de fusión va con el tamaño al que se DIBUJA el pin (en vista lejana el CSS
@@ -2605,7 +2610,19 @@
         // Se entra a dibujar desde el lápiz de cada fila del panel de frentes (oleoRenderLista).
         function entrarDibujo(id) {
             if (!id || !oleoMap[id]) { window.toast('Selecciona un frente primero.', 'error'); return; }
-            if (edMode) return;
+            // Ya se estaba editando. Antes esto era un `return` MUDO: si el modo quedaba
+            // encendido con su barra fuera de la pantalla (una excepcion a mitad de
+            // entrarDibujo, la barra borrada por otro repintado), el lapiz dejaba de hacer
+            // NADA para siempre y sin decir por que. Si la barra sigue ahi es que de verdad
+            // hay una edicion en curso y se avisa; si no esta, el estado quedo colgado y se
+            // limpia solo para poder seguir trabajando.
+            if (edMode) {
+                if (document.getElementById('mapaDibujoBar')) {
+                    window.toast('Ya estás editando un trazo. Guarda o sal primero.', 'info');
+                    return;
+                }
+                salirDibujo(); // estado colgado sin barra: se recupera y sigue
+            }
             var o = oleoMap[id].data;
             // Las ubicaciones sin frente son puntos sueltos, no un tendido: NO se les traza línea
             // (el backend rechaza igual el recorrido de ese grupo).
