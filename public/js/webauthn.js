@@ -156,8 +156,8 @@ const VidalsaWebAuthn = (() => {
     const PRECACHE_MARGEN_MS   = 2 * 60 * 1000;
     const PRECACHE_FALLBACK_MS = 8 * 60 * 1000;
     let _precacheMaxMs = PRECACHE_FALLBACK_MS;
-    // Bajo los 10 min de SESSION_LIFETIME: cada refresh además mantiene viva la
-    // sesión guest que guarda el challenge.
+    // Muy por debajo de cualquier SESSION_LIFETIME razonable: cada refresh además
+    // mantiene viva la sesión guest que guarda el challenge.
     const REFRESH_MS       = 4 * 60 * 1000;
     const FETCH_TIMEOUT_MS = 6000;  // /webauthn/login-options
     const LOGIN_TIMEOUT_MS = 10000; // /webauthn/login

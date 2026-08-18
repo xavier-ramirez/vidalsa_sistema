@@ -6,6 +6,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Laravel\Sanctum\HasApiTokens;
+use Illuminate\Support\Facades\Hash;
 
 class Usuario extends Authenticatable
 {
@@ -124,6 +125,44 @@ class Usuario extends Authenticatable
     public function getAuthPassword()
     {
         return $this->PASSWORD_HASH;
+    }
+
+    /**
+     * Asigna una clave nueva y REVOCA la sesión abierta. NO guarda: el llamador ya hace
+     * su save() (y decide aparte qué hacer con REQUIERE_CAMBIO_CLAVE, que no significa lo
+     * mismo cuando la clave la pone el propio usuario que cuando la pone un admin).
+     *
+     * Punto ÚNICO porque hay TRES caminos que cambian claves —el cambio obligatorio
+     * (ChangePasswordController), el perfil (UserController::actualizarMiClave) y la
+     * edición del admin (UserController::update)— y ninguno revocaba nada: quien tenía la
+     * sesión abierta seguía dentro con una clave que ya no existe. En el teléfono era
+     * peor: el candado de acceso SIN INTERNET guarda un hash de la clave con la que se
+     * entró por última vez, así que se quedaba pidiendo la ANTERIOR hasta el siguiente
+     * inicio de sesión con internet. Al dejar SESSION_TOKEN en NULL, ValidarSesionUnica
+     * corta en el request siguiente y obliga a entrar con la clave nueva, que es lo que
+     * vuelve a armar el candado local.
+     */
+    public function establecerClave(string $claveNueva): void
+    {
+        $this->PASSWORD_HASH = Hash::make($claveNueva);
+        $this->SESSION_TOKEN = null;
+    }
+
+    /**
+     * Huella corta de la clave ACTUAL. Cambia si y solo si la clave cambia.
+     *
+     * El teléfono guarda un candado local para entrar sin internet, hecho con la clave que
+     * se escribió la última vez. Si la clave cambia —y sobre todo si la cambia un ADMIN
+     * desde otro equipo— ese candado se queda viejo, y entrar con HUELLA no lo arregla
+     * (la huella no prueba que sepas la clave nueva). Mandando esta huella corta en la
+     * respuesta del login, el teléfono compara y tira el candado si ya no corresponde.
+     *
+     * Es un hash de un hash bcrypt (que ya lleva sal propia), truncado, y solo se le
+     * entrega al propio dueño de la cuenta: no permite deducir nada de la clave.
+     */
+    public function claveVersion(): string
+    {
+        return substr(hash('sha256', (string) $this->PASSWORD_HASH), 0, 16);
     }
 
     public function rol()

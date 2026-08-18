@@ -16,19 +16,15 @@ class LoginController extends Controller
 {
     public function login(Request $request)
     {
-        // Handle expired CSRF token gracefully (419 error prevention)
-        try {
-            $credentials = $request->validate([
-                'login_identifier' => ['required', 'string'],
-                'password' => ['required', 'string'],
-            ]);
-        } catch (\Illuminate\Session\TokenMismatchException $e) {
-            // Token expired. En fetch devolvemos JSON con 'reload' para refrescar el CSRF.
-            if ($request->ajax() || $request->wantsJson()) {
-                return response()->json(['success' => false, 'reload' => true, 'message' => 'Su sesión expiró. Recargando…'], 419);
-            }
-            return redirect()->route('login')->with('info', 'Su sesión expiró. Por favor, inicie sesión nuevamente.');
-        }
+        // OJO: aquí NO se atrapa TokenMismatchException. El CSRF lo valida el middleware
+        // VerifyCsrfToken ANTES de llegar a este método, así que un try/catch alrededor
+        // del validate() nunca podía dispararse (era código muerto que además devolvía
+        // una clave 'reload' que ningún front lee). El 419 lo maneja el handler global
+        // de bootstrap/app.php, y el JS del login reintenta una vez con token fresco.
+        $credentials = $request->validate([
+            'login_identifier' => ['required', 'string'],
+            'password' => ['required', 'string'],
+        ]);
 
         $ip = $request->ip();
 
@@ -142,9 +138,17 @@ class LoginController extends Controller
     private function respuestaLogin(Request $request, bool $exito, ?string $redirect = null, ?string $error = null)
     {
         if ($request->ajax() || $request->wantsJson()) {
-            return $exito
-                ? response()->json(['success' => true, 'redirect' => $redirect])
-                : response()->json(['success' => false, 'message' => $error], 422);
+            if (! $exito) {
+                return response()->json(['success' => false, 'message' => $error], 422);
+            }
+            // clave_v: huella de la clave actual (ver Usuario::claveVersion). El login la
+            // guarda junto al candado de acceso sin internet para poder detectar después
+            // que la clave cambió.
+            return response()->json([
+                'success'  => true,
+                'redirect' => $redirect,
+                'clave_v'  => Auth::user()?->claveVersion(),
+            ]);
         }
         if ($exito) {
             return redirect()->to($redirect);

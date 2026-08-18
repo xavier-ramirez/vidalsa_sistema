@@ -17,7 +17,15 @@
     'use strict';
 
     const KEY     = 'vidalsa_offline_auth';
-    const PENDING = 'vidalsa_offline_auth_pending';
+    // Clave HEREDADA: antes el verificador "pendiente" se guardaba en localStorage y se
+    // confirmaba al llegar a una página autenticada. Eso dejaba basura y un agujero real:
+    // un intento con la clave EQUIVOCADA dejaba su pendiente ahí, y el siguiente acceso
+    // que llegara al menú por OTRA vía (huella, o el cambio de clave obligatorio) lo
+    // promovía a verificador bueno — el acceso offline quedaba pidiendo una clave errónea,
+    // o peor, la que tecleó otra persona en este equipo. Ahora el pendiente vive SOLO en
+    // memoria y lo resuelve la propia pantalla de login, que ya sabe si el servidor aceptó
+    // las credenciales. Esta constante queda únicamente para borrar los restos viejos.
+    const PENDING_LEGACY = 'vidalsa_offline_auth_pending';
     const ITER    = 120000; // iteraciones PBKDF2 (lento a propósito, dificulta fuerza bruta)
 
     function disponible() {
@@ -43,32 +51,64 @@
         return hex(bits);
     }
 
+    // Verificador a medio hacer: vive SOLO aquí, en memoria, mientras dura el intento de
+    // login de esta página. Nunca toca localStorage hasta que sincronizar() lo asciende.
+    let _preparado = null; // Promise<{identifier,salt,hash}|null>
+
+    // ¿El candado guardado se hizo con OTRA clave? `claveV` es la huella de la clave
+    // actual que manda el servidor (Usuario::claveVersion). Un candado sin `claveV` es de
+    // antes de esta comprobación y tampoco se puede dar por bueno.
+    function candadoDesfasado(claveV) {
+        let v;
+        try { v = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { return false; }
+        return !!v && v.claveV !== claveV;
+    }
+
+    // `disponible()` NO se exporta: solo lo usa este módulo por dentro. Cada método
+    // público ya se protege solo cuando falta WebCrypto o localStorage.
     window.OfflineAuth = {
-        disponible: disponible,
         tieneOffline: function () {
             try { return !!JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { return false; }
         },
         identidad: function () {
             try { return (JSON.parse(localStorage.getItem(KEY) || 'null') || {}).identifier || ''; } catch (e) { return ''; }
         },
-        // Guarda un verificador PENDIENTE (al enviar el login). Se "confirma" solo cuando
-        // se llega a una página autenticada (el servidor aceptó esas credenciales).
-        guardarPendiente: async function (identifier, password) {
-            if (!disponible() || !identifier || !password) return;
-            try {
-                const salt = crypto.getRandomValues(new Uint8Array(16));
-                const hash = await derivar(identifier, password, salt);
-                localStorage.setItem(PENDING, JSON.stringify({
-                    identifier: String(identifier).trim().toLowerCase(), salt: hex(salt), hash: hash
-                }));
-            } catch (e) { /* sin crypto seguro: no se habilita offline-login */ }
+        // Calcula el verificador al ENVIAR el login (en paralelo con la ida y vuelta a la
+        // red, así el PBKDF2 no añade espera). Todavía no se guarda: solo queda listo.
+        preparar: function (identifier, password) {
+            if (!disponible() || !identifier || !password) { _preparado = null; return null; }
+            _preparado = (async function () {
+                try {
+                    const salt = crypto.getRandomValues(new Uint8Array(16));
+                    const hash = await derivar(identifier, password, salt);
+                    return { identifier: String(identifier).trim().toLowerCase(), salt: hex(salt), hash: hash };
+                } catch (e) { return null; } // sin crypto seguro: no se habilita offline-login
+            })();
+            return _preparado;
         },
-        confirmarPendiente: function () {
-            try {
-                const p = localStorage.getItem(PENDING);
-                if (p) { localStorage.setItem(KEY, p); localStorage.removeItem(PENDING); }
-            } catch (e) {}
+        // El servidor aceptó el acceso. UNA sola entrada para los dos caminos:
+        //  · con contraseña → había un verificador preparándose: se guarda ya, sellado con
+        //    la versión de la clave con la que se acaba de entrar.
+        //  · con huella → no hay nada preparado (no se escribió ninguna clave), así que lo
+        //    único que se puede hacer es comprobar que el candado guardado siga
+        //    correspondiendo a la clave de hoy. Si no —típico: la cambió un admin desde
+        //    otro equipo— se tira, y lo rehace el próximo inicio de sesión con contraseña,
+        //    que es el que sí demuestra saberla.
+        sincronizar: async function (claveV) {
+            const p = _preparado;
+            _preparado = null;
+            if (p) {
+                try {
+                    const v = await p;
+                    if (v) { v.claveV = claveV || null; localStorage.setItem(KEY, JSON.stringify(v)); return; }
+                } catch (e) {}
+            }
+            if (claveV && candadoDesfasado(claveV)) this.olvidar();
         },
+        // El intento no prosperó (credenciales rechazadas, red caída, o la clave está a
+        // punto de cambiarse): el verificador a medio hacer se tira y el guardado de antes
+        // se queda como estaba.
+        descartar: function () { _preparado = null; },
         verificar: async function (identifier, password) {
             if (!disponible()) return false;
             let v;
@@ -82,25 +122,34 @@
             return dif === 0;
         },
         olvidar: function () {
-            try { localStorage.removeItem(KEY); localStorage.removeItem(PENDING); } catch (e) {}
+            _preparado = null;
+            try { localStorage.removeItem(KEY); } catch (e) {}
         }
     };
 
+    // Restos de la versión anterior (pendiente en localStorage). Se borran una vez.
+    try { localStorage.removeItem(PENDING_LEGACY); } catch (e) {}
+
     // ── Comportamiento según la página ──────────────────────────────────────────
+    // Todo lo de abajo es de la pantalla de LOGIN (prepara/confirma el verificador y
+    // decide qué accesos se ofrecen). Otras pantallas cargan este archivo solo por la API
+    // de arriba —cambiar la clave llama a olvidar()— y salen aquí. Por eso NO se carga en
+    // el layout general: ahí no hay nada que hacer.
     const loginForm = document.getElementById('loginForm');
+    if (!loginForm) return;
 
-    if (!loginForm) {
-        // Página AUTENTICADA: si hay un pendiente, lo confirmamos (el servidor nos dejó pasar).
-        window.OfflineAuth.confirmarPendiente();
-        return;
-    }
-
-    // Página de LOGIN: gestiona el botón "Entrar sin conexión".
+    // Página de LOGIN: decide cuál de los tres accesos se ofrece según haya servidor.
     const btnOff = document.getElementById('btnOfflineLogin');
     const btnOn  = document.getElementById('btnOnlineLogin');
+    const btnBio = document.getElementById('btnBiometricLogin');
     const idEl   = document.getElementById('login_identifier');
     const pwEl   = document.getElementById('password');
-    const msgEl  = document.getElementById('offlineLoginMsg');
+
+    // La huella la HABILITA el blade (cuando el dispositivo la soporta y hay credencial
+    // registrada), pero quien la PINTA es refrescarAccesos(): firmar el challenge necesita
+    // servidor, así que sin conexión el ícono no debe ni aparecer — antes salía y al
+    // tocarlo solo podía dar "sin conexión".
+    let huellaHabilitada = false;
 
     // ── ¿Hay SERVIDOR de verdad? ────────────────────────────────────────────────
     // navigator.onLine MIENTE: dice "online" con el wifi levantado y el servidor caído,
@@ -113,14 +162,18 @@
     // Se arranca en `!navigator.onLine` para no ofrecer el botón antes de saber nada: si
     // el navegador ya se declara sin red, no hace falta preguntar.
     let sinServidor = !navigator.onLine;
+    // ¿Llegó a lanzarse el sondeo? El de la carga se salta cuando no hay nada que decidir;
+    // si la huella se habilita después (llega por una promesa), ahí sí lo hay y se lanza.
+    let sondeoLanzado = false;
     function sondearServidor() {
-        // Sin credencial local guardada el boton NO puede aparecer pase lo que pase
-        // (refrescarBoton exige tieneOffline()), asi que el sondeo no cambiaria nada:
-        // seria una peticion de mas —y un arranque de Laravel de mas en el servidor— en
-        // CADA carga del login. Se corta aca, que es el caso de la mayoria de las
-        // sesiones: equipos nuevos y quien nunca entro sin internet.
-        if (!window.OfflineAuth.tieneOffline()) return;
-        if (!navigator.onLine) { sinServidor = true; refrescarBoton(); return; }
+        // Sin nada que decidir no se sondea: seria una peticion de mas —y un arranque de
+        // Laravel de mas en el servidor— en CADA carga del login. Solo hay algo que
+        // decidir si existe credencial local (boton "Entrar sin conexion") o si hay
+        // huella habilitada (que se oculta cuando el servidor no responde). Es el caso de
+        // la mayoria de las sesiones: equipos nuevos y quien nunca entro sin internet.
+        if (!window.OfflineAuth.tieneOffline() && !huellaHabilitada) return;
+        sondeoLanzado = true;
+        if (!navigator.onLine) { sinServidor = true; refrescarAccesos(); return; }
         // Tope de 4s: sin él, una red que traga los paquetes sin contestar dejaría el
         // botón de acceso local sin aparecer nunca.
         const corta = (typeof AbortController === 'function') ? new AbortController() : null;
@@ -131,20 +184,32 @@
             signal: corta ? corta.signal : undefined
         })
             .then(function () { sinServidor = false; }, function () { sinServidor = true; })
-            .then(function () { if (tope) clearTimeout(tope); refrescarBoton(); });
+            .then(function () { if (tope) clearTimeout(tope); refrescarAccesos(); });
     }
 
-    function refrescarBoton() {
-        if (!btnOff) return;
+    // Punto ÚNICO que decide qué accesos se ven. Sin él, el blade pintaba la huella por
+    // su cuenta y aquí se pintaban los otros dos: dos dueños del mismo estado.
+    function refrescarAccesos() {
         // Solo se ofrece el acceso offline si NO hay servidor y ya hay credencial local.
         const mostrarOffline = sinServidor && window.OfflineAuth.tieneOffline();
-        btnOff.style.display = mostrarOffline ? 'flex' : 'none';
+        if (btnOff) btnOff.style.display = mostrarOffline ? 'flex' : 'none';
         // En ese caso ocultamos "Iniciar sesión" (requiere servidor y fallaría sin
         // internet) para no mostrar DOS botones: offline → solo "Entrar sin conexión",
         // online (o sin credencial local) → solo "Iniciar sesión".
         if (btnOn) btnOn.style.display = mostrarOffline ? 'none' : '';
+        // La huella SIEMPRE necesita servidor, haya o no credencial local guardada.
+        if (btnBio) btnBio.style.display = (huellaHabilitada && !sinServidor) ? 'flex' : 'none';
     }
-    function mostrarMsg(t) { if (msgEl) { msgEl.textContent = t; msgEl.style.display = 'block'; } }
+
+    // La llama el blade cuando ya sabe que el dispositivo tiene lector y credencial.
+    window.OfflineAuth.habilitarHuella = function () {
+        huellaHabilitada = true;
+        refrescarAccesos();
+        if (!sondeoLanzado) sondearServidor(); // ahora sí hay algo que decidir con el sondeo
+    };
+    // Los mensajes salen por window.mostrarMsgLogin (inicio_sesion.blade.php): es el
+    // único sitio que escribe #offlineLoginMsg y además apaga el spinner y rehabilita
+    // "Iniciar sesión". Este archivo tenía su propia versión a medias del mismo <div>.
 
     // Comodidad: precarga el correo de la última sesión local. Se hace en 'load'
     // (después del loginForm.reset() que corre en DOMContentLoaded) para que no se borre.
@@ -153,33 +218,43 @@
             idEl.value = window.OfflineAuth.identidad();
             if (idEl.classList) idEl.classList.add('has-value'); // activa la etiqueta flotante
         }
-        refrescarBoton();
+        refrescarAccesos();
     });
 
-    if (btnOff) {
-        btnOff.addEventListener('click', async function () {
-            const id = (idEl && idEl.value || '').trim();
-            const pw = (pwEl && pwEl.value || '');
-            if (!id || !pw) { mostrarMsg('Escribe tu correo y tu clave.'); return; }
-            btnOff.disabled = true;
-            const ok = await window.OfflineAuth.verificar(id, pw).catch(function () { return false; });
-            btnOff.disabled = false;
-            if (ok) {
-                // El menú omite el spinner general en esta primera carga tras login.
-                if (window.marcarLoginReciente) window.marcarLoginReciente();
-                window.location.href = '/menu';
-            }
-            else { mostrarMsg('Correo o clave no coinciden con tu última sesión en este equipo.'); }
-        });
+    // Entrada local. Se expone porque la pantalla de login también la necesita: con el
+    // botón "Entrar sin conexión" a la vista, pulsar Enter en el formulario tiene que
+    // hacer ESTO y no el submit online — que sin servidor solo puede acabar en el aviso
+    // "sin conexión" (el botón "Iniciar sesión" está oculto justamente por eso). Si el
+    // acceso se está ofreciendo o no lo decide el blade con hayAccesoLocal(), que mira la
+    // visibilidad del botón — la misma que pinta refrescarAccesos() más arriba.
+    async function intentarOffline() {
+        const id = (idEl && idEl.value || '').trim();
+        const pw = (pwEl && pwEl.value || '');
+        if (!id || !pw) { window.mostrarMsgLogin('Escribe tu correo y tu clave.'); return; }
+        if (btnOff) btnOff.disabled = true;
+        const ok = await window.OfflineAuth.verificar(id, pw).catch(function () { return false; });
+        if (btnOff) btnOff.disabled = false;
+        if (ok) {
+            // El menú omite el spinner general en esta primera carga tras login.
+            if (window.marcarLoginReciente) window.marcarLoginReciente();
+            window.location.href = '/menu';
+        } else {
+            window.mostrarMsgLogin('Correo o clave no coinciden con tu última sesión en este equipo.');
+        }
     }
+    window.OfflineAuth.intentarOffline = intentarOffline;
+
+    if (btnOff) btnOff.addEventListener('click', intentarOffline);
 
     // 'online' vuelve a SONDEAR (que haya red no significa que el servidor conteste);
     // 'offline' es concluyente, así que ahí basta con repintar.
     window.addEventListener('online', sondearServidor);
-    window.addEventListener('offline', function () { sinServidor = true; refrescarBoton(); });
-    // Un solo arranque: sondearServidor() ya pinta en las dos ramas — sin red llama a
-    // refrescarBoton() de inmediato, y con red la llama al resolverse el sondeo. Mientras
-    // tanto no hay hueco: el blade ya renderiza "Iniciar sesión" visible y "Entrar sin
-    // conexión" con display:none, que es exactamente el estado con internet.
+    window.addEventListener('offline', function () { sinServidor = true; refrescarAccesos(); });
+    // Un solo arranque: sondearServidor() ya pinta en sus dos ramas — sin red llama a
+    // refrescarAccesos() de inmediato, y con red la llama al resolverse el sondeo. Si se
+    // salta por no haber nada que decidir, tampoco hay que pintar: el blade ya renderiza
+    // "Iniciar sesión" visible, y "Entrar sin conexión" y la huella con display:none, que
+    // es exactamente el estado de un equipo sin credencial local ni huella registrada.
+    // (Cuando la huella sí existe, habilitarHuella() lanza el sondeo que faltaba.)
     sondearServidor();
 })();

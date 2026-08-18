@@ -124,12 +124,6 @@
                             <span>{{ $message }}</span>
                         </div>
                     @enderror
-                    @if(session('info'))
-                        <div class="login-alert">
-                            <i class="material-icons">error_outline</i>
-                            <span>{{ session('info') }}</span>
-                        </div>
-                    @endif
                     <div class="button-login-container">
                         <button type="submit" id="btnOnlineLogin" class="btn-maquinaria-primary">Iniciar sesión</button>
                     </div>
@@ -205,7 +199,7 @@
         // NO recargamos la página periódicamente para "refrescar el CSRF": el submit YA hace un
         // handshake /refresh-csrf + reintento automático ante un 419 (ver más abajo), que se
         // autocura si el token de invitado caducó por sesión corta. El reload periódico era
-        // redundante y, con SESSION_LIFETIME bajo (10 min), recaía cada ~9 min borrando lo
+        // redundante y, con un SESSION_LIFETIME corto, recaía a media sesión borrando lo
         // tecleado y reiniciando la precarga WebAuthn. Eliminado.
 
         const loginFormElement = document.getElementById('loginForm');
@@ -234,11 +228,11 @@
         try { sessionStorage.setItem('vidalsaJustLoggedIn', '1'); } catch (e) {}
     };
 
-    // Muestra un mensaje en #offlineLoginMsg, oculta el spinner y rehabilita el
-    // botón. Lo usan el aviso "sin conexión", los errores de credenciales y el
-    // login biométrico (script de abajo) — por eso viven a nivel de script, no
-    // dentro del bloque del formulario.
-    function mostrarMsgLogin(texto) {
+    // ÚNICO sitio que escribe #offlineLoginMsg: muestra el mensaje, apaga el spinner y
+    // rehabilita "Iniciar sesión". Lo usan el aviso "sin conexión", los errores de
+    // credenciales, el login biométrico y —por eso es global— offline-auth.js, que antes
+    // tenía su propia versión a medias del mismo <div>.
+    window.mostrarMsgLogin = function (texto) {
         window._loginEnCurso = false; // el intento terminó: el guard de 4s vuelve a aplicar
         const pl = document.getElementById('loginPreloader');
         if (pl) { pl.classList.add('fade-out'); pl.style.display = 'none'; }
@@ -246,16 +240,62 @@
         if (msg) { msg.textContent = texto; msg.style.display = 'block'; }
         const btnOn = document.getElementById('btnOnlineLogin');
         if (btnOn) btnOn.disabled = false;
+    };
+    // Avisos que llegan por la URL (?aviso=). Los mandan el middleware de sesión única
+    // y los handlers de sesión caducada de bootstrap/app.php. Van en la URL y no en flash
+    // porque esta pantalla se sirve desde el caché del Service Worker: un flash se
+    // consumía en el servidor sin que nadie lo llegara a pintar. Se muestran por el mismo
+    // canal que el resto de los mensajes y se limpia la URL para que no reaparezcan al
+    // recargar o al volver atrás.
+    (function mostrarAvisoDeUrl() {
+        const AVISOS = {
+            sesion_expirada:  'Tu sesión expiró por seguridad. Inicia sesión de nuevo.',
+            otro_dispositivo: 'Tu sesión se inició en otro dispositivo.',
+            clave_cambiada:   'Tu clave cambió. Inicia sesión con la nueva.'
+        };
+        var clave;
+        try { clave = new URLSearchParams(window.location.search).get('aviso'); } catch (e) { return; }
+        if (!clave || !AVISOS[clave]) return;
+        // El texto se pinta cuando el DOM ya tiene el <div>; el guard del preloader lo
+        // apaga solo porque mostrarMsgLogin lo oculta.
+        document.addEventListener('DOMContentLoaded', function () {
+            mostrarMsgLogin(AVISOS[clave]);
+        });
+        try { window.history.replaceState({}, '', window.location.pathname); } catch (e) {}
+    })();
+
+    // ¿Se le está ofreciendo AHORA el acceso local? La visibilidad del botón es la única
+    // fuente de verdad (la pone refrescarAccesos() en offline-auth.js según haya servidor y
+    // credencial guardada). Lo preguntan el aviso "sin conexión" y el submit, que con el
+    // botón a la vista tiene que desviar el Enter a la entrada local.
+    function hayAccesoLocal() {
+        const b = document.getElementById('btnOfflineLogin');
+        return !!b && b.style.display !== 'none';
     }
+
     // Aviso "sin conexión": evita que el navegador muestre su página de error (la
     // "boba fea") cuando el login no puede contactar al servidor. Si hay credenciales
     // offline guardadas, sugiere "Entrar sin conexión".
     function avisarSinConexion() {
-        const btnOff = document.getElementById('btnOfflineLogin');
-        const hayOffline = btnOff && btnOff.style.display !== 'none';
-        mostrarMsgLogin(hayOffline
+        mostrarMsgLogin(hayAccesoLocal()
             ? 'Sin conexión. Usa "Entrar sin conexión" o revisa tu red.'
             : 'Sin conexión. Revisa tu red.');
+    }
+
+    // Punto ÚNICO que escribe el token CSRF. Valida que lo recibido SEA un token (y no el
+    // HTML de una página de error) y lo aplica a los DOS sitios que lo usan: el input
+    // oculto del formulario y el <meta name="csrf-token"> que lee window.getCsrf()
+    // (dom_helpers.js). Antes solo se refrescaba el input: el <meta> se quedaba con el
+    // token rancio del HTML que sirve el Service Worker, así que cualquier llamada por
+    // apiFetch desde esta pantalla salía con un token caducado.
+    function aplicarTokenCsrf(token) {
+        token = (token || '').trim();
+        if (!token || token.length >= 100 || token.indexOf('<') !== -1) return;
+        var form = document.getElementById('loginForm');
+        var input = form && form.querySelector('input[name="_token"]');
+        if (input) input.value = token;
+        var meta = document.querySelector('meta[name="csrf-token"]');
+        if (meta) meta.setAttribute('content', token);
     }
 
     // ── Precalentar sesión + token CSRF ANTES de que el usuario pulse "Entrar" ──
@@ -278,15 +318,23 @@
         if (!navigator.onLine) return; // sin red: el submit ya avisa "sin conexión"
         if (window._loginEnCurso) return;
         fetch('/refresh-csrf', { cache: 'no-store', credentials: 'same-origin' })
-            .then(function (r) { return r.ok ? r.text() : null; })
+            .then(function (r) {
+                if (!r.ok) return null;
+                // El Service Worker sirve ESTA pantalla desde el caché aunque la sesión
+                // siga abierta, así que un usuario ya autenticado se encuentra el login
+                // otra vez. /refresh-csrf lo delata con X-Auth-Status y lo mandamos al
+                // menú en vez de dejarlo teclear credenciales que no hacen falta.
+                if (r.headers.get('X-Auth-Status') === 'authenticated') {
+                    window.marcarLoginReciente();
+                    window.location.replace(@json(route('menu')));
+                    return null;
+                }
+                return r.text();
+            })
             .then(function (token) {
+                if (token === null) return;
                 if (window._loginEnCurso) return; // el submit manda: no le pises el token
-                token = (token || '').trim();
-                // Validar que sea un token, no HTML de una página de error.
-                if (!token || token.length >= 100 || token.indexOf('<') !== -1) return;
-                var form = document.getElementById('loginForm');
-                var input = form && form.querySelector('input[name="_token"]');
-                if (input) input.value = token;
+                aplicarTokenCsrf(token);
             })
             .catch(function () {});
     }
@@ -298,10 +346,24 @@
     });
     window.addEventListener('pageshow', function (e) { if (e.persisted) precalentarCsrf(); });
 
-    const loginForm = document.querySelector('form');
+    // Destino que el servidor devuelve cuando toca cambiar la clave obligatoriamente.
+    // Se compara con data.redirect para NO guardar el verificador offline en ese caso:
+    // esa clave está a punto de cambiar, así que nacería caducada.
+    const RUTA_CAMBIO_CLAVE = @json(route('password.change'));
+
+    const loginForm = document.getElementById('loginForm');
     if (loginForm) {
         loginForm.addEventListener('submit', function(e) {
             e.preventDefault(); // Stop native submission immediately
+
+            // Con el acceso local ofrecido (sin servidor y con credencial guardada en este
+            // equipo) "Iniciar sesión" está oculto, pero Enter sigue disparando el submit.
+            // Sin esto, pulsar Enter solo podía terminar en "Sin conexión": lo mandamos a
+            // la MISMA entrada local que el botón visible.
+            if (hayAccesoLocal() && window.OfflineAuth) {
+                window.OfflineAuth.intentarOffline();
+                return;
+            }
 
             // Sin red según el navegador → no intentes navegar (evita la página de
             // error fea); avisa y quédate en el login.
@@ -319,10 +381,12 @@
                 preloader.style.display = 'flex';
             }
 
-            // Guarda el verificador OFFLINE (hash de correo+clave, nunca la clave en texto)
-            // para poder entrar sin internet luego. Se "confirma" al llegar al menú.
+            // Deja LISTO el verificador OFFLINE (hash de correo+clave, nunca la clave en
+            // texto) mientras va la petición, para que el PBKDF2 no añada espera. Solo se
+            // guarda si el servidor CONFIRMA las credenciales (sincronizar(), más abajo); si
+            // el intento falla se descarta y el verificador anterior queda intacto.
             if (window.OfflineAuth) {
-                window.OfflineAuth.guardarPendiente(
+                window.OfflineAuth.preparar(
                     (document.getElementById('login_identifier') || {}).value,
                     (document.getElementById('password') || {}).value
                 );
@@ -342,12 +406,8 @@
                         return response.text();
                     })
                     .then(newToken => {
-                        // 2. Inyectar el token nuevo (validando que sea un token, no HTML).
-                        newToken = (newToken || '').trim();
-                        const tokenInput = loginForm.querySelector('input[name="_token"]');
-                        if (tokenInput && newToken && newToken.length < 100 && newToken.indexOf('<') === -1) {
-                            tokenInput.value = newToken;
-                        }
+                        // 2. Inyectar el token nuevo (mismo punto único que el precalentamiento).
+                        aplicarTokenCsrf(newToken);
                         // 3. Enviar por FETCH (no navegación nativa): así un bajón de red en el
                         //    POST se atrapa en el .catch de abajo y NO dispara la página de
                         //    error del navegador — te quedas en el login para reintentar.
@@ -366,10 +426,20 @@
                             return resp.json().then(function (data) {
                                 if (resp.ok && data && data.success && data.redirect) {
                                     window.marcarLoginReciente();          // solo en éxito confirmado
-                                    window.location.href = data.redirect;  // → menú
-                                    return;
+                                    // El servidor validó ESTAS credenciales: recién ahora se
+                                    // guardan como verificador de acceso sin conexión. Salvo
+                                    // si toca cambiar la clave, que las invalidaría enseguida.
+                                    const off = window.OfflineAuth;
+                                    if (!off) { window.location.href = data.redirect; return; }
+                                    if (data.redirect === RUTA_CAMBIO_CLAVE) off.descartar();
+                                    return off.sincronizar(data.clave_v).then(function () {
+                                        window.location.href = data.redirect;  // → menú
+                                    });
                                 }
-                                // Credenciales/negocio (422): mostrar el mensaje, quedarse en el login.
+                                // Credenciales/negocio (422): el verificador a medio hacer se
+                                // tira (no se guarda una clave que el servidor rechazó) y se
+                                // muestra el mensaje, quedándose en el login.
+                                if (window.OfflineAuth) window.OfflineAuth.descartar();
                                 mostrarMsgLogin((data && data.message) || 'Usuario o clave incorrecta.');
                             }).catch(function () {
                                 // Respuesta no-JSON inesperada: recargar para mostrar el server-render.
@@ -384,7 +454,9 @@
                     console.error('Login failed:', error);
                     // Bajón de red / servidor inalcanzable en el handshake O en el POST: NO
                     // navegamos (eso dispara la página de error del navegador). Avisamos y
-                    // nos quedamos en el login para reintentar o entrar sin conexión.
+                    // nos quedamos en el login para reintentar o entrar sin conexión. El
+                    // verificador a medio hacer se descarta: nadie validó esas credenciales.
+                    if (window.OfflineAuth) window.OfflineAuth.descartar();
                     avisarSinConexion();
                 });
         });
@@ -415,13 +487,15 @@ document.addEventListener('DOMContentLoaded', function() {
     if (typeof VidalsaWebAuthn === 'undefined' || !VidalsaWebAuthn.soportado() || !VidalsaWebAuthn.tieneCredenciales()) return;
 
     VidalsaWebAuthn.plataformaDisponible().then(function(ok) {
-        if (ok) {
-            btnBio.style.display = 'flex';
-            // Arranca el ciclo de precarga del challenge (prefetch + refresh
-            // periódico + eventos online/visible): al tocar el botón el lector
-            // de huella se abre de inmediato, sin esperar la red.
-            VidalsaWebAuthn.iniciarPrecarga();
-        }
+        // Quien PINTA el ícono es refrescarAccesos() en offline-auth.js (dueño único de qué
+        // acceso se ofrece): la huella firma un challenge contra el servidor, así que sin
+        // conexión no debe salir. Aquí solo se avisa de que el dispositivo puede usarla.
+        if (!ok || !window.OfflineAuth) return;
+        window.OfflineAuth.habilitarHuella();
+        // Arranca el ciclo de precarga del challenge (prefetch + refresh
+        // periódico + eventos online/visible): al tocar el botón el lector
+        // de huella se abre de inmediato, sin esperar la red.
+        VidalsaWebAuthn.iniciarPrecarga();
     });
 
     var bioLabel = document.getElementById('bioLabel');
@@ -435,32 +509,40 @@ document.addEventListener('DOMContentLoaded', function() {
         var preloader = document.getElementById('loginPreloader');
         if (preloader) { preloader.classList.remove('fade-out'); preloader.style.display = 'flex'; }
 
+        // Deja el botón como estaba tras un intento que no acabó en redirección. Estaba
+        // escrito dos veces (éxito-sin-redirect y error); una sola versión evita que se
+        // arreglen por separado y queden distintas.
+        function restaurarBio() {
+            window._loginEnCurso = false;
+            if (preloader) preloader.classList.add('fade-out');
+            btnBio.style.pointerEvents = '';
+            btnBio.style.opacity = '';
+            if (bioLabel) bioLabel.textContent = 'Identificación biométrica';
+        }
+
         // El re-primado del challenge tras cada intento lo maneja el propio
         // módulo VidalsaWebAuthn (dueño único del precache).
         VidalsaWebAuthn.autenticar()
             .then(function(data) {
                 if (data && data.success && data.redirect) {
                     window.marcarLoginReciente(); // solo en éxito confirmado
-                    window.location.href = data.redirect;
-                    return;
+                    // Mismo punto que el login con contraseña. Aquí no hay verificador que
+                    // guardar (nadie escribió una clave), así que lo que hace es tirar el
+                    // candado de acceso sin internet si se hizo con una clave que ya cambió.
+                    return window.OfflineAuth.sincronizar(data.clave_v).then(function () {
+                        window.location.href = data.redirect;
+                    });
                 }
-                window._loginEnCurso = false;
-                if (preloader) preloader.classList.add('fade-out');
-                btnBio.style.pointerEvents = '';
-                btnBio.style.opacity = '';
-                if (bioLabel) bioLabel.textContent = 'Identificación biométrica';
+                restaurarBio();
             })
             .catch(function(err) {
-                window._loginEnCurso = false;
-                if (preloader) preloader.classList.add('fade-out');
-                btnBio.style.pointerEvents = '';
-                btnBio.style.opacity = '';
-                if (bioLabel) bioLabel.textContent = 'Identificación biométrica';
+                restaurarBio();
                 if (err.message === 'USER_CANCELLED') return;
                 if (err.message === 'NO_CREDENTIALS') return;
                 if (err.message === 'SIN_CONEXION') { avisarSinConexion(); return; }
-                var msgDiv = document.getElementById('offlineLoginMsg');
-                if (msgDiv) { msgDiv.style.display = 'block'; msgDiv.textContent = err.message || 'Error de autenticación biométrica'; }
+                // Mismo canal de mensajes que el resto de la pantalla (antes escribía el
+                // <div> a mano, saltándose el apagado del spinner y del botón).
+                mostrarMsgLogin(err.message || 'Error de autenticación biométrica');
             });
     });
 });

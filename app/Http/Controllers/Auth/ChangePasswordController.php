@@ -5,8 +5,6 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\Rules\Password;
 
 class ChangePasswordController extends Controller
 {
@@ -27,11 +25,20 @@ class ChangePasswordController extends Controller
 
         $user = Auth::user();
         
-        // Update password and clear flag
-        $user->PASSWORD_HASH = Hash::make($request->password);
+        // establecerClave() rehashea y deja SESSION_TOKEN en NULL (ver el modelo): cambiar
+        // la clave invalida la sesión.
+        $user->establecerClave($request->password);
         $user->REQUIERE_CAMBIO_CLAVE = 0;
         $user->save();
 
-        return redirect()->route('menu')->with('success', 'Contraseña actualizada correctamente. Bienvenido.');
+        // Y aquí la cerramos de verdad, en vez de dejar que ValidarSesionUnica corte en el
+        // request siguiente. Volver a entrar con la clave NUEVA es justo lo que rearma el
+        // candado de acceso sin internet de este equipo (el formulario acaba de borrar el
+        // de la clave vieja).
+        Auth::logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        return redirect('/?aviso=clave_cambiada');
     }
 }

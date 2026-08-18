@@ -262,9 +262,20 @@ class WebAuthnController extends Controller
             $bloqueo->save();
         }
 
-        $redirect = $user->REQUIERE_CAMBIO_CLAVE ? '/admin/cambiar-clave' : '/menu';
+        // route() y no URLs a mano: el LoginController resuelve el mismo destino igual,
+        // y con rutas literales un cambio en routes/web.php dejaba el login biométrico
+        // apuntando a una URL inexistente sin que nada avisara.
+        $redirect = $user->REQUIERE_CAMBIO_CLAVE ? route('password.change') : route('menu');
 
-        return response()->json(['success' => true, 'redirect' => $redirect]);
+        // clave_v igual que en el login con contraseña, pero aquí sirve para lo contrario:
+        // la huella NO prueba que el usuario sepa la clave actual, así que el cliente la
+        // usa para TIRAR el candado de acceso sin internet si ya no corresponde (típico:
+        // un admin cambió la clave y este teléfono solo entra con huella).
+        return response()->json([
+            'success'  => true,
+            'redirect' => $redirect,
+            'clave_v'  => $user->claveVersion(),
+        ]);
     }
 
     // ─── Helpers ─────────────────────────────────────────────────────────

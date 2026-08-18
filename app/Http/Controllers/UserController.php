@@ -44,7 +44,9 @@ class UserController extends Controller
         ]);
 
         $user = auth()->user();
-        $user->PASSWORD_HASH = Hash::make($request->password);
+        // Rehashea y revoca la sesión (ver Usuario::establecerClave): en el request
+        // siguiente hay que volver a entrar con la clave nueva.
+        $user->establecerClave($request->password);
         $user->REQUIERE_CAMBIO_CLAVE = 0;
         $user->save();
 
@@ -309,7 +311,10 @@ class UserController extends Controller
         $user->PERMISOS = $request->PERMISOS;
 
         if ($request->filled('password')) {
-            $user->PASSWORD_HASH = Hash::make($request->password);
+            // Un admin cambiando la clave de otro TIENE que echarlo de su sesión: si no,
+            // seguía navegando con una clave que ya no existe. REQUIERE_CAMBIO_CLAVE no se
+            // toca aquí a propósito — lo decide el admin en el formulario.
+            $user->establecerClave($request->password);
         }
 
         $user->save();

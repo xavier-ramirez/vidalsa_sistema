@@ -298,8 +298,10 @@
                 const response = await originalFetch.apply(this, args);
                 // Si la sesión expiró o hubo un problema de token CSRF
                 if (response.status === 401 || response.status === 419) {
-                    // Prevenir que se ejecute la lógica inferior y redirigir silenciosamente
-                    window.location.href = '/login';
+                    // Prevenir que se ejecute la lógica inferior y redirigir. Con ?aviso=
+                    // el login explica POR QUÉ se cerró la sesión: un flash no serviría,
+                    // porque esa pantalla se sirve desde el caché del Service Worker.
+                    window.location.href = '/?aviso=sesion_expirada';
                     return new Promise(() => { }); // Promesa pendiente eterna
                 }
                 return response;
@@ -3011,8 +3013,12 @@
                     .finally(function () { window._descargandoSnapshot = false; });
             };
         </script>
-        {{-- Confirma el verificador de login offline (el servidor aceptó las credenciales). --}}
-        <script src="{{ asset('js/offline/offline-auth.js') }}?v={{ @filemtime(public_path('js/offline/offline-auth.js')) }}" defer></script>
+        {{-- offline-auth.js NO se carga aquí a propósito: solo tiene trabajo en la pantalla
+             de login (preparar y confirmar el verificador de acceso sin conexión, y el botón
+             "Entrar sin conexión"). Antes se cargaba para "confirmar" un verificador que
+             quedaba pendiente en localStorage, y eso ascendía a bueno el de un intento
+             FALLIDO cuando se llegaba al menú por otra vía (huella, o el cambio de clave
+             obligatorio). Ahora el pendiente vive en memoria y lo resuelve el propio login. --}}
         {{-- Fase 2: motor de sincronización del outbox (sube acciones hechas sin internet). --}}
         <script src="{{ asset('js/offline/outbox-sync.js') }}?v={{ @filemtime(public_path('js/offline/outbox-sync.js')) }}" defer></script>
         {{-- Fase 2: bandeja de pendientes (badge flotante #outboxTray). --}}

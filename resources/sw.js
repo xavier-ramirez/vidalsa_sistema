@@ -42,8 +42,8 @@ const PRECACHE_URLS = [
     '/js/pwa-update-overlay.js',
     '/images/maquinaria/logo.webp',
     '/js/offline/offline-auth.js',
-    // dom_helpers.js lo carga el login (y offline-auth lo necesita para escapeAttrJs y
-    // compañía): faltaba, así que el primer arranque tras cada versión de caché se quedaba
+    // dom_helpers.js lo carga el login porque webauthn.js usa window.apiFetch/getCsrf de
+    // ahí: faltaba, así que el primer arranque tras cada versión de caché se quedaba
     // esperándolo por red antes de poder usar el formulario. Pesa 7 KB.
     '/js/maquinaria/dom_helpers.js',
     '/js/webauthn.js',
@@ -174,12 +174,19 @@ self.addEventListener('fetch', (event) => {
     // !response.redirected: si el usuario está logueado, el servidor redirige a /menu;
     // NO debemos cachear esa respuesta bajo la clave "/" o sobreescribiríamos el login.
     if (url.pathname === '/' && (request.mode === 'navigate' || (request.headers.get('accept') || '').includes('text/html'))) {
+        // Clave de caché SIEMPRE '/' (sin query). El login recibe la raíz con parámetros
+        // —hoy '?aviso=' cuando la sesión se cayó o se abrió en otro dispositivo, mañana
+        // cualquier '?utm='— y con la request completa como clave no había coincidencia:
+        // sin red, caches.match fallaba, el fetch también, y el usuario acababa en la
+        // página de error del navegador en vez de en el login cacheado. El HTML es el
+        // mismo en los dos casos (el aviso lo pinta el JS leyendo la URL), así que una
+        // sola entrada '/' sirve para todas las variantes y no duplica copias.
         event.respondWith(
-            caches.match(request).then((cached) => {
+            caches.match('/').then((cached) => {
                 const networkFetch = fetch(request).then((response) => {
                     if (response && response.status === 200 && !response.redirected) {
                         const copy = response.clone();
-                        caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, copy)).catch(() => {});
+                        caches.open(RUNTIME_CACHE).then((cache) => cache.put('/', copy)).catch(() => {});
                     }
                     return response;
                 }).catch(() => cached);

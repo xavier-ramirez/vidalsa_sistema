@@ -263,6 +263,14 @@
             const updateForm = document.getElementById('updatePasswordForm');
             if (updateForm) {
                 updateForm.addEventListener('submit', function() {
+                    // El desbloqueo SIN INTERNET guarda un hash de la clave ANTERIOR: al
+                    // cambiarla se borra, o este equipo se quedaría pidiendo la vieja para
+                    // abrir la copia cacheada (y quien conociera la vieja seguiría
+                    // entrando). Se recrea solo en el próximo inicio de sesión con
+                    // internet. Se borra al enviar y no al confirmar porque desde aquí no
+                    // se sabe el resultado: fallar cerrado es lo correcto.
+                    if (window.OfflineAuth) window.OfflineAuth.olvidar();
+
                     const preloader = document.getElementById('loginPreloader');
                     if (preloader) {
                         preloader.style.display = 'flex';
@@ -320,5 +328,9 @@
             }
         }
     </script>
+    {{-- Solo por la API window.OfflineAuth (esta vista no tiene formulario de login, así
+         que el script sale enseguida): al cambiar la clave hay que borrar el verificador
+         de acceso sin conexión, que guarda un hash de la clave ANTERIOR. --}}
+    <script src="{{ asset('js/offline/offline-auth.js') }}?v={{ @filemtime(public_path('js/offline/offline-auth.js')) }}" defer></script>
 </body>
 </html>

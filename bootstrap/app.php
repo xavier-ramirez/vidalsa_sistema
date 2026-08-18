@@ -42,9 +42,13 @@ return Application::configure(basePath: dirname(__DIR__))
                 return response()->json(['success' => false, 'message' => 'Sesión expirada por inactividad.', 'redirect' => '/login'], 419);
             }
             if (! $request->user()) {
-                return redirect('/login');
+                return redirect('/');
             }
-            return redirect('/login')->with('info', 'La sesión ha caducado por seguridad. Por favor, inicie sesión nuevamente.');
+            // El aviso viaja en la URL, NO en flash: el Service Worker sirve la pantalla
+            // de login desde su caché, así que un mensaje de sesión se consumía sin que
+            // nadie lo llegara a pintar. inicio_sesion.blade.php traduce ?aviso= y lo
+            // muestra por el mismo canal que el resto de los mensajes del login.
+            return redirect('/?aviso=sesion_expirada');
         });
 
         // Usuario no autenticado en rutas WEB → redirigir al login (nunca mostrar JSON roto en front)
@@ -53,8 +57,9 @@ return Application::configure(basePath: dirname(__DIR__))
             if ($wantsJson) {
                 return response()->json(['success' => false, 'error' => 'No autenticado.', 'redirect' => '/login'], 401);
             }
-            // Para cualquier otra petición (web, navegador celular) → login
-            return redirect('/login')->with('info', 'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.');
+            // Para cualquier otra petición (web, navegador celular) → login.
+            // ?aviso= en vez de flash, por el caché del Service Worker (ver arriba).
+            return redirect('/?aviso=sesion_expirada');
         });
 
         // Acceso denegado (middleware can:* / Gate::denies / authorize()) en rutas WEB.
