@@ -604,7 +604,7 @@
             menu.style.top  = Math.min(y, window.innerHeight - 140) + 'px';
             // En pantalla completa, el menú debe ir DENTRO del elemento en fullscreen
             // (lo de fuera no se ve). Si no, va al body normal.
-            (document.fullscreenElement || document.body).appendChild(menu);
+            window.raizVisible().appendChild(menu);
             menu.addEventListener('click', function (e2) {
                 if (e2.target.closest && e2.target.closest('.mapa-ctx-coordcopy')) { copiarCoordenada(coordM); menu.remove(); return; }
                 var b = e2.target.closest ? e2.target.closest('.mapa-ctx-item') : null; if (!b) return;
@@ -678,7 +678,7 @@
             menu.style.top  = Math.min(y, window.innerHeight - 180) + 'px';
             // En pantalla completa, el menú debe ir DENTRO del elemento en fullscreen
             // (lo de fuera no se ve). Si no, va al body normal.
-            (document.fullscreenElement || document.body).appendChild(menu);
+            window.raizVisible().appendChild(menu);
             menu.addEventListener('click', function (e) {
                 if (e.target.closest && e.target.closest('.mapa-ctx-coordcopy')) { copiarCoordenada(coordE); menu.remove(); return; }
                 var b = e.target.closest ? e.target.closest('.mapa-ctx-item') : null; if (!b) return;
@@ -720,7 +720,7 @@
             var x = ev.originalEvent ? ev.originalEvent.clientX : 0, y = ev.originalEvent ? ev.originalEvent.clientY : 0;
             menu.style.left = Math.min(x, window.innerWidth - 210) + 'px';
             menu.style.top = Math.min(y, window.innerHeight - 110) + 'px';
-            (document.fullscreenElement || document.body).appendChild(menu);
+            window.raizVisible().appendChild(menu);
             menu.addEventListener('click', function (e2) { if (e2.target.closest && e2.target.closest('.mapa-ctx-coordcopy')) { copiarCoordenada(coord); menu.remove(); } });
             var cerrar = function () { menu.remove(); document.removeEventListener('click', cerrar); };
             setTimeout(function () { document.addEventListener('click', cerrar); }, 0);
@@ -2667,7 +2667,7 @@
                 '</div>' +
                 '<button type="button" class="mapa-dibujo-btn primary" data-a="guardar">Guardar</button>' +
                 '<button type="button" class="mapa-dibujo-btn" data-a="salir">Salir</button>';
-            (document.fullscreenElement || el).appendChild(bar);
+            window.raizVisible(el).appendChild(bar);
             L.DomEvent.disableClickPropagation(bar);
             L.DomEvent.disableScrollPropagation(bar);
             bar.addEventListener('click', function (e2) {
@@ -2690,7 +2690,7 @@
             var x = ev.originalEvent ? ev.originalEvent.clientX : 0, y = ev.originalEvent ? ev.originalEvent.clientY : 0;
             menu.style.left = Math.min(x, window.innerWidth - 210) + 'px';
             menu.style.top = Math.min(y, window.innerHeight - 120) + 'px';
-            (document.fullscreenElement || document.body).appendChild(menu);
+            window.raizVisible().appendChild(menu);
             menu.addEventListener('click', function (e2) {
                 var b = e2.target.closest ? e2.target.closest('.mapa-ctx-item') : null; if (!b) return;
                 var a = b.getAttribute('data-a'); menu.remove();
@@ -2730,7 +2730,7 @@
             var x = ev.originalEvent ? ev.originalEvent.clientX : 0, y = ev.originalEvent ? ev.originalEvent.clientY : 0;
             menu.style.left = Math.min(x, window.innerWidth - 200) + 'px';
             menu.style.top = Math.min(y, window.innerHeight - 100) + 'px';
-            (document.fullscreenElement || document.body).appendChild(menu);
+            window.raizVisible().appendChild(menu);
             menu.addEventListener('click', function (e2) {
                 var b = e2.target.closest ? e2.target.closest('.mapa-ctx-item') : null; if (!b) return;
                 menu.remove();
@@ -3306,7 +3306,7 @@
                     '<button type="button" class="mapa-dibujo-btn mapa-export-cancel">Cancelar</button>' +
                     '<button type="button" class="mapa-dibujo-btn primary mapa-export-go">Descargar</button>' +
                 '</div>';
-            (document.fullscreenElement || el).appendChild(bar);
+            window.raizVisible(el).appendChild(bar);
             L.DomEvent.disableClickPropagation(bar); L.DomEvent.disableScrollPropagation(bar);
             var oriSel = bar.querySelector('#expOri');
             var persBox = bar.querySelector('.mapa-export-pers');
@@ -3404,7 +3404,7 @@
                 if (e) return;
                 var o = document.createElement('div'); o.id = id; o.className = 'mapa-export-load';
                 o.innerHTML = '<div class="mapa-export-spin"></div><div>Generando imagen…</div>';
-                (document.fullscreenElement || document.body).appendChild(o);
+                window.raizVisible().appendChild(o);
             } else if (e) { e.remove(); }
         }
 

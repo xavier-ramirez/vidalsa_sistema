@@ -97,6 +97,29 @@
         return true;
     };
 
+    /**
+     * Donde colgar algo que tiene que VERSE por encima de todo: avisos, menus
+     * contextuales, barras flotantes.
+     *
+     * En PANTALLA COMPLETA el navegador solo pinta el subarbol del elemento que la
+     * ocupa, asi que lo que cuelga del <body> existe pero no se ve. Se noto en /mapa:
+     * los avisos que explicaban por que no se podia trazar la tuberia no aparecian y el
+     * boton parecia muerto.
+     *
+     * Punto UNICO a proposito. La pregunta estaba repetida en 9 sitios y no todos
+     * respondian igual: ocho miraban solo document.fullscreenElement, pero /mapa entra a
+     * pantalla completa con webkitRequestFullscreen, asi que en ese camino la respuesta
+     * correcta esta en webkitFullscreenElement y aquellos se equivocaban.
+     *
+     * fallback: donde colgarlo cuando NO hay pantalla completa (por defecto, el body).
+     */
+    window.raizVisible = function (fallback) {
+        return document.fullscreenElement
+            || document.webkitFullscreenElement
+            || fallback
+            || document.body;
+    };
+
     var SIN_CSRF = { GET: 1, HEAD: 1, OPTIONS: 1 };   // los que VerifyCsrfToken no valida
 
     /**
