@@ -1066,9 +1066,17 @@ window.showDetailsImproved = function (target, event) {
         // encima del panel de alertas (z-index: 9500) u otros overlays.
         modal.style.zIndex = '10000';
         modal.style.display = "flex";
-        // Force reflow
-        void modal.offsetWidth;
-        modal.classList.add("active");
+        // El cambio de display debe aplicarse ANTES de poner .active, o la transición de
+        // opacidad no arranca. Antes se forzaba con `void modal.offsetWidth`, pero leer
+        // offsetWidth obliga al navegador a RECALCULAR EL DISEÑO COMPLETO en ese instante,
+        // y esta pantalla lleva ~1.200 filas de tabla: ese recálculo síncrono es justo lo
+        // que hacía que el modal tardara en aparecer. requestAnimationFrame consigue lo
+        // mismo aprovechando el frame que el navegador iba a pintar igual.
+        // Se guarda el handle para poder cancelarlo si se cierra antes de que llegue el frame.
+        modal._rafAbrir = requestAnimationFrame(function () {
+            modal._rafAbrir = null;
+            modal.classList.add("active");
+        });
     }
 
     window.activeEquipoButton = target;
@@ -1203,7 +1211,7 @@ window.showDetailsImproved = function (target, event) {
                         <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;padding:3px 0;border-bottom:1px dashed #f1f5f9;">
                             <span style="color:#64748b;font-size:12px;">${label}</span>
                             ${link
-                                ? `<button type="button" title="Ver PDF" onclick="event.stopPropagation(); window.openPdfPreview('${link}','${docType}','${label}',0,'',true,'auxiliar');" style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:7px;background:#0067b1;box-shadow:0 2px 6px rgba(0,103,177,0.35);border:none;cursor:pointer;flex-shrink:0;"><i class="material-icons" style="font-size:17px;color:white;">description</i></button>`
+                                ? `<button type="button" title="Ver PDF" onclick="event.stopPropagation(); window.openPdfPreview('${link}','${docType}','${label}',0,'',true,'auxiliar');" style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:7px;background:#0067b1;box-shadow:0 2px 6px rgba(0,103,177,0.35);border:none;cursor:default;flex-shrink:0;"><i class="material-icons" style="font-size:17px;color:white;">description</i></button>`
                                 : `<span style="color:#94a3b8;font-size:12px;">No cargado</span>`}
                         </div>`;
 
@@ -1211,7 +1219,7 @@ window.showDetailsImproved = function (target, event) {
                     // 3 líneas (tipo·marca·modelo / serial / estado) + chevron. Panel con SOLO los
                     // PDFs (el serial ya va en el summary; el Cód. interno se omite por redundante).
                     return `<details style="background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;overflow:hidden;">
-                        <summary style="display:flex;align-items:center;gap:10px;padding:8px 10px;cursor:pointer;list-style:none;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
+                        <summary style="display:flex;align-items:center;gap:10px;padding:8px 10px;cursor:default;list-style:none;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
                             ${foto}
                             <div style="display:flex;flex-direction:column;flex:1;min-width:0;gap:2px;">
                                 <!-- Tipo·marca·modelo y serial en NEGRO (antes #94a3b8 y
@@ -1260,10 +1268,21 @@ window.closeDetailsModal = function (event) {
 
     const modal = document.getElementById("detailsModal");
     if (modal) {
+        // Si quedaba pendiente el rAF que abre (abrir y cerrar en el mismo frame), se cancela:
+        // si no, el modal volvería a hacerse visible justo después de haberlo cerrado.
+        if (modal._rafAbrir) { cancelAnimationFrame(modal._rafAbrir); modal._rafAbrir = null; }
         modal.classList.remove("active");
+        // Ocultar DESPUÉS del fundido. La duración se LEE del CSS en vez de repetirla aquí:
+        // estaba fija en 300 ms y al cambiar la transición de .modal-overlay el overlay se
+        // quedaba invisible pero tapando los clics durante la diferencia.
+        // Number.isFinite y no `|| 0.18`: con la transición en 0s (p. ej. si algún día se
+        // respeta prefers-reduced-motion) parseFloat da 0, que es falsy, y el modal se
+        // quedaría 180 ms invisible comiéndose los clics. 0 es un valor válido.
+        const dur = parseFloat(getComputedStyle(modal).transitionDuration);
+        const ms  = Number.isFinite(dur) ? dur * 1000 : 180;
         setTimeout(() => {
             modal.style.display = "none";
-        }, 300);
+        }, ms);
     }
 
     // CRITICO: restaurar scroll del body.

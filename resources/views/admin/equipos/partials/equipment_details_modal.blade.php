@@ -20,7 +20,7 @@ Estructura: overlay > modal-content > header + sub-header + body
                         <button id="modal_gps_btn" type="button"
                             onclick="openGpsModal(this.dataset.url, this.dataset.equipoName, this.dataset.equipoSerial, this.dataset.equipoTipo)"
                             data-url="" data-equipo-name="" data-equipo-serial="" data-equipo-tipo=""
-                            style="display: none; background: linear-gradient(135deg,#10b981,#059669); color: white; padding: 6px 14px; border-radius: 8px; font-size: 11px; font-weight: 700; border: none; cursor: pointer; align-items: center; gap: 5px; transition: all 0.2s; box-shadow: 0 2px 8px rgba(16,185,129,0.35);"
+                            style="display: none; background: linear-gradient(135deg,#10b981,#059669); color: white; padding: 6px 14px; border-radius: 8px; font-size: 11px; font-weight: 700; border: none; cursor: default; align-items: center; gap: 5px; transition: all 0.2s; box-shadow: 0 2px 8px rgba(16,185,129,0.35);"
                             onmouseover="this.style.transform='scale(1.04)'; this.style.boxShadow='0 4px 14px rgba(16,185,129,0.5)'"
                             onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 2px 8px rgba(16,185,129,0.35)'">
                             <i class="material-icons" style="font-size: 15px; vertical-align: middle;">gps_fixed</i>
@@ -36,7 +36,7 @@ Estructura: overlay > modal-content > header + sub-header + body
                     @can('equipos.edit')
                     <button type="button" id="btn_confirmar_sitio_modal" data-equipo-id="" data-confirmado="0"
                         onclick="window.toggleConfirmacionSitio(this)" title="Confirmar presencia en sitio"
-                        style="background: rgba(255,255,255,0.1); border: none; color: white; cursor: pointer; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; transition: 0.2s;"
+                        style="background: rgba(255,255,255,0.1); border: none; color: white; cursor: default; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; transition: 0.2s;"
                         onmouseover="this.style.background='rgba(255,255,255,0.2)'"
                         onmouseout="this.style.background='rgba(255,255,255,0.1)'">
                         <i class="material-icons" style="font-size: 18px;">radio_button_unchecked</i>
@@ -45,14 +45,14 @@ Estructura: overlay > modal-content > header + sub-header + body
                     @can('user.edit')
                     <button type="button" id="btn_edit_equipo_detalles" title="Editar datos del equipo"
                         onclick="editEquipoFromDetails(event)"
-                        style="background: rgba(255,255,255,0.1); border: none; color: white; cursor: pointer; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; transition: 0.2s;"
+                        style="background: rgba(255,255,255,0.1); border: none; color: white; cursor: default; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; transition: 0.2s;"
                         onmouseover="this.style.background='rgba(255,255,255,0.2)'"
                         onmouseout="this.style.background='rgba(255,255,255,0.1)'">
                         <i class="material-icons" style="font-size: 17px;">edit</i>
                     </button>
                     @endcan
                     <button type="button" onclick="closeDetailsModal(event)"
-                        style="background: rgba(255,255,255,0.1); border: none; color: white; cursor: pointer; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; transition: 0.2s;"
+                        style="background: rgba(255,255,255,0.1); border: none; color: white; cursor: default; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; transition: 0.2s;"
                         onmouseover="this.style.background='rgba(255,255,255,0.2)'"
                         onmouseout="this.style.background='rgba(255,255,255,0.1)'">
                         <i class="material-icons" style="font-size: 18px;">close</i>
@@ -225,7 +225,7 @@ Estructura: overlay > modal-content > header + sub-header + body
                     @can('user.edit')
                     <button type="button" id="responsable_edit_pencil_header" title="Registrar nuevo responsable"
                         onclick="const f=document.getElementById('responsable_form_container'); if(f){f.style.display='flex'; const n=document.getElementById('resp_nombre'); if(n) n.focus();}"
-                        style="position:absolute; top:12px; right:16px; z-index:2; background:#f1f5f9; border:1px solid #cbd5e1; color:#475569; width:28px; height:28px; border-radius:6px; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:all 0.15s;"
+                        style="position:absolute; top:12px; right:16px; z-index:2; background:#f1f5f9; border:1px solid #cbd5e1; color:#475569; width:28px; height:28px; border-radius:6px; display:flex; align-items:center; justify-content:center; cursor:default; transition:all 0.15s;"
                         onmouseover="this.style.background='#e2e8f0'; this.style.color='#1e293b'"
                         onmouseout="this.style.background='#f1f5f9'; this.style.color='#475569'">
                         <i class="material-icons" style="font-size: 16px;">edit</i>
@@ -300,7 +300,7 @@ MODAL GPS TRACKER — Rastreo Satelital en Vivo
                 </div>
             </div>
             <button type="button" onclick="closeGpsModal()"
-                style="background:#f1f5f9; border:1px solid #e2e8f0; color:#64748b; width:32px; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:all 0.2s; flex-shrink:0;"
+                style="background:#f1f5f9; border:1px solid #e2e8f0; color:#64748b; width:32px; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center; cursor:default; transition:all 0.2s; flex-shrink:0;"
                 onmouseover="this.style.background='#fee2e2'; this.style.color='#ef4444'; this.style.borderColor='#fecaca'"
                 onmouseout="this.style.background='#f1f5f9'; this.style.color='#64748b'; this.style.borderColor='#e2e8f0'">
                 <i class="material-icons" style="font-size:18px;">close</i>
