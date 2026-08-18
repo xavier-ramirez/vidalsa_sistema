@@ -739,11 +739,9 @@ window.addEventListener('spa:contentLoaded', function () {
             method: method === 'GET' ? 'GET' : 'POST',
             body: formData})
             .then(async response => {
-                if (response.status === 419 || response.status === 401 || (response.redirected && response.url.includes('/login'))) {
-                    window.location.href = '/login';
-                    return Promise.reject(new Error('Sesión expirada. Redirigiendo al inicio de sesión...'));
-                }
-                
+                // Los 401/419 los ataja el interceptor global de fetch (estructura_base) y
+                // ni siquiera llegan aquí; la rama que había era código que no corría. Lo
+                // que sí puede llegar es un 200 con HTML en vez del JSON esperado.
                 const contentType = response.headers.get("content-type");
                 if (!contentType || !contentType.includes("application/json")) {
                     return Promise.reject(new Error("Sesión expirada o respuesta inválida del servidor."));

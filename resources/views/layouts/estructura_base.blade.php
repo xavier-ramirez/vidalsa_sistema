@@ -298,10 +298,20 @@
                 const response = await originalFetch.apply(this, args);
                 // Si la sesión expiró o hubo un problema de token CSRF
                 if (response.status === 401 || response.status === 419) {
-                    // Prevenir que se ejecute la lógica inferior y redirigir. Con ?aviso=
-                    // el login explica POR QUÉ se cerró la sesión: un flash no serviría,
-                    // porque esa pantalla se sirve desde el caché del Service Worker.
-                    window.location.href = '/?aviso=sesion_expirada';
+                    // DUEÑO ÚNICO de "la sesión murió". Corta aquí y devuelve una promesa
+                    // que no resuelve nunca, así que NINGÚN módulo llega a ver un 401/419:
+                    // por eso ya no existen las ramas de "sesión expirada" que tenían
+                    // equipos_index, form_logic y outbox-sync — no podían ejecutarse.
+                    //
+                    // Con ?aviso= el login explica POR QUÉ se cerró la sesión (un flash no
+                    // serviría: esa pantalla se sirve desde el caché del Service Worker).
+                    // Y si lo que falló fue la subida del outbox, es que HABÍA cambios sin
+                    // subir (drain() solo llama con la cola llena): el aviso lo dice, que
+                    // era lo único que se perdía al cortar la petición aquí.
+                    var _u = String((args[0] && args[0].url) || args[0] || '');
+                    window.location.href = _u.indexOf('/offline/sync') !== -1
+                        ? '/?aviso=sesion_expirada_pendientes'
+                        : '/?aviso=sesion_expirada';
                     return new Promise(() => { }); // Promesa pendiente eterna
                 }
                 return response;

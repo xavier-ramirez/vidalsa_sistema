@@ -65,20 +65,11 @@
                 return; // red caída a mitad: la cola queda intacta, se reintenta luego
             }
 
-            // Sesión expirada: NO descartar la cola; pedir re-login y reintentar después.
-            if (res.status === 401 || res.status === 419) {
-                if (window.showModal) {
-                    window.showModal({
-                        type: 'error', title: 'Sesión expirada',
-                        message: 'Tu sesión expiró. Inicia sesión de nuevo para subir los cambios pendientes.',
-                        confirmText: 'Iniciar sesión', hideCancel: true,
-                        onConfirm: function () { window.location.href = '/login'; },
-                    });
-                } else {
-                    toast('Sesión expirada. Inicia sesión para subir los pendientes.', 'error');
-                }
-                return;
-            }
+            // Sesión expirada: aquí NO hay nada que hacer. El interceptor global de fetch
+            // (estructura_base) ataja los 401/419 antes de que este await resuelva y manda
+            // al login con ?aviso=sesion_expirada_pendientes, que es el que le dice al
+            // usuario que sus cambios siguen guardados. Había un modal para esto que jamás
+            // llegó a mostrarse. La cola no se toca: se reintenta al volver a entrar.
             if (!res.ok) return; // error servidor: dejar como está, reintentar luego
 
             var data = await res.json().catch(function () { return null; });

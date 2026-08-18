@@ -695,11 +695,10 @@
                     body: formData
                 })
                     .then(async response => {
-                        if (response.status === 419 || response.status === 401 ||
-                            (response.redirected && response.url.includes('/login'))) {
-                            window.location.href = '/login';
-                            return Promise.reject(new Error('Sesión expirada.'));
-                        }
+                        // Los 401/419 los ataja el interceptor global de fetch
+                        // (estructura_base); esta rama no podía ejecutarse. Y la
+                        // comprobación de la URL final que la acompañaba tampoco: /login
+                        // redirige a /, así que esa URL nunca lo contiene.
                         const data = await response.json().catch(() => ({}));
                         return { status: response.status, body: data };
                     })

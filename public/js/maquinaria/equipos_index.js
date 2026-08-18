@@ -729,10 +729,9 @@ window.unanchorEquipos = async function (e) {
             let data = {};
             try { data = await resp.json(); } catch(jsonError) {}
 
-            if (resp.status === 419 || resp.status === 401) {
-                window.location.reload();
-                return;
-            }
+            // Los 401/419 no llegan hasta aquí: los ataja el interceptor global de fetch
+            // (estructura_base), que manda al login con su motivo. Lo que había aquí no
+            // podía ejecutarse.
 
             if (resp.ok && data.success) {
                 // Refrescar tabla; reApplySelections() (dentro de loadEquipos) mantiene
@@ -1344,13 +1343,14 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
         .then((response) => {
             // Si fue abortada por una nueva petición, ignorar silenciosamente
             if (abortController.signal.aborted) return Promise.reject(new DOMException('Aborted', 'AbortError'));
-            if (response.status === 419 || response.status === 401 || (response.redirected && response.url.includes('/login'))) {
-                window.location.href = '/login';
-                return Promise.reject(new Error('Sesión expirada.'));
-            }
+            // Los 401/419 NO llegan hasta aquí: los ataja el interceptor global de fetch
+            // (estructura_base) y manda al login con su motivo. La rama que había aquí no
+            // podía ejecutarse, y la comprobación de la URL final que la acompañaba
+            // tampoco: /login redirige a /, así que esa URL nunca lo contiene.
+            // Lo que SÍ puede pasar es recibir un 200 con HTML en vez del JSON esperado.
             const contentType = response.headers.get("content-type");
             if (!contentType || !contentType.includes("application/json")) {
-                window.location.href = '/login';
+                window.location.href = '/?aviso=sesion_expirada';
                 return Promise.reject(new Error("Sesión expirada o respuesta inválida del servidor."));
             }
             if (!response.ok) throw new Error("Network response was not ok");
@@ -2265,23 +2265,9 @@ window.openBulkModal = function (event) {
                 })
             });
 
-            // Sesión expirada
-            if (res.status === 419) {
-                if (window.hidePreloader) window.hidePreloader();
-                if (typeof window.showModal === 'function') {
-                    window.showModal({
-                        type: "error",
-                        title: "Sesión Expirada",
-                        message: "Su sesión ha expirado. La página se recargará.",
-                        confirmText: "Recargar",
-                        hideCancel: true,
-                        onConfirm: () => window.location.reload(),
-                    });
-                } else {
-                    window.location.reload();
-                }
-                return;
-            }
+            // Los 401/419 no llegan hasta aquí: los ataja el interceptor global de fetch
+            // (estructura_base), que manda al login con su motivo. Lo que había aquí no
+            // podía ejecutarse.
 
             // Cualquier otro error HTTP: leer el body para mostrar el mensaje real
             if (!res.ok) {

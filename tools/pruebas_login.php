@@ -104,5 +104,37 @@ foreach (['Auth/LoginController', 'Auth/WebAuthnController'] as $c) {
         str_contains(file_get_contents("app/Http/Controllers/$c.php"), "'clave_v'"));
 }
 
+// ── H. Sesion caida: un solo dueno en el cliente ────────────────────────────
+// El interceptor global de estructura_base ataja los 401/419 y devuelve una promesa que
+// no resuelve nunca, asi que ningun modulo puede reaccionar a esos codigos. Cualquier
+// rama de "sesion expirada" que vuelva a aparecer detras de apiFetch seria codigo muerto.
+// Exentos: la pantalla de login y webauthn.js, que corren SIN interceptor (esa vista no
+// usa estructura_base), y el propio interceptor.
+$clientes = array_merge(
+    glob('public/js/*.js'), glob('public/js/*/*.js'),
+    glob('resources/views/*/*.blade.php'), glob('resources/views/*/*/*.blade.php')
+);
+$exentos  = ['inicio_sesion.blade.php', 'estructura_base.blade.php', 'webauthn.js'];
+$conRama  = [];
+$conUrlLogin = [];
+foreach ($clientes as $f) {
+    $t = file_get_contents($f);
+    $base = basename($f);
+    if (!in_array($base, $exentos, true) && preg_match('/status\s*===?\s*(401|419)/', $t)) {
+        $conRama[] = $base;
+    }
+    if (str_contains($t, "includes('/login')")) $conUrlLogin[] = $base;
+}
+check('ramas 401/419 fuera del interceptor', [], $conRama);
+check("condicion muerta url.includes('/login')", [], $conUrlLogin);
+
+// El aviso que manda el interceptor cuando lo que falla es subir el outbox
+check('aviso de pendientes traducido', true, str_contains($html, 'sesion_expirada_pendientes'));
+
+// webauthn.js no debe volver a adivinar con qué clave viene el error del servidor
+$wa = file_get_contents('public/js/webauthn.js');
+check('webauthn lee error Y message', true, str_contains($wa, 'function textoError'));
+check('webauthn sin lecturas a pelo',  0,    substr_count($wa, ".error || '"));
+
 printf("\n%d OK, %d FALLAS\n", $ok, $fail);
 exit($fail === 0 ? 0 : 1);

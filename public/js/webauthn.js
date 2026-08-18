@@ -46,6 +46,15 @@ const VidalsaWebAuthn = (() => {
 
     // El CSRF y las cabeceras de AJAX/JSON las pone window.apiFetch (dom_helpers.js).
 
+    // Texto del error, venga con la clave que venga. El servidor no es uniforme: estas
+    // rutas responden con `error`, pero los handlers globales de bootstrap/app.php y el
+    // middleware de sesión usan `message`. Leer solo una era ver "Error de autenticación"
+    // genérico en vez del motivo real; y renombrar en el servidor rompería el contrato
+    // del endpoint móvil, que ya está publicado.
+    function textoError(datos, porDefecto) {
+        return (datos && (datos.error || datos.message)) || porDefecto;
+    }
+
     // ¿La respuesta es realmente JSON? Un redirect a /login o una página de error
     // vienen como text/html y NO se deben pasar a res.json().
     function esJson(res) {
@@ -78,7 +87,7 @@ const VidalsaWebAuthn = (() => {
             });
             if (esRespuestaDeSesion(res)) { window.location.reload(); return false; }
             options = await res.json();
-            if (!res.ok) throw new Error(options.error || 'Error obteniendo opciones');
+            if (!res.ok) throw new Error(textoError(options, 'Error obteniendo opciones'));
         } catch (e) {
             alert('Error al preparar el registro biométrico: ' + e.message);
             return false;
@@ -125,7 +134,7 @@ const VidalsaWebAuthn = (() => {
             });
             if (esRespuestaDeSesion(res)) { window.location.reload(); return false; }
             const data = await res.json();
-            if (!res.ok) throw new Error(data.error || 'Error al registrar');
+            if (!res.ok) throw new Error(textoError(data, 'Error al registrar'));
             saveCredId(body.credential_id);
             return true;
         } catch (e) {
@@ -211,7 +220,7 @@ const VidalsaWebAuthn = (() => {
             throw new Error('NO_CREDENTIALS');
         }
         const options = await resOpt.json();
-        if (!resOpt.ok) throw new Error(options.error || 'Error obteniendo opciones');
+        if (!resOpt.ok) throw new Error(textoError(options, 'Error obteniendo opciones'));
 
         // Derivar la vigencia del TTL real del servidor (fuente única de verdad).
         if (typeof options.expires_in === 'number' && options.expires_in > 0) {
@@ -344,7 +353,7 @@ const VidalsaWebAuthn = (() => {
             // (401/403/429) sí caen abajo y se muestran.
             if (esRespuestaDeSesion(res)) { window.location.reload(); return; }
             const data = await res.json();
-            if (!res.ok) throw new Error(data.error || 'Error de autenticación');
+            if (!res.ok) throw new Error(textoError(data, 'Error de autenticación'));
             return data;
         } finally {
             _autenticando = false;

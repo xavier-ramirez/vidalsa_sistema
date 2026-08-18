@@ -250,6 +250,8 @@
     (function mostrarAvisoDeUrl() {
         const AVISOS = {
             sesion_expirada:  'Tu sesión expiró por seguridad. Inicia sesión de nuevo.',
+            sesion_expirada_pendientes:
+                'Tu sesión expiró. Tus cambios sin subir siguen guardados: inicia sesión y se suben solos.',
             otro_dispositivo: 'Tu sesión se inició en otro dispositivo.',
             clave_cambiada:   'Tu clave cambió. Inicia sesión con la nueva.'
         };
