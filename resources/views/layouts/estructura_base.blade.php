@@ -1997,12 +1997,20 @@
                 const updateInput = document.getElementById('pdfUpdateInput');
                 const loader = document.getElementById('pdfViewerLoader');
 
-                // Mostrar spinner global — se oculta cuando el PDF cargue en el iframe
-                if (typeof window.showPreloader === 'function') window.showPreloader();
-
-                // Abrir modal de PDF
+                // NADA de preloader global aquí. El #preloader es una capa BLANCA OPACA a
+                // z-index 1000000: mientras cargaba el PDF tapaba el modal entero, así que
+                // el usuario veía una pantalla en blanco con un spinner y el visor solo
+                // "aparecía" al terminar la descarga (+ el buffer de render). De ahí el
+                // "el PDF sale rápido, lo que tarda es en mostrarse". Encima duplicaba la
+                // espera: este modal ya trae su propio #pdfViewerLoader ("Cargando
+                // documento...") justo encima del iframe, que es el que corresponde.
+                //
+                // El modal se abre sin fundido a propósito: pasar de display:none a flex y
+                // de opacity 0 a 1 en el mismo paso no dispara la transición del CSS, y así
+                // aparece en el mismo frame del clic. No "arreglar" con requestAnimationFrame
+                // sin arreglar antes closePdfPreview, que solo quita .active y no limpiaría
+                // un display en línea.
                 if (modal) modal.classList.add('active');
-                // NO ocultamos el preloader aquí — esperamos al onload del iframe
 
                 // Show Loader
                 if (loader) {
@@ -2012,7 +2020,11 @@
 
                 if (iframe) {
                     iframe.style.opacity = '0';
-                    iframe.src = '';
+                    // 'about:blank' explícito y NO '': la cadena vacía se resuelve contra la
+                    // URL del documento actual, así que el iframe se ponía a cargar la página
+                    // entera (/admin/equipos y sus ~1.200 filas) hasta que el src del PDF la
+                    // reemplazaba. Trabajo tirado justo en el instante que se quiere rápido.
+                    iframe.src = 'about:blank';
                 }
 
                 const fallbackNode = document.getElementById('pdfMobileFallback');
@@ -2053,7 +2065,6 @@
 
                 // Fallback: ocultar spinner y loader tras 5s máximo
                 const loaderTimeout = setTimeout(() => {
-                    if (typeof window.hidePreloader === 'function') window.hidePreloader();
                     if (loader) loader.style.display = 'none';
                     if (iframe) iframe.style.opacity = '1';
                 }, 5000);
@@ -2067,8 +2078,6 @@
 
                     setTimeout(() => {
                         clearTimeout(loaderTimeout);
-                        // Ocultar spinner global al terminar de cargar el PDF
-                        if (typeof window.hidePreloader === 'function') window.hidePreloader();
                         if (loader) {
                             loader.style.opacity = '0';
                             setTimeout(() => {
@@ -2109,11 +2118,6 @@
 
                     iframe.onerror = function () {
                         clearTimeout(loaderTimeout);
-                        // Balancear el showPreloader() de arriba: sin esto, al fallar la
-                        // carga del PDF el contador del preloader global quedaba sin
-                        // decrementar (loaderTimeout ya fue cancelado) y el spinner se
-                        // colgaba / quedaba descalibrado para la siguiente operación.
-                        if (typeof window.hidePreloader === 'function') window.hidePreloader();
                         if (loader) loader.style.display = 'none';
                         showModal({
                             type: 'error',
@@ -2352,7 +2356,9 @@
                 const iframe = document.getElementById('pdfPreviewFrame');
                 if (modal) modal.classList.remove('active');
                 if (iframe) {
-                    iframe.src = ''; // Clear source to free memory
+                    // 'about:blank' y no '': la cadena vacía se resuelve contra la URL de la
+                    // página actual y el iframe se pondría a cargarla entera al cerrar.
+                    iframe.src = 'about:blank'; // libera la memoria del PDF
                 }
             };
 

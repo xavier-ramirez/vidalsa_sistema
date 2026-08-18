@@ -1848,8 +1848,8 @@
                     const uploadUrl = '/admin/equipos-auxiliares/' + auxId + '/upload-doc';
                     window.openPdfPreview(body.link, docType, labelHr, auxId, uploadUrl, false, 'auxiliar');
                 }
-                // hidePreloader: openPdfPreview enciende su propio loader interno
-                // del iframe; apagamos el global para no dejarlo encimado.
+                // Cierra el preloader que abrió ESTA función para la subida. openPdfPreview
+                // ya no enciende ninguno: muestra su propio loader dentro del modal.
                 if (window.hidePreloader) window.hidePreloader();
             } else {
                 if (window.hidePreloader) window.hidePreloader();

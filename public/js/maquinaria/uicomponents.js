@@ -1510,12 +1510,13 @@ window.uploadDocument = function (input, type, equipoId, containerId, label) {
                     }
 
                     if (typeof window.openPdfPreview === "function") {
-                        setTimeout(() => {
-                            window.openPdfPreview(data.link, type, label, equipoId);
-                            setTimeout(() => {
-                                if (window.hidePreloader) window.hidePreloader();
-                            }, 150);
-                        }, 50);
+                        // Directo y sin esperas. Los dos setTimeout (50 ms + 150 ms) que
+                        // había aquí solo servían para no pisarse con el preloader global
+                        // que openPdfPreview encendía por su cuenta; ya no lo enciende, así
+                        // que el visor abre en el mismo frame y el hide de aquí solo cierra
+                        // el preloader que ESTA función abrió al empezar la subida.
+                        window.openPdfPreview(data.link, type, label, equipoId);
+                        if (window.hidePreloader) window.hidePreloader();
                     } else {
                         if (window.hidePreloader) window.hidePreloader();
                     }
