@@ -316,8 +316,30 @@
                 }
                 return response;
             } catch (err) {
-                // Conexión rechazada (servidor caído, sin red, etc.). El error se
-                // relanza para que el caller (ej. fetchNotifs) decida qué hacer.
+                // Conexión rechazada (servidor caído, sin red, etc.).
+                //
+                // DUEÑO ÚNICO de "se fue la red", igual que lo es de "se cayó la sesión".
+                // Un TypeError de fetch contra NUESTRO servidor = no se alcanzó (los errores
+                // HTTP 4xx/5xx resuelven, no lanzan). Como aquí pasan TODAS las peticiones de
+                // la app, con esto el aviso "Sin conexión" —y su botón "Trabajar sin
+                // conexión"— sale hagas lo que hagas: filtrar, navegar, guardar.
+                //
+                // Antes esto estaba copiado a mano en CINCO módulos, así que solo aparecía si
+                // el usuario tocaba justo una de esas pantallas; en cualquier otra se iba
+                // internet y no pasaba nada. Y el evento 'offline' del navegador no cubre el
+                // caso típico: navigator.onLine sigue en true mientras haya cualquier interfaz
+                // levantada (wifi sin internet, ethernet, VPN).
+                //
+                // Se descartan los abortos (AbortController de las búsquedas) y las peticiones
+                // a otros dominios: ni unos ni otras dicen nada de NUESTRA conexión.
+                var _url = String((args[0] && args[0].url) || args[0] || '');
+                var _propia = true;   // sin URL legible se asume nuestra (es lo normal)
+                try { _propia = new URL(_url, location.href).origin === location.origin; } catch (e) {}
+                if (err instanceof TypeError && _propia && window.netStatus
+                    && typeof window.netStatus.showOffline === 'function') {
+                    window.netStatus.showOffline();
+                }
+                // Se relanza para que el caller (ej. fetchNotifs) decida qué hacer.
                 // El console.warn anterior generaba ruido en cada poll cuando no
                 // habia red — eliminado.
                 throw err;

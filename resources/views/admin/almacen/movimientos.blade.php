@@ -875,14 +875,8 @@
             })
             .catch(function (e) {
                 body.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:24px;color:#dc2626;">No se pudieron cargar los movimientos.</td></tr>';
-                // Fallback OFFLINE (mismo criterio que loadEquipos): un TypeError de fetch =
-                // el servidor no se alcanzó (los errores HTTP resuelven y lanzan otro Error).
-                // Se fuerza el banner "Sin conexión" con su botón, porque en PC el evento
-                // 'offline' NO dispara: navigator.onLine sigue en true mientras haya cualquier
-                // interfaz levantada (ethernet, adaptador virtual, VPN).
-                if (e instanceof TypeError && window.netStatus && typeof window.netStatus.showOffline === 'function') {
-                    window.netStatus.showOffline();
-                }
+                // El aviso "Sin conexión" con su botón lo saca el interceptor global de
+                // fetch (estructura_base) para CUALQUIER petición de la app.
             })
             .finally(function () { body.style.opacity = '1'; if (window.hidePreloader) window.hidePreloader(); });
 

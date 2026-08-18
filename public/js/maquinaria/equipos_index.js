@@ -1642,15 +1642,8 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
             console.error('Error loading equipos:', error);
             tableBody.style.opacity = '1';
 
-            // Fallback OFFLINE: si el fetch falló por RED (servidor inalcanzable) — que es un
-            // TypeError de fetch, NO un error HTTP 4xx/5xx (esos resuelven y lanzan otro Error) —
-            // surgimos el banner "Sin conexión" con el botón "Trabajar sin conexión". El modo
-            // offline es MANUAL (opt-in): NO se activa solo; el usuario pulsa el botón para
-            // filtrar sobre la copia local. Forzamos el banner aquí porque navigator.onLine a
-            // veces miente ("online" con wifi sin internet real) y el evento 'offline' no dispara.
-            if (error instanceof TypeError && window.netStatus && typeof window.netStatus.showOffline === 'function') {
-                window.netStatus.showOffline();
-            }
+            // El aviso "Sin conexión" con su botón lo saca el interceptor global de fetch
+            // (estructura_base) para CUALQUIER petición de la app, no solo para esta.
         })
         .finally(() => {
             // Solo cierra el preloader la llamada que lo ABRIÓ (no-silent). Las silent no

@@ -450,13 +450,9 @@ document.addEventListener('DOMContentLoaded', () => {
             // window.location.href porque tambien fallaria — solo mostrar toast y
             // dejar al usuario en la pagina actual para que reintente cuando vuelva.
             if (!navigator.onLine || error instanceof TypeError) {
-                // Mostrar el aviso AUNQUE navigator.onLine diga "online": un TypeError aquí
-                // ("Failed to fetch") significa que el servidor no respondió (caído o sin
-                // internet real). Antes se exigía !navigator.onLine y por eso en el
-                // navegador casi nunca salía el banner.
-                if (typeof window.netStatus?.showOffline === 'function') {
-                    window.netStatus.showOffline();
-                }
+                // El banner "Sin conexión" ya lo sacó el interceptor global de fetch
+                // (estructura_base), que ve fallar ESTA misma petición. Aquí solo queda el
+                // aviso propio de la navegación: que la página no cambió y se puede reintentar.
                 if (typeof window.showToast === 'function') {
                     window.showToast('Sin conexión. Verificá tu internet e intentá de nuevo.', 'error');
                 }

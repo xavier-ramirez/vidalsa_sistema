@@ -2078,15 +2078,8 @@
             })
             .catch(function (e) {
                 toast('No se pudo cargar el inventario.', 'error');
-                // Fallback OFFLINE (mismo criterio que loadEquipos): un TypeError de fetch =
-                // el servidor no se alcanzó (los errores HTTP resuelven y lanzan otro Error).
-                // Se fuerza el banner "Sin conexión" con su botón, porque en PC el evento
-                // 'offline' NO dispara: navigator.onLine sigue en true mientras haya cualquier
-                // interfaz levantada (ethernet, adaptador virtual, VPN). Sin esto el usuario
-                // solo veía "No se pudo cargar" sin la vía para trabajar con la copia local.
-                if (e instanceof TypeError && window.netStatus && typeof window.netStatus.showOffline === 'function') {
-                    window.netStatus.showOffline();
-                }
+                // El aviso "Sin conexión" con su botón lo saca el interceptor global de
+                // fetch (estructura_base) para CUALQUIER petición de la app.
             })
             .finally(function () {
                 if (append) {

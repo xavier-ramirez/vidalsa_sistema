@@ -89,15 +89,8 @@ window.loadMovilizaciones = async function (pageUrl = null) {
         console.error('[loadMovilizaciones] Error:', e);
         const tb = document.getElementById('movilizacionesTableBody');
         if (tb) tb.style.opacity = '1';
-        // Fallback OFFLINE (mismo criterio que loadEquipos): un TypeError de fetch = el
-        // servidor no se alcanzó (los errores HTTP 4xx/5xx resuelven y lanzan otro Error).
-        // Se fuerza el banner "Sin conexión" con su botón, porque en PC el evento 'offline'
-        // NO dispara: navigator.onLine sigue en true mientras haya cualquier interfaz de red
-        // levantada (ethernet, adaptador virtual, VPN), así que sin esto el usuario filtra,
-        // no pasa nada y no hay explicación en pantalla.
-        if (e instanceof TypeError && window.netStatus && typeof window.netStatus.showOffline === 'function') {
-            window.netStatus.showOffline();
-        }
+        // El aviso "Sin conexión" con su botón lo saca el interceptor global de fetch
+        // (estructura_base) para CUALQUIER petición de la app, no solo para esta.
     } finally {
         if (window.hidePreloader) window.hidePreloader();
     }
