@@ -1989,6 +1989,10 @@
                     });
             };
 
+            // Temporizador de respaldo del visor (uno SOLO para toda la pantalla, no uno por
+            // apertura): ver por qué en el setTimeout de más abajo.
+            let _pdfLoaderTimeout = null;
+
             window.openPdfPreview = function (url, docType, label, equipoId, uploadUrl, skipMetadata, module) {
                 const modal = document.getElementById('pdfPreviewModal');
                 const iframe = document.getElementById('pdfPreviewFrame');
@@ -2056,44 +2060,45 @@
                 if (updateLabel) updateLabel.style.display = docGestionable ? 'flex' : 'none';
                 if (deleteBtn)   deleteBtn.style.display   = docGestionable ? 'flex' : 'none';
 
-                // Track timing to ensure loader shows for minimum duration
-                const loaderStartTime = Date.now();
-                // Minimo que el loader permanece visible. Bajado 800ms → 250ms: cuando el PDF
-                // carga rapido, el visor se siente mucho mas agil (antes se forzaba 800ms aunque
-                // ya estuviera listo). 250ms sigue evitando el parpadeo si carga casi instantaneo.
-                const minimumLoaderDuration = 250; // Minimum time (ms) to show loader
-
-                // Fallback: ocultar spinner y loader tras 5s máximo
-                const loaderTimeout = setTimeout(() => {
+                // Respaldo: si el onload del PDF no llega nunca, a los 5 s se destapa igual.
+                //
+                // El handle vive FUERA de esta función y cada apertura cancela el anterior.
+                // Siendo local, una apertura que quedaba a medias —el usuario cierra el modal
+                // antes de que cargue, o el documento no tiene URL— dejaba su temporizador
+                // armado, y 5 s después caía encima de la apertura SIGUIENTE: le apagaba el
+                // "Cargando documento..." y destapaba su iframe a medio cargar.
+                clearTimeout(_pdfLoaderTimeout);
+                _pdfLoaderTimeout = setTimeout(() => {
                     if (loader) loader.style.display = 'none';
                     if (iframe) iframe.style.opacity = '1';
                 }, 5000);
 
-                // Hide loader only when BOTH conditions are met:
-                // 1. iframe.onload has fired
-                // 2. Minimum duration has elapsed
+                // Apaga el loader y destapa el PDF. Se llama una sola vez, desde el onload
+                // del iframe y ya pasado PDF_RENDER_BUFFER.
+                //
+                // Aquí había además un "mínimo que el loader permanece visible" de 250 ms
+                // para evitar el parpadeo de una carga instantánea. Era código que NO podía
+                // ejecutarse: se medía desde el inicio de la apertura y esta función solo se
+                // llama 400 ms después del onload, así que el mínimo ya estaba cumplido
+                // siempre y el tiempo restante daba 0 sin excepción. Dos frenos para lo
+                // mismo, y el suelo real contra el parpadeo lo pone PDF_RENDER_BUFFER.
                 const hideLoaderWhenReady = () => {
-                    const elapsed = Date.now() - loaderStartTime;
-                    const remainingTime = Math.max(0, minimumLoaderDuration - elapsed);
-
-                    setTimeout(() => {
-                        clearTimeout(loaderTimeout);
-                        if (loader) {
-                            loader.style.opacity = '0';
-                            setTimeout(() => {
-                                if (loader) loader.style.display = 'none';
-                            }, 200);
-                        }
-                        if (iframe) iframe.style.opacity = '1';
-                    }, remainingTime);
+                    clearTimeout(_pdfLoaderTimeout);
+                    if (loader) {
+                        loader.style.opacity = '0';
+                        setTimeout(() => {
+                            if (loader) loader.style.display = 'none';
+                        }, 200);
+                    }
+                    if (iframe) iframe.style.opacity = '1';
                 };
 
                 // Set source and setup load listener
                 if (iframe) {
                     iframe.onload = function () {
-                        // FILTRO ANTI-SPURIOUS: el setter iframe.src='' anterior
-                        // dispara un evento load asincrono para about:blank ANTES
-                        // de que cargue el PDF real. Sin este filtro, el handler
+                        // FILTRO ANTI-SPURIOUS: el iframe.src = 'about:blank' de más
+                        // arriba dispara un evento load asincrono ANTES de que cargue
+                        // el PDF real. Sin este filtro, el handler
                         // se ejecuta para about:blank y oculta el spinner antes
                         // de que el PDF empiece siquiera a cargar — el bug que
                         // mostraba "modal abierto + sin spinner + gris + PDF
@@ -2110,14 +2115,14 @@
                         // Buffer extra para que el visor pinte antes de revelar
                         // el iframe. Bajado 1500 → 400ms: 1500 sobraba (el render
                         // real son ~cientos de ms) y anadia ~1s de espera percibida
-                        // en CADA documento. (loaderTimeout de 5s sigue como
-                        // fallback maximo si onload nunca dispara para el PDF real.)
+                        // en CADA documento. (_pdfLoaderTimeout, los 5s de respaldo,
+                        // sigue cubriendo el caso de que onload no llegue nunca.)
                         const PDF_RENDER_BUFFER = 400;
                         setTimeout(hideLoaderWhenReady, PDF_RENDER_BUFFER);
                     };
 
                     iframe.onerror = function () {
-                        clearTimeout(loaderTimeout);
+                        clearTimeout(_pdfLoaderTimeout);
                         if (loader) loader.style.display = 'none';
                         showModal({
                             type: 'error',
@@ -2360,6 +2365,8 @@
                     // página actual y el iframe se pondría a cargarla entera al cerrar.
                     iframe.src = 'about:blank'; // libera la memoria del PDF
                 }
+                // Y el respaldo de 5 s, que si no seguiría vivo sobre un visor ya cerrado.
+                clearTimeout(_pdfLoaderTimeout);
             };
 
             // Permiso super.admin (renderizado server-side desde el flag de auth).
