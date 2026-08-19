@@ -1335,8 +1335,10 @@
            "FLOTA ANTIGUA (<2025)" ocupaba dos líneas y competía con la cifra, que es lo
            único que debe destacar.
 
-           OJO: el bloque mobile de más abajo ajusta padding y tamaños apuntando a
-           `.fleet-stats-grid > div`, `h3` y `p`, así que sigue aplicando sin tocar. */
+           OJO: el bloque mobile de más abajo apunta a `.fleet-stats-grid > div`, `h3` y `p`
+           para ajustar padding y tamaños, y ADEMÁS voltea la tarjeta: en teléfono la cifra va
+           arriba y la etiqueta debajo, centradas. O sea que el "etiqueta izquierda / cifra
+           derecha" que se describe aquí es SOLO de escritorio. */
         .fleet-kpi {
             background: #fff;
             border-radius: 10px;
@@ -1798,12 +1800,31 @@
                 width: 100% !important;
             }
 
-            /* Stat cards: menos padding y fuente más pequeña */
+            /* Stat cards: menos padding, fuente más pequeña y APILADAS.
+               En teléfono la tarjeta pone la CIFRA ARRIBA y la etiqueta debajo, las dos
+               centradas. En escritorio van en fila (etiqueta a la izquierda, cifra a la
+               derecha), pero con tres columnas en una pantalla estrecha esa fila deja el
+               número pegado al borde y la etiqueta partida; apilado se lee de un vistazo.
+
+               column-reverse y NO column: en el HTML la etiqueta va PRIMERO, que es lo
+               correcto para un lector de pantalla (anuncia "Σ Equipos" y después el valor).
+               Invirtiendo solo el pintado, la cifra queda arriba sin tocar el orden del
+               documento.
+
+               min-height y gap se rehacen aquí a propósito: los de .fleet-kpi están
+               calculados para UNA línea a la misma altura que el buscador de al lado, y en
+               teléfono ni hay buscador al lado ni una sola línea. */
             #fleetDashboardModal .fleet-stats-grid > div {
                 padding: 10px !important;
                 min-width: 0 !important;
                 box-sizing: border-box !important;
                 word-wrap: break-word !important;
+                flex-direction: column-reverse !important;
+                align-items: center !important;
+                justify-content: center !important;
+                text-align: center !important;
+                gap: 2px !important;
+                min-height: 0 !important;
             }
 
             #fleetDashboardModal .fleet-stats-grid h3 {
