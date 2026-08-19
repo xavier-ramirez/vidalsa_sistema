@@ -73,9 +73,13 @@
     </div>
     {{-- Fila 2: Tabs de navegación --}}
     <div class="tr-tabs" style="display:flex;gap:0;margin-top:12px;border-bottom:2px solid #e2e8f0;">
+        {{-- El nombre dice el ORIGEN, no el continente. "Bandeja de entrada" describia el
+             cajon; lo que hace falta saber al entrar es de donde viene el material, porque
+             es lo unico que separa esta via de la compra directa. --}}
         <a href="{{ route('almacen.recepcion.index', ['force' => 1]) }}"
+           title="Material que el almacén general ya despachó con su nota de entrega. Aquí no se captura nada: solo se confirma lo que llegó."
            style="display:flex;align-items:center;gap:6px;padding:8px 20px;font-size:13px;font-weight:700;color:#0067b1;border-bottom:2px solid #0067b1;margin-bottom:-2px;text-decoration:none;transition:all .15s;">
-            <i class="material-icons" style="font-size:16px;">inbox</i> Bandeja de entrada
+            <i class="material-icons" style="font-size:16px;">inbox</i> Reposición del general
         </a>
         @can('almacen.movimiento')
         <a href="{{ route('almacen.recepcion.nueva') }}"
@@ -85,6 +89,17 @@
         </a>
         @endcan
     </div>
+
+    {{-- Una linea que ordena la pantalla entera. Las dos vias de entrada NO se distinguen
+         por los papeles que traen (casi siempre traen), sino por DE DONDE viene el material:
+         del almacen general (llega despachado, aqui solo se confirma) o de un proveedor que
+         entrego directo a este almacen (no paso por el general, se captura completo aqui).
+         Sin esta frase, "Bandeja" y "Compra directa" parecian dos botones cualquiera. --}}
+    <p style="margin:10px 0 0;font-size:12.5px;color:#64748b;line-height:1.5;">
+        El material entra por dos vías, según de dónde venga:
+        <strong style="color:#334155;">del almacén general</strong> — llega despachado con su nota y aquí solo se confirma —
+        o <strong style="color:#334155;">por compra directa</strong> — el proveedor lo entregó en este almacén sin pasar por el general, y se captura aquí.
+    </p>
 </section>
 
 <style>
@@ -486,7 +501,7 @@
         /* Cabecera apilada para que el selector de almacen destino ocupe todo el ancho */
         .page-title-card > div { flex-direction: column !important; align-items: stretch !important; gap: 10px !important; }
         .page-title-card > div > div { width: 100% !important; flex: 1 1 100% !important; }
-        /* …pero las 2 pestañas (Bandeja de entrada / Entrada por ODC) van LADO A LADO,
+        /* …pero las 2 pestañas (Reposición del general / Entrada por ODC) van LADO A LADO,
            no apiladas: revertimos la columna solo para la fila de tabs y repartimos el
            ancho 50/50 con el texto centrado. */
         .page-title-card > div.tr-tabs { flex-direction: row !important; gap: 0 !important; }

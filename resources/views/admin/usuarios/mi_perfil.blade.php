@@ -30,9 +30,13 @@
             --pf-gris: #5b6b7f;
             --pf-borde: #e3e9f0;
             /* Angosta a propósito: el contenido son tres datos de lectura y dos campos.
-               A 720 px las líneas quedaban perdidas en un ancho que no usaban. */
+               Bajó de 720 a 520 y de 520 a 420 por la misma razón — las líneas quedaban
+               perdidas en un ancho que no usaban. A 420, descontando los 24 de padding a
+               cada lado, quedan 372 px útiles para los dos campos. La pareja de botones no
+               corre riesgo: .perfil-acciones lleva flex-wrap, así que si no entraran en una
+               fila bajan una debajo de otra en vez de desbordar. */
             width: 100%;
-            max-width: 520px;
+            max-width: 420px;
             margin: 0 auto;
             padding: 24px;
         }

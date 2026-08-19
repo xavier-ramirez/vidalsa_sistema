@@ -44,9 +44,10 @@
     {{-- Fila 2: Tabs de navegación (coherente con la bandeja) --}}
     <div class="ent-tabs" style="display:flex;gap:0;margin-top:12px;border-bottom:2px solid #e2e8f0;">
         <a href="{{ route('almacen.recepcion.index', ['force' => 1]) }}"
+           title="Material que el almacén general ya despachó con su nota de entrega. Aquí no se captura nada: solo se confirma lo que llegó."
            style="display:flex;align-items:center;gap:6px;padding:8px 20px;font-size:13px;font-weight:600;color:#64748b;text-decoration:none;transition:all .15s;"
            onmouseenter="this.style.color='#0067b1'" onmouseleave="this.style.color='#64748b'">
-            <i class="material-icons" style="font-size:16px;">inbox</i> Bandeja de entrada
+            <i class="material-icons" style="font-size:16px;">inbox</i> Reposición del general
         </a>
         <span style="display:flex;align-items:center;gap:6px;padding:8px 20px;font-size:13px;font-weight:700;color:#0067b1;border-bottom:2px solid #0067b1;margin-bottom:-2px;">
             <i class="material-icons" style="font-size:16px;">add_circle_outline</i> Entrada<span class="ent-txt-full"> por ODC</span>
