@@ -2059,9 +2059,10 @@ class AlmacenController extends Controller
         // entró, cuánto y de dónde a dónde.
         //
         // Nada se pierde por quitarlos del archivo: en la pantalla, N° NOTA / REFERENCIA /
-        // MOTIVO siguen en la columna "Ref" y el usuario en el tooltip "Registrado por"
-        // (ver partials/kardex_rows). SOLICITANTE nunca estuvo en la bitácora: vive en la
-        // vista de Notas y en el PDF de la nota de entrega.
+        // MOTIVO siguen en la columna "Ref", y el usuario sale al pasar el mouse por la
+        // fila, en la burbuja .tooltip-bubble anclada a la celda Producto (no es un
+        // atributo title: ver partials/kardex_rows). SOLICITANTE nunca estuvo en la
+        // bitácora: vive en la vista de Notas y en el PDF de la nota de entrega.
         $cols = ['FECHA', 'TIPO', 'CÓDIGO', 'PRODUCTO', 'UM', 'CANTIDAD', 'ANTERIOR', 'RESULTANTE',
                  'ALMACÉN', 'CONTRAPARTE', 'FRENTE'];
         $ultima = 'K';   // 11 columnas
