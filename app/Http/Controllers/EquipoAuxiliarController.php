@@ -2142,7 +2142,7 @@ class EquipoAuxiliarController extends Controller
             // 2. Subir el nuevo archivo a la carpeta raíz (la de los vehículos).
             $folderId  = $driveService->getRootFolderId();
             $filename  = 'aux_' . $type . '_' . time() . '.pdf';
-            $driveFile = $driveService->uploadFile($folderId, $file, $filename, $file->getMimeType(), true);
+            $driveFile = $driveService->uploadFile($folderId, $file, $filename, $file->getMimeType());
             if (!$driveFile || !isset($driveFile->id)) {
                 throw new \Exception('La subida a Google Drive no retornó un ID válido');
             }

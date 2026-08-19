@@ -118,15 +118,7 @@ class GoogleDriveService
     /**
      * Uploads a file using multipart upload optimized for speed.
      */
-    /**
-     * @param bool $publico Deja el archivo legible por CUALQUIERA con el enlace.
-     *        Lo piden los DOCUMENTOS (no las fotos, que ya lo hacían por su cuenta):
-     *        el visor los abre directo contra Drive, sin que el archivo pase por este
-     *        servidor, y para eso Google tiene que servírselo al navegador sin sesión.
-     *        Se publica AQUÍ, en el único sitio por el que pasan todas las subidas, y no
-     *        repetido en cada controlador.
-     */
-    public function uploadFile($folderId, $file, $filename, $mimeType, $publico = false)
+    public function uploadFile($folderId, $file, $filename, $mimeType)
     {
         try {
             $drive = $this->getDrive();
@@ -150,13 +142,6 @@ class GoogleDriveService
             if (!$driveFile || !isset($driveFile->id)) {
                 Log::error("Failed to upload to Google Drive: " . $filename);
                 return null;
-            }
-
-            // No se aborta si falla: el archivo YA está subido y el enlace guardado sirve
-            // igual por el proxy. Solo se pierde la apertura directa, y makePublic deja el
-            // aviso en el log; `php artisan documentos:publicar` lo repesca después.
-            if ($publico) {
-                $this->makePublic($driveFile->id);
             }
 
             return $driveFile;

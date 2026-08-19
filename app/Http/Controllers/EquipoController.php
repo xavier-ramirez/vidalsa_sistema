@@ -2286,7 +2286,7 @@ class EquipoController extends Controller
                             }
                         }
 
-                        $driveFile = $svc->uploadFile($svc->getRootFolderId(), $file, $fileKey . '_' . time() . '.pdf', 'application/pdf', true);
+                        $driveFile = $svc->uploadFile($svc->getRootFolderId(), $file, $fileKey . '_' . time() . '.pdf', 'application/pdf');
                         if ($driveFile && isset($driveFile->id)) {
                             $timestamp = time();
                             $docData[$dbCol] = '/storage/google/' . $driveFile->id . '?v=' . $timestamp;
@@ -2731,7 +2731,7 @@ class EquipoController extends Controller
             // 2. UPLOAD NEW FILE
             $folderId = $driveService->getRootFolderId();
             $filename = $filenamePrefix . time() . '.pdf';
-            $driveFile = $driveService->uploadFile($folderId, $file, $filename, $file->getMimeType(), true);
+            $driveFile = $driveService->uploadFile($folderId, $file, $filename, $file->getMimeType());
 
             if (!$driveFile || !isset($driveFile->id))
                 throw new \Exception("La subida a Google Drive no retornó un ID válido");
@@ -3336,9 +3336,7 @@ class EquipoController extends Controller
             // No excluir ESPECIAL si el usuario está filtrando explícitamente por uno (drill-down).
             $applyEspecialExclusion = !FrenteTrabajo::isEspecialId($requestedFrenteId);
 
-            // Cache key — v10: el payload trae dos campos nuevos, equipos_gasoil y
-            // equipos_gasolina, para las tarjetas de conteo por combustible.
-            // v9: el consumo total descuenta los chutos que andan con lowboy
+            // Cache key — v9: el consumo total descuenta los chutos que andan con lowboy
             // (ProyeccionCombustible), para dar el MISMO numero que el reporte Excel.
             // v8: el consumo total pasó a sumar equipos + auxiliares y solo
             // cuenta los de GASOIL (antes era un JOIN al catalogo que se comia a los
@@ -3354,7 +3352,7 @@ class EquipoController extends Controller
             // usar auth()->id()/ID_USUARIO — con $user->id todos caían en 'guest' y compartían
             // caché entre usuarios de distinto alcance (fuga de datos). Se hashea también el
             // scope (isLocal + frentes permitidos) por robustez si cambian los permisos.
-            $cacheKey = 'fleet_stats_v10_u' . ($user?->ID_USUARIO ?? 'guest')
+            $cacheKey = 'fleet_stats_v9_u' . ($user?->ID_USUARIO ?? 'guest')
                       . '_f' . ($requestedFrenteId ?: 'all')
                       . '_s' . md5(($isLocal ? 'L' : 'G') . '|' . implode(',', $frentesPermitidos))
                       . '_b' . md5(implode(',', $frentesBloqueados));
@@ -3489,14 +3487,6 @@ class EquipoController extends Controller
 
                 $totalConsumption = (float) $consumoEquipos + (float) $consumoAuxiliares - $descuentoLowboy;
 
-                // Desglose de la flota por combustible, para las dos tarjetas de conteo.
-                // Solo la tabla `equipos`: los auxiliares tienen su propia tarjeta, y meterlos
-                // aqui haria que estas dos cifras no cuadraran nunca con el "Σ Equipos" de al
-                // lado. Por eso NO comparten scope con $totalConsumption, que si suma las dos
-                // tablas porque mide litros, no unidades.
-                $equiposGasoil   = (clone $baseQuery)->where('equipos.COMBUSTIBLE', 'GASOIL')->count();
-                $equiposGasolina = (clone $baseQuery)->where('equipos.COMBUSTIBLE', 'GASOLINA')->count();
-
                 // Mismo corte de edad que los equipos (>= 2025 = nueva) para que los dos
                 // gráficos del dashboard se lean igual. Antes este se agrupaba por
                 // operativo/no operativo: dos gráficos con la misma pinta pero midiendo
@@ -3540,8 +3530,6 @@ class EquipoController extends Controller
                         'fleet_new'         => $fleetNew,
                         'fleet_old'         => $fleetOld,
                         'total_consumption' => number_format((float)$totalConsumption, 2),
-                        'equipos_gasoil'    => $equiposGasoil,
-                        'equipos_gasolina'  => $equiposGasolina,
                         // Totales de auxiliares: alimentan las claves de la cabecera de su
                         // panel, igual que fleet_new/fleet_old alimentan las del de equipos.
                         'aux_new'           => array_sum($auxNewData),
