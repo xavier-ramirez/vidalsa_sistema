@@ -4150,9 +4150,10 @@ body:has(.mapa-page) .main-viewport {
     /* Leyenda fuera en teléfono (pedido del cliente): en una pantalla angosta tapaba mapa
        útil. !important porque el JS le pone display inline al mostrarla/ocultarla. */
     .mapa-leyenda { display: none !important; }
-    /* Se ocultan TODOS los botones de la barra (Ver toda Venezuela, Pantalla completa,
-       Descargar imagen, Frentes de trabajo y Dibujar tubería): solo queda el cuadrado de la
-       lupa, que despliega el buscador.
+    /* Se ocultan TODOS los botones de la barra (Ver toda Venezuela, Pantalla completa y
+       Descargar imagen): solo queda el cuadrado de la lupa, que despliega el buscador.
+       Los de "Frentes de trabajo" y "Dibujar tubería" ya no están en la barra: se quitaron
+       al pasar esas acciones al clic derecho.
        DUPLICA a propósito la regla de @media (pointer: coarse) de más arriba: aquella cubre
        el táctil ancho (tablet) y esta la ventana angosta con ratón. Son dos ejes distintos,
        no la misma condición escrita dos veces — si se borra una, se destapa uno de los casos. */
@@ -4191,38 +4192,11 @@ body:has(.mapa-page) .main-viewport {
        extra, la base ganaba. Ver "Leyenda en teléfono" al final de la sección. */
 }
 
-/* ── Panel de OLEODUCTOS (proyectos) ── */
-.oleo-ctrl .oleo-toggle {
-    background: #fff; border: none; border-radius: 8px; width: 34px; height: 34px;
-    display: flex; align-items: center; justify-content: center; cursor: pointer;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3); color: #0067b1;
-}
-.oleo-ctrl .oleo-toggle:hover { background: #f1f5f9; }
-.oleo-ctrl .oleo-toggle .material-icons { font-size: 20px; }
-.oleo-panel {
-    margin-top: 6px; width: 330px; max-width: 86vw; background: #fff;
-    border-radius: 10px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28); overflow: hidden;
-    font-family: 'Inter', 'Segoe UI', sans-serif;
-}
-.oleo-panel-h { padding: 9px 12px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #fff; background: #0067b1; }
-.oleo-panel-lista { max-height: 190px; overflow-y: auto; }
-.oleo-vacio { padding: 12px; font-size: 12px; color: #94a3b8; text-align: center; }
-.oleo-item { display: flex; align-items: center; gap: 7px; padding: 7px 10px; cursor: pointer; border-bottom: 1px solid #f1f5f9; }
-.oleo-item:hover { background: #f8fafc; }
-/* Proyecto en FOCO: fondo gris (antes azul) y el nombre sigue en negro, no cambia de color. */
-.oleo-item-activo { background: #e9edf2; }
-.oleo-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 0 1px rgba(0,0,0,0.15); }
-/* Nombre del proyecto: negro y de trazo normal (antes 700 azulado, se veía muy grueso). */
-.oleo-nom { flex: 1; font-size: 13px; font-weight: 500; color: #111827; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.oleo-cnt { font-size: 11px; font-weight: 700; color: #64748b; background: #f1f5f9; border-radius: 999px; padding: 1px 7px; }
-.oleo-del { background: transparent; border: none; color: #cbd5e1; font-size: 18px; line-height: 1; cursor: pointer; padding: 0 2px; }
-.oleo-del:hover { color: #ef4444; }
-/* Lápiz de la fila: dibuja la tubería de ESE frente (antes era un botón suelto en la barra).
-   Mismo peso visual que la ✕ para que ninguna de las dos acciones domine. */
-.oleo-draw { background: transparent; border: none; color: #cbd5e1; line-height: 1; cursor: pointer; padding: 0 2px;
-    display: flex; align-items: center; }
-.oleo-draw i { font-size: 17px; }
-.oleo-draw:hover { color: #0067b1; }
+/* El panel de OLEODUCTOS (botón timeline + lista de frentes) se quitó del mapa: todo se
+   gestiona con el clic derecho sobre la vela o sobre la tubería. Con él se fueron sus
+   estilos (.oleo-ctrl, .oleo-toggle, .oleo-panel*, .oleo-item*, .oleo-dot, .oleo-nom,
+   .oleo-cnt, .oleo-del, .oleo-draw, .oleo-vacio). Ojo: las reglas .oleo-save y .oleo-ask
+   de más abajo NO son de ese panel — son del popup de guardar punto y siguen en uso. */
 
 /* Vela (pin de ubicación tipo Google Maps) — el divIcon no debe tener fondo */
 /* Subtitulo del menu de la vela ("En N proyectos"). */
@@ -4273,9 +4247,12 @@ body:has(.mapa-page) .main-viewport {
 .mapa-dibujo-btn:hover { background: #334155; }
 .mapa-dibujo-btn.primary { background: #0067b1; }
 .mapa-dibujo-btn.primary:hover { background: #005699; }
-/* No hay reglas de la barra de dibujo para teléfono: su único disparador es el lápiz de
-   cada frente, dentro del panel "Frentes de trabajo" (.oleo-ctrl en mapa_index.js), que
-   lleva .mapa-ctrl-mobile-hide y está oculto en ≤640px. La barra nunca existe ahí. */
+/* PENDIENTE: la barra de dibujo no tiene reglas para teléfono. Antes daba igual porque su
+   único disparador era el lápiz del panel "Frentes de trabajo", que iba oculto en ≤640px y
+   la barra no llegaba a existir ahí. Al pasar "Editar" al clic derecho de la tubería (que en
+   táctil se dispara con una pulsación larga) SÍ puede aparecer en teléfono, y sin estilos
+   propios. Si se decide que el trazo se retoque también desde el móvil, hay que darle un
+   ancho y un apilado para pantalla angosta. */
 
 /* Popup para guardar un punto en un proyecto */
 .oleo-save { min-width: 210px; }

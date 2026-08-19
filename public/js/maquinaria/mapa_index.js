@@ -2216,29 +2216,6 @@
         // hasta que termina el recálculo.
         map.on('zoomstart', function () { etqCapa.clearLayers(); });
 
-        function oleoRenderLista() {
-            actualizarLeyenda(); // mantiene sincronizada la tabla-leyenda del mapa
-            var cont = document.getElementById('oleoLista');
-            if (!cont) return;
-            var grupos = gruposOrdenados(); // mismo orden que la leyenda y la foto
-            if (!grupos.length) { cont.innerHTML = '<div class="oleo-vacio">Sin frentes aún. Busca un lugar y vincúlalo a un frente.</div>'; return; }
-            cont.innerHTML = grupos.map(function (o) {
-                var act = String(oleoActivo) === String(o.id);
-                // El LÁPIZ vive aquí, en la fila de cada frente, y no en un botón suelto de la
-                // barra: dibujar exige saber SOBRE QUÉ frente, y ese dato solo existe en esta
-                // lista. Antes eran dos botones y el de la barra terminaba abriendo este panel
-                // para preguntar lo mismo. Los puntos sueltos no llevan línea → sin lápiz.
-                var puedeTrazar = PUEDE_EDITAR && !o.suelto;
-                return '<div class="oleo-item' + (act ? ' oleo-item-activo' : '') + '" data-id="' + o.id + '">' +
-                    '<span class="oleo-dot" style="background:' + o.color + '"></span>' +
-                    '<span class="oleo-nom">' + esc(o.nombre) + '</span>' +
-                    '<span class="oleo-cnt">' + (o.puntos ? o.puntos.length : 0) + '</span>' +
-                    (puedeTrazar ? '<button class="oleo-draw" title="Dibujar la tubería de este frente a mano" data-draw="' + o.id + '"><i class="material-icons">gesture</i></button>' : '') +
-                    (PUEDE_EDITAR ? '<button class="oleo-del" title="Borrar" data-del="' + o.id + '">&times;</button>' : '') +
-                '</div>';
-            }).join('');
-        }
-
         // Guarda un punto en el proyecto de un FRENTE (el backend find-or-crea el oleoducto de
         // ese frente) + redibuja. Si el proyecto se creó ahora, lo dibuja; si ya existía, agrega
         // el punto y redibuja. cb(ok).
@@ -2260,7 +2237,7 @@
                         oleoDibujar(oleoMap[oid].data);
                     }
                     oleoActivo = oid;
-                    oleoRenderLista();
+                    actualizarLeyenda();
                     window.toast(idFrente ? 'Ubicación guardada en el frente.' : 'Ubicación guardada sin frente.', 'success');
                     if (cb) cb(true);
                 } else { window.toast('No se pudo guardar la ubicación.', 'error'); if (cb) cb(false); }
@@ -2484,77 +2461,6 @@
         // Panel de control "Proyectos": botón (timeline) que abre la lista de proyectos. Va en la
         // barra TOP-LEFT (se agrega al mapa más abajo). Desde aquí se elige el frente y, con
         // el lápiz de su fila, se dibuja su tubería: es el único control de frentes del mapa.
-        var OleoCtrl = L.Control.extend({
-            options: { position: 'topleft' },
-            onAdd: function () {
-                // mapa-ctrl-mobile-hide: oculto en teléfono (ver FitVE arriba).
-                var wrap = L.DomUtil.create('div', 'oleo-ctrl mapa-ctrl-mobile-hide');
-                wrap.innerHTML =
-                    '<button type="button" class="oleo-toggle" title="Frentes de trabajo (puntos unidos por una línea)"><i class="material-icons">timeline</i></button>' +
-                    '<div class="oleo-panel" style="display:none;">' +
-                        '<div class="oleo-panel-h">Frentes de trabajo</div>' +
-                        '<div id="oleoLista" class="oleo-panel-lista"></div>' +
-                    '</div>';
-                L.DomEvent.disableClickPropagation(wrap);
-                L.DomEvent.disableScrollPropagation(wrap);
-                var panel = wrap.querySelector('.oleo-panel');
-                wrap.querySelector('.oleo-toggle').addEventListener('click', function () { panel.style.display = (panel.style.display === 'none') ? 'block' : 'none'; });
-                // El panel se RECOGE al tocar cualquier otra cosa (otro control, el mapa…).
-                // disableClickPropagation(wrap) frena los clics de dentro, así que si el evento
-                // llega hasta aquí es porque fue fuera del panel.
-                // Se da de baja SOLO al ver que su panel ya no está en el documento, además de
-                // en onRemove: al navegar por la SPA el DOM del mapa se reemplaza sin que nadie
-                // llame a map.remove(), así que onRemove puede no llegar nunca y cada visita a
-                // /mapa dejaría otro listener vivo en `document`. Mismo patrón de autolimpieza
-                // que los menús contextuales de este archivo.
-                var cerrarFuera = function () {
-                    if (!document.body.contains(panel)) {
-                        document.removeEventListener('click', cerrarFuera);
-                        return;
-                    }
-                    panel.style.display = 'none';
-                };
-                this._cerrarFuera = cerrarFuera;
-                document.addEventListener('click', cerrarFuera);
-                wrap.querySelector('#oleoLista').addEventListener('click', function (e2) {
-                    // Lápiz de la fila: entra a dibujar la tubería DE ESE frente.
-                    var draw = e2.target.closest ? e2.target.closest('[data-draw]') : null;
-                    if (draw) {
-                        var idd2 = draw.getAttribute('data-draw');
-                        oleoActivo = idd2; oleoRenderLista();
-                        panel.style.display = 'none';   // estorba encima del trazo
-                        entrarDibujo(idd2);
-                        return;
-                    }
-                    var del = e2.target.closest ? e2.target.closest('[data-del]') : null;
-                    if (del) {
-                        var idd = del.getAttribute('data-del');
-                        if (!confirm('¿Borrar este frente del mapa y todos sus puntos?')) return;
-                        // Optimista: quita del mapa/lista YA (no espera al servidor) → se siente instantáneo.
-                        if (oleoMap[idd]) {
-                            (oleoMap[idd].lines || []).forEach(function (l) { map.removeLayer(l); });
-                            (oleoMap[idd].markers || []).forEach(function (m) { map.removeLayer(m); });
-                            delete oleoMap[idd];
-                            if (String(oleoActivo) === String(idd)) oleoActivo = null;
-                            oleoRenderLista();
-                        }
-                        spinOn();
-                        oleoApi('/mapa/oleoductos/' + idd, 'DELETE').then(function () {
-                            spinOff(); window.toast('Frente borrado.', 'success');
-                        }).catch(function () { spinOff(); });
-                        return;
-                    }
-                    var item = e2.target.closest ? e2.target.closest('.oleo-item') : null;
-                    if (item) { oleoActivo = item.getAttribute('data-id'); oleoRenderLista(); }
-                });
-                return wrap;
-            },
-            onRemove: function () {
-                if (this._cerrarFuera) { document.removeEventListener('click', this._cerrarFuera); this._cerrarFuera = null; }
-            }
-        });
-        // OleoCtrl (Frentes de trabajo) se agrega al mapa MÁS ABAJO, en la barra top-left.
-
         // ══════════════════════════════════════════════════════════════════════
         //  EDITOR DE RECORRIDO (tubería): parte UNIENDO los puntos del proyecto (o el
         //  recorrido ya dibujado) y lo AJUSTAS: arrastras los vértices y usas el "+"
@@ -2607,7 +2513,8 @@
             }
         }
 
-        // Se entra a dibujar desde el lápiz de cada fila del panel de frentes (oleoRenderLista).
+        // Se entra a dibujar con el clic derecho sobre una tubería ya trazada → "Editar".
+        // La línea se CREA con "Unir los puntos" (menuVela); esto es para retocarla a mano.
         function entrarDibujo(id) {
             if (!id || !oleoMap[id]) { window.toast('Selecciona un frente primero.', 'error'); return; }
             // Ya se estaba editando. Antes esto era un `return` MUDO: si el modo quedaba
@@ -2635,7 +2542,6 @@
             if (oleoMap[id]) { (oleoMap[id].lines || []).forEach(function (l) { map.removeLayer(l); }); } // oculta la tubería normal mientras se edita
             edRender();
             mostrarBarraDibujo();
-            var panel = document.querySelector('.oleo-panel'); if (panel) panel.style.display = 'none';
         }
         function salirDibujo() {
             edMode = false;
@@ -2679,6 +2585,28 @@
                 oleoDibujar(oleoMap[oleoId].data);
                 window.toast('Puntos unidos.', 'success');
             });
+        }
+        // Borra el proyecto entero del mapa y todos sus puntos. Vivía en la × de la lista de
+        // frentes; al quitar ese panel se mudó al clic derecho de la vela, que es el único
+        // sitio que sigue teniendo un proyecto a mano.
+        function eliminarProyecto(id) {
+            var g = oleoMap[id]; if (!g) return;
+            if (!confirm('¿Borrar "' + (g.data.nombre || 'este frente') + '" del mapa y todos sus puntos?')) return;
+            // Si se está editando su trazo hay que salir primero, o el editor se queda vivo
+            // sobre un proyecto que ya no existe. salirDibujo repinta, y oleoDibujar REEMPLAZA
+            // la entrada de oleoMap, así que las capas se releen después de eso y no antes.
+            if (edMode && String(edId) === String(id)) salirDibujo();
+            g = oleoMap[id]; if (!g) return;
+            // Optimista: quita del mapa YA (no espera al servidor) → se siente instantáneo.
+            (g.lines || []).forEach(function (l) { map.removeLayer(l); });
+            (g.markers || []).forEach(function (m) { map.removeLayer(m); });
+            delete oleoMap[id];
+            if (String(oleoActivo) === String(id)) oleoActivo = null;
+            actualizarLeyenda();
+            spinOn();
+            oleoApi('/mapa/oleoductos/' + id, 'DELETE').then(function () {
+                spinOff(); window.toast('Frente borrado.', 'success');
+            }).catch(function () { spinOff(); });
         }
         function mostrarBarraDibujo() {
             var old = document.getElementById('mapaDibujoBar'); if (old) old.remove();
@@ -2732,8 +2660,10 @@
             });
         }
 
-        // Menú de CLIC DERECHO sobre una VELA (punto): unir los puntos del proyecto con una
-        // línea, meter el punto en otro proyecto o quitarlo de este.
+        // Menú de CLIC DERECHO sobre una VELA (punto). Es el ÚNICO sitio desde el que se
+        // gestionan los proyectos del mapa, porque el panel "Frentes de trabajo" ya no existe:
+        // unir los puntos con una línea, meter el punto en otro proyecto, quitarlo de este o
+        // borrar el proyecto entero.
         function menuVela(ev, oleoId, punto) {
             if (ev.originalEvent) { ev.originalEvent.preventDefault(); }
             L.DomEvent.stop(ev);
@@ -2742,24 +2672,32 @@
             // Si el punto está compartido se dice en cuántos proyectos está: así queda claro que
             // "quitar" solo lo saca de ESTE, no lo borra de los demás.
             var enVarios = (punto.proyectos || 1) > 1;
-            // "Unir los puntos": traza la línea por los puntos de ESTE proyecto (el del pin sobre
-            // el que se hizo clic derecho, que es lo que desambigua cuando el punto está en
-            // varios). Solo si el grupo es un tendido y hay al menos dos puntos que unir.
+            // El proyecto es el del pin sobre el que se hizo clic derecho: eso es lo que
+            // desambigua cuando el mismo punto está en varios.
             var oVela = (oleoMap[oleoId] || {}).data || {};
-            var puedeUnir = !oVela.suelto && (oVela.puntos || []).length >= 2;
+            // Las opciones se arman como lista para que el alto del menú salga del número real
+            // de botones y no de una constante que se olvida al añadir uno.
+            var items = [];
+            // Unir/rehacer: solo si el grupo es un tendido y hay al menos dos puntos que unir.
+            if (!oVela.suelto && (oVela.puntos || []).length >= 2) {
+                items.push({ a: 'unir', ico: 'timeline', txt: oVela.recorrido ? 'Rehacer la línea' : 'Unir los puntos' });
+            }
+            items.push({ a: 'vinc', ico: 'playlist_add', txt: 'Agregar a otro proyecto' });
+            items.push({ a: 'del', ico: 'delete_outline', peligro: true, txt: enVarios ? 'Quitar de este proyecto' : 'Eliminar Punto' });
+            // Las ubicaciones sueltas no son un proyecto: ese grupo es fijo y no se borra.
+            if (!oVela.suelto) {
+                items.push({ a: 'delproy', ico: 'layers_clear', peligro: true, txt: 'Borrar el proyecto' });
+            }
             menu.innerHTML =
                 '<div class="mapa-ctx-title">' + esc(punto.nombre || 'Punto') +
                     (enVarios ? '<span class="mapa-ctx-sub">En ' + punto.proyectos + ' proyectos</span>' : '') + '</div>' +
-                (puedeUnir
-                    ? '<button type="button" class="mapa-ctx-item" data-a="unir"><i class="material-icons">timeline</i>' +
-                        (oVela.recorrido ? 'Rehacer la línea' : 'Unir los puntos') + '</button>'
-                    : '') +
-                '<button type="button" class="mapa-ctx-item" data-a="vinc"><i class="material-icons">playlist_add</i>Agregar a otro proyecto</button>' +
-                '<button type="button" class="mapa-ctx-item mapa-ctx-danger" data-a="del"><i class="material-icons">delete_outline</i>' +
-                    (enVarios ? 'Quitar de este proyecto' : 'Eliminar Punto') + '</button>';
+                items.map(function (it) {
+                    return '<button type="button" class="mapa-ctx-item' + (it.peligro ? ' mapa-ctx-danger' : '') +
+                        '" data-a="' + it.a + '"><i class="material-icons">' + it.ico + '</i>' + it.txt + '</button>';
+                }).join('');
             var x = ev.originalEvent ? ev.originalEvent.clientX : 0, y = ev.originalEvent ? ev.originalEvent.clientY : 0;
             menu.style.left = Math.min(x, window.innerWidth - 200) + 'px';
-            menu.style.top = Math.min(y, window.innerHeight - (puedeUnir ? 140 : 100)) + 'px';
+            menu.style.top = Math.min(y, window.innerHeight - (56 + items.length * 38)) + 'px';
             window.raizVisible().appendChild(menu);
             menu.addEventListener('click', function (e2) {
                 var b = e2.target.closest ? e2.target.closest('.mapa-ctx-item') : null; if (!b) return;
@@ -2768,6 +2706,7 @@
                 if (a === 'del') eliminarPunto(oleoId, punto);
                 else if (a === 'vinc') popupVincularProyecto(punto);
                 else if (a === 'unir') unirPuntos(oleoId);
+                else if (a === 'delproy') eliminarProyecto(oleoId);
             });
             var cerrar = function () { menu.remove(); document.removeEventListener('click', cerrar); };
             setTimeout(function () { document.addEventListener('click', cerrar); }, 0);
@@ -2850,7 +2789,7 @@
                         oleoDibujar(oleoMap[oid].data);
                     }
                     sincronizarConteoProyectos(punto.id, res.punto.proyectos);
-                    oleoRenderLista();
+                    actualizarLeyenda();
                     window.toast('Punto agregado al proyecto.', 'success');
                 }).catch(function () {
                     spinOff();
@@ -2883,7 +2822,7 @@
                 });
                 // Al quedar en menos proyectos, las copias que sobreviven deben reflejar el conteo.
                 if (!res.borrado) sincronizarConteoProyectos(punto.id, res.quedan);
-                oleoRenderLista(); // refresca la leyenda
+                actualizarLeyenda();
                 window.toast(res.borrado ? 'Punto eliminado.' : 'Punto quitado de este proyecto.', 'success');
             }).catch(function () { spinOff(); window.toast('No se pudo quitar el punto.', 'error'); });
         }
@@ -2928,7 +2867,8 @@
             return items.findIndex(function (o) { return !proyColapsados[o.id]; });
         }
 
-        // Tabla-leyenda en el mapa (se sincroniza desde oleoRenderLista).
+        // Tabla-leyenda en el mapa. La repinta actualizarLeyenda(), que se llama cada vez que
+        // cambian los proyectos o sus puntos (guardar, vincular, quitar, borrar, carga inicial).
         var LeyendaCtrl = L.Control.extend({
             options: { position: 'bottomleft' },
             onAdd: function () {
@@ -3268,11 +3208,11 @@
         });
         map.addControl(new OjoCtrl());
 
-        // El botón suelto del LÁPIZ ya no existe: hacía lo mismo que este panel. Dibujar exige
-        // saber sobre QUÉ frente, dato que solo está en la lista, así que aquel botón acababa
-        // abriendo este mismo panel para preguntarlo. Ahora el lápiz es una acción por fila
-        // (ver oleoRenderLista) y queda un solo control en la barra.
-        map.addControl(new OleoCtrl()); // "Frentes de trabajo" (timeline), barra top-left
+        // Aquí vivía el control "Frentes de trabajo" (el botón timeline y su panel). Se quitó:
+        // todo lo que hacía se pide ahora con el clic derecho, que además ya sabe SOBRE QUÉ
+        // proyecto se está actuando —el del pin— sin tener que preguntarlo en una lista.
+        // Sobre la vela: unir los puntos, agregar el punto a otro proyecto, quitarlo y borrar
+        // el proyecto. Sobre la tubería: editar el trazo a mano o eliminarlo.
 
         // Exportación con MARCO DE RECORTE: muestra un recuadro (aspecto de la hoja) para
         // cuadrar; se exporta EXACTAMENTE lo que quede dentro del marco.
@@ -4182,7 +4122,7 @@
             // discrepar por acentos o mayúsculas.
             (res && res.oleoductos ? res.oleoductos : []).forEach(function (o) { oleoMap[o.id] = { data: o }; });
             gruposOrdenados().forEach(oleoDibujar);
-            oleoRenderLista();
+            actualizarLeyenda();
             // Recalcular las etiquetas cuando la escala/vista ya se asentó (el setView inicial no
             // dispara moveend, y la barra de escala se renderiza un instante después).
             setTimeout(function () { declutterVelas(true); }, 300);
