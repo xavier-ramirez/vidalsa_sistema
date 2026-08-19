@@ -1143,65 +1143,22 @@ class AlmacenController extends Controller
     // ─────────────────────────────────────────────────────────────
 
     /**
-     * Bitácora de movimientos de inventario.
-     * Filtros: id_almacen, search (código/nombre del producto), id_producto (exacto),
-     *          tipo (ENTRADA|SALIDA|AJUSTE|TRASPASO_ENTRADA|TRASPASO_SALIDA), id_frente, desde, hasta.
+     * Filtros de la BITÁCORA de movimientos (producto, tipo, nota, frente y periodo), en un
+     * punto único. Hoy sólo lo usa la pantalla —movimientos()—; está aparte para que la
+     * exportación a Excel de la bitácora, cuando se haga, filtre por aquí en vez de armar su
+     * propia cadena: si cada una arma la suya, el archivo acaba trayendo filas que la
+     * pantalla no muestra, que es justo lo que hace inservible un export.
      *
-     *  - HTML normal → página completa (shell + filtros + primera página de la tabla + contador).
-     *  - wantsJson() → { html (filas <tr>), pagination, total } para los filtros/paginación por AJAX.
+     * NO incluye el filtro de ALMACÉN: ese depende de la lista de almacenes visibles del
+     * usuario, que cada método ya calcula por su lado (y en notas() se aplica sobre una
+     * consulta agrupada).
      */
-    public function movimientos(Request $request)
+    private function aplicarFiltrosMovimientos($q, Request $request): void
     {
-        // Lista de almacenes visibles para el usuario: la usamos (a) para validar el
-        // default-por-frente, (b) para acotar la query cuando se ve "TODOS LOS ALMACENES"
-        // y (c) para pintar el dropdown de filtro. Una sola consulta por request.
-        $almacenes    = Almacen::visiblesPara($request->user())->orderBy('TIPO')->orderBy('NOMBRE')->get(['ID_ALMACEN', 'NOMBRE', 'TIPO']);
-        $visiblesIds  = $almacenes->pluck('ID_ALMACEN');
-
-        // Guard: LOCAL sin almacenes visibles → redirigir al menu con notificacion.
-        // (Mismo razonamiento que index(): un LOCAL sin almacen asignado no puede tomar
-        // ninguna accion util en la bitacora, mejor avisarle que falta configuracion.)
-        // "Restringido" = criterio ÚNICO Almacen::usuarioEsGlobal (== Usuario::veTodosLosFrentes).
-        if (!$request->wantsJson() && $almacenes->isEmpty() && !Almacen::usuarioEsGlobal($request->user())) {
-            return redirect()->route('menu')->with('flash_toast', [
-                'type'    => 'error',
-                'message' => 'Tu frente no tiene un almacén registrado. Avisa al administrador para que asocie un almacén a tu frente.',
-            ]);
-        }
-
-        // Default suave del filtro de almacén — TODOS los usuarios abren con UN almacén
-        // preseleccionado, nunca con "Todos". El usuario que quiere ver todos elige el
-        // valor explicito (X o "Todos" en el dropdown).
-        //   1) Si el cliente mando id_almacen (filled), respetamos.
-        //   2) Sino, intentamos el almacen ligado al frente (almacenPorDefecto).
-        //   3) Fallback: el PRIMER almacen visible — cubre usuarios GLOBAL sin frente
-        //      (super.admin) que sino abrian con "Todos" (no es lo que quiere el cliente).
-        // Validamos que el default sea VISIBLE para evitar un filtro fantasma que oculte
-        // los movimientos del usuario.
-        if (!$request->filled('id_almacen')) {
-            $idDef = $request->user()?->almacenPorDefecto();
-            if (!$idDef && $visiblesIds->isNotEmpty()) {
-                $idDef = (int) $visiblesIds->first();
-            }
-            if ($idDef && $visiblesIds->contains((int) $idDef)) {
-                $request->merge(['id_almacen' => $idDef]);
-            }
-        }
-
-        $q = MovimientoInventario::query()
-            ->with(['producto:ID_PRODUCTO,CODIGO,NOMBRE,UM', 'almacen:ID_ALMACEN,NOMBRE,TIPO', 'almacenContraparte:ID_ALMACEN,NOMBRE', 'usuario:ID_USUARIO,NOMBRE_COMPLETO', 'frente:ID_FRENTE,NOMBRE_FRENTE']);
-
-        if ($request->filled('id_almacen') && $request->input('id_almacen') !== 'all') {
-            $idAlmacen = $request->integer('id_almacen');
-            $this->assertPuedeVerAlmacen($request, $idAlmacen);
-            $q->where('ID_ALMACEN', $idAlmacen);
-        } else {
-            // Limitar a almacenes visibles para el usuario.
-            $q->whereIn('ID_ALMACEN', $visiblesIds);
-        }
         // Filtro de producto (id_producto_in → id_producto → search) en su punto Único, para
         // que la bitácora y el ranking de consumo de esta misma pantalla filtren igual.
         $this->aplicarFiltroProductoMovimientos($q, $request);
+
         if ($request->filled('tipo') && $request->input('tipo') !== 'all') {
             // Filtro Tipo SIMPLIFICADO a 2 grupos (Entradas / Salidas). El frontend manda
             // las claves de grupo ENTRADAS/SALIDAS; aquí se pliegan los traspasos y las
@@ -1229,6 +1186,7 @@ class AlmacenController extends Controller
                 $q->where('TIPO', $tipoReq);
             }
         }
+
         // Filtro "Nota de entrega": matchea el N° de Nota de Entrega (NUMERO_NOTA, salidas)
         // O la referencia/nota del proveedor (REFERENCIA, entradas) — LIKE en ambos.
         if ($request->filled('nota')) {
@@ -1238,10 +1196,92 @@ class AlmacenController extends Controller
                   ->orWhere('REFERENCIA', 'like', "%{$nota}%");
             });
         }
+
         if ($request->filled('id_frente') && $request->input('id_frente') !== 'all') {
             $q->where('ID_FRENTE', $request->integer('id_frente'));
         }
+
         $q->periodo($request->input('desde'), $request->input('hasta'));
+    }
+
+    /**
+     * Bitácora de movimientos de inventario.
+     *
+     * Filtros: id_almacen, los de aplicarFiltrosMovimientos() (producto, tipo, nota, frente
+     * y periodo) y el orden. El de almacén se aplica aquí y no en el punto común porque
+     * depende de los almacenes visibles del usuario, que cada método calcula por su lado.
+     *
+     *  - HTML normal → página completa (shell + filtros + primera página de la tabla + contador).
+     *  - wantsJson() → { html (filas <tr>), pagination, total } para los filtros/paginación por AJAX.
+     */
+    /**
+     * Default suave del filtro de almacén — TODOS los usuarios abren con UN almacén
+     * preseleccionado, nunca con "Todos". El que quiere ver todos elige el valor explícito.
+     *   1) Si el cliente mandó id_almacen (filled), se respeta.
+     *   2) Si no, el almacén ligado al frente (almacenPorDefecto).
+     *   3) Fallback: el PRIMER almacén visible — cubre a los GLOBAL sin frente (super.admin),
+     *      que si no abrirían con "Todos" (no es lo que quiere el cliente).
+     * Se valida que el default sea VISIBLE para no dejar un filtro fantasma que oculte los
+     * movimientos del usuario. Escribe en el request, así el resto del flujo lo ve.
+     */
+    private function resolverAlmacenPorDefecto(Request $request, $visiblesIds): void
+    {
+        if ($request->filled('id_almacen')) return;
+
+        $idDef = $request->user()?->almacenPorDefecto();
+        if (!$idDef && $visiblesIds->isNotEmpty()) {
+            $idDef = (int) $visiblesIds->first();
+        }
+        if ($idDef && $visiblesIds->contains((int) $idDef)) {
+            $request->merge(['id_almacen' => $idDef]);
+        }
+    }
+
+    /**
+     * La consulta de la BITÁCORA ya filtrada: alcance de almacenes + el resto de filtros.
+     * Punto único compartido por la pantalla y su exportación a Excel — si cada una armara
+     * la suya, el archivo acabaría trayendo filas que la pantalla no muestra.
+     */
+    private function queryMovimientosFiltrada(Request $request, $visiblesIds)
+    {
+        $q = MovimientoInventario::query()
+            ->with(['producto:ID_PRODUCTO,CODIGO,NOMBRE,UM', 'almacen:ID_ALMACEN,NOMBRE,TIPO', 'almacenContraparte:ID_ALMACEN,NOMBRE', 'usuario:ID_USUARIO,NOMBRE_COMPLETO', 'frente:ID_FRENTE,NOMBRE_FRENTE']);
+
+        if ($request->filled('id_almacen') && $request->input('id_almacen') !== 'all') {
+            $idAlmacen = $request->integer('id_almacen');
+            $this->assertPuedeVerAlmacen($request, $idAlmacen);
+            $q->where('ID_ALMACEN', $idAlmacen);
+        } else {
+            // Limitar a almacenes visibles para el usuario.
+            $q->whereIn('ID_ALMACEN', $visiblesIds);
+        }
+
+        $this->aplicarFiltrosMovimientos($q, $request);
+
+        return $q;
+    }
+
+    public function movimientos(Request $request)
+    {
+        // Lista de almacenes visibles para el usuario: la usamos (a) para validar el
+        // default-por-frente, (b) para acotar la query cuando se ve "TODOS LOS ALMACENES"
+        // y (c) para pintar el dropdown de filtro. Una sola consulta por request.
+        $almacenes    = Almacen::visiblesPara($request->user())->orderBy('TIPO')->orderBy('NOMBRE')->get(['ID_ALMACEN', 'NOMBRE', 'TIPO']);
+        $visiblesIds  = $almacenes->pluck('ID_ALMACEN');
+
+        // Guard: LOCAL sin almacenes visibles → redirigir al menu con notificacion.
+        // (Mismo razonamiento que index(): un LOCAL sin almacen asignado no puede tomar
+        // ninguna accion util en la bitacora, mejor avisarle que falta configuracion.)
+        // "Restringido" = criterio ÚNICO Almacen::usuarioEsGlobal (== Usuario::veTodosLosFrentes).
+        if (!$request->wantsJson() && $almacenes->isEmpty() && !Almacen::usuarioEsGlobal($request->user())) {
+            return redirect()->route('menu')->with('flash_toast', [
+                'type'    => 'error',
+                'message' => 'Tu frente no tiene un almacén registrado. Avisa al administrador para que asocie un almacén a tu frente.',
+            ]);
+        }
+
+        $this->resolverAlmacenPorDefecto($request, $visiblesIds);
+        $q = $this->queryMovimientosFiltrada($request, $visiblesIds);
 
         // Petición SOLO-consumo (consumo_only): el frontend carga la TABLA aparte con
         // skip_consumo para que aparezca rápido, y pide el ranking de consumo EN PARALELO.
