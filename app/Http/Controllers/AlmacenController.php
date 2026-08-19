@@ -1144,10 +1144,10 @@ class AlmacenController extends Controller
 
     /**
      * Filtros de la BITÁCORA de movimientos (producto, tipo, nota, frente y periodo), en un
-     * punto único. Hoy sólo lo usa la pantalla —movimientos()—; está aparte para que la
-     * exportación a Excel de la bitácora, cuando se haga, filtre por aquí en vez de armar su
-     * propia cadena: si cada una arma la suya, el archivo acaba trayendo filas que la
-     * pantalla no muestra, que es justo lo que hace inservible un export.
+     * punto único. Llegan aquí por queryMovimientosFiltrada(), que usan tanto la pantalla
+     * —movimientos()— como la exportación a Excel —movimientosExport()—: si cada una armara
+     * su propia cadena, el archivo acabaría trayendo filas que la pantalla no muestra, que
+     * es justo lo que hace inservible un export.
      *
      * NO incluye el filtro de ALMACÉN: ese depende de la lista de almacenes visibles del
      * usuario, que cada método ya calcula por su lado (y en notas() se aplica sobre una
