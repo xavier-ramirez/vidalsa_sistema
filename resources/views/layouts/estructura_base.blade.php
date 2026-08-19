@@ -1139,7 +1139,6 @@
                     });
                     return Promise.all(ps).catch(function () {});
                 }
-                function hayRenders() { return Object.keys(renders).length > 0; }
                 // El banner tiene UN botón (#netStatusAction) reutilizado según el estado:
                 // sin conexión → "Trabajar sin conexión" (activarOffline); reconectado mientras
                 // se trabajaba offline → "Activar uso con internet" (volverOnline).
@@ -1148,11 +1147,23 @@
                     accionBoton = handler;
                     if (action) { action.textContent = texto; action.style.display = 'inline-flex'; }
                 }
-                // Ofrecer (NO activar) el modo offline: mostramos el botón "Trabajar sin
-                // conexión" SOLO si el módulo actual tiene vista offline registrada. El modo
-                // es OPT-IN: NINGÚN dato local se carga hasta que el usuario pulse el botón.
+                // Ofrecer (NO activar) el modo offline. El modo es OPT-IN: NINGÚN dato local
+                // se carga hasta que el usuario pulse el botón.
+                //
+                // El botón se ofrece SIEMPRE, tenga o no vista offline el módulo actual. Antes
+                // se escondía si no había render registrado, y eso dejaba sin salida el caso
+                // normal: entras sin internet, aterrizas en /menu —que no registra vista— y no
+                // tienes botón; para llegar a uno de los cuatro módulos que sí lo registran
+                // (almacen, equipos, movilizaciones, movimientos) dependes de que esa página ya
+                // esté en la caché del service worker. En un equipo nuevo no lo está, así que el
+                // modo offline era sencillamente inalcanzable.
+                //
+                // Ofrecerlo aquí es ademas lo correcto de significado: "trabajar sin conexión"
+                // es un estado de TODA la app; los renders solo deciden qué se repinta. Desde
+                // /menu no hay tabla que pintar, correrRenders() resuelve al instante y el
+                // usuario queda en modo offline con el banner ámbar y la fecha de su copia,
+                // listo para navegar a los módulos que sí tienen vista.
                 function ofrecerOffline() {
-                    if (!hayRenders()) { if (action) action.style.display = 'none'; return; }
                     configurarBoton('Trabajar sin conexión', activarOffline);
                 }
                 // Pinta el banner ámbar "Trabajando sin conexión · <fecha de la copia local>".
