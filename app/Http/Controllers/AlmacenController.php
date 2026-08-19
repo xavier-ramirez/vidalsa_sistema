@@ -2054,9 +2054,17 @@ class AlmacenController extends Controller
             $request->filled('hasta') ? 'Hasta: ' . $request->input('hasta') : null,
         ]);
 
+        // Sin N° NOTA, REFERENCIA, SOLICITANTE, MOTIVO ni USUARIO: son el papeleo del
+        // movimiento, no el movimiento. La bitácora que se comparte responde qué salió o
+        // entró, cuánto y de dónde a dónde.
+        //
+        // Nada se pierde por quitarlos del archivo: en la pantalla, N° NOTA / REFERENCIA /
+        // MOTIVO siguen en la columna "Ref" y el usuario en el tooltip "Registrado por"
+        // (ver partials/kardex_rows). SOLICITANTE nunca estuvo en la bitácora: vive en la
+        // vista de Notas y en el PDF de la nota de entrega.
         $cols = ['FECHA', 'TIPO', 'CÓDIGO', 'PRODUCTO', 'UM', 'CANTIDAD', 'ANTERIOR', 'RESULTANTE',
-                 'ALMACÉN', 'CONTRAPARTE', 'FRENTE', 'N° NOTA', 'REFERENCIA', 'SOLICITANTE', 'MOTIVO', 'USUARIO'];
-        $ultima = 'P';   // 16 columnas
+                 'ALMACÉN', 'CONTRAPARTE', 'FRENTE'];
+        $ultima = 'K';   // 11 columnas
 
         $hoja->setCellValue('A1', 'BITÁCORA DE MOVIMIENTOS');
         $hoja->mergeCells("A1:{$ultima}1");
@@ -2086,11 +2094,6 @@ class AlmacenController extends Controller
                 $m->almacen->NOMBRE ?? '',
                 $m->almacenContraparte->NOMBRE ?? '',
                 $m->frente->NOMBRE_FRENTE ?? '',
-                $m->NUMERO_NOTA ?? '',
-                $m->REFERENCIA ?? '',
-                $m->SOLICITANTE ?? '',
-                $m->MOTIVO ?? '',
-                $m->usuario->NOMBRE_COMPLETO ?? '',
             ], null, 'A' . $fila++);
         }
 

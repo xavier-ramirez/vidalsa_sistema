@@ -84,4 +84,46 @@ class ExportMovimientosAlmacenTest extends MySqlTestCase
     {
         $this->get(self::RUTA)->assertRedirect();
     }
+
+    /**
+     * ABRE el XLSX y lee sus celdas. Las otras pruebas comprueban que el archivo sea un ZIP
+     * valido; esta comprueba que DENTRO estan las columnas pedidas, en su orden, y que no
+     * quedo ninguna de las que se quitaron. Sin esto, cambiar $cols sin tocar la fila de
+     * datos (o al reves) pasaba desapercibido: el archivo abre igual, solo que con la
+     * cabecera corrida respecto a los valores.
+     */
+    public function test_el_archivo_lleva_las_columnas_pedidas(): void
+    {
+        $resp = $this->actingAs($this->usuarioAdmin())->get(self::RUTA);
+        $resp->assertOk();
+
+        $tmp = tempnam(sys_get_temp_dir(), 'mov') . '.xlsx';
+        file_put_contents($tmp, $this->bytes($resp->baseResponse));
+
+        $hoja = \PhpOffice\PhpSpreadsheet\IOFactory::load($tmp)->getActiveSheet();
+
+        // Fila 4 = encabezados (1 titulo, 2 filtros, 3 en blanco).
+        $encabezados = [];
+        foreach (range('A', 'K') as $col) {
+            $encabezados[] = (string) $hoja->getCell($col . '4')->getValue();
+        }
+        // La L tiene que estar vacia: si algo escribe ahi, sobra una columna.
+        $sobrante = (string) $hoja->getCell('L4')->getValue();
+        @unlink($tmp);
+
+        $this->assertSame(
+            ['FECHA', 'TIPO', 'CÓDIGO', 'PRODUCTO', 'UM', 'CANTIDAD', 'ANTERIOR', 'RESULTANTE',
+             'ALMACÉN', 'CONTRAPARTE', 'FRENTE'],
+            $encabezados,
+            'Las columnas del Excel no son las pedidas o cambiaron de orden.'
+        );
+
+        $this->assertSame('', $sobrante, "Sobra una columna despues de FRENTE: \"$sobrante\".");
+
+        foreach (['N° NOTA', 'REFERENCIA', 'SOLICITANTE', 'MOTIVO', 'USUARIO'] as $quitada) {
+            $this->assertNotContains($quitada, $encabezados, "La columna $quitada debia estar quitada.");
+        }
+
+        $this->assertSame('MOVIMIENTOS', $hoja->getTitle());
+    }
 }
