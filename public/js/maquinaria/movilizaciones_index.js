@@ -4,7 +4,7 @@
  * Compatible con SPA (navegacion.js): se inicializa en cada carga de contenido.
  */
 
-// ─── Función principal AJAX ──────────────────────────────────────────────────
+// ─── Filtros compartidos ─────────────────────────────────────────────────────
 // Filtros ACTUALES de la pantalla, leídos de sus propios controles.
 //
 // Punto ÚNICO: los usan la tabla (loadMovilizaciones) y la exportación a Excel
@@ -70,6 +70,7 @@ window._exportarHistorial = function () {
     setTimeout(function () { if (a.parentNode) a.parentNode.removeChild(a); }, 800);
 };
 
+// ─── Función principal AJAX ──────────────────────────────────────────────────
 window.loadMovilizaciones = async function (pageUrl = null) {
     const tableBody = document.getElementById('movilizacionesTableBody');
     if (!tableBody) return; // No estamos en la sección de movilizaciones

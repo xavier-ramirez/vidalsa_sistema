@@ -211,7 +211,10 @@
 
             </div>{{-- /mv-search-adv-row --}}
 
-            {{-- Estilo de los ítems del menú Acciones.
+            {{-- Estilo de los botones que se OCULTAN al pulsarlos: los ítems del menú
+                 Acciones y los de la barra flotante de selección. Van juntos porque comparten
+                 el motivo, y separarlos obligaría a repetir esta explicación.
+
                  Vive en CSS y NO en `onmouseover`/`onmouseout` como estaba: al pulsar un
                  ítem el menú se oculta en el acto, así que el `mouseout` NUNCA llegaba a
                  dispararse y el fondo gris se quedaba escrito en el `style=` del botón. La
