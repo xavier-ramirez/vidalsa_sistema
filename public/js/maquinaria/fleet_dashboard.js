@@ -103,6 +103,14 @@ function updateStatCards(stats) {
     if (fleetOld) fleetOld.textContent = stats.fleet_old || 0;
     if (consumption) consumption.textContent = stats.total_consumption || 0;
 
+    // Desglose por combustible. Cuenta SOLO la tabla de equipos, así que las dos
+    // cifras suman como mucho el "Σ Equipos" de al lado (la diferencia son los
+    // eléctricos, los 'NO APLICA' y los que aún no tienen combustible cargado).
+    const gasoil = document.getElementById('stat_gasoil_count');
+    const gasolina = document.getElementById('stat_gasolina_count');
+    if (gasoil) gasoil.textContent = stats.equipos_gasoil || 0;
+    if (gasolina) gasolina.textContent = stats.equipos_gasolina || 0;
+
     // Claves del panel de auxiliares. La de "Sin año" solo se muestra si hay alguno:
     // con el año cargado en todos, la cabecera queda igual que la de equipos.
     const auxNew = document.getElementById('stat_aux_new');
@@ -229,7 +237,8 @@ window.openFleetDashboard = async function () {
         modal.style.display = 'flex';
         const spinner = document.getElementById('fleetDashboardSpinner');
         if (spinner) spinner.style.display = 'none';
-        ['stat_total', 'stat_aux_total', 'stat_consumption'].forEach((id) => {
+        ['stat_total', 'stat_aux_total', 'stat_consumption',
+         'stat_gasoil_count', 'stat_gasolina_count'].forEach((id) => {
             const e = document.getElementById(id);
             if (e) e.textContent = '--';
         });

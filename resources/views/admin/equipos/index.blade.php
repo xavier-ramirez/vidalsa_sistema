@@ -1323,8 +1323,9 @@
         .fdm-cam:hover { background: #f1f5f9; }
         .fdm-cam .material-icons { font-size: 17px; }
 
-        /* ── Tarjetas KPI (Σ Equipos / Σ Auxiliares / Gasoil estimado) ───────
-           Las tres son IDÉNTICAS salvo etiqueta e id, con el acento azul del proyecto.
+        /* ── Tarjetas KPI (Σ Equipos / Σ Auxiliares / Gasoil máx L/día, y debajo
+           Equipos a gasoil / Equipos a gasolina) ─────────────────────────────
+           Las cinco son IDÉNTICAS salvo etiqueta e id, con el acento azul del proyecto.
            (Flota nueva/antigua ya no son tarjetas: viven como claves de serie dentro de
            #fdm-panel-age.) El estilo vive aquí y no en styles inline: si no, son copias
            byte a byte.
@@ -1381,8 +1382,8 @@
                el override de móvil, para que no cambie de tamaño entre PC y teléfono. */
             font-size: 12px;
             line-height: 1.25;
-            /* Se parte en dos lineas cuando hace falta (p. ej. "Gasoil estimado por dia (L)"
-               en una columna estrecha). Es el texto el que cede, no la cifra. min-width:0 para
+            /* Se parte en dos lineas cuando hace falta (p. ej. "Equipos a gasolina" en una
+               columna estrecha). Es el texto el que cede, no la cifra. min-width:0 para
                que pueda encogerse de verdad dentro del flex. */
             white-space: normal;
             min-width: 0;
@@ -1575,14 +1576,16 @@
                      utiles (540 de grid menos los dos gaps de 10) sale 160 + 160 + 200: las dos
                      Σ bajan de 200 a 160 y la de gasoil CONSERVA sus 200, o sea que el recorte
                      que ensancha el buscador no se lo come la tarjeta apretada.
-                     Si se cambia el flex-basis del grid, rehacer esta cuenta. --}}
+                     Si se cambia el flex-basis del grid, rehacer esta cuenta.
+                     Las dos tarjetas de combustible caen solas en una SEGUNDA fila, bajo las
+                     dos Σ, y heredan sus mismos anchos: no hay que rehacer ninguna cuenta. --}}
                 <div class="fleet-stats-grid" style="display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 0.8fr) minmax(0, 1fr); gap: 10px;">
 
-                    {{-- Las 3 tarjetas comparten el MISMO estilo (ver .fleet-kpi*): solo cambian
+                    {{-- Las tarjetas comparten el MISMO estilo (ver .fleet-kpi*): solo cambian
                          etiqueta e id. Etiqueta + cifra, sin ícono.
                          Σ (sumatoria) en vez de la palabra "Total", a pedido del cliente: ocupa
-                         menos y deja sitio para que quepan las tres en una fila, también en
-                         teléfono. --}}
+                         menos y deja sitio para que quepan las tres de la primera fila juntas,
+                         también en teléfono. --}}
                     <div class="fleet-kpi">
                         <p class="fleet-kpi-lbl">&Sigma; Equipos</p>
                         <h3 id="stat_total" class="fleet-kpi-val">0</h3>
@@ -1598,8 +1601,29 @@
                     </div>
 
                     <div class="fleet-kpi">
-                        <p class="fleet-kpi-lbl">Gasoil estimado L/día</p>
+                        <p class="fleet-kpi-lbl">Gasoil máx L/día</p>
                         <h3 id="stat_consumption" class="fleet-kpi-val">0</h3>
+                    </div>
+
+                    {{-- Segunda fila: cuántos equipos usa cada combustible. Van como hijas
+                         DIRECTAS del grid, sin un div que las envuelva: el bloque de teléfono
+                         apunta a `.fleet-stats-grid > div` para voltear la tarjeta (cifra
+                         arriba, etiqueta debajo) y bajar el padding, así que metidas dentro de
+                         un envoltorio ese estilo se lo habría comido el envoltorio y estas dos
+                         se habrían quedado con el diseño de escritorio, descuadradas respecto
+                         a las tres de arriba.
+                         Caen bajo las dos Σ y el tercer hueco queda libre a propósito: así
+                         cada tarjeta se alinea con la de encima en vez de inventar anchos.
+                         Cuentan solo la tabla `equipos` (los auxiliares tienen su tarjeta),
+                         por eso pueden no sumar el Σ Equipos: faltan los eléctricos, los
+                         'NO APLICA' y los que aún no tienen combustible cargado. --}}
+                    <div class="fleet-kpi">
+                        <p class="fleet-kpi-lbl">Equipos a gasoil</p>
+                        <h3 id="stat_gasoil_count" class="fleet-kpi-val">0</h3>
+                    </div>
+                    <div class="fleet-kpi">
+                        <p class="fleet-kpi-lbl">Equipos a gasolina</p>
+                        <h3 id="stat_gasolina_count" class="fleet-kpi-val">0</h3>
                     </div>
                 </div>
 
