@@ -205,13 +205,15 @@ class MovilizacionController extends Controller
     public function export(Request $request)
     {
         $query = Movilizacion::with([
-            'equipo:ID_EQUIPO,id_tipo_equipo,MARCA,MODELO,SERIAL_CHASIS,CODIGO_PATIO',
+            // Se traen los TRES identificadores porque la columna SERIAL es el primero que
+            // exista de ellos (chasis → placa → motor). CODIGO_PATIO y el usuario ya no se
+            // cargan: sus columnas se quitaron del Excel y traerlos sería trabajo de balde.
+            'equipo:ID_EQUIPO,id_tipo_equipo,MARCA,MODELO,SERIAL_CHASIS,SERIAL_DE_MOTOR',
             'equipo.tipo:id,nombre',
             'equipo.documentacion:ID_EQUIPO,PLACA',
             'auxiliar:ID_AUXILIAR,TIPO,MARCA,MODELO,SERIAL',
             'frenteOrigen',
             'frenteDestino',
-            'usuario:ID_USUARIO,NOMBRE_COMPLETO',
         ]);
 
         $this->aplicarFiltrosHistorial($query, $request);
@@ -233,9 +235,9 @@ class MovilizacionController extends Controller
 
         $spreadsheet->getDefaultStyle()->getFont()->setName('Arial')->setSize(10);
 
-        $lastCol      = 'M';   // A..M = 13 columnas de datos
-        $endTitle     = 'I';   // el título ocupa C..I
-        $startEdicion = 'J';   // EDICIÓN/REVISIÓN/FECHA a la derecha, angosto
+        $lastCol      = 'H';   // A..H = 8 columnas de datos
+        $endTitle     = 'E';   // el título ocupa C..E
+        $startEdicion = 'F';   // EDICIÓN/REVISIÓN/FECHA a la derecha, angosto
 
         foreach ([1, 2, 3] as $fila) $sheet->getRowDimension($fila)->setRowHeight(40);
 
@@ -280,9 +282,8 @@ class MovilizacionController extends Controller
         $sheet->getStyle('A1:' . $lastCol . '4')->applyFromArray($bordes);
 
         // Fila 5 — encabezados de la tabla
-        $columnas = ['A','B','C','D','E','F','G','H','I','J','K','L','M'];
-        $titulos  = ['N°', 'N° CONTROL', 'FECHA', 'MOVIMIENTO', 'CLASE', 'TIPO', 'MARCA',
-                     'MODELO', 'SERIAL', 'PLACA', 'ORIGEN', 'DESTINO', 'REGISTRADO POR'];
+        $columnas = ['A','B','C','D','E','F','G','H'];
+        $titulos  = ['N°', 'FECHA', 'TIPO', 'MARCA', 'MODELO', 'SERIAL', 'ORIGEN', 'DESTINO'];
         foreach ($titulos as $i => $t) $sheet->setCellValue($columnas[$i] . '5', $t);
 
         $sheet->getStyle('A5:' . $lastCol . '5')->getAlignment()
@@ -293,7 +294,7 @@ class MovilizacionController extends Controller
         $sheet->getStyle('A5:' . $lastCol . '5')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FF1B365D');
         $sheet->getRowDimension(5)->setRowHeight(40);
 
-        foreach ([8, 16, 18, 16, 12, 22, 18, 22, 24, 14, 26, 26, 26] as $i => $ancho) {
+        foreach ([8, 18, 22, 18, 22, 26, 26, 26] as $i => $ancho) {
             $sheet->getColumnDimension($columnas[$i])->setWidth($ancho);
         }
 
@@ -307,18 +308,13 @@ class MovilizacionController extends Controller
 
             $datos = [
                 $i + 1,
-                $mv->CODIGO_CONTROL ?: '—',
                 optional($mv->created_at)->format('d/m/Y H:i') ?: '—',
-                $mv->TIPO_MOVIMIENTO ?: '—',
-                $esAux ? 'AUXILIAR' : 'EQUIPO',
                 $esAux ? ($aux->TIPO ?? '—')   : (optional(optional($eq)->tipo)->nombre ?? '—'),
                 $esAux ? ($aux->MARCA ?? '—')  : (optional($eq)->MARCA ?? '—'),
                 $esAux ? ($aux->MODELO ?? '—') : (optional($eq)->MODELO ?? '—'),
-                $esAux ? ($aux->SERIAL ?? '—') : (optional($eq)->SERIAL_CHASIS ?? '—'),
-                $esAux ? '—' : (optional(optional($eq)->documentacion)->PLACA ?? '—'),
+                $this->serialIdentificador($eq, $aux, $esAux),
                 $mv->nombre_origen  ?: '—',
                 $mv->nombre_destino ?: '—',
-                optional($mv->usuario)->NOMBRE_COMPLETO ?: ($mv->USUARIO_REGISTRO ?: '—'),
             ];
 
             foreach ($datos as $c => $valor) $sheet->setCellValue($columnas[$c] . $fila, $valor);
@@ -331,7 +327,7 @@ class MovilizacionController extends Controller
             ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER)
             ->setWrapText(true);
         $sheet->getStyle('A6:A' . $ultima)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
-        $sheet->getStyle('C6:E' . $ultima)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle('B6:B' . $ultima)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
         $sheet->freezePane('A6');   // el encabezado queda fijo al desplazarse
 
         $nombre = 'Historial_Movilizaciones_' . date('Y-m-d_H-i') . '.xlsx';
@@ -343,6 +339,37 @@ class MovilizacionController extends Controller
             'Content-Type'  => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             'Cache-Control' => 'no-store, no-cache, must-revalidate',
         ]);
+    }
+
+    /**
+     * UN solo identificador por fila, el primero que exista: serial de chasis, si no la
+     * placa, y si no el serial de motor.
+     *
+     * Antes iban dos columnas (SERIAL y PLACA) y las dos salían medio vacías: cada unidad
+     * tiene unos identificadores y no otros, así que la hoja quedaba llena de guiones y
+     * había que mirar en dos sitios para saber de qué equipo se hablaba. Una sola columna
+     * con el que exista se lee de un vistazo.
+     *
+     * El orden no es capricho: el chasis es único e inmutable, la placa puede cambiar de
+     * dueño o no estar aún tramitada, y el de motor es el último recurso porque cambia si
+     * se repotencia. Los auxiliares no tienen placa ni motor: llevan su propio SERIAL.
+     */
+    private function serialIdentificador($equipo, $auxiliar, bool $esAux): string
+    {
+        if ($esAux) {
+            return trim((string) ($auxiliar->SERIAL ?? '')) ?: '—';
+        }
+
+        foreach ([
+            $equipo->SERIAL_CHASIS ?? null,
+            optional(optional($equipo)->documentacion)->PLACA,
+            $equipo->SERIAL_DE_MOTOR ?? null,
+        ] as $candidato) {
+            $valor = trim((string) $candidato);
+            if ($valor !== '') return $valor;
+        }
+
+        return '—';
     }
 
     /**

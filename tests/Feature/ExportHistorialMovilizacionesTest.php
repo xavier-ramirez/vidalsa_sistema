@@ -84,6 +84,53 @@ class ExportHistorialMovilizacionesTest extends MySqlTestCase
         $resp->assertOk();
     }
 
+    /**
+     * La columna SERIAL lleva UN identificador, el primero que exista: chasis, si no placa,
+     * y si no el de motor. Se prueba el metodo directamente porque comprobarlo abriendo el
+     * XLSX seria leer un ZIP para verificar una regla de tres lineas.
+     */
+    public static function identificadores(): array
+    {
+        return [
+            'chasis gana a todo'        => ['CH-1', 'PL-1', 'MO-1', 'CH-1'],
+            'sin chasis manda la placa' => [null,   'PL-2', 'MO-2', 'PL-2'],
+            'chasis vacio no cuenta'    => ['   ',  'PL-3', 'MO-3', 'PL-3'],
+            'solo queda el motor'       => [null,   null,   'MO-4', 'MO-4'],
+            'placa vacia no cuenta'     => [null,   '',     'MO-5', 'MO-5'],
+            'sin ninguno'               => [null,   null,   null,   '—'],
+        ];
+    }
+
+    /**
+     * @dataProvider identificadores
+     */
+    public function test_el_serial_es_el_primero_que_exista($chasis, $placa, $motor, $esperado): void
+    {
+        $equipo = new \App\Models\Equipo();
+        $equipo->SERIAL_CHASIS   = $chasis;
+        $equipo->SERIAL_DE_MOTOR = $motor;
+        $equipo->setRelation('documentacion', $placa === null ? null : new \App\Models\Documentacion(['PLACA' => $placa]));
+
+        $ctrl = new \App\Http\Controllers\MovilizacionController();
+        $m = new \ReflectionMethod($ctrl, 'serialIdentificador');
+        $m->setAccessible(true);
+
+        $this->assertSame($esperado, $m->invoke($ctrl, $equipo, null, false));
+    }
+
+    /** Un auxiliar no tiene placa ni motor: lleva su propio SERIAL. */
+    public function test_el_auxiliar_lleva_su_serial(): void
+    {
+        $aux = new \App\Models\EquipoAuxiliar();
+        $aux->SERIAL = 'AUX-9';
+
+        $ctrl = new \App\Http\Controllers\MovilizacionController();
+        $m = new \ReflectionMethod($ctrl, 'serialIdentificador');
+        $m->setAccessible(true);
+
+        $this->assertSame('AUX-9', $m->invoke($ctrl, null, $aux, true));
+    }
+
     public function test_exige_sesion(): void
     {
         $this->get('/admin/movilizaciones/export')->assertRedirect();
