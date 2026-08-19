@@ -256,7 +256,6 @@
                      el campo seguiría visible y su valor viajaría en el POST a una tabla que
                      no tiene esa columna. --}}
                 <div id="colorWrap">
-                <div>
                     <label for="color" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">Color</label>
                     <input type="text" id="color" name="COLOR" class="form-input-custom" value="{{ old('COLOR') }}" placeholder="Ej: BLANCO" maxlength="50" autocomplete="off" oninput="this.value = this.value.toUpperCase()">
                 </div>
@@ -339,7 +338,6 @@
                         <input type="url" id="link_gps" name="LINK_GPS" class="form-input-custom" value="{{ old('LINK_GPS') }}" placeholder="https://..." style="flex: 1;">
                         <span style="color: #10b981; display: flex;"><i class="material-icons" style="font-size: 20px;">gps_fixed</i></span>
                     </div>
-                </div>
                 </div>
                 </div>
 

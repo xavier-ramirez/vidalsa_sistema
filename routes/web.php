@@ -352,6 +352,9 @@ Route::middleware(['auth'])->group(function () {
 
             // Datos (JSON) — el kardex de movimientos lo consume el modal "Movimientos".
             Route::get   ('almacen/movimientos',                  [App\Http\Controllers\AlmacenController::class, 'movimientos'])      ->name('almacen.movimientos');
+            // XLSX de la bitácora con los MISMOS filtros de la pantalla (comparten
+            // queryMovimientosFiltrada). Mismo nivel de acceso que verla: es solo lectura.
+            Route::get   ('almacen/movimientos/export',           [App\Http\Controllers\AlmacenController::class, 'movimientosExport'])->name('almacen.movimientosExport');
             // Dashboard de Consumo (JSON para Chart.js) — alimenta el modal abrible desde el
             // botón Acciones de /admin/almacen y /admin/almacen/movimientos. Solo lectura.
             Route::get   ('almacen/consumo-dashboard',            [App\Http\Controllers\AlmacenController::class, 'consumoDashboard'])  ->name('almacen.consumoDashboard');

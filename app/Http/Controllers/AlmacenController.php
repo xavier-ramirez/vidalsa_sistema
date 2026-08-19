@@ -2012,6 +2012,97 @@ class AlmacenController extends Controller
      * cada almacén visible al usuario más una columna TOTAL a la derecha.
      * Solo se incluyen productos con saldo total > 0 (los de stock 0 o negativo se omiten).
      */
+    /**
+     * XLSX de la BITÁCORA de movimientos, con los MISMOS filtros que la pantalla.
+     *
+     * No rearma la consulta: usa queryMovimientosFiltrada, el mismo punto por el que pasa
+     * /admin/almacen/movimientos. Es lo que garantiza que el archivo traiga exactamente las
+     * filas que el usuario está viendo — un export que filtra distinto no sirve para nada.
+     * Incluye el default suave de almacén por la misma razón: sin él, quien abre la pantalla
+     * con su almacén preseleccionado se bajaría un archivo con TODOS los almacenes visibles.
+     */
+    public function movimientosExport(Request $request)
+    {
+        $visiblesIds = Almacen::visiblesPara($request->user())->pluck('ID_ALMACEN');
+        $this->resolverAlmacenPorDefecto($request, $visiblesIds);
+
+        $movs = $this->queryMovimientosFiltrada($request, $visiblesIds)
+            ->orderByDesc('FECHA')->orderByDesc('ID_MOVIMIENTO')
+            ->get();
+
+        $libro = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $hoja  = $libro->getActiveSheet();
+        $hoja->setTitle('MOVIMIENTOS');
+
+        $AZUL   = 'FF00004D';
+        $SOLIDO = \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID;
+        $CENTRO = \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER;
+
+        // Cabecera con los filtros aplicados: el archivo se explica solo cuando se comparte
+        // por fuera del sistema (mismo criterio que el export del dashboard de consumo).
+        $nombreAlmacen = ($request->filled('id_almacen') && $request->input('id_almacen') !== 'all')
+            ? (Almacen::where('ID_ALMACEN', $request->integer('id_almacen'))->value('NOMBRE') ?: $request->input('id_almacen'))
+            : 'Todos los visibles';
+        $filtros = array_filter([
+            'Almacén: ' . $nombreAlmacen,
+            $request->filled('tipo') && $request->input('tipo') !== 'all' ? 'Tipo: ' . $request->input('tipo') : null,
+            $request->filled('nota')   ? 'Nota: ' . $request->input('nota') : null,
+            $request->filled('search') ? 'Búsqueda: ' . $request->input('search') : null,
+            $request->filled('id_frente') && $request->input('id_frente') !== 'all'
+                ? 'Frente: ' . (\App\Models\FrenteTrabajo::where('ID_FRENTE', $request->integer('id_frente'))->value('NOMBRE_FRENTE') ?: $request->input('id_frente')) : null,
+            $request->filled('desde') ? 'Desde: ' . $request->input('desde') : null,
+            $request->filled('hasta') ? 'Hasta: ' . $request->input('hasta') : null,
+        ]);
+
+        $cols = ['FECHA', 'TIPO', 'CÓDIGO', 'PRODUCTO', 'UM', 'CANTIDAD', 'ANTERIOR', 'RESULTANTE',
+                 'ALMACÉN', 'CONTRAPARTE', 'FRENTE', 'N° NOTA', 'REFERENCIA', 'SOLICITANTE', 'MOTIVO', 'USUARIO'];
+        $ultima = 'P';   // 16 columnas
+
+        $hoja->setCellValue('A1', 'BITÁCORA DE MOVIMIENTOS');
+        $hoja->mergeCells("A1:{$ultima}1");
+        $hoja->getStyle('A1')->getFont()->setBold(true)->setSize(13)->getColor()->setARGB('FFFFFFFF');
+        $hoja->getStyle('A1')->getFill()->setFillType($SOLIDO)->getStartColor()->setARGB($AZUL);
+        $hoja->getStyle('A1')->getAlignment()->setHorizontal($CENTRO);
+
+        $hoja->setCellValue('A2', implode('   ·   ', $filtros) . '   ·   ' . $movs->count() . ' movimiento(s)');
+        $hoja->mergeCells("A2:{$ultima}2");
+        $hoja->getStyle('A2')->getFont()->setItalic(true)->setSize(10)->getColor()->setARGB('FF64748B');
+
+        $hoja->fromArray($cols, null, 'A4');
+        $hoja->getStyle("A4:{$ultima}4")->getFont()->setBold(true)->getColor()->setARGB('FFFFFFFF');
+        $hoja->getStyle("A4:{$ultima}4")->getFill()->setFillType($SOLIDO)->getStartColor()->setARGB($AZUL);
+
+        $fila = 5;
+        foreach ($movs as $m) {
+            $hoja->fromArray([
+                optional($m->FECHA)->format('d/m/Y H:i') ?: (string) $m->FECHA,
+                $m->TIPO,
+                $m->producto->CODIGO ?? '',
+                $m->producto->NOMBRE ?? '',
+                $m->producto->UM ?? '',
+                (float) $m->CANTIDAD,
+                (float) $m->CANTIDAD_ANTERIOR,
+                (float) $m->CANTIDAD_RESULTANTE,
+                $m->almacen->NOMBRE ?? '',
+                $m->almacenContraparte->NOMBRE ?? '',
+                $m->frente->NOMBRE_FRENTE ?? '',
+                $m->NUMERO_NOTA ?? '',
+                $m->REFERENCIA ?? '',
+                $m->SOLICITANTE ?? '',
+                $m->MOTIVO ?? '',
+                $m->usuario->NOMBRE_COMPLETO ?? '',
+            ], null, 'A' . $fila++);
+        }
+
+        foreach (range('A', $ultima) as $c) $hoja->getColumnDimension($c)->setAutoSize(true);
+        $hoja->freezePane('A5');
+
+        $nombre = 'movimientos_' . now()->format('Y-m-d_Hi') . '.xlsx';
+        return response()->streamDownload(function () use ($libro) {
+            (new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($libro))->save('php://output');
+        }, $nombre, ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']);
+    }
+
     public function export(Request $request)
     {
         $almacenesVisibles = Almacen::visiblesPara($request->user())
