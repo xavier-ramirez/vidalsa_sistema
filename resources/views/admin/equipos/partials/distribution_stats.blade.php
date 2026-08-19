@@ -25,10 +25,11 @@
         Ubicación por Frente
         @include('admin.equipos.partials.distribution_stats_cam', ['nombre' => 'ubicacion_por_frente'])
     </h4>
-    {{-- Ya no se envuelve en una condición $hasFilter: la lista se pinta SIEMPRE. Antes, al entrar sin filtrar salía
-         vacía y había que filtrar primero desde el módulo para poder usarla — molesto sobre
-         todo en el teléfono, donde esta card es el punto de partida. El controller ya calcula
-         tiposStats/frentesStats aunque no haya filtro (ver EquipoController::index). --}}
+    {{-- Sin filtro activo esta lista llega VACÍA y no se pinta nada: el controlador solo
+         calcula tiposStats/frentesStats cuando hay filtro (ver EquipoController::index).
+         Estuvo un tiempo pintándose siempre, para que la card sirviera de punto de partida,
+         hasta que se midió lo que costaba: ~259 ms de GROUP BY y ~60 KB de HTML en CADA
+         apertura, con la tabla todavía vacía. --}}
     <ul style="list-style: none; padding: 0; margin: 0; max-height: 62vh; overflow-y: auto; overflow-x: visible; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 4px;" class="custom-scrollbar">
         @php $totalFrentes = $frentesStats->sum('total'); @endphp
         @foreach($frentesStats as $stat)
@@ -59,8 +60,10 @@
         @include('admin.equipos.partials.distribution_stats_cam', ['nombre' => 'equipos_y_maquinaria'])
     </h4>
     <ul style="list-style: none; padding: 0; margin: 0; max-height: 62vh; overflow-y: auto; overflow-x: visible; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 4px;" class="custom-scrollbar">
-        {{-- Igual que la lista de frentes de arriba: se pinta siempre, sin depender de que
-             haya un filtro activo. --}}
+        {{-- Llega vacía si no hay filtro activo: el controlador solo calcula la distribución
+             cuando se ha filtrado (el GROUP BY son ~259 ms y ~60 KB, demasiado para pagarlo
+             en cada apertura con la tabla todavía vacía). Sin filtro, este @foreach no pinta
+             nada y la card queda en blanco a propósito. --}}
         @php $totalStats = $tiposStats->sum('total'); @endphp
         @foreach($tiposStats as $stat)
             @php $percentage = $totalStats > 0 ? ($stat->total / $totalStats) * 100 : 0; @endphp

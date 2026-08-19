@@ -356,10 +356,12 @@
         const f = leerFiltros();
         if (!hayFiltro(f)) {
             pintarStats([], false, f);        // sin filtros el Consolidado va en '--', igual que online
-            // La Distribución SÍ se pinta sin filtros: el backend la calcula fuera del
-            // `if ($hasFilter)` a propósito, para que la tarjeta sirva de punto de partida
-            // (se toca un tipo y ese toque aplica el filtro). Ver EquipoController::index.
-            pintarDistribucion(f, filtroEspecifico(f));
+            // La Distribución tampoco se pinta sin filtros, igual que online: el backend la
+            // calcula DENTRO del `if ($hasFilter)` (ver EquipoController::index) porque el
+            // GROUP BY son ~259 ms y ~60 KB en cada apertura. Se vacía a mano por si venía
+            // pintada de un filtro anterior: aquí no hay AJAX que la reemplace.
+            const contDist = document.getElementById('distributionStatsContainer');
+            if (contDist) contDist.innerHTML = '';
             tbody.innerHTML = filaMensaje('filter_alt', 'SELECCIONE UN FILTRO PARA VER LOS EQUIPOS.');
             return;
         }
