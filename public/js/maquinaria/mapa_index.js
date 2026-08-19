@@ -2822,6 +2822,15 @@
                 });
                 // Al quedar en menos proyectos, las copias que sobreviven deben reflejar el conteo.
                 if (!res.borrado) sincronizarConteoProyectos(punto.id, res.quedan);
+                // Si era el ÚLTIMO punto, el backend borra también el proyecto: hay que sacarlo
+                // de oleoMap o se queda en memoria como un grupo vacío, y con él su fila de la
+                // leyenda. Las capas ya se quitaron arriba al repintarlo sin puntos.
+                if (res.proyecto_borrado && oleoMap[oleoId]) {
+                    (oleoMap[oleoId].lines || []).forEach(function (l) { map.removeLayer(l); });
+                    (oleoMap[oleoId].markers || []).forEach(function (m) { map.removeLayer(m); });
+                    delete oleoMap[oleoId];
+                    if (String(oleoActivo) === String(oleoId)) oleoActivo = null;
+                }
                 actualizarLeyenda();
                 window.toast(res.borrado ? 'Punto eliminado.' : 'Punto quitado de este proyecto.', 'success');
             }).catch(function () { spinOff(); window.toast('No se pudo quitar el punto.', 'error'); });

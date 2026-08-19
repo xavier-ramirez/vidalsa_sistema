@@ -234,7 +234,19 @@ class OleoductoController extends Controller
         $quedan = $p->oleoductos()->count();
         if ($quedan === 0) $p->delete();
 
-        return response()->json(['success' => true, 'borrado' => $quedan === 0, 'quedan' => $quedan]);
+        // Y si el PROYECTO se queda sin puntos, se va con ellos. Un proyecto vacio no se
+        // dibuja, no sale en la leyenda y —desde que la gestion vive en el clic derecho de
+        // una vela— tampoco tiene ningun sitio desde el que borrarse: quedaba de fantasma en
+        // la base para siempre. Este es el unico punto por el que un proyecto puede vaciarse.
+        $proyectoBorrado = $o->puntos()->count() === 0;
+        if ($proyectoBorrado) $o->delete();
+
+        return response()->json([
+            'success'          => true,
+            'borrado'          => $quedan === 0,
+            'quedan'           => $quedan,
+            'proyecto_borrado' => $proyectoBorrado,
+        ]);
     }
 
     /**

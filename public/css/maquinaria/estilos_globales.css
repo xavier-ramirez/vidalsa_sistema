@@ -4247,12 +4247,31 @@ body:has(.mapa-page) .main-viewport {
 .mapa-dibujo-btn:hover { background: #334155; }
 .mapa-dibujo-btn.primary { background: #0067b1; }
 .mapa-dibujo-btn.primary:hover { background: #005699; }
-/* PENDIENTE: la barra de dibujo no tiene reglas para teléfono. Antes daba igual porque su
-   único disparador era el lápiz del panel "Frentes de trabajo", que iba oculto en ≤640px y
-   la barra no llegaba a existir ahí. Al pasar "Editar" al clic derecho de la tubería (que en
-   táctil se dispara con una pulsación larga) SÍ puede aparecer en teléfono, y sin estilos
-   propios. Si se decide que el trazo se retoque también desde el móvil, hay que darle un
-   ancho y un apilado para pantalla angosta. */
+/* La barra de dibujo EN TELÉFONO. Antes no hacía falta: su único disparador era el lápiz
+   del panel "Frentes de trabajo", que iba oculto en ≤640px, así que la barra no llegaba a
+   existir ahí. Ahora se entra a editar con el clic derecho sobre la tubería —que en táctil
+   es una pulsación larga— y sí aparece.
+   Se apila: el texto arriba y los dos botones abajo repartiéndose el ancho. En una fila no
+   cabe, y los `nowrap` del escritorio la sacaban de la pantalla. El consejo de uso se
+   oculta: habla de arrastrar y de clic derecho sobre un vértice, que en el móvil no aplica
+   igual, y era la línea más larga de las tres. */
+@media (max-width: 640px) {
+    .mapa-dibujo-bar {
+        left: 8px; right: 8px; bottom: 10px;
+        transform: none;
+        max-width: none;
+        /* Sigue en FILA con wrap, no en columna: en columna los dos botones se apilarian
+           uno debajo del otro. Con wrap + el texto ocupando la primera linea entera, los
+           botones caen juntos a la segunda y se reparten el ancho. */
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 10px;
+    }
+    .mapa-dibujo-txt { flex: 1 0 100%; }
+    .mapa-dibujo-titulo { white-space: normal; }
+    .mapa-dibujo-tip { display: none; }
+    .mapa-dibujo-bar .mapa-dibujo-btn { flex: 1; padding: 10px 12px; }
+}
 
 /* Popup para guardar un punto en un proyecto */
 .oleo-save { min-width: 210px; }
