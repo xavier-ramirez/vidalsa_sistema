@@ -1343,16 +1343,16 @@
         .fleet-kpi {
             background: #fff;
             border-radius: 10px;
-            /* Relleno vertical de 6px para que la tarjeta mida lo MISMO que el buscador de
-               al lado (38px de caja + 1px de borde arriba y abajo = 40): 6 + 6 + 26 de la
-               cifra + 2 de borde = 40. Si se cambia el tamano de .fleet-kpi-val hay que
-               recalcular este 6, o las dos cajas dejan de estar a la misma altura.
-               OJO: ese calculo vale con la etiqueta en UNA linea, donde manda la cifra. Si
-               el texto se parte en DOS (columna estrecha), mandan las dos lineas de la
-               etiqueta —11 x 1.25 x 2 = 27.5— y la tarjeta sube a ~41.5: 1.5px mas alta que
-               el buscador. Se acepta a proposito: el cliente prefiere el texto en dos lineas
-               antes que la cifra debajo, y el align-items:center de .fleet-topline mantiene
-               todo centrado, asi que el desfase no se nota. */
+            /* 40px de alto: 6 + 6 de relleno + 26 de la cifra + 2 de borde. La medida nacio
+               para igualar al buscador de frente, que iba en esta misma fila; el buscador se
+               mudo a la cabecera, pero el valor se conserva porque es el que iguala a las
+               CINCO tarjetas entre si. Si se cambia el tamano de .fleet-kpi-val hay que
+               recalcular este 6.
+               OJO: eso vale con la etiqueta en UNA linea, donde manda la cifra. Si el texto
+               se parte en DOS (tarjeta estrecha), mandan las dos lineas de la etiqueta
+               —11 x 1.25 x 2 = 27.5— y esa tarjeta sube a ~41.5, arrastrando el alto de la
+               fila. Se acepta a proposito: el cliente prefiere el texto en dos lineas antes
+               que la cifra debajo. */
             min-height: 40px;
             box-sizing: border-box;
             padding: 6px 14px;
@@ -1424,20 +1424,15 @@
             margin: 0 0 8px 0;
         }
 
-        /* El buscador va PRIMERO y es quien crece; los contadores ocupan lo suyo a la
-           derecha. Antes el grid crecia y el buscador iba al final. */
-        /* 540px (antes 620): el cliente pidio MAS ancho para el buscador de frente y menos
-           para las tarjetas. En el modal (880 max, menos 40 de padding = ~840 utiles) eso
-           lleva al buscador de ~210px a ~290px. Las tarjetas absorben el recorte sin perder
-           legibilidad porque ya NO se reparten en tres partes iguales: las dos Σ (etiqueta
-           corta) ceden su ancho y la de gasoil conserva el suyo — ver grid-template-columns
-           en el HTML.
-           Sigue siendo `0 1`: si el modal es estrecho, el grid cede antes que el buscador.
-           Este 540 es el ancho que se le CONCEDE al bloque de tarjetas frente al buscador;
-           como dentro se reparten solas (ver .fleet-stats-grid), agregar o quitar una
-           tarjeta ya NO obliga a tocarlo. */
+        /* Las tarjetas se quedan con el ANCHO ENTERO de la fila. Antes compartian sitio con
+           el buscador de frente y se les concedia un flex-basis en px (620 -> 540), que habia
+           que renegociar cada vez que el cliente pedia mas buscador o mas tarjetas. Al subir
+           el buscador junto al titulo esa negociacion desaparece: .fleet-topline tiene un
+           solo hijo y este lo ocupa todo, que es justo lo que hace que las CINCO tarjetas
+           entren en una sola fila (5 x 150 de base + 4 huecos de 10 = 790, sobre los ~840
+           utiles del modal). */
         .fleet-topline .fleet-stats-grid {
-            flex: 0 1 540px;
+            flex: 1 1 auto;
             min-width: 0;
             margin: 0 !important;
         }
@@ -1462,8 +1457,8 @@
             gap: 10px;
         }
 
-        /* 190px: con 210 las 4 tarjetas ya no entraban en UNA fila (el grid se quedaba en
-           620px y con minmax(150px) saltaba a dos filas). */
+        /* Buscador de frente. Vive en la CABECERA azul, junto al título: crece con el hueco
+           que le deja .fleet-header-left y ya no compite por ancho con las tarjetas. */
         .fleet-filter-container {
             position: relative;
             flex: 1 1 auto;
@@ -1480,6 +1475,38 @@
         
     </style>
     
+    @php
+    $dashUser       = auth()->user();
+    $dashIsLocal    = $dashUser && !$dashUser->veTodosLosFrentesEquipos();
+    $dashFrenteIds  = $dashUser ? $dashUser->getFrentesIds() : [];
+
+    // Prioridad 1: frente activo en el filtro de URL (id_frente=16)
+    $activeFrenteId   = request('id_frente');
+    $activeFrenteObj  = ($activeFrenteId && $activeFrenteId !== 'all')
+    ? $frentes->firstWhere('ID_FRENTE', $activeFrenteId)
+    : null;
+
+    // Prioridad 2: primer frente asignado del usuario local
+    $firstAsigFrenteObj = count($dashFrenteIds) > 0
+    ? $frentes->firstWhere('ID_FRENTE', $dashFrenteIds[0])
+    : null;
+
+    // Prioridad 3: primer frente de la lista global
+    $fallbackFrenteObj = $frentes->first();
+
+    // Escoger el mejor frente default
+    if ($activeFrenteObj) {
+    $defaultDashboardId     = $activeFrenteObj->ID_FRENTE;
+    $defaultDashboardNombre = $activeFrenteObj->NOMBRE_FRENTE;
+    } elseif ($firstAsigFrenteObj) {
+    $defaultDashboardId     = $firstAsigFrenteObj->ID_FRENTE;
+    $defaultDashboardNombre = $firstAsigFrenteObj->NOMBRE_FRENTE;
+    } else {
+    $defaultDashboardId     = $fallbackFrenteObj->ID_FRENTE ?? '';
+    $defaultDashboardNombre = $fallbackFrenteObj->NOMBRE_FRENTE ?? '';
+    }
+    @endphp
+
     <div id="fleetDashboardModal" class="modal-overlay">
         {{-- CUERPO blanco (antes #f8fafc); la cabecera va azul aparte (.fleet-dashboard-header).
              Los paneles internos se distinguen por su borde #e2e8f0, no por el contraste
@@ -1500,7 +1527,40 @@
                             </div>
                         </div>
                         
-                        <!-- Controls Group (Filter) -->
+                        <div class="fleet-filter-container">
+                            {{-- LOCAL y GLOBAL usan el mismo dropdown, la variable $frentesDropdown ya viene filtrada del Controller --}}
+                            <input type="hidden" id="dashboardSelectedFrenteId" value="{{ $defaultDashboardId }}">
+                            <input type="hidden" id="dashboardSelectedFrenteNombre" value="{{ $defaultDashboardNombre }}">
+                            <div class="custom-dropdown" id="dashboardFrenteDropdown" style="width: 100%;">
+                            {{-- Fondo blanco y BORDE: nació en la cabecera azul (donde bastaba el
+                                 contraste), pasó al cuerpo blanco (donde hizo falta el borde) y ha
+                                 vuelto a la cabecera. Se queda así, que funciona sobre los dos. --}}
+                            <div class="dropdown-trigger" onclick="dashboardToggleFrente(event)" style="padding: 0; display: flex; align-items: center; background: #fff; overflow: hidden; border: 1px solid var(--fd-ring); border-radius: 10px; height: 38px; cursor: default;">
+                                <div style="padding: 0 10px; display: flex; align-items: center; color: #64748b; flex-shrink:0;">
+                                    <i class="material-icons" style="font-size: 18px;">search</i>
+                                </div>
+                                <input type="text" id="dashboardFrenteSearch"
+                                    placeholder="Buscar frente..."
+                                    onkeyup="dashboardFilterFrentes(); dashboardToggleClearBtn()"
+                                    style="flex: 1; min-width: 0; border: none; background: transparent; padding: 8px 5px; font-size: 13px; font-weight: 500; outline: none; color: #1e293b; cursor: text;"
+                                    autocomplete="off">
+                                <i id="dashboardFrenteClearBtn" class="material-icons"
+                                   onclick="event.stopPropagation(); dashboardClearFrenteSearch()"
+                                   style="padding: 0 8px; color: #64748b; font-size: 20px; display: none; flex-shrink:0;">close</i>
+                            </div>
+                                <!-- Custom Dropdown List -->
+                                <div id="dashboardFrenteList" style="display: none; position: absolute; top: 105%; left: 0; right: 0; max-height: 250px; overflow-y: auto; background: white; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); z-index: 50; padding: 5px;">
+                                    <div onclick="dashboardSelectFrente('all', 'Todos los Frentes', event)" class="dashboard-frente-option dropdown-item" style="padding: 8px 12px; cursor: default; border-radius: 6px; color: #1e293b; font-size: 13px; font-weight: 700; transition: background 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
+                                        TODOS LOS FRENTES
+                                    </div>
+                                    @foreach($frentesDropdown as $frente)
+                                        <div onclick="dashboardSelectFrente('{{ $frente->ID_FRENTE }}', '{{ addslashes(trim($frente->NOMBRE_FRENTE)) }}', event)" class="dashboard-frente-option dropdown-item" style="padding: 8px 12px; cursor: default; border-radius: 6px; color: #1e293b; font-size: 13px; transition: background 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
+                                            {{ $frente->NOMBRE_FRENTE }}
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Right: Export + Close (mismo estilo, uno al lado del otro) -->
@@ -1523,75 +1583,11 @@
 
             <!-- Dashboard Content -->
             <div class="fleet-dashboard-body" style="flex: 1; overflow-y: auto; padding: 16px 20px 20px; background: #f6f8fb;">
-                @php
-                $dashUser       = auth()->user();
-                $dashIsLocal    = $dashUser && !$dashUser->veTodosLosFrentesEquipos();
-                $dashFrenteIds  = $dashUser ? $dashUser->getFrentesIds() : [];
 
-                // Prioridad 1: frente activo en el filtro de URL (id_frente=16)
-                $activeFrenteId   = request('id_frente');
-                $activeFrenteObj  = ($activeFrenteId && $activeFrenteId !== 'all')
-                ? $frentes->firstWhere('ID_FRENTE', $activeFrenteId)
-                : null;
-
-                // Prioridad 2: primer frente asignado del usuario local
-                $firstAsigFrenteObj = count($dashFrenteIds) > 0
-                ? $frentes->firstWhere('ID_FRENTE', $dashFrenteIds[0])
-                : null;
-
-                // Prioridad 3: primer frente de la lista global
-                $fallbackFrenteObj = $frentes->first();
-
-                // Escoger el mejor frente default
-                if ($activeFrenteObj) {
-                $defaultDashboardId     = $activeFrenteObj->ID_FRENTE;
-                $defaultDashboardNombre = $activeFrenteObj->NOMBRE_FRENTE;
-                } elseif ($firstAsigFrenteObj) {
-                $defaultDashboardId     = $firstAsigFrenteObj->ID_FRENTE;
-                $defaultDashboardNombre = $firstAsigFrenteObj->NOMBRE_FRENTE;
-                } else {
-                $defaultDashboardId     = $fallbackFrenteObj->ID_FRENTE ?? '';
-                $defaultDashboardNombre = $fallbackFrenteObj->NOMBRE_FRENTE ?? '';
-                }
-                @endphp
-
-                {{-- Fila superior: los contadores y, AL LADO, el buscador de frente. El
-                     buscador vivía en la cabecera azul; se bajó aquí para que quede junto a
-                     los números que filtra. --}}
+                {{-- Fila superior: SOLO los contadores. El buscador de frente estuvo aquí al
+                     lado, pero se subió junto al título para dejarle a las tarjetas el ancho
+                     entero del modal, que es lo que permite que las cinco entren en una fila. --}}
                 <div class="fleet-topline">
-                                     <div class="fleet-filter-container">
-                                         {{-- LOCAL y GLOBAL usan el mismo dropdown, la variable $frentesDropdown ya viene filtrada del Controller --}}
-                                         <input type="hidden" id="dashboardSelectedFrenteId" value="{{ $defaultDashboardId }}">
-                                         <input type="hidden" id="dashboardSelectedFrenteNombre" value="{{ $defaultDashboardNombre }}">
-                                         <div class="custom-dropdown" id="dashboardFrenteDropdown" style="width: 100%;">
-                                         {{-- Ahora va sobre el CUERPO blanco, así que necesita BORDE para verse
-                                              (en la cabecera azul se distinguía por contraste). --}}
-                                         <div class="dropdown-trigger" onclick="dashboardToggleFrente(event)" style="padding: 0; display: flex; align-items: center; background: #fff; overflow: hidden; border: 1px solid var(--fd-ring); border-radius: 10px; height: 38px; cursor: default;">
-                                             <div style="padding: 0 10px; display: flex; align-items: center; color: #64748b; flex-shrink:0;">
-                                                 <i class="material-icons" style="font-size: 18px;">search</i>
-                                             </div>
-                                             <input type="text" id="dashboardFrenteSearch"
-                                                 placeholder="Buscar frente..."
-                                                 onkeyup="dashboardFilterFrentes(); dashboardToggleClearBtn()"
-                                                 style="flex: 1; min-width: 0; border: none; background: transparent; padding: 8px 5px; font-size: 13px; font-weight: 500; outline: none; color: #1e293b; cursor: text;"
-                                                 autocomplete="off">
-                                             <i id="dashboardFrenteClearBtn" class="material-icons"
-                                                onclick="event.stopPropagation(); dashboardClearFrenteSearch()"
-                                                style="padding: 0 8px; color: #64748b; font-size: 20px; display: none; flex-shrink:0;">close</i>
-                                         </div>
-                                             <!-- Custom Dropdown List -->
-                                             <div id="dashboardFrenteList" style="display: none; position: absolute; top: 105%; left: 0; right: 0; max-height: 250px; overflow-y: auto; background: white; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); z-index: 50; padding: 5px;">
-                                                 <div onclick="dashboardSelectFrente('all', 'Todos los Frentes', event)" class="dashboard-frente-option dropdown-item" style="padding: 8px 12px; cursor: default; border-radius: 6px; color: #1e293b; font-size: 13px; font-weight: 700; transition: background 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
-                                                     TODOS LOS FRENTES
-                                                 </div>
-                                                 @foreach($frentesDropdown as $frente)
-                                                     <div onclick="dashboardSelectFrente('{{ $frente->ID_FRENTE }}', '{{ addslashes(trim($frente->NOMBRE_FRENTE)) }}', event)" class="dashboard-frente-option dropdown-item" style="padding: 8px 12px; cursor: default; border-radius: 6px; color: #1e293b; font-size: 13px; transition: background 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
-                                                         {{ $frente->NOMBRE_FRENTE }}
-                                                     </div>
-                                                 @endforeach
-                                             </div>
-                                         </div>
-                                     </div>
                 <!-- Stats Cards Row -->
                 {{-- Sin margin aquí: la grid vive dentro de .fleet-topline, que lo anula con
                      `margin: 0 !important`. El que separa de los gráficos es el margen
@@ -1625,15 +1621,12 @@
                         <h3 id="stat_consumption" class="fleet-kpi-val">0</h3>
                     </div>
 
-                    {{-- Segunda fila: cuántos equipos usa cada combustible. Van como hijas
-                         DIRECTAS del grid, sin un div que las envuelva: el bloque de teléfono
-                         apunta a `.fleet-stats-grid > div` para voltear la tarjeta (cifra
-                         arriba, etiqueta debajo) y bajar el padding, así que metidas dentro de
-                         un envoltorio ese estilo se lo habría comido el envoltorio y estas dos
-                         se habrían quedado con el diseño de escritorio, descuadradas respecto
-                         a las tres de arriba.
-                         Caen bajo las dos Σ y el tercer hueco queda libre a propósito: así
-                         cada tarjeta se alinea con la de encima en vez de inventar anchos.
+                    {{-- Cuántos equipos usa cada combustible. Van como hijas DIRECTAS del
+                         grid, sin un div que las envuelva: el bloque de teléfono apunta a
+                         `.fleet-stats-grid > div` para voltear la tarjeta (cifra arriba,
+                         etiqueta debajo) y bajar el padding, así que dentro de un envoltorio
+                         ese estilo se lo habría quedado el envoltorio y estas dos se habrían
+                         visto con el diseño de escritorio, descuadradas respecto al resto.
                          Cuentan solo la tabla `equipos` (los auxiliares tienen su tarjeta),
                          por eso pueden no sumar el Σ Equipos: faltan los eléctricos, los
                          'NO APLICA' y los que aún no tienen combustible cargado. --}}
@@ -1787,21 +1780,14 @@
                 font-size: 18px !important;
             }
 
-            /* La fila superior se APILA: buscador arriba, contadores debajo a todo lo ancho. */
-            #fleetDashboardModal .fleet-topline {
-                flex-direction: column !important;
-                align-items: stretch !important;
-                gap: 8px !important;
-            }
+            /* .fleet-topline ya no necesita nada en teléfono: desde que el buscador subió a la
+               cabecera le queda un solo hijo (las tarjetas), que ocupa el ancho entero igual en
+               escritorio que aquí. Se fueron su `flex-direction: column` —apilaba dos cosas
+               donde ahora hay una— y el `flex: none` del grid, que solo existía para deshacer
+               el flex-basis en px que tenía cuando repartía sitio con el buscador. */
 
-            /* En ESCRITORIO el grid lleva un `flex-basis` en px (hoy 540) para repartir el
-               ancho con el buscador. Al pasar la fila a COLUMNA ese valor deja de ser ancho y
-               pasa a ser ALTURA (flex-basis sigue al eje principal), y las tarjetas se
-               estiraban a esa medida de alto. Aqui vuelve a tamaño de contenido. */
-            #fleetDashboardModal .fleet-topline .fleet-stats-grid {
-                flex: none !important;
-            }
-
+            /* El buscador ya está DENTRO de .fleet-header-left, que en teléfono va en columna:
+               aquí solo se le da el ancho completo. */
             .fleet-filter-container {
                 width: 100% !important;
                 flex: none !important;
