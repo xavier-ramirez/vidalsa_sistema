@@ -211,9 +211,58 @@
 
             </div>{{-- /mv-search-adv-row --}}
 
-            {{-- Botón Acciones — solo super.admin: su único ítem (Eliminar seleccionados)
-                 lo es. "Reimprimir Acta" se eliminó (pedido del cliente); sin este @can,
-                 el resto de usuarios vería un menú vacío. --}}
+            {{-- Estilo de los ítems del menú Acciones.
+                 Vive en CSS y NO en `onmouseover`/`onmouseout` como estaba: al pulsar un
+                 ítem el menú se oculta en el acto, así que el `mouseout` NUNCA llegaba a
+                 dispararse y el fondo gris se quedaba escrito en el `style=` del botón. La
+                 siguiente vez que se abría el menú, ese ítem aparecía ya coloreado — el
+                 "cambia de color y se queda" que se reportó. Con :hover no hay estado que
+                 se quede pegado, porque no se escribe nada en el elemento.
+                 :focus sin fondo por lo mismo: tras el clic el botón conserva el foco y se
+                 veía marcado. El anillo de :focus-visible SÍ se conserva — es el que ve
+                 quien navega con el teclado y quitarlo lo dejaría sin saber dónde está. --}}
+            <style>
+                .mv-accion-item {
+                    width: 100%;
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                    padding: 10px 12px;
+                    border-radius: 6px;
+                    border: none;
+                    background: transparent;
+                    color: #475569;
+                    font-size: 13px;
+                    font-weight: 700;
+                    cursor: pointer;
+                    text-align: left;
+                    transition: background 0.15s;
+                }
+                .mv-accion-item:hover { background: #cbd5e1; }
+                .mv-accion-item:focus { background: transparent; outline: none; }
+                .mv-accion-item:focus-visible { outline: 2px solid #0067b1; outline-offset: -2px; }
+                .mv-accion-ico {
+                    padding: 6px;
+                    border-radius: 6px;
+                    display: flex;
+                }
+                .mv-accion-ico .material-icons { font-size: 18px; line-height: 1; }
+
+                /* Botones de la barra flotante de selección. Mismo motivo que arriba: los
+                   dos ocultan la barra al pulsarlos, así que el `mouseout` no llegaba y el
+                   color del hover se quedaba escrito en el elemento; al reaparecer la barra,
+                   el botón salía ya coloreado. */
+                .mv-sel-limpiar { background: transparent; border: none; color: #94a3b8; font-size: 13px; font-weight: 600; cursor: pointer; transition: color 0.2s; }
+                .mv-sel-limpiar:hover { color: #fff; }
+                .mv-sel-borrar { background: #ef4444; border: none; color: #fff; font-size: 13px; font-weight: 700; padding: 6px 14px; border-radius: 8px; display: flex; align-items: center; gap: 5px; cursor: pointer; transition: background 0.2s; }
+                .mv-sel-borrar:hover { background: #dc2626; }
+                .mv-sel-limpiar:focus, .mv-sel-borrar:focus { outline: none; }
+                .mv-sel-limpiar:focus-visible, .mv-sel-borrar:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+            </style>
+
+            {{-- Botón Acciones — solo super.admin: sus dos ítems (eliminar y exportar) lo
+                 son. "Reimprimir Acta" se eliminó (pedido del cliente); sin este @can, el
+                 resto de usuarios vería un menú vacío. --}}
             @can('super.admin')
             <div class="filter-item aligned-filter mv-acciones-btn-container" style="position: relative; width: auto; flex: 0 0 auto; margin-left: auto;">
 
@@ -227,12 +276,19 @@
                 <!-- Dropdown Menu -->
                 <div id="splitDropdownMenuMov" style="display: none; position: absolute; top: calc(100% + 5px); right: 0; min-width: 240px; background: #e2e8f0; border: 1px solid #cbd5e1; border-radius: 10px; box-shadow: 0 10px 20px -5px rgba(15, 23, 42, 0.18); z-index: 50; overflow: hidden; animation: slideDown 0.2s ease-out;">
                     <div style="padding: 6px;">
-                        <button type="button"
-                            onclick="document.getElementById('splitDropdownMenuMov').style.display='none'; window._eliminarSeleccionados();"
-                            style="width: 100%; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 6px; border: none; background: transparent; color: #475569; font-size: 13px; font-weight: 700; cursor: pointer; text-align: left; transition: background 0.15s;"
-                            onmouseover="this.style.background='#cbd5e1'" onmouseout="this.style.background='transparent'">
-                            <div style="background:#fee2e2;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;line-height:1;color:#dc2626;">delete_outline</i></div>
+                        <button type="button" class="mv-accion-item"
+                            onclick="document.getElementById('splitDropdownMenuMov').style.display='none'; window._eliminarSeleccionados();">
+                            <div class="mv-accion-ico" style="background:#fee2e2;"><i class="material-icons" style="color:#dc2626;">delete_outline</i></div>
                             <span>Eliminar seleccionados</span>
+                        </button>
+
+                        {{-- Exporta el historial CON LOS FILTROS PUESTOS. La URL se arma en
+                             window._exportarHistorial() a partir de los mismos controles que
+                             filtran la tabla, para que el archivo traiga lo que se ve. --}}
+                        <button type="button" class="mv-accion-item"
+                            onclick="document.getElementById('splitDropdownMenuMov').style.display='none'; window._exportarHistorial();">
+                            <div class="mv-accion-ico" style="background:#dcfce7;"><i class="material-icons" style="color:#16a34a;">file_download</i></div>
+                            <span>Exportar historial a Excel</span>
                         </button>
                     </div>
                 </div>
@@ -304,14 +360,12 @@
     </div>
     <div style="width: 1px; height: 24px; background: rgba(255,255,255,0.2);"></div>
     <div style="display: flex; gap: 10px; align-items: center;">
-        <button type="button" onclick="window.mvClearSelection()" style="background: transparent; border: none; color: #94a3b8; font-size: 13px; font-weight: 600; cursor: pointer;" onmouseover="this.style.color='white'" onmouseout="this.style.color='#94a3b8'">
+        <button type="button" class="mv-sel-limpiar" onclick="window.mvClearSelection()">
             Limpiar
         </button>
         @can('super.admin')
-        <button type="button" id="btnEliminarSeleccionados"
-            onclick="window._eliminarSeleccionados()"
-            style="background: #ef4444; border: none; color: white; font-size: 13px; font-weight: 700; padding: 6px 14px; border-radius: 8px; display: flex; align-items: center; gap: 5px; cursor: pointer; transition: background 0.2s;"
-            onmouseover="this.style.background='#dc2626'" onmouseout="this.style.background='#ef4444'">
+        <button type="button" id="btnEliminarSeleccionados" class="mv-sel-borrar"
+            onclick="window._eliminarSeleccionados()">
             <i class="material-icons" style="font-size: 16px;">delete</i>
             Eliminar
         </button>

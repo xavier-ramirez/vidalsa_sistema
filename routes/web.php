@@ -192,6 +192,10 @@ Route::middleware(['auth'])->group(function () {
             Route::resource('equipos', App\Http\Controllers\EquipoController::class)->except(['store']);
             Route::post('movilizaciones/bulk-delete', [App\Http\Controllers\MovilizacionController::class, 'bulkDestroy'])->name('movilizaciones.bulkDestroy');
             Route::post('movilizaciones/recepcion-directa', [App\Http\Controllers\MovilizacionController::class, 'recepcionDirecta'])->name('movilizaciones.recepcionDirecta');
+            // Exportacion XLSX del historial. Mismos filtros que la pantalla
+            // (MovilizacionController::aplicarFiltrosHistorial), asi que el archivo trae
+            // exactamente lo que se esta viendo.
+            Route::get('movilizaciones/export', [App\Http\Controllers\MovilizacionController::class, 'export'])->name('movilizaciones.export');
             Route::get('movilizaciones/buscar-equipos-recepcion', [App\Http\Controllers\MovilizacionController::class, 'buscarEquiposParaRecepcion'])->name('movilizaciones.buscarEquipos');
             Route::get('movilizaciones/subdivisiones/{id}', [App\Http\Controllers\MovilizacionController::class, 'getSubdivisiones'])->name('movilizaciones.subdivisiones');
             Route::get('movilizaciones/{id}/acta-traslado', [App\Http\Controllers\MovilizacionController::class, 'generarActaTraslado'])->name('movilizaciones.actaTraslado');

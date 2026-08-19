@@ -10,6 +10,10 @@ use Illuminate\Support\Facades\Log;
 
 class MovilizacionController extends Controller
 {
+    // Logo corporativo de las hojas de Excel: el MISMO helper que equipos, almacen,
+    // auxiliares y consumibles, para que el encabezado salga identico en todos.
+    use \App\Traits\ExcelLogoCorporativo;
+
     public function __construct()
     {
         $this->middleware('auth')->except(['mobileIndex', 'mobileStore']);
@@ -44,6 +48,50 @@ class MovilizacionController extends Controller
         // â”€â”€â”€ BÃºsqueda de texto â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         // Usa whereHas() para evitar LEFT JOINs que generan columnas ambiguas
         // (created_at, updated_at, etc.) y filas duplicadas en la paginaciÃ³n.
+        // Filtros del historial (búsqueda, frente + dirección, tipo y rango de fechas).
+        // Viven en aplicarFiltrosHistorial() porque la exportación a Excel usa EXACTAMENTE
+        // los mismos: copiarlos haría que el archivo acabe mostrando otra cosa que la tabla.
+        $this->aplicarFiltrosHistorial($query, $request);
+
+        // Paginación: ventana deslizante de tamaño FIJO (sin puntos suspensivos);
+        // la cantidad de botones no cambia al navegar (ver vendor.pagination.custom-sliding).
+        $movilizaciones = $query->orderBy('movilizacion_historial.created_at', 'desc')->paginate(16);
+
+        $totalTransito = $movilizaciones->total();
+
+        // Mostramos TODOS los frentes en el historial (activos y finalizados)
+        // porque se necesita poder buscar movilizaciones de frentes antiguos.
+        $frentes = FrenteTrabajo::orderBy('NOMBRE_FRENTE')->get();
+        $allTipos = \App\Models\TipoEquipo::orderBy('nombre')->get();
+        $tiposAux = \App\Models\EquipoAuxiliar::whereNotNull('TIPO')->where('TIPO', '!=', '')
+            ->distinct()->orderBy('TIPO')->pluck('TIPO');
+
+        if ($request->wantsJson()) {
+            $tableHtml = view('admin.movilizaciones.partials.table_rows', compact('movilizaciones'))->render();
+            $paginationHtml = $movilizaciones->appends($request->all())->links('vendor.pagination.custom-sliding')->toHtml();
+
+            return response()->json([
+                'html' => $tableHtml,
+                'pagination' => $paginationHtml,
+                'totalTransito' => $totalTransito
+            ]);
+        }
+
+        return view('admin.movilizaciones.index', compact('movilizaciones', 'totalTransito', 'frentes', 'allTipos', 'tiposAux'));
+    }
+
+
+    /**
+     * Filtros del HISTORIAL. Punto ÚNICO: los usan la pantalla (index) y la exportación a
+     * Excel, para que el archivo no pueda traer un universo distinto al que se está viendo.
+     *
+     * Extraído a propósito, siguiendo lo que ya se hizo en equipos (applyEquipoFilters):
+     * allí el export tenía los filtros COPIADOS y se fueron separando de la pantalla sin
+     * que nadie lo notara — el tipo no entendía el prefijo del desplegable y algunos
+     * filtros se ignoraban. Aquí no se repiten.
+     */
+    private function aplicarFiltrosHistorial($query, Request $request): void
+    {
         if ($request->filled('search')) {
             $search      = trim($request->search);
             $searchUpper = strtoupper($search);
@@ -140,32 +188,189 @@ class MovilizacionController extends Controller
                 $query->where('movilizacion_historial.created_at', '<', \Carbon\Carbon::parse($request->fecha_hasta)->addDay()->toDateString());
             } catch (\Throwable $e) { /* fecha inválida → sin filtro */ }
         }
+    }
 
-        // Paginación: ventana deslizante de tamaño FIJO (sin puntos suspensivos);
-        // la cantidad de botones no cambia al navegar (ver vendor.pagination.custom-sliding).
-        $movilizaciones = $query->orderBy('movilizacion_historial.created_at', 'desc')->paginate(16);
 
-        $totalTransito = $movilizaciones->total();
+    /**
+     * Exporta a XLSX el historial TAL COMO SE ESTÁ VIENDO.
+     *
+     * Usa aplicarFiltrosHistorial(), los mismos filtros que la pantalla, así que el archivo
+     * no puede traer un universo distinto al de la tabla. Encabezado corporativo igual al
+     * del módulo de equipos (logo + título + EDICIÓN/REVISIÓN/FECHA), con el título propio
+     * de este listado.
+     *
+     * Sin paginar a propósito: la pantalla muestra de 16 en 16, pero lo que se pide del
+     * Excel es el historial filtrado ENTERO, no la página que se esté mirando.
+     */
+    public function export(Request $request)
+    {
+        $query = Movilizacion::with([
+            'equipo:ID_EQUIPO,id_tipo_equipo,MARCA,MODELO,SERIAL_CHASIS,CODIGO_PATIO',
+            'equipo.tipo:id,nombre',
+            'equipo.documentacion:ID_EQUIPO,PLACA',
+            'auxiliar:ID_AUXILIAR,TIPO,MARCA,MODELO,SERIAL',
+            'frenteOrigen',
+            'frenteDestino',
+            'usuario:ID_USUARIO,NOMBRE_COMPLETO',
+        ]);
 
-        // Mostramos TODOS los frentes en el historial (activos y finalizados)
-        // porque se necesita poder buscar movilizaciones de frentes antiguos.
-        $frentes = FrenteTrabajo::orderBy('NOMBRE_FRENTE')->get();
-        $allTipos = \App\Models\TipoEquipo::orderBy('nombre')->get();
-        $tiposAux = \App\Models\EquipoAuxiliar::whereNotNull('TIPO')->where('TIPO', '!=', '')
-            ->distinct()->orderBy('TIPO')->pluck('TIPO');
+        $this->aplicarFiltrosHistorial($query, $request);
 
-        if ($request->wantsJson()) {
-            $tableHtml = view('admin.movilizaciones.partials.table_rows', compact('movilizaciones'))->render();
-            $paginationHtml = $movilizaciones->appends($request->all())->links('vendor.pagination.custom-sliding')->toHtml();
+        $movs = $query->orderBy('movilizacion_historial.created_at', 'desc')->get();
 
-            return response()->json([
-                'html' => $tableHtml,
-                'pagination' => $paginationHtml,
-                'totalTransito' => $totalTransito
-            ]);
+        $currentDate = date('d/m/Y');
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Historial');
+
+        $spreadsheet->getProperties()
+            ->setCreator('Sistema de Gestión de Equipos Operacionales')
+            ->setLastModifiedBy('Sistema de Gestión de Equipos Operacionales')
+            ->setTitle('Historial de Movilizaciones')
+            ->setSubject('Exportación - Sistema de Gestión de Equipos Operacionales')
+            ->setDescription('Generado automáticamente por el Sistema de Gestión de Equipos Operacionales - C.VIDALSA 27, C.A.')
+            ->setCompany('Constructora Vidalsa 27, C.A.');
+
+        $spreadsheet->getDefaultStyle()->getFont()->setName('Arial')->setSize(10);
+
+        $lastCol      = 'M';   // A..M = 13 columnas de datos
+        $endTitle     = 'I';   // el título ocupa C..I
+        $startEdicion = 'J';   // EDICIÓN/REVISIÓN/FECHA a la derecha, angosto
+
+        foreach ([1, 2, 3] as $fila) $sheet->getRowDimension($fila)->setRowHeight(40);
+
+        // Logo centrado en A1:B3 (trait ExcelLogoCorporativo, el mismo de los demás export)
+        $this->insertarLogoCorporativo($sheet, ['A', 'B'], [1, 2, 3]);
+        $sheet->mergeCells('A1:B3');
+        $sheet->getStyle('A1:B3')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
+
+        // Título + de qué recorte de datos se trata, para que el archivo se explique solo
+        $sheet->mergeCells('C1:' . $endTitle . '3');
+        $sheet->setCellValue('C1', "HISTORIAL DE MOVILIZACIONES\n" . $this->subtituloExport($request));
+        $sheet->getStyle('C1')->getAlignment()->setWrapText(true)
+            ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER)
+            ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+        $sheet->getStyle('C1')->getFont()->setBold(true)->setSize(14)->getColor()->setARGB(\PhpOffice\PhpSpreadsheet\Style\Color::COLOR_BLACK);
+        $sheet->getStyle('C1:' . $endTitle . '3')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
+
+        foreach ([1 => 'EDICION: 1', 2 => 'REVISION: 0', 3 => 'FECHA: ' . $currentDate] as $fila => $texto) {
+            $rango = $startEdicion . $fila . ':' . $lastCol . $fila;
+            $sheet->mergeCells($rango);
+            $sheet->setCellValue($startEdicion . $fila, $texto);
+            $sheet->getStyle($startEdicion . $fila)->getAlignment()
+                ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER)
+                ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+            $sheet->getStyle($startEdicion . $fila)->getFont()->setBold(true)->setSize(11)->getColor()->setARGB(\PhpOffice\PhpSpreadsheet\Style\Color::COLOR_BLACK);
+            $sheet->getStyle($rango)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
         }
 
-        return view('admin.movilizaciones.index', compact('movilizaciones', 'totalTransito', 'frentes', 'allTipos', 'tiposAux'));
+        $sheet->mergeCells('A4:' . $lastCol . '4');
+        $sheet->setCellValue('A4', 'Exportado por: Sistema de Gestión de Equipos Operacionales');
+        $sheet->getStyle('A4:' . $lastCol . '4')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
+        $sheet->getStyle('A4:' . $lastCol . '4')->getAlignment()
+            ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_RIGHT)
+            ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+        $sheet->getStyle('A4:' . $lastCol . '4')->getFont()->setItalic(true)->setSize(9)->getColor()->setARGB('FF333333');
+        $sheet->getRowDimension(4)->setRowHeight(20);
+
+        $bordes = ['borders' => ['allBorders' => [
+            'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
+            'color' => ['argb' => 'FF000000'],
+        ]]];
+        $sheet->getStyle('A1:' . $lastCol . '4')->applyFromArray($bordes);
+
+        // Fila 5 — encabezados de la tabla
+        $columnas = ['A','B','C','D','E','F','G','H','I','J','K','L','M'];
+        $titulos  = ['N°', 'N° CONTROL', 'FECHA', 'MOVIMIENTO', 'CLASE', 'TIPO', 'MARCA',
+                     'MODELO', 'SERIAL', 'PLACA', 'ORIGEN', 'DESTINO', 'REGISTRADO POR'];
+        foreach ($titulos as $i => $t) $sheet->setCellValue($columnas[$i] . '5', $t);
+
+        $sheet->getStyle('A5:' . $lastCol . '5')->getAlignment()
+            ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER)
+            ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER)
+            ->setWrapText(true);
+        $sheet->getStyle('A5:' . $lastCol . '5')->getFont()->setBold(true)->setSize(10)->getColor()->setARGB('FFFFFFFF');
+        $sheet->getStyle('A5:' . $lastCol . '5')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FF1B365D');
+        $sheet->getRowDimension(5)->setRowHeight(40);
+
+        foreach ([8, 16, 18, 16, 12, 22, 18, 22, 24, 14, 26, 26, 26] as $i => $ancho) {
+            $sheet->getColumnDimension($columnas[$i])->setWidth($ancho);
+        }
+
+        // Datos. Cada fila del historial es de un EQUIPO o de un AUXILIAR (nunca de los
+        // dos), igual que en la tabla de la pantalla: se toma el que venga poblado.
+        $fila = 6;
+        foreach ($movs as $i => $mv) {
+            $esAux = $mv->ID_AUXILIAR !== null;
+            $aux   = $mv->auxiliar;
+            $eq    = $mv->equipo;
+
+            $datos = [
+                $i + 1,
+                $mv->CODIGO_CONTROL ?: '—',
+                optional($mv->created_at)->format('d/m/Y H:i') ?: '—',
+                $mv->TIPO_MOVIMIENTO ?: '—',
+                $esAux ? 'AUXILIAR' : 'EQUIPO',
+                $esAux ? ($aux->TIPO ?? '—')   : (optional(optional($eq)->tipo)->nombre ?? '—'),
+                $esAux ? ($aux->MARCA ?? '—')  : (optional($eq)->MARCA ?? '—'),
+                $esAux ? ($aux->MODELO ?? '—') : (optional($eq)->MODELO ?? '—'),
+                $esAux ? ($aux->SERIAL ?? '—') : (optional($eq)->SERIAL_CHASIS ?? '—'),
+                $esAux ? '—' : (optional(optional($eq)->documentacion)->PLACA ?? '—'),
+                $mv->nombre_origen  ?: '—',
+                $mv->nombre_destino ?: '—',
+                optional($mv->usuario)->NOMBRE_COMPLETO ?: ($mv->USUARIO_REGISTRO ?: '—'),
+            ];
+
+            foreach ($datos as $c => $valor) $sheet->setCellValue($columnas[$c] . $fila, $valor);
+            $fila++;
+        }
+
+        $ultima = max($fila - 1, 6);
+        $sheet->getStyle('A6:' . $lastCol . $ultima)->applyFromArray($bordes);
+        $sheet->getStyle('A6:' . $lastCol . $ultima)->getAlignment()
+            ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER)
+            ->setWrapText(true);
+        $sheet->getStyle('A6:A' . $ultima)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle('C6:E' . $ultima)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        $sheet->freezePane('A6');   // el encabezado queda fijo al desplazarse
+
+        $nombre = 'Historial_Movilizaciones_' . date('Y-m-d_H-i') . '.xlsx';
+        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, $nombre, [
+            'Content-Type'  => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Cache-Control' => 'no-store, no-cache, must-revalidate',
+        ]);
+    }
+
+    /**
+     * Segunda línea del título: qué recorte de datos lleva el archivo. Sin esto, dos
+     * exportaciones con filtros distintos son indistinguibles al abrirlas.
+     */
+    private function subtituloExport(Request $request): string
+    {
+        $partes = [];
+
+        if ($request->filled('id_frente') && $request->id_frente !== 'all') {
+            $frente = FrenteTrabajo::find($request->id_frente);
+            if ($frente) {
+                $direccion = $request->input('direccion_frente');
+                $comoEntra = $direccion === 'entrada' ? 'ENTRADAS A' : ($direccion === 'salida' ? 'SALIDAS DE' : 'FRENTE');
+                $partes[] = $comoEntra . ' "' . mb_strtoupper($frente->NOMBRE_FRENTE) . '"';
+            }
+        }
+        if ($request->filled('fecha_desde') || $request->filled('fecha_hasta')) {
+            $desde = $request->input('fecha_desde') ?: 'INICIO';
+            $hasta = $request->input('fecha_hasta') ?: 'HOY';
+            $partes[] = 'DEL ' . $desde . ' AL ' . $hasta;
+        }
+        if ($request->filled('search')) {
+            $partes[] = 'BUSQUEDA: "' . mb_strtoupper(trim($request->search)) . '"';
+        }
+
+        return $partes ? implode(' · ', $partes) : 'HISTORIAL COMPLETO';
     }
 
     public function bulkStore(Request $request)

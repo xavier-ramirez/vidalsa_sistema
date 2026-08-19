@@ -5,6 +5,71 @@
  */
 
 // ─── Función principal AJAX ──────────────────────────────────────────────────
+// Filtros ACTUALES de la pantalla, leídos de sus propios controles.
+//
+// Punto ÚNICO: los usan la tabla (loadMovilizaciones) y la exportación a Excel
+// (_exportarHistorial). Si cada uno los armara por su cuenta, el archivo acabaría trayendo
+// un recorte distinto al que se está viendo en cuanto alguien tocara un filtro y se
+// olvidara del otro sitio. En el servidor pasa lo mismo y por eso hay un
+// aplicarFiltrosHistorial() compartido: esta función es su pareja en el navegador.
+window._mvFiltrosActuales = function () {
+    // Scopear inputs al contenedor principal para evitar conflictos SPA
+    const mvCard = document.querySelector('.movilizaciones-main-card');
+
+    const getHiddenVal = (name, container) => {
+        const el = (container || document).querySelector(`input[name="${name}"][data-filter-value]`);
+        return el ? el.value.trim() : '';
+    };
+
+    const params = new URLSearchParams();
+
+    // Búsqueda de texto libre
+    const searchEl = document.getElementById('searchInput');
+    if (searchEl && searchEl.value.trim()) {
+        params.append('search', searchEl.value.trim());
+    }
+
+    // Filtro Frente
+    const frenteVal = getHiddenVal('id_frente', mvCard);
+    if (frenteVal && frenteVal !== 'all') {
+        params.append('id_frente', frenteVal);
+    }
+
+    // Filtro Tipo
+    const tipoVal = getHiddenVal('id_tipo', mvCard);
+    if (tipoVal && tipoVal !== 'all') {
+        params.append('id_tipo', tipoVal);
+    }
+
+    // Rango de fechas
+    const fechaDesde = document.getElementById('filterFechaDesde');
+    if (fechaDesde && fechaDesde.value) params.append('fecha_desde', fechaDesde.value);
+
+    const fechaHasta = document.getElementById('filterFechaHasta');
+    if (fechaHasta && fechaHasta.value) params.append('fecha_hasta', fechaHasta.value);
+
+    // Dirección del frente
+    const direccion = document.getElementById('filterDireccionFrente');
+    if (direccion && direccion.value) params.append('direccion_frente', direccion.value);
+
+    return params;
+};
+
+// Descarga el historial FILTRADO en XLSX. No usa fetch: una navegación normal deja que el
+// navegador maneje la descarga con su propia barra de progreso, y el Content-Disposition
+// del servidor pone el nombre del archivo. data-no-spa evita que el enrutador de la SPA
+// intente tratarlo como una página.
+window._exportarHistorial = function () {
+    const params = window._mvFiltrosActuales();
+    const a = document.createElement('a');
+    a.href = '/admin/movilizaciones/export' + (params.toString() ? '?' + params.toString() : '');
+    a.setAttribute('data-no-spa', 'true');
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () { if (a.parentNode) a.parentNode.removeChild(a); }, 800);
+};
+
 window.loadMovilizaciones = async function (pageUrl = null) {
     const tableBody = document.getElementById('movilizacionesTableBody');
     if (!tableBody) return; // No estamos en la sección de movilizaciones
@@ -13,46 +78,9 @@ window.loadMovilizaciones = async function (pageUrl = null) {
     tableBody.style.opacity = '0.5';
 
     try {
-        // Scopear inputs al contenedor principal para evitar conflictos SPA
-        const mvCard = document.querySelector('.movilizaciones-main-card');
+        const params = window._mvFiltrosActuales();
 
-        const getHiddenVal = (name, container) => {
-            const el = (container || document).querySelector(`input[name="${name}"][data-filter-value]`);
-            return el ? el.value.trim() : '';
-        };
-
-        const params = new URLSearchParams();
-
-        // Búsqueda de texto libre
-        const searchEl = document.getElementById('searchInput');
-        if (searchEl && searchEl.value.trim()) {
-            params.append('search', searchEl.value.trim());
-        }
-
-        // Filtro Frente
-        const frenteVal = getHiddenVal('id_frente', mvCard);
-        if (frenteVal && frenteVal !== 'all') {
-            params.append('id_frente', frenteVal);
-        }
-
-        // Filtro Tipo
-        const tipoVal = getHiddenVal('id_tipo', mvCard);
-        if (tipoVal && tipoVal !== 'all') {
-            params.append('id_tipo', tipoVal);
-        }
-
-        // Rango de fechas
-        const fechaDesde = document.getElementById('filterFechaDesde');
-        if (fechaDesde && fechaDesde.value) params.append('fecha_desde', fechaDesde.value);
-
-        const fechaHasta = document.getElementById('filterFechaHasta');
-        if (fechaHasta && fechaHasta.value) params.append('fecha_hasta', fechaHasta.value);
-
-        // Dirección del frente
-        const direccion = document.getElementById('filterDireccionFrente');
-        if (direccion && direccion.value) params.append('direccion_frente', direccion.value);
-
-        // Página (para paginación AJAX)
+        // Página (solo la tabla pagina; el Excel lleva el historial filtrado entero)
         if (pageUrl && typeof pageUrl === 'string') {
             try {
                 const page = new URL(pageUrl, window.location.origin).searchParams.get('page');
