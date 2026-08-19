@@ -248,6 +248,19 @@
                     <input type="text" id="serial_motor" name="SERIAL_DE_MOTOR" class="form-input-custom" value="{{ old('SERIAL_DE_MOTOR') }}" placeholder="Opcional" autocomplete="off" style="text-transform: uppercase;">
                 </div>
 
+                {{-- COLOR (solo equipo). Vivía en la rejilla de más abajo; se sube aquí, al
+                     lado del serial de motor, a pedido del cliente. Al salir de
+                     #equipoFieldsSection pierde el ocultado y el `disabled` que esa sección
+                     aplicaba en bloque, así que se le da su PROPIO envoltorio con id y se
+                     engancha al mismo patrón que #serialMotorWrap. Sin eso, en modo auxiliar
+                     el campo seguiría visible y su valor viajaría en el POST a una tabla que
+                     no tiene esa columna. --}}
+                <div id="colorWrap">
+                <div>
+                    <label for="color" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">Color</label>
+                    <input type="text" id="color" name="COLOR" class="form-input-custom" value="{{ old('COLOR') }}" placeholder="Ej: BLANCO" maxlength="50" autocomplete="off" oninput="this.value = this.value.toUpperCase()">
+                </div>
+
                 {{-- COMBUSTIBLE (solo equipo: `equipos_auxiliares` no tiene esa columna).
                      Es dato de la UNIDAD, no del modelo: un mismo MODELO puede traer motor
                      a gasolina o a gasoil (HILUX 2.7 vs 2.4 diésel, F-350 Triton vs Power
@@ -313,6 +326,21 @@
                             @endforeach
                         </div>
                     </div>
+                </div>
+
+                {{-- LINK GPS (solo equipo). Movido aquí, junto al estatus, a pedido del
+                     cliente. Mismo motivo que #colorWrap para el envoltorio propio: fuera de
+                     #equipoFieldsSection nadie lo ocultaría ni lo desactivaría en modo
+                     auxiliar. --}}
+                <div id="linkGpsWrap">
+                <div>
+                    <label for="link_gps" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">Link GPS</label>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <input type="url" id="link_gps" name="LINK_GPS" class="form-input-custom" value="{{ old('LINK_GPS') }}" placeholder="https://..." style="flex: 1;">
+                        <span style="color: #10b981; display: flex;"><i class="material-icons" style="font-size: 20px;">gps_fixed</i></span>
+                    </div>
+                </div>
+                </div>
                 </div>
 
                 {{-- FRENTE DE TRABAJO --}}
@@ -400,24 +428,6 @@
 
             {{-- ═══ CAMPOS EXCLUSIVOS EQUIPO ═══ --}}
             <div id="equipoFieldsSection">
-                <div class="grid-responsive-5" style="margin-top: 12px;">
-
-                    {{-- Color --}}
-                    <div>
-                        <label for="color" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">Color</label>
-                        <input type="text" id="color" name="COLOR" class="form-input-custom" value="{{ old('COLOR') }}" placeholder="Ej: BLANCO" maxlength="50" autocomplete="off" oninput="this.value = this.value.toUpperCase()">
-                    </div>
-
-                    {{-- Link GPS --}}
-                    <div>
-                        <label for="link_gps" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">Link GPS</label>
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <input type="url" id="link_gps" name="LINK_GPS" class="form-input-custom" value="{{ old('LINK_GPS') }}" placeholder="https://..." style="flex: 1;">
-                            <span style="color: #10b981; display: flex;"><i class="material-icons" style="font-size: 20px;">gps_fixed</i></span>
-                        </div>
-                    </div>
-                </div>
-
                 {{-- Catalog Linking Widget --}}
                 <div id="catalog_link_widget" style="display: none; margin: 16px 0; padding: 12px 14px; background: linear-gradient(135deg, #ebf8ff 0%, #f0f9ff 100%); border: 1px solid #0284c7; border-radius: 12px;">
                     <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
@@ -684,6 +694,17 @@
             var smInput = document.getElementById('serial_motor');
             if (smInput) smInput.disabled = isAux;
         }
+
+        // Color y Link GPS (solo equipo): mismo patron que #serialMotorWrap. Antes
+        // los tapaba #equipoFieldsSection entero; al mudarlos junto a los campos con los
+        // que se leen mejor, cada uno se apaga por su cuenta.
+        [['colorWrap', 'color'], ['linkGpsWrap', 'link_gps']].forEach(function (par) {
+            var wrap = document.getElementById(par[0]);
+            if (!wrap) return;
+            wrap.style.display = isAux ? 'none' : '';
+            var input = document.getElementById(par[1]);
+            if (input) input.disabled = isAux;
+        });
 
         // Combustible (solo equipo): `equipos_auxiliares` no tiene esa columna, asi que en
         // modo auxiliar se oculta Y se deshabilita el hidden para no enviarlo en el POST.
