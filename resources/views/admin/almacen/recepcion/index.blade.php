@@ -72,23 +72,7 @@
         </div>
     </div>
     {{-- Fila 2: Tabs de navegación --}}
-    <div class="tr-tabs" style="display:flex;gap:0;margin-top:12px;border-bottom:2px solid #e2e8f0;">
-        {{-- El nombre dice el ORIGEN, no el continente. "Bandeja de entrada" describia el
-             cajon; lo que hace falta saber al entrar es de donde viene el material, porque
-             es lo unico que separa esta via de la compra directa. --}}
-        <a href="{{ route('almacen.recepcion.index', ['force' => 1]) }}"
-           title="Material que el almacén general ya despachó con su nota de entrega. Aquí no se captura nada: solo se confirma lo que llegó."
-           style="display:flex;align-items:center;gap:6px;padding:8px 20px;font-size:13px;font-weight:700;color:#0067b1;border-bottom:2px solid #0067b1;margin-bottom:-2px;text-decoration:none;transition:all .15s;">
-            <i class="material-icons" style="font-size:16px;">inbox</i> Reposición del general
-        </a>
-        @can('almacen.movimiento')
-        <a href="{{ route('almacen.recepcion.nueva') }}"
-           style="display:flex;align-items:center;gap:6px;padding:8px 20px;font-size:13px;font-weight:600;color:#64748b;text-decoration:none;transition:all .15s;"
-           onmouseenter="this.style.color='#0067b1'" onmouseleave="this.style.color='#64748b'">
-            <i class="material-icons" style="font-size:16px;">add_circle_outline</i> Entrada por ODC
-        </a>
-        @endcan
-    </div>
+    @include('admin.almacen.recepcion.partials.tabs', ['activa' => 'bandeja', 'clase' => 'tr-tabs'])
 
     {{-- Una linea que ordena la pantalla entera. Las dos vias de entrada NO se distinguen
          por los papeles que traen (casi siempre traen), sino por DE DONDE viene el material:
