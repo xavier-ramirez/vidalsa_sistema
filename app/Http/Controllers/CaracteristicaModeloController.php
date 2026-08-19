@@ -666,6 +666,38 @@ class CaracteristicaModeloController extends Controller
      */
     private function autoLinkEquiposToCatalogo(CaracteristicaModelo $catalogo, string $modelo, $anio, string $context = 'create'): void
     {
+        // CANDADO: si ese modelo+año tiene MÁS DE UNA ficha, no se engancha nada.
+        //
+        // Varias fichas del mismo modelo+año existen por una sola razón: separar unidades
+        // que llevan FOTOS distintas (hoy, distinto color). Cuál le toca a cada unidad lo
+        // decidió una persona a mano; la aplicación no guarda ese dato en ninguna parte y
+        // por tanto NO PUEDE adivinarlo.
+        //
+        // Sin este candado, enganchaba igual: agarra todo equipo del modelo+año con
+        // ID_ESPEC nulo y lo pega a la ficha que se esté guardando. O sea que editar UNA
+        // ficha —aunque fuese solo para corregir un aceite— se llevaba de golpe a todas las
+        // unidades sueltas de ese modelo y las sacaba a todas con la misma foto, borrando
+        // en silencio el trabajo de separarlas. Medido cuando se puso esto: un modelo con 5
+        // fichas tenía 104 unidades sueltas listas para ser absorbidas por la primera
+        // edición que alguien hiciera.
+        //
+        // No adivinar es la respuesta correcta: es preferible que una unidad se quede sin
+        // ficha (y muestre su propia foto) a que se muestre con la foto de otro color.
+        // Cuando el color viva en la unidad, el enganche podrá volver a ser automático
+        // mirándolo; hasta entonces, con varias fichas se asigna a mano.
+        //
+        // Los modelos con UNA sola ficha —47 de los 49 de hoy— no se ven afectados: ahí no
+        // hay ambigüedad y el enganche automático sigue igual.
+        $fichasDelModelo = CaracteristicaModelo::where('MODELO', $modelo)
+            ->where('ANIO_ESPEC', $anio)
+            ->count();
+
+        if ($fichasDelModelo > 1) {
+            Log::info("Auto-link OMITIDO para {$modelo} {$anio}: hay {$fichasDelModelo} fichas "
+                . 'y no se puede saber cuál corresponde a cada unidad. Se asignan a mano.');
+            return;
+        }
+
         $query = Equipo::where('MODELO', $modelo)->where('ANIO', $anio);
 
         $query->where(function ($q) use ($catalogo) {
