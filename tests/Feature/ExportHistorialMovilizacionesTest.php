@@ -131,6 +131,41 @@ class ExportHistorialMovilizacionesTest extends MySqlTestCase
         $this->assertSame('AUX-9', $m->invoke($ctrl, null, $aux, true));
     }
 
+    /**
+     * ABRE el XLSX descargado y lee sus celdas. Las otras pruebas comprueban que el archivo
+     * sea un ZIP valido; esta comprueba que DENTRO estan las columnas pedidas, en su orden,
+     * y que no quedo ninguna de las que se quitaron.
+     */
+    public function test_el_archivo_lleva_las_columnas_pedidas(): void
+    {
+        $resp = $this->actingAs($this->usuarioAdmin())->get('/admin/movilizaciones/export');
+        $resp->assertOk();
+
+        $tmp = tempnam(sys_get_temp_dir(), 'hist') . '.xlsx';
+        file_put_contents($tmp, $this->bytes($resp->baseResponse));
+
+        $hoja = \PhpOffice\PhpSpreadsheet\IOFactory::load($tmp)->getActiveSheet();
+
+        // Fila 5 = encabezados de la tabla (1-3 logo/titulo, 4 "Exportado por")
+        $encabezados = [];
+        foreach (range('A', 'H') as $col) {
+            $encabezados[] = (string) $hoja->getCell($col . '5')->getValue();
+        }
+        @unlink($tmp);
+
+        $this->assertSame(
+            ['N°', 'FECHA', 'TIPO', 'MARCA', 'MODELO', 'SERIAL', 'ORIGEN', 'DESTINO'],
+            $encabezados,
+            'Las columnas del Excel no son las pedidas o cambiaron de orden.'
+        );
+
+        foreach (['N° CONTROL', 'MOVIMIENTO', 'CLASE', 'PLACA', 'REGISTRADO POR'] as $quitada) {
+            $this->assertNotContains($quitada, $encabezados, "La columna $quitada debia estar quitada.");
+        }
+
+        $this->assertSame('Historial', $hoja->getTitle());
+    }
+
     public function test_exige_sesion(): void
     {
         $this->get('/admin/movilizaciones/export')->assertRedirect();
