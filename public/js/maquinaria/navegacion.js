@@ -272,18 +272,26 @@ document.addEventListener('DOMContentLoaded', () => {
         const MIN_PRELOADER_MS = 280;
         const _navShownAt = performance.now();
 
+        // PUNTO UNICO de apagado del spinner para esta navegacion. Solo apaga si la
+        // navegacion sigue siendo la actual: si el usuario ya pincho otro enlace, el spinner
+        // que se ve pertenece a la nueva y restarle una referencia la destaparia a medio
+        // cargar. Todos los caminos de salida de loadPage (exito, 403, error, finally) pasan
+        // por aqui para que la regla viva en un solo sitio.
+        const _apagarSiSigueSiendoMia = () => {
+            if (_miNav !== _navSeq) return;
+            if (window.hidePreloader) window.hidePreloader();
+        };
+
         const _hidePreloaderRespectingMinTime = () => {
             if (!window.hidePreloader) return;
+            if (_miNav !== _navSeq) return;
             const elapsed = performance.now() - _navShownAt;
             if (elapsed < MIN_PRELOADER_MS) {
-                setTimeout(() => {
-                    // Si ya arranco otra navegacion, este apagado es de una pagina que ya
-                    // no esta en pantalla: restaria una referencia que no es suya.
-                    if (_miNav !== _navSeq) return;
-                    window.hidePreloader();
-                }, MIN_PRELOADER_MS - elapsed);
+                // Se vuelve a comprobar al saltar: entre que se programa este apagado y que
+                // se ejecuta pueden pasar los 280ms y arrancar otra navegacion.
+                setTimeout(_apagarSiSigueSiendoMia, MIN_PRELOADER_MS - elapsed);
             } else {
-                window.hidePreloader();
+                _apagarSiSigueSiendoMia();
             }
         };
 
@@ -333,7 +341,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // destino seguira devolviendo 403 al no tener el permiso).
                 if (response.status === 403) {
                     handledCleanup = true;
-                    if (window.hidePreloader) window.hidePreloader();
+                    _apagarSiSigueSiendoMia();
                     let msg = 'No tienes permiso para acceder a esa sección.';
                     try {
                         const body = await response.json();
@@ -358,7 +366,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const contentType = response.headers.get('Content-Type') || '';
                 if (!contentType.includes('text/html')) {
                     handledCleanup = true;
-                    if (window.hidePreloader) window.hidePreloader();
+                    _apagarSiSigueSiendoMia();
                     window.location.href = url;
                     return;
                 }
@@ -474,7 +482,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) {
             clearTimeout(timeoutId);
             handledCleanup = true;
-            if (window.hidePreloader) window.hidePreloader();
+            _apagarSiSigueSiendoMia();
 
             // Sin conexion (navigator.onLine === false) o TypeError ("Failed to fetch"
             // tipico cuando la red esta caida o el servidor no responde): NO hacer
@@ -512,7 +520,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Previene el race condition donde finally ejecuta antes
             // de que el bloque try termine su limpieza.
             if (!handledCleanup) {
-                if (window.hidePreloader) window.hidePreloader();
+                _apagarSiSigueSiendoMia();
             }
         }
     }

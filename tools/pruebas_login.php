@@ -239,8 +239,23 @@ check('el handoff de redirect se respeta', true,
 
 // Dos navegaciones seguidas: el apagado diferido de la primera no puede restarle
 // una referencia a la segunda, que todavia esta cargando.
-check('el apagado diferido comprueba que sigue siendo su navegacion', true,
+check('el apagado comprueba que sigue siendo su navegacion', true,
     str_contains($nav, 'if (_miNav !== _navSeq) return;'));
+
+// Dentro de loadPage NINGUN camino puede apagar el spinner por su cuenta: todos
+// (exito, 403, respuesta no-HTML, error de red y finally) tienen que pasar por
+// _apagarSiSigueSiendoMia(), que es quien comprueba la propiedad. Un hide suelto
+// ahi dentro le robaria la referencia a la navegacion siguiente.
+$ini  = strpos($nav, 'async function loadPage(');
+$fin  = strpos($nav, 'GUARD ANTI-SPINNER-CONGELADO');
+$body = substr($nav, $ini, $fin - $ini);
+
+// Se descuentan los que SI son legitimos: el del propio punto unico y el borron
+// de arranque (hidePreloader(true), que reinicia el contador heredado).
+$sueltos = substr_count($body, 'window.hidePreloader();') - 1;
+check('apagados sueltos dentro de loadPage', 0, $sueltos);
+check('el punto unico de apagado existe', true,
+    str_contains($nav, 'const _apagarSiSigueSiendoMia = () => {'));
 
 printf("\n%d OK, %d FALLAS\n", $ok, $fail);
 exit($fail === 0 ? 0 : 1);
