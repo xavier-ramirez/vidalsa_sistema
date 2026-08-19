@@ -1356,6 +1356,10 @@
             min-height: 40px;
             box-sizing: border-box;
             padding: 6px 14px;
+            /* Cada tarjeta pide 150 px y crece para llenar su fila. Es lo que hace que la
+               ultima fila no quede coja: dos tarjetas solas se reparten el ancho entero en
+               vez de dejar el hueco de la tercera columna. */
+            flex: 1 1 150px;
             /* Etiqueta a la izquierda, cifra a la derecha — "Σ Equipos ....... 61".
                La CIFRA SIEMPRE va AL LADO, nunca debajo: `nowrap` aqui y `flex:none` en
                .fleet-kpi-val. Cuando no cabe, quien cede es el TEXTO, que se reparte en dos
@@ -1429,11 +1433,33 @@
            corta) ceden su ancho y la de gasoil conserva el suyo — ver grid-template-columns
            en el HTML.
            Sigue siendo `0 1`: si el modal es estrecho, el grid cede antes que el buscador.
-           Si algun dia se agrega o quita una tarjeta, recalcular este numero. */
+           Este 540 es el ancho que se le CONCEDE al bloque de tarjetas frente al buscador;
+           como dentro se reparten solas (ver .fleet-stats-grid), agregar o quitar una
+           tarjeta ya NO obliga a tocarlo. */
         .fleet-topline .fleet-stats-grid {
             flex: 0 1 540px;
             min-width: 0;
             margin: 0 !important;
+        }
+
+        /* El REPARTO de las tarjetas vive aquí y ya no en un `style=` del HTML: estaba
+           partido entre los dos sitios y había que mirar en ambos para entenderlo.
+
+           Reparto flexible en vez de columnas fijas. Antes eran tres columnas calculadas a
+           mano (0.8 / 0.8 / 1 sobre 540 px = 160+160+200) y el comentario avisaba de
+           "recalcular esta cuenta" al tocar algo. Paso lo previsible: llegaron dos tarjetas
+           mas (equipos a gasoil y a gasolina), las columnas siguieron siendo tres y la
+           segunda fila quedo con un HUECO de 200 px a la derecha.
+
+           Con `flex-wrap` las tarjetas se reparten el ancho de CADA fila: entran las que
+           quepan y las que sobran pasan abajo ESTIRANDOSE hasta llenarla. Cinco tarjetas dan
+           3 + 2 sin hueco, y agregar o quitar una no obliga a recalcular nada nunca mas.
+           (El nombre de la clase dice "grid" por historia; se conserva porque lo nombran
+           ocho reglas y ningun JS.) */
+        .fleet-stats-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
         }
 
         /* 190px: con 210 las 4 tarjetas ya no entraban en UNA fila (el grid se quedaba en
@@ -1570,16 +1596,10 @@
                 {{-- Sin margin aquí: la grid vive dentro de .fleet-topline, que lo anula con
                      `margin: 0 !important`. El que separa de los gráficos es el margen
                      inferior del propio .fleet-topline. --}}
-                {{-- Columnas DESIGUALES a proposito. "Σ Equipos" y "Σ Auxiliares" son etiquetas
-                     cortas y con tres partes iguales les sobraba ancho; la de gasoil es la
-                     larga y es la unica que lo necesita. Con 0.8 / 0.8 / 1 sobre los 520px
-                     utiles (540 de grid menos los dos gaps de 10) sale 160 + 160 + 200: las dos
-                     Σ bajan de 200 a 160 y la de gasoil CONSERVA sus 200, o sea que el recorte
-                     que ensancha el buscador no se lo come la tarjeta apretada.
-                     Si se cambia el flex-basis del grid, rehacer esta cuenta.
-                     Las dos tarjetas de combustible caen solas en una SEGUNDA fila, bajo las
-                     dos Σ, y heredan sus mismos anchos: no hay que rehacer ninguna cuenta. --}}
-                <div class="fleet-stats-grid" style="display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 0.8fr) minmax(0, 1fr); gap: 10px;">
+                {{-- El reparto (cuántas caben por fila y cómo se estiran) está en el CSS, en
+                     .fleet-stats-grid y .fleet-kpi. Aquí NO va ningún `style=`: estuvo partido
+                     entre los dos sitios y obligaba a mirar en ambos. --}}
+                <div class="fleet-stats-grid">
 
                     {{-- Las tarjetas comparten el MISMO estilo (ver .fleet-kpi*): solo cambian
                          etiqueta e id. Etiqueta + cifra, sin ícono.
@@ -1811,14 +1831,16 @@
                 width: 100% !important;
             }
 
-            /* Stat cards: SIEMPRE en UNA fila en móvil (Σ Equipos / Σ Auxiliares / Consumo).
-               Son 3 desde que se agregó el total de auxiliares; con la Σ en vez de la palabra
-               "Total" las etiquetas caben sin partirse. */
+            /* Stat cards en teléfono: tres por fila y las que sobren estirándose en la
+               siguiente. Aquí había `repeat(3, 1fr)` con un comentario que decía "SIEMPRE en
+               UNA fila... son 3": dejó de ser cierto al llegar las dos tarjetas de
+               combustible, y las cinco quedaban 3 + 2 con un hueco al final.
+               Ya no se fija el número de columnas: lo resuelve el mismo reparto flexible del
+               escritorio, y aquí solo se ajusta cuánto pide cada tarjeta. */
             /* margin-bottom 0 (antes 14): en móvil la grid va DENTRO de .fleet-topline, que
                ya aporta su propio margen inferior; los dos se sumaban y dejaban un hueco
                enorme entre los contadores y el primer gráfico. */
             #fleetDashboardModal .fleet-stats-grid {
-                grid-template-columns: repeat(3, 1fr) !important;
                 gap: 8px !important;
                 margin-bottom: 0 !important;
                 width: 100% !important;
@@ -1843,6 +1865,9 @@
                 min-width: 0 !important;
                 box-sizing: border-box !important;
                 word-wrap: break-word !important;
+                /* Pide ~un tercio del ancho: entran TRES por fila y las que sobren se
+                   estiran para llenar la siguiente, sin hueco. */
+                flex: 1 1 28% !important;
                 flex-direction: column-reverse !important;
                 align-items: center !important;
                 justify-content: center !important;
