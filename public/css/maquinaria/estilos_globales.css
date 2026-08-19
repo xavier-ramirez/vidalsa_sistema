@@ -946,7 +946,22 @@ body {
     }
 }
 
+/* Escalon intermedio: sin el, la rejilla de los formularios saltaba de 3 columnas a UNA
+   sola en cuanto se bajaba de 768px, y todos los campos (Serial de Motor, Color,
+   Combustible, Consumo, Capacidad, Codigo Interno, Estatus) quedaban en una tira vertical.
+   Eso no es solo cosa de telefonos: un PC con el zoom al 150-175% deja el viewport por
+   debajo de 768px CSS y caia en el mismo cajon. A dos columnas siguen entrando de a pares
+   y el formulario se lee de un vistazo. */
 @media (max-width: 768px) {
+
+    .grid-responsive-5,
+    .grid-responsive-3 {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* Ya de verdad estrecho (telefono en vertical): una sola columna. */
+@media (max-width: 520px) {
 
     .grid-responsive-5,
     .grid-responsive-3 {
