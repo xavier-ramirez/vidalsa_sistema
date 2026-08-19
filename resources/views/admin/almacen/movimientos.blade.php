@@ -692,6 +692,16 @@
                         <span>Bitácora por Nota (PDF)</span>
                     </a>
                 </div>
+                {{-- Exportar a Excel: baja la bitácora tal y como se está viendo. Los filtros
+                     salen de buildParams(), el mismo que arma la petición de la tabla. --}}
+                <div style="padding:6px;border-bottom:1px solid #cbd5e1;">
+                    <button type="button" onclick="window.almMovExportarExcel();"
+                        style="width:100%;display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:6px;border:none;background:transparent;color:#475569;font-size:14px;font-weight:500;cursor:pointer;text-align:left;transition:background 0.15s;"
+                        onmouseover="this.style.background='#cbd5e1'" onmouseout="this.style.background='transparent'">
+                        <div style="background:#dcfce7;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;line-height:1;color:#15803d;">download</i></div>
+                        <span>Exportar a Excel</span>
+                    </button>
+                </div>
                 @can('almacen.nota.eliminar')
                 {{-- Eliminar Nota: gateado a la clave almacen.nota.eliminar porque reversa
                      stock y deja un par (SALIDA original + ENTRADA reversa) en el kardex. --}}
@@ -1182,6 +1192,17 @@
     // Mismo patrón del dropdown de /admin/movilizaciones (toggleAccionesMov):
     // sufijo "Inv" para no colisionar con el del módulo de movilizaciones si
     // ambos cargan en una SPA.
+    // Descarga la bitácora en XLSX con los filtros que se están viendo. Reutiliza
+    // buildParams() —el mismo que arma la petición de la tabla— para que el archivo no pueda
+    // traer un recorte distinto del que hay en pantalla. Va por window.location y no por
+    // navigateTo: es una descarga, no una navegación SPA.
+    window.almMovExportarExcel = function () {
+        var m = document.getElementById('splitDropdownMenuMovInv');
+        if (m) m.style.display = 'none';
+        var qs = buildParams().toString();
+        window.location.href = @json(route('almacen.movimientosExport')) + (qs ? ('?' + qs) : '');
+    };
+
     window.toggleAccionesMovInv = function (ev) {
         if (ev) ev.stopPropagation();
         var m = el('splitDropdownMenuMovInv'); if (!m) return;

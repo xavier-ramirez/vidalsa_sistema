@@ -1465,14 +1465,19 @@
             min-width: 0;
         }
 
+        /* Altura FIJA, no la del contenido: dentro van una caja de texto y dos iconos
+           (lupa 18px, aspa 20px) y el aspa aparece y desaparece al escribir. Sin fijarla,
+           el buscador daba un saltito cada vez que salia el aspa. 32px deja unos 9px de
+           aire con la fuente de 14px y los dos iconos entran de sobra; a 40px la caja
+           pesaba de mas al lado del titulo. Vale igual en telefono: el bloque movil de
+           mas abajo solo le toca el ancho. */
         .fleet-filter-container .dropdown-trigger {
-            height: 40px !important;
+            height: 32px !important;
         }
 
         .fleet-filter-container input[type="text"] {
             font-size: 14px !important;
         }
-        
     </style>
     
     @php
@@ -1542,7 +1547,7 @@
                                 <input type="text" id="dashboardFrenteSearch"
                                     placeholder="Buscar frente..."
                                     onkeyup="dashboardFilterFrentes(); dashboardToggleClearBtn()"
-                                    style="flex: 1; min-width: 0; border: none; background: transparent; padding: 8px 5px; font-size: 13px; font-weight: 500; outline: none; color: #1e293b; cursor: text;"
+                                    style="flex: 1; min-width: 0; border: none; background: transparent; padding: 4px 5px; font-weight: 500; outline: none; color: #1e293b; cursor: text;"
                                     autocomplete="off">
                                 <i id="dashboardFrenteClearBtn" class="material-icons"
                                    onclick="event.stopPropagation(); dashboardClearFrenteSearch()"
