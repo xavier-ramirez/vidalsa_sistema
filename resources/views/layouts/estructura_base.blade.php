@@ -2105,14 +2105,18 @@
                 }, 5000);
 
                 // Apaga el loader y destapa el PDF. Se llama una sola vez, desde el onload
-                // del iframe y ya pasado PDF_RENDER_BUFFER.
+                // del iframe.
                 //
-                // Aquí había además un "mínimo que el loader permanece visible" de 250 ms
-                // para evitar el parpadeo de una carga instantánea. Era código que NO podía
-                // ejecutarse: se medía desde el inicio de la apertura y esta función solo se
-                // llama 400 ms después del onload, así que el mínimo ya estaba cumplido
-                // siempre y el tiempo restante daba 0 sin excepción. Dos frenos para lo
-                // mismo, y el suelo real contra el parpadeo lo pone PDF_RENDER_BUFFER.
+                // No apaga de golpe: le baja la opacidad y lo quita 200 ms después. Durante
+                // ese fundido el loader SIGUE TAPANDO el iframe, y ese es justamente el
+                // margen que necesita el visor nativo para pintar la primera página. Por eso
+                // se pudo quitar la espera fija que había antes del onload: cubría el mismo
+                // hueco dos veces.
+                //
+                // Aquí hubo además un "mínimo que el loader permanece visible" de 250 ms.
+                // Se quitó porque NO podía ejecutarse: se medía desde el inicio de la
+                // apertura, y con la espera fija de por medio el mínimo ya estaba cumplido
+                // siempre. El suelo real contra el parpadeo es el fundido de 200 ms.
                 const hideLoaderWhenReady = () => {
                     clearTimeout(_pdfLoaderTimeout);
                     if (loader) {
@@ -2139,17 +2143,20 @@
                             return;
                         }
 
-                        // El evento onload del iframe (con src real) se dispara
-                        // cuando el RECURSO termina de descargar — pero el visor
-                        // PDF nativo del navegador (PDFium / PDF.js) tarda algunos
-                        // cientos de ms mas en renderizar la primera pagina.
-                        // Buffer extra para que el visor pinte antes de revelar
-                        // el iframe. Bajado 1500 → 400ms: 1500 sobraba (el render
-                        // real son ~cientos de ms) y anadia ~1s de espera percibida
-                        // en CADA documento. (_pdfLoaderTimeout, los 5s de respaldo,
-                        // sigue cubriendo el caso de que onload no llegue nunca.)
-                        const PDF_RENDER_BUFFER = 400;
-                        setTimeout(hideLoaderWhenReady, PDF_RENDER_BUFFER);
+                        // El onload del iframe llega cuando el RECURSO termino de
+                        // descargar; el visor nativo (PDFium/PDF.js) tarda todavia unos
+                        // cientos de ms en pintar la primera pagina. Aqui habia una espera
+                        // fija para cubrir ese hueco: primero 1500 ms, luego 400.
+                        //
+                        // Ya no hace falta y por eso se va: el hueco lo cubre el propio
+                        // FUNDIDO del loader. hideLoaderWhenReady no lo apaga de golpe, le
+                        // baja la opacidad y lo quita 200 ms despues, y durante ese fundido
+                        // el loader sigue TAPANDO el iframe. O sea que el visor ya tenia
+                        // 200 ms de margen para pintar, y los 400 de aqui se sumaban encima
+                        // sin tapar nada: eran 400 ms de nada en CADA documento.
+                        // (_pdfLoaderTimeout, los 5 s de respaldo, sigue cubriendo el caso
+                        // de que onload no llegue nunca.)
+                        hideLoaderWhenReady();
                     };
 
                     iframe.onerror = function () {

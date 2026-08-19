@@ -86,18 +86,74 @@ class GoogleDriveController extends Controller
                     'size' => $file->getSize() ?: 0,
                 ];
             });
-            $stream = $driveService->getStreamById($fileId);
-            Storage::disk('local')->put($cachePath, $stream);
-            $localPath = Storage::disk('local')->path($cachePath);
             $version = request()->query('v', '0');
             $etag = md5($fileId . '-' . $version);
-            return response()->file($localPath, [
+
+            // TRANSMITIR, no acumular. Antes esto bajaba el archivo ENTERO de Drive, lo
+            // escribia en disco, lo volvia a leer y recien ahi empezaba a enviarlo: cuatro
+            // pasos uno detras de otro, y el navegador sin ver un byte hasta el final.
+            // Ahora se lee de Drive por trozos y cada trozo sale hacia el navegador en el
+            // acto, asi que las dos patas del viaje se solapan en vez de sumarse. El
+            // servidor tampoco tiene que sostener el archivo completo en memoria ni esperar
+            // al disco.
+            //
+            // La copia local se sigue guardando —es lo que hace instantanea la SEGUNDA
+            // apertura, tambien para otro usuario— pero se escribe A LA VEZ que se envia,
+            // asi que ya no retrasa nada.
+            //
+            // Se escribe a un archivo TEMPORAL y solo se asciende al nombre bueno cuando el
+            // archivo llego completo. Si el usuario cierra el visor a mitad, el corte deja
+            // el .parcial y no una copia truncada que luego se sirviera como buena.
+            $stream = $driveService->getStreamById($fileId);
+            $rutaFinal = Storage::disk('local')->path($cachePath);
+            $rutaTmp   = $rutaFinal . '.parcial';
+            @mkdir(dirname($rutaFinal), 0775, true);
+
+            $cabeceras = [
                 'Content-Type'  => $metadata['mime'],
                 'Cache-Control' => 'public, max-age=' . $maxAge . ', must-revalidate',
                 'ETag'          => '"' . $etag . '"',
                 'Pragma'        => 'public',
                 'Expires'       => gmdate('D, d M Y H:i:s \G\M\T', time() + $maxAge),
-            ]);
+            ];
+            // Content-Length solo si Drive lo dio: con el, el navegador sabe cuanto falta y
+            // detecta un corte a mitad; sin el, mentir seria peor que callar.
+            if (!empty($metadata['size'])) {
+                $cabeceras['Content-Length'] = (string) $metadata['size'];
+            }
+
+            return response()->stream(function () use ($stream, $rutaTmp, $rutaFinal) {
+                $salida = fopen('php://output', 'wb');
+                $copia  = @fopen($rutaTmp, 'wb');   // si el disco falla, se sirve igual
+                $bytes  = 0;
+
+                while (!$stream->eof()) {
+                    $trozo = $stream->read(262144);   // 256 KB
+                    if ($trozo === '' || $trozo === false) break;
+                    fwrite($salida, $trozo);
+                    if ($copia) fwrite($copia, $trozo);
+                    $bytes += strlen($trozo);
+                    // Vaciar el bufer de PHP ANTES del de la conexion. Con solo flush(), si
+                    // Laravel dejo un bufer de salida abierto el trozo se queda acumulado
+                    // ahi y no sale: la transmision seria de mentira y todo esto no serviria
+                    // de nada. El guard evita el aviso de ob_flush() sin bufer que vaciar.
+                    if (ob_get_level() > 0) { @ob_flush(); }
+                    flush();
+                    if (connection_aborted()) break;  // cerro el visor: no seguir bajando
+                }
+
+                if ($copia) {
+                    fclose($copia);
+                    // Solo se asciende si de verdad llego completo.
+                    if ($bytes > 0 && !connection_aborted()) {
+                        if (is_file($rutaFinal)) @unlink($rutaFinal);   // rename no pisa en Windows
+                        @rename($rutaTmp, $rutaFinal);
+                    } else {
+                        @unlink($rutaTmp);
+                    }
+                }
+                $stream->close();
+            }, 200, $cabeceras);
 
         } catch (\Exception $e) {
             Log::error('Google Drive fetch error: ' . $e->getMessage());
