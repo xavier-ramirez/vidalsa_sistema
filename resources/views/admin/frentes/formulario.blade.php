@@ -130,7 +130,14 @@
         </div>
         <form
             action="{{ (isset($frente) && $frente->exists) ? route('frentes.update', $frente->ID_FRENTE) : route('frentes.store') }}"
-            method="POST" id="frenteForm" onsubmit="if(window.showPreloader) window.showPreloader();">
+            {{-- SIN onsubmit que encienda el spinner. frentes_spa.js atrapa este submit,
+                 hace preventDefault() y guarda por fetch, y él YA enciende y apaga el spinner
+                 por su cuenta. Teniéndolo aquí también se encendía DOS veces y solo se apagaba
+                 una: como el preloader lleva un contador de referencias, quedaba en 1 y el
+                 spinner no se iba nunca. Eso era el "le di guardar y se quedó cargando": el
+                 frente SÍ se guardaba, pero la pantalla se quedaba tapada. Y como el submit
+                 nativo está cancelado, tampoco había recarga que lo limpiara. --}}
+            method="POST" id="frenteForm">
             @csrf
             @if(isset($frente) && $frente->exists) @method('PUT') @endif
             <input type="hidden" id="ID_FRENTE" name="ID_FRENTE" value="{{ $frente->ID_FRENTE ?? '' }}">

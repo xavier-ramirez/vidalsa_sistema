@@ -203,5 +203,24 @@ foreach ($globales as $nombre => $archivos) {
 check('globales pisadas entre archivos siempre cargados', [], $pisadas);
 check('archivos de la superficie comun analizados', true, count($siempre) >= 5);
 
+// ── L. El spinner no puede encenderse dos veces por un mismo envio ──────────
+// El preloader lleva un CONTADOR de referencias: se va cuando todos los que lo
+// encendieron lo apagan. Un <form onsubmit="showPreloader()"> cuyo envio ademas atrapa un
+// listener con preventDefault() lo enciende DOS veces —una el atributo, otra el manejador—
+// y solo se apaga una: el contador queda en 1 y el spinner tapa la pantalla para siempre.
+// Y como el envio nativo esta cancelado, tampoco hay recarga que lo limpie.
+//
+// Paso de verdad en /admin/frentes ("le di guardar y se quedo cargando") y estaba tambien,
+// sin reportar, en los filtros de /admin/consumibles. El manejador de JS es el dueno del
+// spinner; el atributo sobra siempre.
+$conOnsubmit = [];
+foreach ($clientes as $f) {
+    if (!str_ends_with($f, '.blade.php')) continue;
+    if (preg_match('/onsubmit="[^"]*showPreloader/', file_get_contents($f))) {
+        $conOnsubmit[] = basename($f);
+    }
+}
+check('formularios que encienden el spinner en onsubmit', [], $conOnsubmit);
+
 printf("\n%d OK, %d FALLAS\n", $ok, $fail);
 exit($fail === 0 ? 0 : 1);

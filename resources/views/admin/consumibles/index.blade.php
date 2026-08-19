@@ -144,8 +144,13 @@
 
         <div class="admin-card" style="box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); padding: 25px;">
             {{-- Filtros --}}
-            <form method="GET" action="{{ route('consumibles.index') }}" id="filtrosForm"
-                onsubmit="if(window.showPreloader) window.showPreloader();">
+            {{-- SIN onsubmit que encienda el spinner: el listener de más abajo hace
+                 preventDefault() y llama a submitConsumiblesFilters(), que ya lo enciende.
+                 Con los dos, el contador de referencias quedaba en 1 y el spinner no se iba.
+                 Aquí no saltaba a la vista porque navigateTo() parece recargar, pero es
+                 navegación SPA: la página NO se recarga y el contador tampoco se reinicia.
+                 Mismo fallo que tenía el formulario de frentes. --}}
+            <form method="GET" action="{{ route('consumibles.index') }}" id="filtrosForm">
                 <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-bottom: 20px;">
 
                     {{-- Contadores Comprimidos --}}
