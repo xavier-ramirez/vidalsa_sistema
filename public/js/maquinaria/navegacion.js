@@ -234,7 +234,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Numero de orden de la navegacion en curso. Sube en cada loadPage(). Sirve para que
+    // una navegacion vieja no toque el spinner de la nueva: si el usuario pincha dos enlaces
+    // seguidos (menos de MIN_PRELOADER_MS de diferencia), el apagado diferido de la PRIMERA
+    // llegaba tarde y le restaba una referencia a la SEGUNDA, que aun estaba cargando; el
+    // spinner se iba antes de tiempo y la pantalla quedaba destapada a medio cargar.
+    let _navSeq = 0;
+
     async function loadPage(url, pushHistory = true) {
+        const _miNav = ++_navSeq;
         // ── Timeout de 12s: si el servidor no responde, no dejamos el spinner eternamente ──
         const controller = new AbortController();
         const timeoutId  = setTimeout(() => controller.abort(), 12000);
@@ -268,7 +276,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!window.hidePreloader) return;
             const elapsed = performance.now() - _navShownAt;
             if (elapsed < MIN_PRELOADER_MS) {
-                setTimeout(() => window.hidePreloader(), MIN_PRELOADER_MS - elapsed);
+                setTimeout(() => {
+                    // Si ya arranco otra navegacion, este apagado es de una pagina que ya
+                    // no esta en pantalla: restaria una referencia que no es suya.
+                    if (_miNav !== _navSeq) return;
+                    window.hidePreloader();
+                }, MIN_PRELOADER_MS - elapsed);
             } else {
                 window.hidePreloader();
             }
@@ -276,7 +289,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             // Si NO heredamos el spinner de un redirect, lo encendemos nosotros.
-            if (window.showPreloader && !_inheritSpinner) window.showPreloader();
+            //
+            // Antes de encenderlo se BORRA lo que dejara la pantalla anterior. El preloader
+            // lleva un contador de referencias y ese contador NO se reinicia al cambiar de
+            // modulo (esto es una SPA: no hay recarga). Asi que si una pantalla se guardaba
+            // un +1 sin su -1 --por un fetch a medias, un listener duplicado o un formulario
+            // que encendia el spinner por su cuenta-- la deuda viajaba con el usuario y era
+            // el modulo SIGUIENTE el que salia con el spinner girando encima, hasta que a
+            // los 8s lo mataba el watchdog. De ahi el "abro equipos y tarda burda": el fallo
+            // no estaba en equipos, estaba en la pantalla de la que se venia.
+            //
+            // Al empezar una navegacion nada de lo anterior sigue vivo: el DOM se reemplaza
+            // entero. Cualquier referencia pendiente es basura, y se tira aqui. Asi cada
+            // modulo arranca en 0 y una fuga se paga como mucho en su propia pantalla, nunca
+            // en la de al lado. (Con _inheritSpinner NO se toca: ahi el +1 es de un
+            // guardar-redirigir en curso y lo balancea el hide de esta misma navegacion.)
+            if (!_inheritSpinner) {
+                if (window.hidePreloader) window.hidePreloader(true);
+                if (window.showPreloader) window.showPreloader();
+            }
 
             // ¿El hover ya trajo esta página? (ver "PRECARGA AL PASAR EL MOUSE"). Se
             // CONSUME: la copia se usa una vez y desaparece. Solo se guardan respuestas

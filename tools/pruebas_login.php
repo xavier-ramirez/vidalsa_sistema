@@ -222,5 +222,25 @@ foreach ($clientes as $f) {
 }
 check('formularios que encienden el spinner en onsubmit', [], $conOnsubmit);
 
+// ── El contador del spinner no puede cruzar de un modulo a otro ──────────────
+//
+// El preloader va contado por referencias y la SPA no recarga la pagina, asi que
+// ese contador sobrevive al cambio de modulo. Sin un borron al empezar cada
+// navegacion, un +1 sin su -1 en una pantalla deja el spinner girando en la
+// SIGUIENTE, y solo lo apaga el watchdog de 8s (el "tarda burda" del reporte).
+$nav = file_get_contents(__DIR__ . '/../public/js/maquinaria/navegacion.js');
+
+check('la navegacion limpia el contador heredado', true,
+    (bool) preg_match('/if \(!_inheritSpinner\) \{\s*if \(window\.hidePreloader\) window\.hidePreloader\(true\);/', $nav));
+
+// ...pero sin pisar el handoff de guardar-redirigir, que SI hereda su +1.
+check('el handoff de redirect se respeta', true,
+    str_contains($nav, 'const _inheritSpinner = (window.__vidalsaRedirecting === true);'));
+
+// Dos navegaciones seguidas: el apagado diferido de la primera no puede restarle
+// una referencia a la segunda, que todavia esta cargando.
+check('el apagado diferido comprueba que sigue siendo su navegacion', true,
+    str_contains($nav, 'if (_miNav !== _navSeq) return;'));
+
 printf("\n%d OK, %d FALLAS\n", $ok, $fail);
 exit($fail === 0 ? 0 : 1);
