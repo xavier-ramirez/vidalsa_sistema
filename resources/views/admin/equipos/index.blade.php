@@ -1535,7 +1535,9 @@
                             <div style="background: rgba(255,255,255,0.16); padding: 7px; border-radius: 9px; display: flex;">
                                 <i class="material-icons" style="font-size: 21px; color: #fff;">analytics</i>
                             </div>
-                            <div>
+                            {{-- Con clase propia: en telefono se oculta este bloque entero
+                                 (ver .fleet-header-title-text en el @media de mas abajo). --}}
+                            <div class="fleet-header-title-text">
                                 <h2 style="margin: 0; color: #fff; font-size: 17px; font-weight: 700; white-space: nowrap;">Dashboard de Flota</h2>
                             </div>
                         </div>
@@ -1630,7 +1632,7 @@
                     </div>
 
                     <div class="fleet-kpi">
-                        <p class="fleet-kpi-lbl">Gasoil máx L/día</p>
+                        <p class="fleet-kpi-lbl">Gasoil Máx L/día</p>
                         <h3 id="stat_consumption" class="fleet-kpi-val">0</h3>
                     </div>
 
@@ -1644,11 +1646,11 @@
                          por eso pueden no sumar el Σ Equipos: faltan los eléctricos, los
                          'NO APLICA' y los que aún no tienen combustible cargado. --}}
                     <div class="fleet-kpi">
-                        <p class="fleet-kpi-lbl">Equipos a gasoil</p>
+                        <p class="fleet-kpi-lbl">Equipos a Gasoil</p>
                         <h3 id="stat_gasoil_count" class="fleet-kpi-val">0</h3>
                     </div>
                     <div class="fleet-kpi">
-                        <p class="fleet-kpi-lbl">Equipos a gasolina</p>
+                        <p class="fleet-kpi-lbl">Equipos a Gasolina</p>
                         <h3 id="stat_gasolina_count" class="fleet-kpi-val">0</h3>
                     </div>
                 </div>
@@ -1773,15 +1775,25 @@
                 gap: 10px !important;
             }
 
+            /* UNA sola fila: icono + buscador. Iba en columna porque encima estaba el
+               titulo, que se llevaba media fila; sin el, apilarlos solo desperdicia alto
+               justo en la pantalla donde el alto es lo que escasea. */
             .fleet-header-left {
                 width: 100% !important;
-                flex-direction: column !important;
+                flex-direction: row !important;
+                align-items: center !important;
                 gap: 10px !important;
             }
 
-            /* Título más pequeño en mobile */
-            .fleet-header-title-group h2 {
-                font-size: 14px !important;
+            /* En telefono se va el TITULO del modal (pedido del cliente): en una pantalla
+               estrecha "Dashboard de Flota" solo repite lo que el usuario acaba de pulsar
+               para llegar aqui, y se comia una fila entera.
+               Se oculta el BLOQUE de texto y no solo el <h2>: .fleet-header-title-group
+               lleva gap:12px, asi que un div vacio seguiria separando el icono del
+               buscador. El icono se queda, que es lo que identifica la cabecera.
+               Aqui habia un `font-size: 14px` para ese h2 que ya no pinta nada. */
+            .fleet-header-title-text {
+                display: none !important;
             }
 
             /* Icono del dashboard más pequeño */
@@ -1799,11 +1811,13 @@
                donde ahora hay una— y el `flex: none` del grid, que solo existía para deshacer
                el flex-basis en px que tenía cuando repartía sitio con el buscador. */
 
-            /* El buscador ya está DENTRO de .fleet-header-left, que en teléfono va en columna:
-               aquí solo se le da el ancho completo. */
+            /* El buscador comparte FILA con el icono (ver .fleet-header-left arriba), asi
+               que ocupa el resto del ancho y debe poder encogerse. Aqui tenia
+               `width:100%` + `flex:none`, que era lo correcto cuando iba en columna:
+               en fila pide el ancho ENTERO del padre y ademas flex:none le prohibe
+               encoger, asi que el icono lo empujaba fuera de la cabecera. */
             .fleet-filter-container {
-                width: 100% !important;
-                flex: none !important;
+                flex: 1 1 auto !important;
                 min-width: 0 !important;
             }
 
