@@ -1075,7 +1075,10 @@
     .cdir-paso2-head { flex-shrink:0; padding:14px 20px 0; }
     /* Los tres campos SIEMPRE en fila (pedido del cliente). Con la caja en 900px sobra
        ancho: nota y proveedor se reparten lo elástico y la fecha se queda con lo justo. */
-    .cdir-meta { flex-shrink:0; display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr) 170px; gap:12px; padding:8px 20px 0; }
+    {{-- El padding-bottom NO es decorativo: debajo va directo .cdir-list-wrap (padding:0 20px),
+         asi que sin el, los tres campos quedaban pegados al encabezado negro de la tabla. En el
+         paso 1 no se notaba porque ahi arriba va .cdir-capt, que si trae su padding abajo. --}}
+    .cdir-meta { flex-shrink:0; display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr) 170px; gap:12px; padding:8px 20px 14px; }
     .cdir-meta label { display:block; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.4px; color:#64748b; margin-bottom:4px; }
     .cdir-date { display:flex; align-items:center; gap:6px; cursor:default; }
     .cdir-date input { flex:1; min-width:0; border:none; background:transparent; padding:0; font-family:inherit; font-size:13.5px; color:#0f172a; outline:none; cursor:default; }
