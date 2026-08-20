@@ -1323,8 +1323,8 @@
         .fdm-cam:hover { background: #f1f5f9; }
         .fdm-cam .material-icons { font-size: 17px; }
 
-        /* ── Tarjetas KPI (Σ Equipos / Σ Auxiliares / Gasoil máx L/día, y debajo
-           Equipos a gasoil / Equipos a gasolina) ─────────────────────────────
+        /* ── Tarjetas KPI (Σ Equipos / Σ Auxiliares / Gasoil Máx L/día, y debajo
+           Equipos a Gasoil / Equipos a Gasolina) ─────────────────────────────
            Las cinco son IDÉNTICAS salvo etiqueta e id, con el acento azul del proyecto.
            (Flota nueva/antigua ya no son tarjetas: viven como claves de serie dentro de
            #fdm-panel-age.) El estilo vive aquí y no en styles inline: si no, son copias
@@ -1388,7 +1388,7 @@
                el override de móvil, para que no cambie de tamaño entre PC y teléfono. */
             font-size: 12px;
             line-height: 1.25;
-            /* Se parte en dos lineas cuando hace falta (p. ej. "Equipos a gasolina" en una
+            /* Se parte en dos lineas cuando hace falta (p. ej. "Equipos a Gasolina" en una
                columna estrecha). Es el texto el que cede, no la cifra. min-width:0 para
                que pueda encogerse de verdad dentro del flex. */
             white-space: normal;
