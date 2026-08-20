@@ -95,20 +95,21 @@
        RESP_4 → APROBADO    (Gerente)
        + RECIBIDO POR (destino, siempre al final)
 
-     PATIO MATURÍN (frente origen con PATIO/SEDE/TALLER/ALMACEN en el nombre):
-       Muestra grid 2×2: [Solicitado | Elaborado] / [Revisado | Aprobado] + Recibido
-     OTROS PROYECTOS:
-       Muestra máximo 2 firmas + Recibido
+     LAYOUT (lo decide CUÁNTAS firmas hay, no de qué frente vienen):
+       0 firmas  → solo Recibido Por
+       1 firma   → esa a la izquierda | Recibido Por a la derecha
+       2 firmas  → las dos en una fila + Recibido Por centrado abajo
+       3 o más   → grid 2×2 (+ la 5ª centrada si la hay) + Recibido Por
+
+     El grid era exclusivo de Patio Maturín y el resto se recortaba a 2 firmas, lo que
+     hacía desaparecer el tercer responsable de los proyectos que sí lo tienen cargado.
 -->
     @php
         // Firmas ya resueltas en el controller (MovilizacionController::extractFirmasActa
         // o el override manual de la vista previa) — FUENTE ÚNICA DE VERDAD. Aquí sólo
-        // se renderizan; el layout (1 firma / grid 2×2 de Patio / otros) sigue igual.
+        // se renderizan; el layout lo decide CUÁNTAS hay (ver el detalle arriba).
         $firmasList = $firmas ?? [];
         $totalFirmas = count($firmasList);
-
-        // ── Detección de Patio Maturín (define el layout del bloque de firmas) ──
-        $isPatio = $isResguardoOrigen;
     @endphp
 
     <table width="100%" border="0" cellpadding="0" cellspacing="0" nobr="true">
@@ -174,7 +175,7 @@
                 </td>
             </tr>
 
-        @elseif($isPatio && $totalFirmas >= 3)
+        @elseif($totalFirmas >= 3)
             {{-- ════════════════════════════════════════════════════════════
                  PATIO MATURÍN — Grid 2×2 con roles diferenciados:
                  Fila 1:  SOLICITADO  |  ELABORADO
@@ -259,12 +260,17 @@
 
         @else
             {{-- ════════════════════════════════════════════════════════════
-                 OTROS PROYECTOS (no Patio) o Patio con menos de 3 firmas:
-                 Máximo 2 firmas en una fila + RECIBIDO POR centrado abajo.
+                 Exactamente 2 firmas (0 y 1 se resuelven arriba, 3+ en la rejilla):
+                 las dos en una fila + RECIBIDO POR centrado abajo.
                  ════════════════════════════════════════════════════════════ --}}
+            {{-- Aquí había un array_slice($firmasList, 0, 2) que recortaba a dos las firmas
+                 de todo frente que no fuera Patio. Un frente con 3 responsables perdía el
+                 tercero sin avisar: en TRANSVERSALES AYACUCHO se caía el APROBADO, y se
+                 veían dos firmas donde había tres cargadas. El recorte sobra: con 3 o más
+                 entra la rejilla de arriba, que las pinta todas. Sin él, este chunk siempre
+                 produce UNA fila de dos. --}}
             @php
-                $firmasOtros = array_slice($firmasList, 0, 2);
-                $rowsOtros   = array_chunk($firmasOtros, 2);
+                $rowsOtros = array_chunk($firmasList, 2);
             @endphp
 
             @foreach($rowsOtros as $row)
