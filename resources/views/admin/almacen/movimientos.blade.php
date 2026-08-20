@@ -490,6 +490,35 @@
             gap: 24px;
         }
     }
+
+    /* Items del menu "Acciones" (#splitDropdownMenuMovInv).
+       Salen de una CLASE y no de estilos inline por el mismo motivo que .mv-accion-item
+       en /admin/movilizaciones: los CUATRO ocultan el menu al pulsarlos, asi que el
+       `onmouseout` inline nunca llegaba y el color del hover se quedaba escrito en el
+       elemento; al volver a abrir el menu ese boton salia ya coloreado. Con :hover en
+       CSS el estado se va solo cuando el elemento se oculta.
+       De paso, el mismo bloque de ~230 caracteres estaba copiado en los cuatro items. */
+    .alm-mov-accion {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        border-radius: 6px;
+        border: none;
+        background: transparent;
+        color: #475569;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        text-align: left;
+        /* "Bitacora por Nota" es un <a>: sin esto saldria subrayado. */
+        text-decoration: none;
+        transition: background 0.15s;
+    }
+    .alm-mov-accion:hover { background: #cbd5e1; }
+    .alm-mov-accion:focus { background: transparent; outline: none; }
+    .alm-mov-accion:focus-visible { outline: 2px solid #0067b1; outline-offset: -2px; }
 </style>
 
 <div class="page-layout-grid">
@@ -679,16 +708,14 @@
                      salidas, respetando los filtros activos. --}}
                     <button type="button"
                         onclick="document.getElementById('splitDropdownMenuMovInv').style.display='none'; window.abrirConsumoDashboard();"
-                        style="width:100%;display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:6px;border:none;background:transparent;color:#475569;font-size:14px;font-weight:500;cursor:pointer;text-align:left;transition:background 0.15s;"
-                        onmouseover="this.style.background='#cbd5e1'" onmouseout="this.style.background='transparent'">
+                        class="alm-mov-accion">
                         <div style="background:#e0f2fe;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;line-height:1;color:#0067b1;">analytics</i></div>
                         <span>Dashboard de consumo</span>
                     </button>
                 {{-- Bitácora por Nota: vista alterna agrupada por NUMERO_NOTA — una fila por
                      Nota de Entrega; clic abre el PDF oficial. Conserva los filtros activos. --}}
                     <a id="lnkBitNotas" href="{{ route('almacen.notas') }}"
-                        style="width:100%;display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:6px;border:none;background:transparent;color:#475569;font-size:14px;font-weight:500;cursor:pointer;text-align:left;transition:background 0.15s;text-decoration:none;"
-                        onmouseover="this.style.background='#cbd5e1'" onmouseout="this.style.background='transparent'"
+                        class="alm-mov-accion"
                         onclick="event.preventDefault(); document.getElementById('splitDropdownMenuMovInv').style.display='none'; if(window.navigateTo) window.navigateTo(this.href); else window.location.href=this.href;">
                         <div style="background:#dcfce7;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;line-height:1;color:#16a34a;">description</i></div>
                         <span>Bitácora por Nota (PDF)</span>
@@ -696,8 +723,7 @@
                 {{-- Exportar a Excel: baja la bitácora tal y como se está viendo. Los filtros
                      salen de buildParams(), el mismo que arma la petición de la tabla. --}}
                     <button type="button" onclick="window.almMovExportarExcel();"
-                        style="width:100%;display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:6px;border:none;background:transparent;color:#475569;font-size:14px;font-weight:500;cursor:pointer;text-align:left;transition:background 0.15s;"
-                        onmouseover="this.style.background='#cbd5e1'" onmouseout="this.style.background='transparent'">
+                        class="alm-mov-accion">
                         <div style="background:#f1f5f9;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;line-height:1;color:#64748b;">download</i></div>
                         <span>Exportar a Excel</span>
                     </button>
@@ -706,8 +732,7 @@
                      stock y deja un par (SALIDA original + ENTRADA reversa) en el kardex. --}}
                     <button type="button"
                         onclick="document.getElementById('splitDropdownMenuMovInv').style.display='none'; window.openEliminarNotaModal();"
-                        style="width:100%;display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:6px;border:none;background:transparent;color:#475569;font-size:14px;font-weight:500;cursor:pointer;text-align:left;transition:background 0.15s;"
-                        onmouseover="this.style.background='#cbd5e1'" onmouseout="this.style.background='transparent'">
+                        class="alm-mov-accion">
                         <div style="background:#fee2e2;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;line-height:1;color:#dc2626;">delete_outline</i></div>
                         <span>Eliminar Nota por código</span>
                     </button>
