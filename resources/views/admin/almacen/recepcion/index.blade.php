@@ -921,11 +921,14 @@
      el almacenista está parado cuando le llega el material; sacarlo a otra pantalla le
      hacía perder el filtro y la posición de la bandeja.
 
-     Se captura en DOS pasos, porque los datos del documento son opcionales y estorbaban
-     arriba mientras se cargaban productos:
-       1) Líneas de entrada  → qué llegó y cuánto.
-       2) Datos del proveedor → nota / proveedor / fecha. Se puede dejar en blanco.
-     Layout del paso 1: SOLO la tabla hace scroll. La barra de captura queda fija arriba
+     Se captura en DOS pasos, en el mismo orden que trae el papel que el almacenista
+     tiene en la mano:
+       1) Cabecera del documento → proyecto + nota de entrega / proveedor / fecha.
+          Solo el proyecto es obligatorio; el resto se puede dejar en blanco.
+       2) Líneas de entrada → qué llegó y cuánto.
+     Primero de quién viene y con qué papel, y después el detalle. Al revés obligaba a
+     volver arriba al final, cuando ya había una lista larga por medio.
+     Layout del paso 2: SOLO la tabla hace scroll. La barra de captura queda fija arriba
      (así el buscador está siempre a mano y ningún contenedor con overflow le recorta el
      desplegable) y los botones fijos abajo. --}}
 <style>
@@ -954,8 +957,9 @@
     .cdir-atras:hover { opacity:1; }
 
     /* Pasos: solo uno visible a la vez, y los dos son bloques FIJOS en la parte de arriba
-       (el paso 1 trae proyecto + barra de captura; el paso 2, los datos del proveedor). El
-       alto sobrante se lo queda la tabla de líneas, que vive fuera de los pasos. */
+       (el paso 1 trae proyecto + datos del documento; el paso 2, la barra de captura). El
+       alto sobrante se lo queda la tabla de líneas, que vive fuera de los pasos y solo se
+       pinta en el paso 2. */
     .cdir-paso { display:none; flex-direction:column; flex-shrink:0; }
     .cdir-paso.on { display:flex; }
 
@@ -1053,6 +1057,8 @@
        (Se fue con él la regla `.cdir-list-wrap .cdir-section-title`, que ya no aplicaba a
        ningún elemento.) */
     .cdir-list-wrap { flex:1 1 auto; min-height:0; display:flex; flex-direction:column; padding:0 20px; }
+    {{-- En el paso 1 (cabecera del documento) no hay nada capturado todavia. --}}
+    .cdir-en-paso1 .cdir-list-wrap { display:none; }
     .cdir-list { flex:1 1 auto; min-height:120px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:10px; }
     .cdir-table { width:100%; border-collapse:collapse; font-size:13px; }
     .cdir-table thead th { position:sticky; top:0; z-index:1; background:#1e293b; color:#fff; font-size:10.5px; font-weight:800;
@@ -1071,7 +1077,7 @@
     .cdir-del-btn:hover { color:#ef4444; }
     .cdir-empty { padding:26px 16px; text-align:center; font-size:12.5px; color:#94a3b8; }
 
-    /* Paso 2 — datos del documento del proveedor. */
+    /* Paso 1 — datos del documento del proveedor. */
     .cdir-paso2-head { flex-shrink:0; padding:14px 20px 0; }
     /* Los tres campos SIEMPRE en fila (pedido del cliente). Con la caja en 900px sobra
        ancho: nota y proveedor se reparten lo elástico y la fecha se queda con lo justo. */
@@ -1104,7 +1110,7 @@
     .cdir-btn-ok:disabled { opacity:.6; }
 
     /* Teléfono: la barra de captura pasa a 2 renglones (buscador arriba; UM, cantidad y el
-       check abajo) y los datos del proveedor a una sola columna. La caja va a pantalla
+       check abajo) y los datos del documento a una sola columna. La caja va a pantalla
        completa. */
     @media (max-width: 640px) {
         .cdir-overlay { padding:0; }
@@ -1147,13 +1153,17 @@
             <button type="button" class="cdir-close" onclick="window.cdirOcultar()" title="Cerrar sin perder lo capturado"><i class="material-icons" style="color:#fff;">close</i></button>
         </div>
 
-        {{-- ── Paso 1: proyecto + barra de captura ── --}}
+        {{-- ── Paso 1: proyecto + datos del documento ── --}}
         <div class="cdir-paso on" id="cdirPaso1">
+        {{-- PASO 1: la cabecera del documento (proyecto + nota/proveedor/fecha).
+             Va antes que las lineas por el mismo motivo que en una nota de entrega en papel:
+             primero de quien viene y con que papel, y despues el detalle de lo que trae. Asi
+             el almacenista copia la cabecera del documento que tiene en la mano y solo entonces
+             empieza a contar bultos, en vez de tener que volver arriba al final. --}}
         {{-- Asociar material a un proyecto. Solo aparece en almacenes que reparten el saldo entre
-             varios proyectos; en los demás no hay nada que elegir y la fila no se pinta.
-             Va ARRIBA de las líneas y no en el paso 2 porque no es un dato del documento:
-             define a qué bolsa entra TODO lo que se capture debajo. Es obligatorio, y el
-             backend lo exige igual por si alguien entra por otra vía. --}}
+             varios proyectos; en los demas no hay nada que elegir y la fila no se pinta.
+             Encabeza el paso 1 porque define a que bolsa entra TODO lo que se capture despues.
+             Es obligatorio, y el backend lo exige igual por si alguien entra por otra via. --}}
         <div class="cdir-proyecto" id="cdirProyectoRow" style="display:none;">
             {{-- Rótulo a secas. El asterisco y el icono de ayuda se quitaron por pedido del
                  cliente: la señal de "falta este dato" ya la da el borde rojo del campo
@@ -1171,6 +1181,32 @@
                 <div class="cdir-suggest" id="cdirProySuggest"></div>
             </div>
         </div>
+        <div class="cdir-paso2-head">
+            <div class="cdir-section-title">Datos del documento — opcional</div>
+        </div>
+        <div class="cdir-meta">
+            <div>
+                <label for="cdirNota">Nota de entrega</label>
+                <input type="text" id="cdirNota" class="cdir-input" maxlength="100" placeholder="Opcional" autocomplete="off">
+            </div>
+            <div>
+                <label for="cdirProveedor">Proveedor</label>
+                <input type="text" id="cdirProveedor" class="cdir-input" maxlength="200" placeholder="Razón social o nombre" autocomplete="off">
+            </div>
+            <div>
+                <label for="cdirFecha">Fecha</label>
+                <div class="cdir-input cdir-date" onclick="var i=document.getElementById('cdirFecha'); if(i){ i.focus(); if(i.showPicker) try{i.showPicker();}catch(e){} }">
+                    <i class="material-icons" style="font-size:16px;color:#64748b;">event</i>
+                    <input type="date" id="cdirFecha">
+                </div>
+            </div>
+        </div>
+        </div>{{-- /#cdirPaso1 --}}
+
+        {{-- PASO 2: que llego y cuanto. La barra de captura queda fija arriba (asi el buscador
+             esta siempre a mano y ningun contenedor con overflow le recorta el desplegable) y
+             debajo la tabla, que es la unica zona que hace scroll. --}}
+        <div class="cdir-paso" id="cdirPaso2">
         <div class="cdir-capt">
             {{-- El rótulo encabeza TODA la sección (buscador + tabla), no solo la tabla: por
                  eso va aquí arriba y no pegado a la lista. Así se lee "esto es la captura de
@@ -1205,39 +1241,13 @@
                 </button>
             </div>
         </div>
-        </div>{{-- /#cdirPaso1 --}}
-
-        {{-- ── Paso 2: datos del documento del proveedor (todos opcionales) ──
-             Reemplazan arriba a la barra de captura en vez de compartir pantalla con ella:
-             a veces la compra llega sin papeles y a veces con ellos, así que tenerlos a la
-             vista mientras se cargan productos solo estorbaba. --}}
-        <div class="cdir-paso" id="cdirPaso2">
-        <div class="cdir-paso2-head">
-            <div class="cdir-section-title">Datos del proveedor — opcional</div>
-        </div>
-        <div class="cdir-meta">
-            <div>
-                <label for="cdirNota">Nota de entrega</label>
-                <input type="text" id="cdirNota" class="cdir-input" maxlength="100" placeholder="Opcional" autocomplete="off">
-            </div>
-            <div>
-                <label for="cdirProveedor">Proveedor</label>
-                <input type="text" id="cdirProveedor" class="cdir-input" maxlength="200" placeholder="Razón social o nombre" autocomplete="off">
-            </div>
-            <div>
-                <label for="cdirFecha">Fecha</label>
-                <div class="cdir-input cdir-date" onclick="var i=document.getElementById('cdirFecha'); if(i){ i.focus(); if(i.showPicker) try{i.showPicker();}catch(e){} }">
-                    <i class="material-icons" style="font-size:16px;color:#64748b;">event</i>
-                    <input type="date" id="cdirFecha">
-                </div>
-            </div>
-        </div>
         </div>{{-- /#cdirPaso2 --}}
 
-        {{-- Tabla de líneas: FUERA de los pasos, visible en los dos. En el paso 2 el usuario
-             sigue viendo —y puede corregir— lo que está a punto de registrar, y de paso la
-             caja no queda con un hueco enorme debajo de tres campos. Es la única zona que
-             hace scroll; todo lo demás (encabezado, bloque del paso, pie) queda fijo. --}}
+        {{-- Tabla de líneas. Vive FUERA de los dos pasos —no dentro del 2— porque es la única
+             zona que hace scroll y necesita crecer contra la caja del modal; metida dentro de
+             un .cdir-paso (flex-shrink:0) no lo haría. Se oculta en el paso 1 con la clase
+             .cdir-en-paso1 del contenedor: ahí todavía no hay nada capturado y sería una
+             tabla vacía debajo de la cabecera del documento. --}}
         {{-- Sin rótulo propio: "Líneas de entrada" ahora encabeza la sección completa desde
              arriba del buscador (ver .cdir-capt). Repetirlo aquí era decir dos veces lo mismo
              a cuatro renglones de distancia. --}}
@@ -1667,17 +1677,14 @@
     };
 
     // ── Pasos ─────────────────────────────────────────────────────────────
-    // 1 = líneas de entrada · 2 = datos del proveedor. Pasar al 2 exige al menos una línea:
-    // es el único requisito real de la operación (los datos del paso 2 son todos opcionales).
+    // 1 = cabecera del documento (proyecto + nota/proveedor/fecha) · 2 = líneas de entrada.
+    //
+    // Aquí NO se exige que haya líneas: en el paso 2 es donde se capturan, así que pedirlas
+    // para entrar sería pedir el resultado antes de dar la herramienta. Ese requisito vive
+    // en cdirGuardar, que es el momento en que de verdad hace falta.
     window.cdirPaso = function (n) {
-        if (n === 2 && !lineas.length) {
-            var m = 'Agrega al menos un producto antes de continuar.';
-            showErr(m); toast(m, 'error');
-            var s = el('cdirSearch'); if (s) s.focus();
-            return;
-        }
-        // El proyecto define a qué bolsa entra TODO lo capturado, así que se exige antes de
-        // avanzar — no al final, cuando ya estaría todo cargado y volver sería más molesto.
+        // El proyecto define a qué bolsa entra TODO lo capturado, así que se exige al salir
+        // del paso 1 — no al final, cuando ya estaría todo cargado y volver sería más molesto.
         if (n === 2 && frenteElegido(destinoActual()) === undefined) {
             var mp = 'Indica el proyecto que recibe el material.';
             showErr(mp); toast(mp, 'error');
@@ -1688,11 +1695,22 @@
         showErr('');
         el('cdirPaso1').classList.toggle('on', n === 1);
         el('cdirPaso2').classList.toggle('on', n === 2);
+        // Oculta la tabla mientras se llena la cabecera (ver .cdir-en-paso1).
+        var caja = document.querySelector('.cdir-box');
+        if (caja) caja.classList.toggle('cdir-en-paso1', n === 1);
         el('cdirFooter1').classList.toggle('on', n === 1);
         el('cdirFooter2').classList.toggle('on', n === 2);
-        // Los desplegables viven en el paso 1; al salir de él quedarían abiertos sobre nada.
-        if (n !== 1) { suggestHide(); umHide(); proySuggestHide(); }
-        if (n === 2) setTimeout(function () { var i = el('cdirNota'); if (i) i.focus(); }, 40);
+        // Los desplegables del buscador de producto y de UM viven en el paso 2, y el del
+        // proyecto en el paso 1: al cambiar de paso quedarían abiertos sobre nada.
+        suggestHide(); umHide(); proySuggestHide();
+        // El foco cae en el primer campo que toca escribir en cada paso.
+        setTimeout(function () {
+            var fila = el('cdirProyectoRow');
+            var i = (n === 2)
+                ? el('cdirSearch')
+                : ((fila && fila.style.display !== 'none') ? el('cdirProyecto') : el('cdirNota'));
+            if (i) i.focus();
+        }, 40);
     };
 
     // ── Abrir / cerrar ────────────────────────────────────────────────────
@@ -1760,7 +1778,19 @@
         // Última puerta antes del POST. En la práctica no se llega sin líneas (para entrar al
         // paso 2 ya hace falta al menos una); si pasara, se vuelve al paso 1 y la tabla vacía
         // se explica sola — sin repetir aquí el mensaje que ya da cdirPaso.
-        if (!lineas.length) { window.cdirPaso(1); return; }
+        // Sin líneas no hay nada que registrar. Se vuelve al paso 2, que es donde se
+        // capturan (antes mandaba al 1, que era donde estaban entonces).
+        //
+        // El aviso va DESPUÉS de cambiar de paso, no antes: cdirPaso() arranca con
+        // showErr(''), así que pintarlo primero lo borraba y el usuario se quedaba sin
+        // saber por qué no se registraba.
+        if (!lineas.length) {
+            window.cdirPaso(2);
+            var mL = 'Agrega al menos un producto antes de registrar.';
+            showErr(mL); toast(mL, 'error');
+            var sL = el('cdirSearch'); if (sL) sL.focus();
+            return;
+        }
         // Cada dato en SU columna del kardex — MISMO mapeo que la pantalla "Entrada por ODC",
         // para que las dos vías de entrada se lean igual en la bitácora:
         //   · Nota de entrega → referencia (REFERENCIA)
