@@ -1768,7 +1768,10 @@ window.toggleConfirmacionSitioAux = function (el) {
                     // El codigo solo viaja cuando hay acta; sin ella no se pinta hueco ni
                     // rotulo inventado, igual que en el listado de /admin/movilizaciones.
                     + (m.codigo
-                        ? '<span style="' + DATO + 'font-weight:700;color:#1e293b;">' + esc(m.codigo) + '</span>'
+                        // El codigo del acta en el AZUL de la casa (--maquinaria-blue), no en
+                        // el gris casi negro de antes: es el unico dato de la fila que
+                        // identifica un documento, y el color lo separa del resto de un vistazo.
+                        ? '<span style="' + DATO + 'font-weight:700;color:var(--maquinaria-blue);">' + esc(m.codigo) + '</span>'
                         : '')
                     + '<span style="' + DATO + 'color:#64748b;white-space:nowrap;">' + esc(m.fecha || 'Sin fecha') + '</span>'
                 + '</div>'
