@@ -1,5 +1,7 @@
-{{-- Estilos del formulario de equipo auxiliar. Identicos en create y edit: estaban
-     copiados en los dos archivos, byte a byte. --}}
+{{-- Estilos del formulario de equipo auxiliar. HOY LOS USA UNA SOLA VISTA:
+     edit.blade.php. Estaban copiados byte a byte en create y edit; create.blade.php se
+     borró después por no tener quien lo pintara, así que este archivo queda con un solo
+     llamador y existe para que el <style> no viva dentro de la vista. --}}
 <style>
     @media (max-width: 768px) {
         body:has(#formEquipoAuxiliarCard) .page-title-card {

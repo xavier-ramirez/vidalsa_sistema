@@ -1,19 +1,21 @@
 {{-- ═══════════════════════════════════════════════════════════════════════════════
-     Envío por AJAX del formulario de equipo auxiliar. Lo comparten create y edit.
+     Envío por AJAX del formulario de equipo auxiliar.
 
-     Antes estaba COPIADO entero en los dos archivos: 62 de las 83 líneas útiles de
-     create eran las mismas de edit (el 75%), y lo único que cambiaba de verdad eran
-     tres textos. Cada retoque —el handoff del spinner, el flash por sessionStorage,
-     el pintado de errores 422— había que hacerlo dos veces, y bastaba olvidarse de
-     uno para que crear y editar se comportaran distinto sin que nadie lo notara.
+     HOY LO USA UNA SOLA VISTA: edit.blade.php. Nació para dejar de estar copiado
+     entre create y edit —62 de las 83 líneas útiles de create eran las mismas de
+     edit, el 75%— pero en ese mismo trabajo se vio que create.blade.php no lo pintaba
+     nadie: EquipoAuxiliarController::create() hace redirect() al formulario unificado
+     de /admin/equipos/create, que tiene su propio envío. Por eso create se borró.
+     Se conserva como partial porque es lo que deja edit.blade.php en 41 líneas
+     legibles en vez de 160, con el <script> metido dentro.
 
-     Recibe:
-       $verbo    → 'registrado' | 'actualizado'  (mensaje de éxito)
-       $verboMal → 'registrar'  | 'actualizar'   (mensaje de error)
-       $accion   → 'store' | 'update'            (etiqueta del console.error)
+     Recibe (hoy los tres llegan fijos desde edit; siguen parametrizados para que sea
+     la VISTA quien decida los textos, no este archivo):
+       $verbo    → 'actualizado'  (mensaje de éxito)
+       $verboMal → 'actualizar'   (mensaje de error)
+       $accion   → 'update'       (etiqueta del console.error)
 
-     El formulario se busca por id (#equipoAuxiliarForm), que es el mismo en las dos
-     pantallas; lo único que cambia entre ellas es su action y su method.
+     El formulario se busca por id (#equipoAuxiliarForm).
 ═══════════════════════════════════════════════════════════════════════════════ --}}
 <script>
 (function () {
