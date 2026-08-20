@@ -1797,8 +1797,10 @@ window.toggleConfirmacionSitioAux = function (el) {
 
         mostrarEstado('mov_cargando');
 
-        var base = document.querySelector('meta[name="base-url"]');
-        var url = (base ? base.content : '')
+        // window.lazyBaseUrl() (lazy_loader.js, cargado en el <head>) es el punto unico
+        // que lee el <meta name="base-url">. Aqui se llamaba al querySelector a mano,
+        // que es la misma lectura escrita otra vez.
+        var url = window.lazyBaseUrl()
             + '/admin/equipos/' + encodeURIComponent(equipoId) + '/movilizaciones';
 
         window.apiFetch(url, {
@@ -1836,13 +1838,41 @@ window.toggleConfirmacionSitioAux = function (el) {
         var sub = $('mov_subtitulo');
         if (sub) sub.textContent = titulo ? (titulo.textContent || '').trim() : '';
 
-        modal.classList.add('active');
+        // MISMO patron de apertura que #detailsModal (mas arriba en este archivo): el
+        // display tiene que aplicarse ANTES de .active o la transicion de opacidad no
+        // arranca —.modal-overlay nace en opacity:0— y el modal aparece de golpe mientras
+        // todos los demas hacen fundido. Se usa requestAnimationFrame y no `void
+        // offsetWidth` para no forzar un recalculo de diseno completo, que con la tabla de
+        // ~1.200 filas detras es justo lo que se nota.
+        modal.style.display = 'flex';
+        if (modal._rafAbrir) cancelAnimationFrame(modal._rafAbrir);
+        modal._rafAbrir = requestAnimationFrame(function () {
+            modal._rafAbrir = null;
+            modal.classList.add('active');
+        });
+
         cargar(equipoId);
     };
 
     window.cerrarMovilizacionesEquipo = function () {
         var modal = $(ID_MODAL);
-        if (modal) modal.classList.remove('active');
+        if (modal) {
+            // Abrir y cerrar dentro del mismo frame: se cancela el rAF pendiente o el modal
+            // volveria a hacerse visible justo despues de haberlo cerrado.
+            if (modal._rafAbrir) { cancelAnimationFrame(modal._rafAbrir); modal._rafAbrir = null; }
+            modal.classList.remove('active');
+
+            // Ocultar DESPUES del fundido, leyendo la duracion del CSS en vez de repetirla
+            // aqui. Number.isFinite y no `|| 180`: con la transicion en 0s parseFloat da 0,
+            // que es falsy, y el overlay se quedaria 180 ms invisible comiendose los clics.
+            var dur = parseFloat(getComputedStyle(modal).transitionDuration);
+            var ms  = Number.isFinite(dur) ? dur * 1000 : 180;
+            setTimeout(function () {
+                // Si se REABRIO durante el fundido, no ocultar: el display inline gana sobre
+                // el display:flex de .active y dejaria el modal activo pero invisible.
+                if (!modal.classList.contains('active')) modal.style.display = 'none';
+            }, ms);
+        }
         // Se corta lo que siga viajando: el usuario ya no lo esta mirando.
         if (enVuelo) { enVuelo.abort(); enVuelo = null; }
     };

@@ -324,7 +324,8 @@ taparlo todo. NO se hereda el 2000 de .modal-overlay: quedaria por detras.
         </div>
 
         {{-- BODY: los cuatro estados son EXCLUYENTES (cargando / error / vacio / lista).
-             Los pinta y los alterna movilizaciones_modal.js; aqui solo se declaran. --}}
+             Los pinta y los alterna el bloque "MODAL MOVILIZACIONES DEL EQUIPO" del
+             final de uicomponents.js; aqui solo se declaran. --}}
         <div style="padding: 16px 18px; overflow-y: auto; flex: 1;">
 
             {{-- Cargando --}}
