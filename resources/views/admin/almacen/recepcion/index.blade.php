@@ -1142,7 +1142,7 @@
             {{-- Volver al paso 1. Vive en el encabezado y no en el pie porque el pie lo ocupan
                  las dos acciones de la operación (Cancelar / Aceptar); "atrás" es navegación,
                  no una decisión sobre la entrada. Solo se ve en el paso 2. --}}
-            <button type="button" class="cdir-atras" id="cdirAtras" onclick="window.cdirPaso(1)" title="Volver a las líneas" style="display:none;">
+            <button type="button" class="cdir-atras" id="cdirAtras" onclick="window.cdirPaso(1)" title="Volver a los datos del documento" style="display:none;">
                 <i class="material-icons" style="color:#fff;">arrow_back</i>
             </button>
             <i class="material-icons">shopping_cart</i>
@@ -1703,7 +1703,10 @@
         // Los desplegables del buscador de producto y de UM viven en el paso 2, y el del
         // proyecto en el paso 1: al cambiar de paso quedarían abiertos sobre nada.
         suggestHide(); umHide(); proySuggestHide();
-        // El foco cae en el primer campo que toca escribir en cada paso.
+        // El foco cae en el primer campo que toca escribir en cada paso. Al entrar al 2 se
+        // suprime la primera apertura del desplegable (skipSuggest): el buscador queda listo
+        // para escribir, pero sin soltar la lista entera de productos en la cara.
+        if (n === 2) skipSuggest = true;
         setTimeout(function () {
             var fila = el('cdirProyectoRow');
             var i = (n === 2)
@@ -1726,13 +1729,13 @@
         // Sin render() aquí: la tabla ya está pintada — al montar el módulo por el render
         // inicial del final de este script, y después de cada cambio por insertar/quitar/limpiar.
         // Siempre se entra por el paso 1, aunque se haya salido con la ✕ desde el 2.
+        // cdirPaso() deja el foco en el primer campo del paso; no se toca aquí.
         window.cdirPaso(1);
         el('cdirOverlay').classList.add('open');
         // Bloquear el scroll del fondo mientras el modal está abierto — mismo cuidado que
         // el modal de detalle. Los dos nunca coexisten: con este abierto, el overlay tapa
         // las filas de la bandeja.
         document.body.style.overflow = 'hidden';
-        setTimeout(function () { var s = el('cdirSearch'); if (s) { skipSuggest = true; s.focus(); } }, 60);
     };
     function cerrar() {
         el('cdirOverlay').classList.remove('open');
@@ -1775,11 +1778,9 @@
         showErr('');
         var dest = destinoActual();
         if (!dest) { var mA = 'No se pudo determinar el almacén destino. Recarga la página.'; showErr(mA); toast(mA, 'error'); return; }
-        // Última puerta antes del POST. En la práctica no se llega sin líneas (para entrar al
-        // paso 2 ya hace falta al menos una); si pasara, se vuelve al paso 1 y la tabla vacía
-        // se explica sola — sin repetir aquí el mensaje que ya da cdirPaso.
-        // Sin líneas no hay nada que registrar. Se vuelve al paso 2, que es donde se
-        // capturan (antes mandaba al 1, que era donde estaban entonces).
+        // Única puerta que exige líneas, y ahora sí se llega aquí sin ellas: con el orden
+        // nuevo el paso 2 ES la captura, así que entrar en él no puede pedir lo que todavía
+        // no existe. Antes esto era un por-si-acaso que no saltaba nunca.
         //
         // El aviso va DESPUÉS de cambiar de paso, no antes: cdirPaso() arranca con
         // showErr(''), así que pintarlo primero lo borraba y el usuario se quedaba sin
