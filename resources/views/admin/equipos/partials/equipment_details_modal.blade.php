@@ -283,10 +283,13 @@ Estructura: overlay > modal-content > header + sub-header + body
                      El id del equipo lo pone showDetailsImproved en data-equipo-id. --}}
                 <button type="button" id="btn_ver_movilizaciones" data-equipo-id=""
                     onclick="window.abrirMovilizacionesEquipo(this.dataset.equipoId)"
-                    style="background: white; border-radius: 12px; border: 1px solid #e2e8f0; padding: 15px 20px; width: 100%; box-sizing: border-box; display: flex; align-items: center; gap: 10px; font-family: inherit; font-size: 14px; font-weight: 700; color: #1e293b; text-align: left; cursor: pointer;">
+                    {{-- Mismos valores que la cabecera de los acordeones de arriba (padding,
+                         fondo, borde, radio, tipografia y el icono suelto de 20px en #64748b),
+                         para que se lea como uno mas de la lista y no como un boton aparte.
+                         Sin chevron: ninguno de los otros lo lleva. --}}
+                    style="background: #f8fafc; border-radius: 12px; border: 1px solid #e2e8f0; padding: 15px 20px; width: 100%; box-sizing: border-box; display: flex; align-items: center; gap: 10px; font-family: inherit; font-size: inherit; font-weight: 700; color: #1e293b; text-align: left; cursor: pointer;">
                     <i class="material-icons" style="font-size: 20px; color: #64748b;">local_shipping</i>
                     <span>Movilizaciones</span>
-                    <i class="material-icons" style="font-size: 20px; color: #94a3b8; margin-left: auto;">chevron_right</i>
                 </button>
 
             </div>

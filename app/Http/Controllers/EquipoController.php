@@ -4908,20 +4908,30 @@ class EquipoController extends Controller
     /**
      * Movilizaciones de UN equipo, para el modal del detalle en /admin/equipos.
      *
+     * QUE FECHA SE USA. `created_at`, no `FECHA_DESPACHO`. Esta ultima solo se rellena
+     * cuando el movimiento genera acta: la fila nace como `$generarPdf ? 'DESPACHO' :
+     * 'ACT.'` (MovilizacionController y EquipoAuxiliarController) y las ACT. se guardan
+     * sin fecha — 786 de 1.265 filas, el 62%. Ordenar por ahi tenia dos efectos: se leia
+     * "Sin fecha" en la mayoria de las filas, y como MySQL manda los NULL AL FINAL en un
+     * DESC, la movilizacion MAS RECIENTE aparecia la ULTIMA, debajo de otras dos meses
+     * mas viejas. `created_at` no tiene ni un nulo y es la que ya usa el listado de
+     * /admin/movilizaciones (partials/table_rows.blade.php), asi que el modal y la
+     * pantalla grande cuentan lo mismo.
+     *
      * Rendimiento (lo caro aqui es la tabla, no el PHP):
-     *  - Se apoya en el indice `idx_mov_hist_equipo_fecha (ID_EQUIPO, FECHA_DESPACHO)`.
-     *    Sin el, MySQL escaneaba la tabla entera y encima ordenaba a mano
-     *    (type: ALL, rows: 1265, Using filesort). Con el: type: ref, rows: 1, sin filesort.
+     *  - Se apoya en el indice `idx_mov_hist_equipo_creado (ID_EQUIPO, created_at)`.
+     *    Sin un indice que empiece por ID_EQUIPO, MySQL escanea la tabla entera y encima
+     *    ordena a mano (type: ALL, rows: 1265, Using filesort).
      *  - SELECT explicito: sin `select *` no se arrastran columnas que el modal no pinta
-     *    (client_uuid, timestamps, ID_FRENTE_RECEPCION...).
+     *    (client_uuid, ID_FRENTE_RECEPCION, FECHA_DESPACHO...).
      *  - Los nombres de frente salen del SNAPSHOT congelado en la propia fila, asi que el
      *    caso normal NO toca `frentes_trabajo`. Solo las filas viejas anteriores a esa
      *    columna necesitan el nombre en vivo, y se resuelven con UN load() para toda la
      *    coleccion — nunca una consulta por fila (N+1).
      *
-     * Desempate por ID_MOVILIZACION DESC: FECHA_DESPACHO es un dateTime y dos movimientos
-     * del mismo lote caen en el mismo segundo; sin desempate MySQL no garantiza un orden
-     * estable y la lista se barajaba entre una carga y otra.
+     * Desempate por ID_MOVILIZACION DESC: created_at es un timestamp y un lote entero se
+     * guarda en el mismo segundo; sin desempate MySQL no garantiza un orden estable y la
+     * lista se barajaba entre una carga y otra.
      */
     public function getMovilizaciones($id)
     {
@@ -4930,8 +4940,7 @@ class EquipoController extends Controller
             ->select([
                 'ID_MOVILIZACION',
                 'CODIGO_CONTROL',
-                'TIPO_MOVIMIENTO',
-                'FECHA_DESPACHO',
+                'created_at',
                 'DETALLE_UBICACION',
                 'USUARIO_REGISTRO',
                 // Las dos FK hacen falta aunque casi nunca se usen: son las que permiten
@@ -4941,7 +4950,7 @@ class EquipoController extends Controller
                 'NOMBRE_FRENTE_ORIGEN_SNAPSHOT',
                 'NOMBRE_FRENTE_DESTINO_SNAPSHOT',
             ])
-            ->orderByDesc('FECHA_DESPACHO')
+            ->orderByDesc('created_at')
             ->orderByDesc('ID_MOVILIZACION')
             ->limit(self::MOVILIZACIONES_MODAL_MAX + 1)
             ->get();
@@ -4968,8 +4977,7 @@ class EquipoController extends Controller
             'data'    => $movs->map(fn ($m) => [
                 'id'      => $m->ID_MOVILIZACION,
                 'codigo'  => $m->formatted_codigo_control,
-                'tipo'    => $m->TIPO_MOVIMIENTO ?: 'DESPACHO',
-                'fecha'   => optional($m->FECHA_DESPACHO)->format('d/m/Y'),
+                'fecha'   => optional($m->created_at)->format('d/m/Y'),
                 'origen'  => $m->nombre_origen,
                 'destino' => $m->nombre_destino,
                 'detalle' => $m->DETALLE_UBICACION,

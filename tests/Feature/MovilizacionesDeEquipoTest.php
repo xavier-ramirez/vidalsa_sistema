@@ -10,20 +10,23 @@ use Tests\MySqlTestCase;
 /**
  * Modal "Movilizaciones" del detalle de equipo (/admin/equipos).
  *
- * Lo que se fija aqui es el contrato que el modal necesita para ser RAPIDO, que es
- * justo lo que se rompe sin avisar:
+ * Lo que se fija aqui es lo que se rompe sin avisar:
  *
- *  1. El indice por el que entra la consulta existe. Sin el, MySQL escanea la tabla
- *     entera y ordena a mano; el modal seguiria funcionando —por eso nadie lo notaria—
- *     pero cada movilizacion nueva lo haria un poco mas lento, para siempre.
- *  2. La respuesta se arma con UNA sola consulta. El riesgo real es el N+1: los nombres
- *     de frente salen de accesores del modelo, y basta tocarlos para que cada fila pida
- *     su frente por separado.
- *  3. El orden es de la mas reciente a la mas antigua, con desempate estable.
+ *  1. LA COLUMNA DE LA FECHA. `FECHA_DESPACHO` solo se rellena cuando el movimiento
+ *     genera acta —la fila nace como `$generarPdf ? 'DESPACHO' : 'ACT.'`— asi que hoy
+ *     esta vacia en el 62% de las filas. Ordenar por ahi ponia la movilizacion MAS
+ *     RECIENTE la ULTIMA, porque MySQL manda los NULL al final en un DESC, y encima se
+ *     leia "Sin fecha" en la mayoria. La buena es `created_at`, que es ademas la que ya
+ *     usa el listado de /admin/movilizaciones.
+ *  2. EL INDICE por el que entra la consulta. Sin el, MySQL escanea la tabla entera y
+ *     ordena a mano; el modal seguiria funcionando —por eso nadie lo notaria— pero cada
+ *     movilizacion nueva lo haria un poco mas lento, para siempre.
+ *  3. QUE NO DEGENERE EN UN N+1. Los nombres de frente salen de accesores del modelo, y
+ *     basta tocarlos para que cada fila pida su frente por separado.
  */
 class MovilizacionesDeEquipoTest extends MySqlTestCase
 {
-    private const INDICE = 'idx_mov_hist_equipo_fecha';
+    private const INDICE = 'idx_mov_hist_equipo_creado';
 
     /** Un usuario que pueda entrar al modulo de equipos. */
     private function usuario(): Usuario
@@ -57,9 +60,9 @@ class MovilizacionesDeEquipoTest extends MySqlTestCase
             ->pluck('COLUMN_NAME')
             ->all();
 
-        $this->assertSame(['ID_EQUIPO', 'FECHA_DESPACHO'], $columnas,
-            'El indice ' . self::INDICE . ' debe ser (ID_EQUIPO, FECHA_DESPACHO). ID_EQUIPO primero '
-            . 'porque es por donde filtra, y FECHA_DESPACHO dentro para que MySQL lea las filas ya '
+        $this->assertSame(['ID_EQUIPO', 'created_at'], $columnas,
+            'El indice ' . self::INDICE . ' debe ser (ID_EQUIPO, created_at). ID_EQUIPO primero '
+            . 'porque es por donde filtra, y created_at dentro para que MySQL lea las filas ya '
             . 'ordenadas y se ahorre el filesort.');
     }
 
@@ -67,7 +70,7 @@ class MovilizacionesDeEquipoTest extends MySqlTestCase
     {
         $plan = DB::select(
             'EXPLAIN SELECT ID_MOVILIZACION FROM movilizacion_historial '
-            . 'WHERE ID_EQUIPO = ? ORDER BY FECHA_DESPACHO DESC, ID_MOVILIZACION DESC',
+            . 'WHERE ID_EQUIPO = ? ORDER BY created_at DESC, ID_MOVILIZACION DESC',
             [$this->equipoConMasMovilizaciones() ?? 1]
         )[0];
 
@@ -110,10 +113,29 @@ class MovilizacionesDeEquipoTest extends MySqlTestCase
         $datos = $res->json('data');
         $this->assertNotEmpty($datos, 'El equipo elegido tiene movilizaciones; deberian venir.');
         $this->assertSame(
-            ['id', 'codigo', 'tipo', 'fecha', 'origen', 'destino', 'detalle', 'usuario'],
+            ['id', 'codigo', 'fecha', 'origen', 'destino', 'detalle', 'usuario'],
             array_keys($datos[0]),
-            'El payload cambio de forma; el modal lee estas claves.'
+            'El payload cambio de forma; el modal lee estas claves. "tipo" se quito a proposito: '
+            . 'decia "Despacho" en las filas ACT., que son la mayoria.'
         );
+    }
+
+    public function test_todas_las_filas_traen_fecha(): void
+    {
+        $idEquipo = $this->equipoConMasMovilizaciones();
+        if ($idEquipo === null) {
+            $this->markTestSkipped('No hay movilizaciones cargadas contra las que probar.');
+        }
+
+        $datos = $this->actingAs($this->usuario())
+            ->getJson("/admin/equipos/{$idEquipo}/movilizaciones")
+            ->json('data');
+
+        foreach ($datos as $fila) {
+            $this->assertNotNull($fila['fecha'],
+                'Una fila salio sin fecha. Es la senal de que se volvio a leer FECHA_DESPACHO, '
+                . 'que esta vacia en las movilizaciones registradas sin acta (tipo ACT.).');
+        }
     }
 
     public function test_las_devuelve_de_la_mas_reciente_a_la_mas_antigua(): void
@@ -128,15 +150,15 @@ class MovilizacionesDeEquipoTest extends MySqlTestCase
             ->json('data'))->pluck('id')->all();
 
         $esperado = Movilizacion::where('ID_EQUIPO', $idEquipo)
-            ->orderByDesc('FECHA_DESPACHO')
+            ->orderByDesc('created_at')
             ->orderByDesc('ID_MOVILIZACION')
             ->pluck('ID_MOVILIZACION')
             ->all();
 
         $this->assertSame(array_slice($esperado, 0, count($ids)), $ids,
-            'El orden debe ser FECHA_DESPACHO DESC con desempate por ID_MOVILIZACION DESC: '
-            . 'dos movimientos del mismo lote caen en el mismo segundo y sin desempate la '
-            . 'lista se baraja entre una carga y otra.');
+            'El orden debe ser created_at DESC con desempate por ID_MOVILIZACION DESC: un lote '
+            . 'entero se guarda en el mismo segundo y sin desempate la lista se baraja entre '
+            . 'una carga y otra.');
     }
 
     public function test_un_equipo_sin_movilizaciones_devuelve_lista_vacia_y_no_un_error(): void

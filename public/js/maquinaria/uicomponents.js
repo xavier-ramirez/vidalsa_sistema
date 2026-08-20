@@ -1729,32 +1729,24 @@ window.toggleConfirmacionSitioAux = function (el) {
         }
     }
 
-    /** Etiqueta legible del tipo de movimiento. */
-    function etiquetaTipo(tipo) {
-        return tipo === 'RECEPCION_DIRECTA' ? 'Recepcion directa' : 'Despacho';
-    }
-
+    /* Tarjeta de un movimiento, con TODO centrado (pedido del cliente).
+       Ya no se pinta el TIPO_MOVIMIENTO: la etiqueta decia "Despacho" en el 62% de las
+       filas que en realidad son ACT. —movimientos registrados sin generar acta— porque
+       se daba por Despacho todo lo que no fuera RECEPCION_DIRECTA. Antes que arreglar un
+       rotulo que el cliente no queria ver, se quita: el codigo ya distingue los casos
+       (MV-000NN cuando hay acta, "R.D." cuando no). */
     function pintarLista(filas, hayMas, maximo) {
         var cont = $('mov_lista');
         if (!cont) return;
         var esc = window.escapeHtml;   // helper central (dom_helpers.js)
 
         cont.innerHTML = filas.map(function (m) {
-            var directa = m.tipo === 'RECEPCION_DIRECTA';
-            var chip = directa
-                ? 'background:#ecfdf5;color:#047857;'
-                : 'background:#eff6ff;color:#1d4ed8;';
-            return '<div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;">'
-                + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;">'
+            return '<div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;text-align:center;">'
+                + '<div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:8px;flex-wrap:wrap;">'
                     + '<span style="font-weight:700;font-size:13px;color:#1e293b;">' + esc(m.codigo || '') + '</span>'
-                    + '<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;' + chip + '">'
-                        + esc(etiquetaTipo(m.tipo))
-                    + '</span>'
-                    + '<span style="margin-left:auto;font-size:12px;color:#64748b;white-space:nowrap;">'
-                        + esc(m.fecha || 'Sin fecha')
-                    + '</span>'
+                    + '<span style="font-size:12px;color:#64748b;white-space:nowrap;">' + esc(m.fecha || 'Sin fecha') + '</span>'
                 + '</div>'
-                + '<div style="display:flex;align-items:center;gap:6px;font-size:13px;color:#334155;flex-wrap:wrap;">'
+                + '<div style="display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px;color:#334155;flex-wrap:wrap;">'
                     + '<span>' + esc(m.origen || '-') + '</span>'
                     + '<i class="material-icons" style="font-size:16px;color:#94a3b8;">arrow_forward</i>'
                     + '<span style="font-weight:600;">' + esc(m.destino || '-') + '</span>'
@@ -1780,7 +1772,6 @@ window.toggleConfirmacionSitioAux = function (el) {
             }
         }
     }
-
     function pintarError(mensaje) {
         var txt = $('mov_error_texto');
         if (txt) txt.textContent = mensaje;
