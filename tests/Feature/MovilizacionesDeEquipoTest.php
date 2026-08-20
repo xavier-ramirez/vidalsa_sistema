@@ -1,0 +1,152 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\Movilizacion;
+use App\Models\Usuario;
+use Illuminate\Support\Facades\DB;
+use Tests\MySqlTestCase;
+
+/**
+ * Modal "Movilizaciones" del detalle de equipo (/admin/equipos).
+ *
+ * Lo que se fija aqui es el contrato que el modal necesita para ser RAPIDO, que es
+ * justo lo que se rompe sin avisar:
+ *
+ *  1. El indice por el que entra la consulta existe. Sin el, MySQL escanea la tabla
+ *     entera y ordena a mano; el modal seguiria funcionando —por eso nadie lo notaria—
+ *     pero cada movilizacion nueva lo haria un poco mas lento, para siempre.
+ *  2. La respuesta se arma con UNA sola consulta. El riesgo real es el N+1: los nombres
+ *     de frente salen de accesores del modelo, y basta tocarlos para que cada fila pida
+ *     su frente por separado.
+ *  3. El orden es de la mas reciente a la mas antigua, con desempate estable.
+ */
+class MovilizacionesDeEquipoTest extends MySqlTestCase
+{
+    private const INDICE = 'idx_mov_hist_equipo_fecha';
+
+    /** Un usuario que pueda entrar al modulo de equipos. */
+    private function usuario(): Usuario
+    {
+        $user = Usuario::all()->first(fn ($u) => $u->can('equipos.view') || $u->can('super.admin'));
+        $this->assertNotNull($user, 'No hay usuario capaz de ver equipos.');
+
+        return $user;
+    }
+
+    /** ID del equipo con mas movilizaciones registradas (o null si no hay ninguna). */
+    private function equipoConMasMovilizaciones(): ?int
+    {
+        $fila = DB::table('movilizacion_historial')
+            ->select('ID_EQUIPO', DB::raw('COUNT(*) as total'))
+            ->whereNotNull('ID_EQUIPO')
+            ->groupBy('ID_EQUIPO')
+            ->orderByDesc('total')
+            ->first();
+
+        return $fila ? (int) $fila->ID_EQUIPO : null;
+    }
+
+    public function test_existe_el_indice_por_el_que_entra_la_consulta(): void
+    {
+        $columnas = DB::table('information_schema.statistics')
+            ->where('table_schema', DB::getDatabaseName())
+            ->where('table_name', 'movilizacion_historial')
+            ->where('index_name', self::INDICE)
+            ->orderBy('SEQ_IN_INDEX')
+            ->pluck('COLUMN_NAME')
+            ->all();
+
+        $this->assertSame(['ID_EQUIPO', 'FECHA_DESPACHO'], $columnas,
+            'El indice ' . self::INDICE . ' debe ser (ID_EQUIPO, FECHA_DESPACHO). ID_EQUIPO primero '
+            . 'porque es por donde filtra, y FECHA_DESPACHO dentro para que MySQL lea las filas ya '
+            . 'ordenadas y se ahorre el filesort.');
+    }
+
+    public function test_el_plan_de_ejecucion_usa_el_indice_y_no_escanea_la_tabla(): void
+    {
+        $plan = DB::select(
+            'EXPLAIN SELECT ID_MOVILIZACION FROM movilizacion_historial '
+            . 'WHERE ID_EQUIPO = ? ORDER BY FECHA_DESPACHO DESC, ID_MOVILIZACION DESC',
+            [$this->equipoConMasMovilizaciones() ?? 1]
+        )[0];
+
+        $this->assertSame(self::INDICE, $plan->key ?? null,
+            'La consulta del modal deberia entrar por ' . self::INDICE . '.');
+        $this->assertNotSame('ALL', $plan->type,
+            'type=ALL significa escaneo completo de la tabla.');
+        $this->assertStringNotContainsString('filesort', (string) ($plan->Extra ?? ''),
+            'Si aparece filesort, el indice dejo de cubrir el ORDER BY.');
+    }
+
+    public function test_responde_las_movilizaciones_del_equipo_con_una_sola_consulta(): void
+    {
+        $idEquipo = $this->equipoConMasMovilizaciones();
+        if ($idEquipo === null) {
+            $this->markTestSkipped('No hay movilizaciones cargadas contra las que probar.');
+        }
+
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+
+        $res = $this->actingAs($this->usuario())
+            ->getJson("/admin/equipos/{$idEquipo}/movilizaciones");
+
+        $consultas = collect(DB::getQueryLog())
+            ->filter(fn ($q) => str_contains($q['query'], 'movilizacion_historial')
+                             || str_contains($q['query'], 'frentes_trabajo'))
+            ->count();
+        DB::disableQueryLog();
+
+        $res->assertOk()->assertJson(['success' => true]);
+
+        // 1 = la consulta principal. Se permite hasta 3 porque las filas ANTERIORES a las
+        // columnas de snapshot necesitan el nombre del frente en vivo: eso son, como mucho,
+        // dos load() para toda la coleccion. Lo que este numero impide es el N+1 (una
+        // consulta por fila), que es el fallo que se cuela sin que nadie lo vea.
+        $this->assertLessThanOrEqual(3, $consultas,
+            "La respuesta uso {$consultas} consultas: hay un N+1 resolviendo los frentes.");
+
+        $datos = $res->json('data');
+        $this->assertNotEmpty($datos, 'El equipo elegido tiene movilizaciones; deberian venir.');
+        $this->assertSame(
+            ['id', 'codigo', 'tipo', 'fecha', 'origen', 'destino', 'detalle', 'usuario'],
+            array_keys($datos[0]),
+            'El payload cambio de forma; el modal lee estas claves.'
+        );
+    }
+
+    public function test_las_devuelve_de_la_mas_reciente_a_la_mas_antigua(): void
+    {
+        $idEquipo = $this->equipoConMasMovilizaciones();
+        if ($idEquipo === null) {
+            $this->markTestSkipped('No hay movilizaciones cargadas contra las que probar.');
+        }
+
+        $ids = collect($this->actingAs($this->usuario())
+            ->getJson("/admin/equipos/{$idEquipo}/movilizaciones")
+            ->json('data'))->pluck('id')->all();
+
+        $esperado = Movilizacion::where('ID_EQUIPO', $idEquipo)
+            ->orderByDesc('FECHA_DESPACHO')
+            ->orderByDesc('ID_MOVILIZACION')
+            ->pluck('ID_MOVILIZACION')
+            ->all();
+
+        $this->assertSame(array_slice($esperado, 0, count($ids)), $ids,
+            'El orden debe ser FECHA_DESPACHO DESC con desempate por ID_MOVILIZACION DESC: '
+            . 'dos movimientos del mismo lote caen en el mismo segundo y sin desempate la '
+            . 'lista se baraja entre una carga y otra.');
+    }
+
+    public function test_un_equipo_sin_movilizaciones_devuelve_lista_vacia_y_no_un_error(): void
+    {
+        // Un ID que con seguridad no tiene movimientos: por encima del maximo registrado.
+        $inexistente = ((int) DB::table('movilizacion_historial')->max('ID_EQUIPO')) + 999999;
+
+        $this->actingAs($this->usuario())
+            ->getJson("/admin/equipos/{$inexistente}/movilizaciones")
+            ->assertOk()
+            ->assertJson(['success' => true, 'hay_mas' => false, 'data' => []]);
+    }
+}

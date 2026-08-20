@@ -926,6 +926,12 @@ window.showDetailsImproved = function (target, event) {
         confBtn.title = conf ? "Confirmado en sitio (click para quitar)" : "Confirmar presencia en sitio";
     }
 
+    // Boton "Movilizaciones" del cuerpo: solo se le pasa el id del equipo abierto.
+    // NO se piden datos aqui — el historial se trae al pulsar (ver #movilizacionesModal
+    // al final de este archivo), no cada vez que alguien abre un detalle.
+    const movBtn = document.getElementById("btn_ver_movilizaciones");
+    if (movBtn) movBtn.dataset.equipoId = d.equipoId;
+
     // Encabezado: solo el serial de chasis (la PLACA se quitó del header por
     // solicitud del usuario; sigue visible en el cuerpo del modal — #d_placa).
     const subtitleParts = [];
@@ -1672,3 +1678,196 @@ window.toggleConfirmacionSitioAux = function (el) {
         window.toast('No se pudo actualizar la confirmación: ' + err.message, 'error');
     });
 };
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   MODAL "MOVILIZACIONES DEL EQUIPO"  (#movilizacionesModal)
+
+   Lo abre el boton "Movilizaciones" del modal de detalles. Vive aqui, junto a
+   showDetailsImproved/closeDetailsModal, y no en un archivo aparte cargado en
+   perezoso: es parte del mismo flujo, y traerlo al pulsar solo anadiria un viaje de
+   red JUSTO cuando el usuario acaba de hacer clic y esta mirando el spinner.
+
+   Los datos NO se piden al abrir el detalle, sino al pulsar el boton: el historial
+   exige ir a la BD y la mayoria de las veces que se abre un equipo nadie lo mira.
+   Tampoco se cachean entre aperturas — son movimientos, y el criterio del proyecto
+   es que los movimientos se ven siempre frescos.
+
+   SPA: la navegacion reemplaza el DOM de la vista, asi que #movilizacionesModal y sus
+   botones son nodos NUEVOS en cada entrada. Por eso los listeners van DELEGADOS en
+   document (se enlazan una sola vez y sobreviven al reemplazo) en vez de colgados de
+   los nodos, que se perderian. Los elementos se buscan frescos en cada uso.
+   ═══════════════════════════════════════════════════════════════════════════════ */
+(function () {
+    'use strict';
+
+    // uicomponents.js es un <script src> del layout: se ejecuta una vez por carga real.
+    // El guard cubre que alguien lo inyecte dos veces, lo que duplicaria los listeners
+    // delegados y dispararia la peticion por partida doble.
+    if (window.__movModalBound) return;
+    window.__movModalBound = true;
+
+    var ID_MODAL = 'movilizacionesModal';
+
+    // AbortController de la peticion en vuelo. Abrir otro equipo (o cerrar) mientras la
+    // anterior sigue viajando la CANCELA: sin esto, una respuesta lenta del equipo A
+    // podia llegar despues de haber abierto el B y pintar el historial equivocado.
+    var enVuelo = null;
+    var ultimoEquipoId = null;   // lo reusa el boton "Reintentar"
+
+    function $(id) { return document.getElementById(id); }
+
+    /** Deja visible SOLO uno de los cuatro estados del cuerpo; los otros tres, ocultos. */
+    function mostrarEstado(visible) {
+        ['mov_cargando', 'mov_error', 'mov_vacio', 'mov_lista'].forEach(function (id) {
+            var el = $(id);
+            if (el) el.style.display = (id === visible) ? 'flex' : 'none';
+        });
+        // El aviso de recorte solo tiene sentido acompanando a la lista.
+        if (visible !== 'mov_lista') {
+            var t = $('mov_truncado');
+            if (t) t.style.display = 'none';
+        }
+    }
+
+    /** Etiqueta legible del tipo de movimiento. */
+    function etiquetaTipo(tipo) {
+        return tipo === 'RECEPCION_DIRECTA' ? 'Recepcion directa' : 'Despacho';
+    }
+
+    function pintarLista(filas, hayMas, maximo) {
+        var cont = $('mov_lista');
+        if (!cont) return;
+        var esc = window.escapeHtml;   // helper central (dom_helpers.js)
+
+        cont.innerHTML = filas.map(function (m) {
+            var directa = m.tipo === 'RECEPCION_DIRECTA';
+            var chip = directa
+                ? 'background:#ecfdf5;color:#047857;'
+                : 'background:#eff6ff;color:#1d4ed8;';
+            return '<div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;">'
+                + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;">'
+                    + '<span style="font-weight:700;font-size:13px;color:#1e293b;">' + esc(m.codigo || '') + '</span>'
+                    + '<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;' + chip + '">'
+                        + esc(etiquetaTipo(m.tipo))
+                    + '</span>'
+                    + '<span style="margin-left:auto;font-size:12px;color:#64748b;white-space:nowrap;">'
+                        + esc(m.fecha || 'Sin fecha')
+                    + '</span>'
+                + '</div>'
+                + '<div style="display:flex;align-items:center;gap:6px;font-size:13px;color:#334155;flex-wrap:wrap;">'
+                    + '<span>' + esc(m.origen || '-') + '</span>'
+                    + '<i class="material-icons" style="font-size:16px;color:#94a3b8;">arrow_forward</i>'
+                    + '<span style="font-weight:600;">' + esc(m.destino || '-') + '</span>'
+                + '</div>'
+                + (m.detalle
+                    ? '<div style="margin-top:6px;font-size:12px;color:#64748b;">Ubicacion: ' + esc(m.detalle) + '</div>'
+                    : '')
+                + (m.usuario
+                    ? '<div style="margin-top:6px;font-size:11px;color:#94a3b8;">Registro: ' + esc(m.usuario) + '</div>'
+                    : '')
+                + '</div>';
+        }).join('');
+
+        mostrarEstado('mov_lista');
+
+        var t = $('mov_truncado');
+        if (t) {
+            if (hayMas) {
+                t.textContent = 'Mostrando las ' + maximo + ' mas recientes. El historial completo esta en Movilizaciones.';
+                t.style.display = 'block';
+            } else {
+                t.style.display = 'none';
+            }
+        }
+    }
+
+    function pintarError(mensaje) {
+        var txt = $('mov_error_texto');
+        if (txt) txt.textContent = mensaje;
+        mostrarEstado('mov_error');
+    }
+
+    /** Pide los datos y pinta. Separada de abrir() para que "Reintentar" la reuse. */
+    function cargar(equipoId) {
+        if (!equipoId) { pintarError('No se pudo identificar el equipo.'); return; }
+
+        if (enVuelo) enVuelo.abort();
+        enVuelo = new AbortController();
+        var miPeticion = enVuelo;
+
+        mostrarEstado('mov_cargando');
+
+        var base = document.querySelector('meta[name="base-url"]');
+        var url = (base ? base.content : '')
+            + '/admin/equipos/' + encodeURIComponent(equipoId) + '/movilizaciones';
+
+        window.apiFetch(url, {
+            headers: { 'Accept': 'application/json' },
+            signal: miPeticion.signal
+        })
+            .then(function (r) {
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                return r.json();
+            })
+            .then(function (j) {
+                // Llego tarde: ya se abrio otro equipo o se cerro el modal. Se descarta.
+                if (miPeticion !== enVuelo) return;
+                if (!j || !j.success) throw new Error('Respuesta inesperada');
+                if (!j.data || j.data.length === 0) { mostrarEstado('mov_vacio'); return; }
+                pintarLista(j.data, !!j.hay_mas, j.maximo);
+            })
+            .catch(function (e) {
+                if (e && e.name === 'AbortError') return;      // cancelada a proposito
+                if (miPeticion !== enVuelo) return;
+                pintarError('No se pudieron cargar las movilizaciones. Revisa tu conexion.');
+                console.error('[movilizaciones] ' + (e && e.message ? e.message : e));
+            });
+    }
+
+    window.abrirMovilizacionesEquipo = function (equipoId) {
+        var modal = $(ID_MODAL);
+        if (!modal) return;
+
+        ultimoEquipoId = equipoId;
+
+        // Subtitulo: el nombre del equipo abierto. Se LEE del modal de detalles en vez de
+        // guardarlo aparte, para que no haya dos sitios que puedan discrepar.
+        var titulo = $('modal_equipo_title');
+        var sub = $('mov_subtitulo');
+        if (sub) sub.textContent = titulo ? (titulo.textContent || '').trim() : '';
+
+        modal.classList.add('active');
+        cargar(equipoId);
+    };
+
+    window.cerrarMovilizacionesEquipo = function () {
+        var modal = $(ID_MODAL);
+        if (modal) modal.classList.remove('active');
+        // Se corta lo que siga viajando: el usuario ya no lo esta mirando.
+        if (enVuelo) { enVuelo.abort(); enVuelo = null; }
+    };
+
+    // ── Listeners DELEGADOS (ver cabecera: el DOM de la vista se reemplaza en SPA) ──
+    document.addEventListener('click', function (e) {
+        var modal = $(ID_MODAL);
+        if (!modal || !modal.classList.contains('active')) return;
+
+        // Clic en el fondo (no en el contenido) => cerrar.
+        if (e.target === modal) { window.cerrarMovilizacionesEquipo(); return; }
+
+        if (e.target.closest && e.target.closest('#mov_reintentar')) {
+            cargar(ultimoEquipoId);
+        }
+    });
+
+    // Captura (true) y stopPropagation: si no, el Escape lo atiende tambien el modal de
+    // detalles y se cerrarian los dos de un golpe.
+    document.addEventListener('keydown', function (e) {
+        if (e.key !== 'Escape') return;
+        var modal = $(ID_MODAL);
+        if (modal && modal.classList.contains('active')) {
+            e.stopPropagation();
+            window.cerrarMovilizacionesEquipo();
+        }
+    }, true);
+})();

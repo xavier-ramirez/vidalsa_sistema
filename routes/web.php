@@ -163,6 +163,9 @@ Route::middleware(['auth'])->group(function () {
             Route::post('equipos/{id}/update-metadata', [App\Http\Controllers\EquipoController::class, 'updateMetadata'])->name('equipos.updateMetadata');
             Route::get('equipos/{id}/responsables', [App\Http\Controllers\EquipoController::class, 'getResponsables'])->name('equipos.getResponsables');
             Route::post('equipos/{id}/responsables', [App\Http\Controllers\EquipoController::class, 'storeResponsable'])->name('equipos.storeResponsable');
+            // Movilizaciones de UN equipo (modal del detalle). whereNumber para que no
+            // choque con las rutas literales de arriba (equipos/export, equipos/fleet-stats...).
+            Route::get('equipos/{id}/movilizaciones', [App\Http\Controllers\EquipoController::class, 'getMovilizaciones'])->whereNumber('id')->name('equipos.movilizaciones');
 
             Route::get('equipos/fleet-stats', [App\Http\Controllers\EquipoController::class, 'fleetStats'])->name('equipos.fleetStats');
             Route::get('equipos/fleet-export', [App\Http\Controllers\EquipoController::class, 'fleetExport'])->name('equipos.fleetExport');

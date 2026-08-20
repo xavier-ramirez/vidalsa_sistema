@@ -274,11 +274,93 @@ Estructura: overlay > modal-content > header + sub-header + body
                     </div>
                 </details>
 
+                {{-- Movilizaciones del equipo.
+                     BOTON y no un <details> como los bloques de arriba a proposito: los
+                     acordeones pintan datos que YA vienen en la fila de la tabla, mientras
+                     que esto exige ir a la BD. Con un <details> la consulta saldria (o el
+                     bloque quedaria vacio) cada vez que se abre un equipo, aunque nadie
+                     mire el historial; con el boton solo se paga cuando se pide.
+                     El id del equipo lo pone showDetailsImproved en data-equipo-id. --}}
+                <button type="button" id="btn_ver_movilizaciones" data-equipo-id=""
+                    onclick="window.abrirMovilizacionesEquipo(this.dataset.equipoId)"
+                    style="background: white; border-radius: 12px; border: 1px solid #e2e8f0; padding: 15px 20px; width: 100%; box-sizing: border-box; display: flex; align-items: center; gap: 10px; font-family: inherit; font-size: 14px; font-weight: 700; color: #1e293b; text-align: left; cursor: pointer;">
+                    <i class="material-icons" style="font-size: 20px; color: #64748b;">local_shipping</i>
+                    <span>Movilizaciones</span>
+                    <i class="material-icons" style="font-size: 20px; color: #94a3b8; margin-left: auto;">chevron_right</i>
+                </button>
+
             </div>
         </div>{{-- /BODY --}}
 
     </div>{{-- /modal-content --}}
 </div>{{-- /detailsModal --}}
+
+{{-- ═══════════════════════════════════════════════════════════
+MODAL MOVILIZACIONES DEL EQUIPO
+Lo abre el boton "Movilizaciones" del modal de detalles. Los datos se piden a
+equipos.movilizaciones al pulsar el boton (nunca al abrir el detalle) y los pinta el
+bloque "MODAL MOVILIZACIONES DEL EQUIPO" del final de uicomponents.js.
+
+z-index 10002: uicomponents.js sube #detailsModal a 10000 al abrirlo, y el visor de
+PDF (.modal-overlay-front) usa 10001. Este sale DESDE detalles, asi que tiene que
+taparlos a los dos. Sigue por debajo de #standardModal (1000001), que debe poder
+taparlo todo. NO se hereda el 2000 de .modal-overlay: quedaria por detras.
+═══════════════════════════════════════════════════════════════ --}}
+<div id="movilizacionesModal" class="modal-overlay" style="z-index: 10002;">
+    <div class="modal-content"
+        style="width: 90%; max-width: 460px; box-sizing: border-box; padding: 0; border-radius: 16px; overflow: hidden; background: #f8fafc; margin: auto; max-height: 90vh; display: flex; flex-direction: column;">
+
+        {{-- HEADER --}}
+        <div style="background: var(--maquinaria-dark-blue); color: white; padding: 14px 18px; display: flex; align-items: center; gap: 10px; flex-shrink: 0;">
+            <i class="material-icons" style="font-size: 20px;">local_shipping</i>
+            <div style="min-width: 0; flex: 1;">
+                <h2 style="margin: 0; font-size: 14px; font-weight: 700; line-height: 1.2;">Movilizaciones</h2>
+                <p id="mov_subtitulo" style="margin: 2px 0 0 0; opacity: 0.8; font-size: 12px; word-break: break-word;"></p>
+            </div>
+            <button type="button" onclick="window.cerrarMovilizacionesEquipo()" title="Cerrar"
+                style="background: transparent; border: none; color: white; cursor: pointer; display: flex; align-items: center; padding: 4px;">
+                <i class="material-icons" style="font-size: 22px;">close</i>
+            </button>
+        </div>
+
+        {{-- BODY: los cuatro estados son EXCLUYENTES (cargando / error / vacio / lista).
+             Los pinta y los alterna movilizaciones_modal.js; aqui solo se declaran. --}}
+        <div style="padding: 16px 18px; overflow-y: auto; flex: 1;">
+
+            {{-- Cargando --}}
+            <div id="mov_cargando" style="display: none; flex-direction: column; align-items: center; gap: 12px; padding: 34px 0;">
+                {{-- .spinner-mini ya existe en estilos_globales.css; no se declara otro. --}}
+                <div class="spinner-mini"></div>
+                <span style="color: #64748b; font-size: 13px;">Cargando movilizaciones&hellip;</span>
+            </div>
+
+            {{-- Error --}}
+            <div id="mov_error" style="display: none; flex-direction: column; align-items: center; gap: 10px; padding: 26px 0; text-align: center;">
+                <i class="material-icons" style="font-size: 34px; color: #ef4444;">error_outline</i>
+                <span id="mov_error_texto" style="color: #64748b; font-size: 13px;"></span>
+                <button type="button" id="mov_reintentar"
+                    style="margin-top: 4px; background: #f1f5f9; border: 1px solid #cbd5e1; color: #1e293b; padding: 7px 16px; border-radius: 8px; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer;">
+                    Reintentar
+                </button>
+            </div>
+
+            {{-- Sin movilizaciones --}}
+            <div id="mov_vacio" style="display: none; flex-direction: column; align-items: center; gap: 10px; padding: 30px 0; text-align: center;">
+                <i class="material-icons" style="font-size: 34px; color: #cbd5e1;">inbox</i>
+                <span style="color: #64748b; font-size: 13px;">Este equipo no tiene movilizaciones registradas.</span>
+            </div>
+
+            {{-- Lista --}}
+            <div id="mov_lista" style="display: none; flex-direction: column; gap: 10px;">
+                {{-- Llenado por JS --}}
+            </div>
+
+            {{-- Aviso de recorte: solo si el backend informa hay_mas --}}
+            <p id="mov_truncado" style="display: none; margin: 12px 0 0 0; font-size: 12px; color: #64748b; text-align: center;"></p>
+
+        </div>
+    </div>{{-- /modal-content --}}
+</div>{{-- /movilizacionesModal --}}
 
 {{-- ═══════════════════════════════════════════════════════════
 MODAL GPS TRACKER — Rastreo Satelital en Vivo

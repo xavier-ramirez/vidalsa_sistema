@@ -4896,6 +4896,88 @@ class EquipoController extends Controller
         return response()->json(['success' => true, 'data' => $responsables]);
     }
 
+    /**
+     * Tope de movilizaciones que devuelve el modal "Movilizaciones" del detalle.
+     * No es un limite de negocio (el historial completo vive en /admin/movilizaciones):
+     * es para que un equipo con cientos de movimientos no dispare una respuesta enorme
+     * ni un modal imposible de recorrer. Se pide UNA fila de mas que este tope para
+     * saber si hubo recorte, sin pagar un COUNT(*) aparte.
+     */
+    private const MOVILIZACIONES_MODAL_MAX = 100;
+
+    /**
+     * Movilizaciones de UN equipo, para el modal del detalle en /admin/equipos.
+     *
+     * Rendimiento (lo caro aqui es la tabla, no el PHP):
+     *  - Se apoya en el indice `idx_mov_hist_equipo_fecha (ID_EQUIPO, FECHA_DESPACHO)`.
+     *    Sin el, MySQL escaneaba la tabla entera y encima ordenaba a mano
+     *    (type: ALL, rows: 1265, Using filesort). Con el: type: ref, rows: 1, sin filesort.
+     *  - SELECT explicito: sin `select *` no se arrastran columnas que el modal no pinta
+     *    (client_uuid, timestamps, ID_FRENTE_RECEPCION...).
+     *  - Los nombres de frente salen del SNAPSHOT congelado en la propia fila, asi que el
+     *    caso normal NO toca `frentes_trabajo`. Solo las filas viejas anteriores a esa
+     *    columna necesitan el nombre en vivo, y se resuelven con UN load() para toda la
+     *    coleccion — nunca una consulta por fila (N+1).
+     *
+     * Desempate por ID_MOVILIZACION DESC: FECHA_DESPACHO es un dateTime y dos movimientos
+     * del mismo lote caen en el mismo segundo; sin desempate MySQL no garantiza un orden
+     * estable y la lista se barajaba entre una carga y otra.
+     */
+    public function getMovilizaciones($id)
+    {
+        $movs = \App\Models\Movilizacion::query()
+            ->where('ID_EQUIPO', $id)
+            ->select([
+                'ID_MOVILIZACION',
+                'CODIGO_CONTROL',
+                'TIPO_MOVIMIENTO',
+                'FECHA_DESPACHO',
+                'DETALLE_UBICACION',
+                'USUARIO_REGISTRO',
+                // Las dos FK hacen falta aunque casi nunca se usen: son las que permiten
+                // el load() de abajo cuando una fila vieja no trae snapshot.
+                'ID_FRENTE_ORIGEN',
+                'ID_FRENTE_DESTINO',
+                'NOMBRE_FRENTE_ORIGEN_SNAPSHOT',
+                'NOMBRE_FRENTE_DESTINO_SNAPSHOT',
+            ])
+            ->orderByDesc('FECHA_DESPACHO')
+            ->orderByDesc('ID_MOVILIZACION')
+            ->limit(self::MOVILIZACIONES_MODAL_MAX + 1)
+            ->get();
+
+        $hayMas = $movs->count() > self::MOVILIZACIONES_MODAL_MAX;
+        $movs   = $movs->take(self::MOVILIZACIONES_MODAL_MAX);
+
+        // Filas anteriores a las columnas de snapshot: se les completa el nombre en vivo.
+        // Un load() por relacion y solo si hace falta => 0 consultas extra en el caso normal.
+        if ($movs->contains(fn ($m) => $m->NOMBRE_FRENTE_ORIGEN_SNAPSHOT === null)) {
+            $movs->load('frenteOrigen:ID_FRENTE,NOMBRE_FRENTE');
+        }
+        if ($movs->contains(fn ($m) => $m->NOMBRE_FRENTE_DESTINO_SNAPSHOT === null)) {
+            $movs->load('frenteDestino:ID_FRENTE,NOMBRE_FRENTE');
+        }
+
+        return response()->json([
+            'success' => true,
+            'hay_mas' => $hayMas,
+            'maximo'  => self::MOVILIZACIONES_MODAL_MAX,
+            // El payload se arma aqui y no en el front: los accesores del modelo
+            // (nombre_origen / formatted_codigo_control) son la fuente unica de esos
+            // valores y ya los usa el resto del modulo.
+            'data'    => $movs->map(fn ($m) => [
+                'id'      => $m->ID_MOVILIZACION,
+                'codigo'  => $m->formatted_codigo_control,
+                'tipo'    => $m->TIPO_MOVIMIENTO ?: 'DESPACHO',
+                'fecha'   => optional($m->FECHA_DESPACHO)->format('d/m/Y'),
+                'origen'  => $m->nombre_origen,
+                'destino' => $m->nombre_destino,
+                'detalle' => $m->DETALLE_UBICACION,
+                'usuario' => $m->USUARIO_REGISTRO,
+            ])->values(),
+        ]);
+    }
+
     public function storeResponsable(Request $request, $id)
     {
         // Registrar responsable = escritura de ficha, requiere user.edit.
