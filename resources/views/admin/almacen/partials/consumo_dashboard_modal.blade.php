@@ -50,9 +50,10 @@
     #cdashCatInput { text-transform: uppercase; }
     #cdashCatInput::placeholder { text-transform: uppercase; }
     #cdashCatList .cdash-cat-item { text-transform: uppercase; }
-    /* Segunda fila de filtros: Frente + rango de meses. Ya no hay panel plegable ni
-       botón que lo abra — los tres se usan a diario y estar siempre a la vista ahorra
-       un clic. Cada campo lleva su etiqueta encima. */
+    /* Filtros avanzados: boton cuadrado + panel colgante. Mismo patron que
+       /admin/equipos (btnAdvancedFilter / advancedFilterPanel), para que el gesto
+       sea el mismo en los dos modulos: el boton al lado del ultimo filtro visible
+       y el panel abriendose hacia abajo alineado a su derecha. */
     .cdash-adv-field { display:flex; flex-direction:column; gap:4px; font-size:11px; font-weight:700; color:#0f172a; }
     .cdash-adv-field input, .cdash-adv-field select { height:36px; border:1px solid #cbd5e0; border-radius:8px; padding:0 10px; font-size:13px; color:#0f172a; background:#fff; outline:none; min-width:150px; }
     .cdash-adv-field input:focus, .cdash-adv-field select:focus { border-color:var(--maquinaria-blue,#0067b1); }
@@ -73,6 +74,43 @@
     .cdash-loading { text-align:center; color:#64748b; font-size:14px; padding:50px 0; font-weight:600; display:flex; flex-direction:column; align-items:center; gap:10px; }
     .cdash-loading .cdash-spin { animation:cdashSpin .8s linear infinite; font-size:28px; color:#0067b1; }
     @keyframes cdashSpin { 100% { transform:rotate(360deg); } }
+    .cdash-adv-wrap { position:relative; flex-shrink:0; }
+
+    /* 36px, no 45 como en equipos: alli el boton va en una barra de filtros de
+       pagina completa; aqui convive con inputs de 36px y uno de 45 sobresaldria. */
+    .cdash-adv-btn {
+        position:relative; height:36px; width:36px; min-width:36px; padding:0;
+        display:flex; align-items:center; justify-content:center; border-radius:8px;
+    }
+    .cdash-adv-btn .material-icons { font-size:20px; }
+
+    /* Punto azul: unica senal de que hay filtros puestos cuando estan recogidos. */
+    .cdash-adv-dot {
+        position:absolute; top:5px; right:5px; width:8px; height:8px; border-radius:50%;
+        background:var(--maquinaria-blue); border:2px solid #fff;
+    }
+
+    .cdash-adv-panel {
+        position:absolute; top:calc(100% + 6px); right:0; z-index:20;
+        width:340px; max-width:calc(100vw - 32px);
+        background:#e2e8f0; border:1px solid #cbd5e1; border-radius:12px;
+        box-shadow:0 10px 30px rgba(15,23,42,.18); padding:14px;
+        display:flex; flex-direction:column; gap:10px;
+    }
+    .cdash-adv-panel h4 {
+        margin:0 0 4px 0; font-size:14px; font-weight:700; color:#334155;
+        display:flex; justify-content:space-between; align-items:center; gap:8px;
+    }
+    .cdash-adv-limpiar {
+        background:none; border:none; padding:0; cursor:pointer;
+        font-size:12px; font-weight:700; color:var(--maquinaria-blue);
+    }
+    .cdash-adv-limpiar:hover { text-decoration:underline; }
+    /* Dentro del panel cada filtro ocupa su propia linea: hay sitio de sobra y
+       asi el rango de meses se lee como un rango y no como dos casillas sueltas. */
+    .cdash-adv-panel .cdash-adv-field { flex:1 1 100% !important; }
+    .cdash-adv-panel input[type="month"] { width:100%; }
+
     @media (max-width: 760px) {
         .cdash-grid { grid-template-columns:1fr; }
         .cdash-body { padding-left:14px; padding-right:14px; }   /* más ancho útil en móvil */
@@ -88,6 +126,8 @@
         .cdash-filtros .f-group-desc,
         .cdash-filtros .f-group-cat  { flex:1 1 100%; }
         .cdash-filtros .cdash-adv-field { flex:1 1 100%; }
+        /* El panel no cabe a 340px en un telefono: se ancla a los dos bordes. */
+        .cdash-adv-panel { width:auto; left:0; right:0; }
         .cdash-filtros input[type="month"] { width:100%; min-width:0; font-size:12px; padding:0 6px; }
         .cdash-filtros input[type="month"]::-webkit-calendar-picker-indicator { display:none; }
     }
@@ -132,7 +172,10 @@
                     <div class="cdash-cat-wrap">
                         <input type="hidden" id="cdashCategoria" value="">
                         <div class="cdash-inp-box cdash-cat-box" id="cdashCatBox" onmousedown="window._cdashCatToggle(event)">
-                            <i class="material-icons">search</i>
+                            {{-- Caret, NO lupa: esto es un desplegable de categorías, no un
+                                 buscador. Con la lupa, al lado de la de Descripción, parecían
+                                 dos buscadores del mismo campo. --}}
+                            <i class="material-icons">expand_more</i>
                             <input type="text" id="cdashCatInput" placeholder="Categoría" autocomplete="off"
                                    oninput="window._cdashCatFilter(this.value)"
                                    onfocus="window._cdashCatOpen()"
@@ -144,10 +187,27 @@
                 </div>
             </div>
 
-            {{-- Segunda fila: Frente de destino + rango de meses. Frente va debajo de
-                 Descripción y los dos meses a su lado. Sin panel plegable: los tres son
-                 de uso corriente y tenerlos recogidos obligaba a un clic extra. --}}
-            <div class="cdash-filtros">
+            {{-- Filtros avanzados. Mismo patrón que /admin/equipos: botón cuadrado con
+                 filter_list y un panel que cuelga debajo. Aquí viven los filtros que NO
+                 son de uso corriente —frente de destino y el rango de meses—, que antes
+                 ocupaban una fila entera siempre visible.
+
+                 El punto azul del botón avisa de que hay algún filtro puesto: recogidos
+                 en un panel, sin esa señal no habría forma de saber que el dashboard está
+                 acotado. Lo enciende _cdashMarcarAvanzados() al aplicar cualquiera. --}}
+            <div class="cdash-adv-wrap">
+                <button type="button" id="cdashAdvBtn" class="btn-primary-maquinaria cdash-adv-btn"
+                        title="Filtros avanzados: frente de destino y rango de meses"
+                        onclick="window._cdashAdvToggle(event)">
+                    <i class="material-icons">filter_list</i>
+                    <span class="cdash-adv-dot" id="cdashAdvDot" style="display:none;"></span>
+                </button>
+
+                <div id="cdashAdvPanel" class="cdash-adv-panel" style="display:none;">
+                    <h4>
+                        Filtros Avanzados
+                        <button type="button" class="cdash-adv-limpiar" onclick="window._cdashAdvLimpiar()">Limpiar</button>
+                    </h4>
                 {{-- Frente: buscador con sugerencias, no un <select>. Son decenas de
                      frentes y desplegarlos todos obligaba a recorrer la lista a ojo.
                      Misma mecánica que Categoría: el hidden guarda el ID (que es lo que
@@ -172,8 +232,8 @@
                 <label class="cdash-adv-field"><span>Hasta (mes)</span>
                     <input type="month" id="cdashHasta" title="Hasta (mes)" onchange="window._cdashFetch()" onclick="try{ this.showPicker(); }catch(e){}">
                 </label>
+                </div>
             </div>
-
             <div id="cdashLoading" class="cdash-loading"><i class="material-icons cdash-spin">refresh</i><span>Cargando datos de consumo…</span></div>
             <div id="cdashContent" style="display:none;">
                 <div class="cdash-grid">
@@ -351,10 +411,16 @@
     };
 
     // Lee los filtros PROPIOS del modal y pide los datos. Independiente del módulo.
+    // Punto único por el que pasan TODOS los filtros: aquí se refresca la señal del
+    // botón avanzado, así ninguna vía puede cambiar un filtro sin actualizarla.
     window._cdashFetch = function () {
         // Cierra las sugerencias de Descripción para que el spinner de carga quede
         // visible (mismo feedback que al filtrar por Categoría).
         if (window._cdashDescCloseSug) window._cdashDescCloseSug();
+        // Los filtros avanzados van recogidos: el punto del botón es lo único que
+        // avisa de que hay alguno puesto. Se refresca aquí y no en cada control,
+        // porque por aquí pasan todos sin excepción.
+        if (window._cdashMarcarAvanzados) window._cdashMarcarAvanzados();
         var ldEl = document.getElementById('cdashLoading');
         ldEl.style.display = 'flex';
         ldEl.innerHTML = '<i class="material-icons cdash-spin">refresh</i><span>Cargando datos de consumo…</span>';
@@ -779,6 +845,53 @@
         }
         window._cdashFrenteOpen();
     };
+    // ── Filtros avanzados (frente + rango de meses) ──────────────────────────
+    // Mismo gesto que en /admin/equipos: el botón abre un panel colgante y un clic
+    // fuera lo cierra. El listener del documento se registra UNA vez —el <script>
+    // del modal se re-ejecuta en cada navegación SPA— o se acumularía uno por visita.
+    window._cdashAdvToggle = function (ev) {
+        if (ev) ev.stopPropagation();
+        var panel = document.getElementById('cdashAdvPanel');
+        if (!panel) return;
+        panel.style.display = (panel.style.display === 'none' || !panel.style.display) ? 'flex' : 'none';
+    };
+
+    window._cdashAdvCerrar = function () {
+        var panel = document.getElementById('cdashAdvPanel');
+        if (panel) panel.style.display = 'none';
+    };
+
+    if (!window._cdashAdvFueraBound) {
+        window._cdashAdvFueraBound = true;
+        document.addEventListener('mousedown', function (ev) {
+            var panel = document.getElementById('cdashAdvPanel');
+            if (!panel || panel.style.display === 'none') return;
+            // Dentro del panel o sobre el propio botón: no se cierra.
+            if (ev.target.closest('#cdashAdvPanel') || ev.target.closest('#cdashAdvBtn')) return;
+            window._cdashAdvCerrar();
+        });
+    }
+
+    // El punto del botón es la ÚNICA señal de que hay filtros puestos: recogidos en
+    // el panel, sin él no habría forma de saber que el dashboard está acotado.
+    window._cdashMarcarAvanzados = function () {
+        var punto = document.getElementById('cdashAdvDot');
+        if (!punto) return;
+        var hay = !!(
+            (document.getElementById('cdashFrente') || {}).value ||
+            (document.getElementById('cdashDesde')  || {}).value ||
+            (document.getElementById('cdashHasta')  || {}).value
+        );
+        punto.style.display = hay ? 'block' : 'none';
+    };
+
+    window._cdashAdvLimpiar = function () {
+        var d = document.getElementById('cdashDesde'); if (d) d.value = '';
+        var h = document.getElementById('cdashHasta'); if (h) h.value = '';
+        // Por su propio camino: deja el hidden, el placeholder y la X coherentes.
+        window._cdashFrenteSelect('', '');
+    };
+
     window._cdashFrenteSelect = function (val, label) {
         var h = document.getElementById('cdashFrente'); if (h) h.value = val;
         var inp = document.getElementById('cdashFrenteInput');
