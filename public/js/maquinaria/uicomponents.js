@@ -1741,8 +1741,8 @@ window.toggleConfirmacionSitioAux = function (el) {
         var esc = window.escapeHtml;   // helper central (dom_helpers.js)
 
         cont.innerHTML = filas.map(function (m) {
-            return '<div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;text-align:center;">'
-                + '<div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:8px;flex-wrap:wrap;">'
+            return '<div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:9px 12px;text-align:center;">'
+                + '<div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:5px;flex-wrap:wrap;">'
                     // El codigo solo viaja cuando hay acta; sin ella no se pinta hueco ni
                     // rotulo inventado, igual que en el listado de /admin/movilizaciones.
                     + (m.codigo
@@ -1756,10 +1756,10 @@ window.toggleConfirmacionSitioAux = function (el) {
                     + '<span style="font-weight:600;">' + esc(m.destino || '-') + '</span>'
                 + '</div>'
                 + (m.detalle
-                    ? '<div style="margin-top:6px;font-size:12px;color:#64748b;">Ubicacion: ' + esc(m.detalle) + '</div>'
+                    ? '<div style="margin-top:4px;font-size:12px;color:#64748b;">Ubicacion: ' + esc(m.detalle) + '</div>'
                     : '')
                 + (m.usuario
-                    ? '<div style="margin-top:6px;font-size:11px;color:#94a3b8;">Registro: ' + esc(m.usuario) + '</div>'
+                    ? '<div style="margin-top:4px;font-size:11px;color:#94a3b8;">Registro: ' + esc(m.usuario) + '</div>'
                     : '')
                 + '</div>';
         }).join('');

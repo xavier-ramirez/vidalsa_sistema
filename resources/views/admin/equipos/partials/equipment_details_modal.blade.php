@@ -355,7 +355,7 @@ taparlo todo. NO se hereda el 2000 de .modal-overlay: quedaria por detras.
             </div>
 
             {{-- Lista --}}
-            <div id="mov_lista" style="display: none; flex-direction: column; gap: 10px;">
+            <div id="mov_lista" style="display: none; flex-direction: column; gap: 8px;">
                 {{-- Llenado por JS --}}
             </div>
 
