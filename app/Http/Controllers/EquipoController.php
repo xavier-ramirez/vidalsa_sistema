@@ -4955,6 +4955,10 @@ class EquipoController extends Controller
                 'NOMBRE_FRENTE_ORIGEN_SNAPSHOT',
                 'NOMBRE_FRENTE_DESTINO_SNAPSHOT',
             ])
+            // El nombre de quien registro: la relacion enlaza por CORREO_ELECTRONICO
+            // (USUARIO_REGISTRO guarda el correo, no el id). Se carga en bloque para no
+            // disparar una consulta por fila.
+            ->with('usuario:ID_USUARIO,CORREO_ELECTRONICO,NOMBRE_COMPLETO')
             ->orderByDesc('created_at')
             ->orderByDesc('ID_MOVILIZACION')
             ->limit(self::MOVILIZACIONES_MODAL_MAX + 1)
@@ -4991,7 +4995,10 @@ class EquipoController extends Controller
                 'origen'  => $m->nombre_origen,
                 'destino' => $m->nombre_destino,
                 'detalle' => $m->DETALLE_UBICACION,
-                'usuario' => $m->USUARIO_REGISTRO,
+                // NOMBRE del que registro, no su correo: en el modal se lee de un
+                // vistazo y no obliga a traducir mentalmente una direccion. Si esa
+                // cuenta ya no existe queda el correo, que es lo unico que hay.
+                'usuario' => optional($m->usuario)->NOMBRE_COMPLETO ?: $m->USUARIO_REGISTRO,
             ])->values(),
         ]);
     }

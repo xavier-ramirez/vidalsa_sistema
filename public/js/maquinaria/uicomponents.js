@@ -1740,30 +1740,54 @@ window.toggleConfirmacionSitioAux = function (el) {
         if (!cont) return;
         var esc = window.escapeHtml;   // helper central (dom_helpers.js)
 
+        // Tipografia UNIFICADA en toda la fila. Antes convivian 11, 12, 13 y 16px con
+        // cuatro grises distintos, y el bloque parecia escrito con varias letras.
+        // Ahora hay DOS tamanos y solo por jerarquia: 11px para los rotulos
+        // (ORIGEN/DESTINO, que son etiquetas) y 13px para todo lo que es dato.
+        var ROTULO = 'font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;';
+        var DATO   = 'font-size:13px;line-height:1.25;';
+
+        // Un frente por columna, igual que el trayecto de /admin/movilizaciones:
+        // rotulo encima y el nombre debajo, cada uno con SU color. Origen en gris y
+        // destino en azul deja ver de un vistazo hacia donde se movio el equipo.
+        function trayecto(nombre, esDestino) {
+            return '<div style="display:flex;flex-direction:column;align-items:center;max-width:160px;text-align:center;gap:1px;">'
+                 +     '<span style="' + ROTULO + 'color:' + (esDestino ? '#0067b1' : '#64748b') + ';">'
+                 +         (esDestino ? 'Destino' : 'Origen')
+                 +     '</span>'
+                 +     '<span style="' + DATO + 'font-weight:' + (esDestino ? '700' : '600') + ';'
+                 +         'color:' + (esDestino ? 'var(--maquinaria-dark-blue)' : '#4a5568') + ';">'
+                 +         esc(nombre || '-')
+                 +     '</span>'
+                 + '</div>';
+        }
+
         cont.innerHTML = filas.map(function (m) {
             return '<div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:9px 12px;text-align:center;">'
-                + '<div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:5px;flex-wrap:wrap;">'
+                + '<div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:6px;flex-wrap:wrap;">'
                     // El codigo solo viaja cuando hay acta; sin ella no se pinta hueco ni
                     // rotulo inventado, igual que en el listado de /admin/movilizaciones.
                     + (m.codigo
-                        ? '<span style="font-weight:700;font-size:13px;color:#1e293b;">' + esc(m.codigo) + '</span>'
+                        ? '<span style="' + DATO + 'font-weight:700;color:#1e293b;">' + esc(m.codigo) + '</span>'
                         : '')
-                    + '<span style="font-size:12px;color:#64748b;white-space:nowrap;">' + esc(m.fecha || 'Sin fecha') + '</span>'
+                    + '<span style="' + DATO + 'color:#64748b;white-space:nowrap;">' + esc(m.fecha || 'Sin fecha') + '</span>'
                 + '</div>'
-                + '<div style="display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px;color:#334155;flex-wrap:wrap;">'
-                    + '<span>' + esc(m.origen || '-') + '</span>'
-                    + '<i class="material-icons" style="font-size:16px;color:#94a3b8;">arrow_forward</i>'
-                    + '<span style="font-weight:600;">' + esc(m.destino || '-') + '</span>'
+                + '<div style="display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;">'
+                    + trayecto(m.origen, false)
+                    // Misma flecha que el listado (east), no arrow_forward: alli ya se
+                    // eligio esta y las dos pantallas cuentan lo mismo.
+                    + '<i class="material-icons" style="font-size:18px;color:#cbd5e0;flex-shrink:0;">east</i>'
+                    + trayecto(m.destino, true)
                 + '</div>'
                 + (m.detalle
-                    ? '<div style="margin-top:4px;font-size:12px;color:#64748b;">Ubicacion: ' + esc(m.detalle) + '</div>'
+                    ? '<div style="margin-top:6px;' + DATO + 'color:#64748b;">Ubicación: ' + esc(m.detalle) + '</div>'
                     : '')
+                // NOMBRE de quien registro, no su correo: lo resuelve el servidor.
                 + (m.usuario
-                    ? '<div style="margin-top:4px;font-size:11px;color:#94a3b8;">Registro: ' + esc(m.usuario) + '</div>'
+                    ? '<div style="margin-top:6px;' + DATO + 'color:#64748b;">Registró: ' + esc(m.usuario) + '</div>'
                     : '')
                 + '</div>';
         }).join('');
-
         mostrarEstado('mov_lista');
 
         var t = $('mov_truncado');
