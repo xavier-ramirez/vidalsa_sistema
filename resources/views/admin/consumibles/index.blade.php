@@ -128,7 +128,15 @@
                     display: none !important;
                 }
             }
-        </style>
+        
+                /* #btnMatch es el unico item del menu que no usa el gris: su hover iba
+                   inline en #fef2f2 y se ha quitado junto con los demas, porque esos
+                   handlers dejaban el color PEGADO — el item oculta el menu al pulsarlo,
+                   asi que el onmouseout nunca llegaba. La regla de .dropdown-item-custom
+                   (estilos_globales.css) ya cubre a los otros tres; esta le devuelve a
+                   este el suyo. */
+                #btnMatch:hover:not([disabled]) { background: #fef2f2 !important; }
+</style>
 
         <div
             style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:12px;">
@@ -381,50 +389,40 @@
                         </button>
                         <div id="splitDropdownMenu"
                             style="display: none; position: absolute; top: 100%; right: 0; min-width: 260px; background: #e2e8f0; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; z-index: 1050; margin-top: 10px; overflow: hidden;">
-
                             {{-- Navegación Estándar --}}
-
-
                             <a href="{{ route('consumibles.graficos') }}" class="dropdown-item-custom"
                                 style="display: flex; align-items: center; gap: 10px; padding: 12px 15px; color: #475569; text-decoration: none; border-bottom: 1px solid #f1f5f9; background: transparent; transition: all 0.2s;"
-                                onmouseover="this.style.background='#f8fafc'"
-                                onmouseout="this.style.background='transparent'">
+>
                                 <div style="background: #eff6ff; padding: 6px; border-radius: 6px; display: flex;">
                                     <i class="material-icons" style="font-size: 18px; color: #3b82f6;">analytics</i>
                                 </div>
                                 <span style="font-size:14px; font-weight:500;">Gráficos y Reportes</span>
                             </a>
-
                             <a href="{{ route('consumibles.cargar') }}" class="dropdown-item-custom hide-on-mobile"
                                 style="display: flex; align-items: center; gap: 10px; padding: 12px 15px; color: #475569; text-decoration: none; border-bottom: 1px solid #cbd5e1; background: transparent; transition: all 0.2s;"
-                                onmouseover="this.style.background='#f8fafc'"
-                                onmouseout="this.style.background='transparent'">
+>
                                 <div style="background: #fff7ed; padding: 6px; border-radius: 6px; display: flex;">
                                     <i class="material-icons" style="font-size: 18px; color: #ea580c;">note_add</i>
                                 </div>
                                 <span style="font-size:14px; font-weight:500;">Cargar Lote (Masivo)</span>
                             </a>
-
                             {{-- Acciones Locales --}}
                             <button type="button" id="btnMatch"
                                 onclick="document.getElementById('splitDropdownMenu').style.display='none'; ejecutarMatch()"
                                 class="dropdown-item-custom"
                                 style="width:100%; display:flex; align-items:center; gap:10px; padding:12px 15px; color:#ef4444; border-bottom: 1px solid #f1f5f9; border-top:none; border-left:none; border-right:none; background:transparent; text-align:left; cursor:pointer; transition:all 0.2s;"
-                                onmouseover="this.style.background='#fef2f2'"
-                                onmouseout="this.style.background='transparent'" {{ ($pendientes == 0 && $sinMatch == 0) ? 'disabled' : '' }}>
+ {{ ($pendientes == 0 && $sinMatch == 0) ? 'disabled' : '' }}>
                                 <div style="background: #fee2e2; padding: 6px; border-radius: 6px; display: flex;">
                                     <i class="material-icons" style="font-size: 18px; color: #ef4444;">bolt</i>
                                 </div>
                                 <span style="font-size:14px; font-weight:500;">Ejecutar Match ({{ $pendientes }} /
                                     {{ $sinMatch }})</span>
                             </button>
-
                             <a href="{{ route('consumibles.exportarCsv', request()->all()) }}"
                                 onclick="document.getElementById('splitDropdownMenu').style.display='none';"
                                 class="dropdown-item-custom"
                                 style="display: flex; align-items: center; gap: 10px; padding: 12px 15px; color: #475569; text-decoration: none; transition: all 0.2s; border-bottom: 1px solid #f1f5f9; background: transparent;"
-                                onmouseover="this.style.background='#f8fafc'"
-                                onmouseout="this.style.background='transparent'">
+>
                                 <div style="background: #f1f5f9; padding: 6px; border-radius: 6px; display: flex;">
                                     <i class="material-icons" style="font-size: 18px; color: #64748b;">download</i>
                                 </div>

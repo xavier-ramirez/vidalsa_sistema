@@ -4940,6 +4940,11 @@ class EquipoController extends Controller
             ->select([
                 'ID_MOVILIZACION',
                 'CODIGO_CONTROL',
+                // No se pinta, pero lo necesita el accesor formatted_codigo_control para
+                // saber si una fila sin codigo es una recepcion directa ("R.D.") o un
+                // movimiento sin acta (sin rotulo). Sin esta columna ni las recepciones
+                // directas de verdad saldrian marcadas.
+                'TIPO_MOVIMIENTO',
                 'created_at',
                 'DETALLE_UBICACION',
                 'USUARIO_REGISTRO',
@@ -4976,15 +4981,12 @@ class EquipoController extends Controller
             // valores y ya los usa el resto del modulo.
             'data'    => $movs->map(fn ($m) => [
                 'id'      => $m->ID_MOVILIZACION,
-                // Solo si HAY acta. El accesor formatted_codigo_control devuelve 'R.D.'
-                // (Recepcion Directa) para cualquier fila sin CODIGO_CONTROL, y eso dejo de
-                // ser cierto al llegar el tipo ACT.: son 783 filas sin codigo que NO son
-                // recepciones directas, y salian todas rotuladas como tales. El listado de
-                // /admin/movilizaciones ya resuelve esto sin inventar nada — "sin
-                // CODIGO_CONTROL no hay acta: no se muestra icono ni placeholder"— y aqui
-                // se hace igual. El accesor se sigue usando para dar formato cuando SI hay
-                // codigo, que es lo unico que hace bien.
-                'codigo'  => $m->CODIGO_CONTROL ? $m->formatted_codigo_control : null,
+                // MV-000NN si hay acta, "R.D." si es una recepcion directa, null en lo
+                // demas. Ese reparto lo decide el accesor y aqui no se repite: durante un
+                // tiempo esta linea llevaba su propio `$m->CODIGO_CONTROL ? ... : null`
+                // para esquivar el "R.D." que el accesor devolvia a todo el que no tuviera
+                // codigo — ya corregido en el modelo, asi que el parche sobra.
+                'codigo'  => $m->formatted_codigo_control,
                 'fecha'   => optional($m->created_at)->format('d/m/Y'),
                 'origen'  => $m->nombre_origen,
                 'destino' => $m->nombre_destino,

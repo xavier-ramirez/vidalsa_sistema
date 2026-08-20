@@ -163,11 +163,18 @@ class MovilizacionesDeEquipoTest extends MySqlTestCase
                 'El codigo con acta debe venir formateado como MV-000NN.');
         }
 
-        $this->assertEmpty(collect($datos)->where('codigo', 'R.D.')->all(),
-            'Volvio el "R.D." del accesor formatted_codigo_control: lo devuelve para CUALQUIER '
-            . 'fila sin CODIGO_CONTROL, y las de tipo ACT. —783 de 1.265— no son recepciones '
-            . 'directas. El listado de /admin/movilizaciones no muestra nada en ese caso; el '
-            . 'modal tampoco debe inventarse un rotulo.');
+        // "R.D." solo puede salir en una recepcion directa de verdad. El accesor lo
+        // devolvia para CUALQUIER fila sin CODIGO_CONTROL, y las de tipo ACT. —783 de
+        // 1.265— no lo son: salian 783 movimientos rotulados como recepciones directas
+        // cuando las reales son tres.
+        $recepcionesDirectas = Movilizacion::where('ID_EQUIPO', $idEquipo)
+            ->where('TIPO_MOVIMIENTO', 'RECEPCION_DIRECTA')
+            ->whereNull('CODIGO_CONTROL')
+            ->count();
+
+        $this->assertCount($recepcionesDirectas, collect($datos)->where('codigo', 'R.D.')->all(),
+            'El rotulo "R.D." debe salir exactamente en las recepciones directas sin codigo, '
+            . 'ni una mas. Si aparecen de sobra, el accesor volvio a darselo a las filas ACT.');
     }
 
     public function test_las_devuelve_de_la_mas_reciente_a_la_mas_antigua(): void

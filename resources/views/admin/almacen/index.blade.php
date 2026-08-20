@@ -817,7 +817,7 @@
                         <span style="font-size:14px;font-weight:500;">Dashboard de consumo</span>
                     </button>
                     <button type="button" onclick="window.almAccion('export')" class="dropdown-item-custom" style="display:flex;align-items:center;gap:10px;padding:11px 14px;color:#475569;background:transparent;border:none;border-bottom:1px solid #f1f5f9;width:100%;text-align:left;cursor:pointer;">
-                        <div style="background:#dcfce7;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#16a34a;">download</i></div>
+                        <div style="background:#f1f5f9;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#64748b;">download</i></div>
                         <span style="font-size:14px;font-weight:500;">Descargar Excel</span>
                     </button>
                     {{-- Todos los items SIEMPRE visibles — la verificacion de permiso vive

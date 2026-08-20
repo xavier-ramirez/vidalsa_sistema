@@ -60,10 +60,27 @@ class Movilizacion extends Model
         return $this->NOMBRE_FRENTE_DESTINO_SNAPSHOT ?: optional($this->frenteDestino)->NOMBRE_FRENTE;
     }
 
-    // Accessor for formatted CODIGO_CONTROL (MV-0000X)
+    /**
+     * CODIGO_CONTROL con formato (MV-0000X), o el rotulo del caso sin codigo.
+     *
+     * "R.D." es SOLO para las recepciones directas. Antes se devolvia para CUALQUIER
+     * fila sin CODIGO_CONTROL, y esa equivalencia "sin codigo = recepcion directa" dejo
+     * de ser cierta al llegar el tipo ACT. (movimiento registrado sin generar acta, que
+     * tampoco lleva codigo). Hoy en la tabla hay 783 filas ACT. frente a 3 recepciones
+     * directas: el rotulo estaba mal en 783 sitios.
+     *
+     * Devuelve null cuando no hay codigo NI es recepcion directa. Que pintar en ese
+     * hueco lo decide cada pantalla: el listado de /admin/movilizaciones no muestra
+     * nada, el historial offline pone "--" y el modal de detalles omite el renglon.
+     *
+     * OJO: quien lo consuma debe traer TIPO_MOVIMIENTO en su select. Si no, esta
+     * comparacion ve null y ni las recepciones directas de verdad salen rotuladas.
+     */
     public function getFormattedCodigoControlAttribute()
     {
-        if ($this->CODIGO_CONTROL === null) return 'R.D.'; // Recepción Directa, sin código
+        if ($this->CODIGO_CONTROL === null) {
+            return $this->TIPO_MOVIMIENTO === 'RECEPCION_DIRECTA' ? 'R.D.' : null;
+        }
         $code = preg_replace('/[^0-9]/', '', $this->CODIGO_CONTROL);
         if (empty($code)) return $this->CODIGO_CONTROL;
         return 'MV-' . str_pad($code, 5, '0', STR_PAD_LEFT);

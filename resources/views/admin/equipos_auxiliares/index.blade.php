@@ -193,6 +193,28 @@
             right: 0 !important;
         }
     }
+
+    /* Items del menu "Acciones" (#auxAccionesDropdown).
+       Clase y :hover en CSS, no handlers inline: los cinco ocultan el menu al
+       pulsarlos, asi que el `onmouseout` nunca llegaba y el color quedaba ESCRITO en
+       el style del nodo — al reabrir, ese item salia ya coloreado. Es el mismo fallo
+       que .mv-accion-item resolvio en /admin/movilizaciones y .alm-mov-accion en
+       /admin/almacen/movimientos. Ademas el bloque estaba copiado en los cinco.
+       Los border-bottom siguen inline porque cambian de un item a otro. */
+    .aux-accion-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 14px;
+        text-decoration: none;
+        color: #475569;
+        font-size: 13px;
+        font-weight: 600;
+        transition: background 0.15s;
+    }
+    .aux-accion-item:hover { background: #cbd5e1; }
+    .aux-accion-item:focus { background: transparent; outline: none; }
+    .aux-accion-item:focus-visible { outline: 2px solid #0067b1; outline-offset: -2px; }
 </style>
 
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
@@ -521,26 +543,26 @@
                          solo-auxiliares, que es el que al guardar sacaba del modulo unificado. --}}
                     <a href="{{ $canCreateAux ? route('equipos.create') : '#' }}"
                        @if(!$canCreateAux) onclick="event.preventDefault(); if(window.showToast){window.showToast('No tienes permiso para crear equipos auxiliares.', 'warning');} document.getElementById('auxAccionesDropdown').style.display='none';" @endif
-                       style="display:flex;align-items:center;gap:10px;padding:12px 14px;text-decoration:none;color:#475569;font-size:13px;font-weight:600;border-bottom:1px solid #f1f5f9;{{ $canCreateAux ? '' : 'cursor:not-allowed;' }}"
-                       onmouseover="this.style.background='#cbd5e1'" onmouseout="this.style.background='transparent'">
+                       class="aux-accion-item" style="border-bottom:1px solid #f1f5f9;{{ $canCreateAux ? '' : 'cursor:not-allowed;' }}"
+                      >
                         <div style="background:#fff7ed;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#f59e0b;">add_circle</i></div>
                         <span>Nuevo Equipo Auxiliar</span>
                     </a>
                     <a href="#" onclick="event.preventDefault(); document.getElementById('auxAccionesDropdown').style.display='none'; window.openAuxAnclajesModal();"
-                       style="display:flex;align-items:center;gap:10px;padding:12px 14px;text-decoration:none;color:#475569;font-size:13px;font-weight:600;border-bottom:1px solid #f1f5f9;"
-                       onmouseover="this.style.background='#cbd5e1'" onmouseout="this.style.background='transparent'">
+                       class="aux-accion-item" style="border-bottom:1px solid #f1f5f9;"
+                      >
                         <div style="background:#e0f2fe;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#0284c7;">link</i></div>
                         <span>Ver Anclajes</span>
                     </a>
                     <a href="#" onclick="event.preventDefault(); window.exportAuxiliaresXlsx(); document.getElementById('auxAccionesDropdown').style.display='none';"
-                       style="display:flex;align-items:center;gap:10px;padding:12px 14px;text-decoration:none;color:#475569;font-size:13px;font-weight:600;border-bottom:1px solid #f1f5f9;"
-                       onmouseover="this.style.background='#cbd5e1'" onmouseout="this.style.background='transparent'">
+                       class="aux-accion-item" style="border-bottom:1px solid #f1f5f9;"
+                      >
                         <div style="background:#f1f5f9;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#64748b;">download</i></div>
                         <span>Exportación de Data</span>
                     </a>
                     <a href="{{ route('catalogo.index') }}"
-                       style="display:flex;align-items:center;gap:10px;padding:12px 14px;text-decoration:none;color:#475569;font-size:13px;font-weight:600;{{ auth()->user()?->can('super.admin') ? 'border-bottom:1px solid #f1f5f9;' : '' }}"
-                       onmouseover="this.style.background='#cbd5e1'" onmouseout="this.style.background='transparent'">
+                       class="aux-accion-item" style="{{ auth()->user()?->can('super.admin') ? 'border-bottom:1px solid #f1f5f9;' : '' }}"
+                      >
                         <div style="background:#eff6ff;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#0067b1;">menu_book</i></div>
                         <span>Catálogo por Modelo</span>
                     </a>
@@ -550,8 +572,8 @@
                          La eliminacion es soft-delete con auditoria de quien
                          borro y queda en la papelera de /admin/historial-documentos. --}}
                     <a href="#" onclick="event.preventDefault(); document.getElementById('auxAccionesDropdown').style.display='none'; window.bulkDeleteAuxiliaresSeleccionados();"
-                       style="display:flex;align-items:center;gap:10px;padding:12px 14px;text-decoration:none;color:#475569;font-size:13px;font-weight:600;"
-                       onmouseover="this.style.background='#cbd5e1'" onmouseout="this.style.background='transparent'">
+                       class="aux-accion-item"
+                      >
                         <div style="background:#fee2e2;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#dc2626;">delete_outline</i></div>
                         <span>Eliminar Seleccionados</span>
                     </a>
