@@ -295,8 +295,65 @@
         const originalFetch = window.fetch;
         window.fetch = async function (...args) {
             try {
-                const response = await originalFetch.apply(this, args);
-                // Si la sesión expiró o hubo un problema de token CSRF
+                let response = await originalFetch.apply(this, args);
+
+                // ── 419 NO es una sesión muerta ────────────────────────────────────
+                // 401 = no hay sesión. 419 = el TOKEN no vale, que es otra cosa: la
+                // sesión puede estar perfectamente viva. Y con el Service Worker
+                // sirviendo el HTML desde su caché, un token viejo es lo NORMAL —
+                // basta con que el servidor haya rotado el suyo desde que se cacheó
+                // la página.
+                //
+                // Tratarlos igual expulsaba al usuario con la sesión intacta: pulsaba
+                // un botón, salía "Tu sesión expiró por seguridad" y al volver a
+                // entrar todo funcionaba, porque nunca se había caído nada. El login
+                // ya resolvía esto para SU formulario (handshake /refresh-csrf +
+                // reintento); las pantallas de dentro no tenían nada.
+                //
+                // Aquí se hace lo mismo y UNA sola vez: se pide un token fresco, se
+                // reescribe el <meta> —que es de donde lo lee getCsrf() para las
+                // siguientes— y se repite la petición. Si el segundo intento vuelve a
+                // dar 419, entonces sí: la sesión está muerta de verdad y se sigue al
+                // bloque de abajo.
+                if (response.status === 419 && !args[2]) {
+                    try {
+                        const tk = await originalFetch('/refresh-csrf', {
+                            cache: 'no-store', credentials: 'same-origin'
+                        });
+                        if (tk.ok) {
+                            const fresco = (await tk.text()).trim();
+                            if (fresco) {
+                                const meta = document.querySelector('meta[name="csrf-token"]');
+                                if (meta) meta.setAttribute('content', fresco);
+                                const conf = Object.assign({}, args[1] || {});
+                                const cab = Object.assign({}, conf.headers || {});
+                                for (const k in cab) {
+                                    if (k.toLowerCase() === 'x-csrf-token') delete cab[k];
+                                }
+                                cab['X-CSRF-TOKEN'] = fresco;
+                                conf.headers = cab;
+
+                                // El _token del CUERPO manda sobre la cabecera: Laravel mira
+                                // primero input('_token') y solo despues la cabecera. Si el
+                                // formulario lo lleva dentro (lo normal al mandar un <form>
+                                // con FormData), refrescar solo la cabecera no arreglaba nada.
+                                try {
+                                    const b = conf.body;
+                                    if (typeof FormData !== 'undefined' && b instanceof FormData && b.has('_token')) {
+                                        b.set('_token', fresco);
+                                    } else if (typeof URLSearchParams !== 'undefined' && b instanceof URLSearchParams && b.has('_token')) {
+                                        b.set('_token', fresco);
+                                    }
+                                } catch (e) { /* body no manipulable: queda la cabecera */ }
+                                // El tercer argumento marca el reintento: sin él, un 419
+                                // persistente se reintentaría en bucle.
+                                return window.fetch(args[0], conf, true);
+                            }
+                        }
+                    } catch (e) { /* sin red: cae al manejo de abajo */ }
+                }
+
+                // Si la sesión expiró de verdad (401, o 419 que no se arregló)
                 if (response.status === 401 || response.status === 419) {
                     // DUEÑO ÚNICO de "la sesión murió". Corta aquí y devuelve una promesa
                     // que no resuelve nunca, así que NINGÚN módulo llega a ver un 401/419:

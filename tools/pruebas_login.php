@@ -303,5 +303,22 @@ foreach (array_keys(\App\Http\Controllers\UserController::availablePermissions()
 }
 check('permisos que se ofrecen pero nadie comprueba', [], $sinComprobar);
 
+// ── Un 419 NO puede tratarse como sesion muerta ──────────────────────────────
+//
+// 401 = no hay sesion. 419 = el TOKEN no vale, que es otra cosa: la sesion puede
+// estar viva. Con el Service Worker sirviendo HTML del cache, un token viejo es lo
+// normal. Tratarlos igual expulsaba al usuario con la sesion intacta ("Tu sesion
+// expiro por seguridad") y al volver a entrar todo funcionaba, porque nada se habia
+// caido. El interceptor pide un token fresco y reintenta UNA vez antes de rendirse.
+check('el 419 refresca el token antes de rendirse', true,
+    str_contains($layout, "if (response.status === 419 && !args[2]) {"));
+check('el reintento pasa por /refresh-csrf', true,
+    str_contains($layout, "originalFetch('/refresh-csrf', {"));
+check('el reintento tambien refresca el _token del cuerpo', true,
+    str_contains($layout, "b.set('_token', fresco);"));
+// Sin la marca del tercer argumento, un 419 persistente se reintentaria en bucle.
+check('el reintento se marca para no repetirse', true,
+    str_contains($layout, 'return window.fetch(args[0], conf, true);'));
+
 printf("\n%d OK, %d FALLAS\n", $ok, $fail);
 exit($fail === 0 ? 0 : 1);
