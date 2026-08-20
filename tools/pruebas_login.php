@@ -257,5 +257,20 @@ check('apagados sueltos dentro de loadPage', 0, $sueltos);
 check('el punto unico de apagado existe', true,
     str_contains($nav, 'const _apagarSiSigueSiendoMia = () => {'));
 
+// ── Ninguna ruta puede apuntar a un metodo que no existe ─────────────────────
+//
+// Route::resource declara las SIETE acciones aunque el controlador no las tenga.
+// El catalogo no tiene show(), asi que /admin/catalogo/{id} devolvia un 500
+// ("Method ...::show does not exist") en vez de un error honesto. No lo ve ningun
+// linter: la ruta se registra bien, revienta al entrar.
+$rotas = [];
+foreach (Illuminate\Support\Facades\Route::getRoutes() as $ruta) {
+    $accion = $ruta->getActionName();
+    if (!str_contains($accion, '@')) continue;
+    [$clase, $metodo] = explode('@', $accion);
+    if (!class_exists($clase) || !method_exists($clase, $metodo)) $rotas[] = $accion;
+}
+check('rutas que apuntan a un metodo inexistente', [], $rotas);
+
 printf("\n%d OK, %d FALLAS\n", $ok, $fail);
 exit($fail === 0 ? 0 : 1);

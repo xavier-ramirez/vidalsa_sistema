@@ -223,7 +223,13 @@ Route::middleware(['auth'])->group(function () {
             // ANTES del resource para que su wildcard {catalogo} no capture esta ruta.
             Route::post('catalogo/{id}/photo', [App\Http\Controllers\CaracteristicaModeloController::class, 'uploadFoto'])->name('catalogo.uploadFoto');
             Route::delete('catalogo/{id}/photo', [App\Http\Controllers\CaracteristicaModeloController::class, 'deleteFoto'])->middleware('can:super.admin')->name('catalogo.deleteFoto');
-            Route::resource('catalogo', App\Http\Controllers\CaracteristicaModeloController::class);
+            // SIN 'show': el controlador no tiene ese metodo, asi que la ruta que generaba
+            // el resource devolvia un 500 ("Method ...::show does not exist") a quien entrara
+            // a /admin/catalogo/{id}. No hay pantalla de detalle ni nada que enlace ahi: la
+            // ficha se ve y se edita desde el propio listado y desde /edit. Quitandola, esa
+            // URL responde 404, que es lo que de verdad pasa.
+            Route::resource('catalogo', App\Http\Controllers\CaracteristicaModeloController::class)
+                ->except(['show']);
 
             // ── Consumibles ──────────────────────────────────────────────────
             // IMPORTANTE: rutas estáticas ANTES de wildcards ({id}) para evitar colisión
