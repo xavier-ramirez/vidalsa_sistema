@@ -95,21 +95,35 @@
        RESP_4 → APROBADO    (Gerente)
        + RECIBIDO POR (destino, siempre al final)
 
-     LAYOUT (lo decide CUÁNTAS firmas hay, no de qué frente vienen):
-       0 firmas  → solo Recibido Por
-       1 firma   → esa a la izquierda | Recibido Por a la derecha
-       2 firmas  → las dos en una fila + Recibido Por centrado abajo
-       3 o más   → grid 2×2 (+ la 5ª centrada si la hay) + Recibido Por
+     LAYOUT — UNA sola rejilla de 2 columnas para todos los casos:
+     "RECIBIDO POR" NO es un bloque aparte: es una tarjeta más, siempre la última de
+     la lista. Así se acomoda al lado del último firmante en vez de bajarse solo a una
+     fila propia. Queda solo (centrado) únicamente cuando el total de tarjetas es
+     impar, que es justo cuando no hay nadie a quien ponerle al lado:
 
-     El grid era exclusivo de Patio Maturín y el resto se recortaba a 2 firmas, lo que
-     hacía desaparecer el tercer responsable de los proyectos que sí lo tienen cargado.
+       0 firmas + recibido = 1 tarjeta  → [recibido centrado]
+       1 firma  + recibido = 2 tarjetas → [f1 | recibido]
+       2 firmas + recibido = 3 tarjetas → [f1 | f2] / [recibido centrado]
+       3 firmas + recibido = 4 tarjetas → [f1 | f2] / [f3 | recibido]
+       4 firmas + recibido = 5 tarjetas → [f1 | f2] / [f3 | f4] / [recibido centrado]
+
+     Antes había cuatro ramas (0 / 1 / >=3 / else) que repetían la misma tarjeta y
+     colgaban el "RECIBIDO POR" en fila aparte salvo en el caso de 1 firma. Con 3
+     firmantes el recibido bajaba solo y dejaba un hueco vacío al lado del tercero.
+     El marcado de la tarjeta vive ahora en partials/tarjeta_firma.blade.php.
 -->
     @php
         // Firmas ya resueltas en el controller (MovilizacionController::extractFirmasActa
         // o el override manual de la vista previa) — FUENTE ÚNICA DE VERDAD. Aquí sólo
         // se renderizan; el layout lo decide CUÁNTAS hay (ver el detalle arriba).
         $firmasList = $firmas ?? [];
-        $totalFirmas = count($firmasList);
+
+        // El "RECIBIDO POR" entra a la misma lista como una tarjeta más, al final.
+        $tarjetas = $firmasList;
+        $tarjetas[] = ['recibido' => true];
+
+        // Rejilla de 2 columnas. Si el total es impar, la última (el recibido) va sola.
+        $filasFirmas = array_chunk($tarjetas, 2);
     @endphp
 
     <table width="100%" border="0" cellpadding="0" cellspacing="0" nobr="true">
@@ -119,207 +133,37 @@
             <td colspan="3" height="20">&nbsp;</td>
         </tr>
 
-        @if($totalFirmas === 0)
-            {{-- ── Sin responsables configurados → solo Recibido Por ── --}}
-            <tr>
-                <td colspan="3" align="center">
-                    <table width="40%" align="center" border="0" cellpadding="0" cellspacing="0">
-                        <tr><td align="center" style="font-size: 9pt;"><b>RECIBIDO POR (DESTINO):</b></td></tr>
-                        <tr><td height="35">&nbsp;</td></tr>
-                        <tr>
-                            <td>
-                                <table width="100%" align="center" border="0" cellpadding="0" cellspacing="0">
-                                    <tr><td style="border-top: 0.5pt solid #000; height: 1px;"></td></tr>
-                                    <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">Nombre: ____________________</td></tr>
-                                    <tr><td height="1">&nbsp;</td></tr>
-                                    <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">Cédula: ____________________</td></tr>
-                                </table>
-                            </td>
-                        </tr>
-                    </table>
-                </td>
-            </tr>
+        @foreach($filasFirmas as $fila)
 
-        @elseif($totalFirmas === 1)
-            {{-- ── 1 firma: izquierda | RECIBIDO POR derecha ── --}}
-            @php $f = $firmasList[0]; @endphp
-            <tr>
-                {{-- Firma única (izquierda) --}}
-                <td width="45%" align="center" valign="bottom">
-                    <table width="85%" align="center" border="0" cellpadding="0" cellspacing="0">
-                        <tr><td align="center" style="font-size: 9pt;"><b>{{ $f['label'] }}</b></td></tr>
-                        <tr><td height="30">&nbsp;</td></tr>
-                        <tr><td style="border-top: 0.5pt solid #000; height: 1px;"></td></tr>
-                        <tr><td align="center" style="font-size: 8pt; line-height: 1.5;"><b>{{ strtoupper($f['car']) }}</b></td></tr>
-                        <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">{{ strtoupper($f['nom']) }}</td></tr>
-                        <tr>
-                            <td align="center" style="font-size: 8pt; line-height: 1.5; color: #333;">
-                                {{ $fmtCed($f['ced']) }}
-                            </td>
-                        </tr>
-                    </table>
-                </td>
-
-                {{-- Espacio central --}}
-                <td width="10%"></td>
-
-                {{-- RECIBIDO POR (derecha) --}}
-                <td width="45%" align="center" valign="bottom">
-                    <table width="85%" align="center" border="0" cellpadding="0" cellspacing="0">
-                        <tr><td align="center" style="font-size: 9pt;"><b>RECIBIDO POR (DESTINO):</b></td></tr>
-                        <tr><td height="25">&nbsp;</td></tr>
-                        <tr><td style="border-top: 0.5pt solid #000; height: 1px;"></td></tr>
-                        <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">Nombre: ____________________</td></tr>
-                        <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">Cédula: ____________________</td></tr>
-                    </table>
-                </td>
-            </tr>
-
-        @elseif($totalFirmas >= 3)
-            {{-- ════════════════════════════════════════════════════════════
-                 PATIO MATURÍN — Grid 2×2 con roles diferenciados:
-                 Fila 1:  SOLICITADO  |  ELABORADO
-                 Fila 2:  REVISADO    |  APROBADO
-                 Fila 3:  (centrado)     RECIBIDO POR
-                 ════════════════════════════════════════════════════════════ --}}
-            @php
-                // Grid 2×2 construido desde la lista secuencial filtrada.
-                // Posición 0→SOLICITADO, 1→ELABORADO, 2→REVISADO, 3→APROBADO.
-                $filaA = [$firmasList[0] ?? null, $firmasList[1] ?? null];
-                $filaB = [$firmasList[2] ?? null, $firmasList[3] ?? null];
-            @endphp
-
-            {{-- Fila 1 y Fila 2 del grid --}}
-            @foreach([$filaA, $filaB] as $fila)
+            @if(count($fila) === 2)
+                {{-- Fila completa: dos tarjetas → 45% | 10% de aire | 45%.
+                     valign="bottom" alinea las dos líneas de firma a la misma altura. --}}
                 <tr>
                     @foreach($fila as $f)
                         <td width="45%" align="center" valign="bottom">
-                            @if($f)
-                                <table width="85%" align="center" border="0" cellpadding="0" cellspacing="0">
-                                    <tr><td align="center" style="font-size: 9pt;"><b>{{ $f['label'] }}</b></td></tr>
-                                    <tr><td height="30">&nbsp;</td></tr>
-                                    <tr><td style="border-top: 0.5pt solid #000; height: 1px;"></td></tr>
-                                    <tr><td align="center" style="font-size: 8pt; line-height: 1.5;"><b>{{ strtoupper($f['car']) }}</b></td></tr>
-                                    <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">{{ strtoupper($f['nom']) }}</td></tr>
-                                    <tr>
-                                        <td align="center" style="font-size: 8pt; line-height: 1.5; color: #333;">
-                                            {{ $fmtCed($f['ced']) }}
-                                        </td>
-                                    </tr>
-                                </table>
-                            @endif
+                            @include('admin.movilizaciones.partials.tarjeta_firma', ['f' => $f, 'ancho' => '85%'])
                         </td>
                         @if($loop->first)
                             <td width="10%"></td>
                         @endif
                     @endforeach
                 </tr>
-                <tr><td colspan="3" height="30">&nbsp;</td></tr>
-            @endforeach
-
-            {{-- Fila 3 opcional: 5ta firma centrada (cuando totalFirmas = 5) --}}
-            @if(isset($firmasList[4]))
-                @php $f5 = $firmasList[4]; @endphp
+            @else
+                {{-- Tarjeta suelta (siempre es el RECIBIDO POR, porque va de última):
+                     centrada a todo lo ancho, igual que se veía antes. --}}
                 <tr>
                     <td colspan="3" align="center">
-                        <table width="40%" align="center" border="0" cellpadding="0" cellspacing="0">
-                            <tr><td align="center" style="font-size: 9pt;"><b>{{ $f5['label'] }}</b></td></tr>
-                            <tr><td height="30">&nbsp;</td></tr>
-                            <tr><td style="border-top: 0.5pt solid #000; height: 1px;"></td></tr>
-                            <tr><td align="center" style="font-size: 8pt; line-height: 1.5;"><b>{{ strtoupper($f5['car']) }}</b></td></tr>
-                            <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">{{ strtoupper($f5['nom']) }}</td></tr>
-                            <tr>
-                                <td align="center" style="font-size: 8pt; line-height: 1.5; color: #333;">
-                                    {{ $fmtCed($f5['ced']) }}
-                                </td>
-                            </tr>
-                        </table>
+                        @include('admin.movilizaciones.partials.tarjeta_firma', ['f' => $fila[0], 'ancho' => '40%'])
                     </td>
                 </tr>
+            @endif
+
+            {{-- Aire entre filas de firmas — no después de la última. --}}
+            @if(! $loop->last)
                 <tr><td colspan="3" height="30">&nbsp;</td></tr>
             @endif
 
-            {{-- Fila siguiente: RECIBIDO POR centrado --}}
-            <tr>
-                <td colspan="3" align="center">
-                    <table width="40%" align="center" border="0" cellpadding="0" cellspacing="0">
-                        <tr><td align="center" style="font-size: 9pt;"><b>RECIBIDO POR (DESTINO):</b></td></tr>
-                        <tr><td height="25">&nbsp;</td></tr>
-                        <tr>
-                            <td align="center">
-                                <table width="85%" align="center" border="0" cellpadding="0" cellspacing="0">
-                                    <tr><td style="border-top: 0.5pt solid #000; height: 1px;"></td></tr>
-                                    <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">Nombre: ____________________</td></tr>
-                                    <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">Cédula: ____________________</td></tr>
-                                </table>
-                            </td>
-                        </tr>
-                    </table>
-                </td>
-            </tr>
-
-        @else
-            {{-- ════════════════════════════════════════════════════════════
-                 Exactamente 2 firmas (0 y 1 se resuelven arriba, 3+ en la rejilla):
-                 las dos en una fila + RECIBIDO POR centrado abajo.
-                 ════════════════════════════════════════════════════════════ --}}
-            {{-- Aquí había un array_slice($firmasList, 0, 2) que recortaba a dos las firmas
-                 de todo frente que no fuera Patio. Un frente con 3 responsables perdía el
-                 tercero sin avisar: en TRANSVERSALES AYACUCHO se caía el APROBADO, y se
-                 veían dos firmas donde había tres cargadas. El recorte sobra: con 3 o más
-                 entra la rejilla de arriba, que las pinta todas. Sin él, este chunk siempre
-                 produce UNA fila de dos. --}}
-            @php
-                $rowsOtros = array_chunk($firmasList, 2);
-            @endphp
-
-            @foreach($rowsOtros as $row)
-                <tr>
-                    @foreach($row as $f)
-                        <td width="45%" align="center" valign="bottom">
-                            <table width="85%" align="center" border="0" cellpadding="0" cellspacing="0">
-                                <tr><td align="center" style="font-size: 9pt;"><b>{{ $f['label'] }}</b></td></tr>
-                                <tr><td height="30">&nbsp;</td></tr>
-                                <tr><td style="border-top: 0.5pt solid #000; height: 1px;"></td></tr>
-                                <tr><td align="center" style="font-size: 8pt; line-height: 1.5;"><b>{{ strtoupper($f['car']) }}</b></td></tr>
-                                <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">{{ strtoupper($f['nom']) }}</td></tr>
-                                <tr>
-                                    <td align="center" style="font-size: 8pt; line-height: 1.5; color: #333;">
-                                        {{ $fmtCed($f['ced']) }}
-                                    </td>
-                                </tr>
-                            </table>
-                        </td>
-
-                        @if($loop->first && count($row) > 1)
-                            <td width="10%"></td>
-                        @elseif($loop->first && count($row) == 1)
-                            <td width="55%" colspan="2"></td>
-                        @endif
-                    @endforeach
-                </tr>
-                <tr><td colspan="3" height="30">&nbsp;</td></tr>
-            @endforeach
-
-            {{-- RECIBIDO POR centrado debajo --}}
-            <tr>
-                <td colspan="3" align="center">
-                    <table width="40%" align="center" border="0" cellpadding="0" cellspacing="0">
-                        <tr><td align="center" style="font-size: 9pt;"><b>RECIBIDO POR (DESTINO):</b></td></tr>
-                        <tr><td height="25">&nbsp;</td></tr>
-                        <tr>
-                            <td align="center">
-                                <table width="85%" align="center" border="0" cellpadding="0" cellspacing="0">
-                                    <tr><td style="border-top: 0.5pt solid #000; height: 1px;"></td></tr>
-                                    <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">Nombre: ____________________</td></tr>
-                                    <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">Cédula: ____________________</td></tr>
-                                </table>
-                            </td>
-                        </tr>
-                    </table>
-                </td>
-            </tr>
-        @endif
+        @endforeach
 
     </table>
     <!-- Fin bloque nobr firmas -->
@@ -327,4 +171,3 @@
 
 </body>
 
-</html>
