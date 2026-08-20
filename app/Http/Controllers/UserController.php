@@ -182,8 +182,16 @@ class UserController extends Controller
             // dado acceso de creacion a esas 7 cuentas, que es justo lo contrario de lo que
             // esperaba quien las configuro.
             //
-            // La clave que quedo guardada en esos usuarios es inerte y se va sola: al guardar
-            // se reemplaza PERMISOS entero con las casillas marcadas, y esta ya no se pinta.
+            // OJO con la clave que quedo GUARDADA en esos usuarios: no es inerte del todo.
+            // Gate::before concede cualquier clave que este literalmente en PERMISOS, asi que
+            // hoy $user->can('user.create') devuelve TRUE para ellos. Es inofensivo porque no
+            // queda ni un solo sitio que lo pregunte —lo vigila la comprobacion 48 de
+            // tools/pruebas_login.php—, pero si alguien vuelve a usar ESE nombre para otra
+            // cosa, esos usuarios lo heredarian sin que nadie se lo conceda. Si se reutiliza
+            // el nombre, limpiar antes la clave de la base.
+            //
+            // Se va sola de cada usuario la primera vez que se le guarde: al guardar se
+            // reemplaza PERMISOS entero con las casillas marcadas, y esta ya no se pinta.
             'user.edit'           => 'Actualizar Información',
             // user.delete es EXCLUSIVA (PERMISOS_EXPLICITOS): ni super.admin
             // la hereda. Borra equipos via soft-delete (bulkDelete) y abre
