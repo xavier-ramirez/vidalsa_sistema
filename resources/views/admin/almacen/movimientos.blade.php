@@ -670,9 +670,13 @@
 
             <div id="splitDropdownMenuMovInv"
                  style="display:none;position:absolute;top:calc(100% + 5px);right:0;min-width:260px;background:#e2e8f0;border:1px solid #cbd5e1;border-radius:10px;box-shadow:0 10px 20px -5px rgba(15,23,42,0.18);z-index:50;overflow:hidden;">
+                {{-- UNA sola envoltura para los cuatro items. Antes cada uno traia la suya
+                     con border-bottom (y el ultimo con border-top), asi que entre el tercero
+                     y el cuarto se apilaban DOS rayas de 1px. El menu de acciones de
+                     /admin/movilizaciones no lleva separadores; este ahora tampoco. --}}
+                <div style="padding:6px;">
                 {{-- Dashboard de Consumo: abre el modal con gráficos (Chart.js) sobre las
                      salidas, respetando los filtros activos. --}}
-                <div style="padding:6px;border-bottom:1px solid #cbd5e1;">
                     <button type="button"
                         onclick="document.getElementById('splitDropdownMenuMovInv').style.display='none'; window.abrirConsumoDashboard();"
                         style="width:100%;display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:6px;border:none;background:transparent;color:#475569;font-size:14px;font-weight:500;cursor:pointer;text-align:left;transition:background 0.15s;"
@@ -680,10 +684,8 @@
                         <div style="background:#e0f2fe;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;line-height:1;color:#0067b1;">analytics</i></div>
                         <span>Dashboard de consumo</span>
                     </button>
-                </div>
                 {{-- Bitácora por Nota: vista alterna agrupada por NUMERO_NOTA — una fila por
                      Nota de Entrega; clic abre el PDF oficial. Conserva los filtros activos. --}}
-                <div style="padding:6px;border-bottom:1px solid #cbd5e1;">
                     <a id="lnkBitNotas" href="{{ route('almacen.notas') }}"
                         style="width:100%;display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:6px;border:none;background:transparent;color:#475569;font-size:14px;font-weight:500;cursor:pointer;text-align:left;transition:background 0.15s;text-decoration:none;"
                         onmouseover="this.style.background='#cbd5e1'" onmouseout="this.style.background='transparent'"
@@ -691,21 +693,17 @@
                         <div style="background:#dcfce7;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;line-height:1;color:#16a34a;">description</i></div>
                         <span>Bitácora por Nota (PDF)</span>
                     </a>
-                </div>
                 {{-- Exportar a Excel: baja la bitácora tal y como se está viendo. Los filtros
                      salen de buildParams(), el mismo que arma la petición de la tabla. --}}
-                <div style="padding:6px;border-bottom:1px solid #cbd5e1;">
                     <button type="button" onclick="window.almMovExportarExcel();"
                         style="width:100%;display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:6px;border:none;background:transparent;color:#475569;font-size:14px;font-weight:500;cursor:pointer;text-align:left;transition:background 0.15s;"
                         onmouseover="this.style.background='#cbd5e1'" onmouseout="this.style.background='transparent'">
-                        <div style="background:#dcfce7;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;line-height:1;color:#15803d;">download</i></div>
+                        <div style="background:#f1f5f9;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;line-height:1;color:#64748b;">download</i></div>
                         <span>Exportar a Excel</span>
                     </button>
-                </div>
                 @can('almacen.nota.eliminar')
                 {{-- Eliminar Nota: gateado a la clave almacen.nota.eliminar porque reversa
                      stock y deja un par (SALIDA original + ENTRADA reversa) en el kardex. --}}
-                <div style="padding:6px;border-top:1px solid #cbd5e1;">
                     <button type="button"
                         onclick="document.getElementById('splitDropdownMenuMovInv').style.display='none'; window.openEliminarNotaModal();"
                         style="width:100%;display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:6px;border:none;background:transparent;color:#475569;font-size:14px;font-weight:500;cursor:pointer;text-align:left;transition:background 0.15s;"
@@ -713,8 +711,8 @@
                         <div style="background:#fee2e2;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;line-height:1;color:#dc2626;">delete_outline</i></div>
                         <span>Eliminar Nota por código</span>
                     </button>
-                </div>
                 @endcan
+                </div>
 
             </div>
         </div>

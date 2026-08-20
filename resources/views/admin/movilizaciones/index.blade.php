@@ -290,7 +290,7 @@
                              filtran la tabla, para que el archivo traiga lo que se ve. --}}
                         <button type="button" class="mv-accion-item"
                             onclick="document.getElementById('splitDropdownMenuMov').style.display='none'; window._exportarHistorial();">
-                            <div class="mv-accion-ico" style="background:#dcfce7;"><i class="material-icons" style="color:#16a34a;">file_download</i></div>
+                            <div class="mv-accion-ico" style="background:#f1f5f9;"><i class="material-icons" style="color:#64748b;">download</i></div>
                             <span>Exportar historial a Excel</span>
                         </button>
                     </div>
