@@ -109,6 +109,28 @@ class FirmasActaTrasladoTest extends MySqlTestCase
         }
     }
 
+    /**
+     * La cédula sale FORMATEADA con puntos de millar. El formateador ($fmtCed) se define en
+     * el acta y se consume dentro de partials/tarjeta_firma, que lo hereda del @include: si
+     * alguien mueve ese cierre o renombra la variable, las cédulas desaparecen del PDF sin
+     * romper nada más — el resto del acta sigue pintándose igual.
+     */
+    public function test_las_cedulas_salen_formateadas(): void
+    {
+        $frente = $this->frenteCon(0);
+        $frente->RESP_3_NOM = 'RESPONSABLE CON CEDULA';
+        $frente->RESP_3_CAR = 'CARGO';
+        $frente->RESP_3_CED = '26605665';
+
+        $firmas = $this->firmasDe($frente, [['CATEGORIA_FLOTA' => 'FLOTA PESADA']]);
+        $html   = $this->html($frente, $firmas);
+
+        $this->assertStringContainsString('26.605.665', $html,
+            'La cédula no sale con puntos de millar: $fmtCed no llegó a la tarjeta de firma.');
+        $this->assertStringNotContainsString('26605665', str_replace('26.605.665', '', $html),
+            'La cédula sale también sin formatear: hay dos sitios pintándola.');
+    }
+
     /** Un responsable sin nombre no ocupa una firma, aunque tenga cédula o cargo. */
     public function test_los_responsables_sin_nombre_no_cuentan(): void
     {

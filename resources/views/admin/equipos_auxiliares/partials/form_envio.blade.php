@@ -1,90 +1,49 @@
-@extends('layouts.estructura_base')
+{{-- ═══════════════════════════════════════════════════════════════════════════════
+     Envío por AJAX del formulario de equipo auxiliar. Lo comparten create y edit.
 
-@section('title', 'Registrar Equipo Auxiliar')
+     Antes estaba COPIADO entero en los dos archivos: 62 de las 83 líneas útiles de
+     create eran las mismas de edit (el 75%), y lo único que cambiaba de verdad eran
+     tres textos. Cada retoque —el handoff del spinner, el flash por sessionStorage,
+     el pintado de errores 422— había que hacerlo dos veces, y bastaba olvidarse de
+     uno para que crear y editar se comportaran distinto sin que nadie lo notara.
 
-@section('content')
-<style>
-    @media (max-width: 768px) {
-        body:has(#formEquipoAuxiliarCard) .page-title-card {
-            margin-bottom: 6px !important;
-            padding: 4px 0 !important;
-        }
-        body:has(#formEquipoAuxiliarCard) .main-viewport {
-            width: 100% !important;
-            max-width: 100% !important;
-            padding-left: 8px !important;
-            padding-right: 8px !important;
-            box-sizing: border-box !important;
-        }
-        body:has(#formEquipoAuxiliarCard) .admin-card {
-            width: 100% !important;
-            max-width: 100% !important;
-            margin-left: 0 !important;
-            margin-right: 0 !important;
-        }
-    }
-</style>
-@include('admin.partials.page_header', [
-    'titulo'  => 'Registro de Equipo Auxiliar',
-    'align'   => 'center',
-    'margin'  => '0 auto 6px auto',
-    'padding' => '4px 0',
-])
+     Recibe:
+       $verbo    → 'registrado' | 'actualizado'  (mensaje de éxito)
+       $verboMal → 'registrar'  | 'actualizar'   (mensaje de error)
+       $accion   → 'store' | 'update'            (etiqueta del console.error)
 
-@can('equipos.create')
-@include('admin.partials.bulk_upload_card', [
-    'suffix'        => 'Aux',
-    'templateRoute' => 'equipos-auxiliares.bulkTemplate',
-    'subtitulo'     => 'Descarga la plantilla, completa los equipos auxiliares y súbelo para registrar varios a la vez.',
-])
-@endcan
-
-<div id="formEquipoAuxiliarCard" class="admin-card" style="max-width: 95%; margin: 0 auto;">
-    <form id="equipoAuxiliarForm" action="{{ route('equipos-auxiliares.store') }}" method="POST" enctype="multipart/form-data" novalidate>
-        @csrf
-
-        @include('admin.equipos_auxiliares.partials.form_fields')
-
-        <div style="margin-top: 22px; display: flex; gap: 12px; justify-content: center;">
-            <a href="{{ route('equipos.index') }}" class="btn-primary-maquinaria btn-secondary">
-                Cancelar
-            </a>
-            <button type="submit" class="btn-primary-maquinaria">
-                <i class="material-icons">save</i>
-                Registrar
-            </button>
-        </div>
-    </form>
-</div>
-
+     El formulario se busca por id (#equipoAuxiliarForm), que es el mismo en las dos
+     pantallas; lo único que cambia entre ellas es su action y su method.
+═══════════════════════════════════════════════════════════════════════════════ --}}
 <script>
 (function () {
     const form = document.getElementById('equipoAuxiliarForm');
+    // Guard SPA: navegacion.js re-ejecuta los <script> de la vista en cada entrada.
+    // Sin esto se acumularía un listener de submit por visita y el POST saldría
+    // repetido tantas veces como se hubiera entrado al formulario.
     if (!form || form.dataset.ajaxBound === '1') return;
     form.dataset.ajaxBound = '1';
 
-    // ── Helper: mostrar errores de validacion estilo /admin/equipos/create ──
-    // Banner arriba + .is-invalid en inputs + .error-message-inline debajo.
+    // ── Errores de validación, mismo patrón que /admin/equipos ──────────────────
+    // Banner arriba del form + .is-invalid en cada input + .error-message-inline
+    // debajo. Global porque también lo llama el flujo de anclaje.
     window.auxApplyValidationErrors = function (errors) {
-        // Limpiar errores anteriores
         form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
         form.querySelectorAll('.error-message-inline').forEach(el => el.remove());
         const oldSummary = document.getElementById('errorSummary');
         if (oldSummary) oldSummary.remove();
 
-        // Banner global arriba del form
         const summaryHtml = `
-            <div id="errorSummary" style="background: #fff5f5; border: 1px solid #fed7d7; color: #c53030; padding: 12px 15px; border-radius: 12px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 600;">
+            <div id="errorSummary" style="background: #fff5f5; border: 1px solid #fed7d7; color: #c53030; padding: 12px 16px; border-radius: 8px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; font-weight: 600;">
                 <i class="material-icons" style="color: var(--maquinaria-red);">error_outline</i>
                 <span>Atención: Hemos detectado errores. Por favor, verifica los campos marcados en rojo.</span>
             </div>
         `;
         form.insertAdjacentHTML('afterbegin', summaryHtml);
 
-        // Marcar cada campo con error + mensaje debajo
         Object.entries(errors).forEach(([field, msgs]) => {
             const msg = Array.isArray(msgs) ? msgs[0] : String(msgs);
-            // Map server field -> input id (server devuelve el name del campo)
+            // El servidor devuelve el NAME del campo; el id coincide en casi todos.
             const input = document.getElementById(field)
                        || document.querySelector(`[name="${field}"]`);
             if (!input) return;
@@ -105,32 +64,37 @@
             parent.appendChild(feedback);
         });
 
-        // Scroll al primer campo con error
         const firstInvalid = form.querySelector('.is-invalid');
         if (firstInvalid) firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
     };
 
+    // ── Envío ───────────────────────────────────────────────────────────────────
     form.addEventListener('submit', function (e) {
         e.preventDefault();
+        // Doble clic en Guardar: sin esto salían dos POST y se creaban dos equipos.
         if (form.dataset.submitting === '1') return;
         form.dataset.submitting = '1';
-
         if (typeof window.showPreloader === 'function') window.showPreloader();
 
         const formData = new FormData(form);
-        window.apiFetch(form.action, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        window.apiFetch(form.action, {
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
             method: 'POST',
-            body: formData})
+            body: formData
+        })
         .then(r => r.json().then(body => ({ status: r.status, body })))
         .then(({ status, body }) => {
             if (status === 200 || status === 201) {
-                const msg = body.message || 'Equipo auxiliar registrado correctamente.';
-                // Guardarlo en sessionStorage para que el index lo dispare al cargar (SPA)
+                const msg = body.message || 'Equipo auxiliar {{ $verbo }} correctamente.';
+                // El aviso viaja a la pantalla destino: aquí se navega enseguida y un
+                // toast pintado ahora se iría con el DOM antes de que diera tiempo a leerlo.
                 try {
                     sessionStorage.setItem('vidalsa_flash_toast', JSON.stringify({ message: msg, type: 'success' }));
                 } catch (_) {}
-                // Al modulo UNIFICADO por defecto, no al viejo de solo-auxiliares.
+
+                // Al módulo UNIFICADO por defecto (si no vino ?ref=), no al viejo de solo-auxiliares.
                 const redirect = body.redirect || '{{ route("equipos.index") }}';
+
                 // HANDOFF del spinner (ver loadPage en navegacion.js): cedemos el show()
                 // de arriba, que aquí no se balancea. Sin el flag, loadPage suma otro
                 // show() y su único hide() deja el contador en 1 → el spinner se queda
@@ -145,23 +109,20 @@
             form.dataset.submitting = '0';
 
             if (status === 422 && body.errors) {
-                // Patron identico a /admin/equipos/create: banner arriba + .is-invalid
-                // en cada input + .error-message-inline debajo.
                 window.auxApplyValidationErrors(body.errors);
                 return;
             }
 
-            const msg = body.message || 'No se pudo registrar el equipo auxiliar.';
-            if (window.showModal) window.showModal({ type:'error', title:'Error', message: msg, confirmText:'Entendido', hideCancel:true });
+            const msg = body.message || 'No se pudo {{ $verboMal }} el equipo auxiliar.';
+            if (window.showModal) window.showModal({ type: 'error', title: 'Error', message: msg, confirmText: 'Entendido', hideCancel: true });
             else window.toast(msg, 'error');
         })
         .catch(err => {
             if (typeof window.hidePreloader === 'function') window.hidePreloader();
             form.dataset.submitting = '0';
-            console.error('store auxiliar:', err);
-            if (window.showModal) window.showModal({ type:'error', title:'Error de red', message:'No se pudo contactar el servidor.', confirmText:'Entendido', hideCancel:true });
+            console.error('{{ $accion }} auxiliar:', err);
+            if (window.showModal) window.showModal({ type: 'error', title: 'Error de red', message: 'No se pudo conectar con el servidor. Intenta de nuevo.', confirmText: 'Entendido', hideCancel: true });
         });
     });
 })();
 </script>
-@endsection

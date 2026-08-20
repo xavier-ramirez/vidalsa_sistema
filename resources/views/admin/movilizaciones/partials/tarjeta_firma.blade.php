@@ -15,11 +15,9 @@
 @php $esRecibido = ! empty($f['recibido']); @endphp
 
 <table width="{{ $ancho }}" align="center" border="0" cellpadding="0" cellspacing="0">
-    <tr>
-        <td align="center" style="font-size: 9pt;">
-            <b>{{ $esRecibido ? 'RECIBIDO POR (DESTINO):' : $f['label'] }}</b>
-        </td>
-    </tr>
+    {{-- Todo en UNA linea: TCPDF convierte los saltos de linea del HTML en espacios,
+         y un espacio de mas descentra la etiqueta. --}}
+    <tr><td align="center" style="font-size: 9pt;"><b>{{ $esRecibido ? 'RECIBIDO POR (DESTINO):' : $f['label'] }}</b></td></tr>
     <tr><td height="30">&nbsp;</td></tr>
     <tr><td style="border-top: 0.5pt solid #000; height: 1px;"></td></tr>
 

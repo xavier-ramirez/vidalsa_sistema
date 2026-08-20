@@ -1483,13 +1483,6 @@ class EquipoAuxiliarController extends Controller
         // equipos y auxiliares desde el mismo sitio). Esta ruta se mantiene para que los
         // enlaces y marcadores viejos no den 404, pero lleva alli.
         return redirect()->route('equipos.create');
-
-        $frentes = $this->frentesActivosPermitidos()->get();
-        // TIPOS dinamicos: base del enum + los tipos custom guardados en DB.
-        $tipos = $this->getTiposDinamicos();
-        $estados = EquipoAuxiliar::estadosLabel();
-        $auxiliar = new EquipoAuxiliar();
-        return view('admin.equipos_auxiliares.create', compact('auxiliar', 'frentes', 'tipos', 'estados'));
     }
 
     public function store(Request $request)
