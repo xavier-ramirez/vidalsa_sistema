@@ -4976,7 +4976,15 @@ class EquipoController extends Controller
             // valores y ya los usa el resto del modulo.
             'data'    => $movs->map(fn ($m) => [
                 'id'      => $m->ID_MOVILIZACION,
-                'codigo'  => $m->formatted_codigo_control,
+                // Solo si HAY acta. El accesor formatted_codigo_control devuelve 'R.D.'
+                // (Recepcion Directa) para cualquier fila sin CODIGO_CONTROL, y eso dejo de
+                // ser cierto al llegar el tipo ACT.: son 783 filas sin codigo que NO son
+                // recepciones directas, y salian todas rotuladas como tales. El listado de
+                // /admin/movilizaciones ya resuelve esto sin inventar nada — "sin
+                // CODIGO_CONTROL no hay acta: no se muestra icono ni placeholder"— y aqui
+                // se hace igual. El accesor se sigue usando para dar formato cuando SI hay
+                // codigo, que es lo unico que hace bien.
+                'codigo'  => $m->CODIGO_CONTROL ? $m->formatted_codigo_control : null,
                 'fecha'   => optional($m->created_at)->format('d/m/Y'),
                 'origen'  => $m->nombre_origen,
                 'destino' => $m->nombre_destino,

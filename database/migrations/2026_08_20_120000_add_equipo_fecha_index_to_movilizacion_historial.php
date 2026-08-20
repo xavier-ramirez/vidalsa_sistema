@@ -26,6 +26,13 @@ use Illuminate\Support\Facades\Schema;
  *
  * Idempotente: si el indice ya existe no hace nada, para poder correrla dos veces sin
  * romper (y para BDs donde alguien lo haya creado a mano).
+ *
+ * SUPERADA por 2026_08_20_150000_reindex_movilizacion_historial_por_created_at, que
+ * retira este indice y lo rehace sobre (ID_EQUIPO, created_at). Resulto que
+ * FECHA_DESPACHO esta vacia en el 62% de las filas —solo se rellena cuando el
+ * movimiento genera acta— asi que ni servia para ordenar ni para mostrar la fecha.
+ * Este archivo se conserva porque ya corrio en BDs reales y su nombre esta en la
+ * tabla `migrations`: borrarlo romperia migrate:status y migrate:rollback.
  */
 return new class extends Migration
 {

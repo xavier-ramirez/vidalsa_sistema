@@ -138,6 +138,38 @@ class MovilizacionesDeEquipoTest extends MySqlTestCase
         }
     }
 
+    public function test_el_codigo_solo_sale_cuando_hay_acta(): void
+    {
+        $idEquipo = $this->equipoConMasMovilizaciones();
+        if ($idEquipo === null) {
+            $this->markTestSkipped('No hay movilizaciones cargadas contra las que probar.');
+        }
+
+        $datos = $this->actingAs($this->usuario())
+            ->getJson("/admin/equipos/{$idEquipo}/movilizaciones")
+            ->json('data');
+
+        $conActa = Movilizacion::where('ID_EQUIPO', $idEquipo)
+            ->whereNotNull('CODIGO_CONTROL')
+            ->count();
+
+        $devueltos = collect($datos)->filter(fn ($f) => $f['codigo'] !== null);
+
+        $this->assertSame($conActa, $devueltos->count(),
+            'Solo las filas con CODIGO_CONTROL deben traer codigo.');
+
+        foreach ($devueltos as $f) {
+            $this->assertMatchesRegularExpression('/^MV-\d{5}$/', $f['codigo'],
+                'El codigo con acta debe venir formateado como MV-000NN.');
+        }
+
+        $this->assertEmpty(collect($datos)->where('codigo', 'R.D.')->all(),
+            'Volvio el "R.D." del accesor formatted_codigo_control: lo devuelve para CUALQUIER '
+            . 'fila sin CODIGO_CONTROL, y las de tipo ACT. —783 de 1.265— no son recepciones '
+            . 'directas. El listado de /admin/movilizaciones no muestra nada en ese caso; el '
+            . 'modal tampoco debe inventarse un rotulo.');
+    }
+
     public function test_las_devuelve_de_la_mas_reciente_a_la_mas_antigua(): void
     {
         $idEquipo = $this->equipoConMasMovilizaciones();

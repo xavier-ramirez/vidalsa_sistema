@@ -1743,7 +1743,11 @@ window.toggleConfirmacionSitioAux = function (el) {
         cont.innerHTML = filas.map(function (m) {
             return '<div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;text-align:center;">'
                 + '<div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:8px;flex-wrap:wrap;">'
-                    + '<span style="font-weight:700;font-size:13px;color:#1e293b;">' + esc(m.codigo || '') + '</span>'
+                    // El codigo solo viaja cuando hay acta; sin ella no se pinta hueco ni
+                    // rotulo inventado, igual que en el listado de /admin/movilizaciones.
+                    + (m.codigo
+                        ? '<span style="font-weight:700;font-size:13px;color:#1e293b;">' + esc(m.codigo) + '</span>'
+                        : '')
                     + '<span style="font-size:12px;color:#64748b;white-space:nowrap;">' + esc(m.fecha || 'Sin fecha') + '</span>'
                 + '</div>'
                 + '<div style="display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px;color:#334155;flex-wrap:wrap;">'
