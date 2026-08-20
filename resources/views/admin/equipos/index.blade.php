@@ -1343,16 +1343,18 @@
         .fleet-kpi {
             background: #fff;
             border-radius: 10px;
-            /* 40px de alto: 6 + 6 de relleno + 26 de la cifra + 2 de borde. La medida nacio
-               para igualar al buscador de frente, que iba en esta misma fila; el buscador se
-               mudo a la cabecera, pero el valor se conserva porque es el que iguala a las
-               CINCO tarjetas entre si. Si se cambia el tamano de .fleet-kpi-val hay que
-               recalcular este 6.
-               OJO: eso vale con la etiqueta en UNA linea, donde manda la cifra. Si el texto
-               se parte en DOS (tarjeta estrecha), mandan las dos lineas de la etiqueta
-               —11 x 1.25 x 2 = 27.5— y esa tarjeta sube a ~41.5, arrastrando el alto de la
-               fila. Se acepta a proposito: el cliente prefiere el texto en dos lineas antes
-               que la cifra debajo. */
+            /* 40px de alto. Nacio para igualar al buscador de frente, que iba en esta misma
+               fila; el buscador se mudo a la cabecera, pero el valor se conserva porque es
+               el que mantiene iguales entre si a las CINCO tarjetas.
+               Con la cifra en 20px el contenido pide 6 + 6 de relleno + 22 de la cifra + 2
+               de borde = 36, o sea POR DEBAJO de este min-height: hoy manda el min-height y
+               ya no hay ningun 6 que recalcular al tocar .fleet-kpi-val. Solo habria que
+               revisarlo si la cifra creciera tanto que el contenido pasara de 40.
+               OJO: eso vale con la etiqueta en UNA linea. Si el texto se parte en DOS
+               (tarjeta estrecha), mandan las dos lineas de la etiqueta —12 x 1.25 x 2 = 30—
+               y esa tarjeta sube a ~44, arrastrando el alto de la fila. Se acepta a
+               proposito: el cliente prefiere el texto en dos lineas antes que la cifra
+               debajo. */
             min-height: 40px;
             box-sizing: border-box;
             padding: 6px 14px;
@@ -1395,7 +1397,10 @@
                lado de la cifra. Sigue vigente el motivo por el que NUNCA debe usarse aquí
                --fd-ink-3 (#8a94a6, 3.06:1): no llega al 4.5:1 que exige AA. */
             color: var(--fd-ink);
-            font-weight: 500;
+            /* 600 (antes 500): se pidio la etiqueta "mas oscura". El color ya es --fd-ink
+               (#000, negro puro): no hay tinta mas oscura que dar, asi que lo que se sube es
+               el GROSOR, que es lo que la hace leerse mas marcada al lado de la cifra. */
+            font-weight: 600;
         }
 
         /* Cifras proporcionales a propósito (sin tabular-nums): en un número grande y
@@ -1406,7 +1411,10 @@
                garantiza que se quede AL LADO de la etiqueta por estrecha que sea la caja. */
             flex: none;
             white-space: nowrap;
-            font-size: 24px;
+            /* 20px (antes 24): se pidio la cifra mas pequena. Al bajar de 24 a 20 la caja
+               de la cifra pasa de 26 a 22 px, o sea por debajo del min-height:40 de
+               .fleet-kpi, que es el que ahora fija el alto de las cinco tarjetas. */
+            font-size: 20px;
             line-height: 1.1;
             /* Misma tinta que la etiqueta: lo que separa la cifra es el tamaño y el
                grosor, no el color (antes la etiqueta iba en gris). */
@@ -1868,7 +1876,9 @@
             }
 
             #fleetDashboardModal .fleet-stats-grid h3 {
-                font-size: 18px !important;
+                /* 16px (antes 18): acompana la bajada de 24 a 20 del escritorio para que
+                   la cifra no cambie de peso visual al pasar de PC a telefono. */
+                font-size: 16px !important;
             }
 
             #fleetDashboardModal .fleet-stats-grid p {
