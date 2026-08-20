@@ -272,5 +272,36 @@ foreach (Illuminate\Support\Facades\Route::getRoutes() as $ruta) {
 }
 check('rutas que apuntan a un metodo inexistente', [], $rotas);
 
+// ── Toda casilla de permiso tiene que comprobarse en alguna parte ────────────
+//
+// /admin/usuarios ofrece marcar permisos. Uno que no se comprueba en ningun sitio
+// es una casilla que promete algo y no concede nada: 'user.create' decia "Registrar
+// Usuarios" y estaba marcada en 7 usuarios que NO podian crear, porque crear lo
+// protege can:manage.users. No da error ni se ve en pantalla; solo se nota cuando
+// alguien pregunta por que no le funciona.
+$codigoTodo = '';
+foreach (['app', 'routes', 'resources/views'] as $dir) {
+    $it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator(__DIR__ . '/../' . $dir));
+    foreach ($it as $arch) {
+        if (preg_match('/\.(php|blade\.php)$/', $arch->getFilename())) {
+            $codigoTodo .= file_get_contents($arch->getPathname()) . "\n";
+        }
+    }
+}
+
+$sinComprobar = [];
+foreach (array_keys(\App\Http\Controllers\UserController::availablePermissions()) as $clave) {
+    $q = preg_quote($clave, '/');
+    $veces = preg_match_all("/@can\(\s*'{$q}'/", $codigoTodo)
+           + preg_match_all("/@cannot\(\s*'{$q}'/", $codigoTodo)
+           + preg_match_all("/can:{$q}(?![a-z.])/", $codigoTodo)
+           + preg_match_all("/->can\(\s*'{$q}'/", $codigoTodo)
+           + preg_match_all("/->cannot\(\s*'{$q}'/", $codigoTodo)
+           + preg_match_all("/Gate::(?:allows|denies|check)\(\s*'{$q}'/", $codigoTodo)
+           + preg_match_all("/'{$q}'\s*=>\s*'[a-z]/", $codigoTodo);   // mapas tipo alertas.ver.*
+    if ($veces === 0) $sinComprobar[] = $clave;
+}
+check('permisos que se ofrecen pero nadie comprueba', [], $sinComprobar);
+
 printf("\n%d OK, %d FALLAS\n", $ok, $fail);
 exit($fail === 0 ? 0 : 1);

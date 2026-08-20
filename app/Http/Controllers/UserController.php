@@ -174,7 +174,16 @@ class UserController extends Controller
     public static function availablePermissions(): array
     {
         return [
-            'user.create'         => 'Registrar Usuarios',
+            // SIN 'user.create'. Era una casilla que prometia "Registrar Usuarios" y no
+            // concedia nada: crear usuarios lo protege can:manage.users (ver el constructor),
+            // que se resuelve con la clave super.admin y solo con ella. Estaba marcada en 7
+            // usuarios, ninguno de ellos super.admin, asi que ninguno podia crear pese a
+            // tenerla. Se quita del catalogo en vez de hacerla efectiva: darle efecto habria
+            // dado acceso de creacion a esas 7 cuentas, que es justo lo contrario de lo que
+            // esperaba quien las configuro.
+            //
+            // La clave que quedo guardada en esos usuarios es inerte y se va sola: al guardar
+            // se reemplaza PERMISOS entero con las casillas marcadas, y esta ya no se pinta.
             'user.edit'           => 'Actualizar Información',
             // user.delete es EXCLUSIVA (PERMISOS_EXPLICITOS): ni super.admin
             // la hereda. Borra equipos via soft-delete (bulkDelete) y abre
