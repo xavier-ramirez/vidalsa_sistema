@@ -123,8 +123,11 @@
         .cdash-filtros .f-group { flex:1 1 0; min-width:0; }
         /* En pantalla estrecha cada filtro ocupa su propia fila: apretar dos campos de
            texto en un ancho de telefono los deja ilegibles. */
-        .cdash-filtros .f-group-desc,
-        .cdash-filtros .f-group-cat  { flex:1 1 100%; }
+        /* Descripcion se lleva la fila entera. Categoria comparte la suya CON el boton
+           de avanzados (36px + 8 de hueco): si tambien pidiera el 100%, el boton caeria
+           a una tercera fila y volveria a quedar lejos del filtro al que acompana. */
+        .cdash-filtros .f-group-desc { flex:1 1 100%; }
+        .cdash-filtros .f-group-cat  { flex:1 1 calc(100% - 44px); }
         .cdash-filtros .cdash-adv-field { flex:1 1 100%; }
         /* El panel no cabe a 340px en un telefono: se ancla a los dos bordes. */
         .cdash-adv-panel { width:auto; left:0; right:0; }
@@ -185,12 +188,16 @@
                         <div class="cdash-cat-list" id="cdashCatList"></div>
                     </div>
                 </div>
-            </div>
 
             {{-- Filtros avanzados. Mismo patrón que /admin/equipos: botón cuadrado con
                  filter_list y un panel que cuelga debajo. Aquí viven los filtros que NO
                  son de uso corriente —frente de destino y el rango de meses—, que antes
                  ocupaban una fila entera siempre visible.
+
+                 VA DENTRO de .cdash-filtros, justo detrás de Categoría, y no como hermano
+                 de la barra: fuera de ella caía a una línea propia debajo de los filtros,
+                 lejos del control al que acompaña. En teléfono comparte fila con Categoría
+                 por lo mismo (ver el flex-basis del @media de arriba).
 
                  El punto azul del botón avisa de que hay algún filtro puesto: recogidos
                  en un panel, sin esa señal no habría forma de saber que el dashboard está
@@ -233,6 +240,7 @@
                     <input type="month" id="cdashHasta" title="Hasta (mes)" onchange="window._cdashFetch()" onclick="try{ this.showPicker(); }catch(e){}">
                 </label>
                 </div>
+            </div>
             </div>
             <div id="cdashLoading" class="cdash-loading"><i class="material-icons cdash-spin">refresh</i><span>Cargando datos de consumo…</span></div>
             <div id="cdashContent" style="display:none;">
