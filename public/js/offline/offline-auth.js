@@ -165,13 +165,18 @@
     // ¿Llegó a lanzarse el sondeo? El de la carga se salta cuando no hay nada que decidir;
     // si la huella se habilita después (llega por una promesa), ahí sí lo hay y se lanza.
     let sondeoLanzado = false;
+    // ¿El sondeo cambia algo de lo que se ve? Solo si existe credencial local (boton
+    // "Entrar sin conexion") o hay huella habilitada (que se oculta cuando el servidor no
+    // responde). En la mayoria de las sesiones —equipo nuevo, o quien nunca entro sin
+    // internet— no hay nada que decidir, y sondear seria una peticion de mas y un arranque
+    // de Laravel de mas en CADA carga del login. Lo consultan el sondeo y el re-sondeo:
+    // una sola definicion para que no puedan discrepar.
+    function hayAlgoQueDecidir() {
+        return window.OfflineAuth.tieneOffline() || huellaHabilitada;
+    }
+
     function sondearServidor() {
-        // Sin nada que decidir no se sondea: seria una peticion de mas —y un arranque de
-        // Laravel de mas en el servidor— en CADA carga del login. Solo hay algo que
-        // decidir si existe credencial local (boton "Entrar sin conexion") o si hay
-        // huella habilitada (que se oculta cuando el servidor no responde). Es el caso de
-        // la mayoria de las sesiones: equipos nuevos y quien nunca entro sin internet.
-        if (!window.OfflineAuth.tieneOffline() && !huellaHabilitada) return;
+        if (!hayAlgoQueDecidir()) return;
         sondeoLanzado = true;
         if (!navigator.onLine) { sinServidor = true; refrescarAccesos(); return; }
         // Tope de 4s: sin él, una red que traga los paquetes sin contestar dejaría el
@@ -199,7 +204,43 @@
         if (btnOn) btnOn.style.display = mostrarOffline ? 'none' : '';
         // La huella SIEMPRE necesita servidor, haya o no credencial local guardada.
         if (btnBio) btnBio.style.display = (huellaHabilitada && !sinServidor) ? 'flex' : 'none';
+        // Mientras se esté ofreciendo el acceso local hay que seguir preguntando: puede
+        // volver el servidor con el usuario mirando esta pantalla. Va aquí y no repartido
+        // por los sitios que sondean porque este es el punto que YA conoce el estado.
+        ajustarResondeo();
     }
+
+    // ── Re-sondeo mientras no hay servidor ────────────────────────────────────
+    // El evento 'online' NO basta. Solo salta cuando el navegador pasa de "sin interfaz
+    // de red" a "con interfaz", y el caso que este botón existe para cubrir es el otro:
+    // wifi levantado y servidor inalcanzable (router sin salida, portal cautivo, VPN,
+    // servidor caído). Ahí navigator.onLine nunca fue false, así que al volver el
+    // servidor no se dispara nada y el botón se queda en "Entrar sin conexión" hasta
+    // cerrar y reabrir la app — que es exactamente lo que había que hacer.
+    //
+    // Coste: mientras no hay servidor las peticiones NI LLEGAN (fallan en red), o sea
+    // que no arrancan Laravel; en cuanto una responde, sinServidor pasa a false y el
+    // temporizador se apaga solo. Y no se sondea en segundo plano.
+    const MS_RESONDEO = 15000;
+    let resondeo = null;
+    function ajustarResondeo() {
+        if (!(sinServidor && hayAlgoQueDecidir())) {
+            if (resondeo) { clearInterval(resondeo); resondeo = null; }
+            return;
+        }
+        if (resondeo) return;                       // ya hay uno en marcha
+        resondeo = setInterval(function () {
+            if (document.hidden) return;            // en segundo plano no se gasta
+            sondearServidor();
+        }, MS_RESONDEO);
+    }
+
+    // Volver a la app (cambiar de pestaña, desbloquear el teléfono) es el momento con
+    // más probabilidad de que la conexión haya cambiado: se pregunta ya, sin esperar al
+    // siguiente tic.
+    document.addEventListener('visibilitychange', function () {
+        if (!document.hidden && sinServidor) sondearServidor();
+    });
 
     // La llama el blade cuando ya sabe que el dispositivo tiene lector y credencial.
     window.OfflineAuth.habilitarHuella = function () {

@@ -100,6 +100,20 @@ check('claves cambiadas a mano (solo store)', ['UserController.php'], $aMano);
 $js    = file_get_contents('public/js/offline/offline-auth.js');
 $login = file_get_contents('resources/views/auth/inicio_sesion.blade.php');
 check('offline-auth expone sincronizar()',   true, str_contains($js, 'sincronizar: async function'));
+
+// El boton correcto sin cerrar y reabrir la app.
+// El evento 'online' NO basta: solo salta cuando el navegador pasa de "sin interfaz de
+// red" a "con interfaz", y el caso que el acceso local existe para cubrir es el otro —
+// wifi levantado y servidor inalcanzable—, donde navigator.onLine nunca fue false. Sin
+// re-sondeo, al volver el servidor el login se quedaba ofreciendo "Entrar sin conexion"
+// hasta cerrar y reabrir la PWA.
+check('re-sondea mientras no hay servidor', true, str_contains($js, 'function ajustarResondeo()'));
+check('el re-sondeo lo dispara un intervalo', true, str_contains($js, 'resondeo = setInterval('));
+check('no sondea en segundo plano',          true, str_contains($js, 'if (document.hidden) return;'));
+check('vuelve a preguntar al volver a la app', true, str_contains($js, "addEventListener('visibilitychange'"));
+// La condicion "hay algo que decidir" la comparten el sondeo y el re-sondeo: una sola
+// definicion, para que no puedan discrepar y dejar un temporizador girando en vano.
+check('la guarda del sondeo vive en un solo sitio', 1, substr_count($js, 'function hayAlgoQueDecidir()'));
 check('el login la llama en los 2 caminos',  2,    substr_count($login, '.sincronizar(data.clave_v)'));
 foreach (['Auth/LoginController', 'Auth/WebAuthnController'] as $c) {
     check(basename($c) . " manda clave_v", true,
