@@ -66,7 +66,7 @@
                         <div style="padding:8px 12px;display:flex;align-items:center;gap:6px;border-bottom:1px solid #334155;">
                             <i class="material-icons" style="font-size:14px;color:#38bdf8;">history</i>
                             <span style="font-size:11px;font-weight:700;color:#cbd5e1;text-transform:uppercase;letter-spacing:0.5px;">Cambios realizados</span>
-                            <i class="material-icons hd-close-cambios" style="margin-left:auto;font-size:18px;color:#94a3b8;cursor:pointer;" onclick="event.stopPropagation();this.closest('.hd-cambios-detail').style.display='none';var r=this.closest('.hd-detail-open');if(r)r.classList.remove('hd-detail-open');">close</i>
+                            <i class="material-icons hd-close-cambios" style="margin-left:auto;font-size:18px;color:#94a3b8;cursor:pointer;" onclick="event.stopPropagation();window.hdCerrarCambios();">close</i>
                         </div>
                         <div style="padding:8px 12px;display:flex;flex-direction:column;gap:6px;">
                             @foreach($event->cambios as $campo => $val)

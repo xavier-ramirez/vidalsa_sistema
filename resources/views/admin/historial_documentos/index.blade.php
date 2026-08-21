@@ -1142,6 +1142,11 @@ if (!window._hdInlineClickRegistered) {
     // Abrir y cerrar viven en un punto unico: los usan el raton y el clic, y
     // teniendo cada uno su copia se desincronizaban (el chip se quedaba con el
     // icono del otro estado).
+    // Global porque tambien la llama la X de dentro de la burbuja, que se pinta en
+    // table_rows con un onclick inline: sin exponerla, ese onclick no alcanza a una
+    // funcion declarada aqui dentro del guard.
+    window.hdCerrarCambios = hdCerrarTodo;
+
     function hdCerrarTodo() {
         document.querySelectorAll('.hd-cambios-detail').forEach(function (d) { d.style.display = 'none'; });
         document.querySelectorAll('.hd-detail-open').forEach(function (r) {
