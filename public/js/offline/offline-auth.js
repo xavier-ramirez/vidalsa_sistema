@@ -289,6 +289,15 @@
 
     // 'online' vuelve a SONDEAR (que haya red no significa que el servidor conteste);
     // 'offline' es concluyente, así que ahí basta con repintar.
+    //
+    // Estos dos eventos NO son suficientes por sí solos: solo saltan cuando cambia la
+    // INTERFAZ de red, y el caso que este botón cubre —wifi levantado y servidor
+    // inalcanzable— no la cambia nunca. De la reconexión se encarga ajustarResondeo()
+    // (más arriba); esto es solo el atajo para cuando el evento sí llega.
+    // Repintar en 'offline' arma además ese re-sondeo, y eso se quiere: mientras no hay
+    // red el tic no gasta nada (sondearServidor() corta en su primera línea), pero
+    // recupera el caso en que navigator.onLine vuelve a true sin disparar 'online',
+    // que es justo lo que hacen algunos navegadores de teléfono.
     window.addEventListener('online', sondearServidor);
     window.addEventListener('offline', function () { sinServidor = true; refrescarAccesos(); });
     // Un solo arranque: sondearServidor() ya pinta en sus dos ramas — sin red llama a
