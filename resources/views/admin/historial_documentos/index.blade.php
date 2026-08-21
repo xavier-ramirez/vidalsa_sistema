@@ -1139,6 +1139,30 @@ if (!window._hdInlineClickRegistered) {
         });
         tr.classList.toggle('hd-row-selected');
     });
+    // Abrir y cerrar viven en un punto unico: los usan el raton y el clic, y
+    // teniendo cada uno su copia se desincronizaban (el chip se quedaba con el
+    // icono del otro estado).
+    function hdCerrarTodo() {
+        document.querySelectorAll('.hd-cambios-detail').forEach(function (d) { d.style.display = 'none'; });
+        document.querySelectorAll('.hd-detail-open').forEach(function (r) {
+            r.classList.remove('hd-detail-open', 'hd-detail-pinned');
+            var chip = r.querySelector('.hd-ver-cambios-chip i');
+            if (chip) chip.textContent = 'history';
+        });
+    }
+
+    function hdAbrir(row, fijar) {
+        var detail = row.querySelector('.hd-cambios-detail');
+        if (!detail) return;
+        detail.style.display = 'block';
+        row.classList.add('hd-detail-open');
+        if (fijar) row.classList.add('hd-detail-pinned');
+        var chip = row.querySelector('.hd-ver-cambios-chip i');
+        // El icono dice que hace el SIGUIENTE clic: fijada -> cerrar; en vista
+        // previa -> fijar.
+        if (chip) chip.textContent = fijar ? 'expand_less' : 'push_pin';
+    }
+
     document.addEventListener('click', function (e) {
         // Cualquier botón de la fila (Ver PDF / Eliminar) NO debe abrir/cerrar la burbuja.
         if (e.target.closest('button')) return;
@@ -1146,19 +1170,49 @@ if (!window._hdInlineClickRegistered) {
         if (!row) return;
         var detail = row.querySelector('.hd-cambios-detail');
         if (!detail) return;
-        var isOpen = detail.style.display === 'block';
-        document.querySelectorAll('.hd-cambios-detail').forEach(function (d) { d.style.display = 'none'; });
-        document.querySelectorAll('.hd-detail-open').forEach(function (r) {
-            r.classList.remove('hd-detail-open');
-            var chip = r.querySelector('.hd-ver-cambios-chip i');
-            if (chip) chip.textContent = 'history';
-        });
-        if (!isOpen) {
-            detail.style.display = 'block';
-            row.classList.add('hd-detail-open');
-            var openChip = row.querySelector('.hd-ver-cambios-chip i');
-            if (openChip) openChip.textContent = 'expand_less';
+        // El clic FIJA la burbuja (antes solo la abria). Fijada, no se cierra al
+        // sacar el raton: hace falta para poder leerla con calma, para copiar algo
+        // de dentro, y en tactil —donde no hay raton que pasar— es la unica via.
+        var yaFijada = row.classList.contains('hd-detail-pinned');
+        hdCerrarTodo();
+        if (!yaFijada) {
+            hdAbrir(row, true);
         }
+    });
+
+    // ── Vista previa al pasar el raton ──────────────────────────────────────
+    // Antes habia que pinchar registro por registro para ver que cambio en cada
+    // uno. Ahora basta con pasar por encima; el clic sigue ahi para fijarla.
+    //
+    // Con un retardo corto: sin el, al recorrer la tabla se abrian y cerraban
+    // todas las burbujas de golpe y era imposible leer nada.
+    var hdPreviaTimer = null;
+
+    document.addEventListener('mouseover', function (e) {
+        var row = e.target.closest('.hd-has-cambios');
+        if (!row) return;
+        // Si ya hay una FIJADA, el raton no manda: se respeta lo que eligio el
+        // usuario hasta que la cierre.
+        if (document.querySelector('.hd-detail-pinned')) return;
+        if (row.classList.contains('hd-detail-open')) return;
+        clearTimeout(hdPreviaTimer);
+        hdPreviaTimer = setTimeout(function () {
+            hdCerrarTodo();
+            hdAbrir(row, false);
+        }, 180);
+    });
+
+    document.addEventListener('mouseout', function (e) {
+        var row = e.target.closest('.hd-has-cambios');
+        if (!row) return;
+        // Moverse DENTRO de la misma fila (o hacia la propia burbuja) no cuenta
+        // como salir: si no, leerla era imposible porque se cerraba sola.
+        if (e.relatedTarget && row.contains(e.relatedTarget)) return;
+        clearTimeout(hdPreviaTimer);
+        if (row.classList.contains('hd-detail-pinned')) return;
+        hdPreviaTimer = setTimeout(function () {
+            if (!row.matches(':hover')) hdCerrarTodo();
+        }, 180);
     });
 }
 </script>
