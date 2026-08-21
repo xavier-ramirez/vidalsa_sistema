@@ -230,6 +230,12 @@
                 <label class="cdash-adv-field" style="flex:1 1 240px;"><span>Frente de destino</span>
                     <div class="cdash-cat-wrap">
                         <input type="hidden" id="cdashFrente" value="">
+                        {{-- SIN icono, a peticion del cliente: llevaba una lupa pegada al
+                             cuadro de texto y sobraba. Ojo si se piensa reponer: la de
+                             Descripcion es la unica lupa del modal —es el unico campo de
+                             texto libre—; Categoria usa flecha por ser desplegable (ver su
+                             comentario mas arriba) y este campo tiene esa misma mecanica,
+                             asi que lo suyo seria la flecha, nunca la lupa. --}}
                         <div class="cdash-inp-box cdash-cat-box" id="cdashFrenteBox" onmousedown="window._cdashFrenteToggle(event)">
                             <input type="text" id="cdashFrenteInput" placeholder="Todos los frentes" autocomplete="off"
                                    oninput="window._cdashFrenteFilter(this.value)"
@@ -432,9 +438,9 @@
         // Cierra las sugerencias de Descripción para que el spinner de carga quede
         // visible (mismo feedback que al filtrar por Categoría).
         if (window._cdashDescCloseSug) window._cdashDescCloseSug();
-        // Los filtros avanzados van recogidos: el punto del botón es lo único que
-        // avisa de que hay alguno puesto. Se refresca aquí y no en cada control,
-        // porque por aquí pasan todos sin excepción.
+        // Los filtros avanzados van recogidos: el COLOR del boton es lo unico que
+        // avisa de que hay alguno puesto. Se refresca aqui y no en cada control,
+        // porque por aqui pasan todos sin excepcion.
         if (window._cdashMarcarAvanzados) window._cdashMarcarAvanzados();
         var ldEl = document.getElementById('cdashLoading');
         ldEl.style.display = 'flex';
@@ -887,8 +893,6 @@
         });
     }
 
-    // El punto del botón es la ÚNICA señal de que hay filtros puestos: recogidos en
-    // el panel, sin él no habría forma de saber que el dashboard está acotado.
     // Pinta el boton de rojizo cuando hay algun filtro avanzado puesto. Es la unica
     // senal de que el dashboard esta acotado: recogidos en un panel, sin ella no habria
     // forma de saberlo. Mismo gesto que en /admin/equipos.
