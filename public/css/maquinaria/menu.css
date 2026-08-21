@@ -8,9 +8,6 @@
     --shadow-soft: 0 4px 30px rgba(0, 0, 0, 0.05);
 }
 
-
-
-
 /* Header Estilo Magnifest (Glassmorphism + Flotante) */
 .dashboard-header {
     position: fixed;
@@ -250,60 +247,6 @@
     flex-direction: column;
 }
 
-/* Panel de Usuario Flotante - Styles moved inline to menu.blade.php */
-
-/* Botón estilo Nav Link */
-.nav-link-btn {
-    background: none;
-    border: none;
-    padding: 0;
-    margin: 0;
-    cursor: default;
-    /* Removed pointer cursor */
-    font-family: inherit;
-    /* Heredar fuente */
-    text-decoration: none;
-    color: var(--maquinaria-gray-text);
-    font-weight: 700;
-    font-size: 18px;
-    transition: color 0.3s ease;
-    position: relative;
-    display: flex;
-    align-items: center;
-    gap: 5px;
-}
-
-.nav-link-btn:hover {
-    color: var(--maquinaria-blue);
-}
-
-.nav-link-btn i {
-    font-size: 20px;
-    display: none;
-    /* Ocultar icono por defecto en desktop para que parezca texto puro como los otros, o dejarlo si se prefiere */
-}
-
-/* Si se quiere icono en desktop: */
-.nav-link-btn i {
-    display: inline-block;
-}
-
-/* Efecto de subrayado igual a los nav-link */
-.nav-link-btn::after {
-    content: '';
-    position: absolute;
-    width: 0;
-    height: 2px;
-    bottom: -4px;
-    left: 0;
-    background-color: var(--maquinaria-blue);
-    transition: width 0.3s ease;
-}
-
-.nav-link-btn:hover::after {
-    width: 100%;
-}
-
 /* Botón Hamburguesa */
 .menu-toggle {
     display: none;
@@ -434,29 +377,6 @@
     background-color: #f1f5f9;
 }
 
-.user-profile {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    color: var(--maquinaria-dark-blue);
-    font-weight: 700;
-    font-size: 14px;
-    padding-right: 10px;
-}
-
-.user-avatar {
-    width: 35px;
-    height: 35px;
-    border-radius: 50%;
-    background-color: var(--maquinaria-blue);
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 14px;
-    font-weight: bold;
-}
-
 /* Estilos de perfil y avatar ya definidos arriba son reutilizados */
 
 /* Nuevo estilo para título principal en dos líneas */
@@ -501,12 +421,6 @@
         padding: 8px 12px;
     }
 }
-
-.welcome-subtitle {
-    color: var(--maquinaria-gray-text);
-    font-size: 1.1rem;
-}
-
 
 /* Responsive */
 @media (max-width: 900px) {
@@ -565,69 +479,9 @@
     margin: 0;
 }
 
-/* Dashboard Cards */
-.dashboard-card {
-    background: white;
-    border-radius: 16px;
-    padding: 15px 18px;
-    /* Compressed padding */
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-    /* Compressed gap */
-    /* Updated shadow to match login forms (centered, dark) */
-    box-shadow: 0 0 25px -5px rgba(0, 0, 0, 0.25), 0 0 10px -5px rgba(0, 0, 0, 0.15);
-    transition: transform 0.2s, box-shadow 0.2s;
-    border: 1px solid #f1f5f9;
-    text-decoration: none;
-    color: inherit;
-}
-
-.dashboard-card:hover {
-    transform: translateY(-2px);
-    /* Shadow preserved from base class */
-}
-
-.icon-wrapper {
-    background: #f1f5f9;
-    padding: 10px;
-    border-radius: 12px;
-    color: #64748b;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    /* Shape Fix */
-    min-width: 44px;
-    height: 44px;
-}
-
-.card-green .icon-wrapper {
-    background: #dcfce7;
-    color: #166534;
-}
-
-.card-blue .icon-wrapper {
-    background: #dbeafe;
-    color: #1e40af;
-}
-
-.card-purple .icon-wrapper {
-    background: #f3e8ff;
-    color: #6b21a8;
-}
-
-.card-red .icon-wrapper {
-    background: #fee2e2;
-    color: #991b1b;
-}
-
 .card-yellow .icon-wrapper {
     background: #fffbeb;
     color: rgb(245, 158, 11);
-}
-
-.card-content {
-    flex: 1;
 }
 
 .card-label {
@@ -638,42 +492,11 @@
     margin-bottom: 5px;
 }
 
-.card-value-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
 .card-value {
     font-size: 28px;
     font-weight: 800;
     color: #1e293b;
     line-height: 1.2;
-}
-
-.card-subtext {
-    display: block;
-    font-size: 12px;
-    color: #94a3b8;
-    margin-top: 5px;
-}
-
-.card-subtext-inline {
-    font-size: 14px;
-    color: #94a3b8;
-    font-weight: 500;
-    margin-left: 5px;
-}
-
-/* Content Cards (Row 2) */
-.grid-row-2 {
-    grid-column: span 12;
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 25px;
-    width: 100%;
-    max-width: 1000px;
-    margin: 0 auto;
 }
 
 @media (max-width: 1024px) {
@@ -682,106 +505,6 @@
     .grid-row-2 {
         grid-template-columns: 1fr;
     }
-}
-
-.content-card {
-    background: white;
-    border-radius: 16px;
-    padding: 15px;
-    box-shadow: 0 0 25px -5px rgba(0, 0, 0, 0.25), 0 0 10px -5px rgba(0, 0, 0, 0.15);
-    border: 1px solid #f1f5f9;
-    display: flex;
-    flex-direction: column;
-    position: relative;
-    z-index: 10;
-    width: 100%;
-    box-sizing: border-box;
-}
-
-.card-title {
-    font-size: 15px;
-    font-weight: 700;
-    color: #1e293b;
-    margin-bottom: 10px;
-}
-
-/* Activity Feed */
-.activity-list {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    max-height: 400px;
-    /* Limit height */
-    overflow-y: auto;
-    /* Enable Scroll */
-    padding-right: 5px;
-    /* Prevent overlap */
-}
-
-/* Custom Scrollbar for activity list */
-.activity-list::-webkit-scrollbar {
-    width: 6px;
-}
-
-.activity-list::-webkit-scrollbar-track {
-    background: #f1f5f9;
-    border-radius: 4px;
-}
-
-.activity-list::-webkit-scrollbar-thumb {
-    background: #cbd5e0;
-    border-radius: 4px;
-}
-
-.activity-list::-webkit-scrollbar-thumb:hover {
-    background: #94a3b8;
-}
-
-.activity-item {
-    display: flex;
-    gap: 15px;
-    align-items: flex-start;
-    gap: 15px;
-    align-items: flex-start;
-}
-
-/* FIX OVAL ICONS */
-.activity-icon {
-    background: #f1f5f9;
-    border-radius: 50%;
-    color: #64748b;
-
-    /* Enforce rigid circle dimensions */
-    width: 36px;
-    height: 36px;
-    min-width: 36px;
-    flex-shrink: 0;
-
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.activity-icon i {
-    font-size: 20px;
-}
-
-.activity-info {
-    flex: 1;
-}
-
-.activity-text {
-    font-size: 13px;
-    color: #334155;
-    line-height: 1.4;
-    margin: 0;
-}
-
-.activity-time {
-    display: block;
-    font-size: 11px;
-    color: #94a3b8;
-    margin-top: 4px;
 }
 
 .empty-state {
@@ -833,59 +556,9 @@
 
 /* Mobile Responsive for Movilizaciones List */
 @media (max-width: 768px) {
-    .activity-item {
-        flex-wrap: nowrap !important;
-        /* Force side-by-side */
-        align-items: center !important;
-        /* Center vertically */
-        padding-bottom: 12px !important;
-    }
-
-    .activity-icon {
-        flex-shrink: 0;
-        margin-right: 8px;
-        margin-top: 0 !important;
-    }
-
-    .activity-info {
-        flex: 1;
-        min-width: 0;
-        /* Allow shrinking */
-        margin-right: 8px;
-        /* Space before button */
-    }
-
-    .activity-actions {
-        width: auto !important;
-        /* Fit content */
-        margin: 0 !important;
-        padding: 0 !important;
-        flex-shrink: 0;
-        justify-content: flex-end !important;
-    }
-
-    .activity-text {
-        font-size: 12px !important;
-        line-height: 1.3;
-        margin-bottom: 2px !important;
-    }
-
-    .activity-time {
-        font-size: 10px !important;
-        white-space: nowrap;
-    }
 }
 
 /* Hide button text on very small screens, show only icon */
 @media (max-width: 480px) {
-    .activity-actions button span {
-        display: none !important;
-    }
-
-    .activity-actions button {
-        padding: 8px !important;
-        min-width: 36px;
-        justify-content: center !important;
-    }
 }
 
