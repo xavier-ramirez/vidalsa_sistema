@@ -68,8 +68,11 @@
     .cdash-chart-dl:hover { background:#eff6ff; color:#0067b1; border-color:#bfdbfe; }
     .cdash-chart-dl .material-icons { font-size:16px; }
     .cdash-canvas-wrap { position:relative; height:240px; }
-    /* Top productos: más alto para que entren las 20 barras legibles. */
-    .cdash-canvas-wrap.tall { height:520px; }
+    /* Top productos: son barras HORIZONTALES (indexAxis:'y'), asi que cada producto es
+       una fila y este alto reparte su grosor. 26px por barra: eran 520 para 20 y pasan
+       a 650 al subir el grafico a 25 (AlmacenController::TOP_PRODUCTOS_GRAFICO). Si ese
+       numero vuelve a cambiar, hay que recalcular aqui — no se ajusta solo. */
+    .cdash-canvas-wrap.tall { height:650px; }
     .cdash-empty { color:#94a3b8; font-size:13px; text-align:center; padding:40px 0; }
     .cdash-loading { text-align:center; color:#64748b; font-size:14px; padding:50px 0; font-weight:600; display:flex; flex-direction:column; align-items:center; gap:10px; }
     .cdash-loading .cdash-spin { animation:cdashSpin .8s linear infinite; font-size:28px; color:#0067b1; }
@@ -114,21 +117,15 @@
     @media (max-width: 760px) {
         .cdash-grid { grid-template-columns:1fr; }
         .cdash-body { padding-left:14px; padding-right:14px; }   /* más ancho útil en móvil */
-        /* Descripción y Categoría cada una en su propia fila (van primero); Desde y Hasta UNO AL
-           LADO DEL OTRO. Ancho por FLEX. Gracias a box-sizing:border-box + min-width:0 el input de
-           mes encoge y los dos caben sin salirse del modal en cualquier teléfono. Se reduce
-           fuente/padding y se oculta el icono del calendario (el campo igual abre el selector al
-           tocarlo) para más holgura. */
+        /* Reparto en telefono: Descripcion se lleva la fila entera —es el filtro
+           principal y apretarlo lo deja ilegible— y Categoria comparte la suya CON el
+           boton de avanzados (36px + 8 de hueco), para que no caiga a una tercera fila
+           y quede lejos del filtro al que acompana. Desde/Hasta ya no viven aqui: se
+           mudaron al panel de filtros avanzados. */
         .cdash-filtros { gap:8px; }
         .cdash-filtros .f-group { flex:1 1 0; min-width:0; }
-        /* En pantalla estrecha cada filtro ocupa su propia fila: apretar dos campos de
-           texto en un ancho de telefono los deja ilegibles. */
-        /* Descripcion se lleva la fila entera. Categoria comparte la suya CON el boton
-           de avanzados (36px + 8 de hueco): si tambien pidiera el 100%, el boton caeria
-           a una tercera fila y volveria a quedar lejos del filtro al que acompana. */
         .cdash-filtros .f-group-desc { flex:1 1 100%; }
         .cdash-filtros .f-group-cat  { flex:1 1 calc(100% - 44px); }
-        .cdash-filtros .cdash-adv-field { flex:1 1 100%; }
         /* El panel no cabe a 340px en un telefono: se ancla a los dos bordes. */
         .cdash-adv-panel { width:auto; left:0; right:0; }
         .cdash-filtros input[type="month"] { width:100%; min-width:0; font-size:12px; padding:0 6px; }
@@ -246,7 +243,7 @@
             <div id="cdashContent" style="display:none;">
                 <div class="cdash-grid">
                     <div class="cdash-card full"><h4>Consumo por mes<button type="button" class="cdash-chart-dl" onclick="window._cdashDescargarGrafico(this,'consumo-por-mes')" title="Descargar gráfico" aria-label="Descargar gráfico"><i class="material-icons">photo_camera</i></button></h4><div class="cdash-canvas-wrap"><canvas id="cdashChartMes"></canvas></div></div>
-                    <div class="cdash-card full"><h4>Top 20 productos consumidos<button type="button" class="cdash-chart-dl" onclick="window._cdashDescargarGrafico(this,'top-20-consumidos')" title="Descargar gráfico" aria-label="Descargar gráfico"><i class="material-icons">photo_camera</i></button></h4><div class="cdash-canvas-wrap tall"><canvas id="cdashChartTop"></canvas></div></div>
+                    <div class="cdash-card full"><h4>Top {{ \App\Http\Controllers\AlmacenController::TOP_PRODUCTOS_GRAFICO }} productos consumidos<button type="button" class="cdash-chart-dl" onclick="window._cdashDescargarGrafico(this,'top-20-consumidos')" title="Descargar gráfico" aria-label="Descargar gráfico"><i class="material-icons">photo_camera</i></button></h4><div class="cdash-canvas-wrap tall"><canvas id="cdashChartTop"></canvas></div></div>
                     <div class="cdash-card full"><h4>Consumo por almacén<button type="button" class="cdash-chart-dl" onclick="window._cdashDescargarGrafico(this,'consumo-por-almacen')" title="Descargar gráfico" aria-label="Descargar gráfico"><i class="material-icons">photo_camera</i></button></h4><div class="cdash-canvas-wrap"><canvas id="cdashChartAlm"></canvas></div></div>
                 </div>
             </div>

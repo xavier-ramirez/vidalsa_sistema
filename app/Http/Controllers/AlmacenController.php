@@ -47,6 +47,18 @@ class AlmacenController extends Controller
 {
     use ExcelLogoCorporativo;
 
+    /**
+     * Cuantos productos entran en el grafico "Top N productos consumidos" del Dashboard
+     * de Consumo. Es PUBLIC a proposito: el titulo del grafico lo lee de aqui
+     * (partials/consumo_dashboard_modal.blade.php). El numero estaba escrito dos veces
+     * —en la consulta y en el rotulo— y cambiar solo uno dejaba el grafico diciendo una
+     * cosa y pintando otra.
+     *
+     * No afecta al Excel: consumoDashboardExport() llama a consumoPorProducto() SIN
+     * limite, porque ahi se descarga el consumo completo, no un top.
+     */
+    public const TOP_PRODUCTOS_GRAFICO = 25;
+
     public function __construct(
         private InventarioService $inventario,
         private \App\Services\TraspasoService $traspasos,
@@ -1802,7 +1814,9 @@ class AlmacenController extends Controller
         $CENTRO = \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER;
 
         // Las MISMAS tres agregaciones que pintan los graficos. Sin limite en productos:
-        // el grafico recorta a 20 barras para poder dibujarse, el Excel se lleva todo.
+        // el grafico recorta a TOP_PRODUCTOS_GRAFICO barras para poder dibujarse, el Excel
+        // se lleva todo. El numero no se repite aqui a proposito — si vuelve a cambiar,
+        // este comentario no se queda mintiendo.
         $porMes = $this->consumoPorMes($base)
             ->map(fn ($r) => [$r['mes'], $r['total']])->all();
 
@@ -1912,10 +1926,10 @@ class AlmacenController extends Controller
             $porMes = $porMes->slice(-12)->values();
         }
 
-        // ── Top 20 productos más consumidos ────────────────────────────────────
+        // ── Top N productos mas consumidos (N = self::TOP_PRODUCTOS_GRAFICO) ────────────────────────────────────
         // Se enriquece con el nº de parte PRINCIPAL (+ alternos) y los EQUIPOS que
         // usan el filtro, para mostrarlos en el tooltip del gráfico (al pasar el mouse).
-        $topRows = $this->consumoPorProducto($base, 20);
+        $topRows = $this->consumoPorProducto($base, self::TOP_PRODUCTOS_GRAFICO);
 
         $idsTop = $topRows->pluck('id')->all();
 
