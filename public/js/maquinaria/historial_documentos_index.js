@@ -220,12 +220,13 @@ if (!window._hdRowClickRegistered) {
     window._hdRowClickRegistered = true;
 
     document.addEventListener('click', function(e) {
-        if (e.target.closest('.custom-dropdown') || e.target.closest('button') || e.target.closest('a')) return;
+        // El chip "ver cambios" tiene su propio gesto (abre la burbuja); tocarlo no
+        // debe ademas seleccionar la fila.
+        if (e.target.closest('.custom-dropdown') || e.target.closest('button') || e.target.closest('a')
+            || e.target.closest('.hd-ver-cambios-chip')) return;
 
         const tr = e.target.closest('.hd-selectable-row');
         if (!tr) return;
-
-        if (tr.classList.contains('hd-has-cambios')) return;
 
         const id = tr.dataset.hdId;
         if (!id) return;

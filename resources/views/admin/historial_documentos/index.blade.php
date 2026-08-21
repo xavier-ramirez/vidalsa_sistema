@@ -1145,44 +1145,51 @@ if (!window._hdInlineClickRegistered) {
     function hdCerrarTodo() {
         document.querySelectorAll('.hd-cambios-detail').forEach(function (d) { d.style.display = 'none'; });
         document.querySelectorAll('.hd-detail-open').forEach(function (r) {
-            r.classList.remove('hd-detail-open', 'hd-detail-pinned');
+            r.classList.remove('hd-detail-open');
             var chip = r.querySelector('.hd-ver-cambios-chip i');
             if (chip) chip.textContent = 'history';
         });
     }
 
-    function hdAbrir(row, fijar) {
+    function hdAbrir(row) {
         var detail = row.querySelector('.hd-cambios-detail');
         if (!detail) return;
         detail.style.display = 'block';
         row.classList.add('hd-detail-open');
-        if (fijar) row.classList.add('hd-detail-pinned');
+        // El chip solo dice si está abierta o cerrada: el ratón abre y sacarlo
+        // cierra, y el clic es para seleccionar el registro.
         var chip = row.querySelector('.hd-ver-cambios-chip i');
-        // El icono dice que hace el SIGUIENTE clic: fijada -> cerrar; en vista
-        // previa -> fijar.
-        if (chip) chip.textContent = fijar ? 'expand_less' : 'push_pin';
+        if (chip) chip.textContent = 'expand_less';
     }
 
-    document.addEventListener('click', function (e) {
-        // Cualquier botón de la fila (Ver PDF / Eliminar) NO debe abrir/cerrar la burbuja.
-        if (e.target.closest('button')) return;
-        var row = e.target.closest('.hd-has-cambios');
-        if (!row) return;
-        var detail = row.querySelector('.hd-cambios-detail');
-        if (!detail) return;
-        // El clic FIJA la burbuja (antes solo la abria). Fijada, no se cierra al
-        // sacar el raton: hace falta para poder leerla con calma, para copiar algo
-        // de dentro, y en tactil —donde no hay raton que pasar— es la unica via.
-        var yaFijada = row.classList.contains('hd-detail-pinned');
-        hdCerrarTodo();
-        if (!yaFijada) {
-            hdAbrir(row, true);
-        }
-    });
+        // El chip "ver cambios" SI abre la burbuja al tocarlo. Es la unica via en un
+        // telefono, donde no hay raton que pasar por encima: sin esto los cambios
+        // serian invisibles en tactil. Se para la propagacion para que el mismo toque
+        // no seleccione ademas la fila.
+        document.addEventListener('click', function (e) {
+            var chip = e.target.closest('.hd-ver-cambios-chip');
+            if (!chip) return;
+            e.preventDefault();
+            e.stopPropagation();
+            var row = chip.closest('.hd-has-cambios');
+            if (!row) return;
+            var abierta = row.classList.contains('hd-detail-open');
+            hdCerrarTodo();
+            if (!abierta) hdAbrir(row);
+        }, true);   // en captura: llega antes que el handler de seleccion
+
+        // El clic en el RESTO de la fila NO abre la burbuja: ese gesto es del ratón. Aquí vale
+        // para lo mismo que en el resto de las filas —SELECCIONAR el registro, que
+        // alimenta el contador flotante y "ver solo seleccionados"—, y de eso se
+        // encarga historial_documentos_index.js.
+        //
+        // Antes las filas con cambios estaban EXCLUIDAS de la selección justamente
+        // porque el clic se lo llevaba la burbuja. Al mudarla al ratón, el clic queda
+        // libre y esas filas se seleccionan como todas las demás.
 
     // ── Vista previa al pasar el raton ──────────────────────────────────────
-    // Antes habia que pinchar registro por registro para ver que cambio en cada
-    // uno. Ahora basta con pasar por encima; el clic sigue ahi para fijarla.
+    // Antes había que pinchar registro por registro para ver qué cambió en cada
+    // uno. Ahora basta con pasar por encima, y el clic queda libre para seleccionar.
     //
     // Con un retardo corto: sin el, al recorrer la tabla se abrian y cerraban
     // todas las burbujas de golpe y era imposible leer nada.
@@ -1191,14 +1198,11 @@ if (!window._hdInlineClickRegistered) {
     document.addEventListener('mouseover', function (e) {
         var row = e.target.closest('.hd-has-cambios');
         if (!row) return;
-        // Si ya hay una FIJADA, el raton no manda: se respeta lo que eligio el
-        // usuario hasta que la cierre.
-        if (document.querySelector('.hd-detail-pinned')) return;
         if (row.classList.contains('hd-detail-open')) return;
         clearTimeout(hdPreviaTimer);
         hdPreviaTimer = setTimeout(function () {
             hdCerrarTodo();
-            hdAbrir(row, false);
+            hdAbrir(row);
         }, 180);
     });
 
@@ -1209,7 +1213,6 @@ if (!window._hdInlineClickRegistered) {
         // como salir: si no, leerla era imposible porque se cerraba sola.
         if (e.relatedTarget && row.contains(e.relatedTarget)) return;
         clearTimeout(hdPreviaTimer);
-        if (row.classList.contains('hd-detail-pinned')) return;
         hdPreviaTimer = setTimeout(function () {
             if (!row.matches(':hover')) hdCerrarTodo();
         }, 180);
