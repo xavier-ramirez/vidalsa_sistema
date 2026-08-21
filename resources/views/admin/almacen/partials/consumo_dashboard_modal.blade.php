@@ -123,7 +123,16 @@
     .cdash-adv-limpiar:hover { text-decoration:underline; }
     /* Dentro del panel cada filtro ocupa su propia linea: hay sitio de sobra y
        asi el rango de meses se lee como un rango y no como dos casillas sueltas. */
-    .cdash-adv-panel .cdash-adv-field { flex:1 1 100% !important; }
+    /* Hijo DIRECTO (>) y no cualquier descendiente: los campos sueltos del panel se
+       llevan el ancho entero, pero los que van dentro de .cdash-adv-fila deben
+       repartirselo. Sin el >, este !important los aplastaba a 100% cada uno y la
+       fila se deshacia. */
+    .cdash-adv-panel > .cdash-adv-field { flex:1 1 100% !important; }
+
+    /* Dos campos por fila dentro del panel (Desde / Hasta). */
+    .cdash-adv-fila { display:flex; gap:10px; }
+    .cdash-adv-fila .cdash-adv-field { flex:1 1 0; min-width:0; }
+    .cdash-adv-fila input[type="month"] { min-width:0; }
     .cdash-adv-panel input[type="month"] { width:100%; }
 
     @media (max-width: 760px) {
@@ -160,8 +169,10 @@
             </div>
         </div>
         <div class="cdash-body">
-            {{-- Filtros propios del dashboard. Orden: Descripción primero (filtro principal),
-                 luego Categoría (ancho reducido) y el rango de meses Desde/Hasta a la derecha.
+            {{-- Filtros propios del dashboard. En la barra van solo los dos de uso corriente:
+                 Descripción (el principal) y Categoría, y al lado el botón que despliega los
+                 avanzados. El frente de destino y el rango Desde/Hasta ya NO viven aquí: se
+                 recogieron en ese panel para no ocupar una fila entera siempre visible.
                  Sin títulos: cada control se identifica por su placeholder/valor. --}}
             <div class="cdash-filtros">
                 <div class="f-group f-group-desc">
@@ -246,12 +257,18 @@
                         <div class="cdash-cat-list" id="cdashFrenteList"></div>
                     </div>
                 </label>
+                {{-- Desde y Hasta comparten fila: son los dos extremos del MISMO rango y
+                     leerlos uno debajo del otro obligaba a recomponer mentalmente el
+                     periodo. Cada uno se lleva la mitad (flex:1 1 0 + min-width:0), asi
+                     que encogen juntos y caben tambien en el panel estrecho del telefono. --}}
+                <div class="cdash-adv-fila">
                 <label class="cdash-adv-field"><span>Desde (mes)</span>
                     <input type="month" id="cdashDesde" title="Desde (mes)" onchange="window._cdashFetch()" onclick="try{ this.showPicker(); }catch(e){}">
                 </label>
                 <label class="cdash-adv-field"><span>Hasta (mes)</span>
                     <input type="month" id="cdashHasta" title="Hasta (mes)" onchange="window._cdashFetch()" onclick="try{ this.showPicker(); }catch(e){}">
                 </label>
+                </div>
                 </div>
             </div>
             </div>
