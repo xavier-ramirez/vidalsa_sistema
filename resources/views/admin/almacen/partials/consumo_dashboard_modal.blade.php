@@ -80,18 +80,30 @@
     .cdash-adv-wrap { position:relative; flex-shrink:0; }
 
     /* 36px, no 45 como en equipos: alli el boton va en una barra de filtros de
-       pagina completa; aqui convive con inputs de 36px y uno de 45 sobresaldria. */
-    .cdash-adv-btn {
+       pagina completa; aqui convive con inputs de 36px y uno de 45 sobresaldria.
+
+       Los COLORES si son los de equipos, y no los de .btn-primary-maquinaria: alla
+       el boton se pisa la clase con estilos propios y sale BLANCO con borde e icono
+       grises, no azul. El azul de la clase lo hacia parecer el boton principal de la
+       barra, cuando es un accesorio de los filtros.
+
+       Se apunta por ID y no por clase porque .btn-primary-maquinaria tiene la MISMA
+       especificidad que una clase: un cambio en el orden de carga devolveria el azul
+       sin avisar. Con el id gana siempre. */
+    #cdashAdvBtn {
         position:relative; height:36px; width:36px; min-width:36px; padding:0;
         display:flex; align-items:center; justify-content:center; border-radius:8px;
+        background:#fff; border:1px solid #cbd5e0; color:#64748b; box-shadow:none;
     }
-    .cdash-adv-btn .material-icons { font-size:20px; }
+    #cdashAdvBtn:hover { background:#f8fafc; }
 
-    /* Punto azul: unica senal de que hay filtros puestos cuando estan recogidos. */
-    .cdash-adv-dot {
-        position:absolute; top:5px; right:5px; width:8px; height:8px; border-radius:50%;
-        background:var(--maquinaria-blue); border:2px solid #fff;
+    /* Con filtros puestos vira a rojizo, igual que en equipos. Esta es la UNICA
+       senal de que el dashboard esta acotado: antes convivia con un punto azul en
+       la esquina, dos dueños del mismo estado. */
+    #cdashAdvBtn.con-filtros {
+        background:#fee2e2; border-color:#ef4444; color:#ef4444;
     }
+    #cdashAdvBtn .material-icons { font-size:20px; }
 
     .cdash-adv-panel {
         position:absolute; top:calc(100% + 6px); right:0; z-index:20;
@@ -196,15 +208,14 @@
                  lejos del control al que acompaña. En teléfono comparte fila con Categoría
                  por lo mismo (ver el flex-basis del @media de arriba).
 
-                 El punto azul del botón avisa de que hay algún filtro puesto: recogidos
-                 en un panel, sin esa señal no habría forma de saber que el dashboard está
-                 acotado. Lo enciende _cdashMarcarAvanzados() al aplicar cualquiera. --}}
+                 Con algun filtro puesto el boton vira a rojizo, igual que en equipos:
+                 recogidos en un panel, sin esa senal no habria forma de saber que el
+                 dashboard esta acotado. Lo aplica _cdashMarcarAvanzados(). --}}
             <div class="cdash-adv-wrap">
-                <button type="button" id="cdashAdvBtn" class="btn-primary-maquinaria cdash-adv-btn"
+                <button type="button" id="cdashAdvBtn" class="btn-primary-maquinaria"
                         title="Filtros avanzados: frente de destino y rango de meses"
                         onclick="window._cdashAdvToggle(event)">
                     <i class="material-icons">filter_list</i>
-                    <span class="cdash-adv-dot" id="cdashAdvDot" style="display:none;"></span>
                 </button>
 
                 <div id="cdashAdvPanel" class="cdash-adv-panel" style="display:none;">
@@ -220,7 +231,6 @@
                     <div class="cdash-cat-wrap">
                         <input type="hidden" id="cdashFrente" value="">
                         <div class="cdash-inp-box cdash-cat-box" id="cdashFrenteBox" onmousedown="window._cdashFrenteToggle(event)">
-                            <i class="material-icons">search</i>
                             <input type="text" id="cdashFrenteInput" placeholder="Todos los frentes" autocomplete="off"
                                    oninput="window._cdashFrenteFilter(this.value)"
                                    onfocus="window._cdashFrenteOpen()"
@@ -879,15 +889,18 @@
 
     // El punto del botón es la ÚNICA señal de que hay filtros puestos: recogidos en
     // el panel, sin él no habría forma de saber que el dashboard está acotado.
+    // Pinta el boton de rojizo cuando hay algun filtro avanzado puesto. Es la unica
+    // senal de que el dashboard esta acotado: recogidos en un panel, sin ella no habria
+    // forma de saberlo. Mismo gesto que en /admin/equipos.
     window._cdashMarcarAvanzados = function () {
-        var punto = document.getElementById('cdashAdvDot');
-        if (!punto) return;
+        var btn = document.getElementById('cdashAdvBtn');
+        if (!btn) return;
         var hay = !!(
             (document.getElementById('cdashFrente') || {}).value ||
             (document.getElementById('cdashDesde')  || {}).value ||
             (document.getElementById('cdashHasta')  || {}).value
         );
-        punto.style.display = hay ? 'block' : 'none';
+        btn.classList.toggle('con-filtros', hay);
     };
 
     window._cdashAdvLimpiar = function () {
