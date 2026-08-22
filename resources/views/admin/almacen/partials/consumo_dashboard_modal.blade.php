@@ -129,7 +129,11 @@
        fila se deshacia. */
     .cdash-adv-panel > .cdash-adv-field { flex:1 1 100% !important; }
 
-    /* Dos campos por fila dentro del panel (Desde / Hasta). */
+    /* Dos campos por fila dentro del panel (Desde / Hasta), a mitades.
+       El min-width:0 va DOS veces a proposito, y ninguna sobra: en el <label> porque un
+       item flex no encoge por debajo de su contenido sin el, y en el <input> porque
+       .cdash-adv-field le pone min-width:150px y dos de esos (150+150+10) no caben en los
+       312px utiles del panel. Sin cualquiera de los dos, la fila se sale por la derecha. */
     .cdash-adv-fila { display:flex; gap:10px; }
     .cdash-adv-fila .cdash-adv-field { flex:1 1 0; min-width:0; }
     .cdash-adv-fila input[type="month"] { min-width:0; }
@@ -147,8 +151,13 @@
         .cdash-filtros .f-group { flex:1 1 0; min-width:0; }
         .cdash-filtros .f-group-desc { flex:1 1 100%; }
         .cdash-filtros .f-group-cat  { flex:1 1 calc(100% - 44px); }
-        /* El panel no cabe a 340px en un telefono: se ancla a los dos bordes. */
-        .cdash-adv-panel { width:auto; left:0; right:0; }
+        /* El panel no cabe a 340px en un telefono. NO se usa `left:0; right:0`: su bloque
+           contenedor es .cdash-adv-wrap, que mide lo que el boton —36px—, asi que eso
+           dejaba el panel de 36px de ancho y el contenido se le salia por los lados.
+           Se queda anclado a la derecha del boton y se estira hacia la izquierda hasta
+           el ancho util del modal. Los 56px son los rellenos horizontales que lo separan
+           del borde de la pantalla: 14 del overlay + 14 del cuerpo, a cada lado. */
+        .cdash-adv-panel { left:auto; right:0; width:calc(100vw - 56px); max-width:340px; }
         .cdash-filtros input[type="month"] { width:100%; min-width:0; font-size:12px; padding:0 6px; }
         .cdash-filtros input[type="month"]::-webkit-calendar-picker-indicator { display:none; }
     }
