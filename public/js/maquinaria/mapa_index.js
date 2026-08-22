@@ -634,11 +634,17 @@
         function cargarMunicipios() {
             if (muniPromesa) return muniPromesa;
             if (!muniUrl) return Promise.resolve(null);
+            // Spinner: es el archivo mas pesado del mapa (~1 MB) y encima hay que colorear
+            // por adyacencia antes de pintar. Sin el, con internet flojo la pantalla se
+            // quedaba quieta y parecia que el clic no habia hecho nada.
+            spinOn();
             muniPromesa = window.apiFetch(muniUrl).then(function (r) { return r.json(); }).then(function (gj) {
                 muniData = gj;
                 construirColoresMuni(gj.features); // coloreado por adyacencia (vecinos ≠ color) antes de pintar
+                spinOff();   // DESPUES del coloreado: esa parte tambien tarda
                 return gj;
             }).catch(function () {
+                spinOff();
                 // Si fallo se limpia la promesa para permitir un reintento en el SIGUIENTE
                 // uso (otro clic del usuario). Quien llama debe comprobar que el resultado
                 // no sea null antes de repintar: si no, el .then() volveria a pedir la
@@ -994,8 +1000,11 @@
                 if (!url) return Promise.resolve(false);
                 spinOn();
                 est.promesa = window.apiFetch(url).then(function (r) { return r.json(); }).then(function (gj) {
-                    spinOff();
+                    // El spinner se apaga DESPUES de crear la capa, no antes: dibujar los
+                    // poligonos es la parte lenta y antes quedaba fuera, asi que el spinner
+                    // se iba y la pantalla seguia congelada un rato mas.
                     est.capa = crearCapa(gj);
+                    spinOff();
                     return true;
                 }).catch(function () {
                     // Igual que en los municipios: se limpia la promesa para poder reintentar en el
@@ -1012,10 +1021,17 @@
                 est.sincronizar();  // responde al instante, aunque el geojson aún se esté bajando
                 if (alCambiar) alCambiar(est); // cada capa refresca LO SUYO (leyenda / buscador)
                 if (!est.on) { if (est.capa) map.removeLayer(est.capa); return; }
+                // Volver a encender una capa YA descargada no baja nada, pero meter miles de
+                // poligonos en el mapa igual se nota. El spinner cubre tambien ese momento;
+                // si la capa esta sin descargar lo enciende cargar() y aqui no se toca, que
+                // si no el contador de referencias se quedaria descuadrado.
+                var yaEstaba = !!est.promesa;
+                if (yaEstaba) spinOn();
                 est.cargar().then(function (ok) {
-                    if (!ok) { est.on = false; est.sincronizar(); if (alCambiar) alCambiar(est); return; }
+                    if (!ok) { if (yaEstaba) spinOff(); est.on = false; est.sincronizar(); if (alCambiar) alCambiar(est); return; }
                     if (est.on) est.capa.addTo(map);   // si la apagó mientras cargaba, no se pinta
                     if (alCambiar) alCambiar(est);     // ya con la capa cargada (el buscador la necesita)
+                    if (yaEstaba) spinOff();
                 });
             };
             return est;
