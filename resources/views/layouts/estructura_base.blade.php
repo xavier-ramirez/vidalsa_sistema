@@ -2092,6 +2092,15 @@
             // apertura): ver por qué en el setTimeout de más abajo.
             let _pdfLoaderTimeout = null;
 
+            // Radio del desenfoque con el que se revela el PDF mientras llega. En UN solo
+            // sitio: lo ponen la apertura y la asignacion del src, y si los dos valores se
+            // separaran el documento daria un salto de nitidez al empezar a cargar.
+            const PDF_BLUR_CARGA = 'blur(14px)';
+            // Enfocado. Tiene que ser blur(0px) y NO cadena vacia ni 'none': de un blur a
+            // `none` no hay interpolacion posible, asi que el filtro se quitaria de golpe y se
+            // perderia justo la transicion que da la sensacion de "termino de llegar".
+            const PDF_SIN_BLUR = 'blur(0px)';
+
             window.openPdfPreview = function (url, docType, label, equipoId, uploadUrl, skipMetadata, module) {
                 const modal = document.getElementById('pdfPreviewModal');
                 const iframe = document.getElementById('pdfPreviewFrame');
@@ -2125,7 +2134,7 @@
                     iframe.style.opacity = '0';
                     // Sin resetear, la apertura SIGUIENTE arrancaria ya enfocada y se perderia
                     // el efecto a partir del segundo documento.
-                    iframe.style.filter = 'blur(14px)';
+                    iframe.style.filter = PDF_BLUR_CARGA;
                     // 'about:blank' explícito y NO '': la cadena vacía se resuelve contra la
                     // URL del documento actual, así que el iframe se ponía a cargar la página
                     // entera (/admin/equipos y sus ~1.200 filas) hasta que el src del PDF la
@@ -2174,17 +2183,22 @@
                     if (loader) loader.style.display = 'none';
                     // Tambien enfoca: si no, un onload que no llega dejaria el documento
                     // borroso para siempre, que es peor que la espera que este respaldo evita.
-                    if (iframe) { iframe.style.opacity = '1'; iframe.style.filter = 'blur(0px)'; }
+                    if (iframe) { iframe.style.opacity = '1'; iframe.style.filter = PDF_SIN_BLUR; }
                 }, 5000);
 
                 // Apaga el loader y destapa el PDF. Se llama una sola vez, desde el onload
                 // del iframe.
                 //
-                // No apaga de golpe: le baja la opacidad y lo quita 200 ms después. Durante
-                // ese fundido el loader SIGUE TAPANDO el iframe, y ese es justamente el
-                // margen que necesita el visor nativo para pintar la primera página. Por eso
-                // se pudo quitar la espera fija que había antes del onload: cubría el mismo
-                // hueco dos veces.
+                // No apaga de golpe: le baja la opacidad y lo quita 200 ms despues, para que no
+                // desaparezca de un tiron.
+                //
+                // OJO con el motivo: aqui decia que durante ese fundido "el loader sigue
+                // TAPANDO el iframe". No es cierto, y no lo era antes tampoco —
+                // #pdfViewerLoader es un spinner con texto, SIN fondo: nunca tapo nada. Lo
+                // que cubria el hueco que el visor nativo necesita para pintar la primera
+                // pagina era el propio iframe, subiendo de opacity 0 a 1 con su transicion.
+                // Hoy ese colchon es la transicion del DESENFOQUE (0.5s): el documento ya se
+                // ve, y termina de enfocarse mientras el visor acaba de pintar.
                 //
                 // Aquí hubo además un "mínimo que el loader permanece visible" de 250 ms.
                 // Se quitó porque NO podía ejecutarse: se medía desde el inicio de la
@@ -2202,7 +2216,7 @@
                         iframe.style.opacity = '1';
                         // Enfoca lo que ya se estaba viendo borroso. La transicion de 0.5s
                         // del CSS es la que da la sensacion de "termino de llegar".
-                        iframe.style.filter = 'blur(0px)';
+                        iframe.style.filter = PDF_SIN_BLUR;
                     }
                 };
 
@@ -2226,12 +2240,11 @@
                         // cientos de ms en pintar la primera pagina. Aqui habia una espera
                         // fija para cubrir ese hueco: primero 1500 ms, luego 400.
                         //
-                        // Ya no hace falta y por eso se va: el hueco lo cubre el propio
-                        // FUNDIDO del loader. hideLoaderWhenReady no lo apaga de golpe, le
-                        // baja la opacidad y lo quita 200 ms despues, y durante ese fundido
-                        // el loader sigue TAPANDO el iframe. O sea que el visor ya tenia
-                        // 200 ms de margen para pintar, y los 400 de aqui se sumaban encima
-                        // sin tapar nada: eran 400 ms de nada en CADA documento.
+                        // Ya no hace falta y por eso se va: ese hueco lo cubre la transicion
+                        // con la que hideLoaderWhenReady enfoca el documento (el detalle esta
+                        // alli). El visor conserva su margen para pintar, y los 400 ms de aqui
+                        // se sumaban encima sin cubrir nada: eran 400 ms de nada en CADA
+                        // documento.
                         // (_pdfLoaderTimeout, los 5 s de respaldo, sigue cubriendo el caso
                         // de que onload no llegue nunca.)
                         hideLoaderWhenReady();
@@ -2270,7 +2283,7 @@
                         // pagina, texto sin fuentes) que de otro modo se veria como un fallo.
                         // El spinner sigue encima hasta el onload, ahora sobre el documento
                         // formandose en vez de sobre un gris vacio.
-                        iframe.style.filter = 'blur(14px)';
+                        iframe.style.filter = PDF_BLUR_CARGA;
                         iframe.style.opacity = '1';
                         iframe.src = url + '#toolbar=0&navpanes=0&scrollbar=0&zoom=100';
                     } else {
