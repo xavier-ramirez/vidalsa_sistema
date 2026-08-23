@@ -2615,6 +2615,16 @@
                     <div id="bulkLookupYellowLegend" style="display:none;">
                         <span style="color:#854d0e;">Equipos en un frente diferente al seleccionado</span>
                     </div>
+                    {{-- El ámbar ya significaba "otro frente"; con la búsqueda parcial pasó a
+                         significar también "fragmento ambiguo". Cada uno lleva su renglón y
+                         solo aparece cuando hay filas de ese tipo, para no explicar colores
+                         que no están en pantalla. --}}
+                    <div id="bulkLookupAmbiguoLegend" style="display:none;">
+                        <span style="color:#854d0e;">Fragmentos que coinciden con varios equipos: hacen falta más caracteres</span>
+                    </div>
+                    <div id="bulkLookupParcialLegend" style="display:none;">
+                        <span style="color:#92400e;">≈</span> Se encontró por coincidencia parcial; al lado va el valor completo
+                    </div>
                 </div>
             </div>
         </div>
@@ -2822,7 +2832,9 @@
     function renderResults(payload, frenteNombre) {
         const tbody = document.getElementById('bulkLookupResultsBody');
         const summary = document.getElementById('bulkLookupSummary');
-        const yellowLegend = document.getElementById('bulkLookupYellowLegend');
+        const yellowLegend   = document.getElementById('bulkLookupYellowLegend');
+        const ambiguoLegend  = document.getElementById('bulkLookupAmbiguoLegend');
+        const parcialLegend  = document.getElementById('bulkLookupParcialLegend');
         if (!tbody || !summary) return;
 
         const hayFiltroFrente = !!frenteNombre;
@@ -2878,6 +2890,17 @@
                 <i class="material-icons" style="font-size: 13px; vertical-align: -2px; color: ${missing > 0 ? '#dc2626' : '#94a3b8'};">cancel</i> No encontrados: ${missing}
             </span>
         `;
+        // Con listas enormes el backend deja de intentar la búsqueda parcial (tope
+        // BULK_PARCIAL_MAX). Se dice, porque si no esos "no encontrados" parecerían
+        // buscados igual que el resto y no lo fueron.
+        if ((payload.parcial_omitidos || 0) > 0) {
+            summaryHtml += `
+                <span style="font-size: 12px; font-weight: 700; color: #854d0e;"
+                      title="Son demasiados para cruzarlos por coincidencia parcial. Búsquelos en una lista más corta.">
+                    <i class="material-icons" style="font-size: 13px; vertical-align: -2px; color: #ca8a04;">more_horiz</i> Sin buscar por coincidencia parcial: ${payload.parcial_omitidos}
+                </span>
+            `;
+        }
         summary.innerHTML = summaryHtml;
 
         if (confirmed > 0 && window.showToast) {
@@ -2885,6 +2908,10 @@
         }
 
         if (yellowLegend) yellowLegend.style.display = inOther > 0 ? 'block' : 'none';
+        const hayAmbiguos = results.some(r => !r.found && (r.ambiguo || 0) > 1);
+        const hayParciales = results.some(r => r.found && r.parcial);
+        if (ambiguoLegend) ambiguoLegend.style.display = hayAmbiguos ? 'block' : 'none';
+        if (parcialLegend) parcialLegend.style.display = hayParciales ? 'block' : 'none';
 
         lastMissingTerms = [];
         const cellBase    = "padding: 6px 10px; border-bottom: 1px solid #f1f5f9; color: #334155; word-break: break-word;";
@@ -2930,7 +2957,7 @@
             const frente = r.frente_nombre === 'SIN ASIGNAR'
                 ? '<span style="font-style: italic;">SIN ASIGNAR</span>'
                 : escapeHtml(r.frente_nombre);
-            const buscadoPrefix = (hayFiltroFrente \&\& r.in_selected_frente) ? checkIcon : '';
+            const buscadoPrefix = (hayFiltroFrente && r.in_selected_frente) ? checkIcon : '';
             // r.parcial trae el valor COMPLETO contra el que caso el fragmento (null si fue
             // exacto). Se muestra debajo del termino: sin eso, quien escribe medio serial no
             // tiene como comprobar que el equipo devuelto es el que buscaba.

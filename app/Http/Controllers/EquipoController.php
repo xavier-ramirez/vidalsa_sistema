@@ -3908,6 +3908,16 @@ class EquipoController extends Controller
      */
     private const BULK_PARCIAL_MIN = 4;
 
+    /**
+     * Cuantos terminos como maximo se rescatan por coincidencia parcial en una tanda.
+     * El endpoint acepta hasta 2000: cruzarlos todos contra las ~1350 filas de la flota
+     * son millones de comparaciones y una consulta con 10.000 clausulas OR — tumbaria la
+     * peticion entera por un rescate que es, por definicion, para lo que se tecleo a mano.
+     * Quien pega 2000 lineas desde una hoja de calculo trae los valores completos.
+     * Lo que pase de aqui se informa en la respuesta ('parcial_omitidos'), no se calla.
+     */
+    private const BULK_PARCIAL_MAX = 100;
+
     public function bulkLookup(Request $request)
     {
         $request->validate([
@@ -4030,13 +4040,14 @@ class EquipoController extends Controller
         // caso es de todos los dias: copiar los ultimos digitos de una placa, o leer un
         // serial borroso de una chapa.
         //
-        // Se resuelve en una SEGUNDA consulta y SOLO con los terminos que quedaron sin
-        // dueno. Importa que sea asi: LIKE '%x%' no puede usar indice, y la busqueda exacta
-        // —que acierta en casi todos los casos— no tiene por que pagar eso.
+        // Se resuelve en dos consultas mas (equipos y auxiliares) y SOLO con los terminos
+        // que quedaron sin dueno. Importa que sea asi: LIKE '%x%' no puede usar indice, y
+        // la busqueda exacta —que acierta en casi todos los casos— no tiene por que pagarlo.
         //
         // Se acepta la parcial SOLO si un unico equipo la contiene. Con dos o mas no hay
         // forma de saber cual queria el usuario, y elegir uno seria peor que avisar: esos
-        // terminos siguen saliendo como no encontrados para que los complete.
+        // quedan como no encontrados, pero contando CUANTOS son (ver $ambiguos), que es
+        // la pista para que agregue caracteres.
         $sinDueno = $terms
             ->reject(function ($t) use ($indexByField, $indexNorm, $normPhp, $priority) {
                 foreach ([[$indexByField, $t], [$indexNorm, $normPhp($t)]] as [$idx, $k]) {
@@ -4048,6 +4059,9 @@ class EquipoController extends Controller
             })
             ->filter(fn ($t) => mb_strlen($t) >= self::BULK_PARCIAL_MIN)
             ->values();
+
+        $parcialOmitidos = max(0, $sinDueno->count() - self::BULK_PARCIAL_MAX);
+        $sinDueno        = $sinDueno->take(self::BULK_PARCIAL_MAX);
 
         // Misma forma de dos niveles que los otros indices (campo => clave => fila), para
         // que la resolucion de mas abajo lo recorra con el MISMO codigo y no haya una
@@ -4111,19 +4125,33 @@ class EquipoController extends Controller
                 'aux_serial' => 'SERIAL', 'aux_codigo' => 'CODIGO_INTERNO',
             ];
 
+            // Se aplana a una sola lista [campo, clave-de-fila, fila, valor original, valor
+            // normalizado] ANTES de mirar los terminos. Normalizar dentro del bucle de
+            // terminos repetia el mismo mb_strtoupper sobre las mismas ~1350 filas una vez
+            // por termino; asi se hace una sola vez y el bucle de abajo solo compara.
+            // El orden lo marca $priority, y de ahi que mas abajo gane el PRIMER acierto.
+            $candidatos = [];
+            foreach ($priority as $campo) {
+                $col    = $columnas[$campo];
+                $esAux  = in_array($campo, $camposAux, true);
+                foreach ($esAux ? $auxParcial : $eqParcial as $r) {
+                    $valor = $r->$col ?? '';
+                    if ($valor === '') continue;
+                    // La clave evita contar dos veces el MISMO equipo por dos columnas.
+                    $clave = $esAux ? 'a' . $r->ID_AUXILIAR : 'e' . $r->ID_EQUIPO;
+                    $candidatos[] = [$campo, $clave, $r, $valor, $normPhp($valor)];
+                }
+            }
+
             foreach ($sinDueno as $t) {
                 $frag = $normPhp($t);
                 $aciertos = [];
-                foreach ($priority as $campo) {
-                    $col   = $columnas[$campo];
-                    $fuente = in_array($campo, $camposAux, true) ? $auxParcial : $eqParcial;
-                    foreach ($fuente as $r) {
-                        $valor = $normPhp($r->$col ?? '');
-                        if ($valor !== '' && str_contains($valor, $frag)) {
-                            // La clave evita contar dos veces el mismo equipo por dos columnas.
-                            $clave = ($r->ID_EQUIPO ?? 'a' . $r->ID_AUXILIAR);
-                            $aciertos[$clave] = [$campo, $r, $r->$col];
-                        }
+                foreach ($candidatos as [$campo, $clave, $r, $valor, $valorNorm]) {
+                    // Primer acierto manda: $candidatos ya viene en orden de $priority, asi
+                    // que un mismo equipo que case por placa Y por chasis se reporta por la
+                    // placa. Sobrescribir habria invertido esa preferencia sin querer.
+                    if (str_contains($valorNorm, $frag) && !isset($aciertos[$clave])) {
+                        $aciertos[$clave] = [$campo, $r, $valor];
                     }
                 }
                 if (count($aciertos) === 1) {
@@ -4245,13 +4273,17 @@ class EquipoController extends Controller
         $confirmDenied = ($frenteIdFiltro !== null && !$puedeConfirmar);
 
         return response()->json([
-            'total'           => $results->count(),
-            'found'           => $found,
-            'missing'         => $results->count() - $found,
-            'in_other_frente' => $inOtherFrente,
-            'confirmed'       => $confirmed,
-            'confirm_denied'  => $confirmDenied,
-            'results'         => $results,
+            'total'            => $results->count(),
+            'found'            => $found,
+            'missing'          => $results->count() - $found,
+            'in_other_frente'  => $inOtherFrente,
+            'confirmed'        => $confirmed,
+            'confirm_denied'   => $confirmDenied,
+            // Terminos que ni se intentaron rescatar por coincidencia parcial al pasar del
+            // tope (ver BULK_PARCIAL_MAX). Se informa para que el modal no de a entender
+            // que todos los 'no encontrado' se buscaron por igual.
+            'parcial_omitidos' => $parcialOmitidos,
+            'results'          => $results,
         ]);
     }
 
