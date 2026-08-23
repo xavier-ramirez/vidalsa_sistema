@@ -160,6 +160,18 @@
     /* Solo las filas de otros almacenes llevan a algún lado (abren ese almacén). */
     .alm-panel-row.clicable { cursor:pointer; transition:background .15s, border-color .15s; }
     .alm-panel-row.clicable:hover { background:#f8fafc; border-color:#e2e8f0; }
+    /* Reparto por proyecto de un almacén AJENO, colgando de su fila. Va indentado y en
+       tipografía menor para que se lea como detalle de la línea de arriba y no como otro
+       almacén más. No es clicable: el clic útil es el de la fila padre, que abre ese
+       almacén — aquí solo se informa de dónde está el saldo antes de pedir el traspaso. */
+    .alm-panel-sub { list-style:none; margin:1px 0 4px 0; padding:0 8px 0 18px;
+        display:flex; flex-direction:column; gap:1px; border-left:2px solid #e2e8f0; margin-left:10px; }
+    .alm-panel-sub li { display:flex; justify-content:space-between; align-items:center; gap:8px; padding:2px 0; }
+    .alm-panel-sub .nom { flex:1; min-width:0; color:#64748b; font-size:11.5px; font-weight:600;
+        overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .alm-panel-sub .nom.comun { font-style:italic; color:#94a3b8; }
+    .alm-panel-sub .qty { font-weight:700; font-size:11.5px; color:#475569; white-space:nowrap; }
+
     .alm-panel-total { display:flex; justify-content:space-between; align-items:center; gap:8px;
         margin-top:2px; padding:6px 8px 0; border-top:1px solid #e2e8f0; }
     .alm-panel-total span { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.3px; color:#64748b; }

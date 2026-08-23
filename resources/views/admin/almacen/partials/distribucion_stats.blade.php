@@ -86,6 +86,23 @@
                     <span class="nom">{{ $row->NOMBRE }}</span>
                     <span class="qty {{ $bajo ? 'bajo' : '' }}">{{ $fmtQty($row->CANTIDAD) }}</span>
                 </li>
+                {{-- Reparto por proyecto de ESE almacén, sin tener que cambiarse a él: saber
+                     que de los 325 hay 150 en Patio I y 100 en Cortafuego es justo lo que
+                     decide a quién pedirle el traspaso.
+                     Solo con MÁS DE UN proyecto: con uno solo repetiría la cifra de arriba.
+                     El controlador ya deja $row->proyectos vacío en los almacenes que no
+                     separan (ver conDesgloseDeProyectos). --}}
+                @if($row->proyectos->count() > 1)
+                    <ul class="alm-panel-sub">
+                        @foreach($row->proyectos as $p)
+                            @php $esComun = (int) $p->ID_FRENTE === 0 || $p->NOMBRE_FRENTE === null; @endphp
+                            <li>
+                                <span class="nom {{ $esComun ? 'comun' : '' }}">{{ $esComun ? 'Sin proyecto (común)' : $p->NOMBRE_FRENTE }}</span>
+                                <span class="qty">{{ $fmtQty($p->CANTIDAD) }}</span>
+                            </li>
+                        @endforeach
+                    </ul>
+                @endif
             @endforeach
         </ul>
     @else

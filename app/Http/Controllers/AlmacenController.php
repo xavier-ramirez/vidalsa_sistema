@@ -724,7 +724,7 @@ class AlmacenController extends Controller
         if ($idAlmacenActual !== null) {
             $q->where('almacen_stock.ID_ALMACEN', '!=', $idAlmacenActual);
         }
-        return $q->select(
+        $filas = $q->select(
                 'almacenes.ID_ALMACEN',
                 'almacenes.NOMBRE',
                 'almacenes.TIPO',
@@ -734,6 +734,59 @@ class AlmacenController extends Controller
             ->orderByDesc('CANTIDAD')
             ->orderBy('almacenes.NOMBRE')
             ->get();
+
+        return $this->conDesgloseDeProyectos($filas, $idProducto);
+    }
+
+    /**
+     * Cuelga de cada almacén de la lista su reparto por proyecto, para poder verlo SIN
+     * cambiarse a ese almacén: si en El Tigre hay 325 de un producto, lo útil es saber
+     * que 150 son de Patio I y 100 de Cortafuego antes de pedir el traspaso.
+     *
+     * Solo lo llevan los almacenes que separan por proyecto (TIPO=PROYECTO con MÁS DE UN
+     * frente); en el resto todo el saldo vive en la bolsa común y el desglose repetiría
+     * el total en una sola línea.
+     *
+     * DOS consultas fijas, pase lo que pase: una cuenta los frentes de cada almacén y la
+     * otra trae el detalle de TODOS de un golpe, agrupando después en PHP. Preguntarle a
+     * cada almacén por su cuenta seria un N+1 que crece con cada almacén nuevo.
+     */
+    private function conDesgloseDeProyectos($filas, int $idProducto)
+    {
+        if ($filas->isEmpty()) {
+            return $filas;
+        }
+
+        // Cuántos frentes tiene cada almacén de la lista (define si separa o no).
+        $frentesPorAlmacen = DB::table('almacen_frentes')
+            ->whereIn('ID_ALMACEN', $filas->pluck('ID_ALMACEN'))
+            ->groupBy('ID_ALMACEN')
+            ->pluck(DB::raw('COUNT(*)'), 'ID_ALMACEN');
+
+        $separan = $filas
+            ->filter(fn ($f) => $f->TIPO === Almacen::TIPO_PROYECTO
+                             && (int) ($frentesPorAlmacen[$f->ID_ALMACEN] ?? 0) > 1)
+            ->pluck('ID_ALMACEN');
+
+        $detalle = $separan->isEmpty()
+            ? collect()
+            : AlmacenStock::query()
+                ->leftJoin('frentes_trabajo as f', 'f.ID_FRENTE', '=', 'almacen_stock.ID_FRENTE')
+                ->whereIn('almacen_stock.ID_ALMACEN', $separan)
+                ->where('almacen_stock.ID_PRODUCTO', $idProducto)
+                ->where('almacen_stock.CANTIDAD', '>', 0)
+                ->select('almacen_stock.ID_ALMACEN', 'almacen_stock.ID_FRENTE',
+                         'almacen_stock.CANTIDAD', 'f.NOMBRE_FRENTE')
+                ->orderByDesc('almacen_stock.CANTIDAD')
+                ->orderBy('f.NOMBRE_FRENTE')
+                ->get()
+                ->groupBy('ID_ALMACEN');
+
+        // Siempre se define la propiedad —vacía cuando no aplica— para que la vista pueda
+        // preguntar por ella sin comprobar antes si existe.
+        return $filas->each(function ($fila) use ($detalle) {
+            $fila->proyectos = $detalle[$fila->ID_ALMACEN] ?? collect();
+        });
     }
 
     /**
