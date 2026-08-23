@@ -2535,13 +2535,17 @@
                     <div style="display: flex; gap: 8px; align-items: center;">
                     <div class="custom-dropdown" id="bulkLookupFrenteDropdown" data-default-label="Selecciona un frente" style="font-size: 12px;">
                         <input type="hidden" id="bulkLookupFrenteValue" data-filter-value value="">
-                        <div class="dropdown-trigger" style="padding: 0; display: flex; align-items: center; background: #fbfcfd; border: 1px solid #cbd5e0; border-radius: 8px; height: 38px;">
+                        {{-- 34px, no 38: el buscador y el boton Buscar van SIEMPRE al mismo alto
+                             —si se toca uno solo quedan desalineados, que se nota mas que el alto
+                             de mas—. A 34 la fila pesa menos y deja mas sitio a la lista de
+                             seriales, que es lo que se viene a leer. --}}
+                        <div class="dropdown-trigger" style="padding: 0; display: flex; align-items: center; background: #fbfcfd; border: 1px solid #cbd5e0; border-radius: 8px; height: 34px;">
                             <div style="padding: 0 8px; display: flex; align-items: center; color: #94a3b8;">
                                 <i class="material-icons" style="font-size: 18px;">search</i>
                             </div>
                             <input type="text" data-filter-search placeholder="Selecciona un frente"
                                 aria-label="Filtrar frente"
-                                style="width: 100%; min-width: 0; border: none; background: transparent; padding: 8px 2px; font-size: 12px; outline: none;"
+                                style="width: 100%; min-width: 0; border: none; background: transparent; padding: 6px 2px; font-size: 12px; outline: none;"
                                 oninput="window.filterDropdownOptions(this)" autocomplete="off">
                             <i class="material-icons" data-clear-btn style="padding: 0 6px; color: #94a3b8; font-size: 16px; display: none; cursor: pointer;"
                                onclick="event.stopPropagation(); clearDropdownFilter('bulkLookupFrenteDropdown');">close</i>
@@ -2556,7 +2560,7 @@
                         </div>
                     </div>
                         <button type="button" id="bulkLookupSearchBtn" onclick="runBulkLookup()" title="Buscar"
-                                style="flex-shrink:0; height:38px; padding:0 16px; background:#0067b1; color:white; border:none; border-radius:8px; display:flex; align-items:center; justify-content:center; gap:6px; cursor:pointer; font-size:13px; font-weight:700; transition:filter .2s;"
+                                style="flex-shrink:0; height:34px; padding:0 16px; background:#0067b1; color:white; border:none; border-radius:8px; display:flex; align-items:center; justify-content:center; gap:6px; cursor:pointer; font-size:13px; font-weight:700; transition:filter .2s;"
                                 onmouseover="this.style.filter='brightness(1.1)'" onmouseout="this.style.filter='none'">
                             <i class="material-icons" style="font-size:18px;">search</i>
                             Buscar

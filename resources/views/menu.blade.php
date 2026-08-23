@@ -875,7 +875,9 @@
     }
     .menu-about-right .dev-link:hover { color: #0067b1; }
     .menu-about-right .dev-link .material-icons { font-size: 16px; }
-    @media (max-width: 760px) {
+    /* 768px como el resto de la aplicacion: a 760 quedaba una franja de 8px con la
+       pagina en movil y este bloque todavia en escritorio. */
+    @media (max-width: 768px) {
         .menu-about { padding: 18px 16px; }
         .menu-about-cols { flex-direction: column; gap: 0; }
         .menu-about-left { text-align: center; }

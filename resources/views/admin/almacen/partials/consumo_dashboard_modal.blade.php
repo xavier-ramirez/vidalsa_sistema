@@ -139,7 +139,11 @@
     .cdash-adv-fila input[type="month"] { min-width:0; }
     .cdash-adv-panel input[type="month"] { width:100%; }
 
-    @media (max-width: 760px) {
+    /* 768px, el mismo corte que usa el resto de la aplicacion (46 reglas). Estaba en
+       760 y eso dejaba una franja de 8px —entre 761 y 768— donde la pagina ya habia
+       pasado a movil y este modal seguia en escritorio, con los dos filtros apretados
+       a 305px uno al lado del otro. */
+    @media (max-width: 768px) {
         .cdash-grid { grid-template-columns:1fr; }
         .cdash-body { padding-left:14px; padding-right:14px; }   /* más ancho útil en móvil */
         /* Reparto en telefono: Descripcion se lleva la fila entera —es el filtro
