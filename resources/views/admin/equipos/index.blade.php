@@ -1212,12 +1212,16 @@
         }
 
         /* Botones Descargar/Cerrar sobre la cabecera azul: "glass" (blanco translúcido)
-           con ícono blanco. 34px en vez de 38px para que la cabecera sea más baja. */
+           con ícono blanco. Han ido bajando de 38 a 34 y de 34 a 28: son acciones de
+           marco —no del contenido— y a 34 competían por atención con los KPI, que es
+           lo que se viene a ver. A 28 con icono de 17 siguen siendo el objetivo táctil
+           más pequeño del modal, pero no el más pequeño de la app: el aspa de la
+           burbuja del historial anda por ahí. Bajar más ya costaría acertarlas. */
         .fleet-header-btn {
             background: rgba(255, 255, 255, 0.14);
             border: none;
-            width: 34px;
-            height: 34px;
+            width: 28px;
+            height: 28px;
             border-radius: 8px;
             display: flex;
             align-items: center;
@@ -1233,7 +1237,9 @@
 
         .fleet-header-btn .material-icons {
             color: #fff;
-            font-size: 20px;
+            /* 17px: proporción parecida a la que había (20 sobre 34), así el icono no
+               queda ni apretado contra el borde ni perdido en medio. */
+            font-size: 17px;
         }
 
         /* ── Paneles y su cabecera ────────────────────────────────────────────────
