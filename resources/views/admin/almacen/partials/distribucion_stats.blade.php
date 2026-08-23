@@ -88,31 +88,37 @@
         <ul class="alm-panel-list scroll custom-scrollbar">
             @foreach($productoOtros as $row)
                 @php
-                    $bajo = $row->CANTIDAD_MINIMA !== null && (float) $row->CANTIDAD <= (float) $row->CANTIDAD_MINIMA;
+                    $bajo   = $row->CANTIDAD_MINIMA !== null && (float) $row->CANTIDAD <= (float) $row->CANTIDAD_MINIMA;
+                    // Con UN solo proyecto no se despliega: repetiría la cifra de la fila.
+                    $conSub = $row->proyectos->count() > 1;
                 @endphp
-                <li class="alm-panel-row clicable"
+                {{-- El desglose va DENTRO del <li> del almacén, no como hermano suyo:
+                     - Un <ul> colgando directo de otro <ul> no es HTML válido.
+                     - Y como .alm-panel-list es flex con gap, de hermano quedaba separado
+                       del almacén al que pertenece EXACTAMENTE igual que del siguiente:
+                       con dos almacenes no se sabía dónde acababa uno.
+                     Dentro, el hover y el clic de la fila lo abarcan, que es justo lo que
+                     dice "esto es de este almacén".
+                     Los dos <span> siguen siendo hijos DIRECTOS del <li>: de ellos cuelgan
+                     las reglas de teléfono (.alm-otros-almacenes li > span), así que meterlos
+                     en un envoltorio las habría apagado sin avisar. --}}
+                <li class="alm-panel-row clicable {{ $conSub ? 'con-sub' : '' }}"
                     onclick="window.almVerProductoEnAlmacen('{{ $row->ID_ALMACEN }}', '{{ addslashes($row->NOMBRE) }}', '{{ request('id_producto') }}')"
                     title="Ver este producto en {{ $row->NOMBRE }}">
                     <span class="nom">{{ $row->NOMBRE }}</span>
                     <span class="qty {{ $bajo ? 'bajo' : '' }}">{{ $fmtQty($row->CANTIDAD) }}</span>
+                    @if($conSub)
+                        <ul class="alm-panel-sub">
+                            @foreach($row->proyectos as $p)
+                                @php [$esComun, $rotulo] = $rotuloFrente($p); @endphp
+                                <li>
+                                    <span class="nom {{ $esComun ? 'comun' : '' }}">{{ $rotulo }}</span>
+                                    <span class="qty">{{ $fmtQty($p->CANTIDAD) }}</span>
+                                </li>
+                            @endforeach
+                        </ul>
+                    @endif
                 </li>
-                {{-- Reparto por proyecto de ESE almacén, sin tener que cambiarse a él: saber
-                     que de los 325 hay 150 en Patio I y 100 en Cortafuego es justo lo que
-                     decide a quién pedirle el traspaso.
-                     Solo con MÁS DE UN proyecto: con uno solo repetiría la cifra de arriba.
-                     El controlador ya deja $row->proyectos vacío en los almacenes que no
-                     separan (ver conDesgloseDeProyectos). --}}
-                @if($row->proyectos->count() > 1)
-                    <ul class="alm-panel-sub">
-                        @foreach($row->proyectos as $p)
-                            @php [$esComun, $rotulo] = $rotuloFrente($p); @endphp
-                            <li>
-                                <span class="nom {{ $esComun ? 'comun' : '' }}">{{ $rotulo }}</span>
-                                <span class="qty">{{ $fmtQty($p->CANTIDAD) }}</span>
-                            </li>
-                        @endforeach
-                    </ul>
-                @endif
             @endforeach
         </ul>
     @else

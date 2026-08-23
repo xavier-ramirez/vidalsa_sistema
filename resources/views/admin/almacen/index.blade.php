@@ -164,8 +164,12 @@
        tipografía menor para que se lea como detalle de la línea de arriba y no como otro
        almacén más. No es clicable: el clic útil es el de la fila padre, que abre ese
        almacén — aquí solo se informa de dónde está el saldo antes de pedir el traspaso. */
-    .alm-panel-sub { list-style:none; margin:1px 0 4px 0; padding:0 8px 0 18px;
-        display:flex; flex-direction:column; gap:1px; border-left:2px solid #e2e8f0; margin-left:10px; }
+    /* La fila que lleva desglose deja de ser una sola línea: el <ul> hijo se pasa al
+       renglón siguiente con flex-basis:100%. Así los dos <span> conservan su sitio (y
+       siguen siendo hijos directos del <li>, de los que cuelgan las reglas de teléfono). */
+    .alm-panel-row.con-sub { flex-wrap:wrap; }
+    .alm-panel-sub { flex-basis:100%; list-style:none; margin:3px 0 1px 0; padding:0 0 0 10px;
+        display:flex; flex-direction:column; gap:1px; border-left:2px solid #cbd5e1; }
     .alm-panel-sub li { display:flex; justify-content:space-between; align-items:center; gap:8px; padding:2px 0; }
     .alm-panel-sub .nom { flex:1; min-width:0; color:#64748b; font-size:11.5px; font-weight:600;
         overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -483,6 +487,16 @@
         .alm-otros-almacenes li { padding: 5px 7px !important; }
         .alm-otros-almacenes li > span:first-child { font-size: 11px !important; }
         .alm-otros-almacenes li > span:last-child { font-size: 11px !important; padding: 1px 7px !important; }
+        /* El desglose por proyecto NO debe heredar lo de arriba: sus <li> y <span> son
+           descendientes de .alm-otros-almacenes igual que los del almacén, así que sin
+           esto quedaban con el mismo alto y la misma letra y se perdía la jerarquía —
+           parecerían almacenes, no proyectos de uno. Va por .alm-panel-sub, que gana en
+           especificidad. El max-height se anula porque el 40vh es para la lista de
+           almacenes, no para una sublista de tres renglones. */
+        .alm-otros-almacenes .alm-panel-sub { max-height: none !important; gap: 0 !important; }
+        .alm-otros-almacenes .alm-panel-sub li { padding: 2px 0 !important; }
+        .alm-otros-almacenes .alm-panel-sub li > span:first-child { font-size: 10.5px !important; }
+        .alm-otros-almacenes .alm-panel-sub li > span:last-child { font-size: 10.5px !important; padding: 0 !important; }
         /* Empty state del modo cruzado: mensaje "Este producto solo existe…"
            AHORA SE MUESTRA en mobile (cliente lo pidio explicitamente). Margenes
            comprimidos para no malgastar alto. */
