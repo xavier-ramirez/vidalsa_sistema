@@ -953,7 +953,7 @@
                     </div>
 
                     <iframe id="pdfPreviewFrame" src=""
-                        style="width: 100%; height: 100%; border: none; opacity: 0; transition: opacity 0.3s; position: relative; z-index: 20;"
+                        style="width: 100%; height: 100%; border: none; opacity: 0; transition: opacity 0.25s, filter 0.5s ease-out; position: relative; z-index: 20;"
                         allowfullscreen></iframe>
 
                     <!-- Vista móvil para descarga directa -->
@@ -2123,6 +2123,9 @@
 
                 if (iframe) {
                     iframe.style.opacity = '0';
+                    // Sin resetear, la apertura SIGUIENTE arrancaria ya enfocada y se perderia
+                    // el efecto a partir del segundo documento.
+                    iframe.style.filter = 'blur(14px)';
                     // 'about:blank' explícito y NO '': la cadena vacía se resuelve contra la
                     // URL del documento actual, así que el iframe se ponía a cargar la página
                     // entera (/admin/equipos y sus ~1.200 filas) hasta que el src del PDF la
@@ -2169,7 +2172,9 @@
                 clearTimeout(_pdfLoaderTimeout);
                 _pdfLoaderTimeout = setTimeout(() => {
                     if (loader) loader.style.display = 'none';
-                    if (iframe) iframe.style.opacity = '1';
+                    // Tambien enfoca: si no, un onload que no llega dejaria el documento
+                    // borroso para siempre, que es peor que la espera que este respaldo evita.
+                    if (iframe) { iframe.style.opacity = '1'; iframe.style.filter = 'blur(0px)'; }
                 }, 5000);
 
                 // Apaga el loader y destapa el PDF. Se llama una sola vez, desde el onload
@@ -2193,7 +2198,12 @@
                             if (loader) loader.style.display = 'none';
                         }, 200);
                     }
-                    if (iframe) iframe.style.opacity = '1';
+                    if (iframe) {
+                        iframe.style.opacity = '1';
+                        // Enfoca lo que ya se estaba viendo borroso. La transicion de 0.5s
+                        // del CSS es la que da la sensacion de "termino de llegar".
+                        iframe.style.filter = 'blur(0px)';
+                    }
                 };
 
                 // Set source and setup load listener
@@ -2230,6 +2240,12 @@
                     iframe.onerror = function () {
                         clearTimeout(_pdfLoaderTimeout);
                         if (loader) loader.style.display = 'none';
+                        // Volver a taparlo. Desde que la carga se revela desenfocada, el iframe
+                        // esta VISIBLE en cuanto se le pone el src: si falla, sin esto quedaria
+                        // una mancha borrosa detras del modal de error. Antes no hacia falta
+                        // porque seguia en opacity:0 hasta el onload.
+                        iframe.style.opacity = '0';
+                        iframe.style.filter = '';
                         showModal({
                             type: 'error',
                             title: 'Error',
@@ -2243,6 +2259,19 @@
                         const fallback = document.getElementById('pdfMobileFallback');
                         if (fallback) fallback.style.display = 'none';
                         iframe.style.display = 'block';
+                        // REVELADO PROGRESIVO. Antes el iframe estaba en opacity:0 hasta el
+                        // onload, asi que el usuario miraba gris + spinner y el documento
+                        // aparecia de golpe al final. Ahora se destapa DESDE YA, desenfocado:
+                        // el visor nativo pinta la primera pagina progresivamente y esa mancha
+                        // que se va formando se ve mucho antes que el documento terminado.
+                        // No carga mas rapido — se PERCIBE mas rapido, que era lo pedido.
+                        //
+                        // El desenfoque no es decorativo: tapa el estado a medio pintar (media
+                        // pagina, texto sin fuentes) que de otro modo se veria como un fallo.
+                        // El spinner sigue encima hasta el onload, ahora sobre el documento
+                        // formandose en vez de sobre un gris vacio.
+                        iframe.style.filter = 'blur(14px)';
+                        iframe.style.opacity = '1';
                         iframe.src = url + '#toolbar=0&navpanes=0&scrollbar=0&zoom=100';
                     } else {
                         const fallback = document.getElementById('pdfMobileFallback');
@@ -2470,6 +2499,11 @@
                     // 'about:blank' y no '': la cadena vacía se resuelve contra la URL de la
                     // página actual y el iframe se pondría a cargarla entera al cerrar.
                     iframe.src = 'about:blank'; // libera la memoria del PDF
+                    // El desenfoque se limpia aqui tambien: cerrar a mitad de carga dejaba
+                    // el filtro puesto sobre un iframe que ya no se ve, y lo heredaba la
+                    // apertura siguiente antes de que su propio reset entrara.
+                    iframe.style.filter = '';
+                    iframe.style.opacity = '0';
                 }
                 // Y el respaldo de 5 s, que si no seguiría vivo sobre un visor ya cerrado.
                 clearTimeout(_pdfLoaderTimeout);
