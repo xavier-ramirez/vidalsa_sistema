@@ -2408,13 +2408,20 @@ input:-webkit-autofill:active {
         max-height: 90dvh !important;
     }
 
-    /* Accordions: reducir padding de las cabeceras y los cuerpos */
-    #detailsModal details>summary {
+    /* Accordions: reducir padding de las cabeceras y los cuerpos.
+       #btn_ver_movilizaciones va en el MISMO selector, no en reglas aparte: es un
+       <button> y no un <details><summary>, asi que estas reglas no lo alcanzaban y en
+       telefono se quedaba con el tamano de escritorio — mas alto y con letra e icono
+       mas grandes que los acordeones de encima, justo lo que su estilo inline dice que
+       quiere evitar. Compartiendo selector no se pueden volver a separar. */
+    #detailsModal details>summary,
+    #detailsModal #btn_ver_movilizaciones {
         padding: 10px 14px !important;
         font-size: 13px !important;
     }
 
-    #detailsModal details>summary i.material-icons {
+    #detailsModal details>summary i.material-icons,
+    #detailsModal #btn_ver_movilizaciones i.material-icons {
         font-size: 17px !important;
     }
 
@@ -2436,6 +2443,15 @@ input:-webkit-autofill:active {
     /* Header del modal más compacto */
     #detailsModal .modal-content>div:first-child>div:first-child {
         padding: 10px 14px !important;
+    }
+}
+
+/* El modal de Movilizaciones sale DESDE #detailsModal, asi que en telefono se ajusta al
+   mismo ancho: con 460px acababa siendo mas ancho que el modal del que salio en
+   pantallas de ~430px, y se leia como si fuera otra cosa. */
+@media (max-width: 768px) {
+    #movilizacionesModal .modal-content {
+        max-width: 380px !important;
     }
 }
 

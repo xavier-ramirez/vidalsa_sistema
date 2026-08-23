@@ -286,7 +286,12 @@ Estructura: overlay > modal-content > header + sub-header + body
                     {{-- Mismos valores que la cabecera de los acordeones de arriba (padding,
                          fondo, borde, radio, tipografia y el icono suelto de 20px en #64748b),
                          para que se lea como uno mas de la lista y no como un boton aparte.
-                         Sin chevron: ninguno de los otros lo lleva. --}}
+                         Sin chevron: ninguno de los otros lo lleva.
+                         En TELEFONO ese "igual que los acordeones" lo sostiene el bloque
+                         @media de estilos_globales.css, donde este id comparte selector con
+                         #detailsModal details>summary. Si se cambia el estilo de aqui, hay
+                         que mirar alla: por ser <button> y no <summary>, es facil que se
+                         quede fuera y vuelva a verse mas grande que el resto en movil. --}}
                     style="background: #f8fafc; border-radius: 12px; border: 1px solid #e2e8f0; padding: 15px 20px; width: 100%; box-sizing: border-box; display: flex; align-items: center; gap: 10px; font-family: inherit; font-size: inherit; font-weight: 700; color: #1e293b; text-align: left; cursor: pointer;">
                     <i class="material-icons" style="font-size: 20px; color: #64748b;">local_shipping</i>
                     <span>Movilizaciones</span>
@@ -311,7 +316,12 @@ taparlo todo. NO se hereda el 2000 de .modal-overlay: quedaria por detras.
 ═══════════════════════════════════════════════════════════════ --}}
 <div id="movilizacionesModal" class="modal-overlay" style="z-index: 10002;">
     <div class="modal-content"
-        style="width: 90%; max-width: 460px; box-sizing: border-box; padding: 0; border-radius: 16px; overflow: hidden; background: #f8fafc; margin: auto; max-height: 90vh; display: flex; flex-direction: column;">
+        {{-- max-height en dvh, no vh: en telefono vh NO descuenta la barra de URL, asi que
+             el modal quedaba mas alto que lo que se ve y el final de la lista (con el aviso
+             de "mostrando las N mas recientes") caia debajo del borde. Se deja 90vh delante
+             como respaldo para navegadores sin dvh. Es la misma unidad que usan las reglas
+             mobile de #detailsModal, de donde sale este modal. --}}
+        style="width: 90%; max-width: 460px; box-sizing: border-box; padding: 0; border-radius: 16px; overflow: hidden; background: #f8fafc; margin: auto; max-height: 90vh; max-height: 90dvh; display: flex; flex-direction: column;">
 
         {{-- HEADER --}}
         <div style="background: var(--maquinaria-dark-blue); color: white; padding: 14px 18px; display: flex; align-items: center; gap: 10px; flex-shrink: 0;">
