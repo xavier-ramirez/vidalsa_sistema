@@ -2906,12 +2906,19 @@
         const rowsHtml = results.map(r => {
             if (!r.found) {
                 lastMissingTerms.push(r.term);
+                // Un fragmento que SI existe pero en varios equipos no es un "no existe":
+                // decirselo asi deja al usuario reescribiendo lo mismo. Se le dice cuantos
+                // son, que es la pista para que agregue digitos.
+                const varios = (r.ambiguo || 0) > 1;
+                const aviso  = varios
+                    ? `Coincide con ${r.ambiguo} equipos — complete el serial`
+                    : 'No encontrado en la base de datos';
                 return `
-                    <tr style="background: #fef2f2;">
-                        <td data-label="Buscado" style="${cellMissing}">${escapeHtml(r.term)}</td>
-                        <td colspan="3" style="${cellMissing} font-style: italic;">
-                            <i class="material-icons" style="font-size: 13px; vertical-align: -2px;">error_outline</i>
-                            No encontrado en la base de datos
+                    <tr style="background: ${varios ? '#fffbeb' : '#fef2f2'};">
+                        <td data-label="Buscado" style="${varios ? cellOther : cellMissing}">${escapeHtml(r.term)}</td>
+                        <td colspan="3" style="${varios ? cellOther : cellMissing} font-style: italic;">
+                            <i class="material-icons" style="font-size: 13px; vertical-align: -2px;">${varios ? 'filter_alt' : 'error_outline'}</i>
+                            ${escapeHtml(aviso)}
                         </td>
                     </tr>
                 `;
@@ -2923,11 +2930,17 @@
             const frente = r.frente_nombre === 'SIN ASIGNAR'
                 ? '<span style="font-style: italic;">SIN ASIGNAR</span>'
                 : escapeHtml(r.frente_nombre);
-            const buscadoPrefix = (hayFiltroFrente && r.in_selected_frente) ? checkIcon : '';
+            const buscadoPrefix = (hayFiltroFrente \&\& r.in_selected_frente) ? checkIcon : '';
+            // r.parcial trae el valor COMPLETO contra el que caso el fragmento (null si fue
+            // exacto). Se muestra debajo del termino: sin eso, quien escribe medio serial no
+            // tiene como comprobar que el equipo devuelto es el que buscaba.
+            const parcialNota = r.parcial
+                ? `<div style="font-size:10.5px; color:#92400e; font-weight:600; margin-top:2px;">≈ ${escapeHtml(r.parcial)}</div>`
+                : '';
             if (r.in_selected_frente === false) {
                 return `
                     <tr style="background: #fef9c3;">
-                        <td data-label="Buscado" style="${cellOther}">${escapeHtml(r.term)}</td>
+                        <td data-label="Buscado" style="${cellOther}">${escapeHtml(r.term)}${parcialNota}</td>
                         <td data-label="Equipo" style="${cellOther}">${escapeHtml(equipoInfo)}</td>
                         <td data-label="Estado" style="${cellOther}">${estadoTexto(r.estado)}</td>
                         <td data-label="Frente" style="${cellOther} text-align: center;">${frente}</td>
@@ -2936,7 +2949,7 @@
             }
             return `
                 <tr style="background: white;">
-                    <td data-label="Buscado" style="${cellBase}">${buscadoPrefix}${escapeHtml(r.term)}</td>
+                    <td data-label="Buscado" style="${cellBase}">${buscadoPrefix}${escapeHtml(r.term)}${parcialNota}</td>
                     <td data-label="Equipo" style="${cellBase}">${escapeHtml(equipoInfo)}</td>
                     <td data-label="Estado" style="${cellBase}">${estadoTexto(r.estado)}</td>
                     <td data-label="Frente" style="${cellBase} text-align: center;">${frente}</td>

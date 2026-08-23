@@ -3901,6 +3901,13 @@ class EquipoController extends Controller
      * un flag `in_selected_frente` para que el frontend resalte en amarillo
      * los equipos que existen pero estan en un frente DIFERENTE al seleccionado.
      */
+    /**
+     * Minimo de caracteres para intentar la coincidencia PARCIAL en la busqueda masiva.
+     * Por debajo de 4, un fragmento casa con demasiadas filas y devolveria cualquier cosa
+     * con aire de acierto — peor que decir "no encontrado".
+     */
+    private const BULK_PARCIAL_MIN = 4;
+
     public function bulkLookup(Request $request)
     {
         $request->validate([
@@ -4017,17 +4024,133 @@ class EquipoController extends Controller
         $priority    = ['placa', 'chasis', 'motor', 'etiqueta', 'patio', 'aux_serial', 'aux_codigo'];
         $camposAux   = ['aux_serial', 'aux_codigo'];
 
+        // ── Coincidencia PARCIAL: el tercer intento, solo para lo que no aparecio ─────
+        // Un serial tecleado a medias no lo encontraba NADIE. La consulta de arriba es
+        // exacta (whereIn), asi que la fila del equipo ni siquiera llegaba a traerse — y el
+        // caso es de todos los dias: copiar los ultimos digitos de una placa, o leer un
+        // serial borroso de una chapa.
+        //
+        // Se resuelve en una SEGUNDA consulta y SOLO con los terminos que quedaron sin
+        // dueno. Importa que sea asi: LIKE '%x%' no puede usar indice, y la busqueda exacta
+        // —que acierta en casi todos los casos— no tiene por que pagar eso.
+        //
+        // Se acepta la parcial SOLO si un unico equipo la contiene. Con dos o mas no hay
+        // forma de saber cual queria el usuario, y elegir uno seria peor que avisar: esos
+        // terminos siguen saliendo como no encontrados para que los complete.
+        $sinDueno = $terms
+            ->reject(function ($t) use ($indexByField, $indexNorm, $normPhp, $priority) {
+                foreach ([[$indexByField, $t], [$indexNorm, $normPhp($t)]] as [$idx, $k]) {
+                    foreach ($priority as $campo) {
+                        if (isset($idx[$campo][$k])) return true;
+                    }
+                }
+                return false;
+            })
+            ->filter(fn ($t) => mb_strlen($t) >= self::BULK_PARCIAL_MIN)
+            ->values();
+
+        // Misma forma de dos niveles que los otros indices (campo => clave => fila), para
+        // que la resolucion de mas abajo lo recorra con el MISMO codigo y no haya una
+        // segunda copia armando el resultado.
+        $indexParcial = array_fill_keys(array_keys($indexByField), []);
+        // Fragmentos que si existen, pero en MAS de un equipo: termino => cuantos. Sin esto
+        // saldrian como "no encontrado", que es mentira y deja al usuario probando otra vez
+        // lo mismo. Sabiendo que son 9 entiende de una que le faltan digitos.
+        $ambiguos = [];
+        // Valor COMPLETO que caso con cada fragmento aceptado: termino => serial/placa real.
+        // El usuario tiene que poder comprobar que el equipo que le devolvimos es el suyo;
+        // un acierto parcial sin ensenar contra que caso es un acto de fe.
+        $parcialValor = [];
+
+        if ($sinDueno->isNotEmpty()) {
+            $comoLike = fn ($t) => '%' . $normPhp($t) . '%';
+
+            $eqParcial = DB::table('equipos as e')
+                ->leftJoin('documentacion as d',   'd.ID_EQUIPO', '=', 'e.ID_EQUIPO')
+                ->leftJoin('frentes_trabajo as f', 'f.ID_FRENTE', '=', 'e.ID_FRENTE_ACTUAL')
+                ->leftJoin('tipo_equipos as t',    't.id',        '=', 'e.id_tipo_equipo')
+                ->whereNull('e.deleted_at')
+                ->where(function ($q) use ($sinDueno, $normSql, $comoLike) {
+                    foreach ($sinDueno as $t) {
+                        $like = $comoLike($t);
+                        $q->orWhere($normSql('e.SERIAL_CHASIS'), 'like', $like)
+                          ->orWhere($normSql('e.SERIAL_DE_MOTOR'), 'like', $like)
+                          ->orWhere($normSql('e.NUMERO_ETIQUETA'), 'like', $like)
+                          ->orWhere($normSql('e.CODIGO_PATIO'), 'like', $like)
+                          ->orWhere($normSql('d.PLACA'), 'like', $like);
+                    }
+                })
+                ->select([
+                    'e.ID_EQUIPO', 'e.CODIGO_PATIO', 'e.NUMERO_ETIQUETA', 'e.MARCA',
+                    'e.SERIAL_CHASIS', 'e.SERIAL_DE_MOTOR', 'e.ID_FRENTE_ACTUAL', 'e.ID_ANCLAJE',
+                    'e.ESTADO_OPERATIVO', 'd.PLACA', 'f.NOMBRE_FRENTE',
+                    't.nombre as TIPO_NOMBRE', 't.rol_anclaje as ROL_ANCLAJE',
+                ])
+                ->get();
+
+            $auxParcial = DB::table('equipos_auxiliares as a')
+                ->leftJoin('frentes_trabajo as f', 'f.ID_FRENTE', '=', 'a.ID_FRENTE_ACTUAL')
+                ->whereNull('a.deleted_at')
+                ->where(function ($q) use ($sinDueno, $normSql, $comoLike) {
+                    foreach ($sinDueno as $t) {
+                        $like = $comoLike($t);
+                        $q->orWhere($normSql('a.SERIAL'), 'like', $like)
+                          ->orWhere($normSql('a.CODIGO_INTERNO'), 'like', $like);
+                    }
+                })
+                ->select([
+                    'a.ID_AUXILIAR', 'a.TIPO', 'a.MARCA', 'a.MODELO', 'a.SERIAL',
+                    'a.CODIGO_INTERNO', 'a.ID_FRENTE_ACTUAL', 'a.ESTADO_OPERATIVO', 'f.NOMBRE_FRENTE',
+                ])
+                ->get();
+
+            // Que columna de cada tabla alimenta cada campo del indice.
+            $columnas = [
+                'placa' => 'PLACA', 'chasis' => 'SERIAL_CHASIS', 'motor' => 'SERIAL_DE_MOTOR',
+                'etiqueta' => 'NUMERO_ETIQUETA', 'patio' => 'CODIGO_PATIO',
+                'aux_serial' => 'SERIAL', 'aux_codigo' => 'CODIGO_INTERNO',
+            ];
+
+            foreach ($sinDueno as $t) {
+                $frag = $normPhp($t);
+                $aciertos = [];
+                foreach ($priority as $campo) {
+                    $col   = $columnas[$campo];
+                    $fuente = in_array($campo, $camposAux, true) ? $auxParcial : $eqParcial;
+                    foreach ($fuente as $r) {
+                        $valor = $normPhp($r->$col ?? '');
+                        if ($valor !== '' && str_contains($valor, $frag)) {
+                            // La clave evita contar dos veces el mismo equipo por dos columnas.
+                            $clave = ($r->ID_EQUIPO ?? 'a' . $r->ID_AUXILIAR);
+                            $aciertos[$clave] = [$campo, $r, $r->$col];
+                        }
+                    }
+                }
+                if (count($aciertos) === 1) {
+                    [$campo, $fila, $valorReal] = reset($aciertos);
+                    $indexParcial[$campo][$t] = $fila;
+                    $parcialValor[$t] = $valorReal;
+                } elseif (count($aciertos) > 1) {
+                    $ambiguos[$t] = count($aciertos);
+                }
+            }
+        }
+
         $found = 0;
         $inOtherFrente = 0;
-        $results = $terms->map(function ($term) use ($indexByField, $indexNorm, $normPhp, $priority, $camposAux, $frenteIdFiltro, &$found, &$inOtherFrente) {
-            // DOS pasadas: primero la coincidencia LITERAL en todos los campos; solo si
-            // ninguna acierta se reintenta con el valor normalizado (O→0). Así un valor que
-            // existe tal cual nunca se lo lleva una coincidencia tolerante de otro registro.
+        $results = $terms->map(function ($term) use ($indexByField, $indexNorm, $indexParcial, $ambiguos, $parcialValor, $normPhp, $priority, $camposAux, $frenteIdFiltro, &$found, &$inOtherFrente) {
+            // TRES pasadas, de mas a menos confianza; la primera que acierte se lo lleva:
+            //   1. LITERAL en todos los campos.
+            //   2. NORMALIZADA (O→0), por si el valor se tecleo con la letra en vez del cero.
+            //   3. PARCIAL, ya resuelta a un unico equipo por el bloque de arriba.
+            // El orden no es casual: un valor que existe tal cual nunca se lo puede llevar
+            // una coincidencia tolerante —ni mucho menos un fragmento— de OTRO registro.
             $busquedas = [
-                [$indexByField, $term],
-                [$indexNorm,    $normPhp($term)],
+                [$indexByField, $term,            false],
+                [$indexNorm,    $normPhp($term), false],
+                [$indexParcial, $term,            true],
             ];
-            foreach ($busquedas as [$indice, $clave]) {
+            foreach ($busquedas as [$indice, $clave, $esParcial]) {
             foreach ($priority as $field) {
                 if (isset($indice[$field][$clave])) {
                     $r = $indice[$field][$clave];
@@ -4042,6 +4165,7 @@ class EquipoController extends Controller
                         return [
                             'term'               => $term,
                             'found'              => true,
+                            'parcial'            => $esParcial ? ($parcialValor[$term] ?? null) : null,
                             // id en NULL a propósito: el front arma con él la selección para
                             // MOVILIZAR equipos (_bulkLookupFound filtra por r.id) y un auxiliar
                             // no se moviliza por esa vía. Se encuentra y se muestra, pero no
@@ -4066,6 +4190,9 @@ class EquipoController extends Controller
                     return [
                         'term'                => $term,
                         'found'               => true,
+                        // Valor real contra el que caso, o null si la coincidencia fue exacta.
+                        // El front lo muestra para que se pueda verificar el acierto.
+                        'parcial'             => $esParcial ? ($parcialValor[$term] ?? null) : null,
                         'id'                  => (int) $r->ID_EQUIPO,        // para movilizar los encontrados
                         'codigo'              => $r->CODIGO_PATIO,
                         'placa'               => $r->PLACA,
@@ -4081,10 +4208,13 @@ class EquipoController extends Controller
                     ];
                 }
             }   // fin del recorrido de campos por prioridad
-            }   // fin de las dos pasadas (exacta y normalizada)
+            }   // fin de las TRES pasadas (exacta, normalizada y parcial)
             return [
-                'term'  => $term,
-                'found' => false,
+                'term'   => $term,
+                'found'  => false,
+                // >0 cuando el fragmento SI aparece, pero en varios equipos: el front lo
+                // dice en vez del generico "no existe".
+                'ambiguo' => $ambiguos[$term] ?? 0,
             ];
         })->values();
 
