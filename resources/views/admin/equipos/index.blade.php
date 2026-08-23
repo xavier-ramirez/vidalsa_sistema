@@ -3068,33 +3068,42 @@
     };
 
     // ── BIND ────────────────────────────────────────────────────────────────
-    document.addEventListener('DOMContentLoaded', function () {
-        const ta = getTextarea();
-        if (ta) {
-            // Forzar mayusculas al teclear/pegar — backend tambien hace upper.
-            ta.addEventListener('input', function () {
-                const pos = ta.selectionStart;
-                const upper = ta.value.toUpperCase();
-                if (upper !== ta.value) {
-                    ta.value = upper;
-                    try { ta.setSelectionRange(pos, pos); } catch (_) {}
-                }
-                updateCountHint();
-            });
-        }
+    // Delegado en document y con guarda, NO dentro de DOMContentLoaded: el SPA reinyecta
+    // esta vista con innerHTML y vuelve a ejecutar este <script>, pero DOMContentLoaded
+    // ya paso y no se dispara otra vez (ver executeScripts en navegacion.js). Atado al
+    // nodo, ademas, el bind moria con el modal viejo en cada render.
+    // Efecto real de aquello: llegando a /admin/equipos desde el menu, el textarea dejaba
+    // de pasar a mayusculas y ni Escape ni el clic fuera cerraban el modal. Buscar seguia
+    // funcionando porque los botones van por onclick, y por eso no se notaba.
+    // La guarda evita apilar un juego de listeners por cada navegacion SPA.
+    if (!window.__bulkLookupBound) {
+        window.__bulkLookupBound = true;
 
-        const modal = document.getElementById('bulkLookupModal');
-        if (modal) {
-            modal.addEventListener('click', function (e) {
-                if (e.target === modal) closeBulkLookupModal();
-            });
-        }
-        document.addEventListener('keydown', function (e) {
-            if (e.key === 'Escape' && modal && modal.classList.contains('active')) {
-                closeBulkLookupModal();
+        // Forzar mayusculas al teclear/pegar — backend tambien hace upper.
+        document.addEventListener('input', function (e) {
+            const ta = e.target;
+            if (!ta || ta.id !== 'bulkLookupTextarea') return;
+            const pos = ta.selectionStart;
+            const upper = ta.value.toUpperCase();
+            if (upper !== ta.value) {
+                ta.value = upper;
+                try { ta.setSelectionRange(pos, pos); } catch (_) {}
             }
+            updateCountHint();
         });
-    });
+
+        // Clic en el fondo del overlay (no en su contenido) = cerrar.
+        document.addEventListener('click', function (e) {
+            if (e.target && e.target.id === 'bulkLookupModal') window.closeBulkLookupModal();
+        });
+
+        document.addEventListener('keydown', function (e) {
+            if (e.key !== 'Escape') return;
+            // Se busca el modal AQUI, no al atar: el de entonces ya no esta en el DOM.
+            const modal = document.getElementById('bulkLookupModal');
+            if (modal && modal.classList.contains('active')) window.closeBulkLookupModal();
+        });
+    }
 })();
 </script>
 

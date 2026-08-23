@@ -3902,6 +3902,58 @@ class EquipoController extends Controller
      * los equipos que existen pero estan en un frente DIFERENTE al seleccionado.
      */
     /**
+     * Filas de EQUIPOS para la busqueda masiva. Entre la tanda exacta y la parcial lo
+     * unico que cambia es la CONDICION, asi que la pone quien llama y aqui viven los
+     * joins y las columnas que el resultado necesita.
+     *
+     * Estaban escritas dos veces. Hoy coinciden, pero solo por suerte: agregar una
+     * columna a una sola habria dejado a la otra devolviendo equipos incompletos, y sin
+     * sintoma hasta que a alguien le faltara el dato en pantalla.
+     */
+    private function bulkFilasEquipos(callable $condicion)
+    {
+        return DB::table('equipos as e')
+            ->leftJoin('documentacion as d',   'd.ID_EQUIPO', '=', 'e.ID_EQUIPO')
+            ->leftJoin('frentes_trabajo as f', 'f.ID_FRENTE', '=', 'e.ID_FRENTE_ACTUAL')
+            ->leftJoin('tipo_equipos as t',    't.id',        '=', 'e.id_tipo_equipo')
+            ->whereNull('e.deleted_at')
+            ->where($condicion)
+            ->select([
+                'e.ID_EQUIPO',
+                'e.CODIGO_PATIO',
+                'e.NUMERO_ETIQUETA',
+                'e.MARCA',
+                'e.SERIAL_CHASIS',
+                'e.SERIAL_DE_MOTOR',
+                'e.ID_FRENTE_ACTUAL',
+                'e.ID_ANCLAJE',
+                'e.ESTADO_OPERATIVO',
+                'd.PLACA',
+                'f.NOMBRE_FRENTE',
+                't.nombre as TIPO_NOMBRE',
+                't.rol_anclaje as ROL_ANCLAJE',
+            ])
+            ->get();
+    }
+
+    /**
+     * Igual que bulkFilasEquipos pero para AUXILIARES, que se buscan aparte: sus columnas
+     * identificadoras son SERIAL y CODIGO_INTERNO, y no tienen placa ni seriales de
+     * motor/chasis.
+     */
+    private function bulkFilasAuxiliares(callable $condicion)
+    {
+        return DB::table('equipos_auxiliares as a')
+            ->leftJoin('frentes_trabajo as f', 'f.ID_FRENTE', '=', 'a.ID_FRENTE_ACTUAL')
+            ->whereNull('a.deleted_at')
+            ->where($condicion)
+            ->select([
+                'a.ID_AUXILIAR', 'a.TIPO', 'a.MARCA', 'a.MODELO', 'a.SERIAL',
+                'a.CODIGO_INTERNO', 'a.ID_FRENTE_ACTUAL', 'a.ESTADO_OPERATIVO', 'f.NOMBRE_FRENTE',
+            ])
+            ->get();
+    }
+    /**
      * Minimo de caracteres para intentar la coincidencia PARCIAL en la busqueda masiva.
      * Por debajo de 4, un fragmento casa con demasiadas filas y devolveria cualquier cosa
      * con aire de acierto — peor que decir "no encontrado".
@@ -3936,7 +3988,19 @@ class EquipoController extends Controller
             ->values();
 
         if ($terms->isEmpty()) {
-            return response()->json(['results' => [], 'total' => 0, 'found' => 0, 'missing' => 0, 'confirmed' => 0]);
+            // Mismas claves que la respuesta normal de mas abajo: si aqui faltan, el modal
+            // lee undefined en las que no estan y cada consumidor tiene que adivinar el
+            // default por su cuenta.
+            return response()->json([
+                'total'            => 0,
+                'found'            => 0,
+                'missing'          => 0,
+                'in_other_frente'  => 0,
+                'confirmed'        => 0,
+                'confirm_denied'   => false,
+                'parcial_omitidos' => 0,
+                'results'          => [],
+            ]);
         }
 
         // Tolerancia a la confusión CERO ↔ letra O al transcribir placas y seriales: es el
@@ -3950,50 +4014,21 @@ class EquipoController extends Controller
         $normSql = fn (string $col) => DB::raw("REPLACE(UPPER({$col}), 'O', '0')");
         $termsNorm = $terms->map($normPhp)->unique()->values()->all();
 
-        $rows = DB::table('equipos as e')
-            ->leftJoin('documentacion as d',   'd.ID_EQUIPO', '=', 'e.ID_EQUIPO')
-            ->leftJoin('frentes_trabajo as f', 'f.ID_FRENTE', '=', 'e.ID_FRENTE_ACTUAL')
-            ->leftJoin('tipo_equipos as t',    't.id',        '=', 'e.id_tipo_equipo')
-            ->whereNull('e.deleted_at')
-            ->where(function ($q) use ($termsNorm, $normSql) {
-                $q->whereIn($normSql('e.SERIAL_CHASIS'), $termsNorm)
-                  ->orWhereIn($normSql('e.SERIAL_DE_MOTOR'), $termsNorm)
-                  ->orWhereIn($normSql('e.NUMERO_ETIQUETA'), $termsNorm)
-                  ->orWhereIn($normSql('e.CODIGO_PATIO'), $termsNorm)
-                  ->orWhereIn($normSql('d.PLACA'), $termsNorm);
-            })
-            ->select([
-                'e.ID_EQUIPO',
-                'e.CODIGO_PATIO',
-                'e.NUMERO_ETIQUETA',
-                'e.MARCA',
-                'e.SERIAL_CHASIS',
-                'e.SERIAL_DE_MOTOR',
-                'e.ID_FRENTE_ACTUAL',
-                'e.ID_ANCLAJE',
-                'e.ESTADO_OPERATIVO',
-                'd.PLACA',
-                'f.NOMBRE_FRENTE',
-                't.nombre as TIPO_NOMBRE',
-                't.rol_anclaje as ROL_ANCLAJE',
-            ])
-            ->get();
+        $rows = $this->bulkFilasEquipos(function ($q) use ($termsNorm, $normSql) {
+            $q->whereIn($normSql('e.SERIAL_CHASIS'), $termsNorm)
+              ->orWhereIn($normSql('e.SERIAL_DE_MOTOR'), $termsNorm)
+              ->orWhereIn($normSql('e.NUMERO_ETIQUETA'), $termsNorm)
+              ->orWhereIn($normSql('e.CODIGO_PATIO'), $termsNorm)
+              ->orWhereIn($normSql('d.PLACA'), $termsNorm);
+        });
 
-        // Equipos AUXILIARES: se buscan también aquí (antes solo se miraba `equipos` y un
-        // serial de auxiliar salía como "no encontrado"). Sus columnas identificadoras son
-        // SERIAL y CODIGO_INTERNO; no tienen placa ni seriales de motor/chasis.
-        $auxRows = DB::table('equipos_auxiliares as a')
-            ->leftJoin('frentes_trabajo as f', 'f.ID_FRENTE', '=', 'a.ID_FRENTE_ACTUAL')
-            ->whereNull('a.deleted_at')
-            ->where(function ($q) use ($termsNorm, $normSql) {
-                $q->whereIn($normSql('a.SERIAL'), $termsNorm)
-                  ->orWhereIn($normSql('a.CODIGO_INTERNO'), $termsNorm);
-            })
-            ->select([
-                'a.ID_AUXILIAR', 'a.TIPO', 'a.MARCA', 'a.MODELO', 'a.SERIAL', 'a.CODIGO_INTERNO',
-                'a.ID_FRENTE_ACTUAL', 'a.ESTADO_OPERATIVO', 'f.NOMBRE_FRENTE',
-            ])
-            ->get();
+        // Los AUXILIARES se buscan también: antes solo se miraba `equipos` y un serial de
+        // auxiliar salía como "no encontrado". (Qué columnas los identifican: ver
+        // bulkFilasAuxiliares.)
+        $auxRows = $this->bulkFilasAuxiliares(function ($q) use ($termsNorm, $normSql) {
+            $q->whereIn($normSql('a.SERIAL'), $termsNorm)
+              ->orWhereIn($normSql('a.CODIGO_INTERNO'), $termsNorm);
+        });
 
         // Indice por columna (clave en mayusculas) para resolver cada termino en O(1).
         $indexByField = [
@@ -4079,44 +4114,24 @@ class EquipoController extends Controller
         if ($sinDueno->isNotEmpty()) {
             $comoLike = fn ($t) => '%' . $normPhp($t) . '%';
 
-            $eqParcial = DB::table('equipos as e')
-                ->leftJoin('documentacion as d',   'd.ID_EQUIPO', '=', 'e.ID_EQUIPO')
-                ->leftJoin('frentes_trabajo as f', 'f.ID_FRENTE', '=', 'e.ID_FRENTE_ACTUAL')
-                ->leftJoin('tipo_equipos as t',    't.id',        '=', 'e.id_tipo_equipo')
-                ->whereNull('e.deleted_at')
-                ->where(function ($q) use ($sinDueno, $normSql, $comoLike) {
-                    foreach ($sinDueno as $t) {
-                        $like = $comoLike($t);
-                        $q->orWhere($normSql('e.SERIAL_CHASIS'), 'like', $like)
-                          ->orWhere($normSql('e.SERIAL_DE_MOTOR'), 'like', $like)
-                          ->orWhere($normSql('e.NUMERO_ETIQUETA'), 'like', $like)
-                          ->orWhere($normSql('e.CODIGO_PATIO'), 'like', $like)
-                          ->orWhere($normSql('d.PLACA'), 'like', $like);
-                    }
-                })
-                ->select([
-                    'e.ID_EQUIPO', 'e.CODIGO_PATIO', 'e.NUMERO_ETIQUETA', 'e.MARCA',
-                    'e.SERIAL_CHASIS', 'e.SERIAL_DE_MOTOR', 'e.ID_FRENTE_ACTUAL', 'e.ID_ANCLAJE',
-                    'e.ESTADO_OPERATIVO', 'd.PLACA', 'f.NOMBRE_FRENTE',
-                    't.nombre as TIPO_NOMBRE', 't.rol_anclaje as ROL_ANCLAJE',
-                ])
-                ->get();
+            $eqParcial = $this->bulkFilasEquipos(function ($q) use ($sinDueno, $normSql, $comoLike) {
+                foreach ($sinDueno as $t) {
+                    $like = $comoLike($t);
+                    $q->orWhere($normSql('e.SERIAL_CHASIS'), 'like', $like)
+                      ->orWhere($normSql('e.SERIAL_DE_MOTOR'), 'like', $like)
+                      ->orWhere($normSql('e.NUMERO_ETIQUETA'), 'like', $like)
+                      ->orWhere($normSql('e.CODIGO_PATIO'), 'like', $like)
+                      ->orWhere($normSql('d.PLACA'), 'like', $like);
+                }
+            });
 
-            $auxParcial = DB::table('equipos_auxiliares as a')
-                ->leftJoin('frentes_trabajo as f', 'f.ID_FRENTE', '=', 'a.ID_FRENTE_ACTUAL')
-                ->whereNull('a.deleted_at')
-                ->where(function ($q) use ($sinDueno, $normSql, $comoLike) {
-                    foreach ($sinDueno as $t) {
-                        $like = $comoLike($t);
-                        $q->orWhere($normSql('a.SERIAL'), 'like', $like)
-                          ->orWhere($normSql('a.CODIGO_INTERNO'), 'like', $like);
-                    }
-                })
-                ->select([
-                    'a.ID_AUXILIAR', 'a.TIPO', 'a.MARCA', 'a.MODELO', 'a.SERIAL',
-                    'a.CODIGO_INTERNO', 'a.ID_FRENTE_ACTUAL', 'a.ESTADO_OPERATIVO', 'f.NOMBRE_FRENTE',
-                ])
-                ->get();
+            $auxParcial = $this->bulkFilasAuxiliares(function ($q) use ($sinDueno, $normSql, $comoLike) {
+                foreach ($sinDueno as $t) {
+                    $like = $comoLike($t);
+                    $q->orWhere($normSql('a.SERIAL'), 'like', $like)
+                      ->orWhere($normSql('a.CODIGO_INTERNO'), 'like', $like);
+                }
+            });
 
             // Que columna de cada tabla alimenta cada campo del indice.
             $columnas = [
@@ -4150,10 +4165,15 @@ class EquipoController extends Controller
                     // Primer acierto manda: $candidatos ya viene en orden de $priority, asi
                     // que un mismo equipo que case por placa Y por chasis se reporta por la
                     // placa. Sobrescribir habria invertido esa preferencia sin querer.
-                    if (str_contains($valorNorm, $frag) && !isset($aciertos[$clave])) {
+                    if (!isset($aciertos[$clave]) && str_contains($valorNorm, $frag)) {
                         $aciertos[$clave] = [$campo, $r, $valor];
                     }
                 }
+                // A DIFERENCIA de la pasada exacta, aqui NO se aplica el desempate de
+                // $priority (equipo por encima de auxiliar). Alli desempata porque es el
+                // MISMO valor escrito en dos fichas; aqui son valores DISTINTOS que apenas
+                // comparten un trozo, y quedarse con uno seria inventar. Registros distintos
+                // = ambiguo, sin excepciones.
                 if (count($aciertos) === 1) {
                     [$campo, $fila, $valorReal] = reset($aciertos);
                     $indexParcial[$campo][$t] = $fila;
