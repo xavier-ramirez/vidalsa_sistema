@@ -6,7 +6,10 @@
               almacenes que separan por proyecto — en el resto todo el saldo vive en la
               bolsa común y el desglose repetiría el total en una sola línea.
            2. En los OTROS almacenes visibles ($productoOtros), para pedir un traspaso
-              si el actual quedó corto.
+              si el actual quedó corto. Cada uno cuelga TAMBIÉN su reparto por proyecto
+              ($row->proyectos, que arma el controlador): saber que de los 325 hay 150 en
+              un frente y 100 en otro es lo que decide a quién pedírselo, y antes obligaba
+              a cambiarse a ese almacén — perdiendo de vista el actual.
       B) Por categoria: comportamiento default — agrupa los productos del almacen
          actual segun su categoria.
 
@@ -24,6 +27,18 @@
     $fmtQty = function ($n) {
         $q = rtrim(rtrim(number_format((float) $n, 3, ',', '.'), '0'), ',');
         return ($q === '' || $q === '-') ? '0' : $q;
+    };
+    // Rotulo de una fila de reparto por proyecto. El frente 0 es la BOLSA COMUN del
+    // almacen —material que todavia no es de ningun proyecto—: es saldo real, asi que se
+    // lista como una fila mas, solo que con nombre propio y en cursiva.
+    // Se declara UNA vez y lo usan las DOS listas que pintan reparto: la del almacen
+    // abierto y la que cuelga de cada otro almacen. Estaban con la misma condicion y el
+    // mismo texto escritos por separado, y cambiar el criterio en una habria dejado a la
+    // otra rotulando distinto el mismo saldo.
+    // Devuelve [esComun, textoAMostrar].
+    $rotuloFrente = function ($fila) {
+        $comun = (int) $fila->ID_FRENTE === 0 || $fila->NOMBRE_FRENTE === null;
+        return [$comun, $comun ? 'Sin proyecto (común)' : $fila->NOMBRE_FRENTE];
     };
 @endphp
 
@@ -50,14 +65,9 @@
         </h4>
         <ul class="alm-panel-list">
             @foreach($porProyecto as $fila)
-                @php
-                    // Frente 0 = bolsa común: material del almacén que todavía no es de ningún
-                    // proyecto. Es saldo real y disponible, por eso se lista como una fila más
-                    // — en cursiva para que se lea distinto de un proyecto con nombre propio.
-                    $esComun = (int) $fila->ID_FRENTE === 0 || $fila->NOMBRE_FRENTE === null;
-                @endphp
+                @php [$esComun, $rotulo] = $rotuloFrente($fila); @endphp
                 <li class="alm-panel-row">
-                    <span class="nom {{ $esComun ? 'comun' : '' }}">{{ $esComun ? 'Sin proyecto (común)' : $fila->NOMBRE_FRENTE }}</span>
+                    <span class="nom {{ $esComun ? 'comun' : '' }}">{{ $rotulo }}</span>
                     <span class="qty proy">{{ $fmtQty($fila->CANTIDAD) }}</span>
                 </li>
             @endforeach
@@ -95,9 +105,9 @@
                 @if($row->proyectos->count() > 1)
                     <ul class="alm-panel-sub">
                         @foreach($row->proyectos as $p)
-                            @php $esComun = (int) $p->ID_FRENTE === 0 || $p->NOMBRE_FRENTE === null; @endphp
+                            @php [$esComun, $rotulo] = $rotuloFrente($p); @endphp
                             <li>
-                                <span class="nom {{ $esComun ? 'comun' : '' }}">{{ $esComun ? 'Sin proyecto (común)' : $p->NOMBRE_FRENTE }}</span>
+                                <span class="nom {{ $esComun ? 'comun' : '' }}">{{ $rotulo }}</span>
                                 <span class="qty">{{ $fmtQty($p->CANTIDAD) }}</span>
                             </li>
                         @endforeach

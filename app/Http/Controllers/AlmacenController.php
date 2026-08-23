@@ -694,15 +694,40 @@ class AlmacenController extends Controller
             return collect();
         }
 
+        return $this->repartoPorProyecto([$idAlmacen], $idProducto)->get($idAlmacen, collect());
+    }
+
+    /**
+     * Reparto por proyecto (frente) de un producto, en los almacenes que se le pidan.
+     * Devuelve las filas AGRUPADAS por almacén.
+     *
+     * FUENTE ÚNICA de ese desglose: la usan el del almacén ABIERTO (productoPorProyecto)
+     * y el de los OTROS almacenes del panel (conDesgloseDeProyectos). Eran dos consultas
+     * casi calcadas —mismo join, mismos filtros, mismo orden—, y bastaba tocar el orden o
+     * añadir un filtro en una para que las dos listas contaran cosas distintas sin que
+     * nada fallara.
+     *
+     * Quién PUEDE pedir el desglose (que el almacén separe por proyecto) lo decide cada
+     * llamador: aquí solo se consulta lo que se pide.
+     */
+    private function repartoPorProyecto($idsAlmacen, int $idProducto)
+    {
+        $ids = collect($idsAlmacen);
+        if ($ids->isEmpty()) {
+            return collect();
+        }
+
         return AlmacenStock::query()
             ->leftJoin('frentes_trabajo as f', 'f.ID_FRENTE', '=', 'almacen_stock.ID_FRENTE')
-            ->where('almacen_stock.ID_ALMACEN', $idAlmacen)
+            ->whereIn('almacen_stock.ID_ALMACEN', $ids)
             ->where('almacen_stock.ID_PRODUCTO', $idProducto)
             ->where('almacen_stock.CANTIDAD', '>', 0)
-            ->select('almacen_stock.ID_FRENTE', 'almacen_stock.CANTIDAD', 'f.NOMBRE_FRENTE')
+            ->select('almacen_stock.ID_ALMACEN', 'almacen_stock.ID_FRENTE',
+                     'almacen_stock.CANTIDAD', 'f.NOMBRE_FRENTE')
             ->orderByDesc('almacen_stock.CANTIDAD')
             ->orderBy('f.NOMBRE_FRENTE')
-            ->get();
+            ->get()
+            ->groupBy('ID_ALMACEN');
     }
 
     private function productoEnOtrosAlmacenes(int $idProducto, ?int $idAlmacenActual, $user)
@@ -768,19 +793,7 @@ class AlmacenController extends Controller
                              && (int) ($frentesPorAlmacen[$f->ID_ALMACEN] ?? 0) > 1)
             ->pluck('ID_ALMACEN');
 
-        $detalle = $separan->isEmpty()
-            ? collect()
-            : AlmacenStock::query()
-                ->leftJoin('frentes_trabajo as f', 'f.ID_FRENTE', '=', 'almacen_stock.ID_FRENTE')
-                ->whereIn('almacen_stock.ID_ALMACEN', $separan)
-                ->where('almacen_stock.ID_PRODUCTO', $idProducto)
-                ->where('almacen_stock.CANTIDAD', '>', 0)
-                ->select('almacen_stock.ID_ALMACEN', 'almacen_stock.ID_FRENTE',
-                         'almacen_stock.CANTIDAD', 'f.NOMBRE_FRENTE')
-                ->orderByDesc('almacen_stock.CANTIDAD')
-                ->orderBy('f.NOMBRE_FRENTE')
-                ->get()
-                ->groupBy('ID_ALMACEN');
+        $detalle = $this->repartoPorProyecto($separan, $idProducto);
 
         // Siempre se define la propiedad —vacía cuando no aplica— para que la vista pueda
         // preguntar por ella sin comprobar antes si existe.
