@@ -207,11 +207,22 @@
             Equipo Vinculado
         </label>
         @php
+            // Titulo del equipo vinculado. MISMA regla que usa el buscador en JS
+            // (auxHostRender): placa > codigo de patio > serial de chasis > #id. Antes
+            // aqui se saltaba el serial y el JS se saltaba el codigo, asi que el MISMO
+            // camion salia como "#1327" al abrir la ficha y como su serial de chasis al
+            // volver a elegirlo. El #id es el ultimo recurso: no le dice nada a nadie.
             $hostPickedCard = null;
             if (isset($h) && $h) {
+                $hostCodigo = trim((string) ($h->CODIGO_PATIO ?? '')) ?: null;
+                $hostTitulo = (optional($h->documentacion)->PLACA ?: null)
+                    ?? $hostCodigo
+                    ?? (trim((string) ($h->SERIAL_CHASIS ?? '')) ?: null)
+                    ?? ('#'.$h->ID_EQUIPO);
                 $hostPickedCard = [
                     'id'     => $h->ID_EQUIPO,
-                    'codigo' => $h->CODIGO_PATIO ?? ('#'.$h->ID_EQUIPO),
+                    'codigo' => $hostCodigo,
+                    'titulo' => $hostTitulo,
                     'marca'  => $h->MARCA,
                     'modelo' => $h->MODELO,
                     'placa'  => optional($h->documentacion)->PLACA,
@@ -232,8 +243,9 @@
                 </div>
             </div>
             @php
-                // El código solo se muestra aparte si el titulo NO es ya el codigo (sin placa, primary = codigo).
-                $hostLineaCodigo = ($hostPickedCard && ($hostPickedCard['placa'] ?? null) && ($hostPickedCard['codigo'] ?? null))
+                // El codigo de patio solo se muestra aparte cuando NO es ya el titulo.
+                $hostLineaCodigo = ($hostPickedCard && $hostPickedCard['codigo']
+                    && $hostPickedCard['codigo'] !== $hostPickedCard['titulo'])
                     ? 'Código: '.$hostPickedCard['codigo'] : '';
             @endphp
             <div id="hostSelectedCard" style="display:{{ $hostPickedCard ? 'flex' : 'none' }}; background:linear-gradient(135deg,#eff6ff 0%,#dbeafe 100%); border:1px solid #93c5fd; border-radius:10px; padding:6px 10px; align-items:center; gap:10px;">
@@ -242,7 +254,7 @@
                 </div>
                 <div style="flex:1; min-width:0;">
                     <div style="display:flex; align-items:baseline; gap:8px; min-width:0;">
-                        <span id="hostSelectedPrimary" style="font-weight:800; color:#1e293b; font-size:13.5px; line-height:1.25; white-space:nowrap;">{{ $hostPickedCard['placa'] ?? ($hostPickedCard['codigo'] ?? '') }}</span>
+                        <span id="hostSelectedPrimary" style="font-weight:800; color:#1e293b; font-size:13.5px; line-height:1.25; white-space:nowrap;">{{ $hostPickedCard['titulo'] ?? '' }}</span>
                         <span id="hostSelectedTertiary" style="color:#64748b; font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:{{ $hostLineaCodigo ? 'inline' : 'none' }};">{{ $hostLineaCodigo }}</span>
                     </div>
                     <div id="hostSelectedSecondary" style="color:#475569; font-size:12px; line-height:1.25; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ trim(($hostPickedCard['marca'] ?? '').' '.($hostPickedCard['modelo'] ?? '')) ?: '' }}</div>
@@ -421,13 +433,15 @@
             const badge = r.disponible
                 ? `<span style="background:#dcfce7;color:#166534;font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;">Disponible</span>`
                 : `<span style="background:#fee2e2;color:#991b1b;font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;">Lleno (${r.auxiliares_anclados}/2)</span>`;
-            // Identificacion principal: PLACA si existe, si no, SERIAL_CHASIS
-            const idPrincipal = r.placa || r.serial_chasis || ('#' + r.id);
-            const idLabel     = r.placa ? 'Placa' : (r.serial_chasis ? 'Chasis' : 'ID');
-            // Para la card de seleccion (al hacer pick): primary=placa/chasis, secondary=tipo+marca, tertiary=codigo
+            // Identificacion principal: placa > codigo de patio > serial de chasis > #id.
+            // Misma regla que el render inicial de la tarjeta (ver $hostTitulo arriba).
+            const idPrincipal = r.placa || r.codigo || r.serial_chasis || ('#' + r.id);
+            const idLabel     = r.placa ? 'Placa' : (r.codigo ? 'Código' : (r.serial_chasis ? 'Chasis' : 'ID'));
+            // Para la card de seleccion: primary=ese mismo titulo, secondary=tipo+marca,
+            // tertiary=codigo SOLO si no es ya el titulo (si no, se repetiria).
             const primary   = idPrincipal;
             const secondary = [r.tipo, r.marca].filter(x => x).join(' · ');
-            const tertiary  = r.codigo ? ('Código: ' + r.codigo) : '';
+            const tertiary  = (r.codigo && r.codigo !== idPrincipal) ? ('Código: ' + r.codigo) : '';
             // Thumbnail: imagen si tiene, sino icono
             const thumb = r.foto
                 ? `<img src="${esc(r.foto)}" alt="" style="width:48px;height:48px;border-radius:8px;object-fit:cover;background:#f1f5f9;flex-shrink:0;border:1px solid #e2e8f0;" onerror="this.outerHTML='<div style=&quot;width:48px;height:48px;border-radius:8px;background:#eff6ff;color:#1e40af;display:flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid #e2e8f0;&quot;><i class=&quot;material-icons&quot; style=&quot;font-size:24px;&quot;>directions_car</i></div>'">`
@@ -470,11 +484,9 @@
         const primary = document.getElementById('hostSelectedPrimary');
         const secondary = document.getElementById('hostSelectedSecondary');
         const tertiary = document.getElementById('hostSelectedTertiary');
-        const primaryTxt = el.dataset.primary || ('#' + id);
-        // Si el titulo ya ES el codigo, no repetirlo en la ranura de al lado.
-        const tertiaryTxt = (el.dataset.tertiary && el.dataset.tertiary !== 'Código: ' + primaryTxt)
-            ? el.dataset.tertiary : '';
-        if (primary)   primary.textContent   = primaryTxt;
+        // auxHostRender ya decide si el codigo aporta algo: aqui solo se pinta.
+        const tertiaryTxt = el.dataset.tertiary || '';
+        if (primary)   primary.textContent   = el.dataset.primary || ('#' + id);
         if (secondary) secondary.textContent = el.dataset.secondary || '';
         if (tertiary) {
             tertiary.textContent   = tertiaryTxt;

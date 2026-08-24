@@ -618,10 +618,12 @@
             var badge = r.disponible
                 ? '<span style="background:#dcfce7;color:#166534;font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;">Disponible</span>'
                 : '<span style="background:#fee2e2;color:#991b1b;font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;">Lleno (' + r.auxiliares_anclados + '/2)</span>';
-            var idP = r.placa || r.serial_chasis || ('#' + r.id);
+            // placa > codigo de patio > serial de chasis > #id (misma regla que la ficha).
+            var idP = r.placa || r.codigo || r.serial_chasis || ('#' + r.id);
             var primary = idP;
             var secondary = [r.tipo, r.marca].filter(function (x) { return x; }).join(' · ');
-            var tertiary = r.codigo ? ('Código: ' + r.codigo) : '';
+            // Solo si el codigo no es ya el titulo: si no, saldria dos veces.
+            var tertiary = (r.codigo && r.codigo !== idP) ? ('Código: ' + r.codigo) : '';
             return '<div style="padding:12px 14px; border-bottom:1px solid #f1f5f9; cursor:pointer; display:flex; align-items:center; gap:12px; ' + dis + '" onmousedown="event.preventDefault(); window.auxHostPick(' + r.id + ', this)" data-primary="' + esc(primary) + '" data-secondary="' + esc(secondary) + '" data-tertiary="' + esc(tertiary) + '" onmouseover="this.style.background=\'#f8fafc\'" onmouseout="this.style.background=\'white\'">' +
                 '<div style="width:40px;height:40px;border-radius:8px;background:#eff6ff;color:#1e40af;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="material-icons" style="font-size:20px;">directions_car</i></div>' +
                 '<div style="flex:1; min-width:0;"><div style="display:flex; justify-content:space-between; align-items:center; gap:6px; margin-bottom:2px;"><strong style="color:#1e293b; font-size:13px;">' + idP + '</strong>' + badge + '</div><div style="font-size:12px; color:#475569;">' + (secondary || '') + '</div></div></div>';
@@ -630,12 +632,10 @@
     };
     window.auxHostPick = function (id, el) {
         document.getElementById('ID_EQUIPO_HOST').value = id;
-        const primaryTxt = el.dataset.primary || ('#' + id);
-        // Si el titulo ya ES el codigo, no repetirlo en la ranura de al lado.
-        const tertiaryTxt = (el.dataset.tertiary && el.dataset.tertiary !== 'Código: ' + primaryTxt)
-            ? el.dataset.tertiary : '';
+        // auxHostRender ya decide si el codigo aporta algo: aqui solo se pinta.
+        const tertiaryTxt = el.dataset.tertiary || '';
         const tertiaryEl = document.getElementById('hostSelectedTertiary');
-        document.getElementById('hostSelectedPrimary').textContent = primaryTxt;
+        document.getElementById('hostSelectedPrimary').textContent = el.dataset.primary || ('#' + id);
         document.getElementById('hostSelectedSecondary').textContent = el.dataset.secondary || '';
         tertiaryEl.textContent   = tertiaryTxt;
         tertiaryEl.style.display = tertiaryTxt ? 'inline' : 'none';
