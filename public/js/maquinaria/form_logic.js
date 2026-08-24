@@ -63,6 +63,13 @@ window.showFormDropdown = function (input) {
     const dropdown = container.querySelector('.dropdown-list');
     if (!dropdown) return;
 
+    // Solo UNA lista abierta a la vez. Se cerraban por el blur del campo anterior, que
+    // va con 200 ms de retraso, asi que al pasar de un campo a otro quedaban las dos
+    // desplegadas y la de arriba tapaba el campo de abajo. Se cierran aqui, al abrir.
+    document.querySelectorAll('.dropdown-list').forEach(function (otra) {
+        if (otra !== dropdown) otra.style.display = 'none';
+    });
+
     // Show dropdown
     dropdown.style.display = 'block';
 

@@ -819,9 +819,11 @@
         });
         list.innerHTML = html;
     };
-    // Las tres listas del modal (Descripción, Categoría, Frente). Solo UNA puede estar
-    // abierta: al abrir cualquiera se cierran las otras, para que no queden dos
-    // desplegadas tapándose entre sí.
+    // Los desplegables del modal: las tres listas (Descripción, Categoría, Frente) y el
+    // panel de Filtros avanzados. Solo UNO puede estar abierto: al abrir cualquiera se
+    // cierran los demás, para que no queden dos desplegados tapándose entre sí.
+    // El panel entra en el reparto porque cuelga de la misma fila de filtros y se
+    // montaba encima de la lista de Descripción o de Categoría.
     window._cdashListas = ['cdashDescList', 'cdashCatList', 'cdashFrenteList'];
     window._cdashCerrarListas = function (excepto) {
         window._cdashListas.forEach(function (id) {
@@ -829,6 +831,13 @@
             var l = document.getElementById(id);
             if (l) l.classList.remove('open');
         });
+        // La lista de Frente vive DENTRO del panel avanzado: al abrirla el panel se
+        // queda, y al cerrar el panel se lleva su lista por delante.
+        if (excepto !== 'cdashFrenteList' && excepto !== 'cdashAdvPanel') {
+            var f = document.getElementById('cdashFrenteList');
+            if (f) f.classList.remove('open');
+            if (window._cdashAdvCerrar) window._cdashAdvCerrar();
+        }
     };
 
     window._cdashCatOpen = function () {
@@ -904,12 +913,20 @@
         if (ev) ev.stopPropagation();
         var panel = document.getElementById('cdashAdvPanel');
         if (!panel) return;
-        panel.style.display = (panel.style.display === 'none' || !panel.style.display) ? 'flex' : 'none';
+        var abrir = (panel.style.display === 'none' || !panel.style.display);
+        // Al abrirlo se recogen las listas de Descripción y Categoría: el panel cuelga
+        // justo encima de ellas.
+        if (abrir) window._cdashCerrarListas('cdashAdvPanel');
+        panel.style.display = abrir ? 'flex' : 'none';
+        if (!abrir) window._cdashFrenteClose();
     };
 
     window._cdashAdvCerrar = function () {
         var panel = document.getElementById('cdashAdvPanel');
         if (panel) panel.style.display = 'none';
+        // Su lista de Frente se va con él: si no, quedaba flotando sin panel debajo.
+        var f = document.getElementById('cdashFrenteList');
+        if (f) f.classList.remove('open');
     };
 
     if (!window._cdashAdvFueraBound) {
@@ -919,7 +936,7 @@
             if (!panel || panel.style.display === 'none') return;
             // Dentro del panel o sobre el propio botón: no se cierra.
             if (ev.target.closest('#cdashAdvPanel') || ev.target.closest('#cdashAdvBtn')) return;
-            window._cdashAdvCerrar();
+            if (window._cdashAdvCerrar) window._cdashAdvCerrar();
         });
     }
 
