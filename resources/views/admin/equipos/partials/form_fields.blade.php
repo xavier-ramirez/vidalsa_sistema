@@ -277,12 +277,10 @@
         @error('ID_FRENTE_ACTUAL') <span class="error-message-inline">{{ $message }}</span> @enderror
     </div>
 
-    <!-- Detalle Ubicación -->
-    <div>
-        <label for="detalle_ubicacion_actual" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">Sección / Detalle Específico</label>
-        <input type="text" id="detalle_ubicacion_actual" name="DETALLE_UBICACION_ACTUAL" class="form-input-custom @error('DETALLE_UBICACION_ACTUAL') is-invalid @enderror" value="{{ old('DETALLE_UBICACION_ACTUAL', $equipo->DETALLE_UBICACION_ACTUAL ?? '') }}" placeholder="Ej: Fase 2, Estacionamiento..." autocomplete="off">
-        @error('DETALLE_UBICACION_ACTUAL') <span class="error-message-inline">{{ $message }}</span> @enderror
-    </div>
+    {{-- DETALLE_UBICACION_ACTUAL no se edita aqui: se asigna desde el listado
+         /admin/equipos con el modal de ubicacion (equipos.bulkUbicacion, acepta
+         desde 1 equipo). Mismo criterio que equipos auxiliares, que tampoco lo
+         tiene en su formulario. --}}
 
     <!-- Estatus -->
     <div>

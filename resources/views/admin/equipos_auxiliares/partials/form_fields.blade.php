@@ -231,18 +231,25 @@
                      style="display:none; position:absolute; top:calc(100% + 4px); left:0; right:0; background:white; border:1px solid #e2e8f0; border-radius:10px; box-shadow:0 10px 20px -5px rgba(15,23,42,0.18); max-height:360px; overflow-y:auto; z-index:50;">
                 </div>
             </div>
-            <div id="hostSelectedCard" style="display:{{ $hostPickedCard ? 'flex' : 'none' }}; background:linear-gradient(135deg,#eff6ff 0%,#dbeafe 100%); border:1px solid #93c5fd; border-radius:10px; padding:10px 12px; align-items:center; gap:12px;">
-                <div style="background:#1e40af; color:white; padding:8px; border-radius:8px; display:flex; flex-shrink:0;">
-                    <i class="material-icons" style="font-size:20px;">directions_car</i>
+            @php
+                // El código solo se muestra aparte si el titulo NO es ya el codigo (sin placa, primary = codigo).
+                $hostLineaCodigo = ($hostPickedCard && ($hostPickedCard['placa'] ?? null) && ($hostPickedCard['codigo'] ?? null))
+                    ? 'Código: '.$hostPickedCard['codigo'] : '';
+            @endphp
+            <div id="hostSelectedCard" style="display:{{ $hostPickedCard ? 'flex' : 'none' }}; background:linear-gradient(135deg,#eff6ff 0%,#dbeafe 100%); border:1px solid #93c5fd; border-radius:10px; padding:6px 10px; align-items:center; gap:10px;">
+                <div style="background:#1e40af; color:white; padding:5px; border-radius:7px; display:flex; flex-shrink:0;">
+                    <i class="material-icons" style="font-size:18px;">directions_car</i>
                 </div>
                 <div style="flex:1; min-width:0;">
-                    <div id="hostSelectedPrimary" style="font-weight:800; color:#1e293b; font-size:14px; line-height:1.2;">{{ $hostPickedCard['placa'] ?? ($hostPickedCard['codigo'] ?? '') }}</div>
-                    <div id="hostSelectedSecondary" style="color:#475569; font-size:12px; margin-top:2px;">{{ trim(($hostPickedCard['marca'] ?? '').' '.($hostPickedCard['modelo'] ?? '')) ?: '' }}</div>
-                    <div id="hostSelectedTertiary" style="color:#64748b; font-size:11px; margin-top:2px;">{{ isset($hostPickedCard['codigo']) ? 'Código: '.$hostPickedCard['codigo'] : '' }}</div>
+                    <div style="display:flex; align-items:baseline; gap:8px; min-width:0;">
+                        <span id="hostSelectedPrimary" style="font-weight:800; color:#1e293b; font-size:13.5px; line-height:1.25; white-space:nowrap;">{{ $hostPickedCard['placa'] ?? ($hostPickedCard['codigo'] ?? '') }}</span>
+                        <span id="hostSelectedTertiary" style="color:#64748b; font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:{{ $hostLineaCodigo ? 'inline' : 'none' }};">{{ $hostLineaCodigo }}</span>
+                    </div>
+                    <div id="hostSelectedSecondary" style="color:#475569; font-size:12px; line-height:1.25; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ trim(($hostPickedCard['marca'] ?? '').' '.($hostPickedCard['modelo'] ?? '')) ?: '' }}</div>
                 </div>
                 <button type="button" onclick="window.auxHostClear()" title="Cambiar equipo vinculado"
-                        style="background:white; border:1px solid #cbd5e1; color:#475569; cursor:pointer; border-radius:6px; padding:6px 10px; display:flex; align-items:center; gap:4px; font-size:12px; font-weight:600;">
-                    <i class="material-icons" style="font-size:16px;">swap_horiz</i>
+                        style="background:white; border:1px solid #cbd5e1; color:#475569; cursor:pointer; border-radius:6px; padding:4px 8px; display:flex; align-items:center; gap:4px; font-size:11.5px; font-weight:600; flex-shrink:0;">
+                    <i class="material-icons" style="font-size:15px;">swap_horiz</i>
                     Cambiar
                 </button>
             </div>
@@ -463,9 +470,16 @@
         const primary = document.getElementById('hostSelectedPrimary');
         const secondary = document.getElementById('hostSelectedSecondary');
         const tertiary = document.getElementById('hostSelectedTertiary');
-        if (primary)   primary.textContent   = el.dataset.primary   || ('#' + id);
+        const primaryTxt = el.dataset.primary || ('#' + id);
+        // Si el titulo ya ES el codigo, no repetirlo en la ranura de al lado.
+        const tertiaryTxt = (el.dataset.tertiary && el.dataset.tertiary !== 'Código: ' + primaryTxt)
+            ? el.dataset.tertiary : '';
+        if (primary)   primary.textContent   = primaryTxt;
         if (secondary) secondary.textContent = el.dataset.secondary || '';
-        if (tertiary)  tertiary.textContent  = el.dataset.tertiary  || '';
+        if (tertiary) {
+            tertiary.textContent   = tertiaryTxt;
+            tertiary.style.display = tertiaryTxt ? 'inline' : 'none';
+        }
         if (wrapper) wrapper.style.display = 'none';
         if (card)    card.style.display    = 'flex';
         if (search)  search.value = '';
