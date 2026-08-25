@@ -68,7 +68,7 @@
         <!-- Maquinaria en la parte inferior derecha -->
         <div class="machinery-fixed-bottom">
             <div class="machinery-wrapper">
-                <img src="{{ asset('images/maquinaria_login_new.webp') }}" alt="Maquinaria Vidalsa" loading="lazy">
+                <img src="{{ asset('images/maquinaria_login_new.webp') }}?v={{ @filemtime(public_path('images/maquinaria_login_new.webp')) }}" alt="Maquinaria Vidalsa" loading="lazy">
             </div>
         </div>
 

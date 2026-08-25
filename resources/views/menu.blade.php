@@ -903,7 +903,10 @@
     {{-- ── Hero: imagen de fondo con overlay oscuro y título blanco ── --}}
     <section class="menu-hero">
         <div class="menu-hero-stripes">
-            @php $heroImg = asset('images/maquinaria_login_new.webp'); @endphp
+            {{-- ?v=filemtime: el service worker sirve /images/ con match EXACTO de URL, asi que
+                 sin la firma una imagen reemplazada seguiria saliendo de cache. --}}
+            @php $heroImg = asset('images/maquinaria_login_new.webp')
+                 . '?v=' . @filemtime(public_path('images/maquinaria_login_new.webp')); @endphp
             <div><img src="{{ $heroImg }}" alt="" draggable="false" style="object-position: left center;"></div>
             <div><img src="{{ $heroImg }}" alt="" draggable="false" style="object-position: center center;"></div>
             <div><img src="{{ $heroImg }}" alt="" draggable="false" style="object-position: 85% 20%;"></div>
