@@ -232,7 +232,7 @@ body {
 }
 
 .filter-option-item:hover {
-    background: #e1effa !important;
+    background-color: #e1effa !important;
     color: #0067b1 !important;
 }
 
@@ -1568,12 +1568,6 @@ nav[role="navigation"] {
     }
 }
 
-/* Hide default browser password reveal button */
-input[type="password"]::-ms-reveal,
-input[type="password"]::-ms-clear {
-    display: none;
-}
-
 /* Force hide browser password eye */
 input[type="password"]::-ms-reveal,
 input[type="password"]::-ms-clear {
@@ -2100,11 +2094,6 @@ input:-webkit-autofill:active {
 /* ============================================
    EQUIPOS INDEX - MOVED FROM INLINE
    ============================================ */
-.filter-option-item:hover {
-    background-color: #e1effa !important;
-    color: #0067b1 !important;
-}
-
 /* Selection Styles for Row (Desktop Only) */
 @media (min-width: 769px) {
     tr.selected-row-maquinaria {
