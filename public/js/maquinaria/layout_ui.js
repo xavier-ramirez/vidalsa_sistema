@@ -771,11 +771,12 @@ const PDF_COMPARA_ANCHO_MIN = 900;
    'view=Fit' encaja la HOJA ENTERA en el panel; con el zoom=100 del visor normal, en
    media pantalla solo se veria la esquina superior del documento y compararlos exigiria
    hacer scroll en los dos a la vez, que es peor que las pestañas que esto vino a
-   quitar. Al expandir un lado con la lupa sigue valiendo: encaja en el ancho nuevo. */
+   quitar. Es el punto de partida de los dos lados; desde ahi la lupa acerca el suyo
+   (ver PDF_COMPARA_ZOOMS). */
 const PDF_PARAMS_COMPARA = '#toolbar=0&navpanes=0&scrollbar=0&view=Fit';
 
-/** Lado expandido a todo el ancho, o null si estan los dos a la vista. */
-window._pdfComparaExpandido = null;
+/** Enlace limpio del documento que se ve a la DERECHA (lo fija _pdfComparaMostrar). */
+window._pdfComparaDerLink = null;
 
 window._pdfComparando = false;
 
@@ -835,6 +836,13 @@ window._pdfComparaMostrar = function (anexo) {
     if (rotDer) rotDer.textContent = anexo.etiqueta || 'Corrección';
     frame.src = anexo.link + PDF_PARAMS_COMPARA;
     _pdfComparaMarcarChips(anexo.link);
+
+    // El enlace LIMPIO del lado derecho: la lupa rearma la URL entera desde aqui para
+    // cambiarle el zoom, y frame.src ya vendria con los parametros pegados.
+    window._pdfComparaDerLink = anexo.link;
+    // Documento nuevo a la derecha: vuelve a la hoja entera, como se abre la comparacion.
+    window._pdfComparaZoom.der = 0;
+    window._pdfComparaSincronizarLupas();
 };
 
 /**
@@ -871,47 +879,67 @@ window._pdfComparaEncender = function (anexo) {
     if (izq && izq.getAttribute('src') !== destinoIzq) izq.src = destinoIzq;
 
     window._pdfComparaMostrar(anexo);
-    window._pdfComparaExpandido = null;
+    // La comparacion arranca con los DOS lados a hoja entera.
+    window._pdfComparaZoom = { izq: 0, der: 0 };
     window._pdfComparaSincronizarLupas();
     window._pdfComparaSincronizarBoton();
 };
 
+/* Niveles por los que va pasando la lupa. 'Fit' es la hoja entera —como se abre la
+   comparacion— y de ahi se acerca. Se vuelve al principio despues del ultimo, asi que un
+   solo boton sirve para acercar y para volver. */
+const PDF_COMPARA_ZOOMS = ['Fit', '150', '200', '300'];
+
+/** Nivel actual de cada lado (indice dentro de PDF_COMPARA_ZOOMS). */
+window._pdfComparaZoom = { izq: 0, der: 0 };
+
+/** El iframe y su documento, por lado. */
+const _pdfComparaLado = (lado) => lado === 'izq'
+    ? { frame: document.getElementById('pdfPreviewFrame'), src: (window._pdfAnexoCtx || {}).principal }
+    : { frame: document.getElementById('pdfComparaFrame'), src: window._pdfComparaDerLink };
+
 /**
- * Expande un lado a todo el ancho, o lo devuelve a la mitad si ya lo estaba.
+ * Acerca el documento DE SU PROPIO LADO, un nivel por pulsacion.
  *
- * En PC no hay pellizco para acercar y media pantalla se queda corta para leer letra
- * pequeña. En vez de meter niveles de zoom —que obligan a recargar el PDF con otro
- * parametro y pierden la posicion— se agranda el panel: el visor nativo reencaja la
- * hoja al ancho nuevo y se lee sin tocar nada mas.
+ * Antes esta lupa escondia el panel de enfrente para dejar una sola hoja a todo el ancho,
+ * y desde fuera se leia como "cambiar de un PDF al otro" en vez de como acercar: los dos
+ * documentos siguen a la vista y solo cambia el tamaño del suyo.
+ *
+ * El zoom se lo pide al visor nativo por el hash de la URL (#zoom=150). Cambiar SOLO el
+ * fragmento no vuelve a descargar el archivo —el navegador ya lo tiene— pero si reencaja
+ * la pagina; por eso se rearma la URL entera desde el enlace guardado en vez de tocar
+ * frame.src a medias, que dejaria los parametros anteriores pegados.
  */
-window.pdfComparaExpandir = function (lado) {
+window.pdfComparaZoom = function (lado) {
     if (!window._pdfComparando) return;
 
-    const izq   = document.getElementById('pdfVisorIzq');
-    const panel = document.getElementById('pdfComparaPanel');
-    if (!izq || !panel) return;
+    const { frame, src } = _pdfComparaLado(lado);
+    if (!frame || !src) return;
 
-    window._pdfComparaExpandido = (window._pdfComparaExpandido === lado) ? null : lado;
+    const i = ((window._pdfComparaZoom[lado] || 0) + 1) % PDF_COMPARA_ZOOMS.length;
+    window._pdfComparaZoom[lado] = i;
 
-    const exp = window._pdfComparaExpandido;
-    izq.style.display   = (exp === 'der') ? 'none' : 'flex';
-    panel.style.display = (exp === 'izq') ? 'none' : 'block';
+    const nivel = PDF_COMPARA_ZOOMS[i];
+    const base = '#toolbar=0&navpanes=0&scrollbar=0&';
+    frame.src = src + base + (nivel === 'Fit' ? 'view=Fit' : 'zoom=' + nivel);
 
     window._pdfComparaSincronizarLupas();
 };
 
-/** Icono y texto de cada lupa segun el lado que este expandido. */
+/** Icono y titulo de cada lupa segun el nivel al que este ese lado. */
 window._pdfComparaSincronizarLupas = function () {
-    const exp = window._pdfComparaExpandido;
     [['pdfComparaLupaIzq', 'izq'], ['pdfComparaLupaDer', 'der']].forEach(([id, lado]) => {
         const btn = document.getElementById(id);
         if (!btn) return;
-        const abierto = exp === lado;
+        const nivel = PDF_COMPARA_ZOOMS[window._pdfComparaZoom[lado] || 0];
         const icono = btn.querySelector('.material-icons');
-        if (icono) icono.textContent = abierto ? 'zoom_out' : 'zoom_in';
-        btn.title = abierto
-            ? 'Volver a ver los dos documentos'
-            : 'Ampliar este documento a todo el ancho';
+        // En el ultimo nivel el siguiente toque devuelve a la hoja entera: se avisa con
+        // el icono, para que no haya que descubrirlo pulsando.
+        const vuelve = (window._pdfComparaZoom[lado] || 0) === PDF_COMPARA_ZOOMS.length - 1;
+        if (icono) icono.textContent = vuelve ? 'zoom_out' : 'zoom_in';
+        btn.title = vuelve
+            ? 'Volver a ver la hoja entera'
+            : ('Acercar este documento' + (nivel === 'Fit' ? '' : ' (ahora al ' + nivel + '%)'));
     });
 };
 
@@ -963,10 +991,14 @@ window._pdfComparaApagar = function () {
     }
     window._pdfComparando = false;
 
-    // Deshacer la expansion ANTES de esconder el panel: si se apago con un lado
-    // agrandado, el visor izquierdo se habia quedado en display:none y el documento
-    // siguiente se abriria sobre una pantalla en blanco.
-    window._pdfComparaExpandido = null;
+    // Los niveles de zoom vuelven a cero: la proxima comparacion empieza con las dos
+    // hojas enteras, no con el acercamiento que se dejo puesto en la anterior.
+    window._pdfComparaZoom = { izq: 0, der: 0 };
+    window._pdfComparaDerLink = null;
+    // El visor izquierdo se repone SIEMPRE. Ya no hay nada que lo esconda —la lupa dejo
+    // de tapar el panel de enfrente— pero dejarlo aqui cuesta una linea y cubre que
+    // alguien lo haya ocultado por otra via; sin esto el documento siguiente se abriria
+    // sobre una pantalla en blanco.
     const izqPanel = document.getElementById('pdfVisorIzq');
     if (izqPanel) izqPanel.style.display = 'flex';
     const panel = document.getElementById('pdfComparaPanel');

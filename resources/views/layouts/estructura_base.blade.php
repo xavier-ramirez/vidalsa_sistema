@@ -934,10 +934,12 @@
                          documento en pantalla no hay nada que distinguir. --}}
                     <div id="pdfComparaEtiquetaIzq" style="display:none; position:absolute; top:0; left:0; right:0; z-index:40; background:rgba(26,32,44,0.94); align-items:center; gap:8px; padding:4px 6px 4px 10px;">
                         <span style="flex:1; min-width:0; color:#e2e8f0; font-size:11px; font-weight:700; letter-spacing:.4px; text-transform:uppercase; text-align:center; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Original</span>
-                        {{-- Lupa: en PC no hay pellizco para acercar, asi que se agranda el
-                             lado que se quiera leer a todo el ancho y se vuelve a encoger. --}}
-                        <button type="button" id="pdfComparaLupaIzq" onclick="window.pdfComparaExpandir('izq')"
-                            title="Ampliar este documento a todo el ancho"
+                        {{-- Lupa: en PC no hay pellizco para acercar, asi que acerca ESTE
+                             documento un nivel por toque (hoja entera → 150 → 200 → 300 →
+                             vuelta a la hoja entera). Solo afecta a su lado: el de enfrente
+                             se queda como esta, que es lo que permite compararlos. --}}
+                        <button type="button" id="pdfComparaLupaIzq" onclick="window.pdfComparaZoom('izq')"
+                            title="Acercar este documento"
                             style="flex-shrink:0; width:26px; height:26px; border:none; border-radius:6px; background:transparent; color:#cbd5e0; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background .15s;"
                             onmouseover="this.style.background='rgba(255,255,255,0.12)'"
                             onmouseout="this.style.background='transparent'">
@@ -970,8 +972,8 @@
                     style="display:none; flex:1; position:relative; border-left:3px solid #1a202c; min-width:0;">
                     <div id="pdfComparaEtiquetaDer" style="display:flex; position:absolute; top:0; left:0; right:0; z-index:40; background:rgba(26,32,44,0.94); align-items:center; gap:8px; padding:4px 6px 4px 10px;">
                         <span id="pdfComparaTituloDer" style="flex:1; min-width:0; color:#93c5fd; font-size:11px; font-weight:700; letter-spacing:.4px; text-transform:uppercase; text-align:center; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Corrección</span>
-                        <button type="button" id="pdfComparaLupaDer" onclick="window.pdfComparaExpandir('der')"
-                            title="Ampliar este documento a todo el ancho"
+                        <button type="button" id="pdfComparaLupaDer" onclick="window.pdfComparaZoom('der')"
+                            title="Acercar este documento"
                             style="flex-shrink:0; width:26px; height:26px; border:none; border-radius:6px; background:transparent; color:#cbd5e0; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background .15s;"
                             onmouseover="this.style.background='rgba(255,255,255,0.12)'"
                             onmouseout="this.style.background='transparent'">
