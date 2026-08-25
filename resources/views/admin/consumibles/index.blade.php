@@ -740,7 +740,7 @@
             </div>
 
             <div style="margin-top:20px;" id="consumiblesPagination">
-                {{ $consumibles->links('pagination::bootstrap-4') }}
+                {{ $consumibles->links('vendor.pagination.custom-sliding') }}
             </div>
         </div>
 

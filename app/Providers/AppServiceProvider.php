@@ -28,7 +28,13 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        Paginator::useBootstrapFive();
+        // Los 14 sitios que paginan piden 'vendor.pagination.custom-sliding' por su nombre,
+        // asi que esto solo decide que sale si alguien llama a ->links() SIN argumento.
+        // Antes era useBootstrapFive(): ni una sola vista pedia bootstrap-5, y el unico
+        // ->links() con plantilla distinta (consumibles) pedia bootstrap-4. Apuntandolo a
+        // la del proyecto, un ->links() pelado sale igual que el resto en vez de con otro
+        // aspecto.
+        Paginator::defaultView('vendor.pagination.custom-sliding');
         Schema::defaultStringLength(191);
         
         // GLOBAL PERMISSION GATE - Basado UNICAMENTE en claves (columna PERMISOS).
