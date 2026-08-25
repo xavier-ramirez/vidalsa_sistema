@@ -173,4 +173,38 @@
         conf.headers = headers;
         return window.fetch(url, conf);
     };
+
+    /**
+     * Parte una etiqueta larga en varias lineas de como maximo maxChars caracteres,
+     * cortando por espacios; una palabra mas larga que el limite se trocea a la fuerza.
+     * Devuelve un ARRAY cuando hay que partir, o la cadena original si cabe.
+     *
+     * El array es justo lo que Chart.js espera para pintar un tick en varias lineas, asi
+     * que sirve igual para el eje de cualquier grafico. Vive AQUI y no en el modulo de un
+     * dashboard porque la usan dos pantallas distintas (el Dashboard de Flota y el de
+     * Consumo del almacen) y no tiene sentido escribirla dos veces: dom_helpers.js va en
+     * el <head>, antes que cualquiera de las dos.
+     */
+    window.wrapLabel = function (label, maxChars) {
+        if (!label || String(label).length <= maxChars) return label;
+        var palabras = String(label).split(' ');
+        var lineas = [];
+        var actual = '';
+        palabras.forEach(function (w) {
+            while (w.length > maxChars) {
+                if (actual) { lineas.push(actual); actual = ''; }
+                lineas.push(w.slice(0, maxChars));
+                w = w.slice(maxChars);
+            }
+            var prueba = actual ? actual + ' ' + w : w;
+            if (prueba.length <= maxChars) {
+                actual = prueba;
+            } else {
+                if (actual) lineas.push(actual);
+                actual = w;
+            }
+        });
+        if (actual) lineas.push(actual);
+        return lineas.length > 1 ? lineas : label;
+    };
 })();

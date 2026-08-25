@@ -705,34 +705,15 @@ function createCharts(data) {
     }
 }
 
-/**
- * Wrap a label string into lines of at most maxChars characters,
- * breaking on spaces. Words longer than maxChars are hard-broken in a loop.
- * Returns an array (multi-line) or the original string (single line).
- */
-function wrapLabel(label, maxChars) {
-    if (!label || label.length <= maxChars) return label;
-    const words = label.split(' ');
-    const lines = [];
-    let current = '';
-    words.forEach(function (w) {
-        // Hard-break words longer than maxChars in a loop (not just once)
-        while (w.length > maxChars) {
-            if (current) { lines.push(current); current = ''; }
-            lines.push(w.slice(0, maxChars));
-            w = w.slice(maxChars);
-        }
-        const test = current ? current + ' ' + w : w;
-        if (test.length <= maxChars) {
-            current = test;
-        } else {
-            if (current) lines.push(current);
-            current = w;
-        }
-    });
-    if (current) lines.push(current);
-    return lines.length > 1 ? lines : label;
-}
+/* Partir etiquetas largas para el eje: la implementacion vive en dom_helpers.js como
+   window.wrapLabel, compartida con el Dashboard de Consumo del almacen.
+
+   AQUI NO PUEDE HABER UNA `function wrapLabel()`, NI SIQUIERA UN ENVOLTORIO QUE DELEGUE:
+   este archivo no esta dentro de un IIFE, asi que una funcion suya de nivel superior ES
+   window.wrapLabel. Al cargarse DESPUES de dom_helpers.js pisaba la buena con el
+   envoltorio, y el envoltorio se llamaba a si mismo: recursion infinita y el Dashboard de
+   Flota abria con "Maximum call stack size exceeded". Se llama directo a window.wrapLabel
+   donde se usa (mas abajo, en createStackedBarChart). */
 
 /**
  * Stacked horizontal bar chart.
@@ -754,7 +735,11 @@ function createStackedBarChart(canvasId, config) {
     // eje para mostrar la descripción COMPLETA del tipo de equipo (afterFit solo fija
     // un mínimo). En móvil se subió de 12 a 15 para que no se vean nombres partidos.
     const maxChars = window.innerWidth < 480 ? 15 : 18;
-    const wrappedLabels = config.labels.map(function (l) { return wrapLabel(l, maxChars); });
+    // window.wrapLabel (dom_helpers.js, cargado en el <head>). El respaldo devuelve la
+    // etiqueta cruda: sin partir se lee peor, pero el grafico se dibuja.
+    const wrappedLabels = config.labels.map(function (l) {
+        return window.wrapLabel ? window.wrapLabel(l, maxChars) : l;
+    });
     const totalLines = wrappedLabels.reduce(function (sum, l) {
         return sum + (Array.isArray(l) ? l.length : 1);
     }, 0);

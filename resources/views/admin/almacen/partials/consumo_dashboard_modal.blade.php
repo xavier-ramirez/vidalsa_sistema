@@ -12,6 +12,21 @@
      Las funciones se cuelgan de window para sobrevivir la navegación SPA.
 ═══════════════════════════════════════════════════════════════════════════ --}}
 <style>
+    /* TIPOGRAFÍA DE LOS CONTROLES — UNA sola regla para todo el modal.
+       Los <input>, <select>, <button> y <textarea> NO heredan la fuente de la página: el
+       navegador les impone la suya de sistema. Por eso los filtros de este modal salían en
+       Arial/Segoe mientras el resto de la app va en Nunito, y el mismo filtro se veía con
+       otra letra que en /admin/equipos —allí los controles son .dropdown-trigger, que ya
+       lleva font-family:inherit en estilos_globales.css por este mismo motivo (está
+       documentado ahí para los <button>)—.
+       Va aquí, con el modal como ámbito, y NO repetida en cada control: afecta de una vez a
+       Descripción, Categoría, Frente de destino, los dos selectores de mes y los botones,
+       y un control nuevo lo hereda sin que haya que acordarse. */
+    #consumoDashModal input,
+    #consumoDashModal select,
+    #consumoDashModal button,
+    #consumoDashModal textarea { font-family:inherit; }
+
     .cdash-overlay { display:none; position:fixed; inset:0; background:rgba(15,23,42,0.55); z-index:10050; align-items:flex-start; justify-content:center; padding:24px 14px; overflow-y:auto; }
     .cdash-overlay.open { display:flex; }
     .cdash-modal { background:#f1f5f9; border-radius:16px; width:100%; max-width:980px; box-shadow:0 20px 40px -12px rgba(0,0,0,0.35); overflow:hidden; animation:slideDown .2s ease-out; }
@@ -54,7 +69,13 @@
        /admin/equipos (btnAdvancedFilter / advancedFilterPanel), para que el gesto
        sea el mismo en los dos modulos: el boton al lado del ultimo filtro visible
        y el panel abriendose hacia abajo alineado a su derecha. */
-    .cdash-adv-field { display:flex; flex-direction:column; gap:4px; font-size:11px; font-weight:700; color:#0f172a; }
+    /* Etiqueta de campo con los MISMOS valores que el panel avanzado de /admin/equipos
+       (ver el <span> de "Modelo" en su index): 12px / 600 / #64748b. Estaba en 11px, 700 y
+       #0f172a, o sea más pequeña, más gruesa y casi negra — el mismo filtro se leía
+       distinto según el módulo. */
+    .cdash-adv-field { display:flex; flex-direction:column; gap:4px; font-size:12px; font-weight:600; color:#64748b; }
+    /* La tipografía de estos controles NO se declara aquí: la pone la regla de arriba, que
+       cubre todo el modal de una vez (ver "TIPOGRAFÍA DE LOS CONTROLES"). */
     .cdash-adv-field input, .cdash-adv-field select { height:36px; border:1px solid #cbd5e0; border-radius:8px; padding:0 10px; font-size:13px; color:#0f172a; background:#fff; outline:none; min-width:150px; }
     .cdash-adv-field input:focus, .cdash-adv-field select:focus { border-color:var(--maquinaria-blue,#0067b1); }
     .cdash-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
@@ -69,9 +90,14 @@
     .cdash-chart-dl .material-icons { font-size:16px; }
     .cdash-canvas-wrap { position:relative; height:240px; }
     /* Top productos: son barras HORIZONTALES (indexAxis:'y'), asi que cada producto es
-       una fila y este alto reparte su grosor. 26px por barra: eran 520 para 20 y pasan
-       a 650 al subir el grafico a 25 (AlmacenController::TOP_PRODUCTOS_GRAFICO). Si ese
-       numero vuelve a cambiar, hay que recalcular aqui — no se ajusta solo. */
+       una fila y el alto reparte su grosor.
+       ESTE VALOR ES SOLO EL SUELO. El alto de verdad lo calcula el JS al pintar el grafico
+       (ver "El alto del panel NO puede seguir siendo fijo") contando las lineas reales de
+       cada etiqueta, porque desde que las descripciones largas se parten en dos lineas un
+       alto fijo hacia que las barras se pisaran. Al ser un estilo en linea, el del JS gana
+       sobre esta clase; estos 650 son lo que se ve antes de que corra y el minimo que
+       respeta el calculo. Ya NO hay que recalcularlo a mano si cambia el numero de barras
+       (AlmacenController::TOP_PRODUCTOS_GRAFICO): se ajusta solo. */
     .cdash-canvas-wrap.tall { height:650px; }
     .cdash-empty { color:#94a3b8; font-size:13px; text-align:center; padding:40px 0; }
     .cdash-loading { text-align:center; color:#64748b; font-size:14px; padding:50px 0; font-weight:600; display:flex; flex-direction:column; align-items:center; gap:10px; }
@@ -116,11 +142,15 @@
         margin:0 0 4px 0; font-size:14px; font-weight:700; color:#334155;
         display:flex; justify-content:space-between; align-items:center; gap:8px;
     }
+    /* Mismo "Limpiar" que el panel avanzado de /admin/equipos: 12.5px, peso normal, gris
+       y subrayado SIEMPRE (allí es un <span> con esos valores). Aquí estaba en azul de
+       marca y peso 700, que lo hacía competir con el título del panel, y el subrayado
+       solo aparecía al pasar el ratón. La tipografía la pone la regla del modal. */
     .cdash-adv-limpiar {
         background:none; border:none; padding:0; cursor:pointer;
-        font-size:12px; font-weight:700; color:var(--maquinaria-blue);
+        font-size:12.5px; font-weight:400; color:#64748b;
+        text-decoration:underline;
     }
-    .cdash-adv-limpiar:hover { text-decoration:underline; }
     /* Dentro del panel cada filtro ocupa su propia linea: hay sitio de sobra y
        asi el rango de meses se lee como un rango y no como dos casillas sueltas. */
     /* Hijo DIRECTO (>) y no cualquier descendiente: los campos sueltos del panel se
@@ -653,14 +683,43 @@
         // Azul corporativo un tono más oscuro que "Consumo por mes" (#005a9e en vez de
         // #0067b1): distingue los dos gráficos sin salirse de la paleta de la app.
         var top = data.top_productos || [];
+
+        // Rótulo del eje = Nº DE PARTE principal (identifica el filtro exacto). Muchos
+        // filtros comparten descripción, así que rotular por descripción se veía
+        // "combinado". El total ya es por producto (ID_PRODUCTO), no por descripción.
+        //
+        // Se ENVUELVE EN VARIAS LÍNEAS cuando no cabe: las descripciones largas se salían
+        // del eje y Chart.js las cortaba, así que no se sabía qué producto era.
+        // window.wrapLabel (dom_helpers.js) devuelve un array al partir, que es justo lo
+        // que Chart.js pinta como tick multilínea; es el mismo helper que usa el Dashboard
+        // de Flota, para que los dos corten igual. El límite baja en móvil, donde el eje
+        // dispone de menos ancho.
+        var cdTopMax = window.innerWidth < 480 ? 16 : 24;
+        var cdTopLabels = top.map(function (x) {
+            var t = x.parte || x.nombre || '';
+            return window.wrapLabel ? window.wrapLabel(t, cdTopMax) : t;
+        });
+
+        // El alto del panel NO puede seguir siendo fijo: con etiquetas de dos líneas, 25
+        // barras en los 650px de .tall se pisaban unas con otras. Se reserva el alto real
+        // de cada etiqueta (sus líneas) MÁS un hueco por barra, igual que hace el Dashboard
+        // de Flota, y se aplica al contenedor —que es quien manda, porque el gráfico va con
+        // maintainAspectRatio:false—. El mínimo conserva los 650 de antes para que con
+        // pocos productos el panel no encoja y descoloque el modal.
+        (function () {
+            var cont = document.getElementById('cdashChartTop');
+            cont = cont && cont.parentElement;
+            if (!cont) return;
+            var lineas = cdTopLabels.reduce(function (s, l) { return s + (Array.isArray(l) ? l.length : 1); }, 0);
+            var alto = Math.min(1500, Math.max(650, lineas * 15 + cdTopLabels.length * 12 + 60));
+            cont.style.height = alto + 'px';
+        })();
+
         window._cdashCharts.top = new Chart(document.getElementById('cdashChartTop'), {
             type: 'bar',
             plugins: [cdValLabels],
             data: {
-                // Rótulo = Nº DE PARTE principal (identifica el filtro exacto). Muchos filtros
-                // comparten descripción, así que rotular por descripción se veía "combinado".
-                // El total ya es por producto (ID_PRODUCTO), no por descripción.
-                labels: top.map(function (x) { return x.parte || x.nombre; }),
+                labels: cdTopLabels,
                 datasets: [{ label: 'Consumo', data: top.map(function (x) { return x.total; }),
                     backgroundColor: function (c) { return cdHGrad(c, '#005a9e', '#38bdf8'); },
                     {{-- El hover OSCURECE, igual que en "Consumo por mes". Con el degradado
@@ -678,7 +737,10 @@
                     callbacks: {
                         title: function (items) {
                             var c = items[0] || {}; var d = top[c.dataIndex] || {};
-                            return [ (d.nombre || c.label || ''), fmt(c.parsed.x) + '   ' + (d.um || 'UND') ];
+                            // c.label es el RESPALDO y ahora puede venir partido en varias
+                            // líneas (array): unirlo con espacio, o saldría "LINEA1,LINEA2".
+                            var suelto = Array.isArray(c.label) ? c.label.join(' ') : (c.label || '');
+                            return [ (d.nombre || suelto), fmt(c.parsed.x) + '   ' + (d.um || 'UND') ];
                         },
                         label: function (c) {
                             var d = top[c.dataIndex] || {};
