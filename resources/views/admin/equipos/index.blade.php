@@ -177,9 +177,9 @@
                         autocomplete="off">
                     <i class="material-icons" data-clear-btn
                        style="padding: 0 5px; color: var(--maquinaria-gray-text); font-size: 18px; display: {{ $currentFrenteId && $currentFrenteId != 'all' ? 'block' : 'none' }};"
-                       {{-- Sin llamar aquí a eqSyncTiposFrente: clearAdvancedFilters() termina
-                            invocando loadEquipos(), que ya la ejecuta. --}}
-                       onclick="event.stopPropagation(); clearDropdownFilter('frenteFilterSelect'); window.clearAdvancedFilters();">close</i>
+                       {{-- Quita SOLO el frente: si quedan otros filtros puestos la tabla se
+                            refiltra por esos. loadEquipos() ya llama a eqSyncTiposFrente. --}}
+                       onclick="event.stopPropagation(); clearDropdownFilter('frenteFilterSelect'); loadEquipos();">close</i>
                 </div>
 
                 <div class="dropdown-content" style="padding:5px; max-height:none; overflow:visible; z-index:1000;">
@@ -241,7 +241,7 @@
                         autocomplete="off">
                      <i class="material-icons" data-clear-btn
                        style="padding: 0 5px; color: var(--maquinaria-gray-text); font-size: 18px; display: {{ request('id_tipo') ? 'block' : 'none' }};"
-                       onclick="event.preventDefault(); event.stopPropagation(); clearDropdownFilter('tipoFilterSelect'); window.clearAdvancedFilters();">close</i>
+                       onclick="event.preventDefault(); event.stopPropagation(); clearDropdownFilter('tipoFilterSelect'); loadEquipos();">close</i>
                 </div>
 
                 <div class="dropdown-content" style="padding: 5px; max-height: none; overflow: visible; z-index: 1000;">
@@ -397,7 +397,7 @@
                         onkeyup="if(this.value.length >= 4 || this.value.length == 0) { /* Debounce handled in script */ }">
                      <i id="btn_clear_search" class="material-icons clear-icon" 
                        style="display: {{ request('search_query') ? 'block' : 'none' }};" 
-                       onclick="event.preventDefault(); event.stopPropagation(); document.getElementById('searchInput').value=''; window.syncSearchHighlight && window.syncSearchHighlight(); window.clearAdvancedFilters();">close</i>
+                       onclick="event.preventDefault(); event.stopPropagation(); if(window.searchTimeout) clearTimeout(window.searchTimeout); document.getElementById('searchInput').value=''; window.syncSearchHighlight && window.syncSearchHighlight(); loadEquipos();">close</i>
                 </div>
             </form>
 
@@ -2295,9 +2295,17 @@
     // Dirección activa de los bloques clicables del Consolidado: 'con' | 'sin' | 'all'.
     window.__equiposDocPresence = '{{ $docPresence }}';
     // Resaltar el bloque activo en carga dura (en AJAX lo hace loadEquipos()).
-    document.addEventListener('DOMContentLoaded', function () {
+    // Igual que en la ficha de usuario: por navegacion SPA este evento ya paso
+    // cuando el <script> se reinyecta, asi que el resaltado del lado activo
+    // (Con/Sin documento) no se pintaba al entrar.
+    function pintarPresenciaDeDocumento() {
         if (window.__updateDocPresenceUI) window.__updateDocPresenceUI();
-    });
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', pintarPresenciaDeDocumento);
+    } else {
+        pintarPresenciaDeDocumento();
+    }
 </script>
 <script>
     window.CAN_DELETE_EQUIPOS = {{ auth()->user() && auth()->user()->can('user.delete') ? 'true' : 'false' }};

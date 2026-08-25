@@ -260,14 +260,14 @@ window.openFleetDashboard = async function () {
 
     setupDropdownEvents();
 
-    // ÔöÇÔöÇ Leer frente con prioridades claras ÔöÇÔöÇ
-    // Prioridad 1: Filtro activo en la p├ígina (?id_frente=16) ÔÇö aplica para TODOS
-    // Prioridad 2: Campo oculto inyectado por el servidor (Blade) ÔÇö cubre usuarios locales
+    // ── Leer frente con prioridades claras ──
+    // Prioridad 1: Filtro activo en la página (?id_frente=16) — aplica para TODOS
+    // Prioridad 2: Campo oculto inyectado por el servidor (Blade) — cubre usuarios locales
     const hiddenId   = document.getElementById('dashboardSelectedFrenteId');
     const hiddenName = document.getElementById('dashboardSelectedFrenteNombre');
     const isGlobalUser = !!document.getElementById('dashboardFrenteSearch');
 
-    // Leer el filtro activo en la URL de la p├ígina
+    // Leer el filtro activo en la URL de la página
     const pageFilterInput = document.querySelector('input[name="id_frente"][data-filter-value]');
     const activeFrenteId  = (pageFilterInput && pageFilterInput.value && pageFilterInput.value !== 'all')
         ? pageFilterInput.value : '';
@@ -276,7 +276,7 @@ window.openFleetDashboard = async function () {
     let firstFrenteName = '';
 
     if (activeFrenteId) {
-        // Prioridad 1: Filtro activo en la p├ígina ÔÇö igual para LOCAL y GLOBAL
+        // Prioridad 1: Filtro activo en la página — igual para LOCAL y GLOBAL
         firstFrenteId = activeFrenteId;
 
         // Intentar resolver el nombre desde el dropdown visible
@@ -285,11 +285,11 @@ window.openFleetDashboard = async function () {
         );
         firstFrenteName = selectedOption ? selectedOption.textContent.trim() : (hiddenName?.value || '');
 
-        // Actualizar los campos ocultos para que exportFleetStats tambi├®n use el correcto
+        // Actualizar los campos ocultos para que exportFleetStats también use el correcto
         if (hiddenId)   hiddenId.value   = firstFrenteId;
         if (hiddenName) hiddenName.value = firstFrenteName;
     } else {
-        // Prioridad 2: Valor pre-inyectado por el servidor (el Blade ya calcul├│ el mejor frente)
+        // Prioridad 2: Valor pre-inyectado por el servidor (el Blade ya calculó el mejor frente)
         firstFrenteId   = hiddenId?.value   || '';
         firstFrenteName = hiddenName?.value || '';
     }
@@ -301,6 +301,16 @@ window.openFleetDashboard = async function () {
     }
 
     window.currentFrenteId = firstFrenteId;
+
+    // Si el frente NO vino del listado (prioridad 2: se lo eligió el Blade), el Dashboard
+    // arranca enseñando un frente que la tabla no tiene filtrado. En móvil, con la card de
+    // distribución mudada aquí dentro, eso es justo lo que se veía: cifras de COMOR FASE III
+    // arriba y '--' debajo, sin tocar nada. Se alinea el listado con lo que el modal ya está
+    // mostrando. Con prioridad 1 no se hace nada: el frente SALIÓ del filtro de la tabla, así
+    // que ya están de acuerdo y volver a pedir la lista sería una consulta de más.
+    if (!activeFrenteId && firstFrenteId) {
+        sincronizarDistribucionConFrente(firstFrenteId, firstFrenteName);
+    }
 
     // Ejecutar FETCH y CARGA DE CHART EN PARALELO. loadFleetDashboardData ya
     // hace fetch a /fleet-stats; mientras llega la respuesta, Chart.js tambien
@@ -355,7 +365,7 @@ window.exportFleetStats = function () {
 };
 
 /**
- * Setup Dropdown Events (Close when clicking outside) ÔÇö runs only once
+ * Setup Dropdown Events (Close when clicking outside) — runs only once
  */
 if (typeof window.dropdownEventsInitialized === 'undefined') window.dropdownEventsInitialized = false;
 
@@ -386,7 +396,7 @@ window.dashboardToggleClearBtn = function () {
 };
 
 /**
- * Clear the frente search input ÔÇö NO data reload (just clears the field)
+ * Clear the frente search input — NO data reload (just clears the field)
  */
 window.dashboardClearFrenteSearch = function () {
     const input = document.getElementById('dashboardFrenteSearch');
@@ -450,6 +460,47 @@ window.dashboardFilterFrentes = function () {
 };
 
 /**
+ * Hace que la card de distribución siga al frente elegido en ESTE modal.
+ *
+ * "Equipos y Maquinaria" (TOTAL/OPER./INOP. y su lista) NO se alimenta del Dashboard:
+ * la pinta _eqRenderDistribucion() con lo que devuelve el AJAX de LA TABLA, o sea que
+ * obedece a los filtros del listado. En móvil colocarDistribucionMovil() la MUDA dentro
+ * de este modal, y entonces las dos cosas quedan en la misma caja respondiendo a fuentes
+ * distintas: el Dashboard mostraba las cifras del frente elegido (Σ Equipos, gasoil) y la
+ * card seguía en '--', porque la tabla de detrás no tenía filtro y esos '--' los pone el
+ * Blade cuando !$hasFilter.
+ *
+ * Se sincroniza el filtro de frente del listado por el MISMO camino que usa el dropdown
+ * de la tabla (selectOption + loadEquipos, ver el onclick de #frenteFilterSelect), para
+ * no abrir una segunda forma de filtrar. loadEquipos va en modo SILENT: el modal ya tiene
+ * su propio spinner y el global lo taparía entero.
+ *
+ * La condición es el estado REAL del DOM —la card metida en el hueco del modal— y no una
+ * media query repetida: así el único que decide dónde vive la card sigue siendo
+ * colocarDistribucionMovil(), y esto se limita al caso que confunde. En escritorio la card
+ * se queda en el sidebar y el listado no se toca.
+ *
+ * @param {string} id    Frente elegido en el Dashboard ('' o 'all' = todos).
+ * @param {string} name  Su nombre, para la etiqueta del dropdown de la tabla.
+ */
+function sincronizarDistribucionConFrente(id, name) {
+    const slot = document.getElementById('fdmDistribucionSlot');
+    const card = document.getElementById('distribucionCard');
+    if (!slot || !card || card.parentElement !== slot) return;
+    if (typeof window.selectOption !== 'function' || typeof window.loadEquipos !== 'function') return;
+
+    const sinFrente = !id || id === 'all';
+    // Con 'all' se repone la etiqueta por defecto que el propio dropdown declara en
+    // data-default-label (cambia según el usuario: "Todos Mis Frentes" para los locales),
+    // en vez de escribir aquí un texto que se desincronizaría del Blade.
+    const dd = document.getElementById('frenteFilterSelect');
+    const etiqueta = sinFrente ? ((dd && dd.dataset.defaultLabel) || 'TODOS LOS FRENTES') : name;
+
+    window.selectOption('frenteFilterSelect', sinFrente ? 'all' : id, etiqueta);
+    window.loadEquipos(true);   // true = silent: sin preloader global
+}
+
+/**
  * Select a Frente from the dropdown
  */
 window.dashboardSelectFrente = async function (id, name, event) {
@@ -472,6 +523,8 @@ window.dashboardSelectFrente = async function (id, name, event) {
 
     window.currentFrenteId = id;
     await loadFleetDashboardData(id);
+
+    sincronizarDistribucionConFrente(id, name);
 };
 
 /**
@@ -567,7 +620,7 @@ async function loadFleetDashboardData(frenteId) {
             showModal({
                 type: 'error',
                 title: 'Error',
-                message: 'No se pudieron cargar las estad├¡sticas de la flota. Detalle: ' + error.message,
+                message: 'No se pudieron cargar las estadísticas de la flota. Detalle: ' + error.message,
                 confirmText: 'Cerrar',
                 hideCancel: true
             });
@@ -586,7 +639,7 @@ function createCharts(data) {
     const canvasAge = document.getElementById('chartAgeByType');
 
     if (!canvasAge) {
-        throw new Error('No se encontraron los contenedores de gr├íficos en el DOM.');
+        throw new Error('No se encontraron los contenedores de gráficos en el DOM.');
     }
 
     destroyAllCharts();
@@ -770,7 +823,7 @@ function createStackedBarChart(canvasId, config) {
         }
     };
 
-    return new Chart(ctx, {
+    const grafico = new Chart(ctx, {
         type: 'bar',
         data: {
             labels: wrappedLabels,
@@ -847,6 +900,31 @@ function createStackedBarChart(canvasId, config) {
             }
         }
     });
+
+    // Si el panel todavia no tiene alto cuando se crea el grafico —el modal aun
+    // abriendose, o un panel que una media query tiene oculto— Chart.js mide el
+    // contenedor en 0x0 y el canvas se queda EN BLANCO. Y no se recupera solo:
+    // que el panel aparezca despues no basta, hace falta volver a medir. Un
+    // resize() lo arregla, asi que se reintenta hasta que el panel tenga alto.
+    //
+    // Con temporizador y no con ResizeObserver: el observer solo avisa si el
+    // navegador entrega su callback, y aqui hace falta algo que se pueda
+    // comprobar. Son 10 intentos cada 150 ms (1,5 s) y se para en cuanto mide.
+    // OJO: se mira el PANEL, no el canvas. Al medir 0x0 Chart.js le deja al canvas
+    // un height:0px propio, asi que preguntarle a el da 0 para siempre y el
+    // reintento no dispararia nunca. El panel si recupera su alto al aparecer.
+    if (parent.getBoundingClientRect().height === 0) {
+        let intentos = 0;
+        const reintentar = function () {
+            // canvas a null = el grafico ya fue destruido: no hay nada que medir.
+            if (!grafico.canvas) return;
+            if (parent.getBoundingClientRect().height > 0) { grafico.resize(); return; }
+            if (++intentos < 10) grafico._reintentoTamano = setTimeout(reintentar, 150);
+        };
+        grafico._reintentoTamano = setTimeout(reintentar, 150);
+    }
+
+    return grafico;
 }
 
 /**
@@ -854,9 +932,12 @@ function createStackedBarChart(canvasId, config) {
  */
 function destroyAllCharts() {
     for (const key in window.fleetCharts) {
-        if (window.fleetCharts[key] && typeof window.fleetCharts[key].destroy === 'function') {
-            window.fleetCharts[key].destroy();
-        }
+        const g = window.fleetCharts[key];
+        if (!g) continue;
+        // El reintento de medida (ver createStackedBarChart) se corta aqui: si el
+        // panel nunca llego a tener alto, seguiria despertando tras destruir el grafico.
+        if (g._reintentoTamano) { clearTimeout(g._reintentoTamano); g._reintentoTamano = null; }
+        if (typeof g.destroy === 'function') g.destroy();
     }
     window.fleetCharts = {};
 }

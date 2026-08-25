@@ -25,7 +25,11 @@
                    value="{{ $tipoDisplay }}"
                    class="form-input-custom"
                    placeholder="Selecciona o escribe..."
-                   onfocus="window.auxTipoOpen(this)" oninput="window.auxTipoFilter(this)" onblur="setTimeout(()=>window.auxTipoClose(),150)">
+                   {{-- Guardas `&&` como en /admin/equipos/create: aux_form_widgets.js lo
+                        trae el layout de forma asincrona, asi que enfocar el combo en el
+                        primer instante puede pillarlo sin definir. Sin la guarda eso es un
+                        TypeError; con ella el foco no hace nada y el siguiente ya abre. --}}
+                   onfocus="window.auxTipoOpen && window.auxTipoOpen(this)" oninput="window.auxTipoFilter && window.auxTipoFilter(this)" onblur="setTimeout(()=>window.auxTipoClose && window.auxTipoClose(),150)">
             <div class="dropdown-content" id="auxTipoContent">
                 @foreach($tipos as $k => $label)
                     <div class="dropdown-item" data-label="{{ mb_strtolower($label) }}" onmousedown="event.preventDefault(); window.auxTipoPick('{{ addslashes($label) }}')">{{ $label }}</div>
@@ -235,9 +239,10 @@
                 <input type="text" id="hostSearchInput" autocomplete="off"
                        class="form-input-custom @error('ID_EQUIPO_HOST') is-invalid @enderror"
                        placeholder="Buscar por serial motor, serial chasis o placa..."
-                       oninput="window.auxHostSearch(this)"
-                       onfocus="window.auxHostSearch(this)"
-                       onblur="setTimeout(()=>window.auxHostClose(),200)">
+                       {{-- Mismas guardas que el combo de TIPO, por el mismo motivo. --}}
+                       oninput="window.auxHostSearch && window.auxHostSearch(this)"
+                       onfocus="window.auxHostSearch && window.auxHostSearch(this)"
+                       onblur="setTimeout(()=>window.auxHostClose && window.auxHostClose(),200)">
                 <div id="hostResultsBox"
                      style="display:none; position:absolute; top:calc(100% + 4px); left:0; right:0; background:white; border:1px solid #e2e8f0; border-radius:10px; box-shadow:0 10px 20px -5px rgba(15,23,42,0.18); max-height:360px; overflow-y:auto; z-index:50;">
                 </div>
@@ -259,7 +264,7 @@
                     </div>
                     <div id="hostSelectedSecondary" style="color:#475569; font-size:12px; line-height:1.25; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ trim(($hostPickedCard['marca'] ?? '').' '.($hostPickedCard['modelo'] ?? '')) ?: '' }}</div>
                 </div>
-                <button type="button" onclick="window.auxHostClear()" title="Cambiar equipo vinculado"
+                <button type="button" onclick="window.auxHostClear && window.auxHostClear()" title="Cambiar equipo vinculado"
                         style="background:white; border:1px solid #cbd5e1; color:#475569; cursor:pointer; border-radius:6px; padding:4px 8px; display:flex; align-items:center; gap:4px; font-size:11.5px; font-weight:600; flex-shrink:0;">
                     <i class="material-icons" style="font-size:15px;">swap_horiz</i>
                     Cambiar
@@ -376,145 +381,25 @@
         if (el.value) el.value = el.value.toLocaleUpperCase('es-ES');
     });
 
-    // ── Tipo combobox (app style) ──
-    window.auxTipoOpen = function (input) {
-        const cont = document.getElementById('auxTipoContent');
-        if (cont) cont.style.display = 'block';
-        window.auxTipoFilter(input);
-    };
-    window.auxTipoClose = function () {
-        const cont = document.getElementById('auxTipoContent');
-        if (cont) cont.style.display = 'none';
-    };
-    window.auxTipoFilter = function (input) {
-        const q = (input.value || '').toLowerCase().trim();
-        document.querySelectorAll('#auxTipoContent .dropdown-item').forEach(it => {
-            it.style.display = (!q || it.dataset.label.includes(q)) ? '' : 'none';
-        });
-    };
-    window.auxTipoPick = function (label) {
-        const input = document.getElementById('TIPO');
-        if (input) input.value = label;
-        window.auxTipoClose();
-    };
-
-    // ── Equipo Vinculado (host) picker ──
-    let _hostDebounce = null;
-    let _hostLastQuery = '';
-
-    window.auxHostSearch = function (input) {
-        const q = (input.value || '').trim();
-        if (q.length < 2) {
-            document.getElementById('hostResultsBox').style.display = 'none';
-            return;
-        }
-        if (q === _hostLastQuery) return;
-        _hostLastQuery = q;
-        clearTimeout(_hostDebounce);
-        _hostDebounce = setTimeout(() => {
-            window.apiFetch('{{ route("equipos-auxiliares.searchHosts") }}?q=' + encodeURIComponent(q), { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
-            .then(r => r.json())
-            .then(data => window.auxHostRender(data))
-            .catch(err => console.error('searchHosts:', err));
-        }, 280);
-    };
-
-    window.auxHostRender = function (rows) {
-        const box = document.getElementById('hostResultsBox');
-        if (!box) return;
-        if (!rows || !rows.length) {
-            box.innerHTML = '<div style="padding:14px; text-align:center; color:#94a3b8; font-size:12px;">Sin resultados.</div>';
-            box.style.display = 'block';
-            return;
-        }
-        const esc = window.escapeHtml;   // helper central (dom_helpers.js): antes solo escapaba "
-        box.innerHTML = rows.map(r => {
-            const dis = r.disponible ? '' : 'opacity:0.55; pointer-events:none;';
-            const badge = r.disponible
-                ? `<span style="background:#dcfce7;color:#166534;font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;">Disponible</span>`
-                : `<span style="background:#fee2e2;color:#991b1b;font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;">Lleno (${r.auxiliares_anclados}/2)</span>`;
-            // Identificacion principal: placa > codigo de patio > serial de chasis > #id.
-            // Misma regla que el render inicial de la tarjeta (ver $hostTitulo arriba).
-            const idPrincipal = r.placa || r.codigo || r.serial_chasis || ('#' + r.id);
-            const idLabel     = r.placa ? 'Placa' : (r.codigo ? 'Código' : (r.serial_chasis ? 'Chasis' : 'ID'));
-            // Para la card de seleccion: primary=ese mismo titulo, secondary=tipo+marca,
-            // tertiary=codigo SOLO si no es ya el titulo (si no, se repetiria).
-            const primary   = idPrincipal;
-            const secondary = [r.tipo, r.marca].filter(x => x).join(' · ');
-            const tertiary  = (r.codigo && r.codigo !== idPrincipal) ? ('Código: ' + r.codigo) : '';
-            // Thumbnail: imagen si tiene, sino icono
-            const thumb = r.foto
-                ? `<img src="${esc(r.foto)}" alt="" style="width:48px;height:48px;border-radius:8px;object-fit:cover;background:#f1f5f9;flex-shrink:0;border:1px solid #e2e8f0;" onerror="this.outerHTML='<div style=&quot;width:48px;height:48px;border-radius:8px;background:#eff6ff;color:#1e40af;display:flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid #e2e8f0;&quot;><i class=&quot;material-icons&quot; style=&quot;font-size:24px;&quot;>directions_car</i></div>'">`
-                : `<div style="width:48px;height:48px;border-radius:8px;background:#eff6ff;color:#1e40af;display:flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid #e2e8f0;"><i class="material-icons" style="font-size:24px;">directions_car</i></div>`;
-            return `
-                <div class="aux-host-card" style="padding:12px 14px; border-bottom:1px solid #f1f5f9; cursor:pointer; display:flex; align-items:center; gap:12px; ${dis}"
-                     onmousedown="event.preventDefault(); window.auxHostPick(${r.id}, this)"
-                     data-primary="${esc(primary)}"
-                     data-secondary="${esc(secondary)}"
-                     data-tertiary="${esc(tertiary)}"
-                     onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">
-                    ${thumb}
-                    <div style="flex:1; min-width:0;">
-                        <div style="display:flex; justify-content:space-between; align-items:center; gap:6px; margin-bottom:4px;">
-                            <strong style="color:#1e293b; font-size:13.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-                                <span style="color:#94a3b8; font-size:10px; font-weight:600; text-transform:uppercase;">${idLabel}:</span> ${idPrincipal}
-                            </strong>
-                            ${badge}
-                        </div>
-                        <div style="font-size:12px; color:#475569; line-height:1.35;">
-                            ${r.tipo ? `<span style="font-weight:600; color:#334155;">${r.tipo}</span>` : ''}
-                            ${r.tipo && r.marca ? ' · ' : ''}
-                            ${r.marca ? `<span>${r.marca}</span>` : ''}
-                            ${!r.tipo && !r.marca ? '<em style="color:#94a3b8;">Sin información</em>' : ''}
-                        </div>
-                    </div>
-                </div>
-            `;
-        }).join('');
-        box.style.display = 'block';
-    };
-
-    window.auxHostPick = function (id, el) {
-        const hidden = document.getElementById('ID_EQUIPO_HOST');
-        const search = document.getElementById('hostSearchInput');
-        const wrapper = document.getElementById('hostSearchWrapper');
-        const card    = document.getElementById('hostSelectedCard');
-        if (hidden) hidden.value = id;
-        // Poblar la tarjeta de seleccion con data-* del elemento clickeado
-        const primary = document.getElementById('hostSelectedPrimary');
-        const secondary = document.getElementById('hostSelectedSecondary');
-        const tertiary = document.getElementById('hostSelectedTertiary');
-        // auxHostRender ya decide si el codigo aporta algo: aqui solo se pinta.
-        const tertiaryTxt = el.dataset.tertiary || '';
-        if (primary)   primary.textContent   = el.dataset.primary || ('#' + id);
-        if (secondary) secondary.textContent = el.dataset.secondary || '';
-        if (tertiary) {
-            tertiary.textContent   = tertiaryTxt;
-            tertiary.style.display = tertiaryTxt ? 'inline' : 'none';
-        }
-        if (wrapper) wrapper.style.display = 'none';
-        if (card)    card.style.display    = 'flex';
-        if (search)  search.value = '';
-        window.auxHostClose();
-    };
-
-    window.auxHostClose = function () {
-        const box = document.getElementById('hostResultsBox');
-        if (box) box.style.display = 'none';
-    };
-
-    window.auxHostClear = function () {
-        const hidden  = document.getElementById('ID_EQUIPO_HOST');
-        const search  = document.getElementById('hostSearchInput');
-        const wrapper = document.getElementById('hostSearchWrapper');
-        const card    = document.getElementById('hostSelectedCard');
-        if (hidden) hidden.value = '';
-        if (search) search.value = '';
-        if (wrapper) wrapper.style.display = 'block';
-        if (card)    card.style.display    = 'none';
-        _hostLastQuery = '';
-        window.auxHostClose();
-        if (search) search.focus();
-    };
+    // El selector de tipo y el de equipo vinculado viven ahora en
+    // public/js/maquinaria/aux_form_widgets.js (cargado al final de esta vista).
 })();
 </script>
+
+{{-- Selector de TIPO y de EQUIPO VINCULADO. Vive en un archivo aparte porque esta
+     ficha y el alta unificada de /admin/equipos/create usan los MISMOS nueve
+     manejadores; estaban escritos en las dos vistas y se habian separado.
+
+     El <script src> NO puede ir aqui: esta vista se pinta dentro de .main-viewport y
+     la navegacion SPA lo dejaria muerto. executeScripts() recorre el contenido nuevo y,
+     para un script externo, salta el que ya este en el documento; el nodo INERTE que
+     acaba de meter `mainViewport.innerHTML = ...` cuenta como tal (misma URL absoluta
+     de asset()), asi que se descartaba a si mismo y no se ejecutaba nunca. Entrando por
+     un enlace de la app los nueve manejadores quedaban sin definir y el combo de TIPO
+     reventaba con TypeError al enfocarlo. Como <script> inline —lo que era antes de
+     extraerlo— si corria, de ahi que el fallo apareciera con la extraccion.
+
+     Ahora lo pide el layout con ModuleManager + cargarScriptUnaVez en cuanto ve
+     #auxTipoCombo, que es el detector que comparten esta ficha y /admin/equipos/create.
+     La URL con ?v= la sigue poniendo el layout, asi que el cache-busting no cambia. --}}
+<script>window.AUX_HOST_SEARCH_URL = '{{ route("equipos-auxiliares.searchHosts") }}';</script>

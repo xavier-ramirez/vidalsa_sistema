@@ -1,6 +1,6 @@
-/* fallas_index.js â€” MÃ³dulo Control de Fallas
- * PatrÃ³n global idÃ©ntico al de equipos_index.js / movilizaciones_index.js.
- * Las rutas se leen de window.FALLAS_CFG, definido en el Blade del mÃ³dulo.
+/* fallas_index.js — Módulo Control de Fallas
+ * Patrón global idéntico al de equipos_index.js / movilizaciones_index.js.
+ * Las rutas se leen de window.FALLAS_CFG, definido en el Blade del módulo.
  */
 (function () {
     if (window._fallasReady) return;
@@ -47,7 +47,7 @@
         if (mod)  params.set('modelo', mod);
         if (fd)   params.set('fecha_desde', fd);
         if (fh)   params.set('fecha_hasta', fh);
-        // Indicador visual del botÃ³n avanzado
+        // Indicador visual del botón avanzado
         const hasAdv = es || ta || resp || marca || mod || fd || fh;
         const advBtn = document.getElementById('fallasAdvBtn');
         if (advBtn) {
@@ -80,7 +80,7 @@
 
     // â”€â”€â”€ Dona de tipo de mantenimiento (Consolidado) â”€â”€â”€
     // Recalcula conic-gradient + leyenda para TODAS las instancias (.fmc-*),
-    // de modo que sirve igual para el panel mÃ³vil y el de escritorio.
+    // de modo que sirve igual para el panel móvil y el de escritorio.
     // Colores: deben coincidir con partials/mant_chart.blade.php.
     window.flRenderMantChart = function (prev, corr, rap) {
         prev = +prev || 0; corr = +corr || 0; rap = +rap || 0;
@@ -206,13 +206,13 @@
     };
 
     // â”€â”€â”€ Borrado DURO de un reporte (solo super.admin) â”€â”€â”€
-    // Irreversible y sin rastro; pide confirmaciÃ³n con la referencia del reporte.
+    // Irreversible y sin rastro; pide confirmación con la referencia del reporte.
     window.eliminarFalla = function (btn) {
         const d   = (btn && btn.dataset) ? btn.dataset : {};
         const id  = d.id;
         const ref = d.ref || ('#' + id);
         if (!id) return;
-        if (!confirm('Eliminar definitivamente el reporte ' + ref + '?\n\nEsta acciÃ³n es irreversible y no deja rastro.')) return;
+        if (!confirm('Eliminar definitivamente el reporte ' + ref + '?\n\nEsta acción es irreversible y no deja rastro.')) return;
 
         const fd = new FormData();
         fd.append('_method', 'DELETE');

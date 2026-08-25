@@ -32,7 +32,7 @@
 
     function getBody() { return document.getElementById('almTableBody'); }
 
-    // Helpers compartidos del controlador offline (fuente única, ver estructura_base):
+    // Helpers compartidos del controlador offline (fuente única, ver offline_mode.js):
     // norm = normalización de búsqueda; fmt = números en formato latino, idéntico al
     // number_format(n,3,',','.') de la tabla online — las filas deben verse iguales.
     const norm = OM.norm;

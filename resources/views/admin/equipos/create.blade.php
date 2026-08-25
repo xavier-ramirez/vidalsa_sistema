@@ -573,87 +573,9 @@
 
 <script>
 (function () {
-    // ── Tipo Aux combobox ──
-    window.auxTipoOpen = function (input) {
-        var cont = document.getElementById('auxTipoContent');
-        if (cont) cont.style.display = 'block';
-        window.auxTipoFilter(input);
-    };
-    window.auxTipoClose = function () {
-        var cont = document.getElementById('auxTipoContent');
-        if (cont) cont.style.display = 'none';
-    };
-    window.auxTipoFilter = function (input) {
-        var q = (input.value || '').toLowerCase().trim();
-        document.querySelectorAll('#auxTipoContent .dropdown-item').forEach(function (it) {
-            it.style.display = (!q || it.dataset.label.includes(q)) ? '' : 'none';
-        });
-    };
-    window.auxTipoPick = function (label) {
-        var input = document.getElementById('input_tipo_aux');
-        if (input) input.value = label;
-        window.auxTipoClose();
-    };
-
-    // ── Host picker (auxiliar) ──
-    var _hostDebounce = null, _hostLastQuery = '';
-    window.auxHostSearch = function (input) {
-        var q = (input.value || '').trim();
-        if (q.length < 2) { document.getElementById('hostResultsBox').style.display = 'none'; return; }
-        if (q === _hostLastQuery) return;
-        _hostLastQuery = q;
-        clearTimeout(_hostDebounce);
-        _hostDebounce = setTimeout(function () {
-            window.apiFetch('{{ route("equipos-auxiliares.searchHosts") }}?q=' + encodeURIComponent(q), { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } }).then(function (r) { return r.json(); }).then(function (data) { window.auxHostRender(data); })
-            .catch(function (e) { console.error('searchHosts:', e); });
-        }, 280);
-    };
-    window.auxHostRender = function (rows) {
-        var box = document.getElementById('hostResultsBox');
-        if (!box) return;
-        if (!rows || !rows.length) { box.innerHTML = '<div style="padding:14px; text-align:center; color:#94a3b8; font-size:12px;">Sin resultados.</div>'; box.style.display = 'block'; return; }
-        var esc = window.escapeHtml;   // helper central (dom_helpers.js): antes solo escapaba "
-        box.innerHTML = rows.map(function (r) {
-            var dis = r.disponible ? '' : 'opacity:0.55; pointer-events:none;';
-            var badge = r.disponible
-                ? '<span style="background:#dcfce7;color:#166534;font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;">Disponible</span>'
-                : '<span style="background:#fee2e2;color:#991b1b;font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;">Lleno (' + r.auxiliares_anclados + '/2)</span>';
-            // placa > codigo de patio > serial de chasis > #id (misma regla que la ficha).
-            var idP = r.placa || r.codigo || r.serial_chasis || ('#' + r.id);
-            var primary = idP;
-            var secondary = [r.tipo, r.marca].filter(function (x) { return x; }).join(' · ');
-            // Solo si el codigo no es ya el titulo: si no, saldria dos veces.
-            var tertiary = (r.codigo && r.codigo !== idP) ? ('Código: ' + r.codigo) : '';
-            return '<div style="padding:12px 14px; border-bottom:1px solid #f1f5f9; cursor:pointer; display:flex; align-items:center; gap:12px; ' + dis + '" onmousedown="event.preventDefault(); window.auxHostPick(' + r.id + ', this)" data-primary="' + esc(primary) + '" data-secondary="' + esc(secondary) + '" data-tertiary="' + esc(tertiary) + '" onmouseover="this.style.background=\'#f8fafc\'" onmouseout="this.style.background=\'white\'">' +
-                '<div style="width:40px;height:40px;border-radius:8px;background:#eff6ff;color:#1e40af;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="material-icons" style="font-size:20px;">directions_car</i></div>' +
-                '<div style="flex:1; min-width:0;"><div style="display:flex; justify-content:space-between; align-items:center; gap:6px; margin-bottom:2px;"><strong style="color:#1e293b; font-size:13px;">' + idP + '</strong>' + badge + '</div><div style="font-size:12px; color:#475569;">' + (secondary || '') + '</div></div></div>';
-        }).join('');
-        box.style.display = 'block';
-    };
-    window.auxHostPick = function (id, el) {
-        document.getElementById('ID_EQUIPO_HOST').value = id;
-        // auxHostRender ya decide si el codigo aporta algo: aqui solo se pinta.
-        const tertiaryTxt = el.dataset.tertiary || '';
-        const tertiaryEl = document.getElementById('hostSelectedTertiary');
-        document.getElementById('hostSelectedPrimary').textContent = el.dataset.primary || ('#' + id);
-        document.getElementById('hostSelectedSecondary').textContent = el.dataset.secondary || '';
-        tertiaryEl.textContent   = tertiaryTxt;
-        tertiaryEl.style.display = tertiaryTxt ? 'inline' : 'none';
-        document.getElementById('hostSearchWrapper').style.display = 'none';
-        document.getElementById('hostSelectedCard').style.display = 'flex';
-        document.getElementById('hostSearchInput').value = '';
-        window.auxHostClose();
-    };
-    window.auxHostClose = function () { var b = document.getElementById('hostResultsBox'); if (b) b.style.display = 'none'; };
-    window.auxHostClear = function () {
-        document.getElementById('ID_EQUIPO_HOST').value = '';
-        document.getElementById('hostSearchInput').value = '';
-        document.getElementById('hostSearchWrapper').style.display = 'block';
-        document.getElementById('hostSelectedCard').style.display = 'none';
-        _hostLastQuery = '';
-        window.auxHostClose();
-        document.getElementById('hostSearchInput').focus();
-    };
+    // El selector de tipo aux y el de equipo vinculado viven en
+    // public/js/maquinaria/aux_form_widgets.js: los MISMOS nueve manejadores los
+    // usa la ficha del auxiliar, y estaban escritos en las dos vistas.
 
     // ── Mode switching ──
     window.switchUnifiedMode = function (mode) {
@@ -1044,4 +966,15 @@
     })();
 })();
 </script>
+
+{{-- Selector de TIPO AUX y de EQUIPO VINCULADO. Vive en un archivo aparte porque
+     esta pantalla y la ficha del auxiliar usan los MISMOS nueve manejadores;
+     estaban escritos en las dos vistas y se habian separado.
+
+     El <script src> lo pide el LAYOUT (ModuleManager, detector #auxTipoCombo) y no esta
+     vista: aqui dentro quedaria muerto al entrar por navegacion SPA. El motivo entero
+     esta explicado en el partial equipos_auxiliares/partials/form_fields.blade.php,
+     que carga el mismo archivo por el mismo camino. --}}
+<script>window.AUX_HOST_SEARCH_URL = '{{ route("equipos-auxiliares.searchHosts") }}';</script>
+
 @endsection

@@ -629,12 +629,6 @@ body {
 }
 
 /* Responsive Filter Styles (Shared between Equipos and Usuarios) */
-.filter-toolbar-container {
-    gap: 20px;
-    /* Default desktop gap */
-    margin-bottom: 10px;
-}
-
 .responsive-filter-item {
     flex: 0 1 350px;
     /* Desktop fixed width */
@@ -971,15 +965,6 @@ body {
 
 /* --- User Management View (Lista) Styles --- */
 
-/* Filter Toolbar */
-.filter-toolbar-container {
-    display: flex;
-    align-items: center;
-    gap: 20px;
-    flex-wrap: wrap;
-    width: 100%;
-}
-
 .filter-item {
     display: flex;
     align-items: center;
@@ -1017,7 +1002,13 @@ body {
     width: 100% !important;
 }
 
-/* Toolbar container unified for all modules */
+/* Barra de filtros, compartida por Equipos, Fallas, Historial de documentos,
+   Movilizaciones y Usuarios.
+   Estaba escrita TRES veces fuera de media query (aqui y mas arriba, dos veces).
+   Al tener las tres la misma especificidad solo contaba la ultima, asi que los
+   `gap: 20px` y el `margin-bottom: 10px` de las anteriores no hacian nada:
+   quien los editara no veria ningun cambio. Queda una sola, con los valores que
+   el navegador ya venia aplicando. */
 .filter-toolbar-container {
     display: flex;
     gap: 15px;
@@ -1025,7 +1016,7 @@ body {
     width: 100%;
     margin-bottom: 20px;
     flex-wrap: wrap;
-    /* Default for mobile */
+    /* Las media queries de mas abajo lo ajustan por ancho de pantalla. */
 }
 
 /* Force single line on Desktop */

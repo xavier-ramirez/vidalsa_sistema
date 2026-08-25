@@ -337,14 +337,30 @@
     </form>
 </div>
 
-@endsection
+{{-- Restaurar contadores de frentes (asignados + bloqueados) al cargar (modo edición).
+     Los chips de frentes los pinta SOLO el JS: el <span> viene vacio del servidor.
 
-@section('extra_js')
+     VA DENTRO DE @section('content') a proposito. Estuvo en @section('extra_js'), y ahi
+     el arreglo del readyState no servia de nada: el layout hace @yield('extra_js') FUERA
+     de .main-viewport (lo advierte el propio layout), asi que en navegacion SPA esta
+     seccion no se inyecta ni se ejecuta NUNCA — y en carga completa readyState siempre
+     vale 'loading' en ese punto, o sea que solo corria la rama del listener, igual que
+     antes. Resultado: entrando a editar un usuario desde la lista, los chips salian
+     vacios aunque tuviera frentes asignados.
+
+     Aqui dentro si lo re-ejecuta executeScripts() en cada navegacion (es inline, y esos
+     si los corre), y entonces la rama del else es la que hace el trabajo. Mismo patron
+     que consumibles/cargar y que equipos/index. --}}
 <script>
-    // Restaurar contadores de frentes (asignados + bloqueados) al cargar (modo edición)
-    document.addEventListener('DOMContentLoaded', function () {
+    function pintarChipsDeFrentes() {
         if (window.updateFrentesCount) window.updateFrentesCount();
         if (window.updateFrentesBloqueadosCount) window.updateFrentesBloqueadosCount();
-    });
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', pintarChipsDeFrentes);
+    } else {
+        pintarChipsDeFrentes();
+    }
 </script>
+
 @endsection

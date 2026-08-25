@@ -39,7 +39,7 @@
 
     function getBody() { return document.getElementById('almMovTableBody'); }
 
-    // Helpers compartidos del controlador offline (fuente única, ver estructura_base):
+    // Helpers compartidos del controlador offline (fuente única, ver offline_mode.js):
     // norm = normalización de búsqueda; fmt = misma presentación numérica que el kardex
     // online (coma decimal, punto de miles).
     const norm = OM.norm;

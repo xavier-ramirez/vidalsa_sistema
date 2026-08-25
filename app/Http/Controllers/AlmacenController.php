@@ -3395,7 +3395,14 @@ class AlmacenController extends Controller
                 // el kardex como histórico de la SALIDA, pero no se podrá reimprimir).
                 MovimientoInventario::where('NUMERO_NOTA', $numero)->update([
                     'NUMERO_NOTA' => null,
-                    'MOTIVO'      => DB::raw("CONCAT(COALESCE(MOTIVO, ''), ' [NOTA {$numero} ELIMINADA]')"),
+                    // El numero se ESCAPA antes de entrar en el SQL: viene de la
+                    // peticion (?numero=...) y aqui se interpolaba tal cual dentro de
+                    // una cadena SQL. Hoy no es explotable —solo se llega aqui si ese
+                    // numero coincide con una nota que existe— pero basta con que
+                    // alguien afloje esa busqueda para abrir una inyeccion. quote()
+                    // de PDO pone las comillas y escapa lo de dentro.
+                    'MOTIVO'      => DB::raw("CONCAT(COALESCE(MOTIVO, ''), "
+                                     . DB::getPdo()->quote(" [NOTA {$numero} ELIMINADA]") . ')'),
                 ]);
             });
         } catch (Throwable $e) {

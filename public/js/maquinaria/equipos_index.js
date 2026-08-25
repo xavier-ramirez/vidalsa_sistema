@@ -730,7 +730,7 @@ window.unanchorEquipos = async function (e) {
             try { data = await resp.json(); } catch(jsonError) {}
 
             // Los 401/419 no llegan hasta aquí: los ataja el interceptor global de fetch
-            // (estructura_base), que manda al login con su motivo. Lo que había aquí no
+            // (fetch_interceptor.js), que manda al login con su motivo. Lo que había aquí no
             // podía ejecutarse.
 
             if (resp.ok && data.success) {
@@ -1344,7 +1344,7 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
             // Si fue abortada por una nueva petición, ignorar silenciosamente
             if (abortController.signal.aborted) return Promise.reject(new DOMException('Aborted', 'AbortError'));
             // Los 401/419 NO llegan hasta aquí: los ataja el interceptor global de fetch
-            // (estructura_base) y manda al login con su motivo. La rama que había aquí no
+            // (fetch_interceptor.js) y manda al login con su motivo. La rama que había aquí no
             // podía ejecutarse, y la comprobación de la URL final que la acompañaba
             // tampoco: /login redirige a /, así que esa URL nunca lo contiene.
             // Lo que SÍ puede pasar es recibir un 200 con HTML en vez del JSON esperado.
@@ -1643,7 +1643,7 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
             tableBody.style.opacity = '1';
 
             // El aviso "Sin conexión" con su botón lo saca el interceptor global de fetch
-            // (estructura_base) para CUALQUIER petición de la app, no solo para esta.
+            // (fetch_interceptor.js) para CUALQUIER petición de la app, no solo para esta.
         })
         .finally(() => {
             // Solo cierra el preloader la llamada que lo ABRIÓ (no-silent). Las silent no
@@ -2259,7 +2259,7 @@ window.openBulkModal = function (event) {
             });
 
             // Los 401/419 no llegan hasta aquí: los ataja el interceptor global de fetch
-            // (estructura_base), que manda al login con su motivo. Lo que había aquí no
+            // (fetch_interceptor.js), que manda al login con su motivo. Lo que había aquí no
             // podía ejecutarse.
 
             // Cualquier otro error HTTP: leer el body para mostrar el mensaje real
@@ -3068,29 +3068,35 @@ window.openAnchorModal = async function (event) {
             };
         }
 
+        // Marca, tipo, serial, placa, frente y el id de la foto son texto LIBRE de
+        // la ficha del equipo y acaban dentro de innerHTML: van escapados. Sin
+        // esto, una placa escrita como `<img src=x onerror=...>` se ejecutaba al
+        // abrir este modal.
+        const esc = window.escapeHtml;
+
         // Foto
         let fotoHtml = '';
         if (eq.FOTO) {
             const driveId = eq.FOTO.replace(/^.*\/storage\/google\//, '').split('?')[0];
             // contain (no cover): el equipo se ve completo, sin recorte horizontal.
-            fotoHtml = `<img src="/storage/google/${driveId}" loading="lazy" style="width:100%; height:100%; object-fit:contain;">`;
+            fotoHtml = `<img src="/storage/google/${esc(driveId)}" loading="lazy" style="width:100%; height:100%; object-fit:contain;">`;
         } else {
             fotoHtml = `<i class="material-icons" style="font-size:24px; color:#cbd5e0;">image_not_supported</i>`;
         }
 
         // Badge de frente distinto (solo aparece en búsqueda global)
         const frenteBadge = eq.ES_FRENTE_DISTINTO && eq.FRENTE_NOMBRE
-            ? `<div style="font-size:10px; color:#f97316; font-weight:700; display:flex; align-items:center; gap:2px; margin-top:2px;"><i class="material-icons" style="font-size:10px;">location_on</i>${eq.FRENTE_NOMBRE}</div>`
+            ? `<div style="font-size:10px; color:#f97316; font-weight:700; display:flex; align-items:center; gap:2px; margin-top:2px;"><i class="material-icons" style="font-size:10px;">location_on</i>${esc(eq.FRENTE_NOMBRE)}</div>`
             : '';
 
         item.innerHTML = `
             <div style="width:104px; height:64px; background:#f1f5f9; border-radius:6px; overflow:hidden; display:flex; align-items:center; justify-content:center; flex-shrink:0;">${fotoHtml}</div>
             <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px;">
-                <span style="font-weight:800; font-size:13px; color:#1e293b; text-transform:uppercase; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${eq.TIPO_NOMBRE || 'S/TIPO'}</span>
-                <div style="font-size:11px; color:#475569; font-weight:600;">${eq.MARCA}</div>
+                <span style="font-weight:800; font-size:13px; color:#1e293b; text-transform:uppercase; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(eq.TIPO_NOMBRE || 'S/TIPO')}</span>
+                <div style="font-size:11px; color:#475569; font-weight:600;">${esc(eq.MARCA)}</div>
                 <div style="display:flex; align-items:center; gap:8px; margin-top:1px;">
-                    <span style="font-size:10px; color:#64748b; display:flex; align-items:center; gap:2px;"><i class="material-icons" style="font-size:10px;">fingerprint</i>${eq.SERIAL_CHASIS || 'S/S'}</span>
-                    ${eq.PLACA ? `<span style="font-size:10px; color:#0067b1; font-weight:700; display:flex; align-items:center; gap:2px;"><i class="material-icons" style="font-size:10px;">featured_play_list</i>${eq.PLACA}</span>` : ''}
+                    <span style="font-size:10px; color:#64748b; display:flex; align-items:center; gap:2px;"><i class="material-icons" style="font-size:10px;">fingerprint</i>${esc(eq.SERIAL_CHASIS || 'S/S')}</span>
+                    ${eq.PLACA ? `<span style="font-size:10px; color:#0067b1; font-weight:700; display:flex; align-items:center; gap:2px;"><i class="material-icons" style="font-size:10px;">featured_play_list</i>${esc(eq.PLACA)}</span>` : ''}
                 </div>
                 ${frenteBadge}
             </div>
@@ -3449,9 +3455,9 @@ window.exportEquipos = function () {
 
 // Resalte azul de "filtro activo" de la barra de búsqueda, según su valor ACTUAL.
 // El servidor pinta el azul (borde/fondo) al cargar con ?search_query, pero al limpiar
-// por AJAX (X, borrar el texto, "Limpiar Todo") el azul quedaba pegado con el campo
+// por AJAX (la X del buscador o borrar el texto) el azul quedaba pegado con el campo
 // VACÍO — y al escribir sin recargar no se ponía. Fuente única en cliente: la llaman el
-// keyup, la X y clearAdvancedFilters. Sincroniza también la visibilidad del botón X.
+// keyup, la X del buscador e initEquipos. Sincroniza también la visibilidad del botón X.
 window.syncSearchHighlight = function () {
     const si = document.getElementById('searchInput');
     if (!si) return;
@@ -3491,7 +3497,8 @@ function initEquipos() {
             clearTimeout(window.searchTimeout);
             // Solo busca con 4+ caracteres. Al BORRAR el campo hasta dejarlo vacío ya NO se
             // dispara una "búsqueda vacía" (antes val.length===0 recargaba y mostraba todo /
-            // estado en blanco). Para resetear la vista está el botón X (clearAdvancedFilters).
+            // estado en blanco). Para limpiar la búsqueda está su botón X, que quita SOLO la
+            // búsqueda y respeta los demás filtros activos (antes reseteaba todos).
             // Auto-búsqueda por debounce SOLO con 4+ chars y SOLO al escribir (NO en Enter):
             // el Enter lo dispara el submit del form como FUENTE ÚNICA. Antes el keyup TAMBIÉN
             // llamaba loadEquipos() en Enter → doble búsqueda (keyup + submit), request abortado

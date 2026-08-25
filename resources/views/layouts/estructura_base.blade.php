@@ -290,120 +290,8 @@
     <!-- Custom UI Components (SPA Friendly) -->
     <!-- Scripts moved to footer for performance -->
 
-    <script>
-        // Interceptor GLOBAL de Fetch para manejar expiración de sesión (419, 401)
-        const originalFetch = window.fetch;
-        window.fetch = async function (...args) {
-            try {
-                let response = await originalFetch.apply(this, args);
-
-                // ── 419 NO es una sesión muerta ────────────────────────────────────
-                // 401 = no hay sesión. 419 = el TOKEN no vale, que es otra cosa: la
-                // sesión puede estar perfectamente viva. Y con el Service Worker
-                // sirviendo el HTML desde su caché, un token viejo es lo NORMAL —
-                // basta con que el servidor haya rotado el suyo desde que se cacheó
-                // la página.
-                //
-                // Tratarlos igual expulsaba al usuario con la sesión intacta: pulsaba
-                // un botón, salía "Tu sesión expiró por seguridad" y al volver a
-                // entrar todo funcionaba, porque nunca se había caído nada. El login
-                // ya resolvía esto para SU formulario (handshake /refresh-csrf +
-                // reintento); las pantallas de dentro no tenían nada.
-                //
-                // Aquí se hace lo mismo y UNA sola vez: se pide un token fresco, se
-                // reescribe el <meta> —que es de donde lo lee getCsrf() para las
-                // siguientes— y se repite la petición. Si el segundo intento vuelve a
-                // dar 419, entonces sí: la sesión está muerta de verdad y se sigue al
-                // bloque de abajo.
-                if (response.status === 419 && !args[2]) {
-                    try {
-                        const tk = await originalFetch('/refresh-csrf', {
-                            cache: 'no-store', credentials: 'same-origin'
-                        });
-                        if (tk.ok) {
-                            const fresco = (await tk.text()).trim();
-                            if (fresco) {
-                                const meta = document.querySelector('meta[name="csrf-token"]');
-                                if (meta) meta.setAttribute('content', fresco);
-                                const conf = Object.assign({}, args[1] || {});
-                                const cab = Object.assign({}, conf.headers || {});
-                                for (const k in cab) {
-                                    if (k.toLowerCase() === 'x-csrf-token') delete cab[k];
-                                }
-                                cab['X-CSRF-TOKEN'] = fresco;
-                                conf.headers = cab;
-
-                                // El _token del CUERPO manda sobre la cabecera: Laravel mira
-                                // primero input('_token') y solo despues la cabecera. Si el
-                                // formulario lo lleva dentro (lo normal al mandar un <form>
-                                // con FormData), refrescar solo la cabecera no arreglaba nada.
-                                try {
-                                    const b = conf.body;
-                                    if (typeof FormData !== 'undefined' && b instanceof FormData && b.has('_token')) {
-                                        b.set('_token', fresco);
-                                    } else if (typeof URLSearchParams !== 'undefined' && b instanceof URLSearchParams && b.has('_token')) {
-                                        b.set('_token', fresco);
-                                    }
-                                } catch (e) { /* body no manipulable: queda la cabecera */ }
-                                // El tercer argumento marca el reintento: sin él, un 419
-                                // persistente se reintentaría en bucle.
-                                return window.fetch(args[0], conf, true);
-                            }
-                        }
-                    } catch (e) { /* sin red: cae al manejo de abajo */ }
-                }
-
-                // Si la sesión expiró de verdad (401, o 419 que no se arregló)
-                if (response.status === 401 || response.status === 419) {
-                    // DUEÑO ÚNICO de "la sesión murió". Corta aquí y devuelve una promesa
-                    // que no resuelve nunca, así que NINGÚN módulo llega a ver un 401/419:
-                    // por eso ya no existen las ramas de "sesión expirada" que tenían
-                    // equipos_index, form_logic y outbox-sync — no podían ejecutarse.
-                    //
-                    // Con ?aviso= el login explica POR QUÉ se cerró la sesión (un flash no
-                    // serviría: esa pantalla se sirve desde el caché del Service Worker).
-                    // Y si lo que falló fue la subida del outbox, es que HABÍA cambios sin
-                    // subir (drain() solo llama con la cola llena): el aviso lo dice, que
-                    // era lo único que se perdía al cortar la petición aquí.
-                    var _u = String((args[0] && args[0].url) || args[0] || '');
-                    window.location.href = _u.indexOf('/offline/sync') !== -1
-                        ? '/?aviso=sesion_expirada_pendientes'
-                        : '/?aviso=sesion_expirada';
-                    return new Promise(() => { }); // Promesa pendiente eterna
-                }
-                return response;
-            } catch (err) {
-                // Conexión rechazada (servidor caído, sin red, etc.).
-                //
-                // DUEÑO ÚNICO de "se fue la red", igual que lo es de "se cayó la sesión".
-                // Un TypeError de fetch contra NUESTRO servidor = no se alcanzó (los errores
-                // HTTP 4xx/5xx resuelven, no lanzan). Como aquí pasan TODAS las peticiones de
-                // la app, con esto el aviso "Sin conexión" —y su botón "Trabajar sin
-                // conexión"— sale hagas lo que hagas: filtrar, navegar, guardar.
-                //
-                // Antes esto estaba copiado a mano en CINCO módulos, así que solo aparecía si
-                // el usuario tocaba justo una de esas pantallas; en cualquier otra se iba
-                // internet y no pasaba nada. Y el evento 'offline' del navegador no cubre el
-                // caso típico: navigator.onLine sigue en true mientras haya cualquier interfaz
-                // levantada (wifi sin internet, ethernet, VPN).
-                //
-                // Los abortos (AbortController de las búsquedas) quedan fuera solos: lanzan un
-                // DOMException, no un TypeError. Y las peticiones a otros dominios se descartan
-                // por origen: que falle un servicio externo no dice nada de NUESTRO servidor.
-                var _url = String((args[0] && args[0].url) || args[0] || '');
-                var _propia = true;   // sin URL legible se asume nuestra (es lo normal)
-                try { _propia = new URL(_url, location.href).origin === location.origin; } catch (e) {}
-                if (err instanceof TypeError && _propia && window.netStatus
-                    && typeof window.netStatus.showOffline === 'function') {
-                    window.netStatus.showOffline();
-                }
-                // Se relanza para que el caller (ej. fetchNotifs) decida qué hacer.
-                // El console.warn anterior generaba ruido en cada poll cuando no
-                // habia red — eliminado.
-                throw err;
-            }
-        };
-    </script>
+    <script
+        src="{{ asset('js/maquinaria/fetch_interceptor.js') }}?v={{ @filemtime(public_path('js/maquinaria/fetch_interceptor.js')) }}"></script>
 
     <script>
         // Marca <html> con .is-ios en dispositivos Apple táctiles (iPhone/iPad). El CSS
@@ -418,6 +306,31 @@
             if (isIOS) document.documentElement.classList.add('is-ios');
         })();
     </script>
+
+    {{-- PRECARGA de los archivos que salieron del bloque inline del layout.
+         Ese codigo antes VIAJABA DENTRO de este HTML: cero peticiones y cero
+         espera. Al extraerlo, el HTML adelgazo 113 KB pero aparecieron 5
+         descargas nuevas, y la peor es layout_ui.js (82 KB): su <script> vive
+         al final del body, asi que el navegador no se entera de que existe
+         hasta parsear todo el documento, y ahi se para en seco a bajarlo. Ese
+         es el "abre mas lento" que se noto despues de la extraccion.
+
+         preload y NO defer (ver la regla del orden SPA, mas abajo): esto NO
+         cambia cuando se ejecuta nada — los <script> siguen sincronos y en el
+         mismo orden. Solo adelanta la DESCARGA al primer byte del HTML y en
+         paralelo, para que al llegar el parser el archivo ya este en memoria.
+
+         Las URL deben coincidir EXACTAMENTE con las del <script src> (mismo
+         ?v=filemtime) o el navegador baja el archivo dos veces. --}}
+    @foreach ([
+        'js/maquinaria/layout_ui.js',
+        'js/maquinaria/offline_mode.js',
+        'js/maquinaria/fetch_interceptor.js',
+        'js/maquinaria/global_handlers.js',
+        'js/maquinaria/preloader.js',
+    ] as $_precarga)
+        <link rel="preload" as="script" href="{{ asset($_precarga) }}?v={{ @filemtime(public_path($_precarga)) }}">
+    @endforeach
 
     @yield('extra_css')
 </head>
@@ -446,7 +359,8 @@
     {{-- Banner global de estado de red. Se muestra cuando window.addEventListener('offline')
          dispara o cuando navigator.onLine === false al cargar la app. Persiste hasta que vuelva
          la conexion (no se auto-oculta). Cuando vuelve la red, muestra brevemente "Conexion
-         restaurada" en verde y luego desaparece. La logica esta en el bloque <script> de abajo. --}}
+         restaurada" en verde y luego desaparece. La logica vive en
+         public/js/maquinaria/offline_mode.js (antes era un <script> inline aqui mismo). --}}
     <div id="netStatusBanner" role="status" aria-live="polite"
          style="position:fixed;top:0;left:0;right:0;z-index:1000001;display:none;
                 align-items:center;justify-content:center;gap:8px;
@@ -879,7 +793,11 @@
                 <h3 id="pdfPreviewTitle" style="margin: 0; color: white; font-size: 14px; font-weight: 600;">Documento
                 </h3>
 
-                <div style="display: flex; align-items: center; gap: 8px;">
+                {{-- margin-left:auto y no solo el space-between del padre: cuando hay
+                     correcciones anexas el titulo se esconde (lo rotula la pestana del
+                     principal, ver _pdfTituloHeader) y, con un unico hijo, space-between
+                     mandaria los botones a la izquierda. --}}
+                <div style="display: flex; align-items: center; gap: 8px; margin-left: auto;">
 
 
                     <button id="pdfDownloadBtn" onclick="downloadPdfDirect(this.dataset.url, this.dataset.label)"
@@ -894,7 +812,12 @@
                         <i class="material-icons" style="font-size: 16px;">print</i><span class="btn-label">Imprimir</span>
                     </button>
 
-                    @if(auth()->user() && (auth()->user()->can('equipos.edit') || auth()->user()->can('user.edit') || auth()->user()->can('super.admin')))
+                    {{-- Misma regla que el boton "Anexar correccion" de mas abajo, y por el
+                         mismo motivo: uploadDoc exige 'user.edit' en el servidor. Antes se
+                         listaba tambien 'equipos.edit', asi que quien solo tuviera ese veia
+                         el boton y solo se enteraba al elegir el archivo (el guard JS
+                         CAN_UPDATE_INFO lo paraba con un toast). --}}
+                    @if(auth()->user() && auth()->user()->can('user.edit'))
                         <label id="pdfUpdateLabel" for="pdfUpdateInput"
                             style="background: #059669; border: none; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; color: white; border-radius: 50%; transition: transform 0.2s; cursor: pointer;"
                             onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'"
@@ -921,6 +844,39 @@
                         <i class="material-icons" style="font-size: 20px;">close</i>
                     </button>
                 </div>
+            </div>
+
+            {{-- Tira de CORRECCIONES ANEXAS.
+                 El documento principal y sus correcciones estan los dos vigentes (una
+                 poliza con una falta de ortografia y su correccion, por ejemplo), asi
+                 que no van escondidas en un panel de historial: van aqui, a la vista,
+                 en pestanas. Cambiar de pestana solo cambia el src del iframe y
+                 reaprovecha el loader, el desenfoque y el respaldo de 5 s que ya tiene
+                 el visor. Oculta cuando no hay correcciones y el usuario no puede
+                 anexar: asi el visor se ve igual que siempre. --}}
+            <div id="pdfAnexosBar"
+                style="display:none; background:#1f2937; border-bottom:1px solid #374151; padding:6px 12px; align-items:center; gap:8px; overflow-x:auto;">
+                <div id="pdfAnexosTabs" style="display:flex; align-items:center; gap:6px; flex:1; min-width:0;"></div>
+                {{-- 'user.edit' A SECAS, que es LO MISMO que exige anexarDoc en el servidor.
+                     No se listan 'equipos.edit' ni 'super.admin': el primero es un permiso
+                     DISTINTO (gobierna changeStatus/confirmarSitio, no la edicion de ficha),
+                     asi que quien solo lo tuviera veia el boton, elegia el PDF, esperaba a
+                     que subiera entero y recibia un 403; y el segundo lo resuelve Gate::before
+                     dentro de ->can('user.edit'), igual que en window.CAN_UPDATE_INFO. --}}
+                @if(auth()->user() && auth()->user()->can('user.edit'))
+                    {{-- Un solo gesto: se pulsa y se elige el PDF. El nombre de la
+                         pestaña lo pone el backend numerando las correcciones. --}}
+                    <div id="pdfAnexarZona" style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
+                        <button type="button" id="pdfAnexarBtn"
+                            style="background:transparent; color:#93c5fd; border:1px dashed #3b82f6; padding:4px 10px; font-size:12px; font-weight:600; display:flex; align-items:center; gap:5px; border-radius:6px; cursor:pointer; transition:background .15s;"
+                            onmouseover="this.style.background='rgba(59,130,246,0.12)'"
+                            onmouseout="this.style.background='transparent'"
+                            title="Anexar una corrección: se guarda junto al documento, sin reemplazarlo">
+                            <i class="material-icons" style="font-size:15px;">attach_file</i>Anexar corrección
+                        </button>
+                        <input type="file" id="pdfAnexarInput" accept="application/pdf" style="display:none;">
+                    </div>
+                @endif
             </div>
 
             <!-- Viewer Container -->
@@ -991,7 +947,13 @@
                             style="display: flex; flex-direction: column; gap: 12px;">
                             <div id="metaFieldsContainer"></div>
 
-                            @if(auth()->user() && (auth()->user()->can('equipos.edit') || auth()->user()->can('user.edit') || auth()->user()->can('super.admin')))
+                            {{-- Tercera guarda del visor con la MISMA regla que las otras dos
+                                 (Actualizar Documento y Anexar correccion): updateMetadata
+                                 tambien exige 'user.edit'. Ademas los campos de arriba ya se
+                                 pintan disabled cuando falta CAN_UPDATE_INFO —que es ese mismo
+                                 permiso—, asi que con la guarda laxa salia un formulario
+                                 bloqueado con un boton "Guardar Cambios" activo encima. --}}
+                            @if(auth()->user() && auth()->user()->can('user.edit'))
                                 <button type="submit" id="btnSaveMeta"
                                     style="margin-top: 8px; background: #3182ce; color: white; border: none; padding: 8px 12px; border-radius: 6px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 13px; width: 100%; box-sizing: border-box;">
                                     <i class="material-icons" style="font-size: 16px;">save</i> Guardar Cambios
@@ -1049,542 +1011,14 @@
         </div>
 
         <!-- Scripts -->
-        <script>
-            // Global Preloader Controls — CON CONTADOR DE REFERENCIAS.
-            //
-            // Motivo: un ÚNICO spinner global es compartido por varias operaciones
-            // async. El caso más común: al entrar a un módulo (navegación SPA) se
-            // muestra el spinner, se inyecta el HTML del módulo y su script de init
-            // lanza un SEGUNDO window.apiFetch(los datos de la tabla/filtro). SIN contador, el
-            // hidePreloader de la navegación ocultaba el spinner apenas llegaba el
-            // cascarón HTML, aunque el fetch de datos siguiera en vuelo → con internet
-            // lento el spinner desaparecía y los datos filtrados aparecían unos
-            // segundos DESPUÉS. CON contador, cada show() suma y cada hide() resta: el
-            // spinner solo se oculta cuando TODAS las operaciones que lo pidieron
-            // terminaron (es decir, cuando los datos ya están pintados en pantalla).
-            //
-            // hidePreloader(true) FUERZA el reset del contador y oculta de inmediato:
-            // lo usan los watchdogs anti-congelado (ver navegacion.js).
-            let _preloaderRefs = 0;
-
-            window.showPreloader = function () {
-                _preloaderRefs++;
-                const preloader = document.getElementById('preloader');
-                if (preloader) {
-                    preloader.classList.remove('fade-out');
-                    preloader.style.display = 'flex';
-                    // Force visibility properties to ensure it appears on top of everything
-                    preloader.style.opacity = '1';
-                    preloader.style.visibility = 'visible';
-                    preloader.style.zIndex = '1000000';
-                }
-            };
-
-            window.hidePreloader = function (force) {
-                if (force === true) {
-                    _preloaderRefs = 0;
-                } else {
-                    _preloaderRefs = Math.max(0, _preloaderRefs - 1);
-                    // Aún hay operaciones en vuelo → mantener el spinner visible.
-                    if (_preloaderRefs > 0) return;
-                }
-                const preloader = document.getElementById('preloader');
-                if (preloader) {
-                    preloader.classList.add('fade-out');
-                    setTimeout(() => {
-                        if (preloader.classList.contains('fade-out')) {
-                            preloader.style.display = 'none';
-                        }
-                    }, 100);
-                }
-            };
-
-            // Ocultar el preloader INICIAL cuando todo (imágenes/iconos) haya cargado,
-            // PERO solo si ninguna operación lo está usando (refs===0). Si el script de
-            // init de un módulo ya pidió el spinner para su primer window.apiFetch(refs>0), NO lo
-            // tocamos aquí: se ocultará cuando ese fetch termine de pintar los datos.
-            // Sin esta guarda, en una carga de página COMPLETA (no-SPA) el window.load
-            // bajaba el contador del init y reaparecía el mismo bug (spinner antes que datos).
-            window.addEventListener('load', function() {
-                if (_preloaderRefs === 0 && typeof window.hidePreloader === 'function') {
-                    window.hidePreloader(true);
-                }
-            });
-
-            // ── BANNER DE ESTADO DE RED ──────────────────────────────────────
-            // Se engancha a los eventos online/offline del browser para mostrar/ocultar
-            // el #netStatusBanner. Tambien chequea estado inicial al cargar la pagina,
-            // por si la app se abrio ya sin conexion. Expuesto en window.netStatus para
-            // que navegacion.js pueda forzar el aviso cuando un fetch falla aunque
-            // navigator.onLine diga lo contrario (red marca pero servidor caido).
-            (function () {
-                const banner = document.getElementById('netStatusBanner');
-                if (!banner) return;
-                const icon = document.getElementById('netStatusIcon');
-                const text = document.getElementById('netStatusText');
-                let hideTimer = null;
-
-                function showBanner(message, iconName, bgColor, autoHideMs) {
-                    if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
-                    banner.style.background = bgColor;
-                    icon.textContent = iconName;
-                    text.textContent = message;
-                    banner.style.display = 'flex';
-                    // Empujar header + contenido hacia abajo la ALTURA REAL del banner para
-                    // que no lo tape (se re-mide en cada showBanner: el texto cambia entre
-                    // estados y en móvil puede ocupar 2 líneas). offsetHeight ya es válido
-                    // con display:flex; el transform del slide no lo afecta.
-                    document.documentElement.style.setProperty('--net-banner-h', banner.offsetHeight + 'px');
-                    document.body.classList.add('net-banner-active');
-                    requestAnimationFrame(() => {
-                        banner.style.transform = 'translateY(0)';
-                    });
-                    if (autoHideMs && autoHideMs > 0) {
-                        hideTimer = setTimeout(hideBanner, autoHideMs);
-                    }
-                }
-                function hideBanner() {
-                    banner.style.transform = 'translateY(-100%)';
-                    // Restaurar el layout: el header vuelve a top:5px (con su transición) y
-                    // el body a su padding normal — en sync con el slide-up del banner.
-                    document.body.classList.remove('net-banner-active');
-                    document.documentElement.style.removeProperty('--net-banner-h');
-                    setTimeout(() => { banner.style.display = 'none'; }, 300);
-                }
-
-                // ── Modo OFFLINE: se OFRECE, no se cambia solo ──────────────────
-                // Los módulos con vista offline registran su render aquí (OfflineMode).
-                // Sin conexión, el banner rojo muestra el botón "Trabajar sin conexión";
-                // al tocarlo se pinta la versión local y el banner pasa a ámbar.
-                //
-                // Registro POR CLAVE (no array): la navegación SPA re-ejecuta el script del
-                // módulo en cada visita; con clave se SOBREESCRIBE en vez de acumular (sin
-                // fuga). Cada render se guarda con su propio guard (pinta solo si su tabla
-                // sigue en el DOM), así los módulos que ya no están en pantalla no hacen nada.
-                const action = document.getElementById('netStatusAction');
-                const renders = {};
-                // Observador de scroll infinito vivo por tabla (ver OfflineMode.porLotes).
-                const observadoresLote = new WeakMap();
-                function detenerLotes(tbody) {
-                    const obs = observadoresLote.get(tbody);
-                    if (obs) { obs.disconnect(); observadoresLote.delete(tbody); }
-                }
-
-                // Devuelve el apagador del spinner emparejado con SU showPreloader: se ejecuta
-                // UNA sola vez, así en el par "terminó / watchdog" el que llegue primero apaga
-                // y el otro ya no vuelve a restar del contador de referencias.
-                // force SOLO desde el watchdog, que es la excepción documentada del contador.
-                function quitarSpinner() {
-                    let hecho = false;
-                    return function (forzar) {
-                        if (hecho) return;
-                        hecho = true;
-                        if (window.hidePreloader) window.hidePreloader(forzar === true);
-                    };
-                }
-                let offlineActivo = false;
-                let sinConexion   = false; // true mientras el banner muestra estado offline
-                                           // (NO usar navigator.onLine: miente con el server caído)
-                let ultimoAvisoOffline = 0; // throttle del toast "activá el modo offline" (evita spam al teclear)
-
-                // Devuelve una promesa que resuelve cuando TODOS los módulos terminaron de
-                // pintar. Los renders leen IndexedDB (asíncrono), así que sin esperarlos el
-                // spinner se iría antes de que la tabla tenga datos.
-                function correrRenders() {
-                    const ps = Object.keys(renders).map(function (k) {
-                        try { return Promise.resolve(renders[k]()); } catch (e) { return Promise.resolve(); }
-                    });
-                    return Promise.all(ps).catch(function () {});
-                }
-                // El banner tiene UN botón (#netStatusAction) reutilizado según el estado:
-                // sin conexión → "Trabajar sin conexión" (activarOffline); reconectado mientras
-                // se trabajaba offline → "Activar uso con internet" (volverOnline).
-                var accionBoton = null;
-                function configurarBoton(texto, handler) {
-                    accionBoton = handler;
-                    if (action) { action.textContent = texto; action.style.display = 'inline-flex'; }
-                }
-                // Ofrecer (NO activar) el modo offline. El modo es OPT-IN: NINGÚN dato local
-                // se carga hasta que el usuario pulse el botón.
-                //
-                // El botón se ofrece SIEMPRE, tenga o no vista offline el módulo actual. Antes
-                // se escondía si no había render registrado, y eso dejaba sin salida el caso
-                // normal: entras sin internet, aterrizas en /menu —que no registra vista— y no
-                // tienes botón; para llegar a uno de los cuatro módulos que sí lo registran
-                // (almacen, equipos, movilizaciones, movimientos) dependes de que esa página ya
-                // esté en la caché del service worker. En un equipo nuevo no lo está, así que el
-                // modo offline era sencillamente inalcanzable.
-                //
-                // Ofrecerlo aquí es ademas lo correcto de significado: "trabajar sin conexión"
-                // es un estado de TODA la app; los renders solo deciden qué se repinta. Desde
-                // /menu no hay tabla que pintar, correrRenders() resuelve al instante y el
-                // usuario queda en modo offline con el banner ámbar y la fecha de su copia,
-                // listo para navegar a los módulos que sí tienen vista.
-                function ofrecerOffline() {
-                    configurarBoton('Trabajar sin conexión', activarOffline);
-                }
-                // Pinta el banner ámbar "Trabajando sin conexión · <fecha de la copia local>".
-                function pintarBannerOffline() {
-                    var pintar = function (cuando) {
-                        showBanner('Trabajando sin conexión' + (cuando || ''), 'cloud_off', '#b45309', 0);
-                    };
-                    if (window.OfflineDB) {
-                        window.OfflineDB.meta().then(function (m) {
-                            var c = '';
-                            if (m && m.generado) { var d = new Date(m.generado); if (!isNaN(d)) c = ' · ' + d.toLocaleString('es-VE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }); }
-                            pintar(c);
-                        }).catch(function () { pintar(''); });
-                    } else { pintar(''); }
-                }
-                function mostrarOffline() {
-                    sinConexion = true;
-                    // Ya trabajando offline: mantener el banner ámbar (no volver al rojo) y
-                    // ocultar el botón (no hay nada que ofrecer estando ya en modo local).
-                    if (offlineActivo) { if (action) action.style.display = 'none'; pintarBannerOffline(); return; }
-                    // MANUAL (opt-in): aviso rojo + OFRECEMOS el botón; NO se activa solo.
-                    // Sin conexión, nada de copia local hasta que el usuario pulse "Trabajar
-                    // sin conexión". Si no lo pulsa, la vista queda con los datos del servidor
-                    // y los filtros quedan bloqueados (ver pendienteActivar/avisarActivar).
-                    showBanner('Sin conexión a internet', 'wifi_off', '#dc2626', 0);
-                    ofrecerOffline();
-                }
-                // ── Transición ONLINE → OFFLINE (pulsar "Trabajar sin conexión") ──
-                // Spinner mientras se PREPARA todo para trabajar sin señal: abrir IndexedDB,
-                // leer la copia local y pintar el módulo. Se quita cuando la tabla YA está
-                // pintada, no antes: los renders son asíncronos y con un tope fijo el spinner
-                // se iba mientras la pantalla seguía vacía.
-                function activarOffline() {
-                    if (offlineActivo) return;
-                    offlineActivo = true;
-                    if (action) action.style.display = 'none';
-                    if (window.showPreloader) window.showPreloader();
-                    pintarBannerOffline();  // banner ámbar con la fecha de la copia
-
-                    const quitar = quitarSpinner();
-                    // Watchdog: si un render se cuelga, el spinner NUNCA queda pegado.
-                    const perro = setTimeout(function () { quitar(true); }, 8000);
-                    correrRenders().then(function () { clearTimeout(perro); quitar(); });
-                }
-                // ── Transición OFFLINE → ONLINE (pulsar "Activar uso con internet") ──
-                // Spinner mientras se SINCRONIZA de verdad, en este orden:
-                //   1) confirmar que el servidor responde,
-                //   2) SUBIR la cola de lo hecho sin internet — antes de recargar, porque si
-                //      no la página recargada mostraría los datos del servidor sin esos
-                //      cambios y el usuario vería su trabajo desaparecer unos segundos,
-                //   3) BAJAR la copia fresca, para quedar listo si la señal se vuelve a ir,
-                //   4) recargar, que restaura la vista online normal.
-                // Si el servidor aún no responde, seguimos offline con botón de reintento.
-                function volverOnline() {
-                    if (window.showPreloader) window.showPreloader();
-                    showBanner('Volviendo al modo con internet · sincronizando…', 'sync', '#16a34a', 0);
-
-                    const quitar = quitarSpinner();
-                    // Watchdog: pase lo que pase se recarga. La cola vive en IndexedDB, así que
-                    // lo que no alcanzó a subir se sube solo después de la recarga.
-                    const perro = setTimeout(function () { quitar(true); window.location.reload(); }, 20000);
-
-                    window.apiFetch('/offline/version', { headers: { 'X-Requested-With': 'XMLHttpRequest' }, method: 'GET', cache: 'no-store'})
-                        .then(function () {
-                            const subir = window.OfflineOutbox ? Promise.resolve(window.OfflineOutbox.drain()) : Promise.resolve();
-                            return subir
-                                .catch(function () {})
-                                .then(function () { return window.OfflineDB ? window.OfflineDB.sync(true) : null; })
-                                .catch(function () {})   // bajar la copia es deseable, no imprescindible: la recarga trae la verdad
-                                .then(function () { clearTimeout(perro); quitar(); window.location.reload(); });
-                        })
-                        .catch(function () {
-                            clearTimeout(perro);
-                            quitar();   // resta del contador (no forzar: puede haber otra operación con spinner)
-                            // El servidor aún no responde: seguimos en modo offline (offlineActivo
-                            // sigue true) pero dejamos el botón para REINTENTAR — NO usamos
-                            // mostrarOffline() aquí porque ocultaría el botón y el usuario quedaría
-                            // sin forma de reintentar hasta el próximo evento 'online'.
-                            showBanner('El servidor no responde aún · seguí trabajando sin conexión', 'cloud_off', '#b45309', 0);
-                            configurarBoton('Reintentar conexión', volverOnline);
-                        });
-                }
-                if (action) action.addEventListener('click', function () { if (typeof accionBoton === 'function') accionBoton(); });
-
-                window.addEventListener('offline', mostrarOffline);
-                window.addEventListener('online', function () {
-                    sinConexion = false;
-                    // Si se estaba TRABAJANDO en modo offline, la vista quedó pintada con la
-                    // copia local y sus handlers en modo offline. NO recargamos de golpe (eso
-                    // interrumpía el trabajo): mostramos el aviso verde y OFRECEMOS el botón
-                    // "Activar uso con internet". Al pulsarlo → volverOnline (spinner + confirma
-                    // servidor + recarga a la vista online). Así el usuario decide cuándo cambiar
-                    // y nunca queda "congelado" (el botón está a la vista).
-                    if (offlineActivo) {
-                        showBanner('Conexión restaurada', 'wifi', '#16a34a', 0);
-                        configurarBoton('Activar uso con internet', volverOnline);
-                        return;
-                    }
-                    offlineActivo = false;
-                    if (action) action.style.display = 'none';
-                    showBanner('Conexión restaurada', 'wifi', '#16a34a', 2500);
-                });
-                // Si baja una copia nueva mientras se trabaja offline, repintar el módulo
-                // visible. (La re-pintada al navegar por SPA la hace cada módulo en su
-                // propio init sobre 'spa:contentLoaded', no aquí, para no duplicar.)
-                // El segundo evento no sobra: los datos del servidor llegan primero y
-                // encima de ellos outbox-sync repone (de forma asíncrona) los cambios que
-                // todavía no han subido. Repintando solo con el primero, el usuario vería
-                // su propio cambio desaparecer un instante y volver.
-                ['offline-datos-actualizados', 'offline-optimistas-reaplicados'].forEach(function (ev) {
-                    window.addEventListener(ev, function () { if (offlineActivo) correrRenders(); });
-                });
-
-                // ── Detección de conexión REAL ──────────────────────────────────
-                // navigator.onLine NO es confiable: en el navegador suele decir "online"
-                // aunque el SERVIDOR esté caído (solo refleja la interfaz de red). Por eso
-                // sondeamos /offline/version (que el SW NUNCA cachea — ver sw.js): si el
-                // fetch falla, no hay servidor → mostramos el aviso. Esto hace que el
-                // banner salga también en /menu y en el navegador (no solo en la PWA ni
-                // solo al desconectar el wifi). En /menu solo sale el aviso informativo
-                // (sin botón) porque ese módulo no tiene vista offline registrada.
-                function comprobarConexion() {
-                    if (offlineActivo) return;                 // ya en modo offline manual: no repintar
-                    if (!navigator.onLine) { mostrarOffline(); return; }
-                    // Cualquier RESPUESTA (aunque sea 401/500) significa que el servidor
-                    // responde → estamos online. Solo el fallo de red (catch) = sin conexión.
-                    window.apiFetch('/offline/version', { headers: { 'X-Requested-With': 'XMLHttpRequest' }, method: 'GET', cache: 'no-store'})
-                        .then(function () { if (window.OfflineOutbox) window.OfflineOutbox.drain(); }) // servidor OK → subir outbox
-                        // El aviso NO se saca aquí: esta petición va por window.apiFetch, o sea
-                        // por el interceptor global de fetch, que es el único que decide que se
-                        // fue la red. Sacarlo también aquí serían dos dueños del mismo banner.
-                        // El catch existe solo para atender el rechazo (si no, queda una promesa
-                        // rechazada sin manejar en cada carga sin conexión).
-                        .catch(function () {});
-                }
-
-                // Se publica ANTES de la primera comprobación: así el interceptor ya lo
-                // encuentra si esa misma petición falla, sin depender de que el rechazo llegue
-                // después de esta línea (que llega, pero por un detalle de orden asíncrono).
-                window.netStatus = { showOffline: mostrarOffline, hide: hideBanner, comprobar: comprobarConexion };
-
-                // Estado inicial al cargar: comprobar conexión real (no solo navigator.onLine).
-                comprobarConexion();
-
-                // API para los módulos. registrar(clave, fn): clave única por módulo; `fn`
-                // debe DEVOLVER la promesa de su render (por eso los 4 módulos hacen
-                // `return OM.conOfflineDB(render)`) — es lo que deja esperar el pintado antes
-                // de apagar el spinner del cambio de modo.
-                // Helpers compartidos (esc, norm, fmt, porLotes/detenerLotes, conOfflineDB)
-                // para no duplicarlos en cada módulo.
-                window.OfflineMode = {
-                    registrar: function (clave, fn) {
-                        renders[clave] = fn;
-                        // Si YA estamos sin conexión cuando el módulo se registra (p.ej. la
-                        // app se abrió offline), OFRECEMOS el botón (opt-in) en vez de activar
-                        // solo — el usuario decide pasar a la copia local.
-                        if (sinConexion && !offlineActivo) ofrecerOffline();
-                    },
-                    activar: activarOffline,
-                    estaActivo: function () { return offlineActivo; },
-                    // Sin conexión detectada pero el usuario AÚN no activó el modo offline
-                    // (opt-in pendiente). Los patches de carga de cada módulo consultan esto
-                    // para BLOQUEAR sus filtros/búsqueda en vez de pegarle al servidor caído.
-                    pendienteActivar: function () { return sinConexion && !offlineActivo; },
-                    // Aviso (con throttle) + resalte del botón cuando el usuario intenta
-                    // filtrar sin haber activado el modo offline. Lo llaman esos patches.
-                    avisarActivar: function () {
-                        var ahora = Date.now();
-                        if (ahora - ultimoAvisoOffline > 2500) {
-                            ultimoAvisoOffline = ahora;
-                            window.toast("Sin conexión — presioná 'Trabajar sin conexión' para usar la copia local.", 'warning');
-                        }
-                        if (action && action.style.display !== 'none') {
-                            action.style.transition = 'transform .15s ease';
-                            action.style.transform  = 'scale(1.12)';
-                            setTimeout(function () { action.style.transform = 'scale(1)'; }, 180);
-                        }
-                    },
-                    // Delega en el helper central (dom_helpers.js). Se llama en tiempo de
-                    // USO, no aquí: este bloque se evalúa ANTES del <script> de
-                    // dom_helpers, así que un alias directo guardaría undefined.
-                    // La copia que había aquí no escapaba ' — la usan los 4 módulos
-                    // offline vía OM.esc.
-                    esc: function (s) { return window.escapeHtml(s); },
-                    // Normalización para buscar (sin acentos + minúsculas, vía FuzzySearch si
-                    // cargó) con separadores colapsados a espacio: el texto que deja una
-                    // sugerencia clickeada es "PARTE · NOMBRE" y sin esto nunca coincidiría
-                    // con el haystack "codigo nombre". La usan los motores de filtro offline.
-                    norm: function (s) {
-                        var base = (window.FuzzySearch && window.FuzzySearch.norm)
-                            ? window.FuzzySearch.norm(s)
-                            : String(s == null ? '' : s).toLowerCase();
-                        return base.replace(/[^a-z0-9ñ]+/g, ' ').trim();
-                    },
-                    // Números en formato latino (1.234,5 — hasta 3 decimales sin ceros
-                    // sobrantes), réplica EXACTA de number_format(n,3,',','.') de las tablas
-                    // online. No usa toLocaleString('es-ES'): ese locale NO agrupa miles en
-                    // números de 4 dígitos (1234,5) y desentonaría con las filas online.
-                    fmt: function (n) {
-                        var v = Number(n) || 0;
-                        var neg = v < 0 ? '-' : '';
-                        var s = Math.abs(v).toFixed(3).replace(/0+$/, '').replace(/\.$/, '');
-                        var p = s.split('.');
-                        p[0] = p[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-                        return neg + (p[1] ? p[0] + ',' + p[1] : p[0]);
-                    },
-                    // ── Pintado POR LOTES (scroll infinito) ────────────────────────
-                    // Las tablas online paginan (150 equipos / 120 productos por lote) y las
-                    // offline volcaban TODAS las filas de una sola vez: con ~1.200 equipos el
-                    // teléfono construía megas de HTML y se quedaba trabado, además de verse
-                    // distinto de la web. Aquí se inyecta el primer lote y se observa la
-                    // última fila para traer el siguiente, igual que el IntersectionObserver
-                    // de las tablas online (mismo rootMargin de 400px).
-                    // UN solo observador por tabla: repintar (otro filtro) cancela el anterior.
-                    porLotes: function (tbody, filas, hacerFila, tam) {
-                        detenerLotes(tbody);
-
-                        var lote = function (desde) {
-                            var trozo = filas.slice(desde, desde + tam);
-                            var html  = trozo.map(hacerFila).join('');
-                            if (desde === 0) tbody.innerHTML = html;
-                            else tbody.insertAdjacentHTML('beforeend', html);
-
-                            var sig    = desde + trozo.length;
-                            var ultima = tbody.lastElementChild;
-                            if (sig >= filas.length || !ultima) return;
-
-                            var obs = new IntersectionObserver(function (entradas) {
-                                if (!entradas[0] || !entradas[0].isIntersecting) return;
-                                obs.disconnect();
-                                if (observadoresLote.get(tbody) === obs) observadoresLote.delete(tbody);
-                                if (!document.contains(tbody)) return;   // navegó por SPA: no seguir
-                                lote(sig);
-                            }, { root: null, rootMargin: '400px', threshold: 0 });
-                            observadoresLote.set(tbody, obs);
-                            obs.observe(ultima);
-                        };
-                        lote(0);
-                    },
-                    // Cancela el scroll infinito de una tabla. Lo llaman los módulos al empezar
-                    // a repintar: si el pintado termina en un MENSAJE (sin filtro, sin
-                    // resultados) no pasa por porLotes, y el observador del pintado anterior
-                    // se quedaría vivo hasta que el navegador recogiera el <tbody>.
-                    detenerLotes: detenerLotes,
-                    // Espera a que OfflineDB (offline-sync.js, al final del body) esté listo.
-                    // Devuelve una PROMESA que resuelve cuando `cb` terminó (adopta la suya si
-                    // devuelve una): es lo que permite que el spinner del cambio de modo se
-                    // apague recién cuando la tabla ya está pintada.
-                    conOfflineDB: function (cb) {
-                        return new Promise(function (resolve) {
-                            if (window.OfflineDB) return resolve(cb());
-                            var n = 0;
-                            var t = setInterval(function () {
-                                if (window.OfflineDB) { clearInterval(t); resolve(cb()); }
-                                else if (++n > 50) { clearInterval(t); resolve(); }
-                            }, 100);
-                        });
-                    }
-                };
-            })();
-
-            // Utilidad Global para Mostrar/Ocultar Contraseñas
-            window.togglePw = function (inputId, icon) {
-                const input = document.getElementById(inputId);
-                if (!input) return;
-                const isHidden = input.type === 'password';
-                input.type = isHidden ? 'text' : 'password';
-                icon.textContent = isHidden ? 'visibility' : 'visibility_off';
-            };
-
-            // Global handler para Cierre de Sesión (Previene doble click y muestra spinner Inmediato)
-            document.addEventListener('submit', function (e) {
-                if (e.target && e.target.action && e.target.action.includes('logout')) {
-                    if (typeof window.showPreloader === 'function') window.showPreloader();
-                    const btn = e.target.querySelector('button[type="submit"]');
-                    if (btn) {
-                        btn.style.pointerEvents = 'none';
-                        btn.style.opacity = '0.5';
-                    }
-                }
-            });
-
-            document.addEventListener('DOMContentLoaded', () => {
-
-
-                // GLOBAL EVENT DELEGATION FOR EQUIPOS MODULE (SPA COMPATIBLE)
-                // This ensures that "Acciones" and "Filter" buttons work even after AJAX content replacement
-                window.equiposGlobalClickHandler = function (event) {
-                    // GUARD: Este handler solo actúa en la página de Equipos
-                    // (donde existe #splitDropdownMenu). En otras páginas (movilizaciones, etc.)
-                    // salimos inmediatamente para no interferir con sus propios handlers.
-                    const isEquiposPage = !!document.getElementById('splitDropdownMenu');
-                    if (!isEquiposPage) return;
-
-                    // Toggle Acciones Dropdown
-                    if (event.target.closest('#btnAcciones')) {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        const menu = document.getElementById('splitDropdownMenu');
-                        const panel = document.getElementById('advancedFilterPanel');
-
-                        if (panel) panel.style.display = 'none';
-
-                        if (menu) {
-                            const isHidden = menu.style.display === 'none' || menu.style.display === '';
-                            menu.style.display = isHidden ? 'block' : 'none';
-                        }
-                        return;
-                    }
-
-                    // Toggle Advanced Filter Panel
-                    if (event.target.closest('#btnAdvancedFilter')) {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        const panel = document.getElementById('advancedFilterPanel');
-                        const menu = document.getElementById('splitDropdownMenu');
-
-                        if (menu) menu.style.display = 'none';
-
-                        if (panel) {
-                            const isHidden = panel.style.display === 'none' || panel.style.display === '';
-                            panel.style.display = isHidden ? 'block' : 'none';
-                        }
-                        return;
-                    }
-
-                    // Close when clicking outside (solo en página de equipos)
-                    if (!event.target.closest('#advancedFilterPanel') &&
-                        !event.target.closest('#splitDropdownMenu') &&
-                        !event.target.closest('#btnAcciones') &&
-                        !event.target.closest('#btnAdvancedFilter')) {
-
-                        const menu = document.getElementById('splitDropdownMenu');
-                        const panel = document.getElementById('advancedFilterPanel');
-                        if (menu) menu.style.display = 'none';
-                        if (panel) panel.style.display = 'none';
-                    }
-                };
-
-                // Global Keyup for Filters
-                window.equiposGlobalKeyupHandler = function (event) {
-                    if (event.target && event.target.id === 'searchModelInput') {
-                        const filter = event.target.value.toLowerCase();
-                        const list = document.getElementById('modelList');
-                        if (!list) return;
-                        const items = list.getElementsByClassName('filter-option-item');
-
-                        for (let i = 0; i < items.length; i++) {
-                            const txtValue = items[i].textContent || items[i].innerText;
-                            items[i].style.display = txtValue.toLowerCase().indexOf(filter) > -1 ? "" : "none";
-                        }
-                    }
-                };
-
-                // Clean & Attach Global Listeners
-                document.removeEventListener('click', window.equiposGlobalClickHandler);
-                document.addEventListener('click', window.equiposGlobalClickHandler);
-
-                document.removeEventListener('keyup', window.equiposGlobalKeyupHandler);
-                document.addEventListener('keyup', window.equiposGlobalKeyupHandler);
-
-            });
-
-        </script>
+        {{-- Los TRES siguientes eran un unico <script> inline del layout. Van seguidos y EN
+             ESTE ORDEN a proposito: es el orden en que se ejecutaba el bloque original. --}}
+        <script
+            src="{{ asset('js/maquinaria/preloader.js') }}?v={{ @filemtime(public_path('js/maquinaria/preloader.js')) }}"></script>
+        <script
+            src="{{ asset('js/maquinaria/offline_mode.js') }}?v={{ @filemtime(public_path('js/maquinaria/offline_mode.js')) }}"></script>
+        <script
+            src="{{ asset('js/maquinaria/global_handlers.js') }}?v={{ @filemtime(public_path('js/maquinaria/global_handlers.js')) }}"></script>
 
         {{-- Core Scripts (Always Loaded) --}}
 
@@ -1653,9 +1087,66 @@
                     // URL, así que volver a /mapa reusa la descarga y no re-inyecta nada.
                     // A partir de la segunda visita monta el propio listener de
                     // spa:contentLoaded que mapa_index registró al cargarse.
+                    //
+                    // EL SPINNER TIENE QUE ESPERAR A ESTO. mapa_index.js son 268 KB que ya
+                    // no viajan en el layout: se piden AHORA, al entrar al módulo. loadPage
+                    // solo espera a que esté pintado el CASCARÓN, así que apagaba el spinner
+                    // con #mapa-leaflet todavía vacío y el mapa aparecía después, en seco —
+                    // "se quita el spinner y aún no ha cargado el mapa". Antes no pasaba
+                    // porque el script ya venía cargado desde el layout.
+                    //
+                    // Se toma una referencia del preloader (es un CONTADOR: el spinner no se
+                    // va hasta que todas las operaciones que lo pidieron terminan) y se
+                    // suelta cuando el script ya corrió, es decir con el mapa montado —
+                    // initMapa se autoejecuta al cargar y L.map() monta síncrono. Los tiles
+                    // siguen llegando después, como en cualquier mapa, pero el usuario ya ve
+                    // el mapa dibujado y no un hueco.
+                    if (window.showPreloader) window.showPreloader();
                     window.cargarScriptUnaVez(
                         window.lazyBaseUrl() + '/js/maquinaria/mapa_index.js?v={{ @filemtime(public_path('js/maquinaria/mapa_index.js')) }}'
-                    ).catch(function (e) { console.error('Mapa Satelital no cargó:', e); });
+                    )
+                    .catch(function (e) { console.error('Mapa Satelital no cargó:', e); })
+                    .finally(function () {
+                        // Doble rAF, igual que en loadPage: soltar la referencia DESPUÉS del
+                        // paint que ya trae el mapa, no en el frame en que acaba el script.
+                        // Va en finally para que un fallo de descarga no deje el spinner
+                        // colgado: la referencia se devuelve pase lo que pase.
+                        requestAnimationFrame(function () {
+                            requestAnimationFrame(function () {
+                                // Solo se devuelve la referencia si SEGUIMOS en el mapa. Si
+                                // el usuario se fue a otro módulo mientras bajaban los 268 KB,
+                                // loadPage ya arrancó su navegación con hidePreloader(true),
+                                // que PONE EL CONTADOR A CERO: la referencia de aquí dejó de
+                                // existir. Restar entonces se la quitaría a la navegación
+                                // NUEVA y la destaparía a medio cargar — el mismo fallo que
+                                // el contador documenta para las peticiones "silent". Como
+                                // el reset ya la borró, no devolverla tampoco fuga nada.
+                                if (!document.getElementById('mapa-leaflet')) return;
+                                if (window.hidePreloader) window.hidePreloader();
+                            });
+                        });
+                    });
+                }
+            );
+
+            {{-- Selector de TIPO AUX y de EQUIPO VINCULADO (los nueve manejadores
+                 window.auxTipo*/auxHost*). Lo usan /admin/equipos/create y la ficha del
+                 auxiliar, y las dos lo pintan DENTRO de .main-viewport: por eso se pide
+                 desde aqui y no desde la vista. Un <script src> dentro del contenido no
+                 llega a ejecutarse al entrar por navegacion SPA —executeScripts lo
+                 descarta al encontrarse el nodo inerte que dejo innerHTML con esa misma
+                 URL—, y los combos quedaban muertos.
+
+                 Mismo trato que el mapa: detector + cargarScriptUnaVez (que cachea por
+                 URL), inyectado en el <head>, asi que la navegacion SPA no lo pierde y
+                 volver a la pantalla no lo vuelve a descargar. #auxTipoCombo es el unico
+                 ancla que existe en LAS DOS pantallas. --}}
+            window.ModuleManager.register('aux_form_widgets',
+                function () { return !!document.getElementById('auxTipoCombo'); },
+                function () {
+                    window.cargarScriptUnaVez(
+                        window.lazyBaseUrl() + '/js/maquinaria/aux_form_widgets.js?v={{ @filemtime(public_path('js/maquinaria/aux_form_widgets.js')) }}'
+                    ).catch(function (e) { console.error('Selectores de auxiliar no cargaron:', e); });
                 }
             );
         </script>
@@ -1665,668 +1156,12 @@
         <script
             src="{{ asset('js/maquinaria/consumibles_index.js') }}?v={{ @filemtime(public_path('js/maquinaria/consumibles_index.js')) }}"></script>
         <script>
-            // Colapsa todos los grupos expandidos del menu mobile (Flota,
-            // Configuraciones, etc). Reusable para cuando el menu se cierra:
-            // antes el grupo abierto quedaba "recordando" su estado y al
-            // reabrir el hamburguesa seguia desplegado.
-            function _mobileNavCollapseAll() {
-                document.querySelectorAll('.mobile-nav-group.active').forEach(g => {
-                    g.classList.remove('active');
-                });
-            }
-
-            function toggleMobileMenu() {
-                const menu = document.getElementById('mobileMenu');
-                if (!menu) return;
-                const willOpen = !menu.classList.contains('active');
-                menu.classList.toggle('active');
-                // Si lo estamos cerrando, colapsa todos los grupos para que el
-                // proximo open no muestre estado residual.
-                if (!willOpen) _mobileNavCollapseAll();
-            }
-
-            // Cerrar el menu movil al hacer click fuera (ni en el menu ni en el hamburger).
-            // Guard _mobileMenuOutsideReady evita duplicar listener en SPA re-ejecuciones.
-            if (!window._mobileMenuOutsideReady) {
-                window._mobileMenuOutsideReady = true;
-                document.addEventListener('click', function (e) {
-                    const menu = document.getElementById('mobileMenu');
-                    if (!menu || !menu.classList.contains('active')) return;
-                    if (e.target.closest('.mobile-menu') || e.target.closest('.menu-toggle')) return;
-                    menu.classList.remove('active');
-                    _mobileNavCollapseAll();
-                });
-            }
-
-            // Toggle Mobile Groups (Flota, Configuraciones, etc.) — event delegation
-            // para que funcione con cualquier grupo sin nombrarlos uno por uno y
-            // para sobrevivir re-renders SPA (delegacion en document, idempotente).
-            if (!window._mobileNavGroupDelegated) {
-                window._mobileNavGroupDelegated = true;
-                document.addEventListener('click', (e) => {
-                    const title = e.target.closest('.mobile-nav-group-title');
-                    if (!title) return;
-                    const group = title.closest('.mobile-nav-group');
-                    if (!group) return;
-                    e.stopPropagation();
-                    // Acordeón: solo UN grupo desplegado a la vez. Cerramos todos y, si
-                    // el tocado no estaba abierto, lo abrimos → al desplegar uno se
-                    // recoge el otro. Clic en el que ya estaba abierto = se cierra.
-                    const yaAbierto = group.classList.contains('active');
-                    document.querySelectorAll('.mobile-nav-group.active').forEach(g => g.classList.remove('active'));
-                    if (!yaAbierto) group.classList.add('active');
-                });
-            }
-
-            // Desplegables de la cabecera (Flota, Almacén, Configuraciones) — delegación en
-            // document, igual que los grupos del menú móvil de arriba.
-            // Se engancha EN CUANTO corre este script, NO en DOMContentLoaded: al entrar tras el
-            // login el preloader se oculta enseguida (el splash del login ya cubrió la
-            // transición), así que la cabecera ya se ve y se puede pulsar mientras todavía se
-            // descargan los <script> del final del body. Con el enganche anterior —un listener
-            // por botón dentro de DOMContentLoaded— esos primeros clics se perdían y parecía que
-            // "Flota" no desplegaba. Delegando funciona desde el primer pintado y además
-            // sobrevive a los re-renders de la SPA. El guard evita duplicar el listener.
-            if (!window._navDropdownDelegated) {
-                window._navDropdownDelegated = true;
-                document.addEventListener('click', (e) => {
-                    // Un click sintetico puede llegar con target = document (sin closest).
-                    if (!e.target || !e.target.closest) return;
-                    const dropdowns = document.querySelectorAll('.nav-dropdown');
-                    if (!dropdowns.length) return;
-                    const trigger = e.target.closest('.nav-dropdown > .nav-link');
-                    if (trigger) {
-                        e.preventDefault();
-                        const dropdown = trigger.closest('.nav-dropdown');
-                        dropdowns.forEach(d => { if (d !== dropdown) d.classList.remove('active'); });
-                        dropdown.classList.toggle('active');
-                        return;
-                    }
-                    // Clic en un enlace de dentro, o fuera de cualquier desplegable: se cierran todos.
-                    if (e.target.closest('.nav-dropdown-link') || !e.target.closest('.nav-dropdown')) {
-                        dropdowns.forEach(d => d.classList.remove('active'));
-                    }
-                });
-            }
-
-            // Modal Logic
-            let modalCallback = null;
-            let modalCancelCallback = null;
-
-            /**
-             * Generic Modal System
-             * @param {Object} options { type, title, message, onConfirm, onCancel, confirmText, cancelText, hideCancel }
-             */
-            // Confirmar-antes-de-actuar. Envuelve showModal con el respaldo al confirm() del
-            // navegador para cuando el modal aún no está montado (carga directa, error de JS).
-            // Vive aquí, al lado de showModal, porque cada módulo que lo necesitaba repetía
-            // el mismo if/else de doce líneas: recepción lo tenía cuatro veces.
-            //   confirmarAccion({title, message, confirmText, cancelText, type}, alConfirmar)
-            // `message` admite HTML (se muestra con innerHTML); en el respaldo se le quitan
-            // las etiquetas, que en un confirm() del sistema saldrían crudas.
-            window.confirmarAccion = function (opciones, alConfirmar) {
-                var o = opciones || {};
-                if (typeof window.showModal === 'function') {
-                    window.showModal({
-                        type:        o.type || 'warning',
-                        title:       o.title || 'Confirmar',
-                        message:     o.message || '',
-                        confirmText: o.confirmText || 'Continuar',
-                        cancelText:  o.cancelText || 'Volver',
-                        onConfirm:   alConfirmar,
-                    });
-                    return;
-                }
-                if (window.confirm(String(o.message || '').replace(/<[^>]+>/g, ''))) alConfirmar();
-            };
-
-            window.showModal = function (options) {
-                const config = {
-                    type: 'info', // success, error, warning, info
-                    title: 'Aviso',
-                    message: '',
-                    confirmText: 'Aceptar',
-                    cancelText: 'Cancelar',
-                    hideCancel: false,
-                    onConfirm: null,
-                    onCancel: null,
-                    ...options
-                };
-
-                const modalEl = document.getElementById('standardModal');
-                const iconEl = document.getElementById('modalIcon');
-                const titleEl = document.getElementById('modalTitle');
-                const messageEl = document.getElementById('modalMessage');
-                const confirmBtn = document.getElementById('modalConfirmBtn');
-                const cancelBtn = document.getElementById('modalCancelBtn');
-
-                // Guard: if any modal element is missing, fall back to alert
-                if (!modalEl || !titleEl || !messageEl || !confirmBtn || !cancelBtn) {
-                    console.warn('showModal: modal DOM elements not found, using alert fallback');
-                    if (config.type === 'error' || config.type === 'warning') {
-                        alert(`${config.title}\n\n${config.message}`);
-                    }
-                    if (config.onConfirm) config.onConfirm();
-                    return;
-                }
-
-                // Set content
-                titleEl.innerText = config.title;
-                messageEl.innerHTML = config.message;
-                confirmBtn.innerText = config.confirmText;
-                cancelBtn.innerText = config.cancelText;
-                cancelBtn.style.display = config.hideCancel ? 'none' : 'block';
-
-                // Set Icon and colors
-                iconEl.className = 'material-icons modal-icon';
-                confirmBtn.className = 'modal-btn modal-btn-confirm';
-
-                // Compress modal and force blue buttons
-                confirmBtn.style.backgroundColor = 'var(--maquinaria-blue, #1e293b)';
-                confirmBtn.style.color = 'white';
-                confirmBtn.style.border = 'none';
-
-                switch (config.type) {
-                    case 'success':
-                        iconEl.innerText = 'check_circle';
-                        iconEl.classList.add('modal-icon-success');
-                        break;
-                    case 'error':
-                    case 'danger':
-                        iconEl.innerText = 'error';
-                        iconEl.classList.add('modal-icon-error');
-                        confirmBtn.style.backgroundColor = '#dc2626'; // Keep red for errors
-                        break;
-                    case 'warning':
-                        iconEl.innerText = 'warning';
-                        iconEl.classList.add('modal-icon-warning');
-                        break;
-                    default:
-                        iconEl.innerText = 'help_outline';
-                        iconEl.classList.add('modal-icon-info');
-                }
-
-                modalCallback = config.onConfirm;
-
-                // Show modal
-                modalEl.classList.add('active');
-
-                // Auto-close success modal after 3s (unless disabled)
-                if (config.type === 'success' && !config.disableAutoClose) {
-                    setTimeout(() => {
-                        const modalEl = document.getElementById('standardModal');
-                        if (modalEl && modalEl.classList.contains('active')) {
-                            const confirmBtn = document.getElementById('modalConfirmBtn');
-                            if (confirmBtn) confirmBtn.click();
-                        }
-                    }, 3000);
-                }
-
-                // Handle confirm
-                confirmBtn.onclick = () => {
-                    if (modalCallback) modalCallback();
-                    closeModal();
-                };
-
-                // Handle cancel (wired here so onCancel callback fires)
-                cancelBtn.onclick = () => {
-                    cancelModal();
-                };
-
-                // Store cancel callback
-                modalCancelCallback = config.onCancel || null;
-            }
-
-            window.closeModal = function () {
-                const modalEl = document.getElementById('standardModal');
-                if (modalEl) modalEl.classList.remove('active');
-                modalCallback = null;
-                modalCancelCallback = null;
-            }
-
-            window.cancelModal = function () {
-                const cb = modalCancelCallback;
-                closeModal();
-                if (cb) cb();
-            }
-
-            // Legacy compatibility helper
-            window.showConfirmModal = function (title, message, callback, btnText = 'Eliminar') {
-                window.showModal({
-                    type: 'error',
-                    title: title,
-                    message: message,
-                    confirmText: btnText,
-                    onConfirm: callback
-                });
-            }
-
-            // --- Custom UI Components (SPA Friendly) ---
-            // Moved to js/maquinaria/uicomponents.js to ensure availability before other scripts
-
-
-            // --- Equipos / Vehículos Specific Logic (Globalized for SPA) ---
-            // Tab Logic (Updated for 3 Tabs)
-            window.switchModalTab = function (tabName) {
-                // Hide all content
-                const contentGeneral = document.getElementById('tab_content_general');
-                const contentSpecs = document.getElementById('tab_content_specs');
-                const contentLegal = document.getElementById('tab_content_legal');
-
-                if (contentGeneral) contentGeneral.style.display = 'none';
-                if (contentSpecs) contentSpecs.style.display = 'none';
-                if (contentLegal) contentLegal.style.display = 'none';
-
-                // Reset Buttons
-                const btnGeneral = document.getElementById('tab_btn_general');
-                const btnSpecs = document.getElementById('tab_btn_specs');
-                const btnLegal = document.getElementById('tab_btn_legal');
-
-                const inactiveStyle = "flex: 1; padding: 12px; background: none; border: none; border-bottom: 3px solid transparent; font-weight: 600; color: #64748b; cursor: default; transition: all 0.2s; outline: none;";
-                const activeStyle = "flex: 1; padding: 12px; background: none; border: none; border-bottom: 3px solid var(--maquinaria-blue); font-weight: 700; color: var(--maquinaria-blue); cursor: default; transition: all 0.2s; outline: none;";
-
-                if (btnGeneral) btnGeneral.style.cssText = inactiveStyle;
-                if (btnSpecs) btnSpecs.style.cssText = inactiveStyle;
-                if (btnLegal) btnLegal.style.cssText = inactiveStyle;
-
-                // Activate Target
-                if (tabName === 'general') {
-                    if (contentGeneral) contentGeneral.style.display = 'block';
-                    if (btnGeneral) btnGeneral.style.cssText = activeStyle;
-                } else if (tabName === 'specs') {
-                    if (contentSpecs) contentSpecs.style.display = 'block';
-                    if (btnSpecs) btnSpecs.style.cssText = activeStyle;
-                } else {
-                    if (contentLegal) contentLegal.style.display = 'block';
-                    if (btnLegal) btnLegal.style.cssText = activeStyle;
-                }
-            };
-
-            // showDetailsImproved and closeDetailsModal are defined in uicomponents.js (loaded after)
-
-            // --- PDF Preview System (Internal View) - OPTIMIZED ---
-
-            // Optimized Direct PDF Download with visual feedback
-            window.downloadPdfDirect = function (url, documentLabel) {
-                if (!url) {
-                    alert('No hay URL para descargar');
-                    return;
-                }
-
-                const downloadBtn = document.getElementById('pdfDownloadBtn');
-
-                // Show loading state
-                if (downloadBtn) {
-                    downloadBtn.disabled = true;
-                    downloadBtn.innerHTML = '<span class="material-icons" style="font-size: 16px; animation: spin 1s linear infinite;">sync</span><span class="btn-label">Descargando...</span>';
-                }
-
-                // Generate filename
-                let filename = 'documento.pdf';
-                if (documentLabel) {
-                    const cleanLabel = documentLabel.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
-                    filename = cleanLabel + '.pdf';
-                }
-
-                const restoreBtn = function () {
-                    if (downloadBtn) {
-                        downloadBtn.disabled = false;
-                        downloadBtn.innerHTML = '<span class="material-icons" style="font-size: 16px;">download</span><span class="btn-label">Descargar</span>';
-                    }
-                };
-
-                // Descarga con un <a download> apuntando a una URL (blob o directa).
-                const downloadViaAnchor = function (href, revoke) {
-                    const a = document.createElement('a');
-                    a.href = href;
-                    a.download = filename;
-                    a.setAttribute('data-no-spa', 'true');
-                    a.style.display = 'none';
-                    document.body.appendChild(a);
-                    a.click();
-                    // Quitar el <a> y restaurar el botón rápido; pero si era un blob, NO lo
-                    // revocamos aún: si el navegador muestra "Guardar como", la descarga no
-                    // inicia hasta que el usuario confirme — revocar antes la cancelaría.
-                    setTimeout(function () {
-                        if (a.parentNode) a.parentNode.removeChild(a);
-                        restoreBtn();
-                    }, 800);
-                    if (revoke) setTimeout(function () { URL.revokeObjectURL(href); }, 60000);
-                };
-
-                // Estrategia robusta: traemos el PDF con fetch y lo descargamos como BLOB.
-                // Así SIEMPRE se DESCARGA (guarda el archivo) y NO se ABRE en el visor, aunque
-                // el navegador ignore el atributo `download` (lo ignora cuando la URL no es del
-                // mismo origen — p.ej. si redirige a Drive). Mismo enfoque que printPdfFromPreview.
-                // Si el fetch falla (CORS, red), caemos al enlace directo (comportamiento previo).
-                // NO usa window.apiFetch a proposito: la URL puede redirigir a Drive
-                // (cross-origin) y las cabeceras que apiFetch agrega (X-Requested-With)
-                // convierten esto en una peticion con preflight CORS que el otro dominio
-                // rechaza. Aqui va fetch pelado.
-                fetch(url, { credentials: 'include', cache: 'force-cache' })
-                    .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); })
-                    .then(function (blob) { downloadViaAnchor(URL.createObjectURL(blob), true); })
-                    .catch(function () { downloadViaAnchor(url, false); });
-            };
-
-            // Imprime el PDF que esta en el visor sin descargarlo. Estrategia:
-            //   1) iframe.contentWindow.print() directo — solo funciona si el PDF
-            //      es same-origin (raro con Drive, pero gratis intentarlo).
-            //   2) fetch -> Blob -> iframe oculto -> print() — funciona si el
-            //      navegador ya tiene el PDF en cache (lo trae del cache HTTP).
-            //      Si Drive bloquea por CORS, esta opcion falla.
-            //   3) Fallback: abrir en pestana nueva. El usuario imprime con Ctrl+P.
-            window.printPdfFromPreview = function () {
-                const printBtn = document.getElementById('pdfPrintBtn');
-                const dlBtn = document.getElementById('pdfDownloadBtn');
-                const url = dlBtn ? dlBtn.dataset.url : '';
-                if (!url) {
-                    alert('No hay documento para imprimir.');
-                    return;
-                }
-
-                const setBtnLoading = (loading) => {
-                    if (!printBtn) return;
-                    printBtn.disabled = loading;
-                    printBtn.innerHTML = loading
-                        ? '<span class="material-icons" style="font-size: 16px; animation: spin 1s linear infinite;">sync</span><span class="btn-label">Preparando...</span>'
-                        : '<i class="material-icons" style="font-size: 16px;">print</i><span class="btn-label">Imprimir</span>';
-                };
-
-                // 1) Intento same-origin sobre el iframe ya abierto
-                try {
-                    const visibleFrame = document.getElementById('pdfPreviewFrame');
-                    if (visibleFrame && visibleFrame.contentWindow && visibleFrame.style.display !== 'none') {
-                        visibleFrame.contentWindow.focus();
-                        visibleFrame.contentWindow.print();
-                        return;
-                    }
-                } catch (_) { /* cross-origin: cae al fetch */ }
-
-                // 2) Fetch (usa cache HTTP si existe) -> Blob -> iframe oculto
-                setBtnLoading(true);
-                // NO usa window.apiFetch a proposito: la URL puede redirigir a Drive
-                // (cross-origin) y las cabeceras que apiFetch agrega (X-Requested-With)
-                // convierten esto en una peticion con preflight CORS que el otro dominio
-                // rechaza. Aqui va fetch pelado.
-                fetch(url, { credentials: 'include', cache: 'force-cache' })
-                    .then(r => {
-                        if (!r.ok) throw new Error('HTTP ' + r.status);
-                        return r.blob();
-                    })
-                    .then(blob => {
-                        const blobUrl = URL.createObjectURL(blob);
-                        const printFrame = document.createElement('iframe');
-                        printFrame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;';
-                        printFrame.src = blobUrl;
-                        document.body.appendChild(printFrame);
-                        printFrame.onload = () => {
-                            try {
-                                printFrame.contentWindow.focus();
-                                printFrame.contentWindow.print();
-                            } catch (e) {
-                                console.warn('print iframe error:', e);
-                            } finally {
-                                setBtnLoading(false);
-                                // El blobUrl + iframe se limpian un rato despues
-                                // para no cancelar el dialogo de impresion abierto.
-                                setTimeout(() => {
-                                    URL.revokeObjectURL(blobUrl);
-                                    if (printFrame.parentNode) printFrame.parentNode.removeChild(printFrame);
-                                }, 60000);
-                            }
-                        };
-                    })
-                    .catch(err => {
-                        console.warn('No se pudo imprimir via fetch:', err);
-                        setBtnLoading(false);
-                        // 3) Fallback: nueva pestana — el usuario imprime con Ctrl+P
-                        const w = window.open(url, '_blank');
-                        if (!w) {
-                            alert('No se pudo imprimir el PDF. El navegador bloqueo el popup. Permite popups e intenta de nuevo, o usa el boton Descargar.');
-                        }
-                    });
-            };
-
-            // Temporizador de respaldo del visor (uno SOLO para toda la pantalla, no uno por
-            // apertura): ver por qué en el setTimeout de más abajo.
-            let _pdfLoaderTimeout = null;
-
-            // Radio del desenfoque con el que se revela el PDF mientras llega. En UN solo
-            // sitio: lo ponen la apertura y la asignacion del src, y si los dos valores se
-            // separaran el documento daria un salto de nitidez al empezar a cargar.
-            const PDF_BLUR_CARGA = 'blur(14px)';
-            // Enfocado. Tiene que ser blur(0px) y NO cadena vacia ni 'none': de un blur a
-            // `none` no hay interpolacion posible, asi que el filtro se quitaria de golpe y se
-            // perderia justo la transicion que da la sensacion de "termino de llegar".
-            const PDF_SIN_BLUR = 'blur(0px)';
-
-            window.openPdfPreview = function (url, docType, label, equipoId, uploadUrl, skipMetadata, module) {
-                const modal = document.getElementById('pdfPreviewModal');
-                const iframe = document.getElementById('pdfPreviewFrame');
-                const title = document.getElementById('pdfPreviewTitle');
-                const downloadBtn = document.getElementById('pdfDownloadBtn');
-                const updateInput = document.getElementById('pdfUpdateInput');
-                const loader = document.getElementById('pdfViewerLoader');
-
-                // NADA de preloader global aquí. El #preloader es una capa BLANCA OPACA a
-                // z-index 1000000: mientras cargaba el PDF tapaba el modal entero, así que
-                // el usuario veía una pantalla en blanco con un spinner y el visor solo
-                // "aparecía" al terminar la descarga (+ el buffer de render). De ahí el
-                // "el PDF sale rápido, lo que tarda es en mostrarse". Encima duplicaba la
-                // espera: este modal ya trae su propio #pdfViewerLoader ("Cargando
-                // documento...") justo encima del iframe, que es el que corresponde.
-                //
-                // El modal se abre sin fundido a propósito: pasar de display:none a flex y
-                // de opacity 0 a 1 en el mismo paso no dispara la transición del CSS, y así
-                // aparece en el mismo frame del clic. No "arreglar" con requestAnimationFrame
-                // sin arreglar antes closePdfPreview, que solo quita .active y no limpiaría
-                // un display en línea.
-                if (modal) modal.classList.add('active');
-
-                // Show Loader
-                if (loader) {
-                    loader.style.display = 'flex';
-                    loader.style.opacity = '1';
-                }
-
-                if (iframe) {
-                    iframe.style.opacity = '0';
-                    // Sin resetear, la apertura SIGUIENTE arrancaria ya enfocada y se perderia
-                    // el efecto a partir del segundo documento.
-                    iframe.style.filter = PDF_BLUR_CARGA;
-                    // 'about:blank' explícito y NO '': la cadena vacía se resuelve contra la
-                    // URL del documento actual, así que el iframe se ponía a cargar la página
-                    // entera (/admin/equipos y sus ~1.200 filas) hasta que el src del PDF la
-                    // reemplazaba. Trabajo tirado justo en el instante que se quiere rápido.
-                    iframe.src = 'about:blank';
-                }
-
-                const fallbackNode = document.getElementById('pdfMobileFallback');
-                if (fallbackNode) fallbackNode.style.display = 'none';
-
-                // Set Content
-                if (title) title.innerText = label || 'Documento';
-                const printBtn = document.getElementById('pdfPrintBtn');
-                const showActions = !!url && url.length >= 5;
-                if (downloadBtn) {
-                    downloadBtn.dataset.url = url;
-                    downloadBtn.dataset.label = label || 'documento';
-                    downloadBtn.style.display = showActions ? 'flex' : 'none';
-                }
-                if (printBtn) {
-                    printBtn.style.display = showActions ? 'flex' : 'none';
-                }
-
-                // Botones "Subir/reemplazar" (pdfUpdateLabel) y "Eliminar" (pdfDeleteBtn):
-                // pertenecen al flujo de gestion documental de equipos (Drive + BD). NO aplican
-                // a PDFs que el backend genera en vivo con TCPDF (Nota de Entrega del almacen,
-                // Reporte de Fallas, etc.). Deteccion: si NO viene un uploadUrl NI un equipoId,
-                // este preview es "solo lectura" -> ocultamos ambos. El gate por permisos del
-                // Blade (la directiva can/super.admin) ya pudo no haberlos renderizado; aqui
-                // solo nos aseguramos de no mostrarlos cuando el documento no es gestionable.
-                const docGestionable = !!uploadUrl || !!equipoId;
-                const updateLabel = document.getElementById('pdfUpdateLabel');
-                const deleteBtn   = document.getElementById('pdfDeleteBtn');
-                if (updateLabel) updateLabel.style.display = docGestionable ? 'flex' : 'none';
-                if (deleteBtn)   deleteBtn.style.display   = docGestionable ? 'flex' : 'none';
-
-                // Respaldo: si el onload del PDF no llega nunca, a los 5 s se destapa igual.
-                //
-                // El handle vive FUERA de esta función y cada apertura cancela el anterior.
-                // Siendo local, una apertura que quedaba a medias —el usuario cierra el modal
-                // antes de que cargue, o el documento no tiene URL— dejaba su temporizador
-                // armado, y 5 s después caía encima de la apertura SIGUIENTE: le apagaba el
-                // "Cargando documento..." y destapaba su iframe a medio cargar.
-                clearTimeout(_pdfLoaderTimeout);
-                _pdfLoaderTimeout = setTimeout(() => {
-                    if (loader) loader.style.display = 'none';
-                    // Tambien enfoca: si no, un onload que no llega dejaria el documento
-                    // borroso para siempre, que es peor que la espera que este respaldo evita.
-                    if (iframe) { iframe.style.opacity = '1'; iframe.style.filter = PDF_SIN_BLUR; }
-                }, 5000);
-
-                // Apaga el loader y destapa el PDF. Se llama una sola vez, desde el onload
-                // del iframe.
-                //
-                // No apaga de golpe: le baja la opacidad y lo quita 200 ms despues, para que no
-                // desaparezca de un tiron.
-                //
-                // OJO con el motivo: aqui decia que durante ese fundido "el loader sigue
-                // TAPANDO el iframe". No es cierto, y no lo era antes tampoco —
-                // #pdfViewerLoader es un spinner con texto, SIN fondo: nunca tapo nada. Lo
-                // que cubria el hueco que el visor nativo necesita para pintar la primera
-                // pagina era el propio iframe, subiendo de opacity 0 a 1 con su transicion.
-                // Hoy ese colchon es la transicion del DESENFOQUE (0.5s): el documento ya se
-                // ve, y termina de enfocarse mientras el visor acaba de pintar.
-                //
-                // Aquí hubo además un "mínimo que el loader permanece visible" de 250 ms.
-                // Se quitó porque NO podía ejecutarse: se medía desde el inicio de la
-                // apertura, y con la espera fija de por medio el mínimo ya estaba cumplido
-                // siempre. El suelo real contra el parpadeo es el fundido de 200 ms.
-                const hideLoaderWhenReady = () => {
-                    clearTimeout(_pdfLoaderTimeout);
-                    if (loader) {
-                        loader.style.opacity = '0';
-                        setTimeout(() => {
-                            if (loader) loader.style.display = 'none';
-                        }, 200);
-                    }
-                    if (iframe) {
-                        iframe.style.opacity = '1';
-                        // Enfoca lo que ya se estaba viendo borroso. La transicion de 0.5s
-                        // del CSS es la que da la sensacion de "termino de llegar".
-                        iframe.style.filter = PDF_SIN_BLUR;
-                    }
-                };
-
-                // Set source and setup load listener
-                if (iframe) {
-                    iframe.onload = function () {
-                        // FILTRO ANTI-SPURIOUS: el iframe.src = 'about:blank' de más
-                        // arriba dispara un evento load asincrono ANTES de que cargue
-                        // el PDF real. Sin este filtro, el handler
-                        // se ejecuta para about:blank y oculta el spinner antes
-                        // de que el PDF empiece siquiera a cargar — el bug que
-                        // mostraba "modal abierto + sin spinner + gris + PDF
-                        // tarde". Ignoramos cualquier load que no sea del PDF.
-                        const src = this.src || '';
-                        if (!src || src === 'about:blank' || src.indexOf('about:blank') !== -1) {
-                            return;
-                        }
-
-                        // El onload del iframe llega cuando el RECURSO termino de
-                        // descargar; el visor nativo (PDFium/PDF.js) tarda todavia unos
-                        // cientos de ms en pintar la primera pagina. Aqui habia una espera
-                        // fija para cubrir ese hueco: primero 1500 ms, luego 400.
-                        //
-                        // Ya no hace falta y por eso se va: ese hueco lo cubre la transicion
-                        // con la que hideLoaderWhenReady enfoca el documento (el detalle esta
-                        // alli). El visor conserva su margen para pintar, y los 400 ms de aqui
-                        // se sumaban encima sin cubrir nada: eran 400 ms de nada en CADA
-                        // documento.
-                        // (_pdfLoaderTimeout, los 5 s de respaldo, sigue cubriendo el caso
-                        // de que onload no llegue nunca.)
-                        hideLoaderWhenReady();
-                    };
-
-                    iframe.onerror = function () {
-                        clearTimeout(_pdfLoaderTimeout);
-                        if (loader) loader.style.display = 'none';
-                        // Volver a taparlo. Desde que la carga se revela desenfocada, el iframe
-                        // esta VISIBLE en cuanto se le pone el src: si falla, sin esto quedaria
-                        // una mancha borrosa detras del modal de error. Antes no hacia falta
-                        // porque seguia en opacity:0 hasta el onload.
-                        iframe.style.opacity = '0';
-                        iframe.style.filter = '';
-                        showModal({
-                            type: 'error',
-                            title: 'Error',
-                            message: 'No se pudo cargar la vista previa del documento.',
-                            confirmText: 'Cerrar',
-                            hideCancel: true
-                        });
-                    };
-
-                    if (url && url.length > 5) {
-                        const fallback = document.getElementById('pdfMobileFallback');
-                        if (fallback) fallback.style.display = 'none';
-                        iframe.style.display = 'block';
-                        // REVELADO PROGRESIVO. Antes el iframe estaba en opacity:0 hasta el
-                        // onload, asi que el usuario miraba gris + spinner y el documento
-                        // aparecia de golpe al final. Ahora se destapa DESDE YA, desenfocado:
-                        // el visor nativo pinta la primera pagina progresivamente y esa mancha
-                        // que se va formando se ve mucho antes que el documento terminado.
-                        // No carga mas rapido — se PERCIBE mas rapido, que era lo pedido.
-                        //
-                        // El desenfoque no es decorativo: tapa el estado a medio pintar (media
-                        // pagina, texto sin fuentes) que de otro modo se veria como un fallo.
-                        // El spinner sigue encima hasta el onload, ahora sobre el documento
-                        // formandose en vez de sobre un gris vacio.
-                        iframe.style.filter = PDF_BLUR_CARGA;
-                        iframe.style.opacity = '1';
-                        iframe.src = url + '#toolbar=0&navpanes=0&scrollbar=0&zoom=100';
-                    } else {
-                        const fallback = document.getElementById('pdfMobileFallback');
-                        if (fallback) fallback.style.display = 'none';
-
-                        iframe.style.display = 'block';
-                        iframe.src = 'about:blank';
-                        if (loader) loader.style.display = 'none';
-                    }
-                }
-
-                // Setup Update Input
-                if (updateInput) {
-                    updateInput.onchange = function () {
-                        uploadDocumentFromPreview(this, docType, equipoId, label);
-                    };
-                }
-
-                // Store current context for metadata panel
-                // module: 'equipo' (default) | 'auxiliar'. Determina si load/save
-                // metadata pegan a /admin/equipos/.. o a /admin/equipos-auxiliares/..
-                window.currentPdfContext = { equipoId, docType, label, uploadUrl, module: module || 'equipo' };
-
-                // Auto-open metadata panel on desktop only (no ocultar el PDF en móviles)
-                // Si skipMetadata=true (modulos no equipos como auxiliares), el panel
-                // queda colapsado y no se llama loadMetadata para evitar mostrar campos
-                // de la tabla equivocada.
-                const panel = document.getElementById('pdfMetadataPanel');
-                if (panel) {
-                    panel.style.width = '0';
-                    if (!skipMetadata) {
-                        setTimeout(() => {
-                            const isMobile = window.innerWidth <= 768;
-                            if (!isMobile) {
-                                panel.style.width = '300px';
-                                loadMetadata();
-                            }
-                        }, 400);
-                    }
-                }
-            };
-
+            {{-- Flags de permiso renderizados server-side. Los LEE layout_ui.js (cargado
+                 justo debajo), que por ser un archivo estatico ya no puede traerlos consigo.
+                 Van ANTES del <script src> a proposito: conservan el mismo orden que tenian
+                 dentro del bloque inline, asi que equipos_index.js —cargado mas arriba, y que
+                 tambien escribe CAN_ASSIGN_EQUIPOS / CAN_CHANGE_STATUS— sigue quedando pisado
+                 por estos valores, igual que antes. --}}
             // Permission Flag (Global & Exposed to External Scripts)
             // CAN_UPDATE_INFO habilita: boton lapiz del modal detalles, upload
             // PDF del modal detalles, submit de edicion de ficha. SOLO mira
@@ -2336,606 +1171,14 @@
             window.CAN_CREATE_EQUIPOS = {{ auth()->user() && auth()->user()->can('equipos.create') ? 'true' : 'false' }};
             window.CAN_ASSIGN_EQUIPOS = {{ auth()->user() && auth()->user()->can('equipos.assign') ? 'true' : 'false' }};
             window.CAN_CHANGE_STATUS = {{ auth()->user() && auth()->user()->can('equipos.edit') ? 'true' : 'false' }};
-
-            // --- Metadata Side Panel Logic ---
-            window.loadMetadata = async function () {
-                const ctx = window.currentPdfContext;
-                if (!ctx) return;
-                
-                const container = document.getElementById('metaFieldsContainer');
-                const loader = document.getElementById('metaPanelLoader');
-                const form = document.getElementById('pdfMetadataForm');
-                
-                if (!ctx.equipoId) {
-                    if (loader) loader.style.display = 'none';
-                    if (container) {
-                        container.innerHTML = '<div style="padding: 15px; background: rgba(255,255,255,0.05); border-radius: 8px; border: 1px dashed #4a5568;"><p style="color: #cbd5e0; font-size: 13px; text-align: center; margin: 0;">El vehículo asociado a este documento fue eliminado de la base de datos.</p></div>';
-                    }
-                    return;
-                }
-                
-                if (loader) loader.style.display = 'flex';
-                if (form) form.style.opacity = '0.5';
-                try {
-                    const baseUrl = ctx.module === 'auxiliar'
-                        ? `/admin/equipos-auxiliares/${ctx.equipoId}/metadata`
-                        : `/admin/equipos/${ctx.equipoId}/metadata`;
-                    const res = await window.apiFetch(`${baseUrl}?type=${ctx.docType}`);
-                    const data = await res.json();
-                    if (data.success) {
-                        const info = data.data;
-                        let html = '';
-                        const commonInputStyle = "background: #4a5568; border: 1px solid #718096; color: white; padding: 6px 8px; border-radius: 4px; width: 100%; box-sizing: border-box; font-size: 13px; height: 32px;";
-                        const labelStyle = "display: block; font-size: 12px; color: #cbd5e0; margin-bottom: 4px; font-weight: 600;";
-                        const containerStyle = "margin-bottom: 12px;";
-                        const disabledAttr = !window.CAN_UPDATE_INFO ? `disabled style="${commonInputStyle} opacity: 0.7; cursor: not-allowed;"` : `style="${commonInputStyle}"`;
-                        // Modulo auxiliares: campos propios del aux (no hay tabla
-                        // documentacion paralela). Propiedad => datos basicos;
-                        // certificado => fecha de vencimiento + datos basicos.
-                        if (ctx.module === 'auxiliar') {
-                            if (ctx.docType === 'propiedad') {
-                                html += `
-                                <div style="${containerStyle}"><label style="${labelStyle}">Serial</label><input type="text" name="serial" value="${info.serial || ''}" ${disabledAttr} autocomplete="off"></div>
-                                <div style="${containerStyle}"><label style="${labelStyle}">Código Interno</label><input type="text" name="codigo" value="${info.codigo || ''}" ${disabledAttr} autocomplete="off"></div>
-                                <div style="${containerStyle}"><label style="${labelStyle}">Tipo</label><input type="text" name="tipo" value="${info.tipo || ''}" ${disabledAttr} autocomplete="off"></div>
-                                <div style="${containerStyle}"><label style="${labelStyle}">Marca</label><input type="text" name="marca" value="${info.marca || ''}" ${disabledAttr} autocomplete="off"></div>
-                                <div style="${containerStyle}"><label style="${labelStyle}">Modelo</label><input type="text" name="modelo" value="${info.modelo || ''}" ${disabledAttr} autocomplete="off"></div>
-                                <div style="${containerStyle}"><label style="${labelStyle}">Capacidad</label><input type="text" name="capacidad" value="${info.capacidad || ''}" ${disabledAttr} autocomplete="off"></div>
-                                <div style="${containerStyle}"><label style="${labelStyle}">Año</label><input type="number" name="anio" value="${info.anio || ''}" ${disabledAttr} autocomplete="off"></div>
-                            `;
-                            } else if (ctx.docType === 'certificado') {
-                                html += `
-                                <div style="${containerStyle}"><label style="${labelStyle}">Fecha Vencimiento</label><input type="date" name="fecha_vencimiento" value="${info.fecha_vencimiento || ''}" ${disabledAttr} autocomplete="off"></div>
-                            `;
-                            }
-                            container.innerHTML = html;
-                            return;
-                        }
-                        if (ctx.docType === 'propiedad') {
-                            html += `
-                            <div style="${containerStyle}"><label for="meta_nro_doc_${ctx.equipoId}" style="${labelStyle}">Nro. Documento</label><input type="text" id="meta_nro_doc_${ctx.equipoId}" name="nro_documento" value="${info.nro_documento || ''}" ${disabledAttr} autocomplete="off"></div>
-                            <div style="${containerStyle}"><label for="meta_titular_${ctx.equipoId}" style="${labelStyle}">Titular</label><input type="text" id="meta_titular_${ctx.equipoId}" name="titular" value="${info.titular || ''}" ${disabledAttr} autocomplete="off"></div>
-                            <div style="${containerStyle}"><label for="meta_placa_${ctx.equipoId}" style="${labelStyle}">Placa</label><input type="text" id="meta_placa_${ctx.equipoId}" name="placa" value="${info.placa || ''}" ${disabledAttr} autocomplete="off"></div>
-                            <div style="${containerStyle}"><label for="meta_marca_${ctx.equipoId}" style="${labelStyle}">Marca</label><input type="text" id="meta_marca_${ctx.equipoId}" name="marca" value="${info.marca || ''}" ${disabledAttr} autocomplete="off"></div>
-                            <div style="${containerStyle}"><label for="meta_modelo_${ctx.equipoId}" style="${labelStyle}">Modelo</label><input type="text" id="meta_modelo_${ctx.equipoId}" name="modelo" value="${info.modelo || ''}" ${disabledAttr} autocomplete="off"></div>
-                            <div style="${containerStyle}"><label for="meta_chasis_${ctx.equipoId}" style="${labelStyle}">Serial Chasis</label><input type="text" id="meta_chasis_${ctx.equipoId}" name="serial_chasis" value="${info.serial_chasis || ''}" ${disabledAttr} autocomplete="off"></div>
-                            <div style="${containerStyle}"><label for="meta_motor_${ctx.equipoId}" style="${labelStyle}">Serial Motor</label><input type="text" id="meta_motor_${ctx.equipoId}" name="serial_motor" value="${info.serial_motor || ''}" ${disabledAttr} autocomplete="off"></div>
-                        `;
-                        } else if (ctx.docType === 'poliza') {
-                            let datalistOptions = '';
-                            let currentInsurerName = '';
-                            if (info.insurers) {
-                                info.insurers.forEach(ins => {
-                                    datalistOptions += `<option value="${ins.NOMBRE_ASEGURADORA}">`;
-                                    if (ins.ID_SEGURO == info.id_seguro) currentInsurerName = ins.NOMBRE_ASEGURADORA;
-                                });
-                            }
-                            html += `
-                            <div style="${containerStyle}"><label for="meta_fec_venc_${ctx.equipoId}" style="${labelStyle}">Fecha Vencimiento</label><input type="date" id="meta_fec_venc_${ctx.equipoId}" name="fecha_vencimiento" value="${info.fecha_vencimiento || ''}" ${disabledAttr} autocomplete="off"></div>
-                            <div style="${containerStyle}">
-                                <label for="meta_aseguradora_${ctx.equipoId}" style="${labelStyle}">Aseguradora <small style="color:#94a3b8;font-weight:400;">(Seleccionar o escribir nueva)</small></label>
-                                <input type="text" id="meta_aseguradora_${ctx.equipoId}" name="nombre_aseguradora" list="insurersList_${ctx.equipoId}" value="${currentInsurerName || ''}" placeholder="Escriba o seleccione..." ${disabledAttr} autocomplete="off">
-                                <datalist id="insurersList_${ctx.equipoId}">${datalistOptions}</datalist>
-                            </div>
-                        `;
-                        } else if (ctx.docType === 'rotc' || ctx.docType === 'racda' || ctx.docType === 'adicional') {
-                            // Compraventa (adicional_2) NO requiere fecha de vencimiento.
-                            // Antes el Certificado (adicional) solo mostraba fecha si la categoria era
-                            // FLOTA LIVIANA — los equipos FLOTA PESADA quedaban con panel vacio.
-                            // Removida esa restriccion: el campo aparece siempre, el usuario decide
-                            // si llena la fecha o la deja vacia segun corresponda al equipo.
-                            html += `<div style="${containerStyle}"><label for="meta_fec_venc_${ctx.equipoId}" style="${labelStyle}">Fecha Vencimiento</label><input type="date" id="meta_fec_venc_${ctx.equipoId}" name="fecha_vencimiento" value="${info.fecha_vencimiento || ''}" ${disabledAttr} autocomplete="off"></div>`;
-                        }
-                        container.innerHTML = html;
-                    }
-                } catch (e) {
-                    console.error(e);
-                    container.innerHTML = '<span style="color:#fc8181;">Error al cargar datos.</span>';
-                } finally {
-                    if (loader) loader.style.display = 'none';
-                    if (form) form.style.opacity = '1';
-                }
-            };
-
-            window.saveMetadata = async function (e) {
-                e.preventDefault();
-                if (!window.CAN_UPDATE_INFO) {
-                    window.toast('No tienes permisos para actualizar', 'error');
-                    return;
-                }
-                const ctx = window.currentPdfContext;
-                const btn = document.getElementById('btnSaveMeta');
-                const originalHTML = btn.innerHTML;
-                btn.innerHTML = '<i class="material-icons" style="font-size:16px;">hourglass_empty</i> Guardando...';
-                btn.disabled = true;
-                try {
-                    const formData = new FormData(e.target);
-                    formData.append('doc_type', ctx.docType);
-                    const saveUrl = ctx.module === 'auxiliar'
-                        ? `/admin/equipos-auxiliares/${ctx.equipoId}/update-metadata`
-                        : `/admin/equipos/${ctx.equipoId}/update-metadata`;
-                    const res = await window.apiFetch(saveUrl, {
-                        method: 'POST',
-                        body: formData
-                    });
-                    const data = await res.json();
-                    if (data.success) {
-                        window.toast('Datos actualizados correctamente', 'success');
-                        // Modulo auxiliares: refresca la tabla y termina (no aplica el
-                        // flujo de showDetailsImproved/activeEquipoButton del modulo equipos).
-                        if (ctx.module === 'auxiliar') {
-                            if (typeof window.cargarAuxiliares === 'function') window.cargarAuxiliares();
-                            return;
-                        }
-                        if (window.activeEquipoButton) {
-                            const d = window.activeEquipoButton.dataset;
-                            const eqId = d.equipoId;
-                            const cache = (window.equiposData && eqId) ? window.equiposData[eqId] : null;
-                            // showDetailsImproved hace d = {...dataset, ...equiposData[id]} y equiposData
-                            // PISA al dataset. Por eso aplicamos los cambios a AMBOS: si solo tocáramos el
-                            // dataset, la fecha nueva quedaría tapada por la vieja del cache (síntoma: había
-                            // que recargar la página — se notaba sobre todo en el Certificado/adicional).
-                            const aplicar = (obj) => {
-                                if (!obj) return;
-                                if (ctx.docType === 'propiedad') {
-                                    obj.nroDoc = formData.get('nro_documento'); obj.titular = formData.get('titular');
-                                    obj.placa = formData.get('placa'); obj.marca = formData.get('marca');
-                                    obj.modelo = formData.get('modelo'); obj.chasis = formData.get('serial_chasis');
-                                    obj.motorSerial = formData.get('serial_motor');
-                                } else {
-                                    // Misma fuente de verdad (DOC_FIELD_MAP.vencKey) que subida/borrado.
-                                    const vk = (window.DOC_FIELD_MAP && window.DOC_FIELD_MAP[ctx.docType]) ? window.DOC_FIELD_MAP[ctx.docType].vencKey : null;
-                                    if (vk) obj[vk] = formData.get('fecha_vencimiento');
-                                    if (ctx.docType === 'poliza') obj.seguro = formData.get('nombre_aseguradora');
-                                }
-                            };
-                            aplicar(d);
-                            aplicar(cache);
-                            showDetailsImproved(window.activeEquipoButton);
-                        }
-                        if (typeof window.refreshDashboardAlerts === 'function') window.refreshDashboardAlerts();
-                    } else { throw new Error(data.message); }
-                } catch (error) {
-                    console.error(error);
-                    window.toast('Error: No se pudieron guardar los cambios', 'error');
-                } finally {
-                    btn.innerHTML = originalHTML;
-                    btn.disabled = false;
-                }
-            };
-
-            window.closePdfPreview = function () {
-                const modal = document.getElementById('pdfPreviewModal');
-                const iframe = document.getElementById('pdfPreviewFrame');
-                if (modal) modal.classList.remove('active');
-                if (iframe) {
-                    // 'about:blank' y no '': la cadena vacía se resuelve contra la URL de la
-                    // página actual y el iframe se pondría a cargarla entera al cerrar.
-                    iframe.src = 'about:blank'; // libera la memoria del PDF
-                    // El desenfoque se limpia aqui tambien: cerrar a mitad de carga dejaba
-                    // el filtro puesto sobre un iframe que ya no se ve, y lo heredaba la
-                    // apertura siguiente antes de que su propio reset entrara.
-                    iframe.style.filter = '';
-                    iframe.style.opacity = '0';
-                }
-                // Y el respaldo de 5 s, que si no seguiría vivo sobre un visor ya cerrado.
-                clearTimeout(_pdfLoaderTimeout);
-            };
-
             // Permiso super.admin (renderizado server-side desde el flag de auth).
             // El boton de borrar solo se muestra cuando el usuario tiene super.admin,
             // pero esta variable se usa por el JS para defensa-en-profundidad ante
             // intentos de DOM-inject. El backend tambien valida con can:super.admin.
             window.CAN_DELETE_DOCS = {{ auth()->user() && auth()->user()->can('super.admin') ? 'true' : 'false' }};
-
-            // Borrado de PDF desde el modal de preview. Borra del Google Drive Y de la BD.
-            // Por ahora solo soporta el modulo 'equipo'; auxiliares no implementado todavia.
-            // Usa confirm() nativo del browser (no window.showModal) porque el standardModal
-            // queda detras del pdfPreviewModal por el stacking context.
-            window.deletePdfFromPreview = async function () {
-                if (!window.CAN_DELETE_DOCS) {
-                    window.toast('No tienes permisos para eliminar documentos.', 'error');
-                    return;
-                }
-                const ctx = window.currentPdfContext;
-                if (!ctx || !ctx.equipoId || !ctx.docType) {
-                    window.toast('Contexto de documento no disponible.', 'error');
-                    return;
-                }
-                if (ctx.module === 'auxiliar') {
-                    if (!window.confirm('¿Eliminar este documento?\n\nEsta acción NO se puede deshacer.')) return;
-                    const btnAux = document.getElementById('pdfDeleteBtn');
-                    if (btnAux) btnAux.disabled = true;
-                    if (typeof window.showPreloader === 'function') window.showPreloader();
-                    try {
-                        const r = await window.apiFetch(`/admin/equipos-auxiliares/${ctx.equipoId}/delete-doc?doc_type=${encodeURIComponent(ctx.docType)}`, {
-                            method: 'DELETE',
-                            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
-                        });
-                        const d = await r.json().catch(() => ({}));
-                        if (r.ok && d.success) {
-                            window.toast(d.message || 'Documento eliminado.', 'success');
-                            // Actualizar la cache + icono del modal de detalles (a "Subir"/cloud_upload)
-                            // EN VIVO: el modal de detalles queda abierto detrás del visor, así que al
-                            // cerrar el visor ya muestra el estado correcto sin recargar la página.
-                            if (typeof window.syncAuxDocCache === 'function') window.syncAuxDocCache(ctx.equipoId, ctx.docType, null);
-                            const modal = document.getElementById('pdfPreviewModal');
-                            if (modal) modal.classList.remove('active');
-                            if (typeof window.cargarAuxiliares === 'function') window.cargarAuxiliares(); // refresca la lista
-                        } else {
-                            window.toast(d.message || 'No se pudo eliminar el documento.', 'error');
-                        }
-                    } catch (e) {
-                        window.toast('Error de red al eliminar el documento.', 'error');
-                    } finally {
-                        if (typeof window.hidePreloader === 'function') window.hidePreloader();
-                        if (btnAux) btnAux.disabled = false;
-                    }
-                    return;
-                }
-
-                const confirmed = window.confirm(
-                    '¿Eliminar este documento del Google Drive y de la base de datos?\n\nEsta acción NO se puede deshacer.'
-                );
-                if (!confirmed) return;
-
-                const btn = document.getElementById('pdfDeleteBtn');
-                if (btn) btn.disabled = true;
-                if (typeof window.showPreloader === 'function') window.showPreloader();
-
-                try {
-                    // getCsrf() ya cubre el <meta> y el input _token de un form Blade;
-                    // solo si NINGUNO existe no hay con que firmar el DELETE.
-                    const csrfTok = window.getCsrf();
-                    if (!csrfTok) {
-                        window.toast('Token CSRF no disponible. Recarga la página.', 'error');
-                        return;
-                    }
-                    // doc_type como query param: la ruta es DELETE, asi que enviamos
-                    // los datos en la URL para evitar problemas con bodies en DELETE
-                    // (algunos middlewares y proxies los strippean).
-                    const res = await window.apiFetch(`/admin/equipos/${ctx.equipoId}/delete-doc?doc_type=${encodeURIComponent(ctx.docType)}`, {
-                        method: 'DELETE',
-                        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
-                    });
-                    const data = await res.json().catch(() => ({}));
-
-                    if (res.ok && data.success) {
-                        window.toast(data.message || 'Documento eliminado.', 'success');
-
-                        // ── Sincronizar la UI in-memory para que NO haya que recargar la pagina ──
-                        // 1) Limpiar campos en el dataset del boton del listado (icono de PDF cargado).
-                        // 2) Limpiar campos en window.equiposData[id] (cache JS de la tabla, lo usa el AJAX paginado).
-                        // 3) Re-renderizar el modal de detalles si esta abierto.
-                        const equipoIdNum = ctx.equipoId;
-                        const activeBtn = window.activeEquipoButton;
-                        if (typeof window.clearDocFields === 'function') {
-                            if (activeBtn && activeBtn.dataset) {
-                                window.clearDocFields(activeBtn.dataset, ctx.docType);
-                            }
-                            if (window.equiposData && window.equiposData[equipoIdNum]) {
-                                window.clearDocFields(window.equiposData[equipoIdNum], ctx.docType);
-                            }
-                        }
-
-                        window.closePdfPreview();
-
-                        // Si el modal de detalles esta abierto, re-renderizarlo con los datos
-                        // ya limpiados para que el icono "PDF cargado" desaparezca al instante.
-                        const detailsModal = document.getElementById('detailsModal');
-                        const detailsOpen = detailsModal && detailsModal.classList.contains('active');
-                        if (detailsOpen && activeBtn && typeof window.showDetailsImproved === 'function') {
-                            try { window.showDetailsImproved(activeBtn); } catch (_) { /* noop */ }
-                        }
-
-                        // Refrescar el resto de vistas que pueden estar mostrando el documento.
-                        if (typeof window.refreshDashboardAlerts === 'function') window.refreshDashboardAlerts();
-                        if (typeof window.loadHistorialDocumentos === 'function') window.loadHistorialDocumentos();
-                    } else {
-                        const msg = (data && data.message) ? data.message : `Error HTTP ${res.status}`;
-                        window.toast(msg, 'error');
-                        console.error('deletePdfFromPreview: backend rechazo', res.status, data);
-                    }
-                } catch (e) {
-                    console.error('deletePdfFromPreview: excepcion de red', e);
-                    window.toast('Error de red al eliminar el documento.', 'error');
-                } finally {
-                    if (btn) btn.disabled = false;
-                    if (typeof window.hidePreloader === 'function') window.hidePreloader();
-                }
-            };
-
-            // Special Upload Handler for Preview Modal (XMLHttpRequest for Progress)
-            window.uploadDocumentFromPreview = function (input, type, equipoId, label) {
-                // PERMISSION CHECK
-                if (!window.CAN_UPDATE_INFO) {
-                    input.value = ''; // Clear input
-                    window.toast('No tienes permisos para actualizar documentos', 'error');
-                    return;
-                }
-
-                if (!input.files || !input.files[0]) return;
-                const file = input.files[0];
-
-                // Show upload progress overlay
-                const progressOverlay = document.getElementById('pdfUploadProgressOverlay');
-                const progressBar = document.getElementById('pdfUploadProgressBar');
-                const progressPercentage = document.getElementById('pdfUploadPercentage');
-
-                if (progressOverlay) progressOverlay.style.display = 'flex';
-                if (progressBar) progressBar.style.width = '0%';
-                if (progressPercentage) progressPercentage.innerText = '0%';
-
-                const formData = new FormData();
-                formData.append('file', file);
-                formData.append('doc_type', type);
-
-                const xhr = new XMLHttpRequest();
-                // uploadUrl override desde window.currentPdfContext (otros modulos
-                // como aux pueden inyectar su propio endpoint). Si no, fallback a
-                // /admin/equipos/{id}/upload-doc.
-                const targetUrl = (window.currentPdfContext && window.currentPdfContext.uploadUrl)
-                    ? window.currentPdfContext.uploadUrl
-                    : `/admin/equipos/${equipoId}/upload-doc`;
-                xhr.open('POST', targetUrl, true);
-                xhr.setRequestHeader('X-CSRF-TOKEN', window.getCsrf());
-                xhr.setRequestHeader('Accept', 'application/json');
-
-                xhr.upload.onprogress = function (e) {
-                    if (e.lengthComputable) {
-                        const percentComplete = Math.round((e.loaded / e.total) * 100);
-                        if (progressBar) progressBar.style.width = percentComplete + '%';
-
-                        const statusText = document.getElementById('pdfUploadStatusText');
-                        if (percentComplete === 100) {
-                            if (statusText) statusText.innerText = 'Guardando...';
-                            if (progressPercentage) progressPercentage.innerText = 'Procesando...';
-                        } else {
-                            if (statusText) statusText.innerText = 'Subiendo documento';
-                            if (progressPercentage) progressPercentage.innerText = percentComplete + '%';
-                        }
-                    }
-                };
-
-                xhr.onload = function () {
-                    if (xhr.status === 200) {
-                        try {
-                            const data = JSON.parse(xhr.responseText);
-
-                            if (data.success) {
-                                // Update status text while iframe loads
-                                const statusText = document.getElementById('pdfUploadStatusText');
-                                if (statusText) statusText.innerText = 'Abriendo vista previa...';
-                                if (progressPercentage) progressPercentage.innerText = 'Listo';
-
-                                // Get iframe reference
-                                const iframe = document.getElementById('pdfPreviewFrame');
-
-                                // Update iframe to show new PDF
-                                if (iframe) {
-                                    iframe.style.opacity = '0';
-
-                                    // Setup load handler for new PDF to hide overlay ONLY when ready
-                                    iframe.onload = function () {
-                                        if (progressOverlay) {
-                                            progressOverlay.style.opacity = '0';
-                                            setTimeout(() => {
-                                                progressOverlay.style.display = 'none';
-                                                progressOverlay.style.opacity = '1';
-                                            }, 300);
-                                        }
-                                        iframe.style.opacity = '1';
-
-                                        // Reset status text for next time
-                                        if (statusText) statusText.innerText = 'Subiendo documento';
-                                    };
-
-                                    // Load new PDF with force-refresh since file changed.
-                                    // data.link YA trae ?v=<timestamp> del backend (uploadDoc) — concatenar
-                                    // "?upd=" producia una URL con DOS '?' (invalida) y el iframe NO cargaba
-                                    // el PDF nuevo ("no se ve que cargue"). Usamos '&' si ya hay query string.
-                                    var _sep = data.link.indexOf('?') > -1 ? '&' : '?';
-                                    iframe.src = data.link + _sep + 'upd=' + new Date().getTime() + '#toolbar=0&navpanes=0&scrollbar=0&zoom=100';
-                                }
-
-                                // Update Download Button
-                                const downloadBtn = document.getElementById('pdfDownloadBtn');
-                                if (downloadBtn) downloadBtn.dataset.url = data.link;
-
-                                // Sincroniza dataset + equiposData usando el helper unico (DOC_FIELD_MAP).
-                                // Solo re-renderiza el modal detalles si sigue abierto debajo del preview;
-                                // asi evitamos reabrirlo por encima del preview y manejamos race conditions
-                                // (nodo muerto, SPA nav) gracias al guard de activeEquipoButton.
-                                // SOLO para EQUIPOS. Sin este guard, al reemplazar un doc de un
-                                // AUXILIAR la rama de equipos igual corría (activeEquipoButton no se
-                                // resetea al abrir un aux) y escribía el link del doc del AUX en el
-                                // dataset/caché del EQUIPO → el equipo mostraba el PDF equivocado.
-                                const _esAux = window.currentPdfContext && window.currentPdfContext.module === 'auxiliar';
-                                const btnFP = window.activeEquipoButton;
-                                const btnFPAlive = btnFP && document.body.contains(btnFP);
-                                if (!_esAux && btnFPAlive && typeof window.applyDocUpload === 'function') {
-                                    window.applyDocUpload(btnFP.dataset, type, data);
-                                    if (window.equiposData && btnFP.dataset.equipoId && window.equiposData[btnFP.dataset.equipoId]) {
-                                        window.applyDocUpload(window.equiposData[btnFP.dataset.equipoId], type, data);
-                                    }
-                                    const detailsModal = document.getElementById('detailsModal');
-                                    const detailsOpen  = detailsModal && detailsModal.classList.contains('active');
-                                    if (detailsOpen && typeof window.showDetailsImproved === 'function') {
-                                        try { window.showDetailsImproved(btnFP); } catch (_) { /* noop */ }
-                                    }
-                                }
-
-                                // AUXILIARES: el bloque de arriba solo refresca el modal de EQUIPOS.
-                                // Para aux, traemos el detalle FRESCO de /details, actualizamos su
-                                // cache (auxDetailsMap) y re-renderizamos el modal si sigue abierto,
-                                // para que el documento recien subido se refleje al instante (antes
-                                // quedaba con el estado viejo). NOTA: openAuxDetailsModal espera un
-                                // BOTON (btn.dataset.auxId), no un id, por eso el refetch va directo.
-                                if (window.currentPdfContext && window.currentPdfContext.module === 'auxiliar') {
-                                    var _auxId = window.currentPdfContext.equipoId;
-                                    var _auxModal = document.getElementById('auxDetailsModal');
-                                    if (_auxId && _auxModal && _auxModal.classList.contains('active')
-                                        && typeof window.renderAuxDetailsModal === 'function') {
-                                        window.apiFetch('/admin/equipos-auxiliares/' + _auxId + '/details', { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
-                                        .then(function (r) { return r.ok ? r.json() : null; })
-                                        .then(function (d) {
-                                            if (!d) return;
-                                            (window.auxDetailsMap = window.auxDetailsMap || {})[_auxId] = d;
-                                            window.renderAuxDetailsModal(d);
-                                        })
-                                        .catch(function () { /* silencioso: el toast de exito ya salio */ });
-                                    }
-                                }
-
-                                window.toast('Documento actualizado exitosamente', 'success');
-
-                                // Refresh Dashboard Alerts if function exists
-                                if (typeof window.refreshDashboardAlerts === 'function') {
-                                    window.refreshDashboardAlerts();
-                                }
-                            } else {
-                                throw new Error(data.message);
-                            }
-                        } catch (error) {
-                            console.error(error);
-                            if (progressOverlay) progressOverlay.style.display = 'none';
-                            window.toast('Error: Respuesta inválida del servidor', 'error');
-                        }
-                    } else {
-                        if (progressOverlay) progressOverlay.style.display = 'none';
-                        window.toast('Error al cargar documento', 'error');
-                    }
-                };
-
-                xhr.onerror = function () {
-                    const progressOverlay = document.getElementById('pdfUploadProgressOverlay');
-                    if (progressOverlay) progressOverlay.style.display = 'none';
-                    window.toast('Error de red', 'error');
-                };
-
-                xhr.send(formData);
-            };
-
-            // filterDropdownOptions se define UNA sola vez en uicomponents.js (versión que
-            // normaliza acentos y respeta el filtrado por frente 'eq-tipo-oculto' de Equipos).
-            // Antes se redefinía aquí una versión más pobre (solo toUpperCase, sin acentos ni
-            // eq-tipo-oculto) que, al cargar DESPUÉS del <script src>, PISABA a la buena — el
-            // filtro de Tipo de equipos re-mostraba tipos que el frente había ocultado.
-
-            // Delete Document Logic
-            window.confirmDeleteDocument = function (equipoId, docType, label) {
-                showModal({
-                    type: 'error',
-                    title: '¿Eliminar Documento?',
-                    message: `¿Estás seguro de que deseas eliminar "${label}"? Esta acción no se puede deshacer.`,
-                    confirmText: 'Eliminar',
-                    onConfirm: async () => {
-                        // PERMISSION CHECK
-                        if (!window.CAN_UPDATE_INFO) {
-                            window.toast("No tienes permisos para eliminar documentos.", "error");
-                            return;
-                        }
-
-                        try {
-                            const response = await window.apiFetch(`/admin/equipos/${equipoId}/delete-doc`, {
-                                method: 'DELETE',
-                                headers: {
-                                    'Content-Type': 'application/json'
-                                },
-                                body: JSON.stringify({ doc_type: docType })
-                            });
-
-                            const data = await response.json();
-
-                            if (data.success) {
-                                // Cierra preview
-                                closePdfPreview();
-
-                                // Limpia dataset + equiposData y tambien la fecha de vencimiento
-                                // asociada (vencKey) via DOC_FIELD_MAP. showDetailsImproved re-renderiza
-                                // el boton en estado "cloud_upload" con el estilo correcto + verifica
-                                // CAN_UPDATE_INFO. No inyectamos HTML manual.
-                                const btnDel = window.activeEquipoButton;
-                                const btnDelAlive = btnDel && document.body.contains(btnDel);
-                                if (btnDelAlive) {
-                                    if (typeof window.clearDocFields === 'function') {
-                                        window.clearDocFields(btnDel.dataset, docType);
-                                        if (window.equiposData && btnDel.dataset.equipoId && window.equiposData[btnDel.dataset.equipoId]) {
-                                            window.clearDocFields(window.equiposData[btnDel.dataset.equipoId], docType);
-                                        }
-                                    }
-                                    // Limpia la fecha de vencimiento extra (no cubierta por clearDocFields).
-                                    const vk = window.DOC_FIELD_MAP && window.DOC_FIELD_MAP[docType] ? window.DOC_FIELD_MAP[docType].vencKey : null;
-                                    if (vk) {
-                                        btnDel.dataset[vk] = '';
-                                        if (window.equiposData && btnDel.dataset.equipoId && window.equiposData[btnDel.dataset.equipoId]) {
-                                            window.equiposData[btnDel.dataset.equipoId][vk] = '';
-                                        }
-                                    }
-                                    const detailsModal = document.getElementById('detailsModal');
-                                    const detailsOpen  = detailsModal && detailsModal.classList.contains('active');
-                                    if (detailsOpen && typeof window.showDetailsImproved === 'function') {
-                                        try { window.showDetailsImproved(btnDel); } catch (_) { /* noop */ }
-                                    }
-                                }
-
-                                window.toast("Documento eliminado correctamente.", "success");
-                            } else {
-                                throw new Error(data.message);
-                            }
-                        } catch (error) {
-                            console.error(error);
-                            window.toast("No se pudo eliminar el documento.", "error");
-                        }
-                    }
-                });
-            };
-
-            window.confirmDeleteEquipo = function (id) {
-                showModal({
-                    type: 'error',
-                    title: '¿Eliminar equipo?',
-                    message: '¿Estás seguro de eliminar este equipo? Esta acción no se puede deshacer.',
-                    confirmText: 'Eliminar',
-                    onConfirm: () => {
-                        var form = document.getElementById('delete-form-global');
-                        if (form) {
-                            form.action = '/admin/equipos/' + id;
-                            form.submit();
-                        }
-                    }
-                });
-            };
-
-            // showPreloader / hidePreloader are defined earlier in this file (with fade-out animation)
-
-            // Re-initialize dynamic elements after SPA load
-            window.addEventListener('spa:contentLoaded', () => {
-                window.updateSelectedCount();
-            });
-
-            // Auto-submit search when selecting from datalist
-            window.checkAutoSubmit = function (input) {
-                const val = input.value.trim().toUpperCase();
-                if (!val) return;
-
-                const listId = input.getAttribute('list');
-                if (!listId) return;
-
-                const datalist = document.getElementById(listId);
-                if (!datalist) return;
-
-                const options = Array.from(datalist.options).map(opt => opt.value.trim().toUpperCase());
-
-                if (options.includes(val)) {
-                    const form = input.closest('form');
-                    if (form) {
-                        if (window.showPreloader) window.showPreloader();
-                        form.submit();
-                    }
-                }
-            };
         </script>
+        <script
+            src="{{ asset('js/maquinaria/layout_ui.js') }}?v={{ @filemtime(public_path('js/maquinaria/layout_ui.js')) }}"></script>
         {{-- Scripts de Formularios (Globales para soporte SPA) --}}
         {{-- NOTE: form_selects.js removed (deprecated, merged into form_logic.js) --}}
         <script

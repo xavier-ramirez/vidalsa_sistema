@@ -220,6 +220,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
                         try {
                             document.head.appendChild(newScript);
+                            // Y fuera del DOM: el script ya CORRIO (los inline son clasicos y
+                            // se ejecutan sincronos al insertarse), asi que quitar el nodo no
+                            // deshace nada — lo que definio en window y los listeners que
+                            // registro siguen ahi. Sin esto el <head> crecia sin limite: cada
+                            // navegacion a Inventario dejaba ~191 KB de texto de script muerto,
+                            // y ~113 KB la de auxiliares. Ir y volver entre modulos unas cuantas
+                            // veces acumulaba megas de nodos inertes (se notaba en el telefono).
+                            //
+                            // OJO: SOLO los inline. Los <script src> de arriba NO se remueven:
+                            // su presencia en el DOM es lo que consulta el guard alreadyLoaded
+                            // de esta misma funcion, la deteccion de version de loadPage
+                            // (document.querySelectorAll('script[src]')) y el check de
+                            // cropper.min.js del modulo de catalogo.
+                            newScript.remove();
                         } catch (appendErr) {
                             // Script con contenido inválido — se descarta sin romper el flujo
                             console.warn('SPA: inline script descartado (contenido inválido):', appendErr.message.substring(0, 120));
@@ -254,7 +268,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // HANDOFF de spinner desde un flujo que redirige (guardar→navegar). Esos
         // flujos (equipos_form, catalogo_create, form_logic) dejan el spinner ENCENDIDO
         // a propósito vía window.__vidalsaRedirecting y NO hacen su propio hidePreloader.
-        // Como el preloader ahora está CONTADO POR REFERENCIAS (ver estructura_base),
+        // Como el preloader ahora está CONTADO POR REFERENCIAS (ver preloader.js),
         // ese show quedaría "huérfano" (+1 sin su -1) y colgaría el spinner en el destino.
         // Solución: si venimos de un redirect, HEREDAMOS ese show (no sumamos otro) y el
         // único hide de esta navegación lo balancea. El flag se libera en el finally.
@@ -464,9 +478,17 @@ document.addEventListener('DOMContentLoaded', () => {
             // Marcar como manejado ANTES de ocultar, para que el bloque finally
             // no ejecute un segundo hidePreloader (race condition fix).
             handledCleanup = true;
-            // hidePreloader respetando MIN_PRELOADER_MS para que no parpadee
-            // en navegaciones muy rapidas (<280ms): el usuario siempre ve el spinner.
-            _hidePreloaderRespectingMinTime();
+            // El spinner se va cuando el modulo YA ESTA DIBUJADO, no al terminar de
+            // montarlo. `innerHTML =` y executeScripts solo tocan el DOM: el navegador
+            // pinta en un frame POSTERIOR. Apagar aqui a secas destapaba la pantalla con
+            // el modulo a medio dibujar, y se notaba justo en las navegaciones que pasan
+            // de MIN_PRELOADER_MS —ahi el apagado no espera al reloj y salia inmediato—.
+            //
+            // Doble rAF: el primer callback corre ANTES del paint pendiente, el segundo ya
+            // DESPUES de commitearlo. Mismo patron, y por el mismo motivo, que el .finally
+            // de loadEquipos ("fila visible -> spinner se va"); no se duplica la regla del
+            // minimo, que sigue viviendo entera en _hidePreloaderRespectingMinTime.
+            requestAnimationFrame(() => requestAnimationFrame(_hidePreloaderRespectingMinTime));
             window.scrollTo({ top: 0, behavior: 'smooth' });
 
             // Cerrar menú mobile si está abierto. Además colapsar los grupos (Flota,
@@ -490,7 +512,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // dejar al usuario en la pagina actual para que reintente cuando vuelva.
             if (!navigator.onLine || error instanceof TypeError) {
                 // El banner "Sin conexión" ya lo sacó el interceptor global de fetch
-                // (estructura_base), que ve fallar ESTA misma petición. Aquí solo queda el
+                // (fetch_interceptor.js), que ve fallar ESTA misma petición. Aquí solo queda el
                 // aviso propio de la navegación: que la página no cambió y se puede reintentar.
                 if (typeof window.showToast === 'function') {
                     window.showToast('Sin conexión. Verificá tu internet e intentá de nuevo.', 'error');

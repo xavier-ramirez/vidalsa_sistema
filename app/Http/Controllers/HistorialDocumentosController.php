@@ -474,6 +474,15 @@ class HistorialDocumentosController extends Controller
                     'delete_racda'         => 'Borrado RACDA',
                     'delete_adicional'     => 'Borrado Certificado',
                     'delete_adicional_2'   => 'Borrado Compraventa',
+                    // Correcciones anexas (anexarDoc). NO son subidas del principal: ese
+                    // endpoint solo AÑADE y nunca pisa el archivo anterior, por eso llevan
+                    // verbo propio y categoria propia en el filtro ('cat_anexos').
+                    'anexo_propiedad'      => 'Corrección Propiedad',
+                    'anexo_poliza'         => 'Corrección Póliza',
+                    'anexo_rotc'           => 'Corrección ROTC',
+                    'anexo_racda'          => 'Corrección RACDA',
+                    'anexo_adicional'      => 'Corrección Certificado',
+                    'anexo_adicional_2'    => 'Corrección Compraventa',
                     'bulk_ubicacion'       => 'Detalle Masivo',
                     'create'               => 'Registro de Vehículo',
                     'delete'               => 'Eliminación de Equipo',
@@ -783,6 +792,12 @@ class HistorialDocumentosController extends Controller
                                || \Illuminate\Support\Str::startsWith($event->doc_key, 'aux_delete_');
                     } elseif ($search_tipo === 'cat_metadatos') {
                         $okTipo = \Illuminate\Support\Str::startsWith($event->doc_key, 'metadata_');
+                    } elseif ($search_tipo === 'cat_anexos') {
+                        // Correcciones anexas. Categoria aparte y NO dentro de cat_uploads:
+                        // anexar y sustituir son operaciones distintas —la primera solo
+                        // añade, la segunda pisa el archivo de Drive— y quien filtra por
+                        // "Subida de documento" busca lo segundo.
+                        $okTipo = \Illuminate\Support\Str::startsWith($event->doc_key, 'anexo_');
                     } else {
                         // Acciones del equipo (Registro / Edición de Datos / Detalle
                         // Masivo / Eliminación) o label exacto legacy → substring.

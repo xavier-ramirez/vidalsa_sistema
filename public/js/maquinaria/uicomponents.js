@@ -23,10 +23,50 @@ if (!window.DOC_FIELD_MAP) {
  * Aplica a `target` (dataset del boton o equiposData[id]) los campos devueltos
  * por el backend tras un upload exitoso. Normaliza autor numerico y acorta email.
  */
+/**
+ * Pinta el contador de CORRECCIONES ANEXAS sobre el boton de cada documento del
+ * modal de detalles. Vive aqui, definido una sola vez, y no dentro de
+ * showDetailsImproved, que se re-ejecuta en cada apertura.
+ */
+if (!window._pintarBadgesAnexos) {
+    window._pintarBadgesAnexos = function (equipoId) {
+        const mapa = (window._anexosPorEquipo || {})[equipoId] || {};
+        document.querySelectorAll('#detailsModal .pdf-btn-container[data-doc-tipo]').forEach(cont => {
+            const previo = cont.querySelector('.anexo-badge');
+            if (previo) previo.remove();
+            const n = (mapa[cont.dataset.docTipo] || []).length;
+            if (!n) return;
+            const b = document.createElement('span');
+            b.className = 'anexo-badge';
+            b.textContent = '+' + n;
+            b.title = n === 1 ? '1 corrección anexa' : n + ' correcciones anexas';
+            b.style.cssText = 'position:absolute;top:-5px;right:-7px;background:#f59e0b;color:#fff;' +
+                'font-size:9px;font-weight:800;line-height:1;padding:2px 4px;border-radius:7px;' +
+                'border:1.5px solid #fff;pointer-events:none;';
+            cont.appendChild(b);
+        });
+    };
+}
+
+/**
+ * Olvida las correcciones anexas cacheadas de un equipo.
+ *
+ * Se llama desde applyDocUpload/clearDocFields, que es por donde pasa toda
+ * subida y todo borrado de documento: al cambiar el principal, las correcciones
+ * dejan de corresponderle y su marca de "vigente" la decide el servidor. Sin
+ * esto seguian dandose por vigentes hasta recargar la pagina.
+ */
+if (!window.olvidarAnexosEquipo) {
+    window.olvidarAnexosEquipo = function (equipoId) {
+        if (equipoId && window._anexosPorEquipo) delete window._anexosPorEquipo[equipoId];
+    };
+}
+
 if (!window.applyDocUpload) {
     window.applyDocUpload = function (target, type, data) {
         const m = window.DOC_FIELD_MAP[type];
         if (!m || !target) return;
+        window.olvidarAnexosEquipo(target.equipoId);
         const autorRaw   = data.autor != null ? String(data.autor) : '';
         const shortAutor = autorRaw.includes('@') ? autorRaw.split('@')[0] : autorRaw;
         target[m.link]  = data.link || '';
@@ -43,6 +83,7 @@ if (!window.clearDocFields) {
     window.clearDocFields = function (target, type) {
         const m = window.DOC_FIELD_MAP[type];
         if (!m || !target) return;
+        window.olvidarAnexosEquipo(target.equipoId);
         target[m.link]  = '';
         target[m.autor] = '';
         target[m.fecha] = '';
@@ -997,7 +1038,7 @@ window.showDetailsImproved = function (target, event) {
         if (isValid(link)) {
             // PDF existe — solo botón de Ver
             container.innerHTML = `
-                <div class="pdf-btn-container" style="display:flex; align-items:center;">
+                <div class="pdf-btn-container" data-doc-tipo="${type}" style="display:flex; align-items:center; position:relative;">
                     <button type="button"
                         onclick="event.stopPropagation(); openPdfPreview('${link}', '${type}', '${label}', '${equipoId}')"
                         style="background: none; border: none; padding: 0; cursor: default; display: flex; align-items: center; justify-content: center;"
@@ -1052,6 +1093,21 @@ window.showDetailsImproved = function (target, event) {
 
     createDocBtn("d_btn_adicional", "adicional", d.linkAdicional, 'Certificado Asociado', eqId);
     createDocBtn("d_btn_adicional_2", "adicional_2", d.linkAdicional2, 'Compraventa', eqId);
+
+    // Contador de CORRECCIONES ANEXAS sobre el boton del documento.
+    // Los anexos no viajan en el dataset de cada fila: la tabla trae ~1.200
+    // equipos y engordaria el HTML de todas para un dato que solo mira quien abre
+    // el detalle. Se piden aqui, una vez por equipo, y se pintan encima.
+    if (typeof window.cargarAnexosEquipo === 'function' && eqId) {
+        window.cargarAnexosEquipo(eqId).then(() => {   // sin cache: siempre fresco
+            // El usuario pudo cerrar el detalle o abrir otro equipo mientras
+            // llegaba la respuesta: sin esto, las correcciones de un equipo se
+            // pintarian sobre los botones de otro.
+            if (String(window._quickEditEquipoId || '') === String(eqId)) {
+                window._pintarBadgesAnexos(eqId);
+            }
+        });
+    }
 
     // Show Modal
     if (modal) {

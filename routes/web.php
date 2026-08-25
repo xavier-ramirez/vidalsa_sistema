@@ -151,6 +151,10 @@ Route::middleware(['auth'])->group(function () {
             // Confirmar presencia física del equipo en su frente (CONFIRMADO_EN_SITIO).
             Route::patch('equipos/{id}/confirmar-sitio', [App\Http\Controllers\EquipoController::class, 'confirmarSitio'])->name('equipos.confirmarSitio');
             Route::post('equipos/{id}/upload-doc', [App\Http\Controllers\EquipoController::class, 'uploadDoc'])->name('equipos.uploadDoc');
+            // Correcciones ANEXAS a un documento: no sustituyen al principal, conviven
+            // con el. anexar-doc solo AÑADE archivos a Drive; no borra ninguno.
+            Route::post('equipos/{id}/anexar-doc', [App\Http\Controllers\EquipoController::class, 'anexarDoc'])->name('equipos.anexarDoc');
+            Route::get('equipos/{id}/anexos', [App\Http\Controllers\EquipoController::class, 'anexosDoc'])->name('equipos.anexosDoc');
             // Borrar documento del equipo: destructivo (borra del Drive + BD), solo super.admin.
             Route::delete('equipos/{id}/delete-doc', [App\Http\Controllers\EquipoController::class, 'deleteDoc'])
                 ->middleware('can:super.admin')

@@ -196,7 +196,7 @@
                             <i class="material-icons">search</i>
                             <input type="text" id="cdashDescripcion" placeholder="Descripción del producto…" autocomplete="off"
                                    oninput="window._cdashDescInput()"
-                                   onkeydown="if(event.key==='Enter'){event.preventDefault();window._cdashDescCloseSug();clearTimeout(window._cdashDescTimer);window._cdashFetch();}"
+                                   onkeydown="if(event.key==='Enter'){event.preventDefault();window._cdashDescCloseSug();window._cdashFetch();}"
                                    onblur="setTimeout(function(){window._cdashDescCloseSug();},180)">
                             <i class="material-icons clr" id="cdashDescClear" style="display:none;" onclick="window._cdashDescClear()">close</i>
                         </div>
@@ -732,25 +732,29 @@
     };
 
     // ── Filtro Descripción (texto libre sobre el NOMBRE del producto) ──────────
-    // Debounce: al escribir NO dispara en cada tecla; espera 350ms de pausa. Enter
-    // consulta al instante (ver onkeydown). Comparte estética con Categoría (.cdash-inp-box).
-    window._cdashDescTimer = null;
+    // ESCRIBIR NO CONSULTA. Solo se refrescan las recomendaciones; el gráfico se filtra
+    // cuando el usuario DECIDE: al elegir un nombre de la lista o al pulsar Enter.
+    //
+    // Antes había un debounce de 350 ms que consultaba solo. Escribir despacio, o parar a
+    // leer la lista, bastaba para que se lanzara la consulta con el texto A MEDIAS: el
+    // gráfico se quedaba en "No hay consumo registrado para los filtros seleccionados" con
+    // un término que el usuario ni siquiera había terminado de teclear, y no daba tiempo a
+    // elegir de las recomendaciones. Los dos caminos deliberados ya existían
+    // (_cdashDescSelectSug y el Enter del onkeydown); lo que sobraba era el automático.
+    // Comparte estética con Categoría (.cdash-inp-box).
     window._cdashDescInput = function () {
         var inp = document.getElementById('cdashDescripcion');
         var val = inp ? inp.value.trim() : '';
         var clr = document.getElementById('cdashDescClear'); if (clr) clr.style.display = val ? 'block' : 'none';
         var box = document.getElementById('cdashDescBox'); if (box) box.classList.toggle('active', !!val);
         window._cdashDescRenderSug();   // recomendaciones en vivo (NO dispara fetch)
-        clearTimeout(window._cdashDescTimer);
-        window._cdashDescTimer = setTimeout(function () { window._cdashFetch(); }, 350);
     };
     window._cdashDescClear = function () {
         var inp = document.getElementById('cdashDescripcion'); if (inp) inp.value = '';
         var clr = document.getElementById('cdashDescClear'); if (clr) clr.style.display = 'none';
         var box = document.getElementById('cdashDescBox'); if (box) box.classList.remove('active');
         window._cdashDescCloseSug();
-        clearTimeout(window._cdashDescTimer);
-        window._cdashFetch();
+        window._cdashFetch();   // la X sí consulta: quitar el filtro es una decisión del usuario
     };
 
     // ── Recomendaciones del filtro Descripción (nombres de producto) ───────────
@@ -783,8 +787,7 @@
         var clr = document.getElementById('cdashDescClear'); if (clr) clr.style.display = 'block';
         var box = document.getElementById('cdashDescBox'); if (box) box.classList.add('active');
         window._cdashDescCloseSug();
-        clearTimeout(window._cdashDescTimer);
-        window._cdashFetch();
+        window._cdashFetch();   // elegir de la lista SÍ consulta: es una de las dos formas de filtrar
     };
     window._cdashDescCloseSug = function () {
         var list = document.getElementById('cdashDescList'); if (list) list.classList.remove('open');

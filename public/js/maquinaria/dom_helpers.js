@@ -83,7 +83,7 @@
      *
      * DEVUELVE si se pudo mostrar. Esto es a proposito y no es un detalle: los
      * cuatro envoltorios de Almacen/Recepcion caian a alert() cuando no habia
-     * toasts, y los de estructura_base y outbox-sync NO. Metiendo el alert aqui
+     * toasts, y los de fetch_interceptor.js y outbox-sync NO. Metiendo el alert aqui
      * le habria aparecido un alert bloqueante a esos dos —y un alert nativo
      * congela la pestana, incluido el sincronizador que corre de fondo—. Con el
      * booleano, cada quien conserva su comportamiento sin repetir el guard.
@@ -141,7 +141,7 @@
      *
      * Devuelve la MISMA Promise<Response> que fetch, asi que es sustituible tal cual.
      * Pasa por window.fetch (no por el original) para no saltarse el interceptor
-     * global de 401/419 de estructura_base.
+     * global de 401/419 (fetch_interceptor.js).
      *
      * Un Content-Type NO se pone solo: FormData necesita que lo ponga el navegador
      * con su boundary.

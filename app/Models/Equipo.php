@@ -142,6 +142,16 @@ class Equipo extends Model
         return $this->hasOne(Documentacion::class, 'ID_EQUIPO', 'ID_EQUIPO');
     }
 
+    /**
+     * Correcciones anexas a los documentos del equipo. No son versiones viejas:
+     * conviven con el documento principal (ver App\Models\DocumentoAnexo).
+     */
+    public function anexosDocumento()
+    {
+        return $this->hasMany(DocumentoAnexo::class, 'ID_EQUIPO', 'ID_EQUIPO')
+                    ->orderBy('created_at');
+    }
+
     public function responsables()
     {
         return $this->hasMany(Responsable::class, 'ID_EQUIPO', 'ID_EQUIPO');

@@ -2832,6 +2832,186 @@ class EquipoController extends Controller
         }
     }
 
+    /**
+     * Los 6 tipos de documento y sus columnas: enlace + fecha de subida + autor.
+     *
+     * Estaba escrito como array local dentro de deleteDoc(); al necesitarlo
+     * tambien anexarDoc()/anexosDoc() se sube aqui en vez de copiarlo. uploadDoc()
+     * conserva su switch a proposito: es el camino de sustitucion que ya funciona
+     * y no se toca.
+     */
+    private const DOC_COLUMNAS = [
+        'propiedad'   => ['link' => 'LINK_DOC_PROPIEDAD',   'fecha' => 'PROPIEDAD_FECHA_SUBIDA',   'autor' => 'PROPIEDAD_SUBIDO_POR'],
+        'poliza'      => ['link' => 'LINK_POLIZA_SEGURO',   'fecha' => 'POLIZA_FECHA_SUBIDA',      'autor' => 'POLIZA_SUBIDO_POR'],
+        'rotc'        => ['link' => 'LINK_ROTC',            'fecha' => 'ROTC_FECHA_SUBIDA',        'autor' => 'ROTC_SUBIDO_POR'],
+        'racda'       => ['link' => 'LINK_RACDA',           'fecha' => 'RACDA_FECHA_SUBIDA',       'autor' => 'RACDA_SUBIDO_POR'],
+        'adicional'   => ['link' => 'LINK_DOC_ADICIONAL',   'fecha' => 'ADICIONAL_FECHA_SUBIDA',   'autor' => 'ADICIONAL_SUBIDO_POR'],
+        'adicional_2' => ['link' => 'LINK_DOC_ADICIONAL_2', 'fecha' => 'ADICIONAL_2_FECHA_SUBIDA', 'autor' => 'ADICIONAL_2_SUBIDO_POR'],
+    ];
+
+    /**
+     * Anexa una CORRECCION a un documento del equipo.
+     *
+     * No sustituye nada: el principal se queda donde esta y el anexo se guarda
+     * al lado, los dos vigentes. El caso real es una poliza con una falta de
+     * ortografia en el PDF y su correccion; hacen falta las dos.
+     *
+     * A diferencia de uploadDoc(), aqui NO se despacha DeleteGoogleDriveFile ni
+     * ninguna otra forma de borrado: esta ruta solo anade archivos a Drive.
+     */
+    public function anexarDoc(Request $request, $id)
+    {
+        if (!auth()->user()->can('user.edit')) {
+            return response()->json(['success' => false, 'message' => 'No tiene permiso para realizar esta acción.'], 403);
+        }
+        set_time_limit(600);
+        ini_set('memory_limit', '512M');
+
+        // Mismas reglas que uploadDoc: si un PDF vale para el principal, vale para
+        // su correccion.
+        $request->validate([
+            'file'     => 'required|file|mimes:pdf|max:51200',
+            'doc_type' => 'required|in:' . implode(',', array_keys(self::DOC_COLUMNAS)),
+        ], [
+            'file.required' => 'Debe seleccionar un archivo.',
+            'file.file'     => 'El documento no es válido.',
+            'file.mimes'    => 'Solo se aceptan archivos en formato PDF.',
+            'file.max'      => 'El archivo supera el tamaño máximo permitido (50 MB).',
+        ]);
+
+        $equipo = $this->findAndAuthorizeEquipo($id);
+        $type   = $request->input('doc_type');
+        $file   = $request->file('file');
+
+        // Sin principal no hay nada que corregir: el anexo quedaria suelto y en el
+        // visor no habria pestana de la que colgarlo.
+        $columna  = self::DOC_COLUMNAS[$type]['link'];
+        $linkPpal = $equipo->documentacion->$columna ?? null;
+        if (!$linkPpal) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Primero debe cargar el documento principal; la corrección se anexa a él.',
+            ], 422);
+        }
+
+        try {
+            // getInstance() abre conexion con Drive: si no hay internet revienta
+            // aqui, ANTES de escribir en la base. Nada que deshacer.
+            $driveService = \App\Services\GoogleDriveService::getInstance();
+
+            $folderId  = $driveService->getRootFolderId();
+            $filename  = 'correccion_' . $type . '_' . time() . '.pdf';
+            $driveFile = $driveService->uploadFile($folderId, $file, $filename, $file->getMimeType());
+
+            if (!$driveFile || !isset($driveFile->id)) {
+                throw new \Exception('La subida a Google Drive no retornó un ID válido');
+            }
+
+            $link = '/storage/google/' . $driveFile->id . '?v=' . time();
+
+            $anexo = \App\Models\DocumentoAnexo::create([
+                'ID_EQUIPO'          => $equipo->ID_EQUIPO,
+                'TIPO_DOC'           => $type,
+                'LINK'               => $link,
+                'DRIVE_FILE_ID'      => $driveFile->id,
+                // El nombre de la pestaña se numera solo. Se pedia escrito a mano y
+                // estorbaba: anexar es un gesto de un clic, y con varias
+                // correcciones lo que hace falta es poder distinguirlas.
+                'ETIQUETA'           => 'Corrección ' . (\App\Models\DocumentoAnexo::where('ID_EQUIPO', $equipo->ID_EQUIPO)
+                                                            ->where('TIPO_DOC', $type)->count() + 1),
+                // A que principal corrige. Si manana se sustituye el principal, el
+                // anexo sigue vivo pero se sabe que era del documento anterior.
+                'PRINCIPAL_DRIVE_ID' => \App\Models\DocumentoAnexo::driveIdDeLink($linkPpal),
+                'SUBIDO_POR'         => auth()->user()->ID_USUARIO,
+                'created_at'         => now(),
+            ]);
+
+            \App\Models\EquipoAuditLog::registrar(
+                $equipo->ID_EQUIPO,
+                'anexo_' . $type,
+                ['archivo' => $filename, 'etiqueta' => $anexo->ETIQUETA]
+            );
+
+            if (ob_get_length()) ob_end_clean();
+
+            // Sin cargar la relacion el autor saldria como "Usuario #3" mientras
+            // que anexosDoc() devuelve el correo: la pestaña cambiaria de nombre
+            // sola al recargar.
+            $anexo->load('autor:ID_USUARIO,CORREO_ELECTRONICO,NOMBRE_COMPLETO');
+
+            return response()->json([
+                'success' => true,
+                'anexo'   => $this->anexoAArray($anexo, $linkPpal),
+                'message' => 'Corrección anexada correctamente',
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Error anexando corrección a Google Drive: ' . $e->getMessage());
+            if (ob_get_length()) ob_end_clean();
+            return response()->json(['success' => false, 'message' => 'Error al anexar la corrección: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Correcciones anexas del equipo, agrupadas por tipo de documento.
+     *
+     * Se piden al abrir el modal en vez de viajar en el dataset de cada fila: la
+     * tabla trae ~1.200 equipos y meterle esto a cada una engordaria el HTML de
+     * todos para un dato que solo mira el que abre el detalle.
+     */
+    public function anexosDoc($id)
+    {
+        $equipo = $this->findAndAuthorizeEquipo($id);
+
+        $doc = $equipo->documentacion;
+        $porTipo = [];
+
+        $anexos = $equipo->anexosDocumento()
+                         ->with('autor:ID_USUARIO,CORREO_ELECTRONICO,NOMBRE_COMPLETO')
+                         ->get();
+
+        foreach ($anexos as $anexo) {
+            $columna  = self::DOC_COLUMNAS[$anexo->TIPO_DOC]['link'] ?? null;
+            $linkPpal = $columna ? ($doc->$columna ?? null) : null;
+            $porTipo[$anexo->TIPO_DOC][] = $this->anexoAArray($anexo, $linkPpal);
+        }
+
+        return response()->json(['success' => true, 'anexos' => $porTipo]);
+    }
+
+    /**
+     * Un anexo tal como lo consume el front. `vigente` dice si corrige al
+     * documento principal que hay AHORA: al sustituir el principal (una
+     * renovacion, por ejemplo) el anexo no se borra, pero deja de aplicar y en
+     * el visor sale marcado.
+     */
+    private function anexoAArray(\App\Models\DocumentoAnexo $anexo, ?string $linkPrincipal): array
+    {
+        $autor = $anexo->relationLoaded('autor') ? $anexo->autor : null;
+        $autorStr = $autor
+            ? ($autor->CORREO_ELECTRONICO ?? $autor->NOMBRE_COMPLETO ?? ('Usuario #' . $autor->ID_USUARIO))
+            : ($anexo->SUBIDO_POR ? ('Usuario #' . $anexo->SUBIDO_POR) : '');
+
+        $idPpalActual = \App\Models\DocumentoAnexo::driveIdDeLink($linkPrincipal);
+
+        return [
+            'id'       => $anexo->ID_ANEXO,
+            'tipo'     => $anexo->TIPO_DOC,
+            'link'     => $anexo->LINK,
+            'etiqueta' => $anexo->ETIQUETA ?: 'Corrección',
+            'autor'    => str_contains($autorStr, '@') ? explode('@', $autorStr)[0] : $autorStr,
+            'fecha'    => $anexo->created_at ? $anexo->created_at->format('d/m/y') : '',
+            // Sin documento principal no hay nada que corregir: la correccion
+            // queda guardada pero no esta vigente. Si el principal existe pero
+            // alguno de los dos ids no se puede leer —un enlace que no apunta a
+            // /storage/google/, por ejemplo— no hay forma de comparar y se da por
+            // vigente: es lo que menos ruido mete en pantalla.
+            'vigente'  => $linkPrincipal
+                            && (!$anexo->PRINCIPAL_DRIVE_ID || !$idPpalActual
+                                || $anexo->PRINCIPAL_DRIVE_ID === $idPpalActual),
+        ];
+    }
+
     private function validationMessages()
     {
         return [
@@ -2991,18 +3171,9 @@ class EquipoController extends Controller
 
         $type = $request->input('doc_type');
 
-        // Mapping completo de los 6 tipos: campo del LINK + fecha de subida + autor.
-        // Mantenemos los 3 campos sincronizados al borrar.
-        $fieldMap = [
-            'propiedad'   => ['link' => 'LINK_DOC_PROPIEDAD',     'fecha' => 'PROPIEDAD_FECHA_SUBIDA',     'autor' => 'PROPIEDAD_SUBIDO_POR'],
-            'poliza'      => ['link' => 'LINK_POLIZA_SEGURO',     'fecha' => 'POLIZA_FECHA_SUBIDA',        'autor' => 'POLIZA_SUBIDO_POR'],
-            'rotc'        => ['link' => 'LINK_ROTC',              'fecha' => 'ROTC_FECHA_SUBIDA',          'autor' => 'ROTC_SUBIDO_POR'],
-            'racda'       => ['link' => 'LINK_RACDA',             'fecha' => 'RACDA_FECHA_SUBIDA',         'autor' => 'RACDA_SUBIDO_POR'],
-            'adicional'   => ['link' => 'LINK_DOC_ADICIONAL',     'fecha' => 'ADICIONAL_FECHA_SUBIDA',     'autor' => 'ADICIONAL_SUBIDO_POR'],
-            'adicional_2' => ['link' => 'LINK_DOC_ADICIONAL_2',   'fecha' => 'ADICIONAL_2_FECHA_SUBIDA',   'autor' => 'ADICIONAL_2_SUBIDO_POR'],
-        ];
-
-        $cfg = $fieldMap[$type] ?? null;
+        // Los 3 campos (enlace + fecha + autor) se mantienen sincronizados al
+        // borrar. El mapa vive en la constante DOC_COLUMNAS, arriba.
+        $cfg = self::DOC_COLUMNAS[$type] ?? null;
         if (!$cfg) {
             return response()->json(['success' => false, 'message' => 'Tipo de documento no válido.'], 400);
         }

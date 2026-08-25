@@ -119,7 +119,7 @@ window.loadMovilizaciones = async function (pageUrl = null) {
         const tb = document.getElementById('movilizacionesTableBody');
         if (tb) tb.style.opacity = '1';
         // El aviso "Sin conexión" con su botón lo saca el interceptor global de fetch
-        // (estructura_base) para CUALQUIER petición de la app, no solo para esta.
+        // (fetch_interceptor.js) para CUALQUIER petición de la app, no solo para esta.
     } finally {
         if (window.hidePreloader) window.hidePreloader();
     }

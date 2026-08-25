@@ -746,7 +746,7 @@ window.addEventListener('spa:contentLoaded', function () {
             method: method === 'GET' ? 'GET' : 'POST',
             body: formData})
             .then(async response => {
-                // Los 401/419 los ataja el interceptor global de fetch (estructura_base) y
+                // Los 401/419 los ataja el interceptor global de fetch (fetch_interceptor.js) y
                 // ni siquiera llegan aquí; la rama que había era código que no corría. Lo
                 // que sí puede llegar es un 200 con HTML en vez del JSON esperado.
                 const contentType = response.headers.get("content-type");
