@@ -36,8 +36,25 @@ class DashboardController extends Controller
 
         // Clave por usuario (los datos van acotados a sus frentes) + versión
         // global (ver DATA_VER_KEY): TTL largo sin sacrificar frescura.
+        //
+        // Y una HUELLA de lo que ese usuario puede ver. La versión global la bumpean los
+        // observers de Equipo/Documentacion/FrenteTrabajo, pero editar un USUARIO no toca
+        // ninguna de esas tablas: al marcarle "ver Pólizas" su panel seguía sirviendo la
+        // lista de antes hasta 10 minutos —con los tipos que ya no le tocan— y el número
+        // del badge tampoco se movía. Metiendo en la clave los frentes visibles, los
+        // bloqueados y sus claves de permiso, cambiar cualquiera de los tres da una clave
+        // distinta y el panel se rehace en la siguiente carga.
         $ver = \App\Support\CacheVersion::current(self::DATA_VER_KEY);
-        $cacheKey = "dashboard_user_data_{$userId}_v{$ver}";
+
+        $permisosUser = array_values(array_map(
+            fn ($c) => strtolower(trim((string) $c)),
+            array_filter((array) ($user->PERMISOS ?? []), 'is_string')
+        ));
+        sort($permisosUser);   // el orden en que se marcaron no cambia lo que ve
+
+        $huella = substr(sha1(json_encode([$frentesVisibles, $frentesBloqueados, $permisosUser])), 0, 10);
+
+        $cacheKey = "dashboard_user_data_{$userId}_v{$ver}_{$huella}";
 
         $data = \Illuminate\Support\Facades\Cache::remember($cacheKey, now()->addMinutes(10), function () use ($frentesVisibles, $frentesBloqueados) {
             // 1. Pending Mobilizations (disabled since transit is instant)
