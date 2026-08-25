@@ -1831,6 +1831,40 @@ class AlmacenController extends Controller
             ]);
     }
 
+    /**
+     * Consumo agrupado por MES y, dentro de cada mes, por PRODUCTO de mayor a menor.
+     *
+     * Lo usa el Excel para sacar una hoja por mes. Va en UNA sola consulta y no en un
+     * bucle que llame a consumoPorProducto() mes a mes: con un rango de un año eso serian
+     * doce viajes a la base de datos para responder a un solo boton.
+     *
+     * Devuelve ['2026-04' => [ {nombre, um, total}, ... ], '2026-05' => [...] ], con los
+     * meses en orden ascendente y las filas de cada mes ya ordenadas por cantidad.
+     */
+    private function consumoPorProductoPorMes(callable $base): array
+    {
+        $filas = $base()
+            ->join('productos_inventario as p', 'p.ID_PRODUCTO', '=', 'movimientos_inventario.ID_PRODUCTO')
+            ->selectRaw("DATE_FORMAT(movimientos_inventario.FECHA, '%Y-%m') as mes")
+            ->addSelect(['p.NOMBRE as nombre', 'p.UM as um'])
+            ->selectRaw('SUM(movimientos_inventario.CANTIDAD) as total')
+            ->groupBy('mes', 'p.ID_PRODUCTO', 'p.NOMBRE', 'p.UM')
+            ->orderBy('mes')
+            ->orderByDesc(DB::raw('SUM(movimientos_inventario.CANTIDAD)'))
+            ->get();
+
+        $porMes = [];
+        foreach ($filas as $r) {
+            $porMes[$r->mes][] = [
+                \App\Casts\MojibakeFix::fix($r->nombre),
+                $r->um ?: 'UND',
+                (float) $r->total,
+            ];
+        }
+
+        return $porMes;
+    }
+
     /** Consumo agrupado por ALMACEN, de mayor a menor. */
     private function consumoPorAlmacen(callable $base)
     {
@@ -1846,9 +1880,21 @@ class AlmacenController extends Controller
     /**
      * Exporta a XLSX lo MISMO que muestra el Dashboard de Consumo, con sus filtros.
      *
-     * La hoja CONSUMO reproduce los tres gráficos LADO A LADO: al filtrar por "BRAGAS" o
-     * por la categoría EPP se ve de un golpe el total por mes, el total por producto y el
-     * total por almacén — que es justo lo que se está mirando en pantalla.
+     * UNA HOJA POR VISTA, todas con el encabezado corporativo de la app (logo, título y
+     * EDICIÓN/REVISIÓN/FECHA), que las escribe hojaDeConsumo():
+     *
+     *   · GENERAL  — todo el consumo del rango por producto, de mayor a menor. Aquí salen
+     *                TODOS los productos: el gráfico recorta a TOP_PRODUCTOS_GRAFICO
+     *                barras porque más no se leen, pero el archivo se lleva la lista
+     *                entera, que es para lo que se descarga.
+     *   · YYYY-MM  — una por cada mes del rango, con el consumo de ESE mes. Solo si el
+     *                rango abarca más de uno: filtrando un único mes la hoja mensual
+     *                sería una copia exacta de la general.
+     *
+     * El desglose POR ALMACÉN no va en el archivo (sí sigue en la pantalla, el dashboard
+     * lo recibe como 'por_almacen'): repetía el mismo total. Tampoco se escriben filas
+     * TOTAL — cada tabla tiene su propio número de filas y los totales acababan cayendo
+     * junto a datos con los que no tenían nada que ver.
      *
      * Reutiliza consumoDashboardQuery(), la misma fábrica de filtros que alimenta los
      * gráficos, para que el archivo no pueda traer un universo distinto al de pantalla.
@@ -1861,6 +1907,102 @@ class AlmacenController extends Controller
      * pintan bordes sobre rangos grandes. Ambas cosas son las que hacian lenta la
      * descarga: PhpSpreadsheet mide y estila celda por celda.
      */
+    /** '2026-04' → 'ABRIL 2026'. Para el titulo de cada hoja mensual. */
+    private function mesEnLetras(string $ym): string
+    {
+        static $meses = [
+            '01' => 'ENERO', '02' => 'FEBRERO', '03' => 'MARZO',      '04' => 'ABRIL',
+            '05' => 'MAYO',  '06' => 'JUNIO',   '07' => 'JULIO',      '08' => 'AGOSTO',
+            '09' => 'SEPTIEMBRE', '10' => 'OCTUBRE', '11' => 'NOVIEMBRE', '12' => 'DICIEMBRE',
+        ];
+        [$anio, $mm] = array_pad(explode('-', $ym), 2, '');
+
+        return ($meses[$mm] ?? $ym) . ' ' . $anio;
+    }
+
+    /**
+     * Crea una hoja de consumo con el ENCABEZADO CORPORATIVO de la aplicacion.
+     *
+     * Mismo formato que el resto de los Excel del sistema (listado de equipos, auxiliares,
+     * movilizaciones): logo de la empresa arriba a la izquierda, titulo centrado a su
+     * derecha y el bloque EDICION / REVISION / FECHA al otro lado. El logo lo pone el trait
+     * ExcelLogoCorporativo, que ya usa este controlador, asi que no se duplica el manejo de
+     * la imagen ni su centrado.
+     *
+     * Existe como metodo aparte porque el libro tiene N hojas con la MISMA forma (la
+     * general y una por mes) y escribir el encabezado en cada una a mano acabaria con
+     * hojas ligeramente distintas entre si.
+     *
+     * @param  string  $nombre    Titulo de la pestaña (max 31 car., sin : / \ ? * [ ]).
+     * @param  string  $titulo    Rotulo grande del encabezado.
+     * @param  string  $filtros   Linea con los filtros aplicados.
+     * @param  array   $filas     [[producto, um, cantidad], ...] ya ordenadas.
+     */
+    private function hojaDeConsumo(
+        \PhpOffice\PhpSpreadsheet\Spreadsheet $libro,
+        string $nombre,
+        string $titulo,
+        string $filtros,
+        array $filas
+    ): void {
+        $SOLIDO = \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID;
+        $CENTRO = \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER;
+        $MEDIO  = \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER;
+        $BORDE  = \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN;
+
+        $hoja = $libro->createSheet();
+        $hoja->setTitle(mb_substr($nombre, 0, 31));
+
+        // Anchos ANTES del logo: el trait centra la imagen midiendo el ancho real de las
+        // columnas del merge, asi que si se fijan despues el logo queda descolocado.
+        $hoja->getColumnDimension('A')->setWidth(52);   // PRODUCTO (descripciones largas)
+        $hoja->getColumnDimension('B')->setWidth(12);   // UM
+        $hoja->getColumnDimension('C')->setWidth(16);   // CANTIDAD
+        $hoja->getColumnDimension('D')->setWidth(20);   // EDICION / REVISION / FECHA
+        foreach ([1, 2, 3] as $r) $hoja->getRowDimension($r)->setRowHeight(30);
+
+        // Logo en A1:A3 (columna A es la ancha) — el resto de exports usa A1:B3, pero aqui
+        // la B es la de UM y mide 12: el logo saldria aplastado contra el titulo.
+        $hoja->mergeCells('A1:A3');
+        $hoja->getStyle('A1:A3')->getFill()->setFillType($SOLIDO)->getStartColor()->setARGB('FFFFFFFF');
+        $this->insertarLogoCorporativo($hoja, ['A'], [1, 2, 3]);
+
+        $hoja->mergeCells('B1:C3');
+        $hoja->setCellValue('B1', "DASHBOARD DE CONSUMO\n" . $titulo);
+        $hoja->getStyle('B1')->getAlignment()->setWrapText(true)->setHorizontal($CENTRO)->setVertical($MEDIO);
+        $hoja->getStyle('B1')->getFont()->setBold(true)->setSize(13);
+        $hoja->getStyle('B1:C3')->getFill()->setFillType($SOLIDO)->getStartColor()->setARGB('FFFFFFFF');
+
+        foreach ([[1, 'EDICION: 1'], [2, 'REVISION: 0'], [3, 'FECHA: ' . date('d/m/Y')]] as [$fila, $txt]) {
+            $hoja->setCellValue('D' . $fila, $txt);
+            $hoja->getStyle('D' . $fila)->getAlignment()->setHorizontal($CENTRO)->setVertical($MEDIO);
+            $hoja->getStyle('D' . $fila)->getFont()->setBold(true)->setSize(10);
+        }
+
+        // Fila 4: los filtros con los que se saco el archivo.
+        $hoja->mergeCells('A4:D4');
+        $hoja->setCellValue('A4', $filtros);
+        $hoja->getStyle('A4')->getFont()->setItalic(true)->setSize(10)->getColor()->setARGB('FF64748B');
+
+        // Fila 5: cabecera de la tabla. Fila 6 en adelante: los datos.
+        $hoja->fromArray([['PRODUCTO', 'UM', 'CANTIDAD']], null, 'A5', true);
+        $hoja->getStyle('A5:C5')->getFont()->setBold(true)->getColor()->setARGB('FFFFFFFF');
+        $hoja->getStyle('A5:C5')->getFill()->setFillType($SOLIDO)->getStartColor()->setARGB('FF00004D');
+        $hoja->getStyle('A5:C5')->getAlignment()->setHorizontal($CENTRO);
+
+        if ($filas) {
+            $hoja->fromArray($filas, null, 'A6', true);
+            $hoja->getStyle('A5:C' . (5 + count($filas)))->getBorders()->getAllBorders()
+                ->setBorderStyle($BORDE)->getColor()->setARGB('FFCBD5E0');
+            $hoja->getStyle('C6:C' . (5 + count($filas)))->getNumberFormat()->setFormatCode('#,##0');
+        } else {
+            $hoja->setCellValue('A6', 'Sin consumo registrado para estos filtros.');
+            $hoja->getStyle('A6')->getFont()->setItalic(true)->getColor()->setARGB('FF94A3B8');
+        }
+
+        $hoja->freezePane('A6');   // la cabecera queda fija al bajar por la lista
+    }
+
     public function consumoDashboardExport(Request $request)
     {
         [$desde, $hasta] = MovimientoInventario::expandirRangoMes(
@@ -1873,31 +2015,8 @@ class AlmacenController extends Controller
         $libro = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
         $libro->removeSheetByIndex(0);
 
-        $AZUL = 'FF00004D';
-        $GRIS = 'FFF1F5F9';
-        $BORDE = \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN;
-        $SOLIDO = \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID;
-        $CENTRO = \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER;
-
-        // Las MISMAS tres agregaciones que pintan los graficos. Sin limite en productos:
-        // el grafico recorta a TOP_PRODUCTOS_GRAFICO barras para poder dibujarse, el Excel
-        // se lleva todo. El numero no se repite aqui a proposito — si vuelve a cambiar,
-        // este comentario no se queda mintiendo.
-        $porMes = $this->consumoPorMes($base)
-            ->map(fn ($r) => [$r['mes'], $r['total']])->all();
-
-        $porProducto = $this->consumoPorProducto($base)
-            ->map(fn ($r) => [$r->nombre, $r->um, $r->total])->all();
-
-        $porAlmacen = $this->consumoPorAlmacen($base)
-            ->map(fn ($r) => [$r['nombre'], $r['total']])->all();
-
-        // ── HOJA 1: los tres gráficos, uno al lado del otro ─────────────────────
-        $hoja = $libro->createSheet();
-        $hoja->setTitle('CONSUMO');
-
-        // Encabezado con los filtros aplicados: el archivo se explica solo cuando se
-        // comparte por fuera del sistema.
+        // Los filtros aplicados, en texto: el archivo tiene que explicarse solo cuando se
+        // comparte por fuera del sistema. Se calculan UNA vez y se repiten en cada hoja.
         $filtros = array_filter([
             $request->input('descripcion') ? 'Descripción: ' . $request->input('descripcion') : null,
             $request->input('categoria')   ? 'Categoría: ' . $request->input('categoria') : null,
@@ -1905,45 +2024,31 @@ class AlmacenController extends Controller
             $desde ? 'Desde: ' . $desde : null,
             $hasta ? 'Hasta: ' . $hasta : null,
         ]);
-        $hoja->setCellValue('A1', 'DASHBOARD DE CONSUMO');
-        $hoja->mergeCells('A1:I1');
-        $hoja->getStyle('A1')->getFont()->setBold(true)->setSize(13)->getColor()->setARGB('FFFFFFFF');
-        $hoja->getStyle('A1')->getFill()->setFillType($SOLIDO)->getStartColor()->setARGB($AZUL);
-        $hoja->getStyle('A1')->getAlignment()->setHorizontal($CENTRO);
-        $hoja->setCellValue('A2', $filtros ? implode('   ·   ', $filtros) : 'Sin filtros: todo el consumo visible');
-        $hoja->mergeCells('A2:I2');
-        $hoja->getStyle('A2')->getFont()->setItalic(true)->setSize(10)->getColor()->setARGB('FF64748B');
+        $pieFiltros = $filtros ? implode('   ·   ', $filtros) : 'Sin filtros: todo el consumo visible';
 
-        // Tres bloques: A-B (mes), D-F (producto), H-I (almacén).
-        $bloques = [
-            ['A', 'B', 'CONSUMO POR MES',        ['MES', 'CANTIDAD'],              $porMes],
-            ['D', 'F', 'CONSUMO POR PRODUCTO',   ['PRODUCTO', 'UM', 'CANTIDAD'],   $porProducto],
-            ['H', 'I', 'CONSUMO POR ALMACÉN',    ['ALMACÉN', 'CANTIDAD'],          $porAlmacen],
-        ];
-        foreach ($bloques as [$ini, $fin, $titulo, $cab, $filas]) {
-            $hoja->setCellValue($ini . '4', $titulo);
-            $hoja->mergeCells($ini . '4:' . $fin . '4');
-            $hoja->getStyle($ini . '4')->getFont()->setBold(true)->getColor()->setARGB('FF00004D');
-            $hoja->fromArray([$cab], null, $ini . '5', true);
-            $hoja->getStyle($ini . '5:' . $fin . '5')->getFont()->setBold(true);
-            $hoja->getStyle($ini . '5:' . $fin . '5')->getFill()->setFillType($SOLIDO)->getStartColor()->setARGB($GRIS);
-            if ($filas) {
-                $hoja->fromArray($filas, null, $ini . '6', true);
-                $hoja->getStyle($ini . '5:' . $fin . (5 + count($filas)))->getBorders()->getAllBorders()
-                    ->setBorderStyle($BORDE)->getColor()->setARGB('FFCBD5E0');
+        // Consumo por producto de TODO el rango, de mayor a menor. Sin limite: el grafico
+        // recorta a TOP_PRODUCTOS_GRAFICO barras para poder dibujarse, el Excel se lleva la
+        // lista entera. El numero no se repite aqui a proposito — si cambia, este
+        // comentario no se queda mintiendo.
+        $general = $this->consumoPorProducto($base)
+            ->map(fn ($r) => [$r->nombre, $r->um, $r->total])->all();
+
+        // Y el mismo desglose partido por mes, para las hojas siguientes.
+        $porMes = $this->consumoPorProductoPorMes($base);
+
+        // ── HOJA 1: CONSUMO GENERAL ─────────────────────────────────────────────
+        $this->hojaDeConsumo($libro, 'GENERAL', 'CONSUMO GENERAL', $pieFiltros, $general);
+
+        // ── UNA HOJA POR MES ────────────────────────────────────────────────────
+        // Solo si el rango abarca MAS de un mes: filtrando "abril 2026" la hoja del mes
+        // seria una copia exacta de la general, y el libro tendria dos veces lo mismo.
+        if (count($porMes) > 1) {
+            foreach ($porMes as $mes => $filas) {
+                // Titulo de hoja = el propio mes (2026-04). Excel no admite ':' ni '/' en
+                // los nombres de hoja y limita a 31 caracteres; 'YYYY-MM' cumple los dos.
+                $this->hojaDeConsumo($libro, $mes, 'CONSUMO DE ' . $this->mesEnLetras($mes), $pieFiltros, $filas);
             }
-            // TOTAL al pie de cada bloque, para poder cuadrar contra el gráfico.
-            $filaTotal = 6 + count($filas);
-            $hoja->setCellValue($ini . $filaTotal, 'TOTAL');
-            $hoja->setCellValue($fin . $filaTotal, array_sum(array_column($filas, count($cab) - 1)));
-            $hoja->getStyle($ini . $filaTotal . ':' . $fin . $filaTotal)->getFont()->setBold(true);
         }
-        foreach (['A', 'B', 'D', 'E', 'F', 'H', 'I'] as $c) {
-            $hoja->getColumnDimension($c)->setAutoSize(true);
-        }
-        $hoja->getColumnDimension('C')->setWidth(2);   // separadores entre bloques
-        $hoja->getColumnDimension('G')->setWidth(2);
-        $hoja->freezePane('A6');
 
         $libro->setActiveSheetIndex(0);
 
