@@ -108,11 +108,13 @@
         /* Visor PDF: en movil ocultar el texto, queda solo el icono */
         @media (max-width: 640px) {
             #pdfPrintBtn .btn-label,
-            #pdfDownloadBtn .btn-label {
+            #pdfDownloadBtn .btn-label,
+            #pdfAnexarBtn .btn-label {
                 display: none;
             }
             #pdfPrintBtn,
-            #pdfDownloadBtn {
+            #pdfDownloadBtn,
+            #pdfAnexarBtn {
                 padding: 6px 9px;
             }
         }
@@ -808,8 +810,28 @@
                         <i class="material-icons" style="font-size: 16px;">print</i><span class="btn-label">Imprimir</span>
                     </button>
 
-                    {{-- Misma regla que el boton "Anexar correccion" de mas abajo, y por el
-                         mismo motivo: uploadDoc exige 'user.edit' en el servidor. Antes se
+                    {{-- "Anexar corrección" vive aquí, con Descargar e Imprimir, y no en la
+                         barra de abajo: es una ACCIÓN sobre el documento, como las otras, y
+                         abajo obligaba a pintar la barra aunque no hubiera ni una corrección
+                         que enseñar. Lo muestra y lo esconde el mismo sitio que decide si el
+                         documento admite correcciones (_pdfPintarAnexos / _pdfOcultarAnexos). --}}
+                    @if(auth()->user() && auth()->user()->can('user.edit'))
+                    {{-- Un solo gesto: se pulsa y se elige el PDF. El nombre de la
+                         pestaña lo pone el backend numerando las correcciones. --}}
+                    <div id="pdfAnexarZona" style="display:none; align-items:center; gap:6px; flex-shrink:0;">
+                        <button type="button" id="pdfAnexarBtn"
+                            style="background:transparent; color:#93c5fd; border:1px dashed #3b82f6; padding:4px 10px; font-size:12px; font-weight:600; display:flex; align-items:center; gap:5px; border-radius:6px; cursor:pointer; transition:background .15s;"
+                            onmouseover="this.style.background='rgba(59,130,246,0.12)'"
+                            onmouseout="this.style.background='transparent'"
+                            title="Anexar una corrección: se guarda junto al documento, sin reemplazarlo">
+                            <i class="material-icons" style="font-size:15px;">attach_file</i><span class="btn-label">Anexar corrección</span>
+                        </button>
+                        <input type="file" id="pdfAnexarInput" accept="application/pdf" style="display:none;">
+                    </div>
+                    @endif
+
+                    {{-- Misma regla que el boton "Anexar correccion" de aqui al lado, y por
+                         el mismo motivo: uploadDoc exige 'user.edit' en el servidor. Antes se
                          listaba tambien 'equipos.edit', asi que quien solo tuviera ese veia
                          el boton y solo se enteraba al elegir el archivo (el guard JS
                          CAN_UPDATE_INFO lo paraba con un toast). --}}
@@ -848,8 +870,9 @@
                  que no van escondidas en un panel de historial: van aqui, a la vista,
                  en pestanas. Cambiar de pestana solo cambia el src del iframe y
                  reaprovecha el loader, el desenfoque y el respaldo de 5 s que ya tiene
-                 el visor. Oculta cuando no hay correcciones y el usuario no puede
-                 anexar: asi el visor se ve igual que siempre. --}}
+                 el visor. Solo pestanas: el boton de anexar se subio a la cabecera, asi
+                 que sin correcciones esta barra no se pinta y el visor se ve igual que
+                 siempre. --}}
             <div id="pdfAnexosBar"
                 style="display:none; background:#1f2937; border-bottom:1px solid #374151; padding:6px 12px; align-items:center; gap:8px; overflow-x:auto;">
                 <div id="pdfAnexosTabs" style="display:flex; align-items:center; gap:6px; flex:1; min-width:0;"></div>
@@ -859,20 +882,6 @@
                      asi que quien solo lo tuviera veia el boton, elegia el PDF, esperaba a
                      que subiera entero y recibia un 403; y el segundo lo resuelve Gate::before
                      dentro de ->can('user.edit'), igual que en window.CAN_UPDATE_INFO. --}}
-                @if(auth()->user() && auth()->user()->can('user.edit'))
-                    {{-- Un solo gesto: se pulsa y se elige el PDF. El nombre de la
-                         pestaña lo pone el backend numerando las correcciones. --}}
-                    <div id="pdfAnexarZona" style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
-                        <button type="button" id="pdfAnexarBtn"
-                            style="background:transparent; color:#93c5fd; border:1px dashed #3b82f6; padding:4px 10px; font-size:12px; font-weight:600; display:flex; align-items:center; gap:5px; border-radius:6px; cursor:pointer; transition:background .15s;"
-                            onmouseover="this.style.background='rgba(59,130,246,0.12)'"
-                            onmouseout="this.style.background='transparent'"
-                            title="Anexar una corrección: se guarda junto al documento, sin reemplazarlo">
-                            <i class="material-icons" style="font-size:15px;">attach_file</i>Anexar corrección
-                        </button>
-                        <input type="file" id="pdfAnexarInput" accept="application/pdf" style="display:none;">
-                    </div>
-                @endif
             </div>
 
             <!-- Viewer Container -->

@@ -2974,6 +2974,56 @@ class EquipoController extends Controller
     }
 
     /**
+     * Borra UNA corrección anexa: el archivo del Drive y su fila.
+     *
+     * Mismo permiso que borrar el documento principal (super.admin, en la ruta) y mismo
+     * trato con el Drive que deleteDoc: si el borrado remoto falla se registra y se sigue,
+     * porque dejar la fila apuntando a un archivo que ya no está sería peor.
+     *
+     * No toca el documento principal ni las demás correcciones: el visor manda el id de la
+     * que se está viendo, y se comprueba que sea de ESTE equipo antes de nada.
+     */
+    public function eliminarAnexo($id, $anexoId)
+    {
+        $equipo = $this->findAndAuthorizeEquipo($id);
+
+        $anexo = \App\Models\DocumentoAnexo::where('ID_ANEXO', $anexoId)
+            ->where('ID_EQUIPO', $equipo->ID_EQUIPO)
+            ->first();
+
+        if (!$anexo) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Esa corrección no existe o no pertenece a este equipo.',
+            ], 404);
+        }
+
+        $link = $anexo->LINK;
+
+        if ($link && str_starts_with($link, '/storage/google/')) {
+            try {
+                $fileId = \App\Models\DocumentoAnexo::driveIdDeLink($link);
+                if ($fileId) {
+                    \App\Services\GoogleDriveService::getInstance()->deleteFile($fileId);
+                    \Illuminate\Support\Facades\Storage::disk('local')->delete('google_cache/' . $fileId);
+                    \Illuminate\Support\Facades\Cache::forget('gdrive_meta_' . $fileId);
+                }
+            } catch (\Throwable $e) {
+                Log::warning("eliminarAnexo: fallo al borrar del Drive el anexo {$anexoId} del equipo {$id}: " . $e->getMessage());
+            }
+        }
+
+        $tipo = $anexo->TIPO_DOC;
+        $anexo->delete();
+
+        return response()->json([
+            'success'  => true,
+            'message'  => 'Corrección eliminada.',
+            'doc_type' => $tipo,
+        ]);
+    }
+
+    /**
      * Un anexo tal como lo consume el front. `vigente` dice si corrige al
      * documento principal que hay AHORA: al sustituir el principal (una
      * renovacion, por ejemplo) el anexo no se borra, pero deja de aplicar y en

@@ -610,8 +610,8 @@ window.openPdfPreview = function (url, docType, label, equipoId, uploadUrl, skip
 
     // Pestanas de correcciones anexas (ver bloque _pdfPintarAnexos).
     // Va DESPUES de currentPdfContext y de haber decidido que botones se
-    // ven: puede esconder Reemplazar/Eliminar si lo abierto es una
-    // correccion y no el principal.
+    // ven: viendo una correccion esconde Reemplazar (no hay endpoint para
+    // sustituirla) y deja Eliminar, que ahi borra ESA correccion.
     if (typeof window._pdfAdmiteAnexos === 'function') {
         window._pdfAnexarInit();
         if (window._pdfAdmiteAnexos(module, equipoId, docType)) {
@@ -734,9 +734,29 @@ window._pdfAdmiteAnexos = (module, equipoId, docType) =>
     (module || 'equipo') === 'equipo' &&
     !!equipoId && !!docType && _TIPOS_DOC.indexOf(docType) !== -1;
 
+/**
+ * La corrección que se está viendo ahora mismo, o null si es el documento principal.
+ *
+ * Se deduce de _pdfAnexoCtx —'activo' lo reescribe _pdfPintarAnexos en cada cambio de
+ * pestaña— en vez de llevar una variable aparte: dos estados que digan lo mismo acaban
+ * descompasados el dia que alguien abra el visor por un camino nuevo.
+ */
+window._pdfCorreccionAbierta = function () {
+    const ctx = window._pdfAnexoCtx;
+    if (!ctx || !ctx.activo || ctx.activo === ctx.principal) return null;
+
+    const lista = ((window._anexosPorEquipo[ctx.equipoId] || {})[ctx.tipo]) || [];
+    return lista.find(a => a.link === ctx.activo) || null;
+};
+
 window._pdfOcultarAnexos = function () {
     const barra = document.getElementById('pdfAnexosBar');
     if (barra) barra.style.display = 'none';
+    // El boton de anexar ya no vive en la barra sino en la cabecera, asi que hay que
+    // apagarlo aparte: un PDF generado al vuelo (nota de entrega, reporte) no admite
+    // correcciones y ofrecerlo seria prometer un 422.
+    const zona = document.getElementById('pdfAnexarZona');
+    if (zona) zona.style.display = 'none';
     window._pdfAnexoCtx = null;
 };
 
@@ -781,16 +801,22 @@ window._pdfPintarAnexos = function (url, docType, equipoId, label) {
 
     window._pdfAnexoCtx = { equipoId, tipo: docType, label, principal, activo: url };
 
-    // Sin correcciones y sin permiso para anexar no hay nada que enseñar:
-    // el visor se ve exactamente como antes de todo esto.
+    // El boton de anexar (cabecera) se enciende en cuanto el documento admite
+    // correcciones, haya o no alguna todavia.
     const zonaAnexar = document.getElementById('pdfAnexarZona');
-    if (!lista.length && !zonaAnexar) { window._pdfOcultarAnexos(); return; }
-    barra.style.display = 'flex';
+    if (zonaAnexar) zonaAnexar.style.display = 'flex';
+
+    // La barra es SOLO pestañas: sin correcciones no hay nada que elegir y no se pinta.
+    // Cuando hay alguna, salen "Original" y las correcciones una al lado de la otra, que
+    // es lo unico que dice a simple vista si el documento tiene una version o varias.
+    barra.style.display = lista.length ? 'flex' : 'none';
 
     // Todo lo interpolado va escapado: la etiqueta y el autor los
     // escribe el usuario y acaban dentro de innerHTML y de atributos.
-    const chip = (link, texto, titulo, avisar) =>
-        '<button type="button" data-anexo-link="' + _escAnexo(link) + '" title="' + _escAnexo(titulo) + '" ' +
+    const chip = (link, texto, titulo, avisar, idAnexo) =>
+        '<button type="button" data-anexo-link="' + _escAnexo(link) + '"' +
+        (idAnexo ? ' data-anexo-id="' + _escAnexo(idAnexo) + '"' : '') +
+        ' title="' + _escAnexo(titulo) + '" ' +
         'style="flex-shrink:0;border:1px solid ' + (link === url ? '#3b82f6' : '#374151') + ';' +
         'background:' + (link === url ? '#1e3a5f' : 'transparent') + ';' +
         'color:' + (link === url ? '#fff' : '#9ca3af') + ';' +
@@ -811,7 +837,7 @@ window._pdfPintarAnexos = function (url, docType, equipoId, label) {
         const tit = a.vigente
             ? ('Corrección anexa · ' + (a.autor || '') + ' · ' + (a.fecha || ''))
             : 'Corrección del documento anterior (el principal fue reemplazado)';
-        html += chip(a.link, a.etiqueta, tit, !a.vigente);
+        html += chip(a.link, a.etiqueta, tit, !a.vigente, a.id);
     });
 
     tabs.innerHTML = html;
@@ -830,14 +856,23 @@ window._pdfPintarAnexos = function (url, docType, equipoId, label) {
         });
     });
 
-    // Reemplazar y Eliminar actuan sobre el PRINCIPAL. Viendo una
-    // correccion se esconden: pulsarlos ahi pisaria un documento que no
-    // es el que se tiene delante.
+    // Reemplazar sigue actuando sobre el PRINCIPAL, asi que viendo una correccion se
+    // esconde: subir ahi pisaria un documento que no es el que se tiene delante, y no
+    // existe endpoint para sustituir una correccion (anexarDoc solo AÑADE).
+    //
+    // Eliminar SI se queda: deletePdfFromPreview mira que pestaña esta abierta y borra
+    // la correccion que se ve, sin tocar el principal. Estuvo escondido mientras ese
+    // boton solo sabia borrar el principal; ahora esconderlo dejaria las correcciones
+    // sin forma de deshacerse.
     const viendoAnexo = (url !== principal);
     const btnUpd = document.getElementById('pdfUpdateLabel');
     const btnDel = document.getElementById('pdfDeleteBtn');
     if (btnUpd && btnUpd.style.display !== 'none' && viendoAnexo) btnUpd.style.display = 'none';
-    if (btnDel && btnDel.style.display !== 'none' && viendoAnexo) btnDel.style.display = 'none';
+    if (btnDel) {
+        btnDel.title = viendoAnexo
+            ? 'Eliminar esta corrección (el documento principal no se toca)'
+            : 'Eliminar Documento (Drive + BD)';
+    }
 };
 
 const _avisoAnexo = (msg, tipo) => {
@@ -1111,6 +1146,48 @@ window.deletePdfFromPreview = async function () {
     const ctx = window.currentPdfContext;
     if (!ctx || !ctx.equipoId || !ctx.docType) {
         window.toast('Contexto de documento no disponible.', 'error');
+        return;
+    }
+
+    // Estando en una corrección, el botón borra LA CORRECCIÓN, no el documento
+    // principal. Antes borraba siempre el principal —solo miraba currentPdfContext,
+    // que no cambia al saltar de pestaña—, así que quien quisiera deshacer una
+    // corrección se llevaba por delante el documento bueno.
+    const correccion = window._pdfCorreccionAbierta ? window._pdfCorreccionAbierta() : null;
+    if (correccion) {
+        if (!window.confirm('¿Eliminar la corrección "' + (correccion.etiqueta || 'Corrección') +
+            '"?\n\nEl documento principal NO se toca. Esta acción no se puede deshacer.')) return;
+
+        const btnC = document.getElementById('pdfDeleteBtn');
+        if (btnC) btnC.disabled = true;
+        if (typeof window.showPreloader === 'function') window.showPreloader();
+        try {
+            const r = await window.apiFetch('/admin/equipos/' + ctx.equipoId + '/anexos/' + correccion.id, {
+                method: 'DELETE',
+                headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+            });
+            const d = await r.json().catch(() => ({}));
+            if (r.ok && d.success) {
+                window.toast(d.message || 'Corrección eliminada.', 'success');
+                // El mapa en memoria manda sobre lo que pinta la barra: se limpia para
+                // que la siguiente carga lo pida de nuevo, y se vuelve al principal.
+                delete window._anexosPorEquipo[ctx.equipoId];
+                const principal = window._pdfAnexoCtx ? window._pdfAnexoCtx.principal : null;
+                if (principal) {
+                    window._pdfAnexoCtx = null;   // que _pdfPintarAnexos lo rearme desde cero
+                    window.openPdfPreview(principal, ctx.docType, ctx.label, ctx.equipoId, null, true, 'equipo');
+                } else {
+                    window.closePdfPreview();
+                }
+            } else {
+                window.toast(d.message || 'No se pudo eliminar la corrección.', 'error');
+            }
+        } catch (e) {
+            window.toast('Error de red al eliminar la corrección.', 'error');
+        } finally {
+            if (btnC) btnC.disabled = false;
+            if (typeof window.hidePreloader === 'function') window.hidePreloader();
+        }
         return;
     }
     if (ctx.module === 'auxiliar') {

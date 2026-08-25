@@ -155,6 +155,11 @@ Route::middleware(['auth'])->group(function () {
             // con el. anexar-doc solo AÑADE archivos a Drive; no borra ninguno.
             Route::post('equipos/{id}/anexar-doc', [App\Http\Controllers\EquipoController::class, 'anexarDoc'])->name('equipos.anexarDoc');
             Route::get('equipos/{id}/anexos', [App\Http\Controllers\EquipoController::class, 'anexosDoc'])->name('equipos.anexosDoc');
+            // Borrar UNA correccion. Mismo guardia que delete-doc del principal:
+            // super.admin y nadie mas, porque tambien borra el archivo del Drive.
+            Route::delete('equipos/{id}/anexos/{anexo}', [App\Http\Controllers\EquipoController::class, 'eliminarAnexo'])
+                ->middleware('can:super.admin')
+                ->name('equipos.eliminarAnexo');
             // Borrar documento del equipo: destructivo (borra del Drive + BD), solo super.admin.
             Route::delete('equipos/{id}/delete-doc', [App\Http\Controllers\EquipoController::class, 'deleteDoc'])
                 ->middleware('can:super.admin')
