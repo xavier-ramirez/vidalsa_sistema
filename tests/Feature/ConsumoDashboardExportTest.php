@@ -129,27 +129,24 @@ class ConsumoDashboardExportTest extends MySqlTestCase
         $this->assertContains('UM', $textos);
         $this->assertContains('CANTIDAD', $textos);
 
-        // Encabezado corporativo, TODO EN LA FILA 1: el logo en A1 (su celda, sin
-        // combinar), el titulo en B1:C1 y el resto del encabezado junto en D1.
-        $this->assertStringContainsString('DASHBOARD DE CONSUMO', $hoja->getCell('B1')->getValue());
-        $this->assertStringContainsString('CONSUMO GENERAL', $hoja->getCell('B1')->getValue());
+        // Encabezado en UNA fila: titulo en A1:C1 y edicion/revision/fecha en D1.
+        $a1 = (string) $hoja->getCell('A1')->getValue();
+        $this->assertStringContainsString('DASHBOARD DE CONSUMO', $a1);
+        $this->assertStringContainsString('CONSUMO GENERAL', $a1);
 
         $d1 = (string) $hoja->getCell('D1')->getValue();
         $this->assertStringContainsString('EDICION: 1', $d1);
         $this->assertStringContainsString('REVISION: 0', $d1);
         $this->assertStringContainsString('FECHA:', $d1);
 
-        $this->assertCount(1, $hoja->getDrawingCollection(), 'La hoja debe llevar el logo corporativo.');
-        $this->assertSame('A1', $hoja->getDrawingCollection()[0]->getCoordinates(), 'El logo va en A1.');
+        // SIN logo: este archivo no lleva imagenes. Se comprueba porque el encabezado ya
+        // las llevo y volver a meterlas seria un cambio, no un descuido.
+        $this->assertCount(0, $hoja->getDrawingCollection(), 'El Excel de consumo va sin logo.');
 
-        // La celda del logo NO esta combinada; solo lo estan el titulo y la linea de filtros.
         $merges = array_values($hoja->getMergeCells());
-        $this->assertContains('B1:C1', $merges, 'El titulo ocupa las dos celdas a la derecha del logo.');
-        foreach ($merges as $m) {
-            $this->assertStringStartsNotWith('A1:', $m, 'La celda del logo tiene que quedar sin combinar.');
-        }
+        $this->assertContains('A1:C1', $merges, 'El titulo ocupa las tres columnas de la tabla.');
 
-        // La tabla arranca en la fila 3 (cabecera) y 4 (datos), no en la 5/6.
+        // La tabla arranca en la fila 3 (cabecera) y 4 (datos).
         $this->assertSame('PRODUCTO', $hoja->getCell('A3')->getValue());
 
         // La estructura vieja (dos bloques lado a lado, con sus totales) ya no existe.
@@ -180,9 +177,12 @@ class ConsumoDashboardExportTest extends MySqlTestCase
             sort($ordenadas);
             $this->assertSame($ordenadas, $mensuales, 'Los meses van en orden ascendente.');
 
+            // Cada hoja mensual repite el encabezado y la cabecera de la tabla, y va SIN
+            // logo igual que la general (lo pone hojaDeConsumo, que es la misma para todas).
             $primera = $libro->getSheetByName($mensuales[0]);
             $this->assertContains('PRODUCTO', $this->textosDe($primera));
-            $this->assertCount(1, $primera->getDrawingCollection(), 'Cada hoja mensual lleva el logo.');
+            $this->assertStringContainsString('DASHBOARD DE CONSUMO', (string) $primera->getCell('A1')->getValue());
+            $this->assertCount(0, $primera->getDrawingCollection(), 'Las hojas mensuales tampoco llevan logo.');
         }
 
         // Un solo mes → una sola hoja.

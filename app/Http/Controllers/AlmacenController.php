@@ -1880,8 +1880,8 @@ class AlmacenController extends Controller
     /**
      * Exporta a XLSX lo MISMO que muestra el Dashboard de Consumo, con sus filtros.
      *
-     * UNA HOJA POR VISTA, todas con el encabezado corporativo de la app (logo, título y
-     * EDICIÓN/REVISIÓN/FECHA), que las escribe hojaDeConsumo():
+     * UNA HOJA POR VISTA, todas con el mismo encabezado —título y EDICIÓN/REVISIÓN/FECHA,
+     * sin logo— que les escribe hojaDeConsumo():
      *
      *   · GENERAL  — todo el consumo del rango por producto, de mayor a menor. Aquí salen
      *                TODOS los productos: el gráfico recorta a TOP_PRODUCTOS_GRAFICO
@@ -1921,13 +1921,15 @@ class AlmacenController extends Controller
     }
 
     /**
-     * Crea una hoja de consumo con el ENCABEZADO CORPORATIVO de la aplicacion.
+     * Crea una hoja de consumo con su encabezado y la tabla de productos.
      *
-     * Mismo formato que el resto de los Excel del sistema (listado de equipos, auxiliares,
-     * movilizaciones): logo de la empresa arriba a la izquierda, titulo centrado a su
-     * derecha y el bloque EDICION / REVISION / FECHA al otro lado. El logo lo pone el trait
-     * ExcelLogoCorporativo, que ya usa este controlador, asi que no se duplica el manejo de
-     * la imagen ni su centrado.
+     * El encabezado cabe en la FILA 1: el titulo en A1:C1 (las tres columnas de la tabla) y
+     * el bloque EDICION / REVISION / FECHA en D1, sus tres lineas en una sola celda.
+     *
+     * VA SIN LOGO, a diferencia del resto de los Excel del sistema (listado de equipos,
+     * auxiliares, movilizaciones), donde la imagen va arriba a la izquierda via el trait
+     * ExcelLogoCorporativo. Aqui se quito a peticion del cliente; el trait sigue en uso en
+     * el otro export de este mismo controlador, asi que no queda huerfano.
      *
      * Existe como metodo aparte porque el libro tiene N hojas con la MISMA forma (la
      * general y una por mes) y escribir el encabezado en cada una a mano acabaria con
@@ -1953,30 +1955,26 @@ class AlmacenController extends Controller
         $hoja = $libro->createSheet();
         $hoja->setTitle(mb_substr($nombre, 0, 31));
 
-        // Anchos ANTES del logo: el trait centra la imagen midiendo el ancho real de las
-        // columnas del merge, asi que si se fijan despues el logo queda descolocado.
         $hoja->getColumnDimension('A')->setWidth(52);   // PRODUCTO (descripciones largas)
         $hoja->getColumnDimension('B')->setWidth(12);   // UM
         $hoja->getColumnDimension('C')->setWidth(16);   // CANTIDAD
         $hoja->getColumnDimension('D')->setWidth(34);   // EDICION / REVISION / FECHA, en una linea
-        $hoja->getRowDimension(1)->setRowHeight(72);
+        $hoja->getRowDimension(1)->setRowHeight(48);
 
-        // ── ENCABEZADO EN UNA SOLA FILA ──────────────────────────────────────
-        // Antes ocupaba tres (A1:A3 el logo, B1:C3 el titulo, y D1/D2/D3 con edicion,
-        // revision y fecha una debajo de otra). Ahora todo cabe en la fila 1:
-        //   A1     -> logo, en su celda, SIN combinar
-        //   B1:C1  -> titulo (las dos de su derecha, combinadas)
-        //   D1     -> el resto del encabezado junto
-        // La fila mide 72 para que el logo y el titulo de dos lineas respiren; al no
-        // combinar filas, la tabla arranca tres filas mas arriba.
-        $hoja->getStyle('A1')->getFill()->setFillType($SOLIDO)->getStartColor()->setARGB('FFFFFFFF');
-        $this->insertarLogoCorporativo($hoja, ['A'], [1], 64);
-
-        $hoja->mergeCells('B1:C1');
-        $hoja->setCellValue('B1', "DASHBOARD DE CONSUMO\n" . $titulo);
-        $hoja->getStyle('B1')->getAlignment()->setWrapText(true)->setHorizontal($CENTRO)->setVertical($MEDIO);
-        $hoja->getStyle('B1')->getFont()->setBold(true)->setSize(13);
-        $hoja->getStyle('B1:C1')->getFill()->setFillType($SOLIDO)->getStartColor()->setARGB('FFFFFFFF');
+        // ── ENCABEZADO EN UNA SOLA FILA, SIN LOGO ────────────────────────────
+        //   A1:C1  -> titulo, sobre las tres columnas de la tabla
+        //   D1     -> edicion, revision y fecha juntas, una por linea con wrapText
+        //
+        // SIN imagen a proposito: este archivo no lleva el logo de la empresa. Antes se
+        // insertaba en A1 (via el trait ExcelLogoCorporativo, que SIGUE usandose en el otro
+        // export de almacen), y al quitarlo el titulo se corre a la columna A y aprovecha
+        // todo el ancho. La fila baja de 72 a 48: ya no hay que reservar alto para la
+        // imagen, solo para las tres lineas del bloque de la derecha.
+        $hoja->mergeCells('A1:C1');
+        $hoja->setCellValue('A1', "DASHBOARD DE CONSUMO\n" . $titulo);
+        $hoja->getStyle('A1')->getAlignment()->setWrapText(true)->setHorizontal($CENTRO)->setVertical($MEDIO);
+        $hoja->getStyle('A1')->getFont()->setBold(true)->setSize(13);
+        $hoja->getStyle('A1:C1')->getFill()->setFillType($SOLIDO)->getStartColor()->setARGB('FFFFFFFF');
 
         // Edicion, revision y fecha en UNA celda, uno por linea con wrapText: siguen
         // leyendose como tres datos pero sin gastar tres filas de la hoja.
