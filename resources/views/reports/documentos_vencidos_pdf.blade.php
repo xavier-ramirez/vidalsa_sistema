@@ -108,8 +108,8 @@
                      páginas (TCPDF ignora el CSS page-break-inside:avoid en filas de tabla). --}}
                 <tr nobr="true">
                     <td width="5%">{{ $index + 1 }}</td>
-                    <td width="23%">{{ $alerta->equipo->frenteActual?->NOMBRE_FRENTE ?? 'N/A' }}</td>
-                    <td width="18%">{{ $alerta->equipo->tipo->nombre ?? 'N/A' }}</td>
+                    <td width="23%">{{ $alerta->frente_texto ?? ($alerta->equipo->frenteActual?->NOMBRE_FRENTE ?? 'N/A') }}</td>
+                    <td width="18%">{{ $alerta->tipo_texto ?? ($alerta->equipo->tipo->nombre ?? 'N/A') }}</td>
                     {{-- Campo unificado: serial de chasis si existe; si no, la placa; si no hay ninguno, '---'. --}}
                     <td width="23%">{{ ($alerta->equipo->SERIAL_CHASIS ?: $alerta->equipo->documentacion?->PLACA) ?: '---' }}</td>
                     <td width="19%">{{ mb_strtoupper($alerta->label, 'UTF-8') }}</td>
@@ -156,8 +156,8 @@
                      páginas (TCPDF ignora el CSS page-break-inside:avoid en filas de tabla). --}}
                 <tr nobr="true">
                     <td width="5%">{{ $index + 1 }}</td>
-                    <td width="23%">{{ $alerta->equipo->frenteActual?->NOMBRE_FRENTE ?? 'N/A' }}</td>
-                    <td width="18%">{{ $alerta->equipo->tipo->nombre ?? 'N/A' }}</td>
+                    <td width="23%">{{ $alerta->frente_texto ?? ($alerta->equipo->frenteActual?->NOMBRE_FRENTE ?? 'N/A') }}</td>
+                    <td width="18%">{{ $alerta->tipo_texto ?? ($alerta->equipo->tipo->nombre ?? 'N/A') }}</td>
                     {{-- Campo unificado: serial de chasis si existe; si no, la placa; si no hay ninguno, '---'. --}}
                     <td width="23%">{{ ($alerta->equipo->SERIAL_CHASIS ?: $alerta->equipo->documentacion?->PLACA) ?: '---' }}</td>
                     <td width="19%">{{ mb_strtoupper($alerta->label, 'UTF-8') }}</td>

@@ -5,19 +5,31 @@
     $iconBgColor  = $isExpired ? '#fee2e2' : '#fef3c7';
     $icon         = $isExpired ? 'error' : 'schedule';
     $gestionadoPor = $alert->gestionado_por ?? null;
-    $equipoId     = $alert->equipo->ID_EQUIPO;
     $docType      = $alert->type_key;
+
+    // Un auxiliar guarda su certificado en columna propia y no tiene ficha de
+    // documentacion ni gestion, asi que la tarjeta —la misma— cambia en tres sitios:
+    // el rotulo del tipo, el identificador y los botones.
+    $esAux        = ($alert->origen ?? 'equipo') === 'auxiliar';
+    $equipoId     = $esAux ? null : $alert->equipo->ID_EQUIPO;
+    // En el auxiliar vienen ya resueltos desde el controlador (fuente unica); en el
+    // equipo se leen de sus relaciones de siempre.
+    $tipoTexto    = $alert->tipo_texto ?? ($alert->equipo->tipo->nombre ?? 'Equipo');
+    $identificador = $alert->identificador
+        ?? (optional($alert->equipo->documentacion)->PLACA ?: ($alert->equipo->SERIAL_CHASIS ?: '—'));
 @endphp
 
 <div class="alert-card"
-     data-equipo-id="{{ $equipoId }}"
      data-doc-type="{{ $docType }}"
+     @unless($esAux)
+     data-equipo-id="{{ $equipoId }}"
      data-placa="{{ optional($alert->equipo->documentacion)->PLACA ?? '' }}"
      data-chasis="{{ $alert->equipo->SERIAL_CHASIS ?? '' }}"
      data-motor-serial="{{ $alert->equipo->SERIAL_DE_MOTOR ?? '' }}"
      data-marca="{{ $alert->equipo->MARCA ?? '' }}"
      data-modelo="{{ $alert->equipo->MODELO ?? '' }}"
-     data-tipo="{{ $alert->equipo->tipo->nombre ?? 'Equipo' }}"
+     data-tipo="{{ $tipoTexto }}"
+     @endunless
      style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid #f1f5f9; transition: background 0.15s; background: white; min-width: 0; max-width: 100%; box-sizing: border-box; overflow: hidden;"
      onmouseover="this.style.background='#f8fafc'"
      onmouseout="this.style.background='white'">
@@ -31,14 +43,14 @@
     <div style="flex: 1; min-width: 0;">
         <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 1px;">
             <span style="font-size: 13px; font-weight: 700; color: #1e293b;">
-                {{ $alert->equipo->tipo->nombre ?? 'Equipo' }}
+                {{ $tipoTexto }}
             </span>
             <span style="font-size: 12px; font-weight: 600; color: #1e293b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 160px; display: inline-block;">
                 {{ $alert->equipo->MARCA }} {{ $alert->equipo->MODELO }}
             </span>
         </div>
         <p style="margin: 0 0 3px 0; font-size: 11px; font-weight: 700; color: #475569; font-family: monospace; text-transform: uppercase; letter-spacing: 0.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-            {{ $alert->equipo->documentacion->PLACA ?? ($alert->equipo->SERIAL_CHASIS ?? '—') }}
+            {{ $identificador }}
         </p>
         <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
             <span style="display: flex; align-items: center; gap: 2px; font-size: 10px; font-weight: 600; color: {{ $iconColor }};">
@@ -56,8 +68,22 @@
 
     {{-- Botones (Acciones). SIEMPRE 2 botones en línea (nunca se apilan ni se mueven):
          el de "ojo" (ver detalles) y el de gestión. Si el documento ya está en gestión,
-         el 2º botón se muestra deshabilitado (mismo tamaño/posición). --}}
+         el 2º botón se muestra deshabilitado (mismo tamaño/posición).
+
+         En un AUXILIAR va un solo botón, el del visor: mostrar los otros dos sería
+         prometer lo que no hay. showDetailsImproved lee los data-* de un equipo, y
+         iniciarGestion valida exists:equipos, así que el 422 llegaría después del clic. --}}
     <div style="flex-shrink: 0; display: flex; flex-wrap: nowrap; gap: 5px; align-items: center;">
+    @if($esAux)
+        <button type="button"
+            onclick="event.stopPropagation(); window.openPdfPreview('{{ $alert->current_link }}', 'certificado', 'Certificado', null, null, true, 'auxiliar');"
+            title="Ver el certificado de este auxiliar"
+            style="flex-shrink: 0; box-sizing: border-box; width: 32px; height: 32px; border-radius: 8px; border: none; padding: 0; background: transparent; color: #94a3b8; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background .15s, color .15s;"
+            onmouseover="this.style.background='#f1f5f9'; this.style.color='#1e293b';"
+            onmouseout="this.style.background='transparent'; this.style.color='#94a3b8';">
+            <i class="material-icons" style="font-size: 20px; pointer-events: none;">visibility</i>
+        </button>
+    @else
         <button type="button"
             data-equipo-id="{{ $equipoId }}"
             data-codigo="{{ $alert->equipo->CODIGO_PATIO }}"
@@ -113,5 +139,6 @@
             <i class="material-icons" style="font-size: 18px; pointer-events: none;">engineering</i>
         </button>
         @endif
+    @endif
     </div>
 </div>

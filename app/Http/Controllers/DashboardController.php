@@ -101,8 +101,13 @@ class DashboardController extends Controller
         // Sembrar window.equiposData para los equipos de las alertas, así el modal de
         // detalles abierto desde /menu muestra TODOS los campos (igual que en /admin/equipos)
         // y no solo el subconjunto de data-*. Fuente única: Equipo::toDetailsPayload().
+        // SOLO equipos: la lista trae tambien certificados de auxiliares, y un
+        // EquipoAuxiliar no tiene toDetailsPayload() (ni ID_EQUIPO). Sin este filtro,
+        // el tablero entero se caia con un Error fatal en cuanto un auxiliar entraba en
+        // los 30 dias. Su tarjeta no abre ficha, asi que tampoco necesita sembrarse.
         $data['equiposData'] = collect($data['expiredList'] ?? [])
-            ->pluck('equipo')->filter()->unique('ID_EQUIPO')
+            ->pluck('equipo')->filter(fn ($e) => $e instanceof \App\Models\Equipo)
+            ->unique('ID_EQUIPO')
             ->mapWithKeys(fn ($e) => [$e->ID_EQUIPO => $e->toDetailsPayload()]);
 
         return view('menu', $data);
@@ -347,6 +352,56 @@ class DashboardController extends Controller
                     ]);
                 }
             }
+        }
+
+        // ── Certificados de EQUIPOS AUXILIARES ───────────────────────────────────────
+        // El auxiliar guarda su certificado en columna propia (LINK_CERTIFICADO +
+        // FECHA_VENCIMIENTO_CERT), no en la tabla documentacion de los equipos, asi que
+        // esta consulta va aparte. Entra al panel con type_key 'adicional': para quien
+        // mira, ese papel se llama Certificado igual que el del equipo (la etiqueta de
+        // 'filter_adicional' es 'Certificado'), y asi la casilla alertas.ver.certificado
+        // gobierna LOS DOS sin necesidad de inventar una clave nueva.
+        // Mismas barreras que los equipos: frentes permitidos, frentes bloqueados, fuera
+        // los ESPECIAL y fuera lo desincorporado/inoperativo.
+        $auxQuery = \App\Models\EquipoAuxiliar::query()
+            ->whereNotNull('LINK_CERTIFICADO')
+            ->whereNotNull('FECHA_VENCIMIENTO_CERT')
+            ->where('FECHA_VENCIMIENTO_CERT', '<', $in30Days)
+            ->whereNotIn('ESTADO_OPERATIVO', ['DESINCORPORADO', 'INOPERATIVO'])
+            ->with('frente');   // en EquipoAuxiliar la relacion se llama 'frente', no 'frenteActual'
+
+        $idsEspecial = \App\Models\FrenteTrabajo::especialIds();
+        if (!empty($idsEspecial)) {
+            $auxQuery->where(function ($q) use ($idsEspecial) {
+                $q->whereNull('equipos_auxiliares.ID_FRENTE_ACTUAL')
+                  ->orWhereNotIn('equipos_auxiliares.ID_FRENTE_ACTUAL', $idsEspecial);
+            });
+        }
+
+        \App\Models\Usuario::aplicarScopeIds($auxQuery, $frenteIds, 'ID_FRENTE_ACTUAL');
+        \App\Models\Usuario::aplicarBloqueoIds($auxQuery, $bloqueados, 'ID_FRENTE_ACTUAL');
+
+        foreach ($auxQuery->get() as $aux) {
+            $fechaCert = \Carbon\Carbon::parse($aux->FECHA_VENCIMIENTO_CERT);
+            $status    = $fechaCert->lt($now) ? 'expired' : 'warning';
+
+            $alerts->push((object) [
+                'equipo'         => $aux,
+                'origen'         => 'auxiliar',   // lo lee alert_item.blade.php para su variante
+                'type_key'       => 'adicional',
+                'label'          => $status === 'expired' ? 'Certificado Vencido' : 'Certificado Por Vencer',
+                'fecha'          => $aux->FECHA_VENCIMIENTO_CERT,
+                'current_link'   => $aux->LINK_CERTIFICADO,
+                'status'         => $status,
+                'gestionado_por' => null,   // la gestion de documentos es cosa de equipos
+                'fecha_gestion'  => null,
+                // Textos ya resueltos: el auxiliar no tiene las relaciones del equipo
+                // (tipo, frenteActual) ni sus columnas. Se calculan aqui, una sola vez,
+                // y los leen igual la tarjeta del panel y el PDF de vencidos.
+                'tipo_texto'     => $aux->TIPO ?: 'Auxiliar',
+                'identificador'  => $aux->SERIAL ?: ($aux->CODIGO_INTERNO ?: '—'),
+                'frente_texto'   => $aux->frente?->NOMBRE_FRENTE,
+            ]);
         }
 
         // ── Filtro por PERMISOS (visibilidad POR USUARIO) ────────────────────────────
