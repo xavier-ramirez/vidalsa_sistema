@@ -395,6 +395,12 @@ let _pdfLoaderTimeout = null;
 // Radio del desenfoque con el que se revela el PDF mientras llega. En UN solo
 // sitio: lo ponen la apertura y la asignacion del src, y si los dos valores se
 // separaran el documento daria un salto de nitidez al empezar a cargar.
+/* Parametros del visor nativo en modo LECTURA (un solo documento a pantalla
+   completa). Estaban escritos a mano en cada sitio que carga el iframe; con la vista
+   comparada pasaron a ser dos juegos distintos y repetirlos era pedir que uno se
+   quedara atras. El de comparar es PDF_PARAMS_COMPARA, mas abajo. */
+const PDF_PARAMS_LECTURA = '#toolbar=0&navpanes=0&scrollbar=0&zoom=100';
+
 const PDF_BLUR_CARGA = 'blur(14px)';
 // Enfocado. Tiene que ser blur(0px) y NO cadena vacia ni 'none': de un blur a
 // `none` no hay interpolacion posible, asi que el filtro se quitaria de golpe y se
@@ -585,7 +591,7 @@ window.openPdfPreview = function (url, docType, label, equipoId, uploadUrl, skip
             // formandose en vez de sobre un gris vacio.
             iframe.style.filter = PDF_BLUR_CARGA;
             iframe.style.opacity = '1';
-            iframe.src = url + '#toolbar=0&navpanes=0&scrollbar=0&zoom=100';
+            iframe.src = url + PDF_PARAMS_LECTURA;
         } else {
             const fallback = document.getElementById('pdfMobileFallback');
             if (fallback) fallback.style.display = 'none';
@@ -761,6 +767,16 @@ window._pdfCorreccionAbierta = function () {
    memoria aunque su panel esté oculto. */
 const PDF_COMPARA_ANCHO_MIN = 900;
 
+/* Parametros del visor nativo para la vista comparada.
+   'view=Fit' encaja la HOJA ENTERA en el panel; con el zoom=100 del visor normal, en
+   media pantalla solo se veria la esquina superior del documento y compararlos exigiria
+   hacer scroll en los dos a la vez, que es peor que las pestañas que esto vino a
+   quitar. Al expandir un lado con la lupa sigue valiendo: encaja en el ancho nuevo. */
+const PDF_PARAMS_COMPARA = '#toolbar=0&navpanes=0&scrollbar=0&view=Fit';
+
+/** Lado expandido a todo el ancho, o null si estan los dos a la vista. */
+window._pdfComparaExpandido = null;
+
 window._pdfComparando = false;
 
 /** ¿Se puede comparar lo que hay abierto ahora mismo? */
@@ -811,12 +827,13 @@ const _pdfComparaMarcarChips = function (linkDerecha) {
 window._pdfComparaMostrar = function (anexo) {
     const panel = document.getElementById('pdfComparaPanel');
     const frame = document.getElementById('pdfComparaFrame');
-    const rotDer = document.getElementById('pdfComparaEtiquetaDer');
+    // El TEXTO, no la barra: la barra lleva ademas la lupa, y escribirle textContent
+    // se la llevaria por delante.
+    const rotDer = document.getElementById('pdfComparaTituloDer');
     if (!panel || !frame || !anexo) return;
 
     if (rotDer) rotDer.textContent = anexo.etiqueta || 'Corrección';
-    // Mismos parámetros que el visor principal: sin barra, sin panel lateral y al 100%.
-    frame.src = anexo.link + '#toolbar=0&navpanes=0&scrollbar=0&zoom=100';
+    frame.src = anexo.link + PDF_PARAMS_COMPARA;
     _pdfComparaMarcarChips(anexo.link);
 };
 
@@ -827,13 +844,67 @@ window._pdfComparaMostrar = function (anexo) {
 window._pdfComparaEncender = function (anexo) {
     const panel  = document.getElementById('pdfComparaPanel');
     const rotIzq = document.getElementById('pdfComparaEtiquetaIzq');
-    if (!panel || !anexo) return;
+    const ctx    = window._pdfAnexoCtx;
+    if (!panel || !anexo || !ctx) return;
 
     window._pdfComparando = true;
     panel.style.display = 'block';
-    if (rotIzq) rotIzq.style.display = 'block';
+    if (rotIzq) rotIzq.style.display = 'flex';
+
+    // El izquierdo se abrio al 100% de zoom (el modo lectura de un solo documento).
+    // Comparando hace falta la hoja entera, asi que se le cambian los parametros. Es
+    // una re-navegacion, pero el archivo acaba de descargarse y sale del cache del
+    // navegador: no hay segunda descarga.
+    // getAttribute y no .src: la propiedad devuelve la URL ABSOLUTA ya resuelta, asi
+    // que compararla contra una ruta relativa da SIEMPRE distinto y re-navegaria de
+    // balde cada vez que se repinte la barra.
+    const izq = document.getElementById('pdfPreviewFrame');
+    const destinoIzq = ctx.principal + PDF_PARAMS_COMPARA;
+    if (izq && izq.getAttribute('src') !== destinoIzq) izq.src = destinoIzq;
+
     window._pdfComparaMostrar(anexo);
+    window._pdfComparaExpandido = null;
+    window._pdfComparaSincronizarLupas();
     window._pdfComparaSincronizarBoton();
+};
+
+/**
+ * Expande un lado a todo el ancho, o lo devuelve a la mitad si ya lo estaba.
+ *
+ * En PC no hay pellizco para acercar y media pantalla se queda corta para leer letra
+ * pequeña. En vez de meter niveles de zoom —que obligan a recargar el PDF con otro
+ * parametro y pierden la posicion— se agranda el panel: el visor nativo reencaja la
+ * hoja al ancho nuevo y se lee sin tocar nada mas.
+ */
+window.pdfComparaExpandir = function (lado) {
+    if (!window._pdfComparando) return;
+
+    const izq   = document.getElementById('pdfVisorIzq');
+    const panel = document.getElementById('pdfComparaPanel');
+    if (!izq || !panel) return;
+
+    window._pdfComparaExpandido = (window._pdfComparaExpandido === lado) ? null : lado;
+
+    const exp = window._pdfComparaExpandido;
+    izq.style.display   = (exp === 'der') ? 'none' : 'flex';
+    panel.style.display = (exp === 'izq') ? 'none' : 'block';
+
+    window._pdfComparaSincronizarLupas();
+};
+
+/** Icono y texto de cada lupa segun el lado que este expandido. */
+window._pdfComparaSincronizarLupas = function () {
+    const exp = window._pdfComparaExpandido;
+    [['pdfComparaLupaIzq', 'izq'], ['pdfComparaLupaDer', 'der']].forEach(([id, lado]) => {
+        const btn = document.getElementById(id);
+        if (!btn) return;
+        const abierto = exp === lado;
+        const icono = btn.querySelector('.material-icons');
+        if (icono) icono.textContent = abierto ? 'zoom_out' : 'zoom_in';
+        btn.title = abierto
+            ? 'Volver a ver los dos documentos'
+            : 'Ampliar este documento a todo el ancho';
+    });
 };
 
 window.pdfCompararToggle = function () {
@@ -846,6 +917,15 @@ window.pdfCompararToggle = function () {
     if (window._pdfComparando) {
         window._pdfComparaApagar();
         _pdfComparaMarcarChips(ctx.activo);
+
+        // Vuelve al modo lectura de un solo documento (zoom 100, como lo abre
+        // openPdfPreview). Solo aqui: apagar por cierre del visor o por cambio de
+        // documento ya reemplaza el iframe, y re-navegarlo seria trabajo de balde.
+        const izqLectura = document.getElementById('pdfPreviewFrame');
+        const destinoLectura = ctx.principal + PDF_PARAMS_LECTURA;
+        if (izqLectura && izqLectura.getAttribute('src') !== destinoLectura) {
+            izqLectura.src = destinoLectura;
+        }
         return;
     }
 
@@ -874,6 +954,13 @@ window._pdfComparaApagar = function () {
         return;
     }
     window._pdfComparando = false;
+
+    // Deshacer la expansion ANTES de esconder el panel: si se apago con un lado
+    // agrandado, el visor izquierdo se habia quedado en display:none y el documento
+    // siguiente se abriria sobre una pantalla en blanco.
+    window._pdfComparaExpandido = null;
+    const izqPanel = document.getElementById('pdfVisorIzq');
+    if (izqPanel) izqPanel.style.display = 'flex';
     const panel = document.getElementById('pdfComparaPanel');
     const frame = document.getElementById('pdfComparaFrame');
     const rotIzq = document.getElementById('pdfComparaEtiquetaIzq');
@@ -1582,7 +1669,7 @@ window.uploadDocumentFromPreview = function (input, type, equipoId, label) {
                         // "?upd=" producia una URL con DOS '?' (invalida) y el iframe NO cargaba
                         // el PDF nuevo ("no se ve que cargue"). Usamos '&' si ya hay query string.
                         var _sep = data.link.indexOf('?') > -1 ? '&' : '?';
-                        iframe.src = data.link + _sep + 'upd=' + new Date().getTime() + '#toolbar=0&navpanes=0&scrollbar=0&zoom=100';
+                        iframe.src = data.link + _sep + 'upd=' + new Date().getTime() + PDF_PARAMS_LECTURA;
                     }
 
                     // Update Download Button

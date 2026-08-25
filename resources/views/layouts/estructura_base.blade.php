@@ -900,7 +900,7 @@
             <!-- Viewer Container -->
             <div style="flex: 1; background: #4a5568; position: relative; display: flex; overflow: hidden;">
 
-                <div style="flex: 1; position: relative; display: flex; align-items: center; justify-content: center;">
+                <div id="pdfVisorIzq" style="flex: 1; position: relative; display: flex; align-items: center; justify-content: center; min-width: 0;">
                     <!-- Loading Indicator (Same as global preloader) -->
                     <div id="pdfViewerLoader"
                         style="position: absolute; display: flex; flex-direction: column; align-items: center; gap: 15px; z-index: 50;">
@@ -932,9 +932,17 @@
 
                     {{-- Rótulo del lado izquierdo. Solo se ve comparando: con un único
                          documento en pantalla no hay nada que distinguir. --}}
-                    <div id="pdfComparaEtiquetaIzq"
-                        style="display:none; position:absolute; top:0; left:0; right:0; z-index:40; background:rgba(45,55,72,0.92); color:#e2e8f0; font-size:11px; font-weight:700; letter-spacing:.4px; text-transform:uppercase; padding:5px 10px; text-align:center;">
-                        Original
+                    <div id="pdfComparaEtiquetaIzq" style="display:none; position:absolute; top:0; left:0; right:0; z-index:40; background:rgba(26,32,44,0.94); align-items:center; gap:8px; padding:4px 6px 4px 10px;">
+                        <span style="flex:1; min-width:0; color:#e2e8f0; font-size:11px; font-weight:700; letter-spacing:.4px; text-transform:uppercase; text-align:center; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Original</span>
+                        {{-- Lupa: en PC no hay pellizco para acercar, asi que se agranda el
+                             lado que se quiera leer a todo el ancho y se vuelve a encoger. --}}
+                        <button type="button" id="pdfComparaLupaIzq" onclick="window.pdfComparaExpandir('izq')"
+                            title="Ampliar este documento a todo el ancho"
+                            style="flex-shrink:0; width:26px; height:26px; border:none; border-radius:6px; background:transparent; color:#cbd5e0; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background .15s;"
+                            onmouseover="this.style.background='rgba(255,255,255,0.12)'"
+                            onmouseout="this.style.background='transparent'">
+                            <i class="material-icons" style="font-size:17px; pointer-events:none;">zoom_in</i>
+                        </button>
                     </div>
 
                     <!-- Vista móvil para descarga directa -->
@@ -960,9 +968,15 @@
                      pdfCompararToggle() al encenderlo. --}}
                 <div id="pdfComparaPanel"
                     style="display:none; flex:1; position:relative; border-left:3px solid #1a202c; min-width:0;">
-                    <div id="pdfComparaEtiquetaDer"
-                        style="position:absolute; top:0; left:0; right:0; z-index:40; background:rgba(45,55,72,0.92); color:#93c5fd; font-size:11px; font-weight:700; letter-spacing:.4px; text-transform:uppercase; padding:5px 10px; text-align:center;">
-                        Corrección
+                    <div id="pdfComparaEtiquetaDer" style="display:flex; position:absolute; top:0; left:0; right:0; z-index:40; background:rgba(26,32,44,0.94); align-items:center; gap:8px; padding:4px 6px 4px 10px;">
+                        <span id="pdfComparaTituloDer" style="flex:1; min-width:0; color:#93c5fd; font-size:11px; font-weight:700; letter-spacing:.4px; text-transform:uppercase; text-align:center; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Corrección</span>
+                        <button type="button" id="pdfComparaLupaDer" onclick="window.pdfComparaExpandir('der')"
+                            title="Ampliar este documento a todo el ancho"
+                            style="flex-shrink:0; width:26px; height:26px; border:none; border-radius:6px; background:transparent; color:#cbd5e0; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background .15s;"
+                            onmouseover="this.style.background='rgba(255,255,255,0.12)'"
+                            onmouseout="this.style.background='transparent'">
+                            <i class="material-icons" style="font-size:17px; pointer-events:none;">zoom_in</i>
+                        </button>
                     </div>
                     <iframe id="pdfComparaFrame" src=""
                         style="width:100%; height:100%; border:none; background:#4a5568;"
