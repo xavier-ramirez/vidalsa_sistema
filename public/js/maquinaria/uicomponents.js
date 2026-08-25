@@ -435,11 +435,6 @@ window.confirmDelete = function (id, name) {
     });
 };
 
-// No-op kept for backward compatibility (catalogo_index.js calls this)
-window.closeDeleteModal = function () {
-    // standardModal is closed via its own cancel/confirm buttons
-};
-
 // Manual toggle function for inline handlers (forms, etc.) - CONSOLIDATED & ROBUST
 window.toggleDropdown = function (dropdownId, event) {
     if (event) event.stopPropagation();
@@ -468,18 +463,6 @@ window.toggleDropdown = function (dropdownId, event) {
     if (dropdown.classList.contains("active")) {
         window.prepararAperturaDropdown(dropdown);
     }
-};
-
-window.toggleMultiselect = function () {
-    const multiselect = document.getElementById("permissionsSelect");
-    if (!multiselect) return;
-
-    document
-        .querySelectorAll(".custom-dropdown, .custom-multiselect")
-        .forEach((el) => {
-            if (el !== multiselect) el.classList.remove("active");
-        });
-    multiselect.classList.toggle("active");
 };
 
 window.filterDropdownOptions = function (input) {
@@ -592,51 +575,6 @@ window.filterDropdownOptions = function (input) {
  * ⚠️ DO NOT duplicate these in module files - this is the authoritative source!
  * ═══════════════════════════════════════════════════════════════════════
  */
-
-// CATÁLOGO: Advanced filter selection (Modelo, Año)
-window.selectAdvancedOption = function (type, value, event) {
-    if (event) {
-        event.preventDefault();
-        event.stopPropagation();
-    }
-
-    if (type === "modelo") {
-        const input = document.getElementById("searchModeloInput");
-        if (input) {
-            input.value = value;
-            input.placeholder = value ? value : "Buscar Modelo...";
-        }
-        const hidden = document.getElementById("input_modelo_filter");
-        if (hidden) hidden.value = value;
-
-        const clearBtn = document.getElementById("btn_clear_modelo");
-        if (clearBtn) clearBtn.style.display = value ? "block" : "none";
-
-        const dropdown = document.getElementById("modeloFilterSelect");
-        if (dropdown) dropdown.classList.remove("active");
-    }
-
-    if (type === "anio") {
-        const input = document.getElementById("searchAnioInput");
-        if (input) {
-            input.value = value;
-            input.placeholder = value ? value : "Buscar Año...";
-        }
-        const hidden = document.getElementById("input_anio_filter");
-        if (hidden) hidden.value = value;
-
-        const clearBtn = document.getElementById("btn_clear_anio");
-        if (clearBtn) clearBtn.style.display = value ? "block" : "none";
-
-        const dropdown = document.getElementById("anioFilterSelect");
-        if (dropdown) dropdown.classList.remove("active");
-    }
-
-    // Trigger catalog load if function exists
-    if (typeof window.loadCatalogo === "function") {
-        window.loadCatalogo();
-    }
-};
 
 // EQUIPOS: Advanced filter selection (Modelo, Marca, Año, Frente, Tipo, Search)
 window.selectAdvancedFilter = function (key, value) {
@@ -870,22 +808,6 @@ window.clearFrentesSearch = function () {
         window.searchFrentes(searchInput); // Refresh list
         searchInput.focus();
     }
-};
-// Confirm Delete Frente (Dynamic Modal)
-window.confirmDeleteFrente = function (id, name) {
-    window.showModal({
-        type: "error",
-        title: "¿Eliminar Frente?",
-        message: `¿Estás seguro de que deseas eliminar el frente "${name}"? Esta acción no se puede deshacer.`,
-        confirmText: "Sí, Eliminar",
-        onConfirm: () => {
-            const form = document.getElementById("deleteFrenteForm");
-            if (form) {
-                if (window.showPreloader) window.showPreloader();
-                form.submit();
-            }
-        },
-    });
 };
 
 /**

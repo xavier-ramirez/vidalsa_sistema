@@ -332,5 +332,5 @@ window.addEventListener('spa:contentLoaded', function () {
     }
 });
 
-// confirmDelete and closeDeleteModal removed - using global versions in uicomponents.js
+// confirmDelete se borro de aqui: se usa la version global de uicomponents.js.
 

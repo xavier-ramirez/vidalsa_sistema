@@ -236,59 +236,13 @@ window.cancelModal = function () {
     if (cb) cb();
 }
 
-// Legacy compatibility helper
-window.showConfirmModal = function (title, message, callback, btnText = 'Eliminar') {
-    window.showModal({
-        type: 'error',
-        title: title,
-        message: message,
-        confirmText: btnText,
-        onConfirm: callback
-    });
-}
 
 // --- Custom UI Components (SPA Friendly) ---
 // Moved to js/maquinaria/uicomponents.js to ensure availability before other scripts
 
 
-// --- Equipos / Vehículos Specific Logic (Globalized for SPA) ---
-// Tab Logic (Updated for 3 Tabs)
-window.switchModalTab = function (tabName) {
-    // Hide all content
-    const contentGeneral = document.getElementById('tab_content_general');
-    const contentSpecs = document.getElementById('tab_content_specs');
-    const contentLegal = document.getElementById('tab_content_legal');
-
-    if (contentGeneral) contentGeneral.style.display = 'none';
-    if (contentSpecs) contentSpecs.style.display = 'none';
-    if (contentLegal) contentLegal.style.display = 'none';
-
-    // Reset Buttons
-    const btnGeneral = document.getElementById('tab_btn_general');
-    const btnSpecs = document.getElementById('tab_btn_specs');
-    const btnLegal = document.getElementById('tab_btn_legal');
-
-    const inactiveStyle = "flex: 1; padding: 12px; background: none; border: none; border-bottom: 3px solid transparent; font-weight: 600; color: #64748b; cursor: default; transition: all 0.2s; outline: none;";
-    const activeStyle = "flex: 1; padding: 12px; background: none; border: none; border-bottom: 3px solid var(--maquinaria-blue); font-weight: 700; color: var(--maquinaria-blue); cursor: default; transition: all 0.2s; outline: none;";
-
-    if (btnGeneral) btnGeneral.style.cssText = inactiveStyle;
-    if (btnSpecs) btnSpecs.style.cssText = inactiveStyle;
-    if (btnLegal) btnLegal.style.cssText = inactiveStyle;
-
-    // Activate Target
-    if (tabName === 'general') {
-        if (contentGeneral) contentGeneral.style.display = 'block';
-        if (btnGeneral) btnGeneral.style.cssText = activeStyle;
-    } else if (tabName === 'specs') {
-        if (contentSpecs) contentSpecs.style.display = 'block';
-        if (btnSpecs) btnSpecs.style.cssText = activeStyle;
-    } else {
-        if (contentLegal) contentLegal.style.display = 'block';
-        if (btnLegal) btnLegal.style.cssText = activeStyle;
-    }
-};
-
-// showDetailsImproved and closeDetailsModal are defined in uicomponents.js (loaded after)
+// showDetailsImproved y closeDetailsModal viven en uicomponents.js, que el layout carga
+// ANTES que este archivo.
 
 // --- PDF Preview System (Internal View) - OPTIMIZED ---
 
@@ -1492,116 +1446,12 @@ window.uploadDocumentFromPreview = function (input, type, equipoId, label) {
 // eq-tipo-oculto) que, al cargar DESPUÉS del <script src>, PISABA a la buena — el
 // filtro de Tipo de equipos re-mostraba tipos que el frente había ocultado.
 
-// Delete Document Logic
-window.confirmDeleteDocument = function (equipoId, docType, label) {
-    showModal({
-        type: 'error',
-        title: '¿Eliminar Documento?',
-        message: `¿Estás seguro de que deseas eliminar "${label}"? Esta acción no se puede deshacer.`,
-        confirmText: 'Eliminar',
-        onConfirm: async () => {
-            // PERMISSION CHECK
-            if (!window.CAN_UPDATE_INFO) {
-                window.toast("No tienes permisos para eliminar documentos.", "error");
-                return;
-            }
 
-            try {
-                const response = await window.apiFetch(`/admin/equipos/${equipoId}/delete-doc`, {
-                    method: 'DELETE',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ doc_type: docType })
-                });
-
-                const data = await response.json();
-
-                if (data.success) {
-                    // Cierra preview
-                    closePdfPreview();
-
-                    // Limpia dataset + equiposData y tambien la fecha de vencimiento
-                    // asociada (vencKey) via DOC_FIELD_MAP. showDetailsImproved re-renderiza
-                    // el boton en estado "cloud_upload" con el estilo correcto + verifica
-                    // CAN_UPDATE_INFO. No inyectamos HTML manual.
-                    const btnDel = window.activeEquipoButton;
-                    const btnDelAlive = btnDel && document.body.contains(btnDel);
-                    if (btnDelAlive) {
-                        if (typeof window.clearDocFields === 'function') {
-                            window.clearDocFields(btnDel.dataset, docType);
-                            if (window.equiposData && btnDel.dataset.equipoId && window.equiposData[btnDel.dataset.equipoId]) {
-                                window.clearDocFields(window.equiposData[btnDel.dataset.equipoId], docType);
-                            }
-                        }
-                        // Limpia la fecha de vencimiento extra (no cubierta por clearDocFields).
-                        const vk = window.DOC_FIELD_MAP && window.DOC_FIELD_MAP[docType] ? window.DOC_FIELD_MAP[docType].vencKey : null;
-                        if (vk) {
-                            btnDel.dataset[vk] = '';
-                            if (window.equiposData && btnDel.dataset.equipoId && window.equiposData[btnDel.dataset.equipoId]) {
-                                window.equiposData[btnDel.dataset.equipoId][vk] = '';
-                            }
-                        }
-                        const detailsModal = document.getElementById('detailsModal');
-                        const detailsOpen  = detailsModal && detailsModal.classList.contains('active');
-                        if (detailsOpen && typeof window.showDetailsImproved === 'function') {
-                            try { window.showDetailsImproved(btnDel); } catch (_) { /* noop */ }
-                        }
-                    }
-
-                    window.toast("Documento eliminado correctamente.", "success");
-                } else {
-                    throw new Error(data.message);
-                }
-            } catch (error) {
-                console.error(error);
-                window.toast("No se pudo eliminar el documento.", "error");
-            }
-        }
-    });
-};
-
-window.confirmDeleteEquipo = function (id) {
-    showModal({
-        type: 'error',
-        title: '¿Eliminar equipo?',
-        message: '¿Estás seguro de eliminar este equipo? Esta acción no se puede deshacer.',
-        confirmText: 'Eliminar',
-        onConfirm: () => {
-            var form = document.getElementById('delete-form-global');
-            if (form) {
-                form.action = '/admin/equipos/' + id;
-                form.submit();
-            }
-        }
-    });
-};
-
-// showPreloader / hidePreloader are defined earlier in this file (with fade-out animation)
+// showPreloader / hidePreloader viven en preloader.js (contador de referencias); navegacion.js
+// les monta encima el watchdog anti-spinner-congelado.
 
 // Re-initialize dynamic elements after SPA load
 window.addEventListener('spa:contentLoaded', () => {
     window.updateSelectedCount();
 });
 
-// Auto-submit search when selecting from datalist
-window.checkAutoSubmit = function (input) {
-    const val = input.value.trim().toUpperCase();
-    if (!val) return;
-
-    const listId = input.getAttribute('list');
-    if (!listId) return;
-
-    const datalist = document.getElementById(listId);
-    if (!datalist) return;
-
-    const options = Array.from(datalist.options).map(opt => opt.value.trim().toUpperCase());
-
-    if (options.includes(val)) {
-        const form = input.closest('form');
-        if (form) {
-            if (window.showPreloader) window.showPreloader();
-            form.submit();
-        }
-    }
-};
