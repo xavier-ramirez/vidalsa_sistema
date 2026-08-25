@@ -196,7 +196,9 @@
                             <i class="material-icons">search</i>
                             <input type="text" id="cdashDescripcion" placeholder="Descripción del producto…" autocomplete="off"
                                    oninput="window._cdashDescInput()"
-                                   onkeydown="if(event.key==='Enter'){event.preventDefault();window._cdashDescCloseSug();window._cdashFetch();}"
+                                   {{-- Enter consulta YA y cierra las recomendaciones. El clearTimeout mata el
+                                        debounce del tecleo, o 350 ms después saldría una segunda consulta igual. --}}
+                                   onkeydown="if(event.key==='Enter'){event.preventDefault();clearTimeout(window._cdashDescTimer);window._cdashDescCloseSug();window._cdashFetch();}"
                                    onblur="setTimeout(function(){window._cdashDescCloseSug();},180)">
                             <i class="material-icons clr" id="cdashDescClear" style="display:none;" onclick="window._cdashDescClear()">close</i>
                         </div>
@@ -464,15 +466,27 @@
     // Lee los filtros PROPIOS del modal y pide los datos. Independiente del módulo.
     // Punto único por el que pasan TODOS los filtros: aquí se refresca la señal del
     // botón avanzado, así ninguna vía puede cambiar un filtro sin actualizarla.
-    window._cdashFetch = function () {
+    // conservarSug=true: NO cierra las recomendaciones de Descripción. Lo pasa así el
+    // filtrado en vivo mientras se teclea, porque ahí el usuario SIGUE escribiendo y
+    // necesita la lista delante — cerrarla en cada consulta era lo que "contraía el
+    // buscador" a media palabra. Los demás caminos (Enter, elegir de la lista, cambiar
+    // otro filtro) la cierran como siempre: en esos el usuario ya terminó de elegir.
+    window._cdashFetch = function (conservarSug) {
+        // El modal ya no está en el DOM → no hay nada que refrescar. Esta consulta puede
+        // llegar TARDE: el filtro Descripción la programa con 350 ms de retardo, y en ese
+        // hueco el usuario puede haber navegado a otro módulo, con lo que la SPA ya
+        // reemplazó el contenido y estos ids no existen. Sin la salida temprana, ldEl es
+        // null y la línea siguiente revienta con TypeError al escribir en .style.
+        // Los tres ids viven en este mismo partial, así que comprobar uno vale por todos.
+        var ldEl = document.getElementById('cdashLoading');
+        if (!ldEl) return;
         // Cierra las sugerencias de Descripción para que el spinner de carga quede
         // visible (mismo feedback que al filtrar por Categoría).
-        if (window._cdashDescCloseSug) window._cdashDescCloseSug();
+        if (!conservarSug && window._cdashDescCloseSug) window._cdashDescCloseSug();
         // Los filtros avanzados van recogidos: el COLOR del boton es lo unico que
         // avisa de que hay alguno puesto. Se refresca aqui y no en cada control,
         // porque por aqui pasan todos sin excepcion.
         if (window._cdashMarcarAvanzados) window._cdashMarcarAvanzados();
-        var ldEl = document.getElementById('cdashLoading');
         ldEl.style.display = 'flex';
         ldEl.innerHTML = '<i class="material-icons cdash-spin">refresh</i><span>Cargando datos de consumo…</span>';
         document.getElementById('cdashContent').style.display = 'none';
@@ -732,28 +746,43 @@
     };
 
     // ── Filtro Descripción (texto libre sobre el NOMBRE del producto) ──────────
-    // ESCRIBIR NO CONSULTA. Solo se refrescan las recomendaciones; el gráfico se filtra
-    // cuando el usuario DECIDE: al elegir un nombre de la lista o al pulsar Enter.
+    // Filtra EN VIVO mientras se escribe, con dos condiciones que antes no estaban y que
+    // eran justo lo que estorbaba:
     //
-    // Antes había un debounce de 350 ms que consultaba solo. Escribir despacio, o parar a
-    // leer la lista, bastaba para que se lanzara la consulta con el texto A MEDIAS: el
-    // gráfico se quedaba en "No hay consumo registrado para los filtros seleccionados" con
-    // un término que el usuario ni siquiera había terminado de teclear, y no daba tiempo a
-    // elegir de las recomendaciones. Los dos caminos deliberados ya existían
-    // (_cdashDescSelectSug y el Enter del onkeydown); lo que sobraba era el automático.
-    // Comparte estética con Categoría (.cdash-inp-box).
+    //   · Desde CDASH_DESC_MIN caracteres. Con 1 o 2 la búsqueda es tan amplia que no dice
+    //     nada y se gastaba una consulta por tecla.
+    //   · SIN cerrar las recomendaciones: se llama a _cdashFetch(true). Antes cada consulta
+    //     las cerraba —el cierre vive dentro de _cdashFetch— y el buscador se "contraía" a
+    //     media palabra, así que no había forma de seguir escribiendo mirando la lista ni de
+    //     elegir de ella.
+    //
+    // El campo VACÍO sí consulta: es quitar el filtro, y hay que hacerlo o el gráfico se
+    // quedaría filtrado por lo anterior con el input en blanco. Entre 1 y 2 caracteres no se
+    // consulta nada: son estados de paso mientras se escribe o se borra.
+    //
+    // Enter y elegir de la lista siguen consultando al instante, y esos SÍ cierran las
+    // recomendaciones (ahí el usuario ya terminó). Comparte estética con Categoría.
+    var CDASH_DESC_MIN = 3;
+    window._cdashDescTimer = null;
     window._cdashDescInput = function () {
         var inp = document.getElementById('cdashDescripcion');
         var val = inp ? inp.value.trim() : '';
         var clr = document.getElementById('cdashDescClear'); if (clr) clr.style.display = val ? 'block' : 'none';
         var box = document.getElementById('cdashDescBox'); if (box) box.classList.toggle('active', !!val);
-        window._cdashDescRenderSug();   // recomendaciones en vivo (NO dispara fetch)
+        window._cdashDescRenderSug();   // recomendaciones en vivo
+
+        clearTimeout(window._cdashDescTimer);
+        if (val.length >= CDASH_DESC_MIN || val.length === 0) {
+            // 350 ms tras la última tecla: no se consulta por pulsación.
+            window._cdashDescTimer = setTimeout(function () { window._cdashFetch(true); }, 350);
+        }
     };
     window._cdashDescClear = function () {
         var inp = document.getElementById('cdashDescripcion'); if (inp) inp.value = '';
         var clr = document.getElementById('cdashDescClear'); if (clr) clr.style.display = 'none';
         var box = document.getElementById('cdashDescBox'); if (box) box.classList.remove('active');
         window._cdashDescCloseSug();
+        clearTimeout(window._cdashDescTimer);   // que el debounce del tecleo no repita la consulta
         window._cdashFetch();   // la X sí consulta: quitar el filtro es una decisión del usuario
     };
 
@@ -787,7 +816,8 @@
         var clr = document.getElementById('cdashDescClear'); if (clr) clr.style.display = 'block';
         var box = document.getElementById('cdashDescBox'); if (box) box.classList.add('active');
         window._cdashDescCloseSug();
-        window._cdashFetch();   // elegir de la lista SÍ consulta: es una de las dos formas de filtrar
+        clearTimeout(window._cdashDescTimer);   // que el debounce del tecleo no repita la consulta
+        window._cdashFetch();   // elegir de la lista consulta al instante y cierra la lista
     };
     window._cdashDescCloseSug = function () {
         var list = document.getElementById('cdashDescList'); if (list) list.classList.remove('open');

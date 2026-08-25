@@ -780,22 +780,9 @@ window._pdfAdmiteAnexos = (module, equipoId, docType) =>
     (module || 'equipo') === 'equipo' &&
     !!equipoId && !!docType && _TIPOS_DOC.indexOf(docType) !== -1;
 
-/* El titulo del header (#pdfPreviewTitle) y la pestana del documento
-   principal rotulan lo mismo: la etiqueta del documento ("Propiedad").
-   Con la barra a la vista salia dos veces, una encima de otra. Manda la
-   pestana —que ademas indica cual esta activa— y el titulo se esconde;
-   sin barra (notas de entrega, fallas, auxiliares) el header vuelve a
-   ser el unico rotulo. Va pegado al mostrar/ocultar de la barra para que
-   no puedan quedar descompasados. */
-const _pdfTituloHeader = function (visible) {
-    const titulo = document.getElementById('pdfPreviewTitle');
-    if (titulo) titulo.style.display = visible ? '' : 'none';
-};
-
 window._pdfOcultarAnexos = function () {
     const barra = document.getElementById('pdfAnexosBar');
     if (barra) barra.style.display = 'none';
-    _pdfTituloHeader(true);
     window._pdfAnexoCtx = null;
 };
 
@@ -845,7 +832,6 @@ window._pdfPintarAnexos = function (url, docType, equipoId, label) {
     const zonaAnexar = document.getElementById('pdfAnexarZona');
     if (!lista.length && !zonaAnexar) { window._pdfOcultarAnexos(); return; }
     barra.style.display = 'flex';
-    _pdfTituloHeader(false);
 
     // Todo lo interpolado va escapado: la etiqueta y el autor los
     // escribe el usuario y acaban dentro de innerHTML y de atributos.
@@ -859,7 +845,11 @@ window._pdfPintarAnexos = function (url, docType, equipoId, label) {
         (avisar ? '<i class="material-icons" style="font-size:13px;color:#f59e0b;">error_outline</i>' : '') +
         _escAnexo(texto) + '</button>';
 
-    let html = chip(principal, label || 'Documento', 'Documento principal', false);
+    // 'Original' y no la etiqueta del documento: esa ya la rotula el titulo del
+    // header (#pdfPreviewTitle), y con la barra a la vista salia dos veces, una
+    // encima de otra. La pestana solo tiene que decir cual es el documento sin
+    // corregir para poder volver a el desde una correccion.
+    let html = chip(principal, 'Original', 'Documento principal', false);
 
     lista.forEach(a => {
         // Una correccion de un principal que ya se sustituyo sigue

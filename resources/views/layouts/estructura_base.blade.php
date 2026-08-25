@@ -793,11 +793,7 @@
                 <h3 id="pdfPreviewTitle" style="margin: 0; color: white; font-size: 14px; font-weight: 600;">Documento
                 </h3>
 
-                {{-- margin-left:auto y no solo el space-between del padre: cuando hay
-                     correcciones anexas el titulo se esconde (lo rotula la pestana del
-                     principal, ver _pdfTituloHeader) y, con un unico hijo, space-between
-                     mandaria los botones a la izquierda. --}}
-                <div style="display: flex; align-items: center; gap: 8px; margin-left: auto;">
+                <div style="display: flex; align-items: center; gap: 8px;">
 
 
                     <button id="pdfDownloadBtn" onclick="downloadPdfDirect(this.dataset.url, this.dataset.label)"

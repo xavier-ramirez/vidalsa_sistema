@@ -1179,8 +1179,13 @@
      id_producto + id_almacen actual + opcional tipo / desde / hasta.
 ═════════════════════════════════════════════════════════════════ --}}
 <div id="almKardexProductoModal" class="alm-modal-overlay">
-    {{-- 540px: sin la columna Fecha la tabla ya no necesita los 680 de antes. --}}
-    <div class="alm-modal" style="max-width:540px;">
+    {{-- 640px. Estuvo en 540 (se bajó desde 680 al quitar la columna Fecha), pero con
+         540 la columna "Destino / Ref" —que se lleva el 44% del ancho— se quedaba corta
+         para los frentes de nombre largo, del tipo "TUBERÍA DE 30'' VELADERO TRAMO I",
+         que además cargan debajo el número de nota. Solo afecta a escritorio: en móvil
+         este modal no se abre (el botón .alm-det-act-kardex está oculto ≤768px) y la
+         .alm-modal es width:100% por debajo de ese ancho. --}}
+    <div class="alm-modal" style="max-width:640px;">
         <div class="alm-modal-head">
             <h3><i class="material-icons" style="font-size:20px;">history</i> Movimientos del producto</h3>
             <i class="material-icons alm-x" onclick="almCerrar('almKardexProductoModal')">close</i>
