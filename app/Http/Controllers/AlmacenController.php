@@ -1958,49 +1958,57 @@ class AlmacenController extends Controller
         $hoja->getColumnDimension('A')->setWidth(52);   // PRODUCTO (descripciones largas)
         $hoja->getColumnDimension('B')->setWidth(12);   // UM
         $hoja->getColumnDimension('C')->setWidth(16);   // CANTIDAD
-        $hoja->getColumnDimension('D')->setWidth(20);   // EDICION / REVISION / FECHA
-        foreach ([1, 2, 3] as $r) $hoja->getRowDimension($r)->setRowHeight(30);
+        $hoja->getColumnDimension('D')->setWidth(34);   // EDICION / REVISION / FECHA, en una linea
+        $hoja->getRowDimension(1)->setRowHeight(72);
 
-        // Logo en A1:A3 (columna A es la ancha) — el resto de exports usa A1:B3, pero aqui
-        // la B es la de UM y mide 12: el logo saldria aplastado contra el titulo.
-        $hoja->mergeCells('A1:A3');
-        $hoja->getStyle('A1:A3')->getFill()->setFillType($SOLIDO)->getStartColor()->setARGB('FFFFFFFF');
-        $this->insertarLogoCorporativo($hoja, ['A'], [1, 2, 3]);
+        // ── ENCABEZADO EN UNA SOLA FILA ──────────────────────────────────────
+        // Antes ocupaba tres (A1:A3 el logo, B1:C3 el titulo, y D1/D2/D3 con edicion,
+        // revision y fecha una debajo de otra). Ahora todo cabe en la fila 1:
+        //   A1     -> logo, en su celda, SIN combinar
+        //   B1:C1  -> titulo (las dos de su derecha, combinadas)
+        //   D1     -> el resto del encabezado junto
+        // La fila mide 72 para que el logo y el titulo de dos lineas respiren; al no
+        // combinar filas, la tabla arranca tres filas mas arriba.
+        $hoja->getStyle('A1')->getFill()->setFillType($SOLIDO)->getStartColor()->setARGB('FFFFFFFF');
+        $this->insertarLogoCorporativo($hoja, ['A'], [1], 64);
 
-        $hoja->mergeCells('B1:C3');
+        $hoja->mergeCells('B1:C1');
         $hoja->setCellValue('B1', "DASHBOARD DE CONSUMO\n" . $titulo);
         $hoja->getStyle('B1')->getAlignment()->setWrapText(true)->setHorizontal($CENTRO)->setVertical($MEDIO);
         $hoja->getStyle('B1')->getFont()->setBold(true)->setSize(13);
-        $hoja->getStyle('B1:C3')->getFill()->setFillType($SOLIDO)->getStartColor()->setARGB('FFFFFFFF');
+        $hoja->getStyle('B1:C1')->getFill()->setFillType($SOLIDO)->getStartColor()->setARGB('FFFFFFFF');
 
-        foreach ([[1, 'EDICION: 1'], [2, 'REVISION: 0'], [3, 'FECHA: ' . date('d/m/Y')]] as [$fila, $txt]) {
-            $hoja->setCellValue('D' . $fila, $txt);
-            $hoja->getStyle('D' . $fila)->getAlignment()->setHorizontal($CENTRO)->setVertical($MEDIO);
-            $hoja->getStyle('D' . $fila)->getFont()->setBold(true)->setSize(10);
-        }
+        // Edicion, revision y fecha en UNA celda, uno por linea con wrapText: siguen
+        // leyendose como tres datos pero sin gastar tres filas de la hoja.
+        $hoja->setCellValue('D1', "EDICION: 1\nREVISION: 0\nFECHA: " . date('d/m/Y'));
+        $hoja->getStyle('D1')->getAlignment()->setWrapText(true)->setHorizontal($CENTRO)->setVertical($MEDIO);
+        $hoja->getStyle('D1')->getFont()->setBold(true)->setSize(10);
+        $hoja->getStyle('D1')->getFill()->setFillType($SOLIDO)->getStartColor()->setARGB('FFFFFFFF');
 
-        // Fila 4: los filtros con los que se saco el archivo.
-        $hoja->mergeCells('A4:D4');
-        $hoja->setCellValue('A4', $filtros);
-        $hoja->getStyle('A4')->getFont()->setItalic(true)->setSize(10)->getColor()->setARGB('FF64748B');
+        // Fila 2: los filtros con los que se saco el archivo.
+        $hoja->mergeCells('A2:D2');
+        $hoja->setCellValue('A2', $filtros);
+        $hoja->getStyle('A2')->getFont()->setItalic(true)->setSize(10)->getColor()->setARGB('FF64748B');
 
-        // Fila 5: cabecera de la tabla. Fila 6 en adelante: los datos.
-        $hoja->fromArray([['PRODUCTO', 'UM', 'CANTIDAD']], null, 'A5', true);
-        $hoja->getStyle('A5:C5')->getFont()->setBold(true)->getColor()->setARGB('FFFFFFFF');
-        $hoja->getStyle('A5:C5')->getFill()->setFillType($SOLIDO)->getStartColor()->setARGB('FF00004D');
-        $hoja->getStyle('A5:C5')->getAlignment()->setHorizontal($CENTRO);
+        // Fila 3: cabecera de la tabla. Fila 4 en adelante: los datos.
+        $hoja->fromArray([['PRODUCTO', 'UM', 'CANTIDAD']], null, 'A3', true);
+        $hoja->getStyle('A3:C3')->getFont()->setBold(true)->getColor()->setARGB('FFFFFFFF');
+        $hoja->getStyle('A3:C3')->getFill()->setFillType($SOLIDO)->getStartColor()->setARGB('FF00004D');
+        $hoja->getStyle('A3:C3')->getAlignment()->setHorizontal($CENTRO);
 
         if ($filas) {
-            $hoja->fromArray($filas, null, 'A6', true);
-            $hoja->getStyle('A5:C' . (5 + count($filas)))->getBorders()->getAllBorders()
+            $hoja->fromArray($filas, null, 'A4', true);
+            // Bordes desde la cabecera (3) hasta la ultima fila con datos, y miles solo
+            // en las celdas de cantidad (de la 4 en adelante).
+            $hoja->getStyle('A3:C' . (3 + count($filas)))->getBorders()->getAllBorders()
                 ->setBorderStyle($BORDE)->getColor()->setARGB('FFCBD5E0');
-            $hoja->getStyle('C6:C' . (5 + count($filas)))->getNumberFormat()->setFormatCode('#,##0');
+            $hoja->getStyle('C4:C' . (3 + count($filas)))->getNumberFormat()->setFormatCode('#,##0');
         } else {
-            $hoja->setCellValue('A6', 'Sin consumo registrado para estos filtros.');
-            $hoja->getStyle('A6')->getFont()->setItalic(true)->getColor()->setARGB('FF94A3B8');
+            $hoja->setCellValue('A4', 'Sin consumo registrado para estos filtros.');
+            $hoja->getStyle('A4')->getFont()->setItalic(true)->getColor()->setARGB('FF94A3B8');
         }
 
-        $hoja->freezePane('A6');   // la cabecera queda fija al bajar por la lista
+        $hoja->freezePane('A4');   // la cabecera queda fija al bajar por la lista
     }
 
     public function consumoDashboardExport(Request $request)

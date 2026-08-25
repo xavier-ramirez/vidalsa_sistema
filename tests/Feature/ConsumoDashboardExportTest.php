@@ -129,12 +129,28 @@ class ConsumoDashboardExportTest extends MySqlTestCase
         $this->assertContains('UM', $textos);
         $this->assertContains('CANTIDAD', $textos);
 
-        // Encabezado corporativo: titulo, bloque EDICION/REVISION/FECHA y el LOGO.
+        // Encabezado corporativo, TODO EN LA FILA 1: el logo en A1 (su celda, sin
+        // combinar), el titulo en B1:C1 y el resto del encabezado junto en D1.
         $this->assertStringContainsString('DASHBOARD DE CONSUMO', $hoja->getCell('B1')->getValue());
         $this->assertStringContainsString('CONSUMO GENERAL', $hoja->getCell('B1')->getValue());
-        $this->assertSame('EDICION: 1', $hoja->getCell('D1')->getValue());
-        $this->assertSame('REVISION: 0', $hoja->getCell('D2')->getValue());
+
+        $d1 = (string) $hoja->getCell('D1')->getValue();
+        $this->assertStringContainsString('EDICION: 1', $d1);
+        $this->assertStringContainsString('REVISION: 0', $d1);
+        $this->assertStringContainsString('FECHA:', $d1);
+
         $this->assertCount(1, $hoja->getDrawingCollection(), 'La hoja debe llevar el logo corporativo.');
+        $this->assertSame('A1', $hoja->getDrawingCollection()[0]->getCoordinates(), 'El logo va en A1.');
+
+        // La celda del logo NO esta combinada; solo lo estan el titulo y la linea de filtros.
+        $merges = array_values($hoja->getMergeCells());
+        $this->assertContains('B1:C1', $merges, 'El titulo ocupa las dos celdas a la derecha del logo.');
+        foreach ($merges as $m) {
+            $this->assertStringStartsNotWith('A1:', $m, 'La celda del logo tiene que quedar sin combinar.');
+        }
+
+        // La tabla arranca en la fila 3 (cabecera) y 4 (datos), no en la 5/6.
+        $this->assertSame('PRODUCTO', $hoja->getCell('A3')->getValue());
 
         // La estructura vieja (dos bloques lado a lado, con sus totales) ya no existe.
         $this->assertNotContains('CONSUMO POR MES', $textos);
