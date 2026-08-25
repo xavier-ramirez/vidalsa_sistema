@@ -68,7 +68,24 @@
         <!-- Maquinaria en la parte inferior derecha -->
         <div class="machinery-fixed-bottom">
             <div class="machinery-wrapper">
-                <img src="{{ asset('images/maquinaria_login_new.webp') }}?v={{ @filemtime(public_path('images/maquinaria_login_new.webp')) }}" alt="Maquinaria Vidalsa" loading="lazy">
+                {{-- SIN loading="lazy". Esta imagen esta en position:absolute; bottom:0, o sea
+                     DENTRO del primer viewport en escritorio: no hay que bajar para verla. Con
+                     lazy el navegador la trata como diferida y vuelve a decidir si la pide cada
+                     vez que la pestaña recupera visibilidad; al volver de otra pestaña salia
+                     todo menos la maquinaria y aparecia unos segundos despues. Lazy solo ayuda
+                     con lo que esta por debajo del pliegue.
+
+                     decoding="async" para que decodificarla (1324x755 con transparencia) no
+                     retrase el pintado del formulario, y fetchpriority="low" porque es
+                     decorativa y no debe competir con el CSS ni con el logo.
+
+                     COSTE en telefono: el CSS la esconde con display:none por debajo de 768px
+                     (inicio_sesion.css:447) y lazy evitaba bajarla ahi; sin lazy se descargan
+                     esos 194 KB aunque no se vean. Si molesta, la via limpia es sacarla del
+                     HTML y ponerla como background-image dentro de un @media (min-width:769px):
+                     una regla que no aplica no descarga su imagen. --}}
+                <img src="{{ asset('images/maquinaria_login_new.webp') }}?v={{ @filemtime(public_path('images/maquinaria_login_new.webp')) }}"
+                     alt="Maquinaria Vidalsa" decoding="async" fetchpriority="low">
             </div>
         </div>
 
