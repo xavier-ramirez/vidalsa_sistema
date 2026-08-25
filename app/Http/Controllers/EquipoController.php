@@ -1965,12 +1965,6 @@ class EquipoController extends Controller
         return redirect()->route('equipos.index')->with('success', 'Equipo registrado correctamente.');
     }
 
-    public function show($id)
-    {
-        $equipo = $this->findAndAuthorizeEquipo($id, ['frenteActual', 'especificaciones', 'documentacion.seguro', 'responsables']);
-        return view('admin.equipos.show', compact('equipo'));
-    }
-
     /**
      * URL segura para volver al listado de equipos tras Cancelar/Guardar en el editor.
      *

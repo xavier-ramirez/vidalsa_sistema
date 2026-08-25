@@ -196,7 +196,12 @@ Route::middleware(['auth'])->group(function () {
             // except('store'): el alta entra SIEMPRE por store-unified (es quien decide entre
             // equipo y auxiliar segun __modo). El POST /admin/equipos del resource quedaba
             // como segundo endpoint de creacion, alcanzable y sin usar por ninguna vista.
-            Route::resource('equipos', App\Http\Controllers\EquipoController::class)->except(['store']);
+            // SIN 'show', igual que catalogo/usuarios/frentes: el metodo existia pero su
+            // vista (admin.equipos.show) no, asi que /admin/equipos/{id} respondia 500
+            // ("View [admin.equipos.show] not found") — y ademas el wildcard se tragaba
+            // cualquier URL suelta bajo /admin/equipos. La ficha se ve en el modal de
+            // detalles del listado y se edita en /edit; nadie enlazaba ahi. Ahora es 404.
+            Route::resource('equipos', App\Http\Controllers\EquipoController::class)->except(['store', 'show']);
             Route::post('movilizaciones/bulk-delete', [App\Http\Controllers\MovilizacionController::class, 'bulkDestroy'])->name('movilizaciones.bulkDestroy');
             Route::post('movilizaciones/recepcion-directa', [App\Http\Controllers\MovilizacionController::class, 'recepcionDirecta'])->name('movilizaciones.recepcionDirecta');
             // Exportacion XLSX del historial. Mismos filtros que la pantalla
