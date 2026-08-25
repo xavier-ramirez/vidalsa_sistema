@@ -785,6 +785,12 @@ window._pdfComparaSincronizarBoton = function () {
     btn.style.background   = window._pdfComparando ? 'rgba(99,102,241,0.25)' : 'transparent';
     btn.style.borderColor  = window._pdfComparando ? '#6366f1' : '#4a5568';
     btn.style.color        = window._pdfComparando ? '#c7d2fe' : '#cbd5e0';
+    // Un documento con correccion se abre YA partido, asi que estando encendido el
+    // boton sirve para lo contrario. El rotulo se queda quieto —moverlo empujaria los
+    // botones de al lado— y quien lo explica es el titulo.
+    btn.title = window._pdfComparando
+        ? 'Ver un solo documento'
+        : 'Ver el original y la corrección al mismo tiempo';
 };
 
 /** Resalta en las pestañas cuál se está viendo a cada lado. */
@@ -814,10 +820,25 @@ window._pdfComparaMostrar = function (anexo) {
     _pdfComparaMarcarChips(anexo.link);
 };
 
+/**
+ * Enciende la vista comparada con la corrección indicada. NO recarga el lado izquierdo:
+ * se llama cuando el principal ya está puesto ahí.
+ */
+window._pdfComparaEncender = function (anexo) {
+    const panel  = document.getElementById('pdfComparaPanel');
+    const rotIzq = document.getElementById('pdfComparaEtiquetaIzq');
+    if (!panel || !anexo) return;
+
+    window._pdfComparando = true;
+    panel.style.display = 'block';
+    if (rotIzq) rotIzq.style.display = 'block';
+    window._pdfComparaMostrar(anexo);
+    window._pdfComparaSincronizarBoton();
+};
+
 window.pdfCompararToggle = function () {
     const ctx = window._pdfAnexoCtx;
     const panel = document.getElementById('pdfComparaPanel');
-    const rotIzq = document.getElementById('pdfComparaEtiquetaIzq');
     if (!ctx || !panel) return;
 
     // ── Apagar ── (el desmontaje vive en _pdfComparaApagar, que usan tambien el
@@ -832,19 +853,18 @@ window.pdfCompararToggle = function () {
     const lista = ((window._anexosPorEquipo[ctx.equipoId] || {})[ctx.tipo]) || [];
     if (!lista.length) return;
 
-    // A la izquierda SIEMPRE el original. Si se estaba viendo una corrección, se
-    // recarga el principal: comparar dos correcciones entre si no es lo que se pidio
-    // y dejaria el rotulo "Original" mintiendo.
+    // A la izquierda SIEMPRE el original: comparar dos correcciones entre si dejaria
+    // el rotulo "Original" mintiendo. Si se estaba viendo una correccion se recarga el
+    // principal, y al volver por _pdfPintarAnexos la comparacion se enciende sola con
+    // ESTA misma correccion, que la recuerda de ctx.activo.
     const correccion = lista.find(a => a.link === ctx.activo) || lista[0];
+
     if (ctx.activo !== ctx.principal) {
         window.openPdfPreview(ctx.principal, ctx.tipo, ctx.label, ctx.equipoId, null, true, 'equipo');
+        return;
     }
 
-    window._pdfComparando = true;
-    panel.style.display = 'block';
-    if (rotIzq) rotIzq.style.display = 'block';
-    window._pdfComparaMostrar(correccion);
-    window._pdfComparaSincronizarBoton();
+    window._pdfComparaEncender(correccion);
 };
 
 /** Al cerrar el visor o abrir otro documento, la comparación no sobrevive. */
@@ -946,6 +966,24 @@ window._pdfPintarAnexos = function (url, docType, equipoId, label) {
     // El boton de comparar depende de que HAYA correcciones, asi que se decide aqui,
     // que es donde ya se sabe cuantas hay.
     if (window._pdfComparaSincronizarBoton) window._pdfComparaSincronizarBoton();
+
+    // ── Se abre YA PARTIDO ──────────────────────────────────────────────────────
+    // Un documento con correccion se enseña con los dos PDFs a la vista sin pulsar
+    // nada: tener que ir y venir entre pestañas para saber que cambio era justo lo
+    // que sobraba. El boton pasa a servir para lo contrario, volver a uno solo.
+    //
+    // Solo cuando lo que se muestra es el ORIGINAL —que es como se abre siempre—: si
+    // alguien entro directo a una correccion, no se le reordena la pantalla sola.
+    //
+    // La correccion elegida es la que se estaba viendo si venimos de ella (el caso de
+    // pulsar Comparar estando en una), y si no, la primera.
+    if (!window._pdfComparando && lista.length && url === principal
+        && window.innerWidth >= PDF_COMPARA_ANCHO_MIN) {
+        const previaAbierta = (mismo && previo && previo.activo !== previo.principal)
+            ? lista.find(a => a.link === previo.activo)
+            : null;
+        window._pdfComparaEncender(previaAbierta || lista[0]);
+    }
 
     // Todo lo interpolado va escapado: la etiqueta y el autor los
     // escribe el usuario y acaban dentro de innerHTML y de atributos.

@@ -369,6 +369,12 @@ check('lo llaman los cuatro caminos', 4,
 $layoutVisor = file_get_contents('resources/views/layouts/estructura_base.blade.php');
 $posAnexar = strpos($layoutVisor, 'id="pdfAnexarZona"');
 $posBarra  = strpos($layoutVisor, 'id="pdfAnexosBar"');
+// Un documento con correccion tiene que abrirse YA partido, sin que el usuario pulse
+// nada: se pidio dos veces. Si alguien quita esta llamada, el visor vuelve a exigir
+// un clic para ver los dos papeles.
+check('el visor se abre partido cuando hay correccion', true,
+    str_contains($vis, 'window._pdfComparaEncender(previaAbierta || lista[0]);'));
+
 check('el boton de anexar esta en la cabecera, no en la barra', true,
     $posAnexar !== false && $posBarra !== false && $posAnexar < $posBarra);
 
