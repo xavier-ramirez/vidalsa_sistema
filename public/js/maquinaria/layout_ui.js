@@ -749,6 +749,135 @@ window._pdfCorreccionAbierta = function () {
     return lista.find(a => a.link === ctx.activo) || null;
 };
 
+/* ── VISTA COMPARADA ─────────────────────────────────────────────────────────────
+   Original a la izquierda y la corrección elegida a la derecha, para no tener que ir
+   y venir entre pestañas comprobando qué cambió.
+
+   Se ofrece SOLO cuando hay al menos una corrección (sin ella no hay nada que
+   comparar) y SOLO desde 900 px de ancho: partir una pantalla estrecha en dos deja
+   dos documentos ilegibles en vez de uno legible.
+
+   El iframe de la derecha nace sin src y se vacía al apagar: un PDF cargado ocupa
+   memoria aunque su panel esté oculto. */
+const PDF_COMPARA_ANCHO_MIN = 900;
+
+window._pdfComparando = false;
+
+/** ¿Se puede comparar lo que hay abierto ahora mismo? */
+window._pdfPuedeComparar = function () {
+    const ctx = window._pdfAnexoCtx;
+    if (!ctx || !ctx.principal) return false;
+    const lista = ((window._anexosPorEquipo[ctx.equipoId] || {})[ctx.tipo]) || [];
+    return lista.length > 0 && window.innerWidth >= PDF_COMPARA_ANCHO_MIN;
+};
+
+/** Pinta el botón según se pueda comparar o no, y según esté encendido. */
+window._pdfComparaSincronizarBoton = function () {
+    const btn = document.getElementById('pdfCompararBtn');
+    if (!btn) return;
+
+    if (!window._pdfPuedeComparar()) {
+        btn.style.display = 'none';
+        return;
+    }
+    btn.style.display = 'flex';
+    btn.dataset.on = window._pdfComparando ? '1' : '0';
+    btn.style.background   = window._pdfComparando ? 'rgba(99,102,241,0.25)' : 'transparent';
+    btn.style.borderColor  = window._pdfComparando ? '#6366f1' : '#4a5568';
+    btn.style.color        = window._pdfComparando ? '#c7d2fe' : '#cbd5e0';
+};
+
+/** Resalta en las pestañas cuál se está viendo a cada lado. */
+const _pdfComparaMarcarChips = function (linkDerecha) {
+    const ctx = window._pdfAnexoCtx;
+    if (!ctx) return;
+    document.querySelectorAll('#pdfAnexosTabs [data-anexo-link]').forEach(b => {
+        const link = b.getAttribute('data-anexo-link');
+        const esIzq = link === ctx.principal;
+        const esDer = link === linkDerecha;
+        b.style.borderColor = (esIzq || esDer) ? '#3b82f6' : '#374151';
+        b.style.background  = (esIzq || esDer) ? '#1e3a5f' : 'transparent';
+        b.style.color       = (esIzq || esDer) ? '#fff' : '#9ca3af';
+    });
+};
+
+/** Carga una corrección en el panel derecho. */
+window._pdfComparaMostrar = function (anexo) {
+    const panel = document.getElementById('pdfComparaPanel');
+    const frame = document.getElementById('pdfComparaFrame');
+    const rotDer = document.getElementById('pdfComparaEtiquetaDer');
+    if (!panel || !frame || !anexo) return;
+
+    if (rotDer) rotDer.textContent = anexo.etiqueta || 'Corrección';
+    // Mismos parámetros que el visor principal: sin barra, sin panel lateral y al 100%.
+    frame.src = anexo.link + '#toolbar=0&navpanes=0&scrollbar=0&zoom=100';
+    window._pdfComparaLinkDer = anexo.link;
+    _pdfComparaMarcarChips(anexo.link);
+};
+
+window.pdfCompararToggle = function () {
+    const ctx = window._pdfAnexoCtx;
+    const panel = document.getElementById('pdfComparaPanel');
+    const rotIzq = document.getElementById('pdfComparaEtiquetaIzq');
+    if (!ctx || !panel) return;
+
+    // ── Apagar ── (el desmontaje vive en _pdfComparaApagar, que usan tambien el
+    // cierre del visor y el cambio de documento; aqui solo se repintan las pestañas)
+    if (window._pdfComparando) {
+        window._pdfComparaApagar();
+        _pdfComparaMarcarChips(ctx.activo);
+        return;
+    }
+
+    // ── Encender ──
+    const lista = ((window._anexosPorEquipo[ctx.equipoId] || {})[ctx.tipo]) || [];
+    if (!lista.length) return;
+
+    // A la izquierda SIEMPRE el original. Si se estaba viendo una corrección, se
+    // recarga el principal: comparar dos correcciones entre si no es lo que se pidio
+    // y dejaria el rotulo "Original" mintiendo.
+    const correccion = lista.find(a => a.link === ctx.activo) || lista[0];
+    if (ctx.activo !== ctx.principal) {
+        window.openPdfPreview(ctx.principal, ctx.tipo, ctx.label, ctx.equipoId, null, true, 'equipo');
+    }
+
+    window._pdfComparando = true;
+    panel.style.display = 'block';
+    if (rotIzq) rotIzq.style.display = 'block';
+    window._pdfComparaMostrar(correccion);
+    window._pdfComparaSincronizarBoton();
+};
+
+/** Al cerrar el visor o abrir otro documento, la comparación no sobrevive. */
+window._pdfComparaApagar = function () {
+    if (!window._pdfComparando) {
+        window._pdfComparaSincronizarBoton();
+        return;
+    }
+    window._pdfComparando = false;
+    const panel = document.getElementById('pdfComparaPanel');
+    const frame = document.getElementById('pdfComparaFrame');
+    const rotIzq = document.getElementById('pdfComparaEtiquetaIzq');
+    if (panel) panel.style.display = 'none';
+    if (frame) frame.src = 'about:blank';
+    if (rotIzq) rotIzq.style.display = 'none';
+    window._pdfComparaLinkDer = null;
+    window._pdfComparaSincronizarBoton();
+};
+
+// Encoger la ventana por debajo del minimo con la comparacion puesta dejaria dos
+// documentos ilegibles: se apaga sola y el boton desaparece hasta que vuelva a caber.
+if (!window._pdfComparaResizeBound) {
+    window._pdfComparaResizeBound = true;
+    window.addEventListener('resize', function () {
+        if (window._pdfComparando && window.innerWidth < PDF_COMPARA_ANCHO_MIN) {
+            window._pdfComparaApagar();
+        } else {
+            window._pdfComparaSincronizarBoton();
+        }
+    });
+}
+
 window._pdfOcultarAnexos = function () {
     const barra = document.getElementById('pdfAnexosBar');
     if (barra) barra.style.display = 'none';
@@ -757,6 +886,7 @@ window._pdfOcultarAnexos = function () {
     // correcciones y ofrecerlo seria prometer un 422.
     const zona = document.getElementById('pdfAnexarZona');
     if (zona) zona.style.display = 'none';
+    if (window._pdfComparaApagar) window._pdfComparaApagar();
     window._pdfAnexoCtx = null;
 };
 
@@ -799,6 +929,11 @@ window._pdfPintarAnexos = function (url, docType, equipoId, label) {
     const mismo  = previo && String(previo.equipoId) === String(equipoId) && previo.tipo === docType;
     const principal = mismo ? previo.principal : url;
 
+    // Otro documento distinto: la comparacion no se arrastra. Sin esto el panel
+    // derecho seguiria enseñando la correccion del documento ANTERIOR al lado del
+    // nuevo, que es la peor forma posible de equivocarse en una pantalla de papeles.
+    if (!mismo && window._pdfComparaApagar) window._pdfComparaApagar();
+
     window._pdfAnexoCtx = { equipoId, tipo: docType, label, principal, activo: url };
 
     // El boton de anexar (cabecera) se enciende en cuanto el documento admite
@@ -810,6 +945,9 @@ window._pdfPintarAnexos = function (url, docType, equipoId, label) {
     // Cuando hay alguna, salen "Original" y las correcciones una al lado de la otra, que
     // es lo unico que dice a simple vista si el documento tiene una version o varias.
     barra.style.display = lista.length ? 'flex' : 'none';
+    // El boton de comparar depende de que HAYA correcciones, asi que se decide aqui,
+    // que es donde ya se sabe cuantas hay.
+    if (window._pdfComparaSincronizarBoton) window._pdfComparaSincronizarBoton();
 
     // Todo lo interpolado va escapado: la etiqueta y el autor los
     // escribe el usuario y acaban dentro de innerHTML y de atributos.
@@ -844,6 +982,21 @@ window._pdfPintarAnexos = function (url, docType, equipoId, label) {
     tabs.querySelectorAll('[data-anexo-link]').forEach(b => {
         b.addEventListener('click', () => {
             const destino = b.getAttribute('data-anexo-link');
+
+            // Comparando, el izquierdo se queda con el original y la pestaña elige
+            // que correccion va a la derecha. Pulsar "Original" apaga la comparacion:
+            // es pedir ver solo ese.
+            if (window._pdfComparando) {
+                const ctxC = window._pdfAnexoCtx;
+                if (destino === (ctxC && ctxC.principal)) {
+                    window.pdfCompararToggle();
+                } else {
+                    const listaC = ((window._anexosPorEquipo[ctxC.equipoId] || {})[ctxC.tipo]) || [];
+                    const anexoC = listaC.find(a => a.link === destino);
+                    if (anexoC) window._pdfComparaMostrar(anexoC);
+                }
+                return;
+            }
             // Se compara contra `url` del cierre, no contra window._pdfAnexoCtx.activo:
             // son el mismo valor —_pdfPintarAnexos guarda activo: url— pero `url` es el
             // documento para el que se pintaron ESTAS pestanas (el mismo con el que se

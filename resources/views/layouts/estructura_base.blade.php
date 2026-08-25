@@ -810,6 +810,19 @@
                         <i class="material-icons" style="font-size: 16px;">print</i><span class="btn-label">Imprimir</span>
                     </button>
 
+                    {{-- Comparar: parte el visor en dos y pone el original a la izquierda y la
+                         corrección elegida a la derecha. Lo enciende _pdfPintarAnexos SOLO si
+                         hay alguna corrección —sin ella no hay nada que comparar— y solo en
+                         pantallas anchas: partir 500 px en dos no deja leer ninguno de los dos. --}}
+                    <button type="button" id="pdfCompararBtn"
+                        onclick="window.pdfCompararToggle()"
+                        title="Ver el original y la corrección al mismo tiempo"
+                        style="display:none; background:transparent; color:#cbd5e0; border:1px solid #4a5568; padding:6px 10px; font-size:12px; font-weight:600; align-items:center; gap:5px; border-radius:4px; cursor:pointer; transition:background .15s;"
+                        onmouseover="this.style.background='rgba(255,255,255,0.08)'"
+                        onmouseout="this.style.background=this.dataset.on === '1' ? 'rgba(99,102,241,0.25)' : 'transparent'">
+                        <i class="material-icons" style="font-size:16px;">vertical_split</i><span class="btn-label">Comparar</span>
+                    </button>
+
                     {{-- "Anexar corrección" vive aquí, con Descargar e Imprimir, y no en la
                          barra de abajo: es una ACCIÓN sobre el documento, como las otras, y
                          abajo obligaba a pintar la barra aunque no hubiera ni una corrección
@@ -917,6 +930,13 @@
                         style="width: 100%; height: 100%; border: none; opacity: 0; transition: opacity 0.25s, filter 0.5s ease-out; position: relative; z-index: 20;"
                         allowfullscreen></iframe>
 
+                    {{-- Rótulo del lado izquierdo. Solo se ve comparando: con un único
+                         documento en pantalla no hay nada que distinguir. --}}
+                    <div id="pdfComparaEtiquetaIzq"
+                        style="display:none; position:absolute; top:0; left:0; right:0; z-index:40; background:rgba(45,55,72,0.92); color:#e2e8f0; font-size:11px; font-weight:700; letter-spacing:.4px; text-transform:uppercase; padding:5px 10px; text-align:center;">
+                        Original
+                    </div>
+
                     <!-- Vista móvil para descarga directa -->
                     <div id="pdfMobileFallback"
                         style="display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 25; width: 100%; height: 100%; background: #4a5568; padding: 20px; box-sizing: border-box; text-align: center; position: absolute; top:0; left:0;">
@@ -933,6 +953,20 @@
                             <i class="material-icons">download</i> Descargar Documento
                         </button>
                     </div>
+                </div>
+
+                {{-- Segundo panel: la corrección. Nace oculto y sin src —un iframe con
+                     documento cargado consume memoria aunque no se vea— y lo llena
+                     pdfCompararToggle() al encenderlo. --}}
+                <div id="pdfComparaPanel"
+                    style="display:none; flex:1; position:relative; border-left:3px solid #1a202c; min-width:0;">
+                    <div id="pdfComparaEtiquetaDer"
+                        style="position:absolute; top:0; left:0; right:0; z-index:40; background:rgba(45,55,72,0.92); color:#93c5fd; font-size:11px; font-weight:700; letter-spacing:.4px; text-transform:uppercase; padding:5px 10px; text-align:center;">
+                        Corrección
+                    </div>
+                    <iframe id="pdfComparaFrame" src=""
+                        style="width:100%; height:100%; border:none; background:#4a5568;"
+                        allowfullscreen></iframe>
                 </div>
 
                 <!-- Metadata Side Panel -->
