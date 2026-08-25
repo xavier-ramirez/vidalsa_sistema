@@ -851,6 +851,14 @@ window._pdfComparaEncender = function (anexo) {
     panel.style.display = 'block';
     if (rotIzq) rotIzq.style.display = 'flex';
 
+    // Comparando, las PESTAÑAS sobran: cada hoja ya lleva su rotulo encima
+    // (pdfComparaEtiquetaIzq "Original" a la izquierda y pdfComparaTituloDer con la
+    // correccion a la derecha), asi que la barra de arriba repetia los mismos dos
+    // nombres. Se esconden solo las pestañas, no la barra entera: ahi vive tambien
+    // "Anexar correccion", que sigue teniendo sentido con la comparacion puesta.
+    const tabsComp = document.getElementById('pdfAnexosTabs');
+    if (tabsComp) tabsComp.style.display = 'none';
+
     // El izquierdo se abrio al 100% de zoom (el modo lectura de un solo documento).
     // Comparando hace falta la hoja entera, asi que se le cambian los parametros. Es
     // una re-navegacion, pero el archivo acaba de descargarse y sale del cache del
@@ -967,6 +975,13 @@ window._pdfComparaApagar = function () {
     if (panel) panel.style.display = 'none';
     if (frame) frame.src = 'about:blank';
     if (rotIzq) rotIzq.style.display = 'none';
+
+    // Vuelven las pestañas: fuera de la comparacion son la unica forma de saltar de una
+    // correccion a otra. Se repone el display por defecto (flex, el que les pone su
+    // estilo en linea) en vez de dejarlas con el 'none' que puso el encendido.
+    const tabsComp = document.getElementById('pdfAnexosTabs');
+    if (tabsComp) tabsComp.style.display = 'flex';
+
     window._pdfComparaSincronizarBoton();
 };
 
