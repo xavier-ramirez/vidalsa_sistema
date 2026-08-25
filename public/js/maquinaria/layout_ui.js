@@ -811,7 +811,6 @@ window._pdfComparaMostrar = function (anexo) {
     if (rotDer) rotDer.textContent = anexo.etiqueta || 'Corrección';
     // Mismos parámetros que el visor principal: sin barra, sin panel lateral y al 100%.
     frame.src = anexo.link + '#toolbar=0&navpanes=0&scrollbar=0&zoom=100';
-    window._pdfComparaLinkDer = anexo.link;
     _pdfComparaMarcarChips(anexo.link);
 };
 
@@ -861,7 +860,6 @@ window._pdfComparaApagar = function () {
     if (panel) panel.style.display = 'none';
     if (frame) frame.src = 'about:blank';
     if (rotIzq) rotIzq.style.display = 'none';
-    window._pdfComparaLinkDer = null;
     window._pdfComparaSincronizarBoton();
 };
 

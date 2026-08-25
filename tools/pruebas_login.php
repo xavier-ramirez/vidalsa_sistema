@@ -338,5 +338,39 @@ check('el reintento tambien refresca el _token del cuerpo', true,
 check('el reintento se marca para no repetirse', true,
     str_contains($interceptor, 'return window.fetch(args[0], conf, true);'));
 
+
+// ── Visor de PDF: correcciones anexas ───────────────────────────────────────
+//
+// Tres invariantes que ya se rompieron una vez o costarian caro romperse:
+//
+//  1. El boton rojo borra LO QUE SE VE. Cuando solo sabia borrar el principal se
+//     escondia al abrir una correccion, y las correcciones quedaban sin forma de
+//     deshacerse. Si alguien vuelve a esconderlo, esto lo canta.
+//  2. Al apagar la comparacion, el iframe derecho se VACIA. Sin eso el panel
+//     seguiria enseñando la correccion del documento anterior junto al siguiente.
+//  3. El desmontaje de la comparacion se escribe UNA vez y lo usan los CUATRO
+//     caminos que la apagan: el boton, el cierre del visor, el cambio de documento
+//     y encoger la ventana por debajo del ancho minimo.
+$vis = file_get_contents('public/js/maquinaria/layout_ui.js');
+
+check('el boton de eliminar sigue visible en una correccion', 0,
+    preg_match_all("/btnDel[^;]*style\.display = 'none'/", $vis));
+check('borrar una correccion usa su propio endpoint', true,
+    str_contains($vis, "'/admin/equipos/' + ctx.equipoId + '/anexos/' + correccion.id"));
+check('apagar la comparacion vacia el iframe derecho', true,
+    str_contains($vis, "if (frame) frame.src = 'about:blank';"));
+check('el desmontaje de la comparacion tiene un solo dueno', 1,
+    substr_count($vis, 'window._pdfComparaApagar = function'));
+check('lo llaman los cuatro caminos', 4,
+    substr_count($vis, 'window._pdfComparaApagar()'));
+
+// El boton de anexar vive en la CABECERA desde que la barra es solo pestañas: si
+// vuelve a la barra, sin correcciones habria que pintar una barra vacia para verlo.
+$layoutVisor = file_get_contents('resources/views/layouts/estructura_base.blade.php');
+$posAnexar = strpos($layoutVisor, 'id="pdfAnexarZona"');
+$posBarra  = strpos($layoutVisor, 'id="pdfAnexosBar"');
+check('el boton de anexar esta en la cabecera, no en la barra', true,
+    $posAnexar !== false && $posBarra !== false && $posAnexar < $posBarra);
+
 printf("\n%d OK, %d FALLAS\n", $ok, $fail);
 exit($fail === 0 ? 0 : 1);
