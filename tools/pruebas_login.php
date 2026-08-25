@@ -130,7 +130,7 @@ $clientes = array_merge(
     glob('public/js/*.js'), glob('public/js/*/*.js'),
     glob('resources/views/*/*.blade.php'), glob('resources/views/*/*/*.blade.php')
 );
-$exentos  = ['inicio_sesion.blade.php', 'estructura_base.blade.php', 'webauthn.js'];
+$exentos  = ['inicio_sesion.blade.php', 'fetch_interceptor.js', 'webauthn.js'];
 $conRama  = [];
 $conUrlLogin = [];
 foreach ($clientes as $f) {
@@ -158,20 +158,24 @@ check('webauthn sin lecturas a pelo',  0,    substr_count($wa, ".error || '"));
 // acordara de ponerla. Ninguno debe volver a hacerlo por su cuenta.
 $fuera = [];
 foreach ($clientes as $f) {
-    if (basename($f) === 'estructura_base.blade.php') continue;
+    if (basename($f) === 'fetch_interceptor.js') continue;
     if (str_contains(file_get_contents($f), 'netStatus.showOffline(')) $fuera[] = basename($f);
 }
 check('detectores de red fuera del interceptor', [], $fuera);
 
-$layout = file_get_contents('resources/views/layouts/estructura_base.blade.php');
-check('el interceptor saca el aviso', 1, substr_count($layout, 'window.netStatus.showOffline();'));
+// El interceptor global de fetch ya no vive inline en el layout: tiene archivo propio.
+// Si vuelve a moverse, es ESTA ruta la que hay que cambiar, no las comprobaciones.
+$interceptor = file_get_contents('public/js/maquinaria/fetch_interceptor.js');
+// El sondeo de conexion se quedo en el modulo offline, que es quien decide si hay red.
+$sondeo      = file_get_contents('public/js/maquinaria/offline_mode.js');
+check('el interceptor saca el aviso', 1, substr_count($interceptor, 'window.netStatus.showOffline();'));
 // Que falle un servicio externo (el buscador del mapa) no puede confundirse con que se
 // haya caido NUESTRO servidor: se compara por ORIGEN, no por prefijo de texto.
 check('descarta peticiones de otro origen', true,
-    str_contains($layout, 'new URL(_url, location.href).origin === location.origin'));
+    str_contains($interceptor, 'new URL(_url, location.href).origin === location.origin'));
 // El sondeo va por apiFetch a proposito: si alguien lo pasa a fetch() a pelo se salta el
 // interceptor y el banner deja de salir en la carga inicial sin conexion.
-check('el sondeo pasa por apiFetch', true, str_contains($layout, "window.apiFetch('/offline/version'"));
+check('el sondeo pasa por apiFetch', true, str_contains($sondeo, "window.apiFetch('/offline/version'"));
 
 // ── J. Pantalla completa: una sola respuesta ────────────────────────────────
 // En pantalla completa el navegador solo pinta el subarbol del elemento que la ocupa, asi
@@ -325,14 +329,14 @@ check('permisos que se ofrecen pero nadie comprueba', [], $sinComprobar);
 // expiro por seguridad") y al volver a entrar todo funcionaba, porque nada se habia
 // caido. El interceptor pide un token fresco y reintenta UNA vez antes de rendirse.
 check('el 419 refresca el token antes de rendirse', true,
-    str_contains($layout, "if (response.status === 419 && !args[2]) {"));
+    str_contains($interceptor, "if (response.status === 419 && !args[2]) {"));
 check('el reintento pasa por /refresh-csrf', true,
-    str_contains($layout, "originalFetch('/refresh-csrf', {"));
+    str_contains($interceptor, "originalFetch('/refresh-csrf', {"));
 check('el reintento tambien refresca el _token del cuerpo', true,
-    str_contains($layout, "b.set('_token', fresco);"));
+    str_contains($interceptor, "b.set('_token', fresco);"));
 // Sin la marca del tercer argumento, un 419 persistente se reintentaria en bucle.
 check('el reintento se marca para no repetirse', true,
-    str_contains($layout, 'return window.fetch(args[0], conf, true);'));
+    str_contains($interceptor, 'return window.fetch(args[0], conf, true);'));
 
 printf("\n%d OK, %d FALLAS\n", $ok, $fail);
 exit($fail === 0 ? 0 : 1);
