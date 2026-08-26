@@ -914,7 +914,13 @@
                     </div>
 
                     <iframe id="pdfPreviewFrame" src=""
-                        style="width: 100%; height: 100%; border: none; opacity: 0; transition: opacity 0.25s, filter 0.5s ease-out; position: relative; z-index: 20;"
+                        {{-- filter 0.3s (era 0.5s): es lo que tarda el documento en pasar de
+                             borroso a legible, y ese tiempo se paga en CADA apertura. Con
+                             0.3 el revelado se sigue viendo y se recuperan 200 ms. Va de la
+                             mano de PDF_PINTADO_MS en layout_ui.js —el margen previo— asi que
+                             si se toca uno hay que mirar el otro: entre los dos sale el
+                             "cuanto tardo en poder leer el PDF". --}}
+                        style="width: 100%; height: 100%; border: none; opacity: 0; transition: opacity 0.25s, filter 0.3s ease-out; position: relative; z-index: 20;"
                         allowfullscreen></iframe>
 
                     {{-- Rótulo del lado izquierdo. Solo se ve comparando: con un único

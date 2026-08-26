@@ -407,20 +407,39 @@ const PDF_BLUR_CARGA = 'blur(14px)';
 // perderia justo la transicion que da la sensacion de "termino de llegar".
 const PDF_SIN_BLUR = 'blur(0px)';
 
+/* EL DESENFOQUE SOLO APARECE SI LA CARGA SE HACE ESPERAR.
+   Igual que el visor de Google Drive: si el documento sale de una, se ve nitido y ya —
+   no hay nada que disimular y meter un efecto solo retrasaria poder leerlo. El revelado
+   progresivo es para la espera: cuando el archivo tarda, verlo formarse hace la espera
+   mas llevadera que un hueco gris.
+
+   Este es el umbral. Si el onload llega antes, la apertura se considera instantanea
+   (documento en cache, o red rapida) y se enfoca SIN transicion: no llega a verse
+   borroso. Por encima, hubo descarga de verdad y entra el revelado.
+
+   350 ms y no otro numero: el desenfoque tarda 0.3s en entrar del todo (la transicion
+   del <iframe>), asi que por debajo de eso el blur ni siquiera llego a su maximo y
+   quitarlo de golpe no se nota. */
+const PDF_CARGA_LENTA_MS = 350;
+
 /* Margen que se le da al visor nativo, TRAS el onload, para pintar la primera pagina.
-   No hay evento que avise de eso: el onload solo dice que el archivo termino de
-   descargar, y hasta que PDFium pinta, el iframe esta vacio. Sin este margen el
-   enfoque arranca sobre un hueco vacio y cuando aparece el documento ya esta nitido.
-   Es la espera que hubo aqui historicamente (1500 ms, luego 400) y que se retiro
-   creyendo que la transicion del CSS la cubria — no puede: la transicion empieza a
-   contar cuando se quita el blur, no cuando el documento se ve. */
-const PDF_PINTADO_MS = 420;
+   Solo se aplica en la rama lenta. No hay evento que avise de que PDFium pinto: el
+   onload solo dice que el archivo termino de descargar, y hasta entonces el iframe esta
+   vacio. Sin este margen el enfoque arranca sobre un hueco vacio y cuando aparece el
+   documento ya esta nitido — el efecto no se veia.
+
+   Se paga solo cuando la carga ya fue lenta, o sea cuando el usuario esta esperando de
+   todos modos; en la rama rapida no cuesta nada. */
+const PDF_PINTADO_MS = 200;
 
 /* Handle del enfoque diferido. Vive FUERA de openPdfPreview y cada apertura cancela el
    anterior, por el mismo motivo que _pdfLoaderTimeout: si el usuario cierra el visor
    —o abre otro documento— antes de que salte, ese temporizador caeria encima de la
    apertura SIGUIENTE y le quitaria el desenfoque cuando acababa de ponerselo. */
 let _pdfEnfoqueTimeout = null;
+
+/** Momento (performance.now) en que se le puso el src al iframe: mide si tardo o no. */
+let _pdfCargaDesde = 0;
 
 window.openPdfPreview = function (url, docType, label, equipoId, uploadUrl, skipMetadata, module) {
     const modal = document.getElementById('pdfPreviewModal');
@@ -531,33 +550,47 @@ window.openPdfPreview = function (url, docType, label, equipoId, uploadUrl, skip
     const hideLoaderWhenReady = () => {
         clearTimeout(_pdfLoaderTimeout);
 
-        // ── Cuando el documento ya SE VE, no cuando acabo de descargarse ─────────
-        // El onload dice que el archivo llego, no que la pagina este pintada: PDFium
-        // tarda todavia unos cientos de ms. Hasta entonces el iframe esta VACIO, y
-        // desenfocar un hueco vacio no se ve. Si el enfoque arranca en el onload, para
-        // cuando PDFium pinta la transicion ya termino y el documento aparece nitido de
-        // golpe — que es exactamente lo que se veia.
+        const apagarLoader = () => {
+            if (!loader) return;
+            loader.style.opacity = '0';
+            setTimeout(() => { if (loader) loader.style.display = 'none'; }, 200);
+        };
+
+        // ── ¿Salio de una, o hubo que esperarlo? ────────────────────────────────
+        const tardo = performance.now() - _pdfCargaDesde;
+
+        if (tardo < PDF_CARGA_LENTA_MS) {
+            // INSTANTANEO. No hay espera que disimular, asi que el documento se enseña
+            // nitido cuanto antes: se quita el desenfoque SIN transicion —apagandola un
+            // instante— para que no se vea aclararse. Con el blur a medio entrar (0.3s)
+            // el corte es imperceptible, y se ahorran el margen y la transicion enteros.
+            apagarLoader();
+            if (!iframe) return;
+            const suave = iframe.style.transition;
+            iframe.style.transition = 'none';
+            iframe.style.opacity = '1';
+            iframe.style.filter = PDF_SIN_BLUR;
+            void iframe.offsetHeight;              // aplica el corte antes de devolverle la transicion
+            iframe.style.transition = suave;
+            return;
+        }
+
+        // LENTO: el usuario ya estuvo esperando. Aqui si compensa el revelado — ver el
+        // documento formandose hace la espera mas llevadera que un hueco gris.
         //
-        // Asi que se le da ese margen antes de tocar nada. Es la espera que hubo aqui
-        // (1500 ms, luego 400) y que se quito creyendo que la transicion lo cubria; la
-        // transicion no puede cubrirlo, porque empieza a contar cuando se quita el blur.
-        // Vuelve, pero con un proposito concreto: que el documento este pintado Y
-        // BORROSO cuando empieza a enfocarse.
+        // Se le da a PDFium su margen antes de tocar nada: el onload dice que el archivo
+        // llego, no que la pagina este pintada, y desenfocar un hueco vacio no se ve. Sin
+        // esto el enfoque corria sobre el vacio y el documento aparecia ya nitido.
         //
-        // El spinner se apaga tambien aqui, no antes: quitarlo con el iframe todavia
-        // vacio deja "modal abierto + sin spinner + gris", un fallo que ya paso.
+        // El spinner se apaga tambien ahi, no antes: quitarlo con el iframe todavia vacio
+        // deja "modal abierto + sin spinner + gris", un fallo que ya paso.
         clearTimeout(_pdfEnfoqueTimeout);
         _pdfEnfoqueTimeout = setTimeout(() => {
-            if (loader) {
-                loader.style.opacity = '0';
-                setTimeout(() => {
-                    if (loader) loader.style.display = 'none';
-                }, 200);
-            }
+            apagarLoader();
             if (!iframe) return;
             iframe.style.opacity = '1';
-            // Enfoca lo que ya se esta viendo borroso. La transicion de 0.5s del CSS es
-            // la que da la sensacion de "termino de llegar".
+            // Enfoca lo que ya se esta viendo borroso. La transicion del CSS es la que da
+            // la sensacion de "termino de llegar".
             iframe.style.filter = PDF_SIN_BLUR;
         }, PDF_PINTADO_MS);
     };
@@ -623,6 +656,10 @@ window.openPdfPreview = function (url, docType, label, equipoId, uploadUrl, skip
             iframe.style.filter = PDF_BLUR_CARGA;
             iframe.style.opacity = '1';
 
+            // Desde aqui se mide cuanto tarda la carga, que es lo que decide si el
+            // desenfoque llega a verse o el documento sale nitido de una
+            // (ver PDF_CARGA_LENTA_MS).
+            _pdfCargaDesde = performance.now();
             iframe.src = url + PDF_PARAMS_LECTURA;
         } else {
             const fallback = document.getElementById('pdfMobileFallback');
