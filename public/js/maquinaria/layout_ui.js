@@ -407,22 +407,20 @@ const PDF_BLUR_CARGA = 'blur(14px)';
 // perderia justo la transicion que da la sensacion de "termino de llegar".
 const PDF_SIN_BLUR = 'blur(0px)';
 
-/* Tiempo MINIMO que el documento se ve desenfocado antes de empezar a enfocarse.
-   El efecto solo se veia "unas pocas veces": con el PDF en cache el onload llega en
-   unos milisegundos, asi que el desenfoque se ponia y se quitaba dentro del MISMO
-   tick. Una transicion CSS necesita que el navegador haya PINTADO el valor inicial;
-   sin ese pintado intermedio el motor se queda solo con el valor final y no
-   interpola nada. Resultado: el documento aparecia ya nitido de golpe y el revelado
-   progresivo no existia — justo en el caso rapido, que es el mas frecuente.
+/* Margen que se le da al visor nativo, TRAS el onload, para pintar la primera pagina.
+   No hay evento que avise de eso: el onload solo dice que el archivo termino de
+   descargar, y hasta que PDFium pinta, el iframe esta vacio. Sin este margen el
+   enfoque arranca sobre un hueco vacio y cuando aparece el documento ya esta nitido.
+   Es la espera que hubo aqui historicamente (1500 ms, luego 400) y que se retiro
+   creyendo que la transicion del CSS la cubria — no puede: la transicion empieza a
+   contar cuando se quita el blur, no cuando el documento se ve. */
+const PDF_PINTADO_MS = 420;
 
-   No retrasa ver el documento: desde que se le pone el src el iframe esta a la vista
-   (opacity 1) y el visor nativo va pintando la pagina. Lo unico que esto fija es
-   cuando ARRANCA el enfoque, para que la transicion de 0.5s del CSS tenga un estado
-   inicial que interpolar. */
-const PDF_BLUR_MIN_MS = 260;
-
-/** Momento (performance.now) en que se le puso el src al iframe del visor. */
-let _pdfBlurDesde = 0;
+/* Handle del enfoque diferido. Vive FUERA de openPdfPreview y cada apertura cancela el
+   anterior, por el mismo motivo que _pdfLoaderTimeout: si el usuario cierra el visor
+   —o abre otro documento— antes de que salte, ese temporizador caeria encima de la
+   apertura SIGUIENTE y le quitaria el desenfoque cuando acababa de ponerselo. */
+let _pdfEnfoqueTimeout = null;
 
 window.openPdfPreview = function (url, docType, label, equipoId, uploadUrl, skipMetadata, module) {
     const modal = document.getElementById('pdfPreviewModal');
@@ -502,6 +500,9 @@ window.openPdfPreview = function (url, docType, label, equipoId, uploadUrl, skip
     // armado, y 5 s después caía encima de la apertura SIGUIENTE: le apagaba el
     // "Cargando documento..." y destapaba su iframe a medio cargar.
     clearTimeout(_pdfLoaderTimeout);
+    // Y el enfoque diferido de una apertura anterior, que si no le quitaria el
+    // desenfoque a ESTA en cuanto saltara.
+    clearTimeout(_pdfEnfoqueTimeout);
     _pdfLoaderTimeout = setTimeout(() => {
         if (loader) loader.style.display = 'none';
         // Tambien enfoca: si no, un onload que no llega dejaria el documento
@@ -529,23 +530,36 @@ window.openPdfPreview = function (url, docType, label, equipoId, uploadUrl, skip
     // siempre. El suelo real contra el parpadeo es el fundido de 200 ms.
     const hideLoaderWhenReady = () => {
         clearTimeout(_pdfLoaderTimeout);
-        if (loader) {
-            loader.style.opacity = '0';
-            setTimeout(() => {
-                if (loader) loader.style.display = 'none';
-            }, 200);
-        }
-        if (!iframe) return;
-        iframe.style.opacity = '1';
 
-        // Enfoca lo que ya se estaba viendo borroso, pero NO antes de que el
-        // desenfoque haya estado en pantalla PDF_BLUR_MIN_MS (ver alli el motivo):
-        // con el PDF en cache el onload llega dentro del mismo tick en que se puso
-        // el blur y la transicion no llegaba a existir.
-        const falta = PDF_BLUR_MIN_MS - (performance.now() - _pdfBlurDesde);
-        const enfocar = () => { iframe.style.filter = PDF_SIN_BLUR; };
-        if (falta > 0) setTimeout(enfocar, falta);
-        else enfocar();
+        // ── Cuando el documento ya SE VE, no cuando acabo de descargarse ─────────
+        // El onload dice que el archivo llego, no que la pagina este pintada: PDFium
+        // tarda todavia unos cientos de ms. Hasta entonces el iframe esta VACIO, y
+        // desenfocar un hueco vacio no se ve. Si el enfoque arranca en el onload, para
+        // cuando PDFium pinta la transicion ya termino y el documento aparece nitido de
+        // golpe — que es exactamente lo que se veia.
+        //
+        // Asi que se le da ese margen antes de tocar nada. Es la espera que hubo aqui
+        // (1500 ms, luego 400) y que se quito creyendo que la transicion lo cubria; la
+        // transicion no puede cubrirlo, porque empieza a contar cuando se quita el blur.
+        // Vuelve, pero con un proposito concreto: que el documento este pintado Y
+        // BORROSO cuando empieza a enfocarse.
+        //
+        // El spinner se apaga tambien aqui, no antes: quitarlo con el iframe todavia
+        // vacio deja "modal abierto + sin spinner + gris", un fallo que ya paso.
+        clearTimeout(_pdfEnfoqueTimeout);
+        _pdfEnfoqueTimeout = setTimeout(() => {
+            if (loader) {
+                loader.style.opacity = '0';
+                setTimeout(() => {
+                    if (loader) loader.style.display = 'none';
+                }, 200);
+            }
+            if (!iframe) return;
+            iframe.style.opacity = '1';
+            // Enfoca lo que ya se esta viendo borroso. La transicion de 0.5s del CSS es
+            // la que da la sensacion de "termino de llegar".
+            iframe.style.filter = PDF_SIN_BLUR;
+        }, PDF_PINTADO_MS);
     };
 
     // Set source and setup load listener
@@ -563,16 +577,10 @@ window.openPdfPreview = function (url, docType, label, equipoId, uploadUrl, skip
                 return;
             }
 
-            // El onload del iframe llega cuando el RECURSO termino de
-            // descargar; el visor nativo (PDFium/PDF.js) tarda todavia unos
-            // cientos de ms en pintar la primera pagina. Aqui habia una espera
-            // fija para cubrir ese hueco: primero 1500 ms, luego 400.
-            //
-            // Ya no hace falta y por eso se va: ese hueco lo cubre la transicion
-            // con la que hideLoaderWhenReady enfoca el documento (el detalle esta
-            // alli). El visor conserva su margen para pintar, y los 400 ms de aqui
-            // se sumaban encima sin cubrir nada: eran 400 ms de nada en CADA
-            // documento.
+            // El onload llega cuando el RECURSO termino de descargar, no cuando el
+            // visor nativo pinto la pagina. Ese hueco lo gestiona
+            // hideLoaderWhenReady con PDF_PINTADO_MS: aqui no se espera nada, para
+            // que la espera viva en UN solo sitio y no se sumen dos.
             // (_pdfLoaderTimeout, los 5 s de respaldo, sigue cubriendo el caso
             // de que onload no llegue nunca.)
             hideLoaderWhenReady();
@@ -580,6 +588,7 @@ window.openPdfPreview = function (url, docType, label, equipoId, uploadUrl, skip
 
         iframe.onerror = function () {
             clearTimeout(_pdfLoaderTimeout);
+            clearTimeout(_pdfEnfoqueTimeout);
             if (loader) loader.style.display = 'none';
             // Volver a taparlo. Desde que la carga se revela desenfocada, el iframe
             // esta VISIBLE en cuanto se le pone el src: si falla, sin esto quedaria
@@ -614,16 +623,6 @@ window.openPdfPreview = function (url, docType, label, equipoId, uploadUrl, skip
             iframe.style.filter = PDF_BLUR_CARGA;
             iframe.style.opacity = '1';
 
-            // Leer offsetHeight fuerza al navegador a calcular el estilo AHORA, con el
-            // desenfoque puesto, antes de que el src arranque la carga. Es lo que separa
-            // el estado borroso del enfocado en dos pintados distintos; sin esto, con el
-            // PDF en cache los dos valores caen en el mismo y no hay nada que interpolar.
-            // El valor no se usa: se lee por el efecto, y por eso lleva void delante (si
-            // no, un minificador puede tirar la linea por parecer inutil).
-            void iframe.offsetHeight;
-
-            // Desde aqui se cuenta PDF_BLUR_MIN_MS.
-            _pdfBlurDesde = performance.now();
             iframe.src = url + PDF_PARAMS_LECTURA;
         } else {
             const fallback = document.getElementById('pdfMobileFallback');
@@ -1446,6 +1445,7 @@ window.closePdfPreview = function () {
     }
     // Y el respaldo de 5 s, que si no seguiría vivo sobre un visor ya cerrado.
     clearTimeout(_pdfLoaderTimeout);
+    clearTimeout(_pdfEnfoqueTimeout);
     // La barra de correcciones tambien se cierra: dejaba _pdfAnexoCtx apuntando al
     // ultimo equipo+tipo visto, y ese contexto sobrevivia al cierre. Es la otra mitad
     // del guard de openPdfPreview — con el visor cerrado no hay documento delante, asi
