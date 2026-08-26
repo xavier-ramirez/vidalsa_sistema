@@ -862,15 +862,10 @@ window.showDetailsImproved = function (target, event) {
     };
 
     // Helper to format date YYYY-MM-DD -> DD/MM/YYYY
-    const formatDate = (dateStr) => {
-        if (!dateStr || dateStr === "N/A" || dateStr.trim() === "")
-            return "N/A";
-        const parts = dateStr.split("-");
-        if (parts.length === 3) {
-            return `${parts[2]}/${parts[1]}/${parts[0]}`;
-        }
-        return dateStr;
-    };
+    // El formateo vive en dom_helpers.js (window.formatearFecha), que el layout carga en
+    // el <head>: lo comparten esta ficha y la del auxiliar, que antes tenia su propia
+    // copia. Aqui se conserva el nombre local para no tocar los cuatro sitios que lo usan.
+    const formatDate = window.formatearFecha;
 
     // ── Título y subtítulo del modal
     // FORCE UPDATE title with Type

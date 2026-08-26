@@ -175,6 +175,23 @@
     };
 
     /**
+     * Fecha de la base (aaaa-mm-dd) a como se lee en pantalla (dd/mm/aaaa).
+     *
+     * Vive AQUI porque la usan dos fichas distintas —el detalle de un equipo y el de un
+     * auxiliar— y estaba escrita dos veces: una dentro de showDetailsImproved
+     * (uicomponents.js), local a esa funcion y por tanto inalcanzable desde fuera, y otra
+     * copiada a mano en el blade de auxiliares. Dos copias de cuatro lineas son dos
+     * copias que un dia dejan de dar el mismo resultado.
+     *
+     * Lo que NO encaje con aaaa-mm-dd se devuelve tal cual: puede venir ya formateado.
+     */
+    window.formatearFecha = function (valor) {
+        if (!valor || valor === 'N/A' || String(valor).trim() === '') return 'N/A';
+        var partes = String(valor).split('-');
+        return partes.length === 3 ? partes[2] + '/' + partes[1] + '/' + partes[0] : valor;
+    };
+
+    /**
      * Parte una etiqueta larga en varias lineas de como maximo maxChars caracteres,
      * cortando por espacios; una palabra mas larga que el limite se trocea a la fuerza.
      * Devuelve un ARRAY cuando hay que partir, o la cadena original si cabe.

@@ -362,11 +362,13 @@
         // los vencimientos es el panel de alertas del tablero, no esta ficha.
         let fechaInline = '<span style="color:#94a3b8; font-size:12px;">Sin fecha</span>';
         if (d.fecha_vencimiento_cert) {
-            // Mismo formateo que formatDate() en el modal de equipos, que es local a esa
-            // funcion y no se puede llamar desde aqui.
-            const partes = String(d.fecha_vencimiento_cert).split('-');
-            const txt = partes.length === 3 ? `${partes[2]}/${partes[1]}/${partes[0]}` : d.fecha_vencimiento_cert;
-            fechaInline = `<span style="color:#333; font-size:13px; white-space:nowrap;" title="${txt}">${txt}</span>`;
+            // Mismo formateo que la ficha de equipos, y literalmente la misma funcion:
+            // window.formatearFecha, en dom_helpers.js.
+            const txt = window.formatearFecha(d.fecha_vencimiento_cert);
+            // Sin title: repetiria palabra por palabra lo que ya se lee, y el de equipos
+            // tampoco lo lleva. Lo tenia la version de antes porque la etiqueta de color
+            // podia recortar el texto con puntos suspensivos.
+            fechaInline = `<span style="color:#333; font-size:13px; white-space:nowrap;">${txt}</span>`;
         }
         const rowCertificado = `
             <div class="detail-row-doc" style="display:flex !important; align-items:center !important; justify-content:space-between !important; gap:6px; padding:6px 0; border-bottom:1px dashed #f1f5f9; flex-wrap:nowrap; min-width:0; width:100%;">
