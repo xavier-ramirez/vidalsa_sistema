@@ -42,6 +42,22 @@ window.__renderFrenteChips = function (selectId, spanId, inputId, emptyPlacehold
     if (input) input.placeholder = 'Buscar...';
 };
 
+// Buscador inline de un multiselect con chips (Frentes Asignados / Bloqueados).
+// Filtra las opciones DE SU PROPIA caja y ABRE la lista si estaba cerrada: antes
+// se podia teclear con el desplegable cerrado —el placeholder invita a escribir—
+// y el filtro corria sobre una lista invisible, o sea que parecia no hacer nada.
+window.filtrarOpcionesMultiselect = function (input, event) {
+    const caja = input.closest('.custom-multiselect');
+    if (!caja) return;
+    if (!caja.classList.contains('active') && window.toggleDropdown) {
+        window.toggleDropdown(caja.id, event);
+    }
+    const val = input.value.toLowerCase().trim();
+    caja.querySelectorAll('.multiselect-item').forEach(function (item) {
+        item.style.display = item.textContent.toLowerCase().includes(val) ? '' : 'none';
+    });
+};
+
 window.updateFrentesCount = function () {
     window.__renderFrenteChips('frentesSelect', 'frentesSelectedCount', 'frentesSearchInput',
         'Seleccione o escriba frentes...', '#e0f2fe', '#0284c7');
@@ -793,9 +809,15 @@ window.addEventListener('spa:contentLoaded', function () {
                         const permLabel = document.getElementById('selectedCount');
                         if (permLabel) permLabel.innerText = 'Seleccione permisos...';
 
-                        // Reset Frentes Multiselect
-                        document.querySelectorAll('input[name="ID_FRENTE_ASIGNADO[]"]').forEach(cb => cb.checked = false);
+                        // Reset Frentes: destildar y repintar los chips de AMBOS campos.
+                        // No se confia en form.reset() porque este restaura el atributo
+                        // 'checked' del HTML, que con old() puede venir marcado. Faltaba
+                        // el de bloqueados: al crear un usuario con frentes bloqueados,
+                        // sus chips rojos se quedaban pegados en el campo.
+                        document.querySelectorAll('input[name="ID_FRENTE_ASIGNADO[]"], input[name="ID_FRENTE_BLOQUEADO[]"]')
+                            .forEach(cb => cb.checked = false);
                         if (window.updateFrentesCount) window.updateFrentesCount();
+                        if (window.updateFrentesBloqueadosCount) window.updateFrentesBloqueadosCount();
                         // Remove 'selected' class from all dropdown items
                         document.querySelectorAll('.dropdown-item.selected').forEach(el => el.classList.remove('selected'));
                         // Re-select default ACTIVO

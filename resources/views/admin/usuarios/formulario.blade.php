@@ -55,16 +55,18 @@
 
 
             <div>
-                <label for="password" class="form-label">Clave de Acceso</label>
+                <label for="password" class="form-label">
+                    Clave de Acceso
+                    {{-- La nota va junto al titulo, no en un <small> bajo el campo. Solo al
+                         editar: al crear, la clave es obligatoria. --}}
+                    @if(isset($user))
+                        <span class="form-label-hint">Dejar vacío si no desea cambiar la contraseña</span>
+                    @endif
+                </label>
                 <input type="password" id="password" name="password" class="form-input-custom @error('password') is-invalid @enderror" {{ isset($user) ? '' : 'required' }} placeholder="{{ isset($user) ? 'Dejar en blanco para mantener la actual' : '' }}" autocomplete="new-password">
                 @error('password')
                     <span class="error-message-inline">{{ $message }}</span>
                 @enderror
-                @if(isset($user))
-                    <small style="color: var(--maquinaria-gray-text); font-size: 12px; display: block; margin-top: 5px;">
-                        Dejar vacío si no desea cambiar la contraseña
-                    </small>
-                @endif
             </div>
 
             <div>
@@ -174,25 +176,24 @@
                 <span id="lbl_usuario_frente_title" class="form-label">Frentes Asignados</span>
 
                 {{-- Trigger con input de busqueda inline (mismo patron que Rol Asignado):
-                     - El usuario tipea y filtra .frente-item-opt en vivo.
+                     - El usuario tipea y filtrarOpcionesMultiselect() filtra en vivo
+                       las opciones de ESTA caja (y la abre si estaba cerrada).
                      - Los frentes seleccionados se muestran como chips dentro del mismo
                        trigger (a la izquierda del input).
                      - Antes habia un buscador SEPARADO dentro del dropdown — el cliente
                        lo encontro innecesario; ahora el filtrado vive en el campo
                        principal y la lista solo muestra los items. --}}
                 <div class="custom-multiselect" id="frentesSelect">
-                    <div class="multiselect-trigger" id="frentesMultiselectTrigger"
-                         style="cursor: text; padding: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 4px;"
+                    <div class="multiselect-trigger multiselect-trigger--chips" id="frentesMultiselectTrigger"
                          onclick="toggleDropdown('frentesSelect', event)"
                          tabindex="0" role="button" aria-haspopup="listbox" aria-labelledby="lbl_usuario_frente_title">
-                        <span id="frentesSelectedCount" style="display:flex;flex-wrap:wrap;gap:4px;padding-left:8px;"></span>
-                        <input type="text" id="frentesSearchInput"
+                        <span id="frentesSelectedCount" class="multiselect-chips"></span>
+                        <input type="text" id="frentesSearchInput" class="multiselect-chips-input"
                                placeholder="Seleccione o escriba frentes..."
                                autocomplete="off"
-                               style="flex: 1; min-width: 120px; border: none; background: transparent; padding: 12px 8px; outline: none; color: var(--maquinaria-text); font-size: 14px; font-family: inherit;"
-                               oninput="const val = this.value.toLowerCase().trim(); document.querySelectorAll('.frente-item-opt').forEach(i => i.style.display = i.textContent.toLowerCase().includes(val) ? '' : 'none');"
-                               onclick="event.stopPropagation();">
-                        <i class="material-icons" style="padding-right: 15px; color: var(--maquinaria-gray-text);">expand_more</i>
+                               oninput="filtrarOpcionesMultiselect(this, event)"
+                               onclick="toggleDropdown('frentesSelect', event)">
+                        <i class="material-icons">expand_more</i>
                     </div>
                     <div class="multiselect-content" id="frentesMultiselectContent">
                         @php
@@ -202,7 +203,7 @@
                                 : array_filter(array_map('trim', explode(',', $rawFrente ?? '')));
                         @endphp
                         @foreach($frentes as $frente)
-                            <label class="multiselect-item frente-item-opt" for="frente_{{ $frente->ID_FRENTE }}">
+                            <label class="multiselect-item" for="frente_{{ $frente->ID_FRENTE }}">
                                 <input type="checkbox"
                                     id="frente_{{ $frente->ID_FRENTE }}"
                                     name="ID_FRENTE_ASIGNADO[]"
@@ -217,13 +218,10 @@
                 @error('ID_FRENTE_ASIGNADO')
                     <span class="error-message-inline">{{ $message }}</span>
                 @enderror
-                <small style="color: var(--maquinaria-gray-text); font-size: 12px; display: block; margin-top: 5px;">
-                    Frentes asignados al usuario
-                </small>
             </div>
 
             <div>
-                <span id="lbl_usuario_frente_bloq_title" class="form-label">Frentes Bloqueados</span>
+                <span id="lbl_usuario_frente_bloq_title" class="form-label">Frentes Bloqueados<span class="form-label-hint">ocultos para este usuario</span></span>
 
                 {{-- Lista NEGRA: frentes que este usuario NO debe ver, independiente de
                      GLOBAL/LOCAL. Pensado para "ve casi todo salvo unos pocos": dejar al
@@ -231,18 +229,16 @@
                      que hacerlo LOCAL y tildar muchos asignados). Se RESTA en todo el
                      sistema (equipos, almacen, dashboard, historial, movilizacion). --}}
                 <div class="custom-multiselect" id="frentesBloqueadosSelect">
-                    <div class="multiselect-trigger" id="frentesBloqueadosMultiselectTrigger"
-                         style="cursor: text; padding: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 4px;"
+                    <div class="multiselect-trigger multiselect-trigger--chips" id="frentesBloqueadosMultiselectTrigger"
                          onclick="toggleDropdown('frentesBloqueadosSelect', event)"
                          tabindex="0" role="button" aria-haspopup="listbox" aria-labelledby="lbl_usuario_frente_bloq_title">
-                        <span id="frentesBloqueadosSelectedCount" style="display:flex;flex-wrap:wrap;gap:4px;padding-left:8px;"></span>
-                        <input type="text" id="frentesBloqueadosSearchInput"
+                        <span id="frentesBloqueadosSelectedCount" class="multiselect-chips"></span>
+                        <input type="text" id="frentesBloqueadosSearchInput" class="multiselect-chips-input"
                                placeholder="Seleccione frentes a ocultar..."
                                autocomplete="off"
-                               style="flex: 1; min-width: 120px; border: none; background: transparent; padding: 12px 8px; outline: none; color: var(--maquinaria-text); font-size: 14px; font-family: inherit;"
-                               oninput="const val = this.value.toLowerCase().trim(); document.querySelectorAll('.frente-bloq-item-opt').forEach(i => i.style.display = i.textContent.toLowerCase().includes(val) ? '' : 'none');"
-                               onclick="event.stopPropagation();">
-                        <i class="material-icons" style="padding-right: 15px; color: var(--maquinaria-gray-text);">expand_more</i>
+                               oninput="filtrarOpcionesMultiselect(this, event)"
+                               onclick="toggleDropdown('frentesBloqueadosSelect', event)">
+                        <i class="material-icons">expand_more</i>
                     </div>
                     <div class="multiselect-content" id="frentesBloqueadosMultiselectContent">
                         @php
@@ -252,7 +248,7 @@
                                 : array_filter(array_map('trim', explode(',', $rawFrenteBloq ?? '')));
                         @endphp
                         @foreach($frentes as $frente)
-                            <label class="multiselect-item frente-bloq-item-opt" for="fbloq_{{ $frente->ID_FRENTE }}">
+                            <label class="multiselect-item" for="fbloq_{{ $frente->ID_FRENTE }}">
                                 <input type="checkbox"
                                     id="fbloq_{{ $frente->ID_FRENTE }}"
                                     name="ID_FRENTE_BLOQUEADO[]"
@@ -267,9 +263,6 @@
                 @error('ID_FRENTE_BLOQUEADO')
                     <span class="error-message-inline">{{ $message }}</span>
                 @enderror
-                <small style="color: var(--maquinaria-gray-text); font-size: 12px; display: block; margin-top: 5px;">
-                    Frentes restringidos (ocultos para este usuario)
-                </small>
             </div>
 
             <div>

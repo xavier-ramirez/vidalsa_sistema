@@ -611,6 +611,16 @@ body {
     color: var(--maquinaria-dark-blue);
 }
 
+/* Aclaracion breve AL LADO del titulo del campo. Antes estas notas iban en un
+   <small> debajo del input: alejaban la explicacion de la etiqueta y alargaban
+   el formulario. Va DENTRO del .form-label, asi que comparte su linea. */
+.form-label-hint {
+    font-weight: 400;
+    font-size: 12px;
+    color: var(--maquinaria-gray-text);
+    margin-left: 6px;
+}
+
 .btn-secondary {
     background-color: white;
     color: #0067b1;
@@ -1591,6 +1601,152 @@ input[type="password"]::-ms-clear {
     padding: 0 15px;
     cursor: default;
     transition: all 0.2s;
+}
+
+/* Multiselect con CHIPS + buscador dentro del trigger (Frentes Asignados y
+   Frentes Bloqueados en el formulario de usuarios). El `height: 45px` de arriba
+   solo funciona cuando el trigger es una linea de texto: al tildar varios
+   frentes los chips pasaban a una segunda fila que la altura fija recortaba
+   contra el borde, y el campo de busqueda quedaba aplastado. Aqui la caja crece
+   con el contenido, como cualquier campo de etiquetas, en vez de deformarse. El
+   max-height es solo una valvula de seguridad para el caso extremo (tildar los
+   frentes completos): con un puñado de frentes NUNCA se alcanza, asi que el
+   campo de busqueda sigue a la vista sin tener que hacer scroll. */
+.multiselect-trigger--chips {
+    height: auto;
+    min-height: 45px;
+    max-height: 45vh;
+    overflow-y: auto;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: 5px;
+    /* 15px a la izquierda = misma sangria que .form-input-custom y que el resto
+       de triggers, para que chips y placeholder arranquen alineados con los
+       demas campos; 44px a la derecha = hueco del chevron anclado. */
+    padding: 6px 44px 6px 15px;
+    cursor: text;
+}
+
+/* Los chips no forman su propia caja: `contents` los vuelve hijos directos del
+   flex del trigger, asi el campo de busqueda continua en la misma fila que el
+   ultimo chip (y no salta abajo) y el wrap es uniforme. */
+.multiselect-chips {
+    display: contents;
+}
+
+.multiselect-chips-input {
+    flex: 1 1 120px;
+    min-width: 120px;
+    border: none;
+    background: transparent;
+    padding: 5px 0;
+    outline: none;
+    color: var(--maquinaria-text);
+    font-size: 14px;
+    font-family: inherit;
+}
+
+/* El chevron se ancla arriba a la derecha CONTRA .custom-multiselect (que ya es
+   position: relative) y no contra el trigger: asi no baja de linea con el wrap
+   ni se desplaza cuando la lista de chips hace scroll. pointer-events: none deja
+   que el clic caiga en el trigger y siga abriendo el desplegable. */
+.multiselect-trigger--chips > i {
+    position: absolute;
+    top: 11px;
+    right: 15px;
+    color: var(--maquinaria-gray-text);
+    pointer-events: none;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   VISOR DE PDF COMPARADO: zoom con desplazamiento y botones de sus rotulos.
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* Capa que aporta las barras de desplazamiento de cada lado. Absoluta y no en el
+   flujo del panel: asi el rotulo, el cargador y la barra de subida —que son
+   absolutos sobre el panel— se quedan quietos mientras el documento se recorre. */
+.pdf-zoom-scroll {
+    position: absolute;
+    inset: 0;
+    overflow: auto;
+}
+
+/* Lo que CRECE al acercar. El iframe se escala con transform, que no ocupa sitio,
+   asi que sin este lienzo la capa de arriba no tendria nada que desplazar y lo que
+   se sale del panel quedaria recortado y fuera de alcance. */
+.pdf-zoom-lienzo {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
+/* El <iframe> es inline por defecto y su hueco de linea base desbordaba el lienzo
+   unos 4 px: salia una barra vertical permanente aun a tamaño natural. */
+.pdf-zoom-lienzo > iframe {
+    display: block;
+}
+
+/* Barras oscuras: las del sistema salen blancas y sobre el negro del visor cantan
+   mas que el propio documento. */
+.pdf-zoom-scroll::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+}
+.pdf-zoom-scroll::-webkit-scrollbar-track {
+    background: #282828;
+}
+.pdf-zoom-scroll::-webkit-scrollbar-thumb {
+    background: #555;
+    border: 3px solid #282828;
+    border-radius: 6px;
+}
+.pdf-zoom-scroll::-webkit-scrollbar-thumb:hover {
+    background: #6f6f6f;
+}
+.pdf-zoom-scroll::-webkit-scrollbar-corner {
+    background: #282828;
+}
+
+/* Botones-icono de los rotulos del visor (alejar, acercar, borrar). Estaban
+   repetidos con el mismo estilo en linea seis veces, con su hover en onmouseover;
+   aqui van una sola vez. */
+.pdf-visor-btn {
+    flex-shrink: 0;
+    width: 26px;
+    height: 26px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: #cbd5e0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background .15s;
+}
+.pdf-visor-btn:hover {
+    background: rgba(255, 255, 255, 0.12);
+}
+.pdf-visor-btn .material-icons {
+    font-size: 17px;
+    pointer-events: none;
+}
+
+/* Tope de la escala: el boton se apaga en vez de desaparecer, para que los dos
+   lados conserven los mismos botones en el mismo sitio. */
+.pdf-visor-btn:disabled {
+    opacity: .35;
+    cursor: default;
+}
+.pdf-visor-btn:disabled:hover {
+    background: transparent;
+}
+
+.pdf-visor-btn--rojo {
+    color: #fca5a5;
+}
+.pdf-visor-btn--rojo:hover {
+    background: rgba(239, 68, 68, 0.20);
 }
 
 .dropdown-trigger {
