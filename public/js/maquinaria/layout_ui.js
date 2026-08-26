@@ -844,10 +844,8 @@ const PDF_COMPARA_ANCHO_MIN = 900;
    (ver PDF_COMPARA_ZOOMS). */
 const PDF_PARAMS_COMPARA = '#toolbar=0&navpanes=0&scrollbar=0&view=Fit';
 
-/** Enlace limpio del documento que se ve a la DERECHA (lo fija _pdfComparaMostrar). */
-window._pdfComparaDerLink = null;
-
-/** Y el anexo entero, que el boton de borrar de ese panel necesita con su id. */
+/** El anexo que se ve a la DERECHA (lo fija _pdfComparaMostrar). Entero y no solo su
+    enlace: el boton de borrar de ese panel necesita ademas su id y su etiqueta. */
 window._pdfComparaAnexoDer = null;
 
 window._pdfComparando = false;
@@ -881,9 +879,6 @@ window._pdfComparaMostrar = function (anexo) {
 
     // El enlace LIMPIO del lado derecho: la lupa rearma la URL entera desde aqui para
     // cambiarle el zoom, y frame.src ya vendria con los parametros pegados.
-    window._pdfComparaDerLink = anexo.link;
-    // El anexo COMPLETO, no solo su enlace: el boton de borrar de ese panel necesita su
-    // id y su etiqueta para saber que esta borrando y decirlo en la confirmacion.
     window._pdfComparaAnexoDer = anexo;
     // Documento nuevo a la derecha: vuelve al tamaño natural (estado Y css).
     _pdfComparaResetZoom(true);
@@ -915,6 +910,17 @@ window._pdfComparaEncender = function (anexo) {
     const barraComp = document.getElementById('pdfAnexosBar');
     if (barraComp) barraComp.style.display = 'none';
 
+    // Y el boton de borrar de la CABECERA se esconde: con los dos documentos en pantalla
+    // no hay forma de saber a cual se refiere —de hecho borraba el original aunque se
+    // estuviera leyendo la correccion—. Cada panel tiene ya el suyo, que si dice cual es.
+    // Se guarda como marca en el propio nodo para poder devolverlo al apagar sin adivinar
+    // si estaba visible o si el documento no era gestionable.
+    const delCab = document.getElementById('pdfDeleteBtn');
+    if (delCab && delCab.dataset.ocultoPorCompara !== '1') {
+        delCab.dataset.ocultoPorCompara = delCab.style.display === 'none' ? 'no' : '1';
+        if (delCab.dataset.ocultoPorCompara === '1') delCab.style.display = 'none';
+    }
+
     // El izquierdo se abrio al 100% de zoom (el modo lectura de un solo documento).
     // Comparando hace falta la hoja entera, asi que se le cambian los parametros. Es
     // una re-navegacion, pero el archivo acaba de descargarse y sale del cache del
@@ -943,10 +949,10 @@ const PDF_COMPARA_ZOOMS = [1, 1.5, 2, 3];
 /** Nivel actual de cada lado (indice dentro de PDF_COMPARA_ZOOMS). */
 window._pdfComparaZoom = { izq: 0, der: 0 };
 
-/** El iframe y su documento, por lado. */
-const _pdfComparaLado = (lado) => lado === 'izq'
-    ? { frame: document.getElementById('pdfPreviewFrame'), src: (window._pdfAnexoCtx || {}).principal }
-    : { frame: document.getElementById('pdfComparaFrame'), src: window._pdfComparaDerLink };
+/** El iframe de cada lado. */
+const _pdfComparaFrameDe = (lado) => document.getElementById(
+    lado === 'izq' ? 'pdfPreviewFrame' : 'pdfComparaFrame'
+);
 
 /**
  * Acerca el documento DE SU PROPIO LADO, un nivel por pulsacion.
@@ -968,7 +974,7 @@ const _pdfComparaLado = (lado) => lado === 'izq'
 window.pdfComparaZoom = function (lado) {
     if (!window._pdfComparando) return;
 
-    const { frame } = _pdfComparaLado(lado);
+    const frame = _pdfComparaFrameDe(lado);
     if (!frame) return;
 
     const i = ((window._pdfComparaZoom[lado] || 0) + 1) % PDF_COMPARA_ZOOMS.length;
@@ -989,7 +995,7 @@ const _pdfComparaResetZoom = function (soloDerecha) {
     const lados = soloDerecha ? ['der'] : ['izq', 'der'];
     lados.forEach((lado) => {
         window._pdfComparaZoom[lado] = 0;
-        const { frame } = _pdfComparaLado(lado);
+        const frame = _pdfComparaFrameDe(lado);
         if (frame) _pdfComparaAplicarZoom(frame, 1);
     });
 };
@@ -1070,17 +1076,14 @@ window.pdfCompararToggle = function () {
 
 /** Al cerrar el visor o abrir otro documento, la comparación no sobrevive. */
 window._pdfComparaApagar = function () {
-    if (!window._pdfComparando) {
-            return;
-    }
+    if (!window._pdfComparando) return;
     window._pdfComparando = false;
 
     // Los niveles vuelven a cero —estado y css— para que la proxima comparacion no
     // herede el acercamiento de la anterior.
     _pdfComparaResetZoom();
-    window._pdfComparaDerLink = null;
-    // Tambien el anexo: si no, el boton de borrar del panel derecho seguiria apuntando a
-    // una correccion que ya no esta en pantalla.
+    // Y el anexo del panel derecho: si no, su boton de borrar seguiria apuntando a una
+    // correccion que ya no esta en pantalla.
     window._pdfComparaAnexoDer = null;
     // El visor izquierdo se repone SIEMPRE. Ya no hay nada que lo esconda —la lupa dejo
     // de tapar el panel de enfrente— pero dejarlo aqui cuesta una linea y cubre que
@@ -1103,6 +1106,14 @@ window._pdfComparaApagar = function () {
     if (barraComp) {
         const hayPestanas = !!(tabsComp && tabsComp.children.length);
         barraComp.style.display = hayPestanas ? 'flex' : 'none';
+    }
+
+    // Y el boton de borrar de la cabecera vuelve SOLO si lo escondio el encendido: si ya
+    // estaba oculto porque el documento no es gestionable, se queda como estaba.
+    const delCab = document.getElementById('pdfDeleteBtn');
+    if (delCab) {
+        if (delCab.dataset.ocultoPorCompara === '1') delCab.style.display = 'flex';
+        delete delCab.dataset.ocultoPorCompara;
     }
 };
 
