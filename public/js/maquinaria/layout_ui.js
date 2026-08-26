@@ -392,20 +392,37 @@ window.printPdfFromPreview = function () {
 // apertura): ver por qué en el setTimeout de más abajo.
 let _pdfLoaderTimeout = null;
 
-// Radio del desenfoque con el que se revela el PDF mientras llega. En UN solo
-// sitio: lo ponen la apertura y la asignacion del src, y si los dos valores se
-// separaran el documento daria un salto de nitidez al empezar a cargar.
 /* Parametros del visor nativo en modo LECTURA (un solo documento a pantalla
    completa). Estaban escritos a mano en cada sitio que carga el iframe; con la vista
    comparada pasaron a ser dos juegos distintos y repetirlos era pedir que uno se
    quedara atras. El de comparar es PDF_PARAMS_COMPARA, mas abajo. */
 const PDF_PARAMS_LECTURA = '#toolbar=0&navpanes=0&scrollbar=0&zoom=100';
 
+// Radio del desenfoque con el que se revela el PDF mientras llega. En UN solo
+// sitio: lo ponen la apertura y la asignacion del src, y si los dos valores se
+// separaran el documento daria un salto de nitidez al empezar a cargar.
 const PDF_BLUR_CARGA = 'blur(14px)';
 // Enfocado. Tiene que ser blur(0px) y NO cadena vacia ni 'none': de un blur a
 // `none` no hay interpolacion posible, asi que el filtro se quitaria de golpe y se
 // perderia justo la transicion que da la sensacion de "termino de llegar".
 const PDF_SIN_BLUR = 'blur(0px)';
+
+/* Tiempo MINIMO que el documento se ve desenfocado antes de empezar a enfocarse.
+   El efecto solo se veia "unas pocas veces": con el PDF en cache el onload llega en
+   unos milisegundos, asi que el desenfoque se ponia y se quitaba dentro del MISMO
+   tick. Una transicion CSS necesita que el navegador haya PINTADO el valor inicial;
+   sin ese pintado intermedio el motor se queda solo con el valor final y no
+   interpola nada. Resultado: el documento aparecia ya nitido de golpe y el revelado
+   progresivo no existia — justo en el caso rapido, que es el mas frecuente.
+
+   No retrasa ver el documento: desde que se le pone el src el iframe esta a la vista
+   (opacity 1) y el visor nativo va pintando la pagina. Lo unico que esto fija es
+   cuando ARRANCA el enfoque, para que la transicion de 0.5s del CSS tenga un estado
+   inicial que interpolar. */
+const PDF_BLUR_MIN_MS = 260;
+
+/** Momento (performance.now) en que se le puso el src al iframe del visor. */
+let _pdfBlurDesde = 0;
 
 window.openPdfPreview = function (url, docType, label, equipoId, uploadUrl, skipMetadata, module) {
     const modal = document.getElementById('pdfPreviewModal');
@@ -518,12 +535,17 @@ window.openPdfPreview = function (url, docType, label, equipoId, uploadUrl, skip
                 if (loader) loader.style.display = 'none';
             }, 200);
         }
-        if (iframe) {
-            iframe.style.opacity = '1';
-            // Enfoca lo que ya se estaba viendo borroso. La transicion de 0.5s
-            // del CSS es la que da la sensacion de "termino de llegar".
-            iframe.style.filter = PDF_SIN_BLUR;
-        }
+        if (!iframe) return;
+        iframe.style.opacity = '1';
+
+        // Enfoca lo que ya se estaba viendo borroso, pero NO antes de que el
+        // desenfoque haya estado en pantalla PDF_BLUR_MIN_MS (ver alli el motivo):
+        // con el PDF en cache el onload llega dentro del mismo tick en que se puso
+        // el blur y la transicion no llegaba a existir.
+        const falta = PDF_BLUR_MIN_MS - (performance.now() - _pdfBlurDesde);
+        const enfocar = () => { iframe.style.filter = PDF_SIN_BLUR; };
+        if (falta > 0) setTimeout(enfocar, falta);
+        else enfocar();
     };
 
     // Set source and setup load listener
@@ -591,6 +613,17 @@ window.openPdfPreview = function (url, docType, label, equipoId, uploadUrl, skip
             // formandose en vez de sobre un gris vacio.
             iframe.style.filter = PDF_BLUR_CARGA;
             iframe.style.opacity = '1';
+
+            // Leer offsetHeight fuerza al navegador a calcular el estilo AHORA, con el
+            // desenfoque puesto, antes de que el src arranque la carga. Es lo que separa
+            // el estado borroso del enfocado en dos pintados distintos; sin esto, con el
+            // PDF en cache los dos valores caen en el mismo y no hay nada que interpolar.
+            // El valor no se usa: se lee por el efecto, y por eso lleva void delante (si
+            // no, un minificador puede tirar la linea por parecer inutil).
+            void iframe.offsetHeight;
+
+            // Desde aqui se cuenta PDF_BLUR_MIN_MS.
+            _pdfBlurDesde = performance.now();
             iframe.src = url + PDF_PARAMS_LECTURA;
         } else {
             const fallback = document.getElementById('pdfMobileFallback');
