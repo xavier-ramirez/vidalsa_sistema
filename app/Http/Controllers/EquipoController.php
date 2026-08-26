@@ -2946,6 +2946,9 @@ class EquipoController extends Controller
         }
     }
 
+    /** Como se llama una correccion anexa en pantalla. Un solo sitio. */
+    private const ROTULO_ANEXO = 'Anexo de corrección';
+
     /**
      * Correcciones anexas del equipo, agrupadas por tipo de documento.
      *
@@ -2969,6 +2972,18 @@ class EquipoController extends Controller
             $linkPpal = $columna ? ($doc->$columna ?? null) : null;
             $porTipo[$anexo->TIPO_DOC][] = $this->anexoAArray($anexo, $linkPpal);
         }
+
+        // Rotulo por POSICION, no el guardado: se numera solo si hay mas de uno, y
+        // asi la cuenta siempre cuadra con lo que se ve aunque se hayan borrado
+        // correcciones por el camino.
+        foreach ($porTipo as &$lista) {
+            $varias = count($lista) > 1;
+            foreach ($lista as $i => &$item) {
+                $item['etiqueta'] = self::ROTULO_ANEXO . ($varias ? ' ' . ($i + 1) : '');
+            }
+            unset($item);
+        }
+        unset($lista);
 
         return response()->json(['success' => true, 'anexos' => $porTipo]);
     }
@@ -3042,7 +3057,12 @@ class EquipoController extends Controller
             'id'       => $anexo->ID_ANEXO,
             'tipo'     => $anexo->TIPO_DOC,
             'link'     => $anexo->LINK,
-            'etiqueta' => $anexo->ETIQUETA ?: 'Corrección',
+            // El rotulo visible NO sale de la columna ETIQUETA: alli se guarda el
+            // numero que tenia al subirse, y borrar una correccion dejaba a la
+            // siguiente diciendo "Corrección 2" sin que existiera ninguna 1.
+            // anexosDoc() lo renumera por posicion; este es el valor por defecto
+            // para cuando se devuelve un anexo suelto (recien subido).
+            'etiqueta' => self::ROTULO_ANEXO,
             'autor'    => str_contains($autorStr, '@') ? explode('@', $autorStr)[0] : $autorStr,
             'fecha'    => $anexo->created_at ? $anexo->created_at->format('d/m/y') : '',
             // Sin documento principal no hay nada que corregir: la correccion

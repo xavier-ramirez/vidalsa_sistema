@@ -788,7 +788,9 @@
     <!-- PDF Preview Modal -->
     <div id="pdfPreviewModal" class="modal-overlay modal-overlay-front">
         <div class="modal-content"
-            style="width: 95%; height: 95vh; max-width: none; padding: 0; display: flex; flex-direction: column; background: #282828;">
+            {{-- Ocupa la pantalla entera: el hueco util es lo que decide de que tamaño se ve
+                 el documento, y el 95% dejaba un marco que no aportaba nada. --}}
+            style="width: 100%; height: 100vh; max-width: none; padding: 0; display: flex; flex-direction: column; background: #282828;">
             <!-- Header (Optimized - Lightweight) -->
             <div
                 style="background: #282828; padding: 10px 15px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #282828;">
@@ -993,7 +995,7 @@
                 <div id="pdfComparaPanel"
                     style="display:none; flex:1; position:relative; border-left:3px solid #282828; min-width:0; overflow:hidden;">
                     <div id="pdfComparaEtiquetaDer" style="display:flex; position:absolute; top:0; left:0; right:0; z-index:40; background:rgba(40,40,40,0.94); align-items:center; gap:8px; padding:4px 6px 4px 10px;">
-                        <span id="pdfComparaTituloDer" style="flex:1; min-width:0; color:#93c5fd; font-size:11px; font-weight:700; letter-spacing:.4px; text-transform:uppercase; text-align:center; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Corrección</span>
+                        <span id="pdfComparaTituloDer" style="flex:1; min-width:0; color:#93c5fd; font-size:11px; font-weight:700; letter-spacing:.4px; text-transform:uppercase; text-align:center; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Anexo de corrección</span>
                         {{-- Alejar / acercar este lado (ver el par gemelo del lado izquierdo). --}}
                         <button type="button" class="pdf-visor-btn" id="pdfZoomMenosDer"
                             onclick="window.pdfComparaZoom('der', -1)" title="Alejar este documento">

@@ -962,7 +962,7 @@ window._pdfComparaMostrar = function (anexo) {
     const rotDer = document.getElementById('pdfComparaTituloDer');
     if (!panel || !frame || !anexo) return;
 
-    if (rotDer) rotDer.textContent = anexo.etiqueta || 'Corrección';
+    if (rotDer) rotDer.textContent = anexo.etiqueta || 'Anexo de corrección';
     frame.src = anexo.link + PDF_PARAMS_COMPARA;
     _pdfComparaMarcarChips(anexo.link);
 
@@ -1752,7 +1752,7 @@ window.deletePdfFromPreview = async function (cual) {
         correccion = window._pdfCorreccionAbierta ? window._pdfCorreccionAbierta() : null;
     }
     if (correccion) {
-        if (!window.confirm('¿Eliminar la corrección "' + (correccion.etiqueta || 'Corrección') +
+        if (!window.confirm('¿Eliminar el anexo "' + (correccion.etiqueta || 'Anexo de corrección') +
             '"?\n\nEl documento principal NO se toca. Esta acción no se puede deshacer.')) return;
 
         const btnC = document.getElementById('pdfDeleteBtn');
@@ -1772,7 +1772,16 @@ window.deletePdfFromPreview = async function (cual) {
                 const principal = window._pdfAnexoCtx ? window._pdfAnexoCtx.principal : null;
                 if (principal) {
                     window._pdfAnexoCtx = null;   // que _pdfPintarAnexos lo rearme desde cero
-                    window.openPdfPreview(principal, ctx.docType, ctx.label, ctx.equipoId, null, true, 'equipo');
+                    // Se vacia el visor y se vuelve a entrar EN OTRO TICK. Si no, las dos
+                    // asignaciones de src caen en la misma tarea y el navegador se queda
+                    // solo con la ultima: cuando el documento que toca abrir es el que ya
+                    // estaba puesto, no hay navegacion de verdad y el visor puede quedarse
+                    // sin repintar (en negro) hasta que se cierra y se abre a mano.
+                    const frameIzq = document.getElementById('pdfPreviewFrame');
+                    if (frameIzq) frameIzq.src = 'about:blank';
+                    setTimeout(function () {
+                        window.openPdfPreview(principal, ctx.docType, ctx.label, ctx.equipoId, null, true, 'equipo');
+                    }, 0);
                 } else {
                     window.closePdfPreview();
                 }
