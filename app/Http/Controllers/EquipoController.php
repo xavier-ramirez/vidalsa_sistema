@@ -3029,7 +3029,17 @@ class EquipoController extends Controller
         }
 
         $tipo = $anexo->TIPO_DOC;
+        $etiqueta = $anexo->ETIQUETA;
         $anexo->delete();
+
+        // Queda rastro, como en el resto del modulo. Sin esto, borrar correcciones era la
+        // unica operacion sobre documentos que no dejaba huella: al revisar el historial
+        // parecia que se las hubiera llevado el borrado del documento principal.
+        \App\Models\EquipoAuditLog::registrar(
+            $equipo->ID_EQUIPO,
+            'delete_anexo_' . $tipo,
+            ['anexo' => $anexoId, 'etiqueta' => $etiqueta]
+        );
 
         return response()->json([
             'success'  => true,
@@ -3231,6 +3241,28 @@ class EquipoController extends Controller
 
         if (!$doc) {
             return response()->json(['success' => false, 'message' => 'No existe documentación para este equipo.'], 404);
+        }
+
+        // NO se borra un documento que tenga correcciones anexas colgando.
+        //
+        // Borrarlo no las borra —esta consulta y el borrado de abajo no las tocan— pero las
+        // deja INALCANZABLES: el visor se abre desde el enlace del documento, y sin
+        // documento no hay enlace por el que entrar. Desde fuera se ve como si se hubieran
+        // borrado las dos, que es justo lo que reporto el usuario.
+        //
+        // Cada correccion tiene su propio boton de borrar en el visor: primero se quitan
+        // esas y despues el documento. Asi cada boton se lleva SOLO lo suyo.
+        $conCorrecciones = \App\Models\DocumentoAnexo::where('ID_EQUIPO', $equipo->ID_EQUIPO)
+            ->where('TIPO_DOC', $request->doc_type)
+            ->count();
+
+        if ($conCorrecciones > 0) {
+            return response()->json([
+                'success' => false,
+                'message' => $conCorrecciones === 1
+                    ? 'Este documento tiene 1 corrección anexa. Elimínala primero (con su propio botón, en su panel) y después el documento.'
+                    : "Este documento tiene {$conCorrecciones} correcciones anexas. Elimínalas primero (cada una con su propio botón, en su panel) y después el documento.",
+            ], 409);
         }
 
         $type = $request->input('doc_type');

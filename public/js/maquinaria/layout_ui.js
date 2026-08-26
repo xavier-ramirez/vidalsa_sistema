@@ -1969,6 +1969,20 @@ window.deletePdfFromPreview = async function (cual) {
         }
         return;
     }
+    // Borrando el PRINCIPAL: si tiene correcciones, no. Borrarlo las dejaria sin forma de
+    // abrirse —el visor entra por el enlace del documento— y desde fuera pareceria que se
+    // borraron las dos. El servidor lo rechaza igual (409); esto ahorra el viaje y explica.
+    const _listaCorr = (((window._anexosPorEquipo || {})[ctx.equipoId]) || {})[ctx.docType] || [];
+    if (_listaCorr.length) {
+        window.toast(
+            _listaCorr.length === 1
+                ? 'Este documento tiene 1 corrección anexa. Elimínala primero con su propio botón.'
+                : 'Este documento tiene ' + _listaCorr.length + ' correcciones anexas. Elimínalas primero, cada una con su propio botón.',
+            'error'
+        );
+        return;
+    }
+
     if (ctx.module === 'auxiliar') {
         if (!window.confirm('¿Eliminar este documento?\n\nEsta acción NO se puede deshacer.')) return;
         const btnAux = document.getElementById('pdfDeleteBtn');
