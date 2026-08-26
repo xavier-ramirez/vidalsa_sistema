@@ -474,6 +474,42 @@ window.printPdfFromPreview = function () {
 };
 
 /**
+ * ¿Este documento se va a enseñar PARTIDO (original a la izquierda, correccion a la
+ * derecha)? UN solo sitio lo decide, y lo consultan los dos que lo necesitan:
+ *
+ *   · la APERTURA, para pedirle al visor los parametros buenos DE ENTRADA. Antes abria
+ *     siempre con los de lectura y la comparacion se los cambiaba un microtask despues:
+ *     esa segunda asignacion caia encima de una carga a medias y le cortaba la descarga
+ *     al PDF, que es lo que dejaba el panel izquierdo en negro.
+ *   · el PINTADO, que es quien enciende la vista partida.
+ *
+ * Mira la lista que hay EN MEMORIA. Si todavia no se ha pedido al servidor, la apertura
+ * abre en modo lectura y la comparacion tendra que renavegar — para eso esta el
+ * reinicio limpio de _pdfComparaEncender.
+ */
+const _pdfAbrePartido = function (url, docType, equipoId, module) {
+    // OJO: aqui NO se mira window._pdfComparando. Esta funcion responde "¿este documento
+    // merece la vista partida?", no "¿hay que encenderla ahora?". Al reabrir el visor, la
+    // comparacion de la sesion anterior sigue marcada como encendida cuando se elige el
+    // src (se apaga unas lineas mas abajo, en el bloque de anexos), y mirarla aqui hacia
+    // que la apertura pidiera los parametros de lectura para un documento que iba a
+    // acabar partido. Quien no debe re-encender lo que ya esta encendido es el pintado,
+    // y ese lo comprueba por su cuenta.
+    if (typeof window._pdfAdmiteAnexos !== 'function') return false;
+    if (!window._pdfAdmiteAnexos(module || 'equipo', equipoId, docType)) return false;
+    if (window.innerWidth < PDF_COMPARA_ANCHO_MIN) return false;
+
+    const lista = (((window._anexosPorEquipo || {})[equipoId]) || {})[docType] || [];
+    if (!lista.length) return false;
+
+    // Solo si lo que se abre es el ORIGINAL: entrando por una correccion no se le
+    // reordena la pantalla a nadie.
+    const previo = window._pdfAnexoCtx;
+    const mismo  = previo && String(previo.equipoId) === String(equipoId) && previo.tipo === docType;
+    return url === (mismo ? previo.principal : url);
+};
+
+/**
  * Vacia el visor izquierdo y ejecuta `despues` en el TICK SIGUIENTE.
  *
  * Existe porque dos asignaciones de src en la misma tarea se colapsan en una sola
@@ -765,7 +801,12 @@ window.openPdfPreview = function (url, docType, label, equipoId, uploadUrl, skip
             // desenfoque llega a verse o el documento sale nitido de una
             // (ver PDF_CARGA_LENTA_MS).
             _pdfCargaDesde = performance.now();
-            iframe.src = url + PDF_PARAMS_LECTURA;
+            // Con los parametros que le tocan ya de entrada: si este documento se va a
+            // enseñar partido, se pide encajado (view=Fit) y no al 100%, para que la
+            // comparacion no tenga que renavegar encima de la carga.
+            iframe.src = url + (_pdfAbrePartido(url, docType, equipoId, module)
+                ? PDF_PARAMS_COMPARA
+                : PDF_PARAMS_LECTURA);
         } else {
             const fallback = document.getElementById('pdfMobileFallback');
             if (fallback) fallback.style.display = 'none';
@@ -1062,7 +1103,14 @@ window._pdfComparaEncender = function (anexo) {
     // balde cada vez que se repinte la barra.
     const izq = document.getElementById('pdfPreviewFrame');
     const destinoIzq = ctx.principal + PDF_PARAMS_COMPARA;
-    if (izq && izq.getAttribute('src') !== destinoIzq) izq.src = destinoIzq;
+    if (izq && izq.getAttribute('src') !== destinoIzq) {
+        // Reinicio limpio y no un src a secas: lo que suele cambiar es SOLO el fragmento
+        // (#zoom=100 → #view=Fit), que no recarga el visor, y ademas el documento puede
+        // estar aun descargandose — asignarle otro src ahi le corta la carga y el panel
+        // se queda en negro. Con el openPdfPreview de arriba eligiendo bien los
+        // parametros, este camino ya casi no se pisa.
+        _pdfReiniciarVisorIzq(function () { izq.src = destinoIzq; });
+    }
 
     window._pdfComparaMostrar(anexo);
     // La comparacion arranca con los DOS lados a tamaño natural.
@@ -1407,8 +1455,7 @@ window._pdfPintarAnexos = function (url, docType, equipoId, label) {
     //
     // La correccion elegida es la que se estaba viendo si venimos de ella, y si no, la
     // primera de la lista.
-    if (!window._pdfComparando && lista.length && url === principal
-        && window.innerWidth >= PDF_COMPARA_ANCHO_MIN) {
+    if (!window._pdfComparando && _pdfAbrePartido(url, docType, equipoId, 'equipo')) {
         const previaAbierta = (mismo && previo && previo.activo !== previo.principal)
             ? lista.find(a => a.link === previo.activo)
             : null;
@@ -1830,9 +1877,16 @@ window.deletePdfFromPreview = async function (cual) {
             const d = await r.json().catch(() => ({}));
             if (r.ok && d.success) {
                 window.toast(d.message || 'Corrección eliminada.', 'success');
-                // El mapa en memoria manda sobre lo que pinta la barra: se limpia para
-                // que la siguiente carga lo pida de nuevo, y se vuelve al principal.
-                delete window._anexosPorEquipo[ctx.equipoId];
+                // Del mapa en memoria se quita SOLO la correccion borrada, en vez de
+                // tirar la entrada entera. Asi la reapertura sabe —sin esperar al
+                // servidor— si todavia quedan correcciones, y puede pedirle al visor los
+                // parametros de la vista partida de entrada (ver _pdfAbrePartido). Con el
+                // mapa vacio abria en modo lectura y la comparacion llegaba despues a
+                // renavegar encima de la carga, que es lo que dejaba el original en negro.
+                const mapaEq = window._anexosPorEquipo[ctx.equipoId];
+                if (mapaEq && Array.isArray(mapaEq[ctx.docType])) {
+                    mapaEq[ctx.docType] = mapaEq[ctx.docType].filter(a => String(a.id) !== String(correccion.id));
+                }
                 const principal = window._pdfAnexoCtx ? window._pdfAnexoCtx.principal : null;
                 if (principal) {
                     window._pdfAnexoCtx = null;   // que _pdfPintarAnexos lo rearme desde cero
