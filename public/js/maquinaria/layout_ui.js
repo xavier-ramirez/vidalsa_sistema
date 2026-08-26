@@ -510,23 +510,32 @@ const _pdfAbrePartido = function (url, docType, equipoId, module) {
 };
 
 /**
- * Vacia el visor izquierdo y ejecuta `despues` en el TICK SIGUIENTE.
+ * Cambia el documento del visor izquierdo ESTRENANDO el <iframe>.
  *
- * Existe porque dos asignaciones de src en la misma tarea se colapsan en una sola
- * navegacion, y entonces el visor nativo puede no reiniciarse: si el destino es el
- * documento que ya estaba puesto se queda sin repintar (en negro), y si solo cambia el
- * fragmento —de #zoom=100 a #view=Fit, por ejemplo— no aplica los parametros nuevos ni
- * dispara onload. Dejando que el about:blank se complete, lo que venga despues es una
- * navegacion de verdad.
+ * Cambiarle el src al de siempre no basta. El visor nativo de PDF no se reinicia de
+ * forma fiable cuando el destino es el documento que ya tenia, cuando solo cambia el
+ * fragmento (#zoom=100 → #view=Fit) o cuando se le encadena un about:blank: el evento
+ * load llega igual, pero el panel se queda EN NEGRO. Es lo que pasaba al anexar y al
+ * borrar una correccion — cerrar y volver a abrir el visor lo arreglaba justo porque
+ * eso si creaba un elemento nuevo.
  *
- * Solo para volver a un documento QUE YA ESTABA EN PANTALLA: al estar en la cache del
- * navegador, repintarlo es inmediato. Para abrir uno nuevo no hace falta —el propio
- * cambio de URL ya es navegacion— y pasar por about:blank solo añadiria un parpadeo.
+ * Un nodo nuevo estrena plugin: una sola navegacion y pinta seguro.
+ *
+ * Se clona sin hijos para conservar id, clases y estilos —la opacidad y el filtro del
+ * revelado viven en el atributo style—, y el onload lo vuelve a poner la proxima
+ * apertura, que resuelve el iframe por id y no guarda referencias.
+ *
+ * Devuelve el elemento nuevo.
  */
-const _pdfReiniciarVisorIzq = function (despues) {
-    const frame = document.getElementById('pdfPreviewFrame');
-    if (frame) frame.src = 'about:blank';
-    setTimeout(despues, 0);
+const _pdfRenovarVisorIzq = function (destino) {
+    const viejo = document.getElementById('pdfPreviewFrame');
+    if (!viejo || !viejo.parentNode) return null;
+
+    const nuevo = viejo.cloneNode(false);
+    nuevo.removeAttribute('src');
+    viejo.parentNode.replaceChild(nuevo, viejo);
+    if (destino) nuevo.src = destino;
+    return nuevo;
 };
 
 // Temporizador de respaldo del visor (uno SOLO para toda la pantalla, no uno por
@@ -584,7 +593,7 @@ let _pdfCargaDesde = 0;
 
 window.openPdfPreview = function (url, docType, label, equipoId, uploadUrl, skipMetadata, module) {
     const modal = document.getElementById('pdfPreviewModal');
-    const iframe = document.getElementById('pdfPreviewFrame');
+    let iframe = document.getElementById('pdfPreviewFrame');
     const title = document.getElementById('pdfPreviewTitle');
     const downloadBtn = document.getElementById('pdfDownloadBtn');
     const updateInput = document.getElementById('pdfUpdateInput');
@@ -612,15 +621,16 @@ window.openPdfPreview = function (url, docType, label, equipoId, uploadUrl, skip
     }
 
     if (iframe) {
+        // ELEMENTO NUEVO, no el de antes. Reciclar el iframe obligaba a encadenarle un
+        // about:blank y despues el documento, y el visor nativo no siempre se reinicia
+        // con eso: cuando el destino era el documento que ya tenia puesto se quedaba en
+        // negro aunque el load llegara (ver _pdfRenovarVisorIzq). Estrenandolo, la
+        // primera navegacion del elemento es ya la buena.
+        iframe = _pdfRenovarVisorIzq(null) || iframe;
         iframe.style.opacity = '0';
-        // Sin resetear, la apertura SIGUIENTE arrancaria ya enfocada y se perderia
-        // el efecto a partir del segundo documento.
+        // Sin resetear, la apertura SIGUIENTE arrancaria ya enfocada y se perderia el
+        // revelado progresivo.
         iframe.style.filter = PDF_BLUR_CARGA;
-        // 'about:blank' explícito y NO '': la cadena vacía se resuelve contra la
-        // URL del documento actual, así que el iframe se ponía a cargar la página
-        // entera (/admin/equipos y sus ~1.200 filas) hasta que el src del PDF la
-        // reemplazaba. Trabajo tirado justo en el instante que se quiere rápido.
-        iframe.src = 'about:blank';
     }
 
     const fallbackNode = document.getElementById('pdfMobileFallback');
@@ -739,13 +749,11 @@ window.openPdfPreview = function (url, docType, label, equipoId, uploadUrl, skip
     // Set source and setup load listener
     if (iframe) {
         iframe.onload = function () {
-            // FILTRO ANTI-SPURIOUS: el iframe.src = 'about:blank' de más
-            // arriba dispara un evento load asincrono ANTES de que cargue
-            // el PDF real. Sin este filtro, el handler
-            // se ejecuta para about:blank y oculta el spinner antes
-            // de que el PDF empiece siquiera a cargar — el bug que
-            // mostraba "modal abierto + sin spinner + gris + PDF
-            // tarde". Ignoramos cualquier load que no sea del PDF.
+            // FILTRO ANTI-SPURIOUS: un load de about:blank NO es el del documento.
+            // La apertura ya no encadena about:blank —estrena el iframe—, pero siguen
+            // llegando por otras vias: el cierre del visor lo vacia, y tambien la rama
+            // de "documento sin URL". Sin este filtro el handler se ejecutaria ahi y
+            // apagaria el spinner antes de que el PDF empezara siquiera a cargar.
             const src = this.src || '';
             if (!src || src === 'about:blank' || src.indexOf('about:blank') !== -1) {
                 return;
@@ -1104,12 +1112,11 @@ window._pdfComparaEncender = function (anexo) {
     const izq = document.getElementById('pdfPreviewFrame');
     const destinoIzq = ctx.principal + PDF_PARAMS_COMPARA;
     if (izq && izq.getAttribute('src') !== destinoIzq) {
-        // Reinicio limpio y no un src a secas: lo que suele cambiar es SOLO el fragmento
-        // (#zoom=100 → #view=Fit), que no recarga el visor, y ademas el documento puede
-        // estar aun descargandose — asignarle otro src ahi le corta la carga y el panel
-        // se queda en negro. Con el openPdfPreview de arriba eligiendo bien los
-        // parametros, este camino ya casi no se pisa.
-        _pdfReiniciarVisorIzq(function () { izq.src = destinoIzq; });
+        // Elemento nuevo y no un src a secas: lo que suele cambiar es SOLO el fragmento
+        // (#zoom=100 → #view=Fit), y eso no reinicia el visor — se quedaria en negro.
+        // Con openPdfPreview eligiendo bien los parametros de entrada, aqui se llega
+        // sobre todo al anexar, que no reabre el visor.
+        _pdfRenovarVisorIzq(destinoIzq);
     }
 
     window._pdfComparaMostrar(anexo);
@@ -1607,19 +1614,16 @@ window._pdfAnexarInit = function () {
                 // sitio. Lo unico que cambio son las correcciones, asi que se repintan y
                 // la vista partida se enciende sola.
                 //
-                // Reabrir era lo que dejaba el ORIGINAL EN NEGRO: openPdfPreview le mete
-                // al iframe izquierdo un about:blank y el documento con los parametros de
-                // lectura, y acto seguido la comparacion se lo cambia por los de comparar
-                // — tres navegaciones encadenadas sobre un PDF que tarda un segundo o dos
-                // en llegar. Asi solo hay UNA, la de la comparacion.
+                // Reabrir mandaba al iframe izquierdo dos navegaciones seguidas —el
+                // documento con los parametros de lectura y, un microtask despues, los de
+                // comparar— sobre un PDF que tarda un segundo o dos en llegar. Asi solo
+                // hay UNA: la que hace la comparacion al estrenar el iframe.
                 //
                 // 'activo' apunta a la recien subida para que la comparacion la elija a
                 // ella y no a la primera de la lista (mismo mecanismo que usa volver de
                 // una pestaña).
                 if (window._pdfAnexoCtx) window._pdfAnexoCtx.activo = d.anexo.link;
-                _pdfReiniciarVisorIzq(function () {
-                    window._pdfPintarAnexos(ctx.principal, ctx.tipo, ctx.equipoId, ctx.label);
-                });
+                window._pdfPintarAnexos(ctx.principal, ctx.tipo, ctx.equipoId, ctx.label);
                 if (typeof window._pintarBadgesAnexos === 'function') window._pintarBadgesAnexos(ctx.equipoId);
                 _avisoAnexo(d.message || 'Corrección anexada correctamente', 'success');
             });
@@ -1890,12 +1894,9 @@ window.deletePdfFromPreview = async function (cual) {
                 const principal = window._pdfAnexoCtx ? window._pdfAnexoCtx.principal : null;
                 if (principal) {
                     window._pdfAnexoCtx = null;   // que _pdfPintarAnexos lo rearme desde cero
-                    // Se vacia el visor y se vuelve a entrar en el tick siguiente: el
-                    // documento que toca abrir puede ser el que ya estaba puesto, y sin eso
-                    // no habria navegacion de verdad (ver _pdfReiniciarVisorIzq).
-                    _pdfReiniciarVisorIzq(function () {
-                        window.openPdfPreview(principal, ctx.docType, ctx.label, ctx.equipoId, null, true, 'equipo');
-                    });
+                    // Sin rodeos: openPdfPreview estrena el iframe, asi que reabrir el
+                    // mismo documento que ya estaba puesto vuelve a pintarlo igual.
+                    window.openPdfPreview(principal, ctx.docType, ctx.label, ctx.equipoId, null, true, 'equipo');
                 } else {
                     window.closePdfPreview();
                 }
