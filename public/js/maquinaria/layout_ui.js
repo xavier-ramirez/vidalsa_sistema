@@ -939,6 +939,34 @@ window._pdfComparaAnexoDer = null;
 
 window._pdfComparando = false;
 
+/**
+ * Decide si la barra de pestañas se ve. UN SOLO SITIO: lo llaman el pintado, el
+ * encendido y el apagado de la comparacion, y el desmontaje.
+ *
+ * Hace falta cuando hay algo que ELEGIR:
+ *   · sin correcciones no hay nada que elegir;
+ *   · comparando con UNA correccion tampoco: los dos documentos ya estan en pantalla
+ *     y cada hoja lleva su rotulo, asi que la barra repetiria los mismos dos nombres;
+ *   · comparando con DOS O MAS si: es la unica forma de mandar otra correccion al
+ *     panel derecho, y de pulsar "Original" para volver a ver un solo documento.
+ *     Escondiendola siempre, la segunda correccion no se podia abrir de ninguna
+ *     manera y tampoco habia salida de la vista partida.
+ *
+ * Se mira la LISTA y no las pestañas pintadas: al cambiar de documento las de antes
+ * siguen en el DOM hasta que llega la respuesta del servidor, y contarlas hacia
+ * asomar por un momento las pestañas del documento anterior.
+ */
+window._pdfSincronizarBarraPestanas = function () {
+    const barra = document.getElementById('pdfAnexosBar');
+    if (!barra) return;
+    const ctx   = window._pdfAnexoCtx;
+    const lista = ctx
+        ? ((((window._anexosPorEquipo || {})[ctx.equipoId]) || {})[ctx.tipo] || [])
+        : [];
+    const haceFalta = lista.length > 0 && (!window._pdfComparando || lista.length > 1);
+    barra.style.display = haceFalta ? 'flex' : 'none';
+};
+
 /** Resalta en las pestañas cuál se está viendo a cada lado. */
 const _pdfComparaMarcarChips = function (linkDerecha) {
     const ctx = window._pdfAnexoCtx;
@@ -988,16 +1016,11 @@ window._pdfComparaEncender = function (anexo) {
     panel.style.display = 'block';
     if (rotIzq) rotIzq.style.display = 'flex';
 
-    // Comparando, las PESTAÑAS sobran: cada hoja ya lleva su rotulo encima
-    // (pdfComparaEtiquetaIzq "Original" a la izquierda y pdfComparaTituloDer con la
-    // correccion a la derecha), asi que la barra de arriba repetia los mismos dos nombres.
-    //
-    // Se esconde la BARRA ENTERA y no solo las pestañas: es su unico contenido —el boton
-    // de anexar se subio a la cabecera hace tiempo—, asi que dejarla puesta solo aportaba
-    // su padding y su borde inferior, o sea una franja gris vacia entre los botones y los
-    // documentos.
-    const barraComp = document.getElementById('pdfAnexosBar');
-    if (barraComp) barraComp.style.display = 'none';
+    // Con UNA correccion las pestañas sobran —cada hoja ya lleva su rotulo encima— y la
+    // barra se esconde entera, porque es su unico contenido y dejarla puesta solo aporta
+    // una franja vacia. Con dos o mas se queda: es la unica forma de elegir cual va a la
+    // derecha. Lo decide _pdfSincronizarBarraPestanas.
+    window._pdfSincronizarBarraPestanas();
 
     // Y el boton de borrar de la CABECERA se esconde: con los dos documentos en pantalla
     // no hay forma de saber a cual se refiere —de hecho borraba el original aunque se
@@ -1242,14 +1265,8 @@ window._pdfComparaApagar = function () {
     if (rotIzq) rotIzq.style.display = 'none';
 
     // Vuelve la barra con sus pestañas: fuera de la comparacion son la unica forma de
-    // saltar de una correccion a otra. Solo si hay alguna —si el documento no tiene
-    // correcciones no hay nada que elegir y la barra vacia volveria a dejar la franja gris.
-    const barraComp = document.getElementById('pdfAnexosBar');
-    const tabsComp  = document.getElementById('pdfAnexosTabs');
-    if (barraComp) {
-        const hayPestanas = !!(tabsComp && tabsComp.children.length);
-        barraComp.style.display = hayPestanas ? 'flex' : 'none';
-    }
+    // saltar de una correccion a otra.
+    window._pdfSincronizarBarraPestanas();
 
     // Y el boton de borrar de la cabecera vuelve SOLO si lo escondio el encendido: si ya
     // estaba oculto porque el documento no es gestionable, se queda como estaba.
@@ -1287,15 +1304,22 @@ if (!window._pdfComparaResizeBound) {
 }
 
 window._pdfOcultarAnexos = function () {
-    const barra = document.getElementById('pdfAnexosBar');
-    if (barra) barra.style.display = 'none';
+    // El contexto y las pestañas se van PRIMERO. Al reves, el apagado de la comparacion
+    // volvia a mostrar la barra con las pestañas del documento ANTERIOR, que seguian en
+    // el DOM: al abrir otro documento asomaban por un momento hasta que llegaba la
+    // respuesta del servidor.
+    window._pdfAnexoCtx = null;
+    const tabs = document.getElementById('pdfAnexosTabs');
+    if (tabs) tabs.innerHTML = '';
+
     // El boton de anexar ya no vive en la barra sino en la cabecera, asi que hay que
     // apagarlo aparte: un PDF generado al vuelo (nota de entrega, reporte) no admite
     // correcciones y ofrecerlo seria prometer un 422.
     const zona = document.getElementById('pdfAnexarZona');
     if (zona) zona.style.display = 'none';
+
     if (window._pdfComparaApagar) window._pdfComparaApagar();
-    window._pdfAnexoCtx = null;
+    window._pdfSincronizarBarraPestanas();
 };
 
 window.cargarAnexosEquipo = function (equipoId, usarCache) {
@@ -1349,16 +1373,14 @@ window._pdfPintarAnexos = function (url, docType, equipoId, label) {
     const zonaAnexar = document.getElementById('pdfAnexarZona');
     if (zonaAnexar) zonaAnexar.style.display = 'flex';
 
-    // La barra es SOLO pestañas: sin correcciones no hay nada que elegir y no se pinta.
-    // Cuando hay alguna, salen "Original" y las correcciones una al lado de la otra, que
-    // es lo unico que dice a simple vista si el documento tiene una version o varias.
-    barra.style.display = lista.length ? 'flex' : 'none';
-
     // ── Se abre YA PARTIDO ──────────────────────────────────────────────────────
     // Un documento con correccion se enseña con los dos PDFs a la vista SIN PULSAR NADA:
     // es la unica forma de entrar a la comparacion, porque el boton que la encendia se
-    // quito — si hay dos documentos, comparar es lo que se quiere hacer con ellos. Para
-    // volver a ver uno solo se pulsa la pestaña "Original".
+    // quito — si hay dos documentos, comparar es lo que se quiere hacer con ellos.
+    //
+    // Para volver a ver uno solo se pulsa la pestaña "Original", que esta a la vista
+    // cuando hay DOS O MAS correcciones (ver _pdfSincronizarBarraPestanas). Con una
+    // sola, la barra sobra y no se pinta: de esa vista se sale cerrando el visor.
     //
     // Solo cuando lo que se muestra es el ORIGINAL —que es como se abre siempre—: si
     // alguien entro directo a una correccion, no se le reordena la pantalla sola.
@@ -1372,6 +1394,7 @@ window._pdfPintarAnexos = function (url, docType, equipoId, label) {
             : null;
         window._pdfComparaEncender(previaAbierta || lista[0]);
     }
+
 
     // Todo lo interpolado va escapado: la etiqueta y el autor los
     // escribe el usuario y acaban dentro de innerHTML y de atributos.
@@ -1441,6 +1464,10 @@ window._pdfPintarAnexos = function (url, docType, equipoId, label) {
     // la correccion que se ve, sin tocar el principal. Estuvo escondido mientras ese
     // boton solo sabia borrar el principal; ahora esconderlo dejaria las correcciones
     // sin forma de deshacerse.
+    // Y con las pestañas ya puestas y la comparacion decidida, la barra: la regla vive
+    // en _pdfSincronizarBarraPestanas y aqui solo se le pregunta.
+    window._pdfSincronizarBarraPestanas();
+
     const viendoAnexo = (url !== principal);
     const btnUpd = document.getElementById('pdfUpdateLabel');
     const btnDel = document.getElementById('pdfDeleteBtn');
@@ -1508,7 +1535,17 @@ window._pdfAnexarInit = function () {
             // Se relee del servidor: es el unico sitio que sabe si el
             // anexo quedo vigente respecto del principal de ahora.
             window.cargarAnexosEquipo(ctx.equipoId).then(() => {
-                window.openPdfPreview(d.anexo.link, ctx.tipo, ctx.label, ctx.equipoId, null, true);
+                // Se vuelve al PRINCIPAL, no a la correccion recien subida. Con una
+                // correccion encima el visor se abre PARTIDO —original a la izquierda,
+                // correccion a la derecha—, y eso solo pasa si lo que se abre es el
+                // principal: abriendo por la correccion se caia en la vista de un solo
+                // documento con la barra de pestañas puesta, que es justo lo que la
+                // vista partida vino a sustituir.
+                // 'activo' se deja apuntando a la recien subida para que la comparacion
+                // la elija a ella y no a la primera de la lista (mismo mecanismo que usa
+                // volver de una pestaña).
+                if (window._pdfAnexoCtx) window._pdfAnexoCtx.activo = d.anexo.link;
+                window.openPdfPreview(ctx.principal, ctx.tipo, ctx.label, ctx.equipoId, null, true, 'equipo');
                 if (typeof window._pintarBadgesAnexos === 'function') window._pintarBadgesAnexos(ctx.equipoId);
                 _avisoAnexo(d.message || 'Corrección anexada correctamente', 'success');
             });
