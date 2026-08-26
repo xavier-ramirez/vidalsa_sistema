@@ -895,8 +895,13 @@
                      align-items/justify-content, que ya no centraban nada. --}}
                 <div id="pdfVisorIzq" style="flex: 1; position: relative; display: flex; min-width: 0; overflow: hidden;">
                     <!-- Loading Indicator (Same as global preloader) -->
+                    {{-- Se centra SOLO (inset:0 + justify-content), sin depender de que el
+                         panel sea flex: cuando el panel dejo de centrar a sus hijos —ya no
+                         le hacia falta, todos son absolutos— este cargador, que es absoluto
+                         pero sin coordenadas, se fue a la esquina de arriba a la izquierda.
+                         pointer-events:none para que no se coma los clics del documento. --}}
                     <div id="pdfViewerLoader"
-                        style="position: absolute; display: flex; flex-direction: column; align-items: center; gap: 15px; z-index: 50;">
+                        style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 15px; z-index: 50; pointer-events: none;">
                         <div class="spinner-circle"></div>
                         <span style="color: white; font-weight: 500; font-size: 14px;">Cargando documento...</span>
                     </div>
@@ -1015,6 +1020,16 @@
                             </button>
                         @endif
                     </div>
+                    {{-- El panel derecho tambien avisa mientras trae su documento. Sin esto
+                         se abria la vista partida con este lado EN NEGRO y el PDF aparecia
+                         solo unos segundos despues, sin nada que dijera que venia en camino
+                         (el cargador de la izquierda ya se habia apagado con el suyo). --}}
+                    <div id="pdfComparaLoader"
+                        style="position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 15px; z-index: 50; pointer-events: none;">
+                        <div class="spinner-circle"></div>
+                        <span style="color: white; font-weight: 500; font-size: 14px;">Cargando documento...</span>
+                    </div>
+
                     {{-- Misma capa de desplazamiento que el lado izquierdo (ver alli). --}}
                     <div class="pdf-zoom-scroll" id="pdfZoomScrollDer">
                         <iframe id="pdfComparaFrame" src=""

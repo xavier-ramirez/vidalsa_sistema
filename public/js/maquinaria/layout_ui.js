@@ -510,6 +510,37 @@ const _pdfAbrePartido = function (url, docType, equipoId, module) {
 };
 
 /**
+ * Enseña el cargador de un panel HASTA que su iframe termine de traer el documento.
+ *
+ * Un solo sitio para los dos lados. Antes solo avisaba el panel izquierdo, y solo desde
+ * openPdfPreview: al encender la vista partida o al volver de anexar, el documento podia
+ * tardar uno o dos segundos y el panel se quedaba negro sin decir nada.
+ *
+ * El respaldo por tiempo no sobra: si el load no llegara —pasa cuando el visor nativo no
+ * se reinicia— el spinner se quedaria dando vueltas para siempre, que es peor que la
+ * espera que viene a explicar.
+ */
+const _pdfCargadorHasta = function (idCargador, frame) {
+    const cargador = document.getElementById(idCargador);
+    if (!cargador || !frame) return;
+
+    cargador.style.opacity = '1';
+    cargador.style.display = 'flex';
+
+    let cerrado = false;
+    const cerrar = function () {
+        if (cerrado) return;
+        cerrado = true;
+        cargador.style.display = 'none';
+    };
+    frame.addEventListener('load', function alCargar() {
+        frame.removeEventListener('load', alCargar);
+        cerrar();
+    });
+    setTimeout(cerrar, PDF_CARGADOR_MAX_MS);
+};
+
+/**
  * Cambia el documento del visor izquierdo ESTRENANDO el <iframe>.
  *
  * Cambiarle el src al de siempre no basta. El visor nativo de PDF no se reinicia de
@@ -543,6 +574,9 @@ const _pdfRenovarVisorIzq = function (destino) {
         // tarde, pero cuando llegue se vera.
         nuevo.style.opacity = '1';
         nuevo.style.filter = PDF_SIN_BLUR;
+        // Y avisa mientras llega: por aqui se pasa al encender la comparacion y al
+        // volver de anexar, donde el documento puede tardar lo suyo.
+        _pdfCargadorHasta('pdfViewerLoader', nuevo);
         nuevo.src = destino;
     }
     // Sin destino lo llama openPdfPreview, que le pone el suyo y monta su propio
@@ -599,6 +633,9 @@ const PDF_PINTADO_MS = 200;
    —o abre otro documento— antes de que salte, ese temporizador caeria encima de la
    apertura SIGUIENTE y le quitaria el desenfoque cuando acababa de ponerselo. */
 let _pdfEnfoqueTimeout = null;
+
+/** Tope del cargador de un panel: pasado esto se apaga aunque no haya llegado el load. */
+const PDF_CARGADOR_MAX_MS = 8000;
 
 /** Momento (performance.now) en que se le puso el src al iframe: mide si tardo o no. */
 let _pdfCargaDesde = 0;
@@ -1072,6 +1109,7 @@ window._pdfComparaMostrar = function (anexo) {
     if (!panel || !frame || !anexo) return;
 
     if (rotDer) rotDer.textContent = anexo.etiqueta || 'Anexo de corrección';
+    _pdfCargadorHasta('pdfComparaLoader', frame);
     frame.src = anexo.link + PDF_PARAMS_COMPARA;
     _pdfComparaMarcarChips(anexo.link);
 
@@ -1352,6 +1390,10 @@ window._pdfComparaApagar = function () {
     const frame = document.getElementById('pdfComparaFrame');
     const rotIzq = document.getElementById('pdfComparaEtiquetaIzq');
     if (panel) panel.style.display = 'none';
+    // El cargador del panel derecho se apaga con el: si se estaba yendo a about:blank
+    // con el documento aun en camino, su load ya no va a apagarlo.
+    const cargDer = document.getElementById('pdfComparaLoader');
+    if (cargDer) cargDer.style.display = 'none';
     if (frame) frame.src = 'about:blank';
     if (rotIzq) rotIzq.style.display = 'none';
 
