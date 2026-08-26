@@ -34,6 +34,11 @@ if (!window._pintarBadgesAnexos) {
         document.querySelectorAll('#detailsModal .pdf-btn-container[data-doc-tipo]').forEach(cont => {
             const previo = cont.querySelector('.anexo-badge');
             if (previo) previo.remove();
+            // Misma regla que el visor (_pdfAdmiteAnexos, punto unico): si un tipo ya
+            // no ofrece correcciones, tampoco puede anunciar un contador que al abrir
+            // el documento no lleva a ninguna parte.
+            if (typeof window._pdfAdmiteAnexos === 'function'
+                && !window._pdfAdmiteAnexos('equipo', equipoId, cont.dataset.docTipo)) return;
             const n = (mapa[cont.dataset.docTipo] || []).length;
             if (!n) return;
             const b = document.createElement('span');

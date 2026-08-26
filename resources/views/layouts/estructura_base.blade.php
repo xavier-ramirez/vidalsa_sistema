@@ -788,10 +788,10 @@
     <!-- PDF Preview Modal -->
     <div id="pdfPreviewModal" class="modal-overlay modal-overlay-front">
         <div class="modal-content"
-            style="width: 95%; height: 95vh; max-width: none; padding: 0; display: flex; flex-direction: column; background: #2d3748;">
+            style="width: 95%; height: 95vh; max-width: none; padding: 0; display: flex; flex-direction: column; background: #282828;">
             <!-- Header (Optimized - Lightweight) -->
             <div
-                style="background: #2d3748; padding: 10px 15px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #4a5568;">
+                style="background: #282828; padding: 10px 15px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #282828;">
                 <h3 id="pdfPreviewTitle" style="margin: 0; color: white; font-size: 14px; font-weight: 600;">Documento
                 </h3>
 
@@ -820,11 +820,11 @@
                          pestaña lo pone el backend numerando las correcciones. --}}
                     <div id="pdfAnexarZona" style="display:none; align-items:center; gap:6px; flex-shrink:0;">
                         <button type="button" id="pdfAnexarBtn"
-                            style="background:transparent; color:#93c5fd; border:1px dashed #3b82f6; padding:4px 10px; font-size:12px; font-weight:600; display:flex; align-items:center; gap:5px; border-radius:6px; cursor:pointer; transition:background .15s;"
+                            style="background:transparent; color:#93c5fd; border:1px dashed #3b82f6; padding:5px 11px; font-size:12px; display:flex; align-items:center; gap:5px; border-radius:4px; cursor:pointer; transition:background .15s;"
                             onmouseover="this.style.background='rgba(59,130,246,0.12)'"
                             onmouseout="this.style.background='transparent'"
                             title="Anexar una corrección: se guarda junto al documento, sin reemplazarlo">
-                            <i class="material-icons" style="font-size:15px;">attach_file</i><span class="btn-label">Anexar corrección</span>
+                            <i class="material-icons" style="font-size:16px;">attach_file</i><span class="btn-label">Anexar corrección</span>
                         </button>
                         <input type="file" id="pdfAnexarInput" accept="application/pdf" style="display:none;">
                     </div>
@@ -874,7 +874,7 @@
                  que sin correcciones esta barra no se pinta y el visor se ve igual que
                  siempre. --}}
             <div id="pdfAnexosBar"
-                style="display:none; background:#1f2937; border-bottom:1px solid #374151; padding:6px 12px; align-items:center; gap:8px; overflow-x:auto;">
+                style="display:none; background:#282828; border-bottom:1px solid #282828; padding:6px 12px; align-items:center; gap:8px; overflow-x:auto;">
                 <div id="pdfAnexosTabs" style="display:flex; align-items:center; gap:6px; flex:1; min-width:0;"></div>
                 {{-- 'user.edit' A SECAS, que es LO MISMO que exige anexarDoc en el servidor.
                      No se listan 'equipos.edit' ni 'super.admin': el primero es un permiso
@@ -885,9 +885,13 @@
             </div>
 
             <!-- Viewer Container -->
-            <div style="flex: 1; background: #4a5568; position: relative; display: flex; overflow: hidden;">
+            <div style="flex: 1; background: #282828; position: relative; display: flex; overflow: hidden;">
 
-                <div id="pdfVisorIzq" style="flex: 1; position: relative; display: flex; align-items: center; justify-content: center; min-width: 0;">
+                {{-- Todo lo que va dentro es absoluto (la capa del documento, el cargador, la
+                     barra de subida, el rotulo y la vista movil), asi que este panel solo
+                     tiene que dar el hueco y el marco de referencia: se le quitaron el
+                     align-items/justify-content, que ya no centraban nada. --}}
+                <div id="pdfVisorIzq" style="flex: 1; position: relative; display: flex; min-width: 0; overflow: hidden;">
                     <!-- Loading Indicator (Same as global preloader) -->
                     <div id="pdfViewerLoader"
                         style="position: absolute; display: flex; flex-direction: column; align-items: center; gap: 15px; z-index: 50;">
@@ -913,30 +917,44 @@
                         </div>
                     </div>
 
-                    <iframe id="pdfPreviewFrame" src=""
-                        {{-- filter 0.3s (era 0.5s): es lo que tarda el documento en pasar de
-                             borroso a legible, y ese tiempo se paga en CADA apertura. Con
-                             0.3 el revelado se sigue viendo y se recuperan 200 ms. Va de la
-                             mano de PDF_PINTADO_MS en layout_ui.js —el margen previo— asi que
-                             si se toca uno hay que mirar el otro: entre los dos sale el
-                             "cuanto tardo en poder leer el PDF". --}}
-                        style="width: 100%; height: 100%; border: none; opacity: 0; transition: opacity 0.25s, filter 0.3s ease-out; position: relative; z-index: 20;"
-                        allowfullscreen></iframe>
+                    {{-- Capa con barras de desplazamiento + lienzo del zoom.
+                         Al acercar, el iframe se escala con transform (que NO ocupa sitio) y
+                         es el lienzo el que crece, dandole a esta capa algo que desplazar:
+                         sin el, lo que se sale del panel quedaba recortado y sin forma de
+                         llegar hasta ello. Va POR DENTRO del panel, en vez de ser el panel
+                         mismo, para que el rotulo, el cargador y la barra de subida
+                         —absolutos sobre el panel— se queden quietos mientras el documento
+                         se desplaza. --}}
+                    <div class="pdf-zoom-scroll" id="pdfZoomScrollIzq">
+                        <div class="pdf-zoom-lienzo" id="pdfZoomLienzoIzq">
+                            <iframe id="pdfPreviewFrame" src=""
+                                {{-- filter 0.3s (era 0.5s): es lo que tarda el documento en pasar de
+                                     borroso a legible, y ese tiempo se paga en CADA apertura. Con
+                                     0.3 el revelado se sigue viendo y se recuperan 200 ms. Va de la
+                                     mano de PDF_PINTADO_MS en layout_ui.js —el margen previo— asi que
+                                     si se toca uno hay que mirar el otro: entre los dos sale el
+                                     "cuanto tardo en poder leer el PDF". --}}
+                                style="width: 100%; height: 100%; border: none; opacity: 0; transition: opacity 0.25s, filter 0.3s ease-out; position: relative; z-index: 20;"
+                                allowfullscreen></iframe>
+                        </div>
+                    </div>
 
                     {{-- Rótulo del lado izquierdo. Solo se ve comparando: con un único
                          documento en pantalla no hay nada que distinguir. --}}
-                    <div id="pdfComparaEtiquetaIzq" style="display:none; position:absolute; top:0; left:0; right:0; z-index:40; background:rgba(26,32,44,0.94); align-items:center; gap:8px; padding:4px 6px 4px 10px;">
+                    <div id="pdfComparaEtiquetaIzq" style="display:none; position:absolute; top:0; left:0; right:0; z-index:40; background:rgba(40,40,40,0.94); align-items:center; gap:8px; padding:4px 6px 4px 10px;">
                         <span style="flex:1; min-width:0; color:#e2e8f0; font-size:11px; font-weight:700; letter-spacing:.4px; text-transform:uppercase; text-align:center; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Original</span>
-                        {{-- Lupa: en PC no hay pellizco para acercar, asi que acerca ESTE
-                             documento un nivel por toque (100% → 150 → 200 → 300 → vuelta
-                             al principio). Solo afecta a su lado: el de enfrente se queda
-                             como esta, que es lo que permite compararlos. --}}
-                        <button type="button" id="pdfComparaLupaIzq" onclick="window.pdfComparaZoom('izq')"
-                            title="Acercar este documento"
-                            style="flex-shrink:0; width:26px; height:26px; border:none; border-radius:6px; background:transparent; color:#cbd5e0; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background .15s;"
-                            onmouseover="this.style.background='rgba(255,255,255,0.12)'"
-                            onmouseout="this.style.background='transparent'">
-                            <i class="material-icons" style="font-size:17px; pointer-events:none;">zoom_in</i>
+                        {{-- Alejar y acercar ESTE documento, un nivel por toque (en PC no hay
+                             pellizco). Dos botones y no uno solo que da la vuelta: para
+                             retroceder un nivel ya no hay que recorrer la escala entera. Solo
+                             afectan a su lado —el de enfrente se queda como esta, que es lo
+                             que permite compararlos— y se apagan al llegar a cada tope. --}}
+                        <button type="button" class="pdf-visor-btn" id="pdfZoomMenosIzq"
+                            onclick="window.pdfComparaZoom('izq', -1)" title="Alejar este documento">
+                            <i class="material-icons">zoom_out</i>
+                        </button>
+                        <button type="button" class="pdf-visor-btn" id="pdfZoomMasIzq"
+                            onclick="window.pdfComparaZoom('izq', 1)" title="Acercar este documento">
+                            <i class="material-icons">zoom_in</i>
                         </button>
                         {{-- Borrar ESTE documento (el original). Con los dos PDFs en pantalla
                              un solo boton en la cabecera no basta: no hay forma de saber a
@@ -944,19 +962,17 @@
                              estuviera mirando la correccion. Cada panel lleva el suyo y dice
                              cual es. Misma clave que el de la cabecera: solo super.admin. --}}
                         @if(auth()->user() && auth()->user()->can('super.admin'))
-                            <button type="button" id="pdfComparaBorrarIzq" onclick="window.deletePdfFromPreview('principal')"
-                                title="Eliminar el documento original (Drive + BD)"
-                                style="flex-shrink:0; width:26px; height:26px; border:none; border-radius:6px; background:transparent; color:#fca5a5; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background .15s;"
-                                onmouseover="this.style.background='rgba(239,68,68,0.20)'"
-                                onmouseout="this.style.background='transparent'">
-                                <i class="material-icons" style="font-size:17px; pointer-events:none;">delete</i>
+                            <button type="button" class="pdf-visor-btn pdf-visor-btn--rojo" id="pdfComparaBorrarIzq"
+                                onclick="window.deletePdfFromPreview('principal')"
+                                title="Eliminar el documento original (Drive + BD)">
+                                <i class="material-icons">delete</i>
                             </button>
                         @endif
                     </div>
 
                     <!-- Vista móvil para descarga directa -->
                     <div id="pdfMobileFallback"
-                        style="display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 25; width: 100%; height: 100%; background: #4a5568; padding: 20px; box-sizing: border-box; text-align: center; position: absolute; top:0; left:0;">
+                        style="display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 25; width: 100%; height: 100%; background: #282828; padding: 20px; box-sizing: border-box; text-align: center; position: absolute; top:0; left:0;">
                         <i class="material-icons"
                             style="font-size: 64px; color: #a0aec0; margin-bottom: 15px;">description</i>
                         <h4 style="color: white; margin: 0 0 10px 0; font-size: 18px; font-weight: 600;">Vista Previa No
@@ -977,40 +993,45 @@
                      _pdfComparaEncender(), que salta solo en cuanto el documento abierto
                      tiene alguna corrección. --}}
                 <div id="pdfComparaPanel"
-                    style="display:none; flex:1; position:relative; border-left:3px solid #1a202c; min-width:0;">
-                    <div id="pdfComparaEtiquetaDer" style="display:flex; position:absolute; top:0; left:0; right:0; z-index:40; background:rgba(26,32,44,0.94); align-items:center; gap:8px; padding:4px 6px 4px 10px;">
+                    style="display:none; flex:1; position:relative; border-left:3px solid #282828; min-width:0; overflow:hidden;">
+                    <div id="pdfComparaEtiquetaDer" style="display:flex; position:absolute; top:0; left:0; right:0; z-index:40; background:rgba(40,40,40,0.94); align-items:center; gap:8px; padding:4px 6px 4px 10px;">
                         <span id="pdfComparaTituloDer" style="flex:1; min-width:0; color:#93c5fd; font-size:11px; font-weight:700; letter-spacing:.4px; text-transform:uppercase; text-align:center; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Corrección</span>
-                        <button type="button" id="pdfComparaLupaDer" onclick="window.pdfComparaZoom('der')"
-                            title="Acercar este documento"
-                            style="flex-shrink:0; width:26px; height:26px; border:none; border-radius:6px; background:transparent; color:#cbd5e0; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background .15s;"
-                            onmouseover="this.style.background='rgba(255,255,255,0.12)'"
-                            onmouseout="this.style.background='transparent'">
-                            <i class="material-icons" style="font-size:17px; pointer-events:none;">zoom_in</i>
+                        {{-- Alejar / acercar este lado (ver el par gemelo del lado izquierdo). --}}
+                        <button type="button" class="pdf-visor-btn" id="pdfZoomMenosDer"
+                            onclick="window.pdfComparaZoom('der', -1)" title="Alejar este documento">
+                            <i class="material-icons">zoom_out</i>
+                        </button>
+                        <button type="button" class="pdf-visor-btn" id="pdfZoomMasDer"
+                            onclick="window.pdfComparaZoom('der', 1)" title="Acercar este documento">
+                            <i class="material-icons">zoom_in</i>
                         </button>
                         {{-- Borrar la CORRECCION que este panel esta mostrando. El original
                              de la izquierda no se toca (ver el boton gemelo de ese lado). --}}
                         @if(auth()->user() && auth()->user()->can('super.admin'))
-                            <button type="button" id="pdfComparaBorrarDer" onclick="window.deletePdfFromPreview('correccion')"
-                                title="Eliminar esta corrección (el documento original no se toca)"
-                                style="flex-shrink:0; width:26px; height:26px; border:none; border-radius:6px; background:transparent; color:#fca5a5; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background .15s;"
-                                onmouseover="this.style.background='rgba(239,68,68,0.20)'"
-                                onmouseout="this.style.background='transparent'">
-                                <i class="material-icons" style="font-size:17px; pointer-events:none;">delete</i>
+                            <button type="button" class="pdf-visor-btn pdf-visor-btn--rojo" id="pdfComparaBorrarDer"
+                                onclick="window.deletePdfFromPreview('correccion')"
+                                title="Eliminar esta corrección (el documento original no se toca)">
+                                <i class="material-icons">delete</i>
                             </button>
                         @endif
                     </div>
-                    <iframe id="pdfComparaFrame" src=""
-                        style="width:100%; height:100%; border:none; background:#4a5568;"
-                        allowfullscreen></iframe>
+                    {{-- Misma capa de desplazamiento que el lado izquierdo (ver alli). --}}
+                    <div class="pdf-zoom-scroll" id="pdfZoomScrollDer">
+                        <div class="pdf-zoom-lienzo" id="pdfZoomLienzoDer">
+                            <iframe id="pdfComparaFrame" src=""
+                                style="width:100%; height:100%; border:none; background:#282828;"
+                                allowfullscreen></iframe>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Metadata Side Panel -->
                 <div id="pdfMetadataPanel"
-                    style="width: 0; background: #2d3748; border-left: 1px solid #4a5568; transition: width 0.3s ease; overflow: hidden; display: flex; flex-direction: column;"
+                    style="width: 0; background: #282828; border-left: 1px solid #282828; transition: width 0.3s ease; overflow: hidden; display: flex; flex-direction: column;"
                     class="pdf-metadata-panel-responsive">
                     <div style="padding: 12px; width: 300px; color: white; box-sizing: border-box;">
                         <h4
-                            style="margin: 0 0 15px 0; font-size: 15px; border-bottom: 1px solid #4a5568; padding-bottom: 8px;">
+                            style="margin: 0 0 15px 0; font-size: 15px; border-bottom: 1px solid #282828; padding-bottom: 8px;">
                             Editar Datos del Documento</h4>
 
                         <div id="metaPanelLoader" style="display: none; justify-content: center; padding: 20px;">

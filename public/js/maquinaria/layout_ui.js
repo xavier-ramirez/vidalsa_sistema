@@ -791,10 +791,14 @@ const _pedirAnexos = (url, opts) =>
 
 const _escAnexo = (v) => (window.escapeHtml ? window.escapeHtml(v) : String(v == null ? '' : v));
 
-// Los 6 tipos que acepta el backend (DOC_COLUMNAS en EquipoController).
+// Los tipos de documento que ADMITEN correcciones anexas. No son los 6 que acepta
+// el backend (DOC_COLUMNAS en EquipoController): solo Propiedad y Poliza se corrigen
+// en la practica. ROTC, RACDA, Certificado Asociado y Compraventa se reemplazan
+// enteros cuando cambian, asi que ofrecer "Anexar correccion" ahi era ruido.
+//
 // Otras vistas abren el visor con claves suyas ('nota_entrega', 'falla',
-// 'creacion'...): ahi no hay nada que anexar.
-const _TIPOS_DOC = ['propiedad', 'poliza', 'rotc', 'racda', 'adicional', 'adicional_2'];
+// 'creacion'...): ahi tampoco hay nada que anexar.
+const _TIPOS_CON_ANEXOS = ['propiedad', 'poliza'];
 
 /**
  * Si este documento admite correcciones anexas. UN solo sitio lo decide,
@@ -807,7 +811,7 @@ const _TIPOS_DOC = ['propiedad', 'poliza', 'rotc', 'racda', 'adicional', 'adicio
  */
 window._pdfAdmiteAnexos = (module, equipoId, docType) =>
     (module || 'equipo') === 'equipo' &&
-    !!equipoId && !!docType && _TIPOS_DOC.indexOf(docType) !== -1;
+    !!equipoId && !!docType && _TIPOS_CON_ANEXOS.indexOf(docType) !== -1;
 
 /**
  * La corrección que se está viendo ahora mismo, o null si es el documento principal.
@@ -938,24 +942,42 @@ window._pdfComparaEncender = function (anexo) {
     window._pdfComparaSincronizarLupas();
 };
 
-/* Niveles por los que va pasando la lupa, como FACTOR de escala: 1 es el tamaño con el
-   que se abre la comparacion (la hoja entera) y de ahi se acerca. Despues del ultimo se
-   vuelve al primero, asi que un solo boton sirve para acercar y para volver.
+/* Niveles de la lupa, como FACTOR de escala: 1 es el tamaño con el que se abre la
+   comparacion (la hoja entera, view=Fit) y de ahi se acerca.
+
+   La lista NO da la vuelta: cada lado tiene su boton de alejar y el de acercar, asi
+   que se topa en el primero y en el ultimo y el boton correspondiente se apaga. Antes
+   era un boton unico que ciclaba, y para retroceder un nivel habia que recorrer la
+   escala entera.
 
    Son factores y no cadenas '150' porque el zoom se hace con transform:scale, no
    pidiendoselo al visor por la URL (ver pdfComparaZoom). */
-const PDF_COMPARA_ZOOMS = [1, 1.5, 2, 3];
+const PDF_COMPARA_ZOOMS = [1, 1.25, 1.5, 2, 2.5, 3];
 
 /** Nivel actual de cada lado (indice dentro de PDF_COMPARA_ZOOMS). */
 window._pdfComparaZoom = { izq: 0, der: 0 };
 
-/** El iframe de cada lado. */
+/* Tamaño del hueco de cada lado MEDIDO A TAMAÑO NATURAL, o sea sin barras de
+   desplazamiento. Es el tamaño que conserva el iframe en todos los niveles: si se
+   remidiera en cada acercamiento, las barras ya puestas descontarian sus 12 px, el
+   iframe encogeria un poco y el visor nativo recompondria la hoja — justo el salto
+   que se vino a quitar. Se borra al volver a 1 y al cambiar el tamaño de la ventana. */
+const _pdfZoomBase = { izq: null, der: null };
+
+/** El iframe / el lienzo que crece / la capa con barras, de cada lado. */
 const _pdfComparaFrameDe = (lado) => document.getElementById(
     lado === 'izq' ? 'pdfPreviewFrame' : 'pdfComparaFrame'
 );
+const _pdfComparaLienzoDe = (lado) => document.getElementById(
+    lado === 'izq' ? 'pdfZoomLienzoIzq' : 'pdfZoomLienzoDer'
+);
+const _pdfComparaScrollDe = (lado) => document.getElementById(
+    lado === 'izq' ? 'pdfZoomScrollIzq' : 'pdfZoomScrollDer'
+);
 
 /**
- * Acerca el documento DE SU PROPIO LADO, un nivel por pulsacion.
+ * Acerca o aleja el documento DE SU PROPIO LADO, un nivel por pulsacion.
+ * direccion: 1 acerca, -1 aleja. En los topes no hace nada (el boton ya esta apagado).
  *
  * Antes esta lupa escondia el panel de enfrente para dejar una sola hoja a todo el ancho,
  * y desde fuera se leia como "cambiar de un PDF al otro" en vez de como acercar: los dos
@@ -967,19 +989,20 @@ const _pdfComparaFrameDe = (lado) => document.getElementById(
  * aplicaba — la lupa no hacia nada. Con transform:scale el resultado no depende de que el
  * visor colabore, es inmediato y no vuelve a cargar el PDF.
  *
- * El truco del ancho: al escalar 1.5 el iframe se saldria del panel, asi que se le da
- * 1/1.5 del tamaño y se escala desde la esquina (transform-origin 0 0). Ocupa el mismo
- * hueco de siempre y su contenido se dibuja mas grande; el visor conserva su scroll.
+ * SE ESCALA SIN TOCAR EL TAMAÑO DE MAQUETACION DEL IFRAME, y el hueco que hace falta lo
+ * pone el lienzo (ver _pdfComparaAplicarZoom). Encogerle el ancho al iframe —que fue el
+ * primer intento— obligaba al visor nativo a rehacer su composicion y a recolocar la
+ * hoja hacia el centro: el documento pegaba un salto en vez de acercarse.
  */
-window.pdfComparaZoom = function (lado) {
+window.pdfComparaZoom = function (lado, direccion) {
     if (!window._pdfComparando) return;
 
-    const frame = _pdfComparaFrameDe(lado);
-    if (!frame) return;
+    const paso = direccion < 0 ? -1 : 1;
+    const destino = (window._pdfComparaZoom[lado] || 0) + paso;
+    if (destino < 0 || destino >= PDF_COMPARA_ZOOMS.length) return;
 
-    const i = ((window._pdfComparaZoom[lado] || 0) + 1) % PDF_COMPARA_ZOOMS.length;
-    window._pdfComparaZoom[lado] = i;
-    _pdfComparaAplicarZoom(frame, PDF_COMPARA_ZOOMS[i]);
+    window._pdfComparaZoom[lado] = destino;
+    _pdfComparaAplicarZoom(lado, PDF_COMPARA_ZOOMS[destino]);
 
     window._pdfComparaSincronizarLupas();
 };
@@ -995,42 +1018,93 @@ const _pdfComparaResetZoom = function (soloDerecha) {
     const lados = soloDerecha ? ['der'] : ['izq', 'der'];
     lados.forEach((lado) => {
         window._pdfComparaZoom[lado] = 0;
-        const frame = _pdfComparaFrameDe(lado);
-        if (frame) _pdfComparaAplicarZoom(frame, 1);
+        _pdfComparaAplicarZoom(lado, 1);
     });
 };
 
-/** Escala el iframe al nivel dado (1 = tamaño natural), compensando su tamaño. */
-const _pdfComparaAplicarZoom = function (frame, escala) {
+/**
+ * Escala el iframe de un lado y deja el hueco para poder recorrerlo.
+ *
+ * Tres piezas: el IFRAME conserva su tamaño de maquetacion y solo se escala (asi el
+ * visor nativo no recompone); el LIENZO crece a tamaño x escala, que es lo que le da
+ * a la capa de arriba algo que desplazar; y la CAPA se reposiciona para que el
+ * acercamiento salga del centro de lo que se estaba viendo y no del principio del
+ * documento.
+ */
+const _pdfComparaAplicarZoom = function (lado, escala) {
+    const frame  = _pdfComparaFrameDe(lado);
+    const lienzo = _pdfComparaLienzoDe(lado);
+    const capa   = _pdfComparaScrollDe(lado);
+    if (!frame || !lienzo || !capa) return;
+
+    // Punto de mira actual, en proporcion del lienzo (0..1), ANTES de tocar nada.
+    const anchoPrevio = lienzo.offsetWidth  || 1;
+    const altoPrevio  = lienzo.offsetHeight || 1;
+    const mirandoX = (capa.scrollLeft + capa.clientWidth  / 2) / anchoPrevio;
+    const mirandoY = (capa.scrollTop  + capa.clientHeight / 2) / altoPrevio;
+
     if (escala === 1) {
+        _pdfZoomBase[lado] = null;
+        // El lienzo PRIMERO: al devolverlo a 100% desaparecen las barras, y el 100%
+        // del iframe vuelve a valer el hueco entero. Al reves, el iframe se quedaria
+        // 12 px corto durante ese instante y el visor recompondria de balde.
+        lienzo.style.width = '';
+        lienzo.style.height = '';
+        // '100%' explicito y NO cadena vacia: el ancho del iframe viene de su style en
+        // linea, asi que vaciarlo lo dejaria en el ancho por defecto de un <iframe>.
         frame.style.width = '100%';
         frame.style.height = '100%';
         frame.style.transform = '';
         frame.style.transformOrigin = '';
+        capa.scrollLeft = 0;
+        capa.scrollTop = 0;
         return;
     }
-    const pct = (100 / escala) + '%';
-    frame.style.width = pct;
-    frame.style.height = pct;
+
+    // Se mide una sola vez por acercamiento, estando aun a tamaño natural.
+    if (!_pdfZoomBase[lado]) {
+        _pdfZoomBase[lado] = { w: capa.clientWidth, h: capa.clientHeight };
+    }
+    const base = _pdfZoomBase[lado];
+    if (!base.w || !base.h) return;
+
+    const anchoNuevo = Math.round(base.w * escala);
+    const altoNuevo  = Math.round(base.h * escala);
+
+    frame.style.width = base.w + 'px';
+    frame.style.height = base.h + 'px';
     frame.style.transformOrigin = '0 0';
     frame.style.transform = 'scale(' + escala + ')';
+    lienzo.style.width = anchoNuevo + 'px';
+    lienzo.style.height = altoNuevo + 'px';
+
+    // Y se vuelve a poner el punto de mira donde estaba.
+    capa.scrollLeft = Math.max(0, mirandoX * anchoNuevo - capa.clientWidth / 2);
+    capa.scrollTop  = Math.max(0, mirandoY * altoNuevo  - capa.clientHeight / 2);
 };
 
-/** Icono y titulo de cada lupa segun el nivel al que este ese lado. */
+/** Estado de los cuatro botones segun el nivel al que este cada lado. */
 window._pdfComparaSincronizarLupas = function () {
-    [['pdfComparaLupaIzq', 'izq'], ['pdfComparaLupaDer', 'der']].forEach(([id, lado]) => {
-        const btn = document.getElementById(id);
-        if (!btn) return;
+    [['izq', 'pdfZoomMenosIzq', 'pdfZoomMasIzq'],
+     ['der', 'pdfZoomMenosDer', 'pdfZoomMasDer']].forEach(([lado, idMenos, idMas]) => {
         const idx = window._pdfComparaZoom[lado] || 0;
-        const escala = PDF_COMPARA_ZOOMS[idx];
-        const icono = btn.querySelector('.material-icons');
-        // En el ultimo nivel el siguiente toque devuelve al tamaño normal: se avisa con el
-        // icono, para que no haya que descubrirlo pulsando.
-        const vuelve = idx === PDF_COMPARA_ZOOMS.length - 1;
-        if (icono) icono.textContent = vuelve ? 'zoom_out' : 'zoom_in';
-        btn.title = vuelve
-            ? 'Volver al tamaño normal'
-            : ('Acercar este documento' + (escala === 1 ? '' : ' (ahora al ' + Math.round(escala * 100) + '%)'));
+        const pct = Math.round(PDF_COMPARA_ZOOMS[idx] * 100) + '%';
+        const menos = document.getElementById(idMenos);
+        const mas   = document.getElementById(idMas);
+
+        if (menos) {
+            menos.disabled = idx === 0;
+            menos.title = idx === 0
+                ? 'Ya está al tamaño normal'
+                : 'Alejar este documento (ahora al ' + pct + ')';
+        }
+        if (mas) {
+            const tope = idx === PDF_COMPARA_ZOOMS.length - 1;
+            mas.disabled = tope;
+            mas.title = tope
+                ? 'Máximo acercamiento (' + pct + ')'
+                : 'Acercar este documento' + (idx ? ' (ahora al ' + pct + ')' : '');
+        }
     });
 };
 
@@ -1121,11 +1195,25 @@ window._pdfComparaApagar = function () {
 // documentos ilegibles: se apaga sola y el boton desaparece hasta que vuelva a caber.
 if (!window._pdfComparaResizeBound) {
     window._pdfComparaResizeBound = true;
+    let _pdfComparaResizeTimer = null;
     window.addEventListener('resize', function () {
-        if (window._pdfComparando && window.innerWidth < PDF_COMPARA_ANCHO_MIN) {
+        if (!window._pdfComparando) return;
+        if (window.innerWidth < PDF_COMPARA_ANCHO_MIN) {
             window._pdfComparaApagar();
-        } else {
-                }
+            return;
+        }
+        // Los paneles cambiaron de tamaño, asi que la medida base del zoom quedo vieja
+        // y el lienzo con el hueco de antes. Se vuelve a tamaño natural —que borra la
+        // medida— y se re-aplica el nivel de cada lado, que la toma de nuevo.
+        clearTimeout(_pdfComparaResizeTimer);
+        _pdfComparaResizeTimer = setTimeout(function () {
+            ['izq', 'der'].forEach(function (lado) {
+                const idx = window._pdfComparaZoom[lado] || 0;
+                if (!idx) return;
+                _pdfComparaAplicarZoom(lado, 1);
+                _pdfComparaAplicarZoom(lado, PDF_COMPARA_ZOOMS[idx]);
+            });
+        }, 120);
     });
 }
 
@@ -1375,7 +1463,7 @@ window.loadMetadata = async function () {
     if (!ctx.equipoId) {
         if (loader) loader.style.display = 'none';
         if (container) {
-            container.innerHTML = '<div style="padding: 15px; background: rgba(255,255,255,0.05); border-radius: 8px; border: 1px dashed #4a5568;"><p style="color: #cbd5e0; font-size: 13px; text-align: center; margin: 0;">El vehículo asociado a este documento fue eliminado de la base de datos.</p></div>';
+            container.innerHTML = '<div style="padding: 15px; background: rgba(255,255,255,0.05); border-radius: 8px; border: 1px dashed #555;"><p style="color: #cbd5e0; font-size: 13px; text-align: center; margin: 0;">El vehículo asociado a este documento fue eliminado de la base de datos.</p></div>';
         }
         return;
     }
@@ -1391,7 +1479,7 @@ window.loadMetadata = async function () {
         if (data.success) {
             const info = data.data;
             let html = '';
-            const commonInputStyle = "background: #4a5568; border: 1px solid #718096; color: white; padding: 6px 8px; border-radius: 4px; width: 100%; box-sizing: border-box; font-size: 13px; height: 32px;";
+            const commonInputStyle = "background: #282828; border: 1px solid #555; color: white; padding: 6px 8px; border-radius: 4px; width: 100%; box-sizing: border-box; font-size: 13px; height: 32px;";
             const labelStyle = "display: block; font-size: 12px; color: #cbd5e0; margin-bottom: 4px; font-weight: 600;";
             const containerStyle = "margin-bottom: 12px;";
             const disabledAttr = !window.CAN_UPDATE_INFO ? `disabled style="${commonInputStyle} opacity: 0.7; cursor: not-allowed;"` : `style="${commonInputStyle}"`;
