@@ -785,6 +785,14 @@
 
 
 
+    {{-- Los tipos que admiten correcciones los decide el SERVIDOR (EquipoController::
+         TIPOS_CON_ANEXOS) y el visor los lee de aqui. Antes la lista estaba escrita
+         tambien en layout_ui.js: dos sitios que podian separarse, y separandose el front
+         ofreceria anexar donde el servidor lo rechaza. --}}
+    <script>
+        window.TIPOS_CON_ANEXOS = @json(\App\Http\Controllers\EquipoController::TIPOS_CON_ANEXOS);
+    </script>
+
     <!-- PDF Preview Modal -->
     <div id="pdfPreviewModal" class="modal-overlay modal-overlay-front">
         <div class="modal-content"

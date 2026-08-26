@@ -994,14 +994,18 @@ const _pedirAnexos = (url, opts) =>
 
 const _escAnexo = (v) => (window.escapeHtml ? window.escapeHtml(v) : String(v == null ? '' : v));
 
-// Los tipos de documento que ADMITEN correcciones anexas. No son los 6 que acepta
-// el backend (DOC_COLUMNAS en EquipoController): solo Propiedad y Poliza se corrigen
-// en la practica. ROTC, RACDA, Certificado Asociado y Compraventa se reemplazan
-// enteros cuando cambian, asi que ofrecer "Anexar correccion" ahi era ruido.
+// Los tipos de documento que ADMITEN correcciones anexas. La lista MANDA EL SERVIDOR
+// (EquipoController::TIPOS_CON_ANEXOS) y el layout la publica en window; aqui solo se
+// recoge, con el mismo valor de respaldo por si el visor se abriera desde una pagina
+// que no la haya publicado. Estaba escrita a mano en los dos sitios, que es pedir que
+// un dia se separen y el front ofrezca anexar donde el servidor lo rechaza.
+//
+// No son los 6 que acepta DOC_COLUMNAS: solo Propiedad y Poliza se corrigen en la
+// practica; los demas se reemplazan enteros cuando cambian.
 //
 // Otras vistas abren el visor con claves suyas ('nota_entrega', 'falla',
 // 'creacion'...): ahi tampoco hay nada que anexar.
-const _TIPOS_CON_ANEXOS = ['propiedad', 'poliza'];
+const _TIPOS_CON_ANEXOS = window.TIPOS_CON_ANEXOS || ['propiedad', 'poliza'];
 
 /**
  * Si este documento admite correcciones anexas. UN solo sitio lo decide,
@@ -1971,13 +1975,23 @@ window.deletePdfFromPreview = async function (cual) {
     }
     // Borrando el PRINCIPAL: si tiene correcciones, no. Borrarlo las dejaria sin forma de
     // abrirse —el visor entra por el enlace del documento— y desde fuera pareceria que se
-    // borraron las dos. El servidor lo rechaza igual (409); esto ahorra el viaje y explica.
-    const _listaCorr = (((window._anexosPorEquipo || {})[ctx.equipoId]) || {})[ctx.docType] || [];
+    // borraron las dos. El servidor lo rechaza igual (409); esto ahorra el viaje, y sobre
+    // todo el confirm() de una accion que no se va a hacer.
+    //
+    // Se pregunta ANTES por _pdfAdmiteAnexos y no se mira el mapa a pelo: los AUXILIARES
+    // abren el visor pasando su id en el hueco del equipo, y 156 de los 168 comparten id
+    // con un ID_EQUIPO real. Sin este filtro, borrar el documento de un auxiliar se
+    // bloquearia por las correcciones de OTRO equipo que nada tiene que ver.
+    const _admiteCorr = typeof window._pdfAdmiteAnexos === 'function'
+        && window._pdfAdmiteAnexos(ctx.module, ctx.equipoId, ctx.docType);
+    const _listaCorr = _admiteCorr
+        ? ((((window._anexosPorEquipo || {})[ctx.equipoId]) || {})[ctx.docType] || [])
+        : [];
     if (_listaCorr.length) {
         window.toast(
             _listaCorr.length === 1
-                ? 'Este documento tiene 1 corrección anexa. Elimínala primero con su propio botón.'
-                : 'Este documento tiene ' + _listaCorr.length + ' correcciones anexas. Elimínalas primero, cada una con su propio botón.',
+                ? 'Este documento tiene 1 corrección anexa. Elimínala primero (con su propio botón, en su panel) y después el documento.'
+                : 'Este documento tiene ' + _listaCorr.length + ' correcciones anexas. Elimínalas primero (cada una con su propio botón, en su panel) y después el documento.',
             'error'
         );
         return;

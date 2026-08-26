@@ -2903,7 +2903,16 @@ class EquipoController extends Controller
 
             $link = '/storage/google/' . $driveFile->id . '?v=' . time();
 
-            $anexo = \App\Models\DocumentoAnexo::create([
+            // El front ya no ofrece anexar fuera de estos tipos; el servidor lo confirma, que
+        // es quien manda (misma lista, self::TIPOS_CON_ANEXOS).
+        if (!in_array($type, self::TIPOS_CON_ANEXOS, true)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Este tipo de documento no admite correcciones anexas.',
+            ], 422);
+        }
+
+        $anexo = \App\Models\DocumentoAnexo::create([
                 'ID_EQUIPO'          => $equipo->ID_EQUIPO,
                 'TIPO_DOC'           => $type,
                 'LINK'               => $link,
@@ -2948,6 +2957,16 @@ class EquipoController extends Controller
 
     /** Como se llama una correccion anexa en pantalla. Un solo sitio. */
     private const ROTULO_ANEXO = 'Anexo de corrección';
+
+    /**
+     * Tipos de documento que ADMITEN correcciones anexas. Fuente unica: el front la
+     * recibe desde aqui (estructura_base la publica en window.TIPOS_CON_ANEXOS), asi que
+     * no hay dos listas que puedan separarse.
+     *
+     * No son los seis de DOC_COLUMNAS: solo Propiedad y Poliza se corrigen en la
+     * practica. Los demas se reemplazan enteros cuando cambian.
+     */
+    public const TIPOS_CON_ANEXOS = ['propiedad', 'poliza'];
 
     /**
      * Correcciones anexas del equipo, agrupadas por tipo de documento.
@@ -3252,9 +3271,14 @@ class EquipoController extends Controller
         //
         // Cada correccion tiene su propio boton de borrar en el visor: primero se quitan
         // esas y despues el documento. Asi cada boton se lleva SOLO lo suyo.
-        $conCorrecciones = \App\Models\DocumentoAnexo::where('ID_EQUIPO', $equipo->ID_EQUIPO)
-            ->where('TIPO_DOC', $request->doc_type)
-            ->count();
+        // Solo para los tipos que HOY admiten correcciones. Si quedara un anexo antiguo
+        // de un tipo que ya no las admite, bloquear el borrado seria un callejon sin
+        // salida: el visor tampoco ofrece forma de borrar ESA correccion.
+        $conCorrecciones = in_array($request->doc_type, self::TIPOS_CON_ANEXOS, true)
+            ? \App\Models\DocumentoAnexo::where('ID_EQUIPO', $equipo->ID_EQUIPO)
+                ->where('TIPO_DOC', $request->doc_type)
+                ->count()
+            : 0;
 
         if ($conCorrecciones > 0) {
             return response()->json([
