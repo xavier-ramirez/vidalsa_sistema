@@ -780,36 +780,6 @@ window._pdfComparaDerLink = null;
 
 window._pdfComparando = false;
 
-/** ¿Se puede comparar lo que hay abierto ahora mismo? */
-window._pdfPuedeComparar = function () {
-    const ctx = window._pdfAnexoCtx;
-    if (!ctx || !ctx.principal) return false;
-    const lista = ((window._anexosPorEquipo[ctx.equipoId] || {})[ctx.tipo]) || [];
-    return lista.length > 0 && window.innerWidth >= PDF_COMPARA_ANCHO_MIN;
-};
-
-/** Pinta el botón según se pueda comparar o no, y según esté encendido. */
-window._pdfComparaSincronizarBoton = function () {
-    const btn = document.getElementById('pdfCompararBtn');
-    if (!btn) return;
-
-    if (!window._pdfPuedeComparar()) {
-        btn.style.display = 'none';
-        return;
-    }
-    btn.style.display = 'flex';
-    btn.dataset.on = window._pdfComparando ? '1' : '0';
-    btn.style.background   = window._pdfComparando ? 'rgba(99,102,241,0.25)' : 'transparent';
-    btn.style.borderColor  = window._pdfComparando ? '#6366f1' : '#4a5568';
-    btn.style.color        = window._pdfComparando ? '#c7d2fe' : '#cbd5e0';
-    // Un documento con correccion se abre YA partido, asi que estando encendido el
-    // boton sirve para lo contrario. El rotulo se queda quieto —moverlo empujaria los
-    // botones de al lado— y quien lo explica es el titulo.
-    btn.title = window._pdfComparando
-        ? 'Ver un solo documento'
-        : 'Ver el original y la corrección al mismo tiempo';
-};
-
 /** Resalta en las pestañas cuál se está viendo a cada lado. */
 const _pdfComparaMarcarChips = function (linkDerecha) {
     const ctx = window._pdfAnexoCtx;
@@ -882,7 +852,6 @@ window._pdfComparaEncender = function (anexo) {
     // La comparacion arranca con los DOS lados a hoja entera.
     window._pdfComparaZoom = { izq: 0, der: 0 };
     window._pdfComparaSincronizarLupas();
-    window._pdfComparaSincronizarBoton();
 };
 
 /* Niveles por los que va pasando la lupa. 'Fit' es la hoja entera —como se abre la
@@ -986,8 +955,7 @@ window.pdfCompararToggle = function () {
 /** Al cerrar el visor o abrir otro documento, la comparación no sobrevive. */
 window._pdfComparaApagar = function () {
     if (!window._pdfComparando) {
-        window._pdfComparaSincronizarBoton();
-        return;
+            return;
     }
     window._pdfComparando = false;
 
@@ -1014,7 +982,6 @@ window._pdfComparaApagar = function () {
     const tabsComp = document.getElementById('pdfAnexosTabs');
     if (tabsComp) tabsComp.style.display = 'flex';
 
-    window._pdfComparaSincronizarBoton();
 };
 
 // Encoger la ventana por debajo del minimo con la comparacion puesta dejaria dos
@@ -1025,8 +992,7 @@ if (!window._pdfComparaResizeBound) {
         if (window._pdfComparando && window.innerWidth < PDF_COMPARA_ANCHO_MIN) {
             window._pdfComparaApagar();
         } else {
-            window._pdfComparaSincronizarBoton();
-        }
+                }
     });
 }
 
@@ -1097,20 +1063,18 @@ window._pdfPintarAnexos = function (url, docType, equipoId, label) {
     // Cuando hay alguna, salen "Original" y las correcciones una al lado de la otra, que
     // es lo unico que dice a simple vista si el documento tiene una version o varias.
     barra.style.display = lista.length ? 'flex' : 'none';
-    // El boton de comparar depende de que HAYA correcciones, asi que se decide aqui,
-    // que es donde ya se sabe cuantas hay.
-    if (window._pdfComparaSincronizarBoton) window._pdfComparaSincronizarBoton();
 
     // ── Se abre YA PARTIDO ──────────────────────────────────────────────────────
-    // Un documento con correccion se enseña con los dos PDFs a la vista sin pulsar
-    // nada: tener que ir y venir entre pestañas para saber que cambio era justo lo
-    // que sobraba. El boton pasa a servir para lo contrario, volver a uno solo.
+    // Un documento con correccion se enseña con los dos PDFs a la vista SIN PULSAR NADA:
+    // es la unica forma de entrar a la comparacion, porque el boton que la encendia se
+    // quito — si hay dos documentos, comparar es lo que se quiere hacer con ellos. Para
+    // volver a ver uno solo se pulsa la pestaña "Original".
     //
     // Solo cuando lo que se muestra es el ORIGINAL —que es como se abre siempre—: si
     // alguien entro directo a una correccion, no se le reordena la pantalla sola.
     //
-    // La correccion elegida es la que se estaba viendo si venimos de ella (el caso de
-    // pulsar Comparar estando en una), y si no, la primera.
+    // La correccion elegida es la que se estaba viendo si venimos de ella, y si no, la
+    // primera de la lista.
     if (!window._pdfComparando && lista.length && url === principal
         && window.innerWidth >= PDF_COMPARA_ANCHO_MIN) {
         const previaAbierta = (mismo && previo && previo.activo !== previo.principal)

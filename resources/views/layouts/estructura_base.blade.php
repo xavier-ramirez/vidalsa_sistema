@@ -810,19 +810,6 @@
                         <i class="material-icons" style="font-size: 16px;">print</i><span class="btn-label">Imprimir</span>
                     </button>
 
-                    {{-- Comparar: parte el visor en dos y pone el original a la izquierda y la
-                         corrección elegida a la derecha. Lo enciende _pdfPintarAnexos SOLO si
-                         hay alguna corrección —sin ella no hay nada que comparar— y solo en
-                         pantallas anchas: partir 500 px en dos no deja leer ninguno de los dos. --}}
-                    <button type="button" id="pdfCompararBtn"
-                        onclick="window.pdfCompararToggle()"
-                        title="Ver el original y la corrección al mismo tiempo"
-                        style="display:none; background:transparent; color:#cbd5e0; border:1px solid #4a5568; padding:6px 10px; font-size:12px; font-weight:600; align-items:center; gap:5px; border-radius:4px; cursor:pointer; transition:background .15s;"
-                        onmouseover="this.style.background='rgba(255,255,255,0.08)'"
-                        onmouseout="this.style.background=this.dataset.on === '1' ? 'rgba(99,102,241,0.25)' : 'transparent'">
-                        <i class="material-icons" style="font-size:16px;">vertical_split</i><span class="btn-label">Comparar</span>
-                    </button>
-
                     {{-- "Anexar corrección" vive aquí, con Descargar e Imprimir, y no en la
                          barra de abajo: es una ACCIÓN sobre el documento, como las otras, y
                          abajo obligaba a pintar la barra aunque no hubiera ni una corrección
@@ -967,7 +954,8 @@
 
                 {{-- Segundo panel: la corrección. Nace oculto y sin src —un iframe con
                      documento cargado consume memoria aunque no se vea— y lo llena
-                     pdfCompararToggle() al encenderlo. --}}
+                     _pdfComparaEncender(), que salta solo en cuanto el documento abierto
+                     tiene alguna corrección. --}}
                 <div id="pdfComparaPanel"
                     style="display:none; flex:1; position:relative; border-left:3px solid #1a202c; min-width:0;">
                     <div id="pdfComparaEtiquetaDer" style="display:flex; position:absolute; top:0; left:0; right:0; z-index:40; background:rgba(26,32,44,0.94); align-items:center; gap:8px; padding:4px 6px 4px 10px;">
