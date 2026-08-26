@@ -1035,7 +1035,7 @@ window._pdfComparaEncender = function (anexo) {
    era un boton unico que ciclaba, y para retroceder un nivel habia que recorrer la
    escala entera.
 
-   Son factores y no cadenas '150' porque el zoom se hace con transform:scale, no
+   Son factores porque el zoom se aplica multiplicando el tamaño del iframe, no
    pidiendoselo al visor por la URL (ver pdfComparaZoom). */
 const PDF_COMPARA_ZOOMS = [1, 1.25, 1.5, 2, 2.5, 3];
 
@@ -1272,7 +1272,7 @@ if (!window._pdfComparaResizeBound) {
             return;
         }
         // Los paneles cambiaron de tamaño, asi que la medida base del zoom quedo vieja
-        // y el lienzo con el hueco de antes. Se vuelve a tamaño natural —que borra la
+        // y el iframe con el tamaño de antes. Se vuelve a tamaño natural —que borra la
         // medida— y se re-aplica el nivel de cada lado, que la toma de nuevo.
         clearTimeout(_pdfComparaResizeTimer);
         _pdfComparaResizeTimer = setTimeout(function () {

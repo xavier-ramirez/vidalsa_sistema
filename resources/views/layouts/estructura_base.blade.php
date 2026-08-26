@@ -919,7 +919,7 @@
                         </div>
                     </div>
 
-                    {{-- Capa con barras de desplazamiento + lienzo del zoom.
+                    {{-- Capa con barras de desplazamiento del zoom.
                          Al acercar, el iframe CRECE (que es como el visor nativo redibuja la
                          hoja mas grande y nitida), asi que lo que ya no cabe se recorre con
                          las barras de esta capa; sin ella quedaria recortado y fuera de
