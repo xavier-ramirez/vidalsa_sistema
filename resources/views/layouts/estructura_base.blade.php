@@ -928,9 +928,9 @@
                     <div id="pdfComparaEtiquetaIzq" style="display:none; position:absolute; top:0; left:0; right:0; z-index:40; background:rgba(26,32,44,0.94); align-items:center; gap:8px; padding:4px 6px 4px 10px;">
                         <span style="flex:1; min-width:0; color:#e2e8f0; font-size:11px; font-weight:700; letter-spacing:.4px; text-transform:uppercase; text-align:center; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Original</span>
                         {{-- Lupa: en PC no hay pellizco para acercar, asi que acerca ESTE
-                             documento un nivel por toque (hoja entera → 150 → 200 → 300 →
-                             vuelta a la hoja entera). Solo afecta a su lado: el de enfrente
-                             se queda como esta, que es lo que permite compararlos. --}}
+                             documento un nivel por toque (100% → 150 → 200 → 300 → vuelta
+                             al principio). Solo afecta a su lado: el de enfrente se queda
+                             como esta, que es lo que permite compararlos. --}}
                         <button type="button" id="pdfComparaLupaIzq" onclick="window.pdfComparaZoom('izq')"
                             title="Acercar este documento"
                             style="flex-shrink:0; width:26px; height:26px; border:none; border-radius:6px; background:transparent; color:#cbd5e0; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background .15s;"
@@ -938,6 +938,20 @@
                             onmouseout="this.style.background='transparent'">
                             <i class="material-icons" style="font-size:17px; pointer-events:none;">zoom_in</i>
                         </button>
+                        {{-- Borrar ESTE documento (el original). Con los dos PDFs en pantalla
+                             un solo boton en la cabecera no basta: no hay forma de saber a
+                             cual se refiere, y de hecho borraba siempre el original aunque se
+                             estuviera mirando la correccion. Cada panel lleva el suyo y dice
+                             cual es. Misma clave que el de la cabecera: solo super.admin. --}}
+                        @if(auth()->user() && auth()->user()->can('super.admin'))
+                            <button type="button" id="pdfComparaBorrarIzq" onclick="window.deletePdfFromPreview('principal')"
+                                title="Eliminar el documento original (Drive + BD)"
+                                style="flex-shrink:0; width:26px; height:26px; border:none; border-radius:6px; background:transparent; color:#fca5a5; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background .15s;"
+                                onmouseover="this.style.background='rgba(239,68,68,0.20)'"
+                                onmouseout="this.style.background='transparent'">
+                                <i class="material-icons" style="font-size:17px; pointer-events:none;">delete</i>
+                            </button>
+                        @endif
                     </div>
 
                     <!-- Vista móvil para descarga directa -->
@@ -973,6 +987,17 @@
                             onmouseout="this.style.background='transparent'">
                             <i class="material-icons" style="font-size:17px; pointer-events:none;">zoom_in</i>
                         </button>
+                        {{-- Borrar la CORRECCION que este panel esta mostrando. El original
+                             de la izquierda no se toca (ver el boton gemelo de ese lado). --}}
+                        @if(auth()->user() && auth()->user()->can('super.admin'))
+                            <button type="button" id="pdfComparaBorrarDer" onclick="window.deletePdfFromPreview('correccion')"
+                                title="Eliminar esta corrección (el documento original no se toca)"
+                                style="flex-shrink:0; width:26px; height:26px; border:none; border-radius:6px; background:transparent; color:#fca5a5; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background .15s;"
+                                onmouseover="this.style.background='rgba(239,68,68,0.20)'"
+                                onmouseout="this.style.background='transparent'">
+                                <i class="material-icons" style="font-size:17px; pointer-events:none;">delete</i>
+                            </button>
+                        @endif
                     </div>
                     <iframe id="pdfComparaFrame" src=""
                         style="width:100%; height:100%; border:none; background:#4a5568;"

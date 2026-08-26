@@ -847,6 +847,9 @@ const PDF_PARAMS_COMPARA = '#toolbar=0&navpanes=0&scrollbar=0&view=Fit';
 /** Enlace limpio del documento que se ve a la DERECHA (lo fija _pdfComparaMostrar). */
 window._pdfComparaDerLink = null;
 
+/** Y el anexo entero, que el boton de borrar de ese panel necesita con su id. */
+window._pdfComparaAnexoDer = null;
+
 window._pdfComparando = false;
 
 /** Resalta en las pestañas cuál se está viendo a cada lado. */
@@ -879,8 +882,11 @@ window._pdfComparaMostrar = function (anexo) {
     // El enlace LIMPIO del lado derecho: la lupa rearma la URL entera desde aqui para
     // cambiarle el zoom, y frame.src ya vendria con los parametros pegados.
     window._pdfComparaDerLink = anexo.link;
-    // Documento nuevo a la derecha: vuelve a la hoja entera, como se abre la comparacion.
-    window._pdfComparaZoom.der = 0;
+    // El anexo COMPLETO, no solo su enlace: el boton de borrar de ese panel necesita su
+    // id y su etiqueta para saber que esta borrando y decirlo en la confirmacion.
+    window._pdfComparaAnexoDer = anexo;
+    // Documento nuevo a la derecha: vuelve al tamaño natural (estado Y css).
+    _pdfComparaResetZoom(true);
     window._pdfComparaSincronizarLupas();
 };
 
@@ -900,11 +906,14 @@ window._pdfComparaEncender = function (anexo) {
 
     // Comparando, las PESTAÑAS sobran: cada hoja ya lleva su rotulo encima
     // (pdfComparaEtiquetaIzq "Original" a la izquierda y pdfComparaTituloDer con la
-    // correccion a la derecha), asi que la barra de arriba repetia los mismos dos
-    // nombres. Se esconden solo las pestañas, no la barra entera: ahi vive tambien
-    // "Anexar correccion", que sigue teniendo sentido con la comparacion puesta.
-    const tabsComp = document.getElementById('pdfAnexosTabs');
-    if (tabsComp) tabsComp.style.display = 'none';
+    // correccion a la derecha), asi que la barra de arriba repetia los mismos dos nombres.
+    //
+    // Se esconde la BARRA ENTERA y no solo las pestañas: es su unico contenido —el boton
+    // de anexar se subio a la cabecera hace tiempo—, asi que dejarla puesta solo aportaba
+    // su padding y su borde inferior, o sea una franja gris vacia entre los botones y los
+    // documentos.
+    const barraComp = document.getElementById('pdfAnexosBar');
+    if (barraComp) barraComp.style.display = 'none';
 
     // El izquierdo se abrio al 100% de zoom (el modo lectura de un solo documento).
     // Comparando hace falta la hoja entera, asi que se le cambian los parametros. Es
@@ -918,15 +927,18 @@ window._pdfComparaEncender = function (anexo) {
     if (izq && izq.getAttribute('src') !== destinoIzq) izq.src = destinoIzq;
 
     window._pdfComparaMostrar(anexo);
-    // La comparacion arranca con los DOS lados a hoja entera.
-    window._pdfComparaZoom = { izq: 0, der: 0 };
+    // La comparacion arranca con los DOS lados a tamaño natural.
+    _pdfComparaResetZoom();
     window._pdfComparaSincronizarLupas();
 };
 
-/* Niveles por los que va pasando la lupa. 'Fit' es la hoja entera —como se abre la
-   comparacion— y de ahi se acerca. Se vuelve al principio despues del ultimo, asi que un
-   solo boton sirve para acercar y para volver. */
-const PDF_COMPARA_ZOOMS = ['Fit', '150', '200', '300'];
+/* Niveles por los que va pasando la lupa, como FACTOR de escala: 1 es el tamaño con el
+   que se abre la comparacion (la hoja entera) y de ahi se acerca. Despues del ultimo se
+   vuelve al primero, asi que un solo boton sirve para acercar y para volver.
+
+   Son factores y no cadenas '150' porque el zoom se hace con transform:scale, no
+   pidiendoselo al visor por la URL (ver pdfComparaZoom). */
+const PDF_COMPARA_ZOOMS = [1, 1.5, 2, 3];
 
 /** Nivel actual de cada lado (indice dentro de PDF_COMPARA_ZOOMS). */
 window._pdfComparaZoom = { izq: 0, der: 0 };
@@ -943,25 +955,59 @@ const _pdfComparaLado = (lado) => lado === 'izq'
  * y desde fuera se leia como "cambiar de un PDF al otro" en vez de como acercar: los dos
  * documentos siguen a la vista y solo cambia el tamaño del suyo.
  *
- * El zoom se lo pide al visor nativo por el hash de la URL (#zoom=150). Cambiar SOLO el
- * fragmento no vuelve a descargar el archivo —el navegador ya lo tiene— pero si reencaja
- * la pagina; por eso se rearma la URL entera desde el enlace guardado en vez de tocar
- * frame.src a medias, que dejaria los parametros anteriores pegados.
+ * EL ZOOM SE HACE CON CSS, NO PIDIENDOSELO AL VISOR. Antes se le pasaba #zoom=150 en el
+ * hash de la URL y no pasaba nada: el visor nativo lee esos parametros al cargar el
+ * documento y, aunque cambiar el fragmento vuelva a navegar, en la practica el zoom no se
+ * aplicaba — la lupa no hacia nada. Con transform:scale el resultado no depende de que el
+ * visor colabore, es inmediato y no vuelve a cargar el PDF.
+ *
+ * El truco del ancho: al escalar 1.5 el iframe se saldria del panel, asi que se le da
+ * 1/1.5 del tamaño y se escala desde la esquina (transform-origin 0 0). Ocupa el mismo
+ * hueco de siempre y su contenido se dibuja mas grande; el visor conserva su scroll.
  */
 window.pdfComparaZoom = function (lado) {
     if (!window._pdfComparando) return;
 
-    const { frame, src } = _pdfComparaLado(lado);
-    if (!frame || !src) return;
+    const { frame } = _pdfComparaLado(lado);
+    if (!frame) return;
 
     const i = ((window._pdfComparaZoom[lado] || 0) + 1) % PDF_COMPARA_ZOOMS.length;
     window._pdfComparaZoom[lado] = i;
-
-    const nivel = PDF_COMPARA_ZOOMS[i];
-    const base = '#toolbar=0&navpanes=0&scrollbar=0&';
-    frame.src = src + base + (nivel === 'Fit' ? 'view=Fit' : 'zoom=' + nivel);
+    _pdfComparaAplicarZoom(frame, PDF_COMPARA_ZOOMS[i]);
 
     window._pdfComparaSincronizarLupas();
+};
+
+/**
+ * Devuelve los dos lados a tamaño natural: el estado Y el CSS.
+ *
+ * Las dos cosas juntas a proposito. Poner el contador a 0 sin limpiar el transform dejaba
+ * el iframe escalado con la lupa diciendo que estaba al 100%, y el acercamiento se
+ * arrastraba a la comparacion siguiente o al documento nuevo de la derecha.
+ */
+const _pdfComparaResetZoom = function (soloDerecha) {
+    const lados = soloDerecha ? ['der'] : ['izq', 'der'];
+    lados.forEach((lado) => {
+        window._pdfComparaZoom[lado] = 0;
+        const { frame } = _pdfComparaLado(lado);
+        if (frame) _pdfComparaAplicarZoom(frame, 1);
+    });
+};
+
+/** Escala el iframe al nivel dado (1 = tamaño natural), compensando su tamaño. */
+const _pdfComparaAplicarZoom = function (frame, escala) {
+    if (escala === 1) {
+        frame.style.width = '100%';
+        frame.style.height = '100%';
+        frame.style.transform = '';
+        frame.style.transformOrigin = '';
+        return;
+    }
+    const pct = (100 / escala) + '%';
+    frame.style.width = pct;
+    frame.style.height = pct;
+    frame.style.transformOrigin = '0 0';
+    frame.style.transform = 'scale(' + escala + ')';
 };
 
 /** Icono y titulo de cada lupa segun el nivel al que este ese lado. */
@@ -969,15 +1015,16 @@ window._pdfComparaSincronizarLupas = function () {
     [['pdfComparaLupaIzq', 'izq'], ['pdfComparaLupaDer', 'der']].forEach(([id, lado]) => {
         const btn = document.getElementById(id);
         if (!btn) return;
-        const nivel = PDF_COMPARA_ZOOMS[window._pdfComparaZoom[lado] || 0];
+        const idx = window._pdfComparaZoom[lado] || 0;
+        const escala = PDF_COMPARA_ZOOMS[idx];
         const icono = btn.querySelector('.material-icons');
-        // En el ultimo nivel el siguiente toque devuelve a la hoja entera: se avisa con
-        // el icono, para que no haya que descubrirlo pulsando.
-        const vuelve = (window._pdfComparaZoom[lado] || 0) === PDF_COMPARA_ZOOMS.length - 1;
+        // En el ultimo nivel el siguiente toque devuelve al tamaño normal: se avisa con el
+        // icono, para que no haya que descubrirlo pulsando.
+        const vuelve = idx === PDF_COMPARA_ZOOMS.length - 1;
         if (icono) icono.textContent = vuelve ? 'zoom_out' : 'zoom_in';
         btn.title = vuelve
-            ? 'Volver a ver la hoja entera'
-            : ('Acercar este documento' + (nivel === 'Fit' ? '' : ' (ahora al ' + nivel + '%)'));
+            ? 'Volver al tamaño normal'
+            : ('Acercar este documento' + (escala === 1 ? '' : ' (ahora al ' + Math.round(escala * 100) + '%)'));
     });
 };
 
@@ -1028,10 +1075,13 @@ window._pdfComparaApagar = function () {
     }
     window._pdfComparando = false;
 
-    // Los niveles de zoom vuelven a cero: la proxima comparacion empieza con las dos
-    // hojas enteras, no con el acercamiento que se dejo puesto en la anterior.
-    window._pdfComparaZoom = { izq: 0, der: 0 };
+    // Los niveles vuelven a cero —estado y css— para que la proxima comparacion no
+    // herede el acercamiento de la anterior.
+    _pdfComparaResetZoom();
     window._pdfComparaDerLink = null;
+    // Tambien el anexo: si no, el boton de borrar del panel derecho seguiria apuntando a
+    // una correccion que ya no esta en pantalla.
+    window._pdfComparaAnexoDer = null;
     // El visor izquierdo se repone SIEMPRE. Ya no hay nada que lo esconda —la lupa dejo
     // de tapar el panel de enfrente— pero dejarlo aqui cuesta una linea y cubre que
     // alguien lo haya ocultado por otra via; sin esto el documento siguiente se abriria
@@ -1045,12 +1095,15 @@ window._pdfComparaApagar = function () {
     if (frame) frame.src = 'about:blank';
     if (rotIzq) rotIzq.style.display = 'none';
 
-    // Vuelven las pestañas: fuera de la comparacion son la unica forma de saltar de una
-    // correccion a otra. Se repone el display por defecto (flex, el que les pone su
-    // estilo en linea) en vez de dejarlas con el 'none' que puso el encendido.
-    const tabsComp = document.getElementById('pdfAnexosTabs');
-    if (tabsComp) tabsComp.style.display = 'flex';
-
+    // Vuelve la barra con sus pestañas: fuera de la comparacion son la unica forma de
+    // saltar de una correccion a otra. Solo si hay alguna —si el documento no tiene
+    // correcciones no hay nada que elegir y la barra vacia volveria a dejar la franja gris.
+    const barraComp = document.getElementById('pdfAnexosBar');
+    const tabsComp  = document.getElementById('pdfAnexosTabs');
+    if (barraComp) {
+        const hayPestanas = !!(tabsComp && tabsComp.children.length);
+        barraComp.style.display = hayPestanas ? 'flex' : 'none';
+    }
 };
 
 // Encoger la ventana por debajo del minimo con la comparacion puesta dejaria dos
@@ -1495,7 +1548,20 @@ window.closePdfPreview = function () {
 // Por ahora solo soporta el modulo 'equipo'; auxiliares no implementado todavia.
 // Usa confirm() nativo del browser (no window.showModal) porque el standardModal
 // queda detras del pdfPreviewModal por el stacking context.
-window.deletePdfFromPreview = async function () {
+/**
+ * Borra el documento del visor.
+ *
+ * @param {string} [cual] Cual de los dos, cuando hay dos a la vista:
+ *   'principal'  — el de la izquierda (el documento sin corregir)
+ *   'correccion' — la correccion que se esta viendo a la derecha
+ *   sin valor    — se deduce de lo que hay abierto (el boton de la cabecera)
+ *
+ * El parametro existe porque comparando NO se puede deducir: los dos documentos estan en
+ * pantalla al mismo tiempo, y hasta ahora el unico boton miraba cual estaba "activo" —que
+ * comparando es siempre el principal—, asi que pulsarlo con una correccion delante borraba
+ * el documento bueno. Cada panel tiene ahora su propio boton y dice cual es el suyo.
+ */
+window.deletePdfFromPreview = async function (cual) {
     if (!window.CAN_DELETE_DOCS) {
         window.toast('No tienes permisos para eliminar documentos.', 'error');
         return;
@@ -1510,7 +1576,13 @@ window.deletePdfFromPreview = async function () {
     // principal. Antes borraba siempre el principal —solo miraba currentPdfContext,
     // que no cambia al saltar de pestaña—, así que quien quisiera deshacer una
     // corrección se llevaba por delante el documento bueno.
-    const correccion = window._pdfCorreccionAbierta ? window._pdfCorreccionAbierta() : null;
+    let correccion = null;
+    if (cual === 'correccion') {
+        // Panel derecho: la correccion que ese panel esta mostrando.
+        correccion = window._pdfComparaAnexoDer || null;
+    } else if (cual !== 'principal') {
+        correccion = window._pdfCorreccionAbierta ? window._pdfCorreccionAbierta() : null;
+    }
     if (correccion) {
         if (!window.confirm('¿Eliminar la corrección "' + (correccion.etiqueta || 'Corrección') +
             '"?\n\nEl documento principal NO se toca. Esta acción no se puede deshacer.')) return;
