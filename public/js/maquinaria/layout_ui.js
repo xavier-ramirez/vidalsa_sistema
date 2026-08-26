@@ -473,6 +473,26 @@ window.printPdfFromPreview = function () {
     });
 };
 
+/**
+ * Vacia el visor izquierdo y ejecuta `despues` en el TICK SIGUIENTE.
+ *
+ * Existe porque dos asignaciones de src en la misma tarea se colapsan en una sola
+ * navegacion, y entonces el visor nativo puede no reiniciarse: si el destino es el
+ * documento que ya estaba puesto se queda sin repintar (en negro), y si solo cambia el
+ * fragmento —de #zoom=100 a #view=Fit, por ejemplo— no aplica los parametros nuevos ni
+ * dispara onload. Dejando que el about:blank se complete, lo que venga despues es una
+ * navegacion de verdad.
+ *
+ * Solo para volver a un documento QUE YA ESTABA EN PANTALLA: al estar en la cache del
+ * navegador, repintarlo es inmediato. Para abrir uno nuevo no hace falta —el propio
+ * cambio de URL ya es navegacion— y pasar por about:blank solo añadiria un parpadeo.
+ */
+const _pdfReiniciarVisorIzq = function (despues) {
+    const frame = document.getElementById('pdfPreviewFrame');
+    if (frame) frame.src = 'about:blank';
+    setTimeout(despues, 0);
+};
+
 // Temporizador de respaldo del visor (uno SOLO para toda la pantalla, no uno por
 // apertura): ver por qué en el setTimeout de más abajo.
 let _pdfLoaderTimeout = null;
@@ -1535,17 +1555,24 @@ window._pdfAnexarInit = function () {
             // Se relee del servidor: es el unico sitio que sabe si el
             // anexo quedo vigente respecto del principal de ahora.
             window.cargarAnexosEquipo(ctx.equipoId).then(() => {
-                // Se vuelve al PRINCIPAL, no a la correccion recien subida. Con una
-                // correccion encima el visor se abre PARTIDO —original a la izquierda,
-                // correccion a la derecha—, y eso solo pasa si lo que se abre es el
-                // principal: abriendo por la correccion se caia en la vista de un solo
-                // documento con la barra de pestañas puesta, que es justo lo que la
-                // vista partida vino a sustituir.
-                // 'activo' se deja apuntando a la recien subida para que la comparacion
-                // la elija a ella y no a la primera de la lista (mismo mecanismo que usa
-                // volver de una pestaña).
+                // NO se reabre el visor: ya estamos dentro de ese documento y todo lo
+                // que monta openPdfPreview —titulo, botones, panel de datos— sigue en su
+                // sitio. Lo unico que cambio son las correcciones, asi que se repintan y
+                // la vista partida se enciende sola.
+                //
+                // Reabrir era lo que dejaba el ORIGINAL EN NEGRO: openPdfPreview le mete
+                // al iframe izquierdo un about:blank y el documento con los parametros de
+                // lectura, y acto seguido la comparacion se lo cambia por los de comparar
+                // — tres navegaciones encadenadas sobre un PDF que tarda un segundo o dos
+                // en llegar. Asi solo hay UNA, la de la comparacion.
+                //
+                // 'activo' apunta a la recien subida para que la comparacion la elija a
+                // ella y no a la primera de la lista (mismo mecanismo que usa volver de
+                // una pestaña).
                 if (window._pdfAnexoCtx) window._pdfAnexoCtx.activo = d.anexo.link;
-                window.openPdfPreview(ctx.principal, ctx.tipo, ctx.label, ctx.equipoId, null, true, 'equipo');
+                _pdfReiniciarVisorIzq(function () {
+                    window._pdfPintarAnexos(ctx.principal, ctx.tipo, ctx.equipoId, ctx.label);
+                });
                 if (typeof window._pintarBadgesAnexos === 'function') window._pintarBadgesAnexos(ctx.equipoId);
                 _avisoAnexo(d.message || 'Corrección anexada correctamente', 'success');
             });
@@ -1809,16 +1836,12 @@ window.deletePdfFromPreview = async function (cual) {
                 const principal = window._pdfAnexoCtx ? window._pdfAnexoCtx.principal : null;
                 if (principal) {
                     window._pdfAnexoCtx = null;   // que _pdfPintarAnexos lo rearme desde cero
-                    // Se vacia el visor y se vuelve a entrar EN OTRO TICK. Si no, las dos
-                    // asignaciones de src caen en la misma tarea y el navegador se queda
-                    // solo con la ultima: cuando el documento que toca abrir es el que ya
-                    // estaba puesto, no hay navegacion de verdad y el visor puede quedarse
-                    // sin repintar (en negro) hasta que se cierra y se abre a mano.
-                    const frameIzq = document.getElementById('pdfPreviewFrame');
-                    if (frameIzq) frameIzq.src = 'about:blank';
-                    setTimeout(function () {
+                    // Se vacia el visor y se vuelve a entrar en el tick siguiente: el
+                    // documento que toca abrir puede ser el que ya estaba puesto, y sin eso
+                    // no habria navegacion de verdad (ver _pdfReiniciarVisorIzq).
+                    _pdfReiniciarVisorIzq(function () {
                         window.openPdfPreview(principal, ctx.docType, ctx.label, ctx.equipoId, null, true, 'equipo');
-                    }, 0);
+                    });
                 } else {
                     window.closePdfPreview();
                 }
