@@ -993,7 +993,8 @@
                     </div>
                 </a>
 
-                <!-- ALERTAS SECTION (rediseñada) — dropup flotante: el panel se superpone arriba sin empujar el layout -->
+                <!-- ALERTAS: la card solo abre/cierra el modal #expiredDocsContainer (más abajo),
+                     que va centrado sobre la pantalla y no empuja el layout del tablero. -->
                 <div style="position: relative;">
                     <!-- Card trigger -->
                     <div class="alertas-card" onclick="toggleExpiredDocs()" role="button" tabindex="0"

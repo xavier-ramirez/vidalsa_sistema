@@ -28,10 +28,7 @@ class DashboardController extends Controller
     public function index()
     {
         $user      = auth()->user();
-        // null = ve todos (GLOBAL) | [] = local sin frentes | [ids] (Usuario::frentesVisiblesEquiposIds).
-        $frentesVisibles = $user ? $user->frentesVisiblesEquiposIds() : [];
-        // Lista negra (se resta SIEMPRE, también a GLOBAL).
-        $frentesBloqueados = $user ? $user->getFrentesBloqueadosIds() : [];
+        [$frentesVisibles, $frentesBloqueados] = $this->frentesDelUsuario();
         $userId    = $user ? $user->ID_USUARIO : 'guest';
 
         // Clave por usuario (los datos van acotados a sus frentes) + versión
@@ -221,16 +218,28 @@ class DashboardController extends Controller
         return 'data:image/jpeg;base64,' . base64_encode($bytes);
     }
 
+    /**
+     * Barrera por frente del usuario autenticado, en el orden que espera
+     * generateAlertsList(): [visibles, bloqueados].
+     *   visibles  → null = ve todos (GLOBAL) | [] = local sin frentes | [ids].
+     *   bloqueados → lista negra, se resta a todos (también a GLOBAL).
+     * Fuente única para index(), getAlertsHtml() y exportDocumentsPDF(): el ternario
+     * estaba copiado en los tres y bastaba con olvidarlo en uno —le pasó al PDF— para
+     * que ese punto se saltara la barrera y mostrara frentes ajenos.
+     */
+    private function frentesDelUsuario(): array
+    {
+        $user = auth()->user();
+
+        return [
+            $user ? $user->frentesVisiblesEquiposIds() : [],
+            $user ? $user->getFrentesBloqueadosIds() : [],
+        ];
+    }
+
     public function getAlertsHtml()
     {
-        $user        = auth()->user();
-        // frentesVisiblesEquiposIds(): null = ve todos (GLOBAL) | [] = local sin frentes | [ids].
-        // Es justo lo que generateAlertsList() espera como filtro por frente. Los bloqueados
-        // (lista negra) se restan a todos, también a GLOBAL.
-        $expiredList = $this->generateAlertsList(
-            $user ? $user->frentesVisiblesEquiposIds() : [],
-            $user ? $user->getFrentesBloqueadosIds() : []
-        );
+        $expiredList = $this->generateAlertsList(...$this->frentesDelUsuario());
         $totalAlerts = $expiredList->count();
 
         return response()->json([
@@ -510,22 +519,22 @@ class DashboardController extends Controller
             $nombreFrente = $user->frenteAsignado ? $user->frenteAsignado->NOMBRE_FRENTE : 'Sin Frente Asignado';
             $fechaEmision = \Carbon\Carbon::now()->locale('es')->isoFormat('DD [de] MMMM [de] YYYY - HH:mm');
 
-            // Get alerts list — ACOTADA a los frentes visibles del usuario y restando su lista
-            // negra, igual que index() y getAlertsHtml(). Sin estos argumentos, generateAlertsList()
-            // usaba su default ($frenteIds=null = ve TODOS los frentes), así que un usuario LOCAL
-            // exportaba el PDF con los documentos de frentes que no le corresponden.
-            $alertsList = $this->generateAlertsList(
-                $user ? $user->frentesVisiblesEquiposIds() : [],
-                $user ? $user->getFrentesBloqueadosIds() : []
-            );
+            // Lista ACOTADA a los frentes visibles del usuario y restando su lista negra,
+            // igual que index() y getAlertsHtml(). Sin estos argumentos, generateAlertsList()
+            // usaba su default ($frenteIds=null = ve TODOS los frentes), así que un usuario
+            // LOCAL exportaba el PDF con los documentos de frentes que no le corresponden.
+            $alertsList = $this->generateAlertsList(...$this->frentesDelUsuario());
             
             // Separar por estado y ordenar cada tabla AGRUPANDO por frente: todas las filas
             // de un mismo frente quedan juntas (p. ej. primero todo PATIO MATURIN, luego el
             // siguiente) y, dentro de cada frente, por tipo de equipo. Los equipos sin frente
             // van al final ('ZZZ'). Pedido del cliente: leer el reporte por proyecto/frente.
+            // frente_texto/tipo_texto vienen ya resueltos en las filas de AUXILIARES (no
+            // tienen las relaciones frenteActual/tipo del equipo); sin leerlos primero,
+            // todos los auxiliares caían al 'ZZZ' del final en vez de junto a su frente.
             $ordenFrenteTipo = function ($alert) {
-                $frente = optional(optional($alert->equipo)->frenteActual)->NOMBRE_FRENTE ?? 'ZZZ';
-                $tipo   = optional(optional($alert->equipo)->tipo)->nombre ?? '';
+                $frente = $alert->frente_texto ?? (optional(optional($alert->equipo)->frenteActual)->NOMBRE_FRENTE ?? 'ZZZ');
+                $tipo   = $alert->tipo_texto   ?? (optional(optional($alert->equipo)->tipo)->nombre ?? '');
                 return mb_strtoupper($frente . '|' . $tipo);
             };
 
@@ -541,8 +550,15 @@ class DashboardController extends Controller
             $totalVencidos = $vencidos->count();
             $totalProximos = $proximos->count();
             
-            // Get unique equipment count
-            $totalEquipos = $alertsList->pluck('equipo.ID_EQUIPO')->unique()->count();
+            // Unidades distintas del reporte. Un EquipoAuxiliar no tiene ID_EQUIPO: con
+            // pluck('equipo.ID_EQUIPO') todos daban null y unique() los colapsaba en UNO,
+            // inflando el total con un equipo fantasma. Cada fila se identifica por la
+            // clase del modelo + su PK.
+            $totalEquipos = $alertsList->pluck('equipo')->filter()
+                ->unique(fn ($e) => $e instanceof \App\Models\EquipoAuxiliar
+                    ? 'aux:' . $e->ID_AUXILIAR
+                    : 'eq:' . $e->ID_EQUIPO)
+                ->count();
 
             // MANUAL LOADING OF TCPDF (Emergency Mode)
             // If the package is physically present but not autoloaded yet

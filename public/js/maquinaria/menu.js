@@ -58,10 +58,16 @@ window.refreshDashboardAlerts = async function () {
             }, 50);
         }
 
-        // Update Total Badge (if exists)
-        const totalBadge = document.querySelector('.card-yellow .card-value');
-        if (totalBadge && data.totalAlerts !== undefined) {
-            totalBadge.innerText = data.totalAlerts;
+        // Contador "Por Renovar" de la card + campanita. La clase es .alertas-card-value
+        // (el rediseño del dashboard renombró la vieja .card-yellow .card-value, que ya
+        // no existe en el blade: con el selector viejo el número se quedaba congelado
+        // hasta recargar la página aunque la lista sí se refrescara).
+        if (data.totalAlerts !== undefined) {
+            const totalBadge = document.querySelector('.alertas-card-value');
+            if (totalBadge) totalBadge.innerText = data.totalAlerts;
+            // Misma regla que menu.blade.php: solo se agita si queda algo por renovar.
+            const bell = document.querySelector('.alertas-card-icon .material-icons');
+            if (bell) bell.classList.toggle('bell-shake', data.totalAlerts > 0);
         }
 
     } catch (error) {

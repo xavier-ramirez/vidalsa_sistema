@@ -15,8 +15,34 @@ class EquipoAuxiliarObserver
         'LINK_CERTIFICADO'   => ['upload' => 'aux_upload_certificado', 'delete' => 'aux_delete_certificado'],
     ];
 
+    // Columnas del auxiliar que alimentan el panel "Alertas de Documentos" del
+    // dashboard (DashboardController::generateAlertsList lee el certificado del
+    // auxiliar y lo filtra por estado y frente). Mismo gate por columna que
+    // EquipoObserver::updated: sin él, cualquier edición menor mataría la caché
+    // de TODOS los usuarios y el TTL de 10 minutos no serviría de nada.
+    private const DASHBOARD_FIELDS = [
+        'FECHA_VENCIMIENTO_CERT', 'LINK_CERTIFICADO', 'ESTADO_OPERATIVO', 'ID_FRENTE_ACTUAL',
+    ];
+
+    public function created(EquipoAuxiliar $aux): void
+    {
+        \App\Http\Controllers\DashboardController::bumpDataVersion();
+    }
+
+    public function deleted(EquipoAuxiliar $aux): void
+    {
+        \App\Http\Controllers\DashboardController::bumpDataVersion();
+    }
+
     public function updated(EquipoAuxiliar $aux): void
     {
+        // El dashboard va cacheado con la versión EN la clave: este bump lo refresca
+        // para todos. Antes no existía, así que cargar o vencer el certificado de un
+        // auxiliar no aparecía en el panel hasta 10 minutos después.
+        if ($aux->wasChanged(self::DASHBOARD_FIELDS)) {
+            \App\Http\Controllers\DashboardController::bumpDataVersion();
+        }
+
         try {
             $changes = $aux->getChanges();
             unset($changes['updated_at'], $changes['created_at']);

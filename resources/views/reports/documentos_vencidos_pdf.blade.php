@@ -110,8 +110,11 @@
                     <td width="5%">{{ $index + 1 }}</td>
                     <td width="23%">{{ $alerta->frente_texto ?? ($alerta->equipo->frenteActual?->NOMBRE_FRENTE ?? 'N/A') }}</td>
                     <td width="18%">{{ $alerta->tipo_texto ?? ($alerta->equipo->tipo->nombre ?? 'N/A') }}</td>
-                    {{-- Campo unificado: serial de chasis si existe; si no, la placa; si no hay ninguno, '---'. --}}
-                    <td width="23%">{{ ($alerta->equipo->SERIAL_CHASIS ?: $alerta->equipo->documentacion?->PLACA) ?: '---' }}</td>
+                    {{-- Campo unificado: en un AUXILIAR viene ya resuelto en 'identificador'
+                         (serial o codigo interno) igual que frente_texto/tipo_texto; en un
+                         equipo, serial de chasis y si no la placa. Sin el identificador, las
+                         filas de auxiliares salian todas con '---'. --}}
+                    <td width="23%">{{ $alerta->identificador ?? (($alerta->equipo->SERIAL_CHASIS ?: $alerta->equipo->documentacion?->PLACA) ?: '---') }}</td>
                     <td width="19%">{{ mb_strtoupper($alerta->label, 'UTF-8') }}</td>
                     <td width="12%">{{ \Carbon\Carbon::parse($alerta->fecha)->format('d/m/Y') }}</td>
                 </tr>
@@ -158,8 +161,11 @@
                     <td width="5%">{{ $index + 1 }}</td>
                     <td width="23%">{{ $alerta->frente_texto ?? ($alerta->equipo->frenteActual?->NOMBRE_FRENTE ?? 'N/A') }}</td>
                     <td width="18%">{{ $alerta->tipo_texto ?? ($alerta->equipo->tipo->nombre ?? 'N/A') }}</td>
-                    {{-- Campo unificado: serial de chasis si existe; si no, la placa; si no hay ninguno, '---'. --}}
-                    <td width="23%">{{ ($alerta->equipo->SERIAL_CHASIS ?: $alerta->equipo->documentacion?->PLACA) ?: '---' }}</td>
+                    {{-- Campo unificado: en un AUXILIAR viene ya resuelto en 'identificador'
+                         (serial o codigo interno) igual que frente_texto/tipo_texto; en un
+                         equipo, serial de chasis y si no la placa. Sin el identificador, las
+                         filas de auxiliares salian todas con '---'. --}}
+                    <td width="23%">{{ $alerta->identificador ?? (($alerta->equipo->SERIAL_CHASIS ?: $alerta->equipo->documentacion?->PLACA) ?: '---') }}</td>
                     <td width="19%">{{ mb_strtoupper($alerta->label, 'UTF-8') }}</td>
                     <td width="12%">{{ \Carbon\Carbon::parse($alerta->fecha)->format('d/m/Y') }}</td>
                 </tr>

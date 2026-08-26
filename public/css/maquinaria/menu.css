@@ -471,41 +471,11 @@
     margin-bottom: 5px;
 }
 
-.cards-wrapper {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-    width: 100%;
-    margin: 0;
-}
-
-.card-yellow .icon-wrapper {
-    background: #fffbeb;
-    color: rgb(245, 158, 11);
-}
-
-.card-label {
-    display: block;
-    font-size: 13px;
-    color: #64748b;
-    font-weight: 600;
-    margin-bottom: 5px;
-}
-
-.card-value {
-    font-size: 28px;
-    font-weight: 800;
-    color: #1e293b;
-    line-height: 1.2;
-}
-
-@media (max-width: 1024px) {
-
-    .cards-wrapper,
-    .grid-row-2 {
-        grid-template-columns: 1fr;
-    }
-}
+/* .cards-wrapper se define UNA sola vez, en el <style> de menu.blade.php (grid de 3
+   columnas con sus breakpoints). Aquí había una copia en flex, del diseño anterior,
+   que solo ganaba el blade por orden de carga; se fue junto con .card-yellow
+   .icon-wrapper, .card-label, .card-value y el @media de .grid-row-2, clases que ya
+   no usa ningún blade ni JS. */
 
 .empty-state {
     text-align: center;
