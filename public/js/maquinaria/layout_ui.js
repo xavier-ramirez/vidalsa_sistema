@@ -534,7 +534,19 @@ const _pdfRenovarVisorIzq = function (destino) {
     const nuevo = viejo.cloneNode(false);
     nuevo.removeAttribute('src');
     viejo.parentNode.replaceChild(nuevo, viejo);
-    if (destino) nuevo.src = destino;
+
+    if (destino) {
+        // Visible y sin desenfoque DESDE YA. El clon hereda el atributo style del que
+        // habia, y si aquel estaba a medio revelar —opacidad 0 o el blur de carga— el
+        // nodo nuevo lo arrastraria para siempre: quien lo quitaba era el onload de
+        // openPdfPreview, y por aqui no se pasa por ahi. El documento tarda lo que
+        // tarde, pero cuando llegue se vera.
+        nuevo.style.opacity = '1';
+        nuevo.style.filter = PDF_SIN_BLUR;
+        nuevo.src = destino;
+    }
+    // Sin destino lo llama openPdfPreview, que le pone el suyo y monta su propio
+    // revelado (opacidad 0 + desenfoque) sobre el nodo que devolvemos.
     return nuevo;
 };
 
@@ -1289,10 +1301,14 @@ window.pdfCompararToggle = function () {
         // Vuelve al modo lectura de un solo documento (zoom 100, como lo abre
         // openPdfPreview). Solo aqui: apagar por cierre del visor o por cambio de
         // documento ya reemplaza el iframe, y re-navegarlo seria trabajo de balde.
+        //
+        // ESTRENANDO el iframe: de comparar a leer solo cambia el fragmento
+        // (#view=Fit → #zoom=100) y eso no reinicia el visor nativo — el panel se
+        // quedaria en negro (ver _pdfRenovarVisorIzq).
         const izqLectura = document.getElementById('pdfPreviewFrame');
         const destinoLectura = ctx.principal + PDF_PARAMS_LECTURA;
         if (izqLectura && izqLectura.getAttribute('src') !== destinoLectura) {
-            izqLectura.src = destinoLectura;
+            _pdfRenovarVisorIzq(destinoLectura);
         }
         return;
     }
@@ -2087,8 +2103,11 @@ window.uploadDocumentFromPreview = function (input, type, equipoId, label) {
                     if (statusText) statusText.innerText = 'Abriendo vista previa...';
                     if (progressPercentage) progressPercentage.innerText = 'Listo';
 
-                    // Get iframe reference
-                    const iframe = document.getElementById('pdfPreviewFrame');
+                    // Iframe NUEVO, como en el resto del visor: aqui la URL siempre
+                    // cambia (lleva ?upd=<timestamp>), asi que recargaria igual, pero se
+                    // estrena por la misma regla — que nadie reutilice el elemento del
+                    // documento anterior (ver _pdfRenovarVisorIzq).
+                    const iframe = _pdfRenovarVisorIzq(null);
 
                     // Update iframe to show new PDF
                     if (iframe) {
