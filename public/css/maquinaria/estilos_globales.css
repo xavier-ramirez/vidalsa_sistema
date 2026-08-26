@@ -1671,18 +1671,9 @@ input[type="password"]::-ms-clear {
     overflow: auto;
 }
 
-/* Lo que CRECE al acercar. El iframe se escala con transform, que no ocupa sitio,
-   asi que sin este lienzo la capa de arriba no tendria nada que desplazar y lo que
-   se sale del panel quedaria recortado y fuera de alcance. */
-.pdf-zoom-lienzo {
-    position: relative;
-    width: 100%;
-    height: 100%;
-}
-
-/* El <iframe> es inline por defecto y su hueco de linea base desbordaba el lienzo
-   unos 4 px: salia una barra vertical permanente aun a tamaño natural. */
-.pdf-zoom-lienzo > iframe {
+/* El <iframe> es inline por defecto y su hueco de linea base desbordaba la capa unos
+   4 px: salia una barra vertical permanente aun a tamaño natural. */
+.pdf-zoom-scroll > iframe {
     display: block;
 }
 

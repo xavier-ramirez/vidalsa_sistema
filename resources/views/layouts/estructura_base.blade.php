@@ -918,25 +918,23 @@
                     </div>
 
                     {{-- Capa con barras de desplazamiento + lienzo del zoom.
-                         Al acercar, el iframe se escala con transform (que NO ocupa sitio) y
-                         es el lienzo el que crece, dandole a esta capa algo que desplazar:
-                         sin el, lo que se sale del panel quedaba recortado y sin forma de
-                         llegar hasta ello. Va POR DENTRO del panel, en vez de ser el panel
+                         Al acercar, el iframe CRECE (que es como el visor nativo redibuja la
+                         hoja mas grande y nitida), asi que lo que ya no cabe se recorre con
+                         las barras de esta capa; sin ella quedaria recortado y fuera de
+                         alcance. Va POR DENTRO del panel, en vez de ser el panel
                          mismo, para que el rotulo, el cargador y la barra de subida
                          —absolutos sobre el panel— se queden quietos mientras el documento
                          se desplaza. --}}
                     <div class="pdf-zoom-scroll" id="pdfZoomScrollIzq">
-                        <div class="pdf-zoom-lienzo" id="pdfZoomLienzoIzq">
-                            <iframe id="pdfPreviewFrame" src=""
+                        <iframe id="pdfPreviewFrame" src=""
                                 {{-- filter 0.3s (era 0.5s): es lo que tarda el documento en pasar de
                                      borroso a legible, y ese tiempo se paga en CADA apertura. Con
                                      0.3 el revelado se sigue viendo y se recuperan 200 ms. Va de la
                                      mano de PDF_PINTADO_MS en layout_ui.js —el margen previo— asi que
                                      si se toca uno hay que mirar el otro: entre los dos sale el
                                      "cuanto tardo en poder leer el PDF". --}}
-                                style="width: 100%; height: 100%; border: none; opacity: 0; transition: opacity 0.25s, filter 0.3s ease-out; position: relative; z-index: 20;"
-                                allowfullscreen></iframe>
-                        </div>
+                            style="width: 100%; height: 100%; border: none; opacity: 0; transition: opacity 0.25s, filter 0.3s ease-out; position: relative; z-index: 20;"
+                            allowfullscreen></iframe>
                     </div>
 
                     {{-- Rótulo del lado izquierdo. Solo se ve comparando: con un único
@@ -1017,11 +1015,9 @@
                     </div>
                     {{-- Misma capa de desplazamiento que el lado izquierdo (ver alli). --}}
                     <div class="pdf-zoom-scroll" id="pdfZoomScrollDer">
-                        <div class="pdf-zoom-lienzo" id="pdfZoomLienzoDer">
-                            <iframe id="pdfComparaFrame" src=""
-                                style="width:100%; height:100%; border:none; background:#282828;"
-                                allowfullscreen></iframe>
-                        </div>
+                        <iframe id="pdfComparaFrame" src=""
+                            style="width:100%; height:100%; border:none; background:#282828;"
+                            allowfullscreen></iframe>
                     </div>
                 </div>
 

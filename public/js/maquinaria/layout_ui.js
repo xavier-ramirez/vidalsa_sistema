@@ -246,6 +246,105 @@ window.cancelModal = function () {
 
 // --- PDF Preview System (Internal View) - OPTIMIZED ---
 
+/* ── El documento y sus correcciones, en un solo archivo ────────────────────────
+   Descargar e Imprimir actuan sobre el EXPEDIENTE completo: el original y todas sus
+   correcciones unidos en un PDF, en ese orden. Antes cada boton se llevaba solo la
+   hoja abierta, asi que con una correccion encima habia que repetir la operacion
+   documento por documento (y al imprimir salia siempre el principal).
+
+   Se une en el NAVEGADOR con pdf-lib y no en el servidor: TCPDF no sabe importar
+   paginas de un PDF existente y FPDI (que si) no lee los PDF con xref comprimido
+   -que son el 60% de los documentos cargados- salvo con licencia de pago. Ademas los
+   archivos ya estan en la cache del navegador de haberlos visto en el visor, asi que
+   unirlos no vuelve a bajar nada de Drive: es solo CPU local. */
+
+const PDF_UNION_MAX_BYTES = 25 * 1024 * 1024;   // valvula: en un movil, mas es tumbar la pestana
+
+/** Enlaces del expediente abierto, en orden: principal y luego sus correcciones. */
+const _pdfEnlacesExpediente = function () {
+    const ctx = window._pdfAnexoCtx;
+    if (!ctx || !ctx.principal) return [];
+    const lista = ((window._anexosPorEquipo || {})[ctx.equipoId] || {})[ctx.tipo] || [];
+    return [ctx.principal].concat(lista.map((a) => a.link).filter(Boolean));
+};
+
+/**
+ * Une el expediente en un Blob. Devuelve null si no hay nada que unir (documento sin
+ * correcciones), y lanza si algo falla — quien llama decide el respaldo.
+ */
+const _pdfUnirExpediente = async function () {
+    const urls = _pdfEnlacesExpediente();
+    if (urls.length < 2) return null;
+
+    await window.cargarScriptUnaVez(
+        (window.lazyBaseUrl ? window.lazyBaseUrl() : '') + '/js/vendor/pdf-lib-1.17.1.min.js',
+        () => !!window.PDFLib
+    );
+
+    // credentials + force-cache, igual que la descarga suelta: la URL es del proxy
+    // propio (/storage/google/...), asi que sale del cache del navegador sin red.
+    let total = 0;
+    const contenidos = [];
+    for (const url of urls) {
+        const r = await fetch(url, { credentials: 'include', cache: 'force-cache' });
+        if (!r.ok) throw new Error('HTTP ' + r.status + ' en ' + url);
+        const buf = await r.arrayBuffer();
+        total += buf.byteLength;
+        if (total > PDF_UNION_MAX_BYTES) throw new Error('el expediente pesa mas de 25 MB');
+        contenidos.push(buf);
+    }
+
+    const salida = await window.PDFLib.PDFDocument.create();
+    for (const buf of contenidos) {
+        // ignoreEncryption: muchos escaneos vienen con permisos puestos aunque no
+        // pidan contrasena; sin esto pdf-lib se niega a abrirlos.
+        const doc = await window.PDFLib.PDFDocument.load(buf, { ignoreEncryption: true });
+        const paginas = await salida.copyPages(doc, doc.getPageIndices());
+        paginas.forEach((pag) => salida.addPage(pag));
+    }
+    return new Blob([await salida.save()], { type: 'application/pdf' });
+};
+
+/**
+ * El expediente unido, o null para seguir por el camino de siempre (un solo archivo).
+ * Nunca rechaza: si la union falla, avisa y devuelve null.
+ */
+const _pdfPrepararUnion = function () {
+    if (_pdfEnlacesExpediente().length < 2) return Promise.resolve(null);
+    return _pdfUnirExpediente().catch(function (e) {
+        console.warn('No se pudo unir el expediente:', e);
+        if (window.toast) {
+            window.toast('No se pudieron unir las correcciones; va solo el documento abierto.', 'warning');
+        }
+        return null;
+    });
+};
+
+/** Manda un Blob a la impresora desde un iframe oculto. */
+const _pdfImprimirBlob = function (blob, alTerminar) {
+    const blobUrl = URL.createObjectURL(blob);
+    const printFrame = document.createElement('iframe');
+    printFrame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;';
+    printFrame.src = blobUrl;
+    document.body.appendChild(printFrame);
+    printFrame.onload = () => {
+        try {
+            printFrame.contentWindow.focus();
+            printFrame.contentWindow.print();
+        } catch (e) {
+            console.warn('print iframe error:', e);
+        } finally {
+            if (alTerminar) alTerminar();
+            // El blobUrl + iframe se limpian un rato despues para no cancelar el
+            // dialogo de impresion abierto.
+            setTimeout(() => {
+                URL.revokeObjectURL(blobUrl);
+                if (printFrame.parentNode) printFrame.parentNode.removeChild(printFrame);
+            }, 60000);
+        }
+    };
+};
+
 // Optimized Direct PDF Download with visual feedback
 window.downloadPdfDirect = function (url, documentLabel) {
     if (!url) {
@@ -254,26 +353,18 @@ window.downloadPdfDirect = function (url, documentLabel) {
     }
 
     const downloadBtn = document.getElementById('pdfDownloadBtn');
-
-    // Show loading state
-    if (downloadBtn) {
-        downloadBtn.disabled = true;
-        downloadBtn.innerHTML = '<span class="material-icons" style="font-size: 16px; animation: spin 1s linear infinite;">sync</span><span class="btn-label">Descargando...</span>';
-    }
-
-    // Generate filename
-    let filename = 'documento.pdf';
-    if (documentLabel) {
-        const cleanLabel = documentLabel.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
-        filename = cleanLabel + '.pdf';
-    }
-
-    const restoreBtn = function () {
-        if (downloadBtn) {
-            downloadBtn.disabled = false;
-            downloadBtn.innerHTML = '<span class="material-icons" style="font-size: 16px;">download</span><span class="btn-label">Descargar</span>';
-        }
+    const pintarBoton = function (cargando) {
+        if (!downloadBtn) return;
+        downloadBtn.disabled = cargando;
+        downloadBtn.innerHTML = cargando
+            ? '<span class="material-icons" style="font-size: 16px; animation: spin 1s linear infinite;">sync</span><span class="btn-label">Descargando...</span>'
+            : '<span class="material-icons" style="font-size: 16px;">download</span><span class="btn-label">Descargar</span>';
     };
+
+    const limpio = documentLabel
+        ? documentLabel.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')
+        : '';
+    let filename = limpio ? limpio + '.pdf' : 'documento.pdf';
 
     // Descarga con un <a download> apuntando a una URL (blob o directa).
     const downloadViaAnchor = function (href, revoke) {
@@ -284,37 +375,47 @@ window.downloadPdfDirect = function (url, documentLabel) {
         a.style.display = 'none';
         document.body.appendChild(a);
         a.click();
-        // Quitar el <a> y restaurar el botón rápido; pero si era un blob, NO lo
-        // revocamos aún: si el navegador muestra "Guardar como", la descarga no
-        // inicia hasta que el usuario confirme — revocar antes la cancelaría.
+        // Quitar el <a> y restaurar el boton rapido; pero si era un blob, NO lo
+        // revocamos aun: si el navegador muestra "Guardar como", la descarga no
+        // inicia hasta que el usuario confirme — revocar antes la cancelaria.
         setTimeout(function () {
             if (a.parentNode) a.parentNode.removeChild(a);
-            restoreBtn();
+            pintarBoton(false);
         }, 800);
         if (revoke) setTimeout(function () { URL.revokeObjectURL(href); }, 60000);
     };
 
-    // Estrategia robusta: traemos el PDF con fetch y lo descargamos como BLOB.
-    // Así SIEMPRE se DESCARGA (guarda el archivo) y NO se ABRE en el visor, aunque
-    // el navegador ignore el atributo `download` (lo ignora cuando la URL no es del
-    // mismo origen — p.ej. si redirige a Drive). Mismo enfoque que printPdfFromPreview.
-    // Si el fetch falla (CORS, red), caemos al enlace directo (comportamiento previo).
-    // NO usa window.apiFetch a proposito: la URL puede redirigir a Drive
-    // (cross-origin) y las cabeceras que apiFetch agrega (X-Requested-With)
-    // convierten esto en una peticion con preflight CORS que el otro dominio
-    // rechaza. Aqui va fetch pelado.
-    fetch(url, { credentials: 'include', cache: 'force-cache' })
-        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); })
-        .then(function (blob) { downloadViaAnchor(URL.createObjectURL(blob), true); })
-        .catch(function () { downloadViaAnchor(url, false); });
+    pintarBoton(true);
+
+    _pdfPrepararUnion().then(function (unido) {
+        if (unido) {
+            // El expediente entero: se marca en el nombre para no confundirlo con el
+            // archivo suelto que pueda tener ya guardado.
+            if (limpio) filename = limpio + '_completo.pdf';
+            downloadViaAnchor(URL.createObjectURL(unido), true);
+            return;
+        }
+
+        // Un solo documento. Estrategia robusta: traemos el PDF con fetch y lo
+        // descargamos como BLOB. Asi SIEMPRE se DESCARGA (guarda el archivo) y NO se
+        // ABRE en el visor, aunque el navegador ignore el atributo `download` (lo
+        // ignora cuando la URL no es del mismo origen — p.ej. si redirige a Drive).
+        // Si el fetch falla (CORS, red), caemos al enlace directo.
+        // NO usa window.apiFetch a proposito: la URL puede redirigir a Drive
+        // (cross-origin) y las cabeceras que apiFetch agrega (X-Requested-With)
+        // convierten esto en una peticion con preflight CORS que el otro dominio
+        // rechaza. Aqui va fetch pelado.
+        fetch(url, { credentials: 'include', cache: 'force-cache' })
+            .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); })
+            .then(function (blob) { downloadViaAnchor(URL.createObjectURL(blob), true); })
+            .catch(function () { downloadViaAnchor(url, false); });
+    });
 };
 
-// Imprime el PDF que esta en el visor sin descargarlo. Estrategia:
-//   1) iframe.contentWindow.print() directo — solo funciona si el PDF
-//      es same-origin (raro con Drive, pero gratis intentarlo).
-//   2) fetch -> Blob -> iframe oculto -> print() — funciona si el
-//      navegador ya tiene el PDF en cache (lo trae del cache HTTP).
-//      Si Drive bloquea por CORS, esta opcion falla.
+// Imprime SIN descargar. Con correcciones va el expediente unido; con un solo
+// documento, la escalera de siempre:
+//   1) iframe.contentWindow.print() directo — el visor ya lo tiene pintado.
+//   2) fetch -> Blob -> iframe oculto -> print().
 //   3) Fallback: abrir en pestana nueva. El usuario imprime con Ctrl+P.
 window.printPdfFromPreview = function () {
     const printBtn = document.getElementById('pdfPrintBtn');
@@ -333,59 +434,43 @@ window.printPdfFromPreview = function () {
             : '<i class="material-icons" style="font-size: 16px;">print</i><span class="btn-label">Imprimir</span>';
     };
 
-    // 1) Intento same-origin sobre el iframe ya abierto
-    try {
-        const visibleFrame = document.getElementById('pdfPreviewFrame');
-        if (visibleFrame && visibleFrame.contentWindow && visibleFrame.style.display !== 'none') {
-            visibleFrame.contentWindow.focus();
-            visibleFrame.contentWindow.print();
+    setBtnLoading(true);
+
+    _pdfPrepararUnion().then(function (unido) {
+        if (unido) {
+            _pdfImprimirBlob(unido, () => setBtnLoading(false));
             return;
         }
-    } catch (_) { /* cross-origin: cae al fetch */ }
 
-    // 2) Fetch (usa cache HTTP si existe) -> Blob -> iframe oculto
-    setBtnLoading(true);
-    // NO usa window.apiFetch a proposito: la URL puede redirigir a Drive
-    // (cross-origin) y las cabeceras que apiFetch agrega (X-Requested-With)
-    // convierten esto en una peticion con preflight CORS que el otro dominio
-    // rechaza. Aqui va fetch pelado.
-    fetch(url, { credentials: 'include', cache: 'force-cache' })
-        .then(r => {
-            if (!r.ok) throw new Error('HTTP ' + r.status);
-            return r.blob();
-        })
-        .then(blob => {
-            const blobUrl = URL.createObjectURL(blob);
-            const printFrame = document.createElement('iframe');
-            printFrame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;';
-            printFrame.src = blobUrl;
-            document.body.appendChild(printFrame);
-            printFrame.onload = () => {
-                try {
-                    printFrame.contentWindow.focus();
-                    printFrame.contentWindow.print();
-                } catch (e) {
-                    console.warn('print iframe error:', e);
-                } finally {
-                    setBtnLoading(false);
-                    // El blobUrl + iframe se limpian un rato despues
-                    // para no cancelar el dialogo de impresion abierto.
-                    setTimeout(() => {
-                        URL.revokeObjectURL(blobUrl);
-                        if (printFrame.parentNode) printFrame.parentNode.removeChild(printFrame);
-                    }, 60000);
-                }
-            };
-        })
-        .catch(err => {
-            console.warn('No se pudo imprimir via fetch:', err);
-            setBtnLoading(false);
-            // 3) Fallback: nueva pestana — el usuario imprime con Ctrl+P
-            const w = window.open(url, '_blank');
-            if (!w) {
-                alert('No se pudo imprimir el PDF. El navegador bloqueo el popup. Permite popups e intenta de nuevo, o usa el boton Descargar.');
+        // 1) El iframe abierto ya tiene el documento pintado: es lo mas rapido.
+        try {
+            const visibleFrame = document.getElementById('pdfPreviewFrame');
+            if (visibleFrame && visibleFrame.contentWindow && visibleFrame.style.display !== 'none') {
+                visibleFrame.contentWindow.focus();
+                visibleFrame.contentWindow.print();
+                setBtnLoading(false);
+                return;
             }
-        });
+        } catch (_) { /* cross-origin: cae al fetch */ }
+
+        // 2) Fetch (usa cache HTTP si existe) -> Blob -> iframe oculto.
+        // NO usa window.apiFetch, por el mismo motivo que la descarga.
+        fetch(url, { credentials: 'include', cache: 'force-cache' })
+            .then((r) => {
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                return r.blob();
+            })
+            .then((blob) => _pdfImprimirBlob(blob, () => setBtnLoading(false)))
+            .catch((err) => {
+                console.warn('No se pudo imprimir via fetch:', err);
+                setBtnLoading(false);
+                // 3) Fallback: nueva pestana — el usuario imprime con Ctrl+P
+                const w = window.open(url, '_blank');
+                if (!w) {
+                    alert('No se pudo imprimir el PDF. El navegador bloqueo el popup. Permite popups e intenta de nuevo, o usa el boton Descargar.');
+                }
+            });
+    });
 };
 
 // Temporizador de respaldo del visor (uno SOLO para toda la pantalla, no uno por
@@ -964,12 +1049,9 @@ window._pdfComparaZoom = { izq: 0, der: 0 };
    que se vino a quitar. Se borra al volver a 1 y al cambiar el tamaño de la ventana. */
 const _pdfZoomBase = { izq: null, der: null };
 
-/** El iframe / el lienzo que crece / la capa con barras, de cada lado. */
+/** El iframe y la capa con barras de cada lado. */
 const _pdfComparaFrameDe = (lado) => document.getElementById(
     lado === 'izq' ? 'pdfPreviewFrame' : 'pdfComparaFrame'
-);
-const _pdfComparaLienzoDe = (lado) => document.getElementById(
-    lado === 'izq' ? 'pdfZoomLienzoIzq' : 'pdfZoomLienzoDer'
 );
 const _pdfComparaScrollDe = (lado) => document.getElementById(
     lado === 'izq' ? 'pdfZoomScrollIzq' : 'pdfZoomScrollDer'
@@ -983,16 +1065,19 @@ const _pdfComparaScrollDe = (lado) => document.getElementById(
  * y desde fuera se leia como "cambiar de un PDF al otro" en vez de como acercar: los dos
  * documentos siguen a la vista y solo cambia el tamaño del suyo.
  *
- * EL ZOOM SE HACE CON CSS, NO PIDIENDOSELO AL VISOR. Antes se le pasaba #zoom=150 en el
- * hash de la URL y no pasaba nada: el visor nativo lee esos parametros al cargar el
- * documento y, aunque cambiar el fragmento vuelva a navegar, en la practica el zoom no se
- * aplicaba — la lupa no hacia nada. Con transform:scale el resultado no depende de que el
- * visor colabore, es inmediato y no vuelve a cargar el PDF.
+ * EL ZOOM LO HACE EL VISOR, NO EL CSS: el iframe se AGRANDA y el visor nativo vuelve a
+ * encajar la hoja (view=Fit) en el hueco nuevo, o sea que la redibuja a resolucion real.
  *
- * SE ESCALA SIN TOCAR EL TAMAÑO DE MAQUETACION DEL IFRAME, y el hueco que hace falta lo
- * pone el lienzo (ver _pdfComparaAplicarZoom). Encogerle el ancho al iframe —que fue el
- * primer intento— obligaba al visor nativo a rehacer su composicion y a recolocar la
- * hoja hacia el centro: el documento pegaba un salto en vez de acercarse.
+ * Los dos intentos anteriores fueron por CSS y los dos fallaron. Encoger el iframe a
+ * 1/escala y escalarlo con transform desde la esquina recolocaba la hoja hacia el centro
+ * (al cambiar el ancho de maquetacion el visor recompone) y el documento pegaba un salto.
+ * Escalarlo desde el centro sin tocarle el tamano quitaba el salto pero lo dejaba BORROSO:
+ * el visor seguia dibujando al tamano chico y el compositor estiraba ese mapa de bits.
+ *
+ * Agrandandolo no hay transform de por medio: el plugin dibuja de nuevo, nitido, y la capa
+ * .pdf-zoom-scroll pone las barras para recorrer lo que ya no cabe. Que el visor re-encaja
+ * al cambiar de tamano se ve cada vez que se enciende la comparacion: el mismo iframe pasa
+ * a la mitad de ancho y la hoja se re-ajusta sola.
  */
 window.pdfComparaZoom = function (lado, direccion) {
     if (!window._pdfComparando) return;
@@ -1023,45 +1108,35 @@ const _pdfComparaResetZoom = function (soloDerecha) {
 };
 
 /**
- * Escala el iframe de un lado y deja el hueco para poder recorrerlo.
+ * Acerca un lado agrandando su iframe, y deja el punto de mira donde estaba.
  *
- * Tres piezas: el IFRAME conserva su tamaño de maquetacion y solo se escala (asi el
- * visor nativo no recompone); el LIENZO crece a tamaño x escala, que es lo que le da
- * a la capa de arriba algo que desplazar; y la CAPA se reposiciona para que el
- * acercamiento salga del centro de lo que se estaba viendo y no del principio del
- * documento.
+ * El tamano base es el hueco del panel medido SIN barras; a partir de ahi cada nivel es
+ * base x escala. La capa .pdf-zoom-scroll se encarga del desplazamiento.
  */
 const _pdfComparaAplicarZoom = function (lado, escala) {
-    const frame  = _pdfComparaFrameDe(lado);
-    const lienzo = _pdfComparaLienzoDe(lado);
-    const capa   = _pdfComparaScrollDe(lado);
-    if (!frame || !lienzo || !capa) return;
+    const frame = _pdfComparaFrameDe(lado);
+    const capa  = _pdfComparaScrollDe(lado);
+    if (!frame || !capa) return;
 
-    // Punto de mira actual, en proporcion del lienzo (0..1), ANTES de tocar nada.
-    const anchoPrevio = lienzo.offsetWidth  || 1;
-    const altoPrevio  = lienzo.offsetHeight || 1;
+    // Donde estaba mirando, en proporcion del documento (0..1), ANTES de tocar nada:
+    // asi el acercamiento sale del centro de lo que se ve y no del principio de la hoja.
+    const anchoPrevio = frame.offsetWidth  || capa.clientWidth  || 1;
+    const altoPrevio  = frame.offsetHeight || capa.clientHeight || 1;
     const mirandoX = (capa.scrollLeft + capa.clientWidth  / 2) / anchoPrevio;
     const mirandoY = (capa.scrollTop  + capa.clientHeight / 2) / altoPrevio;
 
     if (escala === 1) {
         _pdfZoomBase[lado] = null;
-        // El lienzo PRIMERO: al devolverlo a 100% desaparecen las barras, y el 100%
-        // del iframe vuelve a valer el hueco entero. Al reves, el iframe se quedaria
-        // 12 px corto durante ese instante y el visor recompondria de balde.
-        lienzo.style.width = '';
-        lienzo.style.height = '';
-        // '100%' explicito y NO cadena vacia: el ancho del iframe viene de su style en
-        // linea, asi que vaciarlo lo dejaria en el ancho por defecto de un <iframe>.
+        // '100%' explicito y NO cadena vacia: el tamano del iframe viene de su style en
+        // linea, asi que vaciarlo lo dejaria en el tamano por defecto de un <iframe>.
         frame.style.width = '100%';
         frame.style.height = '100%';
-        frame.style.transform = '';
-        frame.style.transformOrigin = '';
         capa.scrollLeft = 0;
         capa.scrollTop = 0;
         return;
     }
 
-    // Se mide una sola vez por acercamiento, estando aun a tamaño natural.
+    // Se mide una sola vez por acercamiento, estando aun a tamano natural (sin barras).
     if (!_pdfZoomBase[lado]) {
         _pdfZoomBase[lado] = { w: capa.clientWidth, h: capa.clientHeight };
     }
@@ -1070,15 +1145,9 @@ const _pdfComparaAplicarZoom = function (lado, escala) {
 
     const anchoNuevo = Math.round(base.w * escala);
     const altoNuevo  = Math.round(base.h * escala);
+    frame.style.width = anchoNuevo + 'px';
+    frame.style.height = altoNuevo + 'px';
 
-    frame.style.width = base.w + 'px';
-    frame.style.height = base.h + 'px';
-    frame.style.transformOrigin = '0 0';
-    frame.style.transform = 'scale(' + escala + ')';
-    lienzo.style.width = anchoNuevo + 'px';
-    lienzo.style.height = altoNuevo + 'px';
-
-    // Y se vuelve a poner el punto de mira donde estaba.
     capa.scrollLeft = Math.max(0, mirandoX * anchoNuevo - capa.clientWidth / 2);
     capa.scrollTop  = Math.max(0, mirandoY * altoNuevo  - capa.clientHeight / 2);
 };
