@@ -353,16 +353,20 @@
             </div>`;
 
         // Fila Certificado: label + fecha de vencimiento + boton (todo en linea)
+        //
+        // La fecha va como en el detalle de EQUIPOS: texto plano en #333 y dd/mm/aaaa.
+        // Antes era una etiqueta de color —verde si faltaba mucho, ambar por debajo de 30
+        // dias, roja y con "(VENCIDO)" si ya paso—, y era el UNICO sitio del sistema que
+        // pintaba asi una fecha: en el detalle de equipos, poliza, ROTC, RACDA y
+        // certificado salen sin colorear, y las tablas tampoco colorean. Quien avisa de
+        // los vencimientos es el panel de alertas del tablero, no esta ficha.
         let fechaInline = '<span style="color:#94a3b8; font-size:12px;">Sin fecha</span>';
         if (d.fecha_vencimiento_cert) {
-            const venc = new Date(d.fecha_vencimiento_cert);
-            const hoy = new Date(); hoy.setHours(0,0,0,0);
-            const diff = Math.floor((venc - hoy) / (1000*60*60*24));
-            const txt  = d.fecha_vencimiento_cert;
-            let bg='#f0fdf4', co='#16a34a', extra='';
-            if (diff < 0)       { bg='#fef2f2'; co='#dc2626'; extra=' (VENCIDO)'; }
-            else if (diff < 30) { bg='#fffbeb'; co='#d97706'; extra=' ('+diff+'d)'; }
-            fechaInline = `<span style="background:${bg}; color:${co}; padding:2px 6px; border-radius:6px; font-weight:700; font-size:11px; white-space:nowrap; display:inline-block; max-width:100%; overflow:hidden; text-overflow:ellipsis;" title="${txt}${extra}">${txt}${extra}</span>`;
+            // Mismo formateo que formatDate() en el modal de equipos, que es local a esa
+            // funcion y no se puede llamar desde aqui.
+            const partes = String(d.fecha_vencimiento_cert).split('-');
+            const txt = partes.length === 3 ? `${partes[2]}/${partes[1]}/${partes[0]}` : d.fecha_vencimiento_cert;
+            fechaInline = `<span style="color:#333; font-size:13px; white-space:nowrap;" title="${txt}">${txt}</span>`;
         }
         const rowCertificado = `
             <div class="detail-row-doc" style="display:flex !important; align-items:center !important; justify-content:space-between !important; gap:6px; padding:6px 0; border-bottom:1px dashed #f1f5f9; flex-wrap:nowrap; min-width:0; width:100%;">
