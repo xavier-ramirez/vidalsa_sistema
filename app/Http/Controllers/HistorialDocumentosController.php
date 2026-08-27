@@ -10,6 +10,15 @@ use Carbon\Carbon;
 class HistorialDocumentosController extends Controller
 {
     /**
+     * Margen, en segundos, para dar por suya la correccion anexa de un evento del
+     * historial. anexarDoc guarda el anexo y su log seguidos, en la misma peticion:
+     * medido sobre los registros reales de esta base, la diferencia es 0 s cuando el
+     * anexo sigue vivo, y de HORAS cuando el que le tocaba se borro. Cinco segundos
+     * separan los dos casos de sobra sin llegar a rozar el siguiente anexo.
+     */
+    private const ANEXO_MARGEN_SEG = 5;
+
+    /**
      * Construye el identificador de equipo para mostrar en la tabla del historial,
      * consistente entre los 3 loops (docs, equipos creados, audit logs). Prefiere
      * Placa → Serial Chasis → ID. Acepta tanto Equipo como (Equipo + placa string).
@@ -436,6 +445,32 @@ class HistorialDocumentosController extends Controller
             if ($fechaHastaSql) $auditQuery->where('created_at', '<=', $fechaHastaSql);
 
             $auditLogs = $auditQuery->limit(5000)->get();
+
+            // ── PDF de las CORRECCIONES ANEXAS ──────────────────────────────────────
+            // El audit log guarda el evento pero no la URL, asi que la fila salia sin boton
+            // y la correccion no se podia abrir desde este modulo. El enlace se lee de
+            // documento_anexos y NO se copia al log a proposito: asi un anexo borrado deja
+            // de ofrecer un PDF que ya no existe, en vez de apuntar a un archivo muerto.
+            //
+            // Se casan por TIEMPO, no por etiqueta: anexarDoc crea el anexo y escribe el log
+            // seguido, en la misma peticion, asi que el registro que le corresponde esta a
+            // menos de un segundo. La etiqueta NO sirve de clave — se numera contando los
+            // anexos vivos, asi que al borrar uno y anexar otro el numero se repite: en esta
+            // misma base hay tres eventos distintos con 'Correccion 1' y casarlos por ahi le
+            // colgaria a los tres el PDF del ultimo, que es OTRO archivo. Un modulo de
+            // auditoria no puede enseñar un documento que no es el del evento.
+            //
+            // Una sola consulta para todo el lote, agrupada por equipo+tipo.
+            $anexosPorEquipoTipo = collect();
+            $equiposConAnexo = $auditLogs
+                ->filter(fn ($l) => \Illuminate\Support\Str::startsWith($l->ACCION, 'anexo_'))
+                ->pluck('ID_EQUIPO')->filter()->unique()->all();
+            if (!empty($equiposConAnexo)) {
+                $anexosPorEquipoTipo = \App\Models\DocumentoAnexo::whereIn('ID_EQUIPO', $equiposConAnexo)
+                    ->get(['ID_ANEXO', 'ID_EQUIPO', 'TIPO_DOC', 'LINK', 'created_at'])
+                    ->groupBy(fn ($a) => $a->ID_EQUIPO . '|' . $a->TIPO_DOC);
+            }
+
             foreach ($auditLogs as $log) {
                 $eq = $log->equipo;
 
@@ -477,12 +512,23 @@ class HistorialDocumentosController extends Controller
                     // Correcciones anexas (anexarDoc). NO son subidas del principal: ese
                     // endpoint solo AÑADE y nunca pisa el archivo anterior, por eso llevan
                     // verbo propio y categoria propia en el filtro ('cat_anexos').
-                    'anexo_propiedad'      => 'Corrección Propiedad',
-                    'anexo_poliza'         => 'Corrección Póliza',
-                    'anexo_rotc'           => 'Corrección ROTC',
-                    'anexo_racda'          => 'Corrección RACDA',
-                    'anexo_adicional'      => 'Corrección Certificado',
-                    'anexo_adicional_2'    => 'Corrección Compraventa',
+                    // Se rotulan con el MISMO nombre que la pestaña del visor
+                    // (EquipoController::ROTULO_ANEXO) y se les añade a que documento
+                    // corrigen, que es lo unico que distingue una fila de otra: esta
+                    // columna es el unico sitio de la tabla donde sale el documento.
+                    'anexo_propiedad'      => EquipoController::ROTULO_ANEXO . ' · Propiedad',
+                    'anexo_poliza'         => EquipoController::ROTULO_ANEXO . ' · Póliza',
+                    'anexo_rotc'           => EquipoController::ROTULO_ANEXO . ' · ROTC',
+                    'anexo_racda'          => EquipoController::ROTULO_ANEXO . ' · RACDA',
+                    'anexo_adicional'      => EquipoController::ROTULO_ANEXO . ' · Certificado',
+                    'anexo_adicional_2'    => EquipoController::ROTULO_ANEXO . ' · Compraventa',
+                    // Borrado de una correccion (eliminarAnexo). Estaba registrandose sin
+                    // rotulo aqui, asi que la primera que alguien borrara habria salido como
+                    // "Delete anexo propiedad" — el respaldo generico de mas abajo. Solo estos
+                    // dos tipos porque son los unicos que admiten anexos
+                    // (EquipoController::TIPOS_CON_ANEXOS).
+                    'delete_anexo_propiedad' => 'Borrado ' . EquipoController::ROTULO_ANEXO . ' · Propiedad',
+                    'delete_anexo_poliza'    => 'Borrado ' . EquipoController::ROTULO_ANEXO . ' · Póliza',
                     'bulk_ubicacion'       => 'Detalle Masivo',
                     'create'               => 'Registro de Vehículo',
                     'delete'               => 'Eliminación de Equipo',
@@ -532,13 +578,34 @@ class HistorialDocumentosController extends Controller
                     };
                 }
 
+                // El PDF de una correccion anexa (ver la nota de arriba). Para el resto de
+                // acciones del audit log no hay enlace que enseñar: la tabla solo pinta el
+                // boton cuando 'link' viene lleno. Si no hay ningun anexo dentro del margen,
+                // el suyo se borro y la fila se queda sin boton, que es lo correcto.
+                $linkEvento = null;
+                if (\Illuminate\Support\Str::startsWith($log->ACCION, 'anexo_')) {
+                    $candidatos = $anexosPorEquipoTipo->get(
+                        $log->ID_EQUIPO . '|' . substr($log->ACCION, strlen('anexo_')),
+                        collect()
+                    );
+                    $mejorDif = null;
+                    foreach ($candidatos as $a) {
+                        if (!$a->created_at) continue;
+                        $dif = abs($a->created_at->diffInSeconds($log->created_at));
+                        if ($dif <= self::ANEXO_MARGEN_SEG && ($mejorDif === null || $dif < $mejorDif)) {
+                            $mejorDif   = $dif;
+                            $linkEvento = $a->LINK;
+                        }
+                    }
+                }
+
                 $events->push((object)[
                     'doc_key'       => $log->ACCION,
                     'tipo'          => $tipoLabel,
                     'autor'         => $log->usuario ? $log->usuario->CORREO_ELECTRONICO : ('Usuario #' . $log->ID_USUARIO),
                     'autor_nombre'  => $log->usuario ? ($log->usuario->NOMBRE_COMPLETO ?? '') : '',
                     'fecha'         => $log->created_at,
-                    'link'          => null,
+                    'link'          => $linkEvento,
                     'equipo_nombre' => $eName,
                     'equipo_id'     => $eId,
                     'equipo_db_id'  => $eq ? $eq->ID_EQUIPO : null,

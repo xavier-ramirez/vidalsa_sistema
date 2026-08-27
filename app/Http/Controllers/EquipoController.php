@@ -2929,6 +2929,10 @@ class EquipoController extends Controller
                 'created_at'         => now(),
             ]);
 
+            // El log va JUSTO detras del create() del anexo, en la misma peticion: de esa
+            // cercania en el tiempo se agarra el Control de Auditoria para saber que PDF
+            // enseñar en esta fila (ver HistorialDocumentosController::ANEXO_MARGEN_SEG).
+            // Por eso el enlace no se copia aqui: vive solo en documento_anexos.
             \App\Models\EquipoAuditLog::registrar(
                 $equipo->ID_EQUIPO,
                 'anexo_' . $type,
@@ -2955,8 +2959,16 @@ class EquipoController extends Controller
         }
     }
 
-    /** Como se llama una correccion anexa en pantalla. Un solo sitio. */
-    private const ROTULO_ANEXO = 'Anexo de corrección';
+    /**
+     * Como se llama una correccion anexa EN PANTALLA. Un solo sitio, y publico porque
+     * lo lee tambien el Control de Auditoria (HistorialDocumentosController): el evento
+     * del historial tiene que rotularse igual que la pestaña del visor, o el mismo
+     * archivo se llamaria de dos formas segun por donde se mire.
+     *
+     * OJO: NO es lo que se guarda en documento_anexos.ETIQUETA — ahi va 'Correccion N',
+     * que es un contador y ni siquiera sirve de clave (ver ANEXO_MARGEN_SEG).
+     */
+    public const ROTULO_ANEXO = 'Anexo de corrección';
 
     /**
      * Tipos de documento que ADMITEN correcciones anexas. Fuente unica: el front la
