@@ -594,6 +594,15 @@ let _pdfLoaderTimeout = null;
    quedara atras. El de comparar es PDF_PARAMS_COMPARA, mas abajo. */
 const PDF_PARAMS_LECTURA = '#toolbar=0&navpanes=0&scrollbar=0&zoom=100';
 
+/* "Esto es un TELEFONO". Distinto de PDF_COMPARA_ANCHO_MIN (mas abajo), que responde
+   otra pregunta: "¿caben dos hojas una al lado de la otra?". Entre los dos numeros
+   —una ventana de escritorio estrecha— no cabe la vista partida pero SI se sigue
+   tratando como escritorio: el panel de datos se abre y las pestañas de correcciones
+   se quedan, porque sin vista partida son la unica forma de llegar a una correccion.
+   Estaba escrito a mano en el panel de datos; aqui vive una sola vez para que las dos
+   pantallas que preguntan "¿es telefono?" no puedan contestar cosas distintas. */
+const PDF_ANCHO_TELEFONO = 768;
+
 // Radio del desenfoque con el que se revela el PDF mientras llega. En UN solo
 // sitio: lo ponen la apertura y la asignacion del src, y si los dos valores se
 // separaran el documento daria un salto de nitidez al empezar a cargar.
@@ -955,7 +964,7 @@ window.openPdfPreview = function (url, docType, label, equipoId, uploadUrl, skip
         panel.style.width = '0';
         if (!skipMetadata) {
             setTimeout(() => {
-                const isMobile = window.innerWidth <= 768;
+                const isMobile = window.innerWidth <= PDF_ANCHO_TELEFONO;
                 if (!isMobile) {
                     panel.style.width = '300px';
                     loadMetadata();
@@ -1078,12 +1087,15 @@ window._pdfComparando = false;
  * siguen en el DOM hasta que llega la respuesta del servidor, y contarlas hacia
  * asomar por un momento las pestañas del documento anterior.
  *
- * Y NUNCA por debajo de PDF_COMPARA_ANCHO_MIN. Ahi no hay vista partida (lo corta
- * _pdfAbrePartido), asi que la condicion "!_pdfComparando" se cumplia SIEMPRE y la
- * barra salia en cuanto el documento tuviera una correccion: en telefono aparecian
- * las dos pestañas —"Original" y la correccion— comiendose la cabecera del visor.
- * En una sola pantalla no hay nada que comparar, y el expediente completo ya se lo
- * llevan Descargar e Imprimir unido en un solo PDF (ver _pdfPrepararUnion).
+ * Y NUNCA en TELEFONO (PDF_ANCHO_TELEFONO). Alli no hay vista partida, asi que la
+ * condicion "!_pdfComparando" se cumplia siempre y la barra salia en cuanto el
+ * documento tuviera una correccion: aparecian las dos pestañas —"Original" y la
+ * correccion— comiendose la cabecera del visor. El expediente completo se lee por
+ * Descargar e Imprimir, que lo bajan unido en un solo PDF (ver _pdfPrepararUnion).
+ *
+ * OJO, el corte NO es el de la vista partida: en una ventana de escritorio estrecha
+ * tampoco cabe la comparacion, pero ahi las pestañas son la UNICA forma de abrir una
+ * correccion y se quedan. Solo el telefono las pierde.
  */
 window._pdfSincronizarBarraPestanas = function () {
     const barra = document.getElementById('pdfAnexosBar');
@@ -1092,10 +1104,8 @@ window._pdfSincronizarBarraPestanas = function () {
     const lista = ctx
         ? ((((window._anexosPorEquipo || {})[ctx.equipoId]) || {})[ctx.tipo] || [])
         : [];
-    // Mismo umbral que la comparacion, a proposito: las dos reglas hablan de lo mismo
-    // —si cabe o no una segunda hoja al lado— y atadas al mismo numero no se separan.
-    const cabePartida = window.innerWidth >= PDF_COMPARA_ANCHO_MIN;
-    const haceFalta = cabePartida && lista.length > 0
+    const esTelefono = window.innerWidth <= PDF_ANCHO_TELEFONO;
+    const haceFalta = !esTelefono && lista.length > 0
         && (!window._pdfComparando || lista.length > 1);
 
     // Un solo sitio que escribe el display, y solo cuando CAMBIA: esto corre ahora en
