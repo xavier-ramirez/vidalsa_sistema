@@ -1016,6 +1016,13 @@ const _escAnexo = (v) => (window.escapeHtml ? window.escapeHtml(v) : String(v ==
 // 'creacion'...): ahi tampoco hay nada que anexar.
 const _TIPOS_CON_ANEXOS = window.TIPOS_CON_ANEXOS || ['propiedad', 'poliza'];
 
+// Como se llama una correccion en pantalla. Mismo trato y por el mismo motivo: lo dice
+// el servidor (EquipoController::ROTULO_ANEXO) y el layout lo publica. Aqui se recoge
+// UNA vez; antes la frase estaba escrita a mano en los dos respaldos de este archivo y
+// en el titulo del panel derecho, y el dia que se cambiara en el servidor esas copias
+// se habrian quedado diciendo lo de antes.
+const _ROTULO_ANEXO = window.ROTULO_ANEXO || 'Anexo de corrección';
+
 /**
  * Si este documento admite correcciones anexas. UN solo sitio lo decide,
  * y lo consultan tanto la apertura del visor como el pintado.
@@ -1139,7 +1146,7 @@ window._pdfComparaMostrar = function (anexo) {
     const rotDer = document.getElementById('pdfComparaTituloDer');
     if (!panel || !frame || !anexo) return;
 
-    if (rotDer) rotDer.textContent = anexo.etiqueta || 'Anexo de corrección';
+    if (rotDer) rotDer.textContent = anexo.etiqueta || _ROTULO_ANEXO;
     _pdfCargadorHasta('pdfComparaLoader', frame);
     frame.src = anexo.link + PDF_PARAMS_COMPARA;
     _pdfComparaMarcarChips(anexo.link);
@@ -1961,7 +1968,7 @@ window.deletePdfFromPreview = async function (cual) {
         correccion = window._pdfCorreccionAbierta ? window._pdfCorreccionAbierta() : null;
     }
     if (correccion) {
-        if (!window.confirm('¿Eliminar el anexo "' + (correccion.etiqueta || 'Anexo de corrección') +
+        if (!window.confirm('¿Eliminar el anexo "' + (correccion.etiqueta || _ROTULO_ANEXO) +
             '"?\n\nEl documento principal NO se toca. Esta acción no se puede deshacer.')) return;
 
         const btnC = document.getElementById('pdfDeleteBtn');

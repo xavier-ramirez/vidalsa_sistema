@@ -789,8 +789,15 @@
          TIPOS_CON_ANEXOS) y el visor los lee de aqui. Antes la lista estaba escrita
          tambien en layout_ui.js: dos sitios que podian separarse, y separandose el front
          ofreceria anexar donde el servidor lo rechaza. --}}
+    {{-- Y por lo mismo el ROTULO: como se llama una correccion en pantalla lo dice el
+         servidor (EquipoController::ROTULO_ANEXO), que es lo que ya usan el visor al
+         rotular cada anexo y el Control de Auditoria al rotular su evento. Estaba
+         escrito a mano ademas en tres sitios del front —el titulo del panel derecho y
+         dos respaldos de layout_ui.js—, o sea cuatro copias de la misma frase que solo
+         se mantenian iguales por suerte. --}}
     <script>
         window.TIPOS_CON_ANEXOS = @json(\App\Http\Controllers\EquipoController::TIPOS_CON_ANEXOS);
+        window.ROTULO_ANEXO     = @json(\App\Http\Controllers\EquipoController::ROTULO_ANEXO);
     </script>
 
     <!-- PDF Preview Modal -->
@@ -1003,7 +1010,7 @@
                 <div id="pdfComparaPanel"
                     style="display:none; flex:1; position:relative; border-left:3px solid #282828; min-width:0; overflow:hidden;">
                     <div id="pdfComparaEtiquetaDer" style="display:flex; position:absolute; top:0; left:0; right:0; z-index:40; background:rgba(40,40,40,0.94); align-items:center; gap:8px; padding:4px 6px 4px 10px;">
-                        <span id="pdfComparaTituloDer" style="flex:1; min-width:0; color:#93c5fd; font-size:11px; font-weight:700; letter-spacing:.4px; text-transform:uppercase; text-align:center; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Anexo de corrección</span>
+                        <span id="pdfComparaTituloDer" style="flex:1; min-width:0; color:#93c5fd; font-size:11px; font-weight:700; letter-spacing:.4px; text-transform:uppercase; text-align:center; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ \App\Http\Controllers\EquipoController::ROTULO_ANEXO }}</span>
                         {{-- Alejar / acercar este lado (ver el par gemelo del lado izquierdo). --}}
                         <button type="button" class="pdf-visor-btn" id="pdfZoomMenosDer"
                             onclick="window.pdfComparaZoom('der', -1)" title="Alejar este documento">
