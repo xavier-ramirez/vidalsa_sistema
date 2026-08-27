@@ -210,7 +210,7 @@
         //
         // Tampoco se consulta /offline/version antes: con cursor, el propio snapshot ya
         // contesta "sin_cambios" en medio KB, así que preguntar dos veces era un viaje
-        // de más. (Ese endpoint sigue existiendo: estructura_base lo usa como ping de
+        // de más. (Ese endpoint sigue existiendo: offline_mode.js lo usa como sondeo de
         // conectividad, que es otra cosa.)
         const cursor = (meta && meta.c) || { e: 0 };
         const url    = '/offline/snapshot?c=' + encodeURIComponent(JSON.stringify(cursor));

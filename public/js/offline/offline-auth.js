@@ -154,7 +154,7 @@
     // ── ¿Hay SERVIDOR de verdad? ────────────────────────────────────────────────
     // navigator.onLine MIENTE: dice "online" con el wifi levantado y el servidor caído,
     // que es justo el caso que este botón existe para cubrir. El resto de la app ya dejó
-    // de confiar en él (comprobarConexion() en estructura_base) y aquí se hace lo mismo:
+    // de confiar en él (comprobarConexion() en offline_mode.js) y aquí se hace lo mismo:
     // se sondea /offline/version y SOLO un fallo de red cuenta como sin conexión —
     // cualquier respuesta HTTP significa servidor vivo, incluida la redirección a /login
     // que devuelve por no haber sesión todavía (la ruta va detrás del middleware auth).

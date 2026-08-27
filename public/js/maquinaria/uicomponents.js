@@ -1541,7 +1541,8 @@ window.uploadDocument = function (input, type, equipoId, containerId, label) {
 /**
  * Global Preloader Management
  * NOTE: showPreloader / hidePreloader are defined authoritatively in
- * estructura_base.blade.php and wrapped by navegacion.js anti-freeze guard.
+ * preloader.js (salieron del inline de estructura_base.blade.php el 2026-08-24)
+ * and wrapped by navegacion.js anti-freeze guard.
  * Do NOT redefine them here — that would break the guard.
  */
 // (showPreloader and hidePreloader intentionally NOT redefined here)
