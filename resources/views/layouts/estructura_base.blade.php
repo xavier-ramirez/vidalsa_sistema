@@ -882,16 +882,11 @@
                  reaprovecha el loader, el desenfoque y el respaldo de 5 s que ya tiene
                  el visor. Solo pestanas: el boton de anexar se subio a la cabecera, asi
                  que sin correcciones esta barra no se pinta y el visor se ve igual que
-                 siempre. --}}
+                 siempre. En TELEFONO tampoco se pinta nunca: quien decide es
+                 _pdfSincronizarBarraPestanas (layout_ui.js), y alli esta el porque. --}}
             <div id="pdfAnexosBar"
                 style="display:none; background:#282828; border-bottom:1px solid #282828; padding:6px 12px; align-items:center; gap:8px; overflow-x:auto;">
                 <div id="pdfAnexosTabs" style="display:flex; align-items:center; gap:6px; flex:1; min-width:0;"></div>
-                {{-- 'user.edit' A SECAS, que es LO MISMO que exige anexarDoc en el servidor.
-                     No se listan 'equipos.edit' ni 'super.admin': el primero es un permiso
-                     DISTINTO (gobierna changeStatus/confirmarSitio, no la edicion de ficha),
-                     asi que quien solo lo tuviera veia el boton, elegia el PDF, esperaba a
-                     que subiera entero y recibia un 403; y el segundo lo resuelve Gate::before
-                     dentro de ->can('user.edit'), igual que en window.CAN_UPDATE_INFO. --}}
             </div>
 
             <!-- Viewer Container -->

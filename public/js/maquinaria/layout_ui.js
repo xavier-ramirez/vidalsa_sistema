@@ -1088,18 +1088,22 @@ window._pdfComparando = false;
 window._pdfSincronizarBarraPestanas = function () {
     const barra = document.getElementById('pdfAnexosBar');
     if (!barra) return;
-    // Mismo umbral que la comparacion, a proposito: las dos reglas hablan de lo mismo
-    // —si cabe o no una segunda hoja al lado— y atadas al mismo numero no se separan.
-    if (window.innerWidth < PDF_COMPARA_ANCHO_MIN) {
-        barra.style.display = 'none';
-        return;
-    }
     const ctx   = window._pdfAnexoCtx;
     const lista = ctx
         ? ((((window._anexosPorEquipo || {})[ctx.equipoId]) || {})[ctx.tipo] || [])
         : [];
-    const haceFalta = lista.length > 0 && (!window._pdfComparando || lista.length > 1);
-    barra.style.display = haceFalta ? 'flex' : 'none';
+    // Mismo umbral que la comparacion, a proposito: las dos reglas hablan de lo mismo
+    // —si cabe o no una segunda hoja al lado— y atadas al mismo numero no se separan.
+    const cabePartida = window.innerWidth >= PDF_COMPARA_ANCHO_MIN;
+    const haceFalta = cabePartida && lista.length > 0
+        && (!window._pdfComparando || lista.length > 1);
+
+    // Un solo sitio que escribe el display, y solo cuando CAMBIA: esto corre ahora en
+    // cada evento de resize, y en el telefono el resize salta al esconderse la barra
+    // del navegador al desplazarse. Reasignar el mismo valor marcaria el nodo para
+    // recalculo de estilo en cada uno de esos eventos.
+    const destino = haceFalta ? 'flex' : 'none';
+    if (barra.style.display !== destino) barra.style.display = destino;
 };
 
 /** Resalta en las pestañas cuál se está viendo a cada lado. */
