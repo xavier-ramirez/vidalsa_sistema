@@ -1077,10 +1077,23 @@ window._pdfComparando = false;
  * Se mira la LISTA y no las pestañas pintadas: al cambiar de documento las de antes
  * siguen en el DOM hasta que llega la respuesta del servidor, y contarlas hacia
  * asomar por un momento las pestañas del documento anterior.
+ *
+ * Y NUNCA por debajo de PDF_COMPARA_ANCHO_MIN. Ahi no hay vista partida (lo corta
+ * _pdfAbrePartido), asi que la condicion "!_pdfComparando" se cumplia SIEMPRE y la
+ * barra salia en cuanto el documento tuviera una correccion: en telefono aparecian
+ * las dos pestañas —"Original" y la correccion— comiendose la cabecera del visor.
+ * En una sola pantalla no hay nada que comparar, y el expediente completo ya se lo
+ * llevan Descargar e Imprimir unido en un solo PDF (ver _pdfPrepararUnion).
  */
 window._pdfSincronizarBarraPestanas = function () {
     const barra = document.getElementById('pdfAnexosBar');
     if (!barra) return;
+    // Mismo umbral que la comparacion, a proposito: las dos reglas hablan de lo mismo
+    // —si cabe o no una segunda hoja al lado— y atadas al mismo numero no se separan.
+    if (window.innerWidth < PDF_COMPARA_ANCHO_MIN) {
+        barra.style.display = 'none';
+        return;
+    }
     const ctx   = window._pdfAnexoCtx;
     const lista = ctx
         ? ((((window._anexosPorEquipo || {})[ctx.equipoId]) || {})[ctx.tipo] || [])
@@ -1420,6 +1433,11 @@ if (!window._pdfComparaResizeBound) {
     window._pdfComparaResizeBound = true;
     let _pdfComparaResizeTimer = null;
     window.addEventListener('resize', function () {
+        // La barra de pestañas depende del ANCHO (ver _pdfSincronizarBarraPestanas), asi
+        // que se re-evalua siempre y ANTES del corte de abajo. Sin esto, estrechar la
+        // ventana hasta tamaño telefono con el visor abierto y la comparacion apagada
+        // salia por el return y la barra se quedaba puesta con sus dos pestañas.
+        if (window._pdfSincronizarBarraPestanas) window._pdfSincronizarBarraPestanas();
         if (!window._pdfComparando) return;
         if (window.innerWidth < PDF_COMPARA_ANCHO_MIN) {
             window._pdfComparaApagar();
