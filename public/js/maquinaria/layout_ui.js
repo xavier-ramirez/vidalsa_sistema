@@ -584,6 +584,37 @@ const _pdfRenovarVisorIzq = function (destino) {
     return nuevo;
 };
 
+/**
+ * Tapa el visor mientras se hace algo con el documento que tiene delante.
+ *
+ * Reusa la capa de la subida —mismo sitio, mismo aspecto y DENTRO del visor— en vez del
+ * preloader global, que es una capa BLANCA a pantalla completa: sobre el visor en negro
+ * se veia como un parpadeo raro, y encima tapaba el modal entero durante todo el viaje a
+ * Drive, que en un borrado tarda lo suyo.
+ *
+ * Con `null` se quita y se devuelven a su sitio el porcentaje y la barra, que solo usa
+ * la subida: un borrado no tiene progreso que enseñar.
+ */
+const _pdfTaparVisor = function (mensaje) {
+    const capa = document.getElementById('pdfUploadProgressOverlay');
+    if (!capa) return;
+    const texto = document.getElementById('pdfUploadStatusText');
+    const pct   = document.getElementById('pdfUploadPercentage');
+    const barra = document.getElementById('pdfUploadProgressBar');
+    const riel  = barra ? barra.parentNode : null;
+
+    if (mensaje === null) {
+        capa.style.display = 'none';
+        if (pct) pct.style.display = '';
+        if (riel) riel.style.display = '';
+        return;
+    }
+    if (texto) texto.innerText = mensaje;
+    if (pct) pct.style.display = 'none';
+    if (riel) riel.style.display = 'none';
+    capa.style.display = 'flex';
+};
+
 // Temporizador de respaldo del visor (uno SOLO para toda la pantalla, no uno por
 // apertura): ver por qué en el setTimeout de más abajo.
 let _pdfLoaderTimeout = null;
@@ -923,7 +954,26 @@ window.openPdfPreview = function (url, docType, label, equipoId, uploadUrl, skip
             const _mismoDoc  = _ctxPrevio
                 && String(_ctxPrevio.equipoId) === String(equipoId)
                 && _ctxPrevio.tipo === docType;
-            if (!_mismoDoc) window._pdfOcultarAnexos();
+            if (!_mismoDoc) {
+                window._pdfOcultarAnexos();
+                // Y se rearma YA con ESTE documento, sin esperar al fetch. Antes el
+                // contexto se quedaba en null durante la espera y el boton "Anexar
+                // correccion" no se pintaba hasta que volvia la lista del servidor:
+                // salia un instante despues que Descargar e Imprimir, que se deciden
+                // aqui mismo. Rearmandolo, el boton puede salir con los otros dos y, si
+                // alguien lo pulsa durante la espera, la correccion va al equipo y al
+                // tipo correctos — que es justo lo que protegia dejarlo en null.
+                //
+                // _pdfPintarAnexos lo reescribe cuando llega la lista y hereda de este
+                // el principal (para el es "el mismo documento"), o sea el que se acaba
+                // de abrir.
+                window._pdfAnexoCtx = { equipoId, tipo: docType, label, principal: url, activo: url };
+            }
+
+            // El boton no espera al servidor: que el documento admita correcciones ya se
+            // sabe aqui, y _pdfAdmiteAnexos no consulta nada.
+            const _zonaAnexar = document.getElementById('pdfAnexarZona');
+            if (_zonaAnexar) _zonaAnexar.style.display = 'flex';
 
             // usarCache: el detalle ya las refresco al abrirse; aqui no
             // hace falta otra ida al servidor.
@@ -1973,7 +2023,7 @@ window.deletePdfFromPreview = async function (cual) {
 
         const btnC = document.getElementById('pdfDeleteBtn');
         if (btnC) btnC.disabled = true;
-        if (typeof window.showPreloader === 'function') window.showPreloader();
+        _pdfTaparVisor('Eliminando corrección...');
         try {
             const r = await window.apiFetch('/admin/equipos/' + ctx.equipoId + '/anexos/' + correccion.id, {
                 method: 'DELETE',
@@ -2008,7 +2058,7 @@ window.deletePdfFromPreview = async function (cual) {
             window.toast('Error de red al eliminar la corrección.', 'error');
         } finally {
             if (btnC) btnC.disabled = false;
-            if (typeof window.hidePreloader === 'function') window.hidePreloader();
+            _pdfTaparVisor(null);
         }
         return;
     }
@@ -2040,7 +2090,7 @@ window.deletePdfFromPreview = async function (cual) {
         if (!window.confirm('¿Eliminar este documento?\n\nEsta acción NO se puede deshacer.')) return;
         const btnAux = document.getElementById('pdfDeleteBtn');
         if (btnAux) btnAux.disabled = true;
-        if (typeof window.showPreloader === 'function') window.showPreloader();
+        _pdfTaparVisor('Eliminando documento...');
         try {
             const r = await window.apiFetch(`/admin/equipos-auxiliares/${ctx.equipoId}/delete-doc?doc_type=${encodeURIComponent(ctx.docType)}`, {
                 method: 'DELETE',
@@ -2062,7 +2112,7 @@ window.deletePdfFromPreview = async function (cual) {
         } catch (e) {
             window.toast('Error de red al eliminar el documento.', 'error');
         } finally {
-            if (typeof window.hidePreloader === 'function') window.hidePreloader();
+            _pdfTaparVisor(null);
             if (btnAux) btnAux.disabled = false;
         }
         return;
@@ -2075,7 +2125,10 @@ window.deletePdfFromPreview = async function (cual) {
 
     const btn = document.getElementById('pdfDeleteBtn');
     if (btn) btn.disabled = true;
-    if (typeof window.showPreloader === 'function') window.showPreloader();
+    // Este borrado es el mas largo de los tres: ademas de la fila, quita el archivo del
+    // Drive. Se tapa el VISOR, que es donde esta mirando el usuario, en vez de la
+    // pantalla entera con el preloader blanco.
+    _pdfTaparVisor('Eliminando documento...');
 
     try {
         // getCsrf() ya cubre el <meta> y el input _token de un form Blade;
@@ -2145,7 +2198,7 @@ window.deletePdfFromPreview = async function (cual) {
         window.toast('Error de red al eliminar el documento.', 'error');
     } finally {
         if (btn) btn.disabled = false;
-        if (typeof window.hidePreloader === 'function') window.hidePreloader();
+        _pdfTaparVisor(null);
     }
 };
 
