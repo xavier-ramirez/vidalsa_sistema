@@ -612,6 +612,11 @@ const _pdfTaparVisor = function (mensaje) {
     if (texto) texto.innerText = mensaje;
     if (pct) pct.style.display = 'none';
     if (riel) riel.style.display = 'none';
+    // La opacidad se fuerza porque la capa es COMPARTIDA con la subida, y al terminar
+    // esta se apaga con un fundido: dentro de esos 300 ms se queda en opacity:0 antes
+    // de pasar a display:none. Un borrado lanzado justo ahi encendia una capa invisible
+    // y el usuario se quedaba sin ver que estaba pasando.
+    capa.style.opacity = '1';
     capa.style.display = 'flex';
 };
 
