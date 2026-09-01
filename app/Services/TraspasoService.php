@@ -268,6 +268,22 @@ class TraspasoService
 
             $vistos = []; // id_linea ya procesados → rechazar duplicados en el payload
 
+            // ── ORDEN DE BLOQUEO: siempre por ID_PRODUCTO ─────────────────────────────────
+            // Cada línea recibida acaba bloqueando la fila de `almacen_stock` de su producto
+            // en el almacén destino. El lock del traspaso de arriba serializa a dos personas
+            // recibiendo LA MISMA nota, pero no a dos traspasos DISTINTOS que traen los
+            // mismos productos: si sus payloads vienen en orden contrario, una toma A y
+            // espera B mientras la otra toma B y espera A → "1213 Deadlock found" y una
+            // recepción se cae a mitad. Recorriendo siempre en el mismo orden, la segunda
+            // solo espera. Mismo criterio que el lote de salidas en AlmacenController.
+            // Las líneas que no pertenecen al traspaso quedan al final y siguen lanzando su
+            // error dentro del bucle, igual que antes.
+            usort($lineasRecibidas, function ($a, $b) use ($lineas) {
+                $pa = $lineas->get((int) ($a['id_linea'] ?? 0))->ID_PRODUCTO ?? PHP_INT_MAX;
+                $pb = $lineas->get((int) ($b['id_linea'] ?? 0))->ID_PRODUCTO ?? PHP_INT_MAX;
+                return (int) $pa <=> (int) $pb;
+            });
+
             foreach ($lineasRecibidas as $rec) {
                 $idLinea = (int) ($rec['id_linea'] ?? 0);
                 $linea = $lineas->get($idLinea);

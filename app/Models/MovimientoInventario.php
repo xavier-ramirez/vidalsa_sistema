@@ -92,42 +92,59 @@ class MovimientoInventario extends Model
      * Genera el siguiente NUMERO_NOTA (NE-YYYY-NNNN) para una Nota de Entrega
      * de Materiales. Consecutivo por año.
      *
-     * Serializa el incremento usando la tabla `numero_nota_counter` con
-     * `lockForUpdate`: la segunda petición concurrente espera al COMMIT de la
-     * primera antes de leer su propio folio → cero duplicados aun bajo carga.
+     * Serializa el incremento con UN SOLO UPDATE sobre la fila del año en
+     * `numero_nota_counter`: ese UPDATE toma el candado EXCLUSIVO de entrada, así la
+     * segunda salida simultánea simplemente espera al COMMIT de la primera y luego lee
+     * su propio folio → cero duplicados aun con varios almacenes despachando a la vez.
      *
-     * DEBE llamarse DENTRO de una transacción (la propia que crea los movimientos
-     * del lote) — de otro modo el lock se libera de inmediato y la garantía cae.
+     * POR QUÉ NO `insertOrIgnore` + `lockForUpdate` (como estaba antes): sobre una fila que
+     * YA existe, el INSERT IGNORE deja un candado COMPARTIDO, y el SELECT ... FOR UPDATE que
+     * venía detrás pide el EXCLUSIVO de esa misma fila. Con varias peticiones a la vez todas
+     * sostienen el compartido y todas esperan el exclusivo: InnoDB lo corta con
+     * "1213 Deadlock found". Medido: con 10 salidas simultáneas fallaban 8. Un único UPDATE
+     * no sube de candado compartido a exclusivo, así que no hay deadlock — solo cola.
+     *
+     * LAST_INSERT_ID(expr) es el modismo de MySQL para leer el valor que el propio UPDATE
+     * acaba de calcular; es POR CONEXIÓN, así que dos peticiones nunca se pisan el valor.
+     *
+     * DEBE llamarse DENTRO de una transacción (la propia que crea los movimientos del lote)
+     * — de otro modo el candado se libera de inmediato y la garantía cae.
      */
     public static function generarNumeroNota(): string
     {
         $year = (int) date('Y');
-        // Asegurar el row del año (idempotente vía INSERT IGNORE-equivalente con `insertOrIgnore`).
-        \DB::table('numero_nota_counter')->insertOrIgnore([
-            'ANIO'       => $year,
-            'SIGUIENTE'  => 0,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-        // Lock + incremento atómico del folio.
-        $row = \DB::table('numero_nota_counter')
-            ->where('ANIO', $year)
-            ->lockForUpdate()
-            ->first();
 
         // RECONCILIAR con el máximo número REAL ya usado en movimientos del año. Si el
-        // counter quedó atrás (p.ej. notas importadas/migradas sin pasar por aquí), generar
-        // counter+1 produciría un número YA EXISTENTE → la Nota mostraría movimientos de
-        // OTRAS salidas (bug de "el PDF trae más productos"). Tomamos el mayor de ambos.
+        // contador quedó atrás (p.ej. notas importadas/migradas sin pasar por aquí), generar
+        // contador+1 produciría un número YA EXISTENTE → la Nota mostraría movimientos de
+        // OTRAS salidas (bug de "el PDF trae más productos"). Se toma el mayor de los dos.
         // SUBSTRING_INDEX(...,'-',-1) extrae el folio tras el último guión (robusto a 4+ dígitos).
+        // Va ANTES del UPDATE y sin candado a propósito: si dos peticiones leen el mismo
+        // máximo, el GREATEST del UPDATE —que sí está serializado— las separa igual.
         $maxReal = (int) static::where('NUMERO_NOTA', 'like', 'NE-' . $year . '-%')
             ->selectRaw("MAX(CAST(SUBSTRING_INDEX(NUMERO_NOTA, '-', -1) AS UNSIGNED)) AS m")
             ->value('m');
 
-        $siguiente = max((int) $row->SIGUIENTE, $maxReal) + 1;
-        \DB::table('numero_nota_counter')
-            ->where('ANIO', $year)
-            ->update(['SIGUIENTE' => $siguiente, 'updated_at' => now()]);
+        $sql = 'UPDATE numero_nota_counter
+                   SET SIGUIENTE = LAST_INSERT_ID(GREATEST(SIGUIENTE, ?) + 1),
+                       updated_at = ?
+                 WHERE ANIO = ?';
+
+        if (\DB::update($sql, [$maxReal, now(), $year]) === 0) {
+            // Primera nota del año: la fila todavía no existe. insertOrIgnore por si dos
+            // peticiones la crean a la vez (una gana, la otra la ignora) y se repite el
+            // UPDATE, que es quien asigna el folio. Este camino corre UNA vez al año.
+            \DB::table('numero_nota_counter')->insertOrIgnore([
+                'ANIO'       => $year,
+                'SIGUIENTE'  => 0,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+            \DB::update($sql, [$maxReal, now(), $year]);
+        }
+
+        $siguiente = (int) \DB::selectOne('SELECT LAST_INSERT_ID() AS n')->n;
+
         return sprintf('NE-%d-%04d', $year, $siguiente);
     }
 

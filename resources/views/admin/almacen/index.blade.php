@@ -261,12 +261,39 @@
     }
     .alm-modal-wide { max-width: 980px; }
     .alm-modal .alm-modal-body { overflow-y: auto; min-height: 0; }
+    /* Formato de la Nota de Entrega: las opciones van UNA AL LADO DE LA OTRA — son dos
+       palabras cortas y en columna ocupaban dos renglones para nada.
+       flex + `flex:1 1 0` en cada una (en vez de fijar 2 columnas) para que siga
+       funcionando si algún día se agrega un tercer formato: el blade los recorre desde
+       Almacen::FORMATOS_NOTA y aquí se reparten el ancho solos. */
+    #almNvFormatoOpts { display:flex; gap:4px; border:1px solid #cbd5e0; border-radius:10px;
+        background:#fbfcfd; padding:4px; }
+    #almNvFormatoOpts .multiselect-item { flex:1 1 0; min-width:0; cursor:pointer; }
+    /* Firmantes de la nota horizontal: un bloque por firmante, apilados en el mismo orden en
+       que salen impresos en el PDF. Apilados y no en columnas porque el modal es angosto a
+       propósito: en columnas el nombre no cabía y los bloques se partían a mitad. Dentro de
+       cada uno, Nombre ocupa toda la línea y Cargo + Cédula comparten la de abajo. */
+    .alm-firmantes { display:flex; flex-direction:column; gap:8px; }
+    .alm-firm-bloque { display:flex; flex-direction:column; gap:6px;
+                       border:1px solid #e2e8f0; border-radius:10px; padding:8px 10px; background:#fbfcfd; }
+    .alm-firm-rol { font-size:11px; font-weight:700; letter-spacing:.4px; color:#64748b; }
+    .alm-firm-fijo { font-size:11px; color:#94a3b8; line-height:1.35; }
+    .alm-firm-fila { display:flex; gap:6px; }
+    .alm-firm-fila > * { flex:1 1 0; min-width:0; }
+    .alm-firm-bloque input { width:100%; box-sizing:border-box; }
     /* Inputs del modal "Nuevo / Editar producto": todo se guarda en mayúsculas,
        se ven en mayúsculas mientras se escribe para coincidir con lo que se guarda.
        El placeholder NO se transforma. CODIGO queda fuera (solo dígitos). */
     #almProdNombre, #almProdUm, #almProdCategoria, #almDetUbicacion { text-transform: uppercase; }
-    /* Multiselect de frentes dentro del modal de almacén: el panel empuja el contenido (no flota) para que el overflow del modal no lo recorte */
-    #almAlmacenModal .multiselect-content { position: static; box-shadow: none; margin-top: 6px; }
+    /* Multiselect de frentes dentro del modal de almacén: FLOTA por encima. Antes se
+       forzaba a position:static para que el overflow del modal no lo recortara, pero eso lo
+       metía en el flujo: al abrirlo EMPUJABA el contenido y el modal se estiraba de golpe
+       (la misma lección que está anotada aquí abajo para el modal de etiquetas).
+       position:fixed + anclado por JS (almFrentesAnclar) lo saca del scroll de
+       .alm-modal-body sin que nada lo recorte — el MISMO patrón que ya usan los suggest de
+       UM y categoría de esta pantalla (.alm-suggest-float). El z-index va por encima del
+       modal; la sombra se hereda de la regla global (flotando sí hace falta). */
+    #almAlmacenModal .multiselect-content { position: fixed; margin-top: 0; z-index: 10001; }
     #almAlmacenModal .custom-multiselect.active .multiselect-content { animation: slideDown 0.18s ease-out; }
     /* Desplegable "Formato" del modal de etiquetas: FLOTA por encima del modal (el
        position:absolute que ya trae .dropdown-content de serie). Antes se forzaba a
@@ -700,6 +727,11 @@
     $puedeMover     = auth()->user()?->can('almacen.movimiento') ?? false;
     $puedeEliminar  = auth()->user()?->can('almacen.nota.eliminar') ?? false;
     $st = $stats ?? ['total' => '—', 'con_saldo' => '—', 'stock_bajo' => '—', 'unidades' => 0];
+    // Formatos de Nota de Entrega [valor => etiqueta]. Salen del modelo para que las opciones
+    // del selector, sus textos y lo que valida el backend NO se puedan desincronizar: un
+    // formato nuevo aparece aquí solo (ver Almacen::FORMATOS_NOTA).
+    $formatosNota   = \App\Models\Almacen::FORMATOS_NOTA;
+    $formatoNotaDef = \App\Models\Almacen::FORMATO_NOTA_VERTICAL;
     // Datos de los almacenes para el modal de edición (solo se usa si $puedeAlmManage).
     $almacenesData = ($almacenes ?? collect())->keyBy('ID_ALMACEN')->map(function ($a) {
         return [
@@ -708,6 +740,18 @@
             'UBICACION'         => $a->UBICACION,
             'ALMACENISTA'       => $a->ALMACENISTA,
             'CARGO_ALMACENISTA' => $a->CARGO_ALMACENISTA,
+            // Normalizado en el modelo: si la fila trae null o basura, llega VERTICAL.
+            'FORMATO_NOTA'      => $a->formatoNota(),
+            // Firmantes fijos de la nota horizontal — el modal los recarga al editar (ver
+            // ALM_FIRMANTES_CAMPOS). Son 7 strings cortos por almacén y hay un puñado de
+            // almacenes: no engorda la página de forma apreciable.
+            'CEDULA_ALMACENISTA' => $a->CEDULA_ALMACENISTA,
+            'SOPORTE_1_NOM'      => $a->SOPORTE_1_NOM,
+            'SOPORTE_1_CAR'      => $a->SOPORTE_1_CAR,
+            'SOPORTE_1_CED'      => $a->SOPORTE_1_CED,
+            'SOPORTE_2_NOM'      => $a->SOPORTE_2_NOM,
+            'SOPORTE_2_CAR'      => $a->SOPORTE_2_CAR,
+            'SOPORTE_2_CED'      => $a->SOPORTE_2_CED,
             'frentes'           => $a->relationLoaded('frentes') ? $a->frentes->pluck('ID_FRENTE')->values() : [],
         ];
     });
@@ -1117,22 +1161,22 @@
                  Fondo azul (#e1effa / #bfdbfe): el mismo tinte que la app usa para marcar un
                  campo activo (.dropdown-trigger.filter-active, .cdash-inp-box.active). Antes
                  era gris y se perdía contra el blanco del modal. --}}
-            {{-- El recuadro azul y el campo de abajo comparten ANCHO (240px, centrados): son
-                 los dos lados de la misma comparación —lo que dice el sistema contra lo que
-                 se contó— y con anchos distintos (el azul a todo el modal y el campo a 200px)
-                 se leían como dos bloques sin relación. --}}
-            <div style="max-width:240px;margin:0 auto 12px;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;gap:2px;background:#e1effa;border:1px solid #bfdbfe;border-radius:8px;padding:8px 12px;text-align:center;">
+            {{-- El recuadro azul y el campo de abajo comparten ANCHO: son los dos lados de la
+                 misma comparación —lo que dice el sistema contra lo que se contó— y con
+                 anchos distintos se leían como dos bloques sin relación.
+                 Ocupan TODO el ancho del cuerpo del modal (antes 240px centrados, que dejaba
+                 aire muerto a los lados). Si se cambia uno, cambiar el otro. --}}
+            <div style="width:100%;margin:0 0 12px;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;gap:2px;background:#e1effa;border:1px solid #bfdbfe;border-radius:8px;padding:8px 12px;text-align:center;">
                 <span style="font-size:12px;color:#475569;font-weight:600;">Saldo actual (sistema)</span>
                 <span id="almAjSaldoActual" style="font-size:14px;color:#0067b1;font-weight:800;">—</span>
             </div>
-            {{-- El conteo es un número corto: campo angosto y centrado bajo el saldo, en vez
-                 de un input a todo el ancho del modal. --}}
+            {{-- Mismo ancho que el recuadro azul de arriba (ver su comentario): el número se
+                 sigue escribiendo centrado, pero la caja acompaña al bloque con el que se
+                 compara en vez de quedarse más angosta. --}}
             <div style="text-align:center;">
                 <label for="almAjNuevoSaldo">Saldo según conteo físico</label>
-                {{-- Lo centra el text-align:center del contenedor (el input es inline-block);
-                     un `margin:0 auto` aquí no haría nada. --}}
                 <input type="number" id="almAjNuevoSaldo" min="0" step="any" placeholder="Cantidad real contada"
-                       style="max-width:240px;text-align:center;">
+                       style="width:100%;box-sizing:border-box;text-align:center;">
             </div>
             <div id="almAjError" style="display:none;color:#dc2626;font-size:13px;font-weight:600;"></div>
         </div>
@@ -1332,6 +1376,70 @@
                 <input type="text" id="almNvCargoAlmacenista" maxlength="200" placeholder="Ej: COORD. DE MATERIALES" autocomplete="off">
                 <div style="font-size:11.5px;color:#94a3b8;margin-top:5px;">Aparece como "CARGO:" debajo del nombre en la Nota de Entrega.</div>
             </div>
+            {{-- Formato de la Nota de Entrega. Lo que se tilde aquí es lo que sale IMPRESO en
+                 cada salida de este almacén —y en su vista previa— hasta que se cambie: no hay
+                 forma de elegirlo salida por salida, a propósito, para que un mismo almacén no
+                 emita notas con dos caras distintas.
+
+                 Se ve como los frentes de aquí abajo (.multiselect-item, el mismo check del CSS
+                 global) pero SOLO puede haber uno tildado: tildar uno destilda el otro y nunca
+                 quedan los dos —ni ninguno— marcados (ver almNvFormatoSelect). El valor que se
+                 manda al backend viaja en el hidden #almNvFormato; los checks son la cara
+                 visible de ese único valor. --}}
+            <div>
+                <label>Formato de la Nota de Entrega</label>
+                <input type="hidden" id="almNvFormato" value="{{ $formatoNotaDef }}">
+                <div id="almNvFormatoOpts">
+                    @foreach($formatosNota as $valFmt => $lblFmt)
+                        <label class="multiselect-item">
+                            <input type="checkbox" value="{{ $valFmt }}" @checked($valFmt === $formatoNotaDef)
+                                   onchange="almNvFormatoSelect('{{ $valFmt }}')">
+                            <span>{{ $lblFmt }}</span>
+                        </label>
+                    @endforeach
+                </div>
+                <div style="font-size:11.5px;color:#94a3b8;margin-top:5px;">Todas las notas de este almacén saldrán en el formato tildado.</div>
+            </div>
+            {{-- Firmantes de la nota HORIZONTAL. Solo se muestran con ese formato tildado: el
+                 vertical lleva únicamente ENTREGADO POR / RECIBIDO POR y estos campos no le
+                 aplican, así que enseñárselos sería pedir datos que nunca se imprimen.
+
+                 Ojo: se OCULTA, no se destruye. Los valores siguen en el DOM (y en la BD) al
+                 cambiar a Vertical, así que volver a Horizontal los recupera sin retecleárlos.
+
+                 ENTREGADO no repite nombre ni cargo: son los campos "Almacenista" y "Cargo del
+                 almacenista" de arriba, que usan LOS DOS formatos. Aquí solo se le agrega la
+                 cédula, que únicamente pide el horizontal.
+
+                 RECIBIDO y SEGURIDAD no se configuran a propósito: los firma quien recibe en el
+                 destino y el vigilante de turno, que cambian en cada nota. --}}
+            <div id="almNvFirmantesWrap" hidden>
+                <label>Firmantes fijos de la nota horizontal</label>
+                <div class="alm-firmantes">
+                    <div class="alm-firm-bloque">
+                        <div class="alm-firm-rol">ENTREGADO</div>
+                        <div class="alm-firm-fijo">Toma el nombre y el cargo del almacenista de arriba.</div>
+                        <input type="text" id="almNvCedulaAlmacenista" maxlength="20" placeholder="Cédula" autocomplete="off">
+                    </div>
+                    <div class="alm-firm-bloque">
+                        <div class="alm-firm-rol">SOPORTADO</div>
+                        <input type="text" id="almNvSop1Nom" maxlength="120" placeholder="Nombre" autocomplete="off">
+                        <div class="alm-firm-fila">
+                            <input type="text" id="almNvSop1Car" maxlength="120" placeholder="Cargo" autocomplete="off">
+                            <input type="text" id="almNvSop1Ced" maxlength="20" placeholder="Cédula" autocomplete="off">
+                        </div>
+                    </div>
+                    <div class="alm-firm-bloque">
+                        <div class="alm-firm-rol">SOPORTADO</div>
+                        <input type="text" id="almNvSop2Nom" maxlength="120" placeholder="Nombre" autocomplete="off">
+                        <div class="alm-firm-fila">
+                            <input type="text" id="almNvSop2Car" maxlength="120" placeholder="Cargo" autocomplete="off">
+                            <input type="text" id="almNvSop2Ced" maxlength="20" placeholder="Cédula" autocomplete="off">
+                        </div>
+                    </div>
+                </div>
+                <div style="font-size:11.5px;color:#94a3b8;margin-top:5px;">RECIBIDO y SEGURIDAD salen en blanco para firmarse a mano.</div>
+            </div>
             <div id="almNvFrentesWrap">
                 <label for="almNvFrentesInput">Frentes que usan este almacén</label>
                 <div class="custom-multiselect" id="almNvFrentesSelect">
@@ -1453,7 +1561,7 @@
                         <i class="material-icons" style="font-size:18px;color:{{ $a->TIPO === 'GENERAL' ? '#0067b1' : '#64748b' }};">{{ $a->TIPO === 'GENERAL' ? 'business' : 'store' }}</i>
                         <div style="flex:1;min-width:0;">
                             <div style="font-weight:700;color:#1e293b;font-size:13.5px;">{{ $a->NOMBRE }}</div>
-                            <div style="font-size:11.5px;color:#94a3b8;">{{ $a->TIPO === 'GENERAL' ? 'Principal' : 'Proyecto' }}{{ $a->CODIGO ? ' · '.$a->CODIGO : '' }}{{ $a->TIPO === 'PROYECTO' ? ' · '.$a->frentes_count.' frente(s)' : '' }}{{ $a->UBICACION ? ' · '.$a->UBICACION : '' }}</div>
+                            <div style="font-size:11.5px;color:#94a3b8;">{{ $a->TIPO === 'GENERAL' ? 'Principal' : 'Proyecto' }}{{ $a->CODIGO ? ' · '.$a->CODIGO : '' }}{{ $a->TIPO === 'PROYECTO' ? ' · '.$a->frentes_count.' frente(s)' : '' }}{{ $a->UBICACION ? ' · '.$a->UBICACION : '' }} · Nota {{ mb_strtolower(\App\Models\Almacen::etiquetaFormatoNota($a->FORMATO_NOTA)) }}</div>
                         </div>
                         <button type="button" class="alm-btn alm-btn-edit" title="Editar"
                                 onclick="window.almEditarAlmacen({{ $a->ID_ALMACEN }})"><i class="material-icons" style="font-size:16px;">edit</i></button>
@@ -2239,21 +2347,50 @@
     function almSuggestAnclar(box) {
         if (!box || !box.classList.contains('alm-suggest-float') || !box.classList.contains('open')) return;
         var campo = box.parentElement; if (!campo) return;
-        var r = campo.getBoundingClientRect();
-        box.style.left  = r.left + 'px';
-        box.style.width = r.width + 'px';   // el ancho se fija ANTES de medir el alto
-        var alto = box.offsetHeight;
+        almAnclarFlotante(box, campo);
+    }
+    // La matemática del anclaje, en UN solo sitio: la usan los suggest de UM/categoría y la
+    // lista de frentes del modal de almacén, que flota por el mismo motivo (ver su CSS).
+    function almAnclarFlotante(caja, ancla) {
+        var r = ancla.getBoundingClientRect();
+        caja.style.left  = r.left + 'px';
+        caja.style.width = r.width + 'px';   // el ancho se fija ANTES de medir el alto
+        var alto = caja.offsetHeight;
         var cabeAbajo = (window.innerHeight - r.bottom - 8) >= alto;
-        box.style.top = (!cabeAbajo && r.top > alto ? (r.top - alto - 2) : (r.bottom + 2)) + 'px';
+        caja.style.top = (!cabeAbajo && r.top > alto ? (r.top - alto - 2) : (r.bottom + 2)) + 'px';
+    }
+    // Ancla la lista de frentes contra su propia caja. El multiselect lo abre/cierra el
+    // componente global (uicomponents.js) poniendo .active en el contenedor, así que aquí
+    // no se toca ese comportamiento: solo se coloca la lista cuando ya está abierta.
+    function almFrentesAnclar() {
+        var caja = document.getElementById('almNvFrentesSelect');
+        if (!caja || !caja.classList.contains('active')) return;
+        var lista = caja.querySelector('.multiselect-content');
+        if (lista) almAnclarFlotante(lista, caja);
     }
     // Al ser fixed, la lista no sigue sola a su campo: se reancla si la ventana cambia de
     // tamaño o si algo se desplaza (el cuerpo del modal, con scroll en captura porque el
     // evento scroll de un elemento no burbujea).
     function almSuggestReanclar() {
         document.querySelectorAll('.alm-suggest-float.open').forEach(almSuggestAnclar);
+        almFrentesAnclar();
     }
     window.addEventListener('resize', almSuggestReanclar);
     document.addEventListener('scroll', almSuggestReanclar, true);
+    // Quién ABRE la lista de frentes es el componente global (uicomponents.js) al poner
+    // .active en el contenedor. En vez de tocar ese componente —lo comparten Permisos y
+    // otros módulos— se observa esa clase: cada vez que cambia, se reancla. Así da igual
+    // por dónde se abra (clic en el trigger, en el input, o cerrarla desde fuera).
+    (function () {
+        var caja = document.getElementById('almNvFrentesSelect');
+        if (!caja || window.__almFrentesObs) return;
+        window.__almFrentesObs = new MutationObserver(function () {
+            // rAF: la clase se pone antes de que el navegador pinte la lista, y hasta que la
+            // pinta su offsetHeight es 0 — anclar en ese momento la colocaría mal.
+            requestAnimationFrame(almFrentesAnclar);
+        });
+        window.__almFrentesObs.observe(caja, { attributes: true, attributeFilter: ['class'] });
+    })();
     // ── Buscador "estilo Google" — fuzzy + ranking por relevancia ─────────────
     //   El algoritmo (normaliza, tokeniza, tolera typos por Levenshtein y rankea por
     //   relevancia) vive en el módulo compartido window.FuzzySearch
@@ -3803,6 +3940,46 @@
         window.almToggleFrentes();
     };
 
+    // Formato por defecto (Almacen::FORMATO_NOTA_VERTICAL). Los formatos VÁLIDOS no se
+    // repiten aquí: son los checks que el blade ya pintó desde Almacen::FORMATOS_NOTA, así
+    // que una lista aparte en JS solo podría desincronizarse.
+    var ALM_FORMATO_NOTA_DEF = @json($formatoNotaDef);
+
+    // Firmantes fijos de la nota horizontal: ÚNICO sitio que empareja cada campo del modal
+    // con su columna en la BD. Lo usan el reset, la carga al editar y el guardado, así que
+    // esos tres no se pueden desincronizar (antes de esto habría que repetir la lista 3 veces
+    // y un renombre a medias dejaba el campo guardándose vacío sin avisar).
+    var ALM_FIRMANTES_CAMPOS = [
+        { id: 'almNvCedulaAlmacenista', col: 'CEDULA_ALMACENISTA' },
+        { id: 'almNvSop1Nom',           col: 'SOPORTE_1_NOM' },
+        { id: 'almNvSop1Car',           col: 'SOPORTE_1_CAR' },
+        { id: 'almNvSop1Ced',           col: 'SOPORTE_1_CED' },
+        { id: 'almNvSop2Nom',           col: 'SOPORTE_2_NOM' },
+        { id: 'almNvSop2Car',           col: 'SOPORTE_2_CAR' },
+        { id: 'almNvSop2Ced',           col: 'SOPORTE_2_CED' }
+    ];
+
+    // Deja tildado UN formato y destilda el resto. Es el ÚNICO sitio que escribe el hidden
+    // #almNvFormato, así que los checks y el valor que se guarda no se pueden separar: lo
+    // llaman los propios checks (onchange), el reset y la carga al editar.
+    //
+    // Volver a tildar el que ya estaba lo deja igual: el navegador lo destilda al hacer clic
+    // y aquí se vuelve a marcar, así que SIEMPRE queda exactamente uno.
+    window.almNvFormatoSelect = function (value) {
+        var checks = Array.prototype.slice.call(document.querySelectorAll('#almNvFormatoOpts input[type="checkbox"]'));
+        // Un valor que no corresponde a ningún check cae al default, igual que
+        // Almacen::normalizarFormatoNota en el backend: el modal nunca queda con un formato
+        // que el servidor no acepta.
+        if (!checks.some(function (c) { return c.value === value; })) value = ALM_FORMATO_NOTA_DEF;
+        var hidden = el('almNvFormato');
+        if (hidden) hidden.value = value;
+        checks.forEach(function (c) { c.checked = (c.value === value); });
+        // Los firmantes fijos solo existen en el formato horizontal. Se OCULTA el bloque, no
+        // se limpia: alternar de formato no debe borrar lo que el usuario ya escribió.
+        var firm = el('almNvFirmantesWrap');
+        if (firm) firm.hidden = (value !== 'HORIZONTAL');
+    };
+
     window.almToggleFrentes = function () {
         // El selector de frentes aplica a AMBOS tipos de almacén: la visibilidad
         // para los usuarios LOCAL se define por los frentes asociados, sea GENERAL
@@ -3856,6 +4033,9 @@
         el('almNvNombre').value = ''; el('almNvUbicacion').value = '';
         if (el('almNvAlmacenista'))      el('almNvAlmacenista').value = '';
         if (el('almNvCargoAlmacenista')) el('almNvCargoAlmacenista').value = '';
+        ALM_FIRMANTES_CAMPOS.forEach(function (c) { var e = el(c.id); if (e) e.value = ''; });
+        // Almacén nuevo = formato por defecto; cambiarlo es una decisión explícita.
+        almNvFormatoSelect(ALM_FORMATO_NOTA_DEF);
         almNvTipoSelect('PROYECTO', 'Proyecto (Limitado a frentes específicos)');
         almNvSetFrentes([]);
         showErr('almNvError', '');
@@ -3875,6 +4055,9 @@
         el('almNvNombre').value = d.NOMBRE || ''; el('almNvUbicacion').value = d.UBICACION || '';
         if (el('almNvAlmacenista'))      el('almNvAlmacenista').value      = d.ALMACENISTA || '';
         if (el('almNvCargoAlmacenista')) el('almNvCargoAlmacenista').value = d.CARGO_ALMACENISTA || '';
+        ALM_FIRMANTES_CAMPOS.forEach(function (c) { var e = el(c.id); if (e) e.value = d[c.col] || ''; });
+        // Va DESPUÉS de rellenar los firmantes: es quien decide si el bloque se ve o se oculta.
+        almNvFormatoSelect(d.FORMATO_NOTA);
         var tipo = d.TIPO || 'PROYECTO';
         almNvTipoSelect(tipo, tipo === 'GENERAL' ? 'General (almacén central)' : 'Proyecto (Limitado a frentes específicos)');
         almNvSetFrentes(d.frentes || []);
@@ -3890,6 +4073,9 @@
         var nombre = val('almNvNombre'), tipo = val('almNvTipo') || 'PROYECTO';
         var almacenista = val('almNvAlmacenista');
         var cargo       = val('almNvCargoAlmacenista');
+        // Siempre se manda: al editar, omitirlo dejaría el formato como estaba (el backend no
+        // lo toca si no viene), y aquí SÍ queremos que mande lo que el usuario ve tildado.
+        var formato     = val('almNvFormato') || ALM_FORMATO_NOTA_DEF;
         // Validacion local: mostramos banner + toast + foco. Sin esto el usuario solo
         // veia una linea chiquita al pie del modal y reportaba "el boton no hace nada".
         function _fail(msg, focusId) {
@@ -3906,19 +4092,27 @@
         var frentes = [];
         almNvFrenteChecks().forEach(function (c) { if (c.checked) frentes.push(parseInt(c.value, 10)); });
         if (frentes.length === 0) { _fail('Selecciona al menos un frente.', 'almNvFrentesInput'); return; }
+        // Firmantes: se mandan SIEMPRE, tildado el formato que esté. Si se mandaran solo con
+        // HORIZONTAL, pasar un almacén a Vertical y volver a Horizontal perdería lo escrito en
+        // ese guardado intermedio. El backend los acepta en los dos formatos y el vertical
+        // simplemente no los imprime.
+        var cuerpo = {
+            NOMBRE:            nombre,
+            TIPO:              tipo,
+            UBICACION:         val('almNvUbicacion') || null,
+            ALMACENISTA:       val('almNvAlmacenista') || null,
+            CARGO_ALMACENISTA: val('almNvCargoAlmacenista') || null,
+            FORMATO_NOTA:      formato,
+            frentes:           frentes
+        };
+        ALM_FIRMANTES_CAMPOS.forEach(function (c) { cuerpo[c.col] = val(c.id) || null; });
+
         var url = id ? ROUTE_ALM_ITEM(id) : ROUTE_ALM;
         pre();
         window.apiFetch(url, {
             method: id ? 'PATCH' : 'POST',
             headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest',  'Content-Type': 'application/json'},
-            body: JSON.stringify({
-                NOMBRE:            nombre,
-                TIPO:              tipo,
-                UBICACION:         val('almNvUbicacion') || null,
-                ALMACENISTA:       val('almNvAlmacenista') || null,
-                CARGO_ALMACENISTA: val('almNvCargoAlmacenista') || null,
-                frentes:           frentes
-            })
+            body: JSON.stringify(cuerpo)
         })
         .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b }; }); })
         .then(function (res) {

@@ -14,10 +14,20 @@
     face="helvetica" en TODOS los <font> para garantizar que ningun fragmento
     herede una fuente diferente — toda la nota se ve uniforme.
 
-    Variables disponibles:
-      - $datos: ['numero_nota','proyecto','contrato','fecha','rq','solicitante',
-                 'departamento','almacen','entregado_por','motivo']
-      - $movs:  Collection<MovimientoInventario>  con relaciones {producto}
+    Variables disponibles (el controller pasa las MISMAS a los dos formatos; esta vista
+    usa solo las que necesita):
+      - $datos: de ahí lee 'proyecto', 'contrato', 'fecha', 'rq', 'solicitante',
+                'departamento', 'entregado_por', 'cargo_entrega' y 'motivo'.
+                También llegan 'numero_nota' (lo imprime el cabezote, no esta vista),
+                'almacen' y 'hora' — esas dos solo las usa el formato horizontal.
+      - $movs:  Collection<MovimientoInventario> con relaciones {producto, frente}.
+                La relación `frente` solo la usa el horizontal (columna DESTINO).
+      - $firmantes: los 5 bloques de firma del horizontal. A esta vista SIEMPRE le llega
+                vacío y no lo usa: el formato vertical lleva solo ENTREGADO POR /
+                RECIBIDO POR, armados abajo con 'entregado_por' y 'cargo_entrega'.
+
+    Es el cuerpo del formato VERTICAL (Almacen::FORMATO_NOTA_VERTICAL), el que emite un
+    almacén salvo que se le marque HORIZONTAL en "Editar almacén".
 --}}
 @php
     $fmt = fn ($n) => rtrim(rtrim(number_format((float) $n, 3, ',', '.'), '0'), ',') ?: '0';
@@ -26,6 +36,8 @@
     // mantiene la nota en UNA sola hoja A4 junto con los bloques de Observaciones,
     // Firmas y Vehículo/Chofer (con 24 se desbordaba a una 2.ª página). Verificado:
     // 1 a 3 productos —incluso con nombres largos de 2 líneas— caben en 1 página.
+    // El formato HORIZONTAL tiene su propia vista con su propio número (cabe bastante
+    // menos en la hoja acostada), así que aquí es una constante, no un parámetro.
     $minFilas = 20;
 @endphp
 
@@ -180,40 +192,4 @@
     </tr>
 </table>
 
-{{-- ── Vehículo / Chofer: 2 cuadros pegados side-by-side ──
-     ANTES eran 2 tablas anidadas dentro de un wrapper <table border=0> con dos
-     <td width=50%>. TCPDF no alinea bien los bordes de tablas anidadas con la
-     tabla padre (border del child se dibuja DENTRO del td del wrapper, lo que
-     desplaza la caja unos puntos a la derecha del borde izquierdo de la tabla
-     de items que viene arriba) -> se veía "metido hacia adentro" por la izquierda.
-
-     AHORA: UNA sola tabla de 4 columnas (14% | 36% | 14% | 36% = 100%). El
-     título de cada cuadro va con colspan=2 (50% = 14% + 36%) y de paso la
-     columna divisoria central se ve como un borde continuo entre ambas mitades.
-     Una sola tabla con widths explicitos en todos los <td> garantiza que el
-     borde izquierdo cae EXACTO en la misma X que la tabla de items. --}}
-<table border="1" cellpadding="2" cellspacing="0" width="100%">
-    {{-- Mismo gris #D9D9D9 + tamaño 8pt unificado con la tabla de items. --}}
-    <tr bgcolor="#D9D9D9">
-        <td width="50%" colspan="2" align="center"><font face="helvetica" size="8" color="#000000"><b>DATOS DEL VEHICULO</b></font></td>
-        <td width="50%" colspan="2" align="center"><font face="helvetica" size="8" color="#000000"><b>DATOS DEL CHOFER</b></font></td>
-    </tr>
-    <tr>
-        <td width="14%"><font face="helvetica" size="8"><b>VEHICULO:</b></font></td>
-        <td width="36%">&nbsp;</td>
-        <td width="14%"><font face="helvetica" size="8"><b>NOMBRE:</b></font></td>
-        <td width="36%">&nbsp;</td>
-    </tr>
-    <tr>
-        <td width="14%"><font face="helvetica" size="8"><b>PLACA:</b></font></td>
-        <td width="36%">&nbsp;</td>
-        <td width="14%"><font face="helvetica" size="8"><b>CEDULA:</b></font></td>
-        <td width="36%">&nbsp;</td>
-    </tr>
-    <tr>
-        <td width="14%"><font face="helvetica" size="8"><b>EMPRESA:</b></font></td>
-        <td width="36%"><font face="helvetica" size="8">CONSTRUCTORA VIDALSA 27, C.A.</font></td>
-        <td width="14%"><font face="helvetica" size="8"><b>FIRMA:</b></font></td>
-        <td width="36%">&nbsp;</td>
-    </tr>
-</table>
+@include('admin.almacen.partials.nota_vehiculo_chofer', ['wLabel' => 14, 'wValor' => 36])

@@ -52,6 +52,26 @@ class Almacen extends Model
     public const TIPO_GENERAL  = 'GENERAL';
     public const TIPO_PROYECTO = 'PROYECTO';
 
+    /**
+     * Formatos de Nota de Entrega. Cada almacen emite SIEMPRE el suyo, hasta que se cambie
+     * en "Gestionar almacenes" -> Editar almacen.
+     *
+     *   VERTICAL   = el formato de siempre (VID-FO-GEN-019), hoja A4 de pie.
+     *   HORIZONTAL = el segundo formato, hoja A4 acostada.
+     *
+     * FORMATOS_NOTA es la FUENTE UNICA de los valores validos Y de sus etiquetas: de aqui
+     * salen la validacion (AlmacenController::validarAlmacen), la eleccion de plantilla del
+     * PDF (renderNotaEntregaPdfBinary) y los checks del modal, que el blade recorre para
+     * pintar uno por formato. Un tercer formato se agrega SOLO aqui: aparece su check, lo
+     * acepta el backend y el PDF sabe elegirlo.
+     */
+    public const FORMATO_NOTA_VERTICAL   = 'VERTICAL';
+    public const FORMATO_NOTA_HORIZONTAL = 'HORIZONTAL';
+    public const FORMATOS_NOTA = [
+        self::FORMATO_NOTA_VERTICAL   => 'Vertical',
+        self::FORMATO_NOTA_HORIZONTAL => 'Horizontal',
+    ];
+
     protected $fillable = [
         'CODIGO',
         'NOMBRE',
@@ -59,6 +79,15 @@ class Almacen extends Model
         'UBICACION',
         'ALMACENISTA',
         'CARGO_ALMACENISTA',
+        'CEDULA_ALMACENISTA',
+        'FORMATO_NOTA',
+        // Firmantes fijos del formato HORIZONTAL — ver firmantesNota().
+        'SOPORTE_1_NOM',
+        'SOPORTE_1_CAR',
+        'SOPORTE_1_CED',
+        'SOPORTE_2_NOM',
+        'SOPORTE_2_CAR',
+        'SOPORTE_2_CED',
         'ESTATUS',
         'NOTAS',
         'CREADO_POR',
@@ -76,6 +105,13 @@ class Almacen extends Model
         'ALMACENISTA'       => MojibakeFix::class,
         'CARGO_ALMACENISTA' => MojibakeFix::class,
         'NOTAS'             => MojibakeFix::class,
+        // Nombres y cargos de los firmantes: mismo tratamiento que ALMACENISTA porque son
+        // texto libre escrito por el usuario y pueden llegar con el mojibake legacy.
+        // Las cedulas NO llevan cast: son digitos y puntos, no hay nada que decodear.
+        'SOPORTE_1_NOM'     => MojibakeFix::class,
+        'SOPORTE_1_CAR'     => MojibakeFix::class,
+        'SOPORTE_2_NOM'     => MojibakeFix::class,
+        'SOPORTE_2_CAR'     => MojibakeFix::class,
     ];
 
     // ── Relaciones ───────────────────────────────────────────────
@@ -145,6 +181,86 @@ class Almacen extends Model
     }
 
     // ── Helpers ──────────────────────────────────────────────────
+
+    /**
+     * Formato de Nota de Entrega de este almacen, ya normalizado.
+     *
+     * PUNTO UNICO: cualquier codigo que necesite saber que plantilla emitir llama aqui y
+     * nunca lee la columna cruda. Asi un valor nulo (una fila de un backup anterior a la
+     * migracion) o basura escrita a mano en BD cae al formato de siempre en vez de romper
+     * el PDF. Es un match en memoria sobre un atributo que ya viene cargado con el modelo:
+     * no consulta, no cachea, no cuesta.
+     */
+    public function formatoNota(): string
+    {
+        return self::normalizarFormatoNota($this->FORMATO_NOTA);
+    }
+
+    /**
+     * Normaliza un formato suelto (request, columna, null) a uno de FORMATOS_NOTA. Todo lo
+     * que no sea un formato conocido cae a VERTICAL — el comportamiento historico. Static
+     * para poder usarse sin instancia (p.ej. sobre el valor que llega en un request).
+     */
+    public static function normalizarFormatoNota($valor): string
+    {
+        $v = mb_strtoupper(trim((string) $valor));
+        return array_key_exists($v, self::FORMATOS_NOTA) ? $v : self::FORMATO_NOTA_VERTICAL;
+    }
+
+    /** Etiqueta humana del formato ("Vertical" / "Horizontal"), para listados y modales. */
+    public static function etiquetaFormatoNota($valor): string
+    {
+        return self::FORMATOS_NOTA[self::normalizarFormatoNota($valor)];
+    }
+
+    /**
+     * Los 5 bloques de firma del formato HORIZONTAL, en el orden en que salen impresos.
+     * El vertical no los usa: ese lleva solo ENTREGADO POR / RECIBIDO POR.
+     *
+     * PUNTO UNICO: la vista no sabe de donde vienen los nombres — pide esto y pinta.
+     *
+     * ENTREGADO y los dos SOPORTADO son SIEMPRE la misma gente del almacen que despacha, asi
+     * que salen pre-impresos de la ficha del almacen ("Editar almacen", solo visibles cuando
+     * el formato es HORIZONTAL). ENTREGADO reusa ALMACENISTA / CARGO_ALMACENISTA — los mismos
+     * campos que el formato vertical imprime como "ENTREGADO POR" — mas la cedula que solo
+     * pide el horizontal; no se duplican, un almacen tiene UN almacenista.
+     *
+     * Los otros dos van SIEMPRE en blanco, a proposito:
+     *   RECIBIDO  → lo firma quien recibe en el destino, cambia en cada nota.
+     *   SEGURIDAD → lo firma el vigilante de turno.
+     *
+     * Lee solo columnas de $this: cero consultas. Un campo sin configurar sale como raya en
+     * blanco, que es un formulario valido.
+     *
+     * @return array<int, array{rol: string, nombre: string, cargo: string, cedula: string}>
+     */
+    public function firmantesNota(): array
+    {
+        $limpiar = fn ($v) => trim((string) $v);
+
+        return [
+            [
+                'rol'    => 'ENTREGADO',
+                'nombre' => $limpiar($this->ALMACENISTA),
+                'cargo'  => $limpiar($this->CARGO_ALMACENISTA),
+                'cedula' => $limpiar($this->CEDULA_ALMACENISTA),
+            ],
+            [
+                'rol'    => 'SOPORTADO',
+                'nombre' => $limpiar($this->SOPORTE_1_NOM),
+                'cargo'  => $limpiar($this->SOPORTE_1_CAR),
+                'cedula' => $limpiar($this->SOPORTE_1_CED),
+            ],
+            [
+                'rol'    => 'SOPORTADO',
+                'nombre' => $limpiar($this->SOPORTE_2_NOM),
+                'cargo'  => $limpiar($this->SOPORTE_2_CAR),
+                'cedula' => $limpiar($this->SOPORTE_2_CED),
+            ],
+            ['rol' => 'RECIBIDO',  'nombre' => '', 'cargo' => '', 'cedula' => ''],
+            ['rol' => 'SEGURIDAD', 'nombre' => '', 'cargo' => '', 'cedula' => ''],
+        ];
+    }
 
     /**
      * True si el usuario tiene acceso "global" (ve todos los almacenes).

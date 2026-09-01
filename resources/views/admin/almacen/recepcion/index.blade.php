@@ -74,16 +74,6 @@
     {{-- Fila 2: Tabs de navegación --}}
     @include('admin.almacen.recepcion.partials.tabs', ['activa' => 'bandeja', 'clase' => 'tr-tabs'])
 
-    {{-- Una linea que ordena la pantalla entera. Las dos vias de entrada NO se distinguen
-         por los papeles que traen (casi siempre traen), sino por DE DONDE viene el material:
-         del almacen general (llega despachado, aqui solo se confirma) o de un proveedor que
-         entrego directo a este almacen (no paso por el general, se captura completo aqui).
-         Sin esta frase, "Bandeja" y "Compra directa" parecian dos botones cualquiera. --}}
-    <p style="margin:10px 0 0;font-size:12.5px;color:#64748b;line-height:1.5;">
-        El material entra por dos vías, según de dónde venga:
-        <strong style="color:#334155;">del almacén general</strong> — llega despachado con su nota y aquí solo se confirma —
-        o <strong style="color:#334155;">por compra directa</strong> — el proveedor lo entregó en este almacén sin pasar por el general, y se captura aquí.
-    </p>
 </section>
 
 <style>
@@ -938,9 +928,20 @@
        de tamaño al pasar de un paso a otro: lo único que se intercambia es el bloque de
        arriba. Los tres campos del paso 2 siguen entrando en fila a este ancho (≈263px para
        nota y proveedor, 170 para la fecha). */
+    /* La caja SE AJUSTA AL PASO. .cdir-en-paso1 ya la pone cdirPaso() para esconder la tabla,
+       así que basta colgarle el tamaño — ni una línea de JS nueva.
+         · Paso 1: solo pide cuatro datos en columna, así que va angosta y con el alto del
+           CONTENIDO (height:auto). Con el 82vh fijo quedaba medio palmo de blanco debajo de
+           los botones. De paso, cuando aparece el aviso de error la caja crece sola en vez
+           de recortarlo contra el overflow:hidden.
+         · Paso 2: la tabla de líneas necesita ancho Y un alto acotado contra el que hacer
+           scroll (.cdir-list-wrap es flex:1 1 auto), de ahí el 82vh.
+       Solo se anima el ancho: el alto pasa de auto a 82vh y esa transición no se puede
+       interpolar, así que animarla daría un salto feo en vez de un movimiento. */
     .cdir-box { background:#fff; border-radius:16px; width:100%; max-width:760px; height:82vh; max-height:94vh;
         display:flex; flex-direction:column; overflow:hidden; box-shadow:0 25px 50px -12px rgba(0,0,0,0.35);
-        animation:dtmIn .2s ease-out; }
+        animation:dtmIn .2s ease-out; transition:max-width .3s cubic-bezier(.4,0,.2,1); }
+    .cdir-box.cdir-en-paso1 { max-width:460px; height:auto; }
 
     /* Barra superior: mismo slate #1e293b + icono azul del modal de detalle, para que los
        dos modales del módulo se lean como la misma familia. */
@@ -963,24 +964,20 @@
     .cdir-paso { display:none; flex-direction:column; flex-shrink:0; }
     .cdir-paso.on { display:flex; }
 
-    /* Asociar material a un proyecto: franja propia ARRIBA DEL TODO, con fondo tenue, para que se lea
-       como "contexto de toda la entrada" y no como un campo más del formulario. La etiqueta
-       va ENCIMA del campo (no al lado): así el proyecto elegido queda alineado con el resto
-       del modal y se lee de un vistazo al abrir.
+    /* Asociar material a un proyecto: PRIMER campo del paso 1, en la misma columna que los
+       tres de abajo (nota, proveedor y fecha) — mismo margen, mismo ancho y la etiqueta
+       encima del campo. Antes iba en una franja gris a todo lo ancho y se leía como si
+       fuera de otra pantalla.
        z-index:6 — por encima de .cdir-capt (5), para que sus sugerencias tapen la barra de
-       captura que queda debajo. */
-    .cdir-proyecto { position:relative; z-index:6; flex-shrink:0; display:flex; align-items:center;
-        gap:12px; padding:7px 20px; background:#f8fafc; border-bottom:1px solid #e2e8f0; }
-    /* Etiqueta y campo en la MISMA línea: apilados ocupaban dos renglones de alto sin dar
-       nada a cambio. nowrap para que el rótulo no se parta en dos. */
-    .cdir-proyecto label { flex:0 0 auto; white-space:nowrap; font-size:11px; font-weight:800;
+       captura que queda debajo. Por eso conserva position:relative aunque ya no tenga fondo. */
+    .cdir-proyecto { position:relative; z-index:6; flex-shrink:0; display:grid; gap:6px;
+        padding:14px 20px 0; }
+    .cdir-proyecto label { font-size:11px; font-weight:800;
         text-transform:uppercase; letter-spacing:.4px; color:#64748b; }
     /* Campo CON BUSCADOR (no un <select> nativo): el almacén puede tener muchos proyectos y
        teclear tres letras es más rápido que recorrer la lista. Misma caja que el resto del
        modal para que no desentone. */
-    /* margin-left: separa el buscador del rótulo (el gap de 12px los dejaba pegados y se
-       leían como una sola pieza). El icono de ayuda sigue junto a su etiqueta. */
-    .cdir-proy-field { position:relative; flex:1 1 auto; min-width:0; margin-left:10px; }
+    .cdir-proy-field { position:relative; min-width:0; }
     .cdir-proy-field .cdir-input { padding-right:34px; }
     .cdir-proy-caret { position:absolute; right:9px; top:50%; transform:translateY(-50%);
         color:#64748b; font-size:20px; pointer-events:none; }
@@ -1078,13 +1075,15 @@
     .cdir-empty { padding:26px 16px; text-align:center; font-size:12.5px; color:#94a3b8; }
 
     /* Paso 1 — datos del documento del proveedor. */
-    .cdir-paso2-head { flex-shrink:0; padding:14px 20px 0; }
-    /* Los tres campos SIEMPRE en fila (pedido del cliente). Con la caja en 900px sobra
-       ancho: nota y proveedor se reparten lo elástico y la fecha se queda con lo justo. */
-    {{-- El padding-bottom NO es decorativo: debajo va directo .cdir-list-wrap (padding:0 20px),
-         asi que sin el, los tres campos quedaban pegados al encabezado negro de la tabla. En el
-         paso 1 no se notaba porque ahi arriba va .cdir-capt, que si trae su padding abajo. --}}
-    .cdir-meta { flex-shrink:0; display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr) 170px; gap:12px; padding:8px 20px 14px; }
+    .cdir-paso2-head { flex-shrink:0; padding:16px 20px 0; }
+    /* Nota, proveedor y fecha: UNO DEBAJO DEL OTRO, en la misma columna que el campo de
+       proyecto de arriba. Son datos opcionales y de relleno lento (hay que copiarlos del
+       papel del proveedor), así que en columna se leen de corrido y cada caja tiene ancho
+       de sobra. Al ser una sola columna en cualquier pantalla, no necesita override de
+       @media: el mismo reparto sirve en escritorio y en teléfono.
+       El padding de abajo NO es decorativo: debajo va directo .cdir-list-wrap (padding:0 20px),
+       así que sin él los campos quedaban pegados al encabezado negro de la tabla. */
+    .cdir-meta { flex-shrink:0; display:grid; grid-template-columns:1fr; gap:12px; padding:8px 20px 14px; }
     .cdir-meta label { display:block; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.4px; color:#64748b; margin-bottom:4px; }
     .cdir-date { display:flex; align-items:center; gap:6px; cursor:default; }
     .cdir-date input { flex:1; min-width:0; border:none; background:transparent; padding:0; font-family:inherit; font-size:13.5px; color:#0f172a; outline:none; cursor:default; }
@@ -1114,25 +1113,16 @@
        completa. */
     @media (max-width: 640px) {
         .cdir-overlay { padding:0; }
-        .cdir-box { max-width:none; max-height:100vh; height:100vh; border-radius:0; }
+        /* Pantalla completa: ni se estrecha en el paso 1 ni se anima el ancho. */
+        .cdir-box, .cdir-box.cdir-en-paso1 { max-width:none; max-height:100vh; height:100vh; border-radius:0; transition:none; }
         .cdir-capt-bar { flex-wrap:wrap; }
         .cdir-field { flex:1 1 100%; }
         .cdir-um-wrap, .cdir-um-input { flex:0 0 76px; width:76px; }
         .cdir-cant-input { flex:1 1 auto; width:auto; }
-        {{-- Los tres campos del paso 2 sí se apilan en teléfono: uno al lado del otro
-             (como van en escritorio) dejaría cada caja en ~90px, sin ancho útil. --}}
-        .cdir-meta { grid-template-columns:1fr; }
         {{-- Se reparten el ancho de la fila a partes iguales (flex:1 1 0), que igual los deja
              del mismo tamaño. min-width:0 anula los 130px de escritorio para que quepan
              holgados en un teléfono angosto. --}}
         .cdir-btn { flex:1 1 0; min-width:0; justify-content:center; }
-        {{-- Franja del proyecto: el rótulo va en nowrap y ocupa ~190px, así que en un
-             teléfono de 360px al buscador le quedaban ~90px — inservible para leer el
-             nombre de un proyecto. Aquí el campo baja a su propio renglón. --}}
-        .cdir-proyecto { flex-wrap:wrap; row-gap:6px; }
-        {{-- margin-left:0 — el hueco que separa el rótulo del buscador en escritorio
-             aquí sobra: el campo ya está en su propio renglón y solo lo sangraba. --}}
-        .cdir-proy-field { flex:1 1 100%; margin-left:0; }
     }
 </style>
 
@@ -1369,7 +1359,10 @@
     function montarProyectos(idAlmacen) {
         var cfg = proyectosDe(idAlmacen), row = el('cdirProyectoRow');
         proyectosVisibles = cfg.separa ? cfg.frentes : [];
-        row.style.display = cfg.separa ? 'block' : 'none';
+        // display:'' (no 'block'): devuelve la fila al display que manda la hoja de
+        // estilos. Con 'block' el inline pisaba al CSS y la fila nunca era la caja que
+        // .cdir-proyecto describe, asi que su gap no se aplicaba.
+        row.style.display = cfg.separa ? '' : 'none';
         // Se limpia SIEMPRE, también cuando el almacén nuevo no separa: si no, el id del
         // proyecto del almacén anterior se quedaba pegado en el campo oculto.
         // Y nunca se preselecciona: elegir por el usuario es justo lo que ensuciaba el saldo

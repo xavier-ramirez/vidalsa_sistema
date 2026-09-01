@@ -2358,6 +2358,10 @@ class AlmacenController extends Controller
             ->get();
         $stockMap = [];
         $minimoMap = [];
+        // Filas a resaltar. Se llenan dentro del bucle de productos y se pintan DESPUÉS,
+        // todas de una (ver el pintado por lotes tras el bucle).
+        $filasBajoMinimo = [];
+        $filasAlternas   = [];
         foreach ($stocks as $s) {
             $stockMap[$s->ID_PRODUCTO][$s->ID_ALMACEN] = (float) $s->CANTIDAD;
             // El mínimo se toma del primer almacén que lo tenga (cada par producto/almacén
@@ -2497,17 +2501,14 @@ class AlmacenController extends Controller
                 $sheet->setCellValue($totalCol . $rowNum, $total);
             }
 
-            // Resaltar fila bajo mínimo (si hay mínimo y stock total ≤ mínimo) o
-            // franja alterna. La alineación y la negrita del TOTAL NO van aquí —
-            // se aplican por columna completa después del loop (mucho más rápido).
+            // Solo se ANOTA de qué color va la fila; el relleno se aplica en bloque al
+            // salir del bucle. getStyle() construye el objeto de estilo de un rango y es
+            // caro: llamarlo una vez por fila costaba ~400 ms con el catálogo completo,
+            // más de un tercio de todo el export. Ver el pintado más abajo.
             if ($minimo !== null && $total <= $minimo) {
-                $sheet->getStyle('A' . $rowNum . ':' . $lastCol . $rowNum)->getFill()
-                    ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
-                    ->getStartColor()->setARGB('FFFEF3C7'); // amarillo suave
+                $filasBajoMinimo[] = $rowNum;
             } elseif ($rowNum % 2 === 0) {
-                $sheet->getStyle('A' . $rowNum . ':' . $lastCol . $rowNum)->getFill()
-                    ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
-                    ->getStartColor()->setARGB('FFF8FAFC'); // gris muy claro alternado
+                $filasAlternas[] = $rowNum;
             }
 
             $rowNum++;
@@ -2532,6 +2533,28 @@ class AlmacenController extends Controller
             if ($totalCol) {
                 $sheet->getStyle($totalCol . '6:' . $totalCol . $ultimaFila)->getFont()->setBold(true);
             }
+
+            // ── Relleno de filas — por LOTES, no fila por fila ─────────────────
+            // duplicateStyle() copia un estilo YA construido a otro rango; getStyle() lo
+            // construye de cero cada vez. Medido con el catálogo completo (1358 productos):
+            // 399 ms fila-por-fila contra 90 ms así, con el mismo resultado en pantalla.
+            // Se pinta una fila plantilla con getStyle y las demás se duplican de ella.
+            $pintar = function (array $filas, string $argb) use ($sheet, $lastCol) {
+                if (empty($filas)) {
+                    return;
+                }
+                $primera = array_shift($filas);
+                $rango   = 'A' . $primera . ':' . $lastCol . $primera;
+                $sheet->getStyle($rango)->getFill()
+                    ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+                    ->getStartColor()->setARGB($argb);
+                $plantilla = $sheet->getStyle($rango);
+                foreach ($filas as $f) {
+                    $sheet->duplicateStyle($plantilla, 'A' . $f . ':' . $lastCol . $f);
+                }
+            };
+            $pintar($filasAlternas,   'FFF8FAFC');   // gris muy claro alternado
+            $pintar($filasBajoMinimo, 'FFFEF3C7');   // amarillo suave: saldo en o bajo el mínimo
 
             // Bordes a toda la zona de datos.
             $sheet->getStyle('A5:' . $lastCol . $ultimaFila)->getBorders()->getAllBorders()
@@ -2742,7 +2765,23 @@ class AlmacenController extends Controller
                     $opts['numero_nota'] = MovimientoInventario::generarNumeroNota();
                 }
                 $ids = [];
-                foreach ($data['lineas'] as $linea) {
+
+                // ── ORDEN DE BLOQUEO: siempre por ID_PRODUCTO ─────────────────────────────
+                // Cada línea bloquea la fila de `almacen_stock` de su producto
+                // (InventarioService: lockForUpdate). Si dos personas del MISMO almacén
+                // despachan los MISMOS productos en orden distinto —cosa normal, el orden lo
+                // pone la pantalla— una toma A y espera B mientras la otra toma B y espera A:
+                // InnoDB corta con "1213 Deadlock found" y una de las dos salidas se cae.
+                // Reproducido: 3 de 3 intentos se trababan; ordenando, 10 de 10 pasan.
+                //
+                // Recorrer SIEMPRE en el mismo orden hace imposible ese cruce: la segunda
+                // petición simplemente espera. No cambia lo que se guarda —el orden de las
+                // líneas no altera saldos ni movimientos— y la nota se sigue imprimiendo
+                // ordenada por su propio criterio (ver buscarMovimientosDeNota).
+                $lineasOrdenadas = $data['lineas'];
+                usort($lineasOrdenadas, fn ($a, $b) => (int) $a['id_producto'] <=> (int) $b['id_producto']);
+
+                foreach ($lineasOrdenadas as $linea) {
                     $idProducto = (int) $linea['id_producto'];
                     $cantidad   = (float) $linea['cantidad'];
                     // Nº de parte específico entregado — es POR LÍNEA (cada filtro puede llevar
@@ -2801,6 +2840,13 @@ class AlmacenController extends Controller
             fn ($l) => ['id_producto' => (int) $l['id_producto'], 'cantidad' => (float) $l['cantidad']],
             $data['lineas'],
         );
+        // ORDEN DE BLOQUEO por ID_PRODUCTO, por el mismo motivo que en la rama de SALIDA pura
+        // (ver el comentario del bucle en registrarMovimientoLote): cada linea acaba tomando
+        // el lock de la fila de `almacen_stock` de su producto, y dos despachos simultaneos
+        // del MISMO almacen con los mismos productos en orden contrario se traban entre si.
+        // Esta rama es la que corre cuando el destino tiene almacen propio — o sea, la mas
+        // frecuente — asi que sin esto la correccion de la otra rama no serviria de nada.
+        usort($lineas, fn ($a, $b) => $a['id_producto'] <=> $b['id_producto']);
 
         try {
             $resultado = DB::transaction(function () use ($data, $idFrenteDestino, $idAlmacenDestino, $idUsuario, $lineas, $request) {
@@ -2894,6 +2940,11 @@ class AlmacenController extends Controller
             'proyecto'      => $hd->frente?->NOMBRE_FRENTE ?? '',
             'contrato'      => $hd->NUMERO_CONTRATO ?? '',
             'fecha'         => optional($hd->FECHA)->format('d/m/Y') ?: now()->format('d/m/Y'),
+            // HORA de emision: la pide el formato HORIZONTAL (el vertical no la imprime).
+            // Sale de created_at y NO de FECHA: FECHA es la fecha CONTABLE del movimiento
+            // (el usuario puede retrofecharla al registrar la salida) y viene casteada a
+            // fecha sin hora, asi que su hora seria siempre 00:00.
+            'hora'          => optional($hd->created_at)->format('h:i A') ?: '',
             'rq'            => $hd->NUMERO_RQ ?? '',
             'solicitante'   => $hd->SOLICITANTE ?? '',
             'departamento'  => $hd->DEPARTAMENTO ?? '',
@@ -2904,7 +2955,11 @@ class AlmacenController extends Controller
         ];
 
         $slug   = $hd->NUMERO_NOTA ?: ($hd->NUMERO_RQ ?: ('LOTE-' . $hd->ID_MOVIMIENTO));
-        $binary = $this->renderNotaEntregaPdfBinary($datos, $movs, false);
+        // El ALMACEN que emitio la salida decide formato Y firmantes de la nota. Sale de la
+        // relacion `almacen` que ya viene cargada con los movimientos (ver
+        // buscarMovimientosDeNota -> with(['producto','almacen',...])): pasarlo no agrega ni
+        // una consulta. Va CRUDO: normalizar el formato es cosa del render.
+        $binary = $this->renderNotaEntregaPdfBinary($datos, $movs, false, $hd->almacen);
         return response($binary, 200, [
             'Content-Type'        => 'application/pdf',
             'Content-Disposition' => 'inline; filename="Nota_Entrega_' . preg_replace('/[^A-Za-z0-9_-]/', '_', $slug) . '.pdf"',
@@ -3294,6 +3349,9 @@ class AlmacenController extends Controller
             'fecha'         => !empty($data['fecha'])
                 ? \Carbon\Carbon::parse($data['fecha'])->format('d/m/Y')
                 : now()->format('d/m/Y'),
+            // La nota todavia no existe, asi que su hora de emision es AHORA — es la que
+            // llevara cuando se guarde. Mismo formato que el sitio real (ver notaEntregaPdf).
+            'hora'          => now()->format('h:i A'),
             'rq'            => $fixReq($data['numero_rq'] ?? ''),
             'solicitante'   => $fixReq($data['solicitante'] ?? ''),
             'departamento'  => $fixReq($data['departamento'] ?? ''),
@@ -3303,21 +3361,28 @@ class AlmacenController extends Controller
             'motivo'        => $fixReq($data['motivo'] ?? ''),
         ];
 
-        // Cada $m del blade lee: CANTIDAD, producto->{UM, NOMBRE, CODIGO}. Armamos
-        // stdClass que cumple ese contrato — la coleccion mantiene el orden del
+        // Cada $m del blade lee: CANTIDAD, producto->{UM, NOMBRE, CODIGO} y frente->NOMBRE_FRENTE.
+        // Armamos stdClass que cumple ese contrato — la coleccion mantiene el orden del
         // payload para que el preview se vea EXACTO al PDF final. NOMBRE pasa por
         // el cast de ProductoInventario, no necesita fix manual.
-        $movs = collect($data['lineas'])->map(function ($l) use ($productos) {
+        $movs = collect($data['lineas'])->map(function ($l) use ($productos, $frente) {
             return (object) [
                 'CANTIDAD'     => (float) $l['cantidad'],
                 // Nº de parte específico (filtros): el preview también lo muestra, igual que
                 // el PDF final. El blade lo lee null-safe, así que si no vino queda vacío.
                 'NUMERO_PARTE' => $l['numero_parte'] ?? null,
                 'producto'     => $productos[(int) $l['id_producto']] ?? null,
+                // Frente de ESTA linea — lo lee la columna DESTINO del formato HORIZONTAL.
+                // En el preview la nota entera va a un solo frente (el formulario pide uno
+                // solo), asi que todas las lineas comparten el mismo; en una nota YA GUARDADA
+                // cada movimiento trae el suyo y pueden diferir (ver la vista horizontal).
+                'frente'       => $frente,
             ];
         });
 
-        $binary = $this->renderNotaEntregaPdfBinary($datos, $movs, true);
+        // Mismo almacen de origen que emitira el PDF definitivo -> mismo formato y mismos
+        // firmantes. Asi la vista previa nunca miente sobre la hoja que va a salir impresa.
+        $binary = $this->renderNotaEntregaPdfBinary($datos, $movs, true, $almacen);
         return response($binary, 200, [
             'Content-Type'        => 'application/pdf',
             'Content-Disposition' => 'inline; filename="Vista_Previa_Nota_Entrega.pdf"',
@@ -3333,16 +3398,50 @@ class AlmacenController extends Controller
      *   • notaEntregaPdf()  → con datos cargados de movimientos persistidos.
      *   • previewSalidaPdf() → con datos del request, sin commit (vista previa).
      *
+     * $formato decide la HOJA y la PLANTILLA, y es lo ÚNICO que cambia entre las dos notas
+     * (ver Almacen::FORMATOS_NOTA):
+     *   VERTICAL   → A4 de pie    + admin.almacen.nota_entrega_pdf  (VID-FO-GEN-019)
+     *   HORIZONTAL → A4 acostada  + admin.almacen.nota_entrega_horizontal_pdf
+     *
+     * El cabezote se mide contra el ancho real de la página y el resto (márgenes, fuente,
+     * grosor de línea, numeración) es idéntico en los dos, así que ninguno necesita su
+     * propia copia de esta función. Elegir formato cuesta una comparación de strings: no
+     * hay consulta extra, ni caché, ni rama lenta.
+     *
      * Retorna el binario del PDF (string) para que el caller decida headers y
      * disposition. Usa Output('','S') que devuelve el contenido como string sin
      * escribir a stdout/headers.
      */
-    private function renderNotaEntregaPdfBinary(array $datos, $movs, bool $esPreview = false): string
-    {
-        $pdf = new NotaEntregaPDF('P', 'mm', 'A4', true, 'UTF-8', false);
+    private function renderNotaEntregaPdfBinary(
+        array $datos,
+        $movs,
+        bool $esPreview = false,
+        ?Almacen $almacen = null
+    ): string {
+        // Se recibe el ALMACEN entero, no solo su columna FORMATO_NOTA, porque el formato
+        // horizontal tambien necesita sus firmantes (ver Almacen::firmantesNota()). Un solo
+        // parametro para las dos cosas evita que un caller pase el formato de un almacen y
+        // los firmantes de otro.
+        //
+        // UNICO punto donde se normaliza el formato: llega la columna tal cual (o null si el
+        // almacen ya no existe) y cae al vertical de siempre si no es un formato conocido —
+        // asi ninguna nota se queda sin PDF por un valor raro.
+        $horizontal = Almacen::normalizarFormatoNota($almacen?->FORMATO_NOTA) === Almacen::FORMATO_NOTA_HORIZONTAL;
+
+        $pdf = new NotaEntregaPDF($horizontal ? 'L' : 'P', 'mm', 'A4', true, 'UTF-8', false);
         // El N° de Nota va en el cabezote (esquina derecha, donde antes estaba "CODIGO:").
         // Header() lo lee de esta propiedad pública.
         $pdf->numeroNota = $datos['numero_nota'] ?? '';
+        // Fecha y hora al sello, SOLO en horizontal: su cuerpo ya no las imprime (el vertical
+        // si, dentro de "FECHA DE ENTREGA", por eso alli esta property queda vacia y su
+        // cabezote no cambia). Se arma aqui —y no en el Header— para no meter formato de
+        // fechas dentro de la clase del PDF.
+        if ($horizontal) {
+            $pdf->fechaHora = trim(
+                'FECHA: ' . ($datos['fecha'] ?? '')
+                . '   HORA: ' . ($datos['hora'] ?? '')
+            );
+        }
         $pdf->setPrintHeader(true);
         // Footer desactivado: ya no imprimimos "Sistema de Gestión VIDALSA" al pie.
         // La Nota de Entrega es un formulario oficial impreso (VID-FO-GEN-019), no un
@@ -3371,11 +3470,22 @@ class AlmacenController extends Controller
         $pdf->SetLineWidth(0.15);
         $pdf->SetFont('helvetica', '', 9.5);
 
-        $html = view('admin.almacen.nota_entrega_pdf', [
+        $vista = $horizontal
+            ? 'admin.almacen.nota_entrega_horizontal_pdf'
+            : 'admin.almacen.nota_entrega_pdf';
+
+        $html = view($vista, [
             'datos' => $datos,
             'movs'  => $movs,
+            // Solo lo consume la vista horizontal; la vertical lleva sus dos firmas armadas
+            // con 'entregado_por'/'cargo_entrega' y nunca lee esto, por eso alli va vacio.
+            // Cuando $horizontal es true el almacen NO puede ser null: sin almacen,
+            // normalizarFormatoNota(null) devuelve VERTICAL y no entramos por esta rama.
+            'firmantes' => $horizontal ? $almacen->firmantesNota() : [],
         ])->render();
         $pdf->writeHTML($html, true, false, true, false, '');
+        // Numeracion de paginas: con el documento ya completo (ver sellarPaginacion).
+        $pdf->sellarPaginacion();
 
         return $pdf->Output('', 'S');
     }
@@ -3612,6 +3722,23 @@ class AlmacenController extends Controller
             // CARGO_ALMACENISTA: cargo / titulo (aparece como "CARGO:" en el PDF debajo del
             // NOMBRE del almacenista; sustituye al literal hardcodeado "COORD. DE MATERIALES").
             'CARGO_ALMACENISTA' => 'required|string|max:200',
+            // FORMATO_NOTA: que plantilla de Nota de Entrega emite este almacen (VERTICAL =
+            // la de siempre, VID-FO-GEN-019 en A4 de pie; HORIZONTAL = A4 acostada).
+            // Nullable a proposito: un cliente que no mande el campo NO debe cambiarle el
+            // formato al almacen — abajo se resuelve el default al crear y se ignora al
+            // editar si no vino.
+            'FORMATO_NOTA'      => ['nullable', Rule::in(array_keys(Almacen::FORMATOS_NOTA))],
+            // Firmantes fijos del formato HORIZONTAL (ver Almacen::firmantesNota). Todos
+            // opcionales: un bloque sin configurar sale como raya en blanco en el PDF, que es
+            // un formulario valido. La cedula de ENTREGADO acompaña a ALMACENISTA/CARGO, que
+            // ya se validan arriba y los usan LOS DOS formatos.
+            'CEDULA_ALMACENISTA' => 'nullable|string|max:20',
+            'SOPORTE_1_NOM'      => 'nullable|string|max:120',
+            'SOPORTE_1_CAR'      => 'nullable|string|max:120',
+            'SOPORTE_1_CED'      => 'nullable|string|max:20',
+            'SOPORTE_2_NOM'      => 'nullable|string|max:120',
+            'SOPORTE_2_CAR'      => 'nullable|string|max:120',
+            'SOPORTE_2_CED'      => 'nullable|string|max:20',
             'ESTATUS'           => 'nullable|in:ACTIVO,INACTIVO',
             'NOTAS'             => 'nullable|string',
             // frentes: array de IDs. Obligatorio para AMBOS tipos (GENERAL y PROYECTO) —
@@ -3627,6 +3754,32 @@ class AlmacenController extends Controller
         if (!empty($data['UBICACION']))         $data['UBICACION']         = mb_strtoupper(trim($data['UBICACION']));
         if (!empty($data['ALMACENISTA']))       $data['ALMACENISTA']       = mb_strtoupper(trim($data['ALMACENISTA']));
         if (!empty($data['CARGO_ALMACENISTA'])) $data['CARGO_ALMACENISTA'] = mb_strtoupper(trim($data['CARGO_ALMACENISTA']));
+
+        // Firmantes: mismo criterio que ALMACENISTA — MAYUSCULAS, porque asi se imprimen en
+        // la nota y asi estan los nombres del resto del sistema. Las cedulas solo se recortan.
+        // Un campo que NO viene en el body no se toca (validate() no lo devuelve), asi editar
+        // un almacen sin mandar estos campos no borra los firmantes ya configurados.
+        foreach (['SOPORTE_1_NOM', 'SOPORTE_1_CAR', 'SOPORTE_2_NOM', 'SOPORTE_2_CAR'] as $campo) {
+            if (array_key_exists($campo, $data)) {
+                $data[$campo] = mb_strtoupper(trim((string) $data[$campo])) ?: null;
+            }
+        }
+        foreach (['CEDULA_ALMACENISTA', 'SOPORTE_1_CED', 'SOPORTE_2_CED'] as $campo) {
+            if (array_key_exists($campo, $data)) {
+                $data[$campo] = trim((string) $data[$campo]) ?: null;
+            }
+        }
+
+        // FORMATO_NOTA: al CREAR se fija siempre (default VERTICAL si no vino); al EDITAR se
+        // respeta el actual cuando el campo no viene en el body — mismo criterio que ESTATUS
+        // unas lineas mas abajo. La normalizacion vive en el modelo, no se repite aqui.
+        if ($ignoreId === null) {
+            $data['FORMATO_NOTA'] = Almacen::normalizarFormatoNota($data['FORMATO_NOTA'] ?? null);
+        } elseif (!empty($data['FORMATO_NOTA'])) {
+            $data['FORMATO_NOTA'] = Almacen::normalizarFormatoNota($data['FORMATO_NOTA']);
+        } else {
+            unset($data['FORMATO_NOTA']);   // editar sin mandar el campo = no tocar el formato
+        }
         
         // Evitar reactivar almacenes inactivos al editarlos sin mandar el campo ESTATUS.
         if ($ignoreId === null) {
@@ -3729,6 +3882,23 @@ class NotaEntregaPDF extends \TCPDF
     /** N° de Nota (NE-YYYY-NNNN) — lo inyecta el controller antes de generar el PDF. */
     public string $numeroNota = '';
 
+    /**
+     * Fecha y hora del despacho, ya formateadas ("FECHA: 01/09/2026   HORA: 12:34 AM"), para
+     * imprimirlas como una fila mas del sello del cabezote.
+     *
+     * VACIA = no se imprime esa fila. Asi queda en el formato VERTICAL, que lleva la fecha
+     * dentro del cuerpo ("FECHA DE ENTREGA") y cuyo sello no debe cambiar. La rellena
+     * renderNotaEntregaPdfBinary() solo para el HORIZONTAL, cuyo cuerpo ya no las imprime.
+     */
+    public string $fechaHora = '';
+
+    /**
+     * Geometría (x, y, ancho, alto en mm) de la celda "PAG. X DE Y" del sello. La fija
+     * Header() y la consume sellarPaginacion(), que es quien escribe el texto DESPUÉS de
+     * armar el documento — ver el porqué en el comentario de ese método.
+     */
+    public array $celdaPag = [];
+
     public function Header()
     {
         // ── Cabezote oficial VID-FO-GEN-019 — UNA tabla HTML con bordes ────────
@@ -3748,20 +3918,25 @@ class NotaEntregaPDF extends \TCPDF
 
         // Cabezote oficial VID-FO-GEN-019.
         // Geometria del cabezote:
-        //   x = 10 mm  (margen izquierdo)         width = 190 mm  (210 - 10*2)
+        //   x = 10 mm  (margen izquierdo)         width = ancho de pagina - 10*2
+        //                                          (190 mm en A4 de pie, 277 en A4 acostada)
         //   y = 16 mm  (16mm de aire desde el borde sup.) height = 68 pt = 24 mm
         //   bottom = y + height = 40 mm           ← coincide con SetMargins top=40
         //                                          para que la tabla del body
         //                                          arranque PEGADA al cabezote.
-        // Celda del logo (20% de 190 = 38 mm — igual que col PROYECTO: del body):
-        //   left   = 10     right = 10 + 38 = 48      center x = 29
-        //   top    = 16     bottom = 40                center y = 28
+        // Celda del logo: 20% del ancho — igual que la col PROYECTO: del body, que tambien
+        //   es 20%, asi los dos bordes caen en la misma X sea cual sea la hoja.
+        //   left = 10   top = 16   bottom = 40
         $headerHeight = 68;          // pt (= ~24 mm)
         $cabX = 10;
         $cabY = 16;
-        $cabW = 190;                 // mm = 210 - 10 (izq) - 10 (der)
+        // Se calcula de getPageWidth() en vez de estar fijo en 190 porque el MISMO cabezote
+        // sirve para los dos formatos (VERTICAL = A4 de pie, HORIZONTAL = A4 acostada, ver
+        // Almacen::FORMATOS_NOTA). Con el 190 fijo, la nota horizontal salia con el cabezote
+        // corto y desalineado del cuerpo.
+        $cabW = $this->getPageWidth() - ($cabX * 2);
         $cabH = 24;                  // mm (≈ 68 pt)
-        $logoCellW = $cabW * 0.20;   // 38 mm — alinea con col PROYECTO: (20%) del body
+        $logoCellW = $cabW * 0.20;   // alinea con la col PROYECTO: (20%) del body
 
         $img = public_path('img/imagen_uno.jpg');
         if (file_exists($img)) {
@@ -3772,7 +3947,7 @@ class NotaEntregaPDF extends \TCPDF
             $padding = 1;
             $bx = $cabX + $padding;                 // 11
             $by = $cabY + $padding;                 // 17
-            $bw = $logoCellW - ($padding * 2);      // 36  (= 38 - 2)
+            $bw = $logoCellW - ($padding * 2);      // 36 mm en A4 de pie (= 38 - 2)
             $bh = $cabH - ($padding * 2);           // 22
             // Image(file, x, y, w, h, type, link, align, resize, dpi, palign, ismask, imgmask, border, fitbox, hidden, fitonpage, alt, altimgs)
             $this->Image($img, $bx, $by, $bw, $bh, 'JPG', '', '', false, 300, '', false, false, 0, 'CM', false, false);
@@ -3797,34 +3972,84 @@ class NotaEntregaPDF extends \TCPDF
         //   Fila 2: CODIGO: VID-FO-GEN-019
         //   Fila 3: FECHA EMIS: 01/10/19
         //   Fila 4: REV: 1. FECHA REV: 06/10/23
-        //   Fila 5: PAG. X DE Y
+        //   Fila 5: PAG. X DE Y  -> se deja VACIA aqui; la escribe sellarPaginacion()
+        //                            cuando ya se conoce el total de paginas.
         // Cada fila del sello lleva valign="middle" para que su texto se vea
         // centrado vertical dentro de la celda (en especial "PAG. X DE Y", la
         // ultima fila que tendia a quedar pegada arriba).
         //
-        // PAG: usamos numeros REALES (PageNo + getNumPages) en vez de los alias
-        // {:pnb:}/{:ptp:}. Los alias son strings largos que TCPDF reemplaza por
-        // el numero corto DESPUES de calcular el centrado -> el texto "PAG. 1
-        // DE 1" quedaba shifteado a la izquierda porque el centrado se computo
-        // para "PAG. {:pnb:} DE {:ptp:}" (mucho mas ancho). Las Notas son de 1
-        // pagina, asi que la cuenta real es exacta.
-        $page = $this->PageNo() . ' DE ' . max(1, $this->getNumPages());
+        // Por que PAG no se escribe aqui: ni los alias {:pnb:}/{:ptp:} ni los numeros reales
+        // sirven dentro del Header:
+        //   • los alias son strings largos que TCPDF sustituye DESPUES de calcular el
+        //     centrado -> el texto quedaba corrido a la izquierda;
+        //   • getNumPages() dentro del Header solo cuenta las paginas creadas HASTA ese
+        //     momento, asi que una nota de 2 hojas imprimia "PAG. 1 DE 1" en la primera y
+        //     "PAG. 2 DE 2" en la segunda. Con una sola hoja no se notaba, pero la nota
+        //     HORIZONTAL cabe menos items y se parte mucho mas seguido.
+        // La celda se deja VACIA y el texto lo estampa sellarPaginacion() con el documento
+        // ya completo.
         $numNota = $this->numeroNota ?? '';
+        $esc     = fn ($v) => htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8');
+
+        // Filas del sello (columna derecha, 28%). Se arman en un array y NO a mano porque el
+        // formato HORIZONTAL agrega la fecha y la hora del despacho: el numero de filas deja
+        // de ser fijo y hay que repartir el alto y ubicar la celda de PAG. a partir de el.
+        //
+        // OJO con "FECHA EMIS": es la fecha en que se emitio el FORMULARIO (2019), fija para
+        // siempre. NO es la fecha de esta nota — esa es la que se agrega abajo.
+        $filasSello = [
+            '<font face="helvetica" size="8"><b>N° de Nota:</b> ' . $esc($numNota) . '</font>',
+            '<font face="helvetica" size="7"><b>CODIGO:</b> VID-FO-GEN-019</font>',
+        ];
+
+        if ($this->fechaHora === '') {
+            // VERTICAL: sello de siempre, sin tocar. La fecha va dentro del cuerpo
+            // ("FECHA DE ENTREGA"), asi que aqui no hace falta.
+            $filasSello[] = '<font face="helvetica" size="7">FECHA EMIS: 01/10/19</font>';
+            $filasSello[] = '<font face="helvetica" size="7">REV: 1. FECHA REV: 06/10/23</font>';
+        } else {
+            // HORIZONTAL: su cuerpo ya no imprime fecha ni hora, van aqui. Para que el sello
+            // NO pase de 5 filas —el cabezote mide 24 mm fijos y con 6 se desbordaba sobre el
+            // cuerpo— las dos lineas de metadatos del FORMULARIO se juntan en una: dicen lo
+            // mismo (cuando se emitio y cuando se reviso la plantilla) y son secundarias
+            // frente a la fecha del despacho, que es la que se consulta.
+            $filasSello[] = '<font face="helvetica" size="6">FECHA EMIS: 01/10/19 · REV: 1 (06/10/23)</font>';
+            $filasSello[] = '<font face="helvetica" size="7"><b>' . $esc($this->fechaHora) . '</b></font>';
+        }
+
+        // Ultima fila: PAG. X DE Y. Se deja VACIA y la estampa sellarPaginacion() (ver abajo).
+        $filasSello[] = '&nbsp;';
+
+        // Siempre 5 filas, sea cual sea el formato: el alto del cabezote es fijo (24 mm) y el
+        // cuerpo arranca pegado en y=40 (SetMargins), asi que una fila de mas se desborda
+        // encima de la tabla de datos. Se calcula en vez de estar escrito a mano para que, si
+        // algun dia cambia el numero de filas, la celda de PAG. siga cayendo en su sitio.
+        $nFilas   = count($filasSello);
+        $altoFila = $cabH / $nFilas;
+        $this->celdaPag = [
+            $cabX + ($cabW * 0.72),
+            $cabY + ($altoFila * ($nFilas - 1)),
+            $cabW * 0.28,
+            $altoFila,
+        ];
+
         // line-height aprox = altura del rowspan en pt (68pt). El font-size del
         // titulo es 13pt, asi que line-height:68pt deja ~27pt arriba y ~27pt abajo
         // del texto -> visualmente centrado en el rowspan.
         $tituloDiv = '<div style="text-align:center;line-height:' . ($headerHeight - 4) . 'pt;font-family:helvetica;font-size:13pt;font-weight:bold;">NOTA DE ENTREGA DE MATERIALES</div>';
 
+        $celdasSello = array_map(
+            fn ($c) => '<td width="28%" align="center" valign="middle">' . $c . '</td>',
+            $filasSello,
+        );
+
         $html = '<table border="1" cellpadding="2" cellspacing="0" width="100%">'
               . '<tr>'
-              .   '<td width="20%" rowspan="5" height="' . $headerHeight . '">&nbsp;</td>'
-              .   '<td width="52%" rowspan="5" height="' . $headerHeight . '" align="center" valign="middle">' . $tituloDiv . '</td>'
-              .   '<td width="28%" align="center" valign="middle"><font face="helvetica" size="8"><b>N° de Nota:</b> ' . htmlspecialchars($numNota, ENT_QUOTES, 'UTF-8') . '</font></td>'
+              .   '<td width="20%" rowspan="' . $nFilas . '" height="' . $headerHeight . '">&nbsp;</td>'
+              .   '<td width="52%" rowspan="' . $nFilas . '" height="' . $headerHeight . '" align="center" valign="middle">' . $tituloDiv . '</td>'
+              .   $celdasSello[0]
               . '</tr>'
-              . '<tr><td width="28%" align="center" valign="middle"><font face="helvetica" size="7"><b>CODIGO:</b> VID-FO-GEN-019</font></td></tr>'
-              . '<tr><td width="28%" align="center" valign="middle"><font face="helvetica" size="7">FECHA EMIS: 01/10/19</font></td></tr>'
-              . '<tr><td width="28%" align="center" valign="middle"><font face="helvetica" size="7">REV: 1. FECHA REV: 06/10/23</font></td></tr>'
-              . '<tr><td width="28%" align="center" valign="middle"><div style="text-align:center;font-family:helvetica;font-size:7pt;">PAG. ' . $page . '</div></td></tr>'
+              . implode('', array_map(fn ($c) => '<tr>' . $c . '</tr>', array_slice($celdasSello, 1)))
               . '</table>';
 
         // Fuente del documento = helvetica (Arial-equivalente). Tambien la setea
@@ -3833,6 +4058,41 @@ class NotaEntregaPDF extends \TCPDF
         $this->SetFont('helvetica', '', 7);
         // x=10 ($cabX), y=16 ($cabY) → margen izquierdo y top del cabezote.
         $this->writeHTMLCell($cabW, 0, $cabX, $cabY, $html, 0, 0, 0, true, 'L', true);
+    }
+
+    /**
+     * Escribe "PAG. X DE Y" en la celda del sello de TODAS las paginas, con el total REAL —
+     * que solo se conoce cuando el documento ya esta armado, que es justo lo que el Header()
+     * no puede hacer (se ejecuta al abrir cada pagina, cuando las siguientes no existen).
+     *
+     * No se toca el salto automatico: TCPDF::setPage() lo restaura de pagedim en cada vuelta
+     * del bucle, asi que apagarlo aqui no serviria de nada. Tampoco hace falta: se escribe a
+     * y=35mm, en la banda del cabezote, muy por encima del punto donde el salto se dispara.
+     *
+     * Coste: un writeHTMLCell diminuto por pagina, sobre una nota que casi siempre tiene una
+     * o dos. No re-renderiza nada ni vuelve a pasar por el Header.
+     *
+     * Lo llama renderNotaEntregaPdfBinary() justo antes de serializar.
+     */
+    public function sellarPaginacion(): void
+    {
+        if (empty($this->celdaPag)) {
+            return;   // Header() nunca corrio (setPrintHeader(false)): nada que sellar.
+        }
+        [$x, $y, $w, $h] = $this->celdaPag;
+        $total  = max(1, $this->getNumPages());
+        $actual = $this->getPage();
+
+        for ($p = 1; $p <= $total; $p++) {
+            $this->setPage($p);
+            $this->writeHTMLCell(
+                $w, $h, $x, $y,
+                '<div style="text-align:center;font-family:helvetica;font-size:7pt;">PAG. ' . $p . ' DE ' . $total . '</div>',
+                0, 0, false, true, 'C', true
+            );
+        }
+
+        $this->setPage($actual);
     }
 
     public function Footer()
