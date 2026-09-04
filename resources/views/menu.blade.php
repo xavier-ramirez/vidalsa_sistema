@@ -236,6 +236,35 @@
         .alertas-modal-content { max-height: 94vh; }
     }
 
+    /* ── Modal "¿PDF o Excel?" (se abre ENCIMA del de Alertas) ──
+       Hereda overlay y tarjeta de .alertas-modal-*; aquí solo va lo que cambia:
+       queda por delante del otro modal y la tarjeta es más chica (no lleva lista). */
+    .formato-modal-overlay { z-index: 9600; }
+    .formato-modal-content { max-width: 420px; max-height: none; }
+    .formato-modal-body { padding: 18px 20px 22px; }
+    .formato-modal-texto {
+        margin: 0 0 16px; text-align: center;
+        font-size: 14px; color: #64748b;
+    }
+    .formato-opciones { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .formato-opcion {
+        display: flex; flex-direction: column; align-items: center; gap: 4px;
+        padding: 18px 10px 16px;
+        background: #fff; border: 1.5px solid #e2e8f0; border-radius: 12px;
+        cursor: pointer; text-align: center;
+        transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+    }
+    .formato-opcion:hover { transform: translateY(-2px); box-shadow: 0 10px 20px -12px rgba(15,23,42,0.35); }
+    .formato-opcion .material-icons { font-size: 34px; margin-bottom: 2px; }
+    /* Rojo de PDF y verde de Excel: los colores con los que la gente ya reconoce
+       cada archivo en su escritorio. */
+    .formato-opcion--pdf:hover   { border-color: #fca5a5; }
+    .formato-opcion--pdf   .material-icons { color: #dc2626; }
+    .formato-opcion--excel:hover { border-color: #86efac; }
+    .formato-opcion--excel .material-icons { color: #16a34a; }
+    .formato-opcion-nombre { font-size: 15px; font-weight: 800; color: #0f172a; }
+    .formato-opcion-nota   { font-size: 11.5px; color: #94a3b8; line-height: 1.3; }
+
     /* ── Card "Salud Operacional" — ancho completo con grid horizontal espacioso ── */
     .salud-card {
         position: relative;
@@ -1026,9 +1055,9 @@
                             </div>
                             <div style="display:flex; gap:6px; align-items:center;">
                                 <button type="button"
-                                        onclick="downloadDashboardPdf(this, '{{ route('dashboard.exportDocumentsPDF') }}')"
+                                        onclick="abrirFormatoReporteAlertas()"
                                         class="alertas-header-btn"
-                                        title="Descargar Reporte PDF">
+                                        title="Descargar reporte">
                                     <i class="material-icons">file_download</i>
                                 </button>
                                 <button type="button" onclick="toggleExpiredDocs()"
@@ -1049,6 +1078,45 @@
                         <div class="alertas-panel-body">
                             <div id="dashboardAlertsList">
                                 @include('partials.dashboard_alerts')
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Elegir formato del reporte de Alertas. Reutiliza el overlay y la tarjeta
+                     del modal de alertas (.alertas-modal-overlay/.alertas-modal-content) para
+                     que se vea igual; solo sube el z-index porque se abre ENCIMA de aquel.
+                     Las dos rutas devuelven el mismo reporte con las mismas filas: lo único
+                     que cambia es el formato del archivo. --}}
+                <div class="alertas-modal-overlay formato-modal-overlay" id="formatoReporteModal"
+                     onclick="if(event.target===this) cerrarFormatoReporteAlertas()">
+                    <div class="alertas-modal-content formato-modal-content" role="dialog" aria-modal="true"
+                         aria-label="Formato del reporte">
+                        <div class="alertas-panel-header">
+                            <div class="alertas-panel-title">
+                                <i class="material-icons">file_download</i>
+                                <span>Descargar reporte</span>
+                            </div>
+                            <button type="button" onclick="cerrarFormatoReporteAlertas()"
+                                    class="alertas-header-btn" title="Cerrar">
+                                <i class="material-icons">close</i>
+                            </button>
+                        </div>
+                        <div class="formato-modal-body">
+                            <p class="formato-modal-texto">¿En qué formato lo quieres?</p>
+                            <div class="formato-opciones">
+                                <button type="button" class="formato-opcion formato-opcion--pdf"
+                                        onclick="descargarReporteAlertas(this, '{{ route('dashboard.exportDocumentsPDF') }}', 'pdf')">
+                                    <i class="material-icons">picture_as_pdf</i>
+                                    <span class="formato-opcion-nombre">PDF</span>
+                                    <span class="formato-opcion-nota">Para imprimir o firmar</span>
+                                </button>
+                                <button type="button" class="formato-opcion formato-opcion--excel"
+                                        onclick="descargarReporteAlertas(this, '{{ route('dashboard.exportDocumentsExcel') }}', 'excel')">
+                                    <i class="material-icons">table_chart</i>
+                                    <span class="formato-opcion-nombre">Excel</span>
+                                    <span class="formato-opcion-nota">Para filtrar y ordenar</span>
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -1270,7 +1338,7 @@
     {{-- Scripts inline del dashboard. Van dentro de @section('content') (no en
          @yield('extra_js')) para que el navegador SPA los re-ejecute al volver
          a /menu desde otra página — si vivieran en extra_js quedarían fuera de
-         .main-viewport y window.downloadDashboardPdf sería undefined tras
+         .main-viewport y window.descargarReporteAlertas sería undefined tras
          navegar via SPA. --}}
     <script>
         // Seed window.equiposData con los equipos de las Alertas, para que el modal de
@@ -1287,27 +1355,58 @@
             document.head.appendChild(_styleRD);
         })();
 
-        // PDF download for Alertas Documentos — usa el spinner global de la app
-        window.downloadDashboardPdf = async function(btn, url) {
-            if (btn && btn.disabled) return;
-            if (btn) btn.disabled = true;
+        // ── Reporte de Alertas de Documentos: elegir formato y descargar ──────────
+        // El botón del panel ya no baja el PDF directo: abre este modal para escoger.
 
+        window.abrirFormatoReporteAlertas = function () {
+            const modal = document.getElementById('formatoReporteModal');
+            if (modal) modal.classList.add('open');
+        };
+
+        window.cerrarFormatoReporteAlertas = function () {
+            const modal = document.getElementById('formatoReporteModal');
+            if (modal) modal.classList.remove('open');
+        };
+
+        // Descarga el reporte en el formato pedido. Los dos formatos comparten TODO el
+        // camino —misma petición, mismo spinner, mismo blob, mismo <a download>— porque
+        // lo único que cambia entre ellos es la URL y el tipo de archivo que se acepta.
+        //
+        // El nombre del archivo lo manda el servidor en Content-Disposition; el de aquí
+        // es solo el respaldo por si esa cabecera no llega.
+        const FORMATOS_REPORTE = {
+            pdf:   { accept: 'application/pdf',
+                     respaldo: 'Reporte_Documentos.pdf',
+                     error: 'Error generando el PDF. Intente de nuevo.' },
+            excel: { accept: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                     respaldo: 'Reporte_Documentos.xlsx',
+                     error: 'Error generando el Excel. Intente de nuevo.' },
+        };
+
+        window.descargarReporteAlertas = async function (btn, url, formato) {
+            if (btn && btn.disabled) return;
+            const cfg = FORMATOS_REPORTE[formato] || FORMATOS_REPORTE.pdf;
+
+            if (btn) btn.disabled = true;
+            // El modal de formato se cierra de una: la espera la cuenta el spinner
+            // global, y dejarlo abierto encima del panel tapaba las alertas.
+            window.cerrarFormatoReporteAlertas();
             if (window.showPreloader) window.showPreloader();
 
             try {
                 const response = await window.apiFetch(url, {
                     method: 'GET',
-                    headers: { 'X-Requested-With': 'XMLHttpRequest',  'Accept': 'application/pdf'}
+                    headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': cfg.accept }
                 });
 
-                if (!response.ok) throw new Error('Error generando PDF');
+                if (!response.ok) throw new Error('El servidor no pudo generar el reporte');
 
                 const blob = await response.blob();
                 const objUrl = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.style.display = 'none';
                 a.href = objUrl;
-                let filename = 'Reporte_Vencimientos_Equipos.pdf';
+                let filename = cfg.respaldo;
                 const disposition = response.headers.get('Content-Disposition');
                 if (disposition && disposition.indexOf('filename=') !== -1) {
                     const m = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(disposition);
@@ -1322,7 +1421,7 @@
 
             } catch (err) {
                 console.error(err);
-                window.toast('Error generando el PDF. Intente de nuevo.', 'error');
+                window.toast(cfg.error, 'error');
             } finally {
                 if (window.hidePreloader) window.hidePreloader();
                 if (btn) btn.disabled = false;

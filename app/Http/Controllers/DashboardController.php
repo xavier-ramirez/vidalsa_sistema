@@ -508,6 +508,54 @@ class DashboardController extends Controller
     }
     
     /**
+     * Filas del reporte de Alertas de Documentos, ya acotadas y ordenadas.
+     *
+     * Fuente ÚNICA de exportDocumentsPDF() y exportDocumentsExcel(): los dos reportes
+     * tienen que traer exactamente las mismas filas en el mismo orden, o el Excel y el
+     * PDF de la misma pantalla se contradicen.
+     *
+     * La lista va ACOTADA a los frentes visibles del usuario y restando su lista negra,
+     * igual que index() y getAlertsHtml() (ver frentesDelUsuario()). Sin esos argumentos,
+     * generateAlertsList() usa su default —ve TODOS los frentes— y un usuario LOCAL se
+     * exportaría documentos que no le corresponden.
+     *
+     * Orden: AGRUPADO por frente —todas las filas de un mismo frente juntas— y dentro de
+     * cada frente por tipo de equipo. Los equipos sin frente van al final ('ZZZ'). Es
+     * pedido del cliente: el reporte se lee por proyecto/frente.
+     * frente_texto/tipo_texto vienen ya resueltos en las filas de AUXILIARES (no tienen
+     * las relaciones frenteActual/tipo del equipo); sin leerlos primero, todos los
+     * auxiliares caían al 'ZZZ' del final en vez de junto a su frente.
+     *
+     * @return array{0:\Illuminate\Support\Collection,1:\Illuminate\Support\Collection,2:\Illuminate\Support\Collection}
+     *         [todas, vencidas, próximas a vencer]
+     */
+    private function alertasParaReporte(): array
+    {
+        $alertsList = $this->generateAlertsList(...$this->frentesDelUsuario());
+
+        // Frente, tipo e identificador se resuelven AQUÍ, una sola vez, y quedan escritos
+        // en la propia fila. Las de AUXILIARES ya vienen con los tres campos (no tienen las
+        // relaciones frenteActual/tipo ni SERIAL_CHASIS del equipo); a las de EQUIPOS se
+        // los ponemos. Así el orden de abajo, la plantilla del PDF y la hoja de Excel leen
+        // el MISMO campo en vez de repetir cada una su propia cadena de fallbacks —que era
+        // justo lo que hacía caer a los auxiliares al final del reporte y salir con '---'.
+        $alertsList->each(function ($a) {
+            $a->frente_texto  = $a->frente_texto  ?? ($a->equipo->frenteActual?->NOMBRE_FRENTE ?? null);
+            $a->tipo_texto    = $a->tipo_texto    ?? ($a->equipo->tipo->nombre ?? null);
+            $a->identificador = $a->identificador ?? (($a->equipo->SERIAL_CHASIS ?: $a->equipo->documentacion?->PLACA) ?: null);
+        });
+
+        // Los que no tienen frente van al final ('ZZZ') y, dentro de cada frente, por tipo.
+        $ordenFrenteTipo = fn ($a) => mb_strtoupper(($a->frente_texto ?: 'ZZZ') . '|' . ($a->tipo_texto ?: ''));
+
+        return [
+            $alertsList,
+            $alertsList->filter(fn ($a) => $a->status === 'expired')->sortBy($ordenFrenteTipo)->values(),
+            $alertsList->filter(fn ($a) => $a->status === 'warning')->sortBy($ordenFrenteTipo)->values(),
+        ];
+    }
+
+    /**
      * Generate PDF Report of Expired & Expiring Documents
      */
     public function exportDocumentsPDF()
@@ -519,32 +567,8 @@ class DashboardController extends Controller
             $nombreFrente = $user->frenteAsignado ? $user->frenteAsignado->NOMBRE_FRENTE : 'Sin Frente Asignado';
             $fechaEmision = \Carbon\Carbon::now()->locale('es')->isoFormat('DD [de] MMMM [de] YYYY - HH:mm');
 
-            // Lista ACOTADA a los frentes visibles del usuario y restando su lista negra,
-            // igual que index() y getAlertsHtml(). Sin estos argumentos, generateAlertsList()
-            // usaba su default ($frenteIds=null = ve TODOS los frentes), así que un usuario
-            // LOCAL exportaba el PDF con los documentos de frentes que no le corresponden.
-            $alertsList = $this->generateAlertsList(...$this->frentesDelUsuario());
-            
-            // Separar por estado y ordenar cada tabla AGRUPANDO por frente: todas las filas
-            // de un mismo frente quedan juntas (p. ej. primero todo PATIO MATURIN, luego el
-            // siguiente) y, dentro de cada frente, por tipo de equipo. Los equipos sin frente
-            // van al final ('ZZZ'). Pedido del cliente: leer el reporte por proyecto/frente.
-            // frente_texto/tipo_texto vienen ya resueltos en las filas de AUXILIARES (no
-            // tienen las relaciones frenteActual/tipo del equipo); sin leerlos primero,
-            // todos los auxiliares caían al 'ZZZ' del final en vez de junto a su frente.
-            $ordenFrenteTipo = function ($alert) {
-                $frente = $alert->frente_texto ?? (optional(optional($alert->equipo)->frenteActual)->NOMBRE_FRENTE ?? 'ZZZ');
-                $tipo   = $alert->tipo_texto   ?? (optional(optional($alert->equipo)->tipo)->nombre ?? '');
-                return mb_strtoupper($frente . '|' . $tipo);
-            };
-
-            $vencidos = $alertsList->filter(function($alert) {
-                return $alert->status === 'expired';
-            })->sortBy($ordenFrenteTipo)->values();
-
-            $proximos = $alertsList->filter(function($alert) {
-                return $alert->status === 'warning';
-            })->sortBy($ordenFrenteTipo)->values();
+            // Filas ya acotadas por frente y ordenadas — mismas que el Excel (ver el método).
+            [$alertsList, $vencidos, $proximos] = $this->alertasParaReporte();
 
             // Calculate totals
             $totalVencidos = $vencidos->count();
@@ -616,6 +640,122 @@ class DashboardController extends Controller
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\Log::error('PDF Export Error: ' . $e->getMessage());
             return back()->withErrors(['error' => 'Error al generar PDF: ' . $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Mismo reporte de Alertas de Documentos, en Excel.
+     *
+     * Las MISMAS filas y el MISMO orden que el PDF (ver alertasParaReporte()) — el usuario
+     * elige el formato en el modal del botón de descarga, no un reporte distinto.
+     *
+     * Va todo en UNA hoja con una columna ESTADO, no en dos bloques como el PDF: en una
+     * hoja de cálculo lo que sirve es poder filtrar y ordenar, y para eso los datos tienen
+     * que ser una tabla plana. Por eso también lleva autofiltro y panel congelado.
+     *
+     * Mismo estilo que el resto de exports del sistema (ver AlmacenController::export):
+     * título en azul corporativo, subtítulo con el alcance y encabezado de columnas.
+     */
+    public function exportDocumentsExcel()
+    {
+        try {
+            [, $vencidos, $proximos] = $this->alertasParaReporte();
+
+            $user          = auth()->user();
+            $nombreUsuario = $user->NOMBRE_COMPLETO ?? 'Sistema';
+            $nombreFrente  = $user->frenteAsignado ? $user->frenteAsignado->NOMBRE_FRENTE : 'Sin Frente Asignado';
+
+            $libro = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+            $hoja  = $libro->getActiveSheet();
+            $hoja->setTitle('ALERTAS');
+
+            $AZUL   = 'FF00004D';
+            $SOLIDO = \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID;
+            $CENTRO = \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER;
+            $ULTIMA = 'I';   // 9 columnas
+
+            $hoja->setCellValue('A1', 'ALERTAS DE DOCUMENTOS');
+            $hoja->mergeCells("A1:{$ULTIMA}1");
+            $hoja->getStyle('A1')->getFont()->setBold(true)->setSize(13)->getColor()->setARGB('FFFFFFFF');
+            $hoja->getStyle('A1')->getFill()->setFillType($SOLIDO)->getStartColor()->setARGB($AZUL);
+            $hoja->getStyle('A1')->getAlignment()->setHorizontal($CENTRO);
+
+            // El archivo se explica solo cuando se comparte por fuera del sistema: quién lo
+            // emitió, desde qué frente, cuándo y cuántas filas de cada tipo trae.
+            $hoja->setCellValue('A2', implode('   ·   ', [
+                'Emitido por: ' . $nombreUsuario,
+                'Frente: ' . $nombreFrente,
+                \Carbon\Carbon::now()->format('d/m/Y H:i'),
+                $vencidos->count() . ' vencido(s)',
+                $proximos->count() . ' próximo(s) a vencer',
+                'DÍAS en negativo = ya vencido',
+            ]));
+            $hoja->mergeCells("A2:{$ULTIMA}2");
+            $hoja->getStyle('A2')->getFont()->setItalic(true)->setSize(10)->getColor()->setARGB('FF64748B');
+
+            $cols = ['N°', 'ESTADO', 'FRENTE', 'TIPO', 'SERIAL / PLACA', 'DOCUMENTO', 'VENCE', 'DÍAS', 'GESTIONADO POR'];
+            $hoja->fromArray($cols, null, 'A4');
+            $hoja->getStyle("A4:{$ULTIMA}4")->getFont()->setBold(true)->getColor()->setARGB('FFFFFFFF');
+            $hoja->getStyle("A4:{$ULTIMA}4")->getFill()->setFillType($SOLIDO)->getStartColor()->setARGB($AZUL);
+
+            // Vencidas primero y luego las próximas, el mismo orden de lectura del PDF.
+            $hoy   = \Carbon\Carbon::today();
+            $fila  = 5;
+            $n     = 0;
+            $rojas = [];   // filas vencidas, para pintarlas de una sola pasada al final
+
+            foreach ([['VENCIDO', $vencidos], ['POR VENCER', $proximos]] as [$estado, $grupo]) {
+                foreach ($grupo as $alerta) {
+                    $vence = \Carbon\Carbon::parse($alerta->fecha);
+
+                    $hoja->fromArray([
+                        ++$n,
+                        $estado,
+                        $alerta->frente_texto ?: 'N/A',
+                        $alerta->tipo_texto   ?: 'N/A',
+                        $alerta->identificador ?: '---',
+                        mb_strtoupper($alerta->label, 'UTF-8'),
+                        $vence->format('d/m/Y'),
+                        // Negativo = ya vencido. Entero con signo para que la columna se
+                        // pueda ordenar de peor a mejor sin leer la fecha.
+                        (int) $hoy->diffInDays($vence, false),
+                        $alerta->gestionado_por ?? '',
+                    ], null, 'A' . $fila);
+
+                    if ($estado === 'VENCIDO') {
+                        $rojas[] = $fila;
+                    }
+                    $fila++;
+                }
+            }
+
+            // Sin filas no hay tabla que filtrar: se deja constancia y se devuelve el
+            // archivo igual (bajar un Excel vacío confunde más que un aviso).
+            if ($n === 0) {
+                $hoja->setCellValue('A5', 'No hay documentos vencidos ni próximos a vencer.');
+                $hoja->mergeCells("A5:{$ULTIMA}5");
+                $hoja->getStyle('A5')->getFont()->setItalic(true)->getColor()->setARGB('FF64748B');
+            } else {
+                // ESTADO en rojo solo en las vencidas: es la columna por la que se filtra.
+                foreach ($rojas as $r) {
+                    $hoja->getStyle("B{$r}")->getFont()->setBold(true)->getColor()->setARGB('FFDC2626');
+                }
+                $hoja->setAutoFilter("A4:{$ULTIMA}" . ($fila - 1));
+            }
+
+            foreach (range('A', $ULTIMA) as $c) {
+                $hoja->getColumnDimension($c)->setAutoSize(true);
+            }
+            $hoja->freezePane('A5');
+
+            $nombre = 'Reporte_Documentos_' . \Carbon\Carbon::now()->format('Y-m-d_His') . '.xlsx';
+            return response()->streamDownload(function () use ($libro) {
+                (new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($libro))->save('php://output');
+            }, $nombre, ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']);
+
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Excel Export Error: ' . $e->getMessage());
+            return back()->withErrors(['error' => 'Error al generar el Excel: ' . $e->getMessage()]);
         }
     }
 }

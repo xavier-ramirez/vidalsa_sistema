@@ -267,20 +267,36 @@
        funcionando si algún día se agrega un tercer formato: el blade los recorre desde
        Almacen::FORMATOS_NOTA y aquí se reparten el ancho solos. */
     #almNvFormatoOpts { display:flex; gap:4px; border:1px solid #cbd5e0; border-radius:10px;
-        background:#fbfcfd; padding:4px; }
-    #almNvFormatoOpts .multiselect-item { flex:1 1 0; min-width:0; cursor:pointer; }
-    /* Firmantes de la nota horizontal: un bloque por firmante, apilados en el mismo orden en
-       que salen impresos en el PDF. Apilados y no en columnas porque el modal es angosto a
-       propósito: en columnas el nombre no cabía y los bloques se partían a mitad. Dentro de
-       cada uno, Nombre ocupa toda la línea y Cargo + Cédula comparten la de abajo. */
+        background:#fbfcfd; padding:3px; }
+    /* Dos opciones de una palabra no necesitan la altura de un renglón de lista: con el
+       padding del componente (8px) la caja medía 52px, más alta que los propios campos de
+       texto del modal. Con 5px queda en 40px, a la par del resto del formulario. */
+    #almNvFormatoOpts .multiselect-item { flex:1 1 0; min-width:0; cursor:pointer; padding:5px 10px; }
+    /* Firmantes de la nota: un bloque por firmante, apilados en el mismo orden en que salen
+       impresos en el PDF. Apilados y no en columnas porque el modal es angosto a propósito:
+       en columnas el nombre no cabía y los bloques se partían a mitad. Dentro de cada uno,
+       Nombre ocupa toda la línea y Cargo + Cédula comparten la de abajo. */
     .alm-firmantes { display:flex; flex-direction:column; gap:8px; }
-    .alm-firm-bloque { display:flex; flex-direction:column; gap:6px;
-                       border:1px solid #e2e8f0; border-radius:10px; padding:8px 10px; background:#fbfcfd; }
+    /* Sin esto, el grupo de SOPORTADO seguiría VISIBLE al ocultarlo: display:flex de la regla
+       de arriba le gana al display:none que el navegador aplica por el atributo [hidden]. */
+    .alm-firmantes[hidden] { display:none; }
+    .alm-firm-bloque { display:flex; flex-direction:column; gap:5px;
+                       border:1px solid #e2e8f0; border-radius:10px; padding:7px 10px; background:#fbfcfd; }
+    /* DENSIDAD DEL MODAL DE ALMACÉN. Es el formulario más largo del módulo (6 grupos más
+       hasta tres bloques de firmantes) y con el alto por defecto pasaba de 690px: en un
+       portátil quedaba con scroll interno y los botones fuera de vista. Se aprieta SOLO
+       aquí —no en los otros modales del almacén, que son cortos— bajando el aire de los
+       campos y el hueco entre grupos. Los checkboxes se excluyen: su tamaño lo fija
+       .multiselect-item input[type=checkbox] y el padding no les aporta nada. */
+    #almAlmacenModal .alm-modal-body { gap:10px; }
+    #almAlmacenModal .alm-modal-body input:not([type="checkbox"]) { padding:7px 10px; }
     .alm-firm-rol { font-size:11px; font-weight:700; letter-spacing:.4px; color:#64748b; }
-    .alm-firm-fijo { font-size:11px; color:#94a3b8; line-height:1.35; }
     .alm-firm-fila { display:flex; gap:6px; }
     .alm-firm-fila > * { flex:1 1 0; min-width:0; }
     .alm-firm-bloque input { width:100%; box-sizing:border-box; }
+    /* Renglón de ayuda bajo un campo del modal de almacén. Era el mismo style="" repetido
+       campo por campo; como clase, cambiarlo una vez los cambia todos. */
+    .alm-hint { font-size:11.5px; color:#94a3b8; margin-top:5px; }
     /* Inputs del modal "Nuevo / Editar producto": todo se guarda en mayúsculas,
        se ven en mayúsculas mientras se escribe para coincidir con lo que se guarda.
        El placeholder NO se transforma. CODIGO queda fuera (solo dígitos). */
@@ -353,7 +369,11 @@
     #almDetalleModal .alm-modal { animation: none; }
     .alm-modal-body { padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; }
     .alm-modal-foot { padding: 12px 18px; border-top: 1px solid #f1f5f9; display: flex; justify-content: center; gap: 8px; }
-    .alm-modal label { font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.3px; display: block; margin-bottom: 4px; }
+    /* Rótulo de campo. El :not() NO es adorno: .multiselect-item también es un <label>, y
+       este selector (0,1,1) le ganaba al del componente (0,1,0) — le imponía display:block
+       (matando su flex), gris 700 en vez del azul 600 propio, MAYÚSCULAS y un
+       margin-bottom:4px que descuadraba verticalmente las casillas dentro de su caja. */
+    .alm-modal label:not(.multiselect-item) { font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.3px; display: block; margin-bottom: 4px; }
     .alm-modal input, .alm-modal select, .alm-modal textarea {
         width: 100%; border: 1px solid #cbd5e0; border-radius: 8px; padding: 9px 10px; font-size: 14px; outline: none; box-sizing: border-box;
     }
@@ -1361,25 +1381,13 @@
                 </div>
             </div>
             <div><label for="almNvUbicacion">Ubicación</label><input type="text" id="almNvUbicacion" maxlength="150" placeholder="Opcional" autocomplete="off"></div>
-            {{-- Almacenista: nombre del responsable del almacén. Aparecerá como "Entregado por:"
-                 en la Nota de Entrega VID-FO-GEN-019. --}}
-            <div>
-                <label for="almNvAlmacenista">Almacenista</label>
-                <input type="text" id="almNvAlmacenista" maxlength="200" placeholder="Ej: Juan Pérez (almacenista)" autocomplete="off">
-                <div style="font-size:11.5px;color:#94a3b8;margin-top:5px;">Aparece como "Entregado por:" en la Nota de Entrega.</div>
-            </div>
-            {{-- Cargo del almacenista: aparece como "CARGO:" debajo del NOMBRE en la
-                 seccion "ENTREGADO POR" del PDF. Sustituye al literal "COORD. DE
-                 MATERIALES" que antes estaba hardcodeado en el template. --}}
-            <div>
-                <label for="almNvCargoAlmacenista">Cargo del almacenista</label>
-                <input type="text" id="almNvCargoAlmacenista" maxlength="200" placeholder="Ej: COORD. DE MATERIALES" autocomplete="off">
-                <div style="font-size:11.5px;color:#94a3b8;margin-top:5px;">Aparece como "CARGO:" debajo del nombre en la Nota de Entrega.</div>
-            </div>
             {{-- Formato de la Nota de Entrega. Lo que se tilde aquí es lo que sale IMPRESO en
                  cada salida de este almacén —y en su vista previa— hasta que se cambie: no hay
                  forma de elegirlo salida por salida, a propósito, para que un mismo almacén no
                  emita notas con dos caras distintas.
+
+                 Va ANTES de los firmantes porque es quien decide cuáles se ven (ver
+                 almNvFormatoSelect): primero se elige la hoja, después quién la firma.
 
                  Se ve como los frentes de aquí abajo (.multiselect-item, el mismo check del CSS
                  global) pero SOLO puede haber uno tildado: tildar uno destilda el otro y nunca
@@ -1398,47 +1406,56 @@
                         </label>
                     @endforeach
                 </div>
-                <div style="font-size:11.5px;color:#94a3b8;margin-top:5px;">Todas las notas de este almacén saldrán en el formato tildado.</div>
+                <div class="alm-hint">Aplica a todas las notas de este almacén.</div>
             </div>
-            {{-- Firmantes de la nota HORIZONTAL. Solo se muestran con ese formato tildado: el
-                 vertical lleva únicamente ENTREGADO POR / RECIBIDO POR y estos campos no le
-                 aplican, así que enseñárselos sería pedir datos que nunca se imprimen.
+            {{-- Firmantes de la nota, en el MISMO orden en que salen impresos.
 
-                 Ojo: se OCULTA, no se destruye. Los valores siguen en el DOM (y en la BD) al
-                 cambiar a Vertical, así que volver a Horizontal los recupera sin retecleárlos.
+                 ENTREGADO es el almacenista: sus tres campos son ALMACENISTA /
+                 CARGO_ALMACENISTA / CEDULA_ALMACENISTA (ver Almacen::firmantesNota) — un
+                 almacén tiene UN almacenista y aquí se lee de un tirón, como los SOPORTADO.
 
-                 ENTREGADO no repite nombre ni cargo: son los campos "Almacenista" y "Cargo del
-                 almacenista" de arriba, que usan LOS DOS formatos. Aquí solo se le agrega la
-                 cédula, que únicamente pide el horizontal.
+                 ENTREGADO va SIEMPRE visible y los SOPORTADO solo en HORIZONTAL: nombre y
+                 cargo los imprimen LOS DOS formatos (el vertical, como "ENTREGADO POR"), así
+                 que esconderlos en Vertical dejaría fuera de la vista un campo OBLIGATORIO.
+                 La cédula solo la imprime el horizontal, pero se queda con su bloque: guardarla
+                 en Vertical no estorba y sirve el día que ese almacén cambie de formato.
+
+                 Los SOPORTADO se OCULTAN, no se destruyen: los valores siguen en el DOM (y en
+                 la BD) al pasar a Vertical, así que volver a Horizontal los recupera intactos.
 
                  RECIBIDO y SEGURIDAD no se configuran a propósito: los firma quien recibe en el
                  destino y el vigilante de turno, que cambian en cada nota. --}}
-            <div id="almNvFirmantesWrap" hidden>
-                <label>Firmantes fijos de la nota horizontal</label>
+            <div>
+                <label>Firmantes de la Nota de Entrega</label>
                 <div class="alm-firmantes">
                     <div class="alm-firm-bloque">
                         <div class="alm-firm-rol">ENTREGADO</div>
-                        <div class="alm-firm-fijo">Toma el nombre y el cargo del almacenista de arriba.</div>
-                        <input type="text" id="almNvCedulaAlmacenista" maxlength="20" placeholder="Cédula" autocomplete="off">
-                    </div>
-                    <div class="alm-firm-bloque">
-                        <div class="alm-firm-rol">SOPORTADO</div>
-                        <input type="text" id="almNvSop1Nom" maxlength="120" placeholder="Nombre" autocomplete="off">
+                        <input type="text" id="almNvAlmacenista" maxlength="200" placeholder="Nombre" autocomplete="off">
                         <div class="alm-firm-fila">
-                            <input type="text" id="almNvSop1Car" maxlength="120" placeholder="Cargo" autocomplete="off">
-                            <input type="text" id="almNvSop1Ced" maxlength="20" placeholder="Cédula" autocomplete="off">
+                            <input type="text" id="almNvCargoAlmacenista" maxlength="200" placeholder="Cargo" autocomplete="off">
+                            <input type="text" id="almNvCedulaAlmacenista" maxlength="20" placeholder="Cédula" autocomplete="off">
                         </div>
                     </div>
-                    <div class="alm-firm-bloque">
-                        <div class="alm-firm-rol">SOPORTADO</div>
-                        <input type="text" id="almNvSop2Nom" maxlength="120" placeholder="Nombre" autocomplete="off">
-                        <div class="alm-firm-fila">
-                            <input type="text" id="almNvSop2Car" maxlength="120" placeholder="Cargo" autocomplete="off">
-                            <input type="text" id="almNvSop2Ced" maxlength="20" placeholder="Cédula" autocomplete="off">
+                    <div id="almNvFirmantesWrap" class="alm-firmantes" hidden>
+                        <div class="alm-firm-bloque">
+                            <div class="alm-firm-rol">SOPORTADO</div>
+                            <input type="text" id="almNvSop1Nom" maxlength="120" placeholder="Nombre" autocomplete="off">
+                            <div class="alm-firm-fila">
+                                <input type="text" id="almNvSop1Car" maxlength="120" placeholder="Cargo" autocomplete="off">
+                                <input type="text" id="almNvSop1Ced" maxlength="20" placeholder="Cédula" autocomplete="off">
+                            </div>
+                        </div>
+                        <div class="alm-firm-bloque">
+                            <div class="alm-firm-rol">SOPORTADO</div>
+                            <input type="text" id="almNvSop2Nom" maxlength="120" placeholder="Nombre" autocomplete="off">
+                            <div class="alm-firm-fila">
+                                <input type="text" id="almNvSop2Car" maxlength="120" placeholder="Cargo" autocomplete="off">
+                                <input type="text" id="almNvSop2Ced" maxlength="20" placeholder="Cédula" autocomplete="off">
+                            </div>
                         </div>
                     </div>
                 </div>
-                <div style="font-size:11.5px;color:#94a3b8;margin-top:5px;">RECIBIDO y SEGURIDAD salen en blanco para firmarse a mano.</div>
+                <div class="alm-hint">RECIBIDO y SEGURIDAD se firman a mano.</div>
             </div>
             <div id="almNvFrentesWrap">
                 <label for="almNvFrentesInput">Frentes que usan este almacén</label>
@@ -1463,7 +1480,7 @@
                         <div id="almNvFrentesNoMatch" style="display:none;padding:10px 15px;font-size:13px;color:#94a3b8;">Sin coincidencias.</div>
                     </div>
                 </div>
-                <div style="font-size:11.5px;color:#94a3b8;margin-top:5px;">Los frentes definen qué usuarios ven este almacén.</div>
+                <div class="alm-hint">Definen qué usuarios ven este almacén.</div>
             </div>
             <div id="almNvError" style="display:none;margin-top:6px;padding:9px 12px;background:#fee2e2;border:1px solid #fecaca;border-radius:8px;color:#b91c1c;font-size:13px;font-weight:600;"></div>
         </div>
@@ -1750,6 +1767,31 @@
                                 <div class="dropdown-item-list" id="almSalidaContratoItems" style="max-height:240px;overflow-y:auto;"></div>
                             </div>
                         </div>
+                    </div>
+                </div>
+
+                {{-- ALMACÉN DESTINO — solo aparece cuando el proyecto elegido está asignado a
+                     MÁS DE UN almacén, que es cuando el destino no se puede deducir. Con uno
+                     solo queda oculto y lo deduce el backend: preguntar lo obvio sería un clic
+                     de más en casi todas las salidas.
+                     Lo llena almSalidaSyncAlmacenDestino() al elegir proyecto. --}}
+                <div id="almSalidaDestinoWrap" style="display:none;margin-bottom:10px;">
+                    <label class="alm-nota-label" for="almSalidaAlmacenDestinoSearch">Almacén destino *</label>
+                    <div class="custom-dropdown" id="almSalidaAlmacenDestinoDropdown" data-default-label="Selecciona uno">
+                        <input type="hidden" id="almSalidaAlmacenDestino" data-filter-value value="">
+                        <div class="dropdown-trigger" style="padding:0;display:flex;align-items:center;background:#fff;overflow:hidden;border:1px solid #cbd5e0;border-radius:7px;height:38px;">
+                            <input type="text" id="almSalidaAlmacenDestinoSearch" data-filter-search autocomplete="off"
+                                   placeholder="Selecciona uno"
+                                   style="flex:1;border:none;background:transparent;padding:0 10px;font-size:13.5px;color:#0f172a;outline:none;min-width:0;"
+                                   oninput="window.filterDropdownOptions(this)">
+                            <i class="material-icons" style="padding:0 8px;color:#94a3b8;font-size:20px;">expand_more</i>
+                        </div>
+                        <div class="dropdown-content" style="padding:5px;max-height:none;overflow:visible;">
+                            <div class="dropdown-item-list" id="almSalidaAlmacenDestinoItems" style="max-height:240px;overflow-y:auto;"></div>
+                        </div>
+                    </div>
+                    <div class="alm-hint">
+                        Este proyecto se maneja en varios almacenes: indica a cuál se envía el material.
                     </div>
                 </div>
 
@@ -3974,8 +4016,9 @@
         var hidden = el('almNvFormato');
         if (hidden) hidden.value = value;
         checks.forEach(function (c) { c.checked = (c.value === value); });
-        // Los firmantes fijos solo existen en el formato horizontal. Se OCULTA el bloque, no
-        // se limpia: alternar de formato no debe borrar lo que el usuario ya escribió.
+        // Los dos SOPORTADO solo existen en el formato horizontal (ENTREGADO no: lo imprimen
+        // los dos, ver el modal). Se OCULTAN, no se limpian: alternar de formato no debe
+        // borrar lo que el usuario ya escribió.
         var firm = el('almNvFirmantesWrap');
         if (firm) firm.hidden = (value !== 'HORIZONTAL');
     };
@@ -4085,8 +4128,8 @@
         }
         if (!nombre)      { _fail('El nombre es obligatorio.',                'almNvNombre');          return; }
         if (!tipo)        { _fail('El tipo es obligatorio.',                  'almNvTipoDisplay');     return; }
-        if (!almacenista) { _fail('El almacenista es obligatorio.',           'almNvAlmacenista');     return; }
-        if (!cargo)       { _fail('El cargo del almacenista es obligatorio.', 'almNvCargoAlmacenista');return; }
+        if (!almacenista) { _fail('El nombre de quien ENTREGA es obligatorio.', 'almNvAlmacenista');     return; }
+        if (!cargo)       { _fail('El cargo de quien ENTREGA es obligatorio.',  'almNvCargoAlmacenista');return; }
         // Frentes para AMBOS tipos: la asociación define qué usuarios LOCAL ven el
         // almacén (ver Almacen::visiblesPara). Mínimo 1, sea GENERAL o PROYECTO.
         var frentes = [];
@@ -4552,6 +4595,13 @@
         // recibe foco — por eso evitamos hacer .focus() automatico al abrir el modal).
         var ddProy = el('almSalidaProyectoDropdown');
         if (ddProy) ddProy.classList.remove('active');
+        // "Almacén destino" arranca oculto y vacío: se decide al elegir proyecto. Sin este
+        // reset, reabrir el modal desde OTRO almacén conservaría el destino del anterior.
+        if (typeof window.almSalidaSyncAlmacenDestino === 'function') {
+            window.almSalidaSyncAlmacenDestino();
+        }
+        var ddDest = el('almSalidaAlmacenDestinoDropdown');
+        if (ddDest) ddDest.classList.remove('active');
         almOpen('almSalidaModal');
     };
     // Campo "Contrato N°" del modal Registrar salida — es un custom-dropdown (mismo
@@ -4622,10 +4672,54 @@
         if (inp) inp.focus();
     };
 
+    // Mapa frente → almacenes PROYECTO, del backend (ver AlmacenController::index).
+    var ALM_POR_FRENTE = @json($almacenesPorFrente ?? new stdClass());
+
+    // Almacenes a los que PUEDE ir el material del proyecto elegido: los del frente
+    // menos el de origen (mandarse material a uno mismo no es un traspaso).
+    function almSalidaDestinosDe(idFrente) {
+        var lista = ALM_POR_FRENTE[idFrente] || [];
+        // ALM_SAL.idAlmacen es TEXTO y a.id viene numérico del JSON: sin igualar el tipo,
+        // el almacén de origen nunca se descartaría y saldría ofrecido como destino.
+        var origen = parseInt(ALM_SAL.idAlmacen, 10);
+        return lista.filter(function (a) { return a.id !== origen; });
+    }
+
+    // Enseña u oculta "Almacén destino" según el proyecto elegido. Con 0 o 1 destino no
+    // hay nada que preguntar (0 = consumo en el propio almacén, 1 = lo deduce el backend).
+    window.almSalidaSyncAlmacenDestino = function () {
+        var wrap = el('almSalidaDestinoWrap');
+        var caja = el('almSalidaAlmacenDestinoItems');
+        var sel  = el('almSalidaProyecto');
+        if (!wrap || !caja || !sel) return;
+
+        var destinos = almSalidaDestinosDe(sel.value);
+
+        // Se limpia SIEMPRE al cambiar de proyecto: si no, una elección del proyecto
+        // anterior viajaría en el payload del siguiente y el backend la rechazaría por
+        // no pertenecer al frente.
+        window.clearDropdownFilter('almSalidaAlmacenDestinoDropdown');
+
+        if (destinos.length < 2) {
+            wrap.style.display = 'none';
+            caja.innerHTML = '';
+            return;
+        }
+
+        caja.innerHTML = destinos.map(function (a) {
+            var nombre = String(a.nombre).replace(/"/g, '&quot;');
+            return '<div class="dropdown-item" data-value="' + a.id + '"' +
+                   ' onclick="selectOption(\'almSalidaAlmacenDestinoDropdown\',\'' + a.id + '\',\'' +
+                   String(a.nombre).replace(/'/g, "\\'") + '\');">' + nombre + '</div>';
+        }).join('');
+        wrap.style.display = '';
+    };
+
     window.almSalidaOnProyectoChange = function () {
         var sel  = el('almSalidaProyecto');
         if (!sel) return;
         almSalidaContratoBuildList(sel.value);
+        window.almSalidaSyncAlmacenDestino();
         // NO auto-abrimos el panel: el campo Contrato N° es opcional y abrirlo
         // automaticamente al elegir proyecto resultaba intrusivo. El usuario decide
         // cuando ver la lista haciendo clic en el trigger o en el input.
@@ -4742,6 +4836,16 @@
             id_frente:          parseInt(idFrenteDest, 10), // back-compat: SALIDA mismo-almacén usa id_frente
             lineas:             lineas,
         };
+
+        // Almacén destino: solo viaja cuando el campo está visible, o sea cuando el
+        // proyecto se maneja en varios almacenes y hay que decir a cuál va. Con uno solo
+        // lo deduce el backend y mandarlo sería ruido.
+        var wrapDest = el('almSalidaDestinoWrap');
+        if (wrapDest && wrapDest.style.display !== 'none') {
+            var idDest = v('almSalidaAlmacenDestino');
+            if (!idDest) { showErr('almSalidaError', 'Este proyecto se maneja en varios almacenes: elige el almacén destino.'); return null; }
+            payload.id_almacen_destino = parseInt(idDest, 10);
+        }
         var fecha  = v('almSalidaFecha');         if (fecha)  payload.fecha = fecha;
         var contr  = v('almSalidaContrato');      if (contr)  payload.numero_contrato = contr;
         var rqN    = v('almSalidaRq');            if (rqN)    payload.numero_rq = rqN;

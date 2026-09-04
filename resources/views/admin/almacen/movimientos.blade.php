@@ -112,9 +112,18 @@
        Casi invisible en reposo; se realza al pasar el mouse por la fila y se pone
        rojo al hover directo. Anclado al borde superior derecho de la celda Ref. */
     .alm-mov-table td.mv-td-ref { position:relative; }
-    /* Escritorio: el N° de nota es el enlace; el icono de documento solo aparece en la
-       tarjeta móvil (ver el @media de abajo), donde no cabe el número. */
-    .alm-mov-table td.mv-td-ref .mv-nota-ico { display:none; }
+    /* El N° de Nota abre el PDF: icono de documento + número en NEGRO y negrita. Antes
+       iba en gris y con el mismo peso que la REFERENCIA de al lado, así que no se
+       distinguía de un texto muerto; lo que lo resalta ahora son el icono y la negrita,
+       no el color — el cliente lo quiere negro, no azul de enlace.
+       En la tarjeta móvil el @media de abajo lo reduce a un botón redondo con solo el
+       icono (ahí no cabe el número). */
+    .alm-mov-table td.mv-td-ref a.mv-nota-link {
+        display:inline-flex; align-items:center; gap:4px;
+        color:#0f172a; font-weight:800; font-size:12.5px; text-decoration:none;
+    }
+    .alm-mov-table td.mv-td-ref a.mv-nota-link:hover { text-decoration:underline; }
+    .alm-mov-table td.mv-td-ref .mv-nota-ico { font-size:16px; line-height:1; }
     .alm-mov-undo {
         position:absolute; top:3px; right:3px;
         width:20px; height:20px; padding:0; margin:0;
@@ -765,7 +774,7 @@
                 </tr>
             </thead>
             <tbody id="almMovTableBody">
-                @include('admin.almacen.partials.kardex_rows', ['movimientos' => $movimientos])
+                @include('admin.almacen.partials.kardex_rows', ['movimientos' => $movimientos, 'almacenesVisibles' => $almacenesVisibles])
             </tbody>
         </table>
     </div>

@@ -105,7 +105,11 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('/mapa/oleoductos/{id}',         [App\Http\Controllers\OleoductoController::class, 'destroy'])->middleware('can:super.admin')->name('mapa.oleoductos.destroy');
         Route::get('/dashboard/alerts-html', [App\Http\Controllers\DashboardController::class, 'getAlertsHtml'])->name('dashboard.alertsHtml');
         Route::post('/dashboard/iniciar-gestion', [App\Http\Controllers\DashboardController::class, 'iniciarGestion'])->name('dashboard.iniciarGestion');
+        // Alertas de Documentos en PDF o en Excel: MISMAS filas y MISMO orden (los dos
+        // salen de DashboardController::alertasParaReporte); el usuario elige el formato
+        // en el modal del botón de descarga del panel de alertas.
         Route::get('/dashboard/export-documents-pdf', [App\Http\Controllers\DashboardController::class, 'exportDocumentsPDF'])->name('dashboard.exportDocumentsPDF');
+        Route::get('/dashboard/export-documents-excel', [App\Http\Controllers\DashboardController::class, 'exportDocumentsExcel'])->name('dashboard.exportDocumentsExcel');
 
         // ── Modo OFFLINE (Fase 1: consulta sin internet) ──────────────────────────
         // version(): huella barata para que el teléfono sepa si hay datos nuevos.

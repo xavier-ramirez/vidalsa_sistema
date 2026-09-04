@@ -111,40 +111,61 @@
                 @endif
             </td>
             {{-- Ref: apila la trazabilidad del movimiento, cada dato en su columna propia:
-                   · NUMERO_NOTA (NE-YYYY-NNNN) → link al PDF de la Nota de Entrega (SALIDA).
-                   · REFERENCIA → Nota de entrega del proveedor (en ENTRADA directa) / N° OC.
+                   · N° de Nota (NE-YYYY-NNNN) → link al PDF de la Nota de Entrega. Sale de
+                     NUMERO_NOTA en el almacén que emite y de REFERENCIA en el que recibe el
+                     traspaso (ver $numNota abajo).
+                   · REFERENCIA → Nota de entrega del proveedor (en ENTRADA directa) / N° OC,
+                     cuando NO es el N° de Nota que ya salió como enlace.
                    · MOTIVO     → en ENTRADA es el PROVEEDOR (ícono 🚚, a quién devolver);
                                   en SALIDA/AJUSTE es el motivo → se deja como tooltip de la celda.
                    · NOTAS      → Observaciones del lote: inline truncado + texto completo al hover.
                  Si no hay nada → "—". --}}
-            @php $esEntradaDirecta = $m->TIPO === 'ENTRADA'; @endphp
+            @php
+                $esEntradaDirecta = $m->TIPO === 'ENTRADA';
+
+                // N° de Nota que ESTA fila enlaza al PDF. El almacén que EMITE lo trae en
+                // NUMERO_NOTA; el que RECIBE el traspaso NO — su TRASPASO_ENTRADA deja el N°
+                // en REFERENCIA y NUMERO_NOTA en NULL. Sin esto la misma nota se veía idéntica
+                // en los dos almacenes pero solo abría el PDF desde el emisor: en el destino
+                // era texto muerto. El documento es uno solo y sale siempre en el formato del
+                // emisor (ver renderNotaEntregaPdfBinary), así que ambos lados abren lo mismo.
+                //
+                // Se exige que el almacén emisor (la contraparte del traspaso) sea VISIBLE para
+                // el usuario: notaEntregaPdf valida con assertPuedeVerAlmacen, y un enlace que
+                // responde 403 es peor que dejar el número como texto.
+                $numNota = $m->NUMERO_NOTA;
+                if (!$numNota
+                    && $m->ID_ALMACEN_CONTRAPARTE
+                    && preg_match('/^NE-\d{4}-\d+$/', (string) $m->REFERENCIA)
+                    && ($almacenesVisibles ?? collect())->contains((int) $m->ID_ALMACEN_CONTRAPARTE)) {
+                    $numNota = $m->REFERENCIA;
+                }
+            @endphp
             <td class="mv-td-ref" data-label="Ref" @if(!$esEntradaDirecta && $m->MOTIVO) title="{{ $m->MOTIVO }}" @endif>
-                @if($m->NUMERO_NOTA)
+                @if($numNota)
                     {{-- Mismo visor in-page que usa /admin/almacen/notas y el resto del módulo
                          (#pdfPreviewModal vía window.openPdfPreview). Conserva fallback a abrir
                          en pestaña nueva si el layout no provee la función. --}}
                     {{-- El icono `description` (mismo del menú Acciones → "Bitácora por Nota (PDF)")
-                         marca que el enlace abre un DOCUMENTO. En escritorio va oculto por CSS —
-                         ahí manda el N° de nota; en la tarjeta móvil pasa al revés: se oculta el
-                         número y queda solo el icono, que es el único punto que abre el PDF.
+                         marca que el enlace abre un DOCUMENTO. Acompaña al número en escritorio;
+                         en la tarjeta móvil el CSS oculta el número y deja solo el icono, que es
+                         ahí el único punto que abre el PDF.
                          El título del visor sale de data-pdf-title, NO de this.textContent: con el
                          <i> dentro, textContent valdría "descriptionNE-2026-0041". --}}
-                    <a href="{{ route('almacen.nota-entrega', ['numero' => $m->NUMERO_NOTA]) }}"
+                    <a href="{{ route('almacen.nota-entrega', ['numero' => $numNota]) }}"
                        class="mv-nota-link"
-                       data-pdf-url="{{ route('almacen.nota-entrega', ['numero' => $m->NUMERO_NOTA]) }}"
-                       data-pdf-title="Nota {{ $m->NUMERO_NOTA }}"
+                       data-pdf-url="{{ route('almacen.nota-entrega', ['numero' => $numNota]) }}"
+                       data-pdf-title="Nota {{ $numNota }}"
                        onclick="if (typeof window.openPdfPreview === 'function') { event.preventDefault(); window.openPdfPreview(this.dataset.pdfUrl, 'nota_entrega', this.dataset.pdfTitle, 0, '', true, 'almacen'); }"
                        target="_blank" rel="noopener"
-                       style="color:#334155;text-decoration:none;font-weight:400;font-size:12.5px;"
-                       title="Ver Nota de Entrega (PDF)"><i class="material-icons mv-nota-ico">description</i><span class="mv-nota-num">{{ $m->NUMERO_NOTA }}</span></a>
+                       title="Ver Nota de Entrega (PDF)"><i class="material-icons mv-nota-ico">description</i><span class="mv-nota-num">{{ $numNota }}</span></a>
                 @endif
-                @if($m->REFERENCIA && $m->REFERENCIA !== $m->NUMERO_NOTA)
-                    {{-- Nota de entrega del proveedor (ENTRADA) / N° OC: MISMO estilo que la Nota de
-                         Entrega de las SALIDAS (NUMERO_NOTA) y que el resto de columnas — peso normal
-                         (400), no negrita, a pedido del cliente para que la columna Referencia use la
-                         misma letra que las demás. Se OMITE si coincide con NUMERO_NOTA (en traspasos
-                         ambos traían el mismo NE → salía duplicado). --}}
-                    <div style="font-size:12.5px;color:#334155;font-weight:400;{{ $m->NUMERO_NOTA ? 'margin-top:2px;' : '' }}" title="Nota de entrega / referencia">{{ $m->REFERENCIA }}</div>
+                @if($m->REFERENCIA && $m->REFERENCIA !== $numNota)
+                    {{-- Nota de entrega del proveedor (ENTRADA) / N° OC: peso normal (400), no
+                         negrita, a pedido del cliente para que la columna Referencia use la misma
+                         letra que las demás. Se OMITE si es el N° que ya salió como enlace arriba
+                         (en traspasos ambos traían el mismo NE → salía duplicado). --}}
+                    <div style="font-size:12.5px;color:#334155;font-weight:400;{{ $numNota ? 'margin-top:2px;' : '' }}" title="Nota de entrega / referencia">{{ $m->REFERENCIA }}</div>
                 @endif
                 @if($esEntradaDirecta && $m->MOTIVO)
                     {{-- Proveedor: visible (no solo hover) — es el dato clave para una devolución. --}}

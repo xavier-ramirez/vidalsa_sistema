@@ -275,6 +275,26 @@ class AlmacenController extends Controller
             ->orderBy('NOMBRE_FRENTE')
             ->get(['ID_FRENTE', 'NOMBRE_FRENTE', 'CONTRATOS']);
 
+        // Almacenes PROYECTO de cada frente — alimenta el selector "Almacén destino" del
+        // modal "Registrar salida". Un frente puede estar asignado a VARIOS almacenes
+        // desde el propio modal "Editar almacén"; cuando pasa eso el destino no se puede
+        // deducir y hay que preguntárselo al usuario en vez de rechazar la salida. Hoy no
+        // hay ningún frente así, pero basta un clic en ese modal para volver a haberlo.
+        // El JS descarta el almacén de origen de esta lista, por eso aquí van todos: el
+        // mapa no depende del almacén que se esté viendo.
+        $almacenesPorFrente = DB::table('almacen_frentes as af')
+            ->join('almacenes as a', 'a.ID_ALMACEN', '=', 'af.ID_ALMACEN')
+            ->where('a.TIPO', Almacen::TIPO_PROYECTO)
+            ->where('a.ESTATUS', 'ACTIVO')
+            ->whereNull('a.deleted_at')
+            ->orderBy('a.NOMBRE')
+            ->get(['af.ID_FRENTE', 'a.ID_ALMACEN', 'a.NOMBRE'])
+            ->groupBy('ID_FRENTE')
+            ->map(fn ($filas) => $filas->map(fn ($f) => [
+                'id'     => (int) $f->ID_ALMACEN,
+                'nombre' => $f->NOMBRE,
+            ])->values());
+
         // CONTEO de notas de entrega pendientes de confirmar — alimenta el banner rojo
         // "N por confirmar" que enlaza a la bandeja. Recepción es PERSONAL: se cuenta SOLO
         // contra los almacenes ASOCIADOS al usuario (Almacen::asociadosIdsDe = ligados a sus
@@ -290,6 +310,9 @@ class AlmacenController extends Controller
             'productos'          => null,
             'categorias'         => $categorias,
             'frentesLista'       => $frentesLista,
+            // Mapa frente → almacenes PROYECTO (ver arriba): el modal de salida lo usa para
+            // pedir el almacén destino solo cuando el frente elegido tiene más de uno.
+            'almacenesPorFrente' => $almacenesPorFrente,
             // El Consolidado de Inventario (KPIs: PRODUCTOS / Con stock / Stock bajo) SÍ se
             // calcula en la carga inicial — el cliente quiere verlo apenas abre el módulo,
             // sin esperar a filtrar. Es 1 query agregada (statsInventario), barata. Sin
@@ -1387,7 +1410,11 @@ class AlmacenController extends Controller
                 : 'admin.almacen.partials.kardex_rows';
 
             $resp = [
-                'html'       => view($partial, ['movimientos' => $paginator])->render(),
+                // `almacenesVisibles`: kardex_rows lo usa para decidir si el N° de Nota que
+                // llega en REFERENCIA (lado que RECIBE un traspaso) se puede enlazar al PDF —
+                // el documento lo emite la contraparte y notaEntregaPdf valida que el usuario
+                // pueda verla. El partial mini no lo lee; pasarlo igual no cuesta nada.
+                'html'       => view($partial, ['movimientos' => $paginator, 'almacenesVisibles' => $visiblesIds])->render(),
                 'pagination' => (string) $paginator->links('vendor.pagination.custom-sliding'),
                 'total'      => $paginator->total(),
             ];
@@ -1440,6 +1467,9 @@ class AlmacenController extends Controller
             'movimientos'     => $paginator,
             'total'           => $paginator->total(),
             'almacenes'       => $almacenes,
+            // IDs de los almacenes visibles — kardex_rows los necesita para enlazar al PDF
+            // la Nota que el lado RECEPTOR de un traspaso trae en REFERENCIA (ver el partial).
+            'almacenesVisibles' => $visiblesIds,
             'idAlmacenActivo' => $idAlmacenActivo,
             'frentesLista'    => $frentesMovimientos,
             // El catálogo del buscador (almMovProductosLista) ya NO se embebe aquí: la vista lo
@@ -2633,6 +2663,10 @@ class AlmacenController extends Controller
             // Alias del frente destino para el flujo unificado de SALIDA. El frontend lo
             // manda como `id_frente_destino`; si solo viene `id_frente` lo usamos también.
             'id_frente_destino'    => 'nullable|integer|exists:frentes_trabajo,ID_FRENTE',
+            // Almacén destino EXPLÍCITO de la salida a otro proyecto. Solo hace falta
+            // cuando el frente destino está asignado a más de un almacén PROYECTO y por
+            // tanto no se puede deducir; el formulario lo pregunta en ese caso.
+            'id_almacen_destino'   => 'nullable|integer|exists:almacenes,ID_ALMACEN',
             'referencia'           => 'nullable|string|max:100',
             // Campos de la Nota de Entrega de Materiales (se usan en SALIDA y en su
             // variante "salida hacia otro proyecto" que internamente crea un Traspaso).
@@ -2666,19 +2700,41 @@ class AlmacenController extends Controller
                     ->whereHas('frentes', fn ($q) => $q->where('frentes_trabajo.ID_FRENTE', (int) $idFrenteDest))
                     ->pluck('ID_ALMACEN');
 
-                if ($almacenesDelFrente->count() === 1) {
+                // Almacén destino: el que EL USUARIO eligió si mandó uno, y si no el único
+                // que tiene el frente. Un frente puede quedar asignado a varios almacenes
+                // desde el modal "Editar almacén", y antes eso cortaba la salida con un error
+                // que obligaba a llamar a un administrador. Ahora el formulario pregunta a
+                // cuál va, y aquí solo se comprueba que el elegido sea REALMENTE del frente
+                // destino — un id ajeno mandaría material a un almacén que no participa en
+                // ese proyecto.
+                $idAlmDestino = $data['id_almacen_destino'] ?? null;
+
+                if ($idAlmDestino !== null) {
+                    if (!$almacenesDelFrente->contains((int) $idAlmDestino)) {
+                        return response()->json([
+                            'message' => 'El almacén destino elegido no pertenece al frente seleccionado.',
+                        ], 422);
+                    }
+                } elseif ($almacenesDelFrente->count() === 1) {
+                    $idAlmDestino = (int) $almacenesDelFrente->first();
+                } elseif ($almacenesDelFrente->count() > 1) {
+                    // Sin elegir y con varios: se devuelve la lista para que el formulario
+                    // (o cualquier cliente) pueda preguntar en vez de quedarse trabado.
+                    return response()->json([
+                        'message' => 'El frente destino tiene varios almacenes; indica a cuál se envía el material.',
+                        'almacenes_destino' => Almacen::whereIn('ID_ALMACEN', $almacenesDelFrente)
+                            ->orderBy('NOMBRE')->get(['ID_ALMACEN', 'NOMBRE']),
+                    ], 422);
+                }
+
+                if ($idAlmDestino !== null) {
                     // SALIDA hacia un almacén distinto → vía traspaso.
                     return $this->registrarSalidaViaTraspaso(
                         $request,
                         $data,
                         (int) $idFrenteDest,
-                        (int) $almacenesDelFrente->first(),
+                        (int) $idAlmDestino,
                     );
-                }
-                if ($almacenesDelFrente->count() > 1) {
-                    return response()->json([
-                        'message' => 'El frente destino tiene varios almacenes PROYECTO asignados; no se puede deducir el destino. Pide a un administrador que deje un único almacén por frente.',
-                    ], 422);
                 }
                 // 0 almacenes distintos → es consumo en el almacén actual (cae al flujo normal).
             }

@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="color-scheme" content="light">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>En mantenimiento · Sistema Vidalsa</title>
+    <link rel="icon" type="image/png" href="/favicon.png">
+    <!-- Misma tipografía (Nunito) que el login y las páginas de error. Es un CSS
+         estático que nginx sirve igual durante el arranque; si faltara, el
+         font-family de abajo cae en Segoe UI y la página se ve igual de bien. -->
+    <link href="/css/fonts.css" rel="stylesheet">
+    <!-- Se recarga sola: cuando el despliegue termina, esta misma pestaña cae en la app. -->
+    <meta http-equiv="refresh" content="15">
+    <!--
+      PÁGINA DE MANTENIMIENTO DEL DESPLIEGUE.
+
+      HTML PLANO A PROPÓSITO: la sirve nginx directamente mientras el contenedor
+      arranca (migraciones + cachés), o sea ANTES de que PHP esté disponible. No
+      puede ser un blade ni depender de Laravel: si dependiera, no habría nada que
+      mostrar justo en el minuto en que hace falta (ver docker/start.sh).
+
+      Es gemela de resources/views/errors/layout.blade.php —mismo fondo, misma
+      tarjeta de 400px, mismo logo y mismo azul del login— pero con el CSS copiado
+      aquí dentro: durante el arranque tampoco hay quien compile un blade. La otra
+      cubre el 503 de `artisan down` (app viva); esta cubre el arranque (app muerta).
+    -->
+    <style>
+        /* Azul del botón del login (--maquinaria-blue en inicio_sesion.css). */
+        :root { --login-blue: #00004d; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Nunito', 'Segoe UI', Tahoma, sans-serif;
+            min-height: 100vh; display: flex; align-items: center; justify-content: center;
+            padding: 24px; color: #1e293b;
+            background: #fff;
+        }
+        .err-card {
+            width: 100%; max-width: 400px; text-align: center;
+            background: #fff;
+            border-radius: 12px;
+            padding: 44px 40px 40px;
+            box-shadow: 0 0 25px -5px rgba(0, 0, 0, 0.25), 0 0 10px -5px rgba(0, 0, 0, 0.15);
+            animation: err-rise 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+        @keyframes err-rise { from { opacity: 0; transform: translateY(14px) scale(0.98); } }
+        .err-logo { height: 50px; margin-bottom: 24px; object-fit: contain; }
+        /* Anillo giratorio en el lugar donde las páginas de error ponen el número
+           (404/503): aquí no hay código que enseñar, lo que hay es una espera. */
+        .err-spinner {
+            width: 54px; height: 54px; margin: 4px auto 0;
+            border: 5px solid #e2e8f0;
+            border-top-color: var(--login-blue);
+            border-radius: 50%;
+            animation: err-spin 0.9s linear infinite;
+        }
+        @keyframes err-spin { to { transform: rotate(360deg); } }
+        .err-title { font-size: 21px; font-weight: 700; margin: 22px 0 6px; color: #0f172a; }
+        .err-msg { font-size: 14px; line-height: 1.55; color: #64748b; }
+        .err-nota {
+            font-size: 12.5px; color: #94a3b8; margin-top: 24px;
+            padding-top: 18px; border-top: 1px solid #f1f5f9;
+        }
+        /* Respeta a quien pidió menos animación en su sistema. */
+        @media (prefers-reduced-motion: reduce) {
+            .err-card { animation: none; }
+            .err-spinner { animation-duration: 3s; }
+        }
+    </style>
+</head>
+<body>
+    <div class="err-card">
+        <img class="err-logo" src="/images/maquinaria/logo.webp"
+             alt="Constructora Vidalsa" onerror="this.style.display='none'">
+        <div class="err-spinner"></div>
+        <div class="err-title">Sistema en mantenimiento</div>
+        <div class="err-msg">
+            Estamos aplicando una actualización.<br>
+            Espera unos 2 minutos.
+        </div>
+        <div class="err-nota">Esta página se actualiza sola: no cierres la pestaña.</div>
+    </div>
+</body>
+</html>

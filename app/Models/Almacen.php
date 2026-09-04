@@ -220,10 +220,11 @@ class Almacen extends Model
      * PUNTO UNICO: la vista no sabe de donde vienen los nombres — pide esto y pinta.
      *
      * ENTREGADO y los dos SOPORTADO son SIEMPRE la misma gente del almacen que despacha, asi
-     * que salen pre-impresos de la ficha del almacen ("Editar almacen", solo visibles cuando
-     * el formato es HORIZONTAL). ENTREGADO reusa ALMACENISTA / CARGO_ALMACENISTA — los mismos
-     * campos que el formato vertical imprime como "ENTREGADO POR" — mas la cedula que solo
-     * pide el horizontal; no se duplican, un almacen tiene UN almacenista.
+     * que salen pre-impresos de la ficha del almacen ("Editar almacen" → "Firmantes de la Nota
+     * de Entrega"). ENTREGADO reusa ALMACENISTA / CARGO_ALMACENISTA — los mismos campos que el
+     * formato vertical imprime como "ENTREGADO POR" — mas la cedula que solo pide el
+     * horizontal; no se duplican, un almacen tiene UN almacenista. Por eso su bloque del modal
+     * se ve con cualquier formato y los dos SOPORTADO solo con HORIZONTAL.
      *
      * Los otros dos van SIEMPRE en blanco, a proposito:
      *   RECIBIDO  → lo firma quien recibe en el destino, cambia en cada nota.

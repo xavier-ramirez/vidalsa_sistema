@@ -22,6 +22,21 @@ if (!window._alertasModalEscHandler) {
     window._alertasModalEscHandler = true;
     document.addEventListener('keydown', function (e) {
         if (e.key !== 'Escape') return;
+
+        // Escape cierra el modal de ARRIBA. El de "¿PDF o Excel?" se abre encima del de
+        // alertas: sin esta rama, Escape cerraba el de abajo y el de formato quedaba
+        // flotando sobre nada — y de paso toggleExpiredDocs devolvía el scroll del body
+        // con un modal todavía abierto.
+        const formato = document.getElementById('formatoReporteModal');
+        if (formato && formato.classList.contains('open')) {
+            if (typeof window.cerrarFormatoReporteAlertas === 'function') {
+                window.cerrarFormatoReporteAlertas();
+            } else {
+                formato.classList.remove('open');
+            }
+            return;
+        }
+
         const overlay = document.getElementById('expiredDocsContainer');
         if (overlay && overlay.classList.contains('open')) {
             window.toggleExpiredDocs();
