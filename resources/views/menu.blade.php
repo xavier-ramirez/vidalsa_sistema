@@ -1374,18 +1374,24 @@
         //
         // El nombre del archivo lo manda el servidor en Content-Disposition; el de aquí
         // es solo el respaldo por si esa cabecera no llega.
-        const FORMATOS_REPORTE = {
-            pdf:   { accept: 'application/pdf',
-                     respaldo: 'Reporte_Documentos.pdf',
-                     error: 'Error generando el PDF. Intente de nuevo.' },
-            excel: { accept: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                     respaldo: 'Reporte_Documentos.xlsx',
-                     error: 'Error generando el Excel. Intente de nuevo.' },
-        };
-
+        //
+        // La tabla vive DENTRO de la función y no en el bloque: este <script> se re-ejecuta
+        // en cada vuelta a /menu por SPA (ver el comentario de arriba), y un `const` suelto
+        // reventaba la segunda ejecución entera con "Identifier has already been declared"
+        // —dejando window.equiposData sin actualizar—. Por eso todo aquí cuelga de window
+        // o vive dentro de una función. Rearmar dos objetos por clic no cuesta nada.
         window.descargarReporteAlertas = async function (btn, url, formato) {
             if (btn && btn.disabled) return;
-            const cfg = FORMATOS_REPORTE[formato] || FORMATOS_REPORTE.pdf;
+
+            const FORMATOS = {
+                pdf:   { accept: 'application/pdf',
+                         respaldo: 'Reporte_Documentos.pdf',
+                         error: 'Error generando el PDF. Intente de nuevo.' },
+                excel: { accept: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                         respaldo: 'Reporte_Documentos.xlsx',
+                         error: 'Error generando el Excel. Intente de nuevo.' },
+            };
+            const cfg = FORMATOS[formato] || FORMATOS.pdf;
 
             if (btn) btn.disabled = true;
             // El modal de formato se cierra de una: la espera la cuenta el spinner
