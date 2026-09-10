@@ -527,7 +527,11 @@ class EquipoController extends Controller
             ])
             ->withCount('equiposAuxiliares')
             ->orderBy('tipo_equipos.nombre', 'asc')
-            ->orderBy('equipos.CODIGO_PATIO', 'asc');
+            ->orderBy('equipos.CODIGO_PATIO', 'asc')
+            // Desempate por ID: sin el, el orden NO es total -1.113 de 1.211 equipos no
+            // tienen CODIGO_PATIO, asi que casi todos empatan- y con LIMIT/OFFSET MySQL
+            // puede devolver el mismo equipo en dos lotes del scroll y saltarse otro.
+            ->orderBy('equipos.ID_EQUIPO', 'asc');
 
         // Check if any filter is applied (with non-empty values)
         $hasFilter = $request->filled('id_frente') || $request->filled('id_tipo') || $request->filled('search_query') || $request->filled('modelo') || $request->filled('marca') || $request->filled('color') || $request->filled('confirmado') || $request->filled('detalle_ubicacion') || $request->filled('anio') || $request->filled('categoria') || $request->filled('estado') || $request->filled('gps') || $request->filled('filter_propiedad') || $request->filled('filter_poliza') || $request->filled('filter_rotc') || $request->filled('filter_racda') || $request->filled('filter_adicional') || $request->filled('filter_adicional_2');
@@ -937,12 +941,6 @@ class EquipoController extends Controller
             'CODIGO_PATIO', 'NUMERO_ETIQUETA', 'LINK_GPS',
         ]);
 
-        // $search normalizado (uppercase+trim) SOLO para el bloque de búsqueda de
-        // abajo. La barrera de visibilidad por frente (scope LOCAL + bloqueados) la
-        // aplica applyEquipoFilters() como FUENTE ÚNICA — antes este método la repetía
-        // por separado (duplicidad). Ya cubre el caso de búsqueda vacía/solo-espacios.
-        $search = strtoupper(trim((string) $request->input('search_query', '')));
-
         // Mismos filtros que el listado (frente/tipo/atributos/gps/color/confirmado/
         // documentación) reutilizando applyEquipoFilters() en vez de reimplementarlos.
         // Antes estaban DUPLICADOS aquí, y este bloque además tenía un bug: el id_tipo
@@ -957,25 +955,13 @@ class EquipoController extends Controller
             $equipos->whereRaw('1 = 0');
         }
 
-        // $search already normalized above — no re-declaration needed.
-        if ($search) {
-            if (strpos($search, '#') !== false) {
-                $tagSearch = str_replace('#', '', $search);
-                $equipos->where('NUMERO_ETIQUETA', 'like', "%{$tagSearch}%");
-            } else {
-                // Optimize PLACA search with leftJoin instead of whereHas
-                $equipos->leftJoin('documentacion AS doc_search', 'equipos.ID_EQUIPO', '=', 'doc_search.ID_EQUIPO');
-                // Ensure we only select from equipos explicitly, to prevent joined tables overwriting keys
-                $equipos->select('equipos.*');
-                
-                $equipos->where(function ($q) use ($search) {
-                    $q->where('equipos.SERIAL_CHASIS', 'like', "%{$search}%")
-                        ->orWhere('doc_search.PLACA', 'like', "%{$search}%")
-                        ->orWhere('equipos.SERIAL_DE_MOTOR', 'like', "%{$search}%")
-                        ->orWhere('equipos.CODIGO_PATIO', 'like', "%{$search}%")
-                        ->orWhere('equipos.NUMERO_ETIQUETA', 'like', "%{$search}%");
-                });
-            }
+        // Búsqueda de texto: la MISMA de la tabla (applyBusquedaTexto). Antes este método
+        // tenía su propia copia y se le había quedado atrás: sin la ambigüedad O↔0 de la
+        // placa, buscar "OOACOBL" mostraba el equipo en pantalla y lo dejaba fuera del Excel.
+        // Además usa whereHas en vez de leftJoin, así el SELECT angosto de arriba se respeta.
+        // Mismo guard que index(): con ids_in la whitelist es la única condición.
+        if (!$request->filled('ids_in')) {
+            $this->applyBusquedaTexto($equipos, $request->input('search_query'));
         }
 
         // Eager load solo los campos necesarios para el export (evitar SELECT * en relaciones pesadas).

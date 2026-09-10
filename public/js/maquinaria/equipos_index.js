@@ -1170,6 +1170,60 @@ window.eqRegisterNuevoFrente = function (frente) {
     }
 };
 
+// Filtros activos de la pantalla, leídos de los inputs. FUENTE ÚNICA: la usan la tabla
+// (loadEquipos) y la exportación a Excel (exportEquipos), que tienen que traer exactamente
+// lo mismo. Cuando el export releía los inputs por su cuenta se le quedaron fuera ejes
+// enteros —GPS, doc_presence— y el Excel salía con más equipos de los que se veían.
+// Valor null = ese filtro no está puesto.
+window.eqFiltrosActivos = function () {
+    const advancedPanel = document.getElementById("advancedFilterPanel");
+
+    // Helper robusto para obtener valores de inputs
+    const getVal = (selector, parent = document) => {
+        const el = parent.querySelector(selector);
+        if (!el) return null;
+        return el.value && el.value.trim() !== "" ? el.value.trim() : null;
+    };
+
+    return {
+        search_query: getVal("#searchInput"),
+        id_frente: getVal('input[name="id_frente"]'),
+        id_tipo: getVal('input[name="id_tipo"]'),
+        modelo: getVal('input[name="modelo"]', advancedPanel || document),
+        marca: getVal('input[name="marca"]', advancedPanel || document),
+        detalle_ubicacion: getVal('input[name="detalle_ubicacion"]', advancedPanel || document),
+        anio: getVal('input[name="anio"]', advancedPanel || document),
+        categoria: getVal('input[name="categoria"]', advancedPanel || document),
+        estado: getVal('input[name="estado"]', advancedPanel || document),
+        gps: getVal('input[name="gps"]', advancedPanel || document),
+        color: getVal('input[name="color"]', advancedPanel || document),
+        confirmado: getVal('input[name="confirmado"]', advancedPanel || document),
+        filter_propiedad: document.getElementById("chk_propiedad")?.checked
+            ? "true"
+            : null,
+        filter_poliza: document.getElementById("chk_poliza")?.checked
+            ? "true"
+            : null,
+        filter_rotc: document.getElementById("chk_rotc")?.checked
+            ? "true"
+            : null,
+        filter_racda: document.getElementById("chk_racda")?.checked
+            ? "true"
+            : null,
+        filter_adicional: document.getElementById("chk_adicional")?.checked
+            ? "true"
+            : null,
+        filter_adicional_2: document.getElementById("chk_adicional_2")?.checked
+            ? "true"
+            : null,
+        // Dirección del filtro de documento (bloques clicables del Consolidado).
+        // Solo se envía si NO es el default 'con', para no ensuciar la URL.
+        doc_presence: (window.__equiposDocPresence && window.__equiposDocPresence !== "con")
+            ? window.__equiposDocPresence
+            : null,
+    };
+};
+
 window.loadEquipos = function (url = null, silent = false, opts = {}) {
     // Defensa: si el primer argumento es boolean (caller antiguo que usaba loadEquipos(true)),
     // interpretarlo como el flag silent para no romper con "baseUrl.includes is not a function".
@@ -1208,14 +1262,6 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
     if (window._resetImageLoader) window._resetImageLoader();
 
     let baseUrl = url || window.location.pathname;
-    const advancedPanel = document.getElementById("advancedFilterPanel");
-
-    // Helper robusto para obtener valores de inputs
-    const getVal = (selector, parent = document) => {
-        const el = parent.querySelector(selector);
-        if (!el) return null;
-        return el.value && el.value.trim() !== "" ? el.value.trim() : null;
-    };
 
     // Al cambiar de modo aux → equipo (o viceversa), los inputs de modelo/marca/anio
     // pueden tener valores del modo anterior que no aplican en la nueva tabla.
@@ -1235,43 +1281,7 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
     }
 
     // Unified Filter Object
-    const filters = {
-        search_query: getVal("#searchInput"),
-        id_frente: getVal('input[name="id_frente"]'),
-        id_tipo: getVal('input[name="id_tipo"]'),
-        modelo: getVal('input[name="modelo"]', advancedPanel || document),
-        marca: getVal('input[name="marca"]', advancedPanel || document),
-        detalle_ubicacion: getVal('input[name="detalle_ubicacion"]', advancedPanel || document),
-        anio: getVal('input[name="anio"]', advancedPanel || document),
-        categoria: getVal('input[name="categoria"]', advancedPanel || document),
-        estado: getVal('input[name="estado"]', advancedPanel || document),
-        gps: getVal('input[name="gps"]', advancedPanel || document),
-        color: getVal('input[name="color"]', advancedPanel || document),
-        confirmado: getVal('input[name="confirmado"]', advancedPanel || document),
-        filter_propiedad: document.getElementById("chk_propiedad")?.checked
-            ? "true"
-            : null,
-        filter_poliza: document.getElementById("chk_poliza")?.checked
-            ? "true"
-            : null,
-        filter_rotc: document.getElementById("chk_rotc")?.checked
-            ? "true"
-            : null,
-        filter_racda: document.getElementById("chk_racda")?.checked
-            ? "true"
-            : null,
-        filter_adicional: document.getElementById("chk_adicional")?.checked
-            ? "true"
-            : null,
-        filter_adicional_2: document.getElementById("chk_adicional_2")?.checked
-            ? "true"
-            : null,
-        // Dirección del filtro de documento (bloques clicables del Consolidado).
-        // Solo se envía si NO es el default 'con', para no ensuciar la URL.
-        doc_presence: (window.__equiposDocPresence && window.__equiposDocPresence !== "con")
-            ? window.__equiposDocPresence
-            : null,
-    };
+    const filters = window.eqFiltrosActivos();
 
     const params = new URLSearchParams();
 
@@ -3302,102 +3312,22 @@ window.exportEquipos = function () {
         return;
     }
 
-    const searchInput = document.getElementById("searchInput");
-    const frenteInput = document.querySelector('input[name="id_frente"]');
-    const tipoInput = document.querySelector('input[name="id_tipo"]');
-    const advancedPanel = document.getElementById("advancedFilterPanel");
-
-    // Prioritize inputs within the Advanced Filter Panel if it exists
-    const modeloInput = advancedPanel
-        ? advancedPanel.querySelector('input[name="modelo"]')
-        : document.querySelector('input[name="modelo"]');
-    const anioInput = advancedPanel
-        ? advancedPanel.querySelector('input[name="anio"]')
-        : document.querySelector('input[name="anio"]');
-    const marcaInput = advancedPanel
-        ? advancedPanel.querySelector('input[name="marca"]')
-        : document.querySelector('input[name="marca"]');
-    const detalleUbicacionInput = advancedPanel
-        ? advancedPanel.querySelector('input[name="detalle_ubicacion"]')
-        : document.querySelector('input[name="detalle_ubicacion"]');
-    const categoriaInput = advancedPanel
-        ? advancedPanel.querySelector('input[name="categoria"]')
-        : document.querySelector('input[name="categoria"]');
-    const estadoInput = advancedPanel
-        ? (advancedPanel.querySelector('input[name="estado"]') || document.querySelector('input[name="estado"]'))
-        : document.querySelector('input[name="estado"]');
-    const colorInput = advancedPanel
-        ? advancedPanel.querySelector('input[name="color"]')
-        : document.querySelector('input[name="color"]');
-    const confirmadoInput = advancedPanel
-        ? advancedPanel.querySelector('input[name="confirmado"]')
-        : document.querySelector('input[name="confirmado"]');
-
+    // Los MISMOS filtros que la tabla (window.eqFiltrosActivos): el Excel tiene que traer
+    // justo lo que se está viendo. Antes este bloque releía los inputs por su cuenta y se
+    // le habían quedado fuera GPS y doc_presence, así que al filtrar por GPS el archivo
+    // salía con toda la flota.
     const params = new URLSearchParams();
-
-    // Helper to append if valid
-    const appendIfValid = (key, value) => {
-        if (
-            value &&
-            typeof value === "string" &&
-            value.trim() !== "" &&
-            value.trim() !== "all"
-        ) {
-            params.append(key, value.trim());
-            return true;
-        }
-        return false;
-    };
-
-    // Track if we have any filter
     let hasAnyFilter = false;
 
-    hasAnyFilter |= appendIfValid("search_query", searchInput?.value);
-
-    // id_frente: 'all' es un filtro explícito válido (Todos los Frentes)
-    const frenteVal = frenteInput?.value?.trim();
-    if (frenteVal === "all") {
-        params.append("id_frente", "all");
+    Object.entries(window.eqFiltrosActivos()).forEach(([clave, valor]) => {
+        const v = (valor == null ? "" : String(valor)).trim();
+        if (v === "") return;
+        // 'all' no recorta nada... salvo en id_frente, donde es la elección explícita
+        // "Todos los Frentes" (y de ahí sale además el título de la hoja).
+        if (v === "all" && clave !== "id_frente") return;
+        params.append(clave, v);
         hasAnyFilter = true;
-    } else {
-        hasAnyFilter |= appendIfValid("id_frente", frenteVal);
-    }
-
-    hasAnyFilter |= appendIfValid("id_tipo", tipoInput?.value);
-    hasAnyFilter |= appendIfValid("modelo", modeloInput?.value);
-    hasAnyFilter |= appendIfValid("marca", marcaInput?.value);
-    hasAnyFilter |= appendIfValid("detalle_ubicacion", detalleUbicacionInput?.value);
-    hasAnyFilter |= appendIfValid("anio", anioInput?.value);
-    hasAnyFilter |= appendIfValid("categoria", categoriaInput?.value);
-    hasAnyFilter |= appendIfValid("estado", estadoInput?.value);
-    hasAnyFilter |= appendIfValid("color", colorInput?.value);
-    hasAnyFilter |= appendIfValid("confirmado", confirmadoInput?.value);
-
-    // Documentation Boolean Filters
-    if (document.getElementById("chk_propiedad")?.checked) {
-        params.append("filter_propiedad", "true");
-        hasAnyFilter = true;
-    }
-    if (document.getElementById("chk_poliza")?.checked) {
-        params.append("filter_poliza", "true");
-        hasAnyFilter = true;
-    }
-    if (document.getElementById("chk_rotc")?.checked) {
-        params.append("filter_rotc", "true");
-        hasAnyFilter = true;
-    }
-    if (document.getElementById("chk_racda")?.checked) {
-        params.append("filter_racda", "true");
-        hasAnyFilter = true;
-    }
-    if (document.getElementById("chk_adicional")?.checked) {
-        params.append("filter_adicional", "true");
-        hasAnyFilter = true;
-    }
-    if (document.getElementById("chk_adicional_2")?.checked) {
-        params.append("filter_adicional_2", "true");
-        hasAnyFilter = true;
-    }
+    });
 
     // Validate: At least one filter must be active
     if (!hasAnyFilter) {
