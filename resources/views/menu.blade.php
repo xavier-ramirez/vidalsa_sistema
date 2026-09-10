@@ -236,11 +236,18 @@
         .alertas-modal-content { max-height: 94vh; }
     }
 
-    /* ── Modal "¿PDF o Excel?" (se abre ENCIMA del de Alertas) ──
+    /* ── Modal "¿PDF o Excel?" (reemplaza en pantalla al de Alertas) ──
        Hereda overlay y tarjeta de .alertas-modal-*; aquí solo va lo que cambia:
-       queda por delante del otro modal y la tarjeta es más chica (no lleva lista). */
+       la tarjeta es más chica (no lleva lista) y, mientras se elige el formato, el
+       modal de alertas se retira —dos tarjetas apiladas con la lista asomando por
+       detrás se leían mal—. La clase la pone y la quita el par
+       abrir/cerrarFormatoReporteAlertas; el z-index mayor es solo el respaldo por si
+       los dos llegaran a coincidir en pantalla. */
     .formato-modal-overlay { z-index: 9600; }
-    .formato-modal-content { max-width: 420px; max-height: none; }
+    .alertas-modal-overlay.open.oculto-tras-formato { display: none; }
+    /* Sin las notas de abajo el modal ya no necesita 420px: se estrecha a lo que ocupan
+       las dos opciones, que es lo único que hay que leer. */
+    .formato-modal-content { max-width: 320px; max-height: none; }
     .formato-modal-body { padding: 18px 20px 22px; }
     .formato-modal-texto {
         margin: 0 0 16px; text-align: center;
@@ -249,8 +256,10 @@
     .formato-opciones { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     .formato-opcion {
         display: flex; flex-direction: column; align-items: center; gap: 4px;
-        padding: 18px 10px 16px;
-        background: #fff; border: 1.5px solid #e2e8f0; border-radius: 12px;
+        padding: 14px 10px 12px;
+        /* Rectángulo limpio: sin las esquinas redondeadas ya no parece una pastilla
+           dentro de otra (la tarjeta del modal ya redondea por fuera). */
+        background: #fff; border: 1.5px solid #e2e8f0; border-radius: 0;
         cursor: pointer; text-align: center;
         transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
     }
@@ -263,7 +272,6 @@
     .formato-opcion--excel:hover { border-color: #86efac; }
     .formato-opcion--excel .material-icons { color: #16a34a; }
     .formato-opcion-nombre { font-size: 15px; font-weight: 800; color: #0f172a; }
-    .formato-opcion-nota   { font-size: 11.5px; color: #94a3b8; line-height: 1.3; }
 
     /* ── Card "Salud Operacional" — ancho completo con grid horizontal espacioso ── */
     .salud-card {
@@ -1058,7 +1066,7 @@
                                         onclick="abrirFormatoReporteAlertas()"
                                         class="alertas-header-btn"
                                         title="Descargar reporte">
-                                    <i class="material-icons">file_download</i>
+                                    <i class="material-icons">download</i>
                                 </button>
                                 <button type="button" onclick="toggleExpiredDocs()"
                                         class="alertas-header-btn" title="Cerrar">
@@ -1085,7 +1093,7 @@
 
                 {{-- Elegir formato del reporte de Alertas. Reutiliza el overlay y la tarjeta
                      del modal de alertas (.alertas-modal-overlay/.alertas-modal-content) para
-                     que se vea igual; solo sube el z-index porque se abre ENCIMA de aquel.
+                     que se vea igual; mientras está abierto, aquel se retira de pantalla.
                      Las dos rutas devuelven el mismo reporte con las mismas filas: lo único
                      que cambia es el formato del archivo. --}}
                 <div class="alertas-modal-overlay formato-modal-overlay" id="formatoReporteModal"
@@ -1094,7 +1102,7 @@
                          aria-label="Formato del reporte">
                         <div class="alertas-panel-header">
                             <div class="alertas-panel-title">
-                                <i class="material-icons">file_download</i>
+                                <i class="material-icons">download</i>
                                 <span>Descargar reporte</span>
                             </div>
                             <button type="button" onclick="cerrarFormatoReporteAlertas()"
@@ -1109,13 +1117,11 @@
                                         onclick="descargarReporteAlertas(this, '{{ route('dashboard.exportDocumentsPDF') }}', 'pdf')">
                                     <i class="material-icons">picture_as_pdf</i>
                                     <span class="formato-opcion-nombre">PDF</span>
-                                    <span class="formato-opcion-nota">Para imprimir o firmar</span>
                                 </button>
                                 <button type="button" class="formato-opcion formato-opcion--excel"
                                         onclick="descargarReporteAlertas(this, '{{ route('dashboard.exportDocumentsExcel') }}', 'excel')">
                                     <i class="material-icons">table_chart</i>
                                     <span class="formato-opcion-nombre">Excel</span>
-                                    <span class="formato-opcion-nota">Para filtrar y ordenar</span>
                                 </button>
                             </div>
                         </div>
@@ -1361,11 +1367,16 @@
         window.abrirFormatoReporteAlertas = function () {
             const modal = document.getElementById('formatoReporteModal');
             if (modal) modal.classList.add('open');
+            // El de alertas se retira mientras se elige formato (lo devuelve el cerrar).
+            const alertas = document.getElementById('expiredDocsContainer');
+            if (alertas) alertas.classList.add('oculto-tras-formato');
         };
 
         window.cerrarFormatoReporteAlertas = function () {
             const modal = document.getElementById('formatoReporteModal');
             if (modal) modal.classList.remove('open');
+            const alertas = document.getElementById('expiredDocsContainer');
+            if (alertas) alertas.classList.remove('oculto-tras-formato');
         };
 
         // Descarga el reporte en el formato pedido. Los dos formatos comparten TODO el
@@ -1394,8 +1405,8 @@
             const cfg = FORMATOS[formato] || FORMATOS.pdf;
 
             if (btn) btn.disabled = true;
-            // El modal de formato se cierra de una: la espera la cuenta el spinner
-            // global, y dejarlo abierto encima del panel tapaba las alertas.
+            // El modal de formato se cierra de una —la espera la cuenta el spinner
+            // global— y con eso vuelve el panel de alertas que había reemplazado.
             window.cerrarFormatoReporteAlertas();
             if (window.showPreloader) window.showPreloader();
 

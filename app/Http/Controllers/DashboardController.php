@@ -9,6 +9,8 @@ use App\Models\CaracteristicaModelo;
 
 class DashboardController extends Controller
 {
+    use \App\Traits\ExcelLogoCorporativo;
+
     /**
      * Versión de los datos cacheados del dashboard. La incrementan los observers
      * de Equipo/Documentacion, FrenteTrabajo::booted Y los mass-updates por query
@@ -653,8 +655,9 @@ class DashboardController extends Controller
      * hoja de cálculo lo que sirve es poder filtrar y ordenar, y para eso los datos tienen
      * que ser una tabla plana. Por eso también lleva autofiltro y panel congelado.
      *
-     * Mismo estilo que el resto de exports del sistema (ver AlmacenController::export):
-     * título en azul corporativo, subtítulo con el alcance y encabezado de columnas.
+     * Lleva el MISMO membrete que la exportación de la lista de equipos
+     * (EquipoController::export): logo, título, bloque EDICION/REVISION/FECHA y la línea
+     * de "Exportado por" — es el formato que el cliente ya usa para firmar y archivar.
      */
     public function exportDocumentsExcel()
     {
@@ -668,85 +671,146 @@ class DashboardController extends Controller
             $libro = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
             $hoja  = $libro->getActiveSheet();
             $hoja->setTitle('ALERTAS');
+            $libro->getDefaultStyle()->getFont()->setName('Arial')->setSize(10);
 
-            $AZUL   = 'FF00004D';
+            $libro->getProperties()
+                ->setCreator('Sistema de Gestión de Equipos Operacionales')
+                ->setTitle('Alertas de Documentos')
+                ->setCompany('Constructora Vidalsa 27, C.A.');
+
             $SOLIDO = \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID;
             $CENTRO = \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER;
-            $ULTIMA = 'I';   // 9 columnas
+            $MEDIO  = \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER;
+            $NEGRO  = \PhpOffice\PhpSpreadsheet\Style\Color::COLOR_BLACK;
+            $BLANCO = 'FFFFFFFF';
 
-            $hoja->setCellValue('A1', 'ALERTAS DE DOCUMENTOS');
-            $hoja->mergeCells("A1:{$ULTIMA}1");
-            $hoja->getStyle('A1')->getFont()->setBold(true)->setSize(13)->getColor()->setARGB('FFFFFFFF');
-            $hoja->getStyle('A1')->getFill()->setFillType($SOLIDO)->getStartColor()->setARGB($AZUL);
-            $hoja->getStyle('A1')->getAlignment()->setHorizontal($CENTRO);
+            $ULTIMA     = 'H';   // 8 columnas
+            $FIN_TITULO = 'F';   // título: C..F (la parte ancha del membrete)
+            $EDICION    = 'G';   // EDICION / REVISION / FECHA: G..H (bloque angosto)
 
-            // El archivo se explica solo cuando se comparte por fuera del sistema: quién lo
-            // emitió, desde qué frente, cuándo y cuántas filas de cada tipo trae.
-            $hoja->setCellValue('A2', implode('   ·   ', [
-                'Emitido por: ' . $nombreUsuario,
+            // Anchos ANTES del logo: el trait centra la imagen midiendo el ancho de A y B,
+            // y con los anchos por defecto la calcula sobre una celda más chica que el logo.
+            $anchos = ['A' => 10, 'B' => 20, 'C' => 30, 'D' => 26,
+                       'E' => 22, 'F' => 28, 'G' => 13, 'H' => 26];
+            foreach ($anchos as $col => $ancho) {
+                $hoja->getColumnDimension($col)->setWidth($ancho);
+            }
+
+            // ── Membrete: el MISMO de la exportación de la lista de equipos
+            //    (ver EquipoController::export) — logo en A1:B3, título al centro,
+            //    EDICION/REVISION/FECHA a la derecha y "Exportado por" en la fila 4.
+            //
+            //    A1:B3 se dimensiona al TAMAÑO EXACTO del logo —ancho de A+B y, con la
+            //    proporción de la imagen, el alto de las tres filas—, así queda pegado a
+            //    la esquina y el recuadro del membrete calca el borde de la foto en vez
+            //    de dejarle un marco blanco alrededor. Con el merge a medida, el centrado
+            //    del trait da offset 0 solo.
+            [$logoAncho, $logoAlto] = @getimagesize(public_path('img/imagen_uno.jpg')) ?: [248, 194];
+            $altoLogoPx = (int) round(($anchos['A'] + $anchos['B']) * 7 / ($logoAncho / $logoAlto)); // 7 px por unidad de ancho (Arial 10)
+            foreach ([1, 2, 3] as $r) {
+                $hoja->getRowDimension($r)->setRowHeight($altoLogoPx / 3 * 72 / 96);   // px → puntos
+            }
+            $this->insertarLogoCorporativo($hoja, ['A', 'B'], [1, 2, 3], $altoLogoPx);
+
+            $hoja->mergeCells('A1:B3');
+            $hoja->getStyle('A1:B3')->getFill()->setFillType($SOLIDO)->getStartColor()->setARGB($BLANCO);
+
+            $hoja->mergeCells("C1:{$FIN_TITULO}3");
+            $hoja->setCellValue('C1', "ALERTAS DE DOCUMENTOS\nDOCUMENTOS VENCIDOS Y PRÓXIMOS A VENCER");
+            $hoja->getStyle('C1')->getAlignment()->setWrapText(true)->setHorizontal($CENTRO)->setVertical($MEDIO);
+            $hoja->getStyle('C1')->getFont()->setBold(true)->setSize(14)->getColor()->setARGB($NEGRO);
+            $hoja->getStyle("C1:{$FIN_TITULO}3")->getFill()->setFillType($SOLIDO)->getStartColor()->setARGB($BLANCO);
+
+            $bloqueDerecho = [
+                1 => 'EDICION: 1',
+                2 => 'REVISION: 0',
+                3 => 'FECHA: ' . \Carbon\Carbon::now()->format('d/m/Y'),
+            ];
+            foreach ($bloqueDerecho as $r => $texto) {
+                $hoja->mergeCells("{$EDICION}{$r}:{$ULTIMA}{$r}");
+                $hoja->setCellValue("{$EDICION}{$r}", $texto);
+                $hoja->getStyle("{$EDICION}{$r}")->getAlignment()->setHorizontal($CENTRO)->setVertical($MEDIO);
+                $hoja->getStyle("{$EDICION}{$r}")->getFont()->setBold(true)->setSize(11)->getColor()->setARGB($NEGRO);
+                $hoja->getStyle("{$EDICION}{$r}:{$ULTIMA}{$r}")->getFill()->setFillType($SOLIDO)->getStartColor()->setARGB($BLANCO);
+            }
+
+            // Fila 4: quién lo emitió, desde qué frente y cuántas filas trae. El archivo se
+            // comparte por fuera del sistema y tiene que explicarse solo.
+            $hoja->mergeCells("A4:{$ULTIMA}4");
+            $hoja->setCellValue('A4', implode('   ·   ', [
+                'Exportado por: ' . $nombreUsuario,
                 'Frente: ' . $nombreFrente,
                 \Carbon\Carbon::now()->format('d/m/Y H:i'),
                 $vencidos->count() . ' vencido(s)',
                 $proximos->count() . ' próximo(s) a vencer',
-                'DÍAS en negativo = ya vencido',
             ]));
-            $hoja->mergeCells("A2:{$ULTIMA}2");
-            $hoja->getStyle('A2')->getFont()->setItalic(true)->setSize(10)->getColor()->setARGB('FF64748B');
+            $hoja->getStyle("A4:{$ULTIMA}4")->getFill()->setFillType($SOLIDO)->getStartColor()->setARGB($BLANCO);
+            $hoja->getStyle("A4:{$ULTIMA}4")->getAlignment()
+                ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_RIGHT)->setVertical($MEDIO);
+            $hoja->getStyle("A4:{$ULTIMA}4")->getFont()->setItalic(true)->setSize(9)->getColor()->setARGB('FF333333');
+            $hoja->getRowDimension(4)->setRowHeight(20);
 
-            $cols = ['N°', 'ESTADO', 'FRENTE', 'TIPO', 'SERIAL / PLACA', 'DOCUMENTO', 'VENCE', 'DÍAS', 'GESTIONADO POR'];
-            $hoja->fromArray($cols, null, 'A4');
-            $hoja->getStyle("A4:{$ULTIMA}4")->getFont()->setBold(true)->getColor()->setARGB('FFFFFFFF');
-            $hoja->getStyle("A4:{$ULTIMA}4")->getFill()->setFillType($SOLIDO)->getStartColor()->setARGB($AZUL);
+            $bordeFino = ['borders' => ['allBorders' => [
+                'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
+                'color'       => ['argb' => 'FF000000'],
+            ]]];
+            $hoja->getStyle("A1:{$ULTIMA}4")->applyFromArray($bordeFino);
+
+            // Fila 5: encabezado de columnas, con el azul de la exportación de equipos.
+            $cols = ['N°', 'ESTADO', 'FRENTE', 'TIPO', 'SERIAL / PLACA', 'DOCUMENTO', 'VENCE', 'GESTIONADO POR'];
+            $hoja->fromArray($cols, null, 'A5');
+            $hoja->getStyle("A5:{$ULTIMA}5")->getAlignment()->setHorizontal($CENTRO)->setVertical($MEDIO)->setWrapText(true);
+            $hoja->getStyle("A5:{$ULTIMA}5")->getFont()->setBold(true)->setSize(10)->getColor()->setARGB($BLANCO);
+            $hoja->getStyle("A5:{$ULTIMA}5")->getFill()->setFillType($SOLIDO)->getStartColor()->setARGB('FF1B365D');
+            $hoja->getRowDimension(5)->setRowHeight(40);
 
             // Vencidas primero y luego las próximas, el mismo orden de lectura del PDF.
-            $hoy   = \Carbon\Carbon::today();
-            $fila  = 5;
+            //
+            // Las filas se arman en memoria y se vuelcan de UNA sola vez: un fromArray por
+            // registro es una pasada de PhpSpreadsheet por fila, y este reporte se pide con
+            // la flota entera encima.
+            $filas = [];
             $n     = 0;
-            $rojas = [];   // filas vencidas, para pintarlas de una sola pasada al final
 
             foreach ([['VENCIDO', $vencidos], ['POR VENCER', $proximos]] as [$estado, $grupo]) {
                 foreach ($grupo as $alerta) {
-                    $vence = \Carbon\Carbon::parse($alerta->fecha);
-
-                    $hoja->fromArray([
+                    $filas[] = [
                         ++$n,
                         $estado,
                         $alerta->frente_texto ?: 'N/A',
                         $alerta->tipo_texto   ?: 'N/A',
                         $alerta->identificador ?: '---',
                         mb_strtoupper($alerta->label, 'UTF-8'),
-                        $vence->format('d/m/Y'),
-                        // Negativo = ya vencido. Entero con signo para que la columna se
-                        // pueda ordenar de peor a mejor sin leer la fecha.
-                        (int) $hoy->diffInDays($vence, false),
+                        \Carbon\Carbon::parse($alerta->fecha)->format('d/m/Y'),
                         $alerta->gestionado_por ?? '',
-                    ], null, 'A' . $fila);
-
-                    if ($estado === 'VENCIDO') {
-                        $rojas[] = $fila;
-                    }
-                    $fila++;
+                    ];
                 }
             }
+            $hoja->fromArray($filas, null, 'A6');
 
             // Sin filas no hay tabla que filtrar: se deja constancia y se devuelve el
             // archivo igual (bajar un Excel vacío confunde más que un aviso).
+            $ultimaFila = max($n + 5, 6);
             if ($n === 0) {
-                $hoja->setCellValue('A5', 'No hay documentos vencidos ni próximos a vencer.');
-                $hoja->mergeCells("A5:{$ULTIMA}5");
-                $hoja->getStyle('A5')->getFont()->setItalic(true)->getColor()->setARGB('FF64748B');
+                $hoja->setCellValue('A6', 'No hay documentos vencidos ni próximos a vencer.');
+                $hoja->mergeCells("A6:{$ULTIMA}6");
+                $hoja->getStyle('A6')->getFont()->setItalic(true)->getColor()->setARGB('FF64748B');
             } else {
                 // ESTADO en rojo solo en las vencidas: es la columna por la que se filtra.
-                foreach ($rojas as $r) {
-                    $hoja->getStyle("B{$r}")->getFont()->setBold(true)->getColor()->setARGB('FFDC2626');
+                // Van todas juntas al principio (es el orden de arriba), así que se pintan
+                // como UN rango en vez de celda por celda.
+                if ($vencidos->isNotEmpty()) {
+                    $hoja->getStyle('B6:B' . (5 + $vencidos->count()))
+                         ->getFont()->setBold(true)->getColor()->setARGB('FFDC2626');
                 }
-                $hoja->setAutoFilter("A4:{$ULTIMA}" . ($fila - 1));
+                $hoja->setAutoFilter("A5:{$ULTIMA}{$ultimaFila}");
             }
 
-            foreach (range('A', $ULTIMA) as $c) {
-                $hoja->getColumnDimension($c)->setAutoSize(true);
-            }
-            $hoja->freezePane('A5');
+            // Cuadrícula sobre encabezado y datos: enmarcada, la hoja se lee como una
+            // tabla y no como texto suelto. Mismo borde fino del membrete.
+            $hoja->getStyle("A5:{$ULTIMA}{$ultimaFila}")->applyFromArray($bordeFino);
+
+            $hoja->freezePane('A6');
 
             $nombre = 'Reporte_Documentos_' . \Carbon\Carbon::now()->format('Y-m-d_His') . '.xlsx';
             return response()->streamDownload(function () use ($libro) {

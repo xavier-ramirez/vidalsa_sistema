@@ -23,17 +23,17 @@ if (!window._alertasModalEscHandler) {
     document.addEventListener('keydown', function (e) {
         if (e.key !== 'Escape') return;
 
-        // Escape cierra el modal de ARRIBA. El de "¿PDF o Excel?" se abre encima del de
-        // alertas: sin esta rama, Escape cerraba el de abajo y el de formato quedaba
+        // Escape cierra el modal de ARRIBA. El de "¿PDF o Excel?" reemplaza en pantalla
+        // al de alertas: sin esta rama, Escape cerraba el de abajo y el de formato quedaba
         // flotando sobre nada — y de paso toggleExpiredDocs devolvía el scroll del body
         // con un modal todavía abierto.
+        //
+        // Se cierra SIEMPRE por cerrarFormatoReporteAlertas(), nunca quitando la clase a
+        // mano: ese cierre es también el que devuelve el modal de alertas. La función
+        // existe seguro —el modal solo se abre llamando a su pareja abrir...()—.
         const formato = document.getElementById('formatoReporteModal');
         if (formato && formato.classList.contains('open')) {
-            if (typeof window.cerrarFormatoReporteAlertas === 'function') {
-                window.cerrarFormatoReporteAlertas();
-            } else {
-                formato.classList.remove('open');
-            }
+            window.cerrarFormatoReporteAlertas();
             return;
         }
 
