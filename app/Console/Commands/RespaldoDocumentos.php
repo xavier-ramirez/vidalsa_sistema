@@ -179,7 +179,18 @@ class RespaldoDocumentos extends Command
 
         try {
             $stream = $drive->getStreamById($driveId);
-            file_put_contents($rutaAbs, $stream->getContents());
+            $contenido = $stream->getContents();
+            // getStreamById lee de la conexion con Drive mientras llega: si Drive corta a
+            // mitad, getContents() devuelve lo recibido SIN error. Se compara con el tamaño
+            // que Drive dice que tiene para no guardar —y contar como OK— un PDF truncado.
+            $esperado = (int) $drive->getDrive()->files->get($driveId, [
+                'fields' => 'size',
+                'supportsAllDrives' => true,
+            ])->getSize();
+            if ($esperado > 0 && strlen($contenido) !== $esperado) {
+                throw new \RuntimeException('descarga incompleta: ' . strlen($contenido) . ' de ' . $esperado . ' bytes');
+            }
+            file_put_contents($rutaAbs, $contenido);
             usleep(80000); // 80ms para no saturar la API de Drive
             $stats['ok']++;
             return ['archivo' => $rutaRel, 'drive_id' => $driveId, 'estado' => 'OK'];

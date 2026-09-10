@@ -325,8 +325,11 @@ class GoogleDriveService
                 }
             }
         } catch (\Throwable $e) {
-            // Un 404 tambien es una respuesta: el archivo no esta en Drive.
-            $apiContesto = $e->getCode() === 404;
+            // Un 404 tambien es una respuesta: el archivo no esta en Drive. Y si lo que fallo
+            // fue la descarga de la miniatura (p. ej. se agoto el tiempo) la API YA habia
+            // contestado: no se pierde eso, o se caeria a la URL publica, que con un archivo
+            // privado es justo la espera de hasta 27 s que se quiere evitar.
+            $apiContesto = $apiContesto || $e->getCode() === 404;
             Log::warning('Miniatura de Drive por API fallo para ' . $fileId . ': ' . $e->getMessage());
         }
 

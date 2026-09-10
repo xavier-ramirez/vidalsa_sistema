@@ -2452,11 +2452,22 @@ window.uploadDocumentFromPreview = function (input, type, equipoId, label) {
                     // cambia (lleva ?upd=<timestamp>), asi que recargaria igual, pero se
                     // estrena por la misma regla — que nadie reutilice el elemento del
                     // documento anterior (ver _pdfRenovarVisorIzq).
+                    //
+                    // Y la carga del documento ANTERIOR se da por terminada: si seguia bajando
+                    // (PDF grande, red lenta) su vista previa, su cargador y sus temporizadores
+                    // se quedaban encima del nuevo hasta el tope de 90 s. El cargador lo tapa la
+                    // capa de subida, que ya dice lo que pasa.
+                    _pdfCancelarCargaIzq();
+                    const cargadorVisor = document.getElementById('pdfViewerLoader');
+                    if (cargadorVisor) cargadorVisor.style.display = 'none';
                     const iframe = _pdfRenovarVisorIzq(null);
 
                     // Update iframe to show new PDF
                     if (iframe) {
                         iframe.style.opacity = '0';
+                        // El clon hereda el desenfoque de carga del anterior, y aqui nadie
+                        // se lo quitaria: este onload solo toca la opacidad.
+                        iframe.style.filter = PDF_SIN_BLUR;
 
                         // Setup load handler for new PDF to hide overlay ONLY when ready
                         iframe.onload = function () {
