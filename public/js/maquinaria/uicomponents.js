@@ -965,10 +965,8 @@ window.showDetailsImproved = function (target, event) {
                         onclick="event.stopPropagation(); openPdfPreview('${link}', '${type}', '${label}', '${equipoId}')"
                         style="background: none; border: none; padding: 0; cursor: default; display: flex; align-items: center; justify-content: center;"
                         title="Ver documento: ${label}">
-                        <span style="display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:7px; background:linear-gradient(135deg,#1e3a5f,#2563eb); box-shadow:0 2px 6px rgba(37,99,235,0.35); transition: transform 0.15s, box-shadow 0.15s;"
-                            onmouseover="this.style.transform='scale(1.1)'; this.style.boxShadow='0 4px 12px rgba(37,99,235,0.5)'"
-                            onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 2px 6px rgba(37,99,235,0.35)'">
-                            <i class="material-icons" style="font-size:17px; color:white; pointer-events:none;">description</i>
+                        <span class="pdf-doc-btn">
+                            <i class="material-icons">description</i>
                         </span>
                     </button>
                 </div>
@@ -1182,7 +1180,7 @@ window.showDetailsImproved = function (target, event) {
                         <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;padding:3px 0;border-bottom:1px dashed #f1f5f9;">
                             <span style="color:#64748b;font-size:12px;">${label}</span>
                             ${link
-                                ? `<button type="button" title="Ver PDF" onclick="event.stopPropagation(); window.openPdfPreview('${link}','${docType}','${label}',0,'',true,'auxiliar');" style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:7px;background:#0067b1;box-shadow:0 2px 6px rgba(0,103,177,0.35);border:none;cursor:default;flex-shrink:0;"><i class="material-icons" style="font-size:17px;color:white;">description</i></button>`
+                                ? `<button class="pdf-doc-btn" type="button" title="Ver PDF" onclick="event.stopPropagation(); window.openPdfPreview('${link}','${docType}','${label}',0,'',true,'auxiliar');" ><i class="material-icons">description</i></button>`
                                 : `<span style="color:#94a3b8;font-size:12px;">No cargado</span>`}
                         </div>`;
 

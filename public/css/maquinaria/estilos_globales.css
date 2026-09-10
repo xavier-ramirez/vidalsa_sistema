@@ -4875,3 +4875,43 @@ body:has(.mapa-page) .main-viewport {
 }
 .mv-tomado-de i { font-size: 13px; flex-shrink: 0; }
 .mv-tomado-de strong { font-weight: 700; }
+
+/* ── Botón cuadrado que abre un PDF de documento ─────────────────────────────
+   El mismo botón (30×30, icono `description` en blanco) aparecía escrito a mano en
+   OCHO sitios —el modal de detalles de equipos y el de auxiliares, los formularios de
+   los dos, y la ficha de maquinaria— con TRES aspectos distintos: unos con degradado
+   azul, otros con azul plano #0067b1, y solo uno con efecto al pasar el ratón. Eso es
+   lo que hacía que el mismo botón se viera de un tono en un modal y de otro tono en el
+   de al lado.
+
+   Ahora hay una sola definición, la de Equipos (degradado + realce al pasar), y todos
+   la usan. Sirve tanto para <button> como para <a>, por eso lleva text-decoration.
+
+   Los que NO lo usan y no deben: .anf-pdf-btn de la lista de Notas de Entrega, que es
+   otro componente (aparece al pasar por la fila, no es un botón fijo de documento). */
+.pdf-doc-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    flex-shrink: 0;
+    border: none;
+    border-radius: 7px;
+    padding: 0;
+    background: linear-gradient(135deg, #1e3a5f, #2563eb);
+    box-shadow: 0 2px 6px rgba(37, 99, 235, 0.35);
+    text-decoration: none;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+}
+.pdf-doc-btn:hover,
+.pdf-doc-btn:focus-visible {
+    transform: scale(1.1);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.5);
+}
+.pdf-doc-btn .material-icons {
+    font-size: 17px;
+    color: #fff;
+    pointer-events: none;
+}

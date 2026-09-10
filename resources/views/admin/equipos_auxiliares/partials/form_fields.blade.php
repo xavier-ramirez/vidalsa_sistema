@@ -300,8 +300,8 @@
             <div class="pdf-btn-container" style="display:flex; align-items:center; gap:6px;">
                 @if($hasProp)
                     <a href="{{ asset($auxiliar->LINK_DOC_PROPIEDAD) }}" target="_blank" rel="noopener" title="Ver documento: Propiedad"
-                       style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:7px; background:linear-gradient(135deg,#1e3a5f,#2563eb); box-shadow:0 2px 6px rgba(37,99,235,0.35);">
-                        <i class="material-icons" style="font-size:17px; color:white;">description</i>
+                       class="pdf-doc-btn">
+                        <i class="material-icons">description</i>
                     </a>
                     <label for="doc_propiedad" title="Reemplazar PDF"
                            style="display:flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:6px; color:#64748b; cursor:pointer; background:#f1f5f9;"
@@ -334,8 +334,8 @@
             <div class="pdf-btn-container" style="display:flex; align-items:center; gap:6px;">
                 @if($hasCert)
                     <a href="{{ asset($auxiliar->LINK_CERTIFICADO) }}" target="_blank" rel="noopener" title="Ver certificado"
-                       style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:7px; background:linear-gradient(135deg,#1e3a5f,#2563eb); box-shadow:0 2px 6px rgba(37,99,235,0.35);">
-                        <i class="material-icons" style="font-size:17px; color:white;">description</i>
+                       class="pdf-doc-btn">
+                        <i class="material-icons">description</i>
                     </a>
                     <label for="certificado" title="Reemplazar certificado"
                            style="display:flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:6px; color:#64748b; cursor:pointer; background:#f1f5f9;"

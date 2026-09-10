@@ -329,7 +329,7 @@
                 const safeUrl = url.replace(/'/g, "\\'");
                 const uploadUrl = '/admin/equipos-auxiliares/' + d.id + '/upload-doc';
                 const onclickHandler = `window.openPdfPreview('${safeUrl}','${docType}','${labelHr}',${d.id},'${uploadUrl}',false,'auxiliar');`;
-                return `<button type="button" title="Ver PDF" onclick="${onclickHandler}" style="display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:7px; background:#0067b1; box-shadow:0 2px 6px rgba(0,103,177,0.35); border:none; cursor:pointer; flex-shrink:0;"><i class="material-icons" style="font-size:17px; color:white;">description</i></button>`;
+                return `<button class="pdf-doc-btn" type="button" title="Ver PDF" onclick="${onclickHandler}" ><i class="material-icons">description</i></button>`;
             }
             if (d.can_upload_pdf && docType) {
                 // Usamos div+onclick en lugar de label para evitar que Materialize CSS
@@ -400,7 +400,7 @@
                 <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;padding:3px 0;border-bottom:1px dashed #f1f5f9;">
                     <span style="color:#64748b;font-size:12px;">${label}</span>
                     ${link
-                        ? `<button type="button" title="Ver PDF" onclick="event.stopPropagation(); window.openPdfPreview('${link}','${docType}','${label}',0,'',true);" style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:7px;background:#0067b1;box-shadow:0 2px 6px rgba(0,103,177,0.35);border:none;cursor:pointer;flex-shrink:0;"><i class="material-icons" style="font-size:17px;color:white;">description</i></button>`
+                        ? `<button class="pdf-doc-btn" type="button" title="Ver PDF" onclick="event.stopPropagation(); window.openPdfPreview('${link}','${docType}','${label}',0,'',true);" ><i class="material-icons">description</i></button>`
                         : `<span style="color:#94a3b8;font-size:12px;">No cargado</span>`}
                 </div>`;
             // Tarjeta desplegable: la fila (summary) + los DOCUMENTOS del equipo host (los
