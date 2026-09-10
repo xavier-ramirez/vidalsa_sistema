@@ -742,6 +742,17 @@ const PDF_PREVIA_ALTA = 'w1024';
    instante. */
 const PDF_PREVIA_ALTA_TRAS_MS = 600;
 
+/* Cuanto se espera, tras el onload del PDF, para empezar a retirar la vista previa. El
+   onload dice que el archivo llego, no que el visor lo haya pintado, y dibujar la primera
+   pagina de un escaneo pesado le lleva a PDFium bastante mas que los 200 ms de
+   PDF_PINTADO_MS (que alcanzan cuando no hay imagen delante: ahi solo se enfoca). Con la
+   imagen retirandose antes de tiempo se veia borrosa -> fondo gris -> PDF nitido. */
+const PDF_PREVIA_ESPERA_MS = 1200;
+/* Duracion del fundido de la imagen al PDF. La MISMA que la transicion de opacidad de
+   .pdf-previa en estilos_globales.css: si se tocan, van juntas. Larga a proposito, para que
+   si el PDF tarda un poco mas en pintar se vea un cruce y no un salto. */
+const PDF_PREVIA_FUNDIDO_MS = 600;
+
 /* Numero de apertura. Cada apertura, cierre o cambio de documento lo incrementa, y una
    imagen que llega tarde solo se pinta si sigue siendo el suyo: sin esto, la miniatura
    de un documento cerrado podia aparecer encima del siguiente. */
@@ -818,7 +829,13 @@ const _pdfPreviaQuitar = function (conFundido) {
     };
     if (!conFundido || !capa || capa.hidden) { recoger(); return; }
     capa.classList.add('pdf-previa--saliendo');
-    _pdfPreviaFundido = setTimeout(recoger, 300);   // = transicion de opacidad de .pdf-previa
+    _pdfPreviaFundido = setTimeout(recoger, PDF_PREVIA_FUNDIDO_MS);
+};
+
+/** ¿Hay una vista previa a la vista (y no saliendo)? */
+const _pdfPreviaVisible = function () {
+    const capa = document.getElementById('pdfPreviaIzq');
+    return !!capa && !capa.hidden && !capa.classList.contains('pdf-previa--saliendo');
 };
 
 /**
@@ -1004,6 +1021,10 @@ window.openPdfPreview = function (url, docType, label, equipoId, uploadUrl, skip
         // El spinner se apaga tambien ahi, no antes: quitarlo con el iframe todavia vacio
         // deja "modal abierto + sin spinner + gris", un fallo que ya paso.
         clearTimeout(_pdfEnfoqueTimeout);
+        // Con la vista previa a la vista se espera MAS: la imagen tapa el visor, y si se
+        // retira antes de que PDFium pinte, entre la imagen y el PDF asoma el fondo gris
+        // del visor (se veia: borrosa -> gris -> nitido). Ver PDF_PREVIA_ESPERA_MS.
+        const conPrevia = _pdfPreviaVisible();
         _pdfEnfoqueTimeout = setTimeout(() => {
             apagarLoader();
             // La primera pagina en imagen se funde y queda el documento de verdad, que
@@ -1014,7 +1035,7 @@ window.openPdfPreview = function (url, docType, label, equipoId, uploadUrl, skip
             // Enfoca lo que ya se esta viendo borroso. La transicion del CSS es la que da
             // la sensacion de "termino de llegar".
             iframe.style.filter = PDF_SIN_BLUR;
-        }, PDF_PINTADO_MS);
+        }, conPrevia ? PDF_PREVIA_ESPERA_MS : PDF_PINTADO_MS);
     };
 
     // Set source and setup load listener

@@ -1712,7 +1712,8 @@ input[type="password"]::-ms-clear {
     overflow: hidden;
     background: #282828;
     pointer-events: none;
-    transition: opacity .3s;
+    /* = PDF_PREVIA_FUNDIDO_MS en layout_ui.js: si se toca uno, el otro tambien. */
+    transition: opacity .6s;
 }
 /* Ancho de la hoja carta al 100 % —816 px, el zoom con el que abre el visor nativo—
    para que al fundirse con el documento real la pagina no salte de tamaño. */
