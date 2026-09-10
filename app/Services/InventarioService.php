@@ -215,20 +215,56 @@ class InventarioService
                 ->unique(fn ($x) => $x['a'] . '-' . $x['p'])
                 ->values();
 
-            // Capturar el SALDO DE APERTURA de cada chain ANTES de borrar: es el
-            // CANTIDAD_ANTERIOR del movimiento más antiguo (menor ID). El kardex NO siempre
+            // Capturar el SALDO DE APERTURA de cada BOLSA ANTES de borrar: es el
+            // CANTIDAD_ANTERIOR de su movimiento más antiguo (menor ID). El kardex NO siempre
             // arranca en 0 — puede haber un saldo inicial de migración o movimientos previos
             // ya archivados — así que recalcular desde 0 destrozaría el stock. Esa apertura
-            // es el saldo previo al primer movimiento y se preserva tal cual.
-            $aperturas = [];
+            // es el saldo previo al primer movimiento de la bolsa y se preserva tal cual.
+            // Sirve igual si el movimiento borrado ERA el más antiguo: la apertura describe
+            // el saldo de ANTES de él, así que el replay lo deja fuera y da el número justo.
+            //
+            // Y si una bolsa no tiene NI UN movimiento (saldo cargado por importación, típico
+            // en los almacenes que ya venían con inventario), su apertura es su saldo ACTUAL:
+            // el kardex no lo explica, pero existe, y recalcularlo desde 0 lo borraría.
+            //
+            // Las bolsas se listan aquí una sola vez y se reutilizan abajo en el recálculo:
+            // dos listados separados podían recalcular una bolsa con la apertura de otra.
+            $bolsasPorPar = [];
+            $aperturas    = [];
             foreach ($pares as $par) {
-                $clave = $par['a'] . '-' . $par['p'];
-                $aperturas[$clave] = (float) (
-                    MovimientoInventario::where('ID_ALMACEN', $par['a'])
+                $clave  = $par['a'] . '-' . $par['p'];
+                $separa = $this->almacenSepara($par['a']);
+
+                $bolsas = AlmacenStock::where('ID_ALMACEN', $par['a'])
+                    ->where('ID_PRODUCTO', $par['p'])
+                    ->pluck('ID_FRENTE')
+                    ->map(fn ($v) => (int) $v)
+                    ->all();
+                if ($bolsas === []) {
+                    $bolsas = [self::FRENTE_BOLSA_COMUN];
+                }
+                $bolsasPorPar[$clave] = $bolsas;
+
+                foreach ($bolsas as $bolsa) {
+                    // MISMO criterio de pertenencia que usa el recálculo (ver
+                    // recalcularSaldoProducto): sin separación por proyecto todo el kardex es
+                    // de la única bolsa, y con ella la bolsa la dice ID_FRENTE_SALDO sola.
+                    $anterior = MovimientoInventario::where('ID_ALMACEN', $par['a'])
                         ->where('ID_PRODUCTO', $par['p'])
+                        ->when(
+                            $separa,
+                            fn ($q) => $q->where('ID_FRENTE_SALDO', $bolsa)
+                        )
                         ->orderBy('ID_MOVIMIENTO')
-                        ->value('CANTIDAD_ANTERIOR') ?? 0
-                );
+                        ->value('CANTIDAD_ANTERIOR');
+
+                    $aperturas[$clave][$bolsa] = $anterior !== null
+                        ? (float) $anterior
+                        : (float) (AlmacenStock::where('ID_ALMACEN', $par['a'])
+                            ->where('ID_PRODUCTO', $par['p'])
+                            ->where('ID_FRENTE', $bolsa)
+                            ->value('CANTIDAD') ?? 0);
+                }
             }
 
             // Borrado duro de las filas del kardex.
@@ -249,22 +285,17 @@ class InventarioService
             // reposición del saldo de apertura.
             $afectados = [];
             foreach ($pares as $par) {
-                $frentes = AlmacenStock::where('ID_ALMACEN', $par['a'])
-                    ->where('ID_PRODUCTO', $par['p'])
-                    ->pluck('ID_FRENTE')
-                    ->map(fn ($v) => (int) $v)
-                    ->all();
-                if ($frentes === []) {
-                    $frentes = [self::FRENTE_BOLSA_COMUN];
-                }
-
+                $clave = $par['a'] . '-' . $par['p'];
                 $total = 0.0;
-                foreach ($frentes as $idFrente) {
-                    // La apertura solo aplica a la bolsa común: es el saldo previo al primer
-                    // movimiento del kardex, anterior a que existiera la separación por
-                    // proyecto. Sumarla a cada frente multiplicaría stock que nunca existió.
-                    $ap = $idFrente === self::FRENTE_BOLSA_COMUN ? $aperturas[$par['a'] . '-' . $par['p']] : 0.0;
-                    $total += $this->recalcularSaldoProducto($par['a'], $par['p'], $ap, $idFrente);
+                foreach ($bolsasPorPar[$clave] as $idFrente) {
+                    // Cada bolsa se reconstruye desde SU propia apertura (capturada arriba):
+                    // el saldo que ya tenía antes del primer movimiento que la explica.
+                    $total += $this->recalcularSaldoProducto(
+                        $par['a'],
+                        $par['p'],
+                        $aperturas[$clave][$idFrente] ?? 0.0,
+                        $idFrente
+                    );
                 }
                 $afectados[] = ['id_almacen' => $par['a'], 'id_producto' => $par['p'], 'saldo' => $total];
             }
@@ -353,17 +384,21 @@ class InventarioService
             ->lockForUpdate()
             ->first();
 
-        // Solo los movimientos DE ESE MISMO saldo: cada fila se reconstruye con su propio
-        // kardex. Los movimientos de un almacén que no separa por proyecto llevan frente
-        // NULL o el del destino, y su saldo es siempre el 0 — por eso el criterio mira el
-        // frente del SALDO, que es el que aplicarMovimiento usó al descontarlo.
+        // Solo los movimientos DE ESE MISMO saldo: cada bolsa se reconstruye con su propio
+        // kardex, y la bolsa la dice ID_FRENTE_SALDO y nada más. Las filas anteriores a esa
+        // columna ya la tienen rellenada (migración backfill_id_frente_saldo_movimientos),
+        // así que aquí NO va un COALESCE: envolver la columna en una función anulaba el
+        // índice mov_inv_alm_prod_frsaldo_idx y MySQL se iba a un index_merge.
+        //
+        // El filtro solo aplica si el almacén separa por proyecto: en el resto TODO su
+        // kardex pertenece a la única bolsa (la común) aunque las filas lleven el frente
+        // del destino, que ahí es solo el dato de a quién se le entregó.
         $movs = MovimientoInventario::where('ID_ALMACEN', $idAlmacen)
             ->where('ID_PRODUCTO', $idProducto)
-            ->when($this->almacenSepara($idAlmacen), fn ($q) => $q->where(
-                fn ($w) => $idFrente === self::FRENTE_BOLSA_COMUN
-                    ? $w->whereNull('ID_FRENTE')->orWhere('ID_FRENTE', self::FRENTE_BOLSA_COMUN)
-                    : $w->where('ID_FRENTE', $idFrente)
-            ))
+            ->when(
+                $this->almacenSepara($idAlmacen),
+                fn ($q) => $q->where('ID_FRENTE_SALDO', $idFrente)
+            )
             ->orderBy('ID_MOVIMIENTO')
             ->get();
 
@@ -428,6 +463,76 @@ class InventarioService
      */
     public const FRENTE_BOLSA_COMUN = 0;
 
+    /**
+     * Bolsas PROPIAS de una salida: la de $bolsaPreferente y la común, en el orden en que
+     * se consumen. De ahí sale material sin tocar el de nadie más.
+     *
+     * $bolsaPreferente es la bolsa por la que EMPIEZA el despacho: normalmente la del
+     * proyecto destino, o la que el usuario eligió a mano en el desglose por proyecto de esa
+     * fila cuando un proyecto le presta material a otro (ver frenteDelSaldo). Quien llama ya
+     * resolvió cuál de las dos es — aquí solo se ordena.
+     *
+     * FUENTE ÚNICA de ese criterio: lo usan la cascada al despachar
+     * (aplicarSalidaConCascada, que después sigue con las bolsas ajenas) y la vista previa
+     * de la Nota, que compara contra ellas para avisar cuánto se va a tomar prestado. Si
+     * los dos no coinciden, el aviso miente sobre lo que va a pasar al registrar.
+     */
+    public static function bolsasPropias(?int $bolsaPreferente): array
+    {
+        return array_values(array_unique([
+            (int) ($bolsaPreferente ?? self::FRENTE_BOLSA_COMUN),
+            self::FRENTE_BOLSA_COMUN,
+        ]));
+    }
+
+    /**
+     * Cómo se NOMBRA la bolsa común en pantalla. Dos redacciones porque se lee en dos
+     * sitios distintos —una lista de proyectos y una frase—, pero viven aquí juntas para
+     * que no se puedan desincronizar: hasta ahora estaban escritas a mano en la vista del
+     * panel, en el kardex, en el export de la bitácora y en el detalle del producto.
+     */
+    public const ROTULO_BOLSA_COMUN          = 'Sin proyecto (común)';   // columna o lista
+    public const ROTULO_BOLSA_COMUN_EN_FRASE = 'material sin asignar';   // "del saldo de …"
+
+    /**
+     * ¿Esta fila de saldo es la bolsa común? Frente 0 es el centinela; NULL en el nombre
+     * es la misma cosa vista desde un LEFT JOIN que no encontró frente (o un frente
+     * borrado). Los dos casos son saldo del almacén sin proyecto asignado.
+     *
+     * El nombre es OBLIGATORIO, sin valor por defecto: con `= null` una llamada de un solo
+     * argumento —esBolsaComun(5)— devolvía true y rotulaba un proyecto real como bolsa
+     * común, sin error. Quien solo tenga el id y no el nombre debe pasar explícitamente el
+     * que haya (o cadena vacía), no omitirlo.
+     */
+    public static function esBolsaComun(?int $idFrente, ?string $nombreFrente): bool
+    {
+        return (int) $idFrente === self::FRENTE_BOLSA_COMUN || $nombreFrente === null;
+    }
+
+    /**
+     * Nombre a mostrar de la bolsa PRESTADA de un movimiento (la que devuelve
+     * MovimientoInventario::bolsaPrestada), resolviendo el id contra el mapa de nombres de
+     * MovimientoInventario::nombresDeBolsa. Lo usan el kardex en pantalla y el export.
+     *
+     * $rotuloComun deja elegir la redacción de la bolsa 0 según dónde se lea: la de lista
+     * por defecto, o ROTULO_BOLSA_COMUN_EN_FRASE cuando va dentro de "del saldo de …".
+     * El resto —incluido el respaldo por si el frente ya no existe— es igual en los dos.
+     */
+    public static function rotuloBolsaPrestada(int $bolsa, $nombres, ?string $rotuloComun = null): string
+    {
+        return $bolsa === self::FRENTE_BOLSA_COMUN
+            ? ($rotuloComun ?? self::ROTULO_BOLSA_COMUN)
+            : ($nombres[$bolsa] ?? ('proyecto #' . $bolsa));
+    }
+
+    /** Nombre a mostrar de una bolsa: el del proyecto, o el rótulo de la común. */
+    public static function rotuloBolsa(?int $idFrente, ?string $nombreFrente): string
+    {
+        return self::esBolsaComun($idFrente, $nombreFrente)
+            ? self::ROTULO_BOLSA_COMUN
+            : $nombreFrente;
+    }
+
     /** ¿El almacén lleva saldo por proyecto? Cacheado: el recálculo pregunta por cada fila. */
     private array $separaCache = [];
 
@@ -449,6 +554,12 @@ class InventarioService
         // sigue registrando en el kardex el proyecto que recibió (id_frente). Sin esta
         // distinción, el material entregado a un proyecto aparecería en la bitácora como
         // si no fuera de nadie.
+        //
+        // La misma clave llega desde FUERA cuando el usuario elige a mano "Sale del saldo
+        // de" en el formulario de salida: es el mismo dato —de qué bolsa se descuenta—, y
+        // así una entrega de apoyo (sale del saldo de un proyecto y se entrega a otro)
+        // empieza por la bolsa elegida en vez de por la del destino. Desde ahí la cascada
+        // sigue igual: común y después el resto, si no alcanza.
         if (array_key_exists('_frente_saldo', $opts)) {
             return (int) $opts['_frente_saldo'];
         }
@@ -457,64 +568,109 @@ class InventarioService
     }
 
     /**
-     * Salida que consume PRIMERO del saldo del proyecto y, si no alcanza, el resto de la
-     * bolsa común del almacén (el material que aún no está atribuido a nadie).
+     * Salida que consume las bolsas del almacén EN ORDEN hasta completar la cantidad:
      *
-     * Cuando hace falta tirar de las dos bolsas se registran DOS movimientos, uno por
-     * bolsa: así cada fila del kardex sigue explicando el saldo del que salió y las
-     * cantidades anterior/resultante cuadran. Devuelve el movimiento del tramo del
-     * proyecto (el principal); si todo salió de la común, ese único movimiento.
+     *   1. La bolsa de SALIDA       — la que eligió la línea en el desglose por proyecto de su
+     *                                 fila y, si no eligió, la del proyecto destino de la nota
+     *                                 (ver frenteDelSaldo).
+     *   2. La COMÚN (frente 0)      — material del almacén que aún no es de nadie.
+     *   3. El RESTO de los proyectos, de mayor a menor saldo — material que está
+     *      físicamente en el almacén pero asignado a otro proyecto.
      *
-     * Si entre las dos no alcanza, el segundo tramo falla con el "Stock insuficiente" de
-     * siempre y la transacción del llamador revierte ambos.
+     * El paso 3 es lo que permite resolver en obra: el material está en la bodega, y
+     * prestárselo a otro frente es un ajuste normal de almacén. NO se pierde de vista de
+     * quién era: cada tramo es su propia fila del kardex, con la bolsa que se descontó en
+     * ID_FRENTE_SALDO y una nota que lo dice en palabras. Devolverlo es una entrada a la
+     * bolsa original.
+     *
+     * Un movimiento por tramo (y no uno solo por la cantidad total) para que las
+     * cantidades anterior/resultante de CADA bolsa cuadren y el recálculo
+     * (recalcularSaldoProducto) pueda reconstruirlas fila por fila.
+     *
+     * Devuelve el movimiento del primer tramo. Si entre TODAS las bolsas no alcanza, el
+     * último falla con el "Stock insuficiente" de siempre y la transacción del llamador
+     * revierte los anteriores.
      */
     protected function aplicarSalidaConCascada(int $idAlmacen, int $idProducto, string $tipo, float $cantidad, array $opts): MovimientoInventario
     {
         $almacen = $this->cargarAlmacen($idAlmacen);
         $frente  = $this->frenteDelSaldo($almacen, $opts);
 
-        // Sin separación por proyecto, o la salida ya es de la propia bolsa común:
-        // no hay nada que repartir.
-        if ($frente === self::FRENTE_BOLSA_COMUN) {
+        // Sin separación por proyecto el almacén es UNA sola bolsa (la común): no hay nada
+        // que repartir y el camino es el de siempre, un movimiento y listo.
+        if (!$almacen->separaPorProyecto()) {
             return $this->aplicarMovimiento($idAlmacen, $idProducto, $tipo, $cantidad, $opts);
         }
 
-        $saldoProyecto = (float) (AlmacenStock::where('ID_ALMACEN', $idAlmacen)
+        // Saldos por bolsa de ESTE producto. Son pocas filas (una por proyecto del almacén),
+        // así que una consulta basta para planificar todos los tramos.
+        //
+        // SE BLOQUEAN TODAS, y en orden ASCENDENTE de ID_FRENTE, ANTES de tocar ninguna:
+        //
+        //  1) Sin esto hay DEADLOCK. Cada salida pedía primero la bolsa de SU proyecto, así
+        //     que dos salidas simultáneas del mismo producto a proyectos distintos pedían
+        //     las mismas filas en orden opuesto (A: 5→11, B: 11→5) y MySQL mataba una con
+        //     "1213 Deadlock found" (reproducido). Pidiendo siempre en el mismo orden, la
+        //     segunda espera a la primera en vez de morir.
+        //  2) Los saldos que se leen aquí ya están bloqueados, así que el reparto en tramos
+        //     se calcula sobre números que nadie puede mover por debajo. Antes se leían
+        //     sueltos y otra salida podía vaciar una bolsa entre el plan y su ejecución.
+        //
+        // El filtro de "tiene saldo" va en PHP y NO en el WHERE a propósito: el conjunto de
+        // filas bloqueadas tiene que ser el MISMO para todas las salidas de este producto
+        // (todas sus bolsas), o el orden canónico deja de serlo. El índice único
+        // (ID_ALMACEN, ID_PRODUCTO, ID_FRENTE) hace que el recorrido ya venga en ese orden.
+        $saldos = AlmacenStock::where('ID_ALMACEN', $idAlmacen)
             ->where('ID_PRODUCTO', $idProducto)
-            ->where('ID_FRENTE', $frente)
-            ->value('CANTIDAD') ?? 0);
+            ->orderBy('ID_FRENTE')
+            ->lockForUpdate()
+            ->get(['ID_FRENTE', 'CANTIDAD'])
+            ->mapWithKeys(fn ($r) => [(int) $r->ID_FRENTE => (float) $r->CANTIDAD])
+            ->filter(fn ($cant) => $cant > 0);
 
-        // Alcanza con lo del proyecto → camino normal, un solo movimiento.
-        if ($saldoProyecto >= $cantidad - self::EPS) {
-            return $this->aplicarMovimiento($idAlmacen, $idProducto, $tipo, $cantidad, $opts);
+        // Orden de consumo: destino, común y después las demás de MAYOR a menor (vaciar la
+        // bolsa más grande parte menos saldos ajenos). unique() quita los repetidos cuando
+        // el destino o la común ya venían en la lista.
+        $propias = self::bolsasPropias($frente);
+        $otras   = $saldos->except($propias)->sortDesc()->keys();
+        $orden   = collect($propias)->merge($otras)->unique()->values();
+
+        $pendiente = round($cantidad, 3);
+        $primero   = null;
+
+        foreach ($orden as $i => $bolsa) {
+            if ($pendiente <= self::EPS) {
+                break;
+            }
+            // La ÚLTIMA bolsa se lleva todo lo que falte aunque no alcance: así el "Stock
+            // insuficiente" lo lanza aplicarMovimiento con los números reales de esa bolsa,
+            // en vez de duplicar aquí el mensaje y la tolerancia.
+            $tramo = $i === $orden->count() - 1
+                ? $pendiente
+                : round(min($pendiente, max(0.0, $saldos[$bolsa] ?? 0.0)), 3);
+            if ($tramo <= self::EPS) {
+                continue;
+            }
+
+            // ID_FRENTE (a quién se le entrega) es el MISMO en todos los tramos: el proyecto
+            // destino. Lo que cambia es la BOLSA de la que se descuenta, que viaja en
+            // _frente_saldo y queda escrita en ID_FRENTE_SALDO. Antes, el tramo de la bolsa
+            // común tenía que falsear ID_FRENTE a NULL para que el recálculo lo sumara donde
+            // iba; con la columna propia ya no hace falta y la Nota de Entrega imprime
+            // siempre el proyecto real, salga de la bolsa que salga.
+            //
+            // La bolsa NO se repite en las NOTAS: el dato vive en la columna y la bitácora
+            // la pinta bajo el destino ("del saldo de …"). Un texto derivado además se
+            // desactualiza solo — al renombrar un proyecto quedaría diciendo el nombre viejo.
+            $optsTramo = ['_frente_saldo' => (int) $bolsa] + $opts;
+
+            $mov = $this->aplicarMovimiento($idAlmacen, $idProducto, $tipo, $tramo, $optsTramo);
+            $primero ??= $mov;
+            $pendiente = round($pendiente - $tramo, 3);
         }
 
-        $delProyecto = max(0.0, round($saldoProyecto, 3));
-        $delComun    = round($cantidad - $delProyecto, 3);
-
-        $movProyecto = null;
-        if ($delProyecto > self::EPS) {
-            $movProyecto = $this->aplicarMovimiento($idAlmacen, $idProducto, $tipo, $delProyecto, $opts);
-        }
-
-        // El tramo de la bolsa común se registra en el kardex CON FRENTE 0, igual que el
-        // saldo del que sale. Es imprescindible que kardex y saldo coincidan: el recálculo
-        // que corre al deshacer un movimiento (recalcularSaldoProducto) reconstruye cada
-        // saldo sumando los movimientos DE SU MISMO frente, y un movimiento que descuenta
-        // de la bolsa común pero se registra a nombre del proyecto descuadraría las dos
-        // filas. El proyecto que recibió no se pierde: queda escrito en las notas.
-        // OJO: en el KARDEX el frente va NULL, no 0. `movimientos_inventario.ID_FRENTE`
-        // tiene FK contra `frentes_trabajo` y no existe ningún frente con id 0, así que
-        // guardar el centinela ahí revienta con "foreign key constraint fails". El 0 solo
-        // vive en `almacen_stock` (que no lleva FK justamente por eso) y viaja aparte en
-        // `_frente_saldo`. El recálculo ya trata NULL y 0 como la misma bolsa común.
-        $notaComun = 'Tomado del material sin asignar del almacén.';
-        $optsComun = ['_frente_saldo' => self::FRENTE_BOLSA_COMUN, 'id_frente' => null] + $opts;
-        $optsComun['notas'] = trim(($opts['notas'] ?? '') . ' ' . $notaComun);
-
-        $movComun = $this->aplicarMovimiento($idAlmacen, $idProducto, $tipo, $delComun, $optsComun);
-
-        return $movProyecto ?? $movComun;
+        // Solo quedaría null con cantidad 0, y eso lo rechaza antes assertCantidadPositiva.
+        return $primero ?? $this->aplicarMovimiento($idAlmacen, $idProducto, $tipo, $cantidad, $opts);
     }
 
     /**
@@ -613,6 +769,23 @@ class InventarioService
             'ID_MOVIMIENTO_RELACIONADO' => $opts['id_movimiento_relacionado'] ?? null,
             'ID_TRASPASO'               => $opts['id_traspaso'] ?? null,
             'ID_FRENTE'                 => $opts['id_frente'] ?? null,
+            // BOLSA de la que se descontó (0 = común). Es lo que separa "a quién se le
+            // entrega" (ID_FRENTE) de "de qué saldo salió": una salida a un proyecto puede
+            // tomar material de otro (ver aplicarSalidaConCascada) y las dos cosas tienen
+            // que quedar escritas. Se guarda SIEMPRE, también cuando coinciden: así el
+            // recálculo lee una sola columna y no tiene que adivinar.
+            //
+            // Se guarda la BOLSA REAL, siempre — la misma que frenteDelSaldo() acaba de usar
+            // para descontar. En un almacén que no separa eso es 0 (la común), aunque
+            // ID_FRENTE lleve el frente destino: es la verdad de dónde salió el saldo, y el
+            // recálculo depende de que lo sea. Guardar ahí el frente destino "para que no se
+            // vea un préstamo falso" era torcer el dato: el día que a ese almacén le agreguen
+            // un segundo frente y empiece a separar, el recálculo buscaría esas filas en una
+            // bolsa que nunca las tuvo y el saldo quedaría inflado.
+            //
+            // Que la fila SOLA no baste para decidir si hubo préstamo se resuelve donde toca,
+            // al pintarlo: ver MovimientoInventario::prestamosPorMovimiento().
+            'ID_FRENTE_SALDO'           => $idFrente,
             'ID_USUARIO'                => $opts['id_usuario'] ?? optional(auth())->id(),
             'REFERENCIA'                => $opts['referencia'] ?? null,
             // Nº de parte específico entregado (filtros): lo elige el usuario en la salida.
@@ -623,6 +796,13 @@ class InventarioService
             'SOLICITANTE'               => $opts['solicitante'] ?? null,
             'DEPARTAMENTO'              => $opts['departamento'] ?? null,
             'NUMERO_NOTA'               => $opts['numero_nota'] ?? null,
+            // Formato de la Nota CONGELADO al momento de la operación. Se toma del almacén
+            // que despacha —el mismo que ya está cargado aquí— y solo cuando hay NUMERO_NOTA:
+            // sin nota no hay hoja que congelar. Se resuelve en este único sitio (y no en
+            // cada caller) para que salida directa y envío a otro almacén no puedan guardar
+            // formatos distintos, y para que agregar mañana otro flujo con nota no obligue a
+            // acordarse de estampar nada.
+            'FORMATO_NOTA'              => ($opts['numero_nota'] ?? null) ? $almacen->formatoNota() : null,
             'MOTIVO'                    => $opts['motivo'] ?? null,
             'NOTAS'                     => $opts['notas'] ?? null,
         ]);

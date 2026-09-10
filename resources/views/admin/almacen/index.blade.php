@@ -119,6 +119,64 @@
         0%   { background:#f87171; }
         100% { background:transparent; }
     }
+    /* ── Reparto por proyecto en la celda de Stock (solo almacenes que separan) ──
+       El saldo de un almacén multi-proyecto no es un número solo: es la suma de varias
+       bolsas. Un dueño único se rotula debajo del número; varios se abren en la fila
+       .alm-row-bolsas. Los nombres de frente son largos, por eso el desglose NO cabe
+       dentro de esta columna. */
+    .alm-stock-num { display:block; white-space:nowrap; }
+    .alm-bolsa-uno {
+        display:block; margin-top:2px; font-size:10.5px; font-weight:700; line-height:1.25;
+        color:#0067b1; text-transform:uppercase; letter-spacing:.2px;
+        overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100%;
+    }
+    /* Bolsa común: es saldo real pero de nadie en particular — mismo criterio del panel. */
+    .alm-bolsa-uno.es-comun { color:#94a3b8; font-style:italic; text-transform:none; }
+    .alm-bolsa-tog {
+        display:inline-flex; align-items:center; gap:2px; margin-top:3px; padding:1px 6px 1px 7px;
+        border:1px solid #dbeafe; border-radius:999px; background:#eff6ff; color:#0067b1;
+        font-size:10.5px; font-weight:800; letter-spacing:.2px; cursor:pointer;
+        transition:background .15s, border-color .15s;
+    }
+    .alm-bolsa-tog:hover { background:#dbeafe; border-color:#bfdbfe; }
+    .alm-bolsa-tog i { font-size:14px; transition:transform .18s ease; }
+    .alm-bolsa-tog[aria-expanded="true"] i { transform:rotate(180deg); }
+    /* La fila del desglose no se selecciona ni se resalta como una fila de producto. */
+    .alm-row-bolsas > td { background:#f8fafc; border-top:none; padding:0 14px 10px; }
+    .alm-bolsa-wrap { display:flex; flex-wrap:wrap; gap:6px; }
+    .alm-bolsa-item {
+        display:inline-flex; align-items:baseline; gap:8px; padding:5px 10px;
+        background:#fff; border:1px solid #e2e8f0; border-radius:8px;
+    }
+    .alm-bolsa-item .nom { font-size:12px; font-weight:700; color:#334155; }
+    .alm-bolsa-item.es-comun .nom { font-weight:600; font-style:italic; color:#64748b; }
+    .alm-bolsa-item .qty { font-size:13px; font-weight:800; color:#0f172a; }
+    /* Las bolsas del desglose se ELIGEN: de la marcada sale el material de esa fila. El
+       estado se ve en el borde y el fondo (no solo en el texto) porque la opción
+       "Automático" no tiene cantidad y quedaría sin nada que resaltar. */
+    .alm-bolsa-opt { cursor:pointer; transition:border-color .15s, background .15s, box-shadow .15s; }
+    .alm-bolsa-opt:hover { border-color:#bfdbfe; background:#f8fbff; }
+    .alm-bolsa-opt.alm-bolsa-on { border-color:#0067b1; background:#eff6ff; box-shadow:inset 0 0 0 1px #0067b1; }
+    .alm-bolsa-opt.alm-bolsa-on .nom { color:#0067b1; }
+    /* "Automático" es el default y describe una regla, no un saldo: se lee más discreta. */
+    .alm-bolsa-item.es-auto .nom { font-weight:600; color:#64748b; }
+    /* Bolsa elegida, rotulada bajo el número de la celda Stock. Comparte el aire de
+       .alm-bolsa-uno (el dueño único) pero en verde, para que se distinga de un vistazo
+       lo que el almacén ES de lo que el usuario DECIDIÓ. */
+    .alm-bolsa-elegida {
+        display:block; margin-top:3px; font-size:10.5px; font-weight:800; line-height:1.25;
+        color:#047857; text-transform:uppercase; letter-spacing:.2px;
+        overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100%;
+    }
+    /* El desglose arranca cerrado: lo abre el botón de la celda Stock quitando [hidden].
+       Va con !important porque en teléfono las filas de la tabla llevan display forzado
+       (ver el bloque móvil), y una fila oculta tiene que seguir oculta ahí también. */
+    .alm-row-bolsas[hidden] { display:none !important; }
+    /* Nombre del almacén en modo GENERAL: no hay proyecto que elegir, así que el campo
+       se comporta como uno de texto normal — sin lista y sin el caret que la anuncia. */
+    #almNvNombreDropdown.alm-dd-sin-lista .dropdown-content,
+    #almNvNombreDropdown.alm-dd-sin-lista .dropdown-trigger > i { display: none !important; }
+
     /* Unidad (UM) junto al número en la celda de Stock — reemplaza la columna "UND". */
     .alm-stock-um { margin-left:5px; font-size:11px; font-weight:700; color:#475569; text-transform:uppercase; }
 
@@ -711,15 +769,34 @@
             padding: 8px 14px 8px 4px !important;
             justify-content: flex-end !important;
         }
-        /* Estado vacío / sin almacén: el <tr><td colspan> sin tarjeta */
-        .alm-table tbody tr:not(.alm-row) {
+        /* Desglose por proyecto: no es una tarjeta nueva, es la continuación de la de
+           arriba. El margen negativo se come el gap de 12px del tbody y las esquinas
+           superiores quedan rectas para que se lea como una sola pieza. */
+        .alm-table tr.alm-row-bolsas {
+            display: block !important;
+            margin-top: -12px !important;
+            background: #f8fafc !important;
+            border: 1px solid #cbd5e1 !important;
+            border-top: none !important;
+            border-radius: 0 0 14px 14px !important;
+            box-shadow: 0 4px 12px rgba(15,23,42,0.08) !important;
+            overflow: hidden !important;
+        }
+        .alm-table tr.alm-row-bolsas > td { display: block !important; padding: 10px 14px !important; }
+        /* Estado vacío / sin almacén: el <tr><td colspan> sin tarjeta.
+           EXCLUYE .alm-row-bolsas explícitamente: esa fila tampoco es .alm-row, y como este
+           selector pesa más (dos clases + dos tipos) le ganaba a su estilo de tarjeta Y al
+           [hidden], dejando el desglose abierto de entrada en el teléfono y con el formato
+           del empty-state. Excluirlo aquí es más seguro que subir la especificidad del otro
+           lado, que es una carrera que se vuelve a perder al siguiente selector. */
+        .alm-table tbody tr:not(.alm-row):not(.alm-row-bolsas) {
             display: block !important;
             background: transparent !important;
             border: none !important;
             box-shadow: none !important;
             padding: 0 !important;
         }
-        .alm-table tbody tr:not(.alm-row) td {
+        .alm-table tbody tr:not(.alm-row):not(.alm-row-bolsas) td {
             display: block !important;
             text-align: center !important;
             border: none !important;
@@ -763,7 +840,7 @@
             // Normalizado en el modelo: si la fila trae null o basura, llega VERTICAL.
             'FORMATO_NOTA'      => $a->formatoNota(),
             // Firmantes fijos de la nota horizontal — el modal los recarga al editar (ver
-            // ALM_FIRMANTES_CAMPOS). Son 7 strings cortos por almacén y hay un puñado de
+            // ALM_FIRMANTES_CAMPOS). Son 10 strings cortos por almacén y hay un puñado de
             // almacenes: no engorda la página de forma apreciable.
             'CEDULA_ALMACENISTA' => $a->CEDULA_ALMACENISTA,
             'SOPORTE_1_NOM'      => $a->SOPORTE_1_NOM,
@@ -772,6 +849,9 @@
             'SOPORTE_2_NOM'      => $a->SOPORTE_2_NOM,
             'SOPORTE_2_CAR'      => $a->SOPORTE_2_CAR,
             'SOPORTE_2_CED'      => $a->SOPORTE_2_CED,
+            'SEGURIDAD_NOM'      => $a->SEGURIDAD_NOM,
+            'SEGURIDAD_CAR'      => $a->SEGURIDAD_CAR,
+            'SEGURIDAD_CED'      => $a->SEGURIDAD_CED,
             'frentes'           => $a->relationLoaded('frentes') ? $a->frentes->pluck('ID_FRENTE')->values() : [],
         ];
     });
@@ -1355,7 +1435,39 @@
             <i class="material-icons alm-x" onclick="almCerrar('almAlmacenModal')">close</i>
         </div>
         <div class="alm-modal-body">
-            <div><label for="almNvNombre">Nombre</label><input type="text" id="almNvNombre" maxlength="150" placeholder="Ej: ALMACÉN CENTRAL CARACAS" autocomplete="off"></div>
+            {{-- NOMBRE — combo, no campo libre: en un almacén de PROYECTO el nombre es el del
+                 proyecto, y escribirlo a mano dejaba almacenes que no casaban con ningún frente.
+                 Mismo componente que "Contrato N°" del modal de salida: la lista manda, pero el
+                 input acepta texto porque (a) un almacén GENERAL no es un proyecto —BARCELONA,
+                 ALMACÉN CENTRAL CARACAS— y (b) los almacenes que ya existen pueden llamarse
+                 distinto que sus frentes (PATIO EL TIGRE sirve a PATIO I EL TIGRE y a otros 5),
+                 y un selector estricto los dejaría sin nombre al editarlos.
+                 Elegir un proyecto de la lista TAMBIÉN lo tilda abajo en "Frentes que usan este
+                 almacén": es el mismo dato dicho dos veces y pedirlo dos veces sobraba. --}}
+            <div>
+                <label for="almNvNombre">Nombre</label>
+                <div class="custom-dropdown" id="almNvNombreDropdown">
+                    <div class="dropdown-trigger" style="padding:0;display:flex;align-items:center;background:#fbfcfd;overflow:hidden;border:1px solid #cbd5e0;border-radius:10px;height:42px;">
+                        <input type="text" id="almNvNombre" maxlength="150" autocomplete="off"
+                               placeholder="Elige el proyecto…"
+                               style="flex:1;border:none;background:transparent;padding:0 12px;font-size:13.5px;color:#0f172a;outline:none;min-width:0;"
+                               oninput="window.almNvNombreFilter(this)">
+                        <i class="material-icons" style="padding:0 8px;color:#94a3b8;font-size:20px;">expand_more</i>
+                    </div>
+                    <div class="dropdown-content" style="padding:5px;max-height:none;overflow:visible;">
+                        <div class="dropdown-item-list" id="almNvNombreItems" style="max-height:240px;overflow-y:auto;">
+                            @forelse(($frentesLista ?? collect()) as $f)
+                                <div class="dropdown-item" data-nombre="{{ $f->NOMBRE_FRENTE }}" data-frente="{{ $f->ID_FRENTE }}"
+                                     onclick="window.almNvNombrePick({{ $f->ID_FRENTE }}, this.dataset.nombre)">{{ $f->NOMBRE_FRENTE }}</div>
+                            @empty
+                                <div style="padding:10px 15px;font-size:13px;color:#94a3b8;">No hay frentes activos.</div>
+                            @endforelse
+                        </div>
+                        <div id="almNvNombreNoMatch" style="display:none;padding:10px 15px;font-size:13px;color:#94a3b8;">Sin coincidencias.</div>
+                    </div>
+                </div>
+                <div class="alm-hint" id="almNvNombreHint">Elige el proyecto al que pertenece este almacén.</div>
+            </div>
             <div>
                 <label for="almNvTipoDisplay">Tipo</label>
                 <div class="custom-dropdown" id="almNvTipoDropdown" data-default-label="Selecciona un tipo">
@@ -1423,8 +1535,12 @@
                  Los SOPORTADO se OCULTAN, no se destruyen: los valores siguen en el DOM (y en
                  la BD) al pasar a Vertical, así que volver a Horizontal los recupera intactos.
 
-                 RECIBIDO y SEGURIDAD no se configuran a propósito: los firma quien recibe en el
-                 destino y el vigilante de turno, que cambian en cada nota. --}}
+                 SEGURIDAD se configura como los SOPORTADO —y se oculta igual en Vertical—:
+                 en el formato del cliente es una persona fija del patio, no "el vigilante de
+                 turno" (las 90 notas revisadas de su Excel llevan la misma).
+
+                 RECIBIDO es el único que NO se configura: lo firma quien recibe en el frente
+                 destino, y ese sí cambia en cada entrega. --}}
             <div>
                 <label>Firmantes de la Nota de Entrega</label>
                 <div class="alm-firmantes">
@@ -1453,9 +1569,17 @@
                                 <input type="text" id="almNvSop2Ced" maxlength="20" placeholder="Cédula" autocomplete="off">
                             </div>
                         </div>
+                        <div class="alm-firm-bloque">
+                            <div class="alm-firm-rol">SEGURIDAD</div>
+                            <input type="text" id="almNvSegNom" maxlength="120" placeholder="Nombre" autocomplete="off">
+                            <div class="alm-firm-fila">
+                                <input type="text" id="almNvSegCar" maxlength="120" placeholder="Cargo" autocomplete="off">
+                                <input type="text" id="almNvSegCed" maxlength="20" placeholder="Cédula" autocomplete="off">
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <div class="alm-hint">RECIBIDO y SEGURIDAD se firman a mano.</div>
+                <div class="alm-hint">RECIBIDO se firma a mano en cada entrega.</div>
             </div>
             <div id="almNvFrentesWrap">
                 <label for="almNvFrentesInput">Frentes que usan este almacén</label>
@@ -1638,6 +1762,20 @@
                 <div id="almDetUbicacionError" style="display:none;color:#dc2626;font-size:12px;font-weight:600;margin-top:4px;"></div>
             </div>
 
+            {{-- Reparto del saldo por proyecto DENTRO de este almacén. Solo aparece en
+                 almacenes que separan por proyecto (los que sirven a varios frentes): en el
+                 resto todo el saldo es de la bolsa común y esta lista repetiría el total.
+                 Llega en la MISMA respuesta que la compatibilidad (un solo fetch al abrir la
+                 ficha, ver almCargarCompat). Responde "¿de quién es este material?": el saldo
+                 tiene dueño aunque cualquier proyecto pueda consumirlo. --}}
+            <div id="almDetProyectosWrap" style="display:none;border-top:1px solid #f1f5f9;padding-top:12px;margin-bottom:12px;">
+                <div style="font-size:11px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;display:flex;align-items:center;gap:6px;">
+                    <i class="material-icons" style="font-size:16px;color:#0067b1;">account_tree</i> En este almacén, por proyecto
+                </div>
+                <div id="almDetProyectos" style="display:flex;flex-direction:column;gap:4px;max-height:180px;overflow-y:auto;"></div>
+                <div class="alm-hint" style="margin-top:6px;">Al despachar puedes elegir de qué proyecto sale, tocándolo en este mismo desglose dentro de la tabla. Sin elegir, la salida toma primero el saldo del proyecto destino y lo que esté sin proyecto; si no alcanza, sigue con el de los demás y queda anotado en la bitácora.</div>
+            </div>
+
             {{-- Compatibilidad del filtro: nº de parte (equivalencias) + equipos que lo usan.
                  Se carga al abrir el detalle (almAbrirDetalle → fetch a productoCompatibilidad).
                  Se oculta si el producto no tiene ni equivalencias ni equipos. --}}
@@ -1673,8 +1811,9 @@
 </div>
 
 @if($puedeMover)
-{{-- ── Salida: un solo formulario unificado. Siempre llena la Nota de Entrega VID-FO-GEN-019
-     (proyecto + contrato + fecha + RQ + solicitante + dpto). El backend decide si la salida
+{{-- ── Salida: un solo formulario unificado. Siempre llena la Nota de Entrega
+     (proyecto + contrato + fecha + RQ + solicitante + dpto; el formato HORIZONTAL del almacén
+     de origen oculta contrato y RQ — ver almSalidaAplicarFormatoNota). El backend decide si la salida
      es CONSUMO (mismo almacén del origen) o TRASPASO (envío a otro almacén) según el frente
      elegido en "Proyecto destino" — ambos casos generan Nota de Entrega NE-YYYY-NNNN. ── --}}
 <div id="almSalidaModal" class="alm-modal-overlay">
@@ -1694,19 +1833,28 @@
                    PROYECTO (2fr) | CONTRATO N° (1fr)                (misma fila)
                    FECHA DE ENTREGA | RQ N° | Solicitante            (3 columnas)
                    DEPARTAMENTO                                      (full)
-                   OBSERVACIONES                                     (full) --}}
+                   OBSERVACIONES                                     (full)
+                 Entre la 1ª y la 2ª fila se intercala ALMACÉN DESTINO, que solo aparece cuando
+                 hace falta (ver su bloque): no es parte de la hoja del Excel, sino de la
+                 decisión de a dónde va el material.
+                 CONTRATO N° y RQ N° se ocultan cuando el almacén de origen emite la nota en
+                 formato HORIZONTAL (esa hoja no los imprime): las dos filas quedan en
+                 PROYECTO (full) y FECHA | Solicitante. Lo hace almSalidaAplicarFormatoNota()
+                 al abrir el modal, que es el único sitio que conoce esa diferencia. --}}
             <div id="almSalidaNotaWrap" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px;margin-bottom:14px;">
-                {{-- NOTA: la metadata del formato (CÓDIGO VID-FO-GEN-019, FECHA EMIS, REV)
-                     y el título "Nota de Entrega de Materiales" se incluyen SOLO en el PDF
-                     generado por NotaEntregaPDF. En el modal son ruido visual — el título
-                     del modal ("Registrar salida") ya identifica suficientemente el formulario. --}}
+                {{-- NOTA: el título "Nota de Entrega de Materiales" se incluye SOLO en el PDF
+                     generado por NotaEntregaPDF. En el modal es ruido visual — el título
+                     del modal ("Registrar salida") ya identifica suficientemente el formulario.
+                     La metadata del formulario (CÓDIGO, FECHA EMIS, REV) ya no sale en ningún
+                     lado: describía la plantilla, no la entrega. Ver NotaEntregaPDF::Header. --}}
 
                 {{-- PROYECTO (ancho) | CONTRATO N° (estrecho) — misma fila.
                      Contrato N° es input + caret (igual patron que "Categoria" del modal de
-                     producto): al elegir proyecto destino, el dropdown se abre automaticamente
-                     con los contratos registrados de ese frente — el usuario elige uno, escribe
+                     producto): al elegir proyecto destino, la lista del dropdown se rellena
+                     con los contratos registrados de ese frente (NO se abre sola, ver
+                     almSalidaOnProyectoChange) — el usuario elige uno, escribe
                      uno nuevo, o deja en blanco. --}}
-                <div class="alm-modal-grid alm-modal-grid-2" style="display:grid;grid-template-columns:2fr 1fr;gap:10px;margin-bottom:10px;align-items:start;">
+                <div id="almSalidaGridProyecto" class="alm-modal-grid alm-modal-grid-2" style="display:grid;grid-template-columns:2fr 1fr;gap:10px;margin-bottom:10px;align-items:start;">
                     <div>
                         {{-- El for= apunta al input VISIBLE (data-filter-search) en vez de al
                              hidden #almSalidaProyecto: Chrome marca como inválido un <label for=>
@@ -1745,7 +1893,7 @@
                             </div>
                         </div>
                     </div>
-                    <div>
+                    <div id="almSalidaContratoWrap">
                         <label class="alm-nota-label" for="almSalidaContrato">Contrato N°</label>
                         {{-- Custom-dropdown (mismo componente que Proyecto): el panel flota
                              absolutamente (NO empuja el modal hacia abajo) y se abre con clic en
@@ -1796,7 +1944,7 @@
                 </div>
 
                 {{-- FECHA DE ENTREGA | RQ N° | Solicitante (3 columnas en una sola fila — como en el Excel) --}}
-                <div class="alm-modal-grid alm-modal-grid-3" style="display:grid;grid-template-columns:1fr 1fr 1.4fr;gap:10px;margin-bottom:10px;">
+                <div id="almSalidaGridDatos" class="alm-modal-grid alm-modal-grid-3" style="display:grid;grid-template-columns:1fr 1fr 1.4fr;gap:10px;margin-bottom:10px;">
                     <div>
                         <label class="alm-nota-label" for="almSalidaFecha">Fecha de entrega</label>
                         {{-- Wrapper clickable: cualquier click en el campo abre el calendario
@@ -1809,7 +1957,7 @@
                             <input type="date" id="almSalidaFecha" class="alm-nota-input" style="flex:1;width:auto;min-width:0;border:none;background:transparent;height:36px;padding:0 10px;border-radius:0;">
                         </div>
                     </div>
-                    <div>
+                    <div id="almSalidaRqWrap">
                         <label class="alm-nota-label" for="almSalidaRq">RQ N°</label>
                         <input type="text" id="almSalidaRq" class="alm-nota-input" maxlength="100" placeholder="Ej: RQ-001" autocomplete="off">
                     </div>
@@ -1867,6 +2015,12 @@
             <i class="material-icons alm-x" onclick="window.almPreviewCerrar()">close</i>
         </div>
         <div class="alm-modal-body" style="padding:0;gap:0;background:#475569;">
+            {{-- Aviso "esto sale del saldo de otro proyecto". Lo manda previewSalidaPdf en la
+                 cabecera X-Salida-Aviso (el cuerpo de esa respuesta es el PDF). Va AQUÍ, en el
+                 paso donde se revisa antes de registrar: la salida se permite —el material
+                 está en la bodega y prestarlo entre frentes es un ajuste normal— pero quien
+                 firma tiene que enterarse. Se llena/vacía en cada vista previa. --}}
+            <div id="almPreviewAviso" style="display:none;background:#fef3c7;color:#92400e;border-bottom:1px solid #fde68a;padding:9px 16px;font-size:12.5px;font-weight:600;line-height:1.45;"></div>
             {{-- ESCRITORIO: el visor de PDF nativo del navegador en un iframe (zoom/imprimir). --}}
             <iframe id="almPreviewFrame" src="about:blank" style="width:100%;height:82vh;min-height:560px;border:none;background:#fff;" title="Vista previa Nota de Entrega"></iframe>
             {{-- TELÉFONO: los navegadores móviles no renderizan PDF en iframe, así que el PDF
@@ -2716,8 +2870,9 @@
             if (typeof window.almSelClear === 'function') window.almSelClear();
             almCargar();
         }
-        // Modal "Registrar salida": al elegir proyecto destino, auto-abrir el dropdown
-        // de "Contrato N°" con los contratos de ese proyecto (o mensaje "sin contratos").
+        // Modal "Registrar salida": al elegir proyecto destino se rellena la lista del
+        // dropdown "Contrato N°" con los contratos de ese proyecto (o mensaje "sin
+        // contratos") y se decide el almacén destino. El panel NO se abre solo.
         if (id === 'almSalidaProyectoDropdown' && typeof window.almSalidaOnProyectoChange === 'function') {
             window.almSalidaOnProyectoChange();
         }
@@ -2847,6 +3002,10 @@
         var wrap = tr.querySelector('.alm-cant-stepper');
         var inp  = tr.querySelector('.alm-row-cant');
         if (wrap) wrap.classList.toggle('is-active', !!on);
+        // Desmarcar la fila la devuelve a "Automático". La cantidad ya se borra aquí abajo, y
+        // dejar viva una elección de proyecto que ya no se ve haría que al re-seleccionarla el
+        // material saliera de la pila elegida en un intento anterior, sin que nadie lo note.
+        if (!on) almRowBolsaReset(tr);
         if (!inp) return;
         var btns = tr.querySelectorAll('.alm-cant-btn');
         if (on) {
@@ -2989,6 +3148,20 @@
                     o.classList.toggle('alm-parte-on', o.getAttribute('data-parte') === psel);
                 });
             }
+            // Y la bolsa elegida: el desglose se vuelve a pintar entero en cada recarga, así
+            // que sin esto la fila volvía a "Automático" y la salida se descontaba del proyecto
+            // equivocado sin que el usuario lo notara.
+            var bsel = (almSeleccion[id] && almSeleccion[id].bolsa) || '';
+            if (bsel !== '') {
+                tr.dataset.bolsaSel = bsel;
+                var cajaB = tr.parentNode.querySelector('tr.alm-row-bolsas[data-de-producto="' + id + '"]');
+                if (cajaB) {
+                    cajaB.querySelectorAll('.alm-bolsa-opt').forEach(function (o) {
+                        o.classList.toggle('alm-bolsa-on', o.getAttribute('data-bolsa') === bsel);
+                    });
+                }
+                almRowBolsaLabel(tr);
+            }
         });
     }
     // Selecciona una fila (idempotente): crea su entrada en almSeleccion, la marca y enfoca
@@ -3007,6 +3180,9 @@
             // Nº de parte a entregar (filtros): arranca en el actual del selector de la fila
             // (o el principal en data-parte-sel). Vacío en productos sin equivalencias.
             parte:  tr.getAttribute('data-parte-sel') || '',
+            // Bolsa (proyecto) de la que sale el material. Vacío = automático: la del proyecto
+            // destino de la nota, como siempre. Solo cambia si el usuario elige en el desglose.
+            bolsa:  tr.dataset.bolsaSel || '',
         };
         almSelMarkRow(tr, true);
         setTimeout(function () { var inp = tr.querySelector('.alm-row-cant'); if (inp) inp.focus(); }, 30);
@@ -3025,6 +3201,47 @@
         tr.dataset.parteSel = parte;
         almSelEnsureRow(tr);
         if (almSeleccion[id]) almSeleccion[id].parte = parte;
+        almSelRefreshBar();
+    };
+    // Pinta en la celda Stock de qué proyecto sale el material de esta fila. Con la bolsa en
+    // automático no se rotula nada: no hay decisión que mostrar y el desglose ya dice el
+    // reparto. Fuente única del rótulo — la usan el clic y el re-pintado del tbody.
+    function almRowBolsaLabel(tr) {
+        var box = tr.querySelector('.alm-bolsa-elegida');
+        if (!box) return;
+        var sel = tr.dataset.bolsaSel || '';
+        var opt = sel === '' ? null : tr.parentNode.querySelector(
+            'tr.alm-row-bolsas[data-de-producto="' + tr.getAttribute('data-id-producto') + '"] .alm-bolsa-opt[data-bolsa="' + sel + '"]');
+        box.textContent = opt ? ('sale de ' + (opt.getAttribute('data-bolsa-nom') || '')) : '';
+        box.hidden = !opt;
+    }
+    // Devuelve la fila a "Automático" (sin elección de proyecto). Sale temprano si ya lo
+    // estaba: esto corre por cada fila en cada re-pintado del tbody.
+    function almRowBolsaReset(tr) {
+        if (!tr.dataset.bolsaSel) return;
+        tr.dataset.bolsaSel = '';
+        var caja = tr.parentNode && tr.parentNode.querySelector(
+            'tr.alm-row-bolsas[data-de-producto="' + tr.getAttribute('data-id-producto') + '"]');
+        if (caja) {
+            caja.querySelectorAll('.alm-bolsa-opt').forEach(function (o) {
+                o.classList.toggle('alm-bolsa-on', (o.getAttribute('data-bolsa') || '') === '');
+            });
+        }
+        almRowBolsaLabel(tr);
+    }
+    // Clic en una bolsa del desglose: marca de qué proyecto SALE el material de esa fila y
+    // selecciona la fila si no lo estaba. Calca almRowPartePick (el picker de nº de parte):
+    // el desglose lleva data-no-toggle, así que sin esto el clic no haría nada.
+    window.almRowBolsaPick = function (el) {
+        var trB = el.closest('tr.alm-row-bolsas'); if (!trB) return;
+        var id  = trB.getAttribute('data-de-producto');
+        var tr  = trB.parentNode.querySelector('tr.alm-row[data-id-producto="' + id + '"]');
+        if (!tr) return;
+        trB.querySelectorAll('.alm-bolsa-opt').forEach(function (o) { o.classList.toggle('alm-bolsa-on', o === el); });
+        tr.dataset.bolsaSel = el.getAttribute('data-bolsa') || '';
+        almSelEnsureRow(tr);
+        if (almSeleccion[id]) almSeleccion[id].bolsa = tr.dataset.bolsaSel;
+        almRowBolsaLabel(tr);
         almSelRefreshBar();
     };
     window.almSelClear = function (e) {
@@ -3583,6 +3800,18 @@
     // Al SELECCIONAR un registro (clic en la fila) la fila se reacomoda: reseteamos la burbuja
     // para que no quede "metida" en la lista; reaparece bien al mover el mouse si sigues encima.
     document.addEventListener('click', almTipReset, true);
+    // Abre/cierra el desglose por proyecto de una fila. El boton vive en la celda Stock y
+    // la fila del desglose es la <tr> siguiente, que el partial ya pinta con el atributo
+    // hidden (ver partials/table_rows). Es una funcion suelta, no un listener: el tbody se
+    // repinta entero en cada filtro y un listener habria que reengancharlo cada vez.
+    window.almToggleBolsas = function (btn) {
+        var fila = btn && btn.closest('tr');
+        var det  = fila && fila.nextElementSibling;
+        if (!det || !det.classList.contains('alm-row-bolsas')) return;
+        var abrir = det.hidden;
+        det.hidden = !abrir;
+        btn.setAttribute('aria-expanded', abrir ? 'true' : 'false');
+    };
     window.almAbrirDetalle = function (id, cod, nom, um, cat, saldo, minimo, ubicacion) {
         var m = el('almDetalleModal'); if (!m) return;
         var hasMin = (minimo !== null && minimo !== undefined && minimo !== '');
@@ -3610,17 +3839,44 @@
         var wrap = el('almDetCompat'); if (!wrap) return;
         var partesWrap = el('almDetPartesWrap'), equiposWrap = el('almDetEquiposWrap'),
             partesBox = el('almDetPartes'), equiposBox = el('almDetEquipos'), countEl = el('almDetEquiposCount');
+        var proyWrap = el('almDetProyectosWrap'), proyBox = el('almDetProyectos');
         wrap.style.display = 'none';
         partesWrap.style.display = 'none'; equiposWrap.style.display = 'none';
+        if (proyWrap) proyWrap.style.display = 'none';
+        if (proyBox) proyBox.innerHTML = '';
         partesBox.innerHTML = ''; equiposBox.innerHTML = ''; countEl.textContent = '';
 
-        var url = "{{ route('almacen.productos.compatibilidad', ['id' => '__PID__']) }}".replace('__PID__', id);
+        // El almacén abierto viaja en la URL: sin él el backend no sabe de qué inventario
+        // sacar el reparto por proyecto (la compatibilidad no depende del almacén).
+        var idAlm = (el('almSelAlmacen') || {}).value || '';
+        var url = "{{ route('almacen.productos.compatibilidad', ['id' => '__PID__']) }}".replace('__PID__', id)
+                + (idAlm ? '?id_almacen=' + encodeURIComponent(idAlm) : '');
         window.apiFetch(url, { headers: { 'Accept': 'application/json' } })
             .then(function (r) { return r.json(); })
             .then(function (d) {
                 var m = el('almDetalleModal');
                 if (!m || String(m.dataset.id) !== String(id)) return; // cambió de producto mientras cargaba
                 var partes = d.equivalencias || [], equipos = d.equipos || [];
+                // Reparto por proyecto: viene vacío en los almacenes que no separan.
+                var proyectos = d.proyectos || [];
+                // Mismo formato de cantidad que el panel lateral, que pinta ESTE MISMO dato
+                // desde PHP: OfflineMode.fmt es la réplica exacta de number_format(n,3,',','.')
+                // (toLocaleString no agrupa los miles de 4 dígitos y "1663" desentonaría con
+                // el "1.663" del panel). formatNum queda de reserva por si el global no cargó.
+                var fmtQty = (window.OfflineMode && window.OfflineMode.fmt) || formatNum;
+                if (proyectos.length && proyBox && proyWrap) {
+                    proyBox.innerHTML = proyectos.map(function (p) {
+                        // La bolsa común va en cursiva y gris: es saldo real, pero de nadie
+                        // en particular — el mismo criterio del panel lateral.
+                        var nombre = p.comun
+                            ? '<span style="font-style:italic;color:#64748b;">' + esc(p.proyecto) + '</span>'
+                            : '<span style="font-weight:600;color:#334155;">' + esc(p.proyecto) + '</span>';
+                        return '<div style="display:flex;align-items:center;gap:8px;background:#f8fafc;border:1px solid #eef2f7;border-radius:7px;padding:6px 9px;">' +
+                               '<span style="font-size:12.5px;flex:1;min-width:0;">' + nombre + '</span>' +
+                               '<span style="font-size:13px;font-weight:800;color:#0f172a;">' + fmtQty(p.cantidad) + '</span></div>';
+                    }).join('');
+                    proyWrap.style.display = 'block';
+                }
                 if (partes.length) {
                     partesBox.innerHTML = partes.map(function (p) {
                         return '<span style="background:#eff6ff;color:#0067b1;border:1px solid #dbeafe;border-radius:6px;padding:2px 8px;font-size:12px;font-weight:700;">' + esc(p) + '</span>';
@@ -3980,12 +4236,69 @@
         if (trigger) trigger.style.borderColor = '#cbd5e0';
         // Actualizar visibilidad del panel de frentes
         window.almToggleFrentes();
+        // El campo Nombre cambia de sentido con el tipo: en PROYECTO es el nombre del
+        // proyecto (se elige de la lista); en GENERAL es un almacén central, que no
+        // corresponde a ningún frente y por eso se escribe.
+        window.almNvNombreModo();
+    };
+
+    // Ajusta el campo Nombre al tipo elegido. UN solo sitio decide qué se ve, para que el
+    // texto de ayuda, el placeholder y la lista no puedan quedar diciendo cosas distintas.
+    window.almNvNombreModo = function () {
+        var esProyecto = (el('almNvTipo') || {}).value !== 'GENERAL';
+        var inp  = el('almNvNombre');
+        var hint = el('almNvNombreHint');
+        var dd   = el('almNvNombreDropdown');
+        if (inp)  inp.placeholder = esProyecto ? 'Elige el proyecto…' : 'Ej: ALMACÉN CENTRAL CARACAS';
+        if (hint) hint.textContent = esProyecto
+            ? 'Elige el proyecto al que pertenece este almacén.'
+            : 'Un almacén central no pertenece a un proyecto: escribe su nombre.';
+        // En GENERAL la lista de proyectos sobra: se oculta y el campo queda como uno de
+        // texto normal (el caret desaparece con ella).
+        if (dd) {
+            dd.classList.toggle('alm-dd-sin-lista', !esProyecto);
+            if (!esProyecto) dd.classList.remove('active');
+        }
+    };
+
+    // Filtra la lista de proyectos por lo que se va escribiendo. Mismo comportamiento que
+    // "Contrato N°": la lista guía, pero lo que vale es el texto del input.
+    window.almNvNombreFilter = function (inp) {
+        var t = (inp.value || '').trim().toLowerCase();
+        var items = document.querySelectorAll('#almNvNombreItems .dropdown-item');
+        var visibles = 0;
+        items.forEach(function (i) {
+            var ok = !t || (i.dataset.nombre || '').toLowerCase().indexOf(t) !== -1;
+            i.style.display = ok ? '' : 'none';
+            if (ok) visibles++;
+        });
+        var nm = el('almNvNombreNoMatch'); if (nm) nm.style.display = (visibles === 0 && t) ? '' : 'none';
+        // En GENERAL no hay lista que abrir (la oculta .alm-dd-sin-lista): marcarla como
+        // abierta dejaria el desplegable en un estado que no se ve pero existe.
+        var dd = el('almNvNombreDropdown');
+        if (dd && !dd.classList.contains('alm-dd-sin-lista')) dd.classList.add('active');
+    };
+
+    // Elegir un proyecto pone su nombre Y lo tilda abajo en "Frentes que usan este almacén":
+    // es el mismo dato, y dejar el almacén llamado como un frente que no atiende era el
+    // error mas facil de cometer. Los demas frentes ya tildados se respetan (un almacen de
+    // proyecto puede servir a varios, como Patio El Tigre).
+    window.almNvNombrePick = function (idFrente, nombre) {
+        var inp = el('almNvNombre'); if (inp) inp.value = nombre;
+        var chk = el('almNvFrente_' + idFrente);
+        if (chk && !chk.checked) { chk.checked = true; window.almNvFrentesUpdate(); }
+        var dd = el('almNvNombreDropdown'); if (dd) dd.classList.remove('active');
     };
 
     // Formato por defecto (Almacen::FORMATO_NOTA_VERTICAL). Los formatos VÁLIDOS no se
     // repiten aquí: son los checks que el blade ya pintó desde Almacen::FORMATOS_NOTA, así
     // que una lista aparte en JS solo podría desincronizarse.
     var ALM_FORMATO_NOTA_DEF = @json($formatoNotaDef);
+    // El valor HORIZONTAL sale del modelo (Almacen::FORMATO_NOTA_HORIZONTAL) y no escrito a
+    // mano: lo lee almSalidaAplicarFormatoNota() para decidir qué campos pide el modal de
+    // salida. Es el ÚNICO formato que el JS necesita nombrar (el resto se comporta como el
+    // vertical de siempre), por eso va este solo y no una copia de FORMATOS_NOTA.
+    var ALM_FORMATO_NOTA_HORIZONTAL = @json(\App\Models\Almacen::FORMATO_NOTA_HORIZONTAL);
 
     // Firmantes fijos de la nota horizontal: ÚNICO sitio que empareja cada campo del modal
     // con su columna en la BD. Lo usan el reset, la carga al editar y el guardado, así que
@@ -3998,7 +4311,10 @@
         { id: 'almNvSop1Ced',           col: 'SOPORTE_1_CED' },
         { id: 'almNvSop2Nom',           col: 'SOPORTE_2_NOM' },
         { id: 'almNvSop2Car',           col: 'SOPORTE_2_CAR' },
-        { id: 'almNvSop2Ced',           col: 'SOPORTE_2_CED' }
+        { id: 'almNvSop2Ced',           col: 'SOPORTE_2_CED' },
+        { id: 'almNvSegNom',            col: 'SEGURIDAD_NOM' },
+        { id: 'almNvSegCar',            col: 'SEGURIDAD_CAR' },
+        { id: 'almNvSegCed',            col: 'SEGURIDAD_CED' }
     ];
 
     // Deja tildado UN formato y destilda el resto. Es el ÚNICO sitio que escribe el hidden
@@ -4079,6 +4395,10 @@
         ALM_FIRMANTES_CAMPOS.forEach(function (c) { var e = el(c.id); if (e) e.value = ''; });
         // Almacén nuevo = formato por defecto; cambiarlo es una decisión explícita.
         almNvFormatoSelect(ALM_FORMATO_NOTA_DEF);
+        // Reset del filtro de la lista de proyectos del campo Nombre.
+        var nvNom = el('almNvNombre'); if (nvNom) window.almNvNombreFilter(nvNom);
+        var nvDd  = el('almNvNombreDropdown'); if (nvDd) nvDd.classList.remove('active');
+        // Ya deja el Nombre en modo PROYECTO (almNvTipoSelect llama a almNvNombreModo).
         almNvTipoSelect('PROYECTO', 'Proyecto (Limitado a frentes específicos)');
         almNvSetFrentes([]);
         showErr('almNvError', '');
@@ -4574,8 +4894,33 @@
     //  frente destino — ambos generan Nota de Entrega NE-YYYY-NNNN.
     //  ALM_SAL.idAlmacen = almacén de origen (el que muestra la tabla).
     var ALM_SAL = { idAlmacen: '' };
+    // El formulario pide SOLO lo que imprime la hoja del almacén de origen. La nota
+    // HORIZONTAL (admin.almacen.nota_entrega_horizontal_pdf) no imprime CONTRATO N° ni
+    // RQ N° —son datos de la contratación y del pedido, no del despacho físico que esa
+    // hoja controla—, así que esos dos campos se ocultan y las filas se reacomodan para
+    // no dejar el hueco. Todo lo demás lo llevan los DOS formatos: Proyecto, Solicitante,
+    // Departamento y Observaciones en el cuerpo, y la Fecha —que el horizontal estampa en
+    // el sello del cabezote en vez del cuerpo, ver renderNotaEntregaPdfBinary—.
+    //
+    // El formato se lee de window.almAlmacenesData, que ya viene normalizado por
+    // Almacen::formatoNota() (nunca null ni basura). Si el almacén no estuviera en el mapa
+    // se cae al formulario completo: pedir de más no rompe ninguna nota, ocultar de menos sí.
+    function almSalidaAplicarFormatoNota(idAlmacen) {
+        var data = (window.almAlmacenesData || {})[String(idAlmacen || '')];
+        var horizontal = !!data && data.FORMATO_NOTA === ALM_FORMATO_NOTA_HORIZONTAL;
+        var wrapC = el('almSalidaContratoWrap'); if (wrapC) wrapC.style.display = horizontal ? 'none' : '';
+        var wrapR = el('almSalidaRqWrap');       if (wrapR) wrapR.style.display = horizontal ? 'none' : '';
+        // Reflow de las dos filas del grid. En mobile el CSS las fuerza a 1fr con
+        // !important, así que estos anchos solo mandan en escritorio.
+        var g1 = el('almSalidaGridProyecto'); if (g1) g1.style.gridTemplateColumns = horizontal ? '1fr' : '2fr 1fr';
+        var g2 = el('almSalidaGridDatos');    if (g2) g2.style.gridTemplateColumns = horizontal ? '1fr 1.4fr' : '1fr 1fr 1.4fr';
+    }
     window.almAbrirSalidaModal = function (idAlmacen) {
         ALM_SAL = { idAlmacen: String(idAlmacen || '') };
+        // Antes de mostrar nada: el almacén de origen decide qué campos se piden. Va aquí
+        // (y no una sola vez al cargar la página) porque el usuario puede cambiar de almacén
+        // sin recargar — el modal es el mismo nodo para todos.
+        almSalidaAplicarFormatoNota(ALM_SAL.idAlmacen);
         // Limpiar campos de Nota de Entrega y poner FECHA = hoy por default.
         ['almSalidaContrato','almSalidaRq','almSalidaSolicitante','almSalidaDepartamento','almSalidaMotivo'].forEach(function (id) { var e = el(id); if (e) e.value = ''; });
         // El campo Proyecto es un custom-dropdown: lo reseteamos con su helper para que
@@ -4731,6 +5076,9 @@
     // cerrar el modal y no acumular memoria.
     var almSalidaDraft   = null;
     var almPreviewBlobUrl = null;
+    // Texto del aviso de saldo prestado de la ÚLTIMA vista previa (cabecera X-Salida-Aviso).
+    // Se guarda entre el fetch y el pintado del modal, y se limpia en cada previsualización.
+    var almPreviewAvisoTexto = '';
 
     // ── Vista previa del PDF en TELÉFONO con PDF.js ─────────────────────────────
     // Los navegadores móviles no renderizan PDF embebido en <iframe>. Para que el
@@ -4816,7 +5164,14 @@
             var c   = parseFloat(raw);
             var nombre = s.nombre || ('#' + id);
             if (!isFinite(c) || c <= 0) ((parseFloat(s.saldo) || 0) <= 0 ? sinSaldo : faltan).push(nombre);
-            else lineas.push({ id_producto: parseInt(id, 10), cantidad: c, numero_parte: s.parte || null });
+            else lineas.push({
+                id_producto:  parseInt(id, 10),
+                cantidad:     c,
+                numero_parte: s.parte || null,
+                // De qué proyecto se descuenta. null = automático (la bolsa del destino). Se
+                // compara con '' y no por truthy: 0 es la bolsa común, una elección válida.
+                id_frente_saldo: (s.bolsa === '' || s.bolsa == null) ? null : parseInt(s.bolsa, 10),
+            });
         });
         var listar = function (arr) { return arr.slice(0, 4).join(', ') + (arr.length > 4 ? '…' : ''); };
         if (sinSaldo.length) { showErr('almSalidaError', 'Stock insuficiente de: ' + listar(sinSaldo) + '.'); return null; }
@@ -4871,6 +5226,11 @@
             body: JSON.stringify(payload)
         })
         .then(function (r) {
+            // Aviso de saldo prestado (cabecera, no cuerpo: el cuerpo es el PDF). Viene
+            // rawurlencode-ado porque una cabecera HTTP no admite acentos.
+            almPreviewAvisoTexto = '';
+            var av = r.headers.get('X-Salida-Aviso');
+            if (av) { try { almPreviewAvisoTexto = decodeURIComponent(av); } catch (e) { almPreviewAvisoTexto = av; } }
             // El backend devuelve PDF binario en exito, JSON con {message} en error.
             var ct = r.headers.get('Content-Type') || '';
             if (!r.ok) {
@@ -4893,6 +5253,13 @@
             // quita .open, los valores quedan listos para "Editar") y abrir el preview
             // ANTES de renderizar, para que el canvas mida bien el ancho disponible.
             almCerrar('almSalidaModal');
+            var avisoBox = el('almPreviewAviso');
+            if (avisoBox) {
+                avisoBox.textContent = almPreviewAvisoTexto
+                    ? ('Saldo de otros proyectos — ' + almPreviewAvisoTexto)
+                    : '';
+                avisoBox.style.display = almPreviewAvisoTexto ? 'block' : 'none';
+            }
             almOpen('almPreviewModal');
             if (almEsMovil()) {
                 // TELÉFONO: el iframe no muestra PDF → lo dibujamos con PDF.js en canvas.

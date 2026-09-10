@@ -120,7 +120,11 @@ class TraspasoService
      * Si CUALQUIER línea falla (stock insuficiente, producto inactivo, etc.),
      * la transacción se aborta y nada queda parcialmente aplicado.
      *
-     * @param  array  $opts  ['id_usuario_envio', 'fecha_envio'?, 'permitir_negativo'?]
+     * @param  array  $opts  ['id_usuario_envio', 'fecha_envio'?, 'permitir_negativo'?,
+     *                        'bolsa_por_producto'? ([ID_PRODUCTO => bolsa del origen de la que
+     *                        se descuenta esa línea]),
+     *                        campos de la Nota de Entrega: 'numero_nota'?, 'numero_contrato'?,
+     *                        'numero_rq'?, 'solicitante'?, 'departamento'?]
      */
     public function enviar(Traspaso $traspaso, array $opts = []): Traspaso
     {
@@ -155,9 +159,20 @@ class TraspasoService
                 'departamento'    => $opts['departamento']    ?? null,
             ];
 
+            // Bolsa del almacén ORIGEN de la que se descuenta cada producto, cuando la fila lo
+            // eligió a mano en el desglose por proyecto. Es POR PRODUCTO —una entrega puede
+            // llevar material de pilas distintas—, así que se resuelve dentro del bucle. La
+            // clave solo se pasa si esa línea eligió: quien la lee
+            // (InventarioService::frenteDelSaldo) usa array_key_exists, y mandarla en null
+            // significaría "bolsa común" en vez de "no eligió, usa la del destino".
+            $bolsaPorProducto = $opts['bolsa_por_producto'] ?? [];
+
             // Por cada línea: TRASPASO_SALIDA en el almacén origen + guardar el ID del movimiento
             // en la línea (para enlazar con la entrada cuando se reciba).
             foreach ($traspasoLock->lineas()->lockForUpdate()->get() as $linea) {
+                $bolsa     = $bolsaPorProducto[(int) $linea->ID_PRODUCTO] ?? null;
+                $saldoOpts = $bolsa === null ? [] : ['_frente_saldo' => (int) $bolsa];
+
                 $salida = $this->inventario->registrarTraspasoSalida(
                     idAlmacen:        (int) $traspasoLock->ID_ALMACEN_ORIGEN,
                     idProducto:       (int) $linea->ID_PRODUCTO,
@@ -178,7 +193,7 @@ class TraspasoService
                             : (($notaOpts['numero_nota'] ?? null) ? null : $traspasoLock->NUMERO),
                         'motivo'            => $traspasoLock->MOTIVO ?: ('Envío ' . $traspasoLock->NUMERO),
                         'permitir_negativo' => $permitirNegativo,
-                    ], $notaOpts),
+                    ], $notaOpts, $saldoOpts),
                 );
                 $linea->ID_MOVIMIENTO_SALIDA = $salida->ID_MOVIMIENTO;
                 $linea->save();

@@ -2,6 +2,11 @@
 @php
     $rows    = $productos ?? collect();
     $inicial = $inicial ?? false;
+    // Reparto del saldo por proyecto, [ID_PRODUCTO => filas]. Lo arma el controlador de una
+    // sola consulta para toda la pagina (AlmacenController::repartoDeLaPagina) y llega VACIO
+    // en los almacenes que no separan por proyecto: alli todo el saldo es de la bolsa comun
+    // y el desglose repetiria el total.
+    $reparto = $reparto ?? collect();
     // 6 columnas SIEMPRE: Código · Descripción · Categoría · Stock (con unidad) ·
     // Salida · Detalles. La columna "Salida/Cantidad" se muestra a TODOS; el permiso
     // almacen.movimiento NO oculta la captura — solo bloquea ABRIR la salida y
@@ -63,7 +68,12 @@
         <tr class="alm-row {{ $bajo ? 'alm-row-bajo' : '' }} alm-row-clickable"
             data-id-producto="{{ $p->ID_PRODUCTO }}" data-codigo="{{ $p->CODIGO }}" data-nombre="{{ $p->NOMBRE }}" data-um="{{ $p->UM }}" data-saldo="{{ $saldo }}"
             data-bajo="{{ $bajo ? '1' : '0' }}" data-minimo="{{ $minimo !== null ? $minimo : '' }}"
-            @if($equivs) data-equiv="{{ implode('|', $equivs) }}" data-parte-sel="{{ $equivs[0] }}" @endif>
+            @if($equivs) data-equiv="{{ implode('|', $equivs) }}" data-parte-sel="{{ $equivs[0] }}" @endif
+            {{-- Bolsa de la que sale el material de ESTA fila. Vacío = automático (la del
+                 proyecto destino de la nota). Solo la escriben las filas con desglose: si el
+                 saldo tiene un dueño único no hay nada que elegir. Lo mismo que data-parte-sel
+                 hace con el nº de parte. --}}
+            data-bolsa-sel="">
             <td class="alm-td-codigo" style="font-weight:600;color:#1e293b;white-space:nowrap;padding:12px 8px;">{{ $p->CODIGO }}</td>
             {{-- Descripción + tooltip-bubble con la UBICACION (mismo patrón de /admin/equipos).
                  El tooltip se activa al hover de cualquier parte de la fila por la regla CSS
@@ -127,9 +137,38 @@
             {{-- El color del texto siempre es negro (#0f172a). El stock bajo se indica con
                  el fondo rojo de la fila (.alm-row-bajo) y el icono ⚠ amarillo. La unidad
                  (UM) se muestra junto al número — ya no hay columna "UND" aparte. --}}
+            @php
+                // Bolsas de ESTE producto en el almacen abierto. 0 filas = el almacen no
+                // separa por proyecto (o el producto no tiene saldo): la celda queda como
+                // siempre, un numero y nada mas.
+                $bolsas = $reparto->get($p->ID_PRODUCTO, collect());
+                $unaBolsa = $bolsas->count() === 1 ? $bolsas->first() : null;
+            @endphp
             <td class="alm-td-stock" style="text-align:center;color:#0f172a;">
-                {{ rtrim(rtrim(number_format($saldo, 3, ',', '.'), '0'), ',') ?: '0' }}<span class="alm-stock-um">{{ $p->UM }}</span>
-                @if($bajo)<i class="material-icons" style="font-size:14px;color:#f59e0b;vertical-align:middle;" title="Stock en o por debajo del mínimo">warning</i>@endif
+                <span class="alm-stock-num">{{ rtrim(rtrim(number_format($saldo, 3, ',', '.'), '0'), ',') ?: '0' }}<span class="alm-stock-um">{{ $p->UM }}</span>
+                    @if($bajo)<i class="material-icons" style="font-size:14px;color:#f59e0b;vertical-align:middle;" title="Stock en o por debajo del mínimo">warning</i>@endif
+                </span>
+                {{-- Un solo dueño: el nombre va debajo del numero, sin nada que abrir. Es el
+                     caso mas frecuente y no merece un clic. --}}
+                @if($unaBolsa)
+                    <span class="alm-bolsa-uno {{ \App\Services\InventarioService::esBolsaComun($unaBolsa->ID_FRENTE, $unaBolsa->NOMBRE_FRENTE) ? 'es-comun' : '' }}"
+                          title="Todo este saldo es de: {{ \App\Services\InventarioService::rotuloBolsa($unaBolsa->ID_FRENTE, $unaBolsa->NOMBRE_FRENTE) }}">
+                        {{ \App\Services\InventarioService::rotuloBolsa($unaBolsa->ID_FRENTE, $unaBolsa->NOMBRE_FRENTE) }}
+                    </span>
+                {{-- Repartido entre varios proyectos: el total manda y el desglose se abre.
+                     data-no-toggle para que el clic no marque la fila para despachar. --}}
+                @elseif($bolsas->count() > 1)
+                    <button type="button" class="alm-bolsa-tog" data-no-toggle
+                            aria-expanded="false" title="Elegir de qué proyecto sale el material"
+                            onclick="event.stopPropagation(); window.almToggleBolsas && window.almToggleBolsas(this)">
+                        {{ $bolsas->count() }} proyectos
+                        <i class="material-icons">expand_more</i>
+                    </button>
+                    {{-- Bolsa elegida en el desglose. Arranca oculto (automático) y lo llena
+                         almRowBolsaLabel al elegir: así el usuario ve de qué proyecto sale sin
+                         tener que volver a abrir el desglose. --}}
+                    <span class="alm-bolsa-elegida" hidden></span>
+                @endif
             </td>
             {{-- Cantidad de salida por fila: stepper con input a la izquierda y dos botones
                  verticales (+ arriba, − abajo) pegados a la derecha — patrón "spinner clásico".
@@ -174,5 +213,45 @@
                 </button>
             </td>
         </tr>
+        {{-- Desglose por proyecto: fila propia debajo del producto, oculta hasta que se
+             pulsa el boton de la celda Stock. Va como <tr> y no dentro de la celda porque
+             la columna Stock es angosta y los nombres de frente son largos. En telefono el
+             CSS la pega a la tarjeta de arriba (ver .alm-row-bolsas en index).
+
+             Cada bolsa es ELEGIBLE, no solo informativa: en un almacén multi-proyecto el
+             material de cada frente está separado también en el patio, así que quien despacha
+             sabe de qué pila sacó y aquí lo deja escrito. Lo elegido viaja por línea
+             (id_frente_saldo) y es de esa bolsa de donde se descuenta.
+
+             Mismo patrón que los números de parte de la descripción (almRowPartePick):
+             data-no-toggle para que el clic no marque/desmarque la fila, y la elección se
+             guarda en la fila y en almSeleccion para sobrevivir a las recargas del tbody. --}}
+        @if($bolsas->count() > 1)
+            <tr class="alm-row-bolsas" data-de-producto="{{ $p->ID_PRODUCTO }}" hidden>
+                <td colspan="{{ $cols }}">
+                    <div class="alm-bolsa-wrap" data-no-toggle>
+                        {{-- Automático = lo de siempre: empieza por la bolsa del proyecto destino
+                             de la nota y sigue con la común. Va PRIMERO y marcado por defecto
+                             porque el destino se elige después (en el modal de salida), así que
+                             la fila todavía no sabe cuál es "el suyo". --}}
+                        <div class="alm-bolsa-item alm-bolsa-opt alm-bolsa-on es-auto" data-no-toggle data-bolsa=""
+                             title="Descuenta del proyecto al que se entrega, y sigue con el saldo sin proyecto si no alcanza"
+                             onclick="window.almRowBolsaPick && window.almRowBolsaPick(this)">
+                            <span class="nom">Automático (el del proyecto destino)</span>
+                        </div>
+                        @foreach($bolsas as $b)
+                            <div class="alm-bolsa-item alm-bolsa-opt {{ \App\Services\InventarioService::esBolsaComun($b->ID_FRENTE, $b->NOMBRE_FRENTE) ? 'es-comun' : '' }}"
+                                 data-no-toggle data-bolsa="{{ (int) $b->ID_FRENTE }}"
+                                 data-bolsa-nom="{{ \App\Services\InventarioService::rotuloBolsa($b->ID_FRENTE, $b->NOMBRE_FRENTE) }}"
+                                 title="Descontar del saldo de {{ \App\Services\InventarioService::rotuloBolsa($b->ID_FRENTE, $b->NOMBRE_FRENTE) }}"
+                                 onclick="window.almRowBolsaPick && window.almRowBolsaPick(this)">
+                                <span class="nom">{{ \App\Services\InventarioService::rotuloBolsa($b->ID_FRENTE, $b->NOMBRE_FRENTE) }}</span>
+                                <span class="qty">{{ rtrim(rtrim(number_format((float) $b->CANTIDAD, 3, ',', '.'), '0'), ',') ?: '0' }}<span class="alm-stock-um">{{ $p->UM }}</span></span>
+                            </div>
+                        @endforeach
+                    </div>
+                </td>
+            </tr>
+        @endif
     @endforeach
 @endif

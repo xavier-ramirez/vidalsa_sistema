@@ -76,6 +76,8 @@ class MovimientoInventario extends Model
         'ID_MOVIMIENTO_RELACIONADO',
         'ID_TRASPASO',
         'ID_FRENTE',
+        // Bolsa de saldo que movió la fila (0 = común). Ver InventarioService.
+        'ID_FRENTE_SALDO',
         'ID_USUARIO',
         'REFERENCIA',
         'NUMERO_PARTE',
@@ -84,6 +86,10 @@ class MovimientoInventario extends Model
         'SOLICITANTE',
         'DEPARTAMENTO',
         'NUMERO_NOTA',
+        // Plantilla con la que se emitió la Nota (VERTICAL/HORIZONTAL) — se congela al
+        // registrar para que el historial reimprima la hoja que se firmó, no la que el
+        // almacén emita hoy. Ver InventarioService::aplicarMovimiento.
+        'FORMATO_NOTA',
         'MOTIVO',
         'NOTAS',
     ];
@@ -246,6 +252,81 @@ class MovimientoInventario extends Model
     public function esSalida(): bool
     {
         return in_array($this->TIPO, self::TIPOS_SALIDA, true);
+    }
+
+    /**
+     * Bolsa de la que se descontó el saldo cuando NO es la del proyecto al que se entregó.
+     * NULL cuando coinciden —el caso normal— o en filas anteriores a ID_FRENTE_SALDO.
+     *
+     * OJO: esto SOLO mira la fila, y con la fila sola no alcanza. En un almacén que no
+     * separa por proyecto todo el saldo vive en la bolsa común (0) mientras ID_FRENTE lleva
+     * el frente destino, así que 0 != destino en TODAS sus salidas y esto devolvería una
+     * bolsa en cada una sin que nadie haya prestado nada. Para pintar el aviso hay que usar
+     * prestamosPorMovimiento(), que además comprueba que el almacén separe.
+     */
+    public function bolsaPrestada(): ?int
+    {
+        if ($this->ID_FRENTE_SALDO === null || (int) $this->ID_FRENTE_SALDO === (int) $this->ID_FRENTE) {
+            return null;
+        }
+        return (int) $this->ID_FRENTE_SALDO;
+    }
+
+    /**
+     * Nombres de las bolsas prestadas que aparecen en un conjunto de movimientos, en UNA
+     * consulta. Devuelve [ID_FRENTE => NOMBRE_FRENTE]; la bolsa común (0) no entra porque
+     * no es un frente y su rótulo lo pone InventarioService::ROTULO_BOLSA_COMUN*.
+     *
+     * Acepta lo que le den: Collection, PAGINADOR (así llega desde el kardex) o array.
+     * NO envolver en collect() — sobre un paginador eso devuelve su metadata
+     * (current_page, data, links…) y no sus filas, así que el pluck salía vacío y el
+     * kardex rotulaba "proyecto #5" en vez del nombre del frente. pluck() directo sí
+     * funciona en los tres casos: el paginador lo reenvía a su colección de items.
+     */
+    public static function nombresDeBolsa($movimientos)
+    {
+        $filas = is_array($movimientos) ? collect($movimientos) : $movimientos;
+        $ids   = $filas->pluck('ID_FRENTE_SALDO')->filter(fn ($v) => (int) $v > 0)->unique();
+
+        return $ids->isEmpty()
+            ? collect()
+            : FrenteTrabajo::whereIn('ID_FRENTE', $ids)->pluck('NOMBRE_FRENTE', 'ID_FRENTE');
+    }
+
+    /**
+     * Cuáles de estos movimientos son REALMENTE un préstamo entre bolsas, como
+     * [ID_MOVIMIENTO => bolsa de la que salió].
+     *
+     * PUNTO ÚNICO de esa decisión: la usan los dos kardex y el export de la bitácora, que
+     * antes preguntaban cada uno por su cuenta con bolsaPrestada() y marcaban de más.
+     *
+     * Solo hay préstamo donde el almacén SEPARA por proyecto: en el resto no hay bolsas que
+     * prestar, todo el saldo es de la común. Eso no se puede saber por la fila, así que se
+     * resuelve por PÁGINA —una consulta con los almacenes que aparecen— y no por fila, que
+     * seria un N+1 que crece con el kardex.
+     */
+    public static function prestamosPorMovimiento($movimientos): array
+    {
+        $filas = is_array($movimientos) ? collect($movimientos) : $movimientos;
+
+        // Candidatos: los que la fila ya descarta no hace falta ni consultarlos.
+        $candidatos = $filas->filter(fn ($m) => $m->bolsaPrestada() !== null);
+        if ($candidatos->isEmpty()) {
+            return [];
+        }
+
+        // separaPorProyecto() del modelo, no una copia de su regla aquí.
+        $separan = Almacen::with('frentes:ID_FRENTE')
+            ->whereIn('ID_ALMACEN', $candidatos->pluck('ID_ALMACEN')->filter()->unique())
+            ->get()
+            ->filter(fn ($a) => $a->separaPorProyecto())
+            ->pluck('ID_ALMACEN')
+            ->flip();
+
+        return $candidatos
+            ->filter(fn ($m) => isset($separan[$m->ID_ALMACEN]))
+            ->mapWithKeys(fn ($m) => [$m->ID_MOVIMIENTO => $m->bolsaPrestada()])
+            ->all();
     }
 
 }

@@ -4,15 +4,17 @@
     $rows = $movimientos ?? collect();
     $fmt = fn ($n) => rtrim(rtrim(number_format((float) $n, 3, ',', '.'), '0'), ',') ?: '0';
     $tipoMeta = \App\Models\MovimientoInventario::TIPO_META;
-    // Pares almacén↔frente (pivote almacen_frentes) de los almacenes de esta página:
-    // deciden la etiqueta "(consumo interno)". Una SALIDA a un frente que el almacén
-    // SIRVE es consumo interno (aplica también a almacenes multi-proyecto, ej. Patio
-    // El Tigre: cualquiera de SUS frentes cuenta); a un frente ajeno es material que
-    // salió del ámbito del almacén — se muestra solo el nombre del frente, sin etiqueta.
-    $paresAlmFrente = \Illuminate\Support\Facades\DB::table('almacen_frentes')
-        ->whereIn('ID_ALMACEN', $rows->pluck('ID_ALMACEN')->filter()->unique())
-        ->get(['ID_ALMACEN', 'ID_FRENTE'])
-        ->mapWithKeys(fn ($p) => [$p->ID_ALMACEN . '-' . $p->ID_FRENTE => true]);
+    // Nombres de las BOLSAS de saldo prestadas que aparecen en esta pagina: cuando una
+    // salida no alcanza con lo del proyecto, se toma de otra bolsa
+    // (InventarioService::aplicarSalidaConCascada) y el kardex tiene que decir de cuál — si
+    // no, el saldo de un proyecto baja sin explicación visible. Una sola consulta por
+    // página, con el mismo helper que usa el export de la bitácora.
+    $nombreBolsa = \App\Models\MovimientoInventario::nombresDeBolsa($rows);
+
+    // Cuales de estas filas son REALMENTE un prestamo entre bolsas. No se decide fila por
+    // fila (ver MovimientoInventario::prestamosPorMovimiento): en un almacen que no separa
+    // por proyecto la fila sola diria que TODAS lo son.
+    $prestamos = \App\Models\MovimientoInventario::prestamosPorMovimiento($rows);
 @endphp
 
 @if($rows->count() === 0)
@@ -86,21 +88,34 @@
                 {{-- Cadena de fallback para el Destino del movimiento:
                      0/1) FRENTE asignado (lo elige el operario en SALIDA / TRASPASO / ENTRADA con
                         frente): SIEMPRE se muestra el nombre del frente — es el dato que el
-                        cliente necesita para saber a quién se le entregó cada cosa, sin importar
-                        cuántos frentes maneje el almacén. Si es una SALIDA pura (no
-                        TRASPASO_SALIDA, sin ID_ALMACEN_CONTRAPARTE) hacia un frente que el
-                        almacén SIRVE ($paresAlmFrente), se agrega "(consumo interno)" debajo,
-                        SIN ocultar el frente. Si el frente NO es del almacén, la etiqueta se
-                        omite: el material salió del ámbito del almacén.
+                        cliente necesita para saber a quién se le entregó cada cosa. Debajo, y
+                        solo si el saldo salió de una bolsa distinta a la del destino, va la
+                        línea "tomado de X".
+                        (Aquí hubo un chip "consumo interno" — se quitó: marcaba TODA salida a
+                        un frente que el almacén sirve, y en uno multi-proyecto como Patio El
+                        Tigre eso son todas, así que no distinguía nada.)
                      2) Almacén CONTRAPARTE (caso traspasos legacy o sin frente).
                      3) Almacén DEL MOVIMIENTO (caso STOCK INICIAL u otra ENTRADA en un almacén
                         sin frentes asignados — antes salía "—" sin info útil; ahora vemos al
                         menos en qué almacén cayó el stock).
                      4) "—" si por alguna razón nada de lo anterior está. --}}
                 @if($m->frente)
-                    {{ $m->frente->NOMBRE_FRENTE }}
-                    @if($m->TIPO === 'SALIDA' && !$m->ID_ALMACEN_CONTRAPARTE && isset($paresAlmFrente[$m->ID_ALMACEN . '-' . $m->ID_FRENTE]))
-                        <div style="font-size:10.5px;color:#94a3b8;font-style:italic;margin-top:1px;" title="El material no salió de este almacén — fue consumido por un frente que este almacén sirve, no hubo traspaso">(consumo interno)</div>
+                    @php
+                        // Prestamo entre bolsas, ya resuelto para toda la pagina arriba.
+                        $bolsa = $prestamos[$m->ID_MOVIMIENTO] ?? null;
+                    @endphp
+                    {{-- A QUIEN se entrego. --}}
+                    <div style="font-weight:600;color:#1e293b;">{{ $m->frente->NOMBRE_FRENTE }}</div>
+                    {{-- DE QUE BOLSA salio, solo cuando NO es la del destino. Se rotula "tomado de"
+                         y no "del saldo de": lo que el almacenista necesita leer es a quien se le
+                         quito el material, no la mecanica del saldo. La flecha lo ata a la linea
+                         de arriba (salio DE aqui PARA aquel). --}}
+                    @if($bolsa !== null)
+                        <div class="mv-tomado-de" title="Ese proyecto no tenia saldo suficiente: la diferencia se tomo de esta otra bolsa del mismo almacen">
+                            <i class="material-icons">subdirectory_arrow_right</i>
+                            <span>tomado de <strong>{{ \App\Services\InventarioService::rotuloBolsaPrestada(
+                                $bolsa, $nombreBolsa, \App\Services\InventarioService::ROTULO_BOLSA_COMUN_EN_FRASE) }}</strong></span>
+                        </div>
                     @endif
                 @elseif($m->ID_ALMACEN_CONTRAPARTE)
                     {{ $m->almacenContraparte?->NOMBRE ?? '—' }}

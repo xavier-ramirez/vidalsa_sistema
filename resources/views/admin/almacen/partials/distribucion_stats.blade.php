@@ -29,16 +29,17 @@
         return ($q === '' || $q === '-') ? '0' : $q;
     };
     // Rotulo de una fila de reparto por proyecto. El frente 0 es la BOLSA COMUN del
-    // almacen —material que todavia no es de ningun proyecto—: es saldo real, asi que se
+    // almacen -material que todavia no es de ningun proyecto-: es saldo real, asi que se
     // lista como una fila mas, solo que con nombre propio y en cursiva.
-    // Se declara UNA vez y lo usan las DOS listas que pintan reparto: la del almacen
-    // abierto y la que cuelga de cada otro almacen. Estaban con la misma condicion y el
-    // mismo texto escritos por separado, y cambiar el criterio en una habria dejado a la
-    // otra rotulando distinto el mismo saldo.
-    // Devuelve [esComun, textoAMostrar].
+    //
+    // La REGLA y el TEXTO salen de InventarioService (esBolsaComun/rotuloBolsa), que es de
+    // donde los leen tambien el detalle del producto y el export de la bitacora. Aqui solo
+    // queda el envoltorio que las DOS listas de esta vista necesitan: [esComun, texto].
     $rotuloFrente = function ($fila) {
-        $comun = (int) $fila->ID_FRENTE === 0 || $fila->NOMBRE_FRENTE === null;
-        return [$comun, $comun ? 'Sin proyecto (común)' : $fila->NOMBRE_FRENTE];
+        return [
+            \App\Services\InventarioService::esBolsaComun($fila->ID_FRENTE, $fila->NOMBRE_FRENTE),
+            \App\Services\InventarioService::rotuloBolsa($fila->ID_FRENTE, $fila->NOMBRE_FRENTE),
+        ];
     };
 @endphp
 

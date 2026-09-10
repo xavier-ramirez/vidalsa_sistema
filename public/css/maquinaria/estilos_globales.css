@@ -4861,3 +4861,17 @@ body:has(.mapa-page) .main-viewport {
 /* Al hacer clic en un estado, el navegador dibuja un RECTÁNGULO de foco alrededor
    del SVG (bounding box). Lo quitamos: queda solo el resaltado de la forma. */
 .leaflet-interactive:focus { outline: none !important; }
+
+/* ── Kardex de almacén: de dónde salió el saldo ──────────────────────────────
+   Las usan los DOS kardex (partials/kardex_rows y kardex_rows_mini), que viven en
+   páginas distintas (/almacen/movimientos y el modal de /almacen). Van aquí y no
+   inline en cada blade para no tener dos copias que se separen.
+
+   "tomado de X" = el saldo salió de la bolsa de OTRO proyecto. Ámbar (es una
+   excepción, no un error) y con la flecha que lo cuelga de la línea de arriba. */
+.mv-tomado-de {
+    display: flex; align-items: center; gap: 4px;
+    font-size: 11px; color: #b45309; margin-top: 2px; line-height: 1.35;
+}
+.mv-tomado-de i { font-size: 13px; flex-shrink: 0; }
+.mv-tomado-de strong { font-weight: 700; }

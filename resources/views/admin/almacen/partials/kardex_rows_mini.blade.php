@@ -8,9 +8,15 @@
     $fmt = fn ($n) => rtrim(rtrim(number_format((float) $n, 3, ',', '.'), '0'), ',') ?: '0';
     // Metadata visual única (TIPO_META) definida en el modelo — coherencia con el partial grande.
     $tipoMeta = \App\Models\MovimientoInventario::TIPO_META;
-    // NOTA: aquí NO se consulta almacen_frentes. La etiqueta "(consumo interno)" que la
-    // necesitaba se quitó de este modal a pedido del cliente; el partial grande
-    // (kardex_rows.blade.php) sí la conserva y hace su propia consulta.
+    // NOTA: la etiqueta "(consumo interno)" ya no existe en NINGUNO de los dos kardex —se
+    // quitó porque marcaba toda salida a un frente que el almacén sirve, y en uno
+    // multi-proyecto eso son todas—, así que aquí tampoco se consulta almacen_frentes.
+    //
+    // El "tomado de" SÍ va aquí: este modal es el historial de UN producto, y es justo
+    // donde se ve que a un proyecto le bajó el saldo sin haber pedido nada. Mismo helper
+    // que el kardex grande y el export — una sola consulta por página.
+    $nombreBolsa = \App\Models\MovimientoInventario::nombresDeBolsa($rows);
+    $prestamos   = \App\Models\MovimientoInventario::prestamosPorMovimiento($rows);
 @endphp
 
 @if($rows->count() === 0)
@@ -54,6 +60,14 @@
                      modal. --}}
                 @if($m->frente)
                     <div style="font-size:11px;font-weight:600;color:#0f172a;">{{ $m->frente->NOMBRE_FRENTE }}</div>
+                    @php $bolsa = $prestamos[$m->ID_MOVIMIENTO] ?? null; @endphp
+                    @if($bolsa !== null)
+                        <div class="mv-tomado-de" title="Ese proyecto no tenia saldo suficiente: la diferencia se tomo de esta otra bolsa del mismo almacen">
+                            <i class="material-icons">subdirectory_arrow_right</i>
+                            <span>tomado de <strong>{{ \App\Services\InventarioService::rotuloBolsaPrestada(
+                                $bolsa, $nombreBolsa, \App\Services\InventarioService::ROTULO_BOLSA_COMUN_EN_FRASE) }}</strong></span>
+                        </div>
+                    @endif
                 @elseif($m->ID_ALMACEN_CONTRAPARTE)
                     <div style="font-size:11px;font-weight:600;color:#0f172a;">{{ $m->almacenContraparte?->NOMBRE ?? '—' }}</div>
                 @endif

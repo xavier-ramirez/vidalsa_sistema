@@ -12,6 +12,7 @@ use App\Services\InventarioService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use App\Traits\ExcelLogoCorporativo;
 use RuntimeException;
 use Throwable;
@@ -215,7 +216,14 @@ class AlmacenController extends Controller
             // Sin filtro → inicial=true para pintar "usá los filtros" (no "sin coincidencias").
             $html = ($offset > 0 && $rows->isEmpty())
                 ? ''
-                : view('admin.almacen.partials.table_rows', ['productos' => $rows, 'almacen' => $almacenSel, 'inicial' => !$hayFiltro])->render();
+                : view('admin.almacen.partials.table_rows', [
+                    'productos' => $rows,
+                    'almacen'   => $almacenSel,
+                    'inicial'   => !$hayFiltro,
+                    // Desglose por proyecto de ESTA página. Vacío en los almacenes que no
+                    // separan, y también cuando el lote viene vacío.
+                    'reparto'   => $this->repartoDeLaPagina($almacenSel, $rows),
+                ])->render();
             $resp = [
                 'almacen'    => $almacenSel,
                 'html'       => $html,
@@ -233,6 +241,13 @@ class AlmacenController extends Controller
                     //    el panel muestra ese producto en otros almacenes visibles — util para saber
                     //    a donde pedir un traspaso si el almacen actual quedo en cero o bajo minimo.
                     $idProductoSel = $request->filled('id_producto') ? (int) $request->input('id_producto') : null;
+                    // Una búsqueda por texto que deja UNA sola fila es la misma pregunta que
+                    // clicar la sugerencia ("¿dónde está este producto?"), así que el panel
+                    // entra en modo cruzado igual. No cuesta una consulta extra: la fila ya
+                    // está cargada arriba, solo se lee su ID.
+                    if ($idProductoSel === null && !$hasMore && $rows->count() === 1) {
+                        $idProductoSel = (int) $rows->first()->ID_PRODUCTO;
+                    }
                     $productoOtros = $idProductoSel ? $this->productoEnOtrosAlmacenes($idProductoSel, $idAlmacenSel, $user) : null;
                     $resp['distribucionHtml'] = view('admin.almacen.partials.distribucion_stats', [
                         'distribucion'  => $this->distribucionPorCategoria($idAlmacenSel, $request),
@@ -721,36 +736,64 @@ class AlmacenController extends Controller
     }
 
     /**
-     * Reparto por proyecto (frente) de un producto, en los almacenes que se le pidan.
-     * Devuelve las filas AGRUPADAS por almacén.
+     * Reparto por proyecto (frente) de UN producto, en los almacenes que se le pidan,
+     * agrupado por almacén. Lo usan el desglose del almacén abierto (productoPorProyecto)
+     * y el que cuelga de cada otro almacén del panel (conDesgloseDeProyectos).
      *
-     * FUENTE ÚNICA de ese desglose: la usan el del almacén ABIERTO (productoPorProyecto)
-     * y el de los OTROS almacenes del panel (conDesgloseDeProyectos). Eran dos consultas
-     * casi calcadas —mismo join, mismos filtros, mismo orden—, y bastaba tocar el orden o
-     * añadir un filtro en una para que las dos listas contaran cosas distintas sin que
-     * nada fallara.
-     *
-     * Quién PUEDE pedir el desglose (que el almacén separe por proyecto) lo decide cada
-     * llamador: aquí solo se consulta lo que se pide.
+     * La consulta vive en filasDeReparto — aquí solo se elige el agrupamiento.
      */
     private function repartoPorProyecto($idsAlmacen, int $idProducto)
     {
-        $ids = collect($idsAlmacen);
-        if ($ids->isEmpty()) {
+        return $this->filasDeReparto($idsAlmacen, [$idProducto])->groupBy('ID_ALMACEN');
+    }
+
+    /**
+     * Reparto por proyecto de TODOS los productos de una página de la tabla, agrupado por
+     * producto. Es lo que hace que el desglose se vea en cada fila sin tener que buscar
+     * hasta dejar una sola: la pregunta "¿de quién es este material?" la tiene cada
+     * renglón del inventario, no solo el producto que quedó filtrado.
+     *
+     * UNA consulta por página (no una por fila): la lista de productos ya está cargada.
+     * Devuelve vacío si el almacén no separa por proyecto — ahí todo el saldo es de la
+     * bolsa común y el desglose repetiría el total.
+     */
+    private function repartoDeLaPagina(?Almacen $almacen, $productos)
+    {
+        if (!$almacen || !$almacen->separaPorProyecto()) {
+            return collect();
+        }
+
+        return $this->filasDeReparto([$almacen->ID_ALMACEN], collect($productos)->pluck('ID_PRODUCTO'))
+            ->groupBy('ID_PRODUCTO');
+    }
+
+    /**
+     * Filas crudas de saldo por (almacén, producto, bolsa), con el nombre del frente.
+     * Núcleo compartido por los tres desgloses: el del almacén abierto, el que cuelga de
+     * cada otro almacén en el panel, y el de la tabla. Eran consultas casi calcadas y
+     * bastaba tocar el orden en una para que las listas contaran cosas distintas.
+     *
+     * Descarta los saldos en cero (filas base de asegurarStock, que llenarían la lista de
+     * proyectos sin nada). Quién PUEDE pedir el desglose lo decide cada llamador.
+     */
+    private function filasDeReparto($idsAlmacen, $idsProducto)
+    {
+        $almacenes = collect($idsAlmacen)->filter()->unique()->values();
+        $productos = collect($idsProducto)->filter()->unique()->values();
+        if ($almacenes->isEmpty() || $productos->isEmpty()) {
             return collect();
         }
 
         return AlmacenStock::query()
             ->leftJoin('frentes_trabajo as f', 'f.ID_FRENTE', '=', 'almacen_stock.ID_FRENTE')
-            ->whereIn('almacen_stock.ID_ALMACEN', $ids)
-            ->where('almacen_stock.ID_PRODUCTO', $idProducto)
+            ->whereIn('almacen_stock.ID_ALMACEN', $almacenes)
+            ->whereIn('almacen_stock.ID_PRODUCTO', $productos)
             ->where('almacen_stock.CANTIDAD', '>', 0)
-            ->select('almacen_stock.ID_ALMACEN', 'almacen_stock.ID_FRENTE',
-                     'almacen_stock.CANTIDAD', 'f.NOMBRE_FRENTE')
+            ->select('almacen_stock.ID_ALMACEN', 'almacen_stock.ID_PRODUCTO',
+                     'almacen_stock.ID_FRENTE', 'almacen_stock.CANTIDAD', 'f.NOMBRE_FRENTE')
             ->orderByDesc('almacen_stock.CANTIDAD')
             ->orderBy('f.NOMBRE_FRENTE')
-            ->get()
-            ->groupBy('ID_ALMACEN');
+            ->get();
     }
 
     private function productoEnOtrosAlmacenes(int $idProducto, ?int $idAlmacenActual, $user)
@@ -848,6 +891,43 @@ class AlmacenController extends Controller
             return (int) $alm->frentes->first()->ID_FRENTE;
         }
         return null;
+    }
+
+    /**
+     * Bolsa de la que SALE el material de UNA LÍNEA de la salida, cuando el usuario la eligió
+     * a mano en el desglose por proyecto de esa fila (`lineas.*.id_frente_saldo`).
+     *
+     * Es por línea y no por nota porque en un almacén multi-proyecto el material de cada
+     * frente está separado también físicamente: una misma entrega puede llevar aceite de la
+     * pila de un proyecto y filtros de la de otro, y cada línea debe registrar de cuál salió.
+     *
+     * Es INDEPENDIENTE del proyecto destino: un frente puede prestarle material a otro (apoyo),
+     * y sin este dato el despacho empezaba SIEMPRE por la bolsa del destino, sin forma de decir
+     * "esto descuéntalo del saldo de Ayacucho".
+     *
+     * Devuelve null cuando no aplica —el almacén no separa por proyecto, o la línea no eligió
+     * (el "Automático" de la tabla)—: ahí manda el criterio de siempre, la bolsa del destino
+     * primero. FRENTE_BOLSA_COMUN (0) sí es una elección: el material sin proyecto asignado.
+     *
+     * Lo usan el registro real (registrarMovimientoLote, que la pasa a la cascada) y la vista
+     * previa (previewSalidaPdf, que compara contra ella para avisar qué se toma prestado). Una
+     * sola resolución para los dos, o el aviso mentiría sobre lo que va a pasar al registrar.
+     */
+    private function bolsaOrigenElegida(?Almacen $almacen, $pedida): ?int
+    {
+        if ($pedida === null || !($almacen?->separaPorProyecto() ?? false)) {
+            return null;
+        }
+
+        $bolsa = (int) $pedida;
+        if ($bolsa !== InventarioService::FRENTE_BOLSA_COMUN
+            && !$almacen->frentes->contains('ID_FRENTE', $bolsa)) {
+            throw ValidationException::withMessages([
+                'id_frente_saldo' => ['El proyecto del que sale el material no pertenece al almacén «' . $almacen->NOMBRE . '».'],
+            ]);
+        }
+
+        return $bolsa;
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -1488,7 +1568,7 @@ class AlmacenController extends Controller
     /**
      * Vista alterna de la bitácora — agrupada por NUMERO_NOTA (una fila por
      * Nota de Entrega de Materiales). Sólo lista movimientos SALIDA / TRASPASO_SALIDA
-     * con N° NE-YYYY-NNNN asignado (los que tienen PDF oficial VID-FO-GEN-019).
+     * con N° NE-YYYY-NNNN asignado (los que tienen PDF de Nota de Entrega).
      * El clic en una fila abre el PDF en el visor in-page (window.openPdfPreview).
      *
      * Filtros aceptados: id_almacen, id_frente, tipo (SALIDA|TRASPASO_SALIDA), search
@@ -1715,8 +1795,38 @@ class AlmacenController extends Controller
      * La ETAPA viaja por equipo, no por producto: el mismo filtro es PRIMARIO en
      * una máquina y SECUNDARIO en otra. Vacía = sin confirmar.
      */
-    public function productoCompatibilidad($id)
+    public function productoCompatibilidad(Request $request, $id)
     {
+        // ── Reparto por proyecto DENTRO del almacén abierto ────────────────────────────
+        // Responde la pregunta que la tabla no puede: su columna STOCK suma todas las bolsas
+        // (95) sin decir de quién es cada parte. Cualquier proyecto puede consumirlas —la
+        // salida empieza por la suya y sigue con las demás, ver aplicarSalidaConCascada— pero
+        // quien despacha necesita saber a quién le está tocando el material. Hasta ahora esto
+        // solo salía en el panel lateral y únicamente si el usuario llegaba clicando una
+        // sugerencia del buscador (id_producto en la URL); buscando por texto no aparecía.
+        //
+        // Sale del MISMO helper que alimenta ese panel (repartoPorProyecto): una sola
+        // fuente para las dos vistas. Solo en almacenes que separan por proyecto — en el
+        // resto todo vive en la bolsa común y la lista repetiría el total en una línea.
+        $idAlmacen = (int) $request->integer('id_almacen');
+        $proyectos = collect();
+        if ($idAlmacen > 0) {
+            $this->assertPuedeVerAlmacen($request, $idAlmacen);
+            $alm = Almacen::with('frentes:ID_FRENTE')->find($idAlmacen);
+            if ($alm?->separaPorProyecto()) {
+                $proyectos = $this->repartoPorProyecto([$idAlmacen], (int) $id)
+                    ->get($idAlmacen, collect())
+                    ->map(fn ($r) => [
+                        // Rótulo y regla de "bolsa común" salen de InventarioService, el mismo
+                        // punto que usan el panel lateral y el export: material del almacén que
+                        // todavía no es de ningún proyecto y que CUALQUIER salida puede consumir.
+                        'proyecto' => InventarioService::rotuloBolsa($r->ID_FRENTE, $r->NOMBRE_FRENTE),
+                        'comun'    => InventarioService::esBolsaComun($r->ID_FRENTE, $r->NOMBRE_FRENTE),
+                        'cantidad' => (float) $r->CANTIDAD,
+                    ])->values();
+            }
+        }
+
         $equivalencias = ProductoEquivalencia::where('ID_PRODUCTO', $id)
             ->orderByDesc('ES_PRINCIPAL')
             ->pluck('NUMERO_PARTE')
@@ -1765,6 +1875,7 @@ class AlmacenController extends Controller
         return response()->json([
             'equivalencias' => $equivalencias,
             'equipos'       => $equipos,
+            'proyectos'     => $proyectos,
         ]);
     }
 
@@ -2284,9 +2395,18 @@ class AlmacenController extends Controller
         // fila, en la burbuja .tooltip-bubble anclada a la celda Producto (no es un
         // atributo title: ver partials/kardex_rows). SOLICITANTE nunca estuvo en la
         // bitácora: vive en la vista de Notas y en el PDF de la nota de entrega.
+        // SALDO DE = bolsa de la que se descontó cuando NO es la del frente al que se
+        // entregó (préstamo entre proyectos, ver InventarioService::aplicarSalidaConCascada).
+        // Va como columna propia y no dentro de FRENTE: son dos datos distintos y mezclarlos
+        // rompería cualquier tabla dinámica hecha sobre el export.
         $cols = ['FECHA', 'TIPO', 'CÓDIGO', 'PRODUCTO', 'UM', 'CANTIDAD', 'ANTERIOR', 'RESULTANTE',
-                 'ALMACÉN', 'CONTRAPARTE', 'FRENTE'];
-        $ultima = 'K';   // 11 columnas
+                 'ALMACÉN', 'CONTRAPARTE', 'FRENTE', 'SALDO DE'];
+        $ultima = 'L';   // 12 columnas
+
+        // Nombres de las bolsas y qué filas son realmente un préstamo, en consultas por
+        // lote. Mismos helpers que usa el kardex en pantalla (partials/kardex_rows).
+        $nombreBolsa = MovimientoInventario::nombresDeBolsa($movs);
+        $prestamos   = MovimientoInventario::prestamosPorMovimiento($movs);
 
         $hoja->setCellValue('A1', 'BITÁCORA DE MOVIMIENTOS');
         $hoja->mergeCells("A1:{$ultima}1");
@@ -2316,6 +2436,10 @@ class AlmacenController extends Controller
                 $m->almacen->NOMBRE ?? '',
                 $m->almacenContraparte->NOMBRE ?? '',
                 $m->frente->NOMBRE_FRENTE ?? '',
+                // Sin préstamo —el caso normal— la celda va vacía.
+                ($b = $prestamos[$m->ID_MOVIMIENTO] ?? null) === null
+                    ? ''
+                    : InventarioService::rotuloBolsaPrestada($b, $nombreBolsa),
             ], null, 'A' . $fila++);
         }
 
@@ -2624,7 +2748,7 @@ class AlmacenController extends Controller
      *   - si el frente destino comparte el almacén origen → SALIDA pura (consumo).
      *   - si el frente destino tiene un almacén DISTINTO → crea un Traspaso, lo envía
      *     (TraspasoService::enviar) y le estampa el mismo NUMERO_NOTA al movimiento
-     *     TRASPASO_SALIDA. Así ambos casos generan PDF Nota de Entrega VID-FO-GEN-019.
+     *     TRASPASO_SALIDA. Así ambos casos generan el PDF de la Nota de Entrega.
      *
      * Body:
      *  - tipo                : ENTRADA | SALIDA | AJUSTE
@@ -2682,9 +2806,41 @@ class AlmacenController extends Controller
             'lineas.*.cantidad'     => 'required|numeric',
             // Nº de parte específico entregado (filtros) — opcional y por línea.
             'lineas.*.numero_parte' => 'nullable|string|max:100',
+            // Bolsa de la que sale ESTA línea, elegida en el desglose por proyecto de su fila.
+            // Sin `exists` a propósito: 0 es la bolsa común, que no es un frente. Que sea una
+            // bolsa REAL de este almacén lo comprueba bolsaOrigenElegida().
+            'lineas.*.id_frente_saldo' => 'nullable|integer|min:0',
         ]);
 
         $this->assertPuedeVerAlmacen($request, (int) $data['id_almacen']);
+
+        // El almacén del lote (origen si es SALIDA, destino si es ENTRADA) con sus frentes:
+        // lo necesitan la bolsa que eligió cada línea de la SALIDA y la exigencia de proyecto
+        // de la ENTRADA. Se carga UNA vez porque las dos ramas preguntan lo mismo —qué frentes
+        // tiene— y antes cada una hacía su propia consulta.
+        $almacenLote = Almacen::with('frentes:ID_FRENTE')->find((int) $data['id_almacen']);
+
+        // Bolsa elegida a mano en cada línea, [ID_PRODUCTO => bolsa]. Solo tiene sentido en
+        // SALIDA: en una ENTRADA el proyecto que recibe ya lo dice `id_frente`, y un AJUSTE es
+        // del almacén. Se resuelve AQUÍ, una vez, y no dentro del bucle de la transacción: si
+        // una línea trae una bolsa ajena al almacén, la salida se rechaza ANTES de escribir
+        // nada. Las líneas en automático no entran en el mapa.
+        //
+        // La bolsa es UNA por producto: en la tabla cada producto es una fila con una sola
+        // elección. Si un cliente externo mandara dos líneas del mismo producto con bolsas
+        // distintas se usa la PRIMERA — el mismo criterio, escrito igual, que previewSalidaPdf:
+        // si uno se quedara con la última, el aviso de la vista previa hablaría de una bolsa
+        // y el despacho descontaría de otra.
+        $bolsaPorProducto = [];
+        if ($data['tipo'] === 'SALIDA') {
+            foreach ($data['lineas'] as $linea) {
+                $idp   = (int) $linea['id_producto'];
+                $bolsa = $this->bolsaOrigenElegida($almacenLote, $linea['id_frente_saldo'] ?? null);
+                if ($bolsa !== null && !array_key_exists($idp, $bolsaPorProducto)) {
+                    $bolsaPorProducto[$idp] = $bolsa;
+                }
+            }
+        }
 
         // ── Rama "Salida a otro proyecto" ───────────────────────────────────────
         // Si tipo=SALIDA + frente destino con almacén distinto al origen → delegamos
@@ -2734,6 +2890,7 @@ class AlmacenController extends Controller
                         $data,
                         (int) $idFrenteDest,
                         (int) $idAlmDestino,
+                        $bolsaPorProducto,
                     );
                 }
                 // 0 almacenes distintos → es consumo en el almacén actual (cae al flujo normal).
@@ -2768,21 +2925,18 @@ class AlmacenController extends Controller
         // el que pasan TODAS las vías de entrada (compra directa, Entrada por ODC y
         // cualquier cliente externo). Se valida además que el frente sea REALMENTE de este
         // almacén, para que un id inventado no meta stock en un proyecto que no le toca.
-        if ($data['tipo'] === 'ENTRADA') {
-            $almacenEntrada = Almacen::with('frentes:frentes_trabajo.ID_FRENTE')->find((int) $data['id_almacen']);
-            if ($almacenEntrada && $almacenEntrada->separaPorProyecto()) {
-                if (!$idFrente) {
-                    return response()->json([
-                        'message' => 'Indica el proyecto que recibe el material: «' . $almacenEntrada->NOMBRE . '» maneja el inventario separado por proyecto.',
-                        'errors'  => ['id_frente' => ['El proyecto que recibe el material es obligatorio en este almacén.']],
-                    ], 422);
-                }
-                if (!$almacenEntrada->frentes->contains('ID_FRENTE', (int) $idFrente)) {
-                    return response()->json([
-                        'message' => 'El proyecto indicado no pertenece al almacén «' . $almacenEntrada->NOMBRE . '».',
-                        'errors'  => ['id_frente' => ['El proyecto no pertenece a este almacén.']],
-                    ], 422);
-                }
+        if ($data['tipo'] === 'ENTRADA' && $almacenLote && $almacenLote->separaPorProyecto()) {
+            if (!$idFrente) {
+                return response()->json([
+                    'message' => 'Indica el proyecto que recibe el material: «' . $almacenLote->NOMBRE . '» maneja el inventario separado por proyecto.',
+                    'errors'  => ['id_frente' => ['El proyecto que recibe el material es obligatorio en este almacén.']],
+                ], 422);
+            }
+            if (!$almacenLote->frentes->contains('ID_FRENTE', (int) $idFrente)) {
+                return response()->json([
+                    'message' => 'El proyecto indicado no pertenece al almacén «' . $almacenLote->NOMBRE . '».',
+                    'errors'  => ['id_frente' => ['El proyecto no pertenece a este almacén.']],
+                ], 422);
             }
         }
 
@@ -2816,7 +2970,7 @@ class AlmacenController extends Controller
             // de Entrega. Permite reimprimir/eliminar la nota completa por código desde
             // /admin/almacen/movimientos. Capturamos también los IDs para devolver la URL
             // del PDF al frontend (pre-open tab inmediata, sin segunda búsqueda).
-            $result = DB::transaction(function () use ($data, $opts) {
+            $result = DB::transaction(function () use ($data, $opts, $bolsaPorProducto) {
                 if ($data['tipo'] === 'SALIDA') {
                     $opts['numero_nota'] = MovimientoInventario::generarNumeroNota();
                 }
@@ -2845,6 +2999,13 @@ class AlmacenController extends Controller
                     $optsLinea = $opts;
                     if ($data['tipo'] === 'SALIDA' && !empty($linea['numero_parte'])) {
                         $optsLinea['numero_parte'] = trim((string) $linea['numero_parte']);
+                    }
+                    // De qué bolsa se descuenta ESTA línea. Viaja en la misma clave que usa la
+                    // cascada por dentro (_frente_saldo) porque es exactamente el mismo dato.
+                    // Solo se pone si la línea eligió: la clave se lee con array_key_exists, así
+                    // que mandarla en null significaría "bolsa común" en vez de "no eligió".
+                    if (isset($bolsaPorProducto[$idProducto])) {
+                        $optsLinea['_frente_saldo'] = $bolsaPorProducto[$idProducto];
                     }
 
                     $mov = match ($data['tipo']) {
@@ -2887,9 +3048,14 @@ class AlmacenController extends Controller
      * (NUMERO_NOTA + contrato/RQ/solicitante/dpto) en los movimientos TRASPASO_SALIDA
      * para que sea reimprimible desde la bitácora, idéntico a una SALIDA pura.
      *
+     * $bolsaPorProducto son las bolsas elegidas en el desglose de cada fila, [ID_PRODUCTO =>
+     * bolsa]; los productos que no aparecen van en automático (la del destino, como siempre).
+     * Esta rama las necesita tanto como la SALIDA pura: el material sigue saliendo del almacén
+     * de origen, y de qué proyecto se descuenta es la misma decisión.
+     *
      * Devuelve la misma forma de respuesta que SALIDA: { message, nota_url, numero_nota }.
      */
-    private function registrarSalidaViaTraspaso(Request $request, array $data, int $idFrenteDestino, int $idAlmacenDestino): \Illuminate\Http\JsonResponse
+    private function registrarSalidaViaTraspaso(Request $request, array $data, int $idFrenteDestino, int $idAlmacenDestino, array $bolsaPorProducto = []): \Illuminate\Http\JsonResponse
     {
         $idUsuario = optional($request->user())->ID_USUARIO;
         $lineas    = array_map(
@@ -2905,7 +3071,7 @@ class AlmacenController extends Controller
         usort($lineas, fn ($a, $b) => $a['id_producto'] <=> $b['id_producto']);
 
         try {
-            $resultado = DB::transaction(function () use ($data, $idFrenteDestino, $idAlmacenDestino, $idUsuario, $lineas, $request) {
+            $resultado = DB::transaction(function () use ($data, $idFrenteDestino, $idAlmacenDestino, $idUsuario, $lineas, $request, $bolsaPorProducto) {
                 $numeroNota = MovimientoInventario::generarNumeroNota();
 
                 $traspaso = $this->traspasos->crearBorrador(
@@ -2924,6 +3090,9 @@ class AlmacenController extends Controller
                 );
 
                 $this->traspasos->enviar($traspaso, [
+                    // De qué bolsa del almacén ORIGEN se descuenta cada producto. Los que no
+                    // estén en el mapa van en automático: la del frente destino, como siempre.
+                    'bolsa_por_producto' => $bolsaPorProducto,
                     'id_usuario_envio'  => $idUsuario,
                     'fecha_envio'       => $data['fecha'] ?? null,
                     // Un envío a otro almacén también es una SALIDA física: no se puede enviar
@@ -2954,12 +3123,12 @@ class AlmacenController extends Controller
     }
 
     // ─────────────────────────────────────────────────────────────
-    //  Nota de Entrega de Materiales (PDF, formato VID-FO-GEN-019)
+    //  Nota de Entrega de Materiales (PDF)
     // ─────────────────────────────────────────────────────────────
 
     /**
      * Genera el PDF "Nota de Entrega de Materiales" replicando el formulario oficial
-     * (Constructora Vidalsa 27, C.A. — VID-FO-GEN-019).
+     * (Constructora Vidalsa 27, C.A.).
      *
      * Acepta dos modos de búsqueda (mutuamente excluyentes):
      *   ?numero=NE-2026-0001  → recupera todos los SALIDA con ese NUMERO_NOTA (recomendado;
@@ -3011,11 +3180,16 @@ class AlmacenController extends Controller
         ];
 
         $slug   = $hd->NUMERO_NOTA ?: ($hd->NUMERO_RQ ?: ('LOTE-' . $hd->ID_MOVIMIENTO));
-        // El ALMACEN que emitio la salida decide formato Y firmantes de la nota. Sale de la
-        // relacion `almacen` que ya viene cargada con los movimientos (ver
-        // buscarMovimientosDeNota -> with(['producto','almacen',...])): pasarlo no agrega ni
-        // una consulta. Va CRUDO: normalizar el formato es cosa del render.
-        $binary = $this->renderNotaEntregaPdfBinary($datos, $movs, false, $hd->almacen);
+        // Reimpresion desde el historial: la hoja es la que se uso el dia de la operacion
+        // (movimientos_inventario.FORMATO_NOTA, congelado al registrar), NO la que el almacen
+        // emita hoy — cambiar la plantilla de un almacen no puede reescribir documentos ya
+        // firmados. Las notas anteriores a esa columna llegan con NULL y el render cae al
+        // formato actual del almacen, que es como se comportaban hasta ahora.
+        //
+        // El ALMACEN se sigue pasando porque de el salen los FIRMANTES del horizontal, y ya
+        // viene cargado con los movimientos (buscarMovimientosDeNota -> with([...,'almacen'])):
+        // no agrega ni una consulta. Los dos valores van CRUDOS: normalizar es cosa del render.
+        $binary = $this->renderNotaEntregaPdfBinary($datos, $movs, false, $hd->almacen, $hd->FORMATO_NOTA);
         return response($binary, 200, [
             'Content-Type'        => 'application/pdf',
             'Content-Disposition' => 'inline; filename="Nota_Entrega_' . preg_replace('/[^A-Za-z0-9_-]/', '_', $slug) . '.pdf"',
@@ -3346,6 +3520,10 @@ class AlmacenController extends Controller
             // paso previo obligatorio antes de generar la Nota de Entrega.
             'lineas.*.cantidad'     => 'required|numeric|gt:0',
             'lineas.*.numero_parte' => 'nullable|string|max:100',
+            // Bolsa de la que sale ESTA línea. Mismas reglas que en registrarMovimientoLote:
+            // 0 es la común y la pertenencia la valida bolsaOrigenElegida(), para que el aviso
+            // se calcule sobre exactamente lo que va a pasar al registrar.
+            'lineas.*.id_frente_saldo' => 'nullable|integer|min:0',
         ]);
 
         $this->assertPuedeVerAlmacen($request, (int) $data['id_almacen']);
@@ -3357,27 +3535,85 @@ class AlmacenController extends Controller
         // Gate de stock: rechaza cualquier línea que supere el saldo disponible. La Nota de
         // Entrega solo se genera si TODO el material solicitado existe físicamente — NO se
         // permite negativo en este flujo, ni siquiera a super.admin.
-        $stocks = AlmacenStock::where('ID_ALMACEN', (int) $data['id_almacen'])
-            ->whereIn('ID_PRODUCTO', $productos->keys()->all())
-            ->get(['ID_PRODUCTO', 'CANTIDAD'])->keyBy('ID_PRODUCTO');
+        //
+        // El disponible es TODO el saldo del almacén, no solo el de una bolsa: una salida
+        // consume primero la bolsa de la que sale (la elegida, o la del proyecto destino),
+        // luego la común y, si aún falta, el material asignado a otros proyectos
+        // (InventarioService::aplicarSalidaConCascada).
+        // Ese préstamo entre proyectos es deliberado — el material está físicamente en la
+        // bodega y prestarlo es un ajuste normal de almacén; queda registrado tramo por
+        // tramo en el kardex.
+        //
+        // Lo que sí se avisa es CUÁNTO va a salir de bolsas ajenas, para que quien despacha
+        // lo sepa ANTES de firmar la nota (ver $avisos más abajo).
+        $almacenOrigen = Almacen::with('frentes:ID_FRENTE')->find((int) $data['id_almacen']);
+        $separaSaldo   = $almacenOrigen?->separaPorProyecto() ?? false;
+        // Saldo de estos productos en el almacén, FILA POR FILA (una por bolsa) y con el
+        // nombre del proyecto. Una sola consulta y el reparto se calcula abajo en PHP: las
+        // bolsas "propias" ya no son las mismas para todo el lote —cada línea elige la suya—
+        // así que no se puede agregar en SQL con un único WHERE de bolsas.
+        $filasStock = AlmacenStock::where('almacen_stock.ID_ALMACEN', (int) $data['id_almacen'])
+            ->whereIn('almacen_stock.ID_PRODUCTO', $productos->keys()->all())
+            ->leftJoin('frentes_trabajo as f', 'f.ID_FRENTE', '=', 'almacen_stock.ID_FRENTE')
+            ->get(['almacen_stock.ID_PRODUCTO', 'almacen_stock.ID_FRENTE', 'almacen_stock.CANTIDAD', 'f.NOMBRE_FRENTE'])
+            ->groupBy('ID_PRODUCTO');
 
-        // Se agregan las cantidades POR PRODUCTO antes de comparar: el endpoint real
-        // (registrarMovimientoLote → registrarSalida) descuenta línea a línea sobre el mismo
-        // saldo bloqueado, así que dos líneas del mismo producto se suman. Comparar cada línea
-        // por separado dejaría pasar un preview que el "Confirmar" rechazaría.
+        // Lo pedido y la bolsa elegida, POR PRODUCTO. Las cantidades se agregan antes de
+        // comparar: el endpoint real (registrarMovimientoLote → registrarSalida) descuenta
+        // línea a línea sobre el mismo saldo bloqueado, así que dos líneas del mismo producto
+        // se suman. Comparar cada línea suelta dejaría pasar un preview que el "Registrar"
+        // rechazaría. La bolsa, en cambio, es una sola por producto: en la tabla cada producto
+        // es UNA fila con UNA elección; si un cliente externo mandara dos líneas del mismo
+        // producto con bolsas distintas, se usa la primera.
         $pedidoPorProducto = [];
+        $bolsaPorProducto  = [];
         foreach ($data['lineas'] as $l) {
             $idp = (int) $l['id_producto'];
             $pedidoPorProducto[$idp] = ($pedidoPorProducto[$idp] ?? 0.0) + (float) $l['cantidad'];
+
+            $bolsa = $this->bolsaOrigenElegida($almacenOrigen, $l['id_frente_saldo'] ?? null);
+            if ($bolsa !== null && !array_key_exists($idp, $bolsaPorProducto)) {
+                $bolsaPorProducto[$idp] = $bolsa;
+            }
         }
 
+        $num = fn ($v) => rtrim(rtrim(number_format((float) $v, 3, '.', ''), '0'), '.');
+
         $excesos = [];
+        $avisos  = [];
         foreach ($pedidoPorProducto as $idp => $pedido) {
-            $disp = (float) ($stocks[$idp]->CANTIDAD ?? 0);
+            $nombre = $productos[$idp]->NOMBRE ?? ('#' . $idp);
+            $filas  = $filasStock->get($idp, collect());
+            $disp   = (float) $filas->sum('CANTIDAD');
+
+            // No hay tanto material en TODO el almacén: eso sí es un error.
             if ($pedido > $disp) {
-                $excesos[] = ($productos[$idp]->NOMBRE ?? ('#' . $idp))
-                    . ' (' . rtrim(rtrim(number_format($pedido, 3, '.', ''), '0'), '.')
-                    . ' > ' . rtrim(rtrim(number_format($disp, 3, '.', ''), '0'), '.') . ')';
+                $excesos[] = $nombre . ' (' . $num($pedido) . ' > ' . $num($disp) . ')';
+                continue;
+            }
+
+            // Bolsas propias de ESTE producto: la que eligió su fila y, si no eligió, la del
+            // proyecto destino — más la común. De ahí sale el material sin tocar el de nadie.
+            // El criterio y el orden los define InventarioService, que es quien luego las
+            // consume: así el aviso no puede contradecir al despacho. Lo elegido a mano NO se
+            // avisa como préstamo (fue una decisión explícita); el aviso queda para lo que la
+            // cascada tenga que tomar ADEMÁS. Sin separación por proyecto el almacén es una
+            // sola bolsa y no hay nada de nadie que tomar.
+            $propias = InventarioService::bolsasPropias(
+                $bolsaPorProducto[$idp] ?? ($data['id_frente_destino'] ?? null),
+            );
+            $propio = !$separaSaldo ? $disp : (float) $filas->whereIn('ID_FRENTE', $propias)->sum('CANTIDAD');
+
+            // Alcanza, pero parte sale de la bolsa de otro proyecto → aviso, no error.
+            $prestado = round($pedido - $propio, 3);
+            if ($prestado > 0) {
+                $otros = $filas->whereNotIn('ID_FRENTE', $propias)
+                    ->where('CANTIDAD', '>', 0)
+                    ->sortByDesc('CANTIDAD')
+                    ->map(fn ($o) => $o->NOMBRE_FRENTE ?: 'sin proyecto')
+                    ->unique()->values();
+                $avisos[] = $nombre . ': ' . $num($prestado) . ' del saldo de '
+                    . ($otros->isEmpty() ? 'otros proyectos' : $otros->implode(', '));
             }
         }
         if (!empty($excesos)) {
@@ -3392,7 +3628,8 @@ class AlmacenController extends Controller
         // request directamente (numero_contrato, numero_rq, solicitante, etc.) NO
         // hay cast, asi que llamamos MojibakeFix::fix() de defensa por si el usuario
         // pega texto con mojibake en el formulario (caso raro pero posible).
-        $almacen = Almacen::find((int) $data['id_almacen']);
+        // Ya cargado arriba para decidir las bolsas de saldo — no se vuelve a consultar.
+        $almacen = $almacenOrigen;
         $frente  = !empty($data['id_frente_destino'])
             ? \App\Models\FrenteTrabajo::find((int) $data['id_frente_destino'])
             : null;
@@ -3421,8 +3658,17 @@ class AlmacenController extends Controller
         // Armamos stdClass que cumple ese contrato — la coleccion mantiene el orden del
         // payload para que el preview se vea EXACTO al PDF final. NOMBRE pasa por
         // el cast de ProductoInventario, no necesita fix manual.
+        //
+        // ID_PRODUCTO / ID_FRENTE van aunque el blade no los lea: renderNotaEntregaPdfBinary
+        // agrupa los renglones por ellos, y sin los campos PHP avisa "Undefined property" —que
+        // en una peticion real Laravel convierte en ErrorException, tumbando la vista previa—
+        // y ademas TODAS las lineas caian en la misma clave, dejando la nota en un solo
+        // renglon con la suma de todo. Este objeto tiene que cumplir el contrato COMPLETO del
+        // movimiento, no solo lo que la vista lee hoy.
         $movs = collect($data['lineas'])->map(function ($l) use ($productos, $frente) {
             return (object) [
+                'ID_PRODUCTO'  => (int) $l['id_producto'],
+                'ID_FRENTE'    => $frente?->ID_FRENTE,
                 'CANTIDAD'     => (float) $l['cantidad'],
                 // Nº de parte específico (filtros): el preview también lo muestra, igual que
                 // el PDF final. El blade lo lee null-safe, así que si no vino queda vacío.
@@ -3439,13 +3685,36 @@ class AlmacenController extends Controller
         // Mismo almacen de origen que emitira el PDF definitivo -> mismo formato y mismos
         // firmantes. Asi la vista previa nunca miente sobre la hoja que va a salir impresa.
         $binary = $this->renderNotaEntregaPdfBinary($datos, $movs, true, $almacen);
-        return response($binary, 200, [
+        $headers = [
             'Content-Type'        => 'application/pdf',
             'Content-Disposition' => 'inline; filename="Vista_Previa_Nota_Entrega.pdf"',
             // No cachear el preview — cada cambio del usuario debe regenerar.
             'Cache-Control'       => 'no-store, no-cache, must-revalidate, max-age=0',
             'Pragma'              => 'no-cache',
-        ]);
+        ];
+        // El cuerpo de esta respuesta es el PDF, así que el aviso de "esto sale del saldo de
+        // otro proyecto" viaja en una cabecera y lo pinta el modal de vista previa — el paso
+        // donde el usuario revisa antes de registrar. rawurlencode porque una cabecera HTTP
+        // solo admite ASCII y los nombres de proyecto llevan acentos.
+        //
+        // ACOTADO a unos pocos productos, y el resto contado: hay un aviso por producto que
+        // toma prestado, cada uno con su nombre y el de los proyectos de los que sale, y
+        // rawurlencode triplica cada byte acentuado. Una nota larga en un almacén
+        // multi-proyecto generaba varios KB de cabecera y nginx responde a eso con
+        // "upstream sent too big header" -> 502: la vista previa moría justo en las salidas
+        // para las que existe el aviso. El detalle completo no se pierde: cada tramo queda
+        // en el kardex con su "tomado de".
+        if (!empty($avisos)) {
+            $MAX_AVISOS = 3;
+            $sobran = count($avisos) - $MAX_AVISOS;
+            $texto  = implode(' · ', array_slice($avisos, 0, $MAX_AVISOS));
+            if ($sobran > 0) {
+                $texto .= ' · y ' . $sobran . ' producto(s) más';
+            }
+            $headers['X-Salida-Aviso'] = rawurlencode($texto);
+        }
+
+        return response($binary, 200, $headers);
     }
 
     /**
@@ -3454,7 +3723,7 @@ class AlmacenController extends Controller
      *   • notaEntregaPdf()  → con datos cargados de movimientos persistidos.
      *   • previewSalidaPdf() → con datos del request, sin commit (vista previa).
      *
-     * $formato decide la HOJA y la PLANTILLA, y es lo ÚNICO que cambia entre las dos notas
+     * El formato decide la HOJA y la PLANTILLA, y es lo ÚNICO que cambia entre las dos notas
      * (ver Almacen::FORMATOS_NOTA):
      *   VERTICAL   → A4 de pie    + admin.almacen.nota_entrega_pdf  (VID-FO-GEN-019)
      *   HORIZONTAL → A4 acostada  + admin.almacen.nota_entrega_horizontal_pdf
@@ -3472,26 +3741,67 @@ class AlmacenController extends Controller
         array $datos,
         $movs,
         bool $esPreview = false,
-        ?Almacen $almacen = null
+        ?Almacen $almacen = null,
+        ?string $formato = null
     ): string {
-        // Se recibe el ALMACEN entero, no solo su columna FORMATO_NOTA, porque el formato
-        // horizontal tambien necesita sus firmantes (ver Almacen::firmantesNota()). Un solo
-        // parametro para las dos cosas evita que un caller pase el formato de un almacen y
-        // los firmantes de otro.
+        // El papel lista PRODUCTOS, no tramos de saldo. Cuando una salida tuvo que tomar de
+        // varias bolsas (InventarioService::aplicarSalidaConCascada) el kardex guarda un
+        // movimiento por bolsa, y sin esto la Nota imprimia el mismo producto dos veces
+        // (60 + 10) por algo que se entrego una sola vez. La bolsa NO se imprime en la nota
+        // -es contabilidad interna y vive en el kardex-, asi que sumar los tramos no oculta
+        // nada; el total entregado es justamente lo que hay que firmar.
         //
-        // UNICO punto donde se normaliza el formato: llega la columna tal cual (o null si el
-        // almacen ya no existe) y cae al vertical de siempre si no es un formato conocido —
-        // asi ninguna nota se queda sin PDF por un valor raro.
-        $horizontal = Almacen::normalizarFormatoNota($almacen?->FORMATO_NOTA) === Almacen::FORMATO_NOTA_HORIZONTAL;
+        // La clave es producto + frente + Nº DE PARTE, no solo el producto:
+        //  · frente  → el mismo producto entregado a dos frentes son dos entregas.
+        //  · nº parte→ en filtros, dos renglones del mismo producto pueden llevar partes
+        //              DISTINTAS (el operario elige la equivalencia al despachar). Fundirlos
+        //              imprimia una sola linea con la primera parte, y la segunda no aparecia
+        //              en el documento firmado.
+        // Los tramos de una misma cascada comparten los tres campos, que es justo lo que hay
+        // que sumar. Ninguna de las dos combinaciones sale del flujo normal (una nota va a un
+        // frente), pero ?ids= si puede armarlas.
+        //
+        // Va aqui, el UNICO punto por el que pasan los dos formatos y tambien la vista
+        // previa -donde es un no-op, porque alli cada linea ya viene entera-.
+        $movs = collect($movs)
+            ->groupBy(fn ($m) => $m->ID_PRODUCTO . '-' . $m->ID_FRENTE . '-' . ($m->NUMERO_PARTE ?? ''))
+            ->map(function ($tramos) {
+                if ($tramos->count() === 1) {
+                    return $tramos->first();
+                }
+                // Clon: se toca solo la copia que se imprime, nunca el modelo del kardex.
+                $fila = clone $tramos->first();
+                $fila->CANTIDAD = $tramos->sum('CANTIDAD');
+                return $fila;
+            })
+            ->values();
+        // Se recibe el ALMACEN entero porque de el salen los FIRMANTES del formato horizontal
+        // (ver Almacen::firmantesNota()) — esos son siempre los del almacen que despacha, no
+        // hay version historica de ellos.
+        //
+        // UNICO punto donde se normaliza el formato: llega el valor tal cual y cae al vertical
+        // de siempre si no es un formato conocido — asi ninguna nota se queda sin PDF por un
+        // valor raro (o porque el almacen ya no exista).
+        //
+        // $formato es el formato CONGELADO de una nota ya emitida
+        // (movimientos_inventario.FORMATO_NOTA): una nota firmada se reimprime como salio,
+        // aunque el almacen haya cambiado de plantilla despues. Cuando llega null —vista
+        // previa, o notas anteriores a esa columna— se usa el formato ACTUAL del almacen,
+        // que es lo unico que se puede saber.
+        $horizontal = Almacen::normalizarFormatoNota($formato ?? $almacen?->FORMATO_NOTA) === Almacen::FORMATO_NOTA_HORIZONTAL;
 
         $pdf = new NotaEntregaPDF($horizontal ? 'L' : 'P', 'mm', 'A4', true, 'UTF-8', false);
         // El N° de Nota va en el cabezote (esquina derecha, donde antes estaba "CODIGO:").
         // Header() lo lee de esta propiedad pública.
         $pdf->numeroNota = $datos['numero_nota'] ?? '';
+        // El formato se le DICE, no se deduce. El cabezote arma un sello distinto para cada
+        // uno y antes lo averiguaba mirando si $fechaHora venia vacia — un contrato
+        // implicito: rellenar esa propiedad para el vertical le habria cambiado el sello sin
+        // que nada lo dijera.
+        $pdf->horizontal = $horizontal;
         // Fecha y hora al sello, SOLO en horizontal: su cuerpo ya no las imprime (el vertical
-        // si, dentro de "FECHA DE ENTREGA", por eso alli esta property queda vacia y su
-        // cabezote no cambia). Se arma aqui —y no en el Header— para no meter formato de
-        // fechas dentro de la clase del PDF.
+        // si, dentro de "FECHA DE ENTREGA"). Se arma aqui —y no en el Header— para no meter
+        // formato de fechas dentro de la clase del PDF.
         if ($horizontal) {
             $pdf->fechaHora = trim(
                 'FECHA: ' . ($datos['fecha'] ?? '')
@@ -3535,9 +3845,10 @@ class AlmacenController extends Controller
             'movs'  => $movs,
             // Solo lo consume la vista horizontal; la vertical lleva sus dos firmas armadas
             // con 'entregado_por'/'cargo_entrega' y nunca lee esto, por eso alli va vacio.
-            // Cuando $horizontal es true el almacen NO puede ser null: sin almacen,
-            // normalizarFormatoNota(null) devuelve VERTICAL y no entramos por esta rama.
-            'firmantes' => $horizontal ? $almacen->firmantesNota() : [],
+            // Con el formato congelado una nota horizontal SI puede quedarse sin almacen (si
+            // lo borraron despues), asi que los bloques caen a un almacen vacio: cinco firmas
+            // en blanco, que es un formulario valido, en vez de reventar el PDF.
+            'firmantes' => $horizontal ? ($almacen?->firmantesNota() ?? (new Almacen())->firmantesNota()) : [],
         ])->render();
         $pdf->writeHTML($html, true, false, true, false, '');
         // Numeracion de paginas: con el documento ya completo (ver sellarPaginacion).
@@ -3672,6 +3983,10 @@ class AlmacenController extends Controller
                 // el kardex como histórico de la SALIDA, pero no se podrá reimprimir).
                 MovimientoInventario::where('NUMERO_NOTA', $numero)->update([
                     'NUMERO_NOTA' => null,
+                    // Se va con el número: el formato solo describe una nota emitida, y sin
+                    // nota que reimprimir sería metadata muerta (invariante: FORMATO_NOTA
+                    // existe si y solo si existe NUMERO_NOTA — ver InventarioService).
+                    'FORMATO_NOTA' => null,
                     // El numero se ESCAPA antes de entrar en el SQL: viene de la
                     // peticion (?numero=...) y aqui se interpolaba tal cual dentro de
                     // una cadena SQL. Hoy no es explotable —solo se llega aqui si ese
@@ -3772,7 +4087,7 @@ class AlmacenController extends Controller
             'TIPO'        => ['required', Rule::in([Almacen::TIPO_GENERAL, Almacen::TIPO_PROYECTO])],
             'UBICACION'   => 'nullable|string|max:150',
             // ALMACENISTA: nombre del responsable del almacén (aparece como "Entregado por"
-            // en la Nota de Entrega VID-FO-GEN-019). Obligatorio para no dejar el PDF sin
+            // en la Nota de Entrega). Obligatorio para no dejar el PDF sin
             // firma de quien entrega.
             'ALMACENISTA'       => 'required|string|max:200',
             // CARGO_ALMACENISTA: cargo / titulo (aparece como "CARGO:" en el PDF debajo del
@@ -3795,6 +4110,11 @@ class AlmacenController extends Controller
             'SOPORTE_2_NOM'      => 'nullable|string|max:120',
             'SOPORTE_2_CAR'      => 'nullable|string|max:120',
             'SOPORTE_2_CED'      => 'nullable|string|max:20',
+            // SEGURIDAD: persona fija del patio en el formato del cliente. RECIBIDO no tiene
+            // campos — ese se firma a mano en cada entrega (ver Almacen::firmantesNota).
+            'SEGURIDAD_NOM'      => 'nullable|string|max:120',
+            'SEGURIDAD_CAR'      => 'nullable|string|max:120',
+            'SEGURIDAD_CED'      => 'nullable|string|max:20',
             'ESTATUS'           => 'nullable|in:ACTIVO,INACTIVO',
             'NOTAS'             => 'nullable|string',
             // frentes: array de IDs. Obligatorio para AMBOS tipos (GENERAL y PROYECTO) —
@@ -3921,11 +4241,13 @@ class AlmacenController extends Controller
 }
 
 /**
- * TCPDF subclass para la Nota de Entrega de Materiales (formato oficial VID-FO-GEN-019,
- * Constructora Vidalsa 27, C.A. — emitido 01/10/19, revisión 1 del 06/10/23).
+ * TCPDF subclass para la Nota de Entrega de Materiales de Constructora Vidalsa 27, C.A.
+ * Sirve a los DOS formatos (vertical y horizontal): la diferencia esta en el cuerpo, que
+ * pone cada vista, y en el sello del cabezote, que arma Header() segun $horizontal.
+ * Los datos de control del formulario estan en las constantes FORM_* de abajo.
  *
  * Cabezote (Header(), repetido en cada página):
- *   [LOGO]            [TÍTULO centrado]               [Sello de código 5 filas]
+ *   [LOGO]            [TÍTULO centrado]               [Sello: N° de nota, fechas, PAG.]
  *
  * Nota: este PDF es un FORMULARIO OFICIAL de uso impreso/firmable, no un reporte interno
  * del sistema. Por eso la cabecera es más alta (42mm de margen superior, logo h=28mm,
@@ -3935,6 +4257,35 @@ class AlmacenController extends Controller
  */
 class NotaEntregaPDF extends \TCPDF
 {
+    /**
+     * Datos de control del FORMULARIO (no de la nota). Salen en el sello del cabezote del
+     * formato VERTICAL, que es el que replica el formulario impreso.
+     *
+     *   EMISION  → cuando se emitio el formulario por primera vez. NO cambia nunca.
+     *   REVISION → en que revision va la plantilla, y de cuando es esa revision.
+     *
+     * Van como constantes y no escritas dentro del HTML del sello porque son un dato de
+     * control documental: cuando se cambia la hoja hay que subir el numero Y poner la fecha,
+     * las dos cosas, y aqui estan juntas para que no se haga a medias.
+     *
+     * REVISION 2 (06/09/26): se quito del sello el CODIGO del formulario, se agrego
+     * SEGURIDAD como firmante pre-impreso y RECIBIDO paso al extremo derecho.
+     *
+     * La fecha es FIJA a proposito: es cuando se reviso la plantilla, no la fecha de hoy.
+     * Ponerla dinamica (now()) haria que cada nota dijera que la hoja se reviso el dia en
+     * que se imprimio, que es justo lo contrario de lo que significa el campo.
+     */
+    public const FORM_FECHA_EMISION = '01/10/19';
+    public const FORM_REVISION      = '2';
+    public const FORM_FECHA_REVISION = '06/09/26';
+
+    /**
+     * Formato de la hoja: true = HORIZONTAL (A4 acostada), false = VERTICAL. Lo inyecta
+     * renderNotaEntregaPdfBinary(), que es quien ya lo resolvió. Header() arma un sello
+     * distinto segun este valor; NO lo deduce de otras propiedades.
+     */
+    public bool $horizontal = false;
+
     /** N° de Nota (NE-YYYY-NNNN) — lo inyecta el controller antes de generar el PDF. */
     public string $numeroNota = '';
 
@@ -3942,9 +4293,9 @@ class NotaEntregaPDF extends \TCPDF
      * Fecha y hora del despacho, ya formateadas ("FECHA: 01/09/2026   HORA: 12:34 AM"), para
      * imprimirlas como una fila mas del sello del cabezote.
      *
-     * VACIA = no se imprime esa fila. Asi queda en el formato VERTICAL, que lleva la fecha
-     * dentro del cuerpo ("FECHA DE ENTREGA") y cuyo sello no debe cambiar. La rellena
-     * renderNotaEntregaPdfBinary() solo para el HORIZONTAL, cuyo cuerpo ya no las imprime.
+     * Solo la usa el formato HORIZONTAL: el VERTICAL lleva la fecha dentro del cuerpo
+     * ("FECHA DE ENTREGA") y su sello no la repite, asi que alli queda vacia. Quien decide
+     * que sello se pinta es $horizontal, NO que esta propiedad este llena.
      */
     public string $fechaHora = '';
 
@@ -3955,9 +4306,17 @@ class NotaEntregaPDF extends \TCPDF
      */
     public array $celdaPag = [];
 
+    /**
+     * Cuerpo de letra (pt) de la fila "PAG. X DE Y". Lo elige Header() junto con el resto
+     * del sello —7 en el vertical, 8 en el horizontal, que lleva menos filas y tiene sitio—
+     * y lo aplica sellarPaginacion(). Va como propiedad y no recalculado alla para que el
+     * tamaño de esa fila se decida en el MISMO sitio que el de las demas.
+     */
+    public int $pagPt = 7;
+
     public function Header()
     {
-        // ── Cabezote oficial VID-FO-GEN-019 — UNA tabla HTML con bordes ────────
+        // ── Cabezote de la Nota — UNA tabla HTML con bordes ────────────────────
         //    [LOGO 20%]  |  NOTA DE ENTREGA DE MATERIALES (52%)  |  [SELLO 28%]
         //    Se hace en una sola writeHTMLCell para que el grosor de las líneas
         //    sea consistente entre cabezote y cuerpo (TCPDF renderiza todas las
@@ -3965,14 +4324,14 @@ class NotaEntregaPDF extends \TCPDF
         //
         //    El logo es una imagen (no se puede meter via HTML facil en TCPDF),
         //    se superpone con Image() encima de la primera celda — vacía a
-        //    propósito y con rowspan=5 para que tenga el alto de las 5 filas
-        //    del sello.
+        //    propósito y con rowspan igual al nº de filas del sello, para que
+        //    tenga todo su alto.
 
         // Líneas finas. SetLineWidth se hereda al renderizar el cuerpo, por eso
         // tablas posteriores quedan con el MISMO grosor que el cabezote.
         $this->SetLineWidth(0.15);
 
-        // Cabezote oficial VID-FO-GEN-019.
+        // Cabezote de la Nota.
         // Geometria del cabezote:
         //   x = 10 mm  (margen izquierdo)         width = ancho de pagina - 10*2
         //                                          (190 mm en A4 de pie, 277 en A4 acostada)
@@ -4010,8 +4369,8 @@ class NotaEntregaPDF extends \TCPDF
         }
 
         // Sello + titulo + placeholder del logo, todo dentro de una tabla con border="1".
-        // rowspan="5" hace que la celda del logo y la del titulo ocupen las 5 filas
-        // del sello sin tener que dibujar lineas manuales.
+        // El rowspan (= nº de filas del sello, que cambia con el formato) hace que la celda
+        // del logo y la del titulo ocupen todas esas filas sin dibujar lineas manuales.
         //
         // Fuente: TCPDF no trae Arial nativamente — solo helvetica (visualmente
         // identica: Arial fue creada como sustituto de Helvetica). Forzamos
@@ -4023,12 +4382,12 @@ class NotaEntregaPDF extends \TCPDF
         // SI funciona es envolver el titulo en un <div> con line-height igual a
         // la altura del rowspan en puntos — el texto queda centrado en el line-box.
         //
-        // Layout del sello (columna derecha, 28%):
+        // Layout del sello (columna derecha, 28%). La primera fila y la ultima son comunes;
+        // en el medio cada formato pone lo suyo (ver mas abajo):
         //   Fila 1: N° de Nota: NE-YYYY-NNNN
-        //   Fila 2: CODIGO: VID-FO-GEN-019
-        //   Fila 3: FECHA EMIS: 01/10/19
-        //   Fila 4: REV: 1. FECHA REV: 06/10/23
-        //   Fila 5: PAG. X DE Y  -> se deja VACIA aqui; la escribe sellarPaginacion()
+        //   HORIZONTAL -> FECHA: dd/mm/aaaa  HORA: hh:mm     (3 filas en total)
+        //   VERTICAL   -> nada: su fecha va en el cuerpo     (2 filas en total)
+        //   Ultima : PAG. X DE Y  -> se deja VACIA aqui; la escribe sellarPaginacion()
         //                            cuando ya se conoce el total de paginas.
         // Cada fila del sello lleva valign="middle" para que su texto se vea
         // centrado vertical dentro de la celda (en especial "PAG. X DE Y", la
@@ -4047,39 +4406,55 @@ class NotaEntregaPDF extends \TCPDF
         $numNota = $this->numeroNota ?? '';
         $esc     = fn ($v) => htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8');
 
-        // Filas del sello (columna derecha, 28%). Se arman en un array y NO a mano porque el
-        // formato HORIZONTAL agrega la fecha y la hora del despacho: el numero de filas deja
-        // de ser fijo y hay que repartir el alto y ubicar la celda de PAG. a partir de el.
+        // Filas del sello (columna derecha, 28%). CADA FORMATO ARMA EL SUYO: no comparten
+        // ninguna fila salvo el N° de Nota y la de PAG., y mezclarlos con ifs sueltos fue
+        // justo lo que hizo que un cambio pedido para el horizontal le tocara el vertical.
         //
-        // OJO con "FECHA EMIS": es la fecha en que se emitio el FORMULARIO (2019), fija para
-        // siempre. NO es la fecha de esta nota — esa es la que se agrega abajo.
-        $filasSello = [
-            '<font face="helvetica" size="8"><b>N° de Nota:</b> ' . $esc($numNota) . '</font>',
-            '<font face="helvetica" size="7"><b>CODIGO:</b> VID-FO-GEN-019</font>',
-        ];
+        //  VERTICAL   → como el formulario impreso: las fechas de emision y revision del
+        //               FORMULARIO (no de esta nota). La fecha de la ENTREGA no va aqui: la
+        //               lleva el cuerpo, en "FECHA DE ENTREGA".
+        //  HORIZONTAL → NO lleva esas fechas: en el patio, la de 2019 pegada a la de hoy se
+        //               leia como un error de la hoja. Ese hueco lo usa para la fecha y hora
+        //               del despacho —que su cuerpo ya no imprime— y en letra mas grande,
+        //               porque es el dato que se consulta.
+        //
+        // NINGUNO lleva ya el CODIGO del formulario (VID-FO-GEN-019): identifica la
+        // plantilla, es identico en todas las notas y no le sirve a quien despacha ni a quien
+        // firma. Decision del cliente. Si algun dia hace falta para una auditoria, va aqui —y
+        // con el suyo propio por formato, porque el horizontal NO es el 019: es otra hoja,
+        // apaisada, con cinco firmas y sin Contrato ni RQ.
+        //
+        // El numero de filas sale de aqui y de el dependen el alto de cada una y la posicion
+        // de la celda de PAG. (ver mas abajo): 4 el vertical, 3 el horizontal.
+        $horizontal = $this->horizontal;
 
-        if ($this->fechaHora === '') {
-            // VERTICAL: sello de siempre, sin tocar. La fecha va dentro del cuerpo
-            // ("FECHA DE ENTREGA"), asi que aqui no hace falta.
-            $filasSello[] = '<font face="helvetica" size="7">FECHA EMIS: 01/10/19</font>';
-            $filasSello[] = '<font face="helvetica" size="7">REV: 1. FECHA REV: 06/10/23</font>';
-        } else {
-            // HORIZONTAL: su cuerpo ya no imprime fecha ni hora, van aqui. Para que el sello
-            // NO pase de 5 filas —el cabezote mide 24 mm fijos y con 6 se desbordaba sobre el
-            // cuerpo— las dos lineas de metadatos del FORMULARIO se juntan en una: dicen lo
-            // mismo (cuando se emitio y cuando se reviso la plantilla) y son secundarias
-            // frente a la fecha del despacho, que es la que se consulta.
-            $filasSello[] = '<font face="helvetica" size="6">FECHA EMIS: 01/10/19 · REV: 1 (06/10/23)</font>';
-            $filasSello[] = '<font face="helvetica" size="7"><b>' . $esc($this->fechaHora) . '</b></font>';
-        }
+        $filasSello = $horizontal
+            ? [
+                '<font face="helvetica" size="9"><b>N° de Nota:</b> ' . $esc($numNota) . '</font>',
+                '<font face="helvetica" size="10"><b>' . $esc($this->fechaHora) . '</b></font>',
+            ]
+            : [
+                '<font face="helvetica" size="8"><b>N° de Nota:</b> ' . $esc($numNota) . '</font>',
+                '<font face="helvetica" size="7">FECHA EMIS: ' . self::FORM_FECHA_EMISION . '</font>',
+                '<font face="helvetica" size="7">REV: ' . self::FORM_REVISION
+                    . '. FECHA REV: ' . self::FORM_FECHA_REVISION . '</font>',
+            ];
+
+        // Cuerpo de letra de la fila PAG., que la estampa sellarPaginacion() cuando ya se
+        // conoce el total de paginas. Se decide AQUI —con el resto del sello a la vista— y no
+        // alla, donde habria que volver a deducir el formato.
+        $this->pagPt = $horizontal ? 8 : 7;
 
         // Ultima fila: PAG. X DE Y. Se deja VACIA y la estampa sellarPaginacion() (ver abajo).
         $filasSello[] = '&nbsp;';
 
-        // Siempre 5 filas, sea cual sea el formato: el alto del cabezote es fijo (24 mm) y el
-        // cuerpo arranca pegado en y=40 (SetMargins), asi que una fila de mas se desborda
-        // encima de la tabla de datos. Se calcula en vez de estar escrito a mano para que, si
-        // algun dia cambia el numero de filas, la celda de PAG. siga cayendo en su sitio.
+        // El alto del cabezote es FIJO (24 mm) y el cuerpo arranca pegado en y=40
+        // (SetMargins), asi que las filas que haya se reparten ese alto EN PARTES IGUALES:
+        // mas de 5 se leen apretadas y mas de 6 se desbordan sobre la tabla de datos. Hoy el
+        // vertical usa 4 (n° de nota, emision, revision y PAG.) y el horizontal 3 (n° de
+        // nota, fecha del despacho y PAG.). Se calcula en vez de estar escrito a mano para
+        // que, al cambiar el numero de filas, sigan quedando parejas y la celda de PAG. caiga
+        // en su sitio sola.
         $nFilas   = count($filasSello);
         $altoFila = $cabH / $nFilas;
         $this->celdaPag = [
@@ -4094,8 +4469,19 @@ class NotaEntregaPDF extends \TCPDF
         // del texto -> visualmente centrado en el rowspan.
         $tituloDiv = '<div style="text-align:center;line-height:' . ($headerHeight - 4) . 'pt;font-family:helvetica;font-size:13pt;font-weight:bold;">NOTA DE ENTREGA DE MATERIALES</div>';
 
+        // ALTO EXPLICITO en cada celda del sello: sin el, TCPDF mide cada fila por su
+        // contenido y la ultima —que va vacia, porque el "PAG. X DE Y" lo estampa despues
+        // sellarPaginacion()— se quedaba con TODO el alto sobrante del cabezote. Se veia
+        // como una franja alta y vacia debajo de filas apretadas.
+        //
+        // NO se les pone line-height para afinar el centrado vertical: probado y medido, esa
+        // propiedad AGRANDA la fila en vez de mover el texto dentro de ella, el sello se sale
+        // de los 24 mm del cabezote y el PAG. —que se dibuja en posicion fija— cae encima de
+        // la fila de arriba. El centrado que da valign="middle" deja el texto ~1 mm alto
+        // (TCPDF centra la caja de linea, no la mancha de las letras); se acepta asi.
+        $altoFilaPt = $headerHeight / $nFilas;
         $celdasSello = array_map(
-            fn ($c) => '<td width="28%" align="center" valign="middle">' . $c . '</td>',
+            fn ($c) => '<td width="28%" height="' . $altoFilaPt . '" align="center" valign="middle">' . $c . '</td>',
             $filasSello,
         );
 
@@ -4141,10 +4527,24 @@ class NotaEntregaPDF extends \TCPDF
 
         for ($p = 1; $p <= $total; $p++) {
             $this->setPage($p);
-            $this->writeHTMLCell(
-                $w, $h, $x, $y,
-                '<div style="text-align:center;font-family:helvetica;font-size:7pt;">PAG. ' . $p . ' DE ' . $total . '</div>',
-                0, 0, false, true, 'C', true
+            // MultiCell con valign='M', y NO writeHTMLCell: aquel escribe DESDE ARRIBA de la
+            // celda, asi que el "PAG. X DE Y" quedaba pegado al borde superior mientras las
+            // filas de encima —celdas de la tabla del cabezote, con valign="middle"— salian
+            // centradas. Se veia como un renglon desalineado con los demas.
+            //
+            // Esta celda se dibuja aparte, en posicion absoluta, porque su texto solo se
+            // conoce cuando ya esta el documento entero (ver el comentario de arriba).
+            //
+            // SetFont ANTES es imprescindible: TCPDF centra vertical usando la fuente ACTIVA
+            // para calcular el alto del contenido, no la que diga el HTML. Con la fuente del
+            // cuerpo todavia puesta calculaba un alto que no era el del texto y lo dejaba,
+            // otra vez, un milimetro por encima del centro. Por eso tambien se escribe TEXTO
+            // PLANO (ishtml = false) en vez de un <div> con font-size: asi la fuente con la
+            // que mide es exactamente la misma con la que pinta.
+            $this->SetFont('helvetica', '', $this->pagPt);
+            $this->MultiCell(
+                $w, $h, 'PAG. ' . $p . ' DE ' . $total,
+                0, 'C', false, 0, $x, $y, true, 0, false, true, $h, 'M'
             );
         }
 
