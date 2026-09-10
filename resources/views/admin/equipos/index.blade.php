@@ -48,6 +48,136 @@
         }
     }
 
+    /* ── Presentación de las filas de la tabla de equipos ──────────────────────
+       Estaban escritas como style="" dentro de partials/table_rows.blade.php, repetidas
+       idénticas en cada una de las 150 filas del lote (49 atributos por fila, 41 valores
+       distintos). Como el valor no cambia de una fila a otra, viven aquí una vez.
+
+       Las usa TAMBIÉN el repintado sin internet: equipos-offline.js arma las mismas filas
+       en JavaScript y antes llevaba una COPIA A MANO de todos estos estilos. Ahora las dos
+       vías apuntan a estas clases, así que no se pueden desincronizar.
+
+       Van scoped bajo .table-equipos-mobile para no alcanzar a las otras tablas del
+       sistema, que comparten .admin-table y .table-cell-custom. */
+    .table-equipos-mobile td.eq-td-frente   { padding:6px 4px; width:150px; }
+    .table-equipos-mobile td.eq-td-tipo     { font-size:14.5px; color:#000; word-wrap:break-word; }
+    .table-equipos-mobile td.eq-td-marca    { font-size:13px; color:#000; word-wrap:break-word; }
+    .table-equipos-mobile td.eq-td-serial   { font-size:14px; color:#4a5568; }
+    .table-equipos-mobile td.eq-td-estatus  { padding:8px 2px; width:145px; }
+    .table-equipos-mobile td.eq-td-acciones { padding:8px 2px; width:44px; text-align:center; vertical-align:middle; }
+
+    /* Columna 1 — frente y foto */
+    .table-equipos-mobile .eq-frente-nom   { font-size:13px; color:#000; margin-bottom:5px; line-height:1.25;
+                                             font-weight:700; text-align:center; text-transform:uppercase;
+                                             word-wrap:break-word; position:relative; cursor:default; }
+    .table-equipos-mobile .eq-frente-linea { display:inline-flex; align-items:center; gap:3px; justify-content:center; }
+    /* El chip de "confirmado en sitio": verde si lo está, gris si no. Solo es pulsable
+       para quien puede editar equipos: la clase eq-click la pone el partial segun el
+       permiso equipos.edit.
+       DOS CUIDADOS AL COMENTAR EN ESTE ARCHIVO: una arroba seguida de palabra la compila
+       Blade como directiva aunque este dentro de un comentario CSS, y los comentarios CSS
+       no se anidan, asi que escribir un cierre de comentario dentro de otro corta el
+       bloque ahi y descarta las reglas que siguen. */
+    .table-equipos-mobile .confirm-sitio-chip          { font-size:14px; color:#cbd5e0; }
+    .table-equipos-mobile .confirm-sitio-chip.eq-cfd   { color:#16a34a; }
+    .table-equipos-mobile .confirm-sitio-chip.eq-click { cursor:pointer; }
+    .table-equipos-mobile .eq-finalizado-wrap { display:flex; align-items:center; justify-content:center;
+                                                gap:3px; margin-top:3px; }
+    .table-equipos-mobile .eq-finalizado      { background:#fef2f2; color:#dc2626; padding:1px 6px;
+                                                border-radius:8px; font-size:9px; font-weight:700;
+                                                display:inline-flex; align-items:center; gap:2px;
+                                                border:1px solid #fecaca; }
+    .table-equipos-mobile .eq-finalizado .material-icons { font-size:10px; }
+    .table-equipos-mobile .eq-foto-wrap { cursor:default; }
+    .table-equipos-mobile .eq-foto { width:100%; height:100%; object-fit:contain;
+                                     opacity:0; transition:opacity 0.4s; }
+
+    /* Columnas 2 y 3 — tipo, marca, modelo */
+    .table-equipos-mobile .eq-linea-fuerte { font-weight:700; text-transform:uppercase; line-height:1.3; }
+    .table-equipos-mobile .eq-etiqueta     { font-weight:700; color:var(--maquinaria-blue);
+                                             margin-left:6px; white-space:nowrap; }
+    .table-equipos-mobile .eq-etiqueta .material-icons { font-size:13px; vertical-align:-2px; }
+    .table-equipos-mobile .eq-sub          { font-size:12px; color:#64748b; font-weight:600;
+                                             text-transform:uppercase; margin-top:5px; letter-spacing:0.3px; }
+    .table-equipos-mobile .eq-sub.eq-sub-junto { margin-top:3px; }
+    .table-equipos-mobile .eq-modelo       { display:block; font-size:13.5px; color:#475569; font-weight:500;
+                                             text-transform:uppercase; margin-top:4px; line-height:1.3; }
+    .table-equipos-mobile .eq-anio         { font-size:12.5px; color:#64748b; margin-top:5px; font-weight:500; }
+
+    /* Columna 4 — seriales, placa e ID */
+    .table-equipos-mobile .eq-ser-linea    { line-height:1.5; word-break:break-all; }
+    .table-equipos-mobile .eq-ser-corta    { line-height:1.4; white-space:nowrap; overflow:hidden;
+                                             text-overflow:ellipsis; }
+    .table-equipos-mobile .eq-ser-simple   { line-height:1.4; }
+    /* Separación de las líneas 2ª en adelante (antes: un margin-top inline por línea). */
+    .table-equipos-mobile .eq-ser-sep      { margin-top:3px; }
+    .table-equipos-mobile .eq-lbl          { color:#64748b; }
+    .table-equipos-mobile .eq-val          { color:#1e293b; font-weight:600; text-transform:uppercase; }
+    .table-equipos-mobile .eq-val-placa    { color:var(--maquinaria-blue); font-weight:700; text-transform:uppercase; }
+    .table-equipos-mobile .eq-val-vacio    { color:#a0aec0; font-style:italic; }
+    .table-equipos-mobile .eq-val-id       { color:#1e293b; font-weight:600; }
+
+    /* Columna 5 — estatus. El color del estado es lo único que cambia por fila: viaja en
+       las variables --eq-st-* que la fila publica, en vez de repetir el bloque entero. */
+    .table-equipos-mobile .status-trigger-lite { padding:6px 10px; border-radius:8px; display:flex;
+                                             align-items:center; justify-content:space-between; gap:5px;
+                                             font-size:12.5px; font-weight:700; background:white;
+                                             border:1px solid #e2e8f0; cursor:pointer;
+                                             box-shadow:0 1px 2px rgba(0,0,0,0.05); }
+    .table-equipos-mobile .eq-status-fijo   { padding:6px 10px; border-radius:8px; display:flex;
+                                             align-items:center; gap:5px; font-size:12.5px; font-weight:700;
+                                             text-transform:uppercase; background:var(--eq-st-bg);
+                                             border:1px solid var(--eq-st-bg); color:var(--eq-st-color); }
+    .table-equipos-mobile .eq-status-izq    { display:flex; align-items:center; gap:5px; color:var(--eq-st-color); }
+    .table-equipos-mobile .eq-status-izq .material-icons,
+    .table-equipos-mobile .eq-status-fijo .material-icons { font-size:16px; }
+    .table-equipos-mobile .eq-status-txt    { color:#334155; text-transform:uppercase; }
+    .table-equipos-mobile .eq-status-chevron { font-size:16px; color:#94a3b8; }
+
+    /* Columna 6 — acciones */
+    .table-equipos-mobile .eq-acciones-wrap { display:flex; justify-content:center; align-items:center; gap:4px; }
+
+    /* Burbuja de hover con el detalle de ubicación. `.tooltip-bubble` es clase global pero
+       SIN regla base en estilos_globales.css (solo los activadores de hover), así que cada
+       pantalla la describía en su style="" inline. Aquí se describe una vez y SOLO para
+       esta tabla, para no alterar las otras pantallas que la usan con el suyo. */
+    .table-equipos-mobile .tooltip-bubble {
+        pointer-events:none; opacity:0; visibility:hidden;
+        position:absolute; bottom:100%; left:0; transform:translateY(5px);
+        background:#1e293b; color:#fff; padding:6px 10px; border-radius:6px;
+        font-size:11px; font-weight:500; white-space:normal; width:max-content;
+        max-width:220px; word-wrap:break-word; text-align:center;
+        box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);
+        transition:all 0.2s ease-in-out; z-index:50; margin-bottom:5px;
+    }
+    .table-equipos-mobile .eq-tip-flecha { position:absolute; top:100%; left:75px; margin-left:-4px;
+                                           border-width:4px; border-style:solid;
+                                           border-color:#1e293b transparent transparent transparent; }
+
+    /* Estado vacío. Se declara aquí porque el `.table-empty-state` global (estilos_globales.css)
+       trae padding:50px y el gris de la variable, y esta tabla venía pisándolo con el inline
+       a 40px y #94a3b8. Sin esta regla el hueco crecería y el gris cambiaría de tono. */
+    .table-equipos-mobile .table-empty-state { padding:40px; color:#94a3b8; }
+    .table-equipos-mobile .table-empty-state .material-icons { font-size:48px; display:block;
+                                                               margin:0 auto 10px auto; color:#cbd5e0; }
+
+    /* MODELO al lado de la MARCA en tarjetas pequeñas, con la misma letra que la marca
+       (negrita y negro) pero más chica para que la marca siga mandando.
+       El selector lleva td:nth-child(3) a propósito: en estilos_globales.css la card móvil
+       fuerza "td:nth-child(3) * {font-size:13px!important}" y hay que ganarle en
+       especificidad — de ahí los !important, que ya NO son por estilos inline.
+       VIVE AQUÍ y no en el partial: el repintado offline reemplaza el <tbody> entero, así
+       que un <style> dentro del partial desaparecía y equipos-offline.js tenía que
+       reinyectar una copia. Estando en la página, sobrevive al repintado y hay una sola
+       copia de la regla. */
+    @media (max-width: 900px) {
+        .eq-hide-mobile { display:none !important; }
+        .table-equipos-mobile tbody td:nth-child(3) .eq-modelo {
+            display:inline !important; font-size:11.5px !important; color:#000 !important;
+            font-weight:700 !important; margin:0 0 0 5px !important;
+        }
+    }
+
     /* Ajustes para laptops pequeñas (resolución 1366x768 o menor) para que entren todas las columnas.
        Limitado a >768px para que NO se aplique en mobile (donde la tabla se transforma en cards verticales). */
     @media (min-width: 769px) and (max-width: 1400px) {

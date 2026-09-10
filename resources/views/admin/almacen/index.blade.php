@@ -104,14 +104,91 @@
          · .alm-row-missing-cant    -> usuario no llenó la cantidad (vacia o <= 0)
          · .alm-row-exceeds-stock   -> cantidad tecleada > saldo disponible
        Ambas usan el mismo rojo + barra izquierda + outline en el stepper. */
+    /* El texto NO se recolorea aquí. La regla traía `color:#991b1b`, pero nunca llegó a
+       verse: cada celda traía su color en un style="" inline y el inline gana a cualquier
+       selector sin !important. Al pasar esos estilos a clases (bloque de abajo) el color
+       de aquí SÍ habría empezado a ganar, y las filas marcadas habrían cambiado de texto
+       oscuro a rojo — un cambio que nadie pidió, colado por la puerta de atrás.
+       Se quita para dejar el aspecto como estaba: fondo rojo, barra roja, texto oscuro.
+       Si algún día se quiere el texto en rojo, se agrega aquí a propósito. */
     #almTableBody tr.alm-row.alm-row-missing-cant td,
-    #almTableBody tr.alm-row.alm-row-exceeds-stock td { background:#fecaca !important; color:#991b1b; }
+    #almTableBody tr.alm-row.alm-row-exceeds-stock td { background:#fecaca !important; }
     #almTableBody tr.alm-row.alm-row-missing-cant td:first-child,
     #almTableBody tr.alm-row.alm-row-exceeds-stock td:first-child { box-shadow: inset 6px 0 0 #b91c1c; }
     #almTableBody tr.alm-row.alm-row-missing-cant .alm-cant-stepper,
     #almTableBody tr.alm-row.alm-row-exceeds-stock .alm-cant-stepper { border-color:#b91c1c !important; background:#fff !important; box-shadow:0 0 0 2px rgba(220,38,38,0.25); }
     #almTableBody tr.alm-row.alm-row-missing-cant .alm-row-cant,
     #almTableBody tr.alm-row.alm-row-exceeds-stock .alm-row-cant { color:#991b1b !important; font-weight:700; }
+
+    /* ── Presentación de las filas del inventario ──────────────────────────────
+       Estaban escritas como style="" DENTRO de partials/table_rows.blade.php, repetidas
+       idénticas en cada una de las 120 filas del lote. Como el valor no cambia de una fila
+       a otra, vive aquí una vez y la fila solo lleva la clase.
+
+       Las reglas de estado (.is-active, .alm-row-missing-cant, .alm-row-exceeds-stock) y
+       las de la tarjeta móvil llevan !important, así que ganaban a los style="" inline y
+       siguen ganando a estas clases: ni los estados ni el móvil cambian.
+       OJO con esa afirmación: vale para las declaraciones que SÍ llevan !important. La que
+       no lo llevaba (el color del texto de las filas marcadas, arriba) sí habría cambiado
+       de dueño al quitar los inline — por eso se trató aparte.
+
+       El JS de esta pantalla solo ESCRIBE .style.* sobre campos de formulario y el canvas
+       de etiquetas — nunca sobre estas celdas—, así que no hay interacción con el cambio. */
+    .alm-table td.alm-td-codigo { font-weight:600; color:#1e293b; white-space:nowrap; padding:12px 8px; }
+    .alm-table td.alm-td-nombre { font-weight:600; color:#1e293b; position:relative; }
+    .alm-table td.alm-td-cat    { font-weight:600; color:#1e293b; }
+    .alm-table td.alm-td-stock  { text-align:center; color:#0f172a; }
+    .alm-table td.alm-td-cant   { text-align:center; white-space:nowrap; width:100px; }
+    .alm-table td.alm-td-det    { text-align:center; white-space:nowrap; width:38px; padding:12px 6px; }
+    .alm-table .alm-nombre-txt  { font-size:12px; }
+    .alm-table .alm-equiv-linea { font-size:13px; font-weight:600; color:#1e293b;
+                                  margin-top:2px; line-height:1.4; word-break:break-word; }
+    .alm-table .alm-parte-list  { font-size:13px; color:#1e293b; font-weight:600;
+                                  margin-top:2px; line-height:1.55; word-break:break-word; }
+    .alm-table .alm-parte-sep   { color:#cbd5e0; }
+    /* Aviso de stock en o bajo el mínimo. */
+    .alm-table .alm-ico-minimo  { font-size:14px; color:#f59e0b; vertical-align:middle; }
+    .alm-table .alm-ico-detalle { font-size:18px; }
+    /* Stepper de cantidad. Los botones nacen deshabilitados; .is-active (arriba, con
+       !important) los enciende cuando la fila entra en modo edición. */
+    .alm-table .alm-cant-stepper { display:inline-flex; align-items:stretch;
+                                   border:1px solid #cbd5e0; border-radius:6px;
+                                   overflow:hidden; background:#f1f5f9; height:30px; }
+    .alm-table .alm-cant-stepper .alm-row-cant { width:56px; border:none; background:transparent;
+                                   text-align:center; font-size:13px; font-weight:700;
+                                   color:#94a3b8; outline:none; padding:0; }
+    .alm-table .alm-cant-flechas { display:flex; flex-direction:column;
+                                   border-left:1px solid #cbd5e0; width:18px; }
+    .alm-table .alm-cant-btn     { flex:1; border:none; background:#e2e8f0; color:#94a3b8;
+                                   font-weight:800; font-size:11px; line-height:1;
+                                   cursor:not-allowed; padding:0; }
+    .alm-table .alm-cant-btn.alm-cant-btn-sube { border-bottom:1px solid #cbd5e0; }
+
+    /* Burbuja de hover con el detalle del producto. `.tooltip-bubble` es clase global pero
+       SIN regla base en estilos_globales.css (solo los activadores de hover), así que cada
+       pantalla la describía en su style="" inline. Aquí se describe una vez y SOLO para
+       esta tabla, para no alterar las otras pantallas que la usan con el suyo.
+       Los activadores (.alm-row:hover, arriba, con !important) siguen mandando. */
+    .alm-table .tooltip-bubble {
+        pointer-events:none; opacity:0; visibility:hidden;
+        position:absolute; bottom:100%; left:0; transform:translateY(5px);
+        background:#1e293b; color:#fff; padding:10px 14px; border-radius:6px;
+        font-size:14px; font-weight:600; line-height:1.6; white-space:normal;
+        width:max-content; max-width:420px; word-wrap:break-word; text-align:left;
+        box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);
+        transition:all 0.2s ease-in-out; z-index:9001; margin-bottom:5px;
+    }
+    .alm-table .alm-tip-sep    { border-top:1px solid rgba(255,255,255,.2); margin:7px 0; }
+    .alm-table .alm-tip-flecha { position:absolute; top:100%; left:30px; margin-left:-4px;
+                                 border-width:4px; border-style:solid;
+                                 border-color:#1e293b transparent transparent transparent; }
+    /* Estados vacíos de la tabla: una sola fila, no se repiten por producto. */
+    .alm-table .alm-vacio      { text-align:center; padding:40px 16px; color:#94a3b8; font-size:14px; }
+    .alm-table .alm-vacio-alto { padding:48px 16px; }
+    .alm-table .alm-vacio .material-icons { font-size:42px; color:#cbd5e0; display:block; margin:0 auto 8px; }
+    .alm-table .alm-vacio-alto .material-icons { font-size:46px; margin:0 auto 10px; }
+    .alm-table .alm-vacio-pista { display:inline-block; margin-top:6px; font-size:12.5px;
+                                  color:#94a3b8; max-width:420px; }
     /* Pulso intenso para llamar la atención al primer pintado. */
     #almTableBody tr.alm-row.alm-row-missing-cant,
     #almTableBody tr.alm-row.alm-row-exceeds-stock { animation: almMissingPulse 0.9s ease-out 1; }

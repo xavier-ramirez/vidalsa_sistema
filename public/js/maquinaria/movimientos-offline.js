@@ -117,21 +117,21 @@
         const signo = entra ? '+' : '−';
         return '' +
             '<tr class="alm-mov-row" data-offline="1" style="--mov-color:' + meta[1] + '">' +
-            '<td class="mv-td-fecha" data-label="Fecha" style="white-space:nowrap;line-height:1.6;">' +
+            '<td class="mv-td-fecha" data-label="Fecha">' +
                 '<div>' + fechaLatina(m.fecha) + '</div>' +
-                '<span class="mv-tipo-inline" style="display:inline-flex;align-items:center;gap:3px;color:' + meta[1] + ';font-weight:700;font-size:11px;margin-top:3px;">' +
-                    '<i class="material-icons" style="font-size:13px;">' + meta[2] + '</i>' + meta[0] +
+                '<span class="mv-tipo-inline">' +
+                    '<i class="material-icons">' + meta[2] + '</i>' + meta[0] +
                 '</span>' +
             '</td>' +
-            '<td class="col-producto mv-td-producto" data-label="Producto" style="font-weight:400;font-size:12.5px;">' +
-                (m.codigo ? '<span style="color:#0f172a;">' + esc(m.codigo) + '</span> ' : '') +
+            '<td class="col-producto mv-td-producto" data-label="Producto">' +
+                (m.codigo ? '<span class="mv-prod-codigo">' + esc(m.codigo) + '</span> ' : '') +
                 esc(m.producto || '—') +
             '</td>' +
-            '<td class="mv-td-cantidad" data-label="Cantidad" style="font-weight:800;color:' + (entra ? '#16a34a' : '#dc2626') + ';white-space:nowrap;">' +
-                signo + fmt(mag) + ' <span style="color:#64748b;font-weight:600;font-size:10.5px;">' + esc(m.um || '') + '</span>' +
+            '<td class="mv-td-cantidad ' + (entra ? 'mv-suma' : 'mv-resta') + '" data-label="Cantidad">' +
+                signo + fmt(mag) + ' <span class="mv-um">' + esc(m.um || '') + '</span>' +
             '</td>' +
-            '<td class="mv-td-stock" data-label="Stock" title="Antes: ' + fmt(m.anterior) + ' → Después: ' + fmt(m.resultante) + '" style="white-space:nowrap;">' + fmt(m.resultante) + '</td>' +
-            '<td class="mv-td-destino" data-label="Destino" style="font-size:12.5px;">' + (m.frente ? esc(m.frente) : '—') + '</td>' +
+            '<td class="mv-td-stock" data-label="Stock" title="Antes: ' + fmt(m.anterior) + ' → Después: ' + fmt(m.resultante) + '">' + fmt(m.resultante) + '</td>' +
+            '<td class="mv-td-destino" data-label="Destino">' + (m.frente ? esc(m.frente) : '—') + '</td>' +
             // Ref: solo el N° de nota, SIN link — el PDF vive en el servidor.
             '<td class="mv-td-ref" data-label="Ref">' + (m.nota ? '<span class="mv-nota-num">' + esc(m.nota) + '</span>' : '<span class="mv-ref-empty">—</span>') + '</td>' +
             '</tr>';
@@ -154,7 +154,7 @@
         // Por lotes con scroll infinito (helper compartido) en vez de volcar los hasta
         // 1.500 movimientos de una vez: la primera pantalla aparece al instante.
         if (filas.length) OM.porLotes(tbody, filas, fila, PAGE_SIZE);
-        else tbody.innerHTML = '<tr><td colspan="' + COLS + '" style="text-align:center;padding:36px 16px;color:#94a3b8;font-size:14px;"><i class="material-icons" style="font-size:40px;color:#cbd5e0;display:block;margin:0 auto 8px;">receipt_long</i>No hay movimientos en la copia local que coincidan con los filtros.</td></tr>';
+        else tbody.innerHTML = '<tr><td colspan="' + COLS + '" class="mv-vacio"><i class="material-icons">receipt_long</i>No hay movimientos en la copia local que coincidan con los filtros.</td></tr>';
 
         // Total + paginación: offline se pinta TODO lo filtrado (por lotes), sin páginas.
         const tot = document.getElementById('almMovTotal'); if (tot) tot.textContent = String(filas.length);

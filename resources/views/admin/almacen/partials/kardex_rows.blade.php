@@ -18,8 +18,8 @@
 @endphp
 
 @if($rows->count() === 0)
-    <tr><td colspan="6" style="text-align:center;padding:36px 16px;color:#94a3b8;font-size:14px;">
-        <i class="material-icons" style="font-size:40px;color:#cbd5e0;display:block;margin:0 auto 8px;">receipt_long</i>
+    <tr><td colspan="6" class="mv-vacio">
+        <i class="material-icons">receipt_long</i>
         No hay movimientos que coincidan con los filtros.
     </td></tr>
 @else
@@ -42,49 +42,52 @@
             {{-- Fecha + Tipo COMBINADOS en una sola columna: la fecha arriba y la pill
                  de tipo debajo. En mobile la pill se oculta (.mv-tipo-inline) igual que
                  antes hacía el td.mv-td-tipo — la cantidad ya comunica entrada/salida. --}}
-            <td class="mv-td-fecha" data-label="Fecha" style="white-space:nowrap;line-height:1.6;">
+            <td class="mv-td-fecha" data-label="Fecha">
                 {{-- Fecha del movimiento (FECHA, solo dia) + HORA real de registro (created_at,
                      que sí guarda la hora — FECHA es tipo date y siempre va en 00:00). --}}
-                <div>{{ optional($m->FECHA)->format('d/m/Y') }} <span class="mv-hora" style="color:inherit;font-weight:500;font-size:11.5px;">{{ optional($m->created_at)->format('h:i A') }}</span></div>
-                <span class="mv-tipo-inline" style="display:inline-flex;align-items:center;gap:3px;color:{{ $meta[1] }};font-weight:700;font-size:11px;margin-top:3px;">
-                    <i class="material-icons" style="font-size:13px;">{{ $meta[3] }}</i>{{ $meta[0] }}
+                <div>{{ optional($m->FECHA)->format('d/m/Y') }} <span class="mv-hora">{{ optional($m->created_at)->format('h:i A') }}</span></div>
+                {{-- El color lo toma de --mov-color, que la fila publica arriba. --}}
+                <span class="mv-tipo-inline">
+                    <i class="material-icons">{{ $meta[3] }}</i>{{ $meta[0] }}
                 </span>
             </td>
             {{-- Descripción del producto: "SERIAL: NOMBRE" — el CODIGO va primero (monoespaciado y resaltado)
                  seguido del NOMBRE. La clase col-producto la convierte en ancla del tooltip de usuario.
                  font-size reducido (12.5px vs 14px global del tbody) para que los nombres largos no
                  acaparen visualmente la fila — son la única columna con texto extenso. --}}
-            <td class="col-producto mv-td-producto" data-label="Producto" style="font-weight:400;font-size:12.5px;">
+            <td class="col-producto mv-td-producto" data-label="Producto">
                 @if($m->producto?->CODIGO)
                     {{-- "00042 NOMBRE" como texto continuo. El código usa el MISMO tipo de letra
                          y peso que la descripción (hereda del td: font-weight:400, sin monospace),
                          a pedido del cliente — antes iba en monospace + bold y desentonaba. Peso
                          normal (400) para que la columna use la MISMA letra que el resto de la tabla. --}}
-                    <span style="color:#0f172a;">{{ $m->producto->CODIGO }}</span>
+                    <span class="mv-prod-codigo">{{ $m->producto->CODIGO }}</span>
                 @endif
                 {{ $m->producto?->NOMBRE ?? '—' }}
                 @if($m->NUMERO_PARTE)
                     {{-- Nº de parte específico entregado en esta salida (filtros): la equivalencia
                          que se movió realmente, no solo el tipo. --}}
-                    <div style="font-size:11px;font-weight:600;color:#334155;margin-top:2px;">{{ $m->NUMERO_PARTE }}</div>
+                    <div class="mv-parte">{{ $m->NUMERO_PARTE }}</div>
                 @endif
-                <div class="tooltip-bubble" style="pointer-events:none;opacity:0;visibility:hidden;position:absolute;bottom:100%;left:0;transform:translateY(5px);background:#1e293b;color:#fff;padding:6px 10px;border-radius:6px;font-size:11px;font-weight:500;white-space:normal;width:max-content;max-width:240px;word-wrap:break-word;text-align:center;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);transition:all 0.2s ease-in-out;z-index:50;margin-bottom:5px;">
+                <div class="tooltip-bubble">
                     👤 {{ $usuarioTip }}
                     {{-- Observación del lote (NOTAS): se muestra aquí, en la burbuja al hacer
                          foco/hover de la fila — igual que el usuario — en vez de inline en la
-                         columna Ref (pedido del cliente). Inline solo sobrevive en la tarjeta
-                         móvil, donde no hay hover (regla .mv-notas-inline). --}}
+                         columna Ref (pedido del cliente). Esta burbuja es HOY el único sitio
+                         donde la observación llega a verse: la copia inline de la celda Ref
+                         (.mv-notas-inline) quedó oculta en los dos tamaños (ver más abajo). --}}
                     @if($m->NOTAS)
-                        <div style="margin-top:5px;padding-top:5px;border-top:1px solid rgba(255,255,255,0.18);font-style:italic;">📝 {{ $m->NOTAS }}</div>
+                        <div class="mv-tip-notas">📝 {{ $m->NOTAS }}</div>
                     @endif
-                    <div style="position:absolute;top:100%;left:30px;margin-left:-4px;border-width:4px;border-style:solid;border-color:#1e293b transparent transparent transparent;"></div>
+                    <div class="mv-tip-flecha"></div>
                 </div>
             </td>
-            <td class="mv-td-cantidad" data-label="Cantidad" style="font-weight:800;color:{{ $entra || ($m->TIPO==='AJUSTE' && $signo==='+') ? '#16a34a' : '#dc2626' }};white-space:nowrap;">{{ $signo }}{{ $fmt($mag) }} <span style="color:#64748b;font-weight:600;font-size:10.5px;">{{ $m->producto?->UM }}</span></td>
+            {{-- mv-suma / mv-resta deciden el color (verde suma, rojo resta). --}}
+            <td class="mv-td-cantidad {{ $entra || ($m->TIPO === 'AJUSTE' && $signo === '+') ? 'mv-suma' : 'mv-resta' }}" data-label="Cantidad">{{ $signo }}{{ $fmt($mag) }} <span class="mv-um">{{ $m->producto?->UM }}</span></td>
             {{-- Stock: solo el saldo RESULTANTE (cómo quedó tras el movimiento). El "antes → después"
                  queda como tooltip de la celda para ver el delta sin saturar la tabla. --}}
-            <td class="mv-td-stock" data-label="Stock" title="Antes: {{ $fmt($m->CANTIDAD_ANTERIOR) }} → Después: {{ $fmt($m->CANTIDAD_RESULTANTE) }}" style="white-space:nowrap;">{{ $fmt($m->CANTIDAD_RESULTANTE) }}</td>
-            <td class="mv-td-destino" data-label="Destino" style="font-size:12.5px;">
+            <td class="mv-td-stock" data-label="Stock" title="Antes: {{ $fmt($m->CANTIDAD_ANTERIOR) }} → Después: {{ $fmt($m->CANTIDAD_RESULTANTE) }}">{{ $fmt($m->CANTIDAD_RESULTANTE) }}</td>
+            <td class="mv-td-destino" data-label="Destino">
                 {{-- Cadena de fallback para el Destino del movimiento:
                      0/1) FRENTE asignado (lo elige el operario en SALIDA / TRASPASO / ENTRADA con
                         frente): SIEMPRE se muestra el nombre del frente — es el dato que el
@@ -105,7 +108,7 @@
                         $bolsa = $prestamos[$m->ID_MOVIMIENTO] ?? null;
                     @endphp
                     {{-- A QUIEN se entrego. --}}
-                    <div style="font-weight:600;color:#1e293b;">{{ $m->frente->NOMBRE_FRENTE }}</div>
+                    <div class="mv-destino-frente">{{ $m->frente->NOMBRE_FRENTE }}</div>
                     {{-- DE QUE BOLSA salio, solo cuando NO es la del destino. Se rotula "tomado de"
                          y no "del saldo de": lo que el almacenista necesita leer es a quien se le
                          quito el material, no la mecanica del saldo. La flecha lo ata a la linea
@@ -180,20 +183,23 @@
                          negrita, a pedido del cliente para que la columna Referencia use la misma
                          letra que las demás. Se OMITE si es el N° que ya salió como enlace arriba
                          (en traspasos ambos traían el mismo NE → salía duplicado). --}}
-                    <div style="font-size:12.5px;color:#334155;font-weight:400;{{ $numNota ? 'margin-top:2px;' : '' }}" title="Nota de entrega / referencia">{{ $m->REFERENCIA }}</div>
+                    <div class="mv-ref-referencia {{ $numNota ? 'mv-ref-apilado' : '' }}" title="Nota de entrega / referencia">{{ $m->REFERENCIA }}</div>
                 @endif
                 @if($esEntradaDirecta && $m->MOTIVO)
                     {{-- Proveedor: visible (no solo hover) — es el dato clave para una devolución. --}}
-                    <div style="font-size:10.5px;color:#64748b;{{ ($m->NUMERO_NOTA || $m->REFERENCIA) ? 'margin-top:2px;' : '' }}" title="Proveedor">
+                    <div class="mv-ref-proveedor {{ ($m->NUMERO_NOTA || $m->REFERENCIA) ? 'mv-ref-apilado' : '' }}" title="Proveedor">
                         <span>{{ $m->MOTIVO }}</span>
                     </div>
                 @endif
                 @if($m->NOTAS)
-                    {{-- Observación inline OCULTA en desktop (.mv-notas-inline → display:none):
-                         ahí la observación vive en la burbuja de hover. En la tarjeta móvil
-                         (sin hover) el CSS la vuelve a mostrar dentro de la burbuja Ref. --}}
-                    <div class="mv-notas-inline" style="font-size:10.5px;color:#94a3b8;align-items:center;gap:3px;margin-top:2px;" title="{{ $m->NOTAS }}">
-                        <i class="material-icons" style="font-size:12px;">sticky_note_2</i><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:130px;">{{ $m->NOTAS }}</span>
+                    {{-- Observación inline. HOY NO SE VE EN NINGÚN TAMAÑO: .mv-notas-inline está
+                         en display:none en escritorio (donde la observación vive en la burbuja de
+                         hover) y el @media de la tarjeta móvil la vuelve a ocultar con !important
+                         junto al resto de la celda Ref, desde que la tarjeta dejó solo el botón
+                         del PDF. Se conserva el marcado tal cual estaba; si se confirma que no
+                         hace falta, el bloque entero se puede borrar. --}}
+                    <div class="mv-notas-inline" title="{{ $m->NOTAS }}">
+                        <i class="material-icons">sticky_note_2</i><span class="mv-notas-texto">{{ $m->NOTAS }}</span>
                     </div>
                 @endif
                 {{-- Envuelto en un span para poder ocultarlo en la tarjeta móvil: ahí la celda
@@ -210,7 +216,7 @@
                             title="Eliminar del historial sin tocar el stock (irreversible)"
                             aria-label="Eliminar del historial"
                             onclick="event.stopPropagation(); window.almEliminarSoloHistorial(this);">
-                        <i class="material-icons" style="font-size:14px;">playlist_remove</i>
+                        <i class="material-icons">playlist_remove</i>
                     </button>
                     {{-- Botón "deshacer" CASI INVISIBLE — SOLO super.admin (gateado también en
                          la ruta DELETE almacen.movimientos.destroy, no basta ocultarlo). Borra el
@@ -222,7 +228,7 @@
                             title="Deshacer este movimiento (irreversible)"
                             aria-label="Deshacer movimiento"
                             onclick="event.stopPropagation(); window.almDeshacerMovimiento(this);">
-                        <i class="material-icons" style="font-size:14px;">undo</i>
+                        <i class="material-icons">undo</i>
                     </button>
                 @endcan
             </td>

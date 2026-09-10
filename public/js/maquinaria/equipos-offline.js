@@ -35,18 +35,10 @@
     const esc = OM.esc;
     const COLS = 6;
 
-    // Inyecta una sola vez la regla .eq-hide-mobile: la versión online la trae en el
-    // <style> del partial, pero al repintar offline reemplazamos el tbody y ese style
-    // desaparece. Sin esto, las tarjetas offline mostrarían CATEGORÍA/MODELO/AÑO que la
-    // online oculta en móvil → diseño distinto.
-    function ensureHideStyle() {
-        if (document.getElementById('eqOfflineHideStyle')) return;
-        const st = document.createElement('style');
-        st.id = 'eqOfflineHideStyle';
-        st.textContent = '@media(max-width:900px){.eq-hide-mobile{display:none!important;}' +
-            '.table-equipos-mobile tbody td:nth-child(3) .eq-modelo{display:inline!important;font-size:11.5px!important;color:#000!important;font-weight:700!important;margin:0 0 0 5px!important;}}';
-        document.head.appendChild(st);
-    }
+    // La regla movil de .eq-hide-mobile / .eq-modelo NO se inyecta aqui: vive en el
+    // <style> de admin/equipos/index.blade.php, que esta fuera del <tbody> y por eso
+    // sobrevive al repintado offline. Antes habia dos copias (una en el partial y otra
+    // aqui) que habia que cambiar a la vez.
 
     const ESTADOS = {
         'OPERATIVO':        { color: '#16a34a', icon: 'check_circle', label: 'OPERATIVO' },
@@ -331,8 +323,8 @@
     // Mensaje a pantalla completa dentro de la tabla, con el mismo formato que los estados
     // vacíos online (partials/table_rows.blade.php).
     function filaMensaje(icono, texto) {
-        return '<tr><td colspan="' + COLS + '" class="table-empty-state" style="text-align:center;padding:40px;color:#94a3b8;">' +
-            '<i class="material-icons" style="font-size:48px;display:block;margin:0 auto 10px auto;color:#cbd5e0;">' + icono + '</i>' + texto + '</td></tr>';
+        return '<tr><td colspan="' + COLS + '" class="table-empty-state">' +
+            '<i class="material-icons">' + icono + '</i>' + texto + '</td></tr>';
     }
 
     // Filtra la copia en memoria y repinta. Es lo que corre en cada tecla del buscador y
@@ -346,7 +338,6 @@
         // Cancela el scroll infinito del pintado anterior: los caminos que terminan en un
         // MENSAJE no pasan por porLotes y dejarían su observador vivo.
         OM.detenerLotes(tbody);
-        ensureHideStyle();
 
         if (!datos.length) {
             tbody.innerHTML = filaMensaje('cloud_off', 'No hay copia local de datos todavía. Conéctate a internet una vez para descargarla.');
@@ -399,63 +390,63 @@
 
         // FINALIZADO: mismo badge que online (wrapper flex centrado + icono ⚠).
         const finalizado = e.frente_finalizado
-            ? '<div style="display:flex;align-items:center;justify-content:center;gap:3px;margin-top:3px;">' +
-                '<span style="background:#fef2f2;color:#dc2626;padding:1px 6px;border-radius:8px;font-size:9px;font-weight:700;display:inline-flex;align-items:center;gap:2px;border:1px solid #fecaca;">' +
-                    '<i class="material-icons" style="font-size:10px;">warning</i>FINALIZADO</span>' +
+            ? '<div class="eq-finalizado-wrap">' +
+                '<span class="eq-finalizado">' +
+                    '<i class="material-icons">warning</i>FINALIZADO</span>' +
               '</div>' : '';
         const etiqueta = e.etiqueta
-            ? '<span style="font-weight:700;color:var(--maquinaria-blue);margin-left:6px;white-space:nowrap;"><i class="material-icons" style="font-size:13px;vertical-align:-2px;">tag</i>' + esc(e.etiqueta) + '</span>' : '';
+            ? '<span class="eq-etiqueta"><i class="material-icons">tag</i>' + esc(e.etiqueta) + '</span>' : '';
         // eq-hide-mobile: CATEGORIA/AÑO se OCULTAN en móvil (≤900px) y el MODELO pasa a la
         // línea de la MARCA en 11.5px negrita (.eq-modelo), igual que la tabla online
         // (partials/table_rows.blade.php) — así la tarjeta offline luce idéntica.
         const categoria = e.categoria
-            ? '<div class="eq-hide-mobile" style="font-size:12px;color:#64748b;font-weight:600;text-transform:uppercase;margin-top:5px;letter-spacing:0.3px;">' + esc(e.categoria) + '</div>' : '';
-        const modelo = e.modelo ? '<span class="eq-modelo" style="display:block;font-size:13.5px;color:#475569;font-weight:500;text-transform:uppercase;margin-top:4px;line-height:1.3;">' + esc(e.modelo) + '</span>' : '';
-        const anio = e.anio ? '<div class="eq-hide-mobile" style="font-size:12.5px;color:#64748b;margin-top:5px;font-weight:500;">Año: ' + esc(e.anio) + '</div>' : '';
-        const motor = e.serial_motor ? '<div style="line-height:1.5;margin-top:3px;word-break:break-all;"><strong style="color:#64748b;">M:</strong> <span style="color:#1e293b;font-weight:600;text-transform:uppercase;">' + esc(e.serial_motor) + '</span></div>' : '';
+            ? '<div class="eq-hide-mobile eq-sub">' + esc(e.categoria) + '</div>' : '';
+        const modelo = e.modelo ? '<span class="eq-modelo">' + esc(e.modelo) + '</span>' : '';
+        const anio = e.anio ? '<div class="eq-hide-mobile eq-anio">Año: ' + esc(e.anio) + '</div>' : '';
+        const motor = e.serial_motor ? '<div class="eq-ser-linea eq-ser-sep"><strong class="eq-lbl">M:</strong> <span class="eq-val">' + esc(e.serial_motor) + '</span></div>' : '';
         const placa = e.placa
-            ? '<div style="line-height:1.4;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><strong style="color:#64748b;">P:</strong> <span style="color:var(--maquinaria-blue);font-weight:700;text-transform:uppercase;">' + esc(e.placa) + '</span></div>'
-            : '<div style="line-height:1.4;margin-top:3px;"><strong style="color:#64748b;">P:</strong> <span style="color:#a0aec0;font-style:italic;">Sin Placa</span></div>';
+            ? '<div class="eq-ser-corta eq-ser-sep"><strong class="eq-lbl">P:</strong> <span class="eq-val-placa">' + esc(e.placa) + '</span></div>'
+            : '<div class="eq-ser-simple eq-ser-sep"><strong class="eq-lbl">P:</strong> <span class="eq-val-vacio">Sin Placa</span></div>';
         // "ID: #<código de patio>" SOLO si lo tiene, igual que online: sin este @if la fila
         // offline mostraba un "ID: #—" que en la web no existe.
         const idPatio = e.codigo_patio
-            ? '<div class="eq-id-line" style="line-height:1.4;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><strong style="color:#64748b;">ID:</strong> <span style="color:#1e293b;font-weight:600;">#' + esc(e.codigo_patio) + '</span></div>'
+            ? '<div class="eq-id-line eq-ser-corta eq-ser-sep"><strong class="eq-lbl">ID:</strong> <span class="eq-val-id">#' + esc(e.codigo_patio) + '</span></div>'
             : '';
 
         // El filtrado va sobre los datos en memoria, no sobre el DOM: la fila no necesita
         // data-* de búsqueda (online tampoco los tiene) y así pesa lo mismo que la online.
         return '' +
             '<tr data-offline="1">' +
-            '<td class="table-cell-custom table-cell-center" style="padding:6px 4px;width:150px;">' +
-                '<div class="tooltip-wrapper" style="font-size:13px;color:#000;margin-bottom:5px;line-height:1.25;font-weight:700;text-align:center;text-transform:uppercase;word-wrap:break-word;position:relative;cursor:default;">' +
-                    '<span style="display:inline-flex;align-items:center;gap:3px;justify-content:center;">' + esc(e.frente || 'SIN ASIGNAR') +
-                        '<i class="material-icons" style="font-size:14px;color:' + (e.confirmado ? '#16a34a' : '#cbd5e0') + ';" title="' + (e.confirmado ? 'Confirmado en sitio' : 'Sin confirmar') + '">' + (e.confirmado ? 'check_circle' : 'radio_button_unchecked') + '</i>' +
+            '<td class="table-cell-custom table-cell-center eq-td-frente">' +
+                '<div class="tooltip-wrapper eq-frente-nom">' +
+                    '<span class="eq-frente-linea">' + esc(e.frente || 'SIN ASIGNAR') +
+                        '<i class="material-icons confirm-sitio-chip' + (e.confirmado ? ' eq-cfd' : '') + '" title="' + (e.confirmado ? 'Confirmado en sitio' : 'Sin confirmar') + '">' + (e.confirmado ? 'check_circle' : 'radio_button_unchecked') + '</i>' +
                     '</span>' + finalizado +
                 '</div>' +
                 '<div class="table-image-wrapper placeholder"><span class="material-icons">image_not_supported</span></div>' +
             '</td>' +
-            '<td class="table-cell-custom" style="font-size:14.5px;color:#000;word-wrap:break-word;">' +
-                '<div style="font-weight:700;text-transform:uppercase;line-height:1.3;">' + esc(e.tipo || '—') + etiqueta + '</div>' + categoria +
+            '<td class="table-cell-custom eq-td-tipo">' +
+                '<div class="eq-linea-fuerte">' + esc(e.tipo || '—') + etiqueta + '</div>' + categoria +
             '</td>' +
-            '<td class="table-cell-custom" style="font-size:13px;color:#000;word-wrap:break-word;">' +
-                '<div style="font-weight:700;text-transform:uppercase;line-height:1.3;">' + esc(e.marca || '—') + modelo + '</div>' + anio +
+            '<td class="table-cell-custom eq-td-marca">' +
+                '<div class="eq-linea-fuerte">' + esc(e.marca || '—') + modelo + '</div>' + anio +
             '</td>' +
-            '<td class="table-cell-custom" style="font-size:14px;color:#4a5568;">' +
-                '<div style="line-height:1.5;word-break:break-all;"><strong style="color:#64748b;">S:</strong> <span style="color:#1e293b;font-weight:600;text-transform:uppercase;">' + esc(e.serial_chasis || '—') + '</span></div>' +
+            '<td class="table-cell-custom eq-td-serial">' +
+                '<div class="eq-ser-linea"><strong class="eq-lbl">S:</strong> <span class="eq-val">' + esc(e.serial_chasis || '—') + '</span></div>' +
                 motor + placa + idPatio +
             '</td>' +
             // Estatus: mismo look que el trigger online (chip blanco + chevron + sombra).
             // Fase 2: clickeable sin conexión → menú con OPERATIVO/MANTENIMIENTO/DESINCORP.
             // (INOPERATIVO no: requiere reporte de falla). data-status/data-label los usa
             // el flujo de cambio; al elegir se encola y se repinta.
-            '<td class="table-cell-custom" style="padding:8px 2px;width:145px;">' +
+            '<td class="table-cell-custom eq-td-estatus">' +
                 '<div title="Cambiar estado (sin conexión)" data-status="' + esc(e.estado || '') + '" data-label="' + esc(e.tipo || ('#' + (e.codigo_patio || e.id))) + '"' +
                     ' onclick="window.eqOffEstadoMenu(event, this, ' + e.id + ')"' +
-                    ' style="padding:6px 10px;border-radius:8px;display:flex;align-items:center;justify-content:space-between;gap:5px;font-size:12.5px;font-weight:700;background:white;border:1px solid #e2e8f0;box-shadow:0 1px 2px rgba(0,0,0,0.05);cursor:pointer;">' +
-                    '<div style="display:flex;align-items:center;gap:5px;color:' + est.color + ';">' +
-                        '<i class="material-icons" style="font-size:16px;">' + est.icon + '</i><span style="color:#334155;text-transform:uppercase;">' + est.label + '</span>' +
+                    ' class="status-trigger-lite" style="--eq-st-color:' + est.color + '">' +
+                    '<div class="eq-status-izq">' +
+                        '<i class="material-icons">' + est.icon + '</i><span class="eq-status-txt">' + est.label + '</span>' +
                     '</div>' +
-                    '<i class="material-icons" style="font-size:16px;color:#94a3b8;">expand_more</i>' +
+                    '<i class="material-icons eq-status-chevron">expand_more</i>' +
                 '</div>' +
             '</td>' +
             // Acciones: MISMO botón "Ver Detalles" que online (showDetailsImproved abre
@@ -463,8 +454,8 @@
             // llenan con lo que hay en el snapshot; los campos no descargados (seguros, docs,
             // GPS) el modal los muestra como "N/A"/"Sin Documento" — degrada sin romper, NO
             // hace llamadas de red al abrir.
-            '<td class="table-cell-center" style="padding:8px 5px;width:72px;text-align:center;vertical-align:middle;">' +
-                '<div style="display:flex;justify-content:center;align-items:center;gap:4px;">' +
+            '<td class="table-cell-center eq-td-acciones">' +
+                '<div class="eq-acciones-wrap">' +
                     '<button type="button" class="btn-details-mini" title="Ver Detalles"' +
                         ' data-equipo-id="' + e.id + '"' +
                         ' data-codigo="' + esc(e.codigo_patio || '') + '"' +

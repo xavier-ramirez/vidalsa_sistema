@@ -160,19 +160,27 @@
 
         // Por lotes con scroll infinito (helper compartido), igual que la tabla online:
         // volcar los ~1.600 productos de una vez trababa el teléfono sin necesidad.
+        // OJO: estas filas usan las MISMAS clases que la tabla online (.alm-td-*), que
+        // ahora traen reglas propias en el <style> de admin/almacen/index.blade.php
+        // ("Presentación de las filas del inventario"). Lo que se escriba aquí como
+        // style="" solo hace falta para lo que la fila offline quiere DISTINTO —el código
+        // en monospace, el saldo más grande, el "—" gris de las columnas sin control—;
+        // el resto (anchos, padding, posición) lo hereda de esas clases y por eso las dos
+        // vistas quedan alineadas. Comprobado en el navegador: los anchos de columna salen
+        // idénticos a los de la tabla online.
         OM.porLotes(tbody, filas, function (p) {
             const saldo = Number(p.cantidad) || 0;
             const bajo = esBajo(p);
             return '' +
                 '<tr class="alm-row ' + (bajo ? 'alm-row-bajo' : '') + '" data-offline="1">' +
-                '<td class="alm-td-codigo" style="font-family:monospace;font-weight:700;color:#0f172a;white-space:nowrap;">' + esc(p.codigo) + '</td>' +
+                '<td class="alm-td-codigo" style="font-family:monospace;font-weight:700;color:#0f172a;">' + esc(p.codigo) + '</td>' +
                 '<td class="alm-td-nombre" data-codigo="' + esc(p.codigo) + '" style="font-weight:600;color:#1e293b;">' + esc(p.nombre) + '</td>' +
                 '<td class="alm-td-cat" style="color:#475569;">' + (p.categoria ? esc(p.categoria) : '—') + '</td>' +
-                '<td class="alm-td-stock" style="text-align:center;font-weight:800;font-size:15px;color:#0f172a;">' + fmt(saldo) + '<span class="alm-stock-um">' + esc(p.um) + '</span>' +
+                '<td class="alm-td-stock" style="font-weight:800;font-size:15px;">' + fmt(saldo) + '<span class="alm-stock-um">' + esc(p.um) + '</span>' +
                     (bajo ? ' <i class="material-icons" style="font-size:14px;color:#f59e0b;vertical-align:middle;" title="Stock en o por debajo del mínimo">warning</i>' : '') +
                 '</td>' +
-                '<td class="alm-td-cant" style="text-align:center;color:#cbd5e0;">—</td>' +
-                '<td class="alm-td-det" style="text-align:center;color:#cbd5e0;">—</td>' +
+                '<td class="alm-td-cant" style="color:#cbd5e0;">—</td>' +
+                '<td class="alm-td-det" style="color:#cbd5e0;">—</td>' +
                 '</tr>';
         }, PAGE_SIZE);
     }

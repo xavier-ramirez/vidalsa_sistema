@@ -158,6 +158,77 @@
        aparece en la burbuja de hover de la fila (junto al usuario que registró).
        En móvil (sin hover) se re-muestra dentro de la tarjeta Ref (media query). */
     .mv-notas-inline { display:none; }
+
+    /* ── Presentación de las filas del kardex ──────────────────────────────────
+       Estas reglas estaban escritas como style="" DENTRO de partials/kardex_rows.blade.php,
+       repetidas idénticas en cada fila del lote (794 atributos por página de 50). Como el
+       valor es siempre el mismo, vive aquí una vez y la fila solo lleva la clase.
+
+       Van scoped bajo .alm-mov-table A PROPÓSITO: el prefijo .mv- lo comparte el módulo de
+       Movilizaciones (reglas #movilizacionesTable en estilos_globales.css) y una regla
+       suelta se le colaría.
+
+       El @media de la tarjeta móvil (abajo) declara todo con !important, así que ganaba a
+       los style="" inline y sigue ganando a estas clases: la tarjeta no cambia. */
+    .alm-mov-table td.mv-td-fecha    { white-space:nowrap; line-height:1.6; }
+    .alm-mov-table .mv-hora          { color:inherit; font-weight:500; font-size:11.5px; }
+    /* El color del tipo es lo ÚNICO que cambia de una fila a otra: la fila lo publica en
+       su propio style como --mov-color y aquí se lee. */
+    .alm-mov-table .mv-tipo-inline   { display:inline-flex; align-items:center; gap:3px;
+                                       color:var(--mov-color); font-weight:700; font-size:11px;
+                                       margin-top:3px; }
+    .alm-mov-table .mv-tipo-inline .material-icons { font-size:13px; }
+    .alm-mov-table td.mv-td-producto { font-weight:400; font-size:12.5px; }
+    .alm-mov-table .mv-prod-codigo   { color:#0f172a; }
+    .alm-mov-table .mv-parte         { font-size:11px; font-weight:600; color:#334155; margin-top:2px; }
+    .alm-mov-table td.mv-td-cantidad { font-weight:800; white-space:nowrap; }
+    /* Verde si el movimiento suma, rojo si resta. Antes el color se calculaba en el blade
+       y salía escrito en cada fila. */
+    .alm-mov-table td.mv-td-cantidad.mv-suma  { color:#16a34a; }
+    .alm-mov-table td.mv-td-cantidad.mv-resta { color:#dc2626; }
+    .alm-mov-table td.mv-td-cantidad .mv-um   { color:#64748b; font-weight:600; font-size:10.5px; }
+    .alm-mov-table td.mv-td-stock    { white-space:nowrap; }
+    .alm-mov-table td.mv-td-destino  { font-size:12.5px; }
+    .alm-mov-table .mv-destino-frente { font-weight:600; color:#1e293b; }
+    .alm-mov-table .mv-ref-referencia { font-size:12.5px; color:#334155; font-weight:400; }
+    .alm-mov-table .mv-ref-proveedor  { font-size:10.5px; color:#64748b; }
+    /* Separación del dato cuando NO es el primero de la celda (antes: un margin-top
+       inline puesto con un ternario en cada fila). */
+    .alm-mov-table .mv-ref-apilado    { margin-top:2px; }
+    .alm-mov-table .mv-notas-inline { font-size:10.5px; color:#94a3b8; align-items:center; gap:3px; margin-top:2px; }
+    .alm-mov-table .mv-notas-inline .material-icons { font-size:12px; }
+    .alm-mov-table .mv-notas-texto   { overflow:hidden; text-overflow:ellipsis;
+                                       white-space:nowrap; max-width:130px; }
+    .alm-mov-table .alm-mov-undo .material-icons,
+    .alm-mov-table .alm-mov-purge .material-icons { font-size:14px; }
+
+    /* La burbuja de hover (usuario + observación). `.tooltip-bubble` es una clase global
+       pero NO tiene regla base en estilos_globales.css —solo los activadores de hover—,
+       así que cada pantalla la describía en su style="" inline. Aquí se describe una vez
+       y SOLO para esta tabla, para no alterar las otras pantallas que la usan con el suyo.
+       El activador de hover (arriba, con !important) sigue mandando sobre opacity/visibility. */
+    .alm-mov-table .tooltip-bubble {
+        pointer-events:none; opacity:0; visibility:hidden;
+        position:absolute; bottom:100%; left:0; transform:translateY(5px);
+        background:#1e293b; color:#fff; padding:6px 10px; border-radius:6px;
+        font-size:11px; font-weight:500; white-space:normal; width:max-content;
+        max-width:240px; word-wrap:break-word; text-align:center;
+        box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);
+        transition:all 0.2s ease-in-out; z-index:50; margin-bottom:5px;
+    }
+    .alm-mov-table .mv-tip-notas {
+        margin-top:5px; padding-top:5px;
+        border-top:1px solid rgba(255,255,255,0.18); font-style:italic;
+    }
+    .alm-mov-table .mv-tip-flecha {
+        position:absolute; top:100%; left:30px; margin-left:-4px;
+        border-width:4px; border-style:solid;
+        border-color:#1e293b transparent transparent transparent;
+    }
+    /* Estado vacío de la tabla (una sola fila, no por movimiento). */
+    .alm-mov-table .mv-vacio      { text-align:center; padding:36px 16px; color:#94a3b8; font-size:14px; }
+    .alm-mov-table .mv-vacio .material-icons { font-size:40px; color:#cbd5e0; display:block; margin:0 auto 8px; }
+
     /* Chip de conteo: visible en todos los viewports. Antes solo aparecia en mobile
        (el desktop dependia del big-counter del sidebar) — el cliente pidio tener
        el conteo siempre a la vista en la parte superior del modulo. */
@@ -319,9 +390,9 @@
         /* (El código del producto ya usa el mismo tipo de letra/peso que la descripción
            directamente en el partial kardex_rows — ya no necesita override mobile.) */
 
-        /* Cantidad: numero a la derecha, color heredado del inline
-           (verde entrada / rojo salida). UM va pegada al numero. Tamano
-           moderado (no acapara la tarjeta). */
+        /* Cantidad: numero a la derecha. El color (verde si suma, rojo si resta) lo
+           ponen las clases .mv-suma / .mv-resta declaradas arriba — aqui no se toca.
+           UM va pegada al numero. Tamano moderado (no acapara la tarjeta). */
         .alm-mov-table tr.alm-mov-row td.mv-td-cantidad {
             grid-area: cantidad !important;
             font-size: 12.5px !important;
