@@ -1,0 +1,42 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Console\Commands\ComprimirDocumentos;
+use App\Models\CompresionPdf;
+use App\Services\CompresorPdf;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+
+/**
+ * Pantalla "Compresion de PDF": lo que hizo docs:comprimir (y lo comprimido a mano), para
+ * revisarlo en la mañana. Solo lectura. Acceso: super.admin (routes/web.php).
+ */
+class CompresionPdfController extends Controller
+{
+    public function index(Request $request)
+    {
+        $estado = in_array($request->input('estado'), [CompresionPdf::COMPRIMIDO, CompresionPdf::SALTADO, CompresionPdf::ERROR], true)
+            ? $request->input('estado') : null;
+
+        $resumen = CompresionPdf::query()
+            ->select('ESTADO', DB::raw('COUNT(*) as n'), DB::raw('SUM(BYTES_ANTES) as antes'), DB::raw('SUM(BYTES_DESPUES) as despues'))
+            ->groupBy('ESTADO')->get()->keyBy('ESTADO');
+
+        $ultimaNoche = CompresionPdf::where('ORIGEN', 'noche')->max('created_at');
+
+        // Si la tarea corre en ESTE equipo y por que: es lo primero que hay que poder mirar
+        // tras desplegar, sin entrar al servidor.
+        [$activa, $motivoActiva] = ComprimirDocumentos::activadaAqui();
+        $ghostscript = app(CompresorPdf::class)->disponible();
+
+        $filas = CompresionPdf::query()
+            ->when($estado, fn ($q) => $q->where('ESTADO', $estado))
+            ->orderByDesc('created_at')->orderByDesc('ID_REGISTRO')
+            ->paginate(50)->withQueryString();
+
+        return view('admin.compresion_pdf.index', compact(
+            'resumen', 'ultimaNoche', 'filas', 'estado', 'activa', 'motivoActiva', 'ghostscript'
+        ));
+    }
+}

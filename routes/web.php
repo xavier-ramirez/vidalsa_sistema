@@ -472,6 +472,8 @@ Route::middleware(['auth'])->group(function () {
                 Route::get('historial-documentos', [App\Http\Controllers\HistorialDocumentosController::class, 'index'])->name('historial-documentos.index');
                 Route::delete('historial-documentos/unlock-ip/{id}', [App\Http\Controllers\HistorialDocumentosController::class, 'unlockIp'])->name('historial-documentos.unlock-ip');
                 Route::delete('historial-documentos/registro', [App\Http\Controllers\HistorialDocumentosController::class, 'deleteRegistro'])->name('historial-documentos.deleteRegistro');
+                // Registro de la compresion nocturna de PDF (docs:comprimir). Solo lectura.
+                Route::get('compresion-pdf', [App\Http\Controllers\CompresionPdfController::class, 'index'])->name('compresion-pdf.index');
             });
 
             // Ruta de emergencia `force-fix-db` removida: los ajustes de schema ahora

@@ -12,7 +12,11 @@ RUN apt-get update && apt-get install -y \
     unzip \
     nginx \
     libicu-dev \
-    supervisor
+    supervisor \
+    ghostscript
+
+# ghostscript: lo usa la compresion nocturna de PDF de documentos (docs:comprimir);
+# comprime, cuenta paginas y compara el texto. No hace falta nada mas.
 
 # Limpiar cache
 RUN apt-get clean && rm -rf /var/lib/apt/lists/*

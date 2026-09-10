@@ -35,4 +35,17 @@ return [
         ],
     ],
 
+    // Compresion de PDF de documentos (docs:comprimir). Aqui y no con env() suelto porque
+    // produccion corre config:cache.
+    'compresion_pdf' => [
+        // Ghostscript: "gs" en el servidor (Linux, instalado en el Dockerfile); en Windows,
+        // la ruta al gswin64c.exe.
+        'ghostscript' => env('GHOSTSCRIPT_BIN', 'gs'),
+        // Donde corre la tarea de madrugada. Sin definir (lo normal) se decide sola: corre
+        // si la base de datos esta en otra maquina (el servidor) y no si esta en este mismo
+        // equipo (el PC de desarrollo, que comparte Google Drive pero NO la base). Ver
+        // ComprimirDocumentos::activadaAqui(). true/false la fuerzan.
+        'nocturna' => env('COMPRESION_PDF_NOCTURNA'),
+    ],
+
 ];

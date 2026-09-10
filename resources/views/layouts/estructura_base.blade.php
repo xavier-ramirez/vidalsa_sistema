@@ -541,6 +541,10 @@
                         class="nav-dropdown-link {{ request()->routeIs('historial-documentos.*') ? 'active' : '' }}">
                         <i class="material-icons">fact_check</i> Control de Auditoría
                     </a>
+                    <a href="{{ route('compresion-pdf.index') }}"
+                        class="nav-dropdown-link {{ request()->routeIs('compresion-pdf.*') ? 'active' : '' }}">
+                        <i class="material-icons">compress</i> Compresión de PDF
+                    </a>
                     @endcan
                     {{-- Baja AHORA una copia de la base de datos a IndexedDB para poder
                          trabajar SIN internet (snapshot manual → OfflineDB.sync(true)).
@@ -695,6 +699,10 @@
                 <a href="{{ route('historial-documentos.index') }}"
                     class="mobile-nav-link {{ request()->routeIs('historial-documentos.*') ? 'active' : '' }}">
                     <i class="material-icons">fact_check</i> Control de Auditoría
+                </a>
+                <a href="{{ route('compresion-pdf.index') }}"
+                    class="mobile-nav-link {{ request()->routeIs('compresion-pdf.*') ? 'active' : '' }}">
+                    <i class="material-icons">compress</i> Compresión de PDF
                 </a>
                 @endcan
                 {{-- Descargar copia de la base de datos para trabajar SIN internet. --}}
