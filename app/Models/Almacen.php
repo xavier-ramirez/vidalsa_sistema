@@ -88,6 +88,11 @@ class Almacen extends Model
         'SOPORTE_2_NOM',
         'SOPORTE_2_CAR',
         'SOPORTE_2_CED',
+        // Firmante de SEGURIDAD: en el formato del cliente es una persona fija del patio,
+        // no "el vigilante de turno" (ver la migracion add_firmante_seguridad_to_almacenes).
+        'SEGURIDAD_NOM',
+        'SEGURIDAD_CAR',
+        'SEGURIDAD_CED',
         'ESTATUS',
         'NOTAS',
         'CREADO_POR',
@@ -219,16 +224,21 @@ class Almacen extends Model
      *
      * PUNTO UNICO: la vista no sabe de donde vienen los nombres — pide esto y pinta.
      *
-     * ENTREGADO y los dos SOPORTADO son SIEMPRE la misma gente del almacen que despacha, asi
-     * que salen pre-impresos de la ficha del almacen ("Editar almacen" → "Firmantes de la Nota
-     * de Entrega"). ENTREGADO reusa ALMACENISTA / CARGO_ALMACENISTA — los mismos campos que el
-     * formato vertical imprime como "ENTREGADO POR" — mas la cedula que solo pide el
-     * horizontal; no se duplican, un almacen tiene UN almacenista. Por eso su bloque del modal
-     * se ve con cualquier formato y los dos SOPORTADO solo con HORIZONTAL.
+     * ENTREGADO, los dos SOPORTADO y SEGURIDAD son SIEMPRE la misma gente del almacen que
+     * despacha, asi que salen pre-impresos de la ficha del almacen ("Editar almacen" →
+     * "Firmantes de la Nota de Entrega"). ENTREGADO reusa ALMACENISTA / CARGO_ALMACENISTA —
+     * los mismos campos que el formato vertical imprime como "ENTREGADO POR" — mas la cedula
+     * que solo pide el horizontal; no se duplican, un almacen tiene UN almacenista. Por eso su
+     * bloque del modal se ve con cualquier formato, y los SOPORTADO y SEGURIDAD solo con
+     * HORIZONTAL, que es el unico que los imprime.
      *
-     * Los otros dos van SIEMPRE en blanco, a proposito:
-     *   RECIBIDO  → lo firma quien recibe en el destino, cambia en cada nota.
-     *   SEGURIDAD → lo firma el vigilante de turno.
+     * SEGURIDAD se creyo al principio que era "el vigilante de turno" y se dejaba en blanco.
+     * No lo es: en el formato que usa el cliente (FORMATO DE SALIDA.xlsm) las 90 notas con ese
+     * bloque lleno traen a la MISMA persona, es un cargo fijo del patio.
+     *
+     * El unico que va SIEMPRE en blanco es RECIBIDO: lo firma quien recibe en el frente
+     * destino, y ese si cambia en cada nota. Va de ULTIMO en el orden de impresion (extremo
+     * derecho de la fila de firmas), que es donde lo pide el cliente.
      *
      * Lee solo columnas de $this: cero consultas. Un campo sin configurar sale como raya en
      * blanco, que es un formulario valido.
@@ -258,8 +268,16 @@ class Almacen extends Model
                 'cargo'  => $limpiar($this->SOPORTE_2_CAR),
                 'cedula' => $limpiar($this->SOPORTE_2_CED),
             ],
+            [
+                'rol'    => 'SEGURIDAD',
+                'nombre' => $limpiar($this->SEGURIDAD_NOM),
+                'cargo'  => $limpiar($this->SEGURIDAD_CAR),
+                'cedula' => $limpiar($this->SEGURIDAD_CED),
+            ],
+            // RECIBIDO va DE ULTIMO, al extremo derecho de la fila de firmas: es el que
+            // firma el que se lleva el material, y cierra la hoja. Se firma a mano SIEMPRE
+            // —cambia con cada entrega—, asi que no hay nada que preconfigurar.
             ['rol' => 'RECIBIDO',  'nombre' => '', 'cargo' => '', 'cedula' => ''],
-            ['rol' => 'SEGURIDAD', 'nombre' => '', 'cargo' => '', 'cedula' => ''],
         ];
     }
 
