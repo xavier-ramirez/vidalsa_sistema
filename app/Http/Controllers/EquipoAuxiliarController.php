@@ -2150,8 +2150,7 @@ class EquipoAuxiliarController extends Controller
             // 4. Borrar el archivo viejo de Drive SOLO tras guardar el nuevo (safety first).
             if ($oldFileId) {
                 \App\Jobs\DeleteGoogleDriveFile::dispatch($oldFileId);
-                \Illuminate\Support\Facades\Storage::disk('local')->delete('google_cache/' . $oldFileId);
-                \Illuminate\Support\Facades\Cache::forget('gdrive_meta_' . $oldFileId);
+                \App\Services\GoogleDriveService::olvidarCopiaLocal($oldFileId);
             }
 
             return response()->json([
@@ -2189,8 +2188,7 @@ class EquipoAuxiliarController extends Controller
         if ($link && str_starts_with($link, '/storage/google/')) {
             $fileId = str_replace('/storage/google/', '', parse_url($link, PHP_URL_PATH));
             \App\Jobs\DeleteGoogleDriveFile::dispatch($fileId);
-            \Illuminate\Support\Facades\Storage::disk('local')->delete('google_cache/' . $fileId);
-            \Illuminate\Support\Facades\Cache::forget('gdrive_meta_' . $fileId);
+            \App\Services\GoogleDriveService::olvidarCopiaLocal($fileId);
         } elseif ($link && str_starts_with($link, '/storage/')) {
             $rel = ltrim(substr($link, strlen('/storage/')), '/');
             \Illuminate\Support\Facades\Storage::disk('public')->delete($rel);

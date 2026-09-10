@@ -574,6 +574,11 @@ const _pdfRenovarVisorIzq = function (destino) {
         // tarde, pero cuando llegue se vera.
         nuevo.style.opacity = '1';
         nuevo.style.filter = PDF_SIN_BLUR;
+        // Lo que dejara pendiente la apertura anterior cae sobre ESTE documento si no se
+        // cancela: su aviso "el documento es grande" le cambiaba el texto a este cargador,
+        // su enfoque diferido se lo apagaba antes de tiempo y su vista previa se quedaba
+        // tapando el documento nuevo.
+        _pdfCancelarCargaIzq();
         // Y avisa mientras llega: por aqui se pasa al encender la comparacion y al
         // volver de anexar, donde el documento puede tardar lo suyo.
         _pdfCargadorHasta('pdfViewerLoader', nuevo);
@@ -682,8 +687,154 @@ let _pdfEnfoqueTimeout = null;
 /** Tope del cargador de un panel: pasado esto se apaga aunque no haya llegado el load. */
 const PDF_CARGADOR_MAX_MS = 8000;
 
+/* Los dos tiempos del respaldo del visor (ver openPdfPreview).
+
+   AVISO: a partir de aquí el documento se considera "grande" y el cargador lo dice, pero
+   NO se apaga: se sigue esperando. Son los mismos 5 s que antes destapaban el visor a
+   medio cargar; ahora solo cambian el texto.
+
+   RENDICIÓN: tope duro. Solo entonces se da por perdido el onload y se destapa. Es
+   holgado a propósito, y lo marca el peso real de los documentos (medido en Drive el
+   10-09-2026 sobre los 2.052 PDF del sistema): mediana 394 KB, pero 548 pasan de 600 KB,
+   360 de 2 MB y el mayor son 11,4 MB. Ese, por una red de obra de 1 Mbps, son ~90 s, y
+   destapar antes de que llegue es exactamente el fallo que se está corrigiendo. Pasado
+   esto, seguir esperando ya no es una espera: es un cuelgue. Con la vista previa (ver
+   _pdfPreviaMostrar) la espera larga ya no es a ciegas: la primera página está a la vista. */
+const PDF_AVISO_LENTO_MS = 5000;
+const PDF_RENDICION_MS   = 90000;
+
+/** Handle del aviso "el documento es grande". Se cancela igual que los otros dos. */
+let _pdfAvisoTimeout = null;
+
 /** Momento (performance.now) en que se le puso el src al iframe: mide si tardo o no. */
 let _pdfCargaDesde = 0;
+
+/** Texto del cargador al empezar una carga. El aviso de "grande" lo cambia a los 5 s. */
+const PDF_TEXTO_CARGANDO = 'Cargando documento...';
+
+/* ── VISTA PREVIA, COMO EN GOOGLE DRIVE ─────────────────────────────────────────────
+   El PDF llega entero o no llega: el visor nativo no pinta nada hasta tener el archivo,
+   y de los 2.052 PDF del sistema 548 pasan de 600 KB y el mayor son 11,4 MB (los ROTC
+   escaneados rondan los 3 MB). En el telefono en obra eso son muchos segundos mirando un
+   spinner.
+
+   Drive ya tiene hecha la imagen de la PRIMERA PAGINA de cada PDF, y el servidor la
+   entrega por /storage/google/{id}?sz=... (GoogleDriveService::miniatura). Asi
+   que mientras el PDF viaja se enseña eso, en dos pasos, igual que Drive:
+     · BAJA (200 px, ~7-10 KB): llega casi al instante y se ve BORROSA — ya se reconoce
+       que documento es.
+     · ALTA (1024 px, ~120-240 KB): la misma pagina ya legible; entra enfocandose.
+   Medido con el PDF de 11,4 MB: 7 KB y 124 KB. Cuando el PDF de verdad termina, la
+   imagen se funde y queda el documento real, con su zoom, su texto y sus paginas.
+
+   Es solo para documentos de Drive. Los PDF que el sistema genera al vuelo (nota de
+   entrega, reporte de falla, acta de traslado) no tienen miniatura y salen como siempre.
+   Si Drive no tiene la miniatura (recien subido) la imagen falla en silencio y el visor
+   se comporta exactamente como antes. */
+const PDF_PREVIA_BAJA = 'w200';
+const PDF_PREVIA_ALTA = 'w1024';
+
+/* La nitida NO se pide de entrada. 3 de cada 4 PDF del sistema pesan menos de 600 KB y
+   con buena señal llegan antes de lo que tarda la imagen: pedirla siempre era sumarle al
+   telefono hasta 230 KB mas por documento —casi otro PDF chico— compitiendo por la misma
+   señal con el que si hace falta. Solo se pide si pasado este tiempo el PDF aun no llego;
+   la borrosa (~10 KB) si sale siempre, porque es la que tapa la espera desde el primer
+   instante. */
+const PDF_PREVIA_ALTA_TRAS_MS = 600;
+
+/* Numero de apertura. Cada apertura, cierre o cambio de documento lo incrementa, y una
+   imagen que llega tarde solo se pinta si sigue siendo el suyo: sin esto, la miniatura
+   de un documento cerrado podia aparecer encima del siguiente. */
+let _pdfPreviaTurno = 0;
+/** Handle del fundido de salida: una apertura nueva lo cancela para que no la oculte. */
+let _pdfPreviaFundido = null;
+/** Handle de la peticion diferida de la nitida (PDF_PREVIA_ALTA_TRAS_MS). */
+let _pdfPreviaAltaTimeout = null;
+/** Imagenes aun descargandose: al quitar la previa se cortan para no gastar datos. */
+let _pdfPreviaEnCamino = [];
+
+/** "/storage/google/{id}" del documento, o null si no es un documento de Drive. */
+const _pdfPreviaBase = function (url) {
+    const m = /^(?:https?:\/\/[^/]+)?\/storage\/google\/([A-Za-z0-9_-]+)/.exec(url || '');
+    return m ? '/storage/google/' + m[1] : null;
+};
+
+const _pdfPreviaMostrar = function (url) {
+    _pdfPreviaQuitar(false);
+    const base = _pdfPreviaBase(url);
+    const capa = document.getElementById('pdfPreviaIzq');
+    const img = document.getElementById('pdfPreviaImg');
+    if (!base || !capa || !img) return;
+    const turno = _pdfPreviaTurno;
+
+    const pedir = function (tamano, nitida) {
+        const pre = new Image();
+        _pdfPreviaEnCamino.push(pre);
+        pre.onload = function () {
+            _pdfPreviaEnCamino = _pdfPreviaEnCamino.filter((x) => x !== pre);
+            if (turno !== _pdfPreviaTurno) return;              // ya es otro documento
+            // La borrosa no pisa a la nitida si por lo que sea llego despues.
+            if (!nitida && capa.classList.contains('pdf-previa--nitida')) return;
+            img.src = pre.src;
+            if (nitida) capa.classList.add('pdf-previa--nitida');
+            capa.hidden = false;
+            // El cargador es texto blanco centrado: sobre una hoja blanca no se leeria.
+            // Con la hoja a la vista pasa a ser una pastilla abajo.
+            const cargador = document.getElementById('pdfViewerLoader');
+            if (cargador) cargador.classList.add('pdf-cargador--sobre-previa');
+        };
+        // Si falla (sin miniatura, sin red) no se hace nada: queda el visor de siempre.
+        pre.src = base + '?sz=' + tamano;
+    };
+    pedir(PDF_PREVIA_BAJA, false);
+    _pdfPreviaAltaTimeout = setTimeout(() => pedir(PDF_PREVIA_ALTA, true), PDF_PREVIA_ALTA_TRAS_MS);
+};
+
+/**
+ * Quita la vista previa. Con fundido cuando el PDF de verdad ya esta pintado debajo
+ * (el paso de imagen a documento no se nota); sin el cuando se cierra o cambia de
+ * documento.
+ */
+const _pdfPreviaQuitar = function (conFundido) {
+    _pdfPreviaTurno++;                // las imagenes que sigan en camino ya no se pintan
+    clearTimeout(_pdfPreviaFundido);
+    clearTimeout(_pdfPreviaAltaTimeout);
+    // Y las que sigan bajando se cortan: vaciar el src cancela la descarga. Llego el PDF
+    // (o se cerro el visor): esa imagen ya no va a enseñarse y seria gastar datos.
+    _pdfPreviaEnCamino.forEach((pre) => { pre.onload = null; pre.src = ''; });
+    _pdfPreviaEnCamino = [];
+    const capa = document.getElementById('pdfPreviaIzq');
+    const img = document.getElementById('pdfPreviaImg');
+    const cargador = document.getElementById('pdfViewerLoader');
+    const recoger = function () {
+        if (capa) {
+            capa.hidden = true;
+            capa.classList.remove('pdf-previa--nitida', 'pdf-previa--saliendo');
+        }
+        if (img) img.removeAttribute('src');
+        // La pastilla se quita al FINAL: quitarla antes devolvia el cargador al centro
+        // en mitad de su propio fundido de salida.
+        if (cargador) cargador.classList.remove('pdf-cargador--sobre-previa');
+    };
+    if (!conFundido || !capa || capa.hidden) { recoger(); return; }
+    capa.classList.add('pdf-previa--saliendo');
+    _pdfPreviaFundido = setTimeout(recoger, 300);   // = transicion de opacidad de .pdf-previa
+};
+
+/**
+ * Cancela TODO lo que tenga pendiente la carga del panel izquierdo: el respaldo, el
+ * aviso de "grande", el enfoque diferido y la vista previa. Un solo sitio: estaba
+ * repetido en la apertura, el error y el cierre, y el cambio de documento de la vista
+ * partida no lo tenia — de ahi que heredara el aviso de la carga anterior.
+ */
+const _pdfCancelarCargaIzq = function () {
+    clearTimeout(_pdfLoaderTimeout);
+    clearTimeout(_pdfAvisoTimeout);
+    clearTimeout(_pdfEnfoqueTimeout);
+    const texto = document.getElementById('pdfViewerLoaderTexto');
+    if (texto) texto.textContent = PDF_TEXTO_CARGANDO;
+    _pdfPreviaQuitar(false);
+};
 
 window.openPdfPreview = function (url, docType, label, equipoId, uploadUrl, skipMetadata, module) {
     const modal = document.getElementById('pdfPreviewModal');
@@ -756,23 +907,42 @@ window.openPdfPreview = function (url, docType, label, equipoId, uploadUrl, skip
     if (updateLabel) updateLabel.style.display = docGestionable ? 'flex' : 'none';
     if (deleteBtn)   deleteBtn.style.display   = docGestionable ? 'flex' : 'none';
 
-    // Respaldo: si el onload del PDF no llega nunca, a los 5 s se destapa igual.
+    // Respaldo por si el onload del PDF no llega NUNCA.
     //
     // El handle vive FUERA de esta función y cada apertura cancela el anterior.
     // Siendo local, una apertura que quedaba a medias —el usuario cierra el modal
     // antes de que cargue, o el documento no tiene URL— dejaba su temporizador
-    // armado, y 5 s después caía encima de la apertura SIGUIENTE: le apagaba el
+    // armado, y caía encima de la apertura SIGUIENTE: le apagaba el
     // "Cargando documento..." y destapaba su iframe a medio cargar.
-    clearTimeout(_pdfLoaderTimeout);
-    // Y el enfoque diferido de una apertura anterior, que si no le quitaria el
-    // desenfoque a ESTA en cuanto saltara.
-    clearTimeout(_pdfEnfoqueTimeout);
+    //
+    // ANTES ESTE RESPALDO MENTÍA. Saltaba a los 5 s y, pasara lo que pasara, apagaba
+    // el spinner y destapaba el visor. Con un PDF que tarda más de 5 s —uno de 1,8 MB
+    // en el teléfono en obra es de lo más normal— el usuario se quedaba mirando un
+    // visor vacío SIN spinner, creyendo que se había colgado. Justamente el caso que
+    // el respaldo pretendía cubrir era el raro (un onload que no llega), y se lo
+    // estaba aplicando al caso común (un documento grande que sigue bajando).
+    //
+    // Ahora son dos tiempos y solo el segundo destapa:
+    //   · AVISO: el documento tarda → se lo decimos y SEGUIMOS esperando, con el
+    //     spinner puesto. Sin esto, "tarda" era indistinguible de "se rompió".
+    //   · RENDICIÓN: pasado el tope duro damos por perdido el onload y destapamos,
+    //     porque dejar el documento borroso para siempre sí sería peor.
+    // Incluye el enfoque diferido de una apertura anterior, que si no le quitaria el
+    // desenfoque a ESTA en cuanto saltara, y su vista previa.
+    _pdfCancelarCargaIzq();
+    const textoLoader = document.getElementById('pdfViewerLoaderTexto');
+    _pdfAvisoTimeout = setTimeout(() => {
+        if (textoLoader) textoLoader.textContent = 'El documento es grande, sigue cargando...';
+    }, PDF_AVISO_LENTO_MS);
     _pdfLoaderTimeout = setTimeout(() => {
         if (loader) loader.style.display = 'none';
         // Tambien enfoca: si no, un onload que no llega dejaria el documento
         // borroso para siempre, que es peor que la espera que este respaldo evita.
         if (iframe) { iframe.style.opacity = '1'; iframe.style.filter = PDF_SIN_BLUR; }
-    }, 5000);
+        // Y retira la vista previa: si el documento SI se pinto y lo que falto fue el
+        // onload, la imagen lo estaria tapando para siempre.
+        _pdfPreviaQuitar(true);
+    }, PDF_RENDICION_MS);
 
     // Apaga el loader y destapa el PDF. Se llama una sola vez, desde el onload
     // del iframe.
@@ -794,6 +964,7 @@ window.openPdfPreview = function (url, docType, label, equipoId, uploadUrl, skip
     // siempre. El suelo real contra el parpadeo es el fundido de 200 ms.
     const hideLoaderWhenReady = () => {
         clearTimeout(_pdfLoaderTimeout);
+        clearTimeout(_pdfAvisoTimeout);
 
         const apagarLoader = () => {
             if (!loader) return;
@@ -810,6 +981,9 @@ window.openPdfPreview = function (url, docType, label, equipoId, uploadUrl, skip
             // instante— para que no se vea aclararse. Con el blur a medio entrar (0.3s)
             // el corte es imperceptible, y se ahorran el margen y la transicion enteros.
             apagarLoader();
+            // A esta velocidad la vista previa casi nunca llega a salir; si salio, se va
+            // sin fundido, igual que el desenfoque.
+            _pdfPreviaQuitar(false);
             if (!iframe) return;
             const suave = iframe.style.transition;
             iframe.style.transition = 'none';
@@ -832,6 +1006,9 @@ window.openPdfPreview = function (url, docType, label, equipoId, uploadUrl, skip
         clearTimeout(_pdfEnfoqueTimeout);
         _pdfEnfoqueTimeout = setTimeout(() => {
             apagarLoader();
+            // La primera pagina en imagen se funde y queda el documento de verdad, que
+            // termina de enfocarse debajo en el mismo tiempo.
+            _pdfPreviaQuitar(true);
             if (!iframe) return;
             iframe.style.opacity = '1';
             // Enfoca lo que ya se esta viendo borroso. La transicion del CSS es la que da
@@ -863,8 +1040,7 @@ window.openPdfPreview = function (url, docType, label, equipoId, uploadUrl, skip
         };
 
         iframe.onerror = function () {
-            clearTimeout(_pdfLoaderTimeout);
-            clearTimeout(_pdfEnfoqueTimeout);
+            _pdfCancelarCargaIzq();
             if (loader) loader.style.display = 'none';
             // Volver a taparlo. Desde que la carga se revela desenfocada, el iframe
             // esta VISIBLE en cuanto se le pone el src: si falla, sin esto quedaria
@@ -903,6 +1079,8 @@ window.openPdfPreview = function (url, docType, label, equipoId, uploadUrl, skip
             // desenfoque llega a verse o el documento sale nitido de una
             // (ver PDF_CARGA_LENTA_MS).
             _pdfCargaDesde = performance.now();
+            // La primera pagina en imagen mientras llega el PDF (solo documentos de Drive).
+            _pdfPreviaMostrar(url);
             // Con los parametros que le tocan ya de entrada: si este documento se va a
             // enseñar partido, se pide encajado (view=Fit) y no al 100%, para que la
             // comparacion no tenga que renavegar encima de la carga.
@@ -1972,9 +2150,9 @@ window.closePdfPreview = function () {
         iframe.style.filter = '';
         iframe.style.opacity = '0';
     }
-    // Y el respaldo de 5 s, que si no seguiría vivo sobre un visor ya cerrado.
-    clearTimeout(_pdfLoaderTimeout);
-    clearTimeout(_pdfEnfoqueTimeout);
+    // Y los temporizadores y la vista previa de la carga, que si no seguirían vivos
+    // sobre un visor ya cerrado.
+    _pdfCancelarCargaIzq();
     // La barra de correcciones tambien se cierra: dejaba _pdfAnexoCtx apuntando al
     // ultimo equipo+tipo visto, y ese contexto sobrevivia al cierre. Es la otra mitad
     // del guard de openPdfPreview — con el visor cerrado no hay documento delante, asi

@@ -13,15 +13,16 @@ class GoogleDriveController extends Controller
     {
         try {
             $fileId = basename($path);
-            // ?sz=w300 (o cualquier valor) => devolver el thumbnail publico
-            // de Drive cacheado localmente. Con sz=w300 el archivo es chico
-            // (< 50KB) y el browser cachea via max-age 1814400 = 21 dias.
-            // Sin sz, sirve el archivo original (FOTO completa).
+            // ?sz=w300 (o cualquier valor) => devolver la MINIATURA de Drive cacheada
+            // localmente. Con sz=w300 el archivo es chico (< 50KB) y el browser cachea via
+            // max-age 1814400 = 21 dias. Sin sz, sirve el archivo original.
+            //
+            // Sirve para fotos y tambien para PDF: de un PDF, Drive da la imagen de su
+            // PRIMERA PAGINA. Es lo que usa el visor para enseñar el documento mientras el
+            // PDF de verdad todavia viaja (ver _pdfPreviaMostrar en layout_ui.js).
             $sz = request()->query('sz');
             $isThumb = $sz && preg_match('/^w?\d{2,4}(-h\d{2,4})?$/', $sz);
-            $cachePath = $isThumb
-                ? 'google_cache/thumb_' . preg_replace('/[^A-Za-z0-9_-]/', '', $sz) . '_' . $fileId
-                : 'google_cache/' . $fileId;
+            $cachePath = \App\Services\GoogleDriveService::rutaCopiaLocal($fileId);
 
             // Cache-Control 1814400s = 21 dias (3 semanas) — pediste 1-3
             // semanas, escogemos el limite alto. must-revalidate permite a
@@ -29,9 +30,11 @@ class GoogleDriveController extends Controller
             $maxAge = 1814400;
 
             // 1. SERVIR DESDE LOCAL CACHE
-            if (Storage::disk('local')->exists($cachePath)) {
+            // (Solo el archivo completo: la miniatura la busca en su propia copia
+            // GoogleDriveService::miniatura, mas abajo.)
+            if (!$isThumb && Storage::disk('local')->exists($cachePath)) {
                 $fullPath = Storage::disk('local')->path($cachePath);
-                $mime = $isThumb ? 'image/jpeg' : mime_content_type($fullPath);
+                $mime = mime_content_type($fullPath);
                 $version = request()->query('v', '0');
                 $etag = md5($fileId . '-' . $sz . '-' . $version);
                 return response()->file($fullPath, [
@@ -43,34 +46,30 @@ class GoogleDriveController extends Controller
                 ]);
             }
 
-            // 2. THUMB MODE: bajar el thumbnail de Drive y guardarlo local.
-            //    Drive expone https://drive.google.com/thumbnail?id=...&sz=w300
-            //    para archivos publicos — es la URL que usaban los listados
-            //    directamente (drive.google.com/thumbnail?id=...). La pasamos
-            //    por aca para cachearla 3 semanas en disco local + browser.
+            // 2. MINIATURA: de la copia local o, la primera vez, de Drive.
             if ($isThumb) {
-                $thumbUrl = 'https://drive.google.com/thumbnail?id=' . urlencode($fileId) . '&sz=' . urlencode($sz);
-                $ctx = stream_context_create([
-                    'http' => ['timeout' => 8, 'follow_location' => 1],
-                    'ssl'  => ['verify_peer' => false, 'verify_peer_name' => false],
-                ]);
-                $bytes = @file_get_contents($thumbUrl, false, $ctx);
-                if ($bytes === false || strlen($bytes) < 100) {
-                    // Drive devolvio HTML de error — cae al stream completo
-                    // como fallback (mejor algo que un broken image icon).
-                    $isThumb = false;
-                } else {
-                    Storage::disk('local')->put($cachePath, $bytes);
+                [$bytes, $mimeOriginal] = \App\Services\GoogleDriveService::miniatura($fileId, $sz);
+                if ($bytes !== null) {
                     $version = request()->query('v', '0');
                     $etag = md5($fileId . '-' . $sz . '-' . $version);
                     return response($bytes, 200, [
-                        'Content-Type'  => 'image/jpeg',
+                        'Content-Type'  => getimagesizefromstring($bytes)['mime'],
                         'Cache-Control' => 'public, max-age=' . $maxAge . ', must-revalidate',
                         'ETag'          => '"' . $etag . '"',
                         'Pragma'        => 'public',
                         'Expires'       => gmdate('D, d M Y H:i:s \G\M\T', time() + $maxAge),
                     ]);
                 }
+                // Sin miniatura (Drive aun no la genero, p. ej. recien subido). Una FOTO cae
+                // al archivo completo: mejor la foto grande que un icono roto. Un PDF NO: quien
+                // pide su miniatura es el visor, que para ese momento YA esta bajando el PDF
+                // en su <iframe>; mandarselo entero otra vez a un <img> duplicaria la descarga
+                // mas pesada del sistema para no poder mostrarla. Sin cuerpo y sin cache: la
+                // proxima apertura vuelve a intentarlo.
+                if ($mimeOriginal === 'application/pdf') {
+                    return response('', 404, ['Cache-Control' => 'no-store']);
+                }
+                $isThumb = false;
             }
 
             // 3. FULL FILE: descargar via API (mantiene comportamiento legacy)
@@ -96,6 +95,10 @@ class GoogleDriveController extends Controller
             // acto, asi que las dos patas del viaje se solapan en vez de sumarse. El
             // servidor tampoco tiene que sostener el archivo completo en memoria ni esperar
             // al disco.
+            //
+            // Esto solo es verdad desde que getStreamById entrega la conexion con Drive y no
+            // una copia ya descargada (ver el comentario de ese metodo): hasta entonces el
+            // bucle de abajo leia de un temporal completo y el solape no ocurria.
             //
             // La copia local se sigue guardando —es lo que hace instantanea la SEGUNDA
             // apertura, tambien para otro usuario— pero se escribe A LA VEZ que se envia,

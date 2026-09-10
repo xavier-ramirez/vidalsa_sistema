@@ -6,6 +6,7 @@ use Google\Client;
 use Google\Service\Drive;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class GoogleDriveService
 {
@@ -86,14 +87,39 @@ class GoogleDriveService
         return $this->client;
     }
 
+    /**
+     * Contenido de un archivo de Drive como flujo PSR-7 que se va leyendo MIENTRAS llega.
+     *
+     * Antes se pedia con files->get(alt=media) sin mas, y la libreria de Google baja la
+     * respuesta ENTERA a un temporal (php://temp) antes de devolverla: quien leia "por
+     * trozos" en realidad leia de un archivo que ya estaba completo. El proxy del visor,
+     * que presume de ir mandando cada trozo al navegador segun llega de Drive, no mandaba
+     * el primer byte hasta tener el PDF completo — medido: un ROTC de 3,3 MB tardaba 11,6 s
+     * en empezar a salir. Con 'stream' => true el cuerpo es la conexion misma y el primer
+     * trozo sale en cuanto Drive lo manda.
+     *
+     * Por eso se arma la peticion en modo diferido (setDefer: la libreria la devuelve sin
+     * enviarla) y se envia aparte con el cliente autorizado. Los errores siguen saliendo
+     * como excepcion igual que antes: el cliente HTTP de este servicio (initialize) lanza
+     * en 4xx/5xx, asi que un archivo borrado da un 404 que el proxy convierte en su
+     * pagina de "Documento no disponible".
+     */
     public function getStreamById($fileId)
     {
         $drive = $this->getDrive();
-        $response = $drive->files->get($fileId, [
-            'alt' => 'media',
-            'supportsAllDrives' => true
-        ]);
-        return $response->getBody(); // This is a PSR-7 stream
+        $this->client->setDefer(true);
+        try {
+            $peticion = $drive->files->get($fileId, [
+                'alt' => 'media',
+                'supportsAllDrives' => true
+            ]);
+        } finally {
+            // Siempre de vuelta: el cliente es un singleton y en diferido NINGUNA llamada
+            // posterior de la peticion llegaria a ejecutarse.
+            $this->client->setDefer(false);
+        }
+
+        return $this->client->authorize()->send($peticion, ['stream' => true])->getBody();
     }
 
     /**
@@ -185,5 +211,143 @@ class GoogleDriveService
             Log::warning("Google Drive makePublic skipped/failed for {$fileId}: " . $e->getMessage());
             return false;
         }
+    }
+
+    /* ── COPIA LOCAL de los archivos de Drive ──────────────────────────────────────────
+       El proxy (GoogleDriveController) guarda en el disco local cada archivo que sirve y
+       cada miniatura que pide, para no volver a bajarlos. Aqui vive TODO lo que sabe de
+       esas copias —donde estan, como se piden las miniaturas y como se olvidan— porque lo
+       usan varios sitios: el proxy, el dashboard y cada pantalla que borra o reemplaza un
+       documento. Antes estaba copiado a mano en cada uno. */
+
+    /** Carpeta de las copias, dentro del disco 'local'. */
+    private const CARPETA_COPIAS = 'google_cache/';
+
+    /** Ruta (en el disco 'local') de la copia de un archivo, o de su miniatura si se da $sz. */
+    public static function rutaCopiaLocal(string $fileId, ?string $sz = null): string
+    {
+        return self::CARPETA_COPIAS
+            . ($sz === null ? '' : 'thumb_' . preg_replace('/[^A-Za-z0-9_-]/', '', $sz) . '_')
+            . $fileId;
+    }
+
+    /**
+     * Olvida TODO lo guardado de un archivo de Drive: su copia, sus miniaturas y los datos
+     * recordados. Se llama al borrar o reemplazar un documento.
+     *
+     * Las miniaturas cuentan: desde que el visor enseña la primera pagina de cada PDF, un
+     * documento borrado dejaba su pagina 1 servible desde el disco a quien tuviera el
+     * enlace. Antes solo se borraba la copia del PDF.
+     */
+    public static function olvidarCopiaLocal(string $fileId): void
+    {
+        $disco = Storage::disk('local');
+        $disco->delete(self::rutaCopiaLocal($fileId));
+        foreach (glob($disco->path(self::CARPETA_COPIAS . 'thumb_*_' . $fileId)) ?: [] as $miniatura) {
+            @unlink($miniatura);
+        }
+        Cache::forget('gdrive_meta_' . $fileId);
+        Cache::forget('gdrive_miniatura_' . $fileId);
+    }
+
+    /**
+     * Miniatura de un archivo de Drive, del tamaño pedido ("w300", "w1024"...). De un PDF
+     * es la imagen de su PRIMERA PAGINA. Guardada en el disco local: la segunda vez sale
+     * de ahi.
+     *
+     * Devuelve [bytes o null, mimeType del archivo original o null]. El mime solo se sabe
+     * cuando hubo que preguntar a Drive; lo usa el proxy para no mandar un PDF entero a
+     * un <img> cuando no hay miniatura.
+     *
+     * POR LA API y no por la URL publica drive.google.com/thumbnail, que era la unica via:
+     * esa solo funciona con archivos compartidos por enlace, y los PDF del sistema son
+     * PRIVADOS. Con uno privado Google no da error, da su pagina de inicio de sesion, y esa
+     * pagina (HTML de ~900 KB) acababa guardada y servida como si fuera la imagen durante
+     * 21 dias: un icono roto. La API da un enlace a la miniatura que sirve con cualquier
+     * permiso.
+     *
+     * Al enlace se le pide el tamaño y ademas `-rj-l75`: JPEG al 75 %. Sin eso Drive la da
+     * en PNG, y la primera pagina de un escaneo a 1024 px pesaba 1,9 MB en PNG contra
+     * 124-235 KB en JPEG (medido). La miniatura esta para ir RAPIDO.
+     *
+     * La URL publica queda de respaldo SOLO para cuando la API no contesta (sin token, sin
+     * red hacia Google): con una foto compartida sigue sirviendo. Si la API contesto —aunque
+     * sea "no existe" o "no tiene miniatura"— la URL publica no va a saber mas, y con un
+     * archivo privado o borrado se pasaba hasta 27 s bajando la pagina de login (medido)
+     * con el proceso de PHP ocupado. Nada se da por bueno sin comprobar que es una imagen.
+     */
+    public static function miniatura(string $fileId, string $sz): array
+    {
+        $disco = Storage::disk('local');
+        $ruta  = self::rutaCopiaLocal($fileId, $sz);
+        if ($disco->exists($ruta)) {
+            $guardada = $disco->get($ruta);
+            if (self::esImagen($guardada)) {
+                return [$guardada, null];
+            }
+            // Envenenada por la version anterior (ver arriba): se tira y se pide de nuevo.
+            $disco->delete($ruta);
+        }
+
+        // "w300" o "w300-h200" van tal cual; un numero pelado ("300") es un lado maximo.
+        $tamano = ctype_digit($sz[0]) ? 's' . $sz : $sz;
+        $bytes = null;
+        $mime  = null;
+        $apiContesto = false;
+
+        try {
+            $servicio = self::getInstance();
+            // El enlace caduca a las pocas horas: se recuerda media hora, y SOLO si existe.
+            // Justo despues de subir un archivo Drive todavia no lo tiene, y recordar ese
+            // "no hay" dejaria el documento sin miniatura media hora.
+            $meta = Cache::get('gdrive_miniatura_' . $fileId);
+            if (!$meta) {
+                $archivo = $servicio->getDrive()->files->get($fileId, [
+                    'fields' => 'mimeType,thumbnailLink',
+                    'supportsAllDrives' => true,
+                ]);
+                $meta = ['mime' => $archivo->getMimeType(), 'link' => $archivo->getThumbnailLink()];
+                if (!empty($meta['link'])) {
+                    Cache::put('gdrive_miniatura_' . $fileId, $meta, 1800);
+                }
+            }
+            $apiContesto = true;
+            $mime = $meta['mime'];
+            if (!empty($meta['link'])) {
+                // El enlace trae su propio tamaño al final ("=s220"): se cambia por el pedido.
+                $url = preg_replace('/=[^=\/]*$/', '', $meta['link']) . '=' . $tamano . '-rj-l75';
+                $resp = $servicio->getClient()->authorize()->request('GET', $url, [
+                    'http_errors' => false,
+                    'timeout'     => 8,
+                ]);
+                if ($resp->getStatusCode() === 200) {
+                    $bytes = (string) $resp->getBody();
+                }
+            }
+        } catch (\Throwable $e) {
+            // Un 404 tambien es una respuesta: el archivo no esta en Drive.
+            $apiContesto = $e->getCode() === 404;
+            Log::warning('Miniatura de Drive por API fallo para ' . $fileId . ': ' . $e->getMessage());
+        }
+
+        if (!$apiContesto && !self::esImagen($bytes)) {
+            $ctx = stream_context_create([
+                'http' => ['timeout' => 8, 'follow_location' => 1],
+                'ssl'  => ['verify_peer' => false, 'verify_peer_name' => false],
+            ]);
+            $bytes = @file_get_contents('https://drive.google.com/thumbnail?id=' . urlencode($fileId) . '&sz=' . urlencode($sz), false, $ctx);
+        }
+
+        if (!self::esImagen($bytes)) {
+            return [null, $mime];
+        }
+        $disco->put($ruta, $bytes);
+        return [$bytes, $mime];
+    }
+
+    /** ¿Son estos bytes una imagen de verdad? (y no, por ejemplo, una pagina de login) */
+    private static function esImagen($bytes): bool
+    {
+        return is_string($bytes) && strlen($bytes) > 100 && @getimagesizefromstring($bytes) !== false;
     }
 }

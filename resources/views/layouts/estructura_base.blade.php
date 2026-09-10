@@ -913,7 +913,9 @@
                     <div id="pdfViewerLoader"
                         style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 15px; z-index: 50; pointer-events: none;">
                         <div class="spinner-circle"></div>
-                        <span style="color: white; font-weight: 500; font-size: 14px;">Cargando documento...</span>
+                        {{-- El id lo usa layout_ui.js para avisar cuando el documento tarda:
+                             un PDF grande en el telefono pasa de los segundos y hay que decirlo. --}}
+                        <span id="pdfViewerLoaderTexto" style="color: white; font-weight: 500; font-size: 14px;">Cargando documento...</span>
                     </div>
 
                     <div id="pdfUploadProgressOverlay"
@@ -952,6 +954,13 @@
                                      "cuanto tardo en poder leer el PDF". --}}
                             style="width: 100%; height: 100%; border: none; opacity: 0; transition: opacity 0.25s, filter 0.3s ease-out; position: relative; z-index: 20;"
                             allowfullscreen></iframe>
+                    </div>
+
+                    {{-- Primera pagina en imagen mientras llega el PDF, como en Google Drive:
+                         primero borrosa y luego nitida. La gobierna _pdfPreviaMostrar en
+                         layout_ui.js; el aspecto, .pdf-previa en estilos_globales.css. --}}
+                    <div id="pdfPreviaIzq" class="pdf-previa" hidden>
+                        <img id="pdfPreviaImg" alt="">
                     </div>
 
                     {{-- Rótulo del lado izquierdo. Solo se ve comparando: con un único

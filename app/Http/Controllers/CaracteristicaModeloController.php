@@ -474,8 +474,7 @@ class CaracteristicaModeloController extends Controller
         if ($oldFileId && $oldFileId !== $driveFile->id) {
             try {
                 $driveService->deleteFile($oldFileId);
-                \Illuminate\Support\Facades\Storage::disk('local')->delete('google_cache/' . $oldFileId);
-                \Illuminate\Support\Facades\Cache::forget('gdrive_meta_' . $oldFileId);
+                \App\Services\GoogleDriveService::olvidarCopiaLocal($oldFileId);
             } catch (\Exception $e) {
                 Log::warning('No se pudo borrar la foto anterior de Drive: ' . $oldFileId . ' - ' . $e->getMessage());
             }
@@ -581,8 +580,7 @@ class CaracteristicaModeloController extends Controller
                 defer(function () use ($fileId) {
                     try {
                         GoogleDriveService::getInstance()->deleteFile($fileId);
-                        \Illuminate\Support\Facades\Storage::disk('local')->delete('google_cache/' . $fileId);
-                        \Illuminate\Support\Facades\Cache::forget('gdrive_meta_' . $fileId);
+                        \App\Services\GoogleDriveService::olvidarCopiaLocal($fileId);
                     } catch (\Exception $e) {
                         Log::warning("Drive delete failed for catalog photo: {$fileId} - " . $e->getMessage());
                     }
@@ -623,8 +621,7 @@ class CaracteristicaModeloController extends Controller
             if ($fileId) {
                 try {
                     GoogleDriveService::getInstance()->deleteFile($fileId);
-                    \Illuminate\Support\Facades\Storage::disk('local')->delete('google_cache/' . $fileId);
-                    \Illuminate\Support\Facades\Cache::forget('gdrive_meta_' . $fileId);
+                    \App\Services\GoogleDriveService::olvidarCopiaLocal($fileId);
                 } catch (\Exception $e) {
                     Log::warning("Drive delete failed after DB commit (file orphaned in Drive): {$fileId} - " . $e->getMessage());
                 }

@@ -193,31 +193,18 @@ class DashboardController extends Controller
     }
 
     /**
-     * Reusa el cache local de GoogleDriveController::proxy para no re-bajar el
-     * thumbnail. Si no esta cacheado, lo baja desde drive.google.com/thumbnail
-     * (mismo endpoint publico que usa proxy()) y lo guarda. Devuelve null si
-     * falla — el cliente mostrara un placeholder.
+     * Miniatura de la foto en base64 (data URI), o null si no se pudo — el cliente
+     * mostrara un placeholder. La saca GoogleDriveService::miniatura, la misma que sirve
+     * el proxy y con la misma copia local: aqui habia una segunda version a mano que pedia
+     * la URL publica sin comprobar que volviera una imagen.
      */
     private function fetchDriveThumbBase64($driveFileId, $sz = 'w300')
     {
         if (!$driveFileId) return null;
-
-        $cachePath = 'google_cache/thumb_' . preg_replace('/[^A-Za-z0-9_-]/', '', $sz) . '_' . $driveFileId;
-
-        if (\Illuminate\Support\Facades\Storage::disk('local')->exists($cachePath)) {
-            $bytes = \Illuminate\Support\Facades\Storage::disk('local')->get($cachePath);
-        } else {
-            $thumbUrl = 'https://drive.google.com/thumbnail?id=' . urlencode($driveFileId) . '&sz=' . urlencode($sz);
-            $ctx = stream_context_create([
-                'http' => ['timeout' => 8, 'follow_location' => 1],
-                'ssl'  => ['verify_peer' => false, 'verify_peer_name' => false],
-            ]);
-            $bytes = @file_get_contents($thumbUrl, false, $ctx);
-            if ($bytes === false || strlen($bytes) < 100) return null;
-            \Illuminate\Support\Facades\Storage::disk('local')->put($cachePath, $bytes);
-        }
-
-        return 'data:image/jpeg;base64,' . base64_encode($bytes);
+        [$bytes] = \App\Services\GoogleDriveService::miniatura($driveFileId, $sz);
+        return $bytes === null
+            ? null
+            : 'data:' . getimagesizefromstring($bytes)['mime'] . ';base64,' . base64_encode($bytes);
     }
 
     /**

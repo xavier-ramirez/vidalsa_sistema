@@ -1701,6 +1701,57 @@ input[type="password"]::-ms-clear {
     background: #282828;
 }
 
+/* Vista previa del visor: la primera pagina en imagen mientras llega el PDF (ver
+   _pdfPreviaMostrar en layout_ui.js). Encima del documento (z 20) y debajo del rotulo
+   (40), del cargador (50) y de la barra de subida (60). Fondo del propio visor: tapa el
+   iframe, que mientras carga no tiene nada que enseñar. */
+.pdf-previa {
+    position: absolute;
+    inset: 0;
+    z-index: 30;
+    overflow: hidden;
+    background: #282828;
+    pointer-events: none;
+    transition: opacity .3s;
+}
+/* Ancho de la hoja carta al 100 % —816 px, el zoom con el que abre el visor nativo—
+   para que al fundirse con el documento real la pagina no salte de tamaño. */
+.pdf-previa > img {
+    display: block;
+    width: min(816px, calc(100% - 16px));
+    margin: 8px auto;
+    filter: blur(8px);
+    transition: filter .45s ease-out;
+}
+.pdf-previa--nitida > img {
+    filter: blur(0);
+}
+.pdf-previa--saliendo {
+    opacity: 0;
+}
+/* Con la hoja a la vista, el cargador (texto blanco centrado) pasa a pastilla abajo:
+   sobre una pagina blanca no se leeria. Los !important ganan a su style en linea. */
+#pdfViewerLoader.pdf-cargador--sobre-previa {
+    justify-content: flex-end !important;
+    padding-bottom: 22px;
+}
+#pdfViewerLoader.pdf-cargador--sobre-previa .spinner-circle {
+    display: none;
+}
+#pdfViewerLoader.pdf-cargador--sobre-previa #pdfViewerLoaderTexto {
+    background: rgba(15, 23, 42, .82);
+    padding: 7px 16px;
+    border-radius: 999px;
+    font-size: 13px !important;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, .35);
+}
+@media (prefers-reduced-motion: reduce) {
+    .pdf-previa,
+    .pdf-previa > img {
+        transition: none;
+    }
+}
+
 /* Botones-icono de los rotulos del visor (alejar, acercar, borrar). Estaban
    repetidos con el mismo estilo en linea seis veces, con su hover en onmouseover;
    aqui van una sola vez. */

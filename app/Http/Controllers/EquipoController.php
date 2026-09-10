@@ -2257,8 +2257,7 @@ class EquipoController extends Controller
                             try {
                                 $svc->deleteFile($oldFileId);
                                 // Invalidate local cache
-                                \Illuminate\Support\Facades\Storage::disk('local')->delete('google_cache/' . $oldFileId);
-                                \Illuminate\Support\Facades\Cache::forget('gdrive_meta_' . $oldFileId);
+                                \App\Services\GoogleDriveService::olvidarCopiaLocal($oldFileId);
                             } catch (\Exception $e) {
                                 Log::error("Failed to delete old Drive file: $oldFileId");
                             }
@@ -2515,8 +2514,7 @@ class EquipoController extends Controller
                 $driveService = \App\Services\GoogleDriveService::getInstance();
                 foreach ($driveFileIds as $fid) {
                     $driveService->deleteFile($fid);
-                    Storage::disk('local')->delete('google_cache/' . $fid);
-                    \Illuminate\Support\Facades\Cache::forget('gdrive_meta_' . $fid);
+                    \App\Services\GoogleDriveService::olvidarCopiaLocal($fid);
                 }
             } catch (\Throwable $e) {
                 Log::warning("forceDeleteEquipo: equipo {$id} borrado de la BD pero fallo limpiando Drive: " . $e->getMessage());
@@ -2771,8 +2769,7 @@ class EquipoController extends Controller
             // 4. DELETE OLD FILE (Only after success)
             if ($oldFileIdToDelete) {
                 \App\Jobs\DeleteGoogleDriveFile::dispatch($oldFileIdToDelete);
-                \Illuminate\Support\Facades\Storage::disk('local')->delete('google_cache/' . $oldFileIdToDelete);
-                \Illuminate\Support\Facades\Cache::forget('gdrive_meta_' . $oldFileIdToDelete);
+                \App\Services\GoogleDriveService::olvidarCopiaLocal($oldFileIdToDelete);
             }
 
             // El dashboard de /menu se invalida solo (bumpDataVersion en los
@@ -3037,8 +3034,7 @@ class EquipoController extends Controller
                 $fileId = \App\Models\DocumentoAnexo::driveIdDeLink($link);
                 if ($fileId) {
                     \App\Services\GoogleDriveService::getInstance()->deleteFile($fileId);
-                    \Illuminate\Support\Facades\Storage::disk('local')->delete('google_cache/' . $fileId);
-                    \Illuminate\Support\Facades\Cache::forget('gdrive_meta_' . $fileId);
+                    \App\Services\GoogleDriveService::olvidarCopiaLocal($fileId);
                 }
             } catch (\Throwable $e) {
                 Log::warning("eliminarAnexo: fallo al borrar del Drive el anexo {$anexoId} del equipo {$id}: " . $e->getMessage());
@@ -3310,8 +3306,7 @@ class EquipoController extends Controller
                 if ($oldFileId) {
                     $driveService = \App\Services\GoogleDriveService::getInstance();
                     $driveService->deleteFile($oldFileId);
-                    \Illuminate\Support\Facades\Storage::disk('local')->delete('google_cache/' . $oldFileId);
-                    \Illuminate\Support\Facades\Cache::forget('gdrive_meta_' . $oldFileId);
+                    \App\Services\GoogleDriveService::olvidarCopiaLocal($oldFileId);
                 }
             } catch (\Throwable $e) {
                 Log::warning("deleteDoc: fallo al borrar archivo del Drive para equipo {$id} type {$type}: " . $e->getMessage());
