@@ -59,7 +59,22 @@ return Application::configure(basePath: dirname(__DIR__))
             }
             // Para cualquier otra petición (web, navegador celular) → login.
             // ?aviso= en vez de flash, por el caché del Service Worker (ver arriba).
-            return redirect('/?aviso=sesion_expirada');
+            //
+            // PERO el aviso solo si de verdad HUBO una sesión que expirar. Antes se ponía
+            // siempre, y por definición aquí NO hay usuario autenticado, así que a quien
+            // nunca había entrado —abrir un enlace a /menu, restaurar la PWA en una ruta
+            // interna, un marcador viejo— el login le decía "Tu sesión expiró por
+            // seguridad" sin que hubiera existido ninguna sesión. Comprobado con un curl
+            // sin una sola cookie: /menu respondía 302 a /?aviso=sesion_expirada.
+            //
+            // La marca la deja el login y la borra el cierre de sesión (ver
+            // Auth\LoginController), así que distingue los tres casos:
+            //   entró y se le venció  -> hay marca   -> se explica el motivo
+            //   cerró sesión él mismo -> no hay marca -> login limpio, ya sabe por qué
+            //   nunca entró aquí      -> no hay marca -> login limpio
+            return redirect($request->cookies->has(\App\Http\Controllers\Auth\LoginController::COOKIE_SESION_PREVIA)
+                ? '/?aviso=sesion_expirada'
+                : '/');
         });
 
         // Acceso denegado (middleware can:* / Gate::denies / authorize()) en rutas WEB.

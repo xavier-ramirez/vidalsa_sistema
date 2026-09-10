@@ -256,6 +256,14 @@ class WebAuthnController extends Controller
         $request->session()->put('current_session_token', $sessionToken);
         $request->session()->save();
 
+        // La MISMA marca que deja el login con clave (LoginController::COOKIE_SESION_PREVIA).
+        // Sin ella, entrar con huella —que es justo la vía normal en el teléfono— no dejaba
+        // constancia de que aquí hubo sesión, y el día que se venciera el login mandaba a la
+        // pantalla limpia sin explicar nada: el caso exacto que esa marca existe para cubrir.
+        \Illuminate\Support\Facades\Cookie::queue(
+            cookie()->forever(LoginController::COOKIE_SESION_PREVIA, '1', null, null, null, true)
+        );
+
         RateLimiter::clear($throttleKey);
         if ($bloqueo) {
             $bloqueo->CANTIDAD_INTENTOS = 0;

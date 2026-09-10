@@ -14,6 +14,20 @@ use Carbon\Carbon;
 
 class LoginController extends Controller
 {
+    /**
+     * Marca de "este navegador YA inició sesión aquí alguna vez".
+     *
+     * Existe solo para que el login sepa QUÉ decir cuando llega alguien sin sesión:
+     * con la marca, la sesión existió y se venció → se explica; sin ella, o nunca
+     * entró o cerró sesión a propósito → login limpio, sin asustar con un aviso de
+     * algo que no pasó. La consulta el handler de AuthenticationException en
+     * bootstrap/app.php, que es su único lector.
+     *
+     * NO guarda nada del usuario: es un "1" y nada más. No sirve para autenticar ni
+     * para recordar quién era — de eso se encarga la sesión.
+     */
+    public const COOKIE_SESION_PREVIA = 'vidalsa_sesion_previa';
+
     public function login(Request $request)
     {
         // OJO: aquí NO se atrapa TokenMismatchException. El CSRF lo valida el middleware
@@ -77,7 +91,15 @@ class LoginController extends Controller
                 // 5. Éxito: Regenerar sesión y limpiar Rate Limiter
                 $request->session()->regenerate();
                 $request->session()->put('current_session_token', $sessionToken);
-                $request->session()->save(); 
+                $request->session()->save();
+
+                // Deja constancia de que en ESTE navegador sí hubo sesión, para que el día
+                // que se venza el login pueda decir por qué (ver COOKIE_SESION_PREVIA).
+                // Sobrevive a la sesión a propósito: si muriera con ella no serviría para
+                // explicar su muerte. La borra el cierre de sesión.
+                \Illuminate\Support\Facades\Cookie::queue(
+                    cookie()->forever(self::COOKIE_SESION_PREVIA, '1', null, null, null, true)
+                );
 
                 RateLimiter::clear($throttleKey); // Limpiamos el contador de fallos
 
@@ -252,15 +274,27 @@ class LoginController extends Controller
 
     public function logout(Request $request)
     {
-        $user = Auth::user();
-        if ($user) {
-            $user->SESSION_TOKEN = null;
-            $user->save();
-        }
-
+        // El SESSION_TOKEN NO se borra aquí, a propósito.
+        //
+        // Antes se ponía en null, y eso rompía el mensaje de ValidarSesionUnica: ese
+        // middleware lee un token en null como "la clave cambió" —es el único caso que
+        // lo deja así (Usuario::establecerClave)— y le decía "Tu clave cambió. Inicia
+        // sesión con la nueva." a alguien que lo único que había hecho era cerrar sesión
+        // en otro equipo. Un aviso falso, y encima alarmante.
+        //
+        // Borrarlo tampoco aportaba nada: la sesión de ESTE navegador se invalida abajo,
+        // y como el sistema es de sesión única, cualquier otra sesión viva ya tiene un
+        // token DISTINTO al vigente y el middleware la corta igual — pero ahora con el
+        // motivo correcto ("Sesión iniciada en otro dispositivo").
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
+
+        // Se va también la marca de "aquí hubo sesión": quien cierra sesión a propósito
+        // ya sabe por qué está en el login y no hay que explicarle nada la próxima vez.
+        \Illuminate\Support\Facades\Cookie::queue(
+            \Illuminate\Support\Facades\Cookie::forget(self::COOKIE_SESION_PREVIA)
+        );
 
         return redirect('/')->withHeaders([
             'Cache-Control' => 'no-cache, no-store, must-revalidate',

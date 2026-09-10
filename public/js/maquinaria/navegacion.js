@@ -337,6 +337,10 @@ document.addEventListener('DOMContentLoaded', () => {
             // PDF — sus comprobaciones siguen viviendo en la rama de red, que es la única
             // que puede producirlos.
             let html = tomarPrefetch(url);
+            // A DONDE LLEVO DE VERDAD la respuesta. fetch sigue los redirects sin avisar, asi
+            // que si el servidor mando a otro sitio, `url` ya no es donde estamos: lo dice
+            // response.url. Se usa abajo cuando lo que llego no es una pagina de la app.
+            let urlFinal = url;
 
             if (html !== null) {
                 clearTimeout(timeoutId);
@@ -346,6 +350,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     headers: CABECERAS_SPA,
                     cache: 'no-store'
                 });
+                if (response.redirected && response.url) urlFinal = response.url;
 
                 clearTimeout(timeoutId);
 
@@ -455,7 +460,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (!newContent) {
                 handledCleanup = true;
-                window.location.href = url;
+                // urlFinal y NO url. Lo que llega sin .main-viewport es casi siempre el LOGIN:
+                // el servidor cerro la sesion y redirigio a /?aviso=<motivo>. Navegar a la url
+                // PEDIDA tiraba ese motivo: la sesion ya estaba muerta, esa peticion daba 401 y
+                // el interceptor la traducia a "Tu sesion expiro por seguridad". Asi, a quien
+                // lo habian sacado porque entro en OTRO equipo se le decia que su sesion caduco.
+                // Comprobado con dos sesiones: el servidor respondia bien (302 a
+                // /?aviso=otro_dispositivo) y aqui se perdia.
+                window.location.href = urlFinal;
                 return;
             }
 

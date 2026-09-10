@@ -264,21 +264,28 @@
     // consumía en el servidor sin que nadie lo llegara a pintar. Se muestran por el mismo
     // canal que el resto de los mensajes y se limpia la URL para que no reaparezcan al
     // recargar o al volver atrás.
+    //
+    // Cualquier aviso puede llegar con "_pendientes" detrás (lo añade el interceptor de
+    // fetch cuando lo que falló fue la subida de lo hecho sin conexión): se muestra el
+    // motivo y además que esos cambios siguen guardados. Una sola frase para lo pendiente,
+    // en vez de un texto entero repetido por cada motivo.
     (function mostrarAvisoDeUrl() {
         const AVISOS = {
             sesion_expirada:  'Tu sesión expiró por seguridad. Inicia sesión de nuevo.',
-            sesion_expirada_pendientes:
-                'Tu sesión expiró. Tus cambios sin subir siguen guardados: inicia sesión y se suben solos.',
             otro_dispositivo: 'Tu sesión se inició en otro dispositivo.',
             clave_cambiada:   'Tu clave cambió. Inicia sesión con la nueva.'
         };
+        const PENDIENTES = ' Tus cambios sin subir siguen guardados: al entrar se suben solos.';
         var clave;
         try { clave = new URLSearchParams(window.location.search).get('aviso'); } catch (e) { return; }
-        if (!clave || !AVISOS[clave]) return;
+        if (!clave) return;
+        const conPendientes = /_pendientes$/.test(clave);
+        const motivo = clave.replace(/_pendientes$/, '');
+        if (!AVISOS[motivo]) return;
         // El texto se pinta cuando el DOM ya tiene el <div>; el guard del preloader lo
         // apaga solo porque mostrarMsgLogin lo oculta.
         document.addEventListener('DOMContentLoaded', function () {
-            mostrarMsgLogin(AVISOS[clave]);
+            mostrarMsgLogin(AVISOS[motivo] + (conPendientes ? PENDIENTES : ''));
         });
         try { window.history.replaceState({}, '', window.location.pathname); } catch (e) {}
     })();

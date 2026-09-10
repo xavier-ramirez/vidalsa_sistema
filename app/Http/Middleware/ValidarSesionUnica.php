@@ -47,9 +47,15 @@ class ValidarSesionUnica
             // dejar que el framework maneje la expiración normal en lugar de forzar logout)
             if ($sessionToken && $user->SESSION_TOKEN !== $sessionToken) {
                 // POR QUÉ no cuadra, antes de tocar nada: un SESSION_TOKEN en NULL no es
-                // "entró en otro lado", es una sesión REVOCADA a propósito, y hoy el único
-                // que revoca es un cambio de clave (Usuario::establecerClave). Distinguirlo
+                // "entró en otro lado", es una sesión REVOCADA a propósito, y el único que
+                // revoca es un cambio de clave (Usuario::establecerClave). Distinguirlo
                 // cambia un "te entraron en otro dispositivo" —que asusta— por el motivo real.
+                //
+                // Esto SOLO es cierto mientras nadie más ponga el token en null. El cierre
+                // de sesión lo hacía y por eso mandaba a otro equipo el aviso falso "Tu
+                // clave cambió"; se quitó de ahí (ver Auth\LoginController::logout). Si
+                // alguna vez hace falta revocar por otro motivo, hay que traer el motivo
+                // consigo en vez de deducirlo del null.
                 $motivo  = $user->SESSION_TOKEN === null ? 'clave_cambiada' : 'otro_dispositivo';
                 $mensaje = $motivo === 'clave_cambiada'
                     ? 'Tu clave cambió. Inicia sesión con la nueva.'
@@ -60,7 +66,12 @@ class ValidarSesionUnica
                 $request->session()->regenerateToken();
 
                 if ($request->expectsJson()) {
-                    return response()->json(['message' => $mensaje], 401);
+                    // `motivo` es el MISMO código que usa la redirección de abajo (?aviso=).
+                    // Hace falta porque la app es SPA: casi todo lo que hace el usuario viaja
+                    // por fetch y cae aquí, no en la redirección. El interceptor de fetch lo
+                    // lee para llevar al login con el motivo real; sin él, "entraste en otro
+                    // equipo" llegaba como "tu sesión expiró", que es falso.
+                    return response()->json(['message' => $mensaje, 'motivo' => $motivo], 401);
                 }
                 
                 // ?aviso= y no withErrors(): el Service Worker sirve el login desde su

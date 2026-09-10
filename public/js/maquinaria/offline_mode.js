@@ -90,6 +90,9 @@
     }
     let offlineActivo = false;
     let sinConexion   = false; // true mientras el banner muestra estado offline
+    // true mientras volverOnline() sincroniza. Ese paso lleva su propio banner y termina
+    // recargando: nadie mas debe pintar encima ni ofrecer otra vez el boton.
+    let volviendo     = false;
                                // (NO usar navigator.onLine: miente con el server caído)
     let ultimoAvisoOffline = 0; // throttle del toast "activá el modo offline" (evita spam al teclear)
 
@@ -146,13 +149,24 @@
         sinConexion = true;
         // Ya trabajando offline: mantener el banner ámbar (no volver al rojo) y
         // ocultar el botón (no hay nada que ofrecer estando ya en modo local).
-        if (offlineActivo) { if (action) action.style.display = 'none'; pintarBannerOffline(); return; }
+        //
+        // El sondeo se rearma TAMBIEN aqui. Si la red volvio (se apago el sondeo y se
+        // ofrecio "Activar uso con internet") y se vuelve a caer antes de pulsarlo, esta
+        // es la unica puerta de entrada; sin rearmarlo nadie vigilaba el segundo regreso y
+        // el usuario se quedaba en ambar y sin boton hasta mandar la app al fondo.
+        if (offlineActivo) {
+            if (action) action.style.display = 'none';
+            pintarBannerOffline();
+            ajustarResondeo();
+            return;
+        }
         // MANUAL (opt-in): aviso rojo + OFRECEMOS el botón; NO se activa solo.
         // Sin conexión, nada de copia local hasta que el usuario pulse "Trabajar
         // sin conexión". Si no lo pulsa, la vista queda con los datos del servidor
         // y los filtros quedan bloqueados (ver pendienteActivar/avisarActivar).
         showBanner('Sin conexión a internet', 'wifi_off', '#dc2626', 0);
         ofrecerOffline();
+        ajustarResondeo();   // a partir de aqui hay que vigilar si vuelve
     }
     // ── Transición ONLINE → OFFLINE (pulsar "Trabajar sin conexión") ──
     // Spinner mientras se PREPARA todo para trabajar sin señal: abrir IndexedDB,
@@ -162,6 +176,7 @@
     function activarOffline() {
         if (offlineActivo) return;
         offlineActivo = true;
+        ajustarResondeo();   // trabajando sin conexion: seguimos vigilando el regreso
         if (action) action.style.display = 'none';
         if (window.showPreloader) window.showPreloader();
         pintarBannerOffline();  // banner ámbar con la fecha de la copia
@@ -181,6 +196,7 @@
     //   4) recargar, que restaura la vista online normal.
     // Si el servidor aún no responde, seguimos offline con botón de reintento.
     function volverOnline() {
+        volviendo = true;
         if (window.showPreloader) window.showPreloader();
         showBanner('Volviendo al modo con internet · sincronizando…', 'sync', '#16a34a', 0);
 
@@ -199,6 +215,7 @@
                     .then(function () { clearTimeout(perro); quitar(); window.location.reload(); });
             })
             .catch(function () {
+                volviendo = false;
                 clearTimeout(perro);
                 quitar();   // resta del contador (no forzar: puede haber otra operación con spinner)
                 // El servidor aún no responde: seguimos en modo offline (offlineActivo
@@ -211,9 +228,22 @@
     }
     if (action) action.addEventListener('click', function () { if (typeof accionBoton === 'function') accionBoton(); });
 
-    window.addEventListener('offline', mostrarOffline);
-    window.addEventListener('online', function () {
+    // ── DUEÑO ÚNICO de "volvió la red" ────────────────────────────────────────
+    // Contraparte de netStatus.showOffline (que es el dueño único de "se fue"). Todo
+    // lo que detecte el regreso —el evento 'online', el re-sondeo de abajo o una
+    // petición que vuelve a responder— entra por aquí, para que el aviso verde se
+    // pinte igual venga de donde venga.
+    function volvioLaRed() {
+        // Solo se anuncia un regreso si se sabia que NO habia red. La condicion era
+        // "!sinConexion && !offlineActivo", y con el modo offline puesto dejaba pasar
+        // regresos ya anunciados: volver a la app o el evento 'online' repintaban el
+        // verde encima de "sincronizando…" y ofrecian otra vez el boton, que lanzaba una
+        // segunda sincronizacion compitiendo con la primera.
+        if (!sinConexion) return;
         sinConexion = false;
+        // volverOnline() ya confirmo el servidor por su cuenta y esta subiendo y recargando:
+        // se apaga el sondeo y no se toca su banner.
+        if (volviendo) { ajustarResondeo(); return; }
         // Si se estaba TRABAJANDO en modo offline, la vista quedó pintada con la
         // copia local y sus handlers en modo offline. NO recargamos de golpe (eso
         // interrumpía el trabajo): mostramos el aviso verde y OFRECEMOS el botón
@@ -223,12 +253,84 @@
         if (offlineActivo) {
             showBanner('Conexión restaurada', 'wifi', '#16a34a', 0);
             configurarBoton('Activar uso con internet', volverOnline);
+            // Apagar el sondeo TAMBIÉN aquí. Antes esta rama salía antes de llegar a
+            // ajustarResondeo(), así que quien seguía trabajando sin conexión con la red
+            // ya de vuelta repintaba el banner cada 15 segundos —re-midiendo y
+            // re-animando— y borraba cualquier otro aviso que hubiera aparecido en medio.
+            ajustarResondeo();
             return;
         }
-        offlineActivo = false;
         if (action) action.style.display = 'none';
         showBanner('Conexión restaurada', 'wifi', '#16a34a', 2500);
+        ajustarResondeo();   // ya volvio: se apaga el temporizador
+    }
+
+    // ── Re-sondeo mientras no hay servidor ────────────────────────────────────
+    // El evento 'online' NO basta, y este es el caso REAL de obra: el teléfono nunca
+    // pierde el wifi ni los datos —lo que se cae es la salida a internet o el propio
+    // servidor—, así que navigator.onLine jamás pasa por false y 'online' no se
+    // dispara nunca. Sin esto, al volver la señal el aviso verde no aparecía y quien
+    // estaba trabajando sin conexión se quedaba ahí hasta cerrar y reabrir la app.
+    //
+    // Mismo patrón y misma cadencia que ajustarResondeo() en offline/offline-auth.js,
+    // que ya resolvía esto para la pantalla de login.
+    //
+    // Va SIN el interceptor (window.fetchSinInterceptor) y no por window.apiFetch a
+    // propósito: apiFetch pasa por el interceptor, que ante un fallo llama a
+    // showOffline() y repintaría el banner — borrando el ámbar de "Trabajando sin
+    // conexión" cada 15 segundos. Este sondeo tiene que poder fallar en silencio.
+    var MS_RESONDEO = 15000;
+    var resondeo = null;
+    function sondearServidor() {
+        if (!navigator.onLine) return;              // sin interfaz: ni lo intentes
+        var corta = (typeof AbortController === 'function') ? new AbortController() : null;
+        var tope = corta ? setTimeout(function () { corta.abort(); }, 4000) : null;
+        // fetchSinInterceptor y NO fetch: dentro de este archivo 'fetch' es el que
+        // fetch_interceptor.js ya reemplazo (se carga antes, en el <head>), asi que un
+        // fallo aqui llamaba a showOffline() y borraba el boton "Reintentar conexion".
+        var pedir = window.fetchSinInterceptor || fetch;
+        pedir('/offline/version', {
+            method: 'GET', cache: 'no-store', credentials: 'same-origin',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            signal: corta ? corta.signal : undefined
+        }).then(function () {
+            if (tope) clearTimeout(tope);
+            volvioLaRed();                          // cualquier respuesta = hay servidor
+        }, function () {
+            if (tope) clearTimeout(tope);           // sigue sin servidor: en silencio
+        });
+    }
+    function ajustarResondeo() {
+        // La condición es SOLO sinConexion, no "sinConexion || offlineActivo". Los dos
+        // estados no son lo mismo: sinConexion dice si falta servidor —lo único que este
+        // sondeo vigila— y offlineActivo dice si el usuario eligió trabajar con la copia
+        // local. Se puede estar en modo offline con la red ya de vuelta (es justo el
+        // momento en que se le ofrece "Activar uso con internet"), y ahí no hay nada más
+        // que preguntar: con la otra condición el temporizador no se apagaba nunca.
+        //
+        // Y no se pierde el caso de activar el modo offline: eso solo se ofrece cuando
+        // sinConexion ya es true, así que el sondeo ya venía en marcha.
+        if (!sinConexion) {
+            if (resondeo) { clearInterval(resondeo); resondeo = null; }
+            return;
+        }
+        if (resondeo) return;                       // ya hay uno en marcha
+        resondeo = setInterval(function () {
+            if (document.hidden) return;            // en segundo plano no se gasta
+            sondearServidor();
+        }, MS_RESONDEO);
+    }
+    // Volver a la app (desbloquear el teléfono, cambiar de pestaña) es el momento con
+    // más probabilidad de que la señal haya cambiado: se pregunta ya, sin esperar al
+    // siguiente tic.
+    // Misma condicion que ajustarResondeo(): solo si falta servidor. Con el modo offline
+    // puesto y la red ya de vuelta no hay nada que preguntar.
+    document.addEventListener('visibilitychange', function () {
+        if (!document.hidden && sinConexion) sondearServidor();
     });
+
+    window.addEventListener('offline', mostrarOffline);
+    window.addEventListener('online', volvioLaRed);
     // Si baja una copia nueva mientras se trabaja offline, repintar el módulo
     // visible. (La re-pintada al navegar por SPA la hace cada módulo en su
     // propio init sobre 'spa:contentLoaded', no aquí, para no duplicar.)

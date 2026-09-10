@@ -67,8 +67,9 @@
 
             // Sesión expirada: aquí NO hay nada que hacer. El interceptor global de fetch
             // (fetch_interceptor.js) ataja los 401/419 antes de que este await resuelva y manda
-            // al login con ?aviso=sesion_expirada_pendientes, que es el que le dice al
-            // usuario que sus cambios siguen guardados. Había un modal para esto que jamás
+            // al login con el aviso terminado en "_pendientes" (?aviso=sesion_expirada_pendientes,
+            // u otro_dispositivo_pendientes...), que es el que le dice al usuario que sus cambios
+            // siguen guardados. Había un modal para esto que jamás
             // llegó a mostrarse. La cola no se toca: se reintenta al volver a entrar.
             if (!res.ok) return; // error servidor: dejar como está, reintentar luego
 
