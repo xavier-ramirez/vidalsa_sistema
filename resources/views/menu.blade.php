@@ -891,7 +891,8 @@
         gap: 12px;
     }
     .menu-about-collab { margin-top: 4px; }
-    .menu-about-collab .collab-title { font-size: 10.5px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.4px; }
+    /* Titulo de cada bloque de creditos ("Sistema desarrollado", "Levantamiento..."): el mismo para los dos. */
+    .menu-about-right .collab-title { font-size: 10.5px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.4px; }
     .menu-about-right .dev {
         font-weight: 700;
         color: #64748b;
@@ -1201,7 +1202,7 @@
             </div>
             <div class="menu-about-right">
                 <span class="dev">
-                    <span>Sistema desarrollado</span>
+                    <span class="collab-title">Sistema desarrollado</span>
                     <a href="mailto:fsanchez@cvidalsa27.com" class="dev-link" title="Enviar correo">
                         <i class="material-icons">badge</i>Fernando Sánchez · fsanchez@cvidalsa27.com
                     </a>
