@@ -36,7 +36,7 @@
                         class="search-input-field"
                         style="height: 100%;"
                         autocomplete="off">
-                    <i id="btn_clear_search" class="material-icons clear-icon" style="display: {{ request('search') ? 'block' : 'none' }};" onclick="clearUsuariosFilter('search');">close</i>
+                    <i id="btn_clear_search" class="material-icons clear-icon" style="display: {{ request('search') ? 'block' : 'none' }};" onclick="clearUsuariosFilter();">close</i>
                 </div>
             </form>
             {{-- Lista de sugerencias del buscador (nombre / correo): se rellena por JS al escribir. --}}
@@ -64,10 +64,9 @@
                     </div>
 
                     <input type="text" name="filter_search_dropdown" data-filter-search
-                        placeholder="{{ $currentFrente ? $currentFrente->NOMBRE_FRENTE : 'Filtrar Frente...' }}" 
+                        placeholder="{{ $currentFrente ? $currentFrente->NOMBRE_FRENTE : 'Filtrar Frente...' }}"
                         style="width: 100%; border: none; background: transparent; padding: 10px 5px; font-size: 14px; outline: none; color: #4a5568;"
                         onkeyup="window.filterDropdownOptions(this)"
-                        onfocus="this.closest('.custom-dropdown').classList.add('active')"
                         autocomplete="off">
 
                     <div style="display: flex; align-items: center; padding-right: 10px;">
@@ -112,7 +111,6 @@
                         placeholder="{{ $currentRol ? $currentRol->NOMBRE_ROL : 'Filtrar Rol...' }}"
                         style="width: 100%; border: none; background: transparent; padding: 10px 5px; font-size: 14px; outline: none; color: #4a5568;"
                         onkeyup="window.filterDropdownOptions(this)"
-                        onfocus="this.closest('.custom-dropdown').classList.add('active')"
                         autocomplete="off">
 
                     <div style="display: flex; align-items: center; padding-right: 10px;">
@@ -138,20 +136,36 @@
             </div>
         </div>
 
-        {{-- Botones de acción COMPACTOS (solo íconos): flex:0 0 auto → ocupan el mínimo ancho
-             posible (2×45px), así los 3 filtros (flex:1 1 0) se quedan con casi todo el ancho.
-             Los filtros solo ceden lo justo para que estos botones aparezcan a la derecha. --}}
-        <div class="filter-item aligned-filter responsive-btn-item usuarios-action-btns" style="display: flex; gap: 10px; flex: 0 0 auto;">
-            <!-- Limpiar Roles (ícono) -->
-            <button type="button" onclick="window.checkUnusedRoles()" title="Limpiar roles inactivos" style="height: 45px; width: 45px; padding: 0; border-radius: 12px; background: white; border: 1px solid #fed7aa; color: #c2410c; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: background 0.2s; flex: 0 0 auto;" onmouseover="this.style.background='#fff7ed'" onmouseout="this.style.background='white'">
-                <i class="material-icons" style="font-size:20px;">delete_sweep</i>
+        {{-- Acciones (mismo botón desplegable que Equipos/Auxiliares/Historial): Nuevo usuario
+             y Limpiar roles inactivos. flex:0 0 auto → ocupa solo su ancho y los 3 filtros
+             (flex:1 1 0) se quedan con el resto. Abrir/cerrar y "un desplegable a la vez":
+             usuarios_index.js. --}}
+        <div class="filter-item aligned-filter responsive-btn-item usuarios-action-btns" style="position: relative; flex: 0 0 auto;">
+            <button type="button" id="usrBtnAcciones" class="btn-primary-maquinaria"
+                onclick="window.usrToggleAcciones();"
+                style="height: 45px; padding: 0 15px; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap;">
+                <i class="material-icons" style="font-size: 18px;">settings</i>
+                <span>Acciones</span>
+                <i class="material-icons" style="font-size: 16px;">expand_more</i>
             </button>
-
-            <!-- Nuevo usuario (con etiqueta) -->
-            <a href="{{ route('usuarios.create') }}" class="btn-primary-maquinaria btn-nuevo-usuario" style="height: 45px; padding: 0 20px; display: flex; align-items: center; gap: 6px; flex: 0 0 auto;">
-                <i class="material-icons">person_add</i>
-                Nuevo
-            </a>
+            <div id="usrAccionesMenu" style="display: none; position: absolute; top: 100%; right: 0; width: 240px; max-width: calc(100vw - 24px); background: #e2e8f0; border: 1px solid #cbd5e1; border-radius: 10px; box-shadow: 0 10px 20px -5px rgba(15,23,42,0.18); margin-top: 6px; overflow: hidden; z-index: 60;">
+                {{-- Sin onclick: navegacion.js no lleva por SPA los links con onclick (haría recarga completa). El menú se va con la vista. --}}
+                <a href="{{ route('usuarios.create') }}" class="dropdown-item-custom"
+                    style="display: flex; align-items: center; gap: 10px; padding: 12px 15px; color: #475569; background: transparent; border-bottom: 1px solid #f1f5f9; cursor: pointer;">
+                    <div style="background: #e0f2fe; padding: 6px; border-radius: 6px; display: flex;">
+                        <i class="material-icons" style="font-size: 18px; color: #0067b1;">person_add</i>
+                    </div>
+                    <span style="font-size: 14px; font-weight: 500;">Nuevo usuario</span>
+                </a>
+                <button type="button" class="dropdown-item-custom"
+                    onclick="window.usrCerrarAcciones(); window.checkUnusedRoles();"
+                    style="display: flex; align-items: center; gap: 10px; padding: 12px 15px; color: #475569; background: transparent; border: none; width: 100%; text-align: left; cursor: pointer;">
+                    <div style="background: #fff7ed; padding: 6px; border-radius: 6px; display: flex;">
+                        <i class="material-icons" style="font-size: 18px; color: #c2410c;">delete_sweep</i>
+                    </div>
+                    <span style="font-size: 14px; font-weight: 500;">Limpiar roles inactivos</span>
+                </button>
+            </div>
         </div>
     </div>
 
@@ -180,15 +194,14 @@
         @media (min-width: 769px) {
             /* PC (como /admin/equipos): los 3 filtros (Buscar / Frente / Rol) CRECEN por igual
                —flex:1 1 0 vía la regla base— y llenan todo el ancho del contenedor de la tabla;
-               el bloque de botones (delete_sweep + Nuevo) es flex:0 0 auto, así queda empujado
-               al extremo derecho sin robar ancho a los filtros. */
+               el botón Acciones es flex:0 0 auto, así queda empujado al extremo derecho sin
+               robar ancho a los filtros. */
             .table-usuarios-mobile { border-spacing: 0 5px !important; }
             .table-usuarios-mobile td { padding-top: 7px !important; padding-bottom: 7px !important; }
-            /* El bloque de botones (Limpiar roles + Nuevo) se ajusta a su CONTENIDO y queda
-               pegado al borde derecho de la tabla. Sin esto hereda width:100% de la clase
-               global .aligned-filter → el bloque medía 300px y dejaba un hueco vacío a la
-               derecha del botón Nuevo (los 3 filtros absorben ese espacio ahora). En móvil NO
-               se aplica: ahí los botones van full-width apilados (regla del media 768px). */
+            /* El bloque del botón Acciones se ajusta a su CONTENIDO y queda pegado al borde
+               derecho de la tabla. Sin esto hereda width:100% de la clase global
+               .aligned-filter → el bloque medía 300px y dejaba un hueco vacío a la derecha
+               del botón. En móvil NO se aplica: ahí va full-width (regla del media 768px). */
             .usr-filter-row > .usuarios-action-btns {
                 flex: 0 0 auto !important;
                 width: auto !important;
@@ -370,15 +383,9 @@
             margin-bottom: 10px !important;
             padding: 0 !important;
         }
-        .usuarios-action-btns {
-            flex: 1 1 100% !important;
-            width: 100% !important;
-        }
-        .usuarios-action-btns > button, .usuarios-action-btns > a {
-            flex: 1 1 0 !important;
-            width: 100% !important;
-            justify-content: center !important;
-        }
+        /* El bloque y el botón Acciones ya van a lo ancho por las reglas globales
+           (.responsive-btn-item y .filter-item .btn-primary-maquinaria); el menú también. */
+        #usrAccionesMenu { left: 0 !important; right: 0 !important; width: auto !important; }
         .usuarios-side > div { padding: 12px !important; }
         .usuarios-side > div > div:first-child { margin-bottom: 6px !important; }
         .usuarios-side .custom-scrollbar-container { gap: 5px !important; max-height: 300px !important; }

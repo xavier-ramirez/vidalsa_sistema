@@ -7,6 +7,7 @@ window.loadHistorialDocumentos = async function (pageUrl = null) {
     const tableBody = document.getElementById('historialTableBody');
     if (!tableBody) return;
 
+    window.hdMarcarFiltrosAvanzados();
     if (window.showPreloader) window.showPreloader();
     tableBody.style.opacity = '0.5';
 
@@ -158,6 +159,43 @@ window.hdToggleDateClear = function(inputId, btnId) {
     }
 };
 
+// "Filtros Avanzados" (acción + fechas) viven en un panel que casi siempre está
+// cerrado: el botón se pinta en rojo si alguno está activo, y cada fecha en azul si
+// tiene valor. El servidor lo pinta al cargar; esto lo mantiene al día tras filtrar
+// por AJAX (lo llama loadHistorialDocumentos). El resalte del desplegable de acción
+// ya lo sincroniza selectOption.
+window.hdMarcarFiltrosAvanzados = function () {
+    const btn = document.getElementById('btnHdAdvancedFilter');
+    if (!btn) return;
+    const tipo = document.querySelector('#tipoDocFilterSelect [data-filter-value]');
+    let activo = !!(tipo && tipo.value && tipo.value !== 'all');
+    ['hdFechaDesde', 'hdFechaHasta'].forEach(function (id) {
+        const f = document.getElementById(id);
+        if (!f) return;
+        f.style.borderColor = f.value ? '#0067b1' : '#cbd5e0';
+        f.style.background = f.value ? '#e1effa' : 'white';
+        if (f.value) activo = true;
+    });
+    btn.style.background = activo ? '#fee2e2' : 'white';
+    btn.style.borderColor = activo ? '#ef4444' : '#cbd5e0';
+    btn.style.color = activo ? '#ef4444' : '#64748b';
+};
+
+// "Limpiar" del panel: vacía acción y fechas y recarga UNA vez. clearDropdownFilter
+// lanza 'dropdown-selection' y ese evento ya recarga la tabla; por eso solo se llama
+// a loadHistorialDocumentos a mano cuando la acción no estaba filtrada.
+window.hdLimpiarFiltrosAvanzados = function () {
+    ['hdFechaDesde', 'hdFechaHasta'].forEach(function (id) {
+        const f = document.getElementById(id);
+        if (f) f.value = '';
+    });
+    window.hdToggleDateClear('hdFechaDesde', 'hdClrFechaDesde');
+    window.hdToggleDateClear('hdFechaHasta', 'hdClrFechaHasta');
+    const tipo = document.querySelector('#tipoDocFilterSelect [data-filter-value]');
+    if (tipo && tipo.value && tipo.value !== 'all') window.clearDropdownFilter('tipoDocFilterSelect');
+    else window.loadHistorialDocumentos();
+};
+
 // Listeners manuales para los text inputs
 document.addEventListener('DOMContentLoaded', function() {
     const inputs = ['searchCorreo', 'searchEquipo'];
@@ -220,10 +258,7 @@ if (!window._hdRowClickRegistered) {
     window._hdRowClickRegistered = true;
 
     document.addEventListener('click', function(e) {
-        // El chip "ver cambios" tiene su propio gesto (abre la burbuja); tocarlo no
-        // debe ademas seleccionar la fila.
-        if (e.target.closest('.custom-dropdown') || e.target.closest('button') || e.target.closest('a')
-            || e.target.closest('.hd-ver-cambios-chip')) return;
+        if (e.target.closest('.custom-dropdown') || e.target.closest('button') || e.target.closest('a')) return;
 
         const tr = e.target.closest('.hd-selectable-row');
         if (!tr) return;

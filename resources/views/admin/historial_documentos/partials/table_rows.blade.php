@@ -57,10 +57,8 @@
             <div style="font-weight: 600; color: #334155; line-height: 1.3;">{{ $event->equipo_nombre }}</div>
             @if($event->equipo_id)<div style="font-size: 12px; color: #475569; font-weight: 600;">{{ $event->equipo_id }}</div>@endif
             @if(!empty($event->cambios))
-                <span class="hd-ver-cambios-chip" style="display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;color:#0067b1;background:#eff6ff;border:1px solid #bfdbfe;border-radius:4px;padding:1px 6px;margin-top:4px;user-select:none;">
-                    <i class="material-icons" style="font-size:12px;line-height:1;">history</i>
-                    ver cambios
-                </span>
+                {{-- Sin rótulo: la burbuja sale al pasar el ratón por la fila (en el
+                     teléfono, al tocar la tarjeta). Ver hdAbrir en index.blade.php. --}}
                 <div class="hd-cambios-detail" style="display:none;margin-top:8px;">
                     <div style="background:#1e293b;border-radius:10px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.15);">
                         <div style="padding:8px 12px;display:flex;align-items:center;gap:6px;border-bottom:1px solid #334155;">

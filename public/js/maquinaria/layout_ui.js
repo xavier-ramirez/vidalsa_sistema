@@ -1220,7 +1220,7 @@ window.openPdfPreview = function (url, docType, label, equipoId, uploadUrl, skip
             setTimeout(() => {
                 const isMobile = window.innerWidth <= PDF_ANCHO_TELEFONO;
                 if (!isMobile) {
-                    panel.style.width = '300px';
+                    panel.style.width = 'var(--pdf-panel-datos)';   // el ancho, en estilos_globales.css
                     loadMetadata();
                 }
             }, 400);
@@ -2541,7 +2541,7 @@ window.uploadDocumentFromPreview = function (input, type, equipoId, label) {
                     }
 
                     // El PRINCIPAL acaba de cambiar, y uploadDoc BORRA el archivo viejo de
-                    // Drive (DeleteGoogleDriveFile::dispatch). Aqui solo se cambio el src del
+                    // Drive (GoogleDriveService::borrarTrasResponder). Aqui solo se cambio el src del
                     // iframe, asi que la barra de correcciones se quedaba con el estado de
                     // antes y eso dejaba DOS cosas rotas:
                     //   · _pdfAnexoCtx.principal es PEGAJOSO a proposito —_pdfPintarAnexos lo

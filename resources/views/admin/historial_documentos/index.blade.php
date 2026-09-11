@@ -83,17 +83,6 @@
         min-width: 180px;
     }
     @media (min-width: 769px) {
-        .hd-filter-row > .filter-item.responsive-filter-item:nth-child(1) {
-            flex: 1.2 1 240px !important;
-        }
-        .hd-filter-row > .filter-item.responsive-filter-item:nth-child(2) {
-            flex: 0.9 1 200px !important;
-            max-width: 260px !important;
-        }
-        .hd-filter-row > .filter-item.responsive-filter-item:nth-child(3) {
-            flex: 0.7 1 160px !important;
-            max-width: 220px !important;
-        }
         #historialDocumentosTable {
             border-spacing: 0 5px !important;
         }
@@ -106,11 +95,9 @@
         position: relative;
         flex: 0 0 auto;
     }
-    .hd-papelera-group {
-        display: inline-flex;
-        gap: 6px;
+    .hd-acciones-wrap {
+        position: relative;
         flex: 0 0 auto;
-        width: auto;
     }
     @media (max-width: 900px) {
         .hd-layout-grid {
@@ -157,26 +144,32 @@
             align-items: stretch !important;
             gap: 8px !important;
         }
-        .hd-filter-row > .filter-item.responsive-filter-item:nth-child(1),
-        .hd-filter-row > .filter-item.responsive-filter-item:nth-child(2) {
+        /* Los dos buscadores a lo ancho; debajo, en una fila, Filtros Avanzados
+           (45px) + Acciones (el resto). */
+        .hd-filter-row > .filter-item.responsive-filter-item {
             flex: 1 1 100% !important;
-            min-width: 0 !important;
-        }
-        .hd-filter-row > .filter-item.responsive-filter-item:nth-child(3) {
-            flex: 1 1 0 !important;
             min-width: 0 !important;
         }
         .hd-adv-filter-wrap {
             flex: 0 0 45px !important;
         }
-        .hd-papelera-group {
-            display: flex;
-            flex: 1 1 100%;
-            gap: 8px;
+        /* El botón queda a la izquierda: el panel se abre hacia la derecha para
+           no salirse de la pantalla. */
+        #hdAdvancedFilterPanel {
+            left: 0 !important;
+            right: auto !important;
         }
-        .hd-papelera-group > button {
-            flex: 1 1 0 !important;
+        .hd-acciones-wrap {
+            flex: 1 1 0;
+            min-width: 0;
+        }
+        #hdBtnAcciones {
             width: 100% !important;
+        }
+        #hdAccionesMenu {
+            left: 0 !important;
+            right: 0 !important;
+            width: auto !important;
         }
         #historialDocumentosTable {
             min-width: 0 !important;
@@ -323,6 +316,23 @@
     <div>
         <div class="admin-card">
             <div class="filter-toolbar-container hd-filter-row" style="margin-bottom: 5px;">
+                <!-- Search Equipo (Placa/Serial) -->
+                <div class="filter-item aligned-filter responsive-filter-item">
+                    <form style="width: 100%;" onsubmit="event.preventDefault(); window.loadHistorialDocumentos();">
+                        <div class="search-wrapper" style="width: 100%; border-color: #cbd5e0; background: #fbfcfd; height: 45px;">
+                            <i class="material-icons search-icon">search</i>
+                            <input type="text" id="searchEquipo" name="search_equipo"
+                                value="{{ request('search_equipo') }}"
+                                placeholder="Buscar placa o serial..."
+                                class="search-input-field"
+                                style="height: 100%;"
+                                autocomplete="off"
+                                onkeyup="window.checkHistorialClearBtn('searchEquipo', 'btn_clear_searchEquipo')">
+                            <i id="btn_clear_searchEquipo" class="material-icons clear-icon" style="display: {{ request('search_equipo') ? 'block' : 'none' }};" onclick="clearHistorialFilter('btn_clear_searchEquipo', 'searchEquipo');">close</i>
+                        </div>
+                    </form>
+                </div>
+
                 <!-- Search Correo -->
                 <div class="filter-item aligned-filter responsive-filter-item" style="position: relative;">
                     <form style="width: 100%;" onsubmit="event.preventDefault(); window.loadHistorialDocumentos();">
@@ -343,112 +353,53 @@
                     </form>
                 </div>
 
-                <!-- Search Equipo (Placa/Serial) -->
-                <div class="filter-item aligned-filter responsive-filter-item">
-                    <form style="width: 100%;" onsubmit="event.preventDefault(); window.loadHistorialDocumentos();">
-                        <div class="search-wrapper" style="width: 100%; border-color: #cbd5e0; background: #fbfcfd; height: 45px;">
-                            <i class="material-icons search-icon">search</i>
-                            <input type="text" id="searchEquipo" name="search_equipo"
-                                value="{{ request('search_equipo') }}"
-                                placeholder="Buscar placa o serial..."
-                                class="search-input-field"
-                                style="height: 100%;"
-                                autocomplete="off"
-                                onkeyup="window.checkHistorialClearBtn('searchEquipo', 'btn_clear_searchEquipo')">
-                            <i id="btn_clear_searchEquipo" class="material-icons clear-icon" style="display: {{ request('search_equipo') ? 'block' : 'none' }};" onclick="clearHistorialFilter('btn_clear_searchEquipo', 'searchEquipo');">close</i>
-                        </div>
-                    </form>
-                </div>
-
-                <!-- Filter Tipo de Accion -->
+                {{-- Filtros Avanzados: tipo de acción + rango de fechas, en un popover.
+                     El botón se pinta en rojo si hay alguno activo — aquí al cargar y, tras
+                     cada filtrado por AJAX, en hdMarcarFiltrosAvanzados
+                     (historial_documentos_index.js). --}}
                 @php
+                    // Opciones del filtro de acción: valor => etiqueta. Los 'cat_*' agrupan
+                    // documentos por acción (1 opción por acción; el backend los mapea a sus
+                    // doc_key, ver HistorialDocumentosController).
+                    $tipoGrupos = [
+                        'Sobre el equipo' => [
+                            'Registro de Vehículo'  => 'Registro de Vehículo',
+                            'Edición de Datos'      => 'Edición de Datos',
+                            // Los cambios de ESTATUS los separa el controller a partir del
+                            // diff; antes caían en "Edición de Datos" y no había forma de
+                            // pedirle al historial "muéstrame qué equipos se pararon".
+                            'Cambio de Estado'      => 'Cambio de Estado',
+                            'Desincorporación'      => 'Desincorporación',
+                            'Reincorporación'       => 'Reincorporación',
+                            'Detalle Masivo'        => 'Detalle Masivo',
+                            'Eliminación de Equipo' => 'Eliminación de Equipo',
+                        ],
+                        'Documentos' => [
+                            'cat_uploads'   => 'Subida de documento',
+                            'cat_borrados'  => 'Borrado de documento',
+                            'cat_metadatos' => 'Edición de metadatos',
+                            'cat_anexos'    => 'Corrección anexa',
+                        ],
+                        'Catálogo de modelos' => [
+                            'Registro de Modelo'    => 'Registro de Modelo',
+                            'Edición de Modelo'     => 'Edición de Modelo',
+                            'Foto de Modelo'        => 'Foto de Modelo',
+                            'Registro de Auxiliar'  => 'Registro de Auxiliar',
+                            'Foto de Auxiliar'      => 'Foto de Auxiliar',
+                            'Eliminación de Modelo' => 'Eliminación de Modelo',
+                        ],
+                    ];
                     $reqTipo = request('search_tipo');
                     $tipoActivo = $reqTipo && $reqTipo !== 'all';
-                    // Etiquetas amigables para las categorías agrupadas (valores 'cat_*'),
-                    // así el placeholder no muestra el valor crudo al recargar la página.
-                    $tipoLabels = [
-                        'cat_uploads'   => 'Subida de documento',
-                        'cat_borrados'  => 'Borrado de documento',
-                        'cat_metadatos' => 'Edición de metadatos',
-                        'cat_anexos'    => 'Corrección anexa',
-                    ];
-                    $reqTipoLabel = $tipoLabels[$reqTipo] ?? $reqTipo;
-                @endphp
-                <div class="filter-item aligned-filter responsive-filter-item">
-                    <div class="custom-dropdown" id="tipoDocFilterSelect" data-filter-type="tipo_filter" data-default-label="Filtrar Acción..." style="width: 100%;">
-                        <input type="hidden" name="search_tipo" data-filter-value value="{{ $reqTipo ?: '' }}">
-
-                        <div class="dropdown-trigger {{ $tipoActivo ? 'filter-active' : '' }}" style="background: {{ $tipoActivo ? '#e1effa' : '#fbfcfd' }}; border: 1px solid {{ $tipoActivo ? '#0067b1' : '#cbd5e0' }}; border-radius: 12px; height: 45px; display: flex; align-items: center; justify-content: space-between; padding: 0; width: 100%; overflow: hidden;">
-
-                            <div style="padding: 0 10px; display: flex; align-items: center; color: var(--maquinaria-gray-text);">
-                                <i class="material-icons" style="font-size: 18px;">search</i>
-                            </div>
-
-                            <input type="text" name="filter_search_dropdown" data-filter-search
-                                placeholder="{{ $tipoActivo ? $reqTipoLabel : 'Filtrar Acción...' }}"
-                                style="width: 100%; border: none; background: transparent; padding: 10px 5px; font-size: 14px; outline: none; color: #4a5568;"
-                                onkeyup="window.filterDropdownOptions(this)"
-                                onfocus="this.closest('.custom-dropdown').classList.add('active'); var p=document.getElementById('hdAdvancedFilterPanel'); if(p) p.style.display='none';"
-                                autocomplete="off">
-
-                            <div style="display: flex; align-items: center; padding-right: 10px;">
-                                <i class="material-icons" data-clear-btn
-                                   style="font-size: 18px; color: #a0aec0; margin-right: 5px; display: {{ $tipoActivo ? 'block' : 'none' }};"
-                                   onclick="event.stopPropagation(); clearDropdownFilter('tipoDocFilterSelect'); window.loadHistorialDocumentos();"
-                                   title="Limpiar filtro">close</i>
-                            </div>
-                        </div>
-
-                        <div class="dropdown-content" style="padding: 5px; max-height: none; overflow: visible;">
-                            <div class="dropdown-item-list" style="max-height: 320px; overflow-y: auto;">
-                                <div class="dropdown-item {{ !$tipoActivo ? 'selected' : '' }}" data-value="all" onclick="selectOption('tipoDocFilterSelect', 'all', 'TODAS LAS ACCIONES'); window.loadHistorialDocumentos();">
-                                    TODAS LAS ACCIONES
-                                </div>
-
-                                {{-- Acciones sobre el equipo (audit log) --}}
-                                <div style="padding:4px 8px 2px; font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; border-top:1px solid #e2e8f0; margin-top:4px;">SOBRE EL EQUIPO</div>
-                                <div class="dropdown-item {{ $reqTipo === 'Registro de Vehículo' ? 'selected' : '' }}" data-value="Registro de Vehículo" onclick="selectOption('tipoDocFilterSelect', 'Registro de Vehículo', 'Registro de Vehículo'); window.loadHistorialDocumentos();">Registro de Vehículo</div>
-                                <div class="dropdown-item {{ $reqTipo === 'Edición de Datos' ? 'selected' : '' }}" data-value="Edición de Datos" onclick="selectOption('tipoDocFilterSelect', 'Edición de Datos', 'Edición de Datos'); window.loadHistorialDocumentos();">Edición de Datos</div>
-                                {{-- Cambios de ESTATUS: los separa el controller a partir del diff
-                                     (ver "Cambios de ESTADO OPERATIVO con etiqueta propia"). Antes
-                                     caían todos dentro de "Edición de Datos" y no había forma de
-                                     pedirle al historial "muéstrame qué equipos se pararon". --}}
-                                <div class="dropdown-item {{ $reqTipo === 'Cambio de Estado' ? 'selected' : '' }}" data-value="Cambio de Estado" onclick="selectOption('tipoDocFilterSelect', 'Cambio de Estado', 'Cambio de Estado'); window.loadHistorialDocumentos();">Cambio de Estado</div>
-                                <div class="dropdown-item {{ $reqTipo === 'Desincorporación' ? 'selected' : '' }}" data-value="Desincorporación" onclick="selectOption('tipoDocFilterSelect', 'Desincorporación', 'Desincorporación'); window.loadHistorialDocumentos();">Desincorporación</div>
-                                <div class="dropdown-item {{ $reqTipo === 'Reincorporación' ? 'selected' : '' }}" data-value="Reincorporación" onclick="selectOption('tipoDocFilterSelect', 'Reincorporación', 'Reincorporación'); window.loadHistorialDocumentos();">Reincorporación</div>
-                                <div class="dropdown-item {{ $reqTipo === 'Detalle Masivo' ? 'selected' : '' }}" data-value="Detalle Masivo" onclick="selectOption('tipoDocFilterSelect', 'Detalle Masivo', 'Detalle Masivo'); window.loadHistorialDocumentos();">Detalle Masivo</div>
-                                <div class="dropdown-item {{ $reqTipo === 'Eliminación de Equipo' ? 'selected' : '' }}" data-value="Eliminación de Equipo" onclick="selectOption('tipoDocFilterSelect', 'Eliminación de Equipo', 'Eliminación de Equipo'); window.loadHistorialDocumentos();">Eliminación de Equipo</div>
-
-                                {{-- Acciones sobre documentos: 1 opción por acción (antes había 6
-                                     por cada tipo de documento). El backend mapea estos valores
-                                     'cat_*' a los doc_key correspondientes (ver HistorialDocumentosController). --}}
-                                <div style="padding:4px 8px 2px; font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; border-top:1px solid #e2e8f0; margin-top:4px;">DOCUMENTOS</div>
-                                <div class="dropdown-item {{ $reqTipo === 'cat_uploads' ? 'selected' : '' }}" data-value="cat_uploads" onclick="selectOption('tipoDocFilterSelect', 'cat_uploads', 'Subida de documento'); window.loadHistorialDocumentos();">Subida de documento</div>
-                                <div class="dropdown-item {{ $reqTipo === 'cat_borrados' ? 'selected' : '' }}" data-value="cat_borrados" onclick="selectOption('tipoDocFilterSelect', 'cat_borrados', 'Borrado de documento'); window.loadHistorialDocumentos();">Borrado de documento</div>
-                                <div class="dropdown-item {{ $reqTipo === 'cat_metadatos' ? 'selected' : '' }}" data-value="cat_metadatos" onclick="selectOption('tipoDocFilterSelect', 'cat_metadatos', 'Edición de metadatos'); window.loadHistorialDocumentos();">Edición de metadatos</div>
-                                <div class="dropdown-item {{ $reqTipo === 'cat_anexos' ? 'selected' : '' }}" data-value="cat_anexos" onclick="selectOption('tipoDocFilterSelect', 'cat_anexos', 'Corrección anexa'); window.loadHistorialDocumentos();">Corrección anexa</div>
-
-                                <div style="padding:4px 8px 2px; font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; border-top:1px solid #e2e8f0; margin-top:4px;">CATÁLOGO DE MODELOS</div>
-                                <div class="dropdown-item {{ $reqTipo === 'Registro de Modelo' ? 'selected' : '' }}" data-value="Registro de Modelo" onclick="selectOption('tipoDocFilterSelect', 'Registro de Modelo', 'Registro de Modelo'); window.loadHistorialDocumentos();">Registro de Modelo</div>
-                                <div class="dropdown-item {{ $reqTipo === 'Edición de Modelo' ? 'selected' : '' }}" data-value="Edición de Modelo" onclick="selectOption('tipoDocFilterSelect', 'Edición de Modelo', 'Edición de Modelo'); window.loadHistorialDocumentos();">Edición de Modelo</div>
-                                <div class="dropdown-item {{ $reqTipo === 'Foto de Modelo' ? 'selected' : '' }}" data-value="Foto de Modelo" onclick="selectOption('tipoDocFilterSelect', 'Foto de Modelo', 'Foto de Modelo'); window.loadHistorialDocumentos();">Foto de Modelo</div>
-                                <div class="dropdown-item {{ $reqTipo === 'Registro de Auxiliar' ? 'selected' : '' }}" data-value="Registro de Auxiliar" onclick="selectOption('tipoDocFilterSelect', 'Registro de Auxiliar', 'Registro de Auxiliar'); window.loadHistorialDocumentos();">Registro de Auxiliar</div>
-                                <div class="dropdown-item {{ $reqTipo === 'Foto de Auxiliar' ? 'selected' : '' }}" data-value="Foto de Auxiliar" onclick="selectOption('tipoDocFilterSelect', 'Foto de Auxiliar', 'Foto de Auxiliar'); window.loadHistorialDocumentos();">Foto de Auxiliar</div>
-                                <div class="dropdown-item {{ $reqTipo === 'Eliminación de Modelo' ? 'selected' : '' }}" data-value="Eliminación de Modelo" onclick="selectOption('tipoDocFilterSelect', 'Eliminación de Modelo', 'Eliminación de Modelo'); window.loadHistorialDocumentos();">Eliminación de Modelo</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {{-- Boton Filtros Avanzados (rango de fechas en popover).
-                     Se resalta en rojo si hay algun filtro activo. --}}
-                @php
-                    $hasAdvHd = request()->filled('fecha_desde') || request()->filled('fecha_hasta');
+                    // Etiqueta del valor pedido, para que el placeholder no muestre el
+                    // valor crudo ('cat_*') al recargar la página.
+                    $reqTipoLabel = collect($tipoGrupos)->collapse()->get($reqTipo, $reqTipo);
+                    $hasAdvHd = $tipoActivo || request()->filled('fecha_desde') || request()->filled('fecha_hasta');
                 @endphp
                 <div class="hd-adv-filter-wrap">
                     <button type="button" id="btnHdAdvancedFilter"
-                        onclick="event.stopPropagation(); var dd=document.getElementById('tipoDocFilterSelect'); if(dd) dd.classList.remove('active'); var p=document.getElementById('hdAdvancedFilterPanel'); p.style.display = (p.style.display==='none'||!p.style.display) ? 'block' : 'none';"
-                        title="Filtros Avanzados (fechas)"
+                        onclick="window.hdToggleFiltrosAvanzados()"
+                        title="Filtros Avanzados (acción y fechas)"
                         style="height: 45px; width: 45px; padding: 0; border-radius: 12px; background: {{ $hasAdvHd ? '#fee2e2' : 'white' }}; border: 1px solid {{ $hasAdvHd ? '#ef4444' : '#cbd5e0' }}; color: {{ $hasAdvHd ? '#ef4444' : '#64748b' }}; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;">
                         <i class="material-icons">filter_list</i>
                     </button>
@@ -456,8 +407,51 @@
                         <h4 style="margin:0 0 12px 0; font-size:13px; font-weight:700; color:#334155; display:flex; justify-content:space-between; align-items:center;">
                             Filtros Avanzados
                             <span style="font-size:11px; color:#64748b; font-weight:400; text-decoration:underline; cursor:pointer;"
-                                  onclick="document.getElementById('hdFechaDesde').value=''; document.getElementById('hdFechaHasta').value=''; var x1=document.getElementById('hdClrFechaDesde'); if(x1)x1.style.display='none'; var x2=document.getElementById('hdClrFechaHasta'); if(x2)x2.style.display='none'; window.loadHistorialDocumentos && window.loadHistorialDocumentos();">Limpiar</span>
+                                  onclick="window.hdLimpiarFiltrosAvanzados()">Limpiar</span>
                         </h4>
+
+                        {{-- Tipo de acción. Elegir una opción la aplica: selectOption lanza
+                             'dropdown-selection' y ese evento recarga la tabla
+                             (historial_documentos_index.js) — por eso los onclick NO llaman
+                             además a loadHistorialDocumentos (antes se pedía dos veces). --}}
+                        <span style="display:block; font-size:11px; font-weight:600; color:#64748b; margin-bottom:5px;">Acción</span>
+                        <div class="custom-dropdown" id="tipoDocFilterSelect" data-filter-type="tipo_filter" data-default-label="Todas las acciones" style="width: 100%; margin-bottom: 12px;">
+                            <input type="hidden" name="search_tipo" data-filter-value value="{{ $reqTipo ?: '' }}">
+
+                            <div class="dropdown-trigger {{ $tipoActivo ? 'filter-active' : '' }}" style="background: {{ $tipoActivo ? '#e1effa' : '#fbfcfd' }}; border: 1px solid {{ $tipoActivo ? '#0067b1' : '#cbd5e0' }}; border-radius: 8px; height: 38px; display: flex; align-items: center; justify-content: space-between; padding: 0; width: 100%; overflow: hidden;">
+                                <div style="padding: 0 8px; display: flex; align-items: center; color: var(--maquinaria-gray-text);">
+                                    <i class="material-icons" style="font-size: 18px;">search</i>
+                                </div>
+                                <input type="text" name="filter_search_dropdown" data-filter-search
+                                    placeholder="{{ $tipoActivo ? $reqTipoLabel : 'Todas las acciones' }}"
+                                    style="width: 100%; border: none; background: transparent; padding: 8px 4px; font-size: 13px; outline: none; color: #4a5568;"
+                                    onkeyup="window.filterDropdownOptions(this)"
+                                    autocomplete="off">
+                                <div style="display: flex; align-items: center; padding-right: 8px;">
+                                    <i class="material-icons" data-clear-btn
+                                       style="font-size: 18px; color: #a0aec0; display: {{ $tipoActivo ? 'block' : 'none' }};"
+                                       onclick="event.stopPropagation(); clearDropdownFilter('tipoDocFilterSelect');"
+                                       title="Limpiar filtro">close</i>
+                                </div>
+                            </div>
+
+                            <div class="dropdown-content" style="padding: 5px; max-height: none; overflow: visible;">
+                                <div class="dropdown-item-list" style="max-height: 320px; overflow-y: auto;">
+                                    <div class="dropdown-item {{ !$tipoActivo ? 'selected' : '' }}" data-value="all" data-label="Todas las acciones"
+                                         onclick="selectOption('tipoDocFilterSelect', this.dataset.value, this.dataset.label)">
+                                        TODAS LAS ACCIONES
+                                    </div>
+                                    @foreach($tipoGrupos as $grupo => $opciones)
+                                        <div style="padding:4px 8px 2px; font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; border-top:1px solid #e2e8f0; margin-top:4px;">{{ $grupo }}</div>
+                                        @foreach($opciones as $valor => $etiqueta)
+                                            <div class="dropdown-item {{ $reqTipo === $valor ? 'selected' : '' }}" data-value="{{ $valor }}" data-label="{{ $etiqueta }}"
+                                                 onclick="selectOption('tipoDocFilterSelect', this.dataset.value, this.dataset.label)">{{ $etiqueta }}</div>
+                                        @endforeach
+                                    @endforeach
+                                </div>
+                            </div>
+                        </div>
+
                         {{-- Fecha desde / hasta EN FILA (uno al lado del otro). Cada columna
                              flex:1 + min-width:0 para repartir el ancho sin desbordar el panel;
                              los iconos de limpiar van compactos para que quepan los dos inputs. --}}
@@ -492,33 +486,38 @@
                     </div>
                 </div>
 
-                {{-- Papelera buttons agrupados — desktop: pegados con gap 6px;
-                     mobile: full width compartido 50/50 (regla en .hd-papelera-group).
-                     Botones directos (sin .filter-item .aligned-filter) para evitar
-                     que el width:100% del .aligned-filter los ensanche y separe. --}}
-                {{-- Visible para super.admin (vea o no el permiso user.delete). La
-                     papelera en sí exige user.delete: si no lo tiene, al hacer clic
-                     sale un toast y no abre (ver guard en abrirPapelera*). --}}
+                {{-- Acciones (mismo botón que Equipos/Auxiliares). Solo super.admin: es el
+                     mismo público de sus dos entradas. La papelera exige además user.delete
+                     (sin él, toast y no abre — guard en abrirPapelera); Compresión de PDF
+                     vive aquí y NO en el menú general (antes estaba en Configuraciones). --}}
                 @can('super.admin')
-                <div class="hd-papelera-group">
-                    <button type="button" id="btnVerPapeleraEquipos"
-                        onclick="window.abrirPapeleraEquipos && window.abrirPapeleraEquipos()"
-                        title="Papelera de Vehículos"
-                        style="height: 45px; padding: 0 9px; border-radius: 12px; background: white; border: 1px solid #fcd34d; color: #d97706; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 5px; font-size: 12px; font-weight: 700; white-space: nowrap;"
-                        onmouseover="this.style.background='#fef3c7'"
-                        onmouseout="this.style.background='white'">
-                        <i class="material-icons" style="font-size:18px;">directions_car</i>
-                        <span>Vehículos</span>
+                <div class="hd-acciones-wrap">
+                    <button type="button" id="hdBtnAcciones" class="btn-primary-maquinaria"
+                        onclick="window.hdToggleAcciones()"
+                        style="height: 45px; padding: 0 15px; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap;">
+                        <i class="material-icons" style="font-size: 18px;">settings</i>
+                        <span>Acciones</span>
+                        <i class="material-icons" style="font-size: 16px;">expand_more</i>
                     </button>
-                    <button type="button" id="btnVerPapeleraAux"
-                        onclick="window.abrirPapeleraAuxiliares && window.abrirPapeleraAuxiliares()"
-                        title="Papelera de Auxiliares"
-                        style="height: 45px; padding: 0 9px; border-radius: 12px; background: white; border: 1px solid #fed7aa; color: #c2410c; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 5px; font-size: 12px; font-weight: 700; white-space: nowrap;"
-                        onmouseover="this.style.background='#fff7ed'"
-                        onmouseout="this.style.background='white'">
-                        <i class="material-icons" style="font-size:18px;">construction</i>
-                        <span>Auxiliares</span>
-                    </button>
+                    <div id="hdAccionesMenu" style="display: none; position: absolute; top: 100%; right: 0; width: 240px; max-width: calc(100vw - 24px); background: #e2e8f0; border: 1px solid #cbd5e1; border-radius: 10px; box-shadow: 0 10px 20px -5px rgba(15,23,42,0.18); margin-top: 6px; overflow: hidden; z-index: 60;">
+                        <button type="button" class="dropdown-item-custom"
+                            onclick="window.hdCerrarAcciones(); window.abrirPapelera && window.abrirPapelera();"
+                            style="display: flex; align-items: center; gap: 10px; padding: 12px 15px; color: #475569; background: transparent; border: none; border-bottom: 1px solid #f1f5f9; width: 100%; text-align: left; cursor: pointer;">
+                            <div style="background: #fef3c7; padding: 6px; border-radius: 6px; display: flex;">
+                                <i class="material-icons" style="font-size: 18px; color: #d97706;">delete_sweep</i>
+                            </div>
+                            <span style="font-size: 14px; font-weight: 500;">Papelera</span>
+                        </button>
+                        {{-- Link normal SIN onclick: navegacion.js no lleva por SPA los links
+                             con onclick (haría recarga completa). El menú se va con la vista. --}}
+                        <a href="{{ route('compresion-pdf.index') }}" class="dropdown-item-custom"
+                            style="display: flex; align-items: center; gap: 10px; padding: 12px 15px; color: #475569; text-decoration: none; cursor: pointer;">
+                            <div style="background: #e0f2fe; padding: 6px; border-radius: 6px; display: flex;">
+                                <i class="material-icons" style="font-size: 18px; color: #0284c7;">compress</i>
+                            </div>
+                            <span style="font-size: 14px; font-weight: 500;">Compresión de PDF</span>
+                        </a>
+                    </div>
                 </div>
                 @endcan
 
@@ -793,235 +792,380 @@
 </style>
 
 
-{{-- Cierre del panel "Filtros Avanzados" al click fuera. Idempotente. --}}
+{{-- ── Desplegables del módulo: solo uno abierto a la vez ──
+     Sugerencias de correo, Filtros Avanzados (con el desplegable de acción dentro) y
+     Acciones. Los botones NO hacen stopPropagation: cada cierre vive en un listener de
+     document que ignora los clics dentro de su propio bloque (closest). El de acción lo
+     cierra uicomponents.js al hacer clic fuera; las sugerencias, el mousedown de
+     hdCorreoSuggest. Con FOCO sin clic (Tab, "siguiente" del teclado del teléfono)
+     focusin hace el mismo cierre. Listeners una sola vez (SPA-safe). --}}
 <script>
-    (function () {
-        if (window._hdAdvFilterOutsideAttached) return;
-        window._hdAdvFilterOutsideAttached = true;
-        document.addEventListener('click', function (ev) {
-            var panel = document.getElementById('hdAdvancedFilterPanel');
-            var wrap  = ev.target.closest('.hd-adv-filter-wrap');
-            if (!panel || panel.style.display === 'none') return;
-            if (!wrap) panel.style.display = 'none';
-        });
-    })();
+(function () {
+    function ocultar(id) {
+        var el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+    }
+    // Abre/cierra. Al abrir se ancla al borde derecho de su botón; si así se sale por
+    // la izquierda (la fila se partió y el botón quedó al inicio de la línea, p. ej.
+    // entre 900 y 1023 px de ancho), se ancla al izquierdo. En el teléfono manda el
+    // CSS de la vista (con !important).
+    function alternar(id) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        var abrir = el.style.display === 'none' || !el.style.display;
+        el.style.display = abrir ? 'block' : 'none';
+        if (!abrir) return;
+        el.style.left = 'auto';
+        el.style.right = '0px';
+        if (el.getBoundingClientRect().left < 8) {
+            el.style.left = '0px';
+            el.style.right = 'auto';
+        }
+    }
+    window.hdCerrarAcciones = function () { ocultar('hdAccionesMenu'); };
+    window.hdToggleAcciones = function () { alternar('hdAccionesMenu'); };
+    window.hdToggleFiltrosAvanzados = function () { alternar('hdAdvancedFilterPanel'); };
+
+    if (window.__hdDesplegablesBound) return;
+    window.__hdDesplegablesBound = true;
+
+    // Cierra lo que NO contiene al elemento que recibió el clic o el foco.
+    function cerrarFuera(el) {
+        if (!el.closest || !document.getElementById('historialTableBody')) return false;
+        if (!el.closest('.hd-adv-filter-wrap')) ocultar('hdAdvancedFilterPanel');
+        if (!el.closest('.hd-acciones-wrap')) ocultar('hdAccionesMenu');
+        return true;
+    }
+    document.addEventListener('click', function (e) { cerrarFuera(e.target); });
+    document.addEventListener('focusin', function (e) {
+        if (!cerrarFuera(e.target)) return;
+        var box = document.getElementById('hdCorreosSuggest');
+        if (e.target.id === 'searchCorreo') {
+            window.closeAllDropdowns(null);         // correo enfocado → cerrar el de acción
+        } else if (box && !box.contains(e.target)) {
+            box.style.display = 'none';             // foco en otro sitio → cerrar sugerencias
+        }
+    });
+})();
 </script>
 
 {{-- ═══════════════════════════════════════════════════════════
-     PAPELERA — modales de vehículos + auxiliares soft-deleted.
-     Cargados via AJAX, respetan el permiso user.delete via middleware.
+     PAPELERA — UN solo modal con los vehículos y los auxiliares soft-deleted
+     (Acciones → Papelera), mezclados en una lista. Un buscador filtra las dos a la
+     vez; los contadores Vehículos / Auxiliares solo informan (no son botones).
+     Cargados via AJAX; las rutas exigen user.delete por middleware.
      ═══════════════════════════════════════════════════════════ --}}
 @can('super.admin')
+<style>
+    #hdPapeleraOverlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 2500; display: flex; justify-content: center; align-items: center; }
+    .hd-pap-modal { background: #fff; border-radius: 14px; width: 92%; max-width: 480px; max-height: 82vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); }
+    .hd-pap-head { background: #1e293b; padding: 12px 16px; color: #fff; display: flex; justify-content: center; align-items: center; gap: 8px; position: relative; }
+    .hd-pap-head h2 { margin: 0; font-size: 14px; font-weight: 700; }
+    .hd-pap-cerrar { position: absolute; right: 12px; background: transparent; border: none; color: #fff; cursor: pointer; opacity: 0.7; display: flex; padding: 2px; }
+    .hd-pap-cerrar:hover { opacity: 1; }
+    .hd-pap-tools { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; }
+    .hd-pap-buscar { display: flex; align-items: center; gap: 6px; border: 1px solid #cbd5e0; border-radius: 8px; background: #fbfcfd; padding: 0 10px; height: 36px; }
+    .hd-pap-buscar:focus-within { border-color: #0067b1; background: #fff; }
+    .hd-pap-buscar input { flex: 1; min-width: 0; border: none; outline: none; background: transparent; font-size: 13px; height: 100%; color: #1e293b; }
+    .hd-pap-limpiar { font-size: 16px !important; color: #94a3b8; cursor: pointer; }
+    .hd-pap-cuentas { display: flex; gap: 6px; }
+    .hd-pap-cuenta { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 5px; height: 30px; padding: 0 6px; border: 1px solid #e2e8f0; border-radius: 8px; background: #f8fafc; color: #475569; font-size: 12px; font-weight: 700; white-space: nowrap; }
+    .hd-pap-cuenta .material-icons { font-size: 15px; }
+    .hd-pap-cuenta[data-kind="eq"] .material-icons { color: #1e40af; }
+    .hd-pap-cuenta[data-kind="aux"] .material-icons { color: #c2410c; }
+    .hd-pap-list { overflow-y: auto; background: #f8fafc; padding: 10px; flex: 1; min-height: 160px; }
+    .hd-pap-row { display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: #fff; border: 1px solid #e2e8f0; border-left-width: 3px; border-radius: 8px; margin-bottom: 5px; }
+    .hd-pap-row[data-kind="eq"]  { border-left-color: #1e40af; }
+    .hd-pap-row[data-kind="aux"] { border-left-color: #c2410c; }
+    .hd-pap-media { width: 42px; height: 42px; border-radius: 6px; flex-shrink: 0; border: 1px solid #e2e8f0; background: #fff; object-fit: contain; display: flex; align-items: center; justify-content: center; }
+    .hd-pap-media .material-icons { font-size: 20px; }
+    .hd-pap-row[data-kind="eq"]  .hd-pap-ico { background: #eff6ff; color: #1e40af; }
+    .hd-pap-row[data-kind="aux"] .hd-pap-ico { background: #fff7ed; color: #c2410c; }
+    .hd-pap-info { flex: 1; min-width: 0; }
+    .hd-pap-tit { font-weight: 700; color: #1e293b; font-size: 12px; text-transform: uppercase; line-height: 1.2; }
+    .hd-pap-tit span { color: #64748b; font-weight: 500; }
+    .hd-pap-sub { font-size: 11px; color: #64748b; margin-top: 2px; word-break: break-word; }
+    .hd-pap-sub span { color: #f97316; }
+    .hd-pap-autor { font-size: 10px; color: #94a3b8; margin-top: 2px; }
+    .hd-pap-btns { display: flex; flex-direction: column; gap: 4px; flex-shrink: 0; }
+    .hd-pap-btns button { padding: 5px 8px; color: #fff; border: none; border-radius: 6px; display: inline-flex; align-items: center; cursor: pointer; }
+    .hd-pap-btns .material-icons { font-size: 13px; }
+    .hd-pap-restaurar { background: #10b981; }
+    .hd-pap-borrar { background: #ef4444; }
+    .hd-pap-vacio { padding: 24px; text-align: center; color: #94a3b8; font-size: 12px; }
+    .hd-pap-vacio .material-icons { font-size: 24px; display: block; margin: 0 auto 6px; }
+    .hd-pap-aviso { padding: 8px 10px; margin-bottom: 8px; border-radius: 8px; background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; font-size: 12px; }
+</style>
 <script>
 (function () {
-    var csrfTok = function () { return window.getCsrf(); };
     var esc = window.escapeHtml;   // helper central (dom_helpers.js)
+    // norm/tokenize salen de window.FuzzySearch (fuzzy_search.js) y se leen AL USARLOS,
+    // no aquí: ese script va al final del layout, así que en una carga completa (F5)
+    // este bloque corre antes de que exista. Por SPA ya estaba y no se notaba.
 
-    // Cache de los items cargados por lista (keyed por listElId) para filtrar
-    // en cliente sin volver a pedir al backend. Guarda { items, kind }.
-    var papeleraCache = {};
-
-    function buildModal(id, title) {
-        var old = document.getElementById(id + 'Overlay');
-        if (old) old.remove();
-        var overlay = document.createElement('div');
-        overlay.id = id + 'Overlay';
-        overlay.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.5);z-index:2500;display:flex;justify-content:center;align-items:center;';
-        overlay.innerHTML = '<div style="background:white;border-radius:14px;width:90%;max-width:440px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);">' +
-            '<div style="background:#1e293b;padding:12px 16px;color:white;display:flex;justify-content:center;align-items:center;position:relative;">' +
-                '<div style="display:flex;align-items:center;gap:8px;">' +
-                    '<i class="material-icons" style="color:#f59e0b;font-size:18px;">history</i>' +
-                    '<h2 style="margin:0;font-size:14px;font-weight:700;">' + title + '</h2>' +
-                '</div>' +
-                '<button type="button" onclick="document.getElementById(\'' + id + 'Overlay\').remove();" style="position:absolute;right:12px;background:transparent;border:none;color:white;cursor:pointer;opacity:0.7;"><i class="material-icons" style="font-size:18px;">close</i></button>' +
-            '</div>' +
-            '<div style="padding:8px 10px;background:white;border-bottom:1px solid #e2e8f0;flex-shrink:0;">' +
-                '<div style="display:flex;align-items:center;gap:6px;border:1px solid #cbd5e0;border-radius:8px;background:#fbfcfd;padding:0 10px;height:36px;">' +
-                    '<i class="material-icons" style="font-size:18px;color:#94a3b8;">search</i>' +
-                    '<input type="text" id="' + id + 'Search" placeholder="Buscar por placa, serial de chasis o de motor..." autocomplete="off" oninput="window.hdPapeleraFilter(this.value, \'' + id + 'List\')" style="flex:1;border:none;outline:none;background:transparent;font-size:13px;height:100%;color:#1e293b;">' +
-                '</div>' +
-            '</div>' +
-            '<div id="' + id + 'List" style="overflow-y:auto;background:#f8fafc;padding:10px;flex:1;min-height:160px;">' +
-                '<div style="padding:24px;text-align:center;color:#94a3b8;"><i class="material-icons" style="animation:spin 1s linear infinite;font-size:22px;">sync</i></div>' +
-            '</div>' +
-        '</div>';
-        document.body.appendChild(overlay);
-        overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.remove(); });
-        return overlay;
-    }
-
-    function renderRow(it, kind) {
-        var idStr = it.placa || it.serial_chasis || it.serial || it.codigo || ('#' + it.id);
-        var iconCol = kind === 'aux' ? '#c2410c' : '#1e40af';
-        var iconBg  = kind === 'aux' ? '#fff7ed' : '#eff6ff';
-        var iconNm  = kind === 'aux' ? 'construction' : 'directions_car';
-        var fotoHtml = it.foto_drive_id
-            ? '<img src="https://drive.google.com/thumbnail?id=' + esc(it.foto_drive_id) + '&sz=w120" style="width:42px;height:42px;border-radius:6px;object-fit:contain;background:white;border:1px solid #e2e8f0;flex-shrink:0;" onerror="this.outerHTML=\'<div style=&quot;width:42px;height:42px;border-radius:6px;background:' + iconBg + ';color:' + iconCol + ';display:flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid #e2e8f0;&quot;><i class=&quot;material-icons&quot; style=&quot;font-size:20px;&quot;>' + iconNm + '</i></div>\'">'
-            : '<div style="width:42px;height:42px;border-radius:6px;background:' + iconBg + ';color:' + iconCol + ';display:flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid #e2e8f0;"><i class="material-icons" style="font-size:20px;">' + iconNm + '</i></div>';
-        var fn    = kind === 'aux' ? 'window.recuperarAuxiliar'      : 'window.recuperarEquipo';
-        var fnDel = kind === 'aux' ? 'window.eliminarDefinitivoAux'   : 'window.eliminarDefinitivoEquipo';
-        var meta = [esc(it.marca || ''), esc(it.modelo || '')].filter(Boolean).join(' ');
-        return '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:white;border-radius:8px;border:1px solid #e2e8f0;margin-bottom:5px;">' +
-            fotoHtml +
-            '<div style="flex:1;min-width:0;">' +
-                '<div style="font-weight:700;color:#1e293b;font-size:12px;text-transform:uppercase;line-height:1.2;">' + esc(it.tipo || (kind === 'aux' ? 'AUXILIAR' : 'EQUIPO')) + (meta ? ' · <span style="color:#64748b;font-weight:500;">' + meta + '</span>' : '') + '</div>' +
-                '<div style="font-size:11px;color:#64748b;margin-top:2px;">' + esc(idStr) + (it.frente ? ' · <span style="color:#f97316;">' + esc(it.frente) + '</span>' : '') + '</div>' +
-                '<div style="font-size:10px;color:#94a3b8;margin-top:2px;">' + esc(it.eliminado_por || it.deleted_by || '') + (it.eliminado_en || it.deleted_at ? ' · ' + esc(it.eliminado_en || it.deleted_at) : '') + '</div>' +
-            '</div>' +
-            '<div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;">' +
-                '<button type="button" onclick="' + fn + '(' + it.id + ', \'' + esc(idStr).replace(/\'/g, "\\\'") + '\')" title="Restaurar" style="padding:5px 8px;font-size:11px;background:#10b981;color:white;border:none;border-radius:6px;display:inline-flex;align-items:center;gap:3px;cursor:pointer;font-weight:700;">' +
-                    '<i class="material-icons" style="font-size:13px;">restore</i>' +
-                '</button>' +
-                '<button type="button" onclick="' + fnDel + '(' + it.id + ')" title="Eliminar permanentemente" style="padding:5px 8px;font-size:11px;background:#ef4444;color:white;border:none;border-radius:6px;display:inline-flex;align-items:center;gap:3px;cursor:pointer;font-weight:700;">' +
-                    '<i class="material-icons" style="font-size:13px;">delete_forever</i>' +
-                '</button>' +
-            '</div>' +
-        '</div>';
-    }
-
-    // Coincide el término contra los identificadores del item: serial de chasis,
-    // serial de motor y placa (vehículos) o serial (auxiliares), + código.
-    function matchItem(it, term) {
-        var hay = [it.serial_chasis, it.serial_motor, it.placa, it.serial, it.codigo]
-            .filter(Boolean).join(' ').toLowerCase();
-        return hay.indexOf(term) !== -1;
-    }
-
-    // Renderiza la lista (filtrada por `term` si lo hay) desde el cache.
-    function renderListItems(listElId, term) {
-        var list = document.getElementById(listElId);
-        var c = papeleraCache[listElId];
-        if (!list || !c) return;
-        var items = term ? c.items.filter(function (it) { return matchItem(it, term); }) : c.items;
-        if (!items.length) {
-            list.innerHTML = term
-                ? '<div style="padding:24px;text-align:center;color:#94a3b8;font-size:12px;"><i class="material-icons" style="font-size:24px;display:block;margin:0 auto 6px;">search_off</i>Sin coincidencias.</div>'
-                : '<div style="padding:24px;text-align:center;color:#94a3b8;font-size:12px;"><i class="material-icons" style="font-size:24px;display:block;margin:0 auto 6px;">inbox</i>Papelera vacía</div>';
-            return;
-        }
-        list.innerHTML = items.map(function (it) { return renderRow(it, c.kind); }).join('');
-    }
-
-    // Llamado desde el input del modal (oninput).
-    window.hdPapeleraFilter = function (term, listElId) {
-        renderListItems(listElId, (term || '').trim().toLowerCase());
+    // Las dos fuentes. Cada endpoint trae su propia forma de JSON; normalizar()
+    // las lleva a una sola para pintarlas mezcladas.
+    var FUENTES = {
+        eq:  { url: @json(route('equipos.papelera')),           base: @json(url('admin/equipos')),            nombre: 'vehículo', plural: 'Vehículos',  icono: 'directions_car' },
+        aux: { url: @json(route('equipos-auxiliares.papelera')), base: @json(url('admin/equipos-auxiliares')), nombre: 'auxiliar', plural: 'Auxiliares', icono: 'construction' }
     };
 
-    function loadList(url, kind, listElId) {
-        var list = document.getElementById(listElId);
-        window.apiFetch(url, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
-            .then(function (r) { return r.json(); })
-            .then(function (data) {
-                papeleraCache[listElId] = { items: data.items || [], kind: kind };
-                renderListItems(listElId, ''); // sin filtro al cargar
-            })
-            .catch(function () {
-                list.innerHTML = '<div style="padding:24px;text-align:center;color:#ef4444;font-size:12px;">Error al cargar la papelera.</div>';
+    // turno: descarta la respuesta de una carga vieja si ya se pidió otra.
+    var estado = { items: [], fallidas: [], term: '', cargado: false, turno: 0 };
+
+    // "dd/mm/aaaa hh:mm" → "aaaammddhhmm", para ordenar las dos listas juntas.
+    function claveFecha(s) {
+        var m = /^(\d{2})\/(\d{2})\/(\d{4}) (\d{2}):(\d{2})/.exec(s || '');
+        return m ? m[3] + m[2] + m[1] + m[4] + m[5] : '';
+    }
+
+    function compacto(s) { return s.replace(/[\s\-.\/]/g, ''); }
+
+    function normalizar(it, kind) {
+        var aux = kind === 'aux';
+        var fecha = (aux ? it.deleted_at : it.eliminado_en) || '';
+        var campos = [it.placa, it.serial_chasis, it.serial_motor, it.serial, it.codigo, it.tipo, it.marca, it.modelo]
+            .filter(Boolean).map(function (c) { return window.FuzzySearch.norm(c); });
+        return {
+            kind:   kind,
+            id:     it.id,
+            tipo:   it.tipo || (aux ? 'AUXILIAR' : 'EQUIPO'),
+            meta:   [it.marca, it.modelo].filter(Boolean).join(' '),
+            ident:  (aux ? it.serial : (it.placa || it.serial_chasis || it.codigo)) || ('#' + it.id),
+            frente: it.frente || '',
+            foto:   it.foto_drive_id || '',
+            // El endpoint de auxiliares manda null si no se sabe quién lo borró;
+            // el de vehículos ya manda 'Desconocido'. Mismo texto para los dos.
+            autor:  (aux ? it.deleted_by : it.eliminado_por) || 'Desconocido',
+            fecha:  fecha,
+            orden:  claveFecha(fecha),
+            hay:    campos.join(' '),
+            // Sin espacios/guiones/puntos CAMPO POR CAMPO, no todo junto: pegados,
+            // placa AB12 + chasis 3CD… harían que "AB123" encontrara este registro.
+            camposC: campos.map(compacto)
+        };
+    }
+
+    // Cada palabra buscada tiene que estar en la placa, los seriales, el código,
+    // el tipo, la marca o el modelo (sin acentos ni mayúsculas). También se compara
+    // sin espacios, guiones ni puntos: "A12-EA6G" encuentra "A12EA6G". Es por
+    // subcadena exacta y no con FuzzySearch.rank a propósito: con tolerancia a
+    // typos, "82BD00152" traería también "82BD00576", y aquí se restaura o se
+    // borra para siempre lo que sale en la lista.
+    function coincide(it, tokens) {
+        return tokens.every(function (t) {
+            var tc = compacto(t);
+            return it.hay.indexOf(t) !== -1 || it.camposC.some(function (c) { return c.indexOf(tc) !== -1; });
+        });
+    }
+
+    function vacio(icono, texto) {
+        return '<div class="hd-pap-vacio"><i class="material-icons">' + icono + '</i>' + texto + '</div>';
+    }
+
+    function icono(kind) {
+        return '<div class="hd-pap-media hd-pap-ico"><i class="material-icons">' + FUENTES[kind].icono + '</i></div>';
+    }
+
+    function fila(it) {
+        var media = it.foto
+            ? '<img class="hd-pap-media" alt="" src="https://drive.google.com/thumbnail?id=' + encodeURIComponent(it.foto) + '&sz=w120">'
+            : icono(it.kind);
+        var ref = ' data-kind="' + it.kind + '" data-id="' + esc(String(it.id)) + '"';
+        return '<div class="hd-pap-row" data-kind="' + it.kind + '">' + media +
+            '<div class="hd-pap-info">' +
+                '<div class="hd-pap-tit">' + esc(it.tipo) + (it.meta ? ' · <span>' + esc(it.meta) + '</span>' : '') + '</div>' +
+                '<div class="hd-pap-sub">' + esc(it.ident) + (it.frente ? ' · <span>' + esc(it.frente) + '</span>' : '') + '</div>' +
+                '<div class="hd-pap-autor">' + esc(it.autor) + (it.fecha ? ' · ' + esc(it.fecha) : '') + '</div>' +
+            '</div>' +
+            '<div class="hd-pap-btns">' +
+                '<button type="button" class="hd-pap-restaurar" data-accion="restaurar"' + ref + ' title="Restaurar"><i class="material-icons">restore</i></button>' +
+                '<button type="button" class="hd-pap-borrar" data-accion="borrar"' + ref + ' title="Eliminar permanentemente"><i class="material-icons">delete_forever</i></button>' +
+            '</div>' +
+        '</div>';
+    }
+
+    function pintar() {
+        var list = document.getElementById('hdPapeleraList');
+        if (!list || !estado.cargado) return;
+
+        var tokens = window.FuzzySearch.tokenize(estado.term);
+        var halladas = tokens.length
+            ? estado.items.filter(function (it) { return coincide(it, tokens); })
+            : estado.items;
+
+        // Contadores (solo informan, no filtran): respetan la búsqueda.
+        var n = { eq: 0, aux: 0 };
+        halladas.forEach(function (it) { n[it.kind]++; });
+        document.querySelectorAll('#hdPapeleraOverlay .hd-pap-cuenta').forEach(function (c) {
+            c.querySelector('.n').textContent = n[c.getAttribute('data-kind')];
+        });
+
+        var aviso = estado.fallidas.length
+            ? '<div class="hd-pap-aviso">No se pudo cargar: ' + estado.fallidas.join(' y ') + '.</div>'
+            : '';
+        var cuerpo;
+        if (halladas.length) cuerpo = halladas.map(fila).join('');
+        else if (tokens.length) cuerpo = vacio('search_off', 'Sin coincidencias.');
+        else if (estado.fallidas.length) cuerpo = '';   // no decir "vacía" si no se pudo leer
+        else cuerpo = vacio('inbox', 'Papelera vacía');
+        list.innerHTML = aviso + cuerpo;
+    }
+
+    function cargar() {
+        var turno = ++estado.turno;
+        var kinds = Object.keys(FUENTES);
+        Promise.all(kinds.map(function (k) {
+            return window.apiFetch(FUENTES[k].url, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
+                .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+                .then(function (d) { return (d.items || []).map(function (it) { return normalizar(it, k); }); })
+                .catch(function () { return null; });
+        })).then(function (listas) {
+            if (turno !== estado.turno) return;
+            estado.items = [];
+            estado.fallidas = [];
+            listas.forEach(function (l, i) {
+                if (l === null) estado.fallidas.push(FUENTES[kinds[i]].plural);
+                else estado.items = estado.items.concat(l);
             });
+            // Lo borrado más reciente primero, sin importar de qué lista venga.
+            estado.items.sort(function (a, b) { return a.orden < b.orden ? 1 : (a.orden > b.orden ? -1 : 0); });
+            estado.cargado = true;
+            pintar();
+        });
+    }
+
+    function cerrar() {
+        var o = document.getElementById('hdPapeleraOverlay');
+        if (o) o.remove();
+    }
+
+    function ejecutar(it, restaurar) {
+        var url = FUENTES[it.kind].base + '/' + encodeURIComponent(it.id) + (restaurar ? '/restore' : '/permanente');
+        if (window.showPreloader) window.showPreloader();
+        window.apiFetch(url, { method: restaurar ? 'PATCH' : 'DELETE', headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (r) { return r.json().catch(function () { return {}; }).then(function (b) { return { ok: r.ok, body: b }; }); })
+            .then(function (res) {
+                if (res.ok && res.body.success) {
+                    window.toast(res.body.message || (restaurar ? 'Restaurado.' : 'Eliminado permanentemente.'), 'success');
+                    cargar();
+                } else {
+                    window.toast(res.body.message || (restaurar ? 'No se pudo restaurar.' : 'No se pudo eliminar.'), 'error');
+                }
+            })
+            .catch(function () { window.toast('Error de red.', 'error'); })
+            .finally(function () { if (window.hidePreloader) window.hidePreloader(); });
+    }
+
+    function confirmar(it, restaurar) {
+        var cual = 'el ' + FUENTES[it.kind].nombre + ' "' + esc(it.ident) + '"';
+        window.showModal(restaurar ? {
+            type: 'info',
+            title: 'Restaurar',
+            message: '¿Restaurar ' + cual + '?<br><br>Volverá al listado activo.',
+            confirmText: 'Restaurar',
+            cancelText: 'Cancelar',
+            onConfirm: function () { ejecutar(it, true); }
+        } : {
+            type: 'danger',
+            title: 'Eliminar permanentemente',
+            message: '¿Eliminar ' + cual + ' de forma permanente?<br>Esta acción no se puede deshacer.',
+            confirmText: 'Eliminar',
+            cancelText: 'Cancelar',
+            onConfirm: function () { ejecutar(it, false); }
+        });
+    }
+
+    function contador(kind) {
+        return '<span class="hd-pap-cuenta" data-kind="' + kind + '"><i class="material-icons">' + FUENTES[kind].icono + '</i>' +
+            FUENTES[kind].plural + ' <span class="n">0</span></span>';
+    }
+
+    function construir() {
+        cerrar();
+        var ov = document.createElement('div');
+        ov.id = 'hdPapeleraOverlay';
+        ov.innerHTML =
+            '<div class="hd-pap-modal" role="dialog" aria-modal="true" aria-label="Papelera">' +
+                '<div class="hd-pap-head">' +
+                    '<i class="material-icons" style="color:#f59e0b;font-size:18px;">delete_sweep</i><h2>Papelera</h2>' +
+                    '<button type="button" class="hd-pap-cerrar" data-cerrar title="Cerrar"><i class="material-icons" style="font-size:18px;">close</i></button>' +
+                '</div>' +
+                '<div class="hd-pap-tools">' +
+                    '<div class="hd-pap-buscar">' +
+                        '<i class="material-icons" style="font-size:18px;color:#94a3b8;">search</i>' +
+                        '<input type="text" id="hdPapeleraBuscar" placeholder="Buscar por placa, serial, código, tipo o modelo..." autocomplete="off">' +
+                        '<i class="material-icons hd-pap-limpiar" data-limpiar title="Limpiar" style="display:none;">close</i>' +
+                    '</div>' +
+                    '<div class="hd-pap-cuentas">' + contador('eq') + contador('aux') + '</div>' +
+                '</div>' +
+                '<div class="hd-pap-list" id="hdPapeleraList">' +
+                    '<div class="hd-pap-vacio"><i class="material-icons" style="animation:spin 1s linear infinite;">sync</i></div>' +
+                '</div>' +
+            '</div>';
+        document.body.appendChild(ov);
+
+        var input = ov.querySelector('#hdPapeleraBuscar');
+        var limpiar = ov.querySelector('[data-limpiar]');
+        input.addEventListener('input', function () {
+            estado.term = input.value;
+            limpiar.style.display = input.value ? '' : 'none';
+            pintar();
+        });
+
+        // Listeners sobre el propio overlay: nace y muere con el modal, así que
+        // no se acumulan aunque la vista se vuelva a montar por la SPA.
+        ov.addEventListener('click', function (e) {
+            if (e.target === ov || e.target.closest('[data-cerrar]')) { cerrar(); return; }
+            if (e.target.closest('[data-limpiar]')) {
+                input.value = ''; estado.term = ''; limpiar.style.display = 'none';
+                pintar(); input.focus();
+                return;
+            }
+            var btn = e.target.closest('[data-accion]');
+            if (!btn) return;
+            var it = estado.items.find(function (x) { return x.kind === btn.dataset.kind && String(x.id) === btn.dataset.id; });
+            if (it) confirmar(it, btn.dataset.accion === 'restaurar');
+        });
+        // Foto de Drive rota → ícono del tipo. 'error' no burbujea: va en captura.
+        ov.addEventListener('error', function (e) {
+            var img = e.target;
+            if (img.tagName !== 'IMG' || !img.classList.contains('hd-pap-media')) return;
+            var row = img.closest('.hd-pap-row');
+            if (row) img.outerHTML = icono(row.getAttribute('data-kind'));
+        }, true);
+
+        // En PC el cursor va directo al buscador; en el teléfono no, para no
+        // tapar la lista con el teclado nada más abrir.
+        if (window.matchMedia('(hover: hover)').matches) input.focus();
     }
 
     // El botón es visible para super.admin, pero la papelera (operación destructiva)
     // exige el permiso literal user.delete. Sin él: toast moderno y NO abre.
     var canDelete = @can('user.delete') true @else false @endcan;
-    function papeleraSinPermiso() {
-        var msg = 'No tienes permiso para gestionar la papelera (requiere "Eliminar Equipos").';
-        if (window.showToast) window.showToast(msg, 'error');
-        else if (window.showModal) window.showModal({ type: 'error', title: 'Acceso denegado', message: msg, confirmText: 'Entendido', hideCancel: true });
-    }
-    window.abrirPapeleraEquipos = function () {
-        if (!canDelete) { papeleraSinPermiso(); return; }
-        buildModal('papeleraEquipos', 'Papelera de Vehículos');
-        loadList('{{ route("equipos.papelera") }}', 'eq', 'papeleraEquiposList');
-    };
-    window.abrirPapeleraAuxiliares = function () {
-        if (!canDelete) { papeleraSinPermiso(); return; }
-        buildModal('papeleraAux', 'Papelera de Auxiliares');
-        loadList('{{ route("equipos-auxiliares.papelera") }}', 'aux', 'papeleraAuxList');
-    };
 
-    function restoreItem(url, label, refreshFn) {
-        var doRestore = function () {
-            if (window.showPreloader) window.showPreloader();
-            window.apiFetch(url, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, method: 'PATCH'})
-                .then(function (r) { return r.json().catch(function () { return {}; }).then(function (b) { return { ok: r.ok, body: b }; }); })
-                .then(function (res) {
-                    if (window.hidePreloader) window.hidePreloader();
-                    if (res.ok && res.body.success) {
-                        window.toast(res.body.message || 'Restaurado.', 'success');
-                        refreshFn();
-                    } else {
-                        window.toast((res.body && res.body.message) || 'No se pudo restaurar.', 'error');
-                    }
-                })
-                .catch(function () {
-                    if (window.hidePreloader) window.hidePreloader();
-                    window.toast('Error de red.', 'error');
-                });
-        };
-        // Modal moderno (showModal global) en lugar del confirm() nativo
-        // del navegador — consistente con el resto del sistema.
-        if (typeof window.showModal === 'function') {
-            window.showModal({
-                type: 'info',
-                title: 'Restaurar',
-                message: '¿Restaurar "' + label + '"?\n\nVolverá al listado activo.',
-                confirmText: 'Restaurar',
-                cancelText: 'Cancelar',
-                onConfirm: doRestore
-            });
-        } else {
-            doRestore();
+    window.abrirPapelera = function () {
+        if (!canDelete) {
+            window.showToast('No tienes permiso para gestionar la papelera (requiere "Eliminar Equipos").', 'error');
+            return;
         }
+        estado.items = [];
+        estado.fallidas = [];
+        estado.term = '';
+        estado.cargado = false;
+        construir();
+        cargar();
+    };
+
+    // Si se navega (SPA, p. ej. con "atrás") con el modal abierto, no dejarlo
+    // flotando sobre el módulo nuevo.
+    if (!window.__hdPapeleraSpaBound) {
+        window.__hdPapeleraSpaBound = true;
+        window.addEventListener('spa:contentLoaded', function () {
+            var o = document.getElementById('hdPapeleraOverlay');
+            if (o) o.remove();
+        });
     }
-
-    window.recuperarEquipo = function (id, label) {
-        restoreItem('{{ url("admin/equipos") }}/' + id + '/restore', label, window.abrirPapeleraEquipos);
-    };
-    window.recuperarAuxiliar = function (id, label) {
-        restoreItem('{{ url("admin/equipos-auxiliares") }}/' + id + '/restore', label, window.abrirPapeleraAuxiliares);
-    };
-
-    function forceDeleteItem(url, refreshFn) {
-        var doDelete = function () {
-            if (window.showPreloader) window.showPreloader();
-            window.apiFetch(url, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, method: 'DELETE'})
-                .then(function (r) { return r.json().catch(function () { return {}; }).then(function (b) { return { ok: r.ok, body: b }; }); })
-                .then(function (res) {
-                    if (window.hidePreloader) window.hidePreloader();
-                    if (res.ok && res.body.success) {
-                        window.toast(res.body.message || 'Eliminado permanentemente.', 'success');
-                        refreshFn();
-                    } else {
-                        window.toast((res.body && res.body.message) || 'No se pudo eliminar.', 'error');
-                    }
-                })
-                .catch(function () {
-                    if (window.hidePreloader) window.hidePreloader();
-                    window.toast('Error de red.', 'error');
-                });
-        };
-        if (typeof window.showModal === 'function') {
-            window.showModal({
-                type: 'danger',
-                title: 'Eliminar permanentemente',
-                message: '¿Eliminar este elemento de forma permanente?\nEsta acción no se puede deshacer.',
-                confirmText: 'Eliminar',
-                cancelText: 'Cancelar',
-                onConfirm: doDelete
-            });
-        } else {
-            if (window.confirm('¿Eliminar este elemento de forma permanente?\nEsta acción no se puede deshacer.')) {
-                doDelete();
-            }
-        }
-    }
-
-    window.eliminarDefinitivoEquipo = function (id) {
-        forceDeleteItem('{{ url("admin/equipos") }}/' + id + '/permanente', window.abrirPapeleraEquipos);
-    };
-    window.eliminarDefinitivoAux = function (id) {
-        forceDeleteItem('{{ url("admin/equipos-auxiliares") }}/' + id + '/permanente', window.abrirPapeleraAuxiliares);
-    };
 })();
 </script>
 @endcan
@@ -1141,21 +1285,15 @@ if (!window._hdInlineClickRegistered) {
         });
         tr.classList.toggle('hd-row-selected');
     });
-    // Abrir y cerrar viven en un punto unico: los usan el raton y el clic, y
-    // teniendo cada uno su copia se desincronizaban (el chip se quedaba con el
-    // icono del otro estado).
-    // Global porque tambien la llama la X de dentro de la burbuja, que se pinta en
-    // table_rows con un onclick inline: sin exponerla, ese onclick no alcanza a una
-    // funcion declarada aqui dentro del guard.
+    // Abrir y cerrar viven en un punto unico: los usan el raton, el toque y la X.
+    // Global porque la X de dentro de la burbuja se pinta en table_rows con un
+    // onclick inline: sin exponerla, ese onclick no alcanza a una funcion
+    // declarada aqui dentro del guard.
     window.hdCerrarCambios = hdCerrarTodo;
 
     function hdCerrarTodo() {
         document.querySelectorAll('.hd-cambios-detail').forEach(function (d) { d.style.display = 'none'; });
-        document.querySelectorAll('.hd-detail-open').forEach(function (r) {
-            r.classList.remove('hd-detail-open');
-            var chip = r.querySelector('.hd-ver-cambios-chip i');
-            if (chip) chip.textContent = 'history';
-        });
+        document.querySelectorAll('.hd-detail-open').forEach(function (r) { r.classList.remove('hd-detail-open'); });
     }
 
     function hdAbrir(row) {
@@ -1163,46 +1301,39 @@ if (!window._hdInlineClickRegistered) {
         if (!detail) return;
         detail.style.display = 'block';
         row.classList.add('hd-detail-open');
-        // El chip solo dice si está abierta o cerrada: el ratón abre y sacarlo
-        // cierra, y el clic es para seleccionar el registro.
-        var chip = row.querySelector('.hd-ver-cambios-chip i');
-        if (chip) chip.textContent = 'expand_less';
     }
 
-        // El chip "ver cambios" SI abre la burbuja al tocarlo. Es la unica via en un
-        // telefono, donde no hay raton que pasar por encima: sin esto los cambios
-        // serian invisibles en tactil. Se para la propagacion para que el mismo toque
-        // no seleccione ademas la fila.
-        document.addEventListener('click', function (e) {
-            var chip = e.target.closest('.hd-ver-cambios-chip');
-            if (!chip) return;
-            e.preventDefault();
-            e.stopPropagation();
-            var row = chip.closest('.hd-has-cambios');
-            if (!row) return;
-            var abierta = row.classList.contains('hd-detail-open');
-            hdCerrarTodo();
-            if (!abierta) hdAbrir(row);
-        }, true);   // en captura: llega antes que el handler de seleccion
+    // Pantallas sin raton (telefono, tablet): el toque hace de "pasar por encima".
+    // Tocar una tarjeta con la burbuja cerrada muestra sus cambios (y cierra la de
+    // otra); tocarla con la burbuja abierta la cierra. La burbuja NO depende de la
+    // seleccion —que es multiple y la alterna historial_documentos_index.js con el
+    // mismo toque—: atada a ella, tras tocar otra tarjeta o cerrar con la X habia
+    // que tocar dos veces para volver a ver los cambios. La X cierra sin tocar la
+    // seleccion (para la propagacion).
+    var hdSinHover = window.matchMedia('(hover: none)');
 
-        // El clic en el RESTO de la fila NO abre la burbuja: ese gesto es del ratón. Aquí vale
-        // para lo mismo que en el resto de las filas —SELECCIONAR el registro, que
-        // alimenta el contador flotante y "ver solo seleccionados"—, y de eso se
-        // encarga historial_documentos_index.js.
-        //
-        // Antes las filas con cambios estaban EXCLUIDAS de la selección justamente
-        // porque el clic se lo llevaba la burbuja. Al mudarla al ratón, el clic queda
-        // libre y esas filas se seleccionan como todas las demás.
+    document.addEventListener('click', function (e) {
+        if (!hdSinHover.matches) return;
+        var row = e.target.closest('.hd-has-cambios');
+        if (!row || e.target.closest('button, a')) return;
+        var abierta = row.classList.contains('hd-detail-open');
+        hdCerrarTodo();
+        if (!abierta) hdAbrir(row);
+    });
 
     // ── Vista previa al pasar el raton ──────────────────────────────────────
-    // Antes había que pinchar registro por registro para ver qué cambió en cada
-    // uno. Ahora basta con pasar por encima, y el clic queda libre para seleccionar.
+    // Basta con pasar por encima de la fila para ver qué cambió; el clic queda
+    // libre para SELECCIONAR (contador flotante / "ver solo seleccionados").
     //
     // Con un retardo corto: sin el, al recorrer la tabla se abrian y cerraban
     // todas las burbujas de golpe y era imposible leer nada.
+    //
+    // Solo con raton: el navegador del telefono simula un mouseover en cada toque,
+    // y ese timer reabriría la burbuja de una tarjeta que el toque acaba de cerrar.
     var hdPreviaTimer = null;
 
     document.addEventListener('mouseover', function (e) {
+        if (hdSinHover.matches) return;
         var row = e.target.closest('.hd-has-cambios');
         if (!row) return;
         if (row.classList.contains('hd-detail-open')) return;
@@ -1214,6 +1345,7 @@ if (!window._hdInlineClickRegistered) {
     });
 
     document.addEventListener('mouseout', function (e) {
+        if (hdSinHover.matches) return;
         var row = e.target.closest('.hd-has-cambios');
         if (!row) return;
         // Moverse DENTRO de la misma fila (o hacia la propia burbuja) no cuenta

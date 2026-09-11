@@ -536,14 +536,12 @@
                         <i class="material-icons">business</i> Frentes de trabajo
                     </a>
                     @endcan
+                    {{-- Compresión de PDF ya no va aquí: se abre desde Control de Auditoría →
+                         Acciones, por eso este link queda activo también en esa pantalla. --}}
                     @can('super.admin')
                     <a href="{{ route('historial-documentos.index') }}"
-                        class="nav-dropdown-link {{ request()->routeIs('historial-documentos.*') ? 'active' : '' }}">
+                        class="nav-dropdown-link {{ request()->routeIs('historial-documentos.*', 'compresion-pdf.*') ? 'active' : '' }}">
                         <i class="material-icons">fact_check</i> Control de Auditoría
-                    </a>
-                    <a href="{{ route('compresion-pdf.index') }}"
-                        class="nav-dropdown-link {{ request()->routeIs('compresion-pdf.*') ? 'active' : '' }}">
-                        <i class="material-icons">compress</i> Compresión de PDF
                     </a>
                     @endcan
                     {{-- Baja AHORA una copia de la base de datos a IndexedDB para poder
@@ -697,12 +695,8 @@
                      escritorio nunca la tuvo. --}}
                 @can('super.admin')
                 <a href="{{ route('historial-documentos.index') }}"
-                    class="mobile-nav-link {{ request()->routeIs('historial-documentos.*') ? 'active' : '' }}">
+                    class="mobile-nav-link {{ request()->routeIs('historial-documentos.*', 'compresion-pdf.*') ? 'active' : '' }}">
                     <i class="material-icons">fact_check</i> Control de Auditoría
-                </a>
-                <a href="{{ route('compresion-pdf.index') }}"
-                    class="mobile-nav-link {{ request()->routeIs('compresion-pdf.*') ? 'active' : '' }}">
-                    <i class="material-icons">compress</i> Compresión de PDF
                 </a>
                 @endcan
                 {{-- Descargar copia de la base de datos para trabajar SIN internet. --}}
@@ -782,9 +776,12 @@
                 // En navegaciones SPA, leer el toast nuevo del destino. El flag
                 // window.__vidalsaRedirecting lo libera loadPage() en su finally
                 // (punto único, cubre éxito y error); no se toca aquí para no duplicar.
-                window.addEventListener('spa:contentLoaded', function () {
-                    _flushFlashToast();
-                });
+                // Este <script> vive dentro de <main> y la SPA lo re-ejecuta en cada
+                // navegación: sin el guard sumaba un listener por módulo visitado.
+                if (!window.__flashToastSpaBound) {
+                    window.__flashToastSpaBound = true;
+                    window.addEventListener('spa:contentLoaded', _flushFlashToast);
+                }
             })();
         </script>
 
@@ -1069,7 +1066,7 @@
                 <div id="pdfMetadataPanel"
                     style="width: 0; background: #282828; border-left: 1px solid #282828; transition: width 0.3s ease; overflow: hidden; display: flex; flex-direction: column;"
                     class="pdf-metadata-panel-responsive">
-                    <div style="padding: 12px; width: 300px; color: white; box-sizing: border-box;">
+                    <div style="padding: 12px; width: var(--pdf-panel-datos); color: white; box-sizing: border-box;">
                         <h4
                             style="margin: 0 0 15px 0; font-size: 15px; border-bottom: 1px solid #282828; padding-bottom: 8px;">
                             Editar Datos del Documento</h4>

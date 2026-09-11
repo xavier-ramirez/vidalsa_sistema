@@ -1,23 +1,15 @@
 // usuarios_index.js - Usuarios Module Logic with Filters
 // Version: 4.0 - Equipos-Style Filter Architecture
 
-// Window-level functions for dropdown interaction
-window.clearUsuariosFilter = function (filterName) {
-    if (filterName === 'id_frente' || filterName === 'frente_filter') {
-        // Use the new generic function from uicomponents.js
-        window.clearDropdownFilter('frenteFilterSelect');
-    } else if (filterName === 'id_rol' || filterName === 'rol_filter') {
-        window.clearDropdownFilter('rolFilterSelect');
-    } else if (filterName === 'search') {
-        const input = document.getElementById('searchInput');
-        if (input) input.value = '';
-        const clearBtn = document.getElementById('btn_clear_search');
-        if (clearBtn) clearBtn.style.display = 'none';
-        // Cerrar la lista de sugerencias si quedó abierta con resultados previos.
-        if (typeof hideSearchSuggest === 'function') hideSearchSuggest();
-    }
-
-    // Reload usuarios after clearing filter
+// X del buscador: vacía el texto y recarga la tabla. Frente y Rol se limpian con su propia X
+// (clearDropdownFilter + loadUsuarios en la vista).
+window.clearUsuariosFilter = function () {
+    const input = document.getElementById('searchInput');
+    if (input) input.value = '';
+    const clearBtn = document.getElementById('btn_clear_search');
+    if (clearBtn) clearBtn.style.display = 'none';
+    // Cerrar la lista de sugerencias si quedó abierta con resultados previos.
+    hideSearchSuggest();
     window.loadUsuarios();
 };
 
@@ -119,17 +111,6 @@ window.loadUsuarios = function (url = null) {
             if (window.hidePreloader) window.hidePreloader();
         });
 };
-
-// Event Listener for Dropdown Selection (Decoupled architecture)
-window.addEventListener('dropdown-selection', function (e) {
-    if (e.detail.inputName === 'frente_filter' && document.getElementById('usuariosTableBody')) {
-        const clearBtn = document.getElementById('btn_clear_frente');
-        if (clearBtn) {
-            clearBtn.style.display = e.detail.value ? 'block' : 'none';
-        }
-        window.loadUsuarios();
-    }
-});
 
 // Pagination click handler
 document.addEventListener('click', function (e) {
@@ -235,11 +216,30 @@ function renderSearchSuggest(term, browseIfEmpty) {
     box.style.display = 'block';
 }
 
-// Listeners globales (una sola vez): elegir una sugerencia / cerrar al hacer clic fuera.
-if (!window.__usuariosSuggestBound) {
-    window.__usuariosSuggestBound = true;
+// ── Menú Acciones (Nuevo usuario / Limpiar roles inactivos) ──────────────────
+window.usrCerrarAcciones = function () {
+    const m = document.getElementById('usrAccionesMenu');
+    if (m) m.style.display = 'none';
+};
+window.usrToggleAcciones = function () {
+    const m = document.getElementById('usrAccionesMenu');
+    if (!m) return;
+    m.style.display = (m.style.display === 'none' || !m.style.display) ? 'block' : 'none';
+};
+
+// ── Desplegables del módulo: solo uno abierto a la vez ───────────────────────
+// Sugerencias del buscador, Frente, Rol y Acciones. Con CLIC se cierran entre sí porque
+// todos escuchan en document (Frente/Rol en uicomponents.js); por eso el botón Acciones
+// NO hace stopPropagation. Con FOCO sin clic (Tab, o "siguiente" en el teclado del
+// teléfono) no hay clic: focusin hace el mismo cierre. Frente/Rol ya se cierran entre
+// ellos al enfocarse (focusin de uicomponents.js). Listeners una sola vez (SPA-safe).
+if (!window.__usuariosDesplegablesBound) {
+    window.__usuariosDesplegablesBound = true;
 
     document.addEventListener('click', function (e) {
+        if (!e.target.closest) return;
+        if (!e.target.closest('.usuarios-action-btns')) window.usrCerrarAcciones();
+
         const item = e.target.closest('#searchSuggest .usuarios-suggest-item');
         if (item) {
             const input = document.getElementById('searchInput');
@@ -255,6 +255,16 @@ if (!window.__usuariosSuggestBound) {
         // Clic fuera del buscador → cerrar sugerencias.
         if (!e.target.closest('#search-form') && !e.target.closest('#searchSuggest')) {
             hideSearchSuggest();
+        }
+    });
+
+    document.addEventListener('focusin', function (e) {
+        if (!e.target.closest || !document.getElementById('usuariosTableBody')) return;
+        if (!e.target.closest('.usuarios-action-btns')) window.usrCerrarAcciones();
+        if (e.target.closest('#search-form')) {
+            window.closeAllDropdowns(null);          // buscador enfocado → cerrar Frente/Rol
+        } else if (!e.target.closest('#searchSuggest')) {
+            hideSearchSuggest();                     // foco en otro sitio → cerrar sugerencias
         }
     });
 }

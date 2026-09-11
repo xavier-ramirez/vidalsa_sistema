@@ -643,11 +643,6 @@ body {
     flex: 0 0 auto;
 }
 
-.btn-nuevo-usuario {
-    width: auto;
-    padding: 0 25px;
-}
-
 @media (max-width: 768px) {
     .filter-toolbar-container {
         gap: 10px !important;
@@ -666,11 +661,6 @@ body {
     .responsive-btn-item {
         flex: 1 1 100% !important;
         width: 100% !important;
-    }
-
-    .btn-nuevo-usuario {
-        width: 100% !important;
-        /* Full width button on mobile */
     }
 }
 
@@ -1030,17 +1020,6 @@ body {
         flex-wrap: nowrap !important;
         align-items: center !important;
     }
-}
-
-/* Ensure the link inside has no extra margin */
-.btn-nuevo-usuario {
-    margin: 0 !important;
-    height: 45px !important;
-    /* Exact height to match filters */
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    box-sizing: border-box;
 }
 
 .filter-item form {
@@ -1751,6 +1730,14 @@ input[type="password"]::-ms-clear {
     .pdf-previa > img {
         transition: none;
     }
+}
+
+/* Panel "Editar Datos del Documento" del visor (equipos y auxiliares). Su ancho vive SOLO
+   aqui: lo usan su contenido (fijo, para que no se aplaste mientras el panel se despliega)
+   y layout_ui.js al abrirlo. 260 y no 300: 40 px mas para el documento, que en la vista
+   partida se reparten entre las dos hojas. Los campos van al 100 % y caben igual. */
+#pdfMetadataPanel {
+    --pdf-panel-datos: 260px;
 }
 
 /* Botones-icono de los rotulos del visor (alejar, acercar, borrar). Estaban

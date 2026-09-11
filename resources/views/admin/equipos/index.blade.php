@@ -2510,9 +2510,9 @@
         }
     };
 
-    // abrirPapeleraEquipos / cargarPapelera / recuperarEquipo: movidos a
-    // /admin/historial-documentos donde el usuario los necesita junto con
-    // el resto del audit trail. Aqui solo queda bulkDeleteEquiposSeleccionados.
+    // La papelera (restaurar / borrar definitivo) vive en /admin/historial-documentos
+    // → Acciones → Papelera, junto con el resto del audit trail. Aqui solo queda
+    // bulkDeleteEquiposSeleccionados.
 })();
 </script>
 
