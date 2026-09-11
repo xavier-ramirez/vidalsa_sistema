@@ -16,8 +16,13 @@ class CompresionPdfController extends Controller
 {
     public function index(Request $request)
     {
+        // Filtros de arriba: estado, tipo de documento y buscador (serial o documento). Un
+        // valor que no esta en su lista (p. ej. 'all', "todos") es como no filtrar.
         $estado = in_array($request->input('estado'), [CompresionPdf::COMPRIMIDO, CompresionPdf::SALTADO, CompresionPdf::ERROR], true)
             ? $request->input('estado') : null;
+        $documentos = CompresionPdf::query()->distinct()->orderBy('DOCUMENTO')->pluck('DOCUMENTO');
+        $documento  = $documentos->contains($request->input('documento')) ? $request->input('documento') : null;
+        $buscar     = trim((string) $request->input('buscar', ''));
 
         $resumen = CompresionPdf::query()
             ->select('ESTADO', DB::raw('COUNT(*) as n'), DB::raw('SUM(BYTES_ANTES) as antes'), DB::raw('SUM(BYTES_DESPUES) as despues'))
@@ -35,11 +40,17 @@ class CompresionPdfController extends Controller
 
         $filas = CompresionPdf::query()
             ->when($estado, fn ($q) => $q->where('ESTADO', $estado))
+            ->when($documento, fn ($q) => $q->where('DOCUMENTO', $documento))
+            ->when($buscar !== '', function ($q) use ($buscar) {
+                $like = '%' . addcslashes($buscar, '%_\\') . '%';
+                $q->where(fn ($w) => $w->where('SERIAL', 'like', $like)->orWhere('DOCUMENTO', 'like', $like));
+            })
             ->orderByDesc('created_at')->orderByDesc('ID_REGISTRO')
             ->paginate(50)->withQueryString();
 
         return view('admin.compresion_pdf.index', compact(
-            'resumen', 'ultimaNoche', 'filas', 'estado', 'activa', 'motivoActiva', 'ghostscript', 'zona', 'horaApp'
+            'resumen', 'ultimaNoche', 'filas', 'estado', 'documentos', 'documento', 'buscar',
+            'activa', 'motivoActiva', 'ghostscript', 'zona', 'horaApp'
         ));
     }
 }
