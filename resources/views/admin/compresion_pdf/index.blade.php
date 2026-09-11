@@ -31,21 +31,25 @@
 
     .cpdf-tabla-caja { overflow-x: auto; }
     .cpdf-tabla { width: 100%; border-collapse: collapse; font-size: 13px; }
-    .cpdf-tabla thead tr { background: #1e293b; }
-    .cpdf-tabla th { text-align: left; font-size: 11.5px; font-weight: 700; color: #fff; text-transform: uppercase; letter-spacing: .5px; padding: 9px 10px; white-space: nowrap; }
+    .cpdf-tabla th { white-space: nowrap; }   /* el resto del encabezado: .tabla-cabecera (estilos_globales.css) */
     .cpdf-tabla th:first-child { border-radius: 8px 0 0 8px; }
     .cpdf-tabla th:last-child { border-radius: 0 8px 8px 0; }
     .cpdf-tabla td { padding: 7px 10px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
     .cpdf-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .cpdf-tabla th.cpdf-num { text-align: right; }   /* le gana al text-align: left de .tabla-cabecera th */
     .cpdf-estado { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; }
     .cpdf-estado.comprimido { background: #dcfce7; color: #166534; }
     .cpdf-estado.saltado { background: #fef3c7; color: #92400e; cursor: help; }
     .cpdf-estado.error { background: #fee2e2; color: #991b1b; cursor: help; }
     .cpdf-vacio { text-align: center; color: #94a3b8; padding: 30px; }
 
+    /* Angosto: una columna. stretch y no flex-start: con flex-start la tarjeta tomaba el
+       ancho de la TABLA (816 px en un teléfono de 390) y la página se salía por la derecha;
+       así toma el de la pantalla y la tabla se desplaza dentro de .cpdf-tabla-caja. El
+       resumen va ARRIBA (order): debajo quedaba después de 50 filas. */
     @media (max-width: 1024px) {
-        .cpdf-layout { flex-direction: column; }
-        .cpdf-side { width: 100%; flex-basis: auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+        .cpdf-layout { flex-direction: column; align-items: stretch; }
+        .cpdf-side { order: -1; width: 100%; flex-basis: auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
         .cpdf-side .cpdf-aviso { grid-column: 1 / -1; }
         .cpdf-filtros { flex-wrap: wrap; }
     }
@@ -90,8 +94,9 @@
                         <i class="material-icons search-icon">search</i>
                         <input type="text" id="cpdfBuscar" value="{{ $buscar }}"
                             placeholder="Buscar serial o documento..."
-                            class="search-input-field" style="height: 100%;" autocomplete="off">
-                        <i class="material-icons clear-icon" style="display: {{ $buscar !== '' ? 'block' : 'none' }};"
+                            class="search-input-field" style="height: 100%;" autocomplete="off"
+                            oninput="document.getElementById('cpdfBuscarX').style.display = this.value ? 'block' : 'none';">
+                        <i id="cpdfBuscarX" class="material-icons clear-icon" style="display: {{ $buscar !== '' ? 'block' : 'none' }};"
                            onclick="document.getElementById('cpdfBuscar').value=''; window.cpdfFiltrar();">close</i>
                     </div>
                 </form>
@@ -134,7 +139,7 @@
         <div class="cpdf-tabla-caja">
             <table class="cpdf-tabla">
                 <thead>
-                    <tr>
+                    <tr class="tabla-cabecera">
                         <th>Fecha</th>
                         <th>Documento</th>
                         <th>Serial</th>
@@ -184,15 +189,17 @@
         <div class="cpdf-caja cpdf-aviso {{ $activa && $ghostscript ? 'ok' : 'apagada' }}">
             <i class="material-icons">{{ $activa && $ghostscript ? 'nights_stay' : 'block' }}</i>
             <div>
+                {{-- Corto a propósito. La hora de la app va para comprobar de un vistazo que
+                     "las 12" son las de Venezuela; si la zona fuera otra, se nombra. --}}
                 @if ($activa && $ghostscript)
-                    <strong>Tarea nocturna activa en este servidor</strong>
-                    <span>{{ ucfirst($motivoActiva) }}. Cada noche, de 12:00 a 5:00 a.m. (hora {{ $zona }}; ahora son las {{ $horaApp->format('g:i a') }}), comprime de 5 en 5 con un minuto de descanso entre lotes.</span>
+                    <strong>Tarea nocturna activa</strong>
+                    <span>De 12:00 a 5:00 a.m., hora {{ $zona === 'America/Caracas' ? 'de Venezuela' : $zona }} (ahora {{ $horaApp->format('g:i a') }}).</span>
                 @elseif (!$activa)
                     <strong>La tarea nocturna no corre en este equipo</strong>
-                    <span>{{ ucfirst($motivoActiva) }}. Solo el servidor cambia documentos.</span>
+                    <span>{{ ucfirst($motivoActiva) }}.</span>
                 @else
                     <strong>Falta Ghostscript</strong>
-                    <span>La tarea esta activada pero sin Ghostscript no puede comprimir (se instala en el Dockerfile).</span>
+                    <span>Sin él no puede comprimir (se instala en el Dockerfile).</span>
                 @endif
             </div>
         </div>

@@ -227,13 +227,13 @@
     <div class="custom-scrollbar-container">
         <table class="admin-table table-usuarios-mobile" style="width: 100% !important;">
             <thead>
-                <tr style="background: #1e293b; text-align: left; color: #ffffff; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; border-bottom: 2px solid #0f172a;">
-                    <th class="table-cell-bordered" style="padding: 10px 15px; text-align: left; min-width: 150px;">Nombre y Apellido</th>
-                    <th class="table-cell-bordered" style="padding: 10px 15px; text-align: left; min-width: 140px;">Correo</th>
-                    <th class="table-cell-bordered" style="padding: 10px 15px; text-align: left; min-width: 160px;">Rol</th>
-                    <th class="table-cell-bordered" style="padding: 10px 15px; text-align: left; min-width: 90px;">Nivel</th>
-                    <th class="table-cell-bordered" style="padding: 10px 15px; text-align: left; min-width: 85px;">Frente</th>
-                    <th class="table-cell-bordered" style="padding: 10px 15px; text-align: left; min-width: 80px;">Estado</th>
+                <tr class="tabla-cabecera" style="border-bottom: 2px solid #0f172a;">
+                    <th class="table-cell-bordered" style="min-width: 150px;">Nombre y Apellido</th>
+                    <th class="table-cell-bordered" style="min-width: 140px;">Correo</th>
+                    <th class="table-cell-bordered" style="min-width: 160px;">Rol</th>
+                    <th class="table-cell-bordered" style="min-width: 90px;">Nivel</th>
+                    <th class="table-cell-bordered" style="min-width: 85px;">Frente</th>
+                    <th class="table-cell-bordered" style="min-width: 80px;">Estado</th>
                     <th style="padding: 10px 8px; text-align: center; width: 60px;"></th>
                 </tr>
             </thead>

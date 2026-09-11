@@ -37,7 +37,7 @@
     <tr class="hd-selectable-row {{ !empty($event->cambios) ? 'hd-has-cambios' : '' }}" data-hd-id="{{ md5($event->equipo_id . $event->tipo . $event->fecha->timestamp) }}">
         <td>
             <div style="display: flex; flex-direction: column;">
-                <span style="font-weight: 600;">{{ $event->fecha->format('d/m/Y') }}</span>
+                <span>{{ $event->fecha->format('d/m/Y') }}</span>
                 <span style="font-size: 12px; color: #94a3b8;">{{ $event->fecha->format('h:i A') }}</span>
             </div>
         </td>
@@ -54,7 +54,7 @@
             </span>
         </td>
         <td>
-            <div style="font-weight: 600; color: #334155; line-height: 1.3;">{{ $event->equipo_nombre }}</div>
+            <div style="color: #334155; line-height: 1.3;">{{ $event->equipo_nombre }}</div>
             @if($event->equipo_id)<div style="font-size: 12px; color: #475569; font-weight: 600;">{{ $event->equipo_id }}</div>@endif
             @if(!empty($event->cambios))
                 {{-- Sin rótulo: la burbuja sale al pasar el ratón por la fila (en el

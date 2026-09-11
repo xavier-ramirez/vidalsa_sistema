@@ -695,13 +695,14 @@ class HistorialDocumentosController extends Controller
 
                 if ($ax) {
                     $tipoTxt = $ax->TIPO ? ($auxTiposLabel[$ax->TIPO] ?? $ax->TIPO) : '';
-                    $eName   = 'Auxiliar ' . trim($tipoTxt . ' ' . $ax->MARCA . ' ' . $ax->MODELO);
+                    // Sin el prefijo "Auxiliar": el tipo (Luminaria, Soldadora...) ya lo dice.
+                    $eName   = trim($tipoTxt . ' ' . $ax->MARCA . ' ' . $ax->MODELO);
                     if (!empty($ax->CODIGO_INTERNO))      $eId = 'Código: ' . $ax->CODIGO_INTERNO;
                     elseif (!empty($ax->SERIAL))          $eId = 'Serial: ' . $ax->SERIAL;
                     else                                  $eId = 'ID Aux: #' . $log->ID_AUXILIAR;
                 } else {
                     // Auxiliar borrado en duro: usar el label embebido como fallback.
-                    $eName = $auxLabel !== '' ? ('Auxiliar ' . $auxLabel) : 'Auxiliar Eliminado';
+                    $eName = $auxLabel !== '' ? $auxLabel : 'Auxiliar Eliminado';
                     $eId   = 'ID Aux: #' . $log->ID_AUXILIAR;
                 }
 

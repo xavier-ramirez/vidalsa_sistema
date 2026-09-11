@@ -159,16 +159,15 @@ window.hdToggleDateClear = function(inputId, btnId) {
     }
 };
 
-// "Filtros Avanzados" (acción + fechas) viven en un panel que casi siempre está
-// cerrado: el botón se pinta en rojo si alguno está activo, y cada fecha en azul si
-// tiene valor. El servidor lo pinta al cargar; esto lo mantiene al día tras filtrar
-// por AJAX (lo llama loadHistorialDocumentos). El resalte del desplegable de acción
-// ya lo sincroniza selectOption.
+// "Filtros Avanzados" (las fechas) viven en un panel que casi siempre está cerrado:
+// el botón se pinta en rojo si hay alguna fecha, y cada fecha en azul si tiene valor.
+// El servidor lo pinta al cargar; esto lo mantiene al día tras filtrar por AJAX (lo
+// llama loadHistorialDocumentos). La acción va en la barra y su resalte lo sincroniza
+// selectOption.
 window.hdMarcarFiltrosAvanzados = function () {
     const btn = document.getElementById('btnHdAdvancedFilter');
     if (!btn) return;
-    const tipo = document.querySelector('#tipoDocFilterSelect [data-filter-value]');
-    let activo = !!(tipo && tipo.value && tipo.value !== 'all');
+    let activo = false;
     ['hdFechaDesde', 'hdFechaHasta'].forEach(function (id) {
         const f = document.getElementById(id);
         if (!f) return;
@@ -181,9 +180,8 @@ window.hdMarcarFiltrosAvanzados = function () {
     btn.style.color = activo ? '#ef4444' : '#64748b';
 };
 
-// "Limpiar" del panel: vacía acción y fechas y recarga UNA vez. clearDropdownFilter
-// lanza 'dropdown-selection' y ese evento ya recarga la tabla; por eso solo se llama
-// a loadHistorialDocumentos a mano cuando la acción no estaba filtrada.
+// "Limpiar" del panel: vacía las dos fechas y recarga UNA vez. La acción no se toca:
+// está en la barra, con su propia X.
 window.hdLimpiarFiltrosAvanzados = function () {
     ['hdFechaDesde', 'hdFechaHasta'].forEach(function (id) {
         const f = document.getElementById(id);
@@ -191,9 +189,7 @@ window.hdLimpiarFiltrosAvanzados = function () {
     });
     window.hdToggleDateClear('hdFechaDesde', 'hdClrFechaDesde');
     window.hdToggleDateClear('hdFechaHasta', 'hdClrFechaHasta');
-    const tipo = document.querySelector('#tipoDocFilterSelect [data-filter-value]');
-    if (tipo && tipo.value && tipo.value !== 'all') window.clearDropdownFilter('tipoDocFilterSelect');
-    else window.loadHistorialDocumentos();
+    window.loadHistorialDocumentos();
 };
 
 // Listeners manuales para los text inputs

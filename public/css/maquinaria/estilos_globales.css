@@ -320,6 +320,23 @@ body {
     text-align: left !important;
 }
 
+/* Encabezado de tabla compacto: fondo azul oscuro y letra de 11,5 px en mayusculas. Una
+   sola definicion para Compresion de PDF, Usuarios y Control de Auditoria; se pone en el
+   <tr> del <thead>. */
+.tabla-cabecera {
+    background: #1e293b;
+}
+
+.tabla-cabecera th {
+    color: #fff;
+    font-size: 11.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 9px 10px;
+    text-align: left;
+}
+
 .admin-table tr td {
     background: transparent !important;
     padding: 12px 20px;

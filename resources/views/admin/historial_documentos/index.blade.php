@@ -144,8 +144,8 @@
             align-items: stretch !important;
             gap: 8px !important;
         }
-        /* Los dos buscadores a lo ancho; debajo, en una fila, Filtros Avanzados
-           (45px) + Acciones (el resto). */
+        /* Los dos buscadores y la acción a lo ancho; debajo, en una fila, Filtros
+           Avanzados (45px) + Acciones (el resto). */
         .hd-filter-row > .filter-item.responsive-filter-item {
             flex: 1 1 100% !important;
             min-width: 0 !important;
@@ -353,10 +353,6 @@
                     </form>
                 </div>
 
-                {{-- Filtros Avanzados: tipo de acción + rango de fechas, en un popover.
-                     El botón se pinta en rojo si hay alguno activo — aquí al cargar y, tras
-                     cada filtrado por AJAX, en hdMarcarFiltrosAvanzados
-                     (historial_documentos_index.js). --}}
                 @php
                     // Opciones del filtro de acción: valor => etiqueta. Los 'cat_*' agrupan
                     // documentos por acción (1 opción por acción; el backend los mapea a sus
@@ -394,12 +390,58 @@
                     // Etiqueta del valor pedido, para que el placeholder no muestre el
                     // valor crudo ('cat_*') al recargar la página.
                     $reqTipoLabel = collect($tipoGrupos)->collapse()->get($reqTipo, $reqTipo);
-                    $hasAdvHd = $tipoActivo || request()->filled('fecha_desde') || request()->filled('fecha_hasta');
+                    $hasAdvHd = request()->filled('fecha_desde') || request()->filled('fecha_hasta');
                 @endphp
+                {{-- Acción, al lado del correo. Elegir una opción la aplica: selectOption lanza
+                     'dropdown-selection' y ese evento recarga la tabla
+                     (historial_documentos_index.js) — por eso los onclick NO llaman además a
+                     loadHistorialDocumentos. --}}
+                <div class="filter-item aligned-filter responsive-filter-item">
+                    <div class="custom-dropdown" id="tipoDocFilterSelect" data-filter-type="tipo_filter" data-default-label="Filtrar Acción..." style="width: 100%;">
+                        <input type="hidden" name="search_tipo" data-filter-value value="{{ $reqTipo ?: '' }}">
+
+                        <div class="dropdown-trigger {{ $tipoActivo ? 'filter-active' : '' }}" style="background: {{ $tipoActivo ? '#e1effa' : '#fbfcfd' }}; border: 1px solid {{ $tipoActivo ? '#0067b1' : '#cbd5e0' }}; border-radius: 12px; height: 45px; display: flex; align-items: center; justify-content: space-between; padding: 0; width: 100%; overflow: hidden;">
+                            <div style="padding: 0 10px; display: flex; align-items: center; color: var(--maquinaria-gray-text);">
+                                <i class="material-icons" style="font-size: 18px;">search</i>
+                            </div>
+                            <input type="text" name="filter_search_dropdown" data-filter-search
+                                placeholder="{{ $tipoActivo ? $reqTipoLabel : 'Filtrar Acción...' }}"
+                                style="width: 100%; border: none; background: transparent; padding: 10px 5px; font-size: 14px; outline: none; color: #4a5568;"
+                                onkeyup="window.filterDropdownOptions(this)"
+                                autocomplete="off">
+                            <div style="display: flex; align-items: center; padding-right: 10px;">
+                                <i class="material-icons" data-clear-btn
+                                   style="font-size: 18px; color: #a0aec0; margin-right: 5px; display: {{ $tipoActivo ? 'block' : 'none' }};"
+                                   onclick="event.stopPropagation(); clearDropdownFilter('tipoDocFilterSelect');"
+                                   title="Limpiar filtro">close</i>
+                            </div>
+                        </div>
+
+                        <div class="dropdown-content" style="padding: 5px; max-height: none; overflow: visible;">
+                            <div class="dropdown-item-list" style="max-height: 320px; overflow-y: auto;">
+                                <div class="dropdown-item {{ !$tipoActivo ? 'selected' : '' }}" data-value="all" data-label="TODAS LAS ACCIONES"
+                                     onclick="selectOption('tipoDocFilterSelect', this.dataset.value, this.dataset.label)">
+                                    TODAS LAS ACCIONES
+                                </div>
+                                @foreach($tipoGrupos as $grupo => $opciones)
+                                    <div style="padding:4px 8px 2px; font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; border-top:1px solid #e2e8f0; margin-top:4px;">{{ $grupo }}</div>
+                                    @foreach($opciones as $valor => $etiqueta)
+                                        <div class="dropdown-item {{ $reqTipo === $valor ? 'selected' : '' }}" data-value="{{ $valor }}" data-label="{{ $etiqueta }}"
+                                             onclick="selectOption('tipoDocFilterSelect', this.dataset.value, this.dataset.label)">{{ $etiqueta }}</div>
+                                    @endforeach
+                                @endforeach
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Filtros Avanzados: el rango de fechas, en un popover. El botón se pinta en
+                     rojo si hay alguna fecha puesta — aquí al cargar y, tras cada filtrado por
+                     AJAX, en hdMarcarFiltrosAvanzados (historial_documentos_index.js). --}}
                 <div class="hd-adv-filter-wrap">
                     <button type="button" id="btnHdAdvancedFilter"
                         onclick="window.hdToggleFiltrosAvanzados()"
-                        title="Filtros Avanzados (acción y fechas)"
+                        title="Filtros Avanzados (fechas)"
                         style="height: 45px; width: 45px; padding: 0; border-radius: 12px; background: {{ $hasAdvHd ? '#fee2e2' : 'white' }}; border: 1px solid {{ $hasAdvHd ? '#ef4444' : '#cbd5e0' }}; color: {{ $hasAdvHd ? '#ef4444' : '#64748b' }}; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;">
                         <i class="material-icons">filter_list</i>
                     </button>
@@ -409,48 +451,6 @@
                             <span style="font-size:11px; color:#64748b; font-weight:400; text-decoration:underline; cursor:pointer;"
                                   onclick="window.hdLimpiarFiltrosAvanzados()">Limpiar</span>
                         </h4>
-
-                        {{-- Tipo de acción. Elegir una opción la aplica: selectOption lanza
-                             'dropdown-selection' y ese evento recarga la tabla
-                             (historial_documentos_index.js) — por eso los onclick NO llaman
-                             además a loadHistorialDocumentos (antes se pedía dos veces). --}}
-                        <span style="display:block; font-size:11px; font-weight:600; color:#64748b; margin-bottom:5px;">Acción</span>
-                        <div class="custom-dropdown" id="tipoDocFilterSelect" data-filter-type="tipo_filter" data-default-label="Todas las acciones" style="width: 100%; margin-bottom: 12px;">
-                            <input type="hidden" name="search_tipo" data-filter-value value="{{ $reqTipo ?: '' }}">
-
-                            <div class="dropdown-trigger {{ $tipoActivo ? 'filter-active' : '' }}" style="background: {{ $tipoActivo ? '#e1effa' : '#fbfcfd' }}; border: 1px solid {{ $tipoActivo ? '#0067b1' : '#cbd5e0' }}; border-radius: 8px; height: 38px; display: flex; align-items: center; justify-content: space-between; padding: 0; width: 100%; overflow: hidden;">
-                                <div style="padding: 0 8px; display: flex; align-items: center; color: var(--maquinaria-gray-text);">
-                                    <i class="material-icons" style="font-size: 18px;">search</i>
-                                </div>
-                                <input type="text" name="filter_search_dropdown" data-filter-search
-                                    placeholder="{{ $tipoActivo ? $reqTipoLabel : 'Todas las acciones' }}"
-                                    style="width: 100%; border: none; background: transparent; padding: 8px 4px; font-size: 13px; outline: none; color: #4a5568;"
-                                    onkeyup="window.filterDropdownOptions(this)"
-                                    autocomplete="off">
-                                <div style="display: flex; align-items: center; padding-right: 8px;">
-                                    <i class="material-icons" data-clear-btn
-                                       style="font-size: 18px; color: #a0aec0; display: {{ $tipoActivo ? 'block' : 'none' }};"
-                                       onclick="event.stopPropagation(); clearDropdownFilter('tipoDocFilterSelect');"
-                                       title="Limpiar filtro">close</i>
-                                </div>
-                            </div>
-
-                            <div class="dropdown-content" style="padding: 5px; max-height: none; overflow: visible;">
-                                <div class="dropdown-item-list" style="max-height: 320px; overflow-y: auto;">
-                                    <div class="dropdown-item {{ !$tipoActivo ? 'selected' : '' }}" data-value="all" data-label="Todas las acciones"
-                                         onclick="selectOption('tipoDocFilterSelect', this.dataset.value, this.dataset.label)">
-                                        TODAS LAS ACCIONES
-                                    </div>
-                                    @foreach($tipoGrupos as $grupo => $opciones)
-                                        <div style="padding:4px 8px 2px; font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; border-top:1px solid #e2e8f0; margin-top:4px;">{{ $grupo }}</div>
-                                        @foreach($opciones as $valor => $etiqueta)
-                                            <div class="dropdown-item {{ $reqTipo === $valor ? 'selected' : '' }}" data-value="{{ $valor }}" data-label="{{ $etiqueta }}"
-                                                 onclick="selectOption('tipoDocFilterSelect', this.dataset.value, this.dataset.label)">{{ $etiqueta }}</div>
-                                        @endforeach
-                                    @endforeach
-                                </div>
-                            </div>
-                        </div>
 
                         {{-- Fecha desde / hasta EN FILA (uno al lado del otro). Cada columna
                              flex:1 + min-width:0 para repartir el ancho sin desbordar el panel;
@@ -527,15 +527,15 @@
             <div class="custom-scrollbar-container">
                 <table class="admin-table table-historial-mobile" id="historialDocumentosTable" style="width: 100% !important;">
                     <thead>
-                        <tr style="background: #334155; text-align: left; color: #ffffff; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; border-bottom: 2px solid #1e293b;">
-                            <th class="table-cell-bordered" style="padding: 10px 15px; text-align: left; min-width: 150px;">Fecha y Hora</th>
-                            <th class="table-cell-bordered" style="padding: 10px 15px; text-align: left; min-width: 200px;">Autor</th>
-                            <th class="table-cell-bordered" style="padding: 10px 15px; text-align: left; min-width: 180px;">Tipo de Acción</th>
-                            <th class="table-cell-bordered" style="padding: 10px 15px; text-align: left; min-width: 200px;">Equipo Asociado</th>
-                            <th style="padding: 10px 15px; text-align: center; width: 100px;">Ver PDF</th>
+                        <tr class="tabla-cabecera" style="border-bottom: 2px solid #0f172a;">
+                            <th class="table-cell-bordered" style="min-width: 150px;">Fecha y Hora</th>
+                            <th class="table-cell-bordered" style="min-width: 200px;">Autor</th>
+                            <th class="table-cell-bordered" style="min-width: 180px;">Tipo de Acción</th>
+                            <th class="table-cell-bordered" style="min-width: 200px;">Equipo Asociado</th>
+                            <th style="text-align: center; width: 100px;">Ver PDF</th>
                         </tr>
                     </thead>
-                    <tbody id="historialTableBody" style="font-size: 14px;">
+                    <tbody id="historialTableBody" style="font-size: 13px;">
                         @include('admin.historial_documentos.partials.table_rows', ['events' => $events])
                     </tbody>
                 </table>
@@ -793,7 +793,7 @@
 
 
 {{-- ── Desplegables del módulo: solo uno abierto a la vez ──
-     Sugerencias de correo, Filtros Avanzados (con el desplegable de acción dentro) y
+     Sugerencias de correo, desplegable de acción, Filtros Avanzados (fechas) y
      Acciones. Los botones NO hacen stopPropagation: cada cierre vive en un listener de
      document que ignora los clics dentro de su propio bloque (closest). El de acción lo
      cierra uicomponents.js al hacer clic fuera; las sugerencias, el mousedown de
