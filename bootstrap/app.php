@@ -16,6 +16,9 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Http\Middleware\ValidarSesionUnica::class,
         ]);
 
+        // Global (web, api y /up): toda respuesta sale con sus cabeceras de seguridad.
+        $middleware->append(\App\Http\Middleware\CabecerasSeguridad::class);
+
         // Configuración para Easypanel/Docker (Reverse Proxy)
         $middleware->trustProxies(at: '*');
 

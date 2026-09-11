@@ -174,7 +174,10 @@ return [
     |
     */
 
-    'secure' => env('SESSION_SECURE_COOKIE'),
+    // Sin la variable, la decide APP_URL: sitio en https => cookies solo por https. Así el
+    // servidor (https) la tiene sin tener que acordarse de ponerla en EasyPanel, y el local
+    // (http://127.0.0.1:8000) sigue funcionando: con "true" ahí no se podría iniciar sesión.
+    'secure' => env('SESSION_SECURE_COOKIE', str_starts_with((string) env('APP_URL'), 'https://')),
 
     /*
     |--------------------------------------------------------------------------
