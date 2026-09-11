@@ -1037,12 +1037,9 @@ class AlmacenController extends Controller
             ], 403);
         }
 
-        // Código opcional: si no se escribió, se genera automáticamente (numérico de
-        // 6 dígitos, ver generarCodigoProducto). Si se escribió, se respeta tal cual
-        // (sirve para importar los códigos que la gente ya tiene en su Excel).
-        if (empty($data['CODIGO'])) {
-            $data['CODIGO'] = $this->generarCodigoProducto();
-        }
+        // El código lo pone SIEMPRE el sistema (numérico de 6 dígitos, ver
+        // generarCodigoProducto): no se acepta uno escrito por la persona.
+        $data['CODIGO'] = $this->generarCodigoProducto();
         $data['CREADO_POR'] = optional($request->user())->ID_USUARIO;
 
         $producto = DB::transaction(function () use ($data, $idAlmacen, $cantInicial, $request) {
@@ -1090,10 +1087,12 @@ class AlmacenController extends Controller
                     $idAlmacen,
                     $producto->ID_PRODUCTO,
                     $cantInicial,
+                    // Sin 'motivo': en una ENTRADA el kardex lo pinta como PROVEEDOR (ícono de
+                    // camión) y un stock inicial no tiene. Antes llevaba "Stock inicial al crear
+                    // el producto", que repetía la referencia en el sitio del proveedor.
                     [
                         'id_frente'  => $idFrenteInicial,
-                        'referencia' => 'STOCK INICIAL registro de nuevo material',
-                        'motivo'     => 'Stock inicial al crear el producto',
+                        'referencia' => 'STOCK INICIAL',
                     ]
                 );
             }
@@ -1107,16 +1106,8 @@ class AlmacenController extends Controller
     public function updateProducto(Request $request, int $id)
     {
         $producto = ProductoInventario::findOrFail($id);
-        // Si el CODIGO no cambió respecto al actual, no re-validar su formato: permite editar
-        // productos con códigos legacy no numéricos (ej. filtros "FIL-003"). Se quita del request
-        // para que validarProducto lo trate como nullable y abajo se conserve el código actual.
-        if (trim((string) $request->input('CODIGO')) === (string) $producto->CODIGO) {
-            $request->request->remove('CODIGO');
-        }
-        $data = $this->validarProducto($request, $producto->ID_PRODUCTO);
-        if (empty($data['CODIGO'])) {
-            unset($data['CODIGO']); // si viene vacío al editar, se conserva el código actual
-        }
+        // Sin CODIGO: el que puso el sistema al crear no se cambia (validarProducto no lo lee).
+        $data = $this->validarProducto($request, editando: true);
         $producto->update($data);
 
         // Equivalencias (nº de parte) — feature EXCLUSIVA de filtros. Criterio ÚNICO de
@@ -1191,9 +1182,9 @@ class AlmacenController extends Controller
      * dígitos con padding a 6 cifras (formato del catálogo: 000001..000992).
      * Toma el mayor número usado en códigos puramente numéricos + 1. Incluye
      * soft-deleted en la verificación porque el índice UNIQUE de CODIGO también
-     * los ocupa. El código autogenerado cumple la MISMA validación que un código
-     * tecleado a mano (regex ^\d+$ en validarProducto) — antes generaba "PRD-####"
-     * (con letras), lo que rompía esa coherencia y la convención del catálogo.
+     * los ocupa. Es la ÚNICA fuente de códigos de producto: nadie los escribe a mano
+     * (ni al crear ni al editar). Antes generaba "PRD-####" (con letras), fuera de la
+     * convención numérica del catálogo.
      */
     private function generarCodigoProducto(): string
     {
@@ -4170,13 +4161,11 @@ class AlmacenController extends Controller
         return $data;
     }
 
-    private function validarProducto(Request $request, ?int $ignoreId = null): array
+    private function validarProducto(Request $request, bool $editando = false): array
     {
+        // Sin CODIGO: lo pone siempre el sistema (generarCodigoProducto). Como validate()
+        // devuelve solo lo validado, un CODIGO que llegara en la petición se descarta.
         $data = $request->validate([
-            // CODIGO es VARCHAR(50). Solo se permiten dígitos, tanto el tecleado a
-            // mano (el frontend lo fuerza y aquí lo validamos con regex) como el
-            // autogenerado por generarCodigoProducto (numérico de 6 cifras).
-            'CODIGO'    => ['nullable', 'string', 'max:20', 'regex:/^\d+$/', Rule::unique('productos_inventario', 'CODIGO')->ignore($ignoreId, 'ID_PRODUCTO')],
             'NOMBRE'    => 'required|string|max:200',
             'UM'        => 'required|string|max:20',
             'CATEGORIA' => 'nullable|string|max:100',
@@ -4186,9 +4175,6 @@ class AlmacenController extends Controller
             'ESTATUS'   => 'nullable|in:ACTIVO,INACTIVO',
             'NOTAS'     => 'nullable|string',
         ], [
-            'CODIGO.unique'  => 'El código ingresado ya está en uso. Usa otro o déjalo vacío para autogenerar.',
-            'CODIGO.regex'   => 'El código debe contener solo dígitos enteros.',
-            'CODIGO.max'     => 'El código no puede superar los 20 caracteres.',
             'NOMBRE.required'=> 'La descripción del producto es obligatoria.',
             'NOMBRE.max'     => 'La descripción no puede superar los 200 caracteres.',
             'UM.required'    => 'La unidad de medida es obligatoria.',
@@ -4197,14 +4183,13 @@ class AlmacenController extends Controller
             'UBICACION.max'  => 'La ubicación no puede superar los 150 caracteres.',
         ]);
 
-        $data['CODIGO']    = !empty($data['CODIGO']) ? trim($data['CODIGO']) : null;
         $data['NOMBRE']    = mb_strtoupper(trim($data['NOMBRE']));
         $data['UM']        = mb_strtoupper(trim($data['UM']));
         $data['CATEGORIA'] = !empty($data['CATEGORIA']) ? mb_strtoupper(trim($data['CATEGORIA'])) : null;
         $data['UBICACION'] = !empty($data['UBICACION']) ? mb_strtoupper(trim($data['UBICACION'])) : null;
         
         // Evitar reactivar productos inactivos al editarlos sin mandar el campo ESTATUS.
-        if ($ignoreId === null) {
+        if (!$editando) {
             $data['ESTATUS'] = $data['ESTATUS'] ?? 'ACTIVO';
         } else {
             if (empty($data['ESTATUS'])) {

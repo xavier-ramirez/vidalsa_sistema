@@ -542,6 +542,8 @@
         position:absolute; top:calc(100% + 5px); left:0; right:0; background:#fff;
         border:1px solid #e2e8f0; border-radius:12px; box-shadow:0 10px 25px rgba(0,0,0,0.1);
         z-index:1000; max-height:260px; overflow-y:auto; padding:5px; display:none;
+    /* "(opcional)" al lado de la etiqueta del campo (Ubicación, Cantidad): más claro y sin negrita. */
+    .alm-modal label .alm-opc { font-weight: 400; color: #94a3b8; }
         scrollbar-width:thin; scrollbar-color:#cbd5e1 transparent;
     }
     .alm-suggest::-webkit-scrollbar { width:5px; }
@@ -1053,10 +1055,6 @@
                     <i class="material-icons" style="font-size:18px;">settings</i><span class="desktop-text">Acciones</span><i class="material-icons" style="font-size:18px;">expand_more</i>
                 </button>
                 <div id="almAccionesMenu" style="display:none;position:absolute;top:100%;right:0;width:280px;background:#e2e8f0;border-radius:8px;box-shadow:0 10px 18px -3px rgba(0,0,0,0.18);border:1px solid #e2e8f0;z-index:60;margin-top:6px;overflow:hidden;animation:slideDown 0.18s ease-out;">
-                    {{-- Descargar Excel: disponible para cualquier usuario que pueda ver el
-                         módulo. Construye la URL de export respetando los filtros de almacén
-                         y categoría activos. Como ahora todos los items siguen visibles bajo
-                         el de export, el border-bottom se pinta siempre. --}}
                     {{-- Dashboard de Consumo: abre el modal con gráficos (Chart.js). Mismo
                          modal/endpoint que en /admin/almacen/movimientos. --}}
                     <button type="button" onclick="document.getElementById('almAccionesMenu').style.display='none'; window.abrirConsumoDashboard();" class="dropdown-item-custom" style="display:flex;align-items:center;gap:10px;padding:11px 14px;color:#475569;background:transparent;border:none;border-bottom:1px solid #f1f5f9;width:100%;text-align:left;cursor:pointer;">
@@ -1074,15 +1072,18 @@
                          notificacion de denegacion, no ocultar nada. --}}
                     <button type="button" onclick="window.almAccion('admin')" class="dropdown-item-custom" style="display:flex;align-items:center;gap:10px;padding:11px 14px;color:#475569;background:transparent;border:none;border-bottom:1px solid #f1f5f9;width:100%;text-align:left;cursor:pointer;">
                         <div style="background:#f1f5f9;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#475569;">warehouse</i></div>
+                    {{-- Descargar Excel: disponible para cualquier usuario que pueda ver el
+                         módulo. Construye la URL de export respetando los filtros de almacén
+                         y categoría activos. --}}
                         <span style="font-size:14px;font-weight:500;">Gestionar almacenes</span>
                     </button>
                     <button type="button" onclick="window.almAccion('almacen')" class="dropdown-item-custom" style="display:flex;align-items:center;gap:10px;padding:11px 14px;color:#475569;background:transparent;border:none;border-bottom:1px solid #f1f5f9;width:100%;text-align:left;cursor:pointer;">
                         <div style="background:#e0f2fe;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#0284c7;">add_business</i></div>
-                        <span style="font-size:14px;font-weight:500;">Nuevo almacén</span>
-                    </button>
                     <button type="button" onclick="window.almAccion('producto')" class="dropdown-item-custom" style="display:flex;align-items:center;gap:10px;padding:11px 14px;color:#475569;background:transparent;border:none;border-bottom:1px solid #f1f5f9;width:100%;text-align:left;cursor:pointer;">
                         <div style="background:#e0f2fe;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#0284c7;">add_circle</i></div>
                         <span style="font-size:14px;font-weight:500;">Nuevo producto</span>
+                    </button>
+                        <span style="font-size:14px;font-weight:500;">Nuevo almacén</span>
                     </button>
                     {{-- Papelera: productos eliminados (soft-delete) — buscar y restaurar. --}}
                     <button type="button" onclick="document.getElementById('almAccionesMenu').style.display='none'; window.almAbrirPapelera();" class="dropdown-item-custom" style="display:flex;align-items:center;gap:10px;padding:11px 14px;color:#475569;background:transparent;border:none;width:100%;text-align:left;cursor:pointer;">
@@ -1215,7 +1216,7 @@
 <div id="almEtiquetasModal" class="alm-modal-overlay">
     <div class="alm-modal" style="max-width:360px;">
         <div class="alm-modal-head">
-            <h3><i class="material-icons" style="font-size:20px;color:#7c3aed;">&#xe00a;</i> Generar etiquetas QR</h3>
+            <h3><i class="material-icons" style="font-size:20px;">&#xe00a;</i> Generar etiquetas QR</h3>
             <i class="material-icons alm-x" onclick="almCerrar('almEtiquetasModal')">close</i>
         </div>
         <div class="alm-modal-body" style="gap:10px;">
@@ -1267,29 +1268,19 @@
      Lista los productos borrados para buscarlos y restaurarlos. Restaurar deja el
      producto activo de nuevo con su stock intacto (almacen_stock no se borra). --}}
 <div id="almPapeleraModal" class="alm-modal-overlay">
-    {{-- Tarjeta con el MISMO estilo del modal "Limpieza de Roles" de /admin/usuarios:
-         header oscuro (#1e293b) con icono ámbar + título centrado, X arriba-derecha,
-         cuerpo gris claro. (El overlay .alm-modal-overlay aporta el fondo y el centrado.) --}}
-    <div style="background:#fff; border-radius:14px; width:90%; max-width:440px; max-height:85vh; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25); animation:almIn 0.16s ease-out;">
-        {{-- Encabezado oscuro --}}
-        <div style="background:#1e293b; padding:12px 16px; color:white; display:flex; justify-content:center; align-items:center; position:relative; flex-shrink:0;">
-            <div style="display:flex; align-items:center; gap:8px;">
-                {{-- Mismo glifo que el item "Papelera de productos" del menú Acciones que abre
-                     este modal (delete_outline): si el encabezado usara otro icono parecería
-                     otra pantalla. --}}
-                <i class="material-icons" style="color:#f59e0b; font-size:18px;">delete_outline</i>
-                <h2 style="margin:0; font-size:14px; font-weight:700;">Papelera de productos</h2>
-            </div>
-            <button type="button" onclick="almCerrar('almPapeleraModal')" style="position:absolute; right:12px; background:transparent; border:none; color:white; cursor:pointer; opacity:0.7; transition:opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">
-                <i class="material-icons" style="font-size:18px;">close</i>
-            </button>
+    {{-- Mismo modal que el resto de Almacén (.alm-modal): encabezado blanco con el título
+         centrado y la X a la derecha. El glifo es el del item "Papelera de productos" del
+         menú Acciones que lo abre (delete_outline), para que se reconozca. --}}
+    <div class="alm-modal">
+        <div class="alm-modal-head">
+            <h3><i class="material-icons" style="font-size:20px;">delete_outline</i> Papelera de productos</h3>
+            <i class="material-icons alm-x" onclick="almCerrar('almPapeleraModal')">close</i>
         </div>
-        {{-- Cuerpo (fondo gris claro, como Limpieza de Roles) --}}
-        <div style="display:flex; flex-direction:column; gap:10px; padding:16px; background:#f8fafc; flex:1; min-height:0; overflow:hidden;">
+        <div class="alm-modal-body" style="gap:10px;overflow:hidden;">
             <div style="display:flex;align-items:center;border:1px solid #cbd5e0;border-radius:8px;background:#fff;overflow:hidden;height:38px;flex-shrink:0;">
                 <i class="material-icons" style="padding:0 8px;color:#94a3b8;font-size:18px;">search</i>
                 <input type="text" id="almPapeleraSearch" placeholder="Buscar por código o descripción…" autocomplete="off"
-                       style="flex:1;border:none;outline:none;padding:0 6px;font-size:13px;background:transparent;height:100%;"
+                       style="flex:1;border:none;outline:none;padding:0 6px;font-size:14px;background:transparent;height:100%;"
                        oninput="window.almPapeleraBuscar()">
             </div>
             {{-- Reusa .alm-admin-list (columna + gap): las filas son las mismas de
@@ -1369,7 +1360,8 @@
      botón en "Detalles del producto". Mismo gate que Auditoría ($puedeMover) para no
      cambiar quién podía configurarlo cuando vivía dentro de la Auditoría. --}}
 <div id="almMinimoModal" class="alm-modal-overlay">
-    <div class="alm-modal" style="max-width:420px;">
+    {{-- Angosto: solo tiene un número. --}}
+    <div class="alm-modal" style="max-width:300px;">
         <div class="alm-modal-head">
             <h3><i class="material-icons" style="font-size:20px;">production_quantity_limits</i> Stock mínimo (alerta)</h3>
             <i class="material-icons alm-x" onclick="almCerrar('almMinimoModal')">close</i>
@@ -1381,9 +1373,9 @@
                      min="0.001" + step="any": cualquier valor > 0 vale (no se acepta 0).
                      Vacio = sin alerta. --}}
                 <input type="number" id="almMinValor" min="0.001" step="any" placeholder="Vacío = sin alerta"
-                       aria-label="Stock mínimo (alerta)">
+                       aria-label="Stock mínimo (alerta)" style="text-align:center;">
             </div>
-            <div id="almMinError" style="display:none;color:#dc2626;font-size:13px;font-weight:600;"></div>
+            <div id="almMinError" style="display:none;color:#dc2626;font-size:13px;font-weight:600;text-align:center;"></div>
         </div>
         <div class="alm-modal-foot">
             <button type="button" class="btn-primary-maquinaria" style="background:#e2e8f0;color:#475569;box-shadow:none;" onclick="window.almVolverADetalle('almMinimoModal')">Cancelar</button>
@@ -1527,7 +1519,7 @@
                     <div class="dropdown-trigger" style="padding:0;display:flex;align-items:center;background:#fbfcfd;overflow:hidden;border:1px solid #cbd5e0;border-radius:10px;height:42px;">
                         <input type="text" id="almNvNombre" maxlength="150" autocomplete="off"
                                placeholder="Elige el proyecto…"
-                               style="flex:1;border:none;background:transparent;padding:0 12px;font-size:13.5px;color:#0f172a;outline:none;min-width:0;"
+                               style="flex:1;border:none;background:transparent;padding:0 12px;font-size:14px;color:#0f172a;outline:none;min-width:0;"
                                oninput="window.almNvNombreFilter(this)">
                         <i class="material-icons" style="padding:0 8px;color:#94a3b8;font-size:20px;">expand_more</i>
                     </div>
@@ -1553,7 +1545,7 @@
                         <input type="text" data-filter-search autocomplete="off" readonly
                                id="almNvTipoDisplay"
                                value="Proyecto (Limitado a frentes específicos)"
-                               style="flex:1;border:none;background:transparent;padding:8px 12px;font-size:13.5px;font-weight:normal;color:#0f172a;outline:none;min-width:0;cursor:pointer;"
+                               style="flex:1;border:none;background:transparent;padding:8px 12px;font-size:14px;font-weight:normal;color:#0f172a;outline:none;min-width:0;cursor:pointer;"
                                onclick="this.closest('.dropdown-trigger').style.borderColor='var(--maquinaria-blue,#0067b1)'">
                         <i class="material-icons" style="padding:0 8px;color:#64748b;font-size:20px;">expand_more</i>
                     </div>
@@ -1569,7 +1561,7 @@
                     </div>
                 </div>
             </div>
-            <div><label for="almNvUbicacion">Ubicación</label><input type="text" id="almNvUbicacion" maxlength="150" placeholder="Opcional" autocomplete="off"></div>
+            <div><label for="almNvUbicacion">Ubicación <span class="alm-opc">(opcional)</span></label><input type="text" id="almNvUbicacion" maxlength="150" autocomplete="off"></div>
             {{-- Formato de la Nota de Entrega. Lo que se tilde aquí es lo que sale IMPRESO en
                  cada salida de este almacén —y en su vista previa— hasta que se cambie: no hay
                  forma de elegirlo salida por salida, a propósito, para que un mismo almacén no
@@ -1665,7 +1657,7 @@
                     <div class="multiselect-trigger" tabindex="-1" role="button" aria-haspopup="listbox" style="padding:0;display:flex;align-items:center;overflow:hidden;cursor:text;">
                         <input type="text" id="almNvFrentesInput" autocomplete="off"
                                placeholder="Selecciona los frentes…"
-                               style="flex:1;border:none;background:transparent;padding:12px 15px;font-size:15px;outline:none;min-width:0;color:#0f172a;"
+                               style="flex:1;border:none;background:transparent;padding:10px 12px;font-size:14px;outline:none;min-width:0;color:#0f172a;"
                                oninput="window.almNvFrentesFilter(this)">
                         <i class="material-icons" style="padding:0 12px;color:var(--maquinaria-gray-text);transition:transform 0.3s;">expand_more</i>
                     </div>
@@ -1699,47 +1691,46 @@
 <div id="almProductoModal" class="alm-modal-overlay">
     <div class="alm-modal">
         <div class="alm-modal-head">
-            <h3><i class="material-icons" style="font-size:20px;">add_circle</i> <span id="almProdTitulo">Nuevo producto</span></h3>
+            <h3><i class="material-icons" id="almProdIcono" style="font-size:20px;">add_circle</i> <span id="almProdTitulo">Nuevo producto</span></h3>
             <i class="material-icons alm-x" onclick="almCerrar('almProductoModal')">close</i>
         </div>
         <div class="alm-modal-body">
-            <div style="display:flex;gap:10px;">
-                <div style="flex:1;"><label for="almProdCodigo">Código</label><input type="text" id="almProdCodigo" maxlength="20" inputmode="numeric" pattern="[0-9]*" placeholder="Número (opcional)" autocomplete="off"></div>
+            {{-- Sin campo Código: lo pone SIEMPRE el sistema (AlmacenController::
+                 generarCodigoProducto), al crear, y no se cambia al editar. --}}
+            <div><label for="almProdNombre">Descripción / producto</label><input type="text" id="almProdNombre" maxlength="200" autocomplete="off"></div>
+            {{-- UM + Cantidad inicial en una fila. Cantidad solo se ve al CREAR con un almacén
+                 elegido; si no, UM ocupa la fila. --}}
+            <div style="display:flex;gap:10px;align-items:flex-start;">
                 {{-- Sin position:relative: solo existía para anclar la lista de sugerencias,
                      que ahora es position:fixed (.alm-suggest-float). --}}
-                <div style="flex:0.9;">
+                <div style="flex:1;">
                     <label for="almProdUm">Unidad de Medida</label>
                     <input type="text" id="almProdUm" maxlength="20" placeholder="UND, KG, LTS..." value="UND" autocomplete="off"
                            oninput="window.almProdUmSuggest()" onfocus="window.almProdUmSuggest(true)"
                            style="width:100%;box-sizing:border-box;">
                     <div class="alm-suggest-inline alm-suggest-float" id="almProdUmSuggestBox"></div>
                 </div>
-            </div>
-            <div><label for="almProdNombre">Descripción / producto</label><input type="text" id="almProdNombre" maxlength="200" autocomplete="off"></div>
-            {{-- Categoría (ancha, con suggest) + Cantidad inicial (angosta, solo al crear).
-                 Misma fila usando display:flex — igual patrón que Código + UM más arriba. --}}
-            <div style="display:flex;gap:10px;align-items:flex-start;">
-                <div style="flex:1.5;">
-                    <label for="almProdCategoria">Categoría</label>
-                    <div class="alm-cat-field">
-                        <input type="text" id="almProdCategoria" autocomplete="off" maxlength="100"
-                               placeholder="Elige una de la lista o escribe una nueva…"
-                               oninput="window.almProdCatSuggest(); window.almProdEquivSyncVisible && window.almProdEquivSyncVisible();" onfocus="window.almProdCatSuggest(true)"
-                               onclick="event.stopPropagation(); window.almProdCatSuggest(true);">
-                        <button type="button" class="alm-cat-caret" id="almProdCatCaret" tabindex="-1" title="Ver categorías registradas"
-                                onclick="window.almProdCatToggle(event)"><i class="material-icons">arrow_drop_down</i></button>
-                        {{-- Suggest FLOTANTE (position:fixed, ver .alm-suggest-float): se monta
-                             ENCIMA del contenido y FUERA del modal, así no le saca barra de
-                             desplazamiento. Mismo patrón que el suggest de UM. --}}
-                        <div class="alm-suggest-inline alm-suggest-float" id="almProdCatSuggest"></div>
-                    </div>
-                </div>
-                {{-- Cantidad inicial: solo se muestra al CREAR (no al editar). Si está vacío o en 0
-                     el producto queda registrado en el almacén actual con stock 0 (asegurarStock).
-                     Si > 0, además se registra una ENTRADA en el kardex como "STOCK INICIAL". --}}
+                {{-- Si está vacío o en 0 el producto queda registrado en el almacén actual con
+                     stock 0 (asegurarStock). Si > 0, además se registra una ENTRADA en el kardex
+                     como "STOCK INICIAL". --}}
                 <div id="almProdCantInicialWrap" style="flex:1;">
-                    <label for="almProdCantInicial">Cantidad</label>
-                    <input type="number" id="almProdCantInicial" min="0" step="any" placeholder="0 (opcional)" autocomplete="off">
+                    <label for="almProdCantInicial">Cantidad <span class="alm-opc">(opcional)</span></label>
+                    <input type="number" id="almProdCantInicial" min="0" step="any" placeholder="0" autocomplete="off">
+                </div>
+            </div>
+            <div>
+                <label for="almProdCategoria">Categoría</label>
+                <div class="alm-cat-field">
+                    <input type="text" id="almProdCategoria" autocomplete="off" maxlength="100"
+                           placeholder="Elige una de la lista o escribe una nueva…"
+                           oninput="window.almProdCatSuggest(); window.almProdEquivSyncVisible && window.almProdEquivSyncVisible();" onfocus="window.almProdCatSuggest(true)"
+                           onclick="event.stopPropagation(); window.almProdCatSuggest(true);">
+                    <button type="button" class="alm-cat-caret" id="almProdCatCaret" tabindex="-1" title="Ver categorías registradas"
+                            onclick="window.almProdCatToggle(event)"><i class="material-icons">arrow_drop_down</i></button>
+                    {{-- Suggest FLOTANTE (position:fixed, ver .alm-suggest-float): se monta
+                         ENCIMA del contenido y FUERA del modal, así no le saca barra de
+                         desplazamiento. Mismo patrón que el suggest de UM. --}}
+                    <div class="alm-suggest-inline alm-suggest-float" id="almProdCatSuggest"></div>
                 </div>
             </div>
             {{-- Equivalencias (nº de parte) — SOLO al EDITAR un FILTRO. Lista editable
@@ -1806,14 +1797,11 @@
 
             {{-- Aviso de stock bajo en este almacén. Misma paleta que .alm-row-bajo en la
                  tabla (#fee2e2 / #fecaca / #b91c1c) para que el usuario asocie ambos avisos.
-                 Layout flex: icono a la izquierda con su propio ancho fijo, texto fluido a la
-                 derecha en 2 líneas equilibradas — antes el texto largo + icono inline se veía
-                 como un párrafo desordenado. --}}
-            <div id="almDetBajoBadge" style="display:none;background:#fee2e2;border:1px solid #fecaca;color:#b91c1c;border-radius:8px;padding:10px 14px;align-items:center;gap:10px;">
-                <i class="material-icons" style="font-size:20px;flex:0 0 auto;">warning</i>
-                <div style="flex:1;min-width:0;">
-                    <div style="font-size:13px;font-weight:800;line-height:1.2;">Stock bajo en este almacén</div>
-                    <div style="font-size:11.5px;font-weight:500;line-height:1.35;margin-top:2px;opacity:0.85;">El saldo está en o por debajo del mínimo configurado.</div>
+                 Centrado, como el resto de la ficha: el ícono va junto al título y la
+                 explicación debajo. --}}
+            <div id="almDetBajoBadge" style="display:none;background:#fee2e2;border:1px solid #fecaca;color:#b91c1c;border-radius:8px;padding:10px 14px;flex-direction:column;align-items:center;text-align:center;gap:2px;">
+                <div style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:800;line-height:1.2;">
+                    <i class="material-icons" style="font-size:18px;">warning</i> Stock bajo en este almacén
                 </div>
             </div>
             {{-- Ubicación física del producto dentro de la bodega — estante, fila o nivel
@@ -1826,9 +1814,10 @@
                  SIN botón "Guardar" (pedido del cliente): se guarda con Enter y al abandonar el
                  modal — sea cerrándolo (✕ / Escape, vía almDetalleCerrar) o saltando a un
                  sub-modal (vía almDetalleAccion). almGuardarUbicacionDetalle compara contra el
+                <div style="font-size:11.5px;font-weight:500;line-height:1.35;opacity:0.85;">El saldo está en o por debajo del mínimo configurado.</div>
                  valor cargado, así que salir sin tocar el campo no dispara ningún PATCH. --}}
             <div style="padding-top:2px;text-align:center;">
-                <label for="almDetUbicacion" style="font-size:12.5px;font-weight:700;color:#475569;"><i class="material-icons" style="font-size:15px;vertical-align:-3px;margin-right:3px;color:#0067b1;">place</i>Ubicación en estante, fila o nivel</label>
+                <label for="almDetUbicacion"><i class="material-icons" style="font-size:15px;vertical-align:-3px;margin-right:3px;color:#0067b1;">place</i>Ubicación en estante, fila o nivel</label>
                 {{-- max-width: deja aire a los lados sin llegar al borde del modal. Se conserva
                      width:100% para que encoja solo en pantallas angostas. Lo centra el
                      text-align del div padre (el input es inline-block: margin:auto NO lo
@@ -2088,7 +2077,7 @@
 <div id="almPreviewModal" class="alm-modal-overlay">
     <div class="alm-modal alm-modal-wide" style="max-width:1180px;max-height:98vh;">
         <div class="alm-modal-head" style="padding:8px 40px;">
-            <h3><i class="material-icons" style="font-size:20px;color:#0067b1;">visibility</i> <span>Vista previa de la Nota de Entrega</span></h3>
+            <h3><i class="material-icons" style="font-size:20px;">visibility</i> <span>Vista previa de la Nota de Entrega</span></h3>
             <i class="material-icons alm-x" onclick="window.almPreviewCerrar()">close</i>
         </div>
         <div class="alm-modal-body" style="padding:0;gap:0;background:#475569;">
@@ -3898,8 +3887,8 @@
         m.dataset.saldo = (saldo == null ? '0' : String(saldo));
         m.dataset.minimo = hasMin ? String(minimo) : '';
         var bajo = hasMin && parseFloat(saldo || 0) <= parseFloat(minimo);
-        // 'flex' (no '' ni 'block') porque el badge se layoutea con icono a la izquierda
-        // y texto a la derecha (display:flex en el CSS inline del div). Ver markup arriba.
+        // 'flex' (no '' ni 'block'): el badge es una columna flex centrada (título con su
+        // ícono y la explicación debajo). Ver markup arriba.
         el('almDetBajoBadge').style.display = bajo ? 'flex' : 'none';
         if (el('almDetUbicacion')) { el('almDetUbicacion').value = ubicacion || ''; showErr('almDetUbicacionError', ''); }
 
@@ -4075,7 +4064,7 @@
             method: 'PATCH',
             headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest',  'Content-Type': 'application/json'},
             body: JSON.stringify({
-                CODIGO: m.dataset.cod || null, NOMBRE: m.dataset.nom, UM: m.dataset.um, CATEGORIA: m.dataset.cat || null,
+                NOMBRE: m.dataset.nom, UM: m.dataset.um, CATEGORIA: m.dataset.cat || null,
                 UBICACION: ubicacion || null
             })
         })
@@ -4484,7 +4473,7 @@
         if (!ensurePerm(HAS_ALM_MANAGE, 'No tienes permiso para crear almacenes.')) return;
         almResetAlmacenModal();
         el('almNvTitulo').textContent = 'Nuevo almacén'; el('almNvSubmit').textContent = 'Guardar';
-        almOpen('almAlmacenModal'); setTimeout(function () { el('almNvNombre').focus(); }, 60);
+        almOpen('almAlmacenModal'); setTimeout(almNvEnfocarNombre, 60);
     };
     window.almEditarAlmacen = function (id) {
         if (!ensurePerm(HAS_ALM_MANAGE, 'No tienes permiso para editar almacenes.')) return;
@@ -4503,7 +4492,7 @@
         almNvSetFrentes(d.frentes || []);
         window.almToggleFrentes();
         almCerrar('almAdminAlmacenesModal');
-        almOpen('almAlmacenModal'); setTimeout(function () { el('almNvNombre').focus(); }, 60);
+        almOpen('almAlmacenModal'); setTimeout(almNvEnfocarNombre, 60);
     };
     window.almGuardarAlmacen = function () {
         if (!ensurePerm(HAS_ALM_MANAGE, 'No tienes permiso para guardar almacenes.')) return;
@@ -4551,6 +4540,17 @@
         pre();
         window.apiFetch(url, {
             method: id ? 'PATCH' : 'POST',
+    // Al abrir el modal el cursor va al Nombre, pero SIN desplegar la lista de proyectos:
+    // el focusin global de uicomponents.js abre cualquier desplegable al enfocar su campo,
+    // y el modal aparecía con la lista ya abierta tapando el formulario. La lista se abre al
+    // hacer clic en el campo o al escribir (almNvNombreFilter). En el teléfono no se enfoca:
+    // subiría el teclado encima del modal nada más abrirlo.
+    function almNvEnfocarNombre() {
+        if (!window.matchMedia('(hover: hover)').matches) return;
+        var inp = el('almNvNombre'); if (!inp) return;
+        inp.focus();
+        var dd = el('almNvNombreDropdown'); if (dd) dd.classList.remove('active');
+    }
             headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest',  'Content-Type': 'application/json'},
             body: JSON.stringify(cuerpo)
         })
@@ -4613,15 +4613,13 @@
 
     function almResetProductoModal() {
         delete el('almProductoModal').dataset.idProducto;
-        delete el('almProductoModal').dataset.codOriginal;
         delete el('almProductoModal').dataset.ubicacion;
-        el('almProdCodigo').value = ''; el('almProdNombre').value = ''; el('almProdUm').value = 'UND'; el('almProdCategoria').value = '';
+        el('almProdNombre').value = ''; el('almProdUm').value = 'UND'; el('almProdCategoria').value = '';
         if (el('almProdCantInicial')) el('almProdCantInicial').value = '';
         var cs = el('almProdCatSuggest'); if (cs) cs.innerHTML = '';
         var us = el('almProdUmSuggestBox'); if (us) { us.innerHTML = ''; us.classList.remove('open'); }
         almProdCatHide();
         // Limpiar resaltados de error de todos los campos del modal
-        almProdFieldErr('almProdCodigo',  false);
         almProdFieldErr('almProdNombre',  false);
         almProdFieldErr('almProdUm',      false);
         showErr('almProdError', '');
@@ -4677,25 +4675,22 @@
         window.almDesdeDetalle = false;   // "Nuevo producto" NO viene de Detalles → Cancelar no regresa allí
         almResetProductoModal();
         el('almProdTitulo').textContent = 'Nuevo producto'; el('almProdSubmit').textContent = 'Guardar';
-        el('almProdCodigo').readOnly = false; el('almProdCodigo').style.background = '';
         // Mostrar "Cantidad inicial" solo si hay un almacén seleccionado (el producto se
         // registrará en ese almacén). Si no hay, ocultamos el campo (no tiene sentido).
         var wrap = el('almProdCantInicialWrap');
         if (wrap) wrap.style.display = almSelAlmacenActual() ? '' : 'none';
-        almOpen('almProductoModal'); setTimeout(function () { el('almProdCodigo').focus(); }, 60);
+        almOpen('almProductoModal'); setTimeout(function () { el('almProdNombre').focus(); }, 60);
     };
     window.almEditarProducto = function (id, cod, nom, um, cat, ubicacion) {
         if (!ensurePerm(HAS_PRODUCTOS, 'No tienes permiso para editar productos.')) return;
         almResetProductoModal();
         el('almProductoModal').dataset.idProducto = id;
-        el('almProductoModal').dataset.codOriginal = cod || ''; // para no exigir formato numérico si no cambia
         // La ubicación ya NO se edita en este modal (se movió a "Detalles del producto"),
         // pero almGuardarProducto la reenvía tal cual para no borrarla al editar otro campo.
         el('almProductoModal').dataset.ubicacion = ubicacion || '';
-        el('almProdTitulo').textContent = 'Editar producto'; el('almProdSubmit').textContent = 'Guardar';
-        // El código AHORA es editable también al editar: el backend valida unicidad
-        // ignorando el propio producto (Rule::unique->ignore). Solo dígitos (igual que al crear).
-        el('almProdCodigo').value = cod || ''; el('almProdCodigo').readOnly = false; el('almProdCodigo').style.background = '';
+        // El código no se edita (lo puso el sistema al crear): va en el título, de referencia.
+        el('almProdIcono').textContent = 'edit';
+        el('almProdTitulo').textContent = 'Editar producto' + (cod ? ' · ' + cod : ''); el('almProdSubmit').textContent = 'Guardar';
         el('almProdNombre').value = nom || ''; el('almProdUm').value = um || 'UND'; el('almProdCategoria').value = cat || '';
         // Cantidad inicial: solo aplica al CREAR. Al editar se oculta — el saldo se cambia
         // desde el modal de Ajuste / Entrada / Salida.
@@ -4747,6 +4742,7 @@
                     // modal de producto. Sin escapar, una categoría tipo "<img src=x onerror=…>"
                     // ejecutaría script al verse en la papelera (XSS almacenado).
                     var cod = escHtml(p.CODIGO ? String(p.CODIGO) : '—');
+        el('almProdIcono').textContent = 'add_circle';
                     var nom = escHtml(String(p.NOMBRE || ''));
                     var meta = escHtml((p.UM || '') + (p.CATEGORIA ? (' · ' + p.CATEGORIA) : ''));
                     // Código, descripción y unidad/categoría van con el MISMO cuerpo y el MISMO
@@ -4837,21 +4833,12 @@
         if (_eqW && _eqW.style.display !== 'none' && _eqI && _eqI.value.trim() && typeof window.almProdEquivAdd === 'function') {
             window.almProdEquivAdd();
         }
-        var codigo = val('almProdCodigo'), nombre = val('almProdNombre'), um = val('almProdUm') || 'UND', cat = val('almProdCategoria');
+        var nombre = val('almProdNombre'), um = val('almProdUm') || 'UND', cat = val('almProdCategoria');
         // La ubicación ya no se edita aquí (ver "Detalles del producto"): al crear no hay
         // ninguna todavía; al editar viajó en el dataset (almEditarProducto) para no perderla.
         var ubicacion = m.dataset.ubicacion || '';
         // Validaciones previas al envío.
         if (!nombre) { almProdFieldErr('almProdNombre', true); showErr('almProdError', 'La descripción es obligatoria.'); return; }
-        // El código debe ser solo dígitos enteros positivos — PERO solo si es nuevo o cambió.
-        // Al editar un producto con código legacy no numérico (ej. filtro "FIL-003") sin tocarlo,
-        // se permite (el backend conserva el actual). codOriginal = código con que se abrió el modal.
-        var codOriginal = m.dataset.codOriginal || '';
-        if (codigo && codigo !== codOriginal && (!/^\d+$/.test(codigo) || parseInt(codigo, 10) < 1)) {
-            almProdFieldErr('almProdCodigo', true);
-            showErr('almProdError', 'El código debe ser un número entero positivo.');
-            return;
-        }
         // Cantidad inicial (solo al CREAR y solo si hay almacén seleccionado).
         var idAlmacen = !id ? almSelAlmacenActual() : '';
         var cantInicial = 0;
@@ -4867,10 +4854,9 @@
             }
         }
         // Limpiar errores visuales antes de enviar
-        almProdFieldErr('almProdCodigo', false);
         almProdFieldErr('almProdNombre', false);
         pre();
-        var bodyCreate = { CODIGO: codigo || null, NOMBRE: nombre, UM: um, CATEGORIA: cat || null, UBICACION: ubicacion || null };
+        var bodyCreate = { NOMBRE: nombre, UM: um, CATEGORIA: cat || null, UBICACION: ubicacion || null };
         if (idAlmacen) {
             bodyCreate.id_almacen      = parseInt(idAlmacen, 10);
             bodyCreate.cantidad_inicial = cantInicial;
@@ -4879,14 +4865,13 @@
             method: id ? 'PATCH' : 'POST',
             headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest',  'Content-Type': 'application/json'},
             body: JSON.stringify(id
-                // Al editar: ahora SÍ se incluye CODIGO (editable). Si va vacío, el backend
-                // conserva el actual (updateProducto hace unset cuando llega vacío). En FILTROS
-                // se manda la lista COMPLETA de equivalencias para sincronizarla en el backend.
+                // Al editar: sin CODIGO (no se cambia). En FILTROS se manda la lista COMPLETA
+                // de equivalencias para sincronizarla en el backend.
                 ? Object.assign(
-                    { CODIGO: codigo || null, NOMBRE: nombre, UM: um, CATEGORIA: cat || null, UBICACION: ubicacion || null },
+                    { NOMBRE: nombre, UM: um, CATEGORIA: cat || null, UBICACION: ubicacion || null },
                     esCatFiltro(cat) ? { equivalencias: window._almProdEquivs } : {}
                   )
-                // Al crear: CODIGO + opcionalmente id_almacen + cantidad_inicial para asegurar/abrir la fila en el almacén actual.
+                // Al crear: opcionalmente id_almacen + cantidad_inicial para asegurar/abrir la fila en el almacén actual.
                 : bodyCreate
             )
         })
@@ -4941,7 +4926,6 @@
                 if (res.b && res.b.errors) {
                     msg = Object.values(res.b.errors).map(function (a) { return a.join(' '); }).join(' ');
                     // Resaltar el campo específico según la clave de error
-                    if (res.b.errors.CODIGO)  { almProdFieldErr('almProdCodigo', true);  fieldError = true; }
                     if (res.b.errors.NOMBRE)  { almProdFieldErr('almProdNombre', true);  fieldError = true; }
                     if (res.b.errors.UM)      { almProdFieldErr('almProdUm',     true);  fieldError = true; }
                 }
