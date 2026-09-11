@@ -19,6 +19,10 @@ use Illuminate\Support\Facades\Storage;
  *
  * Corre sola en el deploy (start.sh ejecuta migrate). Si Drive falla, lanza ANTES de mover
  * ningún archivo: la migración queda sin registrar y el siguiente deploy la reintenta.
+ *
+ * Usa la app (EquipoAuxiliar::subirDocADrive, GoogleDriveService) a propósito: subir a Drive
+ * solo existe ahí, y el PDF tiene que quedar guardado igual que los que sube la app. Donde
+ * no quedan links al disco 'public' (una instalación nueva) no llega a llamarla.
  */
 return new class extends Migration
 {

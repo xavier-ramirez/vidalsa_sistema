@@ -9,7 +9,8 @@ return new class extends Migration {
     /**
      * Registro de la compresion de PDF de documentos (comando docs:comprimir).
      *
-     * Una fila por documento que el comando ya miro, se haya comprimido o no. Sirve para
+     * Una fila por ARCHIVO de Drive que el comando ya miro, se haya comprimido o no (si
+     * varias filas comparten el archivo, se anota la primera). Sirve para
      * dos cosas:
      *   · que la tarea de cada noche NO vuelva a tocar lo que ya proceso: un PDF que
      *     despues de comprimido sigue pesando mas del umbral quedaria en la lista para
@@ -27,10 +28,11 @@ return new class extends Migration {
 
         Schema::create('compresion_pdf_registro', function (Blueprint $table) {
             $table->bigIncrements('ID_REGISTRO');
-            // Donde vive el enlace: documentacion (equipos) o equipos_auxiliares.
+            // Donde vive el enlace: documentacion (equipos), equipos_auxiliares o
+            // documento_anexos (correcciones); ver App\Support\EnlacesDocumentos.
             $table->string('TABLA', 40);
             $table->string('COLUMNA', 40);
-            // ID_EQUIPO o ID_AUXILIAR, segun TABLA. Null en las filas cargadas a mano.
+            // ID_EQUIPO, ID_AUXILIAR o ID_ANEXO, segun TABLA. Null en las filas cargadas a mano.
             $table->unsignedBigInteger('FILA_ID')->nullable();
             $table->string('DOCUMENTO', 60);
             $table->string('SERIAL', 80)->nullable();

@@ -23,9 +23,10 @@ use Illuminate\Support\Facades\DB;
  * está escrita AQUÍ a mano en vez de llamar a Almacen::separaPorProyecto(). No es un
  * descuido ni una duplicación de la de verdad: una migración es una foto de un momento y
  * tiene que dar el MISMO resultado dentro de un año, aunque el modelo cambie de criterio o
- * ese método deje de existir. Ninguna de las otras 145 migraciones del proyecto toca
- * modelos de la app, por lo mismo. El punto único sigue siendo el modelo; esto es el
- * registro de lo que se corrigió hoy.
+ * ese método deje de existir. Por lo mismo, las migraciones de datos escriben sus reglas
+ * a mano; solo dos usan la app, cada una con su motivo escrito en ella
+ * (recalcular_traspasos_parciales y mover_docs_auxiliares_publicos_a_drive). El punto
+ * único sigue siendo el modelo; esto es el registro de lo que se corrigió hoy.
  */
 return new class extends Migration
 {
