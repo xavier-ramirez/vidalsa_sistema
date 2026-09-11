@@ -35,6 +35,10 @@ RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd zip intl \
 # ajustes de opcache de aqui se quedan en los valores por defecto.
 COPY docker/php.ini /usr/local/etc/php/conf.d/zz-app-php.ini
 
+# Pool de PHP-FPM: cuántas peticiones se atienden a la vez (de fábrica, solo 5). El
+# nombre zz-vidalsa.conf hace que se lea después de www.conf y zz-docker.conf.
+COPY docker/php-fpm-pool.conf /usr/local/etc/php-fpm.d/zz-vidalsa.conf
+
 # Instalar Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
