@@ -534,6 +534,8 @@
        prefix `::-webkit-input-placeholder` en un selector agrupado por coma
        invalida toda la regla en browsers que no conocen el prefix. */
     #almSalidaModal .dropdown-trigger input::placeholder { font-style: normal; color: #0f172a; opacity: 1; }
+    /* "(opcional)" al lado de la etiqueta del campo (Ubicación, Cantidad): más claro y sin negrita. */
+    .alm-modal label .alm-opc { font-weight: 400; color: #94a3b8; }
     .alm-x { cursor: pointer; color: #94a3b8; }
     .alm-x:hover { color: #475569; }
 
@@ -542,8 +544,6 @@
         position:absolute; top:calc(100% + 5px); left:0; right:0; background:#fff;
         border:1px solid #e2e8f0; border-radius:12px; box-shadow:0 10px 25px rgba(0,0,0,0.1);
         z-index:1000; max-height:260px; overflow-y:auto; padding:5px; display:none;
-    /* "(opcional)" al lado de la etiqueta del campo (Ubicación, Cantidad): más claro y sin negrita. */
-    .alm-modal label .alm-opc { font-weight: 400; color: #94a3b8; }
         scrollbar-width:thin; scrollbar-color:#cbd5e1 transparent;
     }
     .alm-suggest::-webkit-scrollbar { width:5px; }
@@ -1061,9 +1061,16 @@
                         <div style="background:#e0f2fe;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#0067b1;">analytics</i></div>
                         <span style="font-size:14px;font-weight:500;">Dashboard de consumo</span>
                     </button>
+                    {{-- Descargar Excel: disponible para cualquier usuario que pueda ver el
+                         módulo. Construye la URL de export respetando los filtros de almacén
+                         y categoría activos. --}}
                     <button type="button" onclick="window.almAccion('export')" class="dropdown-item-custom" style="display:flex;align-items:center;gap:10px;padding:11px 14px;color:#475569;background:transparent;border:none;border-bottom:1px solid #f1f5f9;width:100%;text-align:left;cursor:pointer;">
                         <div style="background:#f1f5f9;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#64748b;">download</i></div>
                         <span style="font-size:14px;font-weight:500;">Descargar Excel</span>
+                    </button>
+                    <button type="button" onclick="window.almAccion('producto')" class="dropdown-item-custom" style="display:flex;align-items:center;gap:10px;padding:11px 14px;color:#475569;background:transparent;border:none;border-bottom:1px solid #f1f5f9;width:100%;text-align:left;cursor:pointer;">
+                        <div style="background:#e0f2fe;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#0284c7;">add_circle</i></div>
+                        <span style="font-size:14px;font-weight:500;">Nuevo producto</span>
                     </button>
                     {{-- Todos los items SIEMPRE visibles — la verificacion de permiso vive
                          dentro del handler JS de cada funcion (ver almAbrirAlmacen, etc.).
@@ -1072,17 +1079,10 @@
                          notificacion de denegacion, no ocultar nada. --}}
                     <button type="button" onclick="window.almAccion('admin')" class="dropdown-item-custom" style="display:flex;align-items:center;gap:10px;padding:11px 14px;color:#475569;background:transparent;border:none;border-bottom:1px solid #f1f5f9;width:100%;text-align:left;cursor:pointer;">
                         <div style="background:#f1f5f9;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#475569;">warehouse</i></div>
-                    {{-- Descargar Excel: disponible para cualquier usuario que pueda ver el
-                         módulo. Construye la URL de export respetando los filtros de almacén
-                         y categoría activos. --}}
                         <span style="font-size:14px;font-weight:500;">Gestionar almacenes</span>
                     </button>
                     <button type="button" onclick="window.almAccion('almacen')" class="dropdown-item-custom" style="display:flex;align-items:center;gap:10px;padding:11px 14px;color:#475569;background:transparent;border:none;border-bottom:1px solid #f1f5f9;width:100%;text-align:left;cursor:pointer;">
                         <div style="background:#e0f2fe;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#0284c7;">add_business</i></div>
-                    <button type="button" onclick="window.almAccion('producto')" class="dropdown-item-custom" style="display:flex;align-items:center;gap:10px;padding:11px 14px;color:#475569;background:transparent;border:none;border-bottom:1px solid #f1f5f9;width:100%;text-align:left;cursor:pointer;">
-                        <div style="background:#e0f2fe;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#0284c7;">add_circle</i></div>
-                        <span style="font-size:14px;font-weight:500;">Nuevo producto</span>
-                    </button>
                         <span style="font-size:14px;font-weight:500;">Nuevo almacén</span>
                     </button>
                     {{-- Papelera: productos eliminados (soft-delete) — buscar y restaurar. --}}
@@ -1803,6 +1803,7 @@
                 <div style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:800;line-height:1.2;">
                     <i class="material-icons" style="font-size:18px;">warning</i> Stock bajo en este almacén
                 </div>
+                <div style="font-size:11.5px;font-weight:500;line-height:1.35;opacity:0.85;">El saldo está en o por debajo del mínimo configurado.</div>
             </div>
             {{-- Ubicación física del producto dentro de la bodega — estante, fila o nivel
                  (texto libre): se muestra como tooltip al pasar el mouse sobre la fila en la
@@ -1814,7 +1815,6 @@
                  SIN botón "Guardar" (pedido del cliente): se guarda con Enter y al abandonar el
                  modal — sea cerrándolo (✕ / Escape, vía almDetalleCerrar) o saltando a un
                  sub-modal (vía almDetalleAccion). almGuardarUbicacionDetalle compara contra el
-                <div style="font-size:11.5px;font-weight:500;line-height:1.35;opacity:0.85;">El saldo está en o por debajo del mínimo configurado.</div>
                  valor cargado, así que salir sin tocar el campo no dispara ningún PATCH. --}}
             <div style="padding-top:2px;text-align:center;">
                 <label for="almDetUbicacion"><i class="material-icons" style="font-size:15px;vertical-align:-3px;margin-right:3px;color:#0067b1;">place</i>Ubicación en estante, fila o nivel</label>
@@ -4469,6 +4469,17 @@
         almNvSetFrentes([]);
         showErr('almNvError', '');
     }
+    // Al abrir el modal el cursor va al Nombre, pero SIN desplegar la lista de proyectos:
+    // el focusin global de uicomponents.js abre cualquier desplegable al enfocar su campo,
+    // y el modal aparecía con la lista ya abierta tapando el formulario. La lista se abre al
+    // hacer clic en el campo o al escribir (almNvNombreFilter). En el teléfono no se enfoca:
+    // subiría el teclado encima del modal nada más abrirlo.
+    function almNvEnfocarNombre() {
+        if (!window.matchMedia('(hover: hover)').matches) return;
+        var inp = el('almNvNombre'); if (!inp) return;
+        inp.focus();
+        var dd = el('almNvNombreDropdown'); if (dd) dd.classList.remove('active');
+    }
     window.almAbrirAlmacen = function () {
         if (!ensurePerm(HAS_ALM_MANAGE, 'No tienes permiso para crear almacenes.')) return;
         almResetAlmacenModal();
@@ -4540,17 +4551,6 @@
         pre();
         window.apiFetch(url, {
             method: id ? 'PATCH' : 'POST',
-    // Al abrir el modal el cursor va al Nombre, pero SIN desplegar la lista de proyectos:
-    // el focusin global de uicomponents.js abre cualquier desplegable al enfocar su campo,
-    // y el modal aparecía con la lista ya abierta tapando el formulario. La lista se abre al
-    // hacer clic en el campo o al escribir (almNvNombreFilter). En el teléfono no se enfoca:
-    // subiría el teclado encima del modal nada más abrirlo.
-    function almNvEnfocarNombre() {
-        if (!window.matchMedia('(hover: hover)').matches) return;
-        var inp = el('almNvNombre'); if (!inp) return;
-        inp.focus();
-        var dd = el('almNvNombreDropdown'); if (dd) dd.classList.remove('active');
-    }
             headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest',  'Content-Type': 'application/json'},
             body: JSON.stringify(cuerpo)
         })
@@ -4674,6 +4674,7 @@
         if (!ensurePerm(HAS_PRODUCTOS, 'No tienes permiso para crear productos.')) return;
         window.almDesdeDetalle = false;   // "Nuevo producto" NO viene de Detalles → Cancelar no regresa allí
         almResetProductoModal();
+        el('almProdIcono').textContent = 'add_circle';
         el('almProdTitulo').textContent = 'Nuevo producto'; el('almProdSubmit').textContent = 'Guardar';
         // Mostrar "Cantidad inicial" solo si hay un almacén seleccionado (el producto se
         // registrará en ese almacén). Si no hay, ocultamos el campo (no tiene sentido).
@@ -4742,7 +4743,6 @@
                     // modal de producto. Sin escapar, una categoría tipo "<img src=x onerror=…>"
                     // ejecutaría script al verse en la papelera (XSS almacenado).
                     var cod = escHtml(p.CODIGO ? String(p.CODIGO) : '—');
-        el('almProdIcono').textContent = 'add_circle';
                     var nom = escHtml(String(p.NOMBRE || ''));
                     var meta = escHtml((p.UM || '') + (p.CATEGORIA ? (' · ' + p.CATEGORIA) : ''));
                     // Código, descripción y unidad/categoría van con el MISMO cuerpo y el MISMO
