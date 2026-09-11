@@ -19,6 +19,11 @@ return new class extends Migration
 {
     public function up(): void
     {
+        // Idempotente, igual que 2026_08_31_170000_add_formato_nota_to_almacenes.
+        if (Schema::hasColumn('almacenes', 'SEGURIDAD_NOM')) {
+            return;
+        }
+
         Schema::table('almacenes', function (Blueprint $t) {
             // Mismos largos que los SOPORTE_*, que ocupan el mismo bloque en el PDF.
             $t->string('SEGURIDAD_NOM', 120)->nullable()->after('SOPORTE_2_CED');

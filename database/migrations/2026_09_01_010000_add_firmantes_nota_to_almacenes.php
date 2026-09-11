@@ -32,6 +32,11 @@ return new class extends Migration
 {
     public function up(): void
     {
+        // Idempotente, igual que 2026_08_31_170000_add_formato_nota_to_almacenes.
+        if (Schema::hasColumn('almacenes', 'CEDULA_ALMACENISTA')) {
+            return;
+        }
+
         Schema::table('almacenes', function (Blueprint $t) {
             $t->string('CEDULA_ALMACENISTA', 20)->nullable()->after('CARGO_ALMACENISTA');
 

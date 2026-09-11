@@ -25,6 +25,13 @@ return new class extends Migration
 {
     public function up(): void
     {
+        // Idempotente: si la columna ya existe sin su fila en `migrations` (pasó en local al
+        // importar datos de producción encima de un esquema más nuevo) el ALTER fallaba con
+        // "Duplicate column" y con él se cortaba el migrate del deploy entero.
+        if (Schema::hasColumn('almacenes', 'FORMATO_NOTA')) {
+            return;
+        }
+
         Schema::table('almacenes', function (Blueprint $t) {
             $t->string('FORMATO_NOTA', 12)->default('VERTICAL')->after('CARGO_ALMACENISTA');
         });

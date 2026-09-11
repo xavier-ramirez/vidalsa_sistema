@@ -30,6 +30,11 @@ return new class extends Migration
 {
     public function up(): void
     {
+        // Idempotente, igual que 2026_08_31_170000_add_formato_nota_to_almacenes.
+        if (Schema::hasColumn('movimientos_inventario', 'ID_FRENTE_SALDO')) {
+            return;
+        }
+
         Schema::table('movimientos_inventario', function (Blueprint $t) {
             $t->unsignedBigInteger('ID_FRENTE_SALDO')->nullable()->after('ID_FRENTE');
             // El recálculo de un saldo recorre el kardex de UNA bolsa concreta

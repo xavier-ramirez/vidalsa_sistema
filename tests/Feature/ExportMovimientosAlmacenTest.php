@@ -104,21 +104,23 @@ class ExportMovimientosAlmacenTest extends MySqlTestCase
 
         // Fila 4 = encabezados (1 titulo, 2 filtros, 3 en blanco).
         $encabezados = [];
-        foreach (range('A', 'K') as $col) {
+        foreach (range('A', 'L') as $col) {
             $encabezados[] = (string) $hoja->getCell($col . '4')->getValue();
         }
-        // La L tiene que estar vacia: si algo escribe ahi, sobra una columna.
-        $sobrante = (string) $hoja->getCell('L4')->getValue();
+        // La M tiene que estar vacia: si algo escribe ahi, sobra una columna.
+        $sobrante = (string) $hoja->getCell('M4')->getValue();
         @unlink($tmp);
 
+        // SALDO DE: la bolsa de la que se desconto cuando no es la del frente que recibio
+        // (prestamo entre proyectos). Columna propia a proposito, ver AlmacenController.
         $this->assertSame(
             ['FECHA', 'TIPO', 'CÓDIGO', 'PRODUCTO', 'UM', 'CANTIDAD', 'ANTERIOR', 'RESULTANTE',
-             'ALMACÉN', 'CONTRAPARTE', 'FRENTE'],
+             'ALMACÉN', 'CONTRAPARTE', 'FRENTE', 'SALDO DE'],
             $encabezados,
             'Las columnas del Excel no son las pedidas o cambiaron de orden.'
         );
 
-        $this->assertSame('', $sobrante, "Sobra una columna despues de FRENTE: \"$sobrante\".");
+        $this->assertSame('', $sobrante, "Sobra una columna despues de SALDO DE: \"$sobrante\".");
 
         foreach (['N° NOTA', 'REFERENCIA', 'SOLICITANTE', 'MOTIVO', 'USUARIO'] as $quitada) {
             $this->assertNotContains($quitada, $encabezados, "La columna $quitada debia estar quitada.");
