@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use App\Console\Commands\ComprimirDocumentos;
 use App\Models\CompresionPdf;
 use App\Services\CompresorPdf;
+use App\Support\EnlacesDocumentos;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -27,8 +27,11 @@ class CompresionPdfController extends Controller
 
         // Si la tarea corre en ESTE equipo y por que: es lo primero que hay que poder mirar
         // tras desplegar, sin entrar al servidor.
-        [$activa, $motivoActiva] = ComprimirDocumentos::activadaAqui();
+        [$activa, $motivoActiva] = EnlacesDocumentos::esBaseDelServidor();
         $ghostscript = app(CompresorPdf::class)->disponible();
+        // La misma zona con la que el programador decide si ya son las 12: schedule_timezone y, si no, app.timezone.
+        $zona = config('app.schedule_timezone', config('app.timezone'));
+        $horaApp = now($zona);
 
         $filas = CompresionPdf::query()
             ->when($estado, fn ($q) => $q->where('ESTADO', $estado))
@@ -36,7 +39,7 @@ class CompresionPdfController extends Controller
             ->paginate(50)->withQueryString();
 
         return view('admin.compresion_pdf.index', compact(
-            'resumen', 'ultimaNoche', 'filas', 'estado', 'activa', 'motivoActiva', 'ghostscript'
+            'resumen', 'ultimaNoche', 'filas', 'estado', 'activa', 'motivoActiva', 'ghostscript', 'zona', 'horaApp'
         ));
     }
 }

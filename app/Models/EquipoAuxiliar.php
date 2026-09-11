@@ -2,8 +2,10 @@
 
 namespace App\Models;
 
+use App\Services\GoogleDriveService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Storage;
 
 class EquipoAuxiliar extends Model
 {
@@ -69,6 +71,44 @@ class EquipoAuxiliar extends Model
     }
 
     public const ANCHOR_MAX_PER_HOST = 2;
+
+    /**
+     * Documentos PDF del auxiliar: tipo (el doc_type de la API) => columna de su link.
+     * Fuente única para el botón del modal (uploadDoc/deleteDoc), el formulario de
+     * crear/editar y la migración que sacó los viejos del disco 'public'.
+     */
+    public const DOCS = [
+        'propiedad'   => 'LINK_DOC_PROPIEDAD',
+        'certificado' => 'LINK_CERTIFICADO',
+    ];
+
+    /**
+     * Sube un PDF del auxiliar y devuelve el link para su columna. Es el MISMO camino que
+     * los documentos de equipos (GoogleDriveService::subirPdf): misma carpeta de Drive y
+     * mismo proxy /storage/google/{id}, que exige sesión. Antes el formulario los guardaba
+     * en el disco 'public', que nginx sirve SIN login.
+     */
+    public static function subirDocADrive(GoogleDriveService $drive, string $tipo, $archivo): string
+    {
+        return $drive->subirPdf($archivo, 'aux_' . $tipo . '_' . time() . '.pdf');
+    }
+
+    /**
+     * Borra el archivo de un link de documento que ya no se usa: el reemplazado o eliminado
+     * (llamar SOLO después de guardar la fila, para que si algo falla antes siga vivo) o uno
+     * recién subido que no llegó a guardarse (para no dejarlo huérfano en Drive). Los de
+     * Drive, como en equipos (GoogleDriveService::borrarTrasResponder); acepta también los
+     * links viejos del disco 'public' (/storage/equipos_auxiliares/…).
+     */
+    public static function olvidarDoc(?string $link): void
+    {
+        if ($fileId = DocumentoAnexo::driveIdDeLink($link)) {
+            GoogleDriveService::borrarTrasResponder($fileId);
+        } elseif ($link && str_starts_with($link, '/storage/')) {
+            $ruta = (string) parse_url($link, PHP_URL_PATH);
+            Storage::disk('public')->delete(ltrim(substr($ruta, strlen('/storage/')), '/'));
+        }
+    }
 
     public function frente()
     {

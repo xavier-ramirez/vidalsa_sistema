@@ -51,7 +51,7 @@
         <div>
             @if ($activa && $ghostscript)
                 <strong>Tarea nocturna activa en este servidor</strong>
-                <span>{{ ucfirst($motivoActiva) }}. Cada noche, de 12:00 a 5:00 a.m., comprime de 5 en 5 con un minuto de descanso entre lotes.</span>
+                <span>{{ ucfirst($motivoActiva) }}. Cada noche, de 12:00 a 5:00 a.m. (hora {{ $zona }}; ahora son las {{ $horaApp->format('g:i a') }}), comprime de 5 en 5 con un minuto de descanso entre lotes.</span>
             @elseif (!$activa)
                 <strong>La tarea nocturna no corre en este equipo</strong>
                 <span>{{ ucfirst($motivoActiva) }}. Solo el servidor cambia documentos.</span>

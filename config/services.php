@@ -41,11 +41,14 @@ return [
         // Ghostscript: "gs" en el servidor (Linux, instalado en el Dockerfile); en Windows,
         // la ruta al gswin64c.exe.
         'ghostscript' => env('GHOSTSCRIPT_BIN', 'gs'),
-        // Donde corre la tarea de madrugada. Sin definir (lo normal) se decide sola: corre
-        // si la base de datos esta en otra maquina (el servidor) y no si esta en este mismo
-        // equipo (el PC de desarrollo, que comparte Google Drive pero NO la base). Ver
-        // ComprimirDocumentos::activadaAqui(). true/false la fuerzan.
-        'nocturna' => env('COMPRESION_PDF_NOCTURNA'),
+    ],
+
+    // ¿Esta instalacion es el servidor? Solo alli se tocan archivos de Google Drive
+    // (compresion nocturna, borrado de documentos reemplazados): el PC de desarrollo comparte
+    // el Drive pero NO la base. Sin definir (lo normal) se decide sola por donde esta la base
+    // (App\Support\EnlacesDocumentos::esBaseDelServidor); true/false la fuerzan.
+    'drive' => [
+        'es_servidor' => env('DRIVE_ES_SERVIDOR'),
     ],
 
 ];

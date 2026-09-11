@@ -15,9 +15,9 @@ Artisan::command('inspire', function () {
 // descanso entre el fin de un lote y el siguiente. Si ya no queda nada, las pasadas
 // terminan al instante.
 // Necesita el programador corriendo: `php artisan schedule:work` (docker/supervisord.conf).
-// Y solo corre en el servidor: ver ComprimirDocumentos::activadaAqui().
+// Y solo corre en el servidor: ver App\Support\EnlacesDocumentos::esBaseDelServidor().
 Schedule::command('docs:comprimir --lote=5')
-    ->when(fn () => \App\Console\Commands\ComprimirDocumentos::activadaAqui()[0])
+    ->when(fn () => \App\Support\EnlacesDocumentos::esBaseDelServidor()[0])
     ->everyMinute()
     ->between('00:00', '05:00')
     ->withoutOverlapping(30)

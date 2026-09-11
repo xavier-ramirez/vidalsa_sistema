@@ -1516,7 +1516,15 @@ class EquipoAuxiliarController extends Controller
         }
         unset($data['fecha_vencimiento_cert']);
 
-        $auxiliar = EquipoAuxiliar::create($data);
+        // PDFs a Drive ANTES de crear la fila (ver subirDocsFormulario).
+        $links = $this->subirDocsFormulario($request);
+
+        try {
+            $auxiliar = EquipoAuxiliar::create($data);
+        } catch (\Throwable $e) {
+            array_map([EquipoAuxiliar::class, 'olvidarDoc'], $links); // no dejarlos huérfanos en Drive
+            throw $e;
+        }
 
         // Auditoría de REGISTRO de auxiliar. Reutiliza CatalogoAuditLog, el mismo canal
         // que ya audita eventos de auxiliares (p.ej. 'upload_foto_aux'), porque los
@@ -1535,8 +1543,11 @@ class EquipoAuxiliarController extends Controller
             ]
         );
 
-        // Guardar archivos PDF (si vinieron) en storage/app/public/equipos_auxiliares/{id}/
-        $this->storeAuxDocs($request, $auxiliar);
+        // Los links van en un update aparte (y después de 'create_aux') para que el observer
+        // registre la subida de cada PDF en el historial, como cuando se sube desde la ficha.
+        if ($links) {
+            $auxiliar->update($links);
+        }
 
         // Por defecto se vuelve al modulo UNIFICADO (/admin/equipos), que es donde se ven
         // equipos y auxiliares juntos. `__unified_redirect` (o el ?ref= del formulario)
@@ -1614,9 +1625,18 @@ class EquipoAuxiliarController extends Controller
             unset($data['fecha_vencimiento_cert']);
         }
 
-        $auxiliar->update($data);
+        // PDFs a Drive ANTES de tocar la fila (ver subirDocsFormulario). Los que se reemplazan
+        // se borran recién después de guardar; antes se quedaban para siempre en el disco.
+        $links      = $this->subirDocsFormulario($request);
+        $anteriores = $auxiliar->only(array_keys($links));
 
-        $this->storeAuxDocs($request, $auxiliar);
+        try {
+            $auxiliar->update(array_merge($data, $links));
+        } catch (\Throwable $e) {
+            array_map([EquipoAuxiliar::class, 'olvidarDoc'], $links); // no dejarlos huérfanos en Drive
+            throw $e;
+        }
+        array_map([EquipoAuxiliar::class, 'olvidarDoc'], $anteriores);
 
         // Por defecto se vuelve al modulo UNIFICADO (/admin/equipos), que es donde se ven
         // equipos y auxiliares juntos. `__unified_redirect` (o el ?ref= del formulario)
@@ -2109,48 +2129,29 @@ class EquipoAuxiliarController extends Controller
 
         $request->validate([
             'file'     => 'required|file|mimes:pdf|max:51200',
-            'doc_type' => 'required|in:propiedad,certificado',
+            'doc_type' => 'required|in:' . implode(',', array_keys(EquipoAuxiliar::DOCS)),
             'fecha_vencimiento_cert' => 'nullable|date',
         ]);
 
         $aux  = EquipoAuxiliar::findOrFail($id);
         $this->authorizeAuxScope($aux);
         $type = $request->input('doc_type');
-        $file = $request->file('file');
-        $col  = $type === 'propiedad' ? 'LINK_DOC_PROPIEDAD' : 'LINK_CERTIFICADO';
+        $col  = EquipoAuxiliar::DOCS[$type];
 
-        // Los documentos de auxiliares se guardan en Google Drive, en la MISMA carpeta
-        // raíz que los PDF de los vehículos (getRootFolderId), y se sirven vía el proxy
-        // /storage/google/{id} — idéntico a EquipoController::uploadDoc.
+        // Mismo camino que el formulario de crear/editar: Drive + proxy /storage/google/{id}
+        // (ver EquipoAuxiliar::subirDocADrive).
         try {
             $driveService = \App\Services\GoogleDriveService::getInstance();
+            $anterior     = $aux->$col;
 
-            // 1. Capturar el file id anterior (si ya vivía en Drive) para borrarlo TRAS el éxito.
-            $oldFileId = null;
-            if ($aux->$col && str_starts_with($aux->$col, '/storage/google/')) {
-                $oldFileId = str_replace('/storage/google/', '', parse_url($aux->$col, PHP_URL_PATH));
-            }
-
-            // 2. Subir el nuevo archivo a la carpeta raíz (la de los vehículos).
-            $folderId  = $driveService->getRootFolderId();
-            $filename  = 'aux_' . $type . '_' . time() . '.pdf';
-            $driveFile = $driveService->uploadFile($folderId, $file, $filename, $file->getMimeType());
-            if (!$driveFile || !isset($driveFile->id)) {
-                throw new \Exception('La subida a Google Drive no retornó un ID válido');
-            }
-
-            // 3. Guardar el link (?v= para cache-busting, igual que equipos).
-            $aux->$col = '/storage/google/' . $driveFile->id . '?v=' . time();
+            $aux->$col = EquipoAuxiliar::subirDocADrive($driveService, $type, $request->file('file'));
             if ($type === 'certificado' && $request->filled('fecha_vencimiento_cert')) {
                 $aux->FECHA_VENCIMIENTO_CERT = $request->input('fecha_vencimiento_cert');
             }
             $aux->save();
 
-            // 4. Borrar el archivo viejo de Drive SOLO tras guardar el nuevo (safety first).
-            if ($oldFileId) {
-                \App\Jobs\DeleteGoogleDriveFile::dispatch($oldFileId);
-                \App\Services\GoogleDriveService::olvidarCopiaLocal($oldFileId);
-            }
+            // El archivo viejo se borra SOLO tras guardar el nuevo (safety first).
+            EquipoAuxiliar::olvidarDoc($anterior);
 
             return response()->json([
                 'success' => true,
@@ -2172,32 +2173,23 @@ class EquipoAuxiliarController extends Controller
     public function deleteDoc(Request $request, $id)
     {
         $request->validate([
-            'doc_type' => 'required|in:propiedad,certificado',
+            'doc_type' => 'required|in:' . implode(',', array_keys(EquipoAuxiliar::DOCS)),
         ]);
 
         $aux = EquipoAuxiliar::findOrFail($id);
         $this->authorizeAuxScope($aux);
         $type = $request->input('doc_type');
-        $col  = $type === 'propiedad' ? 'LINK_DOC_PROPIEDAD' : 'LINK_CERTIFICADO';
+        $col  = EquipoAuxiliar::DOCS[$type];
 
-        // Borrar el archivo: los nuevos viven en Google Drive (/storage/google/{id}); los
-        // antiguos podían estar en disco 'public' (/storage/...). Se soportan ambos por
-        // compatibilidad. A prueba de fallos: si el archivo ya no existe igual limpiamos BD.
-        $link = $aux->$col;
-        if ($link && str_starts_with($link, '/storage/google/')) {
-            $fileId = str_replace('/storage/google/', '', parse_url($link, PHP_URL_PATH));
-            \App\Jobs\DeleteGoogleDriveFile::dispatch($fileId);
-            \App\Services\GoogleDriveService::olvidarCopiaLocal($fileId);
-        } elseif ($link && str_starts_with($link, '/storage/')) {
-            $rel = ltrim(substr($link, strlen('/storage/')), '/');
-            \Illuminate\Support\Facades\Storage::disk('public')->delete($rel);
-        }
-
+        // Primero se limpia la BD y DESPUÉS se borra el archivo (Drive o, en los antiguos,
+        // disco 'public'). A prueba de fallos: si el archivo ya no existe igual queda limpio.
+        $anterior  = $aux->$col;
         $aux->$col = null;
         if ($type === 'certificado') {
             $aux->FECHA_VENCIMIENTO_CERT = null; // sin certificado no tiene sentido la fecha
         }
         $aux->save();
+        EquipoAuxiliar::olvidarDoc($anterior);
 
         return response()->json([
             'success' => true,
@@ -2370,32 +2362,42 @@ class EquipoAuxiliarController extends Controller
     }
 
     /**
-     * Guarda (y reemplaza) los PDFs de documentacion del auxiliar en
-     * storage/app/public/equipos_auxiliares/{id}/. Actualiza las
-     * columnas LINK_DOC_PROPIEDAD / LINK_CERTIFICADO. Idempotente:
-     * si no vienen archivos, no toca nada.
+     * PDFs del formulario de crear/editar, ya subidos a Drive: [columna => link], vacío si
+     * no vino ninguno. Se llama ANTES de escribir en la BD (mismo orden que
+     * EquipoController::store): si Drive falla no se guarda nada y ninguna fila queda
+     * esperando a Google. Drive solo se conecta si vino algún archivo: getInstance() hace
+     * red, y guardar un auxiliar sin PDFs no debe caerse por una falla de internet.
      */
-    private function storeAuxDocs(Request $request, EquipoAuxiliar $aux): void
+    private function subirDocsFormulario(Request $request): array
     {
-        $updates = [];
-
-        if ($request->hasFile('doc_propiedad') && $request->file('doc_propiedad')->isValid()) {
-            $file = $request->file('doc_propiedad');
-            $name = 'propiedad_' . time() . '.pdf';
-            $path = $file->storeAs('equipos_auxiliares/' . $aux->ID_AUXILIAR, $name, 'public');
-            $updates['LINK_DOC_PROPIEDAD'] = '/storage/' . $path;
+        $archivos = [];
+        foreach (['doc_propiedad' => 'propiedad', 'certificado' => 'certificado'] as $campo => $tipo) {
+            if ($request->hasFile($campo) && $request->file($campo)->isValid()) {
+                $archivos[$tipo] = $request->file($campo);
+            }
+        }
+        if (!$archivos) {
+            return [];
         }
 
-        if ($request->hasFile('certificado') && $request->file('certificado')->isValid()) {
-            $file = $request->file('certificado');
-            $name = 'certificado_' . time() . '.pdf';
-            $path = $file->storeAs('equipos_auxiliares/' . $aux->ID_AUXILIAR, $name, 'public');
-            $updates['LINK_CERTIFICADO'] = '/storage/' . $path;
+        try {
+            $drive = \App\Services\GoogleDriveService::getInstance();
+        } catch (\Throwable $e) {
+            Log::error('Formulario de auxiliar: sin conexión con Google Drive: ' . $e->getMessage());
+            abort(503, 'No hay conexión con Google Drive: el PDF no se pudo subir y el equipo auxiliar NO se guardó. Reintente en un momento.');
         }
 
-        if (!empty($updates)) {
-            $aux->update($updates);
+        $links = [];
+        try {
+            foreach ($archivos as $tipo => $archivo) {
+                $links[EquipoAuxiliar::DOCS[$tipo]] = EquipoAuxiliar::subirDocADrive($drive, $tipo, $archivo);
+            }
+        } catch (\Throwable $e) {
+            array_map([EquipoAuxiliar::class, 'olvidarDoc'], $links); // el que sí subió quedaría huérfano
+            Log::error('Formulario de auxiliar: fallo subiendo PDF a Google Drive: ' . $e->getMessage());
+            abort(503, 'No se pudo subir el PDF a Google Drive, así que el equipo auxiliar NO se guardó. Reintente en un momento.');
         }
+        return $links;
     }
 
     // ═══════════════════════════════════════════════════════════

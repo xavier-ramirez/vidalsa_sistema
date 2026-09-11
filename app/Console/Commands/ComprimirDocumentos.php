@@ -8,6 +8,7 @@ use App\Models\CompresionPdf;
 use App\Models\DocumentoAnexo;
 use App\Services\CompresorPdf;
 use App\Services\GoogleDriveService;
+use App\Support\EnlacesDocumentos;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -19,12 +20,13 @@ use Illuminate\Support\Facades\Storage;
  * equipos (sus seis documentos y las correcciones anexas) y en auxiliares (propiedad y
  * certificado). Lo corre el programador de tareas de madrugada (routes/console.php).
  *
- *   php artisan docs:comprimir                 5 documentos, los mas pesados que falten
+ *   php artisan docs:comprimir                 5 archivos, los mas pesados que falten
  *   php artisan docs:comprimir --simular       lo mismo pero sin subir ni cambiar nada
  *   php artisan docs:comprimir --solo=<id>     solo ese archivo de Drive (pruebas)
  *
- * Por cada documento, en este orden, y si CUALQUIER paso falla el documento se deja como
- * estaba (queda anotado en compresion_pdf_registro y se sigue con el siguiente):
+ * Por cada ARCHIVO de Drive (un mismo PDF puede estar enlazado en varias filas), en este
+ * orden, y si CUALQUIER paso falla se deja como estaba (queda anotado en
+ * compresion_pdf_registro y se sigue con el siguiente):
  *   1. Bajarlo de Drive y comprobar que llego completo.
  *   2. Saltarlo si tiene firma digital (comprimir la invalidaria).
  *   3. Comprimirlo con Ghostscript y comprobar que conserva las paginas, que no aparece
@@ -33,20 +35,20 @@ use Illuminate\Support\Facades\Storage;
  *   4. Saltarlo si no ahorra al menos AHORRO_MIN.
  *   5. Subirlo como lo sube la app (carpeta raiz, mismo nombre) y volver a bajarlo para
  *      comprobarlo byte a byte.
- *   6. Cambiar el enlace en la BD SOLO si sigue apuntando al archivo viejo: si alguien lo
- *      reemplazo mientras tanto, no se pisa su documento (y el comprimido se retira).
- *      Si es un documento principal de un equipo, sus correcciones anexas pasan a
- *      apuntarle (PRINCIPAL_DRIVE_ID): sin eso se verian como "de un documento anterior".
- *   7. Mandar el viejo a la PAPELERA de Drive, nunca borrarlo del todo.
+ *   6. Cambiar el enlace en TODAS las filas que siguen apuntando al viejo, con sus
+ *      correcciones anexas (EnlacesDocumentos::cambiar). Una fila que se reemplazo
+ *      mientras tanto no se pisa; si no queda ninguna, el comprimido se retira.
+ *   7. Mandar el viejo a la PAPELERA de Drive, nunca borrarlo del todo, y solo si ya
+ *      ninguna fila lo usa.
  *
  * Como el enlace cambia en la misma base que usa la app, no hay ningun momento en que un
  * documento apunte a un archivo que ya no existe. Pero SOLO si esta es la base del
- * servidor: ver activadaAqui().
+ * servidor: ver EnlacesDocumentos::esBaseDelServidor().
  */
 class ComprimirDocumentos extends Command
 {
     protected $signature = 'docs:comprimir
-                            {--lote=5 : Cuantos documentos procesar en esta pasada}
+                            {--lote=5 : Cuantos archivos procesar en esta pasada}
                             {--min-kb=1000 : Solo los PDF que pesen mas que esto}
                             {--simular : Baja, comprime y valida, pero no sube ni cambia nada}
                             {--solo= : Procesar solo este ID de Drive}';
@@ -68,52 +70,9 @@ class ComprimirDocumentos extends Command
     /** Descanso minimo entre el fin de un lote y el comienzo del siguiente. */
     private const PAUSA_ENTRE_LOTES_S = 60;
 
-    /**
-     * Donde vive cada enlace y con que nombre lo sube la app:
-     * [tabla, clave, columna del enlace, prefijo del nombre, nombre para el registro].
-     * Los nombres son los de EquipoController::uploadDoc, EquipoAuxiliarController::uploadDoc
-     * y EquipoController::anexarDoc ("correccion_<tipo>_": el prefijo lleva el tipo de la fila).
-     */
-    private const DOCUMENTOS = [
-        ['documentacion', 'ID_EQUIPO', 'LINK_DOC_PROPIEDAD',   'doc_propiedad_',   'Titulo de propiedad'],
-        ['documentacion', 'ID_EQUIPO', 'LINK_POLIZA_SEGURO',   'poliza_seguro_',   'Poliza'],
-        ['documentacion', 'ID_EQUIPO', 'LINK_ROTC',            'rotc_',            'ROTC'],
-        ['documentacion', 'ID_EQUIPO', 'LINK_RACDA',           'racda_',           'RACDA'],
-        ['documentacion', 'ID_EQUIPO', 'LINK_DOC_ADICIONAL',   'doc_adicional_',   'Certificado'],
-        ['documentacion', 'ID_EQUIPO', 'LINK_DOC_ADICIONAL_2', 'doc_adicional_2_', 'Compraventa'],
-        ['equipos_auxiliares', 'ID_AUXILIAR', 'LINK_DOC_PROPIEDAD', 'aux_propiedad_',   'Doc. propiedad (auxiliar)'],
-        ['equipos_auxiliares', 'ID_AUXILIAR', 'LINK_CERTIFICADO',   'aux_certificado_', 'Certificado (auxiliar)'],
-        ['documento_anexos', 'ID_ANEXO', 'LINK', 'correccion_', 'Correccion anexa'],
-    ];
-
     /** Claves de cache: "esta noche ya no queda nada" y "cuando termino el ultimo lote". */
     private const NADA_ESTA_NOCHE = 'docs_comprimir_nada';
     private const FIN_ULTIMO_LOTE = 'docs_comprimir_fin';
-
-    /**
-     * ¿Se pueden cambiar documentos en ESTE equipo? El PC de desarrollo usa el MISMO Google
-     * Drive que el servidor pero OTRA base: si comprimiera aqui, cambiaria los enlaces solo en
-     * su base y mandaria a la papelera archivos que el servidor todavia usa. Por eso se mira
-     * la BASE, que es justo lo que no comparten:
-     *   · con la base en este mismo equipo (127.0.0.1 / localhost) -> NO;
-     *   · con la base en otra maquina (el servicio MySQL del servidor) -> SI.
-     * COMPRESION_PDF_NOCTURNA=true|false fuerza la respuesta si alguna vez hiciera falta.
-     *
-     * Devuelve [si/no, motivo legible] (el motivo lo muestra la pantalla del registro).
-     */
-    public static function activadaAqui(): array
-    {
-        $forzado = config('services.compresion_pdf.nocturna');
-        if ($forzado !== null) {
-            return [(bool) $forzado, $forzado ? 'activada a mano (COMPRESION_PDF_NOCTURNA)' : 'apagada a mano (COMPRESION_PDF_NOCTURNA)'];
-        }
-        $conexion = config('database.default');
-        $host = strtolower(trim((string) config("database.connections.$conexion.host")));
-        if (in_array($host, ['127.0.0.1', 'localhost', '::1', ''], true)) {
-            return [false, 'la base de datos esta en este mismo equipo (PC de desarrollo)'];
-        }
-        return [true, 'la base de datos es la del servidor'];
-    }
 
     public function handle(CompresorPdf $compresor): int
     {
@@ -121,8 +80,8 @@ class ComprimirDocumentos extends Command
         $solo    = $this->option('solo');
 
         // --simular no cambia nada; --solo es para probar con un archivo de prueba.
-        [$activa, $motivo] = self::activadaAqui();
-        if (!$simular && !$solo && !$activa) {
+        [$esServidor, $motivo] = EnlacesDocumentos::esBaseDelServidor();
+        if (!$simular && !$solo && !$esServidor) {
             $this->error("No se cambian documentos en este equipo: $motivo. Usa --simular.");
             return self::FAILURE;
         }
@@ -171,9 +130,14 @@ class ComprimirDocumentos extends Command
     }
 
     /**
-     * Documentos con enlace a Drive que pasan del umbral y que el registro no tiene ya por
+     * ARCHIVOS de Drive (no filas) que pasan del umbral y que el registro no tiene ya por
      * procesados, del mas pesado al mas liviano. El tamaño se pide a Drive de UNA vez (la
      * lista de todos los PDF), no archivo por archivo.
+     *
+     * Por archivo y no por fila: un mismo PDF puede estar enlazado en varias filas (hay 13
+     * auxiliares con el mismo documento de propiedad). Procesandolo por fila, el primero lo
+     * comprimia y lo mandaba a la papelera mientras los demas seguian apuntandole, y cada uno
+     * subia su propia copia comprimida. Asi se comprime una vez y se cambian todas.
      */
     private function candidatos(GoogleDriveService $drive, int $minBytes, ?string $solo): array
     {
@@ -198,21 +162,30 @@ class ComprimirDocumentos extends Command
             ->groupBy('DRIVE_ID_VIEJO')->selectRaw('DRIVE_ID_VIEJO, COUNT(*) n')->pluck('n', 'DRIVE_ID_VIEJO');
 
         $lista = [];
-        foreach (self::DOCUMENTOS as [$tabla, $pk, $col, $prefijo, $nombre]) {
+        foreach (EnlacesDocumentos::DOCUMENTOS as [$tabla, $col, $prefijo, $nombre]) {
             foreach ($this->filasCon($tabla, $col) as $f) {
                 $id = DocumentoAnexo::driveIdDeLink($f->link);
                 if (!$id || !isset($tamanos[$id])) continue;          // no esta en Drive (o en la papelera)
                 if (isset($hechos[$id]) || ($errores[$id] ?? 0) >= self::MAX_ERRORES) continue;
                 if ($solo ? $id !== $solo : $tamanos[$id] <= $minBytes) continue;
-                $lista[] = [
-                    'tabla' => $tabla, 'pk' => $pk, 'col' => $col, 'id' => $id,
-                    'fila' => $f->fila, 'serial' => $f->serial, 'bytes' => $tamanos[$id],
+                // La PRIMERA fila que lo usa da el nombre del archivo nuevo y la etiqueta; las
+                // demas solo suman seriales (el enlace se cambia en todas: EnlacesDocumentos::cambiar).
+                $lista[$id] ??= [
+                    'id' => $id, 'bytes' => $tamanos[$id],
+                    'tabla' => $tabla, 'col' => $col, 'fila' => $f->fila,
                     // Las correcciones llevan su tipo en el nombre (correccion_poliza_...).
                     'prefijo' => $tabla === 'documento_anexos' ? $prefijo . $f->tipo . '_' : $prefijo,
                     'nombre'  => $tabla === 'documento_anexos' ? "$nombre ({$f->tipo})" : $nombre,
+                    'seriales' => [],
                 ];
+                $lista[$id]['seriales'][] = $f->serial;
             }
         }
+        foreach ($lista as &$g) {
+            $n = count($g['seriales']);
+            $g['serial'] = mb_substr($g['seriales'][0] . ($n > 1 ? ' (+' . ($n - 1) . ' mas)' : ''), 0, 80);
+        }
+        unset($g);
         usort($lista, fn ($a, $b) => $b['bytes'] <=> $a['bytes']);
         return $lista;
     }
@@ -299,10 +272,10 @@ class ComprimirDocumentos extends Command
                 throw new \RuntimeException('lo que quedo en Drive no coincide con lo subido');
             }
 
-            // 6. Cambiar el enlace SOLO si sigue siendo el viejo (y las correcciones que
-            //    apuntan a este principal, en la misma transaccion).
-            $cambiado = DB::transaction(fn () => self::cambiarEnlace($d, $idNuevo));
-            if (!$cambiado) {
+            // 6. Cambiar el enlace en TODAS las filas que siguen usando el viejo, en una sola
+            //    transaccion.
+            $cambiadas = DB::transaction(fn () => EnlacesDocumentos::cambiar($d['id'], $idNuevo));
+            if ($cambiadas === 0) {
                 $this->aPapelera($drive, $idNuevo);   // el nuestro sobra: no se usa
                 $idNuevo = null;
                 $anotar(CompresionPdf::SALTADO, 'el documento se reemplazo mientras se comprimia; no se toco');
@@ -313,20 +286,28 @@ class ComprimirDocumentos extends Command
             // deshace (el catch de abajo no debe mandar a la papelera un archivo en uso).
             // Lo que falle se anota como detalle de un documento comprimido.
             $pendiente = [];
+            if ($cambiadas > 1) {
+                $pendiente[] = "lo usaban $cambiadas filas y se cambiaron todas";
+            }
             try {
                 DashboardController::bumpDataVersion();
                 HistorialDocumentosController::bumpDataVersion();
             } catch (\Throwable $e) {
                 $pendiente[] = 'no se refrescaron las caches (se refrescan solas)';
             }
-            // 7. El viejo, a la papelera (la copia local del proxy se olvida)
+            // 7. El viejo, a la papelera (la copia local del proxy se olvida). Solo si ya
+            //    nadie lo usa: una fila fuera de las conocidas no debe quedarse sin archivo.
             try {
-                GoogleDriveService::olvidarCopiaLocal($d['id']);
-                $this->aPapelera($drive, $d['id']);
+                if (EnlacesDocumentos::sigueEnUso($d['id'])) {
+                    $pendiente[] = 'el viejo sigue enlazado en otra fila: NO se mando a la papelera';
+                } else {
+                    GoogleDriveService::olvidarCopiaLocal($d['id']);
+                    $this->aPapelera($drive, $d['id']);
+                }
             } catch (\Throwable $e) {
                 $pendiente[] = 'el viejo no se pudo mandar a la papelera: ' . mb_substr($e->getMessage(), 0, 120);
             }
-            $anotar(CompresionPdf::COMPRIMIDO, $pendiente ? 'Comprimido, pero ' . implode('; ', $pendiente) : null, $bytesNuevo);
+            $anotar(CompresionPdf::COMPRIMIDO, $pendiente ? 'Comprimido; ' . implode('; ', $pendiente) : null, $bytesNuevo);
         } catch (\Throwable $e) {
             // Si ya se habia subido el comprimido pero la BD no se cambio, se retira: sobra.
             if ($idNuevo) {
@@ -339,38 +320,6 @@ class ComprimirDocumentos extends Command
             @unlink($original);
             @unlink($comprimido);
         }
-    }
-
-    /**
-     * Pone el enlace nuevo si la fila SIGUE apuntando al archivo viejo. Devuelve si cambio.
-     * Va dentro de una transaccion (procesar): o cambia todo o nada. Solo toca la base
-     * (publico y estatico para poder probarlo sin Drive).
-     *
-     * @param array $d  tabla, pk, col, fila e id (el ID de Drive viejo), como en candidatos()
-     */
-    public static function cambiarEnlace(array $d, string $idNuevo): bool
-    {
-        $enlace = '/storage/google/' . $idNuevo . '?v=' . time();
-        $valores = [$d['col'] => $enlace];
-        if ($d['tabla'] === 'documento_anexos') {
-            $valores['DRIVE_FILE_ID'] = $idNuevo;     // la correccion guarda el ID tambien aparte
-        } else {
-            $valores['updated_at'] = now();           // documento_anexos no tiene updated_at
-        }
-
-        $cambiadas = DB::table($d['tabla'])->where($d['pk'], $d['fila'])
-            ->whereRaw("SUBSTRING_INDEX(SUBSTRING_INDEX({$d['col']}, '/storage/google/', -1), '?', 1) = ?", [$d['id']])
-            ->update($valores);
-        if ($cambiadas !== 1) return false;
-
-        // Un documento principal de equipo: sus correcciones anexas dicen a que principal
-        // corrigen por su ID de Drive, y la app compara ese ID con el actual para saber si
-        // son del documento vigente. Con el ID nuevo, siguen siendolo.
-        if ($d['tabla'] === 'documentacion') {
-            DB::table('documento_anexos')->where('ID_EQUIPO', $d['fila'])
-                ->where('PRINCIPAL_DRIVE_ID', $d['id'])->update(['PRINCIPAL_DRIVE_ID' => $idNuevo]);
-        }
-        return true;
     }
 
     private function aPapelera(GoogleDriveService $drive, string $id): void

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Http\Controllers\EquipoController;
 use App\Models\DocumentoAnexo;
 use App\Models\Documentacion;
 use App\Models\Equipo;
@@ -9,6 +10,7 @@ use App\Models\Usuario;
 use App\Services\GoogleDriveService;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\Storage;
 use ReflectionClass;
 use Tests\MySqlTestCase;
 
@@ -34,9 +36,16 @@ class CorreccionesAnexasTest extends MySqlTestCase
     {
         parent::setUp();
 
-        $this->drive = new class {
+        // subirPdf deja la copia local de cada PDF subido: que sea en un disco de mentira,
+        // no en storage/app/private/google_cache de la maquina.
+        Storage::fake('local');
+
+        // Hereda del servicio real para tener sus metodos de alto nivel (subirPdf, que usa
+        // uploadDoc) sobre este uploadFile falso: nada sale a la red.
+        $this->drive = new class extends GoogleDriveService {
             public array $subidos = [];
             public array $borrados = [];
+            public function __construct() {}
             public function getRootFolderId() { return 'CARPETA_DE_PRUEBA'; }
             public function uploadFile($carpeta, $archivo, $nombre, $mime) {
                 $this->subidos[] = $nombre;
@@ -129,16 +138,18 @@ class CorreccionesAnexasTest extends MySqlTestCase
     public function test_admite_varias_correcciones_y_las_numera_para_distinguirlas(): void
     {
         $this->subirPrincipal();
-        $primera = $this->anexar();
-        $segunda = $this->anexar();
+        $this->anexar();
+        $this->anexar();
 
-        $this->assertSame('Corrección 1', $primera['etiqueta']);
-        $this->assertSame('Corrección 2', $segunda['etiqueta']);
-
+        // El rotulo lo numera anexosDoc() por POSICION, y solo si hay mas de una: el que
+        // se guardo al subir quedaba desfasado al borrar una (ver anexoAArray).
         $lista = $this->actingAs($this->user)
             ->getJson("/admin/equipos/{$this->equipo->ID_EQUIPO}/anexos")
             ->assertOk()->json('anexos.poliza');
-        $this->assertCount(2, $lista);
+        $this->assertSame(
+            [EquipoController::ROTULO_ANEXO . ' 1', EquipoController::ROTULO_ANEXO . ' 2'],
+            array_column($lista, 'etiqueta')
+        );
     }
 
     public function test_reemplazar_el_principal_conserva_las_correcciones_y_las_marca(): void
@@ -155,7 +166,8 @@ class CorreccionesAnexasTest extends MySqlTestCase
 
         $this->assertCount(1, $lista, 'La corrección se perdió al reemplazar el principal.');
         $this->assertFalse($lista[0]['vigente'], 'Debería quedar marcada como del documento anterior.');
-        Bus::assertDispatched(\App\Jobs\DeleteGoogleDriveFile::class);
+        // Después de responder: el usuario no espera el viaje a Google (borrarTrasResponder).
+        Bus::assertDispatchedAfterResponse(\App\Jobs\DeleteGoogleDriveFile::class);
     }
 
     public function test_sin_principal_ninguna_correccion_figura_como_vigente(): void
@@ -174,7 +186,7 @@ class CorreccionesAnexasTest extends MySqlTestCase
         $this->assertFalse($lista[0]['vigente']);
     }
 
-    public function test_los_seis_tipos_de_documento_admiten_correccion(): void
+    public function test_solo_los_tipos_con_anexos_admiten_correccion_y_los_demas_no_suben_nada(): void
     {
         $columnas = [
             'propiedad'   => 'LINK_DOC_PROPIEDAD',
@@ -190,13 +202,23 @@ class CorreccionesAnexasTest extends MySqlTestCase
             Documentacion::where('ID_EQUIPO', $this->equipo->ID_EQUIPO)
                 ->update([$col => '/storage/google/PPAL_' . $tipo . '?v=1']);
 
-            $this->actingAs($this->user)->post(
+            $subidosAntes = count($this->drive->subidos);
+            $resp = $this->actingAs($this->user)->post(
                 "/admin/equipos/{$this->equipo->ID_EQUIPO}/anexar-doc",
                 ['doc_type' => $tipo, 'file' => $this->pdf()]
-            )->assertOk()->assertJson(['success' => true]);
+            );
+
+            if (in_array($tipo, EquipoController::TIPOS_CON_ANEXOS, true)) {
+                $resp->assertOk()->assertJson(['success' => true]);
+            } else {
+                // Se rechaza ANTES de subir: antes el PDF ya estaba en Drive y quedaba huerfano.
+                $resp->assertStatus(422);
+                $this->assertCount($subidosAntes, $this->drive->subidos, "Se subio a Drive un {$tipo} que luego se rechazo.");
+            }
         }
 
-        $this->assertSame(6, DocumentoAnexo::where('ID_EQUIPO', $this->equipo->ID_EQUIPO)->count());
+        $this->assertSame(count(EquipoController::TIPOS_CON_ANEXOS),
+            DocumentoAnexo::where('ID_EQUIPO', $this->equipo->ID_EQUIPO)->count());
     }
 
     public function test_un_tipo_de_documento_inventado_se_rechaza(): void

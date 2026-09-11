@@ -282,7 +282,7 @@
      Estilo e iconografia identicos a /admin/equipos/create: input de meta
      a la izquierda + boton de 30x30 a la derecha (azul con description si
      ya hay PDF, dashed con cloud_upload si no).
-     Almacenamiento local via storage/app/public/equipos_auxiliares/{id}/
+     Los PDF van a Google Drive, como los de los equipos (EquipoAuxiliar::subirDocADrive).
      ═══════════════════════════════════════════════════════════ --}}
 @php
     $hasProp = !empty($auxiliar->LINK_DOC_PROPIEDAD);

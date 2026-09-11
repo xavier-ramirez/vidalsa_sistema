@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -26,7 +25,9 @@ class GoogleDriveController extends Controller
 
             // Cache-Control 1814400s = 21 dias (3 semanas) — pediste 1-3
             // semanas, escogemos el limite alto. must-revalidate permite a
-            // un Ctrl+F5 forzar refetch contra el ETag.
+            // un Ctrl+F5 forzar refetch contra el ETag. 'private' y no 'public': son
+            // documentos que exigen sesion; los guarda el navegador de quien los abrio, pero
+            // ningun proxy o CDN intermedio puede quedarse una copia y darsela a otro.
             $maxAge = 1814400;
 
             // 1. MINIATURA: de su copia local o, la primera vez, de Drive.
@@ -37,9 +38,8 @@ class GoogleDriveController extends Controller
                     $etag = md5($fileId . '-' . $sz . '-' . $version);
                     return response($bytes, 200, [
                         'Content-Type'  => getimagesizefromstring($bytes)['mime'],
-                        'Cache-Control' => 'public, max-age=' . $maxAge . ', must-revalidate',
+                        'Cache-Control' => 'private, max-age=' . $maxAge . ', must-revalidate',
                         'ETag'          => '"' . $etag . '"',
-                        'Pragma'        => 'public',
                         'Expires'       => gmdate('D, d M Y H:i:s \G\M\T', time() + $maxAge),
                     ]);
                 }
@@ -66,9 +66,8 @@ class GoogleDriveController extends Controller
                 $etag = md5($fileId . '-' . $version);
                 return response()->file($fullPath, [
                     'Content-Type'  => $mime,
-                    'Cache-Control' => 'public, max-age=' . $maxAge . ', must-revalidate',
+                    'Cache-Control' => 'private, max-age=' . $maxAge . ', must-revalidate',
                     'ETag'          => '"' . $etag . '"',
-                    'Pragma'        => 'public',
                     'Expires'       => gmdate('D, d M Y H:i:s \G\M\T', time() + $maxAge),
                 ]);
             }
@@ -111,14 +110,16 @@ class GoogleDriveController extends Controller
             // buena durante 21 dias.
             $stream = $driveService->getStreamById($fileId);
             $rutaFinal = Storage::disk('local')->path($cachePath);
-            $rutaTmp   = $rutaFinal . '.parcial';
+            // Un temporal POR PETICION: con uno compartido, dos personas abriendo a la vez el
+            // mismo PDF nuevo se truncaban el archivo la una a la otra, y si una cerraba a
+            // mitad la otra ascendia una copia con un hueco de ceros, rota durante 21 dias.
+            $rutaTmp   = $rutaFinal . '.' . bin2hex(random_bytes(4)) . '.parcial';
             @mkdir(dirname($rutaFinal), 0775, true);
 
             $cabeceras = [
                 'Content-Type'  => $metadata['mime'],
-                'Cache-Control' => 'public, max-age=' . $maxAge . ', must-revalidate',
+                'Cache-Control' => 'private, max-age=' . $maxAge . ', must-revalidate',
                 'ETag'          => '"' . $etag . '"',
-                'Pragma'        => 'public',
                 'Expires'       => gmdate('D, d M Y H:i:s \G\M\T', time() + $maxAge),
             ];
             // Content-Length solo si Drive lo dio: con el, el navegador sabe cuanto falta y
@@ -166,8 +167,11 @@ class GoogleDriveController extends Controller
                         // dijo que tenia. Antes bastaba con "llego algo": un corte de Drive a
                         // mitad dejaba un PDF truncado guardado como bueno, roto para todos.
                         // Sin tamaño conocido se acepta lo recibido, como antes.
+                        // Y no si el documento se borro o reemplazo MIENTRAS bajaba: su copia se
+                        // olvido al hacerlo, y guardarla ahora la resucitaria (fueOlvidado).
                         $completo = $bytes > 0 && !connection_aborted()
-                            && ($esperado === 0 || $bytes === $esperado);
+                            && ($esperado === 0 || $bytes === $esperado)
+                            && !\App\Services\GoogleDriveService::fueOlvidado($fileId);
                         if ($completo) {
                             if (is_file($rutaFinal)) @unlink($rutaFinal);   // rename no pisa en Windows
                             @rename($rutaTmp, $rutaFinal);

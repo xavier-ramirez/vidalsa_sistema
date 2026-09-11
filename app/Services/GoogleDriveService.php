@@ -177,6 +177,47 @@ class GoogleDriveService
         }
     }
 
+    /**
+     * Sube un DOCUMENTO PDF (equipos, auxiliares, correcciones) a la carpeta raiz y devuelve
+     * el enlace que se guarda en la BD: /storage/google/{id}?v=... (el ?v= rompe la cache
+     * del navegador al reemplazar). Lanza si Drive no devuelve un id.
+     *
+     * Deja ademas la COPIA LOCAL: el documento recien subido se abre en el visor en el acto
+     * y, sin ella, el proxy lo volvia a BAJAR ENTERO de Drive —el mismo archivo que se
+     * acababa de subir; 6,6 s uno de 1,2 MB, medido— con la barra en "Abriendo vista
+     * previa...". Va aqui y no en uploadFile para no llenar el disco con lo que nadie abre
+     * al momento (fotos, pdf:subir-masivo). Si el disco falla, la subida vale igual.
+     */
+    public function subirPdf($archivo, string $nombre): string
+    {
+        $driveFile = $this->uploadFile($this->getRootFolderId(), $archivo, $nombre, 'application/pdf');
+        if (!$driveFile || !isset($driveFile->id)) {
+            throw new \RuntimeException('La subida a Google Drive no retornó un ID válido');
+        }
+
+        try {
+            Storage::disk('local')->put(self::rutaCopiaLocal($driveFile->id), file_get_contents($archivo->getRealPath()));
+        } catch (\Throwable $e) {
+            Log::warning('No se guardo la copia local del PDF recien subido ' . $driveFile->id . ': ' . $e->getMessage());
+        }
+
+        return '/storage/google/' . $driveFile->id . '?v=' . time();
+    }
+
+    /**
+     * Borra un archivo de Drive que ya no se usa (documento reemplazado o eliminado)
+     * DESPUES de enviar la respuesta. Con QUEUE_CONNECTION=sync, DeleteGoogleDriveFile
+     * ::dispatch() corria en linea: el usuario esperaba un viaje mas a Google por algo que
+     * no ve. La copia local se olvida ya, para que nadie la abra en ese intervalo.
+     * Con un documento REEMPLAZADO, llamarlo solo con la fila nueva ya guardada: si algo
+     * falla antes, el viejo sigue vivo.
+     */
+    public static function borrarTrasResponder(string $fileId): void
+    {
+        \App\Jobs\DeleteGoogleDriveFile::dispatchAfterResponse($fileId);
+        self::olvidarCopiaLocal($fileId);
+    }
+
     public function deleteFile($fileId)
     {
         try {
@@ -238,9 +279,14 @@ class GoogleDriveService
      * Las miniaturas cuentan: desde que el visor enseña la primera pagina de cada PDF, un
      * documento borrado dejaba su pagina 1 servible desde el disco a quien tuviera el
      * enlace. Antes solo se borraba la copia del PDF.
+     *
+     * Y queda una marca (ver fueOlvidado): una descarga del proxy que ya estaba en curso
+     * —un PDF grande por una conexion lenta— terminaba DESPUES y volvia a guardar la copia
+     * de un documento ya borrado, que nadie limpiaba despues.
      */
     public static function olvidarCopiaLocal(string $fileId): void
     {
+        Cache::put('gdrive_olvidado_' . $fileId, true, now()->addHours(2));
         $disco = Storage::disk('local');
         $disco->delete(self::rutaCopiaLocal($fileId));
         foreach (glob($disco->path(self::CARPETA_COPIAS . 'thumb_*_' . $fileId)) ?: [] as $miniatura) {
@@ -248,6 +294,15 @@ class GoogleDriveService
         }
         Cache::forget('gdrive_meta_' . $fileId);
         Cache::forget('gdrive_miniatura_' . $fileId);
+    }
+
+    /**
+     * ¿Se olvido hace poco (borrado o reemplazado)? Entonces no se vuelve a guardar su copia
+     * ni sus miniaturas. Dos horas cubren de sobra la descarga mas lenta.
+     */
+    public static function fueOlvidado(string $fileId): bool
+    {
+        return (bool) Cache::get('gdrive_olvidado_' . $fileId);
     }
 
     /**
@@ -344,7 +399,9 @@ class GoogleDriveService
         if (!self::esImagen($bytes)) {
             return [null, $mime];
         }
-        $disco->put($ruta, $bytes);
+        if (!self::fueOlvidado($fileId)) {   // no resucitar la miniatura de un documento borrado
+            $disco->put($ruta, $bytes);
+        }
         return [$bytes, $mime];
     }
 

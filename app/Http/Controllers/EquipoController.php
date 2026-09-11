@@ -2241,32 +2241,28 @@ class EquipoController extends Controller
                 }, ARRAY_FILTER_USE_BOTH);
 
                 $docTypes = ['doc_propiedad' => 'LINK_DOC_PROPIEDAD', 'poliza_seguro' => 'LINK_POLIZA_SEGURO', 'doc_rotc' => 'LINK_ROTC', 'doc_racda' => 'LINK_RACDA'];
+                $subidos = [];   // ids nuevos en Drive: si falla otra subida, no quedan huerfanos
                 foreach ($docTypes as $fileKey => $dbCol) {
                     if ($request->hasFile($fileKey)) {
-                        $file = $request->file($fileKey);
-                        // Se resuelve UNA vez aqui: si se pidiera dentro del try de abajo, el
-                        // catch se tragaria el abort(503) de "sin conexion" y lo registraria
-                        // como un fallo de borrado, ademas de reintentar la conexion despues.
+                        // Se resuelve FUERA del try de abajo: si no, el catch se tragaria el
+                        // abort(503) de "sin conexion" que lanza $drive().
                         $svc = $drive();
-
-                        // Check for old file and delete it (Correctly using DB relation)
-                        if ($equipo->documentacion && $equipo->documentacion->$dbCol && str_starts_with($equipo->documentacion->$dbCol, '/storage/google/')) {
-                            // Extract file ID (remove query params for cache busting)
-                            $oldUrl = $equipo->documentacion->$dbCol;
-                            $oldFileId = str_replace('/storage/google/', '', parse_url($oldUrl, PHP_URL_PATH));
-                            try {
-                                $svc->deleteFile($oldFileId);
-                                // Invalidate local cache
-                                \App\Services\GoogleDriveService::olvidarCopiaLocal($oldFileId);
-                            } catch (\Exception $e) {
-                                Log::error("Failed to delete old Drive file: $oldFileId");
-                            }
+                        try {
+                            $docData[$dbCol] = $svc->subirPdf($request->file($fileKey), $fileKey . '_' . time() . '.pdf');
+                            $subidos[] = \App\Models\DocumentoAnexo::driveIdDeLink($docData[$dbCol]);
+                        } catch (\Throwable $e) {
+                            array_map([\App\Services\GoogleDriveService::class, 'borrarTrasResponder'], $subidos);
+                            Log::error("Edicion de equipo: fallo subiendo {$fileKey} a Google Drive: " . $e->getMessage());
+                            abort(503, "No se pudo subir «{$fileKey}» a Google Drive, así que los cambios NO se guardaron. Reintente en un momento.");
                         }
 
-                        $driveFile = $svc->uploadFile($svc->getRootFolderId(), $file, $fileKey . '_' . time() . '.pdf', 'application/pdf');
-                        if ($driveFile && isset($driveFile->id)) {
-                            $timestamp = time();
-                            $docData[$dbCol] = '/storage/google/' . $driveFile->id . '?v=' . $timestamp;
+                        // El viejo se borra SOLO si la edicion llega a guardarse (afterCommit: si
+                        // la transaccion se revierte, no corre) y despues de responder, igual que
+                        // en auxiliares. Antes se borraba AQUI, ANTES de subir el nuevo: si la
+                        // subida fallaba, el documento se perdia y la BD apuntaba a un archivo
+                        // que ya no existia.
+                        if ($viejo = \App\Models\DocumentoAnexo::driveIdDeLink(optional($equipo->documentacion)->$dbCol)) {
+                            DB::afterCommit(fn () => \App\Services\GoogleDriveService::borrarTrasResponder($viejo));
                         }
                     }
                 }
@@ -2694,25 +2690,11 @@ class EquipoController extends Controller
         try {
             $driveService = \App\Services\GoogleDriveService::getInstance();
 
-            // 1. CAPTURE OLD FILE ID (Don't delete yet - Safety First)
-            $oldFileIdToDelete = null;
-            if ($equipo->documentacion && $equipo->documentacion->$dbColumn && str_starts_with($equipo->documentacion->$dbColumn, '/storage/google/')) {
-                // Extract file ID (remove query params for cache busting)
-                $oldUrl = $equipo->documentacion->$dbColumn;
-                $oldFileIdToDelete = str_replace('/storage/google/', '', parse_url($oldUrl, PHP_URL_PATH));
-            }
+            // 1. El enlace viejo se recuerda, pero su archivo NO se borra todavia (safety first).
+            $oldUrl = optional($equipo->documentacion)->$dbColumn;
 
-            // 2. UPLOAD NEW FILE
-            $folderId = $driveService->getRootFolderId();
-            $filename = $filenamePrefix . time() . '.pdf';
-            $driveFile = $driveService->uploadFile($folderId, $file, $filename, $file->getMimeType());
-
-            if (!$driveFile || !isset($driveFile->id))
-                throw new \Exception("La subida a Google Drive no retornó un ID válido");
-
-            // Cache Busting: Add version timestamp
-            $timestamp = time();
-            $fullUrl = '/storage/google/' . $driveFile->id . '?v=' . $timestamp;
+            // 2. Subir el nuevo (mismo camino que los PDF de auxiliares).
+            $fullUrl = $driveService->subirPdf($file, $filenamePrefix . time() . '.pdf');
 
             // 3. UPDATE DATABASE (Including user tracking)
             $updateData = [$dbColumn => $fullUrl];
@@ -2764,10 +2746,9 @@ class EquipoController extends Controller
                 Log::info('UploadDoc - Created new documentacion');
             }
 
-            // 4. DELETE OLD FILE (Only after success)
-            if ($oldFileIdToDelete) {
-                \App\Jobs\DeleteGoogleDriveFile::dispatch($oldFileIdToDelete);
-                \App\Services\GoogleDriveService::olvidarCopiaLocal($oldFileIdToDelete);
+            // 4. Borrar el viejo, ya guardado el nuevo, y despues de responder.
+            if ($oldFileId = \App\Models\DocumentoAnexo::driveIdDeLink($oldUrl)) {
+                \App\Services\GoogleDriveService::borrarTrasResponder($oldFileId);
             }
 
             // El dashboard de /menu se invalida solo (bumpDataVersion en los
@@ -2869,23 +2850,9 @@ class EquipoController extends Controller
             ], 422);
         }
 
-        try {
-            // getInstance() abre conexion con Drive: si no hay internet revienta
-            // aqui, ANTES de escribir en la base. Nada que deshacer.
-            $driveService = \App\Services\GoogleDriveService::getInstance();
-
-            $folderId  = $driveService->getRootFolderId();
-            $filename  = 'correccion_' . $type . '_' . time() . '.pdf';
-            $driveFile = $driveService->uploadFile($folderId, $file, $filename, $file->getMimeType());
-
-            if (!$driveFile || !isset($driveFile->id)) {
-                throw new \Exception('La subida a Google Drive no retornó un ID válido');
-            }
-
-            $link = '/storage/google/' . $driveFile->id . '?v=' . time();
-
-            // El front ya no ofrece anexar fuera de estos tipos; el servidor lo confirma, que
-        // es quien manda (misma lista, self::TIPOS_CON_ANEXOS).
+        // El front ya no ofrece anexar fuera de estos tipos; el servidor lo confirma, que
+        // es quien manda (misma lista, self::TIPOS_CON_ANEXOS). ANTES de subir: se miraba
+        // despues, con el PDF ya en Drive, y el rechazado se quedaba alli huerfano.
         if (!in_array($type, self::TIPOS_CON_ANEXOS, true)) {
             return response()->json([
                 'success' => false,
@@ -2893,11 +2860,20 @@ class EquipoController extends Controller
             ], 422);
         }
 
-        $anexo = \App\Models\DocumentoAnexo::create([
+        try {
+            // getInstance() abre conexion con Drive: si no hay internet revienta
+            // aqui, ANTES de escribir en la base. Nada que deshacer.
+            $driveService = \App\Services\GoogleDriveService::getInstance();
+
+            // Mismo camino que el documento principal (y que auxiliares).
+            $filename = 'correccion_' . $type . '_' . time() . '.pdf';
+            $link     = $driveService->subirPdf($file, $filename);
+
+            $anexo = \App\Models\DocumentoAnexo::create([
                 'ID_EQUIPO'          => $equipo->ID_EQUIPO,
                 'TIPO_DOC'           => $type,
                 'LINK'               => $link,
-                'DRIVE_FILE_ID'      => $driveFile->id,
+                'DRIVE_FILE_ID'      => \App\Models\DocumentoAnexo::driveIdDeLink($link),
                 // El nombre de la pestaña se numera solo. Se pedia escrito a mano y
                 // estorbaba: anexar es un gesto de un clic, y con varias
                 // correcciones lo que hace falta es poder distinguirlas.
@@ -3026,22 +3002,14 @@ class EquipoController extends Controller
         }
 
         $link = $anexo->LINK;
-
-        if ($link && str_starts_with($link, '/storage/google/')) {
-            try {
-                $fileId = \App\Models\DocumentoAnexo::driveIdDeLink($link);
-                if ($fileId) {
-                    \App\Services\GoogleDriveService::getInstance()->deleteFile($fileId);
-                    \App\Services\GoogleDriveService::olvidarCopiaLocal($fileId);
-                }
-            } catch (\Throwable $e) {
-                Log::warning("eliminarAnexo: fallo al borrar del Drive el anexo {$anexoId} del equipo {$id}: " . $e->getMessage());
-            }
-        }
-
         $tipo = $anexo->TIPO_DOC;
         $etiqueta = $anexo->ETIQUETA;
         $anexo->delete();
+
+        // El archivo de Drive, con la fila ya borrada y despues de responder (como deleteDoc).
+        if ($fileId = \App\Models\DocumentoAnexo::driveIdDeLink($link)) {
+            \App\Services\GoogleDriveService::borrarTrasResponder($fileId);
+        }
 
         // Queda rastro, como en el resto del modulo. Sin esto, borrar correcciones era la
         // unica operacion sobre documentos que no dejaba huella: al revisar el historial
@@ -3293,30 +3261,20 @@ class EquipoController extends Controller
         $linkField  = $cfg['link'];
         $oldUrl     = $doc->{$linkField};
 
-        // ── 1. Borrar el archivo del Google Drive ──────────────────────────
-        // Solo intentamos borrar si la URL guardada apunta a /storage/google/<id>.
-        // Mismo patron que uploadDoc cuando reemplaza un archivo existente.
-        // Errores del Drive NO bloquean el borrado en BD — los
-        // registramos para revisión posterior pero la fila local se limpia.
-        if ($oldUrl && str_starts_with($oldUrl, '/storage/google/')) {
-            try {
-                $oldFileId = str_replace('/storage/google/', '', parse_url($oldUrl, PHP_URL_PATH));
-                if ($oldFileId) {
-                    $driveService = \App\Services\GoogleDriveService::getInstance();
-                    $driveService->deleteFile($oldFileId);
-                    \App\Services\GoogleDriveService::olvidarCopiaLocal($oldFileId);
-                }
-            } catch (\Throwable $e) {
-                Log::warning("deleteDoc: fallo al borrar archivo del Drive para equipo {$id} type {$type}: " . $e->getMessage());
-            }
-        }
-
-        // ── 2. Limpiar link + fecha + autor en la BD ───────────────────────
+        // ── 1. Limpiar link + fecha + autor en la BD ───────────────────────
         $doc->update([
             $cfg['link']  => null,
             $cfg['fecha'] => null,
             $cfg['autor'] => null,
         ]);
+
+        // ── 2. Borrar el archivo de Drive, DESPUES de responder ────────────
+        // Mismo orden y mismo camino que auxiliares: primero la BD, luego el archivo, y sin
+        // hacer esperar al usuario el viaje a Google. Si Drive falla, el job lo registra;
+        // la fila ya quedo limpia.
+        if ($oldFileId = \App\Models\DocumentoAnexo::driveIdDeLink($oldUrl)) {
+            \App\Services\GoogleDriveService::borrarTrasResponder($oldFileId);
+        }
 
         // ── 3. Audit log ───────────────────────────────────────────────────
         \App\Models\EquipoAuditLog::registrar($equipo->ID_EQUIPO, 'delete_' . $type, [
