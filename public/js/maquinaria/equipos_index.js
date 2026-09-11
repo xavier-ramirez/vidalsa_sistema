@@ -260,10 +260,11 @@ window.changeStatusLite = function (id, newStatus, url, triggerEl) {
     // round-trip al PATCH (ni el parpadeo de optimistic UI + revert).
     if ((oldStatus === 'INOPERATIVO' || oldStatus === 'EN MANTENIMIENTO') && triggerEl.dataset.fallaId && typeof window.flAbrirCierre === 'function') {
         window.flAbrirCierre({
-            id:     triggerEl.dataset.fallaId,
-            codigo: triggerEl.dataset.fallaCodigo || '',
-            tipo:   triggerEl.dataset.fallaTipo || '',
-            equipo: triggerEl.dataset.label || '',
+            id:      triggerEl.dataset.fallaId,
+            codigo:  triggerEl.dataset.fallaCodigo || '',
+            tipo:    triggerEl.dataset.fallaTipo || '',
+            equipo:  triggerEl.dataset.fallaEquipo || '',    // mismos datos que el 409 (Falla::datosActivo)
+            detalle: triggerEl.dataset.fallaDetalle || '',
         });
         return;
     }

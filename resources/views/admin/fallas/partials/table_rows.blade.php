@@ -3,16 +3,16 @@
         $a            = $f->_activo ?? null;
         $isAux        = $f->ACTIVO_TIPO === 'equipo_auxiliar';
         $foto         = $a ? ($a->FOTO_EQUIPO ?? $a->FOTO ?? ($a->especificaciones?->FOTO_REFERENCIAL ?? null)) : null;
-        $marcaModelo  = $a ? trim(($a->MARCA ?? '') . ' ' . ($a->MODELO ?? '')) : '—';
         $marca        = $a ? trim($a->MARCA ?? '') : '';
         $serial       = $a ? ($a->SERIAL_CHASIS ?? $a->SERIAL ?? '') : '';
         $placa        = (!$isAux && $a) ? ($a->documentacion?->PLACA ?? '') : '';
         $codigo       = $a ? ($a->CODIGO_PATIO ?? $a->CODIGO_INTERNO ?? '') : '';
         $frente       = $f->_frente_nombre ?? '—';
         $tipoLabel    = $isAux ? ($a->TIPO ?? '') : ($a->tipo?->nombre ?? '');
-        // Identificador para el modal de cierre: placa; si no tiene, el serial
-        // (luego código y marca/modelo como último recurso para no quedar vacío).
-        $idCierre     = $placa ?: ($serial ?: ($codigo ?: $marcaModelo));
+        // Identificador y detalle para el modal de cierre (placa > serial > código >
+        // marca/modelo): la MISMA fuente que usan equipos y auxiliares.
+        $cierre       = \App\Models\Falla::datosActivo($a);
+        $idCierre     = $cierre['equipo'];
     @endphp
     {{-- Tap en la tarjeta (móvil): expande el detalle truncado. No dispara si el tap
          fue en un botón/enlace (PDF/Cerrar). --}}
@@ -124,6 +124,7 @@
                             data-id="{{ $f->ID_FALLA }}"
                             data-codigo="{{ $f->CODIGO_REPORTE }}"
                             data-equipo="{{ $idCierre }}"
+                            data-detalle="{{ $cierre['detalle'] }}"
                             data-tipo="{{ $f->TIPO_REPORTE }}"
                             data-mecanico="{{ $f->MECANICO_ASIGNADO }}"
                             data-fecha-recepcion="{{ optional($f->FECHA_RECEPCION)->format('Y-m-d') }}"

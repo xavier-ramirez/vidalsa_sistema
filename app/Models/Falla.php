@@ -75,4 +75,32 @@ class Falla extends Model
             'CORRECTIVO' => 'Correctivo',
         ];
     }
+
+    /**
+     * Como se nombra el activo de un reporte en el encabezado de los modales de cierre
+     * (equipos, auxiliares y el modulo de Fallas):
+     *   · equipo:  su identificador — placa > serial > codigo > marca y modelo;
+     *   · detalle: "TIPO · MARCA MODELO".
+     * Fuente unica: antes cada pantalla armaba el identificador por su cuenta.
+     */
+    public static function datosActivo(Equipo|EquipoAuxiliar|null $activo): array
+    {
+        if (!$activo) {
+            return ['equipo' => '', 'detalle' => ''];
+        }
+
+        $esAux       = $activo instanceof EquipoAuxiliar;
+        $marcaModelo = trim(($activo->MARCA ?? '') . ' ' . ($activo->MODELO ?? ''));
+        $tipo        = $esAux
+            ? (EquipoAuxiliar::tiposLabel()[$activo->TIPO] ?? $activo->TIPO)
+            : $activo->tipo?->nombre;
+        $ident       = $esAux
+            ? ($activo->SERIAL ?: $activo->CODIGO_INTERNO)
+            : ($activo->documentacion?->PLACA ?: ($activo->SERIAL_CHASIS ?: $activo->CODIGO_PATIO));
+
+        return [
+            'equipo'  => $ident ?: $marcaModelo,
+            'detalle' => implode(' · ', array_filter([$tipo, $marcaModelo])),
+        ];
+    }
 }

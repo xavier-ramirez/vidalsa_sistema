@@ -188,16 +188,26 @@
     //  reporte (POST a urlBase/{id}/close) y el activo vuelve a OPERATIVO.
     //  La página define FALLA_MODAL_CFG.onClosed() para recargar su listado.
     // ════════════════════════════════════════════════════════════════════
+    // Encabezado de los DOS modales de cierre (este y el del módulo de Fallas): bajo el
+    // título, "[código del acta ·] TIPO · MARCA MODELO · IDENTIFICADOR". Antes el cuerpo
+    // repetía "Cerrando reporte X" justo debajo de "Cerrar Reporte de Falla".
+    // falla = { id, tipo, codigo, equipo, detalle } (equipo/detalle: Falla::datosActivo).
+    // Con textContent, no innerHTML: placa, marca... vienen de la base.
+    window.flEncabezadoCierre = function (el, falla) {
+        if (!el) return;
+        const partes = [];
+        if (falla.tipo === 'extenso' && falla.codigo) partes.push(falla.codigo);   // solo las actas llevan código
+        if (falla.detalle) partes.push(falla.detalle);
+        el.textContent = partes.length ? partes.join(' · ') + ' · ' : '';
+        const ident = document.createElement('strong');
+        ident.textContent = falla.equipo || ('Reporte #' + falla.id);
+        el.appendChild(ident);
+    };
+
     let _cierreId = null;
     window.flAbrirCierre = function (falla) {
         _cierreId = falla.id;
-        const msg = document.getElementById('flCierreMsg');
-        if (msg) {
-            const esActa = falla.tipo === 'extenso';
-            const ref = (esActa && falla.codigo) ? falla.codigo : (falla.equipo || ('#' + falla.id));
-            const extra = (esActa && falla.equipo) ? (' · ' + falla.equipo) : '';
-            msg.innerHTML = '<i class="material-icons" style="font-size:16px; vertical-align:middle; color:#d97706;">report_problem</i> Cerrando reporte <strong>' + ref + '</strong>' + extra;
-        }
+        window.flEncabezadoCierre(document.getElementById('flCierreEquipo'), falla);
         const obs = document.getElementById('flCierreObs');
         if (obs) obs.value = '';
         document.getElementById('flCierreOverlay').classList.add('active');

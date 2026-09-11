@@ -168,21 +168,15 @@
     // lo ya cargado en la sección Taller) para PRE-LLENAR el modal de cierre.
     window.cerrarFalla = function (btn) {
         const d = (btn && btn.dataset) ? btn.dataset : {};
-        const id     = d.id;
-        const codigo = d.codigo || '';
-        const equipo = d.equipo || '';
-        const tipo   = d.tipo   || '';
+        const id   = d.id;
+        const tipo = d.tipo || '';
         _cierreId = id;
 
-        const msg = document.getElementById('cierreInfoMsg');
-        if (msg) {
-            // El código RF solo identifica a las actas (extenso); en el reporte
-            // rápido se muestra el equipo (mismo criterio que la lista).
-            var esActa = tipo === 'extenso';
-            var ref    = (esActa && codigo) ? codigo : (equipo || ('#' + id));
-            var extra  = (esActa && equipo) ? (' &middot; ' + equipo) : '';
-            msg.innerHTML = '<i class="material-icons" style="font-size:16px; vertical-align:middle; color:#d97706;">report_problem</i> Cerrando reporte <strong>' + ref + '</strong>' + extra;
-        }
+        // Qué equipo, en el encabezado: el mismo que el modal compartido de equipos y
+        // auxiliares (falla_create_modal.js).
+        window.flEncabezadoCierre(document.getElementById('cierreEquipo'), {
+            id: id, tipo: tipo, codigo: d.codigo || '', equipo: d.equipo || '', detalle: d.detalle || '',
+        });
 
         document.getElementById('cierreObservaciones').value = '';
 

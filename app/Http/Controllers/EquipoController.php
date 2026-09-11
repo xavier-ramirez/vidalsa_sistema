@@ -2551,17 +2551,15 @@ class EquipoController extends Controller
         // eager-loadea el listado para abrir el modal al instante).
         $falla = $equipo->fallaAbierta;
         if ($falla) {
-            $ident = optional($equipo->documentacion)->PLACA
-                  ?: ($equipo->SERIAL_CHASIS ?: ($equipo->CODIGO_PATIO ?: trim(($equipo->MARCA ?? '') . ' ' . ($equipo->MODELO ?? ''))));
             return response()->json([
                 'success'       => false,
                 'message'       => 'Este equipo tiene un reporte de falla abierto. Para cambiar su estado debes cerrar el reporte.',
+                // + equipo y detalle para el encabezado del modal (Falla::datosActivo).
                 'falla_abierta' => [
                     'id'     => $falla->ID_FALLA,
                     'codigo' => $falla->CODIGO_REPORTE,
                     'tipo'   => $falla->TIPO_REPORTE,
-                    'equipo' => $ident,
-                ],
+                ] + \App\Models\Falla::datosActivo($equipo),
             ], 409);
         }
 

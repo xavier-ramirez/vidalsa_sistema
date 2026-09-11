@@ -156,7 +156,7 @@
                     data-status="{{ $equipo->ESTADO_OPERATIVO }}"
                     data-status-url="{{ route('equipos.changeStatus', $equipo->ID_EQUIPO) }}"
                     data-label="{{ optional($equipo->documentacion)->PLACA ?: ($equipo->SERIAL_CHASIS ?: ($equipo->CODIGO_PATIO ?: ('Equipo #'.$equipo->ID_EQUIPO))) }}"
-                    @if($equipo->fallaAbierta) data-falla-id="{{ $equipo->fallaAbierta->ID_FALLA }}" data-falla-codigo="{{ $equipo->fallaAbierta->CODIGO_REPORTE }}" data-falla-tipo="{{ $equipo->fallaAbierta->TIPO_REPORTE }}" @endif
+                    @if($equipo->fallaAbierta) @php($fallaActivo = \App\Models\Falla::datosActivo($equipo)) data-falla-id="{{ $equipo->fallaAbierta->ID_FALLA }}" data-falla-codigo="{{ $equipo->fallaAbierta->CODIGO_REPORTE }}" data-falla-tipo="{{ $equipo->fallaAbierta->TIPO_REPORTE }}" data-falla-equipo="{{ $fallaActivo['equipo'] }}" data-falla-detalle="{{ $fallaActivo['detalle'] }}" @endif
                     onclick="event.stopPropagation(); openSharedStatusMenu(this)"
                     style="--eq-st-color: {{ $currentConfig['color'] }}">
                     <div class="eq-status-izq">

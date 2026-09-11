@@ -1970,16 +1970,15 @@ class EquipoAuxiliarController extends Controller
             ->first();
 
         if ($falla) {
-            $ident = $aux->SERIAL ?: ($aux->CODIGO_INTERNO ?: trim(($aux->MARCA ?? '') . ' ' . ($aux->MODELO ?? '')));
             return response()->json([
                 'success'       => false,
                 'message'       => 'Este equipo tiene un reporte de falla abierto. Para cambiar su estado debes cerrar el reporte.',
+                // + equipo y detalle para el encabezado del modal (Falla::datosActivo).
                 'falla_abierta' => [
                     'id'     => $falla->ID_FALLA,
                     'codigo' => $falla->CODIGO_REPORTE,
                     'tipo'   => $falla->TIPO_REPORTE,
-                    'equipo' => $ident,
-                ],
+                ] + \App\Models\Falla::datosActivo($aux),
             ], 409);
         }
 

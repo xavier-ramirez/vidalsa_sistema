@@ -779,18 +779,19 @@
         <div id="cierreReporteOverlay" class="fl-modal-overlay" onclick="if(event.target===this) window.closeCierreModal()">
             <div class="fl-modal" style="max-width:460px;">
                 <div class="fl-modal-header" style="justify-content: center; position: relative;">
-                    <div style="display:flex; align-items:center; gap:8px;">
-                        <i class="material-icons">check_circle</i>
-                        <h3 style="margin:0; font-size:15px; font-weight:700;">Cerrar Reporte de Falla</h3>
+                    <div>
+                        <div style="display:flex; align-items:center; justify-content:center; gap:8px;">
+                            <i class="material-icons">check_circle</i>
+                            <h3 style="margin:0; font-size:15px; font-weight:700;">Cerrar Reporte de Falla</h3>
+                        </div>
+                        {{-- Qué equipo: lo pinta flEncabezadoCierre (el mismo que el modal compartido). --}}
+                        <div id="cierreEquipo" class="fl-modal-subtitulo"></div>
                     </div>
                     <button type="button" onclick="window.closeCierreModal()"
                         style="position: absolute; right: 15px; background:transparent; border:none; color:white; cursor:pointer; opacity:0.7;"><i
                             class="material-icons">close</i></button>
                 </div>
                 <div class="fl-modal-body">
-                    <div id="cierreInfoMsg"
-                        style="padding:10px 12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; font-size:13px; color:#475569;">
-                    </div>
                     <div>
                         <label class="fl-field-label" for="cierreObservaciones">Observaciones de cierre <span
                                 style="font-weight:400; color:#94a3b8;">(opcional)</span></label>
