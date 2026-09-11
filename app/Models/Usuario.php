@@ -118,6 +118,16 @@ class Usuario extends Authenticatable
     }
 
     /**
+     * Nombre de la columna de la clave. Laravel la usa al RE-CIFRAR la clave en el login
+     * (EloquentUserProvider::rehashPasswordIfRequired: cuando el hash guardado tiene otro
+     * coste que BCRYPT_ROUNDS, lo actualiza). Con el valor por defecto, 'password', ese
+     * UPDATE fallaba —la columna no existe— y el usuario veia "Error del sistema al
+     * iniciar sesion" con la clave correcta. Pasaba con cualquier hash de coste distinto de
+     * 12: un usuario importado, uno creado a mano o si algun dia se cambia BCRYPT_ROUNDS.
+     */
+    protected $authPasswordName = 'PASSWORD_HASH';
+
+    /**
      * Get the password for the user.
      *
      * @return string
