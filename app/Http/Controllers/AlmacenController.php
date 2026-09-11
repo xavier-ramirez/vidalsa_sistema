@@ -1087,12 +1087,10 @@ class AlmacenController extends Controller
                     $idAlmacen,
                     $producto->ID_PRODUCTO,
                     $cantInicial,
-                    // Sin 'motivo': en una ENTRADA el kardex lo pinta como PROVEEDOR (ícono de
-                    // camión) y un stock inicial no tiene. Antes llevaba "Stock inicial al crear
-                    // el producto", que repetía la referencia en el sitio del proveedor.
                     [
                         'id_frente'  => $idFrenteInicial,
-                        'referencia' => 'STOCK INICIAL',
+                        'referencia' => 'STOCK INICIAL registro de nuevo material',
+                        'motivo'     => 'Stock inicial al crear el producto',
                     ]
                 );
             }
