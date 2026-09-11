@@ -1358,11 +1358,15 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
             // (fetch_interceptor.js) y manda al login con su motivo. La rama que había aquí no
             // podía ejecutarse, y la comprobación de la URL final que la acompañaba
             // tampoco: /login redirige a /, así que esa URL nunca lo contiene.
-            // Lo que SÍ puede pasar es recibir un 200 con HTML en vez del JSON esperado.
+            // Lo que SÍ puede pasar es recibir HTML en vez del JSON esperado: la página de
+            // mantenimiento de un despliegue (503) o un error del proxy. Eso NO es una sesión
+            // vencida —esa llega como 401 y la atiende el interceptor—, así que no se manda al
+            // login: se avisa que el servidor no respondió y el usuario puede reintentar.
             const contentType = response.headers.get("content-type");
             if (!contentType || !contentType.includes("application/json")) {
-                window.location.href = '/?aviso=sesion_expirada';
-                return Promise.reject(new Error("Sesión expirada o respuesta inválida del servidor."));
+                const err = new Error("Respuesta inválida del servidor (" + response.status + ").");
+                err.servidorNoResponde = true;
+                return Promise.reject(err);
             }
             if (!response.ok) throw new Error("Network response was not ok");
             return response.json();
@@ -1652,6 +1656,9 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
             if (abortController.signal.aborted) return;
             console.error('Error loading equipos:', error);
             tableBody.style.opacity = '1';
+            if (error && error.servidorNoResponde && window.showToast) {
+                window.showToast('El servidor no respondió como se esperaba. Intenta de nuevo en un momento.', 'error');
+            }
 
             // El aviso "Sin conexión" con su botón lo saca el interceptor global de fetch
             // (fetch_interceptor.js) para CUALQUIER petición de la app, no solo para esta.

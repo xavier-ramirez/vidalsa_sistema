@@ -41,39 +41,54 @@
     <script>
         /**
          * Session Timeout Manager
-         * - Sesión: lee SESSION_LIFETIME de Laravel (config/session.php, en minutos)
-         * - Throttle de 30s: actividad real no reinicia el timer en cada micro-evento
-         * - Solo escucha: click y keydown (sin scroll/touchstart para evitar ruido)
-         * - Ping al servidor SOLO si hubo actividad en el último ciclo de ping; si el
-         *   usuario está inactivo NO se pinga y el backend deja expirar la sesión
-         *   (cierre por inactividad garantizado por el servidor, no dependiente del JS)
-         * - Modal de aviso aparece con 60s de antelación al cierre
-         * - Si la expiración se detecta DE GOLPE (volver a una pestaña dormida, ping que
-         *   encuentra la sesión ya caída), el mismo modal se muestra en modo "sesión
-         *   cerrada" unos segundos antes de salir — nunca se cierra sin avisar.
+         *
+         * REGLA: la sesión solo se renueva porque el usuario la está USANDO (clic o tecla) o
+         * porque pulsa "Mantener Sesión" en el aviso; si no, se cierra, y se cierra en los DOS
+         * lados a la vez: el servidor y esta pantalla.
+         *
+         * Para que no se desalineen, el reloj de aquí cuenta desde el ÚLTIMO CONTACTO CON EL
+         * SERVIDOR, no desde el último clic. Antes contaba desde el clic y el servidor solo
+         * se renovaba con un ping cada 16 min: quien volvía a trabajar después de un rato
+         * quieto (sin guardar nada, p. ej. llenando un formulario) tenía la sesión ya muerta
+         * en el servidor mientras aquí seguía viva, y el siguiente guardar lo sacaba con
+         * "Tu sesión expiró". Ahora:
+         *   - Cada clic o tecla, si hace más de PING_POR_ACTIVIDAD_MS que no se habla con el
+         *     servidor, le avisa (/refresh-csrf). La respuesta confirma la hora del contacto.
+         *   - El aviso sale WARNING_DURATION_SEC antes de contacto + SESSION_LIFETIME, que es
+         *     cuando el servidor la cierra. "Mantener Sesión" también avisa al servidor.
+         *   - Sin aviso ni actividad: POST /logout y al login. Si el servidor ya la había
+         *     cerrado (ping que vuelve como invitado), lo mismo, directo al login.
+         *   - Sin conexión no hay servidor al que avisar: mientras tanto se cuenta desde el
+         *     último clic, como antes, para que quien trabaja sin señal en obra no sea sacado.
+         *     Al volver la red, el primer aviso dirá si la sesión sigue viva.
+         * Las pestañas comparten el último contacto por localStorage (misma cookie, misma
+         * sesión en el servidor).
          */
         (function() {
             // ── Configuración ──────────────────────────────────────────
-            // Vida de la sesión = config('session.lifetime') (SESSION_LIFETIME en .env, en minutos).
-            // El BACKEND garantiza el cierre por inactividad con esa misma config; el JS solo avisa
-            // (WARNING_DURATION_SEC antes) y renueva al pulsar "Mantener Sesión".
-            const SESSION_LIFETIME_MS   = {{ config('session.lifetime') ?? 10 }} * 60 * 1000; // minutos desde config/session.php (SESSION_LIFETIME)
+            // Vida de la sesión = config('session.lifetime') (SESSION_LIFETIME, en minutos): la
+            // MISMA que usa el servidor para cerrarla.
+            const SESSION_LIFETIME_MS   = {{ config('session.lifetime') ?? 10 }} * 60 * 1000;
             // Avisar en el último 33% del tiempo (mín 15s, máx 60s)
             const WARNING_DURATION_SEC  = Math.max(15, Math.min(60, Math.floor(SESSION_LIFETIME_MS / 1000 * 0.33)));
-            // Throttle = 25% del tiempo de sesión (mín 5s, máx 30s)
+            // Cada cuánto como máximo se guarda la actividad en localStorage (la lee también
+            // offline-sync.js para no sincronizar con el usuario ausente).
             const ACTIVITY_THROTTLE_MS  = Math.max(5000, Math.min(30000, Math.floor(SESSION_LIFETIME_MS * 0.25)));
-            // Ping cada 80% del tiempo de sesión
-            const SERVER_PING_MS        = Math.floor(SESSION_LIFETIME_MS * 0.80);
-            // Reintento de un ping perdido: 5% de la vida de sesión (mín 15s, máx 60s). Ligado a
-            // SESSION_LIFETIME como los demás umbrales, para que siga cayendo MUY dentro del
-            // ciclo de ping por corta que sea la sesión y el reintento sirva de algo.
+            // Con actividad, se avisa al servidor como mucho cada 10% de la vida de la sesión
+            // (mín 30 s, máx 5 min): con 20 min, cada 2 min. Una petición de ~60 bytes.
+            const PING_POR_ACTIVIDAD_MS = Math.max(30000, Math.min(300000, Math.floor(SESSION_LIFETIME_MS * 0.10)));
+            // Reintento de un aviso perdido (5xx o red): 5% de la vida de sesión (mín 15s, máx 60s).
             const PING_REINTENTO_MS     = Math.max(15000, Math.min(60000, Math.floor(SESSION_LIFETIME_MS * 0.05)));
+            const CLAVE_CONTACTO        = 'vidalsa_ultimo_contacto';
 
             // ── Estado interno ──────────────────────────────────────────
-            let sessionExpirationTime;
+            let ultimoContacto = 0;        // último momento confirmado en que el servidor renovó la sesión
+            let ultimoIntento = 0;         // último aviso enviado, haya llegado o no
+            let sessionExpirationTime;     // ultimoContacto + SESSION_LIFETIME_MS
             let lastActivityReset = 0;
+            let sinConexion = false;       // el último aviso no llegó por falta de red
             let checkInterval;
-            let serverPingInterval;
+            let pingEnVuelo = false;
             let pingReintento = null;   // timeout del reintento de ping (uno solo a la vez)
             let isModalVisible = false;
             // Mientras el usuario pulsa "Mantener Sesión" y la renovación está en vuelo, NO
@@ -86,32 +101,35 @@
 
             // ── Inicialización ──────────────────────────────────────────
             function initSession() {
-                // Sincronizar actividad inicial a localStorage para múltiples pestañas
-                localStorage.setItem('vidalsa_last_activity', Date.now());
-                updateExpirationTime();
+                // Esta página acaba de llegar del servidor: eso ya renovó la sesión.
+                registrarContacto(Date.now());
+                marcarActividad(Date.now());
                 startCheckInterval();
-                startServerPing();
                 setupEventListeners();
-                console.log(`✅ Session Monitor: Activo | Sesión=${SESSION_LIFETIME_MS/60000}min | Aviso=${WARNING_DURATION_SEC}s | Ping cada ${SERVER_PING_MS/60000}min`);
+                console.log(`✅ Session Monitor: Activo | Sesión=${SESSION_LIFETIME_MS/60000}min | Aviso=${WARNING_DURATION_SEC}s | Aviso al servidor con actividad cada ${PING_POR_ACTIVIDAD_MS/1000}s como máximo`);
             }
 
-            // ── Timer Frontend ──────────────────────────────────────────
-            function updateExpirationTime() {
-                const now = Date.now();
-                lastActivityReset = now;
-                localStorage.setItem('vidalsa_last_activity', now);
-                sessionExpirationTime = now + SESSION_LIFETIME_MS;
+            // ── Reloj: desde el último contacto con el servidor ─────────
+            function registrarContacto(momento) {
+                if (momento <= ultimoContacto) return;
+                ultimoContacto = momento;
+                sessionExpirationTime = momento + SESSION_LIFETIME_MS;
+                try { localStorage.setItem(CLAVE_CONTACTO, String(momento)); } catch (e) {}
+            }
+
+            function marcarActividad(momento) {
+                lastActivityReset = momento;
+                try { localStorage.setItem('vidalsa_last_activity', String(momento)); } catch (e) {}
             }
 
             function syncWithOtherTabs() {
-                // Leer la última actividad registrada por CUALQUIER pestaña
-                const globalLastActivity = parseInt(localStorage.getItem('vidalsa_last_activity')) || 0;
-                // Si otra pestaña registró actividad más reciente, actualizar la nuestra
-                if (globalLastActivity > lastActivityReset) {
-                    lastActivityReset = globalLastActivity;
-                    sessionExpirationTime = globalLastActivity + SESSION_LIFETIME_MS;
-                    // Si el modal estaba visible por error, ocultarlo
-                    if (isModalVisible) hideWarning();
+                // Otra pestaña habló con el servidor más tarde: la sesión (una sola, la misma
+                // cookie) se renovó también para esta.
+                const otro = parseInt(localStorage.getItem(CLAVE_CONTACTO), 10) || 0;
+                if (otro > ultimoContacto) {
+                    ultimoContacto = otro;
+                    sessionExpirationTime = otro + SESSION_LIFETIME_MS;
+                    if (isModalVisible && !isClosing) hideWarning();
                 }
             }
 
@@ -141,33 +159,20 @@
                 }
             }
 
-            // ── Ping al servidor (CONDICIONAL a actividad reciente) ─────
-            // El ping renueva la sesión del BACKEND, pero SOLO si hubo actividad real en el
-            // último ciclo de ping. Si el usuario está inactivo NO se pinga → la sesión del
-            // servidor expira sola a los SESSION_LIFETIME desde la última actividad, así el
-            // cierre por inactividad queda GARANTIZADO por el backend aunque el JS se
-            // deshabilite o falle. El timer del frontend + el modal son la capa de UX/aviso;
-            // el backend es la fuente de verdad. Durante el aviso (modal) tampoco se pinga.
-            function startServerPing() {
-                if (serverPingInterval) clearInterval(serverPingInterval);
-                serverPingInterval = setInterval(pingServer, SERVER_PING_MS);
-            }
-
+            // ── Aviso al servidor (/refresh-csrf) ───────────────────────
+            // Lo llaman la actividad del usuario y "Mantener Sesión", nunca un temporizador
+            // solo: sin uso, el servidor no se renueva y cierra la sesión a su hora.
+            // La hora que se registra es la de SALIDA de la petición, no la de llegada: así
+            // el reloj de aquí nunca queda por delante del servidor, por lenta que sea la red.
             function pingServer() {
-                if (isModalVisible) return; // El usuario debe decidir, no renovar
-
-                // Sin actividad real en el último ciclo de ping → NO renovamos: dejamos que
-                // la sesión del backend expire sola (cierre por inactividad garantizado por
-                // el servidor, no dependiente del JS). El umbral es el PROPIO intervalo de
-                // ping (no un valor arbitrario): renueva a cualquiera que haya estado activo
-                // dentro del ciclo —incluido el caso "activo hace 5 min sin pedir nada al
-                // server"— y solo omite al usuario realmente inactivo.
-                if (Date.now() - lastActivityReset >= SERVER_PING_MS) return;
-
-                // Usuario activo: renovar CSRF y mantener viva la sesión del backend.
+                if (pingEnVuelo || isClosing) return;
+                pingEnVuelo = true;
+                const salida = Date.now();
+                ultimoIntento = salida;
                 window.apiFetch('/refresh-csrf', { method: 'GET', cache: 'no-store' })
                     .then(response => {
                         if (response.ok) {
+                            sinConexion = false;
                             // 200 con token de invitado = la sesión ya cayó en el backend
                             // (ruta pública). Reflejamos el cierre en vez de seguir como si nada.
                             if (response.headers.get('X-Auth-Status') === 'guest') {
@@ -175,13 +180,13 @@
                                 sessionAlreadyExpired();
                                 return;
                             }
+                            registrarContacto(salida);
                             return response.text().then(token => {
                                 if (token && token.length > 10) {
                                     const meta = document.querySelector('meta[name="csrf-token"]');
                                     if (meta) meta.setAttribute('content', token);
                                     if (window.axios) window.axios.defaults.headers.common['X-CSRF-TOKEN'] = token;
                                 }
-                                console.log('🔄 Ping OK: sesión backend activa (usuario activo)');
                             });
                         } else {
                             // Un no-OK NO significa sesión caída. /refresh-csrf es PÚBLICA: cuando
@@ -195,15 +200,17 @@
                         }
                     })
                     .catch(() => {
-                        // Red caída: mismo criterio. Tampoco se cierra la sesión por esto.
+                        // Red caída: tampoco se cierra la sesión por esto. Mientras no haya red
+                        // se cuenta desde el último clic (ver handleActivity).
                         console.warn('⚠️ Ping sin respuesta (sin conexión)');
+                        sinConexion = true;
                         programarReintentoPing();
-                    });
+                    })
+                    .finally(() => { pingEnVuelo = false; });
             }
 
-            // Un ping perdido (5xx o red) no debe costar el ciclo entero: se reintenta UNA vez.
-            // Si el reintento tampoco llega, no se insiste ni se cierra nada — manda el backend,
-            // que expira solo por inactividad. Un único timeout vivo a la vez.
+            // Un ping perdido (5xx o red) se reintenta UNA vez. Si el reintento tampoco llega,
+            // no se insiste ni se cierra nada: la próxima actividad lo volverá a intentar.
             function programarReintentoPing() {
                 if (pingReintento) return;
                 pingReintento = setTimeout(() => { pingReintento = null; pingServer(); }, PING_REINTENTO_MS);
@@ -249,7 +256,7 @@
             // renovar en background NO se pudo confirmar (5xx o red caída), el frontend cree que
             // la sesión sigue viva cuando quizá ya cayó → la próxima petición real daría 419 y el
             // usuario perdería trabajo. Para no quedar en ese estado ciego, revalidamos PRONTO con
-            // pingServer (no esperamos al intervalo normal = SERVER_PING_MS, 80% de la vida de sesión):
+            // pingServer (no esperamos a la próxima actividad del usuario):
             //   • sesión caída  → pingServer detecta INVITADO → va al login;
             //   • 5xx persistente → pingServer hace logout limpio;
             //   • red aún caída  → pingServer no fuerza nada (offline ≠ sesión muerta) y otra
@@ -269,7 +276,10 @@
             // la sesión ya cayó → login; si no se pudo confirmar (5xx/red), revalidamos pronto.
             window.extendSession = function() {
                 isRenewing = true;          // congela el auto-logout durante la confirmación
-                updateExpirationTime();     // reinicia el timer del frontend YA
+                // El reloj se reinicia YA (el aviso se cierra al instante); la respuesta del
+                // servidor lo confirma con la hora real de salida, o manda al login si ya cayó.
+                const salida = Date.now();
+                sessionExpirationTime = salida + SESSION_LIFETIME_MS;
                 hideWarning();              // cierra el aviso de inmediato (resetea el botón)
 
                 const controller = new AbortController();
@@ -281,6 +291,7 @@
                         if (!response.ok) { reverificarSesionPronto(); return; }
                         // Ruta pública: 200 con token de INVITADO = la sesión ya expiró en el backend.
                         if (response.headers.get('X-Auth-Status') === 'guest') { sessionAlreadyExpired(); return; }
+                        registrarContacto(salida);
                         const token = await response.text();
                         if (token && token.length > 10) {
                             const meta = document.querySelector('meta[name="csrf-token"]');
@@ -288,7 +299,6 @@
                             if (window.axios) window.axios.defaults.headers.common['X-CSRF-TOKEN'] = token;
                             if (window.jQuery) window.jQuery.ajaxSetup({ headers: { 'X-CSRF-TOKEN': token } });
                         }
-                        startServerPing();
                         window.toast('Sesión renovada', 'success');
                     })
                     .catch(() => {
@@ -310,7 +320,6 @@
                 if (isClosing) return;
                 isClosing = true;
                 clearInterval(checkInterval);
-                clearInterval(serverPingInterval);
                 clearTimeout(pingReintento); pingReintento = null; // que no pingue tras despedirse
                 const modal    = document.getElementById('sessionTimeoutModal');
                 const title    = document.getElementById('stTitle');
@@ -354,7 +363,6 @@
             // casos: backend cerrado + front en login, sin estados colgados.
             function performLogout() {
                 clearInterval(checkInterval);
-                clearInterval(serverPingInterval);
                 clearTimeout(pingReintento); pingReintento = null; // idem: nada en vuelo al salir
                 const token = window.getCsrf();   // helper central (dom_helpers.js)
                 window.apiFetch('/logout', { headers: { 'Accept': 'application/json' },
@@ -369,11 +377,16 @@
 
             // ── Actividad del usuario (con throttle) ────────────────────
             function handleActivity() {
-                if (isModalVisible) return; // Modal visible → el usuario debe decidir
+                if (isModalVisible || isClosing) return; // Modal visible → el usuario debe decidir
                 const now = Date.now();
-                if (now - lastActivityReset >= ACTIVITY_THROTTLE_MS) {
-                    updateExpirationTime();
-                }
+                if (now - lastActivityReset >= ACTIVITY_THROTTLE_MS) marcarActividad(now);
+                // Sin red no hay a quién avisar: se cuenta desde este clic (como antes), para no
+                // sacar a quien trabaja sin señal. El aviso de abajo lo intenta igual y, al
+                // volver la red, confirma si la sesión sigue viva.
+                if (sinConexion || navigator.onLine === false) sessionExpirationTime = now + SESSION_LIFETIME_MS;
+                // Desde el último INTENTO y no solo desde el último contacto: sin red, cada clic
+                // volvería a intentarlo (y a repintar el aviso "Sin conexión" del interceptor).
+                if (now - Math.max(ultimoContacto, ultimoIntento) >= PING_POR_ACTIVIDAD_MS) pingServer();
             }
 
             function setupEventListeners() {

@@ -19,6 +19,10 @@ return Application::configure(basePath: dirname(__DIR__))
         // Global (web, api y /up): toda respuesta sale con sus cabeceras de seguridad.
         $middleware->append(\App\Http\Middleware\CabecerasSeguridad::class);
 
+        // Global: una respuesta tardía a un invitado no puede pisar la cookie de la sesión
+        // ya iniciada (ver el middleware).
+        $middleware->append(\App\Http\Middleware\NoReenviarCookieDeSesion::class);
+
         // Configuración para Easypanel/Docker (Reverse Proxy)
         $middleware->trustProxies(at: '*');
 
