@@ -372,7 +372,11 @@
                     cache: 'no-store'
                 })
                 .catch(function () { /* red caída: igual salimos al login abajo */ })
-                .finally(function () { window.location.replace('/'); }); // replace: sin volver "atrás" a la página protegida
+                // replace: sin volver "atrás" a la página protegida. ?aviso=inactividad le dice
+                // al login que venimos de un cierre: si este POST no llegó (red lenta) y el
+                // servidor sigue con la sesión abierta, el login la cierra en vez de volver a
+                // entrar solo al menú ("se cerró la sesión y se abrió").
+                .finally(function () { window.location.replace('/?aviso=inactividad'); });
             }
 
             // ── Actividad del usuario (con throttle) ────────────────────

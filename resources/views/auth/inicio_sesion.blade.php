@@ -273,7 +273,8 @@
         const AVISOS = {
             sesion_expirada:  'Tu sesión expiró por seguridad. Inicia sesión de nuevo.',
             otro_dispositivo: 'Tu sesión se inició en otro dispositivo.',
-            clave_cambiada:   'Tu clave cambió. Inicia sesión con la nueva.'
+            clave_cambiada:   'Tu clave cambió. Inicia sesión con la nueva.',
+            inactividad:      'Tu sesión se cerró por inactividad. Inicia sesión de nuevo.'
         };
         const PENDIENTES = ' Tus cambios sin subir siguen guardados: al entrar se suben solos.';
         var clave;
@@ -282,6 +283,11 @@
         const conPendientes = /_pendientes$/.test(clave);
         const motivo = clave.replace(/_pendientes$/, '');
         if (!AVISOS[motivo]) return;
+        // Viene del cierre automático del temporizador (partials/session_timeout): ver
+        // precalentarCsrf, que termina de cerrar la sesión en el servidor si seguía abierta.
+        // __cierreEn: cuándo se cerró. Si después alguna pestaña usa una sesión (vuelve a
+        // iniciar en otra, p. ej.), esa sesión ya no es la que se cerró y no se toca.
+        if (motivo === 'inactividad') { window.__cierrePorInactividad = true; window.__cierreEn = Date.now(); }
         // El texto se pinta cuando el DOM ya tiene el <div>; el guard del preloader lo
         // apaga solo porque mostrarMsgLogin lo oculta.
         document.addEventListener('DOMContentLoaded', function () {
@@ -351,10 +357,30 @@
                 // otra vez. /refresh-csrf lo delata con X-Auth-Status y lo mandamos al
                 // menú en vez de dejarlo teclear credenciales que no hacen falta.
                 if (r.headers.get('X-Auth-Status') === 'authenticated') {
+                    // EXCEPTO si se llega aquí por un cierre por inactividad: entonces la sesión
+                    // sigue abierta porque el POST /logout del temporizador no llegó (red
+                    // lenta), y volver al menú era "se cerró la sesión y se abrió". Se cierra
+                    // aquí y se sigue en el login. Hasta 3 intentos si la red también falla.
+                    // Una pestaña con sesión anota en vidalsa_ultimo_contacto cada vez que habla
+                    // con el servidor (partials/session_timeout). Si lo hizo DESPUÉS del cierre,
+                    // la sesión abierta es una nueva —se volvió a entrar desde otra pestaña— y
+                    // cerrarla sacaría a la persona de lo que está usando.
+                    var usadaDespues = 0;
+                    try { usadaDespues = parseInt(localStorage.getItem('vidalsa_ultimo_contacto'), 10) || 0; } catch (e) {}
+                    if (usadaDespues > (window.__cierreEn || 0)) window.__cierrePorInactividad = false;
+                    if (window.__cierrePorInactividad && (window.__intentosCierre || 0) < 3) {
+                        window.__intentosCierre = (window.__intentosCierre || 0) + 1;
+                        cerrarSesionEnServidor().finally(precalentarCsrf);
+                        return null;
+                    }
                     window.marcarLoginReciente();
                     window.location.replace(@json(route('menu')));
                     return null;
                 }
+                // Sin sesión: el cierre por inactividad ya se completó y la marca se apaga.
+                // Si quedara puesta, al volver a ESTA pestaña (visibilitychange / pageshow)
+                // se cerraría la sesión que la persona abra después desde otra pestaña.
+                window.__cierrePorInactividad = false;
                 return r.text();
             })
             .then(function (token) {
@@ -363,6 +389,14 @@
                 aplicarTokenCsrf(token);
             })
             .catch(function () {});
+    }
+    // Mismo cierre que el temporizador (POST /logout, exenta de CSRF). Cualquier respuesta
+    // vale; precalentarCsrf vuelve a preguntar y confirma si quedó cerrada.
+    function cerrarSesionEnServidor() {
+        return fetch('/logout', {
+            method: 'POST', credentials: 'same-origin', redirect: 'manual', cache: 'no-store',
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+        }).catch(function () {});
     }
     precalentarCsrf();
     // Al volver de otra pestaña o del bfcache el token pudo caducar: refréscalo para
