@@ -4,46 +4,20 @@
 
 @section('content')
 <style>
+    /* La tabla va como la de Compresión de PDF: .tabla-lista + .tabla-cabecera
+       (estilos_globales.css). Aquí solo lo propio de este módulo. */
+    /* Tipo de acción: la misma píldora que el Estado de Compresión. */
     .badge-doc {
-        display: inline-flex;
-        align-items: center;
-        gap: 5px;
-        background: #ebf8ff;
-        color: #2b6cb0;
-        padding: 3px 9px;
-        border-radius: 6px;
-        font-size: 10px;
-        font-weight: 600;
+        display: inline-block;
+        background: #e0f2fe;
+        color: #075985;
+        padding: 2px 9px;
+        border-radius: 999px;
+        font-size: 11px;
+        font-weight: 700;
+        white-space: nowrap;
     }
-    .badge-doc .material-icons { font-size: 13px; }
-    .badge-autor {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        background: #f1f5f9;
-        color: #475569;
-        padding: 4px 10px;
-        border-radius: 6px;
-        font-size: 13px;
-        font-weight: 500;
-    }
-    .btn-view-pdf {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 32px;
-        height: 32px;
-        border-radius: 6px;
-        background: #f8fafc;
-        border: 1px solid #cbd5e1;
-        color: #64748b;
-        cursor: pointer;
-        transition: all 0.2s;
-    }
-    .btn-view-pdf:hover {
-        background: #e2e8f0;
-        color: #0f172a;
-    }
+    .hd-equipo-id { font-size: 12px; color: #64748b; }
     /* Botón eliminar registro (solo super.admin). Pequeño y OCULTO por defecto:
        aparece al pasar el mouse o enfocar (teclado) la fila. En móvil (sin hover)
        se fuerza visible más abajo. */
@@ -81,15 +55,6 @@
         flex: 1 1 200px !important;
         max-width: none !important;
         min-width: 180px;
-    }
-    @media (min-width: 769px) {
-        #historialDocumentosTable {
-            border-spacing: 0 5px !important;
-        }
-        #historialDocumentosTable td {
-            padding-top: 7px !important;
-            padding-bottom: 7px !important;
-        }
     }
     .hd-adv-filter-wrap {
         position: relative;
@@ -135,9 +100,9 @@
     @media (max-width: 768px) {
         /* En móvil (touch, sin hover) el botón eliminar queda SIEMPRE visible —
            si no, no habría forma de revelarlo. Además lo igualamos al botón PDF
-           (32x32, icono 18px) para que no se vean desparejos lado a lado en la tarjeta. */
-        .btn-hd-del { opacity: 1 !important; width: 32px !important; height: 32px !important; }
-        .btn-hd-del .material-icons { font-size: 18px !important; }
+           (.pdf-doc-btn, 30x30) para que no se vean desparejos lado a lado en la tarjeta. */
+        .btn-hd-del { opacity: 1 !important; width: 30px !important; height: 30px !important; }
+        .btn-hd-del .material-icons { font-size: 17px !important; }
         .hd-filter-row {
             flex-direction: row !important;
             flex-wrap: wrap !important;
@@ -223,11 +188,6 @@
         .table-historial-mobile tbody td:nth-child(3) {
             grid-area: doc;
         }
-        .table-historial-mobile tbody td:nth-child(3) .badge-doc {
-            font-size: 10px;
-            padding: 3px 8px;
-            border-radius: 6px;
-        }
         /* Fila 1 der: fecha + hora */
         .table-historial-mobile tbody td:nth-child(1) {
             grid-area: date;
@@ -235,9 +195,6 @@
             font-size: 11.5px;
             color: #94a3b8;
             line-height: 1.25;
-        }
-        .table-historial-mobile tbody td:nth-child(1) > div {
-            align-items: flex-end !important;
         }
         /* Fila 2: equipo (protagonista) */
         .table-historial-mobile tbody td:nth-child(4) {
@@ -260,15 +217,6 @@
             text-overflow: ellipsis;
             max-width: 65vw;
             align-self: center;
-        }
-        .table-historial-mobile tbody td:nth-child(2) .badge-autor {
-            background: transparent;
-            padding: 0;
-            font-size: 12px;
-            color: #64748b;
-        }
-        .table-historial-mobile tbody td:nth-child(2) .badge-autor i {
-            display: none;
         }
         /* Fila 3 der: botón PDF */
         .table-historial-mobile tbody td:nth-child(5) {
@@ -315,7 +263,7 @@
     <!-- Left Column (Main Content) -->
     <div>
         <div class="admin-card">
-            <div class="filter-toolbar-container hd-filter-row" style="margin-bottom: 5px;">
+            <div class="filter-toolbar-container hd-filter-row" style="margin-bottom: 14px;">
                 <!-- Search Equipo (Placa/Serial) -->
                 <div class="filter-item aligned-filter responsive-filter-item">
                     <form style="width: 100%;" onsubmit="event.preventDefault(); window.loadHistorialDocumentos();">
@@ -525,24 +473,24 @@
 
             <!-- Unified Responsive Table -->
             <div class="custom-scrollbar-container">
-                <table class="admin-table table-historial-mobile" id="historialDocumentosTable" style="width: 100% !important;">
+                <table class="tabla-lista table-historial-mobile" id="historialDocumentosTable">
                     <thead>
-                        <tr class="tabla-cabecera" style="border-bottom: 2px solid #0f172a;">
-                            <th class="table-cell-bordered" style="min-width: 150px;">Fecha y Hora</th>
-                            <th class="table-cell-bordered" style="min-width: 200px;">Autor</th>
-                            <th class="table-cell-bordered" style="min-width: 180px;">Tipo de Acción</th>
-                            <th class="table-cell-bordered" style="min-width: 200px;">Equipo Asociado</th>
-                            <th style="text-align: center; width: 100px;">Ver PDF</th>
+                        <tr class="tabla-cabecera">
+                            <th>Fecha</th>
+                            <th>Autor</th>
+                            <th>Acción</th>
+                            <th>Equipo</th>
+                            <th style="text-align: center; width: 90px;">PDF</th>
                         </tr>
                     </thead>
-                    <tbody id="historialTableBody" style="font-size: 13px;">
+                    <tbody id="historialTableBody">
                         @include('admin.historial_documentos.partials.table_rows', ['events' => $events])
                     </tbody>
                 </table>
             </div>
 
             <!-- Pagination -->
-            <div id="historialPagination" style="margin-top: 25px;">
+            <div id="historialPagination" style="margin-top: 12px;">
                 {{ $events->links('vendor.pagination.custom-sliding') }}
             </div>
 
@@ -700,36 +648,26 @@
 <style>
     /* Hover en filas seleccionables */
     #historialDocumentosTable .hd-selectable-row:not(.selected-row-maquinaria):hover td {
-        background: #f8fafc !important;
+        background: #f8fafc;
         transition: background 0.15s;
     }
     #historialDocumentosTable .hd-has-cambios { cursor: pointer; }
-    #historialDocumentosTable .hd-has-cambios.hd-detail-open td {
-        background: #eff6ff !important;
-        border-color: #93c5fd !important;
-    }
-    #historialDocumentosTable .hd-has-cambios.hd-detail-open td:first-child {
-        border-left: 4px solid #0067b1 !important;
-    }
 
-    /* Desktop: selección clásica (fondo azul en td, borde izquierdo) */
+    /* Desktop: fila abierta (burbuja de cambios) o seleccionada = fondo azul claro con una
+       barra azul a la izquierda. La barra es una sombra interior y no un borde: en la tabla
+       de líneas finas (.tabla-lista) un borde de 4 px corría el contenido de la fila. */
     @media (min-width: 769px) {
-        #historialDocumentosTable tr.selected-row-maquinaria {
-            background-color: transparent !important;
-            border-left: none !important;
-        }
+        /* .hd-selectable-row va en el selector para igualar la especificidad del hover de
+           arriba y, por estar después, ganarle: la fila se abre justo al pasar el ratón. */
+        #historialDocumentosTable .hd-selectable-row.hd-has-cambios.hd-detail-open td { background: #eff6ff; }
         #historialDocumentosTable tr.selected-row-maquinaria td {
-            background-color: #e1effa !important;
-            color: #0067b1 !important;
-            border-top-color: #93c5fd !important;
-            border-bottom-color: #93c5fd !important;
-            transition: all 0.2s ease;
+            background: #e1effa;
+            color: #0067b1;
+            transition: background 0.2s ease;
         }
+        #historialDocumentosTable .hd-has-cambios.hd-detail-open td:first-child,
         #historialDocumentosTable tr.selected-row-maquinaria td:first-child {
-            border-left: 4px solid #0067b1 !important;
-        }
-        #historialDocumentosTable tr.selected-row-maquinaria td:last-child {
-            border-right-color: #93c5fd !important;
+            box-shadow: inset 4px 0 0 #0067b1;
         }
 
         /* ── Cambios editados: BURBUJA FLOTANTE en PC ──

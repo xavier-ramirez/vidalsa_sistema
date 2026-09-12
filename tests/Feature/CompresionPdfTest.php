@@ -138,7 +138,8 @@ class CompresionPdfTest extends MySqlTestCase
         $this->actingAs($admin)->get(route('compresion-pdf.index'))
             ->assertOk()
             ->assertSee('Compresión de PDF')
-            ->assertSee('no corre en este equipo');
+            ->assertSee('Tarea nocturna apagada')
+            ->assertSee('Es el PC de desarrollo.');
     }
 
     public function test_detecta_la_firma_digital(): void

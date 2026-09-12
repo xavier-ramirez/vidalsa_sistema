@@ -29,14 +29,10 @@
     .cpdf-aviso.ok strong, .cpdf-aviso.ok span { color: #1e3a5f; }
     .cpdf-aviso.apagada { background: #f8fafc; color: #475569; }
 
+    /* La tabla y su encabezado: .tabla-lista y .tabla-cabecera (estilos_globales.css). */
     .cpdf-tabla-caja { overflow-x: auto; }
-    .cpdf-tabla { width: 100%; border-collapse: collapse; font-size: 13px; }
-    .cpdf-tabla th { white-space: nowrap; }   /* el resto del encabezado: .tabla-cabecera (estilos_globales.css) */
-    .cpdf-tabla th:first-child { border-radius: 8px 0 0 8px; }
-    .cpdf-tabla th:last-child { border-radius: 0 8px 8px 0; }
-    .cpdf-tabla td { padding: 7px 10px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
     .cpdf-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
-    .cpdf-tabla th.cpdf-num { text-align: right; }   /* le gana al text-align: left de .tabla-cabecera th */
+    .tabla-lista th.cpdf-num { text-align: right; }   /* le gana al text-align: left de .tabla-cabecera th */
     .cpdf-estado { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; }
     .cpdf-estado.comprimido { background: #dcfce7; color: #166534; }
     .cpdf-estado.saltado { background: #fef3c7; color: #92400e; cursor: help; }
@@ -137,7 +133,7 @@
         </div>
 
         <div class="cpdf-tabla-caja">
-            <table class="cpdf-tabla">
+            <table class="tabla-lista">
                 <thead>
                     <tr class="tabla-cabecera">
                         <th>Fecha</th>
@@ -195,7 +191,7 @@
                     <strong>Tarea nocturna activa</strong>
                     <span>De 12:00 a 5:00 a.m., hora {{ $zona === 'America/Caracas' ? 'de Venezuela' : $zona }} (ahora {{ $horaApp->format('g:i a') }}).</span>
                 @elseif (!$activa)
-                    <strong>La tarea nocturna no corre en este equipo</strong>
+                    <strong>Tarea nocturna apagada</strong>
                     <span>{{ ucfirst($motivoActiva) }}.</span>
                 @else
                     <strong>Falta Ghostscript</strong>

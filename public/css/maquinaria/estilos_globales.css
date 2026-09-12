@@ -337,6 +337,33 @@ body {
     text-align: left;
 }
 
+/* Tabla de lista sencilla, con .tabla-cabecera arriba: filas separadas por una línea fina,
+   letra de 13 px sin negrita y la cabecera con los extremos redondeados. La usan Compresión
+   de PDF y Auditoría de documentos (una sola definición para que se vean iguales). */
+.tabla-lista {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.tabla-lista th {
+    white-space: nowrap;
+}
+
+.tabla-lista th:first-child {
+    border-radius: 8px 0 0 8px;
+}
+
+.tabla-lista th:last-child {
+    border-radius: 0 8px 8px 0;
+}
+
+.tabla-lista td {
+    padding: 7px 10px;
+    border-bottom: 1px solid #f1f5f9;
+    vertical-align: middle;
+}
+
 .admin-table tr td {
     background: transparent !important;
     padding: 12px 20px;

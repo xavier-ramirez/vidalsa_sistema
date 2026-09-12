@@ -35,27 +35,13 @@
 @endphp
 @forelse ($events as $event)
     <tr class="hd-selectable-row {{ !empty($event->cambios) ? 'hd-has-cambios' : '' }}" data-hd-id="{{ md5($event->equipo_id . $event->tipo . $event->fecha->timestamp) }}">
+        {{-- Mismo formato que Compresión de PDF: fecha y hora en una línea. --}}
+        <td style="white-space: nowrap;">{{ $event->fecha->format('d/m/Y H:i') }}</td>
+        <td>{{ $event->autor }}</td>
+        <td><span class="badge-doc">{{ $event->tipo }}</span></td>
         <td>
-            <div style="display: flex; flex-direction: column;">
-                <span>{{ $event->fecha->format('d/m/Y') }}</span>
-                <span style="font-size: 12px; color: #94a3b8;">{{ $event->fecha->format('h:i A') }}</span>
-            </div>
-        </td>
-        <td>
-            <span class="badge-autor">
-                <i class="material-icons" style="font-size: 16px;">person</i>
-                {{ $event->autor }}
-            </span>
-        </td>
-        <td>
-            <span class="badge-doc">
-                <i class="material-icons">description</i>
-                {{ $event->tipo }}
-            </span>
-        </td>
-        <td>
-            <div style="color: #334155; line-height: 1.3;">{{ $event->equipo_nombre }}</div>
-            @if($event->equipo_id)<div style="font-size: 12px; color: #475569; font-weight: 600;">{{ $event->equipo_id }}</div>@endif
+            <div style="line-height: 1.3;">{{ $event->equipo_nombre }}</div>
+            @if($event->equipo_id)<div class="hd-equipo-id">{{ $event->equipo_id }}</div>@endif
             @if(!empty($event->cambios))
                 {{-- Sin rótulo: la burbuja sale al pasar el ratón por la fila (en el
                      teléfono, al tocar la tarjeta). Ver hdAbrir en index.blade.php. --}}
@@ -114,8 +100,8 @@
         <td style="text-align: center;">
             <div style="display:inline-flex;align-items:center;gap:6px;justify-content:center;">
                 @if($event->link)
-                    <button type="button" class="btn-view-pdf" onclick="openPdfPreview('{{ $event->link }}', '{{ $event->doc_key }}', '{{ $event->tipo }}', '{{ $event->equipo_db_id ?? '' }}')" title="Visualizar Documento">
-                        <i class="material-icons" style="font-size: 20px;">picture_as_pdf</i>
+                    <button type="button" class="pdf-doc-btn" onclick="openPdfPreview('{{ $event->link }}', '{{ $event->doc_key }}', '{{ $event->tipo }}', '{{ $event->equipo_db_id ?? '' }}')" title="Ver PDF">
+                        <i class="material-icons">description</i>
                     </button>
                 @endif
                 @can('super.admin')

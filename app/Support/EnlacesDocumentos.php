@@ -49,12 +49,12 @@ class EnlacesDocumentos
     {
         $forzado = config('services.drive.es_servidor');
         if ($forzado !== null) {
-            return [(bool) $forzado, $forzado ? 'fijado a mano como servidor (DRIVE_ES_SERVIDOR)' : 'fijado a mano como NO servidor (DRIVE_ES_SERVIDOR)'];
+            return [(bool) $forzado, $forzado ? 'fijado a mano como servidor (DRIVE_ES_SERVIDOR)' : 'apagada a mano (DRIVE_ES_SERVIDOR)'];
         }
         $conexion = config('database.default');
         $host = strtolower(trim((string) config("database.connections.$conexion.host")));
         if (in_array($host, ['127.0.0.1', 'localhost', '::1', ''], true)) {
-            return [false, 'la base de datos esta en este mismo equipo (PC de desarrollo)'];
+            return [false, 'es el PC de desarrollo'];
         }
         return [true, 'la base de datos es la del servidor'];
     }
