@@ -8,6 +8,7 @@ use App\Models\ProductoInventario;
 use App\Models\Traspaso;
 use App\Models\TraspasoLinea;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use RuntimeException;
@@ -31,11 +32,16 @@ use RuntimeException;
  *    completar lo que falta; las líneas ya confirmadas se ignoran (no duplican stock).
  *  - Cancelar (ENVIADO): registra ENTRADA de retorno al origen por cada línea no
  *    recibida; el stock vuelve y el pedido queda CANCELADO con trazo completo.
+ *  - Deshacer un movimiento desde el kardex (super.admin): la línea sale del envío y el
+ *    envío se recalcula, en la misma transacción (prepararDeshacer / quitarLineasDeshechas).
  */
 class TraspasoService
 {
-    /** Tolerancia para comparar cantidades (3 decimales). */
-    private const EPS = 0.0005;
+    /** Tolerancia para comparar cantidades: la del kardex (InventarioService::EPS). */
+    private const EPS = InventarioService::EPS;
+
+    /** Valor de efectoAlQuitarLineas() cuando el envío se queda sin líneas y se borra. */
+    public const EFECTO_BORRAR = 'BORRAR';
 
     public function __construct(private InventarioService $inventario) {}
 
@@ -456,6 +462,179 @@ class TraspasoService
             $lock->save();
             return $lock->fresh('lineas');
         });
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    //  Deshacer desde el kardex (AlmacenController::eliminarMovimiento)
+    // ─────────────────────────────────────────────────────────────
+
+    /**
+     * Lo que el deshacer de $mov toca en los envíos, averiguado ANTES de borrar nada: las FK
+     * de traspaso_lineas hacia movimientos_inventario son ON DELETE SET NULL, así que después
+     * del borrado la línea ya no dice de qué movimiento era.
+     *
+     *  - arrastrados: filas que el deshacer tiene que llevarse sin estar enlazadas a $mov
+     *    en el kardex (ver movimientosDelItem) → InventarioService::eliminarMovimientoConReverso.
+     *  - lineas: líneas de envío cuya salida o entrada va a desaparecer →
+     *    quitarLineasDeshechas(), después del borrado y en la misma transacción.
+     *
+     * @return array{arrastrados:int[], lineas:int[]}
+     */
+    public function prepararDeshacer(MovimientoInventario $mov): array
+    {
+        $arrastrados = $this->movimientosDelItem($mov);
+        // Las filas que el deshacer va a borrar, con la MISMA regla que usa él.
+        $ids = $this->inventario->idsMovimientoYContraparte($mov)->merge($arrastrados)->all();
+
+        return [
+            'arrastrados' => $arrastrados,
+            'lineas'      => TraspasoLinea::whereIn('ID_MOVIMIENTO_SALIDA', $ids)
+                ->orWhereIn('ID_MOVIMIENTO_ENTRADA', $ids)
+                ->pluck('ID_LINEA')
+                ->map(fn ($v) => (int) $v)
+                ->all(),
+        ];
+    }
+
+    /**
+     * TODO lo que un ítem de envío dejó en el kardex, para que el deshacer se lo lleve
+     * entero aunque solo se pulse una de sus filas. Un ítem no es siempre una fila:
+     *  - en un almacén que reparte por proyecto, su salida se parte en un TRASPASO_SALIDA
+     *    por bolsa (InventarioService::aplicarSalidaConCascada) y la línea solo apunta al
+     *    primero;
+     *  - la entrada del destino se enlaza con ese primer tramo, no con los demás;
+     *  - si el envío se canceló, el retorno es UNA ENTRADA al origen por la cantidad total,
+     *    sin enlace a ningún tramo.
+     * Deshacer una sola de esas filas dejaba tramos descontados sin envío, o borraba el
+     * retorno entero por un tramo y el origen quedaba corto.
+     *
+     * El ítem se reconoce por envío + producto (todas esas filas llevan ID_TRASPASO). Si el
+     * envío tuviera dos líneas del mismo producto no se sabría qué filas son de cuál, y se
+     * rechaza antes que adivinar.
+     *
+     * @return int[]
+     */
+    private function movimientosDelItem(MovimientoInventario $mov): array
+    {
+        $delEnvio = [
+            MovimientoInventario::TIPO_TRASPASO_SALIDA,
+            MovimientoInventario::TIPO_TRASPASO_ENTRADA,
+            MovimientoInventario::TIPO_ENTRADA,        // el retorno de una cancelación
+        ];
+        if (! $mov->ID_TRASPASO || ! in_array($mov->TIPO, $delEnvio, true)) {
+            return [];
+        }
+        $envio = Traspaso::withTrashed()->find($mov->ID_TRASPASO);
+        if (! $envio) {
+            return [];
+        }
+        if ($envio->lineas()->where('ID_PRODUCTO', $mov->ID_PRODUCTO)->count() > 1) {
+            throw new RuntimeException("El envío {$envio->NUMERO} tiene dos líneas del mismo producto: no se puede saber qué movimientos son de cuál. Anúlalo desde Recepción.");
+        }
+
+        return MovimientoInventario::where('ID_TRASPASO', $envio->ID_TRASPASO)
+            ->where('ID_PRODUCTO', $mov->ID_PRODUCTO)
+            ->whereIn('TIPO', $delEnvio)
+            ->pluck('ID_MOVIMIENTO')
+            ->map(fn ($v) => (int) $v)
+            ->all();
+    }
+
+    /**
+     * Deja los envíos coherentes después de deshacer (borrado DURO) movimientos del kardex.
+     * El deshacer devuelve el stock pero no conoce Recepción: la línea seguía en el envío y
+     * ese material se recibía en el destino, o volvía al origen al cancelar, las dos veces
+     * sobre stock que ya había vuelto.
+     *
+     * Las líneas de prepararDeshacer() (su salida o su entrada acaba de borrarse) se quitan
+     * del envío —el movimiento dejó de existir, sin rastro, igual que en el kardex— y el
+     * envío se recalcula:
+     *  - sin líneas → se borra: ya no movió nada, igual que un borrador
+     *    (TraspasoController::destroy), y deja de salir en Recepción;
+     *  - RECIBIDO_PARCIAL sin líneas pendientes → RECIBIDO (lo que faltaba era lo deshecho).
+     * ENVIADO, RECIBIDO y CANCELADO conservan su estado con las líneas que quedan.
+     *
+     * Debe correr en la MISMA transacción que el borrado del kardex. Bloquea primero los
+     * envíos y después sus líneas, en el mismo orden que recibir() y cancelar().
+     *
+     * @param  int[]  $idsLinea  las 'lineas' de prepararDeshacer()
+     * @return array<int, array{numero:string, borrado:bool}>  envíos tocados
+     */
+    public function quitarLineasDeshechas(array $idsLinea): array
+    {
+        if ($idsLinea === []) {
+            return [];
+        }
+
+        $tocados = [];
+        $idsEnvio = TraspasoLinea::whereIn('ID_LINEA', $idsLinea)->distinct()->orderBy('ID_TRASPASO')->pluck('ID_TRASPASO');
+        foreach ($idsEnvio as $idEnvio) {
+            $envio = Traspaso::withTrashed()->where('ID_TRASPASO', $idEnvio)->lockForUpdate()->first();
+            if (! $envio) {
+                continue;
+            }
+            $envio->lineas()->whereIn('ID_LINEA', $idsLinea)->lockForUpdate()->get()->each->delete();
+
+            $efecto = $this->efectoAlQuitarLineas($envio, $envio->lineas()->get());
+            if ($efecto === self::EFECTO_BORRAR) {
+                $envio->forceDelete();
+            } elseif ($efecto !== null) {
+                $envio->ESTADO = $efecto;
+                $envio->save();
+            }
+            $tocados[] = ['numero' => (string) $envio->NUMERO, 'borrado' => $efecto === self::EFECTO_BORRAR];
+        }
+
+        return $tocados;
+    }
+
+    /**
+     * Lo que el deshacer de $mov le haría a su envío, para el aviso previo. Solo lee, con
+     * las mismas piezas que el deshacer de verdad: prepararDeshacer() para saber qué línea
+     * se va y efectoAlQuitarLineas() para saber cómo queda el envío.
+     *
+     * @return array{numero:string, destino:?string, cancelado:bool, recibida:bool, con_entrada:bool, efecto:?string}|null
+     */
+    public function resumenDeshacer(MovimientoInventario $mov): ?array
+    {
+        $envio = $mov->ID_TRASPASO
+            ? Traspaso::withTrashed()->with('almacenDestino:ID_ALMACEN,NOMBRE')->find($mov->ID_TRASPASO)
+            : null;
+        if (! $envio) {
+            return null;
+        }
+
+        $quitadas  = $this->prepararDeshacer($mov)['lineas'];
+        $lineas    = $envio->lineas()->get();
+        $esQuitada = fn ($l) => in_array((int) $l->ID_LINEA, $quitadas, true);
+        $linea     = $lineas->first($esQuitada);
+
+        return [
+            'numero'      => (string) $envio->NUMERO,
+            'destino'     => $envio->almacenDestino?->NOMBRE,
+            'cancelado'   => $envio->esCancelado(),
+            'recibida'    => (bool) $linea?->estaConfirmada(),
+            'con_entrada' => (bool) $linea?->ID_MOVIMIENTO_ENTRADA,
+            'efecto'      => $linea ? $this->efectoAlQuitarLineas($envio, $lineas->reject($esQuitada)) : null,
+        ];
+    }
+
+    /**
+     * Regla ÚNICA de qué le pasa a un envío al que le quedan $quedan líneas después de un
+     * deshacer: EFECTO_BORRAR si no le queda ninguna; ESTADO_RECIBIDO si estaba parcial y
+     * ya no tiene nada pendiente; null si conserva su estado.
+     */
+    private function efectoAlQuitarLineas(Traspaso $envio, Collection $quedan): ?string
+    {
+        if ($quedan->isEmpty()) {
+            return self::EFECTO_BORRAR;
+        }
+        if ($envio->ESTADO === Traspaso::ESTADO_RECIBIDO_PARCIAL
+            && ! $quedan->contains(fn ($l) => ! $l->estaConfirmada())) {
+            return Traspaso::ESTADO_RECIBIDO;
+        }
+
+        return null;
     }
 
     // ─────────────────────────────────────────────────────────────

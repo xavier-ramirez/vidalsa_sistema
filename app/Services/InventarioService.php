@@ -31,8 +31,11 @@ use InvalidArgumentException;
  */
 class InventarioService
 {
-    /** Magnitud mínima representable (3 decimales). */
-    private const EPS = 0.0005;
+    /**
+     * Magnitud mínima representable (3 decimales). Pública para que quien compare
+     * cantidades del kardex fuera de aquí (DevolucionService, eliminarNota) use la misma.
+     */
+    public const EPS = 0.0005;
 
     // ─────────────────────────────────────────────────────────────
     //  API pública
@@ -131,6 +134,47 @@ class InventarioService
     }
 
     /**
+     * Devolución de material: vuelve al almacén parte (o todo) lo que salió con $salida.
+     *
+     * Deja una fila DEVOLUCION que suma al stock en el MISMO almacén, producto y bolsa de
+     * la salida —si la salida tomó material prestado de otro proyecto, vuelve a ese
+     * proyecto— y que apunta a la salida por ID_MOVIMIENTO_RELACIONADO. Con ese enlace el
+     * consumo resta lo devuelto (MovimientoInventario::scopeConDevuelto) y deshacer la
+     * salida se lleva también sus devoluciones (idsMovimientoYContraparte).
+     *
+     * Que no se devuelva más de lo que salió lo controla quien llama
+     * (DevolucionService), que es quien tiene la nota entera bloqueada.
+     */
+    public function registrarDevolucion(MovimientoInventario $salida, float $cantidad, array $opts = []): MovimientoInventario
+    {
+        $this->assertCantidadPositiva($cantidad);
+        if ($salida->TIPO !== MovimientoInventario::TIPO_SALIDA) {
+            throw new InvalidArgumentException('Solo se puede devolver material de una salida.');
+        }
+
+        // La bolsa de la que se descontó; las filas anteriores a ID_FRENTE_SALDO que no la
+        // tuvieran caen a la del proyecto, que es de donde salían entonces.
+        $bolsa = $salida->ID_FRENTE_SALDO ?? $salida->ID_FRENTE ?? self::FRENTE_BOLSA_COMUN;
+
+        $optsDevolucion = [
+            'id_frente'                 => $salida->ID_FRENTE,
+            '_frente_saldo'             => (int) $bolsa,
+            'id_movimiento_relacionado' => (int) $salida->ID_MOVIMIENTO,
+            'referencia'                => $salida->NUMERO_NOTA,
+        ] + $opts;
+
+        return DB::transaction(function () use ($salida, $cantidad, $optsDevolucion) {
+            return $this->aplicarMovimiento(
+                (int) $salida->ID_ALMACEN,
+                (int) $salida->ID_PRODUCTO,
+                MovimientoInventario::TIPO_DEVOLUCION,
+                $cantidad,
+                $optsDevolucion
+            );
+        });
+    }
+
+    /**
      * Asegura que exista la fila de stock para (almacén, producto). Útil para
      * que un almacén pueda "dar de alta" un producto con saldo 0.
      *
@@ -190,23 +234,34 @@ class InventarioService
      * Traspasos: un traspaso son DOS filas (salida en origen + entrada en destino)
      * enlazadas por ID_MOVIMIENTO_RELACIONADO. Deshacer una sola dejaría medio traspaso
      * colgando, así que se borran AMBAS patas y se recalcula cada almacén afectado. El
-     * pedido de Traspaso (tabla `traspasos`) NO se toca: solo el kardex y el stock.
+     * pedido de Traspaso (tabla `traspasos`) NO se toca aquí: lo ajusta quien llama, en la
+     * misma transacción (TraspasoService::prepararDeshacer / quitarLineasDeshechas).
+     *
+     * $idsArrastrados: filas que forman unidad con $mov sin estar enlazadas a él en el kardex
+     * (los demás tramos, la entrada y el retorno del mismo ítem de envío, ver
+     * TraspasoService::prepararDeshacer).
      *
      * Irreversible: no deja registro en ninguna parte.
      *
+     * @param  int[]  $idsArrastrados
      * @return array{eliminados:int, afectados:array<int,array{id_almacen:int,id_producto:int,saldo:float}>}
      */
-    public function eliminarMovimientoConReverso(int $idMovimiento): array
+    public function eliminarMovimientoConReverso(int $idMovimiento, array $idsArrastrados = []): array
     {
-        return DB::transaction(function () use ($idMovimiento) {
+        return DB::transaction(function () use ($idMovimiento, $idsArrastrados) {
             $mov = MovimientoInventario::lockForUpdate()->find($idMovimiento);
             if (! $mov) {
                 throw new InvalidArgumentException("El movimiento #{$idMovimiento} no existe o ya fue eliminado.");
             }
 
             // Reunir las filas a borrar: la propia + su contraparte de traspaso (helper
-            // compartido con el borrado SIN reverso, para no duplicar la lógica del enlace).
-            $ids = $this->idsMovimientoYContraparte($mov);
+            // compartido con el borrado SIN reverso, para no duplicar la lógica del enlace)
+            // + las que se arrastran sin enlace.
+            $ids = $this->idsMovimientoYContraparte($mov)
+                ->merge($idsArrastrados)
+                ->map(fn ($v) => (int) $v)
+                ->unique()
+                ->values();
 
             $movs = MovimientoInventario::whereIn('ID_MOVIMIENTO', $ids)->get();
 
@@ -341,12 +396,18 @@ class InventarioService
     /**
      * IDs de las filas del kardex que forman una unidad atómica con $mov: la propia más su
      * contraparte de traspaso (enlace ID_MOVIMIENTO_RELACIONADO en AMBOS sentidos). La
-     * comparten el borrado CON reverso y el borrado SIN reverso.
+     * comparten el borrado CON reverso y el borrado SIN reverso, y es pública porque
+     * TraspasoService::prepararDeshacer la necesita para saber qué líneas de envío se van:
+     * una sola regla de qué borra el deshacer.
+     *
+     * Devoluciones: el enlace va en UN solo sentido. Borrar una SALIDA se lleva sus
+     * devoluciones (sin la salida, devolver material que nunca salió inflaría el stock),
+     * pero borrar una DEVOLUCION no toca la salida: esa entrega sí ocurrió.
      */
-    private function idsMovimientoYContraparte(MovimientoInventario $mov): \Illuminate\Support\Collection
+    public function idsMovimientoYContraparte(MovimientoInventario $mov): \Illuminate\Support\Collection
     {
         $ids = collect([(int) $mov->ID_MOVIMIENTO]);
-        if ($mov->ID_MOVIMIENTO_RELACIONADO) {
+        if ($mov->ID_MOVIMIENTO_RELACIONADO && $mov->TIPO !== MovimientoInventario::TIPO_DEVOLUCION) {
             $ids->push((int) $mov->ID_MOVIMIENTO_RELACIONADO);
         }
         return $ids->merge(
@@ -364,7 +425,7 @@ class InventarioService
      * ya no quedan movimientos, el stock vuelve a esa apertura.
      *
      * Reglas por tipo (las mismas que aplicarMovimiento, recorridas a posteriori):
-     *  - ENTRADA / TRASPASO_ENTRADA : resultante = anterior + CANTIDAD
+     *  - TIPOS_ENTRADA (ENTRADA / TRASPASO_ENTRADA / DEVOLUCION) : resultante = anterior + CANTIDAD
      *  - SALIDA  / TRASPASO_SALIDA  : resultante = anterior − CANTIDAD
      *  - AJUSTE  : CANTIDAD_RESULTANTE es un saldo OBJETIVO absoluto (conteo físico) y se
      *              conserva tal cual; se recalcula anterior y la magnitud = |resultante − anterior|.

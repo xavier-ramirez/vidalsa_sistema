@@ -15,6 +15,10 @@
     // fila (ver MovimientoInventario::prestamosPorMovimiento): en un almacen que no separa
     // por proyecto la fila sola diria que TODAS lo son.
     $prestamos = \App\Models\MovimientoInventario::prestamosPorMovimiento($rows);
+
+    // N° de Nota que siguen vigentes entre los que traen las devoluciones de esta pagina
+    // (ver $numNota abajo): una nota eliminada ya no tiene PDF que abrir.
+    $notasVigentes = \App\Models\MovimientoInventario::notasVigentesDeDevoluciones($rows);
 @endphp
 
 @if($rows->count() === 0)
@@ -26,7 +30,8 @@
     @foreach($rows as $m)
         @php
             $meta = $tipoMeta[$m->TIPO] ?? \App\Models\MovimientoInventario::TIPO_META_DEFAULT;
-            $entra = in_array($m->TIPO, ['ENTRADA', 'TRASPASO_ENTRADA'], true);
+            // Entradas, traspasos recibidos y devoluciones suman (TIPOS_ENTRADA del modelo).
+            $entra = $m->esEntrada();
             $signo = $m->TIPO === 'AJUSTE'
                 ? (((float) $m->CANTIDAD_RESULTANTE - (float) $m->CANTIDAD_ANTERIOR) >= 0 ? '+' : '−')
                 : ($entra ? '+' : '−');
@@ -109,16 +114,13 @@
                     @endphp
                     {{-- A QUIEN se entrego. --}}
                     <div class="mv-destino-frente">{{ $m->frente->NOMBRE_FRENTE }}</div>
-                    {{-- DE QUE BOLSA salio, solo cuando NO es la del destino. Se rotula "tomado de"
-                         y no "del saldo de": lo que el almacenista necesita leer es a quien se le
-                         quito el material, no la mecanica del saldo. La flecha lo ata a la linea
-                         de arriba (salio DE aqui PARA aquel). --}}
+                    {{-- DE QUE BOLSA salio (en una devolucion, a cual vuelve), solo cuando NO es la
+                         del destino. Se rotula "tomado de" y no "del saldo de": lo que el
+                         almacenista necesita leer es a quien se le quito el material, no la
+                         mecanica del saldo. La flecha lo ata a la linea de arriba (salio DE aqui
+                         PARA aquel). El texto lo decide partials/kardex_bolsa. --}}
                     @if($bolsa !== null)
-                        <div class="mv-tomado-de" title="Ese proyecto no tenia saldo suficiente: la diferencia se tomo de esta otra bolsa del mismo almacen">
-                            <i class="material-icons">subdirectory_arrow_right</i>
-                            <span>tomado de <strong>{{ \App\Services\InventarioService::rotuloBolsaPrestada(
-                                $bolsa, $nombreBolsa, \App\Services\InventarioService::ROTULO_BOLSA_COMUN_EN_FRASE) }}</strong></span>
-                        </div>
+                        @include('admin.almacen.partials.kardex_bolsa')
                     @endif
                 @elseif($m->ID_ALMACEN_CONTRAPARTE)
                     {{ $m->almacenContraparte?->NOMBRE ?? '—' }}
@@ -133,7 +135,8 @@
                      NUMERO_NOTA en el almacén que emite y de REFERENCIA en el que recibe el
                      traspaso (ver $numNota abajo).
                    · REFERENCIA → Nota de entrega del proveedor (en ENTRADA directa) / N° OC,
-                     cuando NO es el N° de Nota que ya salió como enlace.
+                     cuando NO es el N° de Nota que ya salió como enlace. En el STOCK INICIAL
+                     (esStockInicial) sale en negrita + "Nuevo material" debajo.
                    · MOTIVO     → en ENTRADA es el PROVEEDOR (ícono 🚚, a quién devolver);
                                   en SALIDA/AJUSTE es el motivo → se deja como tooltip de la celda.
                    · NOTAS      → Observaciones del lote: inline truncado + texto completo al hover.
@@ -158,6 +161,13 @@
                     && ($almacenesVisibles ?? collect())->contains((int) $m->ID_ALMACEN_CONTRAPARTE)) {
                     $numNota = $m->REFERENCIA;
                 }
+                // Una DEVOLUCION trae en REFERENCIA la nota de la que vuelve el material, que es
+                // del mismo almacén: se enlaza a su PDF mientras esa nota exista.
+                if (!$numNota
+                    && $m->TIPO === \App\Models\MovimientoInventario::TIPO_DEVOLUCION
+                    && isset($notasVigentes[$m->REFERENCIA])) {
+                    $numNota = $m->REFERENCIA;
+                }
             @endphp
             <td class="mv-td-ref" data-label="Ref" @if(!$esEntradaDirecta && $m->MOTIVO) title="{{ $m->MOTIVO }}" @endif>
                 @if($numNota)
@@ -178,7 +188,11 @@
                        target="_blank" rel="noopener"
                        title="Ver Nota de Entrega (PDF)"><i class="material-icons mv-nota-ico">description</i><span class="mv-nota-num">{{ $numNota }}</span></a>
                 @endif
-                @if($m->REFERENCIA && $m->REFERENCIA !== $numNota)
+                @if($m->esStockInicial())
+                    {{-- Entrada que se registra al crear el producto con cantidad inicial. --}}
+                    <div class="mv-ref-referencia mv-ref-stock-inicial">{{ $m->REFERENCIA }}</div>
+                    <div class="mv-ref-sub">Nuevo material</div>
+                @elseif($m->REFERENCIA && $m->REFERENCIA !== $numNota)
                     {{-- Nota de entrega del proveedor (ENTRADA) / N° OC: peso normal (400), no
                          negrita, a pedido del cliente para que la columna Referencia use la misma
                          letra que las demás. Se OMITE si es el N° que ya salió como enlace arriba
@@ -221,10 +235,12 @@
                     {{-- Botón "deshacer" CASI INVISIBLE — SOLO super.admin (gateado también en
                          la ruta DELETE almacen.movimientos.destroy, no basta ocultarlo). Borra el
                          movimiento del kardex SIN rastro, revierte el stock y recalcula el saldo
-                         de los movimientos posteriores. Irreversible: la confirmación vive en JS.
-                         La URL ya viene resuelta por fila (data-undo-url) para no construirla en JS. --}}
+                         de los movimientos posteriores. Irreversible: la confirmación vive en JS y
+                         su texto lo da el servidor (data-impacto-url: resto de la nota, envío...).
+                         Las URL ya vienen resueltas por fila para no construirlas en JS. --}}
                     <button type="button" class="alm-mov-undo"
                             data-undo-url="{{ route('almacen.movimientos.destroy', ['id' => $m->ID_MOVIMIENTO]) }}"
+                            data-impacto-url="{{ route('almacen.movimientos.impactoDeshacer', ['id' => $m->ID_MOVIMIENTO]) }}"
                             title="Deshacer este movimiento (irreversible)"
                             aria-label="Deshacer movimiento"
                             onclick="event.stopPropagation(); window.almDeshacerMovimiento(this);">

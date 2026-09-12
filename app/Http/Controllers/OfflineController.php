@@ -556,7 +556,7 @@ class OfflineController extends Controller
                 'movimientos_inventario.CANTIDAD', 'movimientos_inventario.CANTIDAD_RESULTANTE',
                 'movimientos_inventario.CANTIDAD_ANTERIOR',
                 'movimientos_inventario.FECHA', 'movimientos_inventario.NUMERO_NOTA',
-                'movimientos_inventario.ID_FRENTE',
+                'movimientos_inventario.REFERENCIA', 'movimientos_inventario.ID_FRENTE',
                 'p.CODIGO as PROD_CODIGO', 'p.NOMBRE as PROD_NOMBRE', 'p.UM as PROD_UM', 'f.NOMBRE_FRENTE',
             ])
             ->map(static fn ($m) => [
@@ -573,7 +573,13 @@ class OfflineController extends Controller
                 // (resultante vs anterior), igual que el filtro Entradas/Salidas online.
                 'anterior' => (float) $m->CANTIDAD_ANTERIOR,
                 'fecha' => optional($m->FECHA)->format('Y-m-d') ?? (string) $m->FECHA,
-                'nota' => $m->NUMERO_NOTA,
+                // Una devolución no tiene nota propia: muestra la nota de la que vuelve el
+                // material, que lleva en REFERENCIA — igual que el kardex online.
+                'nota' => $m->NUMERO_NOTA
+                    ?: ($m->TIPO === MovimientoInventario::TIPO_DEVOLUCION ? $m->REFERENCIA : null),
+                // El filtro "Nota" online busca en NUMERO_NOTA O en REFERENCIA (así el N° de
+                // una nota trae también su devolución y la entrega a cambio); offline igual.
+                'ref' => $m->REFERENCIA,
                 'codigo' => MojibakeFix::fix($m->PROD_CODIGO),
                 'producto' => MojibakeFix::fix($m->PROD_NOMBRE),
                 'um' => MojibakeFix::fix($m->PROD_UM),

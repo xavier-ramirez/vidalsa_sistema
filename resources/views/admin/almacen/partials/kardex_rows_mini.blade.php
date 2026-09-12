@@ -17,6 +17,8 @@
     // que el kardex grande y el export — una sola consulta por página.
     $nombreBolsa = \App\Models\MovimientoInventario::nombresDeBolsa($rows);
     $prestamos   = \App\Models\MovimientoInventario::prestamosPorMovimiento($rows);
+    // Notas vigentes que traen las devoluciones de la página (mismo criterio que kardex_rows).
+    $notasVigentes = \App\Models\MovimientoInventario::notasVigentesDeDevoluciones($rows);
 @endphp
 
 @if($rows->count() === 0)
@@ -28,11 +30,16 @@
     @foreach($rows as $m)
         @php
             $meta = $tipoMeta[$m->TIPO] ?? \App\Models\MovimientoInventario::TIPO_META_DEFAULT;
-            $entra = in_array($m->TIPO, ['ENTRADA', 'TRASPASO_ENTRADA'], true);
+            // Entradas, traspasos recibidos y devoluciones suman (TIPOS_ENTRADA del modelo).
+            $entra = $m->esEntrada();
             $signo = $m->TIPO === 'AJUSTE'
                 ? (((float) $m->CANTIDAD_RESULTANTE - (float) $m->CANTIDAD_ANTERIOR) >= 0 ? '+' : '−')
                 : ($entra ? '+' : '−');
             $mag = $m->TIPO === 'AJUSTE' ? abs((float) $m->CANTIDAD_RESULTANTE - (float) $m->CANTIDAD_ANTERIOR) : (float) $m->CANTIDAD;
+            // N° de Nota que la fila enlaza al PDF: el suyo, o —en una devolución— el de la nota
+            // de la que vuelve el material (en REFERENCIA), mientras esa nota exista.
+            $numNota = $m->NUMERO_NOTA
+                ?: ($m->TIPO === \App\Models\MovimientoInventario::TIPO_DEVOLUCION && isset($notasVigentes[$m->REFERENCIA]) ? $m->REFERENCIA : null);
         @endphp
         <tr>
             {{-- Sin la píldora de fondo que llevaba el partial grande ($meta[2]): el cliente
@@ -62,26 +69,26 @@
                     <div style="font-size:11px;font-weight:600;color:#0f172a;">{{ $m->frente->NOMBRE_FRENTE }}</div>
                     @php $bolsa = $prestamos[$m->ID_MOVIMIENTO] ?? null; @endphp
                     @if($bolsa !== null)
-                        <div class="mv-tomado-de" title="Ese proyecto no tenia saldo suficiente: la diferencia se tomo de esta otra bolsa del mismo almacen">
-                            <i class="material-icons">subdirectory_arrow_right</i>
-                            <span>tomado de <strong>{{ \App\Services\InventarioService::rotuloBolsaPrestada(
-                                $bolsa, $nombreBolsa, \App\Services\InventarioService::ROTULO_BOLSA_COMUN_EN_FRASE) }}</strong></span>
-                        </div>
+                        @include('admin.almacen.partials.kardex_bolsa')
                     @endif
                 @elseif($m->ID_ALMACEN_CONTRAPARTE)
                     <div style="font-size:11px;font-weight:600;color:#0f172a;">{{ $m->almacenContraparte?->NOMBRE ?? '—' }}</div>
                 @endif
-                @if($m->NUMERO_NOTA)
+                @if($numNota)
                     <div style="font-size:10.5px;margin-top:2px;">
                         {{-- Visor in-page (#pdfPreviewModal) — fallback a pestaña nueva. --}}
-                        <a href="{{ route('almacen.nota-entrega', ['numero' => $m->NUMERO_NOTA]) }}"
+                        <a href="{{ route('almacen.nota-entrega', ['numero' => $numNota]) }}"
                            onclick="if (typeof window.openPdfPreview === 'function') { event.preventDefault(); window.openPdfPreview(this.href, 'nota_entrega', 'Nota ' + this.textContent.trim(), 0, '', true, 'almacen'); }"
                            target="_blank" rel="noopener"
                            style="color:#0067b1;text-decoration:none;font-weight:700;font-family:monospace;"
-                           title="Ver Nota de Entrega (PDF)">{{ $m->NUMERO_NOTA }}</a>
+                           title="Ver Nota de Entrega (PDF)">{{ $numNota }}</a>
                     </div>
                 @endif
-                @if($m->REFERENCIA && $m->REFERENCIA !== $m->NUMERO_NOTA)
+                @if($m->esStockInicial())
+                    {{-- Igual que en /admin/almacen/movimientos (kardex_rows): dos líneas. --}}
+                    <div style="font-size:10.5px;color:#334155;font-weight:700;">{{ $m->REFERENCIA }}</div>
+                    <div style="font-size:10.5px;color:#64748b;">Nuevo material</div>
+                @elseif($m->REFERENCIA && $m->REFERENCIA !== $numNota)
                     {{-- En ENTRADA directa REFERENCIA es la Nota de entrega del proveedor:
                          en negrita igual que la Nota de Entrega (NUMERO_NOTA) de las SALIDAS.
                          Se OMITE si coincide con NUMERO_NOTA (traspasos traían el mismo NE). --}}

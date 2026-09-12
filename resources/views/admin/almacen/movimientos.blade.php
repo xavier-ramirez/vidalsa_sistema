@@ -18,11 +18,13 @@
     // Filtro de PRODUCTO activo = texto libre (search) O un producto / sus presentaciones
     // elegidos por clic en una sugerencia (id_producto / id_producto_in, que llegan SIN `search`).
     $prodActivo  = $reqSearch || request('id_producto') || request('id_producto_in');
-    // Filtro Tipo: Entradas (grupo), Salidas (grupo), Auditoría (tipo exacto AJUSTE).
+    // Filtro Tipo: Entradas (grupo), Salidas (grupo), Auditoría (tipo exacto AJUSTE) y
+    // Devoluciones (tipo exacto DEVOLUCION; también cuentan dentro de Entradas).
     $tipos = [
-        'ENTRADAS' => ['label' => 'Entradas', 'sub' => ''],
-        'SALIDAS'  => ['label' => 'Salidas', 'sub' => ''],
-        'AJUSTE'   => ['label' => 'Auditoría', 'sub' => ''],
+        'ENTRADAS'   => ['label' => 'Entradas', 'sub' => ''],
+        'SALIDAS'    => ['label' => 'Salidas', 'sub' => ''],
+        'AJUSTE'     => ['label' => 'Auditoría', 'sub' => ''],
+        'DEVOLUCION' => ['label' => 'Devoluciones', 'sub' => ''],
     ];
     $tipoSelLabel = ($reqTipo && isset($tipos[$reqTipo])) ? $tipos[$reqTipo]['label'] . ($tipos[$reqTipo]['sub'] ? ' ' . $tipos[$reqTipo]['sub'] : '') : null;
     // $hayAdv pinta el boton Filtros Avanzados en rojo si HAY filtros aplicados
@@ -191,7 +193,12 @@
     .alm-mov-table td.mv-td-destino  { font-size:12.5px; }
     .alm-mov-table .mv-destino-frente { font-weight:600; color:#1e293b; }
     .alm-mov-table .mv-ref-referencia { font-size:12.5px; color:#334155; font-weight:400; }
-    .alm-mov-table .mv-ref-proveedor  { font-size:10.5px; color:#64748b; }
+    /* Excepción al peso 400 de las referencias: el stock inicial va en negrita (lo eligió el
+       cliente el 11-09-2026, con "Nuevo material" en gris debajo). */
+    .alm-mov-table .mv-ref-stock-inicial { font-weight:700; }
+    /* Línea secundaria en gris: el proveedor de una entrada o el "Nuevo material" del stock inicial. */
+    .alm-mov-table .mv-ref-proveedor,
+    .alm-mov-table .mv-ref-sub        { font-size:10.5px; color:#64748b; }
     /* Separación del dato cuando NO es el primero de la celda (antes: un margin-top
        inline puesto con un ternario en cada fila). */
     .alm-mov-table .mv-ref-apilado    { margin-top:2px; }
@@ -765,8 +772,11 @@
         {{-- ── Botón Acciones (dropdown estilo /admin/movilizaciones) ────────────
              Reemplaza al viejo botón "Inventario" y consolida las acciones
              rápidas de la bitácora en un único menú:
+               · Dashboard de consumo
+               · Bitácora por Nota (PDF)
+               · Exportar a Excel
+               · Devolución de material               (requiere almacen.movimiento)
                · Eliminar Nota de Entrega por código  (requiere almacen.nota.eliminar)
-               · Volver al inventario
          --}}
         <div style="position:relative;flex:0 0 auto;margin-left:auto;">
             <button type="button" id="btnAccionesMov" class="btn-primary-maquinaria"
@@ -779,7 +789,7 @@
 
             <div id="splitDropdownMenuMovInv"
                  style="display:none;position:absolute;top:calc(100% + 5px);right:0;min-width:260px;background:#e2e8f0;border:1px solid #cbd5e1;border-radius:10px;box-shadow:0 10px 20px -5px rgba(15,23,42,0.18);z-index:50;overflow:hidden;">
-                {{-- UNA sola envoltura para los cuatro items. Antes cada uno traia la suya
+                {{-- UNA sola envoltura para todos los items. Antes cada uno traia la suya
                      con border-bottom (y el ultimo con border-top), asi que entre el tercero
                      y el cuarto se apilaban DOS rayas de 1px. El menu de acciones de
                      /admin/movilizaciones no lleva separadores; este ahora tampoco. --}}
@@ -807,9 +817,19 @@
                         <div style="background:#f1f5f9;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;line-height:1;color:#64748b;">download</i></div>
                         <span>Exportar a Excel</span>
                     </button>
+                @can('almacen.movimiento')
+                {{-- Devolución de material: lo entregado con una Nota vuelve al almacén, con
+                     cambio opcional por otro producto (partials/devolucion_modal). --}}
+                    <button type="button"
+                        onclick="document.getElementById('splitDropdownMenuMovInv').style.display='none'; window.almAbrirDevolucion();"
+                        class="alm-mov-accion">
+                        <div style="background:#ccfbf1;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;line-height:1;color:#0d9488;">assignment_return</i></div>
+                        <span>Devolución de material</span>
+                    </button>
+                @endcan
                 @can('almacen.nota.eliminar')
                 {{-- Eliminar Nota: gateado a la clave almacen.nota.eliminar porque reversa
-                     stock y deja un par (SALIDA original + ENTRADA reversa) en el kardex. --}}
+                     stock y deja un par (SALIDA original + su DEVOLUCION) en el kardex. --}}
                     <button type="button"
                         onclick="document.getElementById('splitDropdownMenuMovInv').style.display='none'; window.openEliminarNotaModal();"
                         class="alm-mov-accion">
@@ -1374,6 +1394,9 @@
      dentro de @can('almacen.nota.eliminar') y no abría para quien no tuviera ese permiso. --}}
 @include('admin.almacen.partials.consumo_dashboard_modal')
 
+{{-- Modal "Devolución de material" (menú Acciones). Se gatea él mismo con almacen.movimiento. --}}
+@include('admin.almacen.partials.devolucion_modal')
+
 @can('almacen.nota.eliminar')
 {{-- ═════════════════════════════════════════════════════════════════
      MODAL: ELIMINAR NOTA DE ENTREGA POR CÓDIGO  (requiere almacen.nota.eliminar)
@@ -1555,7 +1578,7 @@
                 // cierre. Sin esto el único aviso era el recuadro dentro del modal,
                 // que desaparecía con él (800ms) y era fácil de no ver.
                 window.toast(okMsg, 'success');
-                // Recargar la tabla de movimientos para que aparezcan las ENTRADAS reversa.
+                // Recargar la tabla de movimientos para que aparezcan las devoluciones de la reversión.
                 if (window.loadMovimientos) window.loadMovimientos();
                 setTimeout(function(){ window.closeEliminarNotaModal(); }, 800);
             } catch (err) {
@@ -1637,14 +1660,33 @@
         }
     }
 
+    // El texto de la confirmación lo da el servidor (data-impacto-url →
+    // AlmacenController::impactoDeshacerMovimiento): dice qué más se lleva el deshacer —el
+    // resto de la Nota de Entrega, las devoluciones, el envío en Recepción— con las mismas
+    // reglas que el deshacer de verdad. Si no responde, queda el aviso genérico.
     window.almDeshacerMovimiento = function (btn) {
-        almBorrarFilaKardex(btn, {
-            urlAttr: 'data-undo-url',
-            title: '¿Deshacer este movimiento?',
-            message: 'Se revertirá el stock y el movimiento.',
-            confirmText: 'Deshacer',
-            okMsg: 'Movimiento deshecho.'
-        });
+        if (!btn || btn.disabled) return;
+        var confirmar = function (avisos) {
+            almBorrarFilaKardex(btn, {
+                urlAttr: 'data-undo-url',
+                title: '¿Deshacer este movimiento?',
+                message: avisos.map(window.escapeHtml).join('<br><br>'),
+                confirmText: 'Deshacer',
+                okMsg: 'Movimiento deshecho.'
+            });
+        };
+        var generico = ['Se revertirá el stock y el movimiento.'];
+        var url = btn.getAttribute('data-impacto-url');
+        if (!url) { confirmar(generico); return; }
+
+        if (window.showPreloader) window.showPreloader();
+        window.apiFetch(url, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .catch(function () { return null; })
+            .then(function (d) {
+                if (window.hidePreloader) window.hidePreloader();
+                confirmar(d && Array.isArray(d.avisos) && d.avisos.length ? d.avisos : generico);
+            });
     };
 
     window.almEliminarSoloHistorial = function (btn) {

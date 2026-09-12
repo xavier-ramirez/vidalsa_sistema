@@ -68,7 +68,7 @@
        incluso cuando la fila está seleccionada (el fondo azul !important tapa el rojo del
        fondo, pero NO este box-shadow). Así, al auditar/mover stock y recargar, el indicador
        de "bajo" refleja el estado nuevo de inmediato sin tener que deseleccionar la fila. */
-    .alm-table tbody tr.alm-row.alm-row-bajo td:first-child { box-shadow: inset 4px 0 0 0 #dc2626; }
+    .alm-table tbody tr.alm-row.alm-row-bajo td:first-child { --alm-franja: inset 4px 0 0 0 #dc2626; box-shadow: var(--alm-franja); }
     /* Fila seleccionable: clic en la fila la marca (estilo /admin/equipos → .selected-row-maquinaria) */
     /* Las filas son seleccionables con clic pero el cursor se mantiene como flecha (sin mano). */
     .alm-table tbody tr.alm-row-clickable { cursor: default; }
@@ -114,7 +114,7 @@
     #almTableBody tr.alm-row.alm-row-missing-cant td,
     #almTableBody tr.alm-row.alm-row-exceeds-stock td { background:#fecaca !important; }
     #almTableBody tr.alm-row.alm-row-missing-cant td:first-child,
-    #almTableBody tr.alm-row.alm-row-exceeds-stock td:first-child { box-shadow: inset 6px 0 0 #b91c1c; }
+    #almTableBody tr.alm-row.alm-row-exceeds-stock td:first-child { --alm-franja: inset 6px 0 0 #b91c1c; box-shadow: var(--alm-franja); }
     #almTableBody tr.alm-row.alm-row-missing-cant .alm-cant-stepper,
     #almTableBody tr.alm-row.alm-row-exceeds-stock .alm-cant-stepper { border-color:#b91c1c !important; background:#fff !important; box-shadow:0 0 0 2px rgba(220,38,38,0.25); }
     #almTableBody tr.alm-row.alm-row-missing-cant .alm-row-cant,
@@ -195,6 +195,16 @@
     @keyframes almMissingPulse {
         0%   { background:#f87171; }
         100% { background:transparent; }
+    }
+    /* Fila recién modificada (almResaltarFila): destello amarillo que se desvanece. Con
+       box-shadow inset —no background— para que se vea también sobre una fila seleccionada,
+       cuyo fondo lleva !important. La franja roja de "stock bajo" / "excede stock" también
+       es un box-shadow (en td:first-child): va en --alm-franja y el destello la incluye, así
+       no desaparece justo cuando la auditoría acaba de dejar el producto bajo el mínimo. */
+    #almTableBody tr.alm-row.alm-row-recien > td { animation: almRecien 2.4s ease-out 1; }
+    @keyframes almRecien {
+        0%, 35% { box-shadow: var(--alm-franja, 0 0 #0000), inset 0 0 0 999px rgba(250, 204, 21, 0.45); }
+        100%    { box-shadow: var(--alm-franja, 0 0 #0000), inset 0 0 0 999px rgba(250, 204, 21, 0); }
     }
     /* ── Reparto por proyecto en la celda de Stock (solo almacenes que separan) ──
        El saldo de un almacén multi-proyecto no es un número solo: es la suma de varias
@@ -456,6 +466,10 @@
        max-height con scroll, así que no se pierde nada al quitar el del cuerpo. */
     #almEtiquetasModal .alm-modal { overflow: visible; }
     #almEtiquetasModal .alm-modal .alm-modal-body { overflow: visible; }
+    /* Sin el overflow:hidden que recorta, el encabezado oscuro y el pie gris taparían las
+       esquinas redondeadas del modal: se redondean ellos mismos. */
+    #almEtiquetasModal .alm-modal-head { border-radius: 14px 14px 0 0; }
+    #almEtiquetasModal .alm-modal-foot { border-radius: 0 0 14px 14px; }
     #almEtiquetasModal .dropdown-content { z-index: 60; max-height: 190px; overflow-y: auto; }
     #almEtiquetasModal .custom-dropdown.active .dropdown-content { animation: slideDown 0.18s ease-out; }
     /* El "Formato" muestra su valor en el placeholder del input readonly: lo pintamos como
@@ -491,19 +505,22 @@
         background: #f8fafc !important;
         border-color: #cbd5e0 !important;
     }
-    /* Todos los modales del módulo: título y botones centrados; la X queda fija en la esquina. */
-    .alm-modal-head { padding: 14px 40px; border-bottom: 1px solid #f1f5f9; display: flex; align-items: center; justify-content: center; position: relative; }
-    .alm-modal-head h3 { margin: 0; font-size: 15px; font-weight: 800; color: #1e293b; display: flex; align-items: center; gap: 8px; text-align: center; }
-    .alm-modal-head .alm-x { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); }
-    /* "Detalles del producto": sin raya bajo el título y cuerpo más pegado — el cliente
-       pidió quitar el separador entre el título y "Ubicación en estante..." y reducir el hueco. */
-    #almDetalleModal .alm-modal-head { border-bottom: none; }
+    /* Todos los modales del módulo, con el encabezado de los de Equipos y Recepción: barra
+       pizarra #1e293b, título blanco con su ícono azul, centrado, y la X fija en la esquina. */
+    .alm-modal-head { padding: 14px 48px; background: #1e293b; display: flex; align-items: center; justify-content: center; position: relative; }
+    .alm-modal-head h3 { margin: 0; font-size: 15px; font-weight: 800; color: #fff; display: flex; align-items: center; gap: 8px; text-align: center; }
+    .alm-modal-head h3 .material-icons { color: #0067b1; }
+    .alm-modal-head .alm-x { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #fff; opacity: .75; }
+    .alm-modal-head .alm-x:hover { color: #fff; opacity: 1; }
+    /* "Detalles del producto": cuerpo más pegado al título (pedido del cliente: menos hueco
+       antes de "Ubicación en estante..."). */
     #almDetalleModal .alm-modal-body { padding-top: 6px; }
     /* El detalle aparece SIN deslizamiento (como los detalles del módulo Equipos):
        se quita la animación de entrada almIn solo para este modal. */
     #almDetalleModal .alm-modal { animation: none; }
     .alm-modal-body { padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; }
-    .alm-modal-foot { padding: 12px 18px; border-top: 1px solid #f1f5f9; display: flex; justify-content: center; gap: 8px; }
+    /* Pie en gris claro, como el de Recepción: separa los botones del contenido. */
+    .alm-modal-foot { padding: 12px 18px; border-top: 1px solid #e2e8f0; background: #f8fafc; display: flex; justify-content: center; gap: 8px; }
     /* Rótulo de campo. El :not() NO es adorno: .multiselect-item también es un <label>, y
        este selector (0,1,1) le ganaba al del componente (0,1,0) — le imponía display:block
        (matando su flex), gris 700 en vez del azul 600 propio, MAYÚSCULAS y un
@@ -536,8 +553,6 @@
     #almSalidaModal .dropdown-trigger input::placeholder { font-style: normal; color: #0f172a; opacity: 1; }
     /* "(opcional)" al lado de la etiqueta del campo (Ubicación, Cantidad): más claro y sin negrita. */
     .alm-modal label .alm-opc { font-weight: 400; color: #94a3b8; }
-    .alm-x { cursor: pointer; color: #94a3b8; }
-    .alm-x:hover { color: #475569; }
 
     /* Sugerencias de los filtros — mismo look que los desplegables (.dropdown-content / .dropdown-item) de la app */
     .alm-suggest {
@@ -576,6 +591,9 @@
     /* Campo "Categoría" del modal de producto: input + botón desplegable (caret) */
     .alm-cat-field { position:relative; display:flex; align-items:center; }
     .alm-cat-field > input { flex:1; padding-right:36px !important; }
+    /* Texto de la categoría más chico que el resto de campos (pedido del cliente). Por id
+       para ganarle al font-size:14px de ".alm-modal input". */
+    #almProdCategoria { font-size:12px; }
     .alm-cat-caret { position:absolute; right:3px; top:50%; transform:translateY(-50%); width:30px; height:30px; border:none; background:transparent; cursor:pointer; display:flex; align-items:center; justify-content:center; color:#64748b; border-radius:8px; transition:background .15s,color .15s; }
     .alm-cat-caret:hover { background:#f1f5f9; color:#0f172a; }
     .alm-cat-caret .material-icons { font-size:22px; transition:transform .15s; }
@@ -1268,7 +1286,7 @@
      Lista los productos borrados para buscarlos y restaurarlos. Restaurar deja el
      producto activo de nuevo con su stock intacto (almacen_stock no se borra). --}}
 <div id="almPapeleraModal" class="alm-modal-overlay">
-    {{-- Mismo modal que el resto de Almacén (.alm-modal): encabezado blanco con el título
+    {{-- Mismo modal que el resto de Almacén (.alm-modal): encabezado oscuro con el título
          centrado y la X a la derecha. El glifo es el del item "Papelera de productos" del
          menú Acciones que lo abre (delete_outline), para que se reconozca. --}}
     <div class="alm-modal">
@@ -1392,13 +1410,13 @@
      id_producto + id_almacen actual + opcional tipo / desde / hasta.
 ═════════════════════════════════════════════════════════════════ --}}
 <div id="almKardexProductoModal" class="alm-modal-overlay">
-    {{-- 640px. Estuvo en 540 (se bajó desde 680 al quitar la columna Fecha), pero con
-         540 la columna "Destino / Ref" —que se lleva el 44% del ancho— se quedaba corta
-         para los frentes de nombre largo, del tipo "TUBERÍA DE 30'' VELADERO TRAMO I",
-         que además cargan debajo el número de nota. Solo afecta a escritorio: en móvil
-         este modal no se abre (el botón .alm-det-act-kardex está oculto ≤768px) y la
-         .alm-modal es width:100% por debajo de ese ancho. --}}
-    <div class="alm-modal" style="max-width:640px;">
+    {{-- 820px (pedido del cliente: más ancho). Pasó por 680 → 540 (al quitar la columna
+         Fecha) → 640, pero la columna "Destino / Ref" —que se lleva el 44% del ancho— se
+         quedaba corta para los frentes de nombre largo, del tipo "TUBERÍA DE 30''
+         VELADERO TRAMO I", que además cargan debajo el número de nota. Solo afecta a
+         escritorio: en móvil este modal no se abre (el botón .alm-det-act-kardex está
+         oculto ≤768px) y la .alm-modal es width:100% por debajo de ese ancho. --}}
+    <div class="alm-modal" style="max-width:820px;">
         <div class="alm-modal-head">
             <h3><i class="material-icons" style="font-size:20px;">history</i> Movimientos del producto</h3>
             <i class="material-icons alm-x" onclick="almCerrar('almKardexProductoModal')">close</i>
@@ -1422,16 +1440,19 @@
                     <span style="font-size:10.5px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;">Tipo:</span>
                     <select id="almKpTipoSelect" onchange="window.almKpChipSelect(this.value)"
                             style="height:30px;padding:0 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;color:#334155;background:#fff;cursor:pointer;">
+                        {{-- Mismos valores que el filtro Tipo de la bitácora: ENTRADAS/SALIDAS son
+                             grupos (traspasos, devoluciones y auditorías por su signo). --}}
                         <option value="">Todos</option>
-                        <option value="ENTRADA">Entradas</option>
-                        <option value="SALIDA">Salidas</option>
+                        <option value="ENTRADAS">Entradas</option>
+                        <option value="SALIDAS">Salidas</option>
                         <option value="AJUSTE">Auditorías de conteo</option>
+                        <option value="DEVOLUCION">Devoluciones</option>
                     </select>
                 </div>
 
                 {{-- El grupo de fechas es el que cede ancho (.alm-kp-grupo-fechas: flex:1 +
                      min-width:0, hasta las cajas de cada input) para que Tipo y Fechas quepan
-                     SIEMPRE en la misma fila dentro de los 540 px del modal. --}}
+                     SIEMPRE en la misma fila dentro del ancho del modal. --}}
                 <div class="alm-kp-grupo-fechas">
                     <span style="font-size:10.5px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;">Fechas:</span>
                     <div class="alm-kp-rango">
@@ -2341,10 +2362,13 @@
     }
 
     // ── Carga AJAX de la tabla + sidebar — con SCROLL INFINITO PEREZOSO ──────────
-    // almCargar(opts?) acepta { offset, append, gen }:
+    // almCargar(opts?) acepta { offset, append, gen, verTodo, mostrar }:
     //   • Sin args (o offset=0)    → reemplaza la tabla, refresca stats + distribución
     //                                y actualiza la URL para compartir.
     //   • { offset>0, append }     → trae la siguiente página y la appendea al tbody.
+    //   • { verTodo }              → enciende "Ver todo el stock" (cualquier otra recarga lo apaga).
+    //   • { mostrar: idProducto }  → al terminar deja ese producto a la vista y resaltado
+    //                                (ver almRecargarMostrando).
     // El siguiente lote NO se auto-encadena: lo dispara un IntersectionObserver sobre la
     // última fila cuando el usuario se acerca (mismo patrón que /admin/equipos). Antes se
     // encadenaban TODAS las páginas de golpe, lo que causaba el lag al llegar al final y
@@ -2411,8 +2435,17 @@
                         var tmp = document.createElement('tbody');
                         tmp.innerHTML = data.html;
                         var _nuevasRows = [];
+                        // La fila que almMostrarProducto fijó arriba (a lo sumo una) no se repite
+                        // cuando llega su lote, ni su fila de bolsas (data-de-producto). Se busca
+                        // UNA vez por lote, no por fila: el tbody crece a miles de filas.
+                        var _fijada = body.querySelector('tr.alm-row[data-fijada="1"]');
+                        var _idFijada = _fijada ? _fijada.getAttribute('data-id-producto') : null;
                         while (tmp.firstElementChild) {
                             var _r = tmp.firstElementChild;
+                            if (_idFijada && (_r.getAttribute('data-id-producto') || _r.getAttribute('data-de-producto')) === _idFijada) {
+                                _r.remove();
+                                continue;
+                            }
                             body.appendChild(_r);
                             if (_r.nodeType === 1 && _r.classList.contains('alm-row')) _nuevasRows.push(_r);
                         }
@@ -2421,6 +2454,7 @@
                     } else {
                         body.innerHTML = data.html;
                         almSelApplyToVisible();
+                        if (opts.mostrar) almMostrarProducto(opts.mostrar, gen);
                     }
                 }
                 // Stats + distribución solo en la primera página (el backend ya las omite
@@ -2492,6 +2526,61 @@
                 }
             });
     };
+
+    // ── Tras operar sobre UN producto (Auditoría, Stock mínimo, Ubicación, Editar, Crear) ──
+    // La tabla se recarga para confirmar con el dato fresco, pero SIN perder el contexto y
+    // dejando ese producto a la vista y resaltado, para que se note el cambio:
+    //  - "Ver todo el stock" se conserva: almCargar() a secas lo apaga (solo lo enciende
+    //    almCargar({verTodo:true})) y la tabla quedaba vacía, sin el producto recién tocado.
+    //  - Si los filtros ya no lo incluyen (se renombró o cambió de categoría, salió de
+    //    "Stock bajo"/"Con stock", o estaba en un lote del scroll que aún no se recarga),
+    //    se trae su fila sola y se fija arriba (data-fijada). El append del scroll no la
+    //    repite al llegar su lote (ver almCargar).
+    function almRecargarMostrando(idProducto) {
+        almCargar({ verTodo: almVerTodoActivo, mostrar: idProducto ? String(idProducto) : null });
+    }
+
+    // Lo llama almCargar al terminar una recarga completa con opts.mostrar. `gen` es la
+    // generación de esa recarga: si mientras volaba la fila suelta el usuario ya filtró de
+    // nuevo, se descarta para no meter una fila en una tabla que ya es otra.
+    function almMostrarProducto(idProducto, gen) {
+        var body = el('almTableBody'); if (!body) return;
+        var tr = body.querySelector('tr.alm-row[data-id-producto="' + idProducto + '"]');
+        if (tr) { almResaltarFila(tr); return; }
+        // solo_filas: el servidor no calcula KPIs ni distribución (aquí solo sirve la fila).
+        var url = ROUTE_INDEX + '?id_almacen=' + encodeURIComponent(val('almSelAlmacen')) + '&id_producto=' + encodeURIComponent(idProducto) + '&solo_filas=1';
+        window.apiFetch(url, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (gen !== almLoadGen || !data || !data.html) return;
+                // Mientras volaba esta petición pudo llegar el lote del scroll que la trae
+                // (la recarga deja la página abajo y el observador pide el siguiente al
+                // instante): entonces ya está en su sitio y solo se resalta, sin fijar otra.
+                var yaEsta = body.querySelector('tr.alm-row[data-id-producto="' + idProducto + '"]');
+                if (yaEsta) { almResaltarFila(yaEsta); return; }
+                var tmp = document.createElement('tbody');
+                tmp.innerHTML = data.html;
+                var nueva = tmp.querySelector('tr.alm-row');
+                if (!nueva) return;
+                var bolsas = tmp.querySelector('tr.alm-row-bolsas');
+                // Tabla en estado vacío ("usa los filtros" / "sin coincidencias"): se quita el aviso.
+                if (!body.querySelector('tr.alm-row')) body.innerHTML = '';
+                nueva.dataset.fijada = '1';
+                if (bolsas) body.insertBefore(bolsas, body.firstChild);
+                body.insertBefore(nueva, body.firstChild);
+                almSelApplyToRows([nueva]);
+                almResaltarFila(nueva);
+            })
+            .catch(function () { /* la tabla ya quedó recargada; solo falta el resalte */ });
+    }
+
+    function almResaltarFila(tr) {
+        tr.classList.remove('alm-row-recien');
+        void tr.offsetWidth;                         // reinicia la animación si se repite
+        tr.classList.add('alm-row-recien');
+        tr.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        setTimeout(function () { tr.classList.remove('alm-row-recien'); }, 2600);
+    }
 
     function formatNum(n) {
         n = parseFloat(n || 0);
@@ -4074,7 +4163,7 @@
             if (res.ok) {
                 m.dataset.ubicacion = ubicacion;
                 toast('Ubicación actualizada.');
-                if (window.almCargar) window.almCargar();
+                almRecargarMostrando(id);
             } else {
                 // El error va TAMBIÉN por toast: si el guardado se disparó al cerrar el modal,
                 // el mensaje inline queda dentro de un modal ya oculto y nadie lo vería.
@@ -4179,7 +4268,7 @@
         tr.dataset.bajo = bajo ? '1' : '0';
         // Sincronizar el saldo CACHEADO de la selección (si la fila está seleccionada) para que
         // el control "excede stock" use el saldo nuevo. La RE-EVALUACIÓN del "excede" no se hace
-        // aquí: la auditoría siempre llama a almCargar() a continuación, y almSelApplyToRows la
+        // aquí: la auditoría siempre recarga a continuación (almRecargarMostrando), y almSelApplyToRows la
         // recalcula en la recarga (evitamos duplicar esa lógica).
         if (almSeleccion[idProducto]) almSeleccion[idProducto].saldo = saldo;
     }
@@ -4210,14 +4299,16 @@
         }).then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b }; }); })
           .then(function (res) {
               unpre();
-              if (!res.ok) { showErr('almAjError', (res.b && res.b.message) || 'No se pudo registrar la auditoría.'); almCargar(); return; }
+              // Error: se recarga para ver el dato vigente (conservando "Ver todo"), pero SIN el
+              // resalte de "cambiado", porque no cambió nada.
+              if (!res.ok) { showErr('almAjError', (res.b && res.b.message) || 'No se pudo registrar la auditoría.'); almCargar({ verTodo: almVerTodoActivo }); return; }
               // Feedback instantáneo del resaltado (rojo/normal) con el saldo auditado;
-              // almCargar() recarga y confirma con el dato fresco del servidor.
+              // almRecargarMostrando recarga, confirma con el dato fresco y deja la fila a la vista.
               almReevaluarStockFila(m.dataset.idProducto, ns);
               // Tras la recarga, dejar el teclado listo en el input de cantidad de esta fila
               // (sigue seleccionada) — sin tener que deseleccionar/reseleccionar para escribir.
               _almPendingFocusId = m.dataset.idProducto;
-              almCerrar('almAjusteModal'); toast('Auditoría registrada.'); almCargar();
+              almCerrar('almAjusteModal'); toast('Auditoría registrada.'); almRecargarMostrando(m.dataset.idProducto);
           }).catch(function () { unpre(); showErr('almAjError', 'Error de red.'); });
     };
 
@@ -4256,7 +4347,7 @@
           .then(function (res) {
               unpre();
               if (!res.ok) { showErr('almMinError', (res.b && res.b.message) || 'No se pudo actualizar el stock mínimo.'); return; }
-              almCerrar('almMinimoModal'); toast('Stock mínimo actualizado.'); almCargar();
+              almCerrar('almMinimoModal'); toast('Stock mínimo actualizado.'); almRecargarMostrando(m.dataset.idProducto);
           }).catch(function () { unpre(); showErr('almMinError', 'Error de red.'); });
     };
 
@@ -4918,7 +5009,7 @@
                     window.ProductoSuggest.invalidar();
                 }
 
-                almCargar();
+                almRecargarMostrando(id || (res.b && res.b.producto && res.b.producto.ID_PRODUCTO));
             }
             else {
                 var msg = (res.b && res.b.message) || 'No se pudo guardar el producto.';

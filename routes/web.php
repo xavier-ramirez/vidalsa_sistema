@@ -409,18 +409,30 @@ Route::middleware(['auth'])->group(function () {
             //   ?ids=10,11,12         → recupera por IDs (lo que devuelve registrarMovimientoLote
             //                           inmediatamente tras crear la nota).
             Route::get   ('almacen/nota-entrega',                 [App\Http\Controllers\AlmacenController::class, 'notaEntregaPdf'])    ->name('almacen.nota-entrega');
-            // DELETE: borra la Nota completa por código y revierte el stock vía ENTRADA inversa.
+            // DELETE: borra la Nota completa por código y revierte el stock con una DEVOLUCION
+            // de lo que aún no se había devuelto.
             // Requiere la clave almacen.nota.eliminar: una nota borrada no se recupera y el stock se mueve.
             Route::delete('almacen/nota-entrega',                 [App\Http\Controllers\AlmacenController::class, 'eliminarNota'])      ->middleware('can:almacen.nota.eliminar')->name('almacen.nota-entrega.destroy');
+            // DEVOLUCIÓN de material de una Nota de Entrega, con cambio opcional por otro
+            // producto (sacaron BRAGA 45 y la regresan porque era la 42). GET = lo entregado,
+            // lo devuelto y lo que falta (solo lectura); POST = registrar, con la clave
+            // almacen.movimiento (se valida dentro para nombrarla en el mensaje).
+            // Ver App\Services\DevolucionService.
+            Route::get   ('almacen/devolucion',                   [App\Http\Controllers\DevolucionMaterialController::class, 'show'])  ->name('almacen.devolucion.show');
+            Route::post  ('almacen/devolucion',                   [App\Http\Controllers\DevolucionMaterialController::class, 'store']) ->name('almacen.devolucion.store');
             // DESHACER un movimiento individual del kardex — EXCLUSIVO super.admin.
             // Borrado DURO sin rastro: elimina la fila, revierte el stock y RECALCULA el
             // saldo de los movimientos posteriores del mismo producto+almacén para que el
             // kardex quede coherente (como si nunca hubiera ocurrido). En traspasos deshace
-            // AMBAS patas del par. Irreversible — por eso va tras el gate can:super.admin.
+            // AMBAS patas del par, y en una salida también sus devoluciones. Si es de un envío,
+            // también lo ajusta en Recepción. Irreversible — por eso va tras el gate can:super.admin.
             Route::delete('almacen/movimientos/{id}',             [App\Http\Controllers\AlmacenController::class, 'eliminarMovimiento'])->whereNumber('id')->middleware('can:super.admin')->name('almacen.movimientos.destroy');
+            // Aviso previo del deshacer (solo lectura): qué más se lleva — el resto de la nota,
+            // las devoluciones y el envío en Recepción. Mismo gate que el deshacer.
+            Route::get   ('almacen/movimientos/{id}/impacto-deshacer', [App\Http\Controllers\AlmacenController::class, 'impactoDeshacerMovimiento'])->whereNumber('id')->middleware('can:super.admin')->name('almacen.movimientos.impactoDeshacer');
             // ELIMINAR solo del historial — EXCLUSIVO super.admin. Igual que el destroy de
-            // arriba PERO sin tocar el stock: borra la fila (y su contraparte de traspaso)
-            // del kardex y NO revierte ni recalcula el saldo. Irreversible.
+            // arriba PERO sin tocar el stock: borra la fila (y su contraparte de traspaso o
+            // sus devoluciones) del kardex y NO revierte ni recalcula el saldo. Irreversible.
             Route::delete('almacen/movimientos/{id}/solo-historial', [App\Http\Controllers\AlmacenController::class, 'eliminarMovimientoSoloHistorial'])->whereNumber('id')->middleware('can:super.admin')->name('almacen.movimientos.destroyHistorial');
             Route::patch ('almacen/almacenes/{idAlmacen}/minimo',        [App\Http\Controllers\AlmacenController::class, 'actualizarMinimo'])->whereNumber('idAlmacen')->name('almacen.minimo');
 

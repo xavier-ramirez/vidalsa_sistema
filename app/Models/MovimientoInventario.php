@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Builder;
 
 /**
- * Kardex de inventario: una fila por cada entrada / salida / ajuste / traspaso.
+ * Kardex de inventario: una fila por cada entrada / salida / ajuste / traspaso / devolución.
  * Fuente de verdad del stock (almacen_stock.CANTIDAD es solo el acumulado).
  */
 class MovimientoInventario extends Model
@@ -33,9 +33,16 @@ class MovimientoInventario extends Model
     public const TIPO_AJUSTE           = 'AJUSTE';
     public const TIPO_TRASPASO_ENTRADA = 'TRASPASO_ENTRADA';
     public const TIPO_TRASPASO_SALIDA  = 'TRASPASO_SALIDA';
+    /**
+     * Material que VUELVE de un proyecto al almacén (sacaron BRAGA 45 y la regresan porque
+     * era la 42). Suma al stock como una entrada, pero va enlazada a la SALIDA que devuelve
+     * por ID_MOVIMIENTO_RELACIONADO y le resta al consumo de esa salida. La registra
+     * App\Services\DevolucionService.
+     */
+    public const TIPO_DEVOLUCION       = 'DEVOLUCION';
 
     /** Tipos que SUMAN al stock. */
-    public const TIPOS_ENTRADA = [self::TIPO_ENTRADA, self::TIPO_TRASPASO_ENTRADA];
+    public const TIPOS_ENTRADA = [self::TIPO_ENTRADA, self::TIPO_TRASPASO_ENTRADA, self::TIPO_DEVOLUCION];
     /** Tipos que RESTAN del stock. */
     public const TIPOS_SALIDA  = [self::TIPO_SALIDA, self::TIPO_TRASPASO_SALIDA];
 
@@ -59,10 +66,25 @@ class MovimientoInventario extends Model
         self::TIPO_TRASPASO_SALIDA  => ['Salida',   '#dc2626', '#fee2e2', 'north_east'],
         // AJUSTE en BD = "Auditoría de Inventario" en UI (cuadre por conteo físico).
         self::TIPO_AJUSTE           => ['Auditoría','#0067b1', '#e1effa', 'fact_check'],
+        // Color propio (verde azulado) y no el verde de Entrada: suma al stock igual, pero
+        // no es material nuevo y se tiene que distinguir de una compra de un vistazo.
+        self::TIPO_DEVOLUCION       => ['Devolución', '#0d9488', '#ccfbf1', 'assignment_return'],
     ];
 
     /** Fallback usado cuando el TIPO no figura en la tabla (defensivo). */
     public const TIPO_META_DEFAULT = ['?', '#475569', '#f1f5f9', 'swap_vert'];
+
+    /**
+     * REFERENCIA de la ENTRADA que se registra al crear un producto con cantidad inicial
+     * (AlmacenController::storeProducto). Los kardex la reconocen con esStockInicial() y
+     * la pintan en dos líneas: "STOCK INICIAL" + "Nuevo material".
+     */
+    public const REF_STOCK_INICIAL = 'STOCK INICIAL';
+
+    public function esStockInicial(): bool
+    {
+        return $this->TIPO === self::TIPO_ENTRADA && $this->REFERENCIA === self::REF_STOCK_INICIAL;
+    }
 
     protected $fillable = [
         'ID_ALMACEN',
@@ -252,6 +274,74 @@ class MovimientoInventario extends Model
     public function esSalida(): bool
     {
         return in_array($this->TIPO, self::TIPOS_SALIDA, true);
+    }
+
+    // ── Devoluciones ─────────────────────────────────────────────
+
+    /**
+     * Cantidad NETA de una salida en una consulta de consumo: lo entregado menos lo que se
+     * devolvió de ella. Exige el JOIN de scopeConDevuelto (alias `dv`).
+     */
+    public const SQL_CANTIDAD_NETA = '(movimientos_inventario.CANTIDAD - COALESCE(dv.DEVUELTO, 0))';
+
+    /**
+     * Une a cada fila lo que ya se devolvió de ella (dv.DEVUELTO; NULL si nada). Lo usan
+     * las consultas de CONSUMO para contar SALIDA − DEVOLUCION con SQL_CANTIDAD_NETA.
+     *
+     * La devolución resta en la fecha de la SALIDA, no en la suya: la braga 45 que se
+     * regresó no se consumió nunca, así que desaparece del mes en que salió y el gráfico
+     * no pinta un mes con consumo negativo. La 42 que se entregó a cambio es una salida
+     * nueva y cuenta en el mes en que se entregó, que es cuando se consumió de verdad.
+     *
+     * Las columnas del derivado (ID_SALIDA, DEVUELTO) no existen en ninguna otra tabla, así
+     * que el JOIN no vuelve ambiguas las FECHA/CANTIDAD sin prefijo de quien lo usa.
+     */
+    public function scopeConDevuelto(Builder $q): Builder
+    {
+        $devuelto = static::query()->toBase()
+            ->where('TIPO', self::TIPO_DEVOLUCION)
+            ->whereNotNull('ID_MOVIMIENTO_RELACIONADO')
+            ->groupBy('ID_MOVIMIENTO_RELACIONADO')
+            ->selectRaw('ID_MOVIMIENTO_RELACIONADO AS ID_SALIDA, SUM(CANTIDAD) AS DEVUELTO');
+
+        return $q->leftJoinSub($devuelto, 'dv', 'dv.ID_SALIDA', '=', 'movimientos_inventario.ID_MOVIMIENTO');
+    }
+
+    /**
+     * Lo que falta por devolver de cada salida, [ID_MOVIMIENTO => cantidad] (0 si ya volvió
+     * entera). Lo usan la devolución (DevolucionService) y eliminarNota, que revierte solo
+     * lo que no se había devuelto. Es la MISMA cuenta que el consumo (scopeConDevuelto +
+     * SQL_CANTIDAD_NETA), en una consulta.
+     */
+    public static function porDevolver($salidas): array
+    {
+        $ids = collect($salidas)->pluck('ID_MOVIMIENTO');
+        if ($ids->isEmpty()) {
+            return [];
+        }
+
+        return static::query()->conDevuelto()
+            ->whereIn('movimientos_inventario.ID_MOVIMIENTO', $ids)
+            ->selectRaw('movimientos_inventario.ID_MOVIMIENTO AS id, ' . self::SQL_CANTIDAD_NETA . ' AS neto')
+            ->pluck('neto', 'id')
+            ->mapWithKeys(fn ($neto, $id) => [(int) $id => max(0.0, round((float) $neto, 3))])
+            ->all();
+    }
+
+    /**
+     * Cuáles de los N° de Nota que traen en REFERENCIA las devoluciones de esta página
+     * siguen existiendo, como [NUMERO_NOTA => true]. El kardex solo enlaza al PDF los que
+     * están aquí: una nota eliminada ya no tiene PDF y el enlace daría 404. Una consulta
+     * por página y ninguna si en ella no hay devoluciones.
+     */
+    public static function notasVigentesDeDevoluciones($movimientos): array
+    {
+        $filas   = is_array($movimientos) ? collect($movimientos) : $movimientos;
+        $numeros = $filas->where('TIPO', self::TIPO_DEVOLUCION)->pluck('REFERENCIA')->filter()->unique()->values();
+
+        return $numeros->isEmpty()
+            ? []
+            : static::whereIn('NUMERO_NOTA', $numeros)->distinct()->pluck('NUMERO_NOTA')->flip()->map(fn () => true)->all();
     }
 
     /**

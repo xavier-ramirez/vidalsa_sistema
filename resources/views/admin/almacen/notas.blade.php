@@ -98,6 +98,14 @@
     /* Cuando la fila esta en hover, el fondo azul claro de la celda no debe
        contagiar al boton azul oscuro (mantiene su gradient propio). */
     .alm-not-table tbody tr:hover .anf-pdf-btn { background:linear-gradient(135deg,#1e3a5f,#2563eb); }
+    /* Botón "Devolución" junto al del PDF: misma forma, en el verde azulado de las
+       devoluciones del kardex (MovimientoInventario::TIPO_META). */
+    .anf-acciones { display:inline-flex; align-items:center; gap:6px; }
+    .anf-dev-btn { background:linear-gradient(135deg,#115e59,#0d9488); box-shadow:0 2px 6px rgba(13,148,136,0.35); }
+    .anf-dev-btn:hover { box-shadow:0 4px 10px rgba(13,148,136,0.45); }
+    .alm-not-table tbody tr:hover .anf-dev-btn { background:linear-gradient(135deg,#115e59,#0d9488); }
+    .anf-con-dev { display:inline-flex; align-items:center; gap:3px; margin-top:3px; font-size:11px; font-weight:700; color:#0d9488; }
+    .anf-con-dev .material-icons { font-size:13px; }
     .anf-empty { padding:50px 20px; text-align:center; color:#94a3b8; }
     .anf-empty i { font-size:46px; color:#cbd5e0; display:block; margin:0 auto 8px; }
 
@@ -314,9 +322,9 @@
         </div>
     </div>
 
-    {{-- ── Tabla ── 6 columnas: Fecha · N° de Nota · Tipo · Almacén origen ·
-         Proyecto destino · PDF. Se quitaron "N° Líneas" y "Cant. total" (info
-         que ya vive dentro de la propia Nota / PDF). --}}
+    {{-- ── Tabla ── 5 columnas: Fecha (con el tipo debajo) · N° de Nota · Almacén
+         origen · Frente · Acciones (PDF y devolución). Se quitaron "N° Líneas" y
+         "Cant. total" (info que ya vive dentro de la propia Nota / PDF). --}}
     <div style="overflow-x:auto;border:1px solid #e2e8f0;border-radius:12px;">
         <table class="alm-not-table">
             <thead>
@@ -325,11 +333,11 @@
                     <th style="width:170px;">N° de Nota</th>
                     <th>Almacén origen</th>
                     <th>Frente</th>
-                    <th style="width:70px;">PDF</th>
+                    <th style="width:100px;">Acciones</th>
                 </tr>
             </thead>
             <tbody id="almNotTableBody">
-                @include('admin.almacen.partials.notas_rows', ['notas' => $notas, 'almById' => $almById, 'freById' => $freById])
+                @include('admin.almacen.partials.notas_rows', ['notas' => $notas, 'almById' => $almById, 'freById' => $freById, 'conDevolucion' => $conDevolucion])
             </tbody>
         </table>
     </div>
@@ -364,6 +372,9 @@
 </div>
 
 </div>{{-- /page-layout-grid --}}
+
+{{-- Modal "Devolución de material" (botón de cada nota). Se gatea él mismo con almacen.movimiento. --}}
+@include('admin.almacen.partials.devolucion_modal')
 
 <script>
 (function () {

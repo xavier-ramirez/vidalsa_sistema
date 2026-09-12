@@ -30,11 +30,12 @@
     .cdash-overlay { display:none; position:fixed; inset:0; background:rgba(15,23,42,0.55); z-index:10050; align-items:flex-start; justify-content:center; padding:24px 14px; overflow-y:auto; }
     .cdash-overlay.open { display:flex; }
     .cdash-modal { background:#f1f5f9; border-radius:16px; width:100%; max-width:980px; box-shadow:0 20px 40px -12px rgba(0,0,0,0.35); overflow:hidden; animation:slideDown .2s ease-out; }
-    .cdash-head { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 20px; background:#fff; border-bottom:1px solid #e2e8f0; }
-    .cdash-head h3 { margin:0; font-size:16px; font-weight:800; color:#0f172a; display:flex; align-items:center; gap:9px; }
+    /* Mismo encabezado que los demás modales de Almacén, Equipos y Recepción. */
+    .cdash-head { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 20px; background:#1e293b; }
+    .cdash-head h3 { margin:0; font-size:16px; font-weight:800; color:#fff; display:flex; align-items:center; gap:9px; }
     .cdash-head h3 .material-icons { color:var(--maquinaria-blue,#0067b1); }
-    .cdash-x { cursor:pointer; color:#64748b; border:none; background:transparent; display:flex; padding:4px; border-radius:8px; transition:background .15s; }
-    .cdash-x:hover { background:#f1f5f9; color:#0f172a; }
+    .cdash-x { cursor:pointer; color:#fff; opacity:.8; border:none; background:transparent; display:flex; padding:4px; border-radius:8px; transition:background .15s, opacity .15s; }
+    .cdash-x:hover { background:rgba(255,255,255,.12); opacity:1; }
     .cdash-body { padding:18px 20px 22px; }
     /* Barra de filtros PROPIA del dashboard (no depende de los filtros del módulo). */
     .cdash-filtros { display:flex; flex-wrap:wrap; align-items:flex-end; gap:10px; margin-bottom:16px; }

@@ -232,7 +232,9 @@ class AlmacenController extends Controller
             ];
             // Stats y distribución solo en la primera página (offset=0) — son costosos y
             // no cambian al hacer scroll, solo cuando el usuario cambia un filtro.
-            if ($offset === 0) {
+            // solo_filas=1: el front pide UNA fila suelta para dejarla a la vista tras
+            // editarla (almMostrarProducto) y descarta todo lo demás — no se calculan.
+            if ($offset === 0 && !$request->boolean('solo_filas')) {
                 if ($hayFiltro) {
                     $resp['stats'] = $this->statsInventario($idAlmacenSel, $request);
                     // El sidebar "Distribución de Inventario" tiene DOS modos:
@@ -1087,10 +1089,12 @@ class AlmacenController extends Controller
                     $idAlmacen,
                     $producto->ID_PRODUCTO,
                     $cantInicial,
+                    // Sin 'motivo': en una ENTRADA el kardex lo pinta como PROVEEDOR (ícono de
+                    // camión) y un stock inicial no tiene. Antes llevaba "Stock inicial al crear
+                    // el producto", que repetía la referencia en el sitio del proveedor.
                     [
                         'id_frente'  => $idFrenteInicial,
-                        'referencia' => 'STOCK INICIAL registro de nuevo material',
-                        'motivo'     => 'Stock inicial al crear el producto',
+                        'referencia' => MovimientoInventario::REF_STOCK_INICIAL,
                     ]
                 );
             }
@@ -1330,12 +1334,12 @@ class AlmacenController extends Controller
         $this->aplicarFiltroProductoMovimientos($q, $request);
 
         if ($request->filled('tipo') && $request->input('tipo') !== 'all') {
-            // Filtro Tipo SIMPLIFICADO a 2 grupos (Entradas / Salidas). El frontend manda
-            // las claves de grupo ENTRADAS/SALIDAS; aquí se pliegan los traspasos y las
-            // auditorías (AJUSTE) según su signo:
-            //   Entradas = ENTRADA + TRASPASO_ENTRADA + ajuste que SUBIÓ el stock.
-            //   Salidas  = SALIDA  + TRASPASO_SALIDA  + ajuste que BAJÓ  el stock.
-            // Se mantiene compat con un TIPO exacto por si llega de un link viejo.
+            // Filtro Tipo: dos GRUPOS (Entradas / Salidas) y dos tipos exactos (AJUSTE =
+            // Auditoría, DEVOLUCION = Devoluciones). En los grupos se pliegan los traspasos,
+            // las devoluciones y las auditorías (AJUSTE) según su signo:
+            //   Entradas = TIPOS_ENTRADA (entrada, traspaso recibido, devolución) + ajuste que SUBIÓ el stock.
+            //   Salidas  = TIPOS_SALIDA  (salida, traspaso enviado)               + ajuste que BAJÓ  el stock.
+            // Cualquier otro valor se toma como TIPO exacto.
             $tipoReq = (string) $request->input('tipo');
             if ($tipoReq === 'ENTRADAS') {
                 $q->where(function ($w) {
@@ -1659,6 +1663,11 @@ class AlmacenController extends Controller
         $idsFre   = $paginator->getCollection()->pluck('ID_FRENTE')->filter()->unique()->values();
         $almById  = $idsAlm->isEmpty() ? collect() : Almacen::whereIn('ID_ALMACEN', $idsAlm)->get(['ID_ALMACEN', 'NOMBRE', 'TIPO'])->keyBy('ID_ALMACEN');
         $freById  = $idsFre->isEmpty() ? collect() : \App\Models\FrenteTrabajo::whereIn('ID_FRENTE', $idsFre)->get(['ID_FRENTE', 'NOMBRE_FRENTE'])->keyBy('ID_FRENTE');
+        // Notas de esta página con alguna devolución registrada (la devolución lleva el N° de
+        // la nota en REFERENCIA): la fila lo marca para que se vea sin abrir nada.
+        $conDevolucion = MovimientoInventario::where('TIPO', MovimientoInventario::TIPO_DEVOLUCION)
+            ->whereIn('REFERENCIA', $paginator->getCollection()->pluck('NUMERO_NOTA'))
+            ->distinct()->pluck('REFERENCIA')->flip();
 
         $idAlmacenActivo = ($request->filled('id_almacen') && $request->input('id_almacen') !== 'all')
             ? (int) $request->input('id_almacen')
@@ -1673,7 +1682,7 @@ class AlmacenController extends Controller
 
         if ($request->wantsJson()) {
             return response()->json([
-                'html'       => view('admin.almacen.partials.notas_rows', ['notas' => $paginator, 'almById' => $almById, 'freById' => $freById])->render(),
+                'html'       => view('admin.almacen.partials.notas_rows', ['notas' => $paginator, 'almById' => $almById, 'freById' => $freById, 'conDevolucion' => $conDevolucion])->render(),
                 'pagination' => $paginator->links('vendor.pagination.custom-sliding')->toHtml(),
                 'total'      => $paginator->total(),
             ]);
@@ -1688,6 +1697,7 @@ class AlmacenController extends Controller
             'categorias'      => $categorias,
             'almById'         => $almById,
             'freById'         => $freById,
+            'conDevolucion'   => $conDevolucion,
             // $aplicarBusqueda=false: aquí `search` es N° Nota/RQ/Contrato/Solicitante, no un
             // producto. El sidebar "Consumo" sigue respondiendo a almacén/frente/categoría/período.
             'consumo'         => $this->consumoRanking($request, 30, false),
@@ -1697,8 +1707,9 @@ class AlmacenController extends Controller
     /**
      * Ranking de productos más consumidos para el sidebar de la bitácora.
      *
-     * "Consumo" = suma de CANTIDAD aplicando los mismos filtros que la tabla
-     * (almacén, frente, fechas, búsqueda) salvo `tipo` (el ranking SIEMPRE es de salidas).
+     * "Consumo" = suma de CANTIDAD menos lo devuelto de cada salida, aplicando los mismos
+     * filtros que la tabla (almacén, frente, fechas, búsqueda) salvo `tipo` (el ranking
+     * SIEMPRE es de salidas).
      *
      * Reglas para evitar doble conteo:
      *  - Filtro por un almacén concreto → cuenta SALIDA y TRASPASO_SALIDA del almacén
@@ -1749,16 +1760,23 @@ class AlmacenController extends Controller
         }
         $q->periodo($request->input('desde'), $request->input('hasta'));
 
-        return $q->join('productos_inventario as p', 'p.ID_PRODUCTO', '=', 'movimientos_inventario.ID_PRODUCTO')
+        // Consumo NETO: lo que volvió con una devolución no se consumió (ver
+        // MovimientoInventario::scopeConDevuelto). Un producto devuelto entero queda en 0 y
+        // sale del ranking.
+        $neto = 'SUM(' . MovimientoInventario::SQL_CANTIDAD_NETA . ')';
+
+        return $q->conDevuelto()
+            ->join('productos_inventario as p', 'p.ID_PRODUCTO', '=', 'movimientos_inventario.ID_PRODUCTO')
             ->groupBy('movimientos_inventario.ID_PRODUCTO', 'p.CODIGO', 'p.NOMBRE', 'p.UM')
-            ->orderByDesc(DB::raw('SUM(movimientos_inventario.CANTIDAD)'))
+            ->havingRaw("{$neto} > 0")
+            ->orderByDesc(DB::raw($neto))
             ->limit($limite)
             ->get([
                 'movimientos_inventario.ID_PRODUCTO as id_producto',
                 'p.CODIGO as codigo',
                 'p.NOMBRE as nombre',
                 'p.UM as um',
-                DB::raw('SUM(movimientos_inventario.CANTIDAD) as total'),
+                DB::raw("{$neto} as total"),
                 DB::raw('COUNT(*) as movimientos'),
             ]);
     }
@@ -1766,8 +1784,9 @@ class AlmacenController extends Controller
     /**
      * Dashboard de Consumo (JSON para Chart.js). Devuelve las series de los gráficos del
      * modal: por_mes, top_productos, por_almacen (+ la lista de categorías del filtro).
-     * "Consumo" = movimientos TIPO 'SALIDA' de TODOS los almacenes visibles (los
-     * TRASPASO_SALIDA son movimientos internos entre almacenes, NO consumo).
+     * "Consumo" = movimientos TIPO 'SALIDA' de TODOS los almacenes visibles, menos lo que
+     * se devolvió de cada una (los TRASPASO_SALIDA son movimientos internos entre
+     * almacenes, NO consumo).
      *
      * IMPORTANTE: es INDEPENDIENTE de los filtros generales del módulo (almacén
      * seleccionado, frente, producto, búsqueda). Usa SOLO sus propios filtros: rango de
@@ -1882,7 +1901,10 @@ class AlmacenController extends Controller
      */
     private function consumoDashboardQuery(Request $request, $idsVisibles, $desde, $hasta)
     {
+        // conDevuelto: cada salida trae lo que se devolvió de ella, y las agregaciones de
+        // abajo suman SQL_CANTIDAD_NETA (lo entregado menos lo devuelto).
         $q = MovimientoInventario::query()
+            ->conDevuelto()
             ->where('movimientos_inventario.TIPO', 'SALIDA')
             ->whereIn('movimientos_inventario.ID_ALMACEN', $idsVisibles);
 
@@ -1926,7 +1948,7 @@ class AlmacenController extends Controller
     private function consumoPorMes(callable $base)
     {
         return $base()
-            ->selectRaw("DATE_FORMAT(FECHA, '%Y-%m') as mes, SUM(CANTIDAD) as total")
+            ->selectRaw("DATE_FORMAT(FECHA, '%Y-%m') as mes, SUM(" . MovimientoInventario::SQL_CANTIDAD_NETA . ') as total')
             ->groupBy('mes')->orderBy('mes')->get()
             ->map(fn ($r) => ['mes' => $r->mes, 'total' => (float) $r->total])
             ->values();
@@ -1940,10 +1962,13 @@ class AlmacenController extends Controller
      */
     private function consumoPorProducto(callable $base, ?int $limite = null)
     {
+        $neto = 'SUM(' . MovimientoInventario::SQL_CANTIDAD_NETA . ')';
         $q = $base()
             ->join('productos_inventario as p', 'p.ID_PRODUCTO', '=', 'movimientos_inventario.ID_PRODUCTO')
             ->groupBy('p.ID_PRODUCTO', 'p.NOMBRE', 'p.UM')
-            ->orderByDesc(DB::raw('SUM(movimientos_inventario.CANTIDAD)'));
+            // Devuelto entero = no se consumió: no es una barra en 0.
+            ->havingRaw("{$neto} > 0")
+            ->orderByDesc(DB::raw($neto));
 
         if ($limite !== null) {
             $q->limit($limite);
@@ -1951,7 +1976,7 @@ class AlmacenController extends Controller
 
         return $q->get([
                 'p.ID_PRODUCTO as id', 'p.NOMBRE as nombre', 'p.UM as um',
-                DB::raw('SUM(movimientos_inventario.CANTIDAD) as total'),
+                DB::raw("{$neto} as total"),
             ])
             ->map(fn ($r) => (object) [
                 'id'     => $r->id,
@@ -1973,14 +1998,16 @@ class AlmacenController extends Controller
      */
     private function consumoPorProductoPorMes(callable $base): array
     {
+        $neto  = 'SUM(' . MovimientoInventario::SQL_CANTIDAD_NETA . ')';
         $filas = $base()
             ->join('productos_inventario as p', 'p.ID_PRODUCTO', '=', 'movimientos_inventario.ID_PRODUCTO')
             ->selectRaw("DATE_FORMAT(movimientos_inventario.FECHA, '%Y-%m') as mes")
             ->addSelect(['p.NOMBRE as nombre', 'p.UM as um'])
-            ->selectRaw('SUM(movimientos_inventario.CANTIDAD) as total')
+            ->selectRaw("{$neto} as total")
             ->groupBy('mes', 'p.ID_PRODUCTO', 'p.NOMBRE', 'p.UM')
+            ->havingRaw("{$neto} > 0")
             ->orderBy('mes')
-            ->orderByDesc(DB::raw('SUM(movimientos_inventario.CANTIDAD)'))
+            ->orderByDesc(DB::raw($neto))
             ->get();
 
         $porMes = [];
@@ -1998,11 +2025,13 @@ class AlmacenController extends Controller
     /** Consumo agrupado por ALMACEN, de mayor a menor. */
     private function consumoPorAlmacen(callable $base)
     {
+        $neto = 'SUM(' . MovimientoInventario::SQL_CANTIDAD_NETA . ')';
         return $base()
             ->join('almacenes as a', 'a.ID_ALMACEN', '=', 'movimientos_inventario.ID_ALMACEN')
             ->groupBy('a.ID_ALMACEN', 'a.NOMBRE')
-            ->orderByDesc(DB::raw('SUM(movimientos_inventario.CANTIDAD)'))
-            ->get(['a.NOMBRE as nombre', DB::raw('SUM(movimientos_inventario.CANTIDAD) as total')])
+            ->havingRaw("{$neto} > 0")
+            ->orderByDesc(DB::raw($neto))
+            ->get(['a.NOMBRE as nombre', DB::raw("{$neto} as total")])
             ->map(fn ($r) => ['nombre' => \App\Casts\MojibakeFix::fix($r->nombre), 'total' => (float) $r->total])
             ->values();
     }
@@ -2203,8 +2232,9 @@ class AlmacenController extends Controller
         // El dashboard es INDEPENDIENTE de los filtros generales del módulo
         // (búsqueda, frente, almacén seleccionado, producto). Usa SOLO sus propios
         // filtros: rango de meses (desde/hasta en formato YYYY-MM) y categoría.
-        // Mide consumo REAL = movimientos TIPO 'SALIDA' de TODOS los almacenes visibles
-        // (los TRASPASO_SALIDA son movimientos internos entre almacenes, no consumo).
+        // Mide consumo REAL = movimientos TIPO 'SALIDA' de TODOS los almacenes visibles,
+        // menos lo devuelto (los TRASPASO_SALIDA son movimientos internos entre almacenes,
+        // no consumo).
 
         // Rango de meses → límites de fecha. Idiom centralizado (FUENTE ÚNICA) en
         // MovimientoInventario::expandirRangoMes, el mismo que usa scopePeriodo.
@@ -2386,6 +2416,7 @@ class AlmacenController extends Controller
         // bitácora: vive en la vista de Notas y en el PDF de la nota de entrega.
         // SALDO DE = bolsa de la que se descontó cuando NO es la del frente al que se
         // entregó (préstamo entre proyectos, ver InventarioService::aplicarSalidaConCascada).
+        // En una DEVOLUCION es la bolsa a la que vuelve: la que había prestado el material.
         // Va como columna propia y no dentro de FRENTE: son dos datos distintos y mezclarlos
         // rompería cualquier tabla dinámica hecha sobre el export.
         $cols = ['FECHA', 'TIPO', 'CÓDIGO', 'PRODUCTO', 'UM', 'CANTIDAD', 'ANTERIOR', 'RESULTANTE',
@@ -3892,10 +3923,15 @@ class AlmacenController extends Controller
     /**
      * Elimina TODA la Nota de Entrega identificada por ?numero=NE-YYYY-NNNN.
      * En la misma transacción reversa el stock por cada línea (suma de vuelta
-     * lo que la SALIDA había restado), encadenando una ENTRADA inversa a través
-     * de InventarioService::registrarEntrada — esto crea una fila de kardex
+     * lo que la SALIDA había restado) con una DEVOLUCION enlazada a esa salida
+     * (InventarioService::registrarDevolucion) — esto crea una fila de kardex
      * que documenta la reversión (auditable) y NO borra los movimientos SALIDA
      * originales (el kardex sigue siendo append-only y verificable).
+     *
+     * Devolución y no ENTRADA suelta porque una nota anulada es material que no se
+     * consumió: con el enlace, el consumo de esas salidas queda en 0 y el material vuelve
+     * a la bolsa de la que salió. Si parte ya se había devuelto, solo se revierte lo que
+     * falta — revertir la cantidad entera lo sumaría dos veces.
      *
      * Permiso: almacen.nota.eliminar (gateado en routes/web.php). Los movimientos
      * del lote deben pertenecer a un único almacén y el usuario debe poder verlo.
@@ -3951,21 +3987,20 @@ class AlmacenController extends Controller
                     throw new RuntimeException('Esta Nota ya fue eliminada por otra operación.');
                 }
 
+                $porDevolver = MovimientoInventario::porDevolver($movs);
                 foreach ($movs as $m) {
-                    // Reversión = ENTRADA por la misma cantidad al mismo almacén/producto.
-                    // El kardex queda con dos filas (SALIDA original + ENTRADA reversa)
-                    // → trazable. El stock vuelve a su valor previo a la nota.
-                    $this->inventario->registrarEntrada(
-                        (int) $m->ID_ALMACEN,
-                        (int) $m->ID_PRODUCTO,
-                        (float) $m->CANTIDAD,
-                        [
-                            'id_usuario' => optional($request->user())->ID_USUARIO,
-                            'motivo'     => "Reversión de Nota {$numero}",
-                            'referencia' => $numero,
-                            'notas'      => "Reversión automática al eliminar la Nota de Entrega {$numero}.",
-                        ]
-                    );
+                    // Reversión = DEVOLUCION de lo que falta por volver de esa salida. El
+                    // kardex queda con la SALIDA original + su devolución → trazable. El
+                    // stock vuelve a su valor previo a la nota.
+                    $pendiente = $porDevolver[$m->ID_MOVIMIENTO];
+                    if ($pendiente <= InventarioService::EPS) {
+                        continue;   // ya se había devuelto entera
+                    }
+                    $this->inventario->registrarDevolucion($m, $pendiente, [
+                        'id_usuario' => optional($request->user())->ID_USUARIO,
+                        'motivo'     => "Reversión de Nota {$numero}",
+                        'notas'      => "Reversión automática al eliminar la Nota de Entrega {$numero}.",
+                    ]);
                 }
                 // Marcamos los movimientos originales para que no aparezcan más como
                 // parte de una nota "vigente": vaciamos NUMERO_NOTA (la fila sigue en
@@ -4010,7 +4045,8 @@ class AlmacenController extends Controller
      * Deshace un movimiento del kardex — EXCLUSIVO super.admin (gate `can:super.admin`
      * en la ruta). Borrado DURO sin rastro: elimina la fila, revierte el stock y recalcula
      * el saldo de los movimientos posteriores para que el kardex quede coherente. En
-     * traspasos deshace ambas patas del par enlazado. Irreversible.
+     * traspasos deshace ambas patas del par enlazado, y en una salida, sus devoluciones.
+     * Si es de un envío, también lo ajusta en Recepción (TraspasoService). Irreversible.
      */
     public function eliminarMovimiento(Request $request, int $id)
     {
@@ -4023,23 +4059,113 @@ class AlmacenController extends Controller
         $this->assertPuedeVerAlmacen($request, (int) $mov->ID_ALMACEN);
 
         try {
-            $r = $this->inventario->eliminarMovimientoConReverso($id);
+            // Una sola transacción: el kardex y el envío en Recepción cambian juntos o no
+            // cambia ninguno. Lo del envío se averigua ANTES de borrar (TraspasoService::
+            // prepararDeshacer): después la línea ya no dice de qué movimiento era.
+            [$r, $envios] = DB::transaction(function () use ($id) {
+                // El candado va PRIMERO: con REPEATABLE READ la primera lectura normal fija la
+                // foto del kardex para toda la transacción. Si prepararDeshacer leyera antes del
+                // candado, una devolución de esta salida registrada mientras tanto quedaría fuera
+                // del borrado —huérfana— y el recálculo del saldo no la vería.
+                $mov = MovimientoInventario::lockForUpdate()->find($id);
+                if (! $mov) {
+                    throw new RuntimeException('El movimiento no existe o ya fue eliminado.');
+                }
+                $envio = $this->traspasos->prepararDeshacer($mov);
+                $r     = $this->inventario->eliminarMovimientoConReverso($id, $envio['arrastrados']);
+
+                return [$r, $this->traspasos->quitarLineasDeshechas($envio['lineas'])];
+            });
         } catch (Throwable $e) {
             return response()->json(['message' => $e->getMessage()], 422);
         }
 
+        // Más de una fila: las patas y tramos de un ítem de envío (con su retorno si se
+        // canceló) o una salida con sus devoluciones.
         $msg = $r['eliminados'] > 1
-            ? "Movimiento deshecho ({$r['eliminados']} filas del traspaso) y stock recalculado."
+            ? "Movimiento deshecho junto con lo enlazado a él ({$r['eliminados']} filas) y stock recalculado."
             : 'Movimiento deshecho y stock recalculado.';
+        foreach ($envios as $envio) {
+            $msg .= $envio['borrado']
+                ? " El envío {$envio['numero']} se quedó sin ítems y salió de Recepción."
+                : " También se quitó del envío {$envio['numero']} en Recepción.";
+        }
 
         return response()->json(['message' => $msg, 'eliminados' => $r['eliminados']]);
+    }
+
+    /**
+     * Qué se lleva el deshacer de un movimiento, para el aviso de confirmación: el resto de
+     * su Nota de Entrega, sus devoluciones y su envío en Recepción. Solo lee. Mismo gate que
+     * eliminarMovimiento; lo del envío sale de TraspasoService::resumenDeshacer, que aplica
+     * las mismas reglas que el deshacer de verdad.
+     */
+    public function impactoDeshacerMovimiento(Request $request, int $id)
+    {
+        $mov = MovimientoInventario::find($id);
+        if (! $mov) {
+            return response()->json(['message' => 'El movimiento no existe o ya fue eliminado.'], 404);
+        }
+        $this->assertPuedeVerAlmacen($request, (int) $mov->ID_ALMACEN);
+
+        $avisos = ['Se revertirá el stock y el movimiento se borrará del historial sin dejar rastro.'];
+
+        // La Nota de Entrega la lleva la salida; en un envío recibido, la pata de salida.
+        $conNota = match ($mov->TIPO) {
+            MovimientoInventario::TIPO_SALIDA, MovimientoInventario::TIPO_TRASPASO_SALIDA => $mov,
+            MovimientoInventario::TIPO_TRASPASO_ENTRADA => $mov->ID_MOVIMIENTO_RELACIONADO
+                ? MovimientoInventario::find($mov->ID_MOVIMIENTO_RELACIONADO)
+                : null,
+            default => null,
+        };
+        if ($conNota?->NUMERO_NOTA) {
+            $items = MovimientoInventario::where('NUMERO_NOTA', $conNota->NUMERO_NOTA)->count();
+            $avisos[] = $items > 1
+                ? "Es 1 de los {$items} ítems de la Nota {$conNota->NUMERO_NOTA}: los otros " . ($items - 1)
+                    . ' no se tocan, y al reimprimir la nota este ítem ya no saldrá.'
+                : "Es el único ítem de la Nota {$conNota->NUMERO_NOTA}: la nota deja de existir.";
+        }
+
+        if ($mov->TIPO === MovimientoInventario::TIPO_SALIDA) {
+            $devoluciones = MovimientoInventario::where('ID_MOVIMIENTO_RELACIONADO', $mov->ID_MOVIMIENTO)
+                ->where('TIPO', MovimientoInventario::TIPO_DEVOLUCION)
+                ->count();
+            if ($devoluciones > 0) {
+                $avisos[] = $devoluciones === 1
+                    ? 'También se deshace su devolución.'
+                    : "También se deshacen sus {$devoluciones} devoluciones.";
+            }
+        }
+
+        try {
+            $envio = $this->traspasos->resumenDeshacer($mov);
+        } catch (Throwable $e) {
+            return response()->json(['avisos' => array_merge($avisos, [$e->getMessage()])]);
+        }
+        if ($envio) {
+            $destino = $envio['destino'] ?? 'el almacén destino';
+            $avisos[] = match (true) {
+                $envio['cancelado']   => "Es del envío {$envio['numero']}, que está cancelado: se borra también su retorno al origen, así el stock queda igual.",
+                $envio['con_entrada'] => "Es del envío {$envio['numero']}, ya recibido en {$destino}: se descuenta también de ese almacén y se quita del envío.",
+                $envio['recibida']    => "Es del envío {$envio['numero']}, ya confirmado en {$destino}: se quita del envío.",
+                default               => "Es del envío {$envio['numero']} a {$destino}, todavía sin recibir: se quita también de Recepción, para que no se reciba ni se devuelva dos veces.",
+            };
+            if ($envio['efecto'] === \App\Services\TraspasoService::EFECTO_BORRAR) {
+                $avisos[] = 'Era su único ítem: el envío desaparece de Recepción.';
+            } elseif ($envio['efecto'] === Traspaso::ESTADO_RECIBIDO) {
+                $avisos[] = 'Era lo único pendiente del envío: queda como recibido completo.';
+            }
+        }
+
+        return response()->json(['avisos' => $avisos]);
     }
 
     /**
      * Elimina un movimiento SOLO del historial — EXCLUSIVO super.admin (gate `can:super.admin`
      * en la ruta). A diferencia de eliminarMovimiento() (que deshace y recalcula el stock),
      * este NO toca el stock: el saldo de almacen_stock queda igual y solo desaparece la fila
-     * del kardex (más su contraparte si es traspaso). Irreversible.
+     * del kardex (más su contraparte si es traspaso, o sus devoluciones si es una salida).
+     * Irreversible.
      */
     public function eliminarMovimientoSoloHistorial(Request $request, int $id)
     {
@@ -4058,7 +4184,7 @@ class AlmacenController extends Controller
         }
 
         $msg = $r['eliminados'] > 1
-            ? "Registro eliminado del historial ({$r['eliminados']} filas del traspaso). El stock NO se modificó."
+            ? "Registro eliminado del historial junto con lo enlazado a él ({$r['eliminados']} filas). El stock NO se modificó."
             : 'Registro eliminado del historial. El stock NO se modificó.';
 
         return response()->json(['message' => $msg, 'eliminados' => $r['eliminados']]);

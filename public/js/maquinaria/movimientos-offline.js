@@ -12,7 +12,8 @@
  * (o window.almMovPickedIds si se clickeó una sugerencia = filtro por ID de producto),
  * #almMovDesde/#almMovHasta y #almMovNota. Semántica replicada del backend
  * (AlmacenController::movimientos): ENTRADAS/SALIDAS pliegan traspasos y AJUSTES por su
- * signo (resultante vs anterior); nota = LIKE. La fila replica kardex_rows degradada:
+ * signo (resultante vs anterior); nota = LIKE sobre el N° de nota o la referencia. La fila
+ * replica kardex_rows degradada:
  * sin hora, sin usuario/observaciones (no viajan en el snapshot) y la nota sin link PDF.
  *
  * Global + (re)init en DOMContentLoaded y 'spa:contentLoaded'; render() reconsulta el DOM.
@@ -34,6 +35,7 @@
         'SALIDA':           ['Salida',    '#dc2626', 'remove'],
         'TRASPASO_SALIDA':  ['Salida',    '#dc2626', 'north_east'],
         'AJUSTE':           ['Auditoría', '#0067b1', 'fact_check'],
+        'DEVOLUCION':       ['Devolución', '#0d9488', 'assignment_return'],
     };
     const TIPO_META_DEFAULT = ['?', '#475569', 'swap_vert'];
 
@@ -79,7 +81,7 @@
 
     // ¿El movimiento cuenta como entrada? (AJUSTE por signo, igual que el backend.)
     function esEntrada(m) {
-        if (m.tipo === 'ENTRADA' || m.tipo === 'TRASPASO_ENTRADA') return true;
+        if (m.tipo === 'ENTRADA' || m.tipo === 'TRASPASO_ENTRADA' || m.tipo === 'DEVOLUCION') return true;
         if (m.tipo === 'AJUSTE') return (Number(m.resultante) || 0) > (Number(m.anterior) || 0);
         return false;
     }
@@ -94,12 +96,12 @@
             if (f.idAlm && m.id_almacen !== f.idAlm) return false;
             if (f.tipo === 'ENTRADAS') { if (!esEntrada(m)) return false; }
             else if (f.tipo === 'SALIDAS') { if (!esSalida(m)) return false; }
-            else if (f.tipo && m.tipo !== f.tipo) return false; // TIPO exacto (link viejo)
+            else if (f.tipo && m.tipo !== f.tipo) return false; // TIPO exacto (Auditoría, Devoluciones)
             if (f.idFrente && m.id_frente !== f.idFrente) return false;
             const dia = String(m.fecha || '').slice(0, 10);
             if (f.desde && dia < f.desde) return false;
             if (f.hasta && dia > f.hasta) return false;
-            if (f.nota && norm(m.nota).indexOf(f.nota) < 0) return false;
+            if (f.nota && (norm(m.nota) + ' ' + norm(m.ref)).indexOf(f.nota) < 0) return false;
             // Producto elegido = filtro por ID (igual que el online); si no hay pick, texto libre.
             if (f.pickedIds.length) { if (f.pickedIds.indexOf(m.id_producto) < 0) return false; }
             else if (f.q && (norm(m.codigo) + ' ' + norm(m.producto)).indexOf(f.q) < 0) return false;

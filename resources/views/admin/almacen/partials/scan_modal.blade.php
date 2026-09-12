@@ -36,9 +36,12 @@
         box-shadow: 0 20px 50px rgba(0,0,0,0.25); overflow: hidden;
         display: flex; flex-direction: column; max-height: 90vh;
     }
-    .qrs-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid #e2e8f0; }
-    .qrs-head h3 { margin: 0; font-size: 16px; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 8px; }
-    .qrs-head .qrs-x { color: #64748b; cursor: pointer; font-size: 20px; }
+    /* Mismo encabezado que los demás modales de Almacén, Equipos y Recepción. */
+    .qrs-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; background: #1e293b; }
+    .qrs-head h3 { margin: 0; font-size: 16px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 8px; }
+    .qrs-head h3 .material-icons { color: #0067b1; }
+    .qrs-head .qrs-x { color: #fff; opacity: .75; cursor: pointer; font-size: 20px; }
+    .qrs-head .qrs-x:hover { opacity: 1; }
     .qrs-body { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; min-height: 0; }
 </style>
 
@@ -52,7 +55,7 @@
      data-lib="{{ asset('js/vendor/html5-qrcode.min.js') }}?v={{ @filemtime(public_path('js/vendor/html5-qrcode.min.js')) }}">
     <div class="qrs-modal">
         <div class="qrs-head">
-            <h3><i class="material-icons" style="font-size:20px;color:#7c3aed;">&#xf206;</i> Escanear producto</h3>
+            <h3><i class="material-icons" style="font-size:20px;">&#xf206;</i> Escanear producto</h3>
             <i class="material-icons qrs-x" onclick="window.QrScan.cerrar()">close</i>
         </div>
         <div class="qrs-body">
