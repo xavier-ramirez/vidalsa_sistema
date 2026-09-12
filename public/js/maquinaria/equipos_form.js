@@ -261,6 +261,18 @@ function initEquiposForm() {
             }
         });
 
+        // PDF nuevo de un documento que VENCE (poliza, ROTC, RACDA): sin su fecha no se
+        // envia. Misma regla que store()/update() en el servidor; aqui solo evita subir el
+        // archivo para que lo rechacen.
+        form.querySelectorAll('.doc-file').forEach(fileInput => {
+            const meta = document.getElementById(fileInput.dataset.metaTarget);
+            if (!meta || meta.type !== 'date') return;
+            if (fileInput.files && fileInput.files.length > 0 && !meta.value) {
+                showFieldError(meta, 'La fecha de vencimiento es obligatoria al cargar el documento.');
+                hasEmpty = true;
+            }
+        });
+
         // Re-marcar campos opcionales con duplicado conocido (checkUniqueness los marcó
         // como isDuplicate="true" pero el paso B limpió is-invalid visualmente). Sin esto
         // el error desaparece al hacer clic en Guardar y reaparece del servidor con 422,

@@ -2103,10 +2103,11 @@ class EquipoController extends Controller
                     $validator->errors()->add('poliza_seguro', 'La póliza es obligatoria si se indica el vencimiento.');
                 }
             }
+            // Un PDF nuevo de un documento que VENCE exige su fecha en el formulario, aunque
+            // el equipo ya tuviera una: esa es la del documento anterior. (El campo sale
+            // relleno con ella, asi que solo salta si alguien lo vacia.)
             if ($request->hasFile('poliza_seguro') && !$request->filled('documentacion.FECHA_VENC_POLIZA')) {
-                if (!($equipo->documentacion && $equipo->documentacion->FECHA_VENC_POLIZA)) {
-                    $validator->errors()->add('documentacion.FECHA_VENC_POLIZA', 'La fecha de vencimiento es obligatoria al cargar la póliza.');
-                }
+                $validator->errors()->add('documentacion.FECHA_VENC_POLIZA', 'La fecha de vencimiento es obligatoria al cargar la póliza.');
             }
 
             // ROTC
@@ -2118,9 +2119,7 @@ class EquipoController extends Controller
                 }
             }
             if ($request->hasFile('doc_rotc') && !$request->filled('documentacion.FECHA_ROTC')) {
-                if (!($equipo->documentacion && $equipo->documentacion->FECHA_ROTC)) {
-                    $validator->errors()->add('documentacion.FECHA_ROTC', 'La fecha ROTC es obligatoria al cargar el archivo.');
-                }
+                $validator->errors()->add('documentacion.FECHA_ROTC', 'La fecha ROTC es obligatoria al cargar el archivo.');
             }
 
             // RACDA
@@ -2132,9 +2131,7 @@ class EquipoController extends Controller
                 }
             }
             if ($request->hasFile('doc_racda') && !$request->filled('documentacion.FECHA_RACDA')) {
-                if (!($equipo->documentacion && $equipo->documentacion->FECHA_RACDA)) {
-                    $validator->errors()->add('documentacion.FECHA_RACDA', 'La fecha RACDA es obligatoria al cargar el archivo.');
-                }
+                $validator->errors()->add('documentacion.FECHA_RACDA', 'La fecha RACDA es obligatoria al cargar el archivo.');
             }
         });
         $validator->validate();
@@ -2642,12 +2639,18 @@ class EquipoController extends Controller
         $request->validate([
             'file' => 'required|file|mimes:pdf|max:51200',
             'doc_type' => 'required|in:propiedad,poliza,rotc,racda,adicional,adicional_2',
-            'expiration_date' => 'nullable|date'
+            // Un documento que vence no se sube sin su fecha (ver DOC_VENCIMIENTO).
+            'expiration_date' => [
+                'nullable', 'date',
+                \Illuminate\Validation\Rule::requiredIf(fn () => isset(self::DOC_VENCIMIENTO[$request->input('doc_type')])),
+            ],
         ], [
             'file.required' => 'Debe seleccionar un archivo.',
             'file.file'     => 'El documento no es válido.',
             'file.mimes'    => 'Solo se aceptan archivos en formato PDF.',
             'file.max'      => 'El archivo supera el tamaño máximo permitido (50 MB).',
+            'expiration_date.required' => 'La fecha de vencimiento es obligatoria para cargar este documento.',
+            'expiration_date.date'     => 'La fecha de vencimiento no es válida.',
         ]);
 
         $equipo = $this->findAndAuthorizeEquipo($id);
@@ -2655,7 +2658,6 @@ class EquipoController extends Controller
         $file = $request->file('file');
 
         $dbColumn = '';
-        $dateColumn = '';
         $filenamePrefix = '';
         switch ($type) {
             case 'propiedad':
@@ -2664,17 +2666,14 @@ class EquipoController extends Controller
                 break;
             case 'poliza':
                 $dbColumn = 'LINK_POLIZA_SEGURO';
-                $dateColumn = 'FECHA_VENC_POLIZA';
                 $filenamePrefix = 'poliza_seguro_';
                 break;
             case 'rotc':
                 $dbColumn = 'LINK_ROTC';
-                $dateColumn = 'FECHA_ROTC';
                 $filenamePrefix = 'rotc_';
                 break;
             case 'racda':
                 $dbColumn = 'LINK_RACDA';
-                $dateColumn = 'FECHA_RACDA';
                 $filenamePrefix = 'racda_';
                 break;
             case 'adicional':
@@ -2699,10 +2698,13 @@ class EquipoController extends Controller
             // 3. UPDATE DATABASE (Including user tracking)
             $updateData = [$dbColumn => $fullUrl];
 
-            // Add expiration date if applicable
-            if ($dateColumn && $request->filled('expiration_date')) {
-                $updateData[$dateColumn] = $request->input('expiration_date');
-            }
+            // El vencimiento viaja con el PDF: el documento nuevo nunca se queda con la
+            // fecha del anterior. Obligatorio para estos tipos (validado arriba).
+            $venceEl     = isset(self::DOC_VENCIMIENTO[$type]);
+            $vencimiento = $venceEl ? $this->datosVencimiento($type, $request->input('expiration_date')) : [];
+            $updateData += $vencimiento;
+            // Diff de la fecha ANTES de guardar, para el historial (ver la auditoria de abajo).
+            $fechaDiff = $this->diffDocumentacion($equipo->documentacion, $vencimiento);
 
             // COMPATIBILITY FIX: Save ID (Int) to match Server DB structure
             $uploadedBy = auth()->user()->ID_USUARIO;
@@ -2771,6 +2773,11 @@ class EquipoController extends Controller
                 'upload_' . $type,
                 ['archivo' => basename($fullUrl)]
             );
+            // Y la fecha, igual que si se editara en el visor (metadata_<tipo>): antes se
+            // ponia en ese segundo paso, y viajando con el PDF no debe perderse del historial.
+            if ($fechaDiff) {
+                \App\Models\EquipoAuditLog::registrar($equipo->ID_EQUIPO, 'metadata_' . $type, $fechaDiff);
+            }
 
             return response()->json([
                 'success' => true,
@@ -2778,7 +2785,7 @@ class EquipoController extends Controller
                 'autor'   => $autorStr,
                 'fecha'   => \Carbon\Carbon::parse($uploadedAt)->format('d/m/y'),
                 'message' => 'Documento actualizado correctamente'
-            ]);
+            ] + ($venceEl ? ['vencimiento' => $request->input('expiration_date')] : []));
 
         } catch (\Exception $e) {
             Log::error('Error subiendo archivo a Google Drive: ' . $e->getMessage());
@@ -2804,6 +2811,57 @@ class EquipoController extends Controller
         'adicional'   => ['link' => 'LINK_DOC_ADICIONAL',   'fecha' => 'ADICIONAL_FECHA_SUBIDA',   'autor' => 'ADICIONAL_SUBIDO_POR'],
         'adicional_2' => ['link' => 'LINK_DOC_ADICIONAL_2', 'fecha' => 'ADICIONAL_2_FECHA_SUBIDA', 'autor' => 'ADICIONAL_2_SUBIDO_POR'],
     ];
+
+    /**
+     * Los documentos que VENCEN y su columna de vencimiento. Propiedad y compraventa
+     * no vencen y por eso no estan. Un PDF de estos tipos no se guarda sin su fecha:
+     * lo exigen uploadDoc() y updateMetadata() (el formulario, store()/update(), con
+     * sus propias reglas por campo). En el front la misma lista es
+     * DOC_FIELD_MAP[tipo].vencKey (uicomponents.js); si se toca una, la otra.
+     */
+    private const DOC_VENCIMIENTO = [
+        'poliza'    => 'FECHA_VENC_POLIZA',
+        'rotc'      => 'FECHA_ROTC',
+        'racda'     => 'FECHA_RACDA',
+        'adicional' => 'FECHA_ADICIONAL',
+    ];
+
+    /**
+     * Lo que se escribe en `documentacion` al fijar el vencimiento de $tipo: la fecha
+     * y, si es futura, el fin de la gestion (frente que la tramitaba + fecha de
+     * gestion), que ya no aplica a un documento vigente. Un solo sitio para subir el
+     * PDF (uploadDoc) y para editar la fecha en el visor (updateMetadata).
+     */
+    private function datosVencimiento(string $tipo, string $fecha): array
+    {
+        $datos = [self::DOC_VENCIMIENTO[$tipo] => $fecha];
+        if (\Carbon\Carbon::parse($fecha)->isFuture()) {
+            $datos[$tipo . '_gestion_frente_id'] = null;
+            $datos[$tipo . '_gestion_fecha']     = null;
+        }
+        return $datos;
+    }
+
+    /**
+     * Diff {antes,despues} de lo que se va a escribir en `documentacion` (mismo esquema
+     * que EquipoObserver), para que el historial muestre valor viejo y nuevo. Se llama
+     * ANTES de guardar. Los campos que no cambian se omiten (p.ej. gestion_* que ya
+     * estaban en null). $doc null = el equipo aun no tiene fila: todo es nuevo.
+     */
+    private function diffDocumentacion(?Documentacion $doc, array $datos): array
+    {
+        $diff = [];
+        foreach ($datos as $field => $newValue) {
+            $oldValue = $doc ? $doc->getRawOriginal($field) : null;
+            // Los datetime salen de BD como "Y-m-d 00:00:00" pero el input llega "Y-m-d":
+            // se normalizan para comparar y mostrar en el mismo formato.
+            $oldCmp = is_string($oldValue) ? preg_replace('/ 00:00:00$/', '', $oldValue) : $oldValue;
+            $newCmp = is_string($newValue) ? preg_replace('/ 00:00:00$/', '', $newValue) : $newValue;
+            if ((string) $oldCmp === (string) $newCmp) continue;
+            $diff[$field] = ['antes' => $oldCmp, 'despues' => $newCmp];
+        }
+        return $diff;
+    }
 
     /**
      * Anexa una CORRECCION a un documento del equipo.
@@ -3308,6 +3366,22 @@ class EquipoController extends Controller
             return response()->json(['success' => false, 'message' => 'No existe documentación para este equipo'], 400);
         }
 
+        // Un documento que vence no se queda sin fecha: ni al guardar el panel con el
+        // campo vacio ni con una fecha que no lo es. JSON a mano porque este POST llega
+        // por apiFetch sin 'Accept: application/json', y validate() respondería con un
+        // redirect que el visor no sabe leer.
+        if (isset(self::DOC_VENCIMIENTO[$type])) {
+            $v = \Illuminate\Support\Facades\Validator::make($request->all(), [
+                'fecha_vencimiento' => 'required|date',
+            ], [
+                'fecha_vencimiento.required' => 'La fecha de vencimiento es obligatoria.',
+                'fecha_vencimiento.date'     => 'La fecha de vencimiento no es válida.',
+            ]);
+            if ($v->fails()) {
+                return response()->json(['success' => false, 'message' => $v->errors()->first()], 422);
+            }
+        }
+
         $updateData = [];
 
         switch ($type) {
@@ -3348,58 +3422,18 @@ class EquipoController extends Controller
                 break;
 
             case 'poliza':
-                $updateData = [
-                    'FECHA_VENC_POLIZA' => $request->input('fecha_vencimiento'),
-                ];
-
-                // Clear management if new date is in future
-                if ($request->filled('fecha_vencimiento')) {
-                    $newDate = \Carbon\Carbon::parse($request->input('fecha_vencimiento'));
-                    if ($newDate->isFuture()) {
-                        $updateData['poliza_gestion_frente_id'] = null;
-                        $updateData['poliza_gestion_fecha'] = null;
-                    }
-                }
+            case 'rotc':
+            case 'racda':
+            case 'adicional':
+                // Fecha (obligatoria, validada arriba) + fin de la gestion si es futura.
+                $updateData = $this->datosVencimiento($type, $request->input('fecha_vencimiento'));
 
                 // Handle insurance name (create if new)
-                if ($request->filled('nombre_aseguradora')) {
+                if ($type === 'poliza' && $request->filled('nombre_aseguradora')) {
                     $seguro = CatalogoSeguro::firstOrCreate([
                         'NOMBRE_ASEGURADORA' => strtoupper($request->input('nombre_aseguradora'))
                     ]);
                     $updateData['ID_SEGURO'] = $seguro->ID_SEGURO;
-                }
-                break;
-
-            case 'rotc':
-            case 'racda':
-                $fechaKey = $type === 'rotc' ? 'FECHA_ROTC' : 'FECHA_RACDA';
-                $frenteKey = $type === 'rotc' ? 'rotc_gestion_frente_id' : 'racda_gestion_frente_id';
-                $fechaMgtKey = $type === 'rotc' ? 'rotc_gestion_fecha' : 'racda_gestion_fecha';
-
-                $updateData = [
-                    $fechaKey => $request->input('fecha_vencimiento'),
-                ];
-                if ($request->filled('fecha_vencimiento')) {
-                    $newDate = \Carbon\Carbon::parse($request->input('fecha_vencimiento'));
-                    if ($newDate->isFuture()) {
-                        $updateData[$frenteKey] = null;
-                        $updateData[$fechaMgtKey] = null;
-                    }
-                }
-                break;
-
-            case 'adicional':
-                $updateData = [
-                    'FECHA_ADICIONAL' => $request->input('fecha_vencimiento'),
-                ];
-                // Coherente con poliza/rotc/racda: si la nueva fecha es futura, la gestión
-                // (frente que la tramita + fecha de gestión) ya no aplica → se limpia.
-                if ($request->filled('fecha_vencimiento')) {
-                    $newDate = \Carbon\Carbon::parse($request->input('fecha_vencimiento'));
-                    if ($newDate->isFuture()) {
-                        $updateData['adicional_gestion_frente_id'] = null;
-                        $updateData['adicional_gestion_fecha'] = null;
-                    }
                 }
                 break;
 
@@ -3414,20 +3448,8 @@ class EquipoController extends Controller
             return $value !== '';
         });
 
-        // Diff {antes,despues} de la Documentacion ANTES de updateQuietly (mismo esquema
-        // que EquipoObserver) para que el historial muestre valor viejo y nuevo. Los campos
-        // cuyo valor no cambió se omiten del log (p.ej. gestion_* que ya estaban en null).
-        $docDiff = [];
-        $doc = $equipo->documentacion;
-        foreach ($updateData as $field => $newValue) {
-            $oldValue = $doc->getRawOriginal($field);
-            // Los datetime salen de BD como "Y-m-d 00:00:00" pero el input llega "Y-m-d":
-            // se normalizan para comparar y mostrar en el mismo formato.
-            $oldCmp = is_string($oldValue) ? preg_replace('/ 00:00:00$/', '', $oldValue) : $oldValue;
-            $newCmp = is_string($newValue) ? preg_replace('/ 00:00:00$/', '', $newValue) : $newValue;
-            if ((string) $oldCmp === (string) $newCmp) continue;
-            $docDiff[$field] = ['antes' => $oldCmp, 'despues' => $newCmp];
-        }
+        // Diff {antes,despues} de la Documentacion ANTES de updateQuietly (ver diffDocumentacion).
+        $docDiff = $this->diffDocumentacion($equipo->documentacion, $updateData);
 
         if (!empty($updateData)) {
             // updateQuietly: NO disparar DocumentacionObserver (que registraria un

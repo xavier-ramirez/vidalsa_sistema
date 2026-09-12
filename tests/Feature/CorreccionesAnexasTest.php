@@ -89,7 +89,8 @@ class CorreccionesAnexasTest extends MySqlTestCase
     {
         $res = $this->actingAs($this->user)->post(
             "/admin/equipos/{$this->equipo->ID_EQUIPO}/upload-doc",
-            ['doc_type' => 'poliza', 'file' => $this->pdf('poliza.pdf')]
+            // La poliza vence: sin fecha no se sube (ver EquipoController::DOC_VENCIMIENTO).
+            ['doc_type' => 'poliza', 'file' => $this->pdf('poliza.pdf'), 'expiration_date' => now()->addYear()->toDateString()]
         );
         $res->assertOk()->assertJson(['success' => true]);
         return $res->json('link');

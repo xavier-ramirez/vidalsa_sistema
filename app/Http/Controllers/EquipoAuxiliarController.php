@@ -2130,8 +2130,8 @@ class EquipoAuxiliarController extends Controller
         $request->validate([
             'file'     => 'required|file|mimes:pdf|max:51200',
             'doc_type' => 'required|in:' . implode(',', array_keys(EquipoAuxiliar::DOCS)),
-            'fecha_vencimiento_cert' => 'nullable|date',
-        ]);
+            'fecha_vencimiento_cert' => $this->reglaFechaCert($request->input('doc_type') === 'certificado'),
+        ], self::MENSAJES_FECHA_CERT);
 
         $aux  = EquipoAuxiliar::findOrFail($id);
         $this->authorizeAuxScope($aux);
@@ -2145,7 +2145,9 @@ class EquipoAuxiliarController extends Controller
             $anterior     = $aux->$col;
 
             $aux->$col = EquipoAuxiliar::subirDocADrive($driveService, $type, $request->file('file'));
-            if ($type === 'certificado' && $request->filled('fecha_vencimiento_cert')) {
+            // La fecha viaja con el certificado nuevo (obligatoria, validada arriba): nunca
+            // se queda con la del anterior.
+            if ($type === 'certificado') {
                 $aux->FECHA_VENCIMIENTO_CERT = $request->input('fecha_vencimiento_cert');
             }
             $aux->save();
@@ -2203,11 +2205,12 @@ class EquipoAuxiliarController extends Controller
      */
     public function updateCertExpiry(Request $request, $id)
     {
-        $request->validate([
-            'fecha_vencimiento_cert' => 'nullable|date',
-        ]);
         $aux = EquipoAuxiliar::findOrFail($id);
         $this->authorizeAuxScope($aux);
+        // Con certificado cargado la fecha no se puede vaciar (ver reglaFechaCert).
+        $request->validate([
+            'fecha_vencimiento_cert' => $this->reglaFechaCert(!empty($aux->LINK_CERTIFICADO)),
+        ], self::MENSAJES_FECHA_CERT);
         $aux->FECHA_VENCIMIENTO_CERT = $request->input('fecha_vencimiento_cert') ?: null;
         $aux->save();
         return response()->json([
@@ -2284,6 +2287,17 @@ class EquipoAuxiliarController extends Controller
             $anio = trim((string) $request->input('anio', ''));
             $upd['ANIO']           = $anio === '' ? null : (int) $anio;
         } elseif ($type === 'certificado') {
+            // Con certificado cargado la fecha no se puede vaciar (ver reglaFechaCert). JSON
+            // a mano: este POST llega por apiFetch sin 'Accept: application/json', y
+            // validate() respondería con un redirect que el visor no sabe leer.
+            $v = \Illuminate\Support\Facades\Validator::make(
+                ['fecha_vencimiento_cert' => $request->input('fecha_vencimiento')],
+                ['fecha_vencimiento_cert' => $this->reglaFechaCert(!empty($aux->LINK_CERTIFICADO))],
+                self::MENSAJES_FECHA_CERT
+            );
+            if ($v->fails()) {
+                return response()->json(['success' => false, 'message' => $v->errors()->first()], 422);
+            }
             $upd['FECHA_VENCIMIENTO_CERT'] = $request->input('fecha_vencimiento') ?: null;
         } else {
             return response()->json(['success' => false, 'message' => 'Tipo no valido'], 400);
@@ -2403,6 +2417,22 @@ class EquipoAuxiliarController extends Controller
     // ═══════════════════════════════════════════════════════════
     // VALIDATION
     // ═══════════════════════════════════════════════════════════
+    /**
+     * Regla de FECHA_VENCIMIENTO_CERT. El certificado es el documento del auxiliar que
+     * VENCE: con PDF de certificado (el que se sube o el que ya tiene) la fecha es
+     * obligatoria. Un solo sitio para el formulario (validateData), la subida desde la
+     * ficha (uploadDoc) y la edicion desde el visor (updateMetadata/updateCertExpiry).
+     */
+    private function reglaFechaCert(bool $hayCertificado): array
+    {
+        return ['nullable', 'date', Rule::requiredIf($hayCertificado)];
+    }
+
+    private const MENSAJES_FECHA_CERT = [
+        'fecha_vencimiento_cert.required' => 'La fecha de vencimiento del certificado es obligatoria.',
+        'fecha_vencimiento_cert.date'     => 'La fecha de vencimiento del certificado no es válida.',
+    ];
+
     private function validateData(Request $request, bool $isCreate = true): array
     {
         // ID del auxiliar actual (para excluirlo del check unique en update)
@@ -2476,10 +2506,17 @@ class EquipoAuxiliarController extends Controller
             'ID_EQUIPO_HOST'   => 'nullable|exists:equipos,ID_EQUIPO',
             'OBSERVACIONES'    => 'nullable|string|max:500',
             // Documentacion (opcional). En UPDATE aceptamos fecha pasada para no
-            // bloquear edicion de registros con certificados ya vencidos.
+            // bloquear edicion de registros con certificados ya vencidos. La fecha es
+            // obligatoria si se sube certificado o si el auxiliar ya tiene uno.
             'doc_propiedad'          => 'nullable|file|mimes:pdf|max:10240',
             'certificado'            => 'nullable|file|mimes:pdf|max:10240',
-            'fecha_vencimiento_cert' => $isCreate ? 'nullable|date|after_or_equal:today' : 'nullable|date',
+            'fecha_vencimiento_cert' => array_merge(
+                $this->reglaFechaCert(
+                    $request->hasFile('certificado')
+                    || (!$isCreate && $currentId && EquipoAuxiliar::whereKey($currentId)->value('LINK_CERTIFICADO'))
+                ),
+                $isCreate ? ['after_or_equal:today'] : []
+            ),
         ];
 
         // En update hacemos sometimes SOLO los nullable; required se mantiene.
@@ -2503,7 +2540,7 @@ class EquipoAuxiliarController extends Controller
         $validated = $request->validate($rules, [
             'SERIAL.unique'         => 'El serial ingresado ya está registrado en otro equipo auxiliar.',
             'CODIGO_INTERNO.unique' => 'El código interno ingresado ya está registrado en otro equipo auxiliar.',
-        ]);
+        ] + self::MENSAJES_FECHA_CERT);
 
         // Normaliza TIPO: uppercase + espacios por guiones_bajos para mantener consistencia
         // con los codigos existentes (MAQUINA_DE_SOLDAR, etc.) cuando el usuario escribe uno nuevo.

@@ -74,8 +74,9 @@ class DocsAuxiliarEnDriveTest extends MySqlTestCase
 
         $this->actingAs($u)
             ->postJson(route('equipos-auxiliares.store'), $datos + [
-                'doc_propiedad' => $this->pdf('propiedad.pdf'),
-                'certificado'   => $this->pdf('certificado.pdf'),
+                'doc_propiedad'          => $this->pdf('propiedad.pdf'),
+                'certificado'            => $this->pdf('certificado.pdf'),
+                'fecha_vencimiento_cert' => now()->addYear()->toDateString(),
             ])
             ->assertOk();
 
@@ -99,6 +100,73 @@ class DocsAuxiliarEnDriveTest extends MySqlTestCase
 
         $this->assertStringStartsWith('/storage/google/falso-', $aux->fresh()->LINK_DOC_PROPIEDAD);
         Bus::assertDispatchedAfterResponse(DeleteGoogleDriveFile::class, 1);
+    }
+
+    public function test_crear_con_certificado_y_sin_fecha_se_rechaza(): void
+    {
+        $u     = $this->usuario();
+        $datos = $this->datosAuxiliar($u);
+
+        $this->actingAs($u)
+            ->postJson(route('equipos-auxiliares.store'), $datos + ['certificado' => $this->pdf('certificado.pdf')])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('fecha_vencimiento_cert');
+
+        $this->assertFalse(EquipoAuxiliar::where('SERIAL', $datos['SERIAL'])->exists());
+        $this->assertSame(0, $this->drive->subidos());
+    }
+
+    public function test_subir_certificado_desde_la_ficha_exige_su_fecha(): void
+    {
+        $u   = $this->usuario();
+        $aux = EquipoAuxiliar::create($this->datosAuxiliar($u));
+        $url = "/admin/equipos-auxiliares/{$aux->ID_AUXILIAR}/upload-doc";
+
+        $this->actingAs($u)
+            ->postJson($url, ['doc_type' => 'certificado', 'file' => $this->pdf('cert.pdf')])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('fecha_vencimiento_cert');
+        $this->assertNull($aux->fresh()->LINK_CERTIFICADO);
+
+        $vence = now()->addYear()->toDateString();
+        $this->actingAs($u)
+            ->postJson($url, ['doc_type' => 'certificado', 'file' => $this->pdf('cert.pdf'), 'fecha_vencimiento_cert' => $vence])
+            ->assertOk();
+        $this->assertSame($vence, $aux->fresh()->FECHA_VENCIMIENTO_CERT->toDateString());
+        // Igual que en equipos, el historial guarda la subida Y la fecha (EquipoAuxiliarObserver).
+        $acciones = \App\Models\EquipoAuditLog::where('ID_AUXILIAR', $aux->ID_AUXILIAR)->pluck('CAMBIOS', 'ACCION');
+        $this->assertTrue($acciones->has('aux_upload_certificado'), 'la subida no quedo en el historial');
+        $this->assertArrayHasKey('FECHA_VENCIMIENTO_CERT', $acciones['aux_edit'] ?? [], 'la fecha no quedo en el historial');
+
+        // La propiedad no vence: se sube sin fecha.
+        $this->actingAs($u)
+            ->postJson($url, ['doc_type' => 'propiedad', 'file' => $this->pdf('prop.pdf')])
+            ->assertOk();
+    }
+
+    public function test_con_certificado_cargado_la_fecha_no_se_puede_vaciar(): void
+    {
+        $u   = $this->usuario();
+        $aux = EquipoAuxiliar::create($this->datosAuxiliar($u) + [
+            'LINK_CERTIFICADO'       => '/storage/google/cert123?v=1',
+            'FECHA_VENCIMIENTO_CERT' => '2027-03-01',
+        ]);
+
+        // Desde el visor...
+        $this->actingAs($u)
+            ->post("/admin/equipos-auxiliares/{$aux->ID_AUXILIAR}/update-metadata", ['doc_type' => 'certificado', 'fecha_vencimiento' => ''])
+            ->assertStatus(422)
+            ->assertJson(['success' => false]);
+
+        // ...y desde el formulario de editar.
+        $this->actingAs($u)
+            ->patchJson(route('equipos-auxiliares.update', $aux->ID_AUXILIAR), $aux->only([
+                'TIPO', 'MARCA', 'MODELO', 'SERIAL', 'ESTADO_OPERATIVO', 'ID_FRENTE_ACTUAL',
+            ]) + ['fecha_vencimiento_cert' => ''])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('fecha_vencimiento_cert');
+
+        $this->assertSame('2027-03-01', $aux->fresh()->FECHA_VENCIMIENTO_CERT->toDateString());
     }
 
     public function test_guardar_sin_pdfs_no_sube_nada_a_drive(): void

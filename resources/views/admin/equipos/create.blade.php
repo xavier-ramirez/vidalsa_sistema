@@ -847,7 +847,11 @@
                     Object.entries(res.body.errors).forEach(function (pair) {
                         var field = pair[0], msgs = pair[1];
                         var msg = Array.isArray(msgs) ? msgs[0] : String(msgs);
-                        var input = document.getElementById(field) || document.querySelector('[name="' + field + '"]');
+                        // Los campos anidados llegan con punto (documentacion.FECHA_ROTC) y el
+                        // input se llama con corchetes (documentacion[FECHA_ROTC]): sin traducirlo
+                        // el error de la fecha de un documento salia en el banner pero en ningun campo.
+                        var nombre = field.replace(/\.([^.]+)/g, '[$1]');
+                        var input = document.getElementById(field) || document.querySelector('[name="' + nombre + '"]');
                         if (!input) return;
                         // Los desplegables propios guardan el valor en un <input type="hidden">, que NO
                         // tiene caja: marcarlo de rojo no se veia y el scrollIntoView de abajo no movia

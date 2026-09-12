@@ -1792,7 +1792,8 @@
     // un documento y, si el modal sigue abierto, lo re-renderiza para que el icono
     // cambie EN VIVO (description=Ver ↔ cloud_upload=Subir). link=null => se borró.
     // Fuente única usada por auxUploadDoc (subir) y deletePdfFromPreview (borrar).
-    window.syncAuxDocCache = function (auxId, docType, link) {
+    // `vencimiento`: la fecha con la que se subió el certificado (la pedida antes de subir).
+    window.syncAuxDocCache = function (auxId, docType, link, vencimiento) {
         const map = window.auxDetailsMap || {};
         const d = map[auxId] || map[String(auxId)];
         if (!d) return;
@@ -1800,7 +1801,8 @@
             d.link_doc_propiedad = link || null;
         } else if (docType === 'certificado') {
             d.link_certificado = link || null;
-            if (!link) d.fecha_vencimiento_cert = null; // sin certificado no aplica la fecha
+            // Sin certificado no aplica la fecha; con uno nuevo, la suya.
+            d.fecha_vencimiento_cert = link ? (vencimiento || d.fecha_vencimiento_cert) : null;
         }
         const modal = document.getElementById('auxDetailsModal');
         if (modal && modal.classList.contains('active') && typeof window.renderAuxDetailsModal === 'function') {
@@ -1808,12 +1810,23 @@
         }
     };
 
-    window.auxUploadDoc = function (auxId, docType, input) {
+    window.auxUploadDoc = function (auxId, docType, input, vencimiento) {
         const file = input.files && input.files[0];
         if (!file) return;
+        // El certificado vence: primero su fecha. Cancelar = no se sube nada (y se vacia
+        // el input para que elegir el MISMO archivo vuelva a disparar el change).
+        if (!vencimiento && window.docVence('auxiliar', docType)) {
+            const d = (window.auxDetailsMap || {})[auxId] || {};
+            window.pedirFechaVencimiento('Certificado', d.fecha_vencimiento_cert || '').then(function (fecha) {
+                if (fecha) window.auxUploadDoc(auxId, docType, input, fecha);
+                else input.value = '';
+            });
+            return;
+        }
         const fd = new FormData();
         fd.append('file', file);
         fd.append('doc_type', docType);
+        if (vencimiento) fd.append('fecha_vencimiento_cert', vencimiento);
         // Preloader global durante upload + render del visor (mismo patron
         // que /admin/equipos: el spinner queda visible hasta que el PDF
         // esta listo en el iframe del visor).
@@ -1832,7 +1845,9 @@
                 //    refrescar el icono del modal de detalles (a "cargado"/description) sin
                 //    recargar la página. No dependemos del refresco async de la tabla (que
                 //    puede no traer este aux por paginación/filtro y dejaba el icono viejo).
-                if (body.link) window.syncAuxDocCache(auxId, docType, body.link);
+                // `vencimiento` y no body.fecha_vencimiento_cert: la del body sale del cast
+                // 'date' en ISO con hora, y la ficha espera aaaa-mm-dd (como /details).
+                if (body.link) window.syncAuxDocCache(auxId, docType, body.link, vencimiento);
 
                 // 1) Cerrar el modal de detalles para que el visor del PDF
                 //    no quede solapado por el card del aux.

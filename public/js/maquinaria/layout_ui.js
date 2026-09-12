@@ -2022,6 +2022,9 @@ window.loadMetadata = async function () {
             const labelStyle = "display: block; font-size: 12px; color: #cbd5e0; margin-bottom: 4px; font-weight: 600;";
             const containerStyle = "margin-bottom: 12px;";
             const disabledAttr = !window.CAN_UPDATE_INFO ? `disabled style="${commonInputStyle} opacity: 0.7; cursor: not-allowed;"` : `style="${commonInputStyle}"`;
+            // Todas las fechas de este panel son de documentos que vencen: con PDF
+            // cargado no se guardan vacias (lo exige tambien updateMetadata).
+            const fechaReq = window.CAN_UPDATE_INFO ? 'required' : '';
             // Modulo auxiliares: campos propios del aux (no hay tabla
             // documentacion paralela). Propiedad => datos basicos;
             // certificado => fecha de vencimiento + datos basicos.
@@ -2038,7 +2041,7 @@ window.loadMetadata = async function () {
                 `;
                 } else if (ctx.docType === 'certificado') {
                     html += `
-                    <div style="${containerStyle}"><label style="${labelStyle}">Fecha Vencimiento</label><input type="date" name="fecha_vencimiento" value="${info.fecha_vencimiento || ''}" ${disabledAttr} autocomplete="off"></div>
+                    <div style="${containerStyle}"><label style="${labelStyle}">Fecha Vencimiento</label><input type="date" name="fecha_vencimiento" value="${info.fecha_vencimiento || ''}" ${disabledAttr} ${fechaReq} autocomplete="off"></div>
                 `;
                 }
                 container.innerHTML = html;
@@ -2064,7 +2067,7 @@ window.loadMetadata = async function () {
                     });
                 }
                 html += `
-                <div style="${containerStyle}"><label for="meta_fec_venc_${ctx.equipoId}" style="${labelStyle}">Fecha Vencimiento</label><input type="date" id="meta_fec_venc_${ctx.equipoId}" name="fecha_vencimiento" value="${info.fecha_vencimiento || ''}" ${disabledAttr} autocomplete="off"></div>
+                <div style="${containerStyle}"><label for="meta_fec_venc_${ctx.equipoId}" style="${labelStyle}">Fecha Vencimiento</label><input type="date" id="meta_fec_venc_${ctx.equipoId}" name="fecha_vencimiento" value="${info.fecha_vencimiento || ''}" ${disabledAttr} ${fechaReq} autocomplete="off"></div>
                 <div style="${containerStyle}">
                     <label for="meta_aseguradora_${ctx.equipoId}" style="${labelStyle}">Aseguradora <small style="color:#94a3b8;font-weight:400;">(Seleccionar o escribir nueva)</small></label>
                     <input type="text" id="meta_aseguradora_${ctx.equipoId}" name="nombre_aseguradora" list="insurersList_${ctx.equipoId}" value="${currentInsurerName || ''}" placeholder="Escriba o seleccione..." ${disabledAttr} autocomplete="off">
@@ -2075,9 +2078,9 @@ window.loadMetadata = async function () {
                 // Compraventa (adicional_2) NO requiere fecha de vencimiento.
                 // Antes el Certificado (adicional) solo mostraba fecha si la categoria era
                 // FLOTA LIVIANA — los equipos FLOTA PESADA quedaban con panel vacio.
-                // Removida esa restriccion: el campo aparece siempre, el usuario decide
-                // si llena la fecha o la deja vacia segun corresponda al equipo.
-                html += `<div style="${containerStyle}"><label for="meta_fec_venc_${ctx.equipoId}" style="${labelStyle}">Fecha Vencimiento</label><input type="date" id="meta_fec_venc_${ctx.equipoId}" name="fecha_vencimiento" value="${info.fecha_vencimiento || ''}" ${disabledAttr} autocomplete="off"></div>`;
+                // Removida esa restriccion: el campo aparece siempre y, como en el
+                // resto de documentos que vencen, es obligatorio (fechaReq).
+                html += `<div style="${containerStyle}"><label for="meta_fec_venc_${ctx.equipoId}" style="${labelStyle}">Fecha Vencimiento</label><input type="date" id="meta_fec_venc_${ctx.equipoId}" name="fecha_vencimiento" value="${info.fecha_vencimiento || ''}" ${disabledAttr} ${fechaReq} autocomplete="off"></div>`;
             }
             container.innerHTML = html;
         }
@@ -2147,7 +2150,11 @@ window.saveMetadata = async function (e) {
                 showDetailsImproved(window.activeEquipoButton);
             }
             if (typeof window.refreshDashboardAlerts === 'function') window.refreshDashboardAlerts();
-        } else { throw new Error(data.message); }
+        } else {
+            // El motivo que da el servidor (p.ej. "La fecha de vencimiento es obligatoria."),
+            // no uno generico que no dice que corregir.
+            window.toast(data.message || 'Error: No se pudieron guardar los cambios', 'error');
+        }
     } catch (error) {
         console.error(error);
         window.toast('Error: No se pudieron guardar los cambios', 'error');
@@ -2417,7 +2424,26 @@ window.uploadDocumentFromPreview = function (input, type, equipoId, label) {
 
     if (!input.files || !input.files[0]) return;
     const file = input.files[0];
+    // Se vacia ya: si se cancela la fecha, elegir el MISMO archivo otra vez debe volver a
+    // disparar el change.
+    input.value = '';
 
+    // Documento que vence: primero su fecha (la del panel de datos, como referencia).
+    // Cancelar = no se sube nada y el documento de ahora sigue tal cual.
+    const module = (window.currentPdfContext && window.currentPdfContext.module) || 'equipo';
+    if (window.docVence(module, type)) {
+        const campo = document.querySelector('#metaFieldsContainer input[name="fecha_vencimiento"]');
+        window.pedirFechaVencimiento(label, campo ? campo.value : '').then(function (fecha) {
+            if (fecha) _subirDesdeVisor(file, type, equipoId, label, module, fecha);
+        });
+        return;
+    }
+    _subirDesdeVisor(file, type, equipoId, label, module, null);
+};
+
+// La subida en si de uploadDocumentFromPreview. El nombre del campo de la fecha es el
+// de cada endpoint: expiration_date (equipos) / fecha_vencimiento_cert (auxiliares).
+function _subirDesdeVisor(file, type, equipoId, label, module, vencimiento) {
     // Show upload progress overlay
     const progressOverlay = document.getElementById('pdfUploadProgressOverlay');
     const progressBar = document.getElementById('pdfUploadProgressBar');
@@ -2430,6 +2456,9 @@ window.uploadDocumentFromPreview = function (input, type, equipoId, label) {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('doc_type', type);
+    if (vencimiento) {
+        formData.append(module === 'auxiliar' ? 'fecha_vencimiento_cert' : 'expiration_date', vencimiento);
+    }
 
     const xhr = new XMLHttpRequest();
     // uploadUrl override desde window.currentPdfContext (otros modulos
@@ -2516,6 +2545,10 @@ window.uploadDocumentFromPreview = function (input, type, equipoId, label) {
                     // Update Download Button
                     const downloadBtn = document.getElementById('pdfDownloadBtn');
                     if (downloadBtn) downloadBtn.dataset.url = data.link;
+
+                    // La fecha nueva se guardo con el PDF: el panel de datos se relee para
+                    // no seguir enseñando la del documento anterior.
+                    if (vencimiento && typeof window.loadMetadata === 'function') window.loadMetadata();
 
                     // Sincroniza dataset + equiposData usando el helper unico (DOC_FIELD_MAP).
                     // Solo re-renderiza el modal detalles si sigue abierto debajo del preview;
@@ -2621,7 +2654,12 @@ window.uploadDocumentFromPreview = function (input, type, equipoId, label) {
             }
         } else {
             if (progressOverlay) progressOverlay.style.display = 'none';
-            window.toast('Error al cargar documento', 'error');
+            // 422 trae el motivo (PDF invalido, falta la fecha...): se enseña ese.
+            let msg = 'Error al cargar documento';
+            if (xhr.status === 422) {
+                try { msg = JSON.parse(xhr.responseText).message || msg; } catch (_) { /* respuesta no-JSON */ }
+            }
+            window.toast(msg, 'error');
         }
     };
 
@@ -2632,7 +2670,7 @@ window.uploadDocumentFromPreview = function (input, type, equipoId, label) {
     };
 
     xhr.send(formData);
-};
+}
 
 // filterDropdownOptions se define UNA sola vez en uicomponents.js (versión que
 // normaliza acentos y respeta el filtrado por frente 'eq-tipo-oculto' de Equipos).
