@@ -152,13 +152,23 @@ function renderFleetEquiposAsignados(lista) {
     // Ordenar de mayor a menor por cantidad de equipos asignados
     lista = [...lista].sort((a, b) => (Number(b.total) || 0) - (Number(a.total) || 0));
 
-    // Mismo lenguaje que las tarjetas KPI de arriba: fondo blanco, anillo de un pelo y la
-    // CIFRA como único elemento con peso. Antes eran bloques grises saturados con sombra y
-    // texto en 900 — leían muy fuerte y no encajaban con el resto del modal.
-    body.innerHTML = `<div style="display:flex;flex-wrap:wrap;gap:8px;">${lista.map((row, i) => `
+    // Con COLOR a pedido del cliente: cada tarjeta lleva un fondo azul y una barra a la
+    // izquierda que se intensifican con el puesto (los frentes con mas equipos, mas fuertes).
+    // Solo azules del brochure (paleta de marca: blanco, azules y grises). Los fondos son los
+    // CLAROS de la escala porque la cifra va en negro (--fd-ink, pedido del 13-ago): sobre
+    // ellos se lee de sobra; sobre los azules oscuros el negro no se veria.
+    const BANDAS = [
+        { fondo: '#B8C3E0', barra: '#122149' },
+        { fondo: '#C6D2DE', barra: '#1B2A57' },
+        { fondo: '#DDE3F0', barra: '#385097' },
+        { fondo: '#EBEEF6', barra: '#6076BE' },
+    ];
+    body.innerHTML = `<div style="display:flex;flex-wrap:wrap;gap:8px;">${lista.map((row, i) => {
+        const b = BANDAS[Math.floor(i * BANDAS.length / lista.length)];
+        return `
             <div style="
-                background:#fff;
-                border:1px solid var(--fd-ring);
+                background:${b.fondo};
+                border-left:4px solid ${b.barra};
                 border-radius:10px;
                 padding:10px 13px;
                 min-width:150px;
@@ -168,15 +178,15 @@ function renderFleetEquiposAsignados(lista) {
                 gap:3px;
             ">
                 <div style="display:flex; align-items:baseline; gap:6px; width:100%;">
-                    <span style="font-size:10.5px;font-weight:600;color:var(--fd-ink-2);opacity:.55;flex-shrink:0;">${i + 1}</span>
-                    <span style="font-size:11px;font-weight:500;color:var(--fd-ink-2);line-height:1.25;word-break:break-word;flex:1;" title="${row.frente}">${row.frente}</span>
+                    <span style="font-size:10.5px;font-weight:700;color:${b.barra};flex-shrink:0;">${i + 1}</span>
+                    <span style="font-size:11px;font-weight:600;color:#1B2A57;line-height:1.25;word-break:break-word;flex:1;" title="${row.frente}">${row.frente}</span>
                 </div>
                 <div style="display:flex;align-items:baseline;gap:5px;">
                     <span style="font-size:21px;font-weight:700;line-height:1.1;color:var(--fd-ink);letter-spacing:-0.5px;">${row.total}</span>
-                    <span style="font-size:11px;font-weight:500;color:var(--fd-ink-2);">equipo${row.total !== 1 ? 's' : ''}</span>
+                    <span style="font-size:11px;font-weight:500;color:#313E61;">equipo${row.total !== 1 ? 's' : ''}</span>
                 </div>
-            </div>`
-    ).join('')
+            </div>`;
+    }).join('')
         }</div>`;
 }
 
