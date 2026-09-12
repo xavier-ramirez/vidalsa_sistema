@@ -31,7 +31,10 @@
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
             font-family: 'Nunito', 'Segoe UI', Tahoma, sans-serif;
-            min-height: 100vh; display: flex; align-items: center; justify-content: center;
+            /* dvh: en el teléfono la barra del navegador aparece y desaparece; 100vh la
+               incluye y la tarjeta quedaba descentrada. 100vh queda de respaldo. */
+            min-height: 100vh; min-height: 100dvh;
+            display: flex; align-items: center; justify-content: center;
             padding: 24px; color: #1e293b;
             background: #fff;
         }
@@ -44,7 +47,9 @@
             animation: err-rise 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
         }
         @keyframes err-rise { from { opacity: 0; transform: translateY(14px) scale(0.98); } }
-        .err-logo { height: 50px; margin-bottom: 24px; object-fit: contain; }
+        /* max-width: el logo mide 281 px a 50 px de alto; sin tope se salía de la
+           tarjeta en teléfonos de 375 px o menos. object-fit lo encoge sin deformarlo. */
+        .err-logo { height: 50px; max-width: 100%; margin-bottom: 24px; object-fit: contain; }
         /* Anillo giratorio en el lugar donde las páginas de error ponen el número
            (404/503): aquí no hay código que enseñar, lo que hay es una espera. */
         .err-spinner {
@@ -60,6 +65,12 @@
         .err-nota {
             font-size: 12.5px; color: #94a3b8; margin-top: 24px;
             padding-top: 18px; border-top: 1px solid #f1f5f9;
+        }
+        /* Teléfono: menos margen y relleno para que el logo quepa entero y el título
+           no se parta en dos líneas. */
+        @media (max-width: 480px) {
+            body { padding: 16px; }
+            .err-card { padding: 32px 20px 28px; }
         }
         /* Respeta a quien pidió menos animación en su sistema. */
         @media (prefers-reduced-motion: reduce) {

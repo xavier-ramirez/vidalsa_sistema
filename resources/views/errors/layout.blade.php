@@ -21,7 +21,10 @@
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
             font-family: 'Nunito', 'Segoe UI', Tahoma, sans-serif;
-            min-height: 100vh; display: flex; align-items: center; justify-content: center;
+            /* dvh: en el teléfono la barra del navegador aparece y desaparece; 100vh la
+               incluye y la tarjeta quedaba descentrada. 100vh queda de respaldo. */
+            min-height: 100vh; min-height: 100dvh;
+            display: flex; align-items: center; justify-content: center;
             padding: 24px; color: #1e293b;
             /* Fondo blanco (igual pedido del cliente). */
             background: #fff;
@@ -37,7 +40,9 @@
             animation: err-rise 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
         }
         @keyframes err-rise { from { opacity: 0; transform: translateY(14px) scale(0.98); } }
-        .err-logo { height: 50px; margin-bottom: 20px; object-fit: contain; }
+        /* max-width: el logo mide 281 px a 50 px de alto; sin tope se salía de la
+           tarjeta en teléfonos de 375 px o menos. object-fit lo encoge sin deformarlo. */
+        .err-logo { height: 50px; max-width: 100%; margin-bottom: 20px; object-fit: contain; }
         .err-code {
             font-size: 72px; font-weight: 800; line-height: 1; letter-spacing: -3px;
             color: var(--login-blue);
@@ -55,6 +60,12 @@
         }
         .err-btn:hover { transform: translateY(-2px); background: #000066; box-shadow: 0 8px 16px rgba(0, 0, 77, 0.28); }
         .err-btn:active { transform: translateY(0); }
+        /* Teléfono: menos margen y relleno para que el logo quepa entero y el título
+           no se parta en dos líneas (igual que public/mantenimiento.html). */
+        @media (max-width: 480px) {
+            body { padding: 16px; }
+            .err-card { padding: 32px 20px 28px; }
+        }
     </style>
 </head>
 <body>
