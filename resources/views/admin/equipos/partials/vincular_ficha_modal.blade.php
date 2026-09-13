@@ -5,83 +5,101 @@
     color o la del modelo (Equipo::fotoParaMostrar). Sirve para las unidades que no
     encontraron solas su ficha (el modelo escrito distinto, otro año, varias fichas).
 
+    Mismo ancho y organización que el modal "Anclaje de Equipos" (equipos_index.js):
+    buscador arriba, lista de filas con foto a la izquierda y un solo botón abajo. Abre con
+    las fichas sugeridas para el equipo y, si no existe la de su modelo + año, la opción de
+    crearla (catalogo.asegurarFicha) y vincularlo en el mismo paso.
+
     Las fichas las busca CaracteristicaModeloController::elegir (mismas tarjetas que el
     catálogo) y el vínculo lo guarda EquipoController::vincularFicha. El comportamiento vive
     en js/maquinaria/vincular_ficha.js, que se descarga la primera vez que se abre.
 --}}
 @can('super.admin')
 <style>
-    #vfModal { display:none; position:fixed; inset:0; background:rgba(15,23,42,0.45); z-index:10000; align-items:center; justify-content:center; padding:16px; }
+    #vfModal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); backdrop-filter:blur(2px); z-index:10001; align-items:center; justify-content:center; padding:16px; }
     #vfModal.open { display:flex; }
-    #vfModal .vf-box { background:#fff; border-radius:14px; width:100%; max-width:640px; max-height:90vh; box-shadow:0 20px 50px rgba(0,0,0,0.25); display:flex; flex-direction:column; overflow:hidden; }
-    /* Encabezado como el de los demás modales (ver .devm-head en almacen/devolucion_modal). */
-    #vfModal .vf-head { padding:14px 48px; background:#1e293b; display:flex; align-items:center; justify-content:center; position:relative; flex-shrink:0; }
-    #vfModal .vf-head h3 { margin:0; font-size:15px; font-weight:800; color:#fff; display:flex; align-items:center; gap:8px; text-align:center; }
-    #vfModal .vf-head h3 .material-icons { color:#0067b1; }
-    #vfModal .vf-x { position:absolute; right:14px; top:50%; transform:translateY(-50%); cursor:pointer; color:#fff; opacity:.75; background:none; border:none; padding:0; display:flex; }
+    #vfModal .vf-box { background:#fff; border-radius:16px; width:100%; max-width:440px; max-height:90vh; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25); display:flex; flex-direction:column; overflow:hidden; }
+    #vfModal .vf-head { padding:16px 48px; background:#1e293b; display:flex; align-items:center; justify-content:center; position:relative; flex-shrink:0; }
+    #vfModal .vf-head h3 { margin:0; font-size:16px; font-weight:700; color:#fff; display:flex; align-items:center; gap:10px; text-align:center; }
+    #vfModal .vf-head h3 .material-icons { color:#60a5fa; font-size:20px; }
+    #vfModal .vf-x { position:absolute; right:15px; top:50%; transform:translateY(-50%); cursor:pointer; color:#fff; opacity:.7; background:none; border:none; padding:0; display:flex; }
     #vfModal .vf-x:hover { opacity:1; }
-    #vfModal .vf-equipo { padding:10px 18px; background:#f1f5f9; border-bottom:1px solid #e2e8f0; font-size:12.5px; color:#334155; display:flex; flex-wrap:wrap; gap:4px 12px; align-items:center; flex-shrink:0; }
-    #vfModal .vf-equipo b { color:#0f172a; }
-    #vfModal .vf-filtros { padding:12px 18px 0; display:flex; gap:8px; flex-wrap:wrap; flex-shrink:0; }
-    #vfModal .vf-input { border:1px solid #cbd5e0; border-radius:8px; padding:9px 10px; font-size:14px; outline:none; background:#fff; color:#0f172a; box-sizing:border-box; }
-    #vfModal .vf-input:focus { border-color:var(--maquinaria-blue,#0067b1); }
-    #vfModal .vf-buscar { flex:1 1 220px; min-width:0; text-transform:uppercase; }
-    #vfModal .vf-buscar::placeholder { text-transform:none; }
-    #vfModal .vf-anio { flex:0 0 130px; }
-    #vfModal .vf-body { padding:12px 18px 16px; overflow-y:auto; min-height:0; flex:1; }
+    #vfModal .vf-body { padding:16px 20px 20px; display:flex; flex-direction:column; gap:12px; min-height:0; }
+
+    /* Buscador (como #anchor-search-box) + año */
+    #vfModal .vf-filtros { display:flex; gap:8px; }
+    #vfModal .vf-buscar-caja { flex:1; min-width:0; display:flex; align-items:center; border:1.5px solid #e2e8f0; border-radius:10px; background:#fff; overflow:hidden; transition:border-color .2s; }
+    #vfModal .vf-buscar-caja:focus-within { border-color:#0067b1; }
+    #vfModal .vf-buscar-caja .material-icons { padding:0 10px; color:#94a3b8; font-size:18px; flex-shrink:0; }
+    #vfModal .vf-buscar { flex:1; min-width:0; border:none; outline:none; padding:9px 6px 9px 0; font-size:13px; background:transparent; color:#0f172a; text-transform:uppercase; }
+    #vfModal .vf-buscar::placeholder { text-transform:none; color:#94a3b8; }
+    #vfModal .vf-anio { flex:0 0 118px; border:1.5px solid #e2e8f0; border-radius:10px; padding:0 8px; font-size:13px; color:#0f172a; background:#fff; outline:none; }
+    #vfModal .vf-anio:focus { border-color:#0067b1; }
+
+    /* Lista de fichas (como #anchorEquiposList) */
+    #vfModal .vf-lista { max-height:360px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:12px; background:#f8fafc; padding:8px; display:flex; flex-direction:column; gap:6px; }
     #vfModal .vf-aviso { font-size:12.5px; color:#64748b; text-align:center; padding:18px 8px; }
-    #vfModal .vf-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(165px, 1fr)); gap:10px; }
-    #vfModal .vf-card { border:2px solid #e2e8f0; border-radius:12px; overflow:hidden; background:#fff; cursor:pointer; text-align:left; padding:0; display:flex; flex-direction:column; font:inherit; color:inherit; transition:border-color .15s, box-shadow .15s; }
-    #vfModal .vf-card:hover { border-color:#93c5fd; }
-    #vfModal .vf-card:focus-visible { outline:2px solid #0067b1; outline-offset:2px; }
-    #vfModal .vf-card.sel { border-color:#0067b1; box-shadow:0 0 0 3px rgba(0,103,177,0.18); }
-    #vfModal .vf-foto { position:relative; height:105px; background:#f8fafc; display:flex; align-items:center; justify-content:center; }
+    #vfModal .vf-titulo-lista { font-size:10.5px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:.4px; padding:2px 4px 0; }
+    /* "Crear su ficha": la del modelo + año del equipo cuando todavía no existe. */
+    #vfModal .vf-item.vf-crear { border-style:dashed; border-color:#93c5fd; }
+    #vfModal .vf-crear .vf-foto { background:#eff6ff; }
+    #vfModal .vf-crear .vf-foto .material-icons { color:#0067b1; font-size:28px; }
+    #vfModal .vf-crear .vf-tipo { color:#0067b1; }
+    #vfModal .vf-item { width:100%; padding:10px; border-radius:8px; background:#fff; border:1px solid #e2e8f0; cursor:pointer; display:flex; align-items:center; gap:12px; text-align:left; font:inherit; color:inherit; transition:border-color .2s, box-shadow .2s, background .2s; }
+    #vfModal .vf-item:hover { border-color:#60a5fa; box-shadow:0 4px 6px -1px rgba(0,0,0,0.05); }
+    #vfModal .vf-item:focus-visible { outline:2px solid #0067b1; outline-offset:1px; }
+    #vfModal .vf-item.sel { border-color:#0067b1; background:#eff6ff; }
+    #vfModal .vf-foto { width:104px; height:64px; background:#f1f5f9; border-radius:6px; overflow:hidden; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
     #vfModal .vf-foto img { width:100%; height:100%; object-fit:contain; }
-    #vfModal .vf-foto .material-icons { font-size:34px; color:#cbd5e1; }
-    #vfModal .vf-badge { position:absolute; top:6px; font-size:10px; font-weight:700; color:#fff; padding:2px 7px; border-radius:999px; display:inline-flex; align-items:center; gap:3px; }
-    #vfModal .vf-badge .material-icons { font-size:11px; color:#fff; }
-    #vfModal .vf-badge.anio  { right:6px; background:rgba(0,103,177,0.92); }
-    #vfModal .vf-badge.total { right:6px; top:30px; background:rgba(15,23,42,0.85); }
-    #vfModal .vf-badge.actual { left:6px; background:rgba(22,163,74,0.95); }
-    #vfModal .vf-info { padding:8px 10px; display:flex; flex-direction:column; gap:5px; }
-    #vfModal .vf-nombre { font-size:12px; font-weight:700; color:#0f172a; text-transform:uppercase; line-height:1.3; word-break:break-word; }
-    #vfModal .vf-colores { display:flex; flex-wrap:wrap; gap:4px; }
-    #vfModal .vf-color { width:11px; height:11px; border-radius:50%; border:1px solid rgba(15,23,42,0.25); }
-    #vfModal .vf-color.suyo { box-shadow:0 0 0 2px #fff, 0 0 0 3px #0067b1; }
-    #vfModal .vf-foot { padding:12px 18px; border-top:1px solid #e2e8f0; background:#f8fafc; display:flex; justify-content:center; gap:8px; flex-shrink:0; }
-    /* Botones más bajos que el .btn-primary-maquinaria general (12px 24px): en el pie de un
-       modal chico se veían desproporcionados. */
-    #vfModal .vf-foot .btn-primary-maquinaria { padding:8px 18px; border-radius:10px; font-size:13px; gap:6px; }
-    #vfModal .vf-foot .btn-primary-maquinaria .material-icons { font-size:18px; }
-    #vfModal .vf-foot .btn-primary-maquinaria:disabled { opacity:.5; cursor:not-allowed; }
-    #vfModal .vf-btn-cancelar { background:#e2e8f0; color:#475569; box-shadow:none; }
-    @media (max-width: 520px) {
+    #vfModal .vf-foto .material-icons { font-size:24px; color:#cbd5e0; }
+    /* Texto de la tarjeta con la letra de la columna TIPO / MARCA / MODELO de la tabla de
+       Equipos (.eq-sub, .eq-linea-fuerte, .eq-modelo, .eq-anio), para que se lea igual. */
+    #vfModal .vf-info { flex:1; min-width:0; display:flex; flex-direction:column; gap:1px; }
+    #vfModal .vf-info > span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-transform:uppercase; line-height:1.3; }
+    #vfModal .vf-tipo { font-size:10.5px; font-weight:600; color:#64748b; letter-spacing:.3px; }
+    #vfModal .vf-marca { font-size:13px; font-weight:700; color:#0f172a; }
+    #vfModal .vf-modelo { font-size:12px; font-weight:500; color:#475569; }
+    #vfModal .vf-meta { display:flex; align-items:center; flex-wrap:wrap; gap:2px 10px; margin-top:2px; font-size:11px; font-weight:500; color:#64748b; }
+    #vfModal .vf-colores { display:inline-flex; align-items:center; gap:3px; }
+    #vfModal .vf-color { width:9px; height:9px; border-radius:50%; border:1px solid rgba(15,23,42,0.25); }
+    #vfModal .vf-color.suyo { box-shadow:0 0 0 1.5px #fff, 0 0 0 2.5px #0067b1; }
+    #vfModal .vf-actual { font-size:9.5px; font-weight:800; color:#fff; background:#16a34a; padding:2px 7px; border-radius:999px; flex-shrink:0; }
+    #vfModal .vf-check { display:none; color:#0067b1; font-size:20px; flex-shrink:0; }
+    #vfModal .vf-item.sel .vf-check { display:block; }
+
+    /* Un solo botón, a lo ancho (como "Confirmar Anclaje"), algo más bajo */
+    #vfModal .vf-vincular { width:100%; height:42px; border-radius:12px; font-weight:700; font-size:14px; background:#0067b1; color:#fff; border:none; display:flex; align-items:center; justify-content:center; gap:8px; cursor:pointer; font-family:inherit; transition:opacity .2s; }
+    #vfModal .vf-vincular .material-icons { font-size:19px; }
+    #vfModal .vf-vincular:disabled { opacity:.5; cursor:not-allowed; }
+    @media (max-width: 480px) {
         #vfModal { padding:8px; }
-        #vfModal .vf-head { padding:12px 40px; }
-        #vfModal .vf-anio { flex:1 1 100%; }
-        #vfModal .vf-grid { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+        #vfModal .vf-body { padding:14px; }
+        #vfModal .vf-anio { flex-basis:96px; }
+        #vfModal .vf-foto { width:84px; height:56px; }
     }
 </style>
 
 <div id="vfModal" role="dialog" aria-modal="true" aria-labelledby="vfTitulo"
      data-url-elegir="{{ route('catalogo.elegir') }}"
-     data-url-vincular="{{ route('equipos.vincularFicha', '__ID__') }}">
+     data-url-vincular="{{ route('equipos.vincularFicha', '__ID__') }}"
+     data-url-asegurar="{{ route('catalogo.asegurarFicha') }}">
     <div class="vf-box">
         <div class="vf-head">
-            <h3 id="vfTitulo"><i class="material-icons">link</i>Vincular a una ficha del catálogo</h3>
+            <h3 id="vfTitulo"><i class="material-icons">link</i>Vincular a una ficha</h3>
             <button type="button" class="vf-x" data-vf-cerrar aria-label="Cerrar"><i class="material-icons">close</i></button>
         </div>
-        <div class="vf-equipo" id="vfEquipo"></div>
-        <div class="vf-filtros">
-            <input type="text" id="vfBuscar" class="vf-input vf-buscar" placeholder="Buscar modelo o tipo…" autocomplete="off">
-            <select id="vfAnio" class="vf-input vf-anio" aria-label="Año">
-                <option value="">Todos los años</option>
-            </select>
-        </div>
-        <div class="vf-body" id="vfResultados"></div>
-        <div class="vf-foot">
-            <button type="button" class="btn-primary-maquinaria vf-btn-cancelar" data-vf-cerrar>Cancelar</button>
-            <button type="button" class="btn-primary-maquinaria" id="vfVincular" disabled>
+        <div class="vf-body">
+            <div class="vf-filtros">
+                <label class="vf-buscar-caja">
+                    <i class="material-icons">search</i>
+                    <input type="text" id="vfBuscar" class="vf-buscar" placeholder="Buscar en todo el catálogo..." autocomplete="off">
+                </label>
+                <select id="vfAnio" class="vf-anio" aria-label="Año">
+                    <option value="">Todos los años</option>
+                </select>
+            </div>
+            <div class="vf-lista" id="vfResultados"></div>
+            <button type="button" class="vf-vincular" id="vfVincular" disabled>
                 <i class="material-icons">link</i> Vincular
             </button>
         </div>

@@ -197,38 +197,41 @@
         text-overflow: ellipsis;
         max-width: 100%;
     }
-    /* Colores del modelo: un chip por color (muestra + nombre + unidades). El activo es el
-       que se ve en la foto y al que se aplican "Cambiar foto" y borrar. */
-    .cat-colores { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px; }
+    /* Colores del modelo: una mini-tarjeta por color con SU foto (o su muestra y el ícono
+       tachado si no tiene), su nombre y cuántas unidades hay. La activa es la que se ve en
+       la foto grande y a la que se aplican "Cambiar foto" y borrar. */
+    .cat-colores { display: grid; grid-template-columns: repeat(auto-fill, minmax(62px, 1fr)); gap: 5px; margin: 0 0 8px; }
     .cat-color {
-        display: inline-flex; align-items: center; gap: 4px;
-        padding: 2px 7px; border-radius: 999px;
-        border: 1px solid #e2e8f0; background: #f8fafc;
-        font-size: 10px; font-weight: 700; color: #334155; text-transform: uppercase;
-        cursor: pointer; line-height: 1.6; font-family: inherit;
-        transition: background 0.15s, border-color 0.15s;
+        display: flex; flex-direction: column; gap: 3px; min-width: 0;
+        padding: 3px; border: 1.5px solid #e2e8f0; border-radius: 8px; background: #fff;
+        cursor: pointer; font-family: inherit; transition: border-color 0.15s, box-shadow 0.15s;
     }
-    .cat-color:hover:not(:disabled) { border-color: #93c5fd; background: #eff6ff; }
-    .cat-color.activo { border-color: var(--maquinaria-blue, #0067b1); background: #e1effa; color: #0c4a6e; }
+    .cat-color:hover:not(:disabled) { border-color: #93c5fd; }
+    .cat-color.activo { border-color: var(--maquinaria-blue, #0067b1); box-shadow: 0 0 0 2px rgba(0, 103, 177, 0.15); }
     .cat-color:disabled { cursor: default; }
-    .cat-color b { font-weight: 800; color: #64748b; }
-    .cat-color .material-icons { font-size: 12px; }
-    .cat-color-muestra { width: 10px; height: 10px; border-radius: 50%; border: 1px solid rgba(15, 23, 42, 0.25); flex-shrink: 0; }
-    .cat-color .cat-color-sinfoto { color: #cbd5e1; font-size: 11px; }
-    /* Modelo con equipos pero sin ficha: borde ámbar sólido y la foto en ámbar muy claro
-       (el punteado amarillo pálido de antes parecía un error de dibujo), y botón para crearla. */
-    .cat-card.cat-sin-ficha { border-color: #f59e0b; }
-    .cat-card.cat-sin-ficha:hover { border-color: #d97706; }
-    .cat-sin-ficha .cat-photo { background: #fffbeb; }
-    .cat-sin-ficha .cat-photo .placeholder { color: #fcd34d; }
+    .cat-color-foto { position: relative; height: 38px; border-radius: 5px; background: #f1f5f9; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+    /* Cuántas unidades hay de ese color, sobre la esquina de la foto (así el nombre cabe). */
+    .cat-color-total { position: absolute; top: 2px; right: 2px; min-width: 14px; padding: 0 3px; border-radius: 999px; background: rgba(15, 23, 42, 0.8); color: #fff; font-size: 8.5px; font-weight: 800; line-height: 13px; text-align: center; }
+    .cat-color-foto img { width: 100%; height: 100%; object-fit: contain; }
+    .cat-color-sinfoto { color: #cbd5e1; font-size: 18px; }
+    .cat-color-nombre {
+        display: flex; align-items: center; justify-content: center; gap: 2px; min-width: 0;
+        font-size: 8.5px; font-weight: 800; color: #334155; text-transform: uppercase; white-space: nowrap;
+    }
+    .cat-color-nombre > span:last-child { overflow: hidden; text-overflow: ellipsis; }
+    .cat-color-muestra { width: 8px; height: 8px; border-radius: 50%; border: 1px solid rgba(15, 23, 42, 0.25); flex-shrink: 0; }
+    /* Modelo con equipos pero sin ficha: solo el BORDE en azul (pendiente); la foto, el ícono
+       y el botón para crearla quedan en gris como el resto de la tarjeta. */
+    .cat-card.cat-sin-ficha { border-color: #60a5fa; }
+    .cat-card.cat-sin-ficha:hover { border-color: #0067b1; }
     .cat-crear-ficha {
         margin-top: 6px; align-self: flex-start;
         display: inline-flex; align-items: center; gap: 5px;
         padding: 5px 10px; border-radius: 8px;
-        border: 1px solid #fcd34d; background: #fffbeb; color: #92400e;
+        border: 1px solid #cbd5e1; background: #f8fafc; color: #334155;
         font-size: 11px; font-weight: 800; cursor: pointer; font-family: inherit;
     }
-    .cat-crear-ficha:hover:not(:disabled) { background: #fef3c7; }
+    .cat-crear-ficha:hover:not(:disabled) { background: #f1f5f9; border-color: #94a3b8; }
     .cat-crear-ficha:disabled { opacity: 0.6; cursor: wait; }
     .cat-crear-ficha .material-icons { font-size: 15px; }
     /* Mobile: filtros y botón ocupan el ancho completo en columna. */
@@ -816,8 +819,8 @@
     };
 
     // ── Colores de un VEHÍCULO ──
-    // La tarjeta muestra la foto del modelo o la del color elegido en sus chips; subir y
-    // borrar actúan sobre lo que se esté viendo (data-color de .cat-photo: '' = el modelo).
+    // La tarjeta muestra la foto del modelo o la del color elegido en sus mini-tarjetas;
+    // subir y borrar actúan sobre lo que se esté viendo (data-color de .cat-photo: '' = el modelo).
     function _catPintarFoto(photoEl, url) {
         var color = photoEl.dataset.color || '';
         var actual = photoEl.querySelector('img, .placeholder');
@@ -839,23 +842,36 @@
         var del = photoEl.querySelector('.cat-del-photo');
         if (del) del.hidden = !url;
     }
-    // El chip del color que se está viendo guarda su foto: tras subir o borrar se actualiza
-    // ahí para que volver a él muestre lo correcto sin recargar.
+    // La mini-tarjeta de lo que se está viendo ('' = Modelo) guarda su foto: tras subir o
+    // borrar se actualiza ahí (dato y miniatura) para que volver a ella muestre lo correcto
+    // sin recargar.
     function _catChipActivo(photoEl) {
         var color = photoEl.dataset.color || '';
         return photoEl.closest('.cat-card').querySelector('.cat-color[data-color="' + color + '"]');
     }
     function _catGuardarFotoVista(photoEl, url) {
+        var chip = _catChipActivo(photoEl);
         if (photoEl.dataset.color) {
-            var chip = _catChipActivo(photoEl);
-            if (chip) {
-                chip.dataset.foto = url || '';
-                var marca = chip.querySelector('.cat-color-sinfoto');
-                if (url && marca) marca.remove();
-                if (!url && !marca) chip.insertAdjacentHTML('beforeend', '<i class="material-icons cat-color-sinfoto">no_photography</i>');
-            }
+            if (chip) chip.dataset.foto = url || '';
         } else {
             photoEl.dataset.fotoModelo = url || '';
+        }
+        // Solo se cambia la imagen (o el ícono tachado) de la mini-tarjeta: el número de
+        // unidades que va encima se queda.
+        var caja = chip && chip.querySelector('.cat-color-foto');
+        if (caja) {
+            var previa = caja.querySelector('img, .cat-color-sinfoto');
+            if (previa) previa.remove();
+            var nodo;
+            if (url) {
+                nodo = document.createElement('img');
+                nodo.src = url; nodo.alt = '';
+            } else {
+                nodo = document.createElement('i');
+                nodo.className = 'material-icons cat-color-sinfoto';
+                nodo.textContent = 'no_photography';
+            }
+            caja.insertBefore(nodo, caja.firstChild);
         }
         _catPintarFoto(photoEl, url);
     }
@@ -870,22 +886,9 @@
     // Ficha de un modelo que solo tenía equipos (tarjeta SIN FICHA): la crea —o encuentra la
     // que ya hay— y le enlaza sus unidades. Resuelve con el id de la ficha.
     function _catAsegurarFicha(photoEl) {
-        var fd = new FormData();
-        fd.append('modelo', photoEl.dataset.modelo || '');
-        fd.append('anio', photoEl.dataset.anio || '');
-        if (photoEl.dataset.tipo) fd.append('tipo', photoEl.dataset.tipo);
-        return window.apiFetch('{{ route("catalogo.asegurarFicha") }}', {
-            method: 'POST', body: fd,
-            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
-        })
-        .then(function (r) { return r.json().catch(function () { return {}; }).then(function (b) { return { ok: r.ok, body: b }; }); })
-        .then(function (res) {
-            if (!res.ok || !res.body.success) {
-                var err = res.body && res.body.errors ? Object.values(res.body.errors)[0][0] : null;
-                throw new Error(err || (res.body && res.body.message) || 'No se pudo crear la ficha.');
-            }
-            return res.body;
-        });
+        return window.apiPostForm('{{ route("catalogo.asegurarFicha") }}',
+            { modelo: photoEl.dataset.modelo, anio: photoEl.dataset.anio, tipo: photoEl.dataset.tipo },
+            'No se pudo crear la ficha.');
     }
     window.catCrearFicha = function (btn) {
         var photoEl = btn.closest('.cat-card').querySelector('.cat-photo');

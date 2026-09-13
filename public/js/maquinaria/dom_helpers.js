@@ -175,6 +175,27 @@
     };
 
     /**
+     * POST de un formulario a una ruta que responde JSON { success, message, errors }.
+     * `datos` es un objeto plano (los campos vacíos no se mandan). Resuelve con el cuerpo si
+     * salió bien; si no, rechaza con un Error cuyo mensaje es el del servidor (el primer
+     * error de validación, o `message`) o, en su defecto, `siFalla`.
+     */
+    window.apiPostForm = function (url, datos, siFalla) {
+        var fd = new FormData();
+        Object.keys(datos || {}).forEach(function (k) { if (datos[k] != null && datos[k] !== '') fd.append(k, datos[k]); });
+        return window.apiFetch(url, { method: 'POST', body: fd, headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (r) {
+                return r.json().catch(function () { return {}; }).then(function (b) {
+                    if (!r.ok || !b.success) {
+                        var err = b.errors ? Object.values(b.errors)[0][0] : null;
+                        throw new Error(err || b.message || siFalla);
+                    }
+                    return b;
+                });
+            }, function () { throw new Error('Error de red. ' + siFalla); });
+    };
+
+    /**
      * Fecha de la base (aaaa-mm-dd) a como se lee en pantalla (dd/mm/aaaa).
      *
      * Vive AQUI porque la usan dos fichas distintas —el detalle de un equipo y el de un

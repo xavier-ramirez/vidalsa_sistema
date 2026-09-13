@@ -4,14 +4,18 @@
      (equipos_auxiliares agrupado). Mismo estilo de tarjeta; los badges los distinguen.
 
      COLORES (solo vehículos): la ficha es una por modelo+año y cada color de sus unidades
-     tiene su foto (catalogo_colores). Los chips de color cambian la foto de la tarjeta y
-     dicen a qué se aplica "Cambiar foto" / borrar: al modelo (chip "Modelo") o a ese color.
+     tiene su foto (catalogo_colores). Una mini-tarjeta por color (con su foto) cambia la foto
+     grande y dice a qué se aplica "Cambiar foto" / borrar: al modelo ("Modelo") o a ese color.
+     Con un solo color sin foto propia no salen: sería la misma foto del modelo.
      La lógica vive en catElegirColor / catUploadPhoto / catDeletePhoto (index.blade.php). --}}
 @forelse($catalogos as $item)
     @php
         $esVeh     = $item['clase'] === 'VEHICULO';
         $sinFicha  = $esVeh && !empty($item['sin_ficha']);
         $colores   = $item['colores'] ?? [];
+        // Mini-tarjetas de color solo si hay entre qué elegir: con un único color y sin foto
+        // propia, "Modelo" y ese color serían la misma foto (sus unidades toman la del modelo).
+        $verColores = count($colores) > 1 || (count($colores) === 1 && !empty($colores[0]['foto_url']));
         // Unidades sueltas de un modelo+año que YA tiene ficha: primero se enlazan (botón
         // "Enlazar a su ficha"). Subir aquí pisaría la foto del modelo de esa ficha, que
         // esta tarjeta ni muestra.
@@ -69,7 +73,7 @@
                       style="background:{{ $esVeh ? 'rgba(0,103,177,0.92)' : 'rgba(194,65,12,0.92)' }};"
                       title="{{ $esVeh ? 'Vehículo' : 'Auxiliar' }}">{{ $esVeh ? 'VEHÍCULO' : 'AUXILIAR' }}</span>
                 @if($sinFicha)
-                    <span class="cat-tipo-badge" style="background:rgba(180,83,9,0.92);"
+                    <span class="cat-tipo-badge" style="background:rgba(71,85,105,0.92);"
                           title="Hay equipos de este modelo pero todavía no tiene ficha técnica">SIN FICHA</span>
                 @endif
             </div>
@@ -100,7 +104,7 @@
 
             @can('super.admin')
                 {{-- En un vehículo con ficha el botón existe siempre y se esconde cuando la foto
-                     elegida (modelo o color) no hay: el chip de color puede cambiar eso. --}}
+                     elegida (modelo o color) no hay: la mini-tarjeta de color puede cambiar eso. --}}
                 @if($esVeh && !$sinFicha)
                     <button type="button" class="cat-action-btn cat-del-photo" @unless($item['foto_url']) hidden @endunless
                             onclick="event.stopPropagation(); catDeletePhoto(this.closest('.cat-photo'));"
@@ -141,22 +145,28 @@
             @endphp
             <span class="cat-modelo">@if($showTipoPrefix){{ $item['tipo'] }} · @endif{{ $item['modelo'] }}</span>
 
-            {{-- Colores: el chip "Modelo" es la foto general; cada color, la suya. La cifra es
-                 cuántas unidades hay de ese color. Sin foto propia se ve el ícono tachado. --}}
-            @if(!empty($colores))
+            {{-- Colores, debajo del nombre: una mini-tarjeta por color con SU foto ("Modelo" es
+                 la general). La cifra es cuántas unidades hay de ese color; sin foto propia se
+                 ve el ícono tachado. Tocar una cambia la foto grande (catElegirColor). --}}
+            @if($verColores)
                 <div class="cat-colores">
                     @if(!$sinFicha)
                         <button type="button" class="cat-color activo" data-color="" onclick="catElegirColor(this)" title="Foto del modelo">
-                            <i class="material-icons">photo</i>Modelo
+                            <span class="cat-color-foto">
+                                @if($item['foto_url'])<img src="{{ $item['foto_url'] }}" alt="" loading="lazy">@else<i class="material-icons cat-color-sinfoto">no_photography</i>@endif
+                            </span>
+                            <span class="cat-color-nombre">Modelo</span>
                         </button>
                     @endif
                     @foreach($colores as $c)
                         <button type="button" class="cat-color" data-color="{{ $c['color'] }}" data-foto="{{ $c['foto_url'] ?? '' }}"
                                 @if($sinFicha) disabled @else onclick="catElegirColor(this)" @endif
                                 title="{{ $c['color'] }}: {{ $c['total'] }} {{ $c['total'] === 1 ? 'unidad' : 'unidades' }}{{ $c['foto_url'] ? '' : ' · sin foto propia' }}">
-                            <span class="cat-color-muestra" style="background:{{ $c['muestra'] }};"></span>{{ $c['color'] }}
-                            @if($c['total'])<b>{{ $c['total'] }}</b>@endif
-                            @unless($c['foto_url'])<i class="material-icons cat-color-sinfoto">no_photography</i>@endunless
+                            <span class="cat-color-foto">
+                                @if($c['foto_url'])<img src="{{ $c['foto_url'] }}" alt="" loading="lazy">@else<i class="material-icons cat-color-sinfoto">no_photography</i>@endif
+                                @if($c['total'])<span class="cat-color-total">{{ $c['total'] }}</span>@endif
+                            </span>
+                            <span class="cat-color-nombre"><span class="cat-color-muestra" style="background:{{ $c['muestra'] }};"></span><span>{{ $c['color'] }}</span></span>
                         </button>
                     @endforeach
                 </div>

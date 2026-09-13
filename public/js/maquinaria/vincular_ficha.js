@@ -2,10 +2,12 @@
  * window.VincularFicha — modal "Vincular a una ficha del catálogo" de /admin/equipos
  * (resources/views/admin/equipos/partials/vincular_ficha_modal.blade.php).
  *
- * Flujo: doble clic en la foto de un equipo (solo super.admin) → se buscan fichas por
- * modelo/tipo y año (CaracteristicaModeloController::elegir) → se elige una → POST
- * (EquipoController::vincularFicha) → la foto de la fila cambia sin recargar la tabla.
- * La foto que muestra cada tarjeta es la que tomaría ESTE equipo: la de su color en esa
+ * Flujo: doble clic en la foto de un equipo (solo super.admin) → el modal abre con las
+ * fichas SUGERIDAS para ese equipo y, si no existe la de su modelo + año, la fila "Crear
+ * su ficha" (CaracteristicaModeloController::elegir); escribir o elegir año busca en todo
+ * el catálogo → se elige una → POST (EquipoController::vincularFicha; antes
+ * catalogo.asegurarFicha si es la nueva) → la foto de la fila cambia sin recargar la tabla.
+ * La foto que muestra cada fila es la que tomaría ESTE equipo: la de su color en esa
  * ficha si la tiene, si no la del modelo (la misma regla de Equipo::fotoParaMostrar).
  *
  * Se carga bajo demanda (cargarScriptUnaVez) desde window.eqVincularFicha. Los listeners
@@ -19,7 +21,9 @@
     var ESPERA_BUSQUEDA = 300;   // ms tras la última tecla antes de buscar
     // guardando: id del equipo cuyo vínculo se está guardando (null si ninguno). Es por equipo:
     // si se cierra con Escape a mitad y se abre otro, la respuesta del primero no toca el modal.
-    var estado = { fotoEl: null, idEquipo: null, espec: '', color: '', elegida: null, pedido: 0, timer: null, guardando: null };
+    // crear: {modelo, anio, tipo} de la ficha que falta (lo manda elegir) o null.
+    var estado = { fotoEl: null, idEquipo: null, espec: '', color: '', elegida: null, crear: null, pedido: 0, timer: null, guardando: null };
+    var NUEVA = 'nueva';   // data-vf-id de la fila "Crear su ficha"
 
     function $(id) { return document.getElementById(id); }
     function modal() { return $('vfModal'); }
@@ -39,17 +43,14 @@
         estado.espec = fotoEl.getAttribute('data-espec') || '';
         estado.color = (fotoEl.getAttribute('data-color') || '').toUpperCase();
         estado.elegida = null;
-        $('vfEquipo').innerHTML =
-            '<span><b>' + esc(fotoEl.getAttribute('data-titulo') || '') + '</b></span>' +
-            (estado.color ? '<span>Color: <b>' + esc(estado.color) + '</b></span>' : '') +
-            '<span>' + (estado.espec ? 'Ya tiene ficha (marcada como ACTUAL): elige otra para cambiarla.' : 'Todavía no tiene ficha del catálogo.') + '</span>';
-        $('vfBuscar').value = fotoEl.getAttribute('data-modelo') || '';
+        // Vacío: abre con las sugeridas para este equipo; escribir busca en todo el catálogo.
+        $('vfBuscar').value = '';
         $('vfAnio').value = '';
         actualizarBoton();
         m.classList.add('open');
         document.body.style.overflow = 'hidden';
         buscar();
-        setTimeout(function () { var b = $('vfBuscar'); if (b && abierto()) { b.focus(); b.select(); } }, 50);
+        setTimeout(function () { var b = $('vfBuscar'); if (b && abierto()) b.focus(); }, 50);
     }
 
     function cerrar() {
@@ -66,7 +67,7 @@
         var n = ++estado.pedido;
         estado.elegida = null;
         actualizarBoton();
-        var params = new URLSearchParams({ q: $('vfBuscar').value.trim(), anio: $('vfAnio').value });
+        var params = new URLSearchParams({ q: $('vfBuscar').value.trim(), anio: $('vfAnio').value, equipo: estado.idEquipo });
         if ($('vfAnio').options.length <= 1) params.set('con_anios', '1');   // la lista se pide una vez
         $('vfResultados').innerHTML = aviso('Buscando…');
         w.apiFetch(m.getAttribute('data-url-elegir') + '?' + params.toString(), {
@@ -75,13 +76,25 @@
             .then(function (r) { if (!r.ok) throw new Error(String(r.status)); return r.json(); })
             .then(function (d) {
                 if (n !== estado.pedido) return;
+                actualizarFichaActual(d.actual);
                 llenarAnios(d.anios || []);
-                pintar(d.items || [], !!d.hay_mas);
+                pintar(d);
             })
             .catch(function () {
                 if (n !== estado.pedido) return;
                 $('vfResultados').innerHTML = aviso('No se pudo cargar el catálogo. Revisa tu conexión.');
             });
+    }
+
+    // La ficha que el equipo tiene HOY según el servidor (la lista la marca ACTUAL). La de la
+    // fila (data-espec) puede estar vieja: crear la ficha de otra unidad enlaza de paso a las
+    // de su modelo y año.
+    function actualizarFichaActual(actual) {
+        var id = actual ? String(actual) : '';
+        if (id === estado.espec) return;
+        estado.espec = id;
+        if (estado.fotoEl && estado.fotoEl.isConnected) estado.fotoEl.setAttribute('data-espec', id);
+        actualizarBoton();
     }
 
     // El <select> se llena la primera vez que llega la lista (el HTML trae solo "Todos").
@@ -97,36 +110,71 @@
         return suyo ? suyo.foto_url : item.foto_url;
     }
 
-    function pintar(items, hayMas) {
+    // Respuesta de elegir: las sugeridas (d.sugeridas) o el resultado de la búsqueda, y la
+    // ficha que falta (d.crear), que va primero como "Crear su ficha".
+    function pintar(d) {
         var cont = $('vfResultados');
-        if (!items.length) { cont.innerHTML = aviso('No hay fichas con esa búsqueda.'); return; }
-        var html = items.map(function (it) {
+        estado.crear = d.crear || null;
+        var filas = (estado.crear ? filaCrear(estado.crear) : '') + filasFichas(d.items || []);
+        if (!filas) {
+            cont.innerHTML = aviso(d.sugeridas
+                ? 'No encontramos fichas parecidas a este equipo. Búscala por modelo o tipo.'
+                : 'No hay fichas con esa búsqueda.');
+            return;
+        }
+        cont.innerHTML = (d.sugeridas ? '<div class="vf-titulo-lista">Sugeridas para este equipo</div>' : '') + filas +
+            (d.hay_mas ? aviso('Hay más fichas: escribe más del modelo o elige el año para acotar.') : '');
+    }
+
+    // Tipo, marca y modelo como la columna de la tabla de Equipos (la marca se omite si no hay).
+    function textoFicha(tipo, marca, modelo) {
+        return '<span class="vf-tipo">' + esc(tipo) + '</span>' +
+            (marca ? '<span class="vf-marca">' + esc(marca) + '</span>' : '') +
+            '<span class="' + (marca ? 'vf-modelo' : 'vf-marca') + '">' + esc(modelo) + '</span>';
+    }
+
+    function filaCrear(c) {
+        return '<button type="button" class="vf-item vf-crear" data-vf-id="' + NUEVA + '">' +
+            '<div class="vf-foto"><i class="material-icons">note_add</i></div>' +
+            '<div class="vf-info">' +
+                textoFicha('Crear su ficha', c.marca, c.modelo) +
+                '<div class="vf-meta"><span>Año: ' + esc(c.anio) + '</span><span>Todavía no existe: se crea y se vincula</span></div>' +
+            '</div>' +
+            '<i class="material-icons vf-check">check_circle</i>' +
+        '</button>';
+    }
+
+    // Una fila por ficha, como los equipos del modal de Anclaje: foto a la izquierda y a la
+    // derecha tipo / marca / modelo y debajo año · equipos · colores.
+    function filasFichas(items) {
+        return items.map(function (it) {
             var foto = fotoPara(it);
-            var nombre = it.tipo && String(it.modelo || '').toUpperCase().indexOf(String(it.tipo).toUpperCase()) !== 0
-                ? it.tipo + ' · ' + it.modelo : it.modelo;
+            var total = it.total || 0;
             var colores = (it.colores || []).map(function (c) {
                 return '<span class="vf-color' + (c.color === estado.color ? ' suyo' : '') + '" style="background:' + esc(c.muestra) + ';" title="' +
                     esc(c.color + ': ' + c.total + (c.foto_url ? '' : ' · sin foto propia')) + '"></span>';
             }).join('');
-            return '<button type="button" class="vf-card" data-vf-id="' + esc(it.id) + '">' +
+            return '<button type="button" class="vf-item" data-vf-id="' + esc(it.id) + '">' +
                 '<div class="vf-foto">' +
                     (foto ? '<img src="' + esc(foto) + '" alt="" loading="lazy">' : '<i class="material-icons">' + esc(it.placeholder || 'image_not_supported') + '</i>') +
-                    (String(it.id) === String(estado.espec) ? '<span class="vf-badge actual">ACTUAL</span>' : '') +
-                    (it.anio ? '<span class="vf-badge anio"><i class="material-icons">event</i>' + esc(it.anio) + '</span>' : '') +
-                    (it.total ? '<span class="vf-badge total" title="Equipos vinculados"><i class="material-icons">local_shipping</i>' + esc(it.total) + '</span>' : '') +
                 '</div>' +
-                '<div class="vf-info"><span class="vf-nombre">' + esc(nombre) + '</span>' +
-                    (colores ? '<div class="vf-colores">' + colores + '</div>' : '') +
+                '<div class="vf-info">' +
+                    textoFicha(it.tipo || 'S/TIPO', it.marca, it.modelo) +
+                    '<div class="vf-meta">' +
+                        (it.anio ? '<span>Año: ' + esc(it.anio) + '</span>' : '') +
+                        '<span>' + esc(total) + (total === 1 ? ' equipo' : ' equipos') + '</span>' +
+                        (colores ? '<span class="vf-colores">' + colores + '</span>' : '') +
+                    '</div>' +
                 '</div>' +
+                (String(it.id) === String(estado.espec) ? '<span class="vf-actual">ACTUAL</span>' : '') +
+                '<i class="material-icons vf-check">check_circle</i>' +
             '</button>';
         }).join('');
-        cont.innerHTML = '<div class="vf-grid">' + html + '</div>' +
-            (hayMas ? aviso('Hay más fichas: escribe más del modelo o elige el año para acotar.') : '');
     }
 
     function elegir(card) {
         estado.elegida = card.getAttribute('data-vf-id');
-        document.querySelectorAll('#vfModal .vf-card.sel').forEach(function (c) { c.classList.remove('sel'); });
+        document.querySelectorAll('#vfModal .vf-item.sel').forEach(function (c) { c.classList.remove('sel'); });
         card.classList.add('sel');
         actualizarBoton();
     }
@@ -136,39 +184,50 @@
         var yaEsLaSuya = estado.elegida && String(estado.elegida) === String(estado.espec);
         b.disabled = !estado.elegida || yaEsLaSuya || estado.guardando === estado.idEquipo;
         b.title = yaEsLaSuya ? 'El equipo ya está vinculado a esta ficha' : '';
+        b.innerHTML = estado.elegida === NUEVA
+            ? '<i class="material-icons">note_add</i> Crear ficha y vincular'
+            : '<i class="material-icons">link</i> Vincular';
     }
 
     // ── Vincular ─────────────────────────────────────────────────────────────
     function vincular() {
         var m = modal();
         if (!m || !estado.elegida || estado.guardando === estado.idEquipo || String(estado.elegida) === String(estado.espec)) return;
-        var fotoEl = estado.fotoEl, idEquipo = estado.idEquipo;
+        var fotoEl = estado.fotoEl, idEquipo = estado.idEquipo, crear = estado.elegida === NUEVA ? estado.crear : null;
         var terminar = function () { if (estado.guardando === idEquipo) estado.guardando = null; actualizarBoton(); };
         estado.guardando = idEquipo;
         actualizarBoton();
-        var fd = new FormData();
-        fd.append('ID_ESPEC', estado.elegida);
-        w.apiFetch(m.getAttribute('data-url-vincular').replace('__ID__', encodeURIComponent(idEquipo)), {
-            method: 'POST', body: fd,
-            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
-        })
-            .then(function (r) { return r.json().catch(function () { return {}; }).then(function (b) { return { ok: r.ok, body: b }; }); })
-            .then(function (res) {
+
+        // La ficha nueva primero se crea (o se encuentra, si alguien la creó mientras tanto) y
+        // después se vincula igual que una elegida. asegurarFicha también enlaza las OTRAS
+        // unidades de ese modelo y año que no tenían ficha (enlazados: sus ID, quizá con este).
+        var nueva = null;   // respuesta de asegurarFicha: { creada, enlazados }
+        var ficha = crear
+            ? w.apiPostForm(m.getAttribute('data-url-asegurar'), { modelo: crear.modelo, anio: crear.anio, tipo: crear.tipo }, 'No se pudo crear la ficha.')
+                .then(function (b) { nueva = b; return b.id; })
+            : Promise.resolve(estado.elegida);
+        ficha
+            .then(function (idEspec) {
+                return w.apiPostForm(m.getAttribute('data-url-vincular').replace('__ID__', encodeURIComponent(idEquipo)), { ID_ESPEC: idEspec }, 'No se pudo vincular el equipo.');
+            })
+            .then(function (body) {
                 terminar();
-                if (!res.ok || !res.body.success) {
-                    var err = res.body && res.body.errors ? Object.values(res.body.errors)[0][0] : null;
-                    w.toast(err || (res.body && res.body.message) || 'No se pudo vincular el equipo.', 'error');
-                    return;
-                }
-                pintarFotoFila(fotoEl, res.body);
-                w.toast(res.body.message, 'success');
+                pintarFotoFila(fotoEl, body);
+                w.toast(nueva ? mensajeFichaNueva(crear, nueva, idEquipo) : body.message, 'success');
                 // Solo si el modal sigue siendo de ESTE equipo (pudo cerrarse y abrirse otro).
                 if (abierto() && estado.idEquipo === idEquipo) cerrar();
             })
-            .catch(function () {
+            .catch(function (e) {
                 terminar();
-                w.toast('Error de red al vincular el equipo.', 'error');
+                w.toast(e.message, 'error');
             });
+    }
+
+    function mensajeFichaNueva(crear, b, idEquipo) {
+        var otros = (b.enlazados || []).filter(function (id) { return String(id) !== String(idEquipo); }).length;
+        return 'Ficha ' + crear.modelo + ' ' + crear.anio + (b.creada ? ' creada' : ' encontrada') + ' y equipo vinculado' +
+            (otros ? ' (también ' + otros + (otros === 1 ? ' unidad más' : ' unidades más') + ' de ese modelo y año)' : '') +
+            (b.creada ? '. Complétala en el Catálogo.' : '.');
     }
 
     // La foto de la fila se cambia en el sitio (sin recargar la tabla ni perder el scroll).
@@ -204,11 +263,11 @@
         var t = e.target, card;
         if (t === modal() || t.closest('[data-vf-cerrar]')) { cerrar(); return; }
         if (t.closest('#vfVincular')) { vincular(); return; }
-        if ((card = t.closest('#vfModal .vf-card'))) elegir(card);
+        if ((card = t.closest('#vfModal .vf-item'))) elegir(card);
     });
     document.addEventListener('dblclick', function (e) {
-        // Doble clic en una tarjeta: elegirla y vincular de una vez.
-        var card = abierto() && e.target.closest('#vfModal .vf-card');
+        // Doble clic en una fila: elegirla y vincular de una vez.
+        var card = abierto() && e.target.closest('#vfModal .vf-item');
         if (card) { elegir(card); vincular(); }
     });
     document.addEventListener('input', function (e) {

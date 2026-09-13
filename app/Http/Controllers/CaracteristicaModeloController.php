@@ -217,8 +217,14 @@ class CaracteristicaModeloController extends Controller
             }
         }
 
-        // VEHÍCULOS primero, luego AUXILIARES; dentro de cada clase, por modelo.
-        return $items->sortBy('sort')->values();
+        // Primero los que tienen foto (del modelo o de alguno de sus colores), después el resto;
+        // dentro de cada grupo, VEHÍCULOS antes que AUXILIARES y por modelo.
+        $conFoto = fn (array $i): bool => !empty($i['foto_url'])
+            || collect($i['colores'] ?? [])->contains(fn ($c) => !empty($c['foto_url']));
+        return $items->sortBy([
+            fn ($a, $b) => $conFoto($b) <=> $conFoto($a),
+            fn ($a, $b) => strcmp($a['sort'], $b['sort']),
+        ])->values();
     }
 
     /**
@@ -237,69 +243,184 @@ class CaracteristicaModeloController extends Controller
      */
     private function tarjetasDeFichas($fichas)
     {
-        // Colores de las unidades de estas fichas, en UNA consulta: [ID_ESPEC => filas].
-        $coloresUnidades = Equipo::whereIn('ID_ESPEC', $fichas->pluck('ID_ESPEC'))
-            ->whereNotNull('COLOR')->where('COLOR', '!=', '')
-            ->selectRaw('ID_ESPEC, COLOR, COUNT(*) AS n')
-            ->groupBy('ID_ESPEC', 'COLOR')
+        // Unidades de estas fichas por color y marca, en UNA consulta: [ID_ESPEC => filas].
+        // De ahí salen los colores de la tarjeta (cuántas hay de cada uno) y su marca.
+        $unidades = Equipo::whereIn('ID_ESPEC', $fichas->pluck('ID_ESPEC'))
+            ->selectRaw('ID_ESPEC, COLOR, MARCA, COUNT(*) AS n')
+            ->groupBy('ID_ESPEC', 'COLOR', 'MARCA')
             ->get()->groupBy('ID_ESPEC');
 
         // toBase(): sin fichas, el map de Eloquent devuelve una colección Eloquent vacía y el
         // merge con las tarjetas SIN FICHA (arrays) fallaría buscando getKey().
-        return $fichas->toBase()->map(fn ($cm) => [
-            'clase'       => 'VEHICULO',
-            'id'          => $cm->ID_ESPEC,
-            'tipo'        => $cm->TIPO,
-            'modelo'      => $cm->MODELO,
-            'marca'       => null,
-            'anio'        => $cm->ANIO_ESPEC,
-            'foto_url'    => $this->miniatura($cm->FOTO_REFERENCIAL),
-            'placeholder' => 'precision_manufacturing',
-            'total'       => $cm->equipos_count, // nº de equipos ligados a este modelo
-            'colores'     => $this->coloresDeTarjeta($coloresUnidades->get($cm->ID_ESPEC, collect()), $cm->colores),
-            'specs'       => array_filter([
-                'Motor'        => $cm->MOTOR,
-                'Batería'      => $cm->TIPO_BATERIA,
-                'Aceite Motor' => $cm->ACEITE_MOTOR,
-                'Aceite Caja'  => $cm->ACEITE_CAJA,
-                'Liga Freno'   => $cm->LIGA_FRENO,
-                'Refrigerante' => $cm->REFRIGERANTE,
-            ], fn ($v) => $v !== null && $v !== ''),
-            'sort'        => '0_' . $cm->MODELO,
-        ])->values();
+        return $fichas->toBase()->map(function ($cm) use ($unidades) {
+            $suyas = $unidades->get($cm->ID_ESPEC, collect());
+            $marca = $this->marcaDeUnidades($suyas);
+            return [
+                'clase'       => 'VEHICULO',
+                'id'          => $cm->ID_ESPEC,
+                'tipo'        => $cm->TIPO,
+                'modelo'      => $cm->MODELO,
+                'marca'       => $marca,
+                'anio'        => $cm->ANIO_ESPEC,
+                'foto_url'    => $this->miniatura($cm->FOTO_REFERENCIAL),
+                'placeholder' => 'precision_manufacturing',
+                'total'       => $cm->equipos_count, // nº de equipos ligados a este modelo
+                'colores'     => $this->coloresDeTarjeta($suyas, $cm->colores),
+                // Marca primero, como en las tarjetas de auxiliares y las SIN FICHA.
+                'specs'       => array_filter([
+                    'Marca'        => $marca,
+                    'Motor'        => $cm->MOTOR,
+                    'Batería'      => $cm->TIPO_BATERIA,
+                    'Aceite Motor' => $cm->ACEITE_MOTOR,
+                    'Aceite Caja'  => $cm->ACEITE_CAJA,
+                    'Liga Freno'   => $cm->LIGA_FRENO,
+                    'Refrigerante' => $cm->REFRIGERANTE,
+                ], fn ($v) => $v !== null && $v !== ''),
+                'sort'        => '0_' . $cm->MODELO,
+            ];
+        })->values();
+    }
+
+    /**
+     * La marca de una ficha: la ficha no la guarda (vive en cada equipo), así que es la que
+     * más se repite entre sus unidades (filas {MARCA, n}). Null si ninguna la tiene.
+     */
+    private function marcaDeUnidades($unidades): ?string
+    {
+        return collect($unidades)
+            ->groupBy(fn ($u) => mb_strtoupper(trim((string) $u->MARCA)))
+            ->forget('')
+            ->map(fn ($filas) => $filas->sum('n'))
+            ->sortDesc()->keys()->first();
     }
 
     /** Máximo de fichas por búsqueda del modal "Vincular a una ficha". */
     private const MAX_ELEGIR = 60;
 
+    /** Máximo de fichas sugeridas para un equipo en el modal "Vincular a una ficha". */
+    private const MAX_SUGERIDAS = 8;
+
     /**
      * Fichas para el modal "Vincular a una ficha" de /admin/equipos (doble clic en la foto
-     * de un equipo, solo super.admin). Busca por modelo o tipo (contiene) y por año, y
-     * devuelve las mismas tarjetas del catálogo. El vínculo lo guarda
-     * EquipoController::vincularFicha. La lista de años para el filtro va solo si se pide
-     * (con_anios=1): el modal la carga una vez, no en cada tecla.
+     * de un equipo, solo super.admin), con las mismas tarjetas del catálogo:
+     *   · Sin nada escrito ni año, y con `equipo`: las SUGERIDAS para ese equipo
+     *     (fichasSugeridas) y, si todavía no hay ficha de su MODELO + año, `crear` con lo
+     *     necesario para que el modal ofrezca crearla (asegurarFicha) y vincularlo.
+     *   · Con texto o año: la búsqueda por modelo o tipo (contiene) y año.
+     * El vínculo lo guarda EquipoController::vincularFicha. La lista de años para el filtro
+     * va solo si se pide (con_anios=1): el modal la carga una vez, no en cada tecla.
      */
     public function elegir(Request $request)
     {
-        $texto = mb_strtoupper(trim((string) $request->input('q', '')));
-        $anio  = (int) $request->input('anio', 0);
+        $texto  = mb_strtoupper(trim((string) $request->input('q', '')));
+        $anio   = (int) $request->input('anio', 0);
+        $equipo = $request->filled('equipo')
+            ? Equipo::with('tipo:id,nombre')->find((int) $request->input('equipo'), ['ID_EQUIPO', 'MARCA', 'MODELO', 'ANIO', 'id_tipo_equipo', 'ID_ESPEC'])
+            : null;
+        $sugeridas = $equipo && $texto === '' && $anio === 0;
 
-        $q = $this->consultaFichas();
-        if ($texto !== '') {
-            $q->where(fn ($w) => $w->where('MODELO', 'like', '%' . $texto . '%')->orWhere('TIPO', 'like', '%' . $texto . '%'));
+        if ($sugeridas) {
+            $ids    = $this->fichasSugeridas($equipo);
+            $orden  = array_flip($ids);
+            $fichas = $this->consultaFichas()->whereIn('ID_ESPEC', $ids)->get()
+                ->sortBy(fn ($f) => $orden[$f->ID_ESPEC])->values();
+            $hayMas = false;
+        } else {
+            $q = $this->consultaFichas();
+            if ($texto !== '') {
+                $q->where(fn ($w) => $w->where('MODELO', 'like', '%' . $texto . '%')->orWhere('TIPO', 'like', '%' . $texto . '%'));
+            }
+            if ($anio > 0) {
+                $q->where('ANIO_ESPEC', $anio);
+            }
+            $fichas = $q->orderBy('MODELO')->orderByDesc('ANIO_ESPEC')->limit(self::MAX_ELEGIR + 1)->get();
+            $hayMas = $fichas->count() > self::MAX_ELEGIR;
+            $fichas = $fichas->take(self::MAX_ELEGIR);
         }
-        if ($anio > 0) {
-            $q->where('ANIO_ESPEC', $anio);
-        }
-        $fichas = $q->orderBy('MODELO')->orderByDesc('ANIO_ESPEC')->limit(self::MAX_ELEGIR + 1)->get();
 
         return response()->json(array_filter([
-            'items'   => $this->tarjetasDeFichas($fichas->take(self::MAX_ELEGIR)),
-            'hay_mas' => $fichas->count() > self::MAX_ELEGIR,
-            'anios'   => $request->boolean('con_anios')
+            'items'     => $this->tarjetasDeFichas($fichas),
+            'hay_mas'   => $hayMas,
+            'sugeridas' => $sugeridas,
+            'crear'     => $sugeridas ? $this->fichaPorCrear($equipo) : null,
+            'actual'    => $equipo?->ID_ESPEC,   // la ficha que tiene hoy (la de la fila puede estar vieja)
+            'anios'     => $request->boolean('con_anios')
                 ? CaracteristicaModelo::whereNotNull('ANIO_ESPEC')->distinct()->orderByDesc('ANIO_ESPEC')->pluck('ANIO_ESPEC')
                 : null,
         ], fn ($v) => $v !== null));
+    }
+
+    /**
+     * IDs de las fichas que más se parecen a un equipo, de más a menos. Por el MODELO (sin
+     * espacios, guiones ni puntos: "ZZ-1037" y "ZZ1037" son el mismo): igual, uno contiene
+     * al otro, o difieren en pocas letras (un error de tipeo); a igualdad, primero las de su
+     * tipo y su año. Si ninguna se parece por el modelo, las de su mismo tipo y año, para
+     * que el modal no abra vacío. La ficha que YA tiene va siempre primera (el modal la marca
+     * ACTUAL), aunque no se parezca: puede estar vinculada a una ficha con otro nombre.
+     */
+    private function fichasSugeridas(Equipo $equipo): array
+    {
+        $clave = fn (?string $m) => self::claveModelo($m);
+        $suyo  = $clave($equipo->MODELO);
+        $tipo  = mb_strtoupper(trim((string) $equipo->tipo?->nombre));
+        $porModelo = $respaldo = [];
+
+        foreach (CaracteristicaModelo::get(['ID_ESPEC', 'MODELO', 'TIPO', 'ANIO_ESPEC']) as $f) {
+            $suya   = $clave($f->MODELO);
+            $puntos = 0;
+            if ($suyo !== '' && $suya !== '') {
+                if ($suya === $suyo) {
+                    $puntos = 100;
+                } elseif (min(strlen($suya), strlen($suyo)) >= 3 && (str_contains($suya, $suyo) || str_contains($suyo, $suya))) {
+                    $puntos = 70;
+                } else {
+                    $distancia = levenshtein($suya, $suyo);
+                    if ($distancia <= max(2, intdiv(max(strlen($suya), strlen($suyo)), 4))) {
+                        $puntos = 60 - 5 * $distancia;
+                    }
+                }
+            }
+            $mismoTipo = $tipo !== '' && mb_strtoupper(trim((string) $f->TIPO)) === $tipo;
+            $mismoAnio = $equipo->ANIO && (int) $f->ANIO_ESPEC === (int) $equipo->ANIO;
+            if ($puntos > 0) {
+                $porModelo[$f->ID_ESPEC] = $puntos + ($mismoTipo ? 10 : 0) + ($mismoAnio ? 8 : 0);
+            } elseif ($mismoTipo && $mismoAnio) {
+                $respaldo[$f->ID_ESPEC] = 0;
+            }
+        }
+
+        $elegidas = $porModelo ?: $respaldo;
+        arsort($elegidas);
+        $ids = array_keys($elegidas);
+        if ($equipo->ID_ESPEC) {
+            $ids = array_values(array_unique(array_merge([(int) $equipo->ID_ESPEC], $ids)));
+        }
+        return array_slice($ids, 0, self::MAX_SUGERIDAS);
+    }
+
+    /** Modelo sin espacios, guiones ni puntos, en mayúsculas: "ZZ-1037" y "zz 1037" son el mismo. */
+    private static function claveModelo(?string $modelo): string
+    {
+        return preg_replace('/[^A-Z0-9]/', '', mb_strtoupper((string) $modelo));
+    }
+
+    /**
+     * Si todavía no hay ficha del MODELO + año del equipo: lo que necesita asegurarFicha para
+     * crearla desde el modal. "Ya existe" con la MISMA clave de las sugerencias (claveModelo):
+     * si hay una "ZZ-1037" 2026, a un equipo "ZZ 1037" 2026 no se le ofrece crear otra.
+     * Null si ya existe o si al equipo le falta el modelo o el año.
+     */
+    private function fichaPorCrear(Equipo $equipo): ?array
+    {
+        $modelo = mb_strtoupper(trim((string) $equipo->MODELO));
+        $clave  = self::claveModelo($modelo);
+        if ($clave === '' || !$equipo->ANIO
+            || CaracteristicaModelo::where('ANIO_ESPEC', $equipo->ANIO)->pluck('MODELO')
+                ->contains(fn ($m) => self::claveModelo($m) === $clave)) {
+            return null;
+        }
+        $marca = mb_strtoupper(trim((string) $equipo->MARCA));
+        return ['modelo' => $modelo, 'anio' => (int) $equipo->ANIO, 'tipo' => $equipo->tipo?->nombre, 'marca' => $marca !== '' ? $marca : null];
     }
 
     /** Miniatura (300 px) de una foto del catálogo guardada como /storage/google/{id}. */
@@ -442,12 +563,13 @@ class CaracteristicaModeloController extends Controller
             $creada = true;
             \App\Models\CatalogoAuditLog::registrar($catalogo->ID_ESPEC, 'create', $modelo, $anio, ['MODELO' => $modelo, 'ANIO_ESPEC' => $anio]);
         }
-        $this->autoLinkEquiposToCatalogo($catalogo, $modelo, $anio, $creada ? 'create' : 'update');
+        $enlazados = $this->autoLinkEquiposToCatalogo($catalogo, $modelo, $anio, $creada ? 'create' : 'update');
 
         return response()->json([
-            'success' => true,
-            'id'      => $catalogo->ID_ESPEC,
-            'creada'  => $creada,
+            'success'   => true,
+            'id'        => $catalogo->ID_ESPEC,
+            'creada'    => $creada,
+            'enlazados' => $enlazados,
             'message' => $creada ? "Ficha de {$modelo} {$anio} creada." : "Unidades enlazadas a la ficha de {$modelo} {$anio}.",
         ]);
     }
@@ -933,8 +1055,9 @@ class CaracteristicaModeloController extends Controller
      * @param  string  $modelo
      * @param  int     $anio
      * @param  string  $context  'create' | 'update' (solo para el log)
+     * @return int[]   ID_EQUIPO de los que quedaron enlazados ahora
      */
-    private function autoLinkEquiposToCatalogo(CaracteristicaModelo $catalogo, string $modelo, $anio, string $context = 'create'): void
+    private function autoLinkEquiposToCatalogo(CaracteristicaModelo $catalogo, string $modelo, $anio, string $context = 'create'): array
     {
         // CANDADO: si ese modelo+año tiene MÁS DE UNA ficha, no se engancha nada.
         //
@@ -964,7 +1087,7 @@ class CaracteristicaModeloController extends Controller
         if ($fichasDelModelo > 1) {
             Log::info("Auto-link OMITIDO para {$modelo} {$anio}: hay {$fichasDelModelo} fichas "
                 . 'y no se puede saber cuál corresponde a cada unidad. Se asignan a mano.');
-            return;
+            return [];
         }
 
         $query = Equipo::where('MODELO', $modelo)->where('ANIO', $anio);
@@ -980,19 +1103,21 @@ class CaracteristicaModeloController extends Controller
             }
         });
 
-        $linkedCount = 0;
+        $enlazados = [];
         foreach ($query->get() as $eq) {
             if ($eq->ID_ESPEC !== $catalogo->ID_ESPEC) {
                 $eq->ID_ESPEC = $catalogo->ID_ESPEC;
                 $eq->save();
-                $linkedCount++;
+                $enlazados[] = $eq->ID_EQUIPO;
             }
         }
 
-        if ($linkedCount > 0) {
+        if ($enlazados) {
+            $linkedCount = count($enlazados);
             $contextLabel = $context === 'update' ? 'after catalog update' : '';
             Log::info(trim("Auto-linked {$linkedCount} equipos {$contextLabel} to catalog ID {$catalogo->ID_ESPEC} ({$modelo} {$anio})"));
         }
+        return $enlazados;
     }
 
     private function validationMessages()

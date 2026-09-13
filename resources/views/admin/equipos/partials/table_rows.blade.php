@@ -69,9 +69,7 @@
                  @can('super.admin')
                      data-vincular="{{ $equipo->ID_EQUIPO }}"
                      data-espec="{{ $equipo->ID_ESPEC }}"
-                     data-modelo="{{ $equipo->MODELO }}"
                      data-color="{{ $colorEq }}"
-                     data-titulo="{{ implode(' · ', array_filter([$equipo->tipo->nombre ?? null, trim($equipo->MARCA . ' ' . $equipo->MODELO), $equipo->ANIO, $equipo->SERIAL_CHASIS])) }}"
                      ondblclick="window.eqVincularFicha(this)"
                      title="Doble clic: vincular a una ficha del catálogo"
                  @endcan>

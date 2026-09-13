@@ -135,15 +135,17 @@ class CatalogoColoresTest extends MySqlTestCase
         $id = $r->json('id');
         $this->assertSame($id, $a->fresh()->ID_ESPEC);
         $this->assertSame($id, $b->fresh()->ID_ESPEC);
+        // Dice cuáles enlazó (el modal de Equipos cuenta así las otras unidades).
+        $this->assertEqualsCanonicalizing([$a->ID_EQUIPO, $b->ID_EQUIPO], $r->json('enlazados'));
 
-        // La segunda vez encuentra la misma: no se duplica.
+        // La segunda vez encuentra la misma: no se duplica, y ya no hay nada que enlazar.
         $this->actingAs($admin)->postJson(route('catalogo.asegurarFicha'), ['modelo' => $this->modelo, 'anio' => 2026])
-            ->assertOk()->assertJson(['id' => $id, 'creada' => false]);
+            ->assertOk()->assertJson(['id' => $id, 'creada' => false, 'enlazados' => []]);
 
         $html = $this->actingAs($admin)->getJson(route('catalogo.index', ['ajax_load' => 1, 'modelo' => 'modelo_eq:' . $this->modelo]))
             ->assertOk()->json('html');
         $this->assertStringNotContainsString('SIN FICHA', $html);
-        $this->assertStringContainsString('photo</i>Modelo', $html, 'Con ficha aparece el chip "Modelo" junto a los colores.');
+        $this->assertStringContainsString('cat-color-nombre">Modelo', $html, 'Con ficha aparece la mini-tarjeta "Modelo" junto a los colores.');
     }
 
     public function test_la_tabla_de_equipos_muestra_el_color_y_la_foto_de_su_color(): void
@@ -197,6 +199,47 @@ class CatalogoColoresTest extends MySqlTestCase
 
         $this->actingAs($admin)->postJson(route('equipos.vincularFicha', $e->ID_EQUIPO), ['ID_ESPEC' => 999999999])
             ->assertStatus(422);
+    }
+
+    public function test_el_modal_sugiere_fichas_parecidas_y_ofrece_crear_la_suya(): void
+    {
+        $f = $this->ficha();                       // ficha del modelo, 2026
+        $e = $this->equipo(null, 'ROJO');
+        $admin = $this->admin();
+        $elegir = fn (array $p) => $this->actingAs($admin)->getJson(route('catalogo.elegir', $p + ['equipo' => $e->ID_EQUIPO]))->assertOk();
+
+        // El modelo escrito con espacios en vez de guiones y un año que no tiene ficha: la
+        // sugiere primero y ofrece crear la de su modelo + año.
+        $e->update(['MODELO' => str_replace('-', ' ', $this->modelo), 'ANIO' => 2027]);
+        $r = $elegir([]);
+        $this->assertTrue($r->json('sugeridas'));
+        $this->assertNull($r->json('actual'));     // sin ficha hoy
+        $this->assertSame($f->ID_ESPEC, $r->json('items.0.id'));
+        $this->assertSame(['modelo' => str_replace('-', ' ', $this->modelo), 'anio' => 2027, 'tipo' => null, 'marca' => 'PRUEBA'], $r->json('crear'));
+
+        // Su modelo escrito distinto ("ZZ 1037" vs "ZZ-1037") pero con ficha de ese año: no se
+        // ofrece crear otra (la misma clave de las sugerencias).
+        $e->update(['ANIO' => 2026]);
+        $this->assertNull($elegir([])->json('crear'));
+
+        // Con la ficha de su modelo + año ya existente, no se ofrece crear otra.
+        $e->update(['MODELO' => $this->modelo, 'ANIO' => 2026]);
+        $r = $elegir([]);
+        $this->assertSame($f->ID_ESPEC, $r->json('items.0.id'));
+        $this->assertNull($r->json('crear'));
+
+        // Vinculado a una ficha que no se parece por el modelo: igual sale primera (ACTUAL).
+        $otra = CaracteristicaModelo::create(['MODELO' => 'SIN-PARECIDO-' . strtoupper(Str::random(5)), 'ANIO_ESPEC' => 2024]);
+        $e->update(['ID_ESPEC' => $otra->ID_ESPEC]);
+        $r = $elegir([]);
+        $this->assertSame($otra->ID_ESPEC, $r->json('items.0.id'));
+        $this->assertSame($otra->ID_ESPEC, $r->json('actual'));   // la que tiene HOY, no la de la fila
+        $e->update(['ID_ESPEC' => null]);
+
+        // Con algo escrito ya no son sugeridas: busca en todo el catálogo.
+        $r = $elegir(['q' => 'NO-EXISTE-' . $this->modelo]);
+        $this->assertFalse($r->json('sugeridas'));
+        $this->assertSame([], $r->json('items'));
     }
 
     public function test_vincular_y_buscar_fichas_es_solo_para_super_admin(): void
