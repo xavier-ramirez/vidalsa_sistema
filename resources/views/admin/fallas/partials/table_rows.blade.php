@@ -2,7 +2,8 @@
     @php
         $a            = $f->_activo ?? null;
         $isAux        = $f->ACTIVO_TIPO === 'equipo_auxiliar';
-        $foto         = $a ? ($a->FOTO_EQUIPO ?? $a->FOTO ?? ($a->especificaciones?->FOTO_REFERENCIAL ?? null)) : null;
+        // Equipo: la foto de toda la app (Equipo::fotoParaMostrar). Auxiliar: la suya.
+        $foto         = $a ? ($isAux ? ($a->FOTO ?? null) : $a->fotoParaMostrar()) : null;
         $marca        = $a ? trim($a->MARCA ?? '') : '';
         $serial       = $a ? ($a->SERIAL_CHASIS ?? $a->SERIAL ?? '') : '';
         $placa        = (!$isAux && $a) ? ($a->documentacion?->PLACA ?? '') : '';

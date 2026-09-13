@@ -25,8 +25,9 @@ class CaracteristicaModeloController extends Controller
     public function __construct()
     {
         $this->middleware('auth');
-        $this->middleware('can:equipos.create')->only(['store', 'update', 'uploadFoto']);
-        $this->middleware('can:super.admin')->only(['destroy', 'deleteFoto']);
+        $this->middleware('can:equipos.create')->only(['store', 'update', 'uploadFoto', 'asegurarFicha']);
+        // elegir: el modal "Vincular a una ficha" de /admin/equipos, que solo abre super.admin.
+        $this->middleware('can:super.admin')->only(['destroy', 'deleteFoto', 'elegir']);
     }
 
     /** Reglas de validación compartidas por store y update. */
@@ -90,15 +91,20 @@ class CaracteristicaModeloController extends Controller
         );
 
         // ── Listas para los filtros agrupados (todas las opciones, no auto-limitadas) ──
-        $tiposVehiculo = TipoEquipo::whereIn('nombre', function ($q) {
-                $q->select('TIPO')->from('caracteristicas_modelo')->whereNotNull('TIPO');
-            })->orderBy('nombre')->get(['id', 'nombre']);
+        // Los vehículos cuentan las fichas Y los equipos sin ficha, que también tienen su
+        // tarjeta (modelosSinFicha): un filtro que no los ofreciera los dejaría inalcanzables.
+        $tiposVehiculo = TipoEquipo::where(fn ($w) => $w
+                ->whereIn('nombre', fn ($q) => $q->select('TIPO')->from('caracteristicas_modelo')->whereNotNull('TIPO'))
+                ->orWhereIn('id', fn ($q) => $q->select('id_tipo_equipo')->from('equipos')->whereNull('deleted_at')))
+            ->orderBy('nombre')->get(['id', 'nombre']);
         $tiposAux = $this->tiposAuxLabels();
-        $modelosVehiculo = CaracteristicaModelo::whereNotNull('MODELO')->where('MODELO', '!=', '')
-            ->distinct()->orderBy('MODELO')->pluck('MODELO');
+        $modelosVehiculo = CaracteristicaModelo::whereNotNull('MODELO')->where('MODELO', '!=', '')->pluck('MODELO')
+            ->merge(Equipo::whereNotNull('MODELO')->where('MODELO', '!=', '')->distinct()->pluck('MODELO'))
+            ->map(fn ($m) => mb_strtoupper(trim($m)))->unique()->sort()->values();
         $modelosAux = EquipoAuxiliar::whereNotNull('MODELO')->where('MODELO', '!=', '')
             ->distinct()->orderBy('MODELO')->pluck('MODELO');
-        $aniosVehiculo = CaracteristicaModelo::whereNotNull('ANIO_ESPEC')->distinct()->pluck('ANIO_ESPEC');
+        $aniosVehiculo = CaracteristicaModelo::whereNotNull('ANIO_ESPEC')->distinct()->pluck('ANIO_ESPEC')
+            ->merge(Equipo::whereNotNull('ANIO')->where('ANIO', '!=', 0)->distinct()->pluck('ANIO'));
         $aniosAux      = EquipoAuxiliar::whereNotNull('ANIO')->where('ANIO', '!=', 0)->distinct()->pluck('ANIO');
         $availableAnios = $aniosVehiculo->merge($aniosAux)->unique()->sortDesc()->values();
 
@@ -126,10 +132,7 @@ class CaracteristicaModeloController extends Controller
 
         // ── VEHÍCULOS (caracteristicas_modelo) ──
         if ($verVehiculos) {
-            // withCount('equipos'): nº de equipos ligados a cada modelo (por ID_ESPEC), en
-            // UNA subconsulta (sin N+1) — para mostrar la cantidad en la tarjeta, igual que
-            // los auxiliares muestran sus unidades.
-            $q = CaracteristicaModelo::withCount('equipos');
+            $q = $this->consultaFichas();
             if (str_starts_with($tipoFiltro, 'tipo_eq:')) {
                 $nombre = TipoEquipo::where('id', (int) substr($tipoFiltro, 8))->value('nombre');
                 $q->where('TIPO', $nombre ? strtoupper(trim($nombre)) : '__none__');
@@ -140,31 +143,11 @@ class CaracteristicaModeloController extends Controller
             if ($anio !== '' && $anio !== 'all') {
                 $q->where('ANIO_ESPEC', $anio);
             }
-            foreach ($q->orderBy('MODELO')->get() as $cm) {
-                $driveId = $cm->FOTO_REFERENCIAL
-                    ? basename(str_replace('/storage/google/', '', explode('?', $cm->FOTO_REFERENCIAL)[0]))
-                    : null;
-                $items->push([
-                    'clase'       => 'VEHICULO',
-                    'id'          => $cm->ID_ESPEC,
-                    'tipo'        => $cm->TIPO,
-                    'modelo'      => $cm->MODELO,
-                    'marca'       => null,
-                    'anio'        => $cm->ANIO_ESPEC,
-                    'foto_url'    => $driveId ? url('/storage/google/' . $driveId . '?sz=w300') : null,
-                    'placeholder' => 'precision_manufacturing',
-                    'total'       => $cm->equipos_count, // nº de equipos ligados a este modelo
-                    'specs'       => array_filter([
-                        'Motor'        => $cm->MOTOR,
-                        'Batería'      => $cm->TIPO_BATERIA,
-                        'Aceite Motor' => $cm->ACEITE_MOTOR,
-                        'Aceite Caja'  => $cm->ACEITE_CAJA,
-                        'Liga Freno'   => $cm->LIGA_FRENO,
-                        'Refrigerante' => $cm->REFRIGERANTE,
-                    ], fn ($v) => $v !== null && $v !== ''),
-                    'sort'        => '0_' . $cm->MODELO,
-                ]);
-            }
+            $items = $this->tarjetasDeFichas($q->orderBy('MODELO')->get());
+
+            // Los modelos que tienen equipos pero todavía NO tienen ficha también salen, como
+            // en los auxiliares: el catálogo se arma solo con lo registrado. Ver modelosSinFicha().
+            $items = $items->merge($this->modelosSinFicha($tipoFiltro, $modeloFiltro, $anio));
         }
 
         // ── AUXILIARES (equipos_auxiliares agrupados por TIPO+MARCA+MODELO+AÑO) ──
@@ -239,6 +222,237 @@ class CaracteristicaModeloController extends Controller
     }
 
     /**
+     * Fichas con lo que necesitan sus tarjetas. withCount('equipos'): nº de equipos ligados
+     * a cada modelo (por ID_ESPEC), en UNA subconsulta (sin N+1) — la cantidad de la
+     * tarjeta, como las unidades de los auxiliares. with('colores'): la foto de cada color.
+     */
+    private function consultaFichas()
+    {
+        return CaracteristicaModelo::withCount('equipos')->with('colores:ID_COLOR,ID_ESPEC,COLOR,FOTO');
+    }
+
+    /**
+     * Tarjetas VEHÍCULO de unas fichas (de consultaFichas). Las usan el catálogo y el modal
+     * "Vincular a una ficha" de /admin/equipos (elegir): así las dos muestran lo mismo.
+     */
+    private function tarjetasDeFichas($fichas)
+    {
+        // Colores de las unidades de estas fichas, en UNA consulta: [ID_ESPEC => filas].
+        $coloresUnidades = Equipo::whereIn('ID_ESPEC', $fichas->pluck('ID_ESPEC'))
+            ->whereNotNull('COLOR')->where('COLOR', '!=', '')
+            ->selectRaw('ID_ESPEC, COLOR, COUNT(*) AS n')
+            ->groupBy('ID_ESPEC', 'COLOR')
+            ->get()->groupBy('ID_ESPEC');
+
+        // toBase(): sin fichas, el map de Eloquent devuelve una colección Eloquent vacía y el
+        // merge con las tarjetas SIN FICHA (arrays) fallaría buscando getKey().
+        return $fichas->toBase()->map(fn ($cm) => [
+            'clase'       => 'VEHICULO',
+            'id'          => $cm->ID_ESPEC,
+            'tipo'        => $cm->TIPO,
+            'modelo'      => $cm->MODELO,
+            'marca'       => null,
+            'anio'        => $cm->ANIO_ESPEC,
+            'foto_url'    => $this->miniatura($cm->FOTO_REFERENCIAL),
+            'placeholder' => 'precision_manufacturing',
+            'total'       => $cm->equipos_count, // nº de equipos ligados a este modelo
+            'colores'     => $this->coloresDeTarjeta($coloresUnidades->get($cm->ID_ESPEC, collect()), $cm->colores),
+            'specs'       => array_filter([
+                'Motor'        => $cm->MOTOR,
+                'Batería'      => $cm->TIPO_BATERIA,
+                'Aceite Motor' => $cm->ACEITE_MOTOR,
+                'Aceite Caja'  => $cm->ACEITE_CAJA,
+                'Liga Freno'   => $cm->LIGA_FRENO,
+                'Refrigerante' => $cm->REFRIGERANTE,
+            ], fn ($v) => $v !== null && $v !== ''),
+            'sort'        => '0_' . $cm->MODELO,
+        ])->values();
+    }
+
+    /** Máximo de fichas por búsqueda del modal "Vincular a una ficha". */
+    private const MAX_ELEGIR = 60;
+
+    /**
+     * Fichas para el modal "Vincular a una ficha" de /admin/equipos (doble clic en la foto
+     * de un equipo, solo super.admin). Busca por modelo o tipo (contiene) y por año, y
+     * devuelve las mismas tarjetas del catálogo. El vínculo lo guarda
+     * EquipoController::vincularFicha. La lista de años para el filtro va solo si se pide
+     * (con_anios=1): el modal la carga una vez, no en cada tecla.
+     */
+    public function elegir(Request $request)
+    {
+        $texto = mb_strtoupper(trim((string) $request->input('q', '')));
+        $anio  = (int) $request->input('anio', 0);
+
+        $q = $this->consultaFichas();
+        if ($texto !== '') {
+            $q->where(fn ($w) => $w->where('MODELO', 'like', '%' . $texto . '%')->orWhere('TIPO', 'like', '%' . $texto . '%'));
+        }
+        if ($anio > 0) {
+            $q->where('ANIO_ESPEC', $anio);
+        }
+        $fichas = $q->orderBy('MODELO')->orderByDesc('ANIO_ESPEC')->limit(self::MAX_ELEGIR + 1)->get();
+
+        return response()->json(array_filter([
+            'items'   => $this->tarjetasDeFichas($fichas->take(self::MAX_ELEGIR)),
+            'hay_mas' => $fichas->count() > self::MAX_ELEGIR,
+            'anios'   => $request->boolean('con_anios')
+                ? CaracteristicaModelo::whereNotNull('ANIO_ESPEC')->distinct()->orderByDesc('ANIO_ESPEC')->pluck('ANIO_ESPEC')
+                : null,
+        ], fn ($v) => $v !== null));
+    }
+
+    /** Miniatura (300 px) de una foto del catálogo guardada como /storage/google/{id}. */
+    private function miniatura(?string $ruta): ?string
+    {
+        $id = CaracteristicaModelo::idDrive($ruta);
+        return $id ? url('/storage/google/' . $id . '?sz=w300') : null;
+    }
+
+    /**
+     * Colores de una tarjeta: los que tienen sus unidades (con cuántas) y los que tienen
+     * foto en el catálogo aunque hoy no haya unidades de ese color. Nombres normalizados
+     * (CatalogoColor::normalizar: ROJA y ROJO son el mismo). De más a menos unidades.
+     *
+     * @param  \Illuminate\Support\Collection  $unidades  filas {COLOR, n}
+     * @param  \Illuminate\Support\Collection  $fotos     CatalogoColor de la ficha (vacío sin ficha)
+     */
+    private function coloresDeTarjeta($unidades, $fotos): array
+    {
+        $colores = [];
+        foreach ($unidades as $u) {
+            $c = \App\Models\CatalogoColor::normalizar($u->COLOR);
+            if ($c !== null) {
+                $colores[$c]['total'] = ($colores[$c]['total'] ?? 0) + (int) $u->n;
+            }
+        }
+        foreach ($fotos as $f) {
+            $colores[$f->COLOR]['foto'] = $f->FOTO;
+        }
+
+        return collect($colores)->map(fn ($v, $c) => [
+            'color'    => $c,
+            'total'    => $v['total'] ?? 0,
+            'foto_url' => $this->miniatura($v['foto'] ?? null),
+            'muestra'  => \App\Models\CatalogoColor::muestra($c),
+        ])->sortBy([['total', 'desc'], ['color', 'asc']])->values()->all();
+    }
+
+    /**
+     * Modelos de equipo que tienen unidades registradas pero ninguna ficha: una tarjeta por
+     * TIPO + MARCA + MODELO + AÑO, igual que el catálogo de auxiliares, que se arma solo con
+     * lo registrado. Al subirle una foto o pulsar "Crear ficha" se crea la ficha y se le
+     * enlazan sus unidades (asegurarFicha).
+     *
+     * Si ya hay una ficha con ese MODELO + año (unidades registradas después de crearla, que
+     * el enganche no alcanzó) la tarjeta lo dice y el botón las enlaza a ella en vez de crear
+     * otra: no se vuelven a duplicar fichas.
+     */
+    private function modelosSinFicha(string $tipoFiltro, string $modeloFiltro, string $anio)
+    {
+        $base = Equipo::query()
+            ->leftJoin('tipo_equipos as t', 't.id', '=', 'equipos.id_tipo_equipo')
+            ->where(fn ($q) => $q->whereNull('equipos.ID_ESPEC')
+                ->orWhereNotIn('equipos.ID_ESPEC', CaracteristicaModelo::select('ID_ESPEC')))
+            ->whereNotNull('equipos.MODELO')->where('equipos.MODELO', '!=', '');
+        // Mismo alcance que los auxiliares: el usuario ve los modelos de sus frentes.
+        if ($user = auth()->user()) {
+            $user->aplicarScopeFrentesEquipos($base, 'equipos.ID_FRENTE_ACTUAL');
+        }
+        if (str_starts_with($tipoFiltro, 'tipo_eq:')) {
+            $base->where('t.id', (int) substr($tipoFiltro, 8));
+        }
+        if (str_starts_with($modeloFiltro, 'modelo_eq:')) {
+            $base->whereRaw('UPPER(TRIM(equipos.MODELO)) = ?', [mb_strtoupper(trim(substr($modeloFiltro, 10)))]);
+        }
+        if ($anio !== '' && $anio !== 'all') {
+            $base->where('equipos.ANIO', $anio);
+        }
+
+        $clave = "UPPER(TRIM(COALESCE(t.nombre, ''))), UPPER(TRIM(COALESCE(equipos.MARCA, ''))), UPPER(TRIM(equipos.MODELO)), COALESCE(equipos.ANIO, 0)";
+        $grupos = (clone $base)
+            ->selectRaw("UPPER(TRIM(COALESCE(t.nombre, ''))) AS TIPO_KEY, UPPER(TRIM(COALESCE(equipos.MARCA, ''))) AS MARCA_KEY,"
+                . " UPPER(TRIM(equipos.MODELO)) AS MODELO_KEY, COALESCE(equipos.ANIO, 0) AS ANIO_KEY,"
+                . " COUNT(*) AS total, MAX(equipos.FOTO_EQUIPO) AS FOTO")
+            ->groupByRaw($clave)
+            ->get();
+        if ($grupos->isEmpty()) {
+            return collect();
+        }
+
+        $colores = (clone $base)->whereNotNull('equipos.COLOR')->where('equipos.COLOR', '!=', '')
+            ->selectRaw("UPPER(TRIM(COALESCE(t.nombre, ''))) AS TIPO_KEY, UPPER(TRIM(COALESCE(equipos.MARCA, ''))) AS MARCA_KEY,"
+                . " UPPER(TRIM(equipos.MODELO)) AS MODELO_KEY, COALESCE(equipos.ANIO, 0) AS ANIO_KEY, equipos.COLOR AS COLOR, COUNT(*) AS n")
+            ->groupByRaw($clave . ', equipos.COLOR')
+            ->get()
+            ->groupBy(fn ($r) => "{$r->TIPO_KEY}|{$r->MARCA_KEY}|{$r->MODELO_KEY}|{$r->ANIO_KEY}");
+
+        // Fichas que ya existen para esos MODELO + año (una consulta).
+        $fichas = CaracteristicaModelo::whereIn('MODELO', $grupos->pluck('MODELO_KEY')->unique())
+            ->get(['ID_ESPEC', 'MODELO', 'ANIO_ESPEC'])
+            ->keyBy(fn ($f) => mb_strtoupper(trim($f->MODELO)) . '|' . (int) $f->ANIO_ESPEC);
+
+        return $grupos->map(function ($g) use ($colores, $fichas) {
+            $anio = (int) $g->ANIO_KEY ?: null;
+            return [
+                'clase'          => 'VEHICULO',
+                'id'             => null,
+                'sin_ficha'      => true,
+                'ficha_existente'=> $fichas->get($g->MODELO_KEY . '|' . (int) $g->ANIO_KEY)?->ID_ESPEC,
+                'tipo'           => $g->TIPO_KEY !== '' ? $g->TIPO_KEY : null,
+                'modelo'         => $g->MODELO_KEY,
+                'marca'          => $g->MARCA_KEY !== '' ? $g->MARCA_KEY : null,
+                'anio'           => $anio,
+                'foto_url'       => $this->miniatura($g->FOTO),
+                'placeholder'    => 'precision_manufacturing',
+                'total'          => (int) $g->total,
+                'colores'        => $this->coloresDeTarjeta(
+                    $colores->get("{$g->TIPO_KEY}|{$g->MARCA_KEY}|{$g->MODELO_KEY}|{$g->ANIO_KEY}", collect()), collect()),
+                'specs'          => array_filter(['Marca' => $g->MARCA_KEY !== '' ? $g->MARCA_KEY : null]),
+                // Con las fichas, por modelo: una tarjeta sin ficha se lee junto a las demás.
+                'sort'           => '0_' . $g->MODELO_KEY,
+            ];
+        })->values();
+    }
+
+    /**
+     * POST catalogo/asegurar-ficha — la ficha de un MODELO + año: la que ya existe o una
+     * nueva con solo tipo, modelo y año (lo técnico se completa después con "Editar"). En
+     * los dos casos se le enlazan sus unidades sueltas. Lo usa el catálogo al subir una foto
+     * o pulsar "Crear ficha" en una tarjeta de un modelo que todavía no tenía ficha.
+     */
+    public function asegurarFicha(Request $request)
+    {
+        $data = $request->validate([
+            'modelo' => 'required|string|max:50',
+            'anio'   => 'required|integer|min:1900|max:2100',
+            'tipo'   => 'nullable|string|max:35',
+        ]);
+        $modelo = mb_strtoupper(trim($data['modelo']));
+        $anio   = (int) $data['anio'];
+
+        $catalogo = CaracteristicaModelo::where('MODELO', $modelo)->where('ANIO_ESPEC', $anio)->orderBy('ID_ESPEC')->first();
+        $creada   = false;
+        if (!$catalogo) {
+            $catalogo = CaracteristicaModelo::create([
+                'MODELO'     => $modelo,
+                'ANIO_ESPEC' => $anio,
+                'TIPO'       => !empty($data['tipo']) ? mb_strtoupper(trim($data['tipo'])) : null,
+            ]);
+            $creada = true;
+            \App\Models\CatalogoAuditLog::registrar($catalogo->ID_ESPEC, 'create', $modelo, $anio, ['MODELO' => $modelo, 'ANIO_ESPEC' => $anio]);
+        }
+        $this->autoLinkEquiposToCatalogo($catalogo, $modelo, $anio, $creada ? 'create' : 'update');
+
+        return response()->json([
+            'success' => true,
+            'id'      => $catalogo->ID_ESPEC,
+            'creada'  => $creada,
+            'message' => $creada ? "Ficha de {$modelo} {$anio} creada." : "Unidades enlazadas a la ficha de {$modelo} {$anio}.",
+        ]);
+    }
+
+    /**
      * Mapa TIPO => etiqueta de auxiliares para el catálogo, EN MAYÚSCULAS y solo con los
      * tipos que EXISTEN de verdad — mismo criterio que $tiposVehiculo, que también se acota
      * a los tipos presentes en el catálogo (y con el mismo scope de frentes que la lista, así
@@ -301,6 +515,9 @@ class CaracteristicaModeloController extends Controller
             $this->validationMessages(),
             $this->validationAttributes()
         );
+        if ($r = $this->rechazarFichaRepetida($request, $validated)) {
+            return $r;
+        }
 
         try {
             $catalogo = null;
@@ -373,6 +590,9 @@ class CaracteristicaModeloController extends Controller
             $this->validationMessages(),
             $this->validationAttributes()
         );
+        if ($r = $this->rechazarFichaRepetida($request, $validated, (int) $catalogo->ID_ESPEC)) {
+            return $r;
+        }
 
         try {
             $oldModelo = $catalogo->MODELO;
@@ -447,16 +667,41 @@ class CaracteristicaModeloController extends Controller
     }
 
     /**
-     * Punto ÚNICO de la lógica de foto del catálogo: sube el WebP a Drive, apunta
-     * FOTO_REFERENCIAL a la nueva, y SOLO entonces borra la anterior de Drive + caché
-     * (best-effort). Devuelve false si Drive falla, para que el caller aborte en vez
-     * de dejar el catálogo apuntando a una foto que no existe.
+     * Una ficha por MODELO + año. Otra igual solo servía para tener otra foto (así nacieron
+     * las 5 copias de la pick-up SINOTRUK); ahora la foto de cada color va dentro de la ficha
+     * (catalogo_colores), y una copia volvería a dejar las unidades sin saber cuál es la suya
+     * (el enganche automático se bloquea con dos fichas). Devuelve la respuesta de rechazo o
+     * null si se puede guardar.
+     */
+    private function rechazarFichaRepetida(Request $request, array $validated, ?int $exceptoId = null)
+    {
+        $existe = CaracteristicaModelo::where('MODELO', mb_strtoupper(trim($validated['MODELO'])))
+            ->where('ANIO_ESPEC', $validated['ANIO_ESPEC'])
+            ->when($exceptoId, fn ($q) => $q->where('ID_ESPEC', '!=', $exceptoId))
+            ->exists();
+        if (!$existe) {
+            return null;
+        }
+
+        $msg = 'Ya existe la ficha de ese modelo y año. Para otro color no hace falta otra ficha: '
+             . 'su foto se agrega en la tarjeta del catálogo, eligiendo el color.';
+        return $request->wantsJson()
+            ? response()->json(['success' => false, 'message' => $msg, 'errors' => ['MODELO' => [$msg]]], 422)
+            : back()->withInput()->withErrors(['MODELO' => $msg]);
+    }
+
+    /**
+     * Punto ÚNICO de la lógica de foto del catálogo: sube el WebP a Drive, apunta la foto
+     * del modelo —o la del $color, si se indica— a la nueva (CaracteristicaModelo::
+     * guardarFoto) y SOLO entonces borra la anterior de Drive + caché (best-effort).
+     * Devuelve la ruta nueva, o null si Drive falla, para que el caller aborte en vez de
+     * dejar el catálogo apuntando a una foto que no existe.
      * Debe llamarse DENTRO de la transacción que persiste el catálogo.
      * Lo llama uploadFoto(); store()/update() no tocan la foto (ver sus comentarios).
      *
-     * @param  string|null $oldFileId  File-id de Drive de la foto previa a borrar (null = no borrar).
+     * @return array{nueva:string, anterior:?string}|null
      */
-    private function reemplazarFotoCatalogo(CaracteristicaModelo $catalogo, $webpFile, ?string $oldFileId = null): bool
+    private function reemplazarFotoCatalogo(CaracteristicaModelo $catalogo, $webpFile, ?string $color = null): ?array
     {
         $driveService = GoogleDriveService::getInstance();
         $folderId = config('filesystems.disks.google.catalog_folder');
@@ -464,37 +709,44 @@ class CaracteristicaModeloController extends Controller
 
         $driveFile = $driveService->uploadFile($folderId, $webpFile, $filename, 'image/webp');
         if (!$driveFile || !isset($driveFile->id)) {
-            return false;
+            return null;
         }
 
         // Apuntar a la foto nueva ANTES de borrar la vieja.
-        $catalogo->update(['FOTO_REFERENCIAL' => '/storage/google/' . $driveFile->id]);
+        $nueva    = '/storage/google/' . $driveFile->id;
+        $anterior = $catalogo->guardarFoto($nueva, $color);
 
-        // Borrar la anterior solo tras subir + persistir la nueva (best-effort).
-        if ($oldFileId && $oldFileId !== $driveFile->id) {
+        // Borrar la anterior solo tras subir + persistir la nueva, y solo si ninguna otra foto
+        // del catálogo la usa (la del modelo y la de un color pueden ser el mismo archivo).
+        $idAnterior = CaracteristicaModelo::idDrive($anterior);
+        if ($idAnterior && $idAnterior !== $driveFile->id && !CaracteristicaModelo::fotoSigueEnUso($idAnterior)) {
             try {
-                $driveService->deleteFile($oldFileId);
-                \App\Services\GoogleDriveService::olvidarCopiaLocal($oldFileId);
+                $driveService->deleteFile($idAnterior);
+                \App\Services\GoogleDriveService::olvidarCopiaLocal($idAnterior);
             } catch (\Exception $e) {
-                Log::warning('No se pudo borrar la foto anterior de Drive: ' . $oldFileId . ' - ' . $e->getMessage());
+                Log::warning('No se pudo borrar la foto anterior de Drive: ' . $idAnterior . ' - ' . $e->getMessage());
             }
         }
 
-        return true;
+        return ['nueva' => $nueva, 'anterior' => $anterior];
     }
 
     /**
      * Subida de foto SOLO (sin abrir el formulario de edición). Se dispara al hacer
      * click en la foto de cada tarjeta en /admin/catalogo — misma UX que el catálogo
-     * de auxiliares. Reusa reemplazarFotoCatalogo() y re-evalúa el auto-link para que
-     * los equipos del modelo hereden la nueva imagen.
+     * de auxiliares. Con `color` la foto es la de ESE color del modelo (catalogo_colores);
+     * sin él, la del modelo. Reusa reemplazarFotoCatalogo() y re-evalúa el auto-link para
+     * que los equipos del modelo hereden la nueva imagen.
      */
     public function uploadFoto(Request $request, $id)
     {
         @set_time_limit(120);
 
         $request->validate(
-            ['foto' => 'required|image|mimes:jpeg,png,jpg,webp|max:5120'],
+            [
+                'foto'  => 'required|image|mimes:jpeg,png,jpg,webp|max:5120',
+                'color' => 'nullable|string|max:50',
+            ],
             [
                 'foto.required' => 'Selecciona una imagen.',
                 'foto.image'    => 'El archivo debe ser una imagen.',
@@ -504,22 +756,22 @@ class CaracteristicaModeloController extends Controller
         );
 
         $catalogo = CaracteristicaModelo::findOrFail($id);
+        $color    = \App\Models\CatalogoColor::normalizar($request->input('color'));
 
         try {
             // Convertir a WebP ANTES de la transacción (evita problemas de $this en closures).
             $webpResult   = $this->convertToWebp($request->file('foto'));
             $webpFile     = $webpResult['file'];
             $tempWebpPath = $webpResult['tempPath'];
-            $oldFileId    = $catalogo->FOTO_REFERENCIAL
-                ? str_replace('/storage/google/', '', explode('?', $catalogo->FOTO_REFERENCIAL)[0])
-                : null;
 
-            DB::transaction(function () use ($catalogo, $webpFile, $oldFileId) {
-                if (!$this->reemplazarFotoCatalogo($catalogo, $webpFile, $oldFileId)) {
+            $fotos = DB::transaction(function () use ($catalogo, $webpFile, $color) {
+                $fotos = $this->reemplazarFotoCatalogo($catalogo, $webpFile, $color);
+                if (!$fotos) {
                     throw new \RuntimeException('La subida a Google Drive falló.');
                 }
+                return $fotos;
             });
-            $nuevaUrl = $catalogo->FOTO_REFERENCIAL; // ya apuntada a la nueva por el helper
+            $nuevaUrl = $fotos['nueva'];
 
             // Limpiar archivo temporal WebP del servidor si se creó.
             if ($tempWebpPath && file_exists($tempWebpPath)) {
@@ -534,13 +786,14 @@ class CaracteristicaModeloController extends Controller
                 'upload_foto',
                 $catalogo->MODELO,
                 $catalogo->ANIO_ESPEC !== null ? (int) $catalogo->ANIO_ESPEC : null,
-                ['foto' => ['antes' => $oldFileId ? '/storage/google/' . $oldFileId : null, 'despues' => $nuevaUrl]]
+                [($color ? 'foto ' . $color : 'foto') => ['antes' => $fotos['anterior'], 'despues' => $nuevaUrl]]
             );
 
             return response()->json([
                 'success' => true,
-                'message' => 'Foto del modelo actualizada correctamente.',
+                'message' => $color ? "Foto del color {$color} actualizada." : 'Foto del modelo actualizada correctamente.',
                 'foto'    => $nuevaUrl,
+                'color'   => $color,
             ]);
         } catch (\Throwable $e) {
             Log::error('Error subiendo foto de catálogo ID ' . $id . ': ' . $e->getMessage());
@@ -552,19 +805,31 @@ class CaracteristicaModeloController extends Controller
         }
     }
 
+    /**
+     * Borra la foto del modelo o, con ?color=X, la de ese color (la fila del color se va:
+     * sin foto no aporta nada). El archivo de Drive solo se borra si ninguna otra foto
+     * del catálogo lo sigue usando.
+     */
     public function deleteFoto(Request $request, $id)
     {
         $catalogo = CaracteristicaModelo::findOrFail($id);
+        $color    = \App\Models\CatalogoColor::normalizar($request->input('color'));
+        $filaColor = $color ? $catalogo->colores()->where('COLOR', $color)->first() : null;
+        $ruta     = $color ? $filaColor?->FOTO : $catalogo->FOTO_REFERENCIAL;
 
-        if (!$catalogo->FOTO_REFERENCIAL) {
-            return response()->json(['success' => false, 'message' => 'Este modelo no tiene foto.'], 422);
+        if (!$ruta) {
+            return response()->json(['success' => false, 'message' => $color ? "El color {$color} no tiene foto." : 'Este modelo no tiene foto.'], 422);
         }
 
-        $fileId = str_replace('/storage/google/', '', explode('?', $catalogo->FOTO_REFERENCIAL)[0]);
+        $fileId = CaracteristicaModelo::idDrive($ruta);
 
         try {
-            DB::transaction(function () use ($catalogo) {
-                $catalogo->update(['FOTO_REFERENCIAL' => null]);
+            DB::transaction(function () use ($catalogo, $filaColor) {
+                if ($filaColor) {
+                    $filaColor->delete();
+                } else {
+                    $catalogo->update(['FOTO_REFERENCIAL' => null]);
+                }
             });
 
             \App\Models\CatalogoAuditLog::registrar(
@@ -572,11 +837,12 @@ class CaracteristicaModeloController extends Controller
                 'delete_foto',
                 $catalogo->MODELO,
                 $catalogo->ANIO_ESPEC !== null ? (int) $catalogo->ANIO_ESPEC : null,
-                ['foto' => ['antes' => '/storage/google/' . $fileId, 'despues' => null]]
+                [($color ? 'foto ' . $color : 'foto') => ['antes' => $ruta, 'despues' => null]]
             );
 
-            // Drive + caché: diferido para que la respuesta sea inmediata.
-            if ($fileId) {
+            // Drive + caché: diferido para que la respuesta sea inmediata. No si otra foto
+            // del catálogo es el mismo archivo.
+            if ($fileId && !CaracteristicaModelo::fotoSigueEnUso($fileId)) {
                 defer(function () use ($fileId) {
                     try {
                         GoogleDriveService::getInstance()->deleteFile($fileId);
@@ -602,9 +868,12 @@ class CaracteristicaModeloController extends Controller
         $snapshotModelo = $catalogo->MODELO;
         $snapshotAnio   = (int) $catalogo->ANIO_ESPEC;
         $snapshotId     = $catalogo->ID_ESPEC;
-        $fileId = $catalogo->FOTO_REFERENCIAL
-            ? str_replace('/storage/google/', '', $catalogo->FOTO_REFERENCIAL)
-            : null;
+        // La foto del modelo y las de sus colores (las filas de color se van en cascada con
+        // la ficha; sus archivos de Drive hay que borrarlos aparte).
+        $fileIds = collect([$catalogo->FOTO_REFERENCIAL])
+            ->merge($catalogo->colores()->pluck('FOTO'))
+            ->map(fn ($ruta) => CaracteristicaModelo::idDrive($ruta))
+            ->filter()->unique()->values();
 
         try {
             // 1) Transacción atómica en BD: desvincular equipos + borrar catálogo
@@ -617,8 +886,12 @@ class CaracteristicaModeloController extends Controller
                 $catalogo->delete();
             });
 
-            // 2) Solo si la transacción BD fue exitosa: borrar Drive (operación irreversible)
-            if ($fileId) {
+            // 2) Solo si la transacción BD fue exitosa: borrar Drive (operación irreversible),
+            //    y solo los archivos que ninguna otra ficha use.
+            foreach ($fileIds as $fileId) {
+                if (CaracteristicaModelo::fotoSigueEnUso($fileId)) {
+                    continue;
+                }
                 try {
                     GoogleDriveService::getInstance()->deleteFile($fileId);
                     \App\Services\GoogleDriveService::olvidarCopiaLocal($fileId);
@@ -665,10 +938,14 @@ class CaracteristicaModeloController extends Controller
     {
         // CANDADO: si ese modelo+año tiene MÁS DE UNA ficha, no se engancha nada.
         //
-        // Varias fichas del mismo modelo+año existen por una sola razón: separar unidades
-        // que llevan FOTOS distintas (hoy, distinto color). Cuál le toca a cada unidad lo
-        // decidió una persona a mano; la aplicación no guarda ese dato en ninguna parte y
-        // por tanto NO PUEDE adivinarlo.
+        // Hoy ya no debería pasar: el color vive en la unidad (equipos.COLOR), la foto de
+        // cada color dentro de la ficha (catalogo_colores), las copias que existían se unieron
+        // (migración unificar_fichas_repetidas_por_color) y store()/update() no dejan crear
+        // otra (rechazarFichaRepetida). Se conserva por si una base trae fichas repetidas de
+        // antes: con varias, cuál le toca a cada unidad no se puede adivinar.
+        //
+        // Por qué existieron: separar unidades que llevaban FOTOS distintas (distinto color)
+        // cuando la ficha solo guardaba una foto y la unidad no decía su color.
         //
         // Sin este candado, enganchaba igual: agarra todo equipo del modelo+año con
         // ID_ESPEC nulo y lo pega a la ficha que se esté guardando. O sea que editar UNA
@@ -680,11 +957,6 @@ class CaracteristicaModeloController extends Controller
         //
         // No adivinar es la respuesta correcta: es preferible que una unidad se quede sin
         // ficha (y muestre su propia foto) a que se muestre con la foto de otro color.
-        // Cuando el color viva en la unidad, el enganche podrá volver a ser automático
-        // mirándolo; hasta entonces, con varias fichas se asigna a mano.
-        //
-        // Los modelos con UNA sola ficha —47 de los 49 de hoy— no se ven afectados: ahí no
-        // hay ambigüedad y el enganche automático sigue igual.
         $fichasDelModelo = CaracteristicaModelo::where('MODELO', $modelo)
             ->where('ANIO_ESPEC', $anio)
             ->count();

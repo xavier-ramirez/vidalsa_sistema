@@ -67,8 +67,9 @@ class OfflineVersion
      * Subir cuando se agreguen o cambien campos del snapshot.
      *   v2 → ids para filtros offline (heredada del literal 'schema-v2' anterior)
      *   v3 → versiones por dominio + sincronización incremental
+     *   v4 → color de la unidad (equipos) y referencia de los movimientos (almacén)
      */
-    public const ESQUEMA = 3;
+    public const ESQUEMA = 4;
 
     /** Dominios válidos. El orden no importa; valida el argumento de invalidar(). */
     public const DOMINIOS = ['equipos', 'almacen', 'catalogos'];

@@ -16,6 +16,7 @@
         modelInputId: 'modelo',
         yearInputId: 'anio',
         tipoInputId: 'input_tipo_equipo',
+        colorInputId: 'color',      // la foto de la tarjeta es la de ese color si la ficha la tiene
         widgetId: 'catalog_link_widget',
         previewId: 'catalog_preview',
         hiddenInputId: 'linked_id_espec',
@@ -29,6 +30,7 @@
     let searchTimer = null;
     let isInitialized = false; // GUARD FLAG
     let lastSearchKey = ''; // Prevent duplicate searches for same values
+    let lastColor = '';     // el color solo cambia la FOTO de la sugerencia, no la búsqueda
 
     // Initialize on DOM ready OR SPA navigation
     function init() {
@@ -46,6 +48,7 @@
         currentIndex = 0;
         linkedId = null;
         lastSearchKey = '';
+        lastColor = '';
 
         // Bind Events (with cleanup)
         bindInputEvents();
@@ -75,7 +78,7 @@
     function handleDelegatedInput(e) {
         const id = e.target.id;
         if (id === CONFIG.modelInputId || id === CONFIG.yearInputId || id === CONFIG.tipoInputId ||
-            id === 'MODELO' || id === 'ANIO' || id === 'anio') {
+            id === CONFIG.colorInputId || id === 'MODELO' || id === 'ANIO' || id === 'anio') {
             debounceSearch();
         }
     }
@@ -113,28 +116,41 @@
         const year = yearInput.value.trim();
         const tipoInput = document.getElementById(CONFIG.tipoInputId);
         const tipo = tipoInput ? tipoInput.value.trim() : '';
+        const colorInput = document.getElementById(CONFIG.colorInputId);
+        const color = colorInput ? colorInput.value.trim() : '';
 
         if (model.length < 2 || year.length < 4) {
             hideWidget();
             return;
         }
 
-        // GUARD: Prevent duplicate searches for same values (incluye TIPO).
+        // GUARD: Prevent duplicate searches for same values (incluye TIPO). Si solo cambió el
+        // COLOR se pide igual (el servidor elige la foto de ese color), pero el resultado solo
+        // refresca la foto: no reinicia la opción elegida ni reabre un aviso ignorado.
         const searchKey = `${model}|${year}|${tipo}`;
-        if (searchKey === lastSearchKey) {
+        const soloColor = searchKey === lastSearchKey;
+        if (soloColor && color === lastColor) {
             return;
         }
         lastSearchKey = searchKey;
+        lastColor = color;
 
 
         let url = `${CONFIG.searchUrl}?model=${encodeURIComponent(model)}&year=${encodeURIComponent(year)}`;
         if (tipo) url += `&tipo=${encodeURIComponent(tipo)}`;
+        if (color) url += `&color=${encodeURIComponent(color)}`;
 
         window.apiFetch(url)
             .then(r => r.json())
             .then(res => {
                 if (res.found && res.data.length > 0) {
+                    const mismas = soloColor && matches.length === res.data.length
+                        && res.data.every((d, i) => d.ID_ESPEC === matches[i].ID_ESPEC);
                     matches = res.data;
+                    if (mismas) {
+                        if (widgetVisible()) renderWidget();
+                        return;
+                    }
                     currentIndex = 0;
                     renderWidget();
                 } else {
@@ -208,10 +224,10 @@
         html += '<div class="catalog-flex-container">';
 
         // Photo (Left Column)
-        if (data.FOTO_REFERENCIAL) {
+        if (data.FOTO) {
             html += `
                 <div class="catalog-photo-wrapper">
-                    <img src="${data.FOTO_REFERENCIAL}" style="width: 100%; height: 92px; border-radius: 8px; object-fit: contain; background: #f8fafc; border: 1px solid #e2e8f0;">
+                    <img src="${data.FOTO}" style="width: 100%; height: 92px; border-radius: 8px; object-fit: contain; background: #f8fafc; border: 1px solid #e2e8f0;">
                 </div>`;
         } else {
             // Placeholder if no photo
@@ -281,6 +297,11 @@
         }
     }
 
+    function widgetVisible() {
+        const widget = document.getElementById(CONFIG.widgetId);
+        return !!widget && widget.style.display !== 'none';
+    }
+
     function hideWidget() {
         const widget = document.getElementById(CONFIG.widgetId);
         if (widget) widget.style.display = 'none';
@@ -333,6 +354,7 @@
         currentIndex = 0;
         linkedId = null;
         lastSearchKey = ''; // Critical: Clear cache so identical consecutive searches work
+        lastColor = '';
         const hiddenInput = document.getElementById(CONFIG.hiddenInputId);
         if (hiddenInput) hiddenInput.value = '';
         hideWidget();

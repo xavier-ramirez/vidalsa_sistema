@@ -155,7 +155,7 @@ class FallaController extends Controller
             }
         }
         
-        $equiposLoaded = empty($equipoIds) ? collect() : Equipo::with(['especificaciones', 'documentacion', 'tipo'])->whereIn('ID_EQUIPO', array_unique($equipoIds))->get()->keyBy('ID_EQUIPO');
+        $equiposLoaded = empty($equipoIds) ? collect() : Equipo::with([...Equipo::conFoto('', true), 'documentacion', 'tipo'])->whereIn('ID_EQUIPO', array_unique($equipoIds))->get()->keyBy('ID_EQUIPO');
         $auxiliaresLoaded = empty($auxiliarIds) ? collect() : EquipoAuxiliar::whereIn('ID_AUXILIAR', array_unique($auxiliarIds))->get()->keyBy('ID_AUXILIAR');
 
         // Hidrata activo + frente (un solo query previo para todos los frentes).
@@ -444,14 +444,14 @@ class FallaController extends Controller
 
         // Equipos: busca por serial chasis, serial motor, placa, código patio.
         // NO incluye MARCA en el search (solo en filtros avanzados).
-        $eqs = Equipo::with('especificaciones')
+        $eqs = Equipo::with(Equipo::conFoto('', true))
             ->leftJoin('documentacion AS d',   'equipos.ID_EQUIPO',       '=', 'd.ID_EQUIPO')
             ->leftJoin('tipo_equipos AS te',   'equipos.id_tipo_equipo',  '=', 'te.id')
             ->leftJoin('frentes_trabajo AS ft','equipos.ID_FRENTE_ACTUAL','=', 'ft.ID_FRENTE')
             ->select(
                 'equipos.ID_EQUIPO', 'equipos.CODIGO_PATIO', 'equipos.MARCA',
                 'equipos.MODELO',    'equipos.SERIAL_CHASIS', 'equipos.SERIAL_DE_MOTOR',
-                'equipos.ESTADO_OPERATIVO', 'equipos.FOTO_EQUIPO', 'equipos.ID_ESPEC',
+                'equipos.ESTADO_OPERATIVO', 'equipos.FOTO_EQUIPO', 'equipos.ID_ESPEC', 'equipos.COLOR',
                 'd.PLACA', 'te.nombre AS TIPO_NOMBRE', 'ft.NOMBRE_FRENTE'
             )
             ->where('equipos.ESTADO_OPERATIVO', '!=', 'DESINCORPORADO')
@@ -476,12 +476,8 @@ class FallaController extends Controller
 
         $results = [];
         foreach ($eqs as $e) {
-            // Mismo orden que el resto del sistema (Equipo model accessor + EquipoController):
-            // 1º FOTO_REFERENCIAL del catálogo del modelo → 2º FOTO_EQUIPO propia del equipo
-            $rawFoto = ($e->especificaciones && $e->especificaciones->FOTO_REFERENCIAL)
-                ? $e->especificaciones->FOTO_REFERENCIAL
-                : $e->FOTO_EQUIPO;
-            $foto = $rawFoto ?? '';
+            // La foto de toda la app: Equipo::fotoParaMostrar (color → modelo → propia).
+            $foto = $e->fotoParaMostrar() ?? '';
             if ($foto && !str_starts_with($foto, 'http') && !str_starts_with($foto, '/')) {
                 $foto = '/storage/' . ltrim($foto, '/');
             }

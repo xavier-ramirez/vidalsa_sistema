@@ -150,9 +150,7 @@ class DashboardController extends Controller
                 ? $cat->equipos->first()->MARCA
                 : ($marcasFallback[mb_strtoupper(trim((string) $cat->MODELO))] ?? null);
 
-            // Extraer el Drive file ID del FOTO_REFERENCIAL — mismo parsing
-            // que hace menu.blade.php:897-899.
-            $driveFileId = basename(str_replace('/storage/google/', '', explode('?', $cat->FOTO_REFERENCIAL)[0]));
+            $driveFileId = CaracteristicaModelo::idDrive($cat->FOTO_REFERENCIAL);
             $fotoBase64 = $this->fetchDriveThumbBase64($driveFileId, 'w300');
 
             $payload[] = [
@@ -267,10 +265,10 @@ class DashboardController extends Controller
             'documentacion.seguro',
             'tipo',
             'frenteActual',
-            'especificaciones',
+            ...Equipo::conFoto(),
             'ancladoA.documentacion',
             'ancladoA.tipo',
-            'ancladoA.especificaciones',
+            ...Equipo::conFoto('ancladoA.'),
         ])
         ->withCount('equiposAuxiliares');
 

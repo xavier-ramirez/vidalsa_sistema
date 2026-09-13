@@ -4,7 +4,8 @@
         // (ID_AUXILIAR) — son mutuamente excluyentes. La celda 1 cambia segun
         // cual venga poblado para que ambas se vean en la misma tabla.
         $isAux = !empty($mov->ID_AUXILIAR) && $mov->auxiliar;
-        $equipoFoto = !$isAux ? optional(optional($mov->equipo)->especificaciones)->FOTO_REFERENCIAL : null;
+        // Foto del equipo: Equipo::fotoParaMostrar (color → modelo → propia), la misma de toda la app.
+        $equipoFoto = !$isAux ? $mov->equipo?->fotoParaMostrar() : null;
         $auxFoto    = $isAux ? $mov->auxiliar->FOTO : null;
         $tiposAuxMap = $isAux ? \App\Models\EquipoAuxiliar::tiposLabel() : [];
         $auxTipoLabel = $isAux ? ($tiposAuxMap[$mov->auxiliar->TIPO] ?? $mov->auxiliar->TIPO) : null;

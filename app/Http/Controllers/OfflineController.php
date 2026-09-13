@@ -662,7 +662,7 @@ class OfflineController extends Controller
     private function columnasEquipo(): array
     {
         return [
-            'ID_EQUIPO', 'NUMERO_ETIQUETA', 'CATEGORIA_FLOTA', 'MARCA', 'MODELO', 'ANIO',
+            'ID_EQUIPO', 'NUMERO_ETIQUETA', 'CATEGORIA_FLOTA', 'MARCA', 'MODELO', 'ANIO', 'COLOR',
             'ESTADO_OPERATIVO', 'DETALLE_UBICACION_ACTUAL', 'SERIAL_CHASIS', 'SERIAL_DE_MOTOR',
             'CODIGO_PATIO', 'ID_FRENTE_ACTUAL', 'id_tipo_equipo', 'ID_ESPEC',
             'CONFIRMADO_EN_SITIO',
@@ -679,6 +679,10 @@ class OfflineController extends Controller
             'marca' => MojibakeFix::fix($e->MARCA),
             'modelo' => MojibakeFix::fix($e->MODELO),
             'anio' => $e->ANIO,
+            // Color ya normalizado y el tono de su muestra: la fila offline lo pinta igual que
+            // partials/table_rows (CatalogoColor es la única fuente de los dos).
+            'color' => \App\Models\CatalogoColor::normalizar($e->COLOR),
+            'color_muestra' => \App\Models\CatalogoColor::muestra($e->COLOR),
             'serial_chasis' => MojibakeFix::fix($e->SERIAL_CHASIS),
             'serial_motor' => MojibakeFix::fix($e->SERIAL_DE_MOTOR),
             'placa' => MojibakeFix::fix($e->documentacion?->PLACA),

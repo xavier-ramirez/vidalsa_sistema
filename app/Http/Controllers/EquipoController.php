@@ -58,8 +58,9 @@ class EquipoController extends Controller
         // (cambio de estatus inline, desacoplado de la edicion general).
         $this->middleware('can:user.edit')->only(['edit', 'update']);
         $this->middleware('can:equipos.edit')->only(['changeStatus', 'confirmarSitio']);
-        // Borrar un equipo es destructivo irreversible: solo super.admin.
-        $this->middleware('can:super.admin')->only(['destroy']);
+        // Borrar un equipo es destructivo irreversible: solo super.admin. vincularFicha
+        // (doble clic en la foto → elegir su ficha del catálogo) también es solo suyo.
+        $this->middleware('can:super.admin')->only(['destroy', 'vincularFicha']);
         // uploadDoc/updateMetadata: permission 'user.edit' (chequeo dentro de cada metodo).
         // deleteDoc (borrado destructivo de PDF + Drive): solo super.admin, gateado en routes/web.php.
     }
@@ -512,7 +513,8 @@ class EquipoController extends Controller
             ->leftJoin('tipo_equipos', 'equipos.id_tipo_equipo', '=', 'tipo_equipos.id')
             ->with([
                 'documentacion.seguro',
-                'especificaciones:ID_ESPEC,FOTO_REFERENCIAL',
+                // Foto de la fila (Equipo::fotoParaMostrar): ficha del modelo + sus colores.
+                ...Equipo::conFoto(),
                 'tipo',
                 'frenteActual',
                 // Reporte abierto: permite abrir el modal de cierre al instante al
@@ -521,9 +523,8 @@ class EquipoController extends Controller
                 'ancladoA.tipo',
                 'ancladoA.documentacion',
                 'ancladoA.frenteActual',
-                // Especificaciones del equipo anclado para obtener FOTO_REFERENCIAL
-                // que se muestra en la seccion "Equipo Anclado" del modal de detalles.
-                'ancladoA.especificaciones:ID_ESPEC,FOTO_REFERENCIAL',
+                // Foto del equipo anclado (seccion "Equipo Anclado" del modal de detalles).
+                ...Equipo::conFoto('ancladoA.'),
             ])
             ->withCount('equiposAuxiliares')
             ->orderBy('tipo_equipos.nombre', 'asc')
@@ -1864,8 +1865,9 @@ class EquipoController extends Controller
                                 $equipo->update(['FOTO_EQUIPO' => $publicUrl]);
                             } elseif ($type === 'foto_referencial' && $equipo->ID_ESPEC) {
                                 $espec = CaracteristicaModelo::find($equipo->ID_ESPEC);
+                                // Del color de la unidad si lo tiene; si no, la del modelo.
                                 if ($espec)
-                                    $espec->update(['FOTO_REFERENCIAL' => $publicUrl]);
+                                    $espec->guardarFoto($publicUrl, $equipo->COLOR);
                             } elseif (in_array($type, ['doc_propiedad', 'poliza_seguro', 'doc_rotc', 'doc_racda'])) {
                                 $colMap = [
                                     'doc_propiedad' => 'LINK_DOC_PROPIEDAD',
@@ -2016,6 +2018,34 @@ class EquipoController extends Controller
 
         $categorias = ['FLOTA LIVIANA', 'FLOTA PESADA'];
         return view('admin.equipos.edit', compact('equipo', 'frentes', 'seguros', 'categorias', 'tipos_equipo', 'marcas', 'modelos', 'aniosList', 'modelosList', 'returnUrl'));
+    }
+
+    /**
+     * Vincula el equipo a una ficha del catálogo (su ID_ESPEC): desde ahí toma la foto de
+     * su color o la del modelo (Equipo::fotoParaMostrar). Lo usa el doble clic en la foto
+     * de /admin/equipos, cuando la unidad no encontró sola su ficha (otro modelo escrito,
+     * otro año, varias fichas). Solo super.admin (constructor). EquipoObserver deja el
+     * cambio en la auditoría y refresca la copia offline y el dashboard.
+     */
+    public function vincularFicha(Request $request, $id)
+    {
+        $data = $request->validate([
+            'ID_ESPEC' => 'required|integer|exists:caracteristicas_modelo,ID_ESPEC',
+        ]);
+        $equipo = $this->findAndAuthorizeEquipo($id);
+        $equipo->ID_ESPEC = (int) $data['ID_ESPEC'];
+        $equipo->save();
+
+        $equipo->load(Equipo::conFoto());
+        $ficha = CaracteristicaModelo::find($equipo->ID_ESPEC, ['MODELO', 'ANIO_ESPEC']);
+        $idFoto = $equipo->fotoDriveId();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Equipo vinculado a la ficha ' . trim($ficha->MODELO . ' ' . $ficha->ANIO_ESPEC) . '.',
+            'id_espec' => $equipo->ID_ESPEC,
+            'foto'    => $idFoto ? url('/storage/google/' . $idFoto . '?sz=w300') : null,
+        ]);
     }
 
     public function update(Request $request, $id)
@@ -2184,7 +2214,8 @@ class EquipoController extends Controller
                         $filename = 'catalog_ref_' . time() . '.' . $file->getClientOriginalExtension();
                         $driveFile = $drive()->uploadFile($catalogFolderId, $file, $filename, $file->getMimeType());
                         if ($driveFile && isset($driveFile->id)) {
-                            $espec->update(['FOTO_REFERENCIAL' => '/storage/google/' . $driveFile->id]);
+                            // Del color de la unidad si lo tiene; si no, la del modelo.
+                            $espec->guardarFoto('/storage/google/' . $driveFile->id, $equipo->COLOR);
                         }
                     }
                 }
@@ -2359,7 +2390,7 @@ class EquipoController extends Controller
                 'tipo:id,nombre',
                 'documentacion:ID_EQUIPO,PLACA',
                 'frenteActual:ID_FRENTE,NOMBRE_FRENTE',
-                'especificaciones:ID_ESPEC,FOTO_REFERENCIAL',
+                ...Equipo::conFoto(),
             ])
             ->orderByDesc('deleted_at')
             ->get();
@@ -2372,14 +2403,9 @@ class EquipoController extends Controller
             : [];
 
         $rows = $items->map(function ($e) use ($usuarios) {
-            // Foto: prioriza FOTO_REFERENCIAL del catalogo, cae a FOTO_EQUIPO.
-            // Devolvemos el drive ID extraido para que el front use el
-            // thumbnail publico (https://drive.google.com/thumbnail?id=...) en
-            // lugar del proxy local — mismo patron que el listado principal.
-            $fotoSrc = ($e->especificaciones && $e->especificaciones->FOTO_REFERENCIAL)
-                ? $e->especificaciones->FOTO_REFERENCIAL
-                : $e->FOTO_EQUIPO;
-            $fotoDriveId = $fotoSrc ? basename(str_replace('/storage/google/', '', explode('?', $fotoSrc)[0])) : null;
+            // Foto: la de Equipo::fotoParaMostrar (color → modelo → propia). Se devuelve el
+            // drive ID para que el front use la miniatura, mismo patrón que el listado principal.
+            $fotoDriveId = $e->fotoDriveId();
 
             return [
                 'id'             => $e->ID_EQUIPO,
@@ -3494,6 +3520,9 @@ class EquipoController extends Controller
         $model = strtoupper(trim($request->input('model', '')));
         $year = trim($request->input('year', ''));
         $tipo = strtoupper(trim($request->input('tipo', '')));
+        // Color escrito en el formulario: la foto de la sugerencia es la de ese color si la
+        // ficha la tiene (la misma regla que Equipo::fotoParaMostrar), si no la del modelo.
+        $color = \App\Models\CatalogoColor::normalizar($request->input('color'));
 
         if (!$model || !$year) {
             return response()->json(['found' => false]);
@@ -3527,6 +3556,7 @@ class EquipoController extends Controller
                 'TIPO_BATERIA',
                 'FOTO_REFERENCIAL'
             ])
+            ->with('colores:ID_COLOR,ID_ESPEC,COLOR,FOTO')
             ->get();
 
         if ($catalogEntries->isEmpty()) {
@@ -3535,7 +3565,9 @@ class EquipoController extends Controller
 
         return response()->json([
             'found' => true,
-            'data' => $catalogEntries->map(function ($entry) {
+            'data' => $catalogEntries->map(function ($entry) use ($color) {
+                $foto = ($color ? $entry->colores->firstWhere('COLOR', $color)?->FOTO : null) ?: $entry->FOTO_REFERENCIAL;
+                $idFoto = CaracteristicaModelo::idDrive($foto);
                 return [
                     'ID_ESPEC' => $entry->ID_ESPEC,
                     'MODELO' => $entry->MODELO,
@@ -3547,7 +3579,8 @@ class EquipoController extends Controller
                     'LIGA_FRENO' => $entry->LIGA_FRENO,
                     'REFRIGERANTE' => $entry->REFRIGERANTE,
                     'TIPO_BATERIA' => $entry->TIPO_BATERIA,
-                    'FOTO_REFERENCIAL' => $entry->FOTO_REFERENCIAL ? asset($entry->FOTO_REFERENCIAL) : null,
+                    // Miniatura: el recuadro de la sugerencia mide ~110 px.
+                    'FOTO' => $idFoto ? url('/storage/google/' . $idFoto . '?sz=w300') : null,
                 ];
             })->toArray()
         ]);
@@ -4093,18 +4126,18 @@ class EquipoController extends Controller
                 }
             })
             ->when($request->exclude_ids, fn($q) => $q->whereNotIn('ID_EQUIPO', $request->exclude_ids))
-            // Columnas acotadas en cada relación: solo se usan FOTO_REFERENCIAL, PLACA,
+            // Columnas acotadas en cada relación: solo se usan la foto (conFoto), PLACA,
             // nombre y NOMBRE_FRENTE. Cargar la fila completa de especificaciones/
             // documentacion (tablas anchas) hidrataba decenas de columnas inútiles por
             // equipo. Se incluyen las llaves (ID_ESPEC / ID_EQUIPO / id / ID_FRENTE) para
             // que Eloquent pueda emparejar cada relación.
             ->with([
-                'especificaciones:ID_ESPEC,FOTO_REFERENCIAL',
+                ...Equipo::conFoto(),
                 'documentacion:ID_EQUIPO,PLACA',
                 'tipo:id,nombre',
                 'frenteActual:ID_FRENTE,NOMBRE_FRENTE',
             ])
-            ->select('ID_EQUIPO', 'CODIGO_PATIO', 'MARCA', 'MODELO', 'ID_ESPEC', 'FOTO_EQUIPO', 'SERIAL_CHASIS', 'id_tipo_equipo', 'ID_FRENTE_ACTUAL');
+            ->select('ID_EQUIPO', 'CODIGO_PATIO', 'MARCA', 'MODELO', 'COLOR', 'ID_ESPEC', 'FOTO_EQUIPO', 'SERIAL_CHASIS', 'id_tipo_equipo', 'ID_FRENTE_ACTUAL');
 
         if ($search !== '') {
             // Modo búsqueda global: busca en TODA la flota (excluye ESPECIAL: no son flota propia).
@@ -4143,7 +4176,7 @@ class EquipoController extends Controller
                 'PLACA'               => $eq->documentacion->PLACA ?? null,
                 'MARCA'               => $eq->MARCA,
                 'MODELO'              => $eq->MODELO,
-                'FOTO'                => $eq->especificaciones->FOTO_REFERENCIAL ?? $eq->FOTO_EQUIPO,
+                'FOTO'                => $eq->fotoParaMostrar(),
                 'FRENTE_NOMBRE'       => $frenteNombre,
                 'ES_FRENTE_DISTINTO'  => $esDeFrenteDistinto,
             ];
@@ -4578,8 +4611,8 @@ class EquipoController extends Controller
         // documentacion, tipo) porque el map de abajo las accede; sin esto cada par
         // anclado dispara ~3 queries lazy (N+1). Espeja lo que hace exportAnclajes.
         $query = Equipo::with([
-            'ancladoA', 'ancladoA.especificaciones', 'ancladoA.documentacion', 'ancladoA.tipo',
-            'tipo', 'especificaciones', 'documentacion',
+            'ancladoA', ...Equipo::conFoto('ancladoA.', true), 'ancladoA.documentacion', 'ancladoA.tipo',
+            'tipo', ...Equipo::conFoto('', true), 'documentacion',
         ])->whereNotNull('ID_ANCLAJE');
 
         if ($frenteId && $frenteId !== 'all') {
@@ -4602,8 +4635,8 @@ class EquipoController extends Controller
             // Get mutual pair to avoid duplicates, we can just return all since we'll group them in JS, or we can format it here.
             // A mutual pair means Eq A is anchored to Eq B. In this system Eq A has ID_ANCLAJE = B.ID, and Eq B has ID_ANCLAJE = A.ID
             // Let's standardise so we only return one pair, where master is the one with smaller ID_EQUIPO, just for uniqueness if mutual.
-            $mainImg = $eq->especificaciones->FOTO_REFERENCIAL ?? $eq->FOTO_EQUIPO;
-            $anchImg = $eq->ancladoA ? ($eq->ancladoA->especificaciones->FOTO_REFERENCIAL ?? $eq->ancladoA->FOTO_EQUIPO) : null;
+            $mainImg = $eq->fotoParaMostrar();
+            $anchImg = $eq->ancladoA?->fotoParaMostrar();
 
             return [
                 'ID_A' => $eq->ID_EQUIPO,
@@ -4657,7 +4690,7 @@ class EquipoController extends Controller
         $auxQuery = \App\Models\EquipoAuxiliar::with([
             'equipoHost.documentacion',
             'equipoHost.tipo',
-            'equipoHost.especificaciones',
+            ...Equipo::conFoto('equipoHost.'),
             'equipoHost.frenteActual',
         ])->whereNotNull('ID_EQUIPO_HOST');
 
@@ -4678,12 +4711,7 @@ class EquipoController extends Controller
         foreach ($byHost as $hostId => $auxes) {
             $host = $auxes->first()->equipoHost;
             if (!$host) continue;
-            $hostFoto = null;
-            if ($host->especificaciones && $host->especificaciones->FOTO_REFERENCIAL) {
-                $hostFoto = asset($host->especificaciones->FOTO_REFERENCIAL);
-            } elseif ($host->FOTO_EQUIPO) {
-                $hostFoto = asset($host->FOTO_EQUIPO);
-            }
+            $hostFoto = $host->foto;   // Equipo::fotoParaMostrar, como los pares de arriba
             $auxAnchorages[] = [
                 'host' => [
                     'id'          => $host->ID_EQUIPO,
@@ -5251,7 +5279,7 @@ class EquipoController extends Controller
     {
         $search = $request->input('search');
 
-        $query = Equipo::with(['tipo', 'frenteActual', 'documentacion', 'especificaciones'])
+        $query = Equipo::with(['tipo', 'frenteActual', 'documentacion', ...Equipo::conFoto()])
             ->excludeEspecial();
 
         if ($search) {
@@ -5277,15 +5305,11 @@ class EquipoController extends Controller
         $equipos = $query->orderBy('CODIGO_PATIO')->get();
 
         return response()->json($equipos->map(function ($eq) {
-            // Foto: prioriza FOTO_REFERENCIAL del catalogo (Google Drive ID),
-            // cae a FOTO_EQUIPO (URL directa). Misma logica que el listado web
-            // y la papelera (EquipoController::papelera). Si es un drive ID se
-            // convierte al thumbnail publico para que el <Image> de RN lo
-            // descargue directo sin proxy.
+            // Foto: Equipo::fotoParaMostrar (color → modelo → propia), la misma del
+            // listado web. Si es un drive ID se convierte al thumbnail publico para que
+            // el <Image> de RN lo descargue directo sin proxy.
             $foto = null;
-            $raw = ($eq->especificaciones && $eq->especificaciones->FOTO_REFERENCIAL)
-                ? $eq->especificaciones->FOTO_REFERENCIAL
-                : $eq->FOTO_EQUIPO;
+            $raw = $eq->fotoParaMostrar();
             if ($raw) {
                 // Extraer drive id si viene como URL completa
                 if (preg_match('#(?:/d/|id=)([\w-]{20,})#', $raw, $m)) {

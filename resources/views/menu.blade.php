@@ -1143,9 +1143,7 @@
                     <div class="cat-mini-grid">
                         @foreach($catalogosDestacados as $catalogo)
                             @php
-                                $driveFileId = $catalogo->FOTO_REFERENCIAL
-                                    ? basename(str_replace('/storage/google/', '', explode('?', $catalogo->FOTO_REFERENCIAL)[0]))
-                                    : null;
+                                $driveFileId = \App\Models\CaracteristicaModelo::idDrive($catalogo->FOTO_REFERENCIAL);
                             @endphp
                             <a class="cat-mini-card" href="{{ route('catalogo.index') }}"
                                style="text-decoration:none; color:inherit;" title="Ver el catálogo de equipos">

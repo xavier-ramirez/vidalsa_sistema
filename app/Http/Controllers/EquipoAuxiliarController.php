@@ -149,7 +149,7 @@ class EquipoAuxiliarController extends Controller
             'frente',
             'equipoHost.documentacion',
             'equipoHost.tipo',
-            'equipoHost.especificaciones',
+            ...Equipo::conFoto('equipoHost.', true),
             'equipoHost.frenteActual',
             'creador',
         ]);
@@ -687,7 +687,7 @@ class EquipoAuxiliarController extends Controller
             'frente',
             'equipoHost.documentacion',
             'equipoHost.tipo',
-            'equipoHost.especificaciones',
+            ...Equipo::conFoto('equipoHost.', true),
             'equipoHost.frenteActual',
             'creador',
         ]);
@@ -934,7 +934,7 @@ class EquipoAuxiliarController extends Controller
             'equipoHost.documentacion',
             'equipoHost.tipo',
             'equipoHost.frenteActual',
-            'equipoHost.especificaciones',
+            ...Equipo::conFoto('equipoHost.', true),
         ])->whereNotNull('ID_EQUIPO_HOST');
 
         $this->scopeFrentes($query, 'ID_FRENTE_ACTUAL');
@@ -955,11 +955,7 @@ class EquipoAuxiliarController extends Controller
             $host = $a->equipoHost;
             $hostFoto = null;
             if ($host) {
-                if ($host->especificaciones && $host->especificaciones->FOTO_REFERENCIAL) {
-                    $hostFoto = asset($host->especificaciones->FOTO_REFERENCIAL);
-                } elseif ($host->FOTO_EQUIPO) {
-                    $hostFoto = asset($host->FOTO_EQUIPO);
-                }
+                $hostFoto = $host->foto;   // Equipo::fotoParaMostrar (color → modelo → propia)
             }
             return [
                 'id'             => $a->ID_AUXILIAR,
@@ -1357,11 +1353,7 @@ class EquipoAuxiliarController extends Controller
     {
         $hostFoto = null;
         if ($aux->equipoHost) {
-            if ($aux->equipoHost->especificaciones && $aux->equipoHost->especificaciones->FOTO_REFERENCIAL) {
-                $hostFoto = asset($aux->equipoHost->especificaciones->FOTO_REFERENCIAL);
-            } elseif ($aux->equipoHost->FOTO_EQUIPO) {
-                $hostFoto = asset($aux->equipoHost->FOTO_EQUIPO);
-            }
+            $hostFoto = $aux->equipoHost->foto;   // Equipo::fotoParaMostrar
         }
         return [
             'id'             => $aux->ID_AUXILIAR,
@@ -1426,7 +1418,7 @@ class EquipoAuxiliarController extends Controller
             'frente',
             'equipoHost.documentacion',
             'equipoHost.tipo',
-            'equipoHost.especificaciones',
+            ...Equipo::conFoto('equipoHost.', true),
             'equipoHost.frenteActual',
             'creador',
         ])->findOrFail($id);
@@ -2059,7 +2051,7 @@ class EquipoAuxiliarController extends Controller
 
         // Busqueda ampliada: serial chasis, serial motor, placa (docum.),
         // codigo patio, marca y modelo. Join con documentacion para PLACA.
-        $hostQuery = Equipo::with('documentacion', 'tipo', 'equiposAuxiliares', 'especificaciones', 'frenteActual')
+        $hostQuery = Equipo::with(['documentacion', 'tipo', 'equiposAuxiliares', ...Equipo::conFoto('', true), 'frenteActual'])
             ->leftJoin('documentacion as doc_host', 'equipos.ID_EQUIPO', '=', 'doc_host.ID_EQUIPO')
             ->select('equipos.*');
         $this->scopeFrentes($hostQuery, 'equipos.ID_FRENTE_ACTUAL');
@@ -2086,14 +2078,8 @@ class EquipoAuxiliarController extends Controller
             ->limit($recommend ? 30 : 20)
             ->get()
             ->map(function ($e) {
-                // Foto: prioriza la del catalogo del modelo (FOTO_REFERENCIAL),
-                // cae a la propia del equipo (FOTO_EQUIPO).
-                $foto = null;
-                if ($e->especificaciones && $e->especificaciones->FOTO_REFERENCIAL) {
-                    $foto = asset($e->especificaciones->FOTO_REFERENCIAL);
-                } elseif ($e->FOTO_EQUIPO) {
-                    $foto = asset($e->FOTO_EQUIPO);
-                }
+                // Foto: Equipo::fotoParaMostrar (color → modelo → propia).
+                $foto = $e->foto;
                 return [
                     'id'             => $e->ID_EQUIPO,
                     'codigo'         => $e->CODIGO_PATIO,

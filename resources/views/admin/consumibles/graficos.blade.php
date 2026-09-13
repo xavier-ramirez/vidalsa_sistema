@@ -1028,7 +1028,8 @@
 
             box.innerHTML = `<div class="eq-grid">${datos.map(d => {
                 const placa = (d.PLACA && d.PLACA !== 'S/P' && d.PLACA !== '') ? d.PLACA : d.SERIAL_CHASIS;
-                const fotoRow = d.FOTO_REFERENCIAL || d.FOTO_EQUIPO;
+                // Ya viene resuelta del servidor (Equipo::fotoParaMostrar).
+                const fotoRow = d.FOTO;
                 let fotoHtml = '';
                 if (fotoRow) {
                     const driveId = fotoRow.replace(/^.*\/storage\/google\//, '').split('?')[0];

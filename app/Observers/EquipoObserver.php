@@ -81,8 +81,9 @@ class EquipoObserver
         // usuario con la versión en la clave: este bump lo refresca para TODOS.
         // Solo si cambió una columna que el dashboard realmente pinta — sin este
         // gate, cualquier edición menor (horómetro, observaciones) mataría la
-        // caché de todos los usuarios y el TTL de 10 min nunca sobreviviría.
-        if ($equipo->wasChanged(['ESTADO_OPERATIVO', 'ID_FRENTE_ACTUAL', 'MODELO', 'MARCA', 'ID_ANCLAJE'])) {
+        // caché de todos los usuarios y el TTL de 10 min nunca sobreviviría. ID_ESPEC y COLOR
+        // deciden la foto (Equipo::fotoParaMostrar) que el dashboard pinta de cada equipo.
+        if ($equipo->wasChanged(['ESTADO_OPERATIVO', 'ID_FRENTE_ACTUAL', 'MODELO', 'MARCA', 'ID_ANCLAJE', 'ID_ESPEC', 'COLOR'])) {
             \App\Http\Controllers\DashboardController::bumpDataVersion();
         }
 

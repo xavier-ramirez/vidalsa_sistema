@@ -154,6 +154,8 @@ Route::middleware(['auth'])->group(function () {
             Route::patch('equipos/{id}/status', [App\Http\Controllers\EquipoController::class, 'changeStatus'])->name('equipos.changeStatus');
             // Confirmar presencia física del equipo en su frente (CONFIRMADO_EN_SITIO).
             Route::patch('equipos/{id}/confirmar-sitio', [App\Http\Controllers\EquipoController::class, 'confirmarSitio'])->name('equipos.confirmarSitio');
+            // Doble clic en la foto (super.admin): vincular el equipo a una ficha del catálogo.
+            Route::post('equipos/{id}/vincular-ficha', [App\Http\Controllers\EquipoController::class, 'vincularFicha'])->name('equipos.vincularFicha');
             Route::post('equipos/{id}/upload-doc', [App\Http\Controllers\EquipoController::class, 'uploadDoc'])->name('equipos.uploadDoc');
             // Correcciones ANEXAS a un documento: no sustituyen al principal, conviven
             // con el. anexar-doc solo AÑADE archivos a Drive; no borra ninguno.
@@ -242,8 +244,14 @@ Route::middleware(['auth'])->group(function () {
 
             // Subida de foto desde la tarjeta del catálogo (sin abrir el form de edición).
             // ANTES del resource para que su wildcard {catalogo} no capture esta ruta.
+            // Con `color` la foto es la de ese color del modelo (catalogo_colores); sin él, la del modelo.
             Route::post('catalogo/{id}/photo', [App\Http\Controllers\CaracteristicaModeloController::class, 'uploadFoto'])->name('catalogo.uploadFoto');
             Route::delete('catalogo/{id}/photo', [App\Http\Controllers\CaracteristicaModeloController::class, 'deleteFoto'])->middleware('can:super.admin')->name('catalogo.deleteFoto');
+            // Ficha de un modelo que solo tenía equipos sin ficha: la crea (o encuentra la que
+            // ya hay) y le enlaza sus unidades. La usa la tarjeta "sin ficha" del catálogo.
+            Route::post('catalogo/asegurar-ficha', [App\Http\Controllers\CaracteristicaModeloController::class, 'asegurarFicha'])->name('catalogo.asegurarFicha');
+            // Fichas para el modal "Vincular a una ficha" de /admin/equipos (JSON).
+            Route::get('catalogo/elegir', [App\Http\Controllers\CaracteristicaModeloController::class, 'elegir'])->name('catalogo.elegir');
             // SIN 'show': el controlador no tiene ese metodo, asi que la ruta que generaba
             // el resource devolvia un 500 ("Method ...::show does not exist") a quien entrara
             // a /admin/catalogo/{id}. No hay pantalla de detalle ni nada que enlace ahi: la

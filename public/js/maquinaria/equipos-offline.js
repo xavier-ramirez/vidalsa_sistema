@@ -16,7 +16,7 @@
  *     semántica del backend: marca/modelo/año/categoría/ubicación son IGUALDAD exacta
  *     (no "contiene"), la búsqueda mira serial/motor/código/etiqueta/placa (con las
  *     variantes O↔0) y '#123' busca por nº de etiqueta.
- *   · Los ejes que NO viajan en el snapshot (GPS, color, documentos) no se pueden
+ *   · Los ejes que NO viajan en el snapshot (GPS, documentos) no se pueden
  *     aplicar: en vez de devolver un listado más grande en silencio, se avisa.
  *
  * Fase 2 (escritura sin internet): el chip de estado es clickeable (encola un cambio
@@ -118,13 +118,12 @@
         return f.tipo.indexOf('tipo_aux:') === 0 || up(f.categoria) === 'AUXILIARES';
     }
 
-    // Ejes que el snapshot no trae (LINK_GPS, COLOR y los LINK_* de documentos). Se avisan
+    // Ejes que el snapshot no trae (LINK_GPS y los LINK_* de documentos). Se avisan
     // en vez de ignorarlos calladamente: si no, el listado offline saldría MÁS grande que
     // el online y parecería que el filtro "no hace nada".
     function ejesNoSoportados(f) {
         const faltan = [];
         if (f.gps) faltan.push('GPS');
-        if (f.color) faltan.push('color');
         if (f.docs.length) faltan.push('documentos');
         if (window.__equiposDocPresence && window.__equiposDocPresence !== 'con') faltan.push('documentos');
         return faltan.filter(function (x, i, a) { return a.indexOf(x) === i; });
@@ -183,6 +182,7 @@
         if (f.anio && String(e.anio == null ? '' : e.anio) !== f.anio) return false;
         if (!igual(e.categoria, f.categoria)) return false;
         if (!igual(e.estado, f.estado)) return false;
+        if (!igual(e.color, f.color)) return false;
 
         const conf = up(f.confirmado);
         if (conf === 'SI' && Number(e.confirmado) !== 1) return false;
@@ -402,7 +402,11 @@
         const categoria = e.categoria
             ? '<div class="eq-hide-mobile eq-sub">' + esc(e.categoria) + '</div>' : '';
         const modelo = e.modelo ? '<span class="eq-modelo">' + esc(e.modelo) + '</span>' : '';
-        const anio = e.anio ? '<div class="eq-hide-mobile eq-anio">Año: ' + esc(e.anio) + '</div>' : '';
+        // Año y color, igual que la tabla online (partials/table_rows).
+        const color = e.color
+            ? '<span class="eq-color">' + (e.anio ? '· ' : '') + '<span class="eq-color-muestra" style="background:' + esc(e.color_muestra || '#94a3b8') + ';"></span>' + esc(e.color) + '</span>'
+            : '';
+        const anio = (e.anio || e.color) ? '<div class="eq-hide-mobile eq-anio">' + (e.anio ? 'Año: ' + esc(e.anio) + ' ' : '') + color + '</div>' : '';
         const motor = e.serial_motor ? '<div class="eq-ser-linea eq-ser-sep"><strong class="eq-lbl">M:</strong> <span class="eq-val">' + esc(e.serial_motor) + '</span></div>' : '';
         const placa = e.placa
             ? '<div class="eq-ser-corta eq-ser-sep"><strong class="eq-lbl">P:</strong> <span class="eq-val-placa">' + esc(e.placa) + '</span></div>'

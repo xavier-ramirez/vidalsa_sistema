@@ -60,20 +60,71 @@ class Equipo extends Model
     ];
 
     /**
-     * Get the best available photo for the equipment.
-     * Prioritizes the specific unit photo, falls back to the model catalog photo.
+     * Relaciones que necesita fotoParaMostrar(). Quien liste equipos con foto las pide con
+     * with(Equipo::conFoto()) —o conFoto('equipo.') cuando llega a través de otra relación—
+     * y no arma las suyas: así nadie se olvida de los colores y la foto sale igual en la
+     * tabla, la papelera, los auxiliares, las fallas o las movilizaciones. Del equipo hacen
+     * falta COLOR, ID_ESPEC y FOTO_EQUIPO (ojo con los select() acotados).
+     * $fichaCompleta trae la ficha entera, para quien usa además otros datos de ella.
      */
-    public function getFotoAttribute()
+    public static function conFoto(string $via = '', bool $fichaCompleta = false): array
     {
-        // Prioritize model catalog photo (requested look)
-        if ($this->especificaciones && $this->especificaciones->FOTO_REFERENCIAL) {
-            return asset($this->especificaciones->FOTO_REFERENCIAL);
+        return [
+            $via . 'especificaciones' . ($fichaCompleta ? '' : ':ID_ESPEC,FOTO_REFERENCIAL'),
+            $via . 'especificaciones.colores:ID_COLOR,ID_ESPEC,COLOR,FOTO',
+        ];
+    }
+
+    /**
+     * La foto que se muestra de este equipo — punto ÚNICO de esa decisión:
+     *   1. La del COLOR de la unidad en su modelo del catálogo (la pick-up roja, roja).
+     *   2. La del modelo en el catálogo (FOTO_REFERENCIAL), igual para todas sus unidades.
+     *   3. La foto propia de la unidad (FOTO_EQUIPO).
+     * El modelo va antes que la foto propia a propósito: son fotos de referencia limpias y
+     * la tabla se ve pareja (así era antes de los colores).
+     *
+     * Devuelve la ruta tal como se guarda (/storage/google/{id}?…) o null.
+     */
+    public function fotoParaMostrar(): ?string
+    {
+        $ficha = $this->especificaciones;
+        if ($ficha) {
+            $color = CatalogoColor::normalizar($this->COLOR);
+            if ($color !== null) {
+                $foto = $ficha->colores->first(fn ($c) => $c->COLOR === $color)?->FOTO;
+                if ($foto) {
+                    return $foto;
+                }
+            }
+            if ($ficha->FOTO_REFERENCIAL) {
+                return $ficha->FOTO_REFERENCIAL;
+            }
         }
 
-        // Fallback to specific unit photo
-        if ($this->FOTO_EQUIPO) return asset($this->FOTO_EQUIPO);
-        
-        return null;
+        return $this->FOTO_EQUIPO ?: null;
+    }
+
+    /** ID del archivo de Google Drive de fotoParaMostrar() (para las miniaturas), o null. */
+    public function fotoDriveId(): ?string
+    {
+        return CaracteristicaModelo::idDrive($this->fotoParaMostrar());
+    }
+
+    /** $equipo->foto: URL absoluta de fotoParaMostrar(), para las respuestas JSON. */
+    public function getFotoAttribute()
+    {
+        $foto = $this->fotoParaMostrar();
+        return $foto ? asset($foto) : null;
+    }
+
+    /**
+     * El color se guarda normalizado (CatalogoColor::normalizar: "roja " → ROJO), venga del
+     * formulario, de la importación o de donde sea. Así el filtro Color de la tabla (igualdad
+     * en SQL), su lista, la copia offline y la foto del color hablan del mismo valor.
+     */
+    public function setCOLORAttribute($valor): void
+    {
+        $this->attributes['COLOR'] = CatalogoColor::normalizar($valor);
     }
 
     public function tipo()
@@ -193,14 +244,12 @@ class Equipo extends Model
      * listado de /admin/equipos Y el panel de Alertas de /menu, para que el modal
      * muestre EXACTAMENTE los mismos campos sin importar desde dónde se abra (antes el
      * mapeo vivía inline en EquipoController y /menu quedaba con campos en "N/A").
-     * Relaciones esperadas (eager-load para evitar N+1): tipo, frenteActual,
-     * especificaciones, documentacion.seguro, ancladoA.(documentacion,tipo,especificaciones).
+     * Relaciones esperadas (eager-load para evitar N+1): tipo, frenteActual, conFoto(),
+     * documentacion.seguro, ancladoA.(documentacion,tipo) y conFoto('ancladoA.').
      */
     public function toDetailsPayload(): array
     {
-        $foto = ($this->especificaciones && $this->especificaciones->FOTO_REFERENCIAL)
-                ? $this->especificaciones->FOTO_REFERENCIAL
-                : $this->FOTO_EQUIPO;
+        $foto = $this->fotoParaMostrar();
 
         return [
             'equipoId'        => $this->ID_EQUIPO,
@@ -255,11 +304,7 @@ class Equipo extends Model
             'anchorPlaca'     => optional(optional($this->ancladoA)->documentacion)->PLACA ?? '',
             'anchorSerial'    => optional($this->ancladoA)->SERIAL_CHASIS ?? '',
             'anchorMarca'     => optional($this->ancladoA)->MARCA ?? '',
-            'anchorFoto'      => $this->ancladoA
-                ? (optional(optional($this->ancladoA)->especificaciones)->FOTO_REFERENCIAL
-                    ?? $this->ancladoA->FOTO_EQUIPO
-                    ?? '')
-                : '',
+            'anchorFoto'      => $this->ancladoA?->fotoParaMostrar() ?? '',
             'subCount'        => $this->equipos_auxiliares_count ?? 0,
             'detalleUbicacion'=> $this->DETALLE_UBICACION_ACTUAL ?? '',
         ];

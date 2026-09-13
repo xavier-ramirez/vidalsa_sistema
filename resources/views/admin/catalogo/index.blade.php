@@ -11,9 +11,12 @@
         gap: 10px;
         margin-top: 6px;
     }
+    /* Borde marcado + sombra leve: sobre el panel blanco, el gris claro de antes casi no
+       separaba una tarjeta de otra. */
     .cat-card {
         background: white;
-        border: 1px solid #e2e8f0;
+        border: 1.5px solid #cbd5e1;
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
         border-radius: 12px;
         overflow: hidden;
         display: flex;
@@ -22,6 +25,7 @@
         position: relative;
     }
     .cat-card:hover {
+        border-color: #94a3b8;
         transform: translateY(-2px);
         box-shadow: 0 8px 18px -6px rgba(15, 23, 42, 0.12);
     }
@@ -79,6 +83,7 @@
         text-decoration: none;
         z-index: 3;
     }
+    .cat-action-btn[hidden] { display: none; }   /* el display:flex de arriba le ganaba a hidden */
     .cat-action-btn:hover { transform: scale(1.05); }
     .cat-action-btn .material-icons { font-size: 14px; }
     .cat-action-btn.edit  { color: #0067b1; bottom: 6px; right: 38px; }
@@ -192,6 +197,40 @@
         text-overflow: ellipsis;
         max-width: 100%;
     }
+    /* Colores del modelo: un chip por color (muestra + nombre + unidades). El activo es el
+       que se ve en la foto y al que se aplican "Cambiar foto" y borrar. */
+    .cat-colores { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px; }
+    .cat-color {
+        display: inline-flex; align-items: center; gap: 4px;
+        padding: 2px 7px; border-radius: 999px;
+        border: 1px solid #e2e8f0; background: #f8fafc;
+        font-size: 10px; font-weight: 700; color: #334155; text-transform: uppercase;
+        cursor: pointer; line-height: 1.6; font-family: inherit;
+        transition: background 0.15s, border-color 0.15s;
+    }
+    .cat-color:hover:not(:disabled) { border-color: #93c5fd; background: #eff6ff; }
+    .cat-color.activo { border-color: var(--maquinaria-blue, #0067b1); background: #e1effa; color: #0c4a6e; }
+    .cat-color:disabled { cursor: default; }
+    .cat-color b { font-weight: 800; color: #64748b; }
+    .cat-color .material-icons { font-size: 12px; }
+    .cat-color-muestra { width: 10px; height: 10px; border-radius: 50%; border: 1px solid rgba(15, 23, 42, 0.25); flex-shrink: 0; }
+    .cat-color .cat-color-sinfoto { color: #cbd5e1; font-size: 11px; }
+    /* Modelo con equipos pero sin ficha: borde ámbar sólido y la foto en ámbar muy claro
+       (el punteado amarillo pálido de antes parecía un error de dibujo), y botón para crearla. */
+    .cat-card.cat-sin-ficha { border-color: #f59e0b; }
+    .cat-card.cat-sin-ficha:hover { border-color: #d97706; }
+    .cat-sin-ficha .cat-photo { background: #fffbeb; }
+    .cat-sin-ficha .cat-photo .placeholder { color: #fcd34d; }
+    .cat-crear-ficha {
+        margin-top: 6px; align-self: flex-start;
+        display: inline-flex; align-items: center; gap: 5px;
+        padding: 5px 10px; border-radius: 8px;
+        border: 1px solid #fcd34d; background: #fffbeb; color: #92400e;
+        font-size: 11px; font-weight: 800; cursor: pointer; font-family: inherit;
+    }
+    .cat-crear-ficha:hover:not(:disabled) { background: #fef3c7; }
+    .cat-crear-ficha:disabled { opacity: 0.6; cursor: wait; }
+    .cat-crear-ficha .material-icons { font-size: 15px; }
     /* Mobile: filtros y botón ocupan el ancho completo en columna. */
     @media (max-width: 768px) {
         #catalogoFilters {
@@ -776,24 +815,111 @@
         });
     };
 
-    // ── Borrar foto VEHÍCULO (solo super.admin) ──
-    window.catDeletePhoto = function (id, photoEl) {
-        if (!confirm('¿Eliminar la foto de este modelo?')) return;
-        var csrf = window.getCsrf();   // helper central (dom_helpers.js)
+    // ── Colores de un VEHÍCULO ──
+    // La tarjeta muestra la foto del modelo o la del color elegido en sus chips; subir y
+    // borrar actúan sobre lo que se esté viendo (data-color de .cat-photo: '' = el modelo).
+    function _catPintarFoto(photoEl, url) {
+        var color = photoEl.dataset.color || '';
+        var actual = photoEl.querySelector('img, .placeholder');
+        if (actual) actual.remove();
+        var nodo;
+        if (url) {
+            nodo = document.createElement('img');
+            nodo.src = url; nodo.alt = '';
+            nodo.style.cssText = 'opacity:1; width:100%; height:100%; object-fit:contain; background:#f8fafc;';
+            nodo.onerror = function () { this.outerHTML = '<i class="material-icons placeholder">image_not_supported</i>'; };
+        } else {
+            nodo = document.createElement('i');
+            nodo.className = 'material-icons placeholder';
+            nodo.textContent = 'precision_manufacturing';
+        }
+        photoEl.insertBefore(nodo, photoEl.firstChild);
+        var txt = photoEl.querySelector('.cat-photo-overlay-txt');
+        if (txt) txt.textContent = color ? (url ? 'Cambiar foto ' + color : 'Subir foto ' + color) : 'Cambiar foto';
+        var del = photoEl.querySelector('.cat-del-photo');
+        if (del) del.hidden = !url;
+    }
+    // El chip del color que se está viendo guarda su foto: tras subir o borrar se actualiza
+    // ahí para que volver a él muestre lo correcto sin recargar.
+    function _catChipActivo(photoEl) {
+        var color = photoEl.dataset.color || '';
+        return photoEl.closest('.cat-card').querySelector('.cat-color[data-color="' + color + '"]');
+    }
+    function _catGuardarFotoVista(photoEl, url) {
+        if (photoEl.dataset.color) {
+            var chip = _catChipActivo(photoEl);
+            if (chip) {
+                chip.dataset.foto = url || '';
+                var marca = chip.querySelector('.cat-color-sinfoto');
+                if (url && marca) marca.remove();
+                if (!url && !marca) chip.insertAdjacentHTML('beforeend', '<i class="material-icons cat-color-sinfoto">no_photography</i>');
+            }
+        } else {
+            photoEl.dataset.fotoModelo = url || '';
+        }
+        _catPintarFoto(photoEl, url);
+    }
+    window.catElegirColor = function (btn) {
+        var card = btn.closest('.cat-card');
+        var photoEl = card.querySelector('.cat-photo');
+        card.querySelectorAll('.cat-color').forEach(function (b) { b.classList.toggle('activo', b === btn); });
+        photoEl.dataset.color = btn.dataset.color || '';
+        _catPintarFoto(photoEl, photoEl.dataset.color ? (btn.dataset.foto || '') : (photoEl.dataset.fotoModelo || ''));
+    };
+
+    // Ficha de un modelo que solo tenía equipos (tarjeta SIN FICHA): la crea —o encuentra la
+    // que ya hay— y le enlaza sus unidades. Resuelve con el id de la ficha.
+    function _catAsegurarFicha(photoEl) {
+        var fd = new FormData();
+        fd.append('modelo', photoEl.dataset.modelo || '');
+        fd.append('anio', photoEl.dataset.anio || '');
+        if (photoEl.dataset.tipo) fd.append('tipo', photoEl.dataset.tipo);
+        return window.apiFetch('{{ route("catalogo.asegurarFicha") }}', {
+            method: 'POST', body: fd,
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(function (r) { return r.json().catch(function () { return {}; }).then(function (b) { return { ok: r.ok, body: b }; }); })
+        .then(function (res) {
+            if (!res.ok || !res.body.success) {
+                var err = res.body && res.body.errors ? Object.values(res.body.errors)[0][0] : null;
+                throw new Error(err || (res.body && res.body.message) || 'No se pudo crear la ficha.');
+            }
+            return res.body;
+        });
+    }
+    window.catCrearFicha = function (btn) {
+        var photoEl = btn.closest('.cat-card').querySelector('.cat-photo');
+        if (!photoEl.dataset.anio) {
+            window.toast('Estos equipos no tienen año registrado; complétalo en Equipos para poder crear su ficha.', 'error');
+            return;
+        }
+        btn.disabled = true;
+        _catAsegurarFicha(photoEl)
+            .then(function (body) {
+                window.toast(body.message, 'success');
+                // Recién creada: se abre para completar lo técnico. Si ya existía, basta con
+                // recargar: sus unidades ya cuentan en su tarjeta.
+                var editar = '{{ url("admin/catalogo") }}/' + body.id + '/edit';
+                if (body.creada && window.navigateTo) window.navigateTo(editar);
+                else catSubmit();
+            })
+            .catch(function (e) { btn.disabled = false; window.toast(e.message, 'error'); });
+    };
+
+    // ── Borrar foto VEHÍCULO (solo super.admin): la del modelo o la del color que se ve ──
+    window.catDeletePhoto = function (photoEl) {
+        var id = photoEl.dataset.id, color = photoEl.dataset.color || '';
+        if (!confirm(color ? '¿Eliminar la foto del color ' + color + '?' : '¿Eliminar la foto de este modelo?')) return;
         if (typeof window.showPreloader === 'function') window.showPreloader();
-        window.apiFetch('{{ url("admin/catalogo") }}/' + id + '/photo', { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        var url = '{{ url("admin/catalogo") }}/' + id + '/photo' + (color ? '?color=' + encodeURIComponent(color) : '');
+        window.apiFetch(url, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
             method: 'DELETE'})
         .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, body: b }; }); })
         .then(function (res) {
             if (window.hidePreloader) window.hidePreloader();
             if (res.ok && res.body.success) {
                 window.toast(res.body.message || 'Foto eliminada.', 'success');
-                if (photoEl) {
-                    var img = photoEl.querySelector('img');
-                    if (img) img.outerHTML = '<i class="material-icons placeholder">precision_manufacturing</i>';
-                    var delBtn = photoEl.querySelector('.cat-del-photo');
-                    if (delBtn) delBtn.remove();
-                }
+                _catGuardarFotoVista(photoEl, '');
             } else {
                 window.toast((res.body && res.body.message) || 'No se pudo eliminar la foto.', 'error');
             }
@@ -843,28 +969,34 @@
         });
     };
 
-    // ── Subida VEHÍCULO ──
-    window.catUploadPhoto = function (id, photoEl) {
+    // ── Subida VEHÍCULO: la foto del modelo o la del color que se está viendo ──
+    // En una tarjeta SIN FICHA primero se asegura la ficha (y se enlazan sus unidades); al
+    // terminar se recarga la lista, porque la tarjeta pasa a ser la de una ficha.
+    window.catUploadPhoto = function (photoEl) {
+        var sinFicha = photoEl.dataset.sinFicha === '1';
+        if (sinFicha && !photoEl.dataset.anio) {
+            window.toast('Estos equipos no tienen año registrado; complétalo en Equipos para poder crear su ficha.', 'error');
+            return;
+        }
         _pickFileAndCrop(function (croppedFile) {
-            var fd = new FormData();
-            fd.append('foto', croppedFile);
-            _uploadBlob('{{ url("admin/catalogo") }}/' + id + '/photo', fd,
-                function (body) {
-                    window.toast(body.message || 'Foto actualizada correctamente.', 'success');
-                    if (body.foto && photoEl) {
-                        var img = photoEl.querySelector('img');
-                        if (img) { img.src = body.foto; }
-                        else {
-                            var ph = photoEl.querySelector('.placeholder'); if (ph) ph.remove();
-                            var n = document.createElement('img'); n.src = body.foto; n.alt = '';
-                            n.style.cssText = 'opacity:1; width:100%; height:100%; object-fit:contain; background:#f8fafc;';
-                            n.onerror = function () { this.outerHTML = '<i class="material-icons placeholder">image_not_supported</i>'; };
-                            photoEl.insertBefore(n, photoEl.firstChild);
-                        }
-                    }
-                },
-                function (msg) { window.toast(msg, 'error'); }
-            );
+            var subir = function (id) {
+                var fd = new FormData();
+                fd.append('foto', croppedFile);
+                if (photoEl.dataset.color) fd.append('color', photoEl.dataset.color);
+                _uploadBlob('{{ url("admin/catalogo") }}/' + id + '/photo', fd,
+                    function (body) {
+                        window.toast(body.message || 'Foto actualizada correctamente.', 'success');
+                        if (sinFicha) { catSubmit(); return; }
+                        // body.foto es la ruta guardada; la tarjeta usa la miniatura.
+                        var idDrive = String(body.foto || '').replace(/^.*\/storage\/google\//, '').split('?')[0];
+                        _catGuardarFotoVista(photoEl, idDrive ? '/storage/google/' + idDrive + '?sz=w300' : '');
+                    },
+                    function (msg) { window.toast(msg, 'error'); }
+                );
+            };
+            if (!sinFicha) { subir(photoEl.dataset.id); return; }
+            _catAsegurarFicha(photoEl).then(function (body) { subir(body.id); })
+                .catch(function (e) { window.toast(e.message, 'error'); });
         });
     };
 </script>

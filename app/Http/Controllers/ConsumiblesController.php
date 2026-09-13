@@ -361,7 +361,9 @@ class ConsumiblesController extends Controller
         // ── Clave de caché única por combinación de filtros + versión de datos ──
         // La versión sube cada vez que se escriben datos → invalida todo el caché anterior.
         $version = CacheVersion::current(self::DATA_VER_KEY);
-        $cacheKey = 'graficos_v' . $version
+        // "f2": la forma de la respuesta cambió (los inoperativos traen FOTO ya resuelta);
+        // un valor guardado con la forma vieja no debe servirse.
+        $cacheKey = 'graficos_f2_v' . $version
             . '_d' . ($desde ?? 'null')
             . '_h' . ($hasta ?? 'null')
             . '_f' . ($idFrente ?? 'all')
@@ -626,7 +628,6 @@ class ConsumiblesController extends Controller
                     ->where('ID_FRENTE_ACTUAL', $idFrente)
                     ->leftJoin('tipo_equipos', 'tipo_equipos.id', '=', 'equipos.id_tipo_equipo')
                     ->leftJoin('documentacion', 'documentacion.ID_EQUIPO', '=', 'equipos.ID_EQUIPO')
-                    ->leftJoin('caracteristicas_modelo', 'caracteristicas_modelo.ID_ESPEC', '=', 'equipos.ID_ESPEC')
                     ->leftJoin('frentes_trabajo', 'frentes_trabajo.ID_FRENTE', '=', 'equipos.ID_FRENTE_ACTUAL')
                     ->leftJoin('consumibles', function ($join) use ($desde, $hasta, $tipo) {
                         $join->on('consumibles.ID_EQUIPO', '=', 'equipos.ID_EQUIPO');
@@ -641,8 +642,6 @@ class ConsumiblesController extends Controller
                     ->select(
                         'equipos.ID_EQUIPO',
                         'equipos.SERIAL_CHASIS',
-                        'equipos.FOTO_EQUIPO',
-                        'caracteristicas_modelo.FOTO_REFERENCIAL',
                         'frentes_trabajo.NOMBRE_FRENTE as frente_nombre',
                         DB::raw("MAX(documentacion.PLACA) as PLACA"),
                         DB::raw("COALESCE(tipo_equipos.nombre, 'S/T') as tipo"),
@@ -653,12 +652,20 @@ class ConsumiblesController extends Controller
                     ->groupBy(
                         'equipos.ID_EQUIPO',
                         'equipos.SERIAL_CHASIS',
-                        'equipos.FOTO_EQUIPO',
-                        'caracteristicas_modelo.FOTO_REFERENCIAL',
                         'frentes_trabajo.NOMBRE_FRENTE',
                         'tipo_equipos.nombre'
                     )
                     ->get();
+
+                // FOTO: la de toda la app (Equipo::fotoParaMostrar: color → modelo → propia),
+                // resuelta aquí y no en el navegador, que antes repetía la regla por su cuenta.
+                $fotos = \App\Models\Equipo::with(\App\Models\Equipo::conFoto())
+                    ->whereIn('ID_EQUIPO', $inoperativos->pluck('ID_EQUIPO'))
+                    ->get(['ID_EQUIPO', 'ID_ESPEC', 'COLOR', 'FOTO_EQUIPO'])
+                    ->mapWithKeys(fn ($e) => [$e->ID_EQUIPO => $e->fotoParaMostrar()]);
+                foreach ($inoperativos as $fila) {
+                    $fila->FOTO = $fotos[$fila->ID_EQUIPO] ?? null;
+                }
             }
 
             return [

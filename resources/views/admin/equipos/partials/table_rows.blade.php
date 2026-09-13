@@ -10,11 +10,12 @@
      por eso equipos-offline.js tenia que reinyectar una copia a mano. --}}
 @forelse($equipos as $equipo)
     @php
-        // Foto: prioriza FOTO_REFERENCIAL del catalogo (ID_ESPEC), cae a FOTO_EQUIPO
-        $fotoToShow = ($equipo->especificaciones && $equipo->especificaciones->FOTO_REFERENCIAL)
-                      ? $equipo->especificaciones->FOTO_REFERENCIAL
-                      : $equipo->FOTO_EQUIPO;
-        $driveFileId = $fotoToShow ? basename(str_replace('/storage/google/', '', explode('?', $fotoToShow)[0])) : null;
+        // Foto: la del color de la unidad en su modelo, la del modelo o la propia
+        // (Equipo::fotoParaMostrar — la misma regla en toda la app).
+        $driveFileId = $equipo->fotoDriveId();
+        // Color como se compara en toda la app (CatalogoColor::normalizar): lo usan la línea
+        // de año/color y el modal "Vincular a una ficha" (data-color de la foto).
+        $colorEq = \App\Models\CatalogoColor::normalizar($equipo->COLOR);
 
         // Estatus: paleta uniformada con /admin/equipos-auxiliares
         $statusConfig = [
@@ -63,17 +64,25 @@
                 @endif
             </div>
 
-            @if($driveFileId)
-                <div class="table-image-wrapper eq-foto-wrap">
+            {{-- super.admin: doble clic → modal "Vincular a una ficha" (vincular_ficha_modal). --}}
+            <div class="table-image-wrapper {{ $driveFileId ? 'eq-foto-wrap' : 'placeholder' }}"
+                 @can('super.admin')
+                     data-vincular="{{ $equipo->ID_EQUIPO }}"
+                     data-espec="{{ $equipo->ID_ESPEC }}"
+                     data-modelo="{{ $equipo->MODELO }}"
+                     data-color="{{ $colorEq }}"
+                     data-titulo="{{ implode(' · ', array_filter([$equipo->tipo->nombre ?? null, trim($equipo->MARCA . ' ' . $equipo->MODELO), $equipo->ANIO, $equipo->SERIAL_CHASIS])) }}"
+                     ondblclick="window.eqVincularFicha(this)"
+                     title="Doble clic: vincular a una ficha del catálogo"
+                 @endcan>
+                @if($driveFileId)
                     <img data-src="{{ url('/storage/google/' . $driveFileId . '?sz=w300') }}"
                          alt="Foto"
                          class="eq-foto">
-                </div>
-            @else
-                <div class="table-image-wrapper placeholder">
+                @else
                     <span class="material-icons">image_not_supported</span>
-                </div>
-            @endif
+                @endif
+            </div>
         </td>
 
         {{-- 2. TIPO ─ bold uppercase; el N° de etiqueta va AL LADO del tipo, como
@@ -104,9 +113,11 @@
             <div class="eq-linea-fuerte">
                 {{ $equipo->MARCA ?: '—' }}@if($equipo->MODELO)<span class="eq-modelo">{{ $equipo->MODELO }}</span>@endif
             </div>
-            @if($equipo->ANIO)
+            {{-- Año y COLOR de la unidad (con su muestra). Misma línea en equipos-offline.js. --}}
+            @if($equipo->ANIO || $colorEq)
                 <div class="eq-hide-mobile eq-anio">
-                    Año: {{ $equipo->ANIO }}
+                    @if($equipo->ANIO)Año: {{ $equipo->ANIO }}@endif
+                    @if($colorEq)<span class="eq-color">@if($equipo->ANIO)· @endif<span class="eq-color-muestra" style="background:{{ \App\Models\CatalogoColor::muestra($colorEq) }};"></span>{{ $colorEq }}</span>@endif
                 </div>
             @endif
         </td>

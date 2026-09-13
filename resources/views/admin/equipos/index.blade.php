@@ -89,6 +89,8 @@
                                                 border:1px solid #fecaca; }
     .table-equipos-mobile .eq-finalizado .material-icons { font-size:10px; }
     .table-equipos-mobile .eq-foto-wrap { cursor:default; }
+    /* super.admin: la foto se vincula a una ficha con doble clic (vincular_ficha_modal). */
+    .table-equipos-mobile .table-image-wrapper[data-vincular] { cursor:pointer; }
     .table-equipos-mobile .eq-foto { width:100%; height:100%; object-fit:contain;
                                      opacity:0; transition:opacity 0.4s; }
 
@@ -103,6 +105,10 @@
     .table-equipos-mobile .eq-modelo       { display:block; font-size:13.5px; color:#475569; font-weight:500;
                                              text-transform:uppercase; margin-top:4px; line-height:1.3; }
     .table-equipos-mobile .eq-anio         { font-size:12.5px; color:#64748b; margin-top:5px; font-weight:500; }
+    /* Color de la unidad junto al año: muestra redonda + nombre (CatalogoColor::muestra). */
+    .table-equipos-mobile .eq-color        { white-space:nowrap; }
+    .table-equipos-mobile .eq-color-muestra { display:inline-block; width:9px; height:9px; border-radius:50%;
+                                              border:1px solid rgba(15,23,42,0.25); margin-right:4px; vertical-align:-1px; }
 
     /* Columna 4 — seriales, placa e ID */
     .table-equipos-mobile .eq-ser-linea    { line-height:1.5; word-break:break-all; }
@@ -1887,6 +1893,7 @@
 
 
     @include('admin.equipos.partials.equipment_details_modal')
+    @include('admin.equipos.partials.vincular_ficha_modal')
 
     <style>
         /* Fleet Dashboard Mobile Responsive */

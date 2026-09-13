@@ -31,7 +31,7 @@ class MovilizacionController extends Controller
 
         $query = Movilizacion::with([
             'equipo.tipo',
-            'equipo.especificaciones:ID_ESPEC,FOTO_REFERENCIAL',
+            ...\App\Models\Equipo::conFoto('equipo.'),
             'equipo.documentacion',
             // Cargar tambien el aux cuando la movilizacion sea de un auxiliar
             // (ID_AUXILIAR != null). Asi el listado renderiza vehiculos y
@@ -700,7 +700,7 @@ class MovilizacionController extends Controller
      */
     public function buscarEquiposParaRecepcion(Request $request)
     {
-        $query = \App\Models\Equipo::with(['tipo', 'frenteActual', 'documentacion', 'especificaciones:ID_ESPEC,FOTO_REFERENCIAL']);
+        $query = \App\Models\Equipo::with(['tipo', 'frenteActual', 'documentacion', ...\App\Models\Equipo::conFoto()]);
 
         // Scope LOCAL: el usuario solo ve equipos de los frentes asignados (barrera
         // centralizada en Usuario::aplicarScopeFrentes — global ve todo; local sin
@@ -752,13 +752,8 @@ class MovilizacionController extends Controller
         $equipos = $query->orderBy('CODIGO_PATIO')->limit(20)->get();
 
         return response()->json($equipos->map(function ($eq) {
-            // Determinar la mejor foto disponible
-            $foto = null;
-            if ($eq->FOTO_EQUIPO) {
-                $foto = $eq->FOTO_EQUIPO;
-            } elseif ($eq->especificaciones && $eq->especificaciones->FOTO_REFERENCIAL) {
-                $foto = $eq->especificaciones->FOTO_REFERENCIAL;
-            }
+            // La foto de toda la app: Equipo::fotoParaMostrar (color → modelo → propia).
+            $foto = $eq->fotoParaMostrar();
 
             return [
                 'ID_EQUIPO' => $eq->ID_EQUIPO,
