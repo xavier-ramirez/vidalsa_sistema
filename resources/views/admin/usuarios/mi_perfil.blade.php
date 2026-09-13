@@ -289,7 +289,7 @@
                     </label>
                     <div class="pw-input-wrap">
                         <input type="password" name="password" id="pw_nueva" placeholder="Mínimo 6 caracteres..."
-                            autocomplete="new-password">
+                            autocomplete="new-password" readonly data-sin-autollenado>
                         <i class="material-icons pw-toggle-icon"
                             onclick="window.togglePw('pw_nueva', this)">visibility_off</i>
                     </div>
@@ -301,7 +301,7 @@
                     </label>
                     <div class="pw-input-wrap">
                         <input type="password" name="password_confirmation" id="pw_confirm"
-                            placeholder="Repite la contraseña..." autocomplete="new-password">
+                            placeholder="Repite la contraseña..." autocomplete="new-password" readonly data-sin-autollenado>
                         <i class="material-icons pw-toggle-icon"
                             onclick="window.togglePw('pw_confirm', this)">visibility_off</i>
                     </div>

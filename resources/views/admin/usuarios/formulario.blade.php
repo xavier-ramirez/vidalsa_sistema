@@ -29,7 +29,7 @@
 
             <div>
                 <label for="CORREO_ELECTRONICO" class="form-label">Email Corporativo</label>
-                <input type="email" id="CORREO_ELECTRONICO" name="CORREO_ELECTRONICO" class="form-input-custom @error('CORREO_ELECTRONICO') is-invalid @enderror" value="{{ old('CORREO_ELECTRONICO', $user->CORREO_ELECTRONICO ?? '') }}" required autocomplete="off" style="text-transform: lowercase;">
+                <input type="email" id="CORREO_ELECTRONICO" name="CORREO_ELECTRONICO" class="form-input-custom @error('CORREO_ELECTRONICO') is-invalid @enderror" value="{{ old('CORREO_ELECTRONICO', $user->CORREO_ELECTRONICO ?? '') }}" required autocomplete="off" readonly data-sin-autollenado style="text-transform: lowercase;">
                 @error('CORREO_ELECTRONICO')
                     <span class="error-message-inline">{{ $message }}</span>
                 @enderror
@@ -63,7 +63,7 @@
                         <span class="form-label-hint">Dejar vacío si no desea cambiar la contraseña</span>
                     @endif
                 </label>
-                <input type="password" id="password" name="password" class="form-input-custom @error('password') is-invalid @enderror" {{ isset($user) ? '' : 'required' }} placeholder="{{ isset($user) ? 'Dejar en blanco para mantener la actual' : '' }}" autocomplete="new-password">
+                <input type="password" id="password" name="password" class="form-input-custom @error('password') is-invalid @enderror" {{ isset($user) ? '' : 'required' }} placeholder="{{ isset($user) ? 'Dejar en blanco para mantener la actual' : '' }}" autocomplete="new-password" readonly data-sin-autollenado>
                 @error('password')
                     <span class="error-message-inline">{{ $message }}</span>
                 @enderror

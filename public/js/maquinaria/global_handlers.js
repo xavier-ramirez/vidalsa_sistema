@@ -1,6 +1,6 @@
 /**
- * Handlers globales del layout: window.togglePw (ver/ocultar contrasena), guard del
- * submit de logout (evita doble click y levanta el spinner) y los handlers delegados
+ * Handlers globales del layout: window.togglePw (ver/ocultar contrasena), campos sin
+ * autollenado del navegador (data-sin-autollenado), guard del submit de logout (evita doble click y levanta el spinner) y los handlers delegados
  * del modulo de Equipos (dropdown "Acciones" y panel de filtro avanzado), que se
  * registran en `document` para sobrevivir a la navegacion SPA y salen temprano si no
  * estan en la pagina de Equipos (guard por #splitDropdownMenu).
@@ -17,6 +17,26 @@ window.togglePw = function (inputId, icon) {
     input.type = isHidden ? 'text' : 'password';
     icon.textContent = isHidden ? 'visibility' : 'visibility_off';
 };
+
+// Campos que el navegador NO debe rellenar con el correo y la clave GUARDADOS de quien está
+// conectado (crear/editar usuario, cambiar mi clave): autocomplete="off"/"new-password" no
+// basta, Chrome y Edge los rellenan igual — y al editar a otro usuario eso le cambiaba la
+// clave por la del admin. Nacen `readonly` con data-sin-autollenado (el navegador no
+// rellena un campo de solo lectura) y se habilitan al tocarlos: pointerdown, antes del
+// foco, para que el teclado del teléfono abra; focusin para quien llega con Tab. Tocar el
+// botón de guardar los habilita todos: un campo readonly se salta el `required` del navegador.
+function habilitarSinAutollenado(e) {
+    const t = e.target;
+    if (!t || !t.closest) return;
+    const el = t.closest('[data-sin-autollenado][readonly]');
+    if (el) { el.removeAttribute('readonly'); return; }
+    const guardar = t.closest('button[type="submit"], input[type="submit"]');
+    if (guardar && guardar.form) {
+        guardar.form.querySelectorAll('[data-sin-autollenado][readonly]').forEach(function (c) { c.removeAttribute('readonly'); });
+    }
+}
+document.addEventListener('pointerdown', habilitarSinAutollenado, true);
+document.addEventListener('focusin', habilitarSinAutollenado, true);
 
 // Global handler para Cierre de Sesión (Previene doble click y muestra spinner Inmediato)
 document.addEventListener('submit', function (e) {
