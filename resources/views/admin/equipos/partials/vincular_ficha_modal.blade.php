@@ -13,7 +13,7 @@
 <style>
     #vfModal { display:none; position:fixed; inset:0; background:rgba(15,23,42,0.45); z-index:10000; align-items:center; justify-content:center; padding:16px; }
     #vfModal.open { display:flex; }
-    #vfModal .vf-box { background:#fff; border-radius:14px; width:100%; max-width:860px; max-height:90vh; box-shadow:0 20px 50px rgba(0,0,0,0.25); display:flex; flex-direction:column; overflow:hidden; }
+    #vfModal .vf-box { background:#fff; border-radius:14px; width:100%; max-width:640px; max-height:90vh; box-shadow:0 20px 50px rgba(0,0,0,0.25); display:flex; flex-direction:column; overflow:hidden; }
     /* Encabezado como el de los demás modales (ver .devm-head en almacen/devolucion_modal). */
     #vfModal .vf-head { padding:14px 48px; background:#1e293b; display:flex; align-items:center; justify-content:center; position:relative; flex-shrink:0; }
     #vfModal .vf-head h3 { margin:0; font-size:15px; font-weight:800; color:#fff; display:flex; align-items:center; gap:8px; text-align:center; }
@@ -49,6 +49,10 @@
     #vfModal .vf-color { width:11px; height:11px; border-radius:50%; border:1px solid rgba(15,23,42,0.25); }
     #vfModal .vf-color.suyo { box-shadow:0 0 0 2px #fff, 0 0 0 3px #0067b1; }
     #vfModal .vf-foot { padding:12px 18px; border-top:1px solid #e2e8f0; background:#f8fafc; display:flex; justify-content:center; gap:8px; flex-shrink:0; }
+    /* Botones más bajos que el .btn-primary-maquinaria general (12px 24px): en el pie de un
+       modal chico se veían desproporcionados. */
+    #vfModal .vf-foot .btn-primary-maquinaria { padding:8px 18px; border-radius:10px; font-size:13px; gap:6px; }
+    #vfModal .vf-foot .btn-primary-maquinaria .material-icons { font-size:18px; }
     #vfModal .vf-foot .btn-primary-maquinaria:disabled { opacity:.5; cursor:not-allowed; }
     #vfModal .vf-btn-cancelar { background:#e2e8f0; color:#475569; box-shadow:none; }
     @media (max-width: 520px) {
