@@ -62,6 +62,17 @@ class CaracteristicaModelo extends Model
     }
 
     /**
+     * Miniatura (300 px) de una foto de Drive, a partir de su ruta /storage/google/{id} o del
+     * ID solo (o null). Punto único: la usan el catálogo, el modal "Vincular a una ficha" y la
+     * sugerencia de ficha del formulario de equipos.
+     */
+    public static function miniatura(?string $rutaOId): ?string
+    {
+        $id = self::idDrive($rutaOId);
+        return $id ? url('/storage/google/' . $id . '?sz=w300') : null;
+    }
+
+    /**
      * ¿Alguna foto del catálogo (de un modelo o de un color) sigue apuntando a este archivo
      * de Drive? Antes de borrar uno viejo hay que preguntarlo: al unir las fichas repetidas
      * la foto gris quedó como foto del modelo Y del color GRIS, y borrarla por reemplazar

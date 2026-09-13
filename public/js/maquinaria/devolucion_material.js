@@ -23,11 +23,7 @@
 
     function $(id) { return document.getElementById(id); }
     function modal() { return $('devMatModal'); }
-    function esc(s) {
-        return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
-            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
-        });
-    }
+    var esc = w.escapeHtml;   // helper central (dom_helpers.js)
     // 5 → "5", 2.5 → "2,5", 1234 → "1.234": la misma presentación que el kardex.
     function num(n) {
         return (Math.round((Number(n) || 0) * 1000) / 1000).toLocaleString('es-VE', { maximumFractionDigits: 3 });

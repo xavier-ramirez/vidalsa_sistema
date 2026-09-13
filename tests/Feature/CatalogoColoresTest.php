@@ -118,6 +118,42 @@ class CatalogoColoresTest extends MySqlTestCase
         $this->assertSame(2, CaracteristicaModelo::where('MODELO', $this->modelo)->count());
     }
 
+    public function test_la_ficha_del_modelo_escrito_distinto_se_encuentra_y_no_se_duplica(): void
+    {
+        $f = $this->ficha();   // "PRUEBA-COLOR-XXXX"
+        $e = $this->equipo(null, 'ROJO');
+        $conEspacios = str_replace('-', ' ', $this->modelo);
+        $e->update(['MODELO' => $conEspacios]);
+        $admin = $this->superAdminGlobal();
+
+        // La tarjeta SIN FICHA de "PRUEBA COLOR XXXX" ya sabe que su ficha existe.
+        $html = $this->actingAs($admin)->getJson(route('catalogo.index', ['ajax_load' => 1, 'modelo' => 'modelo_eq:' . $conEspacios]))
+            ->assertOk()->json('html');
+        $this->assertStringContainsString('Enlazar a su ficha', $html);
+
+        // "Enlazar a su ficha" usa la que hay: no crea un casi-duplicado.
+        $this->actingAs($admin)->postJson(route('catalogo.asegurarFicha'), ['modelo' => $conEspacios, 'anio' => 2026])
+            ->assertOk()->assertJson(['id' => $f->ID_ESPEC, 'creada' => false]);
+        $this->assertSame($f->ID_ESPEC, $e->fresh()->ID_ESPEC);
+        $this->assertSame(1, CaracteristicaModelo::where('ANIO_ESPEC', 2026)->whereIn('MODELO', [$this->modelo, $conEspacios])->count());
+
+        // Y a mano tampoco se puede crear la misma con otra escritura.
+        $this->actingAs($admin)->postJson(route('catalogo.store'), ['MODELO' => $conEspacios, 'ANIO_ESPEC' => 2026, 'TIPO' => 'CAMIONETA'])
+            ->assertStatus(422);
+    }
+
+    public function test_el_enlace_automatico_no_deshace_un_vinculo_hecho_a_mano(): void
+    {
+        // El equipo se vinculó a mano a otra ficha (sin foto del modelo: sus fotos pueden
+        // ser por color); luego la ficha de SU modelo recibe foto y se re-enlaza lo suelto.
+        $otra = CaracteristicaModelo::create(['MODELO' => 'OTRA-' . strtoupper(Str::random(6)), 'TIPO' => 'CAMIONETA', 'ANIO_ESPEC' => 2026]);
+        $e = $this->equipo($otra->ID_ESPEC, 'ROJO');
+        $this->ficha();   // la de su MODELO, con foto
+        $this->actingAs($this->superAdminGlobal())->postJson(route('catalogo.asegurarFicha'), ['modelo' => $this->modelo, 'anio' => 2026])
+            ->assertOk()->assertJson(['creada' => false, 'enlazados' => []]);
+        $this->assertSame($otra->ID_ESPEC, $e->fresh()->ID_ESPEC, 'El vínculo elegido a mano se respeta.');
+    }
+
     public function test_los_modelos_sin_ficha_salen_solos_y_asegurar_ficha_los_enlaza(): void
     {
         $a = $this->equipo(null, 'ROJO');

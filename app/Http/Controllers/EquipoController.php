@@ -2045,7 +2045,7 @@ class EquipoController extends Controller
             'success' => true,
             'message' => 'Equipo vinculado a la ficha ' . trim($ficha->MODELO . ' ' . $ficha->ANIO_ESPEC) . '.',
             'id_espec' => $equipo->ID_ESPEC,
-            'foto'    => $idFoto ? url('/storage/google/' . $idFoto . '?sz=w300') : null,
+            'foto'    => CaracteristicaModelo::miniatura($idFoto),
         ]);
     }
 
@@ -3581,7 +3581,7 @@ class EquipoController extends Controller
                     'REFRIGERANTE' => $entry->REFRIGERANTE,
                     'TIPO_BATERIA' => $entry->TIPO_BATERIA,
                     // Miniatura: el recuadro de la sugerencia mide ~110 px.
-                    'FOTO' => $idFoto ? url('/storage/google/' . $idFoto . '?sz=w300') : null,
+                    'FOTO' => CaracteristicaModelo::miniatura($idFoto),
                 ];
             })->toArray()
         ]);

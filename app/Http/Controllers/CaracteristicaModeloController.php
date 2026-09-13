@@ -262,7 +262,7 @@ class CaracteristicaModeloController extends Controller
                 'modelo'      => $cm->MODELO,
                 'marca'       => $marca,
                 'anio'        => $cm->ANIO_ESPEC,
-                'foto_url'    => $this->miniatura($cm->FOTO_REFERENCIAL),
+                'foto_url'    => CaracteristicaModelo::miniatura($cm->FOTO_REFERENCIAL),
                 'placeholder' => 'precision_manufacturing',
                 'total'       => $cm->equipos_count, // nº de equipos ligados a este modelo
                 'colores'     => $this->coloresDeTarjeta($suyas, $cm->colores),
@@ -404,6 +404,27 @@ class CaracteristicaModeloController extends Controller
         return preg_replace('/[^A-Z0-9]/', '', mb_strtoupper((string) $modelo));
     }
 
+    /** El TIPO de una ficha como se compara: mayúsculas y un solo espacio ("VOLTEO  HIDROJET"). */
+    private static function tipoNormal(?string $tipo): string
+    {
+        return preg_replace('/\s+/', ' ', mb_strtoupper(trim((string) $tipo)));
+    }
+
+    /**
+     * Las fichas de un modelo y año, con la MISMA clave de las sugerencias (claveModelo:
+     * "ZZ-1037" y "ZZ 1037" son el mismo modelo). Punto único de "ya existe la ficha": lo usan
+     * las tarjetas SIN FICHA, asegurarFicha, el modal de vincular y el rechazo de repetidas.
+     */
+    private function fichasDelModelo(?string $modelo, $anio)
+    {
+        $clave = self::claveModelo($modelo);
+        if ($clave === '' || !$anio) {
+            return collect();
+        }
+        return CaracteristicaModelo::where('ANIO_ESPEC', $anio)->orderBy('ID_ESPEC')->get()
+            ->filter(fn ($f) => self::claveModelo($f->MODELO) === $clave)->values();
+    }
+
     /**
      * Si todavía no hay ficha del MODELO + año del equipo: lo que necesita asegurarFicha para
      * crearla desde el modal. "Ya existe" con la MISMA clave de las sugerencias (claveModelo):
@@ -413,21 +434,11 @@ class CaracteristicaModeloController extends Controller
     private function fichaPorCrear(Equipo $equipo): ?array
     {
         $modelo = mb_strtoupper(trim((string) $equipo->MODELO));
-        $clave  = self::claveModelo($modelo);
-        if ($clave === '' || !$equipo->ANIO
-            || CaracteristicaModelo::where('ANIO_ESPEC', $equipo->ANIO)->pluck('MODELO')
-                ->contains(fn ($m) => self::claveModelo($m) === $clave)) {
+        if (self::claveModelo($modelo) === '' || !$equipo->ANIO || $this->fichasDelModelo($modelo, $equipo->ANIO)->isNotEmpty()) {
             return null;
         }
         $marca = mb_strtoupper(trim((string) $equipo->MARCA));
         return ['modelo' => $modelo, 'anio' => (int) $equipo->ANIO, 'tipo' => $equipo->tipo?->nombre, 'marca' => $marca !== '' ? $marca : null];
-    }
-
-    /** Miniatura (300 px) de una foto del catálogo guardada como /storage/google/{id}. */
-    private function miniatura(?string $ruta): ?string
-    {
-        $id = CaracteristicaModelo::idDrive($ruta);
-        return $id ? url('/storage/google/' . $id . '?sz=w300') : null;
     }
 
     /**
@@ -454,7 +465,7 @@ class CaracteristicaModeloController extends Controller
         return collect($colores)->map(fn ($v, $c) => [
             'color'    => $c,
             'total'    => $v['total'] ?? 0,
-            'foto_url' => $this->miniatura($v['foto'] ?? null),
+            'foto_url' => CaracteristicaModelo::miniatura($v['foto'] ?? null),
             'muestra'  => \App\Models\CatalogoColor::muestra($c),
         ])->sortBy([['total', 'desc'], ['color', 'asc']])->values()->all();
     }
@@ -508,10 +519,12 @@ class CaracteristicaModeloController extends Controller
             ->get()
             ->groupBy(fn ($r) => "{$r->TIPO_KEY}|{$r->MARCA_KEY}|{$r->MODELO_KEY}|{$r->ANIO_KEY}");
 
-        // Fichas que ya existen para esos MODELO + año (una consulta).
-        $fichas = CaracteristicaModelo::whereIn('MODELO', $grupos->pluck('MODELO_KEY')->unique())
-            ->get(['ID_ESPEC', 'MODELO', 'ANIO_ESPEC'])
-            ->keyBy(fn ($f) => mb_strtoupper(trim($f->MODELO)) . '|' . (int) $f->ANIO_ESPEC);
+        // Fichas que ya existen para esos modelos + año (una consulta), con la clave de
+        // claveModelo como fichasDelModelo: "ZZ 1037" encuentra la ficha "ZZ-1037".
+        $fichas = CaracteristicaModelo::whereIn('ANIO_ESPEC', $grupos->pluck('ANIO_KEY')->unique())
+            ->orderBy('ID_ESPEC')->get(['ID_ESPEC', 'MODELO', 'ANIO_ESPEC'])
+            ->unique(fn ($f) => self::claveModelo($f->MODELO) . '|' . (int) $f->ANIO_ESPEC)
+            ->keyBy(fn ($f) => self::claveModelo($f->MODELO) . '|' . (int) $f->ANIO_ESPEC);
 
         return $grupos->map(function ($g) use ($colores, $fichas) {
             $anio = (int) $g->ANIO_KEY ?: null;
@@ -519,12 +532,12 @@ class CaracteristicaModeloController extends Controller
                 'clase'          => 'VEHICULO',
                 'id'             => null,
                 'sin_ficha'      => true,
-                'ficha_existente'=> $fichas->get($g->MODELO_KEY . '|' . (int) $g->ANIO_KEY)?->ID_ESPEC,
+                'ficha_existente'=> $fichas->get(self::claveModelo($g->MODELO_KEY) . '|' . (int) $g->ANIO_KEY)?->ID_ESPEC,
                 'tipo'           => $g->TIPO_KEY !== '' ? $g->TIPO_KEY : null,
                 'modelo'         => $g->MODELO_KEY,
                 'marca'          => $g->MARCA_KEY !== '' ? $g->MARCA_KEY : null,
                 'anio'           => $anio,
-                'foto_url'       => $this->miniatura($g->FOTO),
+                'foto_url'       => CaracteristicaModelo::miniatura($g->FOTO),
                 'placeholder'    => 'precision_manufacturing',
                 'total'          => (int) $g->total,
                 'colores'        => $this->coloresDeTarjeta(
@@ -552,8 +565,12 @@ class CaracteristicaModeloController extends Controller
         $modelo = mb_strtoupper(trim($data['modelo']));
         $anio   = (int) $data['anio'];
 
-        $catalogo = CaracteristicaModelo::where('MODELO', $modelo)->where('ANIO_ESPEC', $anio)->orderBy('ID_ESPEC')->first();
-        $creada   = false;
+        // La ficha que ya haya con la misma clave de modelo; si hay varias (tipos distintos),
+        // la de su tipo.
+        $existentes = $this->fichasDelModelo($modelo, $anio);
+        $tipoPedido = self::tipoNormal($data['tipo'] ?? '');
+        $catalogo   = $existentes->first(fn ($f) => $tipoPedido !== '' && self::tipoNormal($f->TIPO) === $tipoPedido) ?? $existentes->first();
+        $creada     = false;
         if (!$catalogo) {
             $catalogo = CaracteristicaModelo::create([
                 'MODELO'     => $modelo,
@@ -797,14 +814,12 @@ class CaracteristicaModeloController extends Controller
      */
     private function rechazarFichaRepetida(Request $request, array $validated, ?int $exceptoId = null)
     {
-        // Misma ficha = mismo modelo, año y TIPO. Un modelo+año puede ser dos vehículos (el
-        // chasis HFC3252KR1K3 2017 es VOLTEO y VOLTEO HIDROJET): esos sí llevan fichas aparte.
-        $tipo = fn ($t) => preg_replace('/\s+/', ' ', mb_strtoupper(trim((string) $t)));
-        $existe = CaracteristicaModelo::where('MODELO', mb_strtoupper(trim($validated['MODELO'])))
-            ->where('ANIO_ESPEC', $validated['ANIO_ESPEC'])
-            ->when($exceptoId, fn ($q) => $q->where('ID_ESPEC', '!=', $exceptoId))
-            ->pluck('TIPO')
-            ->contains(fn ($t) => $tipo($t) === $tipo($validated['TIPO'] ?? ''));
+        // Misma ficha = mismo modelo (con la clave de fichasDelModelo), año y TIPO. Un
+        // modelo+año puede ser dos vehículos (el chasis HFC3252KR1K3 2017 es VOLTEO y VOLTEO
+        // HIDROJET): esos sí llevan fichas aparte.
+        $tipo   = self::tipoNormal($validated['TIPO'] ?? '');
+        $existe = $this->fichasDelModelo($validated['MODELO'], $validated['ANIO_ESPEC'])
+            ->contains(fn ($f) => (int) $f->ID_ESPEC !== (int) $exceptoId && self::tipoNormal($f->TIPO) === $tipo);
         if (!$existe) {
             return null;
         }
@@ -1049,10 +1064,12 @@ class CaracteristicaModeloController extends Controller
     }
 
     /**
-     * Vincula automáticamente equipos al catálogo dado, considerando 3 casos:
+     * Vincula automáticamente equipos al catálogo dado, en 2 casos:
      *  - Equipos sin catálogo (ID_ESPEC = NULL).
      *  - Equipos HUÉRFANOS (ID_ESPEC apunta a un catálogo que ya no existe).
-     *  - Equipos con catálogo viejo SIN foto, si el nuevo SÍ tiene foto.
+     * Un equipo enlazado a OTRA ficha no se toca: puede ser el vínculo elegido a mano en
+     * "Vincular a una ficha" (EquipoController::vincularFicha). Antes también se llevaba los
+     * de una ficha "sin foto" mirando solo FOTO_REFERENCIAL, que ignora las fotos por color.
      *
      * Cada save() dispara EquipoObserver (auditoría + caché).
      * @param  CaracteristicaModelo $catalogo
@@ -1065,11 +1082,12 @@ class CaracteristicaModeloController extends Controller
     {
         // CANDADO: si ese modelo+año tiene MÁS DE UNA ficha, no se engancha nada.
         //
-        // Hoy ya no debería pasar: el color vive en la unidad (equipos.COLOR), la foto de
-        // cada color dentro de la ficha (catalogo_colores), las copias que existían se unieron
+        // Por color ya no pasa: el color vive en la unidad (equipos.COLOR), la foto de cada
+        // color dentro de la ficha (catalogo_colores), las copias que existían se unieron
         // (migración unificar_fichas_repetidas_por_color) y store()/update() no dejan crear
-        // otra (rechazarFichaRepetida). Se conserva por si una base trae fichas repetidas de
-        // antes: con varias, cuál le toca a cada unidad no se puede adivinar.
+        // otra del mismo tipo (rechazarFichaRepetida). Sí pasa a propósito con tipos distintos
+        // del mismo chasis (VOLTEO y VOLTEO HIDROJET): con varias, cuál le toca a cada unidad
+        // no se puede adivinar.
         //
         // Por qué existieron: separar unidades que llevaban FOTOS distintas (distinto color)
         // cuando la ficha solo guardaba una foto y la unidad no decía su color.
@@ -1084,28 +1102,17 @@ class CaracteristicaModeloController extends Controller
         //
         // No adivinar es la respuesta correcta: es preferible que una unidad se quede sin
         // ficha (y muestre su propia foto) a que se muestre con la foto de otro color.
-        $fichasDelModelo = CaracteristicaModelo::where('MODELO', $modelo)
-            ->where('ANIO_ESPEC', $anio)
-            ->count();
+        $cuantas = $this->fichasDelModelo($modelo, $anio)->count();
 
-        if ($fichasDelModelo > 1) {
-            Log::info("Auto-link OMITIDO para {$modelo} {$anio}: hay {$fichasDelModelo} fichas "
+        if ($cuantas > 1) {
+            Log::info("Auto-link OMITIDO para {$modelo} {$anio}: hay {$cuantas} fichas "
                 . 'y no se puede saber cuál corresponde a cada unidad. Se asignan a mano.');
             return [];
         }
 
         $query = Equipo::where('MODELO', $modelo)->where('ANIO', $anio);
 
-        $query->where(function ($q) use ($catalogo) {
-            $q->whereNull('ID_ESPEC')
-              ->orWhereDoesntHave('especificaciones');
-
-            if ($catalogo->FOTO_REFERENCIAL) {
-                $q->orWhereHas('especificaciones', function ($subq) {
-                    $subq->whereNull('FOTO_REFERENCIAL');
-                });
-            }
-        });
+        $query->where(fn ($q) => $q->whereNull('ID_ESPEC')->orWhereDoesntHave('especificaciones'));
 
         $enlazados = [];
         foreach ($query->get() as $eq) {

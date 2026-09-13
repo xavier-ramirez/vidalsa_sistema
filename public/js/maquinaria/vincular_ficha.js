@@ -28,11 +28,7 @@
     function $(id) { return document.getElementById(id); }
     function modal() { return $('vfModal'); }
     function abierto() { var m = modal(); return !!(m && m.classList.contains('open')); }
-    function esc(s) {
-        return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
-            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
-        });
-    }
+    var esc = w.escapeHtml;   // helper central (dom_helpers.js)
     function aviso(texto) { return '<div class="vf-aviso">' + esc(texto) + '</div>'; }
 
     // ── Abrir / cerrar ───────────────────────────────────────────────────────
