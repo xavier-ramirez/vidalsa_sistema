@@ -671,6 +671,42 @@ body {
     background-color: #f0f9ff;
 }
 
+/* Tamaño compacto para el par Cancelar / Guardar de un formulario: el 12px 24px de
+   .btn-primary-maquinaria los hacía demasiado altos al pie de la página. */
+.btn-primary-maquinaria.btn-compacto {
+    padding: 8px 18px;
+    font-size: 13.5px;
+    border-radius: 10px;
+    gap: 6px;
+}
+.btn-primary-maquinaria.btn-compacto .material-icons { font-size: 18px; }
+
+/* Botón "Filtros avanzados" (ícono filter_list, 45×45) de las pantallas de Almacén
+   (Inventario, Movimientos, Notas, Recepción): neutro, y en rojo (.activo) cuando hay
+   algún filtro puesto dentro de su panel. Una sola definición para las cuatro. */
+.btn-primary-maquinaria.btn-filtro-avanzado {
+    height: 45px; width: 45px; min-width: 45px; padding: 0;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 12px; background: #fbfcfd; border: 1px solid #cbd5e0; color: #64748b; box-shadow: none;
+}
+.btn-primary-maquinaria.btn-filtro-avanzado.activo { background: #fee2e2; border-color: #ef4444; color: #ef4444; }
+/* El panel que abre ese botón (el JS de cada pantalla alterna su style.display inline).
+   300px; Movimientos y Notas, con más campos, usan .ancho. */
+.panel-filtro-avanzado {
+    position: absolute; top: 100%; right: 0; z-index: 100;
+    width: 300px; max-width: calc(100vw - 20px); box-sizing: border-box;
+    margin-top: 10px; padding: 15px;
+    background: #e2e8f0; border: 1px solid #cbd5e1; border-radius: 12px;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15);
+}
+.panel-filtro-avanzado.ancho { width: 390px; }
+.panel-filtro-avanzado-titulo {
+    margin: 0 0 12px; font-size: 14px; font-weight: 700; color: #334155;
+    display: flex; justify-content: space-between; align-items: center;
+}
+.panel-filtro-avanzado-limpiar { font-size: 11px; color: #64748b; font-weight: 400; text-decoration: underline; cursor: pointer; }
+.panel-filtro-avanzado-label { display: block; font-size: 12px; font-weight: 600; color: #64748b; margin: 0 0 5px; }
+
 /* Filter Active State - Replaces inline conditional styling */
 .filter-active {
     border-color: var(--maquinaria-blue) !important;
@@ -3693,8 +3729,9 @@ input:-webkit-autofill:active {
        filtros) anclado a la derecha de la fila; por eso right:0/right:10px lo
        dejaba recostado/desbordado hacia la izquierda en teléfono. Solución
        única para TODOS los módulos (equipos, almacén movimientos/recepción/
-       notas, fallas, equipos_auxiliares, historial, movilizaciones,
-       consumibles) — sin duplicar la regla en cada blade:
+       notas, inventario, fallas, equipos_auxiliares, historial, movilizaciones,
+       consumibles) — sin duplicar la regla en cada blade (los de Almacén, por su
+       clase .panel-filtro-avanzado):
          1) Neutralizamos el wrapper (position:static) para que la caja de
             referencia deje de ser el botón de 45px.
          2) Anclamos el panel con left/right simétricos (8px, = padding lateral
@@ -3703,18 +3740,14 @@ input:-webkit-autofill:active {
        Las reglas de posicionamiento per-módulo se eliminaron para no competir
        por !important según el orden de carga del <style> inline. */
     div:has(> #advancedFilterPanel),
-    div:has(> #almMovFechasPanel),
-    div:has(> #trAdvPanel),
-    div:has(> #almNotFechasPanel),
+    div:has(> .panel-filtro-avanzado),
     div:has(> #fallasAdvPanel),
     div:has(> #auxAdvPanel),
     div:has(> #hdAdvancedFilterPanel) {
         position: static !important;
     }
     #advancedFilterPanel,
-    #almMovFechasPanel,
-    #trAdvPanel,
-    #almNotFechasPanel,
+    .panel-filtro-avanzado,
     #fallasAdvPanel,
     #auxAdvPanel,
     #hdAdvancedFilterPanel {

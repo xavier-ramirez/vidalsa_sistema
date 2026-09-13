@@ -137,15 +137,6 @@
     .tr-adv-grid > .tr-adv-full { grid-column:1 / -1; }
     .tr-adv-grid .tr-date-box { padding:0 6px; gap:4px; }
     .tr-adv-grid .tr-date-box input[type=date] { font-size:11px; }
-    /* Rótulo de cada campo del panel (Estado / Desde / Hasta): un solo estilo compartido
-       en vez de repetir el mismo `style=""` inline en los tres. */
-    .tr-adv-label { display:block; font-size:12px; font-weight:600; color:#64748b; margin-bottom:5px; }
-    /* Botón que abre el panel. Rojo = hay algún filtro activo DENTRO del panel; el render lo
-       marca con .activo y trUpdateChips lo alterna al filtrar por AJAX (antes los 6 hex vivían
-       repetidos en el style inline y otra vez en el JS). */
-    .tr-adv-btn { height:45px; width:45px; min-width:45px; padding:0; display:flex; align-items:center; justify-content:center;
-                  border-radius:12px; background:#fbfcfd; border:1px solid #cbd5e0; color:#64748b; box-shadow:none; }
-    .tr-adv-btn.activo { background:#fee2e2; border-color:#ef4444; color:#ef4444; }
     /* Botón "Compra directa": misma altura/radio que el resto del toolbar (45px/12px)
        pero SÓLIDO azul de marca — es la única ACCIÓN de la barra (los demás controles
        filtran), así que se distingue de ellos por relleno, no por tamaño. flex:0 0 auto
@@ -736,14 +727,14 @@
             ];
         @endphp
         <div style="position:relative;flex:0 0 auto;">
-            {{-- Colores del botón (neutro / rojo = hay filtro dentro) en .tr-adv-btn: el JS
-                 solo hace toggle de la clase al filtrar por AJAX, sin repetir los hex. --}}
-            <button type="button" id="trAdvBtn" class="btn-primary-maquinaria tr-adv-btn {{ $panelActivo ? 'activo' : '' }}"
+            {{-- Colores del botón (neutro / rojo = hay filtro dentro) en .btn-filtro-avanzado
+                 (estilos_globales): el JS solo alterna .activo al filtrar por AJAX. --}}
+            <button type="button" id="trAdvBtn" class="btn-primary-maquinaria btn-filtro-avanzado {{ $panelActivo ? 'activo' : '' }}"
                     onclick="window.trToggleAdvanced(event)" title="Filtros avanzados">
-                <i class="material-icons" style="font-size:20px;">filter_list</i>
+                <i class="material-icons">filter_list</i>
             </button>
-            <div id="trAdvPanel" style="display:none;position:absolute;top:100%;right:0;width:300px;max-width:calc(100vw - 20px);box-sizing:border-box;background:#e2e8f0;border-radius:12px;box-shadow:0 10px 25px -5px rgba(0,0,0,0.15);border:1px solid #cbd5e1;z-index:100;margin-top:10px;padding:15px;">
-                <h4 style="margin:0 0 12px 0;font-size:14px;font-weight:700;color:#334155;display:flex;justify-content:space-between;align-items:center;">
+            <div id="trAdvPanel" class="panel-filtro-avanzado" style="display:none;">
+                <h4 class="panel-filtro-avanzado-titulo">
                     Filtros avanzados
                     <span style="font-size:12px;color:#64748b;font-weight:400;text-decoration:underline;cursor:default;" onclick="window.trClearAvanzados()">Limpiar</span>
                 </h4>
@@ -754,7 +745,7 @@
                      'dropdown-selection' → trLoad. --}}
                 <div class="tr-adv-grid">
                 <div class="tr-adv-full">
-                    <span class="tr-adv-label">Estado de la nota</span>
+                    <span class="panel-filtro-avanzado-label">Estado de la nota</span>
                     <div class="custom-dropdown" id="trEstadoDropdown" data-filter-type="estado">
                         <input type="hidden" name="estado" data-filter-value value="{{ $reqEstado }}">
                         {{-- Neutro #fbfcfd (no #fff): es el color que el selectOption global
@@ -791,7 +782,7 @@
 
                     {{-- Desde / Hasta: una columna cada uno, debajo del Estado. --}}
                     <div>
-                        <span class="tr-adv-label">Desde</span>
+                        <span class="panel-filtro-avanzado-label">Desde</span>
                         <div id="trDesdeBox" class="tr-date-box" style="width:100%;box-sizing:border-box;background:{{ $reqDesde ? '#e1effa' : '#fff' }};"
                              onclick="var i=document.getElementById('trDesde'); if(i){ i.focus(); if(i.showPicker) try{i.showPicker();}catch(e){} }">
                             <i class="material-icons">event</i>
@@ -799,7 +790,7 @@
                         </div>
                     </div>
                     <div>
-                        <span class="tr-adv-label">Hasta</span>
+                        <span class="panel-filtro-avanzado-label">Hasta</span>
                         <div id="trHastaBox" class="tr-date-box" style="width:100%;box-sizing:border-box;background:{{ $reqHasta ? '#e1effa' : '#fff' }};"
                              onclick="var i=document.getElementById('trHasta'); if(i){ i.focus(); if(i.showPicker) try{i.showPicker();}catch(e){} }">
                             <i class="material-icons">event</i>
@@ -2182,7 +2173,7 @@
         paint('trHastaBox', hasta);
 
         // MISMO criterio que $panelActivo del render (estado concreto = distinto de vacío y
-        // de "Todas"). Los colores viven en .tr-adv-btn.activo, aquí solo se alterna la clase.
+        // de "Todas"). Los colores viven en .btn-filtro-avanzado.activo, aquí solo se alterna la clase.
         var estado = hv('estado');
         var btn = el('trAdvBtn');
         if (btn) btn.classList.toggle('activo', desde || hasta || (estado !== '' && estado !== TR_FILTRO_TODAS));

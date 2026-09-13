@@ -14,6 +14,13 @@
         border-radius: 12px; height: 45px; overflow: hidden;
     }
     .alm-filter.active .alm-filter-box { background: #e1effa; border-color: var(--maquinaria-blue, #0067b1); }
+    /* Panel "Filtros avanzados": rótulos, Existencias (tres opciones, una puesta) y la lista
+       de unidades de medida. */
+    .alm-adv-seg { display: flex; gap: 4px; background: #fff; border: 1px solid #cbd5e0; border-radius: 8px; padding: 3px; margin-bottom: 12px; }
+    .alm-adv-seg button { flex: 1; border: none; background: transparent; border-radius: 6px; padding: 6px 4px; font-size: 12px; font-weight: 700; color: #475569; cursor: pointer; font-family: inherit; }
+    .alm-adv-seg button.on { background: var(--maquinaria-blue, #0067b1); color: #fff; }
+    .alm-adv-select { width: 100%; height: 36px; border: 1px solid #cbd5e0; border-radius: 8px; padding: 0 8px; font-size: 13px; background: #fff; color: #0f172a; outline: none; }
+    .alm-adv-select:focus { border-color: var(--maquinaria-blue, #0067b1); }
     /* El icono NO lleva padding a la derecha y el campo solo 4px a la izquierda: así el texto
        que se escribe queda pegado a la lupa (antes eran 10+6=16px de hueco). Misma separación
        que los filtros de /admin/equipos, que lo resuelven con la regla
@@ -1062,6 +1069,35 @@
                    onclick="window.almCatLimpiar()">close</i>
             </div>
             <div class="alm-suggest" id="almFiltroCatSuggest"></div>
+        </div>
+
+        {{-- Filtros avanzados (el mismo botón de Movimientos, Notas y Recepción). Existencias
+             son los MISMOS atajos de las tarjetas "Con stock" / "Stock bajo" (un solo estado:
+             soloConSaldo / soloBajo); la unidad de medida viaja como `um`. --}}
+        <div style="position:relative;flex:0 0 auto;">
+            <button type="button" id="almAdvBtn" class="btn-primary-maquinaria btn-filtro-avanzado" title="Filtros avanzados"
+                    onclick="window.almToggleAvanzado()">
+                <i class="material-icons">filter_list</i>
+            </button>
+            <div id="almAdvPanel" class="panel-filtro-avanzado" style="display:none;">
+                <h4 class="panel-filtro-avanzado-titulo">
+                    Filtros Avanzados
+                    <span class="panel-filtro-avanzado-limpiar" onclick="window.almAvanzadoLimpiar()">Limpiar Todo</span>
+                </h4>
+                <span class="panel-filtro-avanzado-label">Existencias</span>
+                <div class="alm-adv-seg" id="almAdvExist">
+                    <button type="button" data-exist="" class="on" onclick="window.almAvanzadoExistencias('')">Todas</button>
+                    <button type="button" data-exist="con" onclick="window.almAvanzadoExistencias('con')">Con stock</button>
+                    <button type="button" data-exist="bajo" onclick="window.almAvanzadoExistencias('bajo')">Stock bajo</button>
+                </div>
+                <span class="panel-filtro-avanzado-label">Unidad de medida</span>
+                <select id="almFiltroUm" class="alm-adv-select" onchange="window.almAvanzadoUm()">
+                    <option value="">Todas</option>
+                    @foreach(($unidadesMedida ?? collect()) as $u)
+                        <option value="{{ $u }}" @selected(request('um') === $u)>{{ $u }}</option>
+                    @endforeach
+                </select>
+            </div>
         </div>
 
         {{-- Acciones (botón desplegable estilo /admin/equipos) --}}
@@ -2334,6 +2370,7 @@
         // id_producto_in → el backend devuelve SOLO esas presentaciones (no substrings del LIKE).
         else if (almBuscarPickedIds) p.set('id_producto_in', almBuscarPickedIds);
         var cat = valActive('almFiltroCat'); if (cat) p.set('categoria', cat);
+        var um  = val('almFiltroUm');         if (um)  p.set('um', um);
         if (soloBajo)                   p.set('solo_bajo', '1');
         if (soloConSaldo)               p.set('solo_con_saldo', '1');
         if (almVerTodoActivo)           p.set('ver_todo', '1'); // "Ver todo el stock" explícito
@@ -2604,8 +2641,13 @@
         if (ci) { ci.value = ''; ci.dataset.active = ''; ci.placeholder = ci.dataset.placeholderEmpty || 'Filtrar por categoría…'; }
         almSuggestHide(); almCatSuggestHide();
     }
+    // Suelta la unidad de medida del panel avanzado. La llaman "Limpiar Todo", "Ver todo" y
+    // los que piden UN producto puntual (sugerencia, QR, "En otros almacenes"): con otra
+    // unidad puesta, ese producto quedaba escondido y la tabla salía vacía.
+    function almSoltarUm() { var um = el('almFiltroUm'); if (um) um.value = ''; }
     window.almVerTodo = function () {
         almLimpiarBusquedaYCategoria();
+        almSoltarUm();
         soloBajo = false; soloConSaldo = false;
         almPintarBadges();
         almResetPick(); // descartar match exacto (id_producto/_in) si quedó pegado de un clic previo
@@ -2633,7 +2675,40 @@
     function almPintarBadges() {
         var bcs = el('almBadgeConSaldo'); if (bcs) bcs.classList.toggle('is-on', !!soloConSaldo);
         var bb  = el('almBadgeBajo');     if (bb)  bb.classList.toggle('is-on',  !!soloBajo);
+        almPintarAvanzado();
     }
+    // Panel "Filtros avanzados": qué opción de Existencias está puesta y el botón en rojo si
+    // hay algún filtro dentro (existencias o unidad de medida).
+    function almPintarAvanzado() {
+        var ex = soloConSaldo ? 'con' : (soloBajo ? 'bajo' : '');
+        document.querySelectorAll('#almAdvExist button').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-exist') === ex); });
+        var btn = el('almAdvBtn');
+        if (btn) btn.classList.toggle('activo', !!ex || !!val('almFiltroUm'));
+    }
+    // Sin stopPropagation: el clic sigue hasta document, donde los cierres de siempre bajan
+    // Acciones, las sugerencias y los desplegables (almacén…) — un desplegable a la vez.
+    window.almToggleAvanzado = function () {
+        var p = el('almAdvPanel'); if (!p) return;
+        p.style.display = (p.style.display === 'block') ? 'none' : 'block';
+    };
+    // Existencias: los mismos atajos de las tarjetas (almFiltrarConSaldo / almFiltrarBajo),
+    // solo que aquí se ELIGE una opción en vez de alternar.
+    window.almAvanzadoExistencias = function (ex) {
+        if (ex === 'con')       { if (!soloConSaldo) window.almFiltrarConSaldo(true); }
+        else if (ex === 'bajo') { if (!soloBajo) window.almFiltrarBajo(); }
+        else if (soloConSaldo || soloBajo) { almResetBadges(); almCargar(); }
+    };
+    window.almAvanzadoUm = function () {
+        almResetPick();
+        almPintarAvanzado();
+        almCargar();
+    };
+    window.almAvanzadoLimpiar = function () {
+        almSoltarUm();
+        almResetBadges();
+        almResetPick();
+        almCargar();
+    };
     window.almResetBadges = function() {
         soloConSaldo = false;
         soloBajo = false;
@@ -2925,7 +3000,8 @@
         // así que el clic nunca trae un material de otra categoría — no hay que tocar el
         // filtro de categoría aquí.
         // Mismo motivo que almBuscarEnter: un clic en sugerencia pide ver ESE producto
-        // puntual — un "Stock bajo" pegado de antes podía ocultarlo si no calificaba.
+        // puntual — un "Stock bajo" o una unidad de medida puestos de antes podían ocultarlo.
+        almSoltarUm();
         almResetBadges();
         almSuggestHide();
         almCargar();
@@ -2944,7 +3020,8 @@
         almBuscarPickedIds = null;
         // Un "Stock bajo"/"Con stock" pegado del almacén anterior podía ocultar este
         // producto puntual en el nuevo almacén (solo_bajo/solo_con_saldo NO se
-        // exceptúan para id_producto — ver inventarioBaseQuery en el backend).
+        // exceptúan para id_producto — ver inventarioBaseQuery en el backend). Igual la unidad.
+        almSoltarUm();
         almResetBadges();
         window.QrScan.iconToggle();
         almSuggestHide();
@@ -3043,6 +3120,7 @@
             // (incl. stock 0) sigue disponible al pulsar el total "PRODUCTOS" del Consolidado.
             if (item.getAttribute('data-action') === 'ver-todo') {
                 almSuggestHide();
+                almSoltarUm();
                 if (window.almFiltrarConSaldo) window.almFiltrarConSaldo(true);
                 return;
             }
@@ -3675,10 +3753,21 @@
         // abiertos los cerramos ahora — no debe haber dos overlays a la vez.
         almSuggestHide();
         almCatSuggestHide();
+        var adv = el('almAdvPanel'); if (adv) adv.style.display = 'none';
 
         m.style.display = (m.style.display === 'block') ? 'none' : 'block';
     };
+    // El panel de filtros avanzados se cierra con un clic fuera o cuando el foco sale de él
+    // (Tab / "siguiente" del teclado del teléfono): un desplegable a la vez.
+    function almCerrarAvanzadoSiFuera(e) {
+        var adv = el('almAdvPanel'), t = e.target;
+        if (adv && adv.style.display === 'block' && t && t.closest && !t.closest('#almAdvPanel') && !t.closest('#almAdvBtn')) {
+            adv.style.display = 'none';
+        }
+    }
+    document.addEventListener('focusin', almCerrarAvanzadoSiFuera);
     document.addEventListener('click', function (e) {
+        almCerrarAvanzadoSiFuera(e);
         var m = el('almAccionesMenu');
         if (m && m.style.display === 'block') {
             // Cerrar si hace clic fuera, o si hace clic en cualquier otro botón de filtro (dropdown-trigger)
@@ -5555,15 +5644,15 @@
     @endif
 
     // La tabla abre VACÍA. Si la URL trae un filtro de contenido (search / categoria /
-    // id_producto), se carga al entrar; si no, queda en blanco hasta que el usuario use
+    // um / id_producto), se carga al entrar; si no, queda en blanco hasta que el usuario use
     // un filtro. Con el patron placeholder-background, value="" siempre — leemos del
     // data-active. Incluir almBuscarPickedId garantiza que un link directo del tipo
     // ?id_producto=NNN dispare la carga y pinte el sidebar cruzado "En otros almacenes".
     (function () {
-        var b = el('almFiltroBuscar'), c = el('almFiltroCat');
+        var b = el('almFiltroBuscar'), c = el('almFiltroCat'), u = el('almFiltroUm');
         var bActivo = b && ((b.value && b.value.trim()) || (b.dataset.active && b.dataset.active.trim()));
         var cActivo = c && ((c.value && c.value.trim()) || (c.dataset.active && c.dataset.active.trim()));
-        if (bActivo || cActivo || almBuscarPickedId) window.almCargar();
+        if (bActivo || cActivo || (u && u.value) || almBuscarPickedId) window.almCargar();
     })();
 
     // ── Posicion de Consolidado + "En otros almacenes" en mobile ─────────────

@@ -114,7 +114,13 @@
                 fallback('No se pudo abrir la cámara (' + msg + '). Toca "Activar cámara" y permite el acceso.', true);
             };
             try {
-                scanner = new Html5Qrcode('qrsReader', { verbose: false });
+                // Solo QR: las etiquetas de producto no llevan otro código, y con todos los
+                // formatos activos la librería llegó a leer como "código de barras" el texto o
+                // las líneas de una etiqueta (un número que no era el del producto).
+                scanner = new Html5Qrcode('qrsReader', {
+                    verbose: false,
+                    formatsToSupport: typeof Html5QrcodeSupportedFormats !== 'undefined' ? [Html5QrcodeSupportedFormats.QR_CODE] : undefined
+                });
                 // 1) Intento directo con la cámara trasera (facingMode environment).
                 scanner.start({ facingMode: 'environment' }, conf, onOk, onTick)
                     .then(ok)

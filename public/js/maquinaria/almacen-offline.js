@@ -12,7 +12,7 @@
  *   - #almSelAlmacen (value), #almFiltroBuscar / #almFiltroCat (value || dataset.active —
  *     patrón placeholder-background del online), badges por su clase .is-on.
  * Semántica replicada del backend (AlmacenController::inventarioBaseQuery):
- *   categoría = LIKE %cat%; solo_bajo = mínimo definido y saldo <= mínimo;
+ *   categoría = LIKE %cat%; um = igualdad (#almFiltroUm); solo_bajo = mínimo definido y saldo <= mínimo;
  *   solo_con_saldo = saldo > 0. Los KPIs del header se recalculan de la copia local.
  *
  * Se carga GLOBAL en el layout y se (re)inicializa en cada carga y navegación SPA
@@ -65,6 +65,7 @@
             idAlm:        selEl && selEl.value ? parseInt(selEl.value, 10) : null,
             q:            norm(valorFiltro('almFiltroBuscar')),
             cat:          norm(valorFiltro('almFiltroCat')),
+            um:           norm((document.getElementById('almFiltroUm') || {}).value || ''),
             soloBajo:     !!(bajo && bajo.classList.contains('is-on')),
             soloConSaldo: !!(conS && conS.classList.contains('is-on')),
             verTodo:      verTodo,
@@ -78,7 +79,7 @@
     // OJO: el almacén seleccionado NO cuenta — es el contexto, no un filtro (mismo
     // criterio que el backend, que lo excluye a propósito de esta comprobación).
     function hayFiltro(f) {
-        return !!(f.q || f.cat || f.soloBajo || f.soloConSaldo || f.verTodo);
+        return !!(f.q || f.cat || f.um || f.soloBajo || f.soloConSaldo || f.verTodo);
     }
 
     // minima llega como float (null → 0 en el snapshot): mínimo > 0 = "tiene mínimo
@@ -93,6 +94,7 @@
             if (f.idAlm && p.id_almacen !== f.idAlm) return false;
             if (f.q && (norm(p.codigo) + ' ' + norm(p.nombre)).indexOf(f.q) < 0) return false;
             if (f.cat && norm(p.categoria).indexOf(f.cat) < 0) return false;      // LIKE %cat%
+            if (f.um && norm(p.um) !== f.um) return false;                          // UM exacta
             if (f.soloBajo && !esBajo(p)) return false;
             if (f.soloConSaldo && (Number(p.cantidad) || 0) <= 0) return false;
             return true;

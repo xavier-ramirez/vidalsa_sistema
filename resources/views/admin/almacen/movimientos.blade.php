@@ -59,7 +59,6 @@
     .amf-search-box i.lupa { padding:0 10px; color:#64748b; font-size:18px; }
     .amf-search-box input { flex:1; border:none; background:transparent; outline:none; padding:10px 5px; font-size:14px; min-width:0; }
     .amf-search-box i.clr { padding:0 10px; color:#64748b; font-size:18px; cursor:pointer; }
-    .amf-adv-btn { height:45px; width:45px; padding:0; display:flex; align-items:center; justify-content:center; border-radius:12px; box-shadow:none; }
 
     /* Sugerencias del filtro de búsqueda — mismo diseño que /admin/almacen */
     .amf-search-wrap { position:relative; }
@@ -669,15 +668,14 @@
 
         {{-- Filtros Avanzados (mismo estilo que /admin/equipos) — contiene Tipo + rango Desde/Hasta --}}
         <div style="position:relative;flex:0 0 auto;">
-            <button type="button" id="btnAdvancedFilterMov" class="btn-primary-maquinaria amf-adv-btn" title="Filtros Avanzados"
-                    style="background:{{ $hayAdv ? '#fee2e2' : '#fff' }};border:1px solid {{ $hayAdv ? '#ef4444' : '#cbd5e0' }};color:{{ $hayAdv ? '#ef4444' : '#64748b' }};box-shadow:none;"
+            <button type="button" id="btnAdvancedFilterMov" class="btn-primary-maquinaria btn-filtro-avanzado {{ $hayAdv ? 'activo' : '' }}" title="Filtros Avanzados"
                     onclick="window.almMovToggleFechas(event)">
                 <i class="material-icons">filter_list</i>
             </button>
-            <div id="almMovFechasPanel" style="display:none;position:absolute;top:100%;right:0;width:360px;max-width:calc(100vw - 20px);background:#e2e8f0;border:1px solid #cbd5e1;border-radius:12px;box-shadow:0 10px 25px -5px rgba(0,0,0,0.15);z-index:100;margin-top:10px;padding:15px;">
-                <h4 style="margin:0 0 15px 0;font-size:14px;font-weight:700;color:#334155;display:flex;justify-content:space-between;align-items:center;">
+            <div id="almMovFechasPanel" class="panel-filtro-avanzado ancho" style="display:none;">
+                <h4 class="panel-filtro-avanzado-titulo">
                     Filtros Avanzados
-                    <span style="font-size:11px;color:#64748b;font-weight:400;text-decoration:underline;cursor:pointer;" onclick="window.almMovLimpiarFechas()">Limpiar Todo</span>
+                    <span class="panel-filtro-avanzado-limpiar" onclick="window.almMovLimpiarFechas()">Limpiar Todo</span>
                 </h4>
                 {{-- Tipo de movimiento — custom-dropdown (estilo general de la app,
                      igual que los filtros de Almacen / Frente). Sin opcion "Todos":
@@ -1308,7 +1306,7 @@
     };
     docOn('click', function (e) {
         var p = el('almMovFechasPanel');
-        if (p && p.style.display === 'block' && !e.target.closest('#almMovFechasPanel') && !e.target.closest('.amf-adv-btn')) p.style.display = 'none';
+        if (p && p.style.display === 'block' && !e.target.closest('#almMovFechasPanel') && !e.target.closest('#btnAdvancedFilterMov')) p.style.display = 'none';
     });
 
     // ── Dropdown "Acciones" (toggle + cierre al click fuera) ────────────────

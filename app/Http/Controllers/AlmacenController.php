@@ -108,8 +108,8 @@ class AlmacenController extends Controller
      * - wantsJson()  → { html (filas), hasMore, nextOffset, stats, distribucionHtml, almacen }
      *   para los cambios de filtro/paginación sin recargar toda la página.
      *
-     * Filtros: id_almacen, search (busca en CODIGO o NOMBRE), categoria,
-     *          solo_bajo (1), solo_con_saldo (1).
+     * Filtros: id_almacen, search (busca en CODIGO o NOMBRE), categoria, um (unidad de
+     *          medida exacta), solo_bajo (1), solo_con_saldo (1).
      */
     public function index(Request $request)
     {
@@ -180,6 +180,7 @@ class AlmacenController extends Controller
                 || $request->filled('id_producto')
                 || $request->filled('id_producto_in')
                 || $request->filled('categoria')
+                || $request->filled('um')
                 || $request->boolean('solo_bajo')
                 || $request->boolean('solo_con_saldo')
                 || $request->boolean('ver_todo'); // acción explícita "Ver todo el stock"
@@ -277,7 +278,8 @@ class AlmacenController extends Controller
 
         // Carga HTML: la tabla abre VACÍA — las filas se piden por AJAX en cuanto el usuario usa un filtro.
         $categorias    = $this->categoriasDistintas();
-        // Unidades de medida distintas ya registradas — alimentan el autocomplete del campo UM del modal de producto.
+        // Unidades de medida distintas ya registradas — alimentan el autocomplete del campo UM del modal de
+        // producto y el filtro "Unidad de medida" del panel de filtros avanzados.
         $unidadesMedida = ProductoInventario::activos()
             ->select('UM')->distinct()->orderBy('UM')->pluck('UM')->filter()->values();
         // Productos para el AUTOCOMPLETE del buscador. Fuente ÚNICA (misma que recepción):
@@ -481,7 +483,7 @@ class AlmacenController extends Controller
 
     /**
      * Aplica los filtros de CONTENIDO (los que operan sobre columnas de
-     * productos_inventario) a una query: id_producto_in, id_producto, search, categoria.
+     * productos_inventario) a una query: id_producto_in, id_producto, search, categoria, um.
      * NO toca el JOIN con almacen_stock ni los filtros por stock (solo_bajo/solo_con_saldo),
      * que dependen del almacén y los maneja el llamador.
      *
@@ -524,6 +526,11 @@ class AlmacenController extends Controller
             // input de texto con sugerencias, así que se va estrechando conforme se escribe.
             $cat = trim((string) $request->input('categoria'));
             $q->where('productos_inventario.CATEGORIA', 'like', "%{$cat}%");
+        }
+        if ($request->filled('um')) {
+            // Unidad de medida: igualdad (sale de la lista de UM ya registradas del panel
+            // "Filtros avanzados"; la colación no distingue mayúsculas).
+            $q->where('productos_inventario.UM', trim((string) $request->input('um')));
         }
 
         return false;
@@ -577,7 +584,7 @@ class AlmacenController extends Controller
         // el producto seleccionado siempre se muestre.
         //
         // TAMBIÉN se exceptúa cuando el usuario pide EXPLÍCITAMENTE ver el catálogo:
-        // "Ver todo" (ver_todo), búsqueda por descripción (search) o categoría. Sin esto,
+        // "Ver todo" (ver_todo), búsqueda por descripción (search), categoría o unidad de medida. Sin esto,
         // un almacén nuevo/sin stock (p.ej. "PRUEBA") no mostraba NADA y esos filtros
         // parecían rotos. En almacenes ya cargados NO cambia nada (todos sus productos
         // tienen fila de stock). Los productos sin stock en el almacén aparecen con saldo 0.
@@ -585,7 +592,8 @@ class AlmacenController extends Controller
         $verProductoPuntual = $request->filled('id_producto') || $request->filled('id_producto_in');
         $verCatalogo        = $request->boolean('ver_todo')
                             || $request->filled('search')
-                            || $request->filled('categoria');
+                            || $request->filled('categoria')
+                            || $request->filled('um');
         if (!$verProductoPuntual && !$verCatalogo) {
             $q->whereNotNull('almacen_stock.ID_PRODUCTO');
         }
@@ -3254,7 +3262,7 @@ class AlmacenController extends Controller
         // productos × muchas copias). Con la grilla actual (30 por hoja) son ~67 páginas:
         // más que suficiente para imprimir de una tanda.
         $MAX  = 2000;
-        $cols = ['ID_PRODUCTO', 'CODIGO', 'NOMBRE', 'UM', 'CATEGORIA', 'UBICACION'];
+        $cols = ['ID_PRODUCTO', 'CODIGO', 'NOMBRE', 'UM', 'UBICACION'];   // lo que imprime dibujarEtiqueta
         // Base común: solo activos y con código (un QR sin CODIGO no sería escaneable).
         $base = fn () => ProductoInventario::activos()->whereNotNull('CODIGO')->where('CODIGO', '!=', '');
 
@@ -3395,9 +3403,11 @@ class AlmacenController extends Controller
         $pdf->setPrintFooter(false);
         $pdf->SetAutoPageBreak(false);
         $pdf->SetMargins(0, 0, 0);
-        // Fuente base: writeHTMLCell la usa como punto de partida (igual que en la Nota
-        // de Entrega) y respeta el encoding UTF-8 del documento — los nombres con tildes
-        // y ñ salen correctos sin tocar Cell() directamente.
+        // Sin relleno interno en las celdas: dibujarEtiqueta mide cada texto (getNumLines,
+        // getStringWidth) y lo coloca al milímetro; con el relleno por defecto de TCPDF lo
+        // medido y lo impreso no coincidirían. El documento es UTF-8: tildes y ñ salen bien.
+        $pdf->setCellPaddings(0, 0, 0, 0);
+        $pdf->setCellHeightRatio(1.15);   // interlineado de la descripción (ver dibujarEtiqueta)
         $pdf->SetFont('helvetica', '', 8);
 
         if ($formato === 'carta') {
@@ -3413,12 +3423,13 @@ class AlmacenController extends Controller
                 $row = intdiv($pos, $cfg['cols']);
                 $x = $cfg['mLeft'] + $col * $cfg['cellW'];
                 $y = $cfg['mTop']  + $row * $cfg['cellH'];
-                $this->dibujarEtiqueta($pdf, $p, $x, $y, $cfg['cellW'], $cfg['cellH']);
+                $this->dibujarEtiqueta($pdf, $p, $x, $y, $cfg['cellW'], $cfg['cellH'], true);
             }
         } else {
+            // Rollo: la etiqueta ya viene troquelada, así que no se imprime línea de corte.
             foreach ($secuencia as $p) {
                 $pdf->AddPage();
-                $this->dibujarEtiqueta($pdf, $p, 0.0, 0.0, $cfg['cellW'], $cfg['cellH']);
+                $this->dibujarEtiqueta($pdf, $p, 0.0, 0.0, $cfg['cellW'], $cfg['cellH'], false);
             }
         }
 
@@ -3426,87 +3437,164 @@ class AlmacenController extends Controller
     }
 
     /**
-     * Dibuja UNA etiqueta dentro del rectángulo (x,y,w,h): QR a la izquierda,
-     * a su derecha "Serial: CODIGO", NOMBRE en negrita y UM. Borde de recorte
-     * punteado gris. writeHTMLCell para UTF-8 (tildes/ñ).
+     * Dibuja UNA etiqueta de producto dentro del rectángulo (x,y,w,h):
+     *
+     *   ┌─────────────────────────────────────────┐
+     *   │  ▓▓▓▓▓▓                                 │
+     *   │  ▓ QR ▓    DESCRIPCIÓN DEL PRODUCTO,    │
+     *   │  ▓▓▓▓▓▓    AJUSTADA AL ESPACIO          │
+     *   │  000868    Medida: PAR   Ubicación: A-3 │
+     *   └─────────────────────────────────────────┘
+     *
+     * El código va bajo el QR (lo que se teclea si el lector falla). La descripción (sin
+     * negrita) y, justo debajo, la unidad y la ubicación forman un bloque centrado junto al
+     * QR; la descripción se achica solo lo necesario para caber. Sin líneas internas ni
+     * categoría. Todo escala con el tamaño: hoja carta/A4 (66×27) y rollos 50×30 y 40×25.
+     * $conCorte: línea punteada para recortar (solo en la hoja; el rollo ya viene troquelado).
      */
-    private function dibujarEtiqueta(\TCPDF $pdf, $p, float $x, float $y, float $w, float $h): void
+    private function dibujarEtiqueta(\TCPDF $pdf, $p, float $x, float $y, float $w, float $h, bool $conCorte): void
     {
-        // Borde de recorte: línea punteada fina y gris alrededor de la etiqueta. Solo
-        // contorno ('D'), sin relleno. Se restablece el estilo de línea para no afectar
-        // a las siguientes etiquetas/elementos.
-        $pdf->SetLineStyle(['width' => 0.1, 'cap' => 'butt', 'join' => 'miter', 'dash' => '2,2', 'color' => [150, 150, 150]]);
-        $pdf->Rect($x, $y, $w, $h, 'D');
-        $pdf->SetLineStyle(['width' => 0.1, 'dash' => 0, 'color' => [0, 0, 0]]);
-
-        // QR a la izquierda, cuadrado al 72% del alto útil, centrado verticalmente.
-        // Margen interno (quiet zone) para que cualquier lector lo capture: 1,2 mm sigue
-        // siendo holgado para el nivel de corrección H que usa el código.
-        // El pad y el QR se achicaron al pasar la hoja a 3 columnas — así entra más
-        // descripción al lado sin que la etiqueta crezca.
-        $pad    = 1.2;
-        $qrSize = ($h - 2 * $pad) * 0.72;           // bastante más pequeño que el alto útil
-        if ($qrSize < 6.0) {
-            $qrSize = max(6.0, $h - 2 * $pad);
+        if ($conCorte) {
+            $pdf->SetLineStyle(['width' => 0.1, 'cap' => 'butt', 'join' => 'miter', 'dash' => '2,2', 'color' => [150, 150, 150]]);
+            $pdf->Rect($x, $y, $w, $h, 'D');
+            $pdf->SetLineStyle(['width' => 0.1, 'dash' => 0, 'color' => [0, 0, 0]]);
         }
 
-        $style = [
-            'border'        => false,
-            'vpadding'      => 0,
-            'hpadding'      => 0,
-            'fgcolor'       => [0, 0, 0],
-            'bgcolor'       => [255, 255, 255],
-            'module_width'  => 1,
-            'module_height' => 1,
-        ];
-        $qrX = $x + $pad;
-        $qrY = $y + ($h - $qrSize) / 2;
-        $pdf->write2DBarcode($p->qr_payload, 'QRCODE,H', $qrX, $qrY, $qrSize, $qrSize, $style, 'N');
-
-        // Texto a la derecha del QR. La separación baja de 2,5 a 1,5 mm por el mismo motivo
-        // que el pad: con 3 columnas cada milímetro se nota en cuánta descripción entra.
-        $tx = $qrX + $qrSize + 1.5;
-        $tw = $w - ($tx - $x) - $pad;
-        if ($tw < 8.0) {
-            return; // etiqueta muy angosta: queda solo el QR.
-        }
-
-        $codigo = htmlspecialchars((string) $p->CODIGO, ENT_QUOTES, 'UTF-8');
-        $nombre = htmlspecialchars((string) $p->NOMBRE, ENT_QUOTES, 'UTF-8');
-        $um     = htmlspecialchars((string) $p->UM, ENT_QUOTES, 'UTF-8');
-
-        // Cuerpo AUTOAJUSTADO. Antes era fijo (6 pt en carta, 5 en rollo) para que cupiera
-        // la descripción MÁS larga del catálogo — con lo que TODAS salían diminutas, incluso
-        // las cortas, que son la mayoría. Ahora se empieza grande y solo se baja medio punto
-        // a la vez mientras el texto no quepa en el alto útil de la etiqueta: las
-        // descripciones normales se imprimen legibles y solo las kilométricas se achican.
-        // El alto se mide con la fuente en NEGRITA, que es la del nombre y la más ancha, así
-        // que el ajuste va por el lado seguro.
-        $altoUtil = $h - 2 * $pad;
-        $ptMax    = $w > 55.0 ? 9.0 : 7.0;
-        $ptMin    = $w > 55.0 ? 6.0 : 5.0;   // suelo = el tamaño fijo de antes
-        $pt = $ptMax;
-        $textoH = 0.0;
-        while (true) {
-            $pdf->SetFont('helvetica', 'B', $pt);
-            $lineMm  = ($pt / 72 * 25.4) * 1.3;
-            $nLineas = 1 + max(1, $pdf->getNumLines((string) $p->NOMBRE, $tw))
-                         + ($um !== '' ? 1 : 0);
-            $textoH  = $nLineas * $lineMm;
-            if ($textoH <= $altoUtil || $pt <= $ptMin) {
-                break;
+        // Tres tamaños: la hoja (66×27) y las tiras de rollo 50×30 y 40×25. El QR es chico y de
+        // tamaño fijo (lo lee cualquier teléfono o lector y deja el ancho a la descripción); en
+        // las tiras el margen es mínimo y la descripción crece o se achica para llenar el resto.
+        $hoja  = $w > 55.0;
+        $chica = $w < 45.0;                         // tira 40×25
+        $pad   = $hoja ? 1.8 : 1.2;
+        $mm    = fn (float $pt) => $pt * 25.4 / 72;   // puntos → milímetros
+        $corta = function (string $t, float $ancho) use ($pdf): string {   // recorta con "…"
+            if ($pdf->GetStringWidth($t) <= $ancho) {
+                return $t;
             }
+            while ($t !== '' && $pdf->GetStringWidth($t . '…') > $ancho) {
+                $t = mb_substr($t, 0, -1);
+            }
+            return rtrim($t) . '…';
+        };
+
+        // ── Columna izquierda: QR y, debajo, el código ──
+        $ptCod  = $chica ? 5.5 : 6.5;
+        $codH   = $mm($ptCod) * 1.25;
+        // El QR se ajusta a la rejilla de la impresora térmica (203 ppp = 8 puntos por mm, un
+        // punto = 0,125 mm): cada módulo mide un número ENTERO de puntos y el QR arranca en un
+        // punto. Con módulos de, p. ej., 5,3 puntos la impresora los redondea desparejos y a
+        // este tamaño eso ya hacía fallar lecturas. En impresoras de oficina no estorba.
+        // Módulos del QR (depende del contenido): se calcula UNA vez por código, no en cada
+        // copia —write2DBarcode lo vuelve a codificar al dibujarlo—.
+        static $modulosPorCodigo = [];
+        $punto   = 0.125;
+        $modulos = $modulosPorCodigo[$p->qr_payload]
+            ??= (new \TCPDF2DBarcode($p->qr_payload, 'QRCODE,H'))->getBarcodeArray()['num_cols'] ?? 21;
+        $aire    = 1.0;   // mm entre el QR y el código: el lector necesita blanco alrededor
+        $qrMax   = min($h - 2 * $pad - $codH - $aire, $hoja ? 15.0 : ($chica ? 11.5 : 14.0));   // mm
+        $qrSize  = max(3.0, floor($qrMax / $modulos / $punto)) * $punto * $modulos;
+        $qrX     = round(($x + $pad) / $punto) * $punto;
+        $qrY     = round(($y + ($h - ($qrSize + $aire + $codH)) / 2) / $punto) * $punto;
+        $pdf->write2DBarcode($p->qr_payload, 'QRCODE,H', $qrX, $qrY, $qrSize, $qrSize, [
+            'border' => false, 'vpadding' => 0, 'hpadding' => 0,
+            'fgcolor' => [0, 0, 0], 'bgcolor' => [255, 255, 255], 'module_width' => 1, 'module_height' => 1,
+        ], 'N');
+        $pdf->SetTextColor(15, 23, 42);
+        $pdf->SetFont('helvetica', 'B', $ptCod);
+        $pdf->SetXY($qrX, $qrY + $qrSize + $aire);
+        $pdf->Cell($qrSize, $codH, (string) $p->CODIGO, 0, 0, 'C');
+
+        // ── Columna de texto, a la derecha del QR ──
+        $gap = $hoja ? 3.0 : 1.8;
+        $tx = $qrX + $qrSize + $gap;
+        $tw = $x + $w - $pad - $tx;
+
+        $ptMeta = $hoja ? 5.5 : ($chica ? 4.6 : 5.0);
+        $metaH  = $mm($ptMeta) * 1.3;
+        $altoUtil = $h - 2 * $pad;
+
+        // Debajo de la descripción: "Medida: <UM>" y, si la tiene, "Ubicación: <lugar>". Con la
+        // palabra completa ("UM" solo no se entendía) y "Medida" y no "Unidad", que con la UM
+        // más común quedaba "Unidad: UNIDAD". En un renglón (medida a la izquierda, ubicación
+        // a la derecha) si caben enteras; si no, una debajo de la otra.
+        $pares = array_values(array_filter([
+            ['Medida:', mb_strtoupper(trim((string) $p->UM))],
+            ['Ubicación:', mb_strtoupper(trim((string) $p->UBICACION))],
+        ], fn ($par) => $par[1] !== ''));
+        $ancho = function (array $par) use ($pdf, $ptMeta): float {
+            $pdf->SetFont('helvetica', '', $ptMeta);
+            $a = $pdf->GetStringWidth($par[0] . ' ');
+            $pdf->SetFont('helvetica', 'B', $ptMeta);
+            return $a + $pdf->GetStringWidth($par[1]);
+        };
+        $unRenglon = count($pares) < 2 || $ancho($pares[0]) + $ancho($pares[1]) + 2.0 <= $tw;
+        $metaAlto  = $pares ? ($unRenglon ? 1 : count($pares)) * $metaH : 0.0;
+        $sep       = $pares ? 0.8 : 0.0;             // aire entre la descripción y la unidad
+
+        // La descripción (sin negrita), del tamaño más grande con el que quepa ENTERA junto a
+        // la unidad: alto disponible y palabra más ancha en el ancho (nunca "DESINFECTAN /
+        // TE"). Se baja de medio punto; solo las kilométricas se achican, y si ni al mínimo
+        // cabe se corta en la última palabra que entre con "…".
+        $nombre   = trim((string) $p->NOMBRE);
+        $palabras = preg_split('/\s+/', $nombre) ?: [];
+        $ptMax = $hoja ? 7.5 : ($chica ? 7.0 : 8.0);
+        $ptMin = $hoja ? 5.0 : 4.5;
+        $altoNombre = max(2.0, $altoUtil - $metaAlto - $sep);
+        $cabe  = function (float $pt) use ($pdf, $nombre, $palabras, $tw, $altoNombre): bool {
+            $pdf->SetFont('helvetica', '', $pt);
+            foreach ($palabras as $palabra) {             // la más ANCHA, no la de más letras
+                if ($pdf->GetStringWidth($palabra) > $tw) {
+                    return false;
+                }
+            }
+            return $pdf->getNumLines($nombre, $tw) * $pdf->getCellHeight($pdf->getFontSize()) <= $altoNombre;
+        };
+        $pt = $ptMax;
+        while ($pt > $ptMin && !$cabe($pt)) {
             $pt -= 0.5;
         }
-        $ty = $y + max($pad, ($h - $textoH) / 2.0);
-
         $pdf->SetFont('helvetica', '', $pt);
-        $html = '<div style="font-family:helvetica;color:#0f172a;font-size:' . $pt . 'pt;line-height:1.3;">'
-              . 'Serial: ' . $codigo . '<br>'
-              . '<b>' . $nombre . '</b><br>'
-              . $um
-              . '</div>';
-        $pdf->writeHTMLCell($tw, 0, $tx, $ty, $html, 0, 0, false, true, 'L', true);
+        $lineaH    = $pdf->getCellHeight($pdf->getFontSize());
+        $maxLineas = max(1, (int) floor($altoNombre / $lineaH));
+        if ($pdf->getNumLines($nombre, $tw) > $maxLineas) {
+            do {
+                array_pop($palabras);
+                $nombre = rtrim(implode(' ', $palabras), ' ,.;-') . '…';
+            } while (count($palabras) > 1 && $pdf->getNumLines($nombre, $tw) > $maxLineas);
+        }
+        $altoTexto = min($altoNombre, $pdf->getNumLines($nombre, $tw) * $lineaH);
+
+        // Descripción + unidad forman UN bloque, centrado en alto junto al QR.
+        $yBloque = $y + $pad + max(0.0, ($altoUtil - ($altoTexto + $sep + $metaAlto)) / 2);
+        $pdf->SetTextColor(15, 23, 42);
+        $pdf->MultiCell($tw, $lineaH, $nombre, 0, 'L', false, 1, $tx, $yBloque, true, 0, false, false, $altoNombre, 'T', false);
+
+        if ($pares) {
+            $pinta = function (array $par, float $xi, float $yi, float $disponible) use ($pdf, $ptMeta, $metaH, $corta): void {
+                $pdf->SetFont('helvetica', '', $ptMeta);
+                $pdf->SetTextColor(100, 116, 139);
+                $pdf->SetXY($xi, $yi);
+                $pdf->Cell(0, $metaH, $par[0] . ' ', 0, 0, 'L');
+                $le = $pdf->GetStringWidth($par[0] . ' ');
+                $pdf->SetFont('helvetica', 'B', $ptMeta);
+                $pdf->SetTextColor(15, 23, 42);
+                $pdf->SetXY($xi + $le, $yi);
+                $pdf->Cell(0, $metaH, $corta($par[1], max(1.0, $disponible - $le)), 0, 0, 'L');
+            };
+            $yMeta = $yBloque + $altoTexto + $sep;
+            if ($unRenglon) {
+                $pinta($pares[0], $tx, $yMeta, $tw);
+                if (isset($pares[1])) {
+                    $pinta($pares[1], $tx + $tw - $ancho($pares[1]), $yMeta, $ancho($pares[1]) + 0.1);
+                }
+            } else {
+                foreach ($pares as $i => $par) {
+                    $pinta($par, $tx, $yMeta + $i * $metaH, $tw);
+                }
+            }
+        }
+
+        $pdf->SetTextColor(0, 0, 0);
     }
 
     /**
