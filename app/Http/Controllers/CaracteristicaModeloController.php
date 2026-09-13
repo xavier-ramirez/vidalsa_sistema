@@ -797,15 +797,19 @@ class CaracteristicaModeloController extends Controller
      */
     private function rechazarFichaRepetida(Request $request, array $validated, ?int $exceptoId = null)
     {
+        // Misma ficha = mismo modelo, año y TIPO. Un modelo+año puede ser dos vehículos (el
+        // chasis HFC3252KR1K3 2017 es VOLTEO y VOLTEO HIDROJET): esos sí llevan fichas aparte.
+        $tipo = fn ($t) => preg_replace('/\s+/', ' ', mb_strtoupper(trim((string) $t)));
         $existe = CaracteristicaModelo::where('MODELO', mb_strtoupper(trim($validated['MODELO'])))
             ->where('ANIO_ESPEC', $validated['ANIO_ESPEC'])
             ->when($exceptoId, fn ($q) => $q->where('ID_ESPEC', '!=', $exceptoId))
-            ->exists();
+            ->pluck('TIPO')
+            ->contains(fn ($t) => $tipo($t) === $tipo($validated['TIPO'] ?? ''));
         if (!$existe) {
             return null;
         }
 
-        $msg = 'Ya existe la ficha de ese modelo y año. Para otro color no hace falta otra ficha: '
+        $msg = 'Ya existe la ficha de ese modelo, año y tipo. Para otro color no hace falta otra ficha: '
              . 'su foto se agrega en la tarjeta del catálogo, eligiendo el color.';
         return $request->wantsJson()
             ? response()->json(['success' => false, 'message' => $msg, 'errors' => ['MODELO' => [$msg]]], 422)

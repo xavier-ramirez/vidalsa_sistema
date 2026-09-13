@@ -103,10 +103,19 @@ class CatalogoColoresTest extends MySqlTestCase
     public function test_no_se_puede_crear_otra_ficha_del_mismo_modelo_y_anio(): void
     {
         $this->ficha();
-        $this->actingAs($this->superAdminGlobal())->postJson(route('catalogo.store'), [
-            'MODELO' => strtolower($this->modelo), 'ANIO_ESPEC' => 2026, 'TIPO' => 'CAMIONETA',
+        $admin = $this->superAdminGlobal();
+        // Mismo modelo, año y tipo (con mayúsculas y espacios distintos): es la misma ficha.
+        $this->actingAs($admin)->postJson(route('catalogo.store'), [
+            'MODELO' => strtolower($this->modelo), 'ANIO_ESPEC' => 2026, 'TIPO' => ' camioneta ',
         ])->assertStatus(422)->assertJsonFragment(['success' => false]);
         $this->assertSame(1, CaracteristicaModelo::where('MODELO', $this->modelo)->count());
+
+        // Otro TIPO sobre el mismo modelo y año es otro vehículo (el chasis HFC3252KR1K3 2017
+        // es VOLTEO y VOLTEO HIDROJET): ese sí lleva su propia ficha.
+        $this->actingAs($admin)->postJson(route('catalogo.store'), [
+            'MODELO' => $this->modelo, 'ANIO_ESPEC' => 2026, 'TIPO' => 'CAMIONETA HIDROJET',
+        ])->assertSuccessful();
+        $this->assertSame(2, CaracteristicaModelo::where('MODELO', $this->modelo)->count());
     }
 
     public function test_los_modelos_sin_ficha_salen_solos_y_asegurar_ficha_los_enlaza(): void

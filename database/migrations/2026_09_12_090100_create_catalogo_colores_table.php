@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
@@ -35,6 +36,12 @@ return new class extends Migration
 
     public function down(): void
     {
+        // Con fotos cargadas se aborta: la migración siguiente ya unió las fichas repetidas
+        // (su down() no las vuelve a partir), así que estas fotos no viven en ningún otro
+        // sitio y borrar la tabla las perdería para siempre.
+        if (Schema::hasTable('catalogo_colores') && ($n = DB::table('catalogo_colores')->count()) > 0) {
+            throw new RuntimeException("catalogo_colores tiene {$n} fotos de color: al revertir se perderían.");
+        }
         Schema::dropIfExists('catalogo_colores');
     }
 };

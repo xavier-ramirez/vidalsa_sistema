@@ -16,7 +16,11 @@ use Illuminate\Support\Facades\Schema;
  * roja con foto roja era copiar la ficha. La unidad no decía de qué color era, y la ficha 49
  * juntaba verdes y amarillas: las 5 amarillas se veían verdes.
  *
- * Para cada grupo repetido:
+ * Solo son copias las fichas del MISMO TIPO (sin distinguir mayúsculas ni espacios de más).
+ * Un mismo MODELO + año puede ser dos vehículos distintos: el chasis HFC3252KR1K3 2017 tiene
+ * la ficha "VOLTEO" y la "VOLTEO HIDROJET", cada una con su foto. Esas no se tocan.
+ *
+ * Para cada grupo de copias:
  *   1. Se queda la ficha más antigua (menor ID) como la del modelo; si le falta algún dato
  *      técnico que otra tenga, lo toma de ella.
  *   2. La foto de cada ficha pasa a ser la foto de un COLOR: el que dice FOTOS_CONOCIDAS
@@ -24,8 +28,9 @@ use Illuminate\Support\Facades\Schema;
  *      comparten uno. Si no hay forma de saberlo, la foto no se asigna a ningún color.
  *   3. Las unidades, los filtros del modelo (modelo_filtro) y el historial del catálogo de
  *      las fichas repetidas pasan a la que se queda, y las repetidas se borran.
- *   4. Las unidades de ese modelo+año que no tenían ficha (el enganche automático estaba
- *      bloqueado mientras hubo varias) quedan enlazadas a la ficha única.
+ *   4. Si de ese modelo+año queda UNA sola ficha, las unidades que no tenían (el enganche
+ *      automático estaba bloqueado mientras hubo varias) quedan enlazadas a ella. Si quedan
+ *      varias (tipos distintos) no se adivina cuál es la de cada unidad.
  *
  * FOTOS_CONOCIDAS va por el ID del archivo en Google Drive, que es el mismo en esta base y en
  * la del servidor (comparten el Drive), así que la migración da el mismo resultado en las dos
@@ -65,6 +70,34 @@ return new class extends Migration
         if ($fichas->count() < 2) {
             return;
         }
+
+        // Solo se unen las del mismo tipo: son las copias hechas para otra foto de color.
+        foreach ($fichas->groupBy(fn ($f) => $this->tipoNormal($f->TIPO)) as $copias) {
+            if ($copias->count() > 1) {
+                $this->unirCopias($copias->values());
+            }
+        }
+
+        // 4. Las unidades sueltas del mismo modelo+año (o con una ficha que ya no existe),
+        //    solo si quedó UNA ficha: con dos tipos no se puede saber cuál es la de cada una.
+        $quedan = DB::table('caracteristicas_modelo')->where('MODELO', $modelo)->where('ANIO_ESPEC', $anio)->pluck('ID_ESPEC');
+        if ($quedan->count() === 1) {
+            DB::table('equipos')
+                ->where('MODELO', $modelo)->where('ANIO', $anio)
+                ->where(fn ($q) => $q->whereNull('ID_ESPEC')->orWhereNotIn('ID_ESPEC', DB::table('caracteristicas_modelo')->select('ID_ESPEC')))
+                ->update(['ID_ESPEC' => $quedan->first()]);
+        }
+    }
+
+    /** El TIPO como se comparan: mayúsculas y un solo espacio ("VOLTEO  HIDROJET"). */
+    private function tipoNormal($tipo): string
+    {
+        return preg_replace('/\s+/', ' ', mb_strtoupper(trim((string) $tipo)));
+    }
+
+    /** Pasos 1 a 3 sobre unas fichas que son copias (mismo modelo, año y tipo). */
+    private function unirCopias($fichas): void
+    {
         $principal = $fichas->first();
         $ahora = now();
 
@@ -113,12 +146,6 @@ return new class extends Migration
             }
             DB::table('caracteristicas_modelo')->where('ID_ESPEC', $ficha->ID_ESPEC)->delete();
         }
-
-        // 4. Las unidades sueltas del mismo modelo+año (o con una ficha que ya no existe).
-        DB::table('equipos')
-            ->where('MODELO', $modelo)->where('ANIO', $anio)
-            ->where(fn ($q) => $q->whereNull('ID_ESPEC')->orWhereNotIn('ID_ESPEC', DB::table('caracteristicas_modelo')->select('ID_ESPEC')))
-            ->update(['ID_ESPEC' => $principal->ID_ESPEC]);
     }
 
     /** Color de la foto de una ficha, o null si no se puede saber. */
