@@ -154,7 +154,7 @@
                             style="display:none;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:12px;background:#fff;color:#b45309;border:1.5px solid #fdba74;border-radius:8px;padding:11px;font-weight:800;font-size:14px;cursor:pointer;">
                         Entrar sin conexión
                     </button>
-                    <div id="offlineLoginMsg" style="display:none;margin-top:20px;color:#b45309;font-size:12.5px;text-align:center;font-weight:600;"></div>
+                    <div id="offlineLoginMsg" style="display:none;margin-top:20px;color:#b45309;font-size:12.5px;text-align:center;font-weight:600;white-space:pre-line;"></div>
                 </form>
             </div>
             {{-- Figuras geométricas ABAJO de la tarjeta — ancladas a la propia tarjeta
@@ -268,15 +268,16 @@
     // Cualquier aviso puede llegar con "_pendientes" detrás (lo añade el interceptor de
     // fetch cuando lo que falló fue la subida de lo hecho sin conexión): se muestra el
     // motivo y además que esos cambios siguen guardados. Una sola frase para lo pendiente,
-    // en vez de un texto entero repetido por cada motivo.
+    // en vez de un texto entero repetido por cada motivo. Cada frase va en su línea (\n +
+    // white-space:pre-line en #offlineLoginMsg): qué pasó arriba, qué hacer abajo.
     (function mostrarAvisoDeUrl() {
         const AVISOS = {
-            sesion_expirada:  'Tu sesión expiró por seguridad. Inicia sesión de nuevo.',
+            sesion_expirada:  'Tu sesión expiró por seguridad.\nInicia sesión de nuevo.',
             otro_dispositivo: 'Tu sesión se inició en otro dispositivo.',
-            clave_cambiada:   'Tu clave cambió. Inicia sesión con la nueva.',
-            inactividad:      'Tu sesión se cerró por inactividad. Inicia sesión de nuevo.'
+            clave_cambiada:   'Tu clave cambió.\nInicia sesión con la nueva.',
+            inactividad:      'Tu sesión se cerró por inactividad.\nInicia sesión de nuevo.'
         };
-        const PENDIENTES = ' Tus cambios sin subir siguen guardados: al entrar se suben solos.';
+        const PENDIENTES = '\nTus cambios sin subir siguen guardados: al entrar se suben solos.';
         var clave;
         try { clave = new URLSearchParams(window.location.search).get('aviso'); } catch (e) { return; }
         if (!clave) return;

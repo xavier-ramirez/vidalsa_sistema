@@ -316,15 +316,15 @@
         </div>
 
         <div style="margin-top: 30px; display: flex; gap: 12px; justify-content: center;">
-            <a href="{{ route('usuarios.index') }}" class="btn-primary-maquinaria btn-secondary">
+            <a href="{{ route('usuarios.index') }}" class="btn-primary-maquinaria btn-secondary btn-compacto">
                 Cancelar
             </a>
-            <button type="submit" class="btn-primary-maquinaria"
+            <button type="submit" class="btn-primary-maquinaria btn-compacto"
                 @cannot('manage.users')
                 onclick="event.preventDefault(); window.toast('Acceso denegado: Necesitas el permiso super.admin para guardar cambios de usuarios.', 'error');"
                 @endcannot>
                 <i class="material-icons">save</i>
-                {{ isset($user) ? 'Actualizar' : 'Registrar en el Sistema' }}
+                Guardar
             </button>
         </div>
     </form>
