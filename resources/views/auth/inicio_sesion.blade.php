@@ -249,12 +249,14 @@
     // rehabilita "Iniciar sesión". Lo usan el aviso "sin conexión", los errores de
     // credenciales, el login biométrico y —por eso es global— offline-auth.js, que antes
     // tenía su propia versión a medias del mismo <div>.
-    window.mostrarMsgLogin = function (texto) {
+    // `rojo`: los avisos de sesión cerrada (?aviso=, abajo) van en rojo; el resto en ámbar.
+    // El color se pone en cada llamada porque el <div> es el mismo para todos los mensajes.
+    window.mostrarMsgLogin = function (texto, rojo) {
         window._loginEnCurso = false; // el intento terminó: el guard de 4s vuelve a aplicar
         const pl = document.getElementById('loginPreloader');
         if (pl) { pl.classList.add('fade-out'); pl.style.display = 'none'; }
         const msg = document.getElementById('offlineLoginMsg');
-        if (msg) { msg.textContent = texto; msg.style.display = 'block'; }
+        if (msg) { msg.textContent = texto; msg.style.color = rojo ? '#dc2626' : '#b45309'; msg.style.display = 'block'; }
         const btnOn = document.getElementById('btnOnlineLogin');
         if (btnOn) btnOn.disabled = false;
     };
@@ -292,7 +294,7 @@
         // El texto se pinta cuando el DOM ya tiene el <div>; el guard del preloader lo
         // apaga solo porque mostrarMsgLogin lo oculta.
         document.addEventListener('DOMContentLoaded', function () {
-            mostrarMsgLogin(AVISOS[motivo] + (conPendientes ? PENDIENTES : ''));
+            mostrarMsgLogin(AVISOS[motivo] + (conPendientes ? PENDIENTES : ''), true);
         });
         try { window.history.replaceState({}, '', window.location.pathname); } catch (e) {}
     })();
