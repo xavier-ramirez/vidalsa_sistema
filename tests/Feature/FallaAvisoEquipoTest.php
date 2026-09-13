@@ -9,7 +9,7 @@ use Tests\MySqlTestCase;
  * El reporte de falla ABIERTO se ve sobre el estado del equipo en /admin/equipos (aviso al
  * pasar el mouse y cabecera del menú de estado, equipos_index.js): la celda del estado lleva
  * su descripción y su resumen (Falla::resumen), y la respuesta de crear trae ese resumen para
- * pintarlo sin recargar. Todo se revierte.
+ * pintarlo sin recargar; la copia sin conexión lleva lo mismo. Todo se revierte.
  */
 class FallaAvisoEquipoTest extends MySqlTestCase
 {
@@ -47,5 +47,10 @@ class FallaAvisoEquipoTest extends MySqlTestCase
         $html = $this->filas($e);
         $this->assertStringContainsString('data-falla-desc="No enciende. Revisar batería."', $html);
         $this->assertStringContainsString('data-falla-resumen="' . e($resumen) . '"', $html);
+
+        // La copia sin conexión lleva lo mismo: la fila offline pinta el mismo aviso.
+        $fila = collect($this->actingAs($admin)->getJson(route('offline.snapshot'))->assertOk()->json('equipos'))
+            ->firstWhere('id', $e->ID_EQUIPO);
+        $this->assertSame(['desc' => 'No enciende. Revisar batería.', 'resumen' => $resumen], $fila['falla']);
     }
 }

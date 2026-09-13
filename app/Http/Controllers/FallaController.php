@@ -283,6 +283,8 @@ class FallaController extends Controller
                 'estado_al_crear'  => $estadoAlCrear,
             ]);
 
+            $this->refrescarCopiaOffline($falla->ACTIVO_TIPO);
+
             return response()->json([
                 'success' => true,
                 'message' => 'Reporte de falla creado.',
@@ -386,9 +388,22 @@ class FallaController extends Controller
             }
 
             $this->logAction($falla->ID_FALLA, $falla->ACTIVO_TIPO, $falla->ACTIVO_ID, 'close_falla', []);
+            $this->refrescarCopiaOffline($falla->ACTIVO_TIPO);
 
             return response()->json(['success' => true, 'message' => 'Reporte cerrado.']);
         });
+    }
+
+    /**
+     * La copia sin conexión de Equipos lleva el reporte abierto de cada equipo (el aviso sobre
+     * su estado): crear, cerrar o borrar uno la deja vieja aunque el equipo no cambie de
+     * estado (p. ej. si le queda otro abierto). Los auxiliares no lo llevan.
+     */
+    private function refrescarCopiaOffline(string $activoTipo): void
+    {
+        if ($activoTipo === 'equipo') {
+            \App\Support\OfflineVersion::invalidar('equipos');
+        }
     }
 
     /**
@@ -424,6 +439,7 @@ class FallaController extends Controller
                     }
                 }
             }
+            $this->refrescarCopiaOffline($tipo);
 
             return response()->json(['success' => true, 'message' => 'Reporte eliminado.']);
         });

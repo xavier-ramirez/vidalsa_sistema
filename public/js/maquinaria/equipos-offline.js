@@ -443,7 +443,8 @@
             // Fase 2: clickeable sin conexión → menú con OPERATIVO/MANTENIMIENTO/DESINCORP.
             // (INOPERATIVO no: requiere reporte de falla). data-status/data-label los usa
             // el flujo de cambio; al elegir se encola y se repinta.
-            '<td class="table-cell-custom eq-td-estatus">' +
+            '<td class="table-cell-custom eq-td-estatus"' +
+                (e.falla ? ' data-falla-desc="' + esc(e.falla.desc || '') + '" data-falla-resumen="' + esc(e.falla.resumen || '') + '"' : '') + '>' +
                 '<div title="Cambiar estado (sin conexión)" data-status="' + esc(e.estado || '') + '" data-label="' + esc(e.tipo || ('#' + (e.codigo_patio || e.id))) + '"' +
                     ' onclick="window.eqOffEstadoMenu(event, this, ' + e.id + ')"' +
                     ' class="status-trigger-lite" style="--eq-st-color:' + est.color + '">' +
@@ -544,7 +545,15 @@
         var permitidos = ['OPERATIVO', 'EN MANTENIMIENTO', 'DESINCORPORADO'];
         var menu = document.createElement('div');
         menu.className = 'eq-off-menu';
-        menu.style.cssText = 'position:absolute;z-index:10002;background:white;border:1px solid #e2e8f0;border-radius:8px;box-shadow:0 8px 20px rgba(0,0,0,0.15);overflow:hidden;min-width:175px;';
+        menu.style.cssText = 'position:absolute;z-index:10002;background:white;border:1px solid #e2e8f0;border-radius:8px;box-shadow:0 8px 20px rgba(0,0,0,0.15);overflow:hidden;min-width:175px;max-width:300px;';
+        // Arriba, el reporte de falla abierto (como el menú de estado en línea).
+        var celda = chip.closest('[data-falla-desc]');
+        if (celda && typeof window.eqPintarFallaAviso === 'function') {
+            var cab = document.createElement('div');
+            cab.className = 'eq-falla-aviso eq-falla-aviso-menu';
+            window.eqPintarFallaAviso(cab, celda);
+            menu.appendChild(cab);
+        }
         permitidos.forEach(function (s) {
             var it = ESTADOS[s];
             var row = document.createElement('div');

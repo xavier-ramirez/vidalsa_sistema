@@ -236,6 +236,8 @@ const STATUS_CONFIG = {
         caja.append(titulo, resumen, texto);
         caja.title = desc;   // en el menú, el texto entero si pasa de 5 líneas
     }
+    // También lo usa el menú de estado sin conexión (equipos-offline.js · eqOffEstadoMenu).
+    window.eqPintarFallaAviso = pintarFallaAviso;
 
     // ── Aviso del reporte de falla al pasar el mouse por el estado ──
     // Solo en pantallas con mouse: en las táctiles el toque abre el menú, que ya lo trae.

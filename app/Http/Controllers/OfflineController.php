@@ -656,6 +656,8 @@ class OfflineController extends Controller
             'tipo:id,nombre',
             'frenteActual:ID_FRENTE,NOMBRE_FRENTE,ESTATUS_FRENTE',
             'documentacion:ID_EQUIPO,PLACA',
+            // El reporte de falla abierto: la fila offline lo muestra sobre el estado.
+            'fallaAbierta:ID_FALLA,ACTIVO_ID,ACTIVO_TIPO,ESTADO_REPORTE,CODIGO_REPORTE,FECHA_EMISION,DESCRIPCION_AVERIA,NOMBRE_REPORTA',
         ]);
     }
 
@@ -694,6 +696,11 @@ class OfflineController extends Controller
             'id_frente' => $e->ID_FRENTE_ACTUAL ? (int) $e->ID_FRENTE_ACTUAL : null,
             'id_tipo' => $e->id_tipo_equipo ? (int) $e->id_tipo_equipo : null,
             'confirmado' => (int) ($e->CONFIRMADO_EN_SITIO ?? 0),
+            // Reporte de falla abierto (o null): lo mismo que partials/table_rows pone en la
+            // celda del estado (data-falla-desc / data-falla-resumen).
+            'falla' => $e->fallaAbierta
+                ? ['desc' => MojibakeFix::fix($e->fallaAbierta->DESCRIPCION_AVERIA), 'resumen' => $e->fallaAbierta->resumen]
+                : null,
         ];
     }
 

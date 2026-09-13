@@ -68,8 +68,9 @@ class OfflineVersion
      *   v2 → ids para filtros offline (heredada del literal 'schema-v2' anterior)
      *   v3 → versiones por dominio + sincronización incremental
      *   v4 → color de la unidad (equipos) y referencia de los movimientos (almacén)
+     *   v5 → reporte de falla abierto de cada equipo (aviso sobre su estado)
      */
-    public const ESQUEMA = 4;
+    public const ESQUEMA = 5;
 
     /** Dominios válidos. El orden no importa; valida el argumento de invalidar(). */
     public const DOMINIOS = ['equipos', 'almacen', 'catalogos'];
