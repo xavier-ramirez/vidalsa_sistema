@@ -250,8 +250,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Numero de orden de la navegacion en curso. Sube en cada loadPage(). Sirve para que
     // una navegacion vieja no toque el spinner de la nueva: si el usuario pincha dos enlaces
-    // seguidos (menos de MIN_PRELOADER_MS de diferencia), el apagado diferido de la PRIMERA
-    // llegaba tarde y le restaba una referencia a la SEGUNDA, que aun estaba cargando; el
+    // seguidos, el apagado diferido de la PRIMERA (espera a que su modulo se dibuje) podia
+    // llegar tarde y restarle una referencia a la SEGUNDA, que aun estaba cargando; el
     // spinner se iba antes de tiempo y la pantalla quedaba destapada a medio cargar.
     let _navSeq = 0;
 
@@ -274,17 +274,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // único hide de esta navegación lo balancea. El flag se libera en el finally.
         const _inheritSpinner = (window.__vidalsaRedirecting === true);
 
-        // Tiempo minimo que el preloader queda visible: evita el parpadeo
-        // cuando la navegacion es rapida (<250ms) y el usuario no alcanza
-        // a percibir el spinner. En redes rapidas consumibles/graficos
-        // respondia sin mostrar claramente el preloader.
-        //
-        // NOTA: esta variable es LOCAL al scope de loadPage(). Antes se llamaba
-        // `_preloaderShownAt` pero colisionaba con la variable del outer
-        // closure (linea ~272) que usa el watchdog de 8s. Renombrada a
-        // `_navShownAt` para eliminar el shadow y que el watchdog sea eficaz.
-        const MIN_PRELOADER_MS = 280;
-        const _navShownAt = performance.now();
+        // El spinner sale SIEMPRE al empezar y se va cuando el modulo ya esta dibujado,
+        // sin tiempo minimo: antes quedaba 280 ms aunque el modulo estuviera listo mucho
+        // antes (medido 13-09-2026: 13 de 15 modulos listos a 65-160 ms, esperando al reloj).
 
         // PUNTO UNICO de apagado del spinner para esta navegacion. Solo apaga si la
         // navegacion sigue siendo la actual: si el usuario ya pincho otro enlace, el spinner
@@ -295,19 +287,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (_miNav !== _navSeq) return;
             if (window.hidePreloader) window.hidePreloader();
         };
-
-        const _hidePreloaderRespectingMinTime = () => {
-            if (!window.hidePreloader) return;
-            if (_miNav !== _navSeq) return;
-            const elapsed = performance.now() - _navShownAt;
-            if (elapsed < MIN_PRELOADER_MS) {
-                // Se vuelve a comprobar al saltar: entre que se programa este apagado y que
-                // se ejecuta pueden pasar los 280ms y arrancar otra navegacion.
-                setTimeout(_apagarSiSigueSiendoMia, MIN_PRELOADER_MS - elapsed);
-            } else {
-                _apagarSiSigueSiendoMia();
-            }
-        };
+        // ¿El usuario ya pidió OTRA página mientras llegaba esta? Entonces esta se abandona
+        // sin tocar nada: ni pinta, ni cambia la dirección, ni redirige, ni avisa errores.
+        // Sin esto, una respuesta lenta llegaba DESPUÉS de la nueva y la tapaba (medido:
+        // tocar Catálogo y a los 40 ms Usuarios terminaba mostrando Catálogo).
+        const _yaNoEsLaActual = () => _miNav !== _navSeq;
 
         try {
             // Si NO heredamos el spinner de un redirect, lo encendemos nosotros.
@@ -350,9 +334,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     headers: CABECERAS_SPA,
                     cache: 'no-store'
                 });
-                if (response.redirected && response.url) urlFinal = response.url;
-
                 clearTimeout(timeoutId);
+                if (_yaNoEsLaActual()) { handledCleanup = true; return; }
+                if (response.redirected && response.url) urlFinal = response.url;
 
                 // 403 de AuthorizationException: servidor devuelve JSON con
                 // {success:false, message, forbidden:true}. Mostrar toast y
@@ -391,6 +375,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 html = await response.text();
+                if (_yaNoEsLaActual()) { handledCleanup = true; return; }
             }
 
             // Extraer contenido del viewport
@@ -493,14 +478,14 @@ document.addEventListener('DOMContentLoaded', () => {
             // El spinner se va cuando el modulo YA ESTA DIBUJADO, no al terminar de
             // montarlo. `innerHTML =` y executeScripts solo tocan el DOM: el navegador
             // pinta en un frame POSTERIOR. Apagar aqui a secas destapaba la pantalla con
-            // el modulo a medio dibujar, y se notaba justo en las navegaciones que pasan
-            // de MIN_PRELOADER_MS —ahi el apagado no espera al reloj y salia inmediato—.
+            // el modulo a medio dibujar.
             //
             // Doble rAF: el primer callback corre ANTES del paint pendiente, el segundo ya
             // DESPUES de commitearlo. Mismo patron, y por el mismo motivo, que el .finally
-            // de loadEquipos ("fila visible -> spinner se va"); no se duplica la regla del
-            // minimo, que sigue viviendo entera en _hidePreloaderRespectingMinTime.
-            requestAnimationFrame(() => requestAnimationFrame(_hidePreloaderRespectingMinTime));
+            // de loadEquipos ("fila visible -> spinner se va"). Si el modulo pidio sus
+            // propios datos al montar, el contador del preloader lo mantiene hasta que
+            // esos datos tambien esten pintados.
+            requestAnimationFrame(() => requestAnimationFrame(_apagarSiSigueSiendoMia));
             window.scrollTo({ top: 0, behavior: 'smooth' });
 
             // Cerrar menú mobile si está abierto. Además colapsar los grupos (Flota,
@@ -516,6 +501,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) {
             clearTimeout(timeoutId);
             handledCleanup = true;
+            if (_yaNoEsLaActual()) return;   // falló una página que ya nadie espera: silencio
             _apagarSiSigueSiendoMia();
 
             // Sin conexion (navigator.onLine === false) o TypeError ("Failed to fetch"
