@@ -35,15 +35,6 @@ class CatalogoColoresTest extends MySqlTestCase
         parent::tearDown();
     }
 
-    /** super.admin (tiene equipos.create) sin cambio de clave pendiente. */
-    private function admin(): Usuario
-    {
-        $u = Usuario::where('REQUIERE_CAMBIO_CLAVE', 0)->whereNotNull('PERMISOS')->get()
-            ->first(fn ($u) => $u->can('super.admin') && $u->can('equipos.create') && \App\Models\Almacen::usuarioEsGlobal($u));
-        $this->assertNotNull($u, 'Hace falta un super.admin global para probar.');
-        return $u;
-    }
-
     private function ficha(?string $foto = '/storage/google/modelo'): CaracteristicaModelo
     {
         return CaracteristicaModelo::create(['MODELO' => $this->modelo, 'TIPO' => 'CAMIONETA', 'ANIO_ESPEC' => 2026, 'FOTO_REFERENCIAL' => $foto]);
@@ -81,7 +72,7 @@ class CatalogoColoresTest extends MySqlTestCase
     public function test_subir_foto_de_un_color_no_toca_la_del_modelo_y_borrarla_si_la_quita(): void
     {
         $f = $this->ficha();
-        $admin = $this->admin();
+        $admin = $this->superAdminGlobal();
 
         $this->actingAs($admin)->post(route('catalogo.uploadFoto', $f->ID_ESPEC), [
             'foto' => UploadedFile::fake()->image('amarilla.png', 60, 40), 'color' => 'amarilla',
@@ -104,7 +95,7 @@ class CatalogoColoresTest extends MySqlTestCase
         $f->colores()->create(['COLOR' => 'GRIS', 'FOTO' => '/storage/google/compartida']);
 
         $this->assertTrue(CaracteristicaModelo::fotoSigueEnUso('compartida'));
-        $this->actingAs($this->admin())->deleteJson(route('catalogo.deleteFoto', $f->ID_ESPEC) . '?color=GRIS')->assertOk();
+        $this->actingAs($this->superAdminGlobal())->deleteJson(route('catalogo.deleteFoto', $f->ID_ESPEC) . '?color=GRIS')->assertOk();
         $this->assertTrue(CaracteristicaModelo::fotoSigueEnUso('compartida'), 'La del modelo sigue usándola: no se puede borrar de Drive.');
         $this->assertSame('/storage/google/compartida', $f->fresh()->FOTO_REFERENCIAL);
     }
@@ -112,7 +103,7 @@ class CatalogoColoresTest extends MySqlTestCase
     public function test_no_se_puede_crear_otra_ficha_del_mismo_modelo_y_anio(): void
     {
         $this->ficha();
-        $this->actingAs($this->admin())->postJson(route('catalogo.store'), [
+        $this->actingAs($this->superAdminGlobal())->postJson(route('catalogo.store'), [
             'MODELO' => strtolower($this->modelo), 'ANIO_ESPEC' => 2026, 'TIPO' => 'CAMIONETA',
         ])->assertStatus(422)->assertJsonFragment(['success' => false]);
         $this->assertSame(1, CaracteristicaModelo::where('MODELO', $this->modelo)->count());
@@ -122,7 +113,7 @@ class CatalogoColoresTest extends MySqlTestCase
     {
         $a = $this->equipo(null, 'ROJO');
         $b = $this->equipo(null, 'GRIS');
-        $admin = $this->admin();
+        $admin = $this->superAdminGlobal();
 
         $html = $this->actingAs($admin)->getJson(route('catalogo.index', ['ajax_load' => 1, 'modelo' => 'modelo_eq:' . $this->modelo]))
             ->assertOk()->json('html');
@@ -154,7 +145,7 @@ class CatalogoColoresTest extends MySqlTestCase
         $f->colores()->create(['COLOR' => 'DORADO', 'FOTO' => '/storage/google/dorado-foto']);
         $e = $this->equipo($f->ID_ESPEC, 'DORADA');
 
-        $html = $this->actingAs($this->admin())
+        $html = $this->actingAs($this->superAdminGlobal())
             ->getJson(route('equipos.index', ['search_query' => $e->SERIAL_CHASIS]), ['X-Requested-With' => 'XMLHttpRequest'])
             ->assertOk()->json('html');
         $this->assertStringContainsString('DORADO', $html);
@@ -166,7 +157,7 @@ class CatalogoColoresTest extends MySqlTestCase
         $e = $this->equipo(null, '  roja ');
         $this->assertSame('ROJO', $e->fresh()->COLOR, 'Equipo::setCOLORAttribute normaliza al guardar.');
 
-        $html = $this->actingAs($this->admin())
+        $html = $this->actingAs($this->superAdminGlobal())
             ->getJson(route('equipos.index', ['color' => 'ROJO', 'search_query' => $e->SERIAL_CHASIS]), ['X-Requested-With' => 'XMLHttpRequest'])
             ->assertOk()->json('html');
         $this->assertStringContainsString($e->SERIAL_CHASIS, $html);
@@ -177,7 +168,7 @@ class CatalogoColoresTest extends MySqlTestCase
         $f = $this->ficha();
         $f->colores()->create(['COLOR' => 'ROJO', 'FOTO' => '/storage/google/rojo-vinculo']);
         $e = $this->equipo(null, 'ROJO');
-        $admin = $this->admin();
+        $admin = $this->superAdminGlobal();
 
         // La tabla solo le da el doble clic a super.admin.
         $html = $this->actingAs($admin)
@@ -205,7 +196,7 @@ class CatalogoColoresTest extends MySqlTestCase
     {
         $f = $this->ficha();                       // ficha del modelo, 2026
         $e = $this->equipo(null, 'ROJO');
-        $admin = $this->admin();
+        $admin = $this->superAdminGlobal();
         $elegir = fn (array $p) => $this->actingAs($admin)->getJson(route('catalogo.elegir', $p + ['equipo' => $e->ID_EQUIPO]))->assertOk();
 
         // El modelo escrito con espacios en vez de guiones y un año que no tiene ficha: la
@@ -272,7 +263,7 @@ class CatalogoColoresTest extends MySqlTestCase
         $f = $this->ficha();
         $f->colores()->create(['COLOR' => 'ROJO', 'FOTO' => '/storage/google/rojo-form']);
         $url = fn (string $color) => route('equipos.searchCatalog', ['model' => $this->modelo, 'year' => 2026, 'color' => $color]);
-        $admin = $this->admin();
+        $admin = $this->superAdminGlobal();
 
         $this->actingAs($admin)->getJson($url('roja'))->assertOk()->assertJsonPath('data.0.FOTO', url('/storage/google/rojo-form?sz=w300'));
         $this->actingAs($admin)->getJson($url('VERDE'))->assertOk()->assertJsonPath('data.0.FOTO', url('/storage/google/modelo?sz=w300'));

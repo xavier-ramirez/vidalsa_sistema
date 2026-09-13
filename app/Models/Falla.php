@@ -77,6 +77,20 @@ class Falla extends Model
     }
 
     /**
+     * El reporte en una línea — "RF-00028 · 12/09/2026 · Nombre de quien reportó" — para el
+     * aviso sobre el estado del equipo en /admin/equipos ($falla->resumen). Lo lleva también
+     * la respuesta de crear, para que la fila lo muestre sin recargar.
+     */
+    public function getResumenAttribute(): string
+    {
+        return implode(' · ', array_filter([
+            $this->CODIGO_REPORTE,
+            $this->FECHA_EMISION?->format('d/m/Y'),
+            $this->NOMBRE_REPORTA,
+        ]));
+    }
+
+    /**
      * Como se nombra el activo de un reporte en el encabezado de los modales de cierre
      * (equipos, auxiliares y el modulo de Fallas):
      *   · equipo:  su identificador — placa > serial > codigo > marca y modelo;

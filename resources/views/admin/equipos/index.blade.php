@@ -140,6 +140,24 @@
     .table-equipos-mobile .eq-status-txt    { color:#334155; text-transform:uppercase; }
     .table-equipos-mobile .eq-status-chevron { font-size:16px; color:#94a3b8; }
 
+    /* Reporte de falla abierto sobre el estado (equipos_index.js · pintarFallaAviso): el
+       aviso oscuro al pasar el mouse y la cabecera clara del menú de estado. Viven en el
+       <body>, fuera de la tabla, por eso no van bajo .table-equipos-mobile. */
+    .eq-falla-aviso { font-size:12px; line-height:1.4; text-align:left; }
+    .eq-falla-aviso-titulo { font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.4px; }
+    .eq-falla-aviso-resumen { font-size:11px; font-weight:600; margin-top:1px; }
+    .eq-falla-aviso-texto { margin-top:5px; white-space:pre-line; overflow-wrap:anywhere;
+                            display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:8; overflow:hidden; }
+    .eq-falla-tip { position:fixed; z-index:100002; width:max-content; max-width:320px; padding:9px 12px;
+                    background:#0f172a; color:#f1f5f9; border-radius:8px; box-shadow:0 10px 20px -6px rgba(15,23,42,.45);
+                    pointer-events:none; }
+    .eq-falla-tip .eq-falla-aviso-titulo { color:#fca5a5; }
+    .eq-falla-tip .eq-falla-aviso-resumen { color:#cbd5e1; }
+    .eq-falla-aviso-menu { padding:9px 12px; background:#fef2f2; border-bottom:1px solid #fecaca; color:#334155; }
+    .eq-falla-aviso-menu .eq-falla-aviso-titulo { color:#b91c1c; }
+    .eq-falla-aviso-menu .eq-falla-aviso-resumen { color:#64748b; }
+    .eq-falla-aviso-menu .eq-falla-aviso-texto { -webkit-line-clamp:5; }
+
     /* Columna 6 — acciones */
     .table-equipos-mobile .eq-acciones-wrap { display:flex; justify-content:center; align-items:center; gap:4px; }
 
@@ -542,7 +560,7 @@
                 @php
                     $hasAnyAdv = request('modelo') || request('anio') || request('marca') || request('categoria') || request('estado') || request('gps') || request('color') || request('confirmado') || request('filter_propiedad') || request('filter_poliza') || request('filter_rotc') || request('filter_racda') || request('filter_adicional') || request('filter_adicional_2');
                 @endphp
-                <button type="button" id="btnAdvancedFilter" class="btn-primary-maquinaria" style="height: 45px; width: 45px; flex-shrink: 0; min-width: 45px; padding: 0; display: flex; align-items: center; justify-content: center; background: {{ $hasAnyAdv ? '#fee2e2' : 'white' }}; border: 1px solid {{ $hasAnyAdv ? '#ef4444' : '#cbd5e0' }}; color: {{ $hasAnyAdv ? '#ef4444' : '#64748b' }}; box-shadow: none;" onclick="const p = document.getElementById('advancedFilterPanel'); const s = document.getElementById('splitDropdownMenu'); if (s) s.style.display='none'; document.querySelectorAll('.custom-dropdown.active').forEach(function(d){d.classList.remove('active');}); p.style.display = p.style.display === 'block' ? 'none' : 'block'; event.stopPropagation();">
+                <button type="button" id="btnAdvancedFilter" class="btn-primary-maquinaria" style="height: 45px; width: 45px; flex-shrink: 0; min-width: 45px; padding: 0; display: flex; align-items: center; justify-content: center; background: {{ $hasAnyAdv ? '#fee2e2' : 'white' }}; border: 1px solid {{ $hasAnyAdv ? '#ef4444' : '#cbd5e0' }}; color: {{ $hasAnyAdv ? '#ef4444' : '#64748b' }}; box-shadow: none;" onclick="const p = document.getElementById('advancedFilterPanel'); const s = document.getElementById('splitDropdownMenu'); if (s) s.style.display='none'; if (window.closeSharedStatusMenu) window.closeSharedStatusMenu(); document.querySelectorAll('.custom-dropdown.active').forEach(function(d){d.classList.remove('active');}); p.style.display = p.style.display === 'block' ? 'none' : 'block'; event.stopPropagation();">
                     <i class="material-icons">filter_list</i>
                 </button>
                 
@@ -898,11 +916,11 @@
         </div>
 
         <!-- New Button -->
-        <!-- Dropdown Menu Button (Acciones: Nuevo, Exportar, Movilización) -->
+        <!-- Menú "Acciones": Exportación, Nuevo Equipo, Catálogo, Dashboard de Flota, Configurar Anclajes y Eliminar -->
         <div class="filter-item aligned-filter" style="position: relative; width: auto; flex: 0 0 auto;">
             
             <!-- Main Trigger Button -->
-            <button type="button" id="btnAcciones" onclick="const sm = document.getElementById('splitDropdownMenu'); const p = document.getElementById('advancedFilterPanel'); if (p) p.style.display='none'; document.querySelectorAll('.custom-dropdown.active').forEach(function(d){d.classList.remove('active');}); sm.style.display = sm.style.display === 'block' ? 'none' : 'block'; event.stopPropagation();" class="btn-primary-maquinaria" style="padding: 0 15px; height: 45px; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+            <button type="button" id="btnAcciones" onclick="const sm = document.getElementById('splitDropdownMenu'); const p = document.getElementById('advancedFilterPanel'); if (p) p.style.display='none'; if (window.closeSharedStatusMenu) window.closeSharedStatusMenu(); document.querySelectorAll('.custom-dropdown.active').forEach(function(d){d.classList.remove('active');}); sm.style.display = sm.style.display === 'block' ? 'none' : 'block'; event.stopPropagation();" class="btn-primary-maquinaria" style="padding: 0 15px; height: 45px; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
                 <i class="material-icons">settings</i>
                 <span>Acciones</span>
                 <i class="material-icons" style="font-size: 18px; margin-left: 2px;">expand_more</i>
@@ -911,22 +929,6 @@
             <!-- Dropdown Menu -->
             <div id="splitDropdownMenu" style="display: none; position: absolute; top: 100%; right: 0; width: 220px; background: #e2e8f0; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); border: 1px solid #e2e8f0; z-index: 50; margin-top: 5px; overflow: hidden; animation: slideDown 0.2s ease-out;">
                 
-                <!-- Dashboard de Flota -->
-                <button type="button" onclick="openFleetDashboard()" class="dropdown-item-custom" style="display: flex; align-items: center; gap: 10px; padding: 12px 15px; color: #475569; text-decoration: none; transition: all 0.2s; border-bottom: 1px solid #f1f5f9; background: transparent; border: none; width: 100%; text-align: left;">
-                    <div style="background: #eff6ff; padding: 6px; border-radius: 6px; display: flex;">
-                        <i class="material-icons" style="font-size: 18px; color: #3b82f6;">analytics</i>
-                    </div>
-                    <span style="font-size: 14px; font-weight: 500;">Dashboard de Flota</span>
-                </button>
-
-                <!-- Configurar Anclajes -->
-                <button type="button" onclick="openAnclajesListModal()" class="dropdown-item-custom" style="display: flex; align-items: center; gap: 10px; padding: 12px 15px; color: #475569; text-decoration: none; transition: all 0.2s; border-bottom: 1px solid #f1f5f9; background: transparent; border: none; width: 100%; text-align: left;">
-                    <div style="background: #e0f2fe; padding: 6px; border-radius: 6px; display: flex;">
-                        <i class="material-icons" style="font-size: 18px; color: #0284c7;">link</i>
-                    </div>
-                    <span style="font-size: 14px; font-weight: 500;">Configurar Anclajes</span>
-                </button>
-
                 <!-- Exportar -->
                 <a href="#" onclick="exportEquipos(); return false;" class="dropdown-item-custom" style="display: flex; align-items: center; gap: 10px; padding: 12px 15px; color: #475569; text-decoration: none; transition: all 0.2s; border-bottom: 1px solid #f1f5f9;">
                     <div style="background: #f1f5f9; padding: 6px; border-radius: 6px; display: flex;">
@@ -935,9 +937,13 @@
                     <span style="font-size: 14px; font-weight: 500;">Exportación de Data</span>
                 </a>
 
-                {{-- Boton 'Equipos Auxiliares' del dropdown removido: ahora se accede
-                     desde el dropdown 'Flota Operacional' del navbar, al lado de
-                     'Equipos y Maquinarias'. --}}
+                <!-- Nuevo -->
+                <a href="javascript:void(0)" onclick="handleCreateCheck(event)" class="dropdown-item-custom" style="display: flex; align-items: center; gap: 10px; padding: 12px 15px; color: #475569; text-decoration: none; transition: all 0.2s; border-bottom: 1px solid #f1f5f9;">
+                    <div style="background: #e0f2fe; padding: 6px; border-radius: 6px; display: flex;">
+                        <i class="material-icons" style="font-size: 18px; color: #0284c7;">add_circle</i>
+                    </div>
+                    <span style="font-size: 14px; font-weight: 500;">Nuevo Equipo</span>
+                </a>
 
                 <!-- Catálogo de Modelos -->
                 <a href="{{ route('catalogo.index') }}" class="dropdown-item-custom" style="display: flex; align-items: center; gap: 10px; padding: 12px 15px; color: #475569; text-decoration: none; transition: all 0.2s; border-bottom: 1px solid #f1f5f9;">
@@ -947,6 +953,26 @@
                     <span style="font-size: 14px; font-weight: 500;">Catálogo de Modelos</span>
                 </a>
 
+                {{-- Boton 'Equipos Auxiliares' del dropdown removido: ahora se accede
+                     desde el dropdown 'Flota Operacional' del navbar, al lado de
+                     'Equipos y Maquinarias'. --}}
+
+                <!-- Dashboard de Flota -->
+                <button type="button" onclick="openFleetDashboard()" class="dropdown-item-custom" style="display: flex; align-items: center; gap: 10px; padding: 12px 15px; color: #475569; text-decoration: none; transition: all 0.2s; background: transparent; border: none; border-bottom: 1px solid #f1f5f9; width: 100%; text-align: left;">
+                    <div style="background: #eff6ff; padding: 6px; border-radius: 6px; display: flex;">
+                        <i class="material-icons" style="font-size: 18px; color: #3b82f6;">analytics</i>
+                    </div>
+                    <span style="font-size: 14px; font-weight: 500;">Dashboard de Flota</span>
+                </button>
+
+                <!-- Configurar Anclajes -->
+                <button type="button" onclick="openAnclajesListModal()" class="dropdown-item-custom" style="display: flex; align-items: center; gap: 10px; padding: 12px 15px; color: #475569; text-decoration: none; transition: all 0.2s; background: transparent; border: none; border-bottom: 1px solid #f1f5f9; width: 100%; text-align: left;">
+                    <div style="background: #e0f2fe; padding: 6px; border-radius: 6px; display: flex;">
+                        <i class="material-icons" style="font-size: 18px; color: #0284c7;">link</i>
+                    </div>
+                    <span style="font-size: 14px; font-weight: 500;">Configurar Anclajes</span>
+                </button>
+
                 {{-- Eliminar Seleccionados — SIEMPRE visible para todos los usuarios.
                      La validacion del permiso `user.delete` la hace el JS al click:
                      si el usuario NO tiene la clave literal (esta en PERMISOS_EXPLICITOS,
@@ -954,20 +980,12 @@
                      La ruta exige can:user.delete tambien — defensa en capas.
                      La eliminacion queda registrada en /admin/historial-documentos
                      via auditoria de soft-delete (deleted_by + deleted_at). --}}
-                <button type="button" onclick="window.bulkDeleteEquiposSeleccionados()" class="dropdown-item-custom" style="display: flex; align-items: center; gap: 10px; padding: 12px 15px; color: #475569; text-decoration: none; transition: all 0.2s; border-bottom: 1px solid #f1f5f9; background: transparent; border: none; width: 100%; text-align: left;">
+                <button type="button" onclick="window.bulkDeleteEquiposSeleccionados()" class="dropdown-item-custom" style="display: flex; align-items: center; gap: 10px; padding: 12px 15px; color: #475569; text-decoration: none; transition: all 0.2s; background: transparent; border: none; width: 100%; text-align: left;">
                     <div style="background: #fee2e2; padding: 6px; border-radius: 6px; display: flex;">
                         <i class="material-icons" style="font-size: 18px; color: #dc2626;">delete_outline</i>
                     </div>
                     <span style="font-size: 14px; font-weight: 500;">Eliminar Seleccionados</span>
                 </button>
-
-                <!-- Nuevo -->
-                <a href="javascript:void(0)" onclick="handleCreateCheck(event)" class="dropdown-item-custom" style="display: flex; align-items: center; gap: 10px; padding: 12px 15px; color: #475569; text-decoration: none; transition: all 0.2s;">
-                    <div style="background: #e0f2fe; padding: 6px; border-radius: 6px; display: flex;">
-                        <i class="material-icons" style="font-size: 18px; color: #0284c7;">add_circle</i>
-                    </div>
-                    <span style="font-size: 14px; font-weight: 500;">Nuevo Equipo</span>
-                </a>
             </div>
         </div>
 
@@ -3267,12 +3285,12 @@
         urlSearch: '{{ route("fallas.searchActivos") }}',
         urlStore:  '{{ route("fallas.store") }}',
         urlBase:   '{{ url("admin/fallas") }}',
-        onCreated: function () {
+        onCreated: function (falla) {
             // El reporte puede venir de un EQUIPO o de un AUXILIAR (al poner inoperativo
             // una fila aux embebida). Ambos handlers son idempotentes: cada uno actua solo
             // si su contexto esta pendiente, asi que llamarlos a ambos es seguro.
             if (window.handleFallaCreatedAux)    window.handleFallaCreatedAux();
-            if (window.handleFallaCreatedEquipo) window.handleFallaCreatedEquipo();
+            if (window.handleFallaCreatedEquipo) window.handleFallaCreatedEquipo(falla);
         },
         onClosed:  function () { if (window.loadEquipos) window.loadEquipos(); }
     };

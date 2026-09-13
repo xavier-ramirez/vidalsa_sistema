@@ -286,7 +286,7 @@ class FallaController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Reporte de falla creado.',
-                'falla'   => $falla,
+                'falla'   => $falla->append('resumen'),
             ]);
         });
     }

@@ -111,7 +111,13 @@ const STATUS_CONFIG = {
         menu.id = 'sharedStatusMenu';
         // z-index 100001: por encima del modal de detalles (z-index 99999)
         // para que el menu sea visible cuando el modal esta abierto.
-        menu.style.cssText = 'display:none; position:fixed; min-width:180px; background:white; border-radius:8px; box-shadow:0 10px 15px -3px rgba(0,0,0,0.15); border:1px solid #e2e8f0; z-index:100001; overflow:hidden;';
+        menu.style.cssText = 'display:none; position:fixed; min-width:180px; max-width:300px; background:white; border-radius:8px; box-shadow:0 10px 15px -3px rgba(0,0,0,0.15); border:1px solid #e2e8f0; z-index:100001; overflow:hidden;';
+
+        // Arriba de las opciones: el reporte de falla abierto del equipo (si tiene).
+        const falla = document.createElement('div');
+        falla.className = 'eq-falla-aviso eq-falla-aviso-menu';
+        falla.hidden = true;
+        menu.appendChild(falla);
 
         Object.entries(STATUS_CONFIG).forEach(([key, cfg]) => {
             const item = document.createElement('div');
@@ -149,6 +155,9 @@ const STATUS_CONFIG = {
         if (menu) menu.style.display = 'none';
         _activeTrigger = null;
     }
+    // Lo llaman "Acciones" y "Filtros avanzados": sus botones cortan la propagación del clic,
+    // así que el cierre por clic afuera no llega (un desplegable a la vez).
+    window.closeSharedStatusMenu = closeSharedMenu;
 
     window.openSharedStatusMenu = function (trigger) {
         if (window.CAN_CHANGE_STATUS === false || window.CAN_CHANGE_STATUS === 'false') {
@@ -163,6 +172,19 @@ const STATUS_CONFIG = {
         if (_activeTrigger === trigger && menu.style.display !== 'none') {
             closeSharedMenu(); return;
         }
+
+        // Un desplegable a la vez: el estado corta la propagación del clic (para no cerrarse
+        // solo), así que aquí se cierran los demás — "Acciones", "Filtros avanzados" y las
+        // listas de filtros (custom-dropdown).
+        const acciones = document.getElementById('splitDropdownMenu');
+        if (acciones) acciones.style.display = 'none';
+        const avanzados = document.getElementById('advancedFilterPanel');
+        if (avanzados) avanzados.style.display = 'none';
+        if (typeof window.closeAllDropdowns === 'function') window.closeAllDropdowns();
+
+        // El reporte abierto (si lo hay) va arriba: en el teléfono no hay "pasar el mouse".
+        pintarFallaAviso(menu.querySelector('.eq-falla-aviso-menu'), trigger.closest('[data-falla-desc]'));
+        hideFallaTip();
 
         // Marcar el item activo con un check
         menu.querySelectorAll('[data-status-key]').forEach(item => {
@@ -193,6 +215,62 @@ const STATUS_CONFIG = {
         _activeTrigger = trigger;
     };
 
+    // Pinta el reporte de falla abierto (data-falla-desc / data-falla-resumen de la celda del
+    // estado) en una caja: el aviso al pasar el mouse o la cabecera del menú de estado. Sin
+    // reporte, la caja se oculta. Con textContent: la descripción la escribe un usuario.
+    function pintarFallaAviso(caja, fuente) {
+        if (!caja) return;
+        const desc = fuente ? (fuente.dataset.fallaDesc || '').trim() : '';
+        caja.hidden = !desc;
+        if (!desc) return;
+        caja.textContent = '';
+        const titulo = document.createElement('div');
+        titulo.className = 'eq-falla-aviso-titulo';
+        titulo.textContent = 'Reporte de falla abierto';
+        const resumen = document.createElement('div');
+        resumen.className = 'eq-falla-aviso-resumen';
+        resumen.textContent = fuente.dataset.fallaResumen || '';
+        const texto = document.createElement('div');
+        texto.className = 'eq-falla-aviso-texto';
+        texto.textContent = desc;
+        caja.append(titulo, resumen, texto);
+        caja.title = desc;   // en el menú, el texto entero si pasa de 5 líneas
+    }
+
+    // ── Aviso del reporte de falla al pasar el mouse por el estado ──
+    // Solo en pantallas con mouse: en las táctiles el toque abre el menú, que ya lo trae.
+    let _tipCelda = null;   // la celda cuyo aviso está a la vista
+    function getFallaTip() {
+        let tip = document.getElementById('eqFallaTip');
+        if (!tip) {
+            tip = document.createElement('div');
+            tip.id = 'eqFallaTip';
+            tip.className = 'eq-falla-aviso eq-falla-tip';
+            tip.hidden = true;
+            document.body.appendChild(tip);
+        }
+        return tip;
+    }
+    function hideFallaTip() {
+        _tipCelda = null;
+        const tip = document.getElementById('eqFallaTip');
+        if (tip) tip.hidden = true;
+    }
+    function showFallaTip(celda) {
+        if (celda === _tipCelda) return;   // ya está puesto: moverse dentro del estado no lo repinta
+        const tip = getFallaTip();
+        pintarFallaAviso(tip, celda);
+        if (tip.hidden) return;
+        _tipCelda = celda;
+        // Junto al estado: debajo, o encima si no cabe; sin salirse por los lados.
+        const ancla = (celda.querySelector('.status-trigger-lite, .eq-status-fijo') || celda).getBoundingClientRect();
+        const alto = tip.offsetHeight, ancho = tip.offsetWidth;
+        const top = (window.innerHeight - ancla.bottom >= alto + 8) ? ancla.bottom + 6 : ancla.top - alto - 6;
+        const left = Math.max(8, Math.min(ancla.right - ancho, window.innerWidth - ancho - 8));
+        tip.style.top = Math.max(8, top) + 'px';
+        tip.style.left = left + 'px';
+    }
+
     // Estos listeners son globales — registrar UNA sola vez aunque el script
     // se re-ejecute en cada navegación SPA
     if (!window._sharedMenuListenersReady) {
@@ -204,6 +282,19 @@ const STATUS_CONFIG = {
         });
         // Cerrar al hacer scroll
         document.addEventListener('scroll', closeSharedMenu, true);
+        document.addEventListener('scroll', hideFallaTip, true);
+        if (window.matchMedia && window.matchMedia('(hover: hover)').matches) {
+            // Sobre cualquier otra cosa se quita: así no queda pegado si la tabla se repinta
+            // debajo del mouse (esa celda ya no existe y nunca daría su mouseout).
+            document.addEventListener('mouseover', (e) => {
+                const celda = e.target.closest && e.target.closest('.eq-td-estatus[data-falla-desc]');
+                const menu = document.getElementById('sharedStatusMenu');
+                if (celda && !(menu && menu.style.display !== 'none')) showFallaTip(celda);
+                else if (_tipCelda) hideFallaTip();
+            });
+            // Al salir de la ventana no hay mouseover que lo quite.
+            document.addEventListener('mouseout', (e) => { if (!e.relatedTarget && _tipCelda) hideFallaTip(); });
+        }
     }
 })();
 
@@ -354,12 +445,19 @@ window.toggleConfirmacionSitio = function (el) {
 
 // Tras crear un reporte desde el desplegable de estado: marca el equipo en el
 // estado destino (INOPERATIVO o EN MANTENIMIENTO, según la opción presionada).
-window.handleFallaCreatedEquipo = function () {
+window.handleFallaCreatedEquipo = function (falla) {
     const ctx = window._fallaStatusCtx;
     window._fallaStatusCtx = null;
     if (!ctx || !ctx.triggerEl) return;
     const target = ctx.targetStatus || 'INOPERATIVO';
     _applyStatusVisual(ctx.triggerEl, target);
+    // La celda toma la descripción del reporte recién creado (lo que table_rows pone al
+    // cargar), así el aviso sobre el estado ya la muestra sin recargar la tabla.
+    const celda = ctx.triggerEl.closest('.eq-td-estatus');
+    if (celda && falla) {
+        celda.dataset.fallaDesc    = falla.DESCRIPCION_AVERIA || '';
+        celda.dataset.fallaResumen = falla.resumen || '';
+    }
     if (window.updateLocalStats) window.updateLocalStats(ctx.oldStatus, target);
 };
 

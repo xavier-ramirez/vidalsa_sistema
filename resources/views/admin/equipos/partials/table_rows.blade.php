@@ -157,8 +157,12 @@
         </td>
 
         {{-- 5. ESTATUS ─ trigger compacto estilo aux: 11px font, icono 14px,
-             chip blanco con borde sutil + chevron. Click abre el menu compartido. --}}
-        <td class="table-cell-custom eq-td-estatus">
+             chip blanco con borde sutil + chevron. Click abre el menu compartido.
+             Con un reporte de falla ABIERTO, la celda lleva su descripción y su resumen
+             (código · fecha · quién): equipos_index.js los muestra al pasar el mouse y
+             arriba del menú de estado, sin tener que ir al módulo de Fallas. --}}
+        <td class="table-cell-custom eq-td-estatus"
+            @if($equipo->fallaAbierta) data-falla-desc="{{ $equipo->fallaAbierta->DESCRIPCION_AVERIA }}" data-falla-resumen="{{ $equipo->fallaAbierta->resumen }}" @endif>
             @can('equipos.edit')
                 <div class="status-trigger-lite"
                     data-equipo-id="{{ $equipo->ID_EQUIPO }}"

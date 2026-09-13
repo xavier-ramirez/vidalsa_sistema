@@ -518,8 +518,9 @@ class EquipoController extends Controller
                 'tipo',
                 'frenteActual',
                 // Reporte abierto: permite abrir el modal de cierre al instante al
-                // pasar un INOPERATIVO a OPERATIVO (sin round-trip al 409).
-                'fallaAbierta:ID_FALLA,ACTIVO_ID,ACTIVO_TIPO,ESTADO_REPORTE,CODIGO_REPORTE,TIPO_REPORTE,FECHA_EMISION',
+                // pasar un INOPERATIVO a OPERATIVO (sin round-trip al 409), y su
+                // descripción sale sobre el estado (aviso al pasar el mouse y el menú).
+                'fallaAbierta:ID_FALLA,ACTIVO_ID,ACTIVO_TIPO,ESTADO_REPORTE,CODIGO_REPORTE,TIPO_REPORTE,FECHA_EMISION,DESCRIPCION_AVERIA,NOMBRE_REPORTA',
                 'ancladoA.tipo',
                 'ancladoA.documentacion',
                 'ancladoA.frenteActual',

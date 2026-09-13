@@ -2,6 +2,8 @@
 
 namespace Tests;
 
+use App\Models\Almacen;
+use App\Models\Usuario;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 
 /**
@@ -35,5 +37,14 @@ abstract class MySqlTestCase extends TestCase
         parent::setUp();
 
         config(['database.default' => 'mysql']);
+    }
+
+    /** Un super.admin real (con equipos.create), global y sin cambio de clave pendiente. */
+    protected function superAdminGlobal(): Usuario
+    {
+        $u = Usuario::where('REQUIERE_CAMBIO_CLAVE', 0)->whereNotNull('PERMISOS')->get()
+            ->first(fn ($u) => $u->can('super.admin') && $u->can('equipos.create') && Almacen::usuarioEsGlobal($u));
+        $this->assertNotNull($u, 'Hace falta un super.admin global para probar.');
+        return $u;
     }
 }
