@@ -594,8 +594,10 @@
             }
 
             // Helpers centrales (dom_helpers.js). escapeAttr no escapaba \ ni & < >.
-            const escapeHtml = window.escapeHtml;
-            const escapeAttr = window.escapeAttrJs;
+            // var y no const: la SPA vuelve a correr este <script> cada vez que se entra a
+            // Frentes, y un const repetido tiraba el script ENTERO en la segunda visita.
+            var escapeHtml = window.escapeHtml;
+            var escapeAttr = window.escapeAttrJs;
 
             // Acordeón de responsables: expande/colapsa el bloque de campos al
             // hacer clic en su encabezado y gira el chevron.

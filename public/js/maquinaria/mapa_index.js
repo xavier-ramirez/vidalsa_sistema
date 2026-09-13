@@ -1582,7 +1582,7 @@
         map.addControl(new CerrarFS());
 
         // Recalcula el tamaño del mapa al entrar/salir de pantalla completa (cambia el alto).
-        var onFsChange = function () { setTimeout(function () { map.invalidateSize(); }, 120); };
+        var onFsChange = function () { setTimeout(function () { if (!desmontado) map.invalidateSize(); }, 120); };
         document.addEventListener('fullscreenchange', onFsChange);
         document.addEventListener('webkitfullscreenchange', onFsChange);
 
@@ -1593,9 +1593,14 @@
         // sobre mapas ya huérfanos. Se comprueba en cada navegación si el contenedor sigue en
         // el documento; si ya no está, se sueltan los listeners y se destruye el mapa.
         var obsTam = null;   // ResizeObserver del contenedor (se asigna más abajo)
-        var onOrientacion = function () { setTimeout(function () { map.invalidateSize({ pan: false }); }, 250); };
+        // Mapa ya destruido: los setTimeout que quedaron en vuelo (etiquetas, invalidateSize)
+        // no deben tocarlo. Sin esto, salir del mapa antes de ~1 s dejaba un error en consola
+        // ("_leaflet_pos" de un mapa sin paneles). Lo pone alNavegar; lo miran los retrasos.
+        var desmontado = false;
+        var onOrientacion = function () { setTimeout(function () { if (!desmontado) map.invalidateSize({ pan: false }); }, 250); };
         var alNavegar = function () {
             if (document.body.contains(el)) return;   // seguimos en el mapa
+            desmontado = true;
             window.removeEventListener('spa:contentLoaded', alNavegar);
             document.removeEventListener('fullscreenchange', onFsChange);
             document.removeEventListener('webkitfullscreenchange', onFsChange);
@@ -2142,6 +2147,7 @@
 
         var declutterZoom = null, declutterLejos = null, declutterDetalle = null, declutterTubos = null; // último estado, para no recalcular en paneo
         function declutterVelas(force) {
+            if (desmontado) return;   // llamada retrasada que llegó con el mapa ya destruido
             var z = map.getZoom();
             // A MÁS de 300 km (500 km…) el pin se encoge. El nombre del PUNTO es otro umbral
             // (DETALLE_KM): hasta 50 km sale, más lejos solo el proyecto. Y los TRAZOS de las
@@ -4156,7 +4162,7 @@
 
         // Tras insertar el contenedor por SPA, Leaflet puede calcular mal el tamaño;
         // invalidar en el siguiente tick asegura que las teselas llenen el área.
-        setTimeout(function () { map.invalidateSize(); }, 60);
+        setTimeout(function () { if (!desmontado) map.invalidateSize(); }, 60);
 
         // ── Redimensionamiento (sobre todo en TELÉFONO) ──────────────────────────────
         // Leaflet solo mide el contenedor al montarse: si su alto cambia después, las
