@@ -90,9 +90,24 @@ class CaracteristicaModeloController extends Controller
             ['path' => $request->url(), 'query' => $request->query()]
         );
 
+        if ($request->wantsJson() && $request->has('ajax_load')) {
+            return response()->json([
+                'html'    => view('admin.catalogo.partials.table_rows', compact('catalogos'))->render(),
+                'hasMore' => $catalogos->hasMorePages(),
+                'page'    => $catalogos->currentPage(),
+                // La primera página es la de un filtro nuevo (loadCatalogo): lleva el contador
+                // lateral con esos filtros. Las siguientes (scroll) no lo cambian.
+                'stats'   => $page === 1
+                    ? view('admin.catalogo.partials.stats_sidebar', compact('totalCount', 'countVehiculos', 'countAuxiliares'))->render()
+                    : null,
+            ]);
+        }
+
         // ── Listas para los filtros agrupados (todas las opciones, no auto-limitadas) ──
-        // Los vehículos cuentan las fichas Y los equipos sin ficha, que también tienen su
-        // tarjeta (modelosSinFicha): un filtro que no los ofreciera los dejaría inalcanzables.
+        // Solo al abrir la página: los filtros y el scroll (ajax_load, arriba) no las usan, y
+        // eran 8 consultas más en cada uno. Los vehículos cuentan las fichas Y los equipos sin
+        // ficha, que también tienen su tarjeta (modelosSinFicha): un filtro que no los
+        // ofreciera los dejaría inalcanzables.
         $tiposVehiculo = TipoEquipo::where(fn ($w) => $w
                 ->whereIn('nombre', fn ($q) => $q->select('TIPO')->from('caracteristicas_modelo')->whereNotNull('TIPO'))
                 ->orWhereIn('id', fn ($q) => $q->select('id_tipo_equipo')->from('equipos')->whereNull('deleted_at')))
@@ -107,19 +122,6 @@ class CaracteristicaModeloController extends Controller
             ->merge(Equipo::whereNotNull('ANIO')->where('ANIO', '!=', 0)->distinct()->pluck('ANIO'));
         $aniosAux      = EquipoAuxiliar::whereNotNull('ANIO')->where('ANIO', '!=', 0)->distinct()->pluck('ANIO');
         $availableAnios = $aniosVehiculo->merge($aniosAux)->unique()->sortDesc()->values();
-
-        if ($request->wantsJson() && $request->has('ajax_load')) {
-            return response()->json([
-                'html'    => view('admin.catalogo.partials.table_rows', compact('catalogos'))->render(),
-                'hasMore' => $catalogos->hasMorePages(),
-                'page'    => $catalogos->currentPage(),
-                // La primera página es la de un filtro nuevo (loadCatalogo): lleva el contador
-                // lateral con esos filtros. Las siguientes (scroll) no lo cambian.
-                'stats'   => $page === 1
-                    ? view('admin.catalogo.partials.stats_sidebar', compact('totalCount', 'countVehiculos', 'countAuxiliares'))->render()
-                    : null,
-            ]);
-        }
 
         return view('admin.catalogo.index', compact(
             'catalogos', 'totalCount', 'countVehiculos', 'countAuxiliares',
@@ -181,12 +183,12 @@ class CaracteristicaModeloController extends Controller
                 ")
                 ->groupBy('TIPO', 'MARCA_KEY', 'MODELO_KEY', 'ANIO_KEY')
                 ->orderBy('TIPO')->orderBy('MARCA_KEY')->orderBy('MODELO_KEY')->orderBy('ANIO_KEY', 'desc')
-                ->get();
+                ->toBase()->get();
 
             $fotos = (clone $base)
                 ->whereNotNull('FOTO')->where('FOTO', '!=', '')
                 ->selectRaw('TIPO, MARCA, MODELO, ANIO, FOTO, CAPACIDAD, ID_AUXILIAR')
-                ->orderByDesc('ID_AUXILIAR')->get()
+                ->orderByDesc('ID_AUXILIAR')->toBase()->get()
                 ->reduce(function ($carry, $a) {
                     $key = mb_strtoupper(trim(($a->TIPO ?? '') . '|' . ($a->MARCA ?? '—') . '|' . ($a->MODELO ?? '—') . '|' . ($a->ANIO ?? 0)));
                     if (!isset($carry[$key])) $carry[$key] = ['foto' => $a->FOTO, 'capacidad' => $a->CAPACIDAD];
@@ -518,7 +520,10 @@ class CaracteristicaModeloController extends Controller
                 . " UPPER(TRIM(equipos.MODELO)) AS MODELO_KEY, COALESCE(equipos.ANIO, 0) AS ANIO_KEY,"
                 . " COUNT(*) AS total, MAX(equipos.FOTO_EQUIPO) AS FOTO")
             ->groupByRaw($clave)
-            ->get();
+            // Filas simples (toBase), no modelos Equipo: son conteos. Como Equipo, $g->FOTO caía
+            // en getFotoAttribute (PHP no distingue mayúsculas en los métodos) y la foto de la
+            // unidad nunca salía; y armar un modelo por fila costaba más que la propia consulta.
+            ->toBase()->get();
         if ($grupos->isEmpty()) {
             return collect();
         }
@@ -527,7 +532,7 @@ class CaracteristicaModeloController extends Controller
             ->selectRaw("UPPER(TRIM(COALESCE(t.nombre, ''))) AS TIPO_KEY, UPPER(TRIM(COALESCE(equipos.MARCA, ''))) AS MARCA_KEY,"
                 . " UPPER(TRIM(equipos.MODELO)) AS MODELO_KEY, COALESCE(equipos.ANIO, 0) AS ANIO_KEY, equipos.COLOR AS COLOR, COUNT(*) AS n")
             ->groupByRaw($clave . ', equipos.COLOR')
-            ->get()
+            ->toBase()->get()
             ->groupBy(fn ($r) => "{$r->TIPO_KEY}|{$r->MARCA_KEY}|{$r->MODELO_KEY}|{$r->ANIO_KEY}");
 
         // Fichas que ya existen para esos modelos + año (una consulta), con la clave de

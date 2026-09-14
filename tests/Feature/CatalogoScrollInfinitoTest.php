@@ -43,6 +43,21 @@ class CatalogoScrollInfinitoTest extends MySqlTestCase
         $this->assertSame($this->pagina(2)['html'], $this->pagina(2)['html']);
     }
 
+    public function test_la_tarjeta_sin_ficha_muestra_la_foto_de_su_unidad(): void
+    {
+        // Sin ficha, la foto que toca es la de la unidad (color → modelo → FOTO_EQUIPO). Leída
+        // como modelo Equipo, la columna FOTO caía en getFotoAttribute y la tarjeta salía sin foto.
+        $modelo = 'PRUEBA-FOTO-' . strtoupper(uniqid());
+        \App\Models\Equipo::create([
+            'MARCA' => 'PRUEBA', 'MODELO' => $modelo, 'ANIO' => 2026, 'ESTADO_OPERATIVO' => 'OPERATIVO',
+            'SERIAL_CHASIS' => 'TEST-FOTO-' . uniqid(), 'FOTO_EQUIPO' => '/storage/google/FOTOUNIDADPRUEBA?v=1',
+        ]);
+        $html = $this->pagina(1, ['modelo' => 'modelo_eq:' . $modelo])['html'];
+        $this->assertSame(1, self::tarjetas($html));
+        $this->assertStringContainsString('cat-sin-ficha', $html);
+        $this->assertStringContainsString('/storage/google/FOTOUNIDADPRUEBA?sz=w300', $html);
+    }
+
     public function test_con_un_filtro_el_contador_es_el_del_filtro(): void
     {
         $data = $this->pagina(1, ['anio' => '1900']);
