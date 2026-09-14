@@ -546,7 +546,7 @@ if (!window._gpsModalScriptLoaded) {
                 // Un iframe NUEVO en about:blank en vez de iframe.src = 'about:blank': cambiarle el
                 // src a uno ya cargado deja un paso invisible en el historial y gasta el siguiente
                 // Atrás (lo mismo que closePdfPreview en layout_ui.js).
-                if (iframe && iframe.parentNode) {
+                if (iframe) {
                     var nuevo = iframe.cloneNode(false);
                     nuevo.setAttribute('src', 'about:blank');
                     iframe.parentNode.replaceChild(nuevo, iframe);
