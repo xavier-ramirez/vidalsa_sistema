@@ -1,11 +1,10 @@
 
-    {{-- Session Timeout Modal — con el aspecto de la tarjeta del login: blanca, el logo arriba,
+    {{-- Session Timeout Modal — con el aspecto de la tarjeta del login: blanca, sin logo,
          texto oscuro y el botón azul marino → azul de "Iniciar sesión". Sin cabecera oscura
          ni rojos: avisa sin alarmar. El JS de abajo solo toca los id (número, barra, títulos
          y cuerpo), no los colores. --}}
     <div id="sessionTimeoutModal" class="modal-overlay" style="display: none; z-index: 1000002 !important;">
         <div class="modal-content" style="width: 90%; max-width: 320px; box-sizing: border-box; padding: 22px 22px 20px; border-radius: 16px; overflow: hidden; background: #fff; margin: auto; max-height: 92vh; display: flex; flex-direction: column; align-items: center; box-shadow: 0 20px 45px -12px rgba(15,23,42,0.30); border: 1px solid #e2e8f0; text-align: center;">
-            <img src="{{ asset('images/maquinaria/logo.webp') }}" alt="Vidalsa" style="max-height: 40px; max-width: 170px; width: auto; height: auto; margin-bottom: 14px;">
             <h3 id="stTitle" style="margin: 0; color: #0f172a; font-size: 15px; font-weight: 800; line-height: 1.3;">Tu sesión está por expirar</h3>
             <p id="stSubtitle" style="margin: 3px 0 0 0; color: #64748b; font-size: 12px;">Inactividad detectada</p>
 

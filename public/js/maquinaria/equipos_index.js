@@ -239,8 +239,10 @@ const STATUS_CONFIG = {
     // También lo usa el menú de estado sin conexión (equipos-offline.js · eqOffEstadoMenu).
     window.eqPintarFallaAviso = pintarFallaAviso;
 
-    // ── Aviso del reporte de falla al pasar el mouse por el estado ──
-    // Solo en pantallas con mouse: en las táctiles el toque abre el menú, que ya lo trae.
+    // ── Aviso del reporte de falla al pasar el mouse por la fila ──
+    // Sale con la fila entera, igual que la burbuja del detalle de ubicación (tr:hover), y se
+    // pinta junto al estado. Solo en pantallas con mouse: en las táctiles el toque abre el
+    // menú, que ya lo trae.
     let _tipCelda = null;   // la celda cuyo aviso está a la vista
     function getFallaTip() {
         let tip = document.getElementById('eqFallaTip');
@@ -264,11 +266,15 @@ const STATUS_CONFIG = {
         pintarFallaAviso(tip, celda);
         if (tip.hidden) return;
         _tipCelda = celda;
-        // Junto al estado: debajo, o encima si no cabe; sin salirse por los lados.
+        // Junto al estado: debajo, o encima si no cabe; sin salirse por los lados. La tabla
+        // tiene scroll horizontal: si la columna del estado quedó fuera de vista, el aviso se
+        // pega al borde visible de la tabla, a la altura de la fila.
         const ancla = (celda.querySelector('.status-trigger-lite, .eq-status-fijo') || celda).getBoundingClientRect();
+        const marco = celda.closest('.custom-scrollbar-container');
+        const derecha = marco ? Math.min(ancla.right, marco.getBoundingClientRect().right) : ancla.right;
         const alto = tip.offsetHeight, ancho = tip.offsetWidth;
         const top = (window.innerHeight - ancla.bottom >= alto + 8) ? ancla.bottom + 6 : ancla.top - alto - 6;
-        const left = Math.max(8, Math.min(ancla.right - ancho, window.innerWidth - ancho - 8));
+        const left = Math.max(8, Math.min(derecha - ancho, window.innerWidth - ancho - 8));
         tip.style.top = Math.max(8, top) + 'px';
         tip.style.left = left + 'px';
     }
@@ -289,7 +295,8 @@ const STATUS_CONFIG = {
             // Sobre cualquier otra cosa se quita: así no queda pegado si la tabla se repinta
             // debajo del mouse (esa celda ya no existe y nunca daría su mouseout).
             document.addEventListener('mouseover', (e) => {
-                const celda = e.target.closest && e.target.closest('.eq-td-estatus[data-falla-desc]');
+                const fila = e.target.closest && e.target.closest('tr');
+                const celda = fila && fila.querySelector('.eq-td-estatus[data-falla-desc]');
                 const menu = document.getElementById('sharedStatusMenu');
                 if (celda && !(menu && menu.style.display !== 'none')) showFallaTip(celda);
                 else if (_tipCelda) hideFallaTip();

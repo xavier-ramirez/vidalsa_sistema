@@ -197,10 +197,13 @@
         text-overflow: ellipsis;
         max-width: 100%;
     }
+    /* Marca bajo el nombre del modelo, en una línea: label + valor de las specs. */
+    .cat-marca { display: flex; align-items: baseline; gap: 5px; min-width: 0; }
     /* Colores del modelo: una mini-tarjeta por color con SU foto (o su muestra y el ícono
        tachado si no tiene), su nombre y cuántas unidades hay. La activa es la que se ve en
        la foto grande y a la que se aplican "Cambiar foto" y borrar. */
-    .cat-colores { display: grid; grid-template-columns: repeat(auto-fill, minmax(62px, 1fr)); gap: 5px; margin: 0 0 8px; }
+    .cat-colores { display: grid; grid-template-columns: repeat(auto-fill, minmax(62px, 1fr)); gap: 5px; margin: 2px 0 8px; }
+    .cat-colores:last-child { margin-bottom: 0; }
     .cat-color {
         display: flex; flex-direction: column; gap: 3px; min-width: 0;
         padding: 3px; border: 1.5px solid #e2e8f0; border-radius: 8px; background: #fff;
@@ -249,6 +252,7 @@
             flex: 1 1 100% !important;
             box-sizing: border-box !important;
         }
+        #catalogoFilters .cat-fila-marca { display: flex; gap: 10px; }
         #catalogoFilters > a.btn-primary-maquinaria {
             max-width: none !important;
             width: 100% !important;
@@ -346,6 +350,13 @@
         border-radius: 6px;
     }
     .cat-opt:hover { background: #f0f4f8; }
+    /* Opción de otro tipo que el elegido (catSyncTipo): fuera aunque coincida con lo escrito. */
+    .cat-opt.cat-opt-fuera { display: none !important; }
+    /* Marca + botón de filtros avanzados: en escritorio son dos piezas más de la fila
+       (display:contents); en el teléfono van juntos en un renglón (ver @media arriba). */
+    .cat-fila-marca { display: contents; }
+    .cat-adv { position: relative; flex: 0 0 auto; }
+    .cat-adv .panel-filtro-avanzado .cat-filter { max-width: none; min-width: 0; }
     .cat-opt.placeholder {
         font-size: 13px;
         color: #475569;
@@ -365,9 +376,10 @@
     {{-- Filtros — autocomplete con onChange-submit, sin boton Aplicar --}}
     @php
         // Filtros agrupados VEHÍCULOS/AUXILIARES (valores tipo_eq:{id}/tipo_aux:{TIPO} y
-        // modelo_eq:{m}/modelo_aux:{m}); el Año aplica a ambas clases.
+        // modelo_eq:{m}/modelo_aux:{m}); la Marca y el Año aplican a ambas clases.
         $reqTipo   = (string) request('tipo', '');
         $reqModelo = (string) request('modelo', '');
+        $reqMarca  = mb_strtoupper(trim((string) request('marca', '')));
         $reqAnio   = request('anio');
         $anioLabel = ($reqAnio && $reqAnio !== 'all') ? $reqAnio : '';
 
@@ -445,50 +457,90 @@
                    style="display: {{ $reqModelo ? 'flex' : 'none' }};"
                    onmousedown="event.preventDefault(); catSelect('modelo','','');">close</i>
             </div>
+            {{-- Cada opción lleva los tipos en que aparece (data-tipos): con un Tipo elegido,
+                 catSyncTipo esconde las de otros tipos. Igual en Marca y Año. --}}
             <div id="catListModelo" class="cat-list">
-                <div style="{{ $catGrpHdr }}">VEHÍCULOS</div>
-                @foreach(($modelosVehiculo ?? []) as $mod)
-                    <div class="cat-opt" data-label="{{ $mod }}"
-                         onmousedown="event.preventDefault(); catSelect('modelo','modelo_eq:{{ addslashes($mod) }}','{{ addslashes($mod) }}');">{{ $mod }}</div>
-                @endforeach
-                <div style="{{ $catGrpHdr }}">AUXILIARES</div>
-                @foreach(($modelosAux ?? []) as $mod)
-                    <div class="cat-opt" data-label="{{ $mod }}"
-                         onmousedown="event.preventDefault(); catSelect('modelo','modelo_aux:{{ addslashes($mod) }}','{{ addslashes($mod) }}');">{{ $mod }}</div>
-                @endforeach
-            </div>
-        </div>
-
-        {{-- Año --}}
-        <div class="cat-filter {{ $reqAnio && $reqAnio !== 'all' ? 'active' : '' }}">
-            <input type="hidden" id="catValAnio" name="anio" value="{{ $reqAnio && $reqAnio !== 'all' ? $reqAnio : '' }}" data-filter-value>
-            <div class="cat-filter-box">
-                <div style="padding:0 12px; display:flex; align-items:center; color:#64748b;">
-                    <i class="material-icons" style="font-size:18px;">search</i>
-                </div>
-                <input type="text" id="catTxtAnio" name="filter_search_dropdown_a" placeholder="{{ $anioLabel ?: 'Filtrar Año...' }}"
-                       autocomplete="off"
-                       oninput="catFilterList('anio', this.value)"
-                       onfocus="catOpenList('anio')"
-                       onclick="catOpenList('anio')"
-                       onblur="setTimeout(()=>catCloseList('anio'),200)">
-                <i class="material-icons filter-clear"
-                   style="display: {{ $reqAnio && $reqAnio !== 'all' ? 'flex' : 'none' }};"
-                   onmousedown="event.preventDefault(); catSelect('anio','','');">close</i>
-            </div>
-            <div id="catListAnio" class="cat-list">
-                @foreach($availableAnios as $a)
-                    <div class="cat-opt" data-label="{{ $a }}"
-                         onmousedown="event.preventDefault(); catSelect('anio','{{ $a }}','{{ $a }}');">
-                        {{ $a }}
+                @foreach(['VEHÍCULOS' => ['modelo_eq:', $opcionesFiltro['modelosVehiculo']], 'AUXILIARES' => ['modelo_aux:', $opcionesFiltro['modelosAux']]] as $grupo => [$prefijo, $modelos])
+                    <div class="cat-grupo">
+                        <div style="{{ $catGrpHdr }}">{{ $grupo }}</div>
+                        @foreach($modelos as $mod => $tipos)
+                            <div class="cat-opt" data-value="{{ $prefijo . $mod }}" data-label="{{ $mod }}" data-tipos="{{ implode(' ', $tipos) }}"
+                                 onmousedown="event.preventDefault(); catElegir('modelo', this);">{{ $mod }}</div>
+                        @endforeach
                     </div>
                 @endforeach
             </div>
         </div>
 
+        {{-- Marca (vehículos y auxiliares) --}}
+        <div class="cat-fila-marca">
+            <div class="cat-filter {{ $reqMarca ? 'active' : '' }}">
+                <input type="hidden" id="catValMarca" name="marca" value="{{ $reqMarca }}" data-filter-value>
+                <div class="cat-filter-box">
+                    <div style="padding:0 12px; display:flex; align-items:center; color:#64748b;">
+                        <i class="material-icons" style="font-size:18px;">search</i>
+                    </div>
+                    <input type="text" id="catTxtMarca" name="filter_search_dropdown_ma" placeholder="{{ $reqMarca ?: 'Filtrar Marca...' }}"
+                           autocomplete="off"
+                           oninput="catFilterList('marca', this.value)"
+                           onfocus="catOpenList('marca')"
+                           onclick="catOpenList('marca')"
+                           onblur="setTimeout(()=>catCloseList('marca'),200)">
+                    <i class="material-icons filter-clear"
+                       style="display: {{ $reqMarca ? 'flex' : 'none' }};"
+                       onmousedown="event.preventDefault(); catSelect('marca','','');">close</i>
+                </div>
+                <div id="catListMarca" class="cat-list">
+                    @foreach($opcionesFiltro['marcas'] as $marca => $tipos)
+                        <div class="cat-opt" data-value="{{ $marca }}" data-label="{{ $marca }}" data-tipos="{{ implode(' ', $tipos) }}"
+                             onmousedown="event.preventDefault(); catElegir('marca', this);">{{ $marca }}</div>
+                    @endforeach
+                </div>
+            </div>
+
+            {{-- Filtros avanzados: el mismo botón de Almacén (.btn-filtro-avanzado), en rojo
+                 cuando hay un filtro puesto dentro. Por ahora lleva el Año. --}}
+            <div class="cat-adv">
+                <button type="button" id="catAdvBtn" class="btn-primary-maquinaria btn-filtro-avanzado {{ $anioLabel ? 'activo' : '' }}"
+                        title="Filtros avanzados" onclick="catToggleAvanzado()">
+                    <i class="material-icons">filter_list</i>
+                </button>
+                <div id="catAdvPanel" class="panel-filtro-avanzado" style="display:none;">
+                    <h4 class="panel-filtro-avanzado-titulo">
+                        Filtros Avanzados
+                        <span class="panel-filtro-avanzado-limpiar" onclick="catSelect('anio','','')">Limpiar Todo</span>
+                    </h4>
+                    <span class="panel-filtro-avanzado-label">Año</span>
+                    <div class="cat-filter {{ $anioLabel ? 'active' : '' }}">
+                        <input type="hidden" id="catValAnio" name="anio" value="{{ $anioLabel }}" data-filter-value>
+                        <div class="cat-filter-box">
+                            <div style="padding:0 12px; display:flex; align-items:center; color:#64748b;">
+                                <i class="material-icons" style="font-size:18px;">search</i>
+                            </div>
+                            <input type="text" id="catTxtAnio" name="filter_search_dropdown_a" placeholder="{{ $anioLabel ?: 'Filtrar Año...' }}"
+                                   autocomplete="off"
+                                   oninput="catFilterList('anio', this.value)"
+                                   onfocus="catOpenList('anio')"
+                                   onclick="catOpenList('anio')"
+                                   onblur="setTimeout(()=>catCloseList('anio'),200)">
+                            <i class="material-icons filter-clear"
+                               style="display: {{ $anioLabel ? 'flex' : 'none' }};"
+                               onmousedown="event.preventDefault(); catSelect('anio','','');">close</i>
+                        </div>
+                        <div id="catListAnio" class="cat-list">
+                            @foreach($opcionesFiltro['anios'] as $a => $tipos)
+                                <div class="cat-opt" data-value="{{ $a }}" data-label="{{ $a }}" data-tipos="{{ implode(' ', $tipos) }}"
+                                     onmousedown="event.preventDefault(); catElegir('anio', this);">{{ $a }}</div>
+                            @endforeach
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         {{-- Boton Nuevo: visible siempre, valida permiso al click --}}
         <a href="{{ route('catalogo.create') }}" class="btn-primary-maquinaria"
-           style="height:45px; display:inline-flex; align-items:center; padding:0 28px; text-decoration:none; gap:8px; flex:0 0 auto; min-width:180px; justify-content:center;"
+           style="height:45px; display:inline-flex; align-items:center; padding:0 28px; text-decoration:none; gap:8px; flex:0 0 auto; min-width:180px; box-sizing:border-box; justify-content:center;"
            @cannot('equipos.create')
                onclick="event.preventDefault(); window.toast('No tienes permiso para registrar nuevos modelos.', 'error');"
            @endcannot>
@@ -631,6 +683,7 @@
     }
     function _catCap(p) {
         if (p === 'modelo') return 'Modelo';
+        if (p === 'marca')  return 'Marca';
         if (p === 'anio')   return 'Anio';
         if (p === 'tipo')   return 'Tipo';
         return p;
@@ -657,8 +710,9 @@
         });
     }
     // Placeholder por defecto de cada filtro — se restaura al limpiar / elegir "TODOS".
-    var CAT_PH_DEFAULT = { modelo: 'Filtrar Modelo...', tipo: 'Filtrar Tipo...', anio: 'Filtrar Año...' };
-    function catSelect(p, value, label) {
+    var CAT_PH_DEFAULT = { modelo: 'Filtrar Modelo...', marca: 'Filtrar Marca...', tipo: 'Filtrar Tipo...', anio: 'Filtrar Año...' };
+    // Pinta un filtro con su valor, sin recargar (catSelect recarga).
+    function catPintar(p, value, label) {
         var cap = _catCap(p);
         var hidden = document.getElementById('catVal' + cap);
         var txt    = document.getElementById('catTxt' + cap);
@@ -679,8 +733,64 @@
             var clearIcon = wrapper.querySelector('.filter-clear');
             if (clearIcon) clearIcon.style.display = value ? 'flex' : 'none';
         }
+        // El Año vive en el panel de filtros avanzados: su botón va en rojo si está puesto.
+        if (p === 'anio') {
+            var adv = document.getElementById('catAdvBtn');
+            if (adv) adv.classList.toggle('activo', !!value);
+        }
         catCloseList(p);
+    }
+    function catSelect(p, value, label) {
+        catPintar(p, value, label);
+        // Otro Tipo: Modelo, Marca y Año ofrecen solo lo de ese tipo, y el que ya estaba
+        // puesto se suelta si no es de él (si no, la búsqueda daría vacía sin decir por qué).
+        if (p === 'tipo') catSyncTipo(true);
         catSubmit();
+    }
+    // Opción de una lista (data-value / data-label): así un valor con comillas no rompe nada.
+    function catElegir(p, opt) {
+        catSelect(p, opt.dataset.value, opt.dataset.label);
+    }
+    // Esconde en Modelo, Marca y Año las opciones que no son del Tipo elegido (data-tipos,
+    // lo arma CaracteristicaModeloController::opcionesFiltro), y los grupos que quedan vacíos.
+    // soltar = quitar el valor puesto que ya no está entre las opciones.
+    function catSyncTipo(soltar) {
+        var tipo = (document.getElementById('catValTipo') || {}).value || '';
+        ['modelo', 'marca', 'anio'].forEach(function (p) {
+            var list = document.getElementById('catList' + _catCap(p));
+            if (!list) return;
+            var puesto = (document.getElementById('catVal' + _catCap(p)) || {}).value || '', sigue = false;
+            list.querySelectorAll('.cat-opt').forEach(function (o) {
+                var fuera = !!tipo && (' ' + o.dataset.tipos + ' ').indexOf(' ' + tipo + ' ') === -1;
+                o.classList.toggle('cat-opt-fuera', fuera);
+                if (!fuera && o.dataset.value === puesto) sigue = true;
+            });
+            list.querySelectorAll('.cat-grupo').forEach(function (g) {
+                g.hidden = !g.querySelector('.cat-opt:not(.cat-opt-fuera)');
+            });
+            if (soltar && puesto && !sigue) catPintar(p, '', '');
+        });
+    }
+    catSyncTipo(false);
+
+    // Panel de filtros avanzados. Sin stopPropagation: el clic sigue hasta document, donde se
+    // cierran los demás desplegables (Tipo) — un desplegable a la vez.
+    function catToggleAvanzado() {
+        var p = document.getElementById('catAdvPanel');
+        if (p) p.style.display = (p.style.display === 'block') ? 'none' : 'block';
+    }
+    // Se cierra con un clic fuera o cuando el foco sale de él (Tab / "siguiente" del teclado
+    // del teléfono). Listeners de document: una sola vez aunque la vista se vuelva a montar.
+    if (!window.__catAdvCierreBound) {
+        window.__catAdvCierreBound = true;
+        var catCerrarAvanzadoSiFuera = function (e) {
+            var p = document.getElementById('catAdvPanel'), t = e.target;
+            if (p && p.style.display === 'block' && t && t.closest && !t.closest('#catAdvPanel') && !t.closest('#catAdvBtn')) {
+                p.style.display = 'none';
+            }
+        };
+        document.addEventListener('click', catCerrarAvanzadoSiFuera);
+        document.addEventListener('focusin', catCerrarAvanzadoSiFuera);
     }
 
     // ── Cropper: modal compartido para recortar la foto antes de subirla ──

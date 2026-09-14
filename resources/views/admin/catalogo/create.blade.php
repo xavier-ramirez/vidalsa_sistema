@@ -17,7 +17,7 @@
         }
     }
 </style>
-<div class="cat-create-wrapper" style="max-width: 1100px; margin: 0 auto; padding: 0 12px;">
+<div class="cat-create-wrapper" style="max-width: 880px; margin: 0 auto; padding: 0 12px;">
     <div style="display: flex; justify-content: center; align-items: center; margin-bottom: 16px;">
         <h1 class="page-title">
             <span class="page-title-line2" style="color: #000;">Registro de Modelo</span>
@@ -31,10 +31,10 @@
             @include('admin.catalogo.partials.form_fields')
 
             <div style="margin-top: 30px; display: flex; gap: 12px; justify-content: center;">
-                <a href="{{ route('catalogo.index') }}" class="btn-primary-maquinaria btn-secondary">
+                <a href="{{ route('catalogo.index') }}" class="btn-primary-maquinaria btn-secondary btn-compacto">
                     Cancelar
                 </a>
-                <button type="submit" class="btn-primary-maquinaria"
+                <button type="submit" class="btn-primary-maquinaria btn-compacto"
                     @cannot('equipos.create')
                     onclick="event.preventDefault(); window.toast('Acceso denegado: No tienes permiso para guardar este modelo.', 'error');"
                     @endcannot

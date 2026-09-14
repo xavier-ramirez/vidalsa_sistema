@@ -1130,6 +1130,11 @@ window.showDetailsImproved = function (target, event) {
         // encima del panel de alertas (z-index: 9500) u otros overlays.
         modal.style.zIndex = '10000';
         modal.style.display = "flex";
+        // Bloquear el scroll del módulo de atrás mientras el detalle está abierto (igual
+        // que el modal de auxiliares). closeDetailsModal lo restaura. Sin esto, la página
+        // se desplazaba detrás del detalle y del visor de PDF abierto desde aquí.
+        // Fuente única: window.bloquearScrollFondo (layout_ui.js) bloquea html + body.
+        window.bloquearScrollFondo();
         // El cambio de display debe aplicarse ANTES de poner .active, o la transición de
         // opacidad no arranca. Antes se forzaba con `void modal.offsetWidth`, pero leer
         // offsetWidth obliga al navegador a RECALCULAR EL DISEÑO COMPLETO en ese instante,
@@ -1349,15 +1354,11 @@ window.closeDetailsModal = function (event) {
         }, ms);
     }
 
-    // CRITICO: restaurar scroll del body.
-    // Si el panel de alertas sigue abierto (expiredDocsContainer.open),
-    // mantenemos overflow:hidden para que el layout del panel no se mueva.
-    // Solo lo liberamos si no hay otro overlay activo.
-    const alertasOverlay = document.getElementById('expiredDocsContainer');
-    const alertasOpen = alertasOverlay && alertasOverlay.classList.contains('open');
-    if (!alertasOpen) {
-        document.body.style.overflow = '';
-    }
+    // Restaurar el scroll del fondo. restaurarScrollFondo (layout_ui.js) solo libera si NO
+    // queda ninguna otra capa abierta —el visor de PDF, o el panel de alertas del menú
+    // (expiredDocsContainer), que también bloquea el fondo—; si alguna sigue abierta,
+    // mantiene el bloqueo.
+    window.restaurarScrollFondo();
 };
 
 window.loadResponsables = (function () {

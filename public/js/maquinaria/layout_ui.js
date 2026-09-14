@@ -748,6 +748,14 @@ const PDF_PREVIA_ALTA_TRAS_MS = 600;
    PDF_PINTADO_MS (que alcanzan cuando no hay imagen delante: ahi solo se enfoca). Con la
    imagen retirandose antes de tiempo se veia borrosa -> fondo gris -> PDF nitido. */
 const PDF_PREVIA_ESPERA_MS = 1200;
+/* Tope de esa espera cuando es ADAPTATIVA (ver openPdfPreview). El onload no dice cuándo
+   PDFium terminó de PINTAR, y un escaneo pesado tarda bastante más en dibujarse que en
+   descargarse: con la espera fija de 1200 ms, si el PDF pesa, la previa se retiraba antes
+   de que la página estuviera pintada y asomaba el gris del visor (borrosa -> gris ->
+   nítido). Se estira la espera en proporción a lo que costó DESCARGAR (buen indicador del
+   peso) hasta este tope, para que la previa —que ya parece el documento— se quede puesta
+   hasta que el PDF esté listo debajo, en vez de mostrar el hueco. */
+const PDF_PREVIA_ESPERA_MAX_MS = 4000;
 /* Duracion del fundido de la imagen al PDF. La MISMA que la transicion de opacidad de
    .pdf-previa en estilos_globales.css: si se tocan, van juntas. Larga a proposito, para que
    si el PDF tarda un poco mas en pintar se vea un cruce y no un salto. */
@@ -853,6 +861,35 @@ const _pdfCancelarCargaIzq = function () {
     _pdfPreviaQuitar(false);
 };
 
+// Bloqueo del scroll del FONDO mientras hay una capa a pantalla (detalle de equipo/
+// auxiliar, visor de PDF, o el panel de alertas del menú). Se bloquea en html Y en body
+// porque el scroll del viewport lo lleva <html> (documentElement): poner overflow:hidden
+// solo en body no lo frenaba y el módulo se seguía desplazando bajo el visor.
+// restaurar() solo libera cuando NINGUNA capa sigue abierta — así cerrar el PDF con el
+// detalle (o las alertas) aún abiertos detrás no desbloquea el fondo antes de tiempo.
+// Cada capa se identifica por su id y la clase que la marca abierta (unas usan 'active',
+// el panel de alertas usa 'open').
+window._CAPAS_SCROLL = [
+    { id: 'detailsModal', cls: 'active' },
+    { id: 'auxDetailsModal', cls: 'active' },
+    { id: 'pdfPreviewModal', cls: 'active' },
+    { id: 'expiredDocsContainer', cls: 'open' },
+];
+window.bloquearScrollFondo = function () {
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
+};
+window.restaurarScrollFondo = function () {
+    const algunaAbierta = window._CAPAS_SCROLL.some(function (c) {
+        const el = document.getElementById(c.id);
+        return el && el.classList.contains(c.cls);
+    });
+    if (!algunaAbierta) {
+        document.documentElement.style.overflow = '';
+        document.body.style.overflow = '';
+    }
+};
+
 window.openPdfPreview = function (url, docType, label, equipoId, uploadUrl, skipMetadata, module) {
     const modal = document.getElementById('pdfPreviewModal');
     let iframe = document.getElementById('pdfPreviewFrame');
@@ -874,7 +911,24 @@ window.openPdfPreview = function (url, docType, label, equipoId, uploadUrl, skip
     // aparece en el mismo frame del clic. No "arreglar" con requestAnimationFrame
     // sin arreglar antes closePdfPreview, que solo quita .active y no limpiaría
     // un display en línea.
+    // ¿El visor YA estaba abierto? (al cambiar de documento/anexo se re-llama openPdfPreview).
+    // Solo se guarda el estado de scroll del fondo la PRIMERA vez, para no pisar el original.
+    const _pdfYaAbierto = modal && modal.classList.contains('active');
     if (modal) modal.classList.add('active');
+
+    // El visor ocupa toda la pantalla: mientras está abierto, el ÚNICO scroll vertical debe
+    // ser el del PDF, no el del módulo de atrás. Se guarda el estado PREVIO del fondo y se
+    // bloquea; closePdfPreview lo devuelve TAL CUAL estaba. Así, tanto si el visor se abrió
+    // desde una página (fondo libre) como desde un modal que ya bloqueaba (detalles, alertas,
+    // devoluciones, fallas...), al cerrar el fondo vuelve exactamente a como estaba: nunca se
+    // desbloquea de más (con un modal aún abierto detrás) ni queda trabado.
+    if (!_pdfYaAbierto) {
+        window._pdfOverflowPrev = {
+            html: document.documentElement.style.overflow,
+            body: document.body.style.overflow,
+        };
+    }
+    window.bloquearScrollFondo();
 
     // Show Loader
     if (loader) {
@@ -1022,6 +1076,14 @@ window.openPdfPreview = function (url, docType, label, equipoId, uploadUrl, skip
         // retira antes de que PDFium pinte, entre la imagen y el PDF asoma el fondo gris
         // del visor (se veia: borrosa -> gris -> nitido). Ver PDF_PREVIA_ESPERA_MS.
         const conPrevia = _pdfPreviaVisible();
+        // Espera ADAPTATIVA: con la previa a la vista, se le da a PDFium más margen para
+        // pintar cuanto más pesado fue el PDF (aprox. por `tardo`, lo que costó descargar).
+        // Un PDF liviano se revela pronto; uno pesado mantiene la previa hasta ~4 s en vez
+        // de mostrar el gris entre la imagen y el documento. Sin previa no hay nada que
+        // tapar el hueco, así que solo se enfoca tras PDF_PINTADO_MS.
+        const espera = conPrevia
+            ? Math.min(PDF_PREVIA_ESPERA_MS + tardo, PDF_PREVIA_ESPERA_MAX_MS)
+            : PDF_PINTADO_MS;
         _pdfEnfoqueTimeout = setTimeout(() => {
             apagarLoader();
             // La primera pagina en imagen se funde y queda el documento de verdad, que
@@ -1032,7 +1094,7 @@ window.openPdfPreview = function (url, docType, label, equipoId, uploadUrl, skip
             // Enfoca lo que ya se esta viendo borroso. La transicion del CSS es la que da
             // la sensacion de "termino de llegar".
             iframe.style.filter = PDF_SIN_BLUR;
-        }, conPrevia ? PDF_PREVIA_ESPERA_MS : PDF_PINTADO_MS);
+        }, espera);
     };
 
     // Set source and setup load listener
@@ -2183,6 +2245,17 @@ window.closePdfPreview = function () {
     // del guard de openPdfPreview — con el visor cerrado no hay documento delante, asi
     // que no debe quedar ningun destino al que anexar.
     if (typeof window._pdfOcultarAnexos === 'function') window._pdfOcultarAnexos();
+
+    // Devolver el fondo EXACTAMENTE a como estaba antes de abrir el visor (ver openPdfPreview):
+    // bloqueado si se abrió desde un modal/alertas que sigue abierto detrás, o libre si se
+    // abrió desde una página. Fallback a restaurarScrollFondo si por algo no se guardó.
+    if (window._pdfOverflowPrev) {
+        document.documentElement.style.overflow = window._pdfOverflowPrev.html;
+        document.body.style.overflow = window._pdfOverflowPrev.body;
+        window._pdfOverflowPrev = null;
+    } else {
+        window.restaurarScrollFondo();
+    }
 };
 
 

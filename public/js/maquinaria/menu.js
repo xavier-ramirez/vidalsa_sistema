@@ -8,12 +8,16 @@ window.toggleExpiredDocs = function () {
     const overlay = document.getElementById('expiredDocsContainer');
     if (!overlay) return;
     const isOpen = overlay.classList.toggle('open');
-    // Evita scroll del body mientras el modal está abierto
-    document.body.style.overflow = isOpen ? 'hidden' : '';
+    // Evita scroll del fondo mientras el modal está abierto. Mismo ayudante que el visor de
+    // PDF y los detalles (bloquea html + body, y al cerrar solo libera si no queda otra capa
+    // abierta, p.ej. un PDF abierto DESDE estas alertas).
     if (isOpen) {
+        window.bloquearScrollFondo();
         // Autofocus al buscador para UX rápida
         const searchInput = document.getElementById('alertSearch');
         if (searchInput) setTimeout(() => searchInput.focus(), 60);
+    } else {
+        window.restaurarScrollFondo();
     }
 };
 

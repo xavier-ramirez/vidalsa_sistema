@@ -142,10 +142,20 @@
         <div class="cat-body">
             @php
                 $showTipoPrefix = $item['tipo'] && !str_starts_with(mb_strtoupper($item['modelo']), mb_strtoupper($item['tipo']));
+                // La marca va pegada al nombre del modelo, antes de los colores: con muchos
+                // colores la rejilla la dejaba al fondo de la tarjeta. El resto de specs, abajo.
+                $marca = $item['specs']['Marca'] ?? null;
+                $specs = \Illuminate\Support\Arr::except($item['specs'] ?? [], 'Marca');
             @endphp
             <span class="cat-modelo">@if($showTipoPrefix){{ $item['tipo'] }} · @endif{{ $item['modelo'] }}</span>
+            @if($marca)
+                <div class="cat-marca">
+                    <span class="cat-spec-label">Marca</span>
+                    <span class="cat-spec-value" title="{{ $marca }}">{{ $marca }}</span>
+                </div>
+            @endif
 
-            {{-- Colores, debajo del nombre: una mini-tarjeta por color con SU foto ("Modelo" es
+            {{-- Colores, debajo del nombre y la marca: una mini-tarjeta por color con SU foto ("Modelo" es
                  la general). La cifra es cuántas unidades hay de ese color; sin foto propia se
                  ve el ícono tachado. Tocar una cambia la foto grande (catElegirColor). --}}
             @if($verColores)
@@ -172,9 +182,9 @@
                 </div>
             @endif
 
-            @if(!empty($item['specs']))
+            @if(!empty($specs))
                 <div class="cat-specs">
-                    @foreach($item['specs'] as $label => $value)
+                    @foreach($specs as $label => $value)
                         <div class="cat-spec-row">
                             <span class="cat-spec-label">{{ $label }}</span>
                             <span class="cat-spec-value" title="{{ $value }}">{{ $value }}</span>

@@ -80,6 +80,7 @@ function catBuildUrl(page) {
         if (v) params.append(key, v);
     };
     add('modelo', 'input[name="modelo"]');
+    add('marca',  'input[name="marca"]');
     add('anio',   'input[name="anio"]');
     add('tipo',   'input[name="tipo"]');
     params.append('ajax_load', '1');

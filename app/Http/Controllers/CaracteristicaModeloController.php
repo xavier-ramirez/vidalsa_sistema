@@ -61,12 +61,13 @@ class CaracteristicaModeloController extends Controller
      * (equipos_auxiliares agrupados) en una sola grilla con el mismo estilo de tarjeta.
      * Los filtros Tipo y Modelo van agrupados VEHÍCULOS/AUXILIARES (igual que el
      * tipo_activo de /admin/fallas): valores tipo_eq:{id} / tipo_aux:{TIPO} y
-     * modelo_eq:{modelo} / modelo_aux:{modelo}. El filtro Año aplica a ambos.
+     * modelo_eq:{modelo} / modelo_aux:{modelo}. Los filtros Marca y Año aplican a ambos.
      */
     public function index(Request $request)
     {
         $tipoFiltro   = (string) $request->input('tipo', '');     // '' | tipo_eq:{id} | tipo_aux:{TIPO}
         $modeloFiltro = (string) $request->input('modelo', '');   // '' | modelo_eq:{m} | modelo_aux:{m}
+        $marcaFiltro  = mb_strtoupper(trim((string) $request->input('marca', '')));
         $anio         = (string) $request->input('anio', '');
 
         // Qué clases mostrar según el filtro Tipo/Modelo (si apunta a una clase, solo esa).
@@ -76,6 +77,13 @@ class CaracteristicaModeloController extends Controller
                        && !str_starts_with($modeloFiltro, 'modelo_eq:');
 
         $items = $this->buildCatalogoItems($verVehiculos, $verAuxiliares, $tipoFiltro, $modeloFiltro, $anio);
+        $sinFiltros = $tipoFiltro === '' && $modeloFiltro === '' && ($anio === '' || $anio === 'all');
+        $todos = $sinFiltros ? $items : null;   // el catálogo entero, para las listas de los filtros
+        // Marca: la de la tarjeta (en un vehículo es la de sus unidades, la ficha no la guarda),
+        // así el filtro encuentra exactamente lo que se ve.
+        if ($marcaFiltro !== '') {
+            $items = $items->filter(fn ($i) => mb_strtoupper(trim((string) $i['marca'])) === $marcaFiltro)->values();
+        }
 
         $totalCount       = $items->count();
         $countVehiculos   = $items->where('clase', 'VEHICULO')->count();
@@ -103,30 +111,60 @@ class CaracteristicaModeloController extends Controller
             ]);
         }
 
-        // ── Listas para los filtros agrupados (todas las opciones, no auto-limitadas) ──
-        // Solo al abrir la página: los filtros y el scroll (ajax_load, arriba) no las usan, y
-        // eran 8 consultas más en cada uno. Los vehículos cuentan las fichas Y los equipos sin
-        // ficha, que también tienen su tarjeta (modelosSinFicha): un filtro que no los
-        // ofreciera los dejaría inalcanzables.
+        // ── Listas para los filtros agrupados ──
+        // Solo al abrir la página: los filtros y el scroll (ajax_load, arriba) no las usan.
+        // Los vehículos cuentan las fichas Y los equipos sin ficha, que también tienen su
+        // tarjeta (modelosSinFicha): un filtro que no los ofreciera los dejaría inalcanzables.
         $tiposVehiculo = TipoEquipo::where(fn ($w) => $w
                 ->whereIn('nombre', fn ($q) => $q->select('TIPO')->from('caracteristicas_modelo')->whereNotNull('TIPO'))
                 ->orWhereIn('id', fn ($q) => $q->select('id_tipo_equipo')->from('equipos')->whereNull('deleted_at')))
             ->orderBy('nombre')->get(['id', 'nombre']);
         $tiposAux = $this->tiposAuxLabels();
-        $modelosVehiculo = CaracteristicaModelo::whereNotNull('MODELO')->where('MODELO', '!=', '')->pluck('MODELO')
-            ->merge(Equipo::whereNotNull('MODELO')->where('MODELO', '!=', '')->distinct()->pluck('MODELO'))
-            ->map(fn ($m) => mb_strtoupper(trim($m)))->unique()->sort()->values();
-        $modelosAux = EquipoAuxiliar::whereNotNull('MODELO')->where('MODELO', '!=', '')
-            ->distinct()->orderBy('MODELO')->pluck('MODELO');
-        $aniosVehiculo = CaracteristicaModelo::whereNotNull('ANIO_ESPEC')->distinct()->pluck('ANIO_ESPEC')
-            ->merge(Equipo::whereNotNull('ANIO')->where('ANIO', '!=', 0)->distinct()->pluck('ANIO'));
-        $aniosAux      = EquipoAuxiliar::whereNotNull('ANIO')->where('ANIO', '!=', 0)->distinct()->pluck('ANIO');
-        $availableAnios = $aniosVehiculo->merge($aniosAux)->unique()->sortDesc()->values();
+        // Modelo, Marca y Año salen de las tarjetas del catálogo entero (sin filtros), cada
+        // opción con los tipos en que aparece: al elegir un Tipo, la vista esconde las que no
+        // son de ese tipo (catSyncTipo en index.blade.php).
+        $opcionesFiltro = $this->opcionesFiltro($todos ?? $this->buildCatalogoItems(true, true, '', '', ''), $tiposVehiculo);
 
         return view('admin.catalogo.index', compact(
             'catalogos', 'totalCount', 'countVehiculos', 'countAuxiliares',
-            'tiposVehiculo', 'tiposAux', 'modelosVehiculo', 'modelosAux', 'availableAnios'
+            'tiposVehiculo', 'tiposAux', 'opcionesFiltro'
         ));
+    }
+
+    /**
+     * Opciones de los filtros Modelo (por clase), Marca y Año a partir de las tarjetas:
+     * [valor => [tipos en que aparece]], con el tipo escrito como el valor del filtro Tipo
+     * (tipo_eq:{id} / tipo_aux:{TIPO}). Así solo se ofrece lo que tiene tarjeta.
+     */
+    private function opcionesFiltro($items, $tiposVehiculo): array
+    {
+        $idTipo = $tiposVehiculo->mapWithKeys(fn ($t) => [mb_strtoupper(trim($t->nombre)) => 'tipo_eq:' . $t->id]);
+        $juntar = function ($items, callable $valor, int $orden) use ($idTipo): array {
+            $mapa = [];
+            foreach ($items as $i) {
+                $v = $valor($i);
+                if ($v === null || $v === '') {
+                    continue;
+                }
+                $tipo = $i['clase'] === 'AUXILIAR'
+                    ? 'tipo_aux:' . $i['tipo_raw']
+                    : ($idTipo[mb_strtoupper(trim((string) $i['tipo']))] ?? null);
+                $mapa[$v] ??= [];
+                if ($tipo !== null && !in_array($tipo, $mapa[$v], true)) {
+                    $mapa[$v][] = $tipo;
+                }
+            }
+            $orden === SORT_NUMERIC ? krsort($mapa, SORT_NUMERIC) : ksort($mapa, SORT_STRING);
+            return $mapa;
+        };
+        $mayus = fn (?string $s) => ($s = mb_strtoupper(trim((string) $s))) !== '' && $s !== '—' ? $s : null;
+
+        return [
+            'modelosVehiculo' => $juntar($items->where('clase', 'VEHICULO'), fn ($i) => $mayus($i['modelo']), SORT_STRING),
+            'modelosAux'      => $juntar($items->where('clase', 'AUXILIAR'), fn ($i) => $mayus($i['modelo']), SORT_STRING),
+            'marcas'          => $juntar($items, fn ($i) => $mayus($i['marca']), SORT_STRING),
+            'anios'           => $juntar($items, fn ($i) => $i['anio'] ?: null, SORT_NUMERIC),
+        ];
     }
 
     /**
@@ -279,7 +317,8 @@ class CaracteristicaModeloController extends Controller
                 'placeholder' => 'precision_manufacturing',
                 'total'       => $cm->equipos_count, // nº de equipos ligados a este modelo
                 'colores'     => $this->coloresDeTarjeta($suyas, $cm->colores),
-                // Marca primero, como en las tarjetas de auxiliares y las SIN FICHA.
+                // Marca: la tarjeta la saca de aquí y la pone bajo el nombre (table_rows),
+                // igual que en las de auxiliares y las SIN FICHA.
                 'specs'       => array_filter([
                     'Marca'        => $marca,
                     'Motor'        => $cm->MOTOR,

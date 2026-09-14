@@ -264,7 +264,7 @@
         transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
     }
     .formato-opcion:hover { transform: translateY(-2px); box-shadow: 0 10px 20px -12px rgba(15,23,42,0.35); }
-    .formato-opcion .material-icons { font-size: 34px; margin-bottom: 2px; }
+    .formato-opcion .material-icons { font-size: 28px; margin-bottom: 2px; }
     /* Rojo de PDF y verde de Excel: los colores con los que la gente ya reconoce
        cada archivo en su escritorio. */
     .formato-opcion--pdf:hover   { border-color: #fca5a5; }

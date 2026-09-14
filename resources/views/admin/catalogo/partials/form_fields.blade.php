@@ -1,7 +1,10 @@
 <style>
+    /* 9 campos en 3 columnas iguales = 3 filas completas: identificación (tipo, modelo,
+       año), motor y aceites, y el resto. Antes eran 4 columnas con Tipo a doble ancho: ese
+       campo se veía enorme y la última fila quedaba a medias. */
     .catalog-form-grid {
         display: grid;
-        grid-template-columns: repeat(4, 1fr);
+        grid-template-columns: repeat(3, 1fr);
         gap: 20px 15px;
         align-items: start;
     }
@@ -9,8 +12,6 @@
         display: flex;
         flex-direction: column;
     }
-    /* Column Spans */
-    .span-2 { grid-column: span 2; }
 
     .catalog-label {
         display: block;
@@ -54,10 +55,7 @@
         padding-left: 20px;
     }
 
-    @media (max-width: 900px) {
-        .catalog-form-grid { grid-template-columns: repeat(2, 1fr); }
-        .span-2 { grid-column: auto; }
-    }
+    /* De 3 columnas se pasa directo a 1: con 2, un campo quedaba solo en la última fila. */
     @media (max-width: 600px) {
         .catalog-form-grid { grid-template-columns: 1fr; }
     }
@@ -67,7 +65,7 @@
     {{-- TIPO de Equipo VA PRIMERO: al elegirlo, el campo Modelo sugiere los modelos
          de ese tipo (catalogo_create.js → scopeCatalogoModelos). Igual puedes escribir
          uno nuevo. Alimenta la sugerencia de catálogo del alta de equipos. --}}
-    <div class="catalog-field-group span-2">
+    <div class="catalog-field-group">
         <label for="TIPO" class="catalog-label">Tipo de Equipo</label>
         <div class="custom-form-autocomplete">
             <input type="text" id="TIPO" name="TIPO"
@@ -110,7 +108,6 @@
         @error('MODELO') <span class="error-message-inline">{{ $message }}</span> @enderror
     </div>
 
-    <!-- 2. AÑO (Narrow) -->
     <div class="catalog-field-group">
         <label for="ANIO_ESPEC" class="catalog-label">Año</label>
          <div class="custom-form-autocomplete">
@@ -137,7 +134,6 @@
          click en la foto de cada tarjeta en /admin/catalogo (mismo flujo que el
          catálogo de auxiliares). Ver catalogo.uploadFoto + catUploadPhoto(). --}}
 
-    <!-- 4. MOTOR -->
     <div class="catalog-field-group">
         <label for="MOTOR" class="catalog-label">Motor</label>
         <input type="text" id="MOTOR" name="MOTOR" 
@@ -157,7 +153,6 @@
          trabajo que hagan. Aquí solo quedan datos de referencia del modelo: MOTOR,
          aceites, refrigerante, batería. --}}
 
-    <!-- 7. ACEITE MOTOR -->
     <div class="catalog-field-group">
         <label for="ACEITE_MOTOR" class="catalog-label">Aceite Motor</label>
         <input type="text" id="ACEITE_MOTOR" name="ACEITE_MOTOR" 
@@ -168,7 +163,6 @@
                oninput="this.value = this.value.toUpperCase()">
     </div>
 
-    <!-- 8. ACEITE CAJA -->
     <div class="catalog-field-group">
         <label for="ACEITE_CAJA" class="catalog-label">Aceite Caja</label>
         <input type="text" id="ACEITE_CAJA" name="ACEITE_CAJA" 
@@ -179,7 +173,6 @@
                oninput="this.value = this.value.toUpperCase()">
     </div>
 
-    <!-- 9. LIGA FRENO -->
     <div class="catalog-field-group">
         <label for="LIGA_FRENO" class="catalog-label">Liga Freno</label>
         <input type="text" id="LIGA_FRENO" name="LIGA_FRENO" 
@@ -190,7 +183,6 @@
                oninput="this.value = this.value.toUpperCase()">
     </div>
 
-    <!-- 10. REFRIGERANTE -->
     <div class="catalog-field-group">
         <label for="REFRIGERANTE" class="catalog-label">Refrigerante</label>
         <input type="text" id="REFRIGERANTE" name="REFRIGERANTE" 
@@ -201,7 +193,6 @@
                oninput="this.value = this.value.toUpperCase()">
     </div>
 
-    <!-- 11. BATERÍA -->
     <div class="catalog-field-group">
         <label for="TIPO_BATERIA" class="catalog-label">Batería</label>
         <input type="text" id="TIPO_BATERIA" name="TIPO_BATERIA" 

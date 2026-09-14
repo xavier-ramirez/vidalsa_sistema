@@ -14,11 +14,7 @@
         border-radius: 12px; height: 45px; overflow: hidden;
     }
     .alm-filter.active .alm-filter-box { background: #e1effa; border-color: var(--maquinaria-blue, #0067b1); }
-    /* Panel "Filtros avanzados": rótulos, Existencias (tres opciones, una puesta) y la lista
-       de unidades de medida. */
-    .alm-adv-seg { display: flex; gap: 4px; background: #fff; border: 1px solid #cbd5e0; border-radius: 8px; padding: 3px; margin-bottom: 12px; }
-    .alm-adv-seg button { flex: 1; border: none; background: transparent; border-radius: 6px; padding: 6px 4px; font-size: 12px; font-weight: 700; color: #475569; cursor: pointer; font-family: inherit; }
-    .alm-adv-seg button.on { background: var(--maquinaria-blue, #0067b1); color: #fff; }
+    /* Panel "Filtros avanzados": la lista de unidades de medida. */
     .alm-adv-select { width: 100%; height: 36px; border: 1px solid #cbd5e0; border-radius: 8px; padding: 0 8px; font-size: 13px; background: #fff; color: #0f172a; outline: none; }
     .alm-adv-select:focus { border-color: var(--maquinaria-blue, #0067b1); }
     /* El icono NO lleva padding a la derecha y el campo solo 4px a la izquierda: así el texto
@@ -1105,9 +1101,8 @@
             <div class="alm-suggest" id="almFiltroCatSuggest"></div>
         </div>
 
-        {{-- Filtros avanzados (el mismo botón de Movimientos, Notas y Recepción). Existencias
-             son los MISMOS atajos de las tarjetas "Con stock" / "Stock bajo" (un solo estado:
-             soloConSaldo / soloBajo); la unidad de medida viaja como `um`. --}}
+        {{-- Filtros avanzados (el mismo botón de Movimientos, Notas y Recepción): la unidad
+             de medida, que viaja como `um`. "Con stock" / "Stock bajo" son las tarjetas. --}}
         <div style="position:relative;flex:0 0 auto;">
             <button type="button" id="almAdvBtn" class="btn-primary-maquinaria btn-filtro-avanzado" title="Filtros avanzados"
                     onclick="window.almToggleAvanzado()">
@@ -1118,12 +1113,6 @@
                     Filtros Avanzados
                     <span class="panel-filtro-avanzado-limpiar" onclick="window.almAvanzadoLimpiar()">Limpiar Todo</span>
                 </h4>
-                <span class="panel-filtro-avanzado-label">Existencias</span>
-                <div class="alm-adv-seg" id="almAdvExist">
-                    <button type="button" data-exist="" class="on" onclick="window.almAvanzadoExistencias('')">Todas</button>
-                    <button type="button" data-exist="con" onclick="window.almAvanzadoExistencias('con')">Con stock</button>
-                    <button type="button" data-exist="bajo" onclick="window.almAvanzadoExistencias('bajo')">Stock bajo</button>
-                </div>
                 <span class="panel-filtro-avanzado-label">Unidad de medida</span>
                 <select id="almFiltroUm" class="alm-adv-select" onchange="window.almAvanzadoUm()">
                     <option value="">Todas</option>
@@ -1735,7 +1724,6 @@
                         </div>
                     </div>
                 </div>
-                <div class="alm-hint">RECIBIDO se firma a mano en cada entrega.</div>
             </div>
             <div id="almNvFrentesWrap">
                 <label for="almNvFrentesInput">Frentes que usan este almacén</label>
@@ -1760,13 +1748,12 @@
                         <div id="almNvFrentesNoMatch" style="display:none;padding:10px 15px;font-size:13px;color:#94a3b8;">Sin coincidencias.</div>
                     </div>
                 </div>
-                <div class="alm-hint">Definen qué usuarios ven este almacén.</div>
             </div>
             <div id="almNvError" style="display:none;margin-top:6px;padding:9px 12px;background:#fee2e2;border:1px solid #fecaca;border-radius:8px;color:#b91c1c;font-size:13px;font-weight:600;"></div>
         </div>
         <div class="alm-modal-foot">
             <button type="button" class="btn-primary-maquinaria" style="background:#e2e8f0;color:#475569;box-shadow:none;" onclick="almCerrar('almAlmacenModal')">Cancelar</button>
-            <button type="button" class="btn-primary-maquinaria" id="almNvSubmit" onclick="window.almGuardarAlmacen()">Guardar</button>
+            <button type="button" class="btn-primary-maquinaria" onclick="window.almGuardarAlmacen()">Guardar</button>
         </div>
     </div>
 </div>
@@ -2707,13 +2694,11 @@
         var bb  = el('almBadgeBajo');     if (bb)  bb.classList.toggle('is-on',  !!soloBajo);
         almPintarAvanzado();
     }
-    // Panel "Filtros avanzados": qué opción de Existencias está puesta y el botón en rojo si
-    // hay algún filtro dentro (existencias o unidad de medida).
+    // Botón "Filtros avanzados" en rojo si hay algo puesto dentro (la unidad de medida). Pasa
+    // por almPintarBadges: así lo pintan también el arranque y el re-montaje de la vista.
     function almPintarAvanzado() {
-        var ex = soloConSaldo ? 'con' : (soloBajo ? 'bajo' : '');
-        document.querySelectorAll('#almAdvExist button').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-exist') === ex); });
         var btn = el('almAdvBtn');
-        if (btn) btn.classList.toggle('activo', !!ex || !!val('almFiltroUm'));
+        if (btn) btn.classList.toggle('activo', !!val('almFiltroUm'));
     }
     // Sin stopPropagation: el clic sigue hasta document, donde los cierres de siempre bajan
     // Acciones, las sugerencias y los desplegables (almacén…) — un desplegable a la vez.
@@ -2721,21 +2706,15 @@
         var p = el('almAdvPanel'); if (!p) return;
         p.style.display = (p.style.display === 'block') ? 'none' : 'block';
     };
-    // Existencias: los mismos atajos de las tarjetas (almFiltrarConSaldo / almFiltrarBajo),
-    // solo que aquí se ELIGE una opción en vez de alternar.
-    window.almAvanzadoExistencias = function (ex) {
-        if (ex === 'con')       { if (!soloConSaldo) window.almFiltrarConSaldo(true); }
-        else if (ex === 'bajo') { if (!soloBajo) window.almFiltrarBajo(); }
-        else if (soloConSaldo || soloBajo) { almResetBadges(); almCargar(); }
-    };
     window.almAvanzadoUm = function () {
         almResetPick();
         almPintarAvanzado();
         almCargar();
     };
+    // "Limpiar Todo" limpia lo del panel; las tarjetas Con stock / Stock bajo van aparte.
     window.almAvanzadoLimpiar = function () {
         almSoltarUm();
-        almResetBadges();
+        almPintarAvanzado();
         almResetPick();
         almCargar();
     };
@@ -4535,15 +4514,14 @@
 
     // Ajusta el campo Nombre al tipo elegido. UN solo sitio decide qué se ve, para que el
     // texto de ayuda, el placeholder y la lista no puedan quedar diciendo cosas distintas.
+    // En GENERAL no lleva texto de ayuda: el placeholder ya dice qué escribir.
     window.almNvNombreModo = function () {
         var esProyecto = (el('almNvTipo') || {}).value !== 'GENERAL';
         var inp  = el('almNvNombre');
         var hint = el('almNvNombreHint');
         var dd   = el('almNvNombreDropdown');
         if (inp)  inp.placeholder = esProyecto ? 'Elige el proyecto…' : 'Ej: ALMACÉN CENTRAL CARACAS';
-        if (hint) hint.textContent = esProyecto
-            ? 'Elige el proyecto al que pertenece este almacén.'
-            : 'Un almacén central no pertenece a un proyecto: escribe su nombre.';
+        if (hint) hint.hidden = !esProyecto;
         // En GENERAL la lista de proyectos sobra: se oculta y el campo queda como uno de
         // texto normal (el caret desaparece con ella).
         if (dd) {
@@ -4708,7 +4686,7 @@
     window.almAbrirAlmacen = function () {
         if (!ensurePerm(HAS_ALM_MANAGE, 'No tienes permiso para crear almacenes.')) return;
         almResetAlmacenModal();
-        el('almNvTitulo').textContent = 'Nuevo almacén'; el('almNvSubmit').textContent = 'Guardar';
+        el('almNvTitulo').textContent = 'Nuevo almacén';
         almOpen('almAlmacenModal'); setTimeout(almNvEnfocarNombre, 60);
     };
     window.almEditarAlmacen = function (id) {
@@ -4716,7 +4694,7 @@
         var d = (window.almAlmacenesData || {})[id]; if (!d) { toast('No se encontró el almacén.', 'error'); return; }
         almResetAlmacenModal();
         el('almAlmacenModal').dataset.idAlmacen = id;
-        el('almNvTitulo').textContent = 'Editar almacén'; el('almNvSubmit').textContent = 'Guardar cambios';
+        el('almNvTitulo').textContent = 'Editar almacén';
         el('almNvNombre').value = d.NOMBRE || ''; el('almNvUbicacion').value = d.UBICACION || '';
         if (el('almNvAlmacenista'))      el('almNvAlmacenista').value      = d.ALMACENISTA || '';
         if (el('almNvCargoAlmacenista')) el('almNvCargoAlmacenista').value = d.CARGO_ALMACENISTA || '';

@@ -234,7 +234,7 @@
             window.renderAuxDetailsModal(data);
             modal.style.display = '';
             modal.classList.add('active');
-            document.body.style.overflow = 'hidden';
+            window.bloquearScrollFondo();
             return;
         }
 
@@ -250,7 +250,7 @@
             if (typeof window.hidePreloader === 'function') window.hidePreloader();
             modal.style.display = '';
             modal.classList.add('active');
-            document.body.style.overflow = 'hidden';
+            window.bloquearScrollFondo();
         })
         .catch(err => {
             if (typeof window.hidePreloader === 'function') window.hidePreloader();
@@ -462,7 +462,8 @@
             modal.classList.remove('active');
             modal.style.display = '';
         }
-        document.body.style.overflow = '';
+        // Libera html + body salvo que quede el visor de PDF abierto (restaurarScrollFondo).
+        window.restaurarScrollFondo();
     };
 
     // Cerrar con Escape
