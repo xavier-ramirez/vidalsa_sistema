@@ -14,9 +14,6 @@
         border-radius: 12px; height: 45px; overflow: hidden;
     }
     .alm-filter.active .alm-filter-box { background: #e1effa; border-color: var(--maquinaria-blue, #0067b1); }
-    /* Panel "Filtros avanzados": la lista de unidades de medida. */
-    .alm-adv-select { width: 100%; height: 36px; border: 1px solid #cbd5e0; border-radius: 8px; padding: 0 8px; font-size: 13px; background: #fff; color: #0f172a; outline: none; }
-    .alm-adv-select:focus { border-color: var(--maquinaria-blue, #0067b1); }
     /* El icono NO lleva padding a la derecha y el campo solo 4px a la izquierda: así el texto
        que se escribe queda pegado a la lupa (antes eran 10+6=16px de hueco). Misma separación
        que los filtros de /admin/equipos, que lo resuelven con la regla
@@ -46,9 +43,11 @@
     .alm-table tbody td { padding: 12px 15px; color: #000; font-size: 14px; border-bottom: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0; vertical-align: middle; }
     .alm-table tbody td:last-child { border-right: none; }
     .alm-table tbody tr:hover td { background: #e0f2fe; }
-    /* Tooltip-bubble con la UBICACION del producto: aparece al pasar el mouse por cualquier
-       parte de la fila (mismo patrón que /admin/equipos usando `.admin-table tr:hover`). */
-    .alm-row:hover .tooltip-bubble { opacity: 1 !important; visibility: visible !important; }
+    /* Tooltip-bubble con la UBICACION y los equipos del producto: aparece al pasar el mouse por
+       cualquier parte de la fila, pero SOLO ya colocada por almTipShow (.alm-tip-on, fuera de
+       la tabla y por encima de todo). Sin esa condición, al hacer clic, desplazar o pasar por
+       otra celda la burbuja volvía a su sitio dentro de la tabla y salía recortada. */
+    .alm-row:hover .tooltip-bubble.alm-tip-on { opacity: 1 !important; visibility: visible !important; }
     /* Elevar la celda al hover para que el tooltip quede POR ENCIMA del thead sticky
        (z-index:2) y de las demás filas — si no, el encabezado oscuro lo tapaba. */
     .alm-row:hover .alm-td-nombre { z-index: 9000; }
@@ -71,13 +70,25 @@
     /* Fila seleccionable: clic en la fila la marca (estilo /admin/equipos → .selected-row-maquinaria) */
     /* Las filas son seleccionables con clic pero el cursor se mantiene como flecha (sin mano). */
     .alm-table tbody tr.alm-row-clickable { cursor: default; }
-    /* Fila SELECCIONADA: azul claramente mas oscuro que el hover (#e0f2fe) para que se
-       distinga a simple vista cual esta marcada. Persiste tambien en hover (sin !important
-       el hover gana porque viene despues en cascada). */
+    /* Fila SELECCIONADA: azul claro (pedido del cliente: el #93c5fd de antes era muy fuerte),
+       aún más oscuro que el hover y la última vista (#e0f2fe) para que se distinga cuál está
+       marcada. Persiste tambien en hover (sin !important el hover gana porque viene despues
+       en cascada). */
     .alm-table tbody tr.alm-row.selected-row-maquinaria,
     .alm-table tbody tr.alm-row.selected-row-maquinaria:hover,
     .alm-table tbody tr.alm-row.selected-row-maquinaria td,
-    .alm-table tbody tr.alm-row.selected-row-maquinaria:hover td { background: #93c5fd !important; }
+    .alm-table tbody tr.alm-row.selected-row-maquinaria:hover td { background: #bfdbfe !important; }
+    /* Fila de la salida POR CORREGIR (sin cantidad, sin stock o pasada del stock): rojo suave
+       en vez del azul de seleccionada, el mismo idioma que el aviso de arriba y la caja de
+       cantidad marcada. Va después de la seleccionada para ganarle (misma fuerza). */
+    .alm-table tbody tr.alm-row.alm-row-missing-cant,
+    .alm-table tbody tr.alm-row.alm-row-missing-cant:hover,
+    .alm-table tbody tr.alm-row.alm-row-missing-cant td,
+    .alm-table tbody tr.alm-row.alm-row-missing-cant:hover td,
+    .alm-table tbody tr.alm-row.alm-row-exceeds-stock,
+    .alm-table tbody tr.alm-row.alm-row-exceeds-stock:hover,
+    .alm-table tbody tr.alm-row.alm-row-exceeds-stock td,
+    .alm-table tbody tr.alm-row.alm-row-exceeds-stock:hover td { background: #fee2e2 !important; }
     /* Anulación local: la regla global `tr.selected-row-maquinaria td { color:#0067b1 }`
        (estilos_globales.css ~línea 1929) deja TODO el texto azul. En esta tabla solo
        queremos el background azul, NO los textos: el código y el nombre tienen su propio
@@ -97,26 +108,34 @@
     .alm-cant-stepper.is-active .alm-row-cant { color:#0f172a !important; }
 
     /* Última fila cuyo detalle se abrió con el ojo (almMarcarVista): al cerrar el modal se sabe
-       de cuál se venía. Un marco azul, no un fondo, para verse encima del rojo de stock bajo y
-       del azul de seleccionada sin confundirse con ninguno. Hecho con sombras interiores en las
-       celdas y no con outline en la fila: la celda del nombre va posicionada (tooltip) y lo
-       tapaba. En el teléfono las filas son tarjetas: ver abajo. */
-    @media (min-width: 769px) {
-        #almTableBody tr.alm-row.alm-row-vista > td { box-shadow: inset 0 2px 0 #0067b1, inset 0 -2px 0 #0067b1; }
-        #almTableBody tr.alm-row.alm-row-vista > td:first-child { box-shadow: inset 2px 0 0 #0067b1, inset 0 2px 0 #0067b1, inset 0 -2px 0 #0067b1; }
-        #almTableBody tr.alm-row.alm-row-vista > td:last-child { box-shadow: inset -2px 0 0 #0067b1, inset 0 2px 0 #0067b1, inset 0 -2px 0 #0067b1; }
-        #almTableBody tr.alm-row.alm-row-missing-cant > td,
-        #almTableBody tr.alm-row.alm-row-exceeds-stock > td { box-shadow: inset 0 2px 0 #dc2626, inset 0 -2px 0 #dc2626; }
-        #almTableBody tr.alm-row.alm-row-missing-cant > td:first-child,
-        #almTableBody tr.alm-row.alm-row-exceeds-stock > td:first-child { box-shadow: inset 2px 0 0 #dc2626, inset 0 2px 0 #dc2626, inset 0 -2px 0 #dc2626; }
-        #almTableBody tr.alm-row.alm-row-missing-cant > td:last-child,
-        #almTableBody tr.alm-row.alm-row-exceeds-stock > td:last-child { box-shadow: inset -2px 0 0 #dc2626, inset 0 2px 0 #dc2626, inset 0 -2px 0 #dc2626; }
-    }
-    /* El motivo, bajo la caja de cantidad (el detalle —cuánto se pide y cuánto hay— va en el
-       aviso de arriba). */
+       de cuál se venía. Queda en el celeste del hover, como si el mouse siguiera encima (antes
+       era un marco azul, que se veía tosco). Tapa el rojo claro de stock bajo —el ⚠ del stock
+       lo sigue avisando— y no al azul de seleccionada (!important). En el teléfono, abajo. */
+    #almTableBody tr.alm-row.alm-row-vista > td { background: #e0f2fe; }
+    /* El motivo, bajo la caja de cantidad. */
     #almTableBody tr.alm-row.alm-row-missing-cant .alm-td-cant::after,
     #almTableBody tr.alm-row.alm-row-exceeds-stock .alm-td-cant::after {
         display: block; margin-top: 3px; font-size: 10px; font-weight: 700; color: #b91c1c; text-align: center; white-space: nowrap;
+    }
+    /* Filtro con varias equivalencias en una fila SELECCIONADA: los números se ven como
+       botones y el elegido va relleno en azul (almRowPartePick). Hasta elegir uno, la fila
+       lleva .alm-row-pide-parte: la caja de cantidad espera (almPideParte / almSelMarkRow) y
+       tocarla hace destellar los números (almPedirParte). */
+    #almTableBody tr.alm-row.selected-row-maquinaria .alm-parte-sep { display: none; }
+    #almTableBody tr.alm-row.selected-row-maquinaria .alm-parte-opt {
+        display: inline-block; margin: 2px 4px 2px 0; padding: 1px 8px; border: 1px solid #0067b1;
+        border-radius: 6px; background: #fff; color: #0067b1; text-decoration: none; line-height: 1.5;
+    }
+    #almTableBody tr.alm-row.selected-row-maquinaria .alm-parte-opt:hover { background: #e0f2fe; }
+    #almTableBody tr.alm-row.selected-row-maquinaria .alm-parte-opt.alm-parte-on { background: #0067b1; color: #fff; font-weight: 800; }
+    #almTableBody tr.alm-row.alm-row-pide-parte .alm-parte-list.alm-parte-pulso .alm-parte-opt { animation: almPartePulso .5s ease-in-out 2; }
+    @keyframes almPartePulso { 50% { box-shadow: 0 0 0 3px rgba(0, 103, 177, .35); } }
+    @media (prefers-reduced-motion: reduce) { #almTableBody .alm-parte-list.alm-parte-pulso .alm-parte-opt { animation: none; } }
+    #almTableBody tr.alm-row.alm-row-pide-parte .alm-cant-stepper { pointer-events: none; }
+    #almTableBody tr.alm-row.alm-row-pide-parte .alm-td-cant { cursor: pointer; }
+    #almTableBody tr.alm-row.alm-row-pide-parte .alm-td-cant::after {
+        content: 'Elige la equivalencia'; display: block; margin-top: 3px; font-size: 10px; font-weight: 700;
+        color: #0067b1; text-align: center; white-space: nowrap;
     }
     #almTableBody tr.alm-row.alm-row-missing-cant .alm-td-cant::after { content: 'Falta la cantidad'; }
     #almTableBody tr.alm-row.alm-row-missing-cant[data-saldo="0"] .alm-td-cant::after { content: 'Sin stock'; }
@@ -126,11 +145,8 @@
                       background: #fef2f2; border: 1px solid #fca5a5; border-radius: 10px; color: #991b1b; }
     #almSalidaAviso[hidden] { display: none; }
     #almSalidaAviso > .material-icons { font-size: 20px; color: #dc2626; flex-shrink: 0; margin-top: 1px; }
-    #almSalidaAviso strong { font-size: 13px; }
-    .alm-aviso-lista { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
-    .alm-aviso-lista button { border: 1px solid #fca5a5; background: #fff; color: #991b1b; border-radius: 999px;
-                              padding: 3px 10px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; }
-    .alm-aviso-lista button:hover { background: #fee2e2; }
+    #almSalidaAviso > div { font-size: 13px; line-height: 1.4; }
+    #almSalidaAviso .alm-aviso-pista { font-size: 12px; color: #b91c1c; margin-top: 2px; }
     /* Volver a pulsar "Registrar salida" con el aviso ya puesto: un meneo corto para que se note. */
     #almSalidaAviso.alm-aviso-sacude { animation: almAvisoSacude .35s ease-in-out 1; }
     @keyframes almAvisoSacude { 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
@@ -139,10 +155,11 @@
          · .alm-row-missing-cant  → sin cantidad (vacía o <= 0), o sin saldo que sacar
          · .alm-row-exceeds-stock → la cantidad tecleada supera el saldo
        Persisten hasta corregir o deseleccionar y sobreviven a las recargas del tbody
-       (almSelApplyToRows). El error se marca EN EL CAMPO —la caja de cantidad en rojo con su
-       motivo debajo— y la fila con un marco rojo, SIN fondo rojo: así no se confunde con el
-       rojo claro de stock bajo. El detalle de cada uno va en el aviso de arriba
-       (#almSalidaAviso). El marco va en el @media de arriba, tras el de "última vista", para ganarle. */
+       (almSelApplyToRows). La fila va en rojo suave (reglas de la fila seleccionada, arriba) y
+       la caja de cantidad en rojo con su motivo debajo. El rojo de la fila no se confunde con
+       el de stock bajo: en la salida por corregir todas las filas están seleccionadas, y eso
+       ya tapaba ese fondo. El aviso de arriba (#almSalidaAviso) resume cuántos productos
+       tienen cada problema; los nombres ya los muestra la tabla. */
     #almTableBody tr.alm-row.alm-row-missing-cant .alm-cant-stepper,
     #almTableBody tr.alm-row.alm-row-exceeds-stock .alm-cant-stepper { border-color:#b91c1c !important; background:#fff !important; box-shadow:0 0 0 2px rgba(220,38,38,0.25); }
     #almTableBody tr.alm-row.alm-row-missing-cant .alm-row-cant,
@@ -204,12 +221,15 @@
         font-size:14px; font-weight:600; line-height:1.6; white-space:normal;
         width:max-content; max-width:420px; word-wrap:break-word; text-align:left;
         box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);
-        transition:all 0.2s ease-in-out; z-index:9001; margin-bottom:5px;
+        /* Solo el fundido: con `all` la burbuja se deslizaba desde su sitio anterior al colocarse. */
+        transition:opacity .15s ease-in-out, visibility .15s ease-in-out; z-index:9001; margin-bottom:5px;
     }
     .alm-table .alm-tip-sep    { border-top:1px solid rgba(255,255,255,.2); margin:7px 0; }
     .alm-table .alm-tip-flecha { position:absolute; top:100%; left:30px; margin-left:-4px;
                                  border-width:4px; border-style:solid;
                                  border-color:#1e293b transparent transparent transparent; }
+    /* Burbuja colocada DEBAJO de la fila (almTipShow): la flecha arriba, apuntando a la fila. */
+    .alm-table .tooltip-bubble.alm-tip-abajo .alm-tip-flecha { top:auto; bottom:100%; border-color:transparent transparent #1e293b transparent; }
     /* Estados vacíos de la tabla: una sola fila, no se repiten por producto. */
     .alm-table .alm-vacio      { text-align:center; padding:40px 16px; color:#94a3b8; font-size:14px; }
     .alm-table .alm-vacio-alto { padding:48px 16px; }
@@ -290,13 +310,18 @@
     .alm-bulk-counter { cursor:pointer; user-select:none; transition:transform 0.12s; }
     .alm-bulk-counter:hover { transform:scale(1.04); }
     /* "Solo seleccionados" activo: en vez del anillo/glow que rodeaba TODO el
-       contador (se veia feo), resaltamos solo el NUMERO en un circulo ambar
-       limpio, igual que en /admin/equipos. */
+       contador (se veia feo), resaltamos solo el NUMERO en un circulo blanco (antes
+       ámbar: con el verde de "Salida" y el azul de "Etiquetas" la barra tenía demasiados
+       colores). */
     .alm-bulk-counter.is-filtering #almBulkCount {
-        background:#fbbf24; color:#1e293b; min-width:22px; height:22px; padding:0 5px;
+        background:#fff; color:#0f172a; min-width:22px; height:22px; padding:0 5px;
         border-radius:999px; display:inline-flex; align-items:center; justify-content:center;
         font-weight:800; line-height:1; box-sizing:border-box;
     }
+    /* Barra flotante: "Salida" (la principal) en el azul de la app y "Etiquetas" como
+       secundaria, en el gris pizarra de los botones secundarios de la barra de Equipos. */
+    #almBulkBar .alm-bulk-sec { background:#64748b; }
+    #almBulkBar .alm-bulk-sec:hover { background:#475569; }
 
     /* ── Panel "¿dónde está este producto?" (modo cruzado del sidebar) ────────────
        Las dos secciones —el reparto por proyecto del almacén actual y el resto de los
@@ -489,11 +514,17 @@
        esquinas redondeadas del modal: se redondean ellos mismos. */
     #almEtiquetasModal .alm-modal-head { border-radius: 14px 14px 0 0; }
     #almEtiquetasModal .alm-modal-foot { border-radius: 0 0 14px 14px; }
+    /* Modal chico: botones del pie más bajos que el 12px de padding general. */
+    #almEtiquetasModal .alm-modal-foot .btn-primary-maquinaria { padding: 8px 20px; border-radius: 10px; }
     #almEtiquetasModal .dropdown-content { z-index: 60; max-height: 190px; overflow-y: auto; }
     #almEtiquetasModal .custom-dropdown.active .dropdown-content { animation: slideDown 0.18s ease-out; }
     /* El "Formato" muestra su valor en el placeholder del input readonly: lo pintamos como
-       texto sólido (no gris) para que "Carta/A4 — grilla" se vea como la opción elegida por defecto. */
+       texto sólido (no gris) para que "Rollo 50 × 30 mm" se vea como la opción elegida por defecto. */
     #almEtiquetasModal .dropdown-trigger input::placeholder { font-style: normal; color: #0f172a; opacity: 1; }
+    /* Lápiz que muestra el tamaño de la etiqueta (almEtqVerFormato); en azul mientras se ve. */
+    .alm-etq-lapiz { flex: 0 0 38px; height: 38px; padding: 0; border: 1px solid #cbd5e0; border-radius: 7px; background: #fff; color: #64748b; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    .alm-etq-lapiz:hover, .alm-etq-lapiz.activo { border-color: var(--maquinaria-blue, #0067b1); color: var(--maquinaria-blue, #0067b1); }
+    .alm-etq-lapiz .material-icons { font-size: 18px; }
     /* Filtros del modal "Movimientos del producto": Tipo y Fechas EN LA MISMA FILA.
        Iban con flex-wrap:wrap y en un modal de 540 px los dos campos de fecha no entraban
        junto al selector, así que "Fechas" caía a un renglón aparte y los filtros se veían
@@ -557,9 +588,10 @@
     .alm-modal-head h3 .material-icons { color: #0067b1; }
     .alm-modal-head .alm-x { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #fff; opacity: .75; }
     .alm-modal-head .alm-x:hover { color: #fff; opacity: 1; }
-    /* "Detalles del producto": cuerpo más pegado al título (pedido del cliente: menos hueco
-       antes de "Ubicación en estante..."). */
-    #almDetalleModal .alm-modal-body { padding-top: 6px; }
+    /* "Detalles del producto": un poco menos de hueco que los demás (16px) antes de "Ubicación
+       en estante..." — con 6px quedaba pegado al encabezado. Su ícono, en blanco. */
+    #almDetalleModal .alm-modal-body { padding-top: 14px; }
+    #almDetalleModal .alm-modal-head h3 .material-icons { color: #fff; }
     /* El detalle aparece SIN deslizamiento (como los detalles del módulo Equipos):
        se quita la animación de entrada almIn solo para este modal. */
     #almDetalleModal .alm-modal { animation: none; }
@@ -598,6 +630,8 @@
     #almSalidaModal .dropdown-trigger input::placeholder { font-style: normal; color: #0f172a; opacity: 1; }
     /* "(opcional)" al lado de la etiqueta del campo (Ubicación, Cantidad): más claro y sin negrita. */
     .alm-modal label .alm-opc { font-weight: 400; color: #94a3b8; }
+    /* Ayuda en la misma línea del rótulo (Nombre del almacén): sin las mayúsculas del label. */
+    .alm-modal label .alm-label-ayuda { font-size: 11.5px; font-weight: 400; color: #94a3b8; text-transform: none; letter-spacing: 0; margin-left: 4px; }
 
     /* Sugerencias de los filtros — mismo look que los desplegables (.dropdown-content / .dropdown-item) de la app */
     .alm-suggest {
@@ -835,10 +869,8 @@
             background: #fffbeb !important;
             box-shadow: 0 1px 3px rgba(245,158,11,0.10), 0 4px 12px rgba(245,158,11,0.12) !important;
         }
-        /* Última vista (almMarcarVista): contorno por fuera de la tarjeta. Una por corregir, en rojo. */
-        .alm-table tr.alm-row.alm-row-vista { outline: 2px solid #0067b1; outline-offset: 1px; }
-        .alm-table tr.alm-row.alm-row-missing-cant,
-        .alm-table tr.alm-row.alm-row-exceeds-stock { outline: 2px solid #dc2626; outline-offset: 1px; }
+        /* Última vista (almMarcarVista): la tarjeta en celeste. */
+        .alm-table tr.alm-row.alm-row-vista { background: #e0f2fe !important; border-color: #93c5fd !important; }
 
         .alm-table tr.alm-row td {
             display: flex !important;
@@ -914,9 +946,11 @@
            width:0 + min-width:100% no aporta ancho propio a la columna —toma el de la caja y
            parte en líneas—: si no, la ensancha y le quita sitio al stock. */
         #almTableBody tr.alm-row.alm-row-missing-cant td.alm-td-cant,
-        #almTableBody tr.alm-row.alm-row-exceeds-stock td.alm-td-cant { flex-direction: column; align-items: flex-end !important; justify-content: center !important; }
+        #almTableBody tr.alm-row.alm-row-exceeds-stock td.alm-td-cant,
+        #almTableBody tr.alm-row.alm-row-pide-parte td.alm-td-cant { flex-direction: column; align-items: flex-end !important; justify-content: center !important; }
         #almTableBody tr.alm-row.alm-row-missing-cant .alm-td-cant::after,
-        #almTableBody tr.alm-row.alm-row-exceeds-stock .alm-td-cant::after { width: 0; min-width: 100%; text-align: right; white-space: normal; line-height: 1.2; }
+        #almTableBody tr.alm-row.alm-row-exceeds-stock .alm-td-cant::after,
+        #almTableBody tr.alm-row.alm-row-pide-parte .alm-td-cant::after { width: 0; min-width: 100%; text-align: right; white-space: normal; line-height: 1.2; }
         .alm-table tr.alm-row td.alm-td-det {
             grid-area: det !important;
             padding: 8px 14px 8px 4px !important;
@@ -1133,12 +1167,33 @@
                     <span class="panel-filtro-avanzado-limpiar" onclick="window.almAvanzadoLimpiar()">Limpiar Todo</span>
                 </h4>
                 <span class="panel-filtro-avanzado-label">Unidad de medida</span>
-                <select id="almFiltroUm" class="alm-adv-select" onchange="window.almAvanzadoUm()">
-                    <option value="">Todas</option>
-                    @foreach(($unidadesMedida ?? collect()) as $u)
-                        <option value="{{ $u }}" @selected(request('um') === $u)>{{ $u }}</option>
-                    @endforeach
-                </select>
+                {{-- Mismo custom-dropdown que el resto de la app (Estado en Recepción): se abre
+                     hacia abajo y con buscador. Antes era un <select> nativo, que el navegador
+                     abría hacia arriba. selectOption escribe en el hidden #almFiltroUm (lo lee
+                     filtros()) y emite 'dropdown-selection' → almAvanzadoUm. --}}
+                @php $umSel = (string) request('um', ''); @endphp
+                <div class="custom-dropdown" id="almFiltroUmDropdown" data-filter-type="um">
+                    <input type="hidden" id="almFiltroUm" data-filter-value value="{{ $umSel }}">
+                    <div class="dropdown-trigger {{ $umSel !== '' ? 'filter-active' : '' }}" style="padding:0;display:flex;align-items:center;background:{{ $umSel !== '' ? '#e1effa' : '#fbfcfd' }};overflow:hidden;border:1px solid {{ $umSel !== '' ? '#0067b1' : '#cbd5e0' }};border-radius:8px;height:38px;">
+                        <input type="text" data-filter-search autocomplete="off" aria-label="Unidad de medida"
+                               placeholder="{{ $umSel !== '' ? $umSel : 'Todas' }}"
+                               style="flex:1;border:none;background:transparent;padding:8px 10px;font-weight:400;color:#0f172a;outline:none;min-width:0;"
+                               oninput="window.filterDropdownOptions(this)">
+                        <i class="material-icons" data-clear-btn title="Quitar la unidad de medida"
+                           style="padding:0 4px;color:#64748b;font-size:16px;cursor:pointer;transform:none !important;display:{{ $umSel !== '' ? 'block' : 'none' }};"
+                           onclick="event.stopPropagation(); selectOption('almFiltroUmDropdown','','Todas');">close</i>
+                        <i class="material-icons" style="padding:0 6px;color:#64748b;font-size:16px;pointer-events:none;transform:none !important;">expand_more</i>
+                    </div>
+                    <div class="dropdown-content" style="padding:5px;max-height:none;overflow:visible;">
+                        <div class="dropdown-item-list" style="max-height:250px;overflow-y:auto;">
+                            <div class="dropdown-item {{ $umSel === '' ? 'selected' : '' }}" data-value="" onclick="selectOption('almFiltroUmDropdown','','Todas');">Todas</div>
+                            @foreach(($unidadesMedida ?? collect()) as $u)
+                                <div class="dropdown-item {{ $umSel === $u ? 'selected' : '' }}" data-value="{{ $u }}"
+                                     onclick="selectOption('almFiltroUmDropdown', this.dataset.value, this.dataset.value);">{{ $u }}</div>
+                            @endforeach
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -1295,12 +1350,12 @@
         </button>
         {{-- Botón único "Salida". Abre el modal Nota de Entrega; el backend decide si es
              consumo (mismo almacén) o envío a otro proyecto (TRASPASO) según el frente destino. --}}
-        <button type="button" onclick="window.almSelAccion()" class="btn-bulk-action" style="background:#16a34a;">
+        <button type="button" onclick="window.almSelAccion()" class="btn-bulk-action">
             <i class="material-icons" style="font-size:18px;">north_east</i><span class="desktop-text">Salida</span>
         </button>
         {{-- Etiquetas QR de los productos seleccionados (flujo "marcar filas → imprimir
              sus etiquetas"). Reusa la misma selección (almSeleccion) que la Salida. --}}
-        <button type="button" id="almBulkEtqBtn" onclick="window.almSelEtiquetas()" class="btn-bulk-action" style="background:var(--maquinaria-blue,#0067b1);">
+        <button type="button" id="almBulkEtqBtn" onclick="window.almSelEtiquetas()" class="btn-bulk-action alm-bulk-sec">
             <i class="material-icons" style="font-size:18px;">&#xe00a;</i><span class="desktop-text">Etiquetas</span>
         </button>
     </div>
@@ -1319,37 +1374,43 @@
             <i class="material-icons alm-x" onclick="almCerrar('almEtiquetasModal')">close</i>
         </div>
         <div class="alm-modal-body" style="gap:10px;">
-            {{-- Producto(s) a etiquetar, arriba. Con UNO solo se muestra centrado y su cantidad
-                 baja a la fila de abajo (junto al formato); con VARIOS, cada uno lleva su propio
-                 campo al lado. Lo pinta almAbrirEtiquetas. --}}
+            {{-- Productos a etiquetar, arriba: SOLO con VARIOS, cada uno con su propio campo de
+                 cantidad al lado. Con uno (o ninguno) la cantidad es la de abajo. Lo pinta
+                 almAbrirEtiquetas. --}}
             <div id="almEtqModoLista" style="display:none;">
                 <div id="almEtqLista" style="max-height:190px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;"></div>
             </div>
-            {{-- Fila inferior: cantidad de etiquetas + tamaño de hoja, uno al lado del otro.
+            {{-- Fila inferior: cantidad de etiquetas y el lápiz del tamaño. El tamaño de la tira
+                 NO se ve de entrada —casi siempre solo interesa cuántas—: el lápiz lo muestra
+                 (almEtqVerFormato) y al abrir el modal vuelve a esconderse en 50 × 30.
                  El campo de cantidad se OCULTA cuando hay varios productos, porque entonces
                  cada uno lleva el suyo arriba (ver almAbrirEtiquetas). --}}
-            <div style="display:flex;gap:10px;align-items:center;">
+            <div style="display:flex;gap:10px;align-items:center;justify-content:center;">
                 <input type="number" id="almEtqCopias" class="alm-nota-input" value="1" min="1" max="200" step="1"
                        aria-label="Cantidad de etiquetas" title="Cantidad de etiquetas"
                        style="width:78px;flex:0 0 auto;text-align:center;">
-                {{-- Desplegable "Formato": mismo componente custom-dropdown del resto de la app
+                <button type="button" id="almEtqFormatoBtn" class="alm-etq-lapiz" onclick="window.almEtqVerFormato()"
+                        title="Cambiar el tamaño de la etiqueta" aria-label="Cambiar el tamaño de la etiqueta" aria-expanded="false">
+                    <i class="material-icons">edit</i>
+                </button>
+                {{-- Desplegable "Formato": el tamaño de la tira de la etiquetadora (ya no hay
+                     hoja carta). Mismo componente custom-dropdown del resto de la app
                      (selectOption escribe en el hidden #almEtqFormato, que lee almEtiquetasGenerar).
-                     data-filter-type no engancha filtros: el listener de dropdown-selection solo
-                     recarga para almSelAlmacenDropdown.
+                     data-filter-type no engancha filtros: el listener de dropdown-selection no
+                     hace nada con este desplegable.
                      Ya no lleva <label> encima: el propio campo muestra el tamaño elegido
-                     ("Carta/A4 — grilla") y va rotulado por aria-label. --}}
-                <div class="custom-dropdown" id="almEtqFormatoDropdown" data-filter-type="formato_etq" data-default-label="Carta/A4 — grilla" style="flex:1;min-width:0;">
-                    <input type="hidden" id="almEtqFormato" data-filter-value value="carta">
+                     ("Rollo 50 × 30 mm") y va rotulado por aria-label. --}}
+                <div class="custom-dropdown" id="almEtqFormatoDropdown" data-filter-type="formato_etq" data-default-label="Rollo 50 × 30 mm" style="flex:1;min-width:0;" hidden>
+                    <input type="hidden" id="almEtqFormato" data-filter-value value="50x30">
                     <div class="dropdown-trigger" style="padding:0;display:flex;align-items:center;background:#fff;overflow:hidden;border:1px solid #cbd5e0;border-radius:7px;height:38px;">
                         <input type="text" id="almEtqFormatoSearch" data-filter-search autocomplete="off" readonly
-                               placeholder="Carta/A4 — grilla" aria-label="Tamaño de hoja"
+                               placeholder="Rollo 50 × 30 mm" aria-label="Tamaño de la etiqueta"
                                style="flex:1;border:none;background:transparent;padding:0 10px;font-size:13.5px;color:#0f172a;outline:none;min-width:0;cursor:pointer;">
                         <i class="material-icons" style="padding:0 8px;color:#94a3b8;font-size:20px;">expand_more</i>
                     </div>
                     <div class="dropdown-content" style="padding:5px;max-height:none;overflow:visible;">
                         <div class="dropdown-item-list">
-                            <div class="dropdown-item selected" data-value="carta" onclick="selectOption('almEtqFormatoDropdown','carta','Carta/A4 — grilla');">Carta/A4 — grilla</div>
-                            <div class="dropdown-item" data-value="50x30" onclick="selectOption('almEtqFormatoDropdown','50x30','Rollo 50 × 30 mm');">Rollo 50 × 30 mm</div>
+                            <div class="dropdown-item selected" data-value="50x30" onclick="selectOption('almEtqFormatoDropdown','50x30','Rollo 50 × 30 mm');">Rollo 50 × 30 mm</div>
                             <div class="dropdown-item" data-value="40x25" onclick="selectOption('almEtqFormatoDropdown','40x25','Rollo 40 × 25 mm');">Rollo 40 × 25 mm</div>
                         </div>
                     </div>
@@ -1612,7 +1673,7 @@
                  Elegir un proyecto de la lista TAMBIÉN lo tilda abajo en "Frentes que usan este
                  almacén": es el mismo dato dicho dos veces y pedirlo dos veces sobraba. --}}
             <div>
-                <label for="almNvNombre">Nombre</label>
+                <label for="almNvNombre">Nombre <span class="alm-label-ayuda" id="almNvNombreHint">Elige el proyecto al que pertenece este almacén.</span></label>
                 <div class="custom-dropdown" id="almNvNombreDropdown">
                     <div class="dropdown-trigger" style="padding:0;display:flex;align-items:center;background:#fbfcfd;overflow:hidden;border:1px solid #cbd5e0;border-radius:10px;height:42px;">
                         <input type="text" id="almNvNombre" maxlength="150" autocomplete="off"
@@ -1633,7 +1694,6 @@
                         <div id="almNvNombreNoMatch" style="display:none;padding:10px 15px;font-size:13px;color:#94a3b8;">Sin coincidencias.</div>
                     </div>
                 </div>
-                <div class="alm-hint" id="almNvNombreHint">Elige el proyecto al que pertenece este almacén.</div>
             </div>
             <div>
                 <label for="almNvTipoDisplay">Tipo</label>
@@ -1685,7 +1745,6 @@
                         </label>
                     @endforeach
                 </div>
-                <div class="alm-hint">Aplica a todas las notas de este almacén.</div>
             </div>
             {{-- Firmantes de la nota, en el MISMO orden en que salen impresos.
 
@@ -2683,7 +2742,14 @@
     // Suelta la unidad de medida del panel avanzado. La llaman "Limpiar Todo", "Ver todo" y
     // los que piden UN producto puntual (sugerencia, QR, "En otros almacenes"): con otra
     // unidad puesta, ese producto quedaba escondido y la tabla salía vacía.
-    function almSoltarUm() { var um = el('almFiltroUm'); if (um) um.value = ''; }
+    // Con la MISMA llamada que su X (selectOption), para que el desplegable quede también sin
+    // filtro a la vista. La bandera evita la recarga doble: quien suelta la unidad recarga
+    // por su cuenta. Vive en window: el listener de 'dropdown-selection' se registra una vez.
+    function almSoltarUm() {
+        if (!el('almFiltroUmDropdown')) return;
+        window.__almUmSilencio = true;
+        try { window.selectOption('almFiltroUmDropdown', '', 'Todas'); } finally { window.__almUmSilencio = false; }
+    }
     window.almVerTodo = function () {
         almLimpiarBusquedaYCategoria();
         almSoltarUm();
@@ -3140,6 +3206,8 @@
         if (id === 'almSalidaProyectoDropdown' && typeof window.almSalidaOnProyectoChange === 'function') {
             window.almSalidaOnProyectoChange();
         }
+        // Unidad de medida del panel "Filtros avanzados".
+        if (id === 'almFiltroUmDropdown' && !window.__almUmSilencio) window.almAvanzadoUm();
     });
 
     // Click en una sugerencia (Buscar / Categoría) / click fuera / Escape — el filtro Almacén ya no usa este sistema.
@@ -3237,36 +3305,39 @@
     // almMarcarExceden / almSelRefreshBar) hasta que no queda nada: entonces se apaga solo.
     // Antes era un aviso emergente, que se iba a los segundos y se apilaba al volver a pulsar.
     var almAvisoSalidaActivo = false;
+    // Resume cuántos productos tienen cada problema; cuáles son lo dice la tabla, que ya muestra
+    // solo los de la salida con el motivo bajo cada caja de cantidad.
     function almPintarAvisoSalida() {
         var box = el('almSalidaAviso'); if (!box) return;
-        var items = [];
-        Object.keys(almExceden).forEach(function (id) {
-            var s = almSeleccion[id]; if (!s) return;
-            var c = parseFloat(String(s.cantidad == null ? '' : s.cantidad).replace(',', '.'));
-            items.push({ id: id, txt: s.nombre + ': pides ' + formatNum(c) + ', hay ' + formatNum(s.saldo) + (s.um ? ' ' + s.um : '') });
-        });
+        var falta = 0, supera = 0, sinStock = 0, sinParte = 0;
+        Object.keys(almSeleccion).forEach(function (id) { if (almPideParte(id)) sinParte++; });
+        Object.keys(almExceden).forEach(function (id) { if (almSeleccion[id]) supera++; });
         Object.keys(almFaltantes).forEach(function (id) {
             var s = almSeleccion[id]; if (!s) return;
             // Sin saldo no hay cantidad que valga: se pide quitarlo, no escribirla.
-            items.push({ id: id, txt: s.nombre + ((parseFloat(s.saldo) || 0) <= 0 ? ': sin stock en este almacén, quítalo de la salida' : ': falta la cantidad') });
+            if ((parseFloat(s.saldo) || 0) <= 0) sinStock++; else falta++;
         });
-        if (!items.length) almAvisoSalidaActivo = false;
+        var partes = [];
+        if (sinParte) partes.push('falta elegir la equivalencia en ' + sinParte + (sinParte === 1 ? ' producto' : ' productos'));
+        if (falta) partes.push('falta la cantidad en ' + falta + (falta === 1 ? ' producto' : ' productos'));
+        if (supera) partes.push(supera === 1 ? '1 producto pide más de lo que hay en stock' : supera + ' productos piden más de lo que hay en stock');
+        if (sinStock) partes.push(sinStock === 1 ? '1 producto no tiene stock en este almacén (quítalo de la salida)' : sinStock + ' productos no tienen stock en este almacén (quítalos de la salida)');
+        if (!partes.length) almAvisoSalidaActivo = false;
         box.hidden = !almAvisoSalidaActivo;
         if (box.hidden) { box.innerHTML = ''; return; }
+        var frase = partes.length === 1 ? partes[0] : partes.slice(0, -1).join(', ') + ' y ' + partes[partes.length - 1];
         box.innerHTML = '<i class="material-icons">error_outline</i><div>'
-            + '<strong>' + (items.length === 1 ? '1 producto' : items.length + ' productos') + ' por corregir antes de registrar la salida</strong>'
-            + '<div class="alm-aviso-lista">' + items.map(function (i) {
-                return '<button type="button" data-id="' + i.id + '" onclick="window.almIrAProblema(this.dataset.id)">' + window.escapeHtml(i.txt) + '</button>';
-            }).join('') + '</div></div>';
+            + '<strong>No se puede registrar la salida:</strong> ' + frase + '.'
+            + '<div class="alm-aviso-pista">' + (sinParte ? 'Toca el número de parte que entregas y luego pon la cantidad. ' : '')
+            + 'Cada caja de la columna Salida dice qué le falta.</div></div>';
     }
     // Lleva a la fila de un producto por corregir y deja el cursor en su cantidad.
-    window.almIrAProblema = function (id) {
+    function almIrAProblema(id) {
         var tr = document.querySelector('#almTableBody tr.alm-row[data-id-producto="' + id + '"]');
         if (!tr) return;
         tr.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        var inp = tr.querySelector('.alm-row-cant');
-        if (inp) { inp.disabled = false; setTimeout(function () { try { inp.focus(); inp.select(); } catch (e) {} }, 30); }
-    };
+        almEnfocarCantidad(tr, true);
+    }
 
     // Enciende o apaga "ver solo seleccionados": la tabla se recarga con SOLO los productos de
     // la selección (filtros() manda id_producto_in) y el contador de la barra lo marca.
@@ -3315,19 +3386,23 @@
         // El estilo "activo" lo aporta la clase .is-active sobre el wrapper (CSS arriba).
         var wrap = tr.querySelector('.alm-cant-stepper');
         var inp  = tr.querySelector('.alm-row-cant');
-        if (wrap) wrap.classList.toggle('is-active', !!on);
+        // Con varias equivalencias y ninguna elegida, la cantidad espera a que se elija.
+        var pide = !!on && almPideParte(tr.getAttribute('data-id-producto'));
+        tr.classList.toggle('alm-row-pide-parte', pide);
+        if (wrap) wrap.classList.toggle('is-active', !!on && !pide);
         // Desmarcar la fila la devuelve a "Automático". La cantidad ya se borra aquí abajo, y
         // dejar viva una elección de proyecto que ya no se ve haría que al re-seleccionarla el
         // material saliera de la pila elegida en un intento anterior, sin que nadie lo note.
-        if (!on) almRowBolsaReset(tr);
+        // Lo mismo con la equivalencia: al volver a seleccionarla se vuelve a pedir.
+        if (!on) { almRowBolsaReset(tr); almRowParteReset(tr); }
         if (!inp) return;
         var btns = tr.querySelectorAll('.alm-cant-btn');
         if (on) {
             var id = tr.getAttribute('data-id-producto');
             var s  = id ? almSeleccion[id] : null;
-            inp.disabled = false;
+            inp.disabled = pide;
             inp.value = (s && s.cantidad != null && s.cantidad !== '') ? s.cantidad : '';
-            btns.forEach(function (b) { b.disabled = false; });
+            btns.forEach(function (b) { b.disabled = pide; });
         } else {
             inp.disabled = true;
             inp.value = '';
@@ -3395,15 +3470,7 @@
         if (_almPendingAutoSelect && almBuscarPickedId) {
             var trPick = document.querySelector('#almTableBody tr.alm-row[data-id-producto="' + almBuscarPickedId + '"]');
             if (trPick && !almSeleccion[almBuscarPickedId]) {
-                almSeleccion[almBuscarPickedId] = {
-                    codigo: trPick.getAttribute('data-codigo') || '',
-                    nombre: trPick.getAttribute('data-nombre') || '',
-                    um:     trPick.getAttribute('data-um') || '',
-                    saldo:  parseFloat(trPick.getAttribute('data-saldo') || '0') || 0,
-                    cantidad: '',
-                    // Coherente con la selección por clic: nº de parte a entregar (filtros).
-                    parte:  trPick.getAttribute('data-parte-sel') || '',
-                };
+                almSeleccion[almBuscarPickedId] = almSelNuevaEntrada(trPick);
                 almSelRefreshBar();
             }
             // Apagar el flag aunque la fila no haya aparecido (ej. backend filtro vacio)
@@ -3418,9 +3485,8 @@
             var trF = document.querySelector('#almTableBody tr.alm-row[data-id-producto="' + _almPendingFocusId + '"]');
             _almPendingFocusId = null;
             if (trF && almSeleccion[trF.getAttribute('data-id-producto')]) {
-                var inpF = trF.querySelector('.alm-row-cant');
                 trF.scrollIntoView({ block: 'center' });
-                if (inpF) { inpF.disabled = false; setTimeout(function () { try { inpF.focus(); } catch (e) {} }, 30); }
+                almEnfocarCantidad(trF);
             }
         }
     }
@@ -3487,22 +3553,53 @@
     function almSelEnsureRow(tr) {
         var id = tr.getAttribute('data-id-producto'); if (!id) return false;
         if (almSeleccion[id]) return true;
-        almSeleccion[id] = {
+        almSeleccion[id] = almSelNuevaEntrada(tr);
+        almSelMarkRow(tr, true);
+        almEnfocarCantidad(tr);
+        return true;
+    }
+    // Entrada de almSeleccion para una fila. Fuente única: la usan el clic en la fila y la
+    // auto-selección por URL (?id_producto=).
+    function almSelNuevaEntrada(tr) {
+        return {
             codigo: tr.getAttribute('data-codigo') || '',
             nombre: tr.getAttribute('data-nombre') || '',
             um:     tr.getAttribute('data-um') || '',
             saldo:  parseFloat(tr.getAttribute('data-saldo') || '0') || 0,
             cantidad: '',
-            // Nº de parte a entregar (filtros): arranca en el actual del selector de la fila
-            // (o el principal en data-parte-sel). Vacío en productos sin equivalencias.
+            // Equivalencias (filtros): con más de una hay que elegir cuál se entrega.
+            partes: (tr.getAttribute('data-equiv') || '').split('|').filter(Boolean).length,
+            // Nº de parte a entregar: el elegido en la fila, o el único que tenga. Vacío en
+            // productos sin equivalencias y en los de varias hasta que se elija.
             parte:  tr.getAttribute('data-parte-sel') || '',
             // Bolsa (proyecto) de la que sale el material. Vacío = automático: la del proyecto
             // destino de la nota, como siempre. Solo cambia si el usuario elige en el desglose.
             bolsa:  tr.dataset.bolsaSel || '',
         };
-        almSelMarkRow(tr, true);
-        setTimeout(function () { var inp = tr.querySelector('.alm-row-cant'); if (inp) inp.focus(); }, 30);
-        return true;
+    }
+    // Quita la equivalencia elegida de una fila con varias (con una sola no hay nada que elegir).
+    function almRowParteReset(tr) {
+        if ((tr.getAttribute('data-equiv') || '').split('|').filter(Boolean).length < 2) return;
+        tr.dataset.parteSel = '';
+        tr.querySelectorAll('.alm-parte-opt.alm-parte-on').forEach(function (o) { o.classList.remove('alm-parte-on'); });
+    }
+    // ¿Falta elegir la equivalencia de este producto seleccionado?
+    function almPideParte(id) {
+        var s = id ? almSeleccion[id] : null;
+        return !!s && s.partes > 1 && !s.parte;
+    }
+    // Hace destellar los números de parte de la fila: "elige uno primero".
+    function almPedirParte(tr) {
+        var l = tr.querySelector('.alm-parte-list'); if (!l) return;
+        l.classList.remove('alm-parte-pulso'); void l.offsetWidth; l.classList.add('alm-parte-pulso');
+    }
+    // Deja el cursor en la cantidad de la fila; si falta la equivalencia, la pide en su lugar.
+    // Único punto por el que se vuelve a habilitar y enfocar la caja fuera de almSelMarkRow.
+    function almEnfocarCantidad(tr, seleccionar) {
+        if (almPideParte(tr.getAttribute('data-id-producto'))) { almPedirParte(tr); return; }
+        var inp = tr.querySelector('.alm-row-cant'); if (!inp) return;
+        inp.disabled = false;
+        setTimeout(function () { try { inp.focus(); if (seleccionar) inp.select(); } catch (e) {} }, 30);
     }
     // Clic en un número de parte de la descripción: lo marca como el que se ENTREGA (resalta
     // dentro de la fila), lo guarda en la fila y en almSeleccion, y SELECCIONA la fila si no
@@ -3515,8 +3612,11 @@
         var parte = el.getAttribute('data-parte') || '';
         tr.querySelectorAll('.alm-parte-opt').forEach(function (o) { o.classList.toggle('alm-parte-on', o === el); });
         tr.dataset.parteSel = parte;
-        almSelEnsureRow(tr);
-        if (almSeleccion[id]) almSeleccion[id].parte = parte;
+        if (!almSeleccion[id]) { almSelEnsureRow(tr); almSelRefreshBar(); return; }
+        // Ya seleccionada (p. ej. esperando la equivalencia): se habilita la cantidad.
+        almSeleccion[id].parte = parte;
+        almSelMarkRow(tr, true);
+        almEnfocarCantidad(tr);
         almSelRefreshBar();
     };
     // Pinta en la celda Stock de qué proyecto sale el material de esta fila. Con la bolsa en
@@ -3610,6 +3710,7 @@
     document.addEventListener('click', function (e) {
         var tr = e.target.closest('#almTableBody tr.alm-row');
         if (!tr) return;
+        if (tr.classList.contains('alm-row-pide-parte') && e.target.closest('.alm-td-cant')) { almPedirParte(tr); return; }
         if (e.target.closest('[data-no-toggle]')) return;
         if (e.target.closest('button') || e.target.closest('a') || e.target.closest('input') || e.target.closest('select') || e.target.closest('.custom-dropdown')) return;
         var id = tr.getAttribute('data-id-producto'); if (!id) return;
@@ -3624,7 +3725,8 @@
     // Único botón de la barra flotante: abre el modal Nota de Entrega.
     // Salida con productos por corregir: la tabla pasa a mostrar SOLO los productos de la salida
     // —como el contador de la barra— para que ninguno quede fuera del filtro que hubiera, el
-    // aviso fijo de arriba dice qué corregir en cada uno y el cursor va a la cantidad del primero.
+    // aviso fijo de arriba dice qué falta, cada caja de cantidad marca el suyo y el cursor va a
+    // la cantidad del primero.
     function almMostrarProblemasSalida(primerId) {
         almAvisoSalidaActivo = true;
         almPintarAvisoSalida();
@@ -3635,7 +3737,7 @@
             almAplicarSoloSel(true);
             return;
         }
-        window.almIrAProblema(primerId);
+        almIrAProblema(primerId);
     }
     // El backend decide si es SALIDA (consumo en el mismo almacén) o TRASPASO (envío
     // a otro almacén) según el frente destino elegido en el formulario.
@@ -3661,8 +3763,10 @@
         // nada que sacar. Se separa de `faltan` para no pedirle una cantidad que ningún valor
         // válido podría satisfacer (cualquier c > 0 caería luego en `exceden`).
         var sinSaldo = [];
+        var sinParte = [];   // varias equivalencias y ninguna elegida (la cantidad aún no se pudo poner)
         Object.keys(almSeleccion).forEach(function (id) {
             var s = almSeleccion[id] || {};
+            if (almPideParte(id)) { sinParte.push(id); return; }
             var c = parseFloat(String(s.cantidad == null ? '' : s.cantidad).replace(',', '.').trim());
             var saldo = parseFloat(s.saldo) || 0;
             if (!isFinite(c) || c <= 0) {
@@ -3677,9 +3781,10 @@
         // antiguas se borran solas; si quedan errores, se vuelven a pintar las filas afectadas.
         almAplicarFaltantes();
         almAplicarExceden();
-        // Primero el exceso (saldo insuficiente), luego sin saldo y por último sin cantidad: a un
-        // producto sin saldo no se le pide una cantidad que ningún valor podría satisfacer.
-        var problemas = exceden.concat(sinSaldo, faltan);
+        // Primero la equivalencia (sin ella no se puede escribir la cantidad), luego el exceso,
+        // sin saldo y por último sin cantidad: a un producto sin saldo no se le pide una
+        // cantidad que ningún valor podría satisfacer.
+        var problemas = sinParte.concat(exceden, sinSaldo, faltan);
         if (problemas.length) {
             almMostrarProblemasSalida(problemas[0]);
             return;
@@ -3916,21 +4021,24 @@
     });
 
     // Abre el modal de etiquetas. Según cuántos productos lleguen en `lista`
-    // ([{ id, codigo, nombre }]) se arma de tres formas:
-    //   · sin lista      → solo la fila de abajo: cantidad (#almEtqCopias) + formato. Se
-    //     etiqueta lo que indique idsCsv, o el filtro de categoría si viene vacío.
-    //   · UN producto    → se muestra su ficha arriba (centrada, sin campo propio) y la
-    //     cantidad sigue siendo la de abajo → se genera igual que el caso anterior (?copias).
-    //   · VARIOS         → cada ficha lleva su propio campo y la cantidad de abajo se
+    // ([{ id, codigo, nombre }]) se arma de dos formas:
+    //   · sin lista o UNO → solo la fila de abajo: la cantidad (#almEtqCopias) y el lápiz del
+    //     tamaño; al generar manda ?copias. Se etiqueta lo que indique idsCsv, o el filtro de
+    //     categoría si viene vacío.
+    //   · VARIOS          → cada producto lleva su propio campo y la cantidad de abajo se
     //     esconde; al generar manda ?items=ID:CANT,ID:CANT.
+    // El tamaño arranca siempre escondido y en 50 × 30: si se quedara el de la vez anterior
+    // sin verse, se imprimiría en otro tamaño sin que nadie lo notara.
     window.almAbrirEtiquetas = function (idsCsv, lista) {
         var m = el('almEtiquetasModal'); if (!m) return;
         m.dataset.ids = idsCsv || '';
+        almEtqFormatoPorDefecto();
+        almEtqMostrarFormato(false);
 
         // El bloque de productos SOLO aparece cuando hay VARIOS: ahí cada uno lleva su propio
         // campo de cantidad al lado y el código + descripción es lo que dice cuál es cuál.
         // Con UN solo producto ese rótulo sobra —se acaba de elegir ese producto— y el
-        // cliente pidió quitarlo; su cantidad la toma el campo de abajo, junto al formato.
+        // cliente pidió quitarlo; su cantidad la toma el campo de abajo, junto al lápiz.
         var porProducto = Array.isArray(lista) && lista.length > 1;
         var wrapLista = el('almEtqModoLista'), copias = el('almEtqCopias');
         if (wrapLista) wrapLista.style.display = porProducto ? '' : 'none';
@@ -3968,16 +4076,41 @@
         }
         almOpen('almEtiquetasModal');
     };
+    // Vuelve el tamaño a 50 × 30 (el de data-default-label). selectOption lo deja pintado como
+    // "filtro activo" (azul) con cualquier valor, también si ya era 50 × 30; aquí no es un
+    // filtro, así que el campo recupera siempre su aspecto de inicio (el del HTML) para verse
+    // igual cada vez que se abre el lápiz.
+    function almEtqFormatoPorDefecto() {
+        var dd = el('almEtqFormatoDropdown');
+        if (!dd) return;
+        window.selectOption('almEtqFormatoDropdown', '50x30', dd.dataset.defaultLabel);
+        var t = dd.querySelector('.dropdown-trigger');
+        t.classList.remove('filter-active');
+        t.style.background = '#fff';
+        t.style.borderColor = '#cbd5e0';
+    }
+    // Lápiz del modal de etiquetas: muestra u oculta el tamaño de la tira.
+    function almEtqMostrarFormato(ver) {
+        var dd = el('almEtqFormatoDropdown'), btn = el('almEtqFormatoBtn');
+        if (!dd || !btn) return;
+        dd.hidden = !ver;
+        if (!ver) dd.classList.remove('active');   // que no quede la lista abierta al esconderlo
+        btn.classList.toggle('activo', ver);
+        btn.setAttribute('aria-expanded', ver ? 'true' : 'false');
+    }
+    window.almEtqVerFormato = function () {
+        var dd = el('almEtqFormatoDropdown');
+        if (dd) almEtqMostrarFormato(dd.hidden);
+    };
     window.almEtiquetasGenerar = function () {
         var m = el('almEtiquetasModal'); if (!m) return;
-        var fmt = (el('almEtqFormato') && el('almEtqFormato').value) || 'carta';
+        var fmt = (el('almEtqFormato') && el('almEtqFormato').value) || '50x30';
         var u = new URL(ROUTE_ETIQUETAS, window.location.origin);
         u.searchParams.set('formato', fmt);
 
-        // El modo se decide por la PRESENCIA de campos por producto, no por si la lista está
-        // visible: con un solo producto la ficha se muestra igual pero SIN campo propio (su
-        // cantidad es la de abajo), y mirar el display mandaba items= vacío → "No hay
-        // productos para etiquetar" con el producto a la vista.
+        // El modo se decide por la PRESENCIA de campos por producto (solo existen con VARIOS),
+        // no por si la lista está visible: mirar el display llegó a mandar items= vacío →
+        // "No hay productos para etiquetar" con el producto elegido.
         var camposPorProducto = el('almEtqLista') ? el('almEtqLista').querySelectorAll('.alm-etq-cant') : [];
         if (camposPorProducto.length) {
             // MODO POR PRODUCTO → items=ID:CANT,ID:CANT (cada uno con su cantidad).
@@ -4057,9 +4190,10 @@
     // ── Modal "Detalles del producto" (lo abre el ojo de cada fila; agrupa todas las acciones) ──
     // El tooltip de equipos (.tooltip-bubble) vive dentro de la celda, pero el wrap de la tabla
     // tiene overflow (recorta) y el thead sticky lo tapaba en búsquedas de una sola fila. Al
-    // hacer hover lo sacamos con position:fixed SOBRE la celda (por encima de todo). Se rastrea
-    // UNA sola burbuja activa y se RESTAURA al salir de la fila o al hacer scroll/cambio de vista
-    // — si no, la burbuja fija quedaba "flotando dentro de la lista" al seleccionar o desplazar.
+    // pasar por la fila la sacamos con position:fixed, por encima de todo y del lado que tenga
+    // sitio (almTipShow). Se rastrea UNA sola burbuja activa y se RESTAURA al salir de la fila
+    // o al hacer scroll/clic — si no, quedaba "flotando dentro de la lista" — y se vuelve a
+    // colocar si el mouse sigue encima (almTipRecolocar).
     var _almTipActiva = null;
     function almTipReset() {
         var b = _almTipActiva; if (!b) return; _almTipActiva = null;
@@ -4076,37 +4210,66 @@
         b.style.transform = 'translateY(5px)';
         b.style.margin = '';
         b.style.zIndex = '';
+        b.style.maxHeight = '';
+        b.style.overflow = '';
+        b.classList.remove('alm-tip-on', 'alm-tip-abajo');
     }
     function almTipShow(cell) {
         var bub = cell.querySelector(':scope > .tooltip-bubble'); if (!bub) { almTipReset(); return; }
-        if (_almTipActiva && _almTipActiva !== bub) almTipReset();
+        if (_almTipActiva === bub) return;   // ya colocada: mover el mouse dentro de la fila no la recalcula
+        if (_almTipActiva) almTipReset();
         var r = cell.getBoundingClientRect();
         bub.style.position = 'fixed';
-        bub.style.left = r.left + 'px';
         bub.style.right = 'auto';
         bub.style.transform = 'none';
         bub.style.margin = '0';
         bub.style.zIndex = '10050';
-        // SIEMPRE arriba de la fila: anclamos por `top` usando el alto real de la burbuja
-        // (top = borde superior de la celda − alto − 6px). Clamp al tope del viewport para
-        // que nunca se voltee hacia abajo ni se salga por arriba de la pantalla.
-        var h = bub.offsetHeight;
-        var top = r.top - h - 6;
-        if (top < 6) top = 6;
+        bub.style.maxHeight = '';
+        bub.style.overflow = '';
+        // Del lado que tenga sitio: ARRIBA de la fila si cabe entre ella y la barra superior de
+        // la app; si no, DEBAJO; si no cabe en ninguno (muchos equipos en una pantalla baja),
+        // en el más amplio con el alto justo. Así nunca queda debajo de la barra superior, ni
+        // encima de la fila que describe, ni fuera de la pantalla — antes iba siempre arriba
+        // y, con la tabla filtrada (fila cerca del tope), subía hasta tapar la barra o se cortaba.
+        var h = bub.offsetHeight, w = bub.offsetWidth;
+        var barra = document.querySelector('.dashboard-header');
+        var tope = Math.max(6, barra ? barra.getBoundingClientRect().bottom + 6 : 6);
+        var arriba = r.top - 6 - tope, abajo = window.innerHeight - r.bottom - 12;
+        var top;
+        if (h <= arriba) top = r.top - h - 6;
+        else if (h <= abajo) top = r.bottom + 6;
+        else if (arriba >= abajo) { bub.style.maxHeight = arriba + 'px'; bub.style.overflow = 'hidden'; top = tope; }
+        else { bub.style.maxHeight = abajo + 'px'; bub.style.overflow = 'hidden'; top = r.bottom + 6; }
         bub.style.top = top + 'px';
         bub.style.bottom = 'auto';
+        bub.style.left = Math.max(6, Math.min(r.left, window.innerWidth - w - 6)) + 'px';
+        bub.classList.toggle('alm-tip-abajo', top > r.top);
+        bub.classList.add('alm-tip-on');
         _almTipActiva = bub;
     }
-    document.addEventListener('mouseover', function (e) {
-        var cell = e.target.closest ? e.target.closest('#almTableBody tr.alm-row .alm-td-nombre') : null;
+    // La burbuja de la fila bajo el mouse (la celda de la descripción es la que la lleva).
+    function almTipDeFila(tr) {
+        var cell = tr && tr.querySelector('.alm-td-nombre');
         if (cell) almTipShow(cell); else almTipReset();
+    }
+    // Tras un clic o un desplazamiento la fila se mueve o se reacomoda (se selecciona, salen
+    // los botones de las equivalencias…): se quita la burbuja y, si el mouse sigue encima, se
+    // vuelve a colocar donde toca.
+    var _almTipEspera = null;
+    function almTipRecolocar(ms) {
+        almTipReset();
+        clearTimeout(_almTipEspera);
+        _almTipEspera = setTimeout(function () {
+            var tr = document.querySelector('#almTableBody tr.alm-row:hover');
+            if (tr) almTipDeFila(tr);
+        }, ms);
+    }
+    document.addEventListener('mouseover', function (e) {
+        almTipDeFila(e.target.closest ? e.target.closest('#almTableBody tr.alm-row') : null);
     });
-    // Al desplazar la vista (o al seleccionar, que reacomoda la fila) la burbuja fija quedaría
-    // desalineada/flotando: se restaura. Captura = true para atrapar también el scroll del wrap.
-    window.addEventListener('scroll', almTipReset, true);
-    // Al SELECCIONAR un registro (clic en la fila) la fila se reacomoda: reseteamos la burbuja
-    // para que no quede "metida" en la lista; reaparece bien al mover el mouse si sigues encima.
-    document.addEventListener('click', almTipReset, true);
+    // Captura = true para atrapar también el scroll del wrap de la tabla.
+    window.addEventListener('scroll', function () { almTipRecolocar(150); }, true);
+    document.addEventListener('click', function () { almTipRecolocar(60); }, true);
     // Abre/cierra el desglose por proyecto de una fila. El boton vive en la celda Stock y
     // la fila del desglose es la <tr> siguiente, que el partial ya pinta con el atributo
     // hidden (ver partials/table_rows). Es una funcion suelta, no un listener: el tbody se
@@ -4239,11 +4402,7 @@
         almCerrar('almDetalleModal');
         if (!id || !almSeleccion[id]) return;
         var tr = document.querySelector('#almTableBody tr.alm-row[data-id-producto="' + id + '"]');
-        if (!tr) return;
-        var inp = tr.querySelector('.alm-row-cant');
-        if (!inp) return;
-        inp.disabled = false; // la fila está seleccionada → ya debería estarlo; defensivo
-        setTimeout(function () { try { inp.focus(); } catch (e) {} }, 30);
+        if (tr) almEnfocarCantidad(tr);
     };
     // Cancelar de un sub-modal (Auditoría / Stock mínimo / Editar): cierra ese modal y, si
     // venía de "Detalles del producto" (window.almDesdeDetalle), REABRE Detalles — sus datos

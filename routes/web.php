@@ -371,10 +371,10 @@ Route::middleware(['auth'])->group(function () {
             // módulo); no muta nada. Parámetros:
             //   ?ids=1,2,3   → solo esos productos (selección de filas / "imprimir 1").
             //   ?categoria=X → todos los activos de esa categoría (cuando no hay ids).
-            //   ?formato=carta|50x30|40x25 → hoja A4 en grilla (impresora normal) o una
-            //                   etiqueta por página al tamaño exacto del rollo (impresora
-            //                   térmica tipo Zebra/Brother). Default: carta. El motor es
-            //                   el mismo TCPDF de la Nota de Entrega; solo cambia la página.
+            //   ?formato=50x30|40x25 → una etiqueta por página al tamaño exacto de la tira
+            //                   de la etiquetadora (impresora térmica tipo Zebra/Brother).
+            //                   Default: 50x30; ya no hay hoja carta. El motor es el mismo
+            //                   TCPDF de la Nota de Entrega.
             Route::get   ('almacen/etiquetas',                    [App\Http\Controllers\AlmacenController::class, 'etiquetasPdf'])     ->name('almacen.etiquetas');
             // Resolver de escaneo: ?codigo=000123 → JSON { found, producto } con match
             // EXACTO sobre CODIGO y SOLO activos (el índice UNIQUE incluye soft-deleted,
@@ -400,7 +400,7 @@ Route::middleware(['auth'])->group(function () {
             Route::get   ('almacen/productos/{id}/compatibilidad', [App\Http\Controllers\AlmacenController::class, 'productoCompatibilidad'])->whereNumber('id')->name('almacen.productos.compatibilidad');
             // Vista alterna de la bitácora agrupada por NUMERO_NOTA — una fila por Nota de
             // Entrega (SALIDA / TRASPASO_SALIDA con N° NE-YYYY-NNNN); clic en la fila abre el
-            // PDF oficial. Acceso desde el botón "Bitácora por Nota" del menú Acciones de
+            // PDF oficial. Acceso desde el botón "Historial de Notas de Entrega" del menú Acciones de
             // /admin/almacen/movimientos.
             Route::get   ('almacen/notas',                        [App\Http\Controllers\AlmacenController::class, 'notas'])             ->name('almacen.notas');
 

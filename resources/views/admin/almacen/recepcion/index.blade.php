@@ -46,9 +46,12 @@
         <div style="flex:1 1 260px;max-width:360px;">
             {{-- Almacén de la bandeja. La lista YA viene acotada por Almacen::visiblesPara():
                  un usuario LOCAL solo ve los almacenes ligados a SUS frentes; un GLOBAL, todos.
+                 Y solo los de PROYECTO: un GENERAL no recibe notas de entrega (el controller
+                 pasa esa lista ya filtrada; si el usuario no ve ninguno de proyecto, los suyos).
                  NO hay opción "Todos los almacenes" ni X para quitarla (pedido del cliente):
                  la bandeja es de UN almacén — mezclarlos no dice nada útil, y el controller
-                 siempre preselecciona uno (el del frente del usuario, o el primero visible). --}}
+                 siempre preselecciona uno (el del frente del usuario si es de esta lista, o el
+                 primero de ella). --}}
             <div class="custom-dropdown" id="trDestHeaderDropdown" data-filter-type="id_almacen_destino">
                 <input type="hidden" name="id_almacen_destino" data-filter-value value="{{ $destSel ? $destSel->ID_ALMACEN : '' }}">
                 <div class="dropdown-trigger" style="padding:0;display:flex;align-items:center;background:#f8fafc;overflow:hidden;border:1px solid #cbd5e0;border-radius:10px;height:40px;">
@@ -72,7 +75,7 @@
         </div>
     </div>
     {{-- Fila 2: Tabs de navegación --}}
-    @include('admin.almacen.recepcion.partials.tabs', ['activa' => 'bandeja', 'clase' => 'tr-tabs'])
+    @include('admin.almacen.recepcion.partials.tabs')
 
 </section>
 
@@ -587,14 +590,14 @@
             gap: 4px !important;
             font-size: 12px !important;
             font-weight: 400 !important;
-            color: #475569 !important;
+            color: #1e293b !important;
             padding-top: 8px !important;
             border-top: 1px dashed #e2e8f0 !important;
             grid-area: meta !important;
         }
 
         /* Iconito sutil antes de la fecha de envío. */
-        .tr-table tbody tr[data-id] td:nth-child(4)::before { content: 'event'; font-family: 'Material Icons'; font-size: 13px; color: #94a3b8; }
+        .tr-table tbody tr[data-id] td:nth-child(4)::before { content: 'event'; font-family: 'Material Icons'; font-size: 13px; color: #64748b; }
 
         /* ── Tipografía de la tarjeta: escala CORTA y pareja ────────────────────────
            En móvil convivían 14 / 13 / 12.5 / 11.5 / 10.5px y la tarjeta se leía a
@@ -1155,7 +1158,7 @@
                 <input type="text" id="cdirProyecto" class="cdir-input falta" autocomplete="off"
                        title="Todo lo que captures abajo se suma al saldo de ESTE proyecto dentro del almacén. Cada proyecto lleva su stock por separado."
                        placeholder="Escribe para buscar el proyecto…"
-                       oninput="window.cdirProySuggest()" onfocus="window.cdirProySuggest(true)"
+                       oninput="window.cdirProySuggest()" onfocus="window.cdirProySuggest(true)" onclick="window.cdirProySuggest(true)"
                        onkeydown="window.cdirProyKey(event)">
                 <input type="hidden" id="cdirProyectoId">
                 <i class="material-icons cdir-proy-caret">expand_more</i>
@@ -1324,6 +1327,7 @@
     var creando  = false;  // guard anti doble-POST mientras se registra un producto nuevo
     var enviando = false;  // guard anti doble-POST del submit
     var skipSuggest = false; // suprime UNA apertura del desplegable al refocar el buscador
+    var skipProySuggest = false; // lo mismo con la lista de proyectos cuando el foco lo pone el modal
 
     // ── Almacén destino: se lee del dropdown del header en cada uso ──
     // El almacén de la bandeja se cambia en caliente (el dropdown recarga la tabla por AJAX
@@ -1371,12 +1375,16 @@
     function proySuggestHide() { var b = el('cdirProySuggest'); if (b) b.classList.remove('open'); }
 
     // Buscador del proyecto: mismo ranking que el resto del módulo (FuzzySearch), así
-    // "corta" encuentra "CORTAFUEGO AYACUCHO FASE II" sin escribirlo entero. Con la lista
-    // vacía o al enfocar se ofrecen TODOS los del almacén — son pocos y verlos completos
-    // ahorra teclear cuando el usuario no recuerda el nombre exacto.
+    // "corta" encuentra "CORTAFUEGO AYACUCHO FASE II" sin escribirlo entero. Con el campo
+    // vacío (o con un proyecto ya elegido) se ofrecen TODOS los del almacén — son pocos y
+    // verlos completos ahorra teclear cuando el usuario no recuerda el nombre exacto.
     window.cdirProySuggest = function (todos) {
         var inp = el('cdirProyecto'), box = el('cdirProySuggest');
         if (!inp || !box) return;
+        // Al abrir el modal el foco cae aquí solo (cdirPaso): el campo queda listo para
+        // escribir, pero sin soltar la lista encima. Se despliega al tocar el campo (onclick)
+        // o al escribir.
+        if (todos && skipProySuggest) { skipProySuggest = false; return; }
         // Sin `todos` = viene de oninput, o sea el texto CAMBIÓ: la elección anterior deja de
         // valer. Se invalida aquí y no en keydown porque allí Tab, las flechas o Ctrl+C
         // también contaban como cambio y borraban un proyecto ya elegido al salir del campo.
@@ -1386,7 +1394,10 @@
             inp.classList.add('falta');
         }
         var term = inp.value.trim();
-        var lista = (todos || term === '')
+        // Todos si el campo está vacío o ya muestra un proyecto elegido (para cambiarlo); con
+        // texto a medias, solo lo que coincide — también al tocar el campo, que antes soltaba
+        // la lista entera con "corta" escrito.
+        var lista = ((todos && el('cdirProyectoId').value) || term === '')
             ? proyectosVisibles
             : window.FuzzySearch.rank(proyectosVisibles, term, function (f) {
                 return { haystack: f.nombre, label: f.nombre };
@@ -1412,6 +1423,9 @@
         if (ev.key === 'Escape') { ev.preventDefault(); proySuggestHide(); return; }
         if (ev.key === 'Enter') {
             ev.preventDefault();
+            // Solo de la lista A LA VISTA: cerrada, guarda los proyectos de la vez anterior y
+            // Enter elegía uno que nadie escogió. Con la lista cerrada, Enter la abre.
+            if (!el('cdirProySuggest').classList.contains('open')) { window.cdirProySuggest(true); return; }
             var first = document.querySelector('#cdirProySuggest .cdir-suggest-item');
             if (first) elegirProyecto(first);
         }
@@ -1696,6 +1710,7 @@
             var i = (n === 2)
                 ? el('cdirSearch')
                 : ((fila && fila.style.display !== 'none') ? el('cdirProyecto') : el('cdirNota'));
+            if (i && i.id === 'cdirProyecto' && document.activeElement !== i) skipProySuggest = true;
             if (i) i.focus();
         }, 40);
     };

@@ -862,18 +862,21 @@ const _pdfCancelarCargaIzq = function () {
 };
 
 // Bloqueo del scroll del FONDO mientras hay una capa a pantalla (detalle de equipo/
-// auxiliar, visor de PDF, o el panel de alertas del menú). Se bloquea en html Y en body
-// porque el scroll del viewport lo lleva <html> (documentElement): poner overflow:hidden
-// solo en body no lo frenaba y el módulo se seguía desplazando bajo el visor.
+// auxiliar, visor de PDF, el panel de alertas del menú, el Dashboard de Consumo o la
+// Devolución de material del almacén). Se bloquea en html Y en body porque el scroll del
+// viewport lo lleva <html> (documentElement): poner overflow:hidden solo en body no lo
+// frenaba y el módulo se seguía desplazando bajo el visor.
 // restaurar() solo libera cuando NINGUNA capa sigue abierta — así cerrar el PDF con el
 // detalle (o las alertas) aún abiertos detrás no desbloquea el fondo antes de tiempo.
-// Cada capa se identifica por su id y la clase que la marca abierta (unas usan 'active',
-// el panel de alertas usa 'open').
+// Cada capa se identifica por su id y la clase que la marca abierta (unas usan 'active';
+// el panel de alertas, el Dashboard de Consumo y la Devolución, 'open').
 window._CAPAS_SCROLL = [
     { id: 'detailsModal', cls: 'active' },
     { id: 'auxDetailsModal', cls: 'active' },
     { id: 'pdfPreviewModal', cls: 'active' },
     { id: 'expiredDocsContainer', cls: 'open' },
+    { id: 'consumoDashModal', cls: 'open' },
+    { id: 'devMatModal', cls: 'open' },
 ];
 window.bloquearScrollFondo = function () {
     document.documentElement.style.overflow = 'hidden';

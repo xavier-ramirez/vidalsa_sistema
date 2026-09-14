@@ -45,24 +45,11 @@
             @endif
         </td>
         <td>
-            <div class="anf-acciones">
-                <button type="button" class="anf-pdf-btn"
-                   onclick="window.openPdfPreview('{{ $pdfUrl }}', 'nota_entrega', 'Nota {{ $n->NUMERO_NOTA }}', 0, '', true, 'almacen');"
-                   title="Ver Nota {{ $n->NUMERO_NOTA }} (PDF)">
-                    <i class="material-icons">description</i>
-                </button>
-                {{-- Devolución: solo en las entregas a un proyecto (SALIDA). Un envío a otro
-                     almacén entró a su inventario y se devuelve desde allá. --}}
-                @if($tipoNum === 'SALIDA')
-                    @can('almacen.movimiento')
-                        <button type="button" class="anf-pdf-btn anf-dev-btn"
-                           onclick="window.almAbrirDevolucion('{{ $n->NUMERO_NOTA }}');"
-                           title="Registrar una devolución de la Nota {{ $n->NUMERO_NOTA }}">
-                            <i class="material-icons">assignment_return</i>
-                        </button>
-                    @endcan
-                @endif
-            </div>
+            <button type="button" class="anf-pdf-btn"
+               onclick="window.openPdfPreview('{{ $pdfUrl }}', 'nota_entrega', 'Nota {{ $n->NUMERO_NOTA }}', 0, '', true, 'almacen');"
+               title="Ver Nota {{ $n->NUMERO_NOTA }} (PDF)">
+                <i class="material-icons">description</i>
+            </button>
         </td>
     </tr>
 @empty

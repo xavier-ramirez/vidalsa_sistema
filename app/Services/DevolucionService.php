@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\AlmacenStock;
 use App\Models\MovimientoInventario;
 use App\Models\ProductoInventario;
 use Illuminate\Support\Carbon;
@@ -91,7 +92,7 @@ class DevolucionService
      *
      * $lineas: [['id_producto', 'cantidad', 'id_producto_cambio'?, 'cantidad_cambio'?], …]
      *          —un producto por línea; sin cambio, solo vuelve el material.
-     * $datos : 'fecha' (default hoy), 'motivo', 'id_usuario'.
+     * $datos : 'motivo', 'id_usuario'. La fecha es la de hoy.
      *
      * @return string|null  N° de la Nota de Entrega de lo entregado a cambio, si hubo cambio.
      */
@@ -110,7 +111,7 @@ class DevolucionService
                 throw new RuntimeException($motivo);
             }
 
-            $fecha       = $this->fechaDevolucion($datos['fecha'] ?? null, $salidas);
+            $fecha       = $this->fechaDevolucion($salidas);
             $porDevolver = MovimientoInventario::porDevolver($salidas);
             $porProducto = $salidas->groupBy('ID_PRODUCTO');
             $cabecera    = $salidas->first();
@@ -208,6 +209,18 @@ class DevolucionService
 
                 // Entrega a cambio: una salida normal al mismo proyecto, con los datos de la
                 // nota original (contrato, RQ, quién recibe) para que la hoja nueva salga igual.
+                // Antes, el stock del almacén entero (la salida toma de todas sus bolsas), para
+                // decirlo en palabras; el candado y la cuenta exacta siguen en InventarioService.
+                $hay = round((float) AlmacenStock::where('ID_ALMACEN', $cabecera->ID_ALMACEN)
+                    ->where('ID_PRODUCTO', $paso['cambio']['id'])->sum('CANTIDAD'), 3);
+                if ($hay + self::EPS < $paso['cambio']['cantidad']) {
+                    $um = ProductoInventario::whereKey($paso['cambio']['id'])->value('UM');
+                    throw new InvalidArgumentException(sprintf(
+                        'No hay suficiente %s en %s para entregarlo a cambio: hay %s %s y se necesitan %s.',
+                        $paso['cambio']['nombre'], $cabecera->almacen?->NOMBRE ?? 'el almacén',
+                        $this->num($hay), $um ?? '', $this->num($paso['cambio']['cantidad'])
+                    ));
+                }
                 $this->inventario->registrarSalida(
                     (int) $cabecera->ID_ALMACEN,
                     $paso['cambio']['id'],
@@ -233,21 +246,18 @@ class DevolucionService
     }
 
     /**
-     * Fecha de la devolución: la que se indique, o hoy. No puede ser anterior a la nota —no
-     * se devuelve lo que todavía no había salido— ni futura.
+     * Fecha de la devolución: hoy. No puede quedar antes de la nota —no se devuelve lo que
+     * todavía no había salido—, cosa que solo pasa si la salida se registró con fecha futura.
      */
-    private function fechaDevolucion($fecha, Collection $salidas): Carbon
+    private function fechaDevolucion(Collection $salidas): Carbon
     {
-        $dia   = $fecha ? Carbon::parse($fecha)->startOfDay() : Carbon::today();
+        $hoy   = Carbon::today();
         $desde = $salidas->min(fn ($s) => $s->FECHA)?->copy()->startOfDay();
 
-        if ($desde && $dia->lt($desde)) {
-            throw new InvalidArgumentException('La devolución no puede tener una fecha anterior a la nota (' . $desde->format('d/m/Y') . ').');
+        if ($desde && $hoy->lt($desde)) {
+            throw new InvalidArgumentException('La nota tiene fecha ' . $desde->format('d/m/Y') . ': su devolución se podrá registrar desde ese día.');
         }
-        if ($dia->gt(Carbon::today())) {
-            throw new InvalidArgumentException('La fecha de la devolución no puede ser futura.');
-        }
-        return $dia;
+        return $hoy;
     }
 
     private function texto($valor): ?string

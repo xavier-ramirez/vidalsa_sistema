@@ -1,6 +1,6 @@
 @extends('layouts.estructura_base')
 
-@section('title', 'Bitácora de Movimientos de Inventario')
+@section('title', 'Historial de Movimientos de Inventario')
 
 @section('content')
 @php
@@ -36,7 +36,7 @@
 @endphp
 
 @include('admin.partials.page_header', [
-    'titulo'    => 'Bitácora de Movimientos de Inventario',
+    'titulo'    => 'Historial de Movimientos de Inventario',
     'align'     => 'left',
     'margin'    => '0 0 10px 0',
     'separador' => true,
@@ -125,6 +125,9 @@
     }
     .alm-mov-table td.mv-td-ref a.mv-nota-link:hover { text-decoration:underline; }
     .alm-mov-table td.mv-td-ref .mv-nota-ico { font-size:16px; line-height:1; }
+    /* "Devolver" (.mv-undo-btn, el mismo enlace de "Deshacer" en Movilizaciones) en su
+       propio renglón, bajo el N° de nota. */
+    .alm-mov-table td.mv-td-ref .mv-devolver { display:flex; margin:4px auto 0; }
     .alm-mov-undo {
         position:absolute; top:3px; right:3px;
         width:20px; height:20px; padding:0; margin:0;
@@ -485,7 +488,7 @@
             display: none !important;
         }
         /* Botón redondo con el icono de documento. 32px = objetivo táctil cómodo sin robar
-           ancho al nombre del producto. */
+           ancho al nombre del producto. El icono, del mismo color que en escritorio. */
         .alm-mov-table tr.alm-mov-row td.mv-td-ref a.mv-nota-link {
             display: inline-flex !important;
             align-items: center !important;
@@ -494,9 +497,9 @@
             height: 32px !important;
             padding: 0 !important;
             border-radius: 50% !important;
-            background: #dcfce7 !important;
-            border: 1px solid #bbf7d0 !important;
-            color: #16a34a !important;
+            background: #e0f2fe !important;
+            border: 1px solid #bae6fd !important;
+            color: #0f172a !important;
             text-decoration: none !important;
         }
         .alm-mov-table tr.alm-mov-row td.mv-td-ref a.mv-nota-link .mv-nota-ico {
@@ -504,6 +507,12 @@
             font-size: 18px !important;
             line-height: 1 !important;
         }
+        /* "Devolver", al lado del PDF y del mismo tamaño: solo el icono (el texto va en el title). */
+        .alm-mov-table tr.alm-mov-row td.mv-td-ref .mv-devolver {
+            width: 32px !important; height: 32px !important; margin: 0 0 0 6px !important; padding: 0 !important;
+        }
+        .alm-mov-table tr.alm-mov-row td.mv-td-ref .mv-devolver .material-icons { font-size: 20px !important; }
+        .alm-mov-table tr.alm-mov-row td.mv-td-ref .mv-devolver span { display: none !important; }
         /* En la tarjeta manda el icono: el N° de nota se lee al abrir el PDF (va en su título). */
         .alm-mov-table tr.alm-mov-row td.mv-td-ref a.mv-nota-link .mv-nota-num {
             display: none !important;
@@ -598,7 +607,7 @@
         font-weight: 500;
         cursor: pointer;
         text-align: left;
-        /* "Bitacora por Nota" es un <a>: sin esto saldria subrayado. */
+        /* "Historial de Notas de Entrega" es un <a>: sin esto saldria subrayado. */
         text-decoration: none;
         transition: background 0.15s;
     }
@@ -771,9 +780,8 @@
              Reemplaza al viejo botón "Inventario" y consolida las acciones
              rápidas de la bitácora en un único menú:
                · Dashboard de consumo
-               · Bitácora por Nota (PDF)
+               · Historial de Notas de Entrega
                · Exportar a Excel
-               · Devolución de material               (requiere almacen.movimiento)
                · Eliminar Nota de Entrega por código  (requiere almacen.nota.eliminar)
          --}}
         <div style="position:relative;flex:0 0 auto;margin-left:auto;">
@@ -800,13 +808,14 @@
                         <div style="background:#e0f2fe;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;line-height:1;color:#0067b1;">analytics</i></div>
                         <span>Dashboard de consumo</span>
                     </button>
-                {{-- Bitácora por Nota: vista alterna agrupada por NUMERO_NOTA — una fila por
-                     Nota de Entrega; clic abre el PDF oficial. Conserva los filtros activos. --}}
+                {{-- Historial de Notas de Entrega: vista alterna agrupada por NUMERO_NOTA — una
+                     fila por Nota de Entrega; clic abre el PDF oficial. Conserva los filtros
+                     activos. Icono como el del PDF de cada fila (kardex_rows). --}}
                     <a id="lnkBitNotas" href="{{ route('almacen.notas') }}"
                         class="alm-mov-accion"
                         onclick="event.preventDefault(); document.getElementById('splitDropdownMenuMovInv').style.display='none'; if(window.navigateTo) window.navigateTo(this.href); else window.location.href=this.href;">
-                        <div style="background:#dcfce7;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;line-height:1;color:#16a34a;">description</i></div>
-                        <span>Bitácora por Nota (PDF)</span>
+                        <div style="background:#e0f2fe;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;line-height:1;color:#0f172a;">description</i></div>
+                        <span>Historial de Notas de Entrega</span>
                     </a>
                 {{-- Exportar a Excel: baja la bitácora tal y como se está viendo. Los filtros
                      salen de buildParams(), el mismo que arma la petición de la tabla. --}}
@@ -815,16 +824,6 @@
                         <div style="background:#f1f5f9;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;line-height:1;color:#64748b;">download</i></div>
                         <span>Exportar a Excel</span>
                     </button>
-                @can('almacen.movimiento')
-                {{-- Devolución de material: lo entregado con una Nota vuelve al almacén, con
-                     cambio opcional por otro producto (partials/devolucion_modal). --}}
-                    <button type="button"
-                        onclick="document.getElementById('splitDropdownMenuMovInv').style.display='none'; window.almAbrirDevolucion();"
-                        class="alm-mov-accion">
-                        <div style="background:#ccfbf1;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;line-height:1;color:#0d9488;">assignment_return</i></div>
-                        <span>Devolución de material</span>
-                    </button>
-                @endcan
                 @can('almacen.nota.eliminar')
                 {{-- Eliminar Nota: gateado a la clave almacen.nota.eliminar porque reversa
                      stock y deja un par (SALIDA original + su DEVOLUCION) en el kardex. --}}
@@ -1335,7 +1334,7 @@
         // Limpiar cualquier estilo inline residual
         document.querySelectorAll('.dropdown-content').forEach(d => d.style.display = '');
 
-        // Refrescar el href del link "Bitácora por Nota" con los filtros activos para
+        // Refrescar el href del link "Historial de Notas de Entrega" con los filtros activos para
         // que la vista por nota se abra ya filtrada por almacén / frente / fechas.
         //
         // Solo se reenvían los filtros que la vista por nota interpreta igual que la bitácora:
@@ -1392,7 +1391,8 @@
      dentro de @can('almacen.nota.eliminar') y no abría para quien no tuviera ese permiso. --}}
 @include('admin.almacen.partials.consumo_dashboard_modal')
 
-{{-- Modal "Devolución de material" (menú Acciones). Se gatea él mismo con almacen.movimiento. --}}
+{{-- Modal "Devolución de material" (botón Devolver de las salidas con nota). Se gatea él
+     mismo con almacen.movimiento. --}}
 @include('admin.almacen.partials.devolucion_modal')
 
 @can('almacen.nota.eliminar')
@@ -1668,12 +1668,12 @@
             almBorrarFilaKardex(btn, {
                 urlAttr: 'data-undo-url',
                 title: '¿Deshacer este movimiento?',
-                message: avisos.map(window.escapeHtml).join('<br><br>'),
+                message: avisos.map(window.escapeHtml).join('<br>'),
                 confirmText: 'Deshacer',
                 okMsg: 'Movimiento deshecho.'
             });
         };
-        var generico = ['Se revertirá el stock y el movimiento.'];
+        var generico = ['Se revierte el stock y se borra sin dejar rastro.'];
         var url = btn.getAttribute('data-impacto-url');
         if (!url) { confirmar(generico); return; }
 
@@ -1691,7 +1691,7 @@
         almBorrarFilaKardex(btn, {
             urlAttr: 'data-purge-url',
             title: '¿Eliminar del historial?',
-            message: 'Se borrará el registro del kardex pero el STOCK NO se modificará: no se revierte la entrada/salida que sumó o restó. Irreversible.',
+            message: 'Se borra del historial; el stock no cambia. Irreversible.',
             confirmText: 'Eliminar del historial',
             okMsg: 'Registro eliminado del historial.'
         });

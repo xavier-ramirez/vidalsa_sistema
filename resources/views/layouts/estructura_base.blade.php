@@ -295,20 +295,6 @@
     <script
         src="{{ asset('js/maquinaria/fetch_interceptor.js') }}?v={{ @filemtime(public_path('js/maquinaria/fetch_interceptor.js')) }}"></script>
 
-    <script>
-        // Marca <html> con .is-ios en dispositivos Apple táctiles (iPhone/iPad). El CSS
-        // lo usa para MOSTRAR el botón "+" de "Nueva entrada (ODC)" SOLO en iOS, cuyo
-        // teclado decimal no trae tecla Enter. En Android/PC la línea se agrega con Enter
-        // y el botón va oculto. Corre una vez al cargar y persiste entre navegaciones SPA
-        // (documentElement no se reemplaza).
-        (function () {
-            var ua = navigator.userAgent || '';
-            var isIOS = /iPad|iPhone|iPod/.test(ua) ||
-                        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-            if (isIOS) document.documentElement.classList.add('is-ios');
-        })();
-    </script>
-
     {{-- PRECARGA de los archivos que salieron del bloque inline del layout.
          Ese codigo antes VIAJABA DENTRO de este HTML: cero peticiones y cero
          espera. Al extraerlo, el HTML adelgazo 113 KB pero aparecieron 5
@@ -444,22 +430,13 @@
             </div>
 
             @php
-                // URL de "Recepción" según el nivel de ALMACÉN del usuario (veTodosLosAlmacenes
-                // == el MISMO criterio que Almacen::usuarioEsGlobal del controller, así no hay
-                // desfase). Ojo: es el nivel de almacén, NO el de equipos:
-                //   LOCAL  → BANDEJA explícita (?force=1) PRESELECCIONADA a SU almacén (el
-                //     ligado a su frente, vía almacenPorDefecto). El id_almacen_destino en la
-                //     URL garantiza la preselección sin depender solo del merge del controller.
-                //   GLOBAL → /recepcion a secas → el controller lo redirige a "Entrada por
-                //     ODC". NO se le pone id_almacen_destino: si lo lleva, el controller NO
-                //     redirige a ODC (cuenta como filtro) y se quedaría en la bandeja.
-                // Se calcula una sola vez y se reutiliza en el menú desktop y móvil.
-                $__recUser     = auth()->user();
-                $__recEsGlobal = $__recUser && $__recUser->veTodosLosAlmacenes();
-                $__recAlmacen  = $__recUser ? $__recUser->almacenPorDefecto() : null; // almacén del frente
-                $recepcionUrl  = $__recEsGlobal
-                    ? route('almacen.recepcion.index')
-                    : route('almacen.recepcion.index', array_filter(['force' => 1, 'id_almacen_destino' => $__recAlmacen]));
+                // URL de "Recepción": /recepcion a secas para todos. Qué se ve al entrar lo
+                // decide el controller (TraspasoController::index) por el TIPO del almacén del
+                // usuario: PROYECTO → "Reposición del general"; GENERAL → "Entrada por ODC".
+                // NO se le pone ?force ni id_almacen_destino: los dos cuentan como filtro y el
+                // controller ya no podría mandar a ODC al de un almacén GENERAL.
+                // Se reutiliza en el menú desktop y móvil.
+                $recepcionUrl = route('almacen.recepcion.index');
 
                 // Notas por recibir: el MISMO número en los tres badges (Almacén contraído,
                 // Recepción de escritorio y Recepción de móvil). También aquí arriba, antes de

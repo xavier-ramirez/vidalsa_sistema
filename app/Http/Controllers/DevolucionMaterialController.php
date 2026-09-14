@@ -3,16 +3,17 @@
 namespace App\Http\Controllers;
 
 use App\Models\Almacen;
+use App\Models\AlmacenStock;
 use App\Models\MovimientoInventario;
 use App\Services\DevolucionService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
 use Throwable;
 
 /**
- * Devolución de material de una Nota de Entrega (modal "Devolución de material" de la
- * bitácora). La lógica vive en App\Services\DevolucionService; aquí solo se valida, se
- * comprueba el acceso y se da forma a la respuesta.
+ * Devolución de material de una Nota de Entrega (modal "Devolución de material", que abre
+ * el botón "Devolver" de cada salida del Historial de Movimientos). La lógica vive en
+ * App\Services\DevolucionService; aquí solo se valida, se comprueba el acceso y se da forma
+ * a la respuesta.
  */
 class DevolucionMaterialController extends Controller
 {
@@ -21,15 +22,16 @@ class DevolucionMaterialController extends Controller
     }
 
     /**
-     * GET almacen/devolucion?numero=NE-…  → lo entregado con la nota, lo ya devuelto y lo
-     * que queda por devolver, más las devoluciones anteriores. Solo lectura: mismo acceso
-     * que ver la nota (el almacén tiene que ser visible para el usuario).
+     * GET almacen/devolucion?numero=NE-…[&id_producto=N]  → lo entregado con la nota, lo ya
+     * devuelto y lo que queda por devolver, más las devoluciones anteriores. Con id_producto
+     * (el botón "Devolver" de cada movimiento del Historial) solo ese producto. Solo lectura:
+     * mismo acceso que ver la nota (el almacén tiene que ser visible para el usuario).
      */
     public function show(Request $request)
     {
         $numero = $this->numero($request->query('numero'));
         if ($numero === '') {
-            return response()->json(['message' => 'Escribe el N° de la Nota de Entrega.'], 422);
+            return response()->json(['message' => 'Falta el N° de la Nota de Entrega.'], 422);
         }
 
         $salidas = $this->devoluciones->salidasDeNota($numero);
@@ -41,6 +43,13 @@ class DevolucionMaterialController extends Controller
 
         if ($motivo = $this->devoluciones->motivoNoDevolvible($salidas)) {
             return response()->json(['message' => $motivo], 422);
+        }
+        // Filas del producto pedido (varias si salió de más de una bolsa), o toda la nota.
+        if ($idProducto = $request->integer('id_producto')) {
+            $salidas = $salidas->where('ID_PRODUCTO', $idProducto)->values();
+            if ($salidas->isEmpty()) {
+                return response()->json(['message' => "Ese producto no está en la Nota {$numero}."], 404);
+            }
         }
 
         $historial = MovimientoInventario::with(['producto:ID_PRODUCTO,NOMBRE,UM', 'usuario:ID_USUARIO,NOMBRE_COMPLETO'])
@@ -60,10 +69,13 @@ class DevolucionMaterialController extends Controller
         return response()->json([
             'numero'      => $numero,
             'fecha'       => optional($cabecera->FECHA)->format('d/m/Y'),
-            // Límites del selector de fecha: ni antes de la nota ni en el futuro.
-            'fecha_min'   => optional($salidas->min(fn ($s) => $s->FECHA))->format('Y-m-d'),
-            'hoy'         => Carbon::today()->format('Y-m-d'),
             'almacen'     => $cabecera->almacen?->NOMBRE,
+            // Stock de cada producto en este almacén (solo los que tienen), para ofrecer el
+            // producto a cambio con lo que hay y no dejar elegir uno que no se puede entregar.
+            'saldos'      => AlmacenStock::where('ID_ALMACEN', $cabecera->ID_ALMACEN)
+                ->groupBy('ID_PRODUCTO')->havingRaw('SUM(CANTIDAD) > 0')
+                ->selectRaw('ID_PRODUCTO, ROUND(SUM(CANTIDAD), 3) AS saldo')
+                ->pluck('saldo', 'ID_PRODUCTO')->map(fn ($s) => (float) $s),
             'proyecto'    => $cabecera->frente?->NOMBRE_FRENTE,
             'solicitante' => $cabecera->SOLICITANTE,
             'pdf_url'     => route('almacen.nota-entrega', ['numero' => $numero]),
@@ -87,7 +99,6 @@ class DevolucionMaterialController extends Controller
 
         $data = $request->validate([
             'numero'                      => 'required|string|max:30',
-            'fecha'                       => 'nullable|date',
             'motivo'                      => 'nullable|string|max:150',
             'lineas'                      => 'required|array|min:1',
             'lineas.*.id_producto'        => 'required|integer|distinct',
@@ -110,7 +121,6 @@ class DevolucionMaterialController extends Controller
 
         try {
             $notaCambio = $this->devoluciones->registrar($numero, $data['lineas'], [
-                'fecha'      => $data['fecha'] ?? null,
                 'motivo'     => $data['motivo'] ?? null,
                 'id_usuario' => $request->user()->ID_USUARIO,
             ]);

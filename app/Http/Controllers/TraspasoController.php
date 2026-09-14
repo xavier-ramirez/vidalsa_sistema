@@ -60,18 +60,16 @@ class TraspasoController extends Controller
         $user      = $request->user();
 
         // Una sola consulta: la usamos para (a) limitar el WHERE de la query, (b) llenar el
-        // dropdown del header, (c) validar el default-por-frente y (d) el guard anti-loop
-        // de mas abajo (movido ARRIBA del redirect a nuevaEntrada — sino GLOBAL sin
-        // almacenes caia en loop infinito entre `recepcion.index` y `recepcion.nueva`).
+        // dropdown del header, (c) validar el default-por-frente y saber su TIPO (decide si
+        // se entra a la bandeja o a nuevaEntrada) y (d) el guard de mas abajo.
         $almacenes         = Almacen::visiblesPara($user)->orderBy('TIPO')->orderBy('NOMBRE')->get(['ID_ALMACEN', 'NOMBRE', 'TIPO']);
         $almacenesVisibles = $almacenes->pluck('ID_ALMACEN');
 
         // Guard: usuario sin almacenes visibles → menu con notificacion. Cubre 2 casos:
         //   - LOCAL (NIVEL 2) cuyo frente no tiene almacen asociado.
         //   - GLOBAL (NIVEL 1) en BD recien migrada / sin almacenes registrados todavia.
-        // Sin este guard, el GLOBAL hacia loop: `index()` lo redirige a `nuevaEntrada`,
-        // `nuevaEntrada` no encuentra almacenDestino y redirige de vuelta a `index()`,
-        // y asi sin parar (ERR_TOO_MANY_REDIRECTS / "error de conexion" en produccion).
+        // Sin almacén no hay bandeja que mostrar ni entrada que registrar (nuevaEntrada
+        // también manda al menú en ese caso): mejor decirlo que abrir una pantalla vacía.
         if (!$request->wantsJson() && $almacenes->isEmpty()) {
             // GLOBAL ve "todos" (criterio ÚNICO Almacen::usuarioEsGlobal): si está vacío es
             // BD sin almacenes → invitar a crear. LOCAL/restringido: su frente no tiene almacén.
@@ -84,42 +82,68 @@ class TraspasoController extends Controller
             ]);
         }
 
-        // Destino por defecto según tipo de usuario:
-        //   GLOBAL → Recepción ODC (formulario de entrada directa por orden de compra).
-        //            El almacén general no recibe por bandeja de notas de entrega.
-        //   LOCAL  → Bandeja de notas de entrega (su módulo principal de recepción).
-        //            Confirman lo que el almacén general les envió.
-        //
-        // ?force=1 o filtros explícitos → siempre muestran la bandeja (ambos tipos).
-        // AJAX (paginación/filtros) → se queda aquí.
-        if (
-            $user !== null
-            && ! $request->wantsJson()
-            && ! $request->boolean('force')
-            && ! $request->hasAny(['search', 'estado', 'id_almacen_origen', 'id_almacen_destino', 'id_producto', 'desde', 'hasta', 'kpi'])
-            && Almacen::usuarioEsGlobal($user)
-        ) {
-            return redirect()->route('almacen.recepcion.nueva');
+        // Almacenes de la bandeja: solo los de PROYECTO, porque "Reposición del general" es SU
+        // recepción (a un GENERAL nunca le llegan notas de entrega). Si el usuario no ve
+        // ninguno de proyecto, los suyos, para que la bandeja no quede sin almacén que elegir.
+        $bandeja = $almacenes->where('TIPO', Almacen::TIPO_PROYECTO)->values();
+        if ($bandeja->isEmpty()) {
+            $bandeja = $almacenes;
+        }
+        // Un id_almacen_destino que no es de la bandeja (un enlace viejo a un GENERAL) no se
+        // aplica: el selector no lo mostraría y la primera recarga lo cambiaría sin avisar.
+        // 'all' (sin filtro de almacén, aceptado por URL) sigue pasando tal cual.
+        if ($request->filled('id_almacen_destino') && $request->input('id_almacen_destino') !== 'all'
+            && !$bandeja->contains('ID_ALMACEN', (int) $request->input('id_almacen_destino'))) {
+            $request->merge(['id_almacen_destino' => null]);
         }
 
         // Default suave del filtro "Almacén destino" — TODOS los usuarios (LOCAL y GLOBAL)
         // abren con UN almacén preseleccionado. La bandeja es SIEMPRE de un solo almacén:
         // el dropdown del header ya no ofrece "Todos" ni la X para quitar la selección
         // (pedido del cliente, ver el comentario del dropdown en recepcion/index).
-        //   1) Si el cliente mando id_almacen_destino (filled), respetamos.
+        //   1) Si el cliente mando id_almacen_destino (filled, y de la bandeja), respetamos.
         //   2) Sino, intentamos el almacen ligado al frente (almacenPorDefecto).
         //   3) Fallback: el PRIMER almacen visible — cubre al usuario GLOBAL
         //      (NIVEL_ACCESO_ALMACEN=1) sin frente, para que tambien arranque con UNO
         //      solo, no con "Todos".
-        // Validamos visibilidad para evitar un filtro fantasma.
+        // Validamos visibilidad para evitar un filtro fantasma. Es el MISMO almacén que usa
+        // nuevaEntrada (almacenPorDefecto → primero visible); si no es de la bandeja, más
+        // abajo se cambia por el primero que sí lo es.
+        $idDef = null;
         if (!$request->filled('id_almacen_destino')) {
             $idDef = $user?->almacenPorDefecto();
             if (!$idDef && $almacenesVisibles->isNotEmpty()) {
                 $idDef = (int) $almacenesVisibles->first();
             }
-            if ($idDef && $almacenesVisibles->contains((int) $idDef)) {
-                $request->merge(['id_almacen_destino' => $idDef]);
+            if (!$idDef || !$almacenesVisibles->contains((int) $idDef)) {
+                $idDef = null;
             }
+        }
+
+        // Qué se ve al entrar lo decide el TIPO de ese almacén, no el del usuario (pedido del
+        // cliente): "Reposición del general" es la recepción de los almacenes de PROYECTO —
+        // confirman lo que el general les despachó—, así que:
+        //   PROYECTO → esta bandeja, directo.
+        //   GENERAL  → Entrada por ODC (el general no recibe por notas de entrega, compra).
+        // ?force=1 o filtros explícitos → siempre muestran la bandeja.
+        // AJAX (paginación/filtros) → se queda aquí.
+        $tipoDef = $idDef ? optional($almacenes->firstWhere('ID_ALMACEN', (int) $idDef))->TIPO : null;
+        if (
+            ! $request->wantsJson()
+            && ! $request->boolean('force')
+            && ! $request->hasAny(['search', 'estado', 'id_almacen_origen', 'id_almacen_destino', 'id_producto', 'desde', 'hasta', 'kpi'])
+            && $tipoDef === Almacen::TIPO_GENERAL
+        ) {
+            return redirect()->route('almacen.recepcion.nueva');
+        }
+        // Si el general entra igual a la bandeja (Acciones → "Reposición del general", o la
+        // pestaña), abre en el primer almacén de PROYECTO: es donde llega lo que el general
+        // despachó. Con el suyo preseleccionado la bandeja saldría vacía.
+        if ($idDef && !$bandeja->contains('ID_ALMACEN', (int) $idDef)) {
+            $idDef = optional($bandeja->first())->ID_ALMACEN;
+        }
+        if ($idDef) {
+            $request->merge(['id_almacen_destino' => $idDef]);
         }
 
         // Bandeja = inbox de recepción. La columna ID_ALMACEN_DESTINO ya cubre la
@@ -320,7 +344,7 @@ class TraspasoController extends Controller
 
         return view('admin.almacen.recepcion.index', [
             'traspasos'              => $paginator,
-            'almacenes'              => $almacenes,
+            'almacenes'              => $bandeja,   // el selector de la bandeja (ver arriba)
             'idAlmacenDestinoActivo' => $idAlmacenDestinoActivo,
             'numerosNotas'           => $numerosNotas,
             'bandejaStats'           => $bandejaStats,
@@ -360,10 +384,10 @@ class TraspasoController extends Controller
     }
 
     /**
-     * Pantalla "Registrar entrada directa" — reemplaza al viejo modal #entModal de
-     * /admin/almacen/recepcion. Página dedicada con el mismo flujo: el usuario llena
-     * la cabecera (Nº OC, proveedor, fecha) + las líneas (producto + cantidad con
-     * autocomplete por código o descripción) y al submit el front POSTea a
+     * Pantalla "Entrada por ODC" — la recepción del almacén GENERAL (index() manda aquí a
+     * quien abre Recepción con un almacén GENERAL). Página dedicada: el usuario llena
+     * los datos del documento (nota de entrega, proveedor, fecha) + las líneas (producto
+     * + cantidad con autocomplete por código o descripción) y al submit el front POSTea a
      * almacen.movimientos.lote con tipo=ENTRADA — no hay backend nuevo aquí, solo
      * la pantalla del formulario. La pantalla es accesible sin permiso especial; el
      * gate almacen.movimiento se aplica al EJECUTAR el submit (registrarMovimientoLote).
@@ -373,7 +397,7 @@ class TraspasoController extends Controller
      * AlmacenController para el default-merge del filtro de almacén). Si el usuario
      * no tiene un almacén natural (caso GLOBAL sin frente, o frente sin almacén
      * PROYECTO), cae al primer almacén visible. Si NO hay ningún almacén visible se
-     * redirige a la bandeja con un mensaje — esa situación bloquea la operación.
+     * redirige al menú con un mensaje — esa situación bloquea la operación.
      */
     public function nuevaEntrada(Request $request)
     {
@@ -387,10 +411,9 @@ class TraspasoController extends Controller
         // 1) Almacén-por-frente del usuario (helper canónico del módulo).
         // 2) Fallback: primer almacén visible si el helper devolvió null pero hay almacenes.
         // 3) Si no hay ninguno → redirigir al MENU (no a recepcion.index): el index()
-        //    de la bandeja redirige a GLOBAL devuelta hacia nuevaEntrada, lo que
-        //    formaba un loop infinito (`recepcion.index` ↔ `recepcion.nueva`) cuando
-        //    la BD esta vacia o el usuario no ve ningun almacen. El menu rompe el
-        //    ciclo y muestra el toast con la causa real.
+        //    de la bandeja manda de vuelta aquí a quien abre con un almacén GENERAL, y
+        //    ese ir y venir ya formó un loop infinito (`recepcion.index` ↔
+        //    `recepcion.nueva`). El menu lo corta y muestra el toast con la causa real.
         $idDest = $user?->almacenPorDefecto();
         $almacenDestino = $idDest ? $almacenes->firstWhere('ID_ALMACEN', (int) $idDest) : null;
         if (!$almacenDestino) {

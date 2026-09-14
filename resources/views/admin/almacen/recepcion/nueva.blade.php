@@ -4,16 +4,17 @@
 
 @section('content')
 {{-- ────────────────────────────────────────────────────────────────
-     Pantalla "Registrar entrada directa" — reemplaza al viejo modal
-     #entModal de /admin/almacen/recepcion. Misma operacion (POST a
-     almacen.movimientos.lote con tipo=ENTRADA) pero como pagina propia
-     con autocomplete de producto por codigo o descripcion.
+     Pantalla "Entrada por ODC" — la recepción del almacén GENERAL: registra lo que la
+     empresa compró y el proveedor le entregó (TraspasoController::index manda aquí a quien
+     abre Recepción con un almacén GENERAL). Misma operacion que el modal "Entrada por
+     compra directa" de la bandeja (POST a almacen.movimientos.lote con tipo=ENTRADA) y con
+     su MISMO aspecto —barra oscura, datos del documento, líneas de entrada y los botones
+     centrados abajo—, pero como página: aquí no hay bandeja de fondo que conservar.
 
      Flujo de captura:
-       1) Cabecera con datos del lote (almacen derivado + nota de entrega + proveedor
-          + fecha). El panel lateral contiene las acciones del lote (Registrar /
-          Cancelar).
-       2) Fila de captura: [Buscar serial/descripcion] [Cantidad] (stepper ▲▼).
+       1) Datos del documento (opcionales): nota de entrega + proveedor + fecha. El almacén
+          es el del usuario (pill del encabezado).
+       2) Líneas de entrada: [Buscar código/descripción] [UM] [Cantidad] [✓].
           - Si el producto EXISTE: aparece como sugerencia → Enter elige el primero →
             (la UM se prefija con la del catalogo pero queda EDITABLE) → escribir
             cantidad → Enter agrega a la tabla. Si se cambia la UM a otra presentacion
@@ -22,11 +23,16 @@
           - Si el producto NO existe: igual escribis la cantidad → Enter → el sistema
             crea el producto al vuelo (codigo auto numerico de 6 digitos, UM=UND) y lo agrega a la
             tabla. Se puede editar despues desde /admin/almacen.
-       3) Submit: POST de TODAS las lineas como un lote ENTRADA.
+       3) Registrar entrada: POST de TODAS las lineas como un lote ENTRADA.
+
+     "Reposición del general" (la bandeja de los almacenes de proyecto, donde se ve lo que el
+     general despachó y va llegando) se abre desde el botón Acciones del encabezado.
      ──────────────────────────────────────────────────────────────── --}}
 
-<section class="page-title-card" style="text-align:left;margin:0 0 10px 0;">
-    {{-- Fila 1: Título + pill del almacén destino --}}
+{{-- max-width:none: el tope general de 1200px dejaba "Acciones" lejos del borde de la tarjeta,
+     que ocupa todo el ancho. --}}
+<section class="page-title-card" style="text-align:left;margin:0 0 10px 0;max-width:none;">
+    {{-- Título + pill del almacén destino, y Acciones a la derecha --}}
     <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
         <div style="flex:0 0 auto;">
             <h1 class="page-title" style="margin:0;">
@@ -40,39 +46,61 @@
                 <span class="name">{{ $almacenDestino->NOMBRE }}</span>
             </div>
         </div>
+        {{-- Acciones (mismo botón y menú que /admin/almacen). Sin stopPropagation: el clic
+             sigue hasta document, donde se cierran los demás desplegables — uno a la vez. --}}
+        <div class="ent-acciones">
+            <button type="button" id="entAccionesBtn" class="btn-primary-maquinaria ent-acciones-btn"
+                    aria-haspopup="true" aria-expanded="false" onclick="window.entToggleAcciones()">
+                <i class="material-icons">settings</i><span>Acciones</span><i class="material-icons">expand_more</i>
+            </button>
+            <div id="entAccionesMenu" class="ent-acciones-menu" hidden>
+                <a href="{{ route('almacen.recepcion.index', ['force' => 1]) }}" class="ent-accion">
+                    <span class="ent-accion-ic"><i class="material-icons">inbox</i></span>
+                    <span class="ent-accion-txt">
+                        <strong>Reposición del general</strong>
+                        <small>Lo que el general despachó y va llegando a los almacenes de proyecto</small>
+                    </span>
+                </a>
+            </div>
+        </div>
     </div>
-    {{-- Fila 2: Tabs de navegación (coherente con la bandeja) --}}
-    @include('admin.almacen.recepcion.partials.tabs', ['activa' => 'odc', 'clase' => 'ent-tabs'])
 </section>
 
 <style>
-    /* ── Entrada por ODC — layout 2 columnas (form + tabla | resumen) estilo WMS ── */
-    .ent-card { background:#fff; border:1px solid #e2e8f0; border-radius:14px; padding:18px 20px; box-shadow:0 4px 12px rgba(15,23,42,0.04); }
+    /* ── Entrada por ODC — una tarjeta con el aspecto del modal "Entrada por compra directa"
+       de la bandeja (.cdir-*): barra oscura, secciones con rótulo gris, captura con el botón
+       verde y la botonera centrada abajo. El responsive de teléfono vive en
+       estilos_globales.css, scopeado con body:has(.ent-layout). ── */
+    .ent-layout { max-width:100%; }
+    /* Sin overflow:hidden: los desplegables del buscador y de la UM caen por encima de la
+       tabla y no pueden quedar recortados por la tarjeta. Por eso los radios los ponen la
+       barra de arriba y la botonera de abajo. */
+    .ent-card { background:#fff; border:1px solid #e2e8f0; border-radius:16px; box-shadow:0 4px 12px rgba(15,23,42,0.05); }
+    .ent-bar { display:flex; align-items:center; justify-content:center; gap:9px; background:#1e293b; padding:14px 20px; border-radius:15px 15px 0 0; }
+    .ent-bar .material-icons { color:#0067b1; font-size:20px; }
+    .ent-bar-title { font-size:14.5px; font-weight:800; color:#fff; letter-spacing:.2px; }
+    .ent-body { padding:16px 20px 0; }
 
-    /* Encabezado de sección ("Líneas de entrada"): solo texto (sin icono). */
-    .ent-section-title { display:flex; align-items:center; gap:7px; font-size:13px; font-weight:700; color:#334155; text-transform:uppercase; letter-spacing:.5px; }
+    /* Rótulo de sección: el mismo de .cdir-section-title. */
+    .ent-section-title { font-size:11.5px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:.6px; margin:0 0 8px; }
 
-    /* Cabecera del lote: N° Doc | Proveedor | Fecha. Las acciones (Cancelar / Registrar)
-       viven en el panel lateral de la derecha (estilo checkout). */
+    /* Datos del documento: Nota | Proveedor | Fecha. */
     .ent-form-grid {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 160px;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 170px;
         gap: 12px;
         align-items: end;
         min-width: 0;
+        margin-bottom: 18px;
     }
     .ent-field-group { display:flex; flex-direction:column; gap:4px; }
-    /* Asociar material a un proyecto: franja propia arriba de la cabecera, con fondo tenue para que se
-       lea como contexto de TODA la entrada y no como un campo mas del formulario. */
-    .ent-proyecto-row { display:flex; align-items:center; gap:10px; flex-wrap:wrap;
-        margin-bottom:14px; padding:11px 13px; background:#f8fafc;
-        border:1px solid #e2e8f0; border-radius:10px; }
-    .ent-proyecto-row select { flex:1 1 220px; min-width:0; height:38px; font-family:inherit; }
+    .ent-field-label { font-size:11px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:.4px; }
+    /* Asociar material a un proyecto: primer campo, con la etiqueta encima como el resto. */
+    .ent-proyecto-row { display:grid; gap:4px; margin-bottom:14px; }
+    .ent-proyecto-row select { width:100%; font-family:inherit; }
     /* Sin elegir → borde rojo suave. No es un error todavia (nadie intento registrar aun),
        solo la senal de que falta ese dato. Se apaga en cuanto se elige. */
     .ent-proyecto-row select.falta { border-color:#f87171; background:#fef2f2; }
-    .ent-field-label { font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.4px; }
-    /* Mobile responsive (≤900px y ≤480px) en estilos_globales.css scopeado con body:has(.ent-layout). */
 
     /* Pill del almacen destino en el page-title-card */
     .ent-dest-pill {
@@ -85,146 +113,157 @@
     .ent-dest-pill .ic .material-icons { font-size:18px; transform:none !important; }
     .ent-dest-pill .name { padding:0 12px 0 4px; font-size:13.5px; color:#0f172a; font-weight:700; overflow:hidden; text-overflow:ellipsis; }
 
-    .ent-input { width:100%; min-width:0; height:38px; border:1px solid #cbd5e0; border-radius:8px; padding:0 10px; font-size:13px; background:#fff; outline:none; box-sizing:border-box; color:#0f172a; }
-    .ent-input:focus { border-color:var(--maquinaria-blue,#0067b1); box-shadow:0 0 0 2px rgba(0,103,177,0.10); }
+    /* Acciones: a la derecha del encabezado. */
+    .ent-acciones { position:relative; margin-left:auto; flex:0 0 auto; }
+    .ent-acciones-btn { height:42px; padding:0 16px; min-width:150px; gap:8px; box-shadow:0 4px 6px -1px rgba(0,0,0,0.1); }
+    .ent-acciones-btn .material-icons { font-size:18px; }
+    .ent-acciones-menu { position:absolute; top:100%; right:0; z-index:60; width:300px; margin-top:6px;
+        background:#fff; border:1px solid #e2e8f0; border-radius:10px; overflow:hidden;
+        box-shadow:0 10px 18px -3px rgba(0,0,0,0.18); }
+    .ent-accion { display:flex; align-items:center; gap:10px; padding:11px 14px; color:#0f172a; text-decoration:none; }
+    .ent-accion:hover { background:#f1f5f9; }
+    .ent-accion-ic { flex:0 0 auto; display:flex; padding:6px; border-radius:6px; background:#e0f2fe; color:#0067b1; }
+    .ent-accion-ic .material-icons { font-size:18px; line-height:1; }
+    .ent-accion-txt { display:flex; flex-direction:column; min-width:0; }
+    .ent-accion-txt strong { font-size:13.5px; font-weight:700; }
+    .ent-accion-txt small { font-size:11.5px; color:#64748b; line-height:1.3; }
+
+    .ent-input { width:100%; min-width:0; height:38px; border:1px solid #cbd5e0; border-radius:10px; padding:0 12px; font-size:13.5px; background:#fbfcfd; outline:none; box-sizing:border-box; color:#0f172a; font-family:inherit; }
+    .ent-input:focus { border-color:var(--maquinaria-blue,#0067b1); background:#fff; }
     .ent-input::placeholder { color:#94a3b8; opacity:1; }
     select.ent-input { cursor:default; }
 
-    /* UM autocomplete */
-    .ent-um-wrap { position:relative; }
-    /* Campo Unidad SIN negrita (peso normal 400), a pedido del cliente: la "UND"
-       se veía resaltada respecto al resto de la barra de captura. */
-    .ent-um-input {
-        width:100%; height:40px; border:1px solid #cbd5e0; border-radius:10px;
-        padding:0 10px; font-size:13.5px; font-weight:400; color:#0f172a;
-        background:#fff; outline:none; box-sizing:border-box; text-transform:uppercase;
-    }
-    .ent-um-input:focus { border-color:var(--maquinaria-blue,#0067b1); }
-    .ent-um-suggest {
-        position:absolute; top:calc(100% + 4px); left:0; right:0;
-        background:#fff; border:1px solid #e2e8f0; border-radius:10px;
-        box-shadow:0 12px 24px -8px rgba(15,23,42,0.20);
-        max-height:240px; overflow-y:auto; padding:4px;
-        z-index:9000; display:none;
-    }
-    .ent-um-suggest.open { display:block; }
-    .ent-um-suggest-item { padding:6px 10px; border-radius:6px; cursor:default; font-size:12.5px; font-weight:600; color:#0f172a; }
-    .ent-um-suggest-item:hover, .ent-um-suggest-item.active { background:#e1effa; }
-    .ent-um-suggest-empty { padding:8px 10px; font-size:11.5px; color:#94a3b8; font-style:italic; }
+    /* ── Líneas de entrada: [buscador] [UM] [cantidad] [✓], como la barra del modal ── */
+    .ent-capt-bar { position:relative; z-index:5; display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+    .ent-capt-bar .ent-search-field { flex:1 1 auto; min-width:0; }
+    .ent-capt-bar .ent-um-wrap      { flex:0 0 90px; }
+    .ent-capt-bar .ent-cant-stepper { flex:0 0 100px; }
 
     /* Buscador de producto */
-    .ent-search-field { position:relative; height:40px; }
-    .ent-search-input { width:100%; box-sizing:border-box; height:40px; border:1px solid #cbd5e0; border-radius:10px; padding:0 12px 0 38px; font-size:13.5px; background:#fff url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="%2364748b" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>') no-repeat 12px center; outline:none; color:#0f172a; }
-    .ent-search-input:focus { border-color:var(--maquinaria-blue,#0067b1); }
+    .ent-search-field { position:relative; height:38px; }
+    .ent-search-lupa { position:absolute; left:10px; top:50%; transform:translateY(-50%); color:#64748b; font-size:18px; pointer-events:none; }
+    .ent-search-input { width:100%; box-sizing:border-box; height:38px; border:1px solid #cbd5e0; border-radius:10px; padding:0 12px 0 34px; font-size:13.5px; font-family:inherit; background:#fbfcfd; outline:none; color:#0f172a; }
+    .ent-search-input:focus { border-color:var(--maquinaria-blue,#0067b1); background:#fff; }
     .ent-search-input:disabled { background-color:#f1f5f9; cursor:not-allowed; }
-    /* Mismo estilo de letra que el nombre de la tabla de líneas (.ent-list-nom):
-       13.5px / 600 / #0f172a, sin negritas. El código (.cod) hereda este estilo
-       — sin override propio — para que todo el badge se vea uniforme. */
-    .ent-selected-badge { display:none; position:absolute; inset:0; z-index:2; align-items:center; gap:6px; padding:0 12px; background:#fff; border:1px solid #cbd5e0; border-radius:10px; color:#0f172a; font-size:13.5px; font-weight:600; white-space:nowrap; overflow:hidden; box-sizing:border-box; }
+    /* Producto ya elegido: el chip tapa el buscador (y su lupa). Mismo aspecto que el del
+       modal: azul claro con el código en negrita. */
+    .ent-selected-badge { display:none; position:absolute; inset:0; z-index:2; align-items:center; gap:6px; padding:0 10px; background:#e1effa; border:1px solid #0067b1; border-radius:10px; color:#0f172a; font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; box-sizing:border-box; }
     .ent-selected-badge.show { display:flex; }
-    .ent-selected-badge .clear { cursor:default; color:#475569; margin-left:auto; font-size:18px; }
+    .ent-selected-badge .cod { font-weight:800; }
+    .ent-selected-badge .clear { cursor:default; color:#64748b; margin-left:auto; font-size:17px; }
     .ent-selected-badge .clear:hover { color:#dc2626; }
 
     .ent-suggest {
-        position:absolute; top:calc(100% + 4px); left:0; right:0;
-        background:#fff; border:1px solid #e2e8f0; border-radius:10px;
-        box-shadow:0 12px 24px -8px rgba(15,23,42,0.20);
-        max-height:300px; overflow-y:auto; padding:4px;
+        position:absolute; top:calc(100% + 5px); left:0; right:0;
+        background:#fff; border:1px solid #e2e8f0; border-radius:12px;
+        box-shadow:0 10px 25px rgba(0,0,0,0.1);
+        max-height:300px; overflow-y:auto; padding:5px;
         z-index:9000; display:none;
     }
     .ent-suggest.open { display:block; }
-    .ent-suggest-item { display:flex; flex-direction:row; align-items:baseline; gap:8px; padding:8px 12px; border-radius:6px; cursor:default; transition:background .12s; }
+    .ent-suggest-item { display:flex; flex-direction:row; align-items:baseline; gap:8px; padding:8px 10px; border-radius:8px; cursor:default; transition:background .12s; }
     .ent-suggest-item:hover, .ent-suggest-item.active { background:#e1effa; }
     /* Nº de parte del filtro que coincidió con lo buscado — gris, delante del nombre (como /admin/almacen). */
     .ent-suggest-item .parte { flex:0 0 auto; font-size:12.5px; font-weight:600; color:#475569; white-space:nowrap; }
     .ent-suggest-item .nom { font-size:13px; font-weight:600; color:#0f172a; flex:1 1 0; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .ent-suggest-item .um { flex:0 0 auto; font-size:11px; font-weight:800; color:var(--maquinaria-blue,#0067b1); text-transform:uppercase; letter-spacing:.3px; }
     .ent-suggest-item .um::before { content:'·'; margin-right:6px; color:#cbd5e0; font-weight:400; }
-    .ent-suggest-empty { padding:10px 12px; font-size:12.5px; color:#94a3b8; font-style:italic; }
+    .ent-suggest-empty { padding:10px; font-size:12.5px; color:#64748b; line-height:1.45; }
 
-    /* Stepper de cantidad */
-    .ent-cant-stepper { display:inline-flex; align-items:stretch; border:1px solid #cbd5e0; border-radius:10px; overflow:hidden; background:#fff; height:40px; }
-    .ent-cant-stepper:focus-within { border-color:var(--maquinaria-blue,#0067b1); box-shadow:0 0 0 2px rgba(0,103,177,0.18); }
-    .ent-cant-input { flex:1 1 0; min-width:0; width:auto; height:100%; border:none; background:transparent; text-align:center; font-size:13.5px; font-weight:400; color:#0f172a; outline:none; padding:0; }
-
-    /* Barra de captura + tabla como pieza unificada */
-    .ent-list-wrap { border:1px solid #e2e8f0; border-top:none; border-radius:0 0 12px 12px; overflow:hidden; }
-    .ent-capt-bar {
-        display:flex; align-items:center; gap:10px; flex-wrap:wrap;
-        padding:10px 14px; background:#f1f5f9;
-        border:1px solid #e2e8f0; border-radius:12px 12px 0 0;
+    /* UM autocomplete. Peso normal, a pedido del cliente: la "UND" en negrita se veía
+       resaltada respecto al resto de la barra de captura. */
+    .ent-um-wrap { position:relative; }
+    .ent-um-input {
+        width:100%; height:38px; border:1px solid #cbd5e0; border-radius:10px;
+        padding:0 8px; font-size:13px; font-weight:400; color:#0f172a; font-family:inherit;
+        background:#fbfcfd; outline:none; box-sizing:border-box; text-transform:uppercase; text-align:center;
     }
-    .ent-capt-bar .ent-search-field { flex:1 1 200px; }
-    .ent-capt-bar .ent-um-wrap      { flex:0 1 150px; }
-    .ent-capt-bar .ent-cant-stepper { flex:0 1 130px; }
-    .ent-capt-add-btn {
-        flex:0 0 auto; width:40px; height:40px; border-radius:10px; border:none; cursor:default;
-        background:var(--maquinaria-blue,#0067b1); color:#fff;
-        display:flex; align-items:center; justify-content:center;
-        transition:background .15s, transform .1s;
+    .ent-um-input:focus { border-color:var(--maquinaria-blue,#0067b1); background:#fff; }
+    /* Anclado a la DERECHA y más ancho que el campo: a 90px el aviso de "sin coincidencias"
+       quedaba en una columna de una palabra por renglón. */
+    .ent-um-suggest {
+        position:absolute; top:calc(100% + 5px); right:0; min-width:210px;
+        background:#fff; border:1px solid #e2e8f0; border-radius:12px;
+        box-shadow:0 10px 25px rgba(0,0,0,0.1);
+        max-height:240px; overflow-y:auto; padding:5px;
+        z-index:9000; display:none;
     }
-    .ent-capt-add-btn:hover { background:#005391; }
-    .ent-capt-add-btn:active { transform:scale(0.96); }
-    .ent-capt-add-btn .material-icons { font-size:20px; }
+    .ent-um-suggest.open { display:block; }
+    .ent-um-suggest-item { padding:7px 10px; border-radius:8px; cursor:default; font-size:12.5px; font-weight:600; color:#0f172a; }
+    .ent-um-suggest-item:hover, .ent-um-suggest-item.active { background:#e1effa; }
+    .ent-um-suggest-empty { padding:8px 10px; font-size:11.5px; color:#64748b; }
 
-    /* Tabla de líneas */
-    .ent-list-table { width:100%; border-collapse:separate; border-spacing:0; font-size:14px; color:#000; }
-    .ent-list-table thead tr { background:#1e293b; }
-    .ent-list-table thead th { text-align:left; color:#fff; font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:1px; padding:10px 15px; border-right:1px solid #334155; border-bottom:2px solid #0f172a; white-space:nowrap; }
-    .ent-list-table thead th:last-child { border-right:none; }
+    /* Cantidad */
+    .ent-cant-stepper { display:flex; align-items:stretch; border:1px solid #cbd5e0; border-radius:10px; overflow:hidden; background:#fbfcfd; height:38px; box-sizing:border-box; }
+    .ent-cant-stepper:focus-within { border-color:var(--maquinaria-blue,#0067b1); background:#fff; }
+    .ent-cant-input { flex:1 1 0; min-width:0; width:auto; height:100%; border:none; background:transparent; text-align:center; font-size:13.5px; font-weight:700; font-family:inherit; color:#0f172a; outline:none; padding:0; }
+
+    /* Agregar línea: el botón verde y REDONDO del modal —"confirmar esta línea"—; el verde
+       lo separa del azul de las acciones de abajo. Enter hace lo mismo. */
+    .ent-add-btn { flex:0 0 38px; width:38px; height:38px; display:flex; align-items:center; justify-content:center;
+        border:1px solid #16a34a; border-radius:50%; background:#16a34a; color:#fff; cursor:default; padding:0; }
+    .ent-add-btn:hover { background:#15803d; }
+    .ent-add-btn .material-icons { font-size:20px; }
+
+    /* Tabla de líneas: recuadro redondeado con el encabezado oscuro del modal. */
+    .ent-list-wrap { border:1px solid #e2e8f0; border-radius:10px; overflow:hidden; }
+    .ent-list-table { width:100%; border-collapse:collapse; font-size:13.5px; color:#0f172a; }
+    .ent-list-table thead th { background:#1e293b; color:#fff; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.5px; padding:9px 12px; text-align:left; white-space:nowrap; }
     .ent-list-table thead th.col-num    { width:48px; text-align:center; }
-    .ent-list-table thead th.col-codigo { width:140px; }
-    .ent-list-table thead th.col-cant   { text-align:center; width:170px; }
-    .ent-list-table thead th.col-del    { width:60px; text-align:center; }
-    .ent-list-table tbody .col-num      { text-align:center; font-weight:700; color:#64748b; font-size:13px; }
-    .ent-list-table tbody .col-codigo   { font-size:12.5px; font-weight:800; color:#0f172a; letter-spacing:.3px; white-space:nowrap; }
-    .ent-list-table tbody td { padding:11px 15px; color:#000; border-bottom:1px solid #e2e8f0; border-right:1px solid #e2e8f0; vertical-align:middle; }
-    .ent-list-table tbody td:last-child { border-right:none; }
-    .ent-list-table tbody tr:hover td { background:#e0f2fe; }
-    .ent-list-table tbody .col-cant { text-align:center; font-weight:700; font-size:13.5px; }
-    .ent-list-table tbody .col-del  { text-align:center; }
-    .ent-list-nom { font-size:13.5px; font-weight:600; color:#0f172a; display:block; }
-    .ent-list-meta { font-size:11px; color:#94a3b8; }
-    .ent-row-del-btn { background:none; border:none; cursor:default; color:#dc2626; padding:4px; border-radius:6px; transition:background .12s; }
-    .ent-row-del-btn:hover { background:#fee2e2; }
+    .ent-list-table thead th.col-codigo { width:130px; }
+    .ent-list-table thead th.col-cant   { text-align:center; width:160px; }
+    .ent-list-table thead th.col-del    { width:52px; }
+    .ent-list-table tbody td { padding:9px 12px; border-bottom:1px solid #f1f5f9; vertical-align:middle; }
+    .ent-list-table tbody tr:last-child td { border-bottom:none; }
+    .ent-list-table tbody tr:hover td { background:#f8fafc; }
+    .ent-list-table tbody .col-num      { text-align:center; font-weight:800; color:#94a3b8; font-size:13px; }
+    .ent-list-table tbody .col-codigo   { font-weight:700; white-space:nowrap; }
+    .ent-list-table tbody .col-cant     { text-align:center; font-weight:800; }
+    .ent-list-table tbody .col-del      { text-align:center; }
+    .ent-list-nom { font-weight:600; display:block; }
+    .ent-list-meta { font-size:10.5px; font-weight:700; color:#0f172a; }
+    .ent-row-del-btn { background:none; border:none; cursor:default; color:#cbd5e0; padding:2px; display:inline-flex; }
+    .ent-row-del-btn:hover { color:#ef4444; }
+    /* Sin líneas todavía: el mismo aviso del modal, dentro del recuadro de la tabla. */
+    .ent-empty { padding:26px 16px; text-align:center; font-size:12.5px; color:#94a3b8; }
 
-    /* Responsive mobile — en estilos_globales.css scopeado con body:has(.ent-layout). */
-
-    /* ── Layout 2 columnas: formulario + tabla (izq) · resumen (der) ──
-       Mismo patrón que la bandeja de recepción (.tr-layout + aside.tr-stats). */
-    .ent-layout { display:flex; gap:14px; align-items:flex-start; max-width:100%; }
-    .ent-main { flex:1 1 0; min-width:0; }
-
-    /* Panel lateral del lote — tarjeta BLANCA (mismo look que .ent-card y que el
-       resto de la app). Sticky para seguir visible al capturar muchas líneas.
-       Ya solo contiene las acciones (el bloque de métricas se eliminó a pedido). */
-    .ent-summary {
-        flex:0 0 300px; align-self:flex-start; position:sticky; top:14px;
-        background:#fff; border:1px solid #e2e8f0;
-        border-radius:14px; padding:18px; color:#0f172a;
-        box-shadow:0 4px 12px rgba(15,23,42,0.04);
-        display:flex; flex-direction:column; gap:14px;
+    /* Botonera CENTRADA abajo, como la del modal (.cdir-footer / .cdir-btn). */
+    .ent-foot { display:flex; align-items:center; justify-content:center; gap:10px; margin-top:16px; padding:14px 20px;
+        border-top:1px solid #e2e8f0; background:#f8fafc; border-radius:0 0 15px 15px; }
+    .ent-btn { height:38px; min-width:130px; padding:0 16px; display:flex; align-items:center; justify-content:center; gap:6px;
+        border-radius:10px; font-family:inherit; font-size:13px; font-weight:800; cursor:default; }
+    .ent-btn .material-icons { font-size:17px; }
+    .ent-btn-cancel { background:#fff; border:1px solid #cbd5e0; color:#475569; }
+    .ent-btn-cancel:hover { background:#f1f5f9; }
+    .ent-btn-ok { background:#0067b1; border:1px solid #0067b1; color:#fff; }
+    .ent-btn-ok:hover { background:#005596; }
+    .ent-btn-ok:disabled { opacity:.6; }
+    /* La botonera queda a la vista aunque haya muchas líneas. */
+    .ent-foot { position:sticky; bottom:0; z-index:5; }
+    /* Escritorio: la tarjeta llega hasta el final de la pantalla y la tabla de líneas crece en
+       el espacio que queda, en vez de dejar media pantalla vacía debajo. (≤900px lo maneja
+       estilos_globales.css.) */
+    @media (min-width: 901px) {
+        .ent-card { display:flex; flex-direction:column; min-height:calc(100dvh - 185px); }
+        .ent-body { flex:1 1 auto; display:flex; flex-direction:column; }
+        .ent-list-wrap { flex:1 1 auto; display:flex; flex-direction:column; }
+        .ent-empty { flex:1 1 auto; display:flex; align-items:center; justify-content:center; }
     }
-    /* Acciones del lote: usan los botones globales del formulario (btn-primary-maquinaria
-       azul + btn-secondary blanco con borde azul, igual que /admin/usuarios/edit), pero a
-       todo el ancho del panel y apilados. */
-    .ent-summary-actions { display:flex; flex-direction:column; gap:10px; }
-    /* Botones más bajos que el global (12px 24px): aquí van apilados y a todo el ancho. */
-    .ent-summary-actions .btn-primary-maquinaria { width:100%; justify-content:center; cursor:default; padding:8px 18px; }
-
 </style>
 
 <div class="ent-layout">
-<div class="ent-main">
 <div class="ent-card">
     <input type="hidden" id="entAlmacen" value="{{ $almacenDestino->ID_ALMACEN }}">
 
-    {{-- Cabecera del lote: N° Doc | Proveedor | Fecha. Los 3 bloques son hijos
-         DIRECTOS del grid. Las acciones (Cancelar / Registrar) viven ahora en el
-         panel lateral de la derecha. --}}
+    <div class="ent-bar">
+        <i class="material-icons">shopping_cart</i>
+        <span class="ent-bar-title">Entrada por ODC</span>
+    </div>
+
+    <div class="ent-body">
     {{-- Asociar material a un proyecto. Solo en almacenes que reparten el saldo entre varios proyectos;
-         en el resto no hay nada que elegir (todo va a la bolsa comun) y la franja no se pinta.
-         Va ARRIBA de la cabecera del lote porque no es un dato del documento: define a que
+         en el resto no hay nada que elegir (todo va a la bolsa comun) y el campo no se pinta.
+         Va ARRIBA de los datos del documento porque no es un dato del documento: define a que
          bolsa entra TODO lo que se capture debajo. Obligatorio — el backend lo exige igual
          (AlmacenController::registrarMovimientoLote). --}}
     @if($separaProyectos ?? false)
@@ -241,6 +280,9 @@
     </div>
     @endif
 
+    {{-- Datos del documento: Nota | Proveedor | Fecha. Los 3 bloques son hijos DIRECTOS
+         del grid (el teléfono los reordena con `order` en estilos_globales). --}}
+    <div class="ent-section-title">Datos del documento — opcional</div>
     <div class="ent-form-grid">
         <div class="ent-field-group">
             <label class="ent-field-label" for="entNotaEntrega">Nota de entrega</label>
@@ -252,19 +294,19 @@
         </div>
         <div class="ent-field-group">
             <label class="ent-field-label" for="entFecha">Fecha</label>
-            <div class="ent-input" style="display:flex;align-items:center;cursor:default;"
+            <div class="ent-input" style="display:flex;align-items:center;gap:6px;cursor:default;"
                  onclick="var i=document.getElementById('entFecha'); if(i){ i.focus(); if(i.showPicker) try{i.showPicker();}catch(e){} }">
-                <input type="date" id="entFecha" style="flex:1;min-width:0;height:100%;border:none;background:transparent;padding:0;font-size:13px;outline:none;color:#0f172a;cursor:default;">
+                <i class="material-icons" style="font-size:16px;color:#64748b;">event</i>
+                <input type="date" id="entFecha" style="flex:1;min-width:0;height:100%;border:none;background:transparent;padding:0;font-size:13px;font-family:inherit;outline:none;color:#0f172a;cursor:default;">
             </div>
         </div>
     </div>
 
-    {{-- Sección de captura: título + barra + tabla --}}
-    <div class="ent-section-title" style="margin-top:20px;margin-bottom:0;">
-        Líneas de entrada
-    </div>
+    {{-- Líneas de entrada: barra de captura + tabla --}}
+    <div class="ent-section-title">Líneas de entrada</div>
     <div class="ent-capt-bar">
         <div class="ent-search-field">
+            <i class="material-icons ent-search-lupa">search</i>
             <input type="text" id="entSearch" class="ent-search-input" autocomplete="off"
                    placeholder="Buscar por código o descripción…"
                    oninput="window.entSuggest()" onfocus="window.entSuggest()" onkeydown="window.entSearchKey(event)">
@@ -283,10 +325,10 @@
         </div>
         <div class="ent-cant-stepper" title="Cantidad (Enter agrega)">
             <input type="text" inputmode="decimal" enterkeyhint="done" id="entCant" class="ent-cant-input"
-                   placeholder="Cant." autocomplete="off" onkeydown="window.entCantKey(event)">
+                   placeholder="Cant." autocomplete="off" aria-label="Cantidad" onkeydown="window.entCantKey(event)">
         </div>
-        <button type="button" class="ent-capt-add-btn" onclick="window.entAgregar()" title="Agregar línea">
-            <i class="material-icons">add</i>
+        <button type="button" class="ent-add-btn" onclick="window.entAgregar()" title="Agregar línea (Enter)">
+            <i class="material-icons">check_circle</i>
         </button>
     </div>
 
@@ -303,25 +345,21 @@
             </thead>
             <tbody id="entLineasTbody"></tbody>
         </table>
+        <div class="ent-empty" id="entEmpty">Busca un producto, escribe la cantidad y presiona Enter para agregarlo.</div>
     </div>
 
-    <div id="entError" style="display:none;margin-top:12px;padding:10px 14px;background:#fee2e2;border:1px solid #fecaca;border-radius:10px;color:#b91c1c;font-size:13.5px;font-weight:600;"></div>
+    <div id="entError" style="display:none;margin-top:12px;padding:10px 14px;background:#fee2e2;border:1px solid #fecaca;border-radius:10px;color:#b91c1c;font-size:13px;font-weight:600;"></div>
+    </div>{{-- /.ent-body --}}
+
+    {{-- Botonera centrada, como la del modal: Cancelar vacía la captura (pide confirmación
+         si hay líneas) y Registrar la guarda; ninguno sale de la página. --}}
+    <div class="ent-foot">
+        <button type="button" class="ent-btn ent-btn-cancel" onclick="window.entCancelar()">Cancelar</button>
+        <button type="button" class="ent-btn ent-btn-ok" id="entSubmit" onclick="window.entGuardar()">
+            <i class="material-icons">check_circle</i><span>Registrar<span class="ent-txt-full"> entrada</span></span>
+        </button>
+    </div>
 </div>{{-- /.ent-card --}}
-</div>{{-- /.ent-main --}}
-
-{{-- Panel lateral del lote: solo las acciones (Registrar / Cancelar), estilo checkout.
-     El cliente pidió quitar el bloque "Resumen de la entrada" (título + métricas
-     Líneas/Unidades) tanto en móvil como en PC. --}}
-<aside class="ent-summary" aria-label="Acciones de la entrada">
-    <div class="ent-summary-actions">
-        <button type="button" class="btn-primary-maquinaria" id="entSubmit" onclick="window.entGuardar()">
-            <i class="material-icons">check_circle</i> Registrar entrada
-        </button>
-        <button type="button" class="btn-primary-maquinaria btn-secondary" onclick="window.entCancelar()">
-            Cancelar
-        </button>
-    </div>
-</aside>
 </div>{{-- /.ent-layout --}}
 
 <script>
@@ -812,8 +850,10 @@
     function entRender() {
         var tb = el('entLineasTbody');
         if (!tb) return;
-        // Tbody vacio cuando no hay lineas — sin mensaje "vacio". El thead da
-        // contexto suficiente y el usuario sabe que tiene que capturar arriba.
+        // Sin líneas: el aviso de cómo agregar (#entEmpty), igual que en el modal de compra
+        // directa. Se esconde en cuanto hay una.
+        var vacio = el('entEmpty');
+        if (vacio) vacio.hidden = entLineas.length > 0;
         if (entLineas.length === 0) { tb.innerHTML = ''; return; }
         // Columnas: [Código] [Descripcion] [Cantidad + UM] [delete]. El codigo sale en
         // su propia columna (en negro, monospace); la columna "Descripcion" muestra
@@ -993,6 +1033,32 @@
         }
     };
     document.addEventListener('keydown', window.__entDocKeydown);
+})();
+
+// Menú Acciones del encabezado. Se cierra con un clic fuera, al pasar el foco a otra cosa
+// (Tab / "siguiente" del teléfono) o con Escape: un desplegable a la vez. Los listeners
+// buscan los elementos al dispararse, así que se registran UNA vez por pestaña aunque la
+// vista se vuelva a montar por la navegación SPA.
+window.entToggleAcciones = function (abrir) {
+    var menu = document.getElementById('entAccionesMenu'), btn = document.getElementById('entAccionesBtn');
+    if (!menu || !btn) return;
+    var ver = (typeof abrir === 'boolean') ? abrir : menu.hidden;
+    menu.hidden = !ver;
+    btn.setAttribute('aria-expanded', ver ? 'true' : 'false');
+};
+(function () {
+    if (window.__entAccionesBound) return;
+    window.__entAccionesBound = true;
+    var cerrarSiFuera = function (e) {
+        var menu = document.getElementById('entAccionesMenu');
+        if (menu && !menu.hidden && e.target.closest && !e.target.closest('.ent-acciones')) window.entToggleAcciones(false);
+    };
+    document.addEventListener('click', cerrarSiFuera);
+    document.addEventListener('focusin', cerrarSiFuera);
+    document.addEventListener('keydown', function (e) {
+        var menu = document.getElementById('entAccionesMenu');
+        if (e.key === 'Escape' && menu && !menu.hidden) window.entToggleAcciones(false);
+    });
 })();
 
 // Móvil: el tamaño del teclado lo decide el teléfono (no se achica por web sin perder

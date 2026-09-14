@@ -46,7 +46,7 @@
                              si fuera otro frente. Un almacén de PROYECTO sirve a VARIOS frentes,
                              así que ese segundo renglón se repite en notas de frentes distintos
                              (p. ej. PATIO EL TIGRE) y sin la palabra no se entendía qué era. --}}
-                        <span class="tr-ruta-alm" style="font-size:10.5px;color:#94a3b8;font-weight:600;line-height:1.2;margin-top:1px;white-space:nowrap;" title="Almacén que recibe físicamente">Almacén {{ optional($t->almacenDestino)->NOMBRE }}</span>
+                        <span class="tr-ruta-alm" style="font-size:10.5px;color:#475569;font-weight:600;line-height:1.2;margin-top:1px;white-space:nowrap;" title="Almacén que recibe físicamente">Almacén {{ optional($t->almacenDestino)->NOMBRE }}</span>
                     @endif
                 </div>
             </div>
@@ -54,7 +54,7 @@
         <td style="text-align:center;">
             <span class="estado-pill" style="background:{{ $e[1] }};color:{{ $e[2] }};">{{ $e[0] }}</span>
         </td>
-        <td style="font-size:12px;color:#475569;white-space:nowrap;">
+        <td style="font-size:12px;color:#1e293b;white-space:nowrap;">
             @if($t->FECHA_ENVIO)
                 {{ $t->FECHA_ENVIO->format('d/m/Y h:i A') }}
                 @if($t->esEnviado() && $horasDesdeEnvio !== null)
@@ -66,7 +66,7 @@
                     <div class="tr-fecha-rel" style="display:flex;align-items:center;justify-content:center;gap:4px;margin-top:2px;">
                         <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:{{ $e[2] }};"
                               title="{{ $horasDesdeEnvio < 24 ? 'Hace menos de 24h' : 'Hace '.intdiv($horasDesdeEnvio, 24).' día(s)' }}"></span>
-                        <span style="font-size:10.5px;color:#94a3b8;">{{ $t->FECHA_ENVIO->locale('es')->diffForHumans() }}</span>
+                        <span style="font-size:10.5px;color:#475569;">{{ $t->FECHA_ENVIO->locale('es')->diffForHumans() }}</span>
                     </div>
                 @endif
             @else

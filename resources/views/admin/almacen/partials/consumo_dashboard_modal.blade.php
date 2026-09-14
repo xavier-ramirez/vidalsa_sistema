@@ -368,6 +368,7 @@
     window.cerrarConsumoDashboard = function () {
         var m = document.getElementById('consumoDashModal');
         if (m) m.classList.remove('open');
+        window.restaurarScrollFondo();
     };
 
 
@@ -419,6 +420,8 @@
         var m = document.getElementById('consumoDashModal');
         if (!m) return;
         m.classList.add('open');
+        // Mientras está abierto, la única barra de scroll es la del modal, no la del módulo.
+        window.bloquearScrollFondo();
         window._cdashFetch();
     };
 

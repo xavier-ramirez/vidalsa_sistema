@@ -2,11 +2,12 @@
  * window.DevolucionMaterial — modal "Devolución de material"
  * (resources/views/admin/almacen/partials/devolucion_modal.blade.php).
  *
- * Flujo: se busca la Nota de Entrega → se muestran sus productos con lo entregado y lo
- * que falta por devolver → el usuario pone cuánto vuelve de cada uno y, si se entrega
- * otro a cambio (otra talla), lo elige al lado → POST. Si hubo cambio, se abre la Nota
- * nueva para firmarla. Las reglas (no devolver de más, fecha, stock del cambio) las
- * decide el servidor (App\Services\DevolucionService); aquí solo se guía.
+ * Flujo: se abre desde una salida del Historial de Movimientos, con su Nota de Entrega y ese
+ * producto (solo ese: el servidor filtra por id_producto) → se muestra lo entregado y lo que
+ * falta por devolver → el usuario pone cuánto vuelve y, si se entrega otro a cambio (otra
+ * talla), lo elige al lado —con el stock que hay de cada opción— → POST, con la fecha de hoy.
+ * Si hubo cambio, se abre la Nota nueva para firmarla. Las reglas (no devolver de más, stock
+ * del cambio) las decide el servidor (App\Services\DevolucionService); aquí solo se guía.
  *
  * Se carga bajo demanda (cargarScriptUnaVez) desde window.almAbrirDevolucion, así que
  * las pantallas que nunca devuelven nada no lo descargan. Los listeners van sobre el
@@ -43,37 +44,30 @@
     }
 
     // ── Abrir / cerrar ───────────────────────────────────────────────────────
-    function abrir(numero) {
+    // idProducto: el del movimiento desde el que se abrió; la devolución es solo de ese producto.
+    function abrir(numero, idProducto) {
         var m = modal(); if (!m) return;
         estado.nota = null;
-        $('devMatNumero').value = numero || '';
         $('devMatContenido').hidden = true;
         $('devMatGuardar').disabled = true;
-        cerrarSugerenciasNota();
         mensaje('');
         m.classList.add('open');
-        document.body.style.overflow = 'hidden';
+        w.bloquearScrollFondo();
         cargarProductos();
-        if (numero) buscar();
-        else setTimeout(function () { var i = $('devMatNumero'); if (i) i.focus(); }, 60);
+        cargarNota(numero, idProducto);
     }
 
     function cerrar() {
         var m = modal(); if (!m) return;
         m.classList.remove('open');
-        document.body.style.overflow = '';
+        w.restaurarScrollFondo();
     }
 
-    // ── Buscar la nota ───────────────────────────────────────────────────────
-    function buscar() {
-        var numero = String($('devMatNumero').value || '').trim().toUpperCase();
-        cerrarSugerenciasNota();
-        if (!numero) { mensaje('Escribe el N° de la Nota de Entrega.'); return; }
-        mensaje('Buscando la nota ' + esc(numero) + '…', 'info');
-        $('devMatContenido').hidden = true;
-        $('devMatGuardar').disabled = true;
+    // ── Cargar la nota ───────────────────────────────────────────────────────
+    function cargarNota(numero, idProducto) {
+        mensaje('Cargando la nota ' + esc(numero) + '…', 'info');
 
-        w.apiFetch(modal().dataset.urlShow + '?numero=' + encodeURIComponent(numero), {
+        w.apiFetch(modal().dataset.urlShow + '?numero=' + encodeURIComponent(numero) + (idProducto ? '&id_producto=' + encodeURIComponent(idProducto) : ''), {
             headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
         })
             .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { return { ok: r.ok, d: d }; }); })
@@ -85,9 +79,13 @@
             .catch(function () { mensaje('No se pudo contactar al servidor. La devolución necesita conexión.'); });
     }
 
+    // Stock del producto en el almacén de la nota (el servidor manda solo los que tienen).
+    function stockDe(idProducto) {
+        return Number((estado.nota.saldos || {})[idProducto]) || 0;
+    }
+
     function pintar(nota) {
         estado.nota = nota;
-        $('devMatNumero').value = nota.numero;
 
         var info = [
             '<span>Nota <b>' + esc(nota.numero) + '</b></span>',
@@ -115,17 +113,13 @@
                 + '</div>';
         }).join('');
 
-        // Fecha: hoy por defecto; ni antes de la nota ni futura (el servidor lo vuelve a exigir).
-        var f = $('devMatFecha');
-        f.min = nota.fecha_min || '';
-        f.max = nota.hoy || '';
-        f.value = nota.hoy || '';
         $('devMatMotivo').value = '';
 
         var h = $('devMatHistorial');
+        var unoSolo = nota.lineas.length === 1;   // el producto ya está arriba: no se repite
         if (nota.historial && nota.historial.length) {
-            h.innerHTML = '<b>Devoluciones anteriores de esta nota</b><ul>' + nota.historial.map(function (d) {
-                return '<li>' + esc(d.fecha) + ' · ' + num(d.cantidad) + ' ' + esc(d.um || '') + ' de ' + esc(d.producto)
+            h.innerHTML = '<b>Devoluciones anteriores</b><ul>' + nota.historial.map(function (d) {
+                return '<li>' + esc(d.fecha) + ' · ' + num(d.cantidad) + ' ' + esc(d.um || '') + (unoSolo ? '' : ' de ' + esc(d.producto))
                     + (d.motivo ? ' — ' + esc(d.motivo) : '') + (d.usuario ? ' <span class="devm-quien">(' + esc(d.usuario) + ')</span>' : '') + '</li>';
             }).join('') + '</ul>';
             h.hidden = false;
@@ -135,7 +129,7 @@
 
         $('devMatContenido').hidden = false;
         if (!nota.lineas.some(function (l) { return l.pendiente > EPS; })) {
-            mensaje('Todo lo entregado con esta nota ya se devolvió.', 'info');
+            mensaje(unoSolo ? 'Ya se devolvió todo lo que se entregó de este producto.' : 'Ya se devolvió todo lo que se entregó con esta nota.', 'info');
         }
         actualizarBoton();
         var primero = document.querySelector('#devMatLineas [data-dev-cant]');
@@ -158,11 +152,6 @@
 
     function cargarProductos() {
         if (estado.productos) return Promise.resolve(estado.productos);
-        // La bitácora ya descarga el catálogo para su buscador: si está, se reutiliza.
-        if (Array.isArray(w.almMovProductosLista) && w.almMovProductosLista.length) {
-            estado.productos = w.almMovProductosLista;
-            return Promise.resolve(estado.productos);
-        }
         // Un fallo NO se guarda: resuelve null y la próxima búsqueda vuelve a pedirlo. Guardar
         // una lista vacía la dejaba así hasta recargar la página (el módulo sobrevive a la SPA).
         if (!estado.productosCargando) {
@@ -197,15 +186,21 @@
             return;
         }
         // Sin escribir nada se sugieren los PARECIDOS al que se devuelve: para cambiar la
-        // talla, las otras tallas salen solas arriba.
+        // talla, las otras tallas salen solas arriba. Los que no tienen stock en el almacén
+        // de la nota van al final y no se pueden elegir: no habría qué entregar.
         var lista = w.ProductoSuggest.rankear(estado.productos, termino || linea.nombre)
             .filter(function (p) { return Number(p.ID_PRODUCTO) !== Number(linea.id_producto); })
             .slice(0, MAX_SUGERENCIAS);
+        lista = lista.filter(function (p) { return stockDe(p.ID_PRODUCTO) > EPS; })
+            .concat(lista.filter(function (p) { return stockDe(p.ID_PRODUCTO) <= EPS; }));
 
         caja.innerHTML = lista.length
             ? lista.map(function (p) {
-                return '<div class="devm-sug-item" data-dev-elegir="' + i + '" data-id="' + p.ID_PRODUCTO + '">'
-                    + esc(p.NOMBRE) + '<small>' + esc(p.UM || '') + (p.CODIGO ? ' · ' + esc(p.CODIGO) : '') + '</small></div>';
+                var stock = stockDe(p.ID_PRODUCTO);
+                var hay = stock > EPS;
+                return '<div class="devm-sug-item' + (hay ? '' : ' sin-stock') + '"' + (hay ? ' data-dev-elegir="' + i + '" data-id="' + p.ID_PRODUCTO + '"' : '') + '>'
+                    + esc(p.NOMBRE) + '<small>' + esc(p.UM || '') + (p.CODIGO ? ' · ' + esc(p.CODIGO) : '') + '</small>'
+                    + '<span class="devm-sug-stock">' + (hay ? 'Stock: ' + num(stock) + ' ' + esc(p.UM || '') : 'Sin stock en ' + esc(estado.nota.almacen || 'este almacén')) + '</span></div>';
             }).join('')
             : '<div class="devm-sug-vacio">Sin coincidencias.</div>';
         caja.classList.add('open');
@@ -259,14 +254,20 @@
 
     function guardar() {
         if (estado.guardando || !estado.nota) return;
-        var lineas = lineasAEnviar();
-        if (!lineas.length) { mensaje('Indica cuánto se devuelve de al menos un producto.'); return; }
+        var lineas = lineasAEnviar();   // el botón solo se activa con alguna cantidad
 
         // Aviso temprano de lo más común; el servidor lo vuelve a comprobar con la nota bloqueada.
         for (var k = 0; k < lineas.length; k++) {
             var l = estado.nota.lineas.find(function (x) { return x.id_producto === lineas[k].id_producto; });
             if (l && lineas[k].cantidad > l.pendiente + EPS) {
                 mensaje('De «' + esc(l.nombre) + '» quedan ' + num(l.pendiente) + ' ' + esc(l.um || '') + ' por devolver.');
+                return;
+            }
+            var cambio = l && l.cambio;
+            var aEntregar = lineas[k].cantidad_cambio || lineas[k].cantidad;
+            if (cambio && aEntregar > stockDe(cambio.ID_PRODUCTO) + EPS) {
+                mensaje('De «' + esc(cambio.NOMBRE) + '» hay ' + num(stockDe(cambio.ID_PRODUCTO)) + ' ' + esc(cambio.UM || '')
+                    + ' en ' + esc(estado.nota.almacen || 'este almacén') + ': no alcanza para entregar ' + num(aEntregar) + ' a cambio.');
                 return;
             }
         }
@@ -282,7 +283,6 @@
             headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 numero: estado.nota.numero,
-                fecha: $('devMatFecha').value || null,
                 motivo: $('devMatMotivo').value.trim() || null,
                 lineas: lineas,
             })
@@ -296,8 +296,7 @@
                 }
                 w.toast(res.d.message || 'Devolución registrada.', 'success');
                 cerrar();
-                if ($('almMovTableBody') && typeof w.loadMovimientos === 'function') w.loadMovimientos();
-                if ($('almNotTableBody') && typeof w.loadNotas === 'function') w.loadNotas();
+                w.loadMovimientos();   // la fila deja de ofrecer "Devolver" si ya volvió todo
                 // Lo entregado a cambio salió con una nota nueva: se abre para firmarla.
                 if (res.d.nota_url && typeof w.openPdfPreview === 'function') {
                     w.openPdfPreview(res.d.nota_url, 'nota_entrega', 'Nota ' + res.d.numero_nota, 0, '', true, 'almacen');
@@ -311,29 +310,12 @@
             });
     }
 
-    // ── Sugerencias de N° de nota (la bitácora publica la lista en almMovNotasFiltro) ──
-    function sugerirNota() {
-        var input = $('devMatNumero'), caja = $('devMatSug');
-        var lista = w.almMovNotasFiltro || [];
-        var q = String(input.value || '').trim().toUpperCase();
-        if (!q || !lista.length) { cerrarSugerenciasNota(); return; }
-        var hallados = lista.filter(function (n) { return String(n).toUpperCase().indexOf(q) !== -1; }).slice(0, 6);
-        if (!hallados.length) { cerrarSugerenciasNota(); return; }
-        caja.innerHTML = hallados.map(function (n) {
-            return '<div class="devm-sug-item" data-dev-nota="' + esc(n) + '">' + esc(n) + '</div>';
-        }).join('');
-        caja.classList.add('open');
-    }
-    function cerrarSugerenciasNota() { var c = $('devMatSug'); if (c) c.classList.remove('open'); }
-
     // ── Eventos (delegados en el documento: sobreviven al reemplazo SPA del HTML) ──
     document.addEventListener('click', function (e) {
         if (!modal() || !modal().classList.contains('open')) return;
         var t = e.target;
         var el;
-        if ((el = t.closest('#devMatBuscarBtn'))) { buscar(); return; }
         if ((el = t.closest('#devMatGuardar'))) { guardar(); return; }
-        if ((el = t.closest('[data-dev-nota]'))) { $('devMatNumero').value = el.getAttribute('data-dev-nota'); buscar(); return; }
         if ((el = t.closest('[data-dev-todo]'))) {
             var i = el.getAttribute('data-dev-todo');
             var inp = document.querySelector('[data-dev-cant="' + i + '"]');
@@ -349,8 +331,7 @@
             }
             return;
         }
-        // Clic fuera de un buscador: se cierran sus sugerencias.
-        if (!t.closest('.devm-buscar')) cerrarSugerenciasNota();
+        // Clic fuera de un buscador de producto: se cierran sus sugerencias.
         document.querySelectorAll('#devMatModal .devm-cambio .devm-sug.open').forEach(function (c) {
             if (!c.parentNode.contains(t)) c.classList.remove('open');
         });
@@ -359,7 +340,6 @@
     document.addEventListener('input', function (e) {
         var t = e.target;
         if (!t.closest || !t.closest('#devMatModal')) return;
-        if (t.id === 'devMatNumero') { sugerirNota(); return; }
         if (t.hasAttribute('data-dev-buscar')) { sugerirCambio(t.getAttribute('data-dev-buscar')); return; }
         if (t.hasAttribute('data-dev-cant') || t.hasAttribute('data-dev-cantcambio')) actualizarBoton();
     });
@@ -380,7 +360,6 @@
             if (abierta) abierta.classList.remove('open'); else cerrar();
             return;
         }
-        if (e.key === 'Enter' && e.target.id === 'devMatNumero') { e.preventDefault(); buscar(); return; }
         if (e.key === 'Enter' && e.target.hasAttribute && e.target.hasAttribute('data-dev-buscar')) {
             e.preventDefault();
             var primero = e.target.parentNode.querySelector('[data-dev-elegir]');

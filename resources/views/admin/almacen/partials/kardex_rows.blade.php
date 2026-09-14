@@ -19,6 +19,14 @@
     // N° de Nota que siguen vigentes entre los que traen las devoluciones de esta pagina
     // (ver $numNota abajo): una nota eliminada ya no tiene PDF que abrir.
     $notasVigentes = \App\Models\MovimientoInventario::notasVigentesDeDevoluciones($rows);
+
+    // Lo que queda por devolver de cada SALIDA con nota de esta página (una consulta): la
+    // fila solo ofrece "Devolver" mientras quede algo. Un envío a otro almacén no se
+    // devuelve desde aquí (DevolucionService::motivoNoDevolvible).
+    $porDevolver = \App\Models\MovimientoInventario::porDevolver(
+        $rows->filter(fn ($m) => $m->TIPO === \App\Models\MovimientoInventario::TIPO_SALIDA && $m->NUMERO_NOTA)
+    );
+    $puedeDevolver = auth()->user()?->can('almacen.movimiento') ?? false;
 @endphp
 
 @if($rows->count() === 0)
@@ -174,7 +182,7 @@
                     {{-- Mismo visor in-page que usa /admin/almacen/notas y el resto del módulo
                          (#pdfPreviewModal vía window.openPdfPreview). Conserva fallback a abrir
                          en pestaña nueva si el layout no provee la función. --}}
-                    {{-- El icono `description` (mismo del menú Acciones → "Bitácora por Nota (PDF)")
+                    {{-- El icono `description` (mismo del menú Acciones → "Historial de Notas de Entrega")
                          marca que el enlace abre un DOCUMENTO. Acompaña al número en escritorio;
                          en la tarjeta móvil el CSS oculta el número y deja solo el icono, que es
                          ahí el único punto que abre el PDF.
@@ -187,6 +195,16 @@
                        onclick="if (typeof window.openPdfPreview === 'function') { event.preventDefault(); window.openPdfPreview(this.dataset.pdfUrl, 'nota_entrega', this.dataset.pdfTitle, 0, '', true, 'almacen'); }"
                        target="_blank" rel="noopener"
                        title="Ver Nota de Entrega (PDF)"><i class="material-icons mv-nota-ico">description</i><span class="mv-nota-num">{{ $numNota }}</span></a>
+                @endif
+                @if($puedeDevolver && ($porDevolver[$m->ID_MOVIMIENTO] ?? 0) > \App\Services\InventarioService::EPS)
+                    {{-- Devolución de lo entregado con la nota (partials/devolucion_modal): abre
+                         con la nota y este producto listos. No es el "deshacer" de super.admin de
+                         más abajo: aquel borra el movimiento; esto registra que el material volvió. --}}
+                    <button type="button" class="mv-undo-btn mv-devolver"
+                            onclick="event.stopPropagation(); window.almAbrirDevolucion('{{ $m->NUMERO_NOTA }}', {{ (int) $m->ID_PRODUCTO }});"
+                            title="Registrar lo que vuelve al almacén de la Nota {{ $m->NUMERO_NOTA }}">
+                        <i class="material-icons">undo</i><span>Devolver</span>
+                    </button>
                 @endif
                 @if($m->esStockInicial())
                     {{-- Entrada que se registra al crear el producto con cantidad inicial. --}}

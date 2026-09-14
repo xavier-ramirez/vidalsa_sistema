@@ -68,7 +68,9 @@
         <tr class="alm-row {{ $bajo ? 'alm-row-bajo' : '' }} alm-row-clickable"
             data-id-producto="{{ $p->ID_PRODUCTO }}" data-codigo="{{ $p->CODIGO }}" data-nombre="{{ $p->NOMBRE }}" data-um="{{ $p->UM }}" data-saldo="{{ $saldo }}"
             data-bajo="{{ $bajo ? '1' : '0' }}" data-minimo="{{ $minimo !== null ? $minimo : '' }}"
-            @if($equivs) data-equiv="{{ implode('|', $equivs) }}" data-parte-sel="{{ $equivs[0] }}" @endif
+            {{-- Con UNA equivalencia es esa; con varias, el almacenista elige cuál entrega
+                 (almRowPartePick) antes de poder poner la cantidad. --}}
+            @if($equivs) data-equiv="{{ implode('|', $equivs) }}" data-parte-sel="{{ count($equivs) === 1 ? $equivs[0] : '' }}" @endif
             {{-- Bolsa de la que sale el material de ESTA fila. Vacío = automático (la del
                  proyecto destino de la nota). Solo la escriben las filas con desglose: si el
                  saldo tiene un dueño único no hay nada que elegir. Lo mismo que data-parte-sel
@@ -91,11 +93,12 @@
                     @if(count($equivs) > 1)
                         {{-- Números de parte CLICKEABLES: al registrar una SALIDA, haz clic en el
                              que entregas — se resalta (subrayado + negrita) y ESE sale en la Nota
-                             de Entrega y en la bitácora. El primero (principal) va marcado por
-                             defecto. data-no-toggle: el clic NO togglea la selección de la fila. --}}
+                             de Entrega y en la bitácora. Ninguno va marcado de antemano: al
+                             seleccionar la fila se pide elegir uno (.alm-row-pide-parte).
+                             data-no-toggle: el clic NO togglea la selección de la fila. --}}
                         <div class="alm-parte-list" data-no-toggle>
-                            @foreach($equivs as $i => $np)
-                                <span class="alm-parte-opt{{ $i === 0 ? ' alm-parte-on' : '' }}" data-no-toggle data-parte="{{ $np }}"
+                            @foreach($equivs as $np)
+                                <span class="alm-parte-opt" data-no-toggle data-parte="{{ $np }}"
                                       onclick="window.almRowPartePick && window.almRowPartePick(this)">{{ $np }}</span>@unless($loop->last)<span class="alm-parte-sep"> · </span>@endunless
                             @endforeach
                         </div>
