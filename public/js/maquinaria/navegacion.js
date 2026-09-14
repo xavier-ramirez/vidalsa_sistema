@@ -152,6 +152,23 @@ document.addEventListener('DOMContentLoaded', () => {
         precargar(link.href);
     });
 
+    // Una capa del módulo anterior que bloqueaba el scroll del fondo (el detalle de un equipo,
+    // las alertas del menú, un modal) se va con él sin cerrarse cuando se navega con ella
+    // abierta —o con el botón Atrás— y dejaba html/body en overflow:hidden: el módulo nuevo no
+    // se podía desplazar. Se libera al cambiar de módulo, antes de montar el nuevo. El visor de
+    // PDF vive en el layout y sigue abierto: si guardó cómo estaba el fondo al abrirse
+    // (_pdfOverflowPrev, layout_ui.js) conserva su bloqueo, pero lo de detrás ya no está, así
+    // que al cerrarlo el fondo tiene que quedar libre.
+    function liberarScrollDelFondo() {
+        const visor = document.getElementById('pdfPreviewModal');
+        if (visor && visor.classList.contains('active') && window._pdfOverflowPrev) {
+            window._pdfOverflowPrev = { html: '', body: '' };
+            return;
+        }
+        document.documentElement.style.overflow = '';
+        document.body.style.overflow = '';
+    }
+
     // Handle back/forward buttons
     window.addEventListener('popstate', () => {
         loadPage(window.location.href, false);
@@ -464,6 +481,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const titleEl = doc.querySelector('title');
             document.title = titleEl ? titleEl.innerText : document.title;
             mainViewport.innerHTML = newContent.innerHTML;
+            liberarScrollDelFondo();
 
             // Re-ejecutar scripts del contenido inyectado EN ORDEN y esperando
             // cada externo (CDN) antes de continuar — crítico para Chart.js, etc.
