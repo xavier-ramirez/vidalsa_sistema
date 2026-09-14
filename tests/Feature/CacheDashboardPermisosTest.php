@@ -8,11 +8,12 @@ use Tests\MySqlTestCase;
 /**
  * Cambiar las casillas de alertas de un usuario tiene que verse YA en su tablero.
  *
- * El payload de /menu se cachea 10 minutos con clave dashboard_user_data_{id}_v{ver}. Esa
- * versión la bumpean los observers de Equipo/Documentacion/FrenteTrabajo, y editar un
- * USUARIO no toca ninguna de esas tablas: quien marcaba "ver Pólizas" seguía viendo la
- * lista anterior —con los tipos que ya no le tocaban— y el número del badge tampoco se
- * movía. Se reportó exactamente así: "puse el permiso de pólizas y me salen 6 de ROTC y
+ * El tablero de /menu se cachea 10 minutos con una clave por usuario y versión
+ * (DashboardController::claveCache), y su lista de Alertas también. Esa versión la
+ * bumpean los observers de Equipo/Documentacion/FrenteTrabajo, y editar un USUARIO no
+ * toca ninguna de esas tablas: quien marcaba "ver Pólizas" seguía viendo la lista
+ * anterior —con los tipos que ya no le tocaban— y el número del badge tampoco se movía.
+ * Se reportó exactamente así: "puse el permiso de pólizas y me salen 6 de ROTC y
  * Certificado".
  *
  * La clave lleva ahora una huella de los permisos y los frentes del usuario.
@@ -31,14 +32,19 @@ class CacheDashboardPermisosTest extends MySqlTestCase
         return $u;
     }
 
-    /** Cuenta las alertas que el tablero le entrega al usuario, por el camino real (/menu). */
+    /**
+     * Cuenta las alertas que el tablero le entrega al usuario, por el camino real: el panel
+     * que el menú pide en segundo plano (/dashboard/alerts-html). El tipo de cada tarjeta va
+     * en su data-doc-type.
+     */
     private function alertasEnElTablero(Usuario $u): array
     {
-        $datos = $this->actingAs($u)->get('/menu')->assertOk()->original->getData();
+        $datos = $this->actingAs($u)->getJson(route('dashboard.alertsHtml'))->assertOk()->json();
+        preg_match_all('/class="alert-card"\s+data-doc-type="([^"]+)"/', $datos['html'], $m);
 
         return [
-            'total' => $datos['totalAlerts'] ?? null,
-            'tipos' => collect($datos['expiredList'] ?? [])->groupBy('type_key')->map->count()->toArray(),
+            'total' => $datos['totalAlerts'],
+            'tipos' => array_count_values($m[1]),
         ];
     }
 

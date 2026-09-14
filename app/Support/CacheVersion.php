@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Cache;
 
 /**
  * Versiones monotónicas para cachés "versionadas": la versión viaja EN la clave
- * (p.ej. "dashboard_user_data_{id}_v{n}"), así un bump() invalida de golpe las
+ * (p.ej. "dashboard_resumen_{id}_v{n}_{huella}"), así un bump() invalida de golpe las
  * entradas de TODOS los usuarios sin conocer sus claves. Fuente única del idioma
  * add-or-increment (Cache::increment sobre una clave inexistente no la crea en
  * todos los drivers — por eso el Cache::add previo).

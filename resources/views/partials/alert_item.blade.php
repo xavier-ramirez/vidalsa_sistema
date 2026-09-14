@@ -111,8 +111,7 @@
             data-link-adicional="{{ $alert->equipo->documentacion->LINK_DOC_ADICIONAL ?? '' }}"
             {{-- FECHA_ADICIONAL (Certificado) está casteada a Carbon → formatear a Y-m-d para
                  que el modal de detalles la muestre. Faltaba este data-* y por eso la fecha
-                 del certificado salía vacía al abrir el detalle desde el panel de Alertas
-                 (en /menu no hay window.equiposData; el modal lee solo estos data-*). --}}
+                 del certificado salía vacía al abrir el detalle desde el panel de Alertas. --}}
             data-fecha-adicional="{{ optional($alert->equipo->documentacion)->FECHA_ADICIONAL ? \Carbon\Carbon::parse($alert->equipo->documentacion->FECHA_ADICIONAL)->format('Y-m-d') : '' }}"
             data-link-gps="{{ $alert->equipo->LINK_GPS ?? '' }}"
             onclick="showDetailsImproved(this, event)"

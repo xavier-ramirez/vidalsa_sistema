@@ -1038,12 +1038,13 @@
                     <div class="alertas-card" onclick="toggleExpiredDocs()" role="button" tabindex="0"
                          onkeydown="if(event.key==='Enter'||event.key===' ') { event.preventDefault(); toggleExpiredDocs(); }">
                         <div class="alertas-card-icon">
-                            <i class="material-icons {{ $totalAlerts > 0 ? 'bell-shake' : '' }}">notifications_active</i>
+                            <i class="material-icons {{ ($totalAlerts ?? 0) > 0 ? 'bell-shake' : '' }}">notifications_active</i>
                         </div>
                         <div class="alertas-card-body">
                             <span class="alertas-card-label">Alertas Documentos</span>
                             <div class="alertas-card-main">
-                                <span class="alertas-card-value">{{ $totalAlerts }}</span>
+                                {{-- "…" hasta que llegue la lista, si su total aún no estaba en caché. --}}
+                                <span class="alertas-card-value">{{ $totalAlerts ?? '…' }}</span>
                                 <span class="alertas-card-sub">Por Renovar</span>
                             </div>
                         </div>
@@ -1085,8 +1086,14 @@
                             </div>
                         </div>
                         <div class="alertas-panel-body">
-                            <div id="dashboardAlertsList">
-                                @include('partials.dashboard_alerts')
+                            {{-- La lista llega en segundo plano, con el menú ya a la vista
+                                 (menu.js · cargarAlertasDashboard). data-clave: la de sus datos,
+                                 para reutilizar la de la visita anterior mientras no cambie. --}}
+                            <div id="dashboardAlertsList" data-clave="{{ $claveAlertas }}">
+                                <div class="empty-state js-alertas-cargando">
+                                    <i class="material-icons" style="animation: spin-mini .8s linear infinite;">refresh</i>
+                                    <p>Cargando alertas…</p>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1346,10 +1353,14 @@
          .main-viewport y window.descargarReporteAlertas sería undefined tras
          navegar via SPA. --}}
     <script>
-        // Seed window.equiposData con los equipos de las Alertas, para que el modal de
-        // detalles abierto desde /menu muestre TODOS los campos (foto, anclaje, certificado,
-        // etc.) igual que en /admin/equipos. Object.assign = SPA-safe (no pisa lo existente).
-        window.equiposData = Object.assign(window.equiposData || {}, @json($equiposData ?? []));
+        // Las Alertas de Documentos llegan en segundo plano, con el menú ya a la vista. En una
+        // carga completa (tras el login, al recargar) menu.js va al final del body y aún no
+        // llegó: se espera al DOM. Por la navegación de la app ya está cargado.
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', function () { window.cargarAlertasDashboard(); });
+        } else {
+            window.cargarAlertasDashboard();
+        }
 
         // Animación del modal de recepción directa
         (function () {
@@ -1387,9 +1398,9 @@
         //
         // La tabla vive DENTRO de la función y no en el bloque: este <script> se re-ejecuta
         // en cada vuelta a /menu por SPA (ver el comentario de arriba), y un `const` suelto
-        // reventaba la segunda ejecución entera con "Identifier has already been declared"
-        // —dejando window.equiposData sin actualizar—. Por eso todo aquí cuelga de window
-        // o vive dentro de una función. Rearmar dos objetos por clic no cuesta nada.
+        // reventaba la segunda ejecución entera con "Identifier has already been declared".
+        // Por eso todo aquí cuelga de window o vive dentro de una función. Rearmar dos
+        // objetos por clic no cuesta nada.
         window.descargarReporteAlertas = async function (btn, url, formato) {
             if (btn && btn.disabled) return;
 

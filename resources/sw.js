@@ -114,6 +114,23 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
+    // Panel de Alertas del menú: el menú lo pide en segundo plano (menu.js ·
+    // refreshDashboardAlerts). Red primero y, sin conexión, la última lista que llegó —como
+    // antes, cuando venía dentro del HTML cacheado de /menu—. Una sola entrada, sin el ?t=
+    // con que se pide.
+    if (url.pathname === '/dashboard/alerts-html') {
+        event.respondWith(
+            fetch(request).then((response) => {
+                if (response && response.ok) {
+                    const copy = response.clone();
+                    caches.open(RUNTIME_CACHE).then((cache) => cache.put('/dashboard/alerts-html', copy)).catch(() => {});
+                }
+                return response;
+            }).catch(() => caches.match('/dashboard/alerts-html').then((cached) => cached || Response.error()))
+        );
+        return;
+    }
+
     const isStaticAsset =
         url.pathname.startsWith('/icons/') ||
         url.pathname.startsWith('/css/') ||

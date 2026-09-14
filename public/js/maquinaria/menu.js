@@ -50,7 +50,36 @@ if (!window._alertasModalEscHandler) {
 // Event Delegation para "Gestionar" fue reemplazada por onclick directo
 // usando window.iniciarGestionCustom para evitar conflictos de propagación.
 
-// Function to refresh alerts list via AJAX without page reload
+// Contador "Por Renovar" de la card + campanita. Misma regla que menu.blade.php: solo se
+// agita si queda algo por renovar.
+function pintarTotalAlertas(total) {
+    const totalBadge = document.querySelector('.alertas-card-value');
+    if (totalBadge) totalBadge.innerText = total;
+    const bell = document.querySelector('.alertas-card-icon .material-icons');
+    if (bell) bell.classList.toggle('bell-shake', total > 0);
+}
+
+// Pone la lista que devuelve /dashboard/alerts-html (DashboardController::getAlertsHtml) y
+// la guarda, ya montada, para la visita siguiente (cargarAlertasDashboard).
+function aplicarAlertasDashboard(listContainer, data) {
+    // Los datos del detalle de sus equipos: abierto desde el panel, el detalle sale completo
+    // (showDetailsImproved mezcla estos con los data-* de la tarjeta).
+    window.equiposData = Object.assign(window.equiposData || {}, data.equiposData || {});
+    listContainer.innerHTML = data.html;
+    listContainer.style.opacity = '0';
+    setTimeout(() => {
+        listContainer.style.transition = 'opacity 0.3s ease';
+        listContainer.style.opacity = '1';
+    }, 50);
+    pintarTotalAlertas(data.totalAlerts);
+    window.__alertasDashboard = { clave: data.clave, total: data.totalAlerts, lista: listContainer };
+    // Si ya se estaba buscando algo mientras llegaba la lista, el filtro se aplica a la nueva.
+    const busca = document.getElementById('alertSearch');
+    if (busca && busca.value.trim()) window.filterDashboardAlerts();
+}
+
+// Pide la lista de alertas y la pone. La usan la carga del menú y cada cambio de un
+// documento (subir, renovar, iniciar gestión).
 window.refreshDashboardAlerts = async function () {
     const listContainer = document.getElementById('dashboardAlertsList');
     if (!listContainer) return;
@@ -59,35 +88,43 @@ window.refreshDashboardAlerts = async function () {
         // Add timestamp to prevent browser caching
         const response = await window.apiFetch(`/dashboard/alerts-html?t=${Date.now()}`);
         if (!response.ok) throw new Error('Network response was not ok');
-
-        const data = await response.json();
-
-        // Update List HTML — use !== undefined to handle empty list (all docs up to date)
-        if (data.html !== undefined) {
-            listContainer.innerHTML = data.html;
-            // Re-apply fade-in effect if desired
-            listContainer.style.opacity = '0';
-            setTimeout(() => {
-                listContainer.style.transition = 'opacity 0.3s ease';
-                listContainer.style.opacity = '1';
-            }, 50);
-        }
-
-        // Contador "Por Renovar" de la card + campanita. La clase es .alertas-card-value
-        // (el rediseño del dashboard renombró la vieja .card-yellow .card-value, que ya
-        // no existe en el blade: con el selector viejo el número se quedaba congelado
-        // hasta recargar la página aunque la lista sí se refrescara).
-        if (data.totalAlerts !== undefined) {
-            const totalBadge = document.querySelector('.alertas-card-value');
-            if (totalBadge) totalBadge.innerText = data.totalAlerts;
-            // Misma regla que menu.blade.php: solo se agita si queda algo por renovar.
-            const bell = document.querySelector('.alertas-card-icon .material-icons');
-            if (bell) bell.classList.toggle('bell-shake', data.totalAlerts > 0);
-        }
-
+        aplicarAlertasDashboard(listContainer, await response.json());
     } catch (error) {
         console.error('Failed to refresh dashboard alerts:', error);
+        // En la primera carga (aún dice "Cargando alertas…") se avisa y se puede reintentar;
+        // en un refresco se queda la lista que había.
+        const cargando = listContainer.querySelector('.js-alertas-cargando');
+        if (cargando) {
+            cargando.innerHTML = '<i class="material-icons">cloud_off</i><p>No se pudieron cargar las alertas.</p>'
+                + '<button type="button" class="alertas-header-btn" onclick="window.refreshDashboardAlerts()" title="Reintentar">'
+                + '<i class="material-icons">refresh</i></button>';
+        }
     }
+};
+
+// Alertas de Documentos EN SEGUNDO PLANO. El menú llega sin su lista (DashboardController::
+// index) y la pone aquí, con el menú ya a la vista: la pide al servidor o, si la clave de sus
+// datos (usuario + versión + permisos y frentes) es la de la visita anterior, mueve la lista
+// que ya estaba montada, sin pedirla ni volver a construirla.
+window.cargarAlertasDashboard = function () {
+    const lista = document.getElementById('dashboardAlertsList');
+    if (!lista) return;
+    const previa = window.__alertasDashboard;
+    const poner = function () {
+        if (!lista.isConnected) return;   // se salió del menú antes de tiempo
+        if (previa && previa.clave === lista.dataset.clave) {
+            if (previa.lista !== lista) {
+                lista.replaceChildren(...previa.lista.childNodes);
+                previa.lista = lista;
+            }
+            pintarTotalAlertas(previa.total);
+            return;
+        }
+        window.refreshDashboardAlerts();
+    };
+    // Después del primer pintado: el menú se ve primero y la lista no compite con él.
+    if (typeof window.requestIdleCallback === 'function') window.requestIdleCallback(poner, { timeout: 1000 });
+    else setTimeout(poner, 150);
 };
 
 // Function to filter dashboard alerts by search input

@@ -29,48 +29,25 @@ class DashboardController extends Controller
 
     public function index()
     {
-        $user      = auth()->user();
         [$frentesVisibles, $frentesBloqueados] = $this->frentesDelUsuario();
-        $userId    = $user ? $user->ID_USUARIO : 'guest';
+        $clave = $this->claveCache($frentesVisibles, $frentesBloqueados);
 
-        // Clave por usuario (los datos van acotados a sus frentes) + versión
-        // global (ver DATA_VER_KEY): TTL largo sin sacrificar frescura.
-        //
-        // Y una HUELLA de lo que ese usuario puede ver. La versión global la bumpean los
-        // observers de Equipo/Documentacion/FrenteTrabajo, pero editar un USUARIO no toca
-        // ninguna de esas tablas: al marcarle "ver Pólizas" su panel seguía sirviendo la
-        // lista de antes hasta 10 minutos —con los tipos que ya no le tocan— y el número
-        // del badge tampoco se movía. Metiendo en la clave los frentes visibles, los
-        // bloqueados y sus claves de permiso, cambiar cualquiera de los tres da una clave
-        // distinta y el panel se rehace en la siguiente carga.
-        $ver = \App\Support\CacheVersion::current(self::DATA_VER_KEY);
-
-        $permisosUser = array_values(array_map(
-            fn ($c) => strtolower(trim((string) $c)),
-            array_filter((array) ($user->PERMISOS ?? []), 'is_string')
-        ));
-        sort($permisosUser);   // el orden en que se marcaron no cambia lo que ve
-
-        $huella = substr(sha1(json_encode([$frentesVisibles, $frentesBloqueados, $permisosUser])), 0, 10);
-
-        $cacheKey = "dashboard_user_data_{$userId}_v{$ver}_{$huella}";
-
-        $data = \Illuminate\Support\Facades\Cache::remember($cacheKey, now()->addMinutes(10), function () use ($frentesVisibles, $frentesBloqueados) {
+        // Lo que el menú pinta al abrirse. La lista de Alertas NO va aquí: la pide el menú en
+        // segundo plano cuando ya se ve (getAlertsHtml, menu.js · cargarAlertasDashboard).
+        // Pintada en la página pesaba 900 KB y 3.400 elementos que se montaban en cada visita
+        // aunque el panel estuviera cerrado, y su caché (2,4 MB) se leía entera cada vez.
+        $data = \Illuminate\Support\Facades\Cache::remember("dashboard_resumen_{$clave}", now()->addMinutes(10), function () use ($frentesVisibles, $frentesBloqueados) {
             // 1. Pending Mobilizations (disabled since transit is instant)
             $pendientes = 0;
 
-            // 2. Alerts List — LOCAL ve solo sus frentes; bloqueados se ocultan a todos.
-            $expiredList = $this->generateAlertsList($frentesVisibles, $frentesBloqueados);
-            $totalAlerts  = $expiredList->count();
-
-            // 3. Frentes activos (modal de Recepción Directa) — oculta los no visibles
+            // 2. Frentes activos (modal de Recepción Directa) — oculta los no visibles
             //    (whitelist LOCAL + blacklist de bloqueados) para no recibir en frente prohibido.
             $frentesQuery = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->orderBy('NOMBRE_FRENTE');
             \App\Models\Usuario::aplicarScopeIds($frentesQuery, $frentesVisibles, 'ID_FRENTE');
             \App\Models\Usuario::aplicarBloqueoIds($frentesQuery, $frentesBloqueados, 'ID_FRENTE');
             $frentes = $frentesQuery->get();
 
-            // 4. Salud operacional — base query excluyendo DESINCORPORADO y frentes ESPECIAL.
+            // 3. Salud operacional — base query excluyendo DESINCORPORADO y frentes ESPECIAL.
             // Los 3 conteos (total / operativos / mantenimiento) se resuelven en UNA sola
             // consulta con agregación condicional, en vez de 3 count() separados (3 round-trips
             // → 1). Ayuda al rebuild frío del dashboard, sobre todo con BD remota en producción.
@@ -107,26 +84,48 @@ class DashboardController extends Controller
             }
 
             return compact(
-                'pendientes', 'totalAlerts',
-                'expiredList', 'frentes', 'totalFlotaActiva',
+                'pendientes', 'frentes', 'totalFlotaActiva',
                 'equiposOperativos', 'equiposInoperativos', 'equiposMantenimiento',
                 'catalogosDestacados'
             );
         });
 
-        // Sembrar window.equiposData para los equipos de las alertas, así el modal de
-        // detalles abierto desde /menu muestra TODOS los campos (igual que en /admin/equipos)
-        // y no solo el subconjunto de data-*. Fuente única: Equipo::toDetailsPayload().
-        // SOLO equipos: la lista trae tambien certificados de auxiliares, y un
-        // EquipoAuxiliar no tiene toDetailsPayload() (ni ID_EQUIPO). Sin este filtro,
-        // el tablero entero se caia con un Error fatal en cuanto un auxiliar entraba en
-        // los 30 dias. Su tarjeta no abre ficha, asi que tampoco necesita sembrarse.
-        $data['equiposData'] = collect($data['expiredList'] ?? [])
-            ->pluck('equipo')->filter(fn ($e) => $e instanceof \App\Models\Equipo)
-            ->unique('ID_EQUIPO')
-            ->mapWithKeys(fn ($e) => [$e->ID_EQUIPO => $e->toDetailsPayload()]);
+        // El número de la tarjeta de Alertas, si la lista de esta clave ya se armó (lo guarda
+        // getAlertsHtml aparte, diminuto). Si no, la tarjeta sale con "…" y el número lo
+        // pone la lista al llegar. La clave va a la página para que el menú reutilice la lista
+        // de la visita anterior mientras no cambie (misma versión, mismos permisos y frentes).
+        $data['totalAlerts']  = \Illuminate\Support\Facades\Cache::get("dashboard_alertas_total_{$clave}");
+        $data['claveAlertas'] = $clave;
 
         return view('menu', $data);
+    }
+
+    /**
+     * Clave de caché del tablero de ESTE usuario: sus datos van acotados a sus frentes.
+     *
+     * Versión global (DATA_VER_KEY), que bumpean los observers de Equipo/Documentacion/
+     * FrenteTrabajo: TTL largo sin sacrificar frescura. Y una HUELLA de lo que el usuario
+     * puede ver: editar un USUARIO no toca ninguna de esas tablas, y al marcarle "ver
+     * Pólizas" su panel seguía sirviendo la lista de antes hasta 10 minutos —con los tipos
+     * que ya no le tocan— y el número del badge tampoco se movía. Con los frentes visibles,
+     * los bloqueados y sus claves de permiso en la clave, cambiar cualquiera de los tres da
+     * una clave distinta y el tablero se rehace en la siguiente carga.
+     */
+    private function claveCache(?array $frentesVisibles, array $frentesBloqueados): string
+    {
+        $user   = auth()->user();
+        $userId = $user ? $user->ID_USUARIO : 'guest';
+        $ver    = \App\Support\CacheVersion::current(self::DATA_VER_KEY);
+
+        $permisosUser = array_values(array_map(
+            fn ($c) => strtolower(trim((string) $c)),
+            array_filter((array) ($user->PERMISOS ?? []), 'is_string')
+        ));
+        sort($permisosUser);   // el orden en que se marcaron no cambia lo que ve
+
+        $huella = substr(sha1(json_encode([$frentesVisibles, $frentesBloqueados, $permisosUser])), 0, 10);
+
+        return "{$userId}_v{$ver}_{$huella}";
     }
 
     /**
@@ -210,9 +209,9 @@ class DashboardController extends Controller
      * generateAlertsList(): [visibles, bloqueados].
      *   visibles  → null = ve todos (GLOBAL) | [] = local sin frentes | [ids].
      *   bloqueados → lista negra, se resta a todos (también a GLOBAL).
-     * Fuente única para index(), getAlertsHtml() y exportDocumentsPDF(): el ternario
-     * estaba copiado en los tres y bastaba con olvidarlo en uno —le pasó al PDF— para
-     * que ese punto se saltara la barrera y mostrara frentes ajenos.
+     * Fuente única para index(), getAlertsHtml() y los reportes (alertasParaReporte): el
+     * ternario estaba copiado en cada uno y bastaba con olvidarlo en uno —le pasó al PDF—
+     * para que ese punto se saltara la barrera y mostrara frentes ajenos.
      */
     private function frentesDelUsuario(): array
     {
@@ -224,20 +223,43 @@ class DashboardController extends Controller
         ];
     }
 
+    /**
+     * GET /dashboard/alerts-html — el panel de Alertas del menú: la lista, su total y los
+     * datos del detalle de sus equipos. La pide el menú en segundo plano al abrirse y cada
+     * vez que un documento cambia (menu.js · refreshDashboardAlerts).
+     */
     public function getAlertsHtml()
     {
-        $expiredList = $this->generateAlertsList(...$this->frentesDelUsuario());
-        $totalAlerts = $expiredList->count();
+        // Cacheada con la misma clave que el resto del tablero (claveCache): LOCAL ve solo sus
+        // frentes; los bloqueados se ocultan a todos.
+        [$frentesVisibles, $frentesBloqueados] = $this->frentesDelUsuario();
+        $clave = $this->claveCache($frentesVisibles, $frentesBloqueados);
+        $expiredList = \Illuminate\Support\Facades\Cache::remember("dashboard_alertas_{$clave}", now()->addMinutes(10),
+            fn () => $this->generateAlertsList($frentesVisibles, $frentesBloqueados));
+        // Su total aparte, diminuto: el menú lo pinta al abrirse sin leer la lista entera.
+        \Illuminate\Support\Facades\Cache::remember("dashboard_alertas_total_{$clave}", now()->addMinutes(10), fn () => $expiredList->count());
+
+        // window.equiposData de los equipos de las alertas: el modal de detalles abierto desde
+        // el panel muestra TODOS los campos, igual que en /admin/equipos, y no solo los data-*
+        // de la tarjeta. Fuente única: Equipo::toDetailsPayload(). SOLO equipos: la lista trae
+        // también certificados de auxiliares, que no tienen toDetailsPayload() (ni ID_EQUIPO)
+        // ni abren ficha.
+        $equiposData = $expiredList->pluck('equipo')
+            ->filter(fn ($e) => $e instanceof \App\Models\Equipo)
+            ->unique('ID_EQUIPO')
+            ->mapWithKeys(fn ($e) => [$e->ID_EQUIPO => $e->toDetailsPayload()]);
 
         return response()->json([
             'html'        => view('partials.dashboard_alerts', compact('expiredList'))->render(),
-            'totalAlerts' => $totalAlerts
+            'totalAlerts' => $expiredList->count(),
+            'equiposData' => $equiposData,
+            'clave'       => $clave,
         ]);
     }
 
     /**
      * Generate alerts list for expired and expiring documents.
-     * Shared by index(), getAlertsHtml().
+     * Shared by getAlertsHtml() (panel del menú) and alertasParaReporte() (PDF y Excel).
      *
      * @param array|null $frenteIds    When set, only returns alerts for equipment in those frentes (LOCAL users).
      * @param array      $bloqueados   Frentes a OCULTAR siempre (lista negra; aplica también a GLOBAL).
