@@ -18,6 +18,9 @@
       $wLabel → ancho de las columnas de etiqueta, en %. Vertical 14, horizontal 12.
       $wValor → ancho de las columnas de valor,    en %. Vertical 36, horizontal 38.
     Deben sumar 50 entre los dos: ($wLabel + $wValor) * 2 = 100%.
+      $centrarEmpresa → la razón social centrada en su celda. La pide el vertical, donde los
+                        valores de las firmas de justo encima van centrados; el horizontal
+                        alinea todos sus valores a la izquierda.
 --}}
 @php
     $wL = ($wLabel ?? 14) . '%';
@@ -43,7 +46,7 @@
     </tr>
     <tr>
         <td width="{{ $wL }}"><font face="helvetica" size="8"><b>EMPRESA:</b></font></td>
-        <td width="{{ $wV }}"><font face="helvetica" size="8">CONSTRUCTORA VIDALSA 27, C.A.</font></td>
+        <td width="{{ $wV }}"@if(!empty($centrarEmpresa)) align="center"@endif><font face="helvetica" size="8">CONSTRUCTORA VIDALSA 27, C.A.</font></td>
         <td width="{{ $wL }}"><font face="helvetica" size="8"><b>FIRMA:</b></font></td>
         <td width="{{ $wV }}">&nbsp;</td>
     </tr>

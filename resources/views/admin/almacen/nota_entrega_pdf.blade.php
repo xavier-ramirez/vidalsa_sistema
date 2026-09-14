@@ -192,4 +192,4 @@
     </tr>
 </table>
 
-@include('admin.almacen.partials.nota_vehiculo_chofer', ['wLabel' => 14, 'wValor' => 36])
+@include('admin.almacen.partials.nota_vehiculo_chofer', ['wLabel' => 14, 'wValor' => 36, 'centrarEmpresa' => true])

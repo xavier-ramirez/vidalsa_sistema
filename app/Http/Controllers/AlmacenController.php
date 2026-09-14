@@ -4625,13 +4625,17 @@ class NotaEntregaPDF extends \TCPDF
         // de la celda de PAG. (ver mas abajo): 4 el vertical, 3 el horizontal.
         $horizontal = $this->horizontal;
 
+        // El número de la nota en ROJO y en negrita, en los dos formatos: es el dato que se busca
+        // en la hoja. La etiqueta sigue en negro.
+        $numeroNota = '<span style="color:#dc2626;"><b>' . $esc($numNota) . '</b></span>';
+
         $filasSello = $horizontal
             ? [
-                '<font face="helvetica" size="9"><b>N° de Nota:</b> ' . $esc($numNota) . '</font>',
+                '<font face="helvetica" size="9"><b>N° de Nota:</b> ' . $numeroNota . '</font>',
                 '<font face="helvetica" size="10"><b>' . $esc($this->fechaHora) . '</b></font>',
             ]
             : [
-                '<font face="helvetica" size="8"><b>N° de Nota:</b> ' . $esc($numNota) . '</font>',
+                '<font face="helvetica" size="8"><b>N° de Nota:</b> ' . $numeroNota . '</font>',
                 '<font face="helvetica" size="7">FECHA EMIS: ' . self::FORM_FECHA_EMISION . '</font>',
                 '<font face="helvetica" size="7">REV: ' . self::FORM_REVISION
                     . '. FECHA REV: ' . self::FORM_FECHA_REVISION . '</font>',
