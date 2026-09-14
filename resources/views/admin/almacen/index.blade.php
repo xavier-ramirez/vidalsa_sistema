@@ -67,15 +67,11 @@
     .alm-parte-opt { cursor: pointer; }
     .alm-parte-opt:hover { text-decoration: underline; }
     .alm-parte-opt.alm-parte-on { font-weight: 800; text-decoration: underline; text-underline-offset: 2px; }
-    /* Fila con stock bajo: tono rojo claro para indicar urgencia. Al hacer hover hereda
-       el azul general como cualquier otra fila (sin sobrescribir con !important — antes
-       quedaba naranja en hover y se sentia inconsistente). */
-    .alm-row-bajo td { background: #fee2e2; }
-    /* Franja roja izquierda ("severity stripe") en filas de stock bajo. Se ve SIEMPRE,
-       incluso cuando la fila está seleccionada (el fondo azul !important tapa el rojo del
-       fondo, pero NO este box-shadow). Así, al auditar/mover stock y recargar, el indicador
-       de "bajo" refleja el estado nuevo de inmediato sin tener que deseleccionar la fila. */
-    .alm-table tbody tr.alm-row.alm-row-bajo td:first-child { --alm-franja: inset 4px 0 0 0 #dc2626; box-shadow: var(--alm-franja); }
+    /* Fila con stock bajo: rojo muy claro, sin franja a la izquierda (pedido del cliente); el
+       aviso lo completa el ícono ⚠ junto al stock. Al hacer hover hereda el azul general como
+       cualquier otra fila (sin sobrescribir con !important — antes quedaba naranja en hover y
+       se sentia inconsistente). */
+    .alm-row-bajo td { background: #fef2f2; }
     /* Fila seleccionable: clic en la fila la marca (estilo /admin/equipos → .selected-row-maquinaria) */
     /* Las filas son seleccionables con clic pero el cursor se mantiene como flecha (sin mano). */
     .alm-table tbody tr.alm-row-clickable { cursor: default; }
@@ -122,6 +118,16 @@
     #almTableBody tr.alm-row.alm-row-exceeds-stock td { background:#fecaca !important; }
     #almTableBody tr.alm-row.alm-row-missing-cant td:first-child,
     #almTableBody tr.alm-row.alm-row-exceeds-stock td:first-child { --alm-franja: inset 6px 0 0 #b91c1c; box-shadow: var(--alm-franja); }
+    /* Última fila cuyo detalle se abrió con el ojo (almMarcarVista): al cerrar el modal se sabe
+       de cuál se venía. Un marco azul, no un fondo, para verse encima del rojo de stock bajo y
+       del azul de seleccionada sin confundirse con ninguno. Hecho con sombras interiores en las
+       celdas —como --alm-franja, que conserva— y no con outline en la fila: la celda del nombre
+       va posicionada (tooltip) y lo tapaba. En el teléfono las filas son tarjetas: ver abajo. */
+    @media (min-width: 769px) {
+        #almTableBody tr.alm-row.alm-row-vista > td { box-shadow: inset 0 2px 0 #0067b1, inset 0 -2px 0 #0067b1; }
+        #almTableBody tr.alm-row.alm-row-vista > td:first-child { box-shadow: var(--alm-franja, 0 0 #0000), inset 2px 0 0 #0067b1, inset 0 2px 0 #0067b1, inset 0 -2px 0 #0067b1; }
+        #almTableBody tr.alm-row.alm-row-vista > td:last-child { box-shadow: inset -2px 0 0 #0067b1, inset 0 2px 0 #0067b1, inset 0 -2px 0 #0067b1; }
+    }
     #almTableBody tr.alm-row.alm-row-missing-cant .alm-cant-stepper,
     #almTableBody tr.alm-row.alm-row-exceeds-stock .alm-cant-stepper { border-color:#b91c1c !important; background:#fff !important; box-shadow:0 0 0 2px rgba(220,38,38,0.25); }
     #almTableBody tr.alm-row.alm-row-missing-cant .alm-row-cant,
@@ -205,9 +211,9 @@
     }
     /* Fila recién modificada (almResaltarFila): destello amarillo que se desvanece. Con
        box-shadow inset —no background— para que se vea también sobre una fila seleccionada,
-       cuyo fondo lleva !important. La franja roja de "stock bajo" / "excede stock" también
-       es un box-shadow (en td:first-child): va en --alm-franja y el destello la incluye, así
-       no desaparece justo cuando la auditoría acaba de dejar el producto bajo el mínimo. */
+       cuyo fondo lleva !important. La franja roja de "excede stock" también es un box-shadow
+       (en td:first-child): va en --alm-franja y el destello la incluye, así no desaparece
+       mientras dura el destello. */
     #almTableBody tr.alm-row.alm-row-recien > td { animation: almRecien 2.4s ease-out 1; }
     @keyframes almRecien {
         0%, 35% { box-shadow: var(--alm-franja, 0 0 #0000), inset 0 0 0 999px rgba(250, 204, 21, 0.45); }
@@ -797,6 +803,8 @@
             background: #fffbeb !important;
             box-shadow: 0 1px 3px rgba(245,158,11,0.10), 0 4px 12px rgba(245,158,11,0.12) !important;
         }
+        /* Última vista (almMarcarVista): contorno por fuera de la tarjeta. */
+        .alm-table tr.alm-row.alm-row-vista { outline: 2px solid #0067b1; outline-offset: 1px; }
 
         .alm-table tr.alm-row td {
             display: flex !important;
@@ -1852,8 +1860,8 @@
         </div>
         <div class="alm-modal-body">
 
-            {{-- Aviso de stock bajo en este almacén. Misma paleta que .alm-row-bajo en la
-                 tabla (#fee2e2 / #fecaca / #b91c1c) para que el usuario asocie ambos avisos.
+            {{-- Aviso de stock bajo en este almacén. En rojo, como las filas de stock bajo
+                 de la tabla (.alm-row-bajo), para que el usuario asocie ambos avisos.
                  Centrado, como el resto de la ficha: el ícono va junto al título y la
                  explicación debajo. --}}
             <div id="almDetBajoBadge" style="display:none;background:#fee2e2;border:1px solid #fecaca;color:#b91c1c;border-radius:8px;padding:10px 14px;flex-direction:column;align-items:center;text-align:center;gap:2px;">
@@ -2736,6 +2744,7 @@
         window.almResetBadges();
         if (typeof almResetPick === 'function') almResetPick();
         almVerTodoActivo = false;
+        almUltimaVista = null;
         if (typeof window.almSelClear === 'function') window.almSelClear();
         // Recolocar Consolidado y "En otros almacenes" en el DOM NUEVO: el cuerpo del IIFE
         // (que los coloca al montar) no vuelve a correr en una re-entrada por SPA.
@@ -3146,6 +3155,9 @@
     //  ya NO muestra una tabla de productos — solo los campos de la Nota de Entrega.
     // ════════════════════════════════════════════════════════════════════════
     var almSeleccion = {}; // { id_producto: { codigo, nombre, um, saldo, cantidad } }
+    // Producto de la última fila cuyo detalle se abrió con el ojo (almMarcarVista). Queda
+    // marcada al cerrar el modal; almSelApplyToRows la repone tras cada repintado.
+    var almUltimaVista = null;
     // IDs de productos seleccionados que NO tienen cantidad válida en el último intento de
     // "Registrar salida". Sobrevive a recargas del tbody y se limpia cuando el usuario
     // teclea una cantidad válida, deselecciona el producto, o limpia toda la selección.
@@ -3342,8 +3354,8 @@
             }
         }
     }
-    // Aplica TODO el estado de una fila (selección azul + faltante/exceso de stock +
-    // filtro "solo seleccionados") en UNA sola pasada por fila. En el scroll-infinito
+    // Aplica TODO el estado de una fila (selección azul + última vista + faltante/exceso de
+    // stock + filtro "solo seleccionados") en UNA sola pasada por fila. En el scroll-infinito
     // (append) se llama SOLO con las filas recién agregadas — antes se re-iteraba todo
     // el tbody (×4) en cada lote, lo que era O(n²) y congelaba el navegador al cargarse
     // todo el stock.
@@ -3369,6 +3381,7 @@
                 }
             }
             almSelMarkRow(tr, !!almSeleccion[id]);
+            tr.classList.toggle('alm-row-vista', id === almUltimaVista);
             tr.classList.toggle('alm-row-missing-cant', !!almFaltantes[id]);
             tr.classList.toggle('alm-row-exceeds-stock', !!almExceden[id]);
             if (almSoloSel && !almSeleccion[id]) tr.style.display = 'none';
@@ -4056,8 +4069,18 @@
         det.hidden = !abrir;
         btn.setAttribute('aria-expanded', abrir ? 'true' : 'false');
     };
+    // Marca la fila del producto cuyo detalle se abre (y desmarca la anterior).
+    function almMarcarVista(id) {
+        almUltimaVista = String(id);
+        document.querySelectorAll('#almTableBody tr.alm-row.alm-row-vista').forEach(function (tr) {
+            tr.classList.remove('alm-row-vista');
+        });
+        var tr = document.querySelector('#almTableBody tr.alm-row[data-id-producto="' + almUltimaVista + '"]');
+        if (tr) tr.classList.add('alm-row-vista');
+    }
     window.almAbrirDetalle = function (id, cod, nom, um, cat, saldo, minimo, ubicacion) {
         var m = el('almDetalleModal'); if (!m) return;
+        almMarcarVista(id);
         var hasMin = (minimo !== null && minimo !== undefined && minimo !== '');
         m.dataset.id = id;
         m.dataset.cod = cod || ''; m.dataset.nom = nom || ''; m.dataset.um = um || ''; m.dataset.cat = cat || '';
