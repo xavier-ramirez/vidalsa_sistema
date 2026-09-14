@@ -498,6 +498,32 @@
     .alm-kp-filtros .alm-kp-grupo-fechas { display: flex; align-items: center; gap: 6px; flex: 1 1 auto; min-width: 0; }
     .alm-kp-filtros .alm-kp-rango { display: flex; align-items: center; gap: 4px; flex: 1 1 auto; min-width: 0; }
     .alm-kp-filtros .alm-kp-fecha-box { flex: 1 1 0; min-width: 0; }
+    /* Tabla de "Movimientos del producto" (filas: partials/kardex_rows_mini). Una línea
+       suave entre movimientos; Destino a la izquierda, con lo que lo explica debajo en gris,
+       y Documento en su propia columna: el proyecto y su nota se leen en el mismo renglón. */
+    #almKpBody td { padding: 7px 8px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+    #almKpBody tr:last-child td { border-bottom: none; }
+    #almKpBody tr.alm-kp-fila:hover td { background: #f8fafc; }
+    .alm-kp-tipo { text-align: center; white-space: nowrap; font-weight: 700; font-size: 10.5px; }
+    .alm-kp-tipo i { font-size: 12px; vertical-align: -2px; margin-right: 3px; }
+    .alm-kp-cant { text-align: center; white-space: nowrap; font-weight: 800; font-size: 12.5px; }
+    .alm-kp-um { color: #64748b; font-weight: 600; font-size: 9.5px; }
+    .alm-kp-stock { text-align: center; white-space: nowrap; font-weight: 700; font-size: 12.5px; }
+    /* overflow-wrap:anywhere — Destino es la única columna con texto libre (frente, proveedor,
+       notas): nada la ensancha más allá de su porcentaje ni la saca del modal. */
+    .alm-kp-destino { overflow-wrap: anywhere; }
+    .alm-kp-nombre { font-size: 11.5px; font-weight: 700; color: #0f172a; line-height: 1.3; }
+    .alm-kp-sub { font-size: 10.5px; color: #64748b; line-height: 1.35; margin-top: 1px; }
+    .alm-kp-notas { display: flex; align-items: center; gap: 3px; color: #94a3b8; }
+    .alm-kp-notas i { font-size: 12px; }
+    .alm-kp-notas span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .alm-kp-doc { text-align: center; white-space: nowrap; }
+    .alm-kp-nota, .alm-kp-ref { display: inline-block; font-size: 10.5px; font-weight: 700; font-family: monospace; padding: 2px 7px; border-radius: 6px; line-height: 1.4; }
+    .alm-kp-nota { color: #0067b1; background: #eff6ff; text-decoration: none; }
+    .alm-kp-nota:hover { background: #dbeafe; }
+    .alm-kp-ref { color: #334155; background: #f1f5f9; }
+    .alm-kp-nota + .alm-kp-ref { margin-top: 3px; }
+    .alm-kp-vacio { color: #cbd5e0; }
     /* Pantallas angostas (tablet en vertical): ahí sí se permite el salto de línea, pero
        centrado, antes que aplastar los campos hasta que no se lea la fecha. */
     @media (max-width: 560px) { .alm-kp-filtros { flex-wrap: wrap; } }
@@ -1455,10 +1481,8 @@
 ═════════════════════════════════════════════════════════════════ --}}
 <div id="almKardexProductoModal" class="alm-modal-overlay">
     {{-- 820px (pedido del cliente: más ancho). Pasó por 680 → 540 (al quitar la columna
-         Fecha) → 640, pero la columna "Destino / Ref" —que se lleva el 44% del ancho— se
-         quedaba corta para los frentes de nombre largo, del tipo "TUBERÍA DE 30''
-         VELADERO TRAMO I", que además cargan debajo el número de nota. Solo afecta a
-         escritorio: en móvil este modal no se abre (el botón .alm-det-act-kardex está
+         Fecha) → 640, pero el destino se quedaba corto para los frentes de nombre largo, del
+         tipo "TUBERÍA DE 30'' VELADERO TRAMO I". Solo afecta a escritorio: en móvil este modal no se abre (el botón .alm-det-act-kardex está
          oculto ≤768px) y la .alm-modal es width:100% por debajo de ese ancho. --}}
     <div class="alm-modal" style="max-width:820px;">
         <div class="alm-modal-head">
@@ -1519,29 +1543,27 @@
                 </div>
             </div>
 
-            {{-- Tabla compacta: 4 columnas (sin Producto, ya conocido; sin Fecha, que el
+            {{-- Tabla compacta: 5 columnas (sin Producto, ya conocido; sin Fecha, que el
                  cliente pidió quitar — el rango sigue filtrable arriba). El thead queda
                  sticky para que se vea al hacer scroll.
 
-                 Anchos en PORCENTAJE que suman 100. Antes las tres primeras columnas llevaban
-                 width:1% (encoger al contenido), así que quedaban apretadas contra el borde
-                 izquierdo y "Destino / Ref" se quedaba con todo el ancho sobrante. Con la
-                 columna Fecha fuera, ese reparto dejaba la tabla muy desbalanceada.
-                 Sin table-layout:fixed a propósito: los porcentajes mandan mientras el
-                 contenido quepa, pero una cantidad larga puede ensanchar su columna en vez
-                 de desbordarse (las celdas de Tipo/Cantidad/Stock son white-space:nowrap). --}}
+                 Anchos en PORCENTAJE que suman 100: Destino se lleva lo que le sobra a las
+                 columnas cortas. Sin table-layout:fixed a propósito: los porcentajes mandan
+                 mientras el contenido quepa, pero una cantidad larga puede ensanchar su
+                 columna en vez de desbordarse (Tipo/Cantidad/Stock/Documento son nowrap). --}}
             <div style="overflow:auto;max-height:48vh;border:1px solid #e2e8f0;border-radius:8px;">
                 <table style="width:100%;border-collapse:separate;border-spacing:0;">
                     <thead>
                         <tr style="background:#1e293b;color:#fff;position:sticky;top:0;z-index:1;">
-                            <th style="width:16%;padding:7px 8px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;text-align:center;white-space:nowrap;">Tipo</th>
-                            <th style="width:24%;padding:7px 8px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;text-align:center;white-space:nowrap;">Cantidad</th>
-                            <th style="width:16%;padding:7px 8px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;text-align:center;white-space:nowrap;">Stock</th>
-                            <th style="width:44%;padding:7px 8px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;text-align:center;">Destino / Ref</th>
+                            <th style="width:13%;padding:7px 8px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;text-align:center;white-space:nowrap;">Tipo</th>
+                            <th style="width:16%;padding:7px 8px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;text-align:center;white-space:nowrap;">Cantidad</th>
+                            <th style="width:11%;padding:7px 8px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;text-align:center;white-space:nowrap;">Stock</th>
+                            <th style="width:40%;padding:7px 8px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;text-align:left;">Destino</th>
+                            <th style="width:20%;padding:7px 8px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;text-align:center;white-space:nowrap;">Documento</th>
                         </tr>
                     </thead>
                     <tbody id="almKpBody">
-                        <tr><td colspan="4" style="text-align:center;padding:30px;color:#94a3b8;font-size:12px;">Cargando…</td></tr>
+                        <tr><td colspan="5" style="text-align:center;padding:30px;color:#94a3b8;font-size:12px;">Cargando…</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -1889,7 +1911,7 @@
                      centraría). --}}
                 <input type="text" id="almDetUbicacion" maxlength="150" autocomplete="off"
                        onkeydown="if(event.key==='Enter'){event.preventDefault();window.almGuardarUbicacionDetalle();}"
-                       style="width:100%;max-width:320px;min-width:0;margin-top:4px;text-align:center;">
+                       style="width:100%;max-width:320px;min-width:0;height:30px;padding-top:4px;padding-bottom:4px;margin-top:4px;text-align:center;">
                 <div id="almDetUbicacionError" style="display:none;color:#dc2626;font-size:12px;font-weight:600;margin-top:4px;"></div>
             </div>
 
@@ -4340,7 +4362,7 @@
             var pg = el('almKpPag'); if (pg) pg.innerHTML = data.pagination || '';
         })
         .catch(function () {
-            if (body) body.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:24px;color:#dc2626;font-size:12px;">No se pudieron cargar los movimientos.</td></tr>';
+            if (body) body.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:#dc2626;font-size:12px;">No se pudieron cargar los movimientos.</td></tr>';
         })
         .finally(function () { if (body) body.style.opacity = '1'; });
     };

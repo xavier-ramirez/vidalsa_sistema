@@ -2,7 +2,9 @@
      (almKardexProductoModal). Igual que kardex_rows.blade.php pero SIN la
      columna Producto — ya estamos viendo movimientos de UN producto — y SIN
      la de Fecha (el cliente la pidió fuera; el rango se sigue filtrando arriba).
-     4 columnas: Tipo · Cantidad · Stock · Destino/Ref. --}}
+     5 columnas: Tipo · Cantidad · Stock · Destino · Documento. Destino y Documento iban en
+     una sola celda, apilados en dos o tres líneas; separados, el proyecto y su nota se leen
+     en el mismo renglón. Estilos en index.blade.php (.alm-kp-*). --}}
 @php
     $rows = $movimientos ?? collect();
     $fmt = fn ($n) => rtrim(rtrim(number_format((float) $n, 3, ',', '.'), '0'), ',') ?: '0';
@@ -22,7 +24,7 @@
 @endphp
 
 @if($rows->count() === 0)
-    <tr><td colspan="4" style="text-align:center;padding:30px 14px;color:#94a3b8;font-size:13px;">
+    <tr><td colspan="5" style="text-align:center;padding:30px 14px;color:#94a3b8;font-size:13px;">
         <i class="material-icons" style="font-size:34px;color:#cbd5e0;display:block;margin:0 auto 6px;">receipt_long</i>
         Este producto no tiene movimientos con esos filtros.
     </td></tr>
@@ -41,72 +43,65 @@
             $numNota = $m->NUMERO_NOTA
                 ?: ($m->TIPO === \App\Models\MovimientoInventario::TIPO_DEVOLUCION && isset($notasVigentes[$m->REFERENCIA]) ? $m->REFERENCIA : null);
         @endphp
-        <tr>
+        <tr class="alm-kp-fila">
             {{-- Sin la píldora de fondo que llevaba el partial grande ($meta[2]): el cliente
-                 la pidió fuera de este modal, y sin ella la columna necesita menos ancho.
-                 El color del tipo ($meta[1]) se mantiene en el icono y el texto. --}}
-            <td style="padding:7px 8px;text-align:center;white-space:nowrap;">
-                <span style="display:inline-flex;align-items:center;gap:3px;color:{{ $meta[1] }};font-weight:700;font-size:10.5px;">
-                    <i class="material-icons" style="font-size:12px;">{{ $meta[3] }}</i>{{ $meta[0] }}
-                </span>
+                 la pidió fuera de este modal. El color del tipo ($meta[1]) va en icono y texto. --}}
+            <td class="alm-kp-tipo" style="color:{{ $meta[1] }};">
+                <i class="material-icons">{{ $meta[3] }}</i>{{ $meta[0] }}
             </td>
-            <td style="padding:7px 8px;text-align:center;font-weight:800;color:{{ $entra || ($m->TIPO==='AJUSTE' && $signo==='+') ? '#16a34a' : '#dc2626' }};white-space:nowrap;font-size:12.5px;">
-                {{ $signo }}{{ $fmt($mag) }} <span style="color:#64748b;font-weight:600;font-size:9.5px;">{{ $m->producto?->UM }}</span>
+            <td class="alm-kp-cant" style="color:{{ $entra || ($m->TIPO==='AJUSTE' && $signo==='+') ? '#16a34a' : '#dc2626' }};">
+                {{ $signo }}{{ $fmt($mag) }} <span class="alm-kp-um">{{ $m->producto?->UM }}</span>
             </td>
-            <td title="Antes: {{ $fmt($m->CANTIDAD_ANTERIOR) }} → Después: {{ $fmt($m->CANTIDAD_RESULTANTE) }}"
-                style="padding:7px 8px;text-align:center;font-weight:700;white-space:nowrap;font-size:12.5px;">
+            <td class="alm-kp-stock" title="Antes: {{ $fmt($m->CANTIDAD_ANTERIOR) }} → Después: {{ $fmt($m->CANTIDAD_RESULTANTE) }}">
                 {{ $fmt($m->CANTIDAD_RESULTANTE) }}
             </td>
-            {{-- overflow-wrap:anywhere — es la única columna con texto libre (frente,
-                 proveedor, notas): garantiza que nada la ensanche más allá de su
-                 porcentaje y se salga del modal. --}}
-            <td style="padding:7px 8px;font-size:12px;color:#475569;overflow-wrap:anywhere;">
-                {{-- El nombre del frente SIEMPRE se muestra: el cliente necesita ver a quién
-                     se le entregó cada cosa. A diferencia de kardex_rows.blade.php, aquí NO
-                     va la etiqueta "(consumo interno)" — el cliente la pidió fuera de este
-                     modal. --}}
+            {{-- DESTINO: a quién se le entregó (el frente SIEMPRE se muestra: el cliente necesita
+                 verlo) o de qué almacén vino, y debajo lo que lo explica: la bolsa de la que se
+                 tomó, el proveedor de una entrada, las notas. A diferencia de kardex_rows, aquí NO
+                 va la etiqueta "(consumo interno)" — el cliente la pidió fuera de este modal. --}}
+            <td class="alm-kp-destino">
                 @if($m->frente)
-                    <div style="font-size:11px;font-weight:600;color:#0f172a;">{{ $m->frente->NOMBRE_FRENTE }}</div>
+                    <div class="alm-kp-nombre">{{ $m->frente->NOMBRE_FRENTE }}</div>
                     @php $bolsa = $prestamos[$m->ID_MOVIMIENTO] ?? null; @endphp
                     @if($bolsa !== null)
                         @include('admin.almacen.partials.kardex_bolsa')
                     @endif
                 @elseif($m->ID_ALMACEN_CONTRAPARTE)
-                    <div style="font-size:11px;font-weight:600;color:#0f172a;">{{ $m->almacenContraparte?->NOMBRE ?? '—' }}</div>
-                @endif
-                @if($numNota)
-                    <div style="font-size:10.5px;margin-top:2px;">
-                        {{-- Visor in-page (#pdfPreviewModal) — fallback a pestaña nueva. --}}
-                        <a href="{{ route('almacen.nota-entrega', ['numero' => $numNota]) }}"
-                           onclick="if (typeof window.openPdfPreview === 'function') { event.preventDefault(); window.openPdfPreview(this.href, 'nota_entrega', 'Nota ' + this.textContent.trim(), 0, '', true, 'almacen'); }"
-                           target="_blank" rel="noopener"
-                           style="color:#0067b1;text-decoration:none;font-weight:700;font-family:monospace;"
-                           title="Ver Nota de Entrega (PDF)">{{ $numNota }}</a>
-                    </div>
-                @endif
-                @if($m->esStockInicial())
-                    {{-- Igual que en /admin/almacen/movimientos (kardex_rows): dos líneas. --}}
-                    <div style="font-size:10.5px;color:#334155;font-weight:700;">{{ $m->REFERENCIA }}</div>
-                    <div style="font-size:10.5px;color:#64748b;">Nuevo material</div>
-                @elseif($m->REFERENCIA && $m->REFERENCIA !== $numNota)
-                    {{-- En ENTRADA directa REFERENCIA es la Nota de entrega del proveedor:
-                         en negrita igual que la Nota de Entrega (NUMERO_NOTA) de las SALIDAS.
-                         Se OMITE si coincide con NUMERO_NOTA (traspasos traían el mismo NE). --}}
-                    <div style="font-size:10.5px;color:#334155;font-weight:700;" title="Nota de entrega / referencia">Ref: {{ $m->REFERENCIA }}</div>
+                    <div class="alm-kp-nombre">{{ $m->almacenContraparte?->NOMBRE ?? '—' }}</div>
+                @elseif($m->esStockInicial())
+                    <div class="alm-kp-sub">Nuevo material</div>
                 @endif
                 @if($m->TIPO === 'ENTRADA' && $m->MOTIVO)
                     {{-- Proveedor visible — dato clave para una devolución. --}}
-                    <div style="font-size:10.5px;color:#64748b;" title="Proveedor">
-                        <span>{{ $m->MOTIVO }}</span>
-                    </div>
+                    <div class="alm-kp-sub">Proveedor: {{ $m->MOTIVO }}</div>
                 @endif
                 @if($m->NOTAS)
-                    <div style="font-size:10.5px;color:#94a3b8;display:flex;align-items:center;gap:3px;" title="{{ $m->NOTAS }}">
-                        <i class="material-icons" style="font-size:12px;">sticky_note_2</i><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:120px;">{{ $m->NOTAS }}</span>
+                    <div class="alm-kp-sub alm-kp-notas" title="{{ $m->NOTAS }}">
+                        <i class="material-icons">sticky_note_2</i><span>{{ $m->NOTAS }}</span>
                     </div>
                 @endif
-                @if(!$m->frente && !$m->ID_ALMACEN_CONTRAPARTE && !$m->NUMERO_NOTA && !$m->REFERENCIA && !($m->TIPO === 'ENTRADA' && $m->MOTIVO) && !$m->NOTAS)
-                    —
+                @if(!$m->frente && !$m->ID_ALMACEN_CONTRAPARTE && !$m->esStockInicial() && !($m->TIPO === 'ENTRADA' && $m->MOTIVO) && !$m->NOTAS)
+                    <span class="alm-kp-vacio">—</span>
+                @endif
+            </td>
+            {{-- DOCUMENTO: la Nota de Entrega (abre el PDF) y/o la referencia del movimiento. En
+                 una ENTRADA directa REFERENCIA es la nota del proveedor; en el stock inicial, su
+                 rótulo. La referencia se OMITE si coincide con la nota (los traspasos traían el
+                 mismo NE). --}}
+            <td class="alm-kp-doc">
+                @if($numNota)
+                    {{-- Visor in-page (#pdfPreviewModal) — fallback a pestaña nueva. --}}
+                    <a class="alm-kp-nota" href="{{ route('almacen.nota-entrega', ['numero' => $numNota]) }}"
+                       onclick="if (typeof window.openPdfPreview === 'function') { event.preventDefault(); window.openPdfPreview(this.href, 'nota_entrega', 'Nota ' + this.textContent.trim(), 0, '', true, 'almacen'); }"
+                       target="_blank" rel="noopener" title="Ver Nota de Entrega (PDF)">{{ $numNota }}</a>
+                @endif
+                @if($m->esStockInicial())
+                    <span class="alm-kp-ref">{{ $m->REFERENCIA }}</span>
+                @elseif($m->REFERENCIA && $m->REFERENCIA !== $numNota)
+                    <span class="alm-kp-ref" title="Nota de entrega / referencia">Ref {{ $m->REFERENCIA }}</span>
+                @endif
+                @if(!$numNota && !$m->REFERENCIA)
+                    <span class="alm-kp-vacio">—</span>
                 @endif
             </td>
         </tr>
