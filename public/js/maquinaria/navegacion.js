@@ -169,8 +169,46 @@ document.addEventListener('DOMContentLoaded', () => {
         document.body.style.overflow = '';
     }
 
+    // ── Atrás cierra el visor de PDF ──
+    // En el teléfono (y más en la app instalada, sin barra del navegador) el gesto Atrás es
+    // la forma de cerrar una ventana. Con el visor abierto cambiaba la página de DETRÁS sin
+    // que se viera —o salía de la app si no había página anterior— y el visor seguía encima.
+    // Al abrirse se añade un paso al historial (misma URL, estado {visorPdf}): Atrás lo quita
+    // y cierra el visor. Cerrarlo con la X consume ese paso, para no dejar un Atrás que no
+    // hace nada. Se vigila la clase 'active' del visor (layout_ui.js la pone y la quita), así
+    // no hace falta tocar openPdfPreview/closePdfPreview.
+    const visorPdf = document.getElementById('pdfPreviewModal');
+    let pasoDelVisor = false;     // el paso {visorPdf} está en el historial y es el actual
+    let atrasPropio = false;      // un history.back() nuestro en camino: su popstate no navega
+    const visorAbierto = () => !!visorPdf && visorPdf.classList.contains('active');
+    function ponerPasoDelVisor() {
+        if (atrasPropio || pasoDelVisor) return;   // si hay un Atrás en camino, se pone al llegar
+        history.pushState({ visorPdf: true }, '', window.location.href);
+        pasoDelVisor = true;
+    }
+    if (visorPdf && 'MutationObserver' in window) {
+        new MutationObserver(() => {
+            if (visorAbierto()) { ponerPasoDelVisor(); return; }
+            if (!pasoDelVisor) return;
+            pasoDelVisor = false;
+            // Cerrado con la X: si su paso sigue siendo el actual, se quita. (Si se navegó con
+            // el visor abierto ya hay otra página encima y ese paso se queda atrás.)
+            if (history.state && history.state.visorPdf) { atrasPropio = true; history.back(); }
+        }).observe(visorPdf, { attributes: true, attributeFilter: ['class'] });
+    }
+
     // Handle back/forward buttons
     window.addEventListener('popstate', () => {
+        if (atrasPropio) {
+            atrasPropio = false;
+            if (visorAbierto()) ponerPasoDelVisor();   // se abrió otro documento mientras tanto
+            return;
+        }
+        if (pasoDelVisor && visorAbierto()) {
+            pasoDelVisor = false;
+            if (typeof window.closePdfPreview === 'function') window.closePdfPreview();
+            return;
+        }
         loadPage(window.location.href, false);
     });
 
@@ -476,6 +514,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Solo modificar historial después de confirmar que es contenido válido
             if (pushHistory) {
                 history.pushState(null, '', url);
+                pasoDelVisor = false;   // el paso del visor, si lo había, queda debajo de esta página
             }
 
             const titleEl = doc.querySelector('title');

@@ -74,6 +74,8 @@
             // Reintento de un aviso perdido (5xx o red): 5% de la vida de sesión (mín 15s, máx 60s).
             const PING_REINTENTO_MS     = Math.max(15000, Math.min(60000, Math.floor(SESSION_LIFETIME_MS * 0.05)));
             const CLAVE_CONTACTO        = 'vidalsa_ultimo_contacto';
+            // Lo más que se espera la respuesta del POST /logout antes de ir al login igual.
+            const PLAZO_LOGOUT_MS       = 2500;
 
             // ── Estado interno ──────────────────────────────────────────
             let ultimoContacto = 0;        // último momento confirmado en que el servidor renovó la sesión
@@ -339,9 +341,10 @@
             // La diferencia con performLogout: aquí la sesión del servidor YA no existe,
             // así que un POST /logout con el CSRF viejo daría 419. Vamos directo al login
             // por GET — outcome claro (el usuario aterriza en la pantalla de inicio de
-            // sesión) y sin pantalla de error intermedia.
+            // sesión) y sin pantalla de error intermedia. Con ?aviso=inactividad, como
+            // performLogout: el login dice por qué se cerró, igual que el modal.
             function sessionAlreadyExpired() {
-                showExpiredNotice(function () { window.location.href = '/'; });
+                showExpiredNotice(function () { window.location.replace('/?aviso=inactividad'); });
             }
 
             // ── Logout automático al expirar ────────────────────────────
@@ -358,19 +361,32 @@
             function performLogout() {
                 clearInterval(checkInterval);
                 clearTimeout(pingReintento); pingReintento = null; // idem: nada en vuelo al salir
+                // replace: sin volver "atrás" a la página protegida. ?aviso=inactividad le dice
+                // al login que venimos de un cierre: si este POST no llegó (red lenta) y el
+                // servidor sigue con la sesión abierta, el login la cierra en vez de volver a
+                // entrar solo al menú ("se cerró la sesión y se abrió"): SystemController::
+                // loginPage, y el JS del login cuando la pantalla sale del caché.
+                let salio = false;
+                const salir = function () {
+                    if (salio) return;
+                    salio = true;
+                    window.location.replace('/?aviso=inactividad');
+                };
+                // Como mucho PLAZO_LOGOUT_MS esperando al servidor. Con mala señal (teléfono) el
+                // POST podía quedarse sin respuesta y el aviso "Volviendo al inicio de sesión…"
+                // no se iba nunca, con la sesión abierta. keepalive: el POST sigue su camino
+                // aunque la página ya se haya ido al login.
+                const plazo = setTimeout(salir, PLAZO_LOGOUT_MS);
                 const token = window.getCsrf();   // helper central (dom_helpers.js)
                 window.apiFetch('/logout', { headers: { 'Accept': 'application/json' },
                     method: 'POST',
                     body: new URLSearchParams({ _token: token }),
                     redirect: 'manual',   // no seguimos el 302: navegamos nosotros abajo
-                    cache: 'no-store'
+                    cache: 'no-store',
+                    keepalive: true
                 })
                 .catch(function () { /* red caída: igual salimos al login abajo */ })
-                // replace: sin volver "atrás" a la página protegida. ?aviso=inactividad le dice
-                // al login que venimos de un cierre: si este POST no llegó (red lenta) y el
-                // servidor sigue con la sesión abierta, el login la cierra en vez de volver a
-                // entrar solo al menú ("se cerró la sesión y se abrió").
-                .finally(function () { window.location.replace('/?aviso=inactividad'); });
+                .finally(function () { clearTimeout(plazo); salir(); });
             }
 
             // ── Actividad del usuario (con throttle) ────────────────────

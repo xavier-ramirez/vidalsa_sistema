@@ -2169,14 +2169,19 @@ window.closePdfPreview = function () {
     const iframe = document.getElementById('pdfPreviewFrame');
     if (modal) modal.classList.remove('active');
     if (iframe) {
-        // 'about:blank' y no '': la cadena vacía se resuelve contra la URL de la
-        // página actual y el iframe se pondría a cargarla entera al cerrar.
-        iframe.src = 'about:blank'; // libera la memoria del PDF
+        // Un iframe NUEVO y vacío (_pdfRenovarVisorIzq) en vez de iframe.src = 'about:blank':
+        // el viejo sale de la página y con él la memoria del PDF, sin dejar un paso en el
+        // historial. Cambiarle el src contaba como una navegación más, y en el teléfono el
+        // gesto Atrás se gastaba en deshacerla sin que se viera nada ("Atrás no funciona").
+        // Si no se puede reemplazar, 'about:blank' y no '': la cadena vacía se resolvería
+        // contra la URL de la página y el iframe se pondría a cargarla entera.
+        const vacio = _pdfRenovarVisorIzq(null);
+        if (!vacio) iframe.src = 'about:blank';
         // El desenfoque se limpia aqui tambien: cerrar a mitad de carga dejaba
         // el filtro puesto sobre un iframe que ya no se ve, y lo heredaba la
         // apertura siguiente antes de que su propio reset entrara.
-        iframe.style.filter = '';
-        iframe.style.opacity = '0';
+        (vacio || iframe).style.filter = '';
+        (vacio || iframe).style.opacity = '0';
     }
     // Y los temporizadores y la vista previa de la carga, que si no seguirían vivos
     // sobre un visor ya cerrado.
