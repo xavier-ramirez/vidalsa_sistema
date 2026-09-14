@@ -35,7 +35,7 @@
 @endphp
 
 <section class="page-title-card" style="text-align:left;margin:0 0 10px 0;">
-    {{-- Fila 1: Título + selector de almacén --}}
+    {{-- Título + selector de almacén --}}
     <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
         <div style="flex:0 0 auto;">
             <h1 class="page-title" style="margin:0;">
@@ -74,9 +74,6 @@
             </div>
         </div>
     </div>
-    {{-- Fila 2: Tabs de navegación --}}
-    @include('admin.almacen.recepcion.partials.tabs')
-
 </section>
 
 <style>
@@ -469,11 +466,6 @@
         /* Cabecera apilada para que el selector de almacen destino ocupe todo el ancho */
         .page-title-card > div { flex-direction: column !important; align-items: stretch !important; gap: 10px !important; }
         .page-title-card > div > div { width: 100% !important; flex: 1 1 100% !important; }
-        /* …pero las 2 pestañas (Reposición del general / Entrada por ODC) van LADO A LADO,
-           no apiladas: revertimos la columna solo para la fila de tabs y repartimos el
-           ancho 50/50 con el texto centrado. */
-        .page-title-card > div.tr-tabs { flex-direction: row !important; gap: 0 !important; }
-        .tr-tabs a { flex: 1 1 0 !important; justify-content: center !important; padding-left: 8px !important; padding-right: 8px !important; }
 
         /* Filtros en mobile: producto a fila completa arriba y, debajo, la nota junto a los
            dos botones cuadrados —"Filtros avanzados" (que ya contiene Estado/Desde/Hasta) y
@@ -816,8 +808,7 @@
                             interna: la entrada se captura completa aquí. La nota del
                             proveedor se anota si la hubo (es opcional).
              El registro es una ENTRADA normal al almacén de la bandeja, así que exige la
-             misma clave que confirmar una recepción — por eso va dentro del @can, igual
-             que el tab "Entrada por ODC". --}}
+             misma clave que confirmar una recepción — por eso va dentro del @can. --}}
         @can('almacen.movimiento')
         <button type="button" id="trCompraDirectaBtn" class="btn-primary-maquinaria tr-compra-btn"
                 onclick="window.cdirAbrir()" title="Registrar una compra que el proveedor despachó directo a este almacén (no vino del almacén general)">

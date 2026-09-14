@@ -466,6 +466,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
+            // Código DENTRO de las vistas: los módulos lo inician una sola vez por pestaña y, al
+            // volver, reusan el de la primera carga. Si el servidor ya sirve otras vistas (hubo
+            // una actualización), recarga completa en vez de mezclar el HTML nuevo con ese JS
+            // viejo. El <head> no lo cambia la SPA, así que el meta actual es el de la carga
+            // completa. Sin conexión no se compara: las páginas guardadas pueden ser de otra
+            // versión y cada navegación recargaría.
+            if (!versionChanged && navigator.onLine !== false) {
+                const vNueva  = (doc.querySelector('meta[name="version-vistas"]') || {}).content;
+                const vActual = (document.querySelector('meta[name="version-vistas"]') || {}).content;
+                if (vNueva && vActual && vNueva !== vActual) {
+                    versionChanged = true;
+                    console.log('Vistas actualizadas en el servidor. Requiriendo recarga completa.');
+                }
+            }
+
             // HOJAS DE ESTILO (<link rel="stylesheet">): la SPA NO re-evalúa los <link>
             // al navegar, así que un cambio CSS-only (z-index del PDF, menú, etc.) no se
             // veía hasta un F5 manual. A DIFERENCIA de los <script> —que requieren recarga

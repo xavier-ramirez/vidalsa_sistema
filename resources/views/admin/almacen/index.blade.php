@@ -514,17 +514,20 @@
        esquinas redondeadas del modal: se redondean ellos mismos. */
     #almEtiquetasModal .alm-modal-head { border-radius: 14px 14px 0 0; }
     #almEtiquetasModal .alm-modal-foot { border-radius: 0 0 14px 14px; }
-    /* Modal chico: botones del pie más bajos que el 12px de padding general. */
-    #almEtiquetasModal .alm-modal-foot .btn-primary-maquinaria { padding: 8px 20px; border-radius: 10px; }
     #almEtiquetasModal .dropdown-content { z-index: 60; max-height: 190px; overflow-y: auto; }
     #almEtiquetasModal .custom-dropdown.active .dropdown-content { animation: slideDown 0.18s ease-out; }
     /* El "Formato" muestra su valor en el placeholder del input readonly: lo pintamos como
        texto sólido (no gris) para que "Rollo 50 × 30 mm" se vea como la opción elegida por defecto. */
     #almEtiquetasModal .dropdown-trigger input::placeholder { font-style: normal; color: #0f172a; opacity: 1; }
-    /* Lápiz que muestra el tamaño de la etiqueta (almEtqVerFormato); en azul mientras se ve. */
-    .alm-etq-lapiz { flex: 0 0 38px; height: 38px; padding: 0; border: 1px solid #cbd5e0; border-radius: 7px; background: #fff; color: #64748b; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-    .alm-etq-lapiz:hover, .alm-etq-lapiz.activo { border-color: var(--maquinaria-blue, #0067b1); color: var(--maquinaria-blue, #0067b1); }
-    .alm-etq-lapiz .material-icons { font-size: 18px; }
+    /* Cantidad y tamaño de la etiqueta más bajos que el campo normal del modal (38 px): es
+       una fila corta y a 38 px el número se veía como un bloque. */
+    #almEtiquetasModal input.alm-nota-input { height: 32px; }
+    /* Lápiz que muestra el tamaño de la etiqueta (almEtqVerFormato): solo el ícono, sin
+       recuadro; en azul al pasar el mouse y mientras se ve el tamaño. */
+    .alm-etq-lapiz { flex: 0 0 auto; height: 32px; padding: 0 2px; border: none; border-radius: 6px; background: none; color: #64748b; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    .alm-etq-lapiz:hover, .alm-etq-lapiz.activo { color: var(--maquinaria-blue, #0067b1); }
+    .alm-etq-lapiz:focus-visible { outline: 2px solid var(--maquinaria-blue, #0067b1); outline-offset: 1px; }
+    .alm-etq-lapiz .material-icons { font-size: 19px; }
     /* Filtros del modal "Movimientos del producto": Tipo y Fechas EN LA MISMA FILA.
        Iban con flex-wrap:wrap y en un modal de 540 px los dos campos de fecha no entraban
        junto al selector, así que "Fechas" caía a un renglón aparte y los filtros se veían
@@ -592,12 +595,54 @@
        en estante..." — con 6px quedaba pegado al encabezado. Su ícono, en blanco. */
     #almDetalleModal .alm-modal-body { padding-top: 14px; }
     #almDetalleModal .alm-modal-head h3 .material-icons { color: #fff; }
+    /* Compatibilidad en "Detalles del producto": números de parte y equipos que lo usan, con
+       + para agregar y × para quitar (solo con almacen.productos). Todo en texto oscuro sobre
+       gris claro: el azul queda para los botones. */
+    #almDetCompat { border-top: 1px solid #f1f5f9; padding-top: 12px; display: flex; flex-direction: column; gap: 12px; }
+    .alm-det-sec-cab { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+    .alm-det-sec-tit { font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: .4px; display: flex; align-items: center; gap: 6px; }
+    .alm-det-sec-tit .material-icons { font-size: 16px; color: #475569; }
+    .alm-det-mas { display: inline-flex; align-items: center; gap: 2px; border: none; background: none; padding: 2px 4px; border-radius: 6px;
+                   font: inherit; font-size: 12px; font-weight: 700; color: #0067b1; cursor: pointer; }
+    .alm-det-mas:hover { background: #e0f2fe; }
+    .alm-det-mas .material-icons { font-size: 16px; }
+    .alm-det-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+    .alm-det-chip { display: inline-flex; align-items: center; gap: 2px; background: #f1f5f9; color: #0f172a; border: 1px solid #cbd5e1;
+                    border-radius: 6px; padding: 2px 8px; font-size: 12px; font-weight: 700; }
+    .alm-det-lista { display: flex; flex-direction: column; gap: 4px; max-height: 180px; overflow-y: auto; }
+    .alm-det-eq { display: flex; align-items: center; gap: 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 7px; padding: 6px 9px; }
+    /* Ancho fijo para que los modelos queden en columna aunque el tipo sea largo (el nombre
+       completo va en el title). */
+    .alm-det-eq-tipo { flex: 0 0 120px; font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase;
+                       overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .alm-det-eq-mod { font-size: 12.5px; font-weight: 700; color: #0f172a; flex: 1; min-width: 0; }
+    .alm-det-eq-dato { font-size: 11px; font-weight: 700; color: #475569; }
+    .alm-det-eq-etapa { font-size: 11px; font-weight: 700; color: #334155; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 5px; padding: 1px 7px; }
+    .alm-det-quitar { display: inline-flex; border: none; background: none; padding: 0; margin-left: 2px; color: #64748b; cursor: pointer; }
+    .alm-det-quitar:hover { color: #dc2626; }
+    .alm-det-quitar .material-icons { font-size: 15px; }
+    /* Formularios en línea del + : caja y botón, sin salir del modal. */
+    .alm-det-form { position: relative; display: flex; gap: 6px; margin-top: 6px; }
+    .alm-det-form input { flex: 1; min-width: 0; height: 32px; padding: 0 9px; }
+    .alm-det-form .btn-primary-maquinaria { padding: 0 14px; height: 32px; border-radius: 8px; font-size: 13px; }
+    .alm-det-sug { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 5; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px;
+                   box-shadow: 0 10px 22px rgba(15,23,42,.14); max-height: 220px; overflow-y: auto; padding: 4px; }
+    .alm-det-sug-item { padding: 7px 9px; border-radius: 6px; cursor: pointer; font-size: 12.5px; color: #0f172a; }
+    .alm-det-sug-item:hover { background: #e0f2fe; }
+    .alm-det-sug-item b { font-size: 11px; color: #475569; text-transform: uppercase; margin-right: 6px; }
+    .alm-det-sug-vacio { padding: 8px 9px; font-size: 12px; color: #64748b; font-style: italic; }
+    /* `hidden` tiene que ganarle al display:flex de arriba (y la lista sin sugerencias no se ve). */
+    #almDetCompat[hidden], .alm-det-form[hidden], .alm-det-sug:empty { display: none; }
+    .alm-det-msg { font-size: 12px; font-weight: 600; color: #b91c1c; }
     /* El detalle aparece SIN deslizamiento (como los detalles del módulo Equipos):
        se quita la animación de entrada almIn solo para este modal. */
     #almDetalleModal .alm-modal { animation: none; }
     .alm-modal-body { padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; }
     /* Pie en gris claro, como el de Recepción: separa los botones del contenido. */
     .alm-modal-foot { padding: 12px 18px; border-top: 1px solid #e2e8f0; background: #f8fafc; display: flex; justify-content: center; gap: 8px; }
+    /* Botones del pie de TODOS los modales del módulo, más bajos que el 12px de padding
+       general de .btn-primary-maquinaria (en un modal se veían muy grandes). */
+    .alm-modal-foot .btn-primary-maquinaria { padding: 8px 20px; border-radius: 10px; }
     /* Rótulo de campo. El :not() NO es adorno: .multiselect-item también es un <label>, y
        este selector (0,1,1) le ganaba al del componente (0,1,0) — le imponía display:block
        (matando su flex), gris 700 en vez del azul 600 propio, MAYÚSCULAS y un
@@ -1393,8 +1438,8 @@
                         title="Cambiar el tamaño de la etiqueta" aria-label="Cambiar el tamaño de la etiqueta" aria-expanded="false">
                     <i class="material-icons">edit</i>
                 </button>
-                {{-- Desplegable "Formato": el tamaño de la tira de la etiquetadora (ya no hay
-                     hoja carta). Mismo componente custom-dropdown del resto de la app
+                {{-- Desplegable "Formato": las dos tiras de la etiquetadora o la hoja carta
+                     (30 por hoja, impresora normal). Mismo componente custom-dropdown del resto de la app
                      (selectOption escribe en el hidden #almEtqFormato, que lee almEtiquetasGenerar).
                      data-filter-type no engancha filtros: el listener de dropdown-selection no
                      hace nada con este desplegable.
@@ -1402,7 +1447,7 @@
                      ("Rollo 50 × 30 mm") y va rotulado por aria-label. --}}
                 <div class="custom-dropdown" id="almEtqFormatoDropdown" data-filter-type="formato_etq" data-default-label="Rollo 50 × 30 mm" style="flex:1;min-width:0;" hidden>
                     <input type="hidden" id="almEtqFormato" data-filter-value value="50x30">
-                    <div class="dropdown-trigger" style="padding:0;display:flex;align-items:center;background:#fff;overflow:hidden;border:1px solid #cbd5e0;border-radius:7px;height:38px;">
+                    <div class="dropdown-trigger" style="padding:0;display:flex;align-items:center;background:#fff;overflow:hidden;border:1px solid #cbd5e0;border-radius:7px;height:32px;">
                         <input type="text" id="almEtqFormatoSearch" data-filter-search autocomplete="off" readonly
                                placeholder="Rollo 50 × 30 mm" aria-label="Tamaño de la etiqueta"
                                style="flex:1;border:none;background:transparent;padding:0 10px;font-size:13.5px;color:#0f172a;outline:none;min-width:0;cursor:pointer;">
@@ -1412,6 +1457,7 @@
                         <div class="dropdown-item-list">
                             <div class="dropdown-item selected" data-value="50x30" onclick="selectOption('almEtqFormatoDropdown','50x30','Rollo 50 × 30 mm');">Rollo 50 × 30 mm</div>
                             <div class="dropdown-item" data-value="40x25" onclick="selectOption('almEtqFormatoDropdown','40x25','Rollo 40 × 25 mm');">Rollo 40 × 25 mm</div>
+                            <div class="dropdown-item" data-value="carta" onclick="selectOption('almEtqFormatoDropdown','carta','Hoja carta (30 por hoja)');">Hoja carta (30 por hoja)</div>
                         </div>
                     </div>
                 </div>
@@ -1997,18 +2043,37 @@
                 <div class="alm-hint" style="margin-top:6px;">Al despachar puedes elegir de qué proyecto sale, tocándolo en este mismo desglose dentro de la tabla. Sin elegir, la salida toma primero el saldo del proyecto destino y lo que esté sin proyecto; si no alcanza, sigue con el de los demás y queda anotado en la bitácora.</div>
             </div>
 
-            {{-- Compatibilidad del filtro: nº de parte (equivalencias) + equipos que lo usan.
-                 Se carga al abrir el detalle (almAbrirDetalle → fetch a productoCompatibilidad).
-                 Se oculta si el producto no tiene ni equivalencias ni equipos. --}}
-            <div id="almDetCompat" style="display:none;border-top:1px solid #f1f5f9;padding-top:12px;">
-                <div id="almDetPartesWrap" style="display:none;margin-bottom:10px;">
-                    <div style="font-size:11px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;">Nº de parte / equivalencias</div>
-                    <div id="almDetPartes" style="display:flex;flex-wrap:wrap;gap:5px;"></div>
+            {{-- Compatibilidad: nº de parte (equivalencias) + equipos que lo usan. Se carga al
+                 abrir el detalle (almAbrirDetalle → almCargarCompat) y la pinta almDetCompatPintar.
+                 Con almacen.productos cada sección lleva su + (agregar) y cada dato su ×
+                 (quitar); sin ese permiso solo se ve lo que hay, y nada si no hay nada. --}}
+            <div id="almDetCompat" hidden>
+                <div id="almDetPartesWrap" hidden>
+                    <div class="alm-det-sec-cab">
+                        <span class="alm-det-sec-tit">Nº de parte / equivalencias</span>
+                        <button type="button" class="alm-det-mas alm-det-solo-edita" onclick="window.almDetParteAbrir()"><i class="material-icons">add</i>Agregar</button>
+                    </div>
+                    <div id="almDetPartes" class="alm-det-chips"></div>
+                    <form id="almDetParteForm" class="alm-det-form" hidden onsubmit="event.preventDefault(); window.almDetParteGuardar();">
+                        <input type="text" id="almDetParteInput" maxlength="100" autocomplete="off" placeholder="Número de parte" aria-label="Número de parte"
+                               onkeydown="if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); window.almDetFormCerrar(); }">
+                        <button type="submit" class="btn-primary-maquinaria">Agregar</button>
+                    </form>
                 </div>
-                <div id="almDetEquiposWrap" style="display:none;">
-                    <div style="font-size:11px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;display:flex;align-items:center;gap:6px;"><i class="material-icons" style="font-size:16px;color:#0067b1;">precision_manufacturing</i> Equipos que lo usan <span id="almDetEquiposCount" style="color:#94a3b8;font-weight:700;"></span></div>
-                    <div id="almDetEquipos" style="display:flex;flex-direction:column;gap:4px;max-height:180px;overflow-y:auto;"></div>
+                <div id="almDetEquiposWrap" hidden>
+                    <div class="alm-det-sec-cab">
+                        <span class="alm-det-sec-tit"><i class="material-icons">precision_manufacturing</i> Equipos que lo usan <span id="almDetEquiposCount"></span></span>
+                        <button type="button" class="alm-det-mas alm-det-solo-edita" onclick="window.almDetEquipoAbrir()"><i class="material-icons">add</i>Vincular</button>
+                    </div>
+                    <div id="almDetEquipos" class="alm-det-lista"></div>
+                    <div id="almDetEquipoForm" class="alm-det-form" hidden>
+                        <input type="text" id="almDetEquipoInput" autocomplete="off" placeholder="Buscar tipo, marca o modelo…" aria-label="Buscar equipo"
+                               oninput="window.almDetEquipoBuscar()"
+                               onkeydown="if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); window.almDetFormCerrar(); }">
+                        <div id="almDetEquipoSug" class="alm-det-sug"></div>
+                    </div>
                 </div>
+                <div id="almDetCompatMsg" class="alm-det-msg" hidden></div>
             </div>
 
             <div style="border-top:1px solid #f1f5f9;padding-top:12px;display:flex;flex-direction:column;gap:7px;">
@@ -2241,7 +2306,9 @@
                  paso donde se revisa antes de registrar: la salida se permite —el material
                  está en la bodega y prestarlo entre frentes es un ajuste normal— pero quien
                  firma tiene que enterarse. Se llena/vacía en cada vista previa. --}}
-            <div id="almPreviewAviso" style="display:none;background:#fef3c7;color:#92400e;border-bottom:1px solid #fde68a;padding:9px 16px;font-size:12.5px;font-weight:600;line-height:1.45;"></div>
+            {{-- Texto oscuro con el ícono en ámbar: con letra ámbar sobre fondo ámbar se leía
+                 como amarillo sobre amarillo. Lo pinta almSalidaVistaPrevia. --}}
+            <div id="almPreviewAviso" style="display:none;align-items:flex-start;gap:8px;background:#fffbeb;color:#0f172a;border-bottom:1px solid #fde68a;padding:9px 16px;font-size:12.5px;font-weight:500;line-height:1.45;"></div>
             {{-- ESCRITORIO: el visor de PDF nativo del navegador en un iframe (zoom/imprimir). --}}
             <iframe id="almPreviewFrame" src="about:blank" style="width:100%;height:82vh;min-height:560px;border:none;background:#fff;" title="Vista previa Nota de Entrega"></iframe>
             {{-- TELÉFONO: los navegadores móviles no renderizan PDF en iframe, así que el PDF
@@ -3325,11 +3392,19 @@
         if (!partes.length) almAvisoSalidaActivo = false;
         box.hidden = !almAvisoSalidaActivo;
         if (box.hidden) { box.innerHTML = ''; return; }
-        var frase = partes.length === 1 ? partes[0] : partes.slice(0, -1).join(', ') + ' y ' + partes[partes.length - 1];
+        var unir = function (l, y) { return l.length === 1 ? l[0] : l.slice(0, -1).join(', ') + y + l[l.length - 1]; };
+        // Dónde mirar: las filas por corregir van en rojo y su caja de Salida lleva el motivo
+        // (los mismos textos del ::after de .alm-td-cant).
+        var rotulos = [];
+        if (falta) rotulos.push('«Falta la cantidad»');
+        if (supera) rotulos.push('«Supera el stock»');
+        if (sinStock) rotulos.push('«Sin stock»');
+        var enRojo = falta + supera + sinStock, pista = '';
+        if (enRojo) pista += (enRojo === 1 ? 'Está resaltado en rojo y su caja de Salida dice ' : 'Están resaltados en rojo y su caja de Salida dice ') + unir(rotulos, ' o ') + '. ';
+        if (sinParte) pista += 'Toca el número de parte que entregas y luego pon la cantidad.';
         box.innerHTML = '<i class="material-icons">error_outline</i><div>'
-            + '<strong>No se puede registrar la salida:</strong> ' + frase + '.'
-            + '<div class="alm-aviso-pista">' + (sinParte ? 'Toca el número de parte que entregas y luego pon la cantidad. ' : '')
-            + 'Cada caja de la columna Salida dice qué le falta.</div></div>';
+            + '<strong>No se puede registrar la salida:</strong> ' + unir(partes, ' y ') + '.'
+            + '<div class="alm-aviso-pista">' + pista + '</div></div>';
     }
     // Lleva a la fila de un producto por corregir y deja el cursor en su cantidad.
     function almIrAProblema(id) {
@@ -4317,14 +4392,11 @@
     window.almCargarCompat = function (id) {
         var esc = window.escapeHtml;   // helper central (dom_helpers.js)
         var wrap = el('almDetCompat'); if (!wrap) return;
-        var partesWrap = el('almDetPartesWrap'), equiposWrap = el('almDetEquiposWrap'),
-            partesBox = el('almDetPartes'), equiposBox = el('almDetEquipos'), countEl = el('almDetEquiposCount');
         var proyWrap = el('almDetProyectosWrap'), proyBox = el('almDetProyectos');
-        wrap.style.display = 'none';
-        partesWrap.style.display = 'none'; equiposWrap.style.display = 'none';
         if (proyWrap) proyWrap.style.display = 'none';
         if (proyBox) proyBox.innerHTML = '';
-        partesBox.innerHTML = ''; equiposBox.innerHTML = ''; countEl.textContent = '';
+        almDetFormCerrar();
+        almDetCompatPintar({ equivalencias: [], equipos: [] }, true);
 
         // El almacén abierto viaja en la URL: sin él el backend no sabe de qué inventario
         // sacar el reparto por proyecto (la compatibilidad no depende del almacén).
@@ -4336,7 +4408,6 @@
             .then(function (d) {
                 var m = el('almDetalleModal');
                 if (!m || String(m.dataset.id) !== String(id)) return; // cambió de producto mientras cargaba
-                var partes = d.equivalencias || [], equipos = d.equipos || [];
                 // Reparto por proyecto: viene vacío en los almacenes que no separan.
                 var proyectos = d.proyectos || [];
                 // Mismo formato de cantidad que el panel lateral, que pinta ESTE MISMO dato
@@ -4357,36 +4428,149 @@
                     }).join('');
                     proyWrap.style.display = 'block';
                 }
-                if (partes.length) {
-                    partesBox.innerHTML = partes.map(function (p) {
-                        return '<span style="background:#eff6ff;color:#0067b1;border:1px solid #dbeafe;border-radius:6px;padding:2px 8px;font-size:12px;font-weight:700;">' + esc(p) + '</span>';
-                    }).join('');
-                    partesWrap.style.display = 'block';
-                }
-                if (equipos.length) {
-                    countEl.textContent = '(' + equipos.length + ')';
-                    // La ETAPA (primario/secundario) va por EQUIPO, no por producto: el mismo
-                    // filtro puede ser primario en una máquina y secundario en otra. Sin
-                    // confirmar se muestra "—" en gris: el hueco es deliberado, no un fallo.
-                    equiposBox.innerHTML = equipos.map(function (e) {
-                        var etapa = e.etapa
-                            ? '<span style="font-size:11px;font-weight:700;color:#0f766e;background:#f0fdfa;border:1px solid #ccfbf1;border-radius:5px;padding:1px 7px;">' + esc(e.etapa) + '</span>'
-                            : '<span style="font-size:11px;color:#cbd5e0;">&mdash;</span>';
-                        var cant = e.cant > 1
-                            ? '<span style="font-size:11px;font-weight:700;color:#64748b;">x' + e.cant + '</span>'
-                            : '';
-                        return '<div style="display:flex;align-items:center;gap:8px;background:#f8fafc;border:1px solid #eef2f7;border-radius:7px;padding:6px 9px;">' +
-                               '<span style="font-size:11px;font-weight:800;color:#0067b1;text-transform:uppercase;min-width:104px;">' + esc(e.tipo) + '</span>' +
-                               '<span style="font-size:12.5px;font-weight:600;color:#334155;flex:1;min-width:0;">' + esc(e.modelo) + '</span>' +
-                               cant + etapa + '</div>';
-                    }).join('');
-                    equiposWrap.style.display = 'block';
-                }
-                // Sin equivalencias ni equipos el bloque entero queda oculto (no hay
-                // mensaje de "vacío": el cliente lo pidió fuera).
-                if (partes.length || equipos.length) wrap.style.display = 'block';
+                almDetCompatPintar(d);
             })
             .catch(function () { /* silencioso: el detalle sigue usable sin la compatibilidad */ });
+    };
+
+    // Pinta números de parte y equipos. `oculta` = estado de carga (todo escondido). Sin
+    // permiso de edición solo se ven las secciones con datos, y nada si no hay ninguno (sin
+    // mensaje de "vacío": el cliente lo pidió fuera); con permiso, las dos con su +.
+    var almDetEquiposPintados = [], almDetEquipoOpciones = [];
+    function almDetCompatPintar(d, oculta) {
+        var esc = window.escapeHtml;
+        var partes = d.equivalencias || [], equipos = d.equipos || [];
+        var edita = HAS_PRODUCTOS;
+        var quitar = function (attrs, titulo) {
+            return edita ? '<button type="button" class="alm-det-quitar" title="' + titulo + '" ' + attrs + '><i class="material-icons">close</i></button>' : '';
+        };
+        el('almDetPartes').innerHTML = partes.map(function (p) {
+            return '<span class="alm-det-chip">' + esc(p) + quitar('data-parte="' + esc(p) + '" onclick="window.almDetParteQuitar(this.dataset.parte)"', 'Quitar este número de parte') + '</span>';
+        }).join('');
+        el('almDetEquiposCount').textContent = equipos.length ? '(' + equipos.length + ')' : '';
+        // La × manda los `ids` de la fila (un modelo con varias fichas del catálogo son varios).
+        almDetEquiposPintados = equipos;
+        // La ETAPA (primario/secundario) va por EQUIPO, no por producto: el mismo filtro puede
+        // ser primario en una máquina y secundario en otra. Sin confirmar no se muestra.
+        el('almDetEquipos').innerHTML = equipos.map(function (e, i) {
+            return '<div class="alm-det-eq">'
+                + '<span class="alm-det-eq-tipo" title="' + esc(e.tipo) + '">' + esc(e.tipo) + '</span>'
+                + '<span class="alm-det-eq-mod">' + esc(e.modelo) + '</span>'
+                + (e.cant > 1 ? '<span class="alm-det-eq-dato">x' + e.cant + '</span>' : '')
+                + (e.etapa ? '<span class="alm-det-eq-etapa">' + esc(e.etapa) + '</span>' : '')
+                + quitar('onclick="window.almDetEquipoQuitar(' + i + ')"', 'Desvincular este equipo')
+                + '</div>';
+        }).join('');
+        document.querySelectorAll('#almDetCompat .alm-det-solo-edita').forEach(function (b) { b.hidden = !edita; });
+        el('almDetPartesWrap').hidden = !(edita || partes.length);
+        el('almDetEquiposWrap').hidden = !(edita || equipos.length);
+        el('almDetCompat').hidden = !!oculta || !(edita || partes.length || equipos.length);
+    }
+    function almDetCompatMsg(texto) {
+        var m = el('almDetCompatMsg'); if (!m) return;
+        m.textContent = texto || ''; m.hidden = !texto;
+    }
+    function almDetFormCerrar() {
+        ['almDetParteForm', 'almDetEquipoForm'].forEach(function (f) { var x = el(f); if (x) x.hidden = true; });
+        var s = el('almDetEquipoSug'); if (s) s.innerHTML = '';
+        almDetCompatMsg('');
+    }
+    window.almDetFormCerrar = almDetFormCerrar;
+
+    // Guarda un cambio de compatibilidad (+ / ×) del producto abierto. El servidor responde con
+    // la compatibilidad ya al día y se repinta; la fila de la tabla se recarga (lleva los
+    // números de parte y de ahí los toma "Editar producto" y la salida).
+    var ROUTE_COMPAT = {
+        equivalencias: "{{ route('almacen.productos.equivalencias.store', ['id' => '__PID__']) }}",
+        equipos:       "{{ route('almacen.productos.equipos.store', ['id' => '__PID__']) }}",
+        opciones:      "{{ route('almacen.productos.equipos.opciones', ['id' => '__PID__']) }}",
+    };
+    // Uno a la vez: un doble clic mandaba dos veces lo mismo y el segundo volvía con "ya está".
+    var almDetCompatOcupado = false;
+    function almDetCompatCambiar(que, metodo, cuerpo) {
+        var m = el('almDetalleModal'); var id = m ? m.dataset.id : '';
+        if (almDetCompatOcupado || !id || !ensurePerm(HAS_PRODUCTOS, 'No tienes permiso para editar productos.')) return;
+        almDetCompatOcupado = true;
+        almDetCompatMsg('');
+        window.apiFetch(ROUTE_COMPAT[que].replace('__PID__', id), {
+            method: metodo,
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/json' },
+            body: JSON.stringify(cuerpo)
+        })
+            .then(function (r) { return r.json().catch(function () { return {}; }).then(function (b) { return { ok: r.ok, b: b }; }); })
+            .then(function (res) {
+                if (String(el('almDetalleModal').dataset.id) !== String(id)) return;
+                if (!res.ok) {
+                    var errs = res.b.errors ? Object.values(res.b.errors).map(function (e) { return e[0]; }) : [];
+                    almDetCompatMsg(errs[0] || res.b.message || 'No se pudo guardar.');
+                    return;
+                }
+                almDetFormCerrar();
+                almDetCompatPintar(res.b);
+                almDetCompatAplicarASeleccion(id, res.b.equivalencias || []);
+                almRecargarMostrando(id);
+            })
+            .catch(function () { almDetCompatMsg('No se pudo contactar al servidor.'); })
+            .finally(function () { almDetCompatOcupado = false; });
+    }
+    // Si el producto está en la salida en curso, su entrada sigue a las equivalencias nuevas:
+    // con una sola, es esa; si se quitó la que estaba elegida, se vuelve a pedir.
+    function almDetCompatAplicarASeleccion(id, partes) {
+        var s = almSeleccion[id]; if (!s) return;
+        s.partes = partes.length;
+        if (s.parte && partes.indexOf(s.parte) === -1) s.parte = '';
+        if (!s.parte && partes.length === 1) s.parte = partes[0];
+    }
+
+    window.almDetParteAbrir = function () {
+        almDetFormCerrar();
+        el('almDetParteForm').hidden = false;
+        var i = el('almDetParteInput'); i.value = ''; i.focus();
+    };
+    window.almDetParteGuardar = function () {
+        var np = (el('almDetParteInput').value || '').trim();
+        if (!np) { almDetCompatMsg('Escribe el número de parte.'); return; }
+        almDetCompatCambiar('equivalencias', 'POST', { numero_parte: np });
+    };
+    window.almDetParteQuitar = function (np) { almDetCompatCambiar('equivalencias', 'DELETE', { numero_parte: np }); };
+
+    var _almDetEquipoEspera = null, _almDetEquipoPedido = 0;
+    window.almDetEquipoAbrir = function () {
+        almDetFormCerrar();
+        el('almDetEquipoForm').hidden = false;
+        var i = el('almDetEquipoInput'); i.value = ''; i.focus();
+        window.almDetEquipoBuscar();
+    };
+    // Sugerencias del servidor (modelos del catálogo y auxiliares que el producto aún no tiene).
+    // Solo pinta la respuesta de la ÚLTIMA búsqueda: si una anterior llega tarde, se descarta.
+    window.almDetEquipoBuscar = function () {
+        clearTimeout(_almDetEquipoEspera);
+        _almDetEquipoEspera = setTimeout(function () {
+            var m = el('almDetalleModal'); var id = m ? m.dataset.id : ''; if (!id) return;
+            var q = (el('almDetEquipoInput').value || '').trim(), pedido = ++_almDetEquipoPedido;
+            window.apiFetch(ROUTE_COMPAT.opciones.replace('__PID__', id) + '?q=' + encodeURIComponent(q), { headers: { 'Accept': 'application/json' } })
+                .then(function (r) { return r.json(); })
+                .then(function (d) {
+                    var box = el('almDetEquipoSug'); if (!box || el('almDetEquipoForm').hidden || pedido !== _almDetEquipoPedido) return;
+                    var esc = window.escapeHtml, ops = d.opciones || [];
+                    almDetEquipoOpciones = ops;
+                    box.innerHTML = ops.length
+                        ? ops.map(function (o, i) {
+                            return '<div class="alm-det-sug-item" onclick="window.almDetEquipoVincular(' + i + ')">'
+                                + '<b>' + esc(o.tipo) + '</b>' + esc(o.modelo) + '</div>';
+                          }).join('')
+                        : '<div class="alm-det-sug-vacio">Ningún equipo coincide' + (q ? ' con «' + esc(q) + '»' : '') + '.</div>';
+                })
+                .catch(function () {});
+        }, 180);
+    };
+    window.almDetEquipoVincular = function (i) {
+        var o = almDetEquipoOpciones[i]; if (!o) return;
+        almDetCompatCambiar('equipos', 'POST', { origen: o.origen, refs: o.refs });
+    };
+    window.almDetEquipoQuitar = function (i) {
+        var e = almDetEquiposPintados[i]; if (!e) return;
+        almDetCompatCambiar('equipos', 'DELETE', { origen: e.origen, ids: e.ids });
     };
     // Cierra "Detalles del producto" y, si la fila de ese producto SIGUE seleccionada,
     // devuelve el foco a su input de cantidad — así el usuario escribe la salida de una
@@ -5727,10 +5911,11 @@
             almCerrar('almSalidaModal');
             var avisoBox = el('almPreviewAviso');
             if (avisoBox) {
-                avisoBox.textContent = almPreviewAvisoTexto
-                    ? ('Saldo de otros proyectos — ' + almPreviewAvisoTexto)
+                avisoBox.innerHTML = almPreviewAvisoTexto
+                    ? '<i class="material-icons" style="font-size:18px;color:#b45309;flex-shrink:0;">info</i>'
+                      + '<span><b>Saldo de otros proyectos:</b> ' + window.escapeHtml(almPreviewAvisoTexto) + '</span>'
                     : '';
-                avisoBox.style.display = almPreviewAvisoTexto ? 'block' : 'none';
+                avisoBox.style.display = almPreviewAvisoTexto ? 'flex' : 'none';
             }
             almOpen('almPreviewModal');
             if (almEsMovil()) {

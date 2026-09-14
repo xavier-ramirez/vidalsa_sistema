@@ -136,8 +136,8 @@ class TraspasoController extends Controller
         ) {
             return redirect()->route('almacen.recepcion.nueva');
         }
-        // Si el general entra igual a la bandeja (Acciones → "Reposición del general", o la
-        // pestaña), abre en el primer almacén de PROYECTO: es donde llega lo que el general
+        // Si el general entra igual a la bandeja (Acciones → "Estado del despacho" del
+        // Historial), abre en el primer almacén de PROYECTO: es donde llega lo que el general
         // despachó. Con el suyo preseleccionado la bandeja saldría vacía.
         if ($idDef && !$bandeja->contains('ID_ALMACEN', (int) $idDef)) {
             $idDef = optional($bandeja->first())->ID_ALMACEN;
@@ -385,10 +385,10 @@ class TraspasoController extends Controller
 
     /**
      * Pantalla "Entrada por ODC" — la recepción del almacén GENERAL (index() manda aquí a
-     * quien abre Recepción con un almacén GENERAL). Página dedicada: el usuario llena
-     * los datos del documento (nota de entrega, proveedor, fecha) + las líneas (producto
-     * + cantidad con autocomplete por código o descripción) y al submit el front POSTea a
-     * almacen.movimientos.lote con tipo=ENTRADA — no hay backend nuevo aquí, solo
+     * quien abre Recepción con un almacén GENERAL). Página dedicada: el usuario captura
+     * las líneas (producto + cantidad con autocomplete por código o descripción) y, al
+     * registrar, los datos del documento (nota de entrega, proveedor, fecha) en un modal;
+     * entonces el front POSTea a almacen.movimientos.lote con tipo=ENTRADA — no hay backend nuevo aquí, solo
      * la pantalla del formulario. La pantalla es accesible sin permiso especial; el
      * gate almacen.movimiento se aplica al EJECUTAR el submit (registrarMovimientoLote).
      *

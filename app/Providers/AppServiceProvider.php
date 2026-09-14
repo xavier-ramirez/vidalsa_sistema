@@ -84,6 +84,28 @@ class AppServiceProvider extends ServiceProvider
         EquipoAuxiliar::observe(EquipoAuxiliarObserver::class);
         Documentacion::observe(DocumentacionObserver::class);
 
+        // Versión de las vistas (la modificación más reciente de resources/views), en el <head>
+        // del layout. La SPA la compara al navegar (navegacion.js) y recarga completo si cambió:
+        // el código de cada módulo va DENTRO de su vista y se inicia una sola vez por pestaña
+        // (guardas tipo __almIndexInit), así que tras una actualización mezclaba el HTML nuevo
+        // con el JS de la primera carga. Cacheada 30 s: recorrer las vistas cuesta ~8 ms.
+        View::composer('layouts.estructura_base', function ($view) {
+            $version = '';
+            try {
+                $version = \Illuminate\Support\Facades\Cache::remember('version_vistas', 30, function () {
+                    $max = 0;
+                    $archivos = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(resource_path('views'), \FilesystemIterator::SKIP_DOTS));
+                    foreach ($archivos as $archivo) {
+                        $max = max($max, $archivo->getMTime());
+                    }
+                    return (string) $max;
+                });
+            } catch (\Throwable $e) {
+                // Sin versión la SPA simplemente no compara: nunca rompe la página.
+            }
+            $view->with('versionVistas', $version);
+        });
+
         // View Composer: inyecta $traspasosPorRecibir en el layout base para que el badge
         // del menú "Almacén → Recepción" se vea desde CUALQUIER página
         // (no solo desde /admin/almacen donde el controller lo calculaba).

@@ -98,11 +98,14 @@
 
         $('devMatLineas').innerHTML = nota.lineas.map(function (l, i) {
             var cerrada = l.pendiente <= EPS;
-            var sub = 'Entregado ' + num(l.entregado) + ' ' + esc(l.um || '')
-                + (l.devuelto > EPS ? ' · ya devuelto ' + num(l.devuelto) : '');
+            var um = esc(l.um || '');
             return '<div class="devm-linea' + (cerrada ? ' cerrada' : '') + '" data-i="' + i + '">'
-                + '<div><div class="devm-prod">' + esc(l.nombre) + '</div>'
-                +   '<div class="devm-prod-sub">' + (l.codigo ? esc(l.codigo) + ' · ' : '') + sub + '</div></div>'
+                + '<div class="devm-prod-bloque">'
+                +   '<div class="devm-prod-cab">' + (l.codigo ? '<span class="devm-cod">' + esc(l.codigo) + '</span>' : '')
+                +     '<span class="devm-prod">' + esc(l.nombre) + '</span></div>'
+                +   '<div class="devm-datos"><span>Entregado <b>' + num(l.entregado) + ' ' + um + '</b></span>'
+                +     (l.devuelto > EPS ? '<span>Ya devuelto <b>' + num(l.devuelto) + ' ' + um + '</b></span>' : '') + '</div>'
+                + '</div>'
                 + (cerrada
                     ? '<div class="devm-prod-sub devm-linea-fin">Ya se devolvió todo.</div>'
                     : '<div><div class="devm-mini"><span>Devuelve</span><button type="button" data-dev-todo="' + i + '">Todo</button></div>'

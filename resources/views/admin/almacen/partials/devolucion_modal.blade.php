@@ -21,11 +21,13 @@
     #devMatModal .devm-x:hover { opacity:1; }
     #devMatModal .devm-body { padding:16px 18px; display:flex; flex-direction:column; gap:12px; overflow-y:auto; min-height:0; }
     #devMatModal .devm-foot { padding:12px 18px; border-top:1px solid #e2e8f0; background:#f8fafc; display:flex; justify-content:center; gap:8px; flex-shrink:0; }
+    /* Mismo tamaño que los botones del pie de los modales de /admin/almacen (.alm-modal-foot). */
+    #devMatModal .devm-foot .btn-primary-maquinaria { padding:8px 20px; border-radius:10px; }
     #devMatModal .devm-foot .btn-primary-maquinaria:disabled { opacity:.5; cursor:not-allowed; }
     #devMatModal .devm-btn-cancelar { background:#e2e8f0; color:#475569; box-shadow:none; }
 
-    #devMatModal label.devm-label { font-size:12px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.3px; display:block; margin-bottom:4px; }
-    #devMatModal label.devm-label .devm-opc { font-weight:400; color:#94a3b8; text-transform:none; letter-spacing:0; }
+    #devMatModal label.devm-label { font-size:12px; font-weight:700; color:#475569; text-transform:uppercase; letter-spacing:.3px; display:block; margin-bottom:4px; }
+    #devMatModal label.devm-label .devm-opc { font-weight:400; color:#64748b; text-transform:none; letter-spacing:0; }
     #devMatModal .devm-input { width:100%; border:1px solid #cbd5e0; border-radius:8px; padding:9px 10px; font-size:14px; outline:none; box-sizing:border-box; background:#fff; color:#0f172a; }
     #devMatModal .devm-input:focus { border-color:var(--maquinaria-blue,#0067b1); }
 
@@ -34,14 +36,14 @@
     #devMatModal .devm-sug.open { display:block; }
     #devMatModal .devm-sug-item { padding:7px 10px; border-radius:6px; cursor:pointer; font-size:13px; color:#0f172a; }
     #devMatModal .devm-sug-item:hover { background:#e0f2fe; }
-    #devMatModal .devm-sug-item small { color:#64748b; margin-left:6px; }
+    #devMatModal .devm-sug-item small { color:#475569; margin-left:6px; }
     /* Producto a cambio: el stock de cada opción en el almacén de la nota; sin stock no se
        puede elegir (va al final de la lista). */
-    #devMatModal .devm-sug-stock { display:block; margin:1px 0 0; font-size:11px; color:#64748b; }
-    #devMatModal .devm-sug-item.sin-stock { cursor:not-allowed; color:#94a3b8; }
+    #devMatModal .devm-sug-stock { display:block; margin:1px 0 0; font-size:11px; color:#475569; }
+    #devMatModal .devm-sug-item.sin-stock { cursor:not-allowed; color:#64748b; }
     #devMatModal .devm-sug-item.sin-stock:hover { background:transparent; }
     #devMatModal .devm-sug-item.sin-stock .devm-sug-stock { color:#b91c1c; }
-    #devMatModal .devm-sug-vacio { padding:8px 10px; font-size:12px; color:#94a3b8; font-style:italic; }
+    #devMatModal .devm-sug-vacio { padding:8px 10px; font-size:12px; color:#64748b; font-style:italic; }
 
     #devMatModal .devm-msg { padding:9px 12px; border-radius:8px; font-size:12.5px; font-weight:600; line-height:1.4; }
     #devMatModal .devm-msg.error { background:#fee2e2; color:#b91c1c; border:1px solid #fecaca; }
@@ -55,21 +57,29 @@
 
     /* La tarjeta del producto: arriba qué es y cuánto se entregó; debajo, cuánto vuelve y
        qué se entrega a cambio. */
-    #devMatModal .devm-lineas { display:flex; flex-direction:column; gap:8px; }
+    #devMatModal .devm-lineas { display:flex; flex-direction:column; gap:8px; margin-top:10px; }
     #devMatModal .devm-linea { border:1px solid #e2e8f0; border-radius:10px; padding:12px 14px; display:grid; grid-template-columns:170px minmax(0,1fr); gap:10px 14px; align-items:start; }
     #devMatModal .devm-linea > :first-child { grid-column:1 / -1; }
     #devMatModal .devm-linea.activa { border-color:#93c5fd; background:#eff6ff; }
     #devMatModal .devm-linea.cerrada { opacity:.6; }
-    #devMatModal .devm-prod { font-size:14px; font-weight:800; color:#0f172a; line-height:1.3; }
-    #devMatModal .devm-prod-sub { font-size:11.5px; color:#64748b; margin-top:3px; font-weight:500; }
-    #devMatModal .devm-mini { font-size:10.5px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:.4px; margin-bottom:3px; display:flex; justify-content:space-between; gap:6px; }
+    /* Encabezado del producto: código en pastilla + nombre, y debajo lo entregado y lo ya
+       devuelto como datos; una raya lo separa de los campos. */
+    #devMatModal .devm-prod-bloque { display:flex; flex-direction:column; gap:7px; padding-bottom:11px; border-bottom:1px solid #e2e8f0; }
+    #devMatModal .devm-prod-cab { display:flex; align-items:center; gap:8px; min-width:0; }
+    #devMatModal .devm-cod { flex-shrink:0; font-family:monospace; font-size:12px; font-weight:700; color:#0f172a; background:#f1f5f9; border:1px solid #cbd5e1; border-radius:6px; padding:2px 7px; }
+    #devMatModal .devm-prod { font-size:14.5px; font-weight:800; color:#0f172a; line-height:1.3; min-width:0; }
+    #devMatModal .devm-datos { display:flex; flex-wrap:wrap; gap:6px; }
+    #devMatModal .devm-datos span { font-size:12px; color:#334155; background:#f8fafc; border:1px solid #e2e8f0; border-radius:999px; padding:2px 10px; }
+    #devMatModal .devm-datos b { color:#0f172a; }
+    #devMatModal .devm-prod-sub { font-size:12px; color:#475569; font-weight:600; }
+    #devMatModal .devm-mini { font-size:10.5px; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:.4px; margin-bottom:3px; display:flex; justify-content:space-between; gap:6px; }
     #devMatModal .devm-mini button { background:none; border:none; padding:0; color:#0067b1; font-size:10.5px; font-weight:800; cursor:pointer; text-transform:uppercase; }
     #devMatModal .devm-mini .devm-opc { font-weight:600; text-transform:none; letter-spacing:0; }
     /* Producto ya devuelto entero: el aviso ocupa el lugar de los dos campos. */
     #devMatModal .devm-linea-fin { grid-column:1 / -1; }
     #devMatModal .devm-cant { display:flex; align-items:center; gap:6px; }
     #devMatModal .devm-cant .devm-input { padding:7px 8px; text-align:right; }
-    #devMatModal .devm-cant span { font-size:11.5px; color:#64748b; font-weight:600; white-space:nowrap; }
+    #devMatModal .devm-cant span { font-size:12px; color:#334155; font-weight:700; white-space:nowrap; }
     #devMatModal .devm-cambio { position:relative; }
     #devMatModal .devm-cambio .devm-input { padding:7px 8px; font-size:13px; }
     #devMatModal .devm-elegido { display:flex; align-items:center; gap:6px; }
@@ -79,10 +89,9 @@
     #devMatModal .devm-elegido .devm-chip button .material-icons { font-size:16px; }
     #devMatModal .devm-elegido .devm-input { width:74px; flex-shrink:0; text-align:right; }
 
-    #devMatModal .devm-ayuda { font-size:12.5px; color:#475569; margin:10px 0 6px; }
     #devMatModal .devm-motivo { margin-top:12px; }
     #devMatModal .devm-historial { font-size:12px; color:#475569; border-top:1px dashed #e2e8f0; padding-top:10px; margin-top:12px; }
-    #devMatModal .devm-historial .devm-quien { color:#94a3b8; }
+    #devMatModal .devm-historial .devm-quien { color:#64748b; }
     #devMatModal .devm-historial b { color:#0f172a; }
     #devMatModal .devm-historial ul { margin:6px 0 0; padding-left:18px; display:flex; flex-direction:column; gap:3px; }
 
@@ -110,26 +119,18 @@
 
             <div id="devMatContenido" hidden>
                 <div id="devMatNota" class="devm-nota"></div>
-                <div class="devm-ayuda">
-                    Indica cuánto vuelve. Si se entrega otro producto a cambio (p. ej. otra talla), elígelo: sale con una Nota de Entrega nueva.
-                </div>
                 <div id="devMatLineas" class="devm-lineas"></div>
                 {{-- Sin fecha: la devolución queda con la de hoy (DevolucionService). --}}
                 <div class="devm-motivo">
                     <label class="devm-label" for="devMatMotivo">Motivo <span class="devm-opc">(opcional)</span></label>
-                    <input type="text" id="devMatMotivo" class="devm-input" maxlength="150" list="devMatMotivos" placeholder="P. ej. talla o medida equivocada" autocomplete="off">
-                    <datalist id="devMatMotivos">
-                        <option value="Talla o medida equivocada">
-                        <option value="Material equivocado">
-                        <option value="Sobrante, no se usó">
-                    </datalist>
+                    <input type="text" id="devMatMotivo" class="devm-input" maxlength="150" autocomplete="off">
                 </div>
                 <div id="devMatHistorial" class="devm-historial" hidden></div>
             </div>
         </div>
         <div class="devm-foot">
             <button type="button" class="btn-primary-maquinaria devm-btn-cancelar" onclick="window.DevolucionMaterial.cerrar()">Cancelar</button>
-            <button type="button" id="devMatGuardar" class="btn-primary-maquinaria" disabled>Registrar devolución</button>
+            <button type="button" id="devMatGuardar" class="btn-primary-maquinaria" disabled>Registrar</button>
         </div>
     </div>
 </div>

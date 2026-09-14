@@ -123,8 +123,10 @@
             @endforeach
         </ul>
     @else
-        <p style="color:#94a3b8;font-size:12px;margin:8px 0 0 0;font-style:italic;line-height:1.4;">
-            Este producto solo existe en el almacén actual.
+        {{-- La lista solo trae almacenes CON existencias (productoEnOtrosAlmacenes): el producto
+             puede estar registrado en otro con saldo 0, por eso no se dice "solo existe aquí". --}}
+        <p style="color:#64748b;font-size:12px;margin:8px 0 0 0;font-style:italic;line-height:1.4;">
+            Ningún otro almacén tiene existencias de este producto.
         </p>
     @endif
     </div>

@@ -36,7 +36,7 @@ class RecepcionEntradaPorTipoTest extends MySqlTestCase
         $u = $this->usuarioConAlmacen(Almacen::TIPO_PROYECTO);
         $this->actingAs($u)->get(route('almacen.recepcion.index'))
             ->assertOk()
-            ->assertSee('Reposición del general');
+            ->assertViewIs('admin.almacen.recepcion.index');
     }
 
     public function test_con_almacen_general_entra_a_la_entrada_por_odc(): void
@@ -45,7 +45,7 @@ class RecepcionEntradaPorTipoTest extends MySqlTestCase
         $this->actingAs($u)->get(route('almacen.recepcion.index'))
             ->assertRedirect(route('almacen.recepcion.nueva'));
 
-        // Acciones → "Reposición del general" (?force=1) muestra la bandeja, abierta en un
+        // Acciones → "Estado del despacho" del Historial (?force=1) muestra la bandeja, abierta en un
         // almacén de PROYECTO (al general nunca le llegan notas) y ofreciendo solo esos.
         $r = $this->actingAs($u)->get(route('almacen.recepcion.index', ['force' => 1]))->assertOk();
         $almacenes = $r->viewData('almacenes');
@@ -60,12 +60,22 @@ class RecepcionEntradaPorTipoTest extends MySqlTestCase
         $this->assertContains($r->viewData('idAlmacenDestinoActivo'), $almacenes->pluck('ID_ALMACEN')->all());
     }
 
-    public function test_la_entrada_por_odc_trae_acciones_con_la_reposicion(): void
+    public function test_la_entrada_por_odc_pide_el_documento_en_un_modal(): void
     {
         $this->actingAs($this->usuarioConAlmacen(Almacen::TIPO_GENERAL))->get(route('almacen.recepcion.nueva'))
             ->assertOk()
-            ->assertSee('id="entAccionesMenu"', false)
-            ->assertSee(route('almacen.recepcion.index', ['force' => 1]), false)
-            ->assertDontSee('class="tr-tabs"', false);
+            // Nota de entrega, proveedor y fecha van en el modal que abre "Registrar entrada".
+            ->assertSeeInOrder(['id="entDocOverlay"', 'id="entNotaEntrega"', 'id="entProveedor"', 'id="entFecha"'], false);
+    }
+
+    public function test_el_historial_ofrece_el_estado_del_despacho_en_acciones(): void
+    {
+        $r = $this->actingAs($this->usuarioConAlmacen(Almacen::TIPO_GENERAL, true))->get(route('almacen.movimientos'))
+            ->assertOk();
+        // Debajo de "Dashboard de consumo", con lo que falta por recibir en los proyectos.
+        $pendientes = $r->viewData('porRecibirPry');
+        $this->assertIsInt($pendientes);
+        $r->assertSeeInOrder(['Dashboard de consumo', 'Estado del despacho', $pendientes > 0 ? "{$pendientes} por recibir" : 'Al día'])
+            ->assertSee(route('almacen.recepcion.index', ['force' => 1]), false);
     }
 }

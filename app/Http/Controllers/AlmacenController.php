@@ -63,6 +63,7 @@ class AlmacenController extends Controller
     public function __construct(
         private InventarioService $inventario,
         private \App\Services\TraspasoService $traspasos,
+        private \App\Services\CompatibilidadProductoService $compatibilidad,
     ) {
         // La consulta queda bajo 'auth' (lo aplica el grupo de rutas padre). Gates:
         //   super.admin        → CRUD de almacenes (warehouses).
@@ -81,6 +82,8 @@ class AlmacenController extends Controller
         // de los dos permisos. updateProducto requiere almacen.productos.
         $this->middleware('can:almacen.productos')->only([
             'updateProducto',
+            // Botones + / × de la compatibilidad en "Detalles del producto".
+            'agregarEquivalencia', 'quitarEquivalencia', 'opcionesEquipo', 'vincularEquipo', 'desvincularEquipo',
         ]);
         // destroyProducto: borrar un producto del catalogo exige almacen.nota.eliminar
         // (la misma clave que elimina Notas de Entrega) — decision del cliente: una
@@ -1120,71 +1123,19 @@ class AlmacenController extends Controller
         $data = $this->validarProducto($request, editando: true);
         $producto->update($data);
 
-        // Equivalencias (nº de parte) — feature EXCLUSIVA de filtros. Criterio ÚNICO de
-        // "es filtro": la categoría CONTIENE 'FILTRO' (mismo criterio que el buscador
-        // esFiltroCat), no la coincidencia exacta 'FILTROS' — así "FILTROS DE ACEITE" o
-        // "FILTRO DE AIRE" también admiten equivalencias, sin la incoherencia previa.
-        if (str_contains(mb_strtoupper((string) $producto->CATEGORIA), 'FILTRO')) {
-            // Se gestionan como lista dentro del modal "Editar producto": el front manda el
-            // conjunto COMPLETO y aquí se sincroniza (agrega nuevas, borra las quitadas). El
-            // principal existente se preserva. Solo si el front las envió.
-            if ($request->has('equivalencias')) {
-                $request->validate([
-                    'equivalencias'   => 'array|max:100',
-                    'equivalencias.*' => 'nullable|string|max:100',
-                ]);
-                $this->sincronizarEquivalencias($producto, (array) $request->input('equivalencias', []));
-            }
-        } else {
-            // El producto ya NO es filtro (típicamente se le cambió la categoría). Sus
-            // equivalencias quedarían HUÉRFANAS y seguirían matcheando en la búsqueda por
-            // nº de parte (que no filtra por categoría) → las borramos.
-            $producto->equivalencias()->delete();
+        // Equivalencias (nº de parte): SOLO si el front mandó la lista (la de "Editar producto"
+        // la manda completa y aquí se sincroniza). No dependen de la categoría: hay repuestos,
+        // lubricantes y productos sin categoría con números de parte reales, y antes cualquier
+        // edición de uno de ellos —hasta guardar la ubicación desde "Detalles"— los borraba.
+        if ($request->has('equivalencias')) {
+            $request->validate([
+                'equivalencias'   => 'array|max:100',
+                'equivalencias.*' => 'nullable|string|max:100',
+            ]);
+            $this->compatibilidad->sincronizarEquivalencias($producto, (array) $request->input('equivalencias', []));
         }
 
         return response()->json(['message' => 'Producto actualizado.', 'producto' => $producto->fresh()]);
-    }
-
-    /**
-     * Sincroniza las equivalencias de un FILTRO con la lista recibida: agrega las nuevas y
-     * borra las que ya no están. Preserva ES_PRINCIPAL de las que se mantienen; las nuevas
-     * entran como alternas. Normaliza (trim, sin vacíos, sin duplicar).
-     */
-    private function sincronizarEquivalencias(ProductoInventario $producto, array $lista): void
-    {
-        $partes = collect($lista)
-            ->map(fn ($s) => trim((string) $s))
-            ->filter(fn ($s) => $s !== '' && mb_strlen($s) <= 100)
-            ->unique()
-            ->values();
-
-        $actuales = $producto->equivalencias()->get()->keyBy('NUMERO_PARTE');
-
-        // Borra las que el usuario quitó de la lista.
-        foreach ($actuales as $np => $eq) {
-            if (! $partes->contains($np)) {
-                $eq->delete();
-            }
-        }
-        // Agrega las nuevas (las existentes se dejan igual, conservando su principal).
-        foreach ($partes as $np) {
-            if (! $actuales->has($np)) {
-                ProductoEquivalencia::create([
-                    'ID_PRODUCTO'  => $producto->ID_PRODUCTO,
-                    'NUMERO_PARTE' => $np,
-                    'ES_PRINCIPAL' => false,
-                ]);
-            }
-        }
-
-        // Si el usuario borró justo el que era principal, el producto quedaría sin
-        // ninguno y el nº de parte que sugieren el buscador y la Nota de Entrega
-        // (listaAutocomplete ordena por ES_PRINCIPAL) pasaría a ser arbitrario y
-        // distinto en cada consulta. Se asciende el primero de la lista.
-        $quedan = $producto->equivalencias()->orderBy('ID_EQUIVALENCIA')->get();
-        if ($quedan->isNotEmpty() && ! $quedan->contains('ES_PRINCIPAL', true)) {
-            $quedan->first()->update(['ES_PRINCIPAL' => true]);
-        }
     }
 
     /**
@@ -1544,9 +1495,18 @@ class AlmacenController extends Controller
                 ->whereHas('almacenes', fn ($q) => $q->whereIn('almacenes.ID_ALMACEN', $visiblesIds))
                 ->orderBy('NOMBRE_FRENTE')->get(['ID_FRENTE', 'NOMBRE_FRENTE']);
 
+        // "Estado del despacho" del menú Acciones: notas que el general despachó y los
+        // almacenes de PROYECTO visibles todavía no terminan de recibir. Mismo criterio que
+        // "Por revisar" de la bandeja de Recepción (Traspaso::ESTADOS_RECIBIBLES).
+        $proyectos     = $almacenes->where('TIPO', Almacen::TIPO_PROYECTO)->pluck('ID_ALMACEN');
+        $porRecibirPry = $proyectos->isEmpty() ? 0 : Traspaso::whereIn('ESTADO', Traspaso::ESTADOS_RECIBIBLES)
+            ->whereIn('ID_ALMACEN_DESTINO', $proyectos)
+            ->count();
+
         return view('admin.almacen.movimientos', [
             'movimientos'     => $paginator,
             'total'           => $paginator->total(),
+            'porRecibirPry'   => $porRecibirPry,
             'almacenes'       => $almacenes,
             // IDs de los almacenes visibles — kardex_rows los necesita para enlazar al PDF
             // la Nota que el lado RECEPTOR de un traspaso trae en REFERENCIA (ver el partial).
@@ -1843,55 +1803,77 @@ class AlmacenController extends Controller
             }
         }
 
-        $equivalencias = ProductoEquivalencia::where('ID_PRODUCTO', $id)
-            ->orderByDesc('ES_PRINCIPAL')
-            ->pluck('NUMERO_PARTE')
-            ->values()->all();
-
-        // Vehículos (caracteristicas_modelo) que usan el filtro. La MARCA no vive en
-        // caracteristicas_modelo, así que se toma de los `equipos` de ese modelo (la más común).
-        $especIds = DB::table('modelo_filtro')->where('ID_PRODUCTO', $id)->pluck('ID_ESPEC');
-        $marcaPorEspec = DB::table('equipos')
-            ->whereIn('ID_ESPEC', $especIds)->whereNotNull('ID_ESPEC')->whereNull('deleted_at')
-            ->select('ID_ESPEC', 'MARCA', DB::raw('COUNT(*) as n'))
-            ->groupBy('ID_ESPEC', 'MARCA')->orderByDesc('n')
-            ->get()->groupBy('ID_ESPEC')->map(fn ($g) => $g->first()->MARCA);
-
-        $equipos = DB::table('modelo_filtro as mf')
-            ->join('caracteristicas_modelo as cm', 'cm.ID_ESPEC', '=', 'mf.ID_ESPEC')
-            ->where('mf.ID_PRODUCTO', $id)
-            ->orderBy('cm.TIPO')->orderBy('cm.MODELO')
-            ->get(['mf.ID_ESPEC as espec', 'cm.TIPO', 'cm.MODELO', 'mf.ETAPA', 'mf.CANTIDAD'])
-            ->map(function ($x) use ($marcaPorEspec) {
-                $marca = $marcaPorEspec->get($x->espec);
-                return [
-                    'tipo'   => (string) $x->TIPO,
-                    'modelo' => trim(($marca ? $marca.' ' : '').((string) $x->MODELO)),
-                    'etapa'  => $x->ETAPA ? ucfirst(mb_strtolower((string) $x->ETAPA)) : null,
-                    'cant'   => (int) $x->CANTIDAD,
-                ];
-            });
-
-        // Auxiliares (generador, soldadora, compresor…) que usan el filtro.
-        $aux = DB::table('auxiliar_filtro')
-            ->where('ID_PRODUCTO', $id)
-            ->orderBy('TIPO')->orderBy('MARCA')->orderBy('MODELO')
-            ->get(['TIPO', 'MARCA', 'MODELO', 'ETAPA', 'CANTIDAD'])
-            ->map(fn ($x) => [
-                'tipo'   => str_replace('_', ' ', (string) $x->TIPO),
-                'modelo' => trim(((string) $x->MARCA).' '.((string) $x->MODELO)),
-                'etapa'  => $x->ETAPA ? ucfirst(mb_strtolower((string) $x->ETAPA)) : null,
-                'cant'   => (int) $x->CANTIDAD,
-            ]);
-
-        $equipos = $equipos->concat($aux)
-            ->unique(fn ($x) => $x['tipo'].'|'.$x['modelo'])
-            ->values();
+        $equivalencias = $this->compatibilidad->equivalencias((int) $id);
+        $equipos       = $this->compatibilidad->equipos((int) $id);
 
         return response()->json([
             'equivalencias' => $equivalencias,
             'equipos'       => $equipos,
             'proyectos'     => $proyectos,
+        ]);
+    }
+
+    /** POST almacen/productos/{id}/equivalencias  {numero_parte} → la compatibilidad al día. */
+    public function agregarEquivalencia(Request $request, int $id)
+    {
+        $data = $request->validate(['numero_parte' => 'required|string|max:100']);
+        return $this->cambiarCompatibilidad($id, fn ($p) => $this->compatibilidad->agregarEquivalencia($p, $data['numero_parte']));
+    }
+
+    /** DELETE almacen/productos/{id}/equivalencias  {numero_parte}. */
+    public function quitarEquivalencia(Request $request, int $id)
+    {
+        $data = $request->validate(['numero_parte' => 'required|string|max:100']);
+        return $this->cambiarCompatibilidad($id, fn ($p) => $this->compatibilidad->quitarEquivalencia($p, $data['numero_parte']));
+    }
+
+    /** GET almacen/productos/{id}/equipos/opciones?q= → equipos que se le pueden vincular. */
+    public function opcionesEquipo(Request $request, int $id)
+    {
+        ProductoInventario::findOrFail($id);
+        return response()->json(['opciones' => $this->compatibilidad->opcionesEquipo($id, (string) $request->query('q', ''))]);
+    }
+
+    /** POST almacen/productos/{id}/equipos  {origen: modelo|aux, refs: [...]} (los `refs` de una opción). */
+    public function vincularEquipo(Request $request, int $id)
+    {
+        $data = $request->validate([
+            'origen' => 'required|in:modelo,aux',
+            'refs'   => 'required|array|min:1|max:20',
+            'refs.*' => 'required|string|max:200',
+        ]);
+        return $this->cambiarCompatibilidad($id, fn ($p) => $this->compatibilidad->vincularEquipo($p, $data['origen'], $data['refs']));
+    }
+
+    /** DELETE almacen/productos/{id}/equipos  {origen: modelo|aux, ids: [...]} (los `ids` de una fila). */
+    public function desvincularEquipo(Request $request, int $id)
+    {
+        $data = $request->validate([
+            'origen' => 'required|in:modelo,aux',
+            'ids'    => 'required|array|min:1|max:50',
+            'ids.*'  => 'required|integer',
+        ]);
+        return $this->cambiarCompatibilidad($id, fn ($p) => $this->compatibilidad->desvincularEquipo($p, $data['origen'], array_map('intval', $data['ids'])));
+    }
+
+    /**
+     * Aplica un cambio de compatibilidad al producto y responde con sus equivalencias y
+     * equipos ya actualizados, para que la ficha se repinte sin volver a pedirlos.
+     */
+    private function cambiarCompatibilidad(int $id, callable $cambio)
+    {
+        $producto = ProductoInventario::findOrFail($id);
+        try {
+            DB::transaction(fn () => $cambio($producto));
+        } catch (\InvalidArgumentException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        } catch (\Illuminate\Database\UniqueConstraintViolationException $e) {
+            // Dos pestañas agregando lo mismo a la vez: el índice único de la base lo frena.
+            return response()->json(['message' => 'Eso ya está en este producto.'], 422);
+        }
+        return response()->json([
+            'equivalencias' => $this->compatibilidad->equivalencias($id),
+            'equipos'       => $this->compatibilidad->equipos($id),
         ]);
     }
 
@@ -3246,16 +3228,17 @@ class AlmacenController extends Controller
      *   ?categoria=X (+?copias) → todos los activos de esa categoría, N copias c/u.
      *   (sin nada)              → todos los productos activos (con tope de seguridad).
      *
-     * Formato (?formato=): tira de la etiquetadora (impresora térmica de rollo, Zebra/
-     * Brother/TSC), una etiqueta por página al tamaño exacto del rollo:
-     *   50x30 (default) | 40x25
-     * Ya no hay hoja carta: las etiquetas se imprimen solo en la etiquetadora.
+     * Formato (?formato=):
+     *   50x30 (default) | 40x25 → tira de la etiquetadora (impresora térmica de rollo,
+     *                             Zebra/Brother/TSC), una etiqueta por página al tamaño del rollo.
+     *   carta                   → hoja carta con 30 etiquetas (3 × 10) para una impresora
+     *                             normal, con su línea de corte.
      *
      * Solo se incluyen productos CON código: un QR sin CODIGO no sería escaneable.
      */
     public function etiquetasPdf(Request $request)
     {
-        $formato = $request->query('formato') === '40x25' ? '40x25' : '50x30';
+        $formato = in_array($request->query('formato'), ['40x25', 'carta'], true) ? $request->query('formato') : '50x30';
 
         // Tope total de etiquetas — red de seguridad ante combinaciones grandes (muchos
         // productos × muchas copias). Más que suficiente para imprimir de una tanda.
@@ -3361,8 +3344,8 @@ class AlmacenController extends Controller
     }
 
     /**
-     * Construye el PDF de etiquetas QR para la etiquetadora (TCPDF, el mismo motor de la
-     * Nota de Entrega): una página = una etiqueta, al tamaño de la tira del rollo.
+     * Construye el PDF de etiquetas QR (TCPDF, el mismo motor de la Nota de Entrega). En
+     * rollo una página = una etiqueta, al tamaño de la tira; en carta, una grilla de 3 × 10.
      * El QR usa corrección de error alta ('QRCODE,H') para que se lea aunque la
      * etiqueta sea pequeña o se imprima a baja resolución (203 dpi térmico).
      *
@@ -3372,10 +3355,22 @@ class AlmacenController extends Controller
      */
     private function renderEtiquetasPdfBinary(array $secuencia, string $formato): string
     {
-        // Tamaño de la tira (mm, ancho × alto).
-        [$w, $h] = $formato === '40x25' ? [40.0, 25.0] : [50.0, 30.0];
+        // Carta (215,9 × 279,4 mm): 3 columnas de 66 mm y 10 filas de 26 mm, centradas, con
+        // unos 9 mm de margen por lado para que ninguna impresora recorte la orilla. Cada
+        // etiqueta lleva su borde punteado: es la línea para cortarla con tijera.
+        $carta = $formato === 'carta';
+        if ($carta) {
+            [$w, $h, $cols, $filas] = [66.0, 26.0, 3, 10];
+            $x0 = (215.9 - $cols * $w) / 2;
+            $y0 = (279.4 - $filas * $h) / 2;
+        } else {
+            // Tamaño de la tira (mm, ancho × alto).
+            [$w, $h] = $formato === '40x25' ? [40.0, 25.0] : [50.0, 30.0];
+        }
 
-        $pdf = new \TCPDF('L', 'mm', [$w, $h], true, 'UTF-8', false);
+        $pdf = $carta
+            ? new \TCPDF('P', 'mm', 'LETTER', true, 'UTF-8', false)
+            : new \TCPDF('L', 'mm', [$w, $h], true, 'UTF-8', false);
         $pdf->SetTitle('Etiquetas QR de productos');
         $pdf->SetAuthor('Constructora Vidalsa 27, C.A.');
         $pdf->SetCreator('Sistema de Gestión VIDALSA');
@@ -3390,9 +3385,17 @@ class AlmacenController extends Controller
         $pdf->setCellHeightRatio(1.15);   // interlineado de la descripción (ver dibujarEtiqueta)
         $pdf->SetFont('helvetica', '', 8);
 
-        foreach ($secuencia as $p) {
-            $pdf->AddPage();
-            $this->dibujarEtiqueta($pdf, $p, 0.0, 0.0, $w, $h);
+        foreach ($secuencia as $i => $p) {
+            if (!$carta) {
+                $pdf->AddPage();
+                $this->dibujarEtiqueta($pdf, $p, 0.0, 0.0, $w, $h);
+                continue;
+            }
+            $pos = $i % ($cols * $filas);
+            if ($pos === 0) {
+                $pdf->AddPage();
+            }
+            $this->dibujarEtiqueta($pdf, $p, $x0 + ($pos % $cols) * $w, $y0 + intdiv($pos, $cols) * $h, $w, $h);
         }
 
         return $pdf->Output('', 'S');
@@ -3411,7 +3414,8 @@ class AlmacenController extends Controller
      * El código va bajo el QR, en una pastilla negra (lo que se teclea si el lector falla).
      * La descripción, en negrita como titular, y justo debajo la unidad y la ubicación forman
      * un bloque centrado junto al QR; la descripción se achica solo lo necesario para caber.
-     * Sin líneas internas ni categoría. Todo escala con el tamaño de la tira: 50×30 y 40×25.
+     * Sin líneas internas ni categoría. Todo escala con el tamaño: tiras 50×30 y 40×25 y la
+     * celda de 66×26 de la hoja carta.
      * Todo en negro (la etiquetadora térmica no tiene grises) y con un borde punteado de
      * recorte, de esquinas redondeadas, alrededor.
      */
@@ -3423,10 +3427,11 @@ class AlmacenController extends Controller
         $pdf->RoundedRect($x + 0.5, $y + 0.5, $w - 1.0, $h - 1.0, 1.8, '1111', 'D');
         $pdf->SetTextColor(0, 0, 0);
 
-        // Dos tiras de rollo: 50×30 y 40×25. El QR es chico y de tamaño fijo (lo lee cualquier
-        // teléfono o lector y deja el ancho a la descripción); el margen deja aire entre el
-        // borde y el contenido, y la descripción crece o se achica para llenar el resto.
+        // Tiras de 50×30 y 40×25 y celda de 66×26 en carta. El QR es chico y de tamaño fijo (lo
+        // lee cualquier teléfono o lector y deja el ancho a la descripción); el margen deja aire
+        // entre el borde y el contenido, y la descripción crece o se achica para llenar el resto.
         $chica = $w < 45.0;                         // tira 40×25
+        $hoja  = $w > 55.0;                         // celda de la hoja carta: la letra puede crecer
         $pad   = $chica ? 2.0 : 2.4;
         $mm    = fn (float $pt) => $pt * 25.4 / 72;   // puntos → milímetros
         $corta = function (string $t, float $ancho) use ($pdf): string {   // recorta con "…"
@@ -3478,7 +3483,7 @@ class AlmacenController extends Controller
         $tx = $qrX + $qrSize + $gap;
         $tw = $x + $w - $pad - $tx;
 
-        $ptMeta = $chica ? 5.6 : 6.0;
+        $ptMeta = $chica ? 5.6 : ($hoja ? 6.5 : 6.0);
         $metaH  = $mm($ptMeta) * 1.3;
         $altoUtil = $h - 2 * $pad;
 
@@ -3506,7 +3511,7 @@ class AlmacenController extends Controller
         // y si ni al mínimo cabe se corta en la última palabra que entre con "…".
         $nombre   = trim((string) $p->NOMBRE);
         $palabras = preg_split('/\s+/', $nombre) ?: [];
-        $ptMax = $chica ? 6.1 : 7.0;
+        $ptMax = $chica ? 6.1 : ($hoja ? 8.0 : 7.0);
         $ptMin = 4.0;
         $altoNombre = max(2.0, $altoUtil - $metaAlto - $sep);
         $cabe  = function (float $pt) use ($pdf, $nombre, $palabras, $tw, $altoNombre): bool {

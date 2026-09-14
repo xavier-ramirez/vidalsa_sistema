@@ -2040,6 +2040,10 @@ input:-webkit-autofill:active {
 .dropdown-item-custom {
     display: flex;
     align-items: center;
+    /* font-family:inherit — los <button> NO heredan la fuente: en los menús Acciones salían
+       en la del navegador (Arial) y los <a> en la de la app, así que cada opción se veía con
+       otra letra. */
+    font-family: inherit;
     text-decoration: none;
     cursor: default;
     transition: background 0.2s;
@@ -3877,18 +3881,6 @@ input:-webkit-autofill:active {
    no afectar otras paginas.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-@media (max-width: 900px) {
-    /* Cabecera (Nota | Proveedor | Fecha): en TABLET (≤900px) los 3 campos van uno al
-       lado del otro (3 columnas iguales con minmax(0,1fr) = base 0, caben sin desbordar).
-       En TELÉFONO (≤768px) el cliente pidió reacomodar a "Nota + Fecha arriba, Proveedor
-       abajo a todo el ancho" — ver el bloque @media (max-width:768px) más abajo.
-       (La captura no está acá: vive en .ent-capt-bar, con su propio responsive.) */
-    body:has(.ent-layout) .ent-form-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr); gap: 7px; }
-    body:has(.ent-layout) .ent-form-grid .ent-field-label { font-size: 10px; letter-spacing: .2px; }
-    body:has(.ent-layout) .ent-form-grid .ent-input { padding: 0 7px; font-size: 12px; }
-    body:has(.ent-layout) .ent-form-grid #entFecha { font-size: 11px !important; }
-}
-
 @media (max-width: 768px) {
     /* Viewport global: padding lateral 8px (igual que /admin/almacen). */
     body:has(.ent-layout) .main-viewport {
@@ -3898,22 +3890,17 @@ input:-webkit-autofill:active {
         width: 100% !important; max-width: 100% !important;
         box-sizing: border-box !important; padding-top: 12px !important;
     }
-    /* Contenedor de la tarjeta a todo el ancho en mobile: width/max-width:100% +
-       margin:0 + border-box para que quede centrado. */
+    /* Las dos columnas de escritorio van apiladas (captura, lista y el panel al final), a
+       todo el ancho: width/max-width:100% + margin:0 + border-box para que quede centrado. */
     body:has(.ent-layout) .ent-layout {
         width: 100% !important; max-width: 100% !important;
         margin: 0 !important; padding: 0 !important;
-        box-sizing: border-box !important;
+        box-sizing: border-box !important; gap: 10px !important;
     }
-    /* Card: full-width. El relleno lo llevan su cuerpo y su botonera (la barra oscura va
-       de borde a borde, como en el modal). */
-    body:has(.ent-layout) .ent-card {
-        width: 100% !important; max-width: 100% !important;
-        margin: 0 !important; box-sizing: border-box !important;
-    }
-    body:has(.ent-layout) .ent-body { padding: 12px 10px 0 !important; }
+    body:has(.ent-layout) .ent-main { gap: 10px !important; }
+    body:has(.ent-layout) .ent-capt-card,
+    body:has(.ent-layout) .ent-panel-sec,
     body:has(.ent-layout) .ent-foot { padding: 12px 10px !important; }
-    body:has(.ent-layout) .ent-btn { flex: 1 1 0 !important; min-width: 0 !important; }
     /* Margen entre el page-title-card y la primera card: el global pone 20px,
        en este modulo es excesivo (no hay titulo visible, solo la pill almacen). */
     body:has(.ent-layout) .page-title-card { margin-bottom: 10px !important; }
@@ -3922,13 +3909,6 @@ input:-webkit-autofill:active {
     body:has(.ent-layout) .page-title-card .page-title { display: none !important; }
     body:has(.ent-layout) .page-title-card .ent-header-sep { display: none !important; }
     body:has(.ent-layout) .page-title-card > div { flex-direction: column !important; align-items: stretch !important; gap: 10px !important; }
-    /* Acciones: debajo de la pill, a todo el ancho (el menú también). */
-    body:has(.ent-layout) .ent-acciones { margin-left: 0 !important; }
-    body:has(.ent-layout) .ent-acciones-btn { width: 100% !important; }
-    body:has(.ent-layout) .ent-acciones-menu { width: 100% !important; }
-    /* Texto opcional que se OCULTA en teléfono para acortar etiquetas:
-       "Registrar entrada" → "Registrar". */
-    body:has(.ent-layout) .ent-txt-full { display: none !important; }
     /* ent-header-block: pill blanca del almacen destino. Centramos el grupo
        horizontalmente (justify-content:center) — antes quedaba flush-left por
        el default flex-start, y como la pill no siempre se estira al 100% del
@@ -3939,20 +3919,9 @@ input:-webkit-autofill:active {
         justify-content: center !important;
     }
     /* Pill del almacén destino: a todo el ancho, como el selector "Almacén" de /admin/almacen
-       en el teléfono y como "Acciones" justo debajo (con 280px quedaba más angosta que el
-       botón y el par se veía descuadrado). */
+       en el teléfono y como las tarjetas de abajo. */
     body:has(.ent-layout) .page-title-card .ent-header-block .ent-dest-pill { flex: 1 1 auto !important; width: 100% !important; min-width: 0 !important; max-width: 100% !important; overflow: hidden; }
     body:has(.ent-layout) .page-title-card .ent-header-block .ent-dest-pill .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-    /* ── Cabecera del lote en teléfono ──
-       El cliente pidió reacomodar (antes los 3 campos iban en una sola fila, ver bloque
-       ≤900px): "Nota de entrega" + "Fecha" en la primera fila y "Proveedor" debajo a
-       todo el ancho. El DOM es Nota · Proveedor · Fecha, así que se reordena con `order`
-       y Proveedor pasa a ocupar la fila completa. */
-    body:has(.ent-layout) .ent-form-grid { grid-template-columns: 1fr 1fr !important; }
-    body:has(.ent-layout) .ent-form-grid .ent-field-group:nth-child(1) { order: 1 !important; }                              /* Nota  → fila 1 izq. */
-    body:has(.ent-layout) .ent-form-grid .ent-field-group:nth-child(3) { order: 2 !important; }                              /* Fecha → fila 1 der. */
-    body:has(.ent-layout) .ent-form-grid .ent-field-group:nth-child(2) { order: 3 !important; grid-column: 1 / -1 !important; } /* Proveedor → fila 2 completa. */
 
     /* ── MOBILE CARD LAYOUT — Lineas de la recepcion ──
        Cada <tr> se transforma en una tarjeta 2x2:
@@ -3961,11 +3930,13 @@ input:-webkit-autofill:active {
            ├──────────────────────────────┤
            │ CANTIDAD 5.000 UND     [🗑] │
            └──────────────────────────────┘
-       Calcado de .alm-row en /admin/almacen. */
+       Calcado de .alm-row en /admin/almacen. La lista deja de ser una tarjeta (ni su
+       recuadro): cada línea ya es la suya. */
     body:has(.ent-layout) .ent-list-wrap {
-        margin-top: 10px !important;
-        border: none !important; border-radius: 0 !important; overflow: visible !important;
+        background: transparent !important; box-shadow: none !important;
+        border: none !important; border-radius: 0 !important; padding: 0 !important;
     }
+    body:has(.ent-layout) .ent-list-box { background: transparent !important; border: none !important; border-radius: 0 !important; overflow: visible !important; }
     body:has(.ent-layout) .ent-list-table { display: block !important; }
     body:has(.ent-layout) .ent-list-table thead { display: none !important; }
     body:has(.ent-layout) .ent-list-table tbody { display: flex !important; flex-direction: column !important; gap: 8px !important; }
@@ -4045,16 +4016,14 @@ input:-webkit-autofill:active {
         justify-content: flex-end !important;
     }
 
-    /* ── Barra de captura en móvil ── 2 filas: buscador a fila completa arriba; Unidad +
-       Cantidad al 50/50 abajo con el botón verde ✓ al final. Campos altos (42px) para un
-       toque cómodo. */
-    body:has(.ent-layout) .ent-capt-bar { flex-wrap: wrap !important; gap: 8px !important; }
-    body:has(.ent-layout) .ent-capt-bar .ent-search-field { flex: 1 1 100% !important; height: 42px !important; }
-    body:has(.ent-layout) .ent-capt-bar .ent-search-input { height: 42px !important; }
-    body:has(.ent-layout) .ent-capt-bar .ent-selected-badge { font-size: 12.5px !important; }
-    body:has(.ent-layout) .ent-capt-bar .ent-um-wrap       { flex: 1 1 0 !important; }
-    body:has(.ent-layout) .ent-capt-bar .ent-um-input      { height: 42px !important; }
-    body:has(.ent-layout) .ent-capt-bar .ent-cant-stepper  { flex: 1 1 0 !important; height: 42px !important; }
+    /* ── Captura en móvil ── 2 filas (buscador arriba; Unidad + Cantidad al 50/50 abajo con
+       el botón verde ✓; en escritorio van en una), con campos altos (42px) para un toque
+       cómodo. */
+    body:has(.ent-layout) .ent-capt .ent-search-field  { height: 42px !important; }
+    body:has(.ent-layout) .ent-capt .ent-search-input  { height: 42px !important; }
+    body:has(.ent-layout) .ent-capt .ent-selected-badge { font-size: 12.5px !important; }
+    body:has(.ent-layout) .ent-capt .ent-um-input      { height: 42px !important; }
+    body:has(.ent-layout) .ent-capt .ent-cant-stepper  { height: 42px !important; }
     body:has(.ent-layout) .ent-add-btn { flex: 0 0 42px !important; width: 42px !important; height: 42px !important; }
 }
 

@@ -373,8 +373,8 @@ Route::middleware(['auth'])->group(function () {
             //   ?categoria=X → todos los activos de esa categoría (cuando no hay ids).
             //   ?formato=50x30|40x25 → una etiqueta por página al tamaño exacto de la tira
             //                   de la etiquetadora (impresora térmica tipo Zebra/Brother).
-            //                   Default: 50x30; ya no hay hoja carta. El motor es el mismo
-            //                   TCPDF de la Nota de Entrega.
+            //   ?formato=carta → hoja carta con 30 etiquetas (3 × 10) e impresora normal.
+            //                   Default: 50x30. El motor es el mismo TCPDF de la Nota de Entrega.
             Route::get   ('almacen/etiquetas',                    [App\Http\Controllers\AlmacenController::class, 'etiquetasPdf'])     ->name('almacen.etiquetas');
             // Resolver de escaneo: ?codigo=000123 → JSON { found, producto } con match
             // EXACTO sobre CODIGO y SOLO activos (el índice UNIQUE incluye soft-deleted,
@@ -395,9 +395,16 @@ Route::middleware(['auth'])->group(function () {
             Route::get   ('almacen/consumo-dashboard',            [App\Http\Controllers\AlmacenController::class, 'consumoDashboard'])  ->name('almacen.consumoDashboard');
             // Mismo filtro que el dashboard, pero devuelve los DATOS en XLSX en vez de los graficos.
             Route::get   ('almacen/consumo-dashboard/export',     [App\Http\Controllers\AlmacenController::class, 'consumoDashboardExport'])->name('almacen.consumoDashboardExport');
-            // Compatibilidad de un filtro: equivalencias (nº de parte) + equipos que lo usan.
+            // Compatibilidad de un producto: equivalencias (nº de parte) + equipos que lo usan.
             // Se carga al abrir "Detalles del producto".
             Route::get   ('almacen/productos/{id}/compatibilidad', [App\Http\Controllers\AlmacenController::class, 'productoCompatibilidad'])->whereNumber('id')->name('almacen.productos.compatibilidad');
+            // Botones + / × de "Detalles del producto": números de parte y equipos que lo usan
+            // (permiso almacen.productos, en el constructor del controlador).
+            Route::post  ('almacen/productos/{id}/equivalencias',   [App\Http\Controllers\AlmacenController::class, 'agregarEquivalencia'])->whereNumber('id')->name('almacen.productos.equivalencias.store');
+            Route::delete('almacen/productos/{id}/equivalencias',   [App\Http\Controllers\AlmacenController::class, 'quitarEquivalencia'])->whereNumber('id')->name('almacen.productos.equivalencias.destroy');
+            Route::get   ('almacen/productos/{id}/equipos/opciones', [App\Http\Controllers\AlmacenController::class, 'opcionesEquipo'])->whereNumber('id')->name('almacen.productos.equipos.opciones');
+            Route::post  ('almacen/productos/{id}/equipos',         [App\Http\Controllers\AlmacenController::class, 'vincularEquipo'])->whereNumber('id')->name('almacen.productos.equipos.store');
+            Route::delete('almacen/productos/{id}/equipos',         [App\Http\Controllers\AlmacenController::class, 'desvincularEquipo'])->whereNumber('id')->name('almacen.productos.equipos.destroy');
             // Vista alterna de la bitácora agrupada por NUMERO_NOTA — una fila por Nota de
             // Entrega (SALIDA / TRASPASO_SALIDA con N° NE-YYYY-NNNN); clic en la fila abre el
             // PDF oficial. Acceso desde el botón "Historial de Notas de Entrega" del menú Acciones de

@@ -588,13 +588,18 @@
 
     /* Items del menu "Acciones" (#splitDropdownMenuMovInv).
        Salen de una CLASE y no de estilos inline por el mismo motivo que .mv-accion-item
-       en /admin/movilizaciones: los CUATRO ocultan el menu al pulsarlos, asi que el
+       en /admin/movilizaciones: casi todos ocultan el menu al pulsarlos, asi que el
        `onmouseout` inline nunca llegaba y el color del hover se quedaba escrito en el
        elemento; al volver a abrir el menu ese boton salia ya coloreado. Con :hover en
        CSS el estado se va solo cuando el elemento se oculta.
-       De paso, el mismo bloque de ~230 caracteres estaba copiado en los cuatro items. */
+       De paso, el mismo bloque de ~230 caracteres ya no se copia en cada item. */
+    /* border-box: con width:100% + padding el item medía 24px más que el menú y su overflow
+       recortaba lo del borde derecho (la pill de "Estado del despacho"). nowrap: el menú se
+       ensancha al texto en vez de partirlo en dos renglones. */
     .alm-mov-accion {
         width: 100%;
+        box-sizing: border-box;
+        white-space: nowrap;
         display: flex;
         align-items: center;
         gap: 10px;
@@ -603,15 +608,22 @@
         border: none;
         background: transparent;
         color: #475569;
+        /* font-family:inherit — los <button> NO heredan la fuente: salian en la del navegador
+           mientras los items <a> iban en la de la app, y la lista se veia con dos letras. */
+        font-family: inherit;
         font-size: 14px;
         font-weight: 500;
         cursor: pointer;
         text-align: left;
-        /* "Historial de Notas de Entrega" es un <a>: sin esto saldria subrayado. */
+        /* Los items <a> (Historial de Notas, Estado del despacho): sin esto saldrian subrayados. */
         text-decoration: none;
         transition: background 0.15s;
     }
     .alm-mov-accion:hover { background: #cbd5e1; }
+    /* Pill de "Estado del despacho", a la derecha del item. Los colores vienen de
+       Traspaso::ESTADOS_META en el propio item (En tránsito / Confirmada). */
+    .alm-mov-accion-pill { margin-left: auto; flex: 0 0 auto; padding: 2px 8px; border-radius: 999px; font-size: 10.5px;
+        font-weight: 800; text-transform: uppercase; letter-spacing: .3px; white-space: nowrap; }
     .alm-mov-accion:focus { background: transparent; outline: none; }
     .alm-mov-accion:focus-visible { outline: 2px solid #0067b1; outline-offset: -2px; }
 </style>
@@ -780,6 +792,7 @@
              Reemplaza al viejo botón "Inventario" y consolida las acciones
              rápidas de la bitácora en un único menú:
                · Dashboard de consumo
+               · Estado del despacho (abre la Reposición del general)
                · Historial de Notas de Entrega
                · Exportar a Excel
                · Eliminar Nota de Entrega por código  (requiere almacen.nota.eliminar)
@@ -808,6 +821,22 @@
                         <div style="background:#e0f2fe;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;line-height:1;color:#0067b1;">analytics</i></div>
                         <span>Dashboard de consumo</span>
                     </button>
+                {{-- Estado del despacho: abre la Reposición del general (la bandeja donde los
+                     almacenes de proyecto confirman lo que el general les despachó) y dice
+                     cuántas notas faltan por recibir, en la misma pill de la columna Estado
+                     de la bandeja (colores de Traspaso::ESTADOS_META). --}}
+                    <a href="{{ route('almacen.recepcion.index', ['force' => 1]) }}"
+                        class="alm-mov-accion" title="Abre la Reposición del general"
+                        onclick="event.preventDefault(); document.getElementById('splitDropdownMenuMovInv').style.display='none'; if(window.navigateTo) window.navigateTo(this.href); else window.location.href=this.href;">
+                        <div style="background:#e0f2fe;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;line-height:1;color:#0067b1;">local_shipping</i></div>
+                        <span>Estado del despacho</span>
+                        @php
+                            // Mismos colores que la pill de la columna Estado de la bandeja:
+                            // pendiente = En tránsito; al día = Confirmada.
+                            [, $pillBg, $pillFg] = \App\Models\Traspaso::ESTADOS_META[$porRecibirPry > 0 ? \App\Models\Traspaso::ESTADO_ENVIADO : \App\Models\Traspaso::ESTADO_RECIBIDO];
+                        @endphp
+                        <span class="alm-mov-accion-pill" style="background:{{ $pillBg }};color:{{ $pillFg }};">{{ $porRecibirPry > 0 ? $porRecibirPry . ' por recibir' : 'Al día' }}</span>
+                    </a>
                 {{-- Historial de Notas de Entrega: vista alterna agrupada por NUMERO_NOTA — una
                      fila por Nota de Entrega; clic abre el PDF oficial. Conserva los filtros
                      activos. Icono como el del PDF de cada fila (kardex_rows). --}}

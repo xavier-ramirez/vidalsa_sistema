@@ -235,8 +235,11 @@
                     border: none;
                     background: transparent;
                     color: #475569;
-                    font-size: 13px;
-                    font-weight: 700;
+                    /* La letra de los menús Acciones del resto de módulos: la de la app
+                       (los <button> no la heredan solos), 14px y peso normal. */
+                    font-family: inherit;
+                    font-size: 14px;
+                    font-weight: 500;
                     cursor: pointer;
                     text-align: left;
                     transition: background 0.15s;

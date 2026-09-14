@@ -46,6 +46,9 @@
     <link rel="stylesheet" href="{{ asset('css/fonts.css') }}?v={{ @filemtime(public_path('css/fonts.css')) }}">
 
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    {{-- Versión de las vistas: navegacion.js recarga completo al navegar si cambió (ver
+         AppServiceProvider). --}}
+    <meta name="version-vistas" content="{{ $versionVistas ?? '' }}">
     <meta name="base-url" content="{{ url('/') }}">
 
     {{-- Helpers DOM compartidos (window.getCsrf / escapeHtml / escapeAttrJs).
