@@ -609,12 +609,13 @@
     if (typeof Cropper !== 'undefined') return;
     if (document.querySelector('script[src*="cropper.min.js"]')) return;
     var s = document.createElement('script');
-    s.src = '{{ asset("js/cropper.min.js") }}';
+    // ?v= obligatorio: nginx sirve /js y /css con Cache-Control immutable.
+    s.src = '{{ asset("js/cropper.min.js") }}?v={{ @filemtime(public_path("js/cropper.min.js")) }}';
     document.head.appendChild(s);
     if (!document.querySelector('link[href*="cropper.min.css"]')) {
         var l = document.createElement('link');
         l.rel = 'stylesheet';
-        l.href = '{{ asset("css/cropper.min.css") }}';
+        l.href = '{{ asset("css/cropper.min.css") }}?v={{ @filemtime(public_path("css/cropper.min.css")) }}';
         document.head.appendChild(l);
     }
 })();

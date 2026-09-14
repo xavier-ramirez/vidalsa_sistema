@@ -152,23 +152,6 @@ document.addEventListener('DOMContentLoaded', () => {
         precargar(link.href);
     });
 
-    // Una capa del módulo anterior que bloqueaba el scroll del fondo (el detalle de un equipo,
-    // las alertas del menú, un modal) se va con él sin cerrarse cuando se navega con ella
-    // abierta —o con el botón Atrás— y dejaba html/body en overflow:hidden: el módulo nuevo no
-    // se podía desplazar. Se libera al cambiar de módulo, antes de montar el nuevo. El visor de
-    // PDF vive en el layout y sigue abierto: si guardó cómo estaba el fondo al abrirse
-    // (_pdfOverflowPrev, layout_ui.js) conserva su bloqueo, pero lo de detrás ya no está, así
-    // que al cerrarlo el fondo tiene que quedar libre.
-    function liberarScrollDelFondo() {
-        const visor = document.getElementById('pdfPreviewModal');
-        if (visor && visor.classList.contains('active') && window._pdfOverflowPrev) {
-            window._pdfOverflowPrev = { html: '', body: '' };
-            return;
-        }
-        document.documentElement.style.overflow = '';
-        document.body.style.overflow = '';
-    }
-
     // ── Atrás cierra el visor de PDF ──
     // En el teléfono (y más en la app instalada, sin barra del navegador) el gesto Atrás es
     // la forma de cerrar una ventana. Con el visor abierto cambiaba la página de DETRÁS sin
@@ -195,6 +178,22 @@ document.addEventListener('DOMContentLoaded', () => {
             // el visor abierto ya hay otra página encima y ese paso se queda atrás.)
             if (history.state && history.state.visorPdf) { atrasPropio = true; history.back(); }
         }).observe(visorPdf, { attributes: true, attributeFilter: ['class'] });
+    }
+
+    // Una capa del módulo anterior que bloqueaba el scroll del fondo (el detalle de un equipo,
+    // las alertas del menú, un modal) se va con él sin cerrarse cuando se navega con ella
+    // abierta —o con el botón Atrás— y dejaba html/body en overflow:hidden: el módulo nuevo no
+    // se podía desplazar. Se libera al cambiar de módulo, antes de montar el nuevo. El visor de
+    // PDF vive en el layout y sigue abierto: si guardó cómo estaba el fondo al abrirse
+    // (_pdfOverflowPrev, layout_ui.js) conserva su bloqueo, pero lo de detrás ya no está, así
+    // que al cerrarlo el fondo tiene que quedar libre.
+    function liberarScrollDelFondo() {
+        if (visorAbierto() && window._pdfOverflowPrev) {
+            window._pdfOverflowPrev = { html: '', body: '' };
+            return;
+        }
+        document.documentElement.style.overflow = '';
+        document.body.style.overflow = '';
     }
 
     // Handle back/forward buttons

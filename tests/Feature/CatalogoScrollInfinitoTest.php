@@ -7,7 +7,8 @@ use Tests\MySqlTestCase;
 /**
  * El scroll infinito de /admin/catalogo (catalogo_index.js) pide los lotes de 24 uno a uno:
  * juntos tienen que dar todas las tarjetas, en el mismo orden cada vez, y la primera página
- * (la de un filtro nuevo) trae el contador lateral con esos filtros.
+ * (la de un filtro nuevo) trae el contador lateral con esos filtros. Y cada tarjeta trae su
+ * foto: la sin ficha, la de su unidad.
  */
 class CatalogoScrollInfinitoTest extends MySqlTestCase
 {

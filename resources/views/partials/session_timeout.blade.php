@@ -309,7 +309,7 @@
 
             // ── Aviso "sesión cerrada" antes de salir ───────────────────
             // Reutiliza el mismo modal en modo despedida: sin countdown ni botón, solo el
-            // mensaje, y a los 3s ejecuta la salida (logout POST o ir al login). Cubre los
+            // mensaje, y a los 1,2 s ejecuta la salida (logout POST o ir al login). Cubre los
             // caminos que antes cerraban EN SILENCIO: volver a una pestaña dormida con el
             // tiempo vencido, y el ping que descubre la sesión ya caída en el backend.
             function showExpiredNotice(accion) {
