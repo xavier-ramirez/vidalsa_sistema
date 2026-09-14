@@ -2,11 +2,25 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Auth\LoginController;
+use Illuminate\Http\Request;
+
 class SystemController extends Controller
 {
-    public function loginPage()
+    public function loginPage(Request $request)
     {
         if (auth()->check()) {
+            // Llega del cierre por inactividad (partials/session_timeout) con la sesión todavía
+            // abierta: su POST /logout no llegó (red lenta). Se cierra aquí en vez de mandarla
+            // al menú ("se cerró la sesión y se abrió"). El JS del login hace lo mismo cuando
+            // la pantalla sale del caché del Service Worker, pero tras cada deploy ese caché
+            // está vacío, la petición llega aquí y antes volvía al menú sin que ese JS corriera.
+            // Solo si la navegación es de la propia app: un enlace de otro sitio no la cierra.
+            if ($request->query('aviso') === 'inactividad'
+                && in_array($request->header('Sec-Fetch-Site', 'same-origin'), ['same-origin', 'none'], true)) {
+                LoginController::cerrarSesion($request);
+                return view('auth.inicio_sesion');
+            }
             return redirect()->route('menu');
         }
         return view('auth.inicio_sesion');

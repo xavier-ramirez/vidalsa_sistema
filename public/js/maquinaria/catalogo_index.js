@@ -60,8 +60,11 @@ window.confirmDeleteCatalogo = function (id, modelName) {
 // ─────────────────────────────────────────────────────────────────────
 
 // Estado del scroll infinito. page = ultima pagina en el grid;
-// hasMore = el server indico que quedan paginas; loading = fetch en curso.
-window.catState = window.catState || { page: 1, hasMore: false, loading: false };
+// hasMore = el server indico que quedan paginas; loading = carga en curso (fetch
+// y pintado); gen = numero de la grilla actual, sube cada vez que se rearma (entrar
+// al modulo, cambiar un filtro) para descartar lo que llegue de una anterior;
+// fallos = cargas seguidas que fallaron (espacia el reintento).
+window.catState = window.catState || { page: 1, hasMore: false, loading: false, gen: 0, fallos: 0 };
 
 // AbortController de la peticion en curso — compartido a proposito: un
 // cambio de filtro cancela una carga incremental que estuviera a medias.
@@ -132,6 +135,18 @@ function catRefreshSentinel() {
     if (window.catState.hasMore) window.catScrollObserver.observe(sentinel);
 }
 
+// Una carga que falla (red caida, servidor lento) no puede dejar muerto el scroll: el
+// observer solo avisa cuando el centinela ENTRA en pantalla y tras el fallo ya estaba
+// dentro, asi que no volvia a pedir nada hasta recargar la pagina. Se rearma solo, cada
+// vez mas espaciado (2 s, 4 s... hasta 30 s), o en cuanto vuelva la conexion.
+function catReintentar(gen) {
+    const st = window.catState;
+    st.fallos = (st.fallos || 0) + 1;
+    const rearmar = function () { if (st.gen === gen) catRefreshSentinel(); };
+    if (navigator.onLine === false) { window.addEventListener('online', rearmar, { once: true }); return; }
+    setTimeout(rearmar, Math.min(30000, 1000 * Math.pow(2, st.fallos)));
+}
+
 // Carga la SIGUIENTE pagina y agrega sus tarjetas al final del grid.
 async function catLoadMore() {
     const st = window.catState;
@@ -139,47 +154,50 @@ async function catLoadMore() {
     const tableBody = document.getElementById('catalogoTableBody');
     if (!tableBody) return;
 
+    // Lo que llegue cuando la grilla ya es otra (cambio un filtro, o se salio del modulo
+    // y se volvio a entrar) no se toca: el estado ya es de la nueva. Antes esa respuesta
+    // vieja movia el contador de pagina de la nueva y se saltaba un lote de tarjetas.
+    const gen = st.gen;
+    const esLaActual = function () { return st.gen === gen && tableBody.isConnected; };
     st.loading = true;
     const spinner = document.getElementById('catalogoLoadingSpinner');
     if (spinner) spinner.style.display = '';
 
+    let data = null;
     try {
-        const data = await catFetch(catBuildUrl(st.page + 1));
-        st.loading = false;
-        if (spinner) spinner.style.display = 'none';
-        // null = abortada por un cambio de filtro; loadCatalogo() ya recarga.
-        if (!data) return;
-
-        // Insert PROGRESIVO: en vez de meter las 24 tarjetas del lote de golpe (un tirón que
-        // "congela" el scroll mientras el navegador calcula layout de las 24 a la vez), se
-        // parsea el HTML fuera del DOM y se agregan en grupos pequeños (6) por frame con
-        // requestAnimationFrame. Así el scroll sigue fluido y las tarjetas aparecen poco a poco.
-        if (data.html) {
-            const tmp = document.createElement('div');
-            tmp.innerHTML = data.html;
-            const nuevas = Array.from(tmp.children);
-            const CAT_INSERT_CHUNK = 6;
-            let i = 0;
-            (function pintarLote() {
-                if (i >= nuevas.length) return;
-                const frag = document.createDocumentFragment();
-                for (let n = 0; n < CAT_INSERT_CHUNK && i < nuevas.length; n++, i++) {
-                    frag.appendChild(nuevas[i]);
-                }
-                tableBody.appendChild(frag);
-                if (i < nuevas.length) requestAnimationFrame(pintarLote);
-            })();
-        }
-        st.page    = data.page || (st.page + 1);
-        st.hasMore = !!data.hasMore;
-        catRefreshSentinel();
+        data = await catFetch(catBuildUrl(st.page + 1));
     } catch (error) {
-        st.loading = false;
-        if (spinner) spinner.style.display = 'none';
-        // Error real: NO re-armamos el observer (evita bucle de errores) —
-        // reintenta solo cuando el usuario vuelva a scrollear el centinela.
         console.error('Error en scroll infinito del catalogo:', error);
     }
+    if (!esLaActual()) return;
+    if (spinner) spinner.style.display = 'none';
+    if (!data) { st.loading = false; catReintentar(gen); return; }
+    st.fallos = 0;
+
+    // Insert PROGRESIVO: en vez de meter las 24 tarjetas del lote de golpe (un tirón que
+    // "congela" el scroll mientras el navegador calcula layout de las 24 a la vez), se
+    // parsea el HTML fuera del DOM y se agregan en grupos pequeños (6) por frame con
+    // requestAnimationFrame. Así el scroll sigue fluido y las tarjetas aparecen poco a poco.
+    // 'loading' sigue puesto hasta pintar la ultima: el lote siguiente no se pide antes,
+    // asi dos lotes nunca se intercalan.
+    const tmp = document.createElement('div');
+    tmp.innerHTML = data.html || '';
+    const nuevas = Array.from(tmp.children);
+    const CAT_INSERT_CHUNK = 6;
+    let i = 0;
+    (function pintarLote() {
+        if (!esLaActual()) return;
+        const frag = document.createDocumentFragment();
+        for (let n = 0; n < CAT_INSERT_CHUNK && i < nuevas.length; n++, i++) {
+            frag.appendChild(nuevas[i]);
+        }
+        tableBody.appendChild(frag);
+        if (i < nuevas.length) { requestAnimationFrame(pintarLote); return; }
+        st.page    = data.page || (st.page + 1);
+        st.hasMore = !!data.hasMore;
+        st.loading = false;
+        catRefreshSentinel();
+    })();
 }
 
 // Carga la PRIMERA pagina y REEMPLAZA el grid. La usan el cambio de filtro
@@ -189,24 +207,35 @@ window.loadCatalogo = async function (showSpinner = true) {
     const tableBody = document.getElementById('catalogoTableBody');
     if (!tableBody) return;
 
+    // Desde aqui la grilla es otra: una carga del scroll a medias se descarta, y no se
+    // pide la pagina siguiente de los filtros viejos mientras llega la primera.
+    const st = window.catState;
+    const antes = { page: st.page, hasMore: st.hasMore };
+    const gen = st.gen = (st.gen || 0) + 1;
+    st.hasMore = false;
+    st.loading = false;
+    const spinnerMas = document.getElementById('catalogoLoadingSpinner');
+    if (spinnerMas) spinnerMas.style.display = 'none';
+
     tableBody.style.opacity = '0.5';
     if (showSpinner && typeof window.showPreloader === 'function') window.showPreloader();
 
     try {
         const data = await catFetch(catBuildUrl(1));
-        // null = abortada por una peticion mas nueva; esa se hace cargo.
-        if (!data) { tableBody.style.opacity = '1'; return; }
+        // null o gen distinto = la reemplazo una peticion mas nueva; esa se hace cargo
+        // (tambien de devolverle la opacidad a la grilla cuando llegue).
+        if (!data || st.gen !== gen) return;
 
         tableBody.innerHTML = data.html;
         tableBody.style.opacity = '1';
 
         // Reinicia el estado del scroll infinito a la pagina recien cargada.
-        window.catState.page    = data.page || 1;
-        window.catState.hasMore = !!data.hasMore;
-        window.catState.loading = false;
+        st.page    = data.page || 1;
+        st.hasMore = !!data.hasMore;
+        st.fallos  = 0;
         catRefreshSentinel();
 
-        // Stats sidebar: solo en el reemplazo (no cambia durante el scroll).
+        // El contador lateral (Total Registros, Vehículos/Auxiliares) es el de los filtros.
         const statsContainer = document.getElementById('statsSidebarContainer');
         if (statsContainer && data.stats) statsContainer.innerHTML = data.stats;
 
@@ -216,7 +245,12 @@ window.loadCatalogo = async function (showSpinner = true) {
         window.history.pushState({}, '', cleanUrl.toString());
     } catch (error) {
         console.error('Error loading catalogo:', error);
-        tableBody.style.opacity = '1';
+        // Se queda la grilla anterior: que su scroll siga donde iba.
+        if (st.gen === gen) {
+            tableBody.style.opacity = '1';
+            st.page = antes.page; st.hasMore = antes.hasMore;
+            catRefreshSentinel();
+        }
     } finally {
         if (showSpinner && typeof window.hidePreloader === 'function') window.hidePreloader();
     }
@@ -228,9 +262,16 @@ function initCatalogo() {
     const tableBody = document.getElementById('catalogoTableBody');
     if (!tableBody) return;
 
-    window.catState.page    = parseInt(tableBody.dataset.page || '1', 10) || 1;
-    window.catState.hasMore = tableBody.dataset.hasMore === '1';
-    window.catState.loading = false;
+    // Grilla nueva (entrar al modulo): lo que siguiera en vuelo de la visita anterior
+    // se cancela y, si igual llega, se descarta (ver catLoadMore).
+    if (window.currentRequestController) window.currentRequestController.abort();
+    window.currentRequestController = null;
+    const st = window.catState;
+    st.gen     = (st.gen || 0) + 1;
+    st.page    = parseInt(tableBody.dataset.page || '1', 10) || 1;
+    st.hasMore = tableBody.dataset.hasMore === '1';
+    st.loading = false;
+    st.fallos  = 0;
     catRefreshSentinel();
 }
 

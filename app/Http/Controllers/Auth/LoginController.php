@@ -272,6 +272,23 @@ class LoginController extends Controller
     }
     // ──────────────────────────────────────────────────────────────────────────
 
+    /**
+     * Cierra la sesión de este navegador. La usan logout y el login cuando llega del cierre
+     * por inactividad con la sesión todavía abierta (SystemController::loginPage).
+     */
+    public static function cerrarSesion(Request $request): void
+    {
+        Auth::logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        // Se va también la marca de "aquí hubo sesión": quien cierra sesión ya sabe por qué
+        // está en el login y no hay que explicarle nada la próxima vez.
+        \Illuminate\Support\Facades\Cookie::queue(
+            \Illuminate\Support\Facades\Cookie::forget(self::COOKIE_SESION_PREVIA)
+        );
+    }
+
     public function logout(Request $request)
     {
         // El SESSION_TOKEN NO se borra aquí, a propósito.
@@ -286,15 +303,7 @@ class LoginController extends Controller
         // y como el sistema es de sesión única, cualquier otra sesión viva ya tiene un
         // token DISTINTO al vigente y el middleware la corta igual — pero ahora con el
         // motivo correcto ("Sesión iniciada en otro dispositivo").
-        Auth::logout();
-        $request->session()->invalidate();
-        $request->session()->regenerateToken();
-
-        // Se va también la marca de "aquí hubo sesión": quien cierra sesión a propósito
-        // ya sabe por qué está en el login y no hay que explicarle nada la próxima vez.
-        \Illuminate\Support\Facades\Cookie::queue(
-            \Illuminate\Support\Facades\Cookie::forget(self::COOKIE_SESION_PREVIA)
-        );
+        self::cerrarSesion($request);
 
         return redirect('/')->withHeaders([
             'Cache-Control' => 'no-cache, no-store, must-revalidate',

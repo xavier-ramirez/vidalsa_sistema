@@ -81,9 +81,9 @@ class CaracteristicaModeloController extends Controller
         $countVehiculos   = $items->where('clase', 'VEHICULO')->count();
         $countAuxiliares  = $items->where('clase', 'AUXILIAR')->count();
 
-        // Paginación manual en bloques de 12 (el cliente los carga por scroll infinito).
+        // Paginación manual en lotes de 24 (el cliente los carga por scroll infinito).
         $page    = max(1, (int) $request->input('page', 1));
-        $perPage = 24; // lotes más grandes → la mitad de peticiones al hacer scroll infinito
+        $perPage = 24;
         $catalogos = new LengthAwarePaginator(
             $items->forPage($page, $perPage)->values(),
             $totalCount, $perPage, $page,
@@ -113,6 +113,11 @@ class CaracteristicaModeloController extends Controller
                 'html'    => view('admin.catalogo.partials.table_rows', compact('catalogos'))->render(),
                 'hasMore' => $catalogos->hasMorePages(),
                 'page'    => $catalogos->currentPage(),
+                // La primera página es la de un filtro nuevo (loadCatalogo): lleva el contador
+                // lateral con esos filtros. Las siguientes (scroll) no lo cambian.
+                'stats'   => $page === 1
+                    ? view('admin.catalogo.partials.stats_sidebar', compact('totalCount', 'countVehiculos', 'countAuxiliares'))->render()
+                    : null,
             ]);
         }
 
@@ -218,12 +223,18 @@ class CaracteristicaModeloController extends Controller
         }
 
         // Primero los que tienen foto (del modelo o de alguno de sus colores), después el resto;
-        // dentro de cada grupo, VEHÍCULOS antes que AUXILIARES y por modelo.
+        // dentro de cada grupo, VEHÍCULOS antes que AUXILIARES y por modelo. Los empates se
+        // deshacen del todo (año, tipo, marca, ficha): cada lote del scroll infinito se corta
+        // de este orden, y si dependiera de cómo la base devuelve los empates un lote podría
+        // repetir o saltarse tarjetas.
         $conFoto = fn (array $i): bool => !empty($i['foto_url'])
             || collect($i['colores'] ?? [])->contains(fn ($c) => !empty($c['foto_url']));
         return $items->sortBy([
             fn ($a, $b) => $conFoto($b) <=> $conFoto($a),
             fn ($a, $b) => strcmp($a['sort'], $b['sort']),
+            fn ($a, $b) => ($b['anio'] ?? 0) <=> ($a['anio'] ?? 0),
+            fn ($a, $b) => [(string) $a['tipo'], (string) $a['marca'], $a['id'] ?? PHP_INT_MAX]
+                       <=> [(string) $b['tipo'], (string) $b['marca'], $b['id'] ?? PHP_INT_MAX],
         ])->values();
     }
 
