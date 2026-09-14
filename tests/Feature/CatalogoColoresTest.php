@@ -178,10 +178,14 @@ class CatalogoColoresTest extends MySqlTestCase
         $this->actingAs($admin)->postJson(route('catalogo.asegurarFicha'), ['modelo' => $this->modelo, 'anio' => 2026])
             ->assertOk()->assertJson(['id' => $id, 'creada' => false, 'enlazados' => []]);
 
-        $html = $this->actingAs($admin)->getJson(route('catalogo.index', ['ajax_load' => 1, 'modelo' => 'modelo_eq:' . $this->modelo]))
+        $tarjeta = fn () => $this->actingAs($admin)->getJson(route('catalogo.index', ['ajax_load' => 1, 'modelo' => 'modelo_eq:' . $this->modelo]))
             ->assertOk()->json('html');
+        $html = $tarjeta();
         $this->assertStringNotContainsString('SIN FICHA', $html);
-        $this->assertStringContainsString('cat-color-nombre">Modelo', $html, 'Con ficha aparece la mini-tarjeta "Modelo" junto a los colores.');
+        // La mini-tarjeta "Modelo" es la de las unidades SIN color: con todas de color, sobra.
+        $this->assertStringNotContainsString('cat-color-nombre">Modelo', $html, 'Todas sus unidades tienen color: sin "Modelo".');
+        $this->equipo($id, null);
+        $this->assertStringContainsString('cat-color-nombre">Modelo', $tarjeta(), 'Con una unidad sin color vuelve "Modelo".');
     }
 
     public function test_la_tabla_de_equipos_muestra_el_color_y_la_foto_de_su_color(): void

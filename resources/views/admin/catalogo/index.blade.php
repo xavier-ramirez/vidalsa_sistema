@@ -201,10 +201,28 @@
     .cat-marca { display: flex; align-items: baseline; gap: 5px; min-width: 0; }
     /* Colores del modelo: una mini-tarjeta por color con SU foto (o su muestra y el ícono
        tachado si no tiene), su nombre y cuántas unidades hay. La activa es la que se ve en
-       la foto grande y a la que se aplican "Cambiar foto" y borrar. */
-    .cat-colores { display: grid; grid-template-columns: repeat(auto-fill, minmax(62px, 1fr)); gap: 5px; margin: 2px 0 8px; }
-    .cat-colores:last-child { margin-bottom: 0; }
+       la foto grande y a la que se aplican "Cambiar foto" y borrar. Van en UNA fila que se
+       desliza (con el dedo o con las flechas); las flechas solo se ven si no caben todas
+       (.con-flechas, catColoresFlechas) y se apagan en cada extremo. */
+    .cat-colores-carrusel { display: flex; align-items: center; gap: 3px; margin: 2px 0 8px; }
+    .cat-colores-carrusel:last-child { margin-bottom: 0; }
+    .cat-colores {
+        flex: 1; min-width: 0; display: flex; gap: 5px;
+        overflow-x: auto; scroll-snap-type: x mandatory; scroll-behavior: smooth;
+        scrollbar-width: none; padding: 2px; scroll-padding-inline: 2px;   /* el padding deja ver el anillo de la activa */
+    }
+    .cat-colores::-webkit-scrollbar { display: none; }
+    .cat-col-flecha {
+        display: none; flex: 0 0 22px; height: 44px; padding: 0; border: 1px solid #e2e8f0;
+        border-radius: 6px; background: #fff; color: #334155; cursor: pointer;
+        align-items: center; justify-content: center;
+    }
+    .cat-colores-carrusel.con-flechas .cat-col-flecha { display: flex; }
+    .cat-col-flecha:hover:not(:disabled) { border-color: #93c5fd; color: var(--maquinaria-blue, #0067b1); }
+    .cat-col-flecha:disabled { opacity: 0.35; cursor: default; }
+    .cat-col-flecha .material-icons { font-size: 18px; }
     .cat-color {
+        flex: 0 0 62px; scroll-snap-align: start;
         display: flex; flex-direction: column; gap: 3px; min-width: 0;
         padding: 3px; border: 1.5px solid #e2e8f0; border-radius: 8px; background: #fff;
         cursor: pointer; font-family: inherit; transition: border-color 0.15s, box-shadow 0.15s;
@@ -252,7 +270,9 @@
             flex: 1 1 100% !important;
             box-sizing: border-box !important;
         }
-        #catalogoFilters .cat-fila-marca { display: flex; gap: 10px; }
+        /* width:100% como cada .cat-filter de arriba: sin él el renglón se quedaba a lo que
+           mide su contenido y salía centrado y más angosto que Tipo y Modelo. */
+        #catalogoFilters .cat-fila-marca { display: flex; gap: 10px; width: 100%; }
         #catalogoFilters > a.btn-primary-maquinaria {
             max-width: none !important;
             width: 100% !important;
@@ -986,13 +1006,58 @@
         }
         _catPintarFoto(photoEl, url);
     }
+    // Tocar otra vez el color elegido vuelve a la foto del modelo: es la única forma de volver
+    // a ella cuando la tarjeta no lleva la mini-tarjeta "Modelo" (todas sus unidades tienen color).
     window.catElegirColor = function (btn) {
         var card = btn.closest('.cat-card');
         var photoEl = card.querySelector('.cat-photo');
+        if (btn.dataset.color && btn.classList.contains('activo')) {
+            btn = card.querySelector('.cat-color[data-color=""]');   // "Modelo", si la tarjeta la lleva
+        }
         card.querySelectorAll('.cat-color').forEach(function (b) { b.classList.toggle('activo', b === btn); });
-        photoEl.dataset.color = btn.dataset.color || '';
+        photoEl.dataset.color = btn ? (btn.dataset.color || '') : '';
         _catPintarFoto(photoEl, photoEl.dataset.color ? (btn.dataset.foto || '') : (photoEl.dataset.fotoModelo || ''));
     };
+
+    // Fila de colores: las flechas se ven solo si no caben todas, y se apagan en cada extremo.
+    // Si caben se mide contra el ancho ENTERO (car), no el de la fila: con las flechas puestas
+    // la fila es más angosta y, al ensancharse la pantalla, nunca se quitaban.
+    window.catColoresFlechas = function (car) {
+        var fila = car.querySelector('.cat-colores'), f = car.querySelectorAll('.cat-col-flecha');
+        car.classList.toggle('con-flechas', fila.scrollWidth > car.clientWidth + 1);
+        var max = fila.scrollWidth - fila.clientWidth;
+        f[0].disabled = fila.scrollLeft <= 1;
+        f[1].disabled = fila.scrollLeft >= max - 1;
+    };
+    // Pasa de a una "página": las mini-tarjetas que caben a la vista.
+    window.catColoresMover = function (flecha, dir) {
+        var fila = flecha.parentNode.querySelector('.cat-colores');
+        var chip = fila.querySelector('.cat-color');
+        if (!chip) return;
+        var paso = chip.offsetWidth + 5;   // + gap de .cat-colores
+        fila.scrollBy({ left: dir * paso * Math.max(1, Math.floor((fila.clientWidth + 5) / paso)) });
+    };
+    // Las tarjetas llegan por AJAX (filtros y scroll infinito, catalogo_index.js): cada lote
+    // nuevo se mide al entrar en la grilla. Cuando cambia el ANCHO de la grilla (al abrir,
+    // ventana, giro del teléfono, aparece la barra de scroll), todas. Los dos observadores
+    // son de esta grilla: al salir del módulo se van con ella.
+    (function () {
+        var grilla = document.getElementById('catalogoTableBody');
+        if (!grilla) return;
+        var medir = function (raiz) { raiz.querySelectorAll('.cat-colores-carrusel').forEach(function (c) { window.catColoresFlechas(c); }); };
+        new MutationObserver(function (cambios) {
+            cambios.forEach(function (c) {
+                c.addedNodes.forEach(function (n) { if (n.querySelectorAll) medir(n); });
+            });
+        }).observe(grilla, { childList: true });
+        var ancho = -1;
+        new ResizeObserver(function (e) {
+            var w = e[0].contentRect.width;
+            if (w === ancho) return;   // al sumar tarjetas cambia solo el alto: nada que medir
+            ancho = w;
+            medir(grilla);
+        }).observe(grilla);
+    })();
 
     // Ficha de un modelo que solo tenía equipos (tarjeta SIN FICHA): la crea —o encuentra la
     // que ya hay— y le enlaza sus unidades. Resuelve con el id de la ficha.

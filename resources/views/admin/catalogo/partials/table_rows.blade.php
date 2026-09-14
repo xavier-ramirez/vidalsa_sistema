@@ -5,8 +5,9 @@
 
      COLORES (solo vehículos): la ficha es una por modelo+año y cada color de sus unidades
      tiene su foto (catalogo_colores). Una mini-tarjeta por color (con su foto) cambia la foto
-     grande y dice a qué se aplica "Cambiar foto" / borrar: al modelo ("Modelo") o a ese color.
-     Con un solo color sin foto propia no salen: sería la misma foto del modelo.
+     grande y dice a qué se aplica "Cambiar foto" / borrar: al modelo o a ese color. Van en
+     una sola fila con flechas a los lados (catColoresMover). Con un solo color sin foto
+     propia no salen: sería la misma foto del modelo.
      La lógica vive en catElegirColor / catUploadPhoto / catDeletePhoto (index.blade.php). --}}
 @forelse($catalogos as $item)
     @php
@@ -16,6 +17,10 @@
         // Mini-tarjetas de color solo si hay entre qué elegir: con un único color y sin foto
         // propia, "Modelo" y ese color serían la misma foto (sus unidades toman la del modelo).
         $verColores = count($colores) > 1 || (count($colores) === 1 && !empty($colores[0]['foto_url']));
+        // La mini-tarjeta "Modelo" representa las unidades SIN color: si todas tienen el suyo,
+        // sobra. La foto del modelo sigue a la vista al abrir, y se vuelve a ella tocando otra
+        // vez el color elegido (catElegirColor).
+        $chipModelo = !$sinFicha && array_sum(array_column($colores, 'total')) < (int) $item['total'];
         // Unidades sueltas de un modelo+año que YA tiene ficha: primero se enlazan (botón
         // "Enlazar a su ficha"). Subir aquí pisaría la foto del modelo de esa ficha, que
         // esta tarjeta ni muestra.
@@ -157,28 +162,33 @@
 
             {{-- Colores, debajo del nombre y la marca: una mini-tarjeta por color con SU foto ("Modelo" es
                  la general). La cifra es cuántas unidades hay de ese color; sin foto propia se
-                 ve el ícono tachado. Tocar una cambia la foto grande (catElegirColor). --}}
+                 ve el ícono tachado. Tocar una cambia la foto grande (catElegirColor). En una
+                 fila: las flechas salen solo si no caben todas (catColoresFlechas). --}}
             @if($verColores)
-                <div class="cat-colores">
-                    @if(!$sinFicha)
-                        <button type="button" class="cat-color activo" data-color="" onclick="catElegirColor(this)" title="Foto del modelo">
-                            <span class="cat-color-foto">
-                                @if($item['foto_url'])<img src="{{ $item['foto_url'] }}" alt="" loading="lazy">@else<i class="material-icons cat-color-sinfoto">no_photography</i>@endif
-                            </span>
-                            <span class="cat-color-nombre">Modelo</span>
-                        </button>
-                    @endif
-                    @foreach($colores as $c)
-                        <button type="button" class="cat-color" data-color="{{ $c['color'] }}" data-foto="{{ $c['foto_url'] ?? '' }}"
-                                @if($sinFicha) disabled @else onclick="catElegirColor(this)" @endif
-                                title="{{ $c['color'] }}: {{ $c['total'] }} {{ $c['total'] === 1 ? 'unidad' : 'unidades' }}{{ $c['foto_url'] ? '' : ' · sin foto propia' }}">
-                            <span class="cat-color-foto">
-                                @if($c['foto_url'])<img src="{{ $c['foto_url'] }}" alt="" loading="lazy">@else<i class="material-icons cat-color-sinfoto">no_photography</i>@endif
-                                @if($c['total'])<span class="cat-color-total">{{ $c['total'] }}</span>@endif
-                            </span>
-                            <span class="cat-color-nombre"><span class="cat-color-muestra" style="background:{{ $c['muestra'] }};"></span><span>{{ $c['color'] }}</span></span>
-                        </button>
-                    @endforeach
+                <div class="cat-colores-carrusel">
+                    <button type="button" class="cat-col-flecha" aria-label="Colores anteriores" onclick="catColoresMover(this, -1)"><i class="material-icons">chevron_left</i></button>
+                    <div class="cat-colores" onscroll="catColoresFlechas(this.parentNode)">
+                        @if($chipModelo)
+                            <button type="button" class="cat-color activo" data-color="" onclick="catElegirColor(this)" title="Foto del modelo">
+                                <span class="cat-color-foto">
+                                    @if($item['foto_url'])<img src="{{ $item['foto_url'] }}" alt="" loading="lazy">@else<i class="material-icons cat-color-sinfoto">no_photography</i>@endif
+                                </span>
+                                <span class="cat-color-nombre">Modelo</span>
+                            </button>
+                        @endif
+                        @foreach($colores as $c)
+                            <button type="button" class="cat-color" data-color="{{ $c['color'] }}" data-foto="{{ $c['foto_url'] ?? '' }}"
+                                    @if($sinFicha) disabled @else onclick="catElegirColor(this)" @endif
+                                    title="{{ $c['color'] }}: {{ $c['total'] }} {{ $c['total'] === 1 ? 'unidad' : 'unidades' }}{{ $c['foto_url'] ? '' : ' · sin foto propia' }}">
+                                <span class="cat-color-foto">
+                                    @if($c['foto_url'])<img src="{{ $c['foto_url'] }}" alt="" loading="lazy">@else<i class="material-icons cat-color-sinfoto">no_photography</i>@endif
+                                    @if($c['total'])<span class="cat-color-total">{{ $c['total'] }}</span>@endif
+                                </span>
+                                <span class="cat-color-nombre"><span class="cat-color-muestra" style="background:{{ $c['muestra'] }};"></span><span>{{ $c['color'] }}</span></span>
+                            </button>
+                        @endforeach
+                    </div>
+                    <button type="button" class="cat-col-flecha" aria-label="Colores siguientes" onclick="catColoresMover(this, 1)"><i class="material-icons">chevron_right</i></button>
                 </div>
             @endif
 
