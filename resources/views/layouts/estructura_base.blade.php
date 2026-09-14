@@ -998,23 +998,6 @@
                             </button>
                         @endif
                     </div>
-
-                    <!-- Vista móvil para descarga directa -->
-                    <div id="pdfMobileFallback"
-                        style="display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 25; width: 100%; height: 100%; background: #282828; padding: 20px; box-sizing: border-box; text-align: center; position: absolute; top:0; left:0;">
-                        <i class="material-icons"
-                            style="font-size: 64px; color: #a0aec0; margin-bottom: 15px;">description</i>
-                        <h4 style="color: white; margin: 0 0 10px 0; font-size: 18px; font-weight: 600;">Vista Previa No
-                            Disponible</h4>
-                        <p
-                            style="color: #cbd5e0; margin: 0 0 25px 0; font-size: 14px; max-width: 280px; line-height: 1.4;">
-                            Los teléfonos móviles no soportan la visualización incrustada del documento.</p>
-                        <button
-                            onclick="downloadPdfDirect(document.getElementById('pdfDownloadBtn').dataset.url, document.getElementById('pdfDownloadBtn').dataset.label)"
-                            style="background: #3182ce; color: white; border: none; padding: 12px 24px; font-size: 15px; font-weight: 600; border-radius: 8px; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.2); cursor: pointer;">
-                            <i class="material-icons">download</i> Descargar Documento
-                        </button>
-                    </div>
                 </div>
 
                 {{-- Segundo panel: la corrección. Nace oculto y sin src —un iframe con

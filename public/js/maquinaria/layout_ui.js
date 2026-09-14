@@ -895,9 +895,6 @@ window.openPdfPreview = function (url, docType, label, equipoId, uploadUrl, skip
         iframe.style.filter = PDF_BLUR_CARGA;
     }
 
-    const fallbackNode = document.getElementById('pdfMobileFallback');
-    if (fallbackNode) fallbackNode.style.display = 'none';
-
     // Set Content
     if (title) title.innerText = label || 'Documento';
     const printBtn = document.getElementById('pdfPrintBtn');
@@ -1079,8 +1076,6 @@ window.openPdfPreview = function (url, docType, label, equipoId, uploadUrl, skip
         };
 
         if (url && url.length > 5) {
-            const fallback = document.getElementById('pdfMobileFallback');
-            if (fallback) fallback.style.display = 'none';
             iframe.style.display = 'block';
             // REVELADO PROGRESIVO. Antes el iframe estaba en opacity:0 hasta el
             // onload, asi que el usuario miraba gris + spinner y el documento
@@ -1109,9 +1104,6 @@ window.openPdfPreview = function (url, docType, label, equipoId, uploadUrl, skip
                 ? PDF_PARAMS_COMPARA
                 : PDF_PARAMS_LECTURA);
         } else {
-            const fallback = document.getElementById('pdfMobileFallback');
-            if (fallback) fallback.style.display = 'none';
-
             iframe.style.display = 'block';
             iframe.src = 'about:blank';
             if (loader) loader.style.display = 'none';
