@@ -96,34 +96,53 @@
     .alm-cant-stepper.is-active .alm-cant-btn:hover { background:#e0f2fe !important; }
     .alm-cant-stepper.is-active .alm-row-cant { color:#0f172a !important; }
 
-    /* Filas seleccionadas a las que les falta la cantidad de "Salida" tras tocar "Registrar salida".
-       Persistente hasta que el usuario teclee una cantidad > 0 o deseleccione el producto.
-       Sobrevive a recargas AJAX del tbody (vía almAplicarFaltantes en almSelApplyToVisible). */
-    /* MISMO tratamiento visual para 2 condiciones distintas que bloquean la salida:
-         · .alm-row-missing-cant    -> usuario no llenó la cantidad (vacia o <= 0)
-         · .alm-row-exceeds-stock   -> cantidad tecleada > saldo disponible
-       Ambas usan el mismo rojo + barra izquierda + outline en el stepper. */
-    /* El texto NO se recolorea aquí. La regla traía `color:#991b1b`, pero nunca llegó a
-       verse: cada celda traía su color en un style="" inline y el inline gana a cualquier
-       selector sin !important. Al pasar esos estilos a clases (bloque de abajo) el color
-       de aquí SÍ habría empezado a ganar, y las filas marcadas habrían cambiado de texto
-       oscuro a rojo — un cambio que nadie pidió, colado por la puerta de atrás.
-       Se quita para dejar el aspecto como estaba: fondo rojo, barra roja, texto oscuro.
-       Si algún día se quiere el texto en rojo, se agrega aquí a propósito. */
-    #almTableBody tr.alm-row.alm-row-missing-cant td,
-    #almTableBody tr.alm-row.alm-row-exceeds-stock td { background:#fecaca !important; }
-    #almTableBody tr.alm-row.alm-row-missing-cant td:first-child,
-    #almTableBody tr.alm-row.alm-row-exceeds-stock td:first-child { --alm-franja: inset 6px 0 0 #b91c1c; box-shadow: var(--alm-franja); }
     /* Última fila cuyo detalle se abrió con el ojo (almMarcarVista): al cerrar el modal se sabe
        de cuál se venía. Un marco azul, no un fondo, para verse encima del rojo de stock bajo y
        del azul de seleccionada sin confundirse con ninguno. Hecho con sombras interiores en las
-       celdas —como --alm-franja, que conserva— y no con outline en la fila: la celda del nombre
-       va posicionada (tooltip) y lo tapaba. En el teléfono las filas son tarjetas: ver abajo. */
+       celdas y no con outline en la fila: la celda del nombre va posicionada (tooltip) y lo
+       tapaba. En el teléfono las filas son tarjetas: ver abajo. */
     @media (min-width: 769px) {
         #almTableBody tr.alm-row.alm-row-vista > td { box-shadow: inset 0 2px 0 #0067b1, inset 0 -2px 0 #0067b1; }
-        #almTableBody tr.alm-row.alm-row-vista > td:first-child { box-shadow: var(--alm-franja, 0 0 #0000), inset 2px 0 0 #0067b1, inset 0 2px 0 #0067b1, inset 0 -2px 0 #0067b1; }
+        #almTableBody tr.alm-row.alm-row-vista > td:first-child { box-shadow: inset 2px 0 0 #0067b1, inset 0 2px 0 #0067b1, inset 0 -2px 0 #0067b1; }
         #almTableBody tr.alm-row.alm-row-vista > td:last-child { box-shadow: inset -2px 0 0 #0067b1, inset 0 2px 0 #0067b1, inset 0 -2px 0 #0067b1; }
+        #almTableBody tr.alm-row.alm-row-missing-cant > td,
+        #almTableBody tr.alm-row.alm-row-exceeds-stock > td { box-shadow: inset 0 2px 0 #dc2626, inset 0 -2px 0 #dc2626; }
+        #almTableBody tr.alm-row.alm-row-missing-cant > td:first-child,
+        #almTableBody tr.alm-row.alm-row-exceeds-stock > td:first-child { box-shadow: inset 2px 0 0 #dc2626, inset 0 2px 0 #dc2626, inset 0 -2px 0 #dc2626; }
+        #almTableBody tr.alm-row.alm-row-missing-cant > td:last-child,
+        #almTableBody tr.alm-row.alm-row-exceeds-stock > td:last-child { box-shadow: inset -2px 0 0 #dc2626, inset 0 2px 0 #dc2626, inset 0 -2px 0 #dc2626; }
     }
+    /* El motivo, bajo la caja de cantidad (el detalle —cuánto se pide y cuánto hay— va en el
+       aviso de arriba). */
+    #almTableBody tr.alm-row.alm-row-missing-cant .alm-td-cant::after,
+    #almTableBody tr.alm-row.alm-row-exceeds-stock .alm-td-cant::after {
+        display: block; margin-top: 3px; font-size: 10px; font-weight: 700; color: #b91c1c; text-align: center; white-space: nowrap;
+    }
+    #almTableBody tr.alm-row.alm-row-missing-cant .alm-td-cant::after { content: 'Falta la cantidad'; }
+    #almTableBody tr.alm-row.alm-row-missing-cant[data-saldo="0"] .alm-td-cant::after { content: 'Sin stock'; }
+    #almTableBody tr.alm-row.alm-row-exceeds-stock .alm-td-cant::after { content: 'Supera el stock'; }
+    /* Aviso fijo de la salida por corregir (almPintarAvisoSalida), encima de la tabla. */
+    #almSalidaAviso { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 10px; padding: 10px 14px;
+                      background: #fef2f2; border: 1px solid #fca5a5; border-radius: 10px; color: #991b1b; }
+    #almSalidaAviso[hidden] { display: none; }
+    #almSalidaAviso > .material-icons { font-size: 20px; color: #dc2626; flex-shrink: 0; margin-top: 1px; }
+    #almSalidaAviso strong { font-size: 13px; }
+    .alm-aviso-lista { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+    .alm-aviso-lista button { border: 1px solid #fca5a5; background: #fff; color: #991b1b; border-radius: 999px;
+                              padding: 3px 10px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; }
+    .alm-aviso-lista button:hover { background: #fee2e2; }
+    /* Volver a pulsar "Registrar salida" con el aviso ya puesto: un meneo corto para que se note. */
+    #almSalidaAviso.alm-aviso-sacude { animation: almAvisoSacude .35s ease-in-out 1; }
+    @keyframes almAvisoSacude { 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+    @media (prefers-reduced-motion: reduce) { #almSalidaAviso.alm-aviso-sacude { animation: none; } }
+    /* Filas de la salida por corregir tras "Registrar salida" (almSelAccion):
+         · .alm-row-missing-cant  → sin cantidad (vacía o <= 0), o sin saldo que sacar
+         · .alm-row-exceeds-stock → la cantidad tecleada supera el saldo
+       Persisten hasta corregir o deseleccionar y sobreviven a las recargas del tbody
+       (almSelApplyToRows). El error se marca EN EL CAMPO —la caja de cantidad en rojo con su
+       motivo debajo— y la fila con un marco rojo, SIN fondo rojo: así no se confunde con el
+       rojo claro de stock bajo. El detalle de cada uno va en el aviso de arriba
+       (#almSalidaAviso). El marco va en el @media de arriba, tras el de "última vista", para ganarle. */
     #almTableBody tr.alm-row.alm-row-missing-cant .alm-cant-stepper,
     #almTableBody tr.alm-row.alm-row-exceeds-stock .alm-cant-stepper { border-color:#b91c1c !important; background:#fff !important; box-shadow:0 0 0 2px rgba(220,38,38,0.25); }
     #almTableBody tr.alm-row.alm-row-missing-cant .alm-row-cant,
@@ -198,22 +217,13 @@
     .alm-table .alm-vacio-alto .material-icons { font-size:46px; margin:0 auto 10px; }
     .alm-table .alm-vacio-pista { display:inline-block; margin-top:6px; font-size:12.5px;
                                   color:#94a3b8; max-width:420px; }
-    /* Pulso intenso para llamar la atención al primer pintado. */
-    #almTableBody tr.alm-row.alm-row-missing-cant,
-    #almTableBody tr.alm-row.alm-row-exceeds-stock { animation: almMissingPulse 0.9s ease-out 1; }
-    @keyframes almMissingPulse {
-        0%   { background:#f87171; }
-        100% { background:transparent; }
-    }
     /* Fila recién modificada (almResaltarFila): destello amarillo que se desvanece. Con
        box-shadow inset —no background— para que se vea también sobre una fila seleccionada,
-       cuyo fondo lleva !important. La franja roja de "excede stock" también es un box-shadow
-       (en td:first-child): va en --alm-franja y el destello la incluye, así no desaparece
-       mientras dura el destello. */
+       cuyo fondo lleva !important. */
     #almTableBody tr.alm-row.alm-row-recien > td { animation: almRecien 2.4s ease-out 1; }
     @keyframes almRecien {
-        0%, 35% { box-shadow: var(--alm-franja, 0 0 #0000), inset 0 0 0 999px rgba(250, 204, 21, 0.45); }
-        100%    { box-shadow: var(--alm-franja, 0 0 #0000), inset 0 0 0 999px rgba(250, 204, 21, 0); }
+        0%, 35% { box-shadow: inset 0 0 0 999px rgba(250, 204, 21, 0.45); }
+        100%    { box-shadow: inset 0 0 0 999px rgba(250, 204, 21, 0); }
     }
     /* ── Reparto por proyecto en la celda de Stock (solo almacenes que separan) ──
        El saldo de un almacén multi-proyecto no es un número solo: es la suma de varias
@@ -825,8 +835,10 @@
             background: #fffbeb !important;
             box-shadow: 0 1px 3px rgba(245,158,11,0.10), 0 4px 12px rgba(245,158,11,0.12) !important;
         }
-        /* Última vista (almMarcarVista): contorno por fuera de la tarjeta. */
+        /* Última vista (almMarcarVista): contorno por fuera de la tarjeta. Una por corregir, en rojo. */
         .alm-table tr.alm-row.alm-row-vista { outline: 2px solid #0067b1; outline-offset: 1px; }
+        .alm-table tr.alm-row.alm-row-missing-cant,
+        .alm-table tr.alm-row.alm-row-exceeds-stock { outline: 2px solid #dc2626; outline-offset: 1px; }
 
         .alm-table tr.alm-row td {
             display: flex !important;
@@ -898,6 +910,13 @@
             padding: 8px 4px !important;
             justify-content: flex-end !important;
         }
+        /* Por corregir: el motivo va bajo la caja de cantidad, no a su lado (no cabría). Con
+           width:0 + min-width:100% no aporta ancho propio a la columna —toma el de la caja y
+           parte en líneas—: si no, la ensancha y le quita sitio al stock. */
+        #almTableBody tr.alm-row.alm-row-missing-cant td.alm-td-cant,
+        #almTableBody tr.alm-row.alm-row-exceeds-stock td.alm-td-cant { flex-direction: column; align-items: flex-end !important; justify-content: center !important; }
+        #almTableBody tr.alm-row.alm-row-missing-cant .alm-td-cant::after,
+        #almTableBody tr.alm-row.alm-row-exceeds-stock .alm-td-cant::after { width: 0; min-width: 100%; text-align: right; white-space: normal; line-height: 1.2; }
         .alm-table tr.alm-row td.alm-td-det {
             grid-area: det !important;
             padding: 8px 14px 8px 4px !important;
@@ -1175,6 +1194,9 @@
             </div>
         </div>
     </div>
+
+    {{-- Aviso de la salida por corregir: lo pinta almPintarAvisoSalida. --}}
+    <div id="almSalidaAviso" role="alert" hidden></div>
 
     {{-- ── Tabla ── --}}
     <div class="alm-table-wrap" style="overflow-x:auto;border:1px solid #e2e8f0;border-radius:12px;">
@@ -3188,6 +3210,7 @@
         delete almFaltantes[id];
         var tr = document.querySelector('#almTableBody tr.alm-row[data-id-producto="' + id + '"]');
         if (tr) tr.classList.remove('alm-row-missing-cant');
+        almPintarAvisoSalida();
     }
     function almAplicarExceden() {
         document.querySelectorAll('#almTableBody tr.alm-row').forEach(function (tr) {
@@ -3200,16 +3223,55 @@
         delete almExceden[id];
         var tr = document.querySelector('#almTableBody tr.alm-row[data-id-producto="' + id + '"]');
         if (tr) tr.classList.remove('alm-row-exceeds-stock');
+        almPintarAvisoSalida();
     }
     function almMarcarExceden(id) {
         almExceden[id] = true;
         var tr = document.querySelector('#almTableBody tr.alm-row[data-id-producto="' + id + '"]');
         if (tr) tr.classList.add('alm-row-exceeds-stock');
+        almPintarAvisoSalida();
     }
-    window.almToggleSoloSel = function (e) {
-        if (e) { e.preventDefault(); e.stopPropagation(); }
-        if (!almSelCount()) { toast('No hay productos seleccionados todavía.', 'error'); return; }
-        almSoloSel = !almSoloSel;
+
+    // ── Aviso de la salida por corregir (#almSalidaAviso) ──
+    // Lo enciende almSelAccion al fallar y se repinta con cada corrección (almLimpiar* /
+    // almMarcarExceden / almSelRefreshBar) hasta que no queda nada: entonces se apaga solo.
+    // Antes era un aviso emergente, que se iba a los segundos y se apilaba al volver a pulsar.
+    var almAvisoSalidaActivo = false;
+    function almPintarAvisoSalida() {
+        var box = el('almSalidaAviso'); if (!box) return;
+        var items = [];
+        Object.keys(almExceden).forEach(function (id) {
+            var s = almSeleccion[id]; if (!s) return;
+            var c = parseFloat(String(s.cantidad == null ? '' : s.cantidad).replace(',', '.'));
+            items.push({ id: id, txt: s.nombre + ': pides ' + formatNum(c) + ', hay ' + formatNum(s.saldo) + (s.um ? ' ' + s.um : '') });
+        });
+        Object.keys(almFaltantes).forEach(function (id) {
+            var s = almSeleccion[id]; if (!s) return;
+            // Sin saldo no hay cantidad que valga: se pide quitarlo, no escribirla.
+            items.push({ id: id, txt: s.nombre + ((parseFloat(s.saldo) || 0) <= 0 ? ': sin stock en este almacén, quítalo de la salida' : ': falta la cantidad') });
+        });
+        if (!items.length) almAvisoSalidaActivo = false;
+        box.hidden = !almAvisoSalidaActivo;
+        if (box.hidden) { box.innerHTML = ''; return; }
+        box.innerHTML = '<i class="material-icons">error_outline</i><div>'
+            + '<strong>' + (items.length === 1 ? '1 producto' : items.length + ' productos') + ' por corregir antes de registrar la salida</strong>'
+            + '<div class="alm-aviso-lista">' + items.map(function (i) {
+                return '<button type="button" data-id="' + i.id + '" onclick="window.almIrAProblema(this.dataset.id)">' + window.escapeHtml(i.txt) + '</button>';
+            }).join('') + '</div></div>';
+    }
+    // Lleva a la fila de un producto por corregir y deja el cursor en su cantidad.
+    window.almIrAProblema = function (id) {
+        var tr = document.querySelector('#almTableBody tr.alm-row[data-id-producto="' + id + '"]');
+        if (!tr) return;
+        tr.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        var inp = tr.querySelector('.alm-row-cant');
+        if (inp) { inp.disabled = false; setTimeout(function () { try { inp.focus(); inp.select(); } catch (e) {} }, 30); }
+    };
+
+    // Enciende o apaga "ver solo seleccionados": la tabla se recarga con SOLO los productos de
+    // la selección (filtros() manda id_producto_in) y el contador de la barra lo marca.
+    function almAplicarSoloSel(on) {
+        almSoloSel = on;
         // "Ver solo seleccionados" es una acción global: descartar el pick exacto para no
         // mandar id_producto e id_producto_in a la vez (query contradictoria + URL incoherente).
         almResetPick();
@@ -3226,8 +3288,14 @@
             var tbody = el('almTableBody');
             if (tbody) tbody.scrollIntoView({ block: 'start' });
         }
+    }
+    window.almToggleSoloSel = function (e) {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
+        if (!almSelCount()) { toast('No hay productos seleccionados todavía.', 'error'); return; }
+        almAplicarSoloSel(!almSoloSel);
     };
     function almSelRefreshBar() {
+        almPintarAvisoSalida();
         var bar = el('almBulkBar'); if (!bar) return;
         var n = almSelCount();
         bar.classList.toggle('active', n > 0);
@@ -3344,13 +3412,14 @@
             _almPendingAutoSelect = false;
         }
         almSelApplyToRows(document.querySelectorAll('#almTableBody tr.alm-row'));
-        // Foco pendiente (Auditoría): tras recargar, dejar el teclado listo en el input de
-        // cantidad de esa fila (si sigue seleccionada). Se consume UNA vez.
+        // Foco pendiente (Auditoría, salida por corregir): tras recargar, dejar el teclado listo
+        // en el input de cantidad de esa fila (si sigue seleccionada). Se consume UNA vez.
         if (_almPendingFocusId) {
             var trF = document.querySelector('#almTableBody tr.alm-row[data-id-producto="' + _almPendingFocusId + '"]');
             _almPendingFocusId = null;
             if (trF && almSeleccion[trF.getAttribute('data-id-producto')]) {
                 var inpF = trF.querySelector('.alm-row-cant');
+                trF.scrollIntoView({ block: 'center' });
                 if (inpF) { inpF.disabled = false; setTimeout(function () { try { inpF.focus(); } catch (e) {} }, 30); }
             }
         }
@@ -3553,6 +3622,21 @@
     });
     function almSelAlmacenActual() { var s = el('almSelAlmacen'); return s ? s.value : ''; }
     // Único botón de la barra flotante: abre el modal Nota de Entrega.
+    // Salida con productos por corregir: la tabla pasa a mostrar SOLO los productos de la salida
+    // —como el contador de la barra— para que ninguno quede fuera del filtro que hubiera, el
+    // aviso fijo de arriba dice qué corregir en cada uno y el cursor va a la cantidad del primero.
+    function almMostrarProblemasSalida(primerId) {
+        almAvisoSalidaActivo = true;
+        almPintarAvisoSalida();
+        var box = el('almSalidaAviso');
+        if (box) { box.classList.remove('alm-aviso-sacude'); void box.offsetWidth; box.classList.add('alm-aviso-sacude'); }
+        if (!almSoloSel) {
+            _almPendingFocusId = primerId;   // lo consume almSelApplyToVisible al recargar
+            almAplicarSoloSel(true);
+            return;
+        }
+        window.almIrAProblema(primerId);
+    }
     // El backend decide si es SALIDA (consumo en el mismo almacén) o TRASPASO (envío
     // a otro almacén) según el frente destino elegido en el formulario.
     window.almSelAccion = function () {
@@ -3563,17 +3647,15 @@
         var idAlm = almSelAlmacenActual();
         if (!idAlm) { toast('No hay un almacén seleccionado.', 'error'); return; }
         // Bloquear apertura del modal si alguna fila seleccionada (a) excede el stock o
-        // (b) no tiene cantidad válida. Las dos condiciones se chequean por separado para
-        // dar mensajes específicos, pero AMBAS pintan la fila de rojo de forma persistente
+        // (b) no tiene cantidad válida. Las dos se marcan en su fila de forma persistente
         // (sobrevive a recargas/filtros) hasta que el usuario corrija — teclee una cantidad
-        // <= saldo, deseleccione el producto, o limpie toda la selección.
+        // <= saldo, deseleccione el producto, o limpie toda la selección — y el aviso fijo
+        // de arriba dice qué corregir en cada una.
         //
-        // El orden importa: primero exceden (saldo insuficiente), luego faltan (vacío). Si
-        // un producto está en ambos estados imposibles, ganaría el de exceso, pero por la
-        // lógica del input ese caso no ocurre (un input vacío NO marca exceso).
+        // Un input vacío NO marca exceso, así que ningún producto cae en los dos casos.
         almExceden = {};
         almFaltantes = {};
-        var exceden = [];
+        var exceden = [];   // ids de producto, en cada lista
         var faltan  = [];
         // Sin cantidad + sin saldo: no es que el usuario "olvidara" escribirla, es que no hay
         // nada que sacar. Se separa de `faltan` para no pedirle una cantidad que ningún valor
@@ -3584,10 +3666,10 @@
             var c = parseFloat(String(s.cantidad == null ? '' : s.cantidad).replace(',', '.').trim());
             var saldo = parseFloat(s.saldo) || 0;
             if (!isFinite(c) || c <= 0) {
-                (saldo <= 0 ? sinSaldo : faltan).push({ id: id, nombre: s.nombre || ('#' + id) });
+                (saldo <= 0 ? sinSaldo : faltan).push(id);
                 almFaltantes[id] = true;
             } else if (c > saldo) {
-                exceden.push({ id: id, nombre: s.nombre || ('#' + id), cant: c, saldo: saldo, um: s.um || '' });
+                exceden.push(id);
                 almExceden[id] = true;
             }
         });
@@ -3595,44 +3677,11 @@
         // antiguas se borran solas; si quedan errores, se vuelven a pintar las filas afectadas.
         almAplicarFaltantes();
         almAplicarExceden();
-        if (exceden.length) {
-            // Llevar la primera fila con exceso a la vista + foco para corrección rápida.
-            var firstExId = exceden[0].id;
-            var firstExTr = document.querySelector('#almTableBody tr.alm-row[data-id-producto="' + firstExId + '"]');
-            if (firstExTr) {
-                firstExTr.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                var firstExInp = firstExTr.querySelector('.alm-row-cant');
-                if (firstExInp) { firstExInp.focus(); firstExInp.select && firstExInp.select(); }
-            }
-            // Detalle por producto: "Aceite 10W30 (5 > 2 UND)". Ayuda a ver de un vistazo
-            // cuánto sobra en cada caso sin tener que abrir cada fila.
-            var det = exceden.map(function (e) {
-                return e.nombre + ' (' + e.cant + ' > ' + e.saldo + (e.um ? ' ' + e.um : '') + ')';
-            }).join(', ');
-            toast('Stock insuficiente: ' + det + '.', 'error');
-            return;
-        }
-        // Se avisa ANTES que `faltan`: si un producto no tiene saldo, ese es el problema real
-        // y pedirle una cantidad solo lo mandaría al error de "stock insuficiente".
-        if (sinSaldo.length) {
-            var firstSsTr = document.querySelector('#almTableBody tr.alm-row[data-id-producto="' + sinSaldo[0].id + '"]');
-            if (firstSsTr) firstSsTr.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            toast('Stock insuficiente de: ' + sinSaldo.map(function (f) { return f.nombre; }).join(', ') + '.', 'error');
-            return;
-        }
-        if (faltan.length) {
-            // Llevar la primera fila faltante a la vista + foco en su input de cantidad.
-            var firstId = faltan[0].id;
-            var firstTr = document.querySelector('#almTableBody tr.alm-row[data-id-producto="' + firstId + '"]');
-            if (firstTr) {
-                firstTr.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                var firstInp = firstTr.querySelector('.alm-row-cant');
-                if (firstInp) firstInp.focus();
-            }
-            // Listar TODOS los nombres (no truncar): el usuario necesita saber cuáles son,
-            // sobre todo si algunos quedaron fuera de la página/filtro actual.
-            var nombres = faltan.map(function (f) { return f.nombre; }).join(', ');
-            toast('Falta indicar la cantidad de salida (debe ser mayor que cero) en: ' + nombres + '.', 'error');
+        // Primero el exceso (saldo insuficiente), luego sin saldo y por último sin cantidad: a un
+        // producto sin saldo no se le pide una cantidad que ningún valor podría satisfacer.
+        var problemas = exceden.concat(sinSaldo, faltan);
+        if (problemas.length) {
+            almMostrarProblemasSalida(problemas[0]);
             return;
         }
         window.almAbrirSalidaModal(idAlm);
