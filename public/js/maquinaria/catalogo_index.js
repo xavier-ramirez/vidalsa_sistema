@@ -67,7 +67,8 @@ window.confirmDeleteCatalogo = function (id, modelName) {
 window.catState = window.catState || { page: 1, hasMore: false, loading: false, gen: 0, fallos: 0 };
 
 // AbortController de la peticion en curso — compartido a proposito: un
-// cambio de filtro cancela una carga incremental que estuviera a medias.
+// cambio de filtro, o volver a entrar al modulo, cancela una carga incremental
+// que estuviera a medias.
 window.currentRequestController = null;
 
 // Arma la URL de la peticion con los filtros activos + la pagina pedida.
@@ -88,7 +89,7 @@ function catBuildUrl(page) {
 
 // Peticion AJAX al catalogo. Cancela cualquier peticion anterior (un cambio
 // de filtro invalida una carga incremental en curso). Devuelve el JSON, o
-// null si esta peticion fue abortada por otra mas nueva.
+// null si la cancelaron: otra mas nueva, o volver a entrar al modulo (initCatalogo).
 async function catFetch(url) {
     if (window.currentRequestController) window.currentRequestController.abort();
     const controller = new AbortController();
