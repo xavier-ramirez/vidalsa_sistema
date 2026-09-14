@@ -490,12 +490,13 @@ if (!window._gpsModalScriptLoaded) {
             setTimeout(function () {
                 if (window.hidePreloader) window.hidePreloader();
                 // Guard: si la SPA navego antes de que dispare el timeout, el
-                // modal ya no esta conectado al DOM. Evitamos aplicar overflow
-                // hidden al body de la pagina destino (ej. /edit) lo que dejaba
-                // al usuario sin scroll vertical.
+                // modal ya no esta conectado al DOM. Evitamos bloquear el scroll
+                // de la pagina destino (ej. /edit), lo que dejaba al usuario sin
+                // scroll vertical.
                 if (!modal || !modal.isConnected) return;
                 modal.style.display = 'flex';
-                document.body.style.overflow = 'hidden';
+                // Mismo ayudante que el detalle y el visor de PDF (layout_ui.js).
+                window.bloquearScrollFondo();
             }, 1200);
         };
 
@@ -539,8 +540,17 @@ if (!window._gpsModalScriptLoaded) {
             var iframe = document.getElementById('gps_iframe');
             if (modal && modal.style.display === 'flex') {
                 modal.style.display = 'none';
-                document.body.style.overflow = '';
-                if (iframe) iframe.src = 'about:blank';
+                // Se abre desde el detalle del equipo, que sigue abierto debajo: restaurarScrollFondo
+                // mantiene el bloqueo mientras quede una capa (layout_ui.js · _CAPAS_SCROLL).
+                window.restaurarScrollFondo();
+                // Un iframe NUEVO en about:blank en vez de iframe.src = 'about:blank': cambiarle el
+                // src a uno ya cargado deja un paso invisible en el historial y gasta el siguiente
+                // Atrás (lo mismo que closePdfPreview en layout_ui.js).
+                if (iframe && iframe.parentNode) {
+                    var nuevo = iframe.cloneNode(false);
+                    nuevo.setAttribute('src', 'about:blank');
+                    iframe.parentNode.replaceChild(nuevo, iframe);
+                }
             }
         };
 
