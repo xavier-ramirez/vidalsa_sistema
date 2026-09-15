@@ -132,6 +132,9 @@
     @keyframes almPartePulso { 50% { box-shadow: 0 0 0 3px rgba(0, 103, 177, .35); } }
     @media (prefers-reduced-motion: reduce) { #almTableBody .alm-parte-list.alm-parte-pulso .alm-parte-opt { animation: none; } }
     #almTableBody tr.alm-row.alm-row-pide-parte .alm-cant-stepper { pointer-events: none; }
+    /* Fila SIN marcar: su caja de cantidad está deshabilitada y un input disabled se traga el
+       toque. Así cae en la celda y selecciona la fila (ver el clic de la tabla). */
+    #almTableBody tr.alm-row:not(.selected-row-maquinaria) .alm-cant-stepper { pointer-events: none; }
     #almTableBody tr.alm-row.alm-row-pide-parte .alm-td-cant { cursor: pointer; }
     #almTableBody tr.alm-row.alm-row-pide-parte .alm-td-cant::after {
         content: 'Elige la equivalencia'; display: block; margin-top: 3px; font-size: 10px; font-weight: 700;
@@ -729,7 +732,7 @@
        overflow-y:auto: una lista absolute estiraba el contenido y le sacaba al modal una
        barra de desplazamiento vertical. Fixed la saca del flujo y del recorte, así que se
        despliega por encima del modal. left/top/width los calcula almSuggestAnclar(). */
-    .alm-suggest-float { position:fixed; margin-top:0; z-index:10001; }
+    .alm-suggest-float { position:fixed; margin-top:0; z-index:10001; box-sizing:border-box; }
     .alm-suggest-inline.open { display:block; animation:slideDown 0.18s ease-out; }
     .alm-suggest-inline .si-item { display:flex; align-items:center; gap:10px; padding:10px 15px; border-radius:8px; cursor:default; font-size:14px; font-weight:600; color:var(--maquinaria-dark-blue,#1e3a5f); transition:background 0.2s; }
     .alm-suggest-inline .si-item:hover { background:#f0f4f8; }
@@ -1581,7 +1584,7 @@
 {{-- ═════════════════════════════════════════════════════════════════
      Modal: ¿De qué proyecto sale?
      En un almacén que separa el saldo por proyecto (PATIO EL TIGRE), seleccionar un producto
-     repartido en dos proyectos o más no habilita la cantidad de una vez: aquí se ve cuánto tiene
+     con saldo —en uno o en varios proyectos— no habilita la cantidad de una vez: aquí se ve cuánto tiene
      cada proyecto y se elige de cuál se descuenta. Lo elegido viaja por línea (id_frente_saldo) y
      el despacho empieza por esa bolsa; si no alcanza sigue con la común y el resto, y la vista
      previa de la nota lo avisa. Lo llena almPedirBolsa; elegir es almBolsaElegir. Fuera de los
@@ -2311,8 +2314,8 @@
                      nota, que antes salía en blanco. Opcional: lo que quede vacío sale en blanco
                      para llenarlo a mano. Sugiere la logística del almacén y la flota de sus frentes
                      (almLogCargar): el vehículo se busca ESCRIBIENDO su placa o su serial de chasis
-                     y elegir uno llena los dos campos de su fila. La lista cuelga de la FILA (no de
-                     un campo) para salir a lo ancho de los dos. --}}
+                     y elegir uno llena los dos campos de su fila. Los dos comparten la lista, que
+                     sale debajo del campo que se está escribiendo (almLogSugerir). --}}
                 <div class="alm-modal-grid alm-modal-grid-2" style="display:grid;grid-template-columns:1.6fr 1fr;gap:10px;margin-bottom:10px;">
                     <div>
                         <label class="alm-nota-label" for="almSalidaVehiculo">Vehículo</label>
@@ -3013,23 +3016,33 @@
         box.classList.add('open');
         almSuggestAnclar(box);
     }
-    // Coloca una lista .alm-suggest-float (position:fixed) justo debajo de su campo.
-    // Solo actúa sobre esas: las sugerencias de la barra de filtros son absolute normales
-    // y no necesitan anclaje. Si no cabe debajo, se abre hacia arriba.
+    // Coloca una lista .alm-suggest-float (position:fixed) justo debajo de su campo: el input que
+    // diga data-ancla (cuando dos campos comparten la lista, el que se está escribiendo) o, si no,
+    // su contenedor. data-ancho-min: ancho mínimo en px para campos angostos. Solo actúa sobre
+    // esas: las sugerencias de la barra de filtros son absolute normales y no necesitan anclaje.
+    // Si no cabe debajo, se abre hacia arriba.
     function almSuggestAnclar(box) {
         if (!box || !box.classList.contains('alm-suggest-float') || !box.classList.contains('open')) return;
-        var campo = box.parentElement; if (!campo) return;
-        almAnclarFlotante(box, campo);
+        var campo = (box.dataset.ancla && el(box.dataset.ancla)) || box.parentElement; if (!campo) return;
+        almAnclarFlotante(box, campo, parseInt(box.dataset.anchoMin, 10) || 0);
     }
     // La matemática del anclaje, en UN solo sitio: la usan los suggest de UM/categoría y la
     // lista de frentes del modal de almacén, que flota por el mismo motivo (ver su CSS).
-    function almAnclarFlotante(caja, ancla) {
+    // anchoMin solo pesa en campos angostos (menos de 240 px, como la cédula o la placa en PC):
+    // ahí la caja es más ancha que su campo y, si así se sale del modal por la derecha, se
+    // alinea con el borde derecho del campo. En el teléfono los campos ya son anchos.
+    function almAnclarFlotante(caja, ancla, anchoMin) {
         var r = ancla.getBoundingClientRect();
-        caja.style.left  = r.left + 'px';
-        caja.style.width = r.width + 'px';   // el ancho se fija ANTES de medir el alto
+        var ancho = r.width < 240 ? Math.max(r.width, anchoMin || 0) : r.width, izq = r.left;
+        if (ancho > r.width) {
+            var cont = (ancla.closest('.alm-modal') || document.documentElement).getBoundingClientRect();
+            if (izq + ancho > cont.right - 12) izq = Math.max(cont.left + 12, r.right - ancho);
+        }
+        caja.style.left  = izq + 'px';
+        caja.style.width = ancho + 'px';   // el ancho se fija ANTES de medir el alto
         var alto = caja.offsetHeight;
         var cabeAbajo = (window.innerHeight - r.bottom - 8) >= alto;
-        caja.style.top = (!cabeAbajo && r.top > alto ? (r.top - alto - 2) : (r.bottom + 2)) + 'px';
+        caja.style.top = (!cabeAbajo && r.top > alto ? (r.top - alto - 4) : (r.bottom + 4)) + 'px';
     }
     // Ancla la lista de frentes contra su propia caja. El multiselect lo abre/cierra el
     // componente global (uicomponents.js) poniendo .active en el contenedor, así que aquí
@@ -3624,9 +3637,9 @@
         if (_almPendingAutoSelect && almBuscarPickedId) {
             var trPick = document.querySelector('#almTableBody tr.alm-row[data-id-producto="' + almBuscarPickedId + '"]');
             if (trPick && !almSeleccion[almBuscarPickedId]) {
-                // Repartido en varios proyectos: primero se pregunta de cuál sale (al elegir queda
+                // Almacén por proyecto: primero se pregunta de cuál sale (al elegir queda
                 // seleccionada); si no, se selecciona directo.
-                if (almBolsasDeFila(trPick).length > 1) almPedirBolsa(trPick);
+                if (almBolsasDeFila(trPick).length) almPedirBolsa(trPick);
                 else { almSeleccion[almBuscarPickedId] = almSelNuevaEntrada(trPick); almSelRefreshBar(); }
             }
             // Apagar el flag aunque la fila no haya aparecido (ej. backend filtro vacio)
@@ -3696,7 +3709,7 @@
     function almSelEnsureRow(tr) {
         var id = tr.getAttribute('data-id-producto'); if (!id) return false;
         if (almSeleccion[id]) return true;
-        if (almBolsasDeFila(tr).length > 1) { almPedirBolsa(tr); return false; }
+        if (almBolsasDeFila(tr).length) { almPedirBolsa(tr); return false; }
         almSeleccion[id] = almSelNuevaEntrada(tr);
         almSelMarkRow(tr, true);
         almEnfocarCantidad(tr);
@@ -3717,12 +3730,13 @@
             // productos sin equivalencias y en los de varias hasta que se elija.
             parte:  tr.getAttribute('data-parte-sel') || '',
             // Proyecto del que se descuenta (ID_FRENTE; 0 = saldo común), elegido en el modal
-            // «¿De qué proyecto sale?». Vacío = sin elección: el saldo está en un solo proyecto.
+            // «¿De qué proyecto sale?». Vacío = sin elección: el almacén no separa por proyecto.
             bolsa:  '',
         };
     }
     // Reparto por proyecto de una fila ([{f: frente, n: nombre, q: cantidad, c: común}]). Solo
-    // lo traen las filas con saldo en dos proyectos o más (data-bolsas, ver partials/table_rows).
+    // lo traen las filas con saldo de un almacén que separa por proyecto (data-bolsas, ver
+    // partials/table_rows).
     function almBolsasDeFila(tr) {
         var raw = tr && tr.getAttribute('data-bolsas');
         if (!raw) return [];
@@ -3857,18 +3871,26 @@
         var pedido = ++_almOtrosPedido, idAlm = almSelAlmacenActual();
         window.apiFetch(ROUTE_OTROS.replace('__PID__', idProducto) + (idAlm ? '?id_almacen=' + encodeURIComponent(idAlm) : ''), { headers: { 'Accept': 'application/json' } })
             .then(function (r) { return r.ok ? r.json() : null; })
-            .then(function (d) { if (d && pedido === _almOtrosPedido) dc.innerHTML = d.html || ''; })
-            .catch(function () { /* sin panel: la tabla sigue usable */ });
+            // Si la petición falla el panel se vacía: mejor sin panel que con el de otro producto.
+            .then(function (d) { if (pedido === _almOtrosPedido) dc.innerHTML = (d && d.html) || ''; })
+            .catch(function () { if (pedido === _almOtrosPedido) dc.innerHTML = ''; });
     }
     // Clic en una fila de la tabla → toggle de selección. Ignora clics sobre botones / inputs
-    // (incluido el input .alm-row-cant que va dentro de un td[data-no-toggle]).
+    // (incluido el input .alm-row-cant que va dentro de un td[data-no-toggle]), salvo la celda de
+    // cantidad de una fila sin marcar, que la selecciona.
     document.addEventListener('click', function (e) {
         var tr = e.target.closest('#almTableBody tr.alm-row');
         if (!tr) return;
         if (tr.classList.contains('alm-row-pide-parte') && e.target.closest('.alm-td-cant')) { almPedirParte(tr); return; }
-        if (e.target.closest('[data-no-toggle]')) return;
-        if (e.target.closest('button') || e.target.closest('a') || e.target.closest('input') || e.target.closest('select') || e.target.closest('.custom-dropdown')) return;
         var id = tr.getAttribute('data-id-producto'); if (!id) return;
+        // La celda de cantidad de una fila SIN marcar la selecciona: en el teléfono es media
+        // tarjeta y el toque se perdía (ni selección, ni modal de proyecto, ni panel, y el toque
+        // siguiente quedaba desfasado). Ya marcada, esa celda es para escribir la cantidad.
+        var cantidadLibre = !almSeleccion[id] && e.target.closest('.alm-td-cant');
+        if (!cantidadLibre) {
+            if (e.target.closest('[data-no-toggle]')) return;
+            if (e.target.closest('button') || e.target.closest('a') || e.target.closest('input') || e.target.closest('select') || e.target.closest('.custom-dropdown')) return;
+        }
         if (almSeleccion[id]) { delete almSeleccion[id]; almSelMarkRow(tr, false); almLimpiarFaltante(id); almLimpiarExceden(id); }
         else almSelEnsureRow(tr);
         // En modo "Ver solo seleccionados" NO re-ocultamos la fila al deseleccionar: queda
@@ -5783,6 +5805,11 @@
                 + '</div>';
             n++;
         });
+        // Debajo del campo que se escribe y con su ancho: colgada de la fila cruzaba el modal
+        // entero y en el teléfono la del chofer salía debajo de la cédula. La cédula y la placa
+        // son angostas, así que la lista no baja de un ancho legible (cabe nombre y documento).
+        box.dataset.ancla = inp.id;
+        box.dataset.anchoMin = veh ? '320' : '260';
         almSuggestApply(box, html, '<div class="alm-suggest-empty">Sin coincidencias: se imprime lo que escribas.</div>');
     };
     // Elegir uno llena los dos campos de su fila (nombre y documento).

@@ -794,7 +794,7 @@ class AlmacenController extends Controller
 
     /**
      * Reparto por proyecto de TODOS los productos de una página de la tabla, agrupado por
-     * producto. La fila con saldo en dos proyectos o más lo lleva en data-bolsas y, al
+     * producto. Cada fila con saldo lo lleva en data-bolsas y, al
      * seleccionarla, el modal «¿De qué proyecto sale?» lo muestra sin pedir nada al servidor.
      *
      * UNA consulta por página (no una por fila): la lista de productos ya está cargada.
@@ -950,7 +950,7 @@ class AlmacenController extends Controller
      * "esto descuéntalo del saldo de Ayacucho".
      *
      * Devuelve null cuando no aplica —el almacén no separa por proyecto, o la línea no eligió
-     * (el producto tiene saldo en un solo proyecto y la tabla no pregunta)—: ahí manda el criterio de siempre, la bolsa del destino
+     * (quien la manda no eligió proyecto)—: ahí manda el criterio de siempre, la bolsa del destino
      * primero. FRENTE_BOLSA_COMUN (0) sí es una elección: el material sin proyecto asignado.
      *
      * Lo usan el registro real (registrarMovimientoLote, que la pasa a la cascada) y la vista
@@ -2955,7 +2955,7 @@ class AlmacenController extends Controller
         // SALIDA: en una ENTRADA el proyecto que recibe ya lo dice `id_frente`, y un AJUSTE es
         // del almacén. Se resuelve AQUÍ, una vez, y no dentro del bucle de la transacción: si
         // una línea trae una bolsa ajena al almacén, la salida se rechaza ANTES de escribir
-        // nada. Las líneas sin elección (saldo en un solo proyecto) no entran en el mapa.
+        // nada. Las líneas sin elección no entran en el mapa.
         //
         // La bolsa es UNA por producto: en la tabla cada producto es una fila con una sola
         // elección. Si un cliente externo mandara dos líneas del mismo producto con bolsas

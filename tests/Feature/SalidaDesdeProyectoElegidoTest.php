@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Almacen;
 use App\Models\AlmacenStock;
+use App\Models\MovimientoInventario;
 use App\Models\ProductoInventario;
 use App\Services\InventarioService;
 use Illuminate\Support\Facades\DB;
@@ -47,30 +48,35 @@ class SalidaDesdeProyectoElegidoTest extends MySqlTestCase
 
         // 3 del proyecto A y 2 del B.
         $this->producto = (int) ProductoInventario::where('ESTATUS', 'ACTIVO')->value('ID_PRODUCTO');
-        app(InventarioService::class)->registrarEntrada($this->almacen, $this->producto, 3, ['id_frente' => $this->frenteA]);
-        app(InventarioService::class)->registrarEntrada($this->almacen, $this->producto, 2, ['id_frente' => $this->frenteB]);
+        $this->entrada($this->producto, 3, $this->frenteA);
+        $this->entrada($this->producto, 2, $this->frenteB);
     }
 
-    /** Salida de 2 entregada al proyecto A; $linea añade (o no) el proyecto del que sale. */
-    private function salida(array $linea)
+    private function entrada(int $producto, float $cantidad, int $frente): void
+    {
+        app(InventarioService::class)->registrarEntrada($this->almacen, $producto, $cantidad, ['id_frente' => $frente]);
+    }
+
+    /** Salida entregada al proyecto A con las líneas dadas. */
+    private function salida(array $lineas)
     {
         return $this->actingAs($this->superAdminGlobal())->postJson(route('almacen.movimientos.lote'), [
             'tipo'              => 'SALIDA',
             'id_almacen'        => $this->almacen,
             'id_frente_destino' => $this->frenteA,
-            'lineas'            => [['id_producto' => $this->producto, 'cantidad' => 2] + $linea],
+            'lineas'            => $lineas,
         ]);
     }
 
-    private function saldo(int $frente): float
+    private function saldo(int $frente, ?int $producto = null): float
     {
-        return (float) AlmacenStock::where('ID_ALMACEN', $this->almacen)->where('ID_PRODUCTO', $this->producto)
+        return (float) AlmacenStock::where('ID_ALMACEN', $this->almacen)->where('ID_PRODUCTO', $producto ?? $this->producto)
             ->where('ID_FRENTE', $frente)->value('CANTIDAD');
     }
 
     public function test_sale_del_proyecto_elegido_aunque_se_entregue_a_otro(): void
     {
-        $this->salida(['id_frente_saldo' => $this->frenteB])->assertCreated();
+        $this->salida([['id_producto' => $this->producto, 'cantidad' => 2, 'id_frente_saldo' => $this->frenteB]])->assertCreated();
 
         $this->assertSame(0.0, $this->saldo($this->frenteB), 'Las 2 salen del proyecto elegido.');
         $this->assertSame(3.0, $this->saldo($this->frenteA), 'El proyecto destino no se toca.');
@@ -78,7 +84,7 @@ class SalidaDesdeProyectoElegidoTest extends MySqlTestCase
 
     public function test_sin_eleccion_sale_del_proyecto_destino(): void
     {
-        $this->salida([])->assertCreated();
+        $this->salida([['id_producto' => $this->producto, 'cantidad' => 2]])->assertCreated();
 
         $this->assertSame(1.0, $this->saldo($this->frenteA));
         $this->assertSame(2.0, $this->saldo($this->frenteB));
@@ -88,9 +94,28 @@ class SalidaDesdeProyectoElegidoTest extends MySqlTestCase
     {
         $ajeno = (int) DB::table('frentes_trabajo')->whereNotIn('ID_FRENTE', [$this->frenteA, $this->frenteB])->value('ID_FRENTE');
 
-        $this->salida(['id_frente_saldo' => $ajeno])->assertStatus(422);
+        $this->salida([['id_producto' => $this->producto, 'cantidad' => 2, 'id_frente_saldo' => $ajeno]])->assertStatus(422);
 
         $this->assertSame(3.0, $this->saldo($this->frenteA));
         $this->assertSame(2.0, $this->saldo($this->frenteB));
+    }
+
+    public function test_una_nota_con_varios_productos_descuenta_cada_uno_de_su_proyecto(): void
+    {
+        // Segundo producto: 4 en cada proyecto.
+        $otro = (int) ProductoInventario::where('ESTATUS', 'ACTIVO')->where('ID_PRODUCTO', '!=', $this->producto)->value('ID_PRODUCTO');
+        $this->entrada($otro, 4, $this->frenteA);
+        $this->entrada($otro, 4, $this->frenteB);
+
+        $nota = $this->salida([
+            ['id_producto' => $this->producto, 'cantidad' => 2, 'id_frente_saldo' => $this->frenteB],
+            ['id_producto' => $otro,           'cantidad' => 3, 'id_frente_saldo' => $this->frenteA],
+        ])->assertCreated()->json('numero_nota');
+
+        $this->assertSame(0.0, $this->saldo($this->frenteB), 'El primero sale del proyecto B.');
+        $this->assertSame(3.0, $this->saldo($this->frenteA));
+        $this->assertSame(1.0, $this->saldo($this->frenteA, $otro), 'El segundo sale del proyecto A.');
+        $this->assertSame(4.0, $this->saldo($this->frenteB, $otro));
+        $this->assertSame(2, MovimientoInventario::where('NUMERO_NOTA', $nota)->count(), 'Las dos líneas en la misma Nota de Entrega.');
     }
 }

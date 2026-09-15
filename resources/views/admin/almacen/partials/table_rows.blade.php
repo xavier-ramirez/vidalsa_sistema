@@ -66,11 +66,12 @@
             $equipos = $p->relationLoaded('modelosCompatibles')
                 ? $p->modelosCompatibles->map(fn ($m) => ['t' => $m->TIPO, 'm' => $m->marca_equipo ?? null, 'mo' => $m->MODELO])->all()
                 : [];
-            // Saldo repartido en dos proyectos o más: la fila se ve igual que cualquier otra,
-            // pero al seleccionarla el modal «¿De qué proyecto sale?» enseña cuánto tiene cada
-            // uno y pide de cuál se descuenta. Con un solo proyecto no hay nada que elegir.
+            // Saldo por proyecto (solo almacenes que separan): la fila se ve igual que cualquier
+            // otra, pero al seleccionarla el modal «¿De qué proyecto sale?» enseña cuánto tiene
+            // cada proyecto y pide de cuál se descuenta. También con uno solo: así quien despacha
+            // ve de qué proyecto sale antes de poner la cantidad (pedido del cliente).
             $bolsas     = $reparto->get($p->ID_PRODUCTO, collect());
-            $bolsasJson = $bolsas->count() > 1
+            $bolsasJson = $bolsas->isNotEmpty()
                 ? $bolsas->map(fn ($b) => [
                     'f' => (int) $b->ID_FRENTE,
                     'n' => \App\Services\InventarioService::rotuloBolsa($b->ID_FRENTE, $b->NOMBRE_FRENTE),

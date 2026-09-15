@@ -9,9 +9,9 @@ use Tests\MySqlTestCase;
 /**
  * Tabla de /admin/almacen en un almacén que separa por proyecto (p. ej. PATIO EL TIGRE): cada
  * producto es el renglón de siempre —número y unidad—, sin botón "N proyectos" ni fila que se
- * despliegue debajo (decisión del cliente, 15-09-2026). Si el saldo está repartido en dos
- * proyectos o más, la fila lleva ese reparto en data-bolsas y al seleccionarla el modal
- * «¿De qué proyecto sale?» pregunta de cuál se descuenta.
+ * despliegue debajo (decisión del cliente, 15-09-2026). La fila de un producto con saldo lleva su
+ * reparto por proyecto en data-bolsas —con uno o con varios proyectos— y al seleccionarla el modal
+ * «¿De qué proyecto sale?» pregunta de cuál se descuenta. En un almacén que no separa, nada.
  */
 class AlmacenRenglonTradicionalTest extends MySqlTestCase
 {
@@ -22,9 +22,35 @@ class AlmacenRenglonTradicionalTest extends MySqlTestCase
 
         $this->assertStringNotContainsString('alm-bolsa-tog', $html, 'Sin el botón "N proyectos".');
         $this->assertStringNotContainsString('alm-row-bolsas', $html, 'Sin la fila que se desplegaba debajo.');
+        $this->assertBolsasDeLaFila($html, $almacen, $codigo, $idProducto);
+    }
 
-        $this->assertMatchesRegularExpression('/data-codigo="' . preg_quote(e($codigo), '/') . '"[^>]*data-bolsas="([^"]*)"/', $html);
-        preg_match('/data-codigo="' . preg_quote(e($codigo), '/') . '"[^>]*data-bolsas="([^"]*)"/', $html, $m);
+    public function test_un_producto_de_un_solo_proyecto_tambien_dice_de_cual_sale(): void
+    {
+        [$almacen, $codigo, $idProducto] = $this->productoConBolsas('= 1');
+        $html = $this->tabla($almacen, $codigo);
+
+        $this->assertStringNotContainsString('alm-bolsa-uno', $html, 'Sin el rótulo del proyecto dueño.');
+        $this->assertBolsasDeLaFila($html, $almacen, $codigo, $idProducto);
+    }
+
+    public function test_en_un_almacen_que_no_separa_la_fila_no_pregunta_el_proyecto(): void
+    {
+        $almacen = Almacen::with('frentes:ID_FRENTE')->get()->first(fn ($a) => !$a->separaPorProyecto());
+        $this->assertNotNull($almacen, 'Hace falta un almacén que no separe por proyecto.');
+        $codigo = DB::table('almacen_stock as s')->join('productos_inventario as p', 'p.ID_PRODUCTO', '=', 's.ID_PRODUCTO')
+            ->where('s.ID_ALMACEN', $almacen->ID_ALMACEN)->where('s.CANTIDAD', '>', 0)->value('p.CODIGO');
+        $this->assertNotNull($codigo, 'Hace falta un producto con saldo en ese almacén.');
+
+        $this->assertStringNotContainsString('data-bolsas', $this->tabla($almacen, $codigo));
+    }
+
+    /** La fila del producto trae un {f, n, q} por cada proyecto con saldo en el almacén. */
+    private function assertBolsasDeLaFila(string $html, Almacen $almacen, string $codigo, int $idProducto): void
+    {
+        $patron = '/data-codigo="' . preg_quote(e($codigo), '/') . '"[^>]*data-bolsas="([^"]*)"/';
+        $this->assertMatchesRegularExpression($patron, $html);
+        preg_match($patron, $html, $m);
         $bolsas = json_decode(html_entity_decode($m[1], ENT_QUOTES), true);
 
         $esperadas = DB::table('almacen_stock')->where('ID_ALMACEN', $almacen->ID_ALMACEN)
@@ -35,17 +61,6 @@ class AlmacenRenglonTradicionalTest extends MySqlTestCase
             $this->assertNotSame('', $b['n'], 'Cada proyecto con su nombre.');
             $this->assertGreaterThan(0, $b['q'], 'Y su cantidad.');
         }
-    }
-
-    public function test_un_producto_de_un_solo_proyecto_no_pregunta_de_cual_sale(): void
-    {
-        [$almacen, $codigo] = $this->productoConBolsas('= 1');
-        $html = $this->tabla($almacen, $codigo);
-
-        $this->assertMatchesRegularExpression('/<tr[^>]*data-codigo="' . preg_quote(e($codigo), '/') . '"[^>]*>/', $html);
-        preg_match('/<tr[^>]*data-codigo="' . preg_quote(e($codigo), '/') . '"[^>]*>/', $html, $m);
-        $this->assertStringNotContainsString('data-bolsas', $m[0]);
-        $this->assertStringNotContainsString('alm-bolsa-uno', $html, 'Sin el rótulo del proyecto dueño.');
     }
 
     /** [almacén que separa por proyecto, código, id] de un producto con saldo en N proyectos. */
