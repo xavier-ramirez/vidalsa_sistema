@@ -66,13 +66,15 @@ class DashboardController extends Controller
             $equiposInoperativos  = max(0, $totalFlotaActiva - $equiposOperativos - $equiposMantenimiento);
 
             // Eager-load SOLO las columnas necesarias del equipo (PK + FK ID_ESPEC + MARCA):
-            // antes with('equipos') traía TODAS las columnas de TODOS los equipos de los 7
+            // antes with('equipos') traía TODAS las columnas de TODOS los equipos de los
             // modelos, solo para saber si hay equipos (isEmpty) y sacar la MARCA del primero.
             // Con el select el payload cargado es mínimo (la lógica de abajo es idéntica).
+            // 24 modelos: el menú pinta 8 tarjetas en carrusel y recicla las que salen con el
+            // resto (ver "Catálogo Destacado" en menu.blade.php). Va dentro de la caché del tablero.
             $catalogosDestacados = CaracteristicaModelo::with(['equipos' => fn ($q) => $q->select('ID_EQUIPO', 'ID_ESPEC', 'MARCA')])
                 ->whereNotNull('FOTO_REFERENCIAL')
                 ->orderBy('ID_ESPEC', 'desc')
-                ->limit(7)
+                ->limit(24)
                 ->get();
 
             // Garantizar que la MARCA se obtenga incluso si este ID_ESPEC no tiene equipos asignados directamente

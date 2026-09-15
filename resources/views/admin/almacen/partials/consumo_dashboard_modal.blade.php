@@ -33,9 +33,10 @@
     /* Mismo encabezado que los demás modales de Almacén, Equipos y Recepción. */
     .cdash-head { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 20px; background:#1e293b; }
     .cdash-head h3 { margin:0; font-size:16px; font-weight:800; color:#fff; display:flex; align-items:center; gap:9px; }
-    .cdash-head h3 .material-icons { color:var(--maquinaria-blue,#0067b1); }
-    .cdash-x { cursor:pointer; color:#fff; opacity:.8; border:none; background:transparent; display:flex; padding:4px; border-radius:8px; transition:background .15s, opacity .15s; }
-    .cdash-x:hover { background:rgba(255,255,255,.12); opacity:1; }
+    .cdash-head h3 .material-icons { color:#fff; }
+    .cdash-x { cursor:pointer; color:#fff; border:none; background:transparent; display:flex; padding:4px; border-radius:8px; transition:background .15s; }
+    .cdash-x .material-icons { color:#fff; }
+    .cdash-x:hover { background:rgba(255,255,255,.18); }
     .cdash-body { padding:18px 20px 22px; }
     /* Barra de filtros PROPIA del dashboard (no depende de los filtros del módulo). */
     .cdash-filtros { display:flex; flex-wrap:wrap; align-items:flex-end; gap:10px; margin-bottom:16px; }
@@ -77,8 +78,11 @@
     .cdash-adv-field { display:flex; flex-direction:column; gap:4px; font-size:12px; font-weight:600; color:#64748b; }
     /* La tipografía de estos controles NO se declara aquí: la pone la regla de arriba, que
        cubre todo el modal de una vez (ver "TIPOGRAFÍA DE LOS CONTROLES"). */
-    .cdash-adv-field input, .cdash-adv-field select { height:36px; border:1px solid #cbd5e0; border-radius:8px; padding:0 10px; font-size:13px; color:#0f172a; background:#fff; outline:none; min-width:150px; }
-    .cdash-adv-field input:focus, .cdash-adv-field select:focus { border-color:var(--maquinaria-blue,#0067b1); }
+    /* Solo los controles DIRECTOS del campo (Desde/Hasta): el de Frente va dentro de su caja
+       (.cdash-inp-box, igual que Categoría) y con esta regla le salía un borde propio dentro
+       del de la caja, 150px mínimos y la × apretada contra el borde. */
+    .cdash-adv-field > input, .cdash-adv-field > select { height:36px; border:1px solid #cbd5e0; border-radius:8px; padding:0 10px; font-size:13px; color:#0f172a; background:#fff; outline:none; min-width:150px; }
+    .cdash-adv-field > input:focus, .cdash-adv-field > select:focus { border-color:var(--maquinaria-blue,#0067b1); }
     .cdash-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
     .cdash-card { background:#fff; border:1px solid #e9eef5; border-radius:14px; padding:16px 18px; min-width:0;
         box-shadow:0 1px 2px rgba(15,23,42,.04); }
@@ -89,7 +93,14 @@
     .cdash-chart-dl { margin-left:auto; display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; padding:0; border:1px solid #e2e8f0; border-radius:7px; background:#fff; color:#64748b; cursor:pointer; transition:background .15s, color .15s, border-color .15s; }
     .cdash-chart-dl:hover { background:#eff6ff; color:#0067b1; border-color:#bfdbfe; }
     .cdash-chart-dl .material-icons { font-size:16px; }
+    /* Un gráfico es un lienzo dibujado: al arrastrar encima, el navegador intenta arrastrar la
+       imagen y enseña el icono de "prohibido". Se desactiva ese arrastre y nada más. */
+    .cdash-canvas-wrap canvas { -webkit-user-drag:none; }
+    /* El texto del modal (títulos, cifras, tarjetas) SÍ se selecciona y se copia con el ratón:
+       varias pantallas de la app traen user-select:none heredado y aquí estorba. */
+    #consumoDashModal, #consumoDashModal * { user-select:text; -webkit-user-select:text; }
     .cdash-canvas-wrap { position:relative; height:240px; }
+    .cdash-canvas-wrap.conleyenda { height:320px; }
     /* Top productos: son barras HORIZONTALES (indexAxis:'y'), asi que cada producto es
        una fila y el alto reparte su grosor.
        ESTE VALOR ES SOLO EL SUELO. El alto de verdad lo calcula el JS al pintar el grafico
@@ -198,7 +209,10 @@
     }
 </style>
 
-<div id="consumoDashModal" class="cdash-overlay" onclick="if(event.target===this) window.cerrarConsumoDashboard()">
+{{-- El fondo cierra el modal solo si el clic EMPEZÓ en él: al elegir en una lista el
+     dashboard esconde sus gráficos mientras carga, el modal se achica y el botón del mouse
+     se soltaba ya sobre el fondo — contaba como "clic afuera" y se cerraba todo. --}}
+<div id="consumoDashModal" class="cdash-overlay" onmousedown="this._desdeFondo = (event.target === this)" onclick="if(event.target===this && this._desdeFondo) window.cerrarConsumoDashboard()">
     <div class="cdash-modal">
         <div class="cdash-head">
             {{-- Solo el título: el subtítulo descriptivo se quitó para que el encabezado
@@ -246,10 +260,10 @@
                                  dos buscadores del mismo campo. --}}
                             <i class="material-icons">expand_more</i>
                             <input type="text" id="cdashCatInput" placeholder="Categoría" autocomplete="off"
-                                   oninput="window._cdashCatFilter(this.value)"
+                                   oninput="window._cdashCatFilter()"
                                    onfocus="window._cdashCatOpen()"
                                    onblur="setTimeout(function(){window._cdashCatClose()},180)">
-                            <i class="material-icons clr" id="cdashCatClear" style="display:none;" onmousedown="event.preventDefault();window._cdashCatSelect('',CDASH_CAT_LBL);">close</i>
+                            <i class="material-icons clr" id="cdashCatClear" style="display:none;" onmousedown="event.preventDefault();event.stopPropagation();" onclick="window._cdashCatSelect('',CDASH_CAT_LBL);">close</i>
                         </div>
                         <div class="cdash-cat-list" id="cdashCatList"></div>
                     </div>
@@ -284,7 +298,9 @@
                      frentes y desplegarlos todos obligaba a recorrer la lista a ojo.
                      Misma mecánica que Categoría: el hidden guarda el ID (que es lo que
                      viaja al backend) y el input visible solo sirve para buscar. --}}
-                <label class="cdash-adv-field" style="flex:1 1 240px;"><span>Frente de destino</span>
+                {{-- <div> y no <label>: un label reenvía al campo de texto cualquier clic que caiga
+                     dentro —en la × o en una opción de la lista— y el foco volvía a abrir la lista. --}}
+                <div class="cdash-adv-field" style="flex:1 1 240px;"><span id="cdashFrenteLbl">Frente de destino</span>
                     <div class="cdash-cat-wrap">
                         <input type="hidden" id="cdashFrente" value="">
                         {{-- SIN icono, a peticion del cliente: llevaba una lupa pegada al
@@ -294,15 +310,15 @@
                              comentario mas arriba) y este campo tiene esa misma mecanica,
                              asi que lo suyo seria la flecha, nunca la lupa. --}}
                         <div class="cdash-inp-box cdash-cat-box" id="cdashFrenteBox" onmousedown="window._cdashFrenteToggle(event)">
-                            <input type="text" id="cdashFrenteInput" placeholder="Todos los frentes" autocomplete="off"
-                                   oninput="window._cdashFrenteFilter(this.value)"
+                            <input type="text" id="cdashFrenteInput" placeholder="Todos los frentes" autocomplete="off" aria-labelledby="cdashFrenteLbl"
+                                   oninput="window._cdashFrenteFilter()"
                                    onfocus="window._cdashFrenteOpen()"
                                    onblur="setTimeout(function(){window._cdashFrenteClose()},180)">
-                            <i class="material-icons clr" id="cdashFrenteClear" style="display:none;" onmousedown="event.preventDefault();window._cdashFrenteSelect('',CDASH_FRE_LBL);">close</i>
+                            <i class="material-icons clr" id="cdashFrenteClear" style="display:none;" onmousedown="event.preventDefault();event.stopPropagation();" onclick="window._cdashFrenteSelect('',CDASH_FRE_LBL);">close</i>
                         </div>
                         <div class="cdash-cat-list" id="cdashFrenteList"></div>
                     </div>
-                </label>
+                </div>
                 {{-- Desde y Hasta comparten fila: son los dos extremos del MISMO rango y
                      leerlos uno debajo del otro obligaba a recomponer mentalmente el
                      periodo. Cada uno se lleva la mitad (flex:1 1 0 + min-width:0), asi
@@ -321,8 +337,12 @@
             <div id="cdashLoading" class="cdash-loading"><i class="material-icons cdash-spin">refresh</i><span>Cargando datos de consumo…</span></div>
             <div id="cdashContent" style="display:none;">
                 <div class="cdash-grid">
-                    <div class="cdash-card full"><h4>Consumo por mes<button type="button" class="cdash-chart-dl" onclick="window._cdashDescargarGrafico(this,'consumo-por-mes')" title="Descargar gráfico" aria-label="Descargar gráfico"><i class="material-icons">photo_camera</i></button></h4><div class="cdash-canvas-wrap"><canvas id="cdashChartMes"></canvas></div></div>
-                    <div class="cdash-card full"><h4>Top {{ \App\Http\Controllers\AlmacenController::TOP_PRODUCTOS_GRAFICO }} productos consumidos<button type="button" class="cdash-chart-dl" onclick="window._cdashDescargarGrafico(this,'top-20-consumidos')" title="Descargar gráfico" aria-label="Descargar gráfico"><i class="material-icons">photo_camera</i></button></h4><div class="cdash-canvas-wrap tall"><canvas id="cdashChartTop"></canvas></div></div>
+                    <div class="cdash-card full"><h4>Top {{ \App\Http\Controllers\AlmacenController::TOP_PRODUCTOS_GRAFICO }} productos consumidos<button type="button" class="cdash-chart-dl" onclick="window._cdashDescargarGrafico(this,'top-20-consumidos')" title="Descargar gráfico" aria-label="Descargar gráfico"><i class="material-icons">photo_camera</i></button></h4>
+                        <div class="cdash-canvas-wrap tall"><canvas id="cdashChartTop"></canvas></div></div>
+                    {{-- Una barra por mes, apilada por PROYECTO (lo dice el título y lo enseña la
+                         leyenda). Sin nota debajo: alargaba el modal y el cliente lo quiere corto. --}}
+                    <div class="cdash-card full"><h4>Consumo por mes y proyecto<button type="button" class="cdash-chart-dl" onclick="window._cdashDescargarGrafico(this,'consumo-por-mes-y-proyecto')" title="Descargar gráfico" aria-label="Descargar gráfico"><i class="material-icons">photo_camera</i></button></h4>
+                        <div class="cdash-canvas-wrap conleyenda"><canvas id="cdashChartMes"></canvas></div></div>
                     <div class="cdash-card full"><h4>Consumo por almacén<button type="button" class="cdash-chart-dl" onclick="window._cdashDescargarGrafico(this,'consumo-por-almacen')" title="Descargar gráfico" aria-label="Descargar gráfico"><i class="material-icons">photo_camera</i></button></h4><div class="cdash-canvas-wrap"><canvas id="cdashChartAlm"></canvas></div></div>
                 </div>
             </div>
@@ -605,7 +625,15 @@
             titleFont: { weight: '700', size: 12 }, bodyFont: { size: 12 }
         };
         var cdGrid  = { color: 'rgba(148,163,184,0.18)', drawBorder: false, borderDash: [4, 4] };
-        var cdTick  = { color: '#94a3b8', font: { size: 11 } };
+        // Rotulos de los ejes en tinta oscura: en gris claro no se leian (lo pidio el cliente).
+        var cdTick  = { color: '#334155', font: { size: 11, weight: 600 } };
+        // ¿Ese color de relleno es claro? (luminancia de un #rrggbb). Sirve para escribir encima
+        // en blanco o en tinta: el total del mes sobre un tramo gris claro no se leia en blanco.
+        function cdEsClaro(hex) {
+            if (typeof hex !== 'string' || !/^#[0-9a-f]{6}$/i.test(hex)) return false;
+            var r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
+            return (0.299 * r + 0.587 * g + 0.114 * b) > 165;
+        }
         // Degradado vertical (claro arriba → marca abajo) para barras verticales.
         function cdVGrad(c, a, b) { var ar = c.chart.chartArea; if (!ar) return b; var g = c.chart.ctx.createLinearGradient(0, ar.top, 0, ar.bottom); g.addColorStop(0, a); g.addColorStop(1, b); return g; }
         // Degradado horizontal (marca izq → claro der) para barras horizontales.
@@ -624,6 +652,36 @@
                 var horizontal = chart.options.indexAxis === 'y';
                 var isDoughnut = chart.config.type === 'doughnut';
                 var area = chart.chartArea;
+                // Barras APILADAS (consumo por mes y proyecto): un solo número por mes —el
+                // total de la pila, encima— en vez de uno por segmento, que se pisaban entre sí.
+                var apilado = !isDoughnut && !horizontal && chart.options.scales && chart.options.scales.y && chart.options.scales.y.stacked;
+                if (apilado) {
+                    var totales = [], cima = [], colorCima = [];
+                    chart.data.datasets.forEach(function (ds, di) {
+                        if (chart.getDatasetMeta(di).hidden) return;
+                        chart.getDatasetMeta(di).data.forEach(function (el, i) {
+                            totales[i] = (totales[i] || 0) + (Number(ds.data[i]) || 0);
+                            if (cima[i] === undefined || el.y < cima[i]) {
+                                cima[i] = el.y;
+                                // Color del tramo de ARRIBA: decide si el numero, cuando toca
+                                // pintarlo dentro, va en blanco o en tinta (ver cdEsClaro).
+                                colorCima[i] = typeof ds.backgroundColor === 'string' ? ds.backgroundColor : null;
+                            }
+                        });
+                    });
+                    ctx.save();
+                    ctx.font = "700 11px 'Inter','Segoe UI',sans-serif";
+                    ctx.textAlign = 'center';
+                    totales.forEach(function (v, i) {
+                        if (!v) return;
+                        var el = chart.getDatasetMeta(0).data[i]; if (!el) return;
+                        var cabeArriba = !area || (cima[i] - 4 - CD_ALTO_VALOR) >= area.top;
+                        if (cabeArriba) { ctx.fillStyle = '#334155'; ctx.textBaseline = 'bottom'; ctx.fillText(fmt(v), el.x, cima[i] - 4); }
+                        else { ctx.fillStyle = cdEsClaro(colorCima[i]) ? '#0f172a' : '#fff'; ctx.textBaseline = 'top'; ctx.fillText(fmt(v), el.x, cima[i] + 5); }
+                    });
+                    ctx.restore();
+                    return;
+                }
                 chart.data.datasets.forEach(function (ds, di) {
                     chart.getDatasetMeta(di).data.forEach(function (el, i) {
                         var v = ds.data[i];
@@ -661,24 +719,83 @@
             }
         };
 
-        // ── 1) Consumo por mes (barras, azul con degradado) ──────────────────
+        // ── 1) Consumo por mes y proyecto (barras apiladas) ──────────────────
+        // Una barra por mes; cada tramo, lo que consumió un proyecto. Los proyectos con menos
+        // consumo se juntan en "Otros proyectos": con una docena de tramos la barra deja de
+        // leerse y la leyenda se come el gráfico.
+        var cdEstrecho = window.innerWidth < 640;   // telefono: la leyenda va abajo y mas chica
         var mes = data.por_mes || [];
+        var meses = mes.map(function (x) { return x.mes; });
+        var porProy = data.por_mes_frente || [];
+        var CD_MAX_PROY = 6;
+        // Una GAMA, no un arcoiris: del azul profundo de la casa al turquesa, saltando bastante
+        // de claridad entre uno y otro para que los tramos se separen sin pelearse de color.
+        var CD_COLORES = ['#00436e', '#0067b1', '#3f9ad8', '#8ecae6', '#0d9488', '#5eead4'];
+        // Los dos tramos que NO son un proyecto van en gris, para que el color quede reservado
+        // a los proyectos de verdad: lo que salio sin proyecto y el resumen de los demas.
+        var CD_COLOR_OTROS = '#cbd5e1';
+        var CD_COLOR_SIN_PROY = '#64748b';
+        // Los colores se reparten SOLO entre los proyectos de verdad (con su propio contador):
+        // si se usara la posicion en la lista, el gris de "Sin proyecto" se comeria un color.
+        var cdTurnoColor = 0;
+        var cdColorProyecto = function (nombre) {
+            if (nombre === 'Otros proyectos') return CD_COLOR_OTROS;
+            if (nombre === 'Sin proyecto') return CD_COLOR_SIN_PROY;
+            return CD_COLORES[cdTurnoColor++ % CD_COLORES.length];
+        };
+
+        var totalPorProy = {};
+        porProy.forEach(function (x) { totalPorProy[x.proyecto] = (totalPorProy[x.proyecto] || 0) + x.total; });
+        var proyectos = Object.keys(totalPorProy).sort(function (a, b) { return totalPorProy[b] - totalPorProy[a]; });
+        var visibles = proyectos.slice(0, CD_MAX_PROY), hayOtros = proyectos.length > CD_MAX_PROY;
+
+        var valor = {};   // proyecto|mes → total
+        porProy.forEach(function (x) {
+            var clave = (visibles.indexOf(x.proyecto) !== -1 ? x.proyecto : 'Otros proyectos') + '|' + x.mes;
+            valor[clave] = (valor[clave] || 0) + x.total;
+        });
+        var series = visibles.concat(hayOtros ? ['Otros proyectos'] : []);
+        cdTurnoColor = 0;
+        var datasets = series.map(function (p) {
+            return {
+                label: p,
+                data: meses.map(function (m) { return valor[p + '|' + m] || 0; }),
+                backgroundColor: cdColorProyecto(p),
+                // Una raya blanca entre tramos: sin ella dos colores vecinos se leian como uno.
+                borderColor: '#fff', borderWidth: 1, borderRadius: 3, borderSkipped: false, maxBarThickness: 48,
+            };
+        });
+        // Sin desglose por proyecto (p. ej. filtrando uno solo) se dibuja la barra de siempre.
+        if (!datasets.length) {
+            datasets = [{ label: 'Consumo', data: mes.map(function (x) { return x.total; }),
+                backgroundColor: function (c) { return cdVGrad(c, '#38bdf8', '#0067b1'); },
+                hoverBackgroundColor: function (c) { return cdVGrad(c, '#0ea5e9', '#005a9e'); },
+                borderRadius: 6, borderSkipped: false, maxBarThickness: 44 }];
+        }
+
         window._cdashCharts.mes = new Chart(document.getElementById('cdashChartMes'), {
             type: 'bar',
             plugins: [cdValLabels],
-            data: {
-                labels: mes.map(function (x) { return window.cdashMesLabel(x.mes); }),
-                datasets: [{ label: 'Consumo', data: mes.map(function (x) { return x.total; }),
-                    backgroundColor: function (c) { return cdVGrad(c, '#38bdf8', '#0067b1'); },
-                    hoverBackgroundColor: function (c) { return cdVGrad(c, '#0ea5e9', '#005a9e'); },
-                    borderRadius: 6, borderSkipped: false, maxBarThickness: 44 }]
-            },
+            data: { labels: mes.map(function (x) { return window.cdashMesLabel(x.mes); }), datasets: datasets },
             options: {
                 responsive: true, maintainAspectRatio: false,
-                plugins: { legend: { display: false }, datalabels: CD_SIN_DATALABELS, tooltip: Object.assign({}, cdTooltip, { callbacks: { label: function (c) { return fmt(c.parsed.y) + ' und'; } } }) },
+                plugins: {
+                    legend: { display: datasets.length > 1, position: cdEstrecho ? 'bottom' : 'top', align: 'start',
+                        labels: { boxWidth: 9, boxHeight: 9, usePointStyle: true, pointStyle: 'circle',
+                            padding: cdEstrecho ? 8 : 14,
+                            font: { size: cdEstrecho ? 10 : 11.5, family: "'Inter','Segoe UI',sans-serif", weight: 600 }, color: '#334155' } },
+                    datalabels: CD_SIN_DATALABELS,
+                    tooltip: Object.assign({}, cdTooltip, { callbacks: {
+                        label: function (c) { return c.dataset.label + ': ' + fmt(c.parsed.y); },
+                        footer: function (items) {
+                            var t = items.reduce(function (s, i) { return s + (Number(i.parsed.y) || 0); }, 0);
+                            return items.length > 1 ? 'Total del mes: ' + fmt(t) : '';
+                        }
+                    } })
+                },
                 scales: {
-                    x: { grid: { display: false, drawBorder: false }, ticks: cdTick },
-                    y: { beginAtZero: true, grid: cdGrid, ticks: Object.assign({ callback: function (v) { return fmt(v); } }, cdTick) }
+                    x: { stacked: true, grid: { display: false, drawBorder: false }, ticks: cdTick },
+                    y: { stacked: true, beginAtZero: true, grid: cdGrid, ticks: Object.assign({ callback: function (v) { return fmt(v); } }, cdTick) }
                 }
             }
         });
@@ -692,17 +809,28 @@
         // filtros comparten descripción, así que rotular por descripción se veía
         // "combinado". El total ya es por producto (ID_PRODUCTO), no por descripción.
         //
-        // Se ENVUELVE EN VARIAS LÍNEAS cuando no cabe: las descripciones largas se salían
-        // del eje y Chart.js las cortaba, así que no se sabía qué producto era.
-        // window.wrapLabel (dom_helpers.js) devuelve un array al partir, que es justo lo
-        // que Chart.js pinta como tick multilínea; es el mismo helper que usa el Dashboard
-        // de Flota, para que los dos corten igual. El límite baja en móvil, donde el eje
+        // Se parte en DOS LÍNEAS cuando no cabe, por el espacio que deja las dos mitades más
+        // parecidas: las descripciones largas se salían del eje y Chart.js las cortaba, y
+        // partidas en tres o cuatro renglones las barras quedaban lejísimos unas de otras.
+        // Chart.js pinta un array como tick multilínea. El límite baja en móvil, donde el eje
         // dispone de menos ancho.
         var cdTopMax = window.innerWidth < 480 ? 16 : 24;
-        var cdTopLabels = top.map(function (x) {
-            var t = x.parte || x.nombre || '';
-            return window.wrapLabel ? window.wrapLabel(t, cdTopMax) : t;
-        });
+        function cdDosLineas(texto, max) {
+            var t = String(texto || '').trim();
+            if (t.length <= max) return t;
+            var palabras = t.split(/\s+/);
+            var corta = function (s) { return s.length > max ? s.slice(0, max - 1).trim() + '…' : s; };
+            if (palabras.length < 2) return corta(t);
+            var mejor = null;
+            for (var i = 1; i < palabras.length; i++) {
+                var a = palabras.slice(0, i).join(' '), b = palabras.slice(i).join(' ');
+                // Lo más parejo posible, penalizando fuerte lo que se pase del ancho.
+                var coste = Math.abs(a.length - b.length) + Math.max(0, a.length - max) * 10 + Math.max(0, b.length - max) * 10;
+                if (!mejor || coste < mejor.coste) mejor = { a: a, b: b, coste: coste };
+            }
+            return [corta(mejor.a), corta(mejor.b)];
+        }
+        var cdTopLabels = top.map(function (x) { return cdDosLineas(x.parte || x.nombre || '', cdTopMax); });
 
         // El alto del panel NO puede seguir siendo fijo: con etiquetas de dos líneas, 25
         // barras en los 650px de .tall se pisaban unas con otras. Se reserva el alto real
@@ -765,7 +893,7 @@
                 }) },
                 scales: {
                     x: { beginAtZero: true, grid: cdGrid, ticks: Object.assign({ callback: function (v) { return fmt(v); } }, cdTick) },
-                    y: { grid: { display: false, drawBorder: false }, ticks: { color: '#475569', font: { size: 10 }, callback: function (v) { var l = this.getLabelForValue(v); return l.length > 28 ? l.slice(0, 28) + '…' : l; } } }
+                    y: { grid: { display: false, drawBorder: false }, ticks: { color: '#0f172a', font: { size: 11, weight: 600 }, callback: function (v) { var l = this.getLabelForValue(v); return l.length > 28 ? l.slice(0, 28) + '…' : l; } } }
                 }
             }
         });
@@ -872,7 +1000,7 @@
         if (!res.length) { list.classList.remove('open'); list.innerHTML = ''; return; }
         list.innerHTML = res.map(function (n) {
             var safe = escAttr(n);
-            return '<div class="cdash-cat-item" onmousedown="event.preventDefault();window._cdashDescSelectSug(\'' + safe + '\');">' + escHtml(n) + '</div>';
+            return '<div class="cdash-cat-item" onmousedown="event.preventDefault()" onclick="window._cdashDescSelectSug(\'' + safe + '\');">' + escHtml(n) + '</div>';
         }).join('');
         window._cdashCerrarListas('cdashDescList');
         list.classList.add('open');
@@ -893,7 +1021,7 @@
     // El nombre de categoría es texto libre editable desde el catálogo de productos: hay que
     // escaparlo en LOS DOS contextos donde se interpola, o una categoría llamada
     // `<img src=x onerror=...>` ejecuta al abrir la lista (XSS almacenado).
-    //   escAttr → dentro de la cadena JS del onmousedown (comillas + < > & para cerrar el atributo).
+    //   escAttr → dentro de la cadena JS del onclick (comillas + < > & para cerrar el atributo).
     //   escHtml → como texto visible del <div>.
     // Ambos son los helpers centrales (dom_helpers.js): la pareja que estaba escrita aquí
     // se repetía casi igual en recepcion/index y _machinery.
@@ -909,12 +1037,12 @@
         // La opción DICE "Todas las categorías" (describe qué hace al elegirla) pero deja el
         // campo rotulado con CDASH_CAT_LBL: el nombre del filtro, no su valor. Sin esto,
         // limpiar desde la lista devolvía el rótulo viejo y contradecía a la ✕.
-        var html = '<div class="cdash-cat-item" onmousedown="event.preventDefault();window._cdashCatSelect(\'\',CDASH_CAT_LBL);">Todas las categorías</div>';
+        var html = '<div class="cdash-cat-item" onmousedown="event.preventDefault()" onclick="window._cdashCatSelect(\'\',CDASH_CAT_LBL);">Todas las categorías</div>';
         window._cdashCatsData.forEach(function (c) {
             var s = String(c);
             if (q && s.toLowerCase().indexOf(q) === -1) return;
             var safe = escAttr(s);
-            html += '<div class="cdash-cat-item" onmousedown="event.preventDefault();window._cdashCatSelect(\'' + safe + '\',\'' + safe + '\');">' + escHtml(s) + '</div>';
+            html += '<div class="cdash-cat-item" onmousedown="event.preventDefault()" onclick="window._cdashCatSelect(\'' + safe + '\',\'' + safe + '\');">' + escHtml(s) + '</div>';
         });
         list.innerHTML = html;
     };
@@ -939,13 +1067,16 @@
         }
     };
 
+    // Abrir SIEMPRE dibuja con lo que hay escrito en el campo. Antes redibujaba la lista
+    // COMPLETA y, como al teclear se dibujaba filtrada y enseguida se llamaba a abrir, el
+    // filtro se perdía: salían todas las categorías en vez de las que coinciden.
     window._cdashCatOpen = function () {
         window._cdashCerrarListas('cdashCatList');
         var l = document.getElementById('cdashCatList');
-        if (l) { l.classList.add('open'); window._cdashCatRenderList(); }
+        if (l) { l.classList.add('open'); window._cdashCatRenderList((document.getElementById('cdashCatInput') || {}).value); }
     };
     window._cdashCatClose = function () { var l = document.getElementById('cdashCatList'); if (l) l.classList.remove('open'); };
-    window._cdashCatFilter = function (v) { window._cdashCatRenderList(v); window._cdashCatOpen(); };
+    window._cdashCatFilter = function () { window._cdashCatOpen(); };
 
     // Alterna en MOUSEDOWN, no en click: el foco llega antes que el click y volvía a
     // abrir la lista, asi que al segundo clic nunca se recogía. Al cerrar se quita el
@@ -979,21 +1110,22 @@
     window._cdashFrenteRenderList = function (filter) {
         var list = document.getElementById('cdashFrenteList'); if (!list) return;
         var q = (filter || '').toLowerCase();
-        var html = '<div class="cdash-cat-item" onmousedown="event.preventDefault();window._cdashFrenteSelect(\'\',CDASH_FRE_LBL);">Todos los frentes</div>';
+        var html = '<div class="cdash-cat-item" onmousedown="event.preventDefault()" onclick="window._cdashFrenteSelect(\'\',CDASH_FRE_LBL);">Todos los frentes</div>';
         window._cdashFrentesData.forEach(function (f) {
             var nombre = String(f.nombre || '');
             if (q && nombre.toLowerCase().indexOf(q) === -1) return;
-            html += '<div class="cdash-cat-item" onmousedown="event.preventDefault();window._cdashFrenteSelect(\'' + escAttr(String(f.id)) + '\',\'' + escAttr(nombre) + '\');">' + escHtml(nombre) + '</div>';
+            html += '<div class="cdash-cat-item" onmousedown="event.preventDefault()" onclick="window._cdashFrenteSelect(\'' + escAttr(String(f.id)) + '\',\'' + escAttr(nombre) + '\');">' + escHtml(nombre) + '</div>';
         });
         list.innerHTML = html;
     };
+    // Igual que Categoría: abrir dibuja con lo escrito, para no borrar el filtro al teclear.
     window._cdashFrenteOpen = function () {
         window._cdashCerrarListas('cdashFrenteList');
         var l = document.getElementById('cdashFrenteList');
-        if (l) { l.classList.add('open'); window._cdashFrenteRenderList(); }
+        if (l) { l.classList.add('open'); window._cdashFrenteRenderList((document.getElementById('cdashFrenteInput') || {}).value); }
     };
     window._cdashFrenteClose = function () { var l = document.getElementById('cdashFrenteList'); if (l) l.classList.remove('open'); };
-    window._cdashFrenteFilter = function (v) { window._cdashFrenteRenderList(v); window._cdashFrenteOpen(); };
+    window._cdashFrenteFilter = function () { window._cdashFrenteOpen(); };
     window._cdashFrenteToggle = function (ev) {
         var l = document.getElementById('cdashFrenteList');
         if (l && l.classList.contains('open')) {

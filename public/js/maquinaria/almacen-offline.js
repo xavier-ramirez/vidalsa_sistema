@@ -29,6 +29,9 @@
     const COLS = 6;
     // Filas por lote: el MISMO $PAGE_SIZE del backend (AlmacenController::inventario).
     const PAGE_SIZE = 120;
+    // Vista sin filtros: los últimos productos que se movieron, los mismos que online
+    // (AlmacenController::RECIENTES / productosRecientes, campo `mov` de la copia).
+    const RECIENTES = 20;
 
     function getBody() { return document.getElementById('almTableBody'); }
 
@@ -138,14 +141,21 @@
         const f = estadoFiltros();
         pintarStats(stock, f.idAlm);
 
-        // Sin filtro de contenido: mismo estado inicial que online, no el inventario entero.
+        // Sin filtro de contenido: la misma vista inicial que online (los últimos productos que
+        // se movieron, con su rótulo), no el inventario entero.
         if (!hayFiltro(f)) {
             const alm = (almacenes || []).find(function (a) { return Number(a.id) === Number(f.idAlm); });
             const nombre = alm ? alm.nombre : '';
-            tbody.innerHTML = filaMensaje(
-                '<i class="material-icons" style="font-size:46px;color:#cbd5e0;display:block;margin:0 auto 10px;">filter_alt</i>' +
-                'Usa los filtros para ver el inventario' + (nombre ? ' de <strong>' + esc(nombre) + '</strong>' : '') + '.'
-            );
+            const recientes = stock
+                .filter(function (p) { return Number(p.id_almacen) === Number(f.idAlm) && p.mov; })
+                .sort(function (a, b) { return a.mov < b.mov ? 1 : a.mov > b.mov ? -1 : String(a.nombre).localeCompare(String(b.nombre), 'es'); })
+                .slice(0, RECIENTES);
+            tbody.innerHTML = recientes.length
+                ? recientes.map(filaHtml).join('')
+                : filaMensaje(
+                    '<i class="material-icons" style="font-size:46px;color:#cbd5e0;display:block;margin:0 auto 10px;">filter_alt</i>' +
+                    'Usa los filtros para ver el inventario' + (nombre ? ' de <strong>' + esc(nombre) + '</strong>' : '') + '.'
+                );
             return;
         }
 
@@ -170,21 +180,24 @@
         // el resto (anchos, padding, posición) lo hereda de esas clases y por eso las dos
         // vistas quedan alineadas. Comprobado en el navegador: los anchos de columna salen
         // idénticos a los de la tabla online.
-        OM.porLotes(tbody, filas, function (p) {
-            const saldo = Number(p.cantidad) || 0;
-            const bajo = esBajo(p);
-            return '' +
-                '<tr class="alm-row ' + (bajo ? 'alm-row-bajo' : '') + '" data-offline="1">' +
-                '<td class="alm-td-codigo" style="font-family:monospace;font-weight:700;color:#0f172a;">' + esc(p.codigo) + '</td>' +
-                '<td class="alm-td-nombre" data-codigo="' + esc(p.codigo) + '" style="font-weight:600;color:#1e293b;">' + esc(p.nombre) + '</td>' +
-                '<td class="alm-td-cat" style="color:#475569;">' + (p.categoria ? esc(p.categoria) : '—') + '</td>' +
-                '<td class="alm-td-stock" style="font-weight:800;font-size:15px;">' + fmt(saldo) + '<span class="alm-stock-um">' + esc(p.um) + '</span>' +
-                    (bajo ? ' <i class="material-icons" style="font-size:14px;color:#f59e0b;vertical-align:middle;" title="Stock en o por debajo del mínimo">warning</i>' : '') +
-                '</td>' +
-                '<td class="alm-td-cant" style="color:#cbd5e0;">—</td>' +
-                '<td class="alm-td-det" style="color:#cbd5e0;">—</td>' +
-                '</tr>';
-        }, PAGE_SIZE);
+        OM.porLotes(tbody, filas, filaHtml, PAGE_SIZE);
+    }
+
+    // Una fila de la tabla offline (la usan la vista sin filtros y la filtrada).
+    function filaHtml(p) {
+        const saldo = Number(p.cantidad) || 0;
+        const bajo = esBajo(p);
+        return '' +
+            '<tr class="alm-row ' + (bajo ? 'alm-row-bajo' : '') + '" data-offline="1">' +
+            '<td class="alm-td-codigo" style="font-family:monospace;font-weight:700;color:#0f172a;">' + esc(p.codigo) + '</td>' +
+            '<td class="alm-td-nombre" data-codigo="' + esc(p.codigo) + '" style="font-weight:600;color:#1e293b;">' + esc(p.nombre) + '</td>' +
+            '<td class="alm-td-cat" style="color:#475569;">' + (p.categoria ? esc(p.categoria) : '—') + '</td>' +
+            '<td class="alm-td-stock" style="font-weight:800;font-size:15px;">' + fmt(saldo) + '<span class="alm-stock-um">' + esc(p.um) + '</span>' +
+                (bajo ? ' <i class="material-icons" style="font-size:14px;color:#f59e0b;vertical-align:middle;" title="Stock en o por debajo del mínimo">warning</i>' : '') +
+            '</td>' +
+            '<td class="alm-td-cant" style="color:#cbd5e0;">—</td>' +
+            '<td class="alm-td-det" style="color:#cbd5e0;">—</td>' +
+            '</tr>';
     }
 
     // (Re)inicializa en cada carga/navegación: registra el render (por clave, sobreescribe),

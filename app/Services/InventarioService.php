@@ -856,6 +856,11 @@ class InventarioService
             'NUMERO_RQ'                 => $opts['numero_rq'] ?? null,
             'SOLICITANTE'               => $opts['solicitante'] ?? null,
             'DEPARTAMENTO'              => $opts['departamento'] ?? null,
+            // Vehículo y chofer de la nota (MovimientoInventario::CAMPOS_TRANSPORTE).
+            ...array_combine(
+                array_values(MovimientoInventario::CAMPOS_TRANSPORTE),
+                array_map(fn ($campo) => $opts[$campo] ?? null, array_keys(MovimientoInventario::CAMPOS_TRANSPORTE))
+            ),
             'NUMERO_NOTA'               => $opts['numero_nota'] ?? null,
             // Formato de la Nota CONGELADO al momento de la operación. Se toma del almacén
             // que despacha —el mismo que ya está cargado aquí— y solo cuando hay NUMERO_NOTA:

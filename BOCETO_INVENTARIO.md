@@ -88,7 +88,29 @@ traspaso_lineas (detalle por producto)
 numero_nota_counter (secuencial atómico)
 ├─ ANIO (PK)
 └─ SIGUIENTE (último folio emitido)
+
+producto_equivalencias            modelo_filtro (pivot producto ↔ ficha)
+├─ ID_EQUIVALENCIA (PK)           ├─ ID_MODELO_FILTRO (PK)
+├─ ID_PRODUCTO → productos_inv.   ├─ ID_PRODUCTO → productos_inventario
+├─ NUMERO_PARTE                   ├─ ID_ESPEC → caracteristicas_modelo
+└─ ES_PRINCIPAL                   ├─ ETAPA (primario|secundario)
+   UNIQUE(ID_PRODUCTO,            └─ CANTIDAD por servicio
+          NUMERO_PARTE)
+                                  auxiliar_filtro (equipos auxiliares)
+almacen_logistica                 ├─ ID_AUX_FILTRO (PK)
+├─ ID_LOGISTICA (PK)              ├─ ID_PRODUCTO → productos_inventario
+├─ ID_ALMACEN → almacenes         ├─ TIPO, MARCA, MODELO
+├─ TIPO (CHOFER|VEHICULO)         └─ ETAPA, CANTIDAD
+├─ NOMBRE
+├─ DOCUMENTO (cédula o placa)     producto_kit_componentes (BOM del KIT)
+├─ CLAVE (para no repetirlo)      ├─ ID_PRODUCTO_KIT → productos_inventario
+└─ ULTIMO_USO (ordena las         │
+   sugerencias)                   ├─ ID_PRODUCTO_COMPONENTE → productos_inv.
+                                  └─ CANTIDAD, ROL, ORDEN
 ```
+
+> Las columnas de transporte (`TRANSPORTE_VEHICULO`, `TRANSPORTE_PLACA`, `TRANSPORTE_CHOFER`,
+> `TRANSPORTE_CEDULA`) viven en `movimientos_inventario` — ver §16.
 
 ---
 
@@ -245,6 +267,20 @@ Toda operación de stock genera un registro inmutable:
 | POST | `/admin/almacen/recepcion/{id}/enviar` | Enviar (BORRADOR → ENVIADO) |
 | POST | `/admin/almacen/recepcion/{id}/recibir` | Confirmar recepción (ENVIADO → RECIBIDO) |
 | POST | `/admin/almacen/recepcion/{id}/cancelar` | Cancelar (revertir si ENVIADO) |
+| GET | `/admin/almacen/notas` | Historial de Notas de Entrega |
+| GET | `/admin/almacen/devolucion?numero=NE-...` | Datos de la nota para devolver (líneas + pendiente) |
+| POST | `/admin/almacen/devolucion` | Registrar la devolución (ver §14) |
+| GET | `/admin/almacen/productos/{id}/compatibilidad` | Nºs de parte y equipos del producto (ver §15) |
+| POST/DELETE | `/admin/almacen/productos/{id}/equivalencias` | Agregar / quitar un nº de parte |
+| POST/DELETE | `/admin/almacen/productos/{id}/equipos` | Vincular / desvincular un equipo |
+| GET | `/admin/almacen/productos/{id}/equipos/opciones` | Equipos que se pueden vincular (buscador) |
+| GET | `/admin/almacen/almacenes/{id}/logistica` | Choferes y vehículos que sugiere la Nota (ver §16) |
+| GET | `/admin/almacen/consumo-dashboard` | Datos del Dashboard de Consumo (ver §17) |
+| GET | `/admin/almacen/consumo-dashboard/export` | Ese mismo consumo en XLSX |
+| GET | `/admin/almacen/etiquetas` | Etiquetas QR en PDF (rollo 50×30, 40×25 u hoja carta) |
+| GET | `/admin/almacen/buscar-codigo` | Resolver un código escaneado → producto |
+| GET | `/admin/almacen/movimientos/{id}/impacto-deshacer` | Qué se revierte antes de deshacer |
+| DELETE | `/admin/almacen/movimientos/{id}` | Deshacer un movimiento (revierte stock) |
 
 ---
 
@@ -256,6 +292,10 @@ Toda operación de stock genera un registro inmutable:
 | `TraspasoService` | `app/Services/TraspasoService.php` | Máquina de estados de traspasos: crearBorrador, enviar, recibir, cancelar. Delega movimientos de stock a InventarioService. |
 | `AlmacenController` | `app/Http/Controllers/AlmacenController.php` | Dashboard, CRUD de almacenes/productos, registrar movimientos en lote, genera PDFs. |
 | `TraspasoController` | `app/Http/Controllers/TraspasoController.php` | Bandeja de notas de entrega, detalle de traspaso, confirmar recepción. |
+| `DevolucionService` | `app/Services/DevolucionService.php` | Devolver material entregado con una Nota (ver §14). |
+| `CompatibilidadProductoService` | `app/Services/CompatibilidadProductoService.php` | Nºs de parte equivalentes y equipos que usan el producto (ver §15). |
+| `LogisticaAlmacenService` | `app/Services/LogisticaAlmacenService.php` | Choferes y vehículos por almacén para la Nota de Entrega (ver §16). |
+| `OfflineController` | `app/Http/Controllers/OfflineController.php` | Copia local (IndexedDB) del stock para consultar sin internet (ver §18). |
 
 ---
 
@@ -270,6 +310,11 @@ Toda operación de stock genera un registro inmutable:
 | `Traspaso` | traspasos | lineas(), almacenOrigen(), almacenDestino(), frenteDestino() |
 | `TraspasoLinea` | traspaso_lineas | traspaso(), producto() |
 | `FrenteTrabajo` | frentes_trabajo | almacenes() N:M |
+| `ProductoEquivalencia` | producto_equivalencias | producto() |
+| `AuxiliarFiltro` | auxiliar_filtro | producto() |
+| `AlmacenLogistica` | almacen_logistica | almacen() |
+| `ProductoInventario::modelosCompatibles()` | modelo_filtro (pivot) | caracteristicas_modelo N:M |
+| `ProductoInventario::componentes()` | producto_kit_componentes | auto-referencia (KIT → piezas) |
 
 ---
 
@@ -310,3 +355,105 @@ if ($almacenDestinoId) {
 ```
 
 Esto es lo que conecta la "Nota de Entrega" del almacén global con la "Bandeja de confirmación" del almacén local. No requiere intervención manual del usuario — el sistema decide automáticamente basándose en si el frente destino tiene un almacén propio.
+
+---
+
+## 14. Devolución de material (TIPO = DEVOLUCION)
+
+Lo que se entregó con una Nota de Entrega puede **volver al almacén**. NO es una entrada
+nueva: la devolución queda **colgada de la SALIDA de esa nota**, así el kardex sigue
+contando cuánto se consumió de verdad.
+
+- **Dónde:** Historial de Movimientos (`/admin/almacen/movimientos`), botón **"Devolver"**.
+  Solo sale en filas SALIDA **con nota** y **con cantidad pendiente**, y con `almacen.movimiento`.
+  No sale en TRASPASO_SALIDA (esas se manejan con la confirmación de recepción).
+- **Modal:** `partials/devolucion_modal.blade.php` + `js/maquinaria/devolucion_material.js`
+  (se descarga la primera vez que se abre). Muestra la nota, el producto, lo entregado, lo ya
+  devuelto y lo que falta; se escribe la cantidad y un motivo opcional.
+- **Servicio:** `DevolucionService::registrar()`. Dentro de una transacción: valida contra lo
+  pendiente, suma el stock y escribe el movimiento DEVOLUCION con
+  `ID_MOVIMIENTO_RELACIONADO` = la SALIDA.
+- **Cuánto queda por devolver:** `MovimientoInventario::porDevolver()` y
+  `SQL_CANTIDAD_NETA` (SALIDA − devoluciones), que es lo que usan el botón, el Dashboard de
+  Consumo y los reportes para no contar de más.
+
+---
+
+## 15. Compatibilidad del producto (nºs de parte y equipos)
+
+Un filtro se pide por cualquiera de sus números de parte y sirve a varios modelos de equipo.
+Eso vive en tres tablas y se edita **desde "Detalles del producto"** (con `almacen.productos`):
+
+| Tabla | Qué guarda |
+|-------|-----------|
+| `producto_equivalencias` | Los nºs de parte del producto (`NUMERO_PARTE`, `ES_PRINCIPAL`). UNIQUE(ID_PRODUCTO, NUMERO_PARTE). |
+| `modelo_filtro` | Vínculo producto ↔ ficha del catálogo (`caracteristicas_modelo`), con ETAPA y CANTIDAD. |
+| `auxiliar_filtro` | Lo mismo para equipos auxiliares (TIPO/MARCA/MODELO sueltos). |
+
+- `CompatibilidadProductoService` agrupa las **fichas repetidas del mismo modelo** (el catálogo
+  tiene una por año) en UNA fila: `ids` trae todos los vínculos para que la ✕ los quite juntos.
+- La comparación de nºs de parte es **sin espacios y sin mayúsculas** (`clave()`), porque el
+  índice de la BD no distingue mayúsculas y un duplicado "distinto" reventaba con un 500.
+- **En la salida:** si el producto tiene VARIOS nºs de parte, el almacenista elige cuál entrega
+  antes de poner la cantidad; ese número sale impreso en la Nota y queda en el kardex
+  (`movimientos_inventario.NUMERO_PARTE`).
+- **En la fila del inventario:** los nºs de parte se ven bajo la descripción y los equipos, en
+  la burbuja al pasar el mouse (sin repetir y cortada a 6, el resto se cuenta).
+
+---
+
+## 16. Transporte de la Nota de Entrega (logística por almacén)
+
+La Nota de Entrega lleva **vehículo y chofer**. Antes se escribían a mano; ahora se sugieren:
+
+- `almacen_logistica`: choferes y vehículos **propios de cada almacén**
+  (TIPO = CHOFER|VEHICULO, NOMBRE, CEDULA/PLACA). BARCELONA viene sembrada por migración.
+- `LogisticaAlmacenService` sugiere primero lo guardado de ESE almacén y después la **flota de
+  sus frentes** (equipos con placa). Al registrar una salida, lo que se escribió a mano se
+  **recuerda** para la próxima (`recordar()`), así cada almacén arma su lista sola.
+- Se guarda en el movimiento: `TRANSPORTE_VEHICULO`, `TRANSPORTE_PLACA`, `TRANSPORTE_CHOFER`,
+  `TRANSPORTE_CEDULA` (una sola fuente: `MovimientoInventario::CAMPOS_TRANSPORTE`).
+- Sale impreso en los DOS formatos de la nota (vertical y horizontal), que comparten el partial
+  `partials/nota_vehiculo_chofer.blade.php`.
+- Se administra desde "Editar almacén" (sección Logística).
+
+---
+
+## 17. Dashboard de Consumo
+
+Modal del Historial de Movimientos (`partials/consumo_dashboard_modal.blade.php`) que responde
+"¿en qué se está yendo el material?". Filtros propios: descripción, categoría, frente de
+destino y rango de meses.
+
+| Gráfico | Qué muestra |
+|---------|-------------|
+| Top 25 productos consumidos | Barras horizontales; descripciones largas partidas en 2 líneas. |
+| Consumo por mes y proyecto | Barras apiladas: un tramo por proyecto, con el total del mes encima. |
+| Consumo por almacén | Dona con el total al centro. |
+
+- Todo se calcula con `SQL_CANTIDAD_NETA` (descuenta devoluciones).
+- Ojo con la lectura: la cifra **suma unidades distintas** (UND, KG, LTS), sirve para comparar.
+- Cada tarjeta se baja como PNG y el modal entero como XLSX (`consumo-dashboard/export`).
+
+---
+
+## 18. Consulta sin internet (modo offline)
+
+El inventario se puede **consultar** sin conexión: `OfflineController::consultaStock()` arma una
+copia (productos, saldo, fecha del último movimiento) que el teléfono guarda en IndexedDB, y
+`js/maquinaria/almacen-offline.js` repinta la MISMA tabla con esa copia.
+La vista offline tiene que verse **igual** que la online (mismas clases, mismos filtros); lo que
+no viaja son las fotos (viven en Drive). Sin conexión NO se registran movimientos.
+
+---
+
+## 19. Detalles de pantalla que conviene saber
+
+- **`/admin/almacen` no abre vacío:** sin filtros muestra los **últimos 20 productos movidos**
+  (`AlmacenController::productosRecientes()`), no el catálogo entero.
+- **Etiquetas QR:** desde Acciones; formatos rollo 50×30 mm, rollo 40×25 mm y **hoja carta**,
+  con la cantidad de etiquetas por producto.
+- **Recepción según el tipo de almacén:** en un almacén PROYECTO el botón lleva a *Reposición*;
+  en uno GENERAL, a la *entrada por ODC*.
+- **Deshacer un movimiento** borra de verdad (no hay papelera): antes se consulta
+  `impacto-deshacer` para avisar qué se revierte.

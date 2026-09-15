@@ -1,4 +1,6 @@
-{{-- Filas de la tabla de inventario. $productos = Collection|null (lote del scroll infinito) ; $almacen = Almacen|null ; $inicial = bool (la tabla abre vacía hasta que se filtre) --}}
+{{-- Filas de la tabla de inventario. $productos = Collection|null (lote del scroll infinito) ; $almacen = Almacen|null ;
+     $inicial = bool (vista sin filtros: los últimos productos que se movieron —sin rótulo, el
+     cliente lo pidió fuera—, AlmacenController::productosRecientes) --}}
 @php
     $rows    = $productos ?? collect();
     $inicial = $inicial ?? false;
@@ -26,6 +28,7 @@
         </td>
     </tr>
 @elseif($inicial && $rows->count() === 0)
+    {{-- Sin filtros y el almacén todavía sin movimientos: no hay "recientes" que mostrar. --}}
     <tr>
         <td colspan="{{ $cols }}" class="alm-vacio alm-vacio-alto">
             <i class="material-icons">filter_alt</i>
@@ -116,14 +119,31 @@
                     if (!empty($p->UBICACION)) $tip[] = '📍 ' . e($p->UBICACION);
                     if ($equipos) {
                         // Cada equipo en su línea: "Tipo · Marca · Modelo" (uno abajo del otro).
-                        // Se muestran TODOS: la burbuja crece para que quepan (sin cortar con "+N").
-                        // CADA PALABRA con su primera letra en mayúscula (Title Case): los datos
-                        // vienen en minúsculas y "camion de plataforma" debe verse "Camion De
-                        // Plataforma". Str::title es multibyte (respeta acentos).
-                        $cap    = fn ($s) => \Illuminate\Support\Str::title(trim((string) ($s ?? '')));
-                        $fmt    = fn ($e) => implode(' · ', array_filter([$cap($e['t'] ?? null), $cap($e['m'] ?? null), $cap($e['mo'] ?? null)]));
-                        $lineas = array_map(fn ($e) => '&bull; ' . e($fmt($e)), $equipos);
-                        $tip[]  = '🚜 Equipos asociados:<br>' . implode('<br>', $lineas);
+                        // El TIPO con cada palabra en mayúscula inicial (Title Case): viene en
+                        // minúsculas y "camion de plataforma" debe verse "Camion De Plataforma".
+                        // Str::title es multibyte (respeta acentos). Los espacios de más se juntan
+                        // ("VOLTEO  HIDROJET" salía con el hueco doble).
+                        // La MARCA y el MODELO se dejan TAL CUAL (mayúsculas): son códigos de
+                        // catálogo —ZZ1168G4525C1, FL956H— y en Title Case quedaban "Zz1168G4525C1",
+                        // distintos de como se leen en Detalles del producto y en /admin/equipos.
+                        $cap    = fn ($s) => \Illuminate\Support\Str::title(preg_replace('/\s+/u', ' ', trim((string) ($s ?? ''))));
+                        $tal    = fn ($s) => preg_replace('/\s+/u', ' ', trim((string) ($s ?? '')));
+                        $fmt    = fn ($e) => implode(' · ', array_filter([$cap($e['t'] ?? null), $tal($e['m'] ?? null), $tal($e['mo'] ?? null)]));
+                        // SIN REPETIDOS: el catálogo guarda una ficha por año/versión del mismo
+                        // modelo y el producto queda vinculado a TODAS, así que "Camioneta ·
+                        // Toyota · Hilux" salía dos y tres veces. Se compara el texto ya armado
+                        // (mismo criterio con que agrupa CompatibilidadProductoService::equipos()).
+                        $nombres = array_values(array_unique(array_map($fmt, $equipos)));
+                        // Y SOLO LOS PRIMEROS: hay filtros que sirven a 40 equipos y la burbuja
+                        // se volvía una lista interminable que tapaba la tabla. El resto se
+                        // cuenta; la lista completa está en "Detalles del producto".
+                        $tope    = 6;
+                        $lineas  = array_map(fn ($n) => '&bull; ' . e($n), array_slice($nombres, 0, $tope));
+                        $ocultos = count($nombres) - count($lineas);
+                        if ($ocultos > 0) {
+                            $lineas[] = '<span class="alm-tip-mas">… y ' . $ocultos . ' equipo' . ($ocultos === 1 ? '' : 's') . ' más (ábrelo en Detalles)</span>';
+                        }
+                        $tip[] = '🚜 Equipos asociados (' . count($nombres) . '):<br>' . implode('<br>', $lineas);
                     }
                 @endphp
                 @if($tip)

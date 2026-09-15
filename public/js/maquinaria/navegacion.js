@@ -696,3 +696,67 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 });
+
+
+/**
+ * AVISO DE VERSIÓN NUEVA (pestaña que se queda abierta).
+ *
+ * La comparación de `version-vistas` de arriba solo corre al NAVEGAR por SPA: quien se queda
+ * mirando la misma pantalla mientras se despliega un cambio seguía viendo la página vieja y
+ * parecía que el cambio no se había hecho. Aquí se le pregunta al servidor cada tanto —solo
+ * con la pestaña a la vista— y, si las vistas cambiaron, aparece un aviso para recargar.
+ *
+ * NO recarga solo: puede haber un formulario a medio llenar. El usuario decide cuándo.
+ */
+(function () {
+    if (window.__avisoVersionInit) return;      // una sola vez por pestaña (la SPA no recarga el <head>)
+    window.__avisoVersionInit = true;
+
+    var CADA_MS = 60000;                        // cada minuto con la pestaña visible
+    var meta = document.querySelector('meta[name="version-vistas"]');
+    var versionInicial = meta ? meta.content : '';
+    if (!versionInicial) return;                // sin huella no hay nada que comparar
+
+    var avisando = false, pidiendo = false;
+
+    function mostrarAviso() {
+        if (avisando || document.getElementById('avisoVersionNueva')) return;
+        avisando = true;
+        var caja = document.createElement('div');
+        caja.id = 'avisoVersionNueva';
+        caja.setAttribute('role', 'status');
+        caja.style.cssText = 'position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:2147483000;' +
+            'display:flex;align-items:center;gap:10px;background:#1e293b;color:#fff;border-radius:12px;' +
+            'padding:10px 12px 10px 14px;box-shadow:0 12px 28px rgba(15,23,42,.35);' +
+            'font-family:Nunito,"Segoe UI",system-ui,sans-serif;font-size:13px;max-width:calc(100vw - 24px);';
+        caja.innerHTML =
+            '<span style="display:flex;align-items:center;gap:8px;">' +
+                '<i class="material-icons" style="font-size:19px;color:#60a5fa;">system_update_alt</i>' +
+                'Hay cambios nuevos en el sistema' +
+            '</span>' +
+            '<button type="button" id="avisoVersionRecargar" style="font:inherit;font-weight:700;cursor:pointer;' +
+                'background:#0067b1;color:#fff;border:none;border-radius:8px;padding:6px 12px;">Actualizar</button>' +
+            '<button type="button" id="avisoVersionCerrar" aria-label="Ahora no" style="font:inherit;cursor:pointer;' +
+                'background:none;border:none;color:#cbd5e1;display:flex;padding:2px;">' +
+                '<i class="material-icons" style="font-size:18px;">close</i></button>';
+        document.body.appendChild(caja);
+        document.getElementById('avisoVersionRecargar').onclick = function () { window.location.reload(); };
+        document.getElementById('avisoVersionCerrar').onclick = function () { caja.remove(); };
+    }
+
+    function revisar() {
+        if (pidiendo || avisando || document.hidden || navigator.onLine === false) return;
+        pidiendo = true;
+        fetch('/version-vistas', { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .catch(function () { return null; })      // sin red o sesión vencida: se reintenta luego
+            .then(function (j) {
+                pidiendo = false;
+                if (j && j.v && j.v !== versionInicial) mostrarAviso();
+            });
+    }
+
+    setInterval(revisar, CADA_MS);
+    // Al volver a la pestaña (el caso típico: se edita, se vuelve y se mira) no hay que esperar.
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) revisar(); });
+})();

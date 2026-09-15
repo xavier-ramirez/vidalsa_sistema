@@ -35,4 +35,25 @@ class VersionVistasTest extends MySqlTestCase
             $this->assertGreaterThanOrEqual($mtime, (int) $m[1], "Más nueva o igual que {$vista}.");
         }
     }
+
+    public function test_el_endpoint_da_la_misma_version_que_el_layout(): void
+    {
+        Cache::forget('version_vistas');
+        $u = Usuario::all()->first(fn ($u) => $u->can('almacen.movimiento'));
+        $this->assertNotNull($u, 'Hace falta un usuario con acceso a Almacén.');
+
+        $html = $this->actingAs($u)->get(route('almacen.index'))->assertOk()->getContent();
+        preg_match('/<meta name="version-vistas" content="(\d+)">/', $html, $m);
+
+        // La pestaña abierta pregunta aquí cada minuto: si devolviera otra cosa, avisaría de
+        // "cambios nuevos" cada vez (o nunca). Tiene que ser la MISMA huella.
+        $this->actingAs($u)->getJson(route('version.vistas'))
+            ->assertOk()
+            ->assertJson(['v' => $m[1]]);
+    }
+
+    public function test_el_endpoint_de_version_pide_sesion(): void
+    {
+        $this->getJson(route('version.vistas'))->assertUnauthorized();
+    }
 }

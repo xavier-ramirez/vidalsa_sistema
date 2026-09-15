@@ -459,6 +459,9 @@ class OfflineController extends Controller
                 'almacen_stock.ID_ALMACEN', 'almacen_stock.ID_PRODUCTO',
                 DB::raw('SUM(almacen_stock.CANTIDAD) as CANTIDAD'),
                 DB::raw('MAX(almacen_stock.CANTIDAD_MINIMA) as CANTIDAD_MINIMA'),
+                // Último movimiento: ordena la vista sin filtros, igual que online
+                // (AlmacenController::productosRecientes).
+                DB::raw('MAX(almacen_stock.FECHA_ULT_MOVIMIENTO) as MOV'),
                 'p.CODIGO', 'p.NOMBRE', 'p.UM', 'p.CATEGORIA',
             ])
             ->map(static fn ($r) => [
@@ -466,6 +469,7 @@ class OfflineController extends Controller
                 'id_producto' => (int) $r->ID_PRODUCTO,
                 'cantidad' => (float) $r->CANTIDAD,
                 'minima' => (float) $r->CANTIDAD_MINIMA,
+                'mov' => $r->MOV ? (string) $r->MOV : null,
                 'codigo' => MojibakeFix::fix($r->CODIGO),
                 'nombre' => MojibakeFix::fix($r->NOMBRE),
                 'um' => MojibakeFix::fix($r->UM),
@@ -578,7 +582,7 @@ class OfflineController extends Controller
                 'nota' => $m->NUMERO_NOTA
                     ?: ($m->TIPO === MovimientoInventario::TIPO_DEVOLUCION ? $m->REFERENCIA : null),
                 // El filtro "Nota" online busca en NUMERO_NOTA O en REFERENCIA (así el N° de
-                // una nota trae también su devolución y la entrega a cambio); offline igual.
+                // una nota trae también sus devoluciones); offline igual.
                 'ref' => $m->REFERENCIA,
                 'codigo' => MojibakeFix::fix($m->PROD_CODIGO),
                 'producto' => MojibakeFix::fix($m->PROD_NOMBRE),

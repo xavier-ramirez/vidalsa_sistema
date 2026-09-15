@@ -84,6 +84,17 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/menu', [App\Http\Controllers\DashboardController::class, 'index'])->name('menu');
         // Modulo de Mapa: pagina nueva abierta desde el boton "Mapa" del tablero (/menu).
         Route::get('/mapa', [App\Http\Controllers\MapaController::class, 'index'])->name('mapa');
+        // Version de las vistas del servidor (la misma que el <meta version-vistas> del layout).
+        // La pregunta cada tanto la pestaña abierta para avisar "hay cambios nuevos" sin tener
+        // que navegar a otro módulo ni recargar a ciegas. Es una lectura de caché: no toca BD.
+        Route::get('/version-vistas', fn () => response()->json(['v' => \App\Support\VersionVistas::actual()]))
+            ->name('version.vistas');
+        // Capa "Equipos" del mapa: los equipos con GPS (GPS51, vía el enlace compartido de cada
+        // equipo) de los frentes del usuario, sus posiciones por tandas y la dirección de uno al
+        // abrir su ficha.
+        Route::get('/mapa/equipos-gps', [App\Http\Controllers\MapaController::class, 'equiposGps'])->name('mapa.equiposGps');
+        Route::get('/mapa/equipos-gps/posiciones', [App\Http\Controllers\MapaController::class, 'equiposGpsPosiciones'])->name('mapa.equiposGps.posiciones');
+        Route::get('/mapa/equipos-gps/{id}/direccion', [App\Http\Controllers\MapaController::class, 'equipoGpsDireccion'])->whereNumber('id')->name('mapa.equiposGps.direccion');
         // Oleoductos del mapa (proyectos de puntos + linea). API JSON que consume mapa_index.js.
         Route::get   ('/mapa/oleoductos',              [App\Http\Controllers\OleoductoController::class, 'index'])->name('mapa.oleoductos.index');
         // Escritura del mapa (crear punto, asociar/dibujar, borrar punto/proyecto): SOLO con el
@@ -464,6 +475,9 @@ Route::middleware(['auth'])->group(function () {
             // Almacenes (CRUD + asociación de frentes)
             Route::post  ('almacen/almacenes',                    [App\Http\Controllers\AlmacenController::class, 'storeAlmacen'])    ->name('almacen.almacenes.store');
             Route::patch ('almacen/almacenes/{id}',               [App\Http\Controllers\AlmacenController::class, 'updateAlmacen'])   ->whereNumber('id')->name('almacen.almacenes.update'); // los frentes asociados se mandan en el body de este PATCH
+            // Choferes y vehículos que sugiere el bloque de transporte de la Nota de Entrega
+            // (almacen.movimiento o super.admin, dentro del método).
+            Route::get   ('almacen/almacenes/{id}/logistica',     [App\Http\Controllers\AlmacenController::class, 'logisticaAlmacen'])->whereNumber('id')->name('almacen.almacenes.logistica');
             Route::delete('almacen/almacenes/{id}',               [App\Http\Controllers\AlmacenController::class, 'destroyAlmacen'])  ->whereNumber('id')->name('almacen.almacenes.destroy');
 
             // ── Recepción de Materiales (envíos por confirmar + historial) ────

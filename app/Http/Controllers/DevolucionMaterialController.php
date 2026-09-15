@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Almacen;
-use App\Models\AlmacenStock;
 use App\Models\MovimientoInventario;
 use App\Services\DevolucionService;
 use Illuminate\Http\Request;
@@ -70,21 +69,14 @@ class DevolucionMaterialController extends Controller
             'numero'      => $numero,
             'fecha'       => optional($cabecera->FECHA)->format('d/m/Y'),
             'almacen'     => $cabecera->almacen?->NOMBRE,
-            // Stock de cada producto en este almacén (solo los que tienen), para ofrecer el
-            // producto a cambio con lo que hay y no dejar elegir uno que no se puede entregar.
-            'saldos'      => AlmacenStock::where('ID_ALMACEN', $cabecera->ID_ALMACEN)
-                ->groupBy('ID_PRODUCTO')->havingRaw('SUM(CANTIDAD) > 0')
-                ->selectRaw('ID_PRODUCTO, ROUND(SUM(CANTIDAD), 3) AS saldo')
-                ->pluck('saldo', 'ID_PRODUCTO')->map(fn ($s) => (float) $s),
             'proyecto'    => $cabecera->frente?->NOMBRE_FRENTE,
             'solicitante' => $cabecera->SOLICITANTE,
-            'pdf_url'     => route('almacen.nota-entrega', ['numero' => $numero]),
             'lineas'      => $this->devoluciones->lineas($salidas),
             'historial'   => $historial,
         ]);
     }
 
-    /** POST almacen/devolucion → registra la devolución (y la entrega a cambio, si la hay). */
+    /** POST almacen/devolucion → registra la devolución. */
     public function store(Request $request)
     {
         // Mueve stock, así que exige la misma clave que cualquier movimiento — con el mismo
@@ -103,13 +95,10 @@ class DevolucionMaterialController extends Controller
             'lineas'                      => 'required|array|min:1',
             'lineas.*.id_producto'        => 'required|integer|distinct',
             'lineas.*.cantidad'           => 'required|numeric|gt:0',
-            'lineas.*.id_producto_cambio' => 'nullable|integer|exists:productos_inventario,ID_PRODUCTO',
-            'lineas.*.cantidad_cambio'    => 'nullable|numeric|gt:0',
         ], [
             'lineas.required'               => 'Indica cuánto se devuelve de al menos un producto.',
             'lineas.*.id_producto.distinct' => 'Un producto aparece dos veces en la devolución.',
             'lineas.*.cantidad.gt'          => 'Las cantidades a devolver deben ser mayores que cero.',
-            'lineas.*.cantidad_cambio.gt'   => 'La cantidad a entregar a cambio debe ser mayor que cero.',
         ]);
 
         $numero = $this->numero($data['numero']);
@@ -120,7 +109,7 @@ class DevolucionMaterialController extends Controller
         Almacen::assertVisibleOrFail($request->user(), (int) $idAlmacen);
 
         try {
-            $notaCambio = $this->devoluciones->registrar($numero, $data['lineas'], [
+            $this->devoluciones->registrar($numero, $data['lineas'], [
                 'motivo'     => $data['motivo'] ?? null,
                 'id_usuario' => $request->user()->ID_USUARIO,
             ]);
@@ -129,15 +118,7 @@ class DevolucionMaterialController extends Controller
         }
 
         $n = count($data['lineas']);
-        $payload = ['message' => "Devolución registrada ({$n} producto" . ($n === 1 ? '' : 's') . ')'];
-        if ($notaCambio) {
-            // Dos líneas en el toast (showToast pone el message como innerHTML).
-            $payload['message']    .= '<br>Lo entregado a cambio salió con la Nota ' . $notaCambio . '.';
-            $payload['numero_nota'] = $notaCambio;
-            $payload['nota_url']    = route('almacen.nota-entrega', ['numero' => $notaCambio]);
-        }
-
-        return response()->json($payload, 201);
+        return response()->json(['message' => "Devolución registrada ({$n} producto" . ($n === 1 ? '' : 's') . ')'], 201);
     }
 
     /** N° de nota como se guarda: sin espacios y en mayúsculas (se teclea "ne-2026-0123"). */

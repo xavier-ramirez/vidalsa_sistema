@@ -14,9 +14,9 @@ use Illuminate\Support\Str;
 use Tests\MySqlTestCase;
 
 /**
- * Devolución de material de una Nota de Entrega (App\Services\DevolucionService): salen
- * BRAGA 45, las regresan porque era la 42 y se entrega la 42 a cambio. Todo corre en la
- * transacción de la prueba y se revierte al terminar.
+ * Devolución de material de una Nota de Entrega (App\Services\DevolucionService): salen BRAGA
+ * 45 con una nota y las regresan; el stock vuelve a la bolsa de la que salió y el consumo de
+ * esa salida baja. Todo corre en la transacción de la prueba y se revierte al terminar.
  */
 class DevolucionMaterialTest extends MySqlTestCase
 {
@@ -90,25 +90,22 @@ class DevolucionMaterialTest extends MySqlTestCase
             ->postJson(route('almacen.devolucion.store'), ['numero' => $numero, 'lineas' => $lineas] + $extra);
     }
 
-    public function test_devolver_con_cambio_mueve_el_stock_deja_el_rastro_y_no_cuenta_como_consumo(): void
+    public function test_devolver_mueve_el_stock_deja_el_rastro_y_no_cuenta_como_consumo(): void
     {
         [$idFrente] = $this->frentes(1);
         $alm = $this->almacen();
         $p45 = $this->producto('45');
-        $p42 = $this->producto('42');
         $this->inv->registrarEntrada($alm->ID_ALMACEN, $p45->ID_PRODUCTO, 10);
-        $this->inv->registrarEntrada($alm->ID_ALMACEN, $p42->ID_PRODUCTO, 10);
         $nota = $this->salidaConNota($alm->ID_ALMACEN, [$p45->ID_PRODUCTO => 5], $idFrente);
 
-        $r = $this->devolver($nota, [[
-            'id_producto' => $p45->ID_PRODUCTO, 'cantidad' => 5, 'id_producto_cambio' => $p42->ID_PRODUCTO,
-        ]], ['motivo' => 'Talla equivocada'])->assertCreated();
+        $this->devolver($nota, [['id_producto' => $p45->ID_PRODUCTO, 'cantidad' => 5]], ['motivo' => 'Talla equivocada'])
+            ->assertCreated()->assertJsonPath('message', 'Devolución registrada (1 producto)');
 
-        // Stock: la 45 vuelve entera y la 42 sale.
+        // El stock vuelve entero y NO se generó ninguna nota nueva: devolver no entrega nada.
         $this->assertSame(10.0, $this->saldo($alm->ID_ALMACEN, $p45->ID_PRODUCTO));
-        $this->assertSame(5.0, $this->saldo($alm->ID_ALMACEN, $p42->ID_PRODUCTO));
+        $this->assertSame(1, MovimientoInventario::where('NUMERO_NOTA', $nota)->where('TIPO', MovimientoInventario::TIPO_SALIDA)->count());
 
-        // La devolución apunta a la salida y a su nota; la entrega a cambio tiene nota propia.
+        // La devolución apunta a la salida y a su nota.
         $salida = MovimientoInventario::where('NUMERO_NOTA', $nota)->firstOrFail();
         $dev    = MovimientoInventario::where('TIPO', MovimientoInventario::TIPO_DEVOLUCION)
             ->where('ID_MOVIMIENTO_RELACIONADO', $salida->ID_MOVIMIENTO)->firstOrFail();
@@ -116,21 +113,11 @@ class DevolucionMaterialTest extends MySqlTestCase
         $this->assertSame((int) $idFrente, (int) $dev->ID_FRENTE);
         $this->assertSame('Talla equivocada', $dev->MOTIVO);
 
-        $notaCambio = $r->json('numero_nota');
-        $this->assertNotSame($nota, $notaCambio);
-        $cambio = MovimientoInventario::where('NUMERO_NOTA', $notaCambio)->firstOrFail();
-        $this->assertSame(MovimientoInventario::TIPO_SALIDA, $cambio->TIPO);
-        $this->assertSame((int) $p42->ID_PRODUCTO, (int) $cambio->ID_PRODUCTO);
-        $this->assertSame($nota, $cambio->REFERENCIA);
-        $this->assertSame('JUAN PRUEBA', $cambio->SOLICITANTE, 'La nota del cambio lleva los datos de la original.');
-        $this->assertStringContainsString("Cambio por devolución de la Nota {$nota}", $cambio->MOTIVO);
-
-        // Consumo: la 45 devuelta no cuenta; la 42 sí.
+        // Consumo: lo devuelto deja de contar.
         $dash = $this->actingAs($this->usuario())
             ->getJson(route('almacen.consumoDashboard', ['descripcion' => "BRAGA {$this->marca}"]))
             ->assertOk()->json('top_productos');
-        $this->assertSame(["BRAGA {$this->marca} TALLA 42"], array_column($dash, 'nombre'));
-        $this->assertEquals(5, $dash[0]['total']);
+        $this->assertSame([], array_column($dash, 'nombre'));
     }
 
     public function test_no_deja_devolver_mas_de_lo_entregado(): void
@@ -150,24 +137,6 @@ class DevolucionMaterialTest extends MySqlTestCase
         $linea = $this->actingAs($this->usuario())->getJson(route('almacen.devolucion.show', ['numero' => strtolower($nota)]))
             ->assertOk()->json('lineas.0');
         $this->assertEquals([5, 3, 2], [$linea['entregado'], $linea['devuelto'], $linea['pendiente']]);
-    }
-
-    public function test_sin_stock_del_cambio_no_queda_la_devolucion_a_medias(): void
-    {
-        $alm = $this->almacen();
-        $p45 = $this->producto('45');
-        $p42 = $this->producto('42');   // sin stock
-        $this->inv->registrarEntrada($alm->ID_ALMACEN, $p45->ID_PRODUCTO, 10);
-        $nota = $this->salidaConNota($alm->ID_ALMACEN, [$p45->ID_PRODUCTO => 5], null);
-
-        $this->devolver($nota, [['id_producto' => $p45->ID_PRODUCTO, 'cantidad' => 5, 'id_producto_cambio' => $p42->ID_PRODUCTO]])
-            ->assertStatus(422)
-            // En palabras, no "saldo 0.000, se intentó dejar en -5.000".
-            ->assertJsonPath('message', "No hay suficiente {$p42->NOMBRE} en {$alm->NOMBRE} para entregarlo a cambio: hay 0 UND y se necesitan 5.");
-
-        $this->assertSame(5.0, $this->saldo($alm->ID_ALMACEN, $p45->ID_PRODUCTO), 'La devolución tenía que revertirse con el cambio.');
-        $this->assertSame(0, MovimientoInventario::where('TIPO', MovimientoInventario::TIPO_DEVOLUCION)
-            ->where('ID_PRODUCTO', $p45->ID_PRODUCTO)->count());
     }
 
     public function test_en_un_almacen_por_proyecto_vuelve_a_la_bolsa_de_la_que_salio(): void
@@ -247,9 +216,6 @@ class DevolucionMaterialTest extends MySqlTestCase
         $this->inv->registrarEntrada($alm->ID_ALMACEN, $p->ID_PRODUCTO, 10);
         $nota = $this->salidaConNota($alm->ID_ALMACEN, [$p->ID_PRODUCTO => 5], null);
 
-        // A cambio del mismo producto.
-        $this->devolver($nota, [['id_producto' => $p->ID_PRODUCTO, 'cantidad' => 1, 'id_producto_cambio' => $p->ID_PRODUCTO]])
-            ->assertStatus(422);
         // Producto que no está en la nota.
         $otro = $this->producto('40');
         $this->devolver($nota, [['id_producto' => $otro->ID_PRODUCTO, 'cantidad' => 1]])->assertStatus(422);
@@ -302,25 +268,6 @@ class DevolucionMaterialTest extends MySqlTestCase
         $otro = $this->producto('40');
         $ver(['id_producto' => $otro->ID_PRODUCTO])->assertNotFound()
             ->assertJsonPath('message', "Ese producto no está en la Nota {$nota}.");
-    }
-
-    public function test_el_modal_trae_el_stock_del_almacen_para_elegir_el_cambio(): void
-    {
-        $alm = $this->almacen();
-        $p45 = $this->producto('45');
-        $p42 = $this->producto('42');
-        $p40 = $this->producto('40');   // sin stock: no viene
-        $this->inv->registrarEntrada($alm->ID_ALMACEN, $p45->ID_PRODUCTO, 10);
-        $this->inv->registrarEntrada($alm->ID_ALMACEN, $p42->ID_PRODUCTO, 7);
-        $nota = $this->salidaConNota($alm->ID_ALMACEN, [$p45->ID_PRODUCTO => 5], null);
-
-        $saldos = $this->actingAs($this->usuario())
-            ->getJson(route('almacen.devolucion.show', ['numero' => $nota]))
-            ->assertOk()->json('saldos');
-
-        $this->assertEquals(7, $saldos[$p42->ID_PRODUCTO] ?? null);
-        $this->assertEquals(5, $saldos[$p45->ID_PRODUCTO] ?? null);
-        $this->assertArrayNotHasKey($p40->ID_PRODUCTO, $saldos, 'Sin stock no se ofrece.');
     }
 
     public function test_el_historial_ofrece_devolver_solo_mientras_quede_algo(): void

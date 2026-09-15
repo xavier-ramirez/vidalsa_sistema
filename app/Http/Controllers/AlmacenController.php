@@ -64,6 +64,7 @@ class AlmacenController extends Controller
         private InventarioService $inventario,
         private \App\Services\TraspasoService $traspasos,
         private \App\Services\CompatibilidadProductoService $compatibilidad,
+        private \App\Services\LogisticaAlmacenService $logistica,
     ) {
         // La consulta queda bajo 'auth' (lo aplica el grupo de rutas padre). Gates:
         //   super.admin        → CRUD de almacenes (warehouses).
@@ -173,12 +174,11 @@ class AlmacenController extends Controller
             $rows = collect();
             $hasMore = false;
 
-            // La tabla del almacén arranca VACÍA y solo muestra inventario cuando hay un
-            // filtro de contenido activo (mismo criterio que la carga inicial HTML, donde
-            // 'productos' => null y $inicial pinta el estado "usá los filtros"). Sin este
-            // chequeo, al limpiar la búsqueda con la "x" el AJAX volcaba TODO el inventario
-            // del almacén en vez de volver al estado vacío. id_almacen NO cuenta como filtro
-            // de contenido (es el contexto, no un filtro).
+            // Sin filtro de contenido la tabla muestra solo los ÚLTIMOS productos que se
+            // movieron (productosRecientes, igual que la carga inicial HTML): nunca el
+            // inventario entero, que es lo que cuesta. Así, al limpiar la búsqueda con la "x"
+            // vuelve a esa misma vista. id_almacen NO cuenta como filtro de contenido (es el
+            // contexto, no un filtro).
             $hayFiltro = $request->filled('search')
                 || $request->filled('id_producto')
                 || $request->filled('id_producto_in')
@@ -195,29 +195,15 @@ class AlmacenController extends Controller
                     ->get();
                 $hasMore = $rows->count() > $PAGE_SIZE;
                 if ($hasMore) $rows = $rows->slice(0, $PAGE_SIZE)->values();
-                // Equivalencias (nºs de parte alternos) + modelos de equipo compatibles: para
-                // el tooltip de la fila y el modal de detalles. Solo los filtros tienen datos;
-                // el resto de productos trae relaciones vacías. 2 consultas batcheadas.
-                $rows->load(['equivalencias', 'modelosCompatibles']);
-                // La MARCA de cada modelo NO vive en caracteristicas_modelo sino en `equipos`.
-                // Batch: ID_ESPEC → MARCA, y la pegamos a cada modelo (marca_equipo) para poder
-                // mostrar "Tipo · Marca · Modelo" en el tooltip y el modal.
-                $especIds = $rows->flatMap->modelosCompatibles->pluck('ID_ESPEC')->unique()->filter()->all();
-                if ($especIds) {
-                    $marcaPorEspec = \App\Models\Equipo::whereIn('ID_ESPEC', $especIds)
-                        ->get(['ID_ESPEC', 'MARCA'])->groupBy('ID_ESPEC')
-                        ->map(fn ($g) => $g->pluck('MARCA')->filter()->first());
-                    foreach ($rows as $r) {
-                        foreach ($r->modelosCompatibles as $m) {
-                            $m->marca_equipo = $marcaPorEspec[$m->ID_ESPEC] ?? null;
-                        }
-                    }
-                }
+                $this->cargarDetallesDeFilas($rows);
+            } elseif ($hayInventario && $offset === 0) {
+                $rows = $this->productosRecientes($idAlmacenSel, $request);
             }
             // En las páginas siguientes del scroll infinito ($offset > 0) NO devolvemos la
             // empty-state row del partial — sería un mensaje "Sin coincidencias" appended al
             // final de las filas ya pintadas. Si el lote viene vacío, el html es ''.
-            // Sin filtro → inicial=true para pintar "usá los filtros" (no "sin coincidencias").
+            // Sin filtro → inicial=true: los recientes llevan su rótulo arriba y, si el almacén
+            // no tiene movimientos, se pinta "usa los filtros" (no "sin coincidencias").
             $html = ($offset > 0 && $rows->isEmpty())
                 ? ''
                 : view('admin.almacen.partials.table_rows', [
@@ -279,7 +265,9 @@ class AlmacenController extends Controller
             return response()->json($resp);
         }
 
-        // Carga HTML: la tabla abre VACÍA — las filas se piden por AJAX en cuanto el usuario usa un filtro.
+        // Carga HTML: la tabla abre con los últimos productos que se movieron (productosRecientes)
+        // —pocos, una consulta—; el resto se pide por AJAX en cuanto el usuario usa un filtro.
+        $recientes = $hayInventario ? $this->productosRecientes($idAlmacenSel, $request) : null;
         $categorias    = $this->categoriasDistintas();
         // Unidades de medida distintas ya registradas — alimentan el autocomplete del campo UM del modal de
         // producto y el filtro "Unidad de medida" del panel de filtros avanzados.
@@ -329,7 +317,9 @@ class AlmacenController extends Controller
         return view('admin.almacen.index', [
             'almacenes'          => $almacenes,
             'almacenSel'         => $almacenSel,
-            'productos'          => null,
+            'productos'          => $recientes,
+            // Desglose por proyecto de esas filas (vacío si el almacén no separa).
+            'repartoInicial'     => $recientes ? $this->repartoDeLaPagina($almacenSel, $recientes) : collect(),
             'categorias'         => $categorias,
             'frentesLista'       => $frentesLista,
             // Mapa frente → almacenes PROYECTO (ver arriba): el modal de salida lo usa para
@@ -617,6 +607,48 @@ class AlmacenController extends Controller
         }
 
         return $q;
+    }
+
+    /**
+     * Lo que muestra la tabla sin filtros: los últimos productos que se movieron en el almacén
+     * (FECHA_ULT_MOVIMIENTO, la más reciente de sus proyectos). Pocos a propósito —abrir el
+     * módulo no puede costar lo que cuesta listar el inventario entero— y con el mismo
+     * criterio que el modo sin conexión (almacen-offline.js, campo `mov` de la copia).
+     */
+    private const RECIENTES = 20;
+    private function productosRecientes(int $idAlmacen, Request $request)
+    {
+        $rows = $this->productosConSaldoQuery($idAlmacen, $request)
+            ->whereNotNull('almacen_stock.FECHA_ULT_MOVIMIENTO')
+            ->orderByDesc('almacen_stock.FECHA_ULT_MOVIMIENTO')
+            ->orderBy('productos_inventario.NOMBRE')
+            ->take(self::RECIENTES)
+            ->get();
+        $this->cargarDetallesDeFilas($rows);
+        return $rows;
+    }
+
+    /**
+     * Equivalencias (nºs de parte alternos) y modelos de equipo compatibles de un lote de filas,
+     * para el tooltip de la fila y el modal de detalles: 2 consultas para todo el lote. La
+     * MARCA de cada modelo no vive en caracteristicas_modelo sino en `equipos`: se pega a cada
+     * modelo (marca_equipo) para mostrar "Tipo · Marca · Modelo".
+     */
+    private function cargarDetallesDeFilas($rows): void
+    {
+        $rows->load(['equivalencias', 'modelosCompatibles']);
+        $especIds = $rows->flatMap->modelosCompatibles->pluck('ID_ESPEC')->unique()->filter()->all();
+        if (!$especIds) {
+            return;
+        }
+        $marcaPorEspec = \App\Models\Equipo::whereIn('ID_ESPEC', $especIds)
+            ->get(['ID_ESPEC', 'MARCA'])->groupBy('ID_ESPEC')
+            ->map(fn ($g) => $g->pluck('MARCA')->filter()->first());
+        foreach ($rows as $r) {
+            foreach ($r->modelosCompatibles as $m) {
+                $m->marca_equipo = $marcaPorEspec[$m->ID_ESPEC] ?? null;
+            }
+        }
     }
 
     /** Query del listado (con las columnas que la tabla muestra). */
@@ -952,9 +984,14 @@ class AlmacenController extends Controller
         $data = $this->validarAlmacen($request);
         $data['CREADO_POR'] = optional($request->user())->ID_USUARIO;
 
-        $almacen = DB::transaction(function () use ($data, $request) {
+        $logistica = $this->validarLogistica($request);
+
+        $almacen = DB::transaction(function () use ($data, $request, $logistica) {
             $almacen = Almacen::create($data);
             $this->syncFrentes($almacen, $request->input('frentes', []));
+            if ($logistica !== null) {
+                $this->logistica->sincronizar($almacen->ID_ALMACEN, $logistica['choferes'] ?? [], $logistica['vehiculos'] ?? []);
+            }
             return $almacen;
         });
 
@@ -968,11 +1005,15 @@ class AlmacenController extends Controller
     {
         $almacen = Almacen::findOrFail($id);
         $data    = $this->validarAlmacen($request, $almacen->ID_ALMACEN);
+        $logistica = $this->validarLogistica($request);
 
-        DB::transaction(function () use ($almacen, $data, $request) {
+        DB::transaction(function () use ($almacen, $data, $request, $logistica) {
             $almacen->update($data);
             if ($request->has('frentes')) {
                 $this->syncFrentes($almacen, $request->input('frentes', []));
+            }
+            if ($logistica !== null) {
+                $this->logistica->sincronizar($almacen->ID_ALMACEN, $logistica['choferes'] ?? [], $logistica['vehiculos'] ?? []);
             }
         });
 
@@ -980,6 +1021,62 @@ class AlmacenController extends Controller
             'message' => 'Almacén actualizado.',
             'almacen' => $almacen->fresh()->load('frentes'),
         ]);
+    }
+
+    /**
+     * Choferes y vehículos del modal "Editar almacén" ({choferes: [{nombre, documento}],
+     * vehiculos: [...]}). null si no vinieron: guardar sin la lista no la toca.
+     */
+    private function validarLogistica(Request $request): ?array
+    {
+        if (!$request->has('logistica')) {
+            return null;
+        }
+        return $request->validate([
+            'logistica'                       => 'array',
+            'logistica.choferes'              => 'array|max:200',
+            'logistica.choferes.*.nombre'     => 'nullable|string|max:150',
+            'logistica.choferes.*.documento'  => 'nullable|string|max:30',
+            'logistica.vehiculos'             => 'array|max:200',
+            'logistica.vehiculos.*.nombre'    => 'nullable|string|max:150',
+            'logistica.vehiculos.*.documento' => 'nullable|string|max:30',
+        ])['logistica'] ?? [];
+    }
+
+    /**
+     * GET almacen/almacenes/{id}/logistica → {choferes, vehiculos}: lo que sugiere el bloque de
+     * transporte de la salida (y lo que muestra "Editar almacén", las de origen "almacen").
+     */
+    public function logisticaAlmacen(Request $request, int $id)
+    {
+        abort_unless($request->user()?->can('almacen.movimiento') || $request->user()?->can('super.admin'), 403);
+        $this->assertPuedeVerAlmacen($request, $id);
+        return response()->json($this->logistica->sugerencias(Almacen::findOrFail($id)));
+    }
+
+    /**
+     * Guarda en la lista del almacén el chofer y el vehículo de una nota ya registrada. Si
+     * falla solo se anota en el log: la salida ya está hecha y no se le dice al usuario que
+     * no se registró.
+     */
+    private function recordarTransporte(int $idAlmacen, array $transporte): void
+    {
+        try {
+            $this->logistica->recordar($idAlmacen, $transporte);
+        } catch (Throwable $e) {
+            report($e);
+        }
+    }
+
+    /** Reglas del transporte de la Nota (MovimientoInventario::CAMPOS_TRANSPORTE). */
+    private function reglasTransporte(): array
+    {
+        return [
+            'transporte_vehiculo' => 'nullable|string|max:150',
+            'transporte_placa'    => 'nullable|string|max:30',
+            'transporte_chofer'   => 'nullable|string|max:150',
+            'transporte_cedula'   => 'nullable|string|max:30',
+        ];
     }
 
     public function destroyAlmacen(int $id)
@@ -1751,7 +1848,8 @@ class AlmacenController extends Controller
 
     /**
      * Dashboard de Consumo (JSON para Chart.js). Devuelve las series de los gráficos del
-     * modal: por_mes, top_productos, por_almacen (+ la lista de categorías del filtro).
+     * modal: por_mes, por_mes_frente (lo que apila cada barra), top_productos, por_almacen
+     * (+ la lista de categorías del filtro).
      * "Consumo" = movimientos TIPO 'SALIDA' de TODOS los almacenes visibles, menos lo que
      * se devolvió de cada una (los TRASPASO_SALIDA son movimientos internos entre
      * almacenes, NO consumo).
@@ -1941,6 +2039,24 @@ class AlmacenController extends Controller
             ->selectRaw("DATE_FORMAT(FECHA, '%Y-%m') as mes, SUM(" . MovimientoInventario::SQL_CANTIDAD_NETA . ') as total')
             ->groupBy('mes')->orderBy('mes')->get()
             ->map(fn ($r) => ['mes' => $r->mes, 'total' => (float) $r->total])
+            ->values();
+    }
+
+    /**
+     * El MISMO consumo por mes, partido por PROYECTO (el frente que recibió el material): es
+     * lo que apila cada barra del gráfico, para ver de un vistazo cuánto puso cada proyecto en
+     * el mes. Lo que salió sin proyecto (bolsa común del almacén) va como "Sin proyecto".
+     */
+    private function consumoPorMesFrente(callable $base)
+    {
+        return $base()
+            ->leftJoin('frentes_trabajo as f', 'f.ID_FRENTE', '=', 'movimientos_inventario.ID_FRENTE')
+            ->selectRaw("DATE_FORMAT(movimientos_inventario.FECHA, '%Y-%m') as mes")
+            ->selectRaw('COALESCE(f.NOMBRE_FRENTE, ?) as proyecto', ['Sin proyecto'])
+            ->selectRaw('SUM(' . MovimientoInventario::SQL_CANTIDAD_NETA . ') as total')
+            ->groupBy('mes', 'proyecto')->orderBy('mes')->get()
+            ->map(fn ($r) => ['mes' => $r->mes, 'proyecto' => $r->proyecto, 'total' => (float) $r->total])
+            ->filter(fn ($x) => $x['total'] > 0)
             ->values();
     }
 
@@ -2252,6 +2368,11 @@ class AlmacenController extends Controller
         if (!$desde && !$hasta) {
             $porMes = $porMes->slice(-12)->values();
         }
+        // El mismo consumo partido por proyecto: con eso el gráfico apila cada mes. Se acota a
+        // los meses que se van a dibujar (arriba se recortó a los últimos 12 sin filtro).
+        $mesesGrafico = $porMes->pluck('mes')->all();
+        $porMesFrente = $this->consumoPorMesFrente($base)
+            ->filter(fn ($x) => in_array($x['mes'], $mesesGrafico, true))->values();
 
         // ── Top N productos mas consumidos (N = self::TOP_PRODUCTOS_GRAFICO) ────────────────────────────────────
         // Se enriquece con el nº de parte PRINCIPAL (+ alternos) y los EQUIPOS que
@@ -2334,6 +2455,7 @@ class AlmacenController extends Controller
                     ->map(fn ($n) => \App\Casts\MojibakeFix::fix($n))->filter()->unique()->values()
                 : null,
             'por_mes'       => $porMes,
+            'por_mes_frente' => $porMesFrente,
             'top_productos' => $topProductos,
             'por_almacen'   => $porAlmacen,
         ]);
@@ -2820,7 +2942,7 @@ class AlmacenController extends Controller
             // Sin `exists` a propósito: 0 es la bolsa común, que no es un frente. Que sea una
             // bolsa REAL de este almacén lo comprueba bolsaOrigenElegida().
             'lineas.*.id_frente_saldo' => 'nullable|integer|min:0',
-        ]);
+        ] + $this->reglasTransporte());
 
         $this->assertPuedeVerAlmacen($request, (int) $data['id_almacen']);
 
@@ -2976,6 +3098,9 @@ class AlmacenController extends Controller
                 && $request->boolean('permitir_negativo')
                 && $request->user()->can('super.admin'),
         ];
+        // Vehículo y chofer de la Nota: como el resto de sus campos, solo en SALIDA.
+        $transporte = $esSalida ? $this->logistica->transporteDe($data) : [];
+        $opts += $transporte;
 
         try {
             // En SALIDA generamos el NUMERO_NOTA (NE-YYYY-NNNN) DENTRO de la transacción
@@ -3048,6 +3173,7 @@ class AlmacenController extends Controller
         // Sólo en SALIDA devolvemos la URL del PDF de Nota de Entrega; el frontend la abre
         // en el visor in-page (#pdfPreviewModal vía window.openPdfPreview).
         if ($data['tipo'] === 'SALIDA') {
+            $this->recordarTransporte((int) $data['id_almacen'], $transporte);
             $payload['nota_url']    = route('almacen.nota-entrega', ['numero' => $result['numero_nota']]);
             $payload['numero_nota'] = $result['numero_nota'];
         }
@@ -3070,8 +3196,9 @@ class AlmacenController extends Controller
      */
     private function registrarSalidaViaTraspaso(Request $request, array $data, int $idFrenteDestino, int $idAlmacenDestino, array $bolsaPorProducto = []): \Illuminate\Http\JsonResponse
     {
-        $idUsuario = optional($request->user())->ID_USUARIO;
-        $lineas    = array_map(
+        $idUsuario  = optional($request->user())->ID_USUARIO;
+        $transporte = $this->logistica->transporteDe($data);
+        $lineas     = array_map(
             fn ($l) => ['id_producto' => (int) $l['id_producto'], 'cantidad' => (float) $l['cantidad']],
             $data['lineas'],
         );
@@ -3084,7 +3211,7 @@ class AlmacenController extends Controller
         usort($lineas, fn ($a, $b) => $a['id_producto'] <=> $b['id_producto']);
 
         try {
-            $resultado = DB::transaction(function () use ($data, $idFrenteDestino, $idAlmacenDestino, $idUsuario, $lineas, $request, $bolsaPorProducto) {
+            $resultado = DB::transaction(function () use ($data, $idFrenteDestino, $idAlmacenDestino, $idUsuario, $lineas, $request, $bolsaPorProducto, $transporte) {
                 $numeroNota = MovimientoInventario::generarNumeroNota();
 
                 $traspaso = $this->traspasos->crearBorrador(
@@ -3116,13 +3243,15 @@ class AlmacenController extends Controller
                     'numero_rq'         => $data['numero_rq']       ?? null,
                     'solicitante'       => $data['solicitante']     ?? null,
                     'departamento'      => $data['departamento']    ?? null,
-                ]);
+                ] + $transporte);
 
                 return ['numero_nota' => $numeroNota, 'numero_traspaso' => $traspaso->NUMERO];
             });
         } catch (Throwable $e) {
             return response()->json(['message' => $e->getMessage()], 422);
         }
+
+        $this->recordarTransporte((int) $data['id_almacen'], $transporte);
 
         $n = count($lineas);
         return response()->json([
@@ -3191,6 +3320,10 @@ class AlmacenController extends Controller
             'cargo_entrega' => trim((string) ($hd->almacen?->CARGO_ALMACENISTA ?? '')),
             'motivo'        => $hd->MOTIVO ?? '',
         ];
+        // Vehículo y chofer (bloque "Datos del vehículo / Datos del chofer").
+        foreach (MovimientoInventario::CAMPOS_TRANSPORTE as $campo => $columna) {
+            $datos[$campo] = (string) ($hd->{$columna} ?? '');
+        }
 
         $slug   = $hd->NUMERO_NOTA ?: ($hd->NUMERO_RQ ?: ('LOTE-' . $hd->ID_MOVIMIENTO));
         // Reimpresion desde el historial: la hoja es la que se uso el dia de la operacion
@@ -3626,7 +3759,7 @@ class AlmacenController extends Controller
             // 0 es la común y la pertenencia la valida bolsaOrigenElegida(), para que el aviso
             // se calcule sobre exactamente lo que va a pasar al registrar.
             'lineas.*.id_frente_saldo' => 'nullable|integer|min:0',
-        ]);
+        ] + $this->reglasTransporte());
 
         $this->assertPuedeVerAlmacen($request, (int) $data['id_almacen']);
         if ($error = $this->errorNumeroParte($data['lineas'])) {
@@ -3757,7 +3890,7 @@ class AlmacenController extends Controller
             'entregado_por' => $almacen?->ALMACENISTA ?? '',
             'cargo_entrega' => $almacen?->CARGO_ALMACENISTA ?? '',
             'motivo'        => $fixReq($data['motivo'] ?? ''),
-        ];
+        ] + array_map(fn ($v) => $fixReq($v ?? ''), $this->logistica->transporteDe($data));
 
         // Cada $m del blade lee: CANTIDAD, producto->{UM, NOMBRE, CODIGO} y frente->NOMBRE_FRENTE.
         // Armamos stdClass que cumple ese contrato — la coleccion mantiene el orden del

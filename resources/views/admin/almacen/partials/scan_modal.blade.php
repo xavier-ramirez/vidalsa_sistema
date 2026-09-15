@@ -39,7 +39,7 @@
     /* Mismo encabezado que los demás modales de Almacén, Equipos y Recepción. */
     .qrs-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; background: #1e293b; }
     .qrs-head h3 { margin: 0; font-size: 16px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 8px; }
-    .qrs-head h3 .material-icons { color: #0067b1; }
+    .qrs-head h3 .material-icons { color: #fff; }
     .qrs-head .qrs-x { color: #fff; opacity: .75; cursor: pointer; font-size: 20px; }
     .qrs-head .qrs-x:hover { opacity: 1; }
     .qrs-body { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; min-height: 0; }

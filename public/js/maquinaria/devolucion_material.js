@@ -4,10 +4,12 @@
  *
  * Flujo: se abre desde una salida del Historial de Movimientos, con su Nota de Entrega y ese
  * producto (solo ese: el servidor filtra por id_producto) → se muestra lo entregado y lo que
- * falta por devolver → el usuario pone cuánto vuelve y, si se entrega otro a cambio (otra
- * talla), lo elige al lado —con el stock que hay de cada opción— → POST, con la fecha de hoy.
- * Si hubo cambio, se abre la Nota nueva para firmarla. Las reglas (no devolver de más, stock
- * del cambio) las decide el servidor (App\Services\DevolucionService); aquí solo se guía.
+ * falta por devolver → el usuario pone cuánto vuelve → POST, con la fecha de hoy.
+ *
+ * Solo DEVUELVE. Si además hay que entregar otra cosa (otra talla), eso es una salida normal
+ * con su propia Nota y se hace desde el inventario (decisión del cliente, 14-09-2026). Las
+ * reglas —no devolver más de lo que queda, a qué bolsa vuelve— las decide el servidor
+ * (App\Services\DevolucionService); aquí solo se guía.
  *
  * Se carga bajo demanda (cargarScriptUnaVez) desde window.almAbrirDevolucion, así que
  * las pantallas que nunca devuelven nada no lo descargan. Los listeners van sobre el
@@ -18,9 +20,8 @@
     'use strict';
     if (w.DevolucionMaterial) return;
 
-    var MAX_SUGERENCIAS = 8;
     var EPS = 0.0005;
-    var estado = { nota: null, productos: null, productosCargando: null, guardando: false };
+    var estado = { nota: null, guardando: false };
 
     function $(id) { return document.getElementById(id); }
     function modal() { return $('devMatModal'); }
@@ -34,6 +35,7 @@
         var n = parseFloat(v);
         return isFinite(n) ? n : 0;
     }
+    function campoCant(i) { return document.querySelector('[data-dev-cant="' + i + '"]'); }
 
     function mensaje(texto, tipo) {
         var m = $('devMatMsg'); if (!m) return;
@@ -53,7 +55,6 @@
         mensaje('');
         m.classList.add('open');
         w.bloquearScrollFondo();
-        cargarProductos();
         cargarNota(numero, idProducto);
     }
 
@@ -79,40 +80,41 @@
             .catch(function () { mensaje('No se pudo contactar al servidor. La devolución necesita conexión.'); });
     }
 
-    // Stock del producto en el almacén de la nota (el servidor manda solo los que tienen).
-    function stockDe(idProducto) {
-        return Number((estado.nota.saldos || {})[idProducto]) || 0;
-    }
-
+    // ── Pintar ───────────────────────────────────────────────────────────────
     function pintar(nota) {
         estado.nota = nota;
 
-        var info = [
-            '<span>Nota <b>' + esc(nota.numero) + '</b></span>',
-            '<span>' + esc(nota.fecha || '') + '</span>',
-            nota.proyecto ? '<span>Proyecto <b>' + esc(nota.proyecto) + '</b></span>' : '',
-            nota.solicitante ? '<span>Recibió <b>' + esc(nota.solicitante) + '</b></span>' : '',
-            '<a href="' + esc(nota.pdf_url) + '" data-dev-pdf="1"><i class="material-icons">description</i>Ver nota</a>',
-        ];
-        $('devMatNota').innerHTML = info.join('');
+        // Cabecera en UNA línea: número · fecha · proyecto (· quién recibió). El title lleva el
+        // texto entero por si el proyecto no cabe y se corta con "…".
+        var sep = ' <span class="devm-sep">&middot;</span> ';
+        var partes = [nota.fecha, nota.proyecto, nota.solicitante].filter(Boolean);
+        $('devMatNota').title = [nota.numero].concat(partes).join(' · ');
+        $('devMatNota').innerHTML = '<b class="devm-nota-num">' + esc(nota.numero) + '</b>'
+            + (partes.length ? sep + '<span class="devm-nota-sub">' + partes.map(esc).join(sep) + '</span>' : '');
 
         $('devMatLineas').innerHTML = nota.lineas.map(function (l, i) {
             var cerrada = l.pendiente <= EPS;
             var um = esc(l.um || '');
+            // Izquierda: las cifras, una por renglón, con el número en negrita.
+            var datos = '<div>Entregado <b>' + num(l.entregado) + ' ' + um + '</b></div>'
+                + (l.devuelto > EPS ? '<div>Ya devuelto <b>' + num(l.devuelto) + ' ' + um + '</b></div>' : '')
+                + (cerrada ? '' : '<div>Por devolver <b>' + num(l.pendiente) + ' ' + um + '</b></div>');
             return '<div class="devm-linea' + (cerrada ? ' cerrada' : '') + '" data-i="' + i + '">'
-                + '<div class="devm-prod-bloque">'
-                +   '<div class="devm-prod-cab">' + (l.codigo ? '<span class="devm-cod">' + esc(l.codigo) + '</span>' : '')
-                +     '<span class="devm-prod">' + esc(l.nombre) + '</span></div>'
-                +   '<div class="devm-datos"><span>Entregado <b>' + num(l.entregado) + ' ' + um + '</b></span>'
-                +     (l.devuelto > EPS ? '<span>Ya devuelto <b>' + num(l.devuelto) + ' ' + um + '</b></span>' : '') + '</div>'
+                + '<div class="devm-prod-cab">' + (l.codigo ? esc(l.codigo) + sep : '')
+                +   '<span class="devm-prod">' + esc(l.nombre) + '</span></div>'
+                + '<div class="devm-cuerpo">'
+                +   '<div class="devm-datos">' + datos + '</div>'
+                +   (cerrada
+                    ? '<div class="devm-cerrada"><i class="material-icons">check_circle</i>Ya se devolvió todo.</div>'
+                    : '<div class="devm-devuelve">'
+                    +   '<label class="devm-devuelve-lbl" for="devMatCant' + i + '">Devuelve</label>'
+                    +   '<div class="devm-cant">'
+                    +     '<input type="text" inputmode="decimal" class="devm-input" id="devMatCant' + i + '" data-dev-cant="' + i + '" placeholder="0" autocomplete="off"'
+                    +       ' aria-label="Cantidad que se devuelve de ' + esc(l.nombre) + '">'
+                    +     '<span class="devm-de">' + um + '</span>'
+                    +   '</div>'
+                    + '</div>')
                 + '</div>'
-                + (cerrada
-                    ? '<div class="devm-prod-sub devm-linea-fin">Ya se devolvió todo.</div>'
-                    : '<div><div class="devm-mini"><span>Devuelve</span><button type="button" data-dev-todo="' + i + '">Todo</button></div>'
-                    +   '<div class="devm-cant"><input type="text" inputmode="decimal" class="devm-input" data-dev-cant="' + i + '" placeholder="0" autocomplete="off">'
-                    +   '<span>de ' + num(l.pendiente) + '</span></div></div>'
-                    + '<div class="devm-cambio" data-dev-cambio="' + i + '"><div class="devm-mini"><span>A cambio <span class="devm-opc">(opcional)</span></span></div>'
-                    +   pintarCambio(i, null) + '</div>')
                 + '</div>';
         }).join('');
 
@@ -139,119 +141,19 @@
         if (primero) primero.focus();
     }
 
-    // ── Producto a cambio ────────────────────────────────────────────────────
-    // Sin elegir: un buscador. Elegido: el nombre con una X y la cantidad a entregar.
-    function pintarCambio(i, prod, cantidad) {
-        if (!prod) {
-            return '<input type="text" class="devm-input" data-dev-buscar="' + i + '" placeholder="Buscar producto…" autocomplete="off">'
-                + '<div class="devm-sug" data-dev-sug="' + i + '"></div>';
-        }
-        return '<div class="devm-elegido">'
-            + '<div class="devm-chip" title="' + esc(prod.NOMBRE) + '"><span>' + esc(prod.NOMBRE) + (prod.UM ? ' (' + esc(prod.UM) + ')' : '') + '</span>'
-            +   '<button type="button" data-dev-quitar="' + i + '" aria-label="Quitar el producto a cambio"><i class="material-icons">close</i></button></div>'
-            + '<input type="text" inputmode="decimal" class="devm-input" data-dev-cantcambio="' + i + '" value="' + esc(cantidad || '') + '" placeholder="Cant." title="Cantidad a entregar a cambio" autocomplete="off">'
-            + '</div>';
-    }
-
-    function cargarProductos() {
-        if (estado.productos) return Promise.resolve(estado.productos);
-        // Un fallo NO se guarda: resuelve null y la próxima búsqueda vuelve a pedirlo. Guardar
-        // una lista vacía la dejaba así hasta recargar la página (el módulo sobrevive a la SPA).
-        if (!estado.productosCargando) {
-            estado.productosCargando = w.apiFetch(modal().dataset.urlProductos, {
-                headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
-            })
-                .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-                .then(function (lista) { estado.productos = Array.isArray(lista) ? lista : []; return estado.productos; })
-                .catch(function () { return null; })
-                .finally(function () { estado.productosCargando = null; });
-        }
-        return estado.productosCargando;
-    }
-
-    function sugerirCambio(i) {
-        var input = document.querySelector('[data-dev-buscar="' + i + '"]');
-        var caja = document.querySelector('[data-dev-sug="' + i + '"]');
-        if (!input || !caja || !estado.nota) return;
-        var linea = estado.nota.lineas[i];
-        var termino = input.value.trim();
-
-        if (!estado.productos) {
-            caja.innerHTML = '<div class="devm-sug-vacio">Cargando productos…</div>';
-            caja.classList.add('open');
-            cargarProductos().then(function (lista) {
-                if (document.activeElement !== input) return;
-                if (lista) { sugerirCambio(i); return; }
-                // Sin reintentar aquí (sería un bucle con el servidor caído): al volver a
-                // escribir o a entrar al campo se pide otra vez.
-                caja.innerHTML = '<div class="devm-sug-vacio">No se pudieron cargar los productos. Escribe de nuevo para reintentar.</div>';
-            });
-            return;
-        }
-        // Sin escribir nada se sugieren los PARECIDOS al que se devuelve: para cambiar la
-        // talla, las otras tallas salen solas arriba. Los que no tienen stock en el almacén
-        // de la nota van al final y no se pueden elegir: no habría qué entregar.
-        var lista = w.ProductoSuggest.rankear(estado.productos, termino || linea.nombre)
-            .filter(function (p) { return Number(p.ID_PRODUCTO) !== Number(linea.id_producto); })
-            .slice(0, MAX_SUGERENCIAS);
-        lista = lista.filter(function (p) { return stockDe(p.ID_PRODUCTO) > EPS; })
-            .concat(lista.filter(function (p) { return stockDe(p.ID_PRODUCTO) <= EPS; }));
-
-        caja.innerHTML = lista.length
-            ? lista.map(function (p) {
-                var stock = stockDe(p.ID_PRODUCTO);
-                var hay = stock > EPS;
-                return '<div class="devm-sug-item' + (hay ? '' : ' sin-stock') + '"' + (hay ? ' data-dev-elegir="' + i + '" data-id="' + p.ID_PRODUCTO + '"' : '') + '>'
-                    + esc(p.NOMBRE) + '<small>' + esc(p.UM || '') + (p.CODIGO ? ' · ' + esc(p.CODIGO) : '') + '</small>'
-                    + '<span class="devm-sug-stock">' + (hay ? 'Stock: ' + num(stock) + ' ' + esc(p.UM || '') : 'Sin stock en ' + esc(estado.nota.almacen || 'este almacén')) + '</span></div>';
-            }).join('')
-            : '<div class="devm-sug-vacio">Sin coincidencias.</div>';
-        caja.classList.add('open');
-    }
-
-    function elegirCambio(i, idProducto) {
-        var prod = (estado.productos || []).find(function (p) { return Number(p.ID_PRODUCTO) === Number(idProducto); });
-        var cont = document.querySelector('[data-dev-cambio="' + i + '"]');
-        if (!prod || !cont) return;
-        estado.nota.lineas[i].cambio = prod;
-        var cant = leerNum(document.querySelector('[data-dev-cant="' + i + '"]'));
-        cont.innerHTML = cont.querySelector('.devm-mini').outerHTML + pintarCambio(i, prod, cant > 0 ? String(cant).replace('.', ',') : '');
-        var c = cont.querySelector('[data-dev-cantcambio]'); if (c) c.focus();
-        actualizarBoton();
-    }
-
-    function quitarCambio(i) {
-        var cont = document.querySelector('[data-dev-cambio="' + i + '"]');
-        if (!cont) return;
-        delete estado.nota.lineas[i].cambio;
-        cont.innerHTML = cont.querySelector('.devm-mini').outerHTML + pintarCambio(i, null);
-        actualizarBoton();
-    }
-
     // ── Guardar ──────────────────────────────────────────────────────────────
     function lineasAEnviar() {
         if (!estado.nota) return [];
         var out = [];
         estado.nota.lineas.forEach(function (l, i) {
-            var cant = leerNum(document.querySelector('[data-dev-cant="' + i + '"]'));
-            if (cant <= 0) return;
-            var linea = { id_producto: l.id_producto, cantidad: cant };
-            if (l.cambio) {
-                linea.id_producto_cambio = l.cambio.ID_PRODUCTO;
-                var cc = leerNum(document.querySelector('[data-dev-cantcambio="' + i + '"]'));
-                if (cc > 0) linea.cantidad_cambio = cc;
-            }
-            out.push(linea);
+            var cant = leerNum(campoCant(i));
+            if (cant > 0) out.push({ id_producto: l.id_producto, cantidad: cant });
         });
         return out;
     }
 
     function actualizarBoton() {
         var btn = $('devMatGuardar'); if (!btn || !estado.nota) return;
-        document.querySelectorAll('#devMatLineas .devm-linea').forEach(function (fila) {
-            var i = fila.getAttribute('data-i');
-            fila.classList.toggle('activa', leerNum(fila.querySelector('[data-dev-cant="' + i + '"]')) > 0);
-        });
         btn.disabled = estado.guardando || lineasAEnviar().length === 0;
     }
 
@@ -264,13 +166,6 @@
             var l = estado.nota.lineas.find(function (x) { return x.id_producto === lineas[k].id_producto; });
             if (l && lineas[k].cantidad > l.pendiente + EPS) {
                 mensaje('De «' + esc(l.nombre) + '» quedan ' + num(l.pendiente) + ' ' + esc(l.um || '') + ' por devolver.');
-                return;
-            }
-            var cambio = l && l.cambio;
-            var aEntregar = lineas[k].cantidad_cambio || lineas[k].cantidad;
-            if (cambio && aEntregar > stockDe(cambio.ID_PRODUCTO) + EPS) {
-                mensaje('De «' + esc(cambio.NOMBRE) + '» hay ' + num(stockDe(cambio.ID_PRODUCTO)) + ' ' + esc(cambio.UM || '')
-                    + ' en ' + esc(estado.nota.almacen || 'este almacén') + ': no alcanza para entregar ' + num(aEntregar) + ' a cambio.');
                 return;
             }
         }
@@ -299,11 +194,7 @@
                 }
                 w.toast(res.d.message || 'Devolución registrada.', 'success');
                 cerrar();
-                w.loadMovimientos();   // la fila deja de ofrecer "Devolver" si ya volvió todo
-                // Lo entregado a cambio salió con una nota nueva: se abre para firmarla.
-                if (res.d.nota_url && typeof w.openPdfPreview === 'function') {
-                    w.openPdfPreview(res.d.nota_url, 'nota_entrega', 'Nota ' + res.d.numero_nota, 0, '', true, 'almacen');
-                }
+                if (typeof w.loadMovimientos === 'function') w.loadMovimientos();   // la fila deja de ofrecer "Devolver" si ya volvió todo
             })
             .catch(function () { mensaje('No se pudo contactar al servidor. La devolución necesita conexión.'); })
             .finally(function () {
@@ -316,57 +207,20 @@
     // ── Eventos (delegados en el documento: sobreviven al reemplazo SPA del HTML) ──
     document.addEventListener('click', function (e) {
         if (!modal() || !modal().classList.contains('open')) return;
-        var t = e.target;
-        var el;
-        if ((el = t.closest('#devMatGuardar'))) { guardar(); return; }
-        if ((el = t.closest('[data-dev-todo]'))) {
-            var i = el.getAttribute('data-dev-todo');
-            var inp = document.querySelector('[data-dev-cant="' + i + '"]');
-            if (inp) { inp.value = String(estado.nota.lineas[i].pendiente).replace('.', ','); actualizarBoton(); }
-            return;
-        }
-        if ((el = t.closest('[data-dev-elegir]'))) { elegirCambio(el.getAttribute('data-dev-elegir'), el.getAttribute('data-id')); return; }
-        if ((el = t.closest('[data-dev-quitar]'))) { quitarCambio(el.getAttribute('data-dev-quitar')); return; }
-        if ((el = t.closest('[data-dev-pdf]'))) {
-            if (typeof w.openPdfPreview === 'function') {
-                e.preventDefault();
-                w.openPdfPreview(el.getAttribute('href'), 'nota_entrega', 'Nota ' + estado.nota.numero, 0, '', true, 'almacen');
-            }
-            return;
-        }
-        // Clic fuera de un buscador de producto: se cierran sus sugerencias.
-        document.querySelectorAll('#devMatModal .devm-cambio .devm-sug.open').forEach(function (c) {
-            if (!c.parentNode.contains(t)) c.classList.remove('open');
-        });
+        if (e.target.closest('#devMatGuardar')) guardar();
     });
 
     document.addEventListener('input', function (e) {
-        var t = e.target;
-        if (!t.closest || !t.closest('#devMatModal')) return;
-        if (t.hasAttribute('data-dev-buscar')) { sugerirCambio(t.getAttribute('data-dev-buscar')); return; }
-        if (t.hasAttribute('data-dev-cant') || t.hasAttribute('data-dev-cantcambio')) actualizarBoton();
-    });
-
-    document.addEventListener('focusin', function (e) {
-        var t = e.target;
-        if (t.hasAttribute && t.hasAttribute('data-dev-buscar') && t.closest('#devMatModal')) {
-            // Un desplegable a la vez: abrir este cierra el de las otras líneas.
-            document.querySelectorAll('#devMatModal .devm-sug.open').forEach(function (c) { c.classList.remove('open'); });
-            sugerirCambio(t.getAttribute('data-dev-buscar'));
-        }
+        if (e.target.hasAttribute && e.target.hasAttribute('data-dev-cant') && e.target.closest('#devMatModal')) actualizarBoton();
     });
 
     document.addEventListener('keydown', function (e) {
         if (!modal() || !modal().classList.contains('open')) return;
-        if (e.key === 'Escape') {
-            var abierta = document.querySelector('#devMatModal .devm-sug.open');
-            if (abierta) abierta.classList.remove('open'); else cerrar();
-            return;
-        }
-        if (e.key === 'Enter' && e.target.hasAttribute && e.target.hasAttribute('data-dev-buscar')) {
+        if (e.key === 'Escape') { cerrar(); return; }
+        // Enter en la cantidad: registra, como el Enter de cualquier formulario corto.
+        if (e.key === 'Enter' && e.target.hasAttribute && e.target.hasAttribute('data-dev-cant')) {
             e.preventDefault();
-            var primero = e.target.parentNode.querySelector('[data-dev-elegir]');
-            if (primero) elegirCambio(primero.getAttribute('data-dev-elegir'), primero.getAttribute('data-id'));
+            if (!$('devMatGuardar').disabled) guardar();
         }
     });
 

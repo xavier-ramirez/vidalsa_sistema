@@ -4,6 +4,7 @@
  *   public/img/mapa/mini-municipios.png  → botón "Municipios"
  *   public/img/mapa/mini-faja.png        → botón "Faja" (las 4 divisiones, cada una de su color)
  *   public/img/mapa/mini-bloques.png     → botón "Bloques" (bloques petroleros, en gris)
+ *   public/img/mapa/mini-equipos.png     → botón "Equipos" (puntos de colores ilustrativos: uno por frente)
  *
  * Se pre-generan aquí, y NO en el navegador, para que los botones no pesen nada: los geojson
  * de verdad (municipios ≈1 MB, faja ≈35 KB, bloques ≈230 KB) se siguen cargando solo cuando el
@@ -170,6 +171,15 @@ class Lienzo {
             }
         }
     }
+    /** Punto relleno con aro blanco en una coordenada; $radio en px del PNG final. */
+    public function punto($lng, $lat, $radio, $hex) {
+        $x = (int) round((mercX($lng) - $this->minX) * $this->esc);
+        $y = (int) round(($this->maxY - mercY($lat)) * $this->esc);
+        $d = (int) round(2 * $radio * $this->ss);
+        $aro = $d + (int) round(2 * $this->ss);
+        imagefilledellipse($this->im, $x, $y, $aro, $aro, $this->color('#ffffff'));
+        imagefilledellipse($this->im, $x, $y, $d, $d, $this->color($hex));
+    }
     /** Reduce a tamaño final (= antialiasing) y guarda el PNG. */
     public function guardar($ruta) {
         $out = imagecreatetruecolor($this->anchoFinal, (int) round($this->H / $this->ss));
@@ -237,3 +247,17 @@ if ($estados) $lienzo->pintar($estados, '#475569', '#94a3b8');
 // mientras que en el mapa es translúcido sobre el satélite. La impresión final es la misma.
 $lienzo->pintar($fajaBloq, '#94a3b8', '#e2e8f0');
 $lienzo->guardar($DIR_SALIDA . '/mini-bloques.png');
+
+// ── 4) Miniatura de EQUIPOS: el país apagado con puntos de colores (un color por frente) ──
+// Los puntos son ILUSTRATIVOS (zonas donde trabaja la empresa), no posiciones reales: la capa de
+// verdad pide la posición de cada GPS al encenderse (MapaController::equiposGps).
+echo "Miniatura de los equipos…\n";
+$lienzo = new Lienzo($bbox, $ANCHO, $SS);
+if ($estados) $lienzo->pintar($estados, '#475569', '#94a3b8');
+$PUNTOS_EQUIPOS = [
+    [-64.86, 8.68, '#ef4444'], [-64.20, 9.30, '#ef4444'], [-63.20, 9.75, '#f59e0b'], [-66.90, 10.60, '#22c55e'],
+    [-67.60, 10.20, '#22c55e'], [-71.60, 10.60, '#3b82f6'], [-62.70, 8.30, '#a855f7'], [-65.50, 9.90, '#f59e0b'],
+    [-69.30, 9.50, '#06b6d4'], [-66.20, 8.00, '#ec4899'],
+];
+foreach ($PUNTOS_EQUIPOS as [$lng, $lat, $hex]) $lienzo->punto($lng, $lat, 7, $hex);
+$lienzo->guardar($DIR_SALIDA . '/mini-equipos.png');

@@ -470,6 +470,9 @@ class EquipoController extends Controller
         });
     }
 
+    /** Equipos que muestra la tabla al abrir, sin filtros (con foto, los últimos registrados). */
+    private const MUESTRA_INICIAL = 6;
+
     public function index(Request $request)
     {
         $search = $request->input('search_query');
@@ -557,11 +560,37 @@ class EquipoController extends Controller
             $nextOffset = $offset + $allResults->count();
             $hasMore    = $nextOffset < $totalFound;
             $truncated  = $totalFound > $PAGE_SIZE; // legacy flag para compatibilidad
+        } elseif (!$auxMode && $offset === 0) {
+            // Sin filtros la tabla ya no abre vacía: enseña unos pocos equipos CON FOTO y de
+            // MODELOS DISTINTOS (uno por ficha: si no, salían seis veces la misma camioneta),
+            // para que el módulo se vea de una sin costar lo que cuesta listar los 1.200 (ver
+            // PAGE_SIZE). Los filtros y el buscador siguen mandando igual.
+            //
+            // Sale de la MISMA query ya filtrada por lo que el usuario puede ver, así que un
+            // usuario local no ve equipos de frentes ajenos.
+            $conFoto = function ($q) {
+                // "Con foto" en el mismo orden que Equipo::fotoParaMostrar: la del color, la
+                // del modelo o la propia de la unidad.
+                $q->whereHas('especificaciones.colores', fn ($c) => $c->whereNotNull('FOTO')->where('FOTO', '!=', ''))
+                    ->orWhereHas('especificaciones', fn ($e) => $e->whereNotNull('FOTO_REFERENCIAL')->where('FOTO_REFERENCIAL', '!=', ''))
+                    ->orWhere(fn ($e) => $e->whereNotNull('equipos.FOTO_EQUIPO')->where('equipos.FOTO_EQUIPO', '!=', ''));
+            };
+            // Agrupado por lo que SE VE en la fila (marca y modelo) y no por ficha: el catálogo
+            // tiene fichas repetidas del mismo modelo (una por año) y salían dos filas iguales.
+            $idsMuestra = (clone $equipos)->where($conFoto)
+                ->select('equipos.MARCA', 'equipos.MODELO')->selectRaw('MAX(equipos.ID_EQUIPO) as ultimo')
+                ->groupBy('equipos.MARCA', 'equipos.MODELO')
+                ->reorder()->orderByDesc('ultimo')
+                ->limit(self::MUESTRA_INICIAL)->pluck('ultimo');
+            $allResults = $idsMuestra->isEmpty()
+                ? collect([])
+                : $equipos->whereIn('equipos.ID_EQUIPO', $idsMuestra)
+                    ->reorder()->orderByDesc('equipos.ID_EQUIPO')->get();
+            $equipos = $allResults;
         } else {
             $allResults = collect([]);
             $equipos    = collect([]);
         }
-
         $stats = ['total' => 0, 'activos' => 0, 'inactivos' => 0, 'mantenimiento' => 0];
         $tiposStats  = collect([]);
         $frentesStats = [];
@@ -684,7 +713,7 @@ class EquipoController extends Controller
         // Build JSON payload (needed for AJAX response AND initial page load script tag)
         // En modo aux la tabla es de auxiliares: el payload de modal de equipos no aplica.
         $jsonPayload = [];
-        if ($hasFilter && !$auxMode) {
+        if (!$auxMode) {
             // El mapeo del payload vive en UN solo lugar: Equipo::toDetailsPayload()
             // (reusado por el panel de Alertas en /menu para que el modal sea idéntico).
             foreach ($equipos as $eq) {

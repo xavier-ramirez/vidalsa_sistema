@@ -887,7 +887,7 @@
         // Cierra la caja de capas (la usa el clic en el mapa: tocar fuera la recoge).
         function cerrarCapas() { capasBox.classList.remove('abierto'); }
 
-        // Molde del botón-miniatura, COMPARTIDO por las tres capas (Municipios, Faja y Bloques):
+        // Molde del botón-miniatura, COMPARTIDO por las capas (Municipios, Faja, Bloques y Equipos):
         // imagen pre-generada + rótulo. Cada capa pone qué hace el clic y qué necesita del botón
         // recién creado (guardarlo para poder encenderlo/apagarlo). Todos cuelgan de capasPanel:
         // el disableClickPropagation de la caja ya cubre a los hijos.
@@ -1601,6 +1601,9 @@
         var alNavegar = function () {
             if (document.body.contains(el)) return;   // seguimos en el mapa
             desmontado = true;
+            // Refresco de la capa Equipos. Se declara más abajo en buildMap: el if cubre que el
+            // montaje se haya cortado antes de llegar a ella.
+            if (capaEquipos) clearTimeout(capaEquipos.timer);
             window.removeEventListener('spa:contentLoaded', alNavegar);
             document.removeEventListener('fullscreenchange', onFsChange);
             document.removeEventListener('webkitfullscreenchange', onFsChange);
@@ -3193,6 +3196,470 @@
             }
         });
         map.addControl(new LeyendaFajaCtrl()); // debajo de la leyenda de frentes, sobre los créditos
+
+        // ── CAPA EQUIPOS: posición GPS real de los equipos (GPS51) ──────────────────────────
+        // Equipos con enlace compartido de GPS51 (equipos.LINK_GPS) de los frentes del usuario. El
+        // servidor (MapaController::equiposGps + App\Services\Gps51Service) le pide a GPS51 la
+        // última posición con el código de cada enlace —el navegador nunca ve esos códigos— y aquí
+        // se pinta con nuestro diseño, sin la ventana de GPS51. Cada equipo es un punto del COLOR
+        // DE SU FRENTE (colorHash: el mismo color estable por nombre de los municipios) y al
+        // tocarlo abre su ficha.
+        // GPS51 es LENTO (~2 s por equipo y pocas consultas a la vez), así que la capa carga en
+        // dos pasos: la lista llega al instante con las posiciones que el servidor ya tiene en
+        // caché, y las que faltan se piden por tandas (EQ_TANDAS_A_LA_VEZ a la vez) y se pintan a
+        // medida que llegan. Encendida se refresca cada 2 minutos (el TTL de la caché del
+        // servidor) y se detiene al apagarla, con la pestaña oculta o al salir del mapa.
+        var equiposGpsUrl  = el.getAttribute('data-equipos-gps');
+        var miniEquiposUrl = el.getAttribute('data-mini-equipos');
+        var EQ_REFRESCO = 120000;
+        var EQ_TANDAS_A_LA_VEZ = 2;
+        var capaEquipos = {
+            on: false, btn: null, datos: [], cargado: false, cargando: false, timer: null, actualizado: null,
+            pendientes: 0,   // posiciones que aún se están pidiendo en esta vuelta
+            vuelta: 0,       // cada carga suma 1: las tandas de una vuelta vieja se descartan
+            promesa: null,   // la carga de la lista en curso (ver eqCargar)
+            dirs: {},        // "id|lat|lng" → dirección ya buscada (sobrevive a los refrescos)
+            dirsPidiendo: {},// "id|lat|lng" → true mientras se pide
+            grupo: L.layerGroup(),
+            marcas: {},      // id de equipo → L.marker (se reutilizan al refrescar: la ficha abierta sigue abierta)
+            ocultos: {}      // clave de frente → true si se ocultó desde la leyenda
+        };
+
+        function eqColor(e) { return e.frente ? colorHash(e.frente.nombre) : '#94a3b8'; }
+        function eqFrenteClave(e) { return e.frente ? String(e.frente.id) : 'sin'; }
+        // Identificador principal: el que se lee en el equipo (placa) y, si no tiene, el código.
+        function eqIdent(e) { return e.placa || e.codigo || e.etiqueta || e.serial_chasis || ('Equipo ' + e.id); }
+        function eqDescripcion(e) { return [e.tipo, [e.marca, e.modelo].filter(Boolean).join(' ')].filter(Boolean).join(' · '); }
+        // Solo se pinta una posición válida DENTRO de Venezuela (fuera suele ser la de fábrica).
+        function eqTienePosicion(e) { return !!(e.gps && e.gps.ok && !e.gps.fuera_de_venezuela); }
+        // Por qué un equipo NO está en el mapa (buscador y aviso al elegirlo).
+        function eqSinPosicionTexto(e) {
+            if (!e.gps) return e._sinRespuesta ? 'Sin respuesta de GPS51' : 'Cargando posición…';
+            if (e.gps.ok) return 'Posición fuera de Venezuela';
+            if (e.gps.motivo === 'sin_posicion') return 'Sin posición registrada';
+            return 'Enlace de GPS vencido';
+        }
+        function eqNum(n, dec) { return Number(n).toLocaleString('es-VE', { maximumFractionDigits: dec || 0 }); }
+        // "hace 5 min" / "hace 3 días": corto para que quepa en la ficha; la fecha exacta la da eqFecha.
+        function eqHace(ms) {
+            if (!ms) return 'Sin dato';
+            var s = Math.max(0, (Date.now() - ms) / 1000);
+            if (s < 60) return 'hace segundos';
+            if (s < 3600) return 'hace ' + Math.floor(s / 60) + ' min';
+            if (s < 86400) return 'hace ' + Math.floor(s / 3600) + ' h';
+            var dias = Math.floor(s / 86400);
+            return 'hace ' + dias + (dias === 1 ? ' día' : ' días');
+        }
+        function eqFecha(ms) {
+            if (!ms) return '';
+            var d = new Date(ms);
+            return d.toLocaleDateString('es-VE') + ' ' + d.toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' });
+        }
+
+        // Punto del equipo: su color de frente, más apagado si no está en línea, y una flecha con
+        // el rumbo cuando va en marcha.
+        function eqIcono(e) {
+            var g = e.gps;
+            return L.divIcon({
+                className: 'mapa-eq-pin' + (g.en_linea ? '' : ' fuera'),
+                html: '<span class="mapa-eq-dot" style="background:' + eqColor(e) + '"></span>' +
+                      (g.velocidad > 3 ? '<span class="mapa-eq-rumbo" style="transform:rotate(' + (g.rumbo || 0) + 'deg)"></span>' : ''),
+                iconSize: [18, 18], iconAnchor: [9, 9], popupAnchor: [0, -8]
+            });
+        }
+
+        function eqCelda(rotulo, valor, detalle) {
+            return '<div class="mapa-eq-cel"><span>' + esc(rotulo) + '</span><b>' + esc(valor) + '</b>' +
+                   (detalle ? '<small>' + esc(detalle) + '</small>' : '') + '</div>';
+        }
+        // Ficha del equipo (se arma al abrirla y al refrescar con ella abierta).
+        function eqFicha(e) {
+            var g = e.gps, color = eqColor(e), comb = g.combustible || {};
+            var ids = [['Placa', e.placa], ['Código', e.codigo], ['Serial chasis', e.serial_chasis]]
+                .filter(function (p) { return p[1]; })
+                .map(function (p) { return '<span>' + esc(p[0]) + ': <b>' + esc(p[1]) + '</b></span>'; }).join('');
+            return '<div class="mapa-eq">' +
+                '<div class="mapa-eq-head" style="border-left-color:' + color + '">' +
+                    '<div class="mapa-eq-tit"><b>' + esc(eqIdent(e)) + '</b>' +
+                        '<span class="mapa-eq-estado ' + (g.en_linea ? 'en-linea' : 'fuera') + '">' + (g.en_linea ? 'En línea' : 'Sin conexión') + '</span></div>' +
+                    (eqDescripcion(e) ? '<div class="mapa-eq-desc">' + esc(eqDescripcion(e)) + '</div>' : '') +
+                    '<div class="mapa-eq-frente"><span style="background:' + color + '"></span>' + esc(e.frente ? e.frente.nombre : 'Sin frente') + '</div>' +
+                '</div>' +
+                '<div class="mapa-eq-grid">' +
+                    eqCelda('Velocidad', eqNum(g.velocidad) + ' km/h') +
+                    eqCelda('Motor', g.acc === null ? '—' : (g.acc ? 'Encendido' : 'Apagado'), g.acc_tiempo) +
+                    eqCelda('Combustible', comb.total !== null && comb.total !== undefined ? eqNum(comb.total) + ' L' : '—',
+                            comb.auxiliar !== null && comb.auxiliar !== undefined ? 'P ' + eqNum(comb.principal) + ' · A ' + eqNum(comb.auxiliar) : '') +
+                    eqCelda('Voltaje', g.voltaje !== null ? eqNum(g.voltaje, 1) + ' V' : '—') +
+                    eqCelda('Kilometraje', eqNum(g.km_total) + ' km') +
+                    eqCelda('Última señal', eqHace(g.ultima_senal), eqFecha(g.ultima_senal)) +
+                '</div>' +
+                (ids ? '<div class="mapa-eq-ids">' + ids + '</div>' : '') +
+                '<div class="mapa-eq-dir" data-eqdir="' + esc(eqClaveDir(e)) + '">' + esc(capaEquipos.dirs[eqClaveDir(e)] || 'Buscando dirección…') + '</div>' +
+                '<div class="mapa-eq-coord">' + g.lat.toFixed(6) + ', ' + g.lng.toFixed(6) + '</div>' +
+            '</div>';
+        }
+
+        // La dirección se pide UNA vez por equipo y posición, al abrir su ficha (no para los ~130 a
+        // la vez). Se guarda aparte de los datos del equipo (capaEquipos.dirs) porque cada refresco
+        // los reemplaza, y con ellos se perdía la dirección de una ficha abierta.
+        function eqClaveDir(e) { return e.id + '|' + e.gps.lat.toFixed(4) + '|' + e.gps.lng.toFixed(4); }
+        function eqCargarDireccion(marca) {
+            var clave = eqClaveDir(marca.eq);
+            if (capaEquipos.dirs[clave] || capaEquipos.dirsPidiendo[clave]) return;
+            capaEquipos.dirsPidiendo[clave] = true;
+            window.apiFetch(equiposGpsUrl + '/' + marca.eq.id + '/direccion', { headers: { 'Accept': 'application/json' } })
+                .then(function (r) { return r.ok ? r.json() : null; })
+                .catch(function () { return null; })
+                .then(function (j) {
+                    delete capaEquipos.dirsPidiendo[clave];
+                    capaEquipos.dirs[clave] = (j && j.direccion) || 'Dirección no disponible';
+                    // Solo se escribe en una ficha abierta que siga mostrando ESA posición.
+                    var nodo = document.querySelector('.mapa-eq-dir[data-eqdir="' + clave + '"]');
+                    if (nodo) nodo.textContent = capaEquipos.dirs[clave];
+                });
+        }
+
+        // Pinta/actualiza los puntos. Los marcadores se REUTILIZAN por id: al refrescar solo se
+        // mueven y cambian de icono, así la ficha que el usuario tenga abierta no se cierra.
+        function eqPintar() {
+            var vivos = {};
+            capaEquipos.datos.forEach(function (e) {
+                if (!eqTienePosicion(e)) return;
+                vivos[e.id] = true;
+                var ll = [e.gps.lat, e.gps.lng];
+                var m = capaEquipos.marcas[e.id];
+                if (m) {
+                    m.eq = e;
+                    m.setLatLng(ll);
+                    m.setIcon(eqIcono(e));
+                    // Ficha abierta: se re-dibuja con los datos nuevos y, si el equipo se movió, se pide
+                    // la dirección de la posición nueva (la de antes queda guardada en capaEquipos.dirs).
+                    if (m.isPopupOpen()) { m.getPopup().update(); eqCargarDireccion(m); }
+                } else {
+                    m = L.marker(ll, { icon: eqIcono(e), riseOnHover: true, keyboard: false });
+                    m.eq = e;
+                    m.bindTooltip(function (capa) {
+                        var q = capa.eq;
+                        return '<b>' + esc(eqIdent(q)) + '</b>' + (q.frente ? '<br><span style="opacity:.85;">' + esc(q.frente.nombre) + '</span>' : '');
+                    }, { direction: 'top', offset: [0, -8], className: 'estado-tooltip' });
+                    // autoPanPaddingTopLeft: el menú de la app flota encima del mapa; sin este margen la
+                    // ficha de un punto cercano al borde de arriba quedaba tapada por él.
+                    m.bindPopup(function (capa) { return eqFicha(capa.eq); }, { className: 'mapa-eq-pop', maxWidth: 300, minWidth: 272, autoPanPaddingTopLeft: [20, 140] });
+                    m.on('popupopen', function (ev) { eqCargarDireccion(ev.target); });
+                    capaEquipos.marcas[e.id] = m;
+                }
+                var visible = !capaEquipos.ocultos[eqFrenteClave(e)];
+                if (visible && !capaEquipos.grupo.hasLayer(m)) capaEquipos.grupo.addLayer(m);
+                if (!visible && capaEquipos.grupo.hasLayer(m)) capaEquipos.grupo.removeLayer(m);
+            });
+            // Equipos que ya no traen posición (o que dejaron de verse): fuera del mapa.
+            Object.keys(capaEquipos.marcas).forEach(function (id) {
+                if (vivos[id]) return;
+                capaEquipos.grupo.removeLayer(capaEquipos.marcas[id]);
+                delete capaEquipos.marcas[id];
+            });
+        }
+
+        // Paso 1: la lista (al instante). El spinner solo cubre ESTE paso la primera vez; las
+        // posiciones que faltan llegan después sin bloquear el mapa (ver eqCompletar).
+        function eqCargar(silencioso) {
+            // Ya hay una carga en curso (p. ej. encender → apagar → encender antes de que llegue la
+            // lista): se devuelve ESA misma promesa, con su resultado real. Un "false" inventado
+            // aquí hacía que alternar() lo tomara por fallo y volviera a apagar la capa.
+            if (capaEquipos.cargando) return capaEquipos.promesa;
+            capaEquipos.cargando = true;
+            if (!silencioso) spinOn();
+            capaEquipos.promesa = window.apiFetch(equiposGpsUrl, { headers: { 'Accept': 'application/json' } })
+                .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+                .then(function (j) {
+                    if (desmontado) return false;
+                    // Lo que aún no trae posición conserva la de la vuelta anterior mientras llega la
+                    // nueva: así un refresco no vacía el mapa por unos segundos.
+                    var anteriores = {};
+                    capaEquipos.datos.forEach(function (e) { if (e.gps) anteriores[e.id] = e.gps; });
+                    capaEquipos.datos = (j && j.equipos) || [];
+                    capaEquipos.datos.forEach(function (e) { if (!e.gps && anteriores[e.id]) e.gps = anteriores[e.id]; });
+                    capaEquipos.cargado = true;
+                    capaEquipos.actualizado = Date.now();
+                    eqPintar();
+                    eqCompletar((j && j.pendientes) || [], (j && j.lote) || 10);
+                    return true;
+                })
+                .catch(function () {
+                    if (!silencioso) window.toast('No se pudieron cargar los equipos con GPS.', 'error');
+                    return false;
+                })
+                .then(function (ok) {
+                    capaEquipos.cargando = false;
+                    if (!silencioso) spinOff();
+                    // Un refresco que falló (sin red, sesión, servidor) no corta el ciclo: se vuelve
+                    // a intentar en la siguiente vuelta. Si salió bien lo programa eqCompletar.
+                    if (!ok && capaEquipos.cargado && capaEquipos.on && !desmontado) eqProgramar();
+                    return ok;
+                });
+            return capaEquipos.promesa;
+        }
+
+        // Paso 2: las posiciones que faltan, por tandas (EQ_TANDAS_A_LA_VEZ a la vez), pintando
+        // cada tanda al llegar. Al terminar la vuelta se programa el siguiente refresco.
+        function eqCompletar(pendientes, lote) {
+            var vuelta = ++capaEquipos.vuelta;
+            var cola = pendientes.slice();
+            capaEquipos.pendientes = cola.length;
+            eqActualizarLeyenda();
+            eqRenderSug();
+            if (!cola.length) { eqProgramar(); return; }
+            var enCurso = 0;
+            function siguiente() {
+                // Vuelta vieja (llegó un refresco nuevo, se apagó la capa o se salió del mapa): se deja.
+                if (vuelta !== capaEquipos.vuelta || !capaEquipos.on || desmontado) return;
+                if (!cola.length) { if (!enCurso) eqProgramar(); return; }
+                var ids = cola.splice(0, lote);
+                enCurso++;
+                var qs = ids.map(function (id) { return 'ids[]=' + encodeURIComponent(id); }).join('&');
+                window.apiFetch(equiposGpsUrl + '/posiciones?' + qs, { headers: { 'Accept': 'application/json' } })
+                    .then(function (r) { return r.ok ? r.json() : null; })
+                    .catch(function () { return null; })
+                    .then(function (j) {
+                        enCurso--;
+                        if (vuelta !== capaEquipos.vuelta || desmontado) return;
+                        var pos = (j && j.posiciones) || {};
+                        capaEquipos.datos.forEach(function (e) {
+                            if (ids.indexOf(e.id) === -1) return;
+                            // Sin respuesta de GPS51: se queda con la de antes (si la había).
+                            if (pos[e.id]) e.gps = pos[e.id];
+                            e._sinRespuesta = !pos[e.id] && !e.gps;
+                        });
+                        capaEquipos.pendientes = Math.max(0, capaEquipos.pendientes - ids.length);
+                        capaEquipos.actualizado = Date.now();
+                        eqPintar();
+                        eqActualizarLeyenda();
+                        eqRenderSug();
+                        siguiente();
+                    });
+            }
+            for (var i = 0; i < EQ_TANDAS_A_LA_VEZ; i++) siguiente();
+        }
+
+        // Refresco cada EQ_REFRESCO mientras la capa esté encendida; con la pestaña oculta no consulta.
+        function eqProgramar() {
+            clearTimeout(capaEquipos.timer);
+            capaEquipos.timer = setTimeout(function () {
+                if (desmontado || !capaEquipos.on) return;
+                if (document.hidden) { eqProgramar(); return; }
+                eqCargar(true);
+            }, EQ_REFRESCO);
+        }
+
+        capaEquipos.sincronizar = function () {
+            if (!capaEquipos.btn) return;
+            capaEquipos.btn.classList.toggle('activo', capaEquipos.on);
+            capaEquipos.btn.title = capaEquipos.on ? 'Ocultar los equipos' : 'Ver los equipos con GPS (color por frente)';
+        };
+        capaEquipos.montar = function (btn) { capaEquipos.btn = btn; capaEquipos.sincronizar(); };
+        capaEquipos.alternar = function () {
+            capaEquipos.on = !capaEquipos.on;
+            capaEquipos.sincronizar();
+            if (!capaEquipos.on) {
+                clearTimeout(capaEquipos.timer);
+                map.removeLayer(capaEquipos.grupo);
+                eqActualizarLeyenda();
+                eqSincronizarBuscador();
+                return;
+            }
+            capaEquipos.grupo.addTo(map);
+            eqActualizarLeyenda();
+            eqSincronizarBuscador();
+            // Ya cargada: se enciende al instante con lo que había y se refresca en silencio. El
+            // siguiente refresco lo programa eqCompletar al terminar de pedir las posiciones.
+            eqCargar(capaEquipos.cargado).then(function (ok) {
+                if (!capaEquipos.on) return;
+                if (!ok && !capaEquipos.cargado) {
+                    capaEquipos.on = false;
+                    capaEquipos.sincronizar();
+                    map.removeLayer(capaEquipos.grupo);
+                    eqActualizarLeyenda();
+                    eqSincronizarBuscador();
+                    return;
+                }
+                eqSincronizarBuscador();
+            });
+        };
+        if (miniEquiposUrl && equiposGpsUrl) agregarMiniCapa(miniEquiposUrl, 'Equipos', capaEquipos.alternar, capaEquipos.montar);
+
+        // ── Leyenda "Equipos por frente" (panel propio, abajo-izquierda) ──
+        // Cada frente con su color y cuántos equipos tiene en el mapa; tocar un frente lo oculta o
+        // lo vuelve a mostrar. El pie resume cuántos están en línea y cuántos no traen posición.
+        var eqLegendColapsada = false;
+        var eqLegendClickBound = false;
+        function eqActualizarLeyenda() {
+            var d = document.getElementById('mapaLeyendaEquipos'); if (!d) return;
+            if (!capaEquipos.on || !capaEquipos.cargado) { d.style.display = 'none'; d.innerHTML = ''; return; }
+            d.style.display = 'block';
+            if (!eqLegendClickBound) {
+                eqLegendClickBound = true;
+                d.addEventListener('click', function (ev) {
+                    if (ev.target.closest('[data-fold]')) { eqLegendColapsada = !eqLegendColapsada; eqActualizarLeyenda(); return; }
+                    var fila = ev.target.closest('[data-eqfrente]');
+                    if (!fila) return;
+                    var k = fila.getAttribute('data-eqfrente');
+                    if (capaEquipos.ocultos[k]) delete capaEquipos.ocultos[k]; else capaEquipos.ocultos[k] = true;
+                    eqPintar();
+                    eqActualizarLeyenda();
+                });
+            }
+            // Resumen: en el mapa / en línea, y aparte por qué los demás no se pintan.
+            var grupos = {}, lista = [], cuenta = { mapa: 0, linea: 0, fuera: 0, vencidos: 0, sinPosicion: 0, sinRespuesta: 0 };
+            capaEquipos.datos.forEach(function (e) {
+                if (!eqTienePosicion(e)) {
+                    if (!e.gps) { if (e._sinRespuesta) cuenta.sinRespuesta++; }   // sin gps y sin marca: aún cargando
+                    else if (e.gps.ok) cuenta.fuera++;
+                    else if (e.gps.motivo === 'sin_posicion') cuenta.sinPosicion++;
+                    else cuenta.vencidos++;   // enlace vencido o rechazado por GPS51
+                    return;
+                }
+                cuenta.mapa++;
+                if (e.gps.en_linea) cuenta.linea++;
+                var k = eqFrenteClave(e);
+                if (!grupos[k]) { grupos[k] = { clave: k, nombre: e.frente ? e.frente.nombre : 'Sin frente', color: eqColor(e), total: 0 }; lista.push(grupos[k]); }
+                grupos[k].total++;
+            });
+            lista.sort(function (a, b) { return a.nombre.localeCompare(b.nombre, 'es'); });
+            var html = '<div class="mapa-leyenda-head">' +
+                '<span class="mapa-leyenda-titulo">Equipos por frente</span>' +
+                '<span class="mapa-leyenda-acciones">' +
+                '<button type="button" class="mapa-leyenda-fold" data-fold="1" title="' + (eqLegendColapsada ? 'Expandir' : 'Recoger') + '">' +
+                    '<i class="material-icons">' + (eqLegendColapsada ? 'expand_more' : 'expand_less') + '</i></button>' +
+                '</span></div>';
+            html += '<div class="mapa-leyenda-body' + (eqLegendColapsada ? ' mapa-leyenda-body-plegado' : '') + '">';
+            lista.forEach(function (g) {
+                var oculto = !!capaEquipos.ocultos[g.clave];
+                html += '<div class="mapa-leyenda-row mapa-eq-ley-row' + (oculto ? ' oculto' : '') + '" data-eqfrente="' + esc(g.clave) + '" title="' + (oculto ? 'Mostrar en el mapa' : 'Ocultar del mapa') + '">' +
+                    '<span class="mapa-leyenda-color" style="background:' + g.color + '"></span>' +
+                    '<span class="mapa-leyenda-nom">' + esc(g.nombre) + '</span>' +
+                    '<span class="mapa-eq-ley-n">' + g.total + '</span></div>';
+            });
+            if (!lista.length && !capaEquipos.pendientes) html += '<div class="mapa-leyenda-row">Ningún equipo con posición</div>';
+            var notas = [];
+            if (capaEquipos.pendientes) notas.push('Cargando posiciones… faltan ' + capaEquipos.pendientes);
+            if (cuenta.fuera) notas.push(cuenta.fuera + ' con posición fuera de Venezuela');
+            if (cuenta.sinPosicion) notas.push(cuenta.sinPosicion + ' sin posición registrada');
+            if (cuenta.vencidos) notas.push(cuenta.vencidos + ' con el enlace de GPS vencido');
+            if (cuenta.sinRespuesta) notas.push(cuenta.sinRespuesta + ' sin respuesta de GPS51 (se reintenta)');
+            html += '<div class="mapa-eq-ley-pie">' + cuenta.mapa + ' en el mapa · ' + cuenta.linea + ' en línea' +
+                (notas.length ? '<br>' + notas.map(esc).join('<br>') : '') +
+                '<br>Actualizado ' + new Date(capaEquipos.actualizado).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' }) + '</div>';
+            html += '</div>';
+            d.innerHTML = html;
+        }
+        var LeyendaEquiposCtrl = L.Control.extend({
+            options: { position: 'bottomleft' },
+            onAdd: function () {
+                var d = L.DomUtil.create('div', 'mapa-leyenda');
+                d.id = 'mapaLeyendaEquipos'; d.style.display = 'none';
+                L.DomEvent.disableClickPropagation(d);
+                L.DomEvent.disableScrollPropagation(d);
+                return d;
+            }
+        });
+        if (equiposGpsUrl) map.addControl(new LeyendaEquiposCtrl());
+
+        // ── Buscador de EQUIPOS (arriba-derecha, con el mismo aspecto que el de bloques) ──
+        // Encuentra un equipo por placa, serial de chasis o de motor, código, nº de etiqueta,
+        // marca, modelo, tipo, frente o nombre del GPS, con el ranking de la app (FuzzySearch), y
+        // lleva el mapa hasta él con su ficha abierta. Solo existe con la capa encendida.
+        var _busEq = null;
+        function eqSincronizarBuscador() {
+            if (!_busEq) return;
+            var visible = capaEquipos.on && capaEquipos.cargado;
+            _busEq.caja.style.display = visible ? '' : 'none';
+            if (!visible) { _busEq.input.value = ''; eqCerrarLista(); }
+        }
+        function eqCerrarLista() {
+            if (!_busEq) return;
+            _busEq.lista.innerHTML = '';
+            _busEq.lista.classList.remove('abierta');
+            _busEq._sug = null;
+        }
+        function eqBuscable(e) {
+            return [e.placa, e.codigo, e.etiqueta, e.serial_chasis, e.serial_motor, e.marca, e.modelo, e.tipo,
+                    e.frente && e.frente.nombre, e.gps && e.gps.dispositivo].filter(Boolean).join(' ');
+        }
+        function eqRenderSug() {
+            if (!_busEq) return;
+            var term = _busEq.input.value || '';
+            _busEq.caja.classList.toggle('con-texto', !!term);
+            if (!term.trim()) { eqCerrarLista(); return; }
+            var datos = capaEquipos.datos, arr;
+            if (window.FuzzySearch && window.FuzzySearch.rank) {
+                arr = window.FuzzySearch.rank(datos, term, function (e) { return { label: eqIdent(e), haystack: eqBuscable(e) }; });
+            } else {
+                var q = term.toLowerCase();
+                arr = datos.filter(function (e) { return eqBuscable(e).toLowerCase().indexOf(q) > -1; });
+            }
+            if (!arr.length) {
+                _busEq.lista.innerHTML = '<div class="mapa-bloque-vacio">Sin equipos que coincidan</div>';
+                _busEq.lista.classList.add('abierta');
+                _busEq._sug = null;
+                return;
+            }
+            _busEq._sug = arr.slice(0, BUS_MAX);
+            _busEq.lista.innerHTML = _busEq._sug.map(function (e, i) {
+                var estado = !eqTienePosicion(e) ? eqSinPosicionTexto(e) : (e.gps.en_linea ? 'En línea' : 'Última señal ' + eqHace(e.gps.ultima_senal));
+                return '<div class="mapa-bloque-item" data-i="' + i + '"><b>' + esc(eqIdent(e)) + (eqDescripcion(e) ? ' · ' + esc(eqDescripcion(e)) : '') + '</b>' +
+                       '<span>' + esc((e.frente ? e.frente.nombre + ' · ' : '') + estado) + '</span></div>';
+            }).join('');
+            _busEq.lista.classList.add('abierta');
+        }
+        function eqIrA(e) {
+            if (!e) return;
+            if (!eqTienePosicion(e)) { window.toast(eqIdent(e) + ': ' + eqSinPosicionTexto(e) + '.', 'error'); return; }
+            var k = eqFrenteClave(e);
+            if (capaEquipos.ocultos[k]) { delete capaEquipos.ocultos[k]; eqPintar(); eqActualizarLeyenda(); }
+            var m = capaEquipos.marcas[e.id];
+            if (!m) return;
+            var ll = m.getLatLng();
+            // Ya a la vista y de cerca: sin movimiento no hay moveend, así que la ficha se abre directo.
+            if (map.getZoom() >= 15 && map.getBounds().pad(-0.2).contains(ll)) { m.openPopup(); return; }
+            // El once() va ANTES del setView por lo mismo que en irABloque: sin animación, moveend
+            // se dispara en el acto.
+            map.once('moveend', function () { if (capaEquipos.grupo.hasLayer(m)) m.openPopup(); });
+            map.setView(ll, Math.max(map.getZoom(), 15));
+        }
+        var BuscadorEquiposCtrl = L.Control.extend({
+            options: { position: 'topright' },
+            onAdd: function () {
+                var caja = L.DomUtil.create('div', 'mapa-bloque-buscador mapa-ctrl-mobile-hide');
+                caja.style.display = 'none';
+                caja.innerHTML =
+                    '<div class="mapa-bloque-in">' +
+                        '<i class="material-icons">search</i>' +
+                        '<input type="text" placeholder="Buscar equipo: placa, serial…" autocomplete="off">' +
+                        '<button type="button" class="mapa-bloque-x" title="Limpiar"><i class="material-icons">close</i></button>' +
+                    '</div><div class="mapa-bloque-lista"></div>';
+                L.DomEvent.disableClickPropagation(caja);
+                L.DomEvent.disableScrollPropagation(caja);
+                _busEq = { caja: caja, input: caja.querySelector('input'), lista: caja.querySelector('.mapa-bloque-lista') };
+                _busEq.input.addEventListener('input', eqRenderSug);
+                _busEq.input.addEventListener('keydown', function (ev) {
+                    if (ev.key === 'Escape') { _busEq.input.value = ''; eqRenderSug(); }
+                    // Enter = la primera sugerencia.
+                    else if (ev.key === 'Enter' && _busEq._sug && _busEq._sug.length) { eqIrA(_busEq._sug[0]); eqCerrarLista(); }
+                });
+                caja.querySelector('.mapa-bloque-x').addEventListener('click', function () {
+                    _busEq.input.value = ''; eqRenderSug(); _busEq.input.focus();
+                });
+                _busEq.lista.addEventListener('click', function (ev) {
+                    var it = ev.target.closest('.mapa-bloque-item');
+                    if (!it || !_busEq._sug) return;
+                    eqIrA(_busEq._sug[+it.getAttribute('data-i')]);
+                    eqCerrarLista();
+                });
+                return caja;
+            }
+        });
+        if (equiposGpsUrl) map.addControl(new BuscadorEquiposCtrl());
 
         // Botón de descarga (arriba-izq, junto al buscador/globo/pantalla completa).
         var ExportarCtrl = L.Control.extend({

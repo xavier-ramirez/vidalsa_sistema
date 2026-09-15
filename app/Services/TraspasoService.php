@@ -130,7 +130,8 @@ class TraspasoService
      *                        'bolsa_por_producto'? ([ID_PRODUCTO => bolsa del origen de la que
      *                        se descuenta esa línea]),
      *                        campos de la Nota de Entrega: 'numero_nota'?, 'numero_contrato'?,
-     *                        'numero_rq'?, 'solicitante'?, 'departamento'?]
+     *                        'numero_rq'?, 'solicitante'?, 'departamento'? y el transporte
+     *                        (MovimientoInventario::CAMPOS_TRANSPORTE)]
      */
     public function enviar(Traspaso $traspaso, array $opts = []): Traspaso
     {
@@ -163,7 +164,7 @@ class TraspasoService
                 'numero_rq'       => $opts['numero_rq']       ?? null,
                 'solicitante'     => $opts['solicitante']     ?? null,
                 'departamento'    => $opts['departamento']    ?? null,
-            ];
+            ] + array_intersect_key($opts, \App\Models\MovimientoInventario::CAMPOS_TRANSPORTE);
 
             // Bolsa del almacén ORIGEN de la que se descuenta cada producto, cuando la fila lo
             // eligió a mano en el desglose por proyecto. Es POR PRODUCTO —una entrega puede

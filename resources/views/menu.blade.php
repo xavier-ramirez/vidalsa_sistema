@@ -248,6 +248,11 @@
     /* Sin las notas de abajo el modal ya no necesita 420px: se estrecha a lo que ocupan
        las dos opciones, que es lo único que hay que leer. */
     .formato-modal-content { max-width: 320px; max-height: none; }
+    /* Título centrado y la ✕ flotando a la derecha (como los modales del módulo Almacén):
+       con el título a la izquierda, en un modal tan estrecho quedaba descuadrado. */
+    .formato-modal-content .alertas-panel-header { position: relative; justify-content: center; }
+    .formato-modal-content .alertas-panel-title { justify-content: center; }
+    .formato-modal-content .alertas-header-btn { position: absolute; top: 50%; right: 12px; transform: translateY(-50%); }
     .formato-modal-body { padding: 18px 20px 22px; }
     .formato-modal-texto {
         margin: 0 0 16px; text-align: center;
@@ -736,12 +741,24 @@
     .dashboard-catalogo-section {
         margin-top: 24px;
     }
+    /* Carrusel: .cat-mini-grid es el visor (muestra --cat-vis tarjetas según el ancho) y
+       .cat-mini-track la tira que se desliza. El relleno de arriba y abajo deja ver el
+       levantado y la sombra del hover, que el overflow recortaría. */
     .cat-mini-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-        gap: 12px;
+        --cat-vis: 7;
+        --cat-gap: 12px;
+        overflow: hidden;
+        padding: 4px 0 12px;
+        margin: -4px 0 -12px;
+    }
+    .cat-mini-track {
+        display: flex;
+        gap: var(--cat-gap);
     }
     .cat-mini-card {
+        flex: 0 0 calc((100% - (var(--cat-vis) - 1) * var(--cat-gap)) / var(--cat-vis));
+        min-width: 0;
+        box-sizing: border-box;   /* el borde dentro del ancho: si no, la última tarjeta salía cortada */
         background: white;
         border: 1px solid #e2e8f0;
         border-radius: 12px;
@@ -809,40 +826,20 @@
         overflow: hidden;
         text-overflow: ellipsis;
     }
-
-    @media (max-width: 719px) {
-        .cat-mini-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-        .cat-mini-card:nth-child(n+7){ display: none; }
-    }
+    /* Modelo sin marca: la línea queda vacía y no ocupa espacio. */
+    .cat-mini-specs:empty { display: none; }
+    /* Tarjetas a la vista según el ancho (las mismas que antes mostraba la grilla). */
+    @media (max-width: 719px)  { .cat-mini-grid { --cat-vis: 2; } }
     @media (max-width: 480px) {
         .dashboard-catalogo-section { margin-top: 14px; }
-        .cat-mini-grid { gap: 8px; }
+        .cat-mini-grid { --cat-gap: 8px; }
         .cat-mini-body { padding: 6px 8px; }
     }
-    @media (min-width: 720px) {
-        .cat-mini-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-        .cat-mini-card:nth-child(n)  { display: flex; }
-        .cat-mini-card:nth-child(n+4){ display: none; }
-    }
-    @media (min-width: 900px) {
-        .cat-mini-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-        .cat-mini-card:nth-child(n)  { display: flex; }
-        .cat-mini-card:nth-child(n+5){ display: none; }
-    }
-    @media (min-width: 1100px) {
-        .cat-mini-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
-        .cat-mini-card:nth-child(n)  { display: flex; }
-        .cat-mini-card:nth-child(n+6){ display: none; }
-    }
-    @media (min-width: 1300px) {
-        .cat-mini-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
-        .cat-mini-card:nth-child(n)  { display: flex; }
-        .cat-mini-card:nth-child(n+7){ display: none; }
-    }
-    @media (min-width: 1500px) {
-        .cat-mini-grid { grid-template-columns: repeat(7, minmax(0, 1fr)); }
-        .cat-mini-card:nth-child(n)  { display: flex; }
-    }
+    @media (min-width: 720px)  { .cat-mini-grid { --cat-vis: 3; } }
+    @media (min-width: 900px)  { .cat-mini-grid { --cat-vis: 4; } }
+    @media (min-width: 1100px) { .cat-mini-grid { --cat-vis: 5; } }
+    @media (min-width: 1300px) { .cat-mini-grid { --cat-vis: 6; } }
+    @media (min-width: 1500px) { .cat-mini-grid { --cat-vis: 7; } }
 
     /* ── Pie informativo: datos de la empresa + crédito de desarrollo ── */
     .menu-about {
@@ -1144,20 +1141,38 @@
                  Solo se inyecta contenido en mobile/no-standalone via pwa-install.js. --}}
             <div id="pwaInstallSlot" style="margin-top: 12px;"></div>
 
-            {{-- ── Catálogo Destacado ── --}}
+            {{-- ── Catálogo Destacado ──
+                 Carrusel: se pintan 8 tarjetas (el CSS muestra de 2 a 7 según el ancho; la de
+                 más es la que entra al deslizar) y TODOS los modelos van en #catRotPool: la que
+                 sale por la izquierda vuelve por la derecha con el siguiente (script de abajo).
+                 Tarjetas y lista salen del MISMO arreglo (data-idx = su posición), así el texto
+                 de una tarjeta reciclada es idéntico al de una pintada aquí. --}}
             @if(isset($catalogosDestacados) && $catalogosDestacados->count() > 0)
+                @php
+                    $catItems = $catalogosDestacados->map(function ($c) {
+                        $drive = \App\Models\CaracteristicaModelo::idDrive($c->FOTO_REFERENCIAL);
+                        return [
+                            'foto'   => $drive ? url('/storage/google/' . $drive . '?sz=w300') : null,
+                            'modelo' => (string) $c->MODELO,
+                            'anio'   => (string) $c->ANIO_ESPEC,
+                            // TIPO (principal) y MARCA (secundario); sin TIPO cae al MODELO.
+                            'titulo' => (string) ($c->TIPO ?: $c->MODELO),
+                            'specs'  => $c->marca_calculada
+                                ? $c->marca_calculada . (($c->MODELO && $c->TIPO) ? ' · ' . $c->MODELO : '')
+                                : '',
+                        ];
+                    })->values();
+                @endphp
                 <div class="dashboard-catalogo-section" style="margin-top: 12px;">
-                    <div class="cat-mini-grid">
-                        @foreach($catalogosDestacados as $catalogo)
-                            @php
-                                $driveFileId = \App\Models\CaracteristicaModelo::idDrive($catalogo->FOTO_REFERENCIAL);
-                            @endphp
-                            <a class="cat-mini-card" href="{{ route('catalogo.index') }}"
+                    <div class="cat-mini-grid" id="catMiniGrid">
+                        <div class="cat-mini-track">
+                        @foreach($catItems->take(8) as $item)
+                            <a class="cat-mini-card" data-idx="{{ $loop->index }}" href="{{ route('catalogo.index') }}"
                                style="text-decoration:none; color:inherit;" title="Ver el catálogo de equipos">
                                 <div class="cat-mini-photo">
-                                    @if($driveFileId)
-                                        <img src="{{ url('/storage/google/' . $driveFileId . '?sz=w300') }}"
-                                             alt="{{ $catalogo->MODELO }}"
+                                    @if($item['foto'])
+                                        <img src="{{ $item['foto'] }}"
+                                             alt="{{ $item['modelo'] }}"
                                              loading="lazy"
                                              decoding="async"
                                              style="opacity:0; transition:opacity 0.25s ease;"
@@ -1166,23 +1181,21 @@
                                     @else
                                         <i class="material-icons placeholder">precision_manufacturing</i>
                                     @endif
-                                    
+
                                     <span class="cat-mini-anio-badge">
                                         <i class="material-icons" style="font-size:10px;">event</i>
-                                        {{ $catalogo->ANIO_ESPEC }}
+                                        <span class="cat-mini-anio">{{ $item['anio'] }}</span>
                                     </span>
                                 </div>
                                 <div class="cat-mini-body">
-                                    {{-- Muestra el TIPO (principal) y la MARCA (secundario). Si el
-                                         catálogo aún no tiene TIPO, cae al MODELO como respaldo. --}}
-                                    <span class="cat-mini-modelo">{{ $catalogo->TIPO ?: $catalogo->MODELO }}</span>
-                                    @if($catalogo->marca_calculada)
-                                        <span class="cat-mini-specs">{{ $catalogo->marca_calculada }}@if($catalogo->MODELO && $catalogo->TIPO) · {{ $catalogo->MODELO }}@endif</span>
-                                    @endif
+                                    <span class="cat-mini-modelo">{{ $item['titulo'] }}</span>
+                                    <span class="cat-mini-specs">{{ $item['specs'] }}</span>
                                 </div>
                             </a>
                         @endforeach
+                        </div>
                     </div>
+                    <script type="application/json" id="catRotPool">@json($catItems)</script>
                 </div>
             @endif
         </div>
@@ -1361,6 +1374,107 @@
         } else {
             window.cargarAlertasDashboard();
         }
+
+        // ── Catálogo Destacado: carrusel ─────────────────────────────────────────────
+        // Cada 5 s la tira avanza UNA tarjeta hacia la izquierda (deslizando 0,6 s), en bucle:
+        // la que sale por la izquierda pasa al final —ya fuera de la vista— con el modelo que
+        // lleva más tiempo sin mostrarse, así el DOM tiene siempre las mismas 8 tarjetas.
+        // Pensado para gastar lo mínimo:
+        //   · un solo temporizador, en pausa si la pestaña está oculta, si la sección no está
+        //     a la vista (IntersectionObserver) o si el mouse está encima;
+        //   · la foto del modelo nuevo se precarga mientras su tarjeta está fuera de la vista,
+        //     y es la miniatura w300 que el navegador guarda 21 días: cada una se baja una vez;
+        //   · nada si el sistema pide menos movimiento (prefers-reduced-motion).
+        // Este <script> se re-ejecuta en cada vuelta a /menu por SPA: el temporizador y el
+        // observer de la visita anterior se cancelan aquí, y el ciclo se apaga solo en cuanto
+        // la sección ya no está en la página.
+        (function () {
+            if (window.__catRot) { clearTimeout(window.__catRot.timer); window.__catRot.io && window.__catRot.io.disconnect(); window.__catRot = null; }
+            var grid = document.getElementById('catMiniGrid'), poolEl = document.getElementById('catRotPool');
+            var track = grid && grid.querySelector('.cat-mini-track');
+            if (!track || !poolEl) return;
+            if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+            var items = [];
+            try { items = JSON.parse(poolEl.textContent) || []; } catch (e) { return; }
+
+            var INTERVALO = 5000, DESLIZ = 600;
+            var estado = { timer: null, io: null, enVista: true };
+            window.__catRot = estado;
+            var mostrado = [];   // idx → cuándo entró por última vez a una tarjeta (0 = nunca)
+            function tarjetas() { return Array.prototype.slice.call(track.children); }
+            tarjetas().forEach(function (c) { mostrado[+c.dataset.idx] = Date.now(); });
+
+            if ('IntersectionObserver' in window) {
+                estado.io = new IntersectionObserver(function (en) {
+                    estado.enVista = en[0].isIntersecting;
+                    // A la vista: las fotos de las tarjetas que esperan fuera del visor se bajan
+                    // ya (con loading=lazy no cargarían hasta asomarse y entrarían en blanco).
+                    if (estado.enVista) track.querySelectorAll('img[loading="lazy"]').forEach(function (i) { i.loading = 'eager'; });
+                });
+                estado.io.observe(grid);
+            }
+
+            // El modelo con foto que lleva más tiempo sin verse y no está en ninguna tarjeta
+            // (-1 si todos están: con pocos modelos el carrusel gira con los mismos).
+            function siguiente() {
+                var ocupados = tarjetas().map(function (c) { return +c.dataset.idx; }), mejor = -1;
+                items.forEach(function (it, i) {
+                    if (!it.foto || ocupados.indexOf(i) !== -1) return;
+                    if (mejor === -1 || (mostrado[i] || 0) < (mostrado[mejor] || 0)) mejor = i;
+                });
+                return mejor;
+            }
+            function programar() { estado.timer = setTimeout(tick, INTERVALO); }
+
+            function tick() {
+                // Se salió del menú (SPA): se apaga del todo.
+                if (!document.body.contains(track)) { estado.io && estado.io.disconnect(); if (window.__catRot === estado) window.__catRot = null; return; }
+                var lista = tarjetas();
+                var aLaVista = parseInt(getComputedStyle(grid).getPropertyValue('--cat-vis'), 10) || 1;
+                if (document.hidden || !estado.enVista || grid.matches(':hover') || lista.length <= aLaVista) { programar(); return; }
+                var primera = lista[0];
+                var paso = primera.getBoundingClientRect().width + (parseFloat(getComputedStyle(track).columnGap) || 0);
+                track.style.transition = 'transform ' + DESLIZ + 'ms ease';
+                track.style.transform = 'translateX(' + (-paso) + 'px)';
+                setTimeout(function () {
+                    // Sin transición: la primera pasa al final y la tira vuelve a su sitio en el
+                    // mismo cuadro, así el salto no se ve.
+                    track.style.transition = 'none';
+                    track.appendChild(primera);
+                    track.style.transform = '';
+                    rellenar(primera);
+                    programar();
+                }, DESLIZ);
+            }
+
+            // La tarjeta que quedó al final (fuera de la vista) toma el siguiente modelo.
+            function rellenar(card) {
+                var idx = siguiente();
+                if (idx === -1) return;
+                var it = items[idx], pre = new Image();
+                pre.onload = function () {
+                    var foto = card.querySelector('.cat-mini-photo'), img = foto.querySelector('img');
+                    if (!img) {   // la tarjeta tenía el ícono de "sin foto": se le pone su <img>
+                        img = document.createElement('img');
+                        img.decoding = 'async';
+                        var ph = foto.querySelector('.placeholder');
+                        if (ph) ph.replaceWith(img); else foto.prepend(img);
+                    }
+                    img.style.opacity = 1;
+                    img.alt = it.modelo;
+                    img.src = it.foto;   // ya precargada: sale de la caché
+                    card.querySelector('.cat-mini-anio').textContent = it.anio;
+                    card.querySelector('.cat-mini-modelo').textContent = it.titulo;
+                    card.querySelector('.cat-mini-specs').textContent = it.specs;
+                    card.dataset.idx = idx;
+                    mostrado[idx] = Date.now();
+                };
+                pre.onerror = function () { mostrado[idx] = Infinity; };   // foto rota: no se vuelve a intentar
+                pre.src = it.foto;
+            }
+
+            programar();
+        })();
 
         // Animación del modal de recepción directa
         (function () {

@@ -225,6 +225,9 @@
         transition:opacity .15s ease-in-out, visibility .15s ease-in-out; z-index:9001; margin-bottom:5px;
     }
     .alm-table .alm-tip-sep    { border-top:1px solid rgba(255,255,255,.2); margin:7px 0; }
+    /* Cierre de la lista de equipos cuando hay mas de los que se muestran: es una nota, no
+       un equipo mas, asi que va mas chica y apagada. */
+    .alm-table .alm-tip-mas    { font-size:12px; font-weight:600; color:#cbd5e1; font-style:italic; }
     .alm-table .alm-tip-flecha { position:absolute; top:100%; left:30px; margin-left:-4px;
                                  border-width:4px; border-style:solid;
                                  border-color:#1e293b transparent transparent transparent; }
@@ -429,7 +432,7 @@
     /* font-family:inherit — los <button> NO heredan la fuente del body por defecto:
        sin esto el texto salía en la fuente del navegador (Arial) y desentonaba con
        el resto de la app (Nunito). Sin mayúsculas forzadas: se lee tal cual se escribe. */
-    .alm-det-act { display:flex; align-items:center; gap:10px; width:100%; text-align:left; background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:8px 12px; font-family:inherit; font-size:14px; font-weight:600; color:#334155; cursor:default; transition:background .15s, border-color .15s; }
+    .alm-det-act { display:flex; align-items:center; gap:10px; width:100%; text-align:left; background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:8px 12px; font-family:inherit; font-size:13px; font-weight:500; color:#0f172a; cursor:default; transition:background .15s, border-color .15s; }
     .alm-det-act:hover { background:#f8fafc; border-color:#cbd5e0; }
     .dropdown-item-custom:hover { background: #f8fafc !important; }
     .alm-det-ic { width:30px; height:30px; border-radius:8px; display:flex; align-items:center; justify-content:center; flex:0 0 auto; }
@@ -483,6 +486,30 @@
     .alm-firm-fila { display:flex; gap:6px; }
     .alm-firm-fila > * { flex:1 1 0; min-width:0; }
     .alm-firm-bloque input { width:100%; box-sizing:border-box; }
+    /* Logística del almacén (modal "Editar almacén"): choferes y vehículos en el mismo bloque
+       que los firmantes, un renglón editable por persona o vehículo con su × al final. */
+    .alm-log-cab { display:flex; align-items:center; justify-content:space-between; }
+    .alm-log-filas { display:flex; flex-direction:column; gap:5px; }
+    .alm-log-fila { align-items:center; }
+    /* La placa o la cédula caben en 100px: el resto es para la descripción, que en el teléfono
+       se cortaba ("CAMIONETA TOYOTA H…") repartiendo el ancho por proporción. */
+    .alm-log-fila > input[data-campo="documento"] { flex:0 0 100px; }
+    @media (max-width: 480px) {
+        #almAlmacenModal .alm-log-fila input { font-size:13px; padding-left:8px; padding-right:8px; }
+        .alm-log-fila > input[data-campo="documento"] { flex-basis:90px; }
+    }
+    .alm-log-fila > .alm-det-quitar { flex:0 0 auto; }
+    .alm-log-vacio { font-size:12px; color:#64748b; font-style:italic; }
+    /* Transporte de la salida: en la lista de sugerencias, el nombre a la izquierda y la
+       cédula o placa a la derecha, agrupados por de dónde salen (lista del almacén / flota). */
+    .alm-log-grupo { padding:6px 12px 3px; font-size:10.5px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:.4px; }
+    .alm-suggest-inline .alm-log-item { justify-content:space-between; padding:8px 12px; }
+    .alm-log-nom { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; color:#0f172a; }
+    .alm-log-doc { flex:0 0 auto; font-size:12px; font-weight:700; color:#475569; font-variant-numeric:tabular-nums; }
+    /* Se guardan en mayúsculas (LogisticaAlmacenService): se ven así mientras se escriben. El
+       ejemplo del campo no: "EJ: CAMIONETA TOYOTA HILUX" parecía un valor ya escrito. */
+    #almSalidaVehiculo, #almSalidaPlaca, #almSalidaChofer, .alm-log-fila input { text-transform:uppercase; }
+    #almSalidaVehiculo::placeholder, #almSalidaPlaca::placeholder, #almSalidaChofer::placeholder, .alm-log-fila input::placeholder { text-transform:none; }
     /* Renglón de ayuda bajo un campo del modal de almacén. Era el mismo style="" repetido
        campo por campo; como clase, cambiarlo una vez los cambia todos. */
     .alm-hint { font-size:11.5px; color:#94a3b8; margin-top:5px; }
@@ -588,48 +615,64 @@
        pizarra #1e293b, título blanco con su ícono azul, centrado, y la X fija en la esquina. */
     .alm-modal-head { padding: 14px 48px; background: #1e293b; display: flex; align-items: center; justify-content: center; position: relative; }
     .alm-modal-head h3 { margin: 0; font-size: 15px; font-weight: 800; color: #fff; display: flex; align-items: center; gap: 8px; text-align: center; }
-    .alm-modal-head h3 .material-icons { color: #0067b1; }
+    .alm-modal-head h3 .material-icons { color: #fff; }
     .alm-modal-head .alm-x { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #fff; opacity: .75; }
     .alm-modal-head .alm-x:hover { color: #fff; opacity: 1; }
     /* "Detalles del producto": un poco menos de hueco que los demás (16px) antes de "Ubicación
        en estante..." — con 6px quedaba pegado al encabezado. Su ícono, en blanco. */
     #almDetalleModal .alm-modal-body { padding-top: 14px; }
-    #almDetalleModal .alm-modal-head h3 .material-icons { color: #fff; }
     /* Compatibilidad en "Detalles del producto": números de parte y equipos que lo usan, con
        + para agregar y × para quitar (solo con almacen.productos). Todo en texto oscuro sobre
        gris claro: el azul queda para los botones. */
     #almDetCompat { border-top: 1px solid #f1f5f9; padding-top: 12px; display: flex; flex-direction: column; gap: 12px; }
     .alm-det-sec-cab { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
-    .alm-det-sec-tit { font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: .4px; display: flex; align-items: center; gap: 6px; }
-    .alm-det-sec-tit .material-icons { font-size: 16px; color: #475569; }
+    .alm-det-sec-tit { font-size: 12.5px; font-weight: 500; color: #0f172a; text-transform: uppercase; letter-spacing: .4px; display: flex; align-items: center; gap: 6px; }
+    /* Toda la ficha con la letra de la app: los <input> traen la del sistema si no se les dice. */
+    #almDetalleModal, #almDetalleModal input, #almDetalleModal button { font-family: inherit; }
+    #almDetalleModal label[for="almDetUbicacion"] { font-size: 12.5px; font-weight: 500; color: #0f172a; text-transform: uppercase; letter-spacing: .4px; }
+    #almDetUbicacion { font-size: 12.5px; font-weight: 500; color: #0f172a; }
+    .alm-det-sec-tit .material-icons { font-size: 16px; color: #0f172a; }
     .alm-det-mas { display: inline-flex; align-items: center; gap: 2px; border: none; background: none; padding: 2px 4px; border-radius: 6px;
-                   font: inherit; font-size: 12px; font-weight: 700; color: #0067b1; cursor: pointer; }
+                   font: inherit; font-size: 12.5px; font-weight: 500; color: #0067b1; cursor: pointer; }
     .alm-det-mas:hover { background: #e0f2fe; }
     .alm-det-mas .material-icons { font-size: 16px; }
     .alm-det-chips { display: flex; flex-wrap: wrap; gap: 5px; }
     .alm-det-chip { display: inline-flex; align-items: center; gap: 2px; background: #f1f5f9; color: #0f172a; border: 1px solid #cbd5e1;
-                    border-radius: 6px; padding: 2px 8px; font-size: 12px; font-weight: 700; }
-    .alm-det-lista { display: flex; flex-direction: column; gap: 4px; max-height: 180px; overflow-y: auto; }
+                    border-radius: 6px; padding: 2px 8px; font-size: 12.5px; font-weight: 500; }
+    /* De entrada solo se ven 3 equipos (el resto, con "Ver todos"): un producto con doce
+       vinculos estiraba la ficha hasta dejar los botones de abajo fuera de la pantalla. */
+    .alm-det-lista { display: flex; flex-direction: column; gap: 4px; overflow-y: auto; }
+    .alm-det-lista.corta { max-height: 104px; }
+    .alm-det-lista.abierta { max-height: 190px; }
+    .alm-det-vertodos { align-self: flex-start; margin-top: 4px; border: none; background: none; padding: 2px 4px; border-radius: 6px;
+                        font: inherit; font-size: 12.5px; font-weight: 500; color: #0067b1; cursor: pointer; }
+    .alm-det-vertodos:hover { background: #e0f2fe; }
+    /* Los números de parte tampoco crecen sin fin: dos filas de fichas y a abrir. */
+    .alm-det-chips.corta { max-height: 52px; overflow: hidden; }
     .alm-det-eq { display: flex; align-items: center; gap: 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 7px; padding: 6px 9px; }
     /* Ancho fijo para que los modelos queden en columna aunque el tipo sea largo (el nombre
        completo va en el title). */
-    .alm-det-eq-tipo { flex: 0 0 120px; font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase;
+    .alm-det-eq-tipo { flex: 0 0 120px; font-size: 12.5px; font-weight: 500; color: #0f172a; text-transform: uppercase;
                        overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .alm-det-eq-mod { font-size: 12.5px; font-weight: 700; color: #0f172a; flex: 1; min-width: 0; }
-    .alm-det-eq-dato { font-size: 11px; font-weight: 700; color: #475569; }
-    .alm-det-eq-etapa { font-size: 11px; font-weight: 700; color: #334155; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 5px; padding: 1px 7px; }
+    .alm-det-eq-mod { font-size: 12.5px; font-weight: 500; color: #0f172a; flex: 1; min-width: 0; }
+    .alm-det-eq-dato { font-size: 12.5px; font-weight: 500; color: #0f172a; }
+    .alm-det-eq-etapa { font-size: 12.5px; font-weight: 500; color: #0f172a; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 5px; padding: 1px 7px; }
     .alm-det-quitar { display: inline-flex; border: none; background: none; padding: 0; margin-left: 2px; color: #64748b; cursor: pointer; }
     .alm-det-quitar:hover { color: #dc2626; }
     .alm-det-quitar .material-icons { font-size: 15px; }
     /* Formularios en línea del + : caja y botón, sin salir del modal. */
     .alm-det-form { position: relative; display: flex; gap: 6px; margin-top: 6px; }
-    .alm-det-form input { flex: 1; min-width: 0; height: 32px; padding: 0 9px; }
+    .alm-det-form input { flex: 1; min-width: 0; height: 32px; padding: 0 9px; font: inherit; font-size: 13px; }
     .alm-det-form .btn-primary-maquinaria { padding: 0 14px; height: 32px; border-radius: 8px; font-size: 13px; }
     .alm-det-sug { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 5; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px;
                    box-shadow: 0 10px 22px rgba(15,23,42,.14); max-height: 220px; overflow-y: auto; padding: 4px; }
-    .alm-det-sug-item { padding: 7px 9px; border-radius: 6px; cursor: pointer; font-size: 12.5px; color: #0f172a; }
+    /* Cada sugerencia se ve IGUAL que un equipo ya vinculado (misma rejilla tipo + modelo,
+       mismos tamanos y pesos): antes el tipo y el modelo iban pegados en una sola linea con
+       otra letra y la lista parecia de otra pantalla. */
+    .alm-det-sug-item { display: flex; align-items: center; gap: 8px; padding: 6px 9px; border-radius: 6px; cursor: pointer; }
     .alm-det-sug-item:hover { background: #e0f2fe; }
-    .alm-det-sug-item b { font-size: 11px; color: #475569; text-transform: uppercase; margin-right: 6px; }
+    .alm-det-sug-item .alm-det-eq-tipo { flex: 0 0 110px; }
+    .alm-det-sug-vacio, .alm-det-msg, .alm-det-form input { font-size: 12.5px; }
     .alm-det-sug-vacio { padding: 8px 9px; font-size: 12px; color: #64748b; font-style: italic; }
     /* `hidden` tiene que ganarle al display:flex de arriba (y la lista sin sugerencias no se ve). */
     #almDetCompat[hidden], .alm-det-form[hidden], .alm-det-sug:empty { display: none; }
@@ -1020,6 +1063,7 @@
            selector pesa más (dos clases + dos tipos) le ganaba a su estilo de tarjeta Y al
            [hidden], dejando el desglose abierto de entrada en el teléfono y con el formato
            del empty-state. Excluirlo aquí es más seguro que subir la especificidad del otro
+           lado, que es una carrera que se vuelve a perder al siguiente selector. Por lo
            lado, que es una carrera que se vuelve a perder al siguiente selector. */
         .alm-table tbody tr:not(.alm-row):not(.alm-row-bolsas) {
             display: block !important;
@@ -1318,7 +1362,7 @@
                 </tr>
             </thead>
             <tbody id="almTableBody">
-                @include('admin.almacen.partials.table_rows', ['productos' => $productos, 'almacen' => $almacenSel, 'inicial' => true])
+                @include('admin.almacen.partials.table_rows', ['productos' => $productos, 'almacen' => $almacenSel, 'inicial' => true, 'reparto' => $repartoInicial])
             </tbody>
         </table>
     </div>
@@ -1852,6 +1896,30 @@
                     </div>
                 </div>
             </div>
+            {{-- Logística: los choferes y vehículos con que despacha este almacén. La salida los
+                 sugiere en su bloque Transporte (LogisticaAlmacenService) y se imprimen en "Datos
+                 del vehículo / Datos del chofer" de la nota. Se guardan con el resto del modal;
+                 además, una salida con un chofer o vehículo nuevo lo agrega sola. --}}
+            <div>
+                <label>Logística de la Nota de Entrega <span class="alm-opc">(opcional)</span></label>
+                <div class="alm-firmantes">
+                    <div class="alm-firm-bloque">
+                        <div class="alm-log-cab">
+                            <span class="alm-firm-rol">CHOFERES</span>
+                            <button type="button" class="alm-det-mas" onclick="window.almNvLogAgregar('choferes')"><i class="material-icons">add</i>Agregar</button>
+                        </div>
+                        <div id="almNvLogChoferes" class="alm-log-filas"></div>
+                    </div>
+                    <div class="alm-firm-bloque">
+                        <div class="alm-log-cab">
+                            <span class="alm-firm-rol">VEHÍCULOS</span>
+                            <button type="button" class="alm-det-mas" onclick="window.almNvLogAgregar('vehiculos')"><i class="material-icons">add</i>Agregar</button>
+                        </div>
+                        <div id="almNvLogVehiculos" class="alm-log-filas"></div>
+                    </div>
+                </div>
+                <div class="alm-hint">La salida los sugiere junto con los vehículos con placa de los frentes del almacén.</div>
+            </div>
             <div id="almNvFrentesWrap">
                 <label for="almNvFrentesInput">Frentes que usan este almacén</label>
                 <div class="custom-multiselect" id="almNvFrentesSelect">
@@ -2054,6 +2122,7 @@
                         <button type="button" class="alm-det-mas alm-det-solo-edita" onclick="window.almDetParteAbrir()"><i class="material-icons">add</i>Agregar</button>
                     </div>
                     <div id="almDetPartes" class="alm-det-chips"></div>
+                    <button type="button" id="almDetPartesVerTodos" class="alm-det-vertodos" hidden onclick="window.almDetVerTodos(this)"></button>
                     <form id="almDetParteForm" class="alm-det-form" hidden onsubmit="event.preventDefault(); window.almDetParteGuardar();">
                         <input type="text" id="almDetParteInput" maxlength="100" autocomplete="off" placeholder="Número de parte" aria-label="Número de parte"
                                onkeydown="if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); window.almDetFormCerrar(); }">
@@ -2066,6 +2135,7 @@
                         <button type="button" class="alm-det-mas alm-det-solo-edita" onclick="window.almDetEquipoAbrir()"><i class="material-icons">add</i>Vincular</button>
                     </div>
                     <div id="almDetEquipos" class="alm-det-lista"></div>
+                    <button type="button" id="almDetEquiposVerTodos" class="alm-det-vertodos" hidden onclick="window.almDetVerTodos(this)"></button>
                     <div id="almDetEquipoForm" class="alm-det-form" hidden>
                         <input type="text" id="almDetEquipoInput" autocomplete="off" placeholder="Buscar tipo, marca o modelo…" aria-label="Buscar equipo"
                                oninput="window.almDetEquipoBuscar()"
@@ -2259,6 +2329,38 @@
                     <input type="text" id="almSalidaDepartamento" class="alm-nota-input" maxlength="150" placeholder="Ej: Mantenimiento" autocomplete="off">
                 </div>
 
+                {{-- TRANSPORTE — lo imprime el bloque "Datos del vehículo / Datos del chofer" de la
+                     nota, que antes salía en blanco. Opcional: lo que quede vacío sale en blanco
+                     para llenarlo a mano. Sugiere la logística del almacén y la flota con placa de
+                     sus frentes (almLogCargar); elegir uno llena los dos campos de su fila. La
+                     lista cuelga de la FILA (no de un campo) para salir a lo ancho de los dos. --}}
+                <div class="alm-modal-grid alm-modal-grid-2" style="display:grid;grid-template-columns:1.6fr 1fr;gap:10px;margin-bottom:10px;">
+                    <div>
+                        <label class="alm-nota-label" for="almSalidaVehiculo">Vehículo</label>
+                        <input type="text" id="almSalidaVehiculo" class="alm-nota-input" maxlength="150" placeholder="Ej: Camioneta Toyota Hilux" autocomplete="off"
+                               data-log="vehiculos" oninput="window.almLogSugerir(this)" onfocus="window.almLogSugerir(this, true)">
+                    </div>
+                    <div>
+                        <label class="alm-nota-label" for="almSalidaPlaca">Placa</label>
+                        <input type="text" id="almSalidaPlaca" class="alm-nota-input" maxlength="30" placeholder="Ej: A05EC1G" autocomplete="off"
+                               data-log="vehiculos" oninput="window.almLogSugerir(this)" onfocus="window.almLogSugerir(this, true)">
+                    </div>
+                    <div class="alm-suggest-inline alm-suggest-float" id="almSalidaVehiculosSug"></div>
+                </div>
+                <div class="alm-modal-grid alm-modal-grid-2" style="display:grid;grid-template-columns:1.6fr 1fr;gap:10px;margin-bottom:10px;">
+                    <div>
+                        <label class="alm-nota-label" for="almSalidaChofer">Chofer</label>
+                        <input type="text" id="almSalidaChofer" class="alm-nota-input" maxlength="150" placeholder="Nombre y apellido" autocomplete="off"
+                               data-log="choferes" oninput="window.almLogSugerir(this)" onfocus="window.almLogSugerir(this, true)">
+                    </div>
+                    <div>
+                        <label class="alm-nota-label" for="almSalidaCedula">Cédula del chofer</label>
+                        <input type="text" id="almSalidaCedula" class="alm-nota-input" maxlength="30" placeholder="Ej: 17.902.185" autocomplete="off"
+                               data-log="choferes" oninput="window.almLogSugerir(this)" onfocus="window.almLogSugerir(this, true)">
+                    </div>
+                    <div class="alm-suggest-inline alm-suggest-float" id="almSalidaChoferesSug"></div>
+                </div>
+
                 {{-- OBSERVACIONES (full width) — campo libre de la Nota de Entrega
                      (mapea a MOTIVO en BD). Se envía siempre en el flujo unificado: tanto
                      en SALIDA pura (consumo) como en SALIDA vía traspaso a otro proyecto. --}}
@@ -2408,10 +2510,11 @@
     var _almInitParams = (function () { try { return new URLSearchParams(window.location.search); } catch (e) { return new URLSearchParams(); } })();
     var soloConSaldo = false; // atajo "Con stock" — el usuario lo enciende explicitamente
     var soloBajo     = false; // atajo "Stock bajo" — el usuario lo enciende explicitamente
-    // "Ver todo el stock" (acción explícita): la tabla arranca VACÍA y solo muestra
-    // inventario cuando hay un filtro. "Ver todo" es la ÚNICA forma de pedir TODO sin
-    // filtro, así que manda ver_todo=1. Lo enciende almVerTodo(); cualquier otra recarga
-    // (sin opts.verTodo) lo apaga; la auto-carga (append) lo conserva.
+    // "Ver todo el stock" (acción explícita): sin filtros la tabla muestra solo los últimos
+    // productos que se movieron (AlmacenController::productosRecientes), así que "Ver todo" es
+    // la ÚNICA forma de pedir TODO el inventario, y manda ver_todo=1. Lo enciende
+    // almVerTodo(); cualquier otra recarga (sin opts.verTodo) lo apaga; la auto-carga
+    // (append) lo conserva.
     var almVerTodoActivo = false;
     (function () {
         if (!_almInitParams.has('solo_bajo') && !_almInitParams.has('solo_con_saldo')) return;
@@ -4461,11 +4564,37 @@
                 + quitar('onclick="window.almDetEquipoQuitar(' + i + ')"', 'Desvincular este equipo')
                 + '</div>';
         }).join('');
+        // "Ver todos (N)" solo si hay mas de los que caben; al abrir la ficha siempre arranca
+        // recogida, aunque la vez anterior se hubiera abierto.
+        almDetListaCorta('almDetEquipos', 'almDetEquiposVerTodos', equipos.length, 3);
+        almDetListaCorta('almDetPartes', 'almDetPartesVerTodos', partes.length, 6);
         document.querySelectorAll('#almDetCompat .alm-det-solo-edita').forEach(function (b) { b.hidden = !edita; });
         el('almDetPartesWrap').hidden = !(edita || partes.length);
         el('almDetEquiposWrap').hidden = !(edita || equipos.length);
         el('almDetCompat').hidden = !!oculta || !(edita || partes.length || equipos.length);
     }
+    // Recoge una lista larga de la ficha y pone (o quita) su "Ver todos (N)".
+    function almDetListaCorta(idLista, idBoton, total, tope) {
+        var lista = el(idLista), btn = el(idBoton); if (!lista || !btn) return;
+        var largo = total > tope;
+        lista.classList.toggle('corta', largo);
+        lista.classList.remove('abierta');
+        btn.hidden = !largo;
+        btn.dataset.abierta = '';
+        btn.dataset.lista = idLista;
+        btn.dataset.total = total;
+        btn.textContent = largo ? ('Ver todos (' + total + ')') : '';
+    }
+    // El botón alterna entre las tres primeras y todas (con su propio scroll).
+    window.almDetVerTodos = function (btn) {
+        var lista = el(btn.dataset.lista); if (!lista) return;
+        var abierta = btn.dataset.abierta === '1';
+        btn.dataset.abierta = abierta ? '' : '1';
+        lista.classList.toggle('corta', abierta);
+        lista.classList.toggle('abierta', !abierta);
+        btn.textContent = abierta ? ('Ver todos (' + btn.dataset.total + ')') : 'Ver menos';
+    };
+
     function almDetCompatMsg(texto) {
         var m = el('almDetCompatMsg'); if (!m) return;
         m.textContent = texto || ''; m.hidden = !texto;
@@ -4557,7 +4686,8 @@
                     box.innerHTML = ops.length
                         ? ops.map(function (o, i) {
                             return '<div class="alm-det-sug-item" onclick="window.almDetEquipoVincular(' + i + ')">'
-                                + '<b>' + esc(o.tipo) + '</b>' + esc(o.modelo) + '</div>';
+                                + '<span class="alm-det-eq-tipo" title="' + esc(o.tipo) + '">' + esc(o.tipo) + '</span>'
+                                + '<span class="alm-det-eq-mod">' + esc(o.modelo) + '</span></div>';
                           }).join('')
                         : '<div class="alm-det-sug-vacio">Ningún equipo coincide' + (q ? ' con «' + esc(q) + '»' : '') + '.</div>';
                 })
@@ -4875,6 +5005,7 @@
     // invalido al renderizar la vista.
     var ROUTE_ALM = @json(route('almacen.almacenes.store'));
     function ROUTE_ALM_ITEM(id) { return ROUTE_INDEX + '/almacenes/' + id; }
+    function ROUTE_ALM_LOGISTICA(id) { return ROUTE_ALM_ITEM(id) + '/logistica'; }
     function ROUTE_PROD_ITEM(id) { return ROUTE_INDEX + '/productos/' + id; }
     // Datos de los almacenes visibles (para el modal de edición): { id: {NOMBRE,TIPO,CODIGO,UBICACION,frentes:[ids]} }
     window.almAlmacenesData = @json($almacenesData);
@@ -5048,8 +5179,64 @@
         }
         window.almNvFrentesUpdate();
     }
+    // Logística del almacén en el modal: una fila editable por chofer o vehículo. Se manda al
+    // guardar SOLO si se terminó de cargar (ALM_NV_LOG_LISTA): guardar una lista que no llegó
+    // borraría la del almacén.
+    var ALM_NV_LOG_LISTA = false;
+    var ALM_NV_LOG = {
+        choferes:  { caja: 'almNvLogChoferes',  doc: 'Cédula', max: 30, vacio: 'Sin choferes.' },
+        vehiculos: { caja: 'almNvLogVehiculos', doc: 'Placa',  max: 30, vacio: 'Sin vehículos.' }
+    };
+    function almNvLogFila(tipo, it) {
+        var cfg = ALM_NV_LOG[tipo];
+        return '<div class="alm-firm-fila alm-log-fila">'
+            + '<input type="text" data-campo="nombre" maxlength="150" autocomplete="off" aria-label="' + (tipo === 'choferes' ? 'Nombre del chofer' : 'Vehículo') + '"'
+            +   ' placeholder="' + (tipo === 'choferes' ? 'Nombre y apellido' : 'Tipo, marca y modelo') + '" value="' + escHtml(it.nombre || '') + '">'
+            + '<input type="text" data-campo="documento" maxlength="' + cfg.max + '" autocomplete="off" aria-label="' + cfg.doc + '" placeholder="' + cfg.doc + '" value="' + escHtml(it.documento || '') + '">'
+            + '<button type="button" class="alm-det-quitar" title="Quitar" onclick="window.almNvLogQuitar(this)"><i class="material-icons">close</i></button>'
+            + '</div>';
+    }
+    function almNvLogPintar(tipo, lista) {
+        var caja = el(ALM_NV_LOG[tipo].caja); if (!caja) return;
+        caja.innerHTML = lista.length ? lista.map(function (it) { return almNvLogFila(tipo, it); }).join('')
+            : '<div class="alm-log-vacio">' + ALM_NV_LOG[tipo].vacio + '</div>';
+    }
+    window.almNvLogAgregar = function (tipo) {
+        var caja = el(ALM_NV_LOG[tipo].caja); if (!caja) return;
+        var vacio = caja.querySelector('.alm-log-vacio'); if (vacio) vacio.remove();
+        caja.insertAdjacentHTML('beforeend', almNvLogFila(tipo, {}));
+        caja.lastElementChild.querySelector('input').focus();
+    };
+    window.almNvLogQuitar = function (btn) {
+        var caja = btn.closest('.alm-log-filas');
+        btn.closest('.alm-log-fila').remove();
+        if (caja && !caja.querySelector('.alm-log-fila')) {
+            almNvLogPintar(caja.id === ALM_NV_LOG.choferes.caja ? 'choferes' : 'vehiculos', []);
+        }
+    };
+    function almNvLogLeer(tipo) {
+        return Array.prototype.map.call(document.querySelectorAll('#' + ALM_NV_LOG[tipo].caja + ' .alm-log-fila'), function (f) {
+            return { nombre: f.querySelector('[data-campo="nombre"]').value.trim(), documento: f.querySelector('[data-campo="documento"]').value.trim() };
+        }).filter(function (x) { return x.nombre || x.documento; });
+    }
+    function almNvLogCargar(id) {
+        ALM_NV_LOG_LISTA = false;
+        window.apiFetch(ROUTE_ALM_LOGISTICA(id), { headers: { 'Accept': 'application/json' } })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (d) {
+                if (!d || el('almAlmacenModal').dataset.idAlmacen !== String(id)) return;
+                // Solo las de la lista del almacén: la flota se sugiere sola y no se edita aquí.
+                var propias = function (l) { return (l || []).filter(function (x) { return x.origen === 'almacen'; }); };
+                almNvLogPintar('choferes', propias(d.choferes));
+                almNvLogPintar('vehiculos', propias(d.vehiculos));
+                ALM_NV_LOG_LISTA = true;
+            })
+            .catch(function () {});
+    }
     function almResetAlmacenModal() {
         delete el('almAlmacenModal').dataset.idAlmacen;
+        almNvLogPintar('choferes', []); almNvLogPintar('vehiculos', []);
+        ALM_NV_LOG_LISTA = true;   // almacén nuevo: su lista es la vacía de arriba
         el('almNvNombre').value = ''; el('almNvUbicacion').value = '';
         if (el('almNvAlmacenista'))      el('almNvAlmacenista').value = '';
         if (el('almNvCargoAlmacenista')) el('almNvCargoAlmacenista').value = '';
@@ -5097,6 +5284,7 @@
         almNvTipoSelect(tipo, tipo === 'GENERAL' ? 'General (almacén central)' : 'Proyecto (Limitado a frentes específicos)');
         almNvSetFrentes(d.frentes || []);
         window.almToggleFrentes();
+        almNvLogCargar(id);
         almCerrar('almAdminAlmacenesModal');
         almOpen('almAlmacenModal'); setTimeout(almNvEnfocarNombre, 60);
     };
@@ -5141,6 +5329,12 @@
             frentes:           frentes
         };
         ALM_FIRMANTES_CAMPOS.forEach(function (c) { cuerpo[c.col] = val(c.id) || null; });
+        if (ALM_NV_LOG_LISTA) {
+            var logistica = { choferes: almNvLogLeer('choferes'), vehiculos: almNvLogLeer('vehiculos') };
+            var incompleto = logistica.choferes.concat(logistica.vehiculos).filter(function (x) { return !x.nombre || !x.documento; })[0];
+            if (incompleto) { _fail('En la logística, cada chofer lleva nombre y cédula y cada vehículo, descripción y placa.'); return; }
+            cuerpo.logistica = logistica;
+        }
 
         var url = id ? ROUTE_ALM_ITEM(id) : ROUTE_ALM;
         pre();
@@ -5571,6 +5765,69 @@
         var g1 = el('almSalidaGridProyecto'); if (g1) g1.style.gridTemplateColumns = horizontal ? '1fr' : '2fr 1fr';
         var g2 = el('almSalidaGridDatos');    if (g2) g2.style.gridTemplateColumns = horizontal ? '1fr 1.4fr' : '1fr 1fr 1.4fr';
     }
+    // ── Transporte de la salida: vehículo + placa y chofer + cédula ──
+    // Campo del modal → campo que manda el payload (MovimientoInventario::CAMPOS_TRANSPORTE) y
+    // lista a la que pertenece. ÚNICO sitio que los empareja: lo usan el reset, el payload y
+    // las sugerencias.
+    var ALM_LOG_CAMPOS = [
+        { id: 'almSalidaVehiculo', campo: 'transporte_vehiculo', lista: 'vehiculos', parte: 'nombre' },
+        { id: 'almSalidaPlaca',    campo: 'transporte_placa',    lista: 'vehiculos', parte: 'documento' },
+        { id: 'almSalidaChofer',   campo: 'transporte_chofer',   lista: 'choferes',  parte: 'nombre' },
+        { id: 'almSalidaCedula',   campo: 'transporte_cedula',   lista: 'choferes',  parte: 'documento' }
+    ];
+    // Sugerencias del almacén que despacha (las pide cada vez que se abre la salida: una nota
+    // registrada recién pudo agregar un chofer). Si llegan tarde de otro almacén, se descartan.
+    var ALM_LOG = { idAlmacen: '', choferes: [], vehiculos: [] };
+    function almLogCargar(idAlmacen) {
+        ALM_LOG = { idAlmacen: String(idAlmacen || ''), choferes: [], vehiculos: [] };
+        if (!idAlmacen) return;
+        window.apiFetch(ROUTE_ALM_LOGISTICA(idAlmacen), { headers: { 'Accept': 'application/json' } })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (d) {
+                if (!d || ALM_LOG.idAlmacen !== String(idAlmacen)) return;
+                ALM_LOG.choferes = d.choferes || []; ALM_LOG.vehiculos = d.vehiculos || [];
+            })
+            .catch(function () { /* sin sugerencias el transporte se escribe a mano */ });
+    }
+    function almLogOcultar() {
+        ['almSalidaVehiculosSug', 'almSalidaChoferesSug'].forEach(function (id) { var b = el(id); if (b) b.classList.remove('open'); });
+    }
+    // Lista de su fila, filtrada por lo escrito (nombre o documento). Al entrar a un campo
+    // vacío se ve entera. Sin nada que sugerir no se abre: el campo sigue siendo libre.
+    window.almLogSugerir = function (inp, alEntrar) {
+        var tipo = inp.getAttribute('data-log'), lista = ALM_LOG[tipo] || [];
+        var box = el(tipo === 'choferes' ? 'almSalidaChoferesSug' : 'almSalidaVehiculosSug');
+        if (!box) return;
+        almLogOcultar();
+        if (!lista.length) return;
+        var term = almNorm(inp.value.trim());
+        var html = '', grupo = '', n = 0;
+        lista.forEach(function (it, i) {
+            if (n >= 80 || !(alEntrar && !term || almNorm(it.nombre + ' ' + it.documento).indexOf(term) > -1)) return;
+            var g = it.origen === 'flota' ? 'Flota de los frentes' : 'Logística del almacén';
+            if (g !== grupo) { html += '<div class="alm-log-grupo">' + g + '</div>'; grupo = g; }
+            html += '<div class="si-item alm-log-item" data-log="' + tipo + '" data-i="' + i + '">'
+                + '<span class="alm-log-nom">' + escHtml(it.nombre) + '</span><span class="alm-log-doc">' + escHtml(it.documento) + '</span></div>';
+            n++;
+        });
+        almSuggestApply(box, html, '<div class="alm-suggest-empty">Sin coincidencias: se imprime lo que escribas.</div>');
+    };
+    // Elegir uno llena los dos campos de su fila (nombre y documento).
+    document.addEventListener('click', function (e) {
+        var item = e.target.closest('.alm-log-item');
+        if (item) {
+            e.preventDefault();
+            var tipo = item.getAttribute('data-log'), it = (ALM_LOG[tipo] || [])[parseInt(item.getAttribute('data-i'), 10)];
+            if (it) ALM_LOG_CAMPOS.forEach(function (c) { if (c.lista === tipo) el(c.id).value = it[c.parte] || ''; });
+            almLogOcultar();
+            return;
+        }
+        if (!e.target.closest('[data-log]') && !e.target.closest('#almSalidaVehiculosSug, #almSalidaChoferesSug')) almLogOcultar();
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && e.target.closest && e.target.closest('[data-log]')) almLogOcultar();
+    });
+
     window.almAbrirSalidaModal = function (idAlmacen) {
         ALM_SAL = { idAlmacen: String(idAlmacen || '') };
         // Antes de mostrar nada: el almacén de origen decide qué campos se piden. Va aquí
@@ -5579,6 +5836,8 @@
         almSalidaAplicarFormatoNota(ALM_SAL.idAlmacen);
         // Limpiar campos de Nota de Entrega y poner FECHA = hoy por default.
         ['almSalidaContrato','almSalidaRq','almSalidaSolicitante','almSalidaDepartamento','almSalidaMotivo'].forEach(function (id) { var e = el(id); if (e) e.value = ''; });
+        ALM_LOG_CAMPOS.forEach(function (c) { var e = el(c.id); if (e) e.value = ''; });
+        almLogCargar(ALM_SAL.idAlmacen);
         // El campo Proyecto es un custom-dropdown: lo reseteamos con su helper para que
         // el placeholder vuelva al default y el hidden #almSalidaProyecto quede vacío.
         if (typeof window.clearDropdownFilter === 'function') {
@@ -5863,6 +6122,7 @@
         var solic  = v('almSalidaSolicitante');   if (solic)  payload.solicitante = solic;
         var depto  = v('almSalidaDepartamento');  if (depto)  payload.departamento = depto;
         var motivo = v('almSalidaMotivo');        if (motivo) payload.motivo = motivo;
+        ALM_LOG_CAMPOS.forEach(function (c) { var t = v(c.id); if (t) payload[c.campo] = t; });
         return payload;
     }
 
@@ -6059,9 +6319,10 @@
     };
     @endif
 
-    // La tabla abre VACÍA. Si la URL trae un filtro de contenido (search / categoria /
-    // um / id_producto), se carga al entrar; si no, queda en blanco hasta que el usuario use
-    // un filtro. Con el patron placeholder-background, value="" siempre — leemos del
+    // La tabla ya viene pintada con los últimos productos movidos (el servidor los manda en
+    // la carga inicial). Si la URL trae un filtro de contenido (search / categoria / um /
+    // id_producto), se recarga al entrar para aplicarlo; si no, se queda con esa vista sin
+    // pedir nada más. Con el patron placeholder-background, value="" siempre — leemos del
     // data-active. Incluir almBuscarPickedId garantiza que un link directo del tipo
     // ?id_producto=NNN dispare la carga y pinte el sidebar cruzado "En otros almacenes".
     (function () {

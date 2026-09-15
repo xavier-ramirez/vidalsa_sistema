@@ -2,32 +2,27 @@
 
 namespace App\Services;
 
-use App\Models\AlmacenStock;
 use App\Models\MovimientoInventario;
-use App\Models\ProductoInventario;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use InvalidArgumentException;
 use RuntimeException;
 
 /**
- * Devolución de material entregado con una Nota de Entrega, con cambio opcional.
+ * Devolución de material entregado con una Nota de Entrega.
  *
- * El caso: salen 5 BRAGA TALLA 45 con la nota NE-2026-0123 y a los días las regresan
- * porque era la 42. Lo correcto NO es corregir la nota —esa entrega pasó y se firmó— ni
- * meter una entrada suelta —el consumo seguiría contando las 45 y nadie sabría de dónde
- * volvieron—, sino dejar escrito lo que pasó, el día que pasó:
+ * El caso: salen 5 BRAGA TALLA 45 con la nota NE-2026-0123 y a los días las regresan. Lo
+ * correcto NO es corregir la nota —esa entrega pasó y se firmó— ni meter una entrada suelta
+ * —el consumo seguiría contando las 45 y nadie sabría de dónde volvieron—, sino dejar escrito
+ * lo que pasó, el día que pasó: una DEVOLUCION enlazada a la salida de la nota, que devuelve
+ * el stock a la MISMA bolsa de la que salió y baja el consumo de esa salida
+ * (MovimientoInventario::scopeConDevuelto).
  *
- *   1. Una DEVOLUCION de las 45 enlazada a la salida de la nota: el stock de la 45 vuelve,
- *      a la misma bolsa de la que salió, y el consumo de esa salida baja
- *      (MovimientoInventario::scopeConDevuelto).
- *   2. Si se entrega otro producto a cambio, una SALIDA nueva de la 42 con su propia Nota de
- *      Entrega —la que se firma al entregar—, con el N° de la nota original en REFERENCIA y
- *      en Observaciones.
+ * Si además hay que entregar otra cosa (la talla 42), eso es una salida normal con su propia
+ * Nota: se registra desde el inventario, no desde aquí (decisión del cliente, 14-09-2026).
  *
- * Todo en una transacción: si la 42 no tiene stock no queda una devolución a medias.
+ * Todo en una transacción: o vuelve todo lo indicado, o no vuelve nada.
  */
 class DevolucionService
 {
@@ -90,15 +85,12 @@ class DevolucionService
     /**
      * Registra la devolución.
      *
-     * $lineas: [['id_producto', 'cantidad', 'id_producto_cambio'?, 'cantidad_cambio'?], …]
-     *          —un producto por línea; sin cambio, solo vuelve el material.
+     * $lineas: [['id_producto', 'cantidad'], …] — un producto por línea.
      * $datos : 'motivo', 'id_usuario'. La fecha es la de hoy.
-     *
-     * @return string|null  N° de la Nota de Entrega de lo entregado a cambio, si hubo cambio.
      */
-    public function registrar(string $numero, array $lineas, array $datos): ?string
+    public function registrar(string $numero, array $lineas, array $datos): void
     {
-        return DB::transaction(function () use ($numero, $lineas, $datos) {
+        DB::transaction(function () use ($numero, $lineas, $datos) {
             // La nota entera bloqueada ANTES de leer lo ya devuelto: dos devoluciones a la vez
             // (doble clic, dos pestañas) quedan en fila y la segunda ve lo que registró la
             // primera, así que nunca se devuelve dos veces lo mismo. eliminarNota toma el
@@ -119,17 +111,10 @@ class DevolucionService
             $motivoDevolucion = $this->texto($datos['motivo'] ?? null);
             $idUsuario        = $datos['id_usuario'] ?? null;
 
-            // Nota de la entrega a cambio: UNA para todos los productos que se cambian, como
-            // cualquier salida de varias líneas. Solo se genera si hay algún cambio.
-            $hayCambio    = collect($lineas)->contains(fn ($l) => !empty($l['id_producto_cambio']));
-            $numeroCambio = $hayCambio ? MovimientoInventario::generarNumeroNota() : null;
-
             // Primero se PLANIFICA todo y después se ejecuta ordenado por producto. Cada paso
             // bloquea la fila de stock de su producto; recorrerlos siempre en el mismo orden
             // (el que usa registrarMovimientoLote) evita el deadlock con una salida que esté
-            // tocando los mismos productos al revés. En un mismo producto la devolución va
-            // antes que la salida: si alguien cambia 42 por 45 y otro 45 por 42 en la misma
-            // nota, el stock que vuelve es el que se entrega.
+            // tocando los mismos productos al revés.
             $pasos = [];
             foreach ($lineas as $linea) {
                 $idProducto = (int) $linea['id_producto'];
@@ -153,21 +138,6 @@ class DevolucionService
                     ));
                 }
 
-                // Cambio por otro producto (opcional).
-                $idCambio = !empty($linea['id_producto_cambio']) ? (int) $linea['id_producto_cambio'] : null;
-                $cambio   = null;
-                if ($idCambio !== null) {
-                    if ($idCambio === $idProducto) {
-                        throw new InvalidArgumentException("El producto a cambio de «{$nombre}» es el mismo que se devuelve.");
-                    }
-                    $cantCambio = round((float) ($linea['cantidad_cambio'] ?? 0) ?: $cantidad, 3);
-                    if ($cantCambio <= self::EPS) {
-                        throw new InvalidArgumentException("La cantidad a entregar a cambio de «{$nombre}» debe ser mayor que cero.");
-                    }
-                    $cambio = ['id' => $idCambio, 'cantidad' => $cantCambio, 'nombre' => ProductoInventario::whereKey($idCambio)->value('NOMBRE')];
-                    $pasos[] = ['producto' => $idCambio, 'orden' => 1, 'cambio' => $cambio, 'de' => $nombre];
-                }
-
                 // Lo devuelto vuelve a las filas de la nota empezando por la ÚLTIMA: la salida
                 // en cascada consume primero la bolsa del proyecto y después las prestadas, así
                 // que devolver al revés salda primero lo que se le había tomado a otro.
@@ -178,10 +148,7 @@ class DevolucionService
                         continue;
                     }
                     $tramo = round(min($resto, $libre), 3);
-                    $pasos[] = [
-                        'producto' => $idProducto, 'orden' => 0, 'salida' => $salida, 'cantidad' => $tramo,
-                        'notas'    => $cambio ? "A cambio se entregó {$cambio['nombre']} con la Nota {$numeroCambio}." : null,
-                    ];
+                    $pasos[] = ['producto' => $idProducto, 'salida' => $salida, 'cantidad' => $tramo];
                     $porDevolver[$salida->ID_MOVIMIENTO] = round($libre - $tramo, 3);
                     $resto = round($resto - $tramo, 3);
                     if ($resto <= self::EPS) {
@@ -190,58 +157,15 @@ class DevolucionService
                 }
             }
 
-            usort($pasos, fn ($a, $b) => [$a['producto'], $a['orden']] <=> [$b['producto'], $b['orden']]);
-
-            // Observaciones de la nota del cambio: es lo que se imprime en la hoja que se
-            // firma, así que dice en palabras de qué nota viene.
-            $motivoCambio = Str::limit("Cambio por devolución de la Nota {$numero}" . ($motivoDevolucion ? ": {$motivoDevolucion}" : ''), 200, '');
+            usort($pasos, fn ($a, $b) => $a['producto'] <=> $b['producto']);
 
             foreach ($pasos as $paso) {
-                if ($paso['orden'] === 0) {
-                    $this->inventario->registrarDevolucion($paso['salida'], $paso['cantidad'], [
-                        'fecha'      => $fecha,
-                        'id_usuario' => $idUsuario,
-                        'motivo'     => $motivoDevolucion,
-                        'notas'      => $paso['notas'],
-                    ]);
-                    continue;
-                }
-
-                // Entrega a cambio: una salida normal al mismo proyecto, con los datos de la
-                // nota original (contrato, RQ, quién recibe) para que la hoja nueva salga igual.
-                // Antes, el stock del almacén entero (la salida toma de todas sus bolsas), para
-                // decirlo en palabras; el candado y la cuenta exacta siguen en InventarioService.
-                $hay = round((float) AlmacenStock::where('ID_ALMACEN', $cabecera->ID_ALMACEN)
-                    ->where('ID_PRODUCTO', $paso['cambio']['id'])->sum('CANTIDAD'), 3);
-                if ($hay + self::EPS < $paso['cambio']['cantidad']) {
-                    $um = ProductoInventario::whereKey($paso['cambio']['id'])->value('UM');
-                    throw new InvalidArgumentException(sprintf(
-                        'No hay suficiente %s en %s para entregarlo a cambio: hay %s %s y se necesitan %s.',
-                        $paso['cambio']['nombre'], $cabecera->almacen?->NOMBRE ?? 'el almacén',
-                        $this->num($hay), $um ?? '', $this->num($paso['cambio']['cantidad'])
-                    ));
-                }
-                $this->inventario->registrarSalida(
-                    (int) $cabecera->ID_ALMACEN,
-                    $paso['cambio']['id'],
-                    $paso['cambio']['cantidad'],
-                    [
-                        'fecha'           => $fecha,
-                        'id_frente'       => $cabecera->ID_FRENTE,
-                        'id_usuario'      => $idUsuario,
-                        'numero_nota'     => $numeroCambio,
-                        'numero_contrato' => $cabecera->NUMERO_CONTRATO,
-                        'numero_rq'       => $cabecera->NUMERO_RQ,
-                        'solicitante'     => $cabecera->SOLICITANTE,
-                        'departamento'    => $cabecera->DEPARTAMENTO,
-                        'referencia'      => $numero,
-                        'motivo'          => $motivoCambio,
-                        'notas'           => "Se entrega a cambio de {$paso['de']}.",
-                    ]
-                );
+                $this->inventario->registrarDevolucion($paso['salida'], $paso['cantidad'], [
+                    'fecha'      => $fecha,
+                    'id_usuario' => $idUsuario,
+                    'motivo'     => $motivoDevolucion,
+                ]);
             }
-
-            return $numeroCambio;
         });
     }
 

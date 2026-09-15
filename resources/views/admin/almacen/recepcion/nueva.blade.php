@@ -250,8 +250,10 @@
     /* Botonera del panel: Registrar entrada y, debajo, Cancelar, a todo el ancho (como el
        "Ir a pagar" de una tienda en línea). */
     .ent-foot { display:flex; flex-direction:column; gap:8px; padding:14px 20px 18px; border-top:1px solid #e2e8f0; }
-    /* Los dos del MISMO alto: lo que distingue a Registrar es el color, no el tamaño. */
-    .ent-foot .ent-btn { min-width:0; height:44px; font-size:13.5px; }
+    /* Los dos del MISMO alto: lo que distingue a Registrar es el color, no el tamaño. Letra
+       algo más grande que la de la barra de captura: son los botones que cierran la entrada. */
+    .ent-foot .ent-btn { min-width:0; height:46px; font-size:16px; }
+    .ent-foot .ent-btn .material-icons { font-size:20px; }
     .ent-foot .ent-btn-ok { box-shadow:0 4px 10px rgba(0,103,177,0.25); }
     .ent-btn { height:38px; min-width:130px; padding:0 16px; display:flex; align-items:center; justify-content:center; gap:6px;
         border-radius:10px; font-family:inherit; font-size:13px; font-weight:800; cursor:default; white-space:nowrap; }

@@ -107,6 +107,10 @@ class MovimientoInventario extends Model
         'NUMERO_RQ',
         'SOLICITANTE',
         'DEPARTAMENTO',
+        'TRANSPORTE_VEHICULO',
+        'TRANSPORTE_PLACA',
+        'TRANSPORTE_CHOFER',
+        'TRANSPORTE_CEDULA',
         'NUMERO_NOTA',
         // Plantilla con la que se emitió la Nota (VERTICAL/HORIZONTAL) — se congela al
         // registrar para que el historial reimprima la hoja que se firmó, no la que el
@@ -180,7 +184,8 @@ class MovimientoInventario extends Model
      * Casts:
      *  - CANTIDAD*: decimales con 3 posiciones (matching las columnas DECIMAL(15,3)).
      *  - FECHA: Carbon date.
-     *  - MOTIVO / SOLICITANTE / DEPARTAMENTO / NUMERO_CONTRATO / NUMERO_RQ / NOTAS:
+     *  - MOTIVO / SOLICITANTE / DEPARTAMENTO / NUMERO_CONTRATO / NUMERO_RQ / NOTAS y el
+     *    vehículo y chofer del transporte:
      *    auto-decode mojibake (UTF-8 doble-encoded) al leer — strings limpios pasan
      *    sin tocar. Asi el kardex y los PDFs muestran tildes correctas sin tener
      *    que llamar a un helper manualmente en cada vista.
@@ -196,6 +201,21 @@ class MovimientoInventario extends Model
         'NUMERO_CONTRATO'     => MojibakeFix::class,
         'NUMERO_RQ'           => MojibakeFix::class,
         'NOTAS'               => MojibakeFix::class,
+        'TRANSPORTE_VEHICULO' => MojibakeFix::class,
+        'TRANSPORTE_CHOFER'   => MojibakeFix::class,
+    ];
+
+    /**
+     * Transporte de la Nota de Entrega ("Datos del vehículo / Datos del chofer"): campo del
+     * formulario → columna. ÚNICO sitio que los nombra; lo leen la validación, la salida
+     * directa, el envío a otro almacén (TraspasoService) y el guardado (InventarioService).
+     * Los limpia LogisticaAlmacenService::transporteDe.
+     */
+    public const CAMPOS_TRANSPORTE = [
+        'transporte_vehiculo' => 'TRANSPORTE_VEHICULO',
+        'transporte_placa'    => 'TRANSPORTE_PLACA',
+        'transporte_chofer'   => 'TRANSPORTE_CHOFER',
+        'transporte_cedula'   => 'TRANSPORTE_CEDULA',
     ];
 
     // ── Relaciones ───────────────────────────────────────────────
@@ -289,8 +309,8 @@ class MovimientoInventario extends Model
      * las consultas de CONSUMO para contar SALIDA − DEVOLUCION con SQL_CANTIDAD_NETA.
      *
      * La devolución resta en la fecha de la SALIDA, no en la suya: la braga 45 que se
-     * regresó no se consumió nunca, así que desaparece del mes en que salió y el gráfico
-     * no pinta un mes con consumo negativo. La 42 que se entregó a cambio es una salida
+     * regresó no se consumió nunca, así que desaparece del mes en que salió y el gráfico no
+     * pinta un mes con consumo negativo. Si después se entrega otra talla, esa es una salida
      * nueva y cuenta en el mes en que se entregó, que es cuando se consumió de verdad.
      *
      * Las columnas del derivado (ID_SALIDA, DEVUELTO) no existen en ninguna otra tabla, así
