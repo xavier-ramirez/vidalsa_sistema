@@ -4,6 +4,10 @@
 @php
     $rows    = $productos ?? collect();
     $inicial = $inicial ?? false;
+    // Reparto del saldo por proyecto, [ID_PRODUCTO => filas]. Lo arma el controlador de una
+    // sola consulta para toda la pagina (AlmacenController::repartoDeLaPagina) y llega VACIO
+    // en los almacenes que no separan por proyecto.
+    $reparto = $reparto ?? collect();
     // 6 columnas SIEMPRE: Código · Descripción · Categoría · Stock (con unidad) ·
     // Salida · Detalles. La columna "Salida/Cantidad" se muestra a TODOS; el permiso
     // almacen.movimiento NO oculta la captura — solo bloquea ABRIR la salida y
@@ -62,13 +66,26 @@
             $equipos = $p->relationLoaded('modelosCompatibles')
                 ? $p->modelosCompatibles->map(fn ($m) => ['t' => $m->TIPO, 'm' => $m->marca_equipo ?? null, 'mo' => $m->MODELO])->all()
                 : [];
+            // Saldo repartido en dos proyectos o más: la fila se ve igual que cualquier otra,
+            // pero al seleccionarla el modal «¿De qué proyecto sale?» enseña cuánto tiene cada
+            // uno y pide de cuál se descuenta. Con un solo proyecto no hay nada que elegir.
+            $bolsas     = $reparto->get($p->ID_PRODUCTO, collect());
+            $bolsasJson = $bolsas->count() > 1
+                ? $bolsas->map(fn ($b) => [
+                    'f' => (int) $b->ID_FRENTE,
+                    'n' => \App\Services\InventarioService::rotuloBolsa($b->ID_FRENTE, $b->NOMBRE_FRENTE),
+                    'q' => (float) $b->CANTIDAD,
+                    'c' => \App\Services\InventarioService::esBolsaComun($b->ID_FRENTE, $b->NOMBRE_FRENTE),
+                ])->values()->toJson(JSON_UNESCAPED_UNICODE)
+                : null;
         @endphp
         <tr class="alm-row {{ $bajo ? 'alm-row-bajo' : '' }} alm-row-clickable"
             data-id-producto="{{ $p->ID_PRODUCTO }}" data-codigo="{{ $p->CODIGO }}" data-nombre="{{ $p->NOMBRE }}" data-um="{{ $p->UM }}" data-saldo="{{ $saldo }}"
             data-bajo="{{ $bajo ? '1' : '0' }}" data-minimo="{{ $minimo !== null ? $minimo : '' }}"
             {{-- Con UNA equivalencia es esa; con varias, el almacenista elige cuál entrega
                  (almRowPartePick) antes de poder poner la cantidad. --}}
-            @if($equivs) data-equiv="{{ implode('|', $equivs) }}" data-parte-sel="{{ count($equivs) === 1 ? $equivs[0] : '' }}" @endif>
+            @if($equivs) data-equiv="{{ implode('|', $equivs) }}" data-parte-sel="{{ count($equivs) === 1 ? $equivs[0] : '' }}" @endif
+            @if($bolsasJson) data-bolsas="{{ $bolsasJson }}" @endif>
             <td class="alm-td-codigo">{{ $p->CODIGO }}</td>
             {{-- Descripción + tooltip-bubble con la UBICACION (mismo patrón de /admin/equipos).
                  El tooltip se activa al hover de cualquier parte de la fila por la regla CSS

@@ -528,8 +528,10 @@ class InventarioService
      * Bolsas PROPIAS de una salida: la de $bolsaPreferente y la común, en el orden en que
      * se consumen. De ahí sale material sin tocar el de nadie más.
      *
-     * $bolsaPreferente es la bolsa por la que EMPIEZA el despacho: la del proyecto destino
-     * (ver frenteDelSaldo). Aquí solo se ordena.
+     * $bolsaPreferente es la bolsa por la que EMPIEZA el despacho: normalmente la del
+     * proyecto destino, o la que el usuario eligió en el modal «¿De qué proyecto sale?» de esa
+     * fila cuando un proyecto le presta material a otro (ver frenteDelSaldo). Quien llama ya
+     * resolvió cuál de las dos es — aquí solo se ordena.
      *
      * FUENTE ÚNICA de ese criterio: lo usan la cascada al despachar
      * (aplicarSalidaConCascada, que después sigue con las bolsas ajenas) y la vista previa
@@ -613,6 +615,12 @@ class InventarioService
         // sigue registrando en el kardex el proyecto que recibió (id_frente). Sin esta
         // distinción, el material entregado a un proyecto aparecería en la bitácora como
         // si no fuera de nadie.
+        //
+        // La misma clave llega desde FUERA cuando el usuario elige el proyecto en el modal
+        // «¿De qué proyecto sale?» de la tabla: es el mismo dato —de qué bolsa se descuenta—, y
+        // así una entrega de apoyo (sale del saldo de un proyecto y se entrega a otro)
+        // empieza por la bolsa elegida en vez de por la del destino. Desde ahí la cascada
+        // sigue igual: común y después el resto, si no alcanza.
         if (array_key_exists('_frente_saldo', $opts)) {
             return (int) $opts['_frente_saldo'];
         }
@@ -623,7 +631,9 @@ class InventarioService
     /**
      * Salida que consume las bolsas del almacén EN ORDEN hasta completar la cantidad:
      *
-     *   1. La bolsa de SALIDA       — la del proyecto destino de la nota (ver frenteDelSaldo).
+     *   1. La bolsa de SALIDA       — la que eligió la línea en el modal de proyecto de su
+     *                                 fila y, si no eligió, la del proyecto destino de la nota
+     *                                 (ver frenteDelSaldo).
      *   2. La COMÚN (frente 0)      — material del almacén que aún no es de nadie.
      *   3. El RESTO de los proyectos, de mayor a menor saldo — material que está
      *      físicamente en el almacén pero asignado a otro proyecto.

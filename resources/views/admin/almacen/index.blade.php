@@ -250,6 +250,21 @@
     }
     /* Número y unidad de la celda Stock en una sola línea ("6 PAR"). */
     .alm-stock-num { display:block; white-space:nowrap; }
+    /* Modal «¿De qué proyecto sale?»: cada proyecto es un botón a todo lo ancho con su saldo,
+       unido por la misma línea punteada del panel "En otros almacenes". Tocar uno elige. */
+    .alm-bolsa-prod { margin:0; font-size:13px; font-weight:600; color:#0f172a; line-height:1.35; text-wrap:balance; }
+    .alm-bolsa-prod b { font-weight:800; }
+    .alm-bolsa-lista { display:flex; flex-direction:column; gap:6px; max-height:52vh; overflow-y:auto; }
+    .alm-bolsa-opcion { display:flex; align-items:center; gap:8px; width:100%; box-sizing:border-box; padding:11px 12px;
+        border:1.5px solid #e2e8f0; border-radius:10px; background:#fff; cursor:pointer; font:inherit; text-align:left;
+        transition:border-color .15s, background .15s; }
+    .alm-bolsa-opcion:hover, .alm-bolsa-opcion:focus-visible { border-color:#0067b1; background:#eff6ff; outline:none; }
+    .alm-bolsa-opcion .nom { flex:0 1 auto; min-width:0; font-size:13.5px; font-weight:700; color:#1e293b;
+        overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .alm-bolsa-opcion .nom.comun { font-style:italic; font-weight:600; color:#475569; }
+    .alm-bolsa-opcion .guia { flex:1 1 12px; min-width:12px; height:0; border-bottom:1.5px dotted #94a3b8; transform:translateY(3px); }
+    .alm-bolsa-opcion .qty { font-size:14px; font-weight:800; color:#0f172a; white-space:nowrap; font-variant-numeric:tabular-nums; }
+    .alm-bolsa-opcion .qty small { margin-left:3px; font-size:11px; font-weight:700; color:#64748b; }
     /* Nombre del almacén en modo GENERAL: no hay proyecto que elegir, así que el campo
        se comporta como uno de texto normal — sin lista y sin el caret que la anuncia. */
     #almNvNombreDropdown.alm-dd-sin-lista .dropdown-content,
@@ -1295,7 +1310,7 @@
                 </tr>
             </thead>
             <tbody id="almTableBody">
-                @include('admin.almacen.partials.table_rows', ['productos' => $productos, 'almacen' => $almacenSel, 'inicial' => true])
+                @include('admin.almacen.partials.table_rows', ['productos' => $productos, 'almacen' => $almacenSel, 'inicial' => true, 'reparto' => $repartoInicial])
             </tbody>
         </table>
     </div>
@@ -1562,6 +1577,31 @@
     </div>
 </div>
 @endif
+
+{{-- ═════════════════════════════════════════════════════════════════
+     Modal: ¿De qué proyecto sale?
+     En un almacén que separa el saldo por proyecto (PATIO EL TIGRE), seleccionar un producto
+     repartido en dos proyectos o más no habilita la cantidad de una vez: aquí se ve cuánto tiene
+     cada proyecto y se elige de cuál se descuenta. Lo elegido viaja por línea (id_frente_saldo) y
+     el despacho empieza por esa bolsa; si no alcanza sigue con la común y el resto, y la vista
+     previa de la nota lo avisa. Lo llena almPedirBolsa; elegir es almBolsaElegir. Fuera de los
+     @if de permisos: seleccionar filas lo puede cualquiera que vea el almacén.
+═════════════════════════════════════════════════════════════════ --}}
+<div id="almBolsaModal" class="alm-modal-overlay">
+    <div class="alm-modal" style="max-width:440px;">
+        <div class="alm-modal-head">
+            <h3><i class="material-icons" style="font-size:20px;">call_split</i> ¿De qué proyecto sale?</h3>
+            <i class="material-icons alm-x" onclick="almCerrar('almBolsaModal')">close</i>
+        </div>
+        <div class="alm-modal-body">
+            <p class="alm-bolsa-prod" id="almBolsaProducto"></p>
+            <div class="alm-bolsa-lista" id="almBolsaLista"></div>
+        </div>
+        <div class="alm-modal-foot">
+            <button type="button" class="btn-primary-maquinaria" style="background:#e2e8f0;color:#475569;box-shadow:none;" onclick="almCerrar('almBolsaModal')">Cancelar</button>
+        </div>
+    </div>
+</div>
 
 {{-- ═════════════════════════════════════════════════════════════════
      Modal: KARDEX por producto (Movimientos del producto)
@@ -3584,8 +3624,10 @@
         if (_almPendingAutoSelect && almBuscarPickedId) {
             var trPick = document.querySelector('#almTableBody tr.alm-row[data-id-producto="' + almBuscarPickedId + '"]');
             if (trPick && !almSeleccion[almBuscarPickedId]) {
-                almSeleccion[almBuscarPickedId] = almSelNuevaEntrada(trPick);
-                almSelRefreshBar();
+                // Repartido en varios proyectos: primero se pregunta de cuál sale (al elegir queda
+                // seleccionada); si no, se selecciona directo.
+                if (almBolsasDeFila(trPick).length > 1) almPedirBolsa(trPick);
+                else { almSeleccion[almBuscarPickedId] = almSelNuevaEntrada(trPick); almSelRefreshBar(); }
             }
             // Apagar el flag aunque la fila no haya aparecido (ej. backend filtro vacio)
             // — sin esto, el siguiente almCargar() volveria a auto-seleccionar y se
@@ -3649,10 +3691,12 @@
     // Selecciona una fila (idempotente): crea su entrada en almSeleccion, la marca y enfoca
     // el input de cantidad. Si ya estaba seleccionada NO hace nada (nunca deselecciona).
     // Fuente única de la lógica de "seleccionar" — la usan el clic en la fila y el clic en un
-    // número de parte. Devuelve true si quedó seleccionada.
+    // número de parte. Devuelve true si quedó seleccionada; false si espera a que se elija el
+    // proyecto en el modal «¿De qué proyecto sale?» (almBolsaElegir la selecciona entonces).
     function almSelEnsureRow(tr) {
         var id = tr.getAttribute('data-id-producto'); if (!id) return false;
         if (almSeleccion[id]) return true;
+        if (almBolsasDeFila(tr).length > 1) { almPedirBolsa(tr); return false; }
         almSeleccion[id] = almSelNuevaEntrada(tr);
         almSelMarkRow(tr, true);
         almEnfocarCantidad(tr);
@@ -3672,8 +3716,50 @@
             // Nº de parte a entregar: el elegido en la fila, o el único que tenga. Vacío en
             // productos sin equivalencias y en los de varias hasta que se elija.
             parte:  tr.getAttribute('data-parte-sel') || '',
+            // Proyecto del que se descuenta (ID_FRENTE; 0 = saldo común), elegido en el modal
+            // «¿De qué proyecto sale?». Vacío = sin elección: el saldo está en un solo proyecto.
+            bolsa:  '',
         };
     }
+    // Reparto por proyecto de una fila ([{f: frente, n: nombre, q: cantidad, c: común}]). Solo
+    // lo traen las filas con saldo en dos proyectos o más (data-bolsas, ver partials/table_rows).
+    function almBolsasDeFila(tr) {
+        var raw = tr && tr.getAttribute('data-bolsas');
+        if (!raw) return [];
+        try { return JSON.parse(raw) || []; } catch (e) { return []; }
+    }
+    // Fila que espera la elección del modal «¿De qué proyecto sale?».
+    var almBolsaFila = null;
+    // Abre el modal con cuánto tiene cada proyecto del producto. La fila NO se selecciona aún:
+    // lo hace almBolsaElegir, así que cancelar la deja como estaba.
+    function almPedirBolsa(tr) {
+        var esc = window.escapeHtml, um = esc(tr.getAttribute('data-um') || '');
+        almBolsaFila = tr;
+        el('almBolsaProducto').innerHTML = '<b>' + esc(tr.getAttribute('data-codigo') || '') + '</b> · ' + esc(tr.getAttribute('data-nombre') || '');
+        el('almBolsaLista').innerHTML = almBolsasDeFila(tr).map(function (b) {
+            return '<button type="button" class="alm-bolsa-opcion" data-frente="' + parseInt(b.f, 10) + '" onclick="window.almBolsaElegir(this)">'
+                +   '<span class="nom' + (b.c ? ' comun' : '') + '">' + esc(b.n) + '</span>'
+                +   '<span class="guia" aria-hidden="true"></span>'
+                +   '<span class="qty">' + formatNum(b.q) + '<small>' + um + '</small></span>'
+                + '</button>';
+        }).join('');
+        almOpen('almBolsaModal');
+    }
+    // Elegir un proyecto: selecciona la fila con esa bolsa y deja lista la cantidad. Si mientras
+    // tanto se repintó la tabla, se busca la fila nueva del mismo producto.
+    window.almBolsaElegir = function (op) {
+        var tr = almBolsaFila; almBolsaFila = null;
+        almCerrar('almBolsaModal');
+        if (!tr) return;
+        var id = tr.getAttribute('data-id-producto');
+        if (!tr.isConnected) tr = document.querySelector('#almTableBody tr.alm-row[data-id-producto="' + id + '"]');
+        if (!tr) return;
+        almSeleccion[id] = almSelNuevaEntrada(tr);
+        almSeleccion[id].bolsa = op.getAttribute('data-frente') || '';
+        almSelMarkRow(tr, true);
+        almEnfocarCantidad(tr);
+        almSelRefreshBar();
+    };
     // Quita la equivalencia elegida de una fila con varias (con una sola no hay nada que elegir).
     function almRowParteReset(tr) {
         if ((tr.getAttribute('data-equiv') || '').split('|').filter(Boolean).length < 2) return;
@@ -5970,6 +6056,9 @@
                 id_producto:  parseInt(id, 10),
                 cantidad:     c,
                 numero_parte: s.parte || null,
+                // Proyecto elegido en el modal «¿De qué proyecto sale?». null = sin elección (la bolsa
+                // del destino). Se compara con '' y no por truthy: 0 es la bolsa común, una elección válida.
+                id_frente_saldo: (s.bolsa === '' || s.bolsa == null) ? null : parseInt(s.bolsa, 10),
             });
         });
         var listar = function (arr) { return arr.slice(0, 4).join(', ') + (arr.length > 4 ? '…' : ''); };
