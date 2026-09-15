@@ -624,12 +624,25 @@
     /* Compatibilidad en "Detalles del producto": números de parte y equipos que lo usan, con
        + para agregar y × para quitar (solo con almacen.productos). Todo en texto oscuro sobre
        gris claro: el azul queda para los botones. */
-    #almDetCompat { border-top: 1px solid #f1f5f9; padding-top: 12px; display: flex; flex-direction: column; gap: 12px; }
-    .alm-det-sec-cab { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
-    .alm-det-sec-tit { font-size: 12.5px; font-weight: 500; color: #0f172a; text-transform: uppercase; letter-spacing: .4px; display: flex; align-items: center; gap: 6px; }
+    #almDetCompat { border-top: 1px solid #f1f5f9; padding-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+    /* Nºs de parte y equipos, cada uno en un DESPLEGABLE que arranca cerrado: la cabecera dice
+       cuántos hay y se abre con un toque. Abiertos a la vez ocupaban medio modal. */
+    .alm-det-sec { border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; }
+    .alm-det-sec-cab { display: flex; align-items: center; gap: 4px; padding: 3px 6px 3px 3px; }
+    .alm-det-sec-tog { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 6px; border: none; background: none;
+                       padding: 6px 8px; border-radius: 8px; font: inherit; color: #0f172a; text-align: left; cursor: pointer; }
+    .alm-det-sec-tog:hover:not(:disabled) { background: #f8fafc; }
+    .alm-det-sec-tog:disabled { cursor: default; }
+    .alm-det-sec-flecha { font-size: 20px; color: #0f172a; transition: transform .15s; }
+    .alm-det-sec-tog:disabled .alm-det-sec-flecha { visibility: hidden; }
+    .alm-det-sec-tog[aria-expanded="true"] .alm-det-sec-flecha { transform: rotate(180deg); }
+    .alm-det-sec-cuerpo { padding: 8px 10px 10px; border-top: 1px solid #f1f5f9; }
+    .alm-det-sec-tog .alm-det-sec-tit { display: block; min-width: 0; line-height: 1.35; }
+    .alm-det-sec-tog .alm-det-sec-tit .material-icons { vertical-align: -3px; margin-right: 4px; }
+    .alm-det-sec-tit { font-size: 13px; font-weight: 600; color: #0f172a; display: flex; align-items: center; gap: 6px; }
     /* Toda la ficha con la letra de la app: los <input> traen la del sistema si no se les dice. */
     #almDetalleModal, #almDetalleModal input, #almDetalleModal button { font-family: inherit; }
-    #almDetalleModal label[for="almDetUbicacion"] { font-size: 12.5px; font-weight: 500; color: #0f172a; text-transform: uppercase; letter-spacing: .4px; }
+    #almDetalleModal label[for="almDetUbicacion"] { font-size: 13px; font-weight: 600; color: #0f172a; text-transform: none; letter-spacing: 0; }
     #almDetUbicacion { font-size: 12.5px; font-weight: 500; color: #0f172a; }
     .alm-det-sec-tit .material-icons { font-size: 16px; color: #0f172a; }
     .alm-det-mas { display: inline-flex; align-items: center; gap: 2px; border: none; background: none; padding: 2px 4px; border-radius: 6px;
@@ -639,16 +652,8 @@
     .alm-det-chips { display: flex; flex-wrap: wrap; gap: 5px; }
     .alm-det-chip { display: inline-flex; align-items: center; gap: 2px; background: #f1f5f9; color: #0f172a; border: 1px solid #cbd5e1;
                     border-radius: 6px; padding: 2px 8px; font-size: 12.5px; font-weight: 500; }
-    /* De entrada solo se ven 3 equipos (el resto, con "Ver todos"): un producto con doce
-       vinculos estiraba la ficha hasta dejar los botones de abajo fuera de la pantalla. */
-    .alm-det-lista { display: flex; flex-direction: column; gap: 4px; overflow-y: auto; }
-    .alm-det-lista.corta { max-height: 104px; }
-    .alm-det-lista.abierta { max-height: 190px; }
-    .alm-det-vertodos { align-self: flex-start; margin-top: 4px; border: none; background: none; padding: 2px 4px; border-radius: 6px;
-                        font: inherit; font-size: 12.5px; font-weight: 500; color: #0067b1; cursor: pointer; }
-    .alm-det-vertodos:hover { background: #e0f2fe; }
-    /* Los números de parte tampoco crecen sin fin: dos filas de fichas y a abrir. */
-    .alm-det-chips.corta { max-height: 52px; overflow: hidden; }
+    /* Abierto, un producto con muchos equipos no estira el modal: la lista tiene su propio scroll. */
+    .alm-det-lista { display: flex; flex-direction: column; gap: 4px; max-height: 190px; overflow-y: auto; }
     .alm-det-eq { display: flex; align-items: center; gap: 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 7px; padding: 6px 9px; }
     /* Ancho fijo para que los modelos queden en columna aunque el tipo sea largo (el nombre
        completo va en el title). */
@@ -2116,31 +2121,41 @@
                  Con almacen.productos cada sección lleva su + (agregar) y cada dato su ×
                  (quitar); sin ese permiso solo se ve lo que hay, y nada si no hay nada. --}}
             <div id="almDetCompat" hidden>
-                <div id="almDetPartesWrap" hidden>
+                {{-- Cada sección es un desplegable (arranca cerrado): la cabecera abre y cierra y
+                     dice cuántos hay; el "+" queda a su lado y abre la sección con su formulario. --}}
+                <div id="almDetPartesWrap" class="alm-det-sec" hidden>
                     <div class="alm-det-sec-cab">
-                        <span class="alm-det-sec-tit">Nº de parte / equivalencias</span>
+                        <button type="button" class="alm-det-sec-tog" aria-expanded="false" aria-controls="almDetPartesCuerpo" onclick="window.almDetSeccion('almDetPartesWrap')">
+                            <span class="alm-det-sec-tit">Nº de parte / equivalencias <span id="almDetPartesCount"></span></span>
+                            <i class="material-icons alm-det-sec-flecha">expand_more</i>
+                        </button>
                         <button type="button" class="alm-det-mas alm-det-solo-edita" onclick="window.almDetParteAbrir()"><i class="material-icons">add</i>Agregar</button>
                     </div>
-                    <div id="almDetPartes" class="alm-det-chips"></div>
-                    <button type="button" id="almDetPartesVerTodos" class="alm-det-vertodos" hidden onclick="window.almDetVerTodos(this)"></button>
-                    <form id="almDetParteForm" class="alm-det-form" hidden onsubmit="event.preventDefault(); window.almDetParteGuardar();">
-                        <input type="text" id="almDetParteInput" maxlength="100" autocomplete="off" placeholder="Número de parte" aria-label="Número de parte"
-                               onkeydown="if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); window.almDetFormCerrar(); }">
-                        <button type="submit" class="btn-primary-maquinaria">Agregar</button>
-                    </form>
+                    <div id="almDetPartesCuerpo" class="alm-det-sec-cuerpo" hidden>
+                        <div id="almDetPartes" class="alm-det-chips"></div>
+                        <form id="almDetParteForm" class="alm-det-form" hidden onsubmit="event.preventDefault(); window.almDetParteGuardar();">
+                            <input type="text" id="almDetParteInput" maxlength="100" autocomplete="off" placeholder="Número de parte" aria-label="Número de parte"
+                                   onkeydown="if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); window.almDetFormCerrar(); }">
+                            <button type="submit" class="btn-primary-maquinaria">Agregar</button>
+                        </form>
+                    </div>
                 </div>
-                <div id="almDetEquiposWrap" hidden>
+                <div id="almDetEquiposWrap" class="alm-det-sec" hidden>
                     <div class="alm-det-sec-cab">
-                        <span class="alm-det-sec-tit"><i class="material-icons">precision_manufacturing</i> Equipos que lo usan <span id="almDetEquiposCount"></span></span>
+                        <button type="button" class="alm-det-sec-tog" aria-expanded="false" aria-controls="almDetEquiposCuerpo" onclick="window.almDetSeccion('almDetEquiposWrap')">
+                            <span class="alm-det-sec-tit"><i class="material-icons">precision_manufacturing</i> Equipos que lo usan <span id="almDetEquiposCount"></span></span>
+                            <i class="material-icons alm-det-sec-flecha">expand_more</i>
+                        </button>
                         <button type="button" class="alm-det-mas alm-det-solo-edita" onclick="window.almDetEquipoAbrir()"><i class="material-icons">add</i>Vincular</button>
                     </div>
-                    <div id="almDetEquipos" class="alm-det-lista"></div>
-                    <button type="button" id="almDetEquiposVerTodos" class="alm-det-vertodos" hidden onclick="window.almDetVerTodos(this)"></button>
-                    <div id="almDetEquipoForm" class="alm-det-form" hidden>
-                        <input type="text" id="almDetEquipoInput" autocomplete="off" placeholder="Buscar tipo, marca o modelo…" aria-label="Buscar equipo"
-                               oninput="window.almDetEquipoBuscar()"
-                               onkeydown="if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); window.almDetFormCerrar(); }">
-                        <div id="almDetEquipoSug" class="alm-det-sug"></div>
+                    <div id="almDetEquiposCuerpo" class="alm-det-sec-cuerpo" hidden>
+                        <div id="almDetEquipos" class="alm-det-lista"></div>
+                        <div id="almDetEquipoForm" class="alm-det-form" hidden>
+                            <input type="text" id="almDetEquipoInput" autocomplete="off" placeholder="Buscar tipo, marca o modelo…" aria-label="Buscar equipo"
+                                   oninput="window.almDetEquipoBuscar()"
+                                   onkeydown="if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); window.almDetFormCerrar(); }">
+                            <div id="almDetEquipoSug" class="alm-det-sug"></div>
+                        </div>
                     </div>
                 </div>
                 <div id="almDetCompatMsg" class="alm-det-msg" hidden></div>
@@ -4499,6 +4514,9 @@
         if (proyWrap) proyWrap.style.display = 'none';
         if (proyBox) proyBox.innerHTML = '';
         almDetFormCerrar();
+        // Cada ficha abre con las dos secciones cerradas, aunque en la anterior se hubieran abierto.
+        almDetSeccion('almDetPartesWrap', false);
+        almDetSeccion('almDetEquiposWrap', false);
         almDetCompatPintar({ equivalencias: [], equipos: [] }, true);
 
         // El almacén abierto viaja en la URL: sin él el backend no sabe de qué inventario
@@ -4550,7 +4568,8 @@
         el('almDetPartes').innerHTML = partes.map(function (p) {
             return '<span class="alm-det-chip">' + esc(p) + quitar('data-parte="' + esc(p) + '" onclick="window.almDetParteQuitar(this.dataset.parte)"', 'Quitar este número de parte') + '</span>';
         }).join('');
-        el('almDetEquiposCount').textContent = equipos.length ? '(' + equipos.length + ')' : '';
+        el('almDetPartesCount').textContent = '(' + partes.length + ')';
+        el('almDetEquiposCount').textContent = '(' + equipos.length + ')';
         // La × manda los `ids` de la fila (un modelo con varias fichas del catálogo son varios).
         almDetEquiposPintados = equipos;
         // La ETAPA (primario/secundario) va por EQUIPO, no por producto: el mismo filtro puede
@@ -4564,36 +4583,26 @@
                 + quitar('onclick="window.almDetEquipoQuitar(' + i + ')"', 'Desvincular este equipo')
                 + '</div>';
         }).join('');
-        // "Ver todos (N)" solo si hay mas de los que caben; al abrir la ficha siempre arranca
-        // recogida, aunque la vez anterior se hubiera abierto.
-        almDetListaCorta('almDetEquipos', 'almDetEquiposVerTodos', equipos.length, 3);
-        almDetListaCorta('almDetPartes', 'almDetPartesVerTodos', partes.length, 6);
+        // Sin elementos no hay nada que desplegar: la flecha se apaga y la sección se cierra
+        // (salvo que su formulario esté abierto: con permiso, el "+" sigue funcionando).
+        [['almDetPartesWrap', partes.length, 'almDetParteForm'], ['almDetEquiposWrap', equipos.length, 'almDetEquipoForm']].forEach(function (s) {
+            el(s[0]).querySelector('.alm-det-sec-tog').disabled = !s[1];
+            if (!s[1] && el(s[2]).hidden) almDetSeccion(s[0], false);
+        });
         document.querySelectorAll('#almDetCompat .alm-det-solo-edita').forEach(function (b) { b.hidden = !edita; });
         el('almDetPartesWrap').hidden = !(edita || partes.length);
         el('almDetEquiposWrap').hidden = !(edita || equipos.length);
         el('almDetCompat').hidden = !!oculta || !(edita || partes.length || equipos.length);
     }
-    // Recoge una lista larga de la ficha y pone (o quita) su "Ver todos (N)".
-    function almDetListaCorta(idLista, idBoton, total, tope) {
-        var lista = el(idLista), btn = el(idBoton); if (!lista || !btn) return;
-        var largo = total > tope;
-        lista.classList.toggle('corta', largo);
-        lista.classList.remove('abierta');
-        btn.hidden = !largo;
-        btn.dataset.abierta = '';
-        btn.dataset.lista = idLista;
-        btn.dataset.total = total;
-        btn.textContent = largo ? ('Ver todos (' + total + ')') : '';
+    // Abre (true), cierra (false) o alterna (sin segundo argumento) un desplegable de la ficha.
+    function almDetSeccion(idWrap, abrir) {
+        var wrap = el(idWrap); if (!wrap) return;
+        var cuerpo = wrap.querySelector('.alm-det-sec-cuerpo'), tog = wrap.querySelector('.alm-det-sec-tog');
+        var abierto = abrir === undefined ? cuerpo.hidden : !!abrir;
+        cuerpo.hidden = !abierto;
+        tog.setAttribute('aria-expanded', abierto ? 'true' : 'false');
     }
-    // El botón alterna entre las tres primeras y todas (con su propio scroll).
-    window.almDetVerTodos = function (btn) {
-        var lista = el(btn.dataset.lista); if (!lista) return;
-        var abierta = btn.dataset.abierta === '1';
-        btn.dataset.abierta = abierta ? '' : '1';
-        lista.classList.toggle('corta', abierta);
-        lista.classList.toggle('abierta', !abierta);
-        btn.textContent = abierta ? ('Ver todos (' + btn.dataset.total + ')') : 'Ver menos';
-    };
+    window.almDetSeccion = almDetSeccion;
 
     function almDetCompatMsg(texto) {
         var m = el('almDetCompatMsg'); if (!m) return;
@@ -4653,6 +4662,7 @@
 
     window.almDetParteAbrir = function () {
         almDetFormCerrar();
+        almDetSeccion('almDetPartesWrap', true);
         el('almDetParteForm').hidden = false;
         var i = el('almDetParteInput'); i.value = ''; i.focus();
     };
@@ -4666,6 +4676,7 @@
     var _almDetEquipoEspera = null, _almDetEquipoPedido = 0;
     window.almDetEquipoAbrir = function () {
         almDetFormCerrar();
+        almDetSeccion('almDetEquiposWrap', true);
         el('almDetEquipoForm').hidden = false;
         var i = el('almDetEquipoInput'); i.value = ''; i.focus();
         window.almDetEquipoBuscar();

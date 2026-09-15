@@ -129,7 +129,7 @@ class DevolucionMaterialTest extends MySqlTestCase
 
         $this->devolver($nota, [['id_producto' => $p->ID_PRODUCTO, 'cantidad' => 3]])->assertCreated();
         $this->devolver($nota, [['id_producto' => $p->ID_PRODUCTO, 'cantidad' => 3]])
-            ->assertStatus(422)->assertJsonFragment(['message' => "De «{$p->NOMBRE}» quedan 2 UND por devolver en la Nota {$nota}; no se pueden devolver 3."]);
+            ->assertStatus(422)->assertJsonFragment(['message' => "No puedes devolver más de lo entregado. De «{$p->NOMBRE}» quedan 2 UND por devolver en la Nota {$nota} y se intentó devolver 3."]);
 
         $this->assertSame(8.0, $this->saldo($alm->ID_ALMACEN, $p->ID_PRODUCTO));
 

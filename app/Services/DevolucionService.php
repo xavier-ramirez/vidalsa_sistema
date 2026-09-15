@@ -133,7 +133,7 @@ class DevolucionService
                 $pendiente = round($filas->sum(fn ($s) => $porDevolver[$s->ID_MOVIMIENTO]), 3);
                 if ($cantidad > $pendiente + self::EPS) {
                     throw new RuntimeException(sprintf(
-                        'De «%s» quedan %s %s por devolver en la Nota %s; no se pueden devolver %s.',
+                        'No puedes devolver más de lo entregado. De «%s» quedan %s %s por devolver en la Nota %s y se intentó devolver %s.',
                         $nombre, $this->num($pendiente), $producto?->UM ?? '', $numero, $this->num($cantidad)
                     ));
                 }

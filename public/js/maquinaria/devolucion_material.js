@@ -3,8 +3,8 @@
  * (resources/views/admin/almacen/partials/devolucion_modal.blade.php).
  *
  * Flujo: se abre desde una salida del Historial de Movimientos, con su Nota de Entrega y ese
- * producto (solo ese: el servidor filtra por id_producto) → se muestra lo entregado y lo que
- * falta por devolver → el usuario pone cuánto vuelve → POST, con la fecha de hoy.
+ * producto (solo ese: el servidor filtra por id_producto) → se muestra lo entregado → el
+ * usuario pone cuánto vuelve → POST, con la fecha de hoy.
  *
  * Solo DEVUELVE. Si además hay que entregar otra cosa (otra talla), eso es una salida normal
  * con su propia Nota y se hace desde el inventario (decisión del cliente, 14-09-2026). Las
@@ -84,37 +84,42 @@
     function pintar(nota) {
         estado.nota = nota;
 
-        // Cabecera en UNA línea: número · fecha · proyecto (· quién recibió). El title lleva el
-        // texto entero por si el proyecto no cabe y se corta con "…".
+        // De qué nota viene, en una línea: número · fecha · proyecto (· quién recibió). El title
+        // lleva el texto entero por si el proyecto no cabe y se corta con "…".
         var sep = ' <span class="devm-sep">&middot;</span> ';
         var partes = [nota.fecha, nota.proyecto, nota.solicitante].filter(Boolean);
         $('devMatNota').title = [nota.numero].concat(partes).join(' · ');
-        $('devMatNota').innerHTML = '<b class="devm-nota-num">' + esc(nota.numero) + '</b>'
-            + (partes.length ? sep + '<span class="devm-nota-sub">' + partes.map(esc).join(sep) + '</span>' : '');
+        $('devMatNota').innerHTML = '<i class="material-icons">receipt_long</i>'
+            + '<span class="devm-nota-txt"><b class="devm-nota-num">' + esc(nota.numero) + '</b>'
+            + (partes.length ? sep + '<span class="devm-nota-sub">' + partes.map(esc).join(sep) + '</span>' : '')
+            + '</span>';
 
+        // Cada producto en su tarjeta: qué es y cuánto se entregó; debajo, cuánto vuelve. Lo que
+        // falta no se muestra: si se escribe de más, el aviso al registrar dice cuánto queda.
         $('devMatLineas').innerHTML = nota.lineas.map(function (l, i) {
             var cerrada = l.pendiente <= EPS;
             var um = esc(l.um || '');
-            // Izquierda: las cifras, una por renglón, con el número en negrita.
-            var datos = '<div>Entregado <b>' + num(l.entregado) + ' ' + um + '</b></div>'
-                + (l.devuelto > EPS ? '<div>Ya devuelto <b>' + num(l.devuelto) + ' ' + um + '</b></div>' : '')
-                + (cerrada ? '' : '<div>Por devolver <b>' + num(l.pendiente) + ' ' + um + '</b></div>');
+            var datos = 'Entregado <b>' + num(l.entregado) + ' ' + um + '</b>'
+                + (l.devuelto > EPS ? sep + 'Ya devuelto <b>' + num(l.devuelto) + ' ' + um + '</b>' : '');
             return '<div class="devm-linea' + (cerrada ? ' cerrada' : '') + '" data-i="' + i + '">'
-                + '<div class="devm-prod-cab">' + (l.codigo ? esc(l.codigo) + sep : '')
-                +   '<span class="devm-prod">' + esc(l.nombre) + '</span></div>'
-                + '<div class="devm-cuerpo">'
-                +   '<div class="devm-datos">' + datos + '</div>'
-                +   (cerrada
+                + '<div class="devm-prod-cab">'
+                +   '<div class="devm-foto"><i class="material-icons">inventory_2</i></div>'
+                +   '<div class="devm-info">'
+                +     '<span class="devm-titulo">' + (l.codigo ? '<span class="devm-codigo">' + esc(l.codigo) + '</span>' + sep : '')
+                +       '<span class="devm-prod">' + esc(l.nombre) + '</span></span>'
+                +     '<span class="devm-datos">' + datos + '</span>'
+                +   '</div>'
+                + '</div>'
+                + (cerrada
                     ? '<div class="devm-cerrada"><i class="material-icons">check_circle</i>Ya se devolvió todo.</div>'
                     : '<div class="devm-devuelve">'
-                    +   '<label class="devm-devuelve-lbl" for="devMatCant' + i + '">Devuelve</label>'
+                    +   '<label class="devm-devuelve-lbl" for="devMatCant' + i + '">Cantidad a devolver</label>'
                     +   '<div class="devm-cant">'
                     +     '<input type="text" inputmode="decimal" class="devm-input" id="devMatCant' + i + '" data-dev-cant="' + i + '" placeholder="0" autocomplete="off"'
                     +       ' aria-label="Cantidad que se devuelve de ' + esc(l.nombre) + '">'
                     +     '<span class="devm-de">' + um + '</span>'
                     +   '</div>'
                     + '</div>')
-                + '</div>'
                 + '</div>';
         }).join('');
 
@@ -125,7 +130,7 @@
         if (nota.historial && nota.historial.length) {
             h.innerHTML = '<b>Devoluciones anteriores</b><ul>' + nota.historial.map(function (d) {
                 return '<li>' + esc(d.fecha) + ' · ' + num(d.cantidad) + ' ' + esc(d.um || '') + (unoSolo ? '' : ' de ' + esc(d.producto))
-                    + (d.motivo ? ' — ' + esc(d.motivo) : '') + (d.usuario ? ' <span class="devm-quien">(' + esc(d.usuario) + ')</span>' : '') + '</li>';
+                    + (d.motivo ? ' — ' + esc(d.motivo) : '') + (d.usuario ? ' (' + esc(d.usuario) + ')' : '') + '</li>';
             }).join('') + '</ul>';
             h.hidden = false;
         } else {
@@ -165,7 +170,8 @@
         for (var k = 0; k < lineas.length; k++) {
             var l = estado.nota.lineas.find(function (x) { return x.id_producto === lineas[k].id_producto; });
             if (l && lineas[k].cantidad > l.pendiente + EPS) {
-                mensaje('De «' + esc(l.nombre) + '» quedan ' + num(l.pendiente) + ' ' + esc(l.um || '') + ' por devolver.');
+                mensaje('<b>No puedes devolver más de lo entregado.</b><br>'
+                    + 'Quedan <b>' + num(l.pendiente) + ' ' + esc(l.um || '') + '</b> por devolver de «' + esc(l.nombre) + '».');
                 return;
             }
         }

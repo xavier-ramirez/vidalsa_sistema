@@ -369,7 +369,7 @@ contando cuánto se consumió de verdad.
   No sale en TRASPASO_SALIDA (esas se manejan con la confirmación de recepción).
 - **Modal:** `partials/devolucion_modal.blade.php` + `js/maquinaria/devolucion_material.js`
   (se descarga la primera vez que se abre). Muestra la nota, el producto, lo entregado, lo ya
-  devuelto y lo que falta; se escribe la cantidad y un motivo opcional.
+  devuelto; se escribe la cantidad y un motivo opcional (si es más de lo que falta, avisa).
 - **Servicio:** `DevolucionService::registrar()`. Dentro de una transacción: valida contra lo
   pendiente, suma el stock y escribe el movimiento DEVOLUCION con
   `ID_MOVIMIENTO_RELACIONADO` = la SALIDA.
