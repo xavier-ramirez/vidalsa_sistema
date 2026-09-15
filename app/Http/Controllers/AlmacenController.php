@@ -241,7 +241,7 @@ class AlmacenController extends Controller
                     }
                 }
                 $resp['distribucionHtml'] = $idProductoSel
-                    ? $this->panelOtrosAlmacenes($idProductoSel, $idAlmacenSel, $almacenSel?->NOMBRE, $user, false)
+                    ? $this->panelOtrosAlmacenes($idProductoSel, $idAlmacenSel, $almacenSel?->NOMBRE, $user)
                     : '';
             }
             return response()->json($resp);
@@ -700,13 +700,13 @@ class AlmacenController extends Controller
      * Panel lateral "En otros almacenes" de UN producto, ya renderizado: su reparto por
      * proyecto dentro del almacén abierto (si separa) y lo que hay en los otros almacenes
      * visibles. Una sola fuente para el filtro (index) y para el clic en una fila
-     * (productoOtrosAlmacenes). $conProducto: con el clic en una fila la tabla trae varios
-     * productos, así que el panel dice de cuál habla; con el filtro ya lo dice la tabla.
+     * (productoOtrosAlmacenes). No repite la descripción del producto: la fila marcada en
+     * la tabla ya dice cuál es (decisión del cliente, 15-09-2026).
      *
      * Si NINGÚN otro almacén tiene existencias devuelve '' y el panel no se muestra: solo
      * aparece cuando hay algo que pedir a otro lado (decisión del cliente, 15-09-2026).
      */
-    private function panelOtrosAlmacenes(int $idProducto, ?int $idAlmacen, ?string $nombreAlmacen, $user, bool $conProducto): string
+    private function panelOtrosAlmacenes(int $idProducto, ?int $idAlmacen, ?string $nombreAlmacen, $user): string
     {
         $otros = $this->productoEnOtrosAlmacenes($idProducto, $idAlmacen, $user);
         if ($otros->isEmpty()) {
@@ -715,7 +715,6 @@ class AlmacenController extends Controller
 
         return view('admin.almacen.partials.distribucion_stats', [
             'idProducto'          => $idProducto,
-            'producto'            => $conProducto ? ProductoInventario::find($idProducto, ['ID_PRODUCTO', 'CODIGO', 'NOMBRE']) : null,
             'productoOtros'       => $otros,
             'productoProyectos'   => $this->productoPorProyecto($idProducto, $idAlmacen),
             'almacenActualNombre' => $nombreAlmacen,
@@ -734,7 +733,7 @@ class AlmacenController extends Controller
         abort_unless(ProductoInventario::whereKey((int) $id)->exists(), 404);
 
         return response()->json([
-            'html' => $this->panelOtrosAlmacenes((int) $id, $almacen?->ID_ALMACEN, $almacen?->NOMBRE, $request->user(), true),
+            'html' => $this->panelOtrosAlmacenes((int) $id, $almacen?->ID_ALMACEN, $almacen?->NOMBRE, $request->user()),
         ]);
     }
 

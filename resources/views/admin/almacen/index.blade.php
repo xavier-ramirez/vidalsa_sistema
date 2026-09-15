@@ -341,13 +341,9 @@
     .alm-panel-list.scroll { max-height:52vh; overflow-y:auto; }
     /* El panel "En otros almacenes" solo se ve cuando tiene algo que decir (PC y teléfono). */
     #almDistWrapper:not(:has(.alm-otros-almacenes)) { display: none !important; }
-    /* De qué producto habla el panel cuando se llenó tocando una fila (la tabla trae varios).
-       text-wrap:balance: una descripción larga se reparte en dos renglones parejos en vez de
-       dejar una palabra suelta abajo. */
-    .alm-otros-prod { margin: 0 0 8px; font-size: 12.5px; font-weight: 600; color: #0f172a; line-height: 1.3; overflow-wrap: anywhere; text-wrap: balance; }
     .alm-panel-row { padding:5px 8px; border-radius:6px; display:flex; justify-content:space-between;
         align-items:center; gap:8px; border:1px solid transparent; }
-    .alm-panel-row .nom { flex:1; min-width:0; color:#1e293b; font-size:12.5px; font-weight:600;
+    .alm-panel-row .nom { flex:0 1 auto; min-width:0; color:#1e293b; font-size:12.5px; font-weight:600;
         line-height:1.25; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     /* Bolsa común: es saldo real, pero no es un proyecto con nombre propio. */
     .alm-panel-row .nom.comun { font-style:italic; color:#475569; }
@@ -355,6 +351,10 @@
         white-space:nowrap; background:#f1f5f9; color:#1e293b; }
     .alm-panel-row .qty.proy { background:#e1effa; color:#0067b1; }
     .alm-panel-row .qty.bajo { background:#fee2e2; color:#b91c1c; }
+    /* Línea punteada que une cada almacén o frente con su cantidad: con el nombre a la
+       izquierda y la cifra a la derecha, el ojo se perdía en el hueco (pedido del cliente). */
+    .alm-panel-row .guia { flex:1 1 12px; min-width:12px; align-self:center; height:0;
+        border-bottom:1.5px dotted #94a3b8; transform:translateY(2px); }
     /* Solo las filas de otros almacenes llevan a algún lado (abren ese almacén). */
     .alm-panel-row.clicable { cursor:pointer; transition:background .15s, border-color .15s; }
     .alm-panel-row.clicable:hover { background:#f8fafc; border-color:#e2e8f0; }
@@ -369,7 +369,7 @@
     .alm-panel-sub { flex-basis:100%; list-style:none; margin:3px 0 1px 0; padding:0 0 0 10px;
         display:flex; flex-direction:column; gap:1px; border-left:2px solid #cbd5e1; }
     .alm-panel-sub li { display:flex; justify-content:space-between; align-items:center; gap:8px; padding:2px 0; }
-    .alm-panel-sub .nom { flex:1; min-width:0; color:#334155; font-size:11.5px; font-weight:600;
+    .alm-panel-sub .nom { flex:0 1 auto; min-width:0; color:#334155; font-size:11.5px; font-weight:600;
         overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .alm-panel-sub .nom.comun { font-style:italic; color:#475569; }
     .alm-panel-sub .qty { font-weight:700; font-size:11.5px; color:#1e293b; white-space:nowrap; }
@@ -869,8 +869,10 @@
         .alm-otros-almacenes h4 .material-icons { font-size: 15px !important; }
         .alm-otros-almacenes ul { max-height: 40vh !important; gap: 2px !important; }
         .alm-otros-almacenes li { padding: 5px 7px !important; }
-        .alm-otros-almacenes li > span:first-child { font-size: 11px !important; }
-        .alm-otros-almacenes li > span:last-child { font-size: 11px !important; padding: 1px 7px !important; }
+        /* Por clase y no por :first-child/:last-child: en una fila con desglose el último hijo
+           es el <ul> de proyectos, y su cantidad se quedaba con la letra de PC. */
+        .alm-otros-almacenes li > .nom { font-size: 11px !important; }
+        .alm-otros-almacenes li > .qty { font-size: 11px !important; padding: 1px 7px !important; }
         /* El desglose por proyecto NO debe heredar lo de arriba: sus <li> y <span> son
            descendientes de .alm-otros-almacenes igual que los del almacén, así que sin
            esto quedaban con el mismo alto y la misma letra y se perdía la jerarquía —
@@ -879,9 +881,8 @@
            almacenes, no para una sublista de tres renglones. */
         .alm-otros-almacenes .alm-panel-sub { max-height: none !important; gap: 0 !important; }
         .alm-otros-almacenes .alm-panel-sub li { padding: 2px 0 !important; }
-        .alm-otros-almacenes .alm-panel-sub li > span:first-child { font-size: 10.5px !important; }
-        .alm-otros-almacenes .alm-panel-sub li > span:last-child { font-size: 10.5px !important; padding: 0 !important; }
-        .alm-otros-almacenes .alm-otros-prod { margin: 0 0 6px !important; font-size: 11.5px !important; }
+        .alm-otros-almacenes .alm-panel-sub li > .nom { font-size: 10.5px !important; }
+        .alm-otros-almacenes .alm-panel-sub li > .qty { font-size: 10.5px !important; padding: 0 !important; }
         #almDistWrapper:has(.alm-otros-almacenes) { padding: 10px 12px !important; }
         /* "Ver movimientos del producto" del modal de detalles: el kardex tabular
            que abre es pesado en mobile. Cliente prefirio quitar el boton en

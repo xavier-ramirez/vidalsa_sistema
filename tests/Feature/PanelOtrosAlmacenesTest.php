@@ -13,7 +13,7 @@ use Tests\MySqlTestCase;
  */
 class PanelOtrosAlmacenesTest extends MySqlTestCase
 {
-    public function test_al_tocar_una_fila_el_panel_dice_el_producto_y_los_otros_almacenes(): void
+    public function test_al_tocar_una_fila_el_panel_dice_los_otros_almacenes_sin_repetir_el_producto(): void
     {
         $admin = $this->superAdminGlobal();
         // Un producto con saldo en DOS almacenes o más: desde el primero, el otro sale en la lista.
@@ -31,7 +31,8 @@ class PanelOtrosAlmacenesTest extends MySqlTestCase
 
         $this->assertStringContainsString('alm-otros-almacenes', $html);
         $this->assertStringContainsString('En otros almacenes', $html);
-        $this->assertStringContainsString(e($producto->CODIGO), $html, 'Dice de qué producto habla.');
+        $this->assertStringNotContainsString('alm-otros-prod', $html, 'La fila marcada ya dice qué producto es.');
+        $this->assertStringContainsString('class="guia"', $html, 'Cada nombre va unido a su cantidad.');
         $this->assertStringNotContainsString('Distribución de Inventario', $html);
     }
 

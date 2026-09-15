@@ -17,6 +17,12 @@ return new class extends Migration
 {
     public function up(): void
     {
+        // Guarda como documento_anexos y compresion_pdf_registro: una BD que ya tenga la tabla
+        // (copia del servidor, migración repetida) no revienta aquí.
+        if (Schema::hasTable('almacen_logistica')) {
+            return;
+        }
+
         Schema::create('almacen_logistica', function (Blueprint $table) {
             $table->id('ID_LOGISTICA');
             $table->unsignedBigInteger('ID_ALMACEN');

@@ -8,10 +8,10 @@
           el controlador): saber que de los 325 hay 150 en un frente y 100 en otro es lo que
           decide a quién pedírselo.
      Sale cuando el filtro apunta a un producto (sugerencia o búsqueda con una sola fila) o al
-     tocar una fila de la tabla ($producto: entonces dice de cuál habla), y SOLO si otro almacén
-     tiene existencias: sin ninguna el controlador no renderiza este partial. Ya no hay lista por
-     categoría: sumaba productos distintos y no respondía nada útil (decisión del cliente,
-     15-09-2026). --}}
+     tocar una fila de la tabla, y SOLO si otro almacén tiene existencias: sin ninguna el
+     controlador no renderiza este partial. No repite la descripción del producto (la fila
+     marcada ya la dice) ni hay lista por categoría, que sumaba productos distintos (decisiones
+     del cliente, 15-09-2026). --}}
 @php
     $porProyecto = $productoProyectos ?? collect();
     // Saldo latino "12" / "12,5" / "1.800" — sin ceros sobrantes ni separador roto.
@@ -38,15 +38,11 @@
     };
 @endphp
 
-{{-- Listas minimales "nombre — cantidad". El wrapper conserva la clase .alm-otros-almacenes:
-     de ella cuelgan las reglas de mobile del index (tipografias compactas) y el :has() que
-     decide si el panel se muestra, asi que renombrarla apagaria el panel. --}}
+{{-- Listas minimales "nombre ····· cantidad": la .guia punteada une cada nombre con su cifra.
+     El wrapper conserva la clase .alm-otros-almacenes: de ella cuelgan las reglas de mobile del
+     index (tipografias compactas) y el :has() que decide si el panel se muestra, asi que
+     renombrarla apagaria el panel. --}}
 <div class="alm-otros-almacenes">
-    {{-- Al tocar una fila (varios productos en la tabla) el panel dice de cuál habla. --}}
-    @if(!empty($producto))
-        <p class="alm-otros-prod">{{ $producto->CODIGO }} · {{ $producto->NOMBRE }}</p>
-    @endif
-
     {{-- ── 1. Puertas adentro: reparto por proyecto ────────────────────────────────
          Solo en almacenes que separan por proyecto. Es la ÚNICA forma de ver el reparto:
          el módulo ya no tiene filtro por proyecto en la barra de arriba, porque obligaba a
@@ -63,6 +59,7 @@
                 @php [$esComun, $rotulo] = $rotuloFrente($fila); @endphp
                 <li class="alm-panel-row">
                     <span class="nom {{ $esComun ? 'comun' : '' }}">{{ $rotulo }}</span>
+                    <span class="guia" aria-hidden="true"></span>
                     <span class="qty proy">{{ $fmtQty($fila->CANTIDAD) }}</span>
                 </li>
             @endforeach
@@ -93,13 +90,14 @@
                        con dos almacenes no se sabía dónde acababa uno.
                      Dentro, el hover y el clic de la fila lo abarcan, que es justo lo que
                      dice "esto es de este almacén".
-                     Los dos <span> siguen siendo hijos DIRECTOS del <li>: de ellos cuelgan
-                     las reglas de teléfono (.alm-otros-almacenes li > span), así que meterlos
+                     Los <span> .nom y .qty siguen siendo hijos DIRECTOS del <li>: de ellos cuelgan
+                     las reglas de teléfono (.alm-otros-almacenes li > .nom y li > .qty), así que meterlos
                      en un envoltorio las habría apagado sin avisar. --}}
                 <li class="alm-panel-row clicable {{ $conSub ? 'con-sub' : '' }}"
                     onclick="window.almVerProductoEnAlmacen('{{ $row->ID_ALMACEN }}', '{{ addslashes($row->NOMBRE) }}', '{{ $idProducto }}')"
                     title="Ver este producto en {{ $row->NOMBRE }}">
                     <span class="nom">{{ $row->NOMBRE }}</span>
+                    <span class="guia" aria-hidden="true"></span>
                     <span class="qty {{ $bajo ? 'bajo' : '' }}">{{ $fmtQty($row->CANTIDAD) }}</span>
                     @if($conSub)
                         <ul class="alm-panel-sub">
@@ -107,6 +105,7 @@
                                 @php [$esComun, $rotulo] = $rotuloFrente($p); @endphp
                                 <li>
                                     <span class="nom {{ $esComun ? 'comun' : '' }}">{{ $rotulo }}</span>
+                                    <span class="guia" aria-hidden="true"></span>
                                     <span class="qty">{{ $fmtQty($p->CANTIDAD) }}</span>
                                 </li>
                             @endforeach
