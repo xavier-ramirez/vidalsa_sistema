@@ -98,8 +98,10 @@
                              que entregas — se resalta (subrayado + negrita) y ESE sale en la Nota
                              de Entrega y en la bitácora. Ninguno va marcado de antemano: al
                              seleccionar la fila se pide elegir uno (.alm-row-pide-parte).
-                             data-no-toggle: el clic NO togglea la selección de la fila. --}}
-                        <div class="alm-parte-list" data-no-toggle>
+                             data-no-toggle va SOLO en cada número (su clic elige la parte): el hueco
+                             y los separadores de la línea seleccionan la fila como el resto; con la
+                             marca en toda la línea, tocar ahí no hacía nada. --}}
+                        <div class="alm-parte-list">
                             @foreach($equivs as $np)
                                 <span class="alm-parte-opt" data-no-toggle data-parte="{{ $np }}"
                                       onclick="window.almRowPartePick && window.almRowPartePick(this)">{{ $np }}</span>@unless($loop->last)<span class="alm-parte-sep"> · </span>@endunless
@@ -118,17 +120,12 @@
                     $tip = [];
                     if (!empty($p->UBICACION)) $tip[] = '📍 ' . e($p->UBICACION);
                     if ($equipos) {
-                        // Cada equipo en su línea: "Tipo · Marca · Modelo" (uno abajo del otro).
-                        // El TIPO con cada palabra en mayúscula inicial (Title Case): viene en
-                        // minúsculas y "camion de plataforma" debe verse "Camion De Plataforma".
-                        // Str::title es multibyte (respeta acentos). Los espacios de más se juntan
-                        // ("VOLTEO  HIDROJET" salía con el hueco doble).
-                        // La MARCA y el MODELO se dejan TAL CUAL (mayúsculas): son códigos de
-                        // catálogo —ZZ1168G4525C1, FL956H— y en Title Case quedaban "Zz1168G4525C1",
-                        // distintos de como se leen en Detalles del producto y en /admin/equipos.
-                        $cap    = fn ($s) => \Illuminate\Support\Str::title(preg_replace('/\s+/u', ' ', trim((string) ($s ?? ''))));
-                        $tal    = fn ($s) => preg_replace('/\s+/u', ' ', trim((string) ($s ?? '')));
-                        $fmt    = fn ($e) => implode(' · ', array_filter([$cap($e['t'] ?? null), $tal($e['m'] ?? null), $tal($e['mo'] ?? null)]));
+                        // Cada equipo en su línea: "TIPO · MARCA · MODELO" (uno abajo del otro), TODO
+                        // en mayúsculas como en Detalles del producto y en /admin/equipos: el tipo en
+                        // Title Case junto a la marca en mayúsculas se leía disparejo. mb_strtoupper
+                        // respeta acentos; los espacios de más se juntan ("VOLTEO  HIDROJET").
+                        $may    = fn ($s) => mb_strtoupper(preg_replace('/\s+/u', ' ', trim((string) ($s ?? ''))));
+                        $fmt    = fn ($e) => implode(' · ', array_filter([$may($e['t'] ?? null), $may($e['m'] ?? null), $may($e['mo'] ?? null)]));
                         // SIN REPETIDOS: el catálogo guarda una ficha por año/versión del mismo
                         // modelo y el producto queda vinculado a TODAS, así que "Camioneta ·
                         // Toyota · Hilux" salía dos y tres veces. Se compara el texto ya armado

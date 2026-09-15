@@ -153,7 +153,9 @@ class MovilizacionesDeEquipoTest extends MySqlTestCase
             ->whereNotNull('CODIGO_CONTROL')
             ->count();
 
-        $devueltos = collect($datos)->filter(fn ($f) => $f['codigo'] !== null);
+        // "R.D." no es un codigo de acta: lo lleva la recepcion directa (sin CODIGO_CONTROL)
+        // y se comprueba aparte, abajo.
+        $devueltos = collect($datos)->filter(fn ($f) => $f['codigo'] !== null && $f['codigo'] !== 'R.D.');
 
         $this->assertSame($conActa, $devueltos->count(),
             'Solo las filas con CODIGO_CONTROL deben traer codigo.');

@@ -409,6 +409,8 @@ Route::middleware(['auth'])->group(function () {
             // Compatibilidad de un producto: equivalencias (nº de parte) + equipos que lo usan.
             // Se carga al abrir "Detalles del producto".
             Route::get   ('almacen/productos/{id}/compatibilidad', [App\Http\Controllers\AlmacenController::class, 'productoCompatibilidad'])->whereNumber('id')->name('almacen.productos.compatibilidad');
+            // Panel lateral "En otros almacenes" de un producto: lo pide la tabla al tocar una fila.
+            Route::get   ('almacen/productos/{id}/otros-almacenes', [App\Http\Controllers\AlmacenController::class, 'productoOtrosAlmacenes'])->whereNumber('id')->name('almacen.productos.otros');
             // Botones + / × de "Detalles del producto": números de parte y equipos que lo usan
             // (permiso almacen.productos, en el constructor del controlador).
             Route::post  ('almacen/productos/{id}/equivalencias',   [App\Http\Controllers\AlmacenController::class, 'agregarEquivalencia'])->whereNumber('id')->name('almacen.productos.equivalencias.store');

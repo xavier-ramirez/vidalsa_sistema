@@ -17,8 +17,11 @@ class LogisticaAlmacenService
 {
     /**
      * Sugerencias para la Nota que emite este almacén: primero su lista (lo usado hace menos
-     * arriba) y después la flota con placa de sus frentes, con la persona asignada a cada
-     * vehículo como chofer. Sin repetir: lo que ya está en la lista no se vuelve a ofrecer.
+     * arriba) y después la flota de sus frentes, con la persona asignada a cada vehículo como
+     * chofer. Sin repetir: lo que ya está en la lista no se vuelve a ofrecer.
+     *
+     * Cada vehículo de la flota trae `serial` (de chasis) para buscarlo también por ahí; el que
+     * no tiene placa de verdad se ofrece con su serial como documento: es lo que lo identifica.
      */
     public function sugerencias(Almacen $almacen): array
     {
@@ -30,7 +33,8 @@ class LogisticaAlmacenService
         $flota = $this->flotaDeFrentes($almacen);
         $this->sumar($vehiculos, AlmacenLogistica::TIPO_VEHICULO, $flota->map(fn ($v) => [
             'nombre'    => mb_strtoupper(trim(preg_replace('/\s+/', ' ', "{$v->TIPO} {$v->MARCA} {$v->MODELO}"))),
-            'documento' => strtoupper(preg_replace('/\s+/', '', $v->PLACA)),
+            'documento' => $v->placaValida ? strtoupper(preg_replace('/\s+/', '', $v->PLACA)) : $v->serial,
+            'serial'    => $v->serial,
         ]));
         $asignados = DB::table('responsable')->whereIn('ID_EQUIPO', $flota->pluck('ID_EQUIPO'))
             ->orderByDesc('FECHA_ASIGNACION')->orderByDesc('ID_ASIGNACION')
@@ -116,7 +120,10 @@ class LogisticaAlmacenService
         $actuales->reject(fn ($f, $k) => isset($quedan[$k]))->each->delete();
     }
 
-    /** Vehículos con placa de los frentes del almacén (la placa vive en documentacion). */
+    /**
+     * Vehículos de los frentes del almacén con algo que los identifique en la Nota: una placa de
+     * verdad (vive en documentacion) o, si no la tienen, su serial de chasis.
+     */
     private function flotaDeFrentes(Almacen $almacen): Collection
     {
         $frentes = $almacen->frentes()->pluck('frentes_trabajo.ID_FRENTE');
@@ -124,14 +131,20 @@ class LogisticaAlmacenService
             return collect();
         }
         return DB::table('equipos as e')
-            ->join('documentacion as d', 'd.ID_EQUIPO', '=', 'e.ID_EQUIPO')
+            ->leftJoin('documentacion as d', 'd.ID_EQUIPO', '=', 'e.ID_EQUIPO')
             ->leftJoin('tipo_equipos as t', 't.id', '=', 'e.id_tipo_equipo')
-            ->whereIn('e.ID_FRENTE_ACTUAL', $frentes)->whereNull('e.deleted_at')->whereNotNull('d.PLACA')
-            ->orderBy('t.nombre')->orderBy('e.MARCA')->orderBy('e.MODELO')
-            ->get(['e.ID_EQUIPO', 'd.PLACA', 'e.MARCA', 'e.MODELO', 't.nombre as TIPO'])
-            // La flota tiene placas de relleno ("-", "...", "N/A"): una placa de verdad lleva
-            // letras y números.
-            ->filter(fn ($v) => preg_match('/^(?=.*[A-Z])(?=.*\d)[A-Z0-9]{5,10}$/', AlmacenLogistica::clave(AlmacenLogistica::TIPO_VEHICULO, (string) $v->PLACA)))
+            ->whereIn('e.ID_FRENTE_ACTUAL', $frentes)->whereNull('e.deleted_at')
+            ->orderBy('t.nombre')->orderBy('e.MARCA')->orderBy('e.MODELO')->orderBy('e.ID_EQUIPO')
+            ->get(['e.ID_EQUIPO', 'd.PLACA', 'e.SERIAL_CHASIS', 'e.MARCA', 'e.MODELO', 't.nombre as TIPO'])
+            ->map(function ($v) {
+                // La flota tiene placas de relleno ("-", "...", "N/A"): una placa de verdad lleva
+                // letras y números.
+                $v->placaValida = (bool) preg_match('/^(?=.*[A-Z])(?=.*\d)[A-Z0-9]{5,10}$/', AlmacenLogistica::clave(AlmacenLogistica::TIPO_VEHICULO, (string) $v->PLACA));
+                $serial = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', (string) $v->SERIAL_CHASIS));
+                $v->serial = strlen($serial) >= 5 ? $serial : '';
+                return $v;
+            })
+            ->filter(fn ($v) => $v->placaValida || $v->serial !== '')
             ->values();
     }
 

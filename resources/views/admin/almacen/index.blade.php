@@ -332,19 +332,25 @@
        cada bloque del partial; al unificarlos aquí, ajustar el alto es un solo sitio.
        COMPACTO a pedido del cliente: encabezado 12px con 6px de aire, filas de 5px y
        separación de 12px entre secciones (antes 13px/8px/7px/16px). */
-    .alm-panel-h4 { margin:0 0 7px 0; font-size:12px; text-transform:uppercase; color:#64748b;
+    .alm-panel-h4 { margin:0 0 7px 0; font-size:12px; text-transform:uppercase; color:#1e293b;
         border-bottom:1px solid #f1f5f9; padding-bottom:6px; font-weight:700;
         display:flex; align-items:center; gap:7px; }
     .alm-panel-h4 .material-icons { font-size:17px; }
     .alm-panel-h4.sep { margin-top:12px; }
     .alm-panel-list { list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:2px; }
     .alm-panel-list.scroll { max-height:52vh; overflow-y:auto; }
+    /* El panel "En otros almacenes" solo se ve cuando tiene algo que decir (PC y teléfono). */
+    #almDistWrapper:not(:has(.alm-otros-almacenes)) { display: none !important; }
+    /* De qué producto habla el panel cuando se llenó tocando una fila (la tabla trae varios).
+       text-wrap:balance: una descripción larga se reparte en dos renglones parejos en vez de
+       dejar una palabra suelta abajo. */
+    .alm-otros-prod { margin: 0 0 8px; font-size: 12.5px; font-weight: 600; color: #0f172a; line-height: 1.3; overflow-wrap: anywhere; text-wrap: balance; }
     .alm-panel-row { padding:5px 8px; border-radius:6px; display:flex; justify-content:space-between;
         align-items:center; gap:8px; border:1px solid transparent; }
-    .alm-panel-row .nom { flex:1; min-width:0; color:#334155; font-size:12.5px; font-weight:600;
+    .alm-panel-row .nom { flex:1; min-width:0; color:#1e293b; font-size:12.5px; font-weight:600;
         line-height:1.25; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     /* Bolsa común: es saldo real, pero no es un proyecto con nombre propio. */
-    .alm-panel-row .nom.comun { font-style:italic; color:#64748b; }
+    .alm-panel-row .nom.comun { font-style:italic; color:#475569; }
     .alm-panel-row .qty { font-weight:700; font-size:12.5px; padding:2px 8px; border-radius:4px;
         white-space:nowrap; background:#f1f5f9; color:#1e293b; }
     .alm-panel-row .qty.proy { background:#e1effa; color:#0067b1; }
@@ -363,14 +369,14 @@
     .alm-panel-sub { flex-basis:100%; list-style:none; margin:3px 0 1px 0; padding:0 0 0 10px;
         display:flex; flex-direction:column; gap:1px; border-left:2px solid #cbd5e1; }
     .alm-panel-sub li { display:flex; justify-content:space-between; align-items:center; gap:8px; padding:2px 0; }
-    .alm-panel-sub .nom { flex:1; min-width:0; color:#64748b; font-size:11.5px; font-weight:600;
+    .alm-panel-sub .nom { flex:1; min-width:0; color:#334155; font-size:11.5px; font-weight:600;
         overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    .alm-panel-sub .nom.comun { font-style:italic; color:#94a3b8; }
-    .alm-panel-sub .qty { font-weight:700; font-size:11.5px; color:#475569; white-space:nowrap; }
+    .alm-panel-sub .nom.comun { font-style:italic; color:#475569; }
+    .alm-panel-sub .qty { font-weight:700; font-size:11.5px; color:#1e293b; white-space:nowrap; }
 
     .alm-panel-total { display:flex; justify-content:space-between; align-items:center; gap:8px;
         margin-top:2px; padding:6px 8px 0; border-top:1px solid #e2e8f0; }
-    .alm-panel-total span { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.3px; color:#64748b; }
+    .alm-panel-total span { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.3px; color:#334155; }
     .alm-panel-total strong { font-weight:800; font-size:13px; color:#0f172a; white-space:nowrap; }
 
     /* ── Consolidado de Inventario (tarjeta del sidebar) ──────────────────────────
@@ -506,6 +512,10 @@
     .alm-suggest-inline .alm-log-item { justify-content:space-between; padding:8px 12px; }
     .alm-log-nom { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; color:#0f172a; }
     .alm-log-doc { flex:0 0 auto; font-size:12px; font-weight:700; color:#475569; font-variant-numeric:tabular-nums; }
+    /* Vehículos: la placa (o el serial de chasis) primero —es lo que se escribe— y al lado el tipo. */
+    .alm-suggest-inline .alm-log-item.veh { justify-content:flex-start; gap:14px; }
+    .alm-log-item.veh .alm-log-doc { min-width:92px; font-size:13px; color:#0f172a; }
+    .alm-log-serial { margin-left:auto; flex:0 0 auto; font-size:11.5px; color:#475569; font-variant-numeric:tabular-nums; }
     /* Se guardan en mayúsculas (LogisticaAlmacenService): se ven así mientras se escriben. El
        ejemplo del campo no: "EJ: CAMIONETA TOYOTA HILUX" parecía un valor ya escrito. */
     #almSalidaVehiculo, #almSalidaPlaca, #almSalidaChofer, .alm-log-fila input { text-transform:uppercase; }
@@ -871,20 +881,8 @@
         .alm-otros-almacenes .alm-panel-sub li { padding: 2px 0 !important; }
         .alm-otros-almacenes .alm-panel-sub li > span:first-child { font-size: 10.5px !important; }
         .alm-otros-almacenes .alm-panel-sub li > span:last-child { font-size: 10.5px !important; padding: 0 !important; }
-        /* Empty state del modo cruzado: mensaje "Este producto solo existe…"
-           AHORA SE MUESTRA en mobile (cliente lo pidio explicitamente). Margenes
-           comprimidos para no malgastar alto. */
-        .alm-otros-almacenes > p { margin: 4px 0 0 !important; font-size: 11.5px !important; line-height: 1.35 !important; }
-        /* "Distribucion de Inventario" (grafico por categoria, modo default): se
-           oculta en mobile. Cliente lo encontro redundante con la columna
-           Categoria que cada tarjeta ya muestra. */
-        .alm-distribucion-cats { display: none !important; }
-        /* Wrapper #almDistWrapper en mobile: hide cuando solo contiene el chart
-           (default) o esta vacio. Solo se muestra cuando hay panel "En otros
-           almacenes" util (modo cruzado con o sin contenido — el empty state
-           ahora sale tambien). Usa :has() — soportado en chromium 105+. */
-        #almDistWrapper { display: none !important; }
-        #almDistWrapper:has(.alm-otros-almacenes) { display: block !important; padding: 10px 12px !important; }
+        .alm-otros-almacenes .alm-otros-prod { margin: 0 0 6px !important; font-size: 11.5px !important; }
+        #almDistWrapper:has(.alm-otros-almacenes) { padding: 10px 12px !important; }
         /* "Ver movimientos del producto" del modal de detalles: el kardex tabular
            que abre es pesado en mobile. Cliente prefirio quitar el boton en
            telefono y mantener el modal de detalles compacto. */
@@ -1410,17 +1408,12 @@
         </div>
     </div>
 
-    {{-- Wrapper del panel "En otros almacenes" / "Distribución de Inventario".
-         Lleva id="almDistWrapper" porque en mobile el JS lo mueve a DESPUES de
-         la tabla (separado del Consolidado, que queda donde esta). El white-box
-         se oculta en mobile cuando solo contiene el grafico de categorias o esta
-         vacio — solo se ve cuando hay info util de "otros almacenes". --}}
+    {{-- Wrapper del panel "En otros almacenes". Lleva id="almDistWrapper" porque en mobile el
+         JS lo mueve a DESPUES de la tabla (separado del Consolidado, que queda donde esta).
+         Arranca vacío y se oculta mientras lo esté; lo llenan el filtro que apunta a un
+         producto (almCargar → distribucionHtml) y el clic en una fila (almPanelOtros). --}}
     <div id="almDistWrapper" style="background:white;border-radius:12px;padding:15px;border:1px solid #e2e8f0;box-shadow:0 4px 6px -1px rgba(0,0,0,0.05);overflow:hidden;">
-        <div id="almDistribucionContainer">
-            @if($distribucion && $distribucion->isNotEmpty())
-                @include('admin.almacen.partials.distribucion_stats', ['distribucion' => $distribucion])
-            @endif
-        </div>
+        <div id="almDistribucionContainer"></div>
     </div>
 </div>
 
@@ -2346,9 +2339,10 @@
 
                 {{-- TRANSPORTE — lo imprime el bloque "Datos del vehículo / Datos del chofer" de la
                      nota, que antes salía en blanco. Opcional: lo que quede vacío sale en blanco
-                     para llenarlo a mano. Sugiere la logística del almacén y la flota con placa de
-                     sus frentes (almLogCargar); elegir uno llena los dos campos de su fila. La
-                     lista cuelga de la FILA (no de un campo) para salir a lo ancho de los dos. --}}
+                     para llenarlo a mano. Sugiere la logística del almacén y la flota de sus frentes
+                     (almLogCargar): el vehículo se busca ESCRIBIENDO su placa o su serial de chasis
+                     y elegir uno llena los dos campos de su fila. La lista cuelga de la FILA (no de
+                     un campo) para salir a lo ancho de los dos. --}}
                 <div class="alm-modal-grid alm-modal-grid-2" style="display:grid;grid-template-columns:1.6fr 1fr;gap:10px;margin-bottom:10px;">
                     <div>
                         <label class="alm-nota-label" for="almSalidaVehiculo">Vehículo</label>
@@ -2357,7 +2351,7 @@
                     </div>
                     <div>
                         <label class="alm-nota-label" for="almSalidaPlaca">Placa</label>
-                        <input type="text" id="almSalidaPlaca" class="alm-nota-input" maxlength="30" placeholder="Ej: A05EC1G" autocomplete="off"
+                        <input type="text" id="almSalidaPlaca" class="alm-nota-input" maxlength="30" placeholder="Placa o serial de chasis" autocomplete="off"
                                data-log="vehiculos" oninput="window.almLogSugerir(this)" onfocus="window.almLogSugerir(this, true)">
                     </div>
                     <div class="alm-suggest-inline alm-suggest-float" id="almSalidaVehiculosSug"></div>
@@ -2791,6 +2785,8 @@
                     num('almStatsBajo',     data.stats.stock_bajo);
                 }
                 if (!append && data.distribucionHtml !== undefined) {
+                    // Un clic en una fila que aún no respondió ya no debe pisar este panel.
+                    _almOtrosPedido++;
                     var dc = el('almDistribucionContainer'); if (dc) dc.innerHTML = data.distribucionHtml;
                 }
                 // URL para compartir — solo en recarga completa (offset no va a la URL).
@@ -2943,7 +2939,6 @@
         almResetPick(); // descartar match exacto (id_producto/_in) si quedó pegado de un clic previo
         almCargar({ verTodo: true }); // acción explícita: mostrar TODO el inventario del almacén
     };
-    window.almFilterByCategoria = function (cat) { var s = el('almFiltroCat'); if (s) { s.value = cat || ''; } almResetPick(); almResetBadges(); almCatSuggestHide(); almCargar(); };
     // Los dos badges del header son TOGGLES: clic con el mismo filtro activo lo apaga.
     // Clic en uno mientras el otro estaba encendido los hace mutuamente exclusivos.
     // En cualquier caso, almPintarBadges() refleja el estado para que el usuario VEA
@@ -3001,7 +2996,7 @@
     // categoría: con un atajo pegado, el producto buscado no aparecía si no calificaba para
     // él (p. ej. buscar por descripción con "Stock bajo" encendido no lo encontraba).
     // Los puntos que APLICAN el filtro ya llamaban a almResetBadges() (almBuscarEnter,
-    // almBuscarPick, almCatEnter, almCatPick, almFilterByCategoria); esto lo adelanta al
+    // almBuscarPick, almCatEnter, almCatPick); esto lo adelanta al
     // FOCO, para que el badge no siga encendido mientras se escribe.
     // Punto ÚNICO de los dos campos: la lógica no se repite en cada onfocus.
     // Recarga solo si de verdad había un atajo activo — si no, un clic en el campo
@@ -3796,9 +3791,9 @@
     }
     // Clic en un número de parte de la descripción: lo marca como el que se ENTREGA (resalta
     // dentro de la fila), lo guarda en la fila y en almSeleccion, y SELECCIONA la fila si no
-    // lo estaba. La lista de partes lleva data-no-toggle (el clic no togglea la selección por
-    // el handler genérico), así que sin esto un clic aquí no seleccionaba nada y el usuario
-    // tenía que atinarle al nombre — de ahí el "lo doy varias veces y de repente selecciona".
+    // lo estaba. Cada número de parte lleva data-no-toggle (su clic no pasa por el handler
+    // genérico de la fila), así que sin esto tocar un número no seleccionaba nada. El hueco y los
+    // separadores de la línea no llevan la marca: ahí el clic selecciona la fila como en el resto.
     window.almRowPartePick = function (el) {
         var tr = el.closest('tr.alm-row'); if (!tr) return;
         var id = tr.getAttribute('data-id-producto');
@@ -3898,6 +3893,19 @@
         // Si ahora la cantidad es válida (mayor que cero), limpiar el resaltado rojo "faltante".
         if (isFinite(c) && c > 0) almLimpiarFaltante(id);
     };
+    // Panel lateral "En otros almacenes" del producto de la fila tocada, sin recargar la tabla:
+    // con varias filas de búsqueda es la forma de saber si ese producto hay en otro almacén.
+    // Solo pinta la respuesta del ÚLTIMO pedido (una anterior que llegue tarde se descarta).
+    var ROUTE_OTROS = "{{ route('almacen.productos.otros', ['id' => '__PID__']) }}";
+    var _almOtrosPedido = 0;
+    function almPanelOtros(idProducto) {
+        var dc = el('almDistribucionContainer'); if (!dc || !idProducto) return;
+        var pedido = ++_almOtrosPedido, idAlm = almSelAlmacenActual();
+        window.apiFetch(ROUTE_OTROS.replace('__PID__', idProducto) + (idAlm ? '?id_almacen=' + encodeURIComponent(idAlm) : ''), { headers: { 'Accept': 'application/json' } })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (d) { if (d && pedido === _almOtrosPedido) dc.innerHTML = d.html || ''; })
+            .catch(function () { /* sin panel: la tabla sigue usable */ });
+    }
     // Clic en una fila de la tabla → toggle de selección. Ignora clics sobre botones / inputs
     // (incluido el input .alm-row-cant que va dentro de un td[data-no-toggle]).
     document.addEventListener('click', function (e) {
@@ -3912,6 +3920,7 @@
         // En modo "Ver solo seleccionados" NO re-ocultamos la fila al deseleccionar: queda
         // visible (sin marcar) para poder volver a seleccionarla si el clic fue accidental.
         // La fila desaparece recién al volver a pulsar el toggle (recarga → almSelApplyToRows).
+        almPanelOtros(id);
         almSelRefreshBar();
     });
     function almSelAlmacenActual() { var s = el('almSelAlmacen'); return s ? s.value : ''; }
@@ -5803,22 +5812,33 @@
     function almLogOcultar() {
         ['almSalidaVehiculosSug', 'almSalidaChoferesSug'].forEach(function (id) { var b = el(id); if (b) b.classList.remove('open'); });
     }
-    // Lista de su fila, filtrada por lo escrito (nombre o documento). Al entrar a un campo
-    // vacío se ve entera. Sin nada que sugerir no se abre: el campo sigue siendo libre.
+    // Lista de su fila, filtrada por lo escrito. Vehículos: se busca ESCRIBIENDO la placa, el
+    // serial de chasis o el nombre, y la lista no se abre entera al entrar (eran decenas para
+    // elegir a ojo); cada renglón va con la placa primero y el tipo al lado. Choferes: al entrar
+    // a un campo vacío se ve la lista entera (son pocos). Sin nada que sugerir no se abre: el
+    // campo sigue siendo libre.
     window.almLogSugerir = function (inp, alEntrar) {
         var tipo = inp.getAttribute('data-log'), lista = ALM_LOG[tipo] || [];
         var box = el(tipo === 'choferes' ? 'almSalidaChoferesSug' : 'almSalidaVehiculosSug');
         if (!box) return;
         almLogOcultar();
-        if (!lista.length) return;
+        var veh = tipo === 'vehiculos';
         var term = almNorm(inp.value.trim());
+        if (!lista.length || (veh && !term)) return;
         var html = '', grupo = '', n = 0;
         lista.forEach(function (it, i) {
-            if (n >= 80 || !(alEntrar && !term || almNorm(it.nombre + ' ' + it.documento).indexOf(term) > -1)) return;
+            var serial = it.serial || '';
+            if (n >= 80 || !(alEntrar && !term || almNorm(it.nombre + ' ' + it.documento + ' ' + serial).indexOf(term) > -1)) return;
             var g = it.origen === 'flota' ? 'Flota de los frentes' : 'Logística del almacén';
             if (g !== grupo) { html += '<div class="alm-log-grupo">' + g + '</div>'; grupo = g; }
-            html += '<div class="si-item alm-log-item" data-log="' + tipo + '" data-i="' + i + '">'
-                + '<span class="alm-log-nom">' + escHtml(it.nombre) + '</span><span class="alm-log-doc">' + escHtml(it.documento) + '</span></div>';
+            // Si se encontró por el serial y el documento es la placa, el serial se ve a la derecha.
+            var porSerial = veh && term && serial && serial !== it.documento && almNorm(serial).indexOf(term) > -1;
+            html += '<div class="si-item alm-log-item' + (veh ? ' veh' : '') + '" data-log="' + tipo + '" data-i="' + i + '">'
+                + (veh
+                    ? '<span class="alm-log-doc">' + escHtml(it.documento) + '</span><span class="alm-log-nom">' + escHtml(it.nombre) + '</span>'
+                      + (porSerial ? '<span class="alm-log-serial">S/C ' + escHtml(serial) + '</span>' : '')
+                    : '<span class="alm-log-nom">' + escHtml(it.nombre) + '</span><span class="alm-log-doc">' + escHtml(it.documento) + '</span>')
+                + '</div>';
             n++;
         });
         almSuggestApply(box, html, '<div class="alm-suggest-empty">Sin coincidencias: se imprime lo que escribas.</div>');

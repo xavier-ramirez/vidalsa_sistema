@@ -470,8 +470,95 @@ class EquipoController extends Controller
         });
     }
 
-    /** Equipos que muestra la tabla al abrir, sin filtros (con foto, los últimos registrados). */
+    /** Equipos que muestra la tabla al abrir, sin filtros (con foto, uno por modelo). */
     private const MUESTRA_INICIAL = 6;
+
+    /** Caché de QUÉ equipos forman esa muestra: solo los IDs (las filas se leen frescas). */
+    public const MUESTRA_CACHE = 'equipos_muestra_inicial_';
+
+    /**
+     * Clave de la muestra para el alcance de frentes del usuario: un usuario LOCAL no puede
+     * recibir la muestra guardada de otro que ve frentes distintos.
+     */
+    public static function claveMuestraInicial($user): string
+    {
+        return self::MUESTRA_CACHE . md5(json_encode([
+            $user?->frentesVisiblesEquiposIds(),
+            $user ? array_values($user->getFrentesBloqueadosIds()) : [],
+        ]));
+    }
+
+    /**
+     * La muestra inicial de la tabla: SIEMPRE LOS MISMOS equipos al abrir el módulo.
+     *
+     * Se guardan en caché los IDs elegidos, SIN vencimiento, y las filas se leen de la BD en cada
+     * apertura, así el estado, el frente o la foto salen al día. Si alguno ya no se puede
+     * mostrar —se borró, pasó a un frente que el usuario no ve o se quedó sin foto— se elige de
+     * nuevo y se vuelve a guardar.
+     *
+     * $conCache=false ("ver solo seleccionados", ids_in) elige sin leer ni guardar: esa consulta
+     * ya viene recortada y no debe pisar la muestra de todos los días.
+     */
+    private function muestraInicial($query, $user, bool $conCache)
+    {
+        $cargar = fn (array $ids) => $ids
+            ? (clone $query)->whereIn('equipos.ID_EQUIPO', $ids)->get()
+                ->sortBy(fn ($e) => array_search((int) $e->ID_EQUIPO, $ids, true))->values()
+            : collect();
+
+        if (!$conCache) {
+            return $cargar($this->elegirMuestra(clone $query));
+        }
+
+        $clave = self::claveMuestraInicial($user);
+        $ids = \Illuminate\Support\Facades\Cache::get($clave);
+        if (is_array($ids) && $ids) {
+            $filas = $cargar($ids);
+            if ($filas->count() === count($ids) && $filas->every(fn ($e) => $e->fotoDriveId() !== null)) {
+                return $filas;
+            }
+        }
+
+        $ids = $this->elegirMuestra(clone $query);
+        \Illuminate\Support\Facades\Cache::forever($clave, $ids);
+        return $cargar($ids);
+    }
+
+    /**
+     * Elige la muestra: los equipos más recientes CON FOTO VISIBLE y de modelos distintos (uno
+     * por marca + modelo: el catálogo tiene fichas repetidas del mismo modelo, una por año, y
+     * salían filas iguales). "Con foto" lo decide Equipo::fotoDriveId(), la MISMA regla que pinta
+     * la fila; el where en SQL solo descarta de entrada los que no tienen ninguna foto. Carga
+     * solo la ficha y sus colores, no todo lo que necesita la tabla.
+     *
+     * @return int[]
+     */
+    private function elegirMuestra($query): array
+    {
+        $candidatos = $query->setEagerLoads([])->with(Equipo::conFoto())
+            ->where(function ($q) {
+                $q->whereHas('especificaciones.colores', fn ($c) => $c->whereNotNull('FOTO')->where('FOTO', '!=', ''))
+                    ->orWhereHas('especificaciones', fn ($e) => $e->whereNotNull('FOTO_REFERENCIAL')->where('FOTO_REFERENCIAL', '!=', ''))
+                    ->orWhere(fn ($e) => $e->whereNotNull('equipos.FOTO_EQUIPO')->where('equipos.FOTO_EQUIPO', '!=', ''));
+            })
+            ->reorder()->orderByDesc('equipos.ID_EQUIPO')
+            ->limit(300)->get();
+
+        $ids = [];
+        $modelos = [];
+        foreach ($candidatos as $e) {
+            $modelo = mb_strtoupper(trim($e->MARCA . '|' . $e->MODELO));
+            if (isset($modelos[$modelo]) || $e->fotoDriveId() === null) {
+                continue;
+            }
+            $modelos[$modelo] = true;
+            $ids[] = (int) $e->ID_EQUIPO;
+            if (count($ids) === self::MUESTRA_INICIAL) {
+                break;
+            }
+        }
+        return $ids;
+    }
 
     public function index(Request $request)
     {
@@ -562,30 +649,13 @@ class EquipoController extends Controller
             $truncated  = $totalFound > $PAGE_SIZE; // legacy flag para compatibilidad
         } elseif (!$auxMode && $offset === 0) {
             // Sin filtros la tabla ya no abre vacía: enseña unos pocos equipos CON FOTO y de
-            // MODELOS DISTINTOS (uno por ficha: si no, salían seis veces la misma camioneta),
-            // para que el módulo se vea de una sin costar lo que cuesta listar los 1.200 (ver
-            // PAGE_SIZE). Los filtros y el buscador siguen mandando igual.
+            // MODELOS DISTINTOS, para que el módulo se vea de una sin costar lo que cuesta listar
+            // los 1.200 (ver PAGE_SIZE). Son SIEMPRE LOS MISMOS: la selección queda en caché (ver
+            // muestraInicial). Los filtros y el buscador siguen mandando igual.
             //
             // Sale de la MISMA query ya filtrada por lo que el usuario puede ver, así que un
             // usuario local no ve equipos de frentes ajenos.
-            $conFoto = function ($q) {
-                // "Con foto" en el mismo orden que Equipo::fotoParaMostrar: la del color, la
-                // del modelo o la propia de la unidad.
-                $q->whereHas('especificaciones.colores', fn ($c) => $c->whereNotNull('FOTO')->where('FOTO', '!=', ''))
-                    ->orWhereHas('especificaciones', fn ($e) => $e->whereNotNull('FOTO_REFERENCIAL')->where('FOTO_REFERENCIAL', '!=', ''))
-                    ->orWhere(fn ($e) => $e->whereNotNull('equipos.FOTO_EQUIPO')->where('equipos.FOTO_EQUIPO', '!=', ''));
-            };
-            // Agrupado por lo que SE VE en la fila (marca y modelo) y no por ficha: el catálogo
-            // tiene fichas repetidas del mismo modelo (una por año) y salían dos filas iguales.
-            $idsMuestra = (clone $equipos)->where($conFoto)
-                ->select('equipos.MARCA', 'equipos.MODELO')->selectRaw('MAX(equipos.ID_EQUIPO) as ultimo')
-                ->groupBy('equipos.MARCA', 'equipos.MODELO')
-                ->reorder()->orderByDesc('ultimo')
-                ->limit(self::MUESTRA_INICIAL)->pluck('ultimo');
-            $allResults = $idsMuestra->isEmpty()
-                ? collect([])
-                : $equipos->whereIn('equipos.ID_EQUIPO', $idsMuestra)
-                    ->reorder()->orderByDesc('equipos.ID_EQUIPO')->get();
+            $allResults = $this->muestraInicial($equipos, $user, !$request->filled('ids_in'));
             $equipos = $allResults;
         } else {
             $allResults = collect([]);

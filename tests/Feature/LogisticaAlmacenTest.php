@@ -40,10 +40,10 @@ class LogisticaAlmacenTest extends MySqlTestCase
         return [$alm, $p, $frente];
     }
 
-    private function vehiculoDeFlota(int $frente, string $placa, ?array $chofer = null): void
+    private function vehiculoDeFlota(int $frente, string $placa, ?array $chofer = null, ?string $serial = null): void
     {
         $id = DB::table('equipos')->insertGetId([
-            'MARCA' => 'TOYOTA', 'MODELO' => 'HILUX', 'ANIO' => 2020, 'SERIAL_CHASIS' => 'S' . Str::random(10),
+            'MARCA' => 'TOYOTA', 'MODELO' => 'HILUX', 'ANIO' => 2020, 'SERIAL_CHASIS' => $serial ?? ('S' . Str::random(10)),
             'ID_FRENTE_ACTUAL' => $frente,
         ]);
         DB::table('documentacion')->insert(['ID_EQUIPO' => $id, 'PLACA' => $placa]);
@@ -148,14 +148,19 @@ class LogisticaAlmacenTest extends MySqlTestCase
     {
         [$alm, , $frente] = $this->almacen();
         AlmacenLogistica::create(['ID_ALMACEN' => $alm->ID_ALMACEN, 'TIPO' => 'VEHICULO', 'NOMBRE' => 'CAMION FORD F-350', 'DOCUMENTO' => 'A11AT9F', 'CLAVE' => 'A11AT9F']);
-        $this->vehiculoDeFlota($frente, 'A11-AT9F');                              // ya está en la lista: no se repite
-        $this->vehiculoDeFlota($frente, 'B22XY7Z', ['JUAN PEREZ', '12.345.678']);
-        $this->vehiculoDeFlota($frente, '.-' . str_repeat(',', random_int(3, 9)) . '-.');   // placa de relleno: fuera
+        $relleno = fn (string $marca) => '.' . $marca . str_repeat(',', random_int(3, 9)) . $marca . '.';
+        $serialB = 'SB' . Str::random(9);
+        $serialSinPlaca = 'SP' . Str::random(9);
+        $this->vehiculoDeFlota($frente, 'A11-AT9F');                                       // ya está en la lista: no se repite
+        $this->vehiculoDeFlota($frente, 'B22XY7Z', ['JUAN PEREZ', '12.345.678'], $serialB);
+        $this->vehiculoDeFlota($frente, $relleno('-'), null, $serialSinPlaca);            // sin placa de verdad: sale por su serial
+        $this->vehiculoDeFlota($frente, $relleno('_'), null, '-' . Str::random(3) . '-'); // ni placa ni serial (3 caracteres): fuera
 
         $r = $this->actingAs($this->usuario())->getJson(route('almacen.almacenes.logistica', ['id' => $alm->ID_ALMACEN]))->assertOk();
         $this->assertSame([
             ['nombre' => 'CAMION FORD F-350', 'documento' => 'A11AT9F', 'origen' => 'almacen'],
-            ['nombre' => 'TOYOTA HILUX',      'documento' => 'B22XY7Z', 'origen' => 'flota'],
+            ['nombre' => 'TOYOTA HILUX', 'documento' => 'B22XY7Z', 'serial' => strtoupper($serialB), 'origen' => 'flota'],
+            ['nombre' => 'TOYOTA HILUX', 'documento' => strtoupper($serialSinPlaca), 'serial' => strtoupper($serialSinPlaca), 'origen' => 'flota'],
         ], $r->json('vehiculos'));
         $this->assertSame([['nombre' => 'JUAN PEREZ', 'documento' => '12.345.678', 'origen' => 'flota']], $r->json('choferes'));
     }
