@@ -248,59 +248,8 @@
         0%, 35% { box-shadow: inset 0 0 0 999px rgba(250, 204, 21, 0.45); }
         100%    { box-shadow: inset 0 0 0 999px rgba(250, 204, 21, 0); }
     }
-    /* ── Reparto por proyecto en la celda de Stock (solo almacenes que separan) ──
-       El saldo de un almacén multi-proyecto no es un número solo: es la suma de varias
-       bolsas. Un dueño único se rotula debajo del número; varios se abren en la fila
-       .alm-row-bolsas. Los nombres de frente son largos, por eso el desglose NO cabe
-       dentro de esta columna. */
+    /* Número y unidad de la celda Stock en una sola línea ("6 PAR"). */
     .alm-stock-num { display:block; white-space:nowrap; }
-    .alm-bolsa-uno {
-        display:block; margin-top:2px; font-size:10.5px; font-weight:700; line-height:1.25;
-        color:#0067b1; text-transform:uppercase; letter-spacing:.2px;
-        overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100%;
-    }
-    /* Bolsa común: es saldo real pero de nadie en particular — mismo criterio del panel. */
-    .alm-bolsa-uno.es-comun { color:#94a3b8; font-style:italic; text-transform:none; }
-    .alm-bolsa-tog {
-        display:inline-flex; align-items:center; gap:2px; margin-top:3px; padding:1px 6px 1px 7px;
-        border:1px solid #dbeafe; border-radius:999px; background:#eff6ff; color:#0067b1;
-        font-size:10.5px; font-weight:800; letter-spacing:.2px; cursor:pointer;
-        transition:background .15s, border-color .15s;
-    }
-    .alm-bolsa-tog:hover { background:#dbeafe; border-color:#bfdbfe; }
-    .alm-bolsa-tog i { font-size:14px; transition:transform .18s ease; }
-    .alm-bolsa-tog[aria-expanded="true"] i { transform:rotate(180deg); }
-    /* La fila del desglose no se selecciona ni se resalta como una fila de producto. */
-    .alm-row-bolsas > td { background:#f8fafc; border-top:none; padding:0 14px 10px; }
-    .alm-bolsa-wrap { display:flex; flex-wrap:wrap; gap:6px; }
-    .alm-bolsa-item {
-        display:inline-flex; align-items:baseline; gap:8px; padding:5px 10px;
-        background:#fff; border:1px solid #e2e8f0; border-radius:8px;
-    }
-    .alm-bolsa-item .nom { font-size:12px; font-weight:700; color:#334155; }
-    .alm-bolsa-item.es-comun .nom { font-weight:600; font-style:italic; color:#64748b; }
-    .alm-bolsa-item .qty { font-size:13px; font-weight:800; color:#0f172a; }
-    /* Las bolsas del desglose se ELIGEN: de la marcada sale el material de esa fila. El
-       estado se ve en el borde y el fondo (no solo en el texto) porque la opción
-       "Automático" no tiene cantidad y quedaría sin nada que resaltar. */
-    .alm-bolsa-opt { cursor:pointer; transition:border-color .15s, background .15s, box-shadow .15s; }
-    .alm-bolsa-opt:hover { border-color:#bfdbfe; background:#f8fbff; }
-    .alm-bolsa-opt.alm-bolsa-on { border-color:#0067b1; background:#eff6ff; box-shadow:inset 0 0 0 1px #0067b1; }
-    .alm-bolsa-opt.alm-bolsa-on .nom { color:#0067b1; }
-    /* "Automático" es el default y describe una regla, no un saldo: se lee más discreta. */
-    .alm-bolsa-item.es-auto .nom { font-weight:600; color:#64748b; }
-    /* Bolsa elegida, rotulada bajo el número de la celda Stock. Comparte el aire de
-       .alm-bolsa-uno (el dueño único) pero en verde, para que se distinga de un vistazo
-       lo que el almacén ES de lo que el usuario DECIDIÓ. */
-    .alm-bolsa-elegida {
-        display:block; margin-top:3px; font-size:10.5px; font-weight:800; line-height:1.25;
-        color:#047857; text-transform:uppercase; letter-spacing:.2px;
-        overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100%;
-    }
-    /* El desglose arranca cerrado: lo abre el botón de la celda Stock quitando [hidden].
-       Va con !important porque en teléfono las filas de la tabla llevan display forzado
-       (ver el bloque móvil), y una fila oculta tiene que seguir oculta ahí también. */
-    .alm-row-bolsas[hidden] { display:none !important; }
     /* Nombre del almacén en modo GENERAL: no hay proyecto que elegir, así que el campo
        se comporta como uno de texto normal — sin lista y sin el caret que la anuncia. */
     #almNvNombreDropdown.alm-dd-sin-lista .dropdown-content,
@@ -1048,35 +997,15 @@
             padding: 8px 14px 8px 4px !important;
             justify-content: flex-end !important;
         }
-        /* Desglose por proyecto: no es una tarjeta nueva, es la continuación de la de
-           arriba. El margen negativo se come el gap de 12px del tbody y las esquinas
-           superiores quedan rectas para que se lea como una sola pieza. */
-        .alm-table tr.alm-row-bolsas {
-            display: block !important;
-            margin-top: -12px !important;
-            background: #f8fafc !important;
-            border: 1px solid #cbd5e1 !important;
-            border-top: none !important;
-            border-radius: 0 0 14px 14px !important;
-            box-shadow: 0 4px 12px rgba(15,23,42,0.08) !important;
-            overflow: hidden !important;
-        }
-        .alm-table tr.alm-row-bolsas > td { display: block !important; padding: 10px 14px !important; }
-        /* Estado vacío / sin almacén: el <tr><td colspan> sin tarjeta.
-           EXCLUYE .alm-row-bolsas explícitamente: esa fila tampoco es .alm-row, y como este
-           selector pesa más (dos clases + dos tipos) le ganaba a su estilo de tarjeta Y al
-           [hidden], dejando el desglose abierto de entrada en el teléfono y con el formato
-           del empty-state. Excluirlo aquí es más seguro que subir la especificidad del otro
-           lado, que es una carrera que se vuelve a perder al siguiente selector. Por lo
-           lado, que es una carrera que se vuelve a perder al siguiente selector. */
-        .alm-table tbody tr:not(.alm-row):not(.alm-row-bolsas) {
+        /* Estado vacío / sin almacén: el <tr><td colspan> sin tarjeta. */
+        .alm-table tbody tr:not(.alm-row) {
             display: block !important;
             background: transparent !important;
             border: none !important;
             box-shadow: none !important;
             padding: 0 !important;
         }
-        .alm-table tbody tr:not(.alm-row):not(.alm-row-bolsas) td {
+        .alm-table tbody tr:not(.alm-row) td {
             display: block !important;
             text-align: center !important;
             border: none !important;
@@ -1366,7 +1295,7 @@
                 </tr>
             </thead>
             <tbody id="almTableBody">
-                @include('admin.almacen.partials.table_rows', ['productos' => $productos, 'almacen' => $almacenSel, 'inicial' => true, 'reparto' => $repartoInicial])
+                @include('admin.almacen.partials.table_rows', ['productos' => $productos, 'almacen' => $almacenSel, 'inicial' => true])
             </tbody>
         </table>
     </div>
@@ -2751,13 +2680,13 @@
                         tmp.innerHTML = data.html;
                         var _nuevasRows = [];
                         // La fila que almMostrarProducto fijó arriba (a lo sumo una) no se repite
-                        // cuando llega su lote, ni su fila de bolsas (data-de-producto). Se busca
-                        // UNA vez por lote, no por fila: el tbody crece a miles de filas.
+                        // cuando llega su lote. Se busca UNA vez por lote, no por fila: el tbody
+                        // crece a miles de filas.
                         var _fijada = body.querySelector('tr.alm-row[data-fijada="1"]');
                         var _idFijada = _fijada ? _fijada.getAttribute('data-id-producto') : null;
                         while (tmp.firstElementChild) {
                             var _r = tmp.firstElementChild;
-                            if (_idFijada && (_r.getAttribute('data-id-producto') || _r.getAttribute('data-de-producto')) === _idFijada) {
+                            if (_idFijada && _r.getAttribute('data-id-producto') === _idFijada) {
                                 _r.remove();
                                 continue;
                             }
@@ -2879,11 +2808,9 @@
                 tmp.innerHTML = data.html;
                 var nueva = tmp.querySelector('tr.alm-row');
                 if (!nueva) return;
-                var bolsas = tmp.querySelector('tr.alm-row-bolsas');
                 // Tabla en estado vacío ("usa los filtros" / "sin coincidencias"): se quita el aviso.
                 if (!body.querySelector('tr.alm-row')) body.innerHTML = '';
                 nueva.dataset.fijada = '1';
-                if (bolsas) body.insertBefore(bolsas, body.firstChild);
                 body.insertBefore(nueva, body.firstChild);
                 almSelApplyToRows([nueva]);
                 almResaltarFila(nueva);
@@ -3579,11 +3506,9 @@
         var pide = !!on && almPideParte(tr.getAttribute('data-id-producto'));
         tr.classList.toggle('alm-row-pide-parte', pide);
         if (wrap) wrap.classList.toggle('is-active', !!on && !pide);
-        // Desmarcar la fila la devuelve a "Automático". La cantidad ya se borra aquí abajo, y
-        // dejar viva una elección de proyecto que ya no se ve haría que al re-seleccionarla el
-        // material saliera de la pila elegida en un intento anterior, sin que nadie lo note.
-        // Lo mismo con la equivalencia: al volver a seleccionarla se vuelve a pedir.
-        if (!on) { almRowBolsaReset(tr); almRowParteReset(tr); }
+        // Desmarcar la fila olvida la equivalencia elegida: al volver a seleccionarla se vuelve
+        // a pedir, igual que la cantidad, que se borra aquí abajo.
+        if (!on) almRowParteReset(tr);
         if (!inp) return;
         var btns = tr.querySelectorAll('.alm-cant-btn');
         if (on) {
@@ -3719,20 +3644,6 @@
                     o.classList.toggle('alm-parte-on', o.getAttribute('data-parte') === psel);
                 });
             }
-            // Y la bolsa elegida: el desglose se vuelve a pintar entero en cada recarga, así
-            // que sin esto la fila volvía a "Automático" y la salida se descontaba del proyecto
-            // equivocado sin que el usuario lo notara.
-            var bsel = (almSeleccion[id] && almSeleccion[id].bolsa) || '';
-            if (bsel !== '') {
-                tr.dataset.bolsaSel = bsel;
-                var cajaB = tr.parentNode.querySelector('tr.alm-row-bolsas[data-de-producto="' + id + '"]');
-                if (cajaB) {
-                    cajaB.querySelectorAll('.alm-bolsa-opt').forEach(function (o) {
-                        o.classList.toggle('alm-bolsa-on', o.getAttribute('data-bolsa') === bsel);
-                    });
-                }
-                almRowBolsaLabel(tr);
-            }
         });
     }
     // Selecciona una fila (idempotente): crea su entrada en almSeleccion, la marca y enfoca
@@ -3761,9 +3672,6 @@
             // Nº de parte a entregar: el elegido en la fila, o el único que tenga. Vacío en
             // productos sin equivalencias y en los de varias hasta que se elija.
             parte:  tr.getAttribute('data-parte-sel') || '',
-            // Bolsa (proyecto) de la que sale el material. Vacío = automático: la del proyecto
-            // destino de la nota, como siempre. Solo cambia si el usuario elige en el desglose.
-            bolsa:  tr.dataset.bolsaSel || '',
         };
     }
     // Quita la equivalencia elegida de una fila con varias (con una sola no hay nada que elegir).
@@ -3806,47 +3714,6 @@
         almSeleccion[id].parte = parte;
         almSelMarkRow(tr, true);
         almEnfocarCantidad(tr);
-        almSelRefreshBar();
-    };
-    // Pinta en la celda Stock de qué proyecto sale el material de esta fila. Con la bolsa en
-    // automático no se rotula nada: no hay decisión que mostrar y el desglose ya dice el
-    // reparto. Fuente única del rótulo — la usan el clic y el re-pintado del tbody.
-    function almRowBolsaLabel(tr) {
-        var box = tr.querySelector('.alm-bolsa-elegida');
-        if (!box) return;
-        var sel = tr.dataset.bolsaSel || '';
-        var opt = sel === '' ? null : tr.parentNode.querySelector(
-            'tr.alm-row-bolsas[data-de-producto="' + tr.getAttribute('data-id-producto') + '"] .alm-bolsa-opt[data-bolsa="' + sel + '"]');
-        box.textContent = opt ? ('sale de ' + (opt.getAttribute('data-bolsa-nom') || '')) : '';
-        box.hidden = !opt;
-    }
-    // Devuelve la fila a "Automático" (sin elección de proyecto). Sale temprano si ya lo
-    // estaba: esto corre por cada fila en cada re-pintado del tbody.
-    function almRowBolsaReset(tr) {
-        if (!tr.dataset.bolsaSel) return;
-        tr.dataset.bolsaSel = '';
-        var caja = tr.parentNode && tr.parentNode.querySelector(
-            'tr.alm-row-bolsas[data-de-producto="' + tr.getAttribute('data-id-producto') + '"]');
-        if (caja) {
-            caja.querySelectorAll('.alm-bolsa-opt').forEach(function (o) {
-                o.classList.toggle('alm-bolsa-on', (o.getAttribute('data-bolsa') || '') === '');
-            });
-        }
-        almRowBolsaLabel(tr);
-    }
-    // Clic en una bolsa del desglose: marca de qué proyecto SALE el material de esa fila y
-    // selecciona la fila si no lo estaba. Calca almRowPartePick (el picker de nº de parte):
-    // el desglose lleva data-no-toggle, así que sin esto el clic no haría nada.
-    window.almRowBolsaPick = function (el) {
-        var trB = el.closest('tr.alm-row-bolsas'); if (!trB) return;
-        var id  = trB.getAttribute('data-de-producto');
-        var tr  = trB.parentNode.querySelector('tr.alm-row[data-id-producto="' + id + '"]');
-        if (!tr) return;
-        trB.querySelectorAll('.alm-bolsa-opt').forEach(function (o) { o.classList.toggle('alm-bolsa-on', o === el); });
-        tr.dataset.bolsaSel = el.getAttribute('data-bolsa') || '';
-        almSelEnsureRow(tr);
-        if (almSeleccion[id]) almSeleccion[id].bolsa = tr.dataset.bolsaSel;
-        almRowBolsaLabel(tr);
         almSelRefreshBar();
     };
     window.almSelClear = function (e) {
@@ -4473,18 +4340,6 @@
     // Captura = true para atrapar también el scroll del wrap de la tabla.
     window.addEventListener('scroll', function () { almTipRecolocar(150); }, true);
     document.addEventListener('click', function () { almTipRecolocar(60); }, true);
-    // Abre/cierra el desglose por proyecto de una fila. El boton vive en la celda Stock y
-    // la fila del desglose es la <tr> siguiente, que el partial ya pinta con el atributo
-    // hidden (ver partials/table_rows). Es una funcion suelta, no un listener: el tbody se
-    // repinta entero en cada filtro y un listener habria que reengancharlo cada vez.
-    window.almToggleBolsas = function (btn) {
-        var fila = btn && btn.closest('tr');
-        var det  = fila && fila.nextElementSibling;
-        if (!det || !det.classList.contains('alm-row-bolsas')) return;
-        var abrir = det.hidden;
-        det.hidden = !abrir;
-        btn.setAttribute('aria-expanded', abrir ? 'true' : 'false');
-    };
     // Marca la fila del producto cuyo detalle se abre (y desmarca la anterior).
     function almMarcarVista(id) {
         almUltimaVista = String(id);
@@ -6115,9 +5970,6 @@
                 id_producto:  parseInt(id, 10),
                 cantidad:     c,
                 numero_parte: s.parte || null,
-                // De qué proyecto se descuenta. null = automático (la bolsa del destino). Se
-                // compara con '' y no por truthy: 0 es la bolsa común, una elección válida.
-                id_frente_saldo: (s.bolsa === '' || s.bolsa == null) ? null : parseInt(s.bolsa, 10),
             });
         });
         var listar = function (arr) { return arr.slice(0, 4).join(', ') + (arr.length > 4 ? '…' : ''); };

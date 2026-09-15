@@ -210,9 +210,6 @@ class AlmacenController extends Controller
                     'productos' => $rows,
                     'almacen'   => $almacenSel,
                     'inicial'   => !$hayFiltro,
-                    // Desglose por proyecto de ESTA página. Vacío en los almacenes que no
-                    // separan, y también cuando el lote viene vacío.
-                    'reparto'   => $this->repartoDeLaPagina($almacenSel, $rows),
                 ])->render();
             $resp = [
                 'almacen'    => $almacenSel,
@@ -300,8 +297,6 @@ class AlmacenController extends Controller
             'almacenes'          => $almacenes,
             'almacenSel'         => $almacenSel,
             'productos'          => $recientes,
-            // Desglose por proyecto de esas filas (vacío si el almacén no separa).
-            'repartoInicial'     => $recientes ? $this->repartoDeLaPagina($almacenSel, $recientes) : collect(),
             'categorias'         => $categorias,
             'frentesLista'       => $frentesLista,
             // Mapa frente → almacenes PROYECTO (ver arriba): el modal de salida lo usa para
@@ -793,30 +788,10 @@ class AlmacenController extends Controller
     }
 
     /**
-     * Reparto por proyecto de TODOS los productos de una página de la tabla, agrupado por
-     * producto. Es lo que hace que el desglose se vea en cada fila sin tener que buscar
-     * hasta dejar una sola: la pregunta "¿de quién es este material?" la tiene cada
-     * renglón del inventario, no solo el producto que quedó filtrado.
-     *
-     * UNA consulta por página (no una por fila): la lista de productos ya está cargada.
-     * Devuelve vacío si el almacén no separa por proyecto — ahí todo el saldo es de la
-     * bolsa común y el desglose repetiría el total.
-     */
-    private function repartoDeLaPagina(?Almacen $almacen, $productos)
-    {
-        if (!$almacen || !$almacen->separaPorProyecto()) {
-            return collect();
-        }
-
-        return $this->filasDeReparto([$almacen->ID_ALMACEN], collect($productos)->pluck('ID_PRODUCTO'))
-            ->groupBy('ID_PRODUCTO');
-    }
-
-    /**
      * Filas crudas de saldo por (almacén, producto, bolsa), con el nombre del frente.
-     * Núcleo compartido por los tres desgloses: el del almacén abierto, el que cuelga de
-     * cada otro almacén en el panel, y el de la tabla. Eran consultas casi calcadas y
-     * bastaba tocar el orden en una para que las listas contaran cosas distintas.
+     * Núcleo compartido por los desgloses por proyecto: el del almacén abierto y el que
+     * cuelga de cada otro almacén en el panel (y el del detalle del producto). Eran consultas
+     * casi calcadas y bastaba tocar el orden en una para que las listas contaran cosas distintas.
      *
      * Descarta los saldos en cero (filas base de asegurarStock, que llenarían la lista de
      * proyectos sin nada). Quién PUEDE pedir el desglose lo decide cada llamador.
@@ -936,43 +911,6 @@ class AlmacenController extends Controller
             return (int) $alm->frentes->first()->ID_FRENTE;
         }
         return null;
-    }
-
-    /**
-     * Bolsa de la que SALE el material de UNA LÍNEA de la salida, cuando el usuario la eligió
-     * a mano en el desglose por proyecto de esa fila (`lineas.*.id_frente_saldo`).
-     *
-     * Es por línea y no por nota porque en un almacén multi-proyecto el material de cada
-     * frente está separado también físicamente: una misma entrega puede llevar aceite de la
-     * pila de un proyecto y filtros de la de otro, y cada línea debe registrar de cuál salió.
-     *
-     * Es INDEPENDIENTE del proyecto destino: un frente puede prestarle material a otro (apoyo),
-     * y sin este dato el despacho empezaba SIEMPRE por la bolsa del destino, sin forma de decir
-     * "esto descuéntalo del saldo de Ayacucho".
-     *
-     * Devuelve null cuando no aplica —el almacén no separa por proyecto, o la línea no eligió
-     * (el "Automático" de la tabla)—: ahí manda el criterio de siempre, la bolsa del destino
-     * primero. FRENTE_BOLSA_COMUN (0) sí es una elección: el material sin proyecto asignado.
-     *
-     * Lo usan el registro real (registrarMovimientoLote, que la pasa a la cascada) y la vista
-     * previa (previewSalidaPdf, que compara contra ella para avisar qué se toma prestado). Una
-     * sola resolución para los dos, o el aviso mentiría sobre lo que va a pasar al registrar.
-     */
-    private function bolsaOrigenElegida(?Almacen $almacen, $pedida): ?int
-    {
-        if ($pedida === null || !($almacen?->separaPorProyecto() ?? false)) {
-            return null;
-        }
-
-        $bolsa = (int) $pedida;
-        if ($bolsa !== InventarioService::FRENTE_BOLSA_COMUN
-            && !$almacen->frentes->contains('ID_FRENTE', $bolsa)) {
-            throw ValidationException::withMessages([
-                'id_frente_saldo' => ['El proyecto del que sale el material no pertenece al almacén «' . $almacen->NOMBRE . '».'],
-            ]);
-        }
-
-        return $bolsa;
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -2938,41 +2876,15 @@ class AlmacenController extends Controller
             'lineas.*.cantidad'     => 'required|numeric',
             // Nº de parte específico entregado (filtros) — opcional y por línea.
             'lineas.*.numero_parte' => 'nullable|string|max:100',
-            // Bolsa de la que sale ESTA línea, elegida en el desglose por proyecto de su fila.
-            // Sin `exists` a propósito: 0 es la bolsa común, que no es un frente. Que sea una
-            // bolsa REAL de este almacén lo comprueba bolsaOrigenElegida().
-            'lineas.*.id_frente_saldo' => 'nullable|integer|min:0',
         ] + $this->reglasTransporte());
 
         $this->assertPuedeVerAlmacen($request, (int) $data['id_almacen']);
 
-        // El almacén del lote (origen si es SALIDA, destino si es ENTRADA) con sus frentes:
-        // lo necesitan la bolsa que eligió cada línea de la SALIDA y la exigencia de proyecto
-        // de la ENTRADA. Se carga UNA vez porque las dos ramas preguntan lo mismo —qué frentes
-        // tiene— y antes cada una hacía su propia consulta.
-        $almacenLote = Almacen::with('frentes:ID_FRENTE')->find((int) $data['id_almacen']);
-
-        // Bolsa elegida a mano en cada línea, [ID_PRODUCTO => bolsa]. Solo tiene sentido en
-        // SALIDA: en una ENTRADA el proyecto que recibe ya lo dice `id_frente`, y un AJUSTE es
-        // del almacén. Se resuelve AQUÍ, una vez, y no dentro del bucle de la transacción: si
-        // una línea trae una bolsa ajena al almacén, la salida se rechaza ANTES de escribir
-        // nada. Las líneas en automático no entran en el mapa.
-        //
-        // La bolsa es UNA por producto: en la tabla cada producto es una fila con una sola
-        // elección. Si un cliente externo mandara dos líneas del mismo producto con bolsas
-        // distintas se usa la PRIMERA — el mismo criterio, escrito igual, que previewSalidaPdf:
-        // si uno se quedara con la última, el aviso de la vista previa hablaría de una bolsa
-        // y el despacho descontaría de otra.
-        $bolsaPorProducto = [];
-        if ($data['tipo'] === 'SALIDA') {
-            foreach ($data['lineas'] as $linea) {
-                $idp   = (int) $linea['id_producto'];
-                $bolsa = $this->bolsaOrigenElegida($almacenLote, $linea['id_frente_saldo'] ?? null);
-                if ($bolsa !== null && !array_key_exists($idp, $bolsaPorProducto)) {
-                    $bolsaPorProducto[$idp] = $bolsa;
-                }
-            }
-        }
+        // Almacén de una ENTRADA con sus frentes: lo pide la exigencia de proyecto de más abajo.
+        // En SALIDA y AJUSTE no hace falta, así que no se consulta.
+        $almacenLote = $data['tipo'] === 'ENTRADA'
+            ? Almacen::with('frentes:ID_FRENTE')->find((int) $data['id_almacen'])
+            : null;
 
         // ── Rama "Salida a otro proyecto" ───────────────────────────────────────
         // Si tipo=SALIDA + frente destino con almacén distinto al origen → delegamos
@@ -3022,7 +2934,6 @@ class AlmacenController extends Controller
                         $data,
                         (int) $idFrenteDest,
                         (int) $idAlmDestino,
-                        $bolsaPorProducto,
                     );
                 }
                 // 0 almacenes distintos → es consumo en el almacén actual (cae al flujo normal).
@@ -3108,7 +3019,7 @@ class AlmacenController extends Controller
             // de Entrega. Permite reimprimir/eliminar la nota completa por código desde
             // /admin/almacen/movimientos. Capturamos también los IDs para devolver la URL
             // del PDF al frontend (pre-open tab inmediata, sin segunda búsqueda).
-            $result = DB::transaction(function () use ($data, $opts, $bolsaPorProducto) {
+            $result = DB::transaction(function () use ($data, $opts) {
                 if ($data['tipo'] === 'SALIDA') {
                     $opts['numero_nota'] = MovimientoInventario::generarNumeroNota();
                 }
@@ -3137,13 +3048,6 @@ class AlmacenController extends Controller
                     $optsLinea = $opts;
                     if ($data['tipo'] === 'SALIDA' && !empty($linea['numero_parte'])) {
                         $optsLinea['numero_parte'] = trim((string) $linea['numero_parte']);
-                    }
-                    // De qué bolsa se descuenta ESTA línea. Viaja en la misma clave que usa la
-                    // cascada por dentro (_frente_saldo) porque es exactamente el mismo dato.
-                    // Solo se pone si la línea eligió: la clave se lee con array_key_exists, así
-                    // que mandarla en null significaría "bolsa común" en vez de "no eligió".
-                    if (isset($bolsaPorProducto[$idProducto])) {
-                        $optsLinea['_frente_saldo'] = $bolsaPorProducto[$idProducto];
                     }
 
                     $mov = match ($data['tipo']) {
@@ -3187,14 +3091,9 @@ class AlmacenController extends Controller
      * (NUMERO_NOTA + contrato/RQ/solicitante/dpto) en los movimientos TRASPASO_SALIDA
      * para que sea reimprimible desde la bitácora, idéntico a una SALIDA pura.
      *
-     * $bolsaPorProducto son las bolsas elegidas en el desglose de cada fila, [ID_PRODUCTO =>
-     * bolsa]; los productos que no aparecen van en automático (la del destino, como siempre).
-     * Esta rama las necesita tanto como la SALIDA pura: el material sigue saliendo del almacén
-     * de origen, y de qué proyecto se descuenta es la misma decisión.
-     *
      * Devuelve la misma forma de respuesta que SALIDA: { message, nota_url, numero_nota }.
      */
-    private function registrarSalidaViaTraspaso(Request $request, array $data, int $idFrenteDestino, int $idAlmacenDestino, array $bolsaPorProducto = []): \Illuminate\Http\JsonResponse
+    private function registrarSalidaViaTraspaso(Request $request, array $data, int $idFrenteDestino, int $idAlmacenDestino): \Illuminate\Http\JsonResponse
     {
         $idUsuario  = optional($request->user())->ID_USUARIO;
         $transporte = $this->logistica->transporteDe($data);
@@ -3211,7 +3110,7 @@ class AlmacenController extends Controller
         usort($lineas, fn ($a, $b) => $a['id_producto'] <=> $b['id_producto']);
 
         try {
-            $resultado = DB::transaction(function () use ($data, $idFrenteDestino, $idAlmacenDestino, $idUsuario, $lineas, $request, $bolsaPorProducto, $transporte) {
+            $resultado = DB::transaction(function () use ($data, $idFrenteDestino, $idAlmacenDestino, $idUsuario, $lineas, $request, $transporte) {
                 $numeroNota = MovimientoInventario::generarNumeroNota();
 
                 $traspaso = $this->traspasos->crearBorrador(
@@ -3230,9 +3129,6 @@ class AlmacenController extends Controller
                 );
 
                 $this->traspasos->enviar($traspaso, [
-                    // De qué bolsa del almacén ORIGEN se descuenta cada producto. Los que no
-                    // estén en el mapa van en automático: la del frente destino, como siempre.
-                    'bolsa_por_producto' => $bolsaPorProducto,
                     'id_usuario_envio'  => $idUsuario,
                     'fecha_envio'       => $data['fecha'] ?? null,
                     // Un envío a otro almacén también es una SALIDA física: no se puede enviar
@@ -3755,10 +3651,6 @@ class AlmacenController extends Controller
             // paso previo obligatorio antes de generar la Nota de Entrega.
             'lineas.*.cantidad'     => 'required|numeric|gt:0',
             'lineas.*.numero_parte' => 'nullable|string|max:100',
-            // Bolsa de la que sale ESTA línea. Mismas reglas que en registrarMovimientoLote:
-            // 0 es la común y la pertenencia la valida bolsaOrigenElegida(), para que el aviso
-            // se calcule sobre exactamente lo que va a pasar al registrar.
-            'lineas.*.id_frente_saldo' => 'nullable|integer|min:0',
         ] + $this->reglasTransporte());
 
         $this->assertPuedeVerAlmacen($request, (int) $data['id_almacen']);
@@ -3775,8 +3667,8 @@ class AlmacenController extends Controller
         // permite negativo en este flujo, ni siquiera a super.admin.
         //
         // El disponible es TODO el saldo del almacén, no solo el de una bolsa: una salida
-        // consume primero la bolsa de la que sale (la elegida, o la del proyecto destino),
-        // luego la común y, si aún falta, el material asignado a otros proyectos
+        // consume primero la bolsa del proyecto destino, luego la común y, si aún falta, el
+        // material asignado a otros proyectos
         // (InventarioService::aplicarSalidaConCascada).
         // Ese préstamo entre proyectos es deliberado — el material está físicamente en la
         // bodega y prestarlo es un ajuste normal de almacén; queda registrado tramo por
@@ -3787,32 +3679,22 @@ class AlmacenController extends Controller
         $almacenOrigen = Almacen::with('frentes:ID_FRENTE')->find((int) $data['id_almacen']);
         $separaSaldo   = $almacenOrigen?->separaPorProyecto() ?? false;
         // Saldo de estos productos en el almacén, FILA POR FILA (una por bolsa) y con el
-        // nombre del proyecto. Una sola consulta y el reparto se calcula abajo en PHP: las
-        // bolsas "propias" ya no son las mismas para todo el lote —cada línea elige la suya—
-        // así que no se puede agregar en SQL con un único WHERE de bolsas.
+        // nombre del proyecto: el aviso de préstamo dice de QUÉ proyectos se toma. Una sola
+        // consulta y el reparto se calcula abajo en PHP.
         $filasStock = AlmacenStock::where('almacen_stock.ID_ALMACEN', (int) $data['id_almacen'])
             ->whereIn('almacen_stock.ID_PRODUCTO', $productos->keys()->all())
             ->leftJoin('frentes_trabajo as f', 'f.ID_FRENTE', '=', 'almacen_stock.ID_FRENTE')
             ->get(['almacen_stock.ID_PRODUCTO', 'almacen_stock.ID_FRENTE', 'almacen_stock.CANTIDAD', 'f.NOMBRE_FRENTE'])
             ->groupBy('ID_PRODUCTO');
 
-        // Lo pedido y la bolsa elegida, POR PRODUCTO. Las cantidades se agregan antes de
-        // comparar: el endpoint real (registrarMovimientoLote → registrarSalida) descuenta
-        // línea a línea sobre el mismo saldo bloqueado, así que dos líneas del mismo producto
-        // se suman. Comparar cada línea suelta dejaría pasar un preview que el "Registrar"
-        // rechazaría. La bolsa, en cambio, es una sola por producto: en la tabla cada producto
-        // es UNA fila con UNA elección; si un cliente externo mandara dos líneas del mismo
-        // producto con bolsas distintas, se usa la primera.
+        // Lo pedido POR PRODUCTO. Las cantidades se agregan antes de comparar: el endpoint
+        // real (registrarMovimientoLote → registrarSalida) descuenta línea a línea sobre el
+        // mismo saldo bloqueado, así que dos líneas del mismo producto se suman. Comparar cada
+        // línea suelta dejaría pasar un preview que el "Registrar" rechazaría.
         $pedidoPorProducto = [];
-        $bolsaPorProducto  = [];
         foreach ($data['lineas'] as $l) {
             $idp = (int) $l['id_producto'];
             $pedidoPorProducto[$idp] = ($pedidoPorProducto[$idp] ?? 0.0) + (float) $l['cantidad'];
-
-            $bolsa = $this->bolsaOrigenElegida($almacenOrigen, $l['id_frente_saldo'] ?? null);
-            if ($bolsa !== null && !array_key_exists($idp, $bolsaPorProducto)) {
-                $bolsaPorProducto[$idp] = $bolsa;
-            }
         }
 
         $num = fn ($v) => rtrim(rtrim(number_format((float) $v, 3, '.', ''), '0'), '.');
@@ -3830,16 +3712,11 @@ class AlmacenController extends Controller
                 continue;
             }
 
-            // Bolsas propias de ESTE producto: la que eligió su fila y, si no eligió, la del
-            // proyecto destino — más la común. De ahí sale el material sin tocar el de nadie.
-            // El criterio y el orden los define InventarioService, que es quien luego las
-            // consume: así el aviso no puede contradecir al despacho. Lo elegido a mano NO se
-            // avisa como préstamo (fue una decisión explícita); el aviso queda para lo que la
-            // cascada tenga que tomar ADEMÁS. Sin separación por proyecto el almacén es una
-            // sola bolsa y no hay nada de nadie que tomar.
-            $propias = InventarioService::bolsasPropias(
-                $bolsaPorProducto[$idp] ?? ($data['id_frente_destino'] ?? null),
-            );
+            // Bolsas propias: la del proyecto destino más la común. De ahí sale el material sin
+            // tocar el de nadie. El criterio y el orden los define InventarioService, que es quien
+            // luego las consume: así el aviso no puede contradecir al despacho. Sin separación por
+            // proyecto el almacén es una sola bolsa y no hay nada de nadie que tomar.
+            $propias = InventarioService::bolsasPropias($data['id_frente_destino'] ?? null);
             $propio = !$separaSaldo ? $disp : (float) $filas->whereIn('ID_FRENTE', $propias)->sum('CANTIDAD');
 
             // Alcanza, pero parte sale de la bolsa de otro proyecto → aviso, no error.
