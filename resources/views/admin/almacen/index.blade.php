@@ -294,10 +294,9 @@
     #almBulkBar .alm-bulk-sec { background:#64748b; }
     #almBulkBar .alm-bulk-sec:hover { background:#475569; }
 
-    /* ── Panel "¿dónde está este producto?" (modo cruzado del sidebar) ────────────
-       Las dos secciones —el reparto por proyecto del almacén actual y el resto de los
-       almacenes— comparten encabezado, lista y filas. Vivían como `style=""` repetidos en
-       cada bloque del partial; al unificarlos aquí, ajustar el alto es un solo sitio.
+    /* ── Panel lateral (partial distribucion_stats): "¿dónde está este producto?" y la
+       distribución por categoría comparten encabezado, lista y filas. Vivían como `style=""`
+       repetidos en cada bloque del partial; al unificarlos aquí, ajustar el alto es un solo sitio.
        COMPACTO a pedido del cliente: encabezado 12px con 6px de aire, filas de 5px y
        separación de 12px entre secciones (antes 13px/8px/7px/16px). */
     .alm-panel-h4 { margin:0 0 7px 0; font-size:12px; text-transform:uppercase; color:#1e293b;
@@ -306,9 +305,41 @@
     .alm-panel-h4 .material-icons { font-size:17px; }
     .alm-panel-h4.sep { margin-top:12px; }
     .alm-panel-list { list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:2px; }
-    .alm-panel-list.scroll { max-height:52vh; overflow-y:auto; }
-    /* El panel "En otros almacenes" solo se ve cuando tiene algo que decir (PC y teléfono). */
-    #almDistWrapper:not(:has(.alm-otros-almacenes)) { display: none !important; }
+    /* overscroll-behavior: al llegar al final de ESTA lista, la rueda del raton NO
+       sigue moviendo la pagina de atras. Antes, al terminar las categorias, el modulo
+       entero se iba hacia abajo solo (pedido del cliente, 16-09-2026). */
+    .alm-panel-list.scroll { max-height:52vh; overflow-y:auto; overscroll-behavior:contain; }
+    /* Aviso corto bajo un encabezado sin lista ("Sin datos…", "No tienes otros almacenes…"). */
+    .alm-panel-nota { color:#64748b; font-size:12px; margin:6px 0 0 0; font-style:italic; line-height:1.4; }
+    /* El wrapper solo se ve con contenido: el servidor lo llena al abrir y cada recarga lo
+       reemplaza; queda vacío si la petición del panel falla (almPanelOtros). */
+    #almDistWrapper:has(#almDistribucionContainer:empty) { display: none !important; }
+    /* Distribución por categoría: encabezado visual del fin de semana (más prominente).
+       Sobreescribe .alm-panel-h4 cuando está dentro del panel de distribución de categorías. */
+    .alm-distribucion-cats .alm-panel-h4 { font-size:12px; color:#64748b; border-bottom:2px solid #f1f5f9;
+        padding-bottom:7px; gap:7px; }
+    .alm-distribucion-cats .alm-panel-h4 .material-icons { font-size:16px; }
+    /* Lista de categorías: separador dashed entre ítems (como en la versión del fin de semana),
+       sin guía punteada interna — el badge de qty ya ancla el número a la derecha. */
+    .alm-cat-row { padding:4px 6px; border-radius:6px; border:none; border-bottom:1px dashed #f1f5f9;
+        cursor:default; transition:background .15s; }
+    .alm-cat-row:last-child { border-bottom:none; }
+    .alm-cat-row .alm-panel-row { padding:0 0 3px 0; border:none; background:transparent !important; }
+    .alm-cat-row .alm-panel-row .guia { display:none; }  /* sin guía en el modo distribución */
+    .alm-cat-row .alm-panel-row .nom { text-transform:uppercase; flex:1; min-width:0; font-size:11px; }
+    .alm-cat-row .alm-panel-row .qty { font-size:11px; padding:1px 6px; }
+    .alm-cat-row.clicable { cursor:pointer; }
+    .alm-cat-row.clicable:hover { background:#f8fafc; }
+    /* Cámara del panel: al final del encabezado, discreta hasta que se pasa por encima. */
+    .alm-cat-cam { margin-left:auto; border:none; background:transparent; cursor:pointer; color:#94a3b8;
+        display:flex; align-items:center; padding:2px; border-radius:5px; transition:background .15s, color .15s; }
+    .alm-cat-cam:hover { background:#f1f5f9; color:#3b82f6; }
+    .alm-cat-cam .material-icons { font-size:16px; }
+    .alm-cat-bar { margin:0; height:4px; background:#e2e8f0; border-radius:2px; overflow:hidden; }
+    /* min-width: una categoria con 1 producto de 1437 da una barra de 0,21 px. Ademas de no
+       verse, rompia la camara: html2canvas crea un patron del tamano del elemento y
+       reventaba con "createPattern ... width or height of 0". */
+    .alm-cat-bar > div { height:100%; min-width:3px; background:linear-gradient(90deg,#3b82f6 0%,#2563eb 100%); }
     .alm-panel-row { padding:5px 8px; border-radius:6px; display:flex; justify-content:space-between;
         align-items:center; gap:8px; border:1px solid transparent; }
     .alm-panel-row .nom { flex:0 1 auto; min-width:0; color:#1e293b; font-size:12.5px; font-weight:600;
@@ -480,10 +511,14 @@
     .alm-suggest-inline .alm-log-item { justify-content:space-between; padding:8px 12px; }
     .alm-log-nom { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; color:#0f172a; }
     .alm-log-doc { flex:0 0 auto; font-size:12px; font-weight:700; color:#475569; font-variant-numeric:tabular-nums; }
-    /* Vehículos: la placa (o el serial de chasis) primero —es lo que se escribe— y al lado el tipo. */
-    .alm-suggest-inline .alm-log-item.veh { justify-content:flex-start; gap:14px; }
-    .alm-log-item.veh .alm-log-doc { min-width:92px; font-size:13px; color:#0f172a; }
-    .alm-log-serial { margin-left:auto; flex:0 0 auto; font-size:11.5px; color:#475569; font-variant-numeric:tabular-nums; }
+    /* Vehículos: placa, serial de chasis y tipo, sin marca ni modelo. Si no caben en una línea
+       (teléfono, campo angosto) el tipo baja al renglón siguiente, alineado a la derecha. */
+    .alm-suggest-inline .alm-log-item.veh { justify-content:flex-start; flex-wrap:wrap; column-gap:12px; row-gap:1px; }
+    .alm-log-item.veh .alm-log-doc { min-width:66px; font-size:13px; color:#0f172a; }
+    .alm-log-item.veh .alm-log-doc.sin-placa { font-size:10.5px; color:#94a3b8; letter-spacing:.3px; }
+    .alm-log-serial { flex:0 0 auto; font-size:11px; font-weight:600; color:#475569; font-variant-numeric:tabular-nums; }
+    .alm-log-tipo { margin-left:auto; min-width:0; max-width:100%; font-size:12px; font-weight:700; color:#0067b1;
+        text-align:right; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     /* Se guardan en mayúsculas (LogisticaAlmacenService): se ven así mientras se escriben. El
        ejemplo del campo no: "EJ: CAMIONETA TOYOTA HILUX" parecía un valor ya escrito. */
     #almSalidaVehiculo, #almSalidaPlaca, #almSalidaChofer, .alm-log-fila input { text-transform:uppercase; }
@@ -829,6 +864,10 @@
            cuando el usuario ya esta dentro del modulo y los iconos PRODUCTOS /
            inventory_2 / warning explican por si mismos. */
         .counter-sidebar .alm-consolidado-title { display: none !important; }
+        /* En el teléfono el panel lateral solo se ve en modo "En otros almacenes": la
+           distribución por categoría comía pantalla y cada tarjeta ya muestra su categoría
+           (pedido del cliente). El wrapper se esconde entero para no dejar una caja blanca. */
+        #almDistWrapper:not(:has(.alm-otros-almacenes)) { display: none !important; }
         /* Panel "En otros almacenes" en mobile — compacto verticalmente.
            NO usa selector .counter-sidebar como ancestor porque el JS mueve el
            wrapper (#almDistWrapper) fuera de .counter-sidebar a "despues de la
@@ -870,11 +909,6 @@
         /* Y reducimos el max-width del modal en mobile para que pegue al viewport
            sin margenes laterales gigantes (alm-modal default era 600px en desktop). */
         #almSalidaModal .alm-modal { max-width: calc(100vw - 16px) !important; width: calc(100vw - 16px) !important; }
-        /* Distribucion por categoria: comprimir el panel — h4 + lis mas chicos. */
-        .counter-sidebar h4 { font-size: 11px !important; margin-bottom: 8px !important; }
-        .counter-sidebar h4 .material-icons { font-size: 15px !important; }
-        .counter-sidebar li span { font-size: 9.5px !important; }
-
         /* ═══════════════════════════════════════════════════════════
            MOBILE CARD LAYOUT — Inventario de Almacén
            Cada <tr.alm-row> es una tarjeta GRID 3-col × 2 filas:
@@ -1357,12 +1391,14 @@
         </div>
     </div>
 
-    {{-- Wrapper del panel "En otros almacenes". Lleva id="almDistWrapper" porque en mobile el
-         JS lo mueve a DESPUES de la tabla (separado del Consolidado, que queda donde esta).
-         Arranca vacío y se oculta mientras lo esté; lo llenan el filtro que apunta a un
-         producto (almCargar → distribucionHtml) y el clic en una fila (almPanelOtros). --}}
+    {{-- Wrapper del panel lateral (distribución por categoría / "En otros almacenes"). Lleva
+         id="almDistWrapper" porque en mobile el JS lo mueve a DESPUES de la tabla (separado del
+         Consolidado, que queda donde esta). Abre con la distribución del almacén ya pintada
+         (AlmacenController::panelLateral); cada recarga de la tabla lo reemplaza (almCargar →
+         distribucionHtml) y el clic en una fila lo cambia al producto tocado (almPanelOtros).
+         El contenedor va SIN espacios alrededor del HTML: el CSS lo esconde con :empty. --}}
     <div id="almDistWrapper" style="background:white;border-radius:12px;padding:15px;border:1px solid #e2e8f0;box-shadow:0 4px 6px -1px rgba(0,0,0,0.05);overflow:hidden;">
-        <div id="almDistribucionContainer"></div>
+        <div id="almDistribucionContainer">{!! $distribucionHtml ?? '' !!}</div>
     </div>
 </div>
 
@@ -2493,9 +2529,8 @@
     var _almInitParams = (function () { try { return new URLSearchParams(window.location.search); } catch (e) { return new URLSearchParams(); } })();
     var soloConSaldo = false; // atajo "Con stock" — el usuario lo enciende explicitamente
     var soloBajo     = false; // atajo "Stock bajo" — el usuario lo enciende explicitamente
-    // "Ver todo el stock" (acción explícita): sin filtros la tabla muestra solo los últimos
-    // productos que se movieron (AlmacenController::productosRecientes), así que "Ver todo" es
-    // la ÚNICA forma de pedir TODO el inventario, y manda ver_todo=1. Lo enciende
+    // "Ver todo el stock" (acción explícita): sin filtros la tabla abre vacía, así que "Ver
+    // todo" es la ÚNICA forma de pedir TODO el inventario, y manda ver_todo=1. Lo enciende
     // almVerTodo(); cualquier otra recarga (sin opts.verTodo) lo apaga; la auto-carga
     // (append) lo conserva.
     var almVerTodoActivo = false;
@@ -3019,7 +3054,7 @@
     }
     // Coloca una lista .alm-suggest-float (position:fixed) justo debajo de su campo: el input que
     // diga data-ancla (cuando dos campos comparten la lista, el que se está escribiendo) o, si no,
-    // su contenedor. data-ancho-min: ancho mínimo en px para campos angostos. Solo actúa sobre
+    // su contenedor. data-ancho-min: ancho mínimo en px, si el modal tiene sitio. Solo actúa sobre
     // esas: las sugerencias de la barra de filtros son absolute normales y no necesitan anclaje.
     // Si no cabe debajo, se abre hacia arriba.
     function almSuggestAnclar(box) {
@@ -3029,15 +3064,17 @@
     }
     // La matemática del anclaje, en UN solo sitio: la usan los suggest de UM/categoría y la
     // lista de frentes del modal de almacén, que flota por el mismo motivo (ver su CSS).
-    // anchoMin solo pesa en campos angostos (menos de 240 px, como la cédula o la placa en PC):
-    // ahí la caja es más ancha que su campo y, si así se sale del modal por la derecha, se
-    // alinea con el borde derecho del campo. En el teléfono los campos ya son anchos.
+    // anchoMin: la caja puede ser más ancha que su campo (cédula, placa o vehículo en PC) si el
+    // modal tiene sitio; si así se sale por la derecha, se alinea con el borde derecho del campo.
+    // En el teléfono el campo ya ocupa casi todo el modal: ahí manda su ancho, o quedaría descuadrada.
     function almAnclarFlotante(caja, ancla, anchoMin) {
-        var r = ancla.getBoundingClientRect();
-        var ancho = r.width < 240 ? Math.max(r.width, anchoMin || 0) : r.width, izq = r.left;
-        if (ancho > r.width) {
+        var r = ancla.getBoundingClientRect(), ancho = r.width, izq = r.left;
+        if (anchoMin > r.width) {
             var cont = (ancla.closest('.alm-modal') || document.documentElement).getBoundingClientRect();
-            if (izq + ancho > cont.right - 12) izq = Math.max(cont.left + 12, r.right - ancho);
+            if (cont.width - 24 - r.width >= 48) {
+                ancho = Math.min(anchoMin, cont.width - 24);
+                if (izq + ancho > cont.right - 12) izq = Math.max(cont.left + 12, r.right - ancho);
+            }
         }
         caja.style.left  = izq + 'px';
         caja.style.width = ancho + 'px';   // el ancho se fija ANTES de medir el alto
@@ -5779,9 +5816,19 @@
     }
     // Lista de su fila, filtrada por lo escrito. Vehículos: se busca ESCRIBIENDO la placa, el
     // serial de chasis o el nombre, y la lista no se abre entera al entrar (eran decenas para
-    // elegir a ojo); cada renglón va con la placa primero y el tipo al lado. Choferes: al entrar
+    // elegir a ojo); cada renglón va con placa, serial de chasis y tipo (almLogRenglonVehiculo). Choferes: al entrar
     // a un campo vacío se ve la lista entera (son pocos). Sin nada que sugerir no se abre: el
     // campo sigue siendo libre.
+    // Renglón de un vehículo: placa, serial de chasis y tipo, sin marca ni modelo (pedido del
+    // cliente). El que no tiene placa de verdad trae el serial como documento, así que no se repite.
+    // Los de la lista del almacén traen serial y tipo si también están en la flota; si no, se ven
+    // con el nombre con que se guardaron (no hay tipo del que tirar).
+    function almLogRenglonVehiculo(it) {
+        var serial = it.serial || '', placa = serial && it.documento === serial ? '' : (it.documento || '');
+        return '<span class="alm-log-doc' + (placa ? '' : ' sin-placa') + '">' + escHtml(placa || 'SIN PLACA') + '</span>'
+            + (serial ? '<span class="alm-log-serial">S/C ' + escHtml(serial) + '</span>' : '')
+            + '<span class="alm-log-tipo">' + escHtml(it.tipo || (it.origen === 'flota' ? '' : (it.nombre || ''))) + '</span>';
+    }
     window.almLogSugerir = function (inp, alEntrar) {
         var tipo = inp.getAttribute('data-log'), lista = ALM_LOG[tipo] || [];
         var box = el(tipo === 'choferes' ? 'almSalidaChoferesSug' : 'almSalidaVehiculosSug');
@@ -5796,21 +5843,17 @@
             if (n >= 80 || !(alEntrar && !term || almNorm(it.nombre + ' ' + it.documento + ' ' + serial).indexOf(term) > -1)) return;
             var g = it.origen === 'flota' ? 'Flota de los frentes' : 'Logística del almacén';
             if (g !== grupo) { html += '<div class="alm-log-grupo">' + g + '</div>'; grupo = g; }
-            // Si se encontró por el serial y el documento es la placa, el serial se ve a la derecha.
-            var porSerial = veh && term && serial && serial !== it.documento && almNorm(serial).indexOf(term) > -1;
             html += '<div class="si-item alm-log-item' + (veh ? ' veh' : '') + '" data-log="' + tipo + '" data-i="' + i + '">'
-                + (veh
-                    ? '<span class="alm-log-doc">' + escHtml(it.documento) + '</span><span class="alm-log-nom">' + escHtml(it.nombre) + '</span>'
-                      + (porSerial ? '<span class="alm-log-serial">S/C ' + escHtml(serial) + '</span>' : '')
-                    : '<span class="alm-log-nom">' + escHtml(it.nombre) + '</span><span class="alm-log-doc">' + escHtml(it.documento) + '</span>')
+                + (veh ? almLogRenglonVehiculo(it)
+                       : '<span class="alm-log-nom">' + escHtml(it.nombre) + '</span><span class="alm-log-doc">' + escHtml(it.documento) + '</span>')
                 + '</div>';
             n++;
         });
         // Debajo del campo que se escribe y con su ancho: colgada de la fila cruzaba el modal
-        // entero y en el teléfono la del chofer salía debajo de la cédula. La cédula y la placa
-        // son angostas, así que la lista no baja de un ancho legible (cabe nombre y documento).
+        // entero y en el teléfono la del chofer salía debajo de la cédula. Si el modal tiene sitio,
+        // la lista no baja de un ancho legible (chofer y cédula; el vehículo en una sola línea).
         box.dataset.ancla = inp.id;
-        box.dataset.anchoMin = veh ? '320' : '260';
+        box.dataset.anchoMin = veh ? '420' : '260';
         almSuggestApply(box, html, '<div class="alm-suggest-empty">Sin coincidencias: se imprime lo que escribas.</div>');
     };
     // Elegir uno llena los dos campos de su fila (nombre y documento).
@@ -5996,72 +6039,6 @@
     // Se guarda entre el fetch y el pintado del modal, y se limpia en cada previsualización.
     var almPreviewAvisoTexto = '';
 
-    // ── Vista previa del PDF en TELÉFONO con PDF.js ─────────────────────────────
-    // Los navegadores móviles no renderizan PDF embebido en <iframe>. Para que el
-    // usuario VEA el diseño de la Nota en el teléfono, dibujamos el PDF en <canvas>
-    // con PDF.js. La librería (UMD, vendorizada local — antes jsdelivr) se carga
-    // solo la 1ª vez que se usa, así no penaliza la carga normal del módulo.
-    var _almPdfJsPromise = null;
-    function almEnsurePdfJs() {
-        if (window.pdfjsLib) return Promise.resolve();
-        if (_almPdfJsPromise) return _almPdfJsPromise;
-        _almPdfJsPromise = new Promise(function (resolve, reject) {
-            var s = document.createElement('script');
-            // Versión EN el nombre del archivo: nginx sirve /js/* con caché
-            // inmutable de 1 año, así que al actualizar la librería hay que
-            // renombrar ambos archivos (lib y worker SIEMPRE de la misma versión).
-            s.src = '/js/vendor/pdf-3.11.174.min.js';
-            s.onload = function () {
-                try { window.pdfjsLib.GlobalWorkerOptions.workerSrc = '/js/vendor/pdf.worker-3.11.174.min.js'; } catch (e) {}
-                resolve();
-            };
-            s.onerror = function () { _almPdfJsPromise = null; reject(new Error('No se pudo cargar el visor de PDF.')); };
-            document.head.appendChild(s);
-        });
-        return _almPdfJsPromise;
-    }
-    // Teléfono o tablet: ahí el iframe falla, usamos canvas.
-    function almEsMovil() {
-        return window.innerWidth <= 768 || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    }
-    // Dibuja el blob PDF en #almPreviewCanvas (una <canvas> por página, ajustada al ancho).
-    function almRenderPdfCanvas(blob) {
-        var cont = el('almPreviewCanvas');
-        if (!cont) return Promise.resolve();
-        cont.innerHTML = '<div style="color:#cbd5e0;text-align:center;padding:30px;font-size:13px;">Cargando vista previa…</div>';
-        return almEnsurePdfJs()
-            .then(function () { return blob.arrayBuffer(); })
-            .then(function (buf) { return window.pdfjsLib.getDocument({ data: buf }).promise; })
-            .then(function (pdf) {
-                cont.innerHTML = '';
-                var dpr = window.devicePixelRatio || 1;
-                var ancho = cont.clientWidth - 20; // descontar el padding del contenedor
-                if (ancho <= 0) ancho = Math.min(window.innerWidth - 40, 900);
-                var seq = Promise.resolve();
-                for (var i = 1; i <= pdf.numPages; i++) {
-                    (function (n) {
-                        seq = seq.then(function () {
-                            return pdf.getPage(n).then(function (page) {
-                                var base = page.getViewport({ scale: 1 });
-                                var vp = page.getViewport({ scale: (ancho / base.width) * dpr });
-                                var canvas = document.createElement('canvas');
-                                canvas.width = vp.width; canvas.height = vp.height;
-                                canvas.style.width = '100%'; canvas.style.height = 'auto';
-                                canvas.style.display = 'block'; canvas.style.margin = '0 auto 10px';
-                                canvas.style.background = '#fff'; canvas.style.boxShadow = '0 1px 6px rgba(0,0,0,0.25)';
-                                cont.appendChild(canvas);
-                                return page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
-                            });
-                        });
-                    })(i);
-                }
-                return seq;
-            })
-            .catch(function (e) {
-                cont.innerHTML = '<div style="color:#fecaca;text-align:center;padding:30px;font-size:13px;">No se pudo mostrar la vista previa. ' + (e && e.message ? e.message : '') + '</div>';
-            });
-    }
-
     // Construye el payload desde los campos del modal + almSeleccion. Devuelve
     // null y muestra error si falta el frente destino o no hay lineas validas.
     // Lo usan almSalidaVistaPrevia (POST a preview) y almPreviewConfirmar (POST
@@ -6179,11 +6156,11 @@
                 avisoBox.style.display = almPreviewAvisoTexto ? 'flex' : 'none';
             }
             almOpen('almPreviewModal');
-            if (almEsMovil()) {
+            if (window.pdfEsMovil()) {
                 // TELÉFONO: el iframe no muestra PDF → lo dibujamos con PDF.js en canvas.
                 if (frame) { frame.src = 'about:blank'; frame.style.display = 'none'; }
                 if (cont)  { cont.style.display = 'block'; }
-                almRenderPdfCanvas(blob);
+                window.pintarPdfEnCanvas(el('almPreviewCanvas'), blob);   // dom_helpers.js
             } else {
                 // ESCRITORIO: visor nativo del navegador en el iframe. Mostramos "Cargando…"
                 // en el contenedor del canvas (oculto en escritorio) HASTA que el iframe dispare

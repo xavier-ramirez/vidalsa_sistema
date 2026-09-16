@@ -955,6 +955,7 @@ window.descargarPanelHtmlFDM = async function(panelId, nombre) {
         }
     }
     const fecha = new Date().toISOString().slice(0, 10);
+
     html2canvas(el, {
         scale: 2,
         useCORS: true,
@@ -1012,5 +1013,10 @@ window.descargarPanelHtmlFDM = async function(panelId, nombre) {
         link.download = nombre + '_' + fecha + '.png';
         link.href = canvas.toDataURL('image/png');
         link.click();
+    }).catch(err => {
+        // Sin este catch el fallo era MUDO: se pulsaba la camara y no bajaba nada,
+        // sin aviso ni error en consola (la promesa quedaba rechazada y ya).
+        console.error('[descargarPanelHtmlFDM]', err);
+        alert('No se pudo generar la imagen: ' + (err && err.message ? err.message : err));
     });
 };
