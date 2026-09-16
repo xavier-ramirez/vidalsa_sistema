@@ -174,11 +174,10 @@ class AlmacenController extends Controller
             $rows = collect();
             $hasMore = false;
 
-            // Sin filtro de contenido la tabla muestra solo los ÚLTIMOS productos que se
-            // movieron (productosRecientes, igual que la carga inicial HTML): nunca el
-            // inventario entero, que es lo que cuesta. Así, al limpiar la búsqueda con la "x"
-            // vuelve a esa misma vista. id_almacen NO cuenta como filtro de contenido (es el
-            // contexto, no un filtro).
+            // Sin filtro de contenido la tabla queda VACÍA ("Usa los filtros…"): al abrir el
+            // módulo no se carga ningún producto (pedido del cliente, 16-09-2026), y menos el
+            // inventario entero, que es lo que cuesta. Al limpiar la búsqueda con la "x" vuelve
+            // a esa vista. id_almacen NO cuenta como filtro de contenido (es el contexto).
             $hayFiltro = $request->filled('search')
                 || $request->filled('id_producto')
                 || $request->filled('id_producto_in')
@@ -196,14 +195,11 @@ class AlmacenController extends Controller
                 $hasMore = $rows->count() > $PAGE_SIZE;
                 if ($hasMore) $rows = $rows->slice(0, $PAGE_SIZE)->values();
                 $this->cargarDetallesDeFilas($rows);
-            } elseif ($hayInventario && $offset === 0) {
-                $rows = $this->productosRecientes($idAlmacenSel, $request);
             }
             // En las páginas siguientes del scroll infinito ($offset > 0) NO devolvemos la
             // empty-state row del partial — sería un mensaje "Sin coincidencias" appended al
             // final de las filas ya pintadas. Si el lote viene vacío, el html es ''.
-            // Sin filtro → inicial=true: los recientes llevan su rótulo arriba y, si el almacén
-            // no tiene movimientos, se pinta "usa los filtros" (no "sin coincidencias").
+            // Sin filtro → inicial=true: el partial pinta "usa los filtros" (no "sin coincidencias").
             $html = ($offset > 0 && $rows->isEmpty())
                 ? ''
                 : view('admin.almacen.partials.table_rows', [
@@ -228,11 +224,11 @@ class AlmacenController extends Controller
                 // Los KPIs (Consolidado) siempre: sin filtro muestran el total del almacén, igual
                 // que la carga inicial HTML.
                 $resp['stats'] = $this->statsInventario($idAlmacenSel, $request);
-                // El panel lateral responde UNA pregunta: "¿hay de este producto en otros
-                // almacenes?". Sale cuando el filtro apunta a UN producto —una sugerencia clicada
-                // (id_producto) o una búsqueda que deja una sola fila— y ese producto tiene
-                // existencias en otro almacén (ver panelOtrosAlmacenes). Con varias filas queda
-                // vacío: ahí se llena al tocar una (productoOtrosAlmacenes).
+                // Panel lateral (ver panelLateral): si el filtro apunta a UN producto —una
+                // sugerencia clicada (id_producto) o una búsqueda que deja una sola fila— dice
+                // cuánto hay de ese producto en los otros almacenes; si no, reparte por categoría
+                // lo que la tabla está filtrando. Al tocar una fila se cambia al producto tocado
+                // (productoOtrosAlmacenes).
                 $idProductoSel = null;
                 if ($hayFiltro) {
                     $idProductoSel = $request->filled('id_producto') ? (int) $request->input('id_producto') : null;
@@ -240,16 +236,13 @@ class AlmacenController extends Controller
                         $idProductoSel = (int) $rows->first()->ID_PRODUCTO;
                     }
                 }
-                $resp['distribucionHtml'] = $idProductoSel
-                    ? $this->panelOtrosAlmacenes($idProductoSel, $idAlmacenSel, $almacenSel?->NOMBRE, $user)
-                    : '';
+                $resp['distribucionHtml'] = $this->panelLateral($idProductoSel, $idAlmacenSel, $almacenSel?->NOMBRE, $request, $user);
             }
             return response()->json($resp);
         }
 
-        // Carga HTML: la tabla abre con los últimos productos que se movieron (productosRecientes)
-        // —pocos, una consulta—; el resto se pide por AJAX en cuanto el usuario usa un filtro.
-        $recientes = $hayInventario ? $this->productosRecientes($idAlmacenSel, $request) : null;
+        // Carga HTML: la tabla abre VACÍA (el partial pinta "Usa los filtros…"); las filas se
+        // piden por AJAX en cuanto el usuario busca o aplica un filtro.
         $categorias    = $this->categoriasDistintas();
         // Unidades de medida distintas ya registradas — alimentan el autocomplete del campo UM del modal de
         // producto y el filtro "Unidad de medida" del panel de filtros avanzados.
@@ -299,9 +292,8 @@ class AlmacenController extends Controller
         return view('admin.almacen.index', [
             'almacenes'          => $almacenes,
             'almacenSel'         => $almacenSel,
-            'productos'          => $recientes,
-            // Reparto por proyecto de esas filas, para el modal de proyecto (vacío si no separa).
-            'repartoInicial'     => $recientes ? $this->repartoDeLaPagina($almacenSel, $recientes) : collect(),
+            'productos'          => collect(),   // la tabla abre vacía; las filas llegan por AJAX
+            'repartoInicial'     => collect(),
             'categorias'         => $categorias,
             'frentesLista'       => $frentesLista,
             // Mapa frente → almacenes PROYECTO (ver arriba): el modal de salida lo usa para
@@ -312,6 +304,9 @@ class AlmacenController extends Controller
             // sin esperar a filtrar. Es 1 query agregada (statsInventario), barata. Sin
             // filtros activos devuelve el consolidado completo del almacén.
             'stats'              => $this->statsInventario($idAlmacenSel, $request),
+            // Panel lateral al abrir: la distribución por categoría del almacén entero (1 query
+            // agregada, como el Consolidado). Con la tabla vacía es lo que dice qué hay dentro.
+            'distribucionHtml'   => $this->panelLateral(null, $idAlmacenSel, $almacenSel?->NOMBRE, $request, $user),
             'unidadesMedida'     => $unidadesMedida,
             'notasPendientes'    => $notasPendientes,
         ]);
@@ -590,25 +585,6 @@ class AlmacenController extends Controller
     }
 
     /**
-     * Lo que muestra la tabla sin filtros: los últimos productos que se movieron en el almacén
-     * (FECHA_ULT_MOVIMIENTO, la más reciente de sus proyectos). Pocos a propósito —abrir el
-     * módulo no puede costar lo que cuesta listar el inventario entero— y con el mismo
-     * criterio que el modo sin conexión (almacen-offline.js, campo `mov` de la copia).
-     */
-    private const RECIENTES = 20;
-    private function productosRecientes(int $idAlmacen, Request $request)
-    {
-        $rows = $this->productosConSaldoQuery($idAlmacen, $request)
-            ->whereNotNull('almacen_stock.FECHA_ULT_MOVIMIENTO')
-            ->orderByDesc('almacen_stock.FECHA_ULT_MOVIMIENTO')
-            ->orderBy('productos_inventario.NOMBRE')
-            ->take(self::RECIENTES)
-            ->get();
-        $this->cargarDetallesDeFilas($rows);
-        return $rows;
-    }
-
-    /**
      * Equivalencias (nºs de parte alternos) y modelos de equipo compatibles de un lote de filas,
      * para el tooltip de la fila y el modal de detalles: 2 consultas para todo el lote. La
      * MARCA de cada modelo no vive en caracteristicas_modelo sino en `equipos`: se pega a cada
@@ -697,28 +673,69 @@ class AlmacenController extends Controller
     }
 
     /**
-     * Panel lateral "En otros almacenes" de UN producto, ya renderizado: su reparto por
-     * proyecto dentro del almacén abierto (si separa) y lo que hay en los otros almacenes
-     * visibles. Una sola fuente para el filtro (index) y para el clic en una fila
-     * (productoOtrosAlmacenes). No repite la descripción del producto: la fila marcada en
-     * la tabla ya dice cuál es (decisión del cliente, 15-09-2026).
-     *
-     * Si NINGÚN otro almacén tiene existencias devuelve '' y el panel no se muestra: solo
-     * aparece cuando hay algo que pedir a otro lado (decisión del cliente, 15-09-2026).
+     * Panel lateral del inventario, ya renderizado (partial distribucion_stats). Tiene DOS
+     * modos y aquí se elige cuál:
+     *  - con producto → "En otros almacenes" (panelOtrosAlmacenes): cuánto hay de ESE
+     *    producto en cada uno de los demás almacenes visibles, con 0 donde no hay.
+     *  - sin producto → "Distribución de Inventario": los productos que la tabla está
+     *    filtrando, agrupados por categoría (distribucionPorCategoria), con clic para
+     *    filtrar por una.
+     * Lo usan la carga HTML (sin producto), la recarga AJAX de la tabla (index) y el clic
+     * en una fila (productoOtrosAlmacenes, siempre con producto).
      */
-    private function panelOtrosAlmacenes(int $idProducto, ?int $idAlmacen, ?string $nombreAlmacen, $user): string
+    private function panelLateral(?int $idProducto, ?int $idAlmacen, ?string $nombreAlmacen, Request $request, $user): string
     {
-        $otros = $this->productoEnOtrosAlmacenes($idProducto, $idAlmacen, $user);
-        if ($otros->isEmpty()) {
-            return '';
+        if ($idProducto) {
+            return $this->panelOtrosAlmacenes($idProducto, $idAlmacen, $nombreAlmacen, $user);
         }
 
         return view('admin.almacen.partials.distribucion_stats', [
+            'distribucion' => $this->distribucionPorCategoria($idAlmacen, $request),
+        ])->render();
+    }
+
+    /**
+     * Panel "En otros almacenes" de UN producto: su reparto por proyecto dentro del almacén
+     * abierto (si separa) y lo que hay en CADA uno de los otros almacenes visibles, también
+     * los que tienen 0 (pedido del cliente, 16-09-2026: el cero es una respuesta). No repite
+     * la descripción del producto: la fila marcada en la tabla ya dice cuál es.
+     */
+    private function panelOtrosAlmacenes(int $idProducto, ?int $idAlmacen, ?string $nombreAlmacen, $user): string
+    {
+        return view('admin.almacen.partials.distribucion_stats', [
             'idProducto'          => $idProducto,
-            'productoOtros'       => $otros,
+            'productoOtros'       => $this->productoEnOtrosAlmacenes($idProducto, $idAlmacen, $user),
             'productoProyectos'   => $this->productoPorProyecto($idProducto, $idAlmacen),
             'almacenActualNombre' => $nombreAlmacen,
         ])->render();
+    }
+
+    /**
+     * Productos del almacén seleccionado agrupados por categoría, respetando los filtros
+     * activos de la tabla (misma base que ella). Cuenta STOCK REAL del almacén (productos con
+     * fila de stock), igual que el Consolidado (statsInventario): el whereNotNull anula el
+     * bypass "verCatalogo" de inventarioBaseQuery, que si no contaba TODO el catálogo (saldo
+     * 0) mientras el Consolidado marcaba 0 y los dos paneles se contradecían.
+     */
+    private function distribucionPorCategoria(?int $idAlmacen, Request $request)
+    {
+        if ($idAlmacen === null) {
+            return collect();
+        }
+
+        return $this->inventarioBaseQuery($idAlmacen, $request)
+            ->whereNotNull('almacen_stock.ID_PRODUCTO')
+            // Solo lo que TIENE existencia, como antes: el panel va pegado al KPI
+            // "CON STOCK" y si cuenta tambien los productos en cero los dos numeros
+            // dejan de cuadrar (1.437 repartidos al lado de un 632).
+            ->where('almacen_stock.CANTIDAD', '>', 0)
+            ->select(DB::raw("COALESCE(NULLIF(TRIM(productos_inventario.CATEGORIA), ''), 'SIN CATEGORÍA') as categoria"))
+            ->selectRaw('COUNT(DISTINCT productos_inventario.ID_PRODUCTO) as total')
+            ->selectRaw('COALESCE(SUM(almacen_stock.CANTIDAD), 0) as unidades')
+            ->groupBy('categoria')
+            ->orderByDesc('total')
+            ->orderBy('categoria')
+            ->get();
     }
 
     /** GET almacen/productos/{id}/otros-almacenes?id_almacen=N → { html } del panel lateral (clic en una fila). */
@@ -842,33 +859,43 @@ class AlmacenController extends Controller
 
     private function productoEnOtrosAlmacenes(int $idProducto, ?int $idAlmacenActual, $user)
     {
-        $visibles = Almacen::visiblesPara($user)->pluck('almacenes.ID_ALMACEN');
+        // Se parte de los ALMACENES visibles, no del saldo: así el que no tiene nada del
+        // producto (sin fila de stock o con 0) también sale, con 0. Antes se partía de
+        // almacen_stock con HAVING SUM > 0 y esos almacenes desaparecían de la lista.
+        $visibles = Almacen::visiblesPara($user)
+            ->when($idAlmacenActual !== null, fn ($q) => $q->where('almacenes.ID_ALMACEN', '!=', $idAlmacenActual))
+            ->get(['almacenes.ID_ALMACEN', 'almacenes.NOMBRE', 'almacenes.TIPO']);
         if ($visibles->isEmpty()) {
             return collect();
         }
+
         // Un almacén multi-proyecto tiene VARIAS filas de saldo del mismo producto (una
         // por proyecto), así que se agrupa por almacén: aquí interesa "cuánto hay en ese
-        // almacén" para pedirle un traspaso, no de qué proyecto es cada parte. Sin el
-        // GROUP BY, el mismo almacén saldría repetido en la lista del sidebar.
-        $q = AlmacenStock::query()
-            ->join('almacenes', 'almacenes.ID_ALMACEN', '=', 'almacen_stock.ID_ALMACEN')
-            ->where('almacen_stock.ID_PRODUCTO', $idProducto)
-            ->whereIn('almacen_stock.ID_ALMACEN', $visibles)
-            ->groupBy('almacenes.ID_ALMACEN', 'almacenes.NOMBRE', 'almacenes.TIPO')
-            ->havingRaw('SUM(almacen_stock.CANTIDAD) > 0');
-        if ($idAlmacenActual !== null) {
-            $q->where('almacen_stock.ID_ALMACEN', '!=', $idAlmacenActual);
-        }
-        $filas = $q->select(
-                'almacenes.ID_ALMACEN',
-                'almacenes.NOMBRE',
-                'almacenes.TIPO',
-            )
-            ->selectRaw('SUM(almacen_stock.CANTIDAD) as CANTIDAD')
-            ->selectRaw('MAX(almacen_stock.CANTIDAD_MINIMA) as CANTIDAD_MINIMA')
-            ->orderByDesc('CANTIDAD')
-            ->orderBy('almacenes.NOMBRE')
-            ->get();
+        // almacén" para pedirle un traspaso, no de qué proyecto es cada parte (eso lo
+        // cuelga conDesgloseDeProyectos).
+        $saldos = AlmacenStock::query()
+            ->where('ID_PRODUCTO', $idProducto)
+            ->whereIn('ID_ALMACEN', $visibles->pluck('ID_ALMACEN'))
+            ->groupBy('ID_ALMACEN')
+            ->select('ID_ALMACEN')
+            ->selectRaw('SUM(CANTIDAD) as CANTIDAD')
+            ->selectRaw('MAX(CANTIDAD_MINIMA) as CANTIDAD_MINIMA')
+            ->get()
+            ->keyBy('ID_ALMACEN');
+
+        $filas = $visibles
+            ->map(function ($alm) use ($saldos) {
+                $s = $saldos->get($alm->ID_ALMACEN);
+                return (object) [
+                    'ID_ALMACEN'      => $alm->ID_ALMACEN,
+                    'NOMBRE'          => $alm->NOMBRE,
+                    'TIPO'            => $alm->TIPO,
+                    'CANTIDAD'        => (float) ($s->CANTIDAD ?? 0),
+                    'CANTIDAD_MINIMA' => $s?->CANTIDAD_MINIMA,
+                ];
+            })
+            ->sortBy([['CANTIDAD', 'desc'], ['NOMBRE', 'asc']])
+            ->values();
 
         return $this->conDesgloseDeProyectos($filas, $idProducto);
     }
