@@ -728,26 +728,33 @@
         var mes = data.por_mes || [];
         var meses = mes.map(function (x) { return x.mes; });
         var porProy = data.por_mes_frente || [];
-        // 24 colores para que cada proyecto tenga el suyo. Son 8 tonos base y, debajo, los
-        // mismos 8 aclarados y oscurecidos: asi dos vecinos NUNCA comparten tono. Estan
-        // validados (banda de claridad, saturacion minima, separacion para daltonismo y
-        // contraste contra el fondo), no elegidos a ojo. Se reparten en el orden escrito y
-        // NO se generan al vuelo: si algun dia hay mas de 24 proyectos, el 25 repite el
-        // primero -- antes de eso conviene partir el grafico, no inventar otro color.
-        var CD_COLORES = [
-            '#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#4a3aa7', '#e34948',
-            '#4b92e8', '#f88658', '#12b87d', '#e0a418', '#ee6397', '#00b600', '#5a46ce', '#f16160',
-            '#165aad', '#d94409', '#0d8c5f', '#b07700', '#ea3c7d', '#009900', '#4c3ab8', '#da1514',
-        ];
+        // UNA SOLA GAMA de azul, del mas oscuro al mas claro, repartida entre los proyectos
+        // que haya (el que mas consume se lleva el azul mas profundo). Se hizo asi y no con
+        // 22 colores distintos por dos razones:
+        //   · no existen 22 tonos que una persona distinga de verdad en una barra apilada;
+        //     a partir del octavo empiezan a parecerse y el color deja de identificar nada.
+        //   · el rojo y el verde estan RESERVADOS para "mal" y "bien" en todo el sistema;
+        //     usarlos para nombrar proyectos hace que el grafico mienta.
+        // La identidad la dan la leyenda (a la izquierda, en el mismo orden) y el globo al
+        // pasar el raton; el color dice CUANTO, que es la pregunta del grafico.
+        // Los dos extremos salen de la rampa de azul ya validada (contraste sobre blanco).
+        var CD_AZUL_OSCURO = [13, 54, 107];     // #0d366b
+        var CD_AZUL_CLARO  = [134, 182, 239];   // #86b6ef
+        var cdAzulDe = function (i, total) {
+            var t = total > 1 ? i / (total - 1) : 0;
+            var c = CD_AZUL_OSCURO.map(function (v, k) { return Math.round(v + (CD_AZUL_CLARO[k] - v) * t); });
+            return 'rgb(' + c.join(',') + ')';
+        };
         // El tramo que NO es un proyecto va en gris, para que el color quede reservado a los
         // proyectos de verdad: lo que salio sin proyecto.
         var CD_COLOR_SIN_PROY = '#64748b';
-        // Los colores se reparten SOLO entre los proyectos de verdad (con su propio contador):
-        // si se usara la posicion en la lista, el gris de "Sin proyecto" se comeria un color.
-        var cdTurnoColor = 0;
+        // El gris queda SOLO para "Sin proyecto": asi se distingue de un golpe de los
+        // proyectos de verdad, que son los azules. Lleva su propio contador para que ese
+        // tramo no se coma un escalon de la gama.
+        var cdTurnoColor = 0, cdCuantosProy = 0;
         var cdColorProyecto = function (nombre) {
             if (nombre === 'Sin proyecto') return CD_COLOR_SIN_PROY;
-            return CD_COLORES[cdTurnoColor++ % CD_COLORES.length];
+            return cdAzulDe(cdTurnoColor++, cdCuantosProy);
         };
 
         var totalPorProy = {};
@@ -765,6 +772,7 @@
             valor[clave] = (valor[clave] || 0) + x.total;
         });
         cdTurnoColor = 0;
+        cdCuantosProy = series.filter(function (p) { return p !== 'Sin proyecto'; }).length;
         var datasets = series.map(function (p) {
             return {
                 label: p,
