@@ -159,7 +159,8 @@ class CompatibilidadProductoService
 
     /**
      * Equipos que se pueden vincular: los modelos del catálogo y los tipos de auxiliar que
-     * existen, filtrados por el texto y sin los que el producto ya tiene. Agrupados igual que
+     * existen, filtrados por el texto (o por la placa de un equipo de ese modelo, que viaja en
+     * `placas`) y sin los que el producto ya tiene. Agrupados igual que
      * equipos(): `refs` es lo que se manda al vincular (los ID_ESPEC de las fichas del modelo o
      * "TIPO|MARCA|MODELO" del auxiliar), y se vinculan todas.
      */
@@ -175,6 +176,7 @@ class CompatibilidadProductoService
             'ref'    => (string) $m->ID_ESPEC,
             'tipo'   => (string) $m->TIPO,
             'modelo' => $this->nombreModelo($marcas->get($m->ID_ESPEC), $m->MODELO),
+            'base'   => (string) $m->MODELO,   // el MODELO de la ficha, sin marca: con él se reconoce un equipo sin ficha
         ]);
 
         $aux = DB::table('equipos_auxiliares')->whereNull('deleted_at')
@@ -186,17 +188,54 @@ class CompatibilidadProductoService
                 'modelo' => $this->nombreModelo($a->MARCA, $a->MODELO),
             ]);
 
+        $placas = $this->equiposPorPlaca($texto);
+
         return $modelos->concat($aux)
             ->groupBy(fn ($o) => $this->claveEquipo($o))
             ->reject(fn ($g, $clave) => in_array($clave, $ya, true))
-            ->map(fn ($g) => [
-                'origen' => $g->first()['origen'],
-                'refs'   => $g->pluck('ref')->all(),
-                'tipo'   => $g->first()['tipo'],
-                'modelo' => $g->first()['modelo'],
-            ])
-            ->filter(fn ($o) => $texto === '' || str_contains(mb_strtoupper($o['tipo'].' '.$o['modelo']), $texto))
+            ->map(function ($g) use ($placas) {
+                $o = $g->first();
+                $refs = $g->pluck('ref')->all();
+                // El modelo de los equipos cuya placa se escribió: por su ficha del catálogo o, si
+                // el equipo aún no la tiene, por su tipo y modelo iguales a los de la ficha (el
+                // tipo cuenta: hay modelos repetidos en tipos distintos; la marca no, la ficha no la tiene).
+                $bases = $g->pluck('base')->filter()->map(fn ($b) => mb_strtoupper(trim($b)))->all();
+                $susPlacas = $o['origen'] !== 'modelo' ? [] : $placas
+                    ->filter(fn ($e) => $e->ID_ESPEC !== null
+                        ? in_array((string) $e->ID_ESPEC, $refs, true)
+                        : mb_strtoupper(trim((string) $e->TIPO)) === mb_strtoupper($o['tipo'])
+                            && in_array(mb_strtoupper(trim((string) $e->MODELO)), $bases, true))
+                    ->pluck('PLACA')->unique()->values()->all();
+                return [
+                    'origen' => $o['origen'],
+                    'refs'   => $refs,
+                    'tipo'   => $o['tipo'],
+                    'modelo' => $o['modelo'],
+                    'placas' => $susPlacas,
+                ];
+            })
+            ->filter(fn ($o) => $texto === '' || $o['placas'] || str_contains(mb_strtoupper($o['tipo'].' '.$o['modelo']), $texto))
+            ->sortByDesc(fn ($o) => (bool) $o['placas'])   // lo hallado por placa, primero
             ->take(100)->values();   // son pocos (el catálogo y los tipos de auxiliar): caben todos
+    }
+
+    /**
+     * Equipos (no borrados) cuya placa contiene lo escrito, sin contar espacios ni guiones
+     * ("A85-DR1K" = "A85DR1K"). Desde 5 letras o números: con menos, lo que se escribe buscando
+     * un modelo ("320", "D6T") coincidiría con placas de otros equipos y los colaría arriba.
+     */
+    private function equiposPorPlaca(string $texto): Collection
+    {
+        $limpio = preg_replace('/[^A-Z0-9]/u', '', $texto);
+        if (mb_strlen($limpio) < 5) {
+            return collect();
+        }
+        return DB::table('documentacion as d')
+            ->join('equipos as e', 'e.ID_EQUIPO', '=', 'd.ID_EQUIPO')
+            ->leftJoin('tipo_equipos as t', 't.id', '=', 'e.id_tipo_equipo')
+            ->whereNull('e.deleted_at')
+            ->whereRaw("REPLACE(REPLACE(UPPER(d.PLACA), ' ', ''), '-', '') LIKE ?", ['%'.$limpio.'%'])
+            ->get(['d.PLACA', 'e.ID_ESPEC', 't.nombre as TIPO', 'e.MODELO']);
     }
 
     /** Vincula el producto a las fichas de un modelo del catálogo o a un tipo de auxiliar. */

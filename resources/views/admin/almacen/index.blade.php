@@ -2128,8 +2128,8 @@
                 <div class="alm-hint" style="margin-top:6px;">Al despachar puedes elegir de qué proyecto sale, tocándolo en este mismo desglose dentro de la tabla. Sin elegir, la salida toma primero el saldo del proyecto destino y lo que esté sin proyecto; si no alcanza, sigue con el de los demás y queda anotado en la bitácora.</div>
             </div>
 
-            {{-- Compatibilidad: nº de parte (equivalencias) + equipos que lo usan. Se carga al
-                 abrir el detalle (almAbrirDetalle → almCargarCompat) y la pinta almDetCompatPintar.
+            {{-- Compatibilidad: nº de parte (equivalencias) + equipos que lo usan. Se carga antes
+                 de mostrar el detalle (almAbrirDetalle → almCargarCompat) y la pinta almDetCompatPintar.
                  Con almacen.productos cada sección lleva su + (agregar) y cada dato su ×
                  (quitar); sin ese permiso solo se ve lo que hay, y nada si no hay nada. --}}
             <div id="almDetCompat" hidden>
@@ -2163,7 +2163,7 @@
                     <div id="almDetEquiposCuerpo" class="alm-det-sec-cuerpo" hidden>
                         <div id="almDetEquipos" class="alm-det-lista"></div>
                         <div id="almDetEquipoForm" class="alm-det-form" hidden>
-                            <input type="text" id="almDetEquipoInput" autocomplete="off" placeholder="Buscar tipo, marca o modelo…" aria-label="Buscar equipo"
+                            <input type="text" id="almDetEquipoInput" autocomplete="off" placeholder="Buscar tipo, marca, modelo o placa…" aria-label="Buscar equipo"
                                    oninput="window.almDetEquipoBuscar()"
                                    onkeydown="if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); window.almDetFormCerrar(); }">
                             <div id="almDetEquipoSug" class="alm-det-sug"></div>
@@ -4520,6 +4520,8 @@
         var tr = document.querySelector('#almTableBody tr.alm-row[data-id-producto="' + almUltimaVista + '"]');
         if (tr) tr.classList.add('alm-row-vista');
     }
+    // Tope de espera de la compatibilidad antes de abrir la ficha igual (ver almAbrirDetalle).
+    var ALM_DET_ESPERA_MS = 2500;
     window.almAbrirDetalle = function (id, cod, nom, um, cat, saldo, minimo, ubicacion) {
         var m = el('almDetalleModal'); if (!m) return;
         almMarcarVista(id);
@@ -4535,17 +4537,31 @@
         el('almDetBajoBadge').style.display = bajo ? 'flex' : 'none';
         if (el('almDetUbicacion')) { el('almDetUbicacion').value = ubicacion || ''; showErr('almDetUbicacionError', ''); }
 
-        // Compatibilidad (nº de parte + EQUIPOS que usan el filtro): carga bajo demanda.
-        window.almCargarCompat(id);
-
-        almOpen('almDetalleModal');
+        // La ficha abre DE UNA SOLA VEZ: primero llega la compatibilidad (nº de parte, equipos
+        // y reparto por proyecto) y recién entonces se muestra. Abrirla antes hacía aparecer esas
+        // secciones un instante después, empujando los botones hacia abajo. Si el servidor
+        // falla, abre igual sin ellas. Si mientras tanto se pidió otro producto, abre solo ese.
+        // Con la red muy lenta no se espera más de ALM_DET_ESPERA_MS: abre y las secciones
+        // llegan después, antes que dejar al usuario mirando el spinner.
+        var abierto = false;
+        var abrir = function () {
+            if (abierto) return;
+            abierto = true;
+            clearTimeout(espera);
+            unpre();
+            if (String(m.dataset.id) === String(id)) almOpen('almDetalleModal');
+        };
+        pre();
+        var espera = setTimeout(abrir, ALM_DET_ESPERA_MS);
+        window.almCargarCompat(id).finally(abrir);
     };
 
-    // Trae equivalencias + equipos del filtro y los pinta en el detalle. Si el usuario abre
-    // otro producto mientras carga, se ignora la respuesta vieja (compara el id del modal).
+    // Trae equivalencias + equipos del filtro y los pinta en el detalle; devuelve la promesa
+    // (almAbrirDetalle espera a que termine para abrir). Si el usuario abre otro producto
+    // mientras carga, se ignora la respuesta vieja (compara el id del modal).
     window.almCargarCompat = function (id) {
         var esc = window.escapeHtml;   // helper central (dom_helpers.js)
-        var wrap = el('almDetCompat'); if (!wrap) return;
+        var wrap = el('almDetCompat'); if (!wrap) return Promise.resolve();
         var proyWrap = el('almDetProyectosWrap'), proyBox = el('almDetProyectos');
         if (proyWrap) proyWrap.style.display = 'none';
         if (proyBox) proyBox.innerHTML = '';
@@ -4560,8 +4576,10 @@
         var idAlm = (el('almSelAlmacen') || {}).value || '';
         var url = "{{ route('almacen.productos.compatibilidad', ['id' => '__PID__']) }}".replace('__PID__', id)
                 + (idAlm ? '?id_almacen=' + encodeURIComponent(idAlm) : '');
-        window.apiFetch(url, { headers: { 'Accept': 'application/json' } })
-            .then(function (r) { return r.json(); })
+        return window.apiFetch(url, { headers: { 'Accept': 'application/json' } })
+            // Un error del servidor NO es "sin datos": pintarlo mostraría "(0)" como si el
+            // producto no tuviera equipos. Se descarta y la sección queda oculta.
+            .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
             .then(function (d) {
                 var m = el('almDetalleModal');
                 if (!m || String(m.dataset.id) !== String(id)) return; // cambió de producto mientras cargaba
@@ -4717,7 +4735,8 @@
         var i = el('almDetEquipoInput'); i.value = ''; i.focus();
         window.almDetEquipoBuscar();
     };
-    // Sugerencias del servidor (modelos del catálogo y auxiliares que el producto aún no tiene).
+    // Sugerencias del servidor (modelos del catálogo y auxiliares que el producto aún no tiene;
+    // escribiendo una placa, el modelo de ese equipo, marcado con la placa).
     // Solo pinta la respuesta de la ÚLTIMA búsqueda: si una anterior llega tarde, se descarta.
     window.almDetEquipoBuscar = function () {
         clearTimeout(_almDetEquipoEspera);
@@ -4734,7 +4753,9 @@
                         ? ops.map(function (o, i) {
                             return '<div class="alm-det-sug-item" onclick="window.almDetEquipoVincular(' + i + ')">'
                                 + '<span class="alm-det-eq-tipo" title="' + esc(o.tipo) + '">' + esc(o.tipo) + '</span>'
-                                + '<span class="alm-det-eq-mod">' + esc(o.modelo) + '</span></div>';
+                                + '<span class="alm-det-eq-mod">' + esc(o.modelo) + '</span>'
+                                + (o.placas && o.placas.length ? '<span class="alm-det-eq-dato">placa ' + esc(o.placas.join(', ')) + '</span>' : '')
+                                + '</div>';
                           }).join('')
                         : '<div class="alm-det-sug-vacio">Ningún equipo coincide' + (q ? ' con «' + esc(q) + '»' : '') + '.</div>';
                 })

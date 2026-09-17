@@ -151,6 +151,43 @@ class CompatibilidadProductoTest extends MySqlTestCase
         $this->assertSame(0, ModeloFiltro::where('ID_PRODUCTO', $p->ID_PRODUCTO)->count());
     }
 
+    public function test_escribir_la_placa_sugiere_el_modelo_del_equipo(): void
+    {
+        // Un equipo con ficha del catálogo y otro sin ficha (se reconoce por tipo y modelo):
+        // la placa, con o sin guion, trae el modelo de cada uno, marcado con su placa.
+        $p = $this->producto();
+        $tipo = 'PRUEBA TIPO ' . strtoupper(Str::random(5));
+        $otroTipo = $tipo . ' B';
+        $modelo = 'MP-' . strtoupper(Str::random(4));
+        $idTipo = DB::table('tipo_equipos')->insertGetId(['nombre' => $tipo]);
+        $espec = DB::table('caracteristicas_modelo')->insertGetId(['TIPO' => $tipo, 'MODELO' => $modelo, 'ANIO_ESPEC' => 2020]);
+        // Mismo modelo en OTRO tipo: la placa del equipo sin ficha no debe marcarlo.
+        DB::table('caracteristicas_modelo')->insert(['TIPO' => $otroTipo, 'MODELO' => $modelo, 'ANIO_ESPEC' => 2020]);
+        $equipo = fn (array $extra) => DB::table('equipos')->insertGetId($extra + [
+            'MARCA' => 'MARCAPRUEBA', 'MODELO' => $modelo, 'ANIO' => 2020, 'SERIAL_CHASIS' => 'SC' . strtoupper(Str::random(10)),
+        ]);
+        $conFicha = $equipo(['ID_ESPEC' => $espec]);
+        $sinFicha = $equipo(['id_tipo_equipo' => $idTipo, 'MARCA' => 'OTRAMARCA']);
+        DB::table('documentacion')->insert([
+            ['ID_EQUIPO' => $conFicha, 'PLACA' => 'ZQ9-X1K'],
+            ['ID_EQUIPO' => $sinFicha, 'PLACA' => 'ZQ9X2K'],
+        ]);
+
+        $opciones = fn (string $q) => collect($this->actingAs($this->editor())
+            ->getJson(route('almacen.productos.equipos.opciones', ['id' => $p->ID_PRODUCTO, 'q' => $q]))->assertOk()->json('opciones'));
+
+        $op = $opciones('ZQ9X1K')->where('tipo', $tipo)->values();
+        $this->assertCount(1, $op);
+        $this->assertSame(['ZQ9-X1K'], $op[0]['placas']);
+
+        $op = $opciones('zq9-x2k');
+        $this->assertSame(['ZQ9X2K'], $op->where('tipo', $tipo)->values()[0]['placas'] ?? null,
+            'Sin ficha, el equipo se reconoce por tipo y modelo (aunque su marca sea otra).');
+        $this->assertCount(0, $op->where('tipo', $otroTipo), 'El mismo modelo en otro tipo no se marca con esa placa.');
+
+        $this->assertSame([], $opciones('ZQ9X')->where('tipo', $tipo)->values()->all(), 'Menos de 5 caracteres no busca por placa.');
+    }
+
     public function test_sin_permiso_de_productos_no_se_cambia(): void
     {
         $p = $this->producto();
