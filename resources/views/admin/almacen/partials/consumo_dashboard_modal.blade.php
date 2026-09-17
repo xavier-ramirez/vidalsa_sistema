@@ -815,6 +815,19 @@
                     // quedan uno debajo de otro y las barras a su derecha.
                     legend: { display: datasets.length > 1, position: cdEstrecho ? 'bottom' : 'left', align: 'start',
                         labels: { boxWidth: 9, boxHeight: 9, usePointStyle: true, pointStyle: 'circle',
+                            // Cada proyecto con SU consumo al lado. Sin el numero, uno
+                            // chico -CARACAS con 13 de 40.000- sale en la leyenda pero su
+                            // tramo es mas fino que una raya y parece estar ahi sin consumir.
+                            // El total se saca de los datos ya dibujados, no de otra consulta.
+                            generateLabels: function (grafico) {
+                                var base = Chart.defaults.plugins.legend.labels.generateLabels(grafico);
+                                return base.map(function (it) {
+                                    var d = grafico.data.datasets[it.datasetIndex];
+                                    var t = d.data.reduce(function (a, b) { return a + (Number(b) || 0); }, 0);
+                                    it.text = d.label + '  ·  ' + fmt(t);
+                                    return it;
+                                });
+                            },
                             padding: cdEstrecho ? 8 : 14,
                             font: { size: cdEstrecho ? 10 : 11.5, family: "'Inter','Segoe UI',sans-serif", weight: 600 }, color: '#334155' } },
                     datalabels: CD_SIN_DATALABELS,
