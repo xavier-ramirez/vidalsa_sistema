@@ -1876,15 +1876,18 @@ class AlmacenController extends Controller
      * Dashboard de Consumo (JSON para Chart.js). Devuelve las series de los gráficos del
      * modal: por_mes, por_mes_frente (lo que apila cada barra), top_productos, por_almacen
      * (+ la lista de categorías del filtro).
-     * "Consumo" = movimientos TIPO 'SALIDA' de TODOS los almacenes visibles, menos lo que
-     * se devolvió de cada una (los TRASPASO_SALIDA son movimientos internos entre
-     * almacenes, NO consumo).
+     * "Consumo" = movimientos TIPO 'SALIDA' menos lo que se devolvió de cada uno (los
+     * TRASPASO_SALIDA son movimientos internos entre almacenes, NO consumo).
      *
-     * IMPORTANTE: es INDEPENDIENTE de los filtros generales del módulo (almacén
-     * seleccionado, frente, producto, búsqueda). Usa SOLO sus propios filtros: rango de
-     * meses (desde/hasta en YYYY-MM) y categoría — es una vista global de consumo, no un
-     * reflejo de la tabla filtrada. Los nombres se pasan por MojibakeFix porque las queries
-     * crudas (con JOIN) NO aplican el cast del modelo.
+     * ALCANCE: el ALMACÉN ABIERTO. El modal manda id_almacen y aquí se acota a ese, para
+     * que lo que muestra cuadre con el Historial de ese mismo almacén; antes sumaba todos
+     * los almacenes visibles y aparecían proyectos que no habían consumido nada allí
+     * (cambio pedido por el cliente el 16-09-2026). Sin id_almacen vuelve a ser global.
+     *
+     * Del resto de filtros del módulo (frente, producto, búsqueda) sigue siendo
+     * INDEPENDIENTE: usa los suyos — rango de meses (desde/hasta en YYYY-MM) y categoría.
+     * Los nombres se pasan por MojibakeFix porque las queries crudas (con JOIN) NO aplican
+     * el cast del modelo.
      */
     /**
      * Compatibilidad de un filtro para el modal "Detalles del producto":
@@ -2021,6 +2024,17 @@ class AlmacenController extends Controller
             ->conDevuelto()
             ->where('movimientos_inventario.TIPO', 'SALIDA')
             ->whereIn('movimientos_inventario.ID_ALMACEN', $idsVisibles);
+
+        // Un solo almacen: el que el usuario tiene abierto. Asi el dashboard cuadra con el
+        // Historial de ESE almacen; antes sumaba todos los visibles y salian proyectos que
+        // no habian consumido nada aqui (p. ej. CARACAS, cuyas 3 salidas son de Patio El
+        // Tigre). Se valida el permiso: el id llega por la URL.
+        if ($request->filled('id_almacen')) {
+            $idAlm = (int) $request->integer('id_almacen');
+            if ($idAlm > 0 && $idsVisibles->contains($idAlm)) {
+                $q->where('movimientos_inventario.ID_ALMACEN', $idAlm);
+            }
+        }
 
         // Descripcion: coincidencia parcial sobre el NOMBRE del producto. whereExists
         // evita ambiguedad de columnas con los JOIN de las agregaciones.

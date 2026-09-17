@@ -472,6 +472,13 @@
         if (cat)    p.set('categoria', cat);
         if (desc)   p.set('descripcion', desc);
         if (frente) p.set('frente', frente);
+        // El dashboard es del almacen que se tiene ABIERTO: lo que se ve aqui tiene que
+        // cuadrar con el Historial de ese mismo almacen. Antes sumaba todos los almacenes
+        // visibles y aparecian proyectos cuyo consumo estaba en otro patio (pedido del
+        // cliente, 16-09-2026). Sin almacen abierto -no deberia pasar- vuelve a ser global.
+        var alm = window.almFiltroAlmacenActual || (window.ALM_ESTADO && window.ALM_ESTADO.idAlmacen) ||
+                  new URLSearchParams(location.search).get('id_almacen');
+        if (alm) p.set('id_almacen', alm);
         return p;
     };
 
