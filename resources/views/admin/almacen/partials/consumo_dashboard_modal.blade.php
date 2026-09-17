@@ -728,9 +728,17 @@
         var mes = data.por_mes || [];
         var meses = mes.map(function (x) { return x.mes; });
         var porProy = data.por_mes_frente || [];
-        // Una GAMA, no un arcoiris: del azul profundo de la casa al turquesa, saltando bastante
-        // de claridad entre uno y otro para que los tramos se separen sin pelearse de color.
-        var CD_COLORES = ['#00436e', '#0067b1', '#3f9ad8', '#8ecae6', '#0d9488', '#5eead4'];
+        // 24 colores para que cada proyecto tenga el suyo. Son 8 tonos base y, debajo, los
+        // mismos 8 aclarados y oscurecidos: asi dos vecinos NUNCA comparten tono. Estan
+        // validados (banda de claridad, saturacion minima, separacion para daltonismo y
+        // contraste contra el fondo), no elegidos a ojo. Se reparten en el orden escrito y
+        // NO se generan al vuelo: si algun dia hay mas de 24 proyectos, el 25 repite el
+        // primero -- antes de eso conviene partir el grafico, no inventar otro color.
+        var CD_COLORES = [
+            '#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#4a3aa7', '#e34948',
+            '#4b92e8', '#f88658', '#12b87d', '#e0a418', '#ee6397', '#00b600', '#5a46ce', '#f16160',
+            '#165aad', '#d94409', '#0d8c5f', '#b07700', '#ea3c7d', '#009900', '#4c3ab8', '#da1514',
+        ];
         // El tramo que NO es un proyecto va en gris, para que el color quede reservado a los
         // proyectos de verdad: lo que salio sin proyecto.
         var CD_COLOR_SIN_PROY = '#64748b';
@@ -744,7 +752,12 @@
 
         var totalPorProy = {};
         porProy.forEach(function (x) { totalPorProy[x.proyecto] = (totalPorProy[x.proyecto] || 0) + x.total; });
-        var series = Object.keys(totalPorProy).sort(function (a, b) { return totalPorProy[b] - totalPorProy[a]; });
+        // Solo los que CONSUMIERON: un proyecto cuyas devoluciones se comen sus salidas queda
+        // en cero o en negativo y no pinta ningun tramo; sin este filtro se colaba igual en
+        // la leyenda, con su color, sin nada que mostrar.
+        var series = Object.keys(totalPorProy)
+            .filter(function (p) { return totalPorProy[p] > 0; })
+            .sort(function (a, b) { return totalPorProy[b] - totalPorProy[a]; });
 
         var valor = {};   // proyecto|mes → total
         porProy.forEach(function (x) {
