@@ -1360,7 +1360,9 @@
 </div>
 
 {{-- ── Sidebar: Consolidado de Inventario ── --}}
-<div class="counter-sidebar" style="position:sticky;top:20px;display:flex;flex-direction:column;gap:8px;">
+{{-- id: la camara del panel de distribucion fotografia esta columna ENTERA, para que
+     la imagen salga con el Consolidado arriba y la distribucion debajo. --}}
+<div id="almLateral" class="counter-sidebar" style="position:sticky;top:20px;display:flex;flex-direction:column;gap:8px;">
 
     <div class="alm-cons-card">
         <i class="material-icons alm-cons-bgicon">inventory</i>

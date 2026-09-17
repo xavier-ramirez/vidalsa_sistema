@@ -139,12 +139,13 @@
              (fleet_dashboard.js, que estructura_base carga en todas las páginas): ya
              resuelve la carga diferida de html2canvas, abre las listas con scroll para
              que la foto salga completa y esconde los botones en la captura. NO se
-             escribe un captador nuevo aquí. Captura #almDistWrapper y NO el contenedor
-             de dentro: la tarjeta blanca -con su borde, sus esquinas redondeadas y su
-             relleno- vive en el wrapper; capturando el de dentro la foto salía a filo,
-             sin bordes. --}}
+             escribe un captador nuevo aquí. Fotografía la COLUMNA entera (#almLateral):
+             así la imagen sale con el Consolidado de Inventario arriba y la distribución
+             debajo, que es como se lee en pantalla. En el teléfono el JS saca el panel de
+             esa columna, y entonces se cae a #almDistWrapper, que es la tarjeta blanca con
+             su borde (nunca el div de dentro: saldría a filo, sin bordes). --}}
         <button type="button" class="alm-cat-cam"
-                onclick="window.descargarPanelHtmlFDM('almDistWrapper','distribucion_de_inventario')"
+                onclick="window.descargarPanelHtmlFDM(document.querySelector('#almLateral #almDistribucionContainer') ? 'almLateral' : 'almDistWrapper','distribucion_de_inventario')"
                 title="Descargar imagen" aria-label="Descargar imagen">
             <i class="material-icons">photo_camera</i>
         </button>
