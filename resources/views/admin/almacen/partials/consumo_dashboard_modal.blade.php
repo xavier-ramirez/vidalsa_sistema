@@ -720,41 +720,37 @@
         };
 
         // ── 1) Consumo por mes y proyecto (barras apiladas) ──────────────────
-        // Una barra por mes; cada tramo, lo que consumió un proyecto. Los proyectos con menos
-        // consumo se juntan en "Otros proyectos": con una docena de tramos la barra deja de
-        // leerse y la leyenda se come el gráfico.
+        // Una barra por mes; cada tramo, lo que consumió un proyecto. Salen TODOS: antes los de
+        // menos consumo se juntaban en "Otros proyectos" y el cliente no veía el suyo en el
+        // gráfico (pedido del 16-09-2026). La leyenda va a la IZQUIERDA, un proyecto debajo de
+        // otro, así que crecer en proyectos la alarga hacia abajo y no come ancho de barra.
         var cdEstrecho = window.innerWidth < 640;   // telefono: la leyenda va abajo y mas chica
         var mes = data.por_mes || [];
         var meses = mes.map(function (x) { return x.mes; });
         var porProy = data.por_mes_frente || [];
-        var CD_MAX_PROY = 6;
         // Una GAMA, no un arcoiris: del azul profundo de la casa al turquesa, saltando bastante
         // de claridad entre uno y otro para que los tramos se separen sin pelearse de color.
         var CD_COLORES = ['#00436e', '#0067b1', '#3f9ad8', '#8ecae6', '#0d9488', '#5eead4'];
-        // Los dos tramos que NO son un proyecto van en gris, para que el color quede reservado
-        // a los proyectos de verdad: lo que salio sin proyecto y el resumen de los demas.
-        var CD_COLOR_OTROS = '#cbd5e1';
+        // El tramo que NO es un proyecto va en gris, para que el color quede reservado a los
+        // proyectos de verdad: lo que salio sin proyecto.
         var CD_COLOR_SIN_PROY = '#64748b';
         // Los colores se reparten SOLO entre los proyectos de verdad (con su propio contador):
         // si se usara la posicion en la lista, el gris de "Sin proyecto" se comeria un color.
         var cdTurnoColor = 0;
         var cdColorProyecto = function (nombre) {
-            if (nombre === 'Otros proyectos') return CD_COLOR_OTROS;
             if (nombre === 'Sin proyecto') return CD_COLOR_SIN_PROY;
             return CD_COLORES[cdTurnoColor++ % CD_COLORES.length];
         };
 
         var totalPorProy = {};
         porProy.forEach(function (x) { totalPorProy[x.proyecto] = (totalPorProy[x.proyecto] || 0) + x.total; });
-        var proyectos = Object.keys(totalPorProy).sort(function (a, b) { return totalPorProy[b] - totalPorProy[a]; });
-        var visibles = proyectos.slice(0, CD_MAX_PROY), hayOtros = proyectos.length > CD_MAX_PROY;
+        var series = Object.keys(totalPorProy).sort(function (a, b) { return totalPorProy[b] - totalPorProy[a]; });
 
         var valor = {};   // proyecto|mes → total
         porProy.forEach(function (x) {
-            var clave = (visibles.indexOf(x.proyecto) !== -1 ? x.proyecto : 'Otros proyectos') + '|' + x.mes;
+            var clave = x.proyecto + '|' + x.mes;
             valor[clave] = (valor[clave] || 0) + x.total;
         });
-        var series = visibles.concat(hayOtros ? ['Otros proyectos'] : []);
         cdTurnoColor = 0;
         var datasets = series.map(function (p) {
             return {
@@ -773,6 +769,14 @@
                 borderRadius: 6, borderSkipped: false, maxBarThickness: 44 }];
         }
 
+        // La leyenda de la izquierda crece hacia abajo con cada proyecto. Con los 320 px
+        // fijos de .conleyenda, a partir de ~14 proyectos los ultimos quedaban cortados.
+        // Se le da a la caja el alto que pide la leyenda, con 320 de piso.
+        var cdCaja = document.getElementById('cdashChartMes').parentElement;
+        if (cdCaja && !cdEstrecho) {
+            cdCaja.style.height = Math.max(320, datasets.length * 21 + 70) + 'px';
+        }
+
         window._cdashCharts.mes = new Chart(document.getElementById('cdashChartMes'), {
             type: 'bar',
             plugins: [cdValLabels],
@@ -780,7 +784,9 @@
             options: {
                 responsive: true, maintainAspectRatio: false,
                 plugins: {
-                    legend: { display: datasets.length > 1, position: cdEstrecho ? 'bottom' : 'top', align: 'start',
+                    // A la IZQUIERDA (en el telefono abajo, que ahi no cabe): los proyectos
+                    // quedan uno debajo de otro y las barras a su derecha.
+                    legend: { display: datasets.length > 1, position: cdEstrecho ? 'bottom' : 'left', align: 'start',
                         labels: { boxWidth: 9, boxHeight: 9, usePointStyle: true, pointStyle: 'circle',
                             padding: cdEstrecho ? 8 : 14,
                             font: { size: cdEstrecho ? 10 : 11.5, family: "'Inter','Segoe UI',sans-serif", weight: 600 }, color: '#334155' } },
