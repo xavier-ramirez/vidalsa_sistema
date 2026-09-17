@@ -747,30 +747,22 @@
         // "mal" y "bien" en el resto del sistema (stock bajo, operativo). Aqui NO significan
         // eso: son identidad. Por eso el rojo se reserva a UN solo tramo -el mayor- y no se
         // reparte a lo loco, que es lo que haria dudar al que lo mira.
-        var CD_ROJO = '#b3261e';
-        // La escala va del azul profundo al verde menta pasando por el petroleo, y SIEMPRE
-        // aclarando: cada escalon es mas claro que el anterior, asi que dos colores nunca
-        // salen iguales aunque el tono se parezca.
-        var CD_ESCALA = [[13, 54, 107], [17, 94, 122], [15, 118, 110], [126, 206, 175]];
-        var cdEscalaEn = function (i, total) {
-            if (total <= 1) return 'rgb(' + CD_ESCALA[0].join(',') + ')';
-            var t = (i / (total - 1)) * (CD_ESCALA.length - 1);
-            var k = Math.min(Math.floor(t), CD_ESCALA.length - 2), f = t - k;
-            var a = CD_ESCALA[k], b = CD_ESCALA[k + 1];
-            return 'rgb(' + a.map(function (v, n) { return Math.round(v + (b[n] - v) * f); }).join(',') + ')';
-        };
-        // El reparto NO es en orden: dos escalones seguidos de la escala se parecen
-        // demasiado y en la pila van pegados. Se avanza a SALTOS por la escala -unos dos
-        // tercios de vuelta cada vez- de modo que dos tramos vecinos caen siempre lejos.
-        // El salto es primo con el total (si no, daria vueltas repitiendo los mismos) y es
-        // fijo: el mismo puesto recibe siempre el mismo color.
-        var cdMcd = function (a, b) { while (b) { var t = a % b; a = b; b = t; } return a; };
-        var cdBarajado = function (total) {
-            var salto = Math.max(1, Math.round(total * 0.618));
-            while (salto > 1 && cdMcd(salto, total) !== 1) salto--;
-            var orden = [];
-            for (var i = 0; i < total; i++) orden.push((i * salto) % total);
-            return orden;
+        // COLORES. Regla: color solo para los que pesan; el resto, gris.
+        // Con 20 proyectos en una misma barra NINGUN juego de colores los distingue: a
+        // partir del octavo dos tonos se confunden -y mas todavia para quien no ve bien
+        // los colores-. Asi que los OCHO que mas consumen llevan un color propio y la cola
+        // va en grises: sus tramos son rayas de pocos pixeles, con color solo ensucian.
+        // Los ocho estan validados (banda de claridad, saturacion, separacion para
+        // daltonismo y contraste contra el blanco), no elegidos a ojo. El primero es rojo,
+        // que es el que mas consume.
+        var CD_ACENTOS = ['#b3261e', '#2a78d6', '#0d9488', '#eda100',
+                          '#4a3aa7', '#e87ba4', '#00701f', '#5598e7'];
+        // La cola: grises de medio a claro, siempre en orden, para que se lean como "resto".
+        var CD_GRISES = [[100, 116, 139], [203, 213, 225]];
+        var cdGrisDe = function (i, total) {
+            var t = total > 1 ? i / (total - 1) : 0;
+            return 'rgb(' + CD_GRISES[0].map(function (v, k) {
+                return Math.round(v + (CD_GRISES[1][k] - v) * t); }).join(',') + ')';
         };
         // El tramo que NO es un proyecto va en gris, para que el color quede reservado a los
         // proyectos de verdad: lo que salio sin proyecto.
@@ -778,14 +770,12 @@
         // El gris queda SOLO para "Sin proyecto": asi se distingue de un golpe de los
         // proyectos de verdad, que son los azules. Lleva su propio contador para que ese
         // tramo no se coma un escalon de la gama.
-        var cdTurnoColor = 0, cdCuantosProy = 0, cdOrdenColor = null;
+        var cdTurnoColor = 0, cdCuantosProy = 0;
         var cdColorProyecto = function (nombre) {
             if (nombre === 'Sin proyecto') return CD_COLOR_SIN_PROY;
             var i = cdTurnoColor++;
-            if (i === 0) return CD_ROJO;                       // el que mas consume
-            var total = Math.max(1, cdCuantosProy - 1);
-            if (!cdOrdenColor || cdOrdenColor.length !== total) cdOrdenColor = cdBarajado(total);
-            return cdEscalaEn(cdOrdenColor[i - 1], total);
+            if (i < CD_ACENTOS.length) return CD_ACENTOS[i];
+            return cdGrisDe(i - CD_ACENTOS.length, Math.max(1, cdCuantosProy - CD_ACENTOS.length));
         };
 
         var totalPorProy = {};
@@ -840,19 +830,6 @@
                     // quedan uno debajo de otro y las barras a su derecha.
                     legend: { display: datasets.length > 1, position: cdEstrecho ? 'bottom' : 'left', align: 'start',
                         labels: { boxWidth: 9, boxHeight: 9, usePointStyle: true, pointStyle: 'circle',
-                            // Cada proyecto con SU consumo al lado. Sin el numero, uno
-                            // chico -CARACAS con 13 de 40.000- sale en la leyenda pero su
-                            // tramo es mas fino que una raya y parece estar ahi sin consumir.
-                            // El total se saca de los datos ya dibujados, no de otra consulta.
-                            generateLabels: function (grafico) {
-                                var base = Chart.defaults.plugins.legend.labels.generateLabels(grafico);
-                                return base.map(function (it) {
-                                    var d = grafico.data.datasets[it.datasetIndex];
-                                    var t = d.data.reduce(function (a, b) { return a + (Number(b) || 0); }, 0);
-                                    it.text = d.label + '  ·  ' + fmt(t);
-                                    return it;
-                                });
-                            },
                             padding: cdEstrecho ? 8 : 14,
                             font: { size: cdEstrecho ? 10 : 11.5, family: "'Inter','Segoe UI',sans-serif", weight: 600 }, color: '#334155' } },
                     datalabels: CD_SIN_DATALABELS,
