@@ -747,23 +747,22 @@
         // "mal" y "bien" en el resto del sistema (stock bajo, operativo). Aqui NO significan
         // eso: son identidad. Por eso el rojo se reserva a UN solo tramo -el mayor- y no se
         // reparte a lo loco, que es lo que haria dudar al que lo mira.
-        // COLORES. Regla: color solo para los que pesan; el resto, gris.
-        // Con 20 proyectos en una misma barra NINGUN juego de colores los distingue: a
-        // partir del octavo dos tonos se confunden -y mas todavia para quien no ve bien
-        // los colores-. Asi que los OCHO que mas consumen llevan un color propio y la cola
-        // va en grises: sus tramos son rayas de pocos pixeles, con color solo ensucian.
-        // Los ocho estan validados (banda de claridad, saturacion, separacion para
-        // daltonismo y contraste contra el blanco), no elegidos a ojo. El primero es rojo,
-        // que es el que mas consume.
+        // COLORES. Todos los proyectos llevan color; ninguno va en gris.
+        //   · Los OCHO primeros -los que mas consumen- usan la tanda validada: banda de
+        //     claridad, saturacion minima, separacion para daltonismo y contraste contra
+        //     el blanco. Esos ocho se distinguen de verdad entre si.
+        //   · Del noveno en adelante se repiten esos mismos ocho tonos, primero en su
+        //     version CLARA y despues en la OSCURA. Se parecen a su hermano de color, si:
+        //     a partir del octavo NINGUN juego de colores es realmente distinguible, y sus
+        //     tramos son rayas de pocos pixeles. Quien identifica ahi es la leyenda.
+        //   · El rojo va al que mas consume, como pidio el cliente.
         var CD_ACENTOS = ['#b3261e', '#2a78d6', '#0d9488', '#eda100',
                           '#4a3aa7', '#e87ba4', '#00701f', '#5598e7'];
-        // La cola: grises de medio a claro, siempre en orden, para que se lean como "resto".
-        var CD_GRISES = [[100, 116, 139], [203, 213, 225]];
-        var cdGrisDe = function (i, total) {
-            var t = total > 1 ? i / (total - 1) : 0;
-            return 'rgb(' + CD_GRISES[0].map(function (v, k) {
-                return Math.round(v + (CD_GRISES[1][k] - v) * t); }).join(',') + ')';
-        };
+        var CD_CLAROS  = ['#d95b54', '#7da9de', '#1fdecd', '#f8c251',
+                          '#8377c5', '#e693b2', '#08c43c', '#90b9e9'];
+        var CD_OSCUROS = ['#881811', '#1856a0', '#089185', '#a67000',
+                          '#2f2377', '#e43778', '#00992a', '#1772de'];
+        var CD_TANDAS  = [CD_ACENTOS, CD_CLAROS, CD_OSCUROS];
         // El tramo que NO es un proyecto va en gris, para que el color quede reservado a los
         // proyectos de verdad: lo que salio sin proyecto.
         var CD_COLOR_SIN_PROY = '#64748b';
@@ -774,8 +773,8 @@
         var cdColorProyecto = function (nombre) {
             if (nombre === 'Sin proyecto') return CD_COLOR_SIN_PROY;
             var i = cdTurnoColor++;
-            if (i < CD_ACENTOS.length) return CD_ACENTOS[i];
-            return cdGrisDe(i - CD_ACENTOS.length, Math.max(1, cdCuantosProy - CD_ACENTOS.length));
+            var tanda = CD_TANDAS[Math.floor(i / CD_ACENTOS.length) % CD_TANDAS.length];
+            return tanda[i % CD_ACENTOS.length];
         };
 
         var totalPorProy = {};
