@@ -29,9 +29,6 @@
     const COLS = 6;
     // Filas por lote: el MISMO $PAGE_SIZE del backend (AlmacenController::inventario).
     const PAGE_SIZE = 120;
-    // Vista sin filtros: los últimos productos que se movieron, los mismos que online
-    // (AlmacenController::RECIENTES / productosRecientes, campo `mov` de la copia).
-    const RECIENTES = 20;
 
     function getBody() { return document.getElementById('almTableBody'); }
 
@@ -141,21 +138,15 @@
         const f = estadoFiltros();
         pintarStats(stock, f.idAlm);
 
-        // Sin filtro de contenido: la misma vista inicial que online (los últimos productos que
-        // se movieron, con su rótulo), no el inventario entero.
+        // Sin filtro de contenido la tabla abre VACÍA, igual que online (partials/table_rows):
+        // al abrir el módulo no se carga ningún producto (pedido del cliente, 16-09-2026).
         if (!hayFiltro(f)) {
             const alm = (almacenes || []).find(function (a) { return Number(a.id) === Number(f.idAlm); });
             const nombre = alm ? alm.nombre : '';
-            const recientes = stock
-                .filter(function (p) { return Number(p.id_almacen) === Number(f.idAlm) && p.mov; })
-                .sort(function (a, b) { return a.mov < b.mov ? 1 : a.mov > b.mov ? -1 : String(a.nombre).localeCompare(String(b.nombre), 'es'); })
-                .slice(0, RECIENTES);
-            tbody.innerHTML = recientes.length
-                ? recientes.map(filaHtml).join('')
-                : filaMensaje(
-                    '<i class="material-icons" style="font-size:46px;color:#cbd5e0;display:block;margin:0 auto 10px;">filter_alt</i>' +
-                    'Usa los filtros para ver el inventario' + (nombre ? ' de <strong>' + esc(nombre) + '</strong>' : '') + '.'
-                );
+            tbody.innerHTML = filaMensaje(
+                '<i class="material-icons" style="font-size:46px;color:#cbd5e0;display:block;margin:0 auto 10px;">filter_alt</i>' +
+                'Usa los filtros para ver el inventario' + (nombre ? ' de <strong>' + esc(nombre) + '</strong>' : '') + '.'
+            );
             return;
         }
 

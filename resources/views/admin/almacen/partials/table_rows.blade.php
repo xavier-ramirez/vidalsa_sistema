@@ -1,6 +1,5 @@
 {{-- Filas de la tabla de inventario. $productos = Collection|null (lote del scroll infinito) ; $almacen = Almacen|null ;
-     $inicial = bool (vista sin filtros: los últimos productos que se movieron —sin rótulo, el
-     cliente lo pidió fuera—, AlmacenController::productosRecientes) --}}
+     $inicial = bool (vista sin filtros: la tabla abre VACÍA con el aviso de filtros) --}}
 @php
     $rows    = $productos ?? collect();
     $inicial = $inicial ?? false;
@@ -27,7 +26,7 @@
         </td>
     </tr>
 @elseif($inicial && $rows->count() === 0)
-    {{-- Sin filtros y el almacén todavía sin movimientos: no hay "recientes" que mostrar. --}}
+    {{-- Sin filtros: al abrir el módulo la tabla no carga productos (pedido del cliente). --}}
     <tr>
         <td colspan="{{ $cols }}" class="alm-vacio alm-vacio-alto">
             <i class="material-icons">filter_alt</i>

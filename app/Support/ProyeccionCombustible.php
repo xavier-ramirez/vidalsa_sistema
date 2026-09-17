@@ -60,39 +60,102 @@ class ProyeccionCombustible
      */
     public static function conteoFrente(?int $idFrente): array
     {
-        $cuenta = function (array $tipos) use ($idFrente) {
-            $q = DB::table('equipos as e')
-                ->join('tipo_equipos as t', 't.id', '=', 'e.id_tipo_equipo')
-                ->whereNull('e.deleted_at')
-                ->whereIn('t.nombre', $tipos);
-
-            $idFrente === null
-                ? $q->whereNull('e.ID_FRENTE_ACTUAL')
-                : $q->where('e.ID_FRENTE_ACTUAL', $idFrente);
-
-            return (int) $q->count();
-        };
-
-        return [
-            'chutos'  => $cuenta(['CHUTO']),
-            'diarios' => $cuenta(self::REMOLQUES_DIARIOS),
-            'lowboys' => $cuenta(self::REMOLQUES_LOWBOY),
-        ];
+        return self::conteosPorFrente([$idFrente])[self::claveFrente($idFrente)];
     }
 
     /** Consumo diario del chuto en ese frente (el mayor si hubiera varios valores). */
     public static function consumoBaseChuto(?int $idFrente): float
     {
-        $q = DB::table('equipos as e')
+        return self::consumosBaseChuto([$idFrente])[self::claveFrente($idFrente)];
+    }
+
+    /**
+     * Chutos y remolques de VARIOS frentes en UNA consulta agrupada, [clave del frente => conteo].
+     * El "Consumo total" del dashboard de flota pregunta por todos los frentes a la vez: antes
+     * eran tres consultas por frente (chutos, remolques diarios, lowboys) cada vez que se abría.
+     *
+     * @param  array<int|null>  $idsFrentes
+     * @return array<string, array{chutos:int, diarios:int, lowboys:int}>
+     */
+    private static function conteosPorFrente(array $idsFrentes): array
+    {
+        $grupo = ['CHUTO' => 'chutos']
+            + array_fill_keys(self::REMOLQUES_DIARIOS, 'diarios')
+            + array_fill_keys(self::REMOLQUES_LOWBOY, 'lowboys');
+
+        $conteos = [];
+        foreach ($idsFrentes as $idFrente) {
+            $conteos[self::claveFrente($idFrente)] = ['chutos' => 0, 'diarios' => 0, 'lowboys' => 0];
+        }
+
+        $filas = self::equiposDeFrentes($idsFrentes)
+            ->whereIn('t.nombre', array_keys($grupo))
+            ->groupBy('e.ID_FRENTE_ACTUAL', 't.nombre')
+            ->get(['e.ID_FRENTE_ACTUAL as frente', 't.nombre as tipo', DB::raw('COUNT(*) as n')]);
+
+        foreach ($filas as $fila) {
+            // El whereIn de MySQL no distingue mayúsculas: el nombre se busca igual aquí.
+            $campo = $grupo[mb_strtoupper(trim((string) $fila->tipo))] ?? null;
+            $clave = self::claveFrente($fila->frente === null ? null : (int) $fila->frente);
+            if ($campo !== null && isset($conteos[$clave])) {
+                $conteos[$clave][$campo] += (int) $fila->n;
+            }
+        }
+
+        return $conteos;
+    }
+
+    /**
+     * Consumo base del chuto (el mayor CONSUMO_PROMEDIO) de VARIOS frentes en una consulta.
+     *
+     * @param  array<int|null>  $idsFrentes
+     * @return array<string, float>
+     */
+    private static function consumosBaseChuto(array $idsFrentes): array
+    {
+        $bases = [];
+        foreach ($idsFrentes as $idFrente) {
+            $bases[self::claveFrente($idFrente)] = 0.0;
+        }
+
+        $filas = self::equiposDeFrentes($idsFrentes)
+            ->where('t.nombre', 'CHUTO')
+            ->whereNotNull('e.CONSUMO_PROMEDIO')
+            ->groupBy('e.ID_FRENTE_ACTUAL')
+            ->get(['e.ID_FRENTE_ACTUAL as frente', DB::raw('MAX(e.CONSUMO_PROMEDIO) as base')]);
+
+        foreach ($filas as $fila) {
+            $bases[self::claveFrente($fila->frente === null ? null : (int) $fila->frente)] = (float) $fila->base;
+        }
+
+        return $bases;
+    }
+
+    /** Equipos vivos, con su tipo, de esos frentes; un null en la lista = los que no tienen frente. */
+    private static function equiposDeFrentes(array $idsFrentes)
+    {
+        $ids       = array_values(array_filter($idsFrentes, fn ($f) => $f !== null));
+        $sinFrente = in_array(null, $idsFrentes, true);
+
+        return DB::table('equipos as e')
             ->join('tipo_equipos as t', 't.id', '=', 'e.id_tipo_equipo')
-            ->whereNull('e.deleted_at')->where('t.nombre', 'CHUTO')
-            ->whereNotNull('e.CONSUMO_PROMEDIO');
+            ->whereNull('e.deleted_at')
+            ->where(function ($q) use ($ids, $sinFrente) {
+                if ($ids) {
+                    $q->whereIn('e.ID_FRENTE_ACTUAL', $ids);
+                }
+                if ($sinFrente) {
+                    $q->orWhereNull('e.ID_FRENTE_ACTUAL');
+                }
+                if (!$ids && !$sinFrente) {
+                    $q->whereRaw('1 = 0');
+                }
+            });
+    }
 
-        $idFrente === null
-            ? $q->whereNull('e.ID_FRENTE_ACTUAL')
-            : $q->where('e.ID_FRENTE_ACTUAL', $idFrente);
-
-        return (float) ($q->max('e.CONSUMO_PROMEDIO') ?? 0);
+    private static function claveFrente(?int $idFrente): string
+    {
+        return $idFrente === null ? '' : (string) $idFrente;
     }
 
     /**
@@ -103,22 +166,37 @@ class ProyeccionCombustible
      * encima de cualquier suma ya scopeada (permisos, frentes bloqueados, exclusión de
      * frentes ESPECIAL) sin duplicar toda esa lógica de alcance.
      *
+     * Son dos consultas para todos los frentes juntos (conteosPorFrente y, solo para los que
+     * tienen chutos con lowboy, consumosBaseChuto), no cuatro por frente.
+     *
      * @param  array<int|null>  $idsFrentes  Frentes dentro del alcance. null = sin frente.
      */
     public static function descuentoLowboy(array $idsFrentes): float
     {
-        $descuento = 0.0;
+        $ids = array_map(fn ($f) => $f === null ? null : (int) $f, array_values(array_unique($idsFrentes, SORT_REGULAR)));
+        if (!$ids) {
+            return 0.0;
+        }
 
-        foreach (array_unique($idsFrentes, SORT_REGULAR) as $idFrente) {
-            $idFrente = $idFrente === null ? null : (int) $idFrente;
-            $c = self::conteoFrente($idFrente);
+        $conteos = self::conteosPorFrente($ids);
+        $lowboys = [];   // [clave del frente => chutos que andan con lowboy]
+        foreach ($ids as $idFrente) {
+            $c = $conteos[self::claveFrente($idFrente)];
             if ($c['chutos'] === 0 || $c['lowboys'] === 0) continue;
 
             $reparto = self::repartirChutos($c['chutos'], $c['diarios'], $c['lowboys']);
             if ($reparto['lowboy'] === 0) continue;
 
-            $base = self::consumoBaseChuto($idFrente);
-            $descuento += $reparto['lowboy'] * max(0.0, $base - self::CHUTO_CON_LOWBOY);
+            $lowboys[self::claveFrente($idFrente)] = $reparto['lowboy'];
+        }
+        if (!$lowboys) {
+            return 0.0;
+        }
+
+        $bases = self::consumosBaseChuto(array_values(array_filter($ids, fn ($f) => isset($lowboys[self::claveFrente($f)]))));
+        $descuento = 0.0;
+        foreach ($lowboys as $clave => $n) {
+            $descuento += $n * max(0.0, $bases[$clave] - self::CHUTO_CON_LOWBOY);
         }
 
         return $descuento;

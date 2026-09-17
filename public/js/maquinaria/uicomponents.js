@@ -680,28 +680,10 @@ window.filterDropdownOptions = function (input) {
 window.selectAdvancedFilter = function (key, value) {
     if (window.searchTimeout) clearTimeout(window.searchTimeout);
 
-    if (key === "modelo") {
-        // Find the modelo container
+    // Modelo y marca comparten el mismo componente de filtro (contenedor data-advanced-filter).
+    if (key === "modelo" || key === "marca") {
         const container = document.querySelector(
-            '[data-advanced-filter="modelo"]',
-        );
-        if (container) {
-            const hiddenInput = container.querySelector("[data-filter-value]");
-            const searchInput = container.querySelector("[data-filter-search]");
-            const list = container.querySelector(".filter-list");
-            const btn = container.querySelector("[data-clear-btn]");
-
-            if (hiddenInput) hiddenInput.value = value;
-            if (searchInput) searchInput.value = value;
-            if (list) list.style.display = "none";
-            if (btn) btn.style.display = value ? "block" : "none";
-        }
-    }
-
-    if (key === "marca") {
-        // Find the marca container
-        const container = document.querySelector(
-            '[data-advanced-filter="marca"]',
+            '[data-advanced-filter="' + key + '"]',
         );
         if (container) {
             const hiddenInput = container.querySelector("[data-filter-value]");
@@ -899,16 +881,6 @@ document.addEventListener("click", function (e) {
         resultsDiv.style.display = "none";
     }
 });
-
-// Clear handler
-window.clearFrentesSearch = function () {
-    const searchInput = document.getElementById("search_query");
-    if (searchInput) {
-        searchInput.value = "";
-        window.searchFrentes(searchInput); // Refresh list
-        searchInput.focus();
-    }
-};
 
 /**
  * ═══════════════════════════════════════════════════════════════════════

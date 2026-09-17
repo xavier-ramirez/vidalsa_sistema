@@ -338,8 +338,8 @@ body {
 }
 
 /* Tabla de lista sencilla, con .tabla-cabecera arriba: filas separadas por una línea fina,
-   letra de 13 px sin negrita y la cabecera con los extremos redondeados. La usan Compresión
-   de PDF y Auditoría de documentos (una sola definición para que se vean iguales). */
+   letra de 13 px sin negrita y la cabecera con los extremos redondeados. La usa Compresión
+   de PDF (Auditoría de documentos volvió a .admin-table, como Usuarios y Equipos). */
 .tabla-lista {
     width: 100%;
     border-collapse: collapse;

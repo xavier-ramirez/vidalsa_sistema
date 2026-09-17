@@ -170,13 +170,4 @@
     }
     // En navegacion SPA del proyecto, estructura_base reactiva scripts; exponer hook:
     window.renderPwaInstallSlot = renderSlot;
-
-    // 5) API publica manual (botones custom)
-    window.triggerPwaInstall = function () {
-        if (deferredPrompt) {
-            deferredPrompt.prompt();
-        } else if (isIOSSafari()) {
-            showIOSHint();
-        }
-    };
 })();

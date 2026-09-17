@@ -111,11 +111,12 @@
             <div class="eq-linea-fuerte">
                 {{ $equipo->MARCA ?: '—' }}@if($equipo->MODELO)<span class="eq-modelo">{{ $equipo->MODELO }}</span>@endif
             </div>
-            {{-- Año y COLOR de la unidad (con su muestra). Misma línea en equipos-offline.js. --}}
+            {{-- Año y COLOR de la unidad: solo el nombre, sin la muestra redonda (pedido del cliente).
+                 Misma línea en equipos-offline.js. --}}
             @if($equipo->ANIO || $colorEq)
                 <div class="eq-hide-mobile eq-anio">
                     @if($equipo->ANIO)Año: {{ $equipo->ANIO }}@endif
-                    @if($colorEq)<span class="eq-color">@if($equipo->ANIO)· @endif<span class="eq-color-muestra" style="background:{{ \App\Models\CatalogoColor::muestra($colorEq) }};"></span>{{ $colorEq }}</span>@endif
+                    @if($colorEq)<span class="eq-color">@if($equipo->ANIO)· @endif{{ $colorEq }}</span>@endif
                 </div>
             @endif
         </td>

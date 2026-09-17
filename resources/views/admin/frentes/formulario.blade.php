@@ -765,13 +765,6 @@
 
                 // Render inicial — usa el value renderizado por blade (old() o frente existente).
                 render();
-
-                // Exponer para que el SPA reset (al cancelar/crear nuevo) lo reaproveche.
-                window.contratosReset = function (newCsv) {
-                    hidden.value = String(newCsv || '');
-                    input.value = '';
-                    render();
-                };
             })();
         </script>
     </div>

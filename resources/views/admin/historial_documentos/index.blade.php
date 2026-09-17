@@ -4,20 +4,43 @@
 
 @section('content')
 <style>
-    /* La tabla va como la de Compresión de PDF: .tabla-lista + .tabla-cabecera
-       (estilos_globales.css). Aquí solo lo propio de este módulo. */
-    /* Tipo de acción: la misma píldora que el Estado de Compresión. */
+    /* La tabla va como las de Usuarios y Equipos: .admin-table (filas con borde redondeado)
+       + .tabla-cabecera (estilos_globales.css). Aquí solo lo propio de este módulo. */
     .badge-doc {
-        display: inline-block;
-        background: #e0f2fe;
-        color: #075985;
-        padding: 2px 9px;
-        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        background: #ebf8ff;
+        color: #2b6cb0;
+        padding: 3px 9px;
+        border-radius: 6px;
         font-size: 11px;
-        font-weight: 700;
-        white-space: nowrap;
+        font-weight: 600;
     }
-    .hd-equipo-id { font-size: 12px; color: #64748b; }
+    .badge-doc .material-icons { font-size: 13px; }
+    .badge-autor {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: #f1f5f9;
+        color: #475569;
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-size: 13px;
+        font-weight: 500;
+        max-width: 100%;
+        overflow-wrap: anywhere;
+    }
+    .badge-autor .material-icons { font-size: 16px; }
+    .hd-fecha { display: flex; flex-direction: column; white-space: nowrap; }
+    .hd-hora { font-size: 12px; color: #94a3b8; }
+    .hd-equipo-nombre { color: #334155; line-height: 1.3; }
+    .hd-equipo-id { font-size: 12px; color: #475569; font-weight: 600; }
+    @media (min-width: 769px) {
+        /* Filas más juntas que el .admin-table general (12 px): la auditoría es una lista larga. */
+        #historialDocumentosTable { border-spacing: 0 5px; }
+        #historialDocumentosTable td { padding-top: 7px; padding-bottom: 7px; }
+    }
     /* Botón eliminar registro (solo super.admin). Pequeño y OCULTO por defecto:
        aparece al pasar el mouse o enfocar (teclado) la fila. En móvil (sin hover)
        se fuerza visible más abajo. */
@@ -188,6 +211,10 @@
         .table-historial-mobile tbody td:nth-child(3) {
             grid-area: doc;
         }
+        .table-historial-mobile tbody td:nth-child(3) .badge-doc {
+            font-size: 10px;
+            padding: 3px 8px;
+        }
         /* Fila 1 der: fecha + hora */
         .table-historial-mobile tbody td:nth-child(1) {
             grid-area: date;
@@ -195,6 +222,9 @@
             font-size: 11.5px;
             color: #94a3b8;
             line-height: 1.25;
+        }
+        .table-historial-mobile tbody td:nth-child(1) .hd-fecha {
+            align-items: flex-end;
         }
         /* Fila 2: equipo (protagonista) */
         .table-historial-mobile tbody td:nth-child(4) {
@@ -217,6 +247,15 @@
             text-overflow: ellipsis;
             max-width: 65vw;
             align-self: center;
+        }
+        .table-historial-mobile tbody td:nth-child(2) .badge-autor {
+            background: transparent;
+            padding: 0;
+            font-size: 12px;
+            color: #64748b;
+        }
+        .table-historial-mobile tbody td:nth-child(2) .badge-autor .material-icons {
+            display: none;
         }
         /* Fila 3 der: botón PDF */
         .table-historial-mobile tbody td:nth-child(5) {
@@ -263,7 +302,7 @@
     <!-- Left Column (Main Content) -->
     <div>
         <div class="admin-card">
-            <div class="filter-toolbar-container hd-filter-row" style="margin-bottom: 14px;">
+            <div class="filter-toolbar-container hd-filter-row" style="margin-bottom: 8px;">
                 <!-- Search Equipo (Placa/Serial) -->
                 <div class="filter-item aligned-filter responsive-filter-item">
                     <form style="width: 100%;" onsubmit="event.preventDefault(); window.loadHistorialDocumentos();">
@@ -473,24 +512,24 @@
 
             <!-- Unified Responsive Table -->
             <div class="custom-scrollbar-container">
-                <table class="tabla-lista table-historial-mobile" id="historialDocumentosTable">
+                <table class="admin-table table-historial-mobile" id="historialDocumentosTable">
                     <thead>
                         <tr class="tabla-cabecera">
-                            <th>Fecha</th>
-                            <th>Autor</th>
-                            <th>Acción</th>
-                            <th>Equipo</th>
-                            <th style="text-align: center; width: 90px;">PDF</th>
+                            <th class="table-cell-bordered" style="width: 130px;">Fecha y Hora</th>
+                            <th class="table-cell-bordered" style="width: 24%;">Autor</th>
+                            <th class="table-cell-bordered" style="width: 22%;">Tipo de Acción</th>
+                            <th class="table-cell-bordered">Equipo Asociado</th>
+                            <th style="text-align: center; width: 90px;">Ver PDF</th>
                         </tr>
                     </thead>
-                    <tbody id="historialTableBody">
+                    <tbody id="historialTableBody" style="font-size: 13px;">
                         @include('admin.historial_documentos.partials.table_rows', ['events' => $events])
                     </tbody>
                 </table>
             </div>
 
             <!-- Pagination -->
-            <div id="historialPagination" style="margin-top: 12px;">
+            <div id="historialPagination" style="margin-top: 15px;">
                 {{ $events->links('vendor.pagination.custom-sliding') }}
             </div>
 
@@ -646,23 +685,28 @@
 </div>
 
 <style>
-    /* Hover en filas seleccionables */
+    /* Hover en filas seleccionables. Los fondos llevan !important porque .admin-table
+       (estilos_globales.css) fija el de las celdas con !important. */
     #historialDocumentosTable .hd-selectable-row:not(.selected-row-maquinaria):hover td {
-        background: #f8fafc;
+        background: #f8fafc !important;
         transition: background 0.15s;
     }
     #historialDocumentosTable .hd-has-cambios { cursor: pointer; }
 
-    /* Desktop: fila abierta (burbuja de cambios) o seleccionada = fondo azul claro con una
-       barra azul a la izquierda. La barra es una sombra interior y no un borde: en la tabla
-       de líneas finas (.tabla-lista) un borde de 4 px corría el contenido de la fila. */
+    /* Desktop: fila abierta (burbuja de cambios) o seleccionada = fondo azul claro, borde
+       azul y una barra a la izquierda. La barra es una sombra interior y no un borde de 4 px,
+       que corría el contenido de la fila. */
     @media (min-width: 769px) {
         /* .hd-selectable-row va en el selector para igualar la especificidad del hover de
            arriba y, por estar después, ganarle: la fila se abre justo al pasar el ratón. */
-        #historialDocumentosTable .hd-selectable-row.hd-has-cambios.hd-detail-open td { background: #eff6ff; }
+        #historialDocumentosTable .hd-selectable-row.hd-has-cambios.hd-detail-open td {
+            background: #eff6ff !important;
+            border-color: #93c5fd !important;
+        }
         #historialDocumentosTable tr.selected-row-maquinaria td {
-            background: #e1effa;
+            background: #e1effa !important;
             color: #0067b1;
+            border-color: #93c5fd !important;
             transition: background 0.2s ease;
         }
         #historialDocumentosTable .hd-has-cambios.hd-detail-open td:first-child,

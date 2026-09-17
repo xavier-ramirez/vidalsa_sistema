@@ -52,9 +52,6 @@
     // Filas por lote: el MISMO $PAGE_SIZE del backend (EquipoController::index), para que
     // el scroll infinito sin internet se sienta igual que con internet.
     const PAGE_SIZE = 150;
-    // Cuantos equipos se enseñan al abrir el modulo SIN filtros (EquipoController::MUESTRA_INICIAL).
-    const MUESTRA_INICIAL = 6;
-
     // Copia EN MEMORIA de kv.equipos + IDs de frentes ESPECIAL. Filtrar 1.200 objetos son
     // décimas de milisegundo, así que cada tecla puede re-filtrar sin tocar IndexedDB.
     // Se refrescan en cada render() (el que corre al activar el modo offline y cada vez
@@ -355,11 +352,9 @@
             // pintada de un filtro anterior: aquí no hay AJAX que la reemplace.
             const contDist = document.getElementById('distributionStatsContainer');
             if (contDist) contDist.innerHTML = '';
-            // La tabla TAMPOCO abre vacia sin conexion: los ultimos equipos registrados, uno
-            // por modelo, igual que online (EquipoController::MUESTRA_INICIAL). Online son los
-            // que tienen foto; la copia local no las trae —viven en Drive— asi que aqui el
-            // requisito no aplica y la fila sale con su icono, como todas las offline.
-            OM.porLotes(tbody, muestraInicial(), filaEquipo, MUESTRA_INICIAL);
+            // Sin filtros la tabla abre VACIA con el mismo aviso que online (partials/table_rows):
+            // al abrir el modulo no sale ningun equipo (pedido del cliente, 15-09-2026).
+            tbody.innerHTML = filaMensaje('filter_alt', 'SELECCIONE UN FILTRO PARA VER LOS EQUIPOS.');
             return;
         }
         if (esModoAux(f)) {
@@ -391,23 +386,6 @@
         OM.porLotes(tbody, filas, filaEquipo, PAGE_SIZE);
     }
 
-    // Los equipos mas recientes, UNO POR MARCA+MODELO: el catalogo tiene fichas repetidas del
-    // mismo modelo y sin esto salian seis veces la misma camioneta (el mismo GROUP BY que hace
-    // el controlador online).
-    function muestraInicial() {
-        const vistos = {}, salida = [];
-        (datos || []).slice()
-            .sort(function (a, b) { return (b.id || 0) - (a.id || 0); })
-            .some(function (e) {
-                const clave = (e.marca || '') + '|' + (e.modelo || '');
-                if (vistos[clave]) return false;
-                vistos[clave] = 1;
-                salida.push(e);
-                return salida.length >= MUESTRA_INICIAL;
-            });
-        return salida;
-    }
-
     function filaEquipo(e) {
         const est = ESTADOS[e.estado] || ESTADOS['DESINCORPORADO'];
 
@@ -427,7 +405,7 @@
         const modelo = e.modelo ? '<span class="eq-modelo">' + esc(e.modelo) + '</span>' : '';
         // Año y color, igual que la tabla online (partials/table_rows).
         const color = e.color
-            ? '<span class="eq-color">' + (e.anio ? '· ' : '') + '<span class="eq-color-muestra" style="background:' + esc(e.color_muestra || '#94a3b8') + ';"></span>' + esc(e.color) + '</span>'
+            ? '<span class="eq-color">' + (e.anio ? '· ' : '') + esc(e.color) + '</span>'
             : '';
         const anio = (e.anio || e.color) ? '<div class="eq-hide-mobile eq-anio">' + (e.anio ? 'Año: ' + esc(e.anio) + ' ' : '') + color + '</div>' : '';
         const motor = e.serial_motor ? '<div class="eq-ser-linea eq-ser-sep"><strong class="eq-lbl">M:</strong> <span class="eq-val">' + esc(e.serial_motor) + '</span></div>' : '';

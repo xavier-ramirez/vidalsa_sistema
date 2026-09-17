@@ -460,7 +460,7 @@ class OfflineController extends Controller
                 DB::raw('SUM(almacen_stock.CANTIDAD) as CANTIDAD'),
                 DB::raw('MAX(almacen_stock.CANTIDAD_MINIMA) as CANTIDAD_MINIMA'),
                 // Último movimiento: ordena la vista sin filtros, igual que online
-                // (AlmacenController::productosRecientes).
+                // (la vista sin filtros del módulo).
                 DB::raw('MAX(almacen_stock.FECHA_ULT_MOVIMIENTO) as MOV'),
                 'p.CODIGO', 'p.NOMBRE', 'p.UM', 'p.CATEGORIA',
             ])
@@ -685,10 +685,8 @@ class OfflineController extends Controller
             'marca' => MojibakeFix::fix($e->MARCA),
             'modelo' => MojibakeFix::fix($e->MODELO),
             'anio' => $e->ANIO,
-            // Color ya normalizado y el tono de su muestra: la fila offline lo pinta igual que
-            // partials/table_rows (CatalogoColor es la única fuente de los dos).
+            // Color ya normalizado: la fila offline lo escribe igual que partials/table_rows.
             'color' => \App\Models\CatalogoColor::normalizar($e->COLOR),
-            'color_muestra' => \App\Models\CatalogoColor::muestra($e->COLOR),
             'serial_chasis' => MojibakeFix::fix($e->SERIAL_CHASIS),
             'serial_motor' => MojibakeFix::fix($e->SERIAL_DE_MOTOR),
             'placa' => MojibakeFix::fix($e->documentacion?->PLACA),

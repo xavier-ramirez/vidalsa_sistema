@@ -22,6 +22,9 @@ class LogisticaAlmacenService
      *
      * Cada vehículo de la flota trae `serial` (de chasis) para buscarlo también por ahí; el que
      * no tiene placa de verdad se ofrece con su serial como documento: es lo que lo identifica.
+     * Trae además su `tipo`: la lista muestra placa, serial y tipo, sin marca ni modelo, mientras
+     * que `nombre` (tipo, marca y modelo) es lo que llena el campo Vehículo de la nota. Un vehículo
+     * de la lista del almacén que también está en la flota toma de ahí su serial y su tipo.
      */
     public function sugerencias(Almacen $almacen): array
     {
@@ -31,11 +34,20 @@ class LogisticaAlmacenService
         $vehiculos = $this->aLista($filas->where('TIPO', AlmacenLogistica::TIPO_VEHICULO));
 
         $flota = $this->flotaDeFrentes($almacen);
-        $this->sumar($vehiculos, AlmacenLogistica::TIPO_VEHICULO, $flota->map(fn ($v) => [
+        $deFlota = $flota->map(fn ($v) => [
             'nombre'    => mb_strtoupper(trim(preg_replace('/\s+/', ' ', "{$v->TIPO} {$v->MARCA} {$v->MODELO}"))),
             'documento' => $v->placaValida ? strtoupper(preg_replace('/\s+/', '', $v->PLACA)) : $v->serial,
             'serial'    => $v->serial,
-        ]));
+            'tipo'      => mb_strtoupper(trim((string) $v->TIPO)),
+        ]);
+        // Los de la lista del almacén conservan su nombre (es lo que llena Vehículo), pero si están
+        // en la flota se completan con su serial y su tipo: la lista los muestra igual que al resto.
+        $porClave  = $deFlota->keyBy(fn ($x) => AlmacenLogistica::clave(AlmacenLogistica::TIPO_VEHICULO, $x['documento']));
+        $vehiculos = $vehiculos->map(function ($x) use ($porClave) {
+            $f = $porClave->get(AlmacenLogistica::clave(AlmacenLogistica::TIPO_VEHICULO, (string) $x['documento']));
+            return $f ? ['nombre' => $x['nombre'], 'documento' => $x['documento'], 'serial' => $f['serial'], 'tipo' => $f['tipo'], 'origen' => $x['origen']] : $x;
+        });
+        $this->sumar($vehiculos, AlmacenLogistica::TIPO_VEHICULO, $deFlota);
         $asignados = DB::table('responsable')->whereIn('ID_EQUIPO', $flota->pluck('ID_EQUIPO'))
             ->orderByDesc('FECHA_ASIGNACION')->orderByDesc('ID_ASIGNACION')
             ->get(['ID_EQUIPO', 'PERSONA_ASIGNADA', 'CEDULA_RESPONSABLE'])->unique('ID_EQUIPO');

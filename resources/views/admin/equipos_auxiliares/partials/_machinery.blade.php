@@ -1073,16 +1073,6 @@
         const list = document.getElementById('auxMovilizarList');
         if (list) list.style.display = 'none';
     };
-    window.auxMovFilterList = function (q) {
-        const list = document.getElementById('auxMovilizarList');
-        if (!list) return;
-        list.style.display = 'block';
-        const qu = (q || '').toUpperCase().trim();
-        list.querySelectorAll('.aux-mov-opt').forEach(opt => {
-            const lbl = (opt.dataset.label || '').toUpperCase();
-            opt.style.display = (!qu || lbl.indexOf(qu) !== -1) ? '' : 'none';
-        });
-    };
 
     // Input handler: filtra la lista y sincroniza el hidden con el id del frente
     // seleccionado cuando hay match exacto. Sin match → frente nuevo, hidden queda vacío.

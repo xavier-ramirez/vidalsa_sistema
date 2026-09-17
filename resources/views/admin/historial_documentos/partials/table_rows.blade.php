@@ -35,12 +35,26 @@
 @endphp
 @forelse ($events as $event)
     <tr class="hd-selectable-row {{ !empty($event->cambios) ? 'hd-has-cambios' : '' }}" data-hd-id="{{ md5($event->equipo_id . $event->tipo . $event->fecha->timestamp) }}">
-        {{-- Mismo formato que Compresión de PDF: fecha y hora en una línea. --}}
-        <td style="white-space: nowrap;">{{ $event->fecha->format('d/m/Y H:i') }}</td>
-        <td>{{ $event->autor }}</td>
-        <td><span class="badge-doc">{{ $event->tipo }}</span></td>
         <td>
-            <div style="line-height: 1.3;">{{ $event->equipo_nombre }}</div>
+            <div class="hd-fecha">
+                <span>{{ $event->fecha->format('d/m/Y') }}</span>
+                <span class="hd-hora">{{ $event->fecha->format('h:i A') }}</span>
+            </div>
+        </td>
+        <td>
+            <span class="badge-autor" @if(!empty($event->autor_nombre)) title="{{ $event->autor_nombre }}" @endif>
+                <i class="material-icons">person</i>
+                {{ $event->autor }}
+            </span>
+        </td>
+        <td>
+            <span class="badge-doc">
+                <i class="material-icons">description</i>
+                {{ $event->tipo }}
+            </span>
+        </td>
+        <td>
+            <div class="hd-equipo-nombre">{{ $event->equipo_nombre }}</div>
             @if($event->equipo_id)<div class="hd-equipo-id">{{ $event->equipo_id }}</div>@endif
             @if(!empty($event->cambios))
                 {{-- Sin rótulo: la burbuja sale al pasar el ratón por la fila (en el

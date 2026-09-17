@@ -1982,16 +1982,7 @@ class EquipoAuxiliarController extends Controller
             ->first();
 
         if ($falla) {
-            return response()->json([
-                'success'       => false,
-                'message'       => 'Este equipo tiene un reporte de falla abierto. Para cambiar su estado debes cerrar el reporte.',
-                // + equipo y detalle para el encabezado del modal (Falla::datosActivo).
-                'falla_abierta' => [
-                    'id'     => $falla->ID_FALLA,
-                    'codigo' => $falla->CODIGO_REPORTE,
-                    'tipo'   => $falla->TIPO_REPORTE,
-                ] + \App\Models\Falla::datosActivo($aux),
-            ], 409);
+            return \App\Models\Falla::respuestaReporteAbierto($falla, $aux);
         }
 
         $aux->ESTADO_OPERATIVO = $request->input('ESTADO_OPERATIVO');

@@ -602,7 +602,7 @@ class HistorialDocumentosController extends Controller
                 $events->push((object)[
                     'doc_key'       => $log->ACCION,
                     'tipo'          => $tipoLabel,
-                    'autor'         => $log->usuario ? $log->usuario->CORREO_ELECTRONICO : ('Usuario #' . $log->ID_USUARIO),
+                    'autor'         => $log->usuario ? $log->usuario->CORREO_ELECTRONICO : ($log->ID_USUARIO ? 'Usuario #' . $log->ID_USUARIO . ' (eliminado)' : 'Sistema'),
                     'autor_nombre'  => $log->usuario ? ($log->usuario->NOMBRE_COMPLETO ?? '') : '',
                     'fecha'         => $log->created_at,
                     'link'          => $linkEvento,
@@ -709,7 +709,7 @@ class HistorialDocumentosController extends Controller
                 $events->push((object)[
                     'doc_key'       => $log->ACCION,
                     'tipo'          => $tipoLabel,
-                    'autor'         => $log->usuario ? $log->usuario->CORREO_ELECTRONICO : ('Usuario #' . $log->ID_USUARIO),
+                    'autor'         => $log->usuario ? $log->usuario->CORREO_ELECTRONICO : ($log->ID_USUARIO ? 'Usuario #' . $log->ID_USUARIO . ' (eliminado)' : 'Sistema'),
                     'autor_nombre'  => $log->usuario ? ($log->usuario->NOMBRE_COMPLETO ?? '') : '',
                     'fecha'         => $log->created_at,
                     'link'          => null,
@@ -758,7 +758,7 @@ class HistorialDocumentosController extends Controller
                 $events->push((object)[
                     'doc_key'       => 'catalogo_' . $log->ACCION,
                     'tipo'          => $catTipoLabel,
-                    'autor'         => $log->usuario ? $log->usuario->CORREO_ELECTRONICO : ('Usuario #' . $log->ID_USUARIO),
+                    'autor'         => $log->usuario ? $log->usuario->CORREO_ELECTRONICO : ($log->ID_USUARIO ? 'Usuario #' . $log->ID_USUARIO . ' (eliminado)' : 'Sistema'),
                     'autor_nombre'  => $log->usuario ? ($log->usuario->NOMBRE_COMPLETO ?? '') : '',
                     'fecha'         => $log->created_at,
                     'link'          => null,

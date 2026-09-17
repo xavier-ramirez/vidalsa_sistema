@@ -117,4 +117,25 @@ class Falla extends Model
             'detalle' => implode(' · ', array_filter([$tipo, $marcaModelo])),
         ];
     }
+
+    /**
+     * Respuesta 409 cuando se intenta cambiar a mano el estado de un activo que tiene un reporte
+     * de falla ABIERTO: ese estado lo gobierna el reporte y el front abre el modal de cierre con
+     * estos datos. Fuente única para equipos, auxiliares y la API móvil. Con $activo va también
+     * el encabezado del modal (datosActivo); la API móvil no lo usa y no lo recibe.
+     */
+    public static function respuestaReporteAbierto(self $falla, Equipo|EquipoAuxiliar|null $activo = null): \Illuminate\Http\JsonResponse
+    {
+        $datos = [
+            'id'     => $falla->ID_FALLA,
+            'codigo' => $falla->CODIGO_REPORTE,
+            'tipo'   => $falla->TIPO_REPORTE,
+        ];
+
+        return response()->json([
+            'success'       => false,
+            'message'       => 'Este equipo tiene un reporte de falla abierto. Para cambiar su estado debes cerrar el reporte.',
+            'falla_abierta' => $activo ? $datos + self::datosActivo($activo) : $datos,
+        ], 409);
+    }
 }

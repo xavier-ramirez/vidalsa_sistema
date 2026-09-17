@@ -2,14 +2,17 @@
 
 namespace Tests\Feature;
 
+use App\Models\Almacen;
 use App\Models\AlmacenStock;
 use App\Models\ProductoInventario;
 use Tests\MySqlTestCase;
 
 /**
- * Panel lateral "En otros almacenes" de /admin/almacen: lo pide la tabla al tocar una fila
- * (almacen.productos.otros) y responde dónde más hay de ESE producto. Ya no existe la lista
- * de "Distribución de Inventario" por categoría.
+ * Panel lateral de /admin/almacen (partial distribucion_stats, AlmacenController::panelLateral):
+ *  - al tocar una fila (almacen.productos.otros) dice cuánto hay de ESE producto en CADA otro
+ *    almacén visible, con 0 donde no hay;
+ *  - sin producto (abrir el módulo, o filtrar sin llegar a un solo producto) reparte por
+ *    categoría lo que la tabla está filtrando.
  */
 class PanelOtrosAlmacenesTest extends MySqlTestCase
 {
@@ -36,7 +39,7 @@ class PanelOtrosAlmacenesTest extends MySqlTestCase
         $this->assertStringNotContainsString('Distribución de Inventario', $html);
     }
 
-    public function test_si_ningun_otro_almacen_tiene_existencias_el_panel_no_sale(): void
+    public function test_si_ningun_otro_almacen_tiene_existencias_el_panel_los_lista_con_cero(): void
     {
         $fila = AlmacenStock::query()
             ->selectRaw('ID_PRODUCTO, MIN(ID_ALMACEN) as alm')
@@ -44,11 +47,42 @@ class PanelOtrosAlmacenesTest extends MySqlTestCase
             ->groupBy('ID_PRODUCTO')->havingRaw('COUNT(DISTINCT ID_ALMACEN) = 1')
             ->first();
         $this->assertNotNull($fila, 'Hace falta un producto con saldo en un solo almacén.');
+        $otros = Almacen::query()->activos()->where('ID_ALMACEN', '!=', $fila->alm)->count();
+        $this->assertGreaterThan(0, $otros, 'Hace falta otro almacén activo.');
+
+        $html = $this->actingAs($this->superAdminGlobal())
+            ->getJson(route('almacen.productos.otros', ['id' => $fila->ID_PRODUCTO, 'id_almacen' => $fila->alm]))
+            ->assertOk()->json('html');
+
+        $this->assertStringContainsString('En otros almacenes', $html);
+        // Cada otro almacén visible sale como fila clicable, y la cifra es un 0 (no desaparece).
+        $this->assertSame($otros, substr_count($html, 'almVerProductoEnAlmacen('), 'Un renglón por cada otro almacén.');
+        $this->assertMatchesRegularExpression('/<span class="qty[^"]*">0<\/span>/', $html);
+    }
+
+    public function test_sin_producto_el_panel_reparte_por_categoria(): void
+    {
+        $alm = AlmacenStock::query()->where('CANTIDAD', '>', 0)->value('ID_ALMACEN');
+        $this->assertNotNull($alm, 'Hace falta un almacén con saldo.');
+
+        $html = $this->actingAs($this->superAdminGlobal())
+            ->getJson(route('almacen.index', ['id_almacen' => $alm, 'ver_todo' => 1]))
+            ->assertOk()->json('distribucionHtml');
+
+        $this->assertStringContainsString('Distribución de Inventario', $html);
+        $this->assertStringContainsString('alm-cat-row', $html);
+        $this->assertStringNotContainsString('En otros almacenes', $html);
+    }
+
+    public function test_al_abrir_el_modulo_el_panel_trae_la_distribucion_del_almacen(): void
+    {
+        $alm = AlmacenStock::query()->where('CANTIDAD', '>', 0)->value('ID_ALMACEN');
+        $this->assertNotNull($alm, 'Hace falta un almacén con saldo.');
 
         $this->actingAs($this->superAdminGlobal())
-            ->getJson(route('almacen.productos.otros', ['id' => $fila->ID_PRODUCTO, 'id_almacen' => $fila->alm]))
+            ->get(route('almacen.index', ['id_almacen' => $alm]))
             ->assertOk()
-            ->assertExactJson(['html' => '']);
+            ->assertSee('Distribución de Inventario');
     }
 
     public function test_un_producto_que_no_existe_responde_404(): void

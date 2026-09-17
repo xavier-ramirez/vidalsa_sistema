@@ -245,4 +245,70 @@
         if (actual) lineas.push(actual);
         return lineas.length > 1 ? lineas : label;
     };
+
+    /**
+     * Vista previa de un PDF en <canvas> con PDF.js, para teléfono y tablet: sus navegadores no
+     * pintan un PDF dentro de un <iframe>. La usan la previa del acta de movilización (equipos) y
+     * la de la Nota de Entrega (almacén); antes cada una tenía su propia copia del cargador y del
+     * dibujo. PDF.js está vendorizado y se descarga solo la primera vez que hace falta.
+     */
+    window.pdfEsMovil = function () {
+        return window.innerWidth <= 768 || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    };
+    var pdfJsPromesa = null;
+    function cargarPdfJs() {
+        if (window.pdfjsLib) return Promise.resolve();
+        if (pdfJsPromesa) return pdfJsPromesa;
+        pdfJsPromesa = new Promise(function (resolve, reject) {
+            var s = document.createElement('script');
+            // Versión EN el nombre del archivo: nginx sirve /js/* con caché inmutable de 1 año,
+            // así que al actualizar la librería hay que renombrar ambos archivos (lib y worker
+            // SIEMPRE de la misma versión).
+            s.src = '/js/vendor/pdf-3.11.174.min.js';
+            s.onload = function () {
+                try { window.pdfjsLib.GlobalWorkerOptions.workerSrc = '/js/vendor/pdf.worker-3.11.174.min.js'; } catch (e) {}
+                resolve();
+            };
+            s.onerror = function () { pdfJsPromesa = null; reject(new Error('No se pudo cargar el visor de PDF.')); };
+            document.head.appendChild(s);
+        });
+        return pdfJsPromesa;
+    }
+    // Dibuja el blob PDF en el contenedor: una <canvas> por página, ajustada al ancho.
+    window.pintarPdfEnCanvas = function (cont, blob) {
+        if (!cont || !blob) return Promise.resolve();
+        cont.innerHTML = '<div style="color:#cbd5e0;text-align:center;padding:30px;font-size:13px;">Cargando vista previa…</div>';
+        return cargarPdfJs()
+            .then(function () { return blob.arrayBuffer(); })
+            .then(function (buf) { return window.pdfjsLib.getDocument({ data: buf }).promise; })
+            .then(function (pdf) {
+                cont.innerHTML = '';
+                var dpr = window.devicePixelRatio || 1;
+                var ancho = cont.clientWidth - 20; // descontar el padding del contenedor
+                if (ancho <= 0) ancho = Math.min(window.innerWidth - 40, 900);
+                var seq = Promise.resolve();
+                for (var i = 1; i <= pdf.numPages; i++) {
+                    (function (n) {
+                        seq = seq.then(function () {
+                            return pdf.getPage(n).then(function (page) {
+                                var base = page.getViewport({ scale: 1 });
+                                var vp = page.getViewport({ scale: (ancho / base.width) * dpr });
+                                var canvas = document.createElement('canvas');
+                                canvas.width = vp.width; canvas.height = vp.height;
+                                canvas.style.width = '100%'; canvas.style.height = 'auto';
+                                canvas.style.display = 'block'; canvas.style.margin = '0 auto 10px';
+                                canvas.style.background = '#fff'; canvas.style.boxShadow = '0 1px 6px rgba(0,0,0,0.25)';
+                                cont.appendChild(canvas);
+                                return page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
+                            });
+                        });
+                    })(i);
+                }
+                return seq;
+            })
+            .catch(function (e) {
+                cont.innerHTML = '<div style="color:#fecaca;text-align:center;padding:30px;font-size:13px;">No se pudo mostrar la vista previa. '
+                    + window.escapeHtml(e && e.message ? e.message : '') + '</div>';
+            });
+    };
 })();
