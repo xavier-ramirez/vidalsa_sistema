@@ -476,8 +476,11 @@
         // cuadrar con el Historial de ese mismo almacen. Antes sumaba todos los almacenes
         // visibles y aparecian proyectos cuyo consumo estaba en otro patio (pedido del
         // cliente, 16-09-2026). Sin almacen abierto -no deberia pasar- vuelve a ser global.
-        var alm = window.almFiltroAlmacenActual || (window.ALM_ESTADO && window.ALM_ESTADO.idAlmacen) ||
-                  new URLSearchParams(location.search).get('id_almacen');
+        // El almacen abierto vive en el campo oculto #almSelAlmacen, que es de donde lo
+        // toman todas las peticiones del modulo (ver almParams en index.blade). NO se lee
+        // de la URL: navegando por la SPA la direccion no siempre lo lleva.
+        var campoAlm = document.getElementById('almSelAlmacen');
+        var alm = campoAlm ? campoAlm.value : '';
         if (alm) p.set('id_almacen', alm);
         return p;
     };
