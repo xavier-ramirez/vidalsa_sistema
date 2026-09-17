@@ -645,8 +645,9 @@
         // Rotulos de los ejes en tinta oscura: en gris claro no se leian (lo pidio el cliente).
         var cdTick  = { color: '#334155', font: { size: 11, weight: 600 } };
         // ¿Ese color de relleno es claro? (luminancia de un #rrggbb). Sirve para escribir encima
-        // en blanco o en tinta: el total del mes sobre un tramo claro (el azul o el naranja de la
-        // paleta SAP, o un gris claro) no se leía en blanco. Corte en 135 de luminancia.
+        // en blanco o en tinta: cuando el total del mes no cabe ARRIBA de la barra hay que
+        // pintarlo DENTRO del tramo de mas arriba, y sobre un celeste de la parte clara de la
+        // rampa el blanco no se lee. Corte en 135 de luminancia.
         function cdEsClaro(hex) {
             if (typeof hex !== 'string' || !/^#[0-9a-f]{6}$/i.test(hex)) return false;
             var r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
@@ -737,7 +738,7 @@
             }
         };
 
-        // ── 1) Consumo por mes y proyecto (barras apiladas) ──────────────────
+        // ── 1) Salidas del almacen por mes y proyecto (barras apiladas) ──────
         // Una barra por mes; cada tramo, lo que consumió un proyecto. Salen TODOS: antes los de
         // menos consumo se juntaban en "Otros proyectos" y el cliente no veía el suyo en el
         // gráfico (pedido del 16-09-2026). La leyenda va a la IZQUIERDA, un proyecto debajo de
@@ -757,10 +758,10 @@
         var porProy = data.por_mes_frente || [];
         // COLORES de la pila (17-09-2026). El cliente pidio LOS MISMOS del ranking "Total
         // de Consumo por Frente" del modulo de combustible (consumibles/graficos.blade.php,
-        // renderTotalFrente): el #1 en rojo oscuro, el #2 en rojo, y del #3 para abajo una
-        // escala de AZUL que se va aclarando. Aqui se copia esa idea, no los hex sueltos:
-        // alla las barras son horizontales y llevan su rotulo al lado, asi que la rampa
-        // puede ir de corrido; en una pila los tramos se TOCAN, y de corrido dos vecinos
+        // renderTotalFrente): los primeros puestos en tonos calidos y del siguiente para
+        // abajo una escala de AZUL que se va aclarando. Aqui se copia esa idea, no los hex
+        // sueltos: alla las barras son horizontales y llevan su rotulo al lado, asi que la
+        // rampa puede ir de corrido; en una pila los tramos se TOCAN, y de corrido dos vecinos
         // salen dos azules casi iguales (ya paso y el cliente lo canto).
         //
         // Por eso la rampa se parte por la mitad y se INTERCALA: oscuro, claro, oscuro,
@@ -772,24 +773,32 @@
         // 5 proyectos los azules se reparten los 5, con 22 se reparten los 22. Asi nunca
         // sobran tonos ni se repiten.
         //
-        // EL BRILLO es el de "Top productos consumidos", el otro grafico de este mismo
-        // panel: su barra va de #005a9e a #38bdf8 (ver cdHGrad mas abajo). La rampa de aqui
-        // recorre esa misma familia -azul de la casa a celeste- a plena saturacion, y el
-        // #38bdf8 cae dentro. Antes iba de un azul marino casi negro a un lila desvaido y
-        // el cliente lo llamo "apagado", con razon: la saturacion caia a la mitad por el
-        // camino. Ahora se mantiene al 100-94%.
+        // LOS TONOS salen de la lamina de UNIDADES INOPERATIVAS DE FLOTA PESADA, que es la
+        // que el cliente puso de ejemplo: azul marino de cabecera, azules medios de los
+        // bloques, celeste de las tarjetas, y el rojo / naranja / ambar de los acentos. La
+        // rampa recorre esa escala de azules de punta a punta, ganando saturacion segun
+        // aclara (70% -> 95%), que es lo que evita el lila desvaido del intento anterior.
         //
         // COMPROBADO con scripts/validate_palette.js para los 22 proyectos de Barcelona:
-        //   · Separacion para daltonismo entre vecinos: dE 19,3 (protanopia) — minimo 8.
-        //   · Separacion a ojo normal entre vecinos:    dE 18,9               — minimo 15.
-        //   · Saturacion: los 22 pasan el minimo (ninguno se lee como gris).
-        //   · Contraste sobre blanco: los celestes mas claros quedan por debajo de 3:1. Se
-        //     acepta porque el color no es el unico dato: cada barra lleva su total escrito
-        //     encima y la leyenda dice quien es quien.
+        //   - Separacion para daltonismo entre vecinos: dE 14,2 (deuteranopia) - minimo 8.
+        //   - Separacion a ojo normal entre vecinos:    dE 19,1                - minimo 15.
+        //   - Saturacion: el marino mas oscuro queda por debajo del minimo. Es el color de
+        //     la cabecera de la lamina; aclararlo seria salirse de lo que se pidio.
+        //   - Contraste sobre blanco: el ambar y los celestes mas claros quedan por debajo
+        //     de 3:1. Se acepta porque el color no es el unico dato: cada barra lleva su
+        //     total escrito encima y la leyenda dice quien es quien.
         //
         // Aviso para que no se pierda: el rojo tambien significa "mal" en el resto del
         // sistema (stock bajo, inoperativo). Aqui NO significa eso: marca al que MAS saco.
-        var CD_ROJOS = ['#c1121f', '#ff6b6b'];
+        // Los tres primeros puestos llevan los acentos calidos de la lamina de UNIDADES
+        // INOPERATIVAS DE FLOTA PESADA, que es de donde el cliente saco los tonos: rojo,
+        // naranja y ambar. El rojo se lo queda el proyecto que MAS saco.
+        //
+        // Van en este orden por una razon medida, no por gusto: con el rojo y el naranja
+        // pegados uno al otro la pareja daba dE 9,0 a ojo normal -se leian como el mismo
+        // color-. Bajando el rojo a #8f1410 y subiendo el naranja a #ef5f24 la pareja sube
+        // a 19,1. Si se tocan estos tres hex, hay que volver a pasar el validador.
+        var CD_ACENTOS = ['#8f1410', '#ef5f24', '#f2b53c'];
         function cdHsl(h, s, l) {
             s /= 100; l /= 100;
             var a = s * Math.min(l, 1 - l);
@@ -803,13 +812,13 @@
         }
         // n = cuantos PROYECTOS hay (sin contar "Sin proyecto", que va aparte).
         function cdEscalaProyectos(n) {
-            var out = CD_ROJOS.slice(0, Math.min(2, n));
-            var m = Math.max(n - 2, 0);
+            var out = CD_ACENTOS.slice(0, Math.min(CD_ACENTOS.length, n));
+            var m = Math.max(n - CD_ACENTOS.length, 0);
             if (!m) return out;
             var rampa = [];
             for (var i = 0; i < m; i++) {
                 var t = m > 1 ? i / (m - 1) : 0;
-                rampa.push(cdHsl(210 - 14 * t, 100 - 6 * t, 23 + 44 * t));
+                rampa.push(cdHsl(212 - 12 * t, 70 + 25 * t, 21 + 47 * t));
             }
             var mitad = Math.ceil(m / 2);
             for (var j = 0; j < mitad; j++) {
@@ -967,9 +976,9 @@
                 labels: cdTopLabels,
                 datasets: [{ label: 'Consumo', data: top.map(function (x) { return x.total; }),
                     backgroundColor: function (c) { return cdHGrad(c, '#005a9e', '#38bdf8'); },
-                    {{-- El hover OSCURECE, igual que en "Consumo por mes". Con el degradado
-                         invertido (hover más claro que la barra) los dos gráficos reaccionaban
-                         al revés uno del otro. --}}
+                    {{-- El hover OSCURECE la barra (#0ea5e9 es más oscuro que el #38bdf8 del
+                         degradado normal). Con el hover más CLARO que la barra el gesto se lee
+                         al revés: parece que se apaga en vez de resaltarse. --}}
                     hoverBackgroundColor: function (c) { return cdHGrad(c, '#005a9e', '#0ea5e9'); },
                     borderRadius: 5, borderSkipped: false }]
             },
