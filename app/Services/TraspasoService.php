@@ -436,25 +436,51 @@ class TraspasoService
 
             if ($lock->esEnviado()) {
                 // Reversa: por cada línea no recibida, ENTRADA de retorno al origen.
-                foreach ($lock->lineas()->lockForUpdate()->get() as $linea) {
+                //
+                // El retorno vuelve A LA MISMA BOLSA de la que salio. La salida guarda en su
+                // movimiento el ID_FRENTE_SALDO del que descontó (lo elige el modal de proyecto
+                // de cada fila, ver enviar()), y la linea guarda el ID de ese movimiento, asi
+                // que aqui se lee de ahi y se devuelve con `_frente_saldo`.
+                //
+                // Sin esto el retorno caia SIEMPRE en la bolsa comun (frenteDelSaldo cae ahi
+                // cuando no le pasan la clave): en un almacen que separa por proyecto, el
+                // proyecto que despacho quedaba corto para siempre y la comun inflada. El total
+                // del almacen cuadraba y el desglose no, que es la peor forma de estar mal.
+                $lineas  = $lock->lineas()->lockForUpdate()->get();
+                $bolsas  = MovimientoInventario::whereIn(
+                        'ID_MOVIMIENTO',
+                        $lineas->pluck('ID_MOVIMIENTO_SALIDA')->filter()->all()
+                    )->pluck('ID_FRENTE_SALDO', 'ID_MOVIMIENTO');
+
+                foreach ($lineas as $linea) {
                     $cant = (float) $linea->CANTIDAD_ENVIADA;
                     if ($cant <= self::EPS) continue;
+
+                    // array_key_exists, no ??: mandar la clave en null significa "bolsa comun",
+                    // y no pasarla significa "no se eligio". Solo se pasa si la salida la tiene.
+                    $idMovSalida = (int) ($linea->ID_MOVIMIENTO_SALIDA ?? 0);
+                    $saldoOpts   = ($idMovSalida && $bolsas->has($idMovSalida) && $bolsas[$idMovSalida] !== null)
+                        ? ['_frente_saldo' => (int) $bolsas[$idMovSalida]]
+                        : [];
 
                     $this->inventario->registrarEntrada(
                         (int) $lock->ID_ALMACEN_ORIGEN,
                         (int) $linea->ID_PRODUCTO,
                         $cant,
-                        [
+                        array_merge([
                             'id_usuario' => $opUser ?: null,
                             'referencia' => $lock->NUMERO,
                             'motivo'     => 'Retorno por cancelación de ' . $lock->NUMERO,
                             'notas'      => $opts['notas'] ?? null,
+                            // El frente destino frustrado, para que el kardex del retorno no
+                            // muestre "—" en Destino como pasaba antes.
+                            'id_frente'  => $lock->ID_FRENTE_DESTINO,
                             // Ligar la entrada de retorno al pedido y al destino frustrado, para
                             // que Traspaso::movimientos() la incluya y el pedido cancelado muestre
                             // el trazo COMPLETO (salida + retorno), como promete el docblock.
                             'id_traspaso'            => (int) $lock->ID_TRASPASO,
                             'id_almacen_contraparte' => (int) $lock->ID_ALMACEN_DESTINO,
-                        ],
+                        ], $saldoOpts),
                     );
                 }
             }

@@ -68,10 +68,14 @@ class UserController extends Controller
     {
         // Start with base query
         $query = Usuario::select('ID_USUARIO', 'NOMBRE_COMPLETO', 'CORREO_ELECTRONICO', 'ID_ROL', 'ID_FRENTE_ASIGNADO', 'NIVEL_ACCESO_EQUIPOS', 'NIVEL_ACCESO_ALMACEN', 'ESTATUS', 'created_at')
-            ->with([
-                'rol:ID_ROL,NOMBRE_ROL', 
-                'frenteAsignado:ID_FRENTE,NOMBRE_FRENTE'
-            ]);
+            // OJO: aqui NO va 'frenteAsignado'. Esa relacion NO es eager-loadable (lo
+            // explica su docblock en Usuario): en un eager load Laravel la construye sobre
+            // una instancia VACIA, asi que su whereKey() queda en null y devuelve null para
+            // todos. La columna "Frente" salia "Global" en todas las filas, justo en la
+            // pantalla donde se administran los permisos. El nombre lo saca la vista de
+            // getNombresFrentesAsignados(), que es la fuente canonica y cachea el mapa
+            // id->nombre una vez por proceso (no hay N+1).
+            ->with(['rol:ID_ROL,NOMBRE_ROL']);
 
         // FILTER 1: Search by name or email (independent)
         if ($request->filled('search')) {
@@ -243,26 +247,7 @@ class UserController extends Controller
         $user->NOMBRE_COMPLETO = $validated['NOMBRE_COMPLETO'];
         $user->CORREO_ELECTRONICO = $validated['CORREO_ELECTRONICO'];
         $user->PASSWORD_HASH = Hash::make($request->password);
-        // Resolver el Rol (si lo escribieron nuevo, se crea. Si enviaron el nombre existente, se busca)
-        $rolInput = trim($request->ID_ROL);
-        $roleObj = \App\Models\Role::find($rolInput);
-        if (!$roleObj) {
-            $rolName = mb_strtoupper($rolInput, 'UTF-8');
-            $roleObj = \App\Models\Role::firstOrCreate(['NOMBRE_ROL' => $rolName]);
-        }
-        $user->ID_ROL = $roleObj->ID_ROL;
-        // Dos niveles independientes: equipos y almacen. Se asignan explicitamente
-        // (no via fill()) porque son campos sensibles fuera de $fillable.
-        $user->NIVEL_ACCESO_EQUIPOS = $request->NIVEL_ACCESO_EQUIPOS;
-        $user->NIVEL_ACCESO_ALMACEN = $request->NIVEL_ACCESO_ALMACEN;
-        $user->ESTATUS = $request->ESTATUS;
-        // Guardar frentes como CSV (igual que PERMISOS). NULL si usuario GLOBAL sin frente asignado.
-        $frentesSeleccionados = $request->input('ID_FRENTE_ASIGNADO', []);
-        $user->setAttribute('ID_FRENTE_ASIGNADO', !empty($frentesSeleccionados) ? implode(',', $frentesSeleccionados) : null);
-        // Frentes BLOQUEADOS (lista negra): se restan de la visibilidad incluso al GLOBAL.
-        $frentesBloqueados = $request->input('ID_FRENTE_BLOQUEADO', []);
-        $user->setAttribute('ID_FRENTE_BLOQUEADO', !empty($frentesBloqueados) ? implode(',', $frentesBloqueados) : null);
-        $user->PERMISOS = $request->PERMISOS;
+        $this->asignarAccesos($user, $request);
         $user->REQUIERE_CAMBIO_CLAVE = 1;
         $user->save();
 
@@ -306,26 +291,7 @@ class UserController extends Controller
         // Update user attributes
         $user->NOMBRE_COMPLETO = $validated['NOMBRE_COMPLETO'];
         $user->CORREO_ELECTRONICO = $validated['CORREO_ELECTRONICO'];
-        // Resolver el Rol (si lo escribieron nuevo, se crea. Si enviaron el nombre existente, se busca)
-        $rolInput = trim($request->ID_ROL);
-        $roleObj = \App\Models\Role::find($rolInput);
-        if (!$roleObj) {
-            $rolName = mb_strtoupper($rolInput, 'UTF-8');
-            $roleObj = \App\Models\Role::firstOrCreate(['NOMBRE_ROL' => $rolName]);
-        }
-        $user->ID_ROL = $roleObj->ID_ROL;
-        // Dos niveles independientes: equipos y almacen. Se asignan explicitamente
-        // (no via fill()) porque son campos sensibles fuera de $fillable.
-        $user->NIVEL_ACCESO_EQUIPOS = $request->NIVEL_ACCESO_EQUIPOS;
-        $user->NIVEL_ACCESO_ALMACEN = $request->NIVEL_ACCESO_ALMACEN;
-        $user->ESTATUS = $request->ESTATUS;
-        // Guardar frentes como CSV (igual que PERMISOS). NULL si usuario GLOBAL sin frente asignado.
-        $frentesSeleccionados = $request->input('ID_FRENTE_ASIGNADO', []);
-        $user->setAttribute('ID_FRENTE_ASIGNADO', !empty($frentesSeleccionados) ? implode(',', $frentesSeleccionados) : null);
-        // Frentes BLOQUEADOS (lista negra): se restan de la visibilidad incluso al GLOBAL.
-        $frentesBloqueados = $request->input('ID_FRENTE_BLOQUEADO', []);
-        $user->setAttribute('ID_FRENTE_BLOQUEADO', !empty($frentesBloqueados) ? implode(',', $frentesBloqueados) : null);
-        $user->PERMISOS = $request->PERMISOS;
+        $this->asignarAccesos($user, $request);
 
         if ($request->filled('password')) {
             // Un admin cambiando la clave de otro TIENE que echarlo de su sesión: si no,
@@ -345,6 +311,33 @@ class UserController extends Controller
         }
 
         return redirect()->route('usuarios.index')->with('success', 'Usuario actualizado correctamente.');
+    }
+
+    /**
+     * Lo que store() y update() guardan igual: rol, niveles de acceso, estatus, frentes y permisos.
+     */
+    private function asignarAccesos(Usuario $user, \App\Http\Requests\UserRequest $request): void
+    {
+        // Rol: si lo escribieron nuevo, se crea; si enviaron uno existente (id o nombre), se usa.
+        $rolInput = trim($request->ID_ROL);
+        $roleObj = \App\Models\Role::find($rolInput);
+        if (!$roleObj) {
+            $rolName = mb_strtoupper($rolInput, 'UTF-8');
+            $roleObj = \App\Models\Role::firstOrCreate(['NOMBRE_ROL' => $rolName]);
+        }
+        $user->ID_ROL = $roleObj->ID_ROL;
+        // Dos niveles independientes: equipos y almacen. Se asignan explicitamente
+        // (no via fill()) porque son campos sensibles fuera de $fillable.
+        $user->NIVEL_ACCESO_EQUIPOS = $request->NIVEL_ACCESO_EQUIPOS;
+        $user->NIVEL_ACCESO_ALMACEN = $request->NIVEL_ACCESO_ALMACEN;
+        $user->ESTATUS = $request->ESTATUS;
+        // Guardar frentes como CSV (igual que PERMISOS). NULL si usuario GLOBAL sin frente asignado.
+        $frentesSeleccionados = $request->input('ID_FRENTE_ASIGNADO', []);
+        $user->setAttribute('ID_FRENTE_ASIGNADO', !empty($frentesSeleccionados) ? implode(',', $frentesSeleccionados) : null);
+        // Frentes BLOQUEADOS (lista negra): se restan de la visibilidad incluso al GLOBAL.
+        $frentesBloqueados = $request->input('ID_FRENTE_BLOQUEADO', []);
+        $user->setAttribute('ID_FRENTE_BLOQUEADO', !empty($frentesBloqueados) ? implode(',', $frentesBloqueados) : null);
+        $user->PERMISOS = $request->PERMISOS;
     }
 
     /**

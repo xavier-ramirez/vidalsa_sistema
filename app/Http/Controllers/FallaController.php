@@ -597,8 +597,11 @@ class FallaController extends Controller
     }
 
     /**
-     * Stats del sidebar: TOTAL flota (vehiculos + aux), INOPERATIVO,
-     * EN MANTENIMIENTO, REPORTES_ABIERTOS. Respeta los filtros del request
+     * Stats del sidebar: reportes_abiertos, reportes_cerrados, total_reportes y el
+     * desglose por tipo de mantenimiento (preventivo, correctivo, rapidos). NO devuelve
+     * conteos de flota: los anunciaba un docblock viejo -TOTAL, INOPERATIVO, EN
+     * MANTENIMIENTO- y ninguna de esas claves existe en el return de abajo.
+     * Respeta los filtros del request
      * que aplican a equipos (id_frente, tipo_activo, marca, modelo, search)
      * para que el sidebar refleje la vista activa, igual que /admin/equipos.
      */
@@ -629,9 +632,20 @@ class FallaController extends Controller
                     || $request->filled('marca') || $request->filled('modelo')
                     || $request->filled('search');
         if ($hasEqFilter) {
-            $reportesQ->where(function ($q) use ($eqIds, $auxIds) {
+            // El CODIGO_REPORTE entra aqui igual que en index(): buscar "RF-000123" encuentra
+            // el reporte por su codigo, no por el activo, asi que ningun equipo coincide y
+            // los IDs salen vacios. Sin esta rama el Consolidado decia 0 abiertos / 0
+            // cerrados / 0 total mientras la tabla de al lado mostraba el reporte.
+            $buscado = $request->filled('search')
+                ? '%' . mb_strtoupper(ltrim(trim($request->input('search')), '#')) . '%'
+                : null;
+
+            $reportesQ->where(function ($q) use ($eqIds, $auxIds, $buscado) {
                 $q->where(fn($i) => $i->where('ACTIVO_TIPO','equipo')->whereIn('ACTIVO_ID',$eqIds ?: [0]))
                   ->orWhere(fn($i) => $i->where('ACTIVO_TIPO','equipo_auxiliar')->whereIn('ACTIVO_ID',$auxIds ?: [0]));
+                if ($buscado !== null) {
+                    $q->orWhere('CODIGO_REPORTE', 'like', $buscado);
+                }
             });
         }
 

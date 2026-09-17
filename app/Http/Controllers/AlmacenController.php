@@ -131,7 +131,7 @@ class AlmacenController extends Controller
         // asi que entrar a una pantalla vacia donde no puede hacer nada era frustrante. El
         // GLOBAL sigue entrando aunque no haya almacenes (puede crearlos con "Nuevo almacén").
         // Se respeta el flujo AJAX (paginacion / cambio de filtro vuelven JSON) para no romperlo.
-        // "Restringido" = criterio ÚNICO Almacen::usuarioEsGlobal (== Usuario::veTodosLosFrentes).
+        // "Restringido" = criterio ÚNICO Almacen::usuarioEsGlobal (== Usuario::veTodosLosAlmacenes).
         if (!$request->wantsJson() && $almacenes->isEmpty() && !Almacen::usuarioEsGlobal($user)) {
             return redirect()->route('menu')->with('flash_toast', [
                 'type'    => 'error',
@@ -1122,10 +1122,17 @@ class AlmacenController extends Controller
     //  Productos (catálogo global)
     // ─────────────────────────────────────────────────────────────
 
-    /** Lista (Collection) de categorías distintas del catálogo, ordenadas. */
+    /**
+     * Lista (Collection) de categorías distintas del catálogo, ordenadas.
+     *
+     * Con ->activos(), igual que el resto de listas que alimentan los desplegables
+     * (unidades de medida, export, etiquetas, escaneo). Era la unica sin el filtro: sin
+     * el, el desplegable de categoria ofrece categorias que solo existen en productos
+     * inactivos, y elegirlas devuelve la tabla vacia sin explicar por que.
+     */
     private function categoriasDistintas()
     {
-        return ProductoInventario::query()
+        return ProductoInventario::activos()
             ->whereNotNull('CATEGORIA')->where('CATEGORIA', '!=', '')
             ->distinct()->orderBy('CATEGORIA')->pluck('CATEGORIA');
     }
@@ -1271,16 +1278,13 @@ class AlmacenController extends Controller
      */
     private function generarCodigoProducto(): string
     {
-        $maxNum = 0;
-        ProductoInventario::withTrashed()
+        // El maximo lo calcula SQL. Antes se traia a PHP los codigos del catalogo entero
+        // (1.469 hoy) en CADA alta de producto solo para quedarse con el mayor. El REGEXP
+        // deja fuera los codigos no numericos, igual que hacia el ctype_digit.
+        $maxNum = (int) ProductoInventario::withTrashed()
             ->whereNotNull('CODIGO')
-            ->pluck('CODIGO')
-            ->each(function ($cod) use (&$maxNum) {
-                $cod = (string) $cod;
-                if ($cod !== '' && ctype_digit($cod)) {
-                    $maxNum = max($maxNum, (int) $cod);
-                }
-            });
+            ->whereRaw("CODIGO REGEXP '^[0-9]+$'")
+            ->max(DB::raw('CAST(CODIGO AS UNSIGNED)'));
 
         $n = $maxNum + 1;
         do {
@@ -1527,7 +1531,7 @@ class AlmacenController extends Controller
         // Guard: LOCAL sin almacenes visibles → redirigir al menu con notificacion.
         // (Mismo razonamiento que index(): un LOCAL sin almacen asignado no puede tomar
         // ninguna accion util en la bitacora, mejor avisarle que falta configuracion.)
-        // "Restringido" = criterio ÚNICO Almacen::usuarioEsGlobal (== Usuario::veTodosLosFrentes).
+        // "Restringido" = criterio ÚNICO Almacen::usuarioEsGlobal (== Usuario::veTodosLosAlmacenes).
         if (!$request->wantsJson() && $almacenes->isEmpty() && !Almacen::usuarioEsGlobal($request->user())) {
             return redirect()->route('menu')->with('flash_toast', [
                 'type'    => 'error',
@@ -1821,7 +1825,12 @@ class AlmacenController extends Controller
     protected function consumoRanking(Request $request, int $limite = 30, bool $aplicarBusqueda = true)
     {
         $almacenFiltrado = $request->filled('id_almacen') && $request->input('id_almacen') !== 'all';
-        $tipos = $almacenFiltrado ? ['SALIDA', 'TRASPASO_SALIDA'] : ['SALIDA'];
+        // Las CONSTANTES, no los literales: es lo que usan notas() y los filtros. Escrito
+        // a mano, este ranking seria lo unico que no se entera si cambia el valor de una
+        // constante, y devolveria 0 en silencio.
+        $tipos = $almacenFiltrado
+            ? [MovimientoInventario::TIPO_SALIDA, MovimientoInventario::TIPO_TRASPASO_SALIDA]
+            : [MovimientoInventario::TIPO_SALIDA];
 
         $q = MovimientoInventario::query()->whereIn('TIPO', $tipos);
 

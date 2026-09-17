@@ -3,7 +3,6 @@
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\DB;
 use App\Models\Equipo;
 use App\Models\FrenteTrabajo;
 use App\Models\TipoEquipo;

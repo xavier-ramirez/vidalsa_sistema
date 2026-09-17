@@ -36,7 +36,10 @@ class ConsumiblesController extends Controller
 
         $tipos_equipo = \App\Models\TipoEquipo::orderBy('nombre')->get();
 
-        $query = Consumible::with(['equipo.frenteActual', 'equipo.tipo', 'frente', 'suministro'])
+        // Sin 'suministro': la tabla suministros_origen esta VACIA y ningun consumible
+        // tiene ID_SUMINISTRO (el registro de consumible lo escribe siempre null), asi que
+        // era una consulta mas en cada carga para traer nada. Ninguna vista la lee.
+        $query = Consumible::with(['equipo.frenteActual', 'equipo.tipo', 'frente'])
             ->orderBy('FECHA', 'desc')
             ->orderBy('ID_CONSUMIBLE', 'desc');
 
@@ -459,65 +462,6 @@ class ConsumiblesController extends Controller
                 ->groupBy('TIPO_CONSUMIBLE')
                 ->get();
 
-            // Frentes totales: sin filtrar por tipo (para coincidir con el gráfico de barras)
-            $totalFrentes = DB::table('consumibles')
-                ->when($desde, fn($q) => $q->where('FECHA', '>=', $desde))
-                ->when($hasta, fn($q) => $q->where('FECHA', '<=', $hasta))
-                ->when($idFrente, fn($q) => $q->where('ID_FRENTE', $idFrente))
-                ->distinct('ID_FRENTE')
-                ->count('ID_FRENTE');
-
-            // ── 4. Todos los equipos con despachos — solo CONFIRMADOS ────────────────
-            // Agrupa por equipo (no por tipo_consumible) para evitar filas duplicadas.
-            // Muestra los identificadores con los que se registraron los consumos.
-            $todosEquipos = DB::table('consumibles')
-                ->join('equipos', 'equipos.ID_EQUIPO', '=', 'consumibles.ID_EQUIPO')
-                ->leftJoin('tipo_equipos', 'tipo_equipos.id', '=', 'equipos.id_tipo_equipo')
-                ->leftJoin('frentes_trabajo', 'frentes_trabajo.ID_FRENTE', '=', 'equipos.ID_FRENTE_ACTUAL')
-                ->where(function ($q) use ($filtrosConfirmados) {
-                    $filtrosConfirmados($q);
-                })
-                ->whereNotNull('consumibles.ID_EQUIPO')
-                ->select(
-                    'equipos.CODIGO_PATIO',
-                    'equipos.MARCA',
-                    'equipos.MODELO',
-                    DB::raw("COALESCE(tipo_equipos.nombre, 'S/T') as tipo"),
-                    DB::raw("MAX(frentes_trabajo.NOMBRE_FRENTE) as frente"),
-                    DB::raw('COUNT(*) as despachos'),
-                    DB::raw('SUM(consumibles.CANTIDAD) as total'),
-                    DB::raw('MAX(consumibles.UNIDAD) as unidad'),
-                    // Identificadores únicos usados al registrar los consumos
-                    DB::raw('GROUP_CONCAT(DISTINCT consumibles.IDENTIFICADOR ORDER BY consumibles.IDENTIFICADOR SEPARATOR " · ") as identificadores')
-                )
-                ->groupBy(
-                    'equipos.ID_EQUIPO',
-                    'equipos.CODIGO_PATIO',
-                    'equipos.MARCA',
-                    'equipos.MODELO',
-                    'tipo_equipos.nombre'
-                )
-                ->orderBy('despachos', 'desc')
-                ->get();
-
-            // ── 5. Consumo por tipo de equipo — solo CONFIRMADOS ────────────
-            $porTipoEquipo = DB::table('consumibles')
-                ->join('equipos', 'equipos.ID_EQUIPO', '=', 'consumibles.ID_EQUIPO')
-                ->leftJoin('tipo_equipos', 'tipo_equipos.id', '=', 'equipos.id_tipo_equipo')
-                ->where(function ($q) use ($filtrosConfirmados) {
-                    $filtrosConfirmados($q);
-                })
-                ->whereNotNull('consumibles.ID_EQUIPO')
-                ->select(
-                    DB::raw("COALESCE(tipo_equipos.nombre, 'S/T') as tipo_equipo"),
-                    DB::raw('SUM(consumibles.CANTIDAD) as total'),
-                    DB::raw('COUNT(*) as despachos'),
-                    DB::raw('MAX(consumibles.UNIDAD) as unidad')
-                )
-                ->groupBy('tipo_equipos.id', 'tipo_equipos.nombre')
-                ->orderByDesc('total')
-                ->get();
-
             // ── 6. Equipos individuales × frente — solo CONFIRMADOS ──────────────────
             // Muestra qué equipos específicos (modelo + código) surtieron en cada frente.
             $equiposPorFrente = DB::table('consumibles')
@@ -670,12 +614,9 @@ class ConsumiblesController extends Controller
 
             return [
                 'por_frente' => $porFrente,
-                'por_tipo_equipo' => $porTipoEquipo,
                 'equipos_por_frente' => $equiposPorFrente,
                 'top_equipos' => $topEquipos,
-                'todos_equipos' => $todosEquipos,
                 'resumen' => $resumen,
-                'total_frentes' => $totalFrentes,
                 'tipo_activo' => $tipoEspec,
                 'espec_frente' => $especFrente,
                 'espec_equipo' => $especEquipo,

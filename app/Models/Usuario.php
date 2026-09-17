@@ -180,9 +180,20 @@ class Usuario extends Authenticatable
         return $this->belongsTo(Role::class, 'ID_ROL', 'ID_ROL');
     }
 
+    /**
+     * El PRIMER frente asignado, por compatibilidad hacia atras.
+     *
+     * NO SE PUEDE USAR EN UN EAGER LOAD (`->with('frenteAsignado')`). En un eager load
+     * Laravel construye la relacion sobre una instancia VACIA del modelo, asi que
+     * getFrentesIds() devuelve [] y el whereKey() de abajo queda en NULL: no empareja
+     * nada y la relacion sale null para TODOS los usuarios. Ya paso una vez y dejo la
+     * columna "Frente" de /admin/usuarios diciendo "Global" en todas las filas.
+     *
+     * Para listados usa getNombresFrentesAsignados(), que ademas soporta el CSV
+     * multi-frente y cachea el mapa id->nombre una vez por proceso.
+     */
     public function frenteAsignado()
     {
-        // Para compatibilidad hacia atrás: devuelve el primer frente asignado
         $ids = $this->getFrentesIds();
         $firstId = $ids[0] ?? null;
         return $this->belongsTo(FrenteTrabajo::class, 'ID_FRENTE_ASIGNADO', 'ID_FRENTE')

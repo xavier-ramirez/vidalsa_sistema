@@ -5,7 +5,7 @@ namespace Database\Seeders;
 use Illuminate\Database\Seeder;
 use App\Models\FrenteTrabajo;
 use App\Models\Equipo;
-use App\Models\CaracteristicaModelo;
+use App\Models\TipoEquipo;
 use Illuminate\Support\Facades\DB;
 
 class RegistroEquipoSeeder extends Seeder
@@ -25,21 +25,33 @@ class RegistroEquipoSeeder extends Seeder
             );
 
             // 2. Create Equipment
+            // El TIPO va por su id (id_tipo_equipo). 'TIPO_EQUIPO' no es columna de
+            // `equipos`, asi que updateOrCreate lo descartaba EN SILENCIO al pasar por
+            // fill() y el equipo nacia sin tipo -mientras el mensaje de abajo decia que
+            // habia quedado registrado-.
+            $tipo = TipoEquipo::firstOrCreate(['nombre' => 'VOLTEO']);
+
             $equipo = Equipo::updateOrCreate(
                 ['SERIAL_CHASIS' => 'LZZ1ELSF1SJ413129'], // Unique key
                 [
                     'CODIGO_PATIO' => 'VS-BH-STK-02',
-                    'TIPO_EQUIPO' => 'VOLTEO', // Using the verbatim type from user. 
+                    'id_tipo_equipo' => $tipo->id,
                     'MARCA' => 'SINOTRUK',
                     'MODELO' => 'ZZ3257V464JB1',
                     'ANIO' => 2025,
                     'SERIAL_DE_MOTOR' => '1425F022978',
                     'ESTADO_OPERATIVO' => 'OPERATIVO',
-                    'ID_FRENTE_ACTUAL' => $frente->ID_FRENTE,
                     'CATEGORIA_FLOTA' => 'MAQUINARIA_PESADA', // Defaulting or inferring
                     'CONFIRMADO_EN_SITIO' => true
                 ]
             );
+
+            // ID_FRENTE_ACTUAL esta FUERA de $fillable a proposito (lo documenta el modelo:
+            // el frente se mueve por movilizacion, no por asignacion masiva). Dentro del
+            // array se perdia sin avisar; aqui se asigna por la puerta que el modelo deja
+            // abierta.
+            $equipo->ID_FRENTE_ACTUAL = $frente->ID_FRENTE;
+            $equipo->save();
 
             // 3. Create Specs (Optional but good to store model info)
             // Checking if specs exist for this model to avoid duplicates if possible, or just link if I had specs logic fully disjoint.

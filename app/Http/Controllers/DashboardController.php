@@ -138,7 +138,10 @@ class DashboardController extends Controller
      */
     public function mobileCatalogosDestacados()
     {
-        $destacados = CaracteristicaModelo::with('equipos')
+        // Mismo select acotado que index(): solo hacen falta esas tres columnas para
+        // resolver la marca. Con el with() completo se traian TODAS las columnas de TODOS
+        // los equipos de esos modelos, que es justo lo que index() ya habia corregido.
+        $destacados = CaracteristicaModelo::with(['equipos' => fn ($q) => $q->select('ID_EQUIPO', 'ID_ESPEC', 'MARCA')])
             ->whereNotNull('FOTO_REFERENCIAL')
             ->orderBy('ID_ESPEC', 'desc')
             ->limit(3)

@@ -20,6 +20,10 @@
 /storage/*.key
 /storage/pail
 /vendor
+/node_modules
+# node_modules NO estaba ignorado y el proyecto ni siquiera usa npm (no hay package.json):
+# la carpeta aparece solo cuando alguien instala algo suelto para una prueba. Sin esta
+# linea, un `git add .` distraido se la lleva entera al repo.
 /database/sql_export
 /database/*.sql
 Homestead.json

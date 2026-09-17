@@ -45,7 +45,12 @@
                             </div>
                         </td>
                         <td class="table-cell-bordered" style="font-size: 13px; padding: 8px 12px; color: var(--maquinaria-gray-text); white-space: nowrap;">
-                            {{ $user->frenteAsignado->NOMBRE_FRENTE ?? 'Global' }}
+                            {{-- El PRIMER frente asignado (el desplegable de arriba los lista todos).
+                                 Sale de getNombresFrentesAsignados, la misma fuente que usa ese
+                                 desplegable: antes era $user->frenteAsignado, que con el eager load
+                                 del controlador devolvia null siempre y pintaba "Global" en todas
+                                 las filas. --}}
+                            {{ $user->getNombresFrentesAsignados()[0] ?? 'Global' }}
                         </td>
                         <td class="table-cell-bordered" style="font-size: 13px; padding: 8px 12px; text-align: left !important;">
                             <span style="color: {{ $user->ESTATUS == 'ACTIVO' ? '#2c7a7b' : '#c53030' }}; font-weight: 600;">

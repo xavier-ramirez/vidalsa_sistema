@@ -34,16 +34,27 @@ class FrenteRequest extends FormRequest
                 $contratos
             ), fn ($v) => $v !== ''));
         } else {
-            $contratos = [];
+            // La clave NO viene en la peticion. Aqui NO se pone [] : eso borraria los
+            // contratos ya guardados. Hoy el unico que llama a frentes.update es el
+            // formulario, que siempre manda el hidden CONTRATOS_HIDDEN; pero cualquier
+            // otro camino (una edicion por JSON, un formulario nuevo que se olvide el
+            // campo) vaciaria la columna sin que nadie lo pidiera. Se deja fuera del
+            // merge y el modelo no lo toca.
+            $contratos = null;
         }
-        // Dedup conservando orden de aparición.
-        $contratos = array_values(array_unique($contratos));
+        if ($contratos !== null) {
+            // Dedup conservando orden de aparicion.
+            $contratos = array_values(array_unique($contratos));
+        }
+
+        if ($contratos !== null) {
+            $this->merge(['CONTRATOS' => $contratos]);
+        }
 
         $this->merge([
             'NOMBRE_FRENTE' => mb_strtoupper($this->input('NOMBRE_FRENTE')),
             'UBICACION'     => mb_strtoupper($this->input('UBICACION')),
             'ZONA'          => $this->filled('ZONA') ? mb_strtoupper($this->input('ZONA')) : null,
-            'CONTRATOS'     => $contratos,
             'SUBDIVISIONES' => $this->filled('SUBDIVISIONES') ? mb_strtoupper($this->input('SUBDIVISIONES')) : null,
             'RESP_1_NOM'    => mb_strtoupper($this->input('RESP_1_NOM')),
             'RESP_1_CAR'    => mb_strtoupper($this->input('RESP_1_CAR')),
