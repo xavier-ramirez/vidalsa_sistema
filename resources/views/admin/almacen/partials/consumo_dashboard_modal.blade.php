@@ -748,10 +748,10 @@
         // eso: son identidad. Por eso el rojo se reserva a UN solo tramo -el mayor- y no se
         // reparte a lo loco, que es lo que haria dudar al que lo mira.
         var CD_ROJO = '#b3261e';
-        // Una sola escala FRIA que va del azul profundo al verde menta, pasando por el
-        // petroleo. Antes alternaba azul y verde tramo a tramo y la pila salia a rayas,
-        // con los colores peleandose; asi baja suave y se ve de una pieza.
-        var CD_ESCALA = [[13, 54, 107], [17, 94, 122], [15, 118, 110], [110, 200, 168]];
+        // La escala va del azul profundo al verde menta pasando por el petroleo, y SIEMPRE
+        // aclarando: cada escalon es mas claro que el anterior, asi que dos colores nunca
+        // salen iguales aunque el tono se parezca.
+        var CD_ESCALA = [[13, 54, 107], [17, 94, 122], [15, 118, 110], [126, 206, 175]];
         var cdEscalaEn = function (i, total) {
             if (total <= 1) return 'rgb(' + CD_ESCALA[0].join(',') + ')';
             var t = (i / (total - 1)) * (CD_ESCALA.length - 1);
@@ -759,18 +759,37 @@
             var a = CD_ESCALA[k], b = CD_ESCALA[k + 1];
             return 'rgb(' + a.map(function (v, n) { return Math.round(v + (b[n] - v) * f); }).join(',') + ')';
         };
+        // El reparto NO es en orden. Con 20 proyectos, dos escalones seguidos se parecen
+        // demasiado, y en la pila van pegados uno encima del otro. Esto los BARAJA
+        // -primero los extremos, luego los medios, y asi- para que dos tramos vecinos
+        // caigan siempre lejos en la escala. Es fijo: el mismo puesto da el mismo color.
+        var cdBarajado = function (total) {
+            var orden = [], paso = 1;
+            while (orden.length < total) {
+                for (var k = 0; k < total && orden.length < total; k += paso) {
+                    if (orden.indexOf(k) === -1) orden.push(k);
+                }
+                paso = paso > 1 ? paso - 1 : Math.max(2, Math.ceil(total / 3));
+                if (paso === 1 && orden.length < total) {
+                    for (var m = 0; m < total; m++) if (orden.indexOf(m) === -1) orden.push(m);
+                }
+            }
+            return orden;
+        };
         // El tramo que NO es un proyecto va en gris, para que el color quede reservado a los
         // proyectos de verdad: lo que salio sin proyecto.
         var CD_COLOR_SIN_PROY = '#64748b';
         // El gris queda SOLO para "Sin proyecto": asi se distingue de un golpe de los
         // proyectos de verdad, que son los azules. Lleva su propio contador para que ese
         // tramo no se coma un escalon de la gama.
-        var cdTurnoColor = 0, cdCuantosProy = 0;
+        var cdTurnoColor = 0, cdCuantosProy = 0, cdOrdenColor = null;
         var cdColorProyecto = function (nombre) {
             if (nombre === 'Sin proyecto') return CD_COLOR_SIN_PROY;
             var i = cdTurnoColor++;
             if (i === 0) return CD_ROJO;                       // el que mas consume
-            return cdEscalaEn(i - 1, Math.max(1, cdCuantosProy - 1));
+            var total = Math.max(1, cdCuantosProy - 1);
+            if (!cdOrdenColor || cdOrdenColor.length !== total) cdOrdenColor = cdBarajado(total);
+            return cdEscalaEn(cdOrdenColor[i - 1], total);
         };
 
         var totalPorProy = {};
