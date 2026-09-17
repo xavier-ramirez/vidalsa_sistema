@@ -749,11 +749,18 @@ class EquipoAuxiliarController extends Controller
     public function export(Request $request)
     {
         set_time_limit(180);
-        $query = EquipoAuxiliar::with('frente');
 
-        // Acceso por frente: whitelist LOCAL + blacklist de bloqueados (también GLOBAL).
-        $this->scopeFrentes($query, 'ID_FRENTE_ACTUAL');
-        // Se reusan abajo para decidir si se ignora un filtro id_frente fuera del scope LOCAL.
+        // La MISMA consulta que pinta la tabla, via exportQuery -> applyAuxiliarFilters.
+        // Antes el export filtraba a mano y solo entendia cuatro cosas: tipo, frente,
+        // estado y search. Se perdian marca, modelo, capacidad, anio, detalle_ubicacion,
+        // confirmado, con_propiedad/con_certificado y la direccion de doc_presence: el
+        // usuario filtraba por marca, exportaba, y el .xlsx traia filas que la tabla no
+        // mostraba. El otro Excel de auxiliares (EquipoController::export) ya usaba
+        // exportQuery, asi que ademas habia dos archivos con reglas distintas.
+        $query = $this->exportQuery($request)->with('frente');
+
+        // Se reusan abajo para el ROTULO del filtro en la cabecera del Excel (no filtran:
+        // de eso ya se encargo applyAuxiliarFilters).
         [$isLocalUser, $frentesPermitidos] = $this->userScope();
 
         // Capturar filtros activos para reflejarlos en el titulo
@@ -771,20 +778,8 @@ class EquipoAuxiliarController extends Controller
             $sinAsignarFiltro = false;
         }
 
-        if ($tipoFiltro)   $query->where('TIPO', $tipoFiltro);
-        if ($sinAsignarFiltro) {
-            $query->whereNull('ID_FRENTE_ACTUAL');
-        } elseif ($frenteFiltro) {
-            $query->where('ID_FRENTE_ACTUAL', $frenteFiltro);
-        }
-        if ($estadoFiltro) $query->where('ESTADO_OPERATIVO', $estadoFiltro);
-        if ($request->filled('search')) {
-            $s = trim($request->search);
-            $query->where(function ($qq) use ($s) {
-                $qq->where('SERIAL', 'like', "%{$s}%")->orWhere('CODIGO_INTERNO', 'like', "%{$s}%")
-                  ->orWhere('MARCA', 'like', "%{$s}%")->orWhere('MODELO', 'like', "%{$s}%");
-            });
-        }
+        // (Aqui NO se vuelve a filtrar: lo hizo exportQuery. Las variables de arriba solo
+        // sirven para escribir el filtro activo en la cabecera de la hoja.)
 
         $tipos   = $this->getTiposDinamicos();
         $estados = EquipoAuxiliar::estadosLabel();
@@ -824,9 +819,14 @@ class EquipoAuxiliarController extends Controller
         $this->insertarLogoCorporativo($sheet, ['A','B'], [1,2,3]);
 
         // Titulo central con filtros aplicados (C1:E3)
+        // El ESTADO tambien se nombra: el archivo lo filtra (via applyAuxiliarFilters) y la
+        // cabecera callaba, asi que una hoja de solo INOPERATIVOS se leia como la lista
+        // completa. $estadoFiltro estaba calculado y sin usar desde que el export dejo de
+        // filtrar a mano.
         $partes = [];
         if ($frenteFiltro || $sinAsignarFiltro) $partes[] = 'FRENTE: ' . $nombreFrente;
         if ($tipoFiltro)                        $partes[] = 'TIPO: '   . $nombreTipo;
+        if ($estadoFiltro)                      $partes[] = 'ESTADO: ' . mb_strtoupper($estados[$estadoFiltro] ?? $estadoFiltro);
         $subTitle = $partes ? implode(' — ', $partes) : 'COPIA DE BASE DE DATOS DEL SISTEMA DE GESTION DE EQUIPOS OPERACIONALES';
         $titleText = "LISTADO DE EQUIPOS AUXILIARES\n" . $subTitle;
         $sheet->mergeCells('C1:E3');
@@ -1477,6 +1477,22 @@ class EquipoAuxiliarController extends Controller
         return redirect()->route('equipos.create');
     }
 
+    /**
+     * Invalida las listas cacheadas que alimentan filtros y formularios (marcas, modelos,
+     * anios...). Hay que llamarla en TODA escritura de auxiliares: sin esto, la marca de
+     * un auxiliar recien registrado aparecia en el formulario en menos de un minuto pero
+     * tardaba hasta 20 minutos en salir en el filtro de la misma pantalla, porque las
+     * claves aux_*_dropdown viven 1.200 s y nadie las borraba.
+     *
+     * La lista de claves vive en EquipoController::CLAVES_LISTAS_CACHEADAS: una sola.
+     */
+    private function olvidarListasCacheadas(): void
+    {
+        foreach (\App\Http\Controllers\EquipoController::CLAVES_LISTAS_CACHEADAS as $key) {
+            \Illuminate\Support\Facades\Cache::forget($key);
+        }
+    }
+
     public function store(Request $request)
     {
         $data = $this->validateData($request);
@@ -1548,6 +1564,7 @@ class EquipoAuxiliarController extends Controller
         $redirectUrl = $request->input('__unified_redirect', route('equipos.index'));
 
         if ($request->wantsJson()) {
+            $this->olvidarListasCacheadas();
             return response()->json([
                 'success'  => true,
                 'message'  => 'Equipo auxiliar registrado correctamente.',
@@ -1629,6 +1646,7 @@ class EquipoAuxiliarController extends Controller
             throw $e;
         }
         array_map([EquipoAuxiliar::class, 'olvidarDoc'], $anteriores);
+        $this->olvidarListasCacheadas();
 
         // Por defecto se vuelve al modulo UNIFICADO (/admin/equipos), que es donde se ven
         // equipos y auxiliares juntos. `__unified_redirect` (o el ?ref= del formulario)
@@ -1656,6 +1674,7 @@ class EquipoAuxiliarController extends Controller
         $auxiliar->delete();
 
         if ($request->wantsJson()) {
+            $this->olvidarListasCacheadas();
             return response()->json(['success' => true]);
         }
         return redirect()->route('equipos.index')->with('success', 'Equipo auxiliar eliminado.');
@@ -1684,6 +1703,7 @@ class EquipoAuxiliarController extends Controller
             }
         });
 
+        $this->olvidarListasCacheadas();
         return response()->json([
             'success' => true,
             'message' => "Se eliminaron {$borrados} auxiliar(es). Recuperables desde la papelera.",

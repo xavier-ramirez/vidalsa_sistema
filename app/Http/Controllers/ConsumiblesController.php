@@ -858,89 +858,85 @@ class ConsumiblesController extends Controller
             ->where('IDENTIFICADOR', '!=', '')
             ->get();
 
+        // INDICES EN MEMORIA, una sola vez. Antes este bucle lanzaba hasta 5 consultas por
+        // fila mas un UPDATE por fila: con las 98 filas candidatas de hoy son del orden de
+        // 400-600 consultas por clic, y crece con la tabla. Es un boton de pantalla, no una
+        // tarea nocturna, asi que con unos miles de consumibles se iba a timeout.
+        //
+        // Caben de sobra: 945 placas y 1.209 equipos. Se cargan solo las columnas que el
+        // match necesita.
+        $equipos = DB::table('equipos')
+            ->select('ID_EQUIPO', 'CODIGO_PATIO', 'SERIAL_CHASIS', 'MARCA', 'MODELO')
+            ->get()->keyBy('ID_EQUIPO');
+
+        $norm = fn ($v) => mb_strtoupper(trim((string) $v));
+
+        // placa normalizada -> ID_EQUIPO (y la lista completa para el parcial)
+        $placas = DB::table('documentacion')
+            ->whereNotNull('PLACA')->where('PLACA', '!=', '')
+            ->select('ID_EQUIPO', 'PLACA')->get()
+            ->map(fn ($d) => (object) ['id' => $d->ID_EQUIPO, 'txt' => $norm($d->PLACA)]);
+        $porPlaca = [];
+        foreach ($placas as $d) { $porPlaca[$d->txt] ??= $d->id; }
+
+        $porCodigo = $porSerial = [];
+        foreach ($equipos as $e) {
+            $cp = $norm($e->CODIGO_PATIO); if ($cp !== '') { $porCodigo[$cp] ??= $e->ID_EQUIPO; }
+            $sc = $norm($e->SERIAL_CHASIS); if ($sc !== '') { $porSerial[$sc] ??= $e->ID_EQUIPO; }
+        }
+
         $confirmados = 0;
         $sinMatch = 0;
         $detalle = [];
+        // Se acumulan para aplicarlos en DOS updates al final, no uno por fila.
+        $aConfirmar = [];   // [ID_EQUIPO => [ID_CONSUMIBLE, ...]]
+        $aSinMatch  = [];   // [ID_CONSUMIBLE, ...]
 
         foreach ($pendientes as $c) {
-            $id = strtoupper(trim($c->IDENTIFICADOR));
+            $id = $norm($c->IDENTIFICADOR);
             $equipo = null;
             $modo = null;
 
-            // 1️⃣ Por placa EXACTA en tabla documentacion
-            $docPlaca = DB::table('documentacion')
-                ->whereRaw('UPPER(TRIM(PLACA)) = ?', [$id])
-                ->select('ID_EQUIPO')
-                ->first();
-            if ($docPlaca) {
-                $equipo = DB::table('equipos')
-                    ->where('ID_EQUIPO', $docPlaca->ID_EQUIPO)
-                    ->select('ID_EQUIPO', 'CODIGO_PATIO', 'SERIAL_CHASIS', 'MARCA', 'MODELO')
-                    ->first();
-                if ($equipo)
-                    $modo = 'placa';
+            // 1. Por placa EXACTA
+            if (isset($porPlaca[$id])) {
+                $equipo = $equipos->get($porPlaca[$id]);
+                if ($equipo) $modo = 'placa';
+            }
+            // 2. Por CODIGO_PATIO exacto (etiqueta interna)
+            if (!$equipo && isset($porCodigo[$id])) {
+                $equipo = $equipos->get($porCodigo[$id]);
+                if ($equipo) $modo = 'codigo_patio';
+            }
+            // 3. Por serial de chasis exacto
+            if (!$equipo && isset($porSerial[$id])) {
+                $equipo = $equipos->get($porSerial[$id]);
+                if ($equipo) $modo = 'serial_exacto';
             }
 
-            // 2️⃣ Por CODIGO_PATIO exacto (etiqueta interna)
-            if (!$equipo) {
-                $equipo = DB::table('equipos')
-                    ->whereRaw('UPPER(TRIM(CODIGO_PATIO)) = ?', [$id])
-                    ->select('ID_EQUIPO', 'CODIGO_PATIO', 'SERIAL_CHASIS', 'MARCA', 'MODELO')
-                    ->first();
-                if ($equipo)
-                    $modo = 'codigo_patio';
-            }
-
-            // 3️⃣ Por serial de chasis exacto
-            if (!$equipo) {
-                $equipo = DB::table('equipos')
-                    ->whereRaw('UPPER(TRIM(SERIAL_CHASIS)) = ?', [$id])
-                    ->select('ID_EQUIPO', 'CODIGO_PATIO', 'SERIAL_CHASIS', 'MARCA', 'MODELO')
-                    ->first();
-                if ($equipo)
-                    $modo = 'serial_exacto';
-            }
-
-            // 4️⃣ Por coincidencia parcial — placa (documentacion), serial o codigo_patio
-            // Mínimo 4 chars para evitar falsos positivos
-            if (!$equipo && strlen($id) >= 4) {
-                // Buscar por placa parcial en documentacion
-                $docParcial = DB::table('documentacion')
-                    ->whereRaw('UPPER(PLACA) LIKE ?', ["%{$id}%"])
-                    ->select('ID_EQUIPO')
-                    ->get();
-
-                // Buscar por serial o codigo_patio parcial en equipos
-                $eqParcial = DB::table('equipos')
-                    ->whereRaw('UPPER(SERIAL_CHASIS) LIKE ? OR UPPER(TRIM(CODIGO_PATIO)) LIKE ?', [
-                        "%{$id}%",
-                        "%{$id}%",
-                    ])
-                    ->select('ID_EQUIPO', 'CODIGO_PATIO', 'SERIAL_CHASIS', 'MARCA', 'MODELO')
-                    ->get();
-
-                // Combinar y deduplicar IDs encontrados
-                $idsDoc = $docParcial->pluck('ID_EQUIPO');
-                $idsEq = $eqParcial->pluck('ID_EQUIPO');
-                $todosIds = $idsDoc->merge($idsEq)->unique();
-
-                if ($todosIds->count() === 1) {
-                    $idEncontrado = $todosIds->first();
-                    $equipo = DB::table('equipos')
-                        ->where('ID_EQUIPO', $idEncontrado)
-                        ->select('ID_EQUIPO', 'CODIGO_PATIO', 'SERIAL_CHASIS', 'MARCA', 'MODELO')
-                        ->first();
-                    // Determinar si vino de placa o serial
-                    $modo = $idsDoc->contains($idEncontrado) ? 'placa_parcial' : 'serial_parcial';
+            // 4. Coincidencia PARCIAL (minimo 4 caracteres, para evitar falsos positivos).
+            // Misma regla que antes -el identificador contenido en la placa, el serial o el
+            // codigo de patio- y sigue exigiendo que resuelva a UN solo equipo.
+            if (!$equipo && mb_strlen($id) >= 4) {
+                $idsDoc = [];
+                foreach ($placas as $d) {
+                    if (str_contains($d->txt, $id)) { $idsDoc[$d->id] = true; }
+                }
+                $idsEq = [];
+                foreach ($equipos as $e) {
+                    if (str_contains($norm($e->SERIAL_CHASIS), $id) || str_contains($norm($e->CODIGO_PATIO), $id)) {
+                        $idsEq[$e->ID_EQUIPO] = true;
+                    }
+                }
+                $todos = array_keys($idsDoc + $idsEq);
+                if (count($todos) === 1) {
+                    $equipo = $equipos->get($todos[0]);
+                    $modo = isset($idsDoc[$todos[0]]) ? 'placa_parcial' : 'serial_parcial';
                 }
             }
 
             // — Actualizar el registro —
             if ($equipo) {
-                $c->update([
-                    'ID_EQUIPO' => $equipo->ID_EQUIPO,
-                    'ESTADO_EQUIPO' => 'CONFIRMADO',
-                ]);
+                $aConfirmar[$equipo->ID_EQUIPO][] = $c->ID_CONSUMIBLE;
                 $confirmados++;
                 $detalle[] = [
                     'identificador' => $c->IDENTIFICADOR,
@@ -949,7 +945,7 @@ class ConsumiblesController extends Controller
                     'estado' => 'CONFIRMADO',
                 ];
             } else {
-                $c->update(['ESTADO_EQUIPO' => 'SIN_MATCH']);
+                $aSinMatch[] = $c->ID_CONSUMIBLE;
                 $sinMatch++;
                 $detalle[] = [
                     'identificador' => $c->IDENTIFICADOR,
@@ -959,6 +955,21 @@ class ConsumiblesController extends Controller
                 ];
             }
         }
+
+        // Los cambios, en bloque: un UPDATE por equipo confirmado y uno para todos los
+        // SIN_MATCH, en vez de un UPDATE por fila. Consumible no tiene observer, asi que
+        // el mass-update no se salta ningun efecto (comprobado).
+        DB::transaction(function () use ($aConfirmar, $aSinMatch) {
+            foreach ($aConfirmar as $idEquipo => $idsConsumible) {
+                Consumible::whereIn('ID_CONSUMIBLE', $idsConsumible)->update([
+                    'ID_EQUIPO'     => $idEquipo,
+                    'ESTADO_EQUIPO' => 'CONFIRMADO',
+                ]);
+            }
+            if ($aSinMatch) {
+                Consumible::whereIn('ID_CONSUMIBLE', $aSinMatch)->update(['ESTADO_EQUIPO' => 'SIN_MATCH']);
+            }
+        });
 
         // Invalidar caché de gráficos — el match puede cambiar muchos registros
         CacheVersion::bump(self::DATA_VER_KEY);

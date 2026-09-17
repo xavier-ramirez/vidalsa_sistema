@@ -1492,19 +1492,36 @@ class EquipoController extends Controller
      */
     private function olvidarCachesListasEquipos(): void
     {
-        foreach ([
-            'equipos_modelos_list',     // autocomplete del catálogo
-            'equipos_modelos_dropdown', // filtros del índice
-            'equipos_marcas_dropdown',
-            'equipos_anios_dropdown',
-            'equipos_colores_dropdown',
-            'marcas_list_form_v3',      // formulario create/edit
-            'modelos_list_form_v3',
-            'anios_list_form_v3',
-        ] as $key) {
+        foreach (self::CLAVES_LISTAS_CACHEADAS as $key) {
             \Illuminate\Support\Facades\Cache::forget($key);
         }
     }
+
+    /**
+     * TODAS las listas cacheadas que alimentan filtros y formularios de equipos y
+     * auxiliares. Es la lista que borra olvidarCachesListasEquipos, y es publica para que
+     * EquipoAuxiliarController pueda invalidarlas al dar de alta o editar un auxiliar.
+     *
+     * Las tres 'aux_*_dropdown' faltaban aqui, y ademas viven 1.200 s frente a los 60 s de
+     * sus gemelas del formulario: tras registrar un auxiliar, su marca aparecia en el
+     * formulario en menos de un minuto pero tardaba HASTA 20 MINUTOS en salir en el filtro
+     * de esa misma pantalla. El docblock decia "punto UNICO" y ya no lo era.
+     */
+    public const CLAVES_LISTAS_CACHEADAS = [
+        'equipos_modelos_list',      // autocomplete del catalogo
+        'equipos_modelos_dropdown',  // filtros del indice
+        'equipos_marcas_dropdown',
+        'equipos_anios_dropdown',
+        'equipos_colores_dropdown',
+        'marcas_list_form_v3',       // formulario create/edit
+        'modelos_list_form_v3',
+        'anios_list_form_v3',
+        'aux_marcas_dropdown',       // filtros de AUXILIARES en el mismo indice
+        'aux_modelos_dropdown',
+        'aux_anios_dropdown',
+        'marcas_aux_list_form_v3',   // formulario de auxiliares
+        'modelos_aux_list_form_v3',
+    ];
 
     public function create()
     {

@@ -444,6 +444,19 @@ class MovilizacionController extends Controller
                 return response()->json(['success' => false, 'message' => $msg], 422);
             }
 
+            // Misma lista negra que el otro endpoint. Se comprueba ANTES del firstOrCreate:
+            // si no, un nombre bloqueado que todavia no existiera se crearia igual y
+            // quedaria el frente hecho sin haber movido nada.
+            $bloqueados = array_map('strval', $authUser->getFrentesBloqueadosIds());
+            $idDestinoExistente = FrenteTrabajo::where('NOMBRE_FRENTE', $destNombre)->value('ID_FRENTE');
+            if ($idDestinoExistente && in_array((string) $idDestinoExistente, $bloqueados, true)) {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No tiene permisos para movilizar al frente "' . $destNombre . '".',
+                ], 403);
+            }
+
             // Crear el frente si no existe, o recuperar el existente.
             $frente = FrenteTrabajo::firstOrCreate(
                 ['NOMBRE_FRENTE' => $destNombre],
@@ -475,7 +488,12 @@ class MovilizacionController extends Controller
             // Bloquear los equipos PRIMERO. Si por algun motivo (race con destroy,
             // ids fantasma) la coleccion queda vacia abortamos antes de consumir
             // un numero de la secuencia (evita huecos en CODIGO_CONTROL).
-            $equipos = \App\Models\Equipo::whereIn('ID_EQUIPO', $request->ids)
+            // Solo equipos VISIBLES para el usuario: mandar un id por el cuerpo de la peticion
+            // no puede mover un equipo de un frente bloqueado. Mismo criterio que el
+            // scopeFrentes del bulkMove de auxiliares.
+            $consultaEquipos = \App\Models\Equipo::whereIn('ID_EQUIPO', $request->ids);
+            $authUser->aplicarScopeFrentesEquipos($consultaEquipos, 'equipos.ID_FRENTE_ACTUAL');
+            $equipos = $consultaEquipos
                 ->lockForUpdate()
                 ->get(['ID_EQUIPO', 'ID_FRENTE_ACTUAL']);
 
@@ -630,15 +648,44 @@ class MovilizacionController extends Controller
         DB::beginTransaction();
         try {
             $now = now();
+            // LISTA NEGRA del usuario: nadie -ni GLOBAL- moviliza HACIA un frente bloqueado.
+            // Es la misma regla que ya corta EquipoAuxiliarController::bulkMove; aqui faltaba,
+            // asi que la lista negra tapaba los equipos de esos frentes en toda la aplicacion
+            // pero no impedia METER equipos nuevos en ellos.
+            $bloqueados = array_map('strval', $usuario->getFrentesBloqueadosIds());
+            if (in_array((string) $request->ID_FRENTE_DESTINO, $bloqueados, true)) {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No tiene permisos para movilizar a este frente.',
+                ], 403);
+            }
+
             $frenteDestino = FrenteTrabajo::findOrFail($request->ID_FRENTE_DESTINO);
 
             // Sin `with('frenteActual')` â€” solo usamos ID_FRENTE_ACTUAL directo, no la relacion.
-            $equipos = \App\Models\Equipo::whereIn('ID_EQUIPO', $request->ids)
+            // Solo equipos VISIBLES para el usuario: mandar un id por el cuerpo de la peticion
+            // no puede mover un equipo de un frente bloqueado. Mismo criterio que el
+            // scopeFrentes del bulkMove de auxiliares.
+            $consultaEquipos = \App\Models\Equipo::whereIn('ID_EQUIPO', $request->ids);
+            $usuario->aplicarScopeFrentesEquipos($consultaEquipos, 'equipos.ID_FRENTE_ACTUAL');
+            $equipos = $consultaEquipos
                 ->lockForUpdate()
                 ->get(['ID_EQUIPO', 'ID_FRENTE_ACTUAL']);
 
             // Nombres de los frentes de ORIGEN a congelar en el snapshot — un solo query
             // por lote (no N+1). El destino es uno solo ($frenteDestino, ya cargado arriba).
+            // Ninguno de los ids es visible para el usuario (p. ej. todos en un frente
+            // bloqueado): no hay nada que recibir. Sin este corte la operacion seguia y
+            // respondia 'N equipos recibidos' habiendo movido CERO, que es mentir en verde.
+            if ($equipos->isEmpty()) {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No se encontraron equipos validos para recibir.',
+                ], 422);
+            }
+
             $origenIds     = $equipos->pluck('ID_FRENTE_ACTUAL')->filter()->unique()->values();
             $origenNombres = FrenteTrabajo::whereIn('ID_FRENTE', $origenIds)->pluck('NOMBRE_FRENTE', 'ID_FRENTE');
 
@@ -667,7 +714,9 @@ class MovilizacionController extends Controller
             }
 
             // Actualizar equipos
-            \App\Models\Equipo::whereIn('ID_EQUIPO', $request->ids)->update([
+            // Sobre los equipos YA ACOTADOS, no sobre $request->ids: si no, el scope de
+            // arriba no serviria de nada porque el update tocaria todo igual.
+            \App\Models\Equipo::whereIn('ID_EQUIPO', $equipos->pluck('ID_EQUIPO'))->update([
                 'ID_FRENTE_ACTUAL' => $request->ID_FRENTE_DESTINO,
                 'DETALLE_UBICACION_ACTUAL' => $request->DETALLE_UBICACION,
                 'CONFIRMADO_EN_SITIO' => 1,

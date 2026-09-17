@@ -285,7 +285,18 @@ class CaracteristicaModeloController extends Controller
      */
     private function consultaFichas()
     {
-        return CaracteristicaModelo::withCount('equipos')->with('colores:ID_COLOR,ID_ESPEC,COLOR,FOTO');
+        // El CONTEO va con el mismo alcance que el resto del catalogo: el usuario cuenta
+        // los equipos de SUS frentes, nunca los de un frente bloqueado. Antes este
+        // withCount no llevaba scope y la rama AUXILIAR si (y modelosSinFicha tambien),
+        // asi que un usuario LOCAL veia en la misma grilla una tarjeta "con ficha"
+        // diciendo 40 unidades -toda la empresa, incluida la lista negra- al lado de una
+        // "sin ficha" diciendo 3. Ademas filtraba unidades que el resto del sistema le
+        // oculta sin excepcion.
+        return CaracteristicaModelo::withCount(['equipos' => function ($q) {
+            if ($user = auth()->user()) {
+                $user->aplicarScopeFrentesEquipos($q, 'equipos.ID_FRENTE_ACTUAL');
+            }
+        }])->with('colores:ID_COLOR,ID_ESPEC,COLOR,FOTO');
     }
 
     /**
@@ -296,7 +307,13 @@ class CaracteristicaModeloController extends Controller
     {
         // Unidades de estas fichas por color y marca, en UNA consulta: [ID_ESPEC => filas].
         // De ahí salen los colores de la tarjeta (cuántas hay de cada uno) y su marca.
-        $unidades = Equipo::whereIn('ID_ESPEC', $fichas->pluck('ID_ESPEC'))
+        // Mismo alcance que el conteo de consultaFichas: los colores y la marca de la
+        // tarjeta salen de las unidades que ESTE usuario puede ver.
+        $consultaUnidades = Equipo::whereIn('ID_ESPEC', $fichas->pluck('ID_ESPEC'));
+        if ($user = auth()->user()) {
+            $user->aplicarScopeFrentesEquipos($consultaUnidades, 'equipos.ID_FRENTE_ACTUAL');
+        }
+        $unidades = $consultaUnidades
             ->selectRaw('ID_ESPEC, COLOR, MARCA, COUNT(*) AS n')
             ->groupBy('ID_ESPEC', 'COLOR', 'MARCA')
             ->get()->groupBy('ID_ESPEC');
