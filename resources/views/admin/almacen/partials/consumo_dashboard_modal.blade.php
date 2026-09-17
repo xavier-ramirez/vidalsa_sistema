@@ -755,61 +755,72 @@
         }
         var meses = mes.map(function (x) { return x.mes; });
         var porProy = data.por_mes_frente || [];
-        // COLORES de la pila (17-09-2026). Son los de la propia pagina, como los pidio el
-        // cliente: ROJO, AZUL corporativo (#0067b1), VERDE, BRONCE y GRIS slate (el de toda
-        // la interfaz). Cinco familias, cinco intensidades cada una = 25 tonos.
+        // COLORES de la pila (17-09-2026). El cliente pidio LOS MISMOS del ranking "Total
+        // de Consumo por Frente" del modulo de combustible (consumibles/graficos.blade.php,
+        // renderTotalFrente): el #1 en rojo oscuro, el #2 en rojo, y del #3 para abajo una
+        // escala de AZUL que se va aclarando. Aqui se copia esa idea, no los hex sueltos:
+        // alla las barras son horizontales y llevan su rotulo al lado, asi que la rampa
+        // puede ir de corrido; en una pila los tramos se TOCAN, y de corrido dos vecinos
+        // salen dos azules casi iguales (ya paso y el cliente lo canto).
         //
-        // EL ROJO VA PRIMERO A PROPOSITO: las series entran ordenadas de MAYOR a menor
-        // consumo, asi que el rojo le toca siempre al proyecto que mas material saco. Es lo
-        // que se busca de un vistazo. Si algun dia se cambia el orden de las series, hay que
-        // cambiarlo aqui tambien o el rojo deja de significar eso.
+        // Por eso la rampa se parte por la mitad y se INTERCALA: oscuro, claro, oscuro,
+        // claro... Dos tramos pegados quedan siempre a media rampa de distancia, que es la
+        // mayor separacion que se puede sacar de un solo tono, y aun asi la leyenda se lee
+        // como una escala de azules de oscuro a claro.
         //
-        // POR QUE UNA ESCALA Y NO UNA LISTA DE COLORES SUELTOS
-        // En Barcelona hay 22 proyectos con consumo. No existen 22 colores que se distingan
-        // entre si -y menos ciñendose a la paleta de la casa-. Asi que la escala tiene DOS
-        // dimensiones y el indice recorre primero las familias (i % 5): dos tramos pegados en
-        // la misma barra NUNCA comparten familia. Ademas cada familia entra en la escalera de
-        // claridad por un peldano distinto (0, 3, 1, 4, 2), de modo que dos vecinos cambian de
-        // tono Y de claridad a la vez; sin ese desfase el verde oscuro y el bronce oscuro se
-        // confundian con daltonismo (dE 5,5 medido). Un color se repite a partir del proyecto
-        // 26; para entonces los tramos son rayas de pocos pixeles y quien identifica es la
-        // leyenda, no el color.
+        // La escala se calcula con el numero de proyectos que HAY, no de una lista fija: con
+        // 5 proyectos los azules se reparten los 5, con 22 se reparten los 22. Asi nunca
+        // sobran tonos ni se repiten.
         //
-        // COMPROBADO con scripts/validate_palette.js (no elegido a ojo):
-        //   · Separacion para daltonismo entre vecinos: dE 11,1 (protanopia) — minimo 8.
-        //   · Separacion a ojo normal entre vecinos:    dE 19,2               — minimo 15.
-        //   · Contraste sobre blanco: los 25 pasan 3:1.
-        //   · Saturacion: la familia GRIS queda por debajo del minimo. Es lo esperado: el
-        //     gris lo pidio el cliente y es el de la interfaz.
-        //   · Banda de luminosidad: los mas oscuros quedan por debajo, el MISMO intercambio
-        //     ya aceptado en CHART_COLORS.age (fleet_dashboard.js).
+        // COMPROBADO con scripts/validate_palette.js para los 22 proyectos de Barcelona:
+        //   · Separacion para daltonismo entre vecinos: dE 13,4 (protanopia) — minimo 8.
+        //   · Separacion a ojo normal entre vecinos:    dE 14,5 — el minimo es 15, y no se
+        //     llega porque el cliente quiere TODO en azules: con un solo tono repartido
+        //     entre veinte proyectos no da mas de si. Es admisible porque el color no es el
+        //     unico dato: cada barra lleva su total escrito encima y la leyenda dice quien
+        //     es quien.
+        //   · Contraste sobre blanco: los dos azules mas claros quedan por debajo de 3:1,
+        //     mismo motivo y mismo respaldo (numero encima + leyenda).
         //
-        // Aviso para que no se pierda: el rojo y el verde tambien significan "mal" y "bien"
-        // en el resto del sistema (stock bajo, operativo). Aqui NO significan eso: son
-        // identidad, y por eso van siempre con leyenda.
-        var CD_FAMILIAS = 5;
-        var CD_ESCALA = [
-            // rojo       azul       verde      bronce     gris
-            '#8d0003', '#297ec9', '#006b2d', '#c47809', '#5e6a7b',
-            '#a21b19', '#3e90dd', '#1d7d3e', '#6a3b00', '#6f7b8c',
-            '#b6322c', '#00488a', '#348f4f', '#814800', '#818d9f',
-            '#cb473e', '#005aa2', '#48a260', '#985700', '#3e4858',
-            '#e15a4f', '#0e6cb5', '#00591d', '#b06600', '#4e5969',
-        ];
-        // El tramo que NO es un proyecto va aparte: la tinta mas oscura de la interfaz. No
-        // puede ser un gris de los de arriba -el GRIS es una familia mas de la escala- ni un
-        // color, que se reserva a los proyectos de verdad. Este se separa de los 25 con
-        // holgura y se lee como "esto no tiene dueño". Lleva su propio contador para que ese
-        // tramo no se coma un color de la escala.
-        var CD_COLOR_SIN_PROY = '#0f172a';
-        var cdTurnoColor = 0;
+        // Aviso para que no se pierda: el rojo tambien significa "mal" en el resto del
+        // sistema (stock bajo, inoperativo). Aqui NO significa eso: marca al que MAS saco.
+        var CD_ROJOS = ['#7f1d1d', '#ef4444'];
+        function cdHsl(h, s, l) {
+            s /= 100; l /= 100;
+            var a = s * Math.min(l, 1 - l);
+            var f = function (n) {
+                var k = (n + h / 30) % 12;
+                var v = l - a * Math.max(-1, Math.min(k - 3, Math.min(9 - k, 1)));
+                var t = Math.round(v * 255).toString(16);
+                return (t.length < 2 ? '0' : '') + t;
+            };
+            return '#' + f(0) + f(8) + f(4);
+        }
+        // n = cuantos PROYECTOS hay (sin contar "Sin proyecto", que va aparte).
+        function cdEscalaProyectos(n) {
+            var out = CD_ROJOS.slice(0, Math.min(2, n));
+            var m = Math.max(n - 2, 0);
+            if (!m) return out;
+            var rampa = [];
+            for (var i = 0; i < m; i++) {
+                var t = m > 1 ? i / (m - 1) : 0;
+                rampa.push(cdHsl(200 + 34 * t, 90 - 38 * t, 18 + 54 * t));
+            }
+            var mitad = Math.ceil(m / 2);
+            for (var j = 0; j < mitad; j++) {
+                out.push(rampa[j]);
+                if (mitad + j < m) out.push(rampa[mitad + j]);
+            }
+            return out;
+        }
+        // El tramo que NO es un proyecto va en el gris de la interfaz: el color queda
+        // reservado a los proyectos de verdad. Lleva su propio contador para que ese tramo
+        // no se coma un puesto de la escala.
+        var CD_COLOR_SIN_PROY = '#64748b';
+        var cdPaleta = [], cdTurnoColor = 0;
         var cdColorProyecto = function (nombre) {
             if (nombre === 'Sin proyecto') return CD_COLOR_SIN_PROY;
-            // i % 6 recorre las familias antes de bajar de intensidad: dos tramos pegados
-            // nunca comparten familia de tono.
-            var i = cdTurnoColor++;
-            var vuelta = Math.floor(i / CD_FAMILIAS) % (CD_ESCALA.length / CD_FAMILIAS);
-            return CD_ESCALA[vuelta * CD_FAMILIAS + (i % CD_FAMILIAS)];
+            return cdPaleta[cdTurnoColor++ % cdPaleta.length];
         };
 
         var totalPorProy = {};
@@ -826,6 +837,9 @@
             var clave = x.proyecto + '|' + x.mes;
             valor[clave] = (valor[clave] || 0) + x.total;
         });
+        // La escala se dimensiona con los proyectos que realmente pintan (sin contar
+        // "Sin proyecto", que tiene su gris aparte).
+        cdPaleta = cdEscalaProyectos(series.filter(function (p) { return p !== 'Sin proyecto'; }).length);
         cdTurnoColor = 0;
         var datasets = series.map(function (p) {
             return {
@@ -856,9 +870,13 @@
         // La leyenda de la izquierda crece hacia abajo con cada proyecto. Con los 320 px
         // fijos de .conleyenda, a partir de ~14 proyectos los ultimos quedaban cortados.
         // Se le da a la caja el alto que pide la leyenda, con 320 de piso.
+        //
+        // 26 px por renglon, MEDIDO en pantalla (fuente 11,5 + los 14 de padding que lleva
+        // la leyenda): con los 21 de antes la cuenta se quedaba corta y en Barcelona -22
+        // proyectos- se perdian los dos ultimos por debajo del borde.
         var cdCaja = document.getElementById('cdashChartMes').parentElement;
         if (cdCaja && !cdEstrecho) {
-            cdCaja.style.height = Math.max(320, datasets.length * 21 + 70) + 'px';
+            cdCaja.style.height = Math.max(320, datasets.length * 26 + 70) + 'px';
         }
 
         window._cdashCharts.mes = new Chart(document.getElementById('cdashChartMes'), {
