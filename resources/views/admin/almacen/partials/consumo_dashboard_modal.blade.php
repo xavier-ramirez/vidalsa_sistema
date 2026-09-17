@@ -638,11 +638,12 @@
         // Rotulos de los ejes en tinta oscura: en gris claro no se leian (lo pidio el cliente).
         var cdTick  = { color: '#334155', font: { size: 11, weight: 600 } };
         // ¿Ese color de relleno es claro? (luminancia de un #rrggbb). Sirve para escribir encima
-        // en blanco o en tinta: el total del mes sobre un tramo gris claro no se leia en blanco.
+        // en blanco o en tinta: el total del mes sobre un tramo claro (el azul o el naranja de la
+        // paleta SAP, o un gris claro) no se leía en blanco. Corte en 135 de luminancia.
         function cdEsClaro(hex) {
             if (typeof hex !== 'string' || !/^#[0-9a-f]{6}$/i.test(hex)) return false;
             var r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
-            return (0.299 * r + 0.587 * g + 0.114 * b) > 165;
+            return (0.299 * r + 0.587 * g + 0.114 * b) > 135;
         }
         // Degradado vertical (claro arriba → marca abajo) para barras verticales.
         function cdVGrad(c, a, b) { var ar = c.chart.chartArea; if (!ar) return b; var g = c.chart.ctx.createLinearGradient(0, ar.top, 0, ar.bottom); g.addColorStop(0, a); g.addColorStop(1, b); return g; }
@@ -736,42 +737,70 @@
         // otro, así que crecer en proyectos la alarga hacia abajo y no come ancho de barra.
         var cdEstrecho = window.innerWidth < 640;   // telefono: la leyenda va abajo y mas chica
         var mes = data.por_mes || [];
+        // La grafica ARRANCA EN JUNIO (pedido del cliente, 17-09-2026). Abril y mayo son la
+        // carga historica con la que se cuadraron los saldos de arranque: 1.007 salidas sin
+        // proyecto, que pintaban dos barras casi enteras de "Sin proyecto" y tapaban lo que
+        // de verdad se quiere leer. Solo se saltan si el usuario NO pidio un rango propio:
+        // si escribe un "Desde" en el filtro, manda el suyo.
+        var CD_PRIMER_MES = '2026-06';
+        if (!((document.getElementById('cdashDesde') || {}).value || '')) {
+            mes = mes.filter(function (x) { return String(x.mes) >= CD_PRIMER_MES; });
+        }
         var meses = mes.map(function (x) { return x.mes; });
         var porProy = data.por_mes_frente || [];
-        // Colores del grafico, como los pidio el cliente (16-09-2026):
-        //   · ROJO para el proyecto que MAS consume, que es el dato que se busca de un vistazo.
-        //   · GRIS para lo que salio sin proyecto, que no es un proyecto de verdad.
-        //   · el resto alterna AZUL y VERDE, y dentro de cada uno va de oscuro a claro segun
-        //     consume menos, asi dos vecinos de la pila nunca comparten tono.
-        // Aviso escrito aqui para que no se pierda: el rojo y el verde tambien significan
-        // "mal" y "bien" en el resto del sistema (stock bajo, operativo). Aqui NO significan
-        // eso: son identidad. Por eso el rojo se reserva a UN solo tramo -el mayor- y no se
-        // reparte a lo loco, que es lo que haria dudar al que lo mira.
-        // COLORES: duotono corporativo. El AZUL de la casa y el AMBAR, alternando y en
-        // tres escalones cada uno, del oscuro al claro. Sale un grafico sobrio -nada de
-        // arcoiris- y dos tramos vecinos SIEMPRE cambian de familia, asi que se separan
-        // aunque haya veinte proyectos.
-        // Los seis tonos pasan las cinco comprobaciones del validador (banda de claridad,
-        // saturacion, separacion para daltonismo, distancia a ojo normal y contraste sobre
-        // blanco): no estan elegidos a ojo. Del septimo proyecto en adelante la serie
-        // vuelve a empezar; para entonces los tramos son rayas de pocos pixeles y quien
+        // COLORES de la pila (17-09-2026). El cliente pidio el mismo registro del grafico
+        // de combustible de Flota: tonos PROFUNDOS y sobrios, nada de colores chillones.
+        // De ahi salen los dos primeros, que son literalmente los suyos (CHART_COLORS.age):
+        // el azul marino de la casa y el burdeos.
+        //
+        // POR QUE UNA ESCALA Y NO UNA LISTA DE COLORES SUELTOS
+        // En Barcelona hay 22 proyectos con consumo. Con tonos oscuros no existen 22
+        // colores que se distingan entre si -medido: pasadas las 5 familias, cualquier par
+        // nuevo cae por debajo del minimo-. Asi que la escala tiene DOS dimensiones:
+        // 6 FAMILIAS de tono x 4 INTENSIDADES. El indice recorre primero las familias
+        // (i % 6), de modo que dos tramos pegados en la misma barra NUNCA comparten familia,
+        // y solo al pasar de seis cambia la intensidad. Un color se repite a partir del
+        // proyecto 25; para entonces los tramos son rayas de pocos pixeles y quien
         // identifica es la leyenda, no el color.
-        var CD_AZULES  = ['#085896', '#0b80da', '#34a0f4'];
-        var CD_AMBARES = ['#9f6604', '#cc8205', '#ef9906'];
-        var cdDuotono = function (i) {
-            var fam = (i % 2 === 0) ? CD_AZULES : CD_AMBARES;
-            return fam[Math.floor(i / 2) % fam.length];
-        };
-        // El tramo que NO es un proyecto va en gris, para que el color quede reservado a los
-        // proyectos de verdad: lo que salio sin proyecto.
+        //
+        // COMPROBADO con scripts/validate_palette.js (no elegido a ojo):
+        //   · Separacion para daltonismo entre vecinos: dE 14,8 (protanopia) — minimo 8.
+        //   · Separacion a ojo normal entre vecinos:    dE 19,8               — minimo 15.
+        //   · Saturacion: la familia petroleo se queda en 0,094 frente a un minimo de 0,1.
+        //     No hay un cian mas saturado a esa luminosidad: o es este, o sale claro y
+        //     rompe el tono. Se lee como azul petroleo, no como gris.
+        //   · Contraste sobre blanco: dos de los mas claros quedan por debajo de 3:1. Se
+        //     acepta igual que en el grafico de combustible, porque el total va ESCRITO
+        //     encima de cada barra y la leyenda dice quien es quien: el color nunca es el
+        //     unico dato.
+        //   · Banda de luminosidad: los seis tonos profundos quedan por debajo del minimo.
+        //     Es el MISMO intercambio ya aceptado en CHART_COLORS.age (fleet_dashboard.js):
+        //     son los tonos que pidio el cliente. NO aclararlos por criterio de estilo.
+        //
+        // Aviso para que no se pierda: el rojo y el verde tambien significan "mal" y "bien"
+        // en el resto del sistema (stock bajo, operativo). Aqui NO significan eso: son
+        // identidad, y por eso van siempre con leyenda.
+        var CD_FAMILIAS = 6;
+        var CD_ESCALA = [
+            // profundos: marino (el del grafico de combustible), burdeos (idem), petroleo,
+            // bronce, indigo y verde oliva
+            '#004a80', '#911a24', '#0e7490', '#a16207', '#5b21b6', '#3f6212',
+            // un punto mas claros
+            '#1c619c', '#af3237', '#2b8dab', '#bd7925', '#6d4cbd', '#547a29',
+            // los mas oscuros
+            '#00366b', '#7a0010', '#00607b', '#8a4e00', '#461b8c', '#2b4f00',
+            // los mas claros (solo del proyecto 19 en adelante: tramos minusculos)
+            '#3376b2', '#c7494b', '#45a2c1', '#d48e3f', '#8162d5', '#688f3f',
+        ];
         var CD_COLOR_SIN_PROY = '#64748b';
-        // El gris queda SOLO para "Sin proyecto": asi se distingue de un golpe de los
-        // proyectos de verdad, que son los azules. Lleva su propio contador para que ese
-        // tramo no se coma un escalon de la gama.
-        var cdTurnoColor = 0, cdCuantosProy = 0;
+        var cdTurnoColor = 0;
         var cdColorProyecto = function (nombre) {
             if (nombre === 'Sin proyecto') return CD_COLOR_SIN_PROY;
-            return cdDuotono(cdTurnoColor++);
+            // i % 6 recorre las familias antes de bajar de intensidad: dos tramos pegados
+            // nunca comparten familia de tono.
+            var i = cdTurnoColor++;
+            var vuelta = Math.floor(i / CD_FAMILIAS) % (CD_ESCALA.length / CD_FAMILIAS);
+            return CD_ESCALA[vuelta * CD_FAMILIAS + (i % CD_FAMILIAS)];
         };
 
         var totalPorProy = {};
@@ -789,14 +818,14 @@
             valor[clave] = (valor[clave] || 0) + x.total;
         });
         cdTurnoColor = 0;
-        cdCuantosProy = series.filter(function (p) { return p !== 'Sin proyecto'; }).length;
         var datasets = series.map(function (p) {
             return {
                 label: p,
                 data: meses.map(function (m) { return valor[p + '|' + m] || 0; }),
                 backgroundColor: cdColorProyecto(p),
-                // Una raya blanca entre tramos: sin ella dos colores vecinos se leian como uno.
-                borderColor: '#fff', borderWidth: 1, borderRadius: 3, borderSkipped: false, maxBarThickness: 48,
+                // Sin raya blanca entre tramos: la quito el cliente (17-09-2026). La paleta
+                // ya separa los colores sola, y el borde picaba la pila en trocitos.
+                borderWidth: 0, borderRadius: 3, borderSkipped: false, maxBarThickness: 48,
             };
         });
         // Sin desglose por proyecto (p. ej. filtrando uno solo) se dibuja la barra de siempre.

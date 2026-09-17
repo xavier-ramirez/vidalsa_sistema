@@ -489,18 +489,23 @@
     // su <li> dispara window.almMovFiltrarPorProducto(id, nombre). Aquí no hay una tabla de
     // movimientos que recargar, así que redirigimos al kardex con el filtro de búsqueda
     // pre-aplicado (mismo patrón que usa el botón "Ver por producto" del header).
-    if (typeof window.almMovFiltrarPorProducto !== 'function') {
-        window.almMovFiltrarPorProducto = function (_idProducto, nombre) {
-            var p = new URLSearchParams();
-            var alm = hv('id_almacen'); if (alm) p.set('id_almacen', alm);
-            var fr  = hv('id_frente'); if (fr && fr !== 'all') p.set('id_frente', fr);
-            var cat = hv('categoria'); if (cat && cat !== 'all') p.set('categoria', cat);
-            var d   = el('almNotDesde'); if (d && d.value) p.set('desde', d.value);
-            var h   = el('almNotHasta'); if (h && h.value) p.set('hasta', h.value);
-            if (nombre) p.set('search', nombre);
-            window.location.href = @json(route('almacen.movimientos')) + '?' + p.toString();
-        };
-    }
+    //
+    // Se asigna SIEMPRE, sin preguntar si ya existe. Antes iba dentro de un
+    // `if (typeof ... !== 'function')` y en la SPA eso fallaba: al entrar primero a
+    // /movimientos quedaba pegada la versión de esa página, y al pasar a Notas el clic
+    // en el ranking llamaba a almMovBuscarPick + loadMovimientos, que buscan una tabla
+    // que aquí no existe (el clic no hacía nada). Como el script de cada página corre
+    // en cada navegación, asignar directo deja mandando a la página en la que estás.
+    window.almMovFiltrarPorProducto = function (_idProducto, nombre) {
+        var p = new URLSearchParams();
+        var alm = hv('id_almacen'); if (alm) p.set('id_almacen', alm);
+        var fr  = hv('id_frente'); if (fr && fr !== 'all') p.set('id_frente', fr);
+        var cat = hv('categoria'); if (cat && cat !== 'all') p.set('categoria', cat);
+        var d   = el('almNotDesde'); if (d && d.value) p.set('desde', d.value);
+        var h   = el('almNotHasta'); if (h && h.value) p.set('hasta', h.value);
+        if (nombre) p.set('search', nombre);
+        window.location.href = @json(route('almacen.movimientos')) + '?' + p.toString();
+    };
 
     // Paginación AJAX
     if (!_almNotBound) document.addEventListener('click', function (e) {
