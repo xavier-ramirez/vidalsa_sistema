@@ -342,13 +342,14 @@
                     {{-- Una barra por mes, apilada por PROYECTO (lo dice el título y lo enseña la
                          leyenda). Sin nota debajo: alargaba el modal y el cliente lo quiere corto.
 
-                         EL TÍTULO DICE EXACTAMENTE LO QUE HAY (17-09-2026): son SALIDAS del
-                         almacén que se tiene abierto -no entradas, no ajustes de auditoría, no
-                         traspasos: consumoDashboardQuery() filtra TIPO = 'SALIDA'- y lo que se
-                         apila son UNIDADES entregadas, no la cantidad de movimientos. Eso
-                         último se preguntaba una y otra vez al ver un mes con pocas notas y una
-                         barra alta. Si se cambia el título, que siga diciendo las dos cosas. --}}
-                    <div class="cdash-card full"><h4>Salidas del almacén por mes y proyecto (unidades)<button type="button" class="cdash-chart-dl" onclick="window._cdashDescargarGrafico(this,'salidas-por-mes-y-proyecto')" title="Descargar gráfico" aria-label="Descargar gráfico"><i class="material-icons">photo_camera</i></button></h4>
+                         EL TÍTULO ES EL DEL CLIENTE (17-09-2026), y dice lo que hay: se comparan
+                         VOLÚMENES despachados -unidades entregadas, no la cantidad de notas ni de
+                         renglones- del stock del almacén que se tiene abierto, repartidos POR
+                         PROYECTO. Lo que entra son solo SALIDAS: no entradas, no ajustes de
+                         auditoría, no traspasos (consumoDashboardQuery filtra TIPO = 'SALIDA').
+                         Lo de "unidades y no movimientos" se preguntó una y otra vez al ver un
+                         mes con pocas notas y una barra alta, por eso queda escrito. --}}
+                    <div class="cdash-card full"><h4>Comparación volumétrica de despacho de stock por proyecto<button type="button" class="cdash-chart-dl" onclick="window._cdashDescargarGrafico(this,'despacho-de-stock-por-proyecto')" title="Descargar gráfico" aria-label="Descargar gráfico"><i class="material-icons">photo_camera</i></button></h4>
                         <div class="cdash-canvas-wrap conleyenda"><canvas id="cdashChartMes"></canvas></div></div>
                     <div class="cdash-card full"><h4>Consumo por almacén<button type="button" class="cdash-chart-dl" onclick="window._cdashDescargarGrafico(this,'consumo-por-almacen')" title="Descargar gráfico" aria-label="Descargar gráfico"><i class="material-icons">photo_camera</i></button></h4><div class="cdash-canvas-wrap"><canvas id="cdashChartAlm"></canvas></div></div>
                 </div>
@@ -738,7 +739,7 @@
             }
         };
 
-        // ── 1) Salidas del almacen por mes y proyecto (barras apiladas) ──────
+        // ── 1) Comparacion volumetrica de despacho de stock por proyecto (apiladas) ──
         // Una barra por mes; cada tramo, lo que consumió un proyecto. Salen TODOS: antes los de
         // menos consumo se juntaban en "Otros proyectos" y el cliente no veía el suyo en el
         // gráfico (pedido del 16-09-2026). La leyenda va a la IZQUIERDA, un proyecto debajo de

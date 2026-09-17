@@ -314,6 +314,14 @@
     /* El wrapper solo se ve con contenido: el servidor lo llena al abrir y cada recarga lo
        reemplaza; queda vacío si la petición del panel falla (almPanelOtros). */
     #almDistWrapper:has(#almDistribucionContainer:empty) { display: none !important; }
+    /* Spinner del panel lateral MIENTRAS se piden las ubicaciones de un producto. Es local
+       al contenedor a proposito: el preloader global tapa la pantalla entera y aqui solo
+       cambia una tarjeta, asi que la tabla se sigue viendo y se puede tocar otra fila.
+       .spinner-mini sale del CSS global, no se redefine aqui. */
+    .alm-panel-cargando { display:flex; flex-direction:column; align-items:center; justify-content:center;
+        gap:8px; padding:18px 12px; }
+    .alm-panel-fallo { color:#64748b; font-size:11.5px; font-weight:600; text-align:center; line-height:1.35; }
+    .alm-panel-fallo .material-icons { font-size:26px; color:#94a3b8; }
     /* Distribución por categoría: encabezado visual del fin de semana (más prominente).
        Sobreescribe .alm-panel-h4 cuando está dentro del panel de distribución de categorías. */
     .alm-distribucion-cats .alm-panel-h4 { font-size:12px; color:#64748b; border-bottom:2px solid #f1f5f9;
@@ -1424,7 +1432,7 @@
         {{-- Botón único "Salida". Abre el modal Nota de Entrega; el backend decide si es
              consumo (mismo almacén) o envío a otro proyecto (TRASPASO) según el frente destino. --}}
         <button type="button" onclick="window.almSelAccion()" class="btn-bulk-action">
-            <i class="material-icons" style="font-size:18px;">north_east</i><span class="desktop-text">Salida</span>
+            <i class="material-icons" style="font-size:18px;">shopping_cart</i><span class="desktop-text">Salida</span>
         </button>
         {{-- Etiquetas QR de los productos seleccionados (flujo "marcar filas → imprimir
              sus etiquetas"). Reusa la misma selección (almSeleccion) que la Salida. --}}
@@ -2197,7 +2205,7 @@
          acomodando bien — los inputs heredan width:100% del .alm-nota-input. --}}
     <div class="alm-modal alm-modal-wide" style="max-width:660px;">
         <div class="alm-modal-head">
-            <h3><i class="material-icons" style="font-size:20px;">north_east</i> <span>Registrar salida</span></h3>
+            <h3><i class="material-icons" style="font-size:20px;">shopping_cart</i> <span>Registrar salida</span></h3>
             <i class="material-icons alm-x" onclick="almCerrar('almSalidaModal')">close</i>
         </div>
         <div class="alm-modal-body">
@@ -3908,11 +3916,27 @@
     function almPanelOtros(idProducto) {
         var dc = el('almDistribucionContainer'); if (!dc || !idProducto) return;
         var pedido = ++_almOtrosPedido, idAlm = almSelAlmacenActual();
+        // SPINNER AL INSTANTE, antes de pedir nada. Con internet flojo el panel se quedaba
+        // con el reparto por categoria de la busqueda anterior hasta que llegara la
+        // respuesta, y el toque parecia perdido: el usuario tocaba otra fila, y otra.
+        // Se congela el alto que tenia el panel para que no pegue un salto al vaciarse.
+        dc.innerHTML = '<div class="alm-panel-cargando" style="min-height:' +
+            Math.max(90, dc.offsetHeight) + 'px"><div class="spinner-mini"></div></div>';
         window.apiFetch(ROUTE_OTROS.replace('__PID__', idProducto) + (idAlm ? '?id_almacen=' + encodeURIComponent(idAlm) : ''), { headers: { 'Accept': 'application/json' } })
             .then(function (r) { return r.ok ? r.json() : null; })
-            // Si la petición falla el panel se vacía: mejor sin panel que con el de otro producto.
-            .then(function (d) { if (pedido === _almOtrosPedido) dc.innerHTML = (d && d.html) || ''; })
-            .catch(function () { if (pedido === _almOtrosPedido) dc.innerHTML = ''; });
+            .then(function (d) {
+                if (pedido !== _almOtrosPedido) return;   // llego tarde: manda el ultimo toque
+                dc.innerHTML = (d && d.html) || almPanelFallo();
+            })
+            // Con el spinner puesto, vaciar el panel en un fallo lo hace DESAPARECER (la regla
+            // :has(:empty) del wrapper), y eso se lee como "este producto no esta en ningun
+            // lado", que es una respuesta falsa. Mejor decir que no se pudo cargar.
+            .catch(function () { if (pedido === _almOtrosPedido) dc.innerHTML = almPanelFallo(); });
+    }
+    function almPanelFallo() {
+        return '<div class="alm-panel-cargando alm-panel-fallo">' +
+               '<i class="material-icons">cloud_off</i>' +
+               '<span>No se pudo cargar. Toca el producto otra vez.</span></div>';
     }
     // Clic en una fila de la tabla → toggle de selección. Ignora clics sobre botones / inputs
     // (incluido el input .alm-row-cant que va dentro de un td[data-no-toggle]), salvo la celda de

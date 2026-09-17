@@ -224,19 +224,18 @@ class AlmacenController extends Controller
                 // Los KPIs (Consolidado) siempre: sin filtro muestran el total del almacén, igual
                 // que la carga inicial HTML.
                 $resp['stats'] = $this->statsInventario($idAlmacenSel, $request);
-                // Panel lateral (ver panelLateral): si el filtro apunta a UN producto —una
-                // sugerencia clicada (id_producto) o una búsqueda que deja una sola fila— dice
-                // cuánto hay de ese producto en los otros almacenes; si no, reparte por categoría
-                // lo que la tabla está filtrando. Al tocar una fila se cambia al producto tocado
-                // (productoOtrosAlmacenes).
-                $idProductoSel = null;
-                if ($hayFiltro) {
-                    $idProductoSel = $request->filled('id_producto') ? (int) $request->input('id_producto') : null;
-                    if ($idProductoSel === null && !$hasMore && $rows->count() === 1) {
-                        $idProductoSel = (int) $rows->first()->ID_PRODUCTO;
-                    }
-                }
-                $resp['distribucionHtml'] = $this->panelLateral($idProductoSel, $idAlmacenSel, $almacenSel?->NOMBRE, $request, $user);
+                // Panel lateral (ver panelLateral): BUSCAR siempre reparte por CATEGORIA lo que
+                // la tabla esta filtrando. Las ubicaciones de un producto ("En otros almacenes")
+                // salen SOLO al tocar su fila, y eso lo pide el JS aparte
+                // (almPanelOtros -> productoOtrosAlmacenes).
+                //
+                // Antes esto se adivinaba: si el filtro apuntaba a un producto -una sugerencia
+                // clicada, o una busqueda que dejaba una sola fila- el panel saltaba solo a las
+                // ubicaciones. El resultado era que el mismo panel cambiaba de contenido segun
+                // cuantas filas devolviera la busqueda, sin que nadie lo hubiera pedido. Lo
+                // decide el usuario tocando, no el numero de resultados (pedido del cliente,
+                // 17-09-2026).
+                $resp['distribucionHtml'] = $this->panelLateral(null, $idAlmacenSel, $almacenSel?->NOMBRE, $request, $user);
             }
             return response()->json($resp);
         }
