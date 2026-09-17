@@ -728,22 +728,21 @@
         var mes = data.por_mes || [];
         var meses = mes.map(function (x) { return x.mes; });
         var porProy = data.por_mes_frente || [];
-        // UNA SOLA GAMA de azul, del mas oscuro al mas claro, repartida entre los proyectos
-        // que haya (el que mas consume se lleva el azul mas profundo). Se hizo asi y no con
-        // 22 colores distintos por dos razones:
-        //   · no existen 22 tonos que una persona distinga de verdad en una barra apilada;
-        //     a partir del octavo empiezan a parecerse y el color deja de identificar nada.
-        //   · el rojo y el verde estan RESERVADOS para "mal" y "bien" en todo el sistema;
-        //     usarlos para nombrar proyectos hace que el grafico mienta.
-        // La identidad la dan la leyenda (a la izquierda, en el mismo orden) y el globo al
-        // pasar el raton; el color dice CUANTO, que es la pregunta del grafico.
-        // Los dos extremos salen de la rampa de azul ya validada (contraste sobre blanco).
-        var CD_AZUL_OSCURO = [13, 54, 107];     // #0d366b
-        var CD_AZUL_CLARO  = [134, 182, 239];   // #86b6ef
-        var cdAzulDe = function (i, total) {
+        // Colores del grafico, como los pidio el cliente (16-09-2026):
+        //   · ROJO para el proyecto que MAS consume, que es el dato que se busca de un vistazo.
+        //   · GRIS para lo que salio sin proyecto, que no es un proyecto de verdad.
+        //   · el resto alterna AZUL y VERDE, y dentro de cada uno va de oscuro a claro segun
+        //     consume menos, asi dos vecinos de la pila nunca comparten tono.
+        // Aviso escrito aqui para que no se pierda: el rojo y el verde tambien significan
+        // "mal" y "bien" en el resto del sistema (stock bajo, operativo). Aqui NO significan
+        // eso: son identidad. Por eso el rojo se reserva a UN solo tramo -el mayor- y no se
+        // reparte a lo loco, que es lo que haria dudar al que lo mira.
+        var CD_ROJO = '#c0392b';
+        var CD_AZUL  = [[13, 54, 107], [134, 182, 239]];   // #0d366b -> #86b6ef
+        var CD_VERDE = [[9, 77, 56],   [110, 200, 168]];   // #094d38 -> #6ec8a8
+        var cdRampa = function (par, i, total) {
             var t = total > 1 ? i / (total - 1) : 0;
-            var c = CD_AZUL_OSCURO.map(function (v, k) { return Math.round(v + (CD_AZUL_CLARO[k] - v) * t); });
-            return 'rgb(' + c.join(',') + ')';
+            return 'rgb(' + par[0].map(function (v, k) { return Math.round(v + (par[1][k] - v) * t); }).join(',') + ')';
         };
         // El tramo que NO es un proyecto va en gris, para que el color quede reservado a los
         // proyectos de verdad: lo que salio sin proyecto.
@@ -754,7 +753,14 @@
         var cdTurnoColor = 0, cdCuantosProy = 0;
         var cdColorProyecto = function (nombre) {
             if (nombre === 'Sin proyecto') return CD_COLOR_SIN_PROY;
-            return cdAzulDe(cdTurnoColor++, cdCuantosProy);
+            var i = cdTurnoColor++;
+            if (i === 0) return CD_ROJO;                       // el que mas consume
+            // Los demas, repartidos entre azul y verde: pares al azul, impares al verde.
+            var resto = Math.max(1, cdCuantosProy - 1);
+            var cuantosAzul = Math.ceil(resto / 2), cuantosVerde = resto - cuantosAzul;
+            return (i % 2 === 1)
+                ? cdRampa(CD_AZUL,  Math.floor((i - 1) / 2), cuantosAzul)
+                : cdRampa(CD_VERDE, Math.floor((i - 2) / 2), Math.max(1, cuantosVerde));
         };
 
         var totalPorProy = {};
