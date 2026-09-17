@@ -772,19 +772,24 @@
         // 5 proyectos los azules se reparten los 5, con 22 se reparten los 22. Asi nunca
         // sobran tonos ni se repiten.
         //
+        // EL BRILLO es el de "Top productos consumidos", el otro grafico de este mismo
+        // panel: su barra va de #005a9e a #38bdf8 (ver cdHGrad mas abajo). La rampa de aqui
+        // recorre esa misma familia -azul de la casa a celeste- a plena saturacion, y el
+        // #38bdf8 cae dentro. Antes iba de un azul marino casi negro a un lila desvaido y
+        // el cliente lo llamo "apagado", con razon: la saturacion caia a la mitad por el
+        // camino. Ahora se mantiene al 100-94%.
+        //
         // COMPROBADO con scripts/validate_palette.js para los 22 proyectos de Barcelona:
-        //   · Separacion para daltonismo entre vecinos: dE 13,4 (protanopia) — minimo 8.
-        //   · Separacion a ojo normal entre vecinos:    dE 14,5 — el minimo es 15, y no se
-        //     llega porque el cliente quiere TODO en azules: con un solo tono repartido
-        //     entre veinte proyectos no da mas de si. Es admisible porque el color no es el
-        //     unico dato: cada barra lleva su total escrito encima y la leyenda dice quien
-        //     es quien.
-        //   · Contraste sobre blanco: los dos azules mas claros quedan por debajo de 3:1,
-        //     mismo motivo y mismo respaldo (numero encima + leyenda).
+        //   · Separacion para daltonismo entre vecinos: dE 19,3 (protanopia) — minimo 8.
+        //   · Separacion a ojo normal entre vecinos:    dE 18,9               — minimo 15.
+        //   · Saturacion: los 22 pasan el minimo (ninguno se lee como gris).
+        //   · Contraste sobre blanco: los celestes mas claros quedan por debajo de 3:1. Se
+        //     acepta porque el color no es el unico dato: cada barra lleva su total escrito
+        //     encima y la leyenda dice quien es quien.
         //
         // Aviso para que no se pierda: el rojo tambien significa "mal" en el resto del
         // sistema (stock bajo, inoperativo). Aqui NO significa eso: marca al que MAS saco.
-        var CD_ROJOS = ['#7f1d1d', '#ef4444'];
+        var CD_ROJOS = ['#c1121f', '#ff6b6b'];
         function cdHsl(h, s, l) {
             s /= 100; l /= 100;
             var a = s * Math.min(l, 1 - l);
@@ -804,7 +809,7 @@
             var rampa = [];
             for (var i = 0; i < m; i++) {
                 var t = m > 1 ? i / (m - 1) : 0;
-                rampa.push(cdHsl(200 + 34 * t, 90 - 38 * t, 18 + 54 * t));
+                rampa.push(cdHsl(210 - 14 * t, 100 - 6 * t, 23 + 44 * t));
             }
             var mitad = Math.ceil(m / 2);
             for (var j = 0; j < mitad; j++) {
