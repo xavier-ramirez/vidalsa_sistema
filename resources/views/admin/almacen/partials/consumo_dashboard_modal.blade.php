@@ -759,21 +759,17 @@
             var a = CD_ESCALA[k], b = CD_ESCALA[k + 1];
             return 'rgb(' + a.map(function (v, n) { return Math.round(v + (b[n] - v) * f); }).join(',') + ')';
         };
-        // El reparto NO es en orden. Con 20 proyectos, dos escalones seguidos se parecen
-        // demasiado, y en la pila van pegados uno encima del otro. Esto los BARAJA
-        // -primero los extremos, luego los medios, y asi- para que dos tramos vecinos
-        // caigan siempre lejos en la escala. Es fijo: el mismo puesto da el mismo color.
+        // El reparto NO es en orden: dos escalones seguidos de la escala se parecen
+        // demasiado y en la pila van pegados. Se avanza a SALTOS por la escala -unos dos
+        // tercios de vuelta cada vez- de modo que dos tramos vecinos caen siempre lejos.
+        // El salto es primo con el total (si no, daria vueltas repitiendo los mismos) y es
+        // fijo: el mismo puesto recibe siempre el mismo color.
+        var cdMcd = function (a, b) { while (b) { var t = a % b; a = b; b = t; } return a; };
         var cdBarajado = function (total) {
-            var orden = [], paso = 1;
-            while (orden.length < total) {
-                for (var k = 0; k < total && orden.length < total; k += paso) {
-                    if (orden.indexOf(k) === -1) orden.push(k);
-                }
-                paso = paso > 1 ? paso - 1 : Math.max(2, Math.ceil(total / 3));
-                if (paso === 1 && orden.length < total) {
-                    for (var m = 0; m < total; m++) if (orden.indexOf(m) === -1) orden.push(m);
-                }
-            }
+            var salto = Math.max(1, Math.round(total * 0.618));
+            while (salto > 1 && cdMcd(salto, total) !== 1) salto--;
+            var orden = [];
+            for (var i = 0; i < total; i++) orden.push((i * salto) % total);
             return orden;
         };
         // El tramo que NO es un proyecto va en gris, para que el color quede reservado a los
