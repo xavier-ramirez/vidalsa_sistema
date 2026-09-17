@@ -325,7 +325,6 @@
         cursor:default; transition:background .15s; }
     .alm-cat-row:last-child { border-bottom:none; }
     .alm-cat-row .alm-panel-row { padding:0 0 3px 0; border:none; background:transparent !important; }
-    .alm-cat-row .alm-panel-row .guia { display:none; }  /* sin guía en el modo distribución */
     .alm-cat-row .alm-panel-row .nom { text-transform:uppercase; flex:1; min-width:0; font-size:11px; }
     .alm-cat-row .alm-panel-row .qty { font-size:11px; padding:1px 6px; }
     .alm-cat-row.clicable { cursor:pointer; }

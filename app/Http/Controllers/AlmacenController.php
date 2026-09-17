@@ -2376,11 +2376,12 @@ class AlmacenController extends Controller
     public function consumoDashboard(Request $request)
     {
         // El dashboard es INDEPENDIENTE de los filtros generales del módulo
-        // (búsqueda, frente, almacén seleccionado, producto). Usa SOLO sus propios
-        // filtros: rango de meses (desde/hasta en formato YYYY-MM) y categoría.
-        // Mide consumo REAL = movimientos TIPO 'SALIDA' de TODOS los almacenes visibles,
-        // menos lo devuelto (los TRASPASO_SALIDA son movimientos internos entre almacenes,
-        // no consumo).
+        // (búsqueda, frente, producto). Usa sus propios filtros: rango de meses
+        // (desde/hasta en formato YYYY-MM) y categoría. Del almacén SÍ depende: el modal
+        // manda id_almacen y consumoDashboardQuery acota a ese, para que cuadre con el
+        // Historial de ese almacén (ver la nota alli).
+        // Mide consumo REAL = movimientos TIPO 'SALIDA' menos lo devuelto (los
+        // TRASPASO_SALIDA son movimientos internos entre almacenes, no consumo).
 
         // Rango de meses → límites de fecha. Idiom centralizado (FUENTE ÚNICA) en
         // MovimientoInventario::expandirRangoMes, el mismo que usa scopePeriodo.

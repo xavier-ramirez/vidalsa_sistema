@@ -161,8 +161,10 @@
                 <li class="alm-cat-row {{ $filtrable ? 'clicable' : '' }}"
                     @if($filtrable) onclick="window.almCatPick('{{ addslashes($row->categoria) }}')" title="Filtrar por {{ $row->categoria }}" @endif>
                     <div class="alm-panel-row">
+                        {{-- Sin .guia: aqui el nombre ocupa el ancho (flex:1) y el badge ya
+                             ancla el numero a la derecha. La llevan las OTRAS dos listas
+                             de este partial, donde el nombre no se estira. --}}
                         <span class="nom">{{ $row->categoria }}</span>
-                        <span class="guia" aria-hidden="true"></span>
                         <span class="qty" title="{{ $fmtQty($row->unidades) }} unidades en total">{{ $row->total }}</span>
                     </div>
                     <div class="alm-cat-bar"><div style="width:{{ round($pct, 1) }}%;"></div></div>
