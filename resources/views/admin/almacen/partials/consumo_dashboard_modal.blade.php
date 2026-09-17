@@ -747,12 +747,17 @@
         // "mal" y "bien" en el resto del sistema (stock bajo, operativo). Aqui NO significan
         // eso: son identidad. Por eso el rojo se reserva a UN solo tramo -el mayor- y no se
         // reparte a lo loco, que es lo que haria dudar al que lo mira.
-        var CD_ROJO = '#c0392b';
-        var CD_AZUL  = [[13, 54, 107], [134, 182, 239]];   // #0d366b -> #86b6ef
-        var CD_VERDE = [[9, 77, 56],   [110, 200, 168]];   // #094d38 -> #6ec8a8
-        var cdRampa = function (par, i, total) {
-            var t = total > 1 ? i / (total - 1) : 0;
-            return 'rgb(' + par[0].map(function (v, k) { return Math.round(v + (par[1][k] - v) * t); }).join(',') + ')';
+        var CD_ROJO = '#b3261e';
+        // Una sola escala FRIA que va del azul profundo al verde menta, pasando por el
+        // petroleo. Antes alternaba azul y verde tramo a tramo y la pila salia a rayas,
+        // con los colores peleandose; asi baja suave y se ve de una pieza.
+        var CD_ESCALA = [[13, 54, 107], [17, 94, 122], [15, 118, 110], [110, 200, 168]];
+        var cdEscalaEn = function (i, total) {
+            if (total <= 1) return 'rgb(' + CD_ESCALA[0].join(',') + ')';
+            var t = (i / (total - 1)) * (CD_ESCALA.length - 1);
+            var k = Math.min(Math.floor(t), CD_ESCALA.length - 2), f = t - k;
+            var a = CD_ESCALA[k], b = CD_ESCALA[k + 1];
+            return 'rgb(' + a.map(function (v, n) { return Math.round(v + (b[n] - v) * f); }).join(',') + ')';
         };
         // El tramo que NO es un proyecto va en gris, para que el color quede reservado a los
         // proyectos de verdad: lo que salio sin proyecto.
@@ -765,12 +770,7 @@
             if (nombre === 'Sin proyecto') return CD_COLOR_SIN_PROY;
             var i = cdTurnoColor++;
             if (i === 0) return CD_ROJO;                       // el que mas consume
-            // Los demas, repartidos entre azul y verde: pares al azul, impares al verde.
-            var resto = Math.max(1, cdCuantosProy - 1);
-            var cuantosAzul = Math.ceil(resto / 2), cuantosVerde = resto - cuantosAzul;
-            return (i % 2 === 1)
-                ? cdRampa(CD_AZUL,  Math.floor((i - 1) / 2), cuantosAzul)
-                : cdRampa(CD_VERDE, Math.floor((i - 2) / 2), Math.max(1, cuantosVerde));
+            return cdEscalaEn(i - 1, Math.max(1, cdCuantosProy - 1));
         };
 
         var totalPorProy = {};
