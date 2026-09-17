@@ -747,22 +747,21 @@
         // "mal" y "bien" en el resto del sistema (stock bajo, operativo). Aqui NO significan
         // eso: son identidad. Por eso el rojo se reserva a UN solo tramo -el mayor- y no se
         // reparte a lo loco, que es lo que haria dudar al que lo mira.
-        // COLORES. Todos los proyectos llevan color; ninguno va en gris.
-        //   · Los OCHO primeros -los que mas consumen- usan la tanda validada: banda de
-        //     claridad, saturacion minima, separacion para daltonismo y contraste contra
-        //     el blanco. Esos ocho se distinguen de verdad entre si.
-        //   · Del noveno en adelante se repiten esos mismos ocho tonos, primero en su
-        //     version CLARA y despues en la OSCURA. Se parecen a su hermano de color, si:
-        //     a partir del octavo NINGUN juego de colores es realmente distinguible, y sus
-        //     tramos son rayas de pocos pixeles. Quien identifica ahi es la leyenda.
-        //   · El rojo va al que mas consume, como pidio el cliente.
-        var CD_ACENTOS = ['#b3261e', '#2a78d6', '#0d9488', '#eda100',
-                          '#4a3aa7', '#e87ba4', '#00701f', '#5598e7'];
-        var CD_CLAROS  = ['#d95b54', '#7da9de', '#1fdecd', '#f8c251',
-                          '#8377c5', '#e693b2', '#08c43c', '#90b9e9'];
-        var CD_OSCUROS = ['#881811', '#1856a0', '#089185', '#a67000',
-                          '#2f2377', '#e43778', '#00992a', '#1772de'];
-        var CD_TANDAS  = [CD_ACENTOS, CD_CLAROS, CD_OSCUROS];
+        // COLORES: duotono corporativo. El AZUL de la casa y el AMBAR, alternando y en
+        // tres escalones cada uno, del oscuro al claro. Sale un grafico sobrio -nada de
+        // arcoiris- y dos tramos vecinos SIEMPRE cambian de familia, asi que se separan
+        // aunque haya veinte proyectos.
+        // Los seis tonos pasan las cinco comprobaciones del validador (banda de claridad,
+        // saturacion, separacion para daltonismo, distancia a ojo normal y contraste sobre
+        // blanco): no estan elegidos a ojo. Del septimo proyecto en adelante la serie
+        // vuelve a empezar; para entonces los tramos son rayas de pocos pixeles y quien
+        // identifica es la leyenda, no el color.
+        var CD_AZULES  = ['#085896', '#0b80da', '#34a0f4'];
+        var CD_AMBARES = ['#9f6604', '#cc8205', '#ef9906'];
+        var cdDuotono = function (i) {
+            var fam = (i % 2 === 0) ? CD_AZULES : CD_AMBARES;
+            return fam[Math.floor(i / 2) % fam.length];
+        };
         // El tramo que NO es un proyecto va en gris, para que el color quede reservado a los
         // proyectos de verdad: lo que salio sin proyecto.
         var CD_COLOR_SIN_PROY = '#64748b';
@@ -772,9 +771,7 @@
         var cdTurnoColor = 0, cdCuantosProy = 0;
         var cdColorProyecto = function (nombre) {
             if (nombre === 'Sin proyecto') return CD_COLOR_SIN_PROY;
-            var i = cdTurnoColor++;
-            var tanda = CD_TANDAS[Math.floor(i / CD_ACENTOS.length) % CD_TANDAS.length];
-            return tanda[i % CD_ACENTOS.length];
+            return cdDuotono(cdTurnoColor++);
         };
 
         var totalPorProy = {};
