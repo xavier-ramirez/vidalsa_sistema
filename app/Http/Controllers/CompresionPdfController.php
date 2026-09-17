@@ -2,55 +2,110 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\CompresionPdf;
-use App\Services\CompresorPdf;
-use App\Support\EnlacesDocumentos;
+use App\Models\Documentacion;
+use App\Models\EquipoAuditLog;
+use App\Models\VerificacionDocumento;
+use App\Observers\DocumentacionObserver;
+use App\Support\PanelDocumentos;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Pantalla "Compresion de PDF": lo que hizo docs:comprimir (y lo comprimido a mano), para
- * revisarlo en la mañana. Solo lectura. Acceso: super.admin (routes/web.php).
+ * Lo que se puede HACER desde las pestañas de documentos de Control de Auditoría
+ * (/admin/historial-documentos): corregir una ficha con lo que dice su PDF.
+ *
+ * La pantalla la pinta HistorialDocumentosController con admin/compresion_pdf/panel.blade.php;
+ * aqui solo vive la accion, que es el UNICO punto donde esos datos cambian.
+ * La direccion vieja /admin/compresion-pdf sigue funcionando: lleva a la pestaña (index()).
  */
 class CompresionPdfController extends Controller
 {
+    /** La pantalla se mudo a Control de Auditoría; los enlaces viejos siguen llegando. */
     public function index(Request $request)
     {
-        // Filtros de arriba: estado, tipo de documento y buscador (serial o documento). Un
-        // valor que no esta en su lista (p. ej. 'all', "todos") es como no filtrar.
-        $estado = in_array($request->input('estado'), [CompresionPdf::COMPRIMIDO, CompresionPdf::SALTADO, CompresionPdf::ERROR], true)
-            ? $request->input('estado') : null;
-        $documentos = CompresionPdf::query()->distinct()->orderBy('DOCUMENTO')->pluck('DOCUMENTO');
-        $documento  = $documentos->contains($request->input('documento')) ? $request->input('documento') : null;
-        $buscar     = trim((string) $request->input('buscar', ''));
+        return redirect()->route('historial-documentos.index', [
+            'pestana' => PanelDocumentos::esPestana($request->input('pestana'))
+                ? $request->input('pestana') : PanelDocumentos::COMPRESION,
+        ] + $request->except('pestana'));
+    }
 
-        $resumen = CompresionPdf::query()
-            ->select('ESTADO', DB::raw('COUNT(*) as n'), DB::raw('SUM(BYTES_ANTES) as antes'), DB::raw('SUM(BYTES_DESPUES) as despues'))
-            ->groupBy('ESTADO')->get()->keyBy('ESTADO');
+    /**
+     * Pone en la ficha lo que dice el documento (propietario, aseguradora o fechas), solo con
+     * lo que el verificador marco como distinto: lo que ya esta bien no se toca.
+     *
+     * Antes de escribir se comprueba que la ficha SIGUE como estaba cuando se leyo el PDF: si
+     * alguien la corrigio a mano entretanto, ese dato se respeta y se avisa (la lectura puede
+     * ser de hace semanas). Todo dentro de una transaccion, con la fila bloqueada.
+     */
+    public function aplicarDocumento(Request $request, int $id)
+    {
+        $reg = VerificacionDocumento::findOrFail($id);
 
-        $ultimaNoche = CompresionPdf::where('ORIGEN', 'noche')->max('created_at');
+        if ($reg->esDeOtroVehiculo()) {
+            return back()->with('error', 'Ese PDF es de otro vehículo: hay que corregir el archivo enlazado, no copiar sus datos.');
+        }
+        if ($reg->esLecturaParcial()) {
+            return back()->with('error', 'Ese documento se leyó a medias: dice menos que la ficha. Ábrelo y corrígelo a mano.');
+        }
+        if (!$reg->aplicable()) {
+            return back()->with('error', 'Ese documento ya coincide con la ficha: no hay nada que cambiar.');
+        }
 
-        // Si la tarea corre en ESTE equipo y por que: es lo primero que hay que poder mirar
-        // tras desplegar, sin entrar al servidor.
-        [$activa, $motivoActiva] = EnlacesDocumentos::esBaseDelServidor();
-        $ghostscript = app(CompresorPdf::class)->disponible();
-        // La misma zona con la que el programador decide si ya son las 12: schedule_timezone y, si no, app.timezone.
-        $zona = config('app.schedule_timezone', config('app.timezone'));
-        $horaApp = now($zona);
+        $resultado = DB::transaction(function () use ($reg, $request) {
+            $doc = Documentacion::where('ID_EQUIPO', $reg->ID_EQUIPO)->lockForUpdate()->first();
+            if (!$doc) return ['error' => 'La ficha de ese equipo ya no existe.'];
 
-        $filas = CompresionPdf::query()
-            ->when($estado, fn ($q) => $q->where('ESTADO', $estado))
-            ->when($documento, fn ($q) => $q->where('DOCUMENTO', $documento))
-            ->when($buscar !== '', function ($q) use ($buscar) {
-                $like = '%' . addcslashes($buscar, '%_\\') . '%';
-                $q->where(fn ($w) => $w->where('SERIAL', 'like', $like)->orWhere('DOCUMENTO', 'like', $like));
-            })
-            ->orderByDesc('created_at')->orderByDesc('ID_REGISTRO')
-            ->paginate(50)->withQueryString();
+            $puestos = $saltados = $cambios = [];
+            foreach ($reg->DIFERENCIAS as $campo => $d) {
+                // Lo que la ficha tenia cuando se leyo el PDF. Si ya no es eso, alguien lo
+                // corrigio a mano despues: su correccion manda.
+                $ahora = $doc->{$campo};
+                if ($ahora instanceof \DateTimeInterface) $ahora = $ahora->format('Y-m-d');
+                // La aseguradora se compara por su ID (ficha_valor), no por el nombre que se
+                // muestra; los demas campos guardan el mismo texto que se enseña.
+                $esperado = array_key_exists('ficha_valor', $d) ? $d['ficha_valor'] : ($d['ficha'] ?? '');
+                if ((string) $ahora !== (string) $esperado) {
+                    $saltados[] = $d['etiqueta'];
+                    continue;
+                }
+                // La aseguradora se guarda por su ID del catalogo; el resto, tal cual se leyo.
+                $doc->{$campo} = $campo === 'ID_SEGURO' ? (int) $d['valor'] : $d['documento'];
+                $puestos[] = $d['etiqueta'];
+                // Para el historial se guardan los nombres, no los IDs: es lo que se lee.
+                $cambios[$campo] = ['antes' => $d['ficha'], 'despues' => $d['documento']];
+            }
 
-        return view('admin.compresion_pdf.index', compact(
-            'resumen', 'ultimaNoche', 'filas', 'estado', 'documentos', 'documento', 'buscar',
-            'activa', 'motivoActiva', 'ghostscript', 'zona', 'horaApp'
-        ));
+            if (!$puestos) {
+                return ['error' => 'La ficha ya no dice lo que decía cuando se leyó el documento: revísala y vuelve a leer el PDF.'];
+            }
+            $doc->save();
+
+            // Historial del equipo. DocumentacionObserver solo audita PLACA, NRO_DE_DOCUMENTO y
+            // NOMBRE_DEL_TITULAR: los datos de la poliza (aseguradora y fechas) no dejarian
+            // rastro, asi que se registran aqui — y solo esos, para no duplicar los suyos.
+            $propios = array_diff_key($cambios, array_flip(DocumentacionObserver::AUDITED));
+            if ($propios) {
+                EquipoAuditLog::registrar($reg->ID_EQUIPO, 'edit', $propios + ['_origen' => 'Verificación de documentos']);
+            }
+
+            $reg->update([
+                'ESTADO'       => VerificacionDocumento::COINCIDE,
+                'MOTIVO'       => 'Corregido con lo que dice el documento',
+                'DIFERENCIAS'  => null,
+                'APLICADO_POR' => $request->user()?->getKey(),
+                'APLICADO_EN'  => now(),
+            ]);
+
+            return ['puestos' => $puestos, 'saltados' => $saltados];
+        });
+
+        if (isset($resultado['error'])) {
+            return back()->with('error', $resultado['error']);
+        }
+        $aviso = 'Ficha corregida: ' . implode(', ', $resultado['puestos']) . '.';
+        if ($resultado['saltados']) {
+            $aviso .= ' Se respetó lo que alguien ya había corregido a mano: ' . implode(', ', $resultado['saltados']) . '.';
+        }
+        return back()->with('success', $aviso);
     }
 }

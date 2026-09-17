@@ -697,10 +697,17 @@
     .alm-det-sug-item { display: flex; align-items: center; gap: 8px; padding: 6px 9px; border-radius: 6px; cursor: pointer; }
     .alm-det-sug-item:hover { background: #e0f2fe; }
     .alm-det-sug-item .alm-det-eq-tipo { flex: 0 0 110px; }
+    /* La placa va en una segunda línea DENTRO de la celda del modelo, para que quepa también en
+       el celular. Los códigos de modelo largos (ZZ4257V344JB1) pueden partirse para no salirse
+       de la sugerencia. */
+    .alm-det-sug-item .alm-det-eq-mod { overflow-wrap: anywhere; }
+    .alm-det-sug-placa { display: block; font-size: 11.5px; color: #64748b; }
     .alm-det-sug-vacio, .alm-det-msg, .alm-det-form input { font-size: 12.5px; }
     .alm-det-sug-vacio { padding: 8px 9px; font-size: 12px; color: #64748b; font-style: italic; }
-    /* `hidden` tiene que ganarle al display:flex de arriba (y la lista sin sugerencias no se ve). */
-    #almDetCompat[hidden], .alm-det-form[hidden], .alm-det-sug:empty { display: none; }
+    /* `hidden` tiene que ganarle al display:flex / inline-flex de arriba: el "+ Agregar" /
+       "+ Vincular" se esconde así a quien no tiene almacen.productos (y la lista sin
+       sugerencias no se ve). */
+    #almDetCompat[hidden], .alm-det-form[hidden], .alm-det-mas[hidden], .alm-det-sug:empty { display: none; }
     .alm-det-msg { font-size: 12px; font-weight: 600; color: #b91c1c; }
     /* El detalle aparece SIN deslizamiento (como los detalles del módulo Equipos):
        se quita la animación de entrada almIn solo para este modal. */
@@ -822,7 +829,7 @@
        Acciones full-width al final, menu desplegable limitado al viewport. */
     @media (max-width: 768px) {
         /* La barra de selección en móvil muestra TEXTO en vez de iconos (regla global
-           en estilos_globales.css:2109). Excepción pedida: el botón "Etiquetas" se
+           en estilos_globales.css, .selection-floating-bar .desktop-text). Excepción pedida: el botón "Etiquetas" se
            muestra con su ÍCONO QR (más compacto y reconocible) y sin el texto. El #id
            gana en especificidad sobre la regla global por clase. */
         #almBulkEtqBtn i.material-icons { display: inline-flex !important; }
@@ -4538,12 +4545,12 @@
         if (el('almDetUbicacion')) { el('almDetUbicacion').value = ubicacion || ''; showErr('almDetUbicacionError', ''); }
 
         // La ficha abre DE UNA SOLA VEZ: primero llega la compatibilidad (nº de parte, equipos
-        // y reparto por proyecto) y recién entonces se muestra. Abrirla antes hacía aparecer esas
-        // secciones un instante después, empujando los botones hacia abajo. Si el servidor
+        // y reparto por proyecto) y recién entonces se muestra, para que esas secciones no
+        // aparezcan un instante después empujando los botones hacia abajo. Si el servidor
         // falla, abre igual sin ellas. Si mientras tanto se pidió otro producto, abre solo ese.
         // Con la red muy lenta no se espera más de ALM_DET_ESPERA_MS: abre y las secciones
         // llegan después, antes que dejar al usuario mirando el spinner.
-        var abierto = false;
+        var abierto = false, espera = null;
         var abrir = function () {
             if (abierto) return;
             abierto = true;
@@ -4552,7 +4559,7 @@
             if (String(m.dataset.id) === String(id)) almOpen('almDetalleModal');
         };
         pre();
-        var espera = setTimeout(abrir, ALM_DET_ESPERA_MS);
+        espera = setTimeout(abrir, ALM_DET_ESPERA_MS);
         window.almCargarCompat(id).finally(abrir);
     };
 
@@ -4735,6 +4742,15 @@
         var i = el('almDetEquipoInput'); i.value = ''; i.focus();
         window.almDetEquipoBuscar();
     };
+    // "placa X" bajo el modelo de la sugerencia. Con la placa a medio escribir un mismo modelo
+    // puede traer muchas (medido: 9 con "A46BN"): se muestran 2 y "+N", y la lista entera va en el title.
+    function almDetPlacasEtiqueta(placas) {
+        if (!placas || !placas.length) return '';
+        var esc = window.escapeHtml;
+        // \u00a0 (espacio que no parte): el "+N" nunca queda solo en otra línea.
+        var txt = placas.slice(0, 2).join(', ') + (placas.length > 2 ? '\u00a0+' + (placas.length - 2) : '');
+        return '<span class="alm-det-sug-placa" title="' + esc(placas.join(', ')) + '">placa ' + esc(txt) + '</span>';
+    }
     // Sugerencias del servidor (modelos del catálogo y auxiliares que el producto aún no tiene;
     // escribiendo una placa, el modelo de ese equipo, marcado con la placa).
     // Solo pinta la respuesta de la ÚLTIMA búsqueda: si una anterior llega tarde, se descarta.
@@ -4753,8 +4769,7 @@
                         ? ops.map(function (o, i) {
                             return '<div class="alm-det-sug-item" onclick="window.almDetEquipoVincular(' + i + ')">'
                                 + '<span class="alm-det-eq-tipo" title="' + esc(o.tipo) + '">' + esc(o.tipo) + '</span>'
-                                + '<span class="alm-det-eq-mod">' + esc(o.modelo) + '</span>'
-                                + (o.placas && o.placas.length ? '<span class="alm-det-eq-dato">placa ' + esc(o.placas.join(', ')) + '</span>' : '')
+                                + '<span class="alm-det-eq-mod">' + esc(o.modelo) + almDetPlacasEtiqueta(o.placas) + '</span>'
                                 + '</div>';
                           }).join('')
                         : '<div class="alm-det-sug-vacio">Ningún equipo coincide' + (q ? ' con «' + esc(q) + '»' : '') + '.</div>';

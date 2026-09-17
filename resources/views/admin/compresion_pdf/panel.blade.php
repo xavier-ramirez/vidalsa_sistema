@@ -1,8 +1,8 @@
-@extends('layouts.estructura_base')
-
-@section('title', 'Compresión de PDF')
-
-@section('content')
+{{-- Panel de "Compresión de PDF" y "Títulos y pólizas": las dos pestañas que viven DENTRO
+     de Control de Auditoría (/admin/historial-documentos). Vive aparte para que esa pantalla
+     lo incluya sin repetir su tabla, sus filtros ni su resumen.
+     Los datos los arma App\Support\PanelDocumentos::datos(); la corrección de una ficha la
+     aplica CompresionPdfController::aplicarDocumento. --}}
 <style>
     /* Como /admin/usuarios: a la izquierda una tarjeta blanca con los FILTROS arriba y la
        tabla debajo; a la derecha, el aviso de la tarea y el resumen, uno debajo del otro. */
@@ -39,6 +39,21 @@
     .cpdf-estado.error { background: #fee2e2; color: #991b1b; cursor: help; }
     .cpdf-vacio { text-align: center; color: #94a3b8; padding: 30px; }
 
+    .cpdf-estado.coincide { background: #dcfce7; color: #166534; }
+    .cpdf-estado.difiere { background: #fee2e2; color: #991b1b; cursor: help; }
+    .cpdf-estado.ilegible, .cpdf-estado.sin_archivo { background: #fef3c7; color: #92400e; cursor: help; }
+    /* Cada dato que no cuadra, en una linea: etiqueta, lo de la ficha (tachado) y lo del documento. */
+    .cpdf-nom { font-size: 12.5px; color: #0f172a; }
+    .cpdf-nom.mal { color: #991b1b; text-decoration: line-through; }
+    .cpdf-dif { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; font-size: 12.5px; line-height: 1.5; }
+    .cpdf-dif-eti { font-weight: 700; color: #64748b; }
+    .cpdf-dif-doc { color: #166534; font-weight: 600; }
+    .cpdf-flecha { font-size: 14px; color: #94a3b8; }
+    .cpdf-aplicar { display: inline-flex; align-items: center; gap: 3px; border: 1px solid #bfdbfe; background: #eff6ff; color: #0067b1;
+                    border-radius: 8px; padding: 4px 9px; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+    .cpdf-aplicar:hover { background: #dbeafe; }
+    .cpdf-aplicar .material-icons { font-size: 15px; }
+
     /* Angosto: una columna. stretch y no flex-start: con flex-start la tarjeta tomaba el
        ancho de la TABLA (816 px en un teléfono de 390) y la página se salía por la derecha;
        así toma el de la pantalla y la tabla se desplaza dentro de .cpdf-tabla-caja. El
@@ -54,13 +69,6 @@
     }
 </style>
 
-@include('admin.partials.page_header', [
-    'titulo'  => 'Compresión de PDF',
-    'align'   => 'left',
-    'margin'  => '0 auto 16px auto',
-    'padding' => '0',
-    'extra'   => 'width:98%;max-width:1400px;',
-])
 
 @php
     $mb = fn ($b) => number_format(($b ?? 0) / 1048576, 1, ',', '.');
@@ -70,17 +78,39 @@
         \App\Models\CompresionPdf::SALTADO    => 'Saltados',
         \App\Models\CompresionPdf::ERROR      => 'Con error',
     ];
-    // Los dos desplegables son iguales salvo su lista: se pintan con el mismo molde.
-    $desplegables = [
+    $estadosDoc = [
+        'revisar'                 => 'PARA REVISAR (no se pudo leer)',
+        \App\Models\VerificacionDocumento::DIFIERE     => 'Datos distintos',
+        \App\Models\VerificacionDocumento::COINCIDE    => 'Coincide',
+        \App\Models\VerificacionDocumento::ILEGIBLE    => 'No se pudo leer',
+        \App\Models\VerificacionDocumento::SIN_ARCHIVO => 'Sin archivo en Drive',
+        \App\Models\VerificacionDocumento::ERROR       => 'Con error',
+    ];
+    $tiposDoc = \App\Models\VerificacionDocumento::NOMBRES;
+    // Los desplegables son iguales salvo su lista: se pintan con el mismo molde. Cada pestaña
+    // filtra por lo suyo (la de compresion, por documento; la de documentos, por estado y tipo).
+    $desplegables = $pestana === 'documentos' ? [
+        ['id' => 'cpdfDocEstadoSelect', 'nombre' => 'estado_doc', 'etiqueta' => 'Filtrar Estado...', 'todos' => 'TODOS LOS ESTADOS',
+         'valor' => $estadoDoc, 'opciones' => $estadosDoc],
+        ['id' => 'cpdfDocTipoSelect', 'nombre' => 'tipo_doc', 'etiqueta' => 'Filtrar Documento...', 'todos' => 'TÍTULOS Y PÓLIZAS',
+         'valor' => $tipoDoc, 'opciones' => $tiposDoc],
+    ] : [
         ['id' => 'cpdfEstadoSelect',    'nombre' => 'estado',    'etiqueta' => 'Filtrar Estado...',    'todos' => 'TODOS LOS ESTADOS',
          'valor' => $estado,    'opciones' => $estados],
         ['id' => 'cpdfDocumentoSelect', 'nombre' => 'documento', 'etiqueta' => 'Filtrar Documento...', 'todos' => 'TODOS LOS DOCUMENTOS',
          'valor' => $documento, 'opciones' => $documentos->mapWithKeys(fn ($d) => [$d => $d])->all()],
     ];
+    $porRevisar = collect(\App\Models\VerificacionDocumento::A_REVISAR)->sum(fn ($e) => $resumenDocs[$e] ?? 0);
 @endphp
 
 <div class="cpdf-layout">
     <div class="cpdf-main">
+        @foreach (['success' => '#dcfce7', 'error' => '#fee2e2'] as $tipo => $fondo)
+            @if (session($tipo))
+                <div style="background:{{ $fondo }};border-radius:10px;padding:9px 12px;margin-bottom:12px;font-size:13px;font-weight:600;color:#0f172a;">{{ session($tipo) }}</div>
+            @endif
+        @endforeach
+
         {{-- Filtros: mismos componentes que Usuarios/Equipos (buscador + custom-dropdown).
              Cada cambio vuelve a pedir la página con los filtros en la URL (cpdfFiltrar). --}}
         <div class="filter-toolbar-container cpdf-filtros">
@@ -89,7 +119,7 @@
                     <div class="search-wrapper" style="width: 100%; border-color: {{ $buscar !== '' ? '#0067b1' : '#cbd5e0' }}; background: {{ $buscar !== '' ? '#e1effa' : '#fbfcfd' }}; height: 45px;">
                         <i class="material-icons search-icon">search</i>
                         <input type="text" id="cpdfBuscar" value="{{ $buscar }}"
-                            placeholder="Buscar serial o documento..."
+                            placeholder="{{ $pestana === 'documentos' ? 'Buscar placa, serial o nombre...' : 'Buscar serial o documento...' }}"
                             class="search-input-field" style="height: 100%;" autocomplete="off"
                             oninput="document.getElementById('cpdfBuscarX').style.display = this.value ? 'block' : 'none';">
                         <i id="cpdfBuscarX" class="material-icons clear-icon" style="display: {{ $buscar !== '' ? 'block' : 'none' }};"
@@ -132,6 +162,69 @@
             @endforeach
         </div>
 
+        @if ($pestana === 'documentos')
+        <div class="cpdf-tabla-caja">
+            <table class="tabla-lista">
+                <thead>
+                    <tr class="tabla-cabecera">
+                        <th>Fecha</th>
+                        <th>Documento</th>
+                        <th>Placa / Serial</th>
+                        <th>Qué dice la ficha y qué dice el documento</th>
+                        <th>Estado</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse ($docs as $d)
+                        <tr>
+                            <td style="white-space:nowrap;">{{ $d->updated_at?->format('d/m/Y H:i') }}</td>
+                            <td style="white-space:nowrap;">{{ $tiposDoc[$d->TIPO] ?? $d->TIPO }}</td>
+                            <td style="white-space:nowrap;">
+                                {{ $d->PLACA ?: '—' }}
+                                @if ($d->SERIAL) <small style="display:block;color:#64748b;">{{ $d->SERIAL }}</small> @endif
+                            </td>
+                            {{-- Solo lo que NO cuadra: a la izquierda lo de la ficha (tachado), a la
+                                 derecha lo que dice el PDF. Si todo cuadra, lo leido en gris. --}}
+                            <td>
+                                @forelse ($d->DIFERENCIAS ?? [] as $campo => $dif)
+                                    <div class="cpdf-dif">
+                                        <span class="cpdf-dif-eti">{{ $dif['etiqueta'] }}:</span>
+                                        <span class="cpdf-nom mal">{{ $dif['ficha'] ?: '(vacío)' }}</span>
+                                        <i class="material-icons cpdf-flecha">arrow_forward</i>
+                                        <span class="cpdf-dif-doc">{{ $dif['documento'] }}</span>
+                                    </div>
+                                @empty
+                                    <span style="font-size:12px;color:#64748b;">{{ $d->MOTIVO ?: 'Todo coincide con el documento' }}</span>
+                                @endforelse
+                            </td>
+                            <td><span class="cpdf-estado {{ $d->ESTADO }}" @if ($d->MOTIVO) title="{{ $d->MOTIVO }}" @endif>{{ $estadosDoc[$d->ESTADO] ?? $d->ESTADO }}</span></td>
+                            <td style="white-space:nowrap;">
+                                @if ($d->DRIVE_ID)
+                                    <button type="button" class="pdf-doc-btn" title="Ver el documento"
+                                        onclick="window.openPdfPreview('/storage/google/{{ $d->DRIVE_ID }}', 'verificacion', @js(($tiposDoc[$d->TIPO] ?? '') . ' ' . ($d->PLACA ?: $d->SERIAL ?: '')), 0, '', true)">
+                                        <i class="material-icons">description</i>
+                                    </button>
+                                @endif
+                                {{-- Corrige la ficha con lo que dice el documento. Solo aparece cuando hay
+                                     algo que corregir y el PDF es de ESTE vehiculo. --}}
+                                @if ($d->aplicable())
+                                    <form method="POST" action="{{ route('compresion-pdf.documento.aplicar', ['id' => $d->ID_REGISTRO]) }}" style="display:inline;"
+                                          onsubmit="return confirm('¿Poner en la ficha lo que dice el documento?');">
+                                        @csrf
+                                        <button type="submit" class="cpdf-aplicar" title="Poner en la ficha lo que dice el documento"><i class="material-icons">how_to_reg</i> Corregir ficha</button>
+                                    </form>
+                                @endif
+                            </td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="6" class="cpdf-vacio">{{ $estadoDoc || $tipoDoc || $buscar !== '' ? 'Nada coincide con los filtros.' : 'Todavía no se ha revisado ningún documento.' }}</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+        <div style="margin-top:12px;">{{ $docs->links('vendor.pagination.custom-sliding') }}</div>
+        @else
         <div class="cpdf-tabla-caja">
             <table class="tabla-lista">
                 <thead>
@@ -179,9 +272,49 @@
             </table>
         </div>
         <div style="margin-top:12px;">{{ $filas->links('vendor.pagination.custom-sliding') }}</div>
+        @endif
     </div>
 
     <aside class="cpdf-side">
+        @if ($pestana === 'documentos')
+            <div class="cpdf-caja cpdf-aviso {{ $activa ? 'ok' : 'apagada' }}">
+                <i class="material-icons">{{ $activa ? 'fact_check' : 'block' }}</i>
+                <div>
+                    @if ($activa)
+                        <strong>Lectura nocturna activa</strong>
+                        <span>De 12:00 a 5:00 a.m., hora {{ $zona === 'America/Caracas' ? 'de Venezuela' : $zona }} (ahora {{ $horaApp->format('g:i a') }}). Arranca cuando la compresión termina, y no cambia ninguna ficha sola.</span>
+                    @else
+                        <strong>Lectura nocturna apagada</strong>
+                        <span>{{ ucfirst($motivoActiva) }}.</span>
+                    @endif
+                </div>
+            </div>
+            <div class="cpdf-caja">
+                <small>Coinciden</small>
+                <strong>{{ $resumenDocs[\App\Models\VerificacionDocumento::COINCIDE] ?? 0 }}</strong>
+                <span>la ficha dice lo mismo que el documento</span>
+            </div>
+            <div class="cpdf-caja">
+                <small>Datos distintos</small>
+                <strong>{{ $resumenDocs[\App\Models\VerificacionDocumento::DIFIERE] ?? 0 }}</strong>
+                <span>se corrigen con un botón</span>
+            </div>
+            <div class="cpdf-caja">
+                <small>Para revisar a mano</small>
+                <strong>{{ $porRevisar }}</strong>
+                <span>ilegibles, de otro tipo o sin archivo</span>
+            </div>
+            <div class="cpdf-caja">
+                <small>Faltan por leer</small>
+                <strong>{{ $pendientesDocs }}</strong>
+                <span>tandas de 5, títulos y pólizas</span>
+            </div>
+            <div class="cpdf-caja">
+                <small>Última lectura</small>
+                <strong style="font-size:16px;">{{ $ultimaLectura ? \Carbon\Carbon::parse($ultimaLectura)->format('d/m/Y H:i') : 'Todavía no' }}</strong>
+                <span>de títulos y pólizas</span>
+            </div>
+        @else
         <div class="cpdf-caja cpdf-aviso {{ $activa && $ghostscript ? 'ok' : 'apagada' }}">
             <i class="material-icons">{{ $activa && $ghostscript ? 'nights_stay' : 'block' }}</i>
             <div>
@@ -224,23 +357,31 @@
             <strong style="font-size:16px;">{{ $ultimaNoche ? \Carbon\Carbon::parse($ultimaNoche)->format('d/m/Y H:i') : 'Todavía no' }}</strong>
             <span>tandas de 5, de 12:00 a 5:00 a.m.</span>
         </div>
+        @endif
     </aside>
 </div>
 
 <script>
     // Arma la URL con los filtros puestos y la abre por la SPA (sin recargar la página).
     // Se redefine en cada visita: es solo una asignación, no suma listeners.
-    window.cpdfFiltrar = function () {
+    window.cpdfFiltrar = function (pestana) {
         var p = new URLSearchParams();
-        var buscar = (document.getElementById('cpdfBuscar') || {}).value || '';
-        if (buscar.trim()) p.set('buscar', buscar.trim());
-        [['cpdfEstadoSelect', 'estado'], ['cpdfDocumentoSelect', 'documento']].forEach(function (par) {
-            var input = document.querySelector('#' + par[0] + ' [data-filter-value]');
-            if (input && input.value && input.value !== 'all') p.set(par[1], input.value);
-        });
-        var url = @json(route('compresion-pdf.index')) + (p.toString() ? '?' + p.toString() : '');
+        pestana = pestana || @json($pestana);
+        p.set('pestana', pestana);
+        // El buscador y los filtros se quedan en la pestaña donde se pusieron: al cambiar de
+        // pestaña se pide limpia, porque filtra por otras columnas.
+        if (pestana === @json($pestana)) {
+            var buscar = (document.getElementById('cpdfBuscar') || {}).value || '';
+            if (buscar.trim()) p.set('buscar', buscar.trim());
+            [['cpdfEstadoSelect', 'estado'], ['cpdfDocumentoSelect', 'documento'],
+             ['cpdfDocEstadoSelect', 'estado_doc'], ['cpdfDocTipoSelect', 'tipo_doc']].forEach(function (par) {
+                var input = document.querySelector('#' + par[0] + ' [data-filter-value]');
+                if (input && input.value && input.value !== 'all') p.set(par[1], input.value);
+            });
+        }
+        var url = @json(route('historial-documentos.index')) + (p.toString() ? '?' + p.toString() : '');
         if (typeof window.navigateTo === 'function') window.navigateTo(url);
         else window.location.href = url;
     };
+    window.cpdfPestana = function (cual) { window.cpdfFiltrar(cual); };
 </script>
-@endsection

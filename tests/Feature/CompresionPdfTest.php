@@ -134,8 +134,10 @@ class CompresionPdfTest extends MySqlTestCase
         $this->assertNotNull($admin, 'No hay ningun super.admin para probar.');
         $this->assertNotNull($otro, 'No hay ningun usuario sin super.admin para probar.');
 
-        $this->actingAs($otro)->get(route('compresion-pdf.index'))->assertForbidden();
-        $this->actingAs($admin)->get(route('compresion-pdf.index'))
+        // El registro vive en una pestaña de Control de Auditoría; la direccion vieja lleva alli.
+        $this->actingAs($otro)->get(route('historial-documentos.index', ['pestana' => 'compresion']))->assertForbidden();
+        $this->actingAs($admin)->get(route('compresion-pdf.index'))->assertRedirectContains('pestana=compresion');
+        $this->actingAs($admin)->get(route('historial-documentos.index', ['pestana' => 'compresion']))
             ->assertOk()
             ->assertSee('Compresión de PDF')
             ->assertSee('Tarea nocturna apagada')

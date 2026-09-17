@@ -285,6 +285,13 @@
             min-height: 100%;
         }
     }
+    /* ── Pestañas de Control de Auditoría: Historial · Compresión · Títulos y pólizas ──
+       Las dos ultimas las pinta admin/compresion_pdf/panel.blade.php. */
+    .hd-pest { display: flex; gap: 6px; border-bottom: 1px solid #e2e8f0; width: 98%; max-width: 1600px; margin: -6px auto 14px; }
+    .hd-pest button { border: none; background: none; font: inherit; font-size: 13px; font-weight: 700; color: #64748b;
+                      padding: 8px 14px; border-bottom: 3px solid transparent; cursor: pointer; }
+    .hd-pest button.on { color: #0067b1; border-bottom-color: #0067b1; }
+    .hd-pest .hd-pend { background: #fef3c7; color: #92400e; border-radius: 999px; padding: 1px 7px; font-size: 11px; margin-left: 4px; }
 </style>
 
 @include('admin.partials.page_header', [
@@ -297,6 +304,32 @@
     'h1Estilo'     => 'display:flex;align-items:center;gap:12px;font-size:24px;',
 ])
 
+@php
+    // El numero del boton avisa cuantos documentos hay que mirar a mano (ilegibles, sin
+    // archivo o con error). En la pestaña de documentos ya viene contado.
+    $porRevisarDocs = collect(\App\Models\VerificacionDocumento::A_REVISAR)
+        ->sum(fn ($e) => ($resumenDocs ?? collect())[$e] ?? 0);
+@endphp
+<div class="hd-pest">
+    <button type="button" class="{{ $pestana === 'historial' ? 'on' : '' }}" onclick="window.hdPestana('historial')">Historial</button>
+    <button type="button" class="{{ $pestana === 'compresion' ? 'on' : '' }}" onclick="window.hdPestana('compresion')">Compresión de PDF</button>
+    <button type="button" class="{{ $pestana === 'documentos' ? 'on' : '' }}" onclick="window.hdPestana('documentos')">
+        Títulos y pólizas
+        @if ($porRevisarDocs) <span class="hd-pend" title="Documentos que hay que revisar a mano">{{ $porRevisarDocs }}</span> @endif
+    </button>
+</div>
+<script>
+    // Cambiar de pestaña = pedir la misma pantalla con ?pestana=..., por la SPA.
+    window.hdPestana = function (cual) {
+        var url = @json(route('historial-documentos.index')) + (cual === 'historial' ? '' : '?pestana=' + cual);
+        if (typeof window.navigateTo === 'function') window.navigateTo(url);
+        else window.location.href = url;
+    };
+</script>
+
+@if ($pestana !== 'historial')
+    @include('admin.compresion_pdf.panel')
+@else
 <div class="maquinaria-layout-container hd-layout-grid" style="display: grid; grid-template-columns: 1fr 280px; gap: 20px; width: 98%; max-width: 1600px; margin: 0 auto;">
     
     <!-- Left Column (Main Content) -->
@@ -495,15 +528,6 @@
                             </div>
                             <span style="font-size: 14px; font-weight: 500;">Papelera</span>
                         </button>
-                        {{-- Link normal SIN onclick: navegacion.js no lleva por SPA los links
-                             con onclick (haría recarga completa). El menú se va con la vista. --}}
-                        <a href="{{ route('compresion-pdf.index') }}" class="dropdown-item-custom"
-                            style="display: flex; align-items: center; gap: 10px; padding: 12px 15px; color: #475569; text-decoration: none; cursor: pointer;">
-                            <div style="background: #e0f2fe; padding: 6px; border-radius: 6px; display: flex;">
-                                <i class="material-icons" style="font-size: 18px; color: #0284c7;">compress</i>
-                            </div>
-                            <span style="font-size: 14px; font-weight: 500;">Compresión de PDF</span>
-                        </a>
                     </div>
                 </div>
                 @endcan
@@ -553,118 +577,6 @@
             </div>
         </div>
 
-        {{-- IPs Bloqueadas Card — siempre visible para super.admin (incluso con 0 IPs).
-             Muestra empty state si no hay bloqueadas; con datos permite filtrar
-             y desbloquear individualmente con el icono de bote. --}}
-        @if(auth()->check() && auth()->user()->can('super.admin'))
-        @php $bipsCount = isset($blockedIps) ? $blockedIps->count() : 0; @endphp
-        @if($bipsCount === 0)
-        <div style="background: white; border-radius: 12px; padding: 14px 15px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-            <div class="hd-collapsible-header" onclick="window.hdToggleCollapse(this)" style="display: flex; align-items: center; justify-content: space-between;">
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <i class="material-icons" style="color: #16a34a; font-size: 18px;">verified_user</i>
-                    <h3 style="margin: 0; font-size: 12px; font-weight: 700; color: #1e293b; text-transform: uppercase;">IPs Bloqueadas</h3>
-                </div>
-                <div style="display: flex; align-items: center; gap: 6px;">
-                    <span style="background: #dcfce7; color: #15803d; font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 700;">0</span>
-                    <i class="material-icons hd-chevron" style="display: none; font-size: 20px; color: #94a3b8;">expand_more</i>
-                </div>
-            </div>
-            <div class="hd-collapsible-body">
-                <p style="margin: 0; font-size: 11px; color: #94a3b8; text-align: center; padding: 8px 0 0;">Sin IPs bloqueadas (umbral: 10 intentos fallidos).</p>
-            </div>
-        </div>
-        @else
-        <div style="background: white; border-radius: 12px; padding: 15px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05); position: relative; z-index: 20;" id="blocked-ips-container">
-            <div class="hd-collapsible-header" onclick="window.hdToggleCollapse(this)" style="display: flex; align-items: center; justify-content: space-between;">
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <i class="material-icons" style="color: #ef4444; font-size: 20px;">gpp_bad</i>
-                    <h3 style="margin: 0; font-size: 13px; font-weight: 700; color: #1e293b; text-transform: uppercase;">IPs Bloqueadas</h3>
-                </div>
-                <div style="display: flex; align-items: center; gap: 6px;">
-                    <span class="badge" style="background: #fee2e2; color: #ef4444; font-size: 11px; padding: 2px 6px; border-radius: 10px; font-weight: 700;" id="blocked-ip-count">{{ $blockedIps->count() }}</span>
-                    <i class="material-icons hd-chevron" style="display: none; font-size: 20px; color: #94a3b8;">expand_more</i>
-                </div>
-            </div>
-            <div class="hd-collapsible-body" style="margin-top: 10px;">
-                <div style="position: relative; margin-bottom: 10px;">
-                    <i class="material-icons" style="position: absolute; left: 8px; top: 50%; transform: translateY(-50%); font-size: 16px; color: #94a3b8; pointer-events: none;">search</i>
-                    <input
-                        type="text"
-                        id="ip-filter-input"
-                        placeholder="Filtrar por IP..."
-                        autocomplete="off"
-                        oninput="window.filterBlockedIps(this.value)"
-                        style="width: 100%; box-sizing: border-box; padding: 7px 10px 7px 30px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 12px; color: #334155; background: #f8fafc; outline: none; transition: border-color 0.2s;"
-                        onfocus="this.style.borderColor='#ef4444'; this.style.background='#fff'"
-                        onblur="this.style.borderColor='#e2e8f0'; this.style.background='#f8fafc'"
-                    >
-                </div>
-                <div id="ip-filter-empty" style="display: none; text-align: center; font-size: 12px; color: #94a3b8; padding: 8px 0;">Sin coincidencias</div>
-                <div id="blocked-ips-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 280px; overflow-y: auto; padding-right: 4px;" class="custom-scrollbar-container">
-                    @foreach($blockedIps as $ip)
-                    <div id="blocked-ip-{{ $ip->ID_BLOQUEO }}" data-ip-text="{{ $ip->DIRECCION_IP }}" style="display: flex; justify-content: space-between; align-items: center; background: #f8fafc; padding: 8px 10px; border-radius: 6px; border: 1px solid #f1f5f9; transition: all 0.2s;">
-                        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                            <span style="font-size: 13px; font-weight: 600; color: #334155; font-family: monospace;">{{ $ip->DIRECCION_IP }}</span>
-                            <span style="font-size: 11px; color: #64748b; background: #e2e8f0; padding: 2px 6px; border-radius: 4px; font-weight: 600;" title="Último intento: {{ $ip->ULTIMO_INTENTO->format('d/m/Y H:i') }}">Fallos: {{ $ip->CANTIDAD_INTENTOS }}</span>
-                        </div>
-                        @can('super.admin')
-                        <button
-                                class="btn-unlock-ip"
-                                data-ip-id="{{ $ip->ID_BLOQUEO }}"
-                                data-ip-address="{{ $ip->DIRECCION_IP }}"
-                                style="background: transparent; border: none; padding: 4px; color: #ef4444; cursor: pointer; border-radius: 4px; transition: background 0.2s; display: flex; align-items: center; justify-content: center; pointer-events: all; position: relative; z-index: 30; margin-left: 10px;"
-                                onmouseover="this.style.background='#fee2e2'"
-                                onmouseout="this.style.background='transparent'"
-                                title="Desbloquear IP">
-                            <i class="material-icons" style="font-size: 18px; pointer-events: none;">delete_outline</i>
-                        </button>
-                        @endcan
-                    </div>
-                    @endforeach
-                </div>
-            </div>
-        </div>
-        @endif {{-- bipsCount > 0 --}}
-        @endif {{-- can super.admin --}}
-
-        {{-- ─── Usuarios Activos (sesiones últimos 30 min) ─── --}}
-        @if(isset($activeUsers) && auth()->check() && auth()->user()->can('super.admin'))
-        <div style="background: white; border-radius: 12px; padding: 15px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.06);">
-            <div class="hd-collapsible-header" onclick="window.hdToggleCollapse(this)" style="display: flex; align-items: center; justify-content: space-between;">
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <i class="material-icons" style="color: #10b981; font-size: 22px;">radio_button_checked</i>
-                    <h3 style="margin: 0; font-size: 13px; font-weight: 800; color: #1e293b; text-transform: uppercase; letter-spacing: 0.5px;">Usuarios Activos</h3>
-                </div>
-                <div style="display: flex; align-items: center; gap: 6px;">
-                    <span style="background: #dcfce7; color: #15803d; font-size: 12px; padding: 3px 10px; border-radius: 10px; font-weight: 700;">{{ $activeUsers->count() }}</span>
-                    <i class="material-icons hd-chevron" style="display: none; font-size: 20px; color: #94a3b8;">expand_more</i>
-                </div>
-            </div>
-            <div class="hd-collapsible-body" style="margin-top: 14px;">
-                @if($activeUsers->count() === 0)
-                    <p style="margin: 0; font-size: 12px; color: #94a3b8; text-align: center; padding: 20px 0;">Nadie conectado en los últimos 30 min.</p>
-                @else
-                    <div style="display: flex; flex-direction: column; gap: 8px; min-height: 280px; max-height: 400px; overflow-y: auto; padding-right: 4px;" class="custom-scrollbar-container">
-                        @foreach($activeUsers as $u)
-                            @php
-                                $minsAgo = max(0, (int) floor((now()->timestamp - $u->last_activity) / 60));
-                                $ago = $minsAgo === 0 ? 'ahora' : ($minsAgo === 1 ? 'hace 1 min' : 'hace ' . $minsAgo . ' min');
-                                $nombreCorto = $u->NOMBRE_COMPLETO ?: strtok($u->CORREO_ELECTRONICO, '@');
-                            @endphp
-                            <div style="display: flex; justify-content: space-between; align-items: center; background: #f0fdf4; padding: 9px 12px; border-radius: 8px; border: 1px solid #dcfce7;" title="{{ $u->CORREO_ELECTRONICO }} | IP: {{ $u->ip_address ?? 'N/A' }}">
-                                <div style="display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1;">
-                                    <span style="width: 9px; height: 9px; border-radius: 50%; background: #10b981; box-shadow: 0 0 0 3px rgba(16,185,129,0.25); flex-shrink: 0;"></span>
-                                    <span style="font-size: 11px; font-weight: 600; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ $nombreCorto }}</span>
-                                </div>
-                                <span style="font-size: 11px; color: #64748b; white-space: nowrap; margin-left: 8px; background: #e2e8f0; padding: 2px 7px; border-radius: 6px; font-weight: 600;">{{ $ago }}</span>
-                            </div>
-                        @endforeach
-                    </div>
-                @endif
-            </div>
-        </div>
-        @endif
     </div>
 </div>
 
@@ -1341,4 +1253,5 @@ if (!window._hdInlineClickRegistered) {
 }
 </script>
 
+@endif
 @endsection

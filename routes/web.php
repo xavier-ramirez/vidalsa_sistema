@@ -512,11 +512,17 @@ Route::middleware(['auth'])->group(function () {
 
             // ── Auditoría Documental ─────────────────────────────────────────
             Route::middleware('can:super.admin')->group(function () {
+                // Control de Auditoría: historial + las dos pestañas de documentos
+                // (?pestana=compresion|documentos, ver App\Support\PanelDocumentos).
                 Route::get('historial-documentos', [App\Http\Controllers\HistorialDocumentosController::class, 'index'])->name('historial-documentos.index');
+                // Desbloquear IP: la tarjeta que la usa esta en /admin/usuarios (ver unlockIp).
                 Route::delete('historial-documentos/unlock-ip/{id}', [App\Http\Controllers\HistorialDocumentosController::class, 'unlockIp'])->name('historial-documentos.unlock-ip');
                 Route::delete('historial-documentos/registro', [App\Http\Controllers\HistorialDocumentosController::class, 'deleteRegistro'])->name('historial-documentos.deleteRegistro');
-                // Registro de la compresion nocturna de PDF (docs:comprimir). Solo lectura.
+                // La pantalla de compresion se mudo a Control de Auditoría: este GET solo
+                // lleva alli (los enlaces viejos y los favoritos siguen sirviendo).
                 Route::get('compresion-pdf', [App\Http\Controllers\CompresionPdfController::class, 'index'])->name('compresion-pdf.index');
+                Route::post('compresion-pdf/documento/{id}/aplicar', [App\Http\Controllers\CompresionPdfController::class, 'aplicarDocumento'])
+                    ->whereNumber('id')->name('compresion-pdf.documento.aplicar');
             });
 
             // Ruta de emergencia `force-fix-db` removida: los ajustes de schema ahora

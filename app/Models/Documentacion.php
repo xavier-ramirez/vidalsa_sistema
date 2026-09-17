@@ -19,6 +19,8 @@ class Documentacion extends Model
         'PROPIEDAD_SUBIDO_POR',
         'PROPIEDAD_FECHA_SUBIDA',
         'ID_SEGURO',
+        'FECHA_EMISION_PROPIEDAD',
+        'FECHA_EMISION_POLIZA',
         'ESTADO_POLIZA',
         'FECHA_VENC_POLIZA',
         'LINK_POLIZA_SEGURO',
@@ -55,7 +57,9 @@ class Documentacion extends Model
     ];
 
     protected $casts = [
-
+        // Fechas que dicen los propios PDF (las lee docs:verificar-documentos).
+        'FECHA_EMISION_PROPIEDAD' => 'date',
+        'FECHA_EMISION_POLIZA' => 'date',
         'POLIZA_FECHA_SUBIDA' => 'datetime',
         'ROTC_FECHA_SUBIDA' => 'datetime',
         'RACDA_FECHA_SUBIDA' => 'datetime',

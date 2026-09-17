@@ -24,6 +24,20 @@ Schedule::command('docs:comprimir --lote=5')
     ->withoutOverlapping(30)
     ->runInBackground();
 
+// Verificacion de los documentos contra sus PDF (docs:verificar-documentos), de 9 de la noche
+// a medianoche y de 5 en 5. Su ventana NO se toca con la de la compresion (00:00-05:00): las
+// dos leen de Google Drive y no deben pisarse. Una pasada lee 5 documentos (~8 s cada uno),
+// asi que en una noche entran unos 900.
+// No cambia ninguna ficha: solo deja el resultado en Control de Auditoría para que una
+// persona decida. Solo en el servidor, como la compresion: en el PC de desarrollo la base es
+// una copia y las correcciones se perderian.
+Schedule::command('docs:verificar-documentos --lote=5')
+    ->when(fn () => \App\Support\EnlacesDocumentos::esBaseDelServidor()[0])
+    ->everyMinute()
+    ->between('21:00', '23:59')
+    ->withoutOverlapping(30)
+    ->runInBackground();
+
 // La caché vive en la base de datos (CACHE_STORE=database), y ahí una entrada caducada solo
 // se borra si alguien la vuelve a leer. Las cachés con la versión en la clave (el tablero del
 // menú, el historial de documentos) dejan una entrada nueva por usuario en cada cambio de

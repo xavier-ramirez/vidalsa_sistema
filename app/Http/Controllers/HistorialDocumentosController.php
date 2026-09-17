@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\PanelDocumentos;
 use Illuminate\Http\Request;
 use App\Models\Documentacion;
-use App\Models\BloqueoIp;
 use Carbon\Carbon;
 
 class HistorialDocumentosController extends Controller
@@ -122,6 +122,15 @@ class HistorialDocumentosController extends Controller
 
     public function index(Request $request)
     {
+        // Control de Auditoría tiene tres pestañas: el historial (esta) y las dos de
+        // documentos, que pinta admin/compresion_pdf/panel.blade.php con los datos de
+        // App\Support\PanelDocumentos. Cuando el usuario esta en una de esas, NO se arma la
+        // lista de eventos: es el trabajo caro de esta pantalla y no se ve.
+        $pestana = $request->input('pestana');
+        if (PanelDocumentos::esPestana($pestana)) {
+            return view('admin.historial_documentos.index', PanelDocumentos::datos($request, $pestana));
+        }
+
         // ── Scope LOCAL ─────────────────────────────────────────────────────
         // Usuarios NIVEL_ACCESO_EQUIPOS=2 (local) solo ven el historial de equipos en
         // los frentes que tienen asignados. Sin frentes => ven nada.
@@ -201,20 +210,6 @@ class HistorialDocumentosController extends Controller
             ]);
         }
 
-        // IPs EFECTIVAMENTE bloqueadas (>= umbral de intentos fallidos), no las que aún
-        // están en seguimiento. Criterio/umbral en un solo lugar: BloqueoIp::bloqueadas().
-        $blockedIps = BloqueoIp::bloqueadas()->get();
-
-        // Usuarios con sesion activa en los ultimos 30 min (driver database).
-        // Se lee directamente la tabla `sessions` (Laravel la crea cuando SESSION_DRIVER=database).
-        // NOTA: el JOIN usa `sessions.user_id = usuarios.ID_USUARIO` — esto funciona porque
-        // App\Models\Usuario sobrescribe $primaryKey = 'ID_USUARIO', asi Auth::id() devuelve
-        // ese valor y Laravel lo persiste en sessions.user_id. La FK formal del schema
-        // apunta a la tabla default `users` que NO se usa en este proyecto.
-        // Ambas columnas del filtro (user_id y last_activity) estan indexadas.
-        // Fuente ÚNICA: App\Models\Usuario::sesionesActivas() (reutilizada por /admin/usuarios).
-        $activeUsers = \App\Models\Usuario::sesionesActivas(30);
-
         // Autores (nombre + correo) → autocompletado del filtro "Buscar por nombre o
         // correo del autor". Se sugieren ambos para que el usuario ubique por cualquiera.
         $autoresSugeridos = \App\Models\Usuario::whereNotNull('CORREO_ELECTRONICO')
@@ -228,10 +223,12 @@ class HistorialDocumentosController extends Controller
             ->values();
 
         return view('admin.historial_documentos.index', [
+            'pestana'          => 'historial',
+            // Solo para el numero del boton "Títulos y pólizas" (cuantos hay que mirar a mano).
+            'resumenDocs'      => \App\Models\VerificacionDocumento::select('ESTADO', \Illuminate\Support\Facades\DB::raw('COUNT(*) as n'))
+                                    ->groupBy('ESTADO')->pluck('n', 'ESTADO'),
             'events'           => $paginatedEvents,
             'total'            => $total,
-            'blockedIps'       => $blockedIps,
-            'activeUsers'      => $activeUsers,
             'autoresSugeridos' => $autoresSugeridos,
         ]);
     }
@@ -897,14 +894,14 @@ class HistorialDocumentosController extends Controller
     }
 
     /**
-     * Desbloquear IP. El permiso 'super.admin' ya se valida en el group de rutas
-     * en routes/web.php (Route::middleware('can:super.admin')->group), por eso
-     * no se duplica el check aqui.
+     * Desbloquear IP. La tarjeta que la llama vive en /admin/usuarios (el JS compartido
+     * historial_documentos_index.js apunta a esta ruta); en Control de Auditoría ya no se
+     * muestra. El permiso 'super.admin' se valida en el group de rutas de routes/web.php.
      */
     public function unlockIp($id)
     {
         try {
-            $bloqueo = BloqueoIp::findOrFail($id);
+            $bloqueo = \App\Models\BloqueoIp::findOrFail($id);
             $ip = $bloqueo->DIRECCION_IP;
             $bloqueo->delete();
 
