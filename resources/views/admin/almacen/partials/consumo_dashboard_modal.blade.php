@@ -340,8 +340,15 @@
                     <div class="cdash-card full"><h4>Top {{ \App\Http\Controllers\AlmacenController::TOP_PRODUCTOS_GRAFICO }} productos consumidos<button type="button" class="cdash-chart-dl" onclick="window._cdashDescargarGrafico(this,'top-20-consumidos')" title="Descargar gráfico" aria-label="Descargar gráfico"><i class="material-icons">photo_camera</i></button></h4>
                         <div class="cdash-canvas-wrap tall"><canvas id="cdashChartTop"></canvas></div></div>
                     {{-- Una barra por mes, apilada por PROYECTO (lo dice el título y lo enseña la
-                         leyenda). Sin nota debajo: alargaba el modal y el cliente lo quiere corto. --}}
-                    <div class="cdash-card full"><h4>Consumo por mes y proyecto<button type="button" class="cdash-chart-dl" onclick="window._cdashDescargarGrafico(this,'consumo-por-mes-y-proyecto')" title="Descargar gráfico" aria-label="Descargar gráfico"><i class="material-icons">photo_camera</i></button></h4>
+                         leyenda). Sin nota debajo: alargaba el modal y el cliente lo quiere corto.
+
+                         EL TÍTULO DICE EXACTAMENTE LO QUE HAY (17-09-2026): son SALIDAS del
+                         almacén que se tiene abierto -no entradas, no ajustes de auditoría, no
+                         traspasos: consumoDashboardQuery() filtra TIPO = 'SALIDA'- y lo que se
+                         apila son UNIDADES entregadas, no la cantidad de movimientos. Eso
+                         último se preguntaba una y otra vez al ver un mes con pocas notas y una
+                         barra alta. Si se cambia el título, que siga diciendo las dos cosas. --}}
+                    <div class="cdash-card full"><h4>Salidas del almacén por mes y proyecto (unidades)<button type="button" class="cdash-chart-dl" onclick="window._cdashDescargarGrafico(this,'salidas-por-mes-y-proyecto')" title="Descargar gráfico" aria-label="Descargar gráfico"><i class="material-icons">photo_camera</i></button></h4>
                         <div class="cdash-canvas-wrap conleyenda"><canvas id="cdashChartMes"></canvas></div></div>
                     <div class="cdash-card full"><h4>Consumo por almacén<button type="button" class="cdash-chart-dl" onclick="window._cdashDescargarGrafico(this,'consumo-por-almacen')" title="Descargar gráfico" aria-label="Descargar gráfico"><i class="material-icons">photo_camera</i></button></h4><div class="cdash-canvas-wrap"><canvas id="cdashChartAlm"></canvas></div></div>
                 </div>
@@ -748,51 +755,53 @@
         }
         var meses = mes.map(function (x) { return x.mes; });
         var porProy = data.por_mes_frente || [];
-        // COLORES de la pila (17-09-2026). El cliente pidio el mismo registro del grafico
-        // de combustible de Flota: tonos PROFUNDOS y sobrios, nada de colores chillones.
-        // De ahi salen los dos primeros, que son literalmente los suyos (CHART_COLORS.age):
-        // el azul marino de la casa y el burdeos.
+        // COLORES de la pila (17-09-2026). Son los de la propia pagina, como los pidio el
+        // cliente: ROJO, AZUL corporativo (#0067b1), VERDE, BRONCE y GRIS slate (el de toda
+        // la interfaz). Cinco familias, cinco intensidades cada una = 25 tonos.
+        //
+        // EL ROJO VA PRIMERO A PROPOSITO: las series entran ordenadas de MAYOR a menor
+        // consumo, asi que el rojo le toca siempre al proyecto que mas material saco. Es lo
+        // que se busca de un vistazo. Si algun dia se cambia el orden de las series, hay que
+        // cambiarlo aqui tambien o el rojo deja de significar eso.
         //
         // POR QUE UNA ESCALA Y NO UNA LISTA DE COLORES SUELTOS
-        // En Barcelona hay 22 proyectos con consumo. Con tonos oscuros no existen 22
-        // colores que se distingan entre si -medido: pasadas las 5 familias, cualquier par
-        // nuevo cae por debajo del minimo-. Asi que la escala tiene DOS dimensiones:
-        // 6 FAMILIAS de tono x 4 INTENSIDADES. El indice recorre primero las familias
-        // (i % 6), de modo que dos tramos pegados en la misma barra NUNCA comparten familia,
-        // y solo al pasar de seis cambia la intensidad. Un color se repite a partir del
-        // proyecto 25; para entonces los tramos son rayas de pocos pixeles y quien
-        // identifica es la leyenda, no el color.
+        // En Barcelona hay 22 proyectos con consumo. No existen 22 colores que se distingan
+        // entre si -y menos ciñendose a la paleta de la casa-. Asi que la escala tiene DOS
+        // dimensiones y el indice recorre primero las familias (i % 5): dos tramos pegados en
+        // la misma barra NUNCA comparten familia. Ademas cada familia entra en la escalera de
+        // claridad por un peldano distinto (0, 3, 1, 4, 2), de modo que dos vecinos cambian de
+        // tono Y de claridad a la vez; sin ese desfase el verde oscuro y el bronce oscuro se
+        // confundian con daltonismo (dE 5,5 medido). Un color se repite a partir del proyecto
+        // 26; para entonces los tramos son rayas de pocos pixeles y quien identifica es la
+        // leyenda, no el color.
         //
         // COMPROBADO con scripts/validate_palette.js (no elegido a ojo):
-        //   · Separacion para daltonismo entre vecinos: dE 14,8 (protanopia) — minimo 8.
-        //   · Separacion a ojo normal entre vecinos:    dE 19,8               — minimo 15.
-        //   · Saturacion: la familia petroleo se queda en 0,094 frente a un minimo de 0,1.
-        //     No hay un cian mas saturado a esa luminosidad: o es este, o sale claro y
-        //     rompe el tono. Se lee como azul petroleo, no como gris.
-        //   · Contraste sobre blanco: dos de los mas claros quedan por debajo de 3:1. Se
-        //     acepta igual que en el grafico de combustible, porque el total va ESCRITO
-        //     encima de cada barra y la leyenda dice quien es quien: el color nunca es el
-        //     unico dato.
-        //   · Banda de luminosidad: los seis tonos profundos quedan por debajo del minimo.
-        //     Es el MISMO intercambio ya aceptado en CHART_COLORS.age (fleet_dashboard.js):
-        //     son los tonos que pidio el cliente. NO aclararlos por criterio de estilo.
+        //   · Separacion para daltonismo entre vecinos: dE 11,1 (protanopia) — minimo 8.
+        //   · Separacion a ojo normal entre vecinos:    dE 19,2               — minimo 15.
+        //   · Contraste sobre blanco: los 25 pasan 3:1.
+        //   · Saturacion: la familia GRIS queda por debajo del minimo. Es lo esperado: el
+        //     gris lo pidio el cliente y es el de la interfaz.
+        //   · Banda de luminosidad: los mas oscuros quedan por debajo, el MISMO intercambio
+        //     ya aceptado en CHART_COLORS.age (fleet_dashboard.js).
         //
         // Aviso para que no se pierda: el rojo y el verde tambien significan "mal" y "bien"
         // en el resto del sistema (stock bajo, operativo). Aqui NO significan eso: son
         // identidad, y por eso van siempre con leyenda.
-        var CD_FAMILIAS = 6;
+        var CD_FAMILIAS = 5;
         var CD_ESCALA = [
-            // profundos: marino (el del grafico de combustible), burdeos (idem), petroleo,
-            // bronce, indigo y verde oliva
-            '#004a80', '#911a24', '#0e7490', '#a16207', '#5b21b6', '#3f6212',
-            // un punto mas claros
-            '#1c619c', '#af3237', '#2b8dab', '#bd7925', '#6d4cbd', '#547a29',
-            // los mas oscuros
-            '#00366b', '#7a0010', '#00607b', '#8a4e00', '#461b8c', '#2b4f00',
-            // los mas claros (solo del proyecto 19 en adelante: tramos minusculos)
-            '#3376b2', '#c7494b', '#45a2c1', '#d48e3f', '#8162d5', '#688f3f',
+            // rojo       azul       verde      bronce     gris
+            '#8d0003', '#297ec9', '#006b2d', '#c47809', '#5e6a7b',
+            '#a21b19', '#3e90dd', '#1d7d3e', '#6a3b00', '#6f7b8c',
+            '#b6322c', '#00488a', '#348f4f', '#814800', '#818d9f',
+            '#cb473e', '#005aa2', '#48a260', '#985700', '#3e4858',
+            '#e15a4f', '#0e6cb5', '#00591d', '#b06600', '#4e5969',
         ];
-        var CD_COLOR_SIN_PROY = '#64748b';
+        // El tramo que NO es un proyecto va aparte: la tinta mas oscura de la interfaz. No
+        // puede ser un gris de los de arriba -el GRIS es una familia mas de la escala- ni un
+        // color, que se reserva a los proyectos de verdad. Este se separa de los 25 con
+        // holgura y se lee como "esto no tiene dueño". Lleva su propio contador para que ese
+        // tramo no se coma un color de la escala.
+        var CD_COLOR_SIN_PROY = '#0f172a';
         var cdTurnoColor = 0;
         var cdColorProyecto = function (nombre) {
             if (nombre === 'Sin proyecto') return CD_COLOR_SIN_PROY;
@@ -822,10 +831,18 @@
             return {
                 label: p,
                 data: meses.map(function (m) { return valor[p + '|' + m] || 0; }),
+                // Color PLANO. Se probo con degradado dentro de cada tramo y el cliente lo
+                // quito (17-09-2026): con veintitantos proyectos apilados el degradado
+                // aclaraba la parte de arriba de cada tramo y se confundia con el color del
+                // tramo de encima. Plano se lee mejor.
                 backgroundColor: cdColorProyecto(p),
                 // Sin raya blanca entre tramos: la quito el cliente (17-09-2026). La paleta
                 // ya separa los colores sola, y el borde picaba la pila en trocitos.
-                borderWidth: 0, borderRadius: 3, borderSkipped: false, maxBarThickness: 48,
+                //
+                // Esquinas RECTAS (borderRadius: 0). Con radio, Chart.js solo se lo pone al
+                // tramo que cabe y deja cuadrados los estrechos, asi que la misma pila salia
+                // con unos segmentos redondeados y otros no.
+                borderWidth: 0, borderRadius: 0, borderSkipped: false, maxBarThickness: 48,
             };
         });
         // Sin desglose por proyecto (p. ej. filtrando uno solo) se dibuja la barra de siempre.
