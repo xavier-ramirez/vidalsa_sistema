@@ -279,6 +279,23 @@ class VerificacionDocumentoTest extends MySqlTestCase
         $ficha = $this->ficha($equipo);
         $this->assertSame('2027-03-05', substr($ficha->FECHA_VENC_POLIZA, 0, 10), 'La corrección a mano no se pisa.');
         $this->assertSame($this->aseguradora('PIRÁMIDE SEGUROS'), (int) $ficha->ID_SEGURO, 'Lo demás sí se aplica.');
+
+        // Y la diferencia que quedó sigue a la vista, PARA REVISAR: la fila no se da por
+        // resuelta y el botón ya no la puede pisar (si no, el segundo clic borraba la
+        // corrección de la persona).
+        $reg->refresh();
+        $this->assertSame(VerificacionDocumento::DIFIERE, $reg->ESTADO);
+        $this->assertTrue($reg->A_MANO);
+        $this->assertFalse($reg->aplicable());
+        $this->assertArrayHasKey('FECHA_VENC_POLIZA', $reg->DIFERENCIAS);
+        $this->assertSame('2027-03-05', $reg->DIFERENCIAS['FECHA_VENC_POLIZA']['ficha']);
+        $this->assertArrayNotHasKey('ID_SEGURO', $reg->DIFERENCIAS, 'Lo ya corregido sale de la lista.');
+
+        // Un segundo clic no toca nada.
+        $this->actingAs($this->superAdmin())
+            ->post(route('compresion-pdf.documento.aplicar', ['id' => $reg->ID_REGISTRO]))
+            ->assertRedirect()->assertSessionHas('error');
+        $this->assertSame('2027-03-05', substr($this->ficha($equipo)->FECHA_VENC_POLIZA, 0, 10));
     }
 
     public function test_un_documento_leido_a_medias_no_se_puede_aplicar(): void
@@ -315,18 +332,98 @@ class VerificacionDocumentoTest extends MySqlTestCase
         }
     }
 
-    /** ¿El comando volvería a leer ese documento en su próxima pasada? */
+    /** ¿El comando volvería a leer ese documento? Se pregunta con SU MISMA cola. */
     private function enLaCola(int $equipo, string $tipo): bool
     {
-        $idEnlace = "SUBSTRING_INDEX(SUBSTRING_INDEX(d.LINK_DOC_PROPIEDAD, '/storage/google/', -1), '?', 1)";
-        return DB::table('documentacion as d')
-            ->join('equipos as e', 'e.ID_EQUIPO', '=', 'd.ID_EQUIPO')
-            ->where('d.ID_EQUIPO', $equipo)
-            ->whereNotExists(fn ($s) => $s->from('verificacion_documento_registro as v')
-                ->whereColumn('v.ID_EQUIPO', 'd.ID_EQUIPO')->where('v.TIPO', $tipo)->whereRaw("v.DRIVE_ID = $idEnlace")
-                ->where(fn ($w) => $w->whereNotIn('v.ESTADO', VerificacionDocumento::A_REVISAR)
-                    ->orWhere('v.INTENTOS', '>=', VerificacionDocumento::MAX_INTENTOS)))
-            ->exists();
+        $columna = $tipo === VerificacionDocumento::POLIZA ? 'LINK_POLIZA_SEGURO' : 'LINK_DOC_PROPIEDAD';
+        return VerificacionDocumento::pendientes($tipo, $columna)->where('d.ID_EQUIPO', $equipo)->exists();
+    }
+
+    public function test_si_no_se_lee_placa_ni_serial_no_se_ofrece_corregir(): void
+    {
+        // Escaneo en el que no se entiende ni la placa ni el serial: no hay forma de saber de
+        // que vehículo es el PDF, así que la fila va al montón de "revisar a mano".
+        [$equipo] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'ONSTRUCTORA VIDALSA 27, C.A']);
+        $this->lectorFalso("INTT \nCertificado de Registro de Vehículo a: \nCONSTRUCTORA VIDALSA 27, C.A \n");
+
+        $reg = $this->verificar($equipo, VerificacionDocumento::PROPIEDAD);
+
+        $this->assertSame(VerificacionDocumento::DIFIERE, $reg->ESTADO);
+        $this->assertTrue($reg->sinConfirmar());
+        $this->assertTrue($reg->A_MANO);
+        $this->assertFalse($reg->aplicable());
+        $this->assertSame(1, VerificacionDocumento::paraRevisar()->where('ID_EQUIPO', $equipo)->count(),
+            'Sale en el filtro "para revisar", no en lo que se corrige con un botón.');
+        $this->assertSame(0, VerificacionDocumento::corregibles()->where('ID_EQUIPO', $equipo)->count());
+
+        $this->actingAs($this->superAdmin())
+            ->post(route('compresion-pdf.documento.aplicar', ['id' => $reg->ID_REGISTRO]))
+            ->assertRedirect()->assertSessionHas('error');
+        $this->assertSame('ONSTRUCTORA VIDALSA 27, C.A', $this->ficha($equipo)->NOMBRE_DEL_TITULAR);
+    }
+
+    public function test_el_serial_del_chasis_vale_cuando_la_placa_no_se_lee(): void
+    {
+        [$equipo] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'ONSTRUCTORA VIDALSA 27, C.A']);
+        $serial = DB::table('equipos')->where('ID_EQUIPO', $equipo)->value('SERIAL_CHASIS');
+
+        // El documento no trae placa legible, pero sí el serial de la ficha: se confirma igual.
+        $this->lectorFalso("INTT \nCertificado de Registro de Vehículo a: \nCONSTRUCTORA VIDALSA 27, C.A \n"
+            . "Serial N.I.V.: $serial \nDado a los: 3 días del mes de: OCTUBRE de: 2018 \n");
+
+        $reg = $this->verificar($equipo, VerificacionDocumento::PROPIEDAD);
+
+        $this->assertFalse($reg->sinConfirmar());
+        $this->assertFalse($reg->A_MANO);
+        $this->assertTrue($reg->aplicable());
+    }
+
+    public function test_una_placa_mal_leida_no_gana_al_serial_que_si_coincide(): void
+    {
+        // Escaneo sucio: el reconocimiento se come la placa, pero el serial sale perfecto.
+        // Basta uno de los dos para confirmar que el PDF es de esta ficha.
+        [$equipo] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'ONSTRUCTORA VIDALSA 27, C.A']);
+        $serial = DB::table('equipos')->where('ID_EQUIPO', $equipo)->value('SERIAL_CHASIS');
+        $this->lectorFalso("INTT \nCertificado de Registro de Vehículo a: \nCONSTRUCTORA VIDALSA 27, C.A \n"
+            . "Placa: XX0000X \nSerial N.I.V.: $serial \nDado a los: 3 días del mes de: OCTUBRE de: 2018 \n");
+
+        $reg = $this->verificar($equipo, VerificacionDocumento::PROPIEDAD);
+
+        $this->assertFalse($reg->esDeOtroVehiculo(), 'El serial confirma que es el mismo vehículo.');
+        $this->assertTrue($reg->aplicable());
+    }
+
+    public function test_el_lote_se_reparte_entre_titulos_y_polizas(): void
+    {
+        // Con 4 fichas nuevas hay 4 títulos y 4 pólizas por leer; una pasada de 4 no puede
+        // gastarse entera en títulos, o las pólizas no se leerían nunca.
+        for ($i = 0; $i < 4; $i++) {
+            $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'CONSTRUCTORA VIDALSA 27, C.A']);
+        }
+        $this->lectorFalso("INTT \nhoja sin datos \n");
+        $antes = VerificacionDocumento::selectRaw('TIPO, COUNT(*) n')->groupBy('TIPO')->pluck('n', 'TIPO');
+
+        $this->artisan('docs:verificar-documentos', ['--lote' => 4])->assertSuccessful();
+
+        $despues = VerificacionDocumento::selectRaw('TIPO, COUNT(*) n')->groupBy('TIPO')->pluck('n', 'TIPO');
+        $leidas = fn ($tipo) => ($despues[$tipo] ?? 0) - ($antes[$tipo] ?? 0);
+        $this->assertGreaterThan(0, $leidas(VerificacionDocumento::PROPIEDAD));
+        $this->assertGreaterThan(0, $leidas(VerificacionDocumento::POLIZA), 'Las pólizas también entran en el lote.');
+        $this->assertSame(4, $leidas(VerificacionDocumento::PROPIEDAD) + $leidas(VerificacionDocumento::POLIZA));
+    }
+
+    public function test_un_documento_de_otro_serial_tambien_se_avisa(): void
+    {
+        [$equipo] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'CONSTRUCTORA VIDALSA 27, C.A']);
+        $this->lectorFalso("INTT \nCertificado de Registro de Vehículo a: \nOTRA EMPRESA, C.A \n"
+            . "Serial N.I.V.: XYZ999999999 \n");
+
+        $reg = $this->verificar($equipo, VerificacionDocumento::PROPIEDAD);
+
+        $this->assertTrue($reg->esDeOtroVehiculo());
+        $this->assertTrue($reg->A_MANO);
+        $this->assertFalse($reg->aplicable());
+        $this->assertStringContainsString('XYZ999999999', (string) $reg->MOTIVO);
     }
 
     public function test_sin_super_admin_no_se_puede_corregir(): void

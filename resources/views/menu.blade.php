@@ -212,7 +212,9 @@
     .alertas-modal-content {
         background: white;
         width: 100%;
-        max-width: 520px;
+        /* Angosto a propósito: cada alerta es una línea corta (equipo, documento y fecha),
+           y con la tarjeta ancha el ojo tenía que cruzar toda la pantalla para leerlas. */
+        max-width: 440px;
         max-height: 72vh;
         border-radius: 14px;
         box-shadow: 0 18px 40px -12px rgba(0,0,0,0.32);
@@ -821,7 +823,9 @@
     }
     .cat-mini-specs {
         font-size: 10px;
-        color: #64748b;
+        /* Marca y modelo en negro, como el título: en gris claro se perdían sobre la tarjeta.
+           La jerarquía la sigue dando el tamaño y el grosor, no el color. */
+        color: #1e293b;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;

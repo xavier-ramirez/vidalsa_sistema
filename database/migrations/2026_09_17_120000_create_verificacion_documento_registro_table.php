@@ -55,6 +55,16 @@ return new class extends Migration {
             });
         }
 
+        // A_MANO va aparte del create: esta migracion ya corrio en el servidor sin esta
+        // columna, y alli el create no se vuelve a ejecutar. 1 = no hay boton que lo arregle,
+        // lo tiene que mirar una persona (PDF de otro vehiculo, leido a medias, sin poder
+        // confirmar de quien es, o un dato que alguien cambio a mano).
+        if (!Schema::hasColumn('verificacion_documento_registro', 'A_MANO')) {
+            Schema::table('verificacion_documento_registro', function (Blueprint $table) {
+                $table->boolean('A_MANO')->default(false)->index()->after('INTENTOS');
+            });
+        }
+
         // Fecha en que se emitio cada documento: hasta ahora la ficha solo guardaba la de
         // vencimiento de la poliza. Las dos las lee el verificador del propio PDF ("Dado a los
         // 3 dias del mes de OCTUBRE de 2018" en el titulo; "Fecha de Emision" en la poliza).

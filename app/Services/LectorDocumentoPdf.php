@@ -106,7 +106,7 @@ class LectorDocumentoPdf
      */
     private function extraerPropiedad(string $plano): array
     {
-        $datos = ['titular' => null, 'placa' => null, 'nro' => null, 'emision' => null];
+        $datos = ['titular' => null, 'placa' => null, 'serial' => null, 'nro' => null, 'emision' => null];
 
         // El nombre va en la linea siguiente a "a:", salvo cuando el reconocimiento pega ahi el
         // rotulo que sigue en la hoja ("Cédula o RIFCORPO NAC DE LOGISTICA..."): eso lo quita
@@ -125,6 +125,7 @@ class LectorDocumentoPdf
         if (preg_match('/\b(\d{12})\b/', $plano, $m)) {
             $datos['nro'] = $m[1];
         }
+        $datos['serial'] = $this->serialEnTexto($plano);
         if (preg_match('/Dado\s+a\s+los:?\s*(\d{1,2})\D{1,40}?de:?\s*([A-ZÁÉÍÓÚa-záéíóú]{4,12})\D{0,12}(\d{4})/ui', $plano, $m)) {
             $datos['emision'] = $this->fechaDeMes($m[1], $m[2], $m[3]);
         }
@@ -138,7 +139,7 @@ class LectorDocumentoPdf
      */
     private function extraerPoliza(string $plano): array
     {
-        $datos = ['aseguradora' => null, 'nro' => null, 'desde' => null, 'vence' => null, 'emision' => null, 'placa' => null];
+        $datos = ['aseguradora' => null, 'nro' => null, 'desde' => null, 'vence' => null, 'emision' => null, 'placa' => null, 'serial' => null];
 
         // La vigencia viene de dos maneras segun la aseguradora: "Desde X Hasta Y" (Mampreca)
         // o "Vigencia del Seguro: X al Y" (Piramide). El reconocimiento parte la tabla, asi que
@@ -162,7 +163,25 @@ class LectorDocumentoPdf
         if (preg_match('/Placa:?\s*([A-Z0-9]{5,8})\b/ui', $plano, $m)) {
             $datos['placa'] = mb_strtoupper($m[1]);
         }
+        $datos['serial'] = $this->serialEnTexto($plano);
         return $datos;
+    }
+
+    /**
+     * El serial del chasis (N.I.V. / Serial de Carroceria), que identifica al vehiculo igual
+     * que la placa y sale en los dos documentos. Hace falta porque la placa es justo lo que no
+     * se lee en los escaneos sucios, y sin ninguno de los dos no se puede afirmar que el PDF
+     * sea de esta ficha (ver mismoVehiculo).
+     */
+    private function serialEnTexto(string $plano): ?string
+    {
+        foreach (['/N\.?\s?I\.?\s?V\.?:?\s*([A-Z0-9]{10,25})\b/ui',
+                  '/Serial\s*(?:de\s*)?(?:N\.?I\.?V|Carroceri?a|Chasis)\.?:?\s*([A-Z0-9]{10,25})\b/ui'] as $re) {
+            if (preg_match($re, $plano, $m) && strtoupper($m[1]) !== 'NA') {
+                return mb_strtoupper($m[1]);
+            }
+        }
+        return null;
     }
 
     /**
@@ -221,20 +240,41 @@ class LectorDocumentoPdf
     }
 
     /**
-     * Placas iguales aunque una lleve guion o espacios ("A85-DR1K" = "A85DR1K"). Las parejas
-     * que el reconocimiento confunde de verdad en una foto (O con 0, I con 1, S con 5) cuentan
-     * como iguales: si no, media flota saldria avisada de "el documento es de otra placa" por
-     * un cero. No mas que esas: esta comparacion es lo UNICO que impide copiarle a una ficha
-     * los datos del documento de otro vehiculo, y cada letra que se confunde a proposito le
-     * quita puntería. Placas de distinto largo son siempre distintas.
+     * ¿El documento es de ESTE vehiculo? Se compara por placa y por serial del chasis: basta
+     * que uno de los dos coincida, y basta que uno de los dos NO coincida para decir que no.
+     * Devuelve 'si' | 'no' | 'no_se_sabe' (cuando el documento no trae ninguno de los dos
+     * legible). Esto es lo UNICO que impide copiarle a una ficha los datos del documento de
+     * otro vehiculo, por eso "no se sabe" NO cuenta como que si: se marca para que lo mire una
+     * persona en vez de ofrecer el boton.
      */
-    public function mismaPlaca(?string $a, ?string $b): bool
+    public function mismoVehiculo(?string $placaFicha, ?string $serialFicha, array $leido): string
     {
-        if (!$a || !$b) return true;   // sin placa que comparar no se afirma nada
+        // BASTA QUE UNO COINCIDA: en un escaneo sucio la placa puede salir mal leida ("A85DRIX"
+        // por "A85DR1K") mientras el serial sale perfecto, y al reves. Solo se dice que no es
+        // de este vehiculo cuando ninguno coincide y al menos uno se pudo leer.
+        $respuestas = [
+            $this->mismoCodigo($placaFicha, $leido['placa'] ?? null),
+            $this->mismoCodigo($serialFicha, $leido['serial'] ?? null),
+        ];
+        if (in_array('si', $respuestas, true)) return 'si';
+        if (in_array('no', $respuestas, true)) return 'no';
+        return 'no_se_sabe';
+    }
+
+    /**
+     * Placas o seriales iguales aunque uno lleve guion o espacios ("A85-DR1K" = "A85DR1K").
+     * Las parejas que el reconocimiento confunde de verdad en una foto (O con 0, I con 1, S
+     * con 5) cuentan como iguales: si no, media flota saldria avisada de "es de otro vehiculo"
+     * por un cero. No mas que esas, y con el mismo largo: cada letra que se confunde a
+     * proposito le quita puntería a la unica comprobacion que protege la ficha.
+     */
+    private function mismoCodigo(?string $enFicha, ?string $enDocumento): string
+    {
+        if (!$enFicha || !$enDocumento) return 'no_se_sabe';
         $limpia = fn ($p) => strtr(preg_replace('/[^A-Z0-9]/', '', mb_strtoupper($p)),
             ['O' => '0', 'I' => '1', 'S' => '5']);
-        [$x, $y] = [$limpia($a), $limpia($b)];
-        return mb_strlen($x) === mb_strlen($y) && $x === $y;
+        [$x, $y] = [$limpia($enFicha), $limpia($enDocumento)];
+        return (mb_strlen($x) === mb_strlen($y) && $x === $y) ? 'si' : 'no';
     }
 
     /** Para comparar: sin acentos, sin puntuacion, sin letras de otro alfabeto y en MAYUSCULAS. */

@@ -39,14 +39,50 @@ class VerificacionDocumento extends Model
 
     protected $fillable = [
         'ID_EQUIPO', 'TIPO', 'PLACA', 'SERIAL', 'DRIVE_ID',
-        'LEIDO', 'DIFERENCIAS', 'ESTADO', 'MOTIVO', 'CARACTERES', 'INTENTOS', 'APLICADO_POR', 'APLICADO_EN',
+        'LEIDO', 'DIFERENCIAS', 'ESTADO', 'MOTIVO', 'CARACTERES', 'INTENTOS', 'A_MANO', 'APLICADO_POR', 'APLICADO_EN',
     ];
 
     protected $casts = [
         'LEIDO'       => 'array',
         'DIFERENCIAS' => 'array',
+        'A_MANO'      => 'boolean',
         'APLICADO_EN' => 'datetime',
     ];
+
+    /** Lo que mira una persona: no se pudo leer, no hay archivo, fallo, o no hay boton que lo arregle. */
+    public function scopeParaRevisar($q)
+    {
+        return $q->where(fn ($w) => $w->whereIn('ESTADO', self::A_REVISAR)->orWhere('A_MANO', true));
+    }
+
+    /** Lo que SI se corrige con el boton: hay diferencias y el documento es de este vehiculo. */
+    public function scopeCorregibles($q)
+    {
+        return $q->where('ESTADO', self::DIFIERE)->where('A_MANO', false);
+    }
+
+    /**
+     * Documentos que el comando todavia tiene que leer, de un tipo. UNA sola definicion de la
+     * cola: la usan el comando (para su lote), el panel (para "faltan por leer") y las pruebas.
+     * Quedan fuera los enlaces que no apuntan a un archivo de Drive —no hay nada que leer— y
+     * lo ya revisado, salvo lo ilegible o fallido mientras le queden intentos.
+     */
+    public static function pendientes(string $tipo, string $columna)
+    {
+        $idEnlace = "SUBSTRING_INDEX(SUBSTRING_INDEX(d.$columna, '/storage/google/', -1), '?', 1)";
+
+        return \Illuminate\Support\Facades\DB::table('documentacion as d')
+            ->join('equipos as e', 'e.ID_EQUIPO', '=', 'd.ID_EQUIPO')
+            ->whereNull('e.deleted_at')
+            ->where("d.$columna", 'like', '/storage/google/%')
+            ->whereRaw("$idEnlace <> ''")
+            ->whereNotExists(fn ($s) => $s->from('verificacion_documento_registro as v')
+                ->whereColumn('v.ID_EQUIPO', 'd.ID_EQUIPO')
+                ->where('v.TIPO', $tipo)
+                ->whereRaw("v.DRIVE_ID = $idEnlace")
+                ->where(fn ($w) => $w->whereNotIn('v.ESTADO', [self::ILEGIBLE, self::ERROR])
+                    ->orWhere('v.INTENTOS', '>=', self::MAX_INTENTOS)));
+    }
 
     /**
      * ¿Se puede corregir la ficha con lo que dice este documento? Solo si hay diferencias que
@@ -57,8 +93,7 @@ class VerificacionDocumento extends Model
     {
         return $this->ESTADO === self::DIFIERE
             && !empty($this->DIFERENCIAS)
-            && !$this->esDeOtroVehiculo()
-            && !$this->esLecturaParcial();
+            && !$this->A_MANO;
     }
 
     /** El documento se leyo a medias: lo que dice es MENOS que lo que tiene la ficha. */
@@ -67,9 +102,16 @@ class VerificacionDocumento extends Model
         return (bool) ($this->LEIDO['lectura_parcial'] ?? false);
     }
 
+    /** El PDF enlazado es de otro vehiculo (lo dicen su placa o su serial). */
     public function esDeOtroVehiculo(): bool
     {
         return (bool) ($this->LEIDO['otra_placa'] ?? false);
+    }
+
+    /** No se pudo leer ni la placa ni el serial: no hay forma de saber de quien es el PDF. */
+    public function sinConfirmar(): bool
+    {
+        return (bool) ($this->LEIDO['sin_confirmar'] ?? false);
     }
 
     public function equipo()

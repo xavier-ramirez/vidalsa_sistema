@@ -304,18 +304,12 @@
     'h1Estilo'     => 'display:flex;align-items:center;gap:12px;font-size:24px;',
 ])
 
-@php
-    // El numero del boton avisa cuantos documentos hay que mirar a mano (ilegibles, sin
-    // archivo o con error). En la pestaña de documentos ya viene contado.
-    $porRevisarDocs = collect(\App\Models\VerificacionDocumento::A_REVISAR)
-        ->sum(fn ($e) => ($resumenDocs ?? collect())[$e] ?? 0);
-@endphp
 <div class="hd-pest">
     <button type="button" class="{{ $pestana === 'historial' ? 'on' : '' }}" onclick="window.hdPestana('historial')">Historial</button>
     <button type="button" class="{{ $pestana === 'compresion' ? 'on' : '' }}" onclick="window.hdPestana('compresion')">Compresión de PDF</button>
     <button type="button" class="{{ $pestana === 'documentos' ? 'on' : '' }}" onclick="window.hdPestana('documentos')">
         Títulos y pólizas
-        @if ($porRevisarDocs) <span class="hd-pend" title="Documentos que hay que revisar a mano">{{ $porRevisarDocs }}</span> @endif
+        @if ($docsParaRevisar) <span class="hd-pend" title="Documentos que hay que revisar a mano">{{ $docsParaRevisar }}</span> @endif
     </button>
 </div>
 <script>

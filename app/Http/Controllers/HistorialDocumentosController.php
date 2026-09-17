@@ -225,8 +225,7 @@ class HistorialDocumentosController extends Controller
         return view('admin.historial_documentos.index', [
             'pestana'          => 'historial',
             // Solo para el numero del boton "Títulos y pólizas" (cuantos hay que mirar a mano).
-            'resumenDocs'      => \App\Models\VerificacionDocumento::select('ESTADO', \Illuminate\Support\Facades\DB::raw('COUNT(*) as n'))
-                                    ->groupBy('ESTADO')->pluck('n', 'ESTADO'),
+            'docsParaRevisar'  => \App\Models\VerificacionDocumento::paraRevisar()->count(),
             'events'           => $paginatedEvents,
             'total'            => $total,
             'autoresSugeridos' => $autoresSugeridos,

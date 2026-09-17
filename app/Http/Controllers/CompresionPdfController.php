@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CatalogoSeguro;
 use App\Models\Documentacion;
 use App\Models\EquipoAuditLog;
 use App\Models\VerificacionDocumento;
@@ -47,15 +48,22 @@ class CompresionPdfController extends Controller
         if ($reg->esLecturaParcial()) {
             return back()->with('error', 'Ese documento se leyó a medias: dice menos que la ficha. Ábrelo y corrígelo a mano.');
         }
+        if ($reg->sinConfirmar()) {
+            return back()->with('error', 'De ese PDF no se pudo leer la placa ni el serial: ábrelo y comprueba que sea de este vehículo.');
+        }
         if (!$reg->aplicable()) {
             return back()->with('error', 'Ese documento ya coincide con la ficha: no hay nada que cambiar.');
         }
 
-        $resultado = DB::transaction(function () use ($reg, $request) {
+        // Los nombres del catalogo, para poder decir "MAMPRECA" y no "1" cuando lo que quedo
+        // pendiente es la aseguradora.
+        $aseguradoras = CatalogoSeguro::pluck('NOMBRE_ASEGURADORA', 'ID_SEGURO')->all();
+
+        $resultado = DB::transaction(function () use ($reg, $request, $aseguradoras) {
             $doc = Documentacion::where('ID_EQUIPO', $reg->ID_EQUIPO)->lockForUpdate()->first();
             if (!$doc) return ['error' => 'La ficha de ese equipo ya no existe.'];
 
-            $puestos = $saltados = $cambios = [];
+            $puestos = $saltados = $cambios = $quedan = [];
             foreach ($reg->DIFERENCIAS as $campo => $d) {
                 // Lo que la ficha tenia cuando se leyo el PDF. Si ya no es eso, alguien lo
                 // corrigio a mano despues: su correccion manda.
@@ -65,7 +73,17 @@ class CompresionPdfController extends Controller
                 // muestra; los demas campos guardan el mismo texto que se enseña.
                 $esperado = array_key_exists('ficha_valor', $d) ? $d['ficha_valor'] : ($d['ficha'] ?? '');
                 if ((string) $ahora !== (string) $esperado) {
+                    // Alguien lo corrigio a mano despues de leer el PDF: su correccion manda y
+                    // la fila queda PARA REVISAR con esa diferencia a la vista. No se vuelve a
+                    // ofrecer el boton para ese dato: quien decida tiene que mirar el documento
+                    // (si se dejara, el siguiente clic pisaria la correccion de la persona).
                     $saltados[] = $d['etiqueta'];
+                    $quedan[$campo] = [
+                        'etiqueta'  => $d['etiqueta'],
+                        'ficha'     => $campo === 'ID_SEGURO' ? ($aseguradoras[$ahora] ?? (string) $ahora) : (is_scalar($ahora) ? (string) $ahora : null),
+                        'documento' => $d['documento'],
+                        'a_mano'    => true,
+                    ];
                     continue;
                 }
                 // La aseguradora se guarda por su ID del catalogo; el resto, tal cual se leyo.
@@ -89,9 +107,13 @@ class CompresionPdfController extends Controller
             }
 
             $reg->update([
-                'ESTADO'       => VerificacionDocumento::COINCIDE,
-                'MOTIVO'       => 'Corregido con lo que dice el documento',
-                'DIFERENCIAS'  => null,
+                'ESTADO'       => $quedan ? VerificacionDocumento::DIFIERE : VerificacionDocumento::COINCIDE,
+                // A_MANO: lo que queda ya no lo arregla ningun boton, lo decide una persona.
+                'A_MANO'       => (bool) $quedan,
+                'MOTIVO'       => $quedan
+                    ? 'Se corrigio ' . implode(', ', $puestos) . '; lo demas lo cambio alguien a mano y hay que mirarlo'
+                    : 'Corregido con lo que dice el documento',
+                'DIFERENCIAS'  => $quedan ?: null,
                 'APLICADO_POR' => $request->user()?->getKey(),
                 'APLICADO_EN'  => now(),
             ]);

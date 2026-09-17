@@ -100,7 +100,6 @@
         ['id' => 'cpdfDocumentoSelect', 'nombre' => 'documento', 'etiqueta' => 'Filtrar Documento...', 'todos' => 'TODOS LOS DOCUMENTOS',
          'valor' => $documento, 'opciones' => $documentos->mapWithKeys(fn ($d) => [$d => $d])->all()],
     ];
-    $porRevisar = collect(\App\Models\VerificacionDocumento::A_REVISAR)->sum(fn ($e) => $resumenDocs[$e] ?? 0);
 @endphp
 
 <div class="cpdf-layout">
@@ -282,7 +281,7 @@
                 <div>
                     @if ($activa)
                         <strong>Lectura nocturna activa</strong>
-                        <span>De 12:00 a 5:00 a.m., hora {{ $zona === 'America/Caracas' ? 'de Venezuela' : $zona }} (ahora {{ $horaApp->format('g:i a') }}). Arranca cuando la compresión termina, y no cambia ninguna ficha sola.</span>
+                        <span>De 9:00 p.m. a medianoche, hora {{ $zona === 'America/Caracas' ? 'de Venezuela' : $zona }} (ahora {{ $horaApp->format('g:i a') }}). No se cruza con la compresión, y no cambia ninguna ficha sola.</span>
                     @else
                         <strong>Lectura nocturna apagada</strong>
                         <span>{{ ucfirst($motivoActiva) }}.</span>
@@ -296,13 +295,13 @@
             </div>
             <div class="cpdf-caja">
                 <small>Datos distintos</small>
-                <strong>{{ $resumenDocs[\App\Models\VerificacionDocumento::DIFIERE] ?? 0 }}</strong>
+                <strong>{{ $docsCorregibles }}</strong>
                 <span>se corrigen con un botón</span>
             </div>
             <div class="cpdf-caja">
                 <small>Para revisar a mano</small>
-                <strong>{{ $porRevisar }}</strong>
-                <span>ilegibles, de otro tipo o sin archivo</span>
+                <strong>{{ $docsParaRevisar }}</strong>
+                <span>ilegibles, de otro vehículo o sin archivo</span>
             </div>
             <div class="cpdf-caja">
                 <small>Faltan por leer</small>
@@ -383,5 +382,4 @@
         if (typeof window.navigateTo === 'function') window.navigateTo(url);
         else window.location.href = url;
     };
-    window.cpdfPestana = function (cual) { window.cpdfFiltrar(cual); };
 </script>

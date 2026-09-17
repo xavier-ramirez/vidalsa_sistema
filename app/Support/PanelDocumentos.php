@@ -87,9 +87,9 @@ class PanelDocumentos
             'documentos'  => $documentos,
             'documento'   => $documento,
             'ghostscript' => app(CompresorPdf::class)->disponible(),
-            // De la otra pestaña solo hace falta su contador, que se ve en el propio botón.
+            // De la otra pestaña solo hace falta el numero de su botón.
             'docs'        => null,
-            'resumenDocs' => VerificacionDocumento::select('ESTADO', DB::raw('COUNT(*) as n'))->groupBy('ESTADO')->pluck('n', 'ESTADO'),
+            'docsParaRevisar' => VerificacionDocumento::paraRevisar()->count(),
             'estadoDoc'   => null,
             'tipoDoc'     => null,
             'ultimaLectura'  => null,
@@ -112,13 +112,18 @@ class PanelDocumentos
             ? $request->input('tipo_doc') : null;
 
         $filas = VerificacionDocumento::query()
-            ->when($estadoDoc === 'revisar', fn ($q) => $q->whereIn('ESTADO', VerificacionDocumento::A_REVISAR))
+            ->when($estadoDoc === 'revisar', fn ($q) => $q->paraRevisar())
             ->when($estadoDoc && $estadoDoc !== 'revisar', fn ($q) => $q->where('ESTADO', $estadoDoc))
             ->when($tipoDoc, fn ($q) => $q->where('TIPO', $tipoDoc))
             ->when($buscar !== '', function ($q) use ($buscar) {
                 $like = '%' . addcslashes($buscar, '%_\\') . '%';
+                // LEIDO es JSON y Laravel lo guarda con los acentos escapados ("PIRÁMIDE" ->
+                // "PIR\u00c1MIDE"): para buscar un nombre acentuado hay que buscar tambien esa forma.
+                $json = json_encode($buscar, JSON_INVALID_UTF8_SUBSTITUTE);
+                $likeJson = $json === false ? $like : '%' . addcslashes(trim($json, '"'), '%_\\') . '%';
                 $q->where(fn ($w) => $w->where('PLACA', 'like', $like)->orWhere('SERIAL', 'like', $like)
-                    ->orWhere('LEIDO', 'like', $like)->orWhere('MOTIVO', 'like', $like));
+                    ->orWhere('MOTIVO', 'like', $like)
+                    ->orWhere('LEIDO', 'like', $like)->orWhere('LEIDO', 'like', $likeJson));
             })
             // Primero lo que hay que resolver; dentro de cada montón, lo ultimo leido arriba.
             // El ID desempata: el comando escribe varias filas en el mismo segundo y sin el
@@ -131,6 +136,10 @@ class PanelDocumentos
         return [
             'docs'           => $filas,
             'resumenDocs'    => VerificacionDocumento::select('ESTADO', DB::raw('COUNT(*) as n'))->groupBy('ESTADO')->pluck('n', 'ESTADO'),
+            // Los dos montones que se miran distinto: lo que un boton arregla y lo que pide
+            // una persona (ilegible, sin archivo, de otro vehiculo o leido a medias).
+            'docsParaRevisar' => VerificacionDocumento::paraRevisar()->count(),
+            'docsCorregibles' => VerificacionDocumento::corregibles()->count(),
             'estadoDoc'      => $estadoDoc,
             'tipoDoc'        => $tipoDoc,
             'ultimaLectura'  => VerificacionDocumento::max('updated_at'),
@@ -148,25 +157,14 @@ class PanelDocumentos
 
     /**
      * Documentos cargados que el verificador todavia no ha leido, contando los dos enlaces.
-     * Se cuentan solo los que apuntan de verdad a un archivo de Drive y los que aun pueden
-     * reintentarse: el mismo criterio del comando, para que este numero pueda llegar a cero.
+     * La cola la define VerificacionDocumento::pendientes(), la MISMA que usa el comando.
      */
     private static function pendientes(): int
     {
         $total = 0;
         foreach ([VerificacionDocumento::PROPIEDAD => 'LINK_DOC_PROPIEDAD',
                   VerificacionDocumento::POLIZA    => 'LINK_POLIZA_SEGURO'] as $tipo => $col) {
-            $idEnlace = "SUBSTRING_INDEX(SUBSTRING_INDEX(d.$col, '/storage/google/', -1), '?', 1)";
-            $total += DB::table('documentacion as d')
-                ->join('equipos as e', 'e.ID_EQUIPO', '=', 'd.ID_EQUIPO')
-                ->whereNull('e.deleted_at')
-                ->where("d.$col", 'like', '/storage/google/%')
-                ->whereRaw("$idEnlace <> ''")
-                ->whereNotExists(fn ($s) => $s->from('verificacion_documento_registro as v')
-                    ->whereColumn('v.ID_EQUIPO', 'd.ID_EQUIPO')->where('v.TIPO', $tipo)->whereRaw("v.DRIVE_ID = $idEnlace")
-                    ->where(fn ($w) => $w->whereNotIn('v.ESTADO', [VerificacionDocumento::ILEGIBLE, VerificacionDocumento::ERROR])
-                        ->orWhere('v.INTENTOS', '>=', VerificacionDocumento::MAX_INTENTOS)))
-                ->count();
+            $total += VerificacionDocumento::pendientes($tipo, $col)->count();
         }
         return $total;
     }

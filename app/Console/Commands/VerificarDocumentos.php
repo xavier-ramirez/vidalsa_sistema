@@ -16,8 +16,8 @@ use Illuminate\Support\Facades\Log;
  *   · TITULO DE PROPIEDAD : nombre del propietario y fecha de emision.
  *   · POLIZA DE SEGURO    : aseguradora, fecha de vencimiento y fecha de emision.
  *
- * Lo corre el programador de tareas de madrugada (routes/console.php) DESPUES de la
- * compresion: mientras queden PDF por comprimir, esta tarea no arranca.
+ * Lo corre el programador de tareas de 9 de la noche a medianoche (routes/console.php), en
+ * una ventana que NO se toca con la de la compresion (00:00-05:00): las dos leen de Drive.
  *
  *   php artisan docs:verificar-documentos                    5 documentos que falten
  *   php artisan docs:verificar-documentos --tipo=poliza
@@ -66,8 +66,19 @@ class VerificarDocumentos extends Command
         $lote = max(1, (int) $this->option('lote'));
         $hechos = 0;
 
-        foreach ($tipos as $tipo) {
-            foreach ($this->pendientes($tipo, $lote - $hechos) as $f) {
+        // El lote se reparte entre los tipos y lo que uno no use lo aprovecha el otro (segunda
+        // vuelta): si se recorrieran en orden, las polizas no se leerian hasta acabar TODOS los
+        // titulos, y los reintentos de los ilegibles dejarian su cola parada para siempre.
+        // `$ya` evita leer dos veces el mismo documento en la misma pasada, que es lo que
+        // pasaria en la segunda vuelta con --equipo o --rehacer (ahi no hay cola que filtre).
+        $porTipo = (int) ceil($lote / count($tipos));
+        $ya = [];
+        foreach (array_merge($tipos, $tipos) as $i => $tipo) {
+            $cupo = min($i < count($tipos) ? $porTipo : $lote, $lote - $hechos);
+            foreach ($this->pendientes($tipo, $cupo) as $f) {
+                $clave = $tipo . '|' . $f->ID_EQUIPO;
+                if (isset($ya[$clave])) continue;
+                $ya[$clave] = true;
                 $this->procesar($tipo, $f, $lector, $catalogo);
                 if (++$hechos >= $lote) return self::SUCCESS;
             }
@@ -92,16 +103,26 @@ class VerificarDocumentos extends Command
             try {
                 $texto = $lector->texto($driveId);
                 $leido = $lector->extraer($tipo, $texto);
-                // El documento puede ser de OTRO vehiculo (una ficha con el PDF equivocado):
-                // entonces no se compara nada mas, porque lo que hay que arreglar es el archivo.
-                if (!$lector->mismaPlaca($f->PLACA, $leido['placa'] ?? null)) {
+                // ¿El PDF es de ESTE vehiculo? Se mira por placa y por serial del chasis.
+                // Si es de otro, no se compara nada mas: lo que hay que arreglar es el archivo
+                // enlazado. Si no se puede saber (el escaneo no deja leer ninguno de los dos),
+                // se compara igual pero queda marcado para que lo confirme una persona: sin esa
+                // comprobacion, aplicar lo leido podria meterle a la ficha datos de otro equipo.
+                $deEsteVehiculo = $lector->mismoVehiculo($f->PLACA, $f->SERIAL_CHASIS, $leido);
+                if ($deEsteVehiculo === 'no') {
                     $leido['otra_placa'] = true;
                     $estado = VerificacionDocumento::DIFIERE;
-                    $motivo = 'El documento es de la placa ' . $leido['placa'] . ', no de la ' . $f->PLACA;
+                    $motivo = 'El documento es de otro vehiculo: dice '
+                        . trim(($leido['placa'] ? 'placa ' . $leido['placa'] : '') . ' ' . ($leido['serial'] ? 'serial ' . $leido['serial'] : ''))
+                        . ' y la ficha es ' . trim(($f->PLACA ? 'placa ' . $f->PLACA : '') . ' ' . ($f->SERIAL_CHASIS ? 'serial ' . $f->SERIAL_CHASIS : ''));
                 } else {
+                    if ($deEsteVehiculo === 'no_se_sabe') $leido['sin_confirmar'] = true;
                     [$estado, $motivo, $diferencias, $leido] = $tipo === VerificacionDocumento::POLIZA
                         ? $this->revisarPoliza($f, $leido, $texto, $lector, $catalogo)
                         : $this->revisarPropiedad($f, $leido, $lector);
+                    if (($leido['sin_confirmar'] ?? false) && $estado === VerificacionDocumento::DIFIERE) {
+                        $motivo = 'No se pudo confirmar que el documento sea de este vehículo (no se leyó placa ni serial). ' . $motivo;
+                    }
                 }
             } catch (\Throwable $e) {
                 // Un archivo borrado de Drive da 404 aqui: es "sin archivo", no un fallo del
@@ -124,6 +145,11 @@ class VerificarDocumentos extends Command
                 // MOTIVO es varchar(255): un error largo de Drive no puede tumbar la pasada.
                 'MOTIVO'      => $motivo ? mb_substr($motivo, 0, 255) : null,
                 'CARACTERES'  => mb_strlen($texto),
+                // Lo que ninguna persona puede corregir con el boton (PDF de otro vehiculo,
+                // leido a medias o sin confirmar de quien es) va al monton "para revisar".
+                // Solo cuando hay algo que decidir: si todo cuadra, no hay nada que mirar.
+                'A_MANO'      => $estado === VerificacionDocumento::DIFIERE
+                    && (bool) (($leido['otra_placa'] ?? false) || ($leido['lectura_parcial'] ?? false) || ($leido['sin_confirmar'] ?? false)),
                 // Los ilegibles y los fallidos se reintentan otras noches hasta MAX_INTENTOS
                 // (Drive devuelve el documento vacio de vez en cuando); lo demas se lee una vez.
                 'INTENTOS'    => in_array($estado, [VerificacionDocumento::ILEGIBLE, VerificacionDocumento::ERROR], true)
@@ -237,38 +263,25 @@ class VerificarDocumentos extends Command
     }
 
     /**
-     * Fichas con ese documento cargado que todavia no se han revisado (o todas, con --rehacer).
-     * "Revisado" es por equipo, tipo Y archivo: si le suben otro, el ID de Drive cambia y
-     * vuelve a la cola sola. Los equipos borrados no se revisan, y los enlaces que no son de
-     * Drive tampoco: sin ID no hay nada que leer y se quedarian ocupando el lote cada noche.
+     * Fichas de ese documento que faltan por revisar (o todas, con --rehacer / --equipo).
+     * La cola la define VerificacionDocumento::pendientes(), que es la MISMA que cuenta el
+     * panel: asi el numero de "faltan por leer" siempre cuadra con lo que el comando hara.
      */
     private function pendientes(string $tipo, int $lote)
     {
         if ($lote < 1) return collect();
         $col = self::ENLACES[$tipo];
-        $idEnlace = "SUBSTRING_INDEX(SUBSTRING_INDEX(d.$col, '/storage/google/', -1), '?', 1)";
         $equipo  = $this->option('equipo');
         $rehacer = (bool) $this->option('rehacer');
 
-        return DB::table('documentacion as d')
-            ->join('equipos as e', 'e.ID_EQUIPO', '=', 'd.ID_EQUIPO')
-            ->whereNull('e.deleted_at')
-            ->where("d.$col", 'like', '/storage/google/%')
-            // Un enlace sin id detras ("/storage/google/?v=1") no se puede leer: si entrara,
-            // se guardaria sin DRIVE_ID, nunca contaria como revisado y ocuparia un sitio del
-            // lote todas las noches.
-            ->whereRaw("$idEnlace <> ''")
-            ->when($equipo, fn ($q) => $q->where('d.ID_EQUIPO', (int) $equipo))
-            ->when(!$rehacer && !$equipo, fn ($q) => $q->whereNotExists(
-                fn ($s) => $s->from('verificacion_documento_registro as v')
-                    ->whereColumn('v.ID_EQUIPO', 'd.ID_EQUIPO')
-                    ->where('v.TIPO', $tipo)
-                    ->whereRaw("v.DRIVE_ID = $idEnlace")
-                    // Lo leido cuenta como revisado; lo ilegible o fallido vuelve a la cola
-                    // mientras le queden intentos (ver INTENTOS).
-                    ->where(fn ($w) => $w->whereNotIn('v.ESTADO', [VerificacionDocumento::ILEGIBLE, VerificacionDocumento::ERROR])
-                        ->orWhere('v.INTENTOS', '>=', VerificacionDocumento::MAX_INTENTOS))
-            ))
+        $q = ($rehacer || $equipo)
+            ? DB::table('documentacion as d')
+                ->join('equipos as e', 'e.ID_EQUIPO', '=', 'd.ID_EQUIPO')
+                ->whereNull('e.deleted_at')
+                ->where("d.$col", 'like', '/storage/google/%')
+            : VerificacionDocumento::pendientes($tipo, $col);
+
+        return $q->when($equipo, fn ($q) => $q->where('d.ID_EQUIPO', (int) $equipo))
             ->orderBy('d.ID_EQUIPO')
             ->limit($lote)
             ->get([
