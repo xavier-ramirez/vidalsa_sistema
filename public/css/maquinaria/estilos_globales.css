@@ -2431,6 +2431,18 @@ input:-webkit-autofill:active {
     pointer-events: all;
 }
 
+/* Con el menú móvil abierto, la barra se aparta. El drawer (.mobile-menu, menu.css) es
+   z-index 999 y no tiene alto máximo: con sus ~14 enlaces pasa del alto de un teléfono, y
+   esta barra (9999) le quedaba flotando encima, tapando los últimos módulos. Se oculta en
+   vez de subirle el z-index al menú para no pelear con los modales (10000+). Vale para
+   TODAS las tablas con selección (almacén, equipos, auxiliares): la selección no se pierde,
+   la barra vuelve al cerrar el menú. */
+body:has(.mobile-menu.active) .selection-floating-bar {
+    opacity: 0 !important;
+    pointer-events: none !important;
+    transform: translateX(-50%) translateY(100px) !important;
+}
+
 .selection-counter {
     display: flex;
     align-items: center;

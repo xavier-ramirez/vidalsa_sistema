@@ -20,11 +20,10 @@
        `.dropdown-trigger:has(> input)` de estilos_globales.css — aquí el patrón es otro
        (.alm-filter-box), por eso se ajusta en su propia regla en vez de duplicar aquella. */
     .alm-filter .alm-ic { padding: 0 0 0 10px; display: flex; align-items: center; color: #64748b; }
-    .alm-filter input[type="text"], .alm-filter select {
+    .alm-filter input[type="text"] {
         flex: 1; border: none; background: transparent; outline: none; font-size: 14px;
         color: #1e293b; padding: 10px 6px 10px 4px; min-width: 0; height: 100%; cursor: text;
     }
-    .alm-filter select { cursor: pointer; -webkit-appearance: none; appearance: none; }
     .alm-filter .filter-clear { padding: 0 8px; color: #64748b; font-size: 18px; cursor: pointer; }
     /* El icono "escanear QR" que va dentro del buscador (.qrs-ic) trae su propio estilo
        en el partial compartido admin.almacen.partials.scan_modal. */
@@ -90,7 +89,7 @@
     .alm-table tbody tr.alm-row.alm-row-exceeds-stock td,
     .alm-table tbody tr.alm-row.alm-row-exceeds-stock:hover td { background: #fee2e2 !important; }
     /* Anulación local: la regla global `tr.selected-row-maquinaria td { color:#0067b1 }`
-       (estilos_globales.css ~línea 1929) deja TODO el texto azul. En esta tabla solo
+       (estilos_globales.css, dentro de su @media min-width:769px) deja TODO el texto azul. En esta tabla solo
        queremos el background azul, NO los textos: el código y el nombre tienen su propio
        color especificado por celda. `unset` + `inherit` aseguran que cada celda use su
        color inline original (font-weight + color de td) en vez del azul global. */
@@ -611,9 +610,10 @@
     .alm-kp-ref { color: #334155; background: #f1f5f9; }
     .alm-kp-nota + .alm-kp-ref { margin-top: 3px; }
     .alm-kp-vacio { color: #cbd5e0; }
-    /* Pantallas angostas (tablet en vertical): ahí sí se permite el salto de línea, pero
-       centrado, antes que aplastar los campos hasta que no se lea la fecha. */
-    @media (max-width: 560px) { .alm-kp-filtros { flex-wrap: wrap; } }
+    /* Sin @media propio a propósito: este modal (#almKardexProductoModal) SOLO se abre en
+       escritorio — su botón .alm-det-act-kardex está oculto a ≤768px. La regla que había
+       aquí (@media ≤560px → flex-wrap:wrap) no se podía evaluar nunca con el modal abierto,
+       porque 560 < 768. Si algún día el kardex se abre en teléfono, va aquí. */
     .alm-admin-list { display: flex; flex-direction: column; gap: 6px; }
     .alm-admin-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid #e2e8f0; border-radius: 8px; }
     .alm-admin-row:hover { background: #f8fafc; }
@@ -687,7 +687,7 @@
     .alm-det-quitar .material-icons { font-size: 15px; }
     /* Formularios en línea del + : caja y botón, sin salir del modal. */
     .alm-det-form { position: relative; display: flex; gap: 6px; margin-top: 6px; }
-    .alm-det-form input { flex: 1; min-width: 0; height: 32px; padding: 0 9px; font: inherit; font-size: 13px; }
+    .alm-det-form input { flex: 1; min-width: 0; height: 32px; padding: 0 9px; font: inherit; font-size: 12.5px; }
     .alm-det-form .btn-primary-maquinaria { padding: 0 14px; height: 32px; border-radius: 8px; font-size: 13px; }
     .alm-det-sug { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 5; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px;
                    box-shadow: 0 10px 22px rgba(15,23,42,.14); max-height: 220px; overflow-y: auto; padding: 4px; }
@@ -702,7 +702,6 @@
        de la sugerencia. */
     .alm-det-sug-item .alm-det-eq-mod { overflow-wrap: anywhere; }
     .alm-det-sug-placa { display: block; font-size: 11.5px; color: #64748b; }
-    .alm-det-sug-vacio, .alm-det-msg, .alm-det-form input { font-size: 12.5px; }
     .alm-det-sug-vacio { padding: 8px 9px; font-size: 12px; color: #64748b; font-style: italic; }
     /* `hidden` tiene que ganarle al display:flex / inline-flex de arriba: el "+ Agregar" /
        "+ Vincular" se esconde así a quien no tiene almacen.productos (y la lista sin
@@ -804,22 +803,52 @@
        que el grid colapsa desde 1024px y el JS (placeSidebarMobile) también movía
        la tarjeta recién a los 768px. Entre 769px y 1024px (tablet, pantalla ancha
        en horizontal, zoom del navegador) no coincidía NINGUNA de las tres reglas:
-       ni la de estilos_globales.css:2924 que lo OCULTA en ≤900px, ni esta que lo
+       ni la de estilos_globales.css que lo OCULTA en ≤900px, ni esta que lo
        muestra apilado, ni el JS que lo reubica arriba de la tabla — la tarjeta
        quedaba en su posición de grid por defecto (debajo de la tabla) en vez de
        arriba. Las tres ahora usan el MISMO corte: 1024px.
        margin-bottom evita que la tabla/tarjetas queden pegadas a la caja del
        Consolidado (cliente reporto que se veian "super pegados"). */
     @media (max-width: 1024px) {
-        .page-layout-grid .counter-sidebar {
+        /* `body` delante a propósito: estilos_globales.css oculta este MISMO selector
+           (.page-layout-grid .counter-sidebar { display:none !important }) en su @media
+           ≤900px. Sin el `body`, las dos reglas empatan en especificidad y en !important,
+           y esta solo ganaba por ir más abajo — es decir, por estar en un <style> del
+           <body>. El día que este CSS se mueva a un .css del <head> (que es hacia donde
+           va el proyecto), el Consolidado desaparecería en TODOS los teléfonos. Con el
+           `body` gana por especificidad, viva donde viva.
+           width/position NO se repiten aquí: ya los pone estilos_globales.css en su
+           propio @media ≤1024px (.counter-sidebar { width:100%; position:static }). */
+        body .page-layout-grid .counter-sidebar {
             display: flex !important;
             flex-direction: column !important;
-            width: 100% !important;
-            position: static !important;
             gap: 10px !important;
             margin-top: 10px !important;
             margin-bottom: 16px !important;
         }
+        /* Espacio entre la última fila de la tabla y el wrapper "En otros almacenes".
+           Va en ESTE corte, no en el de 768px, porque quien lo mueve debajo de la tabla es
+           el JS con BREAKPOINT = 1024 (almColocarSidebarMovil): entre 769 y 1024 el panel
+           ya estaba abajo pero pegado a la tabla, sin este margen. */
+        #almDistWrapper { margin-top: 16px !important; }
+    }
+
+    /* ── Cabecera apilada: MISMO corte que menu.css (≤900px) ──────────────────
+       menu.css pone el <h1> a `display:block; width:100%; text-align:center` desde 900px,
+       pero estas reglas vivían en el @media ≤768px de abajo. Entre 769 y 900 (tablet en
+       vertical, ventana angosta, zoom) el título ocupaba un renglón entero centrado y el
+       separador vertical de 1×34px quedaba huérfano al lado del selector de almacén.
+       Al usar el mismo 900px, la cabecera pasa a su forma apilada de una sola vez. */
+    @media (max-width: 900px) {
+        /* Titulo de pagina oculto + separador vertical (ya no tiene sentido) */
+        .page-title-card .page-title { display: none !important; }
+        .page-title-card > div > span[aria-hidden="true"] { display: none !important; }
+        /* El wrapper interno (`.page-title-card > div`) usaba flex horizontal con
+           separador; aquí lo apilamos para que el selector de almacen ocupe todo el ancho. */
+        .page-title-card > div { flex-direction: column !important; align-items: stretch !important; gap: 10px !important; }
+        /* El bloque del selector de almacen (mini-label + dropdown) tomaba flex:0 1 auto. */
+        .page-title-card > div > div { width: 100% !important; flex: 1 1 100% !important; }
+        .page-title-card .alm-sel-alm-box { width: 100% !important; min-width: 0 !important; max-width: 100% !important; }
     }
 
     /* ── Responsive mobile (≤768px) — patron calcado de /admin/equipos ──
@@ -835,18 +864,6 @@
         #almBulkEtqBtn i.material-icons { display: inline-flex !important; }
         #almBulkEtqBtn .desktop-text { display: none !important; }
 
-        /* Titulo de pagina oculto en mobile + separador vertical (ya no tiene sentido) */
-        .page-title-card .page-title { display: none !important; }
-        .page-title-card > div > span[aria-hidden="true"] { display: none !important; }
-        /* Cabecera: el wrapper interno (`.page-title-card > div`) usaba flex
-           horizontal con separador vertical — en mobile lo apilamos en columna
-           para que el selector de almacen ocupe todo el ancho. */
-        .page-title-card > div { flex-direction: column !important; align-items: stretch !important; gap: 10px !important; }
-        /* El bloque del selector de almacen (mini-label + dropdown) tomaba flex:0 1 auto;
-           en mobile lo forzamos full-width para que el dropdown ocupe la pantalla completa. */
-        .page-title-card > div > div { width: 100% !important; flex: 1 1 100% !important; }
-        .page-title-card > div > div > div[style*="width:280px"] { width: 100% !important; min-width: 0 !important; max-width: 100% !important; }
-
         /* Filtros: cada caja full-width, una debajo de la otra. La fila completa
            ya hace wrap nativamente (flex-wrap:wrap en #almFilters); aqui solo
            ajustamos el flex-basis para evitar tracks anchos. */
@@ -859,11 +876,11 @@
         #almFilters > div:last-child { width: 100% !important; flex: 1 1 100% !important; margin-left: 0 !important; }
         #almFilters > div:last-child > div { width: 100%; }
         #almBtnAcciones { width: 100% !important; justify-content: center; }
-        #almAccionesMenu { left: 0 !important; right: 0 !important; width: 100% !important; max-width: calc(100vw - 20px) !important; }
+        {{-- max-width:none y no `calc(100vw - 20px)`: el menú ya es width:100% de su
+             wrapper, que en mobile ocupa la fila entera; 100vw cuenta además la barra de
+             desplazamiento y lo dejaba más ancho que su hueco. --}}
+        #almAccionesMenu { left: 0 !important; right: 0 !important; width: 100% !important; max-width: none !important; }
 
-        /* Espacio entre la ultima tarjeta de la tabla y el wrapper "En otros
-           almacenes" que se mueve debajo en mobile — sin esto quedaban pegados. */
-        #almDistWrapper { margin-top: 16px !important; }
         /* Consolidado más chico en teléfono. Antes esto se intentaba con selectores de
            atributo (`[style*="font-size: 34px"]`) que NUNCA llegaron a aplicar: los
            style inline de la tarjeta se escriben sin espacio tras los dos puntos
@@ -920,9 +937,14 @@
         /* Tambien comprimimos el padding del wrapper de la "Nota de Entrega" para
            ganar unos px de ancho en mobile. */
         #almSalidaModal #almSalidaNotaWrap { padding: 12px !important; }
-        /* Y reducimos el max-width del modal en mobile para que pegue al viewport
-           sin margenes laterales gigantes (alm-modal default era 600px en desktop). */
-        #almSalidaModal .alm-modal { max-width: calc(100vw - 16px) !important; width: calc(100vw - 16px) !important; }
+        /* Y soltamos el max-width del modal en mobile para que pegue al viewport
+           sin margenes laterales gigantes (alm-modal default era 600px en desktop).
+           SIN 100vw: `.alm-modal` ya es width:100% dentro del overlay, que es flex con
+           padding:16px, así que 100% = exactamente el hueco disponible. Con
+           `calc(100vw - 16px)` el modal salía 16px MÁS ANCHO que ese hueco (100vw
+           incluye la barra de desplazamiento) y se comía el respiro lateral — el mismo
+           motivo por el que estilos_globales.css prohíbe 100vw en estos anchos. */
+        #almSalidaModal .alm-modal { max-width: none !important; }
         /* ═══════════════════════════════════════════════════════════
            MOBILE CARD LAYOUT — Inventario de Almacén
            Cada <tr.alm-row> es una tarjeta GRID 3-col × 2 filas:
@@ -1143,7 +1165,10 @@
         {{-- Separador vertical (oculto en mobile cuando el filtro se va abajo) --}}
         <span aria-hidden="true" style="display:inline-block;width:1px;height:34px;background:#cbd5e0;flex:0 0 auto;"></span>
         <div style="display:flex;align-items:center;gap:10px;flex:0 1 auto;">
-            <div style="width:280px;min-width:200px;max-width:100%;">
+            {{-- .alm-sel-alm-box: la regla de mobile que lo estira a todo el ancho engancha
+                 por ESTA clase. Antes lo hacía con `div[style*="width:280px"]`, que se rompe
+                 en silencio con solo escribir "width: 280px" con un espacio. --}}
+            <div class="alm-sel-alm-box" style="width:280px;min-width:200px;max-width:100%;">
                 <div class="custom-dropdown" id="almSelAlmacenDropdown" data-filter-type="id_almacen" data-default-label="Todos los almacenes">
                     <input type="hidden" name="id_almacen" data-filter-value id="almSelAlmacen" value="{{ $reqAlm ?? '' }}">
                     <div class="dropdown-trigger {{ $almacenSel ? 'filter-active' : '' }}" style="padding:0;display:flex;align-items:center;background:#f8fafc;overflow:hidden;border:1px solid #cbd5e0;border-radius:10px;height:40px;transition:border-color .15s,background .15s;">
@@ -6462,9 +6487,17 @@
     // ── Barra de bulk-select por encima del teclado móvil (visualViewport) ──
     (function () {
         var vv = window.visualViewport;
-        var bar = document.getElementById('almBulkBar');
-        if (!vv || !bar) return; // navegador viejo sin visualViewport → comportamiento previo
+        if (!vv) return; // navegador viejo sin visualViewport → comportamiento previo
         function ajustarBarra() {
+            // La barra se busca EN CADA AJUSTE, no una sola vez: este IIFE está dentro del
+            // guard window.__almDocListenersInit, así que en una re-entrada por SPA no se
+            // vuelve a ejecutar, pero el #almBulkBar del DOM nuevo es OTRO nodo. Guardando
+            // la referencia, el listener seguía escribiendo sobre el nodo viejo (ya
+            // desmontado) y el teclado volvía a tapar Limpiar/Salida/Etiquetas al llegar
+            // por el menú — funcionaba solo al entrar por URL o tras recargar. Mismo
+            // problema que se resolvió para el Consolidado con almColocarSidebarMovil.
+            var bar = document.getElementById('almBulkBar');
+            if (!bar) return;
             // Píxeles del layout tapados por el teclado (0 si está cerrado).
             var tapado = Math.max(0, window.innerHeight - (vv.height + vv.offsetTop));
             // +12px de respiro sobre el teclado. Sin teclado, '' → vuelve al CSS.

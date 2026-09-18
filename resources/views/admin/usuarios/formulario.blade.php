@@ -55,15 +55,15 @@
 
 
             <div>
-                <label for="password" class="form-label">
-                    Clave de Acceso
-                    {{-- La nota va junto al titulo, no en un <small> bajo el campo. Solo al
-                         editar: al crear, la clave es obligatoria. --}}
-                    @if(isset($user))
-                        <span class="form-label-hint">Dejar vacío si no desea cambiar la contraseña</span>
-                    @endif
-                </label>
-                <input type="password" id="password" name="password" class="form-input-custom @error('password') is-invalid @enderror" {{ isset($user) ? '' : 'required' }} placeholder="{{ isset($user) ? 'Dejar en blanco para mantener la actual' : '' }}" autocomplete="new-password" readonly data-sin-autollenado>
+                {{-- La etiqueta va PELADA, sin nota al lado (pedido del 17-09-2026): este campo
+                     tiene que verse igual que los demas. Cualquier texto extra aqui crece hacia
+                     la derecha y, si no cabe en la columna del .form-grid (~375px), parte el
+                     .form-label en dos lineas y hunde el campo respecto al de al lado.
+                     El comportamiento no necesita explicacion escrita: al EDITAR, dejarla vacia
+                     mantiene la clave actual (UserRequest: password nullable) y al CREAR es
+                     obligatoria (required, min 6). --}}
+                <label for="password" class="form-label">Clave de Acceso</label>
+                <input type="password" id="password" name="password" class="form-input-custom @error('password') is-invalid @enderror" {{ isset($user) ? '' : 'required' }} autocomplete="new-password" readonly data-sin-autollenado>
                 @error('password')
                     <span class="error-message-inline">{{ $message }}</span>
                 @enderror
@@ -221,7 +221,7 @@
             </div>
 
             <div>
-                <span id="lbl_usuario_frente_bloq_title" class="form-label">Frentes Bloqueados<span class="form-label-hint">ocultos para este usuario</span></span>
+                <span id="lbl_usuario_frente_bloq_title" class="form-label">Frentes Bloqueados <span class="form-label-hint">ocultos para este usuario</span></span>
 
                 {{-- Lista NEGRA: frentes que este usuario NO debe ver, independiente de
                      GLOBAL/LOCAL. Pensado para "ve casi todo salvo unos pocos": dejar al
