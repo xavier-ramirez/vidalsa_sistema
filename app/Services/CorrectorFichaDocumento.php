@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\CatalogoSeguro;
 use App\Models\Documentacion;
 use App\Models\EquipoAuditLog;
+use App\Models\Usuario;
 use App\Models\VerificacionDocumento;
 use App\Observers\DocumentacionObserver;
 use Illuminate\Support\Facades\DB;
@@ -58,15 +59,33 @@ class CorrectorFichaDocumento
 
         return DB::transaction(function () use ($reg, $aseguradoras) {
             // Se bloquean LAS DOS filas: la ficha y la lectura. Sin bloquear la lectura, dos
-            // clics seguidos (o un clic mientras corre la pasada de la noche) pasan los dos por
-            // la puerta y el segundo, al ver la ficha ya cambiada, la marcaria como "lo cambio
-            // alguien a mano" siendo mentira: lo habia cambiado el primero.
+            // pasadas a la vez (o una persona guardando mientras corre la tarea) pasan las dos por
+            // la puerta y la segunda, al ver la ficha ya cambiada, la marcaria como "lo cambio
+            // alguien a mano" siendo mentira: lo habia cambiado la primera.
             $reg = VerificacionDocumento::where('ID_REGISTRO', $reg->ID_REGISTRO)->lockForUpdate()->first();
             if (!$reg) return ['error' => 'Esa lectura ya no existe: vuelve a leer el documento.'];
             if ($error = $this->porQueNoSePuede($reg)) return ['error' => $error];
 
             $doc = Documentacion::where('ID_EQUIPO', $reg->ID_EQUIPO)->lockForUpdate()->first();
             if (!$doc) return ['error' => 'La ficha de ese equipo ya no existe.'];
+
+            // Una lectura guardada de un PDF que ya al leerlo vencia ANTES de lo que decia la
+            // ficha (el anterior: se renovo y la ficha ya tenia la fecha nueva) no escribe NADA.
+            // El verificador ya no las produce, pero las guardadas antes si, y la tarea las
+            // aplicaria al rellenar: pondria la fecha vieja encima de la buena. (Si la ficha
+            // cambio DESPUES de leer, eso lo resuelve la comprobacion de mas abajo.)
+            $campoVence = VerificacionDocumento::CAMPO_VENCE[$reg->TIPO] ?? null;
+            $vence = $campoVence ? ($reg->DIFERENCIAS[$campoVence] ?? null) : null;
+            $anterior = $vence ? VerificacionDocumento::documentoAnterior($vence['ficha'] ?? null, $vence['documento'] ?? null) : null;
+            if ($anterior) {
+                $reg->update([
+                    'A_MANO'      => true,
+                    'MOTIVO'      => mb_substr($anterior, 0, 255),
+                    'DIFERENCIAS' => null,
+                    'LEIDO'       => ['doc_anterior' => true] + ($reg->LEIDO ?? []),
+                ]);
+                return ['puestos' => [], 'saltados' => []];
+            }
 
             $puestos = $saltados = $cambios = $quedan = [];
             $hayCorregidoAMano = false;
@@ -87,7 +106,7 @@ class CorrectorFichaDocumento
                 $esperado = array_key_exists('ficha_valor', $d) ? $d['ficha_valor'] : ($d['ficha'] ?? '');
                 if ((string) $ahora !== (string) $esperado) {
                     // Ese dato ya no se toca solo: quien decida tiene que mirar el documento
-                    // (si se reintentara, la noche siguiente pisaria la correccion de la persona).
+                    // (si se reintentara, la pasada siguiente pisaria la correccion de la persona).
                     $saltados[] = $d['etiqueta'];
                     $hayCorregidoAMano = true;
                     $quedan[$campo] = [
@@ -109,8 +128,8 @@ class CorrectorFichaDocumento
             if (!$puestos) {
                 // Nada que escribir: alguien cambio la ficha despues de leer el PDF, o lo que
                 // quedaba no es de los datos que este servicio puede tocar. La fila SE GUARDA
-                // igual, marcada para mirar a mano: si no, ningun boton la arregla, la pasada
-                // de cada noche la reintenta para siempre y el panel sigue enseñando un valor
+                // igual, marcada para mirar a mano: si no, la tarea no la resuelve nunca, la
+                // reintenta en cada pasada para siempre y el panel sigue enseñando un valor
                 // de ficha que ya no existe.
                 $reg->update([
                     'ESTADO'      => VerificacionDocumento::DIFIERE,
@@ -133,8 +152,8 @@ class CorrectorFichaDocumento
 
             $reg->update([
                 'ESTADO'       => $quedan ? VerificacionDocumento::DIFIERE : VerificacionDocumento::COINCIDE,
-                // A_MANO: solo si lo que queda ya no lo arregla ningun boton, es decir, lo que
-                // alguien cambio a mano despues de leer el PDF.
+                // A_MANO: solo si lo que queda ya no lo puede poner la tarea, es decir, lo que
+                // alguien cambio a mano despues de leer el PDF (eso se mira en el visor).
                 'A_MANO'       => $hayCorregidoAMano,
                 'MOTIVO'       => $this->motivo($reg, $puestos, $quedan),
                 'DIFERENCIAS'  => $quedan ?: null,
@@ -143,6 +162,60 @@ class CorrectorFichaDocumento
 
             return ['puestos' => $puestos, 'saltados' => $saltados];
         });
+    }
+
+    /**
+     * Revision A MANO desde el visor: la persona corrigio la ficha en el panel y, ademas, pone
+     * los datos que ese panel no tiene (las fechas de emision, el titular del ROTC), con el
+     * valor que ella deja escrito. Despues la fila queda "revisada por" ella.
+     *
+     * $valores es [campo => valor]. Solo se aceptan datos de CAMPOS que el verificador marco
+     * como distintos en esa fila (nunca la placa ni el serial, nunca un campo cualquiera), y
+     * cada uno con su forma: fecha aaaa-mm-dd o un nombre de hasta LectorDocumentoPdf::LARGO_TITULAR. La
+     * aseguradora no entra aqui: tiene su propio campo en el panel del visor.
+     * Devuelve ['error' => ...] o ['puestos' => [...]].
+     */
+    public function ponerAMano(VerificacionDocumento $reg, array $valores, Usuario $usuario): array
+    {
+        $dif = $reg->DIFERENCIAS ?? [];
+        $limpios = [];
+        foreach ($valores as $campo => $valor) {
+            $valor = trim((string) $valor);
+            if (!in_array($campo, self::CAMPOS, true) || $campo === 'ID_SEGURO' || !isset($dif[$campo])) {
+                return ['error' => "Ese dato no se puede poner desde aquí: $campo"];
+            }
+            if (str_starts_with($campo, 'FECHA_')) {
+                [$a, $m, $d] = array_map('intval', explode('-', $valor) + [0, 0, 0]);
+                if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $valor) || !checkdate($m, $d, $a)) {
+                    return ['error' => 'Fecha no válida en ' . ($dif[$campo]['etiqueta'] ?? $campo)];
+                }
+            } elseif ($valor === '' || mb_strlen($valor) > LectorDocumentoPdf::LARGO_TITULAR) {
+                return ['error' => 'Nombre vacío o demasiado largo en ' . ($dif[$campo]['etiqueta'] ?? $campo)];
+            }
+            $limpios[$campo] = $valor;
+        }
+
+        DB::transaction(function () use ($reg, $limpios, $dif, $usuario) {
+            if ($limpios) {
+                $doc = Documentacion::where('ID_EQUIPO', $reg->ID_EQUIPO)->lockForUpdate()->firstOrFail();
+                $cambios = [];
+                foreach ($limpios as $campo => $valor) {
+                    $antes = $doc->{$campo};
+                    if ($antes instanceof \DateTimeInterface) $antes = $antes->format('Y-m-d');
+                    $doc->{$campo} = $valor;
+                    $cambios[$campo] = ['antes' => $antes, 'despues' => $valor];
+                }
+                $doc->save();
+                // Como en aplicar(): lo que DocumentacionObserver no audita, aqui.
+                $propios = array_diff_key($cambios, array_flip(DocumentacionObserver::AUDITED));
+                if ($propios) {
+                    EquipoAuditLog::registrar($reg->ID_EQUIPO, 'edit', $propios + ['_origen' => 'Verificación de documentos (revisión a mano)']);
+                }
+            }
+            $reg->marcarRevisadoPor($usuario);
+        });
+
+        return ['puestos' => array_keys($limpios)];
     }
 
     /** Lo que se cuenta en la pantalla y en el listado del comando. */

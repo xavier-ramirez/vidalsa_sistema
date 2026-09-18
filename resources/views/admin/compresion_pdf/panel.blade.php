@@ -2,7 +2,7 @@
      de Control de Auditoría (/admin/historial-documentos). Vive aparte para que esa pantalla
      lo incluya sin repetir su tabla, sus filtros ni su resumen.
      Los datos los arma App\Support\PanelDocumentos::datos(); quien escribe en la ficha, tanto
-     desde el botón como desde la revisión de la noche, es App\Services\CorrectorFichaDocumento. --}}
+     desde el visor como desde la tarea de la mañana, es App\Services\CorrectorFichaDocumento. --}}
 <style>
     /* Como /admin/usuarios: a la izquierda una tarjeta blanca con los FILTROS arriba y la
        tabla debajo; a la derecha, el aviso de la tarea y el resumen, uno debajo del otro. */
@@ -56,6 +56,15 @@
     .cpdf-pista button { margin-left: auto; background: #2563eb; color: #fff; border: 0; border-radius: 4px; padding: 2px 9px; font-size: 11px; cursor: pointer; }
     .cpdf-pista-aviso { margin-bottom: 12px; padding: 8px 10px; border-radius: 6px; background: rgba(37,99,235,.15);
                         border: 1px solid rgba(96,165,250,.4); color: #dbeafe; font-size: 12px; line-height: 1.35; }
+    .cpdf-concl { font-size: 12.5px; }
+    .cpdf-concl b { color: #fff; }
+    .cpdf-concl-motivo { margin-top: 3px; color: #fde68a; }
+    .cpdf-concl-dif { margin-top: 3px; }
+    .cpdf-concl-dif b { color: #fde68a; }
+    .cpdf-extra { margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(96,165,250,.3); }
+    .cpdf-extra input[type="date"], .cpdf-extra input[type="text"] { width: 100%; box-sizing: border-box; margin: 4px 0; height: 30px;
+        padding: 4px 8px; border-radius: 4px; border: 1px solid #555; background: #282828; color: #fff; font-size: 12.5px; }
+    .cpdf-extra label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
 
     /* La tabla es la MISMA de Control de Auditoría, Usuarios y Equipos (.admin-table), con
        menos relleno: estas dos listas llevan más columnas y muchas filas. */
@@ -79,6 +88,9 @@
     .cpdf-estado.ilegible, .cpdf-estado.sin_archivo { background: #fef3c7; color: #92400e; cursor: help; }
     /* Cada dato que no cuadra, en una linea: etiqueta, lo de la ficha (tachado) y lo del documento. */
     .cpdf-nom { font-size: 12.5px; color: #0f172a; }
+    /* Casilla para dar filas por revisadas sin abrir el visor (barra: .selection-floating-bar). */
+    .cpdf-tabla-caja .cpdf-sel { width: 1%; padding-right: 0 !important; }
+    .cpdf-sel input { width: 16px; height: 16px; cursor: pointer; accent-color: #6d28d9; vertical-align: middle; }
     .cpdf-nom.mal { color: #991b1b; text-decoration: line-through; }
     .cpdf-dif { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; font-size: 12.5px; line-height: 1.5; }
     .cpdf-dif-eti { font-weight: 700; color: #64748b; }
@@ -115,7 +127,7 @@
         // El mismo monton que cuenta la tarjeta "Sin aplicar". Tiene que estar en esta lista:
         // el desplegable saca de aqui el nombre de lo filtrado y sin el la pantalla reventaba
         // al pulsar la tarjeta (clave inexistente).
-        'corregibles'             => 'SIN APLICAR (falta pulsar el botón)',
+        'corregibles'             => 'SIN APLICAR (la tarea aún no las puso)',
         \App\Models\VerificacionDocumento::DIFIERE     => 'Datos distintos',
         \App\Models\VerificacionDocumento::COINCIDE    => 'Coincide',
         \App\Models\VerificacionDocumento::ILEGIBLE    => 'No se pudo leer',
@@ -202,6 +214,8 @@
             <table class="admin-table">
                 <thead>
                     <tr class="tabla-cabecera">
+                        <th class="cpdf-sel"><input type="checkbox" id="cpdfSelTodas" title="Marcar todas las de esta página"
+                            onchange="window.cpdfSelTodas(this.checked)"></th>
                         <th>Fecha</th>
                         <th>Documento</th>
                         <th>Placa / Serial</th>
@@ -213,6 +227,12 @@
                 <tbody>
                     @forelse ($docs as $d)
                         <tr>
+                            {{-- Las que ya coinciden no tienen nada que revisar. --}}
+                            <td class="cpdf-sel">
+                                @if ($d->ESTADO !== \App\Models\VerificacionDocumento::COINCIDE)
+                                    <input type="checkbox" class="cpdf-sel-fila" value="{{ $d->ID_REGISTRO }}" onchange="window.cpdfSelContar()">
+                                @endif
+                            </td>
                             <td style="white-space:nowrap;">{{ $d->updated_at?->format('d/m/Y H:i') }}</td>
                             <td style="white-space:nowrap;">{{ $tiposDoc[$d->TIPO] ?? $d->TIPO }}</td>
                             <td style="white-space:nowrap;">
@@ -238,19 +258,31 @@
                                 @if ($d->DRIVE_ID)
                                     {{-- Abre el PDF con los campos de la ficha para revisarla (ver cpdfRevisar). --}}
                                     <button type="button" class="pdf-doc-btn" title="Ver el documento y revisar la ficha"
-                                        onclick="window.cpdfRevisar(@js(['id' => $d->ID_REGISTRO, 'equipoId' => (int) $d->ID_EQUIPO, 'tipo' => $d->TIPO, 'dif' => (object) ($d->DIFERENCIAS ?? [])]), '/storage/google/{{ $d->DRIVE_ID }}', @js(($tiposDoc[$d->TIPO] ?? '') . ' ' . ($d->PLACA ?: $d->SERIAL ?: '')))">
+                                        onclick="window.cpdfRevisar(@js(['id' => $d->ID_REGISTRO, 'equipoId' => (int) $d->ID_EQUIPO, 'tipo' => $d->TIPO, 'dif' => (object) ($d->DIFERENCIAS ?? []), 'estado' => $estadosDoc[$d->ESTADO] ?? $d->ESTADO, 'motivo' => $d->MOTIVO, 'fiable' => !($d->esLecturaParcial() || $d->sinConfirmar() || $d->esDeOtroVehiculo() || $d->esDocumentoAnterior())]), '/storage/google/{{ $d->DRIVE_ID }}', @js(($tiposDoc[$d->TIPO] ?? '') . ' ' . ($d->PLACA ?: $d->SERIAL ?: '')))">
                                         <i class="material-icons">description</i>
                                     </button>
                                 @endif
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="6" class="cpdf-vacio">{{ $estadoDoc || $tipoDoc || $buscar !== '' ? 'Nada coincide con los filtros.' : 'Todavía no se ha revisado ningún documento.' }}</td></tr>
+                        <tr><td colspan="7" class="cpdf-vacio">{{ $estadoDoc || $tipoDoc || $buscar !== '' ? 'Nada coincide con los filtros.' : 'Todavía no se ha revisado ningún documento.' }}</td></tr>
                     @endforelse
                 </tbody>
             </table>
         </div>
         <div style="margin-top:12px;">{{ $docs->links('vendor.pagination.custom-sliding') }}</div>
+        {{-- Dar por revisadas las filas marcadas, sin abrir el visor (ver cpdfMarcarRevisadas). --}}
+        <div id="cpdfSelBarra" class="selection-floating-bar">
+            <div class="selection-counter">
+                <i class="material-icons" style="font-size:18px;">fact_check</i>
+                <span id="cpdfSelCuenta">0</span>
+            </div>
+            <div style="width:1px;height:24px;background:rgba(255,255,255,0.2);"></div>
+            <button type="button" class="btn-bulk-clear" onclick="window.cpdfSelTodas(false)">Limpiar</button>
+            <button type="button" class="btn-bulk-action" onclick="window.cpdfMarcarRevisadas()">
+                <i class="material-icons">done_all</i> Marcar como revisadas
+            </button>
+        </div>
         @else
         <div class="cpdf-tabla-caja">
             <table class="admin-table">
@@ -316,10 +348,10 @@
                 <i class="material-icons">{{ $activa ? 'schedule' : 'block' }}</i>
                 <div>
                     @if ($activa)
-                        <strong>Lectura nocturna activa</strong>
+                        <strong>Lectura automática activa</strong>
                         <span>De 9:05 a.m. a 1:05 p.m., hora {{ $zona === 'America/Caracas' ? 'de Venezuela' : $zona }} (ahora {{ $horaApp->format('g:i a') }}). No se cruza con la compresión. Pone en la ficha lo que dice el documento; nunca la placa ni el serial.</span>
                     @else
-                        <strong>Lectura nocturna apagada</strong>
+                        <strong>Lectura automática apagada</strong>
                         <span>{{ ucfirst($motivoActiva) }}.</span>
                     @endif
                 </div>
@@ -333,7 +365,7 @@
             <a class="cpdf-caja cpdf-filtra" href="{{ request()->fullUrlWithQuery(['estado_doc' => 'corregibles', 'page' => null]) }}">
                 <small>Sin aplicar</small>
                 <strong>{{ $docsCorregibles }}</strong>
-                <span>la noche aún no las puso: se revisan en el visor</span>
+                <span>la tarea aún no las puso: se revisan en el visor</span>
             </a>
             <a class="cpdf-caja cpdf-filtra" href="{{ request()->fullUrlWithQuery(['estado_doc' => 'revisar', 'page' => null]) }}">
                 <small>Para revisar a mano</small>
@@ -343,7 +375,7 @@
             <div class="cpdf-caja">
                 <small>Faltan por leer</small>
                 <strong>{{ $pendientesDocs }}</strong>
-                <span>{{ $pendientesDocs ? 'se leen de 25 en 25 cada noche' : 'ya se leyeron todos los documentos cargados' }}</span>
+                <span>{{ $pendientesDocs ? 'se leen de 9:05 a.m. a 1:05 p.m.' : 'ya se leyeron todos los documentos cargados' }}</span>
             </div>
             <div class="cpdf-caja">
                 <small>Última lectura</small>
@@ -443,6 +475,52 @@
         else window.location.href = url;
     };
 
+    // ── Dar por revisadas varias filas sin abrir el visor ──────────────────────────────
+    // La ficha NO cambia (ni siquiera los datos sin campo en el panel, que el visor si ofrece
+    // poner): cada fila queda como "Revisado a mano por ...". Se redefinen en cada visita
+    // (solo asignaciones).
+    var cpdfMarcadas = function () {
+        return Array.prototype.map.call(document.querySelectorAll('.cpdf-sel-fila:checked'), function (c) { return c.value; });
+    };
+    window.cpdfSelContar = function () {
+        var n = cpdfMarcadas().length, filas = document.querySelectorAll('.cpdf-sel-fila').length,
+            todas = document.getElementById('cpdfSelTodas'), barra = document.getElementById('cpdfSelBarra');
+        if (todas) todas.checked = filas > 0 && n === filas;
+        if (barra) barra.classList.toggle('active', n > 0);
+        var cuenta = document.getElementById('cpdfSelCuenta');
+        if (cuenta) cuenta.textContent = n;
+    };
+    window.cpdfSelTodas = function (marcar) {
+        document.querySelectorAll('.cpdf-sel-fila').forEach(function (c) { c.checked = !!marcar; });
+        window.cpdfSelContar();
+    };
+    window.cpdfMarcarRevisadas = function () {
+        var ids = cpdfMarcadas();
+        if (!ids.length) return;
+        window.confirmarAccion({
+            title: 'Marcar como revisadas',
+            message: 'Las ' + ids.length + ' filas marcadas quedarán como revisadas por ti. '
+                + 'La ficha no cambia: si hay que corregir algún dato, ábrela en el visor.',
+            confirmText: 'Marcar ' + ids.length,
+        }, function () {
+            window.apiFetch(@json(route('compresion-pdf.documentos.revisados')), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body: JSON.stringify({ ids: ids }),
+            })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (!data || !data.success) throw new Error((data && data.message) || 'sin exito');
+                    window.toast(data.revisadas === 1 ? '1 fila revisada' : data.revisadas + ' filas revisadas', 'success');
+                    window.cpdfFiltrar();
+                })
+                .catch(function (err) {
+                    window.toast('No se pudieron marcar como revisadas'
+                        + (err && err.message && err.message !== 'sin exito' ? ': ' + err.message : ''), 'error');
+                });
+        });
+    };
+
     // ── Revisar a mano desde el visor ─────────────────────────────────────────────────
     // Se abre el PDF con los campos de la ficha; bajo cada campo que no cuadra sale lo que
     // dice el documento, con un boton para ponerlo. Al GUARDAR (en el panel del visor, que
@@ -461,6 +539,9 @@
         // Diferencia del verificador -> campo del panel del visor que la corrige.
         var CAMPO = { NOMBRE_DEL_TITULAR: 'titular', ID_SEGURO: 'nombre_aseguradora',
                       FECHA_VENC_POLIZA: 'fecha_vencimiento', FECHA_ROTC: 'fecha_vencimiento', FECHA_RACDA: 'fecha_vencimiento' };
+        // El vencimiento de cada documento (VerificacionDocumento::CAMPO_VENCE).
+        var VENCE = @json(\App\Models\VerificacionDocumento::CAMPO_VENCE),
+            DIAS_ANTERIOR = @json(\App\Models\VerificacionDocumento::DIAS_ANTERIOR);
         // Solo cuenta si el visor es el que se abrio desde esta pantalla, para esa fila.
         var esEste = function (d) {
             var v = window._pdfVerif;
@@ -474,44 +555,109 @@
             var cont = document.getElementById('metaFieldsContainer');
             if (!cont) return;
             var dif = window._pdfVerif.dif || {}, otras = [];
+            window._pdfVerif.extras = [];
+            // Lecturas guardadas antes de la regla del PDF ANTERIOR (VerificacionDocumento::
+            // documentoAnterior): si el documento vence antes de lo que ya dice la ficha, es el
+            // viejo y nada suyo se ofrece para poner (ni con "Usar" ni con casilla marcada).
+            var dv = VENCE[window._pdfVerif.tipo] && dif[VENCE[window._pdfVerif.tipo]],
+                fv = cont.querySelector('[name="fecha_vencimiento"]'),
+                anterior = !!(dv && dv.documento && fv && fv.value
+                    && (Date.parse(fv.value) - Date.parse(dv.documento)) / 86400000 > DIAS_ANTERIOR);
             Object.keys(dif).forEach(function (campo) {
                 var d = dif[campo] || {}, valor = d.documento == null ? '' : String(d.documento);
                 var input = CAMPO[campo] && cont.querySelector('[name="' + CAMPO[campo] + '"]');
-                if (!input) { otras.push((d.etiqueta || campo) + ': ' + (d.ficha || '(vacío)') + ' → ' + valor); return; }
+                if (!input) { otras.push([campo, d, valor]); return; }
                 // textContent, nunca innerHTML: el valor sale de un PDF.
                 var pista = document.createElement('div'), t = document.createElement('span'),
                     b = document.createElement('b'), usar = document.createElement('button');
                 pista.className = 'cpdf-pista';
                 t.textContent = 'El documento dice:';
                 b.textContent = valor;
-                usar.type = 'button';
-                usar.textContent = 'Usar';
-                usar.onclick = function () { input.value = valor; input.dispatchEvent(new Event('input', { bubbles: true })); input.focus(); };
-                pista.append(t, b, usar);
+                if (anterior) {
+                    // Sin boton: es la fecha del PDF viejo.
+                    pista.append(t, b, document.createTextNode(CAMPO[campo] === 'fecha_vencimiento'
+                        ? '(es MÁS VIEJA que la de la ficha: el PDF es el anterior)' : '(del PDF anterior)'));
+                } else {
+                    usar.type = 'button';
+                    usar.textContent = 'Usar';
+                    usar.onclick = function () { input.value = valor; input.dispatchEvent(new Event('input', { bubbles: true })); input.focus(); };
+                    pista.append(t, b, usar);
+                }
                 input.insertAdjacentElement('afterend', pista);
             });
-            var aviso = document.createElement('div');
+            var aviso = document.createElement('div'), v = window._pdfVerif;
             aviso.className = 'cpdf-pista-aviso';
-            aviso.textContent = 'Al guardar, esta fila queda como revisada por ti en Control de Auditoría.'
-                + (otras.length ? ' Otras diferencias que el documento señala: ' + otras.join(' · ') + '.' : '');
+            // Lo MISMO que la fila de la tabla: que concluyo la revision y, dato a dato, que dice
+            // la ficha y que dice el documento. Para comparar sin salir del visor.
+            var tit = document.createElement('div'), b = document.createElement('b');
+            tit.className = 'cpdf-concl';
+            b.textContent = v.estado || '';
+            tit.append('Revisión: ', b);
+            aviso.appendChild(tit);
+            if (v.motivo) {
+                var mot = document.createElement('div');
+                mot.className = 'cpdf-concl-motivo';
+                mot.textContent = v.motivo;
+                aviso.appendChild(mot);
+            }
+            Object.keys(dif).forEach(function (campo) {
+                var d = dif[campo] || {}, li = document.createElement('div'), doc = document.createElement('b');
+                li.className = 'cpdf-concl-dif';
+                doc.textContent = d.documento == null ? '(vacío)' : String(d.documento);
+                li.append((d.etiqueta || campo) + ': ficha ' + (d.ficha || '(vacío)') + ' → documento ', doc);
+                aviso.appendChild(li);
+            });
+
+            // Lo que el panel no tiene (fechas de emision, titular del ROTC): su propio campo,
+            // relleno con lo que dice el documento, y una casilla. Al guardar se pone en la ficha
+            // lo que quede marcado; sin esto se perderia al dar la fila por revisada.
+            otras.forEach(function (o) {
+                var campo = o[0], d = o[1], valor = o[2];
+                var caja = document.createElement('div'), et = document.createElement('div'),
+                    inp = document.createElement('input'), lab = document.createElement('label'),
+                    chk = document.createElement('input');
+                caja.className = 'cpdf-extra';
+                et.textContent = (d.etiqueta || campo) + ' — en la ficha: ' + (d.ficha || '(vacío)');
+                inp.type = /^FECHA_/.test(campo) ? 'date' : 'text';
+                inp.value = valor;
+                chk.type = 'checkbox';
+                // Marcada solo si la lectura es fiable. Si el PDF se leyo a medias, no se
+                // confirmo de que vehiculo es o es de otro, lo del documento podria dejar la
+                // ficha PEOR: se pone solo si la persona lo marca tras mirarlo en el PDF.
+                chk.checked = !!v.fiable && !anterior;
+                lab.append(chk, document.createTextNode(anterior ? ' Poner en la ficha (es del PDF anterior: no lo marques)'
+                    : v.fiable ? ' Poner en la ficha'
+                    : ' Poner en la ficha (la lectura no es segura: márcalo solo si lo compruebas en el PDF)'));
+                caja.append(et, inp, lab);
+                aviso.appendChild(caja);
+                window._pdfVerif.extras.push({ campo: campo, input: inp, check: chk });
+            });
             cont.insertAdjacentElement('afterbegin', aviso);
         });
 
         document.addEventListener('vidalsa:metadata-guardada', function (e) {
             if (!esEste(e.detail)) return;
-            var id = window._pdfVerif.id;
+            // El aviso lo da esta pantalla al terminar (uno solo): el del visor se cancela.
+            e.preventDefault();
+            var id = window._pdfVerif.id, campos = {};
+            (window._pdfVerif.extras || []).forEach(function (x) { if (x.check.checked) campos[x.campo] = x.input.value; });
             window._pdfVerif = null;
-            window.apiFetch(URL_REVISADO.replace(/\/0\/revisado$/, '/' + id + '/revisado'), { method: 'POST' })
+            window.apiFetch(URL_REVISADO.replace(/\/0\/revisado$/, '/' + id + '/revisado'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body: JSON.stringify({ campos: campos }),
+            })
                 .then(function (r) { return r.json(); })
                 .then(function (data) {
-                    if (!data || !data.success) throw new Error('sin exito');
-                    window.toast('Revisado: la fila queda como coincide', 'success');
+                    if (!data || !data.success) throw new Error((data && data.message) || 'sin exito');
+                    window.toast('Guardado y revisado: la fila queda como coincide', 'success');
                     window.closePdfPreview();
                     // Recarga la lista con los mismos filtros, para seguir con la siguiente.
                     if (typeof window.cpdfFiltrar === 'function') window.cpdfFiltrar();
                 })
-                .catch(function () {
-                    window.toast('La ficha se guardó, pero no se pudo marcar la fila como revisada', 'error');
+                .catch(function (err) {
+                    window.toast('La ficha se guardó, pero no se pudo marcar la fila como revisada'
+                        + (err && err.message && err.message !== 'sin exito' ? ': ' + err.message : ''), 'error');
                 });
         });
     }

@@ -11,8 +11,7 @@ Artisan::command('inspire', function () {
 
 // Compresion de PDF de documentos, de madrugada y de 5 en 5 (ver docs:comprimir).
 // Entre las 5:00 y las 6:30 a.m. (hora de la app, America/Caracas) se intenta cada minuto:
-// DESPUES de la verificacion (00:30-04:50), porque las dos leen de Google Drive, con diez
-// minutos de margen para que la ultima tanda de la verificacion termine tranquila;
+// fuera de la ventana de la verificacion (09:05-13:05), porque las dos leen de Google Drive;
 // withoutOverlapping impide que un lote arranque encima del anterior (el candado caduca a
 // los 30 min por si una pasada muriera a medias) y el propio comando deja un minuto de
 // descanso entre el fin de un lote y el siguiente. Si ya no queda nada, las pasadas
@@ -36,8 +35,8 @@ Schedule::command('docs:comprimir --lote=5')
 // por minuto. Se eligio 25 porque es el tamaño que MENOS se resiente si Drive se pone lento:
 // a 7 s por documento la pasada sube a 2:55 y sigue cabiendo en los mismos 3 minutos, o sea
 // el mismo ritmo. Con 10 el ritmo se caeria a la mitad (5/min) y con 60 bajaria a 8,6.
-// Medido en el servidor el 18-09-2026: 5,7 s por documento. Los ~1.900 cargados piden unas
-// 3 h 45, asi que en la ventana de 4 horas terminan en UNA pasada (sobre la 1 de la tarde).
+// Medido en el servidor el 18-09-2026: 5,7 s por documento, ~8 documentos por minuto por
+// lector; con los cuatro de abajo, ~30. Los ~1.900 cargados caben de sobra en la ventana.
 // De dia a proposito (18-09-2026): la de la noche no llego a terminar. El servidor apenas lo
 // nota (0,07 s de CPU por documento) y la ficha se escribe con bloqueo de fila, asi que no
 // choca con quien este editando a la vez.
@@ -46,12 +45,18 @@ Schedule::command('docs:comprimir --lote=5')
 // de otro vehiculo, se leyo a medias o no se pudo confirmar de quien es: eso queda en Control
 // de Auditoría para que lo mire una persona. Solo en el servidor: en el PC de desarrollo la
 // base es una copia y esas correcciones no le servirian a nadie (ahi se usa --no-rellenar).
-Schedule::command('docs:verificar-documentos --lote=25')
-    ->when(fn () => \App\Support\EnlacesDocumentos::esBaseDelServidor()[0])
-    ->everyMinute()
-    ->between('09:05', '13:05')
-    ->withoutOverlapping(30)
-    ->runInBackground();
+// CUATRO lectores a la vez, cada uno con su cuarta parte de las fichas (--parte/--de, ver
+// VerificarDocumentos::reparto): lo que tarda es esperar a Drive, no el servidor, y con uno
+// solo la cola iba a ~8 documentos por minuto. Cada comando lleva su propio candado
+// (withoutOverlapping va por la linea de comando), asi que no se estorban entre ellos.
+foreach (range(0, 3) as $parte) {
+    Schedule::command("docs:verificar-documentos --lote=25 --parte=$parte --de=4")
+        ->when(fn () => \App\Support\EnlacesDocumentos::esBaseDelServidor()[0])
+        ->everyMinute()
+        ->between('09:05', '13:05')
+        ->withoutOverlapping(30)
+        ->runInBackground();
+}
 
 // La caché vive en la base de datos (CACHE_STORE=database), y ahí una entrada caducada solo
 // se borra si alguien la vuelve a leer. Las cachés con la versión en la clave (el tablero del

@@ -118,7 +118,7 @@ $vence
             'MARCA' => 'MARCAPRUEBA', 'MODELO' => 'MP-' . strtoupper(Str::random(4)),
             // El serial, con el largo y la pinta de un N.I.V. de verdad (letras Y digitos):
             // el lector descarta como serial lo que no lleve ningun digito.
-            'ANIO' => 2020, 'SERIAL_CHASIS' => '8XA' . strtoupper(Str::random(5)) . random_int(100000, 999999),
+            'ANIO' => 2020, 'SERIAL_CHASIS' => '8XA' . strtoupper(Str::random(8)) . random_int(100000, 999999),   // 17, como un N.I.V.
         ]);
         DB::table('documentacion')->insert($ficha + [
             'ID_EQUIPO' => $id, 'PLACA' => $placa,
@@ -188,15 +188,15 @@ $vence
 
     public function test_el_titulo_trae_propietario_y_fecha_de_emision(): void
     {
-        [$equipo, $placa] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'ONSTRUCTORA VIDALSA 27, C.A']);
-        $this->lectorFalso($this->textoTitulo('CONSTRUCTORA VIDALSA 27, C.A', $placa));
+        [$equipo, $placa] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'TRANSPORTE MILENUIM 0210, CA']);
+        $this->lectorFalso($this->textoTitulo('TRANSPORTE MILENIUM 0210 C.A', $placa));
 
         $reg = $this->verificar($equipo, VerificacionDocumento::PROPIEDAD);
 
         // Manda el documento: el nombre mal escrito de la ficha y la fecha que le faltaba se
         // ponen con lo que dice el titulo, sin que nadie pulse nada.
         $ficha = $this->ficha($equipo);
-        $this->assertSame('CONSTRUCTORA VIDALSA 27, C.A', $ficha->NOMBRE_DEL_TITULAR);
+        $this->assertSame('TRANSPORTE MILENIUM 0210 C.A', $ficha->NOMBRE_DEL_TITULAR);
         $this->assertSame('2018-10-03', substr((string) $ficha->FECHA_EMISION_PROPIEDAD, 0, 10),
             'La fecha en que se emitio el titulo sale del propio documento.');
         $this->assertSame(VerificacionDocumento::COINCIDE, $reg->ESTADO);
@@ -260,8 +260,8 @@ $vence
     public function test_diferencias_de_escritura_del_nombre_se_distinguen(): void
     {
         // Una letra de menos: puede estar mal el documento o la ficha, se avisa.
-        [$e1, $p1] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'CONSTRUCTORA VIDALSA 27 C.A.']);
-        $this->lectorFalso($this->textoTitulo('CONTRUCTORA VIDALSA 27, C.A', $p1));
+        [$e1, $p1] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'TRANSPORTE MILENUIM 0210, CA']);
+        $this->lectorFalso($this->textoTitulo('TRANSPORTE MILENIUM 0210 C.A', $p1));
         $this->assertStringContainsString('una letra', (string) $this->verificarSinAplicar($e1, VerificacionDocumento::PROPIEDAD)->MOTIVO);
 
         // Letras de otro alfabeto que se ven iguales: la ficha queda inencontrable al buscarla.
@@ -420,8 +420,8 @@ $vence
     {
         // Escaneo en el que no se entiende ni la placa ni el serial: no hay forma de saber de
         // que vehículo es el PDF, así que la fila va al montón de "revisar a mano".
-        [$equipo] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'ONSTRUCTORA VIDALSA 27, C.A']);
-        $this->lectorFalso("INTT \nCertificado de Registro de Vehículo a: \nCONSTRUCTORA VIDALSA 27, C.A \n");
+        [$equipo] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'TRANSPORTE MILENUIM 0210, CA']);
+        $this->lectorFalso("INTT \nCertificado de Registro de Vehículo a: \nTRANSPORTE MILENIUM 0210 C.A \n");
 
         $reg = $this->verificar($equipo, VerificacionDocumento::PROPIEDAD);
 
@@ -434,16 +434,16 @@ $vence
         $this->assertSame(0, VerificacionDocumento::corregibles()->where('ID_EQUIPO', $equipo)->count());
 
         $this->assertArrayHasKey('error', $this->aplicar($reg));
-        $this->assertSame('ONSTRUCTORA VIDALSA 27, C.A', $this->ficha($equipo)->NOMBRE_DEL_TITULAR);
+        $this->assertSame('TRANSPORTE MILENUIM 0210, CA', $this->ficha($equipo)->NOMBRE_DEL_TITULAR);
     }
 
     public function test_el_serial_del_chasis_vale_cuando_la_placa_no_se_lee(): void
     {
-        [$equipo] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'ONSTRUCTORA VIDALSA 27, C.A']);
+        [$equipo] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'TRANSPORTE MILENUIM 0210, CA']);
         $serial = DB::table('equipos')->where('ID_EQUIPO', $equipo)->value('SERIAL_CHASIS');
 
         // El documento no trae placa legible, pero sí el serial de la ficha: se confirma igual.
-        $this->lectorFalso("INTT \nCertificado de Registro de Vehículo a: \nCONSTRUCTORA VIDALSA 27, C.A \n"
+        $this->lectorFalso("INTT \nCertificado de Registro de Vehículo a: \nTRANSPORTE MILENIUM 0210 C.A \n"
             . "Serial N.I.V.: $serial \nDado a los: 3 días del mes de: OCTUBRE de: 2018 \n");
 
         $reg = $this->verificarSinAplicar($equipo, VerificacionDocumento::PROPIEDAD);
@@ -457,9 +457,9 @@ $vence
     {
         // Escaneo sucio: el reconocimiento se come la placa, pero el serial sale perfecto.
         // Basta uno de los dos para confirmar que el PDF es de esta ficha.
-        [$equipo] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'ONSTRUCTORA VIDALSA 27, C.A']);
+        [$equipo] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'TRANSPORTE MILENUIM 0210, CA']);
         $serial = DB::table('equipos')->where('ID_EQUIPO', $equipo)->value('SERIAL_CHASIS');
-        $this->lectorFalso("INTT \nCertificado de Registro de Vehículo a: \nCONSTRUCTORA VIDALSA 27, C.A \n"
+        $this->lectorFalso("INTT \nCertificado de Registro de Vehículo a: \nTRANSPORTE MILENIUM 0210 C.A \n"
             . "Placa: XX0000X \nSerial N.I.V.: $serial \nDado a los: 3 días del mes de: OCTUBRE de: 2018 \n");
 
         $reg = $this->verificarSinAplicar($equipo, VerificacionDocumento::PROPIEDAD);
@@ -499,6 +499,127 @@ $vence
         $this->assertSame('2025-05-30', substr((string) $ficha->FECHA_EMISION_ROTC, 0, 10));
         $this->assertSame(VerificacionDocumento::COINCIDE, $reg->ESTADO);
         $this->assertSame('49199', $reg->LEIDO['nro']);
+    }
+
+    public function test_un_pdf_anterior_no_pisa_el_vencimiento_nuevo_de_la_ficha(): void
+    {
+        // Caso real (18-09-2026): la ficha ya tiene el ROTC renovado (03/07/2027) pero el PDF
+        // enlazado es el viejo (vence 30/05/2026). "Manda el documento" vale para el VIGENTE:
+        // del anterior no se propone ni se pone nada, y queda para que alguien enlace el nuevo.
+        [$equipo, $placa] = $this->equipoConDocumentos([
+            'NOMBRE_DEL_TITULAR' => 'CONSTRUCTORA VIDALSA 27, C.A',
+            'FECHA_ROTC' => '2027-07-03', 'FECHA_EMISION_ROTC' => '2026-07-03',
+        ]);
+        $serial = DB::table('equipos')->where('ID_EQUIPO', $equipo)->value('SERIAL_CHASIS');
+        $this->lectorFalso($this->textoRotc('CONSTRUCTORA VIDALSA 27, C.A', $placa, $serial, '30/05/2025', '30/05/2026'));
+
+        $reg = $this->verificar($equipo, VerificacionDocumento::ROTC);
+        $this->assertSame(VerificacionDocumento::DIFIERE, $reg->ESTADO);
+        $this->assertTrue($reg->A_MANO, 'Va a "para revisar": hay que enlazar el vigente.');
+        $this->assertNull($reg->DIFERENCIAS, 'No se propone ninguna fecha del PDF viejo.');
+        $this->assertTrue($reg->esDocumentoAnterior());
+        $this->assertStringContainsString('ANTERIOR: vence el 30/05/2026 y la ficha ya dice 03/07/2027', (string) $reg->MOTIVO);
+        $ficha = $this->ficha($equipo);
+        $this->assertSame('2027-07-03', substr((string) $ficha->FECHA_ROTC, 0, 10));
+        $this->assertSame('2026-07-03', substr((string) $ficha->FECHA_EMISION_ROTC, 0, 10));
+
+        // Lo mismo con la poliza: ni la aseguradora ni las fechas del cuadro viejo.
+        [$otro, $placa2] = $this->equipoConDocumentos(['FECHA_VENC_POLIZA' => '2027-02-19']);
+        $serial2 = DB::table('equipos')->where('ID_EQUIPO', $otro)->value('SERIAL_CHASIS');
+        $this->lectorFalso("PIRAMIDE SEGUROS\nPlaca: $placa2\nSerial Carroceria: $serial2\nVigencia del Seguro: 19/02/2025 al 19/02/2026\n");
+        $pol = $this->verificar($otro, VerificacionDocumento::POLIZA);
+        $this->assertTrue($pol->A_MANO);
+        $this->assertNull($pol->DIFERENCIAS);
+        $this->assertSame('2027-02-19', substr((string) $this->ficha($otro)->FECHA_VENC_POLIZA, 0, 10));
+
+        // El vigente (vence DESPUES) si manda: la ficha se pone al dia.
+        [$tercero, $placa3] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'CONSTRUCTORA VIDALSA 27, C.A', 'FECHA_ROTC' => '2026-05-30']);
+        $serial3 = DB::table('equipos')->where('ID_EQUIPO', $tercero)->value('SERIAL_CHASIS');
+        $this->lectorFalso($this->textoRotc('CONSTRUCTORA VIDALSA 27, C.A', $placa3, $serial3, '03/07/2026', '03/07/2027'));
+        $this->verificar($tercero, VerificacionDocumento::ROTC);
+        $this->assertSame('2027-07-03', substr((string) $this->ficha($tercero)->FECHA_ROTC, 0, 10));
+    }
+
+    public function test_el_rotc_de_flota_usa_la_fila_del_equipo(): void
+    {
+        // La hoja del ROTC de flota (visto el 18-09-2026): la tabla con una fila por vehiculo
+        // —placa, serial y, al lado del serial, su vencimiento— y debajo el certificado de
+        // UNO de ellos. Un equipo de la tabla esta amparado aunque el certificado sea de otro.
+        [$equipo, $placa] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'CONSTRUCTORA VIDALSA 27, C.A', 'FECHA_ROTC' => '2026-05-30']);
+        $serial = DB::table('equipos')->where('ID_EQUIPO', $equipo)->value('SERIAL_CHASIS');
+        [$fuera, $placaFuera] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'CONSTRUCTORA VIDALSA 27, C.A', 'FECHA_ROTC' => '2026-05-30']);
+        $tabla = "Fecha y Hora de Emisión: 03/07/2026 12:20:15 PM Pág. 6/34 FLOTA VEHICULAR DE TRANSPORTE DE CARGA\n"
+            . "Operadora: CONSTRUCTORA VIDALSA 27, C.A (J-29387719-9) Número de ROTC: 49199 Fecha de vencimiento: 03/07/2027\n"
+            . "\t69 A45AF5Y JAC HFC3252KR1K3 2017 VOLTEO 3 16200 Ton. LJ13R8DK3H3400167 03/07/2027\n"
+            . "\t70 $placa JAC HFC3252KR1K3 2017 VOLTEO 3 16200 Ton. $serial 03/07/2027\n"
+            . "\t71 A45BN3R SINOTRUK ZZ4257V344JB1 2025 CAMION TRACTOR 3 17100 Ton. LZZPCMSCXSJ389196 03/07/2027\n";
+        $texto = $tabla . $this->textoRotc('CONSTRUCTORA VIDALSA 27, C.A', 'A45BN3R', 'LZZPCMSCXSJ389196', '03/07/2026', '03/07/2027');
+
+        $this->lectorFalso($texto);
+        $reg = $this->verificar($equipo, VerificacionDocumento::ROTC);
+        $this->assertSame(VerificacionDocumento::COINCIDE, $reg->ESTADO, (string) $reg->MOTIVO);
+        $this->assertTrue($reg->LEIDO['en_tabla']);
+        $this->assertSame('2027-07-03', substr((string) $this->ficha($equipo)->FECHA_ROTC, 0, 10), 'El vencimiento de SU fila.');
+        $this->assertNull($this->ficha($equipo)->FECHA_EMISION_ROTC, 'La emision del certificado de otro no se copia.');
+
+        // Un equipo que no esta en la tabla: el documento sigue siendo de otro vehiculo.
+        $this->lectorFalso($texto);
+        $otro = $this->verificar($fuera, VerificacionDocumento::ROTC);
+        $this->assertTrue($otro->esDeOtroVehiculo());
+        $this->assertSame('2026-05-30', substr((string) $this->ficha($fuera)->FECHA_ROTC, 0, 10));
+    }
+
+    public function test_una_lectura_guardada_de_un_pdf_anterior_no_se_aplica(): void
+    {
+        // Filas leidas ANTES de esta regla, con la fecha vieja como "diferencia" pendiente: la
+        // tarea las rellena sola al arrancar. No pueden poner la fecha vieja encima de la buena.
+        [$equipo, $placa] = $this->equipoConDocumentos(['FECHA_ROTC' => '2027-07-03']);
+        $reg = VerificacionDocumento::create([
+            'ID_EQUIPO' => $equipo, 'TIPO' => VerificacionDocumento::ROTC, 'PLACA' => $placa, 'DRIVE_ID' => 'driveVIEJO',
+            'LEIDO' => ['vence' => '2026-05-30', 'placa' => $placa], 'ESTADO' => VerificacionDocumento::DIFIERE, 'A_MANO' => false,
+            'DIFERENCIAS' => ['FECHA_ROTC' => ['etiqueta' => 'Vencimiento', 'ficha' => '2027-07-03', 'documento' => '2026-05-30'],
+                              'FECHA_EMISION_ROTC' => ['etiqueta' => 'Fecha de emision', 'ficha' => null, 'documento' => '2025-05-30']],
+        ]);
+
+        $this->assertSame([], $this->aplicar($reg)['puestos']);
+        $reg->refresh();
+        $this->assertTrue($reg->A_MANO);
+        $this->assertNull($reg->DIFERENCIAS);
+        $this->assertTrue($reg->esDocumentoAnterior());
+        $this->assertStringContainsString('ANTERIOR', (string) $reg->MOTIVO);
+        $ficha = $this->ficha($equipo);
+        $this->assertSame('2027-07-03', substr((string) $ficha->FECHA_ROTC, 0, 10));
+        $this->assertNull($ficha->FECHA_EMISION_ROTC);
+    }
+
+    public function test_la_migracion_del_18_09_deshace_los_vencimientos_que_retrocedieron(): void
+    {
+        $origen = ['_origen' => 'Verificación de documentos (automática)'];
+        // 1) La tarea le puso a la ficha la fecha de un ROTC viejo (antes 2027, despues 2026).
+        [$mal] = $this->equipoConDocumentos(['FECHA_ROTC' => '2026-05-30', 'FECHA_EMISION_ROTC' => '2025-05-30']);
+        EquipoAuditLog::registrar($mal, 'edit', ['FECHA_ROTC' => ['antes' => '2027-07-03', 'despues' => '2026-05-30'],
+            'FECHA_EMISION_ROTC' => ['antes' => '2026-07-03', 'despues' => '2025-05-30']] + $origen);
+        // 2) Igual, pero despues alguien corrigio la ficha a mano: manda lo suyo.
+        [$tocada] = $this->equipoConDocumentos(['FECHA_ROTC' => '2028-01-01']);
+        EquipoAuditLog::registrar($tocada, 'edit', ['FECHA_ROTC' => ['antes' => '2027-07-03', 'despues' => '2026-05-30']] + $origen);
+        // 3) Una puesta al dia normal (la fecha AVANZO): se queda.
+        [$bien] = $this->equipoConDocumentos(['FECHA_ROTC' => '2027-07-03']);
+        EquipoAuditLog::registrar($bien, 'edit', ['FECHA_ROTC' => ['antes' => '2026-05-30', 'despues' => '2027-07-03']] + $origen);
+        // Y una lectura de ROTC y otra de poliza: se relee el ROTC, la poliza no.
+        foreach ([VerificacionDocumento::ROTC, VerificacionDocumento::POLIZA] as $tipo) {
+            VerificacionDocumento::create(['ID_EQUIPO' => $bien, 'TIPO' => $tipo, 'DRIVE_ID' => 'drive' . $tipo, 'ESTADO' => VerificacionDocumento::COINCIDE]);
+        }
+
+        (require database_path('migrations/2026_09_18_111000_releer_rotc_racda_y_deshacer_vencimientos_viejos.php'))->up();
+
+        $this->assertSame('2027-07-03', substr((string) $this->ficha($mal)->FECHA_ROTC, 0, 10), 'Vuelve la fecha buena.');
+        $this->assertSame('2026-07-03', substr((string) $this->ficha($mal)->FECHA_EMISION_ROTC, 0, 10), 'Y su emision.');
+        $this->assertStringContainsString('PDF anterior', (string) json_encode(
+            EquipoAuditLog::where('ID_EQUIPO', $mal)->orderByDesc('ID_LOG')->value('CAMBIOS'), JSON_UNESCAPED_UNICODE));
+        $this->assertSame('2028-01-01', substr((string) $this->ficha($tocada)->FECHA_ROTC, 0, 10));
+        $this->assertSame('2027-07-03', substr((string) $this->ficha($bien)->FECHA_ROTC, 0, 10));
+        $this->assertSame([VerificacionDocumento::POLIZA],
+            VerificacionDocumento::where('ID_EQUIPO', $bien)->pluck('TIPO')->all(), 'El ROTC queda para releer.');
     }
 
     public function test_el_racda_comprueba_que_la_placa_este_autorizada(): void
@@ -667,8 +788,8 @@ Placa: $placa
         $this->assertNotContains('SERIAL_CHASIS', CorrectorFichaDocumento::CAMPOS);
 
         // Y aunque llegara una diferencia de placa, no se escribe: se queda a la vista.
-        [$equipo, $placa] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'ONSTRUCTORA VIDALSA 27, C.A']);
-        $this->lectorFalso($this->textoTitulo('CONSTRUCTORA VIDALSA 27, C.A', $placa));
+        [$equipo, $placa] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'TRANSPORTE MILENUIM 0210, CA']);
+        $this->lectorFalso($this->textoTitulo('TRANSPORTE MILENIUM 0210 C.A', $placa));
         $reg = $this->verificarSinAplicar($equipo, VerificacionDocumento::PROPIEDAD);
         $reg->update(['DIFERENCIAS' => ['PLACA' => ['etiqueta' => 'Placa', 'ficha' => $placa, 'documento' => 'A00XX9X']]
             + (array) $reg->DIFERENCIAS]);
@@ -716,7 +837,7 @@ Placa: $placa
     {
         // Caso límite del anterior: la corrección a mano tocó el ÚNICO dato que había que
         // aplicar. No queda nada que escribir, y la fila tiene que quedar marcada igual; si
-        // no, ningún botón la arregla y la pasada de cada noche la reintenta para siempre.
+        // no, ningún botón la arregla y la pasada de cada día la reintenta para siempre.
         $mampreca = $this->aseguradora('MAMPRECA');
         [$equipo, $placa] = $this->equipoConDocumentos([
             'ID_SEGURO' => $mampreca, 'FECHA_VENC_POLIZA' => '2026-01-01', 'FECHA_EMISION_POLIZA' => '2025-01-01',
@@ -792,8 +913,8 @@ Marca: TOYOTA
     {
         // La tarjeta "Sin aplicar" enlaza a estado_doc=corregibles: ese filtro tiene que
         // existir en la lista del desplegable o la pantalla revienta al pulsarla.
-        [$equipo, $placa] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'ONSTRUCTORA VIDALSA 27, C.A']);
-        $this->lectorFalso($this->textoTitulo('CONSTRUCTORA VIDALSA 27, C.A', $placa));
+        [$equipo, $placa] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'TRANSPORTE MILENUIM 0210, CA']);
+        $this->lectorFalso($this->textoTitulo('TRANSPORTE MILENIUM 0210 C.A', $placa));
         $this->verificarSinAplicar($equipo, VerificacionDocumento::PROPIEDAD);
 
         $this->actingAs($this->superAdmin())
@@ -821,18 +942,18 @@ Marca: TOYOTA
     {
         // --equipo es para probar UNA ficha: no puede aplicar de golpe lo pendiente de toda
         // la flota.
-        [$uno, $placaUno] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'ONSTRUCTORA VIDALSA 27, C.A']);
-        [$otro, $placaOtro] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'ONSTRUCTORA VIDALSA 27, C.A']);
-        $this->lectorFalso($this->textoTitulo('CONSTRUCTORA VIDALSA 27, C.A', $placaUno));
+        [$uno, $placaUno] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'TRANSPORTE MILENUIM 0210, CA']);
+        [$otro, $placaOtro] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'TRANSPORTE MILENUIM 0210, CA']);
+        $this->lectorFalso($this->textoTitulo('TRANSPORTE MILENIUM 0210 C.A', $placaUno));
         $this->verificarSinAplicar($uno, VerificacionDocumento::PROPIEDAD);
-        $this->lectorFalso($this->textoTitulo('CONSTRUCTORA VIDALSA 27, C.A', $placaOtro));
+        $this->lectorFalso($this->textoTitulo('TRANSPORTE MILENIUM 0210 C.A', $placaOtro));
         $this->verificarSinAplicar($otro, VerificacionDocumento::PROPIEDAD);
 
         $this->artisan('docs:verificar-documentos', ['--equipo' => $uno, '--tipo' => VerificacionDocumento::PROPIEDAD])
             ->assertSuccessful();
 
-        $this->assertSame('CONSTRUCTORA VIDALSA 27, C.A', $this->ficha($uno)->NOMBRE_DEL_TITULAR);
-        $this->assertSame('ONSTRUCTORA VIDALSA 27, C.A', $this->ficha($otro)->NOMBRE_DEL_TITULAR,
+        $this->assertSame('TRANSPORTE MILENIUM 0210 C.A', $this->ficha($uno)->NOMBRE_DEL_TITULAR);
+        $this->assertSame('TRANSPORTE MILENUIM 0210, CA', $this->ficha($otro)->NOMBRE_DEL_TITULAR,
             'La otra ficha no se toca.');
     }
 
@@ -901,12 +1022,12 @@ Dado a los: 3 días del mes de: OCTUBRE de: 2018
     {
         // Volteos IVECO: el escaneo dice "CONTRUCTORA VIDALSA 27, C.Aaca:" — el "aca" en
         // minusculas es una mancha o un sello, no parte del nombre.
-        [$equipo, $placa] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'CONSTRUCTORA VIDALSA 27,CA']);
-        $this->lectorFalso("INTT \nCertificado de Registro de Vehículo a: \nCONTRUCTORA VIDALSA 27, C.Aaca: \nPlaca: $placa \n");
+        [$equipo, $placa] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'GRUPO ROYSO C.A.']);
+        $this->lectorFalso("INTT \nCertificado de Registro de Vehículo a: \nGRUPO ROYSO C.Aaca: \nPlaca: $placa \n");
 
         $reg = $this->verificarSinAplicar($equipo, VerificacionDocumento::PROPIEDAD);
 
-        $this->assertSame('CONTRUCTORA VIDALSA 27, C.A', $reg->LEIDO['titular']);
+        $this->assertSame('GRUPO ROYSO C.A', $reg->LEIDO['titular']);
     }
 
     /** Anexo de poliza de FLOTA, con el formato real (Piramide, "SE AMAPARA" incluido). */
@@ -947,6 +1068,107 @@ Dado a los: 3 días del mes de: OCTUBRE de: 2018
         $this->assertStringContainsString('flota', (string) $reg->MOTIVO);
     }
 
+    public function test_un_anexo_de_flota_sin_fechas_no_se_reintenta(): void
+    {
+        // No es un fallo de lectura: el anexo no trae fechas. Releerlo no las hace aparecer.
+        [$equipo] = $this->equipoConDocumentos();
+        $serial = DB::table('equipos')->where('ID_EQUIPO', $equipo)->value('SERIAL_CHASIS');
+        $this->lectorFalso($this->textoPolizaFlota([$serial]));
+
+        $reg = $this->verificar($equipo, VerificacionDocumento::POLIZA);
+
+        $this->assertSame(VerificacionDocumento::ILEGIBLE, $reg->ESTADO);
+        $this->assertSame(VerificacionDocumento::MAX_INTENTOS, (int) $reg->INTENTOS, 'Definitivo: no vuelve a la cola.');
+        $this->assertSame(0, VerificacionDocumento::pendientes(VerificacionDocumento::POLIZA, 'LINK_POLIZA_SEGURO')
+            ->where('d.ID_EQUIPO', $equipo)->count());
+    }
+
+    public function test_reintentar_relee_los_ilegibles_aunque_hayan_agotado_sus_intentos(): void
+    {
+        // Tras mejorar el lector, lo que agoto sus intentos con el lector viejo se puede releer.
+        [$equipo, $placa] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'CONSTRUCTORA VIDALSA 27, C.A']);
+        $this->lectorFalso("hoja en blanco \n");
+        $reg = $this->verificar($equipo, VerificacionDocumento::PROPIEDAD);
+        $reg->update(['INTENTOS' => VerificacionDocumento::MAX_INTENTOS]);
+        $this->assertSame(0, VerificacionDocumento::pendientes(VerificacionDocumento::PROPIEDAD, 'LINK_DOC_PROPIEDAD')
+            ->where('d.ID_EQUIPO', $equipo)->count(), 'Agotado: la pasada normal ya no lo lee.');
+
+        $this->lectorFalso($this->textoTitulo('CONSTRUCTORA VIDALSA 27, C.A', $placa));
+        $this->artisan('docs:verificar-documentos', ['--tipo' => VerificacionDocumento::PROPIEDAD, '--reintentar' => true, '--lote' => 500])
+            ->assertSuccessful();
+
+        $this->assertNotSame(VerificacionDocumento::ILEGIBLE, $reg->refresh()->ESTADO, 'Con --reintentar se vuelve a leer.');
+    }
+
+    public function test_repartida_en_partes_cada_proceso_lee_solo_las_suyas(): void
+    {
+        // Con --parte/--de varios procesos leen a la vez sin coger los mismos documentos.
+        $ids = [];
+        for ($i = 0; $i < 4; $i++) { [$ids[]] = $this->equipoConDocumentos(); }
+        $this->lectorFalso("hoja en blanco \n");
+        $pares = array_values(array_filter($ids, fn ($id) => $id % 2 === 0));
+
+        foreach ($ids as $id) {
+            // cada ficha se lee con su parte; la de la otra parte no se toca
+            $parte = $id % 2;
+            $this->artisan('docs:verificar-documentos', ['--equipo' => $id, '--tipo' => VerificacionDocumento::PROPIEDAD,
+                '--parte' => 1 - $parte, '--de' => 2])->assertSuccessful();
+            $this->assertSame(0, VerificacionDocumento::where('ID_EQUIPO', $id)->count(), "La parte ajena no lee la ficha $id.");
+        }
+        foreach ($pares as $id) {
+            $this->artisan('docs:verificar-documentos', ['--equipo' => $id, '--tipo' => VerificacionDocumento::PROPIEDAD,
+                '--parte' => 0, '--de' => 2])->assertSuccessful();
+            $this->assertSame(1, VerificacionDocumento::where('ID_EQUIPO', $id)->count(), "Su parte si la lee ($id).");
+        }
+        $this->artisan('docs:verificar-documentos', ['--parte' => 2, '--de' => 2])->assertFailed();
+    }
+
+    public function test_el_nombre_de_la_empresa_se_escribe_siempre_igual(): void
+    {
+        // Decision del cliente (18-09-2026): CONSTRUCTORA VIDALSA 27, C.A, y la errata de los
+        // titulos del INTT ("CONTRUCTORA", sin S) cuenta como el mismo nombre.
+        $l = app(\App\Services\LectorDocumentoPdf::class);
+        foreach (['CONSTRUCTORA VIDALSA 27 C.A.', 'CONSTRUCTORA VIDALSA 27,CA', 'CONTRUCTORA VIDALSA 27, C.A',
+                  'CONTRUCTORA VIDALSA 27, C.AACA', 'NCONSTRUCTORA VIDALSA 27, С.А', 'CONSTRUCTURA VIDALSA 27, C.A'] as $forma) {
+            $this->assertSame('CONSTRUCTORA VIDALSA 27, C.A', $l->canonico($forma), $forma);
+        }
+        $this->assertSame('CONSTRUCTORA SERVISAGA, C.A', $l->canonico('CONSTRUCTORA SERVISAGA, C.A'), 'Otra empresa no se toca.');
+
+        // Ficha ya unificada y titulo con la errata del INTT: coincide, la ficha no se reescribe.
+        [$equipo, $placa] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'CONSTRUCTORA VIDALSA 27, C.A',
+            'FECHA_EMISION_PROPIEDAD' => '2018-10-03']);
+        $this->lectorFalso($this->textoTitulo('CONTRUCTORA VIDALSA 27, C.A', $placa));
+        $reg = $this->verificar($equipo, VerificacionDocumento::PROPIEDAD);
+        $this->assertSame(VerificacionDocumento::COINCIDE, $reg->ESTADO);
+        $this->assertSame('CONSTRUCTORA VIDALSA 27, C.A', $this->ficha($equipo)->NOMBRE_DEL_TITULAR);
+
+        // Ficha sin propietario (N/A): la tarea lo pone, y en la forma elegida, no con la errata.
+        [$otro, $placa2] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'N/A']);
+        $this->lectorFalso($this->textoTitulo('CONTRUCTORA VIDALSA 27, C.A', $placa2));
+        $this->verificar($otro, VerificacionDocumento::PROPIEDAD);
+        $this->assertSame('CONSTRUCTORA VIDALSA 27, C.A', $this->ficha($otro)->NOMBRE_DEL_TITULAR);
+    }
+
+    public function test_los_formatos_de_poliza_vistos_el_18_09_se_leen(): void
+    {
+        // Tres aseguradoras que salian "no se pudo leer" teniendo la vigencia escrita.
+        $l = app(\App\Services\LectorDocumentoPdf::class);
+        $casos = [
+            // Rotulos en una linea, fechas en otra; el vencimiento pegado a "Hasta:"; "Incio" (sic).
+            ["Fecha de Emisión: \nCUADRO RECIBO \nDesde : Desde: \n12/05/2025 12/05/2025 \nHasta: 12/05/2026 Hasta: 12/05/2026 \nFecha de Incio Póliza: 12/05/2025 \n",
+             '2025-05-12', '2026-05-12'],
+            // "Hasta" y su fecha separados por otros rotulos.
+            ["Vigencia \n1/12/2025 \nDesde 01/12/2025 Hasta \nFrecuencia de Pago: Sucursal: 1/12/2026 Anual \n", '2025-12-01', '2026-12-01'],
+            // Las dos fechas de la vigencia separadas por un guion.
+            ["VIGENCIA DEL SEGURO:16/01/2026 - 16/01/2027 \n", '2026-01-16', '2027-01-16'],
+        ];
+        foreach ($casos as [$texto, $desde, $vence]) {
+            $d = $l->extraer(VerificacionDocumento::POLIZA, $texto);
+            $this->assertSame($desde, $d['desde'], $texto);
+            $this->assertSame($vence, $d['vence'], $texto);
+        }
+    }
+
     public function test_los_cuatro_documentos_se_revisan_en_orden(): void
     {
         // La pasada se gasta en el primer documento que tenga cola; cuando ese se acaba, sigue
@@ -974,8 +1196,8 @@ hoja sin datos que sirvan
     {
         // La persona corrige la ficha en el panel del visor y la fila queda revisada por
         // ella: sale de pendientes, sin diferencias, con su nombre en el motivo.
-        [$equipo, $placa] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'ONSTRUCTORA VIDALSA 27, C.A']);
-        $this->lectorFalso($this->textoTitulo('CONSTRUCTORA VIDALSA 27, C.A', $placa));
+        [$equipo, $placa] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'TRANSPORTE MILENUIM 0210, CA']);
+        $this->lectorFalso($this->textoTitulo('TRANSPORTE MILENIUM 0210 C.A', $placa));
         $reg = $this->verificarSinAplicar($equipo, VerificacionDocumento::PROPIEDAD);
         $this->assertSame(VerificacionDocumento::DIFIERE, $reg->ESTADO);
 
@@ -991,19 +1213,113 @@ hoja sin datos que sirvan
         $this->assertStringContainsString('Revisado a mano por', (string) $reg->MOTIVO);
         $this->assertSame(0, VerificacionDocumento::corregibles()->where('ID_EQUIPO', $equipo)->count(), 'Sale de pendientes.');
         // Marcar NO toca la ficha: eso lo hace el panel del visor con su propia ruta.
-        $this->assertSame('ONSTRUCTORA VIDALSA 27, C.A', $this->ficha($equipo)->NOMBRE_DEL_TITULAR);
+        $this->assertSame('TRANSPORTE MILENUIM 0210, CA', $this->ficha($equipo)->NOMBRE_DEL_TITULAR);
+    }
+
+    public function test_revisado_a_mano_pone_lo_que_el_panel_del_visor_no_tiene(): void
+    {
+        // La fecha de emision no tiene campo en el panel del visor: sale aparte, con el valor
+        // del documento, y la persona la pone (o no). Sin esto se perdia al dar la fila por buena.
+        [$equipo, $placa] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'TRANSPORTE MILENUIM 0210, CA']);
+        $this->lectorFalso($this->textoTitulo('TRANSPORTE MILENIUM 0210 C.A', $placa));
+        $reg = $this->verificarSinAplicar($equipo, VerificacionDocumento::PROPIEDAD);
+        $this->assertArrayHasKey('FECHA_EMISION_PROPIEDAD', $reg->DIFERENCIAS);
+
+        $this->actingAs($this->superAdmin())
+            ->postJson(route('compresion-pdf.documento.revisado', ['id' => $reg->ID_REGISTRO]),
+                ['campos' => ['FECHA_EMISION_PROPIEDAD' => '2018-10-03']])
+            ->assertOk()->assertJson(['success' => true, 'puestos' => ['FECHA_EMISION_PROPIEDAD']]);
+
+        $this->assertSame('2018-10-03', substr((string) $this->ficha($equipo)->FECHA_EMISION_PROPIEDAD, 0, 10));
+        $this->assertSame(VerificacionDocumento::COINCIDE, $reg->refresh()->ESTADO);
+    }
+
+    public function test_revisado_a_mano_tampoco_escribe_la_placa_ni_datos_que_no_estaban(): void
+    {
+        [$equipo, $placa] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'TRANSPORTE MILENUIM 0210, CA']);
+        $this->lectorFalso($this->textoTitulo('TRANSPORTE MILENIUM 0210 C.A', $placa));
+        $reg = $this->verificarSinAplicar($equipo, VerificacionDocumento::PROPIEDAD);
+        $url = route('compresion-pdf.documento.revisado', ['id' => $reg->ID_REGISTRO]);
+        $yo = $this->superAdmin();
+
+        // La placa: nunca, ni a mano por este camino (para eso esta la ficha del equipo).
+        $this->actingAs($yo)->postJson($url, ['campos' => ['PLACA' => 'A00XX9X']])->assertStatus(422);
+        // Un dato que el verificador no marco como distinto en esta fila.
+        $this->actingAs($yo)->postJson($url, ['campos' => ['FECHA_VENC_POLIZA' => '2030-01-01']])->assertStatus(422);
+        // Una fecha que no es fecha.
+        $this->actingAs($yo)->postJson($url, ['campos' => ['FECHA_EMISION_PROPIEDAD' => '2018-02-31']])->assertStatus(422);
+
+        $this->assertSame($placa, $this->ficha($equipo)->PLACA);
+        $this->assertNull($this->ficha($equipo)->FECHA_EMISION_PROPIEDAD);
+        $this->assertSame(VerificacionDocumento::DIFIERE, $reg->refresh()->ESTADO, 'Con un error no se da por revisada.');
+    }
+
+    public function test_una_tabla_de_flota_mal_escaneada_no_descarta_al_equipo(): void
+    {
+        // Si la tabla no trae ningun serial de carroceria legible (17 caracteres), no se puede
+        // afirmar que el equipo no este amparado: queda para mirarlo, sin acusar al archivo.
+        [$equipo] = $this->equipoConDocumentos(['FECHA_VENC_POLIZA' => '2027-04-08']);
+        $this->lectorFalso("RESPONSABILIDAD CIVIL GENERAL \nPOLIZA Nro.: RCGE-001001-20669 \n"
+            . "SE AMAPARA LOS SIGUIENTES VEHÍCULOS Y/O EQUIPOS \n-LOVOL FR220D 2025 N/A FTC0O3RH 448549 EXCAVADORA \n");
+
+        $reg = $this->verificar($equipo, VerificacionDocumento::POLIZA);
+
+        $this->assertFalse($reg->esDeOtroVehiculo(), 'Sin seriales legibles en la tabla no se afirma que no lo ampare.');
+        $this->assertStringContainsString('no se pudo confirmar si ampara', (string) $reg->MOTIVO);
     }
 
     public function test_sin_super_admin_no_se_puede_marcar_revisado(): void
     {
-        [$equipo, $placa] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'ONSTRUCTORA VIDALSA 27, C.A']);
-        $this->lectorFalso($this->textoTitulo('CONSTRUCTORA VIDALSA 27, C.A', $placa));
+        [$equipo, $placa] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'TRANSPORTE MILENUIM 0210, CA']);
+        $this->lectorFalso($this->textoTitulo('TRANSPORTE MILENIUM 0210 C.A', $placa));
         $reg = $this->verificarSinAplicar($equipo, VerificacionDocumento::PROPIEDAD);
 
         $sinPermiso = Usuario::all()->first(fn ($u) => ! $u->can('super.admin'));
         $this->actingAs($sinPermiso)->postJson(route('compresion-pdf.documento.revisado', ['id' => $reg->ID_REGISTRO]))
             ->assertForbidden();
         $this->assertSame(VerificacionDocumento::DIFIERE, $reg->refresh()->ESTADO);
+    }
+
+    public function test_varias_filas_se_dan_por_revisadas_con_la_casilla(): void
+    {
+        // Las casillas de la tabla: lo mismo que abrir cada una en el visor y darle Guardar
+        // sin tocar nada. Las filas quedan revisadas por la persona; las fichas, como estaban.
+        [$e1, $p1] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'TRANSPORTE MILENUIM 0210, CA']);
+        $this->lectorFalso($this->textoTitulo('TRANSPORTE MILENIUM 0210 C.A', $p1));
+        $r1 = $this->verificarSinAplicar($e1, VerificacionDocumento::PROPIEDAD);
+        [$e2, $p2] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'GRUPO ROYSO C.A.']);
+        $this->lectorFalso($this->textoTitulo('GRUPO ROYSO CORP C.A.', $p2));
+        $r2 = $this->verificarSinAplicar($e2, VerificacionDocumento::PROPIEDAD);
+        $this->assertSame(VerificacionDocumento::DIFIERE, $r2->ESTADO);
+
+        $url = route('compresion-pdf.documentos.revisados');
+        $sinPermiso = Usuario::all()->first(fn ($u) => ! $u->can('super.admin'));
+        $this->actingAs($sinPermiso)->postJson($url, ['ids' => [$r1->ID_REGISTRO]])->assertForbidden();
+        $this->assertSame(VerificacionDocumento::DIFIERE, $r1->refresh()->ESTADO);
+
+        $yo = $this->superAdmin();
+        $this->actingAs($yo)->postJson($url, ['ids' => []])->assertStatus(422);
+        $this->actingAs($yo)->postJson($url, ['ids' => ['x']])->assertStatus(422);
+        $this->actingAs($yo)->postJson($url, ['ids' => [$r1->ID_REGISTRO, $r2->ID_REGISTRO, $r1->ID_REGISTRO]])
+            ->assertOk()->assertJson(['success' => true, 'revisadas' => 2]);
+
+        foreach ([$r1, $r2] as $reg) {
+            $reg->refresh();
+            $this->assertSame(VerificacionDocumento::COINCIDE, $reg->ESTADO);
+            $this->assertNull($reg->DIFERENCIAS);
+            $this->assertSame($yo->getKey(), $reg->APLICADO_POR);
+            $this->assertStringContainsString('Revisado a mano por', (string) $reg->MOTIVO);
+        }
+        $this->assertSame('TRANSPORTE MILENUIM 0210, CA', $this->ficha($e1)->NOMBRE_DEL_TITULAR);
+        $this->assertSame('GRUPO ROYSO C.A.', $this->ficha($e2)->NOMBRE_DEL_TITULAR);
+
+        // Una que ya coincide no se toca (no tiene casilla): conserva su motivo.
+        [$e3, $p3] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'GRUPO ROYSO C.A.', 'FECHA_EMISION_PROPIEDAD' => '2018-10-03']);
+        $this->lectorFalso($this->textoTitulo('GRUPO ROYSO C.A.', $p3));
+        $r3 = $this->verificarSinAplicar($e3, VerificacionDocumento::PROPIEDAD);
+        $this->assertSame(VerificacionDocumento::COINCIDE, $r3->ESTADO);
+        $this->actingAs($yo)->postJson($url, ['ids' => [$r3->ID_REGISTRO]])->assertOk()->assertJson(['revisadas' => 0]);
+        $this->assertNull($r3->refresh()->APLICADO_POR);
     }
 
     public function test_la_pantalla_de_auditoria_tiene_las_tres_pestanas(): void

@@ -46,7 +46,21 @@ class LectorDocumentoPdf
     private const RECUERDA_PDF = 8;
 
     /** documentacion.NOMBRE_DEL_TITULAR es varchar(150): lo leido se recorta a esa medida. */
-    private const LARGO_TITULAR = 150;
+    public const LARGO_TITULAR = 150;
+
+    /**
+     * El nombre de la empresa, tal como decidio el cliente que se escriba en TODAS las fichas
+     * (18-09-2026). Estaba de seis formas en la flota ("27 C.A.", "27,CA", "CONTRUCTORA"...).
+     */
+    public const VIDALSA = 'CONSTRUCTORA VIDALSA 27, C.A';
+
+    /**
+     * Cualquier forma de ese nombre, comparada sin espacios ni puntuacion y con las letras de
+     * otro alfabeto ya traducidas: la errata de los titulos del INTT ("CONTRUCTORA", sin S),
+     * las del escaneo ("ONSTRUCTORA", "NCONSTRUCTORA", "CONATRUCTORA", "CONSTRUCTURA") y la
+     * mancha pegada al final ("C.AACA"). El mismo patron lo usa el SQL de unificacion.
+     */
+    private const RE_VIDALSA = '/^[A-Z]{0,2}ONS?A?TRUCT[OU]RAVIDALSA27CA(ACA)?$/';
 
     /**
      * Una fecha 19/02/2026 dentro del texto. Los dos "no mires" de los extremos son la parte
@@ -93,7 +107,7 @@ class LectorDocumentoPdf
      * RECUERDA_PDF). Pasa cuando varias fichas apuntan al mismo enlace. Con el RACDA ahorra
      * menos de lo que parece: la providencia es la misma para muchos equipos, pero en Drive
      * hay una copia subida POR FICHA (223 fichas, 224 archivos distintos). El recuerdo vive
-     * lo que vive el objeto —una pasada del comando—, asi que la noche siguiente vuelve a
+     * lo que vive el objeto —una pasada del comando—, asi que la pasada siguiente vuelve a
      * leer el archivo de verdad.
      */
     public function texto(string $driveId): string
@@ -161,7 +175,14 @@ class LectorDocumentoPdf
             // con el serial de carroceria de cada uno. Esa tabla SI dice de quien es el
             // documento, y un vehiculo que no esta en ella no esta amparado (ver mismoVehiculo).
             // Se busca "LOS SIGUIENTES VEHICULOS" y no el verbo: la de Piramide dice "SE AMAPARA".
-            $datos['flota'] = (bool) preg_match('/LOS\s+SIGUIENTES\s+VEH[IÍ]CULOS/ui', $plano);
+            $datos['flota'] = (bool) preg_match('/LOS\s+SIGUIENTES\s+VEH[IÍ]CULOS/ui', $plano, $m, PREG_OFFSET_CAPTURE);
+            // Los seriales de la TABLA: solo lo que va detras de su rotulo (lo de arriba es
+            // el membrete) y solo los de 17 caracteres, que es lo que mide un serial de
+            // carroceria (N.I.V.). Un serial de motor o un codigo cualquiera no cuenta. Es la
+            // lista que puede decir "este equipo no esta amparado" (ver mismoVehiculo).
+            $datos['seriales_flota'] = $datos['flota']
+                ? array_values(array_filter($this->serialesEnTexto(substr($plano, $m[0][1])), fn ($s) => strlen($s) === 17))
+                : [];
         }
         return $datos;
     }
@@ -207,8 +228,38 @@ class LectorDocumentoPdf
             $datos['placa']  = $this->placaEnTexto($plano);
             $datos['serial'] = $this->serialEnTexto($plano);
         }
+        // El ROTC de FLOTA trae, antes del certificado, la tabla de la flota: una fila por
+        // vehiculo con su placa, su serial de carroceria y, AL LADO DEL SERIAL, su vencimiento
+        // ("69 A45AF5Y JAC HFC3252KR1K3 2017 VOLTEO 3 16200 Ton. LJ13R8DK3H3400167 03/07/2027").
+        // El certificado de debajo puede ser de otro vehiculo de la misma hoja: la fila de ESTE
+        // equipo la busca filaRotc().
+        $datos['filas'] = [];
+        if (preg_match_all('/^[^\S\r\n]*\d{1,4}[^\S\r\n]+([A-Z0-9]{5,8})[^\S\r\n]+[^\r\n]*?[^\S\r\n]([A-Z0-9]{17})[^\S\r\n]+(\d{1,2}\/\d{1,2}\/\d{4})[^\S\r\n]*$/um',
+            $plano, $filas, PREG_SET_ORDER)) {
+            foreach ($filas as $fila) {
+                if ($vence = $this->fecha($fila[3])) {
+                    $datos['filas'][] = ['placa' => $fila[1], 'serial' => $fila[2], 'vence' => $vence];
+                }
+            }
+        }
 
         return $datos;
+    }
+
+    /**
+     * La fila de ESTE equipo en la tabla de un ROTC de flota (ver extraerRotc), o null. Cuenta
+     * si coincide la placa o el serial —con la tolerancia O/0, I/1, S/5 de siempre— y el otro
+     * dato, si la ficha lo tiene, no la contradice: una fila con la placa de este equipo y el
+     * serial de otro no es de nadie seguro.
+     */
+    public function filaRotc(?string $placa, ?string $serial, array $leido): ?array
+    {
+        foreach ($leido['filas'] ?? [] as $fila) {
+            $porPlaca  = $placa ? $this->mismoCodigo($placa, $fila['placa']) === 'si' : null;
+            $porSerial = $serial ? $this->mismoCodigo($serial, $fila['serial']) === 'si' : null;
+            if (($porPlaca || $porSerial) && $porPlaca !== false && $porSerial !== false) return $fila;
+        }
+        return null;
     }
 
     /**
@@ -305,10 +356,25 @@ class LectorDocumentoPdf
         // o "Vigencia del Seguro: X al Y" (Piramide). El reconocimiento parte la tabla, asi que
         // el rotulo y sus fechas pueden quedar en lineas distintas: se busca la PAREJA de fechas.
         $f = self::RE_FECHA;
-        if (preg_match('/Desde\s*' . $f . '\s*Hasta\s*' . $f . '/ui', $plano, $m)
-            || preg_match('/Vigencia[^\r\n]{0,45}\R?[^\d\r\n]{0,15}' . $f . '\s*(?:al|a|hasta)\s*' . $f . '/ui', $plano, $m)) {
+        // Tras "Hasta" pueden venir otros rotulos antes de su fecha ("Hasta \nFrecuencia de
+        // Pago: Sucursal: 1/12/2026"), pero ninguna otra cifra: [^\d] no se salta una fecha.
+        // Entre las dos de la vigencia puede ir "al", "hasta" o un guion ("16/01/2026 - 16/01/2027").
+        if (preg_match('/Desde\s*' . $f . '\s*Hasta[^\d]{0,60}' . $f . '/ui', $plano, $m)
+            || preg_match('/Vigencia[^\r\n]{0,45}\R?[^\d\r\n]{0,15}' . $f . '\s*(?:al|a|hasta|-|–)\s*' . $f . '/ui', $plano, $m)) {
             $datos['desde'] = $this->fecha($m[1]);
             $datos['vence'] = $this->fecha($m[2]);
+        } else {
+            // Respaldo para las que separan los rotulos de sus valores ("Desde : Desde:" en una
+            // linea y las fechas mas abajo) pero dejan el vencimiento pegado a su rotulo:
+            // "Hasta: 12/05/2026" y "Fecha de Inicio Poliza: 12/05/2025" (visto el 18-09-2026,
+            // que ademas escribe "Incio"). Solo fechas PEGADAS a su rotulo: una suelta de la
+            // pagina podria ser cualquier otra.
+            if (preg_match('/Hasta\s*:?[^\S\r\n]*' . $f . '/ui', $plano, $m)) {
+                $datos['vence'] = $this->fecha($m[1]);
+            }
+            if (preg_match('/Fecha\s*de\s*In[i]?cio\s*(?:de\s*)?P[oó]liza\s*:?[^\S\r\n]*' . $f . '/ui', $plano, $m)) {
+                $datos['desde'] = $this->fecha($m[1]);
+            }
         }
         // La emision solo se toma si esta pegada a su rotulo: en las hojas donde el
         // reconocimiento la separa, cualquier otra fecha de la pagina ocuparia su lugar.
@@ -407,8 +473,8 @@ class LectorDocumentoPdf
         // "C.A" quedaba "C A" frente a "CA" y la noche reescribia cientos de fichas (y llenaba
         // el historial) por un punto, avisando encima "se diferencian en una letra". Solo aqui:
         // normalizar() la usan tambien otros que SI necesitan separar las palabras.
-        $doc = str_replace(' ', '', $this->normalizar($enDocumento));
-        $ficha = str_replace(' ', '', $this->normalizar($enFicha));
+        $doc = str_replace(' ', '', $this->normalizar($this->canonico($enDocumento)));
+        $ficha = str_replace(' ', '', $this->normalizar($this->canonico($enFicha)));
         if ($ficha === '') {
             return [false, 'La ficha no tiene nombre'];
         }
@@ -453,12 +519,15 @@ class LectorDocumentoPdf
     }
 
     /**
-     * ¿El documento es de ESTE vehiculo? Se compara por placa y por serial del chasis: basta
-     * que uno de los dos coincida, y basta que uno de los dos NO coincida para decir que no.
-     * Devuelve 'si' | 'no' | 'no_se_sabe' (cuando el documento no trae ninguno de los dos
-     * legible). Esto es lo UNICO que impide copiarle a una ficha los datos del documento de
-     * otro vehiculo, por eso "no se sabe" NO cuenta como que si: se marca para que lo mire una
-     * persona en vez de ofrecer el boton.
+     * ¿El documento es de ESTE vehiculo? Devuelve 'si' | 'no' | 'no_se_sabe'. En este orden:
+     *   1. La placa y el serial que van TRAS SU ROTULO: si uno coincide, 'si'; si nombran a
+     *      otro, 'no'.
+     *   2. Sin rotulo legible, las placas y seriales sueltos de la hoja solo CONFIRMAN ('si'):
+     *      recogen cualquier codigo parecido y su "no lo encuentro" seria ruido.
+     *   3. Excepcion: la tabla de equipos de una poliza de FLOTA si descarta ('no').
+     * Es lo UNICO que impide copiarle a una ficha los datos del documento de otro vehiculo,
+     * por eso "no se sabe" NO cuenta como que si: se marca para que lo mire una persona en el
+     * visor y la tarea no lo aplica.
      */
     public function mismoVehiculo(?string $placaFicha, ?string $serialFicha, array $leido): string
     {
@@ -489,10 +558,12 @@ class LectorDocumentoPdf
             return 'si';
         }
         // Excepcion: la tabla de una poliza de FLOTA no es ruido suelto, es la lista de los
-        // equipos que ampara. Si el serial de la ficha no esta en ella (con la misma
-        // tolerancia O/0, I/1, S/5 de siempre), el documento es de OTROS equipos.
-        if (($leido['flota'] ?? false) && $serialFicha && !empty($leido['seriales'])) {
-            return 'no';
+        // equipos que ampara. Si el serial de la ficha (de 17, como los de la tabla) no esta
+        // en ella —con la misma tolerancia O/0, I/1, S/5 de siempre—, el documento es de
+        // OTROS equipos. Sin seriales de carroceria en la tabla (escaneo malo, o una tabla
+        // con seriales de motor) no se afirma nada: queda "no se sabe" para mirarlo a mano.
+        if (($leido['flota'] ?? false) && strlen((string) $serialFicha) === 17 && !empty($leido['seriales_flota'])) {
+            return $this->codigoEnLista($serialFicha, $leido['seriales_flota']) === 'si' ? 'si' : 'no';
         }
         return 'no_se_sabe';
     }
@@ -571,7 +642,19 @@ class LectorDocumentoPdf
         if (preg_match('/^(.*\p{Lu}[.)]?)(\p{Ll}+)$/u', $nombre, $m) && $m[1] === mb_strtoupper($m[1])) {
             $nombre = $m[1];
         }
-        return mb_substr(mb_strtoupper(trim($nombre, " \t.:,-")), 0, self::LARGO_TITULAR);
+        return mb_substr($this->canonico(mb_strtoupper(trim($nombre, " \t.:,-"))), 0, self::LARGO_TITULAR);
+    }
+
+    /**
+     * El nombre en su forma elegida si es una de las formas de CONSTRUCTORA VIDALSA 27 (ver
+     * RE_VIDALSA); si no, tal cual. Lo usan el lector —asi la tarea escribe siempre la misma
+     * forma— y el comparador —asi "CONTRUCTORA" y "CONSTRUCTORA" son el mismo nombre y la
+     * tarea no reescribe la ficha por una errata del INTT (decision del cliente, 18-09-2026)—.
+     */
+    public function canonico(?string $nombre): ?string
+    {
+        if ($nombre === null) return null;
+        return preg_match(self::RE_VIDALSA, str_replace(' ', '', $this->normalizar($nombre))) ? self::VIDALSA : $nombre;
     }
 
     private function tieneHomoglifos(string $v): bool

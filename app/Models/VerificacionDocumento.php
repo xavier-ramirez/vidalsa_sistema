@@ -52,6 +52,45 @@ class VerificacionDocumento extends Model
         self::RACDA     => 'LINK_RACDA',
     ];
 
+    /** El vencimiento de cada documento en la ficha: dice si un PDF es el vigente o uno anterior. */
+    public const CAMPO_VENCE = [
+        self::POLIZA => 'FECHA_VENC_POLIZA',
+        self::ROTC   => 'FECHA_ROTC',
+        self::RACDA  => 'FECHA_RACDA',
+    ];
+
+    /**
+     * Cuantos dias antes que la ficha tiene que vencer un PDF para ser "el anterior". Una
+     * renovacion mueve el vencimiento meses (el ROTC de flota paso del 11/02 al 03/07/2027; un
+     * año las polizas); unos dias de diferencia son una ficha mal escrita que el documento
+     * corrige (vence 05/12/2026 con emision 05/12/2025 frente a una ficha con 15/12/2026).
+     */
+    public const DIAS_ANTERIOR = 45;
+
+    /**
+     * Si el PDF vence bastante ANTES de lo que ya dice la ficha, es el documento ANTERIOR: se
+     * renovo, se puso la fecha nueva en la ficha, pero el archivo enlazado sigue siendo el
+     * viejo. Nada de ese PDF sirve para corregir la ficha (ni su vencimiento, ni su emision, ni
+     * su aseguradora): "el documento manda" vale para el documento VIGENTE. Devuelve el motivo
+     * que se muestra, o null si el PDF no es anterior. Lo usan el verificador, el corrector,
+     * la migracion del 18-09-2026 y (en JS, con el mismo umbral) el visor.
+     */
+    public static function documentoAnterior(?string $venceFicha, ?string $venceDocumento): ?string
+    {
+        $ficha = $venceFicha ? substr($venceFicha, 0, 10) : null;
+        if (!$ficha || !$venceDocumento
+            || strtotime($ficha) - strtotime($venceDocumento) <= self::DIAS_ANTERIOR * 86400) return null;
+        $fecha = fn (string $f) => implode('/', array_reverse(explode('-', $f)));
+        return 'El PDF enlazado es el ANTERIOR: vence el ' . $fecha($venceDocumento) . ' y la ficha ya dice '
+            . $fecha($ficha) . '. No se toma nada de él: enlaza el vigente.';
+    }
+
+    /** El PDF enlazado es uno anterior al que ya refleja la ficha (ver documentoAnterior). */
+    public function esDocumentoAnterior(): bool
+    {
+        return (bool) ($this->LEIDO['doc_anterior'] ?? false);
+    }
+
     protected $fillable = [
         'ID_EQUIPO', 'TIPO', 'PLACA', 'SERIAL', 'DRIVE_ID',
         'LEIDO', 'DIFERENCIAS', 'ESTADO', 'MOTIVO', 'CARACTERES', 'INTENTOS', 'A_MANO', 'APLICADO_POR', 'APLICADO_EN',
@@ -64,13 +103,13 @@ class VerificacionDocumento extends Model
         'APLICADO_EN' => 'datetime',
     ];
 
-    /** Lo que mira una persona: no se pudo leer, no hay archivo, fallo, o no hay boton que lo arregle. */
+    /** Lo que mira una persona: no se pudo leer, no hay archivo, fallo, o la tarea no lo puede poner sola. */
     public function scopeParaRevisar($q)
     {
         return $q->where(fn ($w) => $w->whereIn('ESTADO', self::A_REVISAR)->orWhere('A_MANO', true));
     }
 
-    /** Lo que la tarea de la noche todavia puede poner sola: hay diferencias y el PDF es de este vehiculo. */
+    /** Lo que la tarea todavia puede poner sola: hay diferencias y el PDF es de este vehiculo. */
     public function scopeCorregibles($q)
     {
         return $q->where('ESTADO', self::DIFIERE)->where('A_MANO', false);

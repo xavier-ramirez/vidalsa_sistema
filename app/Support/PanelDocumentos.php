@@ -109,7 +109,7 @@ class PanelDocumentos
                     VerificacionDocumento::ILEGIBLE, VerificacionDocumento::SIN_ARCHIVO, VerificacionDocumento::ERROR];
         // Dos filtros que no son un estado de la tabla, sino los dos montones que se miran
         // distinto y que cuentan las tarjetas: 'revisar' (lo que decide una persona) y
-        // 'corregibles' (lo que un boton todavia puede arreglar). Cada tarjeta enlaza al
+        // 'corregibles' (lo que la tarea todavia puede poner sola). Cada tarjeta enlaza al
         // filtro que enseña EXACTAMENTE lo que ella cuenta.
         $pedido = $request->input('estado_doc');
         $estadoDoc = (in_array($pedido, ['revisar', 'corregibles'], true) || in_array($pedido, $estados, true)) ? $pedido : null;
@@ -144,8 +144,8 @@ class PanelDocumentos
         return [
             'docs'           => $filas,
             'resumenDocs'    => VerificacionDocumento::select('ESTADO', DB::raw('COUNT(*) as n'))->groupBy('ESTADO')->pluck('n', 'ESTADO'),
-            // Los dos montones que se miran distinto: lo que un boton arregla y lo que pide
-            // una persona (ilegible, sin archivo, de otro vehiculo o leido a medias).
+            // Los dos montones que se miran distinto: lo que la tarea todavia pone sola y lo
+            // que pide una persona (ilegible, sin archivo, de otro vehiculo o leido a medias).
             'docsParaRevisar' => VerificacionDocumento::paraRevisar()->count(),
             'docsCorregibles' => VerificacionDocumento::corregibles()->count(),
             'estadoDoc'      => $estadoDoc,

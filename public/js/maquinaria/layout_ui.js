@@ -2179,11 +2179,15 @@ window.saveMetadata = async function (e) {
         });
         const data = await res.json();
         if (data.success) {
-            window.toast('Datos actualizados correctamente', 'success');
-            // Aviso de "guardado", igual que el de pintado (ver loadMetadata).
-            document.dispatchEvent(new CustomEvent('vidalsa:metadata-guardada', {
+            // Aviso de "guardado", igual que el de pintado (ver loadMetadata). Se puede CANCELAR:
+            // quien lo escuche y se haga cargo (la revision a mano de Control de Auditoria, que
+            // da su propio aviso al terminar) llama a preventDefault y aqui no se repite otro.
+            // Dos avisos seguidos, uno encima del otro, se veian saltar.
+            const seguir = document.dispatchEvent(new CustomEvent('vidalsa:metadata-guardada', {
+                cancelable: true,
                 detail: { equipoId: ctx.equipoId, docType: ctx.docType, module: ctx.module || 'equipo' },
             }));
+            if (seguir) window.toast('Datos actualizados correctamente', 'success');
             // Modulo auxiliares: refresca la tabla y termina (no aplica el
             // flujo de showDetailsImproved/activeEquipoButton del modulo equipos).
             if (ctx.module === 'auxiliar') {

@@ -33,6 +33,12 @@ use Illuminate\Support\Facades\Log;
  *   php artisan docs:verificar-documentos --tipo=rotc
  *   php artisan docs:verificar-documentos --equipo=10        solo esa ficha (pruebas)
  *   php artisan docs:verificar-documentos --rehacer          vuelve a leer las ya revisadas
+ *   php artisan docs:verificar-documentos --parte=0 --de=4   uno de 4 procesos EN PARALELO: cada uno
+ *                                                            lee solo sus fichas (ID_EQUIPO % 4 = 0),
+ *                                                            asi no se pisan (ver $this->reparto())
+ *   php artisan docs:verificar-documentos --reintentar       relee SOLO los ilegibles y los errores,
+ *                                                            aunque hayan agotado sus 3 intentos (p. ej.
+ *                                                            tras mejorar el lector)
  *   php artisan docs:verificar-documentos --no-rellenar      solo anota, no rellena nada
  *
  * MANDA EL DOCUMENTO: lo que dice el PDF se pone en la ficha en cuanto se lee, este vacia o
@@ -57,7 +63,10 @@ class VerificarDocumentos extends Command
                             {--tipo= : Solo uno: propiedad, poliza, rotc o racda}
                             {--equipo= : Revisar solo esta ficha (ID_EQUIPO)}
                             {--no-rellenar : Solo anotar lo que dicen los PDF, sin escribir nada en las fichas}
-                            {--rehacer : Volver a leer los ya revisados}';
+                            {--rehacer : Volver a leer los ya revisados}
+                            {--reintentar : Volver a leer SOLO los "no se pudo leer" y los errores, aunque hayan agotado sus intentos}
+                            {--parte=0 : Con --de: que parte de las fichas lee este proceso (0, 1, ...)}
+                            {--de=1 : En cuantas partes se reparte la cola, para leer con varios procesos a la vez}';
 
     protected $description = 'Compara los documentos de cada ficha (titulo, poliza, ROTC y RACDA) con lo que dicen sus PDF.';
 
@@ -79,14 +88,19 @@ class VerificarDocumentos extends Command
             }
         }
 
+        [$parte, $de] = $this->reparto();
+        if ($de < 1 || $de > 8 || $parte < 0 || $parte >= $de) {
+            $this->error('--parte tiene que ir de 0 a --de menos 1, y --de de 1 a 8.');
+            return self::FAILURE;
+        }
+
         $catalogo = CatalogoSeguro::pluck('NOMBRE_ASEGURADORA', 'ID_SEGURO')->all();
         $lote = max(1, (int) $this->option('lote'));
         $hechos = 0;
 
-        // Lo ya leido otras noches que solo esperaba a que alguien pulsara un boton para
-        // rellenar un hueco: se rellena ahora, sin volver a Drive (la lectura esta guardada).
-        // Asi el dia que se enciende el rellenado automatico no queda una cola de filas viejas
-        // pendientes de un clic que nadie tiene que dar.
+        // Lo ya leido en pasadas anteriores que se quedo sin poner en la ficha: se pone ahora,
+        // sin volver a Drive (la lectura esta guardada). Asi no queda una cola de filas viejas
+        // con diferencias que la tarea si podia resolver.
         if (!$this->option('no-rellenar')) $this->rellenarLoYaLeido($tipos, $this->option('equipo'));
 
         // De uno en uno y EN ORDEN (asi lo pidio el cliente): la pasada se gasta en el primer
@@ -105,18 +119,32 @@ class VerificarDocumentos extends Command
     }
 
     /**
-     * Pone en la ficha lo que dicen los documentos YA leidos (sin volver a Drive): son las
-     * lecturas de otras noches que seguian esperando un clic. Solo las que un boton podria
-     * arreglar: las marcadas "a mano" (PDF de otro vehiculo, leido a medias, sin confirmar, o
-     * ficha cambiada despues de leer) las decide una persona, no este comando.
+     * Para leer con varios procesos A LA VEZ sin que se pisen: la cola se reparte por el resto
+     * de ID_EQUIPO entre --de partes, y este proceso lee solo la suya (--parte). Hace falta
+     * porque la cola no "reserva" documentos: dos procesos sin repartir cogerian los mismos y
+     * leerian dos veces cada PDF. Lo que tarda es esperar a Drive (~6 s por documento), no el
+     * servidor, asi que 4 procesos leen cerca de 4 veces mas en el mismo tiempo.
+     */
+    private function reparto(): array
+    {
+        return [(int) $this->option('parte'), (int) $this->option('de')];
+    }
+
+    /**
+     * Pone en la ficha lo que dicen los documentos YA leidos (sin volver a Drive): las
+     * lecturas de pasadas anteriores que se quedaron sin aplicar. Solo las que la tarea puede
+     * poner sola: las marcadas "a mano" (PDF de otro vehiculo, leido a medias, sin confirmar,
+     * o ficha cambiada despues de leer) las decide una persona en el visor, no este comando.
      */
     private function rellenarLoYaLeido(array $tipos, $equipo = null): void
     {
         $puestas = 0;
         // Con --equipo, SOLO esa ficha: esa opcion es para probar una y no puede acabar
         // aplicando de golpe las correcciones pendientes de toda la flota.
+        [$parte, $de] = $this->reparto();
         VerificacionDocumento::corregibles()->whereIn('TIPO', $tipos)
             ->when($equipo, fn ($q) => $q->where('ID_EQUIPO', (int) $equipo))
+            ->when($de > 1, fn ($q) => $q->whereRaw('ID_EQUIPO % ? = ?', [$de, $parte]))
             ->orderBy('ID_REGISTRO')->chunkById(100, function ($filas) use (&$puestas) {
                 foreach ($filas as $reg) {
                     if ($this->corrector->aplicar($reg)['puestos'] ?? []) $puestas++;
@@ -151,12 +179,23 @@ class VerificarDocumentos extends Command
                 $deEsteVehiculo = $tipo === VerificacionDocumento::RACDA
                     ? 'si'
                     : $lector->mismoVehiculo($f->PLACA, $f->SERIAL_CHASIS, $leido);
+                // ROTC de flota: si este equipo tiene SU fila en la tabla, el documento lo ampara
+                // y el vencimiento que vale es el de esa fila (el que va al lado de su serial).
+                // Si el certificado de debajo es de otro vehiculo, su emision no es la de este.
+                if ($tipo === VerificacionDocumento::ROTC && ($fila = $lector->filaRotc($f->PLACA, $f->SERIAL_CHASIS, $leido))) {
+                    if ($deEsteVehiculo !== 'si') $leido['emision'] = null;
+                    $leido['vence'] = $fila['vence'];
+                    $leido['en_tabla'] = true;
+                    $deEsteVehiculo = 'si';
+                }
                 if ($deEsteVehiculo === 'no') {
                     $leido['otra_placa'] = true;
                     $estado = VerificacionDocumento::DIFIERE;
-                    $motivo = ($leido['flota'] ?? false)
-                        ? mb_substr('Póliza de flota que NO ampara este equipo (serial ' . $f->SERIAL_CHASIS . '): cubre '
-                            . count($leido['seriales']) . ' equipos — ' . implode(', ', $leido['seriales']), 0, 255)
+                    // El aviso de flota solo cuando el "no" lo dijo la TABLA (sin placa ni serial
+                    // tras su rotulo): si lo dijo el rotulo, el aviso de siempre, que lo nombra.
+                    $motivo = (($leido['flota'] ?? false) && !empty($leido['seriales_flota']) && !$leido['placa'] && !$leido['serial'])
+                        ? mb_substr('Póliza de flota que NO ampara este equipo (serial ' . $f->SERIAL_CHASIS . '): su tabla trae '
+                            . count($leido['seriales_flota']) . ' equipos — ' . implode(', ', $leido['seriales_flota']), 0, 255)
                         : 'El documento es de otro vehiculo: dice '
                             . trim(($leido['placa'] ? 'placa ' . $leido['placa'] : '') . ' ' . ($leido['serial'] ? 'serial ' . $leido['serial'] : ''))
                             . ' y la ficha es ' . trim(($f->PLACA ? 'placa ' . $f->PLACA : '') . ' ' . ($f->SERIAL_CHASIS ? 'serial ' . $f->SERIAL_CHASIS : ''));
@@ -174,7 +213,7 @@ class VerificarDocumentos extends Command
                 }
             } catch (\Throwable $e) {
                 // Un archivo borrado de Drive da 404 aqui: es "sin archivo", no un fallo del
-                // que haya que reintentar cada noche.
+                // que haya que reintentar en cada pasada.
                 $noEsta = str_contains($e->getMessage(), '404') || stripos($e->getMessage(), 'not found') !== false;
                 $estado = $noEsta ? VerificacionDocumento::SIN_ARCHIVO : VerificacionDocumento::ERROR;
                 $motivo = $noEsta ? 'El archivo ya no esta en Drive' : 'No se pudo leer: ' . $e->getMessage();
@@ -193,18 +232,25 @@ class VerificarDocumentos extends Command
                 // MOTIVO es varchar(255): un error largo de Drive no puede tumbar la pasada.
                 'MOTIVO'      => $motivo ? mb_substr($motivo, 0, 255) : null,
                 'CARACTERES'  => mb_strlen($texto),
-                // Lo que la noche no puede aplicar sola (PDF de otro vehiculo,
-                // leido a medias o sin confirmar de quien es) va al monton "para revisar".
+                // Lo que la tarea no puede aplicar sola (PDF de otro vehiculo, leido a
+                // medias, sin confirmar de quien es, o el anterior) va al monton "para revisar".
                 // Solo cuando hay algo que decidir: si todo cuadra, no hay nada que mirar.
                 'A_MANO'      => $estado === VerificacionDocumento::DIFIERE
                     && (bool) (($leido['otra_placa'] ?? false) || ($leido['lectura_parcial'] ?? false)
-                        || ($leido['sin_confirmar'] ?? false) || ($leido['fuera_de_lista'] ?? false)),
-                // Los ilegibles y los fallidos se reintentan otras noches hasta MAX_INTENTOS
+                        || ($leido['sin_confirmar'] ?? false) || ($leido['fuera_de_lista'] ?? false)
+                        || ($leido['doc_anterior'] ?? false)),
+                // Los ilegibles y los fallidos se reintentan en otras pasadas hasta MAX_INTENTOS
                 // (Drive devuelve el documento vacio de vez en cuando); lo demas se lee una vez.
-                'INTENTOS'    => in_array($estado, [VerificacionDocumento::ILEGIBLE, VerificacionDocumento::ERROR], true)
-                    ? (int) VerificacionDocumento::where('ID_EQUIPO', $f->ID_EQUIPO)->where('TIPO', $tipo)
-                        ->where('DRIVE_ID', $driveId)->value('INTENTOS') + 1
-                    : 0,
+                // Salvo el anexo de poliza de FLOTA sin fechas: eso no es un fallo de lectura,
+                // es que el documento no las trae, y releerlo no las va a hacer aparecer. Se
+                // da por definitivo (intentos agotados) en vez de gastar tres lecturas de Drive.
+                'INTENTOS'    => match (true) {
+                    $estado === VerificacionDocumento::ILEGIBLE && ($leido['flota'] ?? false) => VerificacionDocumento::MAX_INTENTOS,
+                    in_array($estado, [VerificacionDocumento::ILEGIBLE, VerificacionDocumento::ERROR], true)
+                        => (int) VerificacionDocumento::where('ID_EQUIPO', $f->ID_EQUIPO)->where('TIPO', $tipo)
+                            ->where('DRIVE_ID', $driveId)->value('INTENTOS') + 1,
+                    default => 0,
+                },
                 // Lo revisado de nuevo vuelve a estar pendiente de que alguien lo mire.
                 'APLICADO_POR' => null,
                 'APLICADO_EN'  => null,
@@ -268,11 +314,14 @@ class VerificarDocumentos extends Command
             return [VerificacionDocumento::ILEGIBLE, match (true) {
                 // El anexo de flota solo trae la lista de equipos: la vigencia esta en el
                 // cuadro de la poliza principal, que es el que hay que enlazar para verificarla.
-                (bool) ($leido['flota'] ?? false) => 'Anexo de póliza de flota: ampara este equipo, pero no trae fechas (están en el cuadro de la póliza principal)',
+                (bool) ($leido['flota'] ?? false) => ($leido['sin_confirmar'] ?? false)
+                    ? 'Anexo de póliza de flota sin fechas, y no se pudo confirmar si ampara este equipo: míralo en el visor'
+                    : 'Anexo de póliza de flota: ampara este equipo, pero no trae fechas (están en el cuadro de la póliza principal)',
                 (bool) $idSeguro                  => 'Se reconocio la aseguradora, pero no la vigencia de la poliza',
                 default                           => 'No se encontro la aseguradora ni la vigencia en el documento',
             }, [], $leido];
         }
+        if ($anterior = $this->documentoAnterior($f->FECHA_VENC_POLIZA, $leido)) return $anterior;
         if ($idSeguro && (int) $f->ID_SEGURO !== $idSeguro) {
             $dif['ID_SEGURO'] = [
                 'etiqueta' => 'Aseguradora',
@@ -327,6 +376,7 @@ class VerificarDocumentos extends Command
         if (!$leido['vence'] && !$leido['emision']) {
             return [VerificacionDocumento::ILEGIBLE, 'No se encontraron las fechas del ROTC en el documento', [], $leido];
         }
+        if ($anterior = $this->documentoAnterior($f->FECHA_ROTC, $leido)) return $anterior;
         $dif = [];
         $motivo = null;
         if (!empty($leido['titular'])) {
@@ -350,8 +400,8 @@ class VerificarDocumentos extends Command
      * su placa esta entre las unidades autorizadas; ademas da la fecha en que se emitio y
      * cuantos años vale, de donde sale el vencimiento que guarda la ficha.
      *
-     * Un equipo que no aparece en la lista NO se arregla con un boton: o le falta el tramite o
-     * tiene enlazada una providencia que no lo cubre. Por eso va a "revisar a mano".
+     * Un equipo que no aparece en la lista NO se arregla escribiendo en la ficha: o le falta el
+     * tramite o tiene enlazada una providencia que no lo cubre. Por eso va a "revisar a mano".
      */
     private function revisarRacda(object $f, array $leido, LectorDocumentoPdf $lector): array
     {
@@ -382,6 +432,7 @@ class VerificarDocumentos extends Command
                 [], $leido,
             ];
         }
+        if ($anterior = $this->documentoAnterior($f->FECHA_RACDA, $leido)) return $anterior;
         $dif = [];
         $this->compararFecha($dif, 'FECHA_RACDA', 'Vencimiento', $f->FECHA_RACDA, $leido['vence'] ?? null);
         $this->compararFecha($dif, 'FECHA_EMISION_RACDA', 'Fecha de emision', $f->FECHA_EMISION_RACDA, $leido['emision'] ?? null);
@@ -389,6 +440,20 @@ class VerificarDocumentos extends Command
         return $dif
             ? [VerificacionDocumento::DIFIERE, $this->motivoDe($dif), $dif, $leido]
             : [VerificacionDocumento::COINCIDE, null, [], $leido];
+    }
+
+    /**
+     * El resultado de un PDF que vence bastante ANTES de lo que dice la ficha (el anterior, ver
+     * VerificacionDocumento::documentoAnterior), o null si es el vigente. Sin diferencias: lo
+     * que dice ese PDF ya no vale y no se propone ni se pone; queda para que alguien enlace
+     * el vigente.
+     */
+    private function documentoAnterior(?string $venceFicha, array $leido): ?array
+    {
+        $motivo = VerificacionDocumento::documentoAnterior($venceFicha, $leido['vence'] ?? null);
+        if (!$motivo) return null;
+        $leido['doc_anterior'] = true;
+        return [VerificacionDocumento::DIFIERE, $motivo, [], $leido];
     }
 
     /** Suma una fecha a las diferencias si el documento la trae y la ficha dice otra (o ninguna). */
@@ -424,14 +489,23 @@ class VerificarDocumentos extends Command
         $equipo  = $this->option('equipo');
         $rehacer = (bool) $this->option('rehacer');
 
-        $q = ($rehacer || $equipo)
-            ? DB::table('documentacion as d')
+        $q = match (true) {
+            $rehacer || $equipo => DB::table('documentacion as d')
                 ->join('equipos as e', 'e.ID_EQUIPO', '=', 'd.ID_EQUIPO')
                 ->whereNull('e.deleted_at')
-                ->where("d.$col", 'like', '/storage/google/%')
-            : VerificacionDocumento::pendientes($tipo, $col);
+                ->where("d.$col", 'like', '/storage/google/%'),
+            // Los que se leyeron y salieron "no se pudo leer" o con error, agotados o no.
+            (bool) $this->option('reintentar') => VerificacionDocumento::conEnlace($col)
+                ->whereExists(fn ($s) => $s->from('verificacion_documento_registro as v')
+                    ->whereColumn('v.ID_EQUIPO', 'd.ID_EQUIPO')
+                    ->where('v.TIPO', $tipo)
+                    ->whereIn('v.ESTADO', [VerificacionDocumento::ILEGIBLE, VerificacionDocumento::ERROR])),
+            default => VerificacionDocumento::pendientes($tipo, $col),
+        };
 
+        [$parte, $de] = $this->reparto();
         return $q->when($equipo, fn ($q) => $q->where('d.ID_EQUIPO', (int) $equipo))
+            ->when($de > 1, fn ($q) => $q->whereRaw('d.ID_EQUIPO % ? = ?', [$de, $parte]))
             ->orderBy('d.ID_EQUIPO')
             ->limit($lote)
             ->get([
