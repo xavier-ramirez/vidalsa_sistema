@@ -24,8 +24,8 @@ use Illuminate\Support\Facades\Log;
  *                           (dice cuantos años dura) y la lista de placas autorizadas, donde
  *                           tiene que estar la del equipo.
  *
- * Lo corre el programador de tareas de 12:30 a 6 de la madrugada
- * (routes/console.php), en una ventana que NO se toca con la de la compresion (06:00-07:30):
+ * Lo corre el programador de tareas de 12:30 a las 4:50 de la madrugada
+ * (routes/console.php), en una ventana que NO se toca con la de la compresion (05:00-06:30):
  * las dos leen de Drive.
  *
  *   php artisan docs:verificar-documentos                    10 documentos que falten
