@@ -322,7 +322,7 @@
                 <div>
                     @if ($activa)
                         <strong>Lectura nocturna activa</strong>
-                        <span>De 12:30 a 3:00 a.m., hora {{ $zona === 'America/Caracas' ? 'de Venezuela' : $zona }} (ahora {{ $horaApp->format('g:i a') }}). No se cruza con la compresión. Pone en la ficha lo que dice el documento; nunca la placa ni el serial.</span>
+                        <span>De 12:30 a 6:00 a.m., hora {{ $zona === 'America/Caracas' ? 'de Venezuela' : $zona }} (ahora {{ $horaApp->format('g:i a') }}). No se cruza con la compresión. Pone en la ficha lo que dice el documento; nunca la placa ni el serial.</span>
                     @else
                         <strong>Lectura nocturna apagada</strong>
                         <span>{{ ucfirst($motivoActiva) }}.</span>
@@ -348,7 +348,7 @@
             <div class="cpdf-caja">
                 <small>Faltan por leer</small>
                 <strong>{{ $pendientesDocs }}</strong>
-                <span>{{ $pendientesDocs ? 'se leen de 10 en 10 cada noche' : 'ya se leyeron todos los documentos cargados' }}</span>
+                <span>{{ $pendientesDocs ? 'se leen de 60 en 60 cada noche' : 'ya se leyeron todos los documentos cargados' }}</span>
             </div>
             <div class="cpdf-caja">
                 <small>Última lectura</small>
@@ -386,7 +386,7 @@
                      "las 12" son las de Venezuela; si la zona fuera otra, se nombra. --}}
                 @if ($activa && $ghostscript)
                     <strong>Tarea nocturna activa</strong>
-                    <span>De 3:30 a 5:00 a.m., hora {{ $zona === 'America/Caracas' ? 'de Venezuela' : $zona }} (ahora {{ $horaApp->format('g:i a') }}). Si no queda nada por comprimir, no hace nada.</span>
+                    <span>De 6:00 a 7:30 a.m., hora {{ $zona === 'America/Caracas' ? 'de Venezuela' : $zona }} (ahora {{ $horaApp->format('g:i a') }}). Si no queda nada por comprimir, no hace nada.</span>
                 @elseif (!$activa)
                     <strong>Tarea nocturna apagada</strong>
                     <span>{{ ucfirst($motivoActiva) }}.</span>
@@ -419,7 +419,7 @@
         <div class="cpdf-caja">
             <small>Última noche</small>
             <strong style="font-size:16px;">{{ $ultimaNoche ? \Carbon\Carbon::parse($ultimaNoche)->format('d/m/Y H:i') : 'Todavía no' }}</strong>
-            <span>tandas de 5, de 3:30 a 5:00 a.m.</span>
+            <span>tandas de 5, de 6:00 a 7:30 a.m.</span>
         </div>
         @endif
     </aside>
