@@ -909,6 +909,44 @@ Dado a los: 3 días del mes de: OCTUBRE de: 2018
         $this->assertSame('CONTRUCTORA VIDALSA 27, C.A', $reg->LEIDO['titular']);
     }
 
+    /** Anexo de poliza de FLOTA, con el formato real (Piramide, "SE AMAPARA" incluido). */
+    private function textoPolizaFlota(array $seriales): string
+    {
+        $filas = implode(' ', array_map(fn ($s) => "-LOVOL FR220D 2025 N/A 22200 KGS 1 $s 448549 EXCAVADORA MAQUINARIA PESADA AMARILLO", $seriales));
+        return "TOMADOR: CONSTRUCTORA VIDALSA 27 CA \nRESPONSABILIDAD CIVIL GENERAL \nPOLIZA Nro.: RCGE-001001-20669 \n"
+            . "ASEGURADO: CONSTRUCTORA VIDALSA 27, C.A. \nSE AMAPARA LOS SIGUIENTES VEHÍCULOS Y/O EQUIPOS \n"
+            . "MARCA MODELO AÑO PLACA CAP DE CARGA PUESTOS S/CARROCERIA S/MOTOR TIPO USO VEH. COLOR $filas \n";
+    }
+
+    public function test_una_poliza_de_flota_que_no_ampara_al_equipo_se_avisa_como_de_otros(): void
+    {
+        // Visto el 18-09-2026: la ficha de un payloader enlazaba el anexo que ampara 4
+        // excavadoras. Es de OTROS equipos, no "ilegible" ni "sin confirmar".
+        [$equipo] = $this->equipoConDocumentos(['FECHA_VENC_POLIZA' => '2027-04-08']);
+        $this->lectorFalso($this->textoPolizaFlota(['FTC003RHLSS556872', 'FTC003RHASS556868']));
+
+        $reg = $this->verificar($equipo, VerificacionDocumento::POLIZA);
+
+        $this->assertTrue($reg->esDeOtroVehiculo());
+        $this->assertTrue($reg->A_MANO);
+        $this->assertStringContainsString('NO ampara este equipo', (string) $reg->MOTIVO);
+        $this->assertStringContainsString('FTC003RHLSS556872', (string) $reg->MOTIVO);
+        $this->assertSame('2027-04-08', substr((string) $this->ficha($equipo)->FECHA_VENC_POLIZA, 0, 10), 'No se toca la ficha.');
+    }
+
+    public function test_una_poliza_de_flota_que_si_lo_ampara_dice_que_le_faltan_las_fechas(): void
+    {
+        [$equipo] = $this->equipoConDocumentos(['FECHA_VENC_POLIZA' => '2027-04-08']);
+        $serial = DB::table('equipos')->where('ID_EQUIPO', $equipo)->value('SERIAL_CHASIS');
+        $this->lectorFalso($this->textoPolizaFlota(['FTC003RHLSS556872', $serial]));
+
+        $reg = $this->verificar($equipo, VerificacionDocumento::POLIZA);
+
+        $this->assertFalse($reg->esDeOtroVehiculo());
+        $this->assertSame(VerificacionDocumento::ILEGIBLE, $reg->ESTADO);
+        $this->assertStringContainsString('flota', (string) $reg->MOTIVO);
+    }
+
     public function test_los_cuatro_documentos_se_revisan_en_orden(): void
     {
         // La pasada se gasta en el primer documento que tenga cola; cuando ese se acaba, sigue

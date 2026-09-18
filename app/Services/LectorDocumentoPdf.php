@@ -156,6 +156,12 @@ class LectorDocumentoPdf
         if ($tipo !== self::RACDA) {
             $datos['placas']   = $this->placasEnTexto($plano);
             $datos['seriales'] = $this->serialesEnTexto($plano);
+            // Polizas de FLOTA (anexos de Responsabilidad Civil y similares): no nombran UN
+            // vehiculo, traen una tabla "SE AMPARA(N) LOS SIGUIENTES VEHICULOS Y/O EQUIPOS"
+            // con el serial de carroceria de cada uno. Esa tabla SI dice de quien es el
+            // documento, y un vehiculo que no esta en ella no esta amparado (ver mismoVehiculo).
+            // Se busca "LOS SIGUIENTES VEHICULOS" y no el verbo: la de Piramide dice "SE AMAPARA".
+            $datos['flota'] = (bool) preg_match('/LOS\s+SIGUIENTES\s+VEH[IÍ]CULOS/ui', $plano);
         }
         return $datos;
     }
@@ -478,9 +484,17 @@ class LectorDocumentoPdf
         // placa o serial en la hoja, y SOLO para confirmar: recogen cualquier codigo ("3500KG")
         // y casi siempre traen algo, asi que su "no lo encuentro" no puede acusar al archivo de
         // ser de otro vehiculo — eso mandaria a una persona a arreglar un enlace que esta bien.
-        return $this->codigoEnLista($placaFicha, $leido['placas'] ?? []) === 'si'
-            || $this->codigoEnLista($serialFicha, $leido['seriales'] ?? []) === 'si'
-            ? 'si' : 'no_se_sabe';
+        if ($this->codigoEnLista($placaFicha, $leido['placas'] ?? []) === 'si'
+            || $this->codigoEnLista($serialFicha, $leido['seriales'] ?? []) === 'si') {
+            return 'si';
+        }
+        // Excepcion: la tabla de una poliza de FLOTA no es ruido suelto, es la lista de los
+        // equipos que ampara. Si el serial de la ficha no esta en ella (con la misma
+        // tolerancia O/0, I/1, S/5 de siempre), el documento es de OTROS equipos.
+        if (($leido['flota'] ?? false) && $serialFicha && !empty($leido['seriales'])) {
+            return 'no';
+        }
+        return 'no_se_sabe';
     }
 
     /**

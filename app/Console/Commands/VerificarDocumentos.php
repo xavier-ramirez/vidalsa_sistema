@@ -154,9 +154,12 @@ class VerificarDocumentos extends Command
                 if ($deEsteVehiculo === 'no') {
                     $leido['otra_placa'] = true;
                     $estado = VerificacionDocumento::DIFIERE;
-                    $motivo = 'El documento es de otro vehiculo: dice '
-                        . trim(($leido['placa'] ? 'placa ' . $leido['placa'] : '') . ' ' . ($leido['serial'] ? 'serial ' . $leido['serial'] : ''))
-                        . ' y la ficha es ' . trim(($f->PLACA ? 'placa ' . $f->PLACA : '') . ' ' . ($f->SERIAL_CHASIS ? 'serial ' . $f->SERIAL_CHASIS : ''));
+                    $motivo = ($leido['flota'] ?? false)
+                        ? mb_substr('Póliza de flota que NO ampara este equipo (serial ' . $f->SERIAL_CHASIS . '): cubre '
+                            . count($leido['seriales']) . ' equipos — ' . implode(', ', $leido['seriales']), 0, 255)
+                        : 'El documento es de otro vehiculo: dice '
+                            . trim(($leido['placa'] ? 'placa ' . $leido['placa'] : '') . ' ' . ($leido['serial'] ? 'serial ' . $leido['serial'] : ''))
+                            . ' y la ficha es ' . trim(($f->PLACA ? 'placa ' . $f->PLACA : '') . ' ' . ($f->SERIAL_CHASIS ? 'serial ' . $f->SERIAL_CHASIS : ''));
                 } else {
                     if ($deEsteVehiculo === 'no_se_sabe') $leido['sin_confirmar'] = true;
                     [$estado, $motivo, $diferencias, $leido] = match ($tipo) {
@@ -262,9 +265,13 @@ class VerificarDocumentos extends Command
 
         // Sin fecha de vencimiento no se puede dar por revisada: es el dato que vigila la app.
         if (!$leido['vence']) {
-            return [VerificacionDocumento::ILEGIBLE, $idSeguro
-                ? 'Se reconocio la aseguradora, pero no la vigencia de la poliza'
-                : 'No se encontro la aseguradora ni la vigencia en el documento', [], $leido];
+            return [VerificacionDocumento::ILEGIBLE, match (true) {
+                // El anexo de flota solo trae la lista de equipos: la vigencia esta en el
+                // cuadro de la poliza principal, que es el que hay que enlazar para verificarla.
+                (bool) ($leido['flota'] ?? false) => 'Anexo de póliza de flota: ampara este equipo, pero no trae fechas (están en el cuadro de la póliza principal)',
+                (bool) $idSeguro                  => 'Se reconocio la aseguradora, pero no la vigencia de la poliza',
+                default                           => 'No se encontro la aseguradora ni la vigencia en el documento',
+            }, [], $leido];
         }
         if ($idSeguro && (int) $f->ID_SEGURO !== $idSeguro) {
             $dif['ID_SEGURO'] = [
