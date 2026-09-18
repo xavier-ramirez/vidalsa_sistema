@@ -2180,7 +2180,14 @@ window.saveMetadata = async function (e) {
                 if (typeof window.cargarAuxiliares === 'function') window.cargarAuxiliares();
                 return;
             }
-            if (window.activeEquipoButton) {
+            // Solo si ese boton SIGUE en la pagina. activeEquipoButton es global y sobrevive
+            // a la navegacion sin recarga: si se viene de Equipos y el visor se abre desde
+            // otro sitio (Control de Auditoria -> Documentos), apunta a un boton que ya no
+            // existe, showDetailsImproved revienta y el catch de abajo avisaba "No se
+            // pudieron guardar los cambios" cuando SI se habian guardado. Es el mismo
+            // guardia que ya usa la subida de documentos (btnFPAlive).
+            const btnVivo = window.activeEquipoButton && document.body.contains(window.activeEquipoButton);
+            if (btnVivo) {
                 const d = window.activeEquipoButton.dataset;
                 const eqId = d.equipoId;
                 const cache = (window.equiposData && eqId) ? window.equiposData[eqId] : null;

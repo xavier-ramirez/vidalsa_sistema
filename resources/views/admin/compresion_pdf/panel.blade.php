@@ -234,7 +234,7 @@
                             <td style="white-space:nowrap;">
                                 @if ($d->DRIVE_ID)
                                     <button type="button" class="pdf-doc-btn" title="Ver el documento"
-                                        onclick="window.openPdfPreview('/storage/google/{{ $d->DRIVE_ID }}', 'verificacion', @js(($tiposDoc[$d->TIPO] ?? '') . ' ' . ($d->PLACA ?: $d->SERIAL ?: '')), 0, '', true)">
+                                        onclick="window.openPdfPreview('/storage/google/{{ $d->DRIVE_ID }}', @js($d->TIPO), @js(($tiposDoc[$d->TIPO] ?? '') . ' ' . ($d->PLACA ?: $d->SERIAL ?: '')), {{ (int) $d->ID_EQUIPO }})">
                                         <i class="material-icons">description</i>
                                     </button>
                                 @endif
