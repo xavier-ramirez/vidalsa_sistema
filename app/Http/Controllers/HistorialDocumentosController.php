@@ -40,6 +40,41 @@ class HistorialDocumentosController extends Controller
     }
 
     /**
+     * Los apuntes de auditoria de EQUIPOS para construirEventos, sin convertir cada fila en
+     * un modelo de Eloquent. Son miles (4.080 hoy, y la verificacion nocturna de documentos
+     * añade unos 1.900) y hidratarlos como modelos, con sus casts y sus relaciones, era lo
+     * mas caro de toda la pantalla: medido el 18-09-2026, 344 ms y 20 MB contra 62 ms y 8 MB
+     * leyendolos crudos.
+     *
+     * Devuelve objetos con las MISMAS propiedades que el modelo EquipoAuditLog que lee el
+     * bucle —CAMBIOS ya decodificado (su cast 'array'), created_at como fecha (su cast
+     * 'datetime'), ->equipo con su tipo y su documentacion y ->usuario—, asi que el bucle no
+     * cambia. El equipo y el usuario SI se cargan como modelos: son unos pocos cientos y asi
+     * conservan sus propias reglas (accesores, casts); lo que se ahorra es hidratar los miles
+     * de apuntes.
+     */
+    private function apuntesLigeros($query): \Illuminate\Support\Collection
+    {
+        $filas = $query->toBase()->get();
+
+        // Las mismas relaciones que cargaba el with() de antes: equipo CON los borrados
+        // (para que un 'delete' siga diciendo que equipo era) y su tipo y su documentacion.
+        $equipos = \App\Models\Equipo::withTrashed()->with(['tipo', 'documentacion'])
+            ->whereIn('ID_EQUIPO', $filas->pluck('ID_EQUIPO')->filter()->unique()->values())
+            ->get()->keyBy('ID_EQUIPO');
+        $usuarios = \App\Models\Usuario::whereIn('ID_USUARIO', $filas->pluck('ID_USUARIO')->filter()->unique()->values())
+            ->get()->keyBy('ID_USUARIO');
+
+        return $filas->map(function ($f) use ($equipos, $usuarios) {
+            $f->CAMBIOS    = is_string($f->CAMBIOS) ? json_decode($f->CAMBIOS, true) : $f->CAMBIOS;
+            $f->created_at = $f->created_at ? \Illuminate\Support\Facades\Date::parse($f->created_at) : null;
+            $f->equipo     = $f->ID_EQUIPO ? ($equipos[$f->ID_EQUIPO] ?? null) : null;
+            $f->usuario    = $f->ID_USUARIO ? ($usuarios[$f->ID_USUARIO] ?? null) : null;
+            return $f;
+        });
+    }
+
+    /**
      * Mapeo tabla-driven de los 6 tipos de documento que la tabla `documentacion`
      * registra via flags FECHA_SUBIDA/SUBIDO_POR. Usado para evitar 6 bloques
      * foreach copiados-pegados en index(). Cada entrada describe la columna de
@@ -426,10 +461,9 @@ class HistorialDocumentosController extends Controller
             // withTrashed: incluye equipos soft-deleted asi los logs de
             // tipo 'delete' tambien muestran tipo/marca/modelo del equipo
             // borrado en lugar de un generico "Equipo Eliminado".
-            $auditQuery = \App\Models\EquipoAuditLog::with([
-                    'equipo' => function ($q) { $q->withTrashed()->with(['tipo', 'documentacion']); },
-                    'usuario',
-                ])
+            // Sin with(): el equipo y el usuario de cada apunte los pone apuntesLigeros(),
+            // que es la forma barata de traer miles de apuntes (ver su comentario).
+            $auditQuery = \App\Models\EquipoAuditLog::query()
                 ->whereNull('ID_AUXILIAR')   // los logs de auxiliar se procesan en su propio loop
                 ->where('ACCION', '!=', 'movilizacion')
                 ->orderByDesc('created_at');
@@ -440,7 +474,7 @@ class HistorialDocumentosController extends Controller
             if ($fechaDesdeSql) $auditQuery->where('created_at', '>=', $fechaDesdeSql);
             if ($fechaHastaSql) $auditQuery->where('created_at', '<=', $fechaHastaSql);
 
-            $auditLogs = $auditQuery->limit(5000)->get();
+            $auditLogs = $this->apuntesLigeros($auditQuery->limit(5000));
 
             // ── PDF de las CORRECCIONES ANEXAS ──────────────────────────────────────
             // El audit log guarda el evento pero no la URL, asi que la fila salia sin boton

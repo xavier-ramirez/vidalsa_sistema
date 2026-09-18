@@ -26,8 +26,8 @@ Schedule::command('docs:comprimir --lote=5')
     ->withoutOverlapping(30)
     ->runInBackground();
 
-// Verificacion de los documentos contra sus PDF (docs:verificar-documentos), de 12:30 a las
-// 4:50 de la madrugada y de 25 en 25. Su ventana NO se toca con la de la compresion (05:00-06:30):
+// Verificacion de los documentos contra sus PDF (docs:verificar-documentos), de 9:05 de la
+// mañana a 1:05 de la tarde y de 25 en 25. Su ventana NO se toca con la de la compresion (05:00-06:30):
 // las dos leen de Google Drive y no deben pisarse.
 // El tamaño de la tanda no cambia el consumo (el servidor solo gasta 0,07 s de CPU por
 // documento; el resto es esperar a Drive), pero sí el tiempo muerto: el tick es cada minuto
@@ -37,7 +37,10 @@ Schedule::command('docs:comprimir --lote=5')
 // a 7 s por documento la pasada sube a 2:55 y sigue cabiendo en los mismos 3 minutos, o sea
 // el mismo ritmo. Con 10 el ritmo se caeria a la mitad (5/min) y con 60 bajaria a 8,6.
 // Medido en el servidor el 18-09-2026: 5,7 s por documento. Los ~1.900 cargados piden unas
-// 3 h 45, asi que con la ventana hasta las 4:50 terminan sobre las 04:13, en UNA noche.
+// 3 h 45, asi que en la ventana de 4 horas terminan en UNA pasada (sobre la 1 de la tarde).
+// De dia a proposito (18-09-2026): la de la noche no llego a terminar. El servidor apenas lo
+// nota (0,07 s de CPU por documento) y la ficha se escribe con bloqueo de fila, asi que no
+// choca con quien este editando a la vez.
 // MANDA EL DOCUMENTO (CorrectorFichaDocumento): lo que dice el PDF se escribe en la ficha,
 // este vacia o diga otra cosa. NUNCA la placa ni el serial, y NUNCA nada si el documento es
 // de otro vehiculo, se leyo a medias o no se pudo confirmar de quien es: eso queda en Control
@@ -46,7 +49,7 @@ Schedule::command('docs:comprimir --lote=5')
 Schedule::command('docs:verificar-documentos --lote=25')
     ->when(fn () => \App\Support\EnlacesDocumentos::esBaseDelServidor()[0])
     ->everyMinute()
-    ->between('00:30', '04:50')
+    ->between('09:05', '13:05')
     ->withoutOverlapping(30)
     ->runInBackground();
 

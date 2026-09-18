@@ -521,8 +521,10 @@ Route::middleware(['auth'])->group(function () {
                 // La pantalla de compresion se mudo a Control de Auditoría: este GET solo
                 // lleva alli (los enlaces viejos y los favoritos siguen sirviendo).
                 Route::get('compresion-pdf', [App\Http\Controllers\CompresionPdfController::class, 'index'])->name('compresion-pdf.index');
-                Route::post('compresion-pdf/documento/{id}/aplicar', [App\Http\Controllers\CompresionPdfController::class, 'aplicarDocumento'])
-                    ->whereNumber('id')->name('compresion-pdf.documento.aplicar');
+                // Revisado a mano desde el visor: la persona corrigio la ficha en el panel y
+                // da la fila por buena (ver CompresionPdfController::marcarRevisado).
+                Route::post('compresion-pdf/documento/{id}/revisado', [App\Http\Controllers\CompresionPdfController::class, 'marcarRevisado'])
+                    ->whereNumber('id')->name('compresion-pdf.documento.revisado');
             });
 
             // Ruta de emergencia `force-fix-db` removida: los ajustes de schema ahora

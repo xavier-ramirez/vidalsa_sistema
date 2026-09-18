@@ -50,6 +50,12 @@
     .cpdf-avance-barra i { display: block; height: 100%; border-radius: 99px; background: #6d28d9; }
     .cpdf-avance-cifra { font-size: 11px; font-weight: 700; color: #64748b; font-variant-numeric: tabular-nums; }
     .cpdf-avance-listo { color: #15803d; text-transform: uppercase; font-size: 10px; letter-spacing: .5px; }
+    /* Revisar a mano en el visor: bajo cada campo, lo que dice el documento (panel oscuro). */
+    .cpdf-pista { margin-top: 4px; font-size: 11.5px; color: #cbd5e0; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .cpdf-pista b { color: #fde68a; font-weight: 700; word-break: break-word; }
+    .cpdf-pista button { margin-left: auto; background: #2563eb; color: #fff; border: 0; border-radius: 4px; padding: 2px 9px; font-size: 11px; cursor: pointer; }
+    .cpdf-pista-aviso { margin-bottom: 12px; padding: 8px 10px; border-radius: 6px; background: rgba(37,99,235,.15);
+                        border: 1px solid rgba(96,165,250,.4); color: #dbeafe; font-size: 12px; line-height: 1.35; }
 
     /* La tabla es la MISMA de Control de Auditoría, Usuarios y Equipos (.admin-table), con
        menos relleno: estas dos listas llevan más columnas y muchas filas. */
@@ -78,10 +84,7 @@
     .cpdf-dif-eti { font-weight: 700; color: #64748b; }
     .cpdf-dif-doc { color: #166534; font-weight: 600; }
     .cpdf-flecha { font-size: 14px; color: #94a3b8; }
-    .cpdf-aplicar { display: inline-flex; align-items: center; gap: 3px; border: 1px solid #bfdbfe; background: #eff6ff; color: #0067b1;
                     border-radius: 8px; padding: 4px 9px; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; }
-    .cpdf-aplicar:hover { background: #dbeafe; }
-    .cpdf-aplicar .material-icons { font-size: 15px; }
 
     /* Angosto: una columna. stretch y no flex-start: con flex-start la tarjeta tomaba el
        ancho de la TABLA (816 px en un teléfono de 390) y la página se salía por la derecha;
@@ -233,19 +236,11 @@
                             <td><span class="cpdf-estado {{ $d->ESTADO }}" @if ($d->MOTIVO) title="{{ $d->MOTIVO }}" @endif>{{ $estadosDoc[$d->ESTADO] ?? $d->ESTADO }}</span></td>
                             <td style="white-space:nowrap;">
                                 @if ($d->DRIVE_ID)
-                                    <button type="button" class="pdf-doc-btn" title="Ver el documento"
-                                        onclick="window.openPdfPreview('/storage/google/{{ $d->DRIVE_ID }}', @js($d->TIPO), @js(($tiposDoc[$d->TIPO] ?? '') . ' ' . ($d->PLACA ?: $d->SERIAL ?: '')), {{ (int) $d->ID_EQUIPO }})">
+                                    {{-- Abre el PDF con los campos de la ficha para revisarla (ver cpdfRevisar). --}}
+                                    <button type="button" class="pdf-doc-btn" title="Ver el documento y revisar la ficha"
+                                        onclick="window.cpdfRevisar(@js(['id' => $d->ID_REGISTRO, 'equipoId' => (int) $d->ID_EQUIPO, 'tipo' => $d->TIPO, 'dif' => (object) ($d->DIFERENCIAS ?? [])]), '/storage/google/{{ $d->DRIVE_ID }}', @js(($tiposDoc[$d->TIPO] ?? '') . ' ' . ($d->PLACA ?: $d->SERIAL ?: '')))">
                                         <i class="material-icons">description</i>
                                     </button>
-                                @endif
-                                {{-- Corrige la ficha con lo que dice el documento. Solo aparece cuando hay
-                                     algo que corregir y el PDF es de ESTE vehiculo. --}}
-                                @if ($d->aplicable())
-                                    <form method="POST" action="{{ route('compresion-pdf.documento.aplicar', ['id' => $d->ID_REGISTRO]) }}" style="display:inline;"
-                                          onsubmit="return confirm('¿Poner en la ficha lo que dice el documento?');">
-                                        @csrf
-                                        <button type="submit" class="cpdf-aplicar" title="Poner en la ficha lo que dice el documento"><i class="material-icons">how_to_reg</i> Corregir ficha</button>
-                                    </form>
                                 @endif
                             </td>
                         </tr>
@@ -322,7 +317,7 @@
                 <div>
                     @if ($activa)
                         <strong>Lectura nocturna activa</strong>
-                        <span>De 12:30 a 4:50 a.m., hora {{ $zona === 'America/Caracas' ? 'de Venezuela' : $zona }} (ahora {{ $horaApp->format('g:i a') }}). No se cruza con la compresión. Pone en la ficha lo que dice el documento; nunca la placa ni el serial.</span>
+                        <span>De 9:05 a.m. a 1:05 p.m., hora {{ $zona === 'America/Caracas' ? 'de Venezuela' : $zona }} (ahora {{ $horaApp->format('g:i a') }}). No se cruza con la compresión. Pone en la ficha lo que dice el documento; nunca la placa ni el serial.</span>
                     @else
                         <strong>Lectura nocturna apagada</strong>
                         <span>{{ ucfirst($motivoActiva) }}.</span>
@@ -338,7 +333,7 @@
             <a class="cpdf-caja cpdf-filtra" href="{{ request()->fullUrlWithQuery(['estado_doc' => 'corregibles', 'page' => null]) }}">
                 <small>Sin aplicar</small>
                 <strong>{{ $docsCorregibles }}</strong>
-                <span>el documento dice otra cosa y falta ponerlo con el botón</span>
+                <span>la noche aún no las puso: se revisan en el visor</span>
             </a>
             <a class="cpdf-caja cpdf-filtra" href="{{ request()->fullUrlWithQuery(['estado_doc' => 'revisar', 'page' => null]) }}">
                 <small>Para revisar a mano</small>
@@ -447,4 +442,77 @@
         if (typeof window.navigateTo === 'function') window.navigateTo(url);
         else window.location.href = url;
     };
+
+    // ── Revisar a mano desde el visor ─────────────────────────────────────────────────
+    // Se abre el PDF con los campos de la ficha; bajo cada campo que no cuadra sale lo que
+    // dice el documento, con un boton para ponerlo. Al GUARDAR (en el panel del visor, que
+    // escribe la ficha con su propia ruta) la fila queda como revisada por esa persona y la
+    // lista se recarga para seguir con la siguiente.
+    window.cpdfRevisar = function (fila, url, rotulo) {
+        window._pdfVerif = fila;
+        window.openPdfPreview(url, fila.tipo, rotulo, fila.equipoId);
+    };
+    // Los escuchadores viven en document y la vista se vuelve a ejecutar en cada visita:
+    // se montan UNA vez. Lo que cambia de visita en visita lo leen al dispararse
+    // (window._pdfVerif, window.cpdfFiltrar).
+    if (!window.__cpdfRevisarBound) {
+        window.__cpdfRevisarBound = true;
+        var URL_REVISADO = @json(route('compresion-pdf.documento.revisado', ['id' => 0]));
+        // Diferencia del verificador -> campo del panel del visor que la corrige.
+        var CAMPO = { NOMBRE_DEL_TITULAR: 'titular', ID_SEGURO: 'nombre_aseguradora',
+                      FECHA_VENC_POLIZA: 'fecha_vencimiento', FECHA_ROTC: 'fecha_vencimiento', FECHA_RACDA: 'fecha_vencimiento' };
+        // Solo cuenta si el visor es el que se abrio desde esta pantalla, para esa fila.
+        var esEste = function (d) {
+            var v = window._pdfVerif;
+            return !!v && d.module === 'equipo' && String(v.equipoId) === String(d.equipoId) && v.tipo === d.docType;
+        };
+
+        document.addEventListener('vidalsa:pdf-cerrado', function () { window._pdfVerif = null; });
+
+        document.addEventListener('vidalsa:metadata-pintada', function (e) {
+            if (!esEste(e.detail)) return;
+            var cont = document.getElementById('metaFieldsContainer');
+            if (!cont) return;
+            var dif = window._pdfVerif.dif || {}, otras = [];
+            Object.keys(dif).forEach(function (campo) {
+                var d = dif[campo] || {}, valor = d.documento == null ? '' : String(d.documento);
+                var input = CAMPO[campo] && cont.querySelector('[name="' + CAMPO[campo] + '"]');
+                if (!input) { otras.push((d.etiqueta || campo) + ': ' + (d.ficha || '(vacío)') + ' → ' + valor); return; }
+                // textContent, nunca innerHTML: el valor sale de un PDF.
+                var pista = document.createElement('div'), t = document.createElement('span'),
+                    b = document.createElement('b'), usar = document.createElement('button');
+                pista.className = 'cpdf-pista';
+                t.textContent = 'El documento dice:';
+                b.textContent = valor;
+                usar.type = 'button';
+                usar.textContent = 'Usar';
+                usar.onclick = function () { input.value = valor; input.dispatchEvent(new Event('input', { bubbles: true })); input.focus(); };
+                pista.append(t, b, usar);
+                input.insertAdjacentElement('afterend', pista);
+            });
+            var aviso = document.createElement('div');
+            aviso.className = 'cpdf-pista-aviso';
+            aviso.textContent = 'Al guardar, esta fila queda como revisada por ti en Control de Auditoría.'
+                + (otras.length ? ' Otras diferencias que el documento señala: ' + otras.join(' · ') + '.' : '');
+            cont.insertAdjacentElement('afterbegin', aviso);
+        });
+
+        document.addEventListener('vidalsa:metadata-guardada', function (e) {
+            if (!esEste(e.detail)) return;
+            var id = window._pdfVerif.id;
+            window._pdfVerif = null;
+            window.apiFetch(URL_REVISADO.replace(/\/0\/revisado$/, '/' + id + '/revisado'), { method: 'POST' })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (!data || !data.success) throw new Error('sin exito');
+                    window.toast('Revisado: la fila queda como coincide', 'success');
+                    window.closePdfPreview();
+                    // Recarga la lista con los mismos filtros, para seguir con la siguiente.
+                    if (typeof window.cpdfFiltrar === 'function') window.cpdfFiltrar();
+                })
+                .catch(function () {
+                    window.toast('La ficha se guardó, pero no se pudo marcar la fila como revisada', 'error');
+                });
+        });
+    }
 </script>

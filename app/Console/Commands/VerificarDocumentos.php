@@ -25,7 +25,7 @@ use Illuminate\Support\Facades\Log;
  *                           años dura) y la lista de placas autorizadas, donde tiene que
  *                           estar la del equipo.
  *
- * Lo corre el programador de tareas de 12:30 a las 4:50 de la madrugada
+ * Lo corre el programador de tareas de 9:05 de la mañana a 1:05 de la tarde
  * (routes/console.php), en una ventana que NO se toca con la de la compresion (05:00-06:30):
  * las dos leen de Drive.
  *
@@ -119,7 +119,7 @@ class VerificarDocumentos extends Command
             ->when($equipo, fn ($q) => $q->where('ID_EQUIPO', (int) $equipo))
             ->orderBy('ID_REGISTRO')->chunkById(100, function ($filas) use (&$puestas) {
                 foreach ($filas as $reg) {
-                    if ($this->corrector->aplicar($reg, null)['puestos'] ?? []) $puestas++;
+                    if ($this->corrector->aplicar($reg)['puestos'] ?? []) $puestas++;
                 }
             }, 'ID_REGISTRO');
 
@@ -190,7 +190,7 @@ class VerificarDocumentos extends Command
                 // MOTIVO es varchar(255): un error largo de Drive no puede tumbar la pasada.
                 'MOTIVO'      => $motivo ? mb_substr($motivo, 0, 255) : null,
                 'CARACTERES'  => mb_strlen($texto),
-                // Lo que ninguna persona puede corregir con el boton (PDF de otro vehiculo,
+                // Lo que la noche no puede aplicar sola (PDF de otro vehiculo,
                 // leido a medias o sin confirmar de quien es) va al monton "para revisar".
                 // Solo cuando hay algo que decidir: si todo cuadra, no hay nada que mirar.
                 'A_MANO'      => $estado === VerificacionDocumento::DIFIERE
@@ -219,7 +219,7 @@ class VerificarDocumentos extends Command
         // Con --no-rellenar no escribe nada: solo anota lo que encontro.
         $puestos = [];
         if ($estado === VerificacionDocumento::DIFIERE && !$this->option('no-rellenar')) {
-            $resultado = $this->corrector->aplicar($reg->refresh(), null);
+            $resultado = $this->corrector->aplicar($reg->refresh());
             $puestos = $resultado['puestos'] ?? [];
         }
 

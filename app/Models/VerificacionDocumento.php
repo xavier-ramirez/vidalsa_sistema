@@ -70,7 +70,7 @@ class VerificacionDocumento extends Model
         return $q->where(fn ($w) => $w->whereIn('ESTADO', self::A_REVISAR)->orWhere('A_MANO', true));
     }
 
-    /** Lo que SI se corrige con el boton: hay diferencias y el documento es de este vehiculo. */
+    /** Lo que la tarea de la noche todavia puede poner sola: hay diferencias y el PDF es de este vehiculo. */
     public function scopeCorregibles($q)
     {
         return $q->where('ESTADO', self::DIFIERE)->where('A_MANO', false);
@@ -143,6 +143,24 @@ class VerificacionDocumento extends Model
     public function sinConfirmar(): bool
     {
         return (bool) ($this->LEIDO['sin_confirmar'] ?? false);
+    }
+
+    /**
+     * Una persona miro el PDF, corrigio la ficha a mano (en el panel del visor) y da la fila
+     * por buena: queda como "coincide", sin diferencias pendientes y sin la marca de
+     * "revisar a mano", con su nombre en el motivo. Es su decision; si vuelve a subirse
+     * otro archivo, la verificacion lo leera de nuevo como a cualquiera.
+     */
+    public function marcarRevisadoPor(Usuario $usuario): void
+    {
+        $this->update([
+            'ESTADO'       => self::COINCIDE,
+            'A_MANO'       => false,
+            'DIFERENCIAS'  => null,
+            'MOTIVO'       => mb_substr('Revisado a mano por ' . ($usuario->NOMBRE_COMPLETO ?: $usuario->CORREO_ELECTRONICO), 0, 255),
+            'APLICADO_POR' => $usuario->getKey(),
+            'APLICADO_EN'  => now(),
+        ]);
     }
 
     public function equipo()

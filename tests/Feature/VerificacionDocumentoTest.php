@@ -148,6 +148,12 @@ $vence
         return VerificacionDocumento::where('ID_EQUIPO', $equipo)->where('TIPO', $tipo)->firstOrFail();
     }
 
+    /** Lo que hace la tarea de la noche con una fila ya leida: poner en la ficha lo del documento. */
+    private function aplicar(VerificacionDocumento $reg): array
+    {
+        return app(CorrectorFichaDocumento::class)->aplicar($reg->refresh());
+    }
+
     private function ficha(int $equipo): object
     {
         return DB::table('documentacion')->where('ID_EQUIPO', $equipo)->first();
@@ -217,21 +223,18 @@ $vence
         $this->assertSame('PIRÁMIDE SEGUROS', $reg->LEIDO['aseguradora']);
     }
 
-    public function test_el_boton_corrige_la_poliza_completa_y_queda_en_el_historial(): void
+    public function test_la_correccion_pone_la_poliza_completa_y_queda_en_el_historial(): void
     {
         $mampreca = $this->aseguradora('MAMPRECA');
         $piramide = $this->aseguradora('PIRÁMIDE SEGUROS');
         [$equipo, $placa] = $this->equipoConDocumentos(['ID_SEGURO' => $mampreca, 'FECHA_VENC_POLIZA' => '2026-01-01']);
         $this->lectorFalso($this->textoPoliza('Pirámide Seguros', $placa, '19/02/2027'));
-        // Sin aplicar: lo que se prueba aqui es el BOTON. Con la pasada normal la fila ya
-        // llegaria corregida y el test pasaria aunque el botón no hiciera nada.
+        // Sin aplicar primero: lo que se prueba aqui es la CORRECCION. Con la pasada normal la
+        // fila ya llegaria corregida y el test pasaria aunque la correccion no hiciera nada.
         $reg = $this->verificarSinAplicar($equipo, VerificacionDocumento::POLIZA);
         $this->assertTrue($reg->aplicable());
 
-        $usuario = $this->superAdmin();
-        $this->actingAs($usuario)
-            ->post(route('compresion-pdf.documento.aplicar', ['id' => $reg->ID_REGISTRO]))
-            ->assertRedirect()->assertSessionHas('success');
+        $this->assertNotEmpty($this->aplicar($reg)['puestos'] ?? []);
 
         $ficha = $this->ficha($equipo);
         $this->assertSame($piramide, (int) $ficha->ID_SEGURO);
@@ -240,20 +243,18 @@ $vence
         $reg->refresh();
         $this->assertSame(VerificacionDocumento::COINCIDE, $reg->ESTADO);
         $this->assertNotNull($reg->APLICADO_EN);
-        $this->assertSame($usuario->getKey(), $reg->APLICADO_POR, 'Queda quién lo pulsó.');
+        $this->assertNull($reg->APLICADO_POR, 'Lo hizo la tarea, no una persona.');
         $this->assertNull($reg->DIFERENCIAS);
         // En el historial del equipo: la aseguradora y las fechas no las audita
         // DocumentacionObserver (solo PLACA, NRO_DE_DOCUMENTO y NOMBRE_DEL_TITULAR), asi que
         // las registra CorrectorFichaDocumento con su origen.
         $log = EquipoAuditLog::where('ID_EQUIPO', $equipo)->latest('created_at')->first();
         $this->assertNotNull($log, 'El cambio tiene que quedar en el historial del equipo.');
-        $this->assertSame('Verificación de documentos', $log->CAMBIOS['_origen'] ?? null);
+        $this->assertSame('Verificación de documentos (automática)', $log->CAMBIOS['_origen'] ?? null);
         $this->assertArrayHasKey('ID_SEGURO', $log->CAMBIOS);
 
         // Ya coincide: no hay nada que aplicar y la ficha no se vuelve a tocar.
-        $this->actingAs($this->superAdmin())
-            ->post(route('compresion-pdf.documento.aplicar', ['id' => $reg->ID_REGISTRO]))
-            ->assertRedirect()->assertSessionHas('error');
+        $this->assertArrayHasKey('error', $this->aplicar($reg));
     }
 
     public function test_diferencias_de_escritura_del_nombre_se_distinguen(): void
@@ -310,9 +311,7 @@ $vence
         $this->assertTrue($reg->esDeOtroVehiculo());
         $this->assertFalse($reg->aplicable(), 'Lo que hay que corregir es el PDF enlazado, no la ficha.');
 
-        $this->actingAs($this->superAdmin())
-            ->post(route('compresion-pdf.documento.aplicar', ['id' => $reg->ID_REGISTRO]))
-            ->assertRedirect()->assertSessionHas('error');
+        $this->assertArrayHasKey('error', $this->aplicar($reg));
         $this->assertSame('CONSTRUCTORA VIDALSA 27, C.A', $this->ficha($equipo)->NOMBRE_DEL_TITULAR);
     }
 
@@ -353,12 +352,10 @@ $vence
         // Sin aplicar: lo que se prueba es el botón, y para eso la fila tiene que llegar viva.
         $reg = $this->verificarSinAplicar($equipo, VerificacionDocumento::POLIZA);
 
-        // Entre la lectura y el botón, alguien corrige el vencimiento a mano.
+        // Entre la lectura y la correccion, alguien corrige el vencimiento a mano.
         DB::table('documentacion')->where('ID_EQUIPO', $equipo)->update(['FECHA_VENC_POLIZA' => '2027-03-05']);
 
-        $this->actingAs($this->superAdmin())
-            ->post(route('compresion-pdf.documento.aplicar', ['id' => $reg->ID_REGISTRO]))
-            ->assertRedirect()->assertSessionHas('success');
+        $this->assertNotEmpty($this->aplicar($reg)['puestos'] ?? []);
 
         $ficha = $this->ficha($equipo);
         $this->assertSame('2027-03-05', substr($ficha->FECHA_VENC_POLIZA, 0, 10), 'La corrección a mano no se pisa.');
@@ -375,10 +372,8 @@ $vence
         $this->assertSame('2027-03-05', $reg->DIFERENCIAS['FECHA_VENC_POLIZA']['ficha']);
         $this->assertArrayNotHasKey('ID_SEGURO', $reg->DIFERENCIAS, 'Lo ya corregido sale de la lista.');
 
-        // Un segundo clic no toca nada.
-        $this->actingAs($this->superAdmin())
-            ->post(route('compresion-pdf.documento.aplicar', ['id' => $reg->ID_REGISTRO]))
-            ->assertRedirect()->assertSessionHas('error');
+        // Una segunda pasada no toca nada.
+        $this->assertArrayHasKey('error', $this->aplicar($reg));
         $this->assertSame('2027-03-05', substr($this->ficha($equipo)->FECHA_VENC_POLIZA, 0, 10));
     }
 
@@ -397,9 +392,7 @@ $vence
         $this->assertFalse($reg->aplicable());
         $this->assertStringContainsString('a medias', (string) $reg->MOTIVO);
 
-        $this->actingAs($this->superAdmin())
-            ->post(route('compresion-pdf.documento.aplicar', ['id' => $reg->ID_REGISTRO]))
-            ->assertRedirect()->assertSessionHas('error');
+        $this->assertArrayHasKey('error', $this->aplicar($reg));
         $this->assertSame('CONSTRUCTORA VIDALSA 27, C.A', $this->ficha($equipo)->NOMBRE_DEL_TITULAR);
     }
 
@@ -440,9 +433,7 @@ $vence
             'Sale en el filtro "para revisar", no en lo que se corrige con un botón.');
         $this->assertSame(0, VerificacionDocumento::corregibles()->where('ID_EQUIPO', $equipo)->count());
 
-        $this->actingAs($this->superAdmin())
-            ->post(route('compresion-pdf.documento.aplicar', ['id' => $reg->ID_REGISTRO]))
-            ->assertRedirect()->assertSessionHas('error');
+        $this->assertArrayHasKey('error', $this->aplicar($reg));
         $this->assertSame('ONSTRUCTORA VIDALSA 27, C.A', $this->ficha($equipo)->NOMBRE_DEL_TITULAR);
     }
 
@@ -682,7 +673,7 @@ Placa: $placa
         $reg->update(['DIFERENCIAS' => ['PLACA' => ['etiqueta' => 'Placa', 'ficha' => $placa, 'documento' => 'A00XX9X']]
             + (array) $reg->DIFERENCIAS]);
 
-        app(CorrectorFichaDocumento::class)->aplicar($reg->refresh(), null);
+        $this->aplicar($reg);
 
         $this->assertSame($placa, $this->ficha($equipo)->PLACA, 'La placa de la ficha no se toca nunca.');
     }
@@ -738,7 +729,7 @@ Placa: $placa
         DB::table('documentacion')->where('ID_EQUIPO', $equipo)
             ->update(['FECHA_VENC_POLIZA' => '2027-03-05', 'FECHA_EMISION_POLIZA' => '2026-03-05']);
 
-        app(CorrectorFichaDocumento::class)->aplicar($reg->refresh(), null);
+        $this->aplicar($reg);
 
         $ficha = $this->ficha($equipo);
         $this->assertSame('2027-03-05', substr((string) $ficha->FECHA_VENC_POLIZA, 0, 10), 'Lo de la persona manda.');
@@ -809,7 +800,7 @@ Marca: TOYOTA
             ->get(route('historial-documentos.index', ['pestana' => 'documentos', 'estado_doc' => 'corregibles']))
             ->assertOk()
             ->assertSee($placa, false)
-            ->assertSee('Corregir ficha', false);
+            ->assertSee('cpdfRevisar', false)->assertDontSee('Corregir ficha', false);
     }
 
     public function test_un_racda_que_no_es_una_providencia_no_se_da_por_bueno(): void
@@ -866,6 +857,58 @@ Dado a los: 3 días del mes de: OCTUBRE de: 2018
         $this->assertNull($reg->APLICADO_EN);
     }
 
+    public function test_la_puntuacion_del_nombre_no_es_una_diferencia(): void
+    {
+        // "27, C.A" y "27,CA" son el mismo nombre: el punto lo pone o lo quita el escaneo. Antes
+        // contaba como "una letra" y la noche reescribia la ficha (y el historial) por un punto.
+        [$equipo, $placa] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'CONSTRUCTORA VIDALSA 27,CA',
+            'FECHA_EMISION_PROPIEDAD' => '2018-10-03']);
+        $this->lectorFalso($this->textoTitulo('CONSTRUCTORA VIDALSA 27, C.A', $placa));
+
+        $reg = $this->verificar($equipo, VerificacionDocumento::PROPIEDAD);
+
+        $this->assertSame(VerificacionDocumento::COINCIDE, $reg->ESTADO);
+        $this->assertSame('CONSTRUCTORA VIDALSA 27,CA', $this->ficha($equipo)->NOMBRE_DEL_TITULAR, 'No se toca por un punto.');
+    }
+
+    public function test_la_primera_letra_que_se_come_el_escaneo_no_llega_a_la_ficha(): void
+    {
+        // La primera letra va pegada al borde de la hoja y el escaneo la pierde o la cambia:
+        // "ORPO NAC" donde el papel dice "CORPO NAC". Eso no lo dice el documento: no se escribe.
+        [$equipo, $placa] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'CORPO NAC DE LOGISTICA Y TRANSPORTE DE CARGA S.A']);
+        $this->lectorFalso($this->textoTitulo('ORPO NAC DE LOGISTICA Y TRANSPORTE DE CARGA S.A', $placa));
+
+        $reg = $this->verificar($equipo, VerificacionDocumento::PROPIEDAD);
+
+        $this->assertSame('CORPO NAC DE LOGISTICA Y TRANSPORTE DE CARGA S.A', $this->ficha($equipo)->NOMBRE_DEL_TITULAR);
+        $this->assertTrue($reg->A_MANO, 'Queda para que lo mire una persona en el visor.');
+        $this->assertStringContainsString('primera letra', (string) $reg->MOTIVO);
+    }
+
+    public function test_una_errata_real_de_la_ficha_si_se_corrige_sola(): void
+    {
+        // La otra cara: si la letra que falta esta DENTRO del nombre, es una errata de verdad
+        // ("LOGSTCA", visto en la ficha 757) y manda el documento.
+        [$equipo, $placa] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'CORPO NAC DE LOGSTCA Y TRANSPORTE DE CARGA S.A']);
+        $this->lectorFalso($this->textoTitulo('CORPO NAC DE LOGISTICA Y TRANSPORTE DE CARGA S.A', $placa));
+
+        $this->verificar($equipo, VerificacionDocumento::PROPIEDAD);
+
+        $this->assertSame('CORPO NAC DE LOGISTICA Y TRANSPORTE DE CARGA S.A', $this->ficha($equipo)->NOMBRE_DEL_TITULAR);
+    }
+
+    public function test_la_mancha_pegada_al_final_del_nombre_no_llega_a_la_ficha(): void
+    {
+        // Volteos IVECO: el escaneo dice "CONTRUCTORA VIDALSA 27, C.Aaca:" — el "aca" en
+        // minusculas es una mancha o un sello, no parte del nombre.
+        [$equipo, $placa] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'CONSTRUCTORA VIDALSA 27,CA']);
+        $this->lectorFalso("INTT \nCertificado de Registro de Vehículo a: \nCONTRUCTORA VIDALSA 27, C.Aaca: \nPlaca: $placa \n");
+
+        $reg = $this->verificarSinAplicar($equipo, VerificacionDocumento::PROPIEDAD);
+
+        $this->assertSame('CONTRUCTORA VIDALSA 27, C.A', $reg->LEIDO['titular']);
+    }
+
     public function test_los_cuatro_documentos_se_revisan_en_orden(): void
     {
         // La pasada se gasta en el primer documento que tenga cola; cuando ese se acaba, sigue
@@ -889,19 +932,40 @@ hoja sin datos que sirvan
         $this->assertSame($ordenadas, $posiciones, 'Los tipos salen en su orden: ' . implode(', ', $tipos));
     }
 
-    public function test_sin_super_admin_no_se_puede_corregir(): void
+    public function test_revisado_a_mano_desde_el_visor_deja_la_fila_como_coincide(): void
+    {
+        // La persona corrige la ficha en el panel del visor y la fila queda revisada por
+        // ella: sale de pendientes, sin diferencias, con su nombre en el motivo.
+        [$equipo, $placa] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'ONSTRUCTORA VIDALSA 27, C.A']);
+        $this->lectorFalso($this->textoTitulo('CONSTRUCTORA VIDALSA 27, C.A', $placa));
+        $reg = $this->verificarSinAplicar($equipo, VerificacionDocumento::PROPIEDAD);
+        $this->assertSame(VerificacionDocumento::DIFIERE, $reg->ESTADO);
+
+        $yo = $this->superAdmin();
+        $this->actingAs($yo)->postJson(route('compresion-pdf.documento.revisado', ['id' => $reg->ID_REGISTRO]))
+            ->assertOk()->assertJson(['success' => true]);
+
+        $reg->refresh();
+        $this->assertSame(VerificacionDocumento::COINCIDE, $reg->ESTADO);
+        $this->assertNull($reg->DIFERENCIAS);
+        $this->assertFalse($reg->A_MANO);
+        $this->assertSame($yo->getKey(), $reg->APLICADO_POR);
+        $this->assertStringContainsString('Revisado a mano por', (string) $reg->MOTIVO);
+        $this->assertSame(0, VerificacionDocumento::corregibles()->where('ID_EQUIPO', $equipo)->count(), 'Sale de pendientes.');
+        // Marcar NO toca la ficha: eso lo hace el panel del visor con su propia ruta.
+        $this->assertSame('ONSTRUCTORA VIDALSA 27, C.A', $this->ficha($equipo)->NOMBRE_DEL_TITULAR);
+    }
+
+    public function test_sin_super_admin_no_se_puede_marcar_revisado(): void
     {
         [$equipo, $placa] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'ONSTRUCTORA VIDALSA 27, C.A']);
         $this->lectorFalso($this->textoTitulo('CONSTRUCTORA VIDALSA 27, C.A', $placa));
         $reg = $this->verificarSinAplicar($equipo, VerificacionDocumento::PROPIEDAD);
 
         $sinPermiso = Usuario::all()->first(fn ($u) => ! $u->can('super.admin'));
-        $this->assertNotNull($sinPermiso, 'Hace falta un usuario sin super.admin.');
-
-        $this->actingAs($sinPermiso)
-            ->post(route('compresion-pdf.documento.aplicar', ['id' => $reg->ID_REGISTRO]))
+        $this->actingAs($sinPermiso)->postJson(route('compresion-pdf.documento.revisado', ['id' => $reg->ID_REGISTRO]))
             ->assertForbidden();
-        $this->assertSame('ONSTRUCTORA VIDALSA 27, C.A', $this->ficha($equipo)->NOMBRE_DEL_TITULAR);
+        $this->assertSame(VerificacionDocumento::DIFIERE, $reg->refresh()->ESTADO);
     }
 
     public function test_la_pantalla_de_auditoria_tiene_las_tres_pestanas(): void
@@ -918,7 +982,7 @@ hoja sin datos que sirvan
         $this->actingAs($this->superAdmin())->get(route('historial-documentos.index', ['pestana' => 'documentos']))
             ->assertOk()
             ->assertSee('JESUS VIDAL SALAZAR ACEVEDO', false)
-            ->assertSee('Corregir ficha', false);
+            ->assertSee('cpdfRevisar', false)->assertDontSee('Corregir ficha', false);
 
         // La direccion vieja sigue sirviendo: lleva a la pestaña.
         $this->actingAs($this->superAdmin())->get(route('compresion-pdf.index'))

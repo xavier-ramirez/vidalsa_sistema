@@ -396,8 +396,13 @@ class LectorDocumentoPdf
      */
     public function compararNombre(?string $enFicha, ?string $enDocumento): array
     {
-        $doc = $this->normalizar($enDocumento);
-        $ficha = $this->normalizar($enFicha);
+        // Sin espacios, ademas de sin puntuacion: "27, C.A", "27 C. A." y "27,CA" son el MISMO
+        // nombre, y el punto de "C.A" lo pone o lo quita el escaneo. Con los espacios dentro,
+        // "C.A" quedaba "C A" frente a "CA" y la noche reescribia cientos de fichas (y llenaba
+        // el historial) por un punto, avisando encima "se diferencian en una letra". Solo aqui:
+        // normalizar() la usan tambien otros que SI necesitan separar las palabras.
+        $doc = str_replace(' ', '', $this->normalizar($enDocumento));
+        $ficha = str_replace(' ', '', $this->normalizar($enFicha));
         if ($ficha === '') {
             return [false, 'La ficha no tiene nombre'];
         }
@@ -407,6 +412,21 @@ class LectorDocumentoPdf
             return $this->tieneHomoglifos((string) $enFicha)
                 ? [false, 'El mismo nombre, pero escrito con letras de otro alfabeto']
                 : [true, null];
+        }
+        // La PRIMERA letra es la que va pegada al borde de la hoja, y en los escaneos es la que
+        // se pierde o sale cambiada: "ORPO NAC" o "AORPO NAC" donde el papel dice "CORPO NAC"
+        // (visto en los titulos del 18-09-2026). Eso no es lo que dice el documento, es un
+        // fallo de lectura: si solo difieren en esa letra, la ficha NO se toca (sirve = false)
+        // y queda para que una persona lo mire en el visor. Cualquier otra diferencia sigue la
+        // regla de siempre: manda el documento.
+        if (mb_strlen($ficha) >= 6 && $doc !== '' && $doc[0] !== $ficha[0]) {
+            $restoDoc = substr($doc, 1);
+            $restoFicha = substr($ficha, 1);
+            $cambiada = str_starts_with($restoDoc, $restoFicha) || str_starts_with($restoFicha, $restoDoc);
+            $perdida  = str_starts_with($doc, $restoFicha) || str_starts_with($restoFicha, $doc);
+            if ($cambiada || $perdida) {
+                return [false, 'El escaneo se comió o cambió la primera letra del nombre: la ficha no se toca', false];
+            }
         }
         // Uno contiene al otro. Importa CUAL es el corto: si el corto es el del documento, lo
         // que se leyo a medias es el PDF (el reconocimiento corta el nombre al topar con el
@@ -528,7 +548,16 @@ class LectorDocumentoPdf
         while (count($palabras) > 1 && !preg_match('/\p{Lu}/u', $palabras[0])) {
             array_shift($palabras);
         }
-        return mb_substr(mb_strtoupper(trim(implode(' ', $palabras), " \t.:,-")), 0, self::LARGO_TITULAR);
+        $nombre = trim(implode(' ', $palabras), " \t.:,-");
+        // Y la mancha pegada DETRAS, tambien en minusculas y sin espacio que la separe: en los
+        // volteos IVECO el escaneo dice "CONTRUCTORA VIDALSA 27, C.Aaca:" (medido el 18-09-2026)
+        // y, pasado a mayusculas, habria llegado a la ficha como "C.AACA". Solo cuando todo lo
+        // demas va en MAYUSCULAS, como en los titulos: un nombre escrito normal ("Vidalsa") no
+        // pierde su final.
+        if (preg_match('/^(.*\p{Lu}[.)]?)(\p{Ll}+)$/u', $nombre, $m) && $m[1] === mb_strtoupper($m[1])) {
+            $nombre = $m[1];
+        }
+        return mb_substr(mb_strtoupper(trim($nombre, " \t.:,-")), 0, self::LARGO_TITULAR);
     }
 
     private function tieneHomoglifos(string $v): bool

@@ -2140,6 +2140,12 @@ window.loadMetadata = async function () {
                 html += `<div style="${containerStyle}"><label for="meta_fec_venc_${ctx.equipoId}" style="${labelStyle}">Fecha Vencimiento</label><input type="date" id="meta_fec_venc_${ctx.equipoId}" name="fecha_vencimiento" value="${info.fecha_vencimiento || ''}" ${disabledAttr} ${fechaReq} autocomplete="off"></div>`;
             }
             container.innerHTML = html;
+            // Aviso para quien quiera añadir algo al panel sin tocar este archivo (lo usa
+            // Control de Auditoria -> Documentos para poner, bajo cada campo, lo que dice el
+            // documento). El visor no sabe nada de quien escucha.
+            document.dispatchEvent(new CustomEvent('vidalsa:metadata-pintada', {
+                detail: { equipoId: ctx.equipoId, docType: ctx.docType, module: ctx.module || 'equipo' },
+            }));
         }
     } catch (e) {
         console.error(e);
@@ -2174,6 +2180,10 @@ window.saveMetadata = async function (e) {
         const data = await res.json();
         if (data.success) {
             window.toast('Datos actualizados correctamente', 'success');
+            // Aviso de "guardado", igual que el de pintado (ver loadMetadata).
+            document.dispatchEvent(new CustomEvent('vidalsa:metadata-guardada', {
+                detail: { equipoId: ctx.equipoId, docType: ctx.docType, module: ctx.module || 'equipo' },
+            }));
             // Modulo auxiliares: refresca la tabla y termina (no aplica el
             // flujo de showDetailsImproved/activeEquipoButton del modulo equipos).
             if (ctx.module === 'auxiliar') {
@@ -2232,6 +2242,8 @@ window.closePdfPreview = function () {
     const modal = document.getElementById('pdfPreviewModal');
     const iframe = document.getElementById('pdfPreviewFrame');
     if (modal) modal.classList.remove('active');
+    // Para quien haya dejado algo colgado del visor abierto (ver 'vidalsa:metadata-pintada').
+    document.dispatchEvent(new CustomEvent('vidalsa:pdf-cerrado'));
     if (iframe) {
         // Un iframe NUEVO y vacío (_pdfRenovarVisorIzq) en vez de iframe.src = 'about:blank':
         // el viejo sale de la página y con él la memoria del PDF, sin dejar un paso en el

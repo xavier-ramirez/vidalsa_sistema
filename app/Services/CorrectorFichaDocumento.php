@@ -11,19 +11,16 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * El UNICO sitio donde la verificacion de documentos cambia una ficha (tabla documentacion).
- * Lo usan los dos caminos:
- *
- *   · AUTOMATICO — docs:verificar-documentos, en cuanto lee el PDF: MANDA EL DOCUMENTO. Lo
- *     que dice el PDF se pone en la ficha, este vacia o diga otra cosa (asi lo pidio el
- *     cliente: el papel es el que vale).
- *   · A MANO — el boton "Corregir ficha" de Control de Auditoría
- *     (CompresionPdfController::aplicarDocumento), para lo que quedo sin aplicar.
+ * Lo usa docs:verificar-documentos en cuanto lee el PDF: MANDA EL DOCUMENTO. Lo que dice el
+ * PDF se pone en la ficha, este vacia o diga otra cosa (asi lo pidio el cliente: el papel es
+ * el que vale). Lo que una persona quiera corregir a mano lo hace en el panel del visor, desde
+ * Control de Auditoría -> Documentos, y alli mismo da la fila por revisada.
  *
  * Lo que NUNCA se escribe, venga como venga: la PLACA y el SERIAL (ver CAMPOS). Y no se
  * escribe NADA cuando el PDF es de otro vehiculo, se leyo a medias o no se pudo confirmar de
  * quien es: ahi lo que hay que arreglar es el archivo, no la ficha.
  *
- * En los dos casos se comprueba antes que la ficha SIGA como estaba cuando se leyo el PDF: si
+ * Antes de escribir se comprueba que la ficha SIGA como estaba cuando se leyo el PDF: si
  * alguien la corrigio a mano entretanto, su correccion manda.
  */
 class CorrectorFichaDocumento
@@ -48,10 +45,8 @@ class CorrectorFichaDocumento
      * Pone en la ficha lo que dice el documento. Devuelve:
      *   ['error' => 'texto']                       no se pudo (y por que)
      *   ['puestos' => [...], 'saltados' => [...]]  etiquetas de lo escrito y de lo respetado
-     *
-     * $usuarioId es quien lo pidio (null = lo hizo el propio comando de noche).
      */
-    public function aplicar(VerificacionDocumento $reg, ?int $usuarioId): array
+    public function aplicar(VerificacionDocumento $reg): array
     {
         if ($error = $this->porQueNoSePuede($reg)) {
             return ['error' => $error];
@@ -61,7 +56,7 @@ class CorrectorFichaDocumento
         // pendiente es la aseguradora.
         $aseguradoras = CatalogoSeguro::pluck('NOMBRE_ASEGURADORA', 'ID_SEGURO')->all();
 
-        return DB::transaction(function () use ($reg, $usuarioId, $aseguradoras) {
+        return DB::transaction(function () use ($reg, $aseguradoras) {
             // Se bloquean LAS DOS filas: la ficha y la lectura. Sin bloquear la lectura, dos
             // clics seguidos (o un clic mientras corre la pasada de la noche) pasan los dos por
             // la puerta y el segundo, al ver la ficha ya cambiada, la marcaria como "lo cambio
@@ -91,9 +86,8 @@ class CorrectorFichaDocumento
                 // su ID (ficha_valor), no por el nombre que se muestra.
                 $esperado = array_key_exists('ficha_valor', $d) ? $d['ficha_valor'] : ($d['ficha'] ?? '');
                 if ((string) $ahora !== (string) $esperado) {
-                    // No se vuelve a ofrecer el boton para ese dato: quien decida tiene que
-                    // mirar el documento (si se dejara, el siguiente clic pisaria la correccion
-                    // de la persona).
+                    // Ese dato ya no se toca solo: quien decida tiene que mirar el documento
+                    // (si se reintentara, la noche siguiente pisaria la correccion de la persona).
                     $saltados[] = $d['etiqueta'];
                     $hayCorregidoAMano = true;
                     $quedan[$campo] = [
@@ -125,9 +119,7 @@ class CorrectorFichaDocumento
                         . $this->etiquetas($quedan) . '. Míralo con el PDF delante.', 0, 255),
                     'DIFERENCIAS' => $quedan,
                 ]);
-                return $usuarioId
-                    ? ['error' => 'La ficha ya no dice lo que decía cuando se leyó el documento: queda marcada para revisarla con el PDF delante.']
-                    : ['puestos' => [], 'saltados' => $saltados];
+                return ['puestos' => [], 'saltados' => $saltados];
             }
             $doc->save();
 
@@ -136,9 +128,7 @@ class CorrectorFichaDocumento
             // rastro, asi que se registran aqui — y solo esos, para no duplicar los suyos.
             $propios = array_diff_key($cambios, array_flip(DocumentacionObserver::AUDITED));
             if ($propios) {
-                EquipoAuditLog::registrar($reg->ID_EQUIPO, 'edit', $propios + [
-                    '_origen' => $usuarioId ? 'Verificación de documentos' : 'Verificación de documentos (automática)',
-                ]);
+                EquipoAuditLog::registrar($reg->ID_EQUIPO, 'edit', $propios + ['_origen' => 'Verificación de documentos (automática)']);
             }
 
             $reg->update([
@@ -146,9 +136,8 @@ class CorrectorFichaDocumento
                 // A_MANO: solo si lo que queda ya no lo arregla ningun boton, es decir, lo que
                 // alguien cambio a mano despues de leer el PDF.
                 'A_MANO'       => $hayCorregidoAMano,
-                'MOTIVO'       => $this->motivo($reg, $puestos, $quedan, $hayCorregidoAMano, $usuarioId),
+                'MOTIVO'       => $this->motivo($reg, $puestos, $quedan),
                 'DIFERENCIAS'  => $quedan ?: null,
-                'APLICADO_POR' => $usuarioId,
                 'APLICADO_EN'  => now(),
             ]);
 
@@ -157,19 +146,11 @@ class CorrectorFichaDocumento
     }
 
     /** Lo que se cuenta en la pantalla y en el listado del comando. */
-    private function motivo(VerificacionDocumento $reg, array $puestos, array $quedan, bool $hayCorregidoAMano, ?int $usuarioId): string
+    private function motivo(VerificacionDocumento $reg, array $puestos, array $quedan): string
     {
-        if (!$quedan) {
-            return $usuarioId ? 'Corregido con lo que dice el documento' : 'Puesto solo con lo que dice el documento';
-        }
-        if ($usuarioId) {
-            return mb_substr('Se corrigio ' . implode(', ', $puestos)
-                . ($hayCorregidoAMano ? '; lo demas lo cambio alguien a mano y hay que mirarlo'
-                                      : '; falta decidir ' . $this->etiquetas($quedan)), 0, 255);
-        }
-        // Rellenado automatico: manda la explicacion de lo que hay que MIRAR ("se diferencian
-        // en una letra..."), que es para lo que se lee esta columna; lo que se puso solo va
-        // detras. Si se sustituyera, la fila perderia justo el dato que la hace entendible.
+        if (!$quedan) return 'Puesto solo con lo que dice el documento';
+        // Manda la explicacion de lo que hay que MIRAR ("se diferencian en una letra..."), que
+        // es para lo que se lee esta columna; lo que se puso solo va detras.
         $base = trim((string) $reg->MOTIVO) ?: ('Falta decidir ' . $this->etiquetas($quedan));
         return mb_substr($base . ' · Se puso solo: ' . implode(', ', $puestos), 0, 255);
     }
