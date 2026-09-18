@@ -348,7 +348,7 @@
             <div class="cpdf-caja">
                 <small>Faltan por leer</small>
                 <strong>{{ $pendientesDocs }}</strong>
-                <span>{{ $pendientesDocs ? 'se leen de 60 en 60 cada noche' : 'ya se leyeron todos los documentos cargados' }}</span>
+                <span>{{ $pendientesDocs ? 'se leen de 25 en 25 cada noche' : 'ya se leyeron todos los documentos cargados' }}</span>
             </div>
             <div class="cpdf-caja">
                 <small>Última lectura</small>

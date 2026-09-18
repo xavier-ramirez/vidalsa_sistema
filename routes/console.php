@@ -27,21 +27,23 @@ Schedule::command('docs:comprimir --lote=5')
     ->runInBackground();
 
 // Verificacion de los documentos contra sus PDF (docs:verificar-documentos), de 12:30 a las
-// 4:50 de la madrugada y de 60 en 60. Su ventana NO se toca con la de la compresion (05:00-06:30):
+// 4:50 de la madrugada y de 25 en 25. Su ventana NO se toca con la de la compresion (05:00-06:30):
 // las dos leen de Google Drive y no deben pisarse.
 // El tamaño de la tanda no cambia el consumo (el servidor solo gasta 0,07 s de CPU por
-// documento; el resto es esperar a Drive), pero sí el tiempo muerto: con tandas de 10 la
-// pasada duraba poco mas de un minuto y withoutOverlapping hacia perder el minuto siguiente.
-// Con 60 la pasada dura unos 6 minutos y encadena sin huecos. Medido en el servidor el
-// 18-09-2026: 8,6 documentos por minuto. Los 1.900 documentos cargados piden unas 3 h 40,
-// asi que con la ventana hasta las 4:50 caben (rinde ~2.200) con un 20% de margen por si
-// Drive se pone lento, y se leen todos en UNA noche.
+// documento; el resto es esperar a Drive), pero sí el tiempo muerto: el tick es cada minuto
+// y withoutOverlapping no deja arrancar encima, asi que lo que sobra de minuto se pierde.
+// Con 25 la pasada dura 2:22 y arranca una cada 3 minutos (38 s de espera): 8,3 documentos
+// por minuto. Se eligio 25 porque es el tamaño que MENOS se resiente si Drive se pone lento:
+// a 7 s por documento la pasada sube a 2:55 y sigue cabiendo en los mismos 3 minutos, o sea
+// el mismo ritmo. Con 10 el ritmo se caeria a la mitad (5/min) y con 60 bajaria a 8,6.
+// Medido en el servidor el 18-09-2026: 5,7 s por documento. Los ~1.900 cargados piden unas
+// 3 h 45, asi que con la ventana hasta las 4:50 terminan sobre las 04:13, en UNA noche.
 // MANDA EL DOCUMENTO (CorrectorFichaDocumento): lo que dice el PDF se escribe en la ficha,
 // este vacia o diga otra cosa. NUNCA la placa ni el serial, y NUNCA nada si el documento es
 // de otro vehiculo, se leyo a medias o no se pudo confirmar de quien es: eso queda en Control
 // de Auditoría para que lo mire una persona. Solo en el servidor: en el PC de desarrollo la
 // base es una copia y esas correcciones no le servirian a nadie (ahi se usa --no-rellenar).
-Schedule::command('docs:verificar-documentos --lote=60')
+Schedule::command('docs:verificar-documentos --lote=25')
     ->when(fn () => \App\Support\EnlacesDocumentos::esBaseDelServidor()[0])
     ->everyMinute()
     ->between('00:30', '04:50')
