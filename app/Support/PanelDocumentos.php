@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * Los datos de las dos pestañas de documentos de Control de Auditoría
- * (/admin/historial-documentos): "Compresión" (docs:comprimir) y "Títulos y pólizas"
+ * (/admin/historial-documentos): "Compresión" (docs:comprimir) y "Documentos"
  * (docs:verificar-documentos). La vista es admin/compresion_pdf/panel.blade.php.
  *
  * Vive aparte de los controladores porque lo piden dos: la pantalla de auditoría, que lo
@@ -89,6 +89,7 @@ class PanelDocumentos
             'ghostscript' => app(CompresorPdf::class)->disponible(),
             // De la otra pestaña solo hace falta el numero de su botón.
             'docs'        => null,
+            'avanceDocs'  => [],
             'docsParaRevisar' => VerificacionDocumento::paraRevisar()->count(),
             'estadoDoc'   => null,
             'tipoDoc'     => null,
@@ -98,22 +99,29 @@ class PanelDocumentos
     }
 
     /**
-     * Pestaña "Títulos y pólizas": filas paginadas, cuantas hay de cada estado, cuando fue la
+     * Pestaña "Documentos" (titulos, polizas, ROTC y RACDA): filas paginadas, cuantas hay de cada estado, cuando fue la
      * ultima lectura y cuantos documentos faltan por leer.
      */
     private static function datosDocumentos(Request $request, string $buscar): array
     {
+        $avance = self::avance();
         $estados = [VerificacionDocumento::COINCIDE, VerificacionDocumento::DIFIERE,
                     VerificacionDocumento::ILEGIBLE, VerificacionDocumento::SIN_ARCHIVO, VerificacionDocumento::ERROR];
-        // 'revisar' junta en un filtro los montones que mira una persona.
+        // Dos filtros que no son un estado de la tabla, sino los dos montones que se miran
+        // distinto y que cuentan las tarjetas: 'revisar' (lo que decide una persona) y
+        // 'corregibles' (lo que un boton todavia puede arreglar). Cada tarjeta enlaza al
+        // filtro que enseña EXACTAMENTE lo que ella cuenta.
         $pedido = $request->input('estado_doc');
-        $estadoDoc = ($pedido === 'revisar' || in_array($pedido, $estados, true)) ? $pedido : null;
-        $tipoDoc = in_array($request->input('tipo_doc'), [VerificacionDocumento::PROPIEDAD, VerificacionDocumento::POLIZA], true)
+        $estadoDoc = (in_array($pedido, ['revisar', 'corregibles'], true) || in_array($pedido, $estados, true)) ? $pedido : null;
+        // Los cuatro documentos, los mismos que ofrece el desplegable de la vista.
+        $tipoDoc = array_key_exists((string) $request->input('tipo_doc'), VerificacionDocumento::NOMBRES)
             ? $request->input('tipo_doc') : null;
 
         $filas = VerificacionDocumento::query()
             ->when($estadoDoc === 'revisar', fn ($q) => $q->paraRevisar())
-            ->when($estadoDoc && $estadoDoc !== 'revisar', fn ($q) => $q->where('ESTADO', $estadoDoc))
+            ->when($estadoDoc === 'corregibles', fn ($q) => $q->corregibles())
+            ->when($estadoDoc && !in_array($estadoDoc, ['revisar', 'corregibles'], true),
+                fn ($q) => $q->where('ESTADO', $estadoDoc))
             ->when($tipoDoc, fn ($q) => $q->where('TIPO', $tipoDoc))
             ->when($buscar !== '', function ($q) use ($buscar) {
                 $like = '%' . addcslashes($buscar, '%_\\') . '%';
@@ -143,7 +151,8 @@ class PanelDocumentos
             'estadoDoc'      => $estadoDoc,
             'tipoDoc'        => $tipoDoc,
             'ultimaLectura'  => VerificacionDocumento::max('updated_at'),
-            'pendientesDocs' => self::pendientes(),
+            'pendientesDocs' => array_sum(array_column($avance, 'faltan')),
+            'avanceDocs'     => $avance,
             // Las de la otra pestaña: no se consultan, pero la vista las recibe siempre.
             'resumen'     => collect(),
             'ultimaNoche' => null,
@@ -156,16 +165,25 @@ class PanelDocumentos
     }
 
     /**
-     * Documentos cargados que el verificador todavia no ha leido, contando los dos enlaces.
-     * La cola la define VerificacionDocumento::pendientes(), la MISMA que usa el comando.
+     * Por donde va la revision de CADA documento: cuantos hay cargados, cuantos se han leido y
+     * cuantos faltan. Es lo que contesta "¿ya termino con todos?" sin entrar al servidor: el
+     * dia que las cuatro filas digan "faltan 0", la revision acabo.
+     *
+     * De aqui sale tambien el total de "faltan por leer", para no contar dos veces lo mismo.
      */
-    private static function pendientes(): int
+    private static function avance(): array
     {
-        $total = 0;
-        foreach ([VerificacionDocumento::PROPIEDAD => 'LINK_DOC_PROPIEDAD',
-                  VerificacionDocumento::POLIZA    => 'LINK_POLIZA_SEGURO'] as $tipo => $col) {
-            $total += VerificacionDocumento::pendientes($tipo, $col)->count();
+        $avance = [];
+        foreach (VerificacionDocumento::ENLACES as $tipo => $col) {
+            $faltan = VerificacionDocumento::pendientes($tipo, $col)->count();
+            $total  = VerificacionDocumento::conEnlace($col)->count();
+            $avance[$tipo] = [
+                'nombre' => VerificacionDocumento::NOMBRES[$tipo] ?? $tipo,
+                'total'  => $total,
+                'leidos' => max(0, $total - $faltan),
+                'faltan' => $faltan,
+            ];
         }
-        return $total;
+        return $avance;
     }
 }

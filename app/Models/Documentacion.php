@@ -21,6 +21,8 @@ class Documentacion extends Model
         'ID_SEGURO',
         'FECHA_EMISION_PROPIEDAD',
         'FECHA_EMISION_POLIZA',
+        'FECHA_EMISION_ROTC',
+        'FECHA_EMISION_RACDA',
         'ESTADO_POLIZA',
         'FECHA_VENC_POLIZA',
         'LINK_POLIZA_SEGURO',
@@ -60,6 +62,8 @@ class Documentacion extends Model
         // Fechas que dicen los propios PDF (las lee docs:verificar-documentos).
         'FECHA_EMISION_PROPIEDAD' => 'date',
         'FECHA_EMISION_POLIZA' => 'date',
+        'FECHA_EMISION_ROTC' => 'date',
+        'FECHA_EMISION_RACDA' => 'date',
         'POLIZA_FECHA_SUBIDA' => 'datetime',
         'ROTC_FECHA_SUBIDA' => 'datetime',
         'RACDA_FECHA_SUBIDA' => 'datetime',

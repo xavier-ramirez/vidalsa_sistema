@@ -285,7 +285,7 @@
             min-height: 100%;
         }
     }
-    /* ── Pestañas de Control de Auditoría: Historial · Compresión · Títulos y pólizas ──
+    /* ── Pestañas de Control de Auditoría: Historial · Compresión · Documentos ──
        Las dos ultimas las pinta admin/compresion_pdf/panel.blade.php. */
     .hd-pest { display: flex; gap: 6px; border-bottom: 1px solid #e2e8f0; width: 98%; max-width: 1600px; margin: -6px auto 14px; }
     .hd-pest button { border: none; background: none; font: inherit; font-size: 13px; font-weight: 700; color: #64748b;
@@ -308,7 +308,7 @@
     <button type="button" class="{{ $pestana === 'historial' ? 'on' : '' }}" onclick="window.hdPestana('historial')">Historial</button>
     <button type="button" class="{{ $pestana === 'compresion' ? 'on' : '' }}" onclick="window.hdPestana('compresion')">Compresión de PDF</button>
     <button type="button" class="{{ $pestana === 'documentos' ? 'on' : '' }}" onclick="window.hdPestana('documentos')">
-        Títulos y pólizas
+        Documentos
         @if ($docsParaRevisar) <span class="hd-pend" title="Documentos que hay que revisar a mano">{{ $docsParaRevisar }}</span> @endif
     </button>
 </div>

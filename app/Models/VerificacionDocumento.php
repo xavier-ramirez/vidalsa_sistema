@@ -17,6 +17,8 @@ class VerificacionDocumento extends Model
     /** Tipos y estados viven en el lector, que es quien decide cual poner. */
     public const PROPIEDAD   = LectorDocumentoPdf::PROPIEDAD;
     public const POLIZA      = LectorDocumentoPdf::POLIZA;
+    public const ROTC        = LectorDocumentoPdf::ROTC;
+    public const RACDA       = LectorDocumentoPdf::RACDA;
     public const COINCIDE    = LectorDocumentoPdf::COINCIDE;
     public const DIFIERE     = LectorDocumentoPdf::DIFIERE;
     public const ILEGIBLE    = LectorDocumentoPdf::ILEGIBLE;
@@ -34,8 +36,21 @@ class VerificacionDocumento extends Model
      */
     public const MAX_INTENTOS = 3;
 
-    /** Como se llama cada documento en la pantalla. */
-    public const NOMBRES = [self::PROPIEDAD => 'Título de propiedad', self::POLIZA => 'Póliza'];
+    /** Como se llama cada documento en la pantalla, en el orden en que se revisan. */
+    public const NOMBRES = [
+        self::PROPIEDAD => 'Título de propiedad',
+        self::POLIZA    => 'Póliza',
+        self::ROTC      => 'ROTC',
+        self::RACDA     => 'RACDA',
+    ];
+
+    /** [tipo => columna del enlace en documentacion]. Mismo orden que NOMBRES. */
+    public const ENLACES = [
+        self::PROPIEDAD => 'LINK_DOC_PROPIEDAD',
+        self::POLIZA    => 'LINK_POLIZA_SEGURO',
+        self::ROTC      => 'LINK_ROTC',
+        self::RACDA     => 'LINK_RACDA',
+    ];
 
     protected $fillable = [
         'ID_EQUIPO', 'TIPO', 'PLACA', 'SERIAL', 'DRIVE_ID',
@@ -69,19 +84,35 @@ class VerificacionDocumento extends Model
      */
     public static function pendientes(string $tipo, string $columna)
     {
-        $idEnlace = "SUBSTRING_INDEX(SUBSTRING_INDEX(d.$columna, '/storage/google/', -1), '?', 1)";
+        $idEnlace = self::idEnlace($columna);
 
-        return \Illuminate\Support\Facades\DB::table('documentacion as d')
-            ->join('equipos as e', 'e.ID_EQUIPO', '=', 'd.ID_EQUIPO')
-            ->whereNull('e.deleted_at')
-            ->where("d.$columna", 'like', '/storage/google/%')
-            ->whereRaw("$idEnlace <> ''")
+        return self::conEnlace($columna)
             ->whereNotExists(fn ($s) => $s->from('verificacion_documento_registro as v')
                 ->whereColumn('v.ID_EQUIPO', 'd.ID_EQUIPO')
                 ->where('v.TIPO', $tipo)
                 ->whereRaw("v.DRIVE_ID = $idEnlace")
                 ->where(fn ($w) => $w->whereNotIn('v.ESTADO', [self::ILEGIBLE, self::ERROR])
                     ->orWhere('v.INTENTOS', '>=', self::MAX_INTENTOS)));
+    }
+
+    /**
+     * TODAS las fichas que tienen ese documento cargado en Drive, este leido o no. Es la misma
+     * base que pendientes() —de ahi sale— y con las dos se sabe por donde va la revision:
+     * "leidos X de Y". Sin esto, "faltan por leer" no dice si falta mucho o poco.
+     */
+    public static function conEnlace(string $columna)
+    {
+        return \Illuminate\Support\Facades\DB::table('documentacion as d')
+            ->join('equipos as e', 'e.ID_EQUIPO', '=', 'd.ID_EQUIPO')
+            ->whereNull('e.deleted_at')
+            ->where("d.$columna", 'like', '/storage/google/%')
+            ->whereRaw(self::idEnlace($columna) . " <> ''");
+    }
+
+    /** El id de Drive dentro del enlace guardado (/storage/google/ID?v=N), en SQL. */
+    private static function idEnlace(string $columna): string
+    {
+        return "SUBSTRING_INDEX(SUBSTRING_INDEX(d.$columna, '/storage/google/', -1), '?', 1)";
     }
 
     /**

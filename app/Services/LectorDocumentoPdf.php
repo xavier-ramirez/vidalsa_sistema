@@ -7,10 +7,13 @@ use Illuminate\Support\Facades\Log;
 
 /**
  * Lee lo que dicen los PDF de la documentacion de un equipo y lo compara con su ficha
- * (tabla documentacion). Lo usa docs:verificar-documentos para dos documentos:
+ * (tabla documentacion). Lo usa docs:verificar-documentos para los cuatro documentos:
  *
  *   · TITULO DE PROPIEDAD (LINK_DOC_PROPIEDAD) — nombre del propietario y fecha de emision.
  *   · POLIZA DE SEGURO   (LINK_POLIZA_SEGURO)  — aseguradora, fecha de vencimiento y de emision.
+ *   · ROTC               (LINK_ROTC)           — propietario, numero y sus dos fechas.
+ *   · RACDA              (LINK_RACDA)          — providencia de la EMPRESA: fecha, años de
+ *                                                validez y la lista de placas autorizadas.
  *
  * El texto lo saca GOOGLE DRIVE, no el servidor: casi todos esos PDF son fotos escaneadas
  * (no traen texto que copiar), y montar un reconocedor propio pediria instalar y correr
@@ -21,9 +24,11 @@ use Illuminate\Support\Facades\Log;
  */
 class LectorDocumentoPdf
 {
-    /** Los dos documentos que se verifican. */
+    /** Los cuatro documentos que se verifican. */
     public const PROPIEDAD = 'propiedad';
     public const POLIZA    = 'poliza';
+    public const ROTC      = 'rotc';
+    public const RACDA     = 'racda';
 
     /** Estados de la verificacion (los mismos que guarda verificacion_documento_registro). */
     public const COINCIDE    = 'coincide';
@@ -37,9 +42,30 @@ class LectorDocumentoPdf
     private const ESPERA_OCR_MS = 2500;
     /** Menos texto que esto es una hoja que no se reconocio (un documento da miles de caracteres). */
     private const TEXTO_MINIMO = 40;
+    /** Cuantos PDF recien leidos se recuerdan dentro de una pasada (ver texto()). */
+    private const RECUERDA_PDF = 8;
 
     /** documentacion.NOMBRE_DEL_TITULAR es varchar(150): lo leido se recorta a esa medida. */
     private const LARGO_TITULAR = 150;
+
+    /**
+     * Una fecha 19/02/2026 dentro del texto. Los dos "no mires" de los extremos son la parte
+     * importante: sin ellos, al buscarla detras de un rotulo ("Vigencia del Recibo 19/02/2026")
+     * el comodin del rotulo se comia el primer digito y la fecha salia como 9/02/2026.
+     */
+    private const RE_FECHA = '(?<![\d\/\-\.])(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})(?![\d\/])';
+
+    /**
+     * Algo con pinta de placa: de 5 a 8 caracteres con letras Y digitos. No se pide el formato
+     * actual (A85DR1K) porque en la flota hay 82 unidades con los formatos viejos (AB037BY,
+     * AO577ZB, AP052BB, A03B01F...) y con el patron estricto ninguna se encontraba en la lista
+     * del RACDA: salian todas avisadas como "no autorizada". Que se cuele algun codigo de la
+     * hoja no hace daño: la lista solo se usa para ver si esta LA PLACA DE LA FICHA.
+     */
+    private const RE_PLACA = '/\b(?=[A-Z0-9]{5,8}\b)(?=[A-Z0-9]*[A-Z])(?=[A-Z0-9]*\d)[A-Z0-9]+\b/u';
+
+    /** Serial de carroceria (N.I.V.): 14 a 20 caracteres con letras Y digitos, sin vocales sueltas. */
+    private const RE_SERIAL = '/\b(?=[A-Z0-9]*\d)(?=[A-Z0-9]*[A-Z])[A-Z0-9]{14,20}\b/u';
 
     /**
      * Letras de otros alfabetos que se ven IGUAL que las nuestras. Aparecen al pegar el
@@ -62,9 +88,16 @@ class LectorDocumentoPdf
      * Texto del PDF de Drive. Devuelve '' si Drive no lo reconocio (la copia sale vacia).
      * La copia temporal se borra SIEMPRE, incluso si la exportacion falla: si no, quedarian
      * documentos sueltos ocupando el Drive de la empresa.
+     *
+     * Un mismo PDF se lee UNA sola vez por pasada: el RACDA es un documento de la empresa que
+     * cuelga de decenas de fichas y leerlo otra vez por cada equipo serian decenas de viajes a
+     * Drive de ~8 s para el mismo resultado. El recuerdo vive lo que vive el objeto (una
+     * pasada del comando), asi que la noche siguiente vuelve a leer el archivo de verdad.
      */
     public function texto(string $driveId): string
     {
+        if (isset($this->leidos[$driveId])) return $this->leidos[$driveId];
+
         $drive = GoogleDriveService::getInstance()->getDrive();
         $copia = $drive->files->copy($driveId, new DriveFile([
             'name'     => 'ocr_tmp_' . uniqid(),
@@ -81,6 +114,13 @@ class LectorDocumentoPdf
                 $texto = (string) $drive->files->export($copia->id, 'text/plain', ['alt' => 'media'])->getBody();
                 if (mb_strlen(trim($texto, " \t\n\r\0\x0B\u{FEFF}")) >= self::TEXTO_MINIMO) break;
             }
+            // Lo ilegible tambien se recuerda: si Drive no lo reconocio tras los reintentos,
+            // repetirlo 40 veces en la misma pasada no lo va a reconocer.
+            $this->leidos[$driveId] = $texto;
+            // Con tope: lo que hay que evitar es releer el MISMO documento una y otra vez (el
+            // RACDA, que cuelga de decenas de fichas seguidas), no quedarse con el texto de
+            // toda la pasada en memoria — con --rehacer serian miles.
+            if (count($this->leidos) > self::RECUERDA_PDF) array_shift($this->leidos);
             return $texto;
         } finally {
             try {
@@ -92,11 +132,125 @@ class LectorDocumentoPdf
         }
     }
 
+    /** Lo ya leido en esta pasada, por id de Drive (ver texto()). */
+    private array $leidos = [];
+
     /** Lo que dice el documento. Las claves vacias son "no se encontro". */
     public function extraer(string $tipo, string $texto): array
     {
         $plano = trim(preg_replace('/[ \t]+/u', ' ', str_replace("\r", '', $texto)));
-        return $tipo === self::POLIZA ? $this->extraerPoliza($plano) : $this->extraerPropiedad($plano);
+
+        $datos = match ($tipo) {
+            self::POLIZA => $this->extraerPoliza($plano),
+            self::ROTC   => $this->extraerRotc($plano),
+            self::RACDA  => $this->extraerRacda($plano),
+            default      => $this->extraerPropiedad($plano),
+        };
+
+        // Ademas de la placa y el serial que van detras de su rotulo, TODOS los que aparezcan
+        // en la hoja: con ellos se reconoce el vehiculo aunque el reconocimiento haya separado
+        // los rotulos de sus valores (ver placasEnTexto y mismoVehiculo). El RACDA no los
+        // necesita: su lista de placas ya es eso mismo.
+        if ($tipo !== self::RACDA) {
+            $datos['placas']   = $this->placasEnTexto($plano);
+            $datos['seriales'] = $this->serialesEnTexto($plano);
+        }
+        return $datos;
+    }
+
+    /**
+     * ROTC (Certificado de Circulacion de Vehiculo de Carga del INTT): una tabla con la razon
+     * social, la placa, el serial de carroceria, el numero de ROTC y sus dos fechas. Es un PDF
+     * con texto de verdad (no una foto), asi que sale entero y en orden.
+     */
+    private function extraerRotc(string $plano): array
+    {
+        $datos = ['titular' => null, 'placa' => null, 'serial' => null, 'nro' => null, 'emision' => null, 'vence' => null];
+        $f = self::RE_FECHA;
+
+        // Las dos fechas van juntas bajo sus rotulos: primero la de emision, despues la de
+        // vencimiento. El reconocimiento puede meter el rotulo y el valor en lineas distintas.
+        if (preg_match('/Fecha\s*de\s*Emisi[oó]n[^\d]{0,80}' . $f . '[^\d]{0,80}' . $f . '/ui', $plano, $m)) {
+            $datos['emision'] = $this->fecha($m[1]);
+            $datos['vence']   = $this->fecha($m[2]);
+        } else {
+            if (preg_match('/Fecha\s*de\s*Emisi[oó]n:?\s*' . $f . '/ui', $plano, $m)) $datos['emision'] = $this->fecha($m[1]);
+            if (preg_match('/Fecha\s*de\s*Vencimiento:?\s*' . $f . '/ui', $plano, $m)) $datos['vence'] = $this->fecha($m[1]);
+        }
+        // La tabla sale como BLOQUE DE ROTULOS y debajo el bloque de valores, en el mismo
+        // orden ("Razon Social / RIF / Nro de ROTC" y luego el nombre, el RIF y el numero).
+        // Por eso no vale buscar "rotulo: valor": hay que leer la fila de abajo.
+        if (preg_match('/Raz[oó]n\s*Social\s*\R\s*RIF\s*\R\s*Nro\s*de\s*ROTC\s*\R\s*(.+)\R\s*[VEJGP]-?[\d\-]{6,}\s*\R\s*(\d{3,10})/ui', $plano, $m)) {
+            $datos['titular'] = $this->limpiarNombre($m[1]);
+            $datos['nro'] = $m[2];
+        } else {
+            // Respaldo para cuando el reconocimiento junta rotulo y valor en una linea. El
+            // nombre tiene que ir DETRAS del rotulo, no en la linea de mas abajo: con \s* (que
+            // cruza saltos de linea) el respaldo cogia el siguiente rotulo de la tabla ("RIF")
+            // y eso terminaba escrito en la ficha al pulsar "Corregir".
+            if (preg_match('/Raz[oó]n\s*Social:?[^\S\r\n]*([^\r\n]+)/ui', $plano, $m)) $datos['titular'] = $this->limpiarNombre($m[1]);
+            if (preg_match('/Nro\s*de\s*ROTC:?[^\d]{0,30}(\d{3,10})/ui', $plano, $m)) $datos['nro'] = $m[1];
+        }
+        // "Placa / Serial de Carroceria / Marca - Modelo / Año" y debajo sus cuatro valores.
+        if (preg_match('/Placa\s*\R\s*Serial\s*de\s*Carrocer[ií]a\s*\R[^\n]*\R[^\n]*\R\s*([A-Z0-9]{5,8})\s*\R\s*([A-Z0-9]{10,25})\b/ui', $plano, $m)) {
+            $datos['placa']  = mb_strtoupper($m[1]);
+            $datos['serial'] = mb_strtoupper($m[2]);
+        } else {
+            $datos['placa']  = $this->placaEnTexto($plano);
+            $datos['serial'] = $this->serialEnTexto($plano);
+        }
+
+        return $datos;
+    }
+
+    /**
+     * RACDA (Providencia Administrativa del MINEC). OJO: es un documento de la EMPRESA, no de
+     * un vehiculo: el mismo PDF cuelga de decenas de fichas y lo que dice de cada equipo es si
+     * su placa esta en la lista de unidades autorizadas. De ahi salen:
+     *   · la fecha en que se emitio ("CARACAS, 14 DE JULIO DE 2025");
+     *   · hasta cuando vale ("tendra validez por DOS (02) años, contados a partir de la emision");
+     *   · las placas autorizadas.
+     */
+    private function extraerRacda(string $plano): array
+    {
+        $datos = ['emision' => null, 'vence' => null, 'nro' => null, 'anios' => null, 'placas' => []];
+
+        if (preg_match('/CARACAS,?\s*(\d{1,2})\s*DE\s*([A-ZÁÉÍÓÚa-záéíóú]{4,12})\s*DE\s*(\d{4})/ui', $plano, $m)) {
+            $datos['emision'] = $this->fechaDeMes($m[1], $m[2], $m[3]);
+        }
+        if (preg_match('/validez\s*por\s*[A-ZÁÉÍÓÚa-záéíóú]+\s*\((\d{1,2})\)\s*a[ñn]os/ui', $plano, $m)) {
+            $datos['anios'] = (int) $m[1];
+        }
+        if ($datos['emision'] && $datos['anios']) {
+            $datos['vence'] = date('Y-m-d', strtotime($datos['emision'] . ' +' . $datos['anios'] . ' years'));
+        }
+        if (preg_match('/PROVIDENCIA\s*ADMINISTRATIVA\s*N[°ºo.]*\s*(\d{2,8})/ui', $plano, $m)) {
+            $datos['nro'] = $m[1];
+        }
+        $datos['placas'] = $this->placasEnTexto($plano);
+
+        return $datos;
+    }
+
+    /** ¿La placa de la ficha esta entre las autorizadas por el RACDA? */
+    public function placaEnLista(?string $placa, array $placas): bool
+    {
+        return $this->codigoEnLista($placa, $placas) === 'si';
+    }
+
+    /**
+     * ¿Esta la placa (o el serial) de la ficha en una lista leida del documento? Responde
+     * 'si', 'no' o 'no_se_sabe' cuando no hay con que comparar. Compara con la MISMA tolerancia
+     * que mismoCodigo (O/0, I/1, S/5): un cero mal leido en un documento de decenas de placas
+     * no puede hacer que una unidad autorizada salga como "no autorizada".
+     */
+    private function codigoEnLista(?string $codigo, array $lista): string
+    {
+        if (!$codigo || !$lista) return 'no_se_sabe';
+        foreach ($lista as $x) {
+            if ($this->mismoCodigo($codigo, is_scalar($x) ? (string) $x : null) === 'si') return 'si';
+        }
+        return 'no';
     }
 
     /**
@@ -119,9 +273,7 @@ class LectorDocumentoPdf
         if (!$datos['titular'] && preg_match('/^[A-Z0-9]{8,}-\d+-\d+\s+(.+?)\s+([VEJGP]-?\d{6,})\b/umi', $plano, $m)) {
             $datos['titular'] = $this->limpiarNombre($m[1]);
         }
-        if (preg_match('/Placa:?\s*([A-Z0-9]{5,8})\b/ui', $plano, $m)) {
-            $datos['placa'] = mb_strtoupper($m[1]);
-        }
+        $datos['placa'] = $this->placaEnTexto($plano);
         if (preg_match('/\b(\d{12})\b/', $plano, $m)) {
             $datos['nro'] = $m[1];
         }
@@ -144,7 +296,7 @@ class LectorDocumentoPdf
         // La vigencia viene de dos maneras segun la aseguradora: "Desde X Hasta Y" (Mampreca)
         // o "Vigencia del Seguro: X al Y" (Piramide). El reconocimiento parte la tabla, asi que
         // el rotulo y sus fechas pueden quedar en lineas distintas: se busca la PAREJA de fechas.
-        $f = '(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})';
+        $f = self::RE_FECHA;
         if (preg_match('/Desde\s*' . $f . '\s*Hasta\s*' . $f . '/ui', $plano, $m)
             || preg_match('/Vigencia[^\r\n]{0,45}\R?[^\d\r\n]{0,15}' . $f . '\s*(?:al|a|hasta)\s*' . $f . '/ui', $plano, $m)) {
             $datos['desde'] = $this->fecha($m[1]);
@@ -160,11 +312,41 @@ class LectorDocumentoPdf
             && preg_match('/\d{3}/', $m[1])) {
             $datos['nro'] = mb_strtoupper(trim($m[1], " .-/"));
         }
-        if (preg_match('/Placa:?\s*([A-Z0-9]{5,8})\b/ui', $plano, $m)) {
-            $datos['placa'] = mb_strtoupper($m[1]);
-        }
+        $datos['placa'] = $this->placaEnTexto($plano);
         $datos['serial'] = $this->serialEnTexto($plano);
         return $datos;
+    }
+
+    /**
+     * TODAS las placas con formato venezolano que aparecen en el texto, esten donde esten.
+     * Hace falta porque hay hojas donde el rotulo y su valor quedan en bloques separados (la
+     * poliza de Piramide pone "Marca: Modelo: Placa: Uso:" y varias lineas mas abajo los
+     * cuatro valores): buscar "Placa: X" no encuentra nada y el documento quedaba "sin
+     * confirmar" aunque la placa este escrita. Tambien vale para el RACDA, que es una lista.
+     */
+    private function placasEnTexto(string $plano): array
+    {
+        preg_match_all(self::RE_PLACA, mb_strtoupper($plano), $m);
+        return array_values(array_unique($m[0]));
+    }
+
+    /** Lo mismo para los seriales de carroceria (ver placasEnTexto). */
+    private function serialesEnTexto(string $plano): array
+    {
+        preg_match_all(self::RE_SERIAL, mb_strtoupper($plano), $m);
+        return array_values(array_unique($m[0]));
+    }
+
+    /**
+     * La placa que dice el documento. Va detras de su rotulo, en la misma linea o en la
+     * siguiente, y SIEMPRE lleva algun digito: sin exigirlo, en la tabla del ROTC ("Placa" y
+     * debajo "Serial de Carroceria") se leia "SERIAL" como si fuera la placa.
+     */
+    private function placaEnTexto(string $plano): ?string
+    {
+        if (!preg_match('/Placa:?[^\S\r\n]*(?:\R[^\S\r\n]*)?([A-Z0-9]{5,8})\b/ui', $plano, $m)) return null;
+        $placa = mb_strtoupper($m[1]);
+        return preg_match('/\d/', $placa) ? $placa : null;
     }
 
     /**
@@ -177,7 +359,10 @@ class LectorDocumentoPdf
     {
         foreach (['/N\.?\s?I\.?\s?V\.?:?\s*([A-Z0-9]{10,25})\b/ui',
                   '/Serial\s*(?:de\s*)?(?:N\.?I\.?V|Carroceri?a|Chasis)\.?:?\s*([A-Z0-9]{10,25})\b/ui'] as $re) {
-            if (preg_match($re, $plano, $m) && strtoupper($m[1]) !== 'NA') {
+            // Con digitos: un serial siempre los lleva. Sin exigirlos, en las hojas donde el
+            // valor no va detras del rotulo se cogia la palabra de al lado ("PLATAFORMA") y el
+            // documento salia avisado como "es de otro vehiculo".
+            if (preg_match($re, $plano, $m) && strtoupper($m[1]) !== 'NA' && preg_match('/\d/', $m[1])) {
                 return mb_strtoupper($m[1]);
             }
         }
@@ -252,13 +437,28 @@ class LectorDocumentoPdf
         // BASTA QUE UNO COINCIDA: en un escaneo sucio la placa puede salir mal leida ("A85DRIX"
         // por "A85DR1K") mientras el serial sale perfecto, y al reves. Solo se dice que no es
         // de este vehiculo cuando ninguno coincide y al menos uno se pudo leer.
-        $respuestas = [
+        //
+        // Se mira lo que va detras del rotulo y TAMBIEN todo lo que parezca placa o serial en
+        // la hoja: hay polizas que ponen los rotulos en un bloque y los valores en otro, y ahi
+        // la unica manera de reconocer el vehiculo es encontrar su placa suelta en el texto.
+        // MANDA LO QUE VA TRAS EL ROTULO ("Placa: ...", "Serial de Carroceria: ..."), que es
+        // donde el documento dice de quien es. Si eso nombra a otro vehiculo, es de otro: y
+        // punto, aunque la placa de esta ficha aparezca suelta en alguna linea (pasa en las
+        // polizas de flota, que listan varias unidades).
+        $rotulo = [
             $this->mismoCodigo($placaFicha, $leido['placa'] ?? null),
             $this->mismoCodigo($serialFicha, $leido['serial'] ?? null),
         ];
-        if (in_array('si', $respuestas, true)) return 'si';
-        if (in_array('no', $respuestas, true)) return 'no';
-        return 'no_se_sabe';
+        if (in_array('si', $rotulo, true)) return 'si';
+        if (in_array('no', $rotulo, true)) return 'no';
+
+        // Solo cuando el rotulo no se pudo leer se miran las listas de todo lo que parece
+        // placa o serial en la hoja, y SOLO para confirmar: recogen cualquier codigo ("3500KG")
+        // y casi siempre traen algo, asi que su "no lo encuentro" no puede acusar al archivo de
+        // ser de otro vehiculo — eso mandaria a una persona a arreglar un enlace que esta bien.
+        return $this->codigoEnLista($placaFicha, $leido['placas'] ?? []) === 'si'
+            || $this->codigoEnLista($serialFicha, $leido['seriales'] ?? []) === 'si'
+            ? 'si' : 'no_se_sabe';
     }
 
     /**
@@ -313,6 +513,13 @@ class LectorDocumentoPdf
         $v = trim(preg_replace('/\s+/u', ' ', $v));
         // Rotulo pegado DELANTE del nombre: se quita el rotulo, no el nombre. El \b evita
         // que "GRIFERIA" pierda todo por empezar como "RIF".
+        // Primero el rotulo pegado SIN nada que lo separe, que es como sale del reconocimiento:
+        // "Cédula o RIFCORPO NAC DE LOGISTICA Y TRANSPORTE DECARGA S.A" es el rotulo mas el
+        // nombre, y asi tal cual se habria escrito en la ficha. Va antes que la regla de abajo
+        // porque esa, al no encontrar el limite de palabra tras "RIF", se queda en "Cédula" y
+        // deja el "RIF" pegado. Se exige que lo que queda siga siendo un nombre (dos palabras
+        // o mas) para no desarmar uno que de verdad empiece por esas tres letras.
+        $v = preg_replace('/^\s*(?:C[eé]dula\s*o\s*)?RIF(?=[A-ZÁÉÍÓÚÑ]{3,}\s+\S)/ui', '', $v);
         $v = preg_replace('/^\s*(C[eé]dula\s*o\s*RIF|C[eé]dula|RIF|Placa|Serial)\b\s*:?\s*/ui', '', $v);
         $v = preg_replace('/\s+(C[eé]dula|RIF|Placa|Serial|N\.?I\.?V)\b.*/ui', '', $v);
         $palabras = explode(' ', trim($v, " \t.:,-"));

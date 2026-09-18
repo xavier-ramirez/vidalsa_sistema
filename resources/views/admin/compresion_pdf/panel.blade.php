@@ -1,8 +1,8 @@
-{{-- Panel de "Compresión de PDF" y "Títulos y pólizas": las dos pestañas que viven DENTRO
+{{-- Panel de "Compresión de PDF" y "Documentos": las dos pestañas que viven DENTRO
      de Control de Auditoría (/admin/historial-documentos). Vive aparte para que esa pantalla
      lo incluya sin repetir su tabla, sus filtros ni su resumen.
-     Los datos los arma App\Support\PanelDocumentos::datos(); la corrección de una ficha la
-     aplica CompresionPdfController::aplicarDocumento. --}}
+     Los datos los arma App\Support\PanelDocumentos::datos(); quien escribe en la ficha, tanto
+     desde el botón como desde la revisión de la noche, es App\Services\CorrectorFichaDocumento. --}}
 <style>
     /* Como /admin/usuarios: a la izquierda una tarjeta blanca con los FILTROS arriba y la
        tabla debajo; a la derecha, el aviso de la tarea y el resumen, uno debajo del otro. */
@@ -17,6 +17,14 @@
     .cpdf-filtros { display: flex; flex-wrap: nowrap; gap: 10px; align-items: stretch; margin-bottom: 14px; }
     .cpdf-filtros > .filter-item.responsive-filter-item { flex: 1 1 0 !important; max-width: none !important; min-width: 0; }
 
+    /* Tarjeta grande de arriba: el MISMO molde que la de "Total Auditoría" del Historial,
+       para que las tres pestañas abran con la misma pieza. */
+    .cpdf-hero { display: flex; align-items: center; gap: 12px; background: linear-gradient(135deg, #4c1d95 0%, #6d28d9 100%);
+                 border-radius: 12px; padding: 15px; color: #fff; box-shadow: 0 4px 6px -1px rgba(15,23,42,.10); }
+    .cpdf-hero .material-icons { font-size: 26px; opacity: .85; }
+    .cpdf-hero small { display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.2px; opacity: .9; }
+    .cpdf-hero strong { display: block; font-size: 28px; font-weight: 800; line-height: 1.1; }
+    .cpdf-hero span { display: block; font-size: 12px; opacity: .85; }
     .cpdf-caja { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px 14px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.06); }
     .cpdf-caja small { display: block; font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: .5px; }
     .cpdf-caja strong { display: block; font-size: 22px; color: #0f172a; margin-top: 2px; font-variant-numeric: tabular-nums; line-height: 1.2; }
@@ -28,9 +36,30 @@
     .cpdf-aviso.ok { background: #eff6ff; border-color: #bfdbfe; color: #1e3a5f; }
     .cpdf-aviso.ok strong, .cpdf-aviso.ok span { color: #1e3a5f; }
     .cpdf-aviso.apagada { background: #f8fafc; color: #475569; }
+    /* Tarjetas que filtran la lista: son enlaces, pero se ven igual que las demas cajas. */
+    a.cpdf-filtra { text-decoration: none; transition: border-color .15s, transform .15s; }
+    a.cpdf-filtra:hover { border-color: #6d28d9; transform: translateY(-1px); }
+    .cpdf-avance small { margin-bottom: 8px; }
+    /* Dos lineas por documento: el nombre entero con su cifra, y debajo la barra. En la
+       columna lateral (280 px) el nombre no cabe al lado de la barra sin recortarse. */
+    .cpdf-avance-fila { display: grid; grid-template-columns: 1fr auto; align-items: center;
+                        column-gap: 8px; text-decoration: none; padding: 4px 0; }
+    .cpdf-avance-nombre { font-size: 12px; font-weight: 700; color: #334155; }
+    .cpdf-avance-barra { grid-column: 1 / -1; margin-top: 3px; }
+    .cpdf-avance-barra { height: 7px; border-radius: 99px; background: #e2e8f0; overflow: hidden; }
+    .cpdf-avance-barra i { display: block; height: 100%; border-radius: 99px; background: #6d28d9; }
+    .cpdf-avance-cifra { font-size: 11px; font-weight: 700; color: #64748b; font-variant-numeric: tabular-nums; }
+    .cpdf-avance-listo { color: #15803d; text-transform: uppercase; font-size: 10px; letter-spacing: .5px; }
 
-    /* La tabla y su encabezado: .tabla-lista y .tabla-cabecera (estilos_globales.css). */
+    /* La tabla es la MISMA de Control de Auditoría, Usuarios y Equipos (.admin-table), con
+       menos relleno: estas dos listas llevan más columnas y muchas filas. */
     .cpdf-tabla-caja { overflow-x: auto; }
+    .cpdf-tabla-caja .admin-table { border-spacing: 0 8px; }
+    .cpdf-tabla-caja .admin-table tr td { padding: 9px 12px; }
+    /* Las columnas de datos sueltos no parten; la de las diferencias se queda con el resto
+       del ancho, que es donde de verdad hay que leer. */
+    .cpdf-tabla-caja .admin-table td:not(.cpdf-ancha) { white-space: nowrap; width: 1%; }
+    .cpdf-tabla-caja .admin-table td.cpdf-ancha { width: 100%; white-space: normal; }
     .cpdf-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
     .tabla-lista th.cpdf-num { text-align: right; }   /* le gana al text-align: left de .tabla-cabecera th */
     .cpdf-estado { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; }
@@ -80,6 +109,10 @@
     ];
     $estadosDoc = [
         'revisar'                 => 'PARA REVISAR (no se pudo leer)',
+        // El mismo monton que cuenta la tarjeta "Sin aplicar". Tiene que estar en esta lista:
+        // el desplegable saca de aqui el nombre de lo filtrado y sin el la pantalla reventaba
+        // al pulsar la tarjeta (clave inexistente).
+        'corregibles'             => 'SIN APLICAR (falta pulsar el botón)',
         \App\Models\VerificacionDocumento::DIFIERE     => 'Datos distintos',
         \App\Models\VerificacionDocumento::COINCIDE    => 'Coincide',
         \App\Models\VerificacionDocumento::ILEGIBLE    => 'No se pudo leer',
@@ -92,7 +125,7 @@
     $desplegables = $pestana === 'documentos' ? [
         ['id' => 'cpdfDocEstadoSelect', 'nombre' => 'estado_doc', 'etiqueta' => 'Filtrar Estado...', 'todos' => 'TODOS LOS ESTADOS',
          'valor' => $estadoDoc, 'opciones' => $estadosDoc],
-        ['id' => 'cpdfDocTipoSelect', 'nombre' => 'tipo_doc', 'etiqueta' => 'Filtrar Documento...', 'todos' => 'TÍTULOS Y PÓLIZAS',
+        ['id' => 'cpdfDocTipoSelect', 'nombre' => 'tipo_doc', 'etiqueta' => 'Filtrar Documento...', 'todos' => 'TODOS LOS DOCUMENTOS',
          'valor' => $tipoDoc, 'opciones' => $tiposDoc],
     ] : [
         ['id' => 'cpdfEstadoSelect',    'nombre' => 'estado',    'etiqueta' => 'Filtrar Estado...',    'todos' => 'TODOS LOS ESTADOS',
@@ -163,7 +196,7 @@
 
         @if ($pestana === 'documentos')
         <div class="cpdf-tabla-caja">
-            <table class="tabla-lista">
+            <table class="admin-table">
                 <thead>
                     <tr class="tabla-cabecera">
                         <th>Fecha</th>
@@ -185,7 +218,7 @@
                             </td>
                             {{-- Solo lo que NO cuadra: a la izquierda lo de la ficha (tachado), a la
                                  derecha lo que dice el PDF. Si todo cuadra, lo leido en gris. --}}
-                            <td>
+                            <td class="cpdf-ancha">
                                 @forelse ($d->DIFERENCIAS ?? [] as $campo => $dif)
                                     <div class="cpdf-dif">
                                         <span class="cpdf-dif-eti">{{ $dif['etiqueta'] }}:</span>
@@ -225,7 +258,7 @@
         <div style="margin-top:12px;">{{ $docs->links('vendor.pagination.custom-sliding') }}</div>
         @else
         <div class="cpdf-tabla-caja">
-            <table class="tabla-lista">
+            <table class="admin-table">
                 <thead>
                     <tr class="tabla-cabecera">
                         <th>Fecha</th>
@@ -276,44 +309,76 @@
 
     <aside class="cpdf-side">
         @if ($pestana === 'documentos')
+            <div class="cpdf-hero">
+                <i class="material-icons">fact_check</i>
+                <div>
+                    <small>Documentos leídos</small>
+                    <strong>{{ $resumenDocs->sum() }}</strong>
+                    <span>títulos, pólizas, ROTC y RACDA, incluidos los que no se pudieron leer</span>
+                </div>
+            </div>
             <div class="cpdf-caja cpdf-aviso {{ $activa ? 'ok' : 'apagada' }}">
-                <i class="material-icons">{{ $activa ? 'fact_check' : 'block' }}</i>
+                <i class="material-icons">{{ $activa ? 'schedule' : 'block' }}</i>
                 <div>
                     @if ($activa)
                         <strong>Lectura nocturna activa</strong>
-                        <span>De 9:00 p.m. a medianoche, hora {{ $zona === 'America/Caracas' ? 'de Venezuela' : $zona }} (ahora {{ $horaApp->format('g:i a') }}). No se cruza con la compresión, y no cambia ninguna ficha sola.</span>
+                        <span>De 12:30 a 3:00 a.m., hora {{ $zona === 'America/Caracas' ? 'de Venezuela' : $zona }} (ahora {{ $horaApp->format('g:i a') }}). No se cruza con la compresión. Pone en la ficha lo que dice el documento; nunca la placa ni el serial.</span>
                     @else
                         <strong>Lectura nocturna apagada</strong>
                         <span>{{ ucfirst($motivoActiva) }}.</span>
                     @endif
                 </div>
             </div>
-            <div class="cpdf-caja">
+            {{-- Cada tarjeta filtra la lista de abajo: se pulsa y se ve QUE filas son. --}}
+            <a class="cpdf-caja cpdf-filtra" href="{{ request()->fullUrlWithQuery(['estado_doc' => \App\Models\VerificacionDocumento::COINCIDE, 'page' => null]) }}">
                 <small>Coinciden</small>
                 <strong>{{ $resumenDocs[\App\Models\VerificacionDocumento::COINCIDE] ?? 0 }}</strong>
                 <span>la ficha dice lo mismo que el documento</span>
-            </div>
-            <div class="cpdf-caja">
-                <small>Datos distintos</small>
+            </a>
+            <a class="cpdf-caja cpdf-filtra" href="{{ request()->fullUrlWithQuery(['estado_doc' => 'corregibles', 'page' => null]) }}">
+                <small>Sin aplicar</small>
                 <strong>{{ $docsCorregibles }}</strong>
-                <span>se corrigen con un botón</span>
-            </div>
-            <div class="cpdf-caja">
+                <span>el documento dice otra cosa y falta ponerlo con el botón</span>
+            </a>
+            <a class="cpdf-caja cpdf-filtra" href="{{ request()->fullUrlWithQuery(['estado_doc' => 'revisar', 'page' => null]) }}">
                 <small>Para revisar a mano</small>
                 <strong>{{ $docsParaRevisar }}</strong>
                 <span>ilegibles, de otro vehículo o sin archivo</span>
-            </div>
+            </a>
             <div class="cpdf-caja">
                 <small>Faltan por leer</small>
                 <strong>{{ $pendientesDocs }}</strong>
-                <span>tandas de 5, títulos y pólizas</span>
+                <span>{{ $pendientesDocs ? 'se leen de 10 en 10 cada noche' : 'ya se leyeron todos los documentos cargados' }}</span>
             </div>
             <div class="cpdf-caja">
                 <small>Última lectura</small>
                 <strong style="font-size:16px;">{{ $ultimaLectura ? \Carbon\Carbon::parse($ultimaLectura)->format('d/m/Y H:i') : 'Todavía no' }}</strong>
-                <span>de títulos y pólizas</span>
+                <span>de los cuatro documentos</span>
+            </div>
+
+            {{-- Por donde va cada documento. Cuando los cuatro digan "listo", termino. --}}
+            <div class="cpdf-caja cpdf-avance">
+                <small>Por dónde va la revisión</small>
+                @foreach ($avanceDocs as $tipo => $a)
+                    <a class="cpdf-avance-fila" href="{{ request()->fullUrlWithQuery(['tipo_doc' => $tipo, 'estado_doc' => null, 'page' => null]) }}">
+                        <span class="cpdf-avance-nombre">{{ $a['nombre'] }}</span>
+                        <span class="cpdf-avance-barra"><i style="width: {{ $a['total'] ? round($a['leidos'] * 100 / $a['total']) : 100 }}%;"></i></span>
+                        <span class="cpdf-avance-cifra">
+                            {{ number_format($a['leidos'], 0, ',', '.') }}/{{ number_format($a['total'], 0, ',', '.') }}
+                            @if (!$a['faltan'] && $a['total']) <b class="cpdf-avance-listo">listo</b> @endif
+                        </span>
+                    </a>
+                @endforeach
             </div>
         @else
+        <div class="cpdf-hero">
+            <i class="material-icons">compress</i>
+            <div>
+                <small>PDF comprimidos</small>
+                <strong>{{ $comp->n ?? 0 }}</strong>
+                <span>{{ $mb(($comp->antes ?? 0) - ($comp->despues ?? 0)) }} MB ahorrados en Drive</span>
+            </div>
+        </div>
         <div class="cpdf-caja cpdf-aviso {{ $activa && $ghostscript ? 'ok' : 'apagada' }}">
             <i class="material-icons">{{ $activa && $ghostscript ? 'nights_stay' : 'block' }}</i>
             <div>
@@ -321,7 +386,7 @@
                      "las 12" son las de Venezuela; si la zona fuera otra, se nombra. --}}
                 @if ($activa && $ghostscript)
                     <strong>Tarea nocturna activa</strong>
-                    <span>De 12:00 a 5:00 a.m., hora {{ $zona === 'America/Caracas' ? 'de Venezuela' : $zona }} (ahora {{ $horaApp->format('g:i a') }}).</span>
+                    <span>De 3:30 a 5:00 a.m., hora {{ $zona === 'America/Caracas' ? 'de Venezuela' : $zona }} (ahora {{ $horaApp->format('g:i a') }}). Si no queda nada por comprimir, no hace nada.</span>
                 @elseif (!$activa)
                     <strong>Tarea nocturna apagada</strong>
                     <span>{{ ucfirst($motivoActiva) }}.</span>
@@ -354,7 +419,7 @@
         <div class="cpdf-caja">
             <small>Última noche</small>
             <strong style="font-size:16px;">{{ $ultimaNoche ? \Carbon\Carbon::parse($ultimaNoche)->format('d/m/Y H:i') : 'Todavía no' }}</strong>
-            <span>tandas de 5, de 12:00 a 5:00 a.m.</span>
+            <span>tandas de 5, de 3:30 a 5:00 a.m.</span>
         </div>
         @endif
     </aside>

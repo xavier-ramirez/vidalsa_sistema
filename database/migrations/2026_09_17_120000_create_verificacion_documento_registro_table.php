@@ -17,9 +17,9 @@ return new class extends Migration {
      * Se guarda el ID de Drive del archivo revisado: si mañana suben otro documento a esa
      * ficha, el ID cambia y se vuelve a verificar sola (y la fila vieja se retira).
      *
-     * Esta tabla NO cambia la ficha. Los datos de documentacion solo se tocan cuando una
-     * persona pulsa "Corregir ficha" en la pantalla, y entonces se anota aqui quien y
-     * cuando (APLICADO_POR / APLICADO_EN).
+     * Esta tabla es el REGISTRO de lo leido, no la ficha. Quien escribe en documentacion es
+     * App\Services\CorrectorFichaDocumento, y aqui queda anotado cuando se hizo
+     * (APLICADO_EN) y quien lo pidio (APLICADO_POR, vacio cuando lo hizo la tarea de noche).
      */
     public function up(): void
     {

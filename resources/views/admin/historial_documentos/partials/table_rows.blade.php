@@ -31,6 +31,14 @@
         'NUMERO_POLIZA'     => 'Nº Póliza',
         'NUMERO_ROTC'       => 'Nº ROTC',
         'NUMERO_RACDA'      => 'Nº RACDA',
+        // Lo que escribe la verificación de documentos (docs:verificar-documentos). Sin esto
+        // salían con el nombre de la columna en crudo ("Fecha Emision Poliza").
+        'NOMBRE_DEL_TITULAR'      => 'Propietario',
+        'FECHA_EMISION_PROPIEDAD' => 'Emisión del título',
+        'FECHA_EMISION_POLIZA'    => 'Emisión de la póliza',
+        'FECHA_EMISION_ROTC'      => 'Emisión del ROTC',
+        'FECHA_EMISION_RACDA'     => 'Emisión del RACDA',
+        '_origen'                 => 'Lo hizo',
     ];
 @endphp
 @forelse ($events as $event)

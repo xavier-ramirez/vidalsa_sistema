@@ -16,7 +16,7 @@ class DocumentacionObserver
     // Estos 3, en cambio, solo se registran al editarlos por el panel del visor
     // PDF (metadata_propiedad); por el FORMULARIO PRINCIPAL de edición no había
     // ningún registro — este observer cubre ese hueco.
-    // Publica: CompresionPdfController mira esta lista para registrar SOLO lo que este
+    // Publica: CorrectorFichaDocumento mira esta lista para registrar SOLO lo que este
     // observer no audita (los datos de la poliza) y no duplicar el historial.
     public const AUDITED = ['PLACA', 'NRO_DE_DOCUMENTO', 'NOMBRE_DEL_TITULAR'];
 
