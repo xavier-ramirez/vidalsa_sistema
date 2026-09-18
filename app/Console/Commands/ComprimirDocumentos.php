@@ -18,7 +18,8 @@ use Illuminate\Support\Facades\Storage;
 /**
  * Comprime, de pocos en pocos, los PDF que pesan de mas: todos los que se pueden subir en
  * equipos (sus seis documentos y las correcciones anexas) y en auxiliares (propiedad y
- * certificado). Lo corre el programador de tareas de madrugada (routes/console.php).
+ * certificado). Lo corre el programador de tareas en su HORARIO, de madrugada
+ * (routes/console.php).
  *
  *   php artisan docs:comprimir                 5 archivos, los mas pesados que falten
  *   php artisan docs:comprimir --simular       lo mismo pero sin subir ni cambiar nada
@@ -70,6 +71,13 @@ class ComprimirDocumentos extends Command
     /** Descanso minimo entre el fin de un lote y el comienzo del siguiente. */
     private const PAUSA_ENTRE_LOTES_S = 60;
 
+    /**
+     * De que hora a que hora la corre el programador (hora de la app). UNICO sitio: lo leen
+     * routes/console.php y el panel. No se cruza con el de VerificarDocumentos::HORARIO,
+     * porque los dos leen de Google Drive.
+     */
+    public const HORARIO = ['02:00', '05:00'];
+
     /** Claves de cache: "esta noche ya no queda nada" y "cuando termino el ultimo lote". */
     private const NADA_ESTA_NOCHE = 'docs_comprimir_nada';
     private const FIN_ULTIMO_LOTE = 'docs_comprimir_fin';
@@ -86,7 +94,7 @@ class ComprimirDocumentos extends Command
             return self::FAILURE;
         }
         if (!$solo && !$simular) {
-            if (Cache::get(self::NADA_ESTA_NOCHE)) {
+            if (self::nadaEstaNoche()) {
                 return self::SUCCESS;   // ya se comprobo que no queda nada: ni se pregunta a Drive
             }
             $fin = Cache::get(self::FIN_ULTIMO_LOTE);
@@ -106,7 +114,7 @@ class ComprimirDocumentos extends Command
         if (!$candidatos) {
             $this->info('Nada que comprimir.');
             if (!$solo && !$simular) {
-                // Hasta la mañana: las demas pasadas de esta noche terminan al instante.
+                // Hasta la mañana: el programador deja de lanzar las pasadas de esta noche.
                 Cache::put(self::NADA_ESTA_NOCHE, true, now()->addHours(8));
             }
             return self::SUCCESS;
@@ -139,6 +147,16 @@ class ComprimirDocumentos extends Command
      * comprimia y lo mandaba a la papelera mientras los demas seguian apuntandole, y cada uno
      * subia su propia copia comprimida. Asi se comprime una vez y se cambian todas.
      */
+    /**
+     * ¿Ya se comprobo esta noche que no queda nada por comprimir? Lo mira tambien el
+     * programador (routes/console.php) para no lanzar siquiera el proceso: sin esto, cada
+     * minuto de la ventana arrancaba un PHP solo para enterarse de que no habia nada.
+     */
+    public static function nadaEstaNoche(): bool
+    {
+        return (bool) Cache::get(self::NADA_ESTA_NOCHE);
+    }
+
     private function candidatos(GoogleDriveService $drive, int $minBytes, ?string $solo): array
     {
         $tamanos = [];

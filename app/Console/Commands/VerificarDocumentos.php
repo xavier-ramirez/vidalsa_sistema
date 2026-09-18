@@ -8,6 +8,7 @@ use App\Models\VerificacionDocumento;
 use App\Services\CorrectorFichaDocumento;
 use App\Services\LectorDocumentoPdf;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -25,9 +26,10 @@ use Illuminate\Support\Facades\Log;
  *                           años dura) y la lista de placas autorizadas, donde tiene que
  *                           estar la del equipo.
  *
- * Lo corre el programador de tareas de 9:05 de la mañana a 1:05 de la tarde
- * (routes/console.php), en una ventana que NO se toca con la de la compresion (05:00-06:30):
- * las dos leen de Drive.
+ * Lo corre el programador de tareas en su HORARIO, de noche (routes/console.php), en una
+ * ventana que NO se toca con la de la compresion (ComprimirDocumentos::HORARIO): las dos leen
+ * de Drive. Si no queda nada que leer ni que poner, el programador ni lo lanza
+ * (VerificacionDocumento::hayTrabajo).
  *
  *   php artisan docs:verificar-documentos                    10 documentos que falten
  *   php artisan docs:verificar-documentos --tipo=rotc
@@ -69,6 +71,43 @@ class VerificarDocumentos extends Command
                             {--de=1 : En cuantas partes se reparte la cola, para leer con varios procesos a la vez}';
 
     protected $description = 'Compara los documentos de cada ficha (titulo, poliza, ROTC y RACDA) con lo que dicen sus PDF.';
+
+    /** De que hora a que hora la corre el programador (hora de la app). UNICO sitio: lo leen routes/console.php y el panel. */
+    public const HORARIO = ['20:00', '01:00'];
+
+    /** Cache: cuando se pulso "Revisar ahora" en el panel (dura hasta el fin de la franja). */
+    private const AHORA = 'docs_verificar_ahora';
+
+    /** ¿Le toca leer al programador? En su franja, o si alguien pidio "Revisar ahora". */
+    public static function tocaLeer(): bool
+    {
+        [$desde, $hasta] = self::HORARIO;
+        $hora = now()->format('H:i');
+        // La franja cruza la medianoche (20:00-01:00): vale de las 20:00 en adelante o antes de la 01:00.
+        $enFranja = $desde <= $hasta ? ($hora >= $desde && $hora < $hasta) : ($hora >= $desde || $hora < $hasta);
+        return $enFranja || self::pedidaAhora() !== null;
+    }
+
+    /**
+     * "Revisar ahora" (boton del panel): la lectura arranca en el minuto siguiente aunque no
+     * sea su hora, y en esa pasada se vuelve a leer tambien lo que salio "No se pudo leer"
+     * (VerificacionDocumento::inicioDeLaNoche cuenta desde aqui). Dura hasta el final de la
+     * franja (la 01:00); antes, si no queda nada, el programador no lanza nada. Devuelve
+     * hasta cuando vale.
+     */
+    public static function pedirAhora(): \Carbon\Carbon
+    {
+        $hasta = now()->setTimeFromTimeString(self::HORARIO[1]);
+        if ($hasta->lte(now())) $hasta->addDay();
+        Cache::put(self::AHORA, now()->toDateTimeString(), $hasta);
+        return $hasta;
+    }
+
+    /** Cuando se pidio "Revisar ahora" (si sigue vigente), o null. */
+    public static function pedidaAhora(): ?string
+    {
+        return Cache::get(self::AHORA);
+    }
 
     /** [tipo => columna del enlace]. El ORDEN es el de la revision (ver VerificacionDocumento). */
     private const ENLACES = VerificacionDocumento::ENLACES;
@@ -239,7 +278,7 @@ class VerificarDocumentos extends Command
                     && (bool) (($leido['otra_placa'] ?? false) || ($leido['lectura_parcial'] ?? false)
                         || ($leido['sin_confirmar'] ?? false) || ($leido['fuera_de_lista'] ?? false)
                         || ($leido['doc_anterior'] ?? false)),
-                // Los ilegibles y los fallidos se reintentan en otras pasadas hasta MAX_INTENTOS
+                // Los ilegibles y los fallidos se reintentan en esa noche hasta MAX_INTENTOS
                 // (Drive devuelve el documento vacio de vez en cuando); lo demas se lee una vez.
                 // Salvo el anexo de poliza de FLOTA sin fechas: eso no es un fallo de lectura,
                 // es que el documento no las trae, y releerlo no las va a hacer aparecer. Se
@@ -256,6 +295,10 @@ class VerificarDocumentos extends Command
                 'APLICADO_EN'  => null,
             ]
         );
+        // updated_at es "cuando se leyo por ultima vez" (VerificacionDocumento::pendientes lo
+        // compara con el inicio de la noche). Si la relectura dio lo mismo, Eloquent no guarda
+        // nada y no lo mueve: sin esto, un "No se pudo leer" se releeria en bucle toda la noche.
+        if (!$reg->wasRecentlyCreated && !$reg->wasChanged()) $reg->touch();
 
         // Si le subieron otro archivo, la lectura del anterior ya no vale: se retira para que
         // no queden dos filas del mismo documento (ni se pueda aplicar lo que decia el viejo).

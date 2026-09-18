@@ -2,7 +2,7 @@
      de Control de Auditoría (/admin/historial-documentos). Vive aparte para que esa pantalla
      lo incluya sin repetir su tabla, sus filtros ni su resumen.
      Los datos los arma App\Support\PanelDocumentos::datos(); quien escribe en la ficha, tanto
-     desde el visor como desde la tarea de la mañana, es App\Services\CorrectorFichaDocumento. --}}
+     desde el visor como desde la tarea de la noche, es App\Services\CorrectorFichaDocumento. --}}
 <style>
     /* Como /admin/usuarios: a la izquierda una tarjeta blanca con los FILTROS arriba y la
        tabla debajo; a la derecha, el aviso de la tarea y el resumen, uno debajo del otro. */
@@ -36,6 +36,9 @@
     .cpdf-aviso.ok { background: #eff6ff; border-color: #bfdbfe; color: #1e3a5f; }
     .cpdf-aviso.ok strong, .cpdf-aviso.ok span { color: #1e3a5f; }
     .cpdf-aviso.apagada { background: #f8fafc; color: #475569; }
+    .cpdf-aviso .cpdf-ahora { margin-top: 8px; height: 32px; padding: 0 12px; border-radius: 8px; font-size: 12.5px; display: inline-flex; align-items: center; gap: 4px; }
+    .cpdf-aviso .cpdf-ahora .material-icons { font-size: 18px; margin: 0; }
+    .cpdf-aviso .cpdf-ahora-pedida { margin-top: 6px; font-weight: 700; }
     /* Tarjetas que filtran la lista: son enlaces, pero se ven igual que las demas cajas. */
     a.cpdf-filtra { text-decoration: none; transition: border-color .15s, transform .15s; }
     a.cpdf-filtra:hover { border-color: #6d28d9; transform: translateY(-1px); }
@@ -88,9 +91,13 @@
     .cpdf-estado.ilegible, .cpdf-estado.sin_archivo { background: #fef3c7; color: #92400e; cursor: help; }
     /* Cada dato que no cuadra, en una linea: etiqueta, lo de la ficha (tachado) y lo del documento. */
     .cpdf-nom { font-size: 12.5px; color: #0f172a; }
-    /* Casilla para dar filas por revisadas sin abrir el visor (barra: .selection-floating-bar). */
-    .cpdf-tabla-caja .cpdf-sel { width: 1%; padding-right: 0 !important; }
-    .cpdf-sel input { width: 16px; height: 16px; cursor: pointer; accent-color: #6d28d9; vertical-align: middle; }
+    /* Filas que se pueden dar por revisadas: se eligen con un clic en cualquier parte y se
+       resaltan con .selected-row-maquinaria, el mismo azul que en Equipos (estilos_globales.css,
+       solo escritorio). En teléfono esa regla no aplica: aquí el mismo azul de fondo. */
+    .cpdf-fila-sel { cursor: pointer; }
+    @media (max-width: 768px) {
+        .cpdf-tabla-caja tr.cpdf-fila-sel.selected-row-maquinaria td { background-color: #bae6fd !important; }
+    }
     .cpdf-nom.mal { color: #991b1b; text-decoration: line-through; }
     .cpdf-dif { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; font-size: 12.5px; line-height: 1.5; }
     .cpdf-dif-eti { font-weight: 700; color: #64748b; }
@@ -214,8 +221,6 @@
             <table class="admin-table">
                 <thead>
                     <tr class="tabla-cabecera">
-                        <th class="cpdf-sel"><input type="checkbox" id="cpdfSelTodas" title="Marcar todas las de esta página"
-                            onchange="window.cpdfSelTodas(this.checked)"></th>
                         <th>Fecha</th>
                         <th>Documento</th>
                         <th>Placa / Serial</th>
@@ -226,13 +231,13 @@
                 </thead>
                 <tbody>
                     @forelse ($docs as $d)
-                        <tr>
-                            {{-- Las que ya coinciden no tienen nada que revisar. --}}
-                            <td class="cpdf-sel">
-                                @if ($d->ESTADO !== \App\Models\VerificacionDocumento::COINCIDE)
-                                    <input type="checkbox" class="cpdf-sel-fila" value="{{ $d->ID_REGISTRO }}" onchange="window.cpdfSelContar()">
-                                @endif
-                            </td>
+                        {{-- Las que no coinciden se eligen con un clic en la fila (ver cpdfSelFila);
+                             las que ya coinciden no tienen nada que revisar. --}}
+                        @if ($d->ESTADO !== \App\Models\VerificacionDocumento::COINCIDE)
+                            <tr class="cpdf-fila-sel" data-id="{{ $d->ID_REGISTRO }}" onclick="window.cpdfSelFila(event, this)">
+                        @else
+                            <tr>
+                        @endif
                             <td style="white-space:nowrap;">{{ $d->updated_at?->format('d/m/Y H:i') }}</td>
                             <td style="white-space:nowrap;">{{ $tiposDoc[$d->TIPO] ?? $d->TIPO }}</td>
                             <td style="white-space:nowrap;">
@@ -265,22 +270,22 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="7" class="cpdf-vacio">{{ $estadoDoc || $tipoDoc || $buscar !== '' ? 'Nada coincide con los filtros.' : 'Todavía no se ha revisado ningún documento.' }}</td></tr>
+                        <tr><td colspan="6" class="cpdf-vacio">{{ $estadoDoc || $tipoDoc || $buscar !== '' ? 'Nada coincide con los filtros.' : 'Todavía no se ha revisado ningún documento.' }}</td></tr>
                     @endforelse
                 </tbody>
             </table>
         </div>
         <div style="margin-top:12px;">{{ $docs->links('vendor.pagination.custom-sliding') }}</div>
-        {{-- Dar por revisadas las filas marcadas, sin abrir el visor (ver cpdfMarcarRevisadas). --}}
+        {{-- Dar por revisadas las filas elegidas con un clic, sin abrir el visor (ver cpdfMarcarRevisadas). --}}
         <div id="cpdfSelBarra" class="selection-floating-bar">
             <div class="selection-counter">
                 <i class="material-icons" style="font-size:18px;">fact_check</i>
                 <span id="cpdfSelCuenta">0</span>
             </div>
             <div style="width:1px;height:24px;background:rgba(255,255,255,0.2);"></div>
-            <button type="button" class="btn-bulk-clear" onclick="window.cpdfSelTodas(false)">Limpiar</button>
+            <button type="button" class="btn-bulk-clear" onclick="window.cpdfSelLimpiar()">Limpiar</button>
             <button type="button" class="btn-bulk-action" onclick="window.cpdfMarcarRevisadas()">
-                <i class="material-icons">done_all</i> Marcar como revisadas
+                <i class="material-icons">done_all</i> Revisado
             </button>
         </div>
         @else
@@ -349,7 +354,15 @@
                 <div>
                     @if ($activa)
                         <strong>Lectura automática activa</strong>
-                        <span>De 9:05 a.m. a 1:05 p.m., hora {{ $zona === 'America/Caracas' ? 'de Venezuela' : $zona }} (ahora {{ $horaApp->format('g:i a') }}). No se cruza con la compresión. Pone en la ficha lo que dice el documento; nunca la placa ni el serial.</span>
+                        <span>{{ ucfirst($horarioLectura) }}, hora {{ $zona === 'America/Caracas' ? 'de Venezuela' : $zona }} (ahora {{ $horaApp->format('g:i a') }}). No se cruza con la compresión y, si no queda nada que leer, no arranca. Pone en la ficha lo que dice el documento; nunca la placa ni el serial.</span>
+                        {{-- Fuera de hora: arranca ya y relee tambien los "No se pudo leer". --}}
+                        @if ($lecturaPedida)
+                            <span class="cpdf-ahora-pedida">Revisión pedida a las {{ \Carbon\Carbon::parse($lecturaPedida)->format('g:i a') }}: corre hasta que no quede nada.</span>
+                        @else
+                            <button type="button" class="btn-primary-maquinaria cpdf-ahora" onclick="window.cpdfLeerAhora(this)">
+                                <i class="material-icons">play_arrow</i> Revisar ahora
+                            </button>
+                        @endif
                     @else
                         <strong>Lectura automática apagada</strong>
                         <span>{{ ucfirst($motivoActiva) }}.</span>
@@ -375,7 +388,7 @@
             <div class="cpdf-caja">
                 <small>Faltan por leer</small>
                 <strong>{{ $pendientesDocs }}</strong>
-                <span>{{ $pendientesDocs ? 'se leen de 9:05 a.m. a 1:05 p.m.' : 'ya se leyeron todos los documentos cargados' }}</span>
+                <span>{{ $pendientesDocs ? 'se leen ' . $horarioLectura : 'ya se leyeron todos los documentos cargados' }}</span>
             </div>
             <div class="cpdf-caja">
                 <small>Última lectura</small>
@@ -413,7 +426,7 @@
                      "las 12" son las de Venezuela; si la zona fuera otra, se nombra. --}}
                 @if ($activa && $ghostscript)
                     <strong>Tarea nocturna activa</strong>
-                    <span>De 5:00 a 6:30 a.m., hora {{ $zona === 'America/Caracas' ? 'de Venezuela' : $zona }} (ahora {{ $horaApp->format('g:i a') }}). Si no queda nada por comprimir, no hace nada.</span>
+                    <span>{{ ucfirst($horarioCompresion) }}, hora {{ $zona === 'America/Caracas' ? 'de Venezuela' : $zona }} (ahora {{ $horaApp->format('g:i a') }}). Si no queda nada por comprimir, no arranca.</span>
                 @elseif (!$activa)
                     <strong>Tarea nocturna apagada</strong>
                     <span>{{ ucfirst($motivoActiva) }}.</span>
@@ -446,7 +459,7 @@
         <div class="cpdf-caja">
             <small>Última noche</small>
             <strong style="font-size:16px;">{{ $ultimaNoche ? \Carbon\Carbon::parse($ultimaNoche)->format('d/m/Y H:i') : 'Todavía no' }}</strong>
-            <span>tandas de 5, de 5:00 a 6:30 a.m.</span>
+            <span>tandas de 5, {{ $horarioCompresion }}</span>
         </div>
         @endif
     </aside>
@@ -480,26 +493,31 @@
     // poner): cada fila queda como "Revisado a mano por ...". Se redefinen en cada visita
     // (solo asignaciones).
     var cpdfMarcadas = function () {
-        return Array.prototype.map.call(document.querySelectorAll('.cpdf-sel-fila:checked'), function (c) { return c.value; });
+        return Array.prototype.map.call(document.querySelectorAll('.cpdf-fila-sel.selected-row-maquinaria'), function (tr) { return tr.dataset.id; });
     };
-    window.cpdfSelContar = function () {
-        var n = cpdfMarcadas().length, filas = document.querySelectorAll('.cpdf-sel-fila').length,
-            todas = document.getElementById('cpdfSelTodas'), barra = document.getElementById('cpdfSelBarra');
-        if (todas) todas.checked = filas > 0 && n === filas;
+    var cpdfSelContar = function () {
+        var n = cpdfMarcadas().length, barra = document.getElementById('cpdfSelBarra'),
+            cuenta = document.getElementById('cpdfSelCuenta');
         if (barra) barra.classList.toggle('active', n > 0);
-        var cuenta = document.getElementById('cpdfSelCuenta');
         if (cuenta) cuenta.textContent = n;
     };
-    window.cpdfSelTodas = function (marcar) {
-        document.querySelectorAll('.cpdf-sel-fila').forEach(function (c) { c.checked = !!marcar; });
-        window.cpdfSelContar();
+    // Clic en cualquier parte de la fila la elige o la suelta; el botón del PDF sigue
+    // abriendo el visor sin tocar la selección.
+    window.cpdfSelFila = function (e, tr) {
+        if (e.target.closest('button, a, input')) return;
+        tr.classList.toggle('selected-row-maquinaria');
+        cpdfSelContar();
+    };
+    window.cpdfSelLimpiar = function () {
+        document.querySelectorAll('.cpdf-fila-sel.selected-row-maquinaria').forEach(function (tr) { tr.classList.remove('selected-row-maquinaria'); });
+        cpdfSelContar();
     };
     window.cpdfMarcarRevisadas = function () {
         var ids = cpdfMarcadas();
         if (!ids.length) return;
         window.confirmarAccion({
-            title: 'Marcar como revisadas',
-            message: 'Las ' + ids.length + ' filas marcadas quedarán como revisadas por ti. '
+            title: 'Revisado',
+            message: 'Las ' + ids.length + ' filas seleccionadas quedarán como revisadas por ti. '
                 + 'La ficha no cambia: si hay que corregir algún dato, ábrela en el visor.',
             confirmText: 'Marcar ' + ids.length,
         }, function () {
@@ -519,6 +537,22 @@
                         + (err && err.message && err.message !== 'sin exito' ? ': ' + err.message : ''), 'error');
                 });
         });
+    };
+
+    // "Revisar ahora": pide la lectura fuera de su horario (ver VerificarDocumentos::pedirAhora).
+    window.cpdfLeerAhora = function (btn) {
+        btn.disabled = true;
+        window.apiFetch(@json(route('compresion-pdf.documentos.leer-ahora')), { method: 'POST', headers: { 'Accept': 'application/json' } })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (!data || !data.success) throw new Error('sin exito');
+                window.toast('La revisión arranca en un minuto y sigue hasta que no quede nada (como tarde, ' + data.hasta + ')', 'success');
+                window.cpdfFiltrar();
+            })
+            .catch(function () {
+                btn.disabled = false;
+                window.toast('No se pudo pedir la revisión', 'error');
+            });
     };
 
     // ── Revisar a mano desde el visor ─────────────────────────────────────────────────

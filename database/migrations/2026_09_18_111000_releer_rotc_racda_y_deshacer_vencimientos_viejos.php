@@ -14,8 +14,8 @@ use Illuminate\Support\Facades\DB;
  *    escribio encima la fecha anterior (fichas que pasaron a salir como vencidas). Se vuelve a
  *    lo que habia, dato a dato, solo si la ficha sigue con lo que puso la tarea (si alguien la
  *    toco despues, manda lo suyo). Cada ficha deja su apunte en el historial.
- * 2. Vuelve a LEER todos los ROTC y RACDA: se retiran sus lecturas y la tarea de la mañana
- *    (9:05-13:05, cuatro lectores) los toma como pendientes, ya con el lector corregido
+ * 2. Vuelve a LEER todos los ROTC y RACDA: se retiran sus lecturas y la tarea de lectura
+ *    (VerificarDocumentos::HORARIO, cuatro lectores) los toma como pendientes, ya con el lector corregido
  *    (la fila de la tabla de flota, el PDF anterior). Lo pidio el cliente.
  *
  * Una sola vez: es una migracion. No hay vuelta atras (down vacio): lo deshecho queda en el

@@ -10,7 +10,7 @@ use Illuminate\Http\Request;
 /**
  * Lo que se puede HACER desde las pestañas de documentos de Control de Auditoría
  * (/admin/historial-documentos): dar por revisada a mano una fila de la verificacion, o
- * varias de una vez con las casillas de la tabla.
+ * varias de una vez eligiendo sus filas en la tabla.
  *
  * La pantalla la pinta HistorialDocumentosController con admin/compresion_pdf/panel.blade.php.
  * La ficha la corrige la persona en el panel del visor (equipos.updateMetadata) o, sola, la
@@ -20,7 +20,7 @@ use Illuminate\Http\Request;
  */
 class CompresionPdfController extends Controller
 {
-    /** Tope de filas por envio de la casilla "revisadas" (una pagina entera cabe de sobra). */
+    /** Tope de filas por envio del boton "Revisado" (una pagina entera cabe de sobra). */
     private const MAX_REVISADOS = 200;
 
     /** La pantalla se mudo a Control de Auditoría; los enlaces viejos siguen llegando. */
@@ -52,8 +52,15 @@ class CompresionPdfController extends Controller
         return response()->json(['success' => true, 'puestos' => $resultado['puestos'], 'motivo' => $reg->refresh()->MOTIVO]);
     }
 
+    /** "Revisar ahora": la lectura arranca en el minuto siguiente (ver VerificarDocumentos::pedirAhora). */
+    public function leerAhora()
+    {
+        $hasta = \App\Console\Commands\VerificarDocumentos::pedirAhora();
+        return response()->json(['success' => true, 'hasta' => $hasta->format('g:i a')]);
+    }
+
     /**
-     * Las filas marcadas con la casilla de la tabla, dadas por revisadas de una vez, sin abrir
+     * Las filas elegidas en la tabla (clic en la fila), dadas por revisadas de una vez, sin abrir
      * el visor. La ficha NO cambia (ni los datos que el visor ofreceria poner): solo queda
      * constancia de quien las reviso (ver VerificacionDocumento::marcarRevisadoPor).
      */
@@ -65,7 +72,7 @@ class CompresionPdfController extends Controller
         ])['ids'];
 
         $hechas = 0;
-        // Las que ya coinciden no tienen casilla ni nada que revisar: se dejan como estan.
+        // Las que ya coinciden no se pueden elegir ni tienen nada que revisar: se dejan como estan.
         $filas = VerificacionDocumento::whereIn('ID_REGISTRO', array_unique($ids))
             ->where('ESTADO', '<>', VerificacionDocumento::COINCIDE)->get();
         foreach ($filas as $reg) {

@@ -1,5 +1,9 @@
 <?php
 
+use App\Console\Commands\ComprimirDocumentos;
+use App\Console\Commands\VerificarDocumentos;
+use App\Models\VerificacionDocumento;
+use App\Support\EnlacesDocumentos;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
@@ -9,54 +13,53 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
-// Compresion de PDF de documentos, de madrugada y de 5 en 5 (ver docs:comprimir).
-// Entre las 5:00 y las 6:30 a.m. (hora de la app, America/Caracas) se intenta cada minuto:
-// fuera de la ventana de la verificacion (09:05-13:05), porque las dos leen de Google Drive;
-// withoutOverlapping impide que un lote arranque encima del anterior (el candado caduca a
-// los 30 min por si una pasada muriera a medias) y el propio comando deja un minuto de
-// descanso entre el fin de un lote y el siguiente. Si ya no queda nada, las pasadas
-// terminan al instante.
-// Necesita el programador corriendo: `php artisan schedule:work` (docker/supervisord.conf).
-// Y solo corre en el servidor: ver App\Support\EnlacesDocumentos::esBaseDelServidor().
-Schedule::command('docs:comprimir --lote=5')
-    ->when(fn () => \App\Support\EnlacesDocumentos::esBaseDelServidor()[0])
-    ->everyMinute()
-    ->between('05:00', '06:30')
-    ->withoutOverlapping(30)
-    ->runInBackground();
+// ── Documentos: dos tareas de noche que leen de Google Drive, en franjas que NO se tocan ──
+// Las horas viven en cada comando (su HORARIO, hora de la app: America/Caracas) y el panel
+// de Control de Auditoría las lee de ahí; aquí no se escribe ninguna.
+//   · docs:verificar-documentos  VerificarDocumentos::HORARIO  (8:00 p.m. – 1:00 a.m.)
+//   · docs:comprimir             ComprimirDocumentos::HORARIO  (2:00 – 5:00 a.m.)
+// La lectura arranca también fuera de su franja si se pulsa "Revisar ahora" en el panel
+// (VerificarDocumentos::pedirAhora). Dentro de su franja se intentan cada minuto, pero SOLO se lanza el proceso si hay algo que
+// hacer: cuando todo está leído / comprimido, o cuando termina, no arranca nada más y no se
+// gastan recursos. withoutOverlapping impide que un lote arranque encima del anterior (el
+// candado caduca a los 30 min por si una pasada muriera a medias).
+// Necesita el programador corriendo: `php artisan schedule:work` (docker/supervisord.conf), y
+// solo corre en el servidor: ver EnlacesDocumentos::esBaseDelServidor(). En el orden de los
+// when(): primero la franja, así fuera de hora no se consulta nada.
 
-// Verificacion de los documentos contra sus PDF (docs:verificar-documentos), de 9:05 de la
-// mañana a 1:05 de la tarde y de 25 en 25. Su ventana NO se toca con la de la compresion (05:00-06:30):
-// las dos leen de Google Drive y no deben pisarse.
-// El tamaño de la tanda no cambia el consumo (el servidor solo gasta 0,07 s de CPU por
-// documento; el resto es esperar a Drive), pero sí el tiempo muerto: el tick es cada minuto
-// y withoutOverlapping no deja arrancar encima, asi que lo que sobra de minuto se pierde.
-// Con 25 la pasada dura 2:22 y arranca una cada 3 minutos (38 s de espera): 8,3 documentos
-// por minuto. Se eligio 25 porque es el tamaño que MENOS se resiente si Drive se pone lento:
-// a 7 s por documento la pasada sube a 2:55 y sigue cabiendo en los mismos 3 minutos, o sea
-// el mismo ritmo. Con 10 el ritmo se caeria a la mitad (5/min) y con 60 bajaria a 8,6.
-// Medido en el servidor el 18-09-2026: 5,7 s por documento, ~8 documentos por minuto por
-// lector; con los cuatro de abajo, ~30. Los ~1.900 cargados caben de sobra en la ventana.
-// De dia a proposito (18-09-2026): la de la noche no llego a terminar. El servidor apenas lo
-// nota (0,07 s de CPU por documento) y la ficha se escribe con bloqueo de fila, asi que no
-// choca con quien este editando a la vez.
-// MANDA EL DOCUMENTO (CorrectorFichaDocumento): lo que dice el PDF se escribe en la ficha,
-// este vacia o diga otra cosa. NUNCA la placa ni el serial, y NUNCA nada si el documento es
-// de otro vehiculo, se leyo a medias o no se pudo confirmar de quien es: eso queda en Control
-// de Auditoría para que lo mire una persona. Solo en el servidor: en el PC de desarrollo la
-// base es una copia y esas correcciones no le servirian a nadie (ahi se usa --no-rellenar).
-// CUATRO lectores a la vez, cada uno con su cuarta parte de las fichas (--parte/--de, ver
-// VerificarDocumentos::reparto): lo que tarda es esperar a Drive, no el servidor, y con uno
-// solo la cola iba a ~8 documentos por minuto. Cada comando lleva su propio candado
-// (withoutOverlapping va por la linea de comando), asi que no se estorban entre ellos.
+// Verificación de los documentos contra sus PDF: CUATRO lectores a la vez, cada uno con su
+// cuarta parte de las fichas (--parte/--de, ver VerificarDocumentos::reparto). Lo que tarda
+// es esperar a Drive (5,7 s por documento, medido en el servidor el 18-09-2026), no el
+// servidor (0,07 s de CPU): cada lector hace ~8 documentos por minuto y los cuatro ~30.
+// Tandas de 25: la pasada dura ~2:22 y cabe en el tick de 3 minutos aunque Drive vaya lento.
+// Cada comando lleva su propio candado (withoutOverlapping va por la línea de comando).
+// MANDA EL DOCUMENTO (CorrectorFichaDocumento), salvo la placa y el serial, el PDF de otro
+// vehículo, el leído a medias, el sin confirmar y el ANTERIOR: eso lo mira una persona.
+// ¿Hay trabajo? se pregunta UNA vez por minuto para los cuatro (este archivo se carga en cada
+// schedule:run), no cuatro.
+$hayQueVerificar = null;
 foreach (range(0, 3) as $parte) {
     Schedule::command("docs:verificar-documentos --lote=25 --parte=$parte --de=4")
-        ->when(fn () => \App\Support\EnlacesDocumentos::esBaseDelServidor()[0])
         ->everyMinute()
-        ->between('09:05', '13:05')
+        ->when(fn () => VerificarDocumentos::tocaLeer())   // su franja, o "Revisar ahora" del panel
+        ->when(fn () => EnlacesDocumentos::esBaseDelServidor()[0])
+        ->when(function () use (&$hayQueVerificar) {
+            return $hayQueVerificar ??= VerificacionDocumento::hayTrabajo();
+        })
         ->withoutOverlapping(30)
         ->runInBackground();
 }
+
+// Compresión de PDF, de 5 en 5 (ver docs:comprimir). El propio comando deja un minuto de
+// descanso entre lotes. Cuando comprueba que no queda nada, lo apunta para esa noche
+// (ComprimirDocumentos::nadaEstaNoche) y a partir de ahí no se vuelve a lanzar.
+Schedule::command('docs:comprimir --lote=5')
+    ->everyMinute()
+    ->between(...ComprimirDocumentos::HORARIO)
+    ->when(fn () => EnlacesDocumentos::esBaseDelServidor()[0])
+    ->when(fn () => !ComprimirDocumentos::nadaEstaNoche())
+    ->withoutOverlapping(30)
+    ->runInBackground();
 
 // La caché vive en la base de datos (CACHE_STORE=database), y ahí una entrada caducada solo
 // se borra si alguien la vuelve a leer. Las cachés con la versión en la clave (el tablero del

@@ -29,10 +29,11 @@ class VerificacionDocumento extends Model
     public const A_REVISAR = [self::ILEGIBLE, self::SIN_ARCHIVO, self::ERROR];
 
     /**
-     * Cuantas noches se reintenta un documento que salio ilegible o con error. Drive devuelve
-     * de vez en cuando el documento vacio, y un tropiezo no puede dejar marcado para siempre
-     * un titulo que se lee bien (la compresion hace lo mismo con sus errores). Lo miran el
-     * comando, para volver a encolarlo, y el panel, para contar lo que falta por leer.
+     * Cuantas veces seguidas, DENTRO de una misma noche, se reintenta un documento que salio
+     * ilegible o con error (Drive devuelve de vez en cuando el documento vacio). Agotados,
+     * esa noche ya no se vuelve a leer —asi la tarea termina y se apaga—, pero la noche
+     * siguiente SI: cada "No se pudo leer" se vuelve a revisar una vez por noche (ver
+     * pendientes() e inicioDeLaNoche()), por si el lector mejoro o se subio otro archivo.
      */
     public const MAX_INTENTOS = 3;
 
@@ -130,8 +131,37 @@ class VerificacionDocumento extends Model
                 ->whereColumn('v.ID_EQUIPO', 'd.ID_EQUIPO')
                 ->where('v.TIPO', $tipo)
                 ->whereRaw("v.DRIVE_ID = $idEnlace")
+                // Ya leido de verdad, o "No se pudo leer" que agoto sus intentos ESTA noche.
                 ->where(fn ($w) => $w->whereNotIn('v.ESTADO', [self::ILEGIBLE, self::ERROR])
-                    ->orWhere('v.INTENTOS', '>=', self::MAX_INTENTOS)));
+                    ->orWhere(fn ($x) => $x->where('v.INTENTOS', '>=', self::MAX_INTENTOS)
+                        ->where('v.updated_at', '>=', self::inicioDeLaNoche()))));
+    }
+
+    /**
+     * Cuando empezo la franja de lectura en curso (o la ultima, si ahora no hay ninguna):
+     * hoy a las VerificarDocumentos::HORARIO[0] si ya pasaron, si no ayer; o, si despues se
+     * pulso "Revisar ahora", ese momento. Un "No se pudo leer" que no se ha vuelto a leer
+     * desde entonces vuelve a la cola.
+     */
+    public static function inicioDeLaNoche(): string
+    {
+        $inicio = now()->setTimeFromTimeString(\App\Console\Commands\VerificarDocumentos::HORARIO[0]);
+        if ($inicio->isFuture()) $inicio->subDay();
+        return max($inicio->toDateTimeString(), (string) \App\Console\Commands\VerificarDocumentos::pedidaAhora());
+    }
+
+    /**
+     * ¿Le queda algo a docs:verificar-documentos? Algo por leer (pendientes) o algo ya leido
+     * que la tarea puede poner sola (corregibles). Lo mira el programador antes de lanzar los
+     * lectores: sin trabajo no se arranca ningun proceso. Son consultas EXISTS, de milisegundos.
+     */
+    public static function hayTrabajo(): bool
+    {
+        if (self::corregibles()->exists()) return true;
+        foreach (self::ENLACES as $tipo => $columna) {
+            if (self::pendientes($tipo, $columna)->exists()) return true;
+        }
+        return false;
     }
 
     /**

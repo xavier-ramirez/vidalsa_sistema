@@ -525,9 +525,12 @@ Route::middleware(['auth'])->group(function () {
                 // da la fila por buena (ver CompresionPdfController::marcarRevisado).
                 Route::post('compresion-pdf/documento/{id}/revisado', [App\Http\Controllers\CompresionPdfController::class, 'marcarRevisado'])
                     ->whereNumber('id')->name('compresion-pdf.documento.revisado');
-                // Varias de una vez, con las casillas de la tabla, sin abrir el visor.
+                // Varias de una vez, eligiendo las filas en la tabla, sin abrir el visor.
                 Route::post('compresion-pdf/documentos/revisados', [App\Http\Controllers\CompresionPdfController::class, 'marcarRevisados'])
                     ->name('compresion-pdf.documentos.revisados');
+                // "Revisar ahora": la lectura de documentos arranca ya, fuera de su horario.
+                Route::post('compresion-pdf/documentos/leer-ahora', [App\Http\Controllers\CompresionPdfController::class, 'leerAhora'])
+                    ->name('compresion-pdf.documentos.leer-ahora');
             });
 
             // Ruta de emergencia `force-fix-db` removida: los ajustes de schema ahora

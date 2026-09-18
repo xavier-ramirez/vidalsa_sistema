@@ -622,6 +622,82 @@ $vence
             VerificacionDocumento::where('ID_EQUIPO', $bien)->pluck('TIPO')->all(), 'El ROTC queda para releer.');
     }
 
+    public function test_el_programador_respeta_las_franjas_y_no_arranca_sin_trabajo(): void
+    {
+        // Lectura 8 p.m. - 1 a.m. (cruza la medianoche) y compresion 2 - 5 a.m., sin tocarse.
+        // Se mira cada tarea a varias horas SIN el filtro de "es el servidor" (en el PC de
+        // desarrollo no corre nunca): franja + "hay trabajo".
+        $pasan = function (string $hora, string $comando, bool $nadaEstaNoche = false) {
+            \Carbon\Carbon::setTestNow(\Carbon\Carbon::parse("2026-09-18 $hora", config('app.timezone')));
+            \Illuminate\Support\Facades\Cache::put('docs_comprimir_nada', $nadaEstaNoche, 60);
+            $schedule = new \Illuminate\Console\Scheduling\Schedule(config('app.timezone'));
+            \Illuminate\Support\Facades\Schedule::swap($schedule);
+            // routes/console.php se carga en cada schedule:run: aqui igual, con la hora puesta.
+            require base_path('routes/console.php');
+            $evento = collect($schedule->events())->first(fn ($e) => str_contains($e->command, $comando));
+            $filtros = (new \ReflectionProperty($evento, 'filters'))->getValue($evento);
+            // [0] franja · [1] es el servidor (se salta) · [2] hay trabajo.
+            return $this->app->call($filtros[0]) && $this->app->call($filtros[2]);
+        };
+
+        foreach (['20:00' => true, '23:30' => true, '00:59' => true, '01:30' => false, '10:00' => false, '19:59' => false] as $h => $sale) {
+            $this->assertSame($sale, $pasan($h, 'docs:verificar-documentos --lote=25 --parte=0'), "Lectura a las $h");
+        }
+        foreach (['02:00' => true, '04:30' => true, '05:01' => false, '21:00' => false] as $h => $sale) {
+            $this->assertSame($sale, $pasan($h, 'docs:comprimir'), "Compresion a las $h");
+        }
+        $this->assertFalse($pasan('03:00', 'docs:comprimir', true), 'Sin nada por comprimir esta noche, no se lanza.');
+
+        // "Revisar ahora" del panel: fuera de hora, la lectura arranca igual hasta la 01:00.
+        \Illuminate\Support\Facades\Cache::forget('docs_verificar_ahora');
+        $this->assertFalse($pasan('12:00', 'docs:verificar-documentos --lote=25 --parte=0'));
+        $this->actingAs($this->superAdmin())->postJson(route('compresion-pdf.documentos.leer-ahora'))
+            ->assertOk()->assertJson(['success' => true, 'hasta' => '1:00 am']);
+        $this->assertTrue($pasan('12:01', 'docs:verificar-documentos --lote=25 --parte=0'), 'Pedida: corre ya.');
+        \Illuminate\Support\Facades\Cache::forget('docs_verificar_ahora');
+        \Carbon\Carbon::setTestNow();
+        \Illuminate\Support\Facades\Cache::forget('docs_comprimir_nada');
+
+        // "¿Hay trabajo?" de la lectura (arriba ya dio que si: hay fichas sin leer). Sin nada
+        // pendiente ni por poner, no: se prueba con la cola vacia dentro de la transaccion.
+        DB::table('documentacion')->update(['LINK_DOC_PROPIEDAD' => null, 'LINK_POLIZA_SEGURO' => null, 'LINK_ROTC' => null, 'LINK_RACDA' => null]);
+        VerificacionDocumento::query()->update(['A_MANO' => true]);
+        $this->assertFalse(VerificacionDocumento::hayTrabajo());
+        [$equipo] = $this->equipoConDocumentos();
+        $this->assertTrue(VerificacionDocumento::hayTrabajo(), 'Un documento nuevo sin leer vuelve a dar trabajo.');
+    }
+
+    public function test_lo_que_no_se_pudo_leer_se_vuelve_a_leer_cada_noche(): void
+    {
+        // Agotados sus intentos, un "No se pudo leer" no se relee esa noche (la tarea termina
+        // y se apaga), pero la siguiente SI, una vez. Y "Revisar ahora" lo relee al momento.
+        \Illuminate\Support\Facades\Cache::forget('docs_verificar_ahora');
+        [$equipo] = $this->equipoConDocumentos();
+        $this->lectorFalso('hoja en blanco sin nada util');
+        for ($i = 1; $i <= VerificacionDocumento::MAX_INTENTOS; $i++) $this->verificar($equipo, VerificacionDocumento::PROPIEDAD);
+        $this->assertFalse($this->enLaCola($equipo, VerificacionDocumento::PROPIEDAD), 'Agotado: esta noche ya no.');
+
+        // Se leyo antes de que empezara la noche en curso: vuelve a la cola.
+        VerificacionDocumento::where('ID_EQUIPO', $equipo)->update(['updated_at' => now()->subDays(2)]);
+        $this->assertTrue($this->enLaCola($equipo, VerificacionDocumento::PROPIEDAD), 'Noche nueva: se relee.');
+        $this->verificar($equipo, VerificacionDocumento::PROPIEDAD);
+        $this->assertFalse($this->enLaCola($equipo, VerificacionDocumento::PROPIEDAD), 'Una vez por noche, no en bucle.');
+
+        // Releida dos veces seguidas la misma noche: la segunda ya no la encola otra vez.
+        $reg = VerificacionDocumento::where('ID_EQUIPO', $equipo)->where('TIPO', VerificacionDocumento::PROPIEDAD)->first();
+        VerificacionDocumento::where('ID_REGISTRO', $reg->ID_REGISTRO)->update(['updated_at' => now()->subDays(2)]);
+        $this->verificar($equipo, VerificacionDocumento::PROPIEDAD);
+        $this->verificar($equipo, VerificacionDocumento::PROPIEDAD);
+        $this->assertFalse($this->enLaCola($equipo, VerificacionDocumento::PROPIEDAD));
+
+        // "Revisar ahora": lo leido hasta ese momento vuelve a la cola.
+        \Carbon\Carbon::setTestNow(now()->addMinute());
+        \App\Console\Commands\VerificarDocumentos::pedirAhora();
+        $this->assertTrue($this->enLaCola($equipo, VerificacionDocumento::PROPIEDAD), 'Pedida la revision: se relee ya.');
+        \Carbon\Carbon::setTestNow();
+        \Illuminate\Support\Facades\Cache::forget('docs_verificar_ahora');
+    }
+
     public function test_el_racda_comprueba_que_la_placa_este_autorizada(): void
     {
         // La providencia es de la EMPRESA: lo que dice de este equipo es si su placa está en
@@ -1280,10 +1356,10 @@ hoja sin datos que sirvan
         $this->assertSame(VerificacionDocumento::DIFIERE, $reg->refresh()->ESTADO);
     }
 
-    public function test_varias_filas_se_dan_por_revisadas_con_la_casilla(): void
+    public function test_varias_filas_se_dan_por_revisadas_de_una_vez(): void
     {
-        // Las casillas de la tabla: lo mismo que abrir cada una en el visor y darle Guardar
-        // sin tocar nada. Las filas quedan revisadas por la persona; las fichas, como estaban.
+        // Filas elegidas en la tabla y el boton "Revisado", sin abrir el visor. Las filas
+        // quedan revisadas por la persona; las fichas, como estaban.
         [$e1, $p1] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'TRANSPORTE MILENUIM 0210, CA']);
         $this->lectorFalso($this->textoTitulo('TRANSPORTE MILENIUM 0210 C.A', $p1));
         $r1 = $this->verificarSinAplicar($e1, VerificacionDocumento::PROPIEDAD);
@@ -1313,7 +1389,7 @@ hoja sin datos que sirvan
         $this->assertSame('TRANSPORTE MILENUIM 0210, CA', $this->ficha($e1)->NOMBRE_DEL_TITULAR);
         $this->assertSame('GRUPO ROYSO C.A.', $this->ficha($e2)->NOMBRE_DEL_TITULAR);
 
-        // Una que ya coincide no se toca (no tiene casilla): conserva su motivo.
+        // Una que ya coincide no se toca (no se puede elegir): conserva su motivo.
         [$e3, $p3] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'GRUPO ROYSO C.A.', 'FECHA_EMISION_PROPIEDAD' => '2018-10-03']);
         $this->lectorFalso($this->textoTitulo('GRUPO ROYSO C.A.', $p3));
         $r3 = $this->verificarSinAplicar($e3, VerificacionDocumento::PROPIEDAD);

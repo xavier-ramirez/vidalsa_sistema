@@ -53,7 +53,18 @@ class PanelDocumentos
             'motivoActiva' => $motivoActiva,
             'zona'         => $zona,
             'horaApp'      => now($zona),
+            // Los horarios salen de los comandos (su HORARIO), los mismos que usa el programador.
+            'horarioLectura'    => self::horario(\App\Console\Commands\VerificarDocumentos::HORARIO),
+            'horarioCompresion' => self::horario(\App\Console\Commands\ComprimirDocumentos::HORARIO),
+            'lecturaPedida'     => \App\Console\Commands\VerificarDocumentos::pedidaAhora(),
         ];
+    }
+
+    /** ['20:00', '01:00'] -> "de 8:00 p.m. a 1:00 a.m." */
+    private static function horario(array $franja): string
+    {
+        $hora = fn (string $h) => str_replace(['am', 'pm'], ['a.m.', 'p.m.'], \Carbon\Carbon::createFromFormat('H:i', $h)->format('g:i a'));
+        return 'de ' . $hora($franja[0]) . ' a ' . $hora($franja[1]);
     }
 
     /** Pestaña "Compresión": filas, filtros y resumen de docs:comprimir. */
