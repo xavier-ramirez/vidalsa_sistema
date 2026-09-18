@@ -19,10 +19,11 @@ use Illuminate\Support\Facades\Log;
  *   · TITULO DE PROPIEDAD : propietario y fecha de emision.
  *   · POLIZA DE SEGURO    : aseguradora, vencimiento y fecha de emision.
  *   · ROTC                : propietario, vencimiento, fecha de emision y numero de ROTC.
- *   · RACDA               : es de la EMPRESA, no del equipo: el mismo PDF cuelga de decenas de
- *                           fichas. De el salen la fecha de la providencia, hasta cuando vale
- *                           (dice cuantos años dura) y la lista de placas autorizadas, donde
- *                           tiene que estar la del equipo.
+ *   · RACDA               : es de la EMPRESA, no del equipo: la MISMA providencia vale para
+ *                           muchos vehiculos (aunque en Drive este subida un archivo por
+ *                           ficha). De ella salen la fecha, hasta cuando vale (dice cuantos
+ *                           años dura) y la lista de placas autorizadas, donde tiene que
+ *                           estar la del equipo.
  *
  * Lo corre el programador de tareas de 12:30 a las 4:50 de la madrugada
  * (routes/console.php), en una ventana que NO se toca con la de la compresion (05:00-06:30):
@@ -41,8 +42,8 @@ use Illuminate\Support\Facades\Log;
  * Control de Auditoría para que lo mire una persona.
  *
  * Se revisa TODO lo que cuelgue de esos cuatro enlaces, sin mirar de que tipo de documento se
- * trate: si del texto no sale nada util —escaneos viejos, borrosos o documentos que no son
- * el certificado ni el cuadro de poliza— la fila queda "ilegible" y la revisa una persona.
+ * trate: si del texto no sale nada util —escaneos viejos, borrosos o papeles que no son el
+ * documento que dice el enlace— la fila queda "ilegible" y la revisa una persona.
  *
  * En el PC de desarrollo se corre SIEMPRE con --no-rellenar: de Drive no toca nada (la copia
  * que hace el lector para leerla la borra el mismo), pero SI escribe en la base —y la de
@@ -145,7 +146,7 @@ class VerificarDocumentos extends Command
                 // enlazado. Si no se puede saber (el escaneo no deja leer ninguno de los dos),
                 // se compara igual pero queda marcado para que lo confirme una persona: sin esa
                 // comprobacion, aplicar lo leido podria meterle a la ficha datos de otro equipo.
-                // El RACDA es de la EMPRESA y cuelga de muchas fichas: no tiene "una" placa,
+                // El RACDA es de la EMPRESA y vale para muchos equipos: no tiene "una" placa,
                 // tiene una LISTA, y de eso se encarga revisarRacda.
                 $deEsteVehiculo = $tipo === VerificacionDocumento::RACDA
                     ? 'si'

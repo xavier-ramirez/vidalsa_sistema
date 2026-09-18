@@ -89,10 +89,12 @@ class LectorDocumentoPdf
      * La copia temporal se borra SIEMPRE, incluso si la exportacion falla: si no, quedarian
      * documentos sueltos ocupando el Drive de la empresa.
      *
-     * Un mismo PDF se lee UNA sola vez por pasada: el RACDA es un documento de la empresa que
-     * cuelga de decenas de fichas y leerlo otra vez por cada equipo serian decenas de viajes a
-     * Drive de ~8 s para el mismo resultado. El recuerdo vive lo que vive el objeto (una
-     * pasada del comando), asi que la noche siguiente vuelve a leer el archivo de verdad.
+     * Un mismo ARCHIVO de Drive se lee una sola vez por pasada (se recuerdan los ultimos
+     * RECUERDA_PDF). Pasa cuando varias fichas apuntan al mismo enlace. Con el RACDA ahorra
+     * menos de lo que parece: la providencia es la misma para muchos equipos, pero en Drive
+     * hay una copia subida POR FICHA (223 fichas, 224 archivos distintos). El recuerdo vive
+     * lo que vive el objeto —una pasada del comando—, asi que la noche siguiente vuelve a
+     * leer el archivo de verdad.
      */
     public function texto(string $driveId): string
     {
@@ -117,9 +119,9 @@ class LectorDocumentoPdf
             // Lo ilegible tambien se recuerda: si Drive no lo reconocio tras los reintentos,
             // repetirlo 40 veces en la misma pasada no lo va a reconocer.
             $this->leidos[$driveId] = $texto;
-            // Con tope: lo que hay que evitar es releer el MISMO documento una y otra vez (el
-            // RACDA, que cuelga de decenas de fichas seguidas), no quedarse con el texto de
-            // toda la pasada en memoria — con --rehacer serian miles.
+            // Con tope: lo que hay que evitar es releer el MISMO archivo una y otra vez
+            // cuando varias fichas comparten enlace, no quedarse con el texto de toda la
+            // pasada en memoria — con --rehacer serian miles.
             if (count($this->leidos) > self::RECUERDA_PDF) array_shift($this->leidos);
             return $texto;
         } finally {
@@ -205,7 +207,7 @@ class LectorDocumentoPdf
 
     /**
      * RACDA (Providencia Administrativa del MINEC). OJO: es un documento de la EMPRESA, no de
-     * un vehiculo: el mismo PDF cuelga de decenas de fichas y lo que dice de cada equipo es si
+     * un vehiculo: la misma providencia vale para muchos, y lo que dice de cada equipo es si
      * su placa esta en la lista de unidades autorizadas. De ahi salen:
      *   · la fecha en que se emitio ("CARACAS, 14 DE JULIO DE 2025");
      *   · hasta cuando vale ("tendra validez por DOS (02) años, contados a partir de la emision");
