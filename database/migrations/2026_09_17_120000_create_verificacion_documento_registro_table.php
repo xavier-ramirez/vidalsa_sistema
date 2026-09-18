@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration {
     /**
      * Registro de la verificacion de los documentos de un equipo contra su ficha
-     * (comando docs:verificar-documentos): titulo de propiedad y poliza de seguro.
+     * (comando docs:verificar-documentos): titulo, poliza, ROTC y RACDA.
      *
      * Una fila por EQUIPO, TIPO de documento y archivo revisado. Sirve para lo mismo que
      * compresion_pdf_registro en su tarea: que la pasada de cada noche no vuelva a leer lo ya
@@ -27,7 +27,7 @@ return new class extends Migration {
             Schema::create('verificacion_documento_registro', function (Blueprint $table) {
                 $table->bigIncrements('ID_REGISTRO');
                 $table->unsignedBigInteger('ID_EQUIPO')->index();
-                // propiedad | poliza
+                // propiedad | poliza | rotc | racda
                 $table->string('TIPO', 20)->index();
                 // Como se identifica la fila en la pantalla (placa o serial del chasis).
                 $table->string('PLACA', 30)->nullable();
@@ -55,10 +55,10 @@ return new class extends Migration {
             });
         }
 
-        // A_MANO va aparte del create: esta migracion ya corrio en el servidor sin esta
-        // columna, y alli el create no se vuelve a ejecutar. 1 = no hay boton que lo arregle,
-        // lo tiene que mirar una persona (PDF de otro vehiculo, leido a medias, sin poder
-        // confirmar de quien es, o un dato que alguien cambio a mano).
+        // A_MANO se queda aqui SOLO para las bases que se creen de cero con este archivo. En
+        // las que ya corrieron esta migracion antes de que existiera la columna, este archivo
+        // NO se vuelve a ejecutar (Laravel guarda su nombre en `migrations`): de eso se
+        // encarga 2026_09_18_090000_add_a_mano_to_verificacion_documento_registro.php.
         if (!Schema::hasColumn('verificacion_documento_registro', 'A_MANO')) {
             Schema::table('verificacion_documento_registro', function (Blueprint $table) {
                 $table->boolean('A_MANO')->default(false)->index()->after('INTENTOS');
