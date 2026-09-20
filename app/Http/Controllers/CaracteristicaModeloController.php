@@ -372,21 +372,21 @@ class CaracteristicaModeloController extends Controller
     /**
      * Fichas para el modal "Vincular a una ficha" de /admin/equipos (doble clic en la foto
      * de un equipo, solo super.admin), con las mismas tarjetas del catálogo:
-     *   · Sin nada escrito ni año, y con `equipo`: las SUGERIDAS para ese equipo
-     *     (fichasSugeridas) y, si todavía no hay ficha de su MODELO + año, `crear` con lo
-     *     necesario para que el modal ofrezca crearla (asegurarFicha) y vincularlo.
-     *   · Con texto o año: la búsqueda por modelo o tipo (contiene) y año.
-     * El vínculo lo guarda EquipoController::vincularFicha. La lista de años para el filtro
-     * va solo si se pide (con_anios=1): el modal la carga una vez, no en cada tecla.
+     *   · Sin nada escrito y con `equipo`: las SUGERIDAS para ese equipo (fichasSugeridas).
+     *   · Con texto: la búsqueda por modelo o tipo (contiene) en todo el catálogo.
+     * `crear` va SIEMPRE que el equipo no tenga todavía ficha de su MODELO + año, se esté
+     * buscando o no: es la ficha que le falta a ESE equipo y el modal la ofrece arriba
+     * (asegurarFicha) para crearla y vincularlo. Antes solo salía con el buscador vacío, así
+     * que buscar la escondía justo cuando se comprobaba que no existía.
+     * El vínculo lo guarda EquipoController::vincularFicha.
      */
     public function elegir(Request $request)
     {
         $texto  = mb_strtoupper(trim((string) $request->input('q', '')));
-        $anio   = (int) $request->input('anio', 0);
         $equipo = $request->filled('equipo')
-            ? Equipo::with('tipo:id,nombre')->find((int) $request->input('equipo'), ['ID_EQUIPO', 'MARCA', 'MODELO', 'ANIO', 'id_tipo_equipo', 'ID_ESPEC'])
+            ? Equipo::with('tipo:id,nombre')->find((int) $request->input('equipo'), ['ID_EQUIPO', 'MARCA', 'MODELO', 'ANIO', 'id_tipo_equipo', 'ID_ESPEC', 'FOTO_EQUIPO'])
             : null;
-        $sugeridas = $equipo && $texto === '' && $anio === 0;
+        $sugeridas = $equipo && $texto === '';
 
         if ($sugeridas) {
             $ids    = $this->fichasSugeridas($equipo);
@@ -395,13 +395,12 @@ class CaracteristicaModeloController extends Controller
                 ->sortBy(fn ($f) => $orden[$f->ID_ESPEC])->values();
             $hayMas = false;
         } else {
-            $q = $this->consultaFichas();
-            if ($texto !== '') {
-                $q->where(fn ($w) => $w->where('MODELO', 'like', '%' . $texto . '%')->orWhere('TIPO', 'like', '%' . $texto . '%'));
-            }
-            if ($anio > 0) {
-                $q->where('ANIO_ESPEC', $anio);
-            }
+            // El año también busca: escribir "2018" trae las fichas de ese año (así el filtro
+            // de años sobra y el modal se queda con una sola caja).
+            $q = $this->consultaFichas()->where(fn ($w) => $w
+                ->where('MODELO', 'like', '%' . $texto . '%')
+                ->orWhere('TIPO', 'like', '%' . $texto . '%')
+                ->when(ctype_digit($texto), fn ($x) => $x->orWhere('ANIO_ESPEC', (int) $texto)));
             $fichas = $q->orderBy('MODELO')->orderByDesc('ANIO_ESPEC')->limit(self::MAX_ELEGIR + 1)->get();
             $hayMas = $fichas->count() > self::MAX_ELEGIR;
             $fichas = $fichas->take(self::MAX_ELEGIR);
@@ -411,11 +410,12 @@ class CaracteristicaModeloController extends Controller
             'items'     => $this->tarjetasDeFichas($fichas),
             'hay_mas'   => $hayMas,
             'sugeridas' => $sugeridas,
-            'crear'     => $sugeridas ? $this->fichaPorCrear($equipo) : null,
+            'crear'     => $equipo ? $this->fichaPorCrear($equipo) : null,
             'actual'    => $equipo?->ID_ESPEC,   // la ficha que tiene hoy (la de la fila puede estar vieja)
-            'anios'     => $request->boolean('con_anios')
-                ? CaracteristicaModelo::whereNotNull('ANIO_ESPEC')->distinct()->orderByDesc('ANIO_ESPEC')->pluck('ANIO_ESPEC')
-                : null,
+            // Su foto propia: es la que seguiría viéndose con una ficha SIN foto
+            // (Equipo::fotoParaMostrar cae en FOTO_EQUIPO), y así la previa del modal dice
+            // lo mismo que la tabla en vez de un "sin foto" que no va a pasar.
+            'foto_propia' => CaracteristicaModelo::miniatura($equipo?->FOTO_EQUIPO),
         ], fn ($v) => $v !== null));
     }
 

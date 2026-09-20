@@ -72,4 +72,21 @@ class HistorialDocumentosTest extends MySqlTestCase
         $this->assertSame(2, substr_count($html, '<tr class="hd-selectable-row'));
         $this->assertStringContainsString('Edición Metadata RACDA', $html);
     }
+
+    /**
+     * Las tres pestañas abren y cada una trae el botón Acciones UNA vez: vive en la fila de
+     * filtros, que el Historial pinta en su vista y las otras dos en compresion_pdf/panel.
+     */
+    public function test_cada_pestana_trae_un_solo_boton_de_acciones(): void
+    {
+        $yo = Usuario::all()->first(fn ($u) => $u->can('super.admin'));
+        $this->assertNotNull($yo, 'Hace falta un usuario super.admin para probar.');
+
+        foreach ([null, 'documentos', 'compresion'] as $pestana) {
+            $html = $this->actingAs($yo)
+                ->get(route('historial-documentos.index', $pestana ? ['pestana' => $pestana] : []))
+                ->assertOk()->getContent();
+            $this->assertSame(1, substr_count($html, 'id="hdBtnAcciones"'), 'Pestaña ' . ($pestana ?? 'historial'));
+        }
+    }
 }

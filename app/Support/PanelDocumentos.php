@@ -118,9 +118,9 @@ class PanelDocumentos
         $estados = [VerificacionDocumento::COINCIDE, VerificacionDocumento::DIFIERE,
                     VerificacionDocumento::ILEGIBLE, VerificacionDocumento::SIN_ARCHIVO, VerificacionDocumento::ERROR];
         // Dos filtros que no son un estado de la tabla, sino los dos montones que se miran
-        // distinto y que cuentan las tarjetas: 'revisar' (lo que decide una persona) y
-        // 'corregibles' (lo que la tarea todavia puede poner sola). Cada tarjeta enlaza al
-        // filtro que enseña EXACTAMENTE lo que ella cuenta.
+        // distinto: 'revisar' (lo que decide una persona, y que cuenta su tarjeta) y
+        // 'corregibles' (lo que la tarea todavia puede poner sola), que se pide desde el
+        // desplegable o por la URL.
         $pedido = $request->input('estado_doc');
         $estadoDoc = (in_array($pedido, ['revisar', 'corregibles'], true) || in_array($pedido, $estados, true)) ? $pedido : null;
         // Los cuatro documentos, los mismos que ofrece el desplegable de la vista.
@@ -157,7 +157,6 @@ class PanelDocumentos
             // Los dos montones que se miran distinto: lo que la tarea todavia pone sola y lo
             // que pide una persona (ilegible, sin archivo, de otro vehiculo o leido a medias).
             'docsParaRevisar' => VerificacionDocumento::paraRevisar()->count(),
-            'docsCorregibles' => VerificacionDocumento::corregibles()->count(),
             'estadoDoc'      => $estadoDoc,
             'tipoDoc'        => $tipoDoc,
             'ultimaLectura'  => VerificacionDocumento::max('updated_at'),
@@ -176,9 +175,7 @@ class PanelDocumentos
     /**
      * Por donde va la revision de CADA documento: cuantos hay cargados, cuantos se han leido y
      * cuantos faltan. Es lo que contesta "¿ya termino con todos?" sin entrar al servidor: el
-     * dia que las cuatro filas digan "faltan 0", la revision acabo.
-     *
-     * De aqui sale tambien el total de "faltan por leer", para no contar dos veces lo mismo.
+     * dia que las cuatro filas digan "listo", la revision acabo.
      */
     private static function avance(): array
     {

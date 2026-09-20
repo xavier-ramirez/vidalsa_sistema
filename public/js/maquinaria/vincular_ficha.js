@@ -3,12 +3,14 @@
  * (resources/views/admin/equipos/partials/vincular_ficha_modal.blade.php).
  *
  * Flujo: doble clic en la foto de un equipo (solo super.admin) → el modal abre con las
- * fichas SUGERIDAS para ese equipo y, si no existe la de su modelo + año, la fila "Crear
- * su ficha" (CaracteristicaModeloController::elegir); escribir o elegir año busca en todo
- * el catálogo → se elige una → POST (EquipoController::vincularFicha; antes
- * catalogo.asegurarFicha si es la nueva) → la foto de la fila cambia sin recargar la tabla.
+ * fichas SUGERIDAS para ese equipo (CaracteristicaModeloController::elegir); escribir
+ * busca en todo el catálogo por modelo, tipo o año → se elige una → POST
+ * (EquipoController::vincularFicha; antes catalogo.asegurarFicha si es la nueva) → la foto
+ * de la fila cambia sin recargar la tabla. Si no existe la ficha del modelo + año de ESE
+ * equipo, la fila "Crear su ficha" va arriba SIEMPRE, se esté buscando o no.
  * La foto que muestra cada fila es la que tomaría ESTE equipo: la de su color en esa
- * ficha si la tiene, si no la del modelo (la misma regla de Equipo::fotoParaMostrar).
+ * ficha, si no la del modelo y, si la ficha no tiene ninguna, la suya propia (la misma
+ * regla de Equipo::fotoParaMostrar).
  *
  * Se carga bajo demanda (cargarScriptUnaVez) desde window.eqVincularFicha. Los listeners
  * van sobre el DOCUMENTO y buscan el modal en cada evento: la SPA reemplaza el HTML al
@@ -22,7 +24,7 @@
     // guardando: id del equipo cuyo vínculo se está guardando (null si ninguno). Es por equipo:
     // si se cierra con Escape a mitad y se abre otro, la respuesta del primero no toca el modal.
     // crear: {modelo, anio, tipo} de la ficha que falta (lo manda elegir) o null.
-    var estado = { fotoEl: null, idEquipo: null, espec: '', color: '', elegida: null, crear: null, pedido: 0, timer: null, guardando: null };
+    var estado = { fotoEl: null, idEquipo: null, espec: '', color: '', elegida: null, crear: null, fotoPropia: null, pedido: 0, timer: null, guardando: null };
     var NUEVA = 'nueva';   // data-vf-id de la fila "Crear su ficha"
 
     function $(id) { return document.getElementById(id); }
@@ -39,9 +41,9 @@
         estado.espec = fotoEl.getAttribute('data-espec') || '';
         estado.color = (fotoEl.getAttribute('data-color') || '').toUpperCase();
         estado.elegida = null;
-        // Vacío: abre con las sugeridas para este equipo; escribir busca en todo el catálogo.
+        // Vacío: abre con las sugeridas para este equipo; escribir busca en todo el catálogo
+        // (modelo, tipo o año).
         $('vfBuscar').value = '';
-        $('vfAnio').value = '';
         actualizarBoton();
         m.classList.add('open');
         document.body.style.overflow = 'hidden';
@@ -63,8 +65,7 @@
         var n = ++estado.pedido;
         estado.elegida = null;
         actualizarBoton();
-        var params = new URLSearchParams({ q: $('vfBuscar').value.trim(), anio: $('vfAnio').value, equipo: estado.idEquipo });
-        if ($('vfAnio').options.length <= 1) params.set('con_anios', '1');   // la lista se pide una vez
+        var params = new URLSearchParams({ q: $('vfBuscar').value.trim(), equipo: estado.idEquipo });
         $('vfResultados').innerHTML = aviso('Buscando…');
         w.apiFetch(m.getAttribute('data-url-elegir') + '?' + params.toString(), {
             headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
@@ -73,7 +74,6 @@
             .then(function (d) {
                 if (n !== estado.pedido) return;
                 actualizarFichaActual(d.actual);
-                llenarAnios(d.anios || []);
                 pintar(d);
             })
             .catch(function () {
@@ -93,33 +93,39 @@
         actualizarBoton();
     }
 
-    // El <select> se llena la primera vez que llega la lista (el HTML trae solo "Todos").
-    function llenarAnios(anios) {
-        var sel = $('vfAnio');
-        if (!sel || sel.options.length > 1) return;
-        anios.forEach(function (a) { sel.insertAdjacentHTML('beforeend', '<option value="' + esc(a) + '">' + esc(a) + '</option>'); });
-    }
-
-    // La foto que tomaría este equipo con esa ficha: la de su color, o la del modelo.
+    // La foto que tomaría este equipo con esa ficha, en el orden de Equipo::fotoParaMostrar:
+    // la de su color, la del modelo y, si la ficha no tiene ninguna, la suya propia.
     function fotoPara(item) {
         var suyo = (item.colores || []).find(function (c) { return c.color === estado.color && c.foto_url; });
-        return suyo ? suyo.foto_url : item.foto_url;
+        return (suyo && suyo.foto_url) || item.foto_url || estado.fotoPropia;
     }
 
     // Respuesta de elegir: las sugeridas (d.sugeridas) o el resultado de la búsqueda, y la
-    // ficha que falta (d.crear), que va primero como "Crear su ficha".
+    // ficha que le falta a este equipo (d.crear), que va SIEMPRE primero como "Crear su
+    // ficha" — también mientras se busca, que es cuando se comprueba que no existe.
     function pintar(d) {
         var cont = $('vfResultados');
         estado.crear = d.crear || null;
-        var filas = (estado.crear ? filaCrear(estado.crear) : '') + filasFichas(d.items || []);
-        if (!filas) {
+        estado.fotoPropia = d.foto_propia || null;
+        var crear = estado.crear ? filaCrear(estado.crear) : '';
+        var fichas = filasFichas(d.items || []);
+        if (!crear && !fichas) {
             cont.innerHTML = aviso(d.sugeridas
-                ? 'No encontramos fichas parecidas a este equipo. Búscala por modelo o tipo.'
+                ? 'No encontramos fichas parecidas a este equipo. Búscala por modelo, tipo o año.'
                 : 'No hay fichas con esa búsqueda.');
             return;
         }
-        cont.innerHTML = (d.sugeridas ? '<div class="vf-titulo-lista">Sugeridas para este equipo</div>' : '') + filas +
-            (d.hay_mas ? aviso('Hay más fichas: escribe más del modelo o elige el año para acotar.') : '');
+        cont.innerHTML =
+            titulo(d.sugeridas ? 'Sugeridas para este equipo' : (crear ? 'Para este equipo' : '')) +
+            crear +
+            titulo(!d.sugeridas && crear && fichas ? 'Resultados de la búsqueda' : '') +
+            fichas +
+            (!fichas && !d.sugeridas ? aviso('No hay más fichas con esa búsqueda.') : '') +
+            (d.hay_mas ? aviso('Hay más fichas: escribe más del modelo o el año para acotar.') : '');
+    }
+
+    function titulo(texto) {
+        return texto ? '<div class="vf-titulo-lista">' + esc(texto) + '</div>' : '';
     }
 
     // Tipo, marca y modelo como la columna de la tabla de Equipos (la marca se omite si no hay).
@@ -270,9 +276,6 @@
         if (e.target.id !== 'vfBuscar' || !abierto()) return;
         clearTimeout(estado.timer);
         estado.timer = setTimeout(buscar, ESPERA_BUSQUEDA);
-    });
-    document.addEventListener('change', function (e) {
-        if (e.target.id === 'vfAnio' && abierto()) buscar();
     });
     document.addEventListener('keydown', function (e) {
         if (!abierto()) return;

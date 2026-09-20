@@ -300,6 +300,22 @@ class CatalogoColoresTest extends MySqlTestCase
         $r = $elegir(['q' => 'NO-EXISTE-' . $this->modelo]);
         $this->assertFalse($r->json('sugeridas'));
         $this->assertSame([], $r->json('items'));
+
+        // Buscar por AÑO (el modal ya no tiene filtro aparte): trae las fichas de ese año.
+        $this->assertContains($f->ID_ESPEC, array_column($elegir(['q' => '2026'])->json('items'), 'id'));
+
+        // Y "Crear su ficha" sigue ahí MIENTRAS SE BUSCA: es lo que le falta a ESTE equipo,
+        // no un resultado de la búsqueda (antes se escondía al escribir).
+        $e->update(['ANIO' => 2029]);
+        foreach ([[], ['q' => $this->modelo], ['q' => '2026'], ['q' => 'NO-EXISTE']] as $p) {
+            $this->assertSame(2029, $elegir($p)->json('crear.anio'), 'Buscando ' . json_encode($p));
+        }
+
+        // La foto propia va en la respuesta: con una ficha SIN foto es la que se seguiría
+        // viendo (fotoParaMostrar), así que la previa del modal no dice "sin foto".
+        $this->assertNull($elegir([])->json('foto_propia'));
+        $e->update(['FOTO_EQUIPO' => '/storage/google/falso-propia-' . uniqid()]);
+        $this->assertStringContainsString('falso-propia-', (string) $elegir([])->json('foto_propia'));
     }
 
     public function test_vincular_y_buscar_fichas_es_solo_para_super_admin(): void

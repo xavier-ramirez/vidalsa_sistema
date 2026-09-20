@@ -1,6 +1,7 @@
 {{-- Botón "Acciones" de Control de Auditoría. Va al final de la fila de filtros de cada
-     pestaña (junto a Filtros Avanzados en Historial), así sale en las TRES. Solo super.admin, igual que sus entradas; la Papelera exige además user.delete
-     (sin él avisa y no abre, ver abrirPapelera en partials/papelera.blade.php). --}}
+     pestaña (junto a Filtros Avanzados en el Historial), así sale en las TRES. Solo
+     super.admin, igual que sus entradas; la Papelera exige además user.delete (sin él
+     avisa y no abre, ver abrirPapelera en partials/papelera.blade.php). --}}
 @can('super.admin')
 <div class="hd-acciones-wrap">
     <button type="button" id="hdBtnAcciones" class="btn-primary-maquinaria"

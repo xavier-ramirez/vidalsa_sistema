@@ -121,23 +121,6 @@
         .hd-total-card {
             display: none !important;
         }
-        .hd-collapsible-header {
-            cursor: pointer;
-        }
-        .hd-collapsible-header .hd-chevron {
-            display: inline-flex !important;
-            transition: transform 0.25s;
-        }
-        .hd-collapsible-body {
-            display: none;
-            overflow: hidden;
-        }
-        .hd-collapsible-body.hd-open {
-            display: block;
-        }
-        .hd-chevron.hd-open {
-            transform: rotate(180deg);
-        }
     }
 
     @media (max-width: 768px) {
@@ -316,12 +299,12 @@
     }
     /* ── Pestañas de Control de Auditoría: Historial · Compresión · Documentos ──
        Las dos ultimas las pinta admin/compresion_pdf/panel.blade.php. */
-    .hd-pest-fila { display: flex; align-items: flex-end; gap: 10px; width: 98%; max-width: 1600px; margin: -6px auto 14px; }
-    .hd-pest { display: flex; gap: 6px; border-bottom: 1px solid #e2e8f0; flex: 1 1 auto; min-width: 0; }
+    .hd-pest-fila { width: 98%; max-width: 1600px; margin: -6px auto 14px; }
+    .hd-pest { display: flex; gap: 6px; border-bottom: 1px solid #e2e8f0; min-width: 0; }
     .hd-pest button { border: none; background: none; font: inherit; font-size: 14.5px; font-weight: 700; color: #64748b;
                       padding: 8px 14px; border-bottom: 3px solid transparent; cursor: pointer; }
     .hd-pest button.on { color: #0067b1; border-bottom-color: #0067b1; }
-    .hd-pest .hd-pend { background: #fef3c7; color: #92400e; border-radius: 999px; padding: 1px 7px; font-size: 12px; margin-left: 4px; }
+    .hd-pest .hd-pend { background: #fee2e2; color: #b91c1c; border-radius: 999px; padding: 1px 7px; font-size: 12px; font-weight: 800; margin-left: 4px; }
     /* Teléfono: los nombres no se parten en tres renglones; si no caben, la fila se desliza. */
     @media (max-width: 768px) {
         .hd-pest { overflow-x: auto; scrollbar-width: none; }
@@ -760,14 +743,6 @@
 </script>
 
 <script>
-window.hdToggleCollapse = function (header) {
-    var body = header.parentElement.querySelector('.hd-collapsible-body');
-    var chevron = header.querySelector('.hd-chevron');
-    if (!body) return;
-    body.classList.toggle('hd-open');
-    if (chevron) chevron.classList.toggle('hd-open');
-};
-
 // ── Eliminar registro del historial (solo super.admin) ──
 // Solo las filas de AUDITORÍA (equipo_audit / catalogo_audit) se borran de verdad.
 // 'doc' (subida de documento) y 'equipo_creacion' (creación de vehículo) se avisan

@@ -28,7 +28,7 @@
     .cpdf-hero span { display: block; font-size: 12px; opacity: .85; line-height: 1.3; }
     /* Como las demas tarjetas: titulo arriba, y la cifra con su explicacion AL LADO. */
     .cpdf-hero > div { display: grid; grid-template-columns: auto 1fr; column-gap: 10px; align-items: center; }
-    .cpdf-hero small { grid-column: 1 / -1; }
+    .cpdf-hero > div small { grid-column: 1 / -1; }
     .cpdf-caja { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px 14px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.06); }
     .cpdf-caja small { display: block; font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: .5px; }
     .cpdf-caja strong { display: block; font-size: 22px; color: #0f172a; margin-top: 2px; font-variant-numeric: tabular-nums; line-height: 1.2; }
@@ -58,8 +58,8 @@
     .cpdf-avance-fila { display: grid; grid-template-columns: 1fr auto; align-items: center;
                         column-gap: 8px; text-decoration: none; padding: 4px 0; }
     .cpdf-avance-nombre { font-size: 12px; font-weight: 700; color: #334155; }
-    .cpdf-avance-barra { grid-column: 1 / -1; margin-top: 3px; }
-    .cpdf-avance-barra { height: 7px; border-radius: 99px; background: #e2e8f0; overflow: hidden; }
+    .cpdf-avance-barra { grid-column: 1 / -1; margin-top: 3px; height: 7px; border-radius: 99px;
+                         background: #e2e8f0; overflow: hidden; }
     .cpdf-avance-barra i { display: block; height: 100%; border-radius: 99px; background: #6d28d9; }
     .cpdf-avance-cifra { font-size: 11px; font-weight: 700; color: #64748b; font-variant-numeric: tabular-nums; }
     .cpdf-avance-listo { color: #15803d; text-transform: uppercase; font-size: 10px; letter-spacing: .5px; }
@@ -108,7 +108,8 @@
     .cpdf-tabla-caja .admin-table td:not(.cpdf-ancha) { white-space: nowrap; width: 1%; }
     .cpdf-tabla-caja .admin-table td.cpdf-ancha { width: 100%; white-space: normal; }
     .cpdf-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
-    .tabla-lista th.cpdf-num { text-align: right; }   /* le gana al text-align: left de .tabla-cabecera th */
+    /* Le gana al text-align: left que .tabla-cabecera th pone en la cabecera. */
+    .cpdf-tabla-caja .admin-table th.cpdf-num { text-align: right; }
     .cpdf-estado { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; }
     .cpdf-estado.comprimido { background: #dcfce7; color: #166534; }
     .cpdf-estado.saltado { background: #fef3c7; color: #92400e; cursor: help; }
@@ -215,9 +216,9 @@
     ];
     $estadosDoc = [
         'revisar'                 => 'PARA REVISAR A MANO',
-        // El mismo monton que cuenta la tarjeta "Sin aplicar". Tiene que estar en esta lista:
-        // el desplegable saca de aqui el nombre de lo filtrado y sin el la pantalla reventaba
-        // al pulsar la tarjeta (clave inexistente).
+        // Lo leido que todavia no se paso a la ficha. Tiene que estar en esta lista: el
+        // desplegable saca de aqui el nombre de lo filtrado y sin el la pantalla revienta
+        // al llegar con ?estado_doc=corregibles (clave inexistente).
         'corregibles'             => 'SIN APLICAR',
         \App\Models\VerificacionDocumento::DIFIERE     => 'Datos distintos',
         \App\Models\VerificacionDocumento::COINCIDE    => 'Coincide',
@@ -455,11 +456,6 @@
                 </div>
             </div>
             {{-- Cada tarjeta filtra la lista de abajo: se pulsa y se ve QUE filas son. --}}
-            <a class="cpdf-caja cpdf-filtra" href="{{ request()->fullUrlWithQuery(['estado_doc' => 'corregibles', 'page' => null]) }}">
-                <small>Sin aplicar</small>
-                <strong>{{ $docsCorregibles }}</strong>
-                <span>por pasar a la ficha</span>
-            </a>
             <a class="cpdf-caja cpdf-filtra" href="{{ request()->fullUrlWithQuery(['estado_doc' => 'revisar', 'page' => null]) }}">
                 <small>Para revisar a mano</small>
                 <strong>{{ $docsParaRevisar }}</strong>

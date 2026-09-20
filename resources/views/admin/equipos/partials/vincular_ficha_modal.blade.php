@@ -6,9 +6,10 @@
     encontraron solas su ficha (el modelo escrito distinto, otro año, varias fichas).
 
     Mismo ancho y organización que el modal "Anclaje de Equipos" (equipos_index.js):
-    buscador arriba, lista de filas con foto a la izquierda y un solo botón abajo. Abre con
-    las fichas sugeridas para el equipo y, si no existe la de su modelo + año, la opción de
-    crearla (catalogo.asegurarFicha) y vincularlo en el mismo paso.
+    buscador arriba (modelo, tipo o año), lista de filas con foto a la izquierda y un solo
+    botón abajo. Abre con las fichas sugeridas para el equipo y, mientras no exista la de su
+    modelo + año, ofrece arriba crearla (catalogo.asegurarFicha) y vincularlo en un paso —
+    también mientras se busca.
 
     Las fichas las busca CaracteristicaModeloController::elegir (mismas tarjetas que el
     catálogo) y el vínculo lo guarda EquipoController::vincularFicha. El comportamiento vive
@@ -26,15 +27,12 @@
     #vfModal .vf-x:hover { opacity:1; }
     #vfModal .vf-body { padding:16px 20px 20px; display:flex; flex-direction:column; gap:12px; min-height:0; }
 
-    /* Buscador (como #anchor-search-box) + año */
-    #vfModal .vf-filtros { display:flex; gap:8px; }
-    #vfModal .vf-buscar-caja { flex:1; min-width:0; display:flex; align-items:center; border:1.5px solid #e2e8f0; border-radius:10px; background:#fff; overflow:hidden; transition:border-color .2s; }
+    /* Buscador (como #anchor-search-box): busca por modelo, tipo o año. */
+    #vfModal .vf-buscar-caja { display:flex; align-items:center; border:1.5px solid #e2e8f0; border-radius:10px; background:#fff; overflow:hidden; transition:border-color .2s; }
     #vfModal .vf-buscar-caja:focus-within { border-color:#0067b1; }
     #vfModal .vf-buscar-caja .material-icons { padding:0 10px; color:#94a3b8; font-size:18px; flex-shrink:0; }
     #vfModal .vf-buscar { flex:1; min-width:0; border:none; outline:none; padding:9px 6px 9px 0; font-size:13px; background:transparent; color:#0f172a; text-transform:uppercase; }
     #vfModal .vf-buscar::placeholder { text-transform:none; color:#94a3b8; }
-    #vfModal .vf-anio { flex:0 0 118px; border:1.5px solid #e2e8f0; border-radius:10px; padding:0 8px; font-size:13px; color:#0f172a; background:#fff; outline:none; }
-    #vfModal .vf-anio:focus { border-color:#0067b1; }
 
     /* Lista de fichas (como #anchorEquiposList) */
     #vfModal .vf-lista { max-height:360px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:12px; background:#f8fafc; padding:8px; display:flex; flex-direction:column; gap:6px; }
@@ -74,7 +72,6 @@
     @media (max-width: 480px) {
         #vfModal { padding:8px; }
         #vfModal .vf-body { padding:14px; }
-        #vfModal .vf-anio { flex-basis:96px; }
         #vfModal .vf-foto { width:84px; height:56px; }
     }
 </style>
@@ -89,15 +86,10 @@
             <button type="button" class="vf-x" data-vf-cerrar aria-label="Cerrar"><i class="material-icons">close</i></button>
         </div>
         <div class="vf-body">
-            <div class="vf-filtros">
-                <label class="vf-buscar-caja">
-                    <i class="material-icons">search</i>
-                    <input type="text" id="vfBuscar" class="vf-buscar" placeholder="Buscar en todo el catálogo..." autocomplete="off">
-                </label>
-                <select id="vfAnio" class="vf-anio" aria-label="Año">
-                    <option value="">Todos los años</option>
-                </select>
-            </div>
+            <label class="vf-buscar-caja">
+                <i class="material-icons">search</i>
+                <input type="text" id="vfBuscar" class="vf-buscar" placeholder="Buscar por modelo, tipo o año..." autocomplete="off">
+            </label>
             <div class="vf-lista" id="vfResultados"></div>
             <button type="button" class="vf-vincular" id="vfVincular" disabled>
                 <i class="material-icons">link</i> Vincular
