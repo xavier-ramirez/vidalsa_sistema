@@ -186,6 +186,27 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
         $this->assertStringStartsWith('2020-05-10', (string) $doc->getRawOriginal('FECHA_EMISION_PROPIEDAD'));
     }
 
+    /**
+     * En LOCAL no se borra de Drive el documento reemplazado.
+     *
+     * El .env de desarrollo apunta al Drive REAL (mismas credenciales y carpetas que el
+     * servidor) aunque la base sea una copia. Sin este freno, probar un reemplazo desde el
+     * local borraria el PDF al que apunta el enlace del SERVIDOR y ese documento se perderia
+     * para todos. Se deja huerfano, que no le hace daño a nadie.
+     */
+    public function test_en_local_no_borra_de_drive_el_documento_reemplazado(): void
+    {
+        $this->app->detectEnvironment(fn () => 'local');
+        $equipo = $this->equipo(['LINK_ROTC' => '/storage/google/el-del-servidor', 'FECHA_ROTC' => now()->addMonths(2)->toDateString()]);
+        $this->actingAs($this->usuario());
+
+        $r = $this->servicio()->aplicar($equipo->ID_EQUIPO, 'rotc', '/storage/google/el-nuevo', now()->addYear()->toDateString(), null, true);
+
+        $this->assertTrue($r['ok'], $r['mensaje']);
+        $this->assertSame('/storage/google/el-nuevo', $equipo->documentacion()->first()->LINK_ROTC, 'la ficha local SÍ se actualiza');
+        Bus::assertNotDispatchedAfterResponse(DeleteGoogleDriveFile::class);
+    }
+
     // ── Modo ensayo: comprueba todo y no escribe ──────────────────────────────
 
     /**

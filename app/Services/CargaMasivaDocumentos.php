@@ -366,8 +366,21 @@ class CargaMasivaDocumentos
         }
 
         // El PDF que estaba se borra DESPUES de guardar el nuevo, igual que en uploadDoc.
+        //
+        // EN LOCAL NO SE BORRA. El .env de desarrollo apunta al Drive REAL (las mismas
+        // credenciales y carpetas que el servidor), mientras que la base de datos si es una
+        // copia. O sea: reemplazar un documento desde el local no toca la ficha del servidor,
+        // pero SI borraria de Drive el archivo al que apunta su enlace, y ese documento se
+        // perderia para todos. Se deja el archivo huerfano, que no le hace daño a nadie, y
+        // queda en el log para poder limpiarlo a mano si hiciera falta.
         if ($anterior && $anterior !== $link && ($viejoId = DocumentoAnexo::driveIdDeLink($anterior))) {
-            GoogleDriveService::borrarTrasResponder($viejoId);
+            if (app()->environment('local')) {
+                Log::info('Carga masiva en local: NO se borra de Drive el documento reemplazado', [
+                    'equipo' => $equipo->ID_EQUIPO, 'tipo' => $tipo, 'drive_id' => $viejoId,
+                ]);
+            } else {
+                GoogleDriveService::borrarTrasResponder($viejoId);
+            }
         }
 
         EquipoAuditLog::registrar($equipo->ID_EQUIPO, 'upload_' . $tipo, [
