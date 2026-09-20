@@ -16,27 +16,31 @@
        título va dentro de la tarjeta, con su ícono en una pastilla azul clara. */
     #hdCmOverlay { position: fixed; inset: 0; background: rgba(15,23,42,0.45); z-index: 2500; display: flex; justify-content: center; align-items: center; }
     .hd-cm-modal { background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; width: 94%; max-width: 880px;
-                   max-height: 90vh; display: flex; flex-direction: column; overflow: hidden;
+                   max-height: 86vh; display: flex; flex-direction: column; overflow: hidden;
                    box-shadow: 0 20px 45px -12px rgba(15,23,42,0.30); }
-    .hd-cm-head { padding: 18px 20px 14px; display: flex; align-items: center; gap: 12px; }
-    .hd-cm-head-ic { flex: 0 0 auto; width: 38px; height: 38px; border-radius: 11px; background: #eff6ff;
-                     color: #0067b1; display: flex; align-items: center; justify-content: center; }
-    .hd-cm-head-ic .material-icons { font-size: 21px; }
+    /* Encabezado CON COLOR (el mismo degradado del botón principal y del aviso de cierre de
+       sesión): el modal era todo blanco y no se distinguía del fondo de la página. */
+    .hd-cm-head { padding: 11px 14px; display: flex; align-items: center; gap: 10px;
+                  background: linear-gradient(135deg,#00004d 0%,#0067b1 100%); color: #fff; }
+    .hd-cm-head-ic { flex: 0 0 auto; width: 30px; height: 30px; border-radius: 9px;
+                     background: rgba(255,255,255,.18); color: #fff;
+                     display: flex; align-items: center; justify-content: center; }
+    .hd-cm-head-ic .material-icons { font-size: 18px; }
     .hd-cm-head-txt { flex: 1 1 auto; min-width: 0; }
-    .hd-cm-head h2 { margin: 0; font-size: 15px; font-weight: 800; color: #0f172a; line-height: 1.3; }
-    .hd-cm-head p { margin: 2px 0 0; font-size: 12px; color: #64748b; line-height: 1.35; }
-    .hd-cm-cerrar { flex: 0 0 auto; background: transparent; border: none; color: #94a3b8; cursor: pointer;
-                    display: flex; padding: 4px; border-radius: 8px; align-self: flex-start; }
-    .hd-cm-cerrar:hover { color: #475569; background: #f1f5f9; }
+    .hd-cm-head h2 { margin: 0; font-size: 14px; font-weight: 800; color: #fff; line-height: 1.25; }
+    .hd-cm-head p { margin: 1px 0 0; font-size: 11.5px; color: rgba(255,255,255,.78); line-height: 1.3; }
+    .hd-cm-cerrar { flex: 0 0 auto; background: transparent; border: none; color: rgba(255,255,255,.75);
+                    cursor: pointer; display: flex; padding: 4px; border-radius: 8px; }
+    .hd-cm-cerrar:hover { color: #fff; background: rgba(255,255,255,.16); }
 
     /* Barra de arriba: tipo + zona de soltar. */
-    .hd-cm-tools { padding: 0 20px 14px; display: flex; flex-direction: column; gap: 10px; flex-shrink: 0; }
+    .hd-cm-tools { padding: 10px 14px; display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; }
     .hd-cm-fila { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
     .hd-cm-campo { display: flex; flex-direction: column; gap: 3px; }
     .hd-cm-rot { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .7px; color: #94a3b8; white-space: nowrap; }
     .hd-cm-select { height: 34px; padding: 0 8px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; font: inherit; font-size: 12.5px; color: #334155; cursor: pointer; }
     .hd-cm-select:focus { outline: none; border-color: #0067b1; box-shadow: 0 0 0 3px rgba(0,103,177,.10); }
-    .hd-cm-zona { flex: 1 1 260px; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 8px; height: 56px; border: 2px dashed #cbd5e1; border-radius: 10px; background: #f8fafc; color: #64748b; font-size: 12.5px; font-weight: 600; cursor: pointer; text-align: center; padding: 0 10px; transition: border-color .15s, background .15s; }
+    .hd-cm-zona { flex: 1 1 260px; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 8px; height: 44px; border: 2px dashed #cbd5e1; border-radius: 10px; background: #f8fafc; color: #64748b; font-size: 12.5px; font-weight: 600; cursor: pointer; text-align: center; padding: 0 10px; transition: border-color .15s, background .15s; }
     .hd-cm-zona:hover, .hd-cm-zona.encima { border-color: #0067b1; background: #eff6ff; color: #0067b1; }
     .hd-cm-zona .material-icons { font-size: 22px; }
 
@@ -47,8 +51,8 @@
     .hd-cm-barra i { display: block; height: 100%; width: 0; background: #0067b1; transition: width .25s; }
 
     /* La lista de archivos. */
-    .hd-cm-list { overflow-y: auto; background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 12px 20px; flex: 1; min-height: 180px; }
-    .hd-cm-row { background: #fff; border: 1px solid #e2e8f0; border-left-width: 3px; border-radius: 9px; margin-bottom: 6px; padding: 9px 11px; }
+    .hd-cm-list { overflow-y: auto; background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 10px 14px; flex: 1; min-height: 120px; }
+    .hd-cm-row { background: #fff; border: 1px solid #e2e8f0; border-left-width: 3px; border-radius: 9px; margin-bottom: 5px; padding: 7px 10px; }
     .hd-cm-row[data-estado="cola"]       { border-left-color: #cbd5e1; }
     .hd-cm-row[data-estado="leyendo"]    { border-left-color: #0067b1; }
     .hd-cm-row[data-estado="listo"]      { border-left-color: #10b981; }
@@ -72,16 +76,23 @@
     .hd-cm-pisar { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 700; color: #b45309; white-space: nowrap; cursor: pointer; }
     .hd-cm-aviso { margin-top: 6px; font-size: 11.5px; color: #b45309; line-height: 1.35; }
     .hd-cm-row[data-estado="ilegible"] .hd-cm-aviso, .hd-cm-row[data-estado="error"] .hd-cm-aviso { color: #b91c1c; }
-    .hd-cm-vacio { padding: 30px 14px; text-align: center; color: #94a3b8; font-size: 12px; }
+    /* Sin archivos el aviso se centra en el hueco: si no, quedaba pegado arriba y el
+       resto del modal era una mancha blanca vacía. */
+    .hd-cm-vacio { height: 100%; min-height: 110px; display: flex; flex-direction: column;
+                   align-items: center; justify-content: center; text-align: center;
+                   color: #94a3b8; font-size: 12px; line-height: 1.5; }
 
-    .hd-cm-pie { padding: 14px 20px 18px; border-top: 1px solid #e2e8f0; display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
-    .hd-cm-resumen { flex: 1 1 auto; font-size: 11.5px; color: #64748b; font-weight: 700; }
-    /* Los dos botones con la MISMA caja (42 px, radio 8) y el texto centrado, como el
-       "Mantener Sesión" del aviso de cierre de sesión. */
-    .hd-cm-btn { flex: 0 0 auto; height: 42px; padding: 0 18px; border: none; border-radius: 8px; font: inherit;
-                 font-size: 13.5px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center;
-                 justify-content: center; gap: 8px; transition: transform .15s, box-shadow .15s; }
-    .hd-cm-btn .material-icons { font-size: 18px; }
+    /* Pie en dos renglones: el resumen arriba, centrado, y los botones CENTRADOS debajo.
+       Antes iban a los lados con el resumen empujándolos y quedaban descolgados. */
+    .hd-cm-pie { padding: 9px 14px 11px; border-top: 1px solid #e2e8f0; display: flex; flex-direction: column;
+                 align-items: center; gap: 7px; flex-shrink: 0; }
+    .hd-cm-resumen { font-size: 11.5px; color: #64748b; font-weight: 700; text-align: center; }
+    .hd-cm-botones { display: flex; align-items: center; justify-content: center; gap: 8px; }
+    /* Comprimidos: 34 px en vez de 42, que era lo que más estiraba el modal a lo alto. */
+    .hd-cm-btn { flex: 0 0 auto; height: 34px; padding: 0 14px; border: none; border-radius: 8px; font: inherit;
+                 font-size: 12.5px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center;
+                 justify-content: center; gap: 6px; transition: transform .15s, box-shadow .15s; }
+    .hd-cm-btn .material-icons { font-size: 16px; }
     .hd-cm-btn.primario { background: linear-gradient(135deg,#00004d 0%,#0067b1 100%); color: #fff;
                           box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
     .hd-cm-btn.primario:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 12px rgba(0,0,0,.15); }
@@ -175,9 +186,11 @@
                 '<div class="hd-cm-list" id="hdCmList"></div>' +
                 '<div class="hd-cm-pie">' +
                     '<span class="hd-cm-resumen" id="hdCmResumen"></span>' +
-                    '<button type="button" class="hd-cm-btn plano" id="hdCmVaciar">Vaciar la lista</button>' +
-                    '<button type="button" class="hd-cm-btn primario" id="hdCmAplicar" disabled>' +
-                        '<i class="material-icons">playlist_add_check</i><span id="hdCmAplicarTxt">Aplicar</span></button>' +
+                    '<div class="hd-cm-botones">' +
+                        '<button type="button" class="hd-cm-btn plano" id="hdCmVaciar">Vaciar la lista</button>' +
+                        '<button type="button" class="hd-cm-btn primario" id="hdCmAplicar" disabled>' +
+                            '<i class="material-icons">playlist_add_check</i><span id="hdCmAplicarTxt">Aplicar</span></button>' +
+                    '</div>' +
                 '</div>' +
             '</div>';
         document.body.appendChild(o);
@@ -251,12 +264,13 @@
         }
         var res = $('hdCmResumen');
         if (res) {
-            res.textContent = estado.filas.length
+            var aviso = estado.ensayo ? 'MODO ENSAYO: no se escribe en ninguna ficha ni se borra ningún PDF. · ' : '';
+            res.textContent = aviso + (estado.filas.length
                 ? (estado.filas.length + ' archivo' + (estado.filas.length === 1 ? '' : 's') +
                    ' · ' + fichas + ' ficha' + (fichas === 1 ? '' : 's') + ' por actualizar' +
                    ' · ' + (estado.ensayo ? (probados + ' probado' + (probados === 1 ? '' : 's'))
                                          : (aplicados + ' aplicado' + (aplicados === 1 ? '' : 's'))))
-                : '';
+                : '');
         }
     }
 
