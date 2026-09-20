@@ -21,11 +21,18 @@ abstract class TestCase extends BaseTestCase
      * Tests\MySqlTestCase es la excepcion legitima —usa la base real a proposito, dentro de
      * una transaccion que revierte— y por eso redefine este control.
      */
-    protected function setUp(): void
+    /**
+     * El control va AQUI y no en setUp() a proposito: createApplication() corre ANTES de
+     * setUpTraits(), que es donde RefreshDatabase lanza su migrate:fresh. Comprobarlo en
+     * setUp() llegaba tarde — la base ya estaria borrada.
+     */
+    public function createApplication()
     {
-        parent::setUp();
+        $app = parent::createApplication();
 
         $this->prohibirBaseReal();
+
+        return $app;
     }
 
     protected function prohibirBaseReal(): void

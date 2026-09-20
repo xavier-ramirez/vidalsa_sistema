@@ -23,6 +23,16 @@
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="BROADCAST_CONNECTION" value="null"/>
         <env name="CACHE_STORE" value="array"/>
+        <!-- Las pruebas IGNORAN la configuracion cacheada.
+             Sin esto, con bootstrap/cache/config.php presente (php artisan config:cache, que
+             en local esta puesto porque quita ~30-60 ms por peticion) las variables de este
+             archivo NO se aplican: la configuracion ya viene resuelta del .env y las pruebas
+             saldrian apuntando a la base MySQL de trabajo. Como hay casos con RefreshDatabase
+             (migrate:fresh), eso habria borrado la base real.
+             APP_CONFIG_CACHE apunta a un archivo que nunca existe, asi que en pruebas la
+             configuracion se arma siempre desde config/ + estas variables.
+             La segunda red es Tests\TestCase::prohibirBaseReal. -->
+        <env name="APP_CONFIG_CACHE" value="bootstrap/cache/config.pruebas-no-existe.php"/>
         <env name="DB_CONNECTION" value="sqlite"/>
         <env name="DB_DATABASE" value=":memory:"/>
         <env name="MAIL_MAILER" value="array"/>
