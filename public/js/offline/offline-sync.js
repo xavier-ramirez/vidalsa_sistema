@@ -14,7 +14,9 @@
  *   2) Cada CHECK_CADA_MS mientras haya internet. Ese chequeo YA es barato de por sí
  *      (~0,5 KB si no cambió nada), así que no hace falta preguntar antes por la versión.
  *   3) Al volver la conexión (evento 'online').
- *   4) Manual: window.OfflineDB.sync(true) — para un botón "Actualizar datos".
+ *   4) Forzada: window.OfflineDB.sync(true). YA NO hay un botón "Copia local" en el menú
+ *      (se quitó); quedan los disparos que no pueden esperar al refresco de los 10 min:
+ *      tras vaciar el outbox y al descartar una acción pendiente.
  *
  * PRIORIDAD: la búsqueda del usuario manda. La bajada usa fetch priority:'low' y
  * los disparadores automáticos esperan inactividad (requestIdleCallback) para no
