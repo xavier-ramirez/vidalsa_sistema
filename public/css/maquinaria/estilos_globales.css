@@ -17,7 +17,9 @@
     --maquinaria-red: #a91d28;
     --maquinaria-dark-blue: #00004d;
     --maquinaria-gray-text: #707070;
-    --maquinaria-gray-bg: #f0f0f5;
+    /* Fondo de la pagina. Mas oscuro que el gris de antes (#f0f0f5, a un 4 % del blanco):
+       con el brillo alto no se distinguia de las tarjetas blancas. */
+    --maquinaria-gray-bg: #e9edf4;
 }
 
 /* --- PRELOADER STYLES (Logo & Background) --- */
@@ -3795,6 +3797,11 @@ body:has(.mobile-menu.active) .selection-floating-bar {
 
 /* --- Movilidad Modal PDF: Overlay Panel en lugar de Grid en teléfonos --- */
 @media (max-width: 768px) {
+    /* En el teléfono los datos se abren con el botón de la cabecera (pdfAlternarDatos). */
+    #pdfBtnDatos { display: flex !important; }
+    /* En el teléfono, proporcional a la pantalla: con los 260 px fijos del escritorio el
+       contenido se salía por la derecha. Con el ID, porque así se define arriba. */
+    #pdfMetadataPanel.pdf-metadata-panel-responsive { --pdf-panel-datos: min(320px, 88vw); }
     .pdf-metadata-panel-responsive {
         position: absolute !important;
         right: 0;

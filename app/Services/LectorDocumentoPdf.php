@@ -376,6 +376,17 @@ class LectorDocumentoPdf
                 $datos['desde'] = $this->fecha($m[1]);
             }
         }
+        // ANEXO de poliza (el de flota, "SE AMPARA LOS SIGUIENTES VEHICULOS"): no trae "Desde /
+        // Hasta"; su unica fecha es la de la firma, en la ultima pagina ("se firma en la ciudad
+        // de CARACAS a los 25 dias del mes de Marzo del año 2026"). Esa es su emision y vence
+        // UN AÑO despues (regla del cliente, 19-09-2026). Solo si no se encontro la vigencia.
+        if (!$datos['vence'] && preg_match('/\bANEXO\b/u', $plano)
+            && preg_match('/se\s+firma\s+en\s+la\s+ciudad\s+de\s+[^\r\n]{2,40}?\s+a\s+los\s+(\d{1,2})\s+d[ií]as?\s+del\s+mes\s+de\s+(\p{L}{4,12})\s+del\s+a[ñn]o\s+(\d{4})/ui', $plano, $m)
+            && ($firma = $this->fechaDeMes($m[1], $m[2], $m[3]))) {
+            $datos['emision'] = $datos['desde'] = $firma;
+            $datos['vence'] = date('Y-m-d', strtotime($firma . ' +1 year'));
+            $datos['vence_por_firma'] = true;
+        }
         // La emision solo se toma si esta pegada a su rotulo: en las hojas donde el
         // reconocimiento la separa, cualquier otra fecha de la pagina ocuparia su lugar.
         if (preg_match('/Fecha\s*(?:de\s*)?Emisi[oó]n:?\s*' . $f . '/ui', $plano, $m)) {

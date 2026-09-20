@@ -528,7 +528,7 @@ Route::middleware(['auth'])->group(function () {
                 // Varias de una vez, eligiendo las filas en la tabla, sin abrir el visor.
                 Route::post('compresion-pdf/documentos/revisados', [App\Http\Controllers\CompresionPdfController::class, 'marcarRevisados'])
                     ->name('compresion-pdf.documentos.revisados');
-                // "Revisar ahora": la lectura de documentos arranca ya, fuera de su horario.
+                // "Revisar ahora": la lectura de documentos arranca ya, a cualquier hora.
                 Route::post('compresion-pdf/documentos/leer-ahora', [App\Http\Controllers\CompresionPdfController::class, 'leerAhora'])
                     ->name('compresion-pdf.documentos.leer-ahora');
             });

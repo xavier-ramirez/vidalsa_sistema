@@ -524,12 +524,6 @@
                         <i class="material-icons">fact_check</i> Control de Auditoría
                     </a>
                     @endcan
-                    {{-- Baja AHORA una copia de la base de datos a IndexedDB para poder
-                         trabajar SIN internet (snapshot manual → OfflineDB.sync(true)).
-                         La copia también se baja sola cada cierto tiempo; esto la fuerza. --}}
-                    <a href="#" class="nav-dropdown-link" onclick="window.descargarSnapshotOffline(event)">
-                        <i class="material-icons">cloud_download</i> Copia local
-                    </a>
                 </div>
             </div>
         </nav>
@@ -679,10 +673,6 @@
                     <i class="material-icons">fact_check</i> Control de Auditoría
                 </a>
                 @endcan
-                {{-- Descargar copia de la base de datos para trabajar SIN internet. --}}
-                <a href="#" class="mobile-nav-link" onclick="window.descargarSnapshotOffline(event)">
-                    <i class="material-icons">cloud_download</i> Copia local
-                </a>
             </div>
         </div>
 
@@ -799,6 +789,14 @@
 
                 <div style="display: flex; align-items: center; gap: 8px;">
 
+
+                    {{-- Solo TELÉFONO: ahí el panel de datos no se abre solo (taparía el PDF),
+                         así que sin este botón no había forma de revisar a mano desde el móvil. --}}
+                    <button id="pdfBtnDatos" type="button" onclick="window.pdfAlternarDatos()"
+                        title="Editar los datos del documento"
+                        style="background: #0067b1; border: none; width: 30px; height: 30px; display: none; align-items: center; justify-content: center; color: white; border-radius: 6px; cursor: pointer;">
+                        <i class="material-icons" style="font-size: 17px;">edit_note</i>
+                    </button>
 
                     <button id="pdfDownloadBtn" onclick="downloadPdfDirect(this.dataset.url, this.dataset.label)"
                         title="Descargar"
@@ -1314,37 +1312,6 @@
 
         {{-- ===== OFFLINE (Fase 1): baja la copia de datos a IndexedDB para consultar sin internet ===== --}}
         <script src="{{ asset('js/offline/offline-sync.js') }}?v={{ @filemtime(public_path('js/offline/offline-sync.js')) }}" defer></script>
-        {{-- Botón "Copia local" (menú Configuraciones): fuerza la
-             bajada del snapshot AHORA y da feedback. La lógica de descarga vive en
-             offline-sync.js (OfflineDB.sync(true)); aquí solo va la parte de UI. --}}
-        <script>
-            window.descargarSnapshotOffline = function (ev) {
-                if (ev) ev.preventDefault();
-                var toast = window.toast;   // helper central (dom_helpers.js)
-                if (!navigator.onLine) {
-                    return toast('Necesitas conexión a internet para descargar la copia.', 'error');
-                }
-                if (!window.OfflineDB || typeof window.OfflineDB.sync !== 'function') {
-                    return toast('El módulo offline aún no está listo. Espera unos segundos e inténtalo de nuevo.', 'error');
-                }
-                if (window._descargandoSnapshot) {
-                    return toast('Ya hay una descarga en curso, espera un momento…', 'info');
-                }
-                window._descargandoSnapshot = true;
-                toast('Descargando copia de la base de datos…', 'info');
-                window.OfflineDB.sync(true)
-                    .then(function (r) {
-                        // sync() resuelve con {ok, cambios}. Se distinguen los TRES casos: antes
-                        // "ya estabas al día" (cambios=false) salía como "revisa tu conexión",
-                        // que es el error opuesto — la copia estaba perfecta.
-                        if (!r || !r.ok) toast('No se pudo descargar la copia. Revisa tu conexión e inténtalo de nuevo.', 'error');
-                        else if (r.cambios) toast('Copia actualizada. Ya puedes trabajar sin internet.', 'success');
-                        else toast('Tu copia local ya estaba al día.', 'success');
-                    })
-                    .catch(function () { toast('Error al descargar la copia.', 'error'); })
-                    .finally(function () { window._descargandoSnapshot = false; });
-            };
-        </script>
         {{-- offline-auth.js NO se carga aquí a propósito: solo tiene trabajo en la pantalla
              de login (preparar y confirmar el verificador de acceso sin conexión, y el botón
              "Entrar sin conexión"). Antes se cargaba para "confirmar" un verificador que

@@ -16,7 +16,7 @@ Artisan::command('inspire', function () {
 // ── Documentos: dos tareas de noche que leen de Google Drive, en franjas que NO se tocan ──
 // Las horas viven en cada comando (su HORARIO, hora de la app: America/Caracas) y el panel
 // de Control de Auditoría las lee de ahí; aquí no se escribe ninguna.
-//   · docs:verificar-documentos  VerificarDocumentos::HORARIO  (8:00 p.m. – 1:00 a.m.)
+//   · docs:verificar-documentos  VerificarDocumentos::HORARIO  (8:00 p.m. – 12:00 de la noche)
 //   · docs:comprimir             ComprimirDocumentos::HORARIO  (2:00 – 5:00 a.m.)
 // La lectura arranca también fuera de su franja si se pulsa "Revisar ahora" en el panel
 // (VerificarDocumentos::pedirAhora). Dentro de su franja se intentan cada minuto, pero SOLO se lanza el proceso si hay algo que

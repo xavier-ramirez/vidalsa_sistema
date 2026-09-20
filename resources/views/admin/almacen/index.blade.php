@@ -3028,32 +3028,25 @@
         almCargar();
     };
     // "Limpiar Todo" limpia lo del panel; las tarjetas Con stock / Stock bajo van aparte.
+    // Sin nada puesto no hace nada: antes recargaba la tabla igual y parpadeaba por nada.
     window.almAvanzadoLimpiar = function () {
+        if (!val('almFiltroUm')) return;
         almSoltarUm();
         almPintarAvanzado();
         almResetPick();
         almCargar();
     };
+    // Los atajos globales del Consolidado ("Stock bajo" / "Con stock") son excluyentes con
+    // filtrar por texto o categoría, y se SUELTAN al APLICAR el filtro nuevo (almBuscarEnter,
+    // almBuscarPick, almCatEnter, almCatPick llaman a almResetBadges), NO al hacer foco en el
+    // campo: soltarlos al foco recargaba la tabla sin ningún filtro y, como el almacén sin
+    // filtros abre vacío, la tabla quedaba en blanco antes de escribir nada (18-09-2026).
+    // Mientras se escribe, la tabla sigue mostrando lo del atajo.
     window.almResetBadges = function() {
         soloConSaldo = false;
         soloBajo = false;
         almPintarBadges();
     };
-    // Enfocar "Buscar" o "Categoría" SUELTA los atajos globales del Consolidado
-    // ("Stock bajo" / "Con stock"). Son vistas globales excluyentes con filtrar por texto o
-    // categoría: con un atajo pegado, el producto buscado no aparecía si no calificaba para
-    // él (p. ej. buscar por descripción con "Stock bajo" encendido no lo encontraba).
-    // Los puntos que APLICAN el filtro ya llamaban a almResetBadges() (almBuscarEnter,
-    // almBuscarPick, almCatEnter, almCatPick); esto lo adelanta al
-    // FOCO, para que el badge no siga encendido mientras se escribe.
-    // Punto ÚNICO de los dos campos: la lógica no se repite en cada onfocus.
-    // Recarga solo si de verdad había un atajo activo — si no, un clic en el campo
-    // dispararía una petición inútil.
-    function almSoltarAtajosStock() {
-        if (!soloBajo && !soloConSaldo) return;
-        almResetBadges();
-        almCargar();
-    }
     // Reset COMPLETO del estado del módulo — lo llama el guard cuando la vista se re-monta por
     // navegación SPA. Reúne las piezas que ya limpian cada cosa (badges + pick + selección) para
     // no duplicar lógica; almSelClear vacía almSeleccion/almSoloSel y refresca la barra flotante.
@@ -3304,14 +3297,14 @@
         window.QrScan.iconToggle();   // ocultar el icono escanear mientras hay texto
         window.almBuscarSuggest();
     };
-    // Buscar por código o descripción suelta los atajos "Stock bajo"/"Con stock"
-    // (ver almSoltarAtajosStock). Igual que el foco del filtro de Categoría.
+    // Buscar por código o descripción: el foco solo abre sugerencias; los atajos "Stock
+    // bajo"/"Con stock" se sueltan al aplicar la búsqueda (ver almResetBadges).
     window.almBuscarFocus = function () {
         // Reintenta cargar el catálogo async si la 1ª carga falló (blip de red): al hacer foco
         // en el buscador se vuelve a intentar. almCargarProductos está guardado (no re-fetchea
         // si ya cargó o está en curso), así que es seguro llamarlo aquí.
         if (!window.almProductosCargados && typeof window.almCargarProductos === 'function') window.almCargarProductos();
-        almSoltarAtajosStock(); window.almBuscarSuggest();
+        window.almBuscarSuggest();
     };
     window.almBuscarEnter = function (ev) {
         if (ev && ev.key !== 'Enter') return;
@@ -3399,7 +3392,7 @@
     // La tabla se filtra cuando el usuario (a) elige una sugerencia [almCatPick],
     // (b) pulsa Enter [almCatEnter], o (c) limpia el campo con la X [almCatLimpiar].
     window.almCatInput = function () { window.almCatSuggest(); };
-    window.almCatFocus = function () { almSoltarAtajosStock(); window.almCatSuggest(); };
+    window.almCatFocus = function () { window.almCatSuggest(); };
     window.almCatEnter = function (ev) {
         if (ev && ev.key !== 'Enter') return;
         if (ev) ev.preventDefault();

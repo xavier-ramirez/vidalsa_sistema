@@ -24,11 +24,20 @@
     .cpdf-hero .material-icons { font-size: 26px; opacity: .85; }
     .cpdf-hero small { display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.2px; opacity: .9; }
     .cpdf-hero strong { display: block; font-size: 28px; font-weight: 800; line-height: 1.1; }
-    .cpdf-hero span { display: block; font-size: 12px; opacity: .85; }
+    .cpdf-hero span { display: block; font-size: 12px; opacity: .85; line-height: 1.3; }
+    /* Como las demas tarjetas: titulo arriba, y la cifra con su explicacion AL LADO. */
+    .cpdf-hero > div { display: grid; grid-template-columns: auto 1fr; column-gap: 10px; align-items: center; }
+    .cpdf-hero small { grid-column: 1 / -1; }
     .cpdf-caja { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px 14px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.06); }
     .cpdf-caja small { display: block; font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: .5px; }
     .cpdf-caja strong { display: block; font-size: 22px; color: #0f172a; margin-top: 2px; font-variant-numeric: tabular-nums; line-height: 1.2; }
     .cpdf-caja span { display: block; font-size: 12px; color: #64748b; margin-top: 2px; }
+    /* Tarjeta de dato: dos lineas. Arriba el titulo; abajo la cifra y, a su lado, la
+       explicacion, que si no cabe parte dentro de su columna (no se mete bajo la cifra). */
+    .cpdf-caja:not(.cpdf-aviso):not(.cpdf-avance) { display: grid; grid-template-columns: auto 1fr;
+                                                    column-gap: 10px; align-items: center; }
+    .cpdf-caja:not(.cpdf-aviso):not(.cpdf-avance) small { grid-column: 1 / -1; }
+    .cpdf-caja:not(.cpdf-aviso):not(.cpdf-avance) span { line-height: 1.3; }
     .cpdf-aviso { display: flex; gap: 10px; align-items: flex-start; }
     .cpdf-aviso .material-icons { font-size: 20px; margin-top: 1px; }
     .cpdf-aviso strong { font-size: 13px; margin: 0; line-height: 1.35; }
@@ -53,27 +62,46 @@
     .cpdf-avance-barra i { display: block; height: 100%; border-radius: 99px; background: #6d28d9; }
     .cpdf-avance-cifra { font-size: 11px; font-weight: 700; color: #64748b; font-variant-numeric: tabular-nums; }
     .cpdf-avance-listo { color: #15803d; text-transform: uppercase; font-size: 10px; letter-spacing: .5px; }
-    /* Revisar a mano en el visor: bajo cada campo, lo que dice el documento (panel oscuro). */
-    .cpdf-pista { margin-top: 4px; font-size: 11.5px; color: #cbd5e0; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-    .cpdf-pista b { color: #fde68a; font-weight: 700; word-break: break-word; }
-    .cpdf-pista button { margin-left: auto; background: #2563eb; color: #fff; border: 0; border-radius: 4px; padding: 2px 9px; font-size: 11px; cursor: pointer; }
-    .cpdf-pista-aviso { margin-bottom: 12px; padding: 8px 10px; border-radius: 6px; background: rgba(37,99,235,.15);
-                        border: 1px solid rgba(96,165,250,.4); color: #dbeafe; font-size: 12px; line-height: 1.35; }
-    .cpdf-concl { font-size: 12.5px; }
-    .cpdf-concl b { color: #fff; }
-    .cpdf-concl-motivo { margin-top: 3px; color: #fde68a; }
-    .cpdf-concl-dif { margin-top: 3px; }
-    .cpdf-concl-dif b { color: #fde68a; }
-    .cpdf-extra { margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(96,165,250,.3); }
-    .cpdf-extra input[type="date"], .cpdf-extra input[type="text"] { width: 100%; box-sizing: border-box; margin: 4px 0; height: 30px;
-        padding: 4px 8px; border-radius: 4px; border: 1px solid #555; background: #282828; color: #fff; font-size: 12.5px; }
-    .cpdf-extra label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+    /* Revisar a mano en el visor (panel oscuro del visor). Arriba, la tarjeta de la revisión
+       (.cpdf-pista-aviso): estado, motivo y, dato a dato, "ficha → documento"; debajo de cada
+       campo del panel, lo que dice el documento con su botón "Usar" (.cpdf-pista). */
+    .cpdf-pista-aviso { margin-bottom: 14px; border-radius: 8px; background: #1e293b; border: 1px solid #334155;
+                        color: #cbd5e1; font-size: 12px; line-height: 1.4; overflow: hidden; }
+    .cpdf-rev-cab { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px; border-bottom: 1px solid #334155; }
+    .cpdf-rev-cab small { font-size: 10.5px; font-weight: 800; letter-spacing: .6px; text-transform: uppercase; color: #94a3b8; }
+    .cpdf-rev-estado { padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; background: rgba(245, 158, 11, .16); color: #fcd34d; }
+    .cpdf-rev-motivo { padding: 8px 12px 0; color: #e2e8f0; }
+    .cpdf-rev-lista { padding: 2px 12px 6px; }
+    .cpdf-rev-dif { padding: 7px 0; border-bottom: 1px solid rgba(148, 163, 184, .15); }
+    .cpdf-rev-dif:last-child { border-bottom: none; }
+    .cpdf-rev-campo { font-size: 10.5px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; color: #94a3b8; margin-bottom: 2px; }
+    .cpdf-rev-val { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+    .cpdf-rev-val .material-icons { font-size: 14px; color: #64748b; }
+    .cpdf-rev-ficha { color: #94a3b8; text-decoration: line-through; word-break: break-word; }
+    .cpdf-rev-doc { color: #fff; font-weight: 700; word-break: break-word; }
+    .cpdf-rev-vacio { font-style: italic; font-weight: 400; text-decoration: none; color: #64748b; }
+    .cpdf-extra { padding: 10px 12px; border-top: 1px solid #334155; background: rgba(15, 23, 42, .35); }
+    .cpdf-extra-tit { font-size: 10.5px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; color: #94a3b8; }
+    .cpdf-extra-ficha { font-size: 11.5px; color: #94a3b8; margin-top: 1px; }
+    .cpdf-extra input[type="date"], .cpdf-extra input[type="text"] { width: 100%; box-sizing: border-box; margin: 6px 0; height: 32px;
+        padding: 4px 8px; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: #fff; font-size: 12.5px; }
+    .cpdf-extra label { display: flex; align-items: center; gap: 6px; cursor: pointer; color: #e2e8f0; }
+    .cpdf-pista { margin-top: 5px; padding: 5px 8px; border-radius: 6px; background: rgba(37, 99, 235, .12); border: 1px solid rgba(96, 165, 250, .25);
+                  font-size: 11.5px; color: #94a3b8; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .cpdf-pista b { color: #e2e8f0; font-weight: 700; word-break: break-word; }
+    .cpdf-pista em { font-style: normal; color: #fcd34d; }
+    .cpdf-pista button { margin-left: auto; background: #2563eb; color: #fff; border: 0; border-radius: 5px; padding: 3px 10px; font-size: 11px; font-weight: 700; cursor: pointer; }
+    .cpdf-pista button:hover { background: #1d4ed8; }
 
     /* La tabla es la MISMA de Control de Auditoría, Usuarios y Equipos (.admin-table), con
        menos relleno: estas dos listas llevan más columnas y muchas filas. */
     .cpdf-tabla-caja { overflow-x: auto; }
-    .cpdf-tabla-caja .admin-table { border-spacing: 0 8px; }
-    .cpdf-tabla-caja .admin-table tr td { padding: 9px 12px; }
+    /* Mismo aspecto que la tabla de la pestaña Historial (index.blade.php de
+       historial_documentos): letra de 13 px, filas juntas y la fecha en dos líneas
+       (.hd-fecha / .hd-hora, definidas allí: este panel se pinta dentro de esa página). */
+    .cpdf-tabla-caja .admin-table { border-spacing: 0 5px; }
+    .cpdf-tabla-caja .admin-table tbody { font-size: 13px; }
+    .cpdf-tabla-caja .admin-table tr td { padding: 7px 12px; }
     /* Las columnas de datos sueltos no parten; la de las diferencias se queda con el resto
        del ancho, que es donde de verdad hay que leer. */
     .cpdf-tabla-caja .admin-table td:not(.cpdf-ancha) { white-space: nowrap; width: 1%; }
@@ -103,7 +131,6 @@
     .cpdf-dif-eti { font-weight: 700; color: #64748b; }
     .cpdf-dif-doc { color: #166534; font-weight: 600; }
     .cpdf-flecha { font-size: 14px; color: #94a3b8; }
-                    border-radius: 8px; padding: 4px 9px; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; }
 
     /* Angosto: una columna. stretch y no flex-start: con flex-start la tarjeta tomaba el
        ancho de la TABLA (816 px en un teléfono de 390) y la página se salía por la derecha;
@@ -117,6 +144,62 @@
     }
     @media (max-width: 768px) {
         .cpdf-filtros > .filter-item.responsive-filter-item { flex: 1 1 100% !important; }
+
+        /* Del resumen solo se deja "Por dónde va la revisión": en el teléfono lo demás
+           empujaba la lista media pantalla hacia abajo (en Compresión no queda nada). */
+        .cpdf-side { gap: 0; }
+        .cpdf-side > *:not(.cpdf-avance) { display: none !important; }
+        .cpdf-avance { grid-column: 1 / -1; padding: 10px 12px; }
+        .cpdf-avance small { margin-bottom: 6px; }
+        .cpdf-avance-fila { padding: 3px 0; }
+        .cpdf-avance-nombre { font-size: 11.5px; }
+        .cpdf-avance-barra { height: 6px; }
+
+        /* ── Teléfono: cada fila es una TARJETA ──
+           Las dos tablas tienen 6 y 8 columnas: en 390 px no caben y había que arrastrar la
+           tabla de lado. Las celdas se recolocan con grid-area (sin tocar el HTML) y las
+           cifras llevan su rótulo con ::before, que en la tarjeta ya no tiene cabecera. */
+        .cpdf-tabla-caja { overflow-x: visible; }
+        .cpdf-tabla-caja .admin-table { border-spacing: 0; display: block; }
+        .cpdf-tabla-caja thead { display: none; }
+        .cpdf-tabla-caja tbody { display: flex; flex-direction: column; gap: 10px; }
+        .cpdf-tabla-caja tbody tr { display: grid; gap: 2px 8px; align-items: center;
+            background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px 12px;
+            box-shadow: 0 2px 6px rgba(15, 23, 42, .06); }
+        .cpdf-tabla-caja tbody td { display: block; width: auto !important; padding: 0 !important;
+            white-space: normal !important; border: none !important; background: none !important; }
+        .cpdf-tabla-caja tbody .hd-fecha { flex-direction: row; gap: 5px; font-size: 11.5px; color: #64748b; }
+        .cpdf-tabla-caja tbody .pdf-doc-btn { margin-left: auto; }
+        .cpdf-tabla-caja .cpdf-vacio { grid-column: 1 / -1; padding: 24px 0 !important; }
+
+        /* Documentos: documento + estado · placa/serial + fecha · diferencias · PDF */
+        .cpdf-docs tbody tr { grid-template-columns: 1fr auto; }
+        .cpdf-docs tbody td:nth-child(2) { grid-area: 1 / 1; font-weight: 700; }
+        .cpdf-docs tbody td:nth-child(5) { grid-area: 1 / 2; justify-self: end; }
+        .cpdf-docs tbody td:nth-child(3) { grid-area: 2 / 1; }
+        .cpdf-docs tbody td:nth-child(1) { grid-area: 2 / 2; justify-self: end; }
+        .cpdf-docs tbody td:nth-child(4) { grid-column: 1 / -1; margin-top: 4px; }
+        .cpdf-docs tbody td:nth-child(6) { grid-column: 1 / -1; display: flex; }
+
+        /* Compresión: documento + estado · serial + fecha · antes→después→ahorro · PDF */
+        .cpdf-comp tbody tr { grid-template-columns: 1fr 1fr auto; }
+        .cpdf-comp tbody td:nth-child(2) { grid-area: 1 / 1 / 2 / 3; font-weight: 700; }
+        .cpdf-comp tbody td:nth-child(7) { grid-area: 1 / 3; justify-self: end; }
+        .cpdf-comp tbody td:nth-child(3) { grid-area: 2 / 1 / 3 / 3; }
+        .cpdf-comp tbody td:nth-child(1) { grid-area: 2 / 3; justify-self: end; }
+        .cpdf-comp tbody td:nth-child(4) { grid-area: 3 / 1; }
+        .cpdf-comp tbody td:nth-child(5) { grid-area: 3 / 2; }
+        .cpdf-comp tbody td:nth-child(6) { grid-area: 3 / 3; }
+        .cpdf-comp tbody td:nth-child(8) { grid-column: 1 / -1; display: flex; }
+        .cpdf-comp tbody td.cpdf-num { text-align: left; margin-top: 4px; }
+        .cpdf-comp tbody td.cpdf-num::before { display: block; font-size: 10px; font-weight: 700;
+            color: #94a3b8; text-transform: uppercase; letter-spacing: .4px; }
+        .cpdf-comp tbody td:nth-child(4)::before { content: 'Antes'; }
+        .cpdf-comp tbody td:nth-child(5)::before { content: 'Después'; }
+        .cpdf-comp tbody td:nth-child(6)::before { content: 'Ahorro'; }
+
+        /* La barra de "Revisado" no tapa la última tarjeta. */
+        .cpdf-main { padding-bottom: 60px; }
     }
 </style>
 
@@ -130,11 +213,11 @@
         \App\Models\CompresionPdf::ERROR      => 'Con error',
     ];
     $estadosDoc = [
-        'revisar'                 => 'PARA REVISAR (no se pudo leer)',
+        'revisar'                 => 'PARA REVISAR A MANO',
         // El mismo monton que cuenta la tarjeta "Sin aplicar". Tiene que estar en esta lista:
         // el desplegable saca de aqui el nombre de lo filtrado y sin el la pantalla reventaba
         // al pulsar la tarjeta (clave inexistente).
-        'corregibles'             => 'SIN APLICAR (la tarea aún no las puso)',
+        'corregibles'             => 'SIN APLICAR',
         \App\Models\VerificacionDocumento::DIFIERE     => 'Datos distintos',
         \App\Models\VerificacionDocumento::COINCIDE    => 'Coincide',
         \App\Models\VerificacionDocumento::ILEGIBLE    => 'No se pudo leer',
@@ -217,7 +300,7 @@
         </div>
 
         @if ($pestana === 'documentos')
-        <div class="cpdf-tabla-caja">
+        <div class="cpdf-tabla-caja cpdf-docs">
             <table class="admin-table">
                 <thead>
                     <tr class="tabla-cabecera">
@@ -238,7 +321,7 @@
                         @else
                             <tr>
                         @endif
-                            <td style="white-space:nowrap;">{{ $d->updated_at?->format('d/m/Y H:i') }}</td>
+                            <td><div class="hd-fecha"><span>{{ $d->updated_at?->format('d/m/Y') }}</span><span class="hd-hora">{{ $d->updated_at?->format('h:i A') }}</span></div></td>
                             <td style="white-space:nowrap;">{{ $tiposDoc[$d->TIPO] ?? $d->TIPO }}</td>
                             <td style="white-space:nowrap;">
                                 {{ $d->PLACA ?: '—' }}
@@ -289,7 +372,7 @@
             </button>
         </div>
         @else
-        <div class="cpdf-tabla-caja">
+        <div class="cpdf-tabla-caja cpdf-comp">
             <table class="admin-table">
                 <thead>
                     <tr class="tabla-cabecera">
@@ -312,7 +395,7 @@
                                 ? round(100 * (1 - $f->BYTES_DESPUES / $f->BYTES_ANTES)) . ' %' : '—';
                         @endphp
                         <tr>
-                            <td style="white-space:nowrap;">{{ $f->created_at?->format('d/m/Y H:i') }}</td>
+                            <td><div class="hd-fecha"><span>{{ $f->created_at?->format('d/m/Y') }}</span><span class="hd-hora">{{ $f->created_at?->format('h:i A') }}</span></div></td>
                             <td>{{ $f->DOCUMENTO }}</td>
                             <td>{{ $f->SERIAL ?? '—' }}</td>
                             <td class="cpdf-num">{{ $mb($f->BYTES_ANTES) }} MB</td>
@@ -346,7 +429,7 @@
                 <div>
                     <small>Documentos leídos</small>
                     <strong>{{ $resumenDocs->sum() }}</strong>
-                    <span>títulos, pólizas, ROTC y RACDA, incluidos los que no se pudieron leer</span>
+                    <span>títulos, pólizas, ROTC y RACDA</span>
                 </div>
             </div>
             <div class="cpdf-caja cpdf-aviso {{ $activa ? 'ok' : 'apagada' }}">
@@ -354,15 +437,14 @@
                 <div>
                     @if ($activa)
                         <strong>Lectura automática activa</strong>
-                        <span>{{ ucfirst($horarioLectura) }}, hora {{ $zona === 'America/Caracas' ? 'de Venezuela' : $zona }} (ahora {{ $horaApp->format('g:i a') }}). No se cruza con la compresión y, si no queda nada que leer, no arranca. Pone en la ficha lo que dice el documento; nunca la placa ni el serial.</span>
-                        {{-- Fuera de hora: arranca ya y relee tambien los "No se pudo leer". --}}
+                        <span>{{ ucfirst($horarioLectura) }}, hora {{ $zona === 'America/Caracas' ? 'de Venezuela' : $zona }} (ahora {{ $horaApp->format('g:i a') }}). Nunca cambia placa ni serial.</span>
+                        {{-- A cualquier hora: arranca ya y relee tambien los "No se pudo leer". --}}
                         @if ($lecturaPedida)
-                            <span class="cpdf-ahora-pedida">Revisión pedida a las {{ \Carbon\Carbon::parse($lecturaPedida)->format('g:i a') }}: corre hasta que no quede nada.</span>
-                        @else
-                            <button type="button" class="btn-primary-maquinaria cpdf-ahora" onclick="window.cpdfLeerAhora(this)">
-                                <i class="material-icons">play_arrow</i> Revisar ahora
-                            </button>
+                            <span class="cpdf-ahora-pedida">Última revisión pedida a las {{ \Carbon\Carbon::parse($lecturaPedida)->format('g:i a') }}: corre hasta que no quede nada.</span>
                         @endif
+                        <button type="button" class="btn-primary-maquinaria cpdf-ahora" onclick="window.cpdfLeerAhora(this)">
+                            <i class="material-icons">play_arrow</i> Revisar ahora
+                        </button>
                     @else
                         <strong>Lectura automática apagada</strong>
                         <span>{{ ucfirst($motivoActiva) }}.</span>
@@ -370,30 +452,25 @@
                 </div>
             </div>
             {{-- Cada tarjeta filtra la lista de abajo: se pulsa y se ve QUE filas son. --}}
-            <a class="cpdf-caja cpdf-filtra" href="{{ request()->fullUrlWithQuery(['estado_doc' => \App\Models\VerificacionDocumento::COINCIDE, 'page' => null]) }}">
-                <small>Coinciden</small>
-                <strong>{{ $resumenDocs[\App\Models\VerificacionDocumento::COINCIDE] ?? 0 }}</strong>
-                <span>la ficha dice lo mismo que el documento</span>
-            </a>
             <a class="cpdf-caja cpdf-filtra" href="{{ request()->fullUrlWithQuery(['estado_doc' => 'corregibles', 'page' => null]) }}">
                 <small>Sin aplicar</small>
                 <strong>{{ $docsCorregibles }}</strong>
-                <span>la tarea aún no las puso: se revisan en el visor</span>
+                <span>por pasar a la ficha</span>
             </a>
             <a class="cpdf-caja cpdf-filtra" href="{{ request()->fullUrlWithQuery(['estado_doc' => 'revisar', 'page' => null]) }}">
                 <small>Para revisar a mano</small>
                 <strong>{{ $docsParaRevisar }}</strong>
-                <span>ilegibles, de otro vehículo o sin archivo</span>
+                <span>ilegibles, ajenos o sin archivo</span>
             </a>
             <div class="cpdf-caja">
                 <small>Faltan por leer</small>
                 <strong>{{ $pendientesDocs }}</strong>
-                <span>{{ $pendientesDocs ? 'se leen ' . $horarioLectura : 'ya se leyeron todos los documentos cargados' }}</span>
+                <span>{{ $pendientesDocs ? 'se leen ' . $horarioLectura : 'todo leído' }}</span>
             </div>
             <div class="cpdf-caja">
                 <small>Última lectura</small>
                 <strong style="font-size:16px;">{{ $ultimaLectura ? \Carbon\Carbon::parse($ultimaLectura)->format('d/m/Y H:i') : 'Todavía no' }}</strong>
-                <span>de los cuatro documentos</span>
+                <span>de los 4 tipos</span>
             </div>
 
             {{-- Por donde va cada documento. Cuando los cuatro digan "listo", termino. --}}
@@ -444,7 +521,6 @@
         <div class="cpdf-caja">
             <small>Espacio ahorrado</small>
             <strong>{{ $mb(($comp->antes ?? 0) - ($comp->despues ?? 0)) }} MB</strong>
-            <span>en Drive y en cada descarga</span>
         </div>
         <div class="cpdf-caja">
             <small>Saltados</small>
@@ -459,7 +535,6 @@
         <div class="cpdf-caja">
             <small>Última noche</small>
             <strong style="font-size:16px;">{{ $ultimaNoche ? \Carbon\Carbon::parse($ultimaNoche)->format('d/m/Y H:i') : 'Todavía no' }}</strong>
-            <span>tandas de 5, {{ $horarioCompresion }}</span>
         </div>
         @endif
     </aside>
@@ -539,14 +614,14 @@
         });
     };
 
-    // "Revisar ahora": pide la lectura fuera de su horario (ver VerificarDocumentos::pedirAhora).
+    // "Revisar ahora": pide la lectura a cualquier hora (ver VerificarDocumentos::pedirAhora).
     window.cpdfLeerAhora = function (btn) {
         btn.disabled = true;
         window.apiFetch(@json(route('compresion-pdf.documentos.leer-ahora')), { method: 'POST', headers: { 'Accept': 'application/json' } })
             .then(function (r) { return r.json(); })
             .then(function (data) {
                 if (!data || !data.success) throw new Error('sin exito');
-                window.toast('La revisión arranca en un minuto y sigue hasta que no quede nada (como tarde, ' + data.hasta + ')', 'success');
+                window.toast('La revisión arranca en un minuto y sigue hasta que no quede nada', 'success');
                 window.cpdfFiltrar();
             })
             .catch(function () {
@@ -584,6 +659,23 @@
 
         document.addEventListener('vidalsa:pdf-cerrado', function () { window._pdfVerif = null; });
 
+        // Para armar la tarjeta. Siempre textContent, nunca innerHTML: los valores salen de un PDF.
+        var cpdfNodo = function (tag, clase, hijos) {
+            var n = document.createElement(tag);
+            if (clase) n.className = clase;
+            [].concat(hijos == null ? [] : hijos).forEach(function (h) { n.append(h); });
+            return n;
+        };
+        var cpdfIcono = function (nombre) { return cpdfNodo('i', 'material-icons', nombre); };
+        // aaaa-mm-dd -> dd/mm/aaaa; lo demas tal cual.
+        var cpdfFecha = function (v) {
+            var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(v));
+            return m ? m[3] + '/' + m[2] + '/' + m[1] : String(v);
+        };
+        var cpdfValor = function (v, clase) {
+            return v == null || v === '' ? cpdfNodo('span', clase + ' cpdf-rev-vacio', 'vacío') : cpdfNodo('span', clase, cpdfFecha(v));
+        };
+
         document.addEventListener('vidalsa:metadata-pintada', function (e) {
             if (!esEste(e.detail)) return;
             var cont = document.getElementById('metaFieldsContainer');
@@ -605,12 +697,13 @@
                 var pista = document.createElement('div'), t = document.createElement('span'),
                     b = document.createElement('b'), usar = document.createElement('button');
                 pista.className = 'cpdf-pista';
-                t.textContent = 'El documento dice:';
-                b.textContent = valor;
+                t.textContent = 'Documento:';
+                b.textContent = cpdfFecha(valor);
                 if (anterior) {
-                    // Sin boton: es la fecha del PDF viejo.
-                    pista.append(t, b, document.createTextNode(CAMPO[campo] === 'fecha_vencimiento'
-                        ? '(es MÁS VIEJA que la de la ficha: el PDF es el anterior)' : '(del PDF anterior)'));
+                    // Sin boton: es del PDF viejo.
+                    var nota = document.createElement('em');
+                    nota.textContent = CAMPO[campo] === 'fecha_vencimiento' ? 'más vieja que la ficha: PDF anterior' : 'del PDF anterior';
+                    pista.append(t, b, nota);
                 } else {
                     usar.type = 'button';
                     usar.textContent = 'Usar';
@@ -623,37 +716,31 @@
             aviso.className = 'cpdf-pista-aviso';
             // Lo MISMO que la fila de la tabla: que concluyo la revision y, dato a dato, que dice
             // la ficha y que dice el documento. Para comparar sin salir del visor.
-            var tit = document.createElement('div'), b = document.createElement('b');
-            tit.className = 'cpdf-concl';
-            b.textContent = v.estado || '';
-            tit.append('Revisión: ', b);
-            aviso.appendChild(tit);
-            if (v.motivo) {
-                var mot = document.createElement('div');
-                mot.className = 'cpdf-concl-motivo';
-                mot.textContent = v.motivo;
-                aviso.appendChild(mot);
-            }
+            aviso.appendChild(cpdfNodo('div', 'cpdf-rev-cab', [cpdfNodo('small', '', 'Revisión'), cpdfNodo('span', 'cpdf-rev-estado', v.estado || '')]));
+            if (v.motivo) aviso.appendChild(cpdfNodo('div', 'cpdf-rev-motivo', v.motivo));
+            // Los datos que llevan su propio campo abajo (.cpdf-extra) no se repiten en la lista.
+            var enExtra = {};
+            otras.forEach(function (o) { enExtra[o[0]] = true; });
+            var lista = cpdfNodo('div', 'cpdf-rev-lista');
             Object.keys(dif).forEach(function (campo) {
-                var d = dif[campo] || {}, li = document.createElement('div'), doc = document.createElement('b');
-                li.className = 'cpdf-concl-dif';
-                doc.textContent = d.documento == null ? '(vacío)' : String(d.documento);
-                li.append((d.etiqueta || campo) + ': ficha ' + (d.ficha || '(vacío)') + ' → documento ', doc);
-                aviso.appendChild(li);
+                if (enExtra[campo]) return;
+                var d = dif[campo] || {};
+                lista.appendChild(cpdfNodo('div', 'cpdf-rev-dif', [
+                    cpdfNodo('div', 'cpdf-rev-campo', d.etiqueta || campo),
+                    cpdfNodo('div', 'cpdf-rev-val', [cpdfValor(d.ficha, 'cpdf-rev-ficha'), cpdfIcono('arrow_forward'), cpdfValor(d.documento, 'cpdf-rev-doc')]),
+                ]));
             });
+            if (lista.childNodes.length) aviso.appendChild(lista);
 
             // Lo que el panel no tiene (fechas de emision, titular del ROTC): su propio campo,
             // relleno con lo que dice el documento, y una casilla. Al guardar se pone en la ficha
             // lo que quede marcado; sin esto se perderia al dar la fila por revisada.
             otras.forEach(function (o) {
-                var campo = o[0], d = o[1], valor = o[2];
-                var caja = document.createElement('div'), et = document.createElement('div'),
-                    inp = document.createElement('input'), lab = document.createElement('label'),
+                var campo = o[0], d = o[1], valorDoc = o[2];
+                var inp = document.createElement('input'), lab = document.createElement('label'),
                     chk = document.createElement('input');
-                caja.className = 'cpdf-extra';
-                et.textContent = (d.etiqueta || campo) + ' — en la ficha: ' + (d.ficha || '(vacío)');
                 inp.type = /^FECHA_/.test(campo) ? 'date' : 'text';
-                inp.value = valor;
+                inp.value = valorDoc;
                 chk.type = 'checkbox';
                 // Marcada solo si la lectura es fiable. Si el PDF se leyo a medias, no se
                 // confirmo de que vehiculo es o es de otro, lo del documento podria dejar la
@@ -662,8 +749,11 @@
                 lab.append(chk, document.createTextNode(anterior ? ' Poner en la ficha (es del PDF anterior: no lo marques)'
                     : v.fiable ? ' Poner en la ficha'
                     : ' Poner en la ficha (la lectura no es segura: márcalo solo si lo compruebas en el PDF)'));
-                caja.append(et, inp, lab);
-                aviso.appendChild(caja);
+                aviso.appendChild(cpdfNodo('div', 'cpdf-extra', [
+                    cpdfNodo('div', 'cpdf-extra-tit', d.etiqueta || campo),
+                    cpdfNodo('div', 'cpdf-extra-ficha', 'Ficha: ' + (d.ficha ? cpdfFecha(d.ficha) : 'vacío') + ' · documento:'),
+                    inp, lab,
+                ]));
                 window._pdfVerif.extras.push({ campo: campo, input: inp, check: chk });
             });
             cont.insertAdjacentElement('afterbegin', aviso);

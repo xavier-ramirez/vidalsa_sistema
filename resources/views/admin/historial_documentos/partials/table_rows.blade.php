@@ -40,6 +40,15 @@
         'FECHA_EMISION_RACDA'     => 'Emisión del RACDA',
         '_origen'                 => 'Lo hizo',
     ];
+    // Un valor de 'cambios' tal como se lee: null/'' = vacío (se pinta aparte), 0/1 de un
+    // campo sí/no (antes y después 0/1) = "No"/"Sí" y las fechas aaaa-mm-dd como dd/mm/aaaa. Una vez, no por cambio.
+    $hdValor = function ($v, bool $esSiNo) {
+        if ($v === null || $v === '') return null;
+        if ($esSiNo) return in_array($v, [1, '1', true], true) ? 'Sí' : 'No';
+        if (is_string($v) && preg_match('/^(\d{4})-(\d{2})-(\d{2})(?: 00:00:00)?$/', $v, $f)) return "$f[3]/$f[2]/$f[1]";
+        return is_scalar($v) ? (string) $v : json_encode($v, JSON_UNESCAPED_UNICODE);
+    };
+    $hdSiNo = [0, 1, '0', '1', true, false, null, ''];
 @endphp
 @forelse ($events as $event)
     <tr class="hd-selectable-row {{ !empty($event->cambios) ? 'hd-has-cambios' : '' }}" data-hd-id="{{ md5($event->equipo_id . $event->tipo . $event->fecha->timestamp) }}">
@@ -66,55 +75,41 @@
             @if($event->equipo_id)<div class="hd-equipo-id">{{ $event->equipo_id }}</div>@endif
             @if(!empty($event->cambios))
                 {{-- Sin rótulo: la burbuja sale al pasar el ratón por la fila (en el
-                     teléfono, al tocar la tarjeta). Ver hdAbrir en index.blade.php. --}}
-                <div class="hd-cambios-detail" style="display:none;margin-top:8px;">
-                    <div style="background:#1e293b;border-radius:10px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.15);">
-                        <div style="padding:8px 12px;display:flex;align-items:center;gap:6px;border-bottom:1px solid #334155;">
-                            <i class="material-icons" style="font-size:14px;color:#38bdf8;">history</i>
-                            <span style="font-size:11px;font-weight:700;color:#cbd5e1;text-transform:uppercase;letter-spacing:0.5px;">Cambios realizados</span>
-                            <i class="material-icons hd-close-cambios" style="margin-left:auto;font-size:18px;color:#94a3b8;cursor:pointer;" onclick="event.stopPropagation();window.hdCerrarCambios();">close</i>
+                     teléfono, al tocar la tarjeta). Ver hdAbrir en index.blade.php; el estilo
+                     (.hd-cambios-*) vive allí. --}}
+                <div class="hd-cambios-detail" style="display:none;">
+                    <div class="hd-cambios-caja">
+                        <div class="hd-cambios-cab">
+                            <i class="material-icons">history</i>
+                            <span>Cambios realizados</span>
+                            <i class="material-icons hd-close-cambios" onclick="event.stopPropagation();window.hdCerrarCambios();">close</i>
                         </div>
-                        <div style="padding:8px 12px;display:flex;flex-direction:column;gap:6px;">
+                        <div class="hd-cambios-lista">
                             @foreach($event->cambios as $campo => $val)
+                                @continue($campo === '_origen')
                                 @php
-                                    $label = $hdFieldMap[$campo] ?? ucwords(strtolower(str_replace('_', ' ', $campo)));
                                     $esDiff = is_array($val) && array_key_exists('antes', $val);
-                                    $humanize = function($v) {
-                                        if ($v === 0 || $v === '0' || $v === false) return 'No';
-                                        if ($v === 1 || $v === '1' || $v === true) return 'Sí';
-                                        return $v;
-                                    };
                                     $rawAntes = $esDiff ? $val['antes'] : null;
                                     $rawDespues = $esDiff ? $val['despues'] : $val;
-                                    $ambosBool = $esDiff
-                                        && in_array($rawAntes, [0, 1, '0', '1', true, false, null, ''], true)
-                                        && in_array($rawDespues, [0, 1, '0', '1', true, false, null, ''], true);
-                                    $antes = $esDiff
-                                        ? ($rawAntes !== null && $rawAntes !== '' ? ($ambosBool ? $humanize($rawAntes) : $rawAntes) : '(vacío)')
-                                        : null;
-                                    $despues = $esDiff
-                                        ? ($rawDespues !== null && $rawDespues !== '' ? ($ambosBool ? $humanize($rawDespues) : $rawDespues) : '(vacío)')
-                                        : ($ambosBool ? $humanize($rawDespues) : $rawDespues);
+                                    $esSiNo = $esDiff && in_array($rawAntes, $hdSiNo, true) && in_array($rawDespues, $hdSiNo, true);
+                                    $antes = $hdValor($rawAntes, $esSiNo);
+                                    $despues = $hdValor($rawDespues, $esSiNo);
                                 @endphp
-                                <div style="border-bottom:1px solid rgba(255,255,255,0.06);padding-bottom:6px;">
-                                    <div style="font-weight:700;color:#cbd5e1;text-transform:uppercase;font-size:10px;margin-bottom:4px;letter-spacing:0.5px;">{{ $label }}</div>
-                                    @if($antes !== null)
-                                        <div style="display:flex;flex-direction:column;gap:3px;">
-                                            <div style="display:flex;align-items:center;gap:6px;">
-                                                <span style="background:#475569;color:#e2e8f0;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;flex-shrink:0;">ANTES</span>
-                                                <span style="color:#94a3b8;text-decoration:line-through;font-size:12px;word-break:break-word;">{{ $antes }}</span>
-                                            </div>
-                                            <div style="display:flex;align-items:center;gap:6px;">
-                                                <span style="background:#0067b1;color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;flex-shrink:0;">NUEVO</span>
-                                                <span style="color:#ffffff;font-weight:700;font-size:12px;word-break:break-word;">{{ $despues }}</span>
-                                            </div>
-                                        </div>
-                                    @else
-                                        <span style="color:#ffffff;font-size:12px;word-break:break-word;">{{ $despues }}</span>
-                                    @endif
+                                <div class="hd-cambio">
+                                    <div class="hd-cambio-campo">{{ $hdFieldMap[$campo] ?? ucwords(strtolower(str_replace('_', ' ', $campo))) }}</div>
+                                    <div class="hd-cambio-valores">
+                                        @if($esDiff)
+                                            <span class="hd-cambio-antes {{ $antes === null ? 'hd-cambio-vacio' : '' }}">{{ $antes ?? 'vacío' }}</span>
+                                            <i class="material-icons">arrow_forward</i>
+                                        @endif
+                                        <span class="hd-cambio-nuevo {{ $despues === null ? 'hd-cambio-vacio' : '' }}">{{ $despues ?? 'vacío' }}</span>
+                                    </div>
                                 </div>
                             @endforeach
                         </div>
+                        @if(!empty($event->cambios['_origen']) && is_string($event->cambios['_origen']))
+                            <div class="hd-cambios-pie">{{ $hdFieldMap['_origen'] }}: {{ $event->cambios['_origen'] }}</div>
+                        @endif
                     </div>
                 </div>
             @endif

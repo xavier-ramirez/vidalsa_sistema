@@ -69,6 +69,26 @@ class CatalogoColoresTest extends MySqlTestCase
         $this->assertSame('modelo', $this->recargar($this->equipo($f->ID_ESPEC, 'VERDE'))->fotoDriveId());
     }
 
+    public function test_la_foto_propia_se_guarda_pero_la_del_catalogo_manda(): void
+    {
+        // equipos.update sigue aceptando foto_equipo (la foto de ESA unidad), aunque hoy
+        // ninguna pantalla la envie. Con ficha con foto, fotoParaMostrar usa la del catalogo.
+        $f = $this->ficha();
+        $e = $this->equipo($f->ID_ESPEC, 'AZUL');
+
+        $this->actingAs($this->superAdminGlobal())
+            ->put(route('equipos.update', $e->ID_EQUIPO), [
+                'MARCA' => 'PRUEBA', 'MODELO' => $this->modelo, 'ANIO' => 2026,
+                'SERIAL_CHASIS' => $e->SERIAL_CHASIS, 'ESTADO_OPERATIVO' => 'OPERATIVO',
+                'TIPO_EQUIPO' => 'CAMIONETA',
+                'CATEGORIA_FLOTA' => 'FLOTA LIVIANA',
+                'foto_equipo' => UploadedFile::fake()->image('unidad.png', 60, 40),
+            ])->assertSessionHasNoErrors();
+
+        $this->assertStringStartsWith('/storage/google/falso-', $e->fresh()->FOTO_EQUIPO, 'La foto de la unidad se guarda.');
+        $this->assertSame('/storage/google/modelo', $this->recargar($e)->fotoParaMostrar(), 'Pero se muestra la del catalogo.');
+    }
+
     public function test_subir_foto_de_un_color_no_toca_la_del_modelo_y_borrarla_si_la_quita(): void
     {
         $f = $this->ficha();

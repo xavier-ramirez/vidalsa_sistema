@@ -60,7 +60,7 @@ class PanelDocumentos
         ];
     }
 
-    /** ['20:00', '01:00'] -> "de 8:00 p.m. a 1:00 a.m." */
+    /** ['20:00', '00:00'] -> "de 8:00 p.m. a 12:00 a.m." */
     private static function horario(array $franja): string
     {
         $hora = fn (string $h) => str_replace(['am', 'pm'], ['a.m.', 'p.m.'], \Carbon\Carbon::createFromFormat('H:i', $h)->format('g:i a'));

@@ -893,6 +893,62 @@ window.restaurarScrollFondo = function () {
     }
 };
 
+/**
+ * El documento DIBUJADO, para teléfono y tablet: ahí el navegador no pinta un PDF dentro de un
+ * <iframe> —se ve un instante y lo cambia por un botón "Abrir"—, así que se baja y se pinta en
+ * <canvas> con PDF.js, igual que la previa de la Nota de Entrega (window.pintarPdfEnCanvas).
+ * Si algo falla, se deja el <iframe> con su botón: peor es no tener nada.
+ */
+function _pdfDibujarEnTelefono(url, loader) {
+    const capa = document.getElementById('pdfZoomScrollIzq');
+    const iframe = document.getElementById('pdfPreviewFrame');
+    if (!capa || typeof window.pintarPdfEnCanvas !== 'function') return;
+
+    let lienzo = document.getElementById('pdfLienzoMovil');
+    if (!lienzo) {
+        lienzo = document.createElement('div');
+        lienzo.id = 'pdfLienzoMovil';
+        lienzo.style.cssText = 'position:absolute;inset:0;overflow:auto;padding:10px;box-sizing:border-box;background:#282828;';
+        capa.appendChild(lienzo);
+    }
+    lienzo.style.display = 'block';
+    if (iframe) iframe.style.display = 'none';
+
+    // Sin conexión ni se intenta: los PDF se leen de Drive, no están en el teléfono.
+    if (!navigator.onLine) {
+        lienzo.innerHTML = '<div style="color:#cbd5e0;text-align:center;padding:40px 20px;font-size:13px;line-height:1.5;">'
+            + 'Sin conexión no se puede abrir el documento.<br>Los PDF se leen de Google Drive, no están guardados en el teléfono.</div>';
+        _pdfCancelarCargaIzq();
+        if (loader) loader.style.display = 'none';
+        return;
+    }
+
+    // Mismo origen: el proxy de Drive necesita la sesión.
+    fetch(url, { credentials: 'same-origin' })
+        .then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); })
+        .then((blob) => window.pintarPdfEnCanvas(lienzo, blob))
+        .catch(() => {
+            // Falló la descarga con conexión: se vuelve al visor del navegador (enseñará
+            // su botón, pero es algo). Los fallos al DIBUJAR los avisa pintarPdfEnCanvas.
+            lienzo.style.display = 'none';
+            if (iframe) { iframe.style.display = 'block'; iframe.src = url + PDF_PARAMS_LECTURA; }
+        })
+        .finally(() => {
+            _pdfCancelarCargaIzq();
+            if (loader) loader.style.display = 'none';
+        });
+}
+
+/** Quita el documento dibujado (al cerrar el visor o antes de abrir otro): libera memoria. */
+function _pdfLimpiarLienzoMovil() {
+    const lienzo = document.getElementById('pdfLienzoMovil');
+    if (!lienzo) return;
+    lienzo.innerHTML = '';
+    lienzo.style.display = 'none';
+    const iframe = document.getElementById('pdfPreviewFrame');
+    if (iframe) iframe.style.display = 'block';
+}
+
 window.openPdfPreview = function (url, docType, label, equipoId, uploadUrl, skipMetadata, module) {
     const modal = document.getElementById('pdfPreviewModal');
     let iframe = document.getElementById('pdfPreviewFrame');
@@ -939,6 +995,7 @@ window.openPdfPreview = function (url, docType, label, equipoId, uploadUrl, skip
         loader.style.opacity = '1';
     }
 
+    _pdfLimpiarLienzoMovil();
     if (iframe) {
         // ELEMENTO NUEVO, no el de antes. Reciclar el iframe obligaba a encadenarle un
         // about:blank y despues el documento, y el visor nativo no siempre se reinicia
@@ -1165,9 +1222,13 @@ window.openPdfPreview = function (url, docType, label, equipoId, uploadUrl, skip
             // Con los parametros que le tocan ya de entrada: si este documento se va a
             // enseñar partido, se pide encajado (view=Fit) y no al 100%, para que la
             // comparacion no tenga que renavegar encima de la carga.
-            iframe.src = url + (_pdfAbrePartido(url, docType, equipoId, module)
-                ? PDF_PARAMS_COMPARA
-                : PDF_PARAMS_LECTURA);
+            if (window.pdfEsMovil && window.pdfEsMovil()) {
+                _pdfDibujarEnTelefono(url, loader);
+            } else {
+                iframe.src = url + (_pdfAbrePartido(url, docType, equipoId, module)
+                    ? PDF_PARAMS_COMPARA
+                    : PDF_PARAMS_LECTURA);
+            }
         } else {
             iframe.style.display = 'block';
             iframe.src = 'about:blank';
@@ -1271,6 +1332,7 @@ window.openPdfPreview = function (url, docType, label, equipoId, uploadUrl, skip
     // queda colapsado y no se llama loadMetadata para evitar mostrar campos
     // de la tabla equivocada.
     const panel = document.getElementById('pdfMetadataPanel');
+    window._pdfDatosCargados = false;
     if (panel) {
         panel.style.width = '0';
         if (!skipMetadata) {
@@ -1278,6 +1340,7 @@ window.openPdfPreview = function (url, docType, label, equipoId, uploadUrl, skip
                 const isMobile = window.innerWidth <= PDF_ANCHO_TELEFONO;
                 if (!isMobile) {
                     panel.style.width = 'var(--pdf-panel-datos)';   // el ancho, en estilos_globales.css
+                    window._pdfDatosCargados = true;
                     loadMetadata();
                 }
             }, 400);
@@ -1415,6 +1478,22 @@ window._pdfComparando = false;
  * tampoco cabe la comparacion, pero ahi las pestañas son la UNICA forma de abrir una
  * correccion y se quedan. Solo el telefono las pierde.
  */
+/**
+ * Abre o cierra el panel "Editar Datos del Documento". Es para el TELÉFONO: en escritorio el
+ * panel ya se abre solo al abrir el visor (ver openPdfPreview). Los datos se piden la primera
+ * vez que se abre; después solo se muestra y se esconde.
+ */
+window.pdfAlternarDatos = function () {
+    const panel = document.getElementById('pdfMetadataPanel');
+    if (!panel) return;
+    const cerrado = !panel.style.width || panel.style.width === '0' || panel.style.width === '0px';
+    panel.style.width = cerrado ? 'var(--pdf-panel-datos)' : '0';
+    if (cerrado && !window._pdfDatosCargados && typeof window.loadMetadata === 'function') {
+        window._pdfDatosCargados = true;
+        window.loadMetadata();
+    }
+};
+
 window._pdfSincronizarBarraPestanas = function () {
     const barra = document.getElementById('pdfAnexosBar');
     if (!barra) return;
@@ -2244,6 +2323,7 @@ window.saveMetadata = async function (e) {
 
 window.closePdfPreview = function () {
     const modal = document.getElementById('pdfPreviewModal');
+    _pdfLimpiarLienzoMovil();
     const iframe = document.getElementById('pdfPreviewFrame');
     if (modal) modal.classList.remove('active');
     // Para quien haya dejado algo colgado del visor abierto (ver 'vidalsa:metadata-pintada').

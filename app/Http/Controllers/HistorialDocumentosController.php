@@ -18,6 +18,9 @@ class HistorialDocumentosController extends Controller
      */
     private const ANEXO_MARGEN_SEG = 5;
 
+    /** Margen para dar por hecha "a la vez" la subida de un PDF y el guardado de sus datos. */
+    private const MARGEN_SUBIDA_SEG = 120;
+
     /**
      * Construye el identificador de equipo para mostrar en la tabla del historial,
      * consistente entre los 3 loops (docs, equipos creados, audit logs). Prefiere
@@ -843,6 +846,29 @@ class HistorialDocumentosController extends Controller
             return true;
         });
 
+        // ── La subida y sus datos, en UNA fila ────────────────────────────────
+        // Subir un PDF pide la fecha, asi que dejaba dos filas casi a la vez: el archivo y sus
+        // datos. Se queda la del archivo (con Ver PDF), que hereda los cambios. Tiene que ser
+        // la misma ficha, documento y autor, y a menos de MARGEN_SUBIDA_SEG: editar las fechas
+        // mas tarde sigue siendo su propia fila.
+        $subidas = [];
+        foreach ($events as $e) {
+            if (in_array($e->doc_key, $uploadToLegacy, true)) {
+                $subidas[$e->equipo_db_id . '|' . $e->doc_key . '|' . $e->autor][] = $e;
+            }
+        }
+        $events = $events->filter(function ($e) use ($subidas) {
+            if (!\Illuminate\Support\Str::startsWith($e->doc_key, 'metadata_')) return true;
+            $tipo = substr($e->doc_key, strlen('metadata_'));
+            foreach ($subidas[$e->equipo_db_id . '|' . $tipo . '|' . $e->autor] ?? [] as $subida) {
+                if (abs($subida->fecha->diffInSeconds($e->fecha)) > self::MARGEN_SUBIDA_SEG) continue;
+                $subida->cambios = $e->cambios;
+                $subida->con_metadata = true;   // para el filtro "Edición de datos del documento"
+                return false;
+            }
+            return true;
+        });
+
         // 3. Sort descending by date
         $events = $events->sortByDesc('fecha')->values();
 
@@ -889,7 +915,9 @@ class HistorialDocumentosController extends Controller
                         $okTipo = \Illuminate\Support\Str::startsWith($event->doc_key, 'delete_')
                                || \Illuminate\Support\Str::startsWith($event->doc_key, 'aux_delete_');
                     } elseif ($search_tipo === 'cat_metadatos') {
-                        $okTipo = \Illuminate\Support\Str::startsWith($event->doc_key, 'metadata_');
+                        // con_metadata: subida que absorbio los datos guardados con ella.
+                        $okTipo = \Illuminate\Support\Str::startsWith($event->doc_key, 'metadata_')
+                               || !empty($event->con_metadata);
                     } elseif ($search_tipo === 'cat_anexos') {
                         // Correcciones anexas. Categoria aparte y NO dentro de cat_uploads:
                         // anexar y sustituir son operaciones distintas —la primera solo

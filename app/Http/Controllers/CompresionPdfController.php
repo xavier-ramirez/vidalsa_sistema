@@ -55,8 +55,8 @@ class CompresionPdfController extends Controller
     /** "Revisar ahora": la lectura arranca en el minuto siguiente (ver VerificarDocumentos::pedirAhora). */
     public function leerAhora()
     {
-        $hasta = \App\Console\Commands\VerificarDocumentos::pedirAhora();
-        return response()->json(['success' => true, 'hasta' => $hasta->format('g:i a')]);
+        \App\Console\Commands\VerificarDocumentos::pedirAhora();
+        return response()->json(['success' => true]);
     }
 
     /**

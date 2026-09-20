@@ -73,34 +73,34 @@ class VerificarDocumentos extends Command
     protected $description = 'Compara los documentos de cada ficha (titulo, poliza, ROTC y RACDA) con lo que dicen sus PDF.';
 
     /** De que hora a que hora la corre el programador (hora de la app). UNICO sitio: lo leen routes/console.php y el panel. */
-    public const HORARIO = ['20:00', '01:00'];
+    public const HORARIO = ['20:00', '00:00'];
 
-    /** Cache: cuando se pulso "Revisar ahora" en el panel (dura hasta el fin de la franja). */
+    /** Cache: cuando se pulso "Revisar ahora" en el panel. */
     private const AHORA = 'docs_verificar_ahora';
+
+    /** Cuanto vale un "Revisar ahora": de sobra para leerlo todo (~30 documentos/minuto). */
+    private const AHORA_HORAS = 12;
 
     /** ¿Le toca leer al programador? En su franja, o si alguien pidio "Revisar ahora". */
     public static function tocaLeer(): bool
     {
         [$desde, $hasta] = self::HORARIO;
         $hora = now()->format('H:i');
-        // La franja cruza la medianoche (20:00-01:00): vale de las 20:00 en adelante o antes de la 01:00.
+        // La franja termina a medianoche (20:00-00:00) o la cruza: vale de las 20:00 en adelante o antes del final.
         $enFranja = $desde <= $hasta ? ($hora >= $desde && $hora < $hasta) : ($hora >= $desde || $hora < $hasta);
         return $enFranja || self::pedidaAhora() !== null;
     }
 
     /**
-     * "Revisar ahora" (boton del panel): la lectura arranca en el minuto siguiente aunque no
-     * sea su hora, y en esa pasada se vuelve a leer tambien lo que salio "No se pudo leer"
-     * (VerificacionDocumento::inicioDeLaNoche cuenta desde aqui). Dura hasta el final de la
-     * franja (la 01:00); antes, si no queda nada, el programador no lanza nada. Devuelve
-     * hasta cuando vale.
+     * "Revisar ahora" (boton del panel): la lectura arranca en el minuto siguiente, SIN
+     * IMPORTAR LA HORA, y en esa pasada se vuelve a leer tambien lo que salio "No se pudo
+     * leer" (VerificacionDocumento::inicioDeLaNoche cuenta desde aqui). Sigue hasta leerlo
+     * todo: en cuanto no queda nada, el programador ya no lanza ningun proceso
+     * (VerificacionDocumento::hayTrabajo). Se puede volver a pulsar cuando se quiera.
      */
-    public static function pedirAhora(): \Carbon\Carbon
+    public static function pedirAhora(): void
     {
-        $hasta = now()->setTimeFromTimeString(self::HORARIO[1]);
-        if ($hasta->lte(now())) $hasta->addDay();
-        Cache::put(self::AHORA, now()->toDateTimeString(), $hasta);
-        return $hasta;
+        Cache::put(self::AHORA, now()->toDateTimeString(), now()->addHours(self::AHORA_HORAS));
     }
 
     /** Cuando se pidio "Revisar ahora" (si sigue vigente), o null. */
@@ -334,7 +334,7 @@ class VerificarDocumentos extends Command
             // pondria PEOR que como esta). Lo mira una persona con el PDF delante.
             if (!$sirve) $leido['lectura_parcial'] = true;
         }
-        $this->compararFecha($dif, 'FECHA_EMISION_PROPIEDAD', 'Fecha de emision', $f->FECHA_EMISION_PROPIEDAD, $leido['emision'] ?? null);
+        $this->compararFecha($dif, 'FECHA_EMISION_PROPIEDAD', 'Fecha de emisión', $f->FECHA_EMISION_PROPIEDAD, $leido['emision'] ?? null);
 
         // El motivo del nombre (errata, abreviado, otro alfabeto...) manda: es el que dice que
         // mirar. Si solo cambian fechas, se resume que falta y que esta distinto.
@@ -377,7 +377,7 @@ class VerificarDocumentos extends Command
             ];
         }
         $this->compararFecha($dif, 'FECHA_VENC_POLIZA', 'Vencimiento', $f->FECHA_VENC_POLIZA, $leido['vence'] ?? null);
-        $this->compararFecha($dif, 'FECHA_EMISION_POLIZA', 'Fecha de emision', $f->FECHA_EMISION_POLIZA, $leido['emision'] ?? null);
+        $this->compararFecha($dif, 'FECHA_EMISION_POLIZA', 'Fecha de emisión', $f->FECHA_EMISION_POLIZA, $leido['emision'] ?? null);
 
         return $dif
             ? [VerificacionDocumento::DIFIERE, $this->motivoDe($dif), $dif, $leido]
@@ -431,7 +431,7 @@ class VerificarDocumentos extends Command
             }
         }
         $this->compararFecha($dif, 'FECHA_ROTC', 'Vencimiento', $f->FECHA_ROTC, $leido['vence'] ?? null);
-        $this->compararFecha($dif, 'FECHA_EMISION_ROTC', 'Fecha de emision', $f->FECHA_EMISION_ROTC, $leido['emision'] ?? null);
+        $this->compararFecha($dif, 'FECHA_EMISION_ROTC', 'Fecha de emisión', $f->FECHA_EMISION_ROTC, $leido['emision'] ?? null);
 
         return $dif
             ? [VerificacionDocumento::DIFIERE, $motivo ?: $this->motivoDe($dif), $dif, $leido]
@@ -478,7 +478,7 @@ class VerificarDocumentos extends Command
         if ($anterior = $this->documentoAnterior($f->FECHA_RACDA, $leido)) return $anterior;
         $dif = [];
         $this->compararFecha($dif, 'FECHA_RACDA', 'Vencimiento', $f->FECHA_RACDA, $leido['vence'] ?? null);
-        $this->compararFecha($dif, 'FECHA_EMISION_RACDA', 'Fecha de emision', $f->FECHA_EMISION_RACDA, $leido['emision'] ?? null);
+        $this->compararFecha($dif, 'FECHA_EMISION_RACDA', 'Fecha de emisión', $f->FECHA_EMISION_RACDA, $leido['emision'] ?? null);
 
         return $dif
             ? [VerificacionDocumento::DIFIERE, $this->motivoDe($dif), $dif, $leido]

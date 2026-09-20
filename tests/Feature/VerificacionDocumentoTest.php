@@ -578,7 +578,7 @@ $vence
             'ID_EQUIPO' => $equipo, 'TIPO' => VerificacionDocumento::ROTC, 'PLACA' => $placa, 'DRIVE_ID' => 'driveVIEJO',
             'LEIDO' => ['vence' => '2026-05-30', 'placa' => $placa], 'ESTADO' => VerificacionDocumento::DIFIERE, 'A_MANO' => false,
             'DIFERENCIAS' => ['FECHA_ROTC' => ['etiqueta' => 'Vencimiento', 'ficha' => '2027-07-03', 'documento' => '2026-05-30'],
-                              'FECHA_EMISION_ROTC' => ['etiqueta' => 'Fecha de emision', 'ficha' => null, 'documento' => '2025-05-30']],
+                              'FECHA_EMISION_ROTC' => ['etiqueta' => 'Fecha de emisión', 'ficha' => null, 'documento' => '2025-05-30']],
         ]);
 
         $this->assertSame([], $this->aplicar($reg)['puestos']);
@@ -624,7 +624,7 @@ $vence
 
     public function test_el_programador_respeta_las_franjas_y_no_arranca_sin_trabajo(): void
     {
-        // Lectura 8 p.m. - 1 a.m. (cruza la medianoche) y compresion 2 - 5 a.m., sin tocarse.
+        // Lectura 8 p.m. - 12 de la noche y compresion 2 - 5 a.m., sin tocarse.
         // Se mira cada tarea a varias horas SIN el filtro de "es el servidor" (en el PC de
         // desarrollo no corre nunca): franja + "hay trabajo".
         $pasan = function (string $hora, string $comando, bool $nadaEstaNoche = false) {
@@ -640,7 +640,7 @@ $vence
             return $this->app->call($filtros[0]) && $this->app->call($filtros[2]);
         };
 
-        foreach (['20:00' => true, '23:30' => true, '00:59' => true, '01:30' => false, '10:00' => false, '19:59' => false] as $h => $sale) {
+        foreach (['20:00' => true, '23:59' => true, '00:00' => false, '00:30' => false, '10:00' => false, '19:59' => false] as $h => $sale) {
             $this->assertSame($sale, $pasan($h, 'docs:verificar-documentos --lote=25 --parte=0'), "Lectura a las $h");
         }
         foreach (['02:00' => true, '04:30' => true, '05:01' => false, '21:00' => false] as $h => $sale) {
@@ -648,11 +648,11 @@ $vence
         }
         $this->assertFalse($pasan('03:00', 'docs:comprimir', true), 'Sin nada por comprimir esta noche, no se lanza.');
 
-        // "Revisar ahora" del panel: fuera de hora, la lectura arranca igual hasta la 01:00.
+        // "Revisar ahora" del panel: a cualquier hora, la lectura arranca igual.
         \Illuminate\Support\Facades\Cache::forget('docs_verificar_ahora');
         $this->assertFalse($pasan('12:00', 'docs:verificar-documentos --lote=25 --parte=0'));
         $this->actingAs($this->superAdmin())->postJson(route('compresion-pdf.documentos.leer-ahora'))
-            ->assertOk()->assertJson(['success' => true, 'hasta' => '1:00 am']);
+            ->assertOk()->assertJson(['success' => true]);
         $this->assertTrue($pasan('12:01', 'docs:verificar-documentos --lote=25 --parte=0'), 'Pedida: corre ya.');
         \Illuminate\Support\Facades\Cache::forget('docs_verificar_ahora');
         \Carbon\Carbon::setTestNow();
@@ -696,6 +696,34 @@ $vence
         $this->assertTrue($this->enLaCola($equipo, VerificacionDocumento::PROPIEDAD), 'Pedida la revision: se relee ya.');
         \Carbon\Carbon::setTestNow();
         \Illuminate\Support\Facades\Cache::forget('docs_verificar_ahora');
+    }
+
+    public function test_el_anexo_de_flota_toma_la_fecha_de_su_firma(): void
+    {
+        // Anexo de poliza de flota (visto el 19-09-2026, RCGE-001001-20572): no trae "Desde /
+        // Hasta"; la emision es la fecha de la firma de la ultima pagina y vence un año despues.
+        [$equipo, $placa] = $this->equipoConDocumentos(['FECHA_VENC_POLIZA' => '2026-06-01']);
+        $serial = DB::table('equipos')->where('ID_EQUIPO', $equipo)->value('SERIAL_CHASIS');
+        $this->lectorFalso("ANEXO Nro.:\n1\nRESPONSABILIDAD CIVIL GENERAL\nPOLIZA Nro.: RCGE-001001-20572\n"
+            . "SE AMAPARA LOS SIGUIENTES VEHÍCULOS Y/O EQUIPOS\n"
+            . "-JAC HFC4250KR1K3 - 2017 $placa 39000 KGS 3 $serial 1417E060663 - CHUTO CARGA ROJO\n"
+            . "-IVECO 230E22 EUROCARGO 2008 A26AA8V 16370 KGS 3 8ATE2KF008X063632 9927502 - PLATF\n"
+            . "CLIENTE Pagina 1 de\nanexo 2\n"
+            . "En consecuencia de lo cual se firma en la ciudad de CARACAS a los 25 días del mes de Marzo del año 2026.\n");
+
+        $reg = $this->verificar($equipo, VerificacionDocumento::POLIZA);
+        $this->assertSame('2026-03-25', $reg->LEIDO['emision']);
+        $this->assertSame('2027-03-25', $reg->LEIDO['vence']);
+        $this->assertTrue($reg->LEIDO['vence_por_firma']);
+        $ficha = $this->ficha($equipo);
+        $this->assertSame('2027-03-25', substr((string) $ficha->FECHA_VENC_POLIZA, 0, 10), 'Vence un año despues de la firma.');
+        $this->assertSame('2026-03-25', substr((string) $ficha->FECHA_EMISION_POLIZA, 0, 10));
+
+        // Una poliza normal (con su vigencia) no mira la firma aunque la traiga.
+        $l = app(\App\Services\LectorDocumentoPdf::class);
+        $d = $l->extraer('poliza', "ANEXO\nVigencia del Seguro: 19/02/2026 al 19/02/2027\nse firma en la ciudad de CARACAS a los 25 días del mes de Marzo del año 2026");
+        $this->assertSame('2027-02-19', $d['vence']);
+        $this->assertArrayNotHasKey('vence_por_firma', $d);
     }
 
     public function test_el_racda_comprueba_que_la_placa_este_autorizada(): void
