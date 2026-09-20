@@ -574,19 +574,92 @@
     .alm-etq-lapiz:hover, .alm-etq-lapiz.activo { color: var(--maquinaria-blue, #0067b1); }
     .alm-etq-lapiz:focus-visible { outline: 2px solid var(--maquinaria-blue, #0067b1); outline-offset: 1px; }
     .alm-etq-lapiz .material-icons { font-size: 19px; }
-    /* Filtros del modal "Movimientos del producto": Tipo y Fechas EN LA MISMA FILA.
-       Iban con flex-wrap:wrap y en un modal de 540 px los dos campos de fecha no entraban
-       junto al selector, así que "Fechas" caía a un renglón aparte y los filtros se veían
-       desalineados (uno arriba, los otros abajo). Con nowrap el grupo de fechas cede ancho
-       (flex:1 + min-width:0 hasta los inputs) en vez de romper la fila. */
-    .alm-kp-filtros { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: nowrap; background: #fff; padding: 4px 0; }
-    .alm-kp-filtros .alm-kp-grupo-tipo { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
-    .alm-kp-filtros .alm-kp-grupo-fechas { display: flex; align-items: center; gap: 6px; flex: 1 1 auto; min-width: 0; }
-    .alm-kp-filtros .alm-kp-rango { display: flex; align-items: center; gap: 4px; flex: 1 1 auto; min-width: 0; }
-    .alm-kp-filtros .alm-kp-fecha-box { flex: 1 1 0; min-width: 0; }
-    /* Tabla de "Movimientos del producto" (filas: partials/kardex_rows_mini). Una línea
-       suave entre movimientos; Destino a la izquierda, con lo que lo explica debajo en gris,
-       y Documento en su propia columna: el proyecto y su nota se leen en el mismo renglón. */
+    /* ── Modal "Movimientos del producto" ──────────────────────────────────
+       Ficha del producto (cabecera), barra de filtros y tabla comparten el mismo
+       lenguaje: tarjeta blanca, borde #e2e8f0 y radio 12px, para que el modal se
+       lea como tres bloques y no como campos sueltos. */
+    /* Cabecera: ícono, CÓDIGO en pequeño SOBRE el nombre (misma jerarquía que la
+       tabla del inventario) y el saldo del almacén actual destacado a la derecha. */
+    .alm-kp-hero { display: flex; align-items: center; gap: 12px; padding: 11px 14px; background: #fff;
+                   border: 1px solid #e2e8f0; border-radius: 12px; }
+    .alm-kp-hero-ic { flex: 0 0 auto; width: 40px; height: 40px; border-radius: 10px; background: #eff6ff;
+                      color: var(--maquinaria-blue, #0067b1); display: flex; align-items: center; justify-content: center; }
+    .alm-kp-hero-ic .material-icons { font-size: 22px; }
+    .alm-kp-hero-txt { flex: 1 1 auto; min-width: 0; }
+    .alm-kp-hero-cod { display: block; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+                       font-size: 10px; font-weight: 700; letter-spacing: .9px; color: #64748b; line-height: 1.2; }
+    .alm-kp-hero-nom { display: block; margin-top: 2px; font-size: 13.5px; font-weight: 700; color: #0f172a;
+                       line-height: 1.3; overflow-wrap: anywhere; }
+    .alm-kp-hero-stock { flex: 0 0 auto; text-align: right; padding-left: 14px; border-left: 1px solid #e2e8f0; }
+    .alm-kp-hero-stock .alm-kp-rot { display: block; margin-bottom: 1px; }
+    .alm-kp-hero-num { display: block; font-size: 18px; font-weight: 800; color: #0f172a; line-height: 1.2; white-space: nowrap; }
+    /* Saldo en cero: rojo, igual que una cantidad que resta en el kardex. */
+    .alm-kp-hero-num.cero { color: #dc2626; }
+    .alm-kp-hero-um { font-size: 10px; font-weight: 700; color: #64748b; margin-left: 2px; }
+    /* Rótulo común de los bloques (STOCK ACTUAL, TIPO, RANGO DE FECHAS). */
+    .alm-kp-rot { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .7px;
+                  color: #94a3b8; white-space: nowrap; }
+    /* Filtros: Tipo y Fechas SIEMPRE en la misma fila (nowrap) — el grupo de fechas es
+       el que cede ancho (flex:1 + min-width:0 hasta las cajas). El rótulo va ARRIBA de
+       cada control, no a su izquierda: gana ancho útil y alinea los dos grupos. */
+    .alm-kp-filtros { display: flex; align-items: flex-end; gap: 12px; flex-wrap: nowrap;
+                      background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 9px 12px; }
+    .alm-kp-filtros .alm-kp-campo { display: flex; flex-direction: column; gap: 3px; }
+    .alm-kp-filtros .alm-kp-grupo-tipo { flex: 0 0 auto; }
+    .alm-kp-filtros .alm-kp-grupo-fechas { flex: 1 1 auto; min-width: 0; }
+    .alm-kp-filtros .alm-kp-rango { display: flex; align-items: center; gap: 5px; flex: 1 1 auto; min-width: 0; }
+    .alm-kp-filtros .alm-kp-fecha-box { flex: 1 1 0; min-width: 0; display: flex; align-items: center; gap: 5px;
+                                        height: 32px; padding: 0 8px; background: #fff; border: 1px solid #e2e8f0;
+                                        border-radius: 8px; cursor: pointer; transition: border-color .15s, box-shadow .15s; }
+    .alm-kp-filtros .alm-kp-fecha-box:hover { border-color: #cbd5e1; }
+    .alm-kp-filtros .alm-kp-fecha-box:focus-within { border-color: var(--maquinaria-blue, #0067b1);
+                                                     box-shadow: 0 0 0 3px rgba(0,103,177,.10); }
+    .alm-kp-filtros .alm-kp-fecha-box > .material-icons { flex: 0 0 auto; font-size: 15px; color: #94a3b8; }
+    .alm-kp-filtros .alm-kp-fecha-box input { flex: 1 1 auto; width: auto; min-width: 0; height: 30px; padding: 0;
+                                              border: none; background: transparent; font: inherit; font-size: 12px;
+                                              color: #334155; outline: none; cursor: pointer; }
+    /* Fecha sin elegir: el texto nativo (dd/mm/aaaa) en gris claro, para que no compita
+       con un rango realmente aplicado. La clase la pone almKpCargar. NO se llama
+       ".alm-kp-vacia": a una letra de .alm-kp-vacio, que es otra cosa (el guion de una
+       celda sin dato) y se confundían al leer. */
+    .alm-kp-filtros .alm-kp-fecha-box input.alm-kp-sinfecha { color: #b0bac6; }
+    /* El ícono nativo del selector sobra: ya hay uno propio a la izquierda y la caja
+       entera abre el calendario (onclick → showPicker). */
+    .alm-kp-filtros .alm-kp-fecha-box input::-webkit-calendar-picker-indicator { opacity: 0; width: 0; padding: 0; margin: 0; }
+    .alm-kp-filtros .alm-kp-flecha { flex: 0 0 auto; color: #94a3b8; font-size: 16px; }
+    .alm-kp-select { height: 32px; padding: 0 8px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff;
+                     font: inherit; font-size: 12px; color: #334155; cursor: pointer; transition: border-color .15s, box-shadow .15s; }
+    .alm-kp-select:hover { border-color: #cbd5e1; }
+    .alm-kp-select:focus { outline: none; border-color: var(--maquinaria-blue, #0067b1); box-shadow: 0 0 0 3px rgba(0,103,177,.10); }
+    /* "Limpiar": solo aparece con algún filtro puesto (hidden lo gobierna almKpCargar). */
+    .alm-kp-limpiar { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 3px; height: 32px; padding: 0 10px;
+                      border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; font: inherit; font-size: 11.5px;
+                      font-weight: 700; color: #64748b; cursor: pointer; }
+    .alm-kp-limpiar:hover { background: #fef2f2; border-color: #fecaca; color: #dc2626; }
+    .alm-kp-limpiar .material-icons { font-size: 14px; }
+    /* display:inline-flex le gana al display:none implícito de [hidden]; sin esta regla
+       el botón se vería SIEMPRE, filtros puestos o no. */
+    .alm-kp-limpiar[hidden] { display: none; }
+    /* Tabla: el contenedor (radio 12px, como la cabecera y los filtros) con el thead
+       pizarra sticky, igual que el de la tabla del inventario (.alm-table) y el de Equipos. */
+    .alm-kp-tabla-wrap { overflow: auto; max-height: 48vh; border: 1px solid #e2e8f0; border-radius: 12px; background: #fff; }
+    .alm-kp-tabla-wrap thead th { position: sticky; top: 0; z-index: 1; background: #1e293b; color: #fff;
+                                  padding: 8px 10px; font-size: 10px; font-weight: 800; text-transform: uppercase;
+                                  letter-spacing: .8px; }
+    /* Estados de una sola celda (cargando / error). Van con el id porque #almKpBody td
+       —más específico que la clase sola— les imponía el padding de una fila normal. */
+    #almKpBody td.alm-kp-estado { text-align: center; padding: 26px 14px; color: #94a3b8; font-size: 12px; }
+    #almKpBody td.alm-kp-estado.error { color: #dc2626; }
+    /* Estado "sin movimientos" (kardex_rows_mini). Nombre propio, NO .alm-kp-vacio-*: esa
+       otra clase es el guion de una celda sin dato y son dos cosas distintas. */
+    .alm-kp-sinmov { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 26px 14px; }
+    .alm-kp-sinmov-ic { width: 46px; height: 46px; border-radius: 50%; background: #f1f5f9; color: #cbd5e0;
+                        display: flex; align-items: center; justify-content: center; margin-bottom: 6px; }
+    .alm-kp-sinmov-ic .material-icons { font-size: 24px; }
+    .alm-kp-sinmov-tit { font-size: 12.5px; font-weight: 700; color: #64748b; }
+    .alm-kp-sinmov-sub { font-size: 11px; color: #94a3b8; }
+    /* Filas (partials/kardex_rows_mini): una línea suave entre movimientos; Destino a la
+       izquierda, con lo que lo explica debajo en gris, y Documento en su propia columna. */
     #almKpBody td { padding: 7px 8px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
     #almKpBody tr:last-child td { border-bottom: none; }
     #almKpBody tr.alm-kp-fila:hover td { background: #f8fafc; }
@@ -1704,24 +1777,27 @@
             <i class="material-icons alm-x" onclick="almCerrar('almKardexProductoModal')">close</i>
         </div>
         <div class="alm-modal-body" style="gap:10px;">
-            {{-- Cabecera con info del producto + saldo en el almacén actual.
-                 Codigo + nombre se renderizan como UN solo texto (cliente lo pidio):
-                 mismo color, mismo peso, mismo font — sin pill separador. El JS
-                 (almAbrirKardexProducto) setea almKpCodigo SOLO con el numero
-                 (sin "Cód: " prefix) para que se lea natural junto al nombre. --}}
-            <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-                <strong style="font-size:11.5px;color:#1e293b;flex:1;min-width:140px;font-weight:700;line-height:1.3;">
-                    <span id="almKpCodigo">—</span> <span id="almKpNombre"></span>
-                </strong>
-                <span style="font-size:10.5px;color:#64748b;">Stock actual: <strong id="almKpSaldo" style="color:#0f172a;font-size:11.5px;">0</strong> <span id="almKpUm" style="font-size:10px;color:#64748b;"></span></span>
+            {{-- Cabecera: ficha del producto. El CÓDIGO va en pequeño ENCIMA del nombre
+                 (misma jerarquía que la tabla del inventario) y el saldo del almacén
+                 actual se lee como dato destacado a la derecha. El JS
+                 (almAbrirKardexProducto) setea almKpCodigo SOLO con el número. --}}
+            <div class="alm-kp-hero">
+                <div class="alm-kp-hero-ic"><i class="material-icons">inventory_2</i></div>
+                <div class="alm-kp-hero-txt">
+                    <span class="alm-kp-hero-cod" id="almKpCodigo">—</span>
+                    <span class="alm-kp-hero-nom" id="almKpNombre"></span>
+                </div>
+                <div class="alm-kp-hero-stock">
+                    <span class="alm-kp-rot">Stock actual</span>
+                    <span class="alm-kp-hero-num" id="almKpSaldoBox"><span id="almKpSaldo">0</span><span class="alm-kp-hero-um" id="almKpUm"></span></span>
+                </div>
             </div>
 
-            {{-- Filtros: select Tipo + rango de fechas --}}
+            {{-- Filtros: select Tipo + rango de fechas (+ Limpiar, solo si hay alguno puesto) --}}
             <div class="alm-kp-filtros">
-                <div class="alm-kp-grupo-tipo">
-                    <span style="font-size:10.5px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;">Tipo:</span>
-                    <select id="almKpTipoSelect" onchange="window.almKpChipSelect(this.value)"
-                            style="height:30px;padding:0 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;color:#334155;background:#fff;cursor:pointer;">
+                <div class="alm-kp-campo alm-kp-grupo-tipo">
+                    <span class="alm-kp-rot">Tipo</span>
+                    <select id="almKpTipoSelect" class="alm-kp-select" onchange="window.almKpChipSelect(this.value)">
                         {{-- Mismos valores que el filtro Tipo de la bitácora: ENTRADAS/SALIDAS son
                              grupos (traspasos, devoluciones y auditorías por su signo). --}}
                         <option value="">Todos</option>
@@ -1732,29 +1808,34 @@
                     </select>
                 </div>
 
-                {{-- El grupo de fechas es el que cede ancho (.alm-kp-grupo-fechas: flex:1 +
-                     min-width:0, hasta las cajas de cada input) para que Tipo y Fechas quepan
-                     SIEMPRE en la misma fila dentro del ancho del modal. --}}
-                <div class="alm-kp-grupo-fechas">
-                    <span style="font-size:10.5px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;">Fechas:</span>
+                {{-- Por qué este grupo es el que cede ancho: ver .alm-kp-grupo-fechas en el CSS. --}}
+                <div class="alm-kp-campo alm-kp-grupo-fechas">
+                    <span class="alm-kp-rot">Rango de fechas</span>
                     <div class="alm-kp-rango">
                         {{-- Wrapper clickable: cualquier click en la caja abre el calendario
                              (focus()+showPicker(), mismo patrón que la fecha de la Nota de
                              Entrega). Antes el onclick iba en el input sin focus() → solo abría
                              al tocar el ícono nativo. --}}
-                        <div class="alm-kp-fecha-box" style="display:flex;align-items:center;background:#fff;border:1px solid #e2e8f0;border-radius:6px;height:30px;overflow:hidden;cursor:pointer;"
+                        <div class="alm-kp-fecha-box"
                              onclick="var i=document.getElementById('almKpDesde'); if(i){ i.focus(); if(i.showPicker){ try{ i.showPicker(); }catch(e){} } }">
-                            <input type="date" id="almKpDesde" onchange="window.almKpCargar()"
-                                   style="flex:1;width:auto;min-width:0;height:28px;padding:0 6px;border:none;background:transparent;font-size:12px;color:#334155;outline:none;cursor:pointer;">
+                            <i class="material-icons">event</i>
+                            <input type="date" id="almKpDesde" title="Desde" onchange="window.almKpCargar()">
                         </div>
-                        <span style="color:#94a3b8;font-size:14px;">→</span>
-                        <div class="alm-kp-fecha-box" style="display:flex;align-items:center;background:#fff;border:1px solid #e2e8f0;border-radius:6px;height:30px;overflow:hidden;cursor:pointer;"
+                        <span class="alm-kp-flecha material-icons">arrow_right_alt</span>
+                        <div class="alm-kp-fecha-box"
                              onclick="var i=document.getElementById('almKpHasta'); if(i){ i.focus(); if(i.showPicker){ try{ i.showPicker(); }catch(e){} } }">
-                            <input type="date" id="almKpHasta" onchange="window.almKpCargar()"
-                                   style="flex:1;width:auto;min-width:0;height:28px;padding:0 6px;border:none;background:transparent;font-size:12px;color:#334155;outline:none;cursor:pointer;">
+                            <i class="material-icons">event</i>
+                            <input type="date" id="almKpHasta" title="Hasta" onchange="window.almKpCargar()">
                         </div>
                     </div>
                 </div>
+
+                {{-- El id NO puede ser "almKpLimpiar": los elementos con id se exponen como
+                     window.<id> y chocaría con la función global del mismo nombre. --}}
+                <button type="button" id="almKpBtnLimpiar" class="alm-kp-limpiar" hidden
+                        onclick="window.almKpLimpiar()" title="Quitar los filtros">
+                    <i class="material-icons">close</i>Limpiar
+                </button>
             </div>
 
             {{-- Tabla compacta: 5 columnas (sin Producto, ya conocido; sin Fecha, que el
@@ -1765,24 +1846,24 @@
                  columnas cortas. Sin table-layout:fixed a propósito: los porcentajes mandan
                  mientras el contenido quepa, pero una cantidad larga puede ensanchar su
                  columna en vez de desbordarse (Tipo/Cantidad/Stock/Documento son nowrap). --}}
-            <div style="overflow:auto;max-height:48vh;border:1px solid #e2e8f0;border-radius:8px;">
+            <div class="alm-kp-tabla-wrap">
                 <table style="width:100%;border-collapse:separate;border-spacing:0;">
                     <thead>
-                        <tr style="background:#1e293b;color:#fff;position:sticky;top:0;z-index:1;">
-                            <th style="width:13%;padding:7px 8px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;text-align:center;white-space:nowrap;">Tipo</th>
-                            <th style="width:16%;padding:7px 8px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;text-align:center;white-space:nowrap;">Cantidad</th>
-                            <th style="width:11%;padding:7px 8px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;text-align:center;white-space:nowrap;">Stock</th>
-                            <th style="width:40%;padding:7px 8px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;text-align:left;">Destino</th>
-                            <th style="width:20%;padding:7px 8px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;text-align:center;white-space:nowrap;">Documento</th>
+                        <tr>
+                            <th style="width:13%;text-align:center;white-space:nowrap;">Tipo</th>
+                            <th style="width:16%;text-align:center;white-space:nowrap;">Cantidad</th>
+                            <th style="width:11%;text-align:center;white-space:nowrap;">Stock</th>
+                            <th style="width:40%;text-align:left;">Destino</th>
+                            <th style="width:20%;text-align:center;white-space:nowrap;">Documento</th>
                         </tr>
                     </thead>
                     <tbody id="almKpBody">
-                        <tr><td colspan="5" style="text-align:center;padding:30px;color:#94a3b8;font-size:12px;">Cargando…</td></tr>
+                        <tr><td colspan="5" class="alm-kp-estado">Cargando…</td></tr>
                     </tbody>
                 </table>
             </div>
 
-            <div id="almKpPag" style="font-size:11px;color:#64748b;text-align:center;"></div>
+            <div id="almKpPag"></div>
         </div>
 
     </div>
@@ -1790,7 +1871,11 @@
 
 <style>
 /* La paginación del kardex se aprovecha de la del SSR estándar; aquí se renderiza
-   centrada y compacta dentro de #almKpPag. */
+   centrada y compacta dentro de #almKpPag. Con una sola página el contenido llega
+   vacío (''), y display:none saca el div de la fila flex del cuerpo del modal: sin
+   él seguiría cobrando su gap de 10px por un bloque que no se ve. */
+#almKpPag { font-size:11px; color:#64748b; text-align:center; }
+#almKpPag:empty { display:none; }
 #almKpPag .pagination, #almKpPag ul { display:inline-flex; gap:3px; flex-wrap:wrap; justify-content:center; margin:0; padding:0; }
 #almKpPag .pagination li, #almKpPag ul li { list-style:none; }
 #almKpPag a, #almKpPag span { padding:3px 8px; font-size:11px; border-radius:5px; }
@@ -4923,16 +5008,26 @@
     // y filtra por id_producto + id_almacen actual. Estado en window.__almKp.
     window.__almKp = { idProducto: null, tipo: '', desde: '', hasta: '' };
 
+    // Deja los tres controles (tipo + ambas fechas) en blanco y sincroniza el estado.
+    // NO recarga: quien la llama decide cuándo pedir los datos. La usan tanto la
+    // apertura del modal como el botón "Limpiar" — antes estaba copiada en las dos.
+    function almKpResetFiltros() {
+        if (el('almKpDesde'))      el('almKpDesde').value = '';
+        if (el('almKpHasta'))      el('almKpHasta').value = '';
+        if (el('almKpTipoSelect')) el('almKpTipoSelect').value = '';
+        window.__almKp.tipo = window.__almKp.desde = window.__almKp.hasta = '';
+    }
+
     window.almAbrirKardexProducto = function (idProducto, codigo, nombre, um, saldo) {
-        window.__almKp = { idProducto: idProducto, tipo: '', desde: '', hasta: '' };
+        window.__almKp.idProducto = idProducto;
+        almKpResetFiltros();
         el('almKpCodigo').textContent = codigo || '—';
         el('almKpNombre').textContent = nombre || '';
         el('almKpSaldo').textContent  = formatNum(saldo);
         el('almKpUm').textContent     = um || '';
-        // Reset visual de filtros.
-        if (el('almKpDesde'))      el('almKpDesde').value = '';
-        if (el('almKpHasta'))      el('almKpHasta').value = '';
-        if (el('almKpTipoSelect')) el('almKpTipoSelect').value = '';
+        // Saldo en cero → en rojo, mismo criterio visual que una cantidad que resta.
+        var box = el('almKpSaldoBox');
+        if (box) box.classList.toggle('cero', !(parseFloat(saldo) > 0));
         almOpen('almKardexProductoModal');
         window.almKpCargar();
     };
@@ -4943,10 +5038,24 @@
         window.almKpCargar();
     };
 
+    // Quita los tres filtros de golpe y recarga. El botón que la llama solo se ve
+    // cuando hay alguno puesto (lo gobierna almKpCargar).
+    window.almKpLimpiar = function () {
+        almKpResetFiltros();
+        window.almKpCargar();
+    };
+
     window.almKpCargar = function (pageUrl) {
         if (!window.__almKp.idProducto) return;
         window.__almKp.desde = (el('almKpDesde') && el('almKpDesde').value) || '';
         window.__almKp.hasta = (el('almKpHasta') && el('almKpHasta').value) || '';
+
+        // Fecha sin elegir → su texto nativo (dd/mm/aaaa) en gris claro; y "Limpiar"
+        // aparece solo si algún filtro está puesto.
+        if (el('almKpDesde')) el('almKpDesde').classList.toggle('alm-kp-sinfecha', !window.__almKp.desde);
+        if (el('almKpHasta')) el('almKpHasta').classList.toggle('alm-kp-sinfecha', !window.__almKp.hasta);
+        var btnLimpiar = el('almKpBtnLimpiar');
+        if (btnLimpiar) btnLimpiar.hidden = !(window.__almKp.tipo || window.__almKp.desde || window.__almKp.hasta);
 
         var p = new URLSearchParams();
         p.set('id_producto', window.__almKp.idProducto);
@@ -4967,7 +5076,7 @@
             var pg = el('almKpPag'); if (pg) pg.innerHTML = data.pagination || '';
         })
         .catch(function () {
-            if (body) body.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:#dc2626;font-size:12px;">No se pudieron cargar los movimientos.</td></tr>';
+            if (body) body.innerHTML = '<tr><td colspan="5" class="alm-kp-estado error">No se pudieron cargar los movimientos.</td></tr>';
         })
         .finally(function () { if (body) body.style.opacity = '1'; });
     };

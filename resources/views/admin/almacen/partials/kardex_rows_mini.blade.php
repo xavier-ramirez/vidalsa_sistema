@@ -24,9 +24,12 @@
 @endphp
 
 @if($rows->count() === 0)
-    <tr><td colspan="5" style="text-align:center;padding:30px 14px;color:#94a3b8;font-size:13px;">
-        <i class="material-icons" style="font-size:34px;color:#cbd5e0;display:block;margin:0 auto 6px;">receipt_long</i>
-        Este producto no tiene movimientos con esos filtros.
+    <tr><td colspan="5" style="padding:0;">
+        <div class="alm-kp-sinmov">
+            <div class="alm-kp-sinmov-ic"><i class="material-icons">receipt_long</i></div>
+            <div class="alm-kp-sinmov-tit">Sin movimientos</div>
+            <div class="alm-kp-sinmov-sub">Este producto no registra movimientos con los filtros aplicados.</div>
+        </div>
     </td></tr>
 @else
     @foreach($rows as $m)
