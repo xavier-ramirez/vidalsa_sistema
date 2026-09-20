@@ -177,8 +177,11 @@
 
        El @media de la tarjeta móvil (abajo) declara todo con !important, así que ganaba a
        los style="" inline y sigue ganando a estas clases: la tarjeta no cambia. */
-    .alm-mov-table td.mv-td-fecha    { white-space:nowrap; line-height:1.6; }
-    .alm-mov-table .mv-hora          { color:inherit; font-weight:500; font-size:11.5px; }
+    /* Fecha y hora al MISMO tamaño (11,5 px): se leen como un solo dato
+       "17/09/2026 02:43 PM". El tamaño va en la celda y la hora lo hereda — antes la hora
+       lo declaraba aparte y la fecha se quedaba con los 14 px del tbody. */
+    .alm-mov-table td.mv-td-fecha    { white-space:nowrap; line-height:1.6; font-size:11.5px; }
+    .alm-mov-table .mv-hora          { color:inherit; font-weight:500; }
     /* El color del tipo es lo ÚNICO que cambia de una fila a otra: la fila lo publica en
        su propio style como --mov-color y aquí se lee. */
     .alm-mov-table .mv-tipo-inline   { display:inline-flex; align-items:center; gap:3px;
@@ -195,14 +198,15 @@
     .alm-mov-table td.mv-td-cantidad.mv-resta { color:#dc2626; }
     .alm-mov-table td.mv-td-cantidad .mv-um   { color:#64748b; font-weight:600; font-size:10.5px; }
     .alm-mov-table td.mv-td-stock    { white-space:nowrap; font-weight:700; }
-    /* En PANTALLA GRANDE la tabla era plana y el color solo estaba en el tipo y la cantidad;
-       en el teléfono, en cambio, cada fila es una tarjeta de color. Se acerca con lo justo:
-       una franja del color del movimiento a la izquierda y el tipo como pastilla suave
-       (los dos salen de --mov-color / --mov-fondo, que publica cada fila). */
+    /* En PC el tipo se lee como pastilla suave (--mov-fondo, que publica cada fila). La
+       franja de color a la izquierda de la fila se QUITÓ a pedido del cliente: con la
+       pastilla del tipo y el color de la cantidad ya se distingue entrada de salida, y la
+       franja rayaba la tabla de rojos y azules. En el teléfono cada fila sigue siendo una
+       tarjeta con su borde de color (ver el @media de abajo). */
     @media (min-width: 769px) {
-        .alm-mov-table tbody tr.alm-mov-row td:first-child {
-            box-shadow: inset 4px 0 0 var(--mov-color, transparent);
-        }
+        /* Reparto FIJO: sin esto el navegador reparte por contenido y los anchos del thead
+           son solo una sugerencia que acaba ignorando. */
+        .alm-mov-table { table-layout: fixed; }
         .alm-mov-table .mv-tipo-inline {
             background: var(--mov-fondo, transparent); border-radius: 999px; padding: 1px 8px;
         }
@@ -897,12 +901,21 @@
                 <tr>
                     {{-- Fecha + Tipo combinados en una sola columna (la pill de tipo va
                          debajo de la fecha en cada fila). Se eliminó la columna Tipo. --}}
-                    <th style="width:120px;">Fecha</th>
-                    <th>Descripción del producto</th>
-                    <th style="width:110px;">Cantidad</th>
-                    <th style="width:55px;">Stock</th>
-                    <th style="width:215px;">Destino</th>
-                    <th style="width:150px;">Referencia</th>
+                    {{-- Anchos de PC en PORCENTAJE y con table-layout:fixed (ver el CSS): en
+                         reparto automático el navegador los ignoraba y repartía por contenido
+                         —Destino se quedaba en 176 px aunque se le pidieran 245—.
+                         Fecha, Cantidad y Stock se apretaron (la fecha ya va en 11,5 px y las
+                         otras dos son números cortos) y lo que sueltan se lo llevan Descripción
+                         y Destino. Referencia también suelta 3 puntos: le sobraba sitio (una
+                         nota es "NE-2026-0655") y Descripción es la que parte los nombres en
+                         dos renglones. Pedido del cliente. El teléfono es una rejilla aparte y
+                         los ignora. Suman 100. --}}
+                    <th style="width:15%;">Fecha</th>
+                    <th style="width:33%;">Descripción del producto</th>
+                    <th style="width:9%;">Cantidad</th>
+                    <th style="width:6%;">Stock</th>
+                    <th style="width:24%;">Destino</th>
+                    <th style="width:13%;">Referencia</th>
                 </tr>
             </thead>
             <tbody id="almMovTableBody">
