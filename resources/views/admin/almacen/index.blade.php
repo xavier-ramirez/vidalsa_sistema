@@ -181,7 +181,12 @@
 
        El JS de esta pantalla solo ESCRIBE .style.* sobre campos de formulario y el canvas
        de etiquetas — nunca sobre estas celdas—, así que no hay interacción con el cambio. */
-    .alm-table td.alm-td-codigo { font-weight:600; color:#1e293b; white-space:nowrap; padding:12px 8px; }
+    /* CÓDIGO dentro de la celda de Descripción: renglón propio ENCIMA del nombre, pequeño
+       y monoespaciado — misma jerarquía que la cabecera del modal de movimientos
+       (.alm-kp-hero-cod), para que el producto se lea igual en los dos sitios. */
+    .alm-cod-mini { display:block; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+                    font-size:10px; font-weight:700; letter-spacing:.9px; color:#64748b; line-height:1.2;
+                    margin-bottom:2px; }
     .alm-table td.alm-td-nombre { font-weight:600; color:#1e293b; position:relative; }
     .alm-table td.alm-td-cat    { font-weight:600; color:#1e293b; }
     .alm-table td.alm-td-stock  { text-align:center; color:#0f172a; }
@@ -1030,10 +1035,10 @@
              │ STOCK 5.000 UND ⚠    [▲ 0 ▼ stepper]      [👁]       │  ← stock | cant | det
              └──────────────────────────────────────────────────────┘
 
-           - Codigo + nombre se renderizan como UN solo texto unificado:
-             mismo font, mismo color, mismo peso. El ::before agrega el codigo
-             como prefijo del nombre sin separadores especiales.
-           - alm-td-codigo OCULTO (su valor se reusa via attr data-codigo).
+           - Codigo + nombre se leen como UN solo texto unificado: el <span> del
+             codigo (.alm-cod-mini) pasa a display:inline y hereda font, color y
+             peso del nombre. En PC ese mismo span va en su renglon, pequeno y
+             monoespaciado, ENCIMA del nombre. Ya NO hay columna de codigo.
            - alm-td-cat OCULTO (peticion previa del cliente).
            - La unidad (UM) vive inline en la celda de Stock (span .alm-stock-um),
              tanto en desktop como en mobile — ya no hay columna "UND" aparte.
@@ -1095,7 +1100,6 @@
            cliente pidio quitarla. OJO: este display:none debe ir en SU PROPIA regla;
            antes estaba comma-unido a .alm-td-nombre de abajo y, en vez de ocultarse,
            heredaban display:block + gradiente + grid-area:nombre (se encimaban). */
-        .alm-table tr.alm-row td.alm-td-codigo,
         .alm-table tr.alm-row td.alm-td-cat { display: none !important; }
 
         /* Fila 1: nombre + codigo como UN SOLO TEXTO unificado — banda gris.
@@ -1112,12 +1116,20 @@
             color: #1e293b !important;
             line-height: 1.3 !important;
         }
-        .alm-table tr.alm-row td.alm-td-nombre::before {
-            content: attr(data-codigo) "  ";
-            /* Sin font-family, sin color, sin font-weight: HEREDA del padre →
-               el codigo se ve identico al nombre. UN solo texto visual. */
-            white-space: pre;
+        /* En teléfono el cliente lo quiere como UN SOLO texto ("00042 ABRAZADERA"), no en
+           dos renglones: el mismo <span> del código se pone en línea y hereda el tipo, el
+           color y el peso del nombre. Antes esto lo hacía un ::before con data-codigo, que
+           duplicaba el dato; ahora se pinta una sola vez y solo cambia de forma. */
+        .alm-table tr.alm-row td.alm-td-nombre .alm-cod-mini {
+            display: inline !important;
+            font-family: inherit !important;
+            font-size: inherit !important;
+            font-weight: inherit !important;
+            letter-spacing: inherit !important;
+            color: inherit !important;
+            margin: 0 !important;
         }
+        .alm-table tr.alm-row td.alm-td-nombre .alm-cod-mini::after { content: "  "; white-space: pre; }
 
         /* Fila 2: stock-info (label STOCK + valor + UM) | stepper | boton ojo.
            Todo en una sola linea — el cliente pidio ver "STOCK valor unidad
@@ -1448,7 +1460,8 @@
         <table class="alm-table">
             <thead>
                 <tr>
-                    <th style="width:68px;padding:10px 8px;">Código</th>
+                    {{-- Sin columna "Código": va dentro de Descripción, pequeño y encima
+                         del nombre (ver .alm-cod-mini y partials/table_rows). --}}
                     <th>Descripción del producto</th>
                     <th>Categoría</th>
                     <th style="text-align:center;">Stock</th>

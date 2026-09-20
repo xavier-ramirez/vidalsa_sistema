@@ -180,8 +180,11 @@
         const bajo = esBajo(p);
         return '' +
             '<tr class="alm-row ' + (bajo ? 'alm-row-bajo' : '') + '" data-offline="1">' +
-            '<td class="alm-td-codigo" style="font-family:monospace;font-weight:700;color:#0f172a;">' + esc(p.codigo) + '</td>' +
-            '<td class="alm-td-nombre" data-codigo="' + esc(p.codigo) + '" style="font-weight:600;color:#1e293b;">' + esc(p.nombre) + '</td>' +
+            // El CODIGO no tiene columna: va dentro de Descripcion, pequeno y encima del
+            // nombre (.alm-cod-mini), igual que la tabla online (partials/table_rows).
+            '<td class="alm-td-nombre" style="font-weight:600;color:#1e293b;">' +
+                '<span class="alm-cod-mini">' + esc(p.codigo) + '</span>' + esc(p.nombre) +
+            '</td>' +
             '<td class="alm-td-cat" style="color:#475569;">' + (p.categoria ? esc(p.categoria) : '—') + '</td>' +
             '<td class="alm-td-stock" style="font-weight:800;font-size:15px;">' + fmt(saldo) + '<span class="alm-stock-um">' + esc(p.um) + '</span>' +
                 (bajo ? ' <i class="material-icons" style="font-size:14px;color:#f59e0b;vertical-align:middle;" title="Stock en o por debajo del mínimo">warning</i>' : '') +

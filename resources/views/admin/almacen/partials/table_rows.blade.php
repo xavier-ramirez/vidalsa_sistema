@@ -7,12 +7,13 @@
     // sola consulta para toda la pagina (AlmacenController::repartoDeLaPagina) y llega VACIO
     // en los almacenes que no separan por proyecto.
     $reparto = $reparto ?? collect();
-    // 6 columnas SIEMPRE: Código · Descripción · Categoría · Stock (con unidad) ·
-    // Salida · Detalles. La columna "Salida/Cantidad" se muestra a TODOS; el permiso
-    // almacen.movimiento NO oculta la captura — solo bloquea ABRIR la salida y
-    // ejecutarla (ver almSelAccion y el backend). La unidad (UM) ya no tiene columna
+    // 5 columnas SIEMPRE: Descripción · Categoría · Stock (con unidad) · Salida · Detalles.
+    // El CÓDIGO ya no tiene columna: va dentro de la celda de Descripción, pequeño y encima
+    // del nombre (pedido del cliente). La columna "Salida/Cantidad" se muestra a TODOS; el
+    // permiso almacen.movimiento NO oculta la captura — solo bloquea ABRIR la salida y
+    // ejecutarla (ver almSelAccion y el backend). La unidad (UM) tampoco tiene columna
     // propia: vive junto al número en la celda de Stock.
-    $cols    = 6;
+    $cols    = 5;
 @endphp
 
 @if(!$almacen)
@@ -86,15 +87,14 @@
                  (almRowPartePick) antes de poder poner la cantidad. --}}
             @if($equivs) data-equiv="{{ implode('|', $equivs) }}" data-parte-sel="{{ count($equivs) === 1 ? $equivs[0] : '' }}" @endif
             @if($bolsasJson) data-bolsas="{{ $bolsasJson }}" @endif>
-            <td class="alm-td-codigo">{{ $p->CODIGO }}</td>
             {{-- Descripción + tooltip-bubble con la UBICACION (mismo patrón de /admin/equipos).
                  El tooltip se activa al hover de cualquier parte de la fila por la regla CSS
                  `.alm-row:hover .tooltip-bubble` que agregué en index.blade.php.
-                 data-codigo lo lee la regla mobile ::before para mostrar el codigo como
-                 prefijo monospace de la descripcion (el cliente lo quiere como un solo
-                 dato "00042 · ABRAZADERA"). En desktop hay columna codigo aparte, asi que
-                 el atributo queda sin uso pero no estorba. --}}
-            <td class="alm-td-nombre" data-codigo="{{ $p->CODIGO }}">
+                 El CÓDIGO abre la celda, en pequeño y encima del nombre. Es el ÚNICO sitio
+                 donde se pinta: antes tenía columna propia en PC y además se repetía en
+                 teléfono con un ::before que leía data-codigo. Una sola fuente. --}}
+            <td class="alm-td-nombre">
+                <span class="alm-cod-mini">{{ $p->CODIGO }}</span>
                 @if($equivs)
                     {{-- Filtros: el TIPO (nombre) va un poco más chico y los NÚMEROS DE PARTE
                          más grandes y oscuros (como el tipo) — el cliente los quiere como el dato
