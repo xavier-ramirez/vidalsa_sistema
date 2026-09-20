@@ -290,6 +290,42 @@ class DevolucionMaterialTest extends MySqlTestCase
         $this->assertStringNotContainsString($boton, $bitacora(), 'Ya volvió todo: sin botón.');
     }
 
+    public function test_la_nota_y_la_bitacora_dicen_lo_que_se_devolvio(): void
+    {
+        // El papel firmado NO cambia: la nota lleva las mismas lineas. Lo devuelto se añade
+        // al pie ("DEVOLUCIONES REGISTRADAS") y en la bitacora la salida lo dice en su celda.
+        $alm = $this->almacen();
+        $p = $this->producto('47');
+        $this->inv->registrarEntrada($alm->ID_ALMACEN, $p->ID_PRODUCTO, 10);
+        $nota = $this->salidaConNota($alm->ID_ALMACEN, [$p->ID_PRODUCTO => 5], null);
+
+        // Antes de devolver nada, la nota sale limpia. (Se mira el HTML que se manda a TCPDF:
+        // generar el PDF de verdad son varios segundos por llamada y no añade nada.)
+        $this->assertStringNotContainsString('DEVOLUCIONES', $this->textoVista($nota), 'Sin devoluciones, nada al pie.');
+
+        $this->devolver($nota, [['id_producto' => $p->ID_PRODUCTO, 'cantidad' => 2]], ['motivo' => 'SOBRO EN LA OBRA'])->assertCreated();
+
+        $texto = $this->textoVista($nota);
+        $this->assertStringContainsString('DEVOLUCIONES REGISTRADAS', $texto);
+        $this->assertStringContainsString('SOBRO EN LA OBRA', $texto);
+        $this->assertStringContainsString('2', $texto, 'Y con la cantidad devuelta.');
+    }
+
+    /** El HTML de la nota (lo que se manda a TCPDF), para mirar su contenido sin leer el PDF. */
+    private function textoVista(string $numero): string
+    {
+        $movs = MovimientoInventario::with('producto')->where('NUMERO_NOTA', $numero)
+            ->where('TIPO', MovimientoInventario::TIPO_SALIDA)->get();
+        $devoluciones = MovimientoInventario::with('producto')
+            ->where('TIPO', MovimientoInventario::TIPO_DEVOLUCION)
+            ->whereIn('ID_MOVIMIENTO_RELACIONADO', $movs->pluck('ID_MOVIMIENTO'))->get();
+
+        return view('admin.almacen.partials.nota_devoluciones', [
+            'devoluciones' => $devoluciones,
+            'fmt' => fn ($n) => rtrim(rtrim(number_format((float) $n, 3, ',', '.'), '0'), ',') ?: '0',
+        ])->render();
+    }
+
     public function test_la_bitacora_pinta_la_devolucion_enlazada_a_su_nota(): void
     {
         $alm = $this->almacen();

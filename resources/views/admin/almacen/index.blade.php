@@ -869,6 +869,9 @@
            ajustamos el flex-basis para evitar tracks anchos. */
         #almFilters { gap: 8px; }
         #almFilters .alm-filter { max-width: none !important; flex: 1 1 100% !important; }
+        /* Categoría se encoge para dejarle su hueco al botón de filtros avanzados: los dos
+           en la misma fila (antes el botón caía solo en una fila para él). */
+        #almFilters > .alm-filter:nth-child(2) { flex: 1 1 0 !important; }
 
         /* Boton "Acciones" full-width — antes quedaba angosto a la derecha por
            `margin-left:auto`, raro en mobile. Y el menu desplegable se alinea

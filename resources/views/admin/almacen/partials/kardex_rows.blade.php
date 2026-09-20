@@ -51,7 +51,7 @@
                 ? 'Registrado por: ' . $m->usuario->NOMBRE_COMPLETO
                 : 'Usuario no registrado';
         @endphp
-        <tr class="alm-mov-row" style="--mov-color: {{ $meta[1] }}">
+        <tr class="alm-mov-row" style="--mov-color: {{ $meta[1] }}; --mov-fondo: {{ $meta[2] }}">
             {{-- Fecha + Tipo COMBINADOS en una sola columna: la fecha arriba y la pill
                  de tipo debajo. En mobile la pill se oculta (.mv-tipo-inline) igual que
                  antes hacía el td.mv-td-tipo — la cantidad ya comunica entrada/salida. --}}
@@ -96,7 +96,17 @@
                 </div>
             </td>
             {{-- mv-suma / mv-resta deciden el color (verde suma, rojo resta). --}}
-            <td class="mv-td-cantidad {{ $entra || ($m->TIPO === 'AJUSTE' && $signo === '+') ? 'mv-suma' : 'mv-resta' }}" data-label="Cantidad">{{ $signo }}{{ $fmt($mag) }} <span class="mv-um">{{ $m->producto?->UM }}</span></td>
+            @php
+                // Lo que ya volvió de ESTA salida: lo entregado menos lo que queda por devolver
+                // ($porDevolver, calculado arriba). Solo se marca si de verdad volvió algo.
+                $devuelto = isset($porDevolver[$m->ID_MOVIMIENTO])
+                    ? round((float) $m->CANTIDAD - (float) $porDevolver[$m->ID_MOVIMIENTO], 3) : 0;
+            @endphp
+            <td class="mv-td-cantidad {{ $entra || ($m->TIPO === 'AJUSTE' && $signo === '+') ? 'mv-suma' : 'mv-resta' }}" data-label="Cantidad">{{ $signo }}{{ $fmt($mag) }} <span class="mv-um">{{ $m->producto?->UM }}</span>
+                @if($devuelto > \App\Services\InventarioService::EPS)
+                    <span class="mv-devuelto" title="De lo entregado en esta línea ya volvieron {{ $fmt($devuelto) }} {{ $m->producto?->UM }}">devuelto {{ $fmt($devuelto) }}</span>
+                @endif
+            </td>
             {{-- Stock: solo el saldo RESULTANTE (cómo quedó tras el movimiento). El "antes → después"
                  queda como tooltip de la celda para ver el delta sin saturar la tabla. --}}
             <td class="mv-td-stock" data-label="Stock" title="Antes: {{ $fmt($m->CANTIDAD_ANTERIOR) }} → Después: {{ $fmt($m->CANTIDAD_RESULTANTE) }}">{{ $fmt($m->CANTIDAD_RESULTANTE) }}</td>

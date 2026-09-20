@@ -152,14 +152,14 @@
             align-items: stretch !important;
             gap: 8px !important;
         }
-        /* Los dos buscadores y la acción a lo ancho; debajo, en una fila, Filtros
-           Avanzados (45px) + Acciones (el resto). */
-        /* Tres filas: los dos buscadores, el filtro de acción con su botón de avanzados, y
-           Acciones. Antes cada filtro ocupaba una fila entera y se comían media pantalla. */
+        /* Un filtro por fila (así lo pidió el cliente) y Acciones abajo del todo, a lo ancho.
+           El botón de filtros avanzados sigue pegado al último filtro, no es un filtro. */
         .hd-filter-row > .filter-item.responsive-filter-item {
-            flex: 1 1 calc(50% - 3px) !important;
+            flex: 1 1 100% !important;
             min-width: 0 !important;
         }
+        .hd-acciones-wrap { flex: 1 1 100% !important; order: 9; }
+        .hd-acciones-wrap #hdBtnAcciones { width: 100% !important; }
         /* El botón de filtros avanzados va pegado al ÚLTIMO filtro, no al de Acciones:
            el filtro se encoge para dejarle su hueco en la misma fila. */
         .hd-filter-row > .filter-item.responsive-filter-item:nth-of-type(3) {
@@ -318,16 +318,12 @@
        Las dos ultimas las pinta admin/compresion_pdf/panel.blade.php. */
     .hd-pest-fila { display: flex; align-items: flex-end; gap: 10px; width: 98%; max-width: 1600px; margin: -6px auto 14px; }
     .hd-pest { display: flex; gap: 6px; border-bottom: 1px solid #e2e8f0; flex: 1 1 auto; min-width: 0; }
-    .hd-pest-fila #hdBtnAcciones { height: 38px !important; padding: 0 12px !important; margin-bottom: 4px; }
     .hd-pest button { border: none; background: none; font: inherit; font-size: 14.5px; font-weight: 700; color: #64748b;
                       padding: 8px 14px; border-bottom: 3px solid transparent; cursor: pointer; }
     .hd-pest button.on { color: #0067b1; border-bottom-color: #0067b1; }
     .hd-pest .hd-pend { background: #fef3c7; color: #92400e; border-radius: 999px; padding: 1px 7px; font-size: 12px; margin-left: 4px; }
     /* Teléfono: los nombres no se parten en tres renglones; si no caben, la fila se desliza. */
     @media (max-width: 768px) {
-        /* El botón, solo el engranaje: con el texto no cabían las tres pestañas. */
-        .hd-pest-fila #hdBtnAcciones span, .hd-pest-fila #hdBtnAcciones .material-icons:last-child { display: none; }
-        .hd-pest-fila #hdBtnAcciones { padding: 0 10px !important; }
         .hd-pest { overflow-x: auto; scrollbar-width: none; }
         .hd-pest::-webkit-scrollbar { display: none; }
         .hd-pest button { white-space: nowrap; padding: 8px 10px; font-size: 13.5px; }
@@ -353,7 +349,6 @@
     </button>
     <button type="button" class="{{ $pestana === 'compresion' ? 'on' : '' }}" onclick="window.hdPestana('compresion')">Compresión de PDF</button>
     </div>
-    @include('admin.historial_documentos.partials.acciones')
 </div>
 <script>
     // Cambiar de pestaña = pedir la misma pantalla con ?pestana=..., por la SPA.
@@ -546,8 +541,7 @@
                     </div>
                 </div>
 
-
-
+                @include('admin.historial_documentos.partials.acciones')
             </div>
 
             <!-- Unified Responsive Table -->

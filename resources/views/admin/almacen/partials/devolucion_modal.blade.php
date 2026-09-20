@@ -17,13 +17,13 @@
 <style>
     #devMatModal { display:none; position:fixed; inset:0; background:rgba(15,23,42,0.5); backdrop-filter:blur(2px); z-index:10000; align-items:center; justify-content:center; padding:16px; }
     #devMatModal.open { display:flex; }
-    #devMatModal .devm-box { background:#fff; border-radius:16px; width:100%; max-width:440px; max-height:90vh; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25); display:flex; flex-direction:column; overflow:hidden; color:#0f172a; }
-    #devMatModal .devm-head { padding:16px 48px; background:#1e293b; display:flex; align-items:center; justify-content:center; position:relative; flex-shrink:0; }
-    #devMatModal .devm-head h3 { margin:0; font-size:16px; font-weight:700; color:#fff; display:flex; align-items:center; gap:10px; }
+    #devMatModal .devm-box { background:#fff; border-radius:16px; width:100%; max-width:400px; max-height:90vh; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25); display:flex; flex-direction:column; overflow:hidden; color:#0f172a; }
+    #devMatModal .devm-head { padding:11px 44px; background:#1e293b; display:flex; align-items:center; justify-content:center; position:relative; flex-shrink:0; }
+    #devMatModal .devm-head h3 { margin:0; font-size:15px; font-weight:700; color:#fff; display:flex; align-items:center; gap:10px; }
     #devMatModal .devm-head h3 .material-icons { color:#fff; font-size:20px; }
     #devMatModal .devm-x { position:absolute; right:15px; top:50%; transform:translateY(-50%); cursor:pointer; color:#fff; opacity:.75; background:none; border:none; padding:0; display:flex; }
     #devMatModal .devm-x:hover { opacity:1; }
-    #devMatModal .devm-body { padding:16px 20px 20px; display:flex; flex-direction:column; gap:14px; overflow-y:auto; min-height:0; }
+    #devMatModal .devm-body { padding:12px 14px 14px; display:flex; flex-direction:column; gap:10px; overflow-y:auto; min-height:0; }
     #devMatModal .devm-contenido { display:flex; flex-direction:column; gap:14px; }
     #devMatModal .devm-contenido[hidden] { display:none; }
 
@@ -44,7 +44,7 @@
        raya, el campo de cuánto vuelve. Sin marco extra alrededor ni resaltado de la tarjeta al
        escribir: el azul del foco va solo en el campo (tres marcos anidados se veían recargados). */
     #devMatModal .devm-lineas { display:flex; flex-direction:column; gap:8px; max-height:320px; overflow-y:auto; }
-    #devMatModal .devm-linea { background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:14px; display:flex; flex-direction:column; gap:12px; box-shadow:0 1px 2px rgba(15,23,42,.05); }
+    #devMatModal .devm-linea { background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:10px 12px; display:flex; flex-direction:column; gap:8px; box-shadow:0 1px 2px rgba(15,23,42,.05); }
     #devMatModal .devm-linea.cerrada { opacity:.8; }
     #devMatModal .devm-prod-cab { display:flex; align-items:center; gap:12px; min-width:0; }
     #devMatModal .devm-foto { width:52px; height:52px; flex-shrink:0; border-radius:8px; background:#eff6ff; display:flex; align-items:center; justify-content:center; }
@@ -62,7 +62,7 @@
     #devMatModal .devm-input::placeholder { color:#94a3b8; }
 
     /* Cuánto vuelve: el campo a todo lo ancho de la tarjeta y la unidad pegada a la derecha. */
-    #devMatModal .devm-devuelve { display:flex; flex-direction:column; gap:6px; padding-top:12px; border-top:1px solid #f1f5f9; }
+    #devMatModal .devm-devuelve { display:flex; flex-direction:column; gap:5px; padding-top:8px; border-top:1px solid #f1f5f9; }
     #devMatModal .devm-cant { display:flex; align-items:stretch; box-sizing:border-box; height:36px; border:1.5px solid #cbd5e1; border-radius:8px; background:#fff; overflow:hidden; transition:border-color .15s; }
     #devMatModal .devm-cant:focus-within { border-color:#0067b1; }
     #devMatModal .devm-cant .devm-input { flex:1; min-width:0; height:100%; border:none; border-radius:0; padding:0 12px; text-align:center; font-size:15px; font-weight:700; font-variant-numeric:tabular-nums; }
@@ -78,7 +78,7 @@
 
     /* Pie: dos botones del mismo ancho. Clases propias (no .btn-primary-maquinaria) para que
        los estilos globales de botón no les cambien el tamaño. */
-    #devMatModal .devm-foot { padding:14px 20px; border-top:1px solid #e2e8f0; background:#fff; display:flex; gap:10px; flex-shrink:0; }
+    #devMatModal .devm-foot { padding:12px 14px; border-top:1px solid #e2e8f0; background:#fff; display:flex; gap:10px; flex-shrink:0; }
     #devMatModal .devm-foot button { flex:1; height:42px; border-radius:10px; font:inherit; font-size:14px; font-weight:700; display:inline-flex; align-items:center; justify-content:center; gap:6px; cursor:pointer; transition:background .15s; }
     #devMatModal .devm-foot .material-icons { font-size:18px; }
     #devMatModal .devm-btn-cancelar { background:#fff; color:#0f172a; border:1.5px solid #cbd5e1; }
@@ -90,8 +90,8 @@
 
     @media (max-width: 640px) {
         #devMatModal { padding:8px; }
-        #devMatModal .devm-body { padding:14px 16px 16px; }
-        #devMatModal .devm-foot { padding:12px 16px; }
+        #devMatModal .devm-body { padding:10px 12px 12px; }
+        #devMatModal .devm-foot { padding:10px 12px; }
     }
 </style>
 

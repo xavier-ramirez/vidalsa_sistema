@@ -211,3 +211,4 @@
         @endforeach
     </tr>
 </table>
+@include('admin.almacen.partials.nota_devoluciones')

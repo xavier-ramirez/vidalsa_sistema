@@ -16,6 +16,7 @@
 
     .cpdf-filtros { display: flex; flex-wrap: nowrap; gap: 10px; align-items: stretch; margin-bottom: 14px; }
     .cpdf-filtros > .filter-item.responsive-filter-item { flex: 1 1 0 !important; max-width: none !important; min-width: 0; }
+    .cpdf-filtros .hd-acciones-wrap { align-self: center; }
 
     /* Tarjeta grande de arriba: el MISMO molde que la de "Total Auditoría" del Historial,
        para que las tres pestañas abran con la misma pieza. */
@@ -297,6 +298,8 @@
                     </div>
                 </div>
             @endforeach
+
+            @include('admin.historial_documentos.partials.acciones')
         </div>
 
         @if ($pestana === 'documentos')
@@ -463,11 +466,6 @@
                 <span>ilegibles, ajenos o sin archivo</span>
             </a>
             <div class="cpdf-caja">
-                <small>Faltan por leer</small>
-                <strong>{{ $pendientesDocs }}</strong>
-                <span>{{ $pendientesDocs ? 'se leen ' . $horarioLectura : 'todo leído' }}</span>
-            </div>
-            <div class="cpdf-caja">
                 <small>Última lectura</small>
                 <strong style="font-size:16px;">{{ $ultimaLectura ? \Carbon\Carbon::parse($ultimaLectura)->format('d/m/Y H:i') : 'Todavía no' }}</strong>
                 <span>de los 4 tipos</span>
@@ -517,10 +515,6 @@
             <small>Comprimidos</small>
             <strong>{{ $comp->n ?? 0 }}</strong>
             <span>{{ $mb($comp->antes ?? 0) }} MB → {{ $mb($comp->despues ?? 0) }} MB</span>
-        </div>
-        <div class="cpdf-caja">
-            <small>Espacio ahorrado</small>
-            <strong>{{ $mb(($comp->antes ?? 0) - ($comp->despues ?? 0)) }} MB</strong>
         </div>
         <div class="cpdf-caja">
             <small>Saltados</small>

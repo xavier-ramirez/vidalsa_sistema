@@ -128,6 +128,9 @@
     /* "Devolver" (.mv-undo-btn, el mismo enlace de "Deshacer" en Movilizaciones) en su
        propio renglón, bajo el N° de nota. */
     .alm-mov-table td.mv-td-ref .mv-devolver { display:flex; margin:4px auto 0; }
+    /* "devuelto N" bajo la cantidad de una salida que ya regresó, entera o en parte. */
+    .alm-mov-table .mv-devuelto { display:block; margin-top:2px; font-size:10.5px; font-weight:700;
+        color:#0f766e; background:#ccfbf1; border-radius:999px; padding:1px 7px; white-space:nowrap; }
     .alm-mov-undo {
         position:absolute; top:3px; right:3px;
         width:20px; height:20px; padding:0; margin:0;
@@ -191,7 +194,19 @@
     .alm-mov-table td.mv-td-cantidad.mv-suma  { color:#16a34a; }
     .alm-mov-table td.mv-td-cantidad.mv-resta { color:#dc2626; }
     .alm-mov-table td.mv-td-cantidad .mv-um   { color:#64748b; font-weight:600; font-size:10.5px; }
-    .alm-mov-table td.mv-td-stock    { white-space:nowrap; }
+    .alm-mov-table td.mv-td-stock    { white-space:nowrap; font-weight:700; }
+    /* En PANTALLA GRANDE la tabla era plana y el color solo estaba en el tipo y la cantidad;
+       en el teléfono, en cambio, cada fila es una tarjeta de color. Se acerca con lo justo:
+       una franja del color del movimiento a la izquierda y el tipo como pastilla suave
+       (los dos salen de --mov-color / --mov-fondo, que publica cada fila). */
+    @media (min-width: 769px) {
+        .alm-mov-table tbody tr.alm-mov-row td:first-child {
+            box-shadow: inset 4px 0 0 var(--mov-color, transparent);
+        }
+        .alm-mov-table .mv-tipo-inline {
+            background: var(--mov-fondo, transparent); border-radius: 999px; padding: 1px 8px;
+        }
+    }
     .alm-mov-table td.mv-td-destino  { font-size:12.5px; }
     .alm-mov-table .mv-destino-frente { font-weight:600; color:#1e293b; }
     .alm-mov-table .mv-ref-referencia { font-size:12.5px; color:#334155; font-weight:400; }
@@ -509,9 +524,9 @@
         }
         /* "Devolver", al lado del PDF y del mismo tamaño: solo el icono (el texto va en el title). */
         .alm-mov-table tr.alm-mov-row td.mv-td-ref .mv-devolver {
-            width: 32px !important; height: 32px !important; margin: 0 0 0 6px !important; padding: 0 !important;
+            width: 26px !important; height: 26px !important; margin: 0 0 0 6px !important; padding: 0 !important;
         }
-        .alm-mov-table tr.alm-mov-row td.mv-td-ref .mv-devolver .material-icons { font-size: 20px !important; }
+        .alm-mov-table tr.alm-mov-row td.mv-td-ref .mv-devolver .material-icons { font-size: 16px !important; }
         .alm-mov-table tr.alm-mov-row td.mv-td-ref .mv-devolver span { display: none !important; }
         /* En la tarjeta manda el icono: el N° de nota se lee al abrir el PDF (va en su título). */
         .alm-mov-table tr.alm-mov-row td.mv-td-ref a.mv-nota-link .mv-nota-num {

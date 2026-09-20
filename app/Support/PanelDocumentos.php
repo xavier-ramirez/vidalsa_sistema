@@ -105,7 +105,6 @@ class PanelDocumentos
             'estadoDoc'   => null,
             'tipoDoc'     => null,
             'ultimaLectura'  => null,
-            'pendientesDocs' => null,
         ];
     }
 
@@ -162,7 +161,6 @@ class PanelDocumentos
             'estadoDoc'      => $estadoDoc,
             'tipoDoc'        => $tipoDoc,
             'ultimaLectura'  => VerificacionDocumento::max('updated_at'),
-            'pendientesDocs' => array_sum(array_column($avance, 'faltan')),
             'avanceDocs'     => $avance,
             // Las de la otra pestaña: no se consultan, pero la vista las recibe siempre.
             'resumen'     => collect(),

@@ -84,11 +84,11 @@
     function pintar(nota) {
         estado.nota = nota;
 
-        // De qué nota viene, en una línea: número · fecha · proyecto (· quién recibió). El title
-        // lleva el texto entero por si el proyecto no cabe y se corta con "…".
+        // De qué nota viene: número y fecha, nada más. El proyecto y quién recibió van en el
+        // title (se ven al posarse encima): en la línea solo alargaban el modal.
         var sep = ' <span class="devm-sep">&middot;</span> ';
-        var partes = [nota.fecha, nota.proyecto, nota.solicitante].filter(Boolean);
-        $('devMatNota').title = [nota.numero].concat(partes).join(' · ');
+        var partes = [nota.fecha].filter(Boolean);
+        $('devMatNota').title = [nota.numero, nota.fecha, nota.proyecto, nota.solicitante].filter(Boolean).join(' · ');
         $('devMatNota').innerHTML = '<i class="material-icons">receipt_long</i>'
             + '<span class="devm-nota-txt"><b class="devm-nota-num">' + esc(nota.numero) + '</b>'
             + (partes.length ? sep + '<span class="devm-nota-sub">' + partes.map(esc).join(sep) + '</span>' : '')

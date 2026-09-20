@@ -4127,9 +4127,19 @@ class AlmacenController extends Controller
             ? 'admin.almacen.nota_entrega_horizontal_pdf'
             : 'admin.almacen.nota_entrega_pdf';
 
+        // Lo que VOLVIÓ de esta nota (DevolucionService las liga a su salida con
+        // ID_MOVIMIENTO_RELACIONADO). El papel firmado no se toca: si hay devoluciones se
+        // añade un bloque al pie que las lista; si no hay, la nota sale igual que siempre.
+        $devoluciones = MovimientoInventario::with('producto:ID_PRODUCTO,CODIGO,NOMBRE,UM')
+            ->where('TIPO', MovimientoInventario::TIPO_DEVOLUCION)
+            ->whereIn('ID_MOVIMIENTO_RELACIONADO', $movs->pluck('ID_MOVIMIENTO'))
+            ->orderBy('FECHA')->orderBy('ID_MOVIMIENTO')
+            ->get();
+
         $html = view($vista, [
             'datos' => $datos,
             'movs'  => $movs,
+            'devoluciones' => $devoluciones,
             // Solo lo consume la vista horizontal; la vertical lleva sus dos firmas armadas
             // con 'entregado_por'/'cargo_entrega' y nunca lee esto, por eso alli va vacio.
             // Con el formato congelado una nota horizontal SI puede quedarse sin almacen (si
