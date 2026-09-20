@@ -181,8 +181,8 @@ class PanelDocumentos
     {
         $avance = [];
         foreach (VerificacionDocumento::ENLACES as $tipo => $col) {
-            $faltan = VerificacionDocumento::pendientes($tipo, $col)->count();
-            $total  = VerificacionDocumento::conEnlace($col)->count();
+            // Las dos cuentas salen de UNA consulta (ver VerificacionDocumento::avanceDe).
+            ['total' => $total, 'faltan' => $faltan] = VerificacionDocumento::avanceDe($tipo, $col);
             $avance[$tipo] = [
                 'nombre' => VerificacionDocumento::NOMBRES[$tipo] ?? $tipo,
                 'total'  => $total,

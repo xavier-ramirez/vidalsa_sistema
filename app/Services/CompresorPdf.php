@@ -27,7 +27,26 @@ class CompresorPdf
     }
 
     /** ¿Esta Ghostscript instalado y responde? */
+    /**
+     * Cuanto se recuerda si Ghostscript esta instalado. Comprobarlo cuesta LANZAR UN
+     * PROCESO: medido en el panel de Compresion, ~200 ms de los ~230 que tardaba en abrir,
+     * y se hacia en CADA carga de la pestaña. Ghostscript no aparece ni desaparece entre
+     * una peticion y la siguiente, asi que la respuesta se guarda. Si se instala (o se
+     * desinstala) el banner del panel tarda como mucho estos minutos en enterarse.
+     */
+    private const MINUTOS_RECORDADO = 10;
+
     public function disponible(): bool
+    {
+        return (bool) \Illuminate\Support\Facades\Cache::remember(
+            'compresor_pdf_disponible_' . md5($this->bin),
+            now()->addMinutes(self::MINUTOS_RECORDADO),
+            fn () => $this->comprobarBinario()
+        );
+    }
+
+    /** La comprobacion de verdad: lanza el binario y mira si responde. */
+    private function comprobarBinario(): bool
     {
         try {
             $p = new Process([$this->bin, '--version']);

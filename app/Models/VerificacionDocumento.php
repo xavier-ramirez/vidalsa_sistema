@@ -124,17 +124,49 @@ class VerificacionDocumento extends Model
      */
     public static function pendientes(string $tipo, string $columna)
     {
+        return self::conEnlace($columna)
+            ->whereNotExists(fn ($s) => self::condicionLeido($s, $tipo, $columna));
+    }
+
+    /**
+     * "Este documento YA se leyo", en SQL. UNICO sitio donde vive la regla: la usan
+     * pendientes() (como NOT EXISTS) y avanceDe() (como EXISTS dentro de un SUM). Si
+     * estuviera escrita dos veces, un dia dejarian de contar lo mismo.
+     */
+    private static function condicionLeido($q, string $tipo, string $columna)
+    {
         $idEnlace = self::idEnlace($columna);
 
-        return self::conEnlace($columna)
-            ->whereNotExists(fn ($s) => $s->from('verificacion_documento_registro as v')
-                ->whereColumn('v.ID_EQUIPO', 'd.ID_EQUIPO')
-                ->where('v.TIPO', $tipo)
-                ->whereRaw("v.DRIVE_ID = $idEnlace")
-                // Ya leido de verdad, o "No se pudo leer" que agoto sus intentos ESTA noche.
-                ->where(fn ($w) => $w->whereNotIn('v.ESTADO', [self::ILEGIBLE, self::ERROR])
-                    ->orWhere(fn ($x) => $x->where('v.INTENTOS', '>=', self::MAX_INTENTOS)
-                        ->where('v.updated_at', '>=', self::inicioDeLaNoche()))));
+        return $q->from('verificacion_documento_registro as v')
+            ->whereColumn('v.ID_EQUIPO', 'd.ID_EQUIPO')
+            ->where('v.TIPO', $tipo)
+            ->whereRaw("v.DRIVE_ID = $idEnlace")
+            // Ya leido de verdad, o "No se pudo leer" que agoto sus intentos ESTA noche.
+            ->where(fn ($w) => $w->whereNotIn('v.ESTADO', [self::ILEGIBLE, self::ERROR])
+                ->orWhere(fn ($x) => $x->where('v.INTENTOS', '>=', self::MAX_INTENTOS)
+                    ->where('v.updated_at', '>=', self::inicioDeLaNoche())));
+    }
+
+    /**
+     * Cuantos documentos de $tipo hay cargados y cuantos faltan por leer, en UNA consulta.
+     *
+     * Antes eran dos (conEnlace()->count() y pendientes()->count()) y cada una repetia el
+     * mismo join de documentacion con equipos: cuatro tipos = ocho consultas para pintar
+     * cuatro barras de avance, ~58 ms medidos. Ahora son cuatro.
+     */
+    public static function avanceDe(string $tipo, string $columna): array
+    {
+        $sub = \Illuminate\Support\Facades\DB::query()->selectRaw('1');
+        self::condicionLeido($sub, $tipo, $columna);
+
+        $fila = self::conEnlace($columna)
+            ->selectRaw(
+                'COUNT(*) as total, SUM(CASE WHEN EXISTS (' . $sub->toSql() . ') THEN 0 ELSE 1 END) as faltan',
+                $sub->getBindings()
+            )
+            ->first();
+
+        return ['total' => (int) ($fila->total ?? 0), 'faltan' => (int) ($fila->faltan ?? 0)];
     }
 
     /**
