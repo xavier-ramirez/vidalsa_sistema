@@ -11,7 +11,7 @@
         <span>Acciones</span>
         <i class="material-icons" style="font-size: 16px;">expand_more</i>
     </button>
-    <div id="hdAccionesMenu" style="display: none; position: absolute; top: 100%; right: 0; width: 240px; max-width: calc(100vw - 24px); background: #e2e8f0; border: 1px solid #cbd5e1; border-radius: 10px; box-shadow: 0 10px 20px -5px rgba(15,23,42,0.18); margin-top: 6px; overflow: hidden; z-index: 60;">
+    <div id="hdAccionesMenu" style="display: none; position: absolute; top: 100%; right: 0; width: 290px; max-width: calc(100vw - 24px); background: #e2e8f0; border: 1px solid #cbd5e1; border-radius: 10px; box-shadow: 0 10px 20px -5px rgba(15,23,42,0.18); margin-top: 6px; overflow: hidden; z-index: 60;">
         <button type="button" class="dropdown-item-custom"
             onclick="window.hdCerrarAcciones(); window.abrirCargaMasiva && window.abrirCargaMasiva();"
             style="display: flex; align-items: center; gap: 10px; padding: 12px 15px; color: #475569; background: transparent; border: none; border-bottom: 1px solid #f1f5f9; width: 100%; text-align: left; cursor: pointer;">

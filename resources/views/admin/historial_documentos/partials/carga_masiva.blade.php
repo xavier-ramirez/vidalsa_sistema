@@ -11,15 +11,26 @@
      esta pantalla solo las refleja. --}}
 @can('super.admin')
 <style>
-    #hdCmOverlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 2500; display: flex; justify-content: center; align-items: center; }
-    .hd-cm-modal { background: #fff; border-radius: 14px; width: 94%; max-width: 860px; max-height: 88vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); }
-    .hd-cm-head { background: #1e293b; padding: 12px 16px; color: #fff; display: flex; justify-content: center; align-items: center; gap: 8px; position: relative; }
-    .hd-cm-head h2 { margin: 0; font-size: 14px; font-weight: 700; }
-    .hd-cm-cerrar { position: absolute; right: 12px; background: transparent; border: none; color: #fff; cursor: pointer; opacity: .7; display: flex; padding: 2px; }
-    .hd-cm-cerrar:hover { opacity: 1; }
+    /* Mismo lenguaje que el aviso de cierre de sesión (partials/session_timeout): tarjeta
+       blanca de 16 px de radio, borde suave y sombra larga. Sin barra oscura arriba: el
+       título va dentro de la tarjeta, con su ícono en una pastilla azul clara. */
+    #hdCmOverlay { position: fixed; inset: 0; background: rgba(15,23,42,0.45); z-index: 2500; display: flex; justify-content: center; align-items: center; }
+    .hd-cm-modal { background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; width: 94%; max-width: 880px;
+                   max-height: 90vh; display: flex; flex-direction: column; overflow: hidden;
+                   box-shadow: 0 20px 45px -12px rgba(15,23,42,0.30); }
+    .hd-cm-head { padding: 18px 20px 14px; display: flex; align-items: center; gap: 12px; }
+    .hd-cm-head-ic { flex: 0 0 auto; width: 38px; height: 38px; border-radius: 11px; background: #eff6ff;
+                     color: #0067b1; display: flex; align-items: center; justify-content: center; }
+    .hd-cm-head-ic .material-icons { font-size: 21px; }
+    .hd-cm-head-txt { flex: 1 1 auto; min-width: 0; }
+    .hd-cm-head h2 { margin: 0; font-size: 15px; font-weight: 800; color: #0f172a; line-height: 1.3; }
+    .hd-cm-head p { margin: 2px 0 0; font-size: 12px; color: #64748b; line-height: 1.35; }
+    .hd-cm-cerrar { flex: 0 0 auto; background: transparent; border: none; color: #94a3b8; cursor: pointer;
+                    display: flex; padding: 4px; border-radius: 8px; align-self: flex-start; }
+    .hd-cm-cerrar:hover { color: #475569; background: #f1f5f9; }
 
     /* Barra de arriba: tipo + zona de soltar. */
-    .hd-cm-tools { padding: 10px 12px; border-bottom: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 9px; flex-shrink: 0; }
+    .hd-cm-tools { padding: 0 20px 14px; display: flex; flex-direction: column; gap: 10px; flex-shrink: 0; }
     .hd-cm-fila { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
     .hd-cm-campo { display: flex; flex-direction: column; gap: 3px; }
     .hd-cm-rot { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .7px; color: #94a3b8; white-space: nowrap; }
@@ -36,7 +47,7 @@
     .hd-cm-barra i { display: block; height: 100%; width: 0; background: #0067b1; transition: width .25s; }
 
     /* La lista de archivos. */
-    .hd-cm-list { overflow-y: auto; background: #f8fafc; padding: 10px; flex: 1; min-height: 180px; }
+    .hd-cm-list { overflow-y: auto; background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 12px 20px; flex: 1; min-height: 180px; }
     .hd-cm-row { background: #fff; border: 1px solid #e2e8f0; border-left-width: 3px; border-radius: 9px; margin-bottom: 6px; padding: 9px 11px; }
     .hd-cm-row[data-estado="cola"]       { border-left-color: #cbd5e1; }
     .hd-cm-row[data-estado="leyendo"]    { border-left-color: #0067b1; }
@@ -63,14 +74,28 @@
     .hd-cm-row[data-estado="ilegible"] .hd-cm-aviso, .hd-cm-row[data-estado="error"] .hd-cm-aviso { color: #b91c1c; }
     .hd-cm-vacio { padding: 30px 14px; text-align: center; color: #94a3b8; font-size: 12px; }
 
-    .hd-cm-pie { padding: 10px 12px; border-top: 1px solid #e2e8f0; display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+    .hd-cm-pie { padding: 14px 20px 18px; border-top: 1px solid #e2e8f0; display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
     .hd-cm-resumen { flex: 1 1 auto; font-size: 11.5px; color: #64748b; font-weight: 700; }
-    .hd-cm-btn { height: 36px; padding: 0 14px; border: none; border-radius: 9px; font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
-    .hd-cm-btn .material-icons { font-size: 17px; }
-    .hd-cm-btn.primario { background: #0067b1; color: #fff; }
-    .hd-cm-btn.primario:disabled { background: #cbd5e1; cursor: not-allowed; }
+    /* Los dos botones con la MISMA caja (42 px, radio 8) y el texto centrado, como el
+       "Mantener Sesión" del aviso de cierre de sesión. */
+    .hd-cm-btn { flex: 0 0 auto; height: 42px; padding: 0 18px; border: none; border-radius: 8px; font: inherit;
+                 font-size: 13.5px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center;
+                 justify-content: center; gap: 8px; transition: transform .15s, box-shadow .15s; }
+    .hd-cm-btn .material-icons { font-size: 18px; }
+    .hd-cm-btn.primario { background: linear-gradient(135deg,#00004d 0%,#0067b1 100%); color: #fff;
+                          box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+    .hd-cm-btn.primario:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 12px rgba(0,0,0,.15); }
+    .hd-cm-btn.primario:disabled { background: #cbd5e1; box-shadow: none; cursor: not-allowed; }
     .hd-cm-btn.plano { background: #fff; border: 1px solid #e2e8f0; color: #64748b; }
     .hd-cm-btn.plano:hover { background: #f8fafc; }
+
+    /* Interruptor "Modo ensayo": comprueba TODO y dice qué haría, sin escribir nada. */
+    .hd-cm-ensayo { display: inline-flex; align-items: center; gap: 8px; height: 34px; padding: 0 12px;
+                    border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; cursor: pointer;
+                    font-size: 12px; font-weight: 700; color: #64748b; white-space: nowrap; }
+    .hd-cm-ensayo input { width: 15px; height: 15px; accent-color: #0067b1; cursor: pointer; margin: 0; }
+    .hd-cm-ensayo.activo { background: #fffbeb; border-color: #fde68a; color: #b45309; }
+    .hd-cm-row[data-estado="ensayo"] { border-left-color: #f59e0b; background: #fffbeb; }
 
     /* Teléfono: los controles de cada fila uno debajo del otro. */
     @media (max-width: 700px) {
@@ -101,7 +126,7 @@
 
     // filas: una por archivo. `turno` descarta los resultados de una tanda ya cancelada
     // (cerrar el modal con la cola a medias no debe pintar sobre la siguiente).
-    var estado = { filas: [], turno: 0, corriendo: false };
+    var estado = { filas: [], turno: 0, corriendo: false, ensayo: false };
 
     function $(id) { return document.getElementById(id); }
 
@@ -114,8 +139,11 @@
         o.innerHTML =
             '<div class="hd-cm-modal" role="dialog" aria-modal="true" aria-label="Carga masiva de documentos">' +
                 '<div class="hd-cm-head">' +
-                    '<i class="material-icons" style="font-size:18px;">cloud_upload</i>' +
-                    '<h2>Carga masiva de documentos</h2>' +
+                    '<div class="hd-cm-head-ic"><i class="material-icons">cloud_upload</i></div>' +
+                    '<div class="hd-cm-head-txt">' +
+                        '<h2>Carga masiva de documentos</h2>' +
+                        '<p>Suelta varios PDF y cada uno se enlaza a su equipo. Nada se escribe hasta que lo apliques.</p>' +
+                    '</div>' +
                     '<button type="button" class="hd-cm-cerrar" title="Cerrar"><i class="material-icons">close</i></button>' +
                 '</div>' +
                 '<div class="hd-cm-tools">' +
@@ -135,6 +163,9 @@
                             '<span>Suelta aquí los PDF o haz clic para elegirlos</span>' +
                         '</div>' +
                         '<input type="file" id="hdCmInput" accept="application/pdf" multiple hidden>' +
+                        '<label class="hd-cm-ensayo" id="hdCmEnsayoCaja" title="Comprueba todo y dice qué haría, sin escribir nada">' +
+                            '<input type="checkbox" id="hdCmEnsayo">Modo ensayo' +
+                        '</label>' +
                     '</div>' +
                     '<div class="hd-cm-avance" id="hdCmAvance" hidden>' +
                         '<span id="hdCmAvanceTxt">Leyendo…</span>' +
@@ -146,7 +177,7 @@
                     '<span class="hd-cm-resumen" id="hdCmResumen"></span>' +
                     '<button type="button" class="hd-cm-btn plano" id="hdCmVaciar">Vaciar la lista</button>' +
                     '<button type="button" class="hd-cm-btn primario" id="hdCmAplicar" disabled>' +
-                        '<i class="material-icons">playlist_add_check</i><span id="hdCmAplicarTxt">Aplicar lo que está listo</span></button>' +
+                        '<i class="material-icons">playlist_add_check</i><span id="hdCmAplicarTxt">Aplicar</span></button>' +
                 '</div>' +
             '</div>';
         document.body.appendChild(o);
@@ -162,7 +193,7 @@
      */
     function destinos(f) {
         var p = f.propuesta;
-        if (!p || !p.tipo || !p.link || f.estado === 'aplicado') return [];
+        if (!p || !p.tipo || !p.link || f.estado === 'aplicado') return [];   // 'ensayo' NO: no escribió nada
         if (VENCEN[p.tipo] && !f.vence) return [];
         return (p.equipos || []).filter(function (e) {
             return f.pisar || !(e.links && e.links[p.tipo]);
@@ -211,19 +242,20 @@
         // contar archivos hacía que el botón prometiera menos de lo que iba a escribir.
         var fichas = estado.filas.reduce(function (n, f) { return n + destinos(f).length; }, 0);
         var aplicados = estado.filas.filter(function (f) { return f.estado === 'aplicado'; }).length;
+        var probados  = estado.filas.filter(function (f) { return f.estado === 'ensayo'; }).length;
         var btn = $('hdCmAplicar');
         if (btn) {
             btn.disabled = !fichas || estado.corriendo;
-            $('hdCmAplicarTxt').textContent = fichas
-                ? ('Aplicar ' + fichas + ' ficha' + (fichas === 1 ? '' : 's'))
-                : 'Aplicar lo que está listo';
+            // Corto y centrado: el detalle ya va en el resumen de la izquierda.
+            $('hdCmAplicarTxt').textContent = (estado.ensayo ? 'Probar' : 'Aplicar') + (fichas ? ' (' + fichas + ')' : '');
         }
         var res = $('hdCmResumen');
         if (res) {
             res.textContent = estado.filas.length
                 ? (estado.filas.length + ' archivo' + (estado.filas.length === 1 ? '' : 's') +
                    ' · ' + fichas + ' ficha' + (fichas === 1 ? '' : 's') + ' por actualizar' +
-                   ' · ' + aplicados + ' aplicado' + (aplicados === 1 ? '' : 's'))
+                   ' · ' + (estado.ensayo ? (probados + ' probado' + (probados === 1 ? '' : 's'))
+                                         : (aplicados + ' aplicado' + (aplicados === 1 ? '' : 's'))))
                 : '';
         }
     }
@@ -236,7 +268,8 @@
         sin_equipo: ['avisa', 'Sin equipo'],
         ilegible:   ['mal', 'No se pudo leer'],
         aplicado:   ['ok', 'Aplicado'],
-        error:      ['mal', 'No se aplicó']
+        error:      ['mal', 'No se aplicó'],
+        ensayo:     ['avisa', 'Ensayo']
     };
 
     function fila(f, i) {
@@ -360,18 +393,26 @@
             if (i >= tareas.length) {
                 estado.corriendo = false;
                 pintar();
-                window.toast('Listo: ' + bien + ' de ' + tareas.length + ' fichas actualizadas.', 'success');
+                window.toast(estado.ensayo
+                    ? ('Ensayo: ' + bien + ' de ' + tareas.length + ' fichas pasarían. No se escribió nada.')
+                    : ('Listo: ' + bien + ' de ' + tareas.length + ' fichas actualizadas.'),
+                    estado.ensayo ? 'info' : 'success');
                 return;
             }
             var t = tareas[i++];
             window.apiPostForm(RUTAS.aplicar, {
                 id_equipo: t.eq.id, tipo: t.f.propuesta.tipo, link: t.f.propuesta.link,
-                vence: t.f.vence || '', emision: t.f.propuesta.emision || '', pisar: t.f.pisar ? 1 : ''
+                vence: t.f.vence || '', emision: t.f.propuesta.emision || '', pisar: t.f.pisar ? 1 : '',
+                ensayo: estado.ensayo ? 1 : ''
             }, 'No se pudo aplicar.')
-                .then(function () {
+                .then(function (b) {
                     bien++;
-                    // La fila queda aplicada cuando NINGUNA de sus fichas falló.
-                    if (t.f.estado !== 'error') { t.f.estado = 'aplicado'; t.f.aviso = null; }
+                    // La fila queda aplicada cuando NINGUNA de sus fichas falló. En ensayo se
+                    // marca aparte: no se escribió nada y tiene que verse distinto.
+                    if (t.f.estado !== 'error') {
+                        t.f.estado = estado.ensayo ? 'ensayo' : 'aplicado';
+                        t.f.aviso  = estado.ensayo ? (b && b.message) || null : null;
+                    }
                 })
                 .catch(function (e) { t.f.estado = 'error'; t.f.aviso = e.message; })
                 .finally(function () { pintar(); siguiente(); });
@@ -406,6 +447,14 @@
         });
         zona.addEventListener('drop', function (e) {
             if (e.dataTransfer && e.dataTransfer.files) encolar(e.dataTransfer.files);
+        });
+
+        // Modo ensayo: cambia lo que hace el botón, nada más. Lo de verdad lo decide el
+        // servidor, que en ensayo comprueba todo y sale sin escribir.
+        $('hdCmEnsayo').addEventListener('change', function () {
+            estado.ensayo = this.checked;
+            $('hdCmEnsayoCaja').classList.toggle('activo', this.checked);
+            pintar();
         });
 
         $('hdCmAplicar').addEventListener('click', aplicarTodo);
@@ -447,6 +496,7 @@
         estado.turno++;
         estado.filas = [];
         estado.corriendo = false;
+        estado.ensayo = false;
         construir();
     };
 

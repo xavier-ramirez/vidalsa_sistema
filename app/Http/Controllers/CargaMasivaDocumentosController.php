@@ -60,6 +60,8 @@ class CargaMasivaDocumentosController extends Controller
             'vence'     => 'nullable|date',
             'emision'   => 'nullable|date',
             'pisar'     => 'nullable|boolean',
+            // Modo ensayo: comprueba y dice que haria, pero no escribe nada.
+            'ensayo'    => 'nullable|boolean',
         ]);
 
         $r = $this->servicio->aplicar(
@@ -69,12 +71,14 @@ class CargaMasivaDocumentosController extends Controller
             $datos['vence'] ?? null,
             $datos['emision'] ?? null,
             (bool) ($datos['pisar'] ?? false),
+            (bool) ($datos['ensayo'] ?? false),
         );
 
         return response()->json([
             'success' => $r['ok'],
             'message' => $r['mensaje'],
-        ] + (isset($r['requiere_pisar']) ? ['requiere_pisar' => true] : []), $r['ok'] ? 200 : 422);
+        ] + (isset($r['requiere_pisar']) ? ['requiere_pisar' => true] : [])
+          + (isset($r['ensayo']) ? ['ensayo' => true] : []), $r['ok'] ? 200 : 422);
     }
 
     /** El usuario descarto la propuesta: su PDF sale de Drive. */

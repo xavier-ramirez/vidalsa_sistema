@@ -304,8 +304,13 @@ class CargaMasivaDocumentos
      *
      * $pisar es la unica forma de reemplazar un documento que ya esta; sin el, se niega y
      * lo dice. Y un documento ANTERIOR al que ya tiene la ficha no entra ni con $pisar.
+     *
+     * $ensayo = MODO ENSAYO: pasa por TODAS las comprobaciones y dice que haria, pero no
+     * escribe ni una fila ni borra nada de Drive. Es la forma de probar la pantalla contra
+     * los datos de verdad sin tocarlos: lo que niega en ensayo lo negaria igual de verdad,
+     * y lo que aceptaria lo cuenta campo por campo.
      */
-    public function aplicar(int $idEquipo, string $tipo, string $link, ?string $vence, ?string $emision, bool $pisar = false): array
+    public function aplicar(int $idEquipo, string $tipo, string $link, ?string $vence, ?string $emision, bool $pisar = false, bool $ensayo = false): array
     {
         if (!in_array($tipo, self::TIPOS, true)) {
             return ['ok' => false, 'mensaje' => 'Tipo de documento no valido.'];
@@ -347,6 +352,13 @@ class CargaMasivaDocumentos
         // El diff se saca ANTES de guardar: es lo que ve el historial.
         $diff = DocumentacionDeEquipo::diff($doc, $datos);
 
+        // MODO ENSAYO: hasta aqui llegan solo los casos que de verdad se aplicarian. Se
+        // devuelve lo que se escribiria y se sale sin tocar nada.
+        if ($ensayo) {
+            return ['ok' => true, 'ensayo' => true, 'cambios' => $diff,
+                    'mensaje' => $this->resumenEnsayo($tipo, $anterior, $diff)];
+        }
+
         if ($doc) {
             $doc->update($datos);
         } else {
@@ -365,6 +377,22 @@ class CargaMasivaDocumentos
         if ($diff) EquipoAuditLog::registrar($equipo->ID_EQUIPO, 'metadata_' . $tipo, $diff);
 
         return ['ok' => true, 'mensaje' => 'Aplicado.'];
+    }
+
+    /** Lo que el ensayo HARIA, en una linea, para que se lea en la fila. */
+    private function resumenEnsayo(string $tipo, ?string $anterior, array $diff): string
+    {
+        $campos = [];
+        foreach ($diff as $campo => $valores) {
+            if ($campo === DocumentacionDeEquipo::COLUMNAS[$tipo]['link']) continue;
+            if (in_array($campo, [DocumentacionDeEquipo::COLUMNAS[$tipo]['autor'],
+                                  DocumentacionDeEquipo::COLUMNAS[$tipo]['fecha']], true)) continue;
+            $campos[] = $campo . ': ' . ($valores['antes'] ?? 'vacío') . ' → ' . ($valores['despues'] ?? 'vacío');
+        }
+
+        return 'ENSAYO — ' . ($anterior ? 'reemplazaría el PDF que ya tiene' : 'enlazaría el PDF')
+            . ($campos ? ' y pondría ' . implode('; ', $campos) : '')
+            . '. No se escribió nada.';
     }
 
     /**

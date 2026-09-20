@@ -186,6 +186,59 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
         $this->assertStringStartsWith('2020-05-10', (string) $doc->getRawOriginal('FECHA_EMISION_PROPIEDAD'));
     }
 
+    // ── Modo ensayo: comprueba todo y no escribe ──────────────────────────────
+
+    /**
+     * Es la forma de probar la pantalla contra los datos de VERDAD sin tocarlos: pasa por
+     * todas las comprobaciones, dice que si, y la ficha se queda exactamente igual.
+     */
+    public function test_el_modo_ensayo_no_escribe_nada_en_la_ficha(): void
+    {
+        $equipo = $this->equipo();
+        $vence  = now()->addYear()->toDateString();
+        $this->actingAs($this->usuario());
+
+        $r = $this->servicio()->aplicar($equipo->ID_EQUIPO, 'rotc', '/storage/google/ensayo', $vence, null, false, true);
+
+        $this->assertTrue($r['ok'], $r['mensaje']);
+        $this->assertTrue($r['ensayo']);
+        $this->assertStringContainsString('ENSAYO', $r['mensaje']);
+
+        $doc = $equipo->documentacion()->first();
+        $this->assertNull($doc->LINK_ROTC, 'el ensayo ESCRIBIO el enlace');
+        $this->assertNull($doc->getRawOriginal('FECHA_ROTC'), 'el ensayo ESCRIBIO la fecha');
+        $this->assertNull($doc->ROTC_SUBIDO_POR, 'el ensayo ESCRIBIO el autor');
+        $this->assertSame(0, EquipoAuditLog::where('ID_EQUIPO', $equipo->ID_EQUIPO)->count(),
+            'el ensayo dejo rastro en el historial');
+    }
+
+    /** Un ensayo sobre un documento que ya esta tampoco pasa: niega igual que de verdad. */
+    public function test_el_ensayo_niega_lo_mismo_que_negaria_de_verdad(): void
+    {
+        $equipo = $this->equipo(['LINK_ROTC' => '/storage/google/el-bueno', 'FECHA_ROTC' => now()->addYear()->toDateString()]);
+        $this->actingAs($this->usuario());
+
+        $r = $this->servicio()->aplicar($equipo->ID_EQUIPO, 'rotc', '/storage/google/otro', now()->addYear()->toDateString(), null, false, true);
+
+        $this->assertFalse($r['ok']);
+        $this->assertTrue($r['requiere_pisar']);
+        $this->assertSame('/storage/google/el-bueno', $equipo->documentacion()->first()->LINK_ROTC);
+    }
+
+    /** Y el ensayo que SI reemplazaria lo dice, pero deja el PDF viejo donde estaba. */
+    public function test_el_ensayo_de_un_reemplazo_no_borra_el_pdf_viejo(): void
+    {
+        $equipo = $this->equipo(['LINK_ROTC' => '/storage/google/el-viejo', 'FECHA_ROTC' => now()->addMonths(2)->toDateString()]);
+        $this->actingAs($this->usuario());
+
+        $r = $this->servicio()->aplicar($equipo->ID_EQUIPO, 'rotc', '/storage/google/el-nuevo', now()->addYear()->toDateString(), null, true, true);
+
+        $this->assertTrue($r['ok'], $r['mensaje']);
+        $this->assertStringContainsString('reemplazaría', $r['mensaje']);
+        $this->assertSame('/storage/google/el-viejo', $equipo->documentacion()->first()->LINK_ROTC);
+        Bus::assertNotDispatchedAfterResponse(DeleteGoogleDriveFile::class);
+    }
+
     // ── Las puertas ───────────────────────────────────────────────────────────
 
     public function test_sin_sesion_no_se_puede_analizar_ni_aplicar(): void
