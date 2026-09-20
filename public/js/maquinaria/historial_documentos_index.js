@@ -117,20 +117,14 @@ if (!window._hdPaginationRegistered) {
     });
 }
 
-function _hdInit() {
-    if (!document.getElementById('historialTableBody')) return;
-    if (window.location.search.length > 1) {
-        window.loadHistorialDocumentos();
-    }
-}
-
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', _hdInit);
-} else {
-    _hdInit();
-}
-
-window.addEventListener('spa:contentLoaded', _hdInit);
+// Aqui vivia _hdInit: al montarse el modulo, si la URL traia CUALQUIER parametro, volvia a
+// pedir la tabla entera por AJAX. Sobraba —y las pestanas siempre traen ?pestana=, asi que
+// pasaba casi siempre—: el servidor ya devuelve la tabla FILTRADA (fechas, equipo, correo,
+// tipo, hd_ids, pestana y pagina los aplica HistorialDocumentosController::index). Era un
+// segundo viaje completo para pintar lo que ya estaba pintado.
+// Lo comprobado esta en tests/Feature/HistorialDocumentosSinRecargaTest.
+// Los filtros de la pantalla siguen llamando a loadHistorialDocumentos() cuando el usuario
+// los cambia; lo que se quito es la llamada automatica al abrir.
 
 window.clearHistorialFilter = function(filterId, inputId) {
     const input = document.getElementById(inputId);
