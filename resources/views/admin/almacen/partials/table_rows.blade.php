@@ -7,13 +7,13 @@
     // sola consulta para toda la pagina (AlmacenController::repartoDeLaPagina) y llega VACIO
     // en los almacenes que no separan por proyecto.
     $reparto = $reparto ?? collect();
-    // 5 columnas SIEMPRE: Descripción · Categoría · Stock (con unidad) · Salida · Detalles.
+    // 6 columnas SIEMPRE: Foto · Descripción · Categoría · Stock (con unidad) · Salida · Detalles.
     // El CÓDIGO ya no tiene columna: va dentro de la celda de Descripción, pequeño y encima
     // del nombre (pedido del cliente). La columna "Salida/Cantidad" se muestra a TODOS; el
     // permiso almacen.movimiento NO oculta la captura — solo bloquea ABRIR la salida y
     // ejecutarla (ver almSelAccion y el backend). La unidad (UM) tampoco tiene columna
     // propia: vive junto al número en la celda de Stock.
-    $cols    = 5;
+    $cols    = 6;
 @endphp
 
 @if(!$almacen)
@@ -87,6 +87,16 @@
                  (almRowPartePick) antes de poder poner la cantidad. --}}
             @if($equivs) data-equiv="{{ implode('|', $equivs) }}" data-parte-sel="{{ count($equivs) === 1 ? $equivs[0] : '' }}" @endif
             @if($bolsasJson) data-bolsas="{{ $bolsasJson }}" @endif>
+            {{-- Foto del producto, a la IZQUIERDA de la descripción. Sin foto se ve un recuadro
+                 con su ícono, para que la columna no baile de ancho. Se sube desde "Detalles
+                 del producto" (ver AlmacenController::subirFotoProducto). --}}
+            <td class="alm-td-foto">
+                @if($p->FOTO)
+                    <img src="{{ $p->FOTO }}" alt="{{ $p->NOMBRE }}" class="alm-foto" loading="lazy">
+                @else
+                    <span class="alm-foto alm-foto-sin" title="Sin foto"><i class="material-icons">inventory_2</i></span>
+                @endif
+            </td>
             {{-- Descripción + tooltip-bubble con la UBICACION (mismo patrón de /admin/equipos).
                  El tooltip se activa al hover de cualquier parte de la fila por la regla CSS
                  `.alm-row:hover .tooltip-bubble` que agregué en index.blade.php.
@@ -204,7 +214,7 @@
             </td>
             <td class="alm-td-det" data-no-toggle>
                 <button type="button" class="btn-details-mini" title="Ver detalles del producto"
-                        onclick="window.almAbrirDetalle({{ $p->ID_PRODUCTO }},'{{ $codJs }}','{{ $nomJs }}','{{ $umJs }}','{{ $catJs }}',{{ $saldo }},{{ $minArg }},'{{ $ubiJs }}')">
+                        onclick="window.almAbrirDetalle({{ $p->ID_PRODUCTO }},'{{ $codJs }}','{{ $nomJs }}','{{ $umJs }}','{{ $catJs }}',{{ $saldo }},{{ $minArg }},'{{ $ubiJs }}','{{ addslashes($p->FOTO ?? '') }}')">
                     <i class="material-icons alm-ico-detalle">visibility</i>
                 </button>
             </td>

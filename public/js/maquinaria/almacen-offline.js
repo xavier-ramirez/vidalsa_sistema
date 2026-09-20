@@ -180,8 +180,13 @@
         const bajo = esBajo(p);
         return '' +
             '<tr class="alm-row ' + (bajo ? 'alm-row-bajo' : '') + '" data-offline="1">' +
-            // El CODIGO no tiene columna: va dentro de Descripcion, pequeno y encima del
-            // nombre (.alm-cod-mini), igual que la tabla online (partials/table_rows).
+            // Foto a la izquierda y el CODIGO dentro de Descripcion, pequeno y encima del
+            // nombre (.alm-cod-mini): las mismas 6 columnas que la tabla online
+            // (partials/table_rows), o las cabeceras no cuadrarian con el cuerpo.
+            '<td class="alm-td-foto">' +
+                (p.foto ? '<img src="' + esc(p.foto) + '" alt="" class="alm-foto" loading="lazy">'
+                        : '<span class="alm-foto alm-foto-sin" title="Sin foto"><i class="material-icons">inventory_2</i></span>') +
+            '</td>' +
             '<td class="alm-td-nombre" style="font-weight:600;color:#1e293b;">' +
                 '<span class="alm-cod-mini">' + esc(p.codigo) + '</span>' + esc(p.nombre) +
             '</td>' +

@@ -181,6 +181,29 @@
 
        El JS de esta pantalla solo ESCRIBE .style.* sobre campos de formulario y el canvas
        de etiquetas — nunca sobre estas celdas—, así que no hay interacción con el cambio. */
+    /* Foto dentro de "Detalles del producto": cuadrada y centrada, con sus dos botones
+       debajo. Mismo recuadro que la miniatura de la tabla cuando no hay foto. */
+    .alm-det-foto-caja { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+    .alm-det-foto { width: 120px; height: 120px; border-radius: 12px; border: 1px solid #e2e8f0;
+                    background: #f8fafc; object-fit: cover; }
+    .alm-det-foto-sin { display: flex; align-items: center; justify-content: center; color: #cbd5e0; }
+    .alm-det-foto-sin .material-icons { font-size: 44px; }
+    .alm-det-foto-btns { display: flex; align-items: center; justify-content: center; gap: 6px; }
+    .alm-det-foto-btn { display: inline-flex; align-items: center; gap: 5px; height: 30px; padding: 0 10px;
+                        border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; font: inherit;
+                        font-size: 11.5px; font-weight: 700; color: #475569; cursor: pointer; }
+    .alm-det-foto-btn:hover { background: #f8fafc; border-color: #cbd5e1; }
+    .alm-det-foto-btn .material-icons { font-size: 15px; }
+    .alm-det-foto-btn.quitar { color: #b91c1c; }
+    .alm-det-foto-btn.quitar:hover { background: #fef2f2; border-color: #fecaca; }
+    .alm-det-foto-btn:disabled { opacity: .55; cursor: not-allowed; }
+    /* Miniatura del producto. Medida fija para que la columna no baile de ancho de una fila
+       a otra, y el mismo recuadro cuando no hay foto (con su ícono en gris). */
+    .alm-table td.alm-td-foto { padding: 6px 4px 6px 8px; width: 54px; }
+    .alm-foto { width: 40px; height: 40px; border-radius: 8px; border: 1px solid #e2e8f0;
+                background: #f8fafc; object-fit: cover; display: block; }
+    .alm-foto-sin { display: flex; align-items: center; justify-content: center; color: #cbd5e0; }
+    .alm-foto-sin .material-icons { font-size: 20px; }
     /* CÓDIGO dentro de la celda de Descripción: renglón propio ENCIMA del nombre, pequeño
        y monoespaciado — misma jerarquía que la cabecera del modal de movimientos
        (.alm-kp-hero-cod), para que el producto se lea igual en los dos sitios. */
@@ -1100,7 +1123,8 @@
            cliente pidio quitarla. OJO: este display:none debe ir en SU PROPIA regla;
            antes estaba comma-unido a .alm-td-nombre de abajo y, en vez de ocultarse,
            heredaban display:block + gradiente + grid-area:nombre (se encimaban). */
-        .alm-table tr.alm-row td.alm-td-cat { display: none !important; }
+        .alm-table tr.alm-row td.alm-td-cat,
+        .alm-table tr.alm-row td.alm-td-foto { display: none !important; }
 
         /* Fila 1: nombre + codigo como UN SOLO TEXTO unificado — banda gris.
            El ::before pone "00042 " como prefijo, heredando font/color/weight
@@ -1460,8 +1484,10 @@
         <table class="alm-table">
             <thead>
                 <tr>
-                    {{-- Sin columna "Código": va dentro de Descripción, pequeño y encima
-                         del nombre (ver .alm-cod-mini y partials/table_rows). --}}
+                    {{-- Foto del producto (sin título: se explica sola y así no roba ancho).
+                         El CÓDIGO no tiene columna: va dentro de Descripción, pequeño y
+                         encima del nombre (ver .alm-cod-mini y partials/table_rows). --}}
+                    <th style="width:54px;padding:10px 6px;"></th>
                     <th>Descripción del producto</th>
                     <th>Categoría</th>
                     <th style="text-align:center;">Stock</th>
@@ -2213,6 +2239,26 @@
             <i class="material-icons alm-x" onclick="almDetalleCerrar()">close</i>
         </div>
         <div class="alm-modal-body">
+
+            {{-- Foto del producto. Es la misma que se ve como miniatura en la tabla. Se
+                 cambia aquí mismo: la imagen se convierte a WebP y se sube a Drive
+                 (AlmacenController::subirFotoProducto); en la ficha solo vive el enlace. --}}
+            <div class="alm-det-foto-caja">
+                <img id="almDetFotoImg" class="alm-det-foto" alt="Foto del producto" style="display:none;">
+                <div id="almDetFotoSin" class="alm-det-foto alm-det-foto-sin"><i class="material-icons">inventory_2</i></div>
+                @can('almacen.productos')
+                <div class="alm-det-foto-btns">
+                    <button type="button" class="alm-det-foto-btn" onclick="document.getElementById('almDetFotoInput').click()">
+                        <i class="material-icons">photo_camera</i><span id="almDetFotoBtnTxt">Agregar foto</span>
+                    </button>
+                    <button type="button" class="alm-det-foto-btn quitar" id="almDetFotoQuitar" onclick="window.almDetFotoQuitar()" style="display:none;">
+                        <i class="material-icons">delete</i>Quitar
+                    </button>
+                </div>
+                <input type="file" id="almDetFotoInput" accept="image/jpeg,image/png,image/webp" hidden
+                       onchange="window.almDetFotoSubir(this)">
+                @endcan
+            </div>
 
             {{-- Aviso de stock bajo en este almacén. En rojo, como las filas de stock bajo
                  de la tabla (.alm-row-bajo), para que el usuario asocie ambos avisos.
@@ -4648,8 +4694,9 @@
     }
     // Tope de espera de la compatibilidad antes de abrir la ficha igual (ver almAbrirDetalle).
     var ALM_DET_ESPERA_MS = 2500;
-    window.almAbrirDetalle = function (id, cod, nom, um, cat, saldo, minimo, ubicacion) {
+    window.almAbrirDetalle = function (id, cod, nom, um, cat, saldo, minimo, ubicacion, foto) {
         var m = el('almDetalleModal'); if (!m) return;
+        almDetFotoPintar(foto || '');
         almMarcarVista(id);
         var hasMin = (minimo !== null && minimo !== undefined && minimo !== '');
         m.dataset.id = id;
@@ -4680,6 +4727,62 @@
         pre();
         espera = setTimeout(abrir, ALM_DET_ESPERA_MS);
         window.almCargarCompat(id).finally(abrir);
+    };
+
+    // ── Foto del producto ─────────────────────────────────────────────────────
+    // Un solo sitio que decide qué se ve: la imagen o el recuadro vacío, y el texto del
+    // botón. Lo llaman la apertura de la ficha, la subida y el borrado.
+    function almDetFotoPintar(url) {
+        var img = el('almDetFotoImg'), sin = el('almDetFotoSin'), quitar = el('almDetFotoQuitar');
+        if (!img || !sin) return;
+        if (url) { img.src = url; img.style.display = ''; sin.style.display = 'none'; }
+        else     { img.removeAttribute('src'); img.style.display = 'none'; sin.style.display = 'flex'; }
+        if (el('almDetFotoBtnTxt')) el('almDetFotoBtnTxt').textContent = url ? 'Cambiar foto' : 'Agregar foto';
+        if (quitar) quitar.style.display = url ? '' : 'none';
+        // El dataset manda: la tabla se repinta con él al cerrar la ficha.
+        var m = el('almDetalleModal'); if (m) m.dataset.foto = url || '';
+    }
+
+    // Deja la fila de la tabla al día sin recargar el módulo entero.
+    function almDetFotoEnLaTabla(id, url) {
+        var fila = document.querySelector('#almTableBody tr.alm-row[data-id-producto="' + id + '"]');
+        var celda = fila && fila.querySelector('.alm-td-foto');
+        if (!celda) return;
+        celda.innerHTML = url
+            ? '<img src="' + url + '" alt="" class="alm-foto" loading="lazy">'
+            : '<span class="alm-foto alm-foto-sin" title="Sin foto"><i class="material-icons">inventory_2</i></span>';
+    }
+
+    window.almDetFotoSubir = function (input) {
+        var archivo = input && input.files && input.files[0];
+        input.value = '';                      // permite volver a elegir el mismo archivo
+        if (!archivo) return;
+        var id = el('almDetalleModal').dataset.id;
+        var btn = el('almDetFotoBtnTxt'); var antes = btn ? btn.textContent : '';
+        if (btn) btn.textContent = 'Subiendo…';
+
+        window.apiPostForm(@json(url('admin/almacen/productos')) + '/' + id + '/foto',
+                           { foto: archivo }, 'No se pudo subir la foto.')
+            .then(function (b) {
+                almDetFotoPintar(b.foto);
+                almDetFotoEnLaTabla(id, b.foto);
+                window.toast('Foto actualizada.', 'success');
+            })
+            .catch(function (e) { window.toast(e.message, 'error'); })
+            .finally(function () { if (btn && btn.textContent === 'Subiendo…') btn.textContent = antes; });
+    };
+
+    window.almDetFotoQuitar = function () {
+        var id = el('almDetalleModal').dataset.id;
+        window.apiFetch(@json(url('admin/almacen/productos')) + '/' + id + '/foto',
+                        { method: 'DELETE', headers: { 'Accept': 'application/json' } })
+            .then(function (r) { if (!r.ok) throw new Error('No se pudo quitar la foto.'); })
+            .then(function () {
+                almDetFotoPintar('');
+                almDetFotoEnLaTabla(id, '');
+                window.toast('Foto quitada.', 'success');
+            })
+            .catch(function (e) { window.toast(e.message, 'error'); });
     };
 
     // Trae equivalencias + equipos del filtro y los pinta en el detalle; devuelve la promesa

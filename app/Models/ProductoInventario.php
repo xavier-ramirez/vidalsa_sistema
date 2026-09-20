@@ -41,6 +41,8 @@ class ProductoInventario extends Model
         'CATEGORIA',
         'ES_KIT',
         'UBICACION',
+        // Enlace "/storage/google/<id>" a la foto del producto (ver AlmacenController::subirFotoProducto).
+        'FOTO',
         'ESTATUS',
         'NOTAS',
         'CREADO_POR',

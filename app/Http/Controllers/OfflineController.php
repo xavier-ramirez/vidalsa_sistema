@@ -485,7 +485,7 @@ class OfflineController extends Controller
 
         return ProductoInventario::activos()
             ->orderBy('NOMBRE')
-            ->get(['ID_PRODUCTO', 'CODIGO', 'NOMBRE', 'UM', 'CATEGORIA'])
+            ->get(['ID_PRODUCTO', 'CODIGO', 'NOMBRE', 'UM', 'CATEGORIA', 'FOTO'])
             ->map(fn ($p) => $this->filaProducto($p))
             ->values();
     }
@@ -508,7 +508,7 @@ class OfflineController extends Controller
 
         $filas = ProductoInventario::withTrashed()
             ->where('updated_at', '>=', $desde)
-            ->get(['ID_PRODUCTO', 'CODIGO', 'NOMBRE', 'UM', 'CATEGORIA', 'ESTATUS', 'deleted_at']);
+            ->get(['ID_PRODUCTO', 'CODIGO', 'NOMBRE', 'UM', 'CATEGORIA', 'FOTO', 'ESTATUS', 'deleted_at']);
 
         $vivo = static fn ($p) => $p->ESTATUS === 'ACTIVO' && $p->deleted_at === null;
 
@@ -532,6 +532,10 @@ class OfflineController extends Controller
             'nombre' => MojibakeFix::fix($p->NOMBRE),
             'um' => MojibakeFix::fix($p->UM),
             'categoria' => MojibakeFix::fix($p->CATEGORIA),
+            // Enlace de la miniatura. SIN internet no se vera (el archivo esta en Drive y lo
+            // sirve el servidor), pero la celda se pinta igual para que las columnas de la
+            // tabla offline cuadren con las de la online.
+            'foto' => $p->FOTO,
         ];
     }
 

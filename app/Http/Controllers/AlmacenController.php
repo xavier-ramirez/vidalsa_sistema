@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use App\Traits\ExcelLogoCorporativo;
+use App\Traits\ConvertsImageToWebp;
 use RuntimeException;
 use Throwable;
 
@@ -46,6 +47,8 @@ use Throwable;
  */
 class AlmacenController extends Controller
 {
+    use ConvertsImageToWebp;
+
     use ExcelLogoCorporativo;
 
     /**
@@ -616,6 +619,8 @@ class AlmacenController extends Controller
             'productos_inventario.UM',
             'productos_inventario.CATEGORIA',
             'productos_inventario.UBICACION',
+            // Miniatura a la izquierda de la descripcion (ver partials/table_rows).
+            'productos_inventario.FOTO',
             DB::raw('COALESCE(almacen_stock.CANTIDAD, 0) as saldo'),
             'almacen_stock.CANTIDAD_MINIMA as minimo',
             'almacen_stock.FECHA_ULT_MOVIMIENTO as fecha_ult_mov',
@@ -738,6 +743,87 @@ class AlmacenController extends Controller
     }
 
     /** GET almacen/productos/{id}/otros-almacenes?id_almacen=N → { html } del panel lateral (clic en una fila). */
+    /**
+     * Foto del producto: sube la imagen a Drive y deja el enlace en productos_inventario.FOTO.
+     *
+     * Misma forma que el resto de archivos de la app —"/storage/google/<id>"— y el mismo
+     * camino que las fotos de equipos y del catalogo: el archivo vive en Drive y la app lo
+     * sirve por esa ruta, asi que la carpeta NO necesita ser publica.
+     *
+     * La imagen se convierte a WebP y se reescala antes de subir (ConvertsImageToWebp), que
+     * es lo que ya se hace con las fotos del catalogo: una foto de telefono de 4 MB queda en
+     * unas decenas de KB y la tabla del inventario no se vuelve lenta por las miniaturas.
+     */
+    public function subirFotoProducto(Request $request, $id)
+    {
+        $request->validate([
+            'foto' => 'required|image|mimes:jpeg,jpg,png,webp|max:8192',
+        ], [
+            'foto.required' => 'Debe seleccionar una imagen.',
+            'foto.image'    => 'El archivo no es una imagen.',
+            'foto.mimes'    => 'Se aceptan JPG, PNG o WebP.',
+            'foto.max'      => 'La imagen supera el tamaño máximo permitido (8 MB).',
+        ]);
+
+        $producto = ProductoInventario::findOrFail($id);
+        $convertida = $this->convertToWebp($request->file('foto'));
+
+        try {
+            $drive  = \App\Services\GoogleDriveService::getInstance();
+            $folder = config('filesystems.disks.google.catalog_folder') ?: $drive->getRootFolderId();
+            $nombre = 'producto_' . $producto->ID_PRODUCTO . '_' . (int) (microtime(true) * 1000) . '.webp';
+
+            $subido = $drive->uploadFile($folder, $convertida['file'], $nombre, 'image/webp');
+            if (!$subido || !isset($subido->id)) {
+                return response()->json(['success' => false, 'message' => 'Drive no aceptó la imagen. Inténtalo de nuevo.'], 503);
+            }
+
+            // Apuntar a la nueva ANTES de tocar la anterior.
+            $anterior = $producto->FOTO;
+            $producto->update(['FOTO' => '/storage/google/' . $subido->id]);
+
+            $this->borrarFotoAnterior($anterior, $subido->id);
+
+            return response()->json(['success' => true, 'foto' => $producto->FOTO]);
+        } finally {
+            if (!empty($convertida['tempPath'])) {
+                @unlink($convertida['tempPath']);
+            }
+        }
+    }
+
+    /** Quita la foto del producto (el archivo de Drive se borra como en el reemplazo). */
+    public function borrarFotoProducto(Request $request, $id)
+    {
+        $producto = ProductoInventario::findOrFail($id);
+        $anterior = $producto->FOTO;
+        $producto->update(['FOTO' => null]);
+        $this->borrarFotoAnterior($anterior, null);
+
+        return response()->json(['success' => true]);
+    }
+
+    /**
+     * Borra de Drive la foto que acaba de dejar de usarse.
+     *
+     * EN LOCAL NO SE BORRA: el .env de desarrollo apunta al Drive REAL (mismas credenciales
+     * y carpetas que el servidor) aunque la base sea una copia, asi que borrar aqui se
+     * llevaria por delante la foto que el servidor sigue mostrando. Se deja huerfana, que no
+     * le hace daño a nadie, y queda anotada. Mismo criterio que CargaMasivaDocumentos.
+     */
+    private function borrarFotoAnterior(?string $anterior, ?string $nuevoId): void
+    {
+        $idAnterior = \App\Models\DocumentoAnexo::driveIdDeLink($anterior);
+        if (!$idAnterior || $idAnterior === $nuevoId) return;
+
+        if (app()->environment('local')) {
+            Log::info('Foto de producto en local: NO se borra de Drive la anterior', ['drive_id' => $idAnterior]);
+            return;
+        }
+
+        \App\Services\GoogleDriveService::borrarTrasResponder($idAnterior);
+    }
+
     public function productoOtrosAlmacenes(Request $request, $id)
     {
         $idAlmacen = (int) $request->integer('id_almacen') ?: null;

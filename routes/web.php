@@ -411,6 +411,11 @@ Route::middleware(['auth'])->group(function () {
             Route::get   ('almacen/productos/{id}/compatibilidad', [App\Http\Controllers\AlmacenController::class, 'productoCompatibilidad'])->whereNumber('id')->name('almacen.productos.compatibilidad');
             // Panel lateral "En otros almacenes" de un producto: lo pide la tabla al tocar una fila.
             Route::get   ('almacen/productos/{id}/otros-almacenes', [App\Http\Controllers\AlmacenController::class, 'productoOtrosAlmacenes'])->whereNumber('id')->name('almacen.productos.otros');
+            // Foto del producto: se ve como miniatura a la izquierda de la descripción y se
+            // sube desde "Detalles del producto". El archivo va a Drive; aquí solo viaja el
+            // enlace (ver AlmacenController::subirFotoProducto).
+            Route::post  ('almacen/productos/{id}/foto', [App\Http\Controllers\AlmacenController::class, 'subirFotoProducto'])->whereNumber('id')->name('almacen.productos.foto.store');
+            Route::delete('almacen/productos/{id}/foto', [App\Http\Controllers\AlmacenController::class, 'borrarFotoProducto'])->whereNumber('id')->name('almacen.productos.foto.destroy');
             // Botones + / × de "Detalles del producto": números de parte y equipos que lo usan
             // (permiso almacen.productos, en el constructor del controlador).
             Route::post  ('almacen/productos/{id}/equivalencias',   [App\Http\Controllers\AlmacenController::class, 'agregarEquivalencia'])->whereNumber('id')->name('almacen.productos.equivalencias.store');
