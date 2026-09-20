@@ -39,15 +39,18 @@
     /* Burbuja "Cambios realizados" de una edición (partials/table_rows.blade.php): tarjeta
        clara, un dato por línea con "antes → ahora" y quién lo hizo al pie. Dónde y cómo
        flota (PC: bajo la celda del equipo; teléfono: encima de la tarjeta) va más abajo. */
-    .hd-cambios-caja { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden;
+    /* Azul muy claro, NO blanco: esta burbuja flota sobre la tarjeta de la tabla, que ya es
+       blanca, y blanco sobre blanco solo se distinguía por la sombra. Con el tinte y el borde
+       azulado se lee como una nota puesta encima. */
+    .hd-cambios-caja { background: #f4f9ff; border: 1px solid #c7dcf0; border-radius: 10px; overflow: hidden;
                        box-shadow: 0 12px 28px -6px rgba(15, 23, 42, .22); font-size: 12.5px; color: #0f172a; }
-    .hd-cambios-cab { display: flex; align-items: center; gap: 6px; padding: 6px 12px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; }
+    .hd-cambios-cab { display: flex; align-items: center; gap: 6px; padding: 6px 12px; background: #e6f0fa; border-bottom: 1px solid #c7dcf0; }
     .hd-cambios-cab .material-icons { font-size: 15px; color: #0067b1; }
     .hd-cambios-cab span { font-size: 11px; font-weight: 800; color: #334155; text-transform: uppercase; letter-spacing: .5px; }
     .hd-cambios-cab .hd-close-cambios { margin-left: auto; font-size: 17px; color: #94a3b8; cursor: pointer; }
     .hd-cambios-cab .hd-close-cambios:hover { color: #475569; }
     .hd-cambios-lista { padding: 0 12px; }
-    .hd-cambio { padding: 6px 0; border-bottom: 1px solid #f1f5f9; }
+    .hd-cambio { padding: 6px 0; border-bottom: 1px solid #dceaf7; }
     .hd-cambio:last-child { border-bottom: none; }
     .hd-cambio-campo { font-size: 10.5px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: .4px; margin-bottom: 3px; }
     .hd-cambio-valores { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
@@ -55,7 +58,7 @@
     .hd-cambio-antes { color: #94a3b8; text-decoration: line-through; word-break: break-word; }
     .hd-cambio-nuevo { color: #0f172a; font-weight: 700; word-break: break-word; }
     .hd-cambio-vacio { font-style: italic; font-weight: 400; text-decoration: none; color: #94a3b8; }
-    .hd-cambios-pie { padding: 6px 12px; background: #f8fafc; border-top: 1px solid #e2e8f0; font-size: 11.5px; color: #64748b; }
+    .hd-cambios-pie { padding: 6px 12px; background: #e6f0fa; border-top: 1px solid #c7dcf0; font-size: 11.5px; color: #5b6b7d; }
     @media (min-width: 769px) {
         /* Filas más juntas que el .admin-table general (12 px): la auditoría es una lista larga. */
         #historialDocumentosTable { border-spacing: 0 5px; }
@@ -149,14 +152,17 @@
             flex: 1 1 0 !important;
         }
         .hd-adv-filter-wrap {
-            flex: 0 0 45px !important;
+            flex: 0 0 45px !important;   /* cuadrado: mismo ancho que la altura de la fila */
         }
-        /* Todo un punto más bajo y junto: en el teléfono los filtros se comían la pantalla. */
+        /* 45 px, la MISMA altura que los controles de Equipos (#btnAcciones) y Almacén
+           (#almBtnAcciones): medido en el navegador, este módulo se había quedado en 40 y
+           se veía más apretado que los demás. El gap sigue corto para que los filtros no se
+           coman la pantalla, que era el motivo de haberlos bajado. */
         .hd-filter-row { gap: 6px !important; }
-        .hd-filter-row .filter-item { min-height: 40px !important; height: 40px !important; }
+        .hd-filter-row .filter-item { min-height: 45px !important; height: 45px !important; }
         .hd-filter-row .filter-item form, .hd-filter-row .search-wrapper,
         .hd-filter-row .search-input-field, .hd-filter-row .dropdown-trigger,
-        #hdBtnAcciones, #btnHdAdvancedFilter { height: 40px !important; min-height: 40px !important; }
+        #hdBtnAcciones, #btnHdAdvancedFilter { height: 45px !important; min-height: 45px !important; }
         /* El botón queda a la izquierda: el panel se abre hacia la derecha para
            no salirse de la pantalla. */
         #hdAdvancedFilterPanel {
@@ -344,6 +350,7 @@
 
 @include('admin.historial_documentos.partials.desplegables')
 @include('admin.historial_documentos.partials.papelera')
+@include('admin.historial_documentos.partials.carga_masiva')
 
 @if ($pestana !== 'historial')
     @include('admin.compresion_pdf.panel')

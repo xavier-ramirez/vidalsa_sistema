@@ -1,0 +1,463 @@
+{{-- Carga masiva de documentos: la abre el menú Acciones (partials/acciones). Se sueltan
+     varios PDF y cada uno se lee y se propone a su equipo; nada se escribe en una ficha
+     hasta que la fila se aplica.
+
+     Por qué un archivo por petición: el texto lo saca el OCR de Google Drive (~8 s por
+     PDF) y treinta en una sola petición se caerían por timeout. La cola los manda de uno
+     en uno y cada fila se pinta en cuanto vuelve — así se ve avanzar y se puede corregir
+     sobre la marcha sin esperar al final.
+
+     Las reglas de seguridad NO viven aquí sino en el servidor (CargaMasivaDocumentos):
+     esta pantalla solo las refleja. --}}
+@can('super.admin')
+<style>
+    #hdCmOverlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 2500; display: flex; justify-content: center; align-items: center; }
+    .hd-cm-modal { background: #fff; border-radius: 14px; width: 94%; max-width: 860px; max-height: 88vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); }
+    .hd-cm-head { background: #1e293b; padding: 12px 16px; color: #fff; display: flex; justify-content: center; align-items: center; gap: 8px; position: relative; }
+    .hd-cm-head h2 { margin: 0; font-size: 14px; font-weight: 700; }
+    .hd-cm-cerrar { position: absolute; right: 12px; background: transparent; border: none; color: #fff; cursor: pointer; opacity: .7; display: flex; padding: 2px; }
+    .hd-cm-cerrar:hover { opacity: 1; }
+
+    /* Barra de arriba: tipo + zona de soltar. */
+    .hd-cm-tools { padding: 10px 12px; border-bottom: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 9px; flex-shrink: 0; }
+    .hd-cm-fila { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
+    .hd-cm-campo { display: flex; flex-direction: column; gap: 3px; }
+    .hd-cm-rot { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .7px; color: #94a3b8; white-space: nowrap; }
+    .hd-cm-select { height: 34px; padding: 0 8px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; font: inherit; font-size: 12.5px; color: #334155; cursor: pointer; }
+    .hd-cm-select:focus { outline: none; border-color: #0067b1; box-shadow: 0 0 0 3px rgba(0,103,177,.10); }
+    .hd-cm-zona { flex: 1 1 260px; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 8px; height: 56px; border: 2px dashed #cbd5e1; border-radius: 10px; background: #f8fafc; color: #64748b; font-size: 12.5px; font-weight: 600; cursor: pointer; text-align: center; padding: 0 10px; transition: border-color .15s, background .15s; }
+    .hd-cm-zona:hover, .hd-cm-zona.encima { border-color: #0067b1; background: #eff6ff; color: #0067b1; }
+    .hd-cm-zona .material-icons { font-size: 22px; }
+
+    /* Avance de la cola. Oculto mientras no haya nada que contar. */
+    .hd-cm-avance { display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: #64748b; font-weight: 700; }
+    .hd-cm-avance[hidden] { display: none; }
+    .hd-cm-barra { flex: 1 1 auto; height: 6px; border-radius: 99px; background: #e2e8f0; overflow: hidden; }
+    .hd-cm-barra i { display: block; height: 100%; width: 0; background: #0067b1; transition: width .25s; }
+
+    /* La lista de archivos. */
+    .hd-cm-list { overflow-y: auto; background: #f8fafc; padding: 10px; flex: 1; min-height: 180px; }
+    .hd-cm-row { background: #fff; border: 1px solid #e2e8f0; border-left-width: 3px; border-radius: 9px; margin-bottom: 6px; padding: 9px 11px; }
+    .hd-cm-row[data-estado="cola"]       { border-left-color: #cbd5e1; }
+    .hd-cm-row[data-estado="leyendo"]    { border-left-color: #0067b1; }
+    .hd-cm-row[data-estado="listo"]      { border-left-color: #10b981; }
+    .hd-cm-row[data-estado="revisar"]    { border-left-color: #f59e0b; }
+    .hd-cm-row[data-estado="sin_equipo"] { border-left-color: #f59e0b; }
+    .hd-cm-row[data-estado="ilegible"]   { border-left-color: #dc2626; }
+    .hd-cm-row[data-estado="aplicado"]   { border-left-color: #10b981; background: #f0fdf4; }
+    .hd-cm-row[data-estado="error"]      { border-left-color: #dc2626; background: #fef2f2; }
+
+    .hd-cm-cab { display: flex; align-items: center; gap: 8px; }
+    .hd-cm-arch { flex: 1 1 auto; min-width: 0; font-size: 12px; font-weight: 700; color: #0f172a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .hd-cm-chip { flex: 0 0 auto; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; padding: 3px 8px; border-radius: 99px; background: #f1f5f9; color: #475569; white-space: nowrap; }
+    .hd-cm-chip.ok   { background: #dcfce7; color: #15803d; }
+    .hd-cm-chip.avisa{ background: #fef3c7; color: #b45309; }
+    .hd-cm-chip.mal  { background: #fee2e2; color: #b91c1c; }
+    .hd-cm-cuerpo { margin-top: 7px; display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
+    .hd-cm-equipo { flex: 1 1 210px; min-width: 0; font-size: 12px; color: #334155; line-height: 1.35; }
+    .hd-cm-equipo b { color: #0f172a; }
+    .hd-cm-equipo small { display: block; color: #64748b; font-size: 11px; }
+    .hd-cm-fecha { height: 32px; padding: 0 8px; border: 1px solid #e2e8f0; border-radius: 8px; font: inherit; font-size: 12px; color: #334155; }
+    .hd-cm-pisar { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 700; color: #b45309; white-space: nowrap; cursor: pointer; }
+    .hd-cm-aviso { margin-top: 6px; font-size: 11.5px; color: #b45309; line-height: 1.35; }
+    .hd-cm-row[data-estado="ilegible"] .hd-cm-aviso, .hd-cm-row[data-estado="error"] .hd-cm-aviso { color: #b91c1c; }
+    .hd-cm-vacio { padding: 30px 14px; text-align: center; color: #94a3b8; font-size: 12px; }
+
+    .hd-cm-pie { padding: 10px 12px; border-top: 1px solid #e2e8f0; display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+    .hd-cm-resumen { flex: 1 1 auto; font-size: 11.5px; color: #64748b; font-weight: 700; }
+    .hd-cm-btn { height: 36px; padding: 0 14px; border: none; border-radius: 9px; font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+    .hd-cm-btn .material-icons { font-size: 17px; }
+    .hd-cm-btn.primario { background: #0067b1; color: #fff; }
+    .hd-cm-btn.primario:disabled { background: #cbd5e1; cursor: not-allowed; }
+    .hd-cm-btn.plano { background: #fff; border: 1px solid #e2e8f0; color: #64748b; }
+    .hd-cm-btn.plano:hover { background: #f8fafc; }
+
+    /* Teléfono: los controles de cada fila uno debajo del otro. */
+    @media (max-width: 700px) {
+        .hd-cm-cuerpo { flex-direction: column; align-items: stretch; }
+        /* En columna, el flex-basis manda sobre la ALTURA: sin este reset el bloque del
+           equipo se estiraba a 210 px y dejaba un hueco enorme dentro de cada fila. */
+        .hd-cm-equipo { flex: 0 0 auto; }
+        .hd-cm-fecha { width: 100%; }
+        /* El resumen a su propio renglón: si no, los dos botones se parten en dos líneas. */
+        .hd-cm-pie { flex-wrap: wrap; }
+        .hd-cm-resumen { flex: 1 0 100%; }
+    }
+</style>
+
+<script>
+(function () {
+    var esc = window.escapeHtml;   // helper central (dom_helpers.js)
+
+    var RUTAS = {
+        analizar:  @json(route('historial-documentos.carga-masiva.analizar')),
+        aplicar:   @json(route('historial-documentos.carga-masiva.aplicar')),
+        descartar: @json(route('historial-documentos.carga-masiva.descartar'))
+    };
+
+    // Los tipos que vencen: su fila no se puede aplicar sin fecha. Es la MISMA lista que
+    // App\Support\DocumentacionDeEquipo::VENCIMIENTO; si allí se toca, aquí también.
+    var VENCEN = { poliza: 1, rotc: 1, racda: 1 };
+
+    // filas: una por archivo. `turno` descarta los resultados de una tanda ya cancelada
+    // (cerrar el modal con la cola a medias no debe pintar sobre la siguiente).
+    var estado = { filas: [], turno: 0, corriendo: false };
+
+    function $(id) { return document.getElementById(id); }
+
+    // ── Pintado ───────────────────────────────────────────────────────────────
+
+    function construir() {
+        if ($('hdCmOverlay')) $('hdCmOverlay').remove();
+        var o = document.createElement('div');
+        o.id = 'hdCmOverlay';
+        o.innerHTML =
+            '<div class="hd-cm-modal" role="dialog" aria-modal="true" aria-label="Carga masiva de documentos">' +
+                '<div class="hd-cm-head">' +
+                    '<i class="material-icons" style="font-size:18px;">cloud_upload</i>' +
+                    '<h2>Carga masiva de documentos</h2>' +
+                    '<button type="button" class="hd-cm-cerrar" title="Cerrar"><i class="material-icons">close</i></button>' +
+                '</div>' +
+                '<div class="hd-cm-tools">' +
+                    '<div class="hd-cm-fila">' +
+                        '<div class="hd-cm-campo">' +
+                            '<span class="hd-cm-rot">Tipo de documento</span>' +
+                            '<select id="hdCmTipo" class="hd-cm-select">' +
+                                '<option value="">Reconocerlo solo</option>' +
+                                '<option value="propiedad">Título de propiedad</option>' +
+                                '<option value="poliza">Póliza de seguro</option>' +
+                                '<option value="rotc">ROTC</option>' +
+                                '<option value="racda">RACDA</option>' +
+                            '</select>' +
+                        '</div>' +
+                        '<div class="hd-cm-zona" id="hdCmZona">' +
+                            '<i class="material-icons">upload_file</i>' +
+                            '<span>Suelta aquí los PDF o haz clic para elegirlos</span>' +
+                        '</div>' +
+                        '<input type="file" id="hdCmInput" accept="application/pdf" multiple hidden>' +
+                    '</div>' +
+                    '<div class="hd-cm-avance" id="hdCmAvance" hidden>' +
+                        '<span id="hdCmAvanceTxt">Leyendo…</span>' +
+                        '<div class="hd-cm-barra"><i id="hdCmBarra"></i></div>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="hd-cm-list" id="hdCmList"></div>' +
+                '<div class="hd-cm-pie">' +
+                    '<span class="hd-cm-resumen" id="hdCmResumen"></span>' +
+                    '<button type="button" class="hd-cm-btn plano" id="hdCmVaciar">Vaciar la lista</button>' +
+                    '<button type="button" class="hd-cm-btn primario" id="hdCmAplicar" disabled>' +
+                        '<i class="material-icons">playlist_add_check</i><span id="hdCmAplicarTxt">Aplicar lo que está listo</span></button>' +
+                '</div>' +
+            '</div>';
+        document.body.appendChild(o);
+        enlazar(o);
+        pintar();
+    }
+
+    /**
+     * Las fichas en las que SE ESCRIBIRÍA esta fila. Normalmente una, pero un RACDA es de
+     * la empresa y nombra muchas unidades: se aplica a todas las que lo necesiten. Las que
+     * ya tienen ese documento quedan fuera salvo que se marque "reemplazar" — la misma
+     * regla que aplicaría el servidor, para no ofrecer lo que luego va a negar.
+     */
+    function destinos(f) {
+        var p = f.propuesta;
+        if (!p || !p.tipo || !p.link || f.estado === 'aplicado') return [];
+        if (VENCEN[p.tipo] && !f.vence) return [];
+        return (p.equipos || []).filter(function (e) {
+            return f.pisar || !(e.links && e.links[p.tipo]);
+        });
+    }
+
+    function aplicable(f) { return destinos(f).length > 0; }
+
+    /** El primero de la lista: es el que se nombra en la fila. */
+    function equipoDe(f) {
+        var eqs = (f.propuesta && f.propuesta.equipos) || [];
+        return eqs[0] || { links: {}, vence_ficha: {} };
+    }
+
+    /** ¿Alguna de las fichas nombradas ya tiene ese documento? */
+    function algunoLoTiene(f) {
+        var p = f.propuesta;
+        if (!p || !p.tipo) return false;
+        return (p.equipos || []).some(function (e) { return e.links && e.links[p.tipo]; });
+    }
+
+    /**
+     * Por qué esta fila no va a escribir en ninguna ficha. Importa distinguirlo: "falta la
+     * fecha" se arregla aquí mismo y "ya lo tienen" se arregla marcando reemplazar; decir
+     * uno por el otro manda a buscar el problema donde no está.
+     */
+    function motivoSinDestino(f) {
+        var p = f.propuesta;
+        if (!p || !p.tipo) return '';
+        if (VENCEN[p.tipo] && !f.vence) return 'falta la fecha de vencimiento';
+        if (algunoLoTiene(f) && !f.pisar) return 'ya lo tienen';
+        return 'nada que escribir';
+    }
+
+    function pintar() {
+        var list = $('hdCmList'); if (!list) return;
+
+        if (!estado.filas.length) {
+            list.innerHTML = '<div class="hd-cm-vacio">Todavía no has soltado ningún PDF.<br>' +
+                             'Puedes soltar varios de golpe; se leen de uno en uno.</div>';
+        } else {
+            list.innerHTML = estado.filas.map(fila).join('');
+        }
+
+        // Se cuentan FICHAS, no archivos: un RACDA es UN archivo y muchas fichas, así que
+        // contar archivos hacía que el botón prometiera menos de lo que iba a escribir.
+        var fichas = estado.filas.reduce(function (n, f) { return n + destinos(f).length; }, 0);
+        var aplicados = estado.filas.filter(function (f) { return f.estado === 'aplicado'; }).length;
+        var btn = $('hdCmAplicar');
+        if (btn) {
+            btn.disabled = !fichas || estado.corriendo;
+            $('hdCmAplicarTxt').textContent = fichas
+                ? ('Aplicar ' + fichas + ' ficha' + (fichas === 1 ? '' : 's'))
+                : 'Aplicar lo que está listo';
+        }
+        var res = $('hdCmResumen');
+        if (res) {
+            res.textContent = estado.filas.length
+                ? (estado.filas.length + ' archivo' + (estado.filas.length === 1 ? '' : 's') +
+                   ' · ' + fichas + ' ficha' + (fichas === 1 ? '' : 's') + ' por actualizar' +
+                   ' · ' + aplicados + ' aplicado' + (aplicados === 1 ? '' : 's'))
+                : '';
+        }
+    }
+
+    var CHIP = {
+        cola:       ['', 'En cola'],
+        leyendo:    ['', 'Leyendo…'],
+        listo:      ['ok', 'Listo'],
+        revisar:    ['avisa', 'Revisar'],
+        sin_equipo: ['avisa', 'Sin equipo'],
+        ilegible:   ['mal', 'No se pudo leer'],
+        aplicado:   ['ok', 'Aplicado'],
+        error:      ['mal', 'No se aplicó']
+    };
+
+    function fila(f, i) {
+        var p = f.propuesta || {};
+        var chip = CHIP[f.estado] || ['', f.estado];
+        var eq = equipoDe(f);
+        var tieneYa = algunoLoTiene(f);
+        var irA = destinos(f).length;
+
+        var cuerpo = '';
+        if (f.estado !== 'cola' && f.estado !== 'leyendo') {
+            var equipoTxt = (p.equipos || []).length
+                ? '<b>' + esc(eq.nombre || '') + '</b>' +
+                  '<small>' + esc(eq.placa || 's/placa') + (eq.serial ? ' · ' + esc(eq.serial) : '') +
+                  ((p.equipos.length > 1) ? ' · y ' + (p.equipos.length - 1) + ' unidad(es) más en la lista' : '') +
+                  (irA ? ' — se escribe en ' + irA + ' ficha' + (irA === 1 ? '' : 's')
+                       : (f.aviso ? '' : ' — ' + motivoSinDestino(f))) +
+                  '</small>'
+                : '<small>Sin equipo reconocido</small>';
+
+            cuerpo = '<div class="hd-cm-cuerpo">' +
+                '<div class="hd-cm-equipo">' + equipoTxt + '</div>' +
+                (p.tipo && VENCEN[p.tipo]
+                    ? '<div class="hd-cm-campo"><span class="hd-cm-rot">Vence</span>' +
+                      '<input type="date" class="hd-cm-fecha" data-vence="' + i + '" value="' + esc(f.vence || '') + '"></div>'
+                    : '') +
+                (tieneYa
+                    ? '<label class="hd-cm-pisar"><input type="checkbox" data-pisar="' + i + '"' + (f.pisar ? ' checked' : '') + '>' +
+                      'Reemplazar el que ya tiene</label>'
+                    : '') +
+            '</div>';
+        }
+
+        return '<div class="hd-cm-row" data-estado="' + f.estado + '">' +
+            '<div class="hd-cm-cab">' +
+                '<span class="hd-cm-arch">' + esc(f.nombre) + '</span>' +
+                (p.tipo_nombre ? '<span class="hd-cm-chip">' + esc(p.tipo_nombre) + '</span>' : '') +
+                '<span class="hd-cm-chip ' + chip[0] + '">' + chip[1] + '</span>' +
+            '</div>' +
+            cuerpo +
+            (f.aviso ? '<div class="hd-cm-aviso">' + esc(f.aviso) + '</div>' : '') +
+        '</div>';
+    }
+
+    // ── La cola de lectura ────────────────────────────────────────────────────
+
+    function encolar(archivos) {
+        var tipo = ($('hdCmTipo') || {}).value || '';
+        Array.prototype.forEach.call(archivos, function (a) {
+            if (a.type !== 'application/pdf' && !/\.pdf$/i.test(a.name)) return;
+            estado.filas.push({ nombre: a.name, archivo: a, tipo: tipo, estado: 'cola',
+                                propuesta: null, vence: '', pisar: false, aviso: null });
+        });
+        pintar();
+        if (!estado.corriendo) leerCola();
+    }
+
+    function leerCola() {
+        var turno = estado.turno;
+        var pendientes = estado.filas.filter(function (f) { return f.estado === 'cola'; });
+        if (!pendientes.length) { estado.corriendo = false; avance(0, 0); pintar(); return; }
+
+        estado.corriendo = true;
+        var total = estado.filas.length;
+        var f = pendientes[0];
+        f.estado = 'leyendo';
+        avance(total - pendientes.length, total);
+        pintar();
+
+        window.apiPostForm(RUTAS.analizar, { file: f.archivo, tipo: f.tipo }, 'No se pudo leer el documento.')
+            .then(function (b) {
+                if (turno !== estado.turno) return;
+                var p = b.propuesta || {};
+                f.propuesta = p;
+                f.estado    = p.estado || 'ilegible';
+                f.aviso     = p.aviso || null;
+                f.vence     = p.vence || '';
+                // El archivo ya está en Drive; no hace falta guardarlo en memoria.
+                f.archivo   = null;
+            })
+            .catch(function (e) {
+                if (turno !== estado.turno) return;
+                f.estado = 'ilegible';
+                f.aviso  = e.message;
+                f.archivo = null;
+            })
+            .finally(function () {
+                if (turno !== estado.turno) return;
+                pintar();
+                leerCola();
+            });
+    }
+
+    function avance(hechos, total) {
+        var caja = $('hdCmAvance'); if (!caja) return;
+        caja.hidden = !total;
+        if (!total) return;
+        $('hdCmAvanceTxt').textContent = 'Leyendo ' + Math.min(hechos + 1, total) + ' de ' + total + '…';
+        $('hdCmBarra').style.width = Math.round((hechos / total) * 100) + '%';
+    }
+
+    // ── Aplicar ───────────────────────────────────────────────────────────────
+
+    function aplicarTodo() {
+        var pendientes = estado.filas.filter(aplicable);
+        if (!pendientes.length) return;
+
+        estado.corriendo = true;
+        pintar();
+
+        // Una escritura por ficha, de una en una: el servidor puede negar alguna (documento
+        // anterior, ya lo tiene) y así el motivo queda en SU fila. Un RACDA aporta tantas
+        // escrituras como unidades nombra.
+        var tareas = [];
+        pendientes.forEach(function (f) {
+            destinos(f).forEach(function (eq) { tareas.push({ f: f, eq: eq }); });
+        });
+
+        var i = 0, bien = 0;
+        (function siguiente() {
+            if (i >= tareas.length) {
+                estado.corriendo = false;
+                pintar();
+                window.toast('Listo: ' + bien + ' de ' + tareas.length + ' fichas actualizadas.', 'success');
+                return;
+            }
+            var t = tareas[i++];
+            window.apiPostForm(RUTAS.aplicar, {
+                id_equipo: t.eq.id, tipo: t.f.propuesta.tipo, link: t.f.propuesta.link,
+                vence: t.f.vence || '', emision: t.f.propuesta.emision || '', pisar: t.f.pisar ? 1 : ''
+            }, 'No se pudo aplicar.')
+                .then(function () {
+                    bien++;
+                    // La fila queda aplicada cuando NINGUNA de sus fichas falló.
+                    if (t.f.estado !== 'error') { t.f.estado = 'aplicado'; t.f.aviso = null; }
+                })
+                .catch(function (e) { t.f.estado = 'error'; t.f.aviso = e.message; })
+                .finally(function () { pintar(); siguiente(); });
+        })();
+    }
+
+    /** Lo leído y no aplicado se borra de Drive: si no, quedarían archivos huérfanos. */
+    function soltarDescartados() {
+        estado.filas.forEach(function (f) {
+            if (f.estado !== 'aplicado' && f.propuesta && f.propuesta.link) {
+                window.apiPostForm(RUTAS.descartar, { link: f.propuesta.link }, '').catch(function () {});
+            }
+        });
+    }
+
+    // ── Eventos ───────────────────────────────────────────────────────────────
+
+    function enlazar(o) {
+        var input = $('hdCmInput'), zona = $('hdCmZona');
+
+        o.querySelector('.hd-cm-cerrar').addEventListener('click', cerrar);
+        o.addEventListener('click', function (e) { if (e.target === o) cerrar(); });
+
+        zona.addEventListener('click', function () { input.click(); });
+        input.addEventListener('change', function () { encolar(input.files); input.value = ''; });
+
+        ['dragenter', 'dragover'].forEach(function (ev) {
+            zona.addEventListener(ev, function (e) { e.preventDefault(); zona.classList.add('encima'); });
+        });
+        ['dragleave', 'drop'].forEach(function (ev) {
+            zona.addEventListener(ev, function (e) { e.preventDefault(); zona.classList.remove('encima'); });
+        });
+        zona.addEventListener('drop', function (e) {
+            if (e.dataTransfer && e.dataTransfer.files) encolar(e.dataTransfer.files);
+        });
+
+        $('hdCmAplicar').addEventListener('click', aplicarTodo);
+        $('hdCmVaciar').addEventListener('click', function () {
+            soltarDescartados();
+            estado.turno++;
+            estado.filas = [];
+            estado.corriendo = false;
+            avance(0, 0);
+            pintar();
+        });
+
+        // Fecha y "reemplazar" de cada fila, por delegación: la lista se repinta entera en
+        // cada cambio y un listener por fila moriría con ella.
+        $('hdCmList').addEventListener('change', function (e) {
+            var t = e.target;
+            var iv = t.getAttribute && t.getAttribute('data-vence');
+            if (iv !== null && iv !== undefined) {
+                var f = estado.filas[+iv];
+                f.vence = t.value;
+                if (f.vence && f.estado === 'revisar') { f.estado = 'listo'; f.aviso = null; }
+                pintar();
+                return;
+            }
+            var ip = t.getAttribute && t.getAttribute('data-pisar');
+            if (ip !== null && ip !== undefined) { estado.filas[+ip].pisar = t.checked; pintar(); }
+        });
+    }
+
+    function cerrar() {
+        soltarDescartados();
+        estado.turno++;
+        estado.filas = [];
+        estado.corriendo = false;
+        var o = $('hdCmOverlay'); if (o) o.remove();
+    }
+
+    window.abrirCargaMasiva = function () {
+        estado.turno++;
+        estado.filas = [];
+        estado.corriendo = false;
+        construir();
+    };
+
+    // Si se navega (SPA) con el modal abierto, no dejarlo flotando sobre el módulo nuevo.
+    if (!window.__hdCargaMasivaSpaBound) {
+        window.__hdCargaMasivaSpaBound = true;
+        window.addEventListener('spa:contentLoaded', function () {
+            var o = document.getElementById('hdCmOverlay');
+            if (o) o.remove();
+        });
+    }
+})();
+</script>
+@endcan

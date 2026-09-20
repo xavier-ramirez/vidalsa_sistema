@@ -2832,14 +2832,7 @@ class EquipoController extends Controller
      * conserva su switch a proposito: es el camino de sustitucion que ya funciona
      * y no se toca.
      */
-    private const DOC_COLUMNAS = [
-        'propiedad'   => ['link' => 'LINK_DOC_PROPIEDAD',   'fecha' => 'PROPIEDAD_FECHA_SUBIDA',   'autor' => 'PROPIEDAD_SUBIDO_POR'],
-        'poliza'      => ['link' => 'LINK_POLIZA_SEGURO',   'fecha' => 'POLIZA_FECHA_SUBIDA',      'autor' => 'POLIZA_SUBIDO_POR'],
-        'rotc'        => ['link' => 'LINK_ROTC',            'fecha' => 'ROTC_FECHA_SUBIDA',        'autor' => 'ROTC_SUBIDO_POR'],
-        'racda'       => ['link' => 'LINK_RACDA',           'fecha' => 'RACDA_FECHA_SUBIDA',       'autor' => 'RACDA_SUBIDO_POR'],
-        'adicional'   => ['link' => 'LINK_DOC_ADICIONAL',   'fecha' => 'ADICIONAL_FECHA_SUBIDA',   'autor' => 'ADICIONAL_SUBIDO_POR'],
-        'adicional_2' => ['link' => 'LINK_DOC_ADICIONAL_2', 'fecha' => 'ADICIONAL_2_FECHA_SUBIDA', 'autor' => 'ADICIONAL_2_SUBIDO_POR'],
-    ];
+    private const DOC_COLUMNAS = \App\Support\DocumentacionDeEquipo::COLUMNAS;
 
     /**
      * Los documentos que VENCEN y su columna de vencimiento. Propiedad y compraventa
@@ -2847,13 +2840,12 @@ class EquipoController extends Controller
      * lo exigen uploadDoc() y updateMetadata() (el formulario, store()/update(), con
      * sus propias reglas por campo). En el front la misma lista es
      * DOC_FIELD_MAP[tipo].vencKey (uicomponents.js); si se toca una, la otra.
+     *
+     * La lista vive en App\Support\DocumentacionDeEquipo porque la carga masiva escribe
+     * en `documentacion` por su propio camino; este alias se queda para no tocar los
+     * self::DOC_VENCIMIENTO repartidos por el controlador.
      */
-    private const DOC_VENCIMIENTO = [
-        'poliza'    => 'FECHA_VENC_POLIZA',
-        'rotc'      => 'FECHA_ROTC',
-        'racda'     => 'FECHA_RACDA',
-        'adicional' => 'FECHA_ADICIONAL',
-    ];
+    private const DOC_VENCIMIENTO = \App\Support\DocumentacionDeEquipo::VENCIMIENTO;
 
     /**
      * Lo que se escribe en `documentacion` al fijar el vencimiento de $tipo: la fecha
@@ -2863,12 +2855,7 @@ class EquipoController extends Controller
      */
     private function datosVencimiento(string $tipo, string $fecha): array
     {
-        $datos = [self::DOC_VENCIMIENTO[$tipo] => $fecha];
-        if (\Carbon\Carbon::parse($fecha)->isFuture()) {
-            $datos[$tipo . '_gestion_frente_id'] = null;
-            $datos[$tipo . '_gestion_fecha']     = null;
-        }
-        return $datos;
+        return \App\Support\DocumentacionDeEquipo::datosVencimiento($tipo, $fecha);
     }
 
     /**
@@ -2879,17 +2866,7 @@ class EquipoController extends Controller
      */
     private function diffDocumentacion(?Documentacion $doc, array $datos): array
     {
-        $diff = [];
-        foreach ($datos as $field => $newValue) {
-            $oldValue = $doc ? $doc->getRawOriginal($field) : null;
-            // Los datetime salen de BD como "Y-m-d 00:00:00" pero el input llega "Y-m-d":
-            // se normalizan para comparar y mostrar en el mismo formato.
-            $oldCmp = is_string($oldValue) ? preg_replace('/ 00:00:00$/', '', $oldValue) : $oldValue;
-            $newCmp = is_string($newValue) ? preg_replace('/ 00:00:00$/', '', $newValue) : $newValue;
-            if ((string) $oldCmp === (string) $newCmp) continue;
-            $diff[$field] = ['antes' => $oldCmp, 'despues' => $newCmp];
-        }
-        return $diff;
+        return \App\Support\DocumentacionDeEquipo::diff($doc, $datos);
     }
 
     /**
