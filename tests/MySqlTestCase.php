@@ -39,6 +39,35 @@ abstract class MySqlTestCase extends TestCase
         config(['database.default' => 'mysql']);
     }
 
+    /**
+     * Devolver la conexion a sqlite al terminar.
+     *
+     * putenv()/$_ENV son GLOBALES del proceso: sin esto, la conexion mysql que abre setUp se
+     * quedaba puesta y TODA prueba que corriera despues —aunque herede de Tests\TestCase y
+     * phpunit.xml pida sqlite— arrancaba contra la base de trabajo. Hoy no hay ningun caso
+     * con RefreshDatabase activo, pero el dia que lo hubiera, `migrate:fresh` habria borrado
+     * la base real. El control de Tests\TestCase::prohibirBaseReal es la segunda red.
+     */
+    protected function tearDown(): void
+    {
+        parent::tearDown();
+
+        putenv('DB_CONNECTION=sqlite');
+        putenv('DB_DATABASE=:memory:');
+        $_ENV['DB_CONNECTION'] = $_SERVER['DB_CONNECTION'] = 'sqlite';
+        $_ENV['DB_DATABASE']   = $_SERVER['DB_DATABASE']   = ':memory:';
+    }
+
+    /**
+     * Esta base SI usa la conexión real, a propósito: es la excepción para la que Tests\TestCase
+     * deja el control redefinible. Aquí no hay riesgo porque DatabaseTransactions revierte
+     * todo al terminar y NUNCA se usa RefreshDatabase (ver la nota de la clase).
+     */
+    protected function prohibirBaseReal(): void
+    {
+        // Sin control: la conexión real es justamente lo que se quiere aquí.
+    }
+
     /** Un super.admin real (con equipos.create), global y sin cambio de clave pendiente. */
     protected function superAdminGlobal(): Usuario
     {
