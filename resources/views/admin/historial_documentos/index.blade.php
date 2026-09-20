@@ -136,7 +136,8 @@
             flex-direction: row !important;
             flex-wrap: wrap !important;
             align-items: stretch !important;
-            gap: 8px !important;
+            /* Corto a propósito: en el teléfono los filtros se comían la pantalla. */
+            gap: 6px !important;
         }
         /* Un filtro por fila (así lo pidió el cliente) y Acciones abajo del todo, a lo ancho.
            El botón de filtros avanzados sigue pegado al último filtro, no es un filtro. */
@@ -156,9 +157,7 @@
         }
         /* 45 px, la MISMA altura que los controles de Equipos (#btnAcciones) y Almacén
            (#almBtnAcciones): medido en el navegador, este módulo se había quedado en 40 y
-           se veía más apretado que los demás. El gap sigue corto para que los filtros no se
-           coman la pantalla, que era el motivo de haberlos bajado. */
-        .hd-filter-row { gap: 6px !important; }
+           se veía más apretado que los demás. (El gap va arriba, en .hd-filter-row.) */
         .hd-filter-row .filter-item { min-height: 45px !important; height: 45px !important; }
         .hd-filter-row .filter-item form, .hd-filter-row .search-wrapper,
         .hd-filter-row .search-input-field, .hd-filter-row .dropdown-trigger,

@@ -26,6 +26,21 @@ class LogisticaAlmacenService
      * que `nombre` (tipo, marca y modelo) es lo que llena el campo Vehículo de la nota. Un vehículo
      * de la lista del almacén que también está en la flota toma de ahí su serial y su tipo.
      */
+    /**
+     * Lo que NUNCA se sugiere como vehiculo de la Nota de Entrega.
+     *
+     * La flota PESADA (payloaders, excavadoras, tractores de oruga...) no sale de la obra a
+     * buscar repuestos: ofrecerla solo estorba la lista. Pedido del cliente.
+     */
+    private const CATEGORIAS_QUE_NO_TRANSPORTAN = ['FLOTA PESADA'];
+
+    /**
+     * Y estos POR TIPO, aunque su categoria diga otra cosa. El VACUUM es un camion de
+     * succion y esta catalogado como flota LIVIANA (28 unidades), asi que filtrando solo
+     * por categoria se colaria igual. Se compara en mayusculas y sin espacios de sobra.
+     */
+    private const TIPOS_QUE_NO_TRANSPORTAN = ['VACUUM'];
+
     public function sugerencias(Almacen $almacen): array
     {
         $filas = AlmacenLogistica::where('ID_ALMACEN', $almacen->ID_ALMACEN)
@@ -146,6 +161,12 @@ class LogisticaAlmacenService
             ->leftJoin('documentacion as d', 'd.ID_EQUIPO', '=', 'e.ID_EQUIPO')
             ->leftJoin('tipo_equipos as t', 't.id', '=', 'e.id_tipo_equipo')
             ->whereIn('e.ID_FRENTE_ACTUAL', $frentes)->whereNull('e.deleted_at')
+            // Nada que no vaya a llevar material (ver las dos constantes de arriba).
+            ->whereNotIn(DB::raw("UPPER(TRIM(COALESCE(e.CATEGORIA_FLOTA, '')))"), self::CATEGORIAS_QUE_NO_TRANSPORTAN)
+            ->where(function ($q) {
+                $q->whereNull('t.nombre')
+                  ->orWhereNotIn(DB::raw('UPPER(TRIM(t.nombre))'), self::TIPOS_QUE_NO_TRANSPORTAN);
+            })
             ->orderBy('t.nombre')->orderBy('e.MARCA')->orderBy('e.MODELO')->orderBy('e.ID_EQUIPO')
             ->get(['e.ID_EQUIPO', 'd.PLACA', 'e.SERIAL_CHASIS', 'e.MARCA', 'e.MODELO', 't.nombre as TIPO'])
             ->map(function ($v) {

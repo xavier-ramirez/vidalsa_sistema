@@ -40,11 +40,13 @@ class LogisticaAlmacenTest extends MySqlTestCase
         return [$alm, $p, $frente];
     }
 
-    private function vehiculoDeFlota(int $frente, string $placa, ?array $chofer = null, ?string $serial = null): void
+    private function vehiculoDeFlota(int $frente, string $placa, ?array $chofer = null, ?string $serial = null,
+                                     string $tipo = 'CAMIONETA', ?string $categoria = null): void
     {
         $id = DB::table('equipos')->insertGetId([
             'MARCA' => 'TOYOTA', 'MODELO' => 'HILUX', 'ANIO' => 2020, 'SERIAL_CHASIS' => $serial ?? ('S' . Str::random(10)),
-            'ID_FRENTE_ACTUAL' => $frente, 'id_tipo_equipo' => DB::table('tipo_equipos')->where('nombre', 'CAMIONETA')->value('id'),
+            'ID_FRENTE_ACTUAL' => $frente, 'id_tipo_equipo' => DB::table('tipo_equipos')->where('nombre', $tipo)->value('id'),
+            'CATEGORIA_FLOTA' => $categoria,
         ]);
         DB::table('documentacion')->insert(['ID_EQUIPO' => $id, 'PLACA' => $placa]);
         if ($chofer) {
@@ -165,6 +167,30 @@ class LogisticaAlmacenTest extends MySqlTestCase
             ['nombre' => 'CAMIONETA TOYOTA HILUX', 'documento' => strtoupper($serialSinPlaca), 'serial' => strtoupper($serialSinPlaca), 'tipo' => 'CAMIONETA', 'origen' => 'flota'],
         ], $r->json('vehiculos'));
         $this->assertSame([['nombre' => 'JUAN PEREZ', 'documento' => '12.345.678', 'origen' => 'flota']], $r->json('choferes'));
+    }
+
+    /**
+     * El campo Vehículo de la Nota de Entrega solo ofrece lo que puede LLEVAR material.
+     *
+     * Son dos reglas distintas y hacen falta las dos: la flota PESADA se descarta por su
+     * categoría, y el VACUUM por su TIPO — está catalogado como flota liviana, así que
+     * filtrando solo por categoría se colaría. Pedido del cliente.
+     */
+    public function test_no_sugiere_flota_pesada_ni_vacuum(): void
+    {
+        [$alm, , $frente] = $this->almacen();
+        $this->vehiculoDeFlota($frente, 'C33LM4N', null, 'SOK' . Str::random(8), 'CAMIONETA', 'FLOTA LIVIANA');
+        $this->vehiculoDeFlota($frente, 'D44PQ5R', null, 'SPE' . Str::random(8), 'PAYLOADER', 'FLOTA PESADA');
+        $this->vehiculoDeFlota($frente, 'E55ST6U', null, 'SVA' . Str::random(8), 'VACUUM', 'FLOTA LIVIANA');
+
+        $vehiculos = $this->actingAs($this->usuario())
+            ->getJson(route('almacen.almacenes.logistica', ['id' => $alm->ID_ALMACEN]))->assertOk()->json('vehiculos');
+
+        $tipos = array_column($vehiculos, 'tipo');
+        $this->assertContains('CAMIONETA', $tipos, 'la camioneta SÍ tiene que salir');
+        $this->assertNotContains('PAYLOADER', $tipos, 'la flota pesada no se sugiere');
+        $this->assertNotContains('VACUUM', $tipos, 'el vacuum no se sugiere');
+        $this->assertCount(1, $vehiculos, 'solo debería quedar la camioneta');
     }
 
     public function test_editar_almacen_guarda_su_lista_de_logistica(): void
