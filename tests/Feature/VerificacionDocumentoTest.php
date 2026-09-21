@@ -1562,7 +1562,17 @@ class VerificacionDocumentoTest extends MySqlTestCase
             'DIFERENCIAS' => ['FECHA_EMISION_POLIZA' => $diferencias['FECHA_EMISION_POLIZA']],
         ]);
 
+        // Un ROTC igual NO: lo relee entero la migracion 210000 (su lectura era la defectuosa).
+        [$rotc] = $this->equipoConDocumentos();
+        VerificacionDocumento::create([
+            'ID_EQUIPO' => $rotc, 'TIPO' => VerificacionDocumento::ROTC, 'DRIVE_ID' => 'drive-rotc',
+            'ESTADO' => VerificacionDocumento::DIFIERE, 'A_MANO' => true, 'LEIDO' => ['sin_confirmar' => true],
+            'DIFERENCIAS' => ['FECHA_EMISION_ROTC' => ['etiqueta' => 'Emisión del ROTC', 'ficha' => null, 'documento' => '2026-02-11']],
+        ]);
+
         (require database_path('migrations/2026_09_21_200000_poner_fechas_vacias_ya_leidas.php'))->up();
+
+        $this->assertNull($this->ficha($rotc)->FECHA_EMISION_ROTC, 'Los ROTC no se tocan: se releen todos.');
 
         $this->assertSame('2026-08-06', substr((string) $this->ficha($equipo)->FECHA_EMISION_POLIZA, 0, 10));
         $this->assertSame('TRANSPORTE MILENUIM 0210, CA', $this->ficha($equipo)->NOMBRE_DEL_TITULAR, 'Lo demás no se toca.');

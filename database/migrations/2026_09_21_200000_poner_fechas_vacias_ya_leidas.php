@@ -12,7 +12,8 @@ use Illuminate\Support\Facades\DB;
  * "Fecha de emisión: (vacío) → 2026-08-06"—. Se pasan una vez por el corrector, con lo ya leido
  * (sin volver a Drive): pone esas fechas y deja el resto como estaba, para quien decida.
  * Mismas puertas que la tarea: nada si el PDF es de otro vehiculo o el anterior, y solo si la
- * ficha SIGUE vacia.
+ * ficha SIGUE vacia. Los ROTC NO: se leyeron con el lector defectuoso y la 2026_09_21_210000
+ * los relee todos; ponerles ahora algo de esa lectura seria escribir lo que se va a descartar.
  *
  * Una sola vez: es una migracion. down vacio: cada cambio queda en el historial del equipo.
  */
@@ -24,6 +25,7 @@ return new class extends Migration
 
         $corrector = app(CorrectorFichaDocumento::class);
         VerificacionDocumento::where('ESTADO', VerificacionDocumento::DIFIERE)
+            ->where('TIPO', '<>', VerificacionDocumento::ROTC)
             ->orderBy('ID_REGISTRO')
             ->chunkById(100, function ($filas) use ($corrector) {
                 foreach ($filas as $reg) $corrector->aplicar($reg);
