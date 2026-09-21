@@ -163,12 +163,14 @@ class HistorialDocumentosController extends Controller
     private static bool $calentadoProgramado = false;
 
     /**
-     * Rehacer la lista DESPUES de responder, no cuando el usuario abre la pantalla.
+     * Rehacer la lista DESPUES de responder, no cuando alguien abre la pantalla.
      *
-     * Armarla cuesta ~2 s (medido: 1.950 ms de los 2,5 s que tardaba el modulo en abrir) y
-     * se invalida en CADA cambio del historial. Antes ese precio lo pagaba quien abria la
-     * pantalla; ahora lo paga —despues de que su respuesta ya salio— la misma peticion que
-     * hizo el cambio. Cuando el usuario entra, la lista ya esta hecha.
+     * Armarla cuesta ~2 s en el servidor (medido: 1.950 ms de los 2,5 s que tardaba el modulo
+     * en abrir) y se invalida en CADA cambio del historial. Ese precio lo paga —despues de que
+     * su respuesta ya salio— la misma peticion o comando que hizo el cambio, y la deja lista
+     * para TODOS los que pueden abrir el modulo (ver calentar). Antes solo se calentaba la del
+     * usuario que hizo el cambio, y nunca tras los cambios de la tarea nocturna de documentos:
+     * cualquier otro que entrara pagaba los 2 s.
      *
      * Solo para la vista SIN filtros, que es como se abre el modulo. Una busqueda concreta
      * se arma cuando se pide, como siempre.
@@ -176,16 +178,12 @@ class HistorialDocumentosController extends Controller
     private static function programarCalentado(): void
     {
         if (self::$calentadoProgramado) return;
-        // En consola (tarea nocturna, comandos) no hay usuario a quien calentarle nada.
-        if (app()->runningInConsole()) return;
-
-        $user = auth()->user();
-        if (!$user) return;
-
         self::$calentadoProgramado = true;
-        app()->terminating(function () use ($user) {
+
+        app()->terminating(function () {
+            self::$calentadoProgramado = false;
             try {
-                app(self::class)->calentar($user);
+                app(self::class)->calentar();
             } catch (\Throwable $e) {
                 // Que falle el calentado no puede romper nada: la pantalla la armara sola.
                 \Illuminate\Support\Facades\Log::warning('No se pudo calentar el historial: ' . $e->getMessage());
@@ -193,37 +191,41 @@ class HistorialDocumentosController extends Controller
         });
     }
 
-    /** Deja lista en cache la vista SIN filtros de $user (ver programarCalentado). */
-    public function calentar($user): void
+    /**
+     * Deja en cache la vista SIN filtros de cada alcance distinto (frentes visibles y
+     * bloqueados) entre los usuarios que pueden abrir el modulo: super.admin, el mismo permiso
+     * de la ruta. Casi todos ven lo mismo, asi que suele ser una sola lista.
+     */
+    public function calentar(): void
     {
-        $frentesVisibles   = $user->frentesVisiblesEquiposIds();
-        $frentesBloqueados = $user->getFrentesBloqueadosIds();
-
         $ver     = \App\Support\CacheVersion::current(self::DATA_VER_KEY);
-        $clave   = self::claveDe($user, $frentesVisibles, $frentesBloqueados, []);
         $almacen = \Illuminate\Support\Facades\Cache::store('file');
 
-        $guardado = $almacen->get($clave);
-        if (is_array($guardado) && ($guardado['ver'] ?? null) === $ver) return;   // ya estaba al dia
+        $alcances = \App\Models\Usuario::all()
+            ->filter(fn ($u) => \Illuminate\Support\Facades\Gate::forUser($u)->allows('super.admin'))
+            ->map(fn ($u) => [$u->frentesVisiblesEquiposIds(), $u->getFrentesBloqueadosIds()])
+            ->unique(fn ($alcance) => json_encode($alcance));
 
-        $events = collect($this->construirEventos(new Request(), $frentesVisibles, $frentesBloqueados, null, null, ''));
-        $almacen->put($clave, ['ver' => $ver, 'events' => $events->all()], now()->addHours(6));
+        foreach ($alcances as [$frentesVisibles, $frentesBloqueados]) {
+            $clave    = self::claveDe($frentesVisibles, $frentesBloqueados, []);
+            $guardado = $almacen->get($clave);
+            if (is_array($guardado) && ($guardado['ver'] ?? null) === $ver) continue;   // ya estaba al dia
+
+            $events = collect($this->construirEventos(new Request(), $frentesVisibles, $frentesBloqueados, null, null, ''));
+            $almacen->put($clave, ['ver' => $ver, 'events' => $events->all()], now()->addHours(6));
+        }
     }
 
     /**
-     * La clave del conjunto de eventos: usuario + su scope de frentes (asi un cambio de
-     * permisos cambia la clave sola) + la firma de los filtros. `page` NO entra: es lo que
-     * se reutiliza. UN solo sitio, porque la usan index() y calentar() y tienen que coincidir
-     * exactamente o el calentado no le serviria a nadie.
+     * La clave del conjunto de eventos: el scope de frentes (asi un cambio de permisos cambia
+     * la clave sola) + la firma de los filtros. NO el usuario: la lista solo depende de lo que
+     * se puede ver, y compartirla entre quienes ven lo mismo es lo que permite dejarla hecha
+     * para todos. `page` NO entra: es lo que se reutiliza. UN solo sitio, porque la usan
+     * index() y calentar() y tienen que coincidir exactamente.
      */
-    private static function claveDe($user, $frentesVisibles, $frentesBloqueados, array $filtros): string
+    private static function claveDe($frentesVisibles, $frentesBloqueados, array $filtros): string
     {
-        return 'historial_docs_' . md5(json_encode([
-            $user ? $user->ID_USUARIO : 'guest',
-            $frentesVisibles,
-            $frentesBloqueados,
-            $filtros,
-        ]));
+        return 'historial_docs_' . md5(json_encode([$frentesVisibles, $frentesBloqueados, $filtros]));
     }
 
     public function index(Request $request)
@@ -263,13 +265,12 @@ class HistorialDocumentosController extends Controller
         // solo para devolver 15 filas — de ahí la lentitud al navegar entre páginas.
         // Ahora pasar de página es un slice en memoria sobre la lista ya cacheada
         // (~250 ms de request, medido end-to-end en el navegador).
-        // La clave identifica el CONJUNTO de eventos: usuario + su scope de frentes
-        // (así un cambio de permisos cambia la clave sola) + la firma de todos los
-        // filtros que afectan al resultado. `page` NO entra: es lo que se reutiliza.
-        // La versión (DATA_VER_KEY) viaja en el VALOR, no en la clave — ver el
-        // comentario de la constante.
+        // La clave identifica el CONJUNTO de eventos: el scope de frentes + la firma de
+        // todos los filtros que afectan al resultado (ver claveDe). La versión
+        // (DATA_VER_KEY) viaja en el VALOR, no en la clave — ver el comentario de la
+        // constante.
         $ver      = \App\Support\CacheVersion::current(self::DATA_VER_KEY);
-        $cacheKey = self::claveDe($user, $frentesVisibles, $frentesBloqueados,
+        $cacheKey = self::claveDe($frentesVisibles, $frentesBloqueados,
             $request->only(['fecha_desde', 'fecha_hasta', 'search_equipo', 'search_correo', 'search_tipo', 'hd_ids']));
 
         // Esta lista va al caché de ARCHIVO, no al de base de datos (el de por defecto).

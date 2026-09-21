@@ -1172,9 +1172,11 @@ Dado a los: 3 días del mes de: OCTUBRE de: 2018
         $this->assertStringContainsString('flota', (string) $reg->MOTIVO);
     }
 
-    public function test_un_anexo_de_flota_sin_fechas_no_se_reintenta(): void
+    public function test_un_anexo_de_flota_sin_fechas_se_reintenta(): void
     {
-        // No es un fallo de lectura: el anexo no trae fechas. Releerlo no las hace aparecer.
+        // Sus fechas salen de la firma de la ultima pagina (ver test_el_anexo_de_flota_toma_la_
+        // fecha_de_su_firma). Si Drive devolvio el texto cortado, la siguiente lectura la trae:
+        // no se da por definitivo, vuelve a la cola como cualquier ilegible.
         [$equipo] = $this->equipoConDocumentos();
         $serial = DB::table('equipos')->where('ID_EQUIPO', $equipo)->value('SERIAL_CHASIS');
         $this->lectorFalso($this->textoPolizaFlota([$serial]));
@@ -1182,9 +1184,19 @@ Dado a los: 3 días del mes de: OCTUBRE de: 2018
         $reg = $this->verificar($equipo, VerificacionDocumento::POLIZA);
 
         $this->assertSame(VerificacionDocumento::ILEGIBLE, $reg->ESTADO);
-        $this->assertSame(VerificacionDocumento::MAX_INTENTOS, (int) $reg->INTENTOS, 'Definitivo: no vuelve a la cola.');
-        $this->assertSame(0, VerificacionDocumento::pendientes(VerificacionDocumento::POLIZA, 'LINK_POLIZA_SEGURO')
-            ->where('d.ID_EQUIPO', $equipo)->count());
+        $this->assertSame(1, (int) $reg->INTENTOS);
+        $this->assertSame(1, VerificacionDocumento::pendientes(VerificacionDocumento::POLIZA, 'LINK_POLIZA_SEGURO')
+            ->where('d.ID_EQUIPO', $equipo)->count(), 'Vuelve a la cola.');
+
+        // La relectura trae la ultima pagina: ahora si hay fechas.
+        $this->lectorFalso("TEXTO ANEXO
+" . $this->textoPolizaFlota([$serial])
+            . "En consecuencia de lo cual se firma en la ciudad de CARACAS a los 08 días del mes de Abril del año 2026.
+");
+        $reg = $this->verificar($equipo, VerificacionDocumento::POLIZA);
+
+        $this->assertNotSame(VerificacionDocumento::ILEGIBLE, $reg->ESTADO);
+        $this->assertSame('2027-04-08', $reg->LEIDO['vence']);
     }
 
     public function test_reintentar_relee_los_ilegibles_aunque_hayan_agotado_sus_intentos(): void

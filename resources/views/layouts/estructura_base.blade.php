@@ -392,8 +392,9 @@
     <!-- Permanent Header (Never reloads) -->
     <header class="dashboard-header">
         <div class="header-logo">
-            <a href="{{ route('menu') }}"
-                onclick="if(window.location.pathname === '/menu' || window.location.pathname === '/admin/menu') { event.preventDefault(); event.stopPropagation(); return false; }">
+            {{-- Sin onclick: navegacion.js deja fuera de la SPA todo enlace con onclick, y el
+                 logo recargaba la aplicacion entera en vez de abrir el menu como "Inicio". --}}
+            <a href="{{ route('menu') }}">
                 <img src="{{ asset('images/maquinaria/logo.webp') }}" alt="Logo">
             </a>
         </div>

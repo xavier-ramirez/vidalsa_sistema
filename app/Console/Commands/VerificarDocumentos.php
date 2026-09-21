@@ -279,12 +279,10 @@ class VerificarDocumentos extends Command
                         || ($leido['sin_confirmar'] ?? false) || ($leido['fuera_de_lista'] ?? false)
                         || ($leido['doc_anterior'] ?? false)),
                 // Los ilegibles y los fallidos se reintentan en esa noche hasta MAX_INTENTOS
-                // (Drive devuelve el documento vacio de vez en cuando); lo demas se lee una vez.
-                // Salvo el anexo de poliza de FLOTA sin fechas: eso no es un fallo de lectura,
-                // es que el documento no las trae, y releerlo no las va a hacer aparecer. Se
-                // da por definitivo (intentos agotados) en vez de gastar tres lecturas de Drive.
+                // (Drive devuelve el documento vacio o a medias de vez en cuando); lo demas se
+                // lee una vez. El anexo de poliza de FLOTA sin fechas tambien: sus fechas salen
+                // de la firma de la ULTIMA pagina, y un texto que llego cortado se la come.
                 'INTENTOS'    => match (true) {
-                    $estado === VerificacionDocumento::ILEGIBLE && ($leido['flota'] ?? false) => VerificacionDocumento::MAX_INTENTOS,
                     in_array($estado, [VerificacionDocumento::ILEGIBLE, VerificacionDocumento::ERROR], true)
                         => (int) VerificacionDocumento::where('ID_EQUIPO', $f->ID_EQUIPO)->where('TIPO', $tipo)
                             ->where('DRIVE_ID', $driveId)->value('INTENTOS') + 1,
@@ -359,7 +357,7 @@ class VerificarDocumentos extends Command
                 // cuadro de la poliza principal, que es el que hay que enlazar para verificarla.
                 (bool) ($leido['flota'] ?? false) => ($leido['sin_confirmar'] ?? false)
                     ? 'Anexo de póliza de flota sin fechas, y no se pudo confirmar si ampara este equipo: míralo en el visor'
-                    : 'Anexo de póliza de flota: ampara este equipo, pero no trae fechas (están en el cuadro de la póliza principal)',
+                    : 'Anexo de póliza de flota: ampara este equipo, pero no se encontró la fecha de la firma (última página)',
                 (bool) $idSeguro                  => 'Se reconocio la aseguradora, pero no la vigencia de la poliza',
                 default                           => 'No se encontro la aseguradora ni la vigencia en el documento',
             }, [], $leido];

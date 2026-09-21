@@ -415,7 +415,6 @@ Route::middleware(['auth'])->group(function () {
             // sube desde "Detalles del producto". El archivo va a Drive; aquí solo viaja el
             // enlace (ver AlmacenController::subirFotoProducto).
             Route::post  ('almacen/productos/{id}/foto', [App\Http\Controllers\AlmacenController::class, 'subirFotoProducto'])->whereNumber('id')->name('almacen.productos.foto.store');
-            Route::delete('almacen/productos/{id}/foto', [App\Http\Controllers\AlmacenController::class, 'borrarFotoProducto'])->whereNumber('id')->name('almacen.productos.foto.destroy');
             // Botones + / × de "Detalles del producto": números de parte y equipos que lo usan
             // (permiso almacen.productos, en el constructor del controlador).
             Route::post  ('almacen/productos/{id}/equivalencias',   [App\Http\Controllers\AlmacenController::class, 'agregarEquivalencia'])->whereNumber('id')->name('almacen.productos.equivalencias.store');

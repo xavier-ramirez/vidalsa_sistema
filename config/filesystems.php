@@ -68,6 +68,11 @@ return [
             'folder' => env('GOOGLE_DRIVE_FOLDER_ID'),
             'catalog_folder' => env('GOOGLE_DRIVE_CATALOG_FOLDER_ID'),
             'equipment_folder' => env('GOOGLE_DRIVE_EQUIPMENT_FOLDER_ID'),
+            // Fotos de los productos de Inventario (Detalles del producto). Carpeta PRIVADA:
+            // solo la cuenta del sistema la ve; el navegador las recibe por /storage/google
+            // (con sesion), nunca el enlace de Drive. Con valor por defecto para que el
+            // servidor no dependa de añadir la variable.
+            'product_folder' => env('GOOGLE_DRIVE_PRODUCT_FOLDER_ID', '1CBo7WNyfiidIr70kmcLdSum1yWUuQhIt'),
             // Performance optimizations
             'options' => [
                 'useSinglePathTransaction' => true, // Faster for single file operations

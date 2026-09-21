@@ -11,6 +11,7 @@ use App\Models\Traspaso;
 use App\Services\InventarioService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use App\Traits\ExcelLogoCorporativo;
@@ -88,9 +89,9 @@ class AlmacenController extends Controller
             'updateProducto',
             // Botones + / × de la compatibilidad en "Detalles del producto".
             'agregarEquivalencia', 'quitarEquivalencia', 'opcionesEquipo', 'vincularEquipo', 'desvincularEquipo',
-            // Foto del producto: el @can de la vista solo esconde los botones; la puerta
+            // Foto del producto: el @can de la vista solo esconde la capa de subida; la puerta
             // de verdad es esta, o la ruta quedaria abierta a cualquiera con el modulo.
-            'subirFotoProducto', 'borrarFotoProducto',
+            'subirFotoProducto',
         ]);
         // destroyProducto: borrar un producto del catalogo exige almacen.nota.eliminar
         // (la misma clave que elimina Notas de Entrega) — decision del cliente: una
@@ -793,10 +794,17 @@ class AlmacenController extends Controller
 
         try {
             $drive  = \App\Services\GoogleDriveService::getInstance();
-            $folder = config('filesystems.disks.google.catalog_folder') ?: $drive->getRootFolderId();
+            $folder = config('filesystems.disks.google.product_folder');
             $nombre = 'producto_' . $producto->ID_PRODUCTO . '_' . (int) (microtime(true) * 1000) . '.webp';
 
-            $subido = $drive->uploadFile($folder, $convertida['file'], $nombre, 'image/webp');
+            try {
+                $subido = $drive->uploadFile($folder, $convertida['file'], $nombre, 'image/webp');
+            } catch (\Google\Service\Exception $e) {
+                // Lo tipico: la cuenta del sistema no es editora de la carpeta de fotos
+                // (filesystems.disks.google.product_folder). Se anota y se dice claro.
+                Log::error('Foto de producto: Drive rechazo la subida', ['carpeta' => $folder, 'error' => $e->getMessage()]);
+                return response()->json(['success' => false, 'message' => 'Drive no dejó guardar la foto en su carpeta. Avisa al administrador.'], 503);
+            }
             if (!$subido || !isset($subido->id)) {
                 return response()->json(['success' => false, 'message' => 'Drive no aceptó la imagen. Inténtalo de nuevo.'], 503);
             }
@@ -815,17 +823,6 @@ class AlmacenController extends Controller
         }
     }
 
-    /** Quita la foto del producto (el archivo de Drive se borra como en el reemplazo). */
-    public function borrarFotoProducto(Request $request, $id)
-    {
-        $producto = ProductoInventario::findOrFail($id);
-        $anterior = $producto->FOTO;
-        $producto->update(['FOTO' => null]);
-        $this->borrarFotoAnterior($anterior, null);
-
-        return response()->json(['success' => true]);
-    }
-
     /**
      * Borra de Drive la foto que acaba de dejar de usarse.
      *
@@ -834,7 +831,7 @@ class AlmacenController extends Controller
      * llevaria por delante la foto que el servidor sigue mostrando. Se deja huerfana, que no
      * le hace daño a nadie, y queda anotada. Mismo criterio que CargaMasivaDocumentos.
      */
-    private function borrarFotoAnterior(?string $anterior, ?string $nuevoId): void
+    private function borrarFotoAnterior(?string $anterior, string $nuevoId): void
     {
         $idAnterior = \App\Models\DocumentoAnexo::driveIdDeLink($anterior);
         if (!$idAnterior || $idAnterior === $nuevoId) return;

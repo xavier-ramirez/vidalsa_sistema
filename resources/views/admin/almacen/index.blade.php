@@ -190,24 +190,30 @@
     #almAccionesMenu .alm-acc-despacho:hover { background: #f8fafc; }
     #almAccionesMenu .alm-acc-pill { margin-left: auto; font-size: 11px; font-weight: 800; padding: 2px 8px;
                                      border-radius: 999px; white-space: nowrap; }
-    /* Foto dentro de "Detalles del producto": cuadrada y centrada, con sus dos botones
-       debajo. Mismo recuadro que la miniatura de la tabla cuando no hay foto. */
-    /* Pequeña a propósito: la ficha es para consultar datos, no para mirar la foto. Va en
-       LÍNEA con sus botones (no encima) para no robarle alto al modal. */
-    .alm-det-foto-caja { display: flex; align-items: center; justify-content: center; gap: 10px; }
-    .alm-det-foto { width: 46px; height: 46px; border-radius: 9px; border: 1px solid #e2e8f0;
-                    background: #f8fafc; object-fit: cover; flex: 0 0 auto; cursor: zoom-in; }
+    /* Foto dentro de "Detalles del producto": cuadrada y centrada. Mismo recuadro que la
+       miniatura de la tabla cuando no hay foto.
+       Pequeña a propósito: la ficha es para consultar datos, no para mirar la foto. Quien
+       tiene almacen.productos la cambia tocándola: la capa "Cambiar foto" aparece encima al
+       pasar el mouse, como en las tarjetas del catálogo (.cat-photo-overlay). Sin permiso,
+       tocarla la abre en grande. */
+    .alm-det-foto-caja { position: relative; width: 72px; height: 72px; margin: 0 auto;
+                         border-radius: 10px; overflow: hidden; }
+    .alm-det-foto { width: 100%; height: 100%; border-radius: 10px; border: 1px solid #e2e8f0;
+                    background: #f8fafc; object-fit: cover; cursor: zoom-in; box-sizing: border-box; }
     .alm-det-foto-sin { display: flex; align-items: center; justify-content: center; color: #cbd5e0; cursor: default; }
-    .alm-det-foto-sin .material-icons { font-size: 22px; }
-    .alm-det-foto-btns { display: flex; align-items: center; justify-content: center; gap: 6px; }
-    .alm-det-foto-btn { display: inline-flex; align-items: center; gap: 5px; height: 30px; padding: 0 10px;
-                        border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; font: inherit;
-                        font-size: 11.5px; font-weight: 700; color: #475569; cursor: pointer; }
-    .alm-det-foto-btn:hover { background: #f8fafc; border-color: #cbd5e1; }
-    .alm-det-foto-btn .material-icons { font-size: 15px; }
-    .alm-det-foto-btn.quitar { color: #b91c1c; }
-    .alm-det-foto-btn.quitar:hover { background: #fef2f2; border-color: #fecaca; }
-    .alm-det-foto-btn:disabled { opacity: .55; cursor: not-allowed; }
+    .alm-det-foto-sin .material-icons { font-size: 26px; }
+    .alm-det-foto-caja.editable .alm-det-foto { cursor: pointer; }
+    /* pointer-events:none: el clic lo recibe la caja, que abre el selector de archivo. */
+    .alm-det-foto-overlay { position: absolute; inset: 0; display: flex; flex-direction: column;
+                            align-items: center; justify-content: center; gap: 2px;
+                            background: rgba(15, 23, 42, 0.55); color: #fff; opacity: 0;
+                            transition: opacity .18s ease; pointer-events: none;
+                            font-size: 9px; font-weight: 700; text-transform: uppercase;
+                            letter-spacing: .4px; text-align: center; line-height: 1.1; }
+    .alm-det-foto-overlay .material-icons { font-size: 20px; }
+    .alm-det-foto-caja.editable:hover .alm-det-foto-overlay,
+    .alm-det-foto-caja.subiendo .alm-det-foto-overlay { opacity: 1; }
+    .alm-det-foto-caja.subiendo { pointer-events: none; }
     /* Miniatura del producto. Medida fija para que la columna no baile de ancho de una fila
        a otra, y el mismo recuadro cuando no hay foto (con su ícono en gris). */
     .alm-table td.alm-td-foto { padding: 6px 4px 6px 8px; width: 54px; }
@@ -2270,23 +2276,22 @@
 
             {{-- Foto del producto. Es la misma que se ve como miniatura en la tabla. Se
                  cambia aquí mismo: la imagen se convierte a WebP y se sube a Drive
-                 (AlmacenController::subirFotoProducto); en la ficha solo vive el enlace. --}}
-            <div class="alm-det-foto-caja">
+                 (AlmacenController::subirFotoProducto); en la ficha solo vive el enlace.
+                 Con almacen.productos la caja entera abre el selector de archivo y lleva la capa
+                 "Cambiar foto"; sin el permiso, tocar la foto la abre en grande. --}}
+            @php $almEditaFoto = auth()->user()?->can('almacen.productos'); @endphp
+            <div class="alm-det-foto-caja{{ $almEditaFoto ? ' editable' : '' }}" id="almDetFotoCaja"
+                 @if($almEditaFoto) onclick="document.getElementById('almDetFotoInput').click()" @endif>
                 <img id="almDetFotoImg" class="alm-det-foto" alt="Foto del producto" style="display:none;"
-                     title="Ver la foto en grande" onclick="window.open(this.src, '_blank', 'noopener')">
+                     @unless($almEditaFoto) title="Ver la foto en grande" onclick="window.open(this.src, '_blank', 'noopener')" @endunless>
                 <div id="almDetFotoSin" class="alm-det-foto alm-det-foto-sin"><i class="material-icons">inventory_2</i></div>
-                @can('almacen.productos')
-                <div class="alm-det-foto-btns">
-                    <button type="button" class="alm-det-foto-btn" onclick="document.getElementById('almDetFotoInput').click()">
-                        <i class="material-icons">photo_camera</i><span id="almDetFotoBtnTxt">Agregar foto</span>
-                    </button>
-                    <button type="button" class="alm-det-foto-btn quitar" id="almDetFotoQuitar" onclick="window.almDetFotoQuitar()" style="display:none;">
-                        <i class="material-icons">delete</i>Quitar
-                    </button>
+                @if($almEditaFoto)
+                <div class="alm-det-foto-overlay">
+                    <i class="material-icons">photo_camera</i><span id="almDetFotoBtnTxt">Subir foto</span>
                 </div>
                 <input type="file" id="almDetFotoInput" accept="image/jpeg,image/png,image/webp" hidden
-                       onchange="window.almDetFotoSubir(this)">
-                @endcan
+                       onclick="event.stopPropagation()" onchange="window.almDetFotoSubir(this)">
+                @endif
             </div>
 
             {{-- Aviso de stock bajo en este almacén. En rojo, como las filas de stock bajo
@@ -4764,15 +4769,14 @@
     };
 
     // ── Foto del producto ─────────────────────────────────────────────────────
-    // Un solo sitio que decide qué se ve: la imagen o el recuadro vacío, y el texto del
-    // botón. Lo llaman la apertura de la ficha, la subida y el borrado.
+    // Un solo sitio que decide qué se ve: la imagen o el recuadro vacío, y el texto de la
+    // capa "Cambiar foto". Lo llaman la apertura de la ficha y la subida.
     function almDetFotoPintar(url) {
-        var img = el('almDetFotoImg'), sin = el('almDetFotoSin'), quitar = el('almDetFotoQuitar');
+        var img = el('almDetFotoImg'), sin = el('almDetFotoSin');
         if (!img || !sin) return;
         if (url) { img.src = url; img.style.display = ''; sin.style.display = 'none'; }
         else     { img.removeAttribute('src'); img.style.display = 'none'; sin.style.display = 'flex'; }
-        if (el('almDetFotoBtnTxt')) el('almDetFotoBtnTxt').textContent = url ? 'Cambiar foto' : 'Agregar foto';
-        if (quitar) quitar.style.display = url ? '' : 'none';
+        if (el('almDetFotoBtnTxt')) el('almDetFotoBtnTxt').textContent = url ? 'Cambiar foto' : 'Subir foto';
         // El dataset manda: la tabla se repinta con él al cerrar la ficha.
         var m = el('almDetalleModal'); if (m) m.dataset.foto = url || '';
     }
@@ -4793,7 +4797,9 @@
         if (!archivo) return;
         var id = el('almDetalleModal').dataset.id;
         var btn = el('almDetFotoBtnTxt'); var antes = btn ? btn.textContent : '';
+        var caja = el('almDetFotoCaja');
         if (btn) btn.textContent = 'Subiendo…';
+        if (caja) caja.classList.add('subiendo');   // deja la capa a la vista y bloquea otro clic
 
         window.apiPostForm(@json(url('admin/almacen/productos')) + '/' + id + '/foto',
                            { foto: archivo }, 'No se pudo subir la foto.')
@@ -4803,20 +4809,10 @@
                 window.toast('Foto actualizada.', 'success');
             })
             .catch(function (e) { window.toast(e.message, 'error'); })
-            .finally(function () { if (btn && btn.textContent === 'Subiendo…') btn.textContent = antes; });
-    };
-
-    window.almDetFotoQuitar = function () {
-        var id = el('almDetalleModal').dataset.id;
-        window.apiFetch(@json(url('admin/almacen/productos')) + '/' + id + '/foto',
-                        { method: 'DELETE', headers: { 'Accept': 'application/json' } })
-            .then(function (r) { if (!r.ok) throw new Error('No se pudo quitar la foto.'); })
-            .then(function () {
-                almDetFotoPintar('');
-                almDetFotoEnLaTabla(id, '');
-                window.toast('Foto quitada.', 'success');
-            })
-            .catch(function (e) { window.toast(e.message, 'error'); });
+            .finally(function () {
+                if (caja) caja.classList.remove('subiendo');
+                if (btn && btn.textContent === 'Subiendo…') btn.textContent = antes;
+            });
     };
 
     // Trae equivalencias + equipos del filtro y los pinta en el detalle; devuelve la promesa

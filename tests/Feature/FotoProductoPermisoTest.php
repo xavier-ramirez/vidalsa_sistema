@@ -10,8 +10,8 @@ use Tests\MySqlTestCase;
 /**
  * La foto del producto la gobierna el permiso almacen.productos.
  *
- * El @can de la vista solo ESCONDE los botones; si la ruta no estuviera protegida,
- * cualquiera con acceso al módulo podría cambiar o borrar la foto llamándola a mano.
+ * El @can de la vista solo ESCONDE la capa "Cambiar foto"; si la ruta no estuviera
+ * protegida, cualquiera con acceso al módulo podría cambiar la foto llamándola a mano.
  * Es una clave EXCLUSIVA (Usuario::PERMISOS_EXPLICITOS): ni super.admin la hereda.
  */
 class FotoProductoPermisoTest extends MySqlTestCase
@@ -46,18 +46,6 @@ class FotoProductoPermisoTest extends MySqlTestCase
             ->assertForbidden();
 
         $this->assertNull($producto->fresh()->FOTO);
-    }
-
-    public function test_sin_el_permiso_no_se_puede_quitar_la_foto(): void
-    {
-        $producto = $this->producto();
-        $producto->update(['FOTO' => '/storage/google/la-que-estaba']);
-
-        $this->actingAs($this->sinPermiso())
-            ->delete("/admin/almacen/productos/{$producto->ID_PRODUCTO}/foto", [], ['Accept' => 'application/json'])
-            ->assertForbidden();
-
-        $this->assertSame('/storage/google/la-que-estaba', $producto->fresh()->FOTO);
     }
 
     public function test_sin_sesion_tampoco(): void
