@@ -162,19 +162,21 @@
     /* Burbuja de hover con el detalle de ubicación. `.tooltip-bubble` es clase global pero
        SIN regla base en estilos_globales.css (solo los activadores de hover), así que cada
        pantalla la describía en su style="" inline. Aquí se describe una vez y SOLO para
-       esta tabla, para no alterar las otras pantallas que la usan con el suyo. */
+       esta tabla, para no alterar las otras pantallas que la usan con el suyo.
+       Mismo gris oscuro que la burbuja "Cambios realizados" de Control de Auditoría
+       (.hd-cambios-caja): lo pidió el cliente, 21-09-2026. */
     .table-equipos-mobile .tooltip-bubble {
         pointer-events:none; opacity:0; visibility:hidden;
         position:absolute; bottom:100%; left:0; transform:translateY(5px);
-        background:#1e293b; color:#fff; padding:6px 10px; border-radius:6px;
+        background:#1f2937; color:#f1f5f9; border:1px solid #374151; padding:6px 10px; border-radius:10px;
         font-size:11px; font-weight:500; white-space:normal; width:max-content;
         max-width:220px; word-wrap:break-word; text-align:center;
-        box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);
+        box-shadow:0 12px 28px -6px rgba(15,23,42,0.45);
         transition:all 0.2s ease-in-out; z-index:50; margin-bottom:5px;
     }
     .table-equipos-mobile .eq-tip-flecha { position:absolute; top:100%; left:75px; margin-left:-4px;
                                            border-width:4px; border-style:solid;
-                                           border-color:#1e293b transparent transparent transparent; }
+                                           border-color:#1f2937 transparent transparent transparent; }
 
     /* Estado vacío. Se declara aquí porque el `.table-empty-state` global (estilos_globales.css)
        trae padding:50px y el gris de la variable, y esta tabla venía pisándolo con el inline
