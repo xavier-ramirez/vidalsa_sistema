@@ -1843,9 +1843,7 @@
             <p class="alm-bolsa-prod" id="almBolsaProducto"></p>
             <div class="alm-bolsa-lista" id="almBolsaLista"></div>
         </div>
-        <div class="alm-modal-foot">
-            <button type="button" class="btn-primary-maquinaria" style="background:#e2e8f0;color:#475569;box-shadow:none;" onclick="almCerrar('almBolsaModal')">Cancelar</button>
-        </div>
+        {{-- Sin pie: se cierra con la X (un "Cancelar" hacía lo mismo; lo quitó el cliente). --}}
     </div>
 </div>
 
