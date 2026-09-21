@@ -161,15 +161,20 @@ class VerificacionDocumento extends Model
             ->where(fn ($w) => $w->whereNotIn('v.ESTADO', [self::ILEGIBLE, self::ERROR])
                 ->orWhere(fn ($x) => $x->where('v.INTENTOS', '>=', self::MAX_INTENTOS)
                     ->where('v.updated_at', '>=', $inicio)))
-            // Y, si se pulso "Revisar ahora", a la ficha no le falta ninguna fecha de ese
-            // documento (emision o vencimiento): si le falta, se vuelve a leer UNA vez por
-            // pulsacion, por si el lector ya la sabe sacar. Solo con el boton, no cada noche: hay
-            // PDF que nunca la traen (el ROTC de flota de otro periodo) y se releerian siempre.
-            // Lo que tiene sus fechas escritas no se relee; sin archivo en Drive, tampoco.
+            // Y, si se pulso "Revisar ahora", se vuelve a leer UNA vez por pulsacion lo que tiene
+            // un problema que el lector ya puede resolver: a la ficha le falta una fecha de ese
+            // documento (emision o vencimiento), o salio "de otro vehiculo" (una letra mal leida
+            // ya no lo es, ver LectorDocumentoPdf::malLeido). Lo que esta bien no se relee; sin
+            // archivo en Drive, tampoco. Solo con el boton, no cada noche: hay PDF que nunca
+            // traen la fecha (el ROTC de flota de otro periodo) y se releerian siempre.
             ->when(\App\Console\Commands\VerificarDocumentos::pedidaAhora(), fn ($c, $pedida) => $c
-                ->where(fn ($w) => $w->where(function ($x) use ($tipo) {
-                    foreach (self::camposDeFecha($tipo) as $campo) $x->whereNotNull("d.$campo");
-                })
+                ->where(fn ($w) => $w
+                    ->where(function ($x) use ($tipo) {
+                        foreach (self::camposDeFecha($tipo) as $campo) $x->whereNotNull("d.$campo");
+                        // LEIDO se guarda con json_encode, sin espacios: '"otra_placa":true'.
+                        $x->where(fn ($y) => $y->where('v.ESTADO', '<>', self::DIFIERE)->orWhereNull('v.LEIDO')
+                            ->orWhere('v.LEIDO', 'not like', '%"otra_placa":true%'));
+                    })
                     ->orWhere('v.updated_at', '>=', $pedida)
                     ->orWhere('v.ESTADO', self::SIN_ARCHIVO)));
     }

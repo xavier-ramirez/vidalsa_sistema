@@ -1649,6 +1649,12 @@ class VerificacionDocumentoTest extends MySqlTestCase
         $this->verificar($sinFecha, VerificacionDocumento::PROPIEDAD);
         $this->lectorFalso($this->textoTitulo('CONSTRUCTORA VIDALSA 27, C.A', $placa2));
         $this->verificar($conFecha, VerificacionDocumento::PROPIEDAD);
+        // Con sus fechas, pero salio "de otro vehiculo": tambien se relee con el boton (el
+        // lector ya no da por ajeno un codigo con una letra mal leida).
+        [$ajeno] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'CONSTRUCTORA VIDALSA 27, C.A',
+            'FECHA_EMISION_PROPIEDAD' => '2018-10-03']);
+        $this->lectorFalso($this->textoTitulo('CONSTRUCTORA VIDALSA 27, C.A', 'Z99ZZ9Z'));
+        $this->assertTrue($this->verificar($ajeno, VerificacionDocumento::PROPIEDAD)->esDeOtroVehiculo());
 
         $this->assertFalse($this->enLaCola($sinFecha, VerificacionDocumento::PROPIEDAD), 'Ya se leyó.');
         // Otra noche SIN pulsar el boton: no se relee (hay PDF que nunca traen la fecha).
@@ -1659,7 +1665,8 @@ class VerificacionDocumentoTest extends MySqlTestCase
         \Carbon\Carbon::setTestNow(now()->addMinute());
         \App\Console\Commands\VerificarDocumentos::pedirAhora();
         $this->assertTrue($this->enLaCola($sinFecha, VerificacionDocumento::PROPIEDAD));
-        $this->assertFalse($this->enLaCola($conFecha, VerificacionDocumento::PROPIEDAD), 'Con sus fechas no se relee.');
+        $this->assertTrue($this->enLaCola($ajeno, VerificacionDocumento::PROPIEDAD), 'El "de otro vehículo" se relee.');
+        $this->assertFalse($this->enLaCola($conFecha, VerificacionDocumento::PROPIEDAD), 'Lo que está bien no se relee.');
         \Carbon\Carbon::setTestNow();
     }
 
