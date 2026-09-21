@@ -1684,8 +1684,8 @@ class VerificacionDocumentoTest extends MySqlTestCase
 
     public function test_revisar_ahora_relee_solo_lo_que_tiene_un_problema(): void
     {
-        // TITULOS: solo los "Datos distintos" (y los "No se pudo leer", por la regla de siempre).
-        // Uno que coincide se deja tranquilo aunque le falte la fecha (lo pidio el cliente).
+        // Solo los "Datos distintos" (y los "No se pudo leer", por la regla de siempre). Lo que
+        // coincide se deja tranquilo aunque le falte la fecha (lo pidio el cliente).
         [$sinFecha, $placa] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'CONSTRUCTORA VIDALSA 27, C.A']);
         [$conFecha, $placa2] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'CONSTRUCTORA VIDALSA 27, C.A',
             'FECHA_EMISION_PROPIEDAD' => '2018-10-03']);
@@ -1698,7 +1698,7 @@ class VerificacionDocumentoTest extends MySqlTestCase
         $this->lectorFalso($this->textoTitulo('CONSTRUCTORA VIDALSA 27, C.A', 'Z99ZZ9Z'));
         $this->assertSame(VerificacionDocumento::DIFIERE, $this->verificar($ajeno, VerificacionDocumento::PROPIEDAD)->ESTADO);
 
-        // POLIZA que coincide pero la ficha sigue sin su fecha de emision: esa SI se relee.
+        // POLIZA que coincide aunque la ficha siga sin su fecha de emision: tampoco se relee.
         [$poliza] = $this->equipoConDocumentos();
         $enlace = DB::table('documentacion')->where('ID_EQUIPO', $poliza)->value('LINK_POLIZA_SEGURO');
         VerificacionDocumento::create([
@@ -1718,7 +1718,7 @@ class VerificacionDocumentoTest extends MySqlTestCase
         $this->assertTrue($this->enLaCola($ajeno, VerificacionDocumento::PROPIEDAD), 'El título en "Datos distintos" se relee.');
         $this->assertFalse($this->enLaCola($sinFecha, VerificacionDocumento::PROPIEDAD), 'El título que coincide se deja tranquilo.');
         $this->assertFalse($this->enLaCola($conFecha, VerificacionDocumento::PROPIEDAD), 'Lo que está bien no se relee.');
-        $this->assertTrue($this->enLaCola($poliza, VerificacionDocumento::POLIZA), 'La póliza sin su fecha se relee.');
+        $this->assertFalse($this->enLaCola($poliza, VerificacionDocumento::POLIZA), 'La póliza que coincide se deja tranquila.');
         \Carbon\Carbon::setTestNow();
     }
 

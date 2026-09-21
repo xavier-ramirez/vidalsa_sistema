@@ -199,17 +199,17 @@
        permiso, tocarla la abre en grande.
        flex: 0 0 auto: el cuerpo del modal es una columna flex con alto limitado y, sin esto,
        encogía la caja a lo alto y el círculo salía como un óvalo. */
-    .alm-det-foto-caja { position: relative; width: 76px; height: 76px; flex: 0 0 auto; margin: 0 auto; }
+    .alm-det-foto-caja { position: relative; width: 64px; height: 64px; flex: 0 0 auto; margin: 0 auto; }
     .alm-det-foto { display: block; width: 100%; height: 100%; border-radius: 50%; border: 1px solid #e2e8f0;
                     background: #f8fafc; object-fit: cover; cursor: zoom-in; box-sizing: border-box; }
     .alm-det-foto-sin { display: flex; align-items: center; justify-content: center; color: #cbd5e0; cursor: default; }
-    .alm-det-foto-sin .material-icons { font-size: 28px; }
+    .alm-det-foto-sin .material-icons { font-size: 24px; }
     .alm-det-foto-caja.editable .alm-det-foto { cursor: pointer; }
     /* pointer-events:none: el clic lo recibe la caja, que abre el selector de archivo. */
     .alm-det-foto-camara { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
                            color: #fff; display: flex; pointer-events: none;
                            filter: drop-shadow(0 1px 2px rgba(15, 23, 42, .85)); transition: transform .18s ease; }
-    .alm-det-foto-camara .material-icons { font-size: 22px; }
+    .alm-det-foto-camara .material-icons { font-size: 18px; }
     .alm-det-foto-caja.editable:hover .alm-det-foto-camara { transform: translate(-50%, -50%) scale(1.15); }
     .alm-det-foto-caja.subiendo .alm-det-foto-camara .material-icons { animation: alm-det-foto-gira 1s linear infinite; }
     @keyframes alm-det-foto-gira { to { transform: rotate(360deg); } }

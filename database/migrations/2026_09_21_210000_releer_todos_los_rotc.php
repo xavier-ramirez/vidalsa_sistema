@@ -11,8 +11,7 @@ use Illuminate\Support\Facades\DB;
  * certificado: las lecturas guardadas pueden estar mal aunque digan "Coincide".
  *
  * Se retiran sus lecturas: vuelven a la cola y se leen al pulsar "Revisar ahora" (o esa noche,
- * en su horario). Salvo las que ya REVISO UNA PERSONA (APLICADO_POR): su decision se respeta;
- * si les falta una fecha, el boton las relee igual y solo les pone las vacias.
+ * en su horario). Salvo las que ya REVISO UNA PERSONA (APLICADO_POR): su decision se respeta.
  *
  * Una sola vez: es una migracion. down vacio: las lecturas se rehacen solas.
  */

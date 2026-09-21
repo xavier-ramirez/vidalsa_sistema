@@ -135,8 +135,7 @@ class VerificacionDocumento extends Model
      * cola: la usan el comando (para su lote), el panel (para "faltan por leer") y las pruebas.
      * Quedan fuera los enlaces que no apuntan a un archivo de Drive —no hay nada que leer— y
      * lo ya revisado, salvo lo ilegible o fallido mientras le queden intentos y, tras "Revisar
-     * ahora", lo que tiene un problema: en los titulos, "Datos distintos"; en los demas, que a
-     * la ficha le falte una de sus fechas o que saliera "de otro vehiculo" (ver condicionLeido).
+     * ahora", los "Datos distintos" (ver condicionLeido). Lo que coincide no se relee.
      */
     public static function pendientes(string $tipo, string $columna)
     {
@@ -162,32 +161,13 @@ class VerificacionDocumento extends Model
             ->where(fn ($w) => $w->whereNotIn('v.ESTADO', [self::ILEGIBLE, self::ERROR])
                 ->orWhere(fn ($x) => $x->where('v.INTENTOS', '>=', self::MAX_INTENTOS)
                     ->where('v.updated_at', '>=', $inicio)))
-            // Y, si se pulso "Revisar ahora", se vuelve a leer UNA vez por pulsacion lo que tiene
-            // un problema que el lector ya puede resolver (los "No se pudo leer" ya van por la
-            // regla de arriba):
-            //   · TITULOS: solo los "Datos distintos". El resto se deja como esta aunque le falte
-            //     la fecha (lo pidio el cliente, 21-09-2026: que no se revisen todos otra vez).
-            //   · Los demas: a la ficha le falta una fecha de ese documento (emision o
-            //     vencimiento), o salio "de otro vehiculo" (una letra mal leida ya no lo es, ver
-            //     LectorDocumentoPdf::malLeido).
-            // Lo que esta bien no se relee; sin archivo en Drive, tampoco. Solo con el boton, no
-            // cada noche: hay PDF que nunca traen la fecha (el ROTC de flota de otro periodo).
+            // Y, si se pulso "Revisar ahora", se vuelven a leer UNA vez por pulsacion los "Datos
+            // distintos" (los "No se pudo leer" ya van por la regla de arriba). Lo que ya COINCIDE
+            // no se relee nunca con el boton, le falte o no una fecha (lo pidio el cliente,
+            // 21-09-2026). Solo con el boton, no cada noche.
             ->when(\App\Console\Commands\VerificarDocumentos::pedidaAhora(), fn ($c, $pedida) => $c
-                ->where(fn ($w) => $w
-                    ->where(function ($x) use ($tipo) {
-                        if ($tipo === self::PROPIEDAD) {
-                            $x->where('v.ESTADO', '<>', self::DIFIERE);
-                            return;
-                        }
-                        foreach (self::camposDeFecha($tipo) as $campo) $x->whereNotNull("d.$campo");
-                        // LEIDO es JSON: MySQL lo devuelve CON espacio ('"otra_placa": true') y
-                        // SQLite (pruebas) tal como se escribio, sin el: valen las dos formas.
-                        $x->where(fn ($y) => $y->where('v.ESTADO', '<>', self::DIFIERE)->orWhereNull('v.LEIDO')
-                            ->orWhere(fn ($z) => $z->where('v.LEIDO', 'not like', '%"otra_placa":true%')
-                                ->where('v.LEIDO', 'not like', '%"otra_placa": true%')));
-                    })
-                    ->orWhere('v.updated_at', '>=', $pedida)
-                    ->orWhere('v.ESTADO', self::SIN_ARCHIVO)));
+                ->where(fn ($w) => $w->where('v.ESTADO', '<>', self::DIFIERE)
+                    ->orWhere('v.updated_at', '>=', $pedida)));
     }
 
     /**
