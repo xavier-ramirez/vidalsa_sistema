@@ -1028,7 +1028,10 @@
                 <div id="pdfMetadataPanel"
                     style="width: 0; background: #282828; border-left: 1px solid #282828; transition: width 0.3s ease; overflow: hidden; display: flex; flex-direction: column;"
                     class="pdf-metadata-panel-responsive">
-                    <div style="padding: 12px; width: var(--pdf-panel-datos); color: white; box-sizing: border-box;">
+                    {{-- Con su PROPIA barra (flex + min-height:0 + overflow-y): el panel lleva
+                         overflow:hidden para su animacion de apertura, y sin esto un documento
+                         con muchos campos (el titulo) dejaba cortado lo de abajo, boton incluido. --}}
+                    <div style="padding: 12px; width: var(--pdf-panel-datos); color: white; box-sizing: border-box; flex: 1 1 auto; min-height: 0; overflow-y: auto;">
                         <h4
                             style="margin: 0 0 15px 0; font-size: 15px; border-bottom: 1px solid #282828; padding-bottom: 8px;">
                             Editar Datos del Documento</h4>
@@ -1048,8 +1051,9 @@
                                  permiso—, asi que con la guarda laxa salia un formulario
                                  bloqueado con un boton "Guardar Cambios" activo encima. --}}
                             @if(auth()->user() && auth()->user()->can('user.edit'))
+                                {{-- Pegado abajo (sticky): siempre a la vista, sin bajar a buscarlo. --}}
                                 <button type="submit" id="btnSaveMeta"
-                                    style="margin-top: 8px; background: #3182ce; color: white; border: none; padding: 8px 12px; border-radius: 6px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 13px; width: 100%; box-sizing: border-box;">
+                                    style="position: sticky; bottom: 0; z-index: 1; box-shadow: 0 -8px 12px #282828; margin-top: 8px; background: #3182ce; color: white; border: none; padding: 8px 12px; border-radius: 6px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 13px; width: 100%; box-sizing: border-box;">
                                     <i class="material-icons" style="font-size: 16px;">save</i> Guardar Cambios
                                 </button>
                             @endif
@@ -1069,6 +1073,7 @@
         #standardModal .modal-title {
             font-size: 1.1rem !important;
             margin-bottom: 5px !important;
+            text-align: center;
         }
         #standardModal .modal-message {
             font-size: 0.85rem !important;
@@ -1080,7 +1085,6 @@
             text-align: center;
             padding: 0 4px;
         }
-        #standardModal .modal-title { text-align: center; }
         #standardModal .modal-icon {
             font-size: 40px !important;
             margin-bottom: 10px !important;

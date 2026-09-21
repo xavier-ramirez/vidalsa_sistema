@@ -96,10 +96,13 @@ class LectorDocumentoPdf
     ];
 
     /**
-     * Letras que el escaneo confunde entre si por su forma (ver malLeido). Una letra por una
-     * cifra ya cuenta sola; aqui solo van las parejas de letras.
+     * Parejas que el escaneo confunde por su FORMA (ver malLeido): letra con letra y letra con
+     * la cifra a la que se parece. O/0, I/1 y S/5 ya son la misma en codigo(). Una lista cerrada,
+     * y no "cualquier letra por cualquier cifra": una O leida por un 0 frente a un 2 es, en el
+     * fondo, un 0 por un 2 —cifra por cifra— y eso separa a dos hermanos de flota.
      */
-    private const LETRAS_PARECIDAS = ['RP', 'NH', 'NM', 'UV', 'CG', 'EF', 'KX', 'ZL'];
+    private const LETRAS_PARECIDAS = ['RP', 'NH', 'NM', 'UV', 'CG', 'EF', 'KX', 'ZL',
+                                      'S8', 'B8', 'G6', 'G0', 'Z2', 'D0', 'Q0', 'T7', 'A4', 'L1', 'H1'];
 
     private const MESES = [
         'ENERO'=>1,'FEBRERO'=>2,'MARZO'=>3,'ABRIL'=>4,'MAYO'=>5,'JUNIO'=>6,
@@ -370,10 +373,10 @@ class LectorDocumentoPdf
             $datos['emision'] = $this->fechaDeMes($m[1], $m[2], $m[3]);
         }
         // Formato NUEVO del INTT (visto en los de 2025-2026): no trae "Dado a los". La fecha va
-        // en la fila de datos del vehiculo, detras del uso ("PRIVADO  12 FEBRERO 2026"), en
-        // MAYUSCULAS y sin "de"; por eso sin /i: la prosa de la hoja si lleva "de" y minusculas
-        // ("Gaceta Oficial ... de fecha 29 de agosto de 2018") y no es la emision.
-        if (!$datos['emision'] && preg_match('/(?<!\d)(\d{1,2})\s+(' . implode('|', array_keys(self::MESES)) . ')\s+(\d{4})\b/u', $plano, $m)) {
+        // en la fila de datos del vehiculo, tras la capacidad y el uso ("1050 KGS PRIVADO  12
+        // FEBRERO 2026"), en MAYUSCULAS y sin "de"; por eso sin /i y atada a esa fila: otra
+        // fecha de la hoja ("Gaceta Oficial ... de fecha 29 de agosto de 2018") no es la emision.
+        if (!$datos['emision'] && preg_match('/\bKGS\b[^\r\n]{0,40}?(?<!\d)(\d{1,2})\s+(' . implode('|', array_keys(self::MESES)) . ')\s+(\d{4})\b/u', $plano, $m)) {
             $datos['emision'] = $this->fechaDeMes($m[1], $m[2], $m[3]);
         }
         // Respaldo del mismo formato: la linea de control del pie empieza por esa fecha
@@ -404,11 +407,13 @@ class LectorDocumentoPdf
         // Tras "Hasta" pueden venir otros rotulos antes de su fecha ("Hasta \nFrecuencia de
         // Pago: Sucursal: 1/12/2026"), pero ninguna otra cifra: [^\d] no se salta una fecha.
         // Entre las dos de la vigencia puede ir "al", "hasta" o un guion ("16/01/2026 - 16/01/2027").
-        if (preg_match('/Desde\s*' . $f . '\s*Hasta[^\d]{0,60}' . $f . '/ui', $plano, $m)
-            || preg_match('/Vigencia[^\r\n]{0,45}\R?[^\d\r\n]{0,15}' . $f . '\s*(?:al|a|hasta|-|–)\s*' . $f . '/ui', $plano, $m)) {
-            $datos['desde'] = $this->fecha($m[1]);
-            $datos['vence'] = $this->fecha($m[2]);
-            $vigenciaDePoliza = !preg_match('/RECIBO/ui', $m[0]);
+        if (preg_match('/Desde\s*' . $f . '\s*Hasta[^\d]{0,60}' . $f . '/ui', $plano, $m, PREG_OFFSET_CAPTURE)
+            || preg_match('/Vigencia[^\r\n]{0,45}\R?[^\d\r\n]{0,15}' . $f . '\s*(?:al|a|hasta|-|–)\s*' . $f . '/ui', $plano, $m, PREG_OFFSET_CAPTURE)) {
+            $datos['desde'] = $this->fecha($m[1][0]);
+            $datos['vence'] = $this->fecha($m[2][0]);
+            // "RECIBO" en la vigencia o en el rotulo de justo antes ("Vigencia del Recibo:
+            // Desde ... Hasta ..."): es el periodo de pago, no la poliza.
+            $vigenciaDePoliza = !preg_match('/RECIBO/ui', substr($plano, max(0, $m[0][1] - 40), 40) . $m[0][0]);
         } else {
             // Respaldo para las que separan los rotulos de sus valores ("Desde : Desde:" en una
             // linea y las fechas mas abajo) pero dejan el vencimiento pegado a su rotulo:
@@ -655,12 +660,14 @@ class LectorDocumentoPdf
      * (visto el 21-09-2026: "LSFAM1115PA..." por "LSFAM11H5PA...", "A90ARSO" por "A90AR5G",
      * "A09CVO" por "A09CV0M", "ELJ11KFBD9H..." por "LJ11KFBD9H...").
      *
-     * Solo cuentan las confusiones de FORMA: una letra leida como cifra o al reves (G/0, H/1,
-     * B/8...), las letras que se parecen (LETRAS_PARECIDAS) y un caracter de mas o de menos en
-     * una punta. NUNCA una cifra por otra cifra: es justo lo que separa a los vehiculos hermanos
-     * de una flota ("A90BE0R" y "A90BE2R", "...HRG5S0000014" y "...HRG0S0000017"), y confundirlos
-     * pondria en una ficha las fechas del documento de otro. Hasta 2 en un serial (14+
-     * caracteres), 1 en una placa.
+     * Solo cuentan las confusiones de FORMA de LETRAS_PARECIDAS (G/0, H/1, B/8, R/P...) y un
+     * caracter de mas o de menos en una punta: DELANTE en un serial (la mancha pegada), en
+     * cualquiera de las dos en una placa (la ultima letra que no se leyo). NUNCA una cifra por
+     * otra cifra: es justo lo que separa a los vehiculos hermanos de una flota ("A90BE0R" y
+     * "A90BE2R", "...HRG5S0000014" y "...HRG0S0000017"), y por lo mismo tampoco se admite que al
+     * serial le falte el FINAL (casaria con dos hermanos a la vez). Confundirlos pondria en una
+     * ficha las fechas del documento de otro. Hasta 2 en un serial (14+ caracteres), 1 en una
+     * placa.
      */
     private function malLeido(string $enFicha, string $enDocumento): bool
     {
@@ -669,12 +676,12 @@ class LectorDocumentoPdf
         $b = $limpio($enDocumento);
         $tope = max(strlen($a), strlen($b)) >= 14 ? 2 : 1;
 
-        // Un caracter de mas o de menos en una punta (la mancha pegada delante, la ultima letra
-        // que no se leyo): quitado, tiene que quedar el mismo codigo.
+        // Un caracter de mas o de menos en una punta: quitado, tiene que quedar el mismo codigo.
+        // En un serial solo DELANTE (ver arriba).
         if (abs(strlen($a) - strlen($b)) === 1) {
             [$largo, $corto] = strlen($a) > strlen($b) ? [$a, $b] : [$b, $a];
             return $this->codigo(substr($largo, 1)) === $this->codigo($corto)
-                || $this->codigo(substr($largo, 0, -1)) === $this->codigo($corto);
+                || ($tope === 1 && $this->codigo(substr($largo, 0, -1)) === $this->codigo($corto));
         }
         if (strlen($a) !== strlen($b)) return false;
 
@@ -683,14 +690,13 @@ class LectorDocumentoPdf
             $x = $a[$i];
             $y = $b[$i];
             if ($this->codigo($x) === $this->codigo($y)) continue;
-            // Letra por cifra tal como vienen ("S" por "8") o ya con O, I, S como 0, 1, 5
-            // (la O de "A90ARSO" hace de cero frente a una G).
-            $letraYCifra = ctype_digit($x) !== ctype_digit($y)
-                || ctype_digit($this->codigo($x)) !== ctype_digit($this->codigo($y));
-            if (!$letraYCifra && !in_array($x . $y, self::LETRAS_PARECIDAS, true)
-                && !in_array($y . $x, self::LETRAS_PARECIDAS, true)) {
-                return false;   // cifra por cifra, u otra letra cualquiera: es otro codigo
-            }
+            // La pareja tal como viene ("S" por "8") o ya con O, I, S como 0, 1, 5 (la O de
+            // "A90ARSO" hace de cero frente a una G). Lo que no esta en la lista —cifra por
+            // cifra, u otra letra cualquiera— es otro codigo.
+            $parecidas = function (string $p, string $q) {
+                return in_array($p . $q, self::LETRAS_PARECIDAS, true) || in_array($q . $p, self::LETRAS_PARECIDAS, true);
+            };
+            if (!$parecidas($x, $y) && !$parecidas($this->codigo($x), $this->codigo($y))) return false;
             if (++$fallos > $tope) return false;
         }
         return true;

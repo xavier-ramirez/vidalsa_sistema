@@ -1479,6 +1479,11 @@ class VerificacionDocumentoTest extends MySqlTestCase
         $this->assertSame('no', $l->mismoVehiculo('A90BE2R', null, ['placa' => 'A90BE0R']), 'Hermano de flota.');
         $this->assertSame('no', $l->mismoVehiculo(null, 'L1C29HRG0S0000017', ['serial' => 'L1C29HRG5S0000014']), 'Hermano de flota.');
         $this->assertSame('no', $l->mismoVehiculo(null, 'CAT0966HJA6D00842', ['serial' => 'CAT0996HJA6D00842']), 'Cifra por cifra.');
+        // Una O (que es un 0) frente a otra cifra sigue siendo cifra por cifra: hermano de flota.
+        $this->assertSame('no', $l->mismoVehiculo('A90BE2R', null, ['placa' => 'A90BEOR']), 'O = 0 frente a un 2.');
+        $this->assertSame('no', $l->mismoVehiculo('A90BE7R', null, ['placa' => 'A90BEIR']), 'I = 1 frente a un 7.');
+        // A un serial no se le admite el FINAL cortado: casaria con dos hermanos.
+        $this->assertSame('no', $l->mismoVehiculo(null, 'LJ11KFBD9H3400085', ['serial' => 'LJ11KFBD9H340008']));
     }
 
     public function test_un_rotc_se_reconoce_aunque_no_se_lea_su_numero(): void
@@ -1510,6 +1515,29 @@ class VerificacionDocumentoTest extends MySqlTestCase
         $this->assertSame('49199', $d['nro']);
         $this->assertSame('2026-02-11', $d['emision']);
         $this->assertSame('2027-02-11', $d['vence']);
+    }
+
+    public function test_la_migracion_vuelve_a_poner_en_cola_todos_los_rotc(): void
+    {
+        [$equipo, $placa] = $this->equipoConDocumentos(['FECHA_ROTC' => '2027-02-11', 'FECHA_EMISION_ROTC' => '2026-02-11']);
+        $this->lectorFalso($this->textoRotc('CONSTRUCTORA VIDALSA 27, C.A', $placa, 'ABC123', '11/02/2026', '11/02/2027'));
+        $this->verificar($equipo, VerificacionDocumento::ROTC);
+        $this->assertFalse(VerificacionDocumento::pendientes(VerificacionDocumento::ROTC, 'LINK_ROTC')->where('d.ID_EQUIPO', $equipo)->exists());
+        // Uno revisado por una persona y un titulo: esos no se tocan.
+        [$revisado, $placa2] = $this->equipoConDocumentos();
+        $this->lectorFalso($this->textoRotc('CONSTRUCTORA VIDALSA 27, C.A', $placa2, 'ABC123', '11/02/2026', '11/02/2027'));
+        $this->verificarSinAplicar($revisado, VerificacionDocumento::ROTC)->marcarRevisadoPor($this->superAdmin());
+        $this->lectorFalso($this->textoTitulo('CONSTRUCTORA VIDALSA 27, C.A', $placa));
+        $this->verificar($equipo, VerificacionDocumento::PROPIEDAD);
+
+        (require database_path('migrations/2026_09_21_210000_releer_todos_los_rotc.php'))->up();
+
+        $this->assertTrue(VerificacionDocumento::pendientes(VerificacionDocumento::ROTC, 'LINK_ROTC')->where('d.ID_EQUIPO', $equipo)->exists(),
+            'Aunque estaba bien, el ROTC vuelve a la cola.');
+        $this->assertTrue(VerificacionDocumento::where('ID_EQUIPO', $revisado)->where('TIPO', VerificacionDocumento::ROTC)->whereNotNull('APLICADO_POR')->exists(),
+            'Lo revisado por una persona se respeta.');
+        $this->assertTrue(VerificacionDocumento::where('ID_EQUIPO', $equipo)->where('TIPO', VerificacionDocumento::PROPIEDAD)->exists(),
+            'Los otros documentos no se tocan.');
     }
 
     public function test_la_migracion_pone_las_fechas_vacias_de_lo_ya_leido(): void
@@ -1596,6 +1624,9 @@ class VerificacionDocumentoTest extends MySqlTestCase
             . "CAMIONETA PICK-UP D/CABINA CARGA *2026* \n5 2 2105 1050 KGS PRIVADO  12 FEBRERO 2026 \n";
         $this->assertSame('2026-02-12', $lector->extraer(LectorDocumentoPdf::PROPIEDAD, $texto)['emision']);
 
+        // Otra fecha en mayusculas fuera de la fila de datos no es la emision.
+        $this->assertNull($lector->extraer(LectorDocumentoPdf::PROPIEDAD, "CARACAS, 29 AGOSTO 2018 \nPlaca: A00AA0A \n")['emision']);
+
         // Respaldo: la linea de control del pie empieza por la fecha.
         $pie = "20260213/EL/PRS/1/1/260110643476/J6E5C6O/20260213/092614 \n";
         $this->assertSame('2026-02-13', $lector->extraer(LectorDocumentoPdf::PROPIEDAD, $pie)['emision']);
@@ -1619,6 +1650,8 @@ class VerificacionDocumentoTest extends MySqlTestCase
         // La del RECIBO es un periodo de pago: no es la fecha de origen de la poliza.
         $d = $lector->extraer(LectorDocumentoPdf::POLIZA, "VIGENCIA DEL RECIBO: 12/08/2026 al 09/12/2026 \n");
         $this->assertNull($d['emision']);
+        $d = $lector->extraer(LectorDocumentoPdf::POLIZA, "Vigencia del Recibo: \nDesde 12/08/2026 Hasta 09/12/2026 \n");
+        $this->assertNull($d['emision'], 'Tampoco con "Desde ... Hasta" bajo el rótulo del recibo.');
     }
 
     public function test_sin_confirmar_el_vehiculo_se_ponen_las_fechas_vacias_y_nada_mas(): void

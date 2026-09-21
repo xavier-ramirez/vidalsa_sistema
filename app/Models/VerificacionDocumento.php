@@ -135,7 +135,8 @@ class VerificacionDocumento extends Model
      * cola: la usan el comando (para su lote), el panel (para "faltan por leer") y las pruebas.
      * Quedan fuera los enlaces que no apuntan a un archivo de Drive —no hay nada que leer— y
      * lo ya revisado, salvo lo ilegible o fallido mientras le queden intentos y, tras "Revisar
-     * ahora", lo que deja la ficha sin una de sus fechas (ver condicionLeido).
+     * ahora", lo que deja la ficha sin una de sus fechas o salio "de otro vehiculo" (ver
+     * condicionLeido).
      */
     public static function pendientes(string $tipo, string $columna)
     {
@@ -171,9 +172,11 @@ class VerificacionDocumento extends Model
                 ->where(fn ($w) => $w
                     ->where(function ($x) use ($tipo) {
                         foreach (self::camposDeFecha($tipo) as $campo) $x->whereNotNull("d.$campo");
-                        // LEIDO se guarda con json_encode, sin espacios: '"otra_placa":true'.
+                        // LEIDO es JSON: MySQL lo devuelve CON espacio ('"otra_placa": true') y
+                        // SQLite (pruebas) tal como se escribio, sin el: valen las dos formas.
                         $x->where(fn ($y) => $y->where('v.ESTADO', '<>', self::DIFIERE)->orWhereNull('v.LEIDO')
-                            ->orWhere('v.LEIDO', 'not like', '%"otra_placa":true%'));
+                            ->orWhere(fn ($z) => $z->where('v.LEIDO', 'not like', '%"otra_placa":true%')
+                                ->where('v.LEIDO', 'not like', '%"otra_placa": true%')));
                     })
                     ->orWhere('v.updated_at', '>=', $pedida)
                     ->orWhere('v.ESTADO', self::SIN_ARCHIVO)));
