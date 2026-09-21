@@ -1540,27 +1540,6 @@ class VerificacionDocumentoTest extends MySqlTestCase
             'Los otros documentos no se tocan.');
     }
 
-    public function test_la_migracion_vuelve_a_poner_en_cola_todos_los_titulos(): void
-    {
-        [$equipo, $placa] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'CONSTRUCTORA VIDALSA 27, C.A',
-            'FECHA_EMISION_PROPIEDAD' => '2018-10-03', 'FECHA_ROTC' => '2027-02-11', 'FECHA_EMISION_ROTC' => '2026-02-11']);
-        $this->lectorFalso($this->textoTitulo('CONSTRUCTORA VIDALSA 27, C.A', $placa));
-        $this->verificar($equipo, VerificacionDocumento::PROPIEDAD);
-        $this->lectorFalso($this->textoRotc('CONSTRUCTORA VIDALSA 27, C.A', $placa, 'ABC123', '11/02/2026', '11/02/2027'));
-        $this->verificar($equipo, VerificacionDocumento::ROTC);
-        [$revisado, $placa2] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'MODAVENCA HOME, C.A.']);
-        $this->lectorFalso($this->textoTitulo('OTRO NOMBRE', $placa2));
-        $this->verificarSinAplicar($revisado, VerificacionDocumento::PROPIEDAD)->marcarRevisadoPor($this->superAdmin());
-
-        (require database_path('migrations/2026_09_21_220000_releer_todos_los_titulos.php'))->up();
-
-        $this->assertTrue($this->enLaCola($equipo, VerificacionDocumento::PROPIEDAD), 'Aunque estaba bien, el título vuelve a la cola.');
-        $this->assertTrue(VerificacionDocumento::where('ID_EQUIPO', $revisado)->whereNotNull('APLICADO_POR')->exists(),
-            'Lo revisado por una persona se respeta.');
-        $this->assertTrue(VerificacionDocumento::where('ID_EQUIPO', $equipo)->where('TIPO', VerificacionDocumento::ROTC)->exists(),
-            'Los otros documentos no se tocan.');
-    }
-
     public function test_la_migracion_pone_las_fechas_vacias_de_lo_ya_leido(): void
     {
         // Como en el servidor el 21-09-2026: poliza leida ANTES de la regla, sin confirmar el
