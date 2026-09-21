@@ -85,13 +85,21 @@ class LectorDocumentoPdf
      * Letras de otros alfabetos que se ven IGUAL que las nuestras. Aparecen al pegar el
      * nombre desde otro programa y dejan la ficha inencontrable al buscarla: "С.А" con C y A
      * cirilicas no es "C.A". Se traducen para poder comparar, y si solo diferian en eso se
-     * avisa igual (ver comparar()).
+     * avisa igual (ver comparar()). En placas y seriales son la MISMA letra (ver codigo()):
+     * la ficha 573 tenia "A10AE0Н" con la Н cirilica y el RACDA la daba por no autorizada.
+     * Publica: la usa tambien la migracion que arreglo esas placas.
      */
-    private const HOMOGLIFOS = [
+    public const HOMOGLIFOS = [
         'А'=>'A','В'=>'B','С'=>'C','Е'=>'E','Н'=>'H','І'=>'I','Ј'=>'J','К'=>'K','М'=>'M','О'=>'O',
-        'Р'=>'P','Ѕ'=>'S','Т'=>'T','Х'=>'X','У'=>'Y','Ζ'=>'Z','Α'=>'A','Β'=>'B','Ε'=>'E','Η'=>'H',
+        'Р'=>'P','Ѕ'=>'S','Т'=>'T','Х'=>'X','У'=>'Y','Ү'=>'Y','Ζ'=>'Z','Α'=>'A','Β'=>'B','Ε'=>'E','Η'=>'H',
         'Ι'=>'I','Κ'=>'K','Μ'=>'M','Ν'=>'N','Ο'=>'O','Ρ'=>'P','Τ'=>'T','Υ'=>'Y','Χ'=>'X',
     ];
+
+    /**
+     * Letras que el escaneo confunde entre si por su forma (ver malLeido). Una letra por una
+     * cifra ya cuenta sola; aqui solo van las parejas de letras.
+     */
+    private const LETRAS_PARECIDAS = ['RP', 'NH', 'NM', 'UV', 'CG', 'EF', 'KX', 'ZL'];
 
     private const MESES = [
         'ENERO'=>1,'FEBRERO'=>2,'MARZO'=>3,'ABRIL'=>4,'MAYO'=>5,'JUNIO'=>6,
@@ -199,11 +207,14 @@ class LectorDocumentoPdf
 
         // Las dos fechas van juntas bajo sus rotulos: primero la de emision, despues la de
         // vencimiento. El reconocimiento puede meter el rotulo y el valor en lineas distintas.
-        if (preg_match('/Fecha\s*de\s*Emisi[oó]n[^\d]{0,80}' . $f . '[^\d]{0,80}' . $f . '/ui', $plano, $m)) {
+        // La tabla de FLOTA las pone en su cabecera: "Fecha y Hora de Emisión: 11/02/2026
+        // 06:45:24 PM" y "Fecha de vencimiento: 11/02/2027" (Drive a veces devuelve solo esa
+        // tabla y no el certificado, que es una imagen: visto el 21-09-2026).
+        if (preg_match('/Fecha\s*(?:y\s*Hora\s*)?de\s*Emisi[oó]n[^\d]{0,80}' . $f . '[^\d]{0,80}' . $f . '/ui', $plano, $m)) {
             $datos['emision'] = $this->fecha($m[1]);
             $datos['vence']   = $this->fecha($m[2]);
         } else {
-            if (preg_match('/Fecha\s*de\s*Emisi[oó]n:?\s*' . $f . '/ui', $plano, $m)) $datos['emision'] = $this->fecha($m[1]);
+            if (preg_match('/Fecha\s*(?:y\s*Hora\s*)?de\s*Emisi[oó]n:?\s*' . $f . '/ui', $plano, $m)) $datos['emision'] = $this->fecha($m[1]);
             if (preg_match('/Fecha\s*de\s*Vencimiento:?\s*' . $f . '/ui', $plano, $m)) $datos['vence'] = $this->fecha($m[1]);
         }
         // La tabla sale como BLOQUE DE ROTULOS y debajo el bloque de valores, en el mismo
@@ -218,7 +229,8 @@ class LectorDocumentoPdf
             // cruza saltos de linea) el respaldo cogia el siguiente rotulo de la tabla ("RIF")
             // y eso terminaba escrito en la ficha al pulsar "Corregir".
             if (preg_match('/Raz[oó]n\s*Social:?[^\S\r\n]*([^\r\n]+)/ui', $plano, $m)) $datos['titular'] = $this->limpiarNombre($m[1]);
-            if (preg_match('/Nro\s*de\s*ROTC:?[^\d]{0,30}(\d{3,10})/ui', $plano, $m)) $datos['nro'] = $m[1];
+            // "Nro de ROTC" en el certificado; "Número de ROTC: 49199" en la tabla de flota.
+            if (preg_match('/(?:Nro|N[uú]mero)\s*de\s*ROTC:?[^\d]{0,30}(\d{3,10})/ui', $plano, $m)) $datos['nro'] = $m[1];
         }
         // "Placa / Serial de Carroceria / Marca - Modelo / Año" y debajo sus cuatro valores.
         if (preg_match('/Placa\s*\R\s*Serial\s*de\s*Carrocer[ií]a\s*\R[^\n]*\R[^\n]*\R\s*([A-Z0-9]{5,8})\s*\R\s*([A-Z0-9]{10,25})\b/ui', $plano, $m)) {
@@ -248,18 +260,35 @@ class LectorDocumentoPdf
 
     /**
      * La fila de ESTE equipo en la tabla de un ROTC de flota (ver extraerRotc), o null. Cuenta
-     * si coincide la placa o el serial —con la tolerancia O/0, I/1, S/5 de siempre— y el otro
+     * si coincide la placa o el serial —con la tolerancia de siempre, ver codigo()— y el otro
      * dato, si la ficha lo tiene, no la contradice: una fila con la placa de este equipo y el
      * serial de otro no es de nadie seguro.
+     *
+     * Dos matices medidos en el ROTC 49199 (21-09-2026):
+     *   · Hay fichas con solo el FINAL del serial ("H3400085" de "LJ13R8DK1H3400085"): si la
+     *     fila termina en el, no la contradice.
+     *   · Con el serial COMPLETO (17) igual, la fila es de este equipo aunque traiga otra placa
+     *     (el ROTC tenia "A06EA3G" para el serial de la ficha A46AF0Y): el N.I.V. no se repite.
+     *     Se devuelve marcada ('placa_distinta') para que una persona decida cual placa es la buena.
      */
     public function filaRotc(?string $placa, ?string $serial, array $leido): ?array
     {
         foreach ($leido['filas'] ?? [] as $fila) {
             $porPlaca  = $placa ? $this->mismoCodigo($placa, $fila['placa']) === 'si' : null;
-            $porSerial = $serial ? $this->mismoCodigo($serial, $fila['serial']) === 'si' : null;
+            $porSerial = $serial ? $this->serialDeFila($serial, $fila['serial']) : null;
+            if ($porSerial && $porPlaca === false && strlen($this->codigo($serial)) === 17) {
+                return $fila + ['placa_distinta' => true];
+            }
             if (($porPlaca || $porSerial) && $porPlaca !== false && $porSerial !== false) return $fila;
         }
         return null;
+    }
+
+    /** ¿El serial de la ficha es el de la fila, entero o su final (8 o mas caracteres)? */
+    private function serialDeFila(string $serial, string $deFila): bool
+    {
+        [$s, $f] = [$this->codigo($serial), $this->codigo($deFila)];
+        return $s === $f || (strlen($s) >= 8 && strlen($s) < strlen($f) && str_ends_with($f, $s));
     }
 
     /**
@@ -300,7 +329,7 @@ class LectorDocumentoPdf
     /**
      * ¿Esta la placa (o el serial) de la ficha en una lista leida del documento? Responde
      * 'si', 'no' o 'no_se_sabe' cuando no hay con que comparar. Compara con la MISMA tolerancia
-     * que mismoCodigo (O/0, I/1, S/5): un cero mal leido en un documento de decenas de placas
+     * que mismoCodigo (ver codigo()): un cero mal leido en un documento de decenas de placas
      * no puede hacer que una unidad autorizada salga como "no autorizada".
      */
     private function codigoEnLista(?string $codigo, array $lista): string
@@ -595,7 +624,7 @@ class LectorDocumentoPdf
         }
         // Excepcion: la tabla de una poliza de FLOTA no es ruido suelto, es la lista de los
         // equipos que ampara. Si el serial de la ficha (de 17, como los de la tabla) no esta
-        // en ella —con la misma tolerancia O/0, I/1, S/5 de siempre—, el documento es de
+        // en ella —con la misma tolerancia de siempre, ver codigo()—, el documento es de
         // OTROS equipos. Sin seriales de carroceria en la tabla (escaneo malo, o una tabla
         // con seriales de motor) no se afirma nada: queda "no se sabe" para mirarlo a mano.
         if (($leido['flota'] ?? false) && strlen((string) $serialFicha) === 17 && !empty($leido['seriales_flota'])) {
@@ -608,16 +637,75 @@ class LectorDocumentoPdf
      * Placas o seriales iguales aunque uno lleve guion o espacios ("A85-DR1K" = "A85DR1K").
      * Las parejas que el reconocimiento confunde de verdad en una foto (O con 0, I con 1, S
      * con 5) cuentan como iguales: si no, media flota saldria avisada de "es de otro vehiculo"
-     * por un cero. No mas que esas, y con el mismo largo: cada letra que se confunde a
-     * proposito le quita puntería a la unica comprobacion que protege la ficha.
+     * por un cero. No mas que esas (y las letras de otro alfabeto identicas a las nuestras, ver
+     * codigo()), y con el mismo largo: cada letra que se confunde a proposito le quita puntería
+     * a la unica comprobacion que protege la ficha.
      */
     private function mismoCodigo(?string $enFicha, ?string $enDocumento): string
     {
         if (!$enFicha || !$enDocumento) return 'no_se_sabe';
-        $limpia = fn ($p) => strtr(preg_replace('/[^A-Z0-9]/', '', mb_strtoupper($p)),
+        if ($this->codigo($enFicha) === $this->codigo($enDocumento)) return 'si';
+        // Casi igual por un fallo del escaneo: no se afirma que sea de OTRO vehiculo (eso bloquea
+        // la ficha entera); se queda sin confirmar, que solo deja poner las fechas vacias.
+        return $this->malLeido($enFicha, $enDocumento) ? 'no_se_sabe' : 'no';
+    }
+
+    /**
+     * ¿El codigo del documento es el de la ficha con UNA o DOS letras mal leidas por el escaneo?
+     * (visto el 21-09-2026: "LSFAM1115PA..." por "LSFAM11H5PA...", "A90ARSO" por "A90AR5G",
+     * "A09CVO" por "A09CV0M", "ELJ11KFBD9H..." por "LJ11KFBD9H...").
+     *
+     * Solo cuentan las confusiones de FORMA: una letra leida como cifra o al reves (G/0, H/1,
+     * B/8...), las letras que se parecen (LETRAS_PARECIDAS) y un caracter de mas o de menos en
+     * una punta. NUNCA una cifra por otra cifra: es justo lo que separa a los vehiculos hermanos
+     * de una flota ("A90BE0R" y "A90BE2R", "...HRG5S0000014" y "...HRG0S0000017"), y confundirlos
+     * pondria en una ficha las fechas del documento de otro. Hasta 2 en un serial (14+
+     * caracteres), 1 en una placa.
+     */
+    private function malLeido(string $enFicha, string $enDocumento): bool
+    {
+        $limpio = fn (string $v) => preg_replace('/[^A-Z0-9]/', '', strtr(mb_strtoupper($v), self::HOMOGLIFOS));
+        $a = $limpio($enFicha);
+        $b = $limpio($enDocumento);
+        $tope = max(strlen($a), strlen($b)) >= 14 ? 2 : 1;
+
+        // Un caracter de mas o de menos en una punta (la mancha pegada delante, la ultima letra
+        // que no se leyo): quitado, tiene que quedar el mismo codigo.
+        if (abs(strlen($a) - strlen($b)) === 1) {
+            [$largo, $corto] = strlen($a) > strlen($b) ? [$a, $b] : [$b, $a];
+            return $this->codigo(substr($largo, 1)) === $this->codigo($corto)
+                || $this->codigo(substr($largo, 0, -1)) === $this->codigo($corto);
+        }
+        if (strlen($a) !== strlen($b)) return false;
+
+        $fallos = 0;
+        for ($i = 0; $i < strlen($a); $i++) {
+            $x = $a[$i];
+            $y = $b[$i];
+            if ($this->codigo($x) === $this->codigo($y)) continue;
+            // Letra por cifra tal como vienen ("S" por "8") o ya con O, I, S como 0, 1, 5
+            // (la O de "A90ARSO" hace de cero frente a una G).
+            $letraYCifra = ctype_digit($x) !== ctype_digit($y)
+                || ctype_digit($this->codigo($x)) !== ctype_digit($this->codigo($y));
+            if (!$letraYCifra && !in_array($x . $y, self::LETRAS_PARECIDAS, true)
+                && !in_array($y . $x, self::LETRAS_PARECIDAS, true)) {
+                return false;   // cifra por cifra, u otra letra cualquiera: es otro codigo
+            }
+            if (++$fallos > $tope) return false;
+        }
+        return true;
+    }
+
+    /**
+     * Una placa o serial listo para comparar: en MAYUSCULAS, sin guiones ni espacios, las
+     * letras de otro alfabeto que son IGUALES a las nuestras (HOMOGLIFOS) pasadas a latinas, y
+     * O, I, S como 0, 1, 5 (lo que confunde el reconocimiento). Una Н cirilica tecleada por
+     * error no es otra letra: sin esto el vehiculo no se encontraba en sus propios documentos.
+     */
+    private function codigo(string $p): string
+    {
+        return strtr(preg_replace('/[^A-Z0-9]/', '', strtr(mb_strtoupper($p), self::HOMOGLIFOS)),
             ['O' => '0', 'I' => '1', 'S' => '5']);
-        [$x, $y] = [$limpia($enFicha), $limpia($enDocumento)];
-        return (mb_strlen($x) === mb_strlen($y) && $x === $y) ? 'si' : 'no';
     }
 
     /** Para comparar: sin acentos, sin puntuacion, sin letras de otro alfabeto y en MAYUSCULAS. */

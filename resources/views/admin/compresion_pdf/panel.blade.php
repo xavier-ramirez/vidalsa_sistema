@@ -87,6 +87,10 @@
     .cpdf-extra input[type="date"], .cpdf-extra input[type="text"] { width: 100%; box-sizing: border-box; margin: 6px 0; height: 32px;
         padding: 4px 8px; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: #fff; font-size: 12.5px; }
     .cpdf-extra-nota { font-size: 11.5px; color: #cbd5e1; }
+    /* Fila que se acaba de guardar desde el visor (cpdfFilaRevisada): se ve donde quedo. */
+    .cpdf-revisada { font-size: 12px; color: #64748b; }
+    .cpdf-recien-revisada td { animation: cpdf-destello 2.4s ease-out; }
+    @keyframes cpdf-destello { from { background: #dcfce7; } to { background: transparent; } }
     .cpdf-pista { margin-top: 5px; padding: 5px 8px; border-radius: 6px; background: rgba(37, 99, 235, .12); border: 1px solid rgba(96, 165, 250, .25);
                   font-size: 11.5px; color: #94a3b8; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
     .cpdf-pista b { color: #e2e8f0; font-weight: 700; word-break: break-word; }
@@ -216,9 +220,10 @@
     ];
     $estadosDoc = [
         'revisar'                 => 'PARA REVISAR A MANO',
-        // Lo leido que todavia no se paso a la ficha. Tiene que estar en esta lista: el
-        // desplegable saca de aqui el nombre de lo filtrado y sin el la pantalla revienta
-        // al llegar con ?estado_doc=corregibles (clave inexistente).
+        // Lo leido que la tarea todavia no paso a la ficha (lo pasa al leer, asi que casi
+        // siempre esta vacio). Tiene que estar en esta lista: el desplegable saca de aqui el
+        // nombre de lo filtrado y sin el la pantalla revienta al llegar con
+        // ?estado_doc=corregibles (clave inexistente).
         'corregibles'             => 'SIN APLICAR',
         \App\Models\VerificacionDocumento::DIFIERE     => 'Datos distintos',
         \App\Models\VerificacionDocumento::COINCIDE    => 'Coincide',
@@ -226,18 +231,20 @@
         \App\Models\VerificacionDocumento::SIN_ARCHIVO => 'Sin archivo en Drive',
         \App\Models\VerificacionDocumento::ERROR       => 'Con error',
     ];
-    // Los estados de la tabla llevan su cuenta, y los que no tienen ninguna fila no se
-    // ofrecen: elegirlos daba la lista vacía y parecía que el filtro no hacía nada. El que
-    // esté elegido se queda siempre (el desplegable saca de aquí su nombre).
+    // En el DESPLEGABLE cada opcion lleva su cuenta, y las que no tienen ninguna fila no se
+    // ofrecen: elegirlas daba la lista vacia y parecia que el filtro no hacia nada. La elegida
+    // se queda siempre (el desplegable saca de aqui su nombre). Es una copia: las etiquetas de
+    // las FILAS ($estadosDoc) van sin cuenta.
+    $opcionesEstadoDoc = $estadosDoc;
     if (isset($resumenDocs)) {
-        foreach ([\App\Models\VerificacionDocumento::DIFIERE, \App\Models\VerificacionDocumento::COINCIDE,
-                  \App\Models\VerificacionDocumento::ILEGIBLE, \App\Models\VerificacionDocumento::SIN_ARCHIVO,
-                  \App\Models\VerificacionDocumento::ERROR] as $estadoTabla) {
-            $n = (int) ($resumenDocs[$estadoTabla] ?? 0);
-            if ($n === 0 && $estadoDoc !== $estadoTabla) {
-                unset($estadosDoc[$estadoTabla]);
+        $cuentas = ['revisar' => $docsParaRevisar ?? 0, 'corregibles' => $docsCorregibles ?? 0]
+            + $resumenDocs->map(fn ($n) => (int) $n)->all();
+        foreach ($opcionesEstadoDoc as $clave => $etiqueta) {
+            $n = (int) ($cuentas[$clave] ?? 0);
+            if ($n === 0 && $estadoDoc !== $clave) {
+                unset($opcionesEstadoDoc[$clave]);
             } else {
-                $estadosDoc[$estadoTabla] .= ' (' . number_format($n, 0, ',', '.') . ')';
+                $opcionesEstadoDoc[$clave] = $etiqueta . ' (' . number_format($n, 0, ',', '.') . ')';
             }
         }
     }
@@ -246,7 +253,7 @@
     // filtra por lo suyo (la de compresion, por documento; la de documentos, por estado y tipo).
     $desplegables = $pestana === 'documentos' ? [
         ['id' => 'cpdfDocEstadoSelect', 'nombre' => 'estado_doc', 'etiqueta' => 'Filtrar Estado...', 'todos' => 'TODOS LOS ESTADOS',
-         'valor' => $estadoDoc, 'opciones' => $estadosDoc],
+         'valor' => $estadoDoc, 'opciones' => $opcionesEstadoDoc],
         ['id' => 'cpdfDocTipoSelect', 'nombre' => 'tipo_doc', 'etiqueta' => 'Filtrar Documento...', 'todos' => 'TODOS LOS DOCUMENTOS',
          'valor' => $tipoDoc, 'opciones' => $tiposDoc],
     ] : [
@@ -570,9 +577,9 @@
     };
 
     // ── Dar por revisadas varias filas sin abrir el visor ──────────────────────────────
-    // La ficha NO cambia (ni siquiera los datos sin campo en el panel, que el visor si ofrece
-    // poner): cada fila queda como "Revisado a mano por ...". Se redefinen en cada visita
-    // (solo asignaciones).
+    // De la ficha solo se llenan las fechas que tiene VACIAS y el documento trae
+    // (CorrectorFichaDocumento::fechasVacias); lo demas no cambia. Cada fila queda como
+    // "Revisado a mano por ...". Se redefinen en cada visita (solo asignaciones).
     var cpdfMarcadas = function () {
         return Array.prototype.map.call(document.querySelectorAll('.cpdf-fila-sel.selected-row-maquinaria'), function (tr) { return tr.dataset.id; });
     };
@@ -599,7 +606,8 @@
         window.confirmarAccion({
             title: 'Revisado',
             message: 'Las ' + ids.length + ' filas seleccionadas quedarán como revisadas por ti. '
-                + 'La ficha no cambia: si hay que corregir algún dato, ábrela en el visor.',
+                + 'Las fechas que la ficha tiene vacías se llenan con las del documento; lo demás no cambia: '
+                + 'si hay que corregir otro dato, ábrela en el visor.',
             confirmText: 'Marcar ' + ids.length,
         }, function () {
             window.apiFetch(@json(route('compresion-pdf.documentos.revisados')), {
@@ -610,7 +618,8 @@
                 .then(function (r) { return r.json(); })
                 .then(function (data) {
                     if (!data || !data.success) throw new Error((data && data.message) || 'sin exito');
-                    window.toast(data.revisadas === 1 ? '1 fila revisada' : data.revisadas + ' filas revisadas', 'success');
+                    window.toast((data.revisadas === 1 ? '1 fila revisada' : data.revisadas + ' filas revisadas')
+                        + (data.fechas ? ' · ' + (data.fechas === 1 ? '1 fecha puesta' : data.fechas + ' fechas puestas') : ''), 'success');
                     window.cpdfFiltrar();
                 })
                 .catch(function (err) {
@@ -652,8 +661,12 @@
         window.__cpdfRevisarBound = true;
         var URL_REVISADO = @json(route('compresion-pdf.documento.revisado', ['id' => 0]));
         // Diferencia del verificador -> campo del panel del visor que la corrige.
+        // Las fechas de emision tienen su campo en el panel (fecha_emision): lo que dice el
+        // documento sale debajo con su "Usar", no como un campo aparte.
         var CAMPO = { NOMBRE_DEL_TITULAR: 'titular', ID_SEGURO: 'nombre_aseguradora',
-                      FECHA_VENC_POLIZA: 'fecha_vencimiento', FECHA_ROTC: 'fecha_vencimiento', FECHA_RACDA: 'fecha_vencimiento' };
+                      FECHA_VENC_POLIZA: 'fecha_vencimiento', FECHA_ROTC: 'fecha_vencimiento', FECHA_RACDA: 'fecha_vencimiento',
+                      FECHA_EMISION_PROPIEDAD: 'fecha_emision', FECHA_EMISION_POLIZA: 'fecha_emision',
+                      FECHA_EMISION_ROTC: 'fecha_emision', FECHA_EMISION_RACDA: 'fecha_emision' };
         // El vencimiento de cada documento (VerificacionDocumento::CAMPO_VENCE).
         var VENCE = @json(\App\Models\VerificacionDocumento::CAMPO_VENCE),
             DIAS_ANTERIOR = @json(\App\Models\VerificacionDocumento::DIAS_ANTERIOR);
@@ -715,6 +728,9 @@
                     usar.textContent = 'Usar';
                     usar.onclick = function () { input.value = valor; input.dispatchEvent(new Event('input', { bubbles: true })); input.focus(); };
                     pista.append(t, b, usar);
+                    // La fecha de emision que la ficha tiene VACIA viene ya puesta: basta con
+                    // Guardar (lo pidio el cliente); vaciar el campo = no ponerla.
+                    if (CAMPO[campo] === 'fecha_emision' && !input.value) input.value = valor;
                 }
                 input.insertAdjacentElement('afterend', pista);
             });
@@ -738,7 +754,7 @@
             });
             if (lista.childNodes.length) aviso.appendChild(lista);
 
-            // Lo que el panel no tiene (fechas de emision, titular del ROTC): su propio campo,
+            // Lo que el panel no tiene (el titular del ROTC): su propio campo,
             // relleno con lo que dice el documento. Al GUARDAR se pone en la ficha lo que diga el
             // campo, sin casilla que marcar (lo pidio el cliente); vaciarlo = no ponerlo. Sin esto
             // se perderia al dar la fila por revisada.
@@ -762,6 +778,32 @@
             cont.insertAdjacentElement('afterbegin', aviso);
         });
 
+        // Deja la fila como la dejo el servidor al darla por revisada (marcarRevisadoPor):
+        // "Coincide", con el motivo "Revisado a mano por ..." y sin diferencias. Ya no se puede
+        // elegir para "Revisado" (como las demas que coinciden). La cuenta del filtro se pone
+        // al dia la proxima vez que se abra la lista.
+        var cpdfFilaRevisada = function (id, motivo) {
+            var tr = document.querySelector('tr.cpdf-fila-sel[data-id="' + id + '"]');
+            if (!tr) return;
+            var celdas = tr.children, estado = tr.querySelector('.cpdf-estado');
+            var hoy = new Date(), dos = function (n) { return (n < 10 ? '0' : '') + n; };
+            var fecha = celdas[0] && celdas[0].querySelector('.hd-fecha');
+            if (fecha) fecha.replaceChildren(
+                cpdfNodo('span', '', dos(hoy.getDate()) + '/' + dos(hoy.getMonth() + 1) + '/' + hoy.getFullYear()),
+                cpdfNodo('span', 'hd-hora', dos(hoy.getHours() % 12 || 12) + ':' + dos(hoy.getMinutes()) + (hoy.getHours() < 12 ? ' AM' : ' PM')));
+            var detalle = tr.querySelector('.cpdf-ancha');
+            if (detalle) detalle.replaceChildren(cpdfNodo('span', 'cpdf-revisada', motivo || 'Revisado a mano'));
+            if (estado) {
+                estado.className = 'cpdf-estado ' + @json(\App\Models\VerificacionDocumento::COINCIDE);
+                estado.textContent = @json($estadosDoc[\App\Models\VerificacionDocumento::COINCIDE]);
+                estado.title = motivo || '';
+            }
+            tr.classList.remove('cpdf-fila-sel', 'selected-row-maquinaria');
+            tr.removeAttribute('onclick');
+            tr.classList.add('cpdf-recien-revisada');
+            if (typeof cpdfSelContar === 'function') cpdfSelContar();
+        };
+
         document.addEventListener('vidalsa:metadata-guardada', function (e) {
             if (!esEste(e.detail)) return;
             // El aviso lo da esta pantalla al terminar (uno solo): el del visor se cancela.
@@ -779,8 +821,9 @@
                     if (!data || !data.success) throw new Error((data && data.message) || 'sin exito');
                     window.toast('Guardado y revisado: la fila queda como coincide', 'success');
                     window.closePdfPreview();
-                    // Recarga la lista con los mismos filtros, para seguir con la siguiente.
-                    if (typeof window.cpdfFiltrar === 'function') window.cpdfFiltrar();
+                    // La fila se pone al dia EN SU SITIO, sin recargar la lista: recargar llevaba
+                    // arriba (y a la primera pagina), y habia que buscar otra vez por donde se iba.
+                    cpdfFilaRevisada(id, data.motivo);
                 })
                 .catch(function (err) {
                     window.toast('La ficha se guardó, pero no se pudo marcar la fila como revisada'

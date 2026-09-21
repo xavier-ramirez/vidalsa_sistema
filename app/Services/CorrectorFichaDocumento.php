@@ -82,10 +82,7 @@ class CorrectorFichaDocumento
             // El verificador ya no las produce, pero las guardadas antes si, y la tarea las
             // aplicaria al rellenar: pondria la fecha vieja encima de la buena. (Si la ficha
             // cambio DESPUES de leer, eso lo resuelve la comprobacion de mas abajo.)
-            $campoVence = VerificacionDocumento::CAMPO_VENCE[$reg->TIPO] ?? null;
-            $vence = $campoVence ? ($reg->DIFERENCIAS[$campoVence] ?? null) : null;
-            $anterior = $vence ? VerificacionDocumento::documentoAnterior($vence['ficha'] ?? null, $vence['documento'] ?? null) : null;
-            if ($anterior) {
+            if ($anterior = $this->anteriorPorSuVencimiento($reg)) {
                 $reg->update([
                     'A_MANO'      => true,
                     'MOTIVO'      => mb_substr($anterior, 0, 255),
@@ -187,8 +184,9 @@ class CorrectorFichaDocumento
 
     /**
      * Revision A MANO desde el visor: la persona corrigio la ficha en el panel y, ademas, pone
-     * los datos que ese panel no tiene (las fechas de emision, el titular del ROTC), con el
-     * valor que ella deja escrito. Despues la fila queda "revisada por" ella.
+     * los datos que ese panel no tiene (el titular del ROTC), con el valor que ella deja
+     * escrito; el boton "Revisado" de la tabla pone aqui las fechas vacias (fechasVacias).
+     * Despues la fila queda "revisada por" ella.
      *
      * $valores es [campo => valor]. Solo se aceptan datos de CAMPOS que el verificador marco
      * como distintos en esa fila (nunca la placa ni el serial, nunca un campo cualquiera), y
@@ -239,6 +237,34 @@ class CorrectorFichaDocumento
         return ['puestos' => array_keys($limpios)];
     }
 
+    /**
+     * Las fechas de este documento que la ficha tiene VACIAS [campo => aaaa-mm-dd]: lo que pone
+     * el boton "Revisado" de la tabla antes de dar la fila por revisada (lo pidio el cliente el
+     * 21-09-2026: las emisiones vacias de los anexos de flota se quedaban sin poner). Mismas
+     * reglas que la tarea con una lectura no segura (ver aplicar): nada si el PDF es de otro
+     * vehiculo, el anterior o una providencia que no nombra la placa; y solo si la ficha SIGUE
+     * vacia (si alguien la lleno despues de leer, se respeta).
+     */
+    public function fechasVacias(VerificacionDocumento $reg): array
+    {
+        if ($this->porQueNoSePuede($reg) && !$this->admiteFechasVacias($reg)) return [];
+        // Una lectura guardada antes de la regla del PDF anterior no lleva su marca: se mira
+        // por el vencimiento, como en aplicar().
+        if ($this->anteriorPorSuVencimiento($reg)) return [];
+        $doc = Documentacion::where('ID_EQUIPO', $reg->ID_EQUIPO)->first();
+        if (!$doc) return [];
+
+        $fechas = [];
+        foreach (VerificacionDocumento::camposDeFecha($reg->TIPO) as $campo) {
+            $d = $reg->DIFERENCIAS[$campo] ?? null;
+            if ($d && ($d['ficha'] ?? null) === null && !empty($d['documento']) && empty($d['a_mano'])
+                && $doc->{$campo} === null) {
+                $fechas[$campo] = $d['documento'];
+            }
+        }
+        return $fechas;
+    }
+
     /** Lo que se cuenta en la pantalla y en el listado del comando. */
     private function motivo(VerificacionDocumento $reg, array $puestos, array $quedan): string
     {
@@ -253,6 +279,17 @@ class CorrectorFichaDocumento
     private function etiquetas(array $quedan): string
     {
         return implode(', ', array_map(fn ($d) => mb_strtolower($d['etiqueta']), $quedan));
+    }
+
+    /**
+     * ¿Es el PDF ANTERIOR, visto por el vencimiento que se leyo? Vale tambien para lecturas
+     * guardadas antes de la regla (no llevan la marca doc_anterior). Devuelve el motivo o null.
+     */
+    private function anteriorPorSuVencimiento(VerificacionDocumento $reg): ?string
+    {
+        $campoVence = VerificacionDocumento::CAMPO_VENCE[$reg->TIPO] ?? null;
+        $vence = $campoVence ? ($reg->DIFERENCIAS[$campoVence] ?? null) : null;
+        return $vence ? VerificacionDocumento::documentoAnterior($vence['ficha'] ?? null, $vence['documento'] ?? null) : null;
     }
 
     /**

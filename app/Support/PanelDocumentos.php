@@ -156,6 +156,7 @@ class PanelDocumentos
             // Los dos montones que se miran distinto: lo que la tarea todavia pone sola y lo
             // que pide una persona (ilegible, sin archivo, de otro vehiculo o leido a medias).
             'docsParaRevisar' => VerificacionDocumento::paraRevisar()->count(),
+            'docsCorregibles' => VerificacionDocumento::corregibles()->count(),
             'estadoDoc'      => $estadoDoc,
             'tipoDoc'        => $tipoDoc,
             'ultimaLectura'  => VerificacionDocumento::max('updated_at'),

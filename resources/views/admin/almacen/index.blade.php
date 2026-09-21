@@ -193,23 +193,24 @@
     /* Foto dentro de "Detalles del producto": un CÍRCULO centrado (lo pidió el cliente). Sin
        foto, el mismo círculo con su ícono en gris.
        Pequeña a propósito: la ficha es para consultar datos, no para mirar la foto. Quien
-       tiene almacen.productos la cambia tocándola: la cámara va SIEMPRE a la vista, en una
-       burbuja al pie a la derecha (como en una foto de perfil), y gira mientras sube. Sin
-       permiso, tocarla la abre en grande. */
-    .alm-det-foto-caja { position: relative; width: 120px; height: 120px; margin: 0 auto; }
-    .alm-det-foto { width: 100%; height: 100%; border-radius: 50%; border: 1px solid #e2e8f0;
+       tiene almacen.productos la cambia tocándola: la cámara va SIEMPRE a la vista, en el
+       CENTRO de la foto (como en las tarjetas del catálogo), y gira mientras sube. Sin permiso,
+       tocarla la abre en grande.
+       flex: 0 0 auto: el cuerpo del modal es una columna flex con alto limitado y, sin esto,
+       encogía la caja a lo alto y el círculo salía como un óvalo. */
+    .alm-det-foto-caja { position: relative; width: 88px; height: 88px; flex: 0 0 auto; margin: 0 auto; }
+    .alm-det-foto { display: block; width: 100%; height: 100%; border-radius: 50%; border: 1px solid #e2e8f0;
                     background: #f8fafc; object-fit: cover; cursor: zoom-in; box-sizing: border-box; }
     .alm-det-foto-sin { display: flex; align-items: center; justify-content: center; color: #cbd5e0; cursor: default; }
-    .alm-det-foto-sin .material-icons { font-size: 40px; }
+    .alm-det-foto-sin .material-icons { font-size: 32px; }
     .alm-det-foto-caja.editable .alm-det-foto { cursor: pointer; }
     /* pointer-events:none: el clic lo recibe la caja, que abre el selector de archivo. */
-    .alm-det-foto-camara { position: absolute; right: 2px; bottom: 2px; width: 34px; height: 34px;
-                           border-radius: 50%; background: #0067b1; color: #fff; border: 3px solid #fff;
-                           display: flex; align-items: center; justify-content: center;
-                           box-shadow: 0 2px 6px rgba(15, 23, 42, .25); pointer-events: none;
-                           transition: background .18s ease; }
-    .alm-det-foto-camara .material-icons { font-size: 17px; }
-    .alm-det-foto-caja.editable:hover .alm-det-foto-camara { background: #005694; }
+    .alm-det-foto-camara { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+                           width: 30px; height: 30px; border-radius: 50%; background: rgba(15, 23, 42, .55);
+                           color: #fff; display: flex; align-items: center; justify-content: center;
+                           pointer-events: none; transition: background .18s ease; }
+    .alm-det-foto-camara .material-icons { font-size: 16px; }
+    .alm-det-foto-caja.editable:hover .alm-det-foto-camara { background: rgba(15, 23, 42, .8); }
     .alm-det-foto-caja.subiendo .alm-det-foto-camara .material-icons { animation: alm-det-foto-gira 1s linear infinite; }
     @keyframes alm-det-foto-gira { to { transform: rotate(360deg); } }
     .alm-det-foto-caja.subiendo { pointer-events: none; }

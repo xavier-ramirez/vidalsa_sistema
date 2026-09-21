@@ -112,6 +112,12 @@ lo sensible dentro de `can:super.admin`.
   vehículo, solo se ponen las **fechas que la ficha tiene vacías** (emisión y vencimiento).
 - Lo que no puede resolver la tarea queda "para revisar a mano" en el visor. Una fila que ya
   revisó una persona, al releerse, solo recibe fechas vacías y sigue como ella la dejó.
+- El panel del **visor de PDF** trae siempre la **Fecha de Emisión** (título, póliza, ROTC, RACDA;
+  opcional, `equipos.updateMetadata`) para ponerla a mano; en Auditoría viene ya rellena con la
+  del documento si la ficha no la tiene.
+- Botón **Revisado** de la tabla (varias filas, sin visor): antes de marcarlas pone solo las
+  fechas que la ficha tiene vacías y el documento trae (`CorrectorFichaDocumento::fechasVacias`,
+  mismas puertas que la tarea, incluido el PDF anterior visto por su vencimiento).
 - Un documento cargado al que le falta en la ficha su fecha de emisión o de vencimiento se
   **relee al pulsar "Revisar ahora"** (una vez por pulsación, NO cada noche: hay PDF que nunca
   la traen); con sus fechas no se relee.

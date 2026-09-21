@@ -43,7 +43,8 @@
        es blanca, y así se distingue de un vistazo. */
     .hd-cambios-caja { background: #1f2937; border: 1px solid #374151; border-radius: 10px; overflow: hidden;
                        box-shadow: 0 12px 28px -6px rgba(15, 23, 42, .45); font-size: 12.5px; color: #f1f5f9; }
-    .hd-cambios-cab { display: flex; align-items: center; gap: 6px; padding: 6px 12px; background: #111827; border-bottom: 1px solid #374151; }
+    /* Cabecera y pie del MISMO gris que el cuerpo y sin rayas: una sola pieza (lo pidió el cliente). */
+    .hd-cambios-cab { display: flex; align-items: center; gap: 6px; padding: 8px 12px 2px; }
     .hd-cambios-cab .material-icons { font-size: 15px; color: #7dd3fc; }
     .hd-cambios-cab span { font-size: 11px; font-weight: 800; color: #e5e7eb; text-transform: uppercase; letter-spacing: .5px; }
     .hd-cambios-cab .hd-close-cambios { margin-left: auto; font-size: 17px; color: #9ca3af; cursor: pointer; }
@@ -57,7 +58,7 @@
     .hd-cambio-antes { color: #9ca3af; text-decoration: line-through; word-break: break-word; }
     .hd-cambio-nuevo { color: #fff; font-weight: 700; word-break: break-word; }
     .hd-cambio-vacio { font-style: italic; font-weight: 400; text-decoration: none; color: #9ca3af; }
-    .hd-cambios-pie { padding: 6px 12px; background: #111827; border-top: 1px solid #374151; font-size: 11.5px; color: #cbd5e1; }
+    .hd-cambios-pie { padding: 4px 12px 8px; font-size: 11.5px; color: #cbd5e1; }
     @media (min-width: 769px) {
         /* Filas más juntas que el .admin-table general (12 px): la auditoría es una lista larga. */
         #historialDocumentosTable { border-spacing: 0 5px; }

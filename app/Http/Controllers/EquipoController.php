@@ -3259,6 +3259,13 @@ class EquipoController extends Controller
                     $data = [];
                     break;
             }
+
+            // La fecha de emision (de origen) de los documentos que la tienen: el visor la
+            // ofrece siempre, para ponerla a mano cuando la verificacion no la saco del PDF.
+            // Es 'date' (Carbon): se da como aaaa-mm-dd, que es lo que entiende el <input>.
+            if ($campoEmision = \App\Models\VerificacionDocumento::CAMPO_EMISION[$type] ?? null) {
+                $data['fecha_emision'] = $doc->{$campoEmision} ? $doc->{$campoEmision}->format('Y-m-d') : '';
+            }
         }
 
         return response()->json(['success' => true, 'data' => $data]);
@@ -3388,6 +3395,14 @@ class EquipoController extends Controller
             }
         }
 
+        // La fecha de emision es OPCIONAL (no toda la hoja la trae), pero si viene tiene que
+        // ser una fecha. Solo la de los documentos que la tienen (CAMPO_EMISION).
+        $campoEmision = \App\Models\VerificacionDocumento::CAMPO_EMISION[$type] ?? null;
+        if ($campoEmision && $request->filled('fecha_emision')
+            && \Illuminate\Support\Facades\Validator::make($request->all(), ['fecha_emision' => 'date'])->fails()) {
+            return response()->json(['success' => false, 'message' => 'La fecha de emisión no es válida.'], 422);
+        }
+
         $updateData = [];
 
         switch ($type) {
@@ -3447,6 +3462,11 @@ class EquipoController extends Controller
                 // Compraventa: no guarda fecha de vencimiento.
                 $updateData = [];
                 break;
+        }
+
+        // Solo si el panel la mando (un cliente viejo sin el campo no la borra). Vacia = sin fecha.
+        if ($campoEmision && $request->has('fecha_emision')) {
+            $updateData[$campoEmision] = $request->input('fecha_emision') ?: null;
         }
 
         // Filter only empty strings (NOT nulls, because we need to save nulls to clear management)

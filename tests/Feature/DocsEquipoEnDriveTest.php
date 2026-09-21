@@ -132,6 +132,36 @@ class DocsEquipoEnDriveTest extends MySqlTestCase
         $this->assertStringStartsWith('2027-01-15', (string) $equipo->documentacion()->first()->getRawOriginal('FECHA_ROTC'));
     }
 
+    public function test_el_visor_ofrece_y_guarda_la_fecha_de_emision(): void
+    {
+        // El panel del visor la trae siempre (título, póliza, ROTC y RACDA) para ponerla a mano
+        // cuando la verificación no la sacó del PDF. Es opcional y se puede borrar.
+        $equipo = $this->equipoConRotc();
+        Documentacion::where('ID_EQUIPO', $equipo->ID_EQUIPO)->update(['FECHA_ROTC' => '2027-01-15']);
+        $url = "/admin/equipos/{$equipo->ID_EQUIPO}";
+
+        $this->actingAs($this->usuario())->get("$url/metadata?type=rotc")
+            ->assertOk()->assertJsonPath('data.fecha_emision', '');
+        // La compraventa no tiene fecha de emisión: el panel no la ofrece.
+        $this->actingAs($this->usuario())->get("$url/metadata?type=adicional_2")
+            ->assertOk()->assertJsonMissingPath('data.fecha_emision');
+
+        $guardar = fn (array $extra) => $this->actingAs($this->usuario())
+            ->post("$url/update-metadata", ['doc_type' => 'rotc', 'fecha_vencimiento' => '2027-01-15'] + $extra);
+
+        $guardar(['fecha_emision' => '2026-01-15'])->assertOk();
+        $this->assertStringStartsWith('2026-01-15', (string) $equipo->documentacion()->first()->getRawOriginal('FECHA_EMISION_ROTC'));
+        $this->actingAs($this->usuario())->get("$url/metadata?type=rotc")->assertJsonPath('data.fecha_emision', '2026-01-15');
+
+        $guardar(['fecha_emision' => 'no-es-fecha'])->assertStatus(422)->assertJson(['message' => 'La fecha de emisión no es válida.']);
+        // Un panel viejo, sin el campo, no la borra.
+        $guardar([])->assertOk();
+        $this->assertNotNull($equipo->documentacion()->first()->getRawOriginal('FECHA_EMISION_ROTC'));
+        // Vaciarla la borra.
+        $guardar(['fecha_emision' => ''])->assertOk();
+        $this->assertNull($equipo->documentacion()->first()->getRawOriginal('FECHA_EMISION_ROTC'));
+    }
+
     /** El formulario de editar equipo con un ROTC nuevo adjunto. */
     private function editarConRotc(Equipo $equipo, ?string $fechaRotc = null)
     {

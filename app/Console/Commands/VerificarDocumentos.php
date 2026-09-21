@@ -221,11 +221,14 @@ class VerificarDocumentos extends Command
                     : $lector->mismoVehiculo($f->PLACA, $f->SERIAL_CHASIS, $leido);
                 // ROTC de flota: si este equipo tiene SU fila en la tabla, el documento lo ampara
                 // y el vencimiento que vale es el de esa fila (el que va al lado de su serial).
-                // Si el certificado de debajo es de otro vehiculo, su emision no es la de este.
+                // La emision del certificado de debajo solo es la de este equipo si el
+                // certificado es SUYO y del MISMO periodo: en el 49199 el de debajo vencia el
+                // 30/05/2026 y la fila el 03/07/2027 (es el certificado anterior, no el PDF).
                 if ($tipo === VerificacionDocumento::ROTC && ($fila = $lector->filaRotc($f->PLACA, $f->SERIAL_CHASIS, $leido))) {
-                    if ($deEsteVehiculo !== 'si') $leido['emision'] = null;
+                    if ($deEsteVehiculo !== 'si' || $leido['vence'] !== $fila['vence']) $leido['emision'] = null;
                     $leido['vence'] = $fila['vence'];
                     $leido['en_tabla'] = true;
+                    if ($fila['placa_distinta'] ?? false) $leido['placa_en_tabla'] = $fila['placa'];
                     $deEsteVehiculo = 'si';
                 }
                 if ($deEsteVehiculo === 'no') {
@@ -280,12 +283,13 @@ class VerificarDocumentos extends Command
                 'MOTIVO'      => $motivo ? mb_substr($motivo, 0, 255) : null,
                 'CARACTERES'  => mb_strlen($texto),
                 // Lo que la tarea no puede aplicar sola (PDF de otro vehiculo, leido a
-                // medias, sin confirmar de quien es, o el anterior) va al monton "para revisar".
+                // medias, sin confirmar de quien es, el anterior, una placa fuera de la lista del
+                // RACDA u otra placa en la tabla del ROTC) va al monton "para revisar".
                 // Solo cuando hay algo que decidir: si todo cuadra, no hay nada que mirar.
                 'A_MANO'      => $estado === VerificacionDocumento::DIFIERE
                     && (bool) (($leido['otra_placa'] ?? false) || ($leido['lectura_parcial'] ?? false)
                         || ($leido['sin_confirmar'] ?? false) || ($leido['fuera_de_lista'] ?? false)
-                        || ($leido['doc_anterior'] ?? false)),
+                        || ($leido['doc_anterior'] ?? false) || !empty($leido['placa_en_tabla'])),
                 // Los ilegibles y los fallidos se reintentan en esa noche hasta MAX_INTENTOS
                 // (Drive devuelve el documento vacio o a medias de vez en cuando); lo demas se
                 // lee una vez. El anexo de poliza de FLOTA sin fechas tambien: sus fechas salen
@@ -423,13 +427,21 @@ class VerificarDocumentos extends Command
         // "Fecha de Vencimiento" son rotulos que salen tambien en otros papeles del mismo
         // vehiculo. Si en LINK_ROTC hubiera por error su poliza, el vehiculo coincidiria, se
         // sacarian dos fechas y se escribirian en FECHA_ROTC como si tal cosa. Un ROTC trae su
-        // numero o se nombra a si mismo.
-        if (empty($leido['nro']) && !preg_match('/ROTC/i', $textoRotc)) {
+        // numero o se nombra a si mismo: "ROTC", "R.O.T.C." (la hoja de presentacion) o
+        // "Registro de Operadoras de Transporte de Carga" (Drive a veces devuelve solo esa parte).
+        if (empty($leido['nro']) && !preg_match('/\bR\.?\s?O\.?\s?T\.?\s?C\b|Operadoras\s+de\s+Transporte\s+de\s+Carga/iu', $textoRotc)) {
             return [VerificacionDocumento::ILEGIBLE,
                 'El documento enlazado no parece un ROTC (no trae el numero ni se nombra)', [], $leido];
         }
         if (!$leido['vence'] && !$leido['emision']) {
             return [VerificacionDocumento::ILEGIBLE, 'No se encontraron las fechas del ROTC en el documento', [], $leido];
+        }
+        // Su serial esta en la tabla pero con OTRA placa (ver filaRotc): una de las dos esta mal
+        // y la placa nunca la cambia la tarea. Nada que aplicar: lo decide una persona.
+        if (!empty($leido['placa_en_tabla'])) {
+            return [VerificacionDocumento::DIFIERE,
+                'La tabla del ROTC trae este serial con la placa ' . $leido['placa_en_tabla']
+                    . ' y la ficha dice ' . $f->PLACA . ': revisar cuál es la buena', [], $leido];
         }
         if ($anterior = $this->documentoAnterior($f->FECHA_ROTC, $leido)) return $anterior;
         $dif = [];

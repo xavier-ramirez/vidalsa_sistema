@@ -35,13 +35,14 @@ class CompresionPdfController extends Controller
     /**
      * La persona reviso el documento EN EL VISOR y guardo la ficha a mano: la fila queda como
      * revisada por ella (ver VerificacionDocumento::marcarRevisadoPor). Lo que el panel tiene
-     * ya lo guardo con su propia ruta (equipos.updateMetadata); aqui se pone lo que no tiene
-     * (las fechas de emision...) y se deja constancia en Control de Auditoría.
+     * ya lo guardo con su propia ruta (equipos.updateMetadata, incluida la fecha de emision);
+     * aqui se pone lo que no tiene (el titular del ROTC) y se deja constancia en Control de
+     * Auditoría.
      */
     public function marcarRevisado(Request $request, int $id, CorrectorFichaDocumento $corrector)
     {
         $reg = VerificacionDocumento::findOrFail($id);
-        // Los datos que el panel del visor no tiene (fechas de emision...), con el valor que
+        // Los datos que el panel del visor no tiene (el titular del ROTC), con el valor que
         // la persona dejo en su campo al guardar. Vacio = solo dar la fila por revisada.
         $valores = (array) $request->input('campos', []);
         $resultado = $corrector->ponerAMano($reg, $valores, $request->user());
@@ -61,8 +62,9 @@ class CompresionPdfController extends Controller
 
     /**
      * Las filas elegidas en la tabla (clic en la fila), dadas por revisadas de una vez, sin abrir
-     * el visor. La ficha NO cambia (ni los datos que el visor ofreceria poner): solo queda
-     * constancia de quien las reviso (ver VerificacionDocumento::marcarRevisadoPor).
+     * el visor. De cada una se ponen en la ficha SOLO las fechas que tiene vacias y el documento
+     * trae (CorrectorFichaDocumento::fechasVacias); lo demas no cambia. Queda constancia de quien
+     * las reviso (ver VerificacionDocumento::marcarRevisadoPor).
      */
     public function marcarRevisados(Request $request, CorrectorFichaDocumento $corrector)
     {
@@ -75,10 +77,13 @@ class CompresionPdfController extends Controller
         // Las que ya coinciden no se pueden elegir ni tienen nada que revisar: se dejan como estan.
         $filas = VerificacionDocumento::whereIn('ID_REGISTRO', array_unique($ids))
             ->where('ESTADO', '<>', VerificacionDocumento::COINCIDE)->get();
+        $fechasPuestas = 0;
         foreach ($filas as $reg) {
-            $corrector->ponerAMano($reg, [], $request->user());
+            $fechas = $corrector->fechasVacias($reg);
+            $resultado = $corrector->ponerAMano($reg, $fechas, $request->user());
+            $fechasPuestas += count($resultado['puestos'] ?? []);
             $hechas++;
         }
-        return response()->json(['success' => true, 'revisadas' => $hechas]);
+        return response()->json(['success' => true, 'revisadas' => $hechas, 'fechas' => $fechasPuestas]);
     }
 }

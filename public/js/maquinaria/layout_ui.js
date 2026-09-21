@@ -2218,6 +2218,12 @@ window.loadMetadata = async function () {
                 // resto de documentos que vencen, es obligatorio (fechaReq).
                 html += `<div style="${containerStyle}"><label for="meta_fec_venc_${ctx.equipoId}" style="${labelStyle}">Fecha Vencimiento</label><input type="date" id="meta_fec_venc_${ctx.equipoId}" name="fecha_vencimiento" value="${info.fecha_vencimiento || ''}" ${disabledAttr} ${fechaReq} autocomplete="off"></div>`;
             }
+            // Fecha de emision (de origen): la manda el servidor solo para los documentos que la
+            // tienen (titulo, poliza, ROTC y RACDA). Siempre a la vista, para ponerla a mano si
+            // la verificacion no la saco del PDF. Opcional: no toda hoja la trae.
+            if ('fecha_emision' in info) {
+                html += `<div style="${containerStyle}"><label for="meta_fec_emi_${ctx.equipoId}" style="${labelStyle}">Fecha de Emisión</label><input type="date" id="meta_fec_emi_${ctx.equipoId}" name="fecha_emision" value="${info.fecha_emision || ''}" ${disabledAttr} autocomplete="off"></div>`;
+            }
             container.innerHTML = html;
             // Aviso para quien quiera añadir algo al panel sin tocar este archivo (lo usa
             // Control de Auditoria -> Documentos para poner, bajo cada campo, lo que dice el
