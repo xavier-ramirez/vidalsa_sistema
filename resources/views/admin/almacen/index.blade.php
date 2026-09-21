@@ -192,11 +192,13 @@
                                      border-radius: 999px; white-space: nowrap; }
     /* Foto dentro de "Detalles del producto": cuadrada y centrada, con sus dos botones
        debajo. Mismo recuadro que la miniatura de la tabla cuando no hay foto. */
-    .alm-det-foto-caja { display: flex; flex-direction: column; align-items: center; gap: 8px; }
-    .alm-det-foto { width: 120px; height: 120px; border-radius: 12px; border: 1px solid #e2e8f0;
-                    background: #f8fafc; object-fit: cover; }
-    .alm-det-foto-sin { display: flex; align-items: center; justify-content: center; color: #cbd5e0; }
-    .alm-det-foto-sin .material-icons { font-size: 44px; }
+    /* Pequeña a propósito: la ficha es para consultar datos, no para mirar la foto. Va en
+       LÍNEA con sus botones (no encima) para no robarle alto al modal. */
+    .alm-det-foto-caja { display: flex; align-items: center; justify-content: center; gap: 10px; }
+    .alm-det-foto { width: 46px; height: 46px; border-radius: 9px; border: 1px solid #e2e8f0;
+                    background: #f8fafc; object-fit: cover; flex: 0 0 auto; cursor: zoom-in; }
+    .alm-det-foto-sin { display: flex; align-items: center; justify-content: center; color: #cbd5e0; cursor: default; }
+    .alm-det-foto-sin .material-icons { font-size: 22px; }
     .alm-det-foto-btns { display: flex; align-items: center; justify-content: center; gap: 6px; }
     .alm-det-foto-btn { display: inline-flex; align-items: center; gap: 5px; height: 30px; padding: 0 10px;
                         border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; font: inherit;
@@ -2270,7 +2272,8 @@
                  cambia aquí mismo: la imagen se convierte a WebP y se sube a Drive
                  (AlmacenController::subirFotoProducto); en la ficha solo vive el enlace. --}}
             <div class="alm-det-foto-caja">
-                <img id="almDetFotoImg" class="alm-det-foto" alt="Foto del producto" style="display:none;">
+                <img id="almDetFotoImg" class="alm-det-foto" alt="Foto del producto" style="display:none;"
+                     title="Ver la foto en grande" onclick="window.open(this.src, '_blank', 'noopener')">
                 <div id="almDetFotoSin" class="alm-det-foto alm-det-foto-sin"><i class="material-icons">inventory_2</i></div>
                 @can('almacen.productos')
                 <div class="alm-det-foto-btns">
