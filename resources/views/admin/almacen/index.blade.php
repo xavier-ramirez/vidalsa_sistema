@@ -198,18 +198,18 @@
        tocarla la abre en grande.
        flex: 0 0 auto: el cuerpo del modal es una columna flex con alto limitado y, sin esto,
        encogía la caja a lo alto y el círculo salía como un óvalo. */
-    .alm-det-foto-caja { position: relative; width: 88px; height: 88px; flex: 0 0 auto; margin: 0 auto; }
+    .alm-det-foto-caja { position: relative; width: 76px; height: 76px; flex: 0 0 auto; margin: 0 auto; }
     .alm-det-foto { display: block; width: 100%; height: 100%; border-radius: 50%; border: 1px solid #e2e8f0;
                     background: #f8fafc; object-fit: cover; cursor: zoom-in; box-sizing: border-box; }
     .alm-det-foto-sin { display: flex; align-items: center; justify-content: center; color: #cbd5e0; cursor: default; }
-    .alm-det-foto-sin .material-icons { font-size: 32px; }
+    .alm-det-foto-sin .material-icons { font-size: 28px; }
     .alm-det-foto-caja.editable .alm-det-foto { cursor: pointer; }
     /* pointer-events:none: el clic lo recibe la caja, que abre el selector de archivo. */
     .alm-det-foto-camara { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-                           width: 30px; height: 30px; border-radius: 50%; background: rgba(15, 23, 42, .55);
+                           width: 26px; height: 26px; border-radius: 50%; background: rgba(15, 23, 42, .55);
                            color: #fff; display: flex; align-items: center; justify-content: center;
                            pointer-events: none; transition: background .18s ease; }
-    .alm-det-foto-camara .material-icons { font-size: 16px; }
+    .alm-det-foto-camara .material-icons { font-size: 14px; }
     .alm-det-foto-caja.editable:hover .alm-det-foto-camara { background: rgba(15, 23, 42, .8); }
     .alm-det-foto-caja.subiendo .alm-det-foto-camara .material-icons { animation: alm-det-foto-gira 1s linear infinite; }
     @keyframes alm-det-foto-gira { to { transform: rotate(360deg); } }
@@ -365,6 +365,9 @@
        sigue moviendo la pagina de atras. Antes, al terminar las categorias, el modulo
        entero se iba hacia abajo solo (pedido del cliente, 16-09-2026). */
     .alm-panel-list.scroll { max-height:52vh; overflow-y:auto; overscroll-behavior:contain; }
+    /* La de "Distribución de Inventario" más alta: se ven más categorías sin desplazar (pedido
+       del cliente, 21-09-2026). La de "En otros almacenes" se queda con la de arriba. */
+    .alm-panel-list.scroll.alm-cat-list { max-height:64vh; }
     /* Aviso corto bajo un encabezado sin lista ("Sin datos…", "No tienes otros almacenes…"). */
     .alm-panel-nota { color:#64748b; font-size:12px; margin:6px 0 0 0; font-style:italic; line-height:1.4; }
     /* El wrapper solo se ve con contenido: el servidor lo llena al abrir y cada recarga lo
