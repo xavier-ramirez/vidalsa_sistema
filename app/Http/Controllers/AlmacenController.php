@@ -88,6 +88,9 @@ class AlmacenController extends Controller
             'updateProducto',
             // Botones + / × de la compatibilidad en "Detalles del producto".
             'agregarEquivalencia', 'quitarEquivalencia', 'opcionesEquipo', 'vincularEquipo', 'desvincularEquipo',
+            // Foto del producto: el @can de la vista solo esconde los botones; la puerta
+            // de verdad es esta, o la ruta quedaria abierta a cualquiera con el modulo.
+            'subirFotoProducto', 'borrarFotoProducto',
         ]);
         // destroyProducto: borrar un producto del catalogo exige almacen.nota.eliminar
         // (la misma clave que elimina Notas de Entrega) — decision del cliente: una
