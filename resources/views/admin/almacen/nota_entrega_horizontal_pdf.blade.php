@@ -126,10 +126,18 @@
                 // el codigo del producto.
                 $np      = $m->NUMERO_PARTE ?? null;
                 $destino = $destinoPorItem ? (($m->frente ?? null)?->NOMBRE_FRENTE ?? '') : '';
+                // Lo que VOLVIO de esta linea (mismo criterio que el vertical): se marca aqui
+                // para no tener que bajar al bloque del pie a buscar cual fue. La linea NO se
+                // tacha ni se cambia la cantidad entregada: eso es lo que se firmo.
+                // En la VISTA PREVIA los renglones todavía no son movimientos guardados (llegan
+                // como stdClass sin ID_MOVIMIENTO): ahí no hay nada devuelto que marcar.
+                $devuelto = ($m->ID_MOVIMIENTO ?? null)
+                    ? ($devoluciones ?? collect())->where('ID_MOVIMIENTO_RELACIONADO', $m->ID_MOVIMIENTO)->sum('CANTIDAD')
+                    : 0;
             @endphp
             <tr>
                 <td width="4%"  align="center"><font face="helvetica" size="8">{{ $i + 1 }}</font></td>
-                <td width="40%"><font face="helvetica" size="8">{{ $m->producto?->NOMBRE ?? '' }}@if($np) &nbsp;—&nbsp; {{ $np }}@endif</font></td>
+                <td width="40%"><font face="helvetica" size="8">{{ $m->producto?->NOMBRE ?? '' }}@if($np) &nbsp;—&nbsp; {{ $np }}@endif</font>@if($devuelto > 0)<font face="helvetica" size="7" color="#b91c1c"> &nbsp;(DEVUELTO: {{ $fmt($devuelto) }} {{ $m->producto?->UM ?? '' }})</font>@endif</td>
                 <td width="13%" align="center"><font face="helvetica" size="8">{{ $m->producto?->CODIGO ?? '' }}</font></td>
                 <td width="8%"  align="center"><font face="helvetica" size="8">{{ $fmt($m->CANTIDAD) }}</font></td>
                 <td width="6%"  align="center"><font face="helvetica" size="8">{{ $m->producto?->UM ?? '' }}</font></td>

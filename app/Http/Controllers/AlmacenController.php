@@ -296,6 +296,8 @@ class AlmacenController extends Controller
 
         return view('admin.almacen.index', [
             'almacenes'          => $almacenes,
+            // Pill de "Estado del despacho" en el menú Acciones (igual que en la bitácora).
+            'porRecibirPry'      => $this->porRecibirDeProyectos($almacenes),
             'almacenSel'         => $almacenSel,
             'productos'          => collect(),   // la tabla abre vacía; las filas llegan por AJAX
             'repartoInicial'     => collect(),
@@ -757,6 +759,24 @@ class AlmacenController extends Controller
      * es lo que ya se hace con las fotos del catalogo: una foto de telefono de 4 MB queda en
      * unas decenas de KB y la tabla del inventario no se vuelve lenta por las miniaturas.
      */
+    /**
+     * "Estado del despacho": notas que el general despacho y los almacenes de PROYECTO
+     * visibles todavia no terminan de recibir. Mismo criterio que "Por revisar" de la
+     * bandeja de Recepcion (Traspaso::ESTADOS_RECIBIBLES).
+     *
+     * Vive aqui porque el mismo numero sale en el menu Acciones de DOS pantallas —la
+     * bitacora y el inventario—: escrito dos veces, un dia dirian cosas distintas.
+     */
+    private function porRecibirDeProyectos($almacenes): int
+    {
+        $proyectos = $almacenes->where('TIPO', Almacen::TIPO_PROYECTO)->pluck('ID_ALMACEN');
+        if ($proyectos->isEmpty()) return 0;
+
+        return Traspaso::whereIn('ESTADO', Traspaso::ESTADOS_RECIBIBLES)
+            ->whereIn('ID_ALMACEN_DESTINO', $proyectos)
+            ->count();
+    }
+
     public function subirFotoProducto(Request $request, $id)
     {
         $request->validate([
@@ -1710,13 +1730,7 @@ class AlmacenController extends Controller
                 ->whereHas('almacenes', fn ($q) => $q->whereIn('almacenes.ID_ALMACEN', $visiblesIds))
                 ->orderBy('NOMBRE_FRENTE')->get(['ID_FRENTE', 'NOMBRE_FRENTE']);
 
-        // "Estado del despacho" del menú Acciones: notas que el general despachó y los
-        // almacenes de PROYECTO visibles todavía no terminan de recibir. Mismo criterio que
-        // "Por revisar" de la bandeja de Recepción (Traspaso::ESTADOS_RECIBIBLES).
-        $proyectos     = $almacenes->where('TIPO', Almacen::TIPO_PROYECTO)->pluck('ID_ALMACEN');
-        $porRecibirPry = $proyectos->isEmpty() ? 0 : Traspaso::whereIn('ESTADO', Traspaso::ESTADOS_RECIBIBLES)
-            ->whereIn('ID_ALMACEN_DESTINO', $proyectos)
-            ->count();
+        $porRecibirPry = $this->porRecibirDeProyectos($almacenes);
 
         return view('admin.almacen.movimientos', [
             'movimientos'     => $paginator,

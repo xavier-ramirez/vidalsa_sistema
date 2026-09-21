@@ -34,7 +34,8 @@
 
     /* De qué nota viene: una sola línea con su icono. Si el proyecto no cabe se corta con "…"
        y el texto entero queda en el title. */
-    #devMatModal .devm-nota { display:flex; align-items:center; gap:8px; min-width:0; font-size:13px; font-weight:500; }
+    /* Centrada: es el encabezado de la ficha (de qué nota se devuelve), no una lista. */
+    #devMatModal .devm-nota { display:flex; align-items:center; justify-content:center; gap:8px; min-width:0; font-size:13px; font-weight:500; }
     #devMatModal .devm-nota .material-icons { font-size:18px; color:#0067b1; flex-shrink:0; }
     #devMatModal .devm-nota-txt { min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     #devMatModal .devm-nota-num { font-weight:700; }

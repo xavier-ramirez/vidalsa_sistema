@@ -181,6 +181,15 @@
 
        El JS de esta pantalla solo ESCRIBE .style.* sobre campos de formulario y el canvas
        de etiquetas — nunca sobre estas celdas—, así que no hay interacción con el cambio. */
+    /* "Estado del despacho" es un <a> dentro de un menú de <button>s: sin esto saldría
+       subrayado y sin la fila alineada como los demás. La pill va pegada a la derecha. */
+    #almAccionesMenu .alm-acc-despacho { display: flex; align-items: center; gap: 10px; padding: 11px 14px;
+                                         color: #475569; background: transparent; border: none;
+                                         border-bottom: 1px solid #f1f5f9; width: 100%; text-align: left;
+                                         cursor: pointer; text-decoration: none; }
+    #almAccionesMenu .alm-acc-despacho:hover { background: #f8fafc; }
+    #almAccionesMenu .alm-acc-pill { margin-left: auto; font-size: 11px; font-weight: 800; padding: 2px 8px;
+                                     border-radius: 999px; white-space: nowrap; }
     /* Foto dentro de "Detalles del producto": cuadrada y centrada, con sus dos botones
        debajo. Mismo recuadro que la miniatura de la tabla cuando no hay foto. */
     .alm-det-foto-caja { display: flex; flex-direction: column; align-items: center; gap: 8px; }
@@ -1438,6 +1447,23 @@
                         <div style="background:#e0f2fe;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#0067b1;">analytics</i></div>
                         <span style="font-size:14px;font-weight:500;">Dashboard de consumo</span>
                     </button>
+                    {{-- Estado del despacho: abre la Reposición del general (la bandeja donde
+                         los almacenes de proyecto confirman lo que el general les despachó) y
+                         dice cuántas notas faltan por recibir. El MISMO item que en la
+                         bitácora, con la misma cuenta (AlmacenController::porRecibirDeProyectos)
+                         y la misma pill de la columna Estado (Traspaso::ESTADOS_META). --}}
+                    <a href="{{ route('almacen.recepcion.index', ['force' => 1]) }}" class="dropdown-item-custom alm-acc-despacho"
+                       title="Abre la Reposición del general"
+                       onclick="event.preventDefault(); document.getElementById('almAccionesMenu').style.display='none'; if(window.navigateTo) window.navigateTo(this.href); else window.location.href=this.href;">
+                        <div style="background:#e0f2fe;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#0067b1;">local_shipping</i></div>
+                        <span style="font-size:14px;font-weight:500;">Estado del despacho</span>
+                        @php
+                            [, $pillBg, $pillFg] = \App\Models\Traspaso::ESTADOS_META[($porRecibirPry ?? 0) > 0
+                                ? \App\Models\Traspaso::ESTADO_ENVIADO
+                                : \App\Models\Traspaso::ESTADO_RECIBIDO];
+                        @endphp
+                        <span class="alm-acc-pill" style="background:{{ $pillBg }};color:{{ $pillFg }};">{{ ($porRecibirPry ?? 0) > 0 ? $porRecibirPry . ' por recibir' : 'Al día' }}</span>
+                    </a>
                     {{-- Descargar Excel: disponible para cualquier usuario que pueda ver el
                          módulo. Construye la URL de export respetando los filtros de almacén
                          y categoría activos. --}}
@@ -2532,7 +2558,12 @@
                 {{-- DEPARTAMENTO (full width) --}}
                 <div style="margin-bottom:10px;">
                     <label class="alm-nota-label" for="almSalidaDepartamento">Departamento</label>
-                    <input type="text" id="almSalidaDepartamento" class="alm-nota-input" maxlength="150" placeholder="Ej: Mantenimiento" autocomplete="off">
+                    {{-- list: sugiere los departamentos que ESTE usuario ya usó (ver
+                         almDeptoRecordar). autocomplete="off" sigue puesto para que el
+                         navegador no meta además su propio historial. --}}
+                    <input type="text" id="almSalidaDepartamento" class="alm-nota-input" maxlength="150"
+                           placeholder="Ej: Mantenimiento" autocomplete="off" list="almSalidaDeptoLista">
+                    <datalist id="almSalidaDeptoLista"></datalist>
                 </div>
 
                 {{-- TRANSPORTE — lo imprime el bloque "Datos del vehículo / Datos del chofer" de la
@@ -6530,6 +6561,60 @@
     // dejamos al usuario en el modulo de inventario — NO abrimos visor in-page
     // (el flujo ya pidio aprobacion en el modal #almPreviewModal). El payload
     // viene del draft sin reconstruir, asi el PDF final = exactamente lo aprobado.
+    // ── Departamento: lo que cada quien usa ───────────────────────────────────
+    // Vive en el NAVEGADOR de cada usuario (localStorage), no en la base: es la costumbre de
+    // quien despacha, no un catálogo de la empresa. Por eso la clave lleva su id — si dos
+    // personas comparten el equipo, cada una ve lo suyo.
+    //
+    // Solo se recuerda lo que llegó a una nota REGISTRADA: escribir algo y arrepentirse no
+    // deja rastro. Y un valor usado UNA sola vez se descarta a los DEPTO_OLVIDO_DIAS: así un
+    // dedazo ("Mantenimeinto") deja de sugerirse solo, mientras que el que se repite se queda.
+    var DEPTO_CLAVE        = 'alm_deptos_u' + @json(auth()->user()?->ID_USUARIO ?? 0);
+    var DEPTO_TOPE         = 8;     // cuántos se ofrecen, de más usado a menos
+    var DEPTO_OLVIDO_DIAS  = 60;
+
+    function almDeptoLeer() {
+        try { return JSON.parse(localStorage.getItem(DEPTO_CLAVE)) || {}; } catch (e) { return {}; }
+    }
+
+    /** Ordenados por uso (y, a igualdad, por el más reciente), ya sin los olvidados. */
+    function almDeptoLista() {
+        var datos = almDeptoLeer();
+        var corte = Date.now() - DEPTO_OLVIDO_DIAS * 86400000;
+        return Object.keys(datos)
+            .filter(function (k) { return datos[k].n > 1 || datos[k].t > corte; })
+            .sort(function (a, b) { return (datos[b].n - datos[a].n) || (datos[b].t - datos[a].t); })
+            .slice(0, DEPTO_TOPE);
+    }
+
+    function almDeptoPintar() {
+        var lista = el('almSalidaDeptoLista');
+        if (!lista) return;
+        var esc = window.escapeHtml || function (x) { return String(x); };
+        lista.innerHTML = almDeptoLista().map(function (d) {
+            return '<option value="' + esc(d) + '"></option>';
+        }).join('');
+    }
+
+    /** Lo llama SOLO el registro de la salida, nunca el tecleo. */
+    function almDeptoRecordar(valor) {
+        var v = String(valor || '').replace(/\s+/g, ' ').trim();
+        if (v.length < 3) return;                     // ni vacío ni dos letras sueltas
+        try {
+            var datos = almDeptoLeer();
+            var corte = Date.now() - DEPTO_OLVIDO_DIAS * 86400000;
+            // Se limpia al escribir, no en un barrido aparte: así no crece sin fin.
+            Object.keys(datos).forEach(function (k) {
+                if (datos[k].n <= 1 && datos[k].t <= corte) delete datos[k];
+            });
+            datos[v] = { n: ((datos[v] && datos[v].n) || 0) + 1, t: Date.now() };
+            localStorage.setItem(DEPTO_CLAVE, JSON.stringify(datos));
+        } catch (e) { /* sin localStorage (modo privado): el campo sigue funcionando igual */ }
+        almDeptoPintar();
+    }
+
+    almDeptoPintar();
+
     window.almPreviewConfirmar = function () {
         if (!almSalidaDraft) { toast('Sin datos para registrar — vuelve a "Editar" y aprieta "Vista previa".', 'error'); return; }
         // Anti doble-submit: si ya hay un registro en curso, no dispares otro (evita movimiento
@@ -6556,6 +6641,9 @@
                 almCerrar('almSalidaModal');
                 if (almPreviewBlobUrl) { try { URL.revokeObjectURL(almPreviewBlobUrl); } catch (e) {} almPreviewBlobUrl = null; }
                 var frame0 = el('almPreviewFrame'); if (frame0) frame0.src = 'about:blank';
+                // El departamento se recuerda AQUI: la nota quedó registrada, así que ese
+                // texto es un departamento de verdad y no un borrador a medias.
+                almDeptoRecordar(almSalidaDraft && almSalidaDraft.departamento);
                 almSalidaDraft = null;
                 if (window.almSelClear) window.almSelClear();
                 toast(res.b.message || 'Movimiento registrado.');
