@@ -46,8 +46,9 @@ use Illuminate\Support\Facades\Log;
  * MANDA EL DOCUMENTO: lo que dice el PDF se pone en la ficha en cuanto se lee, este vacia o
  * diga otra cosa. NUNCA la placa ni el serial (App\Services\CorrectorFichaDocumento::CAMPOS),
  * que son lo que sirve para saber si el PDF es de este vehiculo, y NUNCA nada si el documento
- * es de otro vehiculo, se leyo a medias o no se pudo confirmar de quien es: eso queda en
- * Control de Auditoría para que lo mire una persona.
+ * es de otro vehiculo o es el anterior. Si se leyo a medias o no se pudo confirmar de quien es,
+ * solo las fechas que la ficha tiene vacias; el resto queda en Control de Auditoría para que
+ * lo mire una persona.
  *
  * Se revisa TODO lo que cuelgue de esos cuatro enlaces, sin mirar de que tipo de documento se
  * trate: si del texto no sale nada util —escaneos viejos, borrosos o papeles que no son el
@@ -260,6 +261,13 @@ class VerificarDocumentos extends Command
             }
         }
 
+        // Si una persona ya habia revisado este documento (se relee porque a la ficha le falta una
+        // fecha: VerificacionDocumento::condicionLeido), su decision se respeta: de esta lectura
+        // solo se ponen las fechas VACIAS y la fila vuelve a quedar como ella la dejo.
+        $revision = VerificacionDocumento::where('ID_EQUIPO', $f->ID_EQUIPO)->where('TIPO', $tipo)
+            ->where('DRIVE_ID', $driveId)->whereNotNull('APLICADO_POR')
+            ->first(['ESTADO', 'A_MANO', 'DIFERENCIAS', 'MOTIVO', 'APLICADO_POR', 'APLICADO_EN']);
+
         $reg = VerificacionDocumento::updateOrCreate(
             ['ID_EQUIPO' => $f->ID_EQUIPO, 'TIPO' => $tipo, 'DRIVE_ID' => $driveId],
             [
@@ -305,12 +313,17 @@ class VerificarDocumentos extends Command
 
         // MANDA EL DOCUMENTO: lo que dice el PDF se pone en la ficha, este vacia o diga otra
         // cosa. Nunca la placa ni el serial (CorrectorFichaDocumento::CAMPOS), y nunca si el
-        // PDF es de otro vehiculo, se leyo a medias o no se pudo confirmar de quien es.
-        // Con --no-rellenar no escribe nada: solo anota lo que encontro.
+        // PDF es de otro vehiculo; si se leyo a medias o no se pudo confirmar de quien es, solo
+        // las fechas que la ficha tiene vacias. Con --no-rellenar no escribe nada: solo anota.
         $puestos = [];
         if ($estado === VerificacionDocumento::DIFIERE && !$this->option('no-rellenar')) {
-            $resultado = $this->corrector->aplicar($reg->refresh());
+            $resultado = $this->corrector->aplicar($reg->refresh(), (bool) $revision);
             $puestos = $resultado['puestos'] ?? [];
+        }
+        // La revision de la persona vuelve a quedar como estaba (ver $revision, arriba). Si el
+        // archivo ya no esta o no se pudo leer, eso SI se ve: no se tapa con la revision vieja.
+        if ($revision && in_array($estado, [VerificacionDocumento::COINCIDE, VerificacionDocumento::DIFIERE], true)) {
+            $reg->refresh()->update($revision->only(['ESTADO', 'A_MANO', 'DIFERENCIAS', 'MOTIVO', 'APLICADO_POR', 'APLICADO_EN']));
         }
 
         $this->line(sprintf('%-9s %-10s %-11s %-12s %s', $f->ID_EQUIPO, $tipo,
@@ -353,8 +366,9 @@ class VerificarDocumentos extends Command
         // Sin fecha de vencimiento no se puede dar por revisada: es el dato que vigila la app.
         if (!$leido['vence']) {
             return [VerificacionDocumento::ILEGIBLE, match (true) {
-                // El anexo de flota solo trae la lista de equipos: la vigencia esta en el
-                // cuadro de la poliza principal, que es el que hay que enlazar para verificarla.
+                // El anexo de flota no trae "Desde / Hasta": sus fechas salen de la firma de la
+                // ultima pagina (LectorDocumentoPdf, vence_por_firma). Si llega aqui es que no
+                // se encontro esa firma; se reintenta como cualquier ilegible.
                 (bool) ($leido['flota'] ?? false) => ($leido['sin_confirmar'] ?? false)
                     ? 'Anexo de póliza de flota sin fechas, y no se pudo confirmar si ampara este equipo: míralo en el visor'
                     : 'Anexo de póliza de flota: ampara este equipo, pero no se encontró la fecha de la firma (última página)',

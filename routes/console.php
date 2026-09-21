@@ -63,9 +63,9 @@ Schedule::command('docs:comprimir --lote=5')
 
 // La caché vive en la base de datos (CACHE_STORE=database), y ahí una entrada caducada solo
 // se borra si alguien la vuelve a leer. Las cachés con la versión en la clave (el tablero del
-// menú, el historial de documentos) dejan una entrada nueva por usuario en cada cambio de
-// datos, de hasta 2,8 MB, y la vieja no se lee nunca más: se quedaban para siempre (medido el
-// 13-09-2026: 361 MB caducados). En tandas pequeñas para no bloquear la tabla en uso.
+// menú) dejan una entrada nueva por usuario en cada cambio de datos, de hasta 2,8 MB, y la
+// vieja no se lee nunca más: se quedaban para siempre (medido el 13-09-2026: 361 MB
+// caducados). En tandas pequeñas para no bloquear la tabla en uso.
 Schedule::call(function () {
     if (config('cache.default') !== 'database') return;
     $tabla = DB::connection(config('cache.stores.database.connection'))
@@ -74,3 +74,10 @@ Schedule::call(function () {
         $borradas = (clone $tabla)->where('expiration', '<', now()->getTimestamp())->limit(20)->delete();
     } while ($borradas === 20);
 })->hourly()->name('cache:purgar-caducadas')->withoutOverlapping();
+
+// Control de Auditoría: la lista del historial siempre hecha. Armarla cuesta 2-4 s y la paga
+// quien abre la pantalla si no está en caché; se rehace sola tras cada cambio
+// (HistorialDocumentosController::programarCalentado), pero no tras un despliegue ni cuando
+// caduca. Esto la deja lista en esos casos; si ya está al día no hace nada.
+Schedule::call(fn () => app(\App\Http\Controllers\HistorialDocumentosController::class)->calentar())
+    ->everyFiveMinutes()->name('historial-documentos:calentar')->withoutOverlapping(10);

@@ -86,7 +86,7 @@
     .cpdf-extra-ficha { font-size: 11.5px; color: #94a3b8; margin-top: 1px; }
     .cpdf-extra input[type="date"], .cpdf-extra input[type="text"] { width: 100%; box-sizing: border-box; margin: 6px 0; height: 32px;
         padding: 4px 8px; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: #fff; font-size: 12.5px; }
-    .cpdf-extra label { display: flex; align-items: center; gap: 6px; cursor: pointer; color: #e2e8f0; }
+    .cpdf-extra-nota { font-size: 11.5px; color: #cbd5e1; }
     .cpdf-pista { margin-top: 5px; padding: 5px 8px; border-radius: 6px; background: rgba(37, 99, 235, .12); border: 1px solid rgba(96, 165, 250, .25);
                   font-size: 11.5px; color: #94a3b8; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
     .cpdf-pista b { color: #e2e8f0; font-weight: 700; word-break: break-word; }
@@ -226,6 +226,21 @@
         \App\Models\VerificacionDocumento::SIN_ARCHIVO => 'Sin archivo en Drive',
         \App\Models\VerificacionDocumento::ERROR       => 'Con error',
     ];
+    // Los estados de la tabla llevan su cuenta, y los que no tienen ninguna fila no se
+    // ofrecen: elegirlos daba la lista vacía y parecía que el filtro no hacía nada. El que
+    // esté elegido se queda siempre (el desplegable saca de aquí su nombre).
+    if (isset($resumenDocs)) {
+        foreach ([\App\Models\VerificacionDocumento::DIFIERE, \App\Models\VerificacionDocumento::COINCIDE,
+                  \App\Models\VerificacionDocumento::ILEGIBLE, \App\Models\VerificacionDocumento::SIN_ARCHIVO,
+                  \App\Models\VerificacionDocumento::ERROR] as $estadoTabla) {
+            $n = (int) ($resumenDocs[$estadoTabla] ?? 0);
+            if ($n === 0 && $estadoDoc !== $estadoTabla) {
+                unset($estadosDoc[$estadoTabla]);
+            } else {
+                $estadosDoc[$estadoTabla] .= ' (' . number_format($n, 0, ',', '.') . ')';
+            }
+        }
+    }
     $tiposDoc = \App\Models\VerificacionDocumento::NOMBRES;
     // Los desplegables son iguales salvo su lista: se pintan con el mismo molde. Cada pestaña
     // filtra por lo suyo (la de compresion, por documento; la de documentos, por estado y tipo).
@@ -441,10 +456,11 @@
                 <div>
                     @if ($activa)
                         <strong>Lectura automática activa</strong>
-                        <span>{{ ucfirst($horarioLectura) }}, hora {{ $zona === 'America/Caracas' ? 'de Venezuela' : $zona }} (ahora {{ $horaApp->format('g:i a') }}). Nunca cambia placa ni serial.</span>
+                        {{-- Corto a proposito. La zona solo se nombra si el servidor NO esta en la de Venezuela. --}}
+                        <span>{{ ucfirst($horarioLectura) }}{{ $zona !== 'America/Caracas' ? ' (' . $zona . ')' : '' }} · no toca placa ni serial.</span>
                         {{-- A cualquier hora: arranca ya y relee tambien los "No se pudo leer". --}}
                         @if ($lecturaPedida)
-                            <span class="cpdf-ahora-pedida">Última revisión pedida a las {{ \Carbon\Carbon::parse($lecturaPedida)->format('g:i a') }}: corre hasta que no quede nada.</span>
+                            <span class="cpdf-ahora-pedida">Pedida: {{ \Carbon\Carbon::parse($lecturaPedida)->format('g:i a') }} (en curso).</span>
                         @endif
                         <button type="button" class="btn-primary-maquinaria cpdf-ahora" onclick="window.cpdfLeerAhora(this)">
                             <i class="material-icons">play_arrow</i> Revisar ahora
@@ -497,7 +513,7 @@
                      "las 12" son las de Venezuela; si la zona fuera otra, se nombra. --}}
                 @if ($activa && $ghostscript)
                     <strong>Tarea nocturna activa</strong>
-                    <span>{{ ucfirst($horarioCompresion) }}, hora {{ $zona === 'America/Caracas' ? 'de Venezuela' : $zona }} (ahora {{ $horaApp->format('g:i a') }}). Si no queda nada por comprimir, no arranca.</span>
+                    <span>{{ ucfirst($horarioCompresion) }}{{ $zona !== 'America/Caracas' ? ' (' . $zona . ')' : '' }} · solo si hay algo por comprimir.</span>
                 @elseif (!$activa)
                     <strong>Tarea nocturna apagada</strong>
                     <span>{{ ucfirst($motivoActiva) }}.</span>
@@ -674,7 +690,7 @@
             window._pdfVerif.extras = [];
             // Lecturas guardadas antes de la regla del PDF ANTERIOR (VerificacionDocumento::
             // documentoAnterior): si el documento vence antes de lo que ya dice la ficha, es el
-            // viejo y nada suyo se ofrece para poner (ni con "Usar" ni con casilla marcada).
+            // viejo y nada suyo se ofrece para poner (ni con "Usar" ni en los campos de abajo).
             var dv = VENCE[window._pdfVerif.tipo] && dif[VENCE[window._pdfVerif.tipo]],
                 fv = cont.querySelector('[name="fecha_vencimiento"]'),
                 anterior = !!(dv && dv.documento && fv && fv.value
@@ -723,28 +739,25 @@
             if (lista.childNodes.length) aviso.appendChild(lista);
 
             // Lo que el panel no tiene (fechas de emision, titular del ROTC): su propio campo,
-            // relleno con lo que dice el documento, y una casilla. Al guardar se pone en la ficha
-            // lo que quede marcado; sin esto se perderia al dar la fila por revisada.
-            otras.forEach(function (o) {
+            // relleno con lo que dice el documento. Al GUARDAR se pone en la ficha lo que diga el
+            // campo, sin casilla que marcar (lo pidio el cliente); vaciarlo = no ponerlo. Sin esto
+            // se perderia al dar la fila por revisada.
+            // Del PDF ANTERIOR no se ofrece nada: es el viejo y dejaria la ficha peor.
+            if (!anterior) otras.forEach(function (o) {
                 var campo = o[0], d = o[1], valorDoc = o[2];
-                var inp = document.createElement('input'), lab = document.createElement('label'),
-                    chk = document.createElement('input');
+                var inp = document.createElement('input');
                 inp.type = /^FECHA_/.test(campo) ? 'date' : 'text';
                 inp.value = valorDoc;
-                chk.type = 'checkbox';
-                // Marcada solo si la lectura es fiable. Si el PDF se leyo a medias, no se
-                // confirmo de que vehiculo es o es de otro, lo del documento podria dejar la
-                // ficha PEOR: se pone solo si la persona lo marca tras mirarlo en el PDF.
-                chk.checked = !!v.fiable && !anterior;
-                lab.append(chk, document.createTextNode(anterior ? ' Poner en la ficha (es del PDF anterior: no lo marques)'
-                    : v.fiable ? ' Poner en la ficha'
-                    : ' Poner en la ficha (la lectura no es segura: márcalo solo si lo compruebas en el PDF)'));
                 aviso.appendChild(cpdfNodo('div', 'cpdf-extra', [
                     cpdfNodo('div', 'cpdf-extra-tit', d.etiqueta || campo),
                     cpdfNodo('div', 'cpdf-extra-ficha', 'Ficha: ' + (d.ficha ? cpdfFecha(d.ficha) : 'vacío') + ' · documento:'),
-                    inp, lab,
+                    inp,
+                    // Si no se confirmo de que vehiculo es (o se leyo a medias), se avisa: quien
+                    // guarda debe haberlo visto en el PDF.
+                    cpdfNodo('div', 'cpdf-extra-nota', v.fiable ? 'Se pone en la ficha al guardar.'
+                        : 'Se pone al guardar. Lectura no segura: confírmalo en el PDF o vacía el campo.'),
                 ]));
-                window._pdfVerif.extras.push({ campo: campo, input: inp, check: chk });
+                window._pdfVerif.extras.push({ campo: campo, input: inp });
             });
             cont.insertAdjacentElement('afterbegin', aviso);
         });
@@ -754,7 +767,7 @@
             // El aviso lo da esta pantalla al terminar (uno solo): el del visor se cancela.
             e.preventDefault();
             var id = window._pdfVerif.id, campos = {};
-            (window._pdfVerif.extras || []).forEach(function (x) { if (x.check.checked) campos[x.campo] = x.input.value; });
+            (window._pdfVerif.extras || []).forEach(function (x) { if (x.input.value.trim() !== '') campos[x.campo] = x.input.value.trim(); });
             window._pdfVerif = null;
             window.apiFetch(URL_REVISADO.replace(/\/0\/revisado$/, '/' + id + '/revisado'), {
                 method: 'POST',

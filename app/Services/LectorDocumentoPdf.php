@@ -315,7 +315,7 @@ class LectorDocumentoPdf
     /**
      * Titulo de propiedad (Certificado de Registro de Vehiculo del INTT): propietario, placa,
      * numero de documento y la fecha en que se emitio ("Dado a los 3 dias del mes de OCTUBRE
-     * de 2018").
+     * de 2018" en el formato viejo; "12 FEBRERO 2026" en la fila de datos del nuevo).
      */
     private function extraerPropiedad(string $plano): array
     {
@@ -340,6 +340,19 @@ class LectorDocumentoPdf
         if (preg_match('/Dado\s+a\s+los:?\s*(\d{1,2})\D{1,40}?de:?\s*([A-ZÁÉÍÓÚa-záéíóú]{4,12})\D{0,12}(\d{4})/ui', $plano, $m)) {
             $datos['emision'] = $this->fechaDeMes($m[1], $m[2], $m[3]);
         }
+        // Formato NUEVO del INTT (visto en los de 2025-2026): no trae "Dado a los". La fecha va
+        // en la fila de datos del vehiculo, detras del uso ("PRIVADO  12 FEBRERO 2026"), en
+        // MAYUSCULAS y sin "de"; por eso sin /i: la prosa de la hoja si lleva "de" y minusculas
+        // ("Gaceta Oficial ... de fecha 29 de agosto de 2018") y no es la emision.
+        if (!$datos['emision'] && preg_match('/(?<!\d)(\d{1,2})\s+(' . implode('|', array_keys(self::MESES)) . ')\s+(\d{4})\b/u', $plano, $m)) {
+            $datos['emision'] = $this->fechaDeMes($m[1], $m[2], $m[3]);
+        }
+        // Respaldo del mismo formato: la linea de control del pie empieza por esa fecha
+        // ("20260212/EL/PRS/1/1/<numero>/...").
+        if (!$datos['emision'] && preg_match('/(?<!\d)(20\d{2})(\d{2})(\d{2})\/[A-Z]{2}\/[A-Z]{3}\//', $plano, $m)
+            && checkdate((int) $m[2], (int) $m[3], (int) $m[1])) {
+            $datos['emision'] = sprintf('%s-%s-%s', $m[1], $m[2], $m[3]);
+        }
         return $datos;
     }
 
@@ -356,6 +369,9 @@ class LectorDocumentoPdf
         // o "Vigencia del Seguro: X al Y" (Piramide). El reconocimiento parte la tabla, asi que
         // el rotulo y sus fechas pueden quedar en lineas distintas: se busca la PAREJA de fechas.
         $f = self::RE_FECHA;
+        // ¿La vigencia encontrada es la de la POLIZA? La del recibo ("VIGENCIA DEL RECIBO") es un
+        // periodo de pago: no sirve de fecha de origen (ver el respaldo de la emision, abajo).
+        $vigenciaDePoliza = false;
         // Tras "Hasta" pueden venir otros rotulos antes de su fecha ("Hasta \nFrecuencia de
         // Pago: Sucursal: 1/12/2026"), pero ninguna otra cifra: [^\d] no se salta una fecha.
         // Entre las dos de la vigencia puede ir "al", "hasta" o un guion ("16/01/2026 - 16/01/2027").
@@ -363,6 +379,7 @@ class LectorDocumentoPdf
             || preg_match('/Vigencia[^\r\n]{0,45}\R?[^\d\r\n]{0,15}' . $f . '\s*(?:al|a|hasta|-|–)\s*' . $f . '/ui', $plano, $m)) {
             $datos['desde'] = $this->fecha($m[1]);
             $datos['vence'] = $this->fecha($m[2]);
+            $vigenciaDePoliza = !preg_match('/RECIBO/ui', $m[0]);
         } else {
             // Respaldo para las que separan los rotulos de sus valores ("Desde : Desde:" en una
             // linea y las fechas mas abajo) pero dejan el vencimiento pegado a su rotulo:
@@ -387,10 +404,18 @@ class LectorDocumentoPdf
             $datos['vence'] = date('Y-m-d', strtotime($firma . ' +1 year'));
             $datos['vence_por_firma'] = true;
         }
-        // La emision solo se toma si esta pegada a su rotulo: en las hojas donde el
-        // reconocimiento la separa, cualquier otra fecha de la pagina ocuparia su lugar.
-        if (preg_match('/Fecha\s*(?:de\s*)?Emisi[oó]n:?\s*' . $f . '/ui', $plano, $m)) {
+        // La emision es la PRIMERA fecha despues de su rotulo. Entre los dos solo puede haber
+        // texto SIN cifras: el reconocimiento a veces pone los rotulos juntos y los valores en
+        // la linea de abajo ("Fecha Emisión: Hora Emisión: Vigencia\n17/6/2025", medido el
+        // 21-09-2026), y sin cifras en medio nunca se salta a otra fecha ni a la hora.
+        if (preg_match('/Fecha\s*(?:de\s*)?Emisi[oó]n:?[^\d]{0,30}?' . $f . '/ui', $plano, $m)) {
             $datos['emision'] = $this->fecha($m[1]);
+        }
+        // Sin rotulo de emision (los cuadros de Piramide solo dicen "VIGENCIA DEL SEGURO:
+        // 12/08/2026 al 09/06/2027"), la fecha de origen es el INICIO de la vigencia de la poliza
+        // (regla del cliente, 21-09-2026; donde vienen las dos, coinciden).
+        if (!$datos['emision'] && $vigenciaDePoliza) {
+            $datos['emision'] = $datos['desde'];
         }
         // El numero de poliza lleva digitos; sin exigirlos, "Cuadro Poliza Recibo" daba "RECIBO".
         if (preg_match('/P[oó]liza\s*(?:Nro|N[°ºo]|Numero|N[uú]mero)?\.?:?\s*([A-Z0-9][A-Z0-9\-\.\/]{5,38})/ui', $plano, $m)

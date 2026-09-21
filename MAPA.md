@@ -107,13 +107,23 @@ lo sensible dentro de `can:super.admin`.
 **Documentos (Control de Auditoría).** Cada equipo tiene título, póliza, ROTC y RACDA en
 `documentacion` (+ sus fechas). `docs:verificar-documentos` los lee con OCR y compara:
 - **Manda el documento**: lo que dice el PDF se escribe en la ficha… salvo **placa y serial**
-  (nunca), PDF de otro vehículo, leído a medias, sin confirmar, o **PDF anterior**
-  (`VerificacionDocumento::documentoAnterior`: vence >45 días antes que la ficha → no se toca).
-- Lo que no puede resolver la tarea queda "para revisar a mano" en el visor.
+  (nunca), PDF de otro vehículo o **PDF anterior** (`VerificacionDocumento::documentoAnterior`:
+  vence >45 días antes que la ficha → no se toca). Si se leyó a medias o no se confirmó el
+  vehículo, solo se ponen las **fechas que la ficha tiene vacías** (emisión y vencimiento).
+- Lo que no puede resolver la tarea queda "para revisar a mano" en el visor. Una fila que ya
+  revisó una persona, al releerse, solo recibe fechas vacías y sigue como ella la dejó.
+- Un documento cargado al que le falta en la ficha su fecha de emisión o de vencimiento se
+  **relee al pulsar "Revisar ahora"** (una vez por pulsación, NO cada noche: hay PDF que nunca
+  la traen); con sus fechas no se relee.
+- Fecha de emisión: título viejo "Dado a los…", título nuevo del INTT "12 FEBRERO 2026" (o la
+  línea de control "20260212/EL/…"); póliza "Fecha de Emisión" o, sin ella, el inicio de la
+  vigencia del SEGURO (nunca la del recibo); anexo de flota, la fecha de su firma.
 - Horarios en **constantes**: `VerificarDocumentos::HORARIO` (20:00–00:00, 4 lectores en
   paralelo con `--parte/--de`) y `ComprimirDocumentos::HORARIO` (02:00–05:00). Sin trabajo, el
   programador no lanza nada. Botón **"Revisar ahora"** = `pedirAhora()` (caché 12 h).
 - Un "No se pudo leer" se vuelve a intentar 3 veces esa noche y **una vez por noche** después.
+- La lista del Historial se deja hecha tras cada cambio y cada 5 min (`historial-documentos:calentar`),
+  una por alcance de frentes, no por usuario: abrir el módulo nunca la reconstruye.
 - En el Historial, la **subida de un PDF y los datos guardados con ella salen en una sola
   fila** (misma ficha, documento, autor y <2 min).
 
@@ -138,8 +148,13 @@ la unidad (`FOTO_EQUIPO`, hoy sin pantalla que la suba). Una ficha = modelo + a�
 congelado por nota). Cada presentación (UM) es un producto aparte: la conversión es manual.
 Deshacer un movimiento es un borrado **duro** a propósito.
 - **Foto del producto** (`productos_inventario.FOTO`): miniatura a la izquierda de la
-  descripción; se sube desde "Detalles del producto" y exige `almacen.productos`. El código del
-  producto **no tiene columna**: va dentro de la descripción, pequeño y encima del nombre.
+  descripción; se sube desde "Detalles del producto" (círculo con la cámara siempre a la vista; antes de subir se
+  encuadra en el recorte compartido con el Catálogo, `partials/recorte_foto`) y exige
+  `almacen.productos`. Tocar la miniatura la abre en grande (`almVerFoto`). Va a una carpeta
+  **privada** de Drive (`google.product_folder`): la cuenta del sistema tiene que ser editora, o
+  Drive da 403. El navegador la recibe por `/storage/google/{id}` con sesión, nunca el enlace de
+  Drive. El código del producto **no tiene columna**: va dentro de la descripción, pequeño y
+  encima del nombre.
 - **Devoluciones**: una `DEVOLUCION` queda ligada a la `SALIDA` de su nota
   (`ID_MOVIMIENTO_RELACIONADO`). En el PDF, la línea devuelta se marca con `(DEVUELTO: N UM)`
   y al pie va el bloque con fecha y motivo. El cuerpo firmado **no se altera** (no se tacha ni

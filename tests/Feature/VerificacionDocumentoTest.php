@@ -1189,10 +1189,8 @@ Dado a los: 3 días del mes de: OCTUBRE de: 2018
             ->where('d.ID_EQUIPO', $equipo)->count(), 'Vuelve a la cola.');
 
         // La relectura trae la ultima pagina: ahora si hay fechas.
-        $this->lectorFalso("TEXTO ANEXO
-" . $this->textoPolizaFlota([$serial])
-            . "En consecuencia de lo cual se firma en la ciudad de CARACAS a los 08 días del mes de Abril del año 2026.
-");
+        $this->lectorFalso("TEXTO ANEXO\n" . $this->textoPolizaFlota([$serial])
+            . "En consecuencia de lo cual se firma en la ciudad de CARACAS a los 08 días del mes de Abril del año 2026.\n");
         $reg = $this->verificar($equipo, VerificacionDocumento::POLIZA);
 
         $this->assertNotSame(VerificacionDocumento::ILEGIBLE, $reg->ESTADO);
@@ -1457,5 +1455,102 @@ hoja sin datos que sirvan
         // La direccion vieja sigue sirviendo: lleva a la pestaña.
         $this->actingAs($this->superAdmin())->get(route('compresion-pdf.index'))
             ->assertRedirectContains('pestana=compresion');
+    }
+
+    // ── Fechas de emision (21-09-2026) ───────────────────────────────────────────────────
+
+    public function test_el_titulo_del_formato_nuevo_del_intt_da_su_fecha_de_emision(): void
+    {
+        // Sin "Dado a los": la fecha va en la fila de datos, en MAYUSCULAS y sin "de". La de la
+        // Gaceta del reverso ("de fecha 29 de agosto de 2018") no es la emision.
+        $lector = app(LectorDocumentoPdf::class);
+        $texto = "según lo establecido en Gaceta Oficial N° 41.470 de fecha 29 de agosto de 2018. \n"
+            . "CAMIONETA PICK-UP D/CABINA CARGA *2026* \n5 2 2105 1050 KGS PRIVADO  12 FEBRERO 2026 \n";
+        $this->assertSame('2026-02-12', $lector->extraer(LectorDocumentoPdf::PROPIEDAD, $texto)['emision']);
+
+        // Respaldo: la linea de control del pie empieza por la fecha.
+        $pie = "20260213/EL/PRS/1/1/260110643476/J6E5C6O/20260213/092614 \n";
+        $this->assertSame('2026-02-13', $lector->extraer(LectorDocumentoPdf::PROPIEDAD, $pie)['emision']);
+    }
+
+    public function test_la_emision_de_la_poliza_se_lee_aunque_el_rotulo_quede_lejos_de_su_valor(): void
+    {
+        // El escaneo junta los rotulos en una linea y deja los valores en la de abajo.
+        $d = app(LectorDocumentoPdf::class)->extraer(LectorDocumentoPdf::POLIZA,
+            "DATOS DE LA PÓLIZA \nFecha Emisión: Hora Emisión: Vigencia \n17/6/2025 \n9:22:16a. m. Desde 17/06/2025 Hasta 17/6/2026 \n");
+        $this->assertSame('2025-06-17', $d['emision']);
+        $this->assertSame('2026-06-17', $d['vence']);
+    }
+
+    public function test_sin_rotulo_de_emision_la_poliza_toma_el_inicio_de_su_vigencia(): void
+    {
+        $lector = app(LectorDocumentoPdf::class);
+        // Piramide: solo "VIGENCIA DEL SEGURO".
+        $d = $lector->extraer(LectorDocumentoPdf::POLIZA, "VIGENCIA DEL SEGURO: \n12/08/2026 al 09/06/2027 \nSUCURSAL: CARACAS \n");
+        $this->assertSame('2026-08-12', $d['emision']);
+        // La del RECIBO es un periodo de pago: no es la fecha de origen de la poliza.
+        $d = $lector->extraer(LectorDocumentoPdf::POLIZA, "VIGENCIA DEL RECIBO: 12/08/2026 al 09/12/2026 \n");
+        $this->assertNull($d['emision']);
+    }
+
+    public function test_sin_confirmar_el_vehiculo_se_ponen_las_fechas_vacias_y_nada_mas(): void
+    {
+        // No se lee ni placa ni serial: el titular distinto NO se pone (lo decide una persona),
+        // pero la fecha de emision que la ficha tiene vacia SI: no pisa nada.
+        [$equipo] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'TRANSPORTE MILENUIM 0210, CA']);
+        $this->lectorFalso("INTT \nCertificado de Registro de Vehículo a: \nTRANSPORTE MILENIUM 0210 C.A \n"
+            . "Dado a los: 3 días del mes de: OCTUBRE de: 2018 \n");
+
+        $reg = $this->verificar($equipo, VerificacionDocumento::PROPIEDAD);
+
+        $ficha = $this->ficha($equipo);
+        $this->assertSame('2018-10-03', substr((string) $ficha->FECHA_EMISION_PROPIEDAD, 0, 10));
+        $this->assertSame('TRANSPORTE MILENUIM 0210, CA', $ficha->NOMBRE_DEL_TITULAR, 'Lo demás no se toca.');
+        $this->assertTrue($reg->A_MANO, 'El titular sigue para revisar.');
+        $this->assertArrayHasKey('NOMBRE_DEL_TITULAR', $reg->DIFERENCIAS);
+        $this->assertArrayNotHasKey('FECHA_EMISION_PROPIEDAD', $reg->DIFERENCIAS, 'La fecha ya está puesta.');
+    }
+
+    public function test_lo_que_no_tiene_su_fecha_se_relee_al_pulsar_revisar_ahora(): void
+    {
+        [$sinFecha, $placa] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'CONSTRUCTORA VIDALSA 27, C.A']);
+        [$conFecha, $placa2] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'CONSTRUCTORA VIDALSA 27, C.A',
+            'FECHA_EMISION_PROPIEDAD' => '2018-10-03']);
+        // El PDF no deja leer la fecha: la ficha se queda sin ella.
+        $this->lectorFalso($this->textoTitulo('CONSTRUCTORA VIDALSA 27, C.A', $placa, 'sin fecha legible'));
+        $this->verificar($sinFecha, VerificacionDocumento::PROPIEDAD);
+        $this->lectorFalso($this->textoTitulo('CONSTRUCTORA VIDALSA 27, C.A', $placa2));
+        $this->verificar($conFecha, VerificacionDocumento::PROPIEDAD);
+
+        $this->assertFalse($this->enLaCola($sinFecha, VerificacionDocumento::PROPIEDAD), 'Ya se leyó.');
+        // Otra noche SIN pulsar el boton: no se relee (hay PDF que nunca traen la fecha).
+        \Carbon\Carbon::setTestNow(now()->addDay());
+        $this->assertFalse($this->enLaCola($sinFecha, VerificacionDocumento::PROPIEDAD), 'Sin el botón no se relee.');
+
+        // "Revisar ahora": vuelve a la cola lo que sigue sin su fecha, y solo eso.
+        \Carbon\Carbon::setTestNow(now()->addMinute());
+        \App\Console\Commands\VerificarDocumentos::pedirAhora();
+        $this->assertTrue($this->enLaCola($sinFecha, VerificacionDocumento::PROPIEDAD));
+        $this->assertFalse($this->enLaCola($conFecha, VerificacionDocumento::PROPIEDAD), 'Con sus fechas no se relee.');
+        \Carbon\Carbon::setTestNow();
+    }
+
+    public function test_lo_revisado_por_una_persona_solo_recibe_las_fechas_vacias(): void
+    {
+        [$equipo, $placa] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'MODAVENCA HOME, C.A.']);
+        // Primera lectura, sin fecha legible; una persona la revisa y deja el titular como está.
+        $this->lectorFalso($this->textoTitulo('JESUS VIDAL SALAZAR ACEVEDO', $placa, 'sin fecha legible'));
+        $admin = $this->superAdmin();
+        $this->verificarSinAplicar($equipo, VerificacionDocumento::PROPIEDAD)->marcarRevisadoPor($admin);
+
+        // Al releerla (le falta la fecha), el lector ya la encuentra.
+        $this->lectorFalso($this->textoTitulo('JESUS VIDAL SALAZAR ACEVEDO', $placa));
+        $reg = $this->verificar($equipo, VerificacionDocumento::PROPIEDAD);
+
+        $ficha = $this->ficha($equipo);
+        $this->assertSame('2018-10-03', substr((string) $ficha->FECHA_EMISION_PROPIEDAD, 0, 10));
+        $this->assertSame('MODAVENCA HOME, C.A.', $ficha->NOMBRE_DEL_TITULAR, 'Su decisión se respeta.');
+        $this->assertSame($admin->getKey(), (int) $reg->APLICADO_POR, 'Sigue como revisada por ella.');
+        $this->assertSame(VerificacionDocumento::COINCIDE, $reg->ESTADO);
     }
 }

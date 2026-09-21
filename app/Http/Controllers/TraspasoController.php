@@ -136,7 +136,7 @@ class TraspasoController extends Controller
         ) {
             return redirect()->route('almacen.recepcion.nueva');
         }
-        // Si el general entra igual a la bandeja (Acciones → "Estado del despacho" del
+        // Si el general entra igual a la bandeja (Acciones → "Despachos" del
         // Historial), abre en el primer almacén de PROYECTO: es donde llega lo que el general
         // despachó. Con el suyo preseleccionado la bandeja saldría vacía.
         if ($idDef && !$bandeja->contains('ID_ALMACEN', (int) $idDef)) {

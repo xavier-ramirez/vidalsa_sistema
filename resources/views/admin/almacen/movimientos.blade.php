@@ -613,7 +613,7 @@
        CSS el estado se va solo cuando el elemento se oculta.
        De paso, el mismo bloque de ~230 caracteres ya no se copia en cada item. */
     /* border-box: con width:100% + padding el item medía 24px más que el menú y su overflow
-       recortaba lo del borde derecho (la pill de "Estado del despacho"). nowrap: el menú se
+       recortaba lo del borde derecho (la pill de "Despachos"). nowrap: el menú se
        ensancha al texto en vez de partirlo en dos renglones. */
     .alm-mov-accion {
         width: 100%;
@@ -634,12 +634,12 @@
         font-weight: 500;
         cursor: pointer;
         text-align: left;
-        /* Los items <a> (Historial de Notas, Estado del despacho): sin esto saldrian subrayados. */
+        /* Los items <a> (Historial de Notas, Despachos): sin esto saldrian subrayados. */
         text-decoration: none;
         transition: background 0.15s;
     }
     .alm-mov-accion:hover { background: #cbd5e1; }
-    /* Pill de "Estado del despacho", a la derecha del item. Los colores vienen de
+    /* Pill de "Despachos", a la derecha del item. Los colores vienen de
        Traspaso::ESTADOS_META en el propio item (En tránsito / Confirmada). */
     .alm-mov-accion-pill { margin-left: auto; flex: 0 0 auto; padding: 2px 8px; border-radius: 999px; font-size: 10.5px;
         font-weight: 800; text-transform: uppercase; letter-spacing: .3px; white-space: nowrap; }
@@ -811,7 +811,7 @@
              Reemplaza al viejo botón "Inventario" y consolida las acciones
              rápidas de la bitácora en un único menú:
                · Dashboard de consumo
-               · Estado del despacho (abre la Reposición del general)
+               · Despachos (abre la Reposición del general)
                · Historial de Notas de Entrega
                · Exportar a Excel
                · Eliminar Nota de Entrega por código  (requiere almacen.nota.eliminar)
@@ -840,21 +840,22 @@
                         <div style="background:#e0f2fe;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;line-height:1;color:#0067b1;">analytics</i></div>
                         <span>Dashboard de consumo</span>
                     </button>
-                {{-- Estado del despacho: abre la Reposición del general (la bandeja donde los
+                {{-- Despachos: abre la Reposición del general (la bandeja donde los
                      almacenes de proyecto confirman lo que el general les despachó) y dice
                      cuántas notas faltan por recibir, en la misma pill de la columna Estado
-                     de la bandeja (colores de Traspaso::ESTADOS_META). --}}
+                     de la bandeja (colores de Traspaso::ESTADOS_META). Corto a propósito
+                     ("Despachos" + el número): la frase entera va en el title. --}}
                     <a href="{{ route('almacen.recepcion.index', ['force' => 1]) }}"
-                        class="alm-mov-accion" title="Abre la Reposición del general"
+                        class="alm-mov-accion" title="{{ $porRecibirPry > 0 ? $porRecibirPry . ' notas por recibir' : 'Todo recibido' }} · abre la Reposición del general"
                         onclick="event.preventDefault(); document.getElementById('splitDropdownMenuMovInv').style.display='none'; if(window.navigateTo) window.navigateTo(this.href); else window.location.href=this.href;">
                         <div style="background:#e0f2fe;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;line-height:1;color:#0067b1;">local_shipping</i></div>
-                        <span>Estado del despacho</span>
+                        <span>Despachos</span>
                         @php
                             // Mismos colores que la pill de la columna Estado de la bandeja:
                             // pendiente = En tránsito; al día = Confirmada.
                             [, $pillBg, $pillFg] = \App\Models\Traspaso::ESTADOS_META[$porRecibirPry > 0 ? \App\Models\Traspaso::ESTADO_ENVIADO : \App\Models\Traspaso::ESTADO_RECIBIDO];
                         @endphp
-                        <span class="alm-mov-accion-pill" style="background:{{ $pillBg }};color:{{ $pillFg }};">{{ $porRecibirPry > 0 ? $porRecibirPry . ' por recibir' : 'Al día' }}</span>
+                        <span class="alm-mov-accion-pill" style="background:{{ $pillBg }};color:{{ $pillFg }};">{{ $porRecibirPry > 0 ? $porRecibirPry : 'Al día' }}</span>
                     </a>
                 {{-- Historial de Notas de Entrega: vista alterna agrupada por NUMERO_NOTA — una
                      fila por Nota de Entrega; clic abre el PDF oficial. Conserva los filtros

@@ -297,7 +297,7 @@ class AlmacenController extends Controller
 
         return view('admin.almacen.index', [
             'almacenes'          => $almacenes,
-            // Pill de "Estado del despacho" en el menú Acciones (igual que en la bitácora).
+            // Pill de "Despachos" en el menú Acciones (igual que en la bitácora).
             'porRecibirPry'      => $this->porRecibirDeProyectos($almacenes),
             'almacenSel'         => $almacenSel,
             'productos'          => collect(),   // la tabla abre vacía; las filas llegan por AJAX
@@ -761,7 +761,7 @@ class AlmacenController extends Controller
      * unas decenas de KB y la tabla del inventario no se vuelve lenta por las miniaturas.
      */
     /**
-     * "Estado del despacho": notas que el general despacho y los almacenes de PROYECTO
+     * "Despachos": notas que el general despacho y los almacenes de PROYECTO
      * visibles todavia no terminan de recibir. Mismo criterio que "Por revisar" de la
      * bandeja de Recepcion (Traspaso::ESTADOS_RECIBIBLES).
      *

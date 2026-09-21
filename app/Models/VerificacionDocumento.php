@@ -60,6 +60,20 @@ class VerificacionDocumento extends Model
         self::RACDA  => 'FECHA_RACDA',
     ];
 
+    /** La fecha de emision (de origen) de cada documento en la ficha. */
+    public const CAMPO_EMISION = [
+        self::PROPIEDAD => 'FECHA_EMISION_PROPIEDAD',
+        self::POLIZA    => 'FECHA_EMISION_POLIZA',
+        self::ROTC      => 'FECHA_EMISION_ROTC',
+        self::RACDA     => 'FECHA_EMISION_RACDA',
+    ];
+
+    /** Las fechas que trae un documento de $tipo: su emision y, si tiene, su vencimiento. */
+    public static function camposDeFecha(string $tipo): array
+    {
+        return array_values(array_filter([self::CAMPO_EMISION[$tipo] ?? null, self::CAMPO_VENCE[$tipo] ?? null]));
+    }
+
     /**
      * Cuantos dias antes que la ficha tiene que vencer un PDF para ser "el anterior". Una
      * renovacion mueve el vencimiento meses (el ROTC de flota paso del 11/02 al 03/07/2027; un
@@ -120,7 +134,8 @@ class VerificacionDocumento extends Model
      * Documentos que el comando todavia tiene que leer, de un tipo. UNA sola definicion de la
      * cola: la usan el comando (para su lote), el panel (para "faltan por leer") y las pruebas.
      * Quedan fuera los enlaces que no apuntan a un archivo de Drive —no hay nada que leer— y
-     * lo ya revisado, salvo lo ilegible o fallido mientras le queden intentos.
+     * lo ya revisado, salvo lo ilegible o fallido mientras le queden intentos y, tras "Revisar
+     * ahora", lo que deja la ficha sin una de sus fechas (ver condicionLeido).
      */
     public static function pendientes(string $tipo, string $columna)
     {
@@ -136,6 +151,7 @@ class VerificacionDocumento extends Model
     private static function condicionLeido($q, string $tipo, string $columna)
     {
         $idEnlace = self::idEnlace($columna);
+        $inicio   = self::inicioDeLaNoche();
 
         return $q->from('verificacion_documento_registro as v')
             ->whereColumn('v.ID_EQUIPO', 'd.ID_EQUIPO')
@@ -144,7 +160,18 @@ class VerificacionDocumento extends Model
             // Ya leido de verdad, o "No se pudo leer" que agoto sus intentos ESTA noche.
             ->where(fn ($w) => $w->whereNotIn('v.ESTADO', [self::ILEGIBLE, self::ERROR])
                 ->orWhere(fn ($x) => $x->where('v.INTENTOS', '>=', self::MAX_INTENTOS)
-                    ->where('v.updated_at', '>=', self::inicioDeLaNoche())));
+                    ->where('v.updated_at', '>=', $inicio)))
+            // Y, si se pulso "Revisar ahora", a la ficha no le falta ninguna fecha de ese
+            // documento (emision o vencimiento): si le falta, se vuelve a leer UNA vez por
+            // pulsacion, por si el lector ya la sabe sacar. Solo con el boton, no cada noche: hay
+            // PDF que nunca la traen (el ROTC de flota de otro periodo) y se releerian siempre.
+            // Lo que tiene sus fechas escritas no se relee; sin archivo en Drive, tampoco.
+            ->when(\App\Console\Commands\VerificarDocumentos::pedidaAhora(), fn ($c, $pedida) => $c
+                ->where(fn ($w) => $w->where(function ($x) use ($tipo) {
+                    foreach (self::camposDeFecha($tipo) as $campo) $x->whereNotNull("d.$campo");
+                })
+                    ->orWhere('v.updated_at', '>=', $pedida)
+                    ->orWhere('v.ESTADO', self::SIN_ARCHIVO)));
     }
 
     /**

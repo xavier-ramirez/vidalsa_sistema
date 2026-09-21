@@ -18,8 +18,10 @@ use Illuminate\Support\Facades\DB;
  * Control de Auditoría -> Documentos, y alli mismo da la fila por revisada.
  *
  * Lo que NUNCA se escribe, venga como venga: la PLACA y el SERIAL (ver CAMPOS). Y no se
- * escribe NADA cuando el PDF es de otro vehiculo, se leyo a medias o no se pudo confirmar de
- * quien es: ahi lo que hay que arreglar es el archivo, no la ficha.
+ * escribe NADA cuando el PDF es de otro vehiculo o es el anterior: ahi lo que hay que arreglar
+ * es el archivo, no la ficha. Si se leyo a medias o no se pudo confirmar de quien es, solo se
+ * ponen las FECHAS que la ficha tiene VACIAS (emision y vencimiento): no pisan nada (regla del
+ * cliente, 21-09-2026); el resto lo decide una persona.
  *
  * Antes de escribir se comprueba que la ficha SIGA como estaba cuando se leyo el PDF: si
  * alguien la corrigio a mano entretanto, su correccion manda.
@@ -43,28 +45,34 @@ class CorrectorFichaDocumento
     ];
 
     /**
-     * Pone en la ficha lo que dice el documento. Devuelve:
+     * Pone en la ficha lo que dice el documento. Con $soloFechasVacias (una fila que ya reviso
+     * una persona: su decision se respeta) solo pone las fechas que la ficha tiene vacias; lo
+     * mismo hace sola cuando la lectura no es segura (ver admiteFechasVacias). Devuelve:
      *   ['error' => 'texto']                       no se pudo (y por que)
      *   ['puestos' => [...], 'saltados' => [...]]  etiquetas de lo escrito y de lo respetado
      */
-    public function aplicar(VerificacionDocumento $reg): array
+    public function aplicar(VerificacionDocumento $reg, bool $soloFechasVacias = false): array
     {
-        if ($error = $this->porQueNoSePuede($reg)) {
-            return ['error' => $error];
+        $bloqueo = $this->porQueNoSePuede($reg);
+        if ($bloqueo && !$this->admiteFechasVacias($reg)) {
+            return ['error' => $bloqueo];
         }
 
         // Los nombres del catalogo, para poder decir "MAMPRECA" y no "1" cuando lo que queda
         // pendiente es la aseguradora.
         $aseguradoras = CatalogoSeguro::pluck('NOMBRE_ASEGURADORA', 'ID_SEGURO')->all();
 
-        return DB::transaction(function () use ($reg, $aseguradoras) {
+        return DB::transaction(function () use ($reg, $aseguradoras, $soloFechasVacias) {
             // Se bloquean LAS DOS filas: la ficha y la lectura. Sin bloquear la lectura, dos
             // pasadas a la vez (o una persona guardando mientras corre la tarea) pasan las dos por
             // la puerta y la segunda, al ver la ficha ya cambiada, la marcaria como "lo cambio
             // alguien a mano" siendo mentira: lo habia cambiado la primera.
             $reg = VerificacionDocumento::where('ID_REGISTRO', $reg->ID_REGISTRO)->lockForUpdate()->first();
             if (!$reg) return ['error' => 'Esa lectura ya no existe: vuelve a leer el documento.'];
-            if ($error = $this->porQueNoSePuede($reg)) return ['error' => $error];
+            $bloqueo = $this->porQueNoSePuede($reg);
+            if ($bloqueo && !$this->admiteFechasVacias($reg)) return ['error' => $bloqueo];
+            $soloVacias = $soloFechasVacias || $bloqueo !== null;
+            $fechas     = VerificacionDocumento::camposDeFecha($reg->TIPO);
 
             $doc = Documentacion::where('ID_EQUIPO', $reg->ID_EQUIPO)->lockForUpdate()->first();
             if (!$doc) return ['error' => 'La ficha de ese equipo ya no existe.'];
@@ -97,6 +105,12 @@ class CorrectorFichaDocumento
                     $quedan[$campo] = $d;
                     continue;
                 }
+                // Lectura no segura o fila ya revisada por una persona: solo una fecha de este
+                // documento que la ficha tenia VACIA al leerlo. Lo demas queda para quien decida.
+                if ($soloVacias && !(in_array($campo, $fechas, true) && ($d['ficha'] ?? null) === null && empty($d['a_mano']))) {
+                    $quedan[$campo] = $d;
+                    continue;
+                }
                 $ahora = $doc->{$campo};
                 if ($ahora instanceof \DateTimeInterface) $ahora = $ahora->format('Y-m-d');
 
@@ -125,6 +139,12 @@ class CorrectorFichaDocumento
                 $cambios[$campo] = ['antes' => $d['ficha'], 'despues' => $d['documento']];
             }
 
+            // Con solo fechas vacias y ninguna por poner, la fila se queda como la dejo quien la
+            // leyo o la reviso (no es que alguien cambiara la ficha), y si la lectura no era
+            // segura se dice por que no se puso nada.
+            if (!$puestos && $soloVacias && !$hayCorregidoAMano) {
+                return $bloqueo ? ['error' => $bloqueo] : ['puestos' => [], 'saltados' => $saltados];
+            }
             if (!$puestos) {
                 // Nada que escribir: alguien cambio la ficha despues de leer el PDF, o lo que
                 // quedaba no es de los datos que este servicio puede tocar. La fila SE GUARDA
@@ -152,9 +172,10 @@ class CorrectorFichaDocumento
 
             $reg->update([
                 'ESTADO'       => $quedan ? VerificacionDocumento::DIFIERE : VerificacionDocumento::COINCIDE,
-                // A_MANO: solo si lo que queda ya no lo puede poner la tarea, es decir, lo que
-                // alguien cambio a mano despues de leer el PDF (eso se mira en el visor).
-                'A_MANO'       => $hayCorregidoAMano,
+                // A_MANO: solo si lo que queda ya no lo puede poner la tarea: lo que alguien
+                // cambio a mano despues de leer el PDF, o lo que una lectura no segura no deja
+                // poner (eso se mira en el visor).
+                'A_MANO'       => $hayCorregidoAMano || ($bloqueo !== null && $quedan),
                 'MOTIVO'       => $this->motivo($reg, $puestos, $quedan),
                 'DIFERENCIAS'  => $quedan ?: null,
                 'APLICADO_EN'  => now(),
@@ -232,6 +253,20 @@ class CorrectorFichaDocumento
     private function etiquetas(array $quedan): string
     {
         return implode(', ', array_map(fn ($d) => mb_strtolower($d['etiqueta']), $quedan));
+    }
+
+    /**
+     * ¿Se pueden poner al menos las fechas vacias aunque la lectura no sea segura? Si el PDF
+     * no se pudo confirmar o se leyo a medias, si; si es de otro vehiculo, el anterior o una
+     * providencia que no nombra la placa, NO: nada de ese documento es de esta ficha.
+     */
+    private function admiteFechasVacias(VerificacionDocumento $reg): bool
+    {
+        return $reg->ESTADO === VerificacionDocumento::DIFIERE
+            && !empty($reg->DIFERENCIAS)
+            && !$reg->esDeOtroVehiculo()
+            && !$reg->esDocumentoAnterior()
+            && !($reg->LEIDO['fuera_de_lista'] ?? false);
     }
 
     /** Las razones por las que un documento NO se puede volcar en la ficha, en su orden. */

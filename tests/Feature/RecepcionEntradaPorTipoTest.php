@@ -45,7 +45,7 @@ class RecepcionEntradaPorTipoTest extends MySqlTestCase
         $this->actingAs($u)->get(route('almacen.recepcion.index'))
             ->assertRedirect(route('almacen.recepcion.nueva'));
 
-        // Acciones → "Estado del despacho" del Historial (?force=1) muestra la bandeja, abierta en un
+        // Acciones → "Despachos" del Historial (?force=1) muestra la bandeja, abierta en un
         // almacén de PROYECTO (al general nunca le llegan notas) y ofreciendo solo esos.
         $r = $this->actingAs($u)->get(route('almacen.recepcion.index', ['force' => 1]))->assertOk();
         $almacenes = $r->viewData('almacenes');
@@ -72,10 +72,12 @@ class RecepcionEntradaPorTipoTest extends MySqlTestCase
     {
         $r = $this->actingAs($this->usuarioConAlmacen(Almacen::TIPO_GENERAL, true))->get(route('almacen.movimientos'))
             ->assertOk();
-        // Debajo de "Dashboard de consumo", con lo que falta por recibir en los proyectos.
+        // Debajo de "Dashboard de consumo", con lo que falta por recibir en los proyectos: la
+        // pill lleva solo el número y la frase entera va en el title.
         $pendientes = $r->viewData('porRecibirPry');
         $this->assertIsInt($pendientes);
-        $r->assertSeeInOrder(['Dashboard de consumo', 'Estado del despacho', $pendientes > 0 ? "{$pendientes} por recibir" : 'Al día'])
+        $r->assertSeeInOrder(['Dashboard de consumo', $pendientes > 0 ? "{$pendientes} notas por recibir" : 'Todo recibido',
+                'Despachos', $pendientes > 0 ? (string) $pendientes : 'Al día'])
             ->assertSee(route('almacen.recepcion.index', ['force' => 1]), false);
     }
 }

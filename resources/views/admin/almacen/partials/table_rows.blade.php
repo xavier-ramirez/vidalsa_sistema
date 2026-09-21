@@ -89,10 +89,12 @@
             @if($bolsasJson) data-bolsas="{{ $bolsasJson }}" @endif>
             {{-- Foto del producto, a la IZQUIERDA de la descripción. Sin foto se ve un recuadro
                  con su ícono, para que la columna no baile de ancho. Se sube desde "Detalles
-                 del producto" (ver AlmacenController::subirFotoProducto). --}}
+                 del producto" (ver AlmacenController::subirFotoProducto); tocarla la abre en
+                 grande (almVerFoto). --}}
             <td class="alm-td-foto">
                 @if($p->FOTO)
-                    <img src="{{ $p->FOTO }}" alt="{{ $p->NOMBRE }}" class="alm-foto" loading="lazy">
+                    <img src="{{ $p->FOTO }}" alt="{{ $p->NOMBRE }}" class="alm-foto" loading="lazy"
+                         title="Ver la foto" onclick="event.stopPropagation(); window.almVerFoto(this.src)">
                 @else
                     <span class="alm-foto alm-foto-sin" title="Sin foto"><i class="material-icons">inventory_2</i></span>
                 @endif

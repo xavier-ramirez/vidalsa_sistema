@@ -36,29 +36,28 @@
     .hd-hora { font-size: 12px; color: #94a3b8; }
     .hd-equipo-nombre { color: #334155; line-height: 1.3; }
     .hd-equipo-id { font-size: 12px; color: #475569; font-weight: 600; }
-    /* Burbuja "Cambios realizados" de una edición (partials/table_rows.blade.php): tarjeta
-       clara, un dato por línea con "antes → ahora" y quién lo hizo al pie. Dónde y cómo
-       flota (PC: bajo la celda del equipo; teléfono: encima de la tarjeta) va más abajo. */
-    /* Azul muy claro, NO blanco: esta burbuja flota sobre la tarjeta de la tabla, que ya es
-       blanca, y blanco sobre blanco solo se distinguía por la sombra. Con el tinte y el borde
-       azulado se lee como una nota puesta encima. */
-    .hd-cambios-caja { background: #f4f9ff; border: 1px solid #c7dcf0; border-radius: 10px; overflow: hidden;
-                       box-shadow: 0 12px 28px -6px rgba(15, 23, 42, .22); font-size: 12.5px; color: #0f172a; }
-    .hd-cambios-cab { display: flex; align-items: center; gap: 6px; padding: 6px 12px; background: #e6f0fa; border-bottom: 1px solid #c7dcf0; }
-    .hd-cambios-cab .material-icons { font-size: 15px; color: #0067b1; }
-    .hd-cambios-cab span { font-size: 11px; font-weight: 800; color: #334155; text-transform: uppercase; letter-spacing: .5px; }
-    .hd-cambios-cab .hd-close-cambios { margin-left: auto; font-size: 17px; color: #94a3b8; cursor: pointer; }
-    .hd-cambios-cab .hd-close-cambios:hover { color: #475569; }
+    /* Burbuja "Cambios realizados" de una edición (partials/table_rows.blade.php): un dato por
+       línea con "antes → ahora" y quién lo hizo al pie. Dónde y cómo flota (PC: bajo la celda
+       del equipo; teléfono: encima de la tarjeta) va más abajo.
+       Gris OSCURO con texto claro (lo pidió el cliente, 21-09-2026): flota sobre la tabla, que
+       es blanca, y así se distingue de un vistazo. */
+    .hd-cambios-caja { background: #1f2937; border: 1px solid #374151; border-radius: 10px; overflow: hidden;
+                       box-shadow: 0 12px 28px -6px rgba(15, 23, 42, .45); font-size: 12.5px; color: #f1f5f9; }
+    .hd-cambios-cab { display: flex; align-items: center; gap: 6px; padding: 6px 12px; background: #111827; border-bottom: 1px solid #374151; }
+    .hd-cambios-cab .material-icons { font-size: 15px; color: #7dd3fc; }
+    .hd-cambios-cab span { font-size: 11px; font-weight: 800; color: #e5e7eb; text-transform: uppercase; letter-spacing: .5px; }
+    .hd-cambios-cab .hd-close-cambios { margin-left: auto; font-size: 17px; color: #9ca3af; cursor: pointer; }
+    .hd-cambios-cab .hd-close-cambios:hover { color: #fff; }
     .hd-cambios-lista { padding: 0 12px; }
-    .hd-cambio { padding: 6px 0; border-bottom: 1px solid #dceaf7; }
+    .hd-cambio { padding: 6px 0; border-bottom: 1px solid #374151; }
     .hd-cambio:last-child { border-bottom: none; }
-    .hd-cambio-campo { font-size: 10.5px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: .4px; margin-bottom: 3px; }
+    .hd-cambio-campo { font-size: 10.5px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: .4px; margin-bottom: 3px; }
     .hd-cambio-valores { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
-    .hd-cambio-valores .material-icons { font-size: 14px; color: #94a3b8; }
-    .hd-cambio-antes { color: #94a3b8; text-decoration: line-through; word-break: break-word; }
-    .hd-cambio-nuevo { color: #0f172a; font-weight: 700; word-break: break-word; }
-    .hd-cambio-vacio { font-style: italic; font-weight: 400; text-decoration: none; color: #94a3b8; }
-    .hd-cambios-pie { padding: 6px 12px; background: #e6f0fa; border-top: 1px solid #c7dcf0; font-size: 11.5px; color: #5b6b7d; }
+    .hd-cambio-valores .material-icons { font-size: 14px; color: #6b7280; }
+    .hd-cambio-antes { color: #9ca3af; text-decoration: line-through; word-break: break-word; }
+    .hd-cambio-nuevo { color: #fff; font-weight: 700; word-break: break-word; }
+    .hd-cambio-vacio { font-style: italic; font-weight: 400; text-decoration: none; color: #9ca3af; }
+    .hd-cambios-pie { padding: 6px 12px; background: #111827; border-top: 1px solid #374151; font-size: 11.5px; color: #cbd5e1; }
     @media (min-width: 769px) {
         /* Filas más juntas que el .admin-table general (12 px): la auditoría es una lista larga. */
         #historialDocumentosTable { border-spacing: 0 5px; }

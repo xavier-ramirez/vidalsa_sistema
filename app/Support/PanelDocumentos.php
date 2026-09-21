@@ -52,7 +52,6 @@ class PanelDocumentos
             'activa'       => $activa,
             'motivoActiva' => $motivoActiva,
             'zona'         => $zona,
-            'horaApp'      => now($zona),
             // Los horarios salen de los comandos (su HORARIO), los mismos que usa el programador.
             'horarioLectura'    => self::horario(\App\Console\Commands\VerificarDocumentos::HORARIO),
             'horarioCompresion' => self::horario(\App\Console\Commands\ComprimirDocumentos::HORARIO),

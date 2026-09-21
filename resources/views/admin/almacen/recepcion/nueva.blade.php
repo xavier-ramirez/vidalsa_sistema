@@ -29,7 +29,7 @@
           encabezado).
 
      "Reposición del general" (la bandeja de los almacenes de proyecto, donde se ve lo que el
-     general despachó y va llegando) se abre desde Acciones → "Estado del despacho" del
+     general despachó y va llegando) se abre desde Acciones → "Despachos" del
      Historial (/admin/almacen/movimientos).
      ──────────────────────────────────────────────────────────────── --}}
 

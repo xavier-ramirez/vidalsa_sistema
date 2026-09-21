@@ -181,7 +181,7 @@
 
        El JS de esta pantalla solo ESCRIBE .style.* sobre campos de formulario y el canvas
        de etiquetas — nunca sobre estas celdas—, así que no hay interacción con el cambio. */
-    /* "Estado del despacho" es un <a> dentro de un menú de <button>s: sin esto saldría
+    /* "Despachos" es un <a> dentro de un menú de <button>s: sin esto saldría
        subrayado y sin la fila alineada como los demás. La pill va pegada a la derecha. */
     #almAccionesMenu .alm-acc-despacho { display: flex; align-items: center; gap: 10px; padding: 11px 14px;
                                          color: #475569; background: transparent; border: none;
@@ -190,37 +190,48 @@
     #almAccionesMenu .alm-acc-despacho:hover { background: #f8fafc; }
     #almAccionesMenu .alm-acc-pill { margin-left: auto; font-size: 11px; font-weight: 800; padding: 2px 8px;
                                      border-radius: 999px; white-space: nowrap; }
-    /* Foto dentro de "Detalles del producto": cuadrada y centrada. Mismo recuadro que la
-       miniatura de la tabla cuando no hay foto.
+    /* Foto dentro de "Detalles del producto": un CÍRCULO centrado (lo pidió el cliente). Sin
+       foto, el mismo círculo con su ícono en gris.
        Pequeña a propósito: la ficha es para consultar datos, no para mirar la foto. Quien
-       tiene almacen.productos la cambia tocándola: la capa "Cambiar foto" aparece encima al
-       pasar el mouse, como en las tarjetas del catálogo (.cat-photo-overlay). Sin permiso,
-       tocarla la abre en grande. */
-    .alm-det-foto-caja { position: relative; width: 72px; height: 72px; margin: 0 auto;
-                         border-radius: 10px; overflow: hidden; }
-    .alm-det-foto { width: 100%; height: 100%; border-radius: 10px; border: 1px solid #e2e8f0;
+       tiene almacen.productos la cambia tocándola: la cámara va SIEMPRE a la vista, en una
+       burbuja al pie a la derecha (como en una foto de perfil), y gira mientras sube. Sin
+       permiso, tocarla la abre en grande. */
+    .alm-det-foto-caja { position: relative; width: 120px; height: 120px; margin: 0 auto; }
+    .alm-det-foto { width: 100%; height: 100%; border-radius: 50%; border: 1px solid #e2e8f0;
                     background: #f8fafc; object-fit: cover; cursor: zoom-in; box-sizing: border-box; }
     .alm-det-foto-sin { display: flex; align-items: center; justify-content: center; color: #cbd5e0; cursor: default; }
-    .alm-det-foto-sin .material-icons { font-size: 26px; }
+    .alm-det-foto-sin .material-icons { font-size: 40px; }
     .alm-det-foto-caja.editable .alm-det-foto { cursor: pointer; }
     /* pointer-events:none: el clic lo recibe la caja, que abre el selector de archivo. */
-    .alm-det-foto-overlay { position: absolute; inset: 0; display: flex; flex-direction: column;
-                            align-items: center; justify-content: center; gap: 2px;
-                            background: rgba(15, 23, 42, 0.55); color: #fff; opacity: 0;
-                            transition: opacity .18s ease; pointer-events: none;
-                            font-size: 9px; font-weight: 700; text-transform: uppercase;
-                            letter-spacing: .4px; text-align: center; line-height: 1.1; }
-    .alm-det-foto-overlay .material-icons { font-size: 20px; }
-    .alm-det-foto-caja.editable:hover .alm-det-foto-overlay,
-    .alm-det-foto-caja.subiendo .alm-det-foto-overlay { opacity: 1; }
+    .alm-det-foto-camara { position: absolute; right: 2px; bottom: 2px; width: 34px; height: 34px;
+                           border-radius: 50%; background: #0067b1; color: #fff; border: 3px solid #fff;
+                           display: flex; align-items: center; justify-content: center;
+                           box-shadow: 0 2px 6px rgba(15, 23, 42, .25); pointer-events: none;
+                           transition: background .18s ease; }
+    .alm-det-foto-camara .material-icons { font-size: 17px; }
+    .alm-det-foto-caja.editable:hover .alm-det-foto-camara { background: #005694; }
+    .alm-det-foto-caja.subiendo .alm-det-foto-camara .material-icons { animation: alm-det-foto-gira 1s linear infinite; }
+    @keyframes alm-det-foto-gira { to { transform: rotate(360deg); } }
     .alm-det-foto-caja.subiendo { pointer-events: none; }
     /* Miniatura del producto. Medida fija para que la columna no baile de ancho de una fila
        a otra, y el mismo recuadro cuando no hay foto (con su ícono en gris). */
-    .alm-table td.alm-td-foto { padding: 6px 4px 6px 8px; width: 54px; }
-    .alm-foto { width: 40px; height: 40px; border-radius: 8px; border: 1px solid #e2e8f0;
+    .alm-table td.alm-td-foto { padding: 6px 4px 6px 8px; width: 72px; }
+    .alm-foto { width: 58px; height: 58px; border-radius: 9px; border: 1px solid #e2e8f0;
                 background: #f8fafc; object-fit: cover; display: block; }
+    img.alm-foto { cursor: zoom-in; }
     .alm-foto-sin { display: flex; align-items: center; justify-content: center; color: #cbd5e0; }
-    .alm-foto-sin .material-icons { font-size: 20px; }
+    .alm-foto-sin .material-icons { font-size: 26px; }
+    /* Visor de la foto del producto: al tocar la miniatura (tabla) o la foto de la ficha sin
+       permiso de cambiarla. Centrado sobre todo; se cierra tocando fuera, la X o Esc. */
+    .alm-visor-foto { display: none; position: fixed; inset: 0; z-index: 100000; padding: 24px;
+                      background: rgba(15, 23, 42, 0.8); align-items: center; justify-content: center;
+                      cursor: zoom-out; }
+    .alm-visor-foto.abierto { display: flex; }
+    .alm-visor-foto img { max-width: min(92vw, 900px); max-height: 86vh; border-radius: 12px;
+                          background: #fff; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+                          object-fit: contain; cursor: default; }
+    .alm-visor-foto .alm-visor-x { position: absolute; top: 14px; right: 18px; color: #fff;
+                                   font-size: 30px; cursor: pointer; }
     /* CÓDIGO dentro de la celda de Descripción: renglón propio ENCIMA del nombre, pequeño
        y monoespaciado — misma jerarquía que la cabecera del modal de movimientos
        (.alm-kp-hero-cod), para que el producto se lea igual en los dos sitios. */
@@ -1455,22 +1466,23 @@
                         <div style="background:#e0f2fe;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#0067b1;">analytics</i></div>
                         <span style="font-size:14px;font-weight:500;">Dashboard de consumo</span>
                     </button>
-                    {{-- Estado del despacho: abre la Reposición del general (la bandeja donde
+                    {{-- Despachos: abre la Reposición del general (la bandeja donde
                          los almacenes de proyecto confirman lo que el general les despachó) y
                          dice cuántas notas faltan por recibir. El MISMO item que en la
                          bitácora, con la misma cuenta (AlmacenController::porRecibirDeProyectos)
-                         y la misma pill de la columna Estado (Traspaso::ESTADOS_META). --}}
+                         y la misma pill de la columna Estado (Traspaso::ESTADOS_META). Corto a
+                         propósito ("Despachos" + el número): la frase entera va en el title. --}}
                     <a href="{{ route('almacen.recepcion.index', ['force' => 1]) }}" class="dropdown-item-custom alm-acc-despacho"
-                       title="Abre la Reposición del general"
+                       title="{{ ($porRecibirPry ?? 0) > 0 ? $porRecibirPry . ' notas por recibir' : 'Todo recibido' }} · abre la Reposición del general"
                        onclick="event.preventDefault(); document.getElementById('almAccionesMenu').style.display='none'; if(window.navigateTo) window.navigateTo(this.href); else window.location.href=this.href;">
                         <div style="background:#e0f2fe;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#0067b1;">local_shipping</i></div>
-                        <span style="font-size:14px;font-weight:500;">Estado del despacho</span>
+                        <span style="font-size:14px;font-weight:500;">Despachos</span>
                         @php
                             [, $pillBg, $pillFg] = \App\Models\Traspaso::ESTADOS_META[($porRecibirPry ?? 0) > 0
                                 ? \App\Models\Traspaso::ESTADO_ENVIADO
                                 : \App\Models\Traspaso::ESTADO_RECIBIDO];
                         @endphp
-                        <span class="alm-acc-pill" style="background:{{ $pillBg }};color:{{ $pillFg }};">{{ ($porRecibirPry ?? 0) > 0 ? $porRecibirPry . ' por recibir' : 'Al día' }}</span>
+                        <span class="alm-acc-pill" style="background:{{ $pillBg }};color:{{ $pillFg }};">{{ ($porRecibirPry ?? 0) > 0 ? $porRecibirPry : 'Al día' }}</span>
                     </a>
                     {{-- Descargar Excel: disponible para cualquier usuario que pueda ver el
                          módulo. Construye la URL de export respetando los filtros de almacén
@@ -2277,32 +2289,29 @@
             {{-- Foto del producto. Es la misma que se ve como miniatura en la tabla. Se
                  cambia aquí mismo: la imagen se convierte a WebP y se sube a Drive
                  (AlmacenController::subirFotoProducto); en la ficha solo vive el enlace.
-                 Con almacen.productos la caja entera abre el selector de archivo y lleva la capa
-                 "Cambiar foto"; sin el permiso, tocar la foto la abre en grande. --}}
+                 Con almacen.productos la caja entera abre el selector de archivo y lleva la cámara
+                 (antes de subir se encuadra en el recorte, partials.recorte_foto);
+                 sin el permiso, tocar la foto la abre en grande (almVerFoto). --}}
             @php $almEditaFoto = auth()->user()?->can('almacen.productos'); @endphp
             <div class="alm-det-foto-caja{{ $almEditaFoto ? ' editable' : '' }}" id="almDetFotoCaja"
-                 @if($almEditaFoto) onclick="document.getElementById('almDetFotoInput').click()" @endif>
+                 @if($almEditaFoto) title="Subir foto" onclick="document.getElementById('almDetFotoInput').click()" @endif>
                 <img id="almDetFotoImg" class="alm-det-foto" alt="Foto del producto" style="display:none;"
-                     @unless($almEditaFoto) title="Ver la foto en grande" onclick="window.open(this.src, '_blank', 'noopener')" @endunless>
+                     @unless($almEditaFoto) title="Ver la foto en grande" onclick="window.almVerFoto(this.src)" @endunless>
                 <div id="almDetFotoSin" class="alm-det-foto alm-det-foto-sin"><i class="material-icons">inventory_2</i></div>
                 @if($almEditaFoto)
-                <div class="alm-det-foto-overlay">
-                    <i class="material-icons">photo_camera</i><span id="almDetFotoBtnTxt">Subir foto</span>
-                </div>
+                <div class="alm-det-foto-camara"><i class="material-icons">photo_camera</i></div>
                 <input type="file" id="almDetFotoInput" accept="image/jpeg,image/png,image/webp" hidden
-                       onclick="event.stopPropagation()" onchange="window.almDetFotoSubir(this)">
+                       onclick="event.stopPropagation()" onchange="window.almDetFotoElegir(this)">
                 @endif
             </div>
 
             {{-- Aviso de stock bajo en este almacén. En rojo, como las filas de stock bajo
-                 de la tabla (.alm-row-bajo), para que el usuario asocie ambos avisos.
-                 Centrado, como el resto de la ficha: el ícono va junto al título y la
-                 explicación debajo. --}}
-            <div id="almDetBajoBadge" style="display:none;background:#fee2e2;border:1px solid #fecaca;color:#b91c1c;border-radius:8px;padding:10px 14px;flex-direction:column;align-items:center;text-align:center;gap:2px;">
-                <div style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:800;line-height:1.2;">
-                    <i class="material-icons" style="font-size:18px;">warning</i> Stock bajo en este almacén
-                </div>
-                <div style="font-size:11.5px;font-weight:500;line-height:1.35;opacity:0.85;">El saldo está en o por debajo del mínimo configurado.</div>
+                 de la tabla (.alm-row-bajo), para que el usuario asocie ambos avisos. En UNA
+                 sola línea, centrada. --}}
+            <div id="almDetBajoBadge" style="display:none;background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;border-radius:999px;padding:6px 14px;align-items:center;justify-content:center;gap:6px;font-size:12.5px;line-height:1.2;text-align:center;">
+                <i class="material-icons" style="font-size:16px;">warning_amber</i>
+                <strong style="font-weight:800;">Stock bajo</strong>
+                <span style="font-weight:500;color:#dc2626;">· saldo en el mínimo o por debajo</span>
             </div>
             {{-- Ubicación física del producto dentro de la bodega — estante, fila o nivel
                  (texto libre): se muestra como tooltip al pasar el mouse sobre la fila en la
@@ -2405,6 +2414,15 @@
 
 </div>
 </div>
+
+{{-- Visor de la foto del producto (ver .alm-visor-foto y almVerFoto). --}}
+<div id="almVisorFoto" class="alm-visor-foto" onclick="window.almCerrarFoto()">
+    <i class="material-icons alm-visor-x" title="Cerrar">close</i>
+    <img id="almVisorFotoImg" alt="Foto del producto" onclick="event.stopPropagation()">
+</div>
+@can('almacen.productos')
+@include('partials.recorte_foto')
+@endcan
 
 @if($puedeMover)
 {{-- ── Salida: un solo formulario unificado. Siempre llena la Nota de Entrega
@@ -4345,6 +4363,9 @@
     // no filtrar memoria ni dejar al usuario sin camino de vuelta a la edicion.
     document.addEventListener('keydown', function (e) {
         if (e.key !== 'Escape') return;
+        // El visor de la foto va encima de todo: Escape lo cierra a él solo.
+        var visor = el('almVisorFoto');
+        if (visor && visor.classList.contains('abierto')) { window.almCerrarFoto(); return; }
         var preview = el('almPreviewModal');
         if (preview && preview.classList.contains('open') && typeof window.almPreviewCerrar === 'function') {
             window.almPreviewCerrar();
@@ -4769,14 +4790,15 @@
     };
 
     // ── Foto del producto ─────────────────────────────────────────────────────
-    // Un solo sitio que decide qué se ve: la imagen o el recuadro vacío, y el texto de la
-    // capa "Cambiar foto". Lo llaman la apertura de la ficha y la subida.
+    // Un solo sitio que decide qué se ve: la imagen o el círculo vacío, y lo que dice la
+    // cámara al pasar el mouse. Lo llaman la apertura de la ficha y la subida.
     function almDetFotoPintar(url) {
         var img = el('almDetFotoImg'), sin = el('almDetFotoSin');
         if (!img || !sin) return;
         if (url) { img.src = url; img.style.display = ''; sin.style.display = 'none'; }
         else     { img.removeAttribute('src'); img.style.display = 'none'; sin.style.display = 'flex'; }
-        if (el('almDetFotoBtnTxt')) el('almDetFotoBtnTxt').textContent = url ? 'Cambiar foto' : 'Subir foto';
+        var caja = el('almDetFotoCaja');
+        if (caja && caja.classList.contains('editable')) caja.title = url ? 'Cambiar foto' : 'Subir foto';
         // El dataset manda: la tabla se repinta con él al cerrar la ficha.
         var m = el('almDetalleModal'); if (m) m.dataset.foto = url || '';
     }
@@ -4787,19 +4809,23 @@
         var celda = fila && fila.querySelector('.alm-td-foto');
         if (!celda) return;
         celda.innerHTML = url
-            ? '<img src="' + url + '" alt="" class="alm-foto" loading="lazy">'
+            ? '<img src="' + url + '" alt="" class="alm-foto" loading="lazy" onclick="event.stopPropagation(); window.almVerFoto(this.src)">'
             : '<span class="alm-foto alm-foto-sin" title="Sin foto"><i class="material-icons">inventory_2</i></span>';
     }
 
-    window.almDetFotoSubir = function (input) {
+    // Elegir archivo -> encuadrarlo en el recorte (el mismo del Catálogo) -> subir el recorte.
+    window.almDetFotoElegir = function (input) {
         var archivo = input && input.files && input.files[0];
         input.value = '';                      // permite volver a elegir el mismo archivo
         if (!archivo) return;
+        if (archivo.size > 10 * 1024 * 1024) { window.toast('La foto supera los 10 MB.', 'error'); return; }
+        window._openCropModal(archivo, almDetFotoSubir);
+    };
+
+    function almDetFotoSubir(archivo) {
         var id = el('almDetalleModal').dataset.id;
-        var btn = el('almDetFotoBtnTxt'); var antes = btn ? btn.textContent : '';
         var caja = el('almDetFotoCaja');
-        if (btn) btn.textContent = 'Subiendo…';
-        if (caja) caja.classList.add('subiendo');   // deja la capa a la vista y bloquea otro clic
+        if (caja) caja.classList.add('subiendo');   // la cámara gira y no se admite otro clic
 
         window.apiPostForm(@json(url('admin/almacen/productos')) + '/' + id + '/foto',
                            { foto: archivo }, 'No se pudo subir la foto.')
@@ -4809,10 +4835,19 @@
                 window.toast('Foto actualizada.', 'success');
             })
             .catch(function (e) { window.toast(e.message, 'error'); })
-            .finally(function () {
-                if (caja) caja.classList.remove('subiendo');
-                if (btn && btn.textContent === 'Subiendo…') btn.textContent = antes;
-            });
+            .finally(function () { if (caja) caja.classList.remove('subiendo'); });
+    }
+
+    // Visor de la foto: lo abren la miniatura de la tabla y la foto de la ficha (sin permiso).
+    window.almVerFoto = function (src) {
+        if (!src) return;
+        el('almVisorFotoImg').src = src;
+        el('almVisorFoto').classList.add('abierto');
+    };
+    window.almCerrarFoto = function () {
+        var v = el('almVisorFoto'); if (!v) return;
+        v.classList.remove('abierto');
+        el('almVisorFotoImg').removeAttribute('src');
     };
 
     // Trae equivalencias + equipos del filtro y los pinta en el detalle; devuelve la promesa

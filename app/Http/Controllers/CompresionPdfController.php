@@ -42,7 +42,7 @@ class CompresionPdfController extends Controller
     {
         $reg = VerificacionDocumento::findOrFail($id);
         // Los datos que el panel del visor no tiene (fechas de emision...), con el valor que
-        // la persona dejo marcado para poner en la ficha. Vacio = solo dar la fila por revisada.
+        // la persona dejo en su campo al guardar. Vacio = solo dar la fila por revisada.
         $valores = (array) $request->input('campos', []);
         $resultado = $corrector->ponerAMano($reg, $valores, $request->user());
 
