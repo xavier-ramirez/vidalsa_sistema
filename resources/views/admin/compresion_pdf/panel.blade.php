@@ -19,8 +19,9 @@
     .cpdf-filtros .hd-acciones-wrap { align-self: center; }
 
     /* Tarjeta grande de arriba: el MISMO molde que la de "Total Auditoría" del Historial,
-       para que las tres pestañas abran con la misma pieza. */
-    .cpdf-hero { display: flex; align-items: center; gap: 12px; background: linear-gradient(135deg, #4c1d95 0%, #6d28d9 100%);
+       para que las tres pestañas abran con la misma pieza. Azul marino, como la tarjeta
+       principal de Equipos (sin morado: lo pidió el cliente, 21-09-2026). */
+    .cpdf-hero { display: flex; align-items: center; gap: 12px; background: linear-gradient(135deg, #001a52 0%, #0a4a91 100%);
                  border-radius: 12px; padding: 15px; color: #fff; box-shadow: 0 4px 6px -1px rgba(15,23,42,.10); }
     .cpdf-hero .material-icons { font-size: 26px; opacity: .85; }
     .cpdf-hero small { display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.2px; opacity: .9; }
@@ -51,7 +52,7 @@
     .cpdf-aviso .cpdf-ahora-pedida { margin-top: 6px; font-weight: 700; }
     /* Tarjetas que filtran la lista: son enlaces, pero se ven igual que las demas cajas. */
     a.cpdf-filtra { text-decoration: none; transition: border-color .15s, transform .15s; }
-    a.cpdf-filtra:hover { border-color: #6d28d9; transform: translateY(-1px); }
+    a.cpdf-filtra:hover { border-color: #0067b1; transform: translateY(-1px); }
     .cpdf-avance small { margin-bottom: 8px; }
     /* Dos lineas por documento: el nombre entero con su cifra, y debajo la barra. En la
        columna lateral (280 px) el nombre no cabe al lado de la barra sin recortarse. */
@@ -60,7 +61,8 @@
     .cpdf-avance-nombre { font-size: 12px; font-weight: 700; color: #334155; }
     .cpdf-avance-barra { grid-column: 1 / -1; margin-top: 3px; height: 7px; border-radius: 99px;
                          background: #e2e8f0; overflow: hidden; }
-    .cpdf-avance-barra i { display: block; height: 100%; border-radius: 99px; background: #6d28d9; }
+    /* Mismo azul que las barras de distribución de Equipos. */
+    .cpdf-avance-barra i { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%); }
     .cpdf-avance-cifra { font-size: 11px; font-weight: 700; color: #64748b; font-variant-numeric: tabular-nums; }
     .cpdf-avance-listo { color: #15803d; text-transform: uppercase; font-size: 10px; letter-spacing: .5px; }
     /* Revisar a mano en el visor (panel oscuro del visor). Arriba, la tarjeta de la revisión

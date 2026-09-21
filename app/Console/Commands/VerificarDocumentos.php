@@ -264,9 +264,9 @@ class VerificarDocumentos extends Command
             }
         }
 
-        // Si una persona ya habia revisado este documento (se relee porque a la ficha le falta una
-        // fecha: VerificacionDocumento::condicionLeido), su decision se respeta: de esta lectura
-        // solo se ponen las fechas VACIAS y la fila vuelve a quedar como ella la dejo.
+        // Si una persona ya habia revisado este documento (se relee por "Revisar ahora", ver
+        // VerificacionDocumento::condicionLeido), su decision se respeta: de esta lectura solo se
+        // ponen las fechas VACIAS y la fila vuelve a quedar como ella la dejo.
         $revision = VerificacionDocumento::where('ID_EQUIPO', $f->ID_EQUIPO)->where('TIPO', $tipo)
             ->where('DRIVE_ID', $driveId)->whereNotNull('APLICADO_POR')
             ->first(['ESTADO', 'A_MANO', 'DIFERENCIAS', 'MOTIVO', 'APLICADO_POR', 'APLICADO_EN']);

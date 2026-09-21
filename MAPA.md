@@ -119,8 +119,9 @@ lo sensible dentro de `can:super.admin`.
   fechas que la ficha tiene vacías y el documento trae (`CorrectorFichaDocumento::fechasVacias`,
   mismas puertas que la tarea, incluido el PDF anterior visto por su vencimiento).
 - Al pulsar **"Revisar ahora"** se relee (una vez por pulsación, NO cada noche: hay PDF que
-  nunca traen la fecha) solo lo que tiene un problema: le falta una fecha de emisión o de
-  vencimiento, salió "de otro vehículo" o "No se pudo leer". Lo que está bien no se relee.
+  nunca traen la fecha) solo lo que tiene un problema. **Títulos**: solo "Datos distintos" y
+  "No se pudo leer" (los demás se dejan tranquilos aunque les falte la fecha). **Póliza, ROTC,
+  RACDA**: además, si le falta una fecha o salió "de otro vehículo". Lo que está bien no se relee.
 - Fecha de emisión: título viejo "Dado a los…", título nuevo del INTT "12 FEBRERO 2026" (o la
   línea de control "20260212/EL/…"); póliza "Fecha de Emisión" o, sin ella, el inicio de la
   vigencia del SEGURO (nunca la del recibo); anexo de flota, la fecha de su firma.

@@ -1672,34 +1672,43 @@ class VerificacionDocumentoTest extends MySqlTestCase
         $this->assertArrayNotHasKey('FECHA_EMISION_PROPIEDAD', $reg->DIFERENCIAS, 'La fecha ya está puesta.');
     }
 
-    public function test_lo_que_no_tiene_su_fecha_se_relee_al_pulsar_revisar_ahora(): void
+    public function test_revisar_ahora_relee_solo_lo_que_tiene_un_problema(): void
     {
+        // TITULOS: solo los "Datos distintos" (y los "No se pudo leer", por la regla de siempre).
+        // Uno que coincide se deja tranquilo aunque le falte la fecha (lo pidio el cliente).
         [$sinFecha, $placa] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'CONSTRUCTORA VIDALSA 27, C.A']);
         [$conFecha, $placa2] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'CONSTRUCTORA VIDALSA 27, C.A',
             'FECHA_EMISION_PROPIEDAD' => '2018-10-03']);
-        // El PDF no deja leer la fecha: la ficha se queda sin ella.
         $this->lectorFalso($this->textoTitulo('CONSTRUCTORA VIDALSA 27, C.A', $placa, 'sin fecha legible'));
         $this->verificar($sinFecha, VerificacionDocumento::PROPIEDAD);
         $this->lectorFalso($this->textoTitulo('CONSTRUCTORA VIDALSA 27, C.A', $placa2));
         $this->verificar($conFecha, VerificacionDocumento::PROPIEDAD);
-        // Con sus fechas, pero salio "de otro vehiculo": tambien se relee con el boton (el
-        // lector ya no da por ajeno un codigo con una letra mal leida).
         [$ajeno] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'CONSTRUCTORA VIDALSA 27, C.A',
             'FECHA_EMISION_PROPIEDAD' => '2018-10-03']);
         $this->lectorFalso($this->textoTitulo('CONSTRUCTORA VIDALSA 27, C.A', 'Z99ZZ9Z'));
-        $this->assertTrue($this->verificar($ajeno, VerificacionDocumento::PROPIEDAD)->esDeOtroVehiculo());
+        $this->assertSame(VerificacionDocumento::DIFIERE, $this->verificar($ajeno, VerificacionDocumento::PROPIEDAD)->ESTADO);
 
-        $this->assertFalse($this->enLaCola($sinFecha, VerificacionDocumento::PROPIEDAD), 'Ya se leyó.');
-        // Otra noche SIN pulsar el boton: no se relee (hay PDF que nunca traen la fecha).
+        // POLIZA que coincide pero la ficha sigue sin su fecha de emision: esa SI se relee.
+        [$poliza] = $this->equipoConDocumentos();
+        $enlace = DB::table('documentacion')->where('ID_EQUIPO', $poliza)->value('LINK_POLIZA_SEGURO');
+        VerificacionDocumento::create([
+            'ID_EQUIPO' => $poliza, 'TIPO' => VerificacionDocumento::POLIZA, 'ESTADO' => VerificacionDocumento::COINCIDE,
+            'DRIVE_ID' => explode('?', substr($enlace, strlen('/storage/google/')))[0],
+        ]);
+
+        $this->assertFalse($this->enLaCola($ajeno, VerificacionDocumento::PROPIEDAD), 'Ya se leyó.');
+        // Otra noche SIN pulsar el boton: no se relee nada de esto.
         \Carbon\Carbon::setTestNow(now()->addDay());
-        $this->assertFalse($this->enLaCola($sinFecha, VerificacionDocumento::PROPIEDAD), 'Sin el botón no se relee.');
+        $this->assertFalse($this->enLaCola($ajeno, VerificacionDocumento::PROPIEDAD), 'Sin el botón no se relee.');
+        $this->assertFalse($this->enLaCola($poliza, VerificacionDocumento::POLIZA), 'Sin el botón no se relee.');
 
-        // "Revisar ahora": vuelve a la cola lo que sigue sin su fecha, y solo eso.
+        // "Revisar ahora".
         \Carbon\Carbon::setTestNow(now()->addMinute());
         \App\Console\Commands\VerificarDocumentos::pedirAhora();
-        $this->assertTrue($this->enLaCola($sinFecha, VerificacionDocumento::PROPIEDAD));
-        $this->assertTrue($this->enLaCola($ajeno, VerificacionDocumento::PROPIEDAD), 'El "de otro vehículo" se relee.');
+        $this->assertTrue($this->enLaCola($ajeno, VerificacionDocumento::PROPIEDAD), 'El título en "Datos distintos" se relee.');
+        $this->assertFalse($this->enLaCola($sinFecha, VerificacionDocumento::PROPIEDAD), 'El título que coincide se deja tranquilo.');
         $this->assertFalse($this->enLaCola($conFecha, VerificacionDocumento::PROPIEDAD), 'Lo que está bien no se relee.');
+        $this->assertTrue($this->enLaCola($poliza, VerificacionDocumento::POLIZA), 'La póliza sin su fecha se relee.');
         \Carbon\Carbon::setTestNow();
     }
 
