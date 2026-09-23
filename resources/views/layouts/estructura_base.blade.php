@@ -1195,10 +1195,12 @@
                     //
                     // Se toma una referencia del preloader (es un CONTADOR: el spinner no se
                     // va hasta que todas las operaciones que lo pidieron terminan) y se
-                    // suelta cuando el script ya corrió, es decir con el mapa montado —
-                    // initMapa se autoejecuta al cargar y L.map() monta síncrono. Los tiles
+                    // suelta cuando el script ya corrió. En la PRIMERA visita el mapa aún no
+                    // está: initMapa baja Leaflet y toma su propia referencia hasta montarlo
+                    // (ver initMapa en mapa_index.js), así el spinner no se va antes. Los tiles
                     // siguen llegando después, como en cualquier mapa, pero el usuario ya ve
                     // el mapa dibujado y no un hueco.
+                    var genMapa = window.preloaderGeneracion ? window.preloaderGeneracion() : 0;
                     if (window.showPreloader) window.showPreloader();
                     window.cargarScriptUnaVez(
                         window.lazyBaseUrl() + '/js/maquinaria/mapa_index.js?v={{ @filemtime(public_path('js/maquinaria/mapa_index.js')) }}'
@@ -1211,15 +1213,15 @@
                         // colgado: la referencia se devuelve pase lo que pase.
                         requestAnimationFrame(function () {
                             requestAnimationFrame(function () {
-                                // Solo se devuelve la referencia si SEGUIMOS en el mapa. Si
-                                // el usuario se fue a otro módulo mientras bajaban los 268 KB,
+                                // Solo se devuelve si el contador sigue en la MISMA generación
+                                // (window.preloaderGeneracion). Si el usuario se fue a otro módulo mientras bajaban los 268 KB,
                                 // loadPage ya arrancó su navegación con hidePreloader(true),
                                 // que PONE EL CONTADOR A CERO: la referencia de aquí dejó de
                                 // existir. Restar entonces se la quitaría a la navegación
                                 // NUEVA y la destaparía a medio cargar — el mismo fallo que
                                 // el contador documenta para las peticiones "silent". Como
                                 // el reset ya la borró, no devolverla tampoco fuga nada.
-                                if (!document.getElementById('mapa-leaflet')) return;
+                                if (window.preloaderGeneracion && window.preloaderGeneracion() !== genMapa) return;
                                 if (window.hidePreloader) window.hidePreloader();
                             });
                         });

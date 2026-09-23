@@ -31,14 +31,14 @@
 --}}
 @php
     $fmt = fn ($n) => rtrim(rtrim(number_format((float) $n, 3, ',', '.'), '0'), ',') ?: '0';
-    // Filas mínimas de la tabla de ítems: se rellena con filas vacías hasta esta
-    // cantidad para que la nota luzca como el formulario oficial. 20 es el MÁXIMO que
-    // mantiene la nota en UNA sola hoja A4 junto con los bloques de Observaciones,
-    // Firmas y Vehículo/Chofer (con 24 se desbordaba a una 2.ª página). Verificado:
-    // 1 a 3 productos —incluso con nombres largos de 2 líneas— caben en 1 página.
-    // El formato HORIZONTAL tiene su propia vista con su propio número (cabe bastante
-    // menos en la hoja acostada), así que aquí es una constante, no un parámetro.
-    $minFilas = 20;
+    // $minFilas (hasta donde se rellena con renglones vacios) y $compacto (renglones de
+    // items con letra y aire menores) los decide AlmacenController::renderNotaEntregaPdfBinary:
+    // arma la nota y la MIDE para que salga en UNA hoja. Parte del numero oficial del
+    // formulario (NOTA_FILAS_VERTICAL) y quita relleno o compacta solo si no cabe.
+    $minFilas = (int) ($minFilas ?? 0);
+    $compacto = (bool) ($compacto ?? false);
+    $fi  = $compacto ? 7 : 8;   // letra de los renglones de items
+    $pad = $compacto ? 1 : 2;   // aire de celda de la tabla de items
 @endphp
 
 {{-- N° de Nota se renderiza en el cabezote (esquina derecha, Header() del PDF).
@@ -90,7 +90,7 @@
      • Filas vacías: <font face="helvetica" size="8">&nbsp;</font> explícito en cada celda — sin esto
        el &nbsp; hereda el font del documento (9.5pt) y la fila vacía queda más alta
        que las llenas (8pt). Con el font explícito, todas las filas tienen mismo alto. --}}
-<table border="1" cellpadding="2" cellspacing="0" width="100%">
+<table border="1" cellpadding="{{ $pad }}" cellspacing="0" width="100%">
     <thead>
         {{-- Header: gris claro #D9D9D9 (visualmente identico al gris del Excel
              "Nueva Nota de entrega de materiales 2025" — indexed 22 con el
@@ -114,9 +114,9 @@
     <tbody>
         @foreach($movs as $i => $m)
             <tr>
-                <td width="6%"  align="center"><font face="helvetica" size="8">{{ $i + 1 }}</font></td>
-                <td width="10%" align="center"><font face="helvetica" size="8">{{ $fmt($m->CANTIDAD) }}</font></td>
-                <td width="10%" align="center"><font face="helvetica" size="8">{{ $m->producto?->UM ?? '' }}</font></td>
+                <td width="6%"  align="center"><font face="helvetica" size="{{ $fi }}">{{ $i + 1 }}</font></td>
+                <td width="10%" align="center"><font face="helvetica" size="{{ $fi }}">{{ $fmt($m->CANTIDAD) }}</font></td>
+                <td width="10%" align="center"><font face="helvetica" size="{{ $fi }}">{{ $m->producto?->UM ?? '' }}</font></td>
                 {{-- Filtros: si se eligió un nº de parte al entregar, sale el TIPO + el nº de
                      parte específico en la DESCRIPCIÓN. La columna N° COLADA/SERIAL muestra
                      SIEMPRE el CÓDIGO del producto (no el nº de parte). --}}
@@ -132,17 +132,17 @@
                         ? ($devoluciones ?? collect())->where('ID_MOVIMIENTO_RELACIONADO', $m->ID_MOVIMIENTO)->sum('CANTIDAD')
                         : 0;
                 @endphp
-                <td width="62%"><font face="helvetica" size="8">{{ $m->producto?->NOMBRE ?? '' }}@if($np) &nbsp;—&nbsp; {{ $np }}@endif</font>@if($devuelto > 0)<font face="helvetica" size="7" color="#b91c1c"> &nbsp;(DEVUELTO: {{ $fmt($devuelto) }} {{ $m->producto?->UM ?? '' }})</font>@endif</td>
-                <td width="12%" align="center"><font face="helvetica" size="8">{{ $m->producto?->CODIGO ?? '' }}</font></td>
+                <td width="62%"><font face="helvetica" size="{{ $fi }}">{{ $m->producto?->NOMBRE ?? '' }}@if($np) &nbsp;—&nbsp; {{ $np }}@endif</font>@if($devuelto > 0)<font face="helvetica" size="7" color="#b91c1c"> &nbsp;(DEVUELTO: {{ $fmt($devuelto) }} {{ $m->producto?->UM ?? '' }})</font>@endif</td>
+                <td width="12%" align="center"><font face="helvetica" size="{{ $fi }}">{{ $m->producto?->CODIGO ?? '' }}</font></td>
             </tr>
         @endforeach
         @for($j = $movs->count(); $j < $minFilas; $j++)
             <tr>
-                <td width="6%"  align="center"><font face="helvetica" size="8">{{ $j + 1 }}</font></td>
-                <td width="10%"><font face="helvetica" size="8">&nbsp;</font></td>
-                <td width="10%"><font face="helvetica" size="8">&nbsp;</font></td>
-                <td width="62%"><font face="helvetica" size="8">&nbsp;</font></td>
-                <td width="12%"><font face="helvetica" size="8">&nbsp;</font></td>
+                <td width="6%"  align="center"><font face="helvetica" size="{{ $fi }}">{{ $j + 1 }}</font></td>
+                <td width="10%"><font face="helvetica" size="{{ $fi }}">&nbsp;</font></td>
+                <td width="10%"><font face="helvetica" size="{{ $fi }}">&nbsp;</font></td>
+                <td width="62%"><font face="helvetica" size="{{ $fi }}">&nbsp;</font></td>
+                <td width="12%"><font face="helvetica" size="{{ $fi }}">&nbsp;</font></td>
             </tr>
         @endfor
     </tbody>

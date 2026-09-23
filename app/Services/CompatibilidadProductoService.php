@@ -168,7 +168,36 @@ class CompatibilidadProductoService
     {
         $texto = mb_strtoupper(trim($texto));
         $ya = $this->equipos($idProducto)->map(fn ($e) => $this->claveEquipo($e))->all();
+        $placas = $this->equiposPorPlaca($texto);
 
+        return $this->modelosAgrupados()
+            ->reject(fn ($g) => in_array($g['clave'], $ya, true))
+            ->map(fn ($g) => [
+                'origen' => $g['origen'],
+                'refs'   => $g['refs'],
+                'tipo'   => $g['tipo'],
+                'modelo' => $g['modelo'],
+                'placas' => $this->placasDe($g, $placas),
+            ])
+            ->filter(fn ($o) => $texto === '' || $o['placas'] || str_contains(mb_strtoupper($o['tipo'].' '.$o['modelo']), $texto))
+            ->sortByDesc(fn ($o) => (bool) $o['placas'])   // lo hallado por placa, primero
+            ->take(100)->values();   // son pocos (el catálogo y los tipos de auxiliar): caben todos
+    }
+
+    /**
+     * TODOS los modelos de equipo que existen, agrupados como los ve el usuario: las fichas
+     * del catálogo con el mismo tipo, marca y modelo (una por año) son UN modelo, y cada tipo
+     * de auxiliar es otro. Cada grupo trae:
+     *   origen  'modelo' (catálogo) o 'aux'
+     *   clave   lo que lo identifica (claveEquipo)
+     *   refs    los ID_ESPEC de sus fichas, o "TIPO|MARCA|MODELO" del auxiliar
+     *   tipo, modelo  lo que se muestra ("MARCA MODELO")
+     *   bases   el MODELO de cada ficha, sin marca: con él se reconoce un equipo sin ficha
+     * Fuente ÚNICA: la usan el vínculo de un producto (opcionesEquipo) y los kits del almacén
+     * (KitAlmacenService), para que un kit y sus productos hablen del mismo modelo.
+     */
+    public function modelosAgrupados(): Collection
+    {
         $especs = DB::table('caracteristicas_modelo')->orderBy('TIPO')->orderBy('MODELO')->get(['ID_ESPEC', 'TIPO', 'MODELO']);
         $marcas = $this->marcaPorModelo($especs->pluck('ID_ESPEC'));
         $modelos = $especs->map(fn ($m) => [
@@ -176,7 +205,7 @@ class CompatibilidadProductoService
             'ref'    => (string) $m->ID_ESPEC,
             'tipo'   => (string) $m->TIPO,
             'modelo' => $this->nombreModelo($marcas->get($m->ID_ESPEC), $m->MODELO),
-            'base'   => (string) $m->MODELO,   // el MODELO de la ficha, sin marca: con él se reconoce un equipo sin ficha
+            'base'   => (string) $m->MODELO,
         ]);
 
         $aux = DB::table('equipos_auxiliares')->whereNull('deleted_at')
@@ -188,35 +217,87 @@ class CompatibilidadProductoService
                 'modelo' => $this->nombreModelo($a->MARCA, $a->MODELO),
             ]);
 
-        $placas = $this->equiposPorPlaca($texto);
-
         return $modelos->concat($aux)
             ->groupBy(fn ($o) => $this->claveEquipo($o))
-            ->reject(fn ($g, $clave) => in_array($clave, $ya, true))
-            ->map(function ($g) use ($placas) {
-                $o = $g->first();
-                $refs = $g->pluck('ref')->all();
-                // El modelo de los equipos cuya placa se escribió: por su ficha del catálogo o, si
-                // el equipo aún no la tiene, por su tipo y modelo iguales a los de la ficha (el
-                // tipo cuenta: hay modelos repetidos en tipos distintos; la marca no, la ficha no la tiene).
-                $bases = $g->pluck('base')->filter()->map(fn ($b) => mb_strtoupper(trim($b)))->all();
-                $susPlacas = $o['origen'] !== 'modelo' ? [] : $placas
-                    ->filter(fn ($e) => $e->ID_ESPEC !== null
-                        ? in_array((string) $e->ID_ESPEC, $refs, true)
-                        : mb_strtoupper(trim((string) $e->TIPO)) === mb_strtoupper($o['tipo'])
-                            && in_array(mb_strtoupper(trim((string) $e->MODELO)), $bases, true))
-                    ->pluck('PLACA')->unique()->values()->all();
-                return [
-                    'origen' => $o['origen'],
-                    'refs'   => $refs,
-                    'tipo'   => $o['tipo'],
-                    'modelo' => $o['modelo'],
-                    'placas' => $susPlacas,
-                ];
-            })
-            ->filter(fn ($o) => $texto === '' || $o['placas'] || str_contains(mb_strtoupper($o['tipo'].' '.$o['modelo']), $texto))
-            ->sortByDesc(fn ($o) => (bool) $o['placas'])   // lo hallado por placa, primero
-            ->take(100)->values();   // son pocos (el catálogo y los tipos de auxiliar): caben todos
+            ->map(fn ($g, $clave) => [
+                'origen' => $g->first()['origen'],
+                'clave'  => (string) $clave,
+                'refs'   => $g->pluck('ref')->all(),
+                'tipo'   => $g->first()['tipo'],
+                'modelo' => $g->first()['modelo'],
+                'bases'  => $g->pluck('base')->filter()->map(fn ($b) => mb_strtoupper(trim($b)))->values()->all(),
+            ])
+            ->values();
+    }
+
+    /**
+     * Placas de los equipos de cada uno de estos modelos (grupos de modelosAgrupados), como
+     * [clave => [placas]]. Recorre todos los equipos con placa una sola vez; los modelos sin
+     * equipos no aparecen. Lo usan los kits para encontrar el de un equipo escribiendo su placa.
+     */
+    public function placasPorModelo(Collection $grupos): array
+    {
+        $grupos = $grupos->where('origen', 'modelo');
+        if ($grupos->isEmpty()) {
+            return [];
+        }
+        $equipos = $this->equiposConPlaca()->whereNotNull('d.PLACA')->where('d.PLACA', '<>', '')->get();
+
+        $salida = [];
+        foreach ($grupos as $g) {
+            $placas = $this->placasDe($g, $equipos);
+            if ($placas) {
+                $salida[$g['clave']] = $placas;
+            }
+        }
+        return $salida;
+    }
+
+    /**
+     * Productos ligados a un modelo (las refs de un grupo de modelosAgrupados), con la cantidad
+     * por servicio de su vínculo: lo que "lleva" ese equipo. Es la compatibilidad vista desde
+     * el equipo — el editor de kits la sugiere primero.
+     */
+    public function productosDeModelo(string $origen, array $refs): Collection
+    {
+        if ($origen === 'modelo') {
+            $filas = DB::table('modelo_filtro')->whereIn('ID_ESPEC', array_map('intval', $refs))
+                ->get(['ID_PRODUCTO', 'CANTIDAD']);
+        } elseif ($origen === 'aux') {
+            $filas = collect();
+            foreach ($refs as $ref) {
+                [$tipo, $marca, $modelo] = array_pad(explode('|', (string) $ref, 3), 3, '');
+                $filas = $filas->concat(AuxiliarFiltro::where('TIPO', $tipo)->where('MARCA', $marca)->where('MODELO', $modelo)
+                    ->get(['ID_PRODUCTO', 'CANTIDAD']));
+            }
+        } else {
+            throw new InvalidArgumentException('Tipo de equipo desconocido.');
+        }
+
+        return $filas->groupBy('ID_PRODUCTO')->map(fn ($g, $id) => [
+            'id_producto' => (int) $id,
+            'cantidad'    => max(1, (int) $g->max('CANTIDAD')),
+        ])->values();
+    }
+
+    /**
+     * Placas de los equipos de un modelo, entre los equipos dados: por su ficha del catálogo o,
+     * si el equipo aún no la tiene, por su tipo y modelo iguales a los de la ficha (el tipo
+     * cuenta: hay modelos repetidos en tipos distintos; la marca no, la ficha no la tiene).
+     * Los auxiliares no se buscan por placa.
+     */
+    private function placasDe(array $grupo, Collection $equipos): array
+    {
+        if ($grupo['origen'] !== 'modelo' || $equipos->isEmpty()) {
+            return [];
+        }
+        $tipo = mb_strtoupper($grupo['tipo']);
+        return $equipos
+            ->filter(fn ($e) => $e->ID_ESPEC !== null
+                ? in_array((string) $e->ID_ESPEC, $grupo['refs'], true)
+                : mb_strtoupper(trim((string) $e->TIPO)) === $tipo
+                    && in_array(mb_strtoupper(trim((string) $e->MODELO)), $grupo['bases'], true))
+            ->pluck('PLACA')->unique()->values()->all();
     }
 
     /**
@@ -230,12 +311,23 @@ class CompatibilidadProductoService
         if (mb_strlen($limpio) < 5) {
             return collect();
         }
+        return $this->equiposConPlaca()
+            ->whereRaw("REPLACE(REPLACE(UPPER(d.PLACA), ' ', ''), '-', '') LIKE ?", ['%'.$limpio.'%'])
+            ->get();
+    }
+
+    /**
+     * Equipos (no borrados) con su placa, su ficha del catálogo y su tipo: lo que necesita
+     * placasDe() para reconocer de qué modelo es cada uno. Base de equiposPorPlaca (lo escrito)
+     * y de placasPorModelo (todos).
+     */
+    private function equiposConPlaca(): \Illuminate\Database\Query\Builder
+    {
         return DB::table('documentacion as d')
             ->join('equipos as e', 'e.ID_EQUIPO', '=', 'd.ID_EQUIPO')
             ->leftJoin('tipo_equipos as t', 't.id', '=', 'e.id_tipo_equipo')
             ->whereNull('e.deleted_at')
-            ->whereRaw("REPLACE(REPLACE(UPPER(d.PLACA), ' ', ''), '-', '') LIKE ?", ['%'.$limpio.'%'])
-            ->get(['d.PLACA', 'e.ID_ESPEC', 't.nombre as TIPO', 'e.MODELO']);
+            ->select(['d.PLACA', 'e.ID_ESPEC', 't.nombre as TIPO', 'e.MODELO']);
     }
 
     /** Vincula el producto a las fichas de un modelo del catálogo o a un tipo de auxiliar. */

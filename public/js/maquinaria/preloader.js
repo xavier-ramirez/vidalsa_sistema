@@ -31,6 +31,12 @@
 // hidePreloader(true) FUERZA el reset del contador y oculta de inmediato:
 // lo usan los watchdogs anti-congelado (ver navegacion.js).
 let _preloaderRefs = 0;
+// GENERACIÓN del contador: sube cada vez que un hidePreloader(true) lo pone a cero (una
+// navegación nueva, un watchdog). Quien pidió el spinner ANTES y termina DESPUÉS no debe
+// devolver su referencia: ya no existe, y restar se la quitaría a la operación nueva (el
+// spinner se iría a media carga). window.preloaderGeneracion() deja comprobarlo.
+let _preloaderGen = 0;
+window.preloaderGeneracion = function () { return _preloaderGen; };
 
 window.showPreloader = function () {
     _preloaderRefs++;
@@ -48,6 +54,7 @@ window.showPreloader = function () {
 window.hidePreloader = function (force) {
     if (force === true) {
         _preloaderRefs = 0;
+        _preloaderGen++;
     } else {
         _preloaderRefs = Math.max(0, _preloaderRefs - 1);
         // Aún hay operaciones en vuelo → mantener el spinner visible.

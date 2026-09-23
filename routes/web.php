@@ -91,8 +91,9 @@ Route::middleware(['auth'])->group(function () {
             ->name('version.vistas');
         // Capa "Equipos" del mapa: los equipos con GPS (GPS51, vía el enlace compartido de cada
         // equipo) de los frentes del usuario, sus posiciones por tandas y la dirección de uno al
-        // abrir su ficha.
+        // abrir su ficha. "exportar" = el Excel del panel de equipos (lo filtrado, con la dirección).
         Route::get('/mapa/equipos-gps', [App\Http\Controllers\MapaController::class, 'equiposGps'])->name('mapa.equiposGps');
+        Route::get('/mapa/equipos-gps/exportar', [App\Http\Controllers\MapaController::class, 'exportarEquiposGps'])->name('mapa.equiposGps.exportar');
         Route::get('/mapa/equipos-gps/posiciones', [App\Http\Controllers\MapaController::class, 'equiposGpsPosiciones'])->name('mapa.equiposGps.posiciones');
         Route::get('/mapa/equipos-gps/{id}/direccion', [App\Http\Controllers\MapaController::class, 'equipoGpsDireccion'])->whereNumber('id')->name('mapa.equiposGps.direccion');
         // Oleoductos del mapa (proyectos de puntos + linea). API JSON que consume mapa_index.js.
@@ -422,6 +423,15 @@ Route::middleware(['auth'])->group(function () {
             Route::get   ('almacen/productos/{id}/equipos/opciones', [App\Http\Controllers\AlmacenController::class, 'opcionesEquipo'])->whereNumber('id')->name('almacen.productos.equipos.opciones');
             Route::post  ('almacen/productos/{id}/equipos',         [App\Http\Controllers\AlmacenController::class, 'vincularEquipo'])->whereNumber('id')->name('almacen.productos.equipos.store');
             Route::delete('almacen/productos/{id}/equipos',         [App\Http\Controllers\AlmacenController::class, 'desvincularEquipo'])->whereNumber('id')->name('almacen.productos.equipos.destroy');
+            // Kits (Acciones → Kits): recetas de materiales por modelo de equipo que cargan la
+            // salida de un golpe. Verlos: cualquiera con el módulo; armarlos: almacen.productos
+            // (en el constructor de AlmacenKitController). Ver App\Services\KitAlmacenService.
+            Route::get   ('almacen/kits',           [App\Http\Controllers\AlmacenKitController::class, 'index'])    ->name('almacen.kits.index');
+            Route::get   ('almacen/kits/modelos',   [App\Http\Controllers\AlmacenKitController::class, 'modelos'])  ->name('almacen.kits.modelos');
+            Route::get   ('almacen/kits/sugeridos', [App\Http\Controllers\AlmacenKitController::class, 'sugeridos'])->name('almacen.kits.sugeridos');
+            Route::post  ('almacen/kits',           [App\Http\Controllers\AlmacenKitController::class, 'store'])    ->name('almacen.kits.store');
+            Route::put   ('almacen/kits/{id}',      [App\Http\Controllers\AlmacenKitController::class, 'update'])   ->whereNumber('id')->name('almacen.kits.update');
+            Route::delete('almacen/kits/{id}',      [App\Http\Controllers\AlmacenKitController::class, 'destroy'])  ->whereNumber('id')->name('almacen.kits.destroy');
             // Vista alterna de la bitácora agrupada por NUMERO_NOTA — una fila por Nota de
             // Entrega (SALIDA / TRASPASO_SALIDA con N° NE-YYYY-NNNN); clic en la fila abre el
             // PDF oficial. Acceso desde el botón "Historial de Notas de Entrega" del menú Acciones de

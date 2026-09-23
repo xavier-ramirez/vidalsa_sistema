@@ -12,7 +12,8 @@
          ya no desde un CDN). data-geojson = límites de los estados de Venezuela;
          data-faja-* = Faja Petrolífera del Orinoco y bloques petroleros (php tools/generar_geo_faja.php);
          data-mini-* = miniaturas de los botones de capas (php tools/generar_miniaturas_mapa.php);
-         data-equipos-gps = posición GPS de los equipos (MapaController::equiposGps).
+         data-equipos-gps = posición GPS de los equipos (MapaController::equiposGps);
+         data-equipos-gps-exportar = el Excel del panel de equipos (MapaController::exportarEquiposGps).
          Todos los geojson son LOCALES y, como los equipos, se cargan solo cuando se enciende su capa. --}}
     @php $geo = fn ($ruta) => asset($ruta) . '?v=' . (@filemtime(public_path($ruta)) ?: 0); @endphp
     <div id="mapa-leaflet"
@@ -24,7 +25,8 @@
          data-mini-faja="{{ $geo('img/mapa/mini-faja.png') }}"
          data-mini-bloques="{{ $geo('img/mapa/mini-bloques.png') }}"
          data-mini-equipos="{{ $geo('img/mapa/mini-equipos.png') }}"
-         data-equipos-gps="{{ route('mapa.equiposGps') }}"></div>
+         data-equipos-gps="{{ route('mapa.equiposGps') }}"
+         data-equipos-gps-exportar="{{ route('mapa.equiposGps.exportar') }}"></div>
 </div>
 {{-- Frentes de trabajo = proyectos. mapa_index.js los usa para el selector "Vincular a un
      proyecto" (recomendados desde la tabla frentes_trabajo; ya NO se crean a mano en el mapa). --}}

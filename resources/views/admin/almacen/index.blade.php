@@ -1470,6 +1470,13 @@
                         <div style="background:#e0f2fe;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#0067b1;">analytics</i></div>
                         <span style="font-size:14px;font-weight:500;">Dashboard de consumo</span>
                     </button>
+                    {{-- Kits por equipo: recetas de materiales que cargan la salida de un golpe
+                         (partials/kits_modal). Visible para todos, como el resto del menú: el
+                         permiso se pide dentro, al armar un kit o al cargarlo en la salida. --}}
+                    <button type="button" onclick="document.getElementById('almAccionesMenu').style.display='none'; window.almAbrirKits();" class="dropdown-item-custom" style="display:flex;align-items:center;gap:10px;padding:11px 14px;color:#475569;background:transparent;border:none;border-bottom:1px solid #f1f5f9;width:100%;text-align:left;cursor:pointer;">
+                        <div style="background:#e0f2fe;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#0067b1;">inventory_2</i></div>
+                        <span style="font-size:14px;font-weight:500;">Kits por equipo</span>
+                    </button>
                     {{-- Despachos: abre la Reposición del general (la bandeja donde
                          los almacenes de proyecto confirman lo que el general les despachó) y
                          dice cuántas notas faltan por recibir. El MISMO item que en la
@@ -3705,6 +3712,10 @@
     // clic accidental; desaparece recién al volver a pulsar el toggle (nueva recarga). Se
     // desactiva automáticamente al limpiar la selección.
     var almSoloSel = false;
+    // Observación que deja el último kit cargado ("KIT 250H × 3 · CHUTO HOWO"): el modal de la
+    // salida la pone al abrirse (el usuario puede cambiarla). Se olvida al limpiar la selección,
+    // que es también lo que pasa al registrar la salida.
+    var almKitMotivo = '';
     function almSelCount() { return Object.keys(almSeleccion).length; }
     function almAplicarFaltantes() {
         document.querySelectorAll('#almTableBody tr.alm-row').forEach(function (tr) {
@@ -4099,6 +4110,7 @@
         almSeleccion = {};
         almFaltantes = {};
         almExceden = {};
+        almKitMotivo = '';
         almSoloSel = false; // sin selección, el filtro local no tiene sentido
         document.querySelectorAll('#almTableBody tr.alm-row').forEach(function (tr) {
             almSelMarkRow(tr, false);
@@ -4108,6 +4120,43 @@
         });
         var btn = el('almBulkCounter'); if (btn) btn.classList.remove('is-filtering');
         almSelRefreshBar();
+    };
+    // Carga en la salida los materiales de un kit (Acciones → Kits, js/maquinaria/almacen_kits.js):
+    // lineas = [{id_producto, cantidad}], con la cantidad YA multiplicada por los kits. Es lo
+    // mismo que seleccionar cada fila a mano: trae las filas del almacén actual aunque no estén
+    // en pantalla (id_producto_in), crea cada entrada con almSelNuevaEntrada y, si el producto ya
+    // estaba en la salida, SUMA. La bolsa queda en automático (la cascada del servidor) y el nº
+    // de parte, cuando hay varios, lo pide la fila como siempre. Termina mostrando solo lo
+    // seleccionado. Resuelve con { sinParte, noEstan } (cuántos piden parte / no llegaron).
+    window.almKitCargarEnSalida = function (lineas, motivo) {
+        if (!ensurePerm(HAS_MOVER, 'No tienes permiso para registrar movimientos de inventario.')) return Promise.reject(new Error('permiso'));
+        var idAlm = almSelAlmacenActual();
+        if (!idAlm) { toast('Elige primero el almacén del que sale el material.', 'error'); return Promise.reject(new Error('almacen')); }
+        var p = new URLSearchParams({
+            id_almacen: idAlm, solo_filas: '1',
+            id_producto_in: lineas.map(function (l) { return l.id_producto; }).join(','),
+        });
+        return window.apiFetch(ROUTE_INDEX + '?' + p.toString(), { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+            .then(function (b) {
+                var filas = document.createElement('tbody');
+                filas.innerHTML = b.html || '';
+                var res = { sinParte: 0, noEstan: 0 };
+                lineas.forEach(function (l) {
+                    var id = String(l.id_producto);
+                    var tr = filas.querySelector('tr.alm-row[data-id-producto="' + id + '"]');
+                    if (!tr) { res.noEstan++; return; }
+                    var s = almSeleccion[id] || (almSeleccion[id] = almSelNuevaEntrada(tr));
+                    var previa = parseFloat(String(s.cantidad || '').replace(',', '.')) || 0;
+                    s.cantidad = String(Math.round((previa + Number(l.cantidad)) * 1000) / 1000);
+                    delete almFaltantes[id];
+                    if (almPideParte(id)) res.sinParte++;
+                });
+                almKitMotivo = String(motivo || '').slice(0, 200);
+                almSelRefreshBar();
+                almAplicarSoloSel(true);
+                return res;
+            });
     };
     // Handler del input de cantidad en cada fila — guarda en almSeleccion (sobrevive a
     // recargas del tbody). Sanitiza (sin letras ni negativos) PERO NO recorta al stock:
@@ -4792,12 +4841,17 @@
     };
 
     // ── Foto del producto ─────────────────────────────────────────────────────
+    // La tabla y la ficha piden la MINIATURA (?sz=): el proxy la guarda en disco y pesa unos
+    // KB, en vez de la foto de 945 px para un cuadrito de 58. El visor pide la foto entera.
+    // Mismo sufijo en la fila que pinta el servidor (partials/table_rows).
+    function almFotoMini(url, sz) { return url + (url.indexOf('?') < 0 ? '?' : '&') + 'sz=' + sz; }
+
     // Un solo sitio que decide qué se ve: la imagen o el círculo vacío, y lo que dice la
     // cámara al pasar el mouse. Lo llaman la apertura de la ficha y la subida.
     function almDetFotoPintar(url) {
         var img = el('almDetFotoImg'), sin = el('almDetFotoSin');
         if (!img || !sin) return;
-        if (url) { img.src = url; img.style.display = ''; sin.style.display = 'none'; }
+        if (url) { img.src = almFotoMini(url, 'w160'); img.style.display = ''; sin.style.display = 'none'; }
         else     { img.removeAttribute('src'); img.style.display = 'none'; sin.style.display = 'flex'; }
         var caja = el('almDetFotoCaja');
         if (caja && caja.classList.contains('editable')) caja.title = url ? 'Cambiar foto' : 'Subir foto';
@@ -4811,7 +4865,7 @@
         var celda = fila && fila.querySelector('.alm-td-foto');
         if (!celda) return;
         celda.innerHTML = url
-            ? '<img src="' + url + '" alt="" class="alm-foto" loading="lazy" onclick="event.stopPropagation(); window.almVerFoto(this.src)">'
+            ? '<img src="' + almFotoMini(url, 'w120') + '" alt="" class="alm-foto" loading="lazy" onclick="event.stopPropagation(); window.almVerFoto(this.src)">'
             : '<span class="alm-foto alm-foto-sin" title="Sin foto"><i class="material-icons">inventory_2</i></span>';
     }
 
@@ -4843,7 +4897,8 @@
     // Visor de la foto: lo abren la miniatura de la tabla y la foto de la ficha (sin permiso).
     window.almVerFoto = function (src) {
         if (!src) return;
-        el('almVisorFotoImg').src = src;
+        // Llega la miniatura de la tabla o de la ficha: en grande va la foto entera.
+        el('almVisorFotoImg').src = src.replace(/[?&]sz=[^&]*$/, '');
         el('almVisorFoto').classList.add('abierto');
     };
     window.almCerrarFoto = function () {
@@ -6254,6 +6309,9 @@
         almSalidaAplicarFormatoNota(ALM_SAL.idAlmacen);
         // Limpiar campos de Nota de Entrega y poner FECHA = hoy por default.
         ['almSalidaContrato','almSalidaRq','almSalidaSolicitante','almSalidaDepartamento','almSalidaMotivo'].forEach(function (id) { var e = el(id); if (e) e.value = ''; });
+        // La salida viene de un kit: su nombre, cuántos y el equipo quedan en Observaciones
+        // (el campo que imprime la Nota), para que conste de dónde salió el material.
+        if (almKitMotivo) { var mo = el('almSalidaMotivo'); if (mo) mo.value = almKitMotivo; }
         ALM_LOG_CAMPOS.forEach(function (c) { var e = el(c.id); if (e) e.value = ''; });
         almLogCargar(ALM_SAL.idAlmacen);
         // El campo Proyecto es un custom-dropdown: lo reseteamos con su helper para que
@@ -6893,4 +6951,5 @@
 {{-- Modal "Dashboard de Consumo" (menú Acciones). Vista parcial compartida con
      /admin/almacen/movimientos — mismo modal y mismo endpoint. --}}
 @include('admin.almacen.partials.consumo_dashboard_modal')
+@include('admin.almacen.partials.kits_modal')
 @endsection

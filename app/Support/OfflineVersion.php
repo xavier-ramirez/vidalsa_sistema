@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\Almacen;
+use App\Models\AlmacenKit;
 use App\Models\AlmacenStock;
 use App\Models\Equipo;
 use App\Models\FrenteTrabajo;
@@ -69,8 +70,9 @@ class OfflineVersion
      *   v3 → versiones por dominio + sincronización incremental
      *   v4 → color de la unidad (equipos) y referencia de los movimientos (almacén)
      *   v5 → reporte de falla abierto de cada equipo (aviso sobre su estado)
+     *   v6 → kits del almacén (tabla `kits`, dominio catalogos)
      */
-    public const ESQUEMA = 5;
+    public const ESQUEMA = 6;
 
     /** Dominios válidos. El orden no importa; valida el argumento de invalidar(). */
     public const DOMINIOS = ['equipos', 'almacen', 'catalogos'];
@@ -175,6 +177,14 @@ class OfflineVersion
                 $pulso['catalogos'],
                 Almacen::withTrashed()->max('updated_at'),
                 FrenteTrabajo::max('updated_at'),
+                // Kits: altas y ediciones. El BORRADO de un kit no mueve este MAX: lo avisa el
+                // pulso (AlmacenKit::booted llama a invalidar en deleted). Cada kit lleva además
+                // el nombre de sus productos y las placas de sus equipos (KitAlmacenService::
+                // catalogo), así que un producto o un equipo editado también lo refresca. Los
+                // catálogos pesan pocos KB: reenviarlos por eso es barato.
+                AlmacenKit::max('updated_at'),
+                ProductoInventario::withTrashed()->max('updated_at'),
+                Equipo::withTrashed()->max('updated_at'),
             ]),
             'reset' => $reset,
         ];

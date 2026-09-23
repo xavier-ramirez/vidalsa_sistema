@@ -1,8 +1,8 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // Módulo "Mapa Satelital" — compatible con navegación SPA.
 //
-// Este archivo se carga UNA sola vez en el layout y se engancha a DOMContentLoaded +
-// spa:contentLoaded para montar el mapa cuando aparece el contenedor #mapa-leaflet.
+// Este archivo lo pide UNA sola vez el layout (ModuleManager, al ver #mapa-leaflet) y se
+// engancha a DOMContentLoaded + spa:contentLoaded para montar el mapa cuando aparece el contenedor.
 // (La SPA de navegacion.js SÍ re-ejecuta los <script> inline del contenido, clonándolos
 // antes de disparar spa:contentLoaded — de ahí salen window.mapaFrentes y
 // window.mapaPuedeEditar, que la vista define en un <script> propio.) Leaflet + el geocoder se cargan de forma diferida
@@ -46,17 +46,18 @@
     }
 
     // Garantiza Leaflet + geocoder disponibles (CSS + JS), luego resuelve.
+    // Los tres scripts se piden A LA VEZ: async=false (loadScript) ya garantiza que se EJECUTAN
+    // en el orden en que se insertan (el geocoder necesita a Leaflet). Antes se pedía uno solo
+    // cuando había terminado el anterior: tres viajes seguidos antes de poder montar el mapa.
     function ensureLeaflet() {
         ensureCss(LEAFLET_CSS);
         ensureCss(GEOCODER_CSS);
-        var chain = (typeof L !== 'undefined' && L.map) ? Promise.resolve() : loadScript(LEAFLET_JS);
-        return chain.then(function () {
-            if (typeof L !== 'undefined' && L.Control && L.Control.Geocoder) return;
-            return loadScript(GEOCODER_JS);
-        }).then(function () {
-            if (typeof proj4 !== 'undefined') return;
-            return loadScript(PROJ4_JS).catch(function () {}); // proj4 opcional (UTM)
-        });
+        var hayLeaflet = typeof L !== 'undefined' && L.map;
+        var pedidos = [];
+        if (!hayLeaflet) pedidos.push(loadScript(LEAFLET_JS));
+        if (!(hayLeaflet && L.Control && L.Control.Geocoder)) pedidos.push(loadScript(GEOCODER_JS));
+        if (typeof proj4 === 'undefined') pedidos.push(loadScript(PROJ4_JS).catch(function () {})); // proj4 opcional (UTM)
+        return Promise.all(pedidos);
     }
 
     // Construye el mapa dentro del contenedor dado.
@@ -639,11 +640,15 @@
             // quedaba quieta y parecia que el clic no habia hecho nada.
             spinOn();
             muniPromesa = window.apiFetch(muniUrl).then(function (r) { return r.json(); }).then(function (gj) {
+                // Se salió del mapa mientras bajaba: ni se colorea ni se devuelve el spinner (la
+                // navegación nueva ya lo puso a cero); null = quien espera no repinta.
+                if (desmontado) return null;
                 muniData = gj;
                 construirColoresMuni(gj.features); // coloreado por adyacencia (vecinos ≠ color) antes de pintar
                 spinOff();   // DESPUES del coloreado: esa parte tambien tarda
                 return gj;
             }).catch(function () {
+                if (desmontado) return null;
                 spinOff();
                 // Si fallo se limpia la promesa para permitir un reintento en el SIGUIENTE
                 // uso (otro clic del usuario). Quien llama debe comprobar que el resultado
@@ -746,10 +751,15 @@
                 // Con la Faja encendida el tooltip dice ADEMÁS en qué división está el cursor.
                 // Se recalcula al mover el ratón (no al entrar) porque un estado puede cruzar
                 // dos divisiones — o entrar y salir de la Faja sin cambiar de estado.
+                // Solo se reescribe el tooltip si el texto CAMBIÓ: setTooltipContent rehace su HTML y
+                // lo recoloca, y esto corre en cada movimiento del ratón sobre el estado.
+                var textoPuesto = null;
                 var ponerTexto = function (e) {
                     var div = divisionFajaEnPunto(e.latlng);
-                    e.target.setTooltipContent(esc(nombre) +
-                        (div ? '<br><span style="opacity:.85;">División ' + esc(div) + '</span>' : ''));
+                    var texto = esc(nombre) + (div ? '<br><span style="opacity:.85;">División ' + esc(div) + '</span>' : '');
+                    if (texto === textoPuesto) return;
+                    textoPuesto = texto;
+                    e.target.setTooltipContent(texto);
                 };
                 layer.on({
                     // No tocar el estilo si el estado está FIJADO (clic derecho).
@@ -805,10 +815,10 @@
 
         var geojsonUrl = el.getAttribute('data-geojson');
         if (geojsonUrl) {
-            window.apiFetch(geojsonUrl).then(function (r) { return r.json(); }).then(function (gj) { estados.addData(gj); }).catch(function () {});
+            window.apiFetch(geojsonUrl).then(function (r) { return r.json(); }).then(function (gj) { if (!desmontado) estados.addData(gj); }).catch(function () {});
         }
 
-        // Interruptor "Todos los municipios" (botón-miniatura de arriba-derecha, ver agregarMiniCapa).
+        // Interruptor "Todos los municipios" (botón-miniatura de la caja de capas, ver agregarMiniCapa).
         // Los bordes de los estados quedan SIEMPRE visibles (estados.addTo(map) arriba); los
         // municipios no son una capa simple: se pintan según estadosConMuni + repintarMuniEstado.
         var todosMuniOn = false;
@@ -836,7 +846,7 @@
             muniExcluidos.clear();
             repintarMuniEstado();
         }
-        // ── Botón MINIATURA de municipios (arriba-derecha) ────────────────────────────────
+        // ── Botón MINIATURA de municipios (en la caja de capas) ───────────────────────────
         // Sustituye al control de capas de Leaflet (icono gris que al pasar el mouse se abría en
         // un checkbox): ahora se ve un mini mapa de Venezuela ya pintado con los MISMOS colores
         // que tendrán los municipios, así se sabe qué enciende el botón sin leer nada.
@@ -854,21 +864,22 @@
             _btnMuni.classList.toggle('activo', hayMunicipiosVisibles());
             _btnMuni.title = todosMuniOn ? 'Ocultar los municipios' : 'Ver TODOS los municipios (colores por municipio)';
         }
-        // ── CAJA DE CAPAS (arriba-derecha) ────────────────────────────────────────────
-        // UN solo control que agrupa los tres botones-miniatura (Municipios, Faja, Bloques).
-        // En PC se ven los tres siempre, como antes. En TELÉFONO la caja se recoge en un
-        // único cuadrado con icono de capas: al tocarlo se despliegan las tres miniaturas,
-        // cada una marcada si está encendida. El CSS decide cuál de las dos formas se ve,
-        // así que rotar el teléfono ajusta solo (no hay medición de ancho en el JS).
+        // ── CAJA DE CAPAS (abajo-derecha) ─────────────────────────────────────────────
+        // UN solo botón "Capas" (icono + rótulo) que agrupa los botones-miniatura (Equipos,
+        // Municipios, Faja, Bloques), en PC y en teléfono por igual: al tocarlo se despliegan
+        // (en PC en fila hacia la izquierda, en teléfono hacia arriba), cada uno marcado si
+        // está encendido. Antes, en PC iban sueltos y apilados arriba-derecha. Va en la fila de
+        // abajo-derecha, a la izquierda de la escala y la brújula: abajo-izquierda quedaba
+        // debajo de las leyendas (pedidos del cliente, 22-09-2026).
         var capasBox, capasPanel; // los rellena onAdd, síncrono en el addControl de abajo
         var CapasCtrl = L.Control.extend({
-            options: { position: 'topright' },
+            options: { position: 'bottomright' },
             onAdd: function () {
                 capasBox = L.DomUtil.create('div', 'mapa-capas-box');
-                var toggle = L.DomUtil.create('button', 'mapa-fit-btn mapa-capas-toggle', capasBox);
+                var toggle = L.DomUtil.create('button', 'mapa-capas-toggle', capasBox);
                 toggle.type = 'button';
                 toggle.title = 'Capas del mapa';
-                toggle.innerHTML = '<i class="material-icons">layers</i>';
+                toggle.innerHTML = '<i class="material-icons">layers</i><span class="mapa-capas-toggle-lbl">Capas</span>';
                 capasPanel = L.DomUtil.create('div', 'mapa-capas-panel', capasBox);
                 L.DomEvent.disableClickPropagation(capasBox);
                 L.DomEvent.disableScrollPropagation(capasBox);
@@ -890,9 +901,11 @@
         // Molde del botón-miniatura, COMPARTIDO por las capas (Municipios, Faja, Bloques y Equipos):
         // imagen pre-generada + rótulo. Cada capa pone qué hace el clic y qué necesita del botón
         // recién creado (guardarlo para poder encenderlo/apagarlo). Todos cuelgan de capasPanel:
-        // el disableClickPropagation de la caja ya cubre a los hijos.
-        function agregarMiniCapa(urlImagen, rotulo, alClic, alCrear) {
-            var btn = L.DomUtil.create('button', 'mapa-mini-capa', capasPanel);
+        // el disableClickPropagation de la caja ya cubre a los hijos. `primero` la pone al
+        // principio del panel (Equipos se crea al final del archivo pero va de primera).
+        function agregarMiniCapa(urlImagen, rotulo, alClic, alCrear, primero) {
+            var btn = L.DomUtil.create('button', 'mapa-mini-capa');
+            capasPanel.insertBefore(btn, primero ? capasPanel.firstChild : null);
             btn.type = 'button';
             btn.innerHTML = '<img class="mapa-mini-capa-img" src="' + esc(urlImagen) + '" alt="" draggable="false">' +
                             '<span class="mapa-mini-capa-lbl">' + esc(rotulo) + '</span>';
@@ -1000,6 +1013,9 @@
                 if (!url) return Promise.resolve(false);
                 spinOn();
                 est.promesa = window.apiFetch(url).then(function (r) { return r.json(); }).then(function (gj) {
+                    // Se salió del mapa mientras bajaba: nada que pintar, y el spinner no se
+                    // devuelve (la navegación nueva ya lo puso a cero).
+                    if (desmontado) return false;
                     // El spinner se apaga DESPUES de crear la capa, no antes: dibujar los
                     // poligonos es la parte lenta y antes quedaba fuera, asi que el spinner
                     // se iba y la pantalla seguia congelada un rato mas.
@@ -1009,6 +1025,7 @@
                 }).catch(function () {
                     // Igual que en los municipios: se limpia la promesa para poder reintentar en el
                     // siguiente clic (si no, quedaría rota para siempre).
+                    if (desmontado) return false;
                     spinOff();
                     est.promesa = null;
                     window.toast('No se pudo cargar la capa petrolera.', 'error');
@@ -1028,10 +1045,21 @@
                 var yaEstaba = !!est.promesa;
                 if (yaEstaba) spinOn();
                 est.cargar().then(function (ok) {
-                    if (!ok) { if (yaEstaba) spinOff(); est.on = false; est.sincronizar(); if (alCambiar) alCambiar(est); return; }
-                    if (est.on) est.capa.addTo(map);   // si la apagó mientras cargaba, no se pinta
-                    if (alCambiar) alCambiar(est);     // ya con la capa cargada (el buscador la necesita)
-                    if (yaEstaba) spinOff();
+                    // Con el mapa destruido no se pinta ni se devuelve el spinner: la navegación
+                    // nueva ya puso el contador a cero (hidePreloader(true)).
+                    if (desmontado) return;
+                    var poner = function () {
+                        if (desmontado) return;
+                        if (!ok) { if (yaEstaba) spinOff(); est.on = false; est.sincronizar(); if (alCambiar) alCambiar(est); return; }
+                        if (est.on) est.capa.addTo(map);   // si la apagó mientras cargaba, no se pinta
+                        if (alCambiar) alCambiar(est);     // ya con la capa cargada (el buscador la necesita)
+                        if (yaEstaba) spinOff();
+                    };
+                    // Ya descargada, la promesa resuelve en el MISMO turno: sin esperar un
+                    // pintado, el spinner se encendía y apagaba sin llegar a verse mientras se
+                    // meten los polígonos. Doble rAF = después del frame que ya lo muestra.
+                    if (yaEstaba) requestAnimationFrame(function () { requestAnimationFrame(poner); });
+                    else poner();
                 });
             };
             return est;
@@ -1609,6 +1637,9 @@
             document.removeEventListener('webkitfullscreenchange', onFsChange);
             window.removeEventListener('orientationchange', onOrientacion);
             if (obsTam) obsTam.disconnect();
+            // Salir con el diálogo de "Descargar imagen" abierto dejaba sus listeners de
+            // scroll/resize en window y su marco y barra en la página.
+            cerrarDialogoExport();
             map.remove();   // suelta también todos los listeners internos de Leaflet
         };
         window.addEventListener('spa:contentLoaded', alNavegar);
@@ -1638,23 +1669,13 @@
         });
         map.addControl(new Brujula());
 
-        // ── Créditos / fuente cartográfica (abajo-izquierda) ──
-        // Fuente ÚNICA del texto: lo pintan igual la pantalla (aquí) y la foto (dibujarCreditos).
+        // ── Créditos / fuente cartográfica ──
+        // Solo van en la FOTO exportada (dibujarCreditos), no en la pantalla: mientras se
+        // maniobra el mapa tapaban la esquina (pedido del cliente, 22-09-2026).
         var CREDITOS = [
             ['ELABORADO POR:', ' Fernando Sánchez | Ingeniero Industrial'],
             ['FUENTE CARTOGRÁFICA:', ' Delimitación Municipal, Instituto Geográfico de Venezuela Simón Bolívar (IGVSB). Cartografía Oficial 2016.']
         ];
-        var Creditos = L.Control.extend({
-            options: { position: 'bottomleft' },
-            onAdd: function () {
-                var d = L.DomUtil.create('div', 'mapa-creditos');
-                d.innerHTML = CREDITOS.map(function (c) {
-                    return '<div><b>' + c[0] + '</b>' + esc(c[1]) + '</div>';
-                }).join('');
-                return d;
-            }
-        });
-        map.addControl(new Creditos());
 
         // ── Clic izquierdo en el mapa: solo recoge lo que esté desplegado. ──
         // La coordenada YA NO sale en un popup al hacer clic; se consulta con clic DERECHO
@@ -1662,7 +1683,7 @@
         map.on('click', function () {
             if (edMode) return; // en modo edición el clic dibuja
             cerrarBuscador();
-            cerrarCapas();      // tocar el mapa recoge la caja de capas del teléfono
+            cerrarCapas();      // tocar el mapa recoge la caja de capas
         });
 
         // ══════════════════════════════════════════════════════════════════════
@@ -1697,8 +1718,22 @@
             }).then(function (r) { return r.json().catch(function () { return {}; }); });
         }
         // Spinner tradicional de la app (preloader contado por referencias).
-        function spinOn() { if (window.showPreloader) window.showPreloader(); }
-        function spinOff() { if (window.hidePreloader) window.hidePreloader(); }
+        // Spinner global (contador compartido). El mapa lleva la cuenta de lo que pidió y en qué
+        // GENERACIÓN del contador (window.preloaderGeneracion): si una navegación lo puso a cero
+        // mientras algo del mapa seguía en vuelo, ese algo ya no devuelve nada al terminar —
+        // restar le quitaría la referencia a la pantalla nueva y la destaparía a media carga.
+        var spinPedidos = 0, spinGen = null;
+        var genPreloader = function () { return window.preloaderGeneracion ? window.preloaderGeneracion() : 0; };
+        function spinOn() {
+            if (spinGen !== genPreloader()) { spinGen = genPreloader(); spinPedidos = 0; }
+            spinPedidos++;
+            if (window.showPreloader) window.showPreloader();
+        }
+        function spinOff() {
+            if (spinGen !== genPreloader() || spinPedidos <= 0) return;
+            spinPedidos--;
+            if (window.hidePreloader) window.hidePreloader();
+        }
 
         // Aclara un color hex mezclándolo con blanco (para el brillo de la tubería).
         function aclararColor(hex, f) {
@@ -1750,7 +1785,9 @@
         }
         map.on('zoomend', actualizarPesoTuberias);
 
-        function oleoDibujar(o) {
+        // sinEtiquetas: la carga inicial dibuja TODOS los proyectos y etiqueta una sola vez al
+        // final; etiquetar tras cada uno medía todas las velas del mapa una vez por proyecto.
+        function oleoDibujar(o, sinEtiquetas) {
             // El grupo de ubicaciones sin frente se rotula SIEMPRE con SUELTO_LABEL: el nombre
             // guardado en BD no manda, así cambiar el texto es tocar una sola constante y no
             // hace falta renombrar la fila. Se normaliza aquí, el único sitio por el que pasan
@@ -1803,7 +1840,7 @@
                 return mk;
             });
             oleoMap[o.id] = { data: o, lines: lines, markers: markers };
-            declutterVelas(true); // (re)etiqueta las velas recién creadas de este proyecto
+            if (!sinEtiquetas) declutterVelas(true); // (re)etiqueta las velas recién creadas de este proyecto
         }
 
         // Escala en km que muestra la barra del mapa (lo que ve el usuario: 100 km, 300 km…).
@@ -3043,7 +3080,7 @@
             d.innerHTML = html;
         }
 
-        // ── Buscador de BLOQUES (arriba-derecha, bajo los botones de capa) ────────────────
+        // ── Buscador de BLOQUES (arriba-derecha) ──────────────────────────────────────────
         // Aparte del buscador de lugares (ese es el geocoder de arriba-izquierda): este solo
         // busca dentro de los bloques ya cargados y solo existe mientras la capa está encendida.
         // Recomienda al escribir con el MISMO ranking del resto de la app (window.FuzzySearch).
@@ -3210,6 +3247,7 @@
         // medida que llegan. Encendida se refresca cada 2 minutos (el TTL de la caché del
         // servidor) y se detiene al apagarla, con la pestaña oculta o al salir del mapa.
         var equiposGpsUrl  = el.getAttribute('data-equipos-gps');
+        var equiposGpsExportarUrl = el.getAttribute('data-equipos-gps-exportar');
         var miniEquiposUrl = el.getAttribute('data-mini-equipos');
         var EQ_REFRESCO = 120000;
         var EQ_TANDAS_A_LA_VEZ = 2;
@@ -3221,14 +3259,15 @@
             dirs: {},        // "id|lat|lng" → dirección ya buscada (sobrevive a los refrescos)
             dirsPidiendo: {},// "id|lat|lng" → true mientras se pide
             grupo: L.layerGroup(),
-            marcas: {},      // id de equipo → L.marker (se reutilizan al refrescar: la ficha abierta sigue abierta)
-            ocultos: {}      // clave de frente → true si se ocultó desde la leyenda
+            marcas: {}       // id de equipo → L.marker (se reutilizan al refrescar: la ficha abierta sigue abierta)
         };
 
         function eqColor(e) { return e.frente ? colorHash(e.frente.nombre) : '#94a3b8'; }
         function eqFrenteClave(e) { return e.frente ? String(e.frente.id) : 'sin'; }
-        // Identificador principal: el que se lee en el equipo (placa) y, si no tiene, el código.
-        function eqIdent(e) { return e.placa || e.codigo || e.etiqueta || e.serial_chasis || ('Equipo ' + e.id); }
+        // Identificador principal: placa; si no tiene, serial de chasis; si no, serial de motor (la
+        // MISMA regla que el Excel del panel, MapaController::exportarEquiposGps). Código y
+        // etiqueta solo si no hay ninguno de los tres.
+        function eqIdent(e) { return e.placa || e.serial_chasis || e.serial_motor || e.codigo || e.etiqueta || ('Equipo ' + e.id); }
         function eqDescripcion(e) { return [e.tipo, [e.marca, e.modelo].filter(Boolean).join(' ')].filter(Boolean).join(' · '); }
         // Solo se pinta una posición válida DENTRO de Venezuela (fuera suele ser la de fábrica).
         function eqTienePosicion(e) { return !!(e.gps && e.gps.ok && !e.gps.fuera_de_venezuela); }
@@ -3256,15 +3295,21 @@
             return d.toLocaleDateString('es-VE') + ' ' + d.toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' });
         }
 
-        // Punto del equipo: su color de frente, más apagado si no está en línea, y una flecha con
-        // el rumbo cuando va en marcha.
+        // Marca del equipo: el icono del módulo Equipos (el mismo "agriculture" del menú), blanco y
+        // SIN el color del frente (pedido del cliente, 22-09-2026: ni círculo ni colores). Más
+        // apagado si no está en línea, y una flecha con el rumbo cuando va en marcha.
+        // Lo que decide cómo se ve el icono (eqIcono): si cambia, hay que rehacerlo; si no, no.
+        function eqIconoFirma(e) {
+            var g = e.gps;
+            return (g.en_linea ? 1 : 0) + '|' + (g.velocidad > 3 ? (g.rumbo || 0) : '-');
+        }
         function eqIcono(e) {
             var g = e.gps;
             return L.divIcon({
                 className: 'mapa-eq-pin' + (g.en_linea ? '' : ' fuera'),
-                html: '<span class="mapa-eq-dot" style="background:' + eqColor(e) + '"></span>' +
+                html: '<i class="material-icons mapa-eq-ico">agriculture</i>' +
                       (g.velocidad > 3 ? '<span class="mapa-eq-rumbo" style="transform:rotate(' + (g.rumbo || 0) + 'deg)"></span>' : ''),
-                iconSize: [18, 18], iconAnchor: [9, 9], popupAnchor: [0, -8]
+                iconSize: [26, 26], iconAnchor: [13, 13], popupAnchor: [0, -12]
             });
         }
 
@@ -3331,14 +3376,20 @@
                 var m = capaEquipos.marcas[e.id];
                 if (m) {
                     m.eq = e;
-                    m.setLatLng(ll);
-                    m.setIcon(eqIcono(e));
+                    // Se pinta en cada tanda de posiciones (una por cada 10 equipos): mover y
+                    // cambiar el icono de TODOS en cada una rehacía el DOM de cada punto decenas de
+                    // veces por vuelta. Solo se toca lo que cambió.
+                    var antes = m.getLatLng();
+                    if (antes.lat !== ll[0] || antes.lng !== ll[1]) m.setLatLng(ll);
+                    var firma = eqIconoFirma(e);
+                    if (m._eqFirma !== firma) { m.setIcon(eqIcono(e)); m._eqFirma = firma; }
                     // Ficha abierta: se re-dibuja con los datos nuevos y, si el equipo se movió, se pide
                     // la dirección de la posición nueva (la de antes queda guardada en capaEquipos.dirs).
                     if (m.isPopupOpen()) { m.getPopup().update(); eqCargarDireccion(m); }
                 } else {
                     m = L.marker(ll, { icon: eqIcono(e), riseOnHover: true, keyboard: false });
                     m.eq = e;
+                    m._eqFirma = eqIconoFirma(e);
                     m.bindTooltip(function (capa) {
                         var q = capa.eq;
                         return '<b>' + esc(eqIdent(q)) + '</b>' + (q.frente ? '<br><span style="opacity:.85;">' + esc(q.frente.nombre) + '</span>' : '');
@@ -3349,7 +3400,7 @@
                     m.on('popupopen', function (ev) { eqCargarDireccion(ev.target); });
                     capaEquipos.marcas[e.id] = m;
                 }
-                var visible = !capaEquipos.ocultos[eqFrenteClave(e)];
+                var visible = eqPasaFiltro(e);   // filtros del panel (frente, tipo, serial)
                 if (visible && !capaEquipos.grupo.hasLayer(m)) capaEquipos.grupo.addLayer(m);
                 if (!visible && capaEquipos.grupo.hasLayer(m)) capaEquipos.grupo.removeLayer(m);
             });
@@ -3407,8 +3458,7 @@
             var vuelta = ++capaEquipos.vuelta;
             var cola = pendientes.slice();
             capaEquipos.pendientes = cola.length;
-            eqActualizarLeyenda();
-            eqRenderSug();
+            eqActualizarPanel();
             if (!cola.length) { eqProgramar(); return; }
             var enCurso = 0;
             function siguiente() {
@@ -3434,8 +3484,7 @@
                         capaEquipos.pendientes = Math.max(0, capaEquipos.pendientes - ids.length);
                         capaEquipos.actualizado = Date.now();
                         eqPintar();
-                        eqActualizarLeyenda();
-                        eqRenderSug();
+                        eqActualizarPanel();
                         siguiente();
                     });
             }
@@ -3455,7 +3504,7 @@
         capaEquipos.sincronizar = function () {
             if (!capaEquipos.btn) return;
             capaEquipos.btn.classList.toggle('activo', capaEquipos.on);
-            capaEquipos.btn.title = capaEquipos.on ? 'Ocultar los equipos' : 'Ver los equipos con GPS (color por frente)';
+            capaEquipos.btn.title = capaEquipos.on ? 'Ocultar los equipos' : 'Ver los equipos con GPS';
         };
         capaEquipos.montar = function (btn) { capaEquipos.btn = btn; capaEquipos.sincronizar(); };
         capaEquipos.alternar = function () {
@@ -3464,13 +3513,11 @@
             if (!capaEquipos.on) {
                 clearTimeout(capaEquipos.timer);
                 map.removeLayer(capaEquipos.grupo);
-                eqActualizarLeyenda();
-                eqSincronizarBuscador();
+                eqActualizarPanel();
                 return;
             }
             capaEquipos.grupo.addTo(map);
-            eqActualizarLeyenda();
-            eqSincronizarBuscador();
+            eqActualizarPanel();
             // Ya cargada: se enciende al instante con lo que había y se refresca en silencio. El
             // siguiente refresco lo programa eqCompletar al terminar de pedir las posiciones.
             eqCargar(capaEquipos.cargado).then(function (ok) {
@@ -3479,144 +3526,159 @@
                     capaEquipos.on = false;
                     capaEquipos.sincronizar();
                     map.removeLayer(capaEquipos.grupo);
-                    eqActualizarLeyenda();
-                    eqSincronizarBuscador();
+                    eqActualizarPanel();
                     return;
                 }
-                eqSincronizarBuscador();
+                eqActualizarPanel();
             });
         };
-        if (miniEquiposUrl && equiposGpsUrl) agregarMiniCapa(miniEquiposUrl, 'Equipos', capaEquipos.alternar, capaEquipos.montar);
+        if (miniEquiposUrl && equiposGpsUrl) agregarMiniCapa(miniEquiposUrl, 'Equipos', capaEquipos.alternar, capaEquipos.montar, true);
 
-        // ── Leyenda "Equipos por frente" (panel propio, abajo-izquierda) ──
-        // Cada frente con su color y cuántos equipos tiene en el mapa; tocar un frente lo oculta o
-        // lo vuelve a mostrar. El pie resume cuántos están en línea y cuántos no traen posición.
-        var eqLegendColapsada = false;
-        var eqLegendClickBound = false;
-        function eqActualizarLeyenda() {
-            var d = document.getElementById('mapaLeyendaEquipos'); if (!d) return;
-            if (!capaEquipos.on || !capaEquipos.cargado) { d.style.display = 'none'; d.innerHTML = ''; return; }
-            d.style.display = 'block';
-            if (!eqLegendClickBound) {
-                eqLegendClickBound = true;
-                d.addEventListener('click', function (ev) {
-                    if (ev.target.closest('[data-fold]')) { eqLegendColapsada = !eqLegendColapsada; eqActualizarLeyenda(); return; }
-                    var fila = ev.target.closest('[data-eqfrente]');
-                    if (!fila) return;
-                    var k = fila.getAttribute('data-eqfrente');
-                    if (capaEquipos.ocultos[k]) delete capaEquipos.ocultos[k]; else capaEquipos.ocultos[k] = true;
-                    eqPintar();
-                    eqActualizarLeyenda();
-                });
+        // ── Panel "Equipos con GPS" (arriba-derecha) ──
+        // Un solo sitio para la capa: conteos, filtros por frente / tipo / serial (con los mismos
+        // desplegables del módulo Equipos, uicomponents.js) y la lista de equipos. Los filtros
+        // deciden qué puntos se ven en el mapa (eqPasaFiltro, en eqPintar).
+        // Antes esto era una leyenda abajo-izquierda (ocultar por frente) más un buscador
+        // arriba-derecha: hacían lo mismo en dos sitios.
+        var eqFiltro = { frente: '', tipo: '', texto: '' };
+        var EQ_LISTA_MAX = 150;      // filas de la lista; más no aportan (para eso están los filtros)
+        var _panEq = null;           // nodos del panel (los crea onAdd)
+        var eqFirmaOpciones = '';    // frentes/tipos con que se armaron los desplegables la última vez
+        // En el teléfono arranca recogido: abierto tapa medio mapa.
+        var eqPanelPlegado = !!(window.matchMedia && window.matchMedia('(max-width: 640px)').matches);
+
+        // Sin tildes y en minúsculas: NFD separa la tilde de la letra y el rango borra esas
+        // tildes sueltas (el mismo que usa normaliza() arriba, para el buscador de lugares).
+        function eqNorm(s) { return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); }
+        // Para comparar seriales se ignoran espacios y guiones ("LZZ 5BX-VF1" = "LZZ5BXVF1").
+        function eqCompacto(s) { return eqNorm(s).replace(/[\s\-_.\/]/g, ''); }
+        function eqTipoClave(e) { return e.tipo || 'Sin tipo'; }
+        function eqBuscable(e) {
+            return [e.placa, e.codigo, e.etiqueta, e.serial_chasis, e.serial_motor, e.marca, e.modelo,
+                    e.gps && e.gps.dispositivo].filter(Boolean).join(' ');
+        }
+        function eqPasaFiltro(e) {
+            if (eqFiltro.frente && eqFrenteClave(e) !== eqFiltro.frente) return false;
+            if (eqFiltro.tipo && eqTipoClave(e) !== eqFiltro.tipo) return false;
+            if (eqFiltro.texto) {
+                var hay = eqBuscable(e);
+                if (eqNorm(hay).indexOf(eqNorm(eqFiltro.texto)) === -1 &&
+                    eqCompacto(hay).indexOf(eqCompacto(eqFiltro.texto)) === -1) return false;
             }
-            // Resumen: en el mapa / en línea, y aparte por qué los demás no se pintan.
-            var grupos = {}, lista = [], cuenta = { mapa: 0, linea: 0, fuera: 0, vencidos: 0, sinPosicion: 0, sinRespuesta: 0 };
+            return true;
+        }
+        function eqEstadoTexto(e) {
+            return !eqTienePosicion(e) ? eqSinPosicionTexto(e) : (e.gps.en_linea ? 'En línea' : 'Última señal ' + eqHace(e.gps.ultima_senal));
+        }
+
+        // Opciones de los desplegables: los frentes que TIENEN equipos con GPS y los tipos de ese
+        // frente (como en Equipos, el tipo depende del frente elegido). Solo se rehacen si cambió
+        // la lista: los refrescos traen casi siempre los mismos frentes y tipos.
+        function eqArmarOpciones() {
+            var frentes = {}, tipos = {};
             capaEquipos.datos.forEach(function (e) {
-                if (!eqTienePosicion(e)) {
-                    if (!e.gps) { if (e._sinRespuesta) cuenta.sinRespuesta++; }   // sin gps y sin marca: aún cargando
-                    else if (e.gps.ok) cuenta.fuera++;
-                    else if (e.gps.motivo === 'sin_posicion') cuenta.sinPosicion++;
-                    else cuenta.vencidos++;   // enlace vencido o rechazado por GPS51
-                    return;
-                }
-                cuenta.mapa++;
-                if (e.gps.en_linea) cuenta.linea++;
                 var k = eqFrenteClave(e);
-                if (!grupos[k]) { grupos[k] = { clave: k, nombre: e.frente ? e.frente.nombre : 'Sin frente', color: eqColor(e), total: 0 }; lista.push(grupos[k]); }
-                grupos[k].total++;
+                if (!frentes[k]) frentes[k] = { valor: k, nombre: e.frente ? e.frente.nombre : 'Sin frente', n: 0 };
+                frentes[k].n++;
+                if (eqFiltro.frente && k !== eqFiltro.frente) return;
+                var t = eqTipoClave(e);
+                if (!tipos[t]) tipos[t] = { valor: t, nombre: t, n: 0 };
+                tipos[t].n++;
             });
-            lista.sort(function (a, b) { return a.nombre.localeCompare(b.nombre, 'es'); });
-            var html = '<div class="mapa-leyenda-head">' +
-                '<span class="mapa-leyenda-titulo">Equipos por frente</span>' +
-                '<span class="mapa-leyenda-acciones">' +
-                '<button type="button" class="mapa-leyenda-fold" data-fold="1" title="' + (eqLegendColapsada ? 'Expandir' : 'Recoger') + '">' +
-                    '<i class="material-icons">' + (eqLegendColapsada ? 'expand_more' : 'expand_less') + '</i></button>' +
-                '</span></div>';
-            html += '<div class="mapa-leyenda-body' + (eqLegendColapsada ? ' mapa-leyenda-body-plegado' : '') + '">';
-            lista.forEach(function (g) {
-                var oculto = !!capaEquipos.ocultos[g.clave];
-                html += '<div class="mapa-leyenda-row mapa-eq-ley-row' + (oculto ? ' oculto' : '') + '" data-eqfrente="' + esc(g.clave) + '" title="' + (oculto ? 'Mostrar en el mapa' : 'Ocultar del mapa') + '">' +
-                    '<span class="mapa-leyenda-color" style="background:' + g.color + '"></span>' +
-                    '<span class="mapa-leyenda-nom">' + esc(g.nombre) + '</span>' +
-                    '<span class="mapa-eq-ley-n">' + g.total + '</span></div>';
+            var porNombre = function (a, b) { return a.nombre.localeCompare(b.nombre, 'es'); };
+            var lf = Object.keys(frentes).map(function (k) { return frentes[k]; }).sort(porNombre);
+            var lt = Object.keys(tipos).map(function (k) { return tipos[k]; }).sort(porNombre);
+            // Un refresco que ya no trae el tipo elegido lo suelta, y los puntos se repintan sin él.
+            if (eqSoltarTipoAusente()) eqPintar();
+            var firma = JSON.stringify([lf, lt]);
+            if (firma === eqFirmaOpciones) return;
+            eqFirmaOpciones = firma;
+            var opcion = function (o, sel) {
+                return '<div class="dropdown-item' + (sel ? ' selected' : '') + '" data-value="' + esc(o.valor) + '" data-label="' + esc(o.nombre) + '">' +
+                       // Fila interna propia: al escribir, filterDropdownOptions le pone display:block al
+                       // item y el flex del item se perdía (la cifra dejaba de ir a la derecha).
+                       '<span class="mapa-eqp-opt-fila"><span class="mapa-eqp-opt">' + esc(o.nombre) + '</span><span class="mapa-eqp-opt-n">' + o.n + '</span></span></div>';
+            };
+            _panEq.listaFrentes.innerHTML = opcion({ valor: '', nombre: 'TODOS LOS FRENTES', n: capaEquipos.datos.length }, !eqFiltro.frente) +
+                lf.map(function (o) { return opcion(o, o.valor === eqFiltro.frente); }).join('');
+            _panEq.listaTipos.innerHTML = opcion({ valor: '', nombre: 'TODOS LOS TIPOS', n: lt.reduce(function (s, o) { return s + o.n; }, 0) }, !eqFiltro.tipo) +
+                lt.map(function (o) { return opcion(o, o.valor === eqFiltro.tipo); }).join('');
+        }
+
+        function eqActualizarPanel() {
+            if (!_panEq) return;
+            var visible = capaEquipos.on && capaEquipos.cargado;
+            _panEq.caja.style.display = visible ? '' : 'none';
+            if (!visible) return;
+            _panEq.caja.classList.toggle('plegado', eqPanelPlegado);
+            _panEq.fold.innerHTML = '<i class="material-icons">' + (eqPanelPlegado ? 'expand_more' : 'expand_less') + '</i>';
+            _panEq.fold.title = eqPanelPlegado ? 'Expandir' : 'Recoger';
+            eqArmarOpciones();
+
+            var filtrados = capaEquipos.datos.filter(eqPasaFiltro);
+            var enLinea = 0, frentes = {};
+            var cuenta = { fuera: 0, vencidos: 0, sinPosicion: 0, sinRespuesta: 0 };
+            filtrados.forEach(function (e) {
+                frentes[eqFrenteClave(e)] = true;
+                if (eqTienePosicion(e)) {
+                    if (e.gps.en_linea) enLinea++;
+                } else if (!e.gps) { if (e._sinRespuesta) cuenta.sinRespuesta++; }   // sin gps y sin marca: aún cargando
+                else if (e.gps.ok) cuenta.fuera++;
+                else if (e.gps.motivo === 'sin_posicion') cuenta.sinPosicion++;
+                else cuenta.vencidos++;   // enlace vencido o rechazado por GPS51
             });
-            if (!lista.length && !capaEquipos.pendientes) html += '<div class="mapa-leyenda-row">Ningún equipo con posición</div>';
+            _panEq.kTotal.textContent = filtrados.length;
+            _panEq.kLinea.textContent = enLinea;
+            _panEq.kFrentes.textContent = Object.keys(frentes).length;
+
+            // Lista: primero los que están en línea, luego por nombre.
+            var orden = filtrados.slice().sort(function (a, b) {
+                var la = eqTienePosicion(a) && a.gps.en_linea ? 0 : 1, lb = eqTienePosicion(b) && b.gps.en_linea ? 0 : 1;
+                return la - lb || eqIdent(a).localeCompare(eqIdent(b), 'es');
+            });
+            _panEq._lista = orden.slice(0, EQ_LISTA_MAX);
+            _panEq.lista.innerHTML = (!_panEq._lista.length ? '<div class="mapa-eqp-vacio">Ningún equipo con estos filtros</div>' : '') + _panEq._lista.map(function (e, i) {
+                var linea = eqTienePosicion(e) && e.gps.en_linea;
+                return '<div class="mapa-eqp-eq' + (eqTienePosicion(e) ? '' : ' sin-pos') + '" data-i="' + i + '">' +
+                    '<span class="mapa-eqp-eq-txt"><b>' + esc(eqIdent(e)) + '</b>' +
+                        '<small>' + esc([eqDescripcion(e), e.frente ? e.frente.nombre : 'Sin frente'].filter(Boolean).join(' · ')) + '</small></span>' +
+                    '<span class="mapa-eqp-estado' + (linea ? ' en-linea' : '') + '">' + esc(eqEstadoTexto(e)) + '</span></div>';
+            }).join('') + (orden.length > EQ_LISTA_MAX ? '<div class="mapa-eqp-vacio">y ' + (orden.length - EQ_LISTA_MAX) + ' más: afina los filtros</div>' : '');
+
             var notas = [];
             if (capaEquipos.pendientes) notas.push('Cargando posiciones… faltan ' + capaEquipos.pendientes);
             if (cuenta.fuera) notas.push(cuenta.fuera + ' con posición fuera de Venezuela');
             if (cuenta.sinPosicion) notas.push(cuenta.sinPosicion + ' sin posición registrada');
             if (cuenta.vencidos) notas.push(cuenta.vencidos + ' con el enlace de GPS vencido');
             if (cuenta.sinRespuesta) notas.push(cuenta.sinRespuesta + ' sin respuesta de GPS51 (se reintenta)');
-            html += '<div class="mapa-eq-ley-pie">' + cuenta.mapa + ' en el mapa · ' + cuenta.linea + ' en línea' +
-                (notas.length ? '<br>' + notas.map(esc).join('<br>') : '') +
-                '<br>Actualizado ' + new Date(capaEquipos.actualizado).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' }) + '</div>';
-            html += '</div>';
-            d.innerHTML = html;
+            notas.push('Actualizado ' + new Date(capaEquipos.actualizado).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' }));
+            _panEq.pie.innerHTML = notas.map(esc).join('<br>');
         }
-        var LeyendaEquiposCtrl = L.Control.extend({
-            options: { position: 'bottomleft' },
-            onAdd: function () {
-                var d = L.DomUtil.create('div', 'mapa-leyenda');
-                d.id = 'mapaLeyendaEquipos'; d.style.display = 'none';
-                L.DomEvent.disableClickPropagation(d);
-                L.DomEvent.disableScrollPropagation(d);
-                return d;
-            }
-        });
-        if (equiposGpsUrl) map.addControl(new LeyendaEquiposCtrl());
 
-        // ── Buscador de EQUIPOS (arriba-derecha, con el mismo aspecto que el de bloques) ──
-        // Encuentra un equipo por placa, serial de chasis o de motor, código, nº de etiqueta,
-        // marca, modelo, tipo, frente o nombre del GPS, con el ranking de la app (FuzzySearch), y
-        // lleva el mapa hasta él con su ficha abierta. Solo existe con la capa encendida.
-        var _busEq = null;
-        function eqSincronizarBuscador() {
-            if (!_busEq) return;
-            var visible = capaEquipos.on && capaEquipos.cargado;
-            _busEq.caja.style.display = visible ? '' : 'none';
-            if (!visible) { _busEq.input.value = ''; eqCerrarLista(); }
+        // Cambia un filtro: repinta los puntos y el panel.
+        function eqPonerFiltro(campo, valor) {
+            eqFiltro[campo] = valor || '';
+            // Cambiar de frente: el tipo elegido que ese frente no tiene se suelta ANTES de
+            // pintar; si no, el mapa quedaba vacío (frente nuevo + tipo que allí no existe).
+            if (campo === 'frente') eqSoltarTipoAusente();
+            eqPintar();
+            eqActualizarPanel();
         }
-        function eqCerrarLista() {
-            if (!_busEq) return;
-            _busEq.lista.innerHTML = '';
-            _busEq.lista.classList.remove('abierta');
-            _busEq._sug = null;
-        }
-        function eqBuscable(e) {
-            return [e.placa, e.codigo, e.etiqueta, e.serial_chasis, e.serial_motor, e.marca, e.modelo, e.tipo,
-                    e.frente && e.frente.nombre, e.gps && e.gps.dispositivo].filter(Boolean).join(' ');
-        }
-        function eqRenderSug() {
-            if (!_busEq) return;
-            var term = _busEq.input.value || '';
-            _busEq.caja.classList.toggle('con-texto', !!term);
-            if (!term.trim()) { eqCerrarLista(); return; }
-            var datos = capaEquipos.datos, arr;
-            if (window.FuzzySearch && window.FuzzySearch.rank) {
-                arr = window.FuzzySearch.rank(datos, term, function (e) { return { label: eqIdent(e), haystack: eqBuscable(e) }; });
-            } else {
-                var q = term.toLowerCase();
-                arr = datos.filter(function (e) { return eqBuscable(e).toLowerCase().indexOf(q) > -1; });
-            }
-            if (!arr.length) {
-                _busEq.lista.innerHTML = '<div class="mapa-bloque-vacio">Sin equipos que coincidan</div>';
-                _busEq.lista.classList.add('abierta');
-                _busEq._sug = null;
-                return;
-            }
-            _busEq._sug = arr.slice(0, BUS_MAX);
-            _busEq.lista.innerHTML = _busEq._sug.map(function (e, i) {
-                var estado = !eqTienePosicion(e) ? eqSinPosicionTexto(e) : (e.gps.en_linea ? 'En línea' : 'Última señal ' + eqHace(e.gps.ultima_senal));
-                return '<div class="mapa-bloque-item" data-i="' + i + '"><b>' + esc(eqIdent(e)) + (eqDescripcion(e) ? ' · ' + esc(eqDescripcion(e)) : '') + '</b>' +
-                       '<span>' + esc((e.frente ? e.frente.nombre + ' · ' : '') + estado) + '</span></div>';
-            }).join('');
-            _busEq.lista.classList.add('abierta');
+        // Suelta el filtro de tipo si ningún equipo del frente elegido es de ese tipo (así el tipo
+        // depende del frente, como en Equipos). Devuelve true si lo soltó.
+        function eqSoltarTipoAusente() {
+            if (!eqFiltro.tipo) return false;
+            var hay = capaEquipos.datos.some(function (e) {
+                return (!eqFiltro.frente || eqFrenteClave(e) === eqFiltro.frente) && eqTipoClave(e) === eqFiltro.tipo;
+            });
+            if (hay) return false;
+            eqFiltro.tipo = '';
+            window.clearDropdownFilter('mapaEqTipo');
+            return true;
         }
         function eqIrA(e) {
             if (!e) return;
             if (!eqTienePosicion(e)) { window.toast(eqIdent(e) + ': ' + eqSinPosicionTexto(e) + '.', 'error'); return; }
-            var k = eqFrenteClave(e);
-            if (capaEquipos.ocultos[k]) { delete capaEquipos.ocultos[k]; eqPintar(); eqActualizarLeyenda(); }
             var m = capaEquipos.marcas[e.id];
             if (!m) return;
             var ll = m.getLatLng();
@@ -3627,39 +3689,150 @@
             map.once('moveend', function () { if (capaEquipos.grupo.hasLayer(m)) m.openPopup(); });
             map.setView(ll, Math.max(map.getZoom(), 15));
         }
-        var BuscadorEquiposCtrl = L.Control.extend({
+
+        // Excel de lo que está filtrado en el panel (MapaController::exportarEquiposGps). Se mandan
+        // los ids de TODO lo filtrado —también lo que no cabe en la lista, que muestra hasta
+        // EQ_LISTA_MAX—; el servidor igual recorta a los frentes del usuario. Puede tardar unos segundos (dirección de cada equipo),
+        // por eso se baja por fetch —spinner hasta que llega— y no con un enlace directo.
+        function eqExportarExcel(btn) {
+            var ids = capaEquipos.datos.filter(eqPasaFiltro).map(function (e) { return e.id; });
+            if (!ids.length) { window.toast('No hay equipos con estos filtros para exportar.', 'error'); return; }
+            if (btn.disabled) return;
+            btn.disabled = true;
+            spinOn();
+            // Accept con JSON: si el servidor rechaza la petición contesta un error, no una página
+            // (fetch seguiría la redirección y se guardaría HTML con nombre de .xlsx).
+            window.apiFetch(equiposGpsExportarUrl + '?ids=' + ids.join(','), { headers: { 'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/json' } })
+                .then(function (r) {
+                    if (!r.ok || !/spreadsheetml/.test(r.headers.get('Content-Type') || '')) throw new Error('HTTP ' + r.status);
+                    var nombre = ((r.headers.get('Content-Disposition') || '').match(/filename="?([^";]+)"?/) || [])[1] || 'Equipos_con_GPS.xlsx';
+                    return r.blob().then(function (b) { return { blob: b, nombre: nombre }; });
+                })
+                .then(function (arch) {
+                    var a = document.createElement('a');
+                    a.href = URL.createObjectURL(arch.blob);
+                    a.download = arch.nombre;
+                    document.body.appendChild(a); a.click(); a.remove();
+                    setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
+                    window.toast('Excel descargado · ' + ids.length + ' equipos', 'success');
+                })
+                .catch(function () { window.toast('No se pudo exportar el Excel de equipos.', 'error'); })
+                .then(function () {
+                    btn.disabled = false;
+                    spinOff();   // si se salió del mapa mientras se armaba, no devuelve nada (ver spinOn)
+                });
+        }
+
+        // Desplegable con el mismo marcado que los filtros de Equipos (ver uicomponents.js).
+        function eqDesplegable(id, etiqueta) {
+            return '<div class="custom-dropdown mapa-eqp-dd" id="' + id + '" data-default-label="' + etiqueta + '">' +
+                '<input type="hidden" data-filter-value value="">' +
+                '<div class="dropdown-trigger mapa-eqp-trigger">' +
+                    '<i class="material-icons mapa-eqp-lupa">search</i>' +
+                    '<input type="text" data-filter-search placeholder="' + etiqueta + '" autocomplete="off">' +
+                    '<i class="material-icons mapa-eqp-x" data-clear-btn style="display:none;" title="Quitar filtro">close</i>' +
+                '</div>' +
+                '<div class="dropdown-content"><div class="dropdown-item-list"></div></div>' +
+            '</div>';
+        }
+        var PanelEquiposCtrl = L.Control.extend({
             options: { position: 'topright' },
             onAdd: function () {
-                var caja = L.DomUtil.create('div', 'mapa-bloque-buscador mapa-ctrl-mobile-hide');
+                var caja = L.DomUtil.create('div', 'mapa-eqp');
                 caja.style.display = 'none';
                 caja.innerHTML =
-                    '<div class="mapa-bloque-in">' +
-                        '<i class="material-icons">search</i>' +
-                        '<input type="text" placeholder="Buscar equipo: placa, serial…" autocomplete="off">' +
-                        '<button type="button" class="mapa-bloque-x" title="Limpiar"><i class="material-icons">close</i></button>' +
-                    '</div><div class="mapa-bloque-lista"></div>';
+                    '<div class="mapa-eqp-head">' +
+                        '<span class="mapa-eqp-titulo"><i class="material-icons">gps_fixed</i>Equipos con GPS</span>' +
+                        '<button type="button" class="mapa-eqp-fold"></button>' +
+                    '</div>' +
+                    '<div class="mapa-eqp-body">' +
+                        '<div class="mapa-eqp-kpis">' +
+                            '<div class="mapa-eqp-kpi"><b data-k="total">0</b><span>Total equipos</span></div>' +
+                            '<div class="mapa-eqp-kpi linea"><b data-k="linea">0</b><span>Con GPS activo</span></div>' +
+                            '<div class="mapa-eqp-kpi"><b data-k="frentes">0</b><span>Frentes activos</span></div>' +
+                        '</div>' +
+                        '<div class="mapa-eqp-filtros">' +
+                            eqDesplegable('mapaEqFrente', 'Filtrar Frente...') +
+                            eqDesplegable('mapaEqTipo', 'Filtrar Tipo...') +
+                            '<div class="mapa-eqp-buscar">' +
+                                '<div class="dropdown-trigger mapa-eqp-trigger mapa-eqp-serial">' +
+                                    '<i class="material-icons mapa-eqp-lupa">search</i>' +
+                                    '<input type="text" placeholder="Placa, serial, código…" autocomplete="off">' +
+                                    '<i class="material-icons mapa-eqp-x" style="display:none;" title="Limpiar">close</i>' +
+                                '</div>' +
+                                // Botón chico al lado del buscador (pedido): solo el icono.
+                                (equiposGpsExportarUrl
+                                    ? '<button type="button" class="mapa-eqp-exportar" title="Bajar el Excel de lo filtrado: frente, dirección de cada equipo y su placa o serial">' +
+                                          '<i class="material-icons">download</i></button>'
+                                    : '') +
+                            '</div>' +
+                        '</div>' +
+                        '<div class="mapa-eqp-sec">Equipos</div>' +
+                        '<div class="mapa-eqp-lista"></div>' +
+                        '<div class="mapa-eqp-pie"></div>' +
+                    '</div>';
                 L.DomEvent.disableClickPropagation(caja);
                 L.DomEvent.disableScrollPropagation(caja);
-                _busEq = { caja: caja, input: caja.querySelector('input'), lista: caja.querySelector('.mapa-bloque-lista') };
-                _busEq.input.addEventListener('input', eqRenderSug);
-                _busEq.input.addEventListener('keydown', function (ev) {
-                    if (ev.key === 'Escape') { _busEq.input.value = ''; eqRenderSug(); }
-                    // Enter = la primera sugerencia.
-                    else if (ev.key === 'Enter' && _busEq._sug && _busEq._sug.length) { eqIrA(_busEq._sug[0]); eqCerrarLista(); }
+                var q = function (s) { return caja.querySelector(s); };
+                var serial = q('.mapa-eqp-serial');
+                _panEq = {
+                    caja: caja, fold: q('.mapa-eqp-fold'),
+                    kTotal: q('[data-k="total"]'), kLinea: q('[data-k="linea"]'), kFrentes: q('[data-k="frentes"]'),
+                    listaFrentes: q('#mapaEqFrente .dropdown-item-list'), listaTipos: q('#mapaEqTipo .dropdown-item-list'),
+                    lista: q('.mapa-eqp-lista'), pie: q('.mapa-eqp-pie'),
+                    serial: serial.querySelector('input'), serialX: serial.querySelector('.mapa-eqp-x'), _lista: []
+                };
+                _panEq.fold.addEventListener('click', function () { eqPanelPlegado = !eqPanelPlegado; eqActualizarPanel(); });
+                var btnExp = q('.mapa-eqp-exportar');
+                if (btnExp) btnExp.addEventListener('click', function () { eqExportarExcel(btnExp); });
+                // Escribir dentro del desplegable filtra SUS opciones (igual que en Equipos).
+                caja.querySelectorAll('.mapa-eqp-dd [data-filter-search]').forEach(function (inp) {
+                    inp.addEventListener('input', function () { window.filterDropdownOptions(inp); });
                 });
-                caja.querySelector('.mapa-bloque-x').addEventListener('click', function () {
-                    _busEq.input.value = ''; eqRenderSug(); _busEq.input.focus();
+                // Abrir/cerrar lo hace el manejador global de uicomponents (el clic sí sale del
+                // control: disableClickPropagation no frena 'click' en Leaflet 1.9). Aquí solo
+                // elegir una opción, quitar el filtro y tocar un equipo de la lista.
+                caja.addEventListener('click', function (ev) {
+                    var dd = ev.target.closest('.mapa-eqp-dd');
+                    var campo = dd ? (dd.id === 'mapaEqFrente' ? 'frente' : 'tipo') : null;
+                    if (dd && ev.target.closest('[data-clear-btn]')) {
+                        ev.stopPropagation();
+                        window.clearDropdownFilter(dd.id);
+                        eqPonerFiltro(campo, '');
+                        return;
+                    }
+                    var it = ev.target.closest('.mapa-eqp-dd .dropdown-item');
+                    if (it) {
+                        var v = it.getAttribute('data-value');
+                        // "TODOS" = quitar el filtro: vuelve al rótulo de siempre ("Filtrar Frente...").
+                        if (v) window.selectOption(dd.id, v, it.getAttribute('data-label'));
+                        else window.clearDropdownFilter(dd.id);
+                        eqPonerFiltro(campo, v);
+                        return;
+                    }
+                    var eq = ev.target.closest('.mapa-eqp-eq');
+                    if (eq) eqIrA(_panEq._lista[+eq.getAttribute('data-i')]);
                 });
-                _busEq.lista.addEventListener('click', function (ev) {
-                    var it = ev.target.closest('.mapa-bloque-item');
-                    if (!it || !_busEq._sug) return;
-                    eqIrA(_busEq._sug[+it.getAttribute('data-i')]);
-                    eqCerrarLista();
+                // Serial: filtra al escribir (con un respiro, no en cada tecla) y marca la caja
+                // como filtro activo, igual que los desplegables.
+                var tSerial = null;
+                var ponerSerial = function () {
+                    var v = _panEq.serial.value.trim();
+                    serial.classList.toggle('filter-active', !!v);
+                    _panEq.serialX.style.display = v ? 'block' : 'none';
+                    eqPonerFiltro('texto', v);
+                };
+                _panEq.serial.addEventListener('input', function () { clearTimeout(tSerial); tSerial = setTimeout(ponerSerial, 150); });
+                _panEq.serial.addEventListener('keydown', function (ev) {
+                    if (ev.key === 'Escape') { _panEq.serial.value = ''; ponerSerial(); }
+                    // Enter = ir al primero de la lista.
+                    else if (ev.key === 'Enter') { clearTimeout(tSerial); ponerSerial(); if (_panEq._lista.length) eqIrA(_panEq._lista[0]); }
                 });
+                _panEq.serialX.addEventListener('click', function () { _panEq.serial.value = ''; ponerSerial(); _panEq.serial.focus(); });
                 return caja;
             }
         });
-        if (equiposGpsUrl) map.addControl(new BuscadorEquiposCtrl());
+        if (equiposGpsUrl) map.addControl(new PanelEquiposCtrl());
 
         // Botón de descarga (arriba-izq, junto al buscador/globo/pantalla completa).
         var ExportarCtrl = L.Control.extend({
@@ -4330,15 +4503,14 @@
         }
 
         // Créditos sobre el canvas (abajo-izq), escalados.
-        // Créditos en su CAJITA BLANCA (igual a .mapa-creditos de la página): etiqueta en negrita
-        // + texto normal, con envoltura a un ancho máximo. `bottomY` = borde inferior de la caja.
+        // Créditos en su CAJITA BLANCA: etiqueta en negrita + texto normal, con envoltura a un
+        // ancho máximo. `bottomY` = borde inferior de la caja.
         // Devuelve la Y del TOPE de la caja (para apilar la leyenda encima en modo "Pantalla").
         function dibujarCreditos(ctx, x, bottomY, k) {
             k = k || 1;
             var padX = 10 * k, padY = 6 * k, fs = Math.round(11 * k), lh = Math.round(fs * 1.35), maxTW = 440 * k;
             var fontB = '800 ' + fs + 'px Arial, sans-serif', fontN = fs + 'px Arial, sans-serif';
             // Construye las líneas (segmentos negrita/normal) envolviendo al ancho máximo.
-            // CREDITOS es el mismo texto que la cajita de la pantalla.
             var lineas = [], maxLineW = 0;
             CREDITOS.forEach(function (e) {
                 ctx.font = fontB; var segs = [{ t: e[0], bold: true }], curW = ctx.measureText(e[0]).width;
@@ -4613,17 +4785,18 @@
 
         // Cargar los oleoductos existentes y dibujarlos.
         oleoApi('/mapa/oleoductos').then(function (res) {
+            if (desmontado) return;   // respuesta que llegó con el mapa ya destruido (se salió antes)
             // Se dibujan en el MISMO orden que usa la foto (gruposOrdenados): con dos tuberías
             // superpuestas, la que queda encima debe ser la misma en el mapa y en el PNG.
             // Antes la pantalla usaba el orden que trae la API (ordenado en SQL, con la
             // colación de la BD) y la foto lo reordenaba en JS con localeCompare: podían
             // discrepar por acentos o mayúsculas.
             (res && res.oleoductos ? res.oleoductos : []).forEach(function (o) { oleoMap[o.id] = { data: o }; });
-            gruposOrdenados().forEach(oleoDibujar);
+            gruposOrdenados().forEach(function (o) { oleoDibujar(o, true); });
+            declutterVelas(true);   // una sola pasada de etiquetas para todos los proyectos
             actualizarLeyenda();
-            // Recalcular las etiquetas cuando la escala/vista ya se asentó (el setView inicial no
-            // dispara moveend, y la barra de escala se renderiza un instante después).
-            setTimeout(function () { declutterVelas(true); }, 300);
+            // Una vez más cuando la vista ya se asentó: el fitBounds inicial no dispara moveend y
+            // la barra de escala (de la que salen los umbrales en km) se pinta un instante después.
             setTimeout(function () { declutterVelas(true); }, 900);
         }).catch(function (e) { console.error('[mapa] fallo al cargar/dibujar los frentes:', e); });
 
@@ -4655,18 +4828,33 @@
             // antes de que el layout se asiente, de ahí el respiro).
             window.addEventListener('orientationchange', onOrientacion);
         }
-
-        // Cuando existan equipos con lat/lng se agregarán marcadores aquí, p.ej:
-        //   L.marker([lat, lng]).addTo(map).bindPopup(nombreEquipo);
     }
 
     // Punto de entrada: se llama en carga directa y en cada navegación SPA.
     function initMapa() {
         var el = document.getElementById('mapa-leaflet');
         if (!el || el._leaflet_id) return; // no estamos en /mapa (o ya inicializado)
+        // Primera visita: Leaflet aún no está y hay que bajarlo. El layout suelta su referencia
+        // del spinner cuando termina ESTE archivo, antes de que exista el mapa; esta otra
+        // referencia lo mantiene hasta que el mapa está montado (si no, se veía el hueco vacío).
+        var esperaLeaflet = !(typeof L !== 'undefined' && L.map);
+        var gen = window.preloaderGeneracion ? window.preloaderGeneracion() : 0;
+        if (esperaLeaflet && window.showPreloader) window.showPreloader();
         ensureLeaflet()
-            .then(function () { buildMap(el); })
-            .catch(function () { /* sin internet: no se puede cargar Leaflet */ });
+            .then(function () { if (document.body.contains(el)) buildMap(el); })
+            .catch(function () { /* sin internet: no se puede cargar Leaflet */ })
+            .then(function () {
+                if (!esperaLeaflet) return;
+                // Igual que el layout: después del pintado que ya trae el mapa, y solo si el
+                // contador sigue en la misma generación (una navegación lo pone a cero: la
+                // referencia de aquí ya no existe y restar se la quitaría a otra).
+                requestAnimationFrame(function () {
+                    requestAnimationFrame(function () {
+                        if (window.preloaderGeneracion && window.preloaderGeneracion() !== gen) return;
+                        if (window.hidePreloader) window.hidePreloader();
+                    });
+                });
+            });
     }
 
     // Copia texto al portapapeles (Clipboard API con fallback a execCommand).

@@ -239,60 +239,15 @@ class MovilizacionController extends Controller
         $endTitle     = 'E';   // el título ocupa C..E
         $startEdicion = 'F';   // EDICIÓN/REVISIÓN/FECHA a la derecha, angosto
 
-        foreach ([1, 2, 3] as $fila) $sheet->getRowDimension($fila)->setRowHeight(40);
-
-        // Logo centrado en A1:B3 (trait ExcelLogoCorporativo, el mismo de los demás export)
-        $this->insertarLogoCorporativo($sheet, ['A', 'B'], [1, 2, 3]);
-        $sheet->mergeCells('A1:B3');
-        $sheet->getStyle('A1:B3')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
-
-        // Título + de qué recorte de datos se trata, para que el archivo se explique solo
-        $sheet->mergeCells('C1:' . $endTitle . '3');
-        $sheet->setCellValue('C1', "HISTORIAL DE MOVILIZACIONES\n" . $this->subtituloExport($request));
-        $sheet->getStyle('C1')->getAlignment()->setWrapText(true)
-            ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER)
-            ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
-        $sheet->getStyle('C1')->getFont()->setBold(true)->setSize(14)->getColor()->setARGB(\PhpOffice\PhpSpreadsheet\Style\Color::COLOR_BLACK);
-        $sheet->getStyle('C1:' . $endTitle . '3')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
-
-        foreach ([1 => 'EDICION: 1', 2 => 'REVISION: 0', 3 => 'FECHA: ' . $currentDate] as $fila => $texto) {
-            $rango = $startEdicion . $fila . ':' . $lastCol . $fila;
-            $sheet->mergeCells($rango);
-            $sheet->setCellValue($startEdicion . $fila, $texto);
-            $sheet->getStyle($startEdicion . $fila)->getAlignment()
-                ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER)
-                ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
-            $sheet->getStyle($startEdicion . $fila)->getFont()->setBold(true)->setSize(11)->getColor()->setARGB(\PhpOffice\PhpSpreadsheet\Style\Color::COLOR_BLACK);
-            $sheet->getStyle($rango)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
-        }
-
-        $sheet->mergeCells('A4:' . $lastCol . '4');
-        $sheet->setCellValue('A4', 'Exportado por: Sistema de Gestión de Equipos Operacionales');
-        $sheet->getStyle('A4:' . $lastCol . '4')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
-        $sheet->getStyle('A4:' . $lastCol . '4')->getAlignment()
-            ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_RIGHT)
-            ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
-        $sheet->getStyle('A4:' . $lastCol . '4')->getFont()->setItalic(true)->setSize(9)->getColor()->setARGB('FF333333');
-        $sheet->getRowDimension(4)->setRowHeight(20);
-
-        $bordes = ['borders' => ['allBorders' => [
-            'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
-            'color' => ['argb' => 'FF000000'],
-        ]]];
-        $sheet->getStyle('A1:' . $lastCol . '4')->applyFromArray($bordes);
+        // Filas 1-4: logo, título, EDICION/REVISION/FECHA y "Exportado por": el encabezado
+        // de todos los listados (trait ExcelLogoCorporativo::encabezadoCorporativo).
+        $this->encabezadoCorporativo($sheet, "HISTORIAL DE MOVILIZACIONES\n" . $this->subtituloExport($request), $endTitle, $startEdicion, $lastCol, null, 40, 120, $currentDate);
+        $bordes = self::bordeFinoCorporativo();   // también enmarca la tabla, más abajo
 
         // Fila 5 — encabezados de la tabla
         $columnas = ['A','B','C','D','E','F','G','H'];
         $titulos  = ['N°', 'FECHA', 'TIPO', 'MARCA', 'MODELO', 'SERIAL', 'ORIGEN', 'DESTINO'];
-        foreach ($titulos as $i => $t) $sheet->setCellValue($columnas[$i] . '5', $t);
-
-        $sheet->getStyle('A5:' . $lastCol . '5')->getAlignment()
-            ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER)
-            ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER)
-            ->setWrapText(true);
-        $sheet->getStyle('A5:' . $lastCol . '5')->getFont()->setBold(true)->setSize(10)->getColor()->setARGB('FFFFFFFF');
-        $sheet->getStyle('A5:' . $lastCol . '5')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FF1B365D');
-        $sheet->getRowDimension(5)->setRowHeight(40);
+        $this->cabeceraTablaCorporativa($sheet, $titulos);   // A5..H5, azul corporativo
 
         foreach ([8, 18, 22, 18, 22, 26, 26, 26] as $i => $ancho) {
             $sheet->getColumnDimension($columnas[$i])->setWidth($ancho);

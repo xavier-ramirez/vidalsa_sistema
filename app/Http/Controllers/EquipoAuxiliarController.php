@@ -808,16 +808,6 @@ class EquipoAuxiliarController extends Controller
 
         $lastCol = 'I'; // 9 columnas
 
-        // Alturas de fila del encabezado (ANTES del logo para que el centrado vertical funcione)
-        $sheet->getRowDimension(1)->setRowHeight(40);
-        $sheet->getRowDimension(2)->setRowHeight(40);
-        $sheet->getRowDimension(3)->setRowHeight(40);
-
-        // Logo centrado en A1:B3 (trait ExcelLogoCorporativo)
-        $sheet->mergeCells('A1:B3');
-        $sheet->getStyle('A1:B3')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
-        $this->insertarLogoCorporativo($sheet, ['A','B'], [1,2,3]);
-
         // Titulo central con filtros aplicados (C1:E3)
         // El ESTADO tambien se nombra: el archivo lo filtra (via applyAuxiliarFilters) y la
         // cabecera callaba, asi que una hoja de solo INOPERATIVOS se leia como la lista
@@ -829,44 +819,9 @@ class EquipoAuxiliarController extends Controller
         if ($estadoFiltro)                      $partes[] = 'ESTADO: ' . mb_strtoupper($estados[$estadoFiltro] ?? $estadoFiltro);
         $subTitle = $partes ? implode(' — ', $partes) : 'COPIA DE BASE DE DATOS DEL SISTEMA DE GESTION DE EQUIPOS OPERACIONALES';
         $titleText = "LISTADO DE EQUIPOS AUXILIARES\n" . $subTitle;
-        $sheet->mergeCells('C1:E3');
-        $sheet->setCellValue('C1', $titleText);
-        $sheet->getStyle('C1')->getAlignment()->setWrapText(true)->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER)->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
-        $sheet->getStyle('C1')->getFont()->setBold(true)->setSize(14)->getColor()->setARGB(\PhpOffice\PhpSpreadsheet\Style\Color::COLOR_BLACK);
-        $sheet->getStyle('C1:E3')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
-
-        // Metadatos a la derecha (F1:I3)
-        $meta = [
-            ['F1', 'EDICION: 1'],
-            ['F2', 'REVISION: 0'],
-            ['F3', 'FECHA: ' . $currentDate],
-        ];
-        foreach ($meta as [$cell, $text]) {
-            $row = substr($cell, 1);
-            $sheet->mergeCells("F{$row}:{$lastCol}{$row}");
-            $sheet->setCellValue($cell, $text);
-            $sheet->getStyle($cell)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER)->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
-            $sheet->getStyle($cell)->getFont()->setBold(true)->setSize(11)->getColor()->setARGB(\PhpOffice\PhpSpreadsheet\Style\Color::COLOR_BLACK);
-            $sheet->getStyle("F{$row}:{$lastCol}{$row}")->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
-        }
-
-        // Fila 4 - Exportado por
-        $sheet->mergeCells("A4:{$lastCol}4");
-        $sheet->setCellValue('A4', 'Exportado por: Sistema de Gestión de Equipos Operacionales');
-        $sheet->getStyle("A4:{$lastCol}4")->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
-        $sheet->getStyle("A4:{$lastCol}4")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_RIGHT)->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
-        $sheet->getStyle("A4:{$lastCol}4")->getFont()->setItalic(true)->setSize(9)->getColor()->setARGB('FF333333');
-        $sheet->getRowDimension(4)->setRowHeight(20);
-
-        // Bordes al encabezado
-        $sheet->getStyle("A1:{$lastCol}4")->applyFromArray([
-            'borders' => [
-                'allBorders' => [
-                    'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
-                    'color' => ['argb' => 'FF000000'],
-                ],
-            ],
-        ]);
+        // Filas 1-4: logo, título, EDICION/REVISION/FECHA y "Exportado por": el encabezado
+        // de todos los listados (trait ExcelLogoCorporativo::encabezadoCorporativo).
+        $this->encabezadoCorporativo($sheet, $titleText, 'E', 'F', $lastCol, null, 40, 120, $currentDate);
 
         // Fila 5 - Headers de tabla
         $headers = ['TIPO', 'MARCA', 'MODELO', 'SERIAL', 'CÓDIGO INTERNO', 'CAPACIDAD', 'AÑO', 'FRENTE', 'ESTADO'];
@@ -1024,49 +979,9 @@ class EquipoAuxiliarController extends Controller
         $sheet->setTitle('Anclajes Auxiliares');
         $lastCol = 'I'; // 9 columnas
 
-        // Alturas de fila del encabezado (ANTES del logo para centrado vertical correcto)
-        foreach ([1,2,3] as $r) $sheet->getRowDimension($r)->setRowHeight(40);
-
-        // Logo centrado en A1:B3 (trait ExcelLogoCorporativo)
-        $sheet->mergeCells('A1:B3');
-        $sheet->getStyle('A1:B3')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
-        $this->insertarLogoCorporativo($sheet, ['A','B'], [1,2,3]);
-
-        // Titulo central (C1:E3)
-        $sheet->mergeCells('C1:E3');
-        $sheet->setCellValue('C1', "LISTADO DE ANCLAJES DE AUXILIARES\nAUXILIARES VINCULADOS A EQUIPOS OPERATIVOS");
-        $sheet->getStyle('C1')->getAlignment()->setWrapText(true)
-            ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER)
-            ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
-        $sheet->getStyle('C1')->getFont()->setBold(true)->setSize(14)
-            ->getColor()->setARGB(\PhpOffice\PhpSpreadsheet\Style\Color::COLOR_BLACK);
-        $sheet->getStyle('C1:E3')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
-
-        // Metadatos (F1:I3)
-        foreach ([['F1','EDICION: 1'],['F2','REVISION: 0'],['F3','FECHA: '.$currentDate]] as [$cell, $text]) {
-            $row = substr($cell, 1);
-            $sheet->mergeCells("F{$row}:{$lastCol}{$row}");
-            $sheet->setCellValue($cell, $text);
-            $sheet->getStyle($cell)->getAlignment()
-                ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER)
-                ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
-            $sheet->getStyle($cell)->getFont()->setBold(true)->setSize(11)->getColor()->setARGB(\PhpOffice\PhpSpreadsheet\Style\Color::COLOR_BLACK);
-            $sheet->getStyle("F{$row}:{$lastCol}{$row}")->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
-        }
-
-        // Fila 4 — Exportado por
-        $sheet->mergeCells("A4:{$lastCol}4");
-        $sheet->setCellValue('A4', 'Exportado por: Sistema de Gestión de Equipos Operacionales');
-        $sheet->getStyle("A4:{$lastCol}4")->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
-        $sheet->getStyle("A4:{$lastCol}4")->getAlignment()
-            ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_RIGHT)
-            ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
-        $sheet->getStyle("A4:{$lastCol}4")->getFont()->setItalic(true)->setSize(9)->getColor()->setARGB('FF333333');
-        $sheet->getRowDimension(4)->setRowHeight(20);
-
-        $sheet->getStyle("A1:{$lastCol}4")->applyFromArray([
-            'borders' => ['allBorders' => ['borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN, 'color' => ['argb' => 'FF000000']]],
-        ]);
+        // Filas 1-4: logo, título, EDICION/REVISION/FECHA y "Exportado por": el encabezado
+        // de todos los listados (trait ExcelLogoCorporativo::encabezadoCorporativo).
+        $this->encabezadoCorporativo($sheet, "LISTADO DE ANCLAJES DE AUXILIARES\nAUXILIARES VINCULADOS A EQUIPOS OPERATIVOS", 'E', 'F', $lastCol, null, 40, 120, $currentDate);
 
         // Fila 5 — Headers (orden: equipo primero, luego aux, para que el
         // merge vertical por equipo quede natural y el lector vea

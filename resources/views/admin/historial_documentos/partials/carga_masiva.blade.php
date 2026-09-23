@@ -15,7 +15,9 @@
        blanca de 16 px de radio, borde suave y sombra larga. Sin barra oscura arriba: el
        título va dentro de la tarjeta, con su ícono en una pastilla azul clara. */
     #hdCmOverlay { position: fixed; inset: 0; background: rgba(15,23,42,0.45); z-index: 2500; display: flex; justify-content: center; align-items: center; }
-    .hd-cm-modal { background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; width: 94%; max-width: 880px;
+    /* Más angosto (pedido 22-09-2026): con los controles en columna, 880 px dejaban una franja
+       vacía enorme a la derecha. */
+    .hd-cm-modal { background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; width: 94%; max-width: 520px;
                    max-height: 86vh; display: flex; flex-direction: column; overflow: hidden;
                    box-shadow: 0 20px 45px -12px rgba(15,23,42,0.30); }
     /* Encabezado CON COLOR (el mismo degradado del botón principal y del aviso de cierre de
@@ -35,12 +37,14 @@
 
     /* Barra de arriba: tipo + zona de soltar. */
     .hd-cm-tools { padding: 10px 14px; display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; }
-    .hd-cm-fila { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
+    /* Tipo, zona para soltar y modo ensayo UNO DEBAJO DEL OTRO (pedido 22-09-2026): en fila la
+       zona quedaba apretada entre los dos y el ensayo se partía a otra línea según el ancho. */
+    .hd-cm-fila { display: flex; flex-direction: column; align-items: stretch; gap: 10px; }
     .hd-cm-campo { display: flex; flex-direction: column; gap: 3px; }
     .hd-cm-rot { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .7px; color: #94a3b8; white-space: nowrap; }
-    .hd-cm-select { height: 34px; padding: 0 8px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; font: inherit; font-size: 12.5px; color: #334155; cursor: pointer; }
+    .hd-cm-select { width: 100%; height: 34px; padding: 0 8px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; font: inherit; font-size: 12.5px; color: #334155; cursor: pointer; }
     .hd-cm-select:focus { outline: none; border-color: #0067b1; box-shadow: 0 0 0 3px rgba(0,103,177,.10); }
-    .hd-cm-zona { flex: 1 1 260px; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 8px; height: 44px; border: 2px dashed #cbd5e1; border-radius: 10px; background: #f8fafc; color: #64748b; font-size: 12.5px; font-weight: 600; cursor: pointer; text-align: center; padding: 0 10px; transition: border-color .15s, background .15s; }
+    .hd-cm-zona { min-width: 0; display: flex; align-items: center; justify-content: center; gap: 8px; height: 64px; border: 2px dashed #cbd5e1; border-radius: 10px; background: #f8fafc; color: #64748b; font-size: 12.5px; font-weight: 600; cursor: pointer; text-align: center; padding: 0 10px; transition: border-color .15s, background .15s; }
     .hd-cm-zona:hover, .hd-cm-zona.encima { border-color: #0067b1; background: #eff6ff; color: #0067b1; }
     .hd-cm-zona .material-icons { font-size: 22px; }
 
@@ -50,9 +54,15 @@
     .hd-cm-barra { flex: 1 1 auto; height: 6px; border-radius: 99px; background: #e2e8f0; overflow: hidden; }
     .hd-cm-barra i { display: block; height: 100%; width: 0; background: #0067b1; transition: width .25s; }
 
-    /* La lista de archivos. */
-    .hd-cm-list { overflow-y: auto; background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 10px 14px; flex: 1; min-height: 120px; }
-    .hd-cm-row { background: #fff; border: 1px solid #e2e8f0; border-left-width: 3px; border-radius: 9px; margin-bottom: 5px; padding: 7px 10px; }
+    /* La lista de archivos, con el aspecto de las tablas de la app (.tabla-cabecera y
+       .tabla-lista de estilos_globales.css): cabecera oscura en mayúsculas y filas separadas
+       por una línea fina, sin tarjetas. La franja de color de la izquierda se queda: dice de un
+       vistazo cómo salió cada PDF. */
+    .hd-cm-lista-cab { display: flex; align-items: center; justify-content: space-between; gap: 10px;
+                       margin: 10px 14px 0; padding: 9px 10px; border-radius: 8px; background: #1e293b;
+                       color: #fff; font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; }
+    .hd-cm-list { overflow-y: auto; background: #fff; padding: 0 14px 10px; flex: 1; min-height: 120px; font-size: 13px; }
+    .hd-cm-row { background: #fff; border-bottom: 1px solid #f1f5f9; border-left: 3px solid transparent; padding: 7px 10px; }
     .hd-cm-row[data-estado="cola"]       { border-left-color: #cbd5e1; }
     .hd-cm-row[data-estado="leyendo"]    { border-left-color: #0067b1; }
     .hd-cm-row[data-estado="listo"]      { border-left-color: #10b981; }
@@ -101,7 +111,7 @@
     .hd-cm-btn.plano:hover { background: #f8fafc; }
 
     /* Interruptor "Modo ensayo": comprueba TODO y dice qué haría, sin escribir nada. */
-    .hd-cm-ensayo { display: inline-flex; align-items: center; gap: 8px; height: 34px; padding: 0 12px;
+    .hd-cm-ensayo { align-self: flex-start; display: inline-flex; align-items: center; gap: 8px; height: 34px; padding: 0 12px;
                     border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; cursor: pointer;
                     font-size: 12px; font-weight: 700; color: #64748b; white-space: nowrap; }
     .hd-cm-ensayo input { width: 15px; height: 15px; accent-color: #0067b1; cursor: pointer; margin: 0; }
@@ -183,6 +193,7 @@
                         '<div class="hd-cm-barra"><i id="hdCmBarra"></i></div>' +
                     '</div>' +
                 '</div>' +
+                '<div class="hd-cm-lista-cab"><span>Archivo</span><span>Estado</span></div>' +
                 '<div class="hd-cm-list" id="hdCmList"></div>' +
                 '<div class="hd-cm-pie">' +
                     '<span class="hd-cm-resumen" id="hdCmResumen"></span>' +

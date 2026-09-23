@@ -36,20 +36,21 @@
 @php
     $fmt = fn ($n) => rtrim(rtrim(number_format((float) $n, 3, ',', '.'), '0'), ',') ?: '0';
 
-    // Filas de la tabla de items: se rellena con filas vacias hasta esta cantidad para que la
-    // nota luzca como el formulario en fisico.
-    //
-    // 12 es el MAXIMO MEDIDO que mantiene la nota en UNA sola hoja acostada junto con el
-    // cabezote oficial, Observaciones, Vehiculo/Chofer y las 5 firmas (con 13 la fila FIRMA
-    // se va a una 2.ª pagina). El formulario en fisico trae 13, pero ese no lleva el sello
-    // de la esquina; con el sello no dan los 154 mm utiles de alto que tiene
-    // la hoja acostada (210 de A4 menos el cabezote hasta 40 mm y el margen inferior de 16),
+    // Filas de la tabla de items: se rellena con renglones vacios para que la nota luzca como
+    // el formulario en fisico. El numero oficial acostada es 12 (NOTA_FILAS_HORIZONTAL): con
+    // 13 la fila FIRMA se iba a una 2.ª hoja, porque con el sello de la esquina no dan los
+    // 154 mm utiles de alto (210 de A4 menos el cabezote hasta 40 mm y el margen de 16),
     // contra ~241 mm de la de pie — por eso cabe bastante menos que las 20 del vertical.
     //
-    // NO subir este numero sin volver a medir: bajar la altura de Observaciones no compra
-    // filas (TCPDF impone un alto minimo de celda por el line-height de la fuente) y el
-    // cellpadding tampoco. Se probaron ambas cosas.
-    $minFilas = 12;
+    // $minFilas y $compacto (renglones de items con letra y aire menores) los decide
+    // AlmacenController::renderNotaEntregaPdfBinary: arma la nota y la MIDE para que salga en
+    // UNA hoja, quitando relleno o compactando solo si no cabe (una descripcion larga ocupa
+    // dos o tres lineas). Bajar la altura de Observaciones no compra filas: TCPDF impone un
+    // alto minimo de celda por el line-height de la fuente.
+    $minFilas = (int) ($minFilas ?? 0);
+    $compacto = (bool) ($compacto ?? false);
+    $fi  = $compacto ? 7 : 8;   // letra de los renglones de items
+    $pad = $compacto ? 1 : 2;   // aire de celda de la tabla de items
 
     // ── DESTINO por item ──────────────────────────────────────────────────────────────
     // El destino general de la nota va ARRIBA, en PROYECTO. Esta columna solo existe para
@@ -107,7 +108,7 @@
      DESCRIPCION son ~111 mm, mas que el 62% de la hoja de pie (~118 mm es casi igual),
      asi que los nombres largos de producto siguen entrando en una linea.
      <thead> se re-imprime solo si la tabla se parte de pagina (TCPDF lo maneja). --}}
-<table border="1" cellpadding="2" cellspacing="0" width="100%">
+<table border="1" cellpadding="{{ $pad }}" cellspacing="0" width="100%">
     <thead>
         <tr bgcolor="#D9D9D9">
             <td width="4%"  align="center"><font face="helvetica" size="8"><b>N°</b></font></td>
@@ -136,12 +137,12 @@
                     : 0;
             @endphp
             <tr>
-                <td width="4%"  align="center"><font face="helvetica" size="8">{{ $i + 1 }}</font></td>
-                <td width="40%"><font face="helvetica" size="8">{{ $m->producto?->NOMBRE ?? '' }}@if($np) &nbsp;—&nbsp; {{ $np }}@endif</font>@if($devuelto > 0)<font face="helvetica" size="7" color="#b91c1c"> &nbsp;(DEVUELTO: {{ $fmt($devuelto) }} {{ $m->producto?->UM ?? '' }})</font>@endif</td>
-                <td width="13%" align="center"><font face="helvetica" size="8">{{ $m->producto?->CODIGO ?? '' }}</font></td>
-                <td width="8%"  align="center"><font face="helvetica" size="8">{{ $fmt($m->CANTIDAD) }}</font></td>
-                <td width="6%"  align="center"><font face="helvetica" size="8">{{ $m->producto?->UM ?? '' }}</font></td>
-                <td width="29%"><font face="helvetica" size="8">{{ $destino }}</font></td>
+                <td width="4%"  align="center"><font face="helvetica" size="{{ $fi }}">{{ $i + 1 }}</font></td>
+                <td width="40%"><font face="helvetica" size="{{ $fi }}">{{ $m->producto?->NOMBRE ?? '' }}@if($np) &nbsp;—&nbsp; {{ $np }}@endif</font>@if($devuelto > 0)<font face="helvetica" size="7" color="#b91c1c"> &nbsp;(DEVUELTO: {{ $fmt($devuelto) }} {{ $m->producto?->UM ?? '' }})</font>@endif</td>
+                <td width="13%" align="center"><font face="helvetica" size="{{ $fi }}">{{ $m->producto?->CODIGO ?? '' }}</font></td>
+                <td width="8%"  align="center"><font face="helvetica" size="{{ $fi }}">{{ $fmt($m->CANTIDAD) }}</font></td>
+                <td width="6%"  align="center"><font face="helvetica" size="{{ $fi }}">{{ $m->producto?->UM ?? '' }}</font></td>
+                <td width="29%"><font face="helvetica" size="{{ $fi }}">{{ $destino }}</font></td>
             </tr>
         @endforeach
         {{-- Filas de relleno hasta $minFilas. El <font> explicito en cada celda vacia es
@@ -149,12 +150,12 @@
              vacia queda mas alta que las llenas (8pt). --}}
         @for($j = $movs->count(); $j < $minFilas; $j++)
             <tr>
-                <td width="4%"  align="center"><font face="helvetica" size="8">{{ $j + 1 }}</font></td>
-                <td width="40%"><font face="helvetica" size="8">&nbsp;</font></td>
-                <td width="13%"><font face="helvetica" size="8">&nbsp;</font></td>
-                <td width="8%"><font face="helvetica" size="8">&nbsp;</font></td>
-                <td width="6%"><font face="helvetica" size="8">&nbsp;</font></td>
-                <td width="29%"><font face="helvetica" size="8">&nbsp;</font></td>
+                <td width="4%"  align="center"><font face="helvetica" size="{{ $fi }}">{{ $j + 1 }}</font></td>
+                <td width="40%"><font face="helvetica" size="{{ $fi }}">&nbsp;</font></td>
+                <td width="13%"><font face="helvetica" size="{{ $fi }}">&nbsp;</font></td>
+                <td width="8%"><font face="helvetica" size="{{ $fi }}">&nbsp;</font></td>
+                <td width="6%"><font face="helvetica" size="{{ $fi }}">&nbsp;</font></td>
+                <td width="29%"><font face="helvetica" size="{{ $fi }}">&nbsp;</font></td>
             </tr>
         @endfor
     </tbody>

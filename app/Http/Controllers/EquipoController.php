@@ -1008,13 +1008,6 @@ class EquipoController extends Controller
 
         $spreadsheet->getDefaultStyle()->getFont()->setName('Arial')->setSize(10);
 
-        $sheet->getRowDimension(1)->setRowHeight(40);
-        $sheet->getRowDimension(2)->setRowHeight(40);
-        $sheet->getRowDimension(3)->setRowHeight(40);
-
-        // Logo centrado en A1:B3 (trait ExcelLogoCorporativo)
-        $this->insertarLogoCorporativo($sheet, ['A','B'], [1,2,3]);
-
         $showFrenteCol = ($nombreFrente === 'TODOS LOS FRENTES');
         // +10 columnas de documentación: SÍ/NO + dato por cada uno (Tít.Prop+Titular /
         // Póliza+Venc / RACDA+Venc / ROTC+Venc / Certificado+Venc):
@@ -1023,66 +1016,16 @@ class EquipoController extends Controller
         $endTitle     = $showFrenteCol ? 'O' : 'N'; // título C:endTitle (encabezado ancho)
         $startEdicion = $showFrenteCol ? 'P' : 'O'; // EDICION/REV/FECHA: startEdicion..lastCol (4 cols, angosto)
 
-        // Fila 1 a 3 - Título Empresa
-        $sheet->mergeCells('A1:B3');
-        $sheet->getStyle('A1:B3')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF'); // Fondo Blanco Puro
-
-        // Título: C..$endTitle (más ancho — ocupa la mayor parte del header)
-        $sheet->mergeCells('C1:'.$endTitle.'3');
         if ($nombreFrente !== 'TODOS LOS FRENTES') {
             $subTitle = 'PROYECTO: "' . mb_strtoupper($nombreFrente) . '"';
         } else {
             $subTitle = 'COPIA DE BASE DE DATOS DEL SISTEMA DE GESTION DE EQUIPOS OPERACIONALES';
         }
         $titleText = "LISTADO DE MAQUINARIAS Y EQUIPOS\n" . $subTitle;
-        $sheet->setCellValue('C1', $titleText);
-        $sheet->getStyle('C1')->getAlignment()->setWrapText(true);
-        $sheet->getStyle('C1')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
-        $sheet->getStyle('C1')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
-        $sheet->getStyle('C1')->getFont()->setBold(true)->setSize(14)->getColor()->setARGB(\PhpOffice\PhpSpreadsheet\Style\Color::COLOR_BLACK);
-        $sheet->getStyle('C1:'.$endTitle.'3')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF'); // Blanco
-
-        // Bloque EDICION / REVISION / FECHA: a la derecha, ocupando sólo $startEdicion..$lastCol (angosto).
-        $sheet->mergeCells($startEdicion.'1:'.$lastCol.'1');
-        $sheet->setCellValue($startEdicion.'1', 'EDICION: 1');
-        $sheet->getStyle($startEdicion.'1')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
-        $sheet->getStyle($startEdicion.'1')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
-        $sheet->getStyle($startEdicion.'1')->getFont()->setBold(true)->setSize(11)->getColor()->setARGB(\PhpOffice\PhpSpreadsheet\Style\Color::COLOR_BLACK);
-        $sheet->getStyle($startEdicion.'1:'.$lastCol.'1')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
-
-        $sheet->mergeCells($startEdicion.'2:'.$lastCol.'2');
-        $sheet->setCellValue($startEdicion.'2', 'REVISION: 0');
-        $sheet->getStyle($startEdicion.'2')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
-        $sheet->getStyle($startEdicion.'2')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
-        $sheet->getStyle($startEdicion.'2')->getFont()->setBold(true)->setSize(11)->getColor()->setARGB(\PhpOffice\PhpSpreadsheet\Style\Color::COLOR_BLACK);
-        $sheet->getStyle($startEdicion.'2:'.$lastCol.'2')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
-
-        $sheet->mergeCells($startEdicion.'3:'.$lastCol.'3');
-        $sheet->setCellValue($startEdicion.'3', 'FECHA: ' . $currentDate);
-        $sheet->getStyle($startEdicion.'3')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
-        $sheet->getStyle($startEdicion.'3')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
-        $sheet->getStyle($startEdicion.'3')->getFont()->setBold(true)->setSize(11)->getColor()->setARGB(\PhpOffice\PhpSpreadsheet\Style\Color::COLOR_BLACK);
-        $sheet->getStyle($startEdicion.'3:'.$lastCol.'3')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
-
-        // Fila 4 - Texto Exportado por
-        $sheet->mergeCells('A4:'.$lastCol.'4');
-        $sheet->setCellValue('A4', 'Exportado por: Sistema de Gestión de Equipos Operacionales');
-        $sheet->getStyle('A4:'.$lastCol.'4')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
-        $sheet->getStyle('A4:'.$lastCol.'4')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_RIGHT);
-        $sheet->getStyle('A4:'.$lastCol.'4')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
-        $sheet->getStyle('A4:'.$lastCol.'4')->getFont()->setItalic(true)->setSize(9)->getColor()->setARGB('FF333333');
-        $sheet->getRowDimension(4)->setRowHeight(20);
-
-        // Bordes a toda la cuadricula de encabezado
-        $headerBorders = [
-            'borders' => [
-                'allBorders' => [
-                    'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
-                    'color' => ['argb' => 'FF000000'],
-                ],
-            ],
-        ];
-        $sheet->getStyle('A1:'.$lastCol.'4')->applyFromArray($headerBorders);
+        // Filas 1-4: logo, título, EDICION/REVISION/FECHA y "Exportado por": el encabezado
+        // de todos los listados (trait ExcelLogoCorporativo::encabezadoCorporativo).
+        $this->encabezadoCorporativo($sheet, $titleText, $endTitle, $startEdicion, $lastCol, null, 40, 120, $currentDate);
+        $headerBorders = self::bordeFinoCorporativo();   // también enmarca la tabla, más abajo
 
         // Fila 5 - Encabezados de tabla. Cada documento usa 2 columnas: SÍ/NO + dato (titular o fecha de vencimiento).
         $docHeaders = [
@@ -1094,21 +1037,11 @@ class EquipoController extends Controller
         ];
         if ($showFrenteCol) {
             $headers = array_merge(['N°', 'FRENTE', 'TIPO', 'MARCA', 'MODELO', 'CATEGORÍA DE FLOTA', 'SERIAL DE CHASIS', 'SERIAL DE MOTOR', 'PLACA', 'AÑO', 'ESTADO'], $docHeaders);
-            $colMap  = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U'];
         } else {
             $headers = array_merge(['N°', 'TIPO', 'MARCA', 'MODELO', 'CATEGORÍA DE FLOTA', 'SERIAL DE CHASIS', 'SERIAL DE MOTOR', 'PLACA', 'AÑO', 'ESTADO'], $docHeaders);
-            $colMap  = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T'];
         }
 
-        foreach($headers as $index => $hdr) {
-            $sheet->setCellValue($colMap[$index] . '5', $hdr);
-        }
-        $sheet->getStyle('A5:'.$lastCol.'5')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
-        $sheet->getStyle('A5:'.$lastCol.'5')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
-        $sheet->getStyle('A5:'.$lastCol.'5')->getAlignment()->setWrapText(true); // encabezados largos en 2 líneas
-        $sheet->getStyle('A5:'.$lastCol.'5')->getFont()->setBold(true)->setSize(10)->getColor()->setARGB('FFFFFFFF');
-        $sheet->getStyle('A5:'.$lastCol.'5')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FF1B365D');
-        $sheet->getRowDimension(5)->setRowHeight(40);
+        $this->cabeceraTablaCorporativa($sheet, $headers);   // A5..$lastCol5, azul corporativo
 
         // Anchos de columna dinámicos
         if ($showFrenteCol) {
@@ -1161,7 +1094,7 @@ class EquipoController extends Controller
         $rowNum  = 6;
         $counter = 1;
 
-        // $colMap / $lastCol NO se capturan en el use del closure: antes los usaba el
+        // $lastCol NO se captura en el use del closure: antes los usaba el
         // styling per-cell que vivia adentro; ahora ese styling vive en el bloque batch
         // post-foreach (que SI los usa en el scope externo).
         $printEquipoRow = function($equipo, $isAnclado = false) use (&$sheet, &$rowNum, &$counter, &$printedIds, &$ancladoRows, $showFrenteCol, &$printEquipoRow) {
@@ -6179,59 +6112,13 @@ class EquipoController extends Controller
         $currentDate = date('d/m/Y');
         $lastCol = 'J'; // N°, Frente, Tipo, Marca, Modelo, Serial, Código, Capacidad, Año, Estado
 
-        foreach ([1, 2, 3] as $r) {
-            $auxSheet->getRowDimension($r)->setRowHeight(40);
-        }
-
-        // Logo A1:B3
-        $auxSheet->mergeCells('A1:B3');
-        $auxSheet->getStyle('A1:B3')->getFill()
-            ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
-        $this->insertarLogoCorporativo($auxSheet, ['A', 'B'], [1, 2, 3]);
-
-        // Título central C1:F3
-        $auxSheet->mergeCells('C1:F3');
         $subTitle = $nombreFrente !== 'TODOS LOS FRENTES'
             ? 'PROYECTO: "' . mb_strtoupper($nombreFrente) . '"'
             : 'COPIA DE BASE DE DATOS DEL SISTEMA DE GESTION DE EQUIPOS OPERACIONALES';
-        $auxSheet->setCellValue('C1', "LISTADO DE EQUIPOS AUXILIARES\n" . $subTitle);
-        $auxSheet->getStyle('C1')->getAlignment()->setWrapText(true)
-            ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER)
-            ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
-        $auxSheet->getStyle('C1')->getFont()->setBold(true)->setSize(14)
-            ->getColor()->setARGB(\PhpOffice\PhpSpreadsheet\Style\Color::COLOR_BLACK);
-        $auxSheet->getStyle('C1:F3')->getFill()
-            ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
-
-        // Metadatos G1:J3
-        foreach ([['G1', 'EDICION: 1'], ['G2', 'REVISION: 0'], ['G3', 'FECHA: ' . $currentDate]] as [$cell, $text]) {
-            $r = substr($cell, 1);
-            $auxSheet->mergeCells("G{$r}:{$lastCol}{$r}");
-            $auxSheet->setCellValue($cell, $text);
-            $auxSheet->getStyle($cell)->getAlignment()
-                ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER)
-                ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
-            $auxSheet->getStyle($cell)->getFont()->setBold(true)->setSize(11)
-                ->getColor()->setARGB(\PhpOffice\PhpSpreadsheet\Style\Color::COLOR_BLACK);
-            $auxSheet->getStyle("G{$r}:{$lastCol}{$r}")->getFill()
-                ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
-        }
-
-        // Fila 4 — Exportado por
-        $auxSheet->mergeCells("A4:{$lastCol}4");
-        $auxSheet->setCellValue('A4', 'Exportado por: Sistema de Gestión de Equipos Operacionales');
-        $auxSheet->getStyle("A4:{$lastCol}4")->getFill()
-            ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
-        $auxSheet->getStyle("A4:{$lastCol}4")->getAlignment()
-            ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_RIGHT)
-            ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
-        $auxSheet->getStyle("A4:{$lastCol}4")->getFont()->setItalic(true)->setSize(9)->getColor()->setARGB('FF333333');
-        $auxSheet->getRowDimension(4)->setRowHeight(20);
-
-        $borderArray = [
-            'borders' => ['allBorders' => ['borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN, 'color' => ['argb' => 'FF000000']]],
-        ];
-        $auxSheet->getStyle("A1:{$lastCol}4")->applyFromArray($borderArray);
+        // Filas 1-4: logo, título, EDICION/REVISION/FECHA y "Exportado por": el encabezado
+        // de todos los listados (trait ExcelLogoCorporativo::encabezadoCorporativo).
+        $this->encabezadoCorporativo($auxSheet, "LISTADO DE EQUIPOS AUXILIARES\n" . $subTitle, 'F', 'G', $lastCol, null, 40, 120, $currentDate);
+        $borderArray = self::bordeFinoCorporativo();   // también enmarca la tabla, más abajo
 
         // Fila 5 — Headers
         $headers = ['N°', 'FRENTE', 'TIPO', 'MARCA', 'MODELO', 'SERIAL', 'CÓDIGO INTERNO', 'CAPACIDAD', 'AÑO', 'ESTADO'];

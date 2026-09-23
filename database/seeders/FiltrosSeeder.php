@@ -14,7 +14,8 @@ use Illuminate\Database\Seeder;
  * Fase A → productos_inventario  (el filtro como producto, categoría FILTRO)
  * Fase B → producto_equivalencias (los nº de parte cross-reference del filtro)
  *
- * Las fases C (modelo_filtro) y D (kits) se cargan en seeders aparte.
+ * La fase C (modelo_filtro) se carga en FiltrosModeloSeeder. Los kits ya no salen de
+ * aquí: son recetas del almacén (almacen_kits) que se arman desde la pantalla.
  */
 class FiltrosSeeder extends Seeder
 {
@@ -40,7 +41,6 @@ class FiltrosSeeder extends Seeder
                     'NOMBRE'    => $f['nombre'],
                     'UM'        => $f['um'] ?? 'UND',
                     'CATEGORIA' => 'FILTROS',
-                    'ES_KIT'    => (bool) ($f['es_kit'] ?? false),
                     'ESTATUS'   => 'ACTIVO',
                 ]
             );

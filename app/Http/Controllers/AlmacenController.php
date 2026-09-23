@@ -53,6 +53,15 @@ class AlmacenController extends Controller
     use ExcelLogoCorporativo;
 
     /**
+     * Renglones oficiales de la tabla de items de la Nota de Entrega: los que trae el
+     * formulario impreso (el vertical, 20; el horizontal, acostado, 12). Se rellena con
+     * renglones vacios hasta este numero SOLO si caben en la hoja: ver
+     * renderNotaEntregaPdfBinary, que mide y quita relleno para que la nota no se parta.
+     */
+    private const NOTA_FILAS_VERTICAL = 20;
+    private const NOTA_FILAS_HORIZONTAL = 12;
+
+    /**
      * Cuantos productos entran en el grafico "Top N productos consumidos" del Dashboard
      * de Consumo. Es PUBLIC a proposito: el titulo del grafico lo lee de aqui
      * (partials/consumo_dashboard_modal.blade.php). El numero estaba escrito dos veces
@@ -4177,52 +4186,6 @@ class AlmacenController extends Controller
         // que es lo unico que se puede saber.
         $horizontal = Almacen::normalizarFormatoNota($formato ?? $almacen?->FORMATO_NOTA) === Almacen::FORMATO_NOTA_HORIZONTAL;
 
-        $pdf = new NotaEntregaPDF($horizontal ? 'L' : 'P', 'mm', 'A4', true, 'UTF-8', false);
-        // El N° de Nota va en el cabezote (esquina derecha, donde antes estaba "CODIGO:").
-        // Header() lo lee de esta propiedad pública.
-        $pdf->numeroNota = $datos['numero_nota'] ?? '';
-        // El formato se le DICE, no se deduce. El cabezote arma un sello distinto para cada
-        // uno y antes lo averiguaba mirando si $fechaHora venia vacia — un contrato
-        // implicito: rellenar esa propiedad para el vertical le habria cambiado el sello sin
-        // que nada lo dijera.
-        $pdf->horizontal = $horizontal;
-        // Fecha y hora al sello, SOLO en horizontal: su cuerpo ya no las imprime (el vertical
-        // si, dentro de "FECHA DE ENTREGA"). Se arma aqui —y no en el Header— para no meter
-        // formato de fechas dentro de la clase del PDF.
-        if ($horizontal) {
-            $pdf->fechaHora = trim(
-                'FECHA: ' . ($datos['fecha'] ?? '')
-                . '   HORA: ' . ($datos['hora'] ?? '')
-            );
-        }
-        $pdf->setPrintHeader(true);
-        // Footer desactivado: ya no imprimimos "Sistema de Gestión VIDALSA" al pie.
-        // La Nota de Entrega es un formulario oficial impreso (VID-FO-GEN-019), no un
-        // reporte interno — el footer del sistema sobraba.
-        $pdf->setPrintFooter(false);
-        // El cabezote arranca en y=16 (16mm de aire desde el borde superior del papel)
-        // y mide 24mm/68pt -> bottom = 40mm. top=40 = bottom del cabezote: el body
-        // arranca PEGADO al cabezote, sin franja blanca entre ambos. Si subes/bajas
-        // $cabY o $headerHeight en NotaEntregaPDF::Header(), recalcular este top
-        // (= cabY + cabH).
-        $pdf->SetMargins(10, 40, 10);
-        $pdf->SetHeaderMargin(16);
-        // Borde blanco SIMETRICO arriba/abajo: el cabezote deja 16mm de aire en el
-        // tope (y=cabY=16), asi que el margen de quiebre de pagina —que es el blanco
-        // inferior cuando el contenido llega al fondo— tambien es 16mm. FooterMargin
-        // queda inerte porque setPrintFooter(false) no dibuja pie.
-        $pdf->SetFooterMargin(10);
-        $pdf->SetAutoPageBreak(true, 16);
-        $pdf->SetTitle('Nota de Entrega de Materiales' . ($esPreview ? ' (Vista previa)' : ''));
-        $pdf->SetAuthor('Constructora Vidalsa 27, C.A.');
-        $pdf->SetCreator('Sistema de Gestión VIDALSA');
-        $pdf->AddPage();
-        // Línea fina (0.15mm) para que las tablas HTML del cuerpo usen el mismo
-        // grosor que el cabezote — TCPDF usa SetLineWidth como default para los
-        // bordes de tablas en writeHTML.
-        $pdf->SetLineWidth(0.15);
-        $pdf->SetFont('helvetica', '', 9.5);
-
         $vista = $horizontal
             ? 'admin.almacen.nota_entrega_horizontal_pdf'
             : 'admin.almacen.nota_entrega_pdf';
@@ -4236,18 +4199,111 @@ class AlmacenController extends Controller
             ->orderBy('FECHA')->orderBy('ID_MOVIMIENTO')
             ->get();
 
-        $html = view($vista, [
-            'datos' => $datos,
-            'movs'  => $movs,
-            'devoluciones' => $devoluciones,
-            // Solo lo consume la vista horizontal; la vertical lleva sus dos firmas armadas
-            // con 'entregado_por'/'cargo_entrega' y nunca lee esto, por eso alli va vacio.
-            // Con el formato congelado una nota horizontal SI puede quedarse sin almacen (si
-            // lo borraron despues), asi que los bloques caen a un almacen vacio: cinco firmas
-            // en blanco, que es un formulario valido, en vez de reventar el PDF.
-            'firmantes' => $horizontal ? ($almacen?->firmantesNota() ?? (new Almacen())->firmantesNota()) : [],
-        ])->render();
-        $pdf->writeHTML($html, true, false, true, false, '');
+        // UNA operacion = UNA hoja. El formulario se rellena con renglones vacios hasta su
+        // numero oficial (20 de pie, 12 acostada), pero lo que ocupa cada renglon depende de
+        // lo que se entrega: un nombre largo o un nº de parte parten la descripcion en dos o
+        // tres lineas, y el bloque de devoluciones suma alto al pie. Con numeros fijos eso
+        // empujaba el final de la nota a una 2.ª hoja que solo traia el cabezote.
+        //
+        // Por eso se ARMA y se MIDE: si no cabe en una hoja, se quitan renglones VACIOS (los
+        // que haga falta, buscando el mayor numero que aun cabe) y, si ni sin relleno cabe,
+        // se pasa la tabla de items a modo compacto (letra y aire de celda menores). Solo si
+        // aun asi no entra —muchisimos items— la nota sigue en mas hojas, que es lo que tiene
+        // que pasar: nunca se recorta un item.
+        $filasOficiales = $horizontal ? self::NOTA_FILAS_HORIZONTAL : self::NOTA_FILAS_VERTICAL;
+        $armar = function (int $filas, bool $compacto) use (
+            $horizontal, $datos, $esPreview, $vista, $movs, $devoluciones, $almacen
+        ): NotaEntregaPDF {
+            $pdf = new NotaEntregaPDF($horizontal ? 'L' : 'P', 'mm', 'A4', true, 'UTF-8', false);
+            // El N° de Nota va en el cabezote (esquina derecha, donde antes estaba "CODIGO:").
+            // Header() lo lee de esta propiedad pública.
+            $pdf->numeroNota = $datos['numero_nota'] ?? '';
+            // El formato se le DICE, no se deduce. El cabezote arma un sello distinto para cada
+            // uno y antes lo averiguaba mirando si $fechaHora venia vacia — un contrato
+            // implicito: rellenar esa propiedad para el vertical le habria cambiado el sello sin
+            // que nada lo dijera.
+            $pdf->horizontal = $horizontal;
+            // Fecha y hora al sello, SOLO en horizontal: su cuerpo ya no las imprime (el vertical
+            // si, dentro de "FECHA DE ENTREGA"). Se arma aqui —y no en el Header— para no meter
+            // formato de fechas dentro de la clase del PDF.
+            if ($horizontal) {
+                $pdf->fechaHora = trim(
+                    'FECHA: ' . ($datos['fecha'] ?? '')
+                    . '   HORA: ' . ($datos['hora'] ?? '')
+                );
+            }
+            $pdf->setPrintHeader(true);
+            // Footer desactivado: ya no imprimimos "Sistema de Gestión VIDALSA" al pie.
+            // La Nota de Entrega es un formulario oficial impreso (VID-FO-GEN-019), no un
+            // reporte interno — el footer del sistema sobraba.
+            $pdf->setPrintFooter(false);
+            // El cabezote arranca en y=16 (16mm de aire desde el borde superior del papel)
+            // y mide 24mm/68pt -> bottom = 40mm. top=40 = bottom del cabezote: el body
+            // arranca PEGADO al cabezote, sin franja blanca entre ambos. Si subes/bajas
+            // $cabY o $headerHeight en NotaEntregaPDF::Header(), recalcular este top
+            // (= cabY + cabH).
+            $pdf->SetMargins(10, 40, 10);
+            $pdf->SetHeaderMargin(16);
+            // Borde blanco SIMETRICO arriba/abajo: el cabezote deja 16mm de aire en el
+            // tope (y=cabY=16), asi que el margen de quiebre de pagina —que es el blanco
+            // inferior cuando el contenido llega al fondo— tambien es 16mm. FooterMargin
+            // queda inerte porque setPrintFooter(false) no dibuja pie.
+            $pdf->SetFooterMargin(10);
+            $pdf->SetAutoPageBreak(true, 16);
+            $pdf->SetTitle('Nota de Entrega de Materiales' . ($esPreview ? ' (Vista previa)' : ''));
+            $pdf->SetAuthor('Constructora Vidalsa 27, C.A.');
+            $pdf->SetCreator('Sistema de Gestión VIDALSA');
+            $pdf->AddPage();
+            // Línea fina (0.15mm) para que las tablas HTML del cuerpo usen el mismo
+            // grosor que el cabezote — TCPDF usa SetLineWidth como default para los
+            // bordes de tablas en writeHTML.
+            $pdf->SetLineWidth(0.15);
+            $pdf->SetFont('helvetica', '', 9.5);
+            // En compacto tambien se cierra el interlineado: el alto minimo de cada renglon lo
+            // pone el line-height (1,25 por defecto en TCPDF), no la letra ni el cellpadding.
+            if ($compacto) {
+                $pdf->setCellHeightRatio(0.9);
+            }
+
+            $html = view($vista, [
+                'datos' => $datos,
+                'movs'  => $movs,
+                'devoluciones' => $devoluciones,
+                // Solo lo consume la vista horizontal; la vertical lleva sus dos firmas armadas
+                // con 'entregado_por'/'cargo_entrega' y nunca lee esto, por eso alli va vacio.
+                // Con el formato congelado una nota horizontal SI puede quedarse sin almacen (si
+                // lo borraron despues), asi que los bloques caen a un almacen vacio: cinco firmas
+                // en blanco, que es un formulario valido, en vez de reventar el PDF.
+                'firmantes' => $horizontal ? ($almacen?->firmantesNota() ?? (new Almacen())->firmantesNota()) : [],
+                'minFilas'  => $filas,
+                'compacto'  => $compacto,
+            ])->render();
+            $pdf->writeHTML($html, true, false, true, false, '');
+            return $pdf;
+        };
+
+        $items = $movs->count();
+        $pdf = $armar($filasOficiales, false);
+        if ($pdf->getNumPages() > 1 && $items < $filasOficiales) {
+            // Busqueda binaria del mayor relleno que cabe (cada intento es un PDF en memoria).
+            $sinRelleno = $armar($items, false);
+            if ($sinRelleno->getNumPages() === 1) {
+                [$cabe, $noCabe, $pdf] = [$items, $filasOficiales, $sinRelleno];
+                while ($noCabe - $cabe > 1) {
+                    $medio = intdiv($cabe + $noCabe, 2);
+                    $intento = $armar($medio, false);
+                    if ($intento->getNumPages() === 1) { [$cabe, $pdf] = [$medio, $intento]; } else { $noCabe = $medio; }
+                }
+            } else {
+                $pdf = $sinRelleno;
+            }
+        }
+        if ($pdf->getNumPages() > 1) {
+            $compacto = $armar($items, true);
+            if ($compacto->getNumPages() <= $pdf->getNumPages()) {
+                $pdf = $compacto;
+            }
+        }
         // Numeracion de paginas: con el documento ya completo (ver sellarPaginacion).
         $pdf->sellarPaginacion();
 

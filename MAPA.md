@@ -4,7 +4,8 @@ Mapa corto del proyecto para orientarse **sin leer todo el código**. Si algo no
 está en los comentarios del propio archivo (el proyecto se comenta en español y explica el
 *porqué*, no el *qué*).
 
-> Última revisión: **20-09-2026**.
+> Última revisión: **22-09-2026**. El detalle del almacén (tablas, flujos, estados de la Nota
+> de Entrega) está en `BOCETO_INVENTARIO.md`.
 
 ## 1. Qué es y cómo se corre
 
@@ -15,7 +16,7 @@ MySQL/MariaDB. Los archivos viven en **Google Drive** y se sirven por un proxy p
 | Cosa | Dónde |
 |---|---|
 | Local | Apache de XAMPP, vhost en `http://127.0.0.1:8000` (la BD local es una COPIA del servidor) |
-| Pruebas | `php artisan test` (327, PHPUnit, `tests/Feature`) — ver §7 |
+| Pruebas | `php artisan test` (355, PHPUnit, `tests/Feature`) — ver §7 |
 | Despliegue | `docker/start.sh`: `migrate --force` + `schedule:work` + php-fpm. Hosting: EasyPanel |
 | Tareas | `routes/console.php` (verificación de documentos, compresión de PDF, limpieza de caché) |
 
@@ -95,6 +96,12 @@ lo sensible dentro de `can:super.admin`.
 - `InventarioService`, `TraspasoService`, `DevolucionService`, `LogisticaAlmacenService`,
   `CompatibilidadProductoService` — reglas del almacén.
 - `Gps51Service` — posición de los equipos por API compartida (lento, por tandas).
+- `ExcelLogoCorporativo` (trait) — **único** encabezado de los listados en Excel
+  (`encabezadoCorporativo`: logo, título, EDICION/REVISION/FECHA y "Exportado por"): Equipos y su
+  hoja de auxiliares, Auxiliares, Anclajes de auxiliares, Movilizaciones, Alertas de documentos
+  y Equipos con GPS. No volver a copiarlo a mano. Tienen diseño PROPIO (viejo, a propósito sin
+  tocar): Equipos anclados y Consumibles ("FECHA DE IMPRESIÓN", sin fila 4), Análisis de flota y
+  los dos de Almacén.
 - `ConvertsImageToWebp` (trait) — toda foto que se sube pasa por aquí: **WebP calidad 85** y
   reescalada, antes de ir a Drive.
 - `app/Support/` — `CacheVersion`, `DocumentacionDeEquipo` (**único** sitio que arma lo que se
@@ -120,7 +127,12 @@ lo sensible dentro de `can:super.admin`.
   mismas puertas que la tarea, incluido el PDF anterior visto por su vencimiento).
 - Al pulsar **"Revisar ahora"** se relee (una vez por pulsación, NO cada noche: hay PDF que
   nunca traen la fecha) solo lo que tiene un problema: "Datos distintos" y "No se pudo leer".
-  Lo que ya **coincide no se relee nunca** con el botón, aunque le falte una fecha.
+  Lo que ya **coincide no se relee nunca** con el botón, aunque le falte una fecha. Lo pidió el
+  cliente dos veces: **no releer en masa** (p. ej. todos los títulos) salvo que lo pida él.
+- **ROTC**: se reconoce por "R.O.T.C." o "Operadoras de Transporte de Carga"; de la tabla de
+  flota salen número ("Número de ROTC") y emisión ("Fecha y Hora de Emisión").
+- Letras que el OCR confunde por su forma (G/0, H/1, B/8, R/P…) se aceptan solo en la lista cerrada
+  `LectorDocumentoPdf::LETRAS_PARECIDAS` (`malLeido()`); un serial cortado no cuenta como igual.
 - Fecha de emisión: título viejo "Dado a los…", título nuevo del INTT "12 FEBRERO 2026" (o la
   línea de control "20260212/EL/…"); póliza "Fecha de Emisión" o, sin ella, el inicio de la
   vigencia del SEGURO (nunca la del recibo); anexo de flota, la fecha de su firma.
@@ -132,6 +144,10 @@ lo sensible dentro de `can:super.admin`.
   una por alcance de frentes, no por usuario: abrir el módulo nunca la reconstruye.
 - En el Historial, la **subida de un PDF y los datos guardados con ella salen en una sola
   fila** (misma ficha, documento, autor y <2 min).
+- **Alertas de vencimiento** (menú y reporte "Alertas de documentos"): *próximo a vencer* =
+  vence en los próximos **30 días** (`DashboardController`). Ese reporte trae todos los frentes;
+  los que el cliente no controla (POR DEFINIR, vendidos, CVG Puerto Ordaz, Gobernación Apure,
+  MOP) se quitan al armar sus informes, no en el sistema.
 
 **Carga masiva de documentos** (menú Acciones de Auditoría). Se sueltan varios PDF y cada uno
 se lee y se propone a su equipo; **nada se escribe hasta que se aplica la fila**.
@@ -145,6 +161,26 @@ se lee y se propone a su equipo; **nada se escribe hasta que se aplica la fila**
 - Un **RACDA** es de la empresa y nombra muchas unidades: se aplica a todas las que lo
   necesiten (tope 40 por archivo).
 
+**Mapa (`/mapa`, `mapa_index.js`).** Leaflet y sus dos librerías se piden A LA VEZ; en la
+primera visita `initMapa` mantiene el spinner hasta que el mapa existe. Los créditos "Elaborado
+por / Fuente" van SOLO en la foto exportada (`CREDITOS` → `dibujarCreditos`), no en pantalla.
+Todo lo que llega tarde (proyectos, capas, municipios) mira `desmontado`: si se salió del mapa
+no pinta. El spinner lo cuida la **generación** del contador (`window.preloaderGeneracion`, sube
+con cada `hidePreloader(true)`): `spinOn/spinOff` del mapa no devuelven una referencia pedida
+antes de que una navegación pusiera el contador a cero — restarla destapaba la pantalla nueva.
+- **Capa Equipos (GPS51)** = un solo panel "Equipos con GPS" arriba-derecha (a la izquierda de
+  las capas): conteos, filtros frente / tipo / serial con los desplegables de Equipos
+  (`uicomponents.js`) y la lista de equipos, sin colores. Los filtros (`eqPasaFiltro`) deciden
+  también qué puntos se pintan. No hay otra leyenda, ni buscador aparte, ni reparto por frente:
+  para eso están los filtros (pedido 22-09-2026).
+- **Excel del panel** (`mapa.equiposGps.exportar`): recibe los `ids` de lo filtrado (el servidor
+  igual recorta a los frentes del usuario). Posición: la fresca (2 min), si no la ÚLTIMA
+  conocida (`Gps51Service::ultimasConocidas`, 1 día) y solo lo que no tiene ninguna se pide a
+  GPS51 con tope de 20 s. Direcciones en UNA consulta (`Gps51Service::direcciones`: GPS51
+  devuelve los puntos desordenados, se emparejan por coordenada). Identificación: placa → serial
+  de chasis → serial de motor, la MISMA en el panel (`eqIdent`) y en el Excel. Encabezado = el de
+  Equipos (`ExcelLogoCorporativo::encabezadoCorporativo`).
+
 **Fotos de equipos.** `Equipo::fotoParaMostrar()` decide, en este orden: foto del **color** de
 la unidad en su ficha del catálogo → foto del **modelo** (`FOTO_REFERENCIAL`) → foto propia de
 la unidad (`FOTO_EQUIPO`, hoy sin pantalla que la suba). Una ficha = modelo + año + TIPO.
@@ -154,8 +190,9 @@ la unidad (`FOTO_EQUIPO`, hoy sin pantalla que la suba). Una ficha = modelo + a�
 congelado por nota). Cada presentación (UM) es un producto aparte: la conversión es manual.
 Deshacer un movimiento es un borrado **duro** a propósito.
 - **Foto del producto** (`productos_inventario.FOTO`): miniatura a la izquierda de la
-  descripción; se sube desde "Detalles del producto" (círculo con la cámara siempre a la vista; antes de subir se
-  encuadra en el recorte compartido con el Catálogo, `partials/recorte_foto`) y exige
+  descripción; se sube desde "Detalles del producto" (foto en círculo con el icono de la cámara
+  encima, sin fondo; antes de subir se encuadra en el recorte compartido con el Catálogo,
+  `partials/recorte_foto`) y exige
   `almacen.productos`. Tocar la miniatura la abre en grande (`almVerFoto`). Va a una carpeta
   **privada** de Drive (`google.product_folder`): la cuenta del sistema tiene que ser editora, o
   Drive da 403. El navegador la recibe por `/storage/google/{id}` con sesión, nunca el enlace de
@@ -215,7 +252,16 @@ las cabeceras dejan de cuadrar con el cuerpo.
   invalida sola por commit: no tocarla a mano.
 - La sesión se cierra por inactividad (20 min en producción); `ValidarSesionUnica` excluye auth.
 - Migraciones: en local pueden estar desfasadas → usar guardas `hasColumn`; no insertar filas a
-  mano en producción, hacerlo con migración o SQL revisado.
+  mano en producción, hacerlo con migración o SQL revisado. Los arreglos de datos de una sola
+  vez van en `database/sql/` (se pegan en phpMyAdmin; NO son migraciones). Las migraciones de
+  datos del 21-09 (`2026_09_21_120000`…`210000`) se encadenan: la 200000 no toca los ROTC porque
+  la 210000 los manda a releer todos (salvo los revisados por una persona, `APLICADO_POR`).
+- **Bytes invisibles**: un `\b` escrito desde un script de Python sin `r''` se guardó como el
+  carácter 0x08 y la regla del ROTC dejó de coincidir durante días. Al editar código con
+  scripts, buscar después `[\x00-\x08\x0b\x0c\x0e-\x1f]`.
+- Los informes de pólizas/documentos (Excel y presentación) se arman **fuera del repo** con el
+  reporte del sistema y una copia de la base del servidor; no guardar Excel ni PDF dentro del
+  proyecto (`storage/app/public` se sirve por `/storage`).
 - Git: commit/push **solo** cuando el usuario lo pide.
 
 ## 9. Si el Control de Auditoría "va lento"

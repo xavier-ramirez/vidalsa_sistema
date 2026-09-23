@@ -4102,7 +4102,7 @@ body:has(.mapa-page) .main-viewport {
 #mapa-leaflet:fullscreen .mapa-fs-toggle { display: none; }
 /* align-items: flex-end — la columna flex mide lo que su hijo MÁS ANCHO (el buscador de
    bloques, 232px, que aparece al encender esa capa). Sin esto los demás controles (la "X"
-   de salir y los botones de capa, de 66px) se alineaban al borde IZQUIERDO de esa caja y
+   de salir) se alineaban al borde IZQUIERDO de esa caja y
    se veían corridos hacia el centro del mapa en cuanto salía el buscador. Todos pegados a
    la derecha, que es el lado donde vive esta esquina. */
 #mapa-leaflet:fullscreen .leaflet-top.leaflet-right { display: flex; flex-direction: column; align-items: flex-end; }
@@ -4358,30 +4358,16 @@ body:has(.mapa-page) .main-viewport {
 .leaflet-control-scale-line::before { left: 0; }
 .leaflet-control-scale-line::after { right: 0; }
 
-/* Texto de créditos / fuente cartográfica (abajo-izquierda) */
-.mapa-creditos {
-    background: rgba(255, 255, 255, 0.9);
-    padding: 5px 10px;
-    border-radius: 6px;
-    font-size: 10.5px;
-    line-height: 1.35;
-    color: #1e293b;
-    max-width: 430px;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
-    margin-bottom: 8px !important;
-}
-.mapa-creditos b { color: #0f172a; font-weight: 800; }
 /* Teléfono: el contenedor del mapa gana el espacio que le robaba el padding lateral de
-   .mapa-page, y se ocultan los créditos ("Elaborado por…") y el botón-miniatura de MUNICIPIOS
-   — en una pantalla angosta solo tapan mapa útil, y el usuario móvil no los necesita para
-   consultar. Un solo breakpoint para todo el módulo. */
+   .mapa-page, y se oculta el botón-miniatura de MUNICIPIOS — en una pantalla angosta solo
+   tapa mapa útil, y el usuario móvil no lo necesita para consultar. Un solo breakpoint para
+   todo el módulo. (Los créditos "Elaborado por…" ya no están en pantalla: solo en la foto.) */
 @media (max-width: 640px) {
     /* El layout full-screen (main-viewport/mapa-page/#mapa-leaflet a pantalla completa detrás
        del header) vive ahora en la base, arriba — aplica igual en PC y teléfono. Aquí quedan
        SOLO los ajustes propios del móvil. */
-    .mapa-creditos { display: none; }
     /* Buscador de bloques oculto: es una caja de texto ancha que en pantalla angosta tapa
-       medio mapa (los bloques se identifican tocándolos). Las tres capas SÍ se ven en
+       medio mapa (los bloques se identifican tocándolos). Las capas SÍ se ven en
        teléfono, dentro de la caja desplegable de capas (ver .mapa-capas-box más abajo). */
     .mapa-bloque-buscador { display: none !important; }
     /* Regla de escala (abajo-derecha): fuera en teléfono, a pedido del cliente. Solo se
@@ -4559,7 +4545,7 @@ body:has(.mapa-page) .main-viewport {
     padding: 8px 10px;
     color: #fff;
     font-size: 12.5px;
-    max-width: min(430px, calc(100vw - 24px)); /* mismo ancho que los créditos "ELABORADO POR" (.mapa-creditos) */
+    max-width: min(430px, calc(100vw - 24px));
     min-width: min(240px, calc(100vw - 24px)); /* no forzar 240px en pantallas muy angostas → no desborda */
     max-height: 46vh;
     overflow-y: auto;
@@ -4638,16 +4624,16 @@ body:has(.mapa-page) .main-viewport {
 .mapa-bloque-vacio { padding: 8px 10px; font-size: 12px; color: #64748b; }
 
 /* ── Capa EQUIPOS (posición GPS) ──
-   Punto del color del frente con borde blanco (se lee sobre el satélite), más apagado si el GPS
-   no está en línea, y una flecha blanca con el rumbo cuando el equipo va en marcha. */
+   Icono de equipo blanco, sin círculo ni color de frente; el halo oscuro lo hace legible sobre
+   el satélite. Más apagado si el GPS no está en línea, y una flecha blanca con el rumbo cuando
+   el equipo va en marcha. */
 .mapa-eq-pin { background: transparent; border: none; }
-.mapa-eq-dot {
-    position: absolute; inset: 2px; border-radius: 50%;
-    border: 2px solid #fff; box-sizing: border-box;
-    box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.55), 0 2px 6px rgba(0, 0, 0, 0.45);
+.mapa-eq-ico {
+    display: block; font-size: 26px; line-height: 26px; color: #fff;
+    filter: drop-shadow(0 0 1px rgba(15, 23, 42, 0.95)) drop-shadow(0 1px 3px rgba(0, 0, 0, 0.7));
 }
-.mapa-eq-pin.fuera .mapa-eq-dot { opacity: 0.6; border-style: dashed; }
-.mapa-eq-rumbo { position: absolute; inset: -8px; pointer-events: none; }
+.mapa-eq-pin.fuera .mapa-eq-ico { opacity: 0.6; }
+.mapa-eq-rumbo { position: absolute; inset: -7px; pointer-events: none; }
 .mapa-eq-rumbo::before {
     content: ''; position: absolute; left: 50%; top: 0; margin-left: -4px;
     border-left: 4px solid transparent; border-right: 4px solid transparent; border-bottom: 7px solid #fff;
@@ -4678,13 +4664,70 @@ body:has(.mapa-page) .main-viewport {
 .mapa-eq-ids b { color: #0f172a; }
 .mapa-eq-dir { padding: 6px 12px 0; font-size: 11.5px; color: #1e293b; }
 .mapa-eq-coord { padding: 4px 12px 10px; font-size: 10.5px; color: #64748b; font-variant-numeric: tabular-nums; }
-/* Leyenda "Equipos por frente": cada frente se oculta/muestra tocándolo. */
-.mapa-eq-ley-row { cursor: pointer; border-radius: 6px; }
-.mapa-eq-ley-row:hover { background: rgba(255, 255, 255, 0.08); }
-.mapa-eq-ley-row.oculto .mapa-leyenda-color,
-.mapa-eq-ley-row.oculto .mapa-leyenda-nom { opacity: 0.35; }
-.mapa-eq-ley-n { flex: none; font-weight: 700; font-variant-numeric: tabular-nums; opacity: 0.85; }
-.mapa-eq-ley-pie { margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(255, 255, 255, 0.15); font-size: 10.5px; line-height: 1.45; opacity: 0.8; }
+/* Panel "Equipos con GPS" (arriba-derecha; en teléfono más angosto, ver más abajo). Letra, cajas y desplegables como
+   los filtros del módulo Equipos: Nunito, borde #cbd5e0, radio 12 px, azul #0067b1 al filtrar. */
+.mapa-eqp {
+    width: 310px; max-height: calc(100vh - 210px); display: flex; flex-direction: column;
+    background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;
+    box-shadow: 0 10px 25px rgba(15, 23, 42, 0.18); overflow: hidden;
+    font: 14px/1.35 "Nunito", sans-serif; color: var(--maquinaria-dark-blue);
+}
+.mapa-eqp-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px; border-bottom: 1px solid #e2e8f0; }
+.mapa-eqp-titulo { display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 800; }
+.mapa-eqp-titulo .material-icons { font-size: 18px; color: var(--maquinaria-blue); }
+.mapa-eqp-fold { display: inline-flex; border: none; background: transparent; padding: 0; cursor: pointer; color: var(--maquinaria-gray-text); }
+.mapa-eqp-fold .material-icons { font-size: 20px; }
+.mapa-eqp.plegado .mapa-eqp-body { display: none; }
+.mapa-eqp.plegado .mapa-eqp-head { border-bottom: none; }
+.mapa-eqp-body { overflow-y: auto; padding: 10px 12px 12px; }
+.mapa-eqp-kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.mapa-eqp-kpi { display: flex; flex-direction: column; align-items: center; padding: 8px 4px; border-radius: 10px; background: #f0f4f8; text-align: center; }
+.mapa-eqp-kpi b { font-size: 20px; font-weight: 800; line-height: 1.1; color: var(--maquinaria-dark-blue); font-variant-numeric: tabular-nums; }
+.mapa-eqp-kpi span { margin-top: 2px; font-size: 10.5px; font-weight: 700; color: var(--maquinaria-gray-text); }
+.mapa-eqp-kpi.linea { background: #e1effa; }
+.mapa-eqp-kpi.linea b { color: var(--maquinaria-blue); }
+.mapa-eqp-filtros { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+/* La caja del filtro: la de Equipos (45 px allí; 40 aquí, que el panel es angosto). */
+.mapa-eqp .mapa-eqp-trigger { height: 40px; padding: 0; overflow: hidden; }
+.mapa-eqp-trigger input { flex: 1; min-width: 0; height: 100%; border: none; background: transparent; padding: 0 4px; font: inherit; font-size: 14px; color: var(--maquinaria-dark-blue); outline: none; }
+.mapa-eqp-trigger .material-icons { flex: none; font-size: 18px; }
+.mapa-eqp-trigger .mapa-eqp-lupa { padding: 0 6px 0 10px; }
+.mapa-eqp-trigger .mapa-eqp-x { padding: 0 8px 0 4px; cursor: pointer; }
+/* La lupa y la X no giran al abrir (la regla global rota el icono del desplegable abierto). */
+.mapa-eqp .custom-dropdown.active .dropdown-trigger i { transform: none; }
+.mapa-eqp .dropdown-content { z-index: 1100; }
+.mapa-eqp .dropdown-item-list { max-height: 230px; overflow-y: auto; }
+.mapa-eqp .dropdown-item { padding: 8px 12px; font-size: 13px; }
+.mapa-eqp-opt-fila { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; }
+.mapa-eqp-opt { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mapa-eqp-opt-n { flex: none; font-size: 11.5px; color: var(--maquinaria-gray-text); font-variant-numeric: tabular-nums; }
+/* Buscador + botón de exportar en la misma línea; el botón, chico y solo con el icono. */
+.mapa-eqp-buscar { display: flex; align-items: center; gap: 8px; }
+.mapa-eqp-buscar .mapa-eqp-serial { flex: 1 1 auto; min-width: 0; }
+.mapa-eqp-exportar {
+    flex: 0 0 auto; display: flex; align-items: center; justify-content: center; width: 40px; height: 40px;
+    border: 1px solid #cbd5e0; border-radius: 12px; background: #fbfcfd; cursor: pointer; transition: all 0.2s;
+}
+.mapa-eqp-exportar .material-icons { font-size: 18px; color: #64748b; }
+.mapa-eqp-exportar:hover { border-color: var(--maquinaria-blue); background: #fff; }
+.mapa-eqp-exportar:disabled { opacity: 0.6; cursor: wait; }
+.mapa-eqp-sec { margin: 12px 0 4px; font-size: 11px; font-weight: 800; letter-spacing: 0.4px; text-transform: uppercase; color: var(--maquinaria-gray-text); }
+.mapa-eqp-eq { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 8px; cursor: pointer; }
+.mapa-eqp-eq:hover { background: #f0f4f8; }
+.mapa-eqp-eq-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.mapa-eqp-eq-txt b, .mapa-eqp-eq-txt small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mapa-eqp-eq-txt b { font-size: 13px; font-weight: 800; }
+.mapa-eqp-eq-txt small { font-size: 11px; color: var(--maquinaria-gray-text); }
+.mapa-eqp-estado { flex: none; max-width: 92px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10.5px; font-weight: 700; color: var(--maquinaria-gray-text); }
+.mapa-eqp-estado.en-linea { color: #15803d; }
+.mapa-eqp-eq.sin-pos { cursor: default; opacity: 0.6; }
+.mapa-eqp-vacio { padding: 6px 8px; font-size: 12px; color: var(--maquinaria-gray-text); }
+.mapa-eqp-pie { margin-top: 10px; padding-top: 8px; border-top: 1px solid #e2e8f0; font-size: 11px; line-height: 1.45; color: var(--maquinaria-gray-text); }
+@media (max-width: 640px) {
+    /* Teléfono: un poco más angosto (cabe en 320 px con los márgenes) y arranca recogido
+       (ver eqPanelPlegado). */
+    .mapa-eqp { width: 290px; max-height: 60vh; }
+}
 
 /* Cuadrito de color de cada división de la Faja en la leyenda. Mismo hueco que el número del
    municipio (18 px) para que las dos secciones alineen sus nombres. Borde claro porque Carabobo
@@ -4843,30 +4886,50 @@ body:has(.mapa-page) .main-viewport {
 .mapa-fit-btn.activo { background: #0067b1; color: #fff; }
 .mapa-fit-btn.activo:hover { background: #005a9e; }
 
-/* Los dos cuadrados que solo existen en TELÉFONO: recoger/desplegar el buscador y recoger/
-   desplegar las capas. En PC no hacen falta (la barra de búsqueda va siempre abierta y las
-   tres miniaturas se ven sueltas), así que se ocultan. Con #mapa-leaflet para ganarle al
-   display:flex de .mapa-fit-btn, que tienen los dos.
+/* El cuadrado que solo existe en TELÉFONO: recoger/desplegar el buscador. En PC no hace falta
+   (la barra de búsqueda va siempre abierta), así que se oculta. Con #mapa-leaflet para ganarle
+   al display:flex de .mapa-fit-btn.
    El @media que los ENCIENDE va pegado aquí debajo, y no en el bloque móvil del módulo
    (más arriba): un @media no aporta especificidad, así que con el mismo selector gana el
    que va DESPUÉS en el archivo. Escrito allá arriba, este display:none lo pisaba y el
    cuadrado de la lupa no aparecía nunca en el teléfono. */
-#mapa-leaflet .mapa-buscar-toggle,
-#mapa-leaflet .mapa-capas-toggle { display: none; }
+#mapa-leaflet .mapa-buscar-toggle { display: none; }
 @media (max-width: 640px) {
-    #mapa-leaflet .mapa-buscar-toggle,
-    #mapa-leaflet .mapa-capas-toggle { display: flex; }
+    #mapa-leaflet .mapa-buscar-toggle { display: flex; }
 }
 
-/* Caja de capas (arriba-derecha): un único control que agrupa los tres botones-miniatura.
-   En PC se ve solo el panel, con las tres miniaturas apiladas. El hueco entre ellas lo da
-   ahora el gap y ya no los márgenes de Leaflet (cuando eran tres controles sueltos, cada
-   uno traía el margin-top:10px de .leaflet-top .leaflet-control). De ahí el 10px exacto:
-   con cualquier otro valor el módulo se vería distinto en PC, que debe quedar igual. */
-.mapa-capas-box { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
-.mapa-capas-panel { display: flex; flex-direction: column; gap: 10px; }
+/* Caja de capas (abajo-derecha, a la izquierda de la escala y la brújula; order 0 en la fila
+   de esa esquina, ver .mapa-compass): el botón "Capas" y, al tocarlo (.abierto), las
+   miniaturas en FILA a su IZQUIERDA. row-reverse en las dos: el botón queda a la derecha y la
+   primera capa (Equipos) pegada a él. Recogida por defecto: sueltas tapaban mapa. */
+.mapa-capas-box { display: flex; flex-direction: row-reverse; align-items: flex-end; gap: 8px; }
+.mapa-capas-panel { display: none; flex-direction: row-reverse; gap: 8px; }
+.mapa-capas-box.abierto .mapa-capas-panel { display: flex; animation: mapaCapasEntra 0.16s ease-out; }
+@keyframes mapaCapasEntra { from { opacity: 0; transform: translateX(8px); } }
+@keyframes mapaCapasSube { from { opacity: 0; transform: translateY(8px); } }
+/* El botón "Capas" tiene la MISMA forma que las miniaturas (marco blanco, rótulo abajo) para
+   que se lea como una más; en vez de mapa lleva el icono de capas. Azul si hay alguna encendida. */
+.mapa-capas-toggle {
+    position: relative;
+    display: flex; align-items: flex-start; justify-content: center;
+    width: 66px; height: 62px; padding: 7px 0 0;
+    border: 2px solid #fff; border-radius: 8px;
+    background: #fff; color: #1b365d;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+    cursor: pointer; overflow: hidden;
+}
+.mapa-capas-toggle .material-icons { font-size: 30px; }
+.mapa-capas-toggle-lbl {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    height: 15px; line-height: 15px;
+    background: #1b365d; color: #fff;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.3px; text-align: center;
+}
+.mapa-capas-toggle:hover { border-color: #cbd5e1; }
+.mapa-capas-toggle.activo { border-color: #0067b1; color: #0067b1; box-shadow: 0 0 0 2px rgba(0, 103, 177, 0.35), 0 1px 4px rgba(0, 0, 0, 0.35); }
+.mapa-capas-toggle.activo .mapa-capas-toggle-lbl { background: #0067b1; }
 
-/* Botones MINIATURA de capas (arriba-derecha): "Municipios", "Faja" y "Bloques". Sustituyen al
+/* Botones MINIATURA de capas (en la caja de abajo-derecha): "Equipos", "Municipios", "Faja" y "Bloques". Sustituyen al
    control de capas de Leaflet (icono gris que al pasar el mouse se abría en un checkbox): cada
    uno enseña un mini mapa de Venezuela con lo que enciende. Las imágenes están pre-generadas
    (tools/generar_miniaturas_mapa.php), así los botones no descargan los geojson pesados. */
@@ -4908,20 +4971,16 @@ body:has(.mapa-page) .main-viewport {
 /* Encendido: marco azul de la marca + rótulo sólido (mismo azul que .mapa-fit-btn.activo). */
 .mapa-mini-capa.activo { border-color: #0067b1; box-shadow: 0 0 0 2px rgba(0, 103, 177, 0.35), 0 1px 4px rgba(0, 0, 0, 0.35); }
 .mapa-mini-capa.activo .mapa-mini-capa-lbl { background: #0067b1; }
-/* Teléfono: las tres miniaturas se RECOGEN detrás de un solo cuadrado con icono de capas —
-   sueltas comían media pantalla en vertical. Al tocarlo se despliegan las tres (incluida
-   Municipios, que antes se ocultaba en teléfono) y cada una sigue mostrando con su marco
-   azul si está encendida; el propio cuadrado se pinta azul mientras haya alguna activa.
-   Van algo más chicas que en PC para que las tres quepan sin tapar el mapa.
-   Este bloque va aquí y no en el @media del módulo (más arriba) porque las declaraciones
-   base están en ESTE punto del archivo: con la misma especificidad gana la última, así que
-   allá arriba los ajustes no llegarían a aplicarse nunca. */
+/* Teléfono: todo algo más chico y las miniaturas se despliegan hacia ARRIBA (en fila, junto a
+   la brújula, no caben en 360 px). Va aquí y no en el @media del módulo (más arriba) porque
+   las declaraciones base están en ESTE punto del archivo: con la misma especificidad gana la
+   última. */
 @media (max-width: 640px) {
-    /* El cuadrado de capas se enciende junto al de la lupa, más arriba (misma trampa de
-       cascada); aquí solo va el panel que despliega y el tamaño de las miniaturas. */
-    .mapa-capas-panel { display: none; }
-    .mapa-capas-box.abierto .mapa-capas-panel { display: flex; }
-    .mapa-mini-capa { width: 54px; height: 51px; }
+    .mapa-capas-box, .mapa-capas-panel { flex-direction: column-reverse; gap: 6px; }
+    .mapa-capas-box.abierto .mapa-capas-panel { animation-name: mapaCapasSube; }
+    .mapa-mini-capa, .mapa-capas-toggle { width: 54px; height: 51px; }
+    .mapa-capas-toggle { padding-top: 5px; }
+    .mapa-capas-toggle .material-icons { font-size: 26px; }
     .mapa-mini-capa-lbl { font-size: 8.5px; }
 }
 

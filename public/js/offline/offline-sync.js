@@ -77,6 +77,8 @@
     const TABLAS = {
         almacenes:      { dominio: 'catalogos', clave: (f) => txt(f.id) },
         frentes:        { dominio: 'catalogos', clave: (f) => txt(f.id) },
+        // Kits del almacén (KitAlmacenService::catalogo): viajan enteros con los catálogos.
+        kits:           { dominio: 'catalogos', clave: (f) => txt(f.id), orden: porTexto('nombre') },
         equipos:        { dominio: 'equipos',   clave: (f) => txt(f.id), orden: porTexto('etiqueta') },
         movilizaciones: { dominio: 'equipos',   clave: (f) => txt(f.id), orden: porIdDesc, tope: 1000 },
         productos:      { dominio: 'almacen',   clave: (f) => txt(f.id), orden: porTexto('nombre') },

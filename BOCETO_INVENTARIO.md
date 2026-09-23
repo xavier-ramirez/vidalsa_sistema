@@ -102,11 +102,10 @@ almacen_logistica                 ├─ ID_AUX_FILTRO (PK)
 ├─ ID_ALMACEN → almacenes         ├─ TIPO, MARCA, MODELO
 ├─ TIPO (CHOFER|VEHICULO)         └─ ETAPA, CANTIDAD
 ├─ NOMBRE
-├─ DOCUMENTO (cédula o placa)     producto_kit_componentes (BOM del KIT)
-├─ CLAVE (para no repetirlo)      ├─ ID_PRODUCTO_KIT → productos_inventario
-└─ ULTIMO_USO (ordena las         │
-   sugerencias)                   ├─ ID_PRODUCTO_COMPONENTE → productos_inv.
-                                  └─ CANTIDAD, ROL, ORDEN
+├─ DOCUMENTO (cédula o placa)     almacen_kits (KIT = receta, sin stock)
+├─ CLAVE (para no repetirlo)      ├─ ID_KIT (PK), NOMBRE, DESCRIPCION
+└─ ULTIMO_USO (ordena las         ├─ almacen_kit_items: ID_PRODUCTO, CANTIDAD por kit
+   sugerencias)                   └─ almacen_kit_modelos: ID_ESPEC o AUX_TIPO/MARCA/MODELO
 ```
 
 > Las columnas de transporte (`TRANSPORTE_VEHICULO`, `TRANSPORTE_PLACA`, `TRANSPORTE_CHOFER`,
@@ -314,7 +313,7 @@ Toda operación de stock genera un registro inmutable:
 | `AuxiliarFiltro` | auxiliar_filtro | producto() |
 | `AlmacenLogistica` | almacen_logistica | almacen() |
 | `ProductoInventario::modelosCompatibles()` | modelo_filtro (pivot) | caracteristicas_modelo N:M |
-| `ProductoInventario::componentes()` | producto_kit_componentes | auto-referencia (KIT → piezas) |
+| `AlmacenKit` | almacen_kits | items() → almacen_kit_items, modelos() → almacen_kit_modelos (ver KitAlmacenService) |
 
 ---
 

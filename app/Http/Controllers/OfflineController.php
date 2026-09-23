@@ -10,6 +10,7 @@ use App\Models\FrenteTrabajo;
 use App\Models\Movilizacion;
 use App\Models\MovimientoInventario;
 use App\Models\ProductoInventario;
+use App\Services\KitAlmacenService;
 use App\Support\OfflineVersion;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -277,6 +278,7 @@ class OfflineController extends Controller
             $verAlm();
             $datos['almacenes'] = $this->mapearAlmacenes($almacenes);
             $datos['frentes']   = $this->consultaFrentes($user, $puedeEquipos, $puedeAlmacen);
+            $datos['kits']      = $this->consultaKits($puedeAlmacen);
         }
 
         return response()->json([
@@ -403,7 +405,18 @@ class OfflineController extends Controller
             'equipos'        => $this->consultaEquipos($user, $puedeEquipos),
             'movilizaciones' => $this->consultaMovilizaciones($user, $puedeEquipos),
             'frentes'        => $this->consultaFrentes($user, $puedeEquipos, $puedeAlmacen),
+            'kits'           => $this->consultaKits($puedeAlmacen),
         ];
+    }
+
+    /**
+     * KITS del almacén: EXACTAMENTE lo que la pantalla recibe online (KitAlmacenService::catalogo),
+     * para que sin conexión se vean iguales. Sin su existencia: la copia offline ya tiene el
+     * stock de cada almacén (tabla `stock`) y la pantalla la cruza. Solo con el módulo.
+     */
+    private function consultaKits(bool $puedeAlmacen)
+    {
+        return $puedeAlmacen ? app(KitAlmacenService::class)->catalogo() : collect();
     }
 
     // ─────────────────────────────────────────────────────────────────────────

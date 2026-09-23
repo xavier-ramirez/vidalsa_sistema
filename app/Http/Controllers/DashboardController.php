@@ -690,13 +690,7 @@ class DashboardController extends Controller
                 ->setTitle('Alertas de Documentos')
                 ->setCompany('Constructora Vidalsa 27, C.A.');
 
-            $SOLIDO = \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID;
-            $CENTRO = \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER;
-            $MEDIO  = \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER;
-            $NEGRO  = \PhpOffice\PhpSpreadsheet\Style\Color::COLOR_BLACK;
-            $BLANCO = 'FFFFFFFF';
-
-            $ULTIMA     = 'H';   // 8 columnas
+            $ULTIMA    = 'H';   // 8 columnas
             $FIN_TITULO = 'F';   // título: C..F (la parte ancha del membrete)
             $EDICION    = 'G';   // EDICION / REVISION / FECHA: G..H (bloque angosto)
 
@@ -719,62 +713,23 @@ class DashboardController extends Controller
             //    del trait da offset 0 solo.
             [$logoAncho, $logoAlto] = @getimagesize(public_path('img/imagen_uno.jpg')) ?: [248, 194];
             $altoLogoPx = (int) round(($anchos['A'] + $anchos['B']) * 7 / ($logoAncho / $logoAlto)); // 7 px por unidad de ancho (Arial 10)
-            foreach ([1, 2, 3] as $r) {
-                $hoja->getRowDimension($r)->setRowHeight($altoLogoPx / 3 * 72 / 96);   // px → puntos
-            }
-            $this->insertarLogoCorporativo($hoja, ['A', 'B'], [1, 2, 3], $altoLogoPx);
-
-            $hoja->mergeCells('A1:B3');
-            $hoja->getStyle('A1:B3')->getFill()->setFillType($SOLIDO)->getStartColor()->setARGB($BLANCO);
-
-            $hoja->mergeCells("C1:{$FIN_TITULO}3");
-            $hoja->setCellValue('C1', "ALERTAS DE DOCUMENTOS\nDOCUMENTOS VENCIDOS Y PRÓXIMOS A VENCER");
-            $hoja->getStyle('C1')->getAlignment()->setWrapText(true)->setHorizontal($CENTRO)->setVertical($MEDIO);
-            $hoja->getStyle('C1')->getFont()->setBold(true)->setSize(14)->getColor()->setARGB($NEGRO);
-            $hoja->getStyle("C1:{$FIN_TITULO}3")->getFill()->setFillType($SOLIDO)->getStartColor()->setARGB($BLANCO);
-
-            $bloqueDerecho = [
-                1 => 'EDICION: 1',
-                2 => 'REVISION: 0',
-                3 => 'FECHA: ' . \Carbon\Carbon::now()->format('d/m/Y'),
-            ];
-            foreach ($bloqueDerecho as $r => $texto) {
-                $hoja->mergeCells("{$EDICION}{$r}:{$ULTIMA}{$r}");
-                $hoja->setCellValue("{$EDICION}{$r}", $texto);
-                $hoja->getStyle("{$EDICION}{$r}")->getAlignment()->setHorizontal($CENTRO)->setVertical($MEDIO);
-                $hoja->getStyle("{$EDICION}{$r}")->getFont()->setBold(true)->setSize(11)->getColor()->setARGB($NEGRO);
-                $hoja->getStyle("{$EDICION}{$r}:{$ULTIMA}{$r}")->getFill()->setFillType($SOLIDO)->getStartColor()->setARGB($BLANCO);
-            }
-
             // Fila 4: quién lo emitió, desde qué frente y cuántas filas trae. El archivo se
             // comparte por fuera del sistema y tiene que explicarse solo.
-            $hoja->mergeCells("A4:{$ULTIMA}4");
-            $hoja->setCellValue('A4', implode('   ·   ', [
+            $fila4 = implode('   ·   ', [
                 'Exportado por: ' . $nombreUsuario,
                 'Frente: ' . $nombreFrente,
                 \Carbon\Carbon::now()->format('d/m/Y H:i'),
                 $vencidos->count() . ' vencido(s)',
                 $proximos->count() . ' próximo(s) a vencer',
-            ]));
-            $hoja->getStyle("A4:{$ULTIMA}4")->getFill()->setFillType($SOLIDO)->getStartColor()->setARGB($BLANCO);
-            $hoja->getStyle("A4:{$ULTIMA}4")->getAlignment()
-                ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_RIGHT)->setVertical($MEDIO);
-            $hoja->getStyle("A4:{$ULTIMA}4")->getFont()->setItalic(true)->setSize(9)->getColor()->setARGB('FF333333');
-            $hoja->getRowDimension(4)->setRowHeight(20);
-
-            $bordeFino = ['borders' => ['allBorders' => [
-                'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
-                'color'       => ['argb' => 'FF000000'],
-            ]]];
-            $hoja->getStyle("A1:{$ULTIMA}4")->applyFromArray($bordeFino);
+            ]);
+            // Filas 1-4: logo, título, EDICION/REVISION/FECHA y "Exportado por": el encabezado
+            // de todos los listados (trait ExcelLogoCorporativo::encabezadoCorporativo).
+            $this->encabezadoCorporativo($hoja, "ALERTAS DE DOCUMENTOS\nDOCUMENTOS VENCIDOS Y PRÓXIMOS A VENCER", $FIN_TITULO, $EDICION, $ULTIMA, $fila4, $altoLogoPx / 3 * 72 / 96, $altoLogoPx, \Carbon\Carbon::now()->format('d/m/Y'));
+            $bordeFino = self::bordeFinoCorporativo();   // también enmarca la tabla, más abajo
 
             // Fila 5: encabezado de columnas, con el azul de la exportación de equipos.
             $cols = ['N°', 'ESTADO', 'FRENTE', 'TIPO', 'SERIAL / PLACA', 'DOCUMENTO', 'VENCE', 'GESTIONADO POR'];
-            $hoja->fromArray($cols, null, 'A5');
-            $hoja->getStyle("A5:{$ULTIMA}5")->getAlignment()->setHorizontal($CENTRO)->setVertical($MEDIO)->setWrapText(true);
-            $hoja->getStyle("A5:{$ULTIMA}5")->getFont()->setBold(true)->setSize(10)->getColor()->setARGB($BLANCO);
-            $hoja->getStyle("A5:{$ULTIMA}5")->getFill()->setFillType($SOLIDO)->getStartColor()->setARGB('FF1B365D');
-            $hoja->getRowDimension(5)->setRowHeight(40);
+            $this->cabeceraTablaCorporativa($hoja, $cols);
 
             // Vencidas primero y luego las próximas, el mismo orden de lectura del PDF.
             //

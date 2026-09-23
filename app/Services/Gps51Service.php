@@ -44,6 +44,12 @@ class Gps51Service
     /** Segundos que se reutiliza una dirección (una coordenada no cambia de dirección). */
     private const TTL_DIRECCION = 86400;
 
+    /** Segundos que se guarda la ÚLTIMA posición conocida (ver ultimasConocidas). */
+    private const TTL_ULTIMA = 86400;
+
+    /** Coordenadas por consulta de direcciones (ver direcciones(); 120 se probaron sin problema). */
+    private const DIRECCIONES_POR_CONSULTA = 100;
+
     /** Última señal más reciente que esto = el equipo está "en línea". */
     private const EN_LINEA_MS = 10 * 60 * 1000;
 
@@ -115,7 +121,7 @@ class Gps51Service
             ),
             $faltan
         )));
-        $porGuardar = [];
+        $porGuardar = $ultimas = [];
         foreach ($faltan as $ac) {
             $r = $respuestas[$ac] ?? null;
             $json = ($r instanceof Response && $r->successful()) ? $r->json() : null;
@@ -129,13 +135,42 @@ class Gps51Service
             }
             $pos = self::normalizar($json);
             $porGuardar[self::clavePosicion($ac)] = $pos;
+            $ultimas[self::claveUltima($ac)] = $pos;
             $out[$ac] = $pos;
         }
         // Una sola escritura para toda la tanda (misma razon que enCache: la cache es una tabla).
         if ($porGuardar) {
             Cache::putMany($porGuardar, self::TTL_POSICION);
+            Cache::putMany($ultimas, self::TTL_ULTIMA);   // copia de larga vida (ver ultimasConocidas)
         }
 
+        return $out;
+    }
+
+    /**
+     * La ÚLTIMA posición conocida de cada authcode (hasta TTL_ULTIMA de vieja), sin consultar a
+     * GPS51. Para el Excel del mapa: la posición "fresca" dura TTL_POSICION y, si caducó, pedir
+     * de nuevo 130 equipos a GPS51 tarda más que la petición. `en_linea` se recalcula con la
+     * hora de la última señal: el valor guardado era el de cuando se consultó.
+     *
+     * @param  string[]  $authcodes
+     * @return array<string, array>
+     */
+    public static function ultimasConocidas(array $authcodes): array
+    {
+        $claves = [];
+        foreach (array_unique(array_filter($authcodes)) as $ac) {
+            $claves[self::claveUltima($ac)] = $ac;
+        }
+        $out = [];
+        $ahoraMs = (int) round(microtime(true) * 1000);
+        foreach ($claves ? Cache::many(array_keys($claves)) : [] as $clave => $pos) {
+            if (!is_array($pos)) continue;
+            if (!empty($pos['ok'])) {
+                $pos['en_linea'] = !empty($pos['ultima_senal']) && ($ahoraMs - $pos['ultima_senal']) < self::EN_LINEA_MS;
+            }
+            $out[$claves[$clave]] = $pos;
+        }
         return $out;
     }
 
@@ -201,25 +236,72 @@ class Gps51Service
     /** Dirección escrita de una coordenada (la misma que muestra GPS51), o null si no la hay. */
     public static function direccion(string $authcode, float $lat, float $lng): ?string
     {
-        $clave = 'gps51_dir_' . round($lat, 4) . '_' . round($lng, 4);
-        $guardada = Cache::get($clave);
-        if (is_string($guardada)) {
-            return $guardada;
+        return self::direcciones($authcode, [[$lat, $lng]])[self::claveDireccion($lat, $lng)] ?? null;
+    }
+
+    /**
+     * Dirección escrita de VARIAS coordenadas: las guardadas salen de la caché y las demás van en
+     * una sola consulta a GPS51 por cada DIRECCIONES_POR_CONSULTA (poibatchwithauthcode acepta una
+     * lista; medido el 22-09-2026: 120 puntos en ~3,5 s, lo mismo que uno solo). La respuesta NO
+     * respeta el orden de la lista y a veces omite alguno: cada dirección se empareja por la
+     * coordenada que GPS51 devuelve, y las que faltan se piden una vez más.
+     * Sirve cualquier authcode VIGENTE (no tiene que ser el del equipo de esa coordenada).
+     *
+     * @param  array<int, array{0: float, 1: float}>  $puntos  [[lat, lng], ...]
+     * @return array<string, string>  claveDireccion(lat, lng) → dirección (solo las que se obtuvieron)
+     */
+    public static function direcciones(string $authcode, array $puntos): array
+    {
+        $porClave = [];
+        foreach ($puntos as [$lat, $lng]) {
+            $porClave[self::claveDireccion($lat, $lng)] = [(float) $lat, (float) $lng];
         }
-        try {
-            $r = Http::timeout(15)->asJson()->post(
-                self::API . '?action=poibatchwithauthcode&authcode=' . urlencode($authcode) . '&serverid=0',
-                ['points' => [['lat' => $lat, 'lon' => $lng]]]
-            );
-        } catch (\Throwable $e) {
-            return null;
+        if (!$porClave) {
+            return [];
         }
-        $dir = $r->successful() ? trim((string) data_get($r->json(), 'points.0.address', '')) : '';
-        if ($dir === '') {
-            return null;
+        $out = array_filter(Cache::many(array_keys($porClave)), 'is_string');
+
+        for ($intento = 0; $intento < 2; $intento++) {
+            $faltan = array_diff_key($porClave, $out);
+            if (!$faltan) {
+                break;
+            }
+            $nuevas = [];
+            foreach (array_chunk($faltan, self::DIRECCIONES_POR_CONSULTA, true) as $tanda) {
+                try {
+                    $r = Http::timeout(30)->asJson()->post(
+                        self::API . '?action=poibatchwithauthcode&authcode=' . urlencode($authcode) . '&serverid=0',
+                        ['points' => array_values(array_map(fn ($p) => ['lat' => $p[0], 'lon' => $p[1]], $tanda))]
+                    );
+                } catch (\Throwable $e) {
+                    continue;
+                }
+                $enOrden = array_keys($tanda);
+                foreach (array_values((array) ($r->successful() ? data_get($r->json(), 'points', []) : [])) as $i => $p) {
+                    $dir = trim((string) data_get($p, 'address', ''));
+                    // Sin coordenada en la respuesta se toma la del mismo puesto en la lista.
+                    $clave = (data_get($p, 'lat') !== null && data_get($p, 'lon') !== null)
+                        ? self::claveDireccion((float) data_get($p, 'lat'), (float) data_get($p, 'lon'))
+                        : ($enOrden[$i] ?? null);
+                    if ($dir !== '' && isset($tanda[$clave])) {
+                        $nuevas[$clave] = $dir;
+                    }
+                }
+            }
+            if (!$nuevas) {
+                break;   // GPS51 no dio ninguna: repetir no va a cambiar nada
+            }
+            Cache::putMany($nuevas, self::TTL_DIRECCION);   // una escritura por vuelta (la caché es una tabla)
+            $out += $nuevas;
         }
-        Cache::put($clave, $dir, self::TTL_DIRECCION);
-        return $dir;
+
+        return $out;
+    }
+
+    /** Clave de caché de la dirección de una coordenada (a 4 decimales, ~11 m). */
+    public static function claveDireccion(float $lat, float $lng): string
+    {
+        return 'gps51_dir_' . round($lat, 4) . '_' . round($lng, 4);
     }
 
     /**
@@ -252,5 +334,10 @@ class Gps51Service
     private static function clavePosicion(string $authcode): string
     {
         return 'gps51_pos_' . $authcode;
+    }
+
+    private static function claveUltima(string $authcode): string
+    {
+        return 'gps51_ult_' . $authcode;
     }
 }
