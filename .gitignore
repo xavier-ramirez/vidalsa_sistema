@@ -68,3 +68,9 @@ scratch_*.csv
 # Recargas puntuales de tablas desde un .sql de respaldo (hacen TRUNCATE y leen de una
 # ruta del disco de quien lo escribio): de un solo uso y peligrosas fuera de local.
 /reload_*.php
+
+# Bitacora LOCAL de cambios (MAPA_LOCAL.md y cualquier *.local.md). Es el cuaderno de
+# trabajo: explica el porque de cada cambio, que se midio y con que se probo. Se queda
+# en la maquina y NO viaja al repositorio NUNCA. El mapa publico del proyecto es MAPA.md.
+/MAPA_LOCAL.md
+*.local.md

@@ -4,7 +4,7 @@ Mapa corto del proyecto para orientarse **sin leer todo el código**. Si algo no
 está en los comentarios del propio archivo (el proyecto se comenta en español y explica el
 *porqué*, no el *qué*).
 
-> Última revisión: **22-09-2026**. El detalle del almacén (tablas, flujos, estados de la Nota
+> Última revisión: **24-09-2026**. El detalle del almacén (tablas, flujos, estados de la Nota
 > de Entrega) está en `BOCETO_INVENTARIO.md`.
 
 ## 1. Qué es y cómo se corre
@@ -16,7 +16,7 @@ MySQL/MariaDB. Los archivos viven en **Google Drive** y se sirven por un proxy p
 | Cosa | Dónde |
 |---|---|
 | Local | Apache de XAMPP, vhost en `http://127.0.0.1:8000` (la BD local es una COPIA del servidor) |
-| Pruebas | `php artisan test` (385, PHPUnit, `tests/Feature`) — ver §7 |
+| Pruebas | `php artisan test` (396, PHPUnit, `tests/Feature`) — ver §7 |
 | Despliegue | `docker/start.sh`: `migrate --force` + `schedule:work` + php-fpm. Hosting: EasyPanel |
 | Tareas | `routes/console.php` (verificación de documentos, compresión de PDF, limpieza de caché) |
 
@@ -84,6 +84,11 @@ lo sensible dentro de `can:super.admin`.
 ## 4. Servicios y comandos
 
 - `GoogleDriveService` — subidas, papelera, **copia local** del PDF recién subido y miniaturas.
+  **Un PDF cortado a medias NO se sube** (`comprobarPdfCompleto`: firma `%PDF-` y marca
+  `%%EOF` en los últimos 2 KB). Es la puerta por la que entran todos —ficha, carga masiva
+  y auxiliares—; una migración que MUEVE lo que ya existe pasa `$comprobar=false`. Nació de
+  un ROTC truncado del equipo 23: nadie se enteró al subirlo y después no lo pudo leer nada
+  (el OCR sacó 68 caracteres de 2.957 y Gemini lo rechaza).
   Nunca instanciar Drive dentro de una transacción larga. **Un documento reemplazado va a la
   PAPELERA de Drive, nunca se borra para siempre** (`enviarAPapelera`): de la papelera se
   recupera con un clic si alguien reemplazó por error, y `files->delete` es definitivo. La

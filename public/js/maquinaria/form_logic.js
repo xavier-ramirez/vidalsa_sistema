@@ -20,29 +20,29 @@ window.updateSelectedCount = function () {
     }
 };
 
-// Render generico de chips de frentes dentro del trigger de un multiselect.
-// Reutilizado por "Frentes Asignados" (azul) y "Frentes Bloqueados" (rojo) para
-// no duplicar la logica. Cuando 0 seleccionados, el placeholder informa.
-window.__renderFrenteChips = function (selectId, spanId, inputId, emptyPlaceholder, chipBg, chipColor) {
+// Resumen de lo tildado dentro del trigger de un multiselect de frentes.
+// Reutilizado por "Frentes Asignados" y "Frentes Bloqueados" para no duplicar.
+//
+// Antes pintaba un chip por frente: con varios tildados el recuadro se llenaba de
+// etiquetas y crecia hacia abajo, y por pedido del cliente los nombres NO deben
+// verse con la lista cerrada — se ven al desplegarla, que es donde se tildan y
+// destildan. Aqui solo queda la cuenta.
+window.__resumenMultiselect = function (selectId, spanId, inputId, placeholderVacio, singular, plural) {
     const checks = document.querySelectorAll('#' + selectId + ' input[type="checkbox"]:checked');
     const span  = document.getElementById(spanId);
     const input = document.getElementById(inputId);
     if (!span) return;
     if (checks.length === 0) {
-        span.innerHTML = '';
-        if (input) input.placeholder = emptyPlaceholder;
+        span.textContent = '';
+        if (input) input.placeholder = placeholderVacio;
         return;
     }
-    const esc = window.escapeHtml; // helper central (dom_helpers.js)
-    span.innerHTML = Array.from(checks).map(c => {
-        const name = c.closest('label').querySelector('span').textContent.trim();
-        return '<span style="display:inline-flex;align-items:center;background:' + chipBg + ';color:' + chipColor + ';font-weight:600;padding:2px 10px;border-radius:999px;font-size:12.5px;line-height:1.6;">' + esc(name) + '</span>';
-    }).join('');
-    // Placeholder mas corto cuando ya hay chips — el campo se entiende como "buscar mas".
-    if (input) input.placeholder = 'Buscar...';
+    span.textContent = checks.length + ' ' + (checks.length === 1 ? singular : plural);
+    // El resumen ya ocupa la linea: el campo queda solo para buscar dentro de la lista.
+    if (input) input.placeholder = '';
 };
 
-// Buscador inline de un multiselect con chips (Frentes Asignados / Bloqueados).
+// Buscador inline del multiselect (Frentes Asignados / Bloqueados).
 // Filtra las opciones DE SU PROPIA caja y ABRE la lista si estaba cerrada: antes
 // se podia teclear con el desplegable cerrado —el placeholder invita a escribir—
 // y el filtro corria sobre una lista invisible, o sea que parecia no hacer nada.
@@ -59,15 +59,63 @@ window.filtrarOpcionesMultiselect = function (input, event) {
 };
 
 window.updateFrentesCount = function () {
-    window.__renderFrenteChips('frentesSelect', 'frentesSelectedCount', 'frentesSearchInput',
-        'Seleccione o escriba frentes...', '#e0f2fe', '#0284c7');
+    window.__resumenMultiselect('frentesSelect', 'frentesSelectedCount', 'frentesSearchInput',
+        'Seleccione o escriba frentes...', 'frente asignado', 'frentes asignados');
 };
 
-// "Frentes Bloqueados" (lista negra): chips rojos para diferenciarlos visualmente.
+// "Frentes Bloqueados" (lista negra): se dice "ocultos" para no confundirlos con
+// los asignados cuando solo se ve la cuenta.
 window.updateFrentesBloqueadosCount = function () {
-    window.__renderFrenteChips('frentesBloqueadosSelect', 'frentesBloqueadosSelectedCount', 'frentesBloqueadosSearchInput',
-        'Seleccione frentes a ocultar...', '#fee2e2', '#dc2626');
+    window.__resumenMultiselect('frentesBloqueadosSelect', 'frentesBloqueadosSelectedCount', 'frentesBloqueadosSearchInput',
+        'Seleccione frentes a ocultar...', 'frente oculto', 'frentes ocultos');
 };
+
+// Deja la lista lista para mirarla: descarta el filtro que quedara de la vez
+// anterior y sube los tildados al principio. Son los que el usuario viene a
+// revisar o quitar, y buscarlos entre 40 frentes obligaba a bajar scroll.
+function prepararListaDeFrentes(caja) {
+    const lista = caja.querySelector('.multiselect-content');
+    if (!lista) return;
+
+    // El filtro viejo hay que borrarlo a mano. prepararAperturaDropdown (el helper
+    // que lo hace en el resto de desplegables) no alcanza a estos: busca el input
+    // dentro de un .dropdown-trigger y el de aqui vive en un .multiselect-trigger.
+    // Sin esto, escribir "vela", cerrar y volver a abrir dejaba la lista recortada
+    // a un frente y los tildados fuera de la vista.
+    const busca = caja.querySelector('.multiselect-busca-input');
+    if (busca) busca.value = '';
+
+    const items = Array.from(lista.querySelectorAll('.multiselect-item'));
+    items.forEach((item) => { item.style.display = ''; });
+    items
+        .filter((item) => item.querySelector('input[type="checkbox"]:checked'))
+        .reverse()
+        .forEach((item) => lista.insertBefore(item, lista.firstChild));
+}
+
+// Se prepara ANTES de que la caja se abra, y por eso va en mousedown/focusin y en
+// fase de CAPTURA:
+//   - El <div> del trigger lleva un onclick, pero para cuando ese clic llega, el
+//     manejador global de 'focusin' de uicomponents.js (que escucha en burbuja) ya
+//     marco la caja como abierta al enfocarse el buscador. Desde ahi es imposible
+//     distinguir "el usuario la esta abriendo" de "el usuario sigue escribiendo en
+//     el buscador con la lista abierta" — y en el segundo caso borrar su busqueda
+//     seria justo lo contrario de lo que quiere.
+//   - En captura este corre primero, asi que ve la caja todavia cerrada. Si ya
+//     estaba abierta no se toca nada.
+// mousedown cubre el raton (en cualquier parte del trigger, no solo el input) y
+// focusin cubre la llegada por tabulador.
+function prepararSiVaAAbrir(e) {
+    const trigger = e.target && e.target.closest
+        ? e.target.closest('.multiselect-trigger--busca')
+        : null;
+    if (!trigger) return;
+    const caja = trigger.closest('.custom-multiselect');
+    if (!caja || caja.classList.contains('active')) return;
+    prepararListaDeFrentes(caja);
+}
+document.addEventListener('mousedown', prepararSiVaAAbrir, true);
+document.addEventListener('focusin', prepararSiVaAAbrir, true);
 
 // NOTE: selectOption is now in uicomponents.js (single source of truth)
 
@@ -809,11 +857,11 @@ window.addEventListener('spa:contentLoaded', function () {
                         const permLabel = document.getElementById('selectedCount');
                         if (permLabel) permLabel.innerText = 'Seleccione permisos...';
 
-                        // Reset Frentes: destildar y repintar los chips de AMBOS campos.
+                        // Reset Frentes: destildar y reescribir la cuenta de AMBOS campos.
                         // No se confia en form.reset() porque este restaura el atributo
                         // 'checked' del HTML, que con old() puede venir marcado. Faltaba
                         // el de bloqueados: al crear un usuario con frentes bloqueados,
-                        // sus chips rojos se quedaban pegados en el campo.
+                        // su cuenta se quedaba pegada en el campo.
                         document.querySelectorAll('input[name="ID_FRENTE_ASIGNADO[]"], input[name="ID_FRENTE_BLOQUEADO[]"]')
                             .forEach(cb => cb.checked = false);
                         if (window.updateFrentesCount) window.updateFrentesCount();

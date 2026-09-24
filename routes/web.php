@@ -149,11 +149,9 @@ Route::middleware(['auth'])->group(function () {
             // independiente del rol — Gate::before en AppServiceProvider). El gate protege
             // server-side; el menú además muestra un toast si un usuario sin la clave intenta abrirlo.
             Route::middleware('can:super.admin')->group(function () {
-                // Frentes "papelera": listado de finalizados + restore. Definidos antes del
-                // resource para que el segmento literal /finalizados no choque con {frente}.
-                Route::get('frentes/finalizados', [App\Http\Controllers\FrenteTrabajoController::class, 'finalizados'])->name('frentes.finalizados');
+                // Definida ANTES del resource para que el segmento literal /sin-equipos
+                // no lo tome como un {frente}.
                 Route::get('frentes/sin-equipos', [App\Http\Controllers\FrenteTrabajoController::class, 'sinEquipos'])->name('frentes.sinEquipos');
-                Route::patch('frentes/{frente}/restore', [App\Http\Controllers\FrenteTrabajoController::class, 'restore'])->name('frentes.restore');
                 Route::resource('frentes', App\Http\Controllers\FrenteTrabajoController::class)->except(['show']);
             });
 
@@ -518,6 +516,11 @@ Route::middleware(['auth'])->group(function () {
             // que responde con un toast claro nombrando la clave si el usuario no la tiene.
             Route::get   ('almacen/recepcion/nueva',                 [App\Http\Controllers\TraspasoController::class, 'nuevaEntrada'])->name('almacen.recepcion.nueva');
             Route::get   ('almacen/recepcion/{id}',                  [App\Http\Controllers\TraspasoController::class, 'show'])    ->whereNumber('id')->name('almacen.recepcion.show');
+            // update/destroy: CRUD de traspasos en BORRADOR, hermanos del store de arriba.
+            // Hoy NINGUNA pantalla los llama (la bandeja crea y envía de una), pero completan
+            // la API que sí se documenta en el controlador y ambos rechazan cualquier traspaso
+            // que ya tuvo movimiento. Si se decide que la API no hace falta, se borran los dos
+            // con sus métodos.
             Route::patch ('almacen/recepcion/{id}',                  [App\Http\Controllers\TraspasoController::class, 'update'])  ->whereNumber('id')->name('almacen.recepcion.update');
             Route::delete('almacen/recepcion/{id}',                  [App\Http\Controllers\TraspasoController::class, 'destroy']) ->whereNumber('id')->name('almacen.recepcion.destroy');
             Route::post  ('almacen/recepcion/{id}/enviar',           [App\Http\Controllers\TraspasoController::class, 'enviar'])  ->whereNumber('id')->name('almacen.recepcion.enviar');

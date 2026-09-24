@@ -2298,13 +2298,11 @@ window.saveMetadata = async function (e) {
         window.toast('No tienes permisos para actualizar', 'error');
         return;
     }
-    // Hay un documento a medio cargar: lo que se escriba en el panel es del documento NUEVO
-    // y guardarlo ahora lo metería en la ficha del VIEJO. El botón está escondido mientras
-    // dura eso (_pdfPedirVencEnPanel); esta guarda cubre el envío por teclado.
-    if (window._pdfVencPendiente) {
-        window.toast('Termina de cargar el documento (o cancélalo) antes de guardar.', 'info');
-        return;
-    }
+    // Con un documento esperando su fecha, este mismo botón es el que lo CARGA: sube el PDF
+    // y su vencimiento de una vez. Si falta la fecha, avisa y no manda nada. Guardar los
+    // datos por su cuenta no tendría sentido aquí: serían los del documento que se va a
+    // reemplazar (ver _pdfPedirVencEnPanel).
+    if (_pdfGuardarCargaPendiente()) return;
     const ctx = window.currentPdfContext;
     const btn = document.getElementById('btnSaveMeta');
     const originalHTML = btn.innerHTML;
@@ -2386,14 +2384,14 @@ window.saveMetadata = async function (e) {
 };
 
 window.closePdfPreview = function () {
-    // Documento nuevo a la vista y todavía sin fecha: el visor NO se cierra. Es lo que
-    // obliga a escribir el vencimiento —o a cancelar a propósito— en vez de dejar el
-    // archivo a medio cargar (ver pedirVencimientoEnVisor). Las dos formas de cerrarlo —la X
-    // de la cabecera y el gesto Atrás del teléfono— pasan por aquí.
+    // Hay un documento elegido esperando su fecha: cerrar el visor es DESISTIR. Se cancela
+    // la carga —no se sube nada— y vuelve a la pantalla el documento que había. Esa es la
+    // forma de echarse atrás desde que el panel usa el botón de guardar de siempre y ya no
+    // tiene un "Cancelar" propio (ver _pdfPedirVencEnPanel). Sin fecha nunca se sube nada,
+    // ni por aquí ni por ningún otro lado.
     if (window._pdfVencPendiente) {
-        window.toast('Escribe el vencimiento para cargar el documento, o pulsa Cancelar.', 'info');
-        const campo = document.querySelector('#metaFieldsContainer input[name="fecha_vencimiento"]');
-        if (campo) { campo.style.borderColor = '#fc8181'; campo.focus(); }
+        window.toast('Carga cancelada: el documento no se subió.', 'info');
+        _pdfCerrarPendiente(null);
         return;
     }
     const modal = document.getElementById('pdfPreviewModal');
@@ -2675,8 +2673,9 @@ window.deletePdfFromPreview = async function (cual) {
 // Un documento que vence no se sube sin su fecha. Antes esa fecha se pedía en un cuadrito
 // aparte, encima del visor, repitiendo el campo "Fecha Vencimiento" que el panel "Editar
 // Datos del Documento" ya tiene al lado. Ahora el PDF elegido se abre en el visor y la fecha
-// se escribe EN ESE campo, copiándola del documento que se está viendo; mientras falte, el
-// visor no se cierra (ver closePdfPreview) y el archivo no se manda.
+// se escribe EN ESE campo, copiándola del documento que se está viendo. Manda el formulario
+// de siempre: el botón azul pasa a decir "Cargar documento" y, si se pulsa sin fecha, avisa
+// y no manda nada. Cerrar el visor cancela la carga (ver closePdfPreview).
 //
 // _pdfVencPendiente es el estado de esa espera: la promesa a resolver, el PDF local que se
 // está enseñando, el rótulo limpio del documento y a qué volver si se cancela.
@@ -2748,7 +2747,9 @@ window.pedirVencimientoEnVisor = function (file, opts) {
         //    suelta la espera SIN subir nada. Mira SU propia espera, no "la que haya": si ya
         //    se resolvió y empezó otra, el reloj de la anterior no se la lleva por delante.
         setTimeout(function () {
-            if (window._pdfVencPendiente !== pendiente || document.getElementById('metaVencPendiente')) return;
+            if (window._pdfVencPendiente !== pendiente) return;
+            // Si el campo ya está pedido (el panel se pintó), no hay nada que rescatar.
+            if (document.querySelector('#metaFieldsContainer input[name="fecha_vencimiento"]')) return;
             window.toast('No se pudieron abrir los datos del documento. Vuelve a intentarlo.', 'error');
             _pdfCerrarPendiente(null);
         }, PDF_VENC_ESPERA_PANEL_MS);
@@ -2790,8 +2791,12 @@ document.addEventListener('vidalsa:metadata-pintada', function () {
     if (window._pdfVencPendiente) _pdfPedirVencEnPanel();
 });
 
-// Deja el panel en modo "falta el vencimiento": campo vacío y resaltado, el aviso con el
-// nombre del archivo y los dos botones que cierran la espera.
+// Deja el panel pidiendo el vencimiento del documento que se acaba de elegir: el campo,
+// vacío y enfocado, y el botón azul de siempre ("Guardar Cambios") como el que carga.
+//
+// SIN cartel de aviso ni botones propios: el usuario pidió que fuera el formulario de
+// siempre. Si se pulsa Guardar sin fecha, sale el aviso "Indica la fecha de vencimiento" y
+// no se sube nada; para desistir se cierra el visor, que cancela la carga.
 function _pdfPedirVencEnPanel() {
     const pend = window._pdfVencPendiente;
     const cont = document.getElementById('metaFieldsContainer');
@@ -2813,55 +2818,42 @@ function _pdfPedirVencEnPanel() {
     campo.disabled = false;
     campo.style.borderColor = '#f6ad55';
 
-    // "Guardar Cambios" se esconde mientras tanto: aquí no se están guardando datos de un
-    // documento, se está cargando uno nuevo.
-    const guardar = document.getElementById('btnSaveMeta');
-    if (guardar) guardar.style.display = 'none';
-
-    // Y con él las acciones de la cabecera. Lo que hay delante es un PDF que todavía no
-    // existe en el sistema, pero esos botones actúan sobre el documento REAL del equipo:
-    // "Eliminar" borraría el que está cargado, "Anexar corrección" le colgaría una
-    // corrección y las pestañas de correcciones cambiarían de documento dejando la espera
-    // viva sin nada que mirar. Descargar e Imprimir se van por lo mismo: sacarían un
-    // archivo que todavía no está en el sistema.
+    // Las acciones de la cabecera sí se esconden: lo que hay delante es un PDF que todavía
+    // no existe en el sistema, pero esos botones actúan sobre el documento REAL del equipo
+    // ("Eliminar" borraría el que está cargado, "Anexar corrección" le colgaría una
+    // corrección, las pestañas cambiarían de documento). Descargar e Imprimir, igual:
+    // sacarían un archivo que aún no está guardado.
     _pdfAccionesVisor(false);
 
-    const viejo = document.getElementById('metaVencPendiente');
-    if (viejo) viejo.remove();
+    // El botón de siempre pasa a decir "Cargar documento" mientras dura la espera: es la
+    // misma acción de guardar, pero sube el PDF además de la fecha. El texto vuelve solo
+    // (_pdfCerrarPendiente) en cuanto se resuelve.
+    const guardar = document.getElementById('btnSaveMeta');
+    if (guardar) {
+        if (!guardar.dataset.textoNormal) guardar.dataset.textoNormal = guardar.innerHTML;
+        guardar.innerHTML = '<i class="material-icons" style="font-size:16px;">save</i> Cargar documento';
+        guardar.style.display = '';
+    }
 
-    const aviso = document.createElement('div');
-    aviso.id = 'metaVencPendiente';
-    aviso.style.cssText = 'background:rgba(246,173,85,0.12);border:1px solid #f6ad55;border-radius:6px;' +
-        'padding:10px;margin-bottom:12px;';
-    aviso.innerHTML =
-        '<div style="font-size:12px;font-weight:700;color:#f6ad55;margin-bottom:4px;">DOCUMENTO SIN CARGAR</div>' +
-        '<div style="font-size:12px;color:#e2e8f0;line-height:1.35;">' +
-            window.escapeHtml(pend.nombre) +
-            '<br>Escribe abajo su fecha de vencimiento —la que dice el documento que estás viendo— para cargarlo.' +
-        '</div>' +
-        '<div style="display:flex;gap:6px;margin-top:10px;">' +
-            '<button type="button" data-cancelar style="flex:1;background:#4a5568;color:#fff;border:none;padding:7px 10px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;">Cancelar</button>' +
-            '<button type="button" data-cargar style="flex:1;background:#38a169;color:#fff;border:none;padding:7px 10px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;">Cargar documento</button>' +
-        '</div>';
-    cont.insertBefore(aviso, cont.firstChild);
-
-    const confirmar = function () {
-        if (!campo.value) {
-            campo.style.borderColor = '#fc8181';
-            campo.focus();
-            window.toast('Indica la fecha de vencimiento del documento.', 'error');
-            return;
-        }
-        _pdfCerrarPendiente(campo.value);
-    };
-    aviso.querySelector('[data-cargar]').onclick   = confirmar;
-    aviso.querySelector('[data-cancelar]').onclick = function () { _pdfCerrarPendiente(null); };
     campo.addEventListener('input', function () { campo.style.borderColor = '#f6ad55'; });
-    // Enter en el campo carga, igual que el botón.
-    campo.addEventListener('keydown', function (e) {
-        if (e.key === 'Enter') { e.preventDefault(); confirmar(); }
-    });
     setTimeout(function () { campo.focus(); }, 0);
+}
+
+/**
+ * El botón azul del panel, cuando hay un documento esperando su fecha. Devuelve true si se
+ * ocupó del clic (haya cargado o haya avisado de que falta la fecha) para que saveMetadata
+ * no siga con el guardado normal.
+ */
+function _pdfGuardarCargaPendiente() {
+    if (!window._pdfVencPendiente) return false;
+    const campo = document.querySelector('#metaFieldsContainer input[name="fecha_vencimiento"]');
+    if (!campo || !campo.value) {
+        if (campo) { campo.style.borderColor = '#fc8181'; campo.focus(); }
+        window.toast('Indica la fecha de vencimiento del documento.', 'error');
+        return true;
+    }
+    _pdfCerrarPendiente(campo.value);
+    return true;
 }
 
 /**
@@ -2873,8 +2865,12 @@ function _pdfSoltarEspera(pend, fecha) {
     if (!pend || pend.resuelto) return;
     pend.resuelto = true;
     if (window._pdfVencPendiente === pend) window._pdfVencPendiente = null;
-    const aviso = document.getElementById('metaVencPendiente');
-    if (aviso) aviso.remove();
+    // El boton azul vuelve a decir "Guardar Cambios".
+    const guardar = document.getElementById('btnSaveMeta');
+    if (guardar && guardar.dataset.textoNormal) {
+        guardar.innerHTML = guardar.dataset.textoNormal;
+        delete guardar.dataset.textoNormal;
+    }
     pend.resolve(fecha || null);
 }
 
@@ -2892,7 +2888,6 @@ function _pdfCerrarPendiente(fecha) {
     if (!fecha) {
         _pdfAccionesVisor(true);
         if (titulo) titulo.innerText = pend.label;
-        if (guardar) guardar.style.display = '';
         if (pend.previo) {
             const c = pend.previo.ctx || {};
             window.openPdfPreview(pend.previo.url, c.docType, c.label, c.equipoId, c.uploadUrl, false, c.module);
@@ -2902,9 +2897,8 @@ function _pdfCerrarPendiente(fecha) {
         return;
     }
 
-    // Se confirmó: empieza la subida. Todo sigue capado hasta que termine (lo destapa
-    // _pdfFinDeSubida). Con una subida lenta, "Guardar Cambios" escribiría la fecha NUEVA
-    // en la ficha del documento VIEJO, y "Eliminar" borraría ese documento viejo con el
+    // Se confirmó: empieza la subida. Las acciones de la cabecera siguen capadas hasta que
+    // termine (lo destapa _pdfFinDeSubida): "Eliminar" borraría el documento viejo con el
     // archivo nuevo aún en camino. La cabecera sigue avisando de que no está cargado.
     _pdfSubidaEnCurso = { previo: pend.previo, label: pend.label };
     if (titulo) titulo.innerText = _pdfRotuloSinCargar(pend.label);

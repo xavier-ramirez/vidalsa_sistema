@@ -18,7 +18,10 @@
     avisan si falta el permiso, como el resto del menú Acciones.
 --}}
 <style>
-    #almKitsModal .alm-modal { max-width: 1040px; height: min(760px, 92vh); max-height: 92vh; }
+    {{-- 900px (antes 1040): el contenido son dos columnas —la lista de kits y el detalle—
+         y a 1040 el detalle quedaba con demasiado aire a los lados. La lista sigue con su
+         minmax(260-340px), así que lo que se recorta sale del sobrante del detalle. --}}
+    #almKitsModal .alm-modal { max-width: 900px; height: min(760px, 92vh); max-height: 92vh; }
     #almKitsModal .alm-modal-body { flex: 1 1 auto; padding: 14px 16px; gap: 10px; }
     .akit-vista { display: flex; flex-direction: column; gap: 10px; min-height: 0; flex: 1 1 auto; }
     .akit-vista[hidden] { display: none; }
@@ -34,6 +37,9 @@
     .akit-alm { display: flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; color: #334155;
         background: #eef2f7; border-radius: 10px; padding: 0 12px; height: 40px; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
     .akit-alm .material-icons { font-size: 17px; color: #0067b1; }
+    /* "Existencias en" va en gris y más fino: el dato es el NOMBRE del almacén, esto
+       solo explica de dónde salen los números de la columna "En almacén". */
+    .akit-alm .akit-alm-rot { font-weight: 600; color: #64748b; margin-right: 1px; }
     .akit-alm.sin { color: #b45309; background: #fef3c7; }
     .akit-alm.sin .material-icons { color: #b45309; }
     .akit-btn-nuevo { height: 40px; padding: 0 14px; border-radius: 10px; display: flex; align-items: center; gap: 6px; white-space: nowrap; }

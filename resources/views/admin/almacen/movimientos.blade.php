@@ -491,11 +491,8 @@
             min-width: 0 !important;
             max-width: none !important;
         }
-        /* Sin nota de entrega (ajustes, entradas sin NE) no hay enlace: la celda se quita del
-           todo para que su columna no reserve el column-gap de 10px al lado de la cantidad. */
-        .alm-mov-table tr.alm-mov-row td.mv-td-ref:not(:has(a.mv-nota-link)) {
-            display: none !important;
-        }
+        /* La celda sin nota de entrega (ajustes, entradas sin NE) se trata más abajo, junto
+           al botón de deshacer que vive dentro de ella. */
         /* La flecha del antiguo tooltip. */
         .alm-mov-table tr.alm-mov-row td.mv-td-ref::after { content: none !important; }
         /* Todo lo que NO es el enlace del PDF (referencia/OC, proveedor, observaciones y el
@@ -536,14 +533,54 @@
         .alm-mov-table tr.alm-mov-row td.mv-td-ref a.mv-nota-link .mv-nota-num {
             display: none !important;
         }
-        /* Deshacer / eliminar del historial (super.admin) viven DENTRO de esta celda con
-           position:absolute en top:3px;right:3px — es decir, justo encima del icono del PDF,
-           y con opacity .08 se verían como un borrón capaz de robarle el toque. Dependen de
-           :hover, que en teléfono no existe. Ya estaban ocultos aquí (la celda entera lo
-           estaba); se mantienen así de forma explícita: son acciones de escritorio. */
-        .alm-mov-table tr.alm-mov-row td.mv-td-ref .alm-mov-undo,
+        /* "Eliminar del historial" sigue siendo acción de escritorio: vive encima del icono
+           del PDF, con opacity .08 y dependiendo de :hover, que en teléfono no existe. */
         .alm-mov-table tr.alm-mov-row td.mv-td-ref .alm-mov-purge {
             display: none !important;
+        }
+
+        /* ── DESHACER en teléfono: al lado del frente (pedido del cliente) ──────────
+           El botón vive en el HTML dentro de la celda de la Referencia, que en la
+           tarjeta cae arriba a la derecha (sobre el icono del PDF) y encima se ocultaba
+           entera cuando el movimiento no trae nota — se habría perdido justo en los
+           ajustes y las entradas. Por eso, en teléfono:
+             · cuando no hay nota, esa celda ya NO se esconde con display:none: se deja
+               sin tamaño, así su columna sigue colapsando igual pero el botón, que va
+               absolute y no ocupa sitio en el flujo, se sigue pintando;
+             · el botón se ancla a la TARJETA (el tr ya es position:relative, y la celda
+               es position:static aquí arriba), abajo a la derecha, que es exactamente
+               donde queda la banda gris del destino con el nombre del frente.
+           Se le quita el disfraz de escritorio (opacity .08 + :hover) porque al tocar
+           no hay hover: aquí se ve siempre, en rojo y con un área de toque cómoda. */
+        .alm-mov-table tr.alm-mov-row td.mv-td-ref:not(:has(a.mv-nota-link)) {
+            display: block !important;
+            width: 0 !important;
+            min-width: 0 !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            overflow: visible !important;
+        }
+
+        .alm-mov-table tr.alm-mov-row td.mv-td-ref .alm-mov-undo {
+            display: inline-flex !important;
+            position: absolute !important;
+            top: auto !important;
+            bottom: 3px !important;
+            right: 6px !important;
+            z-index: 3 !important;
+            width: 26px !important;
+            height: 22px !important;
+            opacity: 1 !important;
+            color: #dc2626 !important;
+            background: transparent !important;
+        }
+        .alm-mov-table tr.alm-mov-row td.mv-td-ref .alm-mov-undo .material-icons {
+            font-size: 17px !important;
+        }
+        /* Al pulsarlo, un destello: en teléfono no hay hover que confirme el toque. */
+        .alm-mov-table tr.alm-mov-row td.mv-td-ref .alm-mov-undo:active {
+            background: #fee2e2 !important;
+            border-radius: 5px !important;
         }
 
         /* Destino: banda gris inferior full-width */
@@ -556,7 +593,11 @@
             color: #3730a3 !important;
             background: #f8fafc !important;
             border-radius: 0 0 8px 8px !important;
-            padding: 5px 12px !important;
+            /* 38px a la derecha: el hueco del botón de deshacer, que se monta sobre esta
+               misma banda. Sin reserva, un destino largo ("FRENTE 72 - VELADERO / CRUCE LA
+               GUAIRA") llegaba hasta el borde y sus últimas letras quedaban DEBAJO del
+               icono. Con el hueco, el texto se recorta antes con sus puntos suspensivos. */
+            padding: 5px 38px 5px 12px !important;
             margin: 4px -12px 0 -10px !important;
             white-space: nowrap !important;
             overflow: hidden !important;

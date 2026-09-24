@@ -328,7 +328,6 @@ class TraspasoController extends Controller
             return response()->json([
                 'html'                => view('admin.almacen.recepcion.partials.rows', ['traspasos' => $paginator])->render(),
                 'pagination'          => (string) $paginator->links('vendor.pagination.custom-sliding'),
-                'total'               => $paginator->total(),
                 'numerosNotas'        => $numerosNotas,
                 'bandejaStats'        => $bandejaStats,
                 'traspasosPorRecibir' => $traspasosPorRecibir,
@@ -348,8 +347,20 @@ class TraspasoController extends Controller
             'idAlmacenDestinoActivo' => $idAlmacenDestinoActivo,
             'numerosNotas'           => $numerosNotas,
             'bandejaStats'           => $bandejaStats,
-            // Catálogo para el buscador por PRODUCTO (con equivalencias), igual que inventario.
-            'productosLista'         => ProductoInventario::listaAutocomplete(),
+            // El catálogo de productos (buscador por PRODUCTO y modal de compra directa) ya
+            // NO se embebe aquí: eran 1439 productos = 214 KB de HTML y ~48 ms de servidor
+            // EN CADA apertura. La vista lo pide por AJAX al endpoint compartido
+            // almacen.productos-autocomplete (misma fuente, listaAutocomplete) apenas termina
+            // de pintarse — igual que el inventario, la bitácora y la entrada por ODC. Los dos
+            // sitios que lo usan lo leen POR EVENTO (al teclear), así que cargarlo async es
+            // seguro.
+            //
+            // Lo único que la vista necesita del catálogo al PINTARSE es el nombre del
+            // producto por el que se está filtrando (va escrito dentro del buscador); eso es
+            // UNA fila, no la lista entera.
+            'productoFiltrado'       => $request->filled('id_producto')
+                ? (ProductoInventario::whereKey($request->integer('id_producto'))->value('NOMBRE') ?? '')
+                : '',
             // Proyectos de CADA almacén visible. Lo consume el modal de compra directa para
             // saber, en caliente, qué mandar como `id_frente` — el almacén de la bandeja se
             // cambia desde el dropdown del header sin recargar la página, por eso es un mapa

@@ -178,17 +178,20 @@
                 {{-- Trigger con input de busqueda inline (mismo patron que Rol Asignado):
                      - El usuario tipea y filtrarOpcionesMultiselect() filtra en vivo
                        las opciones de ESTA caja (y la abre si estaba cerrada).
-                     - Los frentes seleccionados se muestran como chips dentro del mismo
-                       trigger (a la izquierda del input).
+                     - Con la lista CERRADA solo se ve cuantos hay tildados, no sus
+                       nombres (pedido del cliente): los nombres se ven al desplegar,
+                       que es donde se tildan y destildan, y ahi salen los tildados
+                       primero — de eso se encarga prepararListaDeFrentes(), que se
+                       dispara sola al ir a abrir la caja (form_logic.js).
                      - Antes habia un buscador SEPARADO dentro del dropdown — el cliente
                        lo encontro innecesario; ahora el filtrado vive en el campo
                        principal y la lista solo muestra los items. --}}
                 <div class="custom-multiselect" id="frentesSelect">
-                    <div class="multiselect-trigger multiselect-trigger--chips" id="frentesMultiselectTrigger"
+                    <div class="multiselect-trigger multiselect-trigger--busca" id="frentesMultiselectTrigger"
                          onclick="toggleDropdown('frentesSelect', event)"
                          tabindex="0" role="button" aria-haspopup="listbox" aria-labelledby="lbl_usuario_frente_title">
-                        <span id="frentesSelectedCount" class="multiselect-chips"></span>
-                        <input type="text" id="frentesSearchInput" class="multiselect-chips-input"
+                        <span id="frentesSelectedCount" class="multiselect-resumen"></span>
+                        <input type="text" id="frentesSearchInput" class="multiselect-busca-input"
                                placeholder="Seleccione o escriba frentes..."
                                autocomplete="off"
                                oninput="filtrarOpcionesMultiselect(this, event)"
@@ -229,11 +232,11 @@
                      que hacerlo LOCAL y tildar muchos asignados). Se RESTA en todo el
                      sistema (equipos, almacen, dashboard, historial, movilizacion). --}}
                 <div class="custom-multiselect" id="frentesBloqueadosSelect">
-                    <div class="multiselect-trigger multiselect-trigger--chips" id="frentesBloqueadosMultiselectTrigger"
+                    <div class="multiselect-trigger multiselect-trigger--busca" id="frentesBloqueadosMultiselectTrigger"
                          onclick="toggleDropdown('frentesBloqueadosSelect', event)"
                          tabindex="0" role="button" aria-haspopup="listbox" aria-labelledby="lbl_usuario_frente_bloq_title">
-                        <span id="frentesBloqueadosSelectedCount" class="multiselect-chips"></span>
-                        <input type="text" id="frentesBloqueadosSearchInput" class="multiselect-chips-input"
+                        <span id="frentesBloqueadosSelectedCount" class="multiselect-resumen"></span>
+                        <input type="text" id="frentesBloqueadosSearchInput" class="multiselect-busca-input"
                                placeholder="Seleccione frentes a ocultar..."
                                autocomplete="off"
                                oninput="filtrarOpcionesMultiselect(this, event)"
@@ -300,8 +303,12 @@
                                 <div style="padding:9px 14px 3px;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;">{{ $grupoLabel }}</div>
                                 @foreach($permisosAgrupados[$grupoKey] as $key => $label)
                                     <label class="multiselect-item" for="perm_{{ $permIdx }}">
+                                        {{-- La CLAVE va en el value (es lo que se guarda en
+                                             usuarios.PERMISOS); en pantalla solo se lee la
+                                             descripcion, que es lo que entiende quien
+                                             configura la cuenta. --}}
                                         <input type="checkbox" id="perm_{{ $permIdx }}" name="PERMISOS[]" value="{{ $key }}" {{ in_array($key, $user_perms) ? 'checked' : '' }} onchange="updateSelectedCount()">
-                                        <span><strong>{{ $key }}</strong> <span style="color:#64748b; font-size:12px;">— {{ $label }}</span></span>
+                                        <span>{{ $label }}</span>
                                     </label>
                                     @php $permIdx++; @endphp
                                 @endforeach
@@ -321,7 +328,9 @@
             </a>
             <button type="submit" class="btn-primary-maquinaria btn-compacto"
                 @cannot('manage.users')
-                onclick="event.preventDefault(); window.toast('Acceso denegado: Necesitas el permiso super.admin para guardar cambios de usuarios.', 'error');"
+                {{-- Sin nombrar la clave: en esta pantalla los permisos se leen por su
+                     descripcion, no por su nombre tecnico. --}}
+                onclick="event.preventDefault(); window.toast('Acceso denegado: no tienes permiso para guardar cambios de usuarios.', 'error');"
                 @endcannot>
                 <i class="material-icons">save</i>
                 Guardar
@@ -330,29 +339,29 @@
     </form>
 </div>
 
-{{-- Restaurar contadores de frentes (asignados + bloqueados) al cargar (modo edición).
-     Los chips de frentes los pinta SOLO el JS: el <span> viene vacio del servidor.
+{{-- Escribir la cuenta de frentes (asignados + bloqueados) al cargar (modo edición).
+     El resumen lo escribe SOLO el JS: el <span> viene vacio del servidor.
 
      VA DENTRO DE @section('content') a proposito. Estuvo en @section('extra_js'), y ahi
      el arreglo del readyState no servia de nada: el layout hace @yield('extra_js') FUERA
      de .main-viewport (lo advierte el propio layout), asi que en navegacion SPA esta
      seccion no se inyecta ni se ejecuta NUNCA — y en carga completa readyState siempre
      vale 'loading' en ese punto, o sea que solo corria la rama del listener, igual que
-     antes. Resultado: entrando a editar un usuario desde la lista, los chips salian
-     vacios aunque tuviera frentes asignados.
+     antes. Resultado: entrando a editar un usuario desde la lista, el recuadro salia
+     vacio aunque tuviera frentes asignados.
 
      Aqui dentro si lo re-ejecuta executeScripts() en cada navegacion (es inline, y esos
      si los corre), y entonces la rama del else es la que hace el trabajo. Mismo patron
      que consumibles/cargar y que equipos/index. --}}
 <script>
-    function pintarChipsDeFrentes() {
+    function pintarResumenDeFrentes() {
         if (window.updateFrentesCount) window.updateFrentesCount();
         if (window.updateFrentesBloqueadosCount) window.updateFrentesBloqueadosCount();
     }
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', pintarChipsDeFrentes);
+        document.addEventListener('DOMContentLoaded', pintarResumenDeFrentes);
     } else {
-        pintarChipsDeFrentes();
+        pintarResumenDeFrentes();
     }
 </script>
 

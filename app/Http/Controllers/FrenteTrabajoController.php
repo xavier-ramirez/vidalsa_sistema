@@ -22,13 +22,8 @@ class FrenteTrabajoController extends Controller
      */
     public function create()
     {
-        // Stats
-        $stats = FrenteTrabajo::selectRaw("
-            count(case when ESTATUS_FRENTE = 'ACTIVO' then 1 end) as activos, 
-            count(case when ESTATUS_FRENTE = 'FINALIZADO' then 1 end) as finalizados
-        ")->first();
-
-        // Pre-load for Search Dropdown (Simple list)
+        // Lista del buscador integrado (el formulario ES el modulo: se elige el frente
+        // aqui mismo). Solo id y nombre: el resto se pide al seleccionarlo.
         $allFrentes = FrenteTrabajo::select('ID_FRENTE', 'NOMBRE_FRENTE')
             ->orderBy('NOMBRE_FRENTE')
             ->get();
@@ -37,7 +32,7 @@ class FrenteTrabajoController extends Controller
         $frente = new FrenteTrabajo();
         $categorias = ['FLOTA LIVIANA', 'FLOTA PESADA'];
 
-        return view('admin.frentes.formulario', compact('frente', 'stats', 'allFrentes', 'categorias'));
+        return view('admin.frentes.formulario', compact('frente', 'allFrentes', 'categorias'));
     }
 
     /**
@@ -105,20 +100,14 @@ class FrenteTrabajoController extends Controller
             return response()->json($frente);
         }
 
-        // Stats
-        $stats = FrenteTrabajo::selectRaw("
-            count(case when ESTATUS_FRENTE = 'ACTIVO' then 1 end) as activos, 
-            count(case when ESTATUS_FRENTE = 'FINALIZADO' then 1 end) as finalizados
-        ")->first();
-
-        // Pre-load for Search Dropdown
+        // Misma lista del buscador que en create(): la vista es la misma.
         $allFrentes = FrenteTrabajo::select('ID_FRENTE', 'NOMBRE_FRENTE')
             ->orderBy('NOMBRE_FRENTE')
             ->get();
 
         $categorias = ['FLOTA LIVIANA', 'FLOTA PESADA'];
 
-        return view('admin.frentes.formulario', compact('frente', 'stats', 'allFrentes', 'categorias'));
+        return view('admin.frentes.formulario', compact('frente', 'allFrentes', 'categorias'));
     }
 
     /**
@@ -177,8 +166,8 @@ class FrenteTrabajoController extends Controller
      * el campo ID_FRENTE_ACTUAL es nullable).
      *
      * Para "archivar" un frente sin borrarlo el usuario tiene el campo
-     * "Estatus del Proyecto" en el formulario que permite marcarlo como
-     * FINALIZADO manualmente; el modal "Finalizados" lista esos proyectos.
+     * "Estatus del Proyecto" en el formulario, que permite marcarlo como
+     * FINALIZADO manualmente.
      */
     public function destroy(Request $request, string $id)
     {
@@ -219,56 +208,10 @@ class FrenteTrabajoController extends Controller
     }
 
     /**
-     * Lista los frentes en estado FINALIZADO para el modal "Acciones >
-     * Frentes Finalizados". Devuelve estructura JSON minima para render.
-     */
-    public function finalizados(Request $request)
-    {
-        $frentes = FrenteTrabajo::where('ESTATUS_FRENTE', 'FINALIZADO')
-            ->orderBy('NOMBRE_FRENTE')
-            ->get(['ID_FRENTE', 'NOMBRE_FRENTE', 'UBICACION', 'TIPO_FRENTE', 'updated_at']);
-        return response()->json([
-            'success' => true,
-            'count'   => $frentes->count(),
-            'frentes' => $frentes->map(fn($f) => [
-                'id'            => $f->ID_FRENTE,
-                'nombre'        => $f->NOMBRE_FRENTE,
-                'ubicacion'     => $f->UBICACION,
-                'tipo'          => $f->TIPO_FRENTE,
-                'finalizado_en' => optional($f->updated_at)->format('d/m/Y H:i'),
-            ]),
-        ]);
-    }
-
-    /**
-     * Recupera un frente FINALIZADO marcandolo ACTIVO de nuevo. Endpoint
-     * usado desde el modal de finalizados.
-     */
-    public function restore(Request $request, string $id)
-    {
-        $frente = FrenteTrabajo::findOrFail($id);
-        if ($frente->ESTATUS_FRENTE !== 'FINALIZADO') {
-            return response()->json([
-                'success' => false,
-                'message' => 'Solo se pueden recuperar frentes en estado FINALIZADO.',
-            ], 422);
-        }
-        $frente->update(['ESTATUS_FRENTE' => 'ACTIVO']);
-        return response()->json([
-            'success' => true,
-            'message' => "Frente \"{$frente->NOMBRE_FRENTE}\" recuperado correctamente.",
-            'frente'  => [
-                'id'     => $frente->ID_FRENTE,
-                'nombre' => $frente->NOMBRE_FRENTE,
-            ],
-        ]);
-    }
-
-    /**
      * Lista TODOS los frentes que no tienen NINGÚN equipo ni auxiliar asignado
-     * (candidatos a eliminar o desactivar), SIN importar su estatus: incluye ACTIVOS,
-     * FINALIZADOS y DESACTIVADOS. Se devuelve ESTATUS_FRENTE para que el modal muestre
-     * el estado y oculte "Desactivar" en los que ya no están activos.
+     * (candidatos a eliminar), SIN importar su estatus: incluye ACTIVOS y
+     * FINALIZADOS. Lo consume el modal "Frentes sin equipos" del formulario, que
+     * muestra el ESTATUS_FRENTE junto al nombre y ofrece Eliminar en cada fila.
      */
     public function sinEquipos(Request $request)
     {

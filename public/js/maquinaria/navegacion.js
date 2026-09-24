@@ -93,10 +93,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // hace clic, se descarta y el clic pide de nuevo. Así nunca se pinta un módulo con
     // información que se quedó vieja esperando.
     //
-    // Solo en dispositivos con puntero real: en táctil no hay "hover" previo al toque
-    // (el navegador lo emula EN el toque), así que precargar ahí no adelantaría nada y
-    // duplicaría peticiones.
-    const PREFETCH_TTL_MS = 5000;
+    // El hover solo sirve donde hay puntero de verdad: en táctil el navegador lo emula EN el
+    // toque, así que por ahí no se adelanta nada. El teléfono tiene su propio disparador, el
+    // 'touchstart' (más abajo), que aprovecha el tiempo del gesto.
+    // Cuanto vale lo precargado. Eran 5 s, y se quedaban cortos: entre que el puntero pasa
+    // por el menu y el usuario decide, pasa mas tiempo que eso, y el trabajo se tiraba para
+    // volver a pedir lo mismo. 30 s es lo que tarda un modulo en quedarse viejo de verdad
+    // —los datos frescos los pide cada modulo por su cuenta al montarse—.
+    const PREFETCH_TTL_MS = 30000;
     const prefetchStore   = new Map(); // url -> { html, ts }
     let   prefetchEnVuelo = null;      // evita disparar dos veces por el mismo link
 
@@ -111,8 +115,14 @@ document.addEventListener('DOMContentLoaded', () => {
         return (Date.now() - hit.ts) < PREFETCH_TTL_MS ? hit.html : null;
     }
 
+    /** Precarga por hover: solo donde hay puntero de verdad (en táctil el hover no existe). */
     function precargar(url) {
         if (!hayPunteroReal()) return;
+        precargarEnTactil(url);
+    }
+
+    /** La precarga en sí. La llaman el hover (arriba) y el primer toque en el teléfono. */
+    function precargarEnTactil(url) {
         if (prefetchEnVuelo === url || prefetchStore.has(url)) return;
         prefetchEnVuelo = url;
         window.apiFetch(url, { headers: CABECERAS_SPA, cache: 'no-store' })
@@ -151,6 +161,18 @@ document.addEventListener('DOMContentLoaded', () => {
         if (link.href === window.location.href) return; // ya estamos ahí
         precargar(link.href);
     });
+
+    // En el TELEFONO no hay hover, pero sí hay un hueco aprovechable: entre que el dedo toca
+    // y el navegador dispara el clic pasan del orden de 100-300 ms (el tiempo del gesto), y
+    // ahí ya se sabe a dónde va. Se empieza a traer el módulo en el 'touchstart' y para
+    // cuando llega el clic suele estar listo. Si el usuario arrastra en vez de pulsar, lo
+    // único que se pierde es una petición que caduca sola.
+    document.addEventListener('touchstart', (e) => {
+        const link = e.target.closest('a');
+        if (!link || !esNavegableSPA(link)) return;
+        if (link.href === window.location.href) return;
+        precargarEnTactil(link.href);
+    }, { passive: true });
 
     // ── Atrás cierra el visor de PDF ──
     // En el teléfono (y más en la app instalada, sin barra del navegador) el gesto Atrás es
@@ -206,10 +228,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (pasoDelVisor && visorAbierto()) {
             pasoDelVisor = false;
             if (typeof window.closePdfPreview === 'function') window.closePdfPreview();
-            // El visor puede NEGARSE a cerrarse: con un documento nuevo delante y todavía sin
-            // su fecha de vencimiento se queda abierto a propósito (layout_ui.js). Como su
-            // paso del historial ya se gastó, hay que devolvérselo; si no, el Atrás siguiente
-            // se llevaría la página entera con el visor todavía encima.
+            // El visor puede seguir abierto después de este cierre: con un documento nuevo
+            // esperando su fecha, cerrar cancela esa carga y VUELVE al documento anterior
+            // (layout_ui.js), así que la ventana no se va. Como su paso del historial ya se
+            // gastó, hay que devolvérselo; si no, el Atrás siguiente se llevaría la página
+            // entera con el visor todavía encima.
             if (visorAbierto()) ponerPasoDelVisor();
             return;
         }
@@ -251,10 +274,19 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
 
                     if (newScript.src) {
-                        // Script externo (CDN / asset):
-                        // Si ya está cargado en el documento, no lo duplicamos
-                        const alreadyLoaded = document.querySelector(`script[src="${newScript.src}"]`);
-                        if (alreadyLoaded) {
+                        // Script externo (CDN / asset): si YA está cargado no se duplica.
+                        //
+                        // "Ya cargado" = hay un <script> con ese mismo src FUERA del contenido
+                        // que se acaba de montar. Los <script src> que vienen dentro del HTML
+                        // del módulo están en el DOM pero NO se han ejecutado —el navegador no
+                        // ejecuta lo insertado por innerHTML, que es justo la razón de ser de
+                        // esta función—, así que mirarlos era darse por satisfecho con un
+                        // script muerto: un módulo que trajera su JavaScript en un archivo
+                        // propio no arrancaba nunca al entrar por la SPA (sí al recargar la
+                        // página, y de ahí lo despistante del caso).
+                        const yaCargado = Array.from(document.querySelectorAll(`script[src="${newScript.src}"]`))
+                            .some((s) => !container.contains(s));
+                        if (yaCargado) {
                             resolve();
                             return;
                         }

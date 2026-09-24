@@ -51,6 +51,8 @@
             return b;
         });
     }
+    // Todo pasa por aqui. El token CSRF lo pone apiFetch (dom_helpers.js) en cuanto el
+    // metodo no es GET: no hay que repetirlo en cada llamada.
     function pedir(url, opts) {
         opts = opts || {};
         opts.headers = Object.assign({ 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, opts.headers || {});
@@ -153,10 +155,21 @@
         var tipos = Object.keys(nTipo).sort(function (a, b) {
             return a === GENERAL ? 1 : b === GENERAL ? -1 : a.localeCompare(b, 'es');
         });
-        $('almKitsTipos').innerHTML = base.length
+        // La fila de chips se esconde SOLO cuando lo único que hay es "Uso general": ahí
+        // saldrían "Todos 3" y "Uso general 3", dos botones con el mismo número que llevan
+        // a la misma lista. Con un tipo REAL (p.ej. todos los kits son de CAMIÓN) el chip
+        // SE QUEDA aunque sea el único: es la puerta a los modelos —pulsarlo es lo que
+        // despliega HOWO / SINOTRUK / JAC—, y esconderlo dejaría esa cascada inalcanzable.
+        var boxTipos = $('almKitsTipos');
+        var soloGeneral = tipos.length === 1 && tipos[0] === GENERAL;
+        var hayChips = base.length > 0 && !soloGeneral;
+        boxTipos.innerHTML = hayChips
             ? chip('', 'Todos', base.length, !S.tipo, 'filtrarTipo')
               + tipos.map(function (t) { return chip(t, t === GENERAL ? 'Uso general' : t, nTipo[t], S.tipo === t, 'filtrarTipo'); }).join('')
             : '';
+        boxTipos.hidden = !hayChips;
+        // Sin chips en pantalla no habría forma de quitar el filtro, así que se suelta.
+        if (!hayChips) S.tipo = '';
         var enTipo = S.tipo ? base.filter(function (k) { return tiposDe(k).indexOf(S.tipo) >= 0; }) : base;
         var boxMod = $('almKitsModelos');
         if (S.tipo && S.tipo !== GENERAL) {
@@ -208,8 +221,17 @@
         var box = $('almKitsAlmacen');
         var nombre = nombreAlmacen(S.idAlmacen);
         box.classList.toggle('sin', !S.idAlmacen);
-        box.innerHTML = '<i class="material-icons">warehouse</i>' + (S.idAlmacen ? esc(nombre || 'Almacén') : 'Elige un almacén en el inventario');
-        box.title = S.idAlmacen ? 'La existencia es la de este almacén' : 'Para ver cuánto alcanza, elige primero el almacén en el inventario';
+        // NO es un selector: es el pie de qué almacén salen los números de la columna
+        // "En almacén" y del aviso "no alcanza". Antes solo ponía el nombre y parecía
+        // repetir el almacén desde el que se abrió el modal; el rótulo lo aclara sin
+        // tener que dejar el dedo encima para leer el title.
+        box.innerHTML = '<i class="material-icons">warehouse</i>' +
+            (S.idAlmacen
+                ? '<span class="akit-alm-rot">Existencias en</span>' + esc(nombre || 'Almacén')
+                : 'Elige un almacén en el inventario');
+        box.title = S.idAlmacen
+            ? 'Lo que se ve en "En almacén" es la existencia de ' + (nombre || 'este almacén')
+            : 'Para ver cuánto alcanza, elige primero el almacén en el inventario';
     }
 
     function pintarDetalle() {
@@ -444,7 +466,7 @@
                 message: '¿Eliminar el kit <b>' + esc(k.nombre) + '</b>? Los productos y su stock no se tocan.',
                 confirmText: 'Eliminar', cancelText: 'Volver',
             }, function () {
-                pedir(modal().dataset.urlStore + '/' + id, { method: 'DELETE', headers: { 'X-CSRF-TOKEN': window.getCsrf() } })
+                pedir(modal().dataset.urlStore + '/' + id, { method: 'DELETE' })
                     .then(function (b) { toast(b.message || 'Kit eliminado.'); return cargar(); })
                     .then(pintar)
                     .catch(function (e) { toast(e.message || 'No se pudo eliminar el kit.', 'error'); });
@@ -528,7 +550,7 @@
             var btn = $('almKitGuardar'); btn.disabled = true;
             pedir(ed.id ? modal().dataset.urlStore + '/' + ed.id : modal().dataset.urlStore, {
                 method: ed.id ? 'PUT' : 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': window.getCsrf() },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(cuerpo),
             }).then(function (b) {
                 toast(b.message || 'Kit guardado.');

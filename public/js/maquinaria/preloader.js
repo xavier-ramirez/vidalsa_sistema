@@ -38,17 +38,42 @@ let _preloaderRefs = 0;
 let _preloaderGen = 0;
 window.preloaderGeneracion = function () { return _preloaderGen; };
 
+// El spinner SALE SIEMPRE, desde el primer milisegundo.
+//
+// Se probó a retrasarlo (para que en la oficina, donde un módulo abre en ~180 ms, no llegara
+// a verse) y el usuario lo rechazó con razón: unas veces aparecía y otras no, y en la obra
+// —que es donde hay que entender si algo está cargando o si se colgó— la duda es peor que el
+// parpadeo. Aquí NO se decide por velocidad: si se pidió, se muestra.
+//
+// Lo que sí se dejó más fino es la SALIDA: se va en 0,18 s (antes el CSS decía medio segundo
+// y el JS la cortaba a los 100 ms, así que la capa desaparecía de golpe a media transición).
+function _preloaderPintar() {
+    const preloader = document.getElementById('preloader');
+    if (!preloader) return;
+    preloader.classList.remove('fade-out');
+    preloader.style.display = 'flex';
+    // Se fuerzan estas tres para que aparezca por encima de todo.
+    preloader.style.opacity = '1';
+    preloader.style.visibility = 'visible';
+    preloader.style.zIndex = '1000000';
+}
+
+function _preloaderQuitar() {
+    const preloader = document.getElementById('preloader');
+    if (!preloader) return;
+    preloader.classList.add('fade-out');
+    // Acompaña al tiempo del CSS (.preloader.fade-out): si se quitara antes, la capa
+    // desaparecería de golpe a media transición.
+    setTimeout(() => {
+        if (preloader.classList.contains('fade-out')) {
+            preloader.style.display = 'none';
+        }
+    }, 180);
+}
+
 window.showPreloader = function () {
     _preloaderRefs++;
-    const preloader = document.getElementById('preloader');
-    if (preloader) {
-        preloader.classList.remove('fade-out');
-        preloader.style.display = 'flex';
-        // Force visibility properties to ensure it appears on top of everything
-        preloader.style.opacity = '1';
-        preloader.style.visibility = 'visible';
-        preloader.style.zIndex = '1000000';
-    }
+    _preloaderPintar();
 };
 
 window.hidePreloader = function (force) {
@@ -60,15 +85,7 @@ window.hidePreloader = function (force) {
         // Aún hay operaciones en vuelo → mantener el spinner visible.
         if (_preloaderRefs > 0) return;
     }
-    const preloader = document.getElementById('preloader');
-    if (preloader) {
-        preloader.classList.add('fade-out');
-        setTimeout(() => {
-            if (preloader.classList.contains('fade-out')) {
-                preloader.style.display = 'none';
-            }
-        }, 100);
-    }
+    _preloaderQuitar();
 };
 
 // Ocultar el preloader INICIAL cuando todo (imágenes/iconos) haya cargado,

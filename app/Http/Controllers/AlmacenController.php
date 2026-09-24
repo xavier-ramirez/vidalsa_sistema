@@ -239,7 +239,7 @@ class AlmacenController extends Controller
             if ($offset === 0 && !$request->boolean('solo_filas')) {
                 // Los KPIs (Consolidado) siempre: sin filtro muestran el total del almacén, igual
                 // que la carga inicial HTML.
-                $resp['stats'] = $this->statsInventario($idAlmacenSel, $request);
+                $resp['stats'] = $this->statsInventario($idAlmacenSel);
                 // Panel lateral (ver panelLateral): BUSCAR siempre reparte por CATEGORIA lo que
                 // la tabla esta filtrando. Las ubicaciones de un producto ("En otros almacenes")
                 // salen SOLO al tocar su fila, y eso lo pide el JS aparte
@@ -320,7 +320,7 @@ class AlmacenController extends Controller
             // calcula en la carga inicial — el cliente quiere verlo apenas abre el módulo,
             // sin esperar a filtrar. Es 1 query agregada (statsInventario), barata. Sin
             // filtros activos devuelve el consolidado completo del almacén.
-            'stats'              => $this->statsInventario($idAlmacenSel, $request),
+            'stats'              => $this->statsInventario($idAlmacenSel),
             // Panel lateral al abrir: la distribución por categoría del almacén entero (1 query
             // agregada, como el Consolidado). Con la tabla vacía es lo que dice qué hay dentro.
             'distribucionHtml'   => $this->panelLateral(null, $idAlmacenSel, $almacenSel?->NOMBRE, $request, $user),
@@ -652,7 +652,7 @@ class AlmacenController extends Controller
      * `$request` se mantiene en la firma (lo pasan los llamadores) pero ya no se usa:
      * el consolidado es deliberadamente independiente de los filtros.
      */
-    private function statsInventario(?int $idAlmacen, Request $request): array
+    private function statsInventario(?int $idAlmacen): array
     {
         if ($idAlmacen === null) {
             return ['total' => 0, 'con_saldo' => 0, 'stock_bajo' => 0, 'unidades' => 0.0];

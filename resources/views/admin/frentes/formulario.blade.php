@@ -105,7 +105,11 @@
                         <div class="dropdown-item-list" id="frenteItemsList" style="max-height: 250px; overflow-y: auto;">
                             @if(isset($allFrentes))
                                 @foreach($allFrentes as $f)
-                                    <div class="dropdown-item search-result-item" data-name="{{ $f->NOMBRE_FRENTE }}"
+                                    {{-- data-id: identidad estable del item. El nombre se puede
+                                         EDITAR, y sin el id addToSearchList no reconocia el item
+                                         ya listado y dejaba dos entradas del mismo frente. --}}
+                                    <div class="dropdown-item search-result-item" data-id="{{ $f->ID_FRENTE }}"
+                                        data-name="{{ $f->NOMBRE_FRENTE }}"
                                         onclick="selectFrenteSPA('{{ $f->ID_FRENTE }}')">
                                         {{ $f->NOMBRE_FRENTE }}
                                     </div>
@@ -119,8 +123,8 @@
                 </div>
 
             </div>
-            {{-- Botón "Sin equipos": abre modal con frentes ACTIVOS sin equipos ni
-                 auxiliares asignados, para borrarlos o desactivarlos. --}}
+            {{-- Botón "Sin equipos": abre un modal con los frentes que no tienen ningún
+                 equipo ni auxiliar asignado —de cualquier estatus— para borrarlos. --}}
             <button type="button" id="btnSinEquipos" onclick="window.abrirModalSinEquipos()" title="Frentes sin equipos asignados"
                 class="btn-primary-maquinaria btn-secondary"
                 style="padding: 0 14px; height: 38px; display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0;">
@@ -528,7 +532,7 @@
                 // confirmaciones destructivas — coherente con showModal API).
                 const proceed = function () {
                     if (window.showPreloader) window.showPreloader();
-                    const csrf = window.getCsrf();   // helper central (dom_helpers.js)
+                    // El CSRF lo pone apiFetch (helper central, dom_helpers.js); aqui no hace falta.
                     window.apiFetch('{{ url("admin/frentes") }}/' + id, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
                         method: 'DELETE'}).then(handleDeleteResponse).catch(handleDeleteError);
                 };
@@ -572,11 +576,8 @@
                         // Toast efimero (auto-cierra) en vez de modal: el rechazo
                         // por dependencias (equipos/auxiliares asignados) es un
                         // resultado puntual, no requiere bloqueo modal.
-                        if (window.showToast) {
-                            window.showToast(msg, 'error');
-                        } else {
-                            alert(msg);
-                        }
+                        // window.toast (dom_helpers.js) avisa si aun no hay toasts.
+                        if (!window.toast(msg, 'error')) alert(msg);
                     }
                 });
             }
@@ -586,9 +587,7 @@
                 var msg = 'Error de red al eliminar el frente.';
                 if (typeof window.showModal === 'function') {
                     window.showModal({ type: 'error', title: 'Error de red', message: msg, confirmText: 'Cerrar', hideCancel: true });
-                } else if (window.showToast) {
-                    window.showToast(msg, 'error');
-                } else {
+                } else if (!window.toast(msg, 'error')) {
                     alert(msg);
                 }
             }
@@ -611,7 +610,7 @@
             };
 
             // ═══════════════════════════════════════════════════════════
-            // MODAL FRENTES SIN EQUIPOS (candidatos a desactivar / eliminar)
+            // MODAL FRENTES SIN EQUIPOS (candidatos a eliminar)
             // ═══════════════════════════════════════════════════════════
             window.abrirModalSinEquipos = function () {
                 var existing = document.getElementById('sinEquiposOverlay');
@@ -673,20 +672,22 @@
                 });
             };
 
-            function _sinEquiposAction(method, url, okMsg, errFallback, nombre) {
+            // Borrado desde el modal: el servidor lo rechaza (422) si el frente tiene
+            // equipos o auxiliares asignados, y ese mensaje es el que se muestra.
+            function _sinEquiposBorrar(id) {
                 if (window.showPreloader) window.showPreloader();
-                var csrf = window.getCsrf();   // helper central (dom_helpers.js)
-                window.apiFetch(url, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, method: method})
+                // El CSRF lo pone apiFetch (helper central, dom_helpers.js); aqui no hace falta.
+                window.apiFetch('{{ url("admin/frentes") }}/' + id, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, method: 'DELETE'})
                 .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { return { ok: r.ok, body: d }; }); })
                 .then(function (res) {
                     if (window.hidePreloader) window.hidePreloader();
                     if (res.ok && res.body.success) {
-                        window.toast(res.body.message || okMsg, 'success');
+                        window.toast(res.body.message || 'Frente eliminado.', 'success');
                         window.cargarFrentesSinEquipos();
-                        if (typeof window.removeFromSearchList === 'function') window.removeFromSearchList(nombre);
+                        // Por ID: el desplegable identifica cada item por data-id.
+                        if (typeof window.removeFromSearchList === 'function') window.removeFromSearchList(id);
                     } else {
-                        if (window.showToast) window.showToast((res.body && res.body.message) || errFallback, 'error');
-                        else alert((res.body && res.body.message) || errFallback);
+                        window.toast((res.body && res.body.message) || 'No se pudo eliminar.', 'error');
                     }
                 })
                 .catch(function () {
@@ -696,7 +697,7 @@
             }
 
             window._sinEquiposEliminar = function (id, nombre) {
-                var run = function () { _sinEquiposAction('DELETE', '{{ url("admin/frentes") }}/' + id, 'Frente eliminado.', 'No se pudo eliminar.', nombre); };
+                var run = function () { _sinEquiposBorrar(id); };
                 if (typeof window.showModal === 'function') {
                     window.showModal({ type: 'warning', title: 'Eliminar Frente', message: '¿Eliminar el frente "' + nombre + '"?\n\nEsta acción no se puede deshacer.', confirmText: 'Sí, eliminar', cancelText: 'Cancelar', onConfirm: run });
                 } else if (confirm('¿Eliminar el frente "' + nombre + '"?')) { run(); }
@@ -762,6 +763,18 @@
                 input.addEventListener('blur', addFromInput);
                 // Clic en cualquier parte del wrapper enfoca el input.
                 box.addEventListener('click', function (e) { if (e.target === box) input.focus(); });
+
+                // Punto de entrada para la SPA (frentes_spa.js): al seleccionar un frente en
+                // el buscador o al limpiar el formulario hay que reescribir el hidden Y
+                // repintar los chips. Se expone el writeList de aqui en vez de duplicar el
+                // render en el .js: los chips los dibuja un solo sitio.
+                window.frentesSetContratos = function (valor) {
+                    // Acepta el array que devuelve el endpoint (columna JSON) o un CSV.
+                    var lista = Array.isArray(valor)
+                        ? valor
+                        : String(valor == null ? '' : valor).split(',');
+                    writeList(lista.map(function (s) { return String(s).trim(); }));
+                };
 
                 // Render inicial — usa el value renderizado por blade (old() o frente existente).
                 render();

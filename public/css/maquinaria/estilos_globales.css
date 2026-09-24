@@ -41,9 +41,12 @@
     opacity: 0;
     visibility: hidden;
     pointer-events: none;
+    /* 0,18 s, no medio segundo: el JS quita la capa a los 180 ms (preloader.js), asi que con
+       0,5 s el desvanecido se cortaba a la mitad y la pantalla blanca se iba de golpe. Ahora
+       la transicion CABE en ese tiempo y la salida se ve limpia — y mas rapida. */
     transition:
-        opacity 0.5s ease-out,
-        visibility 0.5s;
+        opacity 0.18s ease-out,
+        visibility 0.18s;
     /* Apply transition ONLY on fade out */
 }
 
@@ -1667,40 +1670,35 @@ input[type="password"]::-ms-clear {
     font-size: 15px;
 }
 
-/* Multiselect con CHIPS + buscador dentro del trigger (Frentes Asignados y
-   Frentes Bloqueados en el formulario de usuarios). El `height: 45px` de arriba
-   solo funciona cuando el trigger es una linea de texto: al tildar varios
-   frentes los chips pasaban a una segunda fila que la altura fija recortaba
-   contra el borde, y el campo de busqueda quedaba aplastado. Aqui la caja crece
-   con el contenido, como cualquier campo de etiquetas, en vez de deformarse. El
-   max-height es solo una valvula de seguridad para el caso extremo (tildar los
-   frentes completos): con un puñado de frentes NUNCA se alcanza, asi que el
-   campo de busqueda sigue a la vista sin tener que hacer scroll. */
-.multiselect-trigger--chips {
-    height: auto;
-    min-height: 45px;
-    max-height: 45vh;
-    overflow-y: auto;
-    flex-wrap: wrap;
+/* Multiselect con BUSCADOR dentro del trigger (Frentes Asignados y Frentes
+   Bloqueados en el formulario de usuarios). Con la lista cerrada el trigger es
+   una sola linea: "N frentes asignados" y, al lado, el campo para buscar. Los
+   nombres NO se pintan aqui (se ven al desplegar), asi que no hay nada que
+   envuelva a una segunda fila y la altura fija de 45px vuelve a servir. */
+.multiselect-trigger--busca {
     justify-content: flex-start;
-    gap: 5px;
+    gap: 8px;
     /* 15px a la izquierda = misma sangria que .form-input-custom y que el resto
-       de triggers, para que chips y placeholder arranquen alineados con los
-       demas campos; 44px a la derecha = hueco del chevron anclado. */
-    padding: 6px 44px 6px 15px;
+       de triggers; 44px a la derecha = hueco del chevron anclado. */
+    padding: 0 44px 0 15px;
     cursor: text;
 }
 
-/* Los chips no forman su propia caja: `contents` los vuelve hijos directos del
-   flex del trigger, asi el campo de busqueda continua en la misma fila que el
-   ultimo chip (y no salta abajo) y el wrap es uniforme. */
-.multiselect-chips {
-    display: contents;
+/* La cuenta de tildados. Ocupa solo lo suyo y el buscador sigue en la misma
+   linea; si el texto no cabe se recorta antes que empujar al input fuera. */
+.multiselect-resumen {
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 600;
+    color: var(--maquinaria-text);
 }
 
-.multiselect-chips-input {
-    flex: 1 1 120px;
-    min-width: 120px;
+.multiselect-busca-input {
+    flex: 1 1 90px;
+    min-width: 90px;
     border: none;
     background: transparent;
     padding: 5px 0;
@@ -1710,11 +1708,11 @@ input[type="password"]::-ms-clear {
     font-family: inherit;
 }
 
-/* El chevron se ancla arriba a la derecha CONTRA .custom-multiselect (que ya es
-   position: relative) y no contra el trigger: asi no baja de linea con el wrap
-   ni se desplaza cuando la lista de chips hace scroll. pointer-events: none deja
-   que el clic caiga en el trigger y siga abriendo el desplegable. */
-.multiselect-trigger--chips > i {
+/* El chevron se ancla a la derecha CONTRA .custom-multiselect (que ya es
+   position: relative) y no contra el trigger, para que no se mueva con el
+   contenido. pointer-events: none deja que el clic caiga en el trigger y siga
+   abriendo el desplegable. */
+.multiselect-trigger--busca > i {
     position: absolute;
     top: 11px;
     right: 15px;

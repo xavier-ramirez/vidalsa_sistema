@@ -8,10 +8,6 @@
  * with the DOM regardless of when elements are injected.
  */
 
-document.addEventListener("DOMContentLoaded", () => {
-    // Optional: Initial setup if needed, but delegation handles dynamic content.
-});
-
 // --- 1. FORM SUBMISSION DELEGATION ---
 document.addEventListener("submit", function (e) {
     if (e.target && e.target.id === "frenteForm") {
@@ -53,6 +49,17 @@ function populateFrenteForm(data) {
 
     document.getElementById("NOMBRE_FRENTE").value = data.NOMBRE_FRENTE || "";
     document.getElementById("UBICACION").value = data.UBICACION || "";
+
+    // ZONA y CONTRATOS tienen que rellenarse SI O SI: el formulario los manda
+    // siempre, asi que lo que quede en pantalla es lo que se guarda. Si no se
+    // pintan aqui, seleccionar un frente en el buscador y darle "Guardar Cambios"
+    // sin tocar nada le BORRA la zona (la que sale en el Acta de Traslado) y le
+    // mete los contratos del frente que se estuviera viendo antes.
+    const zona = document.getElementById("ZONA");
+    if (zona) zona.value = data.ZONA || "";
+    if (typeof window.frentesSetContratos === "function") {
+        window.frentesSetContratos(data.CONTRATOS);
+    }
 
     // Responsables
     document.getElementById("RESP_1_NOM").value = data.RESP_1_NOM || "";
@@ -153,8 +160,8 @@ window.clearFrentesSearchSPA = function () {
         const dropdown = document.getElementById("frenteSearchDropdown");
         if (dropdown) dropdown.classList.remove("active");
     }
-    // Optional: Reset form if clearing search?
-    // window.resetFrentesForm();
+    // Limpiar la busqueda NO descarga el frente que se este editando: para volver
+    // a "Registrar nuevo" esta el boton Cancelar (window.resetFrentesForm).
 };
 
 window.selectFrenteSPA = function (id) {
@@ -162,10 +169,8 @@ window.selectFrenteSPA = function (id) {
     const dropdown = document.getElementById("frenteSearchDropdown");
     if (dropdown) dropdown.classList.remove("active");
 
-    // Clear search input but keep the selected text or placeholder?
-    // For now, let's clear it to show it was selected
-    const input = document.getElementById("filterSearchInput");
-    // if (input) input.value = ''; // Optional
+    // El buscador se queda con el nombre del frente elegido para que se vea cual se
+    // esta editando: lo escribe populateFrenteForm() al llegar la respuesta.
 
     if (window.showPreloader) window.showPreloader();
 
@@ -177,13 +182,6 @@ window.selectFrenteSPA = function (id) {
         .then((data) => {
             if (window.hidePreloader) window.hidePreloader();
             populateFrenteForm(data);
-
-            // Update input with selected name
-            if (input) input.value = data.NOMBRE_FRENTE;
-            const clearIcon = document.getElementById(
-                "btn_clear_search_frente",
-            );
-            if (clearIcon) clearIcon.style.display = "block";
         })
         .catch((error) => {
             if (window.hidePreloader) window.hidePreloader();
@@ -270,20 +268,38 @@ window.resetFrentesForm = function () {
             btnEliminar.style.display = "none";
         }
 
+        // form.reset() devuelve cada campo a su valor RENDERIZADO, no a vacio: abierto
+        // en /frentes/{id}/edit, deja escritos los datos de ESE frente. Cancelar pasaba
+        // el formulario a modo "Registrar" con el nombre y la ubicacion del frente ya
+        // puestos: al guardar saltaba "Ya existe un frente con este nombre" o, si se
+        // retocaba el nombre, se creaba un duplicado con la ubicacion heredada.
+        // Los contratos, ademas, son DOM dibujado por JS que reset() ni mira.
+        ["NOMBRE_FRENTE", "UBICACION", "ZONA"].forEach((id) => {
+            const campo = document.getElementById(id);
+            if (campo) campo.value = "";
+        });
+        if (typeof window.frentesSetContratos === "function") {
+            window.frentesSetContratos("");
+        }
+
         document.getElementById("input_tipo").value = "";
         document.getElementById("label_tipo").innerText = "Seleccione Tipo...";
         document.getElementById("input_estatus").value = "";
         document.getElementById("label_estatus").innerText =
             "Seleccione Estatus...";
 
-        // Reset all Resp Equ and Cedula filters
+        // Los cinco responsables: nombre, cargo, cedula y su filtro de equipos. Nombre
+        // y cargo tambien se limpian a mano, por lo mismo que arriba (en /edit vienen
+        // renderizados con los datos del frente y reset() los devolveria a ese valor).
         for (let i = 1; i <= 5; i++) {
             const input = document.getElementById("input_resp" + i + "_equ");
             const label = document.getElementById("label_resp" + i + "_equ");
-            const cedula = document.getElementById("RESP_" + i + "_CED");
             if (input) input.value = "";
             if (label) label.innerText = "SIN FILTRO";
-            if (cedula) cedula.value = "";
+            ["RESP_" + i + "_NOM", "RESP_" + i + "_CAR", "RESP_" + i + "_CED"].forEach((id) => {
+                const campo = document.getElementById(id);
+                if (campo) campo.value = "";
+            });
         }
 
         const searchInput = document.getElementById("filterSearchInput");
@@ -306,31 +322,34 @@ window.addToSearchList = function (frente) {
     const list = document.getElementById("frenteItemsList");
     if (!list) return;
 
-    // Check if exists
+    // Se busca por ID, no por nombre: una EDICION que cambia el nombre seguia
+    // sin encontrar su propio item y dejaba el frente dos veces en la lista
+    // (con el nombre viejo y con el nuevo).
+    const id = String(frente.ID_FRENTE);
     let existing = null;
     const items = list.getElementsByClassName("search-result-item");
     for (let item of items) {
-        if (item.textContent.trim() === frente.NOMBRE_FRENTE) {
-            existing = item;
-            break;
-        }
+        if ((item.dataset.id || "") === id) { existing = item; break; }
     }
 
+    // Ya estaba listado: solo se refresca el texto por si le cambiaron el nombre.
     if (existing) {
-        // Update functionality if needed, but it's just a selector
+        existing.dataset.name = frente.NOMBRE_FRENTE;
+        existing.textContent = frente.NOMBRE_FRENTE;
         return;
     }
 
     // Create new item
     const div = document.createElement("div");
     div.className = "dropdown-item search-result-item";
+    div.dataset.id = id;
     div.dataset.name = frente.NOMBRE_FRENTE;
     div.textContent = frente.NOMBRE_FRENTE;
     div.onclick = function () {
-        window.selectFrenteSPA(String(frente.ID_FRENTE));
+        window.selectFrenteSPA(id);
     };
 
-    // Insert alphabetically (simple optional, or just append)
+    // Arriba del todo: el recien creado es el que el usuario acaba de tocar.
     list.insertBefore(div, list.firstChild);
 
     // Hide no results
@@ -338,31 +357,33 @@ window.addToSearchList = function (frente) {
     if (noMsg) noMsg.style.display = "none";
 };
 
-// Quita un frente del dropdown de búsqueda por NOMBRE (al desactivarlo o
-// eliminarlo desde el modal "Frentes sin equipos"), para no dejarlo listado.
-window.removeFromSearchList = function (nombre) {
+// Quita un frente del desplegable de búsqueda al eliminarlo desde el modal
+// "Frentes sin equipos", para no dejarlo listado. Por ID: el nombre se puede
+// editar, el ID no cambia nunca.
+window.removeFromSearchList = function (id) {
     const list = document.getElementById("frenteItemsList");
-    if (!list || nombre == null) return;
-    const target = String(nombre).trim();
+    if (!list || id == null) return;
+    const target = String(id).trim();
     const items = list.getElementsByClassName("search-result-item");
     for (let item of items) {
-        if (((item.dataset.name || item.textContent) || "").trim() === target) {
+        if ((item.dataset.id || "") === target) {
             item.remove();
             break;
         }
     }
 };
 
-// Bind Confirm Button
-
 function showNotification(type, message) {
     // Toast efimero (auto-cierra en ~3s) en vez de modal con "Aceptar":
     // las confirmaciones de exito/error de operaciones puntuales no requieren
     // que el usuario tenga que cerrar manualmente. Mismo patron que el resto
     // de modulos (equipos, auxiliares, catalogo).
-    if (typeof window.showToast === "function") {
-        window.showToast(message, type);
-    } else if (typeof window.showModal === "function") {
+    // window.toast (dom_helpers.js) devuelve false si aun no hay toasts: solo
+    // entonces se cae al modal.
+    if (window.toast && window.toast(message, type)) {
+        return;
+    }
+    if (typeof window.showModal === "function") {
         // Fallback: si no hay toast disponible, modal sin boton Cancelar.
         window.showModal({
             type: type,

@@ -507,7 +507,9 @@
                          si tiene la clave; sin ella muestra la notificación moderna (showToast)
                          en vez de ir a un 403. El gate real vive en la ruta (can:super.admin). --}}
                     @can('super.admin')
-                    <a href="{{ route('frentes.index') }}"
+                    {{-- Al formulario DIRECTO: /admin/frentes solo hace un 302 a este mismo
+                         sitio, y en la red de obra ese salto de mas cuesta un viaje entero. --}}
+                    <a href="{{ route('frentes.create') }}"
                         class="nav-dropdown-link {{ request()->is('admin/frentes*') ? 'active' : '' }}">
                         <i class="material-icons">business</i> Frentes de trabajo
                     </a>
@@ -659,10 +661,20 @@
                         <i class="material-icons">manage_accounts</i> Mi Usuario
                     </a>
                 @endcan
-                <a href="{{ route('frentes.index') }}"
+                {{-- Mismo criterio que el menú de escritorio: el módulo es exclusivo
+                     super.admin. Sin la clave el enlace avisa con un toast en vez de
+                     llevar a un 403 (aquí se mostraba a todos y reventaba al tocarlo). --}}
+                @can('super.admin')
+                <a href="{{ route('frentes.create') }}"
                     class="mobile-nav-link {{ request()->is('admin/frentes*') ? 'active' : '' }}">
                     <i class="material-icons">business</i> Frentes de trabajo
                 </a>
+                @else
+                <a href="#" class="mobile-nav-link"
+                    onclick="event.preventDefault(); if (window.showToast) { window.showToast('No tienes permiso para acceder a Frentes de trabajo.', 'error'); }">
+                    <i class="material-icons">business</i> Frentes de trabajo
+                </a>
+                @endcan
                 {{-- "Catálogo de Modelos" NO va en el menú de TELÉFONO (pedido del cliente):
                      es una pantalla de mantenimiento de escritorio. NO queda huérfana — se
                      sigue llegando desde la tarjeta del menú principal (/menu), desde el

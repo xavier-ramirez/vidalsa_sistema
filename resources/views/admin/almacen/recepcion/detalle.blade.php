@@ -310,7 +310,6 @@
     function toast(m, t) { if (!window.toast(m, t || 'success') && t === 'error') alert(m); }
     function pre()  { if (window.showPreloader) window.showPreloader(); }
     function unp()  { if (window.hidePreloader) window.hidePreloader(); }
-    var csrf = window.getCsrf;   // helper central (dom_helpers.js)
 
     function post(url, body, onOk) {
         pre();
