@@ -16,7 +16,7 @@ MySQL/MariaDB. Los archivos viven en **Google Drive** y se sirven por un proxy p
 | Cosa | Dónde |
 |---|---|
 | Local | Apache de XAMPP, vhost en `http://127.0.0.1:8000` (la BD local es una COPIA del servidor) |
-| Pruebas | `php artisan test` (355, PHPUnit, `tests/Feature`) — ver §7 |
+| Pruebas | `php artisan test` (385, PHPUnit, `tests/Feature`) — ver §7 |
 | Despliegue | `docker/start.sh`: `migrate --force` + `schedule:work` + php-fpm. Hosting: EasyPanel |
 | Tareas | `routes/console.php` (verificación de documentos, compresión de PDF, limpieza de caché) |
 
@@ -40,8 +40,8 @@ Dos cosas del entorno de Windows que ya están resueltas y **no hay que volver a
   `verificacion_documento_registro.ID_REGISTRO`… `$user->id` es `null`: usar `getKey()`.
 - **Usuarios**: tabla `usuarios` (no `users`). Permisos = clave literal en `usuarios.PERMISOS`
   (`can('super.admin')`), sin alias ni roles intermedios. Ojo con `Usuario::PERMISOS_EXPLICITOS`
-  (`almacen.productos`, `almacen.movimiento`, `almacen.nota.eliminar`, `user.delete`): **ni
-  super.admin las hereda**.
+  (`almacen.productos`, `almacen.movimiento`, `almacen.nota.eliminar`, `user.delete`,
+  `docs.carga.masiva`): **ni super.admin las hereda**.
 - **El `@can` de una vista esconde botones, NO protege la ruta.** Toda acción nueva necesita su
   middleware en el constructor del controlador (o un `abort_unless`).
 - **Visibilidad por frentes**: `Usuario::aplicarScopeIds()` / `aplicarBloqueoIds()`.
@@ -84,10 +84,14 @@ lo sensible dentro de `can:super.admin`.
 ## 4. Servicios y comandos
 
 - `GoogleDriveService` — subidas, papelera, **copia local** del PDF recién subido y miniaturas.
-  Nunca instanciar Drive dentro de una transacción larga.
+  Nunca instanciar Drive dentro de una transacción larga. **Un documento reemplazado va a la
+  PAPELERA de Drive, nunca se borra para siempre** (`enviarAPapelera`): de la papelera se
+  recupera con un clic si alguien reemplazó por error, y `files->delete` es definitivo. La
+  única excepción son las copias de usar y tirar del OCR (`LectorDocumentoPdf`), que la
+  prueba `DrivePapeleraTest` deja documentada y vigila.
 - `LectorDocumentoPdf` — **OCR con Drive** (copia como Documento de Google, exporta texto y
   borra la copia) + extracción de título, póliza, ROTC y RACDA.
-- `CargaMasivaDocumentos` — soltar varios PDF y repartirlos a su equipo (§5).
+- `CargaMasivaDocumentos` — soltar varios PDF y repartirlos a su ficha, equipo o auxiliar (§5).
 - `CorrectorFichaDocumento` — **único** sitio que escribe en la ficha desde la verificación.
 - `CompresorPdf` + `docs:comprimir` — comprime PDFs pesados de noche. `disponible()` (¿está
   Ghostscript?) **lanza un proceso**: su respuesta se recuerda 10 min o la pestaña de
@@ -150,16 +154,60 @@ lo sensible dentro de `can:super.admin`.
   MOP) se quitan al armar sus informes, no en el sistema.
 
 **Carga masiva de documentos** (menú Acciones de Auditoría). Se sueltan varios PDF y cada uno
-se lee y se propone a su equipo; **nada se escribe hasta que se aplica la fila**.
+se lee y se propone a su ficha; **nada se escribe hasta que se aplica la fila**.
+- **El modal SOLO sirve para soltar archivos.** El estado de cada PDF —de qué ficha es, si falta
+  la fecha, si no se pudo leer— se ve en la tabla de **Revisión de documentos**, la misma donde
+  sale lo que lee la tarea de la noche, y desde ahí se aplica o se descarta. Antes el modal
+  tenía su propia lista con su propio "Aplicar": eran dos tablas de documentos en el mismo
+  módulo (pedido 23-09-2026: una sola). Por eso cada análisis deja su fila con
+  `ORIGEN='carga_masiva'` y estado **Por aplicar** / **Sin ficha reconocida** / **Aplicado**.
+  La tarea de la noche NO borra esas filas (ver el `delete` de hermanas en `procesar`).
+- **Permiso propio y EXCLUSIVO `docs.carga.masiva`**: ni super.admin lo hereda
+  (`Usuario::PERMISOS_EXPLICITOS`). Protege las tres rutas, el controlador y el botón del menú.
+  Subir de uno en uno sigue siendo `user.edit`: eso toca UNA ficha que el usuario está mirando,
+  esto reparte a ciegas por media flota. La migración `2026_09_23_100000` se la dio a los
+  super.admin que ya podían usarla, para que nadie se quede fuera al desplegar.
+- **De qué documento es**: gana el rótulo que aparece ANTES en el texto, no un orden fijo
+  (`detectarTipo`). Un documento se anuncia en su encabezado y lo de después son menciones: el
+  título del INTT se presenta en el carácter 3 y en su letra pequeña, por el 2.879, nombra el
+  "certificado de circulación" — con el orden fijo se repartía como ROTC (visto en la prueba
+  real del 23-09-2026 con dos títulos reales).
+- **Los SEIS documentos del equipo**, los mismos de la ficha: título, póliza, ROTC, RACDA,
+  Certificado asociado (`adicional` → `LINK_DOC_ADICIONAL`, vence) y Compraventa (`adicional_2`
+  → `LINK_DOC_ADICIONAL_2`, no vence). Los cuatro primeros se reconocen solos por lo que dice el
+  PDF; **el certificado y la compraventa no traen rótulo fijo**: para esos se elige el tipo.
+- **Equipos AUXILIARES**: si ningún equipo reconoce el documento, se busca un auxiliar **por
+  serial** (no tienen placa). Solo admiten dos papeles —título y certificado—, y dónde va cada
+  uno lo dice `EquipoAuxiliar::DOCS` / `DOCS_VENCE`, que ya existían. Una
+  póliza, un ROTC o un RACDA nunca van a un auxiliar: no tiene columna donde ponerlos.
 - **Un archivo por petición**: el OCR lo hace Drive (~8 s por PDF) y treinta juntos se caerían
   por timeout. Para leer un PDF hay que **subirlo antes**, por eso lo analizado y no aplicado
   se borra de Drive al cerrar (`descartar()`).
 - **Nunca pisa solo**: si la ficha ya tiene ese documento hace falta marcar "reemplazar", y un
-  *documento anterior* se niega **incluso** marcándolo.
+  *documento anterior* se niega **incluso** marcándolo. Las mismas puertas en equipo y auxiliar.
 - **Modo ensayo**: pasa por todas las comprobaciones y dice qué haría, sin escribir ni borrar.
   Es la forma de probar contra los datos de verdad sin tocarlos.
 - Un **RACDA** es de la empresa y nombra muchas unidades: se aplica a todas las que lo
   necesiten (tope 40 por archivo).
+
+**Segundo lector: Gemini (`App\Services\LectorGemini`).** El lector de siempre es el OCR de
+Drive + las reglas de `LectorDocumentoPdf`; la IA **solo entra donde ese no alcanza** y nunca
+decide nada: propone y una persona confirma.
+- **Carga masiva**: si no hay texto, no se sabe qué documento es, no se da con el equipo o
+  falta la fecha de vencimiento, se le da el PDF entero. Lo que devuelve **rellena huecos, no
+  pisa** lo que el OCR ya leyó (`mezclarLoDeIa`); si no aporta nada, la propuesta queda como
+  estaba. Cuando ayuda, la fila de la tabla lo dice en su motivo y queda para revisar.
+- **Revisión nocturna** (`docs:verificar-documentos`): solo los que quedan **"No se pudo
+  leer"**, y con el modelo bueno. Lo leído se guarda en `LEIDO['ia']` y se resume en el MOTIVO;
+  **no se aplica solo** (un ilegible ya sale en "para revisar"). Se apaga con `--sin-ia`.
+- **Una sola vez por archivo**: un ilegible se relee 3 veces esa noche y vuelve a la cola cada
+  noche; la marca `LEIDO['ia']` evita que los mismos documentos se coman el cupo entero todas
+  las noches (`yaPasoPorLaIa`). Si tampoco pudo leerlo, la marca queda vacía y no se repite.
+- **Ritmo y cupo** (plan gratis): un documento a la vez en todo el servidor (candado
+  `gemini_lectura`), espera entre uno y otro por el tope por minuto y una cuenta diaria **por
+  modelo**. Agotado el cupo, o sin `GEMINI_API_KEY`, todo sigue exactamente como antes.
+- La clave va en el `.env` del servidor — **nunca** en el repositorio (`config/services.php`
+  la lee de `GEMINI_API_KEY`, con los topes por env para no tocar código si se paga un plan).
 
 **Mapa (`/mapa`, `mapa_index.js`).** Leaflet y sus dos librerías se piden A LA VEZ; en la
 primera visita `initMapa` mantiene el spinner hasta que el mapa existe. Los créditos "Elaborado

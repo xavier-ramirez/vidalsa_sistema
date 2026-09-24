@@ -12,6 +12,10 @@
         <i class="material-icons" style="font-size: 16px;">expand_more</i>
     </button>
     <div id="hdAccionesMenu" style="display: none; position: absolute; top: 100%; right: 0; width: 290px; max-width: calc(100vw - 24px); background: #e2e8f0; border: 1px solid #cbd5e1; border-radius: 10px; box-shadow: 0 10px 20px -5px rgba(15,23,42,0.18); margin-top: 6px; overflow: hidden; z-index: 60;">
+        {{-- La carga masiva pide SU permiso (docs.carga.masiva), que ni super.admin hereda:
+             sube PDF en lote y los engancha sola a la ficha que reconoce. Esto solo esconde
+             el botón; lo que de verdad protege es la ruta y el controlador. --}}
+        @can('docs.carga.masiva')
         <button type="button" class="dropdown-item-custom"
             onclick="window.hdCerrarAcciones(); window.abrirCargaMasiva && window.abrirCargaMasiva();"
             style="display: flex; align-items: center; gap: 10px; padding: 12px 15px; color: #475569; background: transparent; border: none; border-bottom: 1px solid #f1f5f9; width: 100%; text-align: left; cursor: pointer;">
@@ -20,6 +24,7 @@
             </div>
             <span style="font-size: 14px; font-weight: 500;">Carga masiva de documentos</span>
         </button>
+        @endcan
         <button type="button" class="dropdown-item-custom"
             onclick="window.hdCerrarAcciones(); window.abrirPapelera && window.abrirPapelera();"
             style="display: flex; align-items: center; gap: 10px; padding: 12px 15px; color: #475569; background: transparent; border: none; border-bottom: 1px solid #f1f5f9; width: 100%; text-align: left; cursor: pointer;">

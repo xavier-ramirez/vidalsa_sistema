@@ -6,7 +6,9 @@ use App\Models\CatalogoSeguro;
 use App\Models\DocumentoAnexo;
 use App\Models\VerificacionDocumento;
 use App\Services\CorrectorFichaDocumento;
+use App\Services\GoogleDriveService;
 use App\Services\LectorDocumentoPdf;
+use App\Services\LectorGemini;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -69,7 +71,8 @@ class VerificarDocumentos extends Command
                             {--rehacer : Volver a leer los ya revisados}
                             {--reintentar : Volver a leer SOLO los "no se pudo leer" y los errores, aunque hayan agotado sus intentos}
                             {--parte=0 : Con --de: que parte de las fichas lee este proceso (0, 1, ...)}
-                            {--de=1 : En cuantas partes se reparte la cola, para leer con varios procesos a la vez}';
+                            {--de=1 : En cuantas partes se reparte la cola, para leer con varios procesos a la vez}
+                            {--sin-ia : No pedirle ayuda a la IA con los que queden ilegibles}';
 
     protected $description = 'Compara los documentos de cada ficha (titulo, poliza, ROTC y RACDA) con lo que dicen sus PDF.';
 
@@ -113,7 +116,7 @@ class VerificarDocumentos extends Command
     /** [tipo => columna del enlace]. El ORDEN es el de la revision (ver VerificacionDocumento). */
     private const ENLACES = VerificacionDocumento::ENLACES;
 
-    public function __construct(private CorrectorFichaDocumento $corrector)
+    public function __construct(private CorrectorFichaDocumento $corrector, private LectorGemini $ia)
     {
         parent::__construct();
     }
@@ -264,6 +267,28 @@ class VerificarDocumentos extends Command
             }
         }
 
+        // ── Apoyo de la IA, SOLO en lo duro ───────────────────────────────────────
+        // Lo que quedo "No se pudo leer" es justo lo que nadie va a resolver solo: escaneos
+        // torcidos y formatos que las reglas no conocen. Ahi (y solo ahi) se le da el PDF
+        // entero a Gemini. Lo que devuelve NO se aplica: se guarda aparte y la fila queda
+        // "para revisar", para que una persona lo confirme mirando el documento.
+        //
+        // UNA VEZ POR ARCHIVO: un ilegible se relee 3 veces esa noche y vuelve a la cola cada
+        // noche. Sin esta puerta, los mismos documentos se comerian el cupo diario entero
+        // todas las noches y el resto no llegaria nunca a pasar por la IA. Lo ya preguntado
+        // se reconoce porque su lectura guardada trae la clave 'ia' (aunque venga vacia).
+        if ($estado === VerificacionDocumento::ILEGIBLE && !$this->option('sin-ia') && $driveId
+            && !$this->yaPasoPorLaIa($f->ID_EQUIPO, $tipo, $driveId)) {
+            if ($visto = $this->leerConIa($driveId)) {
+                $leido['ia'] = $visto;
+                // El resumen solo si saco ALGO: si tampoco pudo, la fila se queda con su
+                // motivo de siempre y la marca sirve para no volver a preguntarle.
+                if ($resumen = $this->resumenIa($visto)) {
+                    $motivo = mb_substr(trim(($motivo ? $motivo . '. ' : '') . 'La IA leyo: ' . $resumen), 0, 255);
+                }
+            }
+        }
+
         // Si una persona ya habia revisado este documento (se relee por "Revisar ahora", ver
         // VerificacionDocumento::condicionLeido), su decision se respeta: de esta lectura solo se
         // ponen las fechas VACIAS y la fila vuelve a quedar como ella la dejo.
@@ -276,6 +301,10 @@ class VerificarDocumentos extends Command
             [
                 'PLACA'  => $f->PLACA,
                 'SERIAL' => $f->SERIAL_CHASIS,
+                // Esta fila la escribe la tarea de la noche. Si el documento llego por la
+                // carga masiva y ya se aplico, deja de ser una propuesta y pasa a ser una
+                // lectura normal: de aqui en adelante la gobierna la noche.
+                'ORIGEN' => VerificacionDocumento::DE_LA_NOCHE,
                 'LEIDO'       => $leido ?: null,
                 'DIFERENCIAS' => $diferencias ?: null,
                 'ESTADO'      => $estado,
@@ -312,7 +341,18 @@ class VerificarDocumentos extends Command
 
         // Si le subieron otro archivo, la lectura del anterior ya no vale: se retira para que
         // no queden dos filas del mismo documento (ni se pueda aplicar lo que decia el viejo).
+        //
+        // SALVO las de la carga masiva que siguen ESPERANDO: esas son PDF que alguien acaba de
+        // soltar y que todavia no estan en ninguna ficha. Son propuestas esperando un "Aplicar",
+        // no lecturas viejas de este documento; borrarlas aqui las haria desaparecer de la tabla
+        // sin que nadie las viera.
+        //
+        // Las que YA se aplicaron si se van: su PDF era el de esta casilla y ha quedado
+        // reemplazado por el que se acaba de leer, asi que esa fila habla de un archivo que ya
+        // no esta enlazado. Sin esto se quedaban para siempre diciendo "Aplicado".
         VerificacionDocumento::where('ID_EQUIPO', $f->ID_EQUIPO)->where('TIPO', $tipo)
+            ->where(fn ($q) => $q->where('ORIGEN', VerificacionDocumento::DE_LA_NOCHE)
+                ->orWhere('ESTADO', VerificacionDocumento::APLICADO))
             ->where('ID_REGISTRO', '<>', $reg->ID_REGISTRO)->delete();
 
         // MANDA EL DOCUMENTO: lo que dice el PDF se pone en la ficha, este vacia o diga otra
@@ -542,6 +582,55 @@ class VerificarDocumentos extends Command
                 . ' con ' . count($leido['placas'] ?? []) . ' placas',
             default                       => (string) ($leido['titular'] ?? ''),
         };
+    }
+
+    // ── Apoyo de la IA ────────────────────────────────────────────────────────────
+
+    /**
+     * Baja el PDF de Drive y se lo da entero a la IA (el modelo bueno: son pocos al dia y son
+     * los dificiles). Devuelve lo que vio, o null si no hay clave, no queda cupo o fallo algo:
+     * en ese caso la revision sigue exactamente como antes de que existiera esto.
+     */
+    private function leerConIa(string $driveId): ?array
+    {
+        if (!$this->ia->disponible() || $this->ia->restantesHoy(config('services.gemini.modelo_dificil')) < 1) {
+            return null;
+        }
+        try {
+            $pdf = (string) GoogleDriveService::getInstance()->getStreamById($driveId);
+        } catch (\Throwable $e) {
+            Log::warning('docs:verificar-documentos: no se pudo bajar el PDF para la IA ' . $driveId . ': ' . $e->getMessage());
+            return null;
+        }
+
+        return $this->ia->leer($pdf, true);
+    }
+
+    /**
+     * Lo que vio la IA, en una linea, para el MOTIVO que lee la persona en el panel. Cadena
+     * vacia si tampoco saco nada: entonces no hay nada que contarle a nadie.
+     */
+    private function resumenIa(array $visto): string
+    {
+        $partes = array_filter([
+            $visto['placa'] ? 'placa ' . $visto['placa'] : null,
+            $visto['serial'] ? 'serial ' . $visto['serial'] : null,
+            $visto['nro'] ? 'nro ' . $visto['nro'] : null,
+            $visto['emision'] ? 'emitido ' . $visto['emision'] : null,
+            $visto['vence'] ? 'vence ' . $visto['vence'] : null,
+            $visto['vehiculos'] ? count($visto['vehiculos']) . ' vehiculos' : null,
+        ]);
+
+        return $partes ? implode(', ', $partes) . ' (confirmalo)' : '';
+    }
+
+    /** ¿A este archivo ya se le pregunto a la IA? (su lectura guardada trae la clave 'ia'). */
+    private function yaPasoPorLaIa(int $idEquipo, string $tipo, string $driveId): bool
+    {
+        $leido = VerificacionDocumento::where('ID_EQUIPO', $idEquipo)->where('TIPO', $tipo)
+            ->where('DRIVE_ID', $driveId)->value('LEIDO');
+
+        return is_array($leido) && array_key_exists('ia', $leido);
     }
 
     /**

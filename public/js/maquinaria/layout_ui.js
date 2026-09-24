@@ -629,6 +629,17 @@ const _pdfTaparVisor = function (mensaje) {
 // apertura): ver por qué en el setTimeout de más abajo.
 let _pdfLoaderTimeout = null;
 
+// El PDF que el visor enseña ANTES de subirlo (ver pedirVencimientoEnVisor) vive en la
+// memoria del navegador y hay que soltarlo. Se declara aquí, con el resto del estado del
+// visor, porque closePdfPreview —más arriba en el archivo que su bloque— también lo suelta.
+let _pdfBlobLocal = null;
+function _pdfSoltarBlobLocal(salvo) {
+    if (_pdfBlobLocal && _pdfBlobLocal !== salvo) {
+        try { URL.revokeObjectURL(_pdfBlobLocal); } catch (_) { /* ya revocado */ }
+        _pdfBlobLocal = null;
+    }
+}
+
 /* Parametros del visor nativo en modo LECTURA (un solo documento a pantalla
    completa). Estaban escritos a mano en cada sitio que carga el iframe; con la vista
    comparada pasaron a ser dos juegos distintos y repetirlos era pedir que uno se
@@ -914,8 +925,9 @@ function _pdfDibujarEnTelefono(url, loader) {
     lienzo.style.display = 'block';
     if (iframe) iframe.style.display = 'none';
 
-    // Sin conexión ni se intenta: los PDF se leen de Drive, no están en el teléfono.
-    if (!navigator.onLine) {
+    // Sin conexión ni se intenta: los PDF se leen de Drive, no están en el teléfono. Salvo
+    // el que se está enseñando antes de subirlo (blob:), que sí está aquí mismo.
+    if (!navigator.onLine && url.indexOf('blob:') !== 0) {
         lienzo.innerHTML = '<div style="color:#cbd5e0;text-align:center;padding:40px 20px;font-size:13px;line-height:1.5;">'
             + 'Sin conexión no se puede abrir el documento.<br>Los PDF se leen de Google Drive, no están guardados en el teléfono.</div>';
         _pdfCancelarCargaIzq();
@@ -974,6 +986,9 @@ window.openPdfPreview = function (url, docType, label, equipoId, uploadUrl, skip
     // Solo se guarda el estado de scroll del fondo la PRIMERA vez, para no pisar el original.
     const _pdfYaAbierto = modal && modal.classList.contains('active');
     if (modal) modal.classList.add('active');
+    // Si lo que había delante era un PDF todavía sin subir (pedirVencimientoEnVisor), aquí
+    // ya deja de verse: se suelta de memoria, salvo que sea justo el que se va a abrir.
+    _pdfSoltarBlobLocal(url);
 
     // El visor ocupa toda la pantalla: mientras está abierto, el ÚNICO scroll vertical debe
     // ser el del PDF, no el del módulo de atrás. Se guarda el estado PREVIO del fondo y se
@@ -1910,6 +1925,14 @@ window._pdfPintarAnexos = function (url, docType, equipoId, label) {
     const tabs  = document.getElementById('pdfAnexosTabs');
     if (!barra || !tabs) return;
 
+    // Lo que hay delante es un documento SIN CARGAR (pedirVencimientoEnVisor): sus pestañas
+    // llevarían al documento viejo y al volver dejarían la espera pidiendo la fecha de un
+    // papel que ya no se ve. Las correcciones se pintan cuando el documento esté arriba.
+    if (window._pdfVencPendiente) {
+        window._pdfOcultarAnexos();
+        return;
+    }
+
     // Documentos no gestionables (PDF generados al vuelo: nota de
     // entrega, reporte de fallas...) no admiten correcciones.
     // Mismo guardia que arriba: aqui el modulo ya se dio por 'equipo'
@@ -2127,6 +2150,30 @@ window._pdfAnexarInit = function () {
 };
 
 // --- Metadata Side Panel Logic ---
+
+/**
+ * Pone los campos en el panel y avisa de que ya están pintados. Único punto de salida de
+ * loadMetadata —equipos y auxiliares— porque hay quien espera ese aviso para trabajar
+ * sobre los campos: Control de Auditoría → Documentos escribe bajo cada uno lo que dice el
+ * documento, y el visor engancha ahí la petición del vencimiento cuando hay un PDF sin
+ * cargar. El panel de auxiliares salía por su lado sin avisar, y esa espera se quedaba
+ * colgada con el visor bloqueado.
+ */
+/** ¿El visor ya está en otro documento distinto del que pidió estos datos? */
+function _metaOtroDocumento(ctx) {
+    const ahora = window.currentPdfContext || {};
+    return String(ahora.equipoId) !== String(ctx.equipoId)
+        || ahora.docType !== ctx.docType
+        || (ahora.module || 'equipo') !== (ctx.module || 'equipo');
+}
+
+function _metaPintar(container, html, ctx) {
+    container.innerHTML = html;
+    document.dispatchEvent(new CustomEvent('vidalsa:metadata-pintada', {
+        detail: { equipoId: ctx.equipoId, docType: ctx.docType, module: ctx.module || 'equipo' },
+    }));
+}
+
 window.loadMetadata = async function () {
     const ctx = window.currentPdfContext;
     if (!ctx) return;
@@ -2151,6 +2198,12 @@ window.loadMetadata = async function () {
             : `/admin/equipos/${ctx.equipoId}/metadata`;
         const res = await window.apiFetch(`${baseUrl}?type=${ctx.docType}`);
         const data = await res.json();
+        // Mientras esto venía de la red se pudo abrir OTRO documento: la respuesta vieja no
+        // pinta nada. El mismo guard que usa openPdfPreview para las correcciones anexas.
+        // Sin él, con la red lenta, los datos del documento anterior caían encima del panel
+        // del nuevo — y si el nuevo estaba esperando su fecha de vencimiento, el repintado
+        // se llevaba por delante su campo y cancelaba la subida (ver _pdfPedirVencEnPanel).
+        if (_metaOtroDocumento(ctx)) return;
         if (data.success) {
             const info = data.data;
             let html = '';
@@ -2180,7 +2233,7 @@ window.loadMetadata = async function () {
                     <div style="${containerStyle}"><label style="${labelStyle}">Fecha Vencimiento</label><input type="date" name="fecha_vencimiento" value="${info.fecha_vencimiento || ''}" ${disabledAttr} ${fechaReq} autocomplete="off"></div>
                 `;
                 }
-                container.innerHTML = html;
+                _metaPintar(container, html, ctx);
                 return;
             }
             if (ctx.docType === 'propiedad') {
@@ -2224,20 +2277,18 @@ window.loadMetadata = async function () {
             if ('fecha_emision' in info) {
                 html += `<div style="${containerStyle}"><label for="meta_fec_emi_${ctx.equipoId}" style="${labelStyle}">Fecha de Emisión</label><input type="date" id="meta_fec_emi_${ctx.equipoId}" name="fecha_emision" value="${info.fecha_emision || ''}" ${disabledAttr} autocomplete="off"></div>`;
             }
-            container.innerHTML = html;
-            // Aviso para quien quiera añadir algo al panel sin tocar este archivo (lo usa
-            // Control de Auditoria -> Documentos para poner, bajo cada campo, lo que dice el
-            // documento). El visor no sabe nada de quien escucha.
-            document.dispatchEvent(new CustomEvent('vidalsa:metadata-pintada', {
-                detail: { equipoId: ctx.equipoId, docType: ctx.docType, module: ctx.module || 'equipo' },
-            }));
+            _metaPintar(container, html, ctx);
         }
     } catch (e) {
         console.error(e);
-        container.innerHTML = '<span style="color:#fc8181;">Error al cargar datos.</span>';
+        // Un fallo de la petición VIEJA tampoco pisa el panel del documento que hay ahora.
+        if (!_metaOtroDocumento(ctx)) container.innerHTML = '<span style="color:#fc8181;">Error al cargar datos.</span>';
     } finally {
-        if (loader) loader.style.display = 'none';
-        if (form) form.style.opacity = '1';
+        // Ni le apaga el cargador: el panel de ahora puede seguir esperando el suyo.
+        if (!_metaOtroDocumento(ctx)) {
+            if (loader) loader.style.display = 'none';
+            if (form) form.style.opacity = '1';
+        }
     }
 };
 
@@ -2245,6 +2296,13 @@ window.saveMetadata = async function (e) {
     e.preventDefault();
     if (!window.CAN_UPDATE_INFO) {
         window.toast('No tienes permisos para actualizar', 'error');
+        return;
+    }
+    // Hay un documento a medio cargar: lo que se escriba en el panel es del documento NUEVO
+    // y guardarlo ahora lo metería en la ficha del VIEJO. El botón está escondido mientras
+    // dura eso (_pdfPedirVencEnPanel); esta guarda cubre el envío por teclado.
+    if (window._pdfVencPendiente) {
+        window.toast('Termina de cargar el documento (o cancélalo) antes de guardar.', 'info');
         return;
     }
     const ctx = window.currentPdfContext;
@@ -2328,7 +2386,18 @@ window.saveMetadata = async function (e) {
 };
 
 window.closePdfPreview = function () {
+    // Documento nuevo a la vista y todavía sin fecha: el visor NO se cierra. Es lo que
+    // obliga a escribir el vencimiento —o a cancelar a propósito— en vez de dejar el
+    // archivo a medio cargar (ver pedirVencimientoEnVisor). Las dos formas de cerrarlo —la X
+    // de la cabecera y el gesto Atrás del teléfono— pasan por aquí.
+    if (window._pdfVencPendiente) {
+        window.toast('Escribe el vencimiento para cargar el documento, o pulsa Cancelar.', 'info');
+        const campo = document.querySelector('#metaFieldsContainer input[name="fecha_vencimiento"]');
+        if (campo) { campo.style.borderColor = '#fc8181'; campo.focus(); }
+        return;
+    }
     const modal = document.getElementById('pdfPreviewModal');
+    _pdfSoltarBlobLocal(null);
     _pdfLimpiarLienzoMovil();
     const iframe = document.getElementById('pdfPreviewFrame');
     if (modal) modal.classList.remove('active');
@@ -2391,6 +2460,13 @@ window.closePdfPreview = function () {
 window.deletePdfFromPreview = async function (cual) {
     if (!window.CAN_DELETE_DOCS) {
         window.toast('No tienes permisos para eliminar documentos.', 'error');
+        return;
+    }
+    // Con un documento sin cargar delante, este botón borraría el documento REAL del equipo
+    // mientras el usuario cree estar mirando el nuevo. Su botón ya se esconde durante la
+    // espera (_pdfAccionesVisor); esto cubre cualquier otra forma de llegar aquí.
+    if (window._pdfVencPendiente) {
+        window.toast('Termina de cargar el documento nuevo (o cancélalo) antes de borrar.', 'info');
         return;
     }
     const ctx = window.currentPdfContext;
@@ -2595,6 +2671,277 @@ window.deletePdfFromPreview = async function (cual) {
     }
 };
 
+// ── El vencimiento se pide DENTRO del visor ─────────────────────────────────────────────
+// Un documento que vence no se sube sin su fecha. Antes esa fecha se pedía en un cuadrito
+// aparte, encima del visor, repitiendo el campo "Fecha Vencimiento" que el panel "Editar
+// Datos del Documento" ya tiene al lado. Ahora el PDF elegido se abre en el visor y la fecha
+// se escribe EN ESE campo, copiándola del documento que se está viendo; mientras falte, el
+// visor no se cierra (ver closePdfPreview) y el archivo no se manda.
+//
+// _pdfVencPendiente es el estado de esa espera: la promesa a resolver, el PDF local que se
+// está enseñando, el rótulo limpio del documento y a qué volver si se cancela.
+window._pdfVencPendiente = null;
+
+// Lo que hace falta para deshacer la pantalla si la subida que salió de esa espera falla.
+// Se llena al confirmar la fecha y lo consume _pdfFinDeSubida.
+let _pdfSubidaEnCurso = null;
+
+// Tope de espera a que el panel de datos pinte su campo de fecha. Generoso a propósito: el
+// panel sale a la red a buscar los datos del documento, y en obra esa consulta tarda.
+const PDF_VENC_ESPERA_PANEL_MS = 15000;
+
+/** El rótulo que lleva la cabecera mientras el documento está a la vista pero sin subir. */
+const _pdfRotuloSinCargar = (label) => (label || 'Documento') + ' · SIN CARGAR';
+
+/**
+ * Enseña en el visor el PDF que se acaba de elegir y espera a que escriban su vencimiento
+ * en el campo del panel de datos.
+ *
+ * @param {File}   file  El PDF elegido, todavía sin subir.
+ * @param {Object} opts  { type, label, equipoId, module, uploadUrl }
+ * @returns {Promise<string|null>} aaaa-mm-dd, o null si se canceló (no se sube nada).
+ */
+window.pedirVencimientoEnVisor = function (file, opts) {
+    return new Promise(function (resolve) {
+        const modal    = document.getElementById('pdfPreviewModal');
+        const descarga = document.getElementById('pdfDownloadBtn');
+
+        // Elegir OTRO archivo sin haber cerrado la espera anterior: la de antes se suelta
+        // aquí (su promesa se resuelve sin subir nada) y esta hereda lo suyo. Sin esto la
+        // primera promesa quedaba viva para siempre, y el "documento al que volver" pasaba a
+        // ser el PDF local de la anterior —ya soltado de memoria—, así que cancelar dejaba
+        // el visor en blanco.
+        const anterior = window._pdfVencPendiente;
+        if (anterior) _pdfSoltarEspera(anterior, null);
+
+        // A qué documento volver si se cancela: el que estuviera a la vista. Sin esto,
+        // cancelar un reemplazo dejaba en pantalla el PDF local que ya no va a subirse.
+        const previo = anterior ? anterior.previo
+            : ((modal && modal.classList.contains('active') && descarga && descarga.dataset.url)
+                ? { url: descarga.dataset.url, ctx: Object.assign({}, window.currentPdfContext) }
+                : null);
+        // El rótulo LIMPIO, sin el "· SIN CARGAR" de una vuelta anterior: viaja al contexto
+        // del visor, al nombre del archivo que descarga y a la pestaña del documento.
+        const label = (anterior && anterior.label) || opts.label || 'Documento';
+
+        const blobUrl = URL.createObjectURL(file);
+        _pdfSoltarBlobLocal(blobUrl);
+        _pdfBlobLocal = blobUrl;
+        const pendiente = { resolve: resolve, blobUrl: blobUrl, previo: previo, label: label,
+                            nombre: file.name, resuelto: false };
+        window._pdfVencPendiente = pendiente;
+
+        // Las redes de seguridad se arman ANTES de abrir: si openPdfPreview reventara a
+        // mitad, el visor se quedaría cerrado con llave y sin nada que lo suelte.
+        // 1) En el teléfono el panel de datos no se despliega solo (openPdfPreview solo lo
+        //    abre en escritorio, a los 400 ms). Aquí hace falta siempre: es donde está el
+        //    campo. Y de paso la cabecera dice que ese documento todavía no está cargado.
+        setTimeout(function () {
+            if (window._pdfVencPendiente !== pendiente) return;
+            const titulo = document.getElementById('pdfPreviewTitle');
+            if (titulo) titulo.innerText = _pdfRotuloSinCargar(label);
+            const panel = document.getElementById('pdfMetadataPanel');
+            const cerrado = panel && (!panel.style.width || panel.style.width === '0' || panel.style.width === '0px');
+            if (cerrado && typeof window.pdfAlternarDatos === 'function') window.pdfAlternarDatos();
+        }, 450);
+        // 2) Si el panel no llega a pintarse (se cayó la red, el equipo ya no existe), se
+        //    suelta la espera SIN subir nada. Mira SU propia espera, no "la que haya": si ya
+        //    se resolvió y empezó otra, el reloj de la anterior no se la lleva por delante.
+        setTimeout(function () {
+            if (window._pdfVencPendiente !== pendiente || document.getElementById('metaVencPendiente')) return;
+            window.toast('No se pudieron abrir los datos del documento. Vuelve a intentarlo.', 'error');
+            _pdfCerrarPendiente(null);
+        }, PDF_VENC_ESPERA_PANEL_MS);
+
+        try {
+            window.openPdfPreview(blobUrl, opts.type, label, opts.equipoId,
+                opts.uploadUrl || '', false, opts.module || 'equipo');
+        } catch (e) {
+            console.error('pedirVencimientoEnVisor: no se pudo abrir el visor', e);
+            window.toast('No se pudo abrir el documento para cargarlo.', 'error');
+            _pdfCerrarPendiente(null);
+        }
+    });
+};
+
+/**
+ * Apaga o enciende las acciones de la cabecera del visor mientras hay un documento sin
+ * cargar delante. Solo las esconde y las devuelve a como estaban: quién puede verlas lo
+ * deciden openPdfPreview (según el documento) y los permisos del Blade, y eso no se toca.
+ */
+function _pdfAccionesVisor(encender) {
+    ['pdfDownloadBtn', 'pdfPrintBtn', 'pdfUpdateLabel', 'pdfDeleteBtn', 'pdfAnexarZona', 'pdfAnexosBar']
+        .forEach(function (id) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            if (!encender) {
+                if (el.dataset.displayPrevio === undefined) el.dataset.displayPrevio = el.style.display || '';
+                el.style.display = 'none';
+            } else if (el.dataset.displayPrevio !== undefined) {
+                el.style.display = el.dataset.displayPrevio;
+                delete el.dataset.displayPrevio;
+            }
+        });
+}
+
+// El campo solo existe cuando loadMetadata termina de pintar el panel, y openPdfPreview lo
+// vuelve a pintar en cada apertura: se engancha a su aviso en vez de adivinar el momento.
+document.addEventListener('vidalsa:metadata-pintada', function () {
+    if (window._pdfVencPendiente) _pdfPedirVencEnPanel();
+});
+
+// Deja el panel en modo "falta el vencimiento": campo vacío y resaltado, el aviso con el
+// nombre del archivo y los dos botones que cierran la espera.
+function _pdfPedirVencEnPanel() {
+    const pend = window._pdfVencPendiente;
+    const cont = document.getElementById('metaFieldsContainer');
+    if (!pend || !cont) return;
+
+    const campo = cont.querySelector('input[name="fecha_vencimiento"]');
+    // El panel se pintó pero sin campo de fecha (el equipo ya no existe, o el documento no
+    // es de los que vencen): no hay dónde escribirla, y el servidor rechazaría la subida
+    // igualmente. Se cancela avisando, en vez de dejar el visor trabado.
+    if (!campo) {
+        window.toast('Este documento no tiene campo de vencimiento: no se puede cargar así.', 'error');
+        _pdfCerrarPendiente(null);
+        return;
+    }
+
+    // Vacío a propósito: la fecha es la del documento NUEVO, y heredar la del anterior sin
+    // mirarlo es justo el error que este paso evita.
+    campo.value = '';
+    campo.disabled = false;
+    campo.style.borderColor = '#f6ad55';
+
+    // "Guardar Cambios" se esconde mientras tanto: aquí no se están guardando datos de un
+    // documento, se está cargando uno nuevo.
+    const guardar = document.getElementById('btnSaveMeta');
+    if (guardar) guardar.style.display = 'none';
+
+    // Y con él las acciones de la cabecera. Lo que hay delante es un PDF que todavía no
+    // existe en el sistema, pero esos botones actúan sobre el documento REAL del equipo:
+    // "Eliminar" borraría el que está cargado, "Anexar corrección" le colgaría una
+    // corrección y las pestañas de correcciones cambiarían de documento dejando la espera
+    // viva sin nada que mirar. Descargar e Imprimir se van por lo mismo: sacarían un
+    // archivo que todavía no está en el sistema.
+    _pdfAccionesVisor(false);
+
+    const viejo = document.getElementById('metaVencPendiente');
+    if (viejo) viejo.remove();
+
+    const aviso = document.createElement('div');
+    aviso.id = 'metaVencPendiente';
+    aviso.style.cssText = 'background:rgba(246,173,85,0.12);border:1px solid #f6ad55;border-radius:6px;' +
+        'padding:10px;margin-bottom:12px;';
+    aviso.innerHTML =
+        '<div style="font-size:12px;font-weight:700;color:#f6ad55;margin-bottom:4px;">DOCUMENTO SIN CARGAR</div>' +
+        '<div style="font-size:12px;color:#e2e8f0;line-height:1.35;">' +
+            window.escapeHtml(pend.nombre) +
+            '<br>Escribe abajo su fecha de vencimiento —la que dice el documento que estás viendo— para cargarlo.' +
+        '</div>' +
+        '<div style="display:flex;gap:6px;margin-top:10px;">' +
+            '<button type="button" data-cancelar style="flex:1;background:#4a5568;color:#fff;border:none;padding:7px 10px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;">Cancelar</button>' +
+            '<button type="button" data-cargar style="flex:1;background:#38a169;color:#fff;border:none;padding:7px 10px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;">Cargar documento</button>' +
+        '</div>';
+    cont.insertBefore(aviso, cont.firstChild);
+
+    const confirmar = function () {
+        if (!campo.value) {
+            campo.style.borderColor = '#fc8181';
+            campo.focus();
+            window.toast('Indica la fecha de vencimiento del documento.', 'error');
+            return;
+        }
+        _pdfCerrarPendiente(campo.value);
+    };
+    aviso.querySelector('[data-cargar]').onclick   = confirmar;
+    aviso.querySelector('[data-cancelar]').onclick = function () { _pdfCerrarPendiente(null); };
+    campo.addEventListener('input', function () { campo.style.borderColor = '#f6ad55'; });
+    // Enter en el campo carga, igual que el botón.
+    campo.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); confirmar(); }
+    });
+    setTimeout(function () { campo.focus(); }, 0);
+}
+
+/**
+ * Suelta la espera SIN tocar lo que hay en pantalla: quita el aviso del panel y resuelve la
+ * promesa. Aparte de _pdfCerrarPendiente lo usa el relevo de una espera por otra, donde el
+ * visor NO debe moverse porque el documento nuevo se está abriendo justo encima.
+ */
+function _pdfSoltarEspera(pend, fecha) {
+    if (!pend || pend.resuelto) return;
+    pend.resuelto = true;
+    if (window._pdfVencPendiente === pend) window._pdfVencPendiente = null;
+    const aviso = document.getElementById('metaVencPendiente');
+    if (aviso) aviso.remove();
+    pend.resolve(fecha || null);
+}
+
+// Cierra la espera y devuelve el visor a su sitio: con fecha sigue la subida; con null se
+// cancela y vuelve a la pantalla el documento que había (o se cierra el visor, si se abrió
+// solo para esto).
+function _pdfCerrarPendiente(fecha) {
+    const pend = window._pdfVencPendiente;
+    if (!pend || pend.resuelto) return;
+    _pdfSoltarEspera(pend, fecha);
+
+    const titulo = document.getElementById('pdfPreviewTitle');
+    const guardar = document.getElementById('btnSaveMeta');
+
+    if (!fecha) {
+        _pdfAccionesVisor(true);
+        if (titulo) titulo.innerText = pend.label;
+        if (guardar) guardar.style.display = '';
+        if (pend.previo) {
+            const c = pend.previo.ctx || {};
+            window.openPdfPreview(pend.previo.url, c.docType, c.label, c.equipoId, c.uploadUrl, false, c.module);
+        } else {
+            window.closePdfPreview();
+        }
+        return;
+    }
+
+    // Se confirmó: empieza la subida. Todo sigue capado hasta que termine (lo destapa
+    // _pdfFinDeSubida). Con una subida lenta, "Guardar Cambios" escribiría la fecha NUEVA
+    // en la ficha del documento VIEJO, y "Eliminar" borraría ese documento viejo con el
+    // archivo nuevo aún en camino. La cabecera sigue avisando de que no está cargado.
+    _pdfSubidaEnCurso = { previo: pend.previo, label: pend.label };
+    if (titulo) titulo.innerText = _pdfRotuloSinCargar(pend.label);
+}
+
+/**
+ * Fin de la subida que arrancó en el visor. Devuelve el panel y la cabecera a la normalidad
+ * y, si falló, quita de la pantalla el PDF que no llegó a subirse: dejarlo delante hace
+ * creer que quedó cargado, y desde ahí se podría descargar o imprimir un archivo que no
+ * está en el sistema. La llaman los dos caminos de subida (enviarDocumento en
+ * uicomponents.js y _subirDesdeVisor aquí), en éxito y en error.
+ */
+window._pdfFinDeSubida = function (ok) {
+    const ctx = _pdfSubidaEnCurso;
+    _pdfSubidaEnCurso = null;
+    if (!ctx) return;
+
+    const guardar = document.getElementById('btnSaveMeta');
+    if (guardar) guardar.style.display = '';
+    _pdfAccionesVisor(true);
+
+    const titulo = document.getElementById('pdfPreviewTitle');
+    if (ok) {
+        if (titulo) titulo.innerText = ctx.label;   // ya está cargado: se le quita el aviso
+        return;
+    }
+    // Falló: fuera el PDF que no se subió.
+    const modal = document.getElementById('pdfPreviewModal');
+    if (!modal || !modal.classList.contains('active')) { _pdfSoltarBlobLocal(null); return; }
+    if (ctx.previo) {
+        const c = ctx.previo.ctx || {};
+        window.openPdfPreview(ctx.previo.url, c.docType, c.label, c.equipoId, c.uploadUrl, false, c.module);
+    } else {
+        window.closePdfPreview();
+    }
+};
+
 // Special Upload Handler for Preview Modal (XMLHttpRequest for Progress)
 window.uploadDocumentFromPreview = function (input, type, equipoId, label) {
     // PERMISSION CHECK
@@ -2610,14 +2957,17 @@ window.uploadDocumentFromPreview = function (input, type, equipoId, label) {
     // disparar el change.
     input.value = '';
 
-    // Documento que vence: primero su fecha (la del panel de datos, como referencia).
-    // Cancelar = no se sube nada y el documento de ahora sigue tal cual.
-    const module = (window.currentPdfContext && window.currentPdfContext.module) || 'equipo';
+    // Documento que vence: el visor pasa a enseñar el PDF NUEVO y la fecha se escribe en el
+    // campo del panel de datos, mirándola en el documento. Cancelar = no se sube nada y
+    // vuelve a la pantalla el documento de ahora, tal cual.
+    const ctx = window.currentPdfContext || {};
+    const module = ctx.module || 'equipo';
     if (window.docVence(module, type)) {
-        const campo = document.querySelector('#metaFieldsContainer input[name="fecha_vencimiento"]');
-        window.pedirFechaVencimiento(label, campo ? campo.value : '').then(function (fecha) {
-            if (fecha) _subirDesdeVisor(file, type, equipoId, label, module, fecha);
-        });
+        window.pedirVencimientoEnVisor(file, { type: type, label: label, equipoId: equipoId,
+                                               module: module, uploadUrl: ctx.uploadUrl })
+            .then(function (fecha) {
+                if (fecha) _subirDesdeVisor(file, type, equipoId, label, module, fecha);
+            });
         return;
     }
     _subirDesdeVisor(file, type, equipoId, label, module, null);
@@ -2722,6 +3072,12 @@ function _subirDesdeVisor(file, type, equipoId, label, module, vencimiento) {
                         // el PDF nuevo ("no se ve que cargue"). Usamos '&' si ya hay query string.
                         var _sep = data.link.indexOf('?') > -1 ? '&' : '?';
                         iframe.src = data.link + _sep + 'upd=' + new Date().getTime() + PDF_PARAMS_LECTURA;
+                        // El documento ya está arriba: el PDF local que se estuvo mirando
+                        // para copiar la fecha se suelta de memoria (aquí no se pasa por
+                        // openPdfPreview, que es quien lo hace en el resto de los casos), y
+                        // la cabecera y el panel vuelven a la normalidad.
+                        _pdfSoltarBlobLocal(null);
+                        window._pdfFinDeSubida(true);
                     }
 
                     // Update Download Button
@@ -2833,15 +3189,19 @@ function _subirDesdeVisor(file, type, equipoId, label, module, vencimiento) {
                 console.error(error);
                 if (progressOverlay) progressOverlay.style.display = 'none';
                 window.toast('Error: Respuesta inválida del servidor', 'error');
+                window._pdfFinDeSubida(false);
             }
         } else {
             if (progressOverlay) progressOverlay.style.display = 'none';
-            // 422 trae el motivo (PDF invalido, falta la fecha...): se enseña ese.
+            // El servidor explica por que no lo acepto: PDF invalido o sin fecha (422), sin
+            // permiso (403), el documento ya tiene correcciones (409). Se enseña SU mensaje,
+            // que dice que hacer; "Error al cargar documento" a secas no dice nada.
             let msg = 'Error al cargar documento';
-            if (xhr.status === 422) {
+            if ([422, 403, 409].includes(xhr.status)) {
                 try { msg = JSON.parse(xhr.responseText).message || msg; } catch (_) { /* respuesta no-JSON */ }
             }
             window.toast(msg, 'error');
+            window._pdfFinDeSubida(false);
         }
     };
 
@@ -2849,6 +3209,7 @@ function _subirDesdeVisor(file, type, equipoId, label, module, vencimiento) {
         const progressOverlay = document.getElementById('pdfUploadProgressOverlay');
         if (progressOverlay) progressOverlay.style.display = 'none';
         window.toast('Error de red', 'error');
+        window._pdfFinDeSubida(false);
     };
 
     xhr.send(formData);

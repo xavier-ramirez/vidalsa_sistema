@@ -549,12 +549,16 @@ Route::middleware(['auth'])->group(function () {
                 // Carga masiva de documentos (menu Acciones). Tres pasos, tres rutas: se
                 // analiza UN PDF por peticion (el OCR de Drive tarda ~8 s y treinta juntos
                 // se caerian por timeout), se aplica fila a fila y lo descartado sale de Drive.
-                Route::post('historial-documentos/carga-masiva/analizar', [App\Http\Controllers\CargaMasivaDocumentosController::class, 'analizar'])
-                    ->name('historial-documentos.carga-masiva.analizar');
-                Route::post('historial-documentos/carga-masiva/aplicar', [App\Http\Controllers\CargaMasivaDocumentosController::class, 'aplicar'])
-                    ->name('historial-documentos.carga-masiva.aplicar');
-                Route::post('historial-documentos/carga-masiva/descartar', [App\Http\Controllers\CargaMasivaDocumentosController::class, 'descartar'])
-                    ->name('historial-documentos.carga-masiva.descartar');
+                // Permiso PROPIO y exclusivo ('docs.carga.masiva'): el grupo de arriba ya pide
+                // super.admin, pero esta clave no la hereda ni el (ver PERMISOS_EXPLICITOS).
+                Route::middleware('can:docs.carga.masiva')->group(function () {
+                    Route::post('historial-documentos/carga-masiva/analizar', [App\Http\Controllers\CargaMasivaDocumentosController::class, 'analizar'])
+                        ->name('historial-documentos.carga-masiva.analizar');
+                    Route::post('historial-documentos/carga-masiva/aplicar', [App\Http\Controllers\CargaMasivaDocumentosController::class, 'aplicar'])
+                        ->name('historial-documentos.carga-masiva.aplicar');
+                    Route::post('historial-documentos/carga-masiva/descartar', [App\Http\Controllers\CargaMasivaDocumentosController::class, 'descartar'])
+                        ->name('historial-documentos.carga-masiva.descartar');
+                });
             });
 
             // Ruta de emergencia `force-fix-db` removida: los ajustes de schema ahora

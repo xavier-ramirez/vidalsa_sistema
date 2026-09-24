@@ -83,6 +83,15 @@ class EquipoAuxiliar extends Model
     ];
 
     /**
+     * De esos dos, el que VENCE y en que columna. El titulo de propiedad no vence. Vive aqui,
+     * al lado de DOCS, para que la columna del documento y la de su fecha no acaben en dos
+     * sitios distintos (es el equivalente de DocumentacionDeEquipo::VENCIMIENTO).
+     */
+    public const DOCS_VENCE = [
+        'certificado' => 'FECHA_VENCIMIENTO_CERT',
+    ];
+
+    /**
      * Sube un PDF del auxiliar y devuelve el link para su columna. Es el MISMO camino que
      * los documentos de equipos (GoogleDriveService::subirPdf): misma carpeta de Drive y
      * mismo proxy /storage/google/{id}, que exige sesión. Antes el formulario los guardaba

@@ -206,6 +206,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (pasoDelVisor && visorAbierto()) {
             pasoDelVisor = false;
             if (typeof window.closePdfPreview === 'function') window.closePdfPreview();
+            // El visor puede NEGARSE a cerrarse: con un documento nuevo delante y todavía sin
+            // su fecha de vencimiento se queda abierto a propósito (layout_ui.js). Como su
+            // paso del historial ya se gastó, hay que devolvérselo; si no, el Atrás siguiente
+            // se llevaría la página entera con el visor todavía encima.
+            if (visorAbierto()) ponerPasoDelVisor();
             return;
         }
         loadPage(window.location.href, false);

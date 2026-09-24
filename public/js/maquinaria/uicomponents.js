@@ -33,89 +33,7 @@ if (!window.docVence) {
     };
 }
 
-/**
- * Pide la fecha de vencimiento ANTES de subir el PDF de un documento que vence. Sin
- * fecha no se sube: el boton "Cargar" no cierra con el campo vacio, y Cancelar o
- * Escape descartan la subida entera. El servidor exige lo mismo; esto avisa antes de
- * mandar el archivo.
- *
- * El campo sale VACIO a proposito: la fecha es la del documento NUEVO y no debe
- * heredarse sin pensar la del anterior, que solo se enseña como referencia.
- *
- * No usa showModal porque su boton Aceptar cierra siempre, y aqui sin fecha no debe
- * cerrar. Mismo z-index que el standardModal: queda por encima del visor del PDF,
- * desde donde tambien se reemplaza.
- *
- * @param {string} rotulo   Nombre del documento ("Póliza", "Certificado"...).
- * @param {string} [actual] Vencimiento que tiene hoy (aaaa-mm-dd), solo informativo.
- * @returns {Promise<string|null>} aaaa-mm-dd, o null si se cancelo.
- */
-if (!window.pedirFechaVencimiento) {
-    window.pedirFechaVencimiento = function (rotulo, actual) {
-        return new Promise(function (resolve) {
-            const esc = window.escapeHtml;
-            const hoy = actual ? window.formatearFecha(actual) : '';
-            const ov = document.createElement('div');
-            ov.style.cssText = 'position:fixed;inset:0;z-index:1000001;background:rgba(15,23,42,0.55);' +
-                'display:flex;align-items:center;justify-content:center;padding:16px;';
-            ov.innerHTML =
-                '<div role="dialog" aria-modal="true" style="background:#fff;border-radius:12px;padding:20px;width:100%;max-width:320px;box-sizing:border-box;box-shadow:0 10px 30px rgba(0,0,0,0.3);">' +
-                    '<div style="font-weight:700;font-size:15px;color:#1e293b;margin-bottom:4px;">Vencimiento de ' + esc(rotulo) + '</div>' +
-                    '<div style="font-size:12px;color:#64748b;margin-bottom:12px;">Obligatoria para cargar el documento.' +
-                        (hoy && hoy !== 'N/A' ? ' Actual: ' + esc(hoy) + '.' : '') + '</div>' +
-                    '<input type="date" aria-label="Fecha de vencimiento" style="width:100%;box-sizing:border-box;height:36px;padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:14px;">' +
-                    '<div data-error style="display:none;color:#dc2626;font-size:12px;margin-top:6px;">Indica la fecha de vencimiento.</div>' +
-                    '<div style="display:flex;gap:8px;margin-top:16px;">' +
-                        '<button type="button" data-cancelar class="modal-btn modal-btn-cancel" style="flex:1;">Cancelar</button>' +
-                        '<button type="button" data-aceptar class="modal-btn modal-btn-confirm" style="flex:1;">Cargar</button>' +
-                    '</div>' +
-                '</div>';
-            document.body.appendChild(ov);
 
-            const input = ov.querySelector('input');
-            const error = ov.querySelector('[data-error]');
-            const cerrar = function (valor) {
-                window.removeEventListener('keydown', teclas, true);
-                ov.remove();
-                resolve(valor);
-            };
-            const aceptar = function () {
-                if (!input.value) {
-                    error.style.display = 'block';
-                    input.style.borderColor = '#dc2626';
-                    input.focus();
-                    return;
-                }
-                cerrar(input.value);
-            };
-            // En window y en captura: corre antes que los Escape de los modales de debajo
-            // (detalles, visor), que si no se cerrarian a la vez que este.
-            const teclas = function (e) {
-                if (e.key === 'Escape') {
-                    e.preventDefault(); e.stopPropagation();
-                    cerrar(null);
-                } else if (e.key === 'Enter' && e.target === input) {
-                    e.preventDefault(); e.stopPropagation();
-                    aceptar();
-                }
-            };
-            window.addEventListener('keydown', teclas, true);
-            ov.querySelector('[data-cancelar]').onclick = function () { cerrar(null); };
-            ov.querySelector('[data-aceptar]').onclick = aceptar;
-            input.addEventListener('click', function () { try { this.showPicker(); } catch (_) { /* navegador sin showPicker */ } });
-            input.addEventListener('input', function () {
-                error.style.display = 'none';
-                input.style.borderColor = '#cbd5e1';
-            });
-            setTimeout(function () { input.focus(); }, 0);
-        });
-    };
-}
-
-/**
- * Aplica a `target` (dataset del boton o equiposData[id]) los campos devueltos
- * por el backend tras un upload exitoso. Normaliza autor numerico y acorta email.
- */
 /**
  * Pinta el contador de CORRECCIONES ANEXAS sobre el boton de cada documento del
  * modal de detalles. Vive aqui, definido una sola vez, y no dentro de
@@ -160,6 +78,10 @@ if (!window.olvidarAnexosEquipo) {
     };
 }
 
+/**
+ * Aplica a `target` (dataset del boton o equiposData[id]) los campos devueltos
+ * por el backend tras un upload exitoso. Normaliza autor numerico y acorta email.
+ */
 if (!window.applyDocUpload) {
     window.applyDocUpload = function (target, type, data) {
         const m = window.DOC_FIELD_MAP[type];
@@ -1503,15 +1425,14 @@ window.uploadDocument = function (input, type, equipoId, containerId, label) {
     // IMPORTANTE: Limpiamos el input enseguida para permitir reelección del MISMO archivo en caso de fallo
     input.value = "";
 
-    // Documento que vence: primero su fecha. Cancelar = no se sube nada.
+    // Documento que vence: el PDF elegido se abre en el visor y su fecha se escribe en el
+    // campo "Fecha Vencimiento" del panel de datos, leyéndola del documento que se ve.
+    // Cancelar = no se sube nada (ver pedirVencimientoEnVisor, layout_ui.js).
     if (window.docVence("equipo", type)) {
-        // Fecha de hoy como referencia: de equiposData, que es lo que pinta el detalle
-        // (showDetailsImproved la antepone al dataset).
-        const cache = window.equiposData ? window.equiposData[equipoId] : null;
-        const actual = cache ? cache[window.DOC_FIELD_MAP[type].vencKey] : "";
-        window.pedirFechaVencimiento(label, actual).then(function (fecha) {
-            if (fecha) enviarDocumento(file, type, equipoId, label, fecha);
-        });
+        window.pedirVencimientoEnVisor(file, { type: type, label: label, equipoId: equipoId, module: "equipo" })
+            .then(function (fecha) {
+                if (fecha) enviarDocumento(file, type, equipoId, label, fecha);
+            });
         return;
     }
     enviarDocumento(file, type, equipoId, label, null);
@@ -1564,6 +1485,11 @@ function enviarDocumento(file, type, equipoId, label, vencimiento) {
                         window.refreshDashboardAlerts();
                     }
 
+                    // Antes de reabrir el visor: _pdfFinDeSubida devuelve a su sitio los
+                    // botones que la espera escondió, y así openPdfPreview —que decide
+                    // cuáles van según el documento— tiene la última palabra.
+                    if (window._pdfFinDeSubida) window._pdfFinDeSubida(true);
+
                     if (typeof window.openPdfPreview === "function") {
                         // Directo y sin esperas. Los dos setTimeout (50 ms + 150 ms) que
                         // había aquí solo servían para no pisarse con el preloader global
@@ -1577,6 +1503,7 @@ function enviarDocumento(file, type, equipoId, label, vencimiento) {
                     }
                 } else {
                     if (window.hidePreloader) window.hidePreloader();
+                    if (window._pdfFinDeSubida) window._pdfFinDeSubida(false);
                     if (window.showToast) {
                         window.showToast(data.message || "Error al procesar el archivo.", "error");
                     }
@@ -1587,10 +1514,12 @@ function enviarDocumento(file, type, equipoId, label, vencimiento) {
                 if (window.showToast) {
                     window.showToast("Error subiendo el PDF. El archivo podría ser demasiado pesado.", "error");
                 }
+                if (window._pdfFinDeSubida) window._pdfFinDeSubida(false);
             }
         } else {
             // Manejar errores como 413 Payload Too Large, 422 validacion u otros
             if (window.hidePreloader) window.hidePreloader();
+            if (window._pdfFinDeSubida) window._pdfFinDeSubida(false);
             if (window.showToast) {
                 let msgError;
                 if (xhr.status === 413) {
@@ -1617,6 +1546,7 @@ function enviarDocumento(file, type, equipoId, label, vencimiento) {
         if (window.showToast) {
             window.showToast("Error de conexión.", "error");
         }
+        if (window._pdfFinDeSubida) window._pdfFinDeSubida(false);
     };
 
     xhr.send(formData);

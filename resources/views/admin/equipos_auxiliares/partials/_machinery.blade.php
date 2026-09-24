@@ -1804,11 +1804,15 @@
     window.auxUploadDoc = function (auxId, docType, input, vencimiento) {
         const file = input.files && input.files[0];
         if (!file) return;
-        // El certificado vence: primero su fecha. Cancelar = no se sube nada (y se vacia
-        // el input para que elegir el MISMO archivo vuelva a disparar el change).
+        // El certificado vence: el PDF elegido se abre en el visor y su fecha se escribe en
+        // el campo del panel de datos (ver pedirVencimientoEnVisor). Cancelar = no se sube
+        // nada, y se vacia el input para que elegir el MISMO archivo vuelva a disparar el
+        // change.
         if (!vencimiento && window.docVence('auxiliar', docType)) {
-            const d = (window.auxDetailsMap || {})[auxId] || {};
-            window.pedirFechaVencimiento('Certificado', d.fecha_vencimiento_cert || '').then(function (fecha) {
+            window.pedirVencimientoEnVisor(file, {
+                type: docType, label: 'Certificado', equipoId: auxId, module: 'auxiliar',
+                uploadUrl: '/admin/equipos-auxiliares/' + auxId + '/upload-doc',
+            }).then(function (fecha) {
                 if (fecha) window.auxUploadDoc(auxId, docType, input, fecha);
                 else input.value = '';
             });

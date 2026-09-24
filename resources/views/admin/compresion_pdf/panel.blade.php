@@ -125,6 +125,10 @@
     .cpdf-estado.coincide { background: #dcfce7; color: #166534; }
     .cpdf-estado.difiere { background: #fee2e2; color: #991b1b; cursor: help; }
     .cpdf-estado.ilegible, .cpdf-estado.sin_archivo { background: #fef3c7; color: #92400e; cursor: help; }
+    /* Carga masiva: azul para lo que espera un clic, ámbar para lo que no se sabe de quién es. */
+    .cpdf-estado.por_enganchar { background: #dbeafe; color: #1e40af; cursor: help; }
+    .cpdf-estado.sin_ficha { background: #fef3c7; color: #92400e; cursor: help; }
+    .cpdf-estado.aplicado { background: #dcfce7; color: #166534; cursor: help; }
     /* Cada dato que no cuadra, en una linea: etiqueta, lo de la ficha (tachado) y lo del documento. */
     .cpdf-nom { font-size: 12.5px; color: #0f172a; }
     /* Filas que se pueden dar por revisadas: se eligen con un clic en cualquier parte y se
@@ -232,6 +236,11 @@
         \App\Models\VerificacionDocumento::ILEGIBLE    => 'No se pudo leer',
         \App\Models\VerificacionDocumento::SIN_ARCHIVO => 'Sin archivo en Drive',
         \App\Models\VerificacionDocumento::ERROR       => 'Con error',
+        // Los dos de la carga masiva: PDF recien soltados que todavia no estan en ninguna
+        // ficha. Aqui es DONDE SE VE lo que se subio; el modal solo sirve para soltarlos.
+        \App\Models\VerificacionDocumento::POR_ENGANCHAR => 'Por aplicar',
+        \App\Models\VerificacionDocumento::SIN_FICHA     => 'Sin ficha reconocida',
+        \App\Models\VerificacionDocumento::APLICADO      => 'Aplicado',
     ];
     // En el DESPLEGABLE cada opcion lleva su cuenta, y las que no tienen ninguna fila no se
     // ofrecen: elegirlas daba la lista vacia y parecia que el filtro no hacia nada. La elegida
@@ -250,7 +259,10 @@
             }
         }
     }
-    $tiposDoc = \App\Models\VerificacionDocumento::NOMBRES;
+    // Los cuatro que lee la noche MAS los dos que solo llegan por la carga masiva
+    // (Certificado asociado y Compraventa). Sin ellos, esas filas salian con su clave
+    // cruda ('adicional') y el desplegable "Filtrar Documento" no las ofrecia.
+    $tiposDoc = \App\Models\VerificacionDocumento::NOMBRES + \App\Services\CargaMasivaDocumentos::NOMBRES;
     // Los desplegables son iguales salvo su lista: se pintan con el mismo molde. Cada pestaña
     // filtra por lo suyo (la de compresion, por documento; la de documentos, por estado y tipo).
     $desplegables = $pestana === 'documentos' ? [
@@ -343,14 +355,26 @@
                 <tbody>
                     @forelse ($docs as $d)
                         {{-- Las que no coinciden se eligen con un clic en la fila (ver cpdfSelFila);
-                             las que ya coinciden no tienen nada que revisar. --}}
-                        @if ($d->ESTADO !== \App\Models\VerificacionDocumento::COINCIDE)
+                             las que ya coinciden no tienen nada que revisar.
+
+                             Las de la CARGA MASIVA tampoco se eligen: son propuestas de un PDF que
+                             aún no está en ninguna ficha, se aplican con su propio botón y el
+                             servidor las deja fuera del "Revisado" en lote (marcarRevisados). --}}
+                        @if ($d->ESTADO !== \App\Models\VerificacionDocumento::COINCIDE
+                             && $d->ORIGEN === \App\Models\VerificacionDocumento::DE_LA_NOCHE)
                             <tr class="cpdf-fila-sel" data-id="{{ $d->ID_REGISTRO }}" onclick="window.cpdfSelFila(event, this)">
                         @else
                             <tr>
                         @endif
                             <td><div class="hd-fecha"><span>{{ $d->updated_at?->format('d/m/Y') }}</span><span class="hd-hora">{{ $d->updated_at?->format('h:i A') }}</span></div></td>
-                            <td style="white-space:nowrap;">{{ $tiposDoc[$d->TIPO] ?? $d->TIPO }}</td>
+                            <td style="white-space:nowrap;">
+                                {{ $tiposDoc[$d->TIPO] ?? ($d->TIPO ?: 'Sin reconocer') }}
+                                {{-- El nombre del archivo solo en lo recién soltado: es la única
+                                     forma de saber cuál de los treinta PDF es cada fila. --}}
+                                @if ($d->ARCHIVO)
+                                    <small style="display:block;color:#64748b;font-weight:400;">{{ \Illuminate\Support\Str::limit($d->ARCHIVO, 28) }}</small>
+                                @endif
+                            </td>
                             <td style="white-space:nowrap;">
                                 {{ $d->PLACA ?: '—' }}
                                 @if ($d->SERIAL) <small style="display:block;color:#64748b;">{{ $d->SERIAL }}</small> @endif
@@ -371,6 +395,31 @@
                             </td>
                             <td><span class="cpdf-estado {{ $d->ESTADO }}" @if ($d->MOTIVO) title="{{ $d->MOTIVO }}" @endif>{{ $estadosDoc[$d->ESTADO] ?? $d->ESTADO }}</span></td>
                             <td style="white-space:nowrap;">
+                                {{-- Lo recién soltado en la carga masiva se aplica DESDE AQUÍ: el
+                                     modal solo sirve para soltar archivos. Solo cuando hay ficha
+                                     reconocida; sin ella no hay dónde enlazarlo.
+
+                                     El MISMO permiso que el JS de más abajo: sin él estos botones
+                                     no se pintan. Si no, un super.admin sin la clave vería filas
+                                     que otro subió, pulsaría y se encontraría con que la función
+                                     ni existe. --}}
+                                @can('docs.carga.masiva')
+                                @if ($d->ESTADO === \App\Models\VerificacionDocumento::POR_ENGANCHAR && ($d->PROPUESTA['equipos'] ?? []))
+                                    <button type="button" class="pdf-doc-btn cpdf-aplicar" title="Enlazar este PDF a su ficha"
+                                        onclick="event.stopPropagation(); window.cpdfAplicarCarga(this, @js($d->PROPUESTA))">
+                                        <i class="material-icons">playlist_add_check</i>
+                                    </button>
+                                @endif
+                                {{-- Descartar: el PDF subido se va a la papelera de Drive y la fila
+                                     desaparece. Sin esto, lo que se sube y no se aplica se queda
+                                     ahí para siempre. Solo en lo de la carga masiva sin aplicar. --}}
+                                @if (in_array($d->ESTADO, \App\Models\VerificacionDocumento::DE_LA_CARGA, true) && ($d->PROPUESTA['link'] ?? null))
+                                    <button type="button" class="pdf-doc-btn cpdf-descartar" title="Descartar este PDF"
+                                        onclick="event.stopPropagation(); window.cpdfDescartarCarga(this, @js($d->PROPUESTA['link']), @js($d->ARCHIVO))">
+                                        <i class="material-icons">delete_outline</i>
+                                    </button>
+                                @endif
+                                @endcan
                                 @if ($d->DRIVE_ID)
                                     {{-- Abre el PDF con los campos de la ficha para revisarla (ver cpdfRevisar). --}}
                                     <button type="button" class="pdf-doc-btn" title="Ver el documento y revisar la ficha"
@@ -647,6 +696,76 @@
             });
     };
 
+    // ── Aplicar un PDF de la carga masiva ─────────────────────────────────────────────
+    // El modal de carga masiva solo sirve para SOLTAR archivos; lo que se subió se ve y se
+    // aplica aquí, en la misma tabla que la revisión de la noche. Este botón enlaza el PDF a
+    // la ficha que se le propuso, con las mismas puertas del servidor (no pisa lo que ya hay,
+    // no retrocede un vencimiento, no entra sin fecha).
+    @can('docs.carga.masiva')
+    window.cpdfAplicarCarga = function (btn, propuesta) {
+        var fichas = (propuesta && propuesta.equipos) || [];
+        if (!fichas.length) return;
+
+        // Los que vencen necesitan su fecha, y del certificado y la compraventa no se lee
+        // ninguna: se pide aquí, que es donde está la persona.
+        var vence = propuesta.vence || '';
+        if (@json(array_keys(\App\Support\DocumentacionDeEquipo::VENCIMIENTO)).indexOf(propuesta.tipo) !== -1 && !vence) {
+            vence = window.prompt('¿Cuándo vence este documento? (AAAA-MM-DD)', '');
+            if (!vence) return;
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(vence)) { window.toast('La fecha va como 2027-04-08', 'error'); return; }
+        }
+
+        btn.disabled = true;
+        var i = 0, bien = 0, fallo = null;
+        var siguiente = function () {
+            if (i >= fichas.length) {
+                btn.disabled = false;
+                if (bien) window.toast('Aplicado a ' + bien + ' ficha' + (bien === 1 ? '' : 's'), 'success');
+                else window.toast(fallo || 'No se pudo aplicar', 'error');
+                window.cpdfFiltrar();
+                return;
+            }
+            var f = fichas[i++];
+            enviar(f, false).then(siguiente);
+        };
+
+        // Una ficha. Si el servidor dice que YA tiene ese documento, se pregunta y solo
+        // entonces se reintenta con "reemplazar": así la regla de no pisar sigue siendo del
+        // servidor y aquí solo se pide permiso. Un documento ANTERIOR se niega igualmente,
+        // reemplazo o no, y ahí el servidor manda su motivo sin volver a preguntar.
+        function enviar(f, pisar) {
+            return window.apiPostForm(@json(route('historial-documentos.carga-masiva.aplicar')), {
+                id_equipo: f.id, auxiliar: f.auxiliar ? 1 : '', tipo: propuesta.tipo,
+                link: propuesta.link, vence: vence || '', emision: propuesta.emision || '',
+                pisar: pisar ? 1 : ''
+            }, 'No se pudo aplicar.')
+                .then(function () { bien++; })
+                .catch(function (e) {
+                    var msg = (e && e.message) || 'No se pudo aplicar';
+                    if (!pisar && e && e.requiere_pisar) {
+                        if (window.confirm(f.nombre + ' ya tiene ese documento.\n\n¿Reemplazarlo?\nEl anterior se va a la PAPELERA de Drive: se recupera con un clic.')) {
+                            return enviar(f, true);
+                        }
+                        msg = 'No se reemplazó: ' + f.nombre + ' ya tiene ese documento.';
+                    }
+                    fallo = msg;
+                });
+        }
+
+        siguiente();
+    };
+
+    // Descartar lo subido y no aplicado: el PDF se va a la PAPELERA de Drive (se recupera con
+    // un clic si fue un error) y la fila desaparece de la tabla.
+    window.cpdfDescartarCarga = function (btn, link, archivo) {
+        if (!window.confirm('¿Descartar "' + (archivo || 'este PDF') + '"?\n\nEl archivo se va a la papelera de Drive y la fila desaparece.')) return;
+        btn.disabled = true;
+        window.apiPostForm(@json(route('historial-documentos.carga-masiva.descartar')), { link: link }, 'No se pudo descartar.')
+            .then(function () { window.toast('Descartado', 'success'); window.cpdfFiltrar(); })
+            .catch(function (e) { btn.disabled = false; window.toast((e && e.message) || 'No se pudo descartar', 'error'); });
+    };
+    @endcan
+
     // ── Revisar a mano desde el visor ─────────────────────────────────────────────────
     // Se abre el PDF con los campos de la ficha; bajo cada campo que no cuadra sale lo que
     // dice el documento, con un boton para ponerlo. Al GUARDAR (en el panel del visor, que
@@ -699,6 +818,11 @@
 
         document.addEventListener('vidalsa:metadata-pintada', function (e) {
             if (!esEste(e.detail)) return;
+            // Con un documento sin cargar delante, el panel está pidiendo la fecha de ESE
+            // documento (visor: pedirVencimientoEnVisor) y su campo sale vacío a propósito.
+            // Las pistas de aquí son del documento que ya está en la ficha: colgarlas ahí
+            // ofrecería "Usar" con la fecha del papel equivocado.
+            if (window._pdfVencPendiente) return;
             var cont = document.getElementById('metaFieldsContainer');
             if (!cont) return;
             var dif = window._pdfVerif.dif || {}, otras = [];

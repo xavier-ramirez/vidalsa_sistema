@@ -33,12 +33,21 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
         return app(CargaMasivaDocumentos::class);
     }
 
-    /** super.admin real sin cambio de clave pendiente (si no, el middleware lo desvía). */
+    /**
+     * super.admin real sin cambio de clave pendiente (si no, el middleware lo desvía), CON la
+     * clave de la carga masiva: es de las exclusivas (Usuario::PERMISOS_EXPLICITOS) y ni
+     * super.admin la hereda. Se le añade aquí dentro; la transacción del caso lo deshace.
+     */
     private function usuario(): Usuario
     {
         $u = Usuario::where('REQUIERE_CAMBIO_CLAVE', 0)->whereNotNull('PERMISOS')->get()
             ->first(fn ($usr) => in_array('super.admin', array_map('strtolower', $usr->PERMISOS), true));
         $this->assertNotNull($u, 'hace falta un super.admin activo');
+
+        if (!in_array('docs.carga.masiva', $u->PERMISOS, true)) {
+            $u->PERMISOS = array_merge($u->PERMISOS, ['docs.carga.masiva']);
+            $u->save();
+        }
 
         return $u;
     }
@@ -55,7 +64,136 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
         return $equipo->fresh();
     }
 
+    /** Auxiliar propio de la prueba; la transacción del caso lo revierte. */
+    private function auxiliar(array $campos = []): \App\Models\EquipoAuxiliar
+    {
+        return \App\Models\EquipoAuxiliar::create([
+            'TIPO' => 'PRUEBA', 'MARCA' => 'PRUEBA', 'MODELO' => 'CARGA-MASIVA-AUX',
+            'SERIAL' => 'TESTAUX' . strtoupper(substr(uniqid(), -9)),
+        ] + $campos)->fresh();
+    }
+
+    // ── Los seis documentos del equipo y los dos del auxiliar ─────────────────
+
+    /**
+     * El certificado asociado y la compraventa van a las mismas columnas que cuando se suben
+     * de uno en uno (LINK_DOC_ADICIONAL y LINK_DOC_ADICIONAL_2). El certificado VENCE; la
+     * compraventa no, y por eso entra sin fecha.
+     */
+    public function test_el_certificado_y_la_compraventa_van_a_sus_columnas(): void
+    {
+        $equipo = $this->equipo();
+        $vence  = now()->addYear()->toDateString();
+        $this->actingAs($this->usuario());
+
+        $cert = $this->servicio()->aplicar($equipo->ID_EQUIPO, 'adicional', '/storage/google/cert', $vence, null);
+        $venta = $this->servicio()->aplicar($equipo->ID_EQUIPO, 'adicional_2', '/storage/google/venta', null, null);
+
+        $this->assertTrue($cert['ok'], $cert['mensaje']);
+        $this->assertTrue($venta['ok'], $venta['mensaje']);
+        $doc = $equipo->documentacion()->first();
+        $this->assertSame('/storage/google/cert', $doc->LINK_DOC_ADICIONAL);
+        $this->assertSame('/storage/google/venta', $doc->LINK_DOC_ADICIONAL_2);
+        $this->assertStringStartsWith($vence, (string) $doc->getRawOriginal('FECHA_ADICIONAL'));
+    }
+
+    public function test_el_certificado_no_entra_sin_su_fecha_de_vencimiento(): void
+    {
+        $equipo = $this->equipo();
+        $this->actingAs($this->usuario());
+
+        $r = $this->servicio()->aplicar($equipo->ID_EQUIPO, 'adicional', '/storage/google/cert', null, null);
+
+        $this->assertFalse($r['ok']);
+        $this->assertStringContainsString('fecha de vencimiento', $r['mensaje']);
+        $this->assertNull($equipo->documentacion()->first()->LINK_DOC_ADICIONAL);
+    }
+
+    public function test_el_documento_de_un_auxiliar_va_a_su_ficha(): void
+    {
+        $aux   = $this->auxiliar();
+        $vence = now()->addYear()->toDateString();
+        $this->actingAs($this->usuario());
+
+        $titulo = $this->servicio()->aplicar($aux->ID_AUXILIAR, 'propiedad', '/storage/google/aux-titulo', null, null, false, false, true);
+        $cert   = $this->servicio()->aplicar($aux->ID_AUXILIAR, 'adicional', '/storage/google/aux-cert', $vence, null, false, false, true);
+
+        $this->assertTrue($titulo['ok'], $titulo['mensaje']);
+        $this->assertTrue($cert['ok'], $cert['mensaje']);
+        $aux->refresh();
+        $this->assertSame('/storage/google/aux-titulo', $aux->LINK_DOC_PROPIEDAD);
+        $this->assertSame('/storage/google/aux-cert', $aux->LINK_CERTIFICADO);
+        $this->assertStringStartsWith($vence, (string) $aux->getRawOriginal('FECHA_VENCIMIENTO_CERT'));
+    }
+
+    /** Un auxiliar no tiene dónde guardar una póliza, un ROTC ni un RACDA. */
+    public function test_un_auxiliar_no_admite_poliza_rotc_ni_racda(): void
+    {
+        $aux = $this->auxiliar();
+        $this->actingAs($this->usuario());
+
+        foreach (['poliza', 'rotc', 'racda', 'adicional_2'] as $tipo) {
+            $r = $this->servicio()->aplicar($aux->ID_AUXILIAR, $tipo, '/storage/google/x', now()->addYear()->toDateString(), null, false, false, true);
+            $this->assertFalse($r['ok'], "el auxiliar no debería admitir $tipo");
+        }
+    }
+
+    /** Las mismas puertas que en un equipo: no se pisa ni se retrocede un vencimiento. */
+    public function test_el_auxiliar_no_pisa_lo_que_ya_tiene_ni_retrocede_el_vencimiento(): void
+    {
+        $vigente = now()->addYear()->toDateString();
+        $aux = $this->auxiliar(['LINK_CERTIFICADO' => '/storage/google/viejo', 'FECHA_VENCIMIENTO_CERT' => $vigente]);
+        $this->actingAs($this->usuario());
+
+        $sinPisar = $this->servicio()->aplicar($aux->ID_AUXILIAR, 'adicional', '/storage/google/nuevo', $vigente, null, false, false, true);
+        $this->assertFalse($sinPisar['ok']);
+        $this->assertTrue($sinPisar['requiere_pisar'] ?? false);
+
+        $anterior = now()->subMonths(6)->toDateString();
+        $viejo = $this->servicio()->aplicar($aux->ID_AUXILIAR, 'adicional', '/storage/google/nuevo', $anterior, null, true, false, true);
+        $this->assertFalse($viejo['ok'], 'un certificado anterior no entra ni marcando reemplazar');
+
+        $this->assertSame('/storage/google/viejo', $aux->refresh()->LINK_CERTIFICADO);
+    }
+
     // ── Reconocer de qué documento se trata ───────────────────────────────────
+
+    /**
+     * Manda el rótulo que aparece ANTES, no el más "fuerte": un documento se anuncia en su
+     * encabezado y lo de después son menciones.
+     *
+     * Caso real (prueba del 23-09-2026 con los títulos de los equipos 20 y 23): el título de
+     * propiedad del INTT se presenta en el carácter 3 y en su letra pequeña, por el 2.879,
+     * nombra el "certificado de circulación". Antes ganaba esa mención y el título se repartía
+     * como ROTC: al aplicarlo, el título habría ido a la casilla del ROTC y habría tapado el
+     * ROTC bueno.
+     */
+    public function test_una_mencion_tardia_no_le_gana_al_rotulo_del_encabezado(): void
+    {
+        $titulo = 'Certificado de Registro de Vehículo. Instituto Nacional de Transporte Terrestre (INTT). '
+            . str_repeat('Texto legal de relleno que no dice de qué documento se trata. ', 40)
+            . 'El propietario deberá portar el certificado de circulación correspondiente.';
+
+        $this->assertStringContainsString('certificado de circulación', $titulo, 'el caso pierde sentido sin la mención');
+        $this->assertSame(LectorDocumentoPdf::PROPIEDAD, $this->servicio()->detectarTipo($titulo));
+    }
+
+    /**
+     * El fallo simétrico: "INTT" dice QUIÉN emite el papel, no CUÁL es. El ROTC y la providencia
+     * RACDA también los emite el INTT y lo ponen en el membrete, o sea ANTES de su propio
+     * rótulo. Por eso esa pista no compite por posición: solo vale si no se anunció nada.
+     */
+    public function test_el_membrete_del_intt_no_convierte_un_rotc_en_un_titulo(): void
+    {
+        $s = $this->servicio();
+
+        $this->assertSame(LectorDocumentoPdf::ROTC,
+            $s->detectarTipo('INSTITUTO NACIONAL DE TRANSPORTE TERRESTRE (INTT). Certificado de Circulación N° 4455.'));
+        $this->assertSame(LectorDocumentoPdf::RACDA,
+            $s->detectarTipo('INTT. Providencia Administrativa N° 1120 que ampara las siguientes unidades.'));
+        // Y si NADA se anuncia, la pista sigue valiendo: un título con el membrete y poco más.
+        $this->assertSame(LectorDocumentoPdf::PROPIEDAD, $s->detectarTipo('Documento emitido por el INTT'));
+    }
 
     public function test_reconoce_cada_tipo_de_documento_por_lo_que_dice_de_si_mismo(): void
     {
@@ -268,6 +406,27 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
             ->assertStatus(401);
         $this->post(route('historial-documentos.carga-masiva.aplicar'), [], ['Accept' => 'application/json'])
             ->assertStatus(401);
+    }
+
+    /**
+     * La carga masiva tiene SU permiso y es de los exclusivos: un super.admin sin la clave
+     * marcada no entra. Es la puerta de verdad; el menú solo esconde el botón.
+     */
+    public function test_un_super_admin_sin_la_clave_de_carga_masiva_no_entra(): void
+    {
+        $u = $this->usuario();
+        $u->PERMISOS = array_values(array_diff($u->PERMISOS, ['docs.carga.masiva']));
+        $u->save();
+
+        $this->actingAs($u)
+            ->post(route('historial-documentos.carga-masiva.analizar'), [], ['Accept' => 'application/json'])
+            ->assertStatus(403);
+        $this->actingAs($u)
+            ->post(route('historial-documentos.carga-masiva.aplicar'), [], ['Accept' => 'application/json'])
+            ->assertStatus(403);
+        $this->actingAs($u)
+            ->post(route('historial-documentos.carga-masiva.descartar'), [], ['Accept' => 'application/json'])
+            ->assertStatus(403);
     }
 
     public function test_aplicar_valida_lo_que_llega(): void

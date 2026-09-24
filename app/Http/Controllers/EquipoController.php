@@ -2485,7 +2485,7 @@ class EquipoController extends Controller
             try {
                 $driveService = \App\Services\GoogleDriveService::getInstance();
                 foreach ($driveFileIds as $fid) {
-                    $driveService->deleteFile($fid);
+                    $driveService->enviarAPapelera($fid);
                     \App\Services\GoogleDriveService::olvidarCopiaLocal($fid);
                 }
             } catch (\Throwable $e) {
@@ -3142,63 +3142,67 @@ class EquipoController extends Controller
         $doc = $equipo->documentacion;
         $data = [];
 
-        if ($doc) {
-            switch ($type) {
-                case 'propiedad':
-                    $data = [
-                        'nro_documento' => $doc->NRO_DE_DOCUMENTO ?? '',
-                        'titular' => $doc->NOMBRE_DEL_TITULAR ?? '',
-                        'placa' => $doc->PLACA ?? '',
-                        'marca' => $equipo->MARCA ?? '',
-                        'modelo' => $equipo->MODELO ?? '',
-                        'serial_chasis' => $equipo->SERIAL_CHASIS ?? '',
-                        'serial_motor' => $equipo->SERIAL_DE_MOTOR ?? ''
-                    ];
-                    break;
+        // SIN el `if ($doc)` que envolvia todo esto: un equipo al que todavia no se le ha
+        // cargado ningun documento no tiene fila en `documentacion`, y la respuesta salia
+        // vacia para cualquier tipo. El panel del visor es justo donde se escribe la fecha
+        // al cargar el PRIMER documento (ver pedirVencimientoEnVisor), asi que tiene que
+        // recibir sus claves —vacias— tambien en ese caso. De paso, la primera poliza de
+        // esos equipos ya trae su lista de aseguradoras, que antes salia en blanco.
+        switch ($type) {
+            case 'propiedad':
+                $data = [
+                    'nro_documento' => $doc?->NRO_DE_DOCUMENTO ?? '',
+                    'titular' => $doc?->NOMBRE_DEL_TITULAR ?? '',
+                    'placa' => $doc?->PLACA ?? '',
+                    'marca' => $equipo->MARCA ?? '',
+                    'modelo' => $equipo->MODELO ?? '',
+                    'serial_chasis' => $equipo->SERIAL_CHASIS ?? '',
+                    'serial_motor' => $equipo->SERIAL_DE_MOTOR ?? ''
+                ];
+                break;
 
-                case 'poliza':
-                    $data = [
-                        'fecha_vencimiento' => $doc->FECHA_VENC_POLIZA ?? '',
-                        'id_seguro' => $doc->ID_SEGURO ?? null,
-                        'insurers' => CatalogoSeguro::orderBy('NOMBRE_ASEGURADORA', 'asc')->get()
-                    ];
-                    break;
+            case 'poliza':
+                $data = [
+                    'fecha_vencimiento' => $doc?->FECHA_VENC_POLIZA ?? '',
+                    'id_seguro' => $doc?->ID_SEGURO ?? null,
+                    'insurers' => CatalogoSeguro::orderBy('NOMBRE_ASEGURADORA', 'asc')->get()
+                ];
+                break;
 
-                case 'rotc':
-                    $data = [
-                        'fecha_vencimiento' => $doc->FECHA_ROTC ?? ''
-                    ];
-                    break;
+            case 'rotc':
+                $data = [
+                    'fecha_vencimiento' => $doc?->FECHA_ROTC ?? ''
+                ];
+                break;
 
-                case 'racda':
-                    $data = [
-                        'fecha_vencimiento' => $doc->FECHA_RACDA ?? ''
-                    ];
-                    break;
+            case 'racda':
+                $data = [
+                    'fecha_vencimiento' => $doc?->FECHA_RACDA ?? ''
+                ];
+                break;
 
-                case 'adicional':
-                    // FECHA_ADICIONAL está casteado a 'date' (Carbon), a diferencia de
-                    // FECHA_VENC_POLIZA/ROTC/RACDA que son string crudo. Si se devuelve el
-                    // Carbon tal cual, el JSON lo serializa con hora (ISO) y el <input type="date">
-                    // del panel del preview no lo entiende → casilla vacía. Lo formateamos a
-                    // 'Y-m-d' para que la fecha registrada se muestre, igual que en póliza.
-                    $data = [
-                        'fecha_vencimiento' => $doc->FECHA_ADICIONAL ? $doc->FECHA_ADICIONAL->format('Y-m-d') : '',
-                    ];
-                    break;
+            case 'adicional':
+                // FECHA_ADICIONAL está casteado a 'date' (Carbon), a diferencia de
+                // FECHA_VENC_POLIZA/ROTC/RACDA que son string crudo. Si se devuelve el
+                // Carbon tal cual, el JSON lo serializa con hora (ISO) y el <input type="date">
+                // del panel del preview no lo entiende → casilla vacía. Lo formateamos a
+                // 'Y-m-d' para que la fecha registrada se muestre, igual que en póliza.
+                $data = [
+                    'fecha_vencimiento' => $doc?->FECHA_ADICIONAL ? $doc->FECHA_ADICIONAL->format('Y-m-d') : '',
+                ];
+                break;
 
-                case 'adicional_2':
-                    // Compraventa: NO tiene fecha de vencimiento (panel sin campos editables).
-                    $data = [];
-                    break;
-            }
+            case 'adicional_2':
+                // Compraventa: NO tiene fecha de vencimiento (panel sin campos editables).
+                $data = [];
+                break;
+        }
 
-            // La fecha de emision (de origen) de los documentos que la tienen: el visor la
-            // ofrece siempre, para ponerla a mano cuando la verificacion no la saco del PDF.
-            // Es 'date' (Carbon): se da como aaaa-mm-dd, que es lo que entiende el <input>.
-            if ($campoEmision = \App\Models\VerificacionDocumento::CAMPO_EMISION[$type] ?? null) {
-                $data['fecha_emision'] = $doc->{$campoEmision} ? $doc->{$campoEmision}->format('Y-m-d') : '';
-            }
+        // La fecha de emision (de origen) de los documentos que la tienen: el visor la
+        // ofrece siempre, para ponerla a mano cuando la verificacion no la saco del PDF.
+        // Es 'date' (Carbon): se da como aaaa-mm-dd, que es lo que entiende el <input>.
+        if ($campoEmision = \App\Models\VerificacionDocumento::CAMPO_EMISION[$type] ?? null) {
+            $data['fecha_emision'] = $doc?->{$campoEmision} ? $doc->{$campoEmision}->format('Y-m-d') : '';
         }
 
         return response()->json(['success' => true, 'data' => $data]);
@@ -3265,12 +3269,22 @@ class EquipoController extends Controller
         $linkField  = $cfg['link'];
         $oldUrl     = $doc->{$linkField};
 
-        // ── 1. Limpiar link + fecha + autor en la BD ───────────────────────
-        $doc->update([
+        // ── 1. Limpiar link + fecha de subida + autor en la BD ─────────────
+        //
+        // Y con ellos el VENCIMIENTO y la fecha de EMISIÓN del documento. Sin esto la ficha
+        // quedaba diciendo cuándo vence un papel que ya no está: el listado de equipos lo
+        // da por no cargado (mira el enlace) mientras las alertas lo siguen reclamando
+        // vencido (miran la fecha), y los dos reportes dejan de cuadrar. Es lo mismo que
+        // hace auxiliares al borrar su certificado, y la otra mitad de la regla que impone
+        // uploadDoc: ni fecha sin PDF, ni PDF sin fecha.
+        $limpiar = [
             $cfg['link']  => null,
             $cfg['fecha'] => null,
             $cfg['autor'] => null,
-        ]);
+        ];
+        if ($col = \App\Support\DocumentacionDeEquipo::VENCIMIENTO[$type] ?? null) $limpiar[$col] = null;
+        if ($col = \App\Support\DocumentacionDeEquipo::EMISION[$type] ?? null)     $limpiar[$col] = null;
+        $doc->update($limpiar);
 
         // ── 2. Borrar el archivo de Drive, DESPUES de responder ────────────
         // Mismo orden y mismo camino que auxiliares: primero la BD, luego el archivo, y sin

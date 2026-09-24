@@ -188,7 +188,14 @@
                 return r.json().catch(function () { return {}; }).then(function (b) {
                     if (!r.ok || !b.success) {
                         var err = b.errors ? Object.values(b.errors)[0][0] : null;
-                        throw new Error(err || b.message || siFalla);
+                        var e = new Error(err || b.message || siFalla);
+                        // El cuerpo entero va colgado del Error: algunas respuestas traen
+                        // banderas que quien llama necesita para decidir (p. ej.
+                        // `requiere_pisar` de la carga masiva, que pregunta y reintenta).
+                        // El mensaje sigue igual, así que nadie que solo lo lea se entera.
+                        e.respuesta = b;
+                        Object.keys(b || {}).forEach(function (k) { if (!(k in e)) e[k] = b[k]; });
+                        throw e;
                     }
                     return b;
                 });

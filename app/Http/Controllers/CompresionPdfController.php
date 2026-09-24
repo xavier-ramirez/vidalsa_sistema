@@ -75,7 +75,14 @@ class CompresionPdfController extends Controller
 
         $hechas = 0;
         // Las que ya coinciden no se pueden elegir ni tienen nada que revisar: se dejan como estan.
+        //
+        // Y SOLO lo que leyo la noche. Las filas de la carga masiva son PROPUESTAS de un PDF que
+        // todavia no esta en ninguna ficha: no hay nada que "dar por revisado" en ellas —se
+        // aplican con su propio boton—, pueden no tener ni equipo (ID_EQUIPO nulo, cuando no se
+        // reconocio de quien es) y darlas por revisadas las dejaria marcadas como resueltas sin
+        // que el documento hubiera llegado a la ficha.
         $filas = VerificacionDocumento::whereIn('ID_REGISTRO', array_unique($ids))
+            ->where('ORIGEN', VerificacionDocumento::DE_LA_NOCHE)
             ->where('ESTADO', '<>', VerificacionDocumento::COINCIDE)->get();
         $fechasPuestas = 0;
         foreach ($filas as $reg) {

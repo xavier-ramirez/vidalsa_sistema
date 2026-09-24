@@ -114,8 +114,14 @@ class PanelDocumentos
     private static function datosDocumentos(Request $request, string $buscar): array
     {
         $avance = self::avance();
-        $estados = [VerificacionDocumento::COINCIDE, VerificacionDocumento::DIFIERE,
-                    VerificacionDocumento::ILEGIBLE, VerificacionDocumento::SIN_ARCHIVO, VerificacionDocumento::ERROR];
+        // Los cinco de la revision nocturna mas los dos de la carga masiva (POR_ENGANCHAR y
+        // SIN_FICHA): las dos procedencias comparten esta tabla, que es la unica del modulo
+        // donde se ve el estado de un documento.
+        $estados = array_merge(
+            [VerificacionDocumento::COINCIDE, VerificacionDocumento::DIFIERE,
+             VerificacionDocumento::ILEGIBLE, VerificacionDocumento::SIN_ARCHIVO, VerificacionDocumento::ERROR],
+            VerificacionDocumento::DE_LA_CARGA_TODOS
+        );
         // Dos filtros que no son un estado de la tabla, sino los dos montones que se miran
         // distinto: 'revisar' (lo que decide una persona, y que cuenta su tarjeta) y
         // 'corregibles' (lo que la tarea todavia puede poner sola), que se pide desde el
@@ -123,7 +129,8 @@ class PanelDocumentos
         $pedido = $request->input('estado_doc');
         $estadoDoc = (in_array($pedido, ['revisar', 'corregibles'], true) || in_array($pedido, $estados, true)) ? $pedido : null;
         // Los cuatro documentos, los mismos que ofrece el desplegable de la vista.
-        $tipoDoc = array_key_exists((string) $request->input('tipo_doc'), VerificacionDocumento::NOMBRES)
+        $tipoDoc = array_key_exists((string) $request->input('tipo_doc'),
+                                    VerificacionDocumento::NOMBRES + \App\Services\CargaMasivaDocumentos::NOMBRES)
             ? $request->input('tipo_doc') : null;
 
         $filas = VerificacionDocumento::query()
@@ -140,12 +147,17 @@ class PanelDocumentos
                 $likeJson = $json === false ? $like : '%' . addcslashes(trim($json, '"'), '%_\\') . '%';
                 $q->where(fn ($w) => $w->where('PLACA', 'like', $like)->orWhere('SERIAL', 'like', $like)
                     ->orWhere('MOTIVO', 'like', $like)
+                    // Por el nombre del PDF: es como se busca lo que uno acaba de soltar.
+                    ->orWhere('ARCHIVO', 'like', $like)
                     ->orWhere('LEIDO', 'like', $like)->orWhere('LEIDO', 'like', $likeJson));
             })
             // Primero lo que hay que resolver; dentro de cada montón, lo ultimo leido arriba.
             // El ID desempata: el comando escribe varias filas en el mismo segundo y sin el
             // una misma fila podia salir en dos paginas (o en ninguna).
-            ->orderByRaw("FIELD(ESTADO, '" . VerificacionDocumento::DIFIERE . "', '" . VerificacionDocumento::ILEGIBLE
+            // Lo recien soltado en la carga masiva va PRIMERO: es lo que alguien esta
+            // esperando para pulsar "Aplicar", y sin eso se perderia entre miles de filas.
+            ->orderByRaw("FIELD(ESTADO, '" . VerificacionDocumento::POR_ENGANCHAR . "', '" . VerificacionDocumento::SIN_FICHA
+                . "', '" . VerificacionDocumento::DIFIERE . "', '" . VerificacionDocumento::ILEGIBLE
                 . "', '" . VerificacionDocumento::SIN_ARCHIVO . "', '" . VerificacionDocumento::ERROR . "', '" . VerificacionDocumento::COINCIDE . "')")
             ->orderByDesc('updated_at')->orderByDesc('ID_REGISTRO')
             ->paginate(50)->withQueryString();

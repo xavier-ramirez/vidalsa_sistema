@@ -44,20 +44,20 @@ class CorreccionesAnexasTest extends MySqlTestCase
         // uploadDoc) sobre este uploadFile falso: nada sale a la red.
         $this->drive = new class extends GoogleDriveService {
             public array $subidos = [];
-            public array $borrados = [];
+            public array $retirados = [];
             public function __construct() {}
             public function getRootFolderId() { return 'CARPETA_DE_PRUEBA'; }
             public function uploadFile($carpeta, $archivo, $nombre, $mime) {
                 $this->subidos[] = $nombre;
                 return (object) ['id' => 'FALSO_' . count($this->subidos) . '_' . substr(md5($nombre), 0, 8)];
             }
-            public function deleteFile($id) { $this->borrados[] = $id; return true; }
+            public function enviarAPapelera($id) { $this->retirados[] = $id; return true; }
         };
         $prop = (new ReflectionClass(GoogleDriveService::class))->getProperty('instance');
         $prop->setAccessible(true);
         $prop->setValue(null, $this->drive);
 
-        // Los jobs no se ejecutan: si algo intentara borrar, queda registrado.
+        // Los jobs no se ejecutan: si algo intentara retirar un archivo, queda registrado.
         Bus::fake();
 
         $this->user = Usuario::get()->first(fn ($u) => $u->can('user.edit'));
@@ -128,11 +128,11 @@ class CorreccionesAnexasTest extends MySqlTestCase
     public function test_anexar_no_borra_ningun_archivo_de_drive(): void
     {
         $this->subirPrincipal();
-        $borradosAntes = count($this->drive->borrados);
+        $retiradosAntes = count($this->drive->retirados);
 
         $this->anexar();
 
-        $this->assertCount($borradosAntes, $this->drive->borrados, 'Anexar borró un archivo de Drive.');
+        $this->assertCount($retiradosAntes, $this->drive->retirados, 'Anexar retiró un archivo de Drive.');
         Bus::assertNotDispatched(\App\Jobs\DeleteGoogleDriveFile::class);
     }
 

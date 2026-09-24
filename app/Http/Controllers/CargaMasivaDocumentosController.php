@@ -18,8 +18,9 @@ use Illuminate\Validation\Rule;
  *   aplicar()   Escribe en la ficha lo que el usuario aprobo, de una fila.
  *   descartar() Borra de Drive el PDF de una propuesta que el usuario no quiso.
  *
- * Permiso: la pantalla es de super.admin (igual que el menu Acciones donde vive el boton),
- * y ademas escribir exige 'user.edit', el mismo que pide uploadDoc para un PDF suelto.
+ * Permiso: la pantalla es de super.admin (igual que el menu Acciones donde vive el boton) y
+ * ademas hace falta 'docs.carga.masiva', que es EXCLUSIVO y ni super.admin hereda (ver
+ * autorizar(), abajo). Los tres pasos piden lo mismo.
  */
 class CargaMasivaDocumentosController extends Controller
 {
@@ -53,8 +54,14 @@ class CargaMasivaDocumentosController extends Controller
     {
         $this->autorizar();
 
+        // El id es de una ficha u otra segun 'auxiliar', asi que su tabla se comprueba
+        // aparte (Rule::exists con la tabla que toque) en vez de con un exists fijo.
+        $esAux = $request->boolean('auxiliar');
         $datos = $request->validate([
-            'id_equipo' => 'required|integer|exists:equipos,ID_EQUIPO',
+            'auxiliar'  => 'nullable|boolean',
+            'id_equipo' => ['required', 'integer', $esAux
+                ? Rule::exists('equipos_auxiliares', 'ID_AUXILIAR')->whereNull('deleted_at')
+                : Rule::exists('equipos', 'ID_EQUIPO')->whereNull('deleted_at')],
             'tipo'      => ['required', Rule::in(CargaMasivaDocumentos::TIPOS)],
             'link'      => 'required|string|starts_with:/storage/google/',
             'vence'     => 'nullable|date',
@@ -62,6 +69,8 @@ class CargaMasivaDocumentosController extends Controller
             'pisar'     => 'nullable|boolean',
             // Modo ensayo: comprueba y dice que haria, pero no escribe nada.
             'ensayo'    => 'nullable|boolean',
+        ], [
+            'id_equipo.exists' => $esAux ? 'Ese equipo auxiliar ya no existe.' : 'Ese equipo ya no existe.',
         ]);
 
         $r = $this->servicio->aplicar(
@@ -72,6 +81,7 @@ class CargaMasivaDocumentosController extends Controller
             $datos['emision'] ?? null,
             (bool) ($datos['pisar'] ?? false),
             (bool) ($datos['ensayo'] ?? false),
+            $esAux,
         );
 
         return response()->json([
@@ -95,8 +105,15 @@ class CargaMasivaDocumentosController extends Controller
         return response()->json(['success' => true]);
     }
 
+    /**
+     * Esta pantalla tiene SU PROPIO permiso, 'docs.carga.masiva', y es de los EXCLUSIVOS
+     * (Usuario::PERMISOS_EXPLICITOS): ni super.admin lo hereda, hay que marcarlo a mano en la
+     * ficha del usuario. Por que aparte: subir de uno en uno (uploadDoc, 'user.edit') toca UNA
+     * ficha que el usuario esta mirando; esto sube PDF en lote y los engancha SOLO a las
+     * fichas que reconoce, asi que puede cambiarle la documentacion a media flota de un tiron.
+     */
     private function autorizar(): void
     {
-        abort_unless(auth()->user()?->can('user.edit'), 403, 'No tiene permiso para cargar documentos.');
+        abort_unless(auth()->user()?->can('docs.carga.masiva'), 403, 'No tiene permiso para la carga masiva de documentos.');
     }
 }

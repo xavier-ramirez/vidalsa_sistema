@@ -6,6 +6,7 @@ use App\Models\Documentacion;
 use App\Models\DocumentoAnexo;
 use App\Models\Equipo;
 use App\Models\EquipoAuditLog;
+use App\Models\EquipoAuxiliar;
 use App\Models\VerificacionDocumento;
 use App\Support\DocumentacionDeEquipo;
 use Illuminate\Http\UploadedFile;
@@ -36,20 +37,44 @@ use Illuminate\Support\Facades\Log;
  */
 class CargaMasivaDocumentos
 {
-    /** Los 4 tipos que esta pantalla sabe repartir. 'adicional' no: no se reconoce solo. */
+    /** El "Certificado asociado" y la "Compraventa" de la ficha (LINK_DOC_ADICIONAL y _2). */
+    public const CERTIFICADO = 'adicional';
+    public const COMPRAVENTA = 'adicional_2';
+
+    /**
+     * Los 6 documentos que esta pantalla sabe repartir: los mismos que la ficha del equipo.
+     * El certificado y la compraventa NO se reconocen tan bien solos como los otros cuatro
+     * (no traen un rotulo tan claro): para esos conviene elegir el tipo arriba.
+     */
     public const TIPOS = [
         LectorDocumentoPdf::PROPIEDAD,
         LectorDocumentoPdf::POLIZA,
         LectorDocumentoPdf::ROTC,
         LectorDocumentoPdf::RACDA,
+        self::CERTIFICADO,
+        self::COMPRAVENTA,
     ];
 
-    /** Como se llama cada tipo en pantalla. */
+    /** Como se llama cada tipo en pantalla (los mismos rotulos que la ficha). */
     public const NOMBRES = [
         LectorDocumentoPdf::PROPIEDAD => 'Titulo de propiedad',
         LectorDocumentoPdf::POLIZA    => 'Poliza de seguro',
         LectorDocumentoPdf::ROTC      => 'ROTC',
         LectorDocumentoPdf::RACDA     => 'RACDA',
+        self::CERTIFICADO             => 'Certificado asociado',
+        self::COMPRAVENTA             => 'Compraventa',
+    ];
+
+    /**
+     * Los documentos que un AUXILIAR puede tener, y como se llama cada uno en su ficha. Un
+     * auxiliar no tiene placa, ni poliza, ni ROTC, ni RACDA: solo el titulo y el certificado
+     * (EquipoAuxiliar::DOCS, la fuente de siempre). Lo que aqui se llama 'adicional'
+     * —"Certificado asociado" del equipo— alli se llama 'certificado': este mapa es el UNICO
+     * sitio donde se traducen los dos vocabularios.
+     */
+    private const TIPOS_AUXILIAR = [
+        LectorDocumentoPdf::PROPIEDAD => 'propiedad',
+        self::CERTIFICADO             => 'certificado',
     ];
 
     /** Prefijo del archivo en Drive, por tipo (mismo que usa uploadDoc). */
@@ -58,6 +83,8 @@ class CargaMasivaDocumentos
         LectorDocumentoPdf::POLIZA    => 'poliza_seguro_',
         LectorDocumentoPdf::ROTC      => 'rotc_',
         LectorDocumentoPdf::RACDA     => 'racda_',
+        self::CERTIFICADO             => 'doc_adicional_',
+        self::COMPRAVENTA             => 'doc_adicional_2_',
     ];
 
     /**
@@ -68,7 +95,7 @@ class CargaMasivaDocumentos
      */
     private const TOPE_RACDA = 40;
 
-    public function __construct(private LectorDocumentoPdf $lector) {}
+    public function __construct(private LectorDocumentoPdf $lector, private LectorGemini $ia) {}
 
     // ── Paso 1: subir, leer y proponer ────────────────────────────────────────────
 
@@ -94,32 +121,49 @@ class CargaMasivaDocumentos
         $driveId = DocumentoAnexo::driveIdDeLink($link);
         if (!$driveId) return $this->fallo($nombre, $link, 'El archivo se subio pero Drive no devolvio un enlace utilizable.');
 
+        // El motivo por el que la lectura de siempre no llego a nada: es el que se le enseña al
+        // usuario si la IA tampoco lo resuelve (o no esta puesta). Los mismos mensajes de
+        // siempre, en el mismo orden: primero "no se pudo leer", luego "esta en blanco" y por
+        // ultimo "no se reconoce que documento es".
+        $motivo = null;
         try {
-            $texto = $this->lector->texto($driveId);
+            $texto = trim($this->lector->texto($driveId));
         } catch (\Throwable $e) {
             Log::warning('Carga masiva: fallo la lectura', ['archivo' => $nombre, 'error' => $e->getMessage()]);
-            return $this->fallo($nombre, $link, 'No se pudo leer el PDF.');
+            [$texto, $motivo] = ['', 'No se pudo leer el PDF.'];
+        }
+        if ($texto === '' && !$motivo) {
+            $motivo = 'El PDF no tiene texto legible (esta escaneado muy bajo o en blanco).';
         }
 
-        if (trim($texto) === '') {
-            return $this->fallo($nombre, $link, 'El PDF no tiene texto legible (esta escaneado muy bajo o en blanco).');
+        $tipo = $texto !== '' ? ($tipoPedido ?: $this->detectarTipo($texto)) : null;
+        if ($texto !== '' && !$tipo) {
+            $motivo = 'No se reconoce que documento es. Elige el tipo arriba y vuelve a subirlo.';
         }
 
-        $tipo = $tipoPedido ?: $this->detectarTipo($texto);
-        if (!$tipo) {
-            return $this->fallo($nombre, $link, 'No se reconoce que documento es. Elige el tipo arriba y vuelve a subirlo.');
-        }
-
-        $leido = $this->lector->extraer($tipo, $texto);
+        $leido = $tipo ? $this->lector->extraer($tipo, $texto) : [];
         if ($tipo === LectorDocumentoPdf::POLIZA) {
             $catalogo = $this->catalogoAseguradoras();
             $idSeguro = $this->lector->aseguradoraEnTexto($texto, $catalogo);
             $leido['aseguradora'] = $idSeguro ? $catalogo[$idSeguro] : null;
         }
+        $equipos = $this->equiposDeLoLeido($tipo, $leido);
 
-        $equipos = $tipo === LectorDocumentoPdf::RACDA
-            ? $this->equiposDelRacda($leido)
-            : $this->equipoDelDocumento($leido);
+        // ── Apoyo de la IA ────────────────────────────────────────────────────────
+        // Solo cuando la lectura de siempre (OCR de Drive + reglas) no alcanzo: sin texto,
+        // sin saber que documento es, sin dar con el equipo o sin la fecha que hace falta.
+        // Si esta lo resuelve todo, la IA ni se entera: no se gasta cupo ni tiempo.
+        $conIa = false;
+        $notaIa = null;
+        if (!$tipo || !$equipos || $this->faltaFechaQueAlguienPodriaLeer($tipo, $leido)) {
+            [$tipo, $leido, $equipos, $conIa, $notaIa] = $this->apoyarConIa($archivo, $tipoPedido, $tipo, $leido, $equipos);
+        }
+
+        // Sin tipo no hay nada que proponer: se devuelve el motivo de la lectura de siempre,
+        // porque es el que explica que paso con el archivo.
+        if (!$tipo) {
+            return $this->anotar($this->fallo($nombre, $link, $motivo ?: 'No se pudo leer el PDF.'), $driveId);
+        }
 
         $propuesta = [
             'archivo' => $nombre,
@@ -134,6 +178,7 @@ class CargaMasivaDocumentos
             'equipos' => $equipos,
             'estado'  => 'listo',
             'aviso'   => null,
+            'ia'      => $conIa,
         ];
 
         if (!$equipos) {
@@ -141,17 +186,98 @@ class CargaMasivaDocumentos
             $propuesta['aviso'] = $tipo === LectorDocumentoPdf::RACDA
                 ? 'Se leyo la providencia pero ninguna de sus placas esta registrada.'
                 : 'Se leyo el documento pero no dice de que equipo es (ni placa ni serial reconocidos).';
-            return $propuesta;
+            return $this->anotar($propuesta, $driveId);
         }
 
         // Un documento que vence sin su fecha no se puede aplicar: es el dato que vigila la app
         // y uploadDoc tampoco lo acepta. Se propone igual para que el usuario la escriba.
-        if (isset(DocumentacionDeEquipo::VENCIMIENTO[$tipo]) && !$propuesta['vence']) {
+        if ($this->faltaVencimiento($tipo, $leido)) {
             $propuesta['estado'] = 'revisar';
             $propuesta['aviso'] = 'No se leyo la fecha de vencimiento. Escribela para poder aplicarlo.';
+        } elseif ($conIa) {
+            $propuesta['estado'] = 'revisar';
+            $propuesta['aviso'] = trim('Leido con apoyo de inteligencia artificial: comprueba el equipo y las fechas antes de aplicar. ' . $notaIa);
+        }
+
+        return $this->anotar($propuesta, $driveId);
+    }
+
+    /**
+     * Deja la propuesta en la tabla de Revision de documentos, que es DONDE SE VE el estado de
+     * lo que se sube (el modal solo sirve para soltar archivos). Una fila por PDF, con
+     * ORIGEN='carga_masiva' para no confundirla con lo que lee la tarea de la noche.
+     *
+     * NO escribe en ninguna ficha: es una propuesta esperando que alguien pulse "Aplicar".
+     * Si falla al anotarla no se rompe la subida —el PDF ya esta en Drive y la pantalla ya
+     * tiene su respuesta—, pero queda en el log.
+     */
+    private function anotar(array $propuesta, ?string $driveId): array
+    {
+        if (!$driveId) return $propuesta;
+
+        $ficha = $propuesta['equipos'][0] ?? null;
+        try {
+            VerificacionDocumento::updateOrCreate(
+                ['DRIVE_ID' => $driveId, 'ORIGEN' => VerificacionDocumento::DE_CARGA_MASIVA],
+                [
+                    'ID_EQUIPO'   => ($ficha && !$ficha['auxiliar']) ? $ficha['id'] : null,
+                    'ID_AUXILIAR' => ($ficha && $ficha['auxiliar']) ? $ficha['id'] : null,
+                    'TIPO'        => $propuesta['tipo'],
+                    'PLACA'       => $ficha['placa'] ?? null,
+                    'SERIAL'      => $ficha['serial'] ?? null,
+                    'ARCHIVO'     => $propuesta['archivo'],
+                    'PROPUESTA'   => $propuesta,
+                    'ESTADO'      => $ficha ? VerificacionDocumento::POR_ENGANCHAR : VerificacionDocumento::SIN_FICHA,
+                    'MOTIVO'      => mb_substr($this->motivoDeLaPropuesta($propuesta), 0, 255),
+                    'A_MANO'      => true,
+                    'INTENTOS'    => 0,
+                ]
+            );
+        } catch (\Throwable $e) {
+            Log::warning('Carga masiva: no se pudo anotar la propuesta', [
+                'archivo' => $propuesta['archivo'], 'error' => $e->getMessage(),
+            ]);
         }
 
         return $propuesta;
+    }
+
+    /**
+     * El PDF ya esta en su ficha: su fila de la tabla pasa a "Aplicado". No se borra, para que
+     * se vea que paso con cada archivo que se solto; cuando la tarea de la noche relea ese
+     * documento —que ya es de la ficha— la convertira en una lectura suya.
+     */
+    private function cerrarPropuesta(string $link): void
+    {
+        if (!$driveId = DocumentoAnexo::driveIdDeLink($link)) return;
+
+        VerificacionDocumento::where('DRIVE_ID', $driveId)
+            ->where('ORIGEN', VerificacionDocumento::DE_CARGA_MASIVA)
+            ->update([
+                'ESTADO'       => VerificacionDocumento::APLICADO,
+                'A_MANO'       => false,
+                'APLICADO_POR' => auth()->id(),
+                'APLICADO_EN'  => now(),
+                'updated_at'   => now(),
+            ]);
+    }
+
+    /** Lo que se lee en la columna "Que dice la ficha y que dice el documento" de la tabla. */
+    private function motivoDeLaPropuesta(array $p): string
+    {
+        $ficha = $p['equipos'][0] ?? null;
+        // Sin ficha, lo unico que hay que contar es POR QUE no se supo de quien es.
+        if (!$ficha) return (string) ($p['aviso'] ?: 'Subido en carga masiva. Falta saber de que ficha es.');
+
+        $otros = count($p['equipos']) > 1 ? ' y ' . (count($p['equipos']) - 1) . ' unidad(es) mas' : '';
+
+        // El POR QUE va SIEMPRE primero, tambien cuando hubo un aviso (fecha que falta, lectura
+        // con ayuda de la IA...). Antes el aviso lo tapaba, y era justo cuando mas falta hace
+        // saber que dato del PDF cuadro con la ficha.
+        return trim('Reconocido por ' . ($ficha['coincide_por'] ?? 'lo que dice el PDF')
+            . ', que es de ' . $ficha['nombre'] . $otros
+            . ($p['vence'] ? '. Vence el ' . implode('/', array_reverse(explode('-', $p['vence']))) : '')
+            . '. ' . ($p['aviso'] ?: 'Falta aplicarlo a la ficha.'));
     }
 
     /** Propuesta que no llego a ninguna parte, con su motivo. El archivo ya esta en Drive. */
@@ -161,27 +287,178 @@ class CargaMasivaDocumentos
             'archivo' => $archivo, 'link' => $link, 'tipo' => null, 'tipo_nombre' => null,
             'vence' => null, 'emision' => null, 'titular' => null, 'nro' => null,
             'aseguradora' => null, 'equipos' => [], 'estado' => 'ilegible', 'aviso' => $motivo,
+            'ia' => false,
         ];
+    }
+
+    /** Los equipos que nombra lo leido, segun sea una providencia (varios) o no (uno). */
+    private function equiposDeLoLeido(?string $tipo, array $leido): array
+    {
+        if (!$tipo || !$leido) return [];
+        if ($tipo === LectorDocumentoPdf::RACDA) return $this->equiposDelRacda($leido);
+
+        $fichas = $this->equipoDelDocumento($leido);
+        // Si ningun equipo lo reconoce, puede ser de un AUXILIAR. Solo se mira para los dos
+        // documentos que un auxiliar puede guardar (titulo y certificado): buscarle una poliza
+        // o un ROTC no tiene sentido, no tiene donde ponerlos.
+        if (!$fichas && isset(self::TIPOS_AUXILIAR[$tipo])) {
+            $fichas = $this->auxiliarDelDocumento($leido);
+        }
+
+        return $fichas;
+    }
+
+    /** ¿Es de los que vencen y no se leyo su fecha? Sin ella no se puede aplicar. */
+    private function faltaVencimiento(?string $tipo, array $leido): bool
+    {
+        return $tipo && isset(DocumentacionDeEquipo::VENCIMIENTO[$tipo]) && empty($leido['vence']);
+    }
+
+    /**
+     * Lo mismo, pero SOLO para los documentos cuya fecha alguien sabe leer. Un "Certificado
+     * asociado" vence, pero ni las reglas ni la IA tienen forma de sacarle la fecha: no hay
+     * dos formatos iguales y su rotulo no es fijo. Preguntarle a la IA por esa fecha seria
+     * gastar cupo y ~6 s en CADA certificado para no obtener nada nunca: esa fecha se teclea.
+     */
+    private function faltaFechaQueAlguienPodriaLeer(?string $tipo, array $leido): bool
+    {
+        return isset(self::FECHA_LEGIBLE[$tipo]) && $this->faltaVencimiento($tipo, $leido);
+    }
+
+    /** Los documentos a los que el lector (y la IA) saben sacarles el vencimiento. */
+    private const FECHA_LEGIBLE = [
+        LectorDocumentoPdf::POLIZA => true,
+        LectorDocumentoPdf::ROTC   => true,
+        LectorDocumentoPdf::RACDA  => true,
+    ];
+
+    // ── Apoyo de la IA ────────────────────────────────────────────────────────────
+
+    /**
+     * Le da el PDF entero a Gemini y rellena SOLO lo que falto. Lo que la lectura de siempre
+     * ya saco no se toca: si el OCR dio una fecha, esa manda; la IA solo pone huecos.
+     *
+     * El resultado sigue siendo una PROPUESTA: la pantalla la marca como "revisar" y nada se
+     * escribe en la ficha hasta que el usuario pulse Aplicar.
+     *
+     * @return array{0:?string,1:array,2:array,3:bool,4:?string}  [tipo, leido, equipos, ayudo, nota]
+     */
+    private function apoyarConIa(UploadedFile $archivo, ?string $tipoPedido, ?string $tipo, array $leido, array $equipos): array
+    {
+        $comoEstaba = [$tipo, $leido, $equipos, false, null];
+        if (!$this->ia->disponible()) return $comoEstaba;
+
+        $pdf = (string) @file_get_contents($archivo->getRealPath());
+        // Un solo intento: esto corre dentro de una peticion del navegador, que tiene su
+        // propio tope de tiempo (ver CargaMasivaDocumentosController). Reintentar aqui
+        // acabaria en un "error de red" con el archivo ya subido.
+        $visto = $pdf === '' ? null : $this->ia->leer($pdf, false, 1);
+        if (!$visto) return $comoEstaba;
+
+        $tipoIa = $tipoPedido ?: ($tipo ?: $visto['tipo']);
+        if (!$tipoIa) return $comoEstaba;
+
+        $nuevo = $this->mezclarLoDeIa($tipoIa, $leido, $visto);
+        $equiposIa = $this->equiposDeLoLeido($tipoIa, $nuevo);
+
+        // Solo se acepta si sirvio de algo: enganchar el equipo, saber que documento es o
+        // poner la fecha que faltaba. Si no aporto nada, se deja tal cual estaba.
+        $ayudo = ($equiposIa && !$equipos)
+            || (!$tipo && $tipoIa)
+            || ($this->faltaVencimiento($tipoIa, $leido) && !$this->faltaVencimiento($tipoIa, $nuevo));
+        if (!$ayudo) return $comoEstaba;
+
+        // Lo que la IA dice que NO pudo leer bien, tal cual, para que se mire justo eso.
+        $nota = !$visto['seguro']
+            ? trim('El escaneo no deja leerlo con seguridad. ' . ($visto['nota'] ?? ''))
+            : $visto['nota'];
+
+        return [$tipoIa, $nuevo, $equiposIa, true, $nota ?: null];
+    }
+
+    /** Lo de la IA debajo de lo del OCR: rellena huecos, nunca pisa lo ya leido. */
+    private function mezclarLoDeIa(string $tipo, array $leido, array $visto): array
+    {
+        foreach (['placa', 'serial', 'titular', 'nro', 'emision', 'vence'] as $campo) {
+            if (empty($leido[$campo]) && !empty($visto[$campo])) $leido[$campo] = $visto[$campo];
+        }
+
+        // Los que amparan varios (providencia RACDA, poliza o ROTC de flota) vienen en lista.
+        // El serial de MOTOR no entra: 'seriales' son los de CARROCERIA y es contra esa columna
+        // contra la que se busca el equipo (buscarPorSerial).
+        $placas   = array_filter(array_column($visto['vehiculos'], 'placa'));
+        $seriales = array_filter(array_column($visto['vehiculos'], 'serial'));
+
+        $leido['placas']   = array_values(array_unique(array_merge($leido['placas'] ?? [], $placas)));
+        $leido['seriales'] = array_values(array_unique(array_merge($leido['seriales'] ?? [], $seriales)));
+
+        if ($tipo === LectorDocumentoPdf::POLIZA && empty($leido['aseguradora']) && !empty($visto['aseguradora'])) {
+            $catalogo = $this->catalogoAseguradoras();
+            $id = $this->lector->aseguradoraEnTexto($visto['aseguradora'], $catalogo);
+            $leido['aseguradora'] = $id ? $catalogo[$id] : null;
+        }
+
+        return $leido;
     }
 
     // ── Reconocer que documento es ────────────────────────────────────────────────
 
     /**
-     * De que tipo es el PDF, por lo que dice de si mismo. Se mira en este orden porque los
-     * rotulos se solapan: una providencia RACDA nombra polizas y vehiculos, y un ROTC trae
-     * "Fecha de Vencimiento" igual que una poliza. El mas especifico manda.
+     * El rotulo con el que cada documento se presenta. El ORDEN importa solo para desempatar:
+     * los rotulos se solapan (una providencia RACDA nombra polizas y vehiculos, y un ROTC trae
+     * "Fecha de Vencimiento" igual que una poliza), y en un empate manda el mas especifico.
+     */
+    private const ROTULOS = [
+        LectorDocumentoPdf::RACDA     => '/PROVIDENCIA ADMINISTRATIVA|RACDA|REGISTRO NACIONAL DE TRANSPORTE TERRESTRE/u',
+        LectorDocumentoPdf::ROTC      => '/\bROTC\b|CERTIFICADO DE CIRCULACI[OÓ]N/u',
+        LectorDocumentoPdf::POLIZA    => '/P[OÓ]LIZA|POLIZA|CUADRO RECIBO|ASEGURAD/u',
+        LectorDocumentoPdf::PROPIEDAD => '/CERTIFICADO DE REGISTRO DE VEH[IÍ]CULO|T[IÍ]TULO DE PROPIEDAD/u',
+    ];
+
+    /**
+     * Pistas FLOJAS: dicen quien emitio el papel, no que papel es. Solo valen cuando ningun
+     * rotulo de arriba aparecio, porque no pueden competir por posicion: el ROTC y la
+     * providencia RACDA los emite tambien el INTT y lo ponen en su membrete, o sea ANTES que
+     * su propio rotulo. Si compitieran, un ROTC con "INTT" en la cabecera se repartiria como
+     * titulo de propiedad — el mismo fallo que se arreglo, pero al reves.
+     */
+    private const PISTAS = [
+        LectorDocumentoPdf::PROPIEDAD => '/\bINTT\b/u',
+    ];
+
+    /**
+     * De que tipo es el PDF, por lo que dice de si mismo. Gana el rotulo que aparece ANTES en
+     * el texto, porque un documento se anuncia en su encabezado y lo de despues son menciones.
+     *
+     * Por que no vale mirarlos en un orden fijo (visto en la prueba real del 23-09-2026): el
+     * titulo de propiedad del INTT se presenta en el caracter 3 ("Certificado de Registro de
+     * Vehiculo") pero en su letra pequeña, por el caracter 2.879, nombra el "certificado de
+     * circulacion". Con el orden fijo ganaba esa mencion y DOS titulos de propiedad se
+     * repartian como si fueran ROTC — y aplicarlos habria metido el titulo en la casilla del
+     * ROTC y tapado el ROTC bueno.
      */
     public function detectarTipo(string $texto): ?string
     {
         $t = preg_replace('/\s+/u', ' ', mb_strtoupper($texto, 'UTF-8'));
 
-        return match (true) {
-            (bool) preg_match('/PROVIDENCIA ADMINISTRATIVA|RACDA|REGISTRO NACIONAL DE TRANSPORTE TERRESTRE/u', $t) => LectorDocumentoPdf::RACDA,
-            (bool) preg_match('/\bROTC\b|CERTIFICADO DE CIRCULACI[OÓ]N/u', $t) => LectorDocumentoPdf::ROTC,
-            (bool) preg_match('/P[OÓ]LIZA|POLIZA|CUADRO RECIBO|ASEGURAD/u', $t) => LectorDocumentoPdf::POLIZA,
-            (bool) preg_match('/CERTIFICADO DE REGISTRO DE VEH[IÍ]CULO|T[IÍ]TULO DE PROPIEDAD|INTT/u', $t) => LectorDocumentoPdf::PROPIEDAD,
-            default => null,
-        };
+        $mejor = null;
+        $donde = PHP_INT_MAX;
+        foreach (self::ROTULOS as $tipo => $re) {
+            if (!preg_match($re, $t, $m, PREG_OFFSET_CAPTURE)) continue;
+            // Estricto: en un empate se queda el primero de ROTULOS, que es el mas especifico.
+            if ($m[0][1] < $donde) {
+                $donde = $m[0][1];
+                $mejor = $tipo;
+            }
+        }
+        if ($mejor) return $mejor;
+
+        // Ningun documento se anuncio: se mira quien lo emite (ver PISTAS).
+        foreach (self::PISTAS as $tipo => $re) {
+            if (preg_match($re, $t)) return $tipo;
+        }
+
+        return null;
     }
 
     // ── De que equipo es ──────────────────────────────────────────────────────────
@@ -203,9 +480,38 @@ class CargaMasivaDocumentos
         $placas = array_filter(array_merge([$leido['placa'] ?? null], $leido['placas'] ?? []));
 
         $fila = $seriales ? $this->buscarPorSerial($seriales) : null;
-        if (!$fila && $placas) $fila = $this->buscarPorPlaca($placas);
+        $porQue = $fila ? 'el serial ' . $fila->SERIAL_CHASIS : null;
+        if (!$fila && $placas) {
+            $fila = $this->buscarPorPlaca($placas);
+            if ($fila) $porQue = 'la placa ' . $fila->PLACA;
+        }
+        if (!$fila) return [];
 
-        return $fila ? [$this->ficha($fila)] : [];
+        // POR QUE se eligio esa ficha. Es lo primero que necesita saber quien mira la tabla
+        // ("¿y como se que es de ESE equipo?"): el dato impreso en el PDF que cuadro EXACTO
+        // con la ficha. Sin el, la propuesta es un acto de fe.
+        return [['coincide_por' => $porQue] + $this->ficha($fila)];
+    }
+
+    /**
+     * El AUXILIAR al que pertenece el documento. Solo por SERIAL: un auxiliar no tiene placa,
+     * asi que es lo unico con lo que se le puede reconocer. Devuelve una lista de 0 o 1 para
+     * que quien lo use no tenga que distinguir este caso del de los equipos.
+     */
+    private function auxiliarDelDocumento(array $leido): array
+    {
+        $seriales = array_values(array_filter(array_merge(
+            [$leido['serial'] ?? null],
+            $leido['seriales'] ?? []
+        )));
+        if (!$seriales) return [];
+
+        $fila = EquipoAuxiliar::whereNull('deleted_at')
+            ->whereIn(DB::raw('UPPER(SERIAL)'), array_map('strtoupper', $seriales))
+            ->first(['ID_AUXILIAR', 'SERIAL', 'MARCA', 'MODELO',
+                     'LINK_DOC_PROPIEDAD', 'LINK_CERTIFICADO', 'FECHA_VENCIMIENTO_CERT']);
+
+        return $fila ? [['coincide_por' => 'el serial ' . $fila->SERIAL] + $this->fichaAuxiliar($fila)] : [];
     }
 
     /** Los equipos que nombra la lista de placas de una providencia RACDA. */
@@ -255,7 +561,8 @@ class CargaMasivaDocumentos
             ->select([
                 'd.ID_EQUIPO', 'd.PLACA', 'e.SERIAL_CHASIS', 'e.MODELO', 'e.MARCA',
                 'd.LINK_DOC_PROPIEDAD', 'd.LINK_POLIZA_SEGURO', 'd.LINK_ROTC', 'd.LINK_RACDA',
-                'd.FECHA_VENC_POLIZA', 'd.FECHA_ROTC', 'd.FECHA_RACDA',
+                'd.LINK_DOC_ADICIONAL', 'd.LINK_DOC_ADICIONAL_2',
+                'd.FECHA_VENC_POLIZA', 'd.FECHA_ROTC', 'd.FECHA_RACDA', 'd.FECHA_ADICIONAL',
             ]);
     }
 
@@ -268,20 +575,46 @@ class CargaMasivaDocumentos
     private function ficha(object $f): array
     {
         return [
-            'id'     => (int) $f->ID_EQUIPO,
-            'placa'  => $f->PLACA,
-            'serial' => $f->SERIAL_CHASIS,
-            'nombre' => trim(($f->MARCA ?? '') . ' ' . ($f->MODELO ?? '')) ?: ('Equipo #' . $f->ID_EQUIPO),
+            'id'       => (int) $f->ID_EQUIPO,
+            'auxiliar' => false,
+            'placa'    => $f->PLACA,
+            'serial'   => $f->SERIAL_CHASIS,
+            'nombre'   => trim(($f->MARCA ?? '') . ' ' . ($f->MODELO ?? '')) ?: ('Equipo #' . $f->ID_EQUIPO),
             'links'  => [
                 LectorDocumentoPdf::PROPIEDAD => (bool) $f->LINK_DOC_PROPIEDAD,
                 LectorDocumentoPdf::POLIZA    => (bool) $f->LINK_POLIZA_SEGURO,
                 LectorDocumentoPdf::ROTC      => (bool) $f->LINK_ROTC,
                 LectorDocumentoPdf::RACDA     => (bool) $f->LINK_RACDA,
+                self::CERTIFICADO             => (bool) $f->LINK_DOC_ADICIONAL,
+                self::COMPRAVENTA             => (bool) $f->LINK_DOC_ADICIONAL_2,
             ],
             'vence_ficha' => [
                 LectorDocumentoPdf::POLIZA => $this->soloFecha($f->FECHA_VENC_POLIZA),
                 LectorDocumentoPdf::ROTC   => $this->soloFecha($f->FECHA_ROTC),
                 LectorDocumentoPdf::RACDA  => $this->soloFecha($f->FECHA_RACDA),
+                self::CERTIFICADO          => $this->soloFecha($f->FECHA_ADICIONAL),
+            ],
+        ];
+    }
+
+    /**
+     * Lo mismo para un AUXILIAR. Solo admite dos documentos (ver EquipoAuxiliar::DOCS) y no
+     * tiene placa: se reconoce por su serial, que es lo unico que trae su ficha.
+     */
+    private function fichaAuxiliar(object $a): array
+    {
+        return [
+            'id'       => (int) $a->ID_AUXILIAR,
+            'auxiliar' => true,
+            'placa'    => null,
+            'serial'   => $a->SERIAL,
+            'nombre'   => trim(($a->MARCA ?? '') . ' ' . ($a->MODELO ?? '')) ?: ('Auxiliar #' . $a->ID_AUXILIAR),
+            'links' => [
+                LectorDocumentoPdf::PROPIEDAD => (bool) $a->LINK_DOC_PROPIEDAD,
+                self::CERTIFICADO             => (bool) $a->LINK_CERTIFICADO,
+            ],
+            'vence_ficha' => [
+                self::CERTIFICADO => $this->soloFecha($a->FECHA_VENCIMIENTO_CERT),
             ],
         ];
     }
@@ -310,10 +643,13 @@ class CargaMasivaDocumentos
      * los datos de verdad sin tocarlos: lo que niega en ensayo lo negaria igual de verdad,
      * y lo que aceptaria lo cuenta campo por campo.
      */
-    public function aplicar(int $idEquipo, string $tipo, string $link, ?string $vence, ?string $emision, bool $pisar = false, bool $ensayo = false): array
+    public function aplicar(int $idEquipo, string $tipo, string $link, ?string $vence, ?string $emision, bool $pisar = false, bool $ensayo = false, bool $auxiliar = false): array
     {
         if (!in_array($tipo, self::TIPOS, true)) {
             return ['ok' => false, 'mensaje' => 'Tipo de documento no valido.'];
+        }
+        if ($auxiliar) {
+            return $this->aplicarEnAuxiliar($idEquipo, $tipo, $link, $vence, $pisar, $ensayo);
         }
 
         $equipo = Equipo::with('documentacion')->find($idEquipo);
@@ -389,6 +725,82 @@ class CargaMasivaDocumentos
         ]);
         if ($diff) EquipoAuditLog::registrar($equipo->ID_EQUIPO, 'metadata_' . $tipo, $diff);
 
+        $this->cerrarPropuesta($link);
+        return ['ok' => true, 'mensaje' => 'Aplicado.'];
+    }
+
+    /**
+     * Lo mismo, pero en la ficha de un AUXILIAR. Va aparte porque la ficha es otra tabla y
+     * tiene mucho menos: solo dos documentos (EquipoAuxiliar::DOCS), el enlace y —en el
+     * certificado— su vencimiento. No guarda quien lo subio ni cuando, ni fecha de emision.
+     *
+     * Las PUERTAS son exactamente las mismas que en un equipo, en el mismo orden: no se pisa
+     * un documento que ya esta sin decirlo, no se retrocede un vencimiento ni con permiso, y
+     * lo que vence no entra sin su fecha.
+     */
+    private function aplicarEnAuxiliar(int $idAuxiliar, string $tipo, string $link, ?string $vence, bool $pisar, bool $ensayo): array
+    {
+        $tipoAux = self::TIPOS_AUXILIAR[$tipo] ?? null;
+        if (!$tipoAux) {
+            return ['ok' => false, 'mensaje' => 'Un equipo auxiliar solo puede tener título de propiedad y certificado.'];
+        }
+
+        $aux = EquipoAuxiliar::whereNull('deleted_at')->find($idAuxiliar);
+        if (!$aux) return ['ok' => false, 'mensaje' => 'El equipo auxiliar ya no existe.'];
+
+        $colLink  = EquipoAuxiliar::DOCS[$tipoAux];
+        $colVence = EquipoAuxiliar::DOCS_VENCE[$tipoAux] ?? null;
+
+        $anterior = $aux->$colLink;
+        if ($anterior && !$pisar) {
+            return ['ok' => false, 'requiere_pisar' => true,
+                    'mensaje' => 'Este auxiliar ya tiene ese documento. Marca "reemplazar" si quieres cambiarlo.'];
+        }
+        if ($colVence && $vence) {
+            $motivo = VerificacionDocumento::documentoAnterior($this->soloFecha($aux->$colVence), $vence);
+            if ($motivo) return ['ok' => false, 'mensaje' => $motivo];
+        }
+        if ($colVence && !$vence) {
+            return ['ok' => false, 'mensaje' => 'Falta la fecha de vencimiento.'];
+        }
+
+        $datos = [$colLink => $link];
+        if ($colVence && $vence) $datos[$colVence] = $vence;
+
+        $diff = [];
+        foreach ($datos as $campo => $valor) {
+            $antes = $campo === $colVence ? $this->soloFecha($aux->$campo) : $aux->$campo;
+            if ((string) $antes !== (string) $valor) $diff[$campo] = ['antes' => $antes, 'despues' => $valor];
+        }
+
+        if ($ensayo) {
+            return ['ok' => true, 'ensayo' => true, 'cambios' => $diff,
+                    'mensaje' => 'ENSAYO — ' . ($anterior ? 'reemplazaría el PDF que ya tiene' : 'enlazaría el PDF')
+                        . ($colVence && $vence ? ' y pondría el vencimiento ' . $vence : '') . '. No se escribió nada.'];
+        }
+
+        $aux->update($datos);
+
+        // Igual que en los equipos: en LOCAL no se borra de Drive el reemplazado (el .env de
+        // desarrollo apunta al Drive REAL y se perderia para todos).
+        if ($anterior && $anterior !== $link && ($viejoId = DocumentoAnexo::driveIdDeLink($anterior))) {
+            if (app()->environment('local')) {
+                Log::info('Carga masiva en local: NO se borra de Drive el documento reemplazado', [
+                    'auxiliar' => $aux->ID_AUXILIAR, 'tipo' => $tipo, 'drive_id' => $viejoId,
+                ]);
+            } else {
+                GoogleDriveService::borrarTrasResponder($viejoId);
+            }
+        }
+
+        $this->cerrarPropuesta($link);
+
+        // AQUI NO SE AUDITA. El update() de arriba dispara EquipoAuxiliarObserver::updated, que
+        // ya escribe la subida (aux_upload_propiedad / aux_upload_certificado) y el cambio de
+        // fecha, con los nombres que el Control de Auditoria sabe rotular y filtrar. Escribir
+        // aqui otra fila dejaria TRES apuntes del mismo acto, uno de ellos con un nombre de
+        // accion que esa pantalla no conoce. En los equipos si se audita a mano porque su
+        // observer (DocumentacionObserver) se abstiene a proposito de estos campos.
         return ['ok' => true, 'mensaje' => 'Aplicado.'];
     }
 
@@ -414,8 +826,12 @@ class CargaMasivaDocumentos
      */
     public function descartar(?string $link): void
     {
-        if ($id = DocumentoAnexo::driveIdDeLink($link)) {
-            GoogleDriveService::borrarTrasResponder($id);
-        }
+        if (!$id = DocumentoAnexo::driveIdDeLink($link)) return;
+
+        // Su fila sale de la tabla de Revision de documentos: la propuesta ya no existe.
+        VerificacionDocumento::where('DRIVE_ID', $id)
+            ->where('ORIGEN', VerificacionDocumento::DE_CARGA_MASIVA)->delete();
+
+        GoogleDriveService::borrarTrasResponder($id);
     }
 }

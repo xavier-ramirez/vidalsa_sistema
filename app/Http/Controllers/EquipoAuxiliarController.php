@@ -1177,7 +1177,7 @@ class EquipoAuxiliarController extends Controller
             // Borrar las fotos anteriores de Drive (best-effort, no fatal si falla)
             foreach ($oldDriveIds as $oldId) {
                 if ($oldId && $oldId !== $driveFile->id) {
-                    try { $driveService->deleteFile($oldId); } catch (\Throwable $e) { /* silent */ }
+                    try { $driveService->enviarAPapelera($oldId); } catch (\Throwable $e) { /* silent */ }
                 }
             }
         } finally {
@@ -1249,7 +1249,7 @@ class EquipoAuxiliarController extends Controller
         defer(function () use ($oldDriveIds) {
             foreach ($oldDriveIds as $oldId) {
                 try {
-                    \App\Services\GoogleDriveService::getInstance()->deleteFile($oldId);
+                    \App\Services\GoogleDriveService::getInstance()->enviarAPapelera($oldId);
                 } catch (\Throwable $e) { /* silent */ }
             }
         });

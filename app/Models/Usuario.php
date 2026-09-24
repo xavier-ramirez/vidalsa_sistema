@@ -51,6 +51,7 @@ class Usuario extends Authenticatable
         'almacen.movimiento'    => true,
         'almacen.nota.eliminar' => true,
         'user.delete'           => true,
+        'docs.carga.masiva'     => true,
     ];
 
     /**

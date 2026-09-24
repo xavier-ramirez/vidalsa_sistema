@@ -934,7 +934,7 @@ class CaracteristicaModeloController extends Controller
         $idAnterior = CaracteristicaModelo::idDrive($anterior);
         if ($idAnterior && $idAnterior !== $driveFile->id && !CaracteristicaModelo::fotoSigueEnUso($idAnterior)) {
             try {
-                $driveService->deleteFile($idAnterior);
+                $driveService->enviarAPapelera($idAnterior);
                 \App\Services\GoogleDriveService::olvidarCopiaLocal($idAnterior);
             } catch (\Exception $e) {
                 Log::warning('No se pudo borrar la foto anterior de Drive: ' . $idAnterior . ' - ' . $e->getMessage());
@@ -1058,7 +1058,7 @@ class CaracteristicaModeloController extends Controller
             if ($fileId && !CaracteristicaModelo::fotoSigueEnUso($fileId)) {
                 defer(function () use ($fileId) {
                     try {
-                        GoogleDriveService::getInstance()->deleteFile($fileId);
+                        GoogleDriveService::getInstance()->enviarAPapelera($fileId);
                         \App\Services\GoogleDriveService::olvidarCopiaLocal($fileId);
                     } catch (\Exception $e) {
                         Log::warning("Drive delete failed for catalog photo: {$fileId} - " . $e->getMessage());
@@ -1106,7 +1106,7 @@ class CaracteristicaModeloController extends Controller
                     continue;
                 }
                 try {
-                    GoogleDriveService::getInstance()->deleteFile($fileId);
+                    GoogleDriveService::getInstance()->enviarAPapelera($fileId);
                     \App\Services\GoogleDriveService::olvidarCopiaLocal($fileId);
                 } catch (\Exception $e) {
                     Log::warning("Drive delete failed after DB commit (file orphaned in Drive): {$fileId} - " . $e->getMessage());

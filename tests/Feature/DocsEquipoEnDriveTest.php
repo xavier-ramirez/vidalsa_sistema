@@ -214,4 +214,50 @@ class DocsEquipoEnDriveTest extends MySqlTestCase
         $this->assertSame('/storage/google/rotc-viejo?v=1', $equipo->documentacion()->first()->LINK_ROTC);
         Bus::assertNotDispatched(DeleteGoogleDriveFile::class);
     }
+
+    public function test_el_panel_responde_aunque_el_equipo_no_tenga_ningun_documento(): void
+    {
+        // Un equipo al que nunca se le cargó nada no tiene fila en `documentacion`. El panel
+        // del visor es donde se escribe la fecha al cargar el PRIMERO (y donde se elige la
+        // aseguradora), así que tiene que recibir sus campos igual, vacíos.
+        $equipo = Equipo::create([
+            'MARCA' => 'PRUEBA', 'MODELO' => 'SIN-DOCS', 'ANIO' => 2026,
+            'SERIAL_CHASIS' => 'TEST-SINDOCS-' . uniqid(),
+        ]);
+        $this->assertNull($equipo->documentacion, 'el equipo de la prueba no debe tener fila');
+        $url = "/admin/equipos/{$equipo->ID_EQUIPO}/metadata";
+
+        $this->actingAs($this->usuario())->get("$url?type=poliza")
+            ->assertOk()
+            ->assertJsonPath('data.fecha_vencimiento', '')
+            ->assertJsonStructure(['data' => ['fecha_vencimiento', 'insurers']]);
+
+        foreach (['rotc', 'racda', 'adicional'] as $tipo) {
+            $this->actingAs($this->usuario())->get("$url?type=$tipo")
+                ->assertOk()->assertJsonPath('data.fecha_vencimiento', '');
+        }
+    }
+
+    public function test_borrar_el_documento_se_lleva_su_vencimiento_y_su_emision(): void
+    {
+        // La otra mitad de "ni fecha sin PDF, ni PDF sin fecha". Antes el borrado solo
+        // limpiaba el enlace: la ficha quedaba diciendo cuándo vence un papel que ya no
+        // está, y por ahí el listado de equipos (mira el enlace) y las alertas (miran la
+        // fecha) dejaban de cuadrar.
+        $equipo = $this->equipoConRotc();
+        Documentacion::where('ID_EQUIPO', $equipo->ID_EQUIPO)->update([
+            'FECHA_ROTC'         => '2027-01-15',
+            'FECHA_EMISION_ROTC' => '2026-01-15',
+        ]);
+
+        $this->actingAs($this->usuario())
+            ->delete("/admin/equipos/{$equipo->ID_EQUIPO}/delete-doc", ["doc_type" => "rotc"], ["Accept" => "application/json"])
+            ->assertOk()
+            ->assertJson(['success' => true]);
+
+        $doc = $equipo->documentacion()->first();
+        $this->assertNull($doc->LINK_ROTC);
+        $this->assertNull($doc->getRawOriginal('FECHA_ROTC'), 'el vencimiento se queda sin PDF que lo respalde');
+        $this->assertNull($doc->getRawOriginal('FECHA_EMISION_ROTC'), 'la emisión también sale del PDF borrado');
+    }
 }

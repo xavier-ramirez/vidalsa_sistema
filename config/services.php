@@ -51,4 +51,27 @@ return [
         'es_servidor' => env('DRIVE_ES_SERVIDOR'),
     ],
 
+    // Segundo lector de documentos (App\Services\LectorGemini): Gemini mira el PDF entero
+    // cuando el OCR de Drive no alcanza. Sin GEMINI_API_KEY el sistema trabaja como siempre.
+    // Los topes son los del plan GRATIS (AI Studio, medidos el 22-09-2026); si se paga un plan
+    // con mas cupo, basta subirlos por .env sin tocar codigo.
+    'gemini' => [
+        'key' => env('GEMINI_API_KEY'),
+
+        // El de diario: rapido, barato y con cupo grande (15 por minuto, 500 al dia).
+        'modelo' => env('GEMINI_MODELO', 'gemini-3.5-flash-lite'),
+        'rpm'    => env('GEMINI_RPM', 15),
+        'rpd'    => env('GEMINI_RPD', 450),
+
+        // El de los casos duros: lee mejor pero su cupo diario es minimo (20 al dia), asi que
+        // solo se usa cuando el documento quedo ilegible o los datos no cuadran.
+        'modelo_dificil' => env('GEMINI_MODELO_DIFICIL', 'gemini-3.8-flash'),
+        'rpd_dificil'    => env('GEMINI_RPD_DIFICIL', 18),
+
+        // Espera por documento. 75 s con holgura: medido el 22-09-2026 son ~6 s de media y
+        // ~20 s el peor. Tiene que caber en el tope de la peticion de la carga masiva
+        // (set_time_limit(180) en CargaMasivaDocumentosController) junto con la subida y el OCR.
+        'timeout' => env('GEMINI_TIMEOUT', 75),
+    ],
+
 ];

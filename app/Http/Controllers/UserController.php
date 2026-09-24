@@ -231,6 +231,11 @@ class UserController extends Controller
             'alertas.ver.rotc'        => 'Alertas de documentos: ver ROTC',
             'alertas.ver.racda'       => 'Alertas de documentos: ver RACDA',
             'alertas.ver.certificado' => 'Alertas de documentos: ver Certificados',
+            // Carga masiva de documentos (Control de Auditoria). EXCLUSIVA
+            // (PERMISOS_EXPLICITOS): ni super.admin la hereda. Sube PDF en lote y los
+            // engancha SOLA a la ficha que reconoce, asi que quien la tenga puede tocar la
+            // documentacion de cualquier equipo o auxiliar de un tiron: se concede a dedo.
+            'docs.carga.masiva'   => 'Carga masiva de documentos',
             'super.admin'         => 'Acceso Total (Super Admin)',
         ];
     }

@@ -349,7 +349,11 @@
 
 @include('admin.historial_documentos.partials.desplegables')
 @include('admin.historial_documentos.partials.papelera')
-@include('admin.historial_documentos.partials.carga_masiva')
+{{-- Sin el permiso el modal NI SE CARGA: así no existe ni su HTML ni su
+     window.abrirCargaMasiva, y no basta con esconder el botón del menú Acciones. --}}
+@can('docs.carga.masiva')
+    @include('admin.historial_documentos.partials.carga_masiva')
+@endcan
 
 @if ($pestana !== 'historial')
     @include('admin.compresion_pdf.panel')

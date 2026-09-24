@@ -107,21 +107,63 @@ class VerificacionDocumento extends Model
     }
 
     protected $fillable = [
-        'ID_EQUIPO', 'TIPO', 'PLACA', 'SERIAL', 'DRIVE_ID',
-        'LEIDO', 'DIFERENCIAS', 'ESTADO', 'MOTIVO', 'CARACTERES', 'INTENTOS', 'A_MANO', 'APLICADO_POR', 'APLICADO_EN',
+        'ID_EQUIPO', 'ID_AUXILIAR', 'TIPO', 'PLACA', 'SERIAL', 'DRIVE_ID', 'ARCHIVO',
+        'LEIDO', 'PROPUESTA', 'DIFERENCIAS', 'ESTADO', 'ORIGEN', 'MOTIVO', 'CARACTERES',
+        'INTENTOS', 'A_MANO', 'APLICADO_POR', 'APLICADO_EN',
     ];
 
     protected $casts = [
         'LEIDO'       => 'array',
+        'PROPUESTA'   => 'array',
         'DIFERENCIAS' => 'array',
         'A_MANO'      => 'boolean',
         'APLICADO_EN' => 'datetime',
     ];
 
-    /** Lo que mira una persona: no se pudo leer, no hay archivo, fallo, o la tarea no lo puede poner sola. */
+    // ── De donde sale la fila ─────────────────────────────────────────────────────
+
+    /** La leyo la tarea de la noche a partir de un documento YA enlazado a una ficha. */
+    public const DE_LA_NOCHE = 'noche';
+
+    /** La solto una persona en la carga masiva y todavia no se ha aplicado a ninguna ficha. */
+    public const DE_CARGA_MASIVA = 'carga_masiva';
+
+    /**
+     * Estado propio de la carga masiva: el PDF se leyo y hay una ficha candidata, pero NADIE
+     * lo ha enlazado todavia. Es el unico estado desde el que se puede pulsar "Aplicar".
+     */
+    public const POR_ENGANCHAR = 'por_enganchar';
+
+    /** Se leyo pero no se reconocio de que equipo ni de que auxiliar es. */
+    public const SIN_FICHA = 'sin_ficha';
+
+    /**
+     * Ya se enlazo a su ficha. La fila se queda para que se vea que paso con ese PDF; cuando
+     * la tarea de la noche lo relea (ya es un documento de la ficha) la convertira en una
+     * lectura suya, con su comparacion de verdad.
+     */
+    public const APLICADO = 'aplicado';
+
+    /** Los estados de la carga masiva que todavia esperan a una persona. */
+    public const DE_LA_CARGA = [self::POR_ENGANCHAR, self::SIN_FICHA];
+
+    /** Todos los de la carga masiva, incluido el ya resuelto. Para el filtro de la pantalla. */
+    public const DE_LA_CARGA_TODOS = [self::POR_ENGANCHAR, self::SIN_FICHA, self::APLICADO];
+
+    /** Filas que vienen de la carga masiva y siguen sin aplicarse. */
+    public function scopeDeCargaMasiva($q)
+    {
+        return $q->where('ORIGEN', self::DE_CARGA_MASIVA);
+    }
+
+    /**
+     * Lo que mira una persona: no se pudo leer, no hay archivo, fallo, la tarea no lo puede
+     * poner sola, o es un PDF recien soltado en la carga masiva que espera que lo apliquen.
+     */
     public function scopeParaRevisar($q)
     {
-        return $q->where(fn ($w) => $w->whereIn('ESTADO', self::A_REVISAR)->orWhere('A_MANO', true));
+        return $q->where(fn ($w) => $w->whereIn('ESTADO', array_merge(self::A_REVISAR, self::DE_LA_CARGA))
+            ->orWhere('A_MANO', true));
     }
 
     /** Lo que la tarea todavia puede poner sola: hay diferencias y el PDF es de este vehiculo. */
@@ -157,6 +199,11 @@ class VerificacionDocumento extends Model
             ->whereColumn('v.ID_EQUIPO', 'd.ID_EQUIPO')
             ->where('v.TIPO', $tipo)
             ->whereRaw("v.DRIVE_ID = $idEnlace")
+            // "Leido" es lo que leyo ESTA tarea. Una fila de la carga masiva NO cuenta: ahi solo
+            // dice que alguien solto ese PDF y lo enlazo, no que se haya comparado con la ficha.
+            // Sin esto, un documento aplicado desde la carga masiva no se revisaba NUNCA (su fila
+            // ya ocupaba el sitio) y ademas el avance lo daba por leido: la barra mentia.
+            ->where('v.ORIGEN', self::DE_LA_NOCHE)
             // Ya leido de verdad, o "No se pudo leer" que agoto sus intentos ESTA noche.
             ->where(fn ($w) => $w->whereNotIn('v.ESTADO', [self::ILEGIBLE, self::ERROR])
                 ->orWhere(fn ($x) => $x->where('v.INTENTOS', '>=', self::MAX_INTENTOS)

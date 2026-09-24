@@ -218,15 +218,27 @@ class GoogleDriveService
         self::olvidarCopiaLocal($fileId);
     }
 
-    public function deleteFile($fileId)
+    /**
+     * Manda un archivo a la PAPELERA de Google Drive. NO lo borra para siempre.
+     *
+     * Antes esto llamaba a files->delete, que en Drive es definitivo: salta la papelera y el
+     * archivo no se puede recuperar por ningun medio. Con un documento reemplazado por error
+     * —una carga masiva con "reemplazar" marcado de mas, una foto cambiada sin querer— eso
+     * significaba perder el PDF bueno sin vuelta atras. En la papelera queda 30 dias y
+     * cualquiera con acceso al Drive lo restaura con un clic.
+     *
+     * Quien de verdad quiera liberar el espacio, vacia la papelera de Drive a mano.
+     */
+    public function enviarAPapelera($fileId)
     {
         try {
             $drive = $this->getDrive();
-            $drive->files->delete($fileId, ['supportsAllDrives' => true]);
-            Log::info("Deleted file from Google Drive: " . $fileId);
+            $drive->files->update($fileId, new \Google\Service\Drive\DriveFile(['trashed' => true]),
+                                  ['supportsAllDrives' => true]);
+            Log::info("Archivo enviado a la papelera de Google Drive: " . $fileId);
             return true;
         } catch (\Exception $e) {
-            Log::error("Google Drive Delete Error: " . $e->getMessage());
+            Log::error("Google Drive: no se pudo enviar a la papelera: " . $e->getMessage());
             return false;
         }
     }
