@@ -2303,6 +2303,13 @@ window.saveMetadata = async function (e) {
     // datos por su cuenta no tendría sentido aquí: serían los del documento que se va a
     // reemplazar (ver _pdfPedirVencEnPanel).
     if (_pdfGuardarCargaPendiente()) return;
+    // Hay un PDF subiendo desde el visor: el panel todavía es el del documento VIEJO y
+    // guardar ahora le escribiría la fecha NUEVA a él (si la subida falla, se quedaría así).
+    // Esta guarda cubre el botón y el Enter del teclado hasta que termine (_pdfFinDeSubida).
+    if (_pdfSubidaEnCurso) {
+        window.toast('Espera a que termine de subir el documento.', 'info');
+        return;
+    }
     const ctx = window.currentPdfContext;
     const btn = document.getElementById('btnSaveMeta');
     const originalHTML = btn.innerHTML;
@@ -2748,8 +2755,10 @@ window.pedirVencimientoEnVisor = function (file, opts) {
         //    se resolvió y empezó otra, el reloj de la anterior no se la lleva por delante.
         setTimeout(function () {
             if (window._pdfVencPendiente !== pendiente) return;
-            // Si el campo ya está pedido (el panel se pintó), no hay nada que rescatar.
-            if (document.querySelector('#metaFieldsContainer input[name="fecha_vencimiento"]')) return;
+            // Si el campo ya está pedido (el panel se pintó para ESTE documento), no hay nada
+            // que rescatar. No basta con que exista un campo de fecha: al reemplazar desde el
+            // visor el panel del documento anterior ya tiene uno.
+            if (pendiente.panelListo) return;
             window.toast('No se pudieron abrir los datos del documento. Vuelve a intentarlo.', 'error');
             _pdfCerrarPendiente(null);
         }, PDF_VENC_ESPERA_PANEL_MS);
@@ -2817,6 +2826,8 @@ function _pdfPedirVencEnPanel() {
     campo.value = '';
     campo.disabled = false;
     campo.style.borderColor = '#f6ad55';
+    // Desde aquí el campo es el del documento NUEVO (ver _pdfGuardarCargaPendiente).
+    pend.panelListo = true;
 
     // Las acciones de la cabecera sí se esconden: lo que hay delante es un PDF que todavía
     // no existe en el sistema, pero esos botones actúan sobre el documento REAL del equipo
@@ -2846,6 +2857,12 @@ function _pdfPedirVencEnPanel() {
  */
 function _pdfGuardarCargaPendiente() {
     if (!window._pdfVencPendiente) return false;
+    // El panel aún no se repintó: lo que se ve es el del documento anterior, con SU fecha.
+    // Subir con ella es justo el error que este paso evita (ver _pdfPedirVencEnPanel).
+    if (!window._pdfVencPendiente.panelListo) {
+        window.toast('Espera a que se abran los datos del documento.', 'info');
+        return true;
+    }
     const campo = document.querySelector('#metaFieldsContainer input[name="fecha_vencimiento"]');
     if (!campo || !campo.value) {
         if (campo) { campo.style.borderColor = '#fc8181'; campo.focus(); }

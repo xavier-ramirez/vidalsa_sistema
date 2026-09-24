@@ -482,7 +482,7 @@
     // public/js/maquinaria/maquinaria_listado.js, que el navegador cachea.
     $maq_cfg = [
         'nextOffset' => (int) ($nextOffset ?? 0),
-        'hasMore' => !empty($hasMore) ? 'true' : 'false',
+        'hasMore' => !empty($hasMore),
         'rutaEquiposAuxiliaresIndex' => route("equipos-auxiliares.index"),
         'rutaEquiposAuxiliaresIndex2' => route("equipos-auxiliares.index"),
         'tipos' => $tipos,
