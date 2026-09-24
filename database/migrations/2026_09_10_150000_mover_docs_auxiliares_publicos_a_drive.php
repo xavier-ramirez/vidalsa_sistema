@@ -45,7 +45,7 @@ return new class extends Migration
                 }
 
                 $drive ??= GoogleDriveService::getInstance();
-                $aux->$col = EquipoAuxiliar::subirDocADrive($drive, $tipo, new File($publico->path($rel)));
+                $aux->$col = EquipoAuxiliar::subirDocADrive($drive, $tipo, new File($publico->path($rel)), false);   // sin comprobar: mueve lo que YA existe
                 // Sin observer: es un traslado, no una subida de un usuario; no va al historial.
                 $aux->saveQuietly();
                 $cambios = true;

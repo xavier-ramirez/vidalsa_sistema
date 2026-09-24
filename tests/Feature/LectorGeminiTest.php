@@ -175,10 +175,19 @@ class LectorGeminiTest extends MySqlTestCase
         return $equipo->fresh();
     }
 
-    /** Con contenido de verdad: un archivo vacio no se le manda a la IA (y fake()->create lo es). */
+    /**
+     * Un PDF ENTERO de mentira: cabecera, cuerpo y su marca de fin.
+     *
+     * Con contenido de verdad porque un archivo vacío no se le manda a la IA (y `fake()->create`
+     * deja justamente eso: cero bytes). Y con el `%%EOF` porque `subirPdf` rechaza los PDF
+     * cortados a medias — ver GoogleDriveService::comprobarPdfCompleto.
+     */
     private function pdf(): UploadedFile
     {
-        return UploadedFile::fake()->createWithContent('documento.pdf', '%PDF-1.4 documento de prueba');
+        return UploadedFile::fake()->createWithContent(
+            'documento.pdf',
+            "%PDF-1.5\n" . str_repeat('x', 2048) . "\n%%EOF\n"
+        );
     }
 
     public function test_cuando_el_ocr_no_saca_nada_la_ia_engancha_el_equipo(): void

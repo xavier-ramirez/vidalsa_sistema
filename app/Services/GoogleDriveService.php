@@ -188,8 +188,21 @@ class GoogleDriveService
      * previa...". Va aqui y no en uploadFile para no llenar el disco con lo que nadie abre
      * al momento (fotos, pdf:subir-masivo). Si el disco falla, la subida vale igual.
      */
-    public function subirPdf($archivo, string $nombre): string
+    public function subirPdf($archivo, string $nombre, bool $comprobar = true): string
     {
+        // Se comprueba que el PDF este ENTERO, pero solo cuando lo sube una persona: ahi sigue
+        // delante de la pantalla y puede volver a escanearlo. Una migracion que MUEVE archivos
+        // que ya existen pasa $comprobar=false: rechazarlos alli no arregla nada y dejaria el
+        // archivo tirado en el sitio viejo.
+        //
+        // Aqui llegan dos cosas: el UploadedFile de un formulario (sabe su nombre original, que
+        // es el que el usuario reconoce) y el Illuminate\Http\File de una migracion, que no.
+        if ($comprobar) {
+            $rotulo = method_exists($archivo, 'getClientOriginalName')
+                ? ($archivo->getClientOriginalName() ?: $nombre)
+                : $nombre;
+            self::comprobarPdfCompleto($archivo->getRealPath(), $rotulo);
+        }
         $driveFile = $this->uploadFile($this->getRootFolderId(), $archivo, $nombre, 'application/pdf');
         if (!$driveFile || !isset($driveFile->id)) {
             throw new \RuntimeException('La subida a Google Drive no retornó un ID válido');
@@ -216,6 +229,51 @@ class GoogleDriveService
     {
         \App\Jobs\DeleteGoogleDriveFile::dispatchAfterResponse($fileId);
         self::olvidarCopiaLocal($fileId);
+    }
+
+    /**
+     * Un PDF que llego A MEDIAS no entra. Se comprueba ANTES de subirlo, que es el unico
+     * momento en que se puede hacer algo: quien lo esta subiendo sigue delante de la pantalla
+     * y puede volver a escanearlo.
+     *
+     * Por que hace falta (visto el 24-09-2026): el ROTC del equipo 23 estaba truncado —3
+     * paginas declaradas y el archivo cortado antes del final—. Nadie se entero al subirlo, y
+     * despues NADA pudo leerlo: el OCR de Drive saco 68 caracteres de 2.957, y Gemini lo
+     * rechaza con "invalid argument". Un documento asi se queda en la ficha aparentando estar
+     * bien, y solo se descubre el dia que alguien lo necesita.
+     *
+     * La comprobacion es la minima que distingue un PDF entero de uno cortado: que empiece por
+     * la firma %PDF- y que el marcador de fin %%EOF aparezca cerca del final. Se mira en los
+     * ultimos 2 KB y no en el ultimo byte porque hay PDF validos con basura detras (firmas,
+     * saltos de linea). Probado contra 13 documentos reales de la flota: pasan los 12 buenos y
+     * solo cae el roto.
+     */
+    public static function comprobarPdfCompleto(?string $ruta, string $nombre): void
+    {
+        // SIN minimo de tamano: cualquier numero que se ponga ahi es inventado, y un PDF valido
+        // puede ser legitimamente pequeno. Un archivo vacio ya no pasa la firma de la cabecera,
+        // y de lo cortado se encarga la marca de fin, que es la señal buena.
+        $bytes = ($ruta && is_file($ruta)) ? (int) filesize($ruta) : 0;
+
+        $f = $bytes ? fopen($ruta, 'rb') : false;
+        if (!$f) throw new \RuntimeException("No se pudo leer el archivo «{$nombre}».");
+        try {
+            $cabecera = fread($f, 5);
+            fseek($f, max(0, $bytes - 2048));
+            $cola = fread($f, 2048);
+        } finally {
+            fclose($f);
+        }
+
+        if ($cabecera !== '%PDF-') {
+            throw new \RuntimeException("El archivo «{$nombre}» no es un PDF valido.");
+        }
+        if (!str_contains((string) $cola, '%%EOF')) {
+            throw new \RuntimeException(
+                "El PDF «{$nombre}» esta incompleto: la subida se corto a medias. "
+                . 'Vuelve a escanearlo o a descargarlo y subelo otra vez — asi como esta, no hay forma de leerlo.'
+            );
+        }
     }
 
     /**

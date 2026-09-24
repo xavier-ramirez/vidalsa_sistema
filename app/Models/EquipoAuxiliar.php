@@ -97,9 +97,9 @@ class EquipoAuxiliar extends Model
      * mismo proxy /storage/google/{id}, que exige sesión. Antes el formulario los guardaba
      * en el disco 'public', que nginx sirve SIN login.
      */
-    public static function subirDocADrive(GoogleDriveService $drive, string $tipo, $archivo): string
+    public static function subirDocADrive(GoogleDriveService $drive, string $tipo, $archivo, bool $comprobar = true): string
     {
-        return $drive->subirPdf($archivo, 'aux_' . $tipo . '_' . time() . '.pdf');
+        return $drive->subirPdf($archivo, 'aux_' . $tipo . '_' . time() . '.pdf', $comprobar);
     }
 
     /**

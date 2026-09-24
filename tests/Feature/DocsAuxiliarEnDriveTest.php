@@ -64,7 +64,12 @@ class DocsAuxiliarEnDriveTest extends MySqlTestCase
 
     private function pdf(string $nombre): UploadedFile
     {
-        return UploadedFile::fake()->create($nombre, 40, 'application/pdf');
+        // createWithContent y no create(): create deja un archivo de CERO bytes con un tamano
+        // declarado, y subirPdf comprueba que el PDF este entero (cabecera y marca de fin).
+        return UploadedFile::fake()->createWithContent($nombre, "%PDF-1.5
+" . str_repeat('x', 2048) . "
+%%EOF
+");
     }
 
     public function test_crear_con_pdfs_los_sube_a_drive_y_no_al_disco_publico(): void

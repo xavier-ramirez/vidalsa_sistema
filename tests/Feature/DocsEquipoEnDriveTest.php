@@ -63,7 +63,12 @@ class DocsEquipoEnDriveTest extends MySqlTestCase
 
     private function pdf(): UploadedFile
     {
-        return UploadedFile::fake()->create('rotc.pdf', 40, 'application/pdf');
+        // createWithContent y no create(): create deja un archivo de CERO bytes con un tamano
+        // declarado, y subirPdf comprueba que el PDF este entero (cabecera y marca de fin).
+        return UploadedFile::fake()->createWithContent('rotc.pdf', "%PDF-1.5
+" . str_repeat('x', 2048) . "
+%%EOF
+");
     }
 
     public function test_subir_desde_el_visor_deja_copia_local_y_borra_el_viejo_despues_de_responder(): void
