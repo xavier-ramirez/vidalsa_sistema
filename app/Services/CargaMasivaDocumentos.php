@@ -847,15 +847,58 @@ class CargaMasivaDocumentos
     /**
      * Borra de Drive el PDF de una propuesta que el usuario descarto. Sin esto, analizar
      * treinta y aplicar cinco dejaria veinticinco archivos huerfanos en Drive.
+     *
+     * Devuelve false —y no borra NADA— si ese PDF no es una propuesta sin aplicar de esta
+     * pantalla, o si ya lo usa alguna ficha. Antes se fiaba del enlace que llegaba: con el de
+     * un documento MONTADO (una pestaña vieja donde la fila aun salia sin aplicar, o la
+     * peticion escrita a mano) mandaba a la papelera el documento bueno de un equipo.
      */
-    public function descartar(?string $link): void
+    public function descartar(?string $link): bool
     {
-        if (!$id = DocumentoAnexo::driveIdDeLink($link)) return;
+        if (!$id = DocumentoAnexo::driveIdDeLink($link)) return false;
+        if (!$this->esDeLaCarga($link, true) || $this->loUsaAlgunaFicha($id)) return false;
 
         // Su fila sale de la tabla de Revision de documentos: la propuesta ya no existe.
         VerificacionDocumento::where('DRIVE_ID', $id)
             ->where('ORIGEN', VerificacionDocumento::DE_CARGA_MASIVA)->delete();
 
         GoogleDriveService::borrarTrasResponder($id);
+        return true;
+    }
+
+    /**
+     * El PDF de $link lo subio esta pantalla: tiene su fila en la tabla de Revision de
+     * documentos (anotar()). Con $sinAplicar, ademas, todavia no se enlazo a ninguna ficha.
+     *
+     * Es la puerta de aplicar() y descartar(): solo se enlaza o se borra lo que se solto en
+     * la carga masiva, no cualquier archivo de Drive cuyo enlace alguien escriba (por
+     * ejemplo el documento de OTRO equipo, que luego se borraria al reemplazarlo en uno).
+     */
+    public function esDeLaCarga(?string $link, bool $sinAplicar = false): bool
+    {
+        if (!$id = DocumentoAnexo::driveIdDeLink($link)) return false;
+
+        return VerificacionDocumento::where('DRIVE_ID', $id)
+            ->where('ORIGEN', VerificacionDocumento::DE_CARGA_MASIVA)
+            ->when($sinAplicar, fn ($q) => $q->whereIn('ESTADO', VerificacionDocumento::DE_LA_CARGA))
+            ->exists();
+    }
+
+    /** Algun equipo, auxiliar o correccion anexada apunta a ese archivo de Drive. */
+    private function loUsaAlgunaFicha(string $driveId): bool
+    {
+        $enlace = '%/storage/google/' . $driveId . '%';
+
+        $enEquipos = Documentacion::query()->where(function ($q) use ($enlace) {
+            foreach (DocumentacionDeEquipo::COLUMNAS as $c) $q->orWhere($c['link'], 'like', $enlace);
+        })->exists();
+        if ($enEquipos) return true;
+
+        $enAuxiliares = EquipoAuxiliar::withTrashed()->where(function ($q) use ($enlace) {
+            foreach (EquipoAuxiliar::DOCS as $col) $q->orWhere($col, 'like', $enlace);
+        })->exists();
+        if ($enAuxiliares) return true;
+
+        return DocumentoAnexo::where('DRIVE_FILE_ID', $driveId)->orWhere('LINK', 'like', $enlace)->exists();
     }
 }

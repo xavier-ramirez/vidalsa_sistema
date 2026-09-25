@@ -78,6 +78,14 @@ class CargaMasivaDocumentosController extends Controller
             'id_equipo.exists' => $esAux ? 'Ese equipo auxiliar ya no existe.' : 'Ese equipo ya no existe.',
         ]);
 
+        // Solo se enlaza un PDF que se subio por esta pantalla. El enlace llega del navegador:
+        // sin esto se podia enganchar cualquier archivo de Drive, como el documento de OTRO
+        // equipo (y al reemplazarlo luego en uno, se borraba para los dos).
+        if (!$this->servicio->esDeLaCarga($datos['link'])) {
+            return response()->json(['success' => false,
+                'message' => 'Ese PDF no se subió por la carga masiva: solo se enlaza lo que se soltó aquí.'], 422);
+        }
+
         $r = $this->servicio->aplicar(
             (int) $datos['id_equipo'],
             $datos['tipo'],
@@ -105,7 +113,10 @@ class CargaMasivaDocumentosController extends Controller
             'link' => 'required|string|starts_with:/storage/google/',
         ]);
 
-        $this->servicio->descartar($datos['link']);
+        if (!$this->servicio->descartar($datos['link'])) {
+            return response()->json(['success' => false,
+                'message' => 'Ese PDF ya está en una ficha (o no es de la carga masiva): no se descarta. Recarga la tabla.'], 422);
+        }
 
         return response()->json(['success' => true]);
     }

@@ -454,4 +454,95 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
 
         $this->assertNull($equipo->documentacion()->first()->LINK_ROTC);
     }
+
+    // ── Solo se enlaza o se borra lo que se solto en la carga masiva ─────────
+
+    /** La fila que anotar() deja al soltar un PDF: sin ella el enlace no es de esta pantalla. */
+    private function propuesta(string $driveId, string $estado = VerificacionDocumento::POR_ENGANCHAR): void
+    {
+        VerificacionDocumento::create([
+            'DRIVE_ID' => $driveId, 'ORIGEN' => VerificacionDocumento::DE_CARGA_MASIVA,
+            'TIPO' => 'rotc', 'ARCHIVO' => $driveId . '.pdf', 'ESTADO' => $estado,
+            'A_MANO' => true, 'INTENTOS' => 0,
+        ]);
+    }
+
+    /**
+     * Descartar con el enlace de un documento MONTADO (una pestaña vieja, o la peticion
+     * escrita a mano) mandaba a la papelera de Drive el documento bueno del equipo.
+     */
+    public function test_descartar_no_borra_un_pdf_que_ya_esta_en_una_ficha(): void
+    {
+        $equipo = $this->equipo(['LINK_ROTC' => '/storage/google/montado-cm', 'FECHA_ROTC' => now()->addYear()->toDateString()]);
+        $this->propuesta('montado-cm');   // su fila aun dice "sin aplicar", como en una pestaña vieja
+
+        $this->actingAs($this->usuario())
+            ->post(route('historial-documentos.carga-masiva.descartar'), ['link' => '/storage/google/montado-cm'], ['Accept' => 'application/json'])
+            ->assertStatus(422);
+
+        Bus::assertNotDispatchedAfterResponse(DeleteGoogleDriveFile::class);
+        $this->assertSame('/storage/google/montado-cm', $equipo->documentacion()->first()->LINK_ROTC);
+    }
+
+    public function test_descartar_no_borra_un_archivo_que_no_es_de_la_carga(): void
+    {
+        $this->actingAs($this->usuario())
+            ->post(route('historial-documentos.carga-masiva.descartar'), ['link' => '/storage/google/cualquiera'], ['Accept' => 'application/json'])
+            ->assertStatus(422);
+
+        Bus::assertNotDispatchedAfterResponse(DeleteGoogleDriveFile::class);
+    }
+
+    public function test_descartar_una_propuesta_sin_aplicar_si_la_borra(): void
+    {
+        $this->propuesta('suelto-cm');
+
+        $this->actingAs($this->usuario())
+            ->post(route('historial-documentos.carga-masiva.descartar'), ['link' => '/storage/google/suelto-cm'], ['Accept' => 'application/json'])
+            ->assertOk();
+
+        Bus::assertDispatchedAfterResponse(DeleteGoogleDriveFile::class, 1);
+        $this->assertFalse(VerificacionDocumento::where('DRIVE_ID', 'suelto-cm')->exists());
+    }
+
+    /** El enlace llega del navegador: el documento de OTRO equipo no se engancha a este. */
+    public function test_aplicar_solo_acepta_un_pdf_subido_por_la_carga(): void
+    {
+        $vence = now()->addYear()->toDateString();
+        $this->equipo(['LINK_ROTC' => '/storage/google/de-otro-cm', 'FECHA_ROTC' => $vence]);
+        $equipo = $this->equipo();
+
+        $this->actingAs($this->usuario())
+            ->post(route('historial-documentos.carga-masiva.aplicar'), [
+                'id_equipo' => $equipo->ID_EQUIPO, 'tipo' => 'rotc', 'link' => '/storage/google/de-otro-cm', 'vence' => $vence,
+            ], ['Accept' => 'application/json'])
+            ->assertStatus(422);
+        $this->assertNull($equipo->documentacion()->first()->LINK_ROTC);
+
+        // El mismo caso con un PDF que SI se solto aqui entra (y la fila pasa a Aplicado).
+        $this->propuesta('nuevo-cm');
+        $this->post(route('historial-documentos.carga-masiva.aplicar'), [
+            'id_equipo' => $equipo->ID_EQUIPO, 'tipo' => 'rotc', 'link' => '/storage/google/nuevo-cm', 'vence' => $vence,
+        ], ['Accept' => 'application/json'])->assertOk();
+        $this->assertSame('/storage/google/nuevo-cm', $equipo->documentacion()->first()->LINK_ROTC);
+        $this->assertSame(VerificacionDocumento::APLICADO, VerificacionDocumento::where('DRIVE_ID', 'nuevo-cm')->value('ESTADO'));
+    }
+
+    /** Subir otra vez el MISMO documento que ya esta montado no lo cambia sin preguntar. */
+    public function test_el_mismo_pdf_que_ya_esta_montado_no_entra_sin_reemplazar(): void
+    {
+        $vence = now()->addYear()->toDateString();
+        $equipo = $this->equipo(['LINK_ROTC' => '/storage/google/el-montado-cm', 'FECHA_ROTC' => $vence]);
+        $this->propuesta('otra-copia-cm');
+
+        $this->actingAs($this->usuario())
+            ->post(route('historial-documentos.carga-masiva.aplicar'), [
+                'id_equipo' => $equipo->ID_EQUIPO, 'tipo' => 'rotc', 'link' => '/storage/google/otra-copia-cm', 'vence' => $vence,
+            ], ['Accept' => 'application/json'])
+            ->assertStatus(422)
+            ->assertJson(['requiere_pisar' => true]);
+
+        $this->assertSame('/storage/google/el-montado-cm', $equipo->documentacion()->first()->LINK_ROTC);
+        Bus::assertNotDispatchedAfterResponse(DeleteGoogleDriveFile::class);
+    }
 }
