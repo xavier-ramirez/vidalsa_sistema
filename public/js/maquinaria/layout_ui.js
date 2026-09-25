@@ -2397,6 +2397,38 @@ window.closePdfPreview = function () {
     // tiene un "Cancelar" propio (ver _pdfPedirVencEnPanel). Sin fecha nunca se sube nada,
     // ni por aquí ni por ningún otro lado.
     if (window._pdfVencPendiente) {
+        // NO se cierra sin más. El documento que vence NECESITA su fecha, y cerrar de un clic
+        // hacía perder la carga sin que se notara — el aviso pasaba desapercibido y el usuario
+        // creía que el PDF había quedado subido. Ahora hay que decidirlo a propósito: o se pone
+        // la fecha, o se dice expresamente que se descarta.
+        // MISMO criterio que _pdfGuardarCargaPendiente: mientras el panel no se haya
+        // repintado, lo que se ve es el documento ANTERIOR con SU fecha. Sin esta guarda,
+        // reemplazar un documento que ya tenía fecha y cerrar enseguida leía esa fecha vieja,
+        // daba por hecho que estaba todo puesto y descartaba la carga SIN preguntar — justo
+        // lo que este bloque existe para evitar. Si el panel no está listo se pregunta igual.
+        const panelListo = !!window._pdfVencPendiente.panelListo;
+        const campo = panelListo
+            ? document.querySelector('#metaFieldsContainer input[name="fecha_vencimiento"]')
+            : null;
+        if (!panelListo || (campo && !campo.value)) {
+            var aviso = 'Falta la FECHA DE VENCIMIENTO del documento.\n\n'
+                      + 'Sin ella el documento no se puede cargar.\n\n'
+                      + 'Aceptar = descartar el documento sin subirlo\n'
+                      + 'Cancelar = volver y poner la fecha';
+            if (!window.confirm(aviso)) {
+                if (campo) {
+                    // Se queda: el campo se señala y se le da el foco para que se escriba ahí.
+                    campo.style.borderColor = '#e53e3e';
+                    campo.focus();
+                    if (typeof campo.showPicker === 'function') { try { campo.showPicker(); } catch (e) {} }
+                    window.toast('Pon la fecha de vencimiento para cargar el documento', 'error');
+                } else {
+                    // Todavía no hay dónde escribir: el panel está en camino.
+                    window.toast('Espera a que se abran los datos del documento.', 'info');
+                }
+                return;
+            }
+        }
         window.toast('Carga cancelada: el documento no se subió.', 'info');
         _pdfCerrarPendiente(null);
         return;

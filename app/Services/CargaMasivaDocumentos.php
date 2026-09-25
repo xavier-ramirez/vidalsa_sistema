@@ -95,6 +95,9 @@ class CargaMasivaDocumentos
      */
     private const TOPE_RACDA = 40;
 
+    /** Lo que cabe en verificacion_documento_registro.MOTIVO (varchar 255). */
+    private const MOTIVO_MAX = 255;
+
     public function __construct(private LectorDocumentoPdf $lector, private LectorGemini $ia) {}
 
     // ── Paso 1: subir, leer y proponer ────────────────────────────────────────────
@@ -113,6 +116,13 @@ class CargaMasivaDocumentos
 
         try {
             $link = GoogleDriveService::getInstance()->subirPdf($archivo, $prefijo . time() . '_' . mt_rand(1000, 9999) . '.pdf');
+        } catch (\App\Exceptions\PdfNoValido $e) {
+            // Lo que rechaza el propio archivo (un PDF cortado a medias, uno vacio, algo que no
+            // es un PDF): su mensaje dice QUE hacer —volver a escanearlo— y es justo lo que la
+            // persona necesita leer, porque sigue delante de la pantalla. Un "no se pudo subir"
+            // generico la haria reintentar el mismo archivo roto una y otra vez.
+            Log::warning('Carga masiva: el archivo no se pudo aceptar', ['archivo' => $nombre, 'error' => $e->getMessage()]);
+            return $this->fallo($nombre, null, $e->getMessage());
         } catch (\Throwable $e) {
             Log::error('Carga masiva: no se pudo subir a Drive', ['archivo' => $nombre, 'error' => $e->getMessage()]);
             return $this->fallo($nombre, null, 'No se pudo subir el archivo a Drive.');
@@ -228,7 +238,7 @@ class CargaMasivaDocumentos
                     'ARCHIVO'     => $propuesta['archivo'],
                     'PROPUESTA'   => $propuesta,
                     'ESTADO'      => $ficha ? VerificacionDocumento::POR_ENGANCHAR : VerificacionDocumento::SIN_FICHA,
-                    'MOTIVO'      => mb_substr($this->motivoDeLaPropuesta($propuesta), 0, 255),
+                    'MOTIVO'      => mb_substr($this->motivoDeLaPropuesta($propuesta), 0, self::MOTIVO_MAX),
                     'A_MANO'      => true,
                     'INTENTOS'    => 0,
                 ]
@@ -274,10 +284,20 @@ class CargaMasivaDocumentos
         // El POR QUE va SIEMPRE primero, tambien cuando hubo un aviso (fecha que falta, lectura
         // con ayuda de la IA...). Antes el aviso lo tapaba, y era justo cuando mas falta hace
         // saber que dato del PDF cuadro con la ficha.
-        return trim('Reconocido por ' . ($ficha['coincide_por'] ?? 'lo que dice el PDF')
+        //
+        // Y CABEN LOS DOS: la columna son 255 caracteres, asi que si el aviso no entra entero se
+        // recorta la parte de delante —el nombre del equipo, que ya se ve en su propia columna—
+        // y nunca el aviso, que es lo que dice que hay que hacer.
+        $aviso = trim((string) ($p['aviso'] ?: 'Falta aplicarlo a la ficha.'));
+        $porQue = 'Reconocido por ' . ($ficha['coincide_por'] ?? 'lo que dice el PDF')
             . ', que es de ' . $ficha['nombre'] . $otros
             . ($p['vence'] ? '. Vence el ' . implode('/', array_reverse(explode('-', $p['vence']))) : '')
-            . '. ' . ($p['aviso'] ?: 'Falta aplicarlo a la ficha.'));
+            . '. ';
+
+        $sobra = mb_strlen($porQue) + mb_strlen($aviso) - self::MOTIVO_MAX;
+        if ($sobra > 0) $porQue = mb_substr($porQue, 0, max(0, mb_strlen($porQue) - $sobra - 1)) . '… ';
+
+        return trim($porQue . $aviso);
     }
 
     /** Propuesta que no llego a ninguna parte, con su motivo. El archivo ya esta en Drive. */
@@ -520,7 +540,11 @@ class CargaMasivaDocumentos
         $placas = $leido['placas'] ?? [];
         if (!$placas) return [];
 
-        return $this->fichas($this->filasPorPlaca($placas, self::TOPE_RACDA));
+        // Cada ficha lleva POR QUE se la eligio: su propia placa, la que la providencia nombra.
+        return array_map(
+            fn ($f) => ['coincide_por' => 'la placa ' . $f['placa']] + $f,
+            $this->fichas($this->filasPorPlaca($placas, self::TOPE_RACDA))
+        );
     }
 
     private function buscarPorSerial(array $seriales): ?object

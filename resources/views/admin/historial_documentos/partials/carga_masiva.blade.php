@@ -78,7 +78,7 @@
 
     // `turno` descarta los resultados de una tanda ya cancelada: cerrar el modal con la cola a
     // medias no debe seguir pintando ni avisar al terminar.
-    var estado = { turno: 0, corriendo: false, hechos: 0 };
+    var estado = { turno: 0, corriendo: false, hechos: 0, cierre: null };
 
     function $(id) { return document.getElementById(id); }
 
@@ -128,6 +128,10 @@
     // ── El modal ──────────────────────────────────────────────────────────────
 
     function construir() {
+        // Si quedaba un cierre automático pendiente del modal anterior, muere aquí: si no,
+        // cerraría este.
+        clearTimeout(estado.cierre);
+        estado.cierre = null;
         if ($('hdCmOverlay')) $('hdCmOverlay').remove();
         var o = document.createElement('div');
         o.id = 'hdCmOverlay';
@@ -184,9 +188,14 @@
         // Con la cola a medias se avisa: lo que falte NO se sube. Lo ya leído sí está en la
         // tabla, así que no se pierde nada de lo hecho.
         if (estado.corriendo && !window.confirm('Todavía se están subiendo archivos. ¿Cerrar y dejar los que faltan sin subir?')) return;
+        // El temporizador del cierre automático se cancela SIEMPRE: si no, seguía vivo y podía
+        // cerrar un modal reabierto, o preguntar "¿cerrar?" en medio de una tanda nueva.
+        clearTimeout(estado.cierre);
+        estado.cierre = null;
         estado.turno++;
         estado.corriendo = false;
         var subio = estado.hechos > 0;
+        estado.hechos = 0;          // que la próxima vez no herede el conteo de esta
         var o = $('hdCmOverlay');
         if (o) o.remove();
         // Ya sin el modal delante: la tabla de esta misma pantalla se refresca para que salgan
@@ -201,6 +210,9 @@
         if (!pdfs.length) { window.toast('Solo se aceptan archivos PDF', 'error'); return; }
 
         var tipo = tipoElegido();
+        // Soltar algo durante la cuenta atrás del cierre la cancela: el modal se queda.
+        clearTimeout(estado.cierre);
+        estado.cierre = null;
         var turno = ++estado.turno;
         estado.corriendo = true;
         bloquear(true);
@@ -218,11 +230,13 @@
             avance(i, pdfs.length, archivo.name);
             window.apiPostForm(RUTAS.analizar, { file: archivo, tipo: tipo }, 'No se pudo subir el archivo.')
                 .then(function (b) {
-                    // Sin enlace de Drive no hay fila: cuenta como perdido, no como hecho.
+                    // Sin enlace de Drive no hay fila: cuenta como perdido, no como hecho. Y se
+                    // guarda el MOTIVO que manda el servidor ("el PDF esta incompleto: vuelve a
+                    // escanearlo"), que es lo que dice QUE hacer.
                     if (b && b.propuesta && b.propuesta.link) { hechos++; estado.hechos++; }
-                    else perdidos.push(archivo.name);
+                    else perdidos.push({ nombre: archivo.name, motivo: (b && b.propuesta && b.propuesta.aviso) || '' });
                 })
-                .catch(function () { perdidos.push(archivo.name); })
+                .catch(function (e) { perdidos.push({ nombre: archivo.name, motivo: (e && e.message) || '' }); })
                 .then(function () { if (turno === estado.turno) siguiente(); });
         };
         siguiente();
@@ -267,7 +281,14 @@
             if (perdidos.length) {
                 var mal = document.createElement('div');
                 mal.style.cssText = 'margin-top:6px;color:#b91c1c;font-weight:700;';
-                mal.textContent = 'NO se subieron (vuelve a intentarlo): ' + perdidos.join(', ');
+                mal.textContent = 'NO se subieron:';
+                perdidos.forEach(function (p) {
+                    var li = document.createElement('div');
+                    li.style.cssText = 'margin-top:3px;font-weight:600;';
+                    // textContent: el nombre del archivo lo pone el usuario.
+                    li.textContent = '· ' + p.nombre + (p.motivo ? ' — ' + p.motivo : '');
+                    mal.appendChild(li);
+                });
                 nota.appendChild(mal);
             }
         }
@@ -278,7 +299,7 @@
         // Si todo subió, el modal se cierra SOLO: ya no hay nada que mirar aquí, lo que hay que
         // ver está en la tabla. Si algo se perdió NO se cierra, porque esos nombres solo están
         // escritos aquí: cerrarlo sería tragarse el único aviso.
-        if (!perdidos.length) setTimeout(cerrar, 1200);
+        if (!perdidos.length) estado.cierre = setTimeout(cerrar, 1200);
 
         // La tabla se refresca al CERRAR, no aquí: cpdfFiltrar recarga la página por la SPA y
         // el modal se quedaba encima de lo recargado hasta que alguien lo cerrara a mano.

@@ -16,7 +16,7 @@ MySQL/MariaDB. Los archivos viven en **Google Drive** y se sirven por un proxy p
 | Cosa | Dónde |
 |---|---|
 | Local | Apache de XAMPP, vhost en `http://127.0.0.1:8000` (la BD local es una COPIA del servidor) |
-| Pruebas | `php artisan test` (396, PHPUnit, `tests/Feature`) — ver §7 |
+| Pruebas | `php artisan test` (403, PHPUnit, `tests/Feature`) — ver §7 |
 | Despliegue | `docker/start.sh`: `migrate --force` + `schedule:work` + php-fpm. Hosting: EasyPanel |
 | Tareas | `routes/console.php` (verificación de documentos, compresión de PDF, limpieza de caché) |
 
@@ -88,7 +88,11 @@ lo sensible dentro de `can:super.admin`.
   `%%EOF` en los últimos 2 KB). Es la puerta por la que entran todos —ficha, carga masiva
   y auxiliares—; una migración que MUEVE lo que ya existe pasa `$comprobar=false`. Nació de
   un ROTC truncado del equipo 23: nadie se enteró al subirlo y después no lo pudo leer nada
-  (el OCR sacó 68 caracteres de 2.957 y Gemini lo rechaza).
+  (el OCR sacó 68 caracteres de 2.957 y Gemini lo rechaza). Lanza `App\Exceptions\PdfNoValido`
+  y NO un RuntimeException pelado: Drive caído también lanza eso, y hay que poder decir
+  **422 «vuelve a escanearlo»** en vez de **503 «reintente»**, que haría reintentar lo roto.
+  El registro de un equipo nuevo (`EquipoController::store`) sube con `uploadFile` directo,
+  así que llama a la comprobación a mano.
   Nunca instanciar Drive dentro de una transacción larga. **Un documento reemplazado va a la
   PAPELERA de Drive, nunca se borra para siempre** (`enviarAPapelera`): de la papelera se
   recupera con un clic si alguien reemplazó por error, y `files->delete` es definitivo. La

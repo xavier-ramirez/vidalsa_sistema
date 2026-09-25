@@ -1686,6 +1686,19 @@ class EquipoController extends Controller
         foreach ($docFields as $inputName => $docType) {
             if ($request->hasFile($inputName)) {
                 $file = $request->file($inputName);
+                // Un PDF cortado a medias no entra, igual que en el resto de la app. Aqui hace
+                // falta decirlo a mano porque este camino sube con uploadFile() directo y no
+                // por GoogleDriveService::subirPdf, que es donde vive la comprobacion. Se mira
+                // ANTES de mover nada al staging: si falla, no queda basura a medias.
+                try {
+                    \App\Services\GoogleDriveService::comprobarPdfCompleto(
+                        $file->getRealPath(),
+                        $file->getClientOriginalName() ?: ($docType . '.pdf')
+                    );
+                } catch (\App\Exceptions\PdfNoValido $e) {
+                    return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+                }
+
                 $filename = $docType . '_' . time() . '.pdf';
                 $path = $file->storeAs('temp_staging', $filename, 'local');
                 $filesToProcess[] = [
@@ -2231,6 +2244,13 @@ class EquipoController extends Controller
                         try {
                             $docData[$dbCol] = $svc->subirPdf($request->file($fileKey), $fileKey . '_' . time() . '.pdf');
                             $subidos[] = \App\Models\DocumentoAnexo::driveIdDeLink($docData[$dbCol]);
+                        } catch (\App\Exceptions\PdfNoValido $e) {
+                            // Lo que rechaza el ARCHIVO (PDF cortado a medias, vacío, o que no
+                            // es un PDF): no es la conexión. Decir "reintente" haría subir el
+                            // mismo archivo roto otra vez; va su mensaje, que dice qué hacer.
+                            array_map([\App\Services\GoogleDriveService::class, 'borrarTrasResponder'], $subidos);
+                            Log::warning("Edicion de equipo: {$fileKey} no se pudo aceptar: " . $e->getMessage());
+                            abort(422, $e->getMessage() . ' Los cambios NO se guardaron.');
                         } catch (\Throwable $e) {
                             array_map([\App\Services\GoogleDriveService::class, 'borrarTrasResponder'], $subidos);
                             Log::error("Edicion de equipo: fallo subiendo {$fileKey} a Google Drive: " . $e->getMessage());
@@ -2749,6 +2769,14 @@ class EquipoController extends Controller
                 'message' => 'Documento actualizado correctamente'
             ] + ($venceEl ? ['vencimiento' => $request->input('expiration_date')] : []));
 
+        } catch (\App\Exceptions\PdfNoValido $e) {
+            // El ARCHIVO es el problema (cortado, vacío o no es un PDF): 422 con SU mensaje,
+            // para que el usuario lea "vuelve a escanearlo" y no un "Error del servidor".
+            // Tiene que ir ANTES del catch general: con el 500 el aviso de la pantalla solo
+            // dice el mensaje del servidor en 422/403/409 (layout_ui.js), así que este caso
+            // salía como un error genérico y se perdía justo la explicación que hacía falta.
+            if (ob_get_length()) ob_end_clean();
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
         } catch (\Exception $e) {
             Log::error('Error subiendo archivo a Google Drive: ' . $e->getMessage());
             if (ob_get_length())
@@ -2906,6 +2934,10 @@ class EquipoController extends Controller
                 'message' => 'Corrección anexada correctamente',
             ]);
 
+        } catch (\App\Exceptions\PdfNoValido $e) {
+            // Mismo criterio que uploadDoc: el archivo no sirve → 422 con su mensaje.
+            if (ob_get_length()) ob_end_clean();
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
         } catch (\Exception $e) {
             Log::error('Error anexando corrección a Google Drive: ' . $e->getMessage());
             if (ob_get_length()) ob_end_clean();

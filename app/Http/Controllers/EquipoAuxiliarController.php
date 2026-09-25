@@ -2073,6 +2073,12 @@ class EquipoAuxiliarController extends Controller
                 'link'    => $aux->$col,
                 'fecha_vencimiento_cert' => $aux->FECHA_VENCIMIENTO_CERT,
             ]);
+        } catch (\App\Exceptions\PdfNoValido $e) {
+            // El archivo no sirve (cortado, vacío o no es PDF) → 422 con SU mensaje: es el
+            // único status en el que la pantalla muestra lo que dice el servidor. Con el 500
+            // del catch de abajo el usuario leía "Error del servidor" y no sabía que lo que
+            // tenía que hacer era volver a escanear el documento.
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
         } catch (\Exception $e) {
             Log::error('Error subiendo documento de auxiliar a Google Drive: ' . $e->getMessage());
             return response()->json(['success' => false, 'message' => 'Error al subir archivo: ' . $e->getMessage()], 500);
@@ -2318,6 +2324,13 @@ class EquipoAuxiliarController extends Controller
             foreach ($archivos as $tipo => $archivo) {
                 $links[EquipoAuxiliar::DOCS[$tipo]] = EquipoAuxiliar::subirDocADrive($drive, $tipo, $archivo);
             }
+        } catch (\App\Exceptions\PdfNoValido $e) {
+            // Lo que rechaza el ARCHIVO (un PDF cortado a medias, vacío, o que no es un PDF):
+            // no es un problema de conexión y decir "reintente" haría que la persona subiera
+            // el mismo archivo roto una y otra vez. Va su mensaje, que dice qué hacer.
+            array_map([EquipoAuxiliar::class, 'olvidarDoc'], $links);
+            Log::warning('Formulario de auxiliar: el PDF no se pudo aceptar: ' . $e->getMessage());
+            abort(422, $e->getMessage() . ' El equipo auxiliar NO se guardó.');
         } catch (\Throwable $e) {
             array_map([EquipoAuxiliar::class, 'olvidarDoc'], $links); // el que sí subió quedaría huérfano
             Log::error('Formulario de auxiliar: fallo subiendo PDF a Google Drive: ' . $e->getMessage());

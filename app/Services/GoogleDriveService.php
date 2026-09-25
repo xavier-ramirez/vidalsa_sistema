@@ -251,12 +251,19 @@ class GoogleDriveService
     public static function comprobarPdfCompleto(?string $ruta, string $nombre): void
     {
         // SIN minimo de tamano: cualquier numero que se ponga ahi es inventado, y un PDF valido
-        // puede ser legitimamente pequeno. Un archivo vacio ya no pasa la firma de la cabecera,
-        // y de lo cortado se encarga la marca de fin, que es la señal buena.
-        $bytes = ($ruta && is_file($ruta)) ? (int) filesize($ruta) : 0;
+        // puede ser legitimamente pequeno. De lo cortado se encarga la marca de fin, que es la
+        // señal buena. Cada causa lleva SU mensaje: al que sube le sirve saber si el archivo
+        // llego vacio (lo vuelve a soltar) o si no esta (algo raro paso en el camino).
+        if (!$ruta || !is_file($ruta)) {
+            throw new \App\Exceptions\PdfNoValido("No se encontro el archivo «{$nombre}». Vuelve a subirlo.");
+        }
+        $bytes = (int) filesize($ruta);
+        if ($bytes === 0) {
+            throw new \App\Exceptions\PdfNoValido("El archivo «{$nombre}» llego vacio. Vuelve a subirlo.");
+        }
 
-        $f = $bytes ? fopen($ruta, 'rb') : false;
-        if (!$f) throw new \RuntimeException("No se pudo leer el archivo «{$nombre}».");
+        $f = fopen($ruta, 'rb');
+        if (!$f) throw new \App\Exceptions\PdfNoValido("No se pudo leer el archivo «{$nombre}».");
         try {
             $cabecera = fread($f, 5);
             fseek($f, max(0, $bytes - 2048));
@@ -266,13 +273,77 @@ class GoogleDriveService
         }
 
         if ($cabecera !== '%PDF-') {
-            throw new \RuntimeException("El archivo «{$nombre}» no es un PDF valido.");
+            throw new \App\Exceptions\PdfNoValido("El archivo «{$nombre}» no es un PDF valido.");
         }
         if (!str_contains((string) $cola, '%%EOF')) {
-            throw new \RuntimeException(
+            throw new \App\Exceptions\PdfNoValido(
                 "El PDF «{$nombre}» esta incompleto: la subida se corto a medias. "
                 . 'Vuelve a escanearlo o a descargarlo y subelo otra vez — asi como esta, no hay forma de leerlo.'
             );
+        }
+
+        self::comprobarSinContenidoActivo($ruta, $nombre, $bytes);
+    }
+
+    /**
+     * Rechaza los PDF que traen cosas que un DOCUMENTO no necesita: lanzar programas,
+     * archivos escondidos dentro o multimedia incrustada. Aqui entran titulos, polizas y
+     * certificados escaneados; nada de eso lleva un ejecutable adjunto.
+     *
+     * QUE se bloquea y por que SOLO eso. Se midieron los 43 PDF reales que hay en la maquina
+     * (documentos de la flota, notas de entrega, planos, escaneos de CamScanner):
+     *
+     *   /Launch  /EmbeddedFile  /RichMedia  /Flash  ->  0 de 43   ← se bloquean
+     *   /JavaScript  2 de 43      /JS  4 de 43
+     *   /OpenAction  8 de 43      /AA 13 de 43
+     *
+     * El JavaScript NO se bloquea aunque suene peor: lo traen DOS documentos legitimos del
+     * sistema —uno es un titulo de propiedad—, porque Word y algunos escaneres lo meten solo
+     * para validar campos. Bloquearlo dejaria al usuario sin poder subir sus propios papeles,
+     * que es peor que el riesgo: el PDF acaba en Drive, que ya neutraliza el script al verlo.
+     * Si alguna vez hace falta apretar mas, primero hay que volver a medir contra los
+     * documentos reales; un numero inventado aqui se traduce en documentos rechazados.
+     *
+     * ALCANCE HONESTO: es una comprobacion de marcadores, no un analisis del PDF. Un archivo
+     * preparado a proposito puede esconder el nombre (los PDF admiten escapes tipo /L#61unch)
+     * y pasar. Cubre el caso realista —alguien manda por WhatsApp un PDF con sorpresa— y se
+     * suma a lo que ya hay: solo PDF, 50 MB como mucho, la clave docs.carga.masiva para poder
+     * usar la pantalla, y el nombre del archivo pintado con textContent (nunca como HTML).
+     */
+    private static function comprobarSinContenidoActivo(string $ruta, string $nombre, int $bytes): void
+    {
+        // Nombres PDF: distinguen mayusculas, asi que se comparan tal cual.
+        $prohibido = [
+            '/Launch'       => 'una accion para ejecutar programas',
+            '/EmbeddedFile' => 'archivos escondidos dentro',
+            '/RichMedia'    => 'contenido multimedia incrustado',
+            '/Flash'        => 'contenido Flash incrustado',
+        ];
+
+        $f = fopen($ruta, 'rb');
+        if (!$f) return;   // ya se comprobo que se puede leer; si falla aqui, no se bloquea
+        try {
+            // Por trozos, no de un bocado: el limite son 50 MB y no hay por que tenerlos
+            // enteros en memoria. El solape de 32 bytes evita perder un marcador que caiga
+            // justo en la costura entre dos trozos.
+            $cola = '';
+            while (!feof($f)) {
+                $trozo = fread($f, 1048576);
+                if ($trozo === false || $trozo === '') break;
+                $ventana = $cola . $trozo;
+                foreach ($prohibido as $marca => $queEs) {
+                    if (str_contains($ventana, $marca)) {
+                        throw new \App\Exceptions\PdfNoValido(
+                            "El PDF «{$nombre}» trae {$queEs} y por eso no se acepta. "
+                            . 'Un documento (titulo, poliza, certificado) no necesita nada de eso: '
+                            . 'vuelve a escanearlo o pide el original en PDF limpio.'
+                        );
+                    }
+                }
+                $cola = substr($trozo, -32);
+            }
+        } finally {
+            fclose($f);
         }
     }
 

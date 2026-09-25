@@ -54,15 +54,48 @@ class PdfIncompletoTest extends MySqlTestCase
         $ruta = tempnam(sys_get_temp_dir(), 'v') . '.pdf';
         file_put_contents($ruta, '');
 
+        // El nombre NO lleva la palabra que se busca: si no, la asercion pasaria por el propio
+        // nombre interpolado y no demostraria nada (lo cazo la auditoria del 24-09-2026).
         $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessageMatches('/vacio/i');
-        GoogleDriveService::comprobarPdfCompleto($ruta, 'vacio.pdf');
+        $this->expectExceptionMessageMatches('/llego vacio/i');
+        GoogleDriveService::comprobarPdfCompleto($ruta, 'documento.pdf');
+    }
+
+    /** Un archivo que ni siquiera esta: mismo camino que el vacio, sin reventar. */
+    public function test_un_archivo_que_no_existe_se_rechaza(): void
+    {
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessageMatches('/no se encontro/i');
+        GoogleDriveService::comprobarPdfCompleto(sys_get_temp_dir() . '/no-existe-' . uniqid() . '.pdf', 'documento.pdf');
     }
 
     /**
      * El marcador de fin puede no ser el ultimo byte: hay PDF validos con un salto de linea o
      * una firma detras. Por eso se mira en los ultimos 2 KB y no al final exacto.
      */
+    /**
+     * El motivo LLEGA al usuario tal cual: en la carga masiva se ve el nombre del archivo Y por
+     * que no entro. Antes se tragaba el mensaje y solo decia "No se pudo subir a Drive", que
+     * hace reintentar el mismo archivo roto una y otra vez.
+     */
+    public function test_la_carga_masiva_dice_por_que_no_entro_el_pdf(): void
+    {
+        \Tests\DriveFalso::instalar();
+        \Illuminate\Support\Facades\Storage::fake('local');
+        try {
+            $cortado = \Illuminate\Http\UploadedFile::fake()->createWithContent(
+                'rotc_cortado.pdf', "%PDF-1.5\\n" . str_repeat('x', 2048)   // sin %%EOF
+            );
+            $p = app(\App\Services\CargaMasivaDocumentos::class)->analizar($cortado);
+
+            $this->assertNull($p['link'], 'no llego a Drive');
+            $this->assertMatchesRegularExpression('/incompleto|corto a medias/i', (string) $p['aviso']);
+            $this->assertStringContainsString('rotc_cortado.pdf', (string) $p['aviso'], 'y dice cual');
+        } finally {
+            \Tests\DriveFalso::quitar();
+        }
+    }
+
     public function test_un_pdf_con_basura_despues_del_fin_sigue_valiendo(): void
     {
         $ruta = tempnam(sys_get_temp_dir(), 'c') . '.pdf';
