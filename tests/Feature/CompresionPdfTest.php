@@ -185,4 +185,61 @@ class CompresionPdfTest extends MySqlTestCase
         array_map('unlink', glob("$dir/*"));
         rmdir($dir);
     }
+
+    /**
+     * Los temporales que deja una pasada cortada de golpe se barren solos.
+     *
+     * Por que existe: la pasada normal borra su carpeta en el finally, pero un finally no
+     * corre si matan el PHP. Quedo un temporal de 1,4 MB del 10-09-2026 en disco quince
+     * dias, y encima aparecia como "documento incompleto" al revisar los PDF del equipo.
+     *
+     * NO TOCA DRIVE: se llama al barrido directamente sobre carpetas de laboratorio, y se
+     * limpia lo que crea la propia prueba. Lo importante es el segundo caso: una pasada que
+     * esta trabajando AHORA no puede quedarse sin su carpeta.
+     */
+    public function test_barre_los_temporales_abandonados_y_respeta_los_vivos(): void
+    {
+        $disco = \Illuminate\Support\Facades\Storage::disk('local');
+        $viejo  = 'compresion_tmp/prueba_viejo_' . uniqid();
+        $activo = 'compresion_tmp/prueba_activo_' . uniqid();
+        $lento  = 'compresion_tmp/prueba_lento_' . uniqid();
+
+        // El try abarca DESDE la creacion: si algo revienta a mitad, la prueba no puede
+        // dejar sus propias carpetas tiradas — que es justo el fallo que arregla el codigo
+        // que se esta probando.
+        try {
+            // Abandonado: carpeta y archivo con fecha de hace dos dias.
+            $disco->put("$viejo/doc.pdf", '%PDF-1.4 resto');
+            $haceDosDias = time() - 2 * 86400;
+            touch($disco->path("$viejo/doc.pdf"), $haceDosDias);
+            touch($disco->path($viejo), $haceDosDias);
+
+            // Vivo: recien creado, es la pasada de ahora mismo.
+            $disco->put("$activo/doc.pdf", '%PDF-1.4 trabajando');
+
+            // El caso delicado: carpeta creada hace dos dias pero con un archivo escrito
+            // hace un momento. Es una pasada larga, NO esta abandonada.
+            $disco->put("$lento/doc.pdf", '%PDF-1.4 trabajando despacio');
+            touch($disco->path($lento), $haceDosDias);
+
+            // El comando se llama fuera de la consola, asi que hay que darle una salida:
+            // sin ella $this->warn() revienta. De paso se lee lo que avisa.
+            $comando = $this->app->make(\App\Console\Commands\ComprimirDocumentos::class);
+            $pantalla = new \Symfony\Component\Console\Output\BufferedOutput();
+            $comando->setOutput(new \Illuminate\Console\OutputStyle(
+                new \Symfony\Component\Console\Input\ArrayInput([]), $pantalla
+            ));
+
+            $metodo = new \ReflectionMethod($comando, 'barrerTemporalesAbandonados');
+            $metodo->setAccessible(true);
+            $metodo->invoke($comando);
+
+            $this->assertFalse($disco->exists("$viejo/doc.pdf"), 'El temporal abandonado tiene que barrerse.');
+            $this->assertTrue($disco->exists("$activo/doc.pdf"), 'El temporal de la pasada de ahora NO se toca.');
+            $this->assertTrue($disco->exists("$lento/doc.pdf"), 'Una pasada lenta que sigue escribiendo NO se toca.');
+            $this->assertStringContainsString('1 temporal', $pantalla->fetch(), 'Avisa de cuantos restos barrio.');
+        } finally {
+            foreach ([$viejo, $activo, $lento] as $c) $disco->deleteDirectory($c);
+        }
+    }
 }

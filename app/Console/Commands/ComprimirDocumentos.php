@@ -72,6 +72,15 @@ class ComprimirDocumentos extends Command
     private const PAUSA_ENTRE_LOTES_S = 60;
 
     /**
+     * Cuanto tiene que llevar sin tocarse una carpeta de compresion_tmp para darla por
+     * abandonada. Un lote entero no pasa de unos minutos (el tope por llamada a Ghostscript
+     * son 300 s), asi que estas horas dejan margen de sobra: la marca de FIN_ULTIMO_LOTE
+     * solo se pone AL TERMINAR, de modo que dos pasadas pueden solaparse y ninguna debe
+     * barrer el temporal de la otra.
+     */
+    private const HORAS_TEMPORAL_ABANDONADO = 6;
+
+    /**
      * De que hora a que hora la corre el programador (hora de la app). UNICO sitio: lo leen
      * routes/console.php y el panel. No se cruza con el de VerificarDocumentos::HORARIO,
      * porque los dos leen de Google Drive.
@@ -108,6 +117,11 @@ class ComprimirDocumentos extends Command
             return self::FAILURE;
         }
 
+        // Antes de crear el temporal de esta pasada, barrer los que dejaron las anteriores
+        // si alguna se corto de golpe. Va aqui —y no mas abajo— para que se limpie tambien
+        // las noches en que no queda nada que comprimir.
+        $this->barrerTemporalesAbandonados();
+
         $drive = GoogleDriveService::getInstance();
         $candidatos = $this->candidatos($drive, (int) $this->option('min-kb') * 1024, $solo);
 
@@ -135,6 +149,47 @@ class ComprimirDocumentos extends Command
             }
         }
         return self::SUCCESS;
+    }
+
+    /**
+     * Barre los temporales que dejo una pasada que se corto de golpe.
+     *
+     * La pasada normal borra el suyo en el finally, pero un finally NO llega a correr si
+     * matan el PHP —un apagon, un Ctrl+C, la base que se cae— y entonces la carpeta se
+     * queda en disco con el PDF dentro para siempre. Paso de verdad: un temporal de 1,4 MB
+     * del 10-09-2026 seguia ahi quince dias despues, y ademas confundia, porque al revisar
+     * los PDF del equipo aparecia como "un documento incompleto".
+     *
+     * Se mira la marca de tiempo MAS RECIENTE de la carpeta y de lo que tiene dentro, no
+     * solo la de la carpeta: asi una pasada que este trabajando ahora mismo no se da por
+     * abandonada aunque su carpeta se creara hace rato. Si la marca no se puede leer, la
+     * carpeta se deja quieta: mas vale un resto de mas que borrarle el temporal a una
+     * pasada viva.
+     */
+    private function barrerTemporalesAbandonados(): void
+    {
+        $disco  = Storage::disk('local');
+        $limite = time() - self::HORAS_TEMPORAL_ABANDONADO * 3600;
+        $restos = [];
+
+        foreach ($disco->directories('compresion_tmp') as $carpeta) {
+            $ultimoUso = (int) @filemtime($disco->path($carpeta));
+            foreach ($disco->allFiles($carpeta) as $archivo) {
+                $ultimoUso = max($ultimoUso, (int) @filemtime($disco->path($archivo)));
+            }
+            if ($ultimoUso === 0 || $ultimoUso > $limite) {
+                continue;               // viva, o sin marca legible: no se toca
+            }
+            $disco->deleteDirectory($carpeta);
+            $restos[] = $carpeta;
+        }
+
+        if ($restos) {
+            // Con aviso: que haya restos significa que una pasada anterior murio a medias,
+            // y eso conviene saberlo aunque la limpieza ya este hecha.
+            $this->warn('Se barrieron ' . count($restos) . ' temporal(es) de pasadas que no terminaron.');
+            Log::warning('docs:comprimir: temporales abandonados barridos.', ['carpetas' => $restos]);
+        }
     }
 
     /**
