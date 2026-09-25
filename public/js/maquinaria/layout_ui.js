@@ -146,13 +146,22 @@ window.showModal = function (options) {
     const confirmBtn = document.getElementById('modalConfirmBtn');
     const cancelBtn = document.getElementById('modalCancelBtn');
 
-    // Guard: if any modal element is missing, fall back to alert
+    // Guard: si falta el DOM del modal, se cae al diálogo del navegador.
+    //
+    // Con onConfirm esto es una CONFIRMACIÓN, no un aviso, así que se PREGUNTA. Antes se
+    // enseñaba un alert —que no tiene forma de decir que no— y se ejecutaba onConfirm
+    // igualmente: por esta vía una acción destructiva (descartar la carga de un documento,
+    // desanclar un equipo, confirmar un acta) se hacía sola, sin que nadie la aceptara. Es
+    // un camino raro, pero es justo el camino en el que menos se puede dar nada por hecho.
     if (!modalEl || !titleEl || !messageEl || !confirmBtn || !cancelBtn) {
         console.warn('showModal: modal DOM elements not found, using alert fallback');
-        if (config.type === 'error' || config.type === 'warning') {
-            alert(`${config.title}\n\n${config.message}`);
+        // El mensaje puede traer HTML (<b>, <br>); en un diálogo del navegador va en texto.
+        const texto = `${config.title}\n\n${String(config.message || '').replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '')}`;
+        if (config.onConfirm) {
+            if (window.confirm(texto)) config.onConfirm();
+            return;
         }
-        if (config.onConfirm) config.onConfirm();
+        if (config.type === 'error' || config.type === 'warning') alert(texto);
         return;
     }
 
@@ -2405,29 +2414,53 @@ window.closePdfPreview = function () {
         // repintado, lo que se ve es el documento ANTERIOR con SU fecha. Sin esta guarda,
         // reemplazar un documento que ya tenía fecha y cerrar enseguida leía esa fecha vieja,
         // daba por hecho que estaba todo puesto y descartaba la carga SIN preguntar — justo
-        // lo que este bloque existe para evitar. Si el panel no está listo se pregunta igual.
+        // lo que este bloque existe para evitar. Si el panel no está listo tampoco se cierra:
+        // se avisa de que espere. Que el panel no llegue NUNCA lo cubre el reloj de
+        // PDF_VENC_ESPERA_PANEL_MS (15 s), que suelta la espera solo y avisa; aquí no hace
+        // falta prever ese caso.
         const panelListo = !!window._pdfVencPendiente.panelListo;
         const campo = panelListo
             ? document.querySelector('#metaFieldsContainer input[name="fecha_vencimiento"]')
             : null;
         if (!panelListo || (campo && !campo.value)) {
-            var aviso = 'Falta la FECHA DE VENCIMIENTO del documento.\n\n'
-                      + 'Sin ella el documento no se puede cargar.\n\n'
-                      + 'Aceptar = descartar el documento sin subirlo\n'
-                      + 'Cancelar = volver y poner la fecha';
-            if (!window.confirm(aviso)) {
+            // SIN FECHA NO SE CIERRA. Antes esto salía por window.confirm() —el cuadro gris
+            // del navegador, con su "127.0.0.1:8000 dice"— y su botón Aceptar descartaba el
+            // documento de un clic. Un aviso del sistema no puede pedirse con el diálogo del
+            // navegador: ni se parece al resto, ni se puede leer con calma, y el botón que
+            // destruye la carga es el que está puesto por defecto.
+            // Primer intento de cerrar: solo el aviso, el visor se queda donde está.
+            // Puede no haber campo todavía: el panel con los datos llega un instante después.
+            if (!window._pdfVencPendiente.insistio) {
+                // Solo cuenta como "ya avisado" si el aviso fue el de la FECHA. Mientras el
+                // panel no esta, lo que se dice es "espera", y eso no puede gastar el turno:
+                // si lo gastara, el primer clic con el campo ya a la vista saltaria directo
+                // al modal de descartar sin haber avisado nunca de lo que falta.
                 if (campo) {
-                    // Se queda: el campo se señala y se le da el foco para que se escriba ahí.
-                    campo.style.borderColor = '#e53e3e';
-                    campo.focus();
-                    if (typeof campo.showPicker === 'function') { try { campo.showPicker(); } catch (e) {} }
-                    window.toast('Pon la fecha de vencimiento para cargar el documento', 'error');
+                    window._pdfVencPendiente.insistio = true;
+                    _pdfAvisarFaltaVencimiento(campo);
                 } else {
-                    // Todavía no hay dónde escribir: el panel está en camino.
                     window.toast('Espera a que se abran los datos del documento.', 'info');
                 }
                 return;
             }
+            // Ya avisado: se vuelve a señalar el campo antes de ofrecer descartar.
+            _pdfAvisarFaltaVencimiento(campo);
+            // Si insiste, se le ofrece descartar — con el modal del SISTEMA, no el del
+            // navegador, y con el botón de destruir nombrado por lo que hace. Es la salida
+            // del caso normal: el panel llegó, el campo está ahí y el usuario NO quiere poner
+            // la fecha (eligió el documento por error, o no la tiene a mano).
+            window.confirmarAccion({
+                type:        'warning',
+                title:       'Falta la fecha de vencimiento',
+                message:     'Sin la fecha, este documento <b>no se puede cargar</b>.<br><br>'
+                           + '¿Descartas el documento y cierras el visor?',
+                confirmText: 'Descartar el documento',
+                cancelText:  'Volver y poner la fecha',
+            }, function () {
+                window.toast('Carga cancelada: el documento no se subió.', 'info');
+                _pdfCerrarPendiente(null);
+            });
+            return;
         }
         window.toast('Carga cancelada: el documento no se subió.', 'info');
         _pdfCerrarPendiente(null);
@@ -2479,8 +2512,12 @@ window.closePdfPreview = function () {
 
 // Borrado de PDF desde el modal de preview. Borra del Google Drive Y de la BD.
 // Por ahora solo soporta el modulo 'equipo'; auxiliares no implementado todavia.
-// Usa confirm() nativo del browser (no window.showModal) porque el standardModal
-// queda detras del pdfPreviewModal por el stacking context.
+// OJO: sigue usando confirm() del navegador. El motivo que habia escrito aqui —que
+// #standardModal queda detras del visor— NO es cierto: el visor es .modal-overlay-front
+// (z-index 10001) y #standardModal va a 1000001, por encima a proposito (lo dice
+// estilos_globales.css y lo usa ya closePdfPreview para preguntar por la fecha). Queda
+// pendiente migrarlo a confirmarAccion para que las dos acciones destructivas de esta
+// misma cabecera no salgan con cuadros distintos.
 /**
  * Borra el documento del visor.
  *
@@ -2836,8 +2873,8 @@ document.addEventListener('vidalsa:metadata-pintada', function () {
 // vacío y enfocado, y el botón azul de siempre ("Guardar Cambios") como el que carga.
 //
 // SIN cartel de aviso ni botones propios: el usuario pidió que fuera el formulario de
-// siempre. Si se pulsa Guardar sin fecha, sale el aviso "Indica la fecha de vencimiento" y
-// no se sube nada; para desistir se cierra el visor, que cancela la carga.
+// siempre. Si se pulsa Guardar sin fecha salta _pdfAvisarFaltaVencimiento y no se sube
+// nada; para desistir se cierra el visor, que pide confirmación y cancela la carga.
 function _pdfPedirVencEnPanel() {
     const pend = window._pdfVencPendiente;
     const cont = document.getElementById('metaFieldsContainer');
@@ -2878,8 +2915,32 @@ function _pdfPedirVencEnPanel() {
         guardar.style.display = '';
     }
 
-    campo.addEventListener('input', function () { campo.style.borderColor = '#f6ad55'; });
+    campo.addEventListener('input', function () {
+        campo.style.borderColor = '#f6ad55';
+        // En cuanto toca la fecha, el aviso de cerrar vuelve a empezar por el toast: quien
+        // esta rellenando no deberia encontrarse de golpe con el modal de descartar
+        // (ver closePdfPreview).
+        if (window._pdfVencPendiente) window._pdfVencPendiente.insistio = false;
+    });
     setTimeout(function () { campo.focus(); }, 0);
+}
+
+/**
+ * "Falta la fecha de vencimiento", en UN solo sitio: mismo color, mismo texto y el mismo
+ * gesto (marcar, enfocar y abrir el calendario) vengan de donde vengan.
+ *
+ * Estaba copiado en dos: al pulsar Guardar salia borde rosa con un texto y al pulsar la X
+ * borde rojo con otro, para exactamente el mismo fallo del mismo campo. El naranja
+ * (#f6ad55) es el de "pendiente" que pone _pdfPedirVencEnPanel al abrir; este rojo es el de
+ * "lo intentaste y falta", que es otra cosa y por eso se distingue.
+ */
+function _pdfAvisarFaltaVencimiento(campo) {
+    if (campo) {
+        campo.style.borderColor = '#e53e3e';
+        campo.focus();
+        if (typeof campo.showPicker === 'function') { try { campo.showPicker(); } catch (e) {} }
+    }
+    window.toast('Agrega la FECHA DE VENCIMIENTO para cargar el documento.', 'error');
 }
 
 /**
@@ -2897,8 +2958,7 @@ function _pdfGuardarCargaPendiente() {
     }
     const campo = document.querySelector('#metaFieldsContainer input[name="fecha_vencimiento"]');
     if (!campo || !campo.value) {
-        if (campo) { campo.style.borderColor = '#fc8181'; campo.focus(); }
-        window.toast('Indica la fecha de vencimiento del documento.', 'error');
+        _pdfAvisarFaltaVencimiento(campo);
         return true;
     }
     _pdfCerrarPendiente(campo.value);

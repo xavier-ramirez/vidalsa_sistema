@@ -2040,10 +2040,19 @@ class EquipoAuxiliarController extends Controller
         ini_set('memory_limit', '512M');
 
         $request->validate([
-            'file'     => 'required|file|mimes:pdf|max:51200',
+            // El tope lo manda GoogleDriveService::MAX_PDF_KB, la comprobacion central por
+            // la que pasan TODOS los PDF. Aqui se repite para avisar ANTES de subir a Drive
+            // un archivo que se va a rechazar igual.
+            'file'     => 'required|file|mimes:pdf|max:' . \App\Services\GoogleDriveService::MAX_PDF_KB,
             'doc_type' => 'required|in:' . implode(',', array_keys(EquipoAuxiliar::DOCS)),
             'fecha_vencimiento_cert' => $this->reglaFechaCert($request->input('doc_type') === 'certificado'),
-        ], self::MENSAJES_FECHA_CERT);
+        ], self::MENSAJES_FECHA_CERT + [
+            'file.required' => 'Debe seleccionar un archivo.',
+            'file.file'     => 'El documento no es válido.',
+            'file.mimes'    => 'Solo se aceptan archivos en formato PDF.',
+            'file.max'      => 'El archivo supera el tamaño máximo permitido ('
+                               . number_format(\App\Services\GoogleDriveService::MAX_PDF_KB, 0, ',', '.') . ' KB).',
+        ]);
 
         $aux  = EquipoAuxiliar::findOrFail($id);
         $this->authorizeAuxScope($aux);
@@ -2129,6 +2138,10 @@ class EquipoAuxiliarController extends Controller
         $request->validate([
             'fecha_vencimiento_cert' => $this->reglaFechaCert(!empty($aux->LINK_CERTIFICADO)),
         ], self::MENSAJES_FECHA_CERT);
+        // Y sin certificado no se puede poner (ver vetoFechaSinCertificado).
+        if ($motivo = $this->vetoFechaSinCertificado($aux, $request->input('fecha_vencimiento_cert'))) {
+            return response()->json(['success' => false, 'message' => $motivo], 422);
+        }
         $aux->FECHA_VENCIMIENTO_CERT = $request->input('fecha_vencimiento_cert') ?: null;
         $aux->save();
         return response()->json([
@@ -2215,6 +2228,10 @@ class EquipoAuxiliarController extends Controller
             );
             if ($v->fails()) {
                 return response()->json(['success' => false, 'message' => $v->errors()->first()], 422);
+            }
+            // Sin certificado cargado no se puede fijar su vencimiento.
+            if ($motivo = $this->vetoFechaSinCertificado($aux, $request->input('fecha_vencimiento'))) {
+                return response()->json(['success' => false, 'message' => $motivo], 422);
             }
             $upd['FECHA_VENCIMIENTO_CERT'] = $request->input('fecha_vencimiento') ?: null;
         } else {
@@ -2353,6 +2370,27 @@ class EquipoAuxiliarController extends Controller
         return ['nullable', 'date', Rule::requiredIf($hayCertificado)];
     }
 
+    /**
+     * Una fecha de vencimiento SIN certificado cargado no se guarda.
+     *
+     * Antes se podia fijar el vencimiento de un certificado que no existe: el listado lo
+     * daba por no cargado (mira el enlace) y las alertas lo reclamaban vencido (miran la
+     * fecha), asi que un auxiliar sin papeles aparecia en "por vencer" sin que nadie
+     * entendiera por que. Es la otra mitad de la regla: fecha y documento van juntos o no
+     * van ninguno.
+     *
+     * Devuelve el motivo del rechazo, o null si se puede seguir. Lo miran las DOS puertas
+     * que tocan esta fecha sin subir archivo: updateCertExpiry y updateMetadata.
+     */
+    private function vetoFechaSinCertificado(EquipoAuxiliar $aux, $fecha): ?string
+    {
+        if (!empty($aux->LINK_CERTIFICADO) || !filled($fecha)) {
+            return null;
+        }
+
+        return 'No hay certificado cargado: primero sube el PDF y su fecha va con el.';
+    }
+
     private const MENSAJES_FECHA_CERT = [
         'fecha_vencimiento_cert.required' => 'La fecha de vencimiento del certificado es obligatoria.',
         'fecha_vencimiento_cert.date'     => 'La fecha de vencimiento del certificado no es válida.',
@@ -2433,8 +2471,10 @@ class EquipoAuxiliarController extends Controller
             // Documentacion (opcional). En UPDATE aceptamos fecha pasada para no
             // bloquear edicion de registros con certificados ya vencidos. La fecha es
             // obligatoria si se sube certificado o si el auxiliar ya tiene uno.
-            'doc_propiedad'          => 'nullable|file|mimes:pdf|max:10240',
-            'certificado'            => 'nullable|file|mimes:pdf|max:10240',
+            // Mismo tope central que el resto (ver MAX_PDF_KB): antes eran 10 MB aqui y
+            // 3.000 KB en la comprobacion que corre despues de subir.
+            'doc_propiedad'          => 'nullable|file|mimes:pdf|max:' . \App\Services\GoogleDriveService::MAX_PDF_KB,
+            'certificado'            => 'nullable|file|mimes:pdf|max:' . \App\Services\GoogleDriveService::MAX_PDF_KB,
             'fecha_vencimiento_cert' => array_merge(
                 $this->reglaFechaCert(
                     $request->hasFile('certificado')
@@ -2460,6 +2500,25 @@ class EquipoAuxiliarController extends Controller
             // El frente NO se edita por datos (va por Movilización; update() lo descarta).
             // Opcional en update para no exigirlo y poder editar auxiliares SIN ASIGNAR.
             $rules['ID_FRENTE_ACTUAL'] = 'nullable|exists:frentes_trabajo,ID_FRENTE';
+        }
+
+        // Un CERTIFICADO NUEVO no se queda con la fecha del anterior.
+        //
+        // Hace falta comprobarlo aparte porque el bucle de arriba antepone `sometimes` a
+        // todas las reglas con `nullable`, y `sometimes` NO evalua nada cuando la clave ni
+        // siquiera viene: el `requiredIf` de reglaFechaCert se lo saltaba. Resultado medido:
+        // un PATCH con el PDF del certificado y SIN la clave fecha_vencimiento_cert
+        // respondia 200, cambiaba el enlace al documento nuevo y dejaba la fecha del viejo.
+        // Con la clave vacia si fallaba, asi que el agujero solo se abria al omitirla.
+        //
+        // El `sometimes` se queda: es lo que permite editar la marca de un auxiliar sin
+        // reenviar todos sus campos. Lo que se exige aqui es lo minimo — la fecha SOLO
+        // cuando llega un certificado nuevo. Mismo criterio que EquipoController::update(),
+        // que ya lo comprobaba asi para la poliza, el ROTC y el RACDA.
+        if (!$isCreate && $request->hasFile('certificado') && !$request->filled('fecha_vencimiento_cert')) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'fecha_vencimiento_cert' => 'La fecha de vencimiento es obligatoria al cargar el certificado.',
+            ]);
         }
 
         $validated = $request->validate($rules, [

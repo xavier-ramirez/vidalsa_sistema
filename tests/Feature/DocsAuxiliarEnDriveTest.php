@@ -219,4 +219,51 @@ class DocsAuxiliarEnDriveTest extends MySqlTestCase
             'equipos_auxiliares_retirados/900/certificado_viejo.pdf',
         ]);
     }
+
+    /**
+     * Un certificado NUEVO nunca se queda con la fecha de vencimiento del ANTERIOR.
+     *
+     * Por qué existe: en `validateData` del update, el bucle que hace opcionales los campos
+     * antepone `sometimes` a toda regla con `nullable`. Y `sometimes` no evalúa NADA cuando
+     * la clave ni siquiera viene, así que el `requiredIf` de `reglaFechaCert()` se lo
+     * saltaba: un PATCH con el PDF del certificado y SIN la clave `fecha_vencimiento_cert`
+     * respondía 200, cambiaba el enlace al documento nuevo y dejaba la fecha del viejo.
+     * Un certificado que vencía en 2020 pasaba por vigente con un PDF de 2027 detrás.
+     *
+     * Con la clave presente pero vacía sí fallaba: el agujero se abría solo al OMITIRLA,
+     * que es justo lo que hace un cliente que no manda el campo.
+     */
+    public function test_un_certificado_nuevo_no_hereda_la_fecha_del_anterior(): void
+    {
+        $aux = EquipoAuxiliar::whereNull('deleted_at')->firstOrFail();
+        $aux->LINK_CERTIFICADO       = '/storage/google/certificado-viejo';
+        $aux->FECHA_VENCIMIENTO_CERT = '2020-01-01';
+        $aux->save();
+
+        $pdf = UploadedFile::fake()->createWithContent(
+            'certificado.pdf', "%PDF-1.4
+1 0 obj<<>>endobj
+trailer
+%%EOF
+"
+        );
+
+        $respuesta = $this->actingAs($this->usuario())
+            ->patch('/admin/equipos-auxiliares/' . $aux->ID_AUXILIAR, [
+                'SERIAL'      => $aux->SERIAL,
+                'certificado' => $pdf,
+                // A PROPÓSITO sin 'fecha_vencimiento_cert': es el caso que se colaba.
+            ]);
+
+        $this->assertNotSame(200, $respuesta->status(),
+            'Un certificado nuevo sin su fecha no puede aceptarse.');
+
+        $aux->refresh();
+        $this->assertSame('/storage/google/certificado-viejo', $aux->LINK_CERTIFICADO,
+            'El certificado que ya estaba no se toca.');
+        $this->assertStringStartsWith('2020-01-01', (string) $aux->FECHA_VENCIMIENTO_CERT,
+            'La fecha anterior se queda como estaba.');
+        $this->assertSame(0, $this->drive->subidos(),
+            'Ni siquiera se sube a Drive: se rechaza antes.');
+    }
 }

@@ -265,4 +265,32 @@ class DocsEquipoEnDriveTest extends MySqlTestCase
         $this->assertNull($doc->getRawOriginal('FECHA_ROTC'), 'el vencimiento se queda sin PDF que lo respalde');
         $this->assertNull($doc->getRawOriginal('FECHA_EMISION_ROTC'), 'la emisión también sale del PDF borrado');
     }
+
+    /**
+     * Una fecha que no es una fecha se rechaza ANTES de subir nada a Drive.
+     *
+     * Por qué existe: la regla del formulario era `nullable|required_with:doc_rotc`, sin
+     * `date`. Mandar "abc" pasaba la validación, el PDF YA se había subido a Drive y el
+     * INSERT reventaba con un 500 crudo (SQLSTATE[22007]). La transacción devolvía el equipo
+     * a como estaba, pero el archivo se quedaba HUÉRFANO en Drive: subido, pagado y sin
+     * ninguna ficha que lo apunte. Y en un servidor sin STRICT_TRANS_TABLES, MySQL no habría
+     * protestado: habría guardado 0000-00-00 y el documento pasaría por vencido para siempre.
+     */
+    public function test_una_fecha_invalida_se_rechaza_antes_de_subir_a_drive(): void
+    {
+        $equipo = $this->equipoConRotc();
+        $antes  = $equipo->documentacion()->first();
+        $linkPrevio  = $antes->LINK_ROTC;
+        $fechaPrevia = $antes->getRawOriginal('FECHA_ROTC');
+        $subidasPrevias = $this->drive->subidos();
+
+        $this->editarConRotc($equipo, 'abc')->assertStatus(422);
+
+        $this->assertSame($subidasPrevias, $this->drive->subidos(),
+            'No puede subirse el PDF a Drive para luego rechazar la fecha.');
+
+        $doc = $equipo->documentacion()->first();
+        $this->assertSame($linkPrevio, $doc->LINK_ROTC, 'El documento anterior se queda como estaba.');
+        $this->assertSame($fechaPrevia, $doc->getRawOriginal('FECHA_ROTC'), 'Y su fecha también.');
+    }
 }

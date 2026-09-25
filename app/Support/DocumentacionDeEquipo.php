@@ -47,9 +47,17 @@ class DocumentacionDeEquipo
      * Lo que se escribe al fijar el vencimiento de $tipo: la fecha y, si es futura, el fin
      * de la gestion (frente que la tramitaba + fecha), que ya no aplica a un documento
      * vigente.
+     *
+     * Una fecha VACIA borra el vencimiento. Es lo que hace falta para limpiar las fechas
+     * huerfanas —las que quedaron sin documento detras— desde el panel del visor. Antes
+     * esto entraba igual en Carbon::parse(''), que revienta con un 500.
      */
-    public static function datosVencimiento(string $tipo, string $fecha): array
+    public static function datosVencimiento(string $tipo, ?string $fecha): array
     {
+        if ($fecha === null || trim($fecha) === '') {
+            return [self::VENCIMIENTO[$tipo] => null];
+        }
+
         $datos = [self::VENCIMIENTO[$tipo] => $fecha];
         if (Carbon::parse($fecha)->isFuture()) {
             $datos[$tipo . '_gestion_frente_id'] = null;

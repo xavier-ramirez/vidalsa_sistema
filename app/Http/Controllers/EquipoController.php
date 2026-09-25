@@ -1629,14 +1629,24 @@ class EquipoController extends Controller
                 'documentacion.PLACA' => 'nullable|unique:documentacion,PLACA',
                 'ESTADO_OPERATIVO' => 'required',
                 'ID_ESPEC' => 'nullable|exists:caracteristicas_modelo,ID_ESPEC', // Security: Validate catalog link exists
-                'doc_propiedad' => 'nullable|file|mimes:pdf|max:5120|required_with:documentacion.NRO_DE_DOCUMENTO',
+                // El tope de TODOS los PDF es GoogleDriveService::MAX_PDF_KB, la comprobacion
+                // central por la que pasan todos (aqui via comprobarPdfCompleto). Estas
+                // reglas decian 5 MB: un PDF de 4 MB pasaba la validacion, se subia a Drive
+                // y lo rechazaba la comprobacion central con OTRO numero. Ahora se rechaza
+                // antes de subir nada y el mensaje dice el limite de verdad.
+                'doc_propiedad' => 'nullable|file|mimes:pdf|max:' . \App\Services\GoogleDriveService::MAX_PDF_KB . '|required_with:documentacion.NRO_DE_DOCUMENTO',
                 'documentacion.NRO_DE_DOCUMENTO' => 'nullable|required_with:doc_propiedad',
-                'poliza_seguro' => 'nullable|file|mimes:pdf|max:5120|required_with:documentacion.FECHA_VENC_POLIZA',
-                'documentacion.FECHA_VENC_POLIZA' => 'nullable|required_with:poliza_seguro',
-                'doc_rotc' => 'nullable|file|mimes:pdf|max:5120|required_with:documentacion.FECHA_ROTC',
-                'documentacion.FECHA_ROTC' => 'nullable|required_with:doc_rotc',
-                'doc_racda' => 'nullable|file|mimes:pdf|max:5120|required_with:documentacion.FECHA_RACDA',
-                'documentacion.FECHA_RACDA' => 'nullable|required_with:doc_racda',
+                // El `date` de las tres fechas de abajo no es adorno: sin el, mandar "abc"
+                // pasaba la validacion, el PDF YA se habia subido a Drive y reventaba el
+                // INSERT con un 500 crudo (SQLSTATE[22007]). La transaccion devolvia el
+                // equipo a como estaba, pero el archivo se quedaba huerfano en Drive. Y en
+                // un servidor sin STRICT_TRANS_TABLES habria guardado 0000-00-00.
+                'poliza_seguro' => 'nullable|file|mimes:pdf|max:' . \App\Services\GoogleDriveService::MAX_PDF_KB . '|required_with:documentacion.FECHA_VENC_POLIZA',
+                'documentacion.FECHA_VENC_POLIZA' => 'nullable|date|required_with:poliza_seguro',
+                'doc_rotc' => 'nullable|file|mimes:pdf|max:' . \App\Services\GoogleDriveService::MAX_PDF_KB . '|required_with:documentacion.FECHA_ROTC',
+                'documentacion.FECHA_ROTC' => 'nullable|date|required_with:doc_rotc',
+                'doc_racda' => 'nullable|file|mimes:pdf|max:' . \App\Services\GoogleDriveService::MAX_PDF_KB . '|required_with:documentacion.FECHA_RACDA',
+                'documentacion.FECHA_RACDA' => 'nullable|date|required_with:doc_racda',
                 'foto_equipo' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
                 'foto_referencial' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
             ], $this->validationMessages(), $this->validationAttributes());
@@ -2052,13 +2062,24 @@ class EquipoController extends Controller
             'SERIAL_CHASIS' => 'required|unique:equipos,SERIAL_CHASIS,' . $id . ',ID_EQUIPO',
             'SERIAL_DE_MOTOR' => 'nullable|unique:equipos,SERIAL_DE_MOTOR,' . $id . ',ID_EQUIPO',
             'documentacion.PLACA' => 'nullable|unique:documentacion,PLACA,' . ($equipo->documentacion ? $equipo->documentacion->ID_EQUIPO : 'NULL') . ',ID_EQUIPO',
+            // Las fechas de documento se validan como FECHA. Este validate() no las miraba
+            // en absoluto: mandar "abc" pasaba, el PDF YA se habia subido a Drive y reventaba
+            // el UPDATE con un 500 crudo (SQLSTATE[22007]). La transaccion devolvia el equipo
+            // a como estaba, pero el archivo quedaba HUERFANO en Drive. Y en un servidor sin
+            // STRICT_TRANS_TABLES MySQL lo habria tragado como 0000-00-00.
+            // (Que la fecha EXISTA cuando llega un PDF nuevo lo exige el after() de abajo.)
+            'documentacion.FECHA_VENC_POLIZA' => 'nullable|date',
+            'documentacion.FECHA_ROTC'        => 'nullable|date',
+            'documentacion.FECHA_RACDA'       => 'nullable|date',
             'ESTADO_OPERATIVO' => 'required',
             'foto_equipo' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
             'foto_referencial' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
-            'doc_propiedad' => 'nullable|file|mimes:pdf|max:5120',
-            'poliza_seguro' => 'nullable|file|mimes:pdf|max:5120',
-            'doc_rotc' => 'nullable|file|mimes:pdf|max:5120',
-            'doc_racda' => 'nullable|file|mimes:pdf|max:5120',
+            // Mismo tope central que el resto (ver MAX_PDF_KB): antes eran 5 MB aqui y
+            // 3.000 KB en la comprobacion que corre despues.
+            'doc_propiedad' => 'nullable|file|mimes:pdf|max:' . \App\Services\GoogleDriveService::MAX_PDF_KB,
+            'poliza_seguro' => 'nullable|file|mimes:pdf|max:' . \App\Services\GoogleDriveService::MAX_PDF_KB,
+            'doc_rotc' => 'nullable|file|mimes:pdf|max:' . \App\Services\GoogleDriveService::MAX_PDF_KB,
+            'doc_racda' => 'nullable|file|mimes:pdf|max:' . \App\Services\GoogleDriveService::MAX_PDF_KB,
         ], $this->validationMessages(), $this->validationAttributes());
 
         $validator = \Illuminate\Support\Facades\Validator::make($request->all(), []);
@@ -2619,8 +2640,8 @@ class EquipoController extends Controller
         set_time_limit(600);
         ini_set('memory_limit', '512M');
         $request->validate([
-            'file' => 'required|file|mimes:pdf|max:51200',
-            'doc_type' => 'required|in:propiedad,poliza,rotc,racda,adicional,adicional_2',
+            'file' => 'required|file|mimes:pdf|max:' . \App\Services\GoogleDriveService::MAX_PDF_KB,
+            'doc_type' => 'required|in:' . implode(',', array_keys(self::DOC_COLUMNAS)),
             // Un documento que vence no se sube sin su fecha (ver DOC_VENCIMIENTO).
             'expiration_date' => [
                 'nullable', 'date',
@@ -2630,7 +2651,8 @@ class EquipoController extends Controller
             'file.required' => 'Debe seleccionar un archivo.',
             'file.file'     => 'El documento no es válido.',
             'file.mimes'    => 'Solo se aceptan archivos en formato PDF.',
-            'file.max'      => 'El archivo supera el tamaño máximo permitido (50 MB).',
+            'file.max'      => 'El archivo supera el tamaño máximo permitido ('
+                               . number_format(\App\Services\GoogleDriveService::MAX_PDF_KB, 0, ',', '.') . ' KB).',
             'expiration_date.required' => 'La fecha de vencimiento es obligatoria para cargar este documento.',
             'expiration_date.date'     => 'La fecha de vencimiento no es válida.',
         ]);
@@ -2814,7 +2836,7 @@ class EquipoController extends Controller
      * gestion), que ya no aplica a un documento vigente. Un solo sitio para subir el
      * PDF (uploadDoc) y para editar la fecha en el visor (updateMetadata).
      */
-    private function datosVencimiento(string $tipo, string $fecha): array
+    private function datosVencimiento(string $tipo, ?string $fecha): array
     {
         return \App\Support\DocumentacionDeEquipo::datosVencimiento($tipo, $fecha);
     }
@@ -2851,13 +2873,14 @@ class EquipoController extends Controller
         // Mismas reglas que uploadDoc: si un PDF vale para el principal, vale para
         // su correccion.
         $request->validate([
-            'file'     => 'required|file|mimes:pdf|max:51200',
+            'file'     => 'required|file|mimes:pdf|max:' . \App\Services\GoogleDriveService::MAX_PDF_KB,
             'doc_type' => 'required|in:' . implode(',', array_keys(self::DOC_COLUMNAS)),
         ], [
             'file.required' => 'Debe seleccionar un archivo.',
             'file.file'     => 'El documento no es válido.',
             'file.mimes'    => 'Solo se aceptan archivos en formato PDF.',
-            'file.max'      => 'El archivo supera el tamaño máximo permitido (50 MB).',
+            'file.max'      => 'El archivo supera el tamaño máximo permitido ('
+                               . number_format(\App\Services\GoogleDriveService::MAX_PDF_KB, 0, ',', '.') . ' KB).',
         ]);
 
         $equipo = $this->findAndAuthorizeEquipo($id);
@@ -3252,7 +3275,7 @@ class EquipoController extends Controller
     public function deleteDoc(Request $request, $id)
     {
         $request->validate([
-            'doc_type' => 'required|in:propiedad,poliza,rotc,racda,adicional,adicional_2',
+            'doc_type' => 'required|in:' . implode(',', array_keys(self::DOC_COLUMNAS)),
         ]);
 
         $equipo = $this->findAndAuthorizeEquipo($id, ['documentacion']);
@@ -3350,7 +3373,7 @@ class EquipoController extends Controller
 
         // Mismos 6 tipos que deleteDoc/uploadDoc. Sin este check, un doc_type
         // desconocido caía por el switch sin actualizar nada y respondía éxito.
-        if (!in_array($type, ['propiedad', 'poliza', 'rotc', 'racda', 'adicional', 'adicional_2'], true)) {
+        if (!array_key_exists($type, self::DOC_COLUMNAS)) {
             return response()->json(['success' => false, 'message' => 'Tipo de documento no válido.'], 400);
         }
 
@@ -3358,19 +3381,43 @@ class EquipoController extends Controller
             return response()->json(['success' => false, 'message' => 'No existe documentación para este equipo'], 400);
         }
 
-        // Un documento que vence no se queda sin fecha: ni al guardar el panel con el
-        // campo vacio ni con una fecha que no lo es. JSON a mano porque este POST llega
-        // por apiFetch sin 'Accept: application/json', y validate() respondería con un
-        // redirect que el visor no sabe leer.
+        // Fecha y documento van juntos o no van ninguno. Es la otra mitad de la regla que
+        // deleteDoc ya cumple al borrar. JSON a mano porque este POST llega por apiFetch sin
+        // 'Accept: application/json', y validate() respondería con un redirect que el visor
+        // no sabe leer.
         if (isset(self::DOC_VENCIMIENTO[$type])) {
-            $v = \Illuminate\Support\Facades\Validator::make($request->all(), [
-                'fecha_vencimiento' => 'required|date',
-            ], [
-                'fecha_vencimiento.required' => 'La fecha de vencimiento es obligatoria.',
-                'fecha_vencimiento.date'     => 'La fecha de vencimiento no es válida.',
-            ]);
-            if ($v->fails()) {
-                return response()->json(['success' => false, 'message' => $v->errors()->first()], 422);
+            $columnaLink  = \App\Support\DocumentacionDeEquipo::COLUMNAS[$type]['link'] ?? null;
+            $hayDocumento = $columnaLink && !empty($equipo->documentacion->$columnaLink);
+
+            if (!$hayDocumento) {
+                // SIN documento cargado no se puede PONER un vencimiento: el listado lo daba
+                // por no cargado (mira el enlace) y las alertas lo reclamaban vencido (miran
+                // la fecha), asi que un equipo sin papeles salia en "por vencer" sin que
+                // nadie entendiera por que.
+                //
+                // Pero vaciar el campo SI se deja: es la unica forma de limpiar una de esas
+                // fechas huerfanas que ya estan en la base. Rechazarlo tambien —que es como
+                // quedo en la primera version de esta guarda— dejaba esas fichas sucias para
+                // siempre, porque la validacion de abajo exige la fecha y la de arriba exige
+                // el documento. Mismo criterio que en auxiliares (vetoFechaSinCertificado).
+                if ($request->filled('fecha_vencimiento')) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'No hay documento cargado: primero sube el PDF y su fecha va con el.',
+                    ], 422);
+                }
+            } else {
+                // Con documento cargado, la fecha es obligatoria y tiene que ser una fecha:
+                // ni el campo vacio ni un texto cualquiera.
+                $v = \Illuminate\Support\Facades\Validator::make($request->all(), [
+                    'fecha_vencimiento' => 'required|date',
+                ], [
+                    'fecha_vencimiento.required' => 'La fecha de vencimiento es obligatoria.',
+                    'fecha_vencimiento.date'     => 'La fecha de vencimiento no es válida.',
+                ]);
+                if ($v->fails()) {
+                    return response()->json(['success' => false, 'message' => $v->errors()->first()], 422);
+                }
             }
         }
 
