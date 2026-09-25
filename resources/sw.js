@@ -47,9 +47,9 @@ const PRECACHE_URLS = [
     // esperándolo por red antes de poder usar el formulario. Pesa 7 KB.
     '/js/maquinaria/dom_helpers.js',
     '/js/webauthn.js',
-    '/fonts/Nunito-Regular.ttf',
-    '/fonts/Nunito-Bold.ttf',
-    '/fonts/Nunito-SemiBold.ttf'
+    '/fonts/Nunito-Regular.woff2',
+    '/fonts/Nunito-Bold.woff2',
+    '/fonts/Nunito-SemiBold.woff2'
 ];
 
 self.addEventListener('install', (event) => {
@@ -213,19 +213,31 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // HTML / rutas no-admin: network-first con fallback a cache si está offline
-    if (request.mode === 'navigate' || request.headers.get('X-SPA-Navigate') === '1' || (request.headers.get('accept') || '').includes('text/html')) {
+    // HTML / rutas no-admin: network-first con fallback a cache si está offline.
+    //
+    // La navegacion SPA (X-SPA-Navigate) recibe una respuesta CORTA: solo el contenido del
+    // modulo, sin menu ni scripts (layouts/estructura_base). Se guarda con su PROPIA clave
+    // (?__spa=1): si pisara la pagina completa de la misma URL, abrir la app sin conexion en
+    // ese modulo (F5, o reabrir la PWA) mostraria el contenido suelto, sin menu ni JS. Al
+    // reves si vale: una pagina completa sirve a la SPA, que solo toma su <main>.
+    const esSpa = request.headers.get('X-SPA-Navigate') === '1';
+    if (request.mode === 'navigate' || esSpa || (request.headers.get('accept') || '').includes('text/html')) {
+        const claveSpa = () => { const u = new URL(request.url); u.searchParams.set('__spa', '1'); return u.toString(); };
         event.respondWith(
             fetch(request).then((response) => {
                 if (response && response.status === 200) {
                     const copy = response.clone();
-                    caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, copy)).catch(() => {});
+                    caches.open(RUNTIME_CACHE).then((cache) => cache.put(esSpa ? claveSpa() : request, copy)).catch(() => {});
                 }
                 return response;
-            }).catch(() => caches.match(request).then(
-                // Offline: 1) la misma página si está cacheada; 2) el menú cacheado
-                // (lo más útil para reabrir la app sin señal); 3) la raíz como último recurso.
-                (cached) => cached || caches.match('/menu').then((m) => m || caches.match('/'))
+            }).catch(() => (esSpa ? caches.match(claveSpa()) : Promise.resolve(undefined)).then(
+                // Offline: 1) la respuesta corta de este modulo (solo la SPA); 2) la misma
+                // pagina completa; 3) el menú cacheado (lo más útil para reabrir la app sin
+                // señal); 4) la raíz como último recurso. ignoreVary: la pagina completa se
+                // guardo sin la cabecera X-SPA-Navigate.
+                (corta) => corta || caches.match(request, { ignoreVary: true }).then(
+                    (cached) => cached || caches.match('/menu').then((m) => m || caches.match('/'))
+                )
             ))
         );
     }

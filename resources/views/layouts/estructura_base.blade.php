@@ -1,3 +1,27 @@
+{{--
+    NAVEGACION SPA (navegacion.js manda X-SPA-Navigate): se responde SOLO lo que la navegacion
+    usa — el titulo, la huella de version y el <main> del modulo. El menu, la cabecera, los
+    modales y los <script> del layout ya estan en la pestaña y se tiraban: ~80 KB (19 KB
+    comprimidos) por clic. La huella version-vistas cubre vistas, JS y CSS (VersionVistas):
+    con ella la pestaña sabe si hubo un despliegue y recarga entera.
+
+    El service worker guarda estas respuestas APARTE de las paginas completas (resources/sw.js):
+    una respuesta corta nunca sirve para abrir la app sin conexion.
+--}}
+@if(request()->header('X-SPA-Navigate') === '1')
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>@hasSection('title')@yield('title')@else{{ 'Sistema Vidalsa' }}@endif</title>
+    <meta name="version-vistas" content="{{ $versionVistas ?? '' }}">
+    <meta name="respuesta-spa" content="1">
+</head>
+<body>
+    @include('layouts.partials.contenido_principal')
+</body>
+</html>
+@else
 <!DOCTYPE html>
 <html lang="es">
 
@@ -32,7 +56,7 @@
     <link rel="apple-touch-icon" sizes="192x192" href="{{ asset('icons/icon-192.png') }}">
 
     <!-- Preload Fonts to prevent FOUT (text flashing before icons load) -->
-    <link rel="preload" as="font" href="{{ asset('fonts/MaterialIcons-Regular.ttf') }}" type="font/ttf"
+    <link rel="preload" as="font" href="{{ asset('fonts/MaterialIcons-Regular.woff2') }}" type="font/woff2"
         crossorigin="anonymous">
 
     <!-- CSS -->
@@ -704,78 +728,7 @@
         </form>
     </div>
 
-    <!-- Main Content Area -->
-    <main class="main-viewport transition-fade">
-        @if(session('success'))
-            <script>
-                window.addEventListener('load', () => {
-                    if (window.showToast) {
-                        window.showToast(@json(session('success')), 'success');
-                    }
-                });
-            </script>
-        @endif
-
-        {{-- Bridge Blade -> sessionStorage: si el backend redirigio via
-             redirect()->back()->with('flash_toast', [...]) (ej. handler 403
-             global en bootstrap/app.php), tomamos ese flash y lo movemos a
-             sessionStorage para que el script siguiente lo renderice como
-             toast en lugar del modal feo default. --}}
-        @if(session('flash_toast'))
-            @php $ft = session('flash_toast'); @endphp
-            <script>
-                (function () {
-                    try {
-                        sessionStorage.setItem('vidalsa_flash_toast', JSON.stringify({
-                            message: @json($ft['message'] ?? ''),
-                            type:    @json($ft['type'] ?? 'error'),
-                        }));
-                    } catch (_) {}
-                })();
-            </script>
-        @endif
-
-        {{-- Flash toast desde sessionStorage (post-redirect en flujos AJAX/SPA).
-             Permite mostrar la notificacion en la pagina destino sin parpadeo
-             cuando el form origen redirigio via JS (ej: equipos edit, catalogo). --}}
-        <script>
-            (function () {
-                function _flushFlashToast() {
-                    try {
-                        var raw = sessionStorage.getItem('vidalsa_flash_toast');
-                        if (!raw) return;
-                        sessionStorage.removeItem('vidalsa_flash_toast');
-                        var data = JSON.parse(raw);
-                        if (!data || !data.message) return;
-                        var tryShow = function () {
-                            if (typeof window.showToast === 'function') {
-                                window.showToast(data.message, data.type || 'success');
-                            } else {
-                                setTimeout(tryShow, 80);
-                            }
-                        };
-                        tryShow();
-                    } catch (_) { /* silencioso */ }
-                }
-                if (document.readyState === 'loading') {
-                    document.addEventListener('DOMContentLoaded', _flushFlashToast);
-                } else {
-                    _flushFlashToast();
-                }
-                // En navegaciones SPA, leer el toast nuevo del destino. El flag
-                // window.__vidalsaRedirecting lo libera loadPage() en su finally
-                // (punto único, cubre éxito y error); no se toca aquí para no duplicar.
-                // Este <script> vive dentro de <main> y la SPA lo re-ejecuta en cada
-                // navegación: sin el guard sumaba un listener por módulo visitado.
-                if (!window.__flashToastSpaBound) {
-                    window.__flashToastSpaBound = true;
-                    window.addEventListener('spa:contentLoaded', _flushFlashToast);
-                }
-            })();
-        </script>
-
-        @yield('content')
-    </main>
+    @include('layouts.partials.contenido_principal')
 
 
 
@@ -1461,3 +1414,4 @@
 </body>
 
 </html>
+@endif

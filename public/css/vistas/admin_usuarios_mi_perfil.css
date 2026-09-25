@@ -1,0 +1,223 @@
+/* Estilos de admin/usuarios/mi_perfil.blade.php (antes en un <style> dentro de la vista: viajaban en el HTML de cada visita y no se cacheaban). El <link> ocupa EXACTAMENTE el sitio del <style>, asi que la cascada no cambia. */
+        /* ══ Mi Perfil ═══════════════════════════════════════════════════════════
+           Paleta y tipografía heredadas del sistema (azul #0067b1 + Nunito). Los
+           neutros llevan una pizca de azul en vez de gris puro, para que la pantalla
+           se lea como parte de la marca y no como un formulario genérico.
+           Todo vive dentro de UNA .admin-card angosta: cabecera (avatar + nombre +
+           estado), una fila de etiquetas con rol y niveles, y debajo el formulario.
+           Antes eran cinco bloques apilados —dos de ellos tarjetas con título propio
+           para mostrar dos palabras— que estiraban la pantalla sin aportar nada. */
+        /* La tarjeta se centra también EN VERTICAL dentro del área de contenido. El 190px
+           descuenta el encabezado del layout; min-height (no height) para que en pantallas
+           bajas o con el teclado abierto la tarjeta empuje y siga siendo scrollable en vez
+           de quedar recortada. */
+        .perfil-centro {
+            min-height: calc(100vh - 190px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .perfil-wrap {
+            --pf-azul: #0067b1;
+            --pf-tinta: #0f172a;
+            --pf-gris: #5b6b7f;
+            --pf-borde: #e3e9f0;
+            /* Angosta a propósito: el contenido son tres datos de lectura y dos campos.
+               Bajó de 720 a 520 y de 520 a 420 por la misma razón — las líneas quedaban
+               perdidas en un ancho que no usaban. A 420, descontando los 24 de padding a
+               cada lado, quedan 372 px útiles para los dos campos. La pareja de botones no
+               corre riesgo: .perfil-acciones lleva flex-wrap, así que si no entraran en una
+               fila bajan una debajo de otra en vez de desbordar. */
+            width: 100%;
+            max-width: 420px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        /* ── Identidad: avatar + nombre, correo, estado y etiquetas ── */
+        /* Cabecera en HORIZONTAL: el avatar a la izquierda y toda la identidad a su
+           derecha. Antes eran cinco bloques centrados uno debajo del otro (avatar, nombre,
+           correo, estado y la fila de etiquetas), que para seis datos cortos gastaba media
+           pantalla antes de llegar al formulario, que es a lo que se entra. */
+        /* En COLUMNA y centrada: el avatar arriba y debajo nombre, correo y cargo.
+           Antes iba en fila con el texto a la izquierda, pero al quitar el estado y las
+           etiquetas de nivel quedaba un bloque corto descolgado al lado del avatar. */
+        .perfil-hero {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            gap: 10px;
+        }
+        .perfil-avatar {
+            width: 56px;
+            height: 56px;
+            flex: 0 0 auto;
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            color: #fff;
+            background: linear-gradient(135deg, #00355c, var(--pf-azul));
+        }
+        /* Columna de identidad: nombre + estado en la primera línea, correo en la segunda
+           y las etiquetas debajo. min-width:0 para que un correo largo recorte en vez de
+           empujar el avatar fuera de la tarjeta. */
+        /* align-items:center para que los chips también queden centrados bajo el correo. */
+        .perfil-ident { min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+        .perfil-avatar .material-icons { font-size: 30px; }
+        .perfil-nombre {
+            font-size: 18px;
+            font-weight: 800;
+            line-height: 1.2;
+            color: var(--pf-tinta);
+        }
+        .perfil-correo {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--pf-gris);
+            word-break: break-word;
+        }
+
+
+        /* ── Etiquetas de rol y niveles: tres datos cortos en una sola fila ── */
+        .perfil-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 8px;
+        }
+        .pf-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 4px 10px;
+            border-radius: 7px;
+            font-size: 11.5px;
+            font-weight: 700;
+            color: var(--pf-gris);
+            background: #f6f9fc;
+            border: 1px solid var(--pf-borde);
+        }
+        .pf-chip-rol {
+            color: var(--pf-azul);
+            background: rgba(0, 103, 177, .07);
+            border-color: rgba(0, 103, 177, .2);
+            text-transform: uppercase;
+            letter-spacing: .5px;
+            font-size: 11px;
+        }
+
+        .perfil-sep {
+            border: none;
+            border-top: 1px solid var(--pf-borde);
+            margin: 14px 0 14px;
+        }
+
+        .perfil-section-title {
+            font-size: 11px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--pf-tinta);
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .perfil-section-title .material-icons { font-size: 16px; color: var(--pf-azul); }
+        .perfil-section-sub {
+            font-size: 13px;
+            color: var(--pf-gris);
+            margin-bottom: 16px;
+        }
+        .pw-label {
+            display: block;
+            font-size: 10.5px;
+            font-weight: 800;
+            color: var(--pf-gris);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+        }
+
+        /* En pantallas bajas el centrado vertical estorba: deja de centrar y la tarjeta
+           arranca arriba, para que no haya que hacer scroll dentro de un hueco vacío. */
+        @media (max-height: 700px) {
+            .perfil-centro { min-height: 0; align-items: flex-start; }
+        }
+        /* Teléfono: la cabecera SIGUE horizontal (apilarla devolvería el alto que este
+           cambio vino a recortar), pero el avatar y las separaciones ceden unos píxeles
+           para que al nombre y al correo les quede ancho útil. */
+        @media (max-width: 420px) {
+            .perfil-wrap { padding: 18px; }
+            .perfil-hero { gap: 11px; }
+            .perfil-avatar { width: 46px; height: 46px; }
+            .perfil-avatar .material-icons { font-size: 25px; }
+            .perfil-nombre { font-size: 16.5px; }
+        }
+
+        .pw-input-wrap {
+            position: relative;
+        }
+
+        .pw-input-wrap input {
+            width: 100%;
+            padding: 10px 44px 10px 15px;
+            border: 1.5px solid #cbd5e0;
+            border-radius: 10px;
+            font-size: 14px;
+            background: #fff;
+            outline: none;
+            box-sizing: border-box;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            font-family: inherit;
+            color: #1e293b;
+        }
+
+        .pw-input-wrap input:focus {
+            border-color: #0067b1;
+            box-shadow: 0 0 0 3px rgba(0, 103, 177, 0.1);
+            background: #fff;
+        }
+
+        .pw-toggle-icon {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            color: #94a3b8;
+            font-size: 20px;
+            transition: color 0.2s;
+            user-select: none;
+        }
+
+        .pw-toggle-icon:hover {
+            color: #0067b1;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-6px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Botonera de "Cambiar contraseña": los botones quedan EXACTAMENTE como los del
+           resto de la app (tamaño, radio y relleno los pone .btn-primary-maquinaria).
+           Aquí solo se coloca la fila; nada de altos ni anchos propios, que era lo que
+           hacía que esta pantalla se viera distinta a los demás módulos. */
+        .perfil-acciones {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            margin-top: 8px;
+            flex-wrap: wrap;
+        }
+    

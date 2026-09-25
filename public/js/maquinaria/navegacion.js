@@ -593,6 +593,22 @@ document.addEventListener('DOMContentLoaded', () => {
             mainViewport.innerHTML = newContent.innerHTML;
             liberarScrollDelFondo();
 
+            // Las hojas de estilo del modulo (public/css/vistas, antes <style> en la vista)
+            // llegan como <link> y el navegador las carga EN PARALELO: sin esperar, el modulo
+            // se veria un instante sin estilo. Se espera a que carguen (normalmente de la cache,
+            // milisegundos), con tope de 4 s por si una no llega. El spinner sigue encima.
+            const hojas = Array.from(mainViewport.querySelectorAll('link[rel="stylesheet"]')).filter((l) => !l.sheet);
+            if (hojas.length) {
+                await Promise.race([
+                    Promise.all(hojas.map((l) => new Promise((ok) => {
+                        l.addEventListener('load', ok, { once: true });
+                        l.addEventListener('error', ok, { once: true });
+                    }))),
+                    new Promise((ok) => setTimeout(ok, 4000)),
+                ]);
+                if (_yaNoEsLaActual()) { handledCleanup = true; return; }
+            }
+
             // Re-ejecutar scripts del contenido inyectado EN ORDEN y esperando
             // cada externo (CDN) antes de continuar — crítico para Chart.js, etc.
             await executeScripts(mainViewport);

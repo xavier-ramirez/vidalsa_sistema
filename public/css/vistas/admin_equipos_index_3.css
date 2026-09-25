@@ -1,0 +1,228 @@
+/* Estilos de admin/equipos/index.blade.php (antes en un <style> dentro de la vista: viajaban en el HTML de cada visita y no se cacheaban). El <link> ocupa EXACTAMENTE el sitio del <style>, asi que la cascada no cambia. */
+        /* Fleet Dashboard Mobile Responsive */
+        @media (max-width: 768px) {
+            #fleetDashboardModal .modal-content {
+                width: 100% !important;
+                height: 100dvh !important;   /* usa dvh para evitar barra de browser en iOS */
+                max-width: 100% !important;
+                border-radius: 0 !important;
+            }
+
+            /* Header compacto en mobile */
+            .fleet-dashboard-header {
+                padding: 10px 14px !important;
+            }
+
+            .fleet-header-wrapper {
+                flex-direction: column !important;
+                align-items: flex-start !important;
+                position: relative !important;
+                padding-right: 80px !important;
+                gap: 10px !important;
+            }
+
+            /* UNA sola fila: icono + buscador. Iba en columna porque encima estaba el
+               titulo, que se llevaba media fila; sin el, apilarlos solo desperdicia alto
+               justo en la pantalla donde el alto es lo que escasea. */
+            .fleet-header-left {
+                width: 100% !important;
+                flex-direction: row !important;
+                align-items: center !important;
+                gap: 10px !important;
+            }
+
+            /* En telefono se va el TITULO del modal (pedido del cliente): en una pantalla
+               estrecha "Dashboard de Flota" solo repite lo que el usuario acaba de pulsar
+               para llegar aqui, y se comia una fila entera.
+               Se oculta el BLOQUE de texto y no solo el <h2>: .fleet-header-title-group
+               lleva gap:12px, asi que un div vacio seguiria separando el icono del
+               buscador. El icono se queda, que es lo que identifica la cabecera.
+               Aqui habia un `font-size: 14px` para ese h2 que ya no pinta nada. */
+            .fleet-header-title-text {
+                display: none !important;
+            }
+
+            /* Icono del dashboard más pequeño */
+            .fleet-header-title-group > div:first-child {
+                padding: 6px !important;
+            }
+
+            .fleet-header-title-group > div:first-child .material-icons {
+                font-size: 18px !important;
+            }
+
+            /* .fleet-topline ya no necesita nada en teléfono: desde que el buscador subió a la
+               cabecera le queda un solo hijo (las tarjetas), que ocupa el ancho entero igual en
+               escritorio que aquí. Se fueron su `flex-direction: column` —apilaba dos cosas
+               donde ahora hay una— y el `flex: none` del grid, que solo existía para deshacer
+               el flex-basis en px que tenía cuando repartía sitio con el buscador. */
+
+            /* El buscador comparte FILA con el icono (ver .fleet-header-left arriba), asi
+               que ocupa el resto del ancho y debe poder encogerse. Aqui tenia
+               `width:100%` + `flex:none`, que era lo correcto cuando iba en columna:
+               en fila pide el ancho ENTERO del padre y ademas flex:none le prohibe
+               encoger, asi que el icono lo empujaba fuera de la cabecera. */
+            .fleet-filter-container {
+                flex: 1 1 auto !important;
+                min-width: 0 !important;
+            }
+
+            .fleet-filter-container .custom-dropdown {
+                width: 100% !important;
+            }
+
+            /* Grupo Descargar + Cerrar posicionado top-right absoluto */
+            .fleet-header-right {
+                position: absolute !important;
+                top: 0 !important;
+                right: 0 !important;
+                gap: 8px !important;
+            }
+
+            /* Dashboard content: menos padding y prevención de overflow.
+               Apunta por CLASE y no por `div[style*="overflow-y: auto"]`: ese selector
+               dependía de un trozo literal del style inline, así que cualquier reorden o
+               quitarle el espacio ("overflow-y:auto") lo rompía en silencio. */
+            #fleetDashboardModal .fleet-dashboard-body {
+                padding: 14px !important;
+                overflow-x: hidden !important;
+                box-sizing: border-box !important;
+                width: 100% !important;
+            }
+
+            /* Stat cards en teléfono: tres por fila y las que sobren estirándose en la
+               siguiente. Aquí había `repeat(3, 1fr)` con un comentario que decía "SIEMPRE en
+               UNA fila... son 3": dejó de ser cierto al llegar las dos tarjetas de
+               combustible, y las cinco quedaban 3 + 2 con un hueco al final.
+               Ya no se fija el número de columnas: lo resuelve el mismo reparto flexible del
+               escritorio, y aquí solo se ajusta cuánto pide cada tarjeta. */
+            /* margin-bottom 0 (antes 14): en móvil la grid va DENTRO de .fleet-topline, que
+               ya aporta su propio margen inferior; los dos se sumaban y dejaban un hueco
+               enorme entre los contadores y el primer gráfico. */
+            #fleetDashboardModal .fleet-stats-grid {
+                gap: 8px !important;
+                margin-bottom: 0 !important;
+                width: 100% !important;
+            }
+
+            /* Stat cards: menos padding, fuente más pequeña y APILADAS.
+               En teléfono la tarjeta pone la CIFRA ARRIBA y la etiqueta debajo, las dos
+               centradas. En escritorio van en fila (etiqueta a la izquierda, cifra a la
+               derecha), pero con tres columnas en una pantalla estrecha esa fila deja el
+               número pegado al borde y la etiqueta partida; apilado se lee de un vistazo.
+
+               column-reverse y NO column: en el HTML la etiqueta va PRIMERO, que es lo
+               correcto para un lector de pantalla (anuncia "Σ Equipos" y después el valor).
+               Invirtiendo solo el pintado, la cifra queda arriba sin tocar el orden del
+               documento.
+
+               min-height y gap se rehacen aquí a propósito: los de .fleet-kpi están
+               calculados para UNA línea a la misma altura que el buscador de al lado, y en
+               teléfono ni hay buscador al lado ni una sola línea. */
+            #fleetDashboardModal .fleet-stats-grid > div {
+                padding: 10px !important;
+                min-width: 0 !important;
+                box-sizing: border-box !important;
+                word-wrap: break-word !important;
+                /* Pide ~un tercio del ancho: entran TRES por fila y las que sobren se
+                   estiran para llenar la siguiente, sin hueco. */
+                flex: 1 1 28% !important;
+                flex-direction: column-reverse !important;
+                align-items: center !important;
+                justify-content: center !important;
+                text-align: center !important;
+                gap: 2px !important;
+                min-height: 0 !important;
+            }
+
+            #fleetDashboardModal .fleet-stats-grid h3 {
+                /* 16px (antes 18): acompana la bajada de 24 a 20 del escritorio para que
+                   la cifra no cambie de peso visual al pasar de PC a telefono. */
+                font-size: 16px !important;
+            }
+
+            #fleetDashboardModal .fleet-stats-grid p {
+                /* 12px (antes 10.5): a pedido del cliente, en el teléfono se leían muy
+                   chicas. Es el MISMO tamaño que en escritorio, así que la etiqueta ya no
+                   encoge al pasar a móvil. Con tres columnas estrechas el texto largo se
+                   reparte en dos líneas, que es justo el comportamiento que se pidió.
+                   Ya NO se repite aquí `white-space: normal`: ahora es el comportamiento
+                   normal de .fleet-kpi-lbl en todas las pantallas. */
+                font-size: 12px !important;
+            }
+
+
+            /* Charts: 1 columna y sin overflow. minmax(0, 1fr) y NO 1fr por lo mismo que en
+               la regla de escritorio: con 1fr el track crece hasta el ancho intrínseco del
+               <canvas> y el panel se sale del modal. */
+            #fleetChartsGrid {
+                grid-template-columns: minmax(0, 1fr) !important;
+                gap: 12px !important;
+                max-width: 100% !important;
+                overflow: hidden !important;
+            }
+
+            /* Container for each chart allowed to shrink */
+            #fleetChartsGrid > div {
+                min-width: 0 !important;
+                max-width: 100% !important;
+                width: 100% !important;
+                box-sizing: border-box !important;
+                overflow: hidden !important;
+            }
+
+            /* En TELÉFONO estos dos gráficos no se muestran: a pedido del cliente, en el
+               móvil interesan los contadores y la lista de Ubicación por Frente; los
+               gráficos por tipo se consultan desde la PC, que es donde se leen bien.
+               No se quita su markup — en escritorio siguen igual. */
+            #fleetDashboardModal #fdm-panel-age,
+            #fleetDashboardModal #fdm-panel-auxiliares { display: none !important; }
+
+            /* Panels de gráficos: menos padding. Solo queda el de asignados: los otros dos
+               están ocultos aquí arriba y no tiene sentido darles estilo. */
+            #fdm-panel-assigned {
+                padding: 14px !important;
+                width: 100% !important;
+                box-sizing: border-box !important;
+            }
+
+            /* El canvas no debe desbordar a lo ancho. OJO: NO poner `height: auto` aqui.
+               La altura del grafico la calcula createStackedBarChart() segun cuantas barras
+               hay (y ya usa una linea mas baja en pantallas < 480px). Con `height: auto` el
+               canvas adoptaba la proporcion de su buffer y se quedaba en ~218px para 17
+               barras = 13px por barra, contra los ~30px de escritorio: barras aplastadas y
+               etiquetas del eje solapadas, justo el problema que se corrigio en escritorio. */
+            #fleetChartsGrid canvas {
+                max-width: 100% !important;
+            }
+
+            /* Título de paneles (antes se apuntaba a `h4`, que ya no existe) */
+            #fleetDashboardModal .fdm-panel-title {
+                font-size: 13px !important;
+            }
+
+            /* Las claves con total bajan a su propia linea para no apretar el titulo. */
+            #fleetDashboardModal .fdm-panel-head {
+                flex-wrap: wrap !important;
+                gap: 8px 12px !important;
+            }
+
+            #fleetDashboardModal .fdm-keys { margin-left: 0 !important; }
+
+            /* Card de Distribución mudada aquí desde el sidebar. Pierde su sombra propia
+               (ya vive dentro del modal, dos sombras se ven sucias) y se queda solo con el
+               borde, igual que los .fdm-panel de al lado. */
+            #fleetDashboardModal #fdmDistribucionSlot { margin-bottom: 12px; }
+            #fleetDashboardModal #fdmDistribucionSlot #distribucionCard {
+                box-shadow: none !important; padding: 12px !important;
+            }
+            /* Sin scroll propio: el cuerpo del modal YA hace scroll y anidar dos áreas
+               desplazables en una pantalla táctil es un incordio (se arrastra la de dentro
+               cuando quieres mover la de fuera). La lista se despliega entera y el modal la
+               desplaza. Anula el max-height:62vh del sidebar. */
+            #fleetDashboardModal #fdmDistribucionSlot #distributionStatsContainer {
+                max-height: none !important; overflow: visible !important;
+            }
+        }
+
+    

@@ -66,11 +66,29 @@ class SpaDevuelveHtmlTest extends MySqlTestCase
             );
             $this->assertStringContainsString('text/html', $tipo, "{$ruta} no devolvio HTML");
 
-            // Y es la PAGINA completa, no un fragmento de tabla ni un JSON disfrazado.
+            // Es un documento con lo que la navegacion usa (titulo, huella de version y el
+            // <main> del modulo), no un fragmento de tabla ni un JSON disfrazado...
             $html = $res->getContent();
-            $this->assertStringContainsString('</html>', $html, "{$ruta} no devolvio un documento completo");
-            $this->assertStringContainsString('main-viewport', $html, "{$ruta} no trae el armazon de la app");
+            $this->assertStringContainsString('</html>', $html, "{$ruta} no devolvio un documento");
+            $this->assertStringContainsString('main-viewport', $html, "{$ruta} no trae el contenido del modulo");
+            $this->assertMatchesRegularExpression('/<meta name="version-vistas" content="\d+">/', $html,
+                "{$ruta} sin huella de version: la pestaña no sabria que hubo un despliegue");
+            // ...pero SIN el armazon (menu, scripts del layout), que la pestaña ya tiene.
+            $this->assertStringNotContainsString('id="mobileMenu"', $html, "{$ruta} volvio a mandar el menu en la SPA");
+            $this->assertStringNotContainsString('js/maquinaria/layout_ui.js?v=', $html, "{$ruta} volvio a mandar los scripts del layout");
+            $this->assertStringContainsString('X-SPA-Navigate', (string) $res->headers->get('Vary'),
+                "{$ruta} sin Vary: una cache podria servir la respuesta corta como pagina completa");
         }
+    }
+
+    /** Sin la cabecera SPA (F5, abrir un enlace) llega la pagina COMPLETA, con su menu. */
+    public function test_sin_cabecera_spa_llega_la_pagina_completa(): void
+    {
+        $html = $this->actingAs($this->admin())->get('/admin/movilizaciones')->assertOk()->getContent();
+
+        $this->assertStringContainsString('id="mobileMenu"', $html);
+        $this->assertStringContainsString('js/maquinaria/layout_ui.js?v=', $html);
+        $this->assertStringContainsString('main-viewport', $html);
     }
 
     /**

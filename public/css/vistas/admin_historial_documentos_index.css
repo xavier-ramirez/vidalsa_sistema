@@ -1,0 +1,313 @@
+/* Estilos de admin/historial_documentos/index.blade.php (antes en un <style> dentro de la vista: viajaban en el HTML de cada visita y no se cacheaban). El <link> ocupa EXACTAMENTE el sitio del <style>, asi que la cascada no cambia. */
+    /* La tabla va como las de Usuarios y Equipos: .admin-table (filas con borde redondeado)
+       + .tabla-cabecera (estilos_globales.css). Aquí solo lo propio de este módulo. */
+    .badge-doc {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        background: #ebf8ff;
+        color: #2b6cb0;
+        padding: 3px 9px;
+        border-radius: 6px;
+        font-size: 11px;
+        font-weight: 600;
+    }
+    .badge-doc .material-icons { font-size: 13px; }
+    .badge-autor {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: #f1f5f9;
+        color: #475569;
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-size: 13px;
+        font-weight: 500;
+        max-width: 100%;
+        overflow-wrap: anywhere;
+    }
+    .badge-autor .material-icons { font-size: 16px; }
+    .hd-fecha { display: flex; flex-direction: column; white-space: nowrap; }
+    .hd-hora { font-size: 12px; color: #94a3b8; }
+    .hd-equipo-nombre { color: #334155; line-height: 1.3; }
+    .hd-equipo-id { font-size: 12px; color: #475569; font-weight: 600; }
+    /* Burbuja "Cambios realizados" de una edición (partials/table_rows.blade.php): un dato por
+       línea con "antes → ahora" y quién lo hizo al pie. Dónde y cómo flota (PC: bajo la celda
+       del equipo; teléfono: encima de la tarjeta) va más abajo.
+       Gris OSCURO con texto claro (lo pidió el cliente, 21-09-2026): flota sobre la tabla, que
+       es blanca, y así se distingue de un vistazo. */
+    .hd-cambios-caja { background: #1f2937; border: 1px solid #374151; border-radius: 10px; overflow: hidden;
+                       box-shadow: 0 12px 28px -6px rgba(15, 23, 42, .45); font-size: 12.5px; color: #f1f5f9; }
+    /* Cabecera y pie del MISMO gris que el cuerpo y sin rayas: una sola pieza (lo pidió el cliente). */
+    .hd-cambios-cab { display: flex; align-items: center; gap: 6px; padding: 8px 12px 2px; }
+    .hd-cambios-cab .material-icons { font-size: 15px; color: #7dd3fc; }
+    .hd-cambios-cab span { font-size: 11px; font-weight: 800; color: #e5e7eb; text-transform: uppercase; letter-spacing: .5px; }
+    .hd-cambios-cab .hd-close-cambios { margin-left: auto; font-size: 17px; color: #9ca3af; cursor: pointer; }
+    .hd-cambios-cab .hd-close-cambios:hover { color: #fff; }
+    .hd-cambios-lista { padding: 0 12px; }
+    .hd-cambio { padding: 6px 0; border-bottom: 1px solid #374151; }
+    .hd-cambio:last-child { border-bottom: none; }
+    .hd-cambio-campo { font-size: 10.5px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: .4px; margin-bottom: 3px; }
+    .hd-cambio-valores { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+    .hd-cambio-valores .material-icons { font-size: 14px; color: #6b7280; }
+    .hd-cambio-antes { color: #9ca3af; text-decoration: line-through; word-break: break-word; }
+    .hd-cambio-nuevo { color: #fff; font-weight: 700; word-break: break-word; }
+    .hd-cambio-vacio { font-style: italic; font-weight: 400; text-decoration: none; color: #9ca3af; }
+    .hd-cambios-pie { padding: 4px 12px 8px; font-size: 11.5px; color: #cbd5e1; }
+    @media (min-width: 769px) {
+        /* Filas más juntas que el .admin-table general (12 px): la auditoría es una lista larga. */
+        #historialDocumentosTable { border-spacing: 0 5px; }
+        #historialDocumentosTable td { padding-top: 7px; padding-bottom: 7px; }
+    }
+    /* Botón eliminar registro (solo super.admin). Pequeño y OCULTO por defecto:
+       aparece al pasar el mouse o enfocar (teclado) la fila. En móvil (sin hover)
+       se fuerza visible más abajo. */
+    .btn-hd-del {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 26px;
+        height: 26px;
+        border-radius: 6px;
+        background: #fff;
+        border: 1px solid #fca5a5;
+        color: #dc2626;
+        cursor: pointer;
+        opacity: 0;
+        transition: opacity .15s, background .2s, border-color .2s;
+    }
+    .btn-hd-del:hover {
+        background: #fee2e2;
+        border-color: #dc2626;
+    }
+    /* Revelar al hover / focus de la fila (desktop, donde hay hover). */
+    #historialDocumentosTable tbody tr:hover .btn-hd-del,
+    #historialDocumentosTable tbody tr:focus-within .btn-hd-del {
+        opacity: 1;
+    }
+
+    .hd-filter-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: stretch;
+    }
+    .hd-filter-row > .filter-item.responsive-filter-item {
+        flex: 1 1 200px !important;
+        max-width: none !important;
+        min-width: 180px;
+    }
+    .hd-adv-filter-wrap {
+        position: relative;
+        flex: 0 0 auto;
+    }
+    .hd-acciones-wrap {
+        position: relative;
+        flex: 0 0 auto;
+    }
+    @media (max-width: 900px) {
+        .hd-layout-grid {
+            grid-template-columns: 1fr !important;
+        }
+        .historial-sidebar {
+            width: 100% !important;
+            max-width: 100% !important;
+            margin-top: 10px;
+        }
+        .historial-sidebar > div { margin-top: 0 !important; }
+        .historial-sidebar > div + div { margin-top: 8px !important; }
+        .hd-total-card {
+            display: none !important;
+        }
+    }
+
+    @media (max-width: 768px) {
+        /* En móvil (touch, sin hover) el botón eliminar queda SIEMPRE visible —
+           si no, no habría forma de revelarlo. Además lo igualamos al botón PDF
+           (.pdf-doc-btn, 30x30) para que no se vean desparejos lado a lado en la tarjeta. */
+        .btn-hd-del { opacity: 1 !important; width: 30px !important; height: 30px !important; }
+        .btn-hd-del .material-icons { font-size: 17px !important; }
+        .hd-filter-row {
+            flex-direction: row !important;
+            flex-wrap: wrap !important;
+            align-items: stretch !important;
+            /* Corto a propósito: en el teléfono los filtros se comían la pantalla. */
+            gap: 6px !important;
+        }
+        /* Un filtro por fila (así lo pidió el cliente) y Acciones abajo del todo, a lo ancho.
+           El botón de filtros avanzados sigue pegado al último filtro, no es un filtro. */
+        .hd-filter-row > .filter-item.responsive-filter-item {
+            flex: 1 1 100% !important;
+            min-width: 0 !important;
+        }
+        .hd-acciones-wrap { flex: 1 1 100% !important; order: 9; }
+        .hd-acciones-wrap #hdBtnAcciones { width: 100% !important; }
+        /* El botón de filtros avanzados va pegado al ÚLTIMO filtro, no al de Acciones:
+           el filtro se encoge para dejarle su hueco en la misma fila. */
+        .hd-filter-row > .filter-item.responsive-filter-item:nth-of-type(3) {
+            flex: 1 1 0 !important;
+        }
+        .hd-adv-filter-wrap {
+            flex: 0 0 45px !important;   /* cuadrado: mismo ancho que la altura de la fila */
+        }
+        /* 45 px, la MISMA altura que los controles de Equipos (#btnAcciones) y Almacén
+           (#almBtnAcciones): medido en el navegador, este módulo se había quedado en 40 y
+           se veía más apretado que los demás. (El gap va arriba, en .hd-filter-row.) */
+        .hd-filter-row .filter-item { min-height: 45px !important; height: 45px !important; }
+        .hd-filter-row .filter-item form, .hd-filter-row .search-wrapper,
+        .hd-filter-row .search-input-field, .hd-filter-row .dropdown-trigger,
+        #hdBtnAcciones, #btnHdAdvancedFilter { height: 45px !important; min-height: 45px !important; }
+        /* El botón queda a la izquierda: el panel se abre hacia la derecha para
+           no salirse de la pantalla. */
+        #hdAdvancedFilterPanel {
+            left: 0 !important;
+            right: auto !important;
+        }
+        #hdBtnAcciones {
+            width: 100% !important;
+        }
+        #hdAccionesMenu {
+            left: 0 !important;
+            right: 0 !important;
+            width: auto !important;
+        }
+        #historialDocumentosTable {
+            min-width: 0 !important;
+        }
+
+        /* ── Tabla → cards en móvil ── */
+        .table-historial-mobile {
+            display: block;
+            width: 100%;
+        }
+        .table-historial-mobile thead {
+            display: none;
+        }
+        .table-historial-mobile tbody {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            width: 100%;
+        }
+        .table-historial-mobile tbody tr {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            grid-template-rows: auto auto auto;
+            grid-template-areas:
+                "doc    date"
+                "equipo equipo"
+                "author pdf";
+            column-gap: 10px;
+            row-gap: 8px;
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+            padding: 12px 14px !important;
+            align-items: center;
+            transition: border-color 0.15s, background 0.15s;
+        }
+        .table-historial-mobile tbody tr.hd-row-selected {
+            border-color: #0067b1;
+            background: #f0f9ff;
+        }
+        .table-historial-mobile tbody td {
+            border: none !important;
+            padding: 0 !important;
+            text-align: left;
+            border-radius: 0 !important;
+            min-width: 0;
+            background: transparent !important;
+        }
+        /* Fila 1 izq: acción (badge) */
+        .table-historial-mobile tbody td:nth-child(3) {
+            grid-area: doc;
+        }
+        .table-historial-mobile tbody td:nth-child(3) .badge-doc {
+            font-size: 10px;
+            padding: 3px 8px;
+        }
+        /* Fila 1 der: fecha + hora */
+        .table-historial-mobile tbody td:nth-child(1) {
+            grid-area: date;
+            justify-self: end;
+            font-size: 11.5px;
+            color: #94a3b8;
+            line-height: 1.25;
+        }
+        .table-historial-mobile tbody td:nth-child(1) .hd-fecha {
+            align-items: flex-end;
+        }
+        /* Fila 2: equipo (protagonista) */
+        .table-historial-mobile tbody td:nth-child(4) {
+            grid-area: equipo;
+            font-size: 14px;
+            font-weight: 700;
+            color: #0f172a;
+            line-height: 1.3;
+            border-top: 1px solid #f1f5f9;
+            border-bottom: 1px solid #f1f5f9;
+            padding: 6px 0 !important;
+        }
+        /* Fila 3 izq: autor */
+        .table-historial-mobile tbody td:nth-child(2) {
+            grid-area: author;
+            font-size: 12px;
+            color: #64748b;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 65vw;
+            align-self: center;
+        }
+        .table-historial-mobile tbody td:nth-child(2) .badge-autor {
+            background: transparent;
+            padding: 0;
+            font-size: 12px;
+            color: #64748b;
+        }
+        .table-historial-mobile tbody td:nth-child(2) .badge-autor .material-icons {
+            display: none;
+        }
+        /* Fila 3 der: botón PDF */
+        .table-historial-mobile tbody td:nth-child(5) {
+            grid-area: pdf;
+            justify-self: end;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* ── Overlay de cambios encima de la tarjeta ── */
+        .table-historial-mobile tbody tr.hd-has-cambios {
+            position: relative;
+            overflow: visible;
+        }
+        .table-historial-mobile .hd-cambios-detail {
+            position: absolute !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            margin: 0 !important;
+            z-index: 10;
+            min-height: 100%;
+        }
+        .table-historial-mobile .hd-cambios-detail > div {
+            border-radius: 10px !important;
+            min-height: 100%;
+        }
+    }
+    /* ── Pestañas de Control de Auditoría: Historial · Compresión · Documentos ──
+       Las dos ultimas las pinta admin/compresion_pdf/panel.blade.php. */
+    .hd-pest-fila { width: 98%; max-width: 1600px; margin: -6px auto 14px; }
+    .hd-pest { display: flex; gap: 6px; border-bottom: 1px solid #e2e8f0; min-width: 0; }
+    .hd-pest button { border: none; background: none; font: inherit; font-size: 14.5px; font-weight: 700; color: #64748b;
+                      padding: 8px 14px; border-bottom: 3px solid transparent; cursor: pointer; }
+    .hd-pest button.on { color: #0067b1; border-bottom-color: #0067b1; }
+    .hd-pest .hd-pend { background: #fee2e2; color: #b91c1c; border-radius: 999px; padding: 1px 7px; font-size: 12px; font-weight: 800; margin-left: 4px; }
+    /* Teléfono: los nombres no se parten en tres renglones; si no caben, la fila se desliza. */
+    @media (max-width: 768px) {
+        .hd-pest { overflow-x: auto; scrollbar-width: none; }
+        .hd-pest::-webkit-scrollbar { display: none; }
+        .hd-pest button { white-space: nowrap; padding: 8px 10px; font-size: 13.5px; }
+    }

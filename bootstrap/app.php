@@ -14,6 +14,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->web(append: [
             \App\Http\Middleware\ValidarSesionUnica::class,
+            \App\Http\Middleware\VaryNavegacionSpa::class,
         ]);
 
         // Global (web, api y /up): toda respuesta sale con sus cabeceras de seguridad.

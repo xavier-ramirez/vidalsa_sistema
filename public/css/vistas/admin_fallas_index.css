@@ -1,0 +1,322 @@
+/* Estilos de admin/fallas/index.blade.php (antes en un <style> dentro de la vista: viajaban en el HTML de cada visita y no se cacheaban). El <link> ocupa EXACTAMENTE el sitio del <style>, asi que la cascada no cambia. */
+        /* Mismas medidas que el .page-layout-grid de /admin/equipos para que el
+           contenedor blanco quede del mismo ancho: 100%, sidebar 300px, gap 14px. */
+        .fallas-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 300px;
+            gap: 14px;
+            width: 100%;
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        @media (max-width: 768px) {
+            .fallas-grid {
+                grid-template-columns: minmax(0, 1fr) !important;
+                width: 100% !important;
+            }
+
+            .falla-row-card {
+                grid-template-columns: 62px minmax(0, 1fr) !important;
+                padding: 7px 8px !important;
+                gap: 8px !important;
+                align-items: start !important;
+            }
+
+            .falla-foto {
+                width: 62px !important;
+                height: 62px !important;
+            }
+
+            .falla-foto .material-icons {
+                font-size: 20px !important;
+            }
+
+            /* Líneas de la meta más juntas en móvil para comprimir la tarjeta. */
+            .falla-meta { gap: 2px !important; }
+            .falla-foto-col { gap: 3px !important; }
+            .falla-codigo { font-size: 9.5px !important; }
+            /* Marca (hereda de .falla-equipo) y tipo más chicos en móvil. El tipo
+               tiene font-size inline; el !important del media query lo gana. */
+            .falla-equipo { font-size: 11.5px !important; line-height: 1.2 !important; }
+            .falla-eq-tipo { font-size: 10.5px !important; }
+            .falla-info { font-size: 11.5px !important; }
+
+            /* En móvil la descripción pasa a ancho completo (no al lado) y, si es
+               larga, se trunca a 2 líneas. Al tocar la tarjeta se expande (.falla-expanded). */
+            .falla-descripcion {
+                grid-column: 1 / -1 !important;
+                border-left: none !important;
+                padding-left: 0 !important;
+                border-top: 1px solid #f1f5f9;
+                padding-top: 5px !important;
+                margin-top: 4px !important;
+                font-size: 11.5px !important;
+                line-height: 1.3 !important;
+                display: -webkit-box;
+                -webkit-line-clamp: 2;
+                -webkit-box-orient: vertical;
+                overflow: hidden;
+                cursor: pointer;
+            }
+
+            .falla-row-card.falla-expanded .falla-descripcion {
+                -webkit-line-clamp: unset;
+                overflow: visible;
+            }
+
+            /* "Reportó" se REVELA al tocar la tarjeta (.falla-expanded), igual que el
+               detalle en el módulo de equipos en móvil; oculto mientras está colapsada.
+               El de la columna de acciones (desktop) se oculta siempre en móvil. */
+            .falla-reporto-mobile { display: none !important; }
+            .falla-row-card.falla-expanded .falla-reporto-mobile { display: flex !important; }
+            .falla-actions > .falla-reporto-desktop { display: none !important; }
+
+            /* Pista "Ver quién reportó": visible colapsada, se oculta al expandir
+               (entonces aparece el dato). Afordancia tipo expand_more de equipos. */
+            .falla-tap-hint {
+                display: flex !important; align-items: center; gap: 3px;
+                margin-top: 4px; font-size: 11px; color: #94a3b8;
+            }
+            .falla-row-card.falla-expanded .falla-tap-hint { display: none !important; }
+
+            .falla-actions {
+                grid-column: 1 / -1 !important;
+                flex-direction: row !important;
+                justify-content: flex-end !important;
+                align-items: center !important;
+                border-top: 1px solid #f1f5f9;
+                padding-top: 7px !important;
+                margin-top: 5px !important;
+                width: 100%;
+            }
+
+            .falla-actions>div:first-child {
+                text-align: left !important;
+                margin-right: auto !important;
+            }
+
+            /* PDF y Cerrar uno al lado del otro (no apilados) en móvil. */
+            .falla-btn-stack {
+                flex-direction: row !important;
+            }
+
+            .fallas-header-container {
+                justify-content: center !important;
+                text-align: center !important;
+            }
+
+            .fallas-title-h1 {
+                text-align: center !important;
+                justify-content: center !important;
+                width: 100%;
+            }
+
+            .fallas-btn-new {
+                justify-content: center !important;
+                width: 100% !important;
+            }
+
+            .counter-sidebar { display: none !important; }
+            .fallas-mobile-stats { display: block !important; margin-bottom: 15px; }
+        }
+
+        .fallas-mobile-stats { display: none; }
+
+
+        /* Paneles de "Consolidado de Fallas": cursor normal (flecha, no el de
+           texto) sobre los números/labels de solo lectura. NO se bloquea la
+           selección ni la interacción del contenido. */
+        .counter-sidebar,
+        .fallas-mobile-stats {
+            cursor: default;
+        }
+
+        .falla-row-card {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 10px 14px;
+            display: grid;
+            grid-template-columns: 150px minmax(0, 1fr) minmax(0, 1.2fr) auto;
+            gap: 10px;
+            align-items: center;
+            transition: box-shadow 0.15s;
+        }
+
+        /* Descripción de la avería: columna al lado de la info, separada por una línea */
+        .falla-descripcion {
+            font-size: 12px;
+            color: #475569;
+            font-style: italic;
+            line-height: 1.4;
+            min-width: 0;
+            align-self: center;
+            border-left: 1px solid #e2e8f0;
+            padding-left: 14px;
+            overflow-wrap: break-word;
+            word-break: break-word;
+        }
+
+        .falla-row-card:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        }
+
+        .falla-foto {
+            position: relative;
+            width: 150px;
+            height: 90px;
+            border-radius: 8px;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+
+        .falla-foto img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .falla-foto .material-icons {
+            color: #cbd5e0;
+            font-size: 32px;
+        }
+
+        /* Columna de la foto: frente (arriba, fuera de la foto) + foto, como /admin/equipos */
+        .falla-foto-col {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            min-width: 0;
+        }
+
+        /* Frente FUERA de la foto, arriba (mismo idioma visual que la tabla de equipos):
+           texto centrado en MAYÚSCULAS que se reparte en varias líneas si es largo. */
+        .falla-foto-frente {
+            font-size: 10px;
+            font-weight: 700;
+            color: #1e293b;
+            text-transform: uppercase;
+            letter-spacing: 0.2px;
+            line-height: 1.2;
+            text-align: center;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+
+        .falla-meta {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            min-width: 0;
+        }
+
+        .falla-codigo {
+            font-size: 10px;
+            font-weight: 800;
+            color: #0067b1;
+            letter-spacing: 0.4px;
+        }
+
+        .falla-equipo {
+            font-size: 14px;
+            font-weight: 700;
+            color: #1e293b;
+            line-height: 1.3;
+        }
+
+        .falla-info {
+            font-size: 12px;
+            color: #64748b;
+            word-break: break-word;
+            overflow-wrap: break-word;
+        }
+
+        /* "Reportó" dentro del .falla-meta: solo visible en móvil (en escritorio va
+           en la columna de acciones, arriba-derecha). */
+        .falla-reporto-mobile {
+            display: none;
+            align-items: center;
+            gap: 4px;
+            margin-top: 3px;
+            font-size: 12px;
+            color: #64748b;
+        }
+
+        /* Pista de toque: solo en móvil (ver media query); oculta en escritorio. */
+        .falla-tap-hint { display: none; }
+
+        .falla-actions {
+            display: flex;
+            gap: 6px;
+        }
+
+        .falla-btn {
+            height: 32px;
+            padding: 0 10px;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+            background: white;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 12px;
+            font-weight: 700;
+            color: #475569;
+            text-decoration: none;
+        }
+
+        .falla-btn-icon {
+            width: 30px;
+            height: 30px;
+            padding: 0;
+            justify-content: center;
+            font-size: 0;
+        }
+        .falla-btn-icon .material-icons {
+            font-size: 17px;
+        }
+
+        .falla-btn:hover {
+            background: #f8fafc;
+        }
+
+        .falla-btn-primary {
+            background: #0067b1;
+            color: white;
+            border-color: #0067b1;
+        }
+
+        .falla-btn-primary:hover {
+            background: #0a5599;
+        }
+
+        /* Borrado duro (super.admin): discreto, icono solo, rojo al hover. */
+        .falla-btn-danger {
+            color: #94a3b8;
+            border-color: #e2e8f0;
+        }
+
+        .falla-btn-danger:hover {
+            background: #fef2f2;
+            border-color: #fecaca;
+            color: #dc2626;
+        }
+
+        /* Modal */
+        /* Estilos del modal "Nuevo Reporte de Falla" (fl-*) movidos a
+           partials/create_modal.blade.php (compartido). El modal de cierre
+           de abajo reutiliza esas mismas clases. */
+
+        /* Letra de las listas del filtro avanzado un poco más pequeña
+           (scoped a #fallasAdvPanel para no afectar otros módulos). */
+        #fallasAdvPanel .dropdown-item {
+            font-size: 12.5px;
+        }
+    

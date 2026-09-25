@@ -15,7 +15,13 @@ return [
     |
     */
 
-    'default' => env('CACHE_STORE', 'database'),
+    // 'file' por defecto: cada lectura de la caché (versiones, badges, tablero, alertas) era
+    // una consulta más a MySQL con el driver 'database' — de 3 a 11 por página. Mientras la
+    // app corra en UN solo contenedor, el disco local vale igual y cuesta microsegundos.
+    // Con varias réplicas cada una tendría su caché y las invalidaciones no se verían entre
+    // ellas: entonces, 'redis' o 'database'. Las sesiones siguen en la base (SESSION_DRIVER):
+    // el panel de usuarios activos lee la tabla `sessions`.
+    'default' => env('CACHE_STORE', 'file'),
 
     /*
     |--------------------------------------------------------------------------

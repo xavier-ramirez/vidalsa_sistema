@@ -1,0 +1,643 @@
+/* Estilos de admin/almacen/movimientos.blade.php (antes en un <style> dentro de la vista: viajaban en el HTML de cada visita y no se cacheaban). El <link> ocupa EXACTAMENTE el sitio del <style>, asi que la cascada no cambia. */
+    #almMovFilters { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-bottom:8px; }
+    #almMovFilters .amf-item { flex:1 1 200px; min-width:170px; max-width:300px; }
+    #almMovFilters .amf-search { flex:2 1 280px; max-width:none; }
+    #almMovFilters .custom-dropdown { width:100%; }
+    /* El filtro de almacén (en el título) NO se resalta en azul cuando está activo */
+    #almMovFiltroAlmacen .dropdown-trigger.filter-active {
+        background: #f8fafc !important;
+        border-color: #cbd5e0 !important;
+    }
+    .amf-search-box { display:flex; align-items:center; height:45px; border:1px solid #cbd5e0; border-radius:12px; background:#fbfcfd; overflow:hidden; }
+    .amf-search-box.active { border-color:var(--maquinaria-blue,#0067b1); background:#e1effa; }
+    .amf-search-box i.lupa { padding:0 10px; color:#64748b; font-size:18px; }
+    .amf-search-box input { flex:1; border:none; background:transparent; outline:none; padding:10px 5px; font-size:14px; min-width:0; }
+    .amf-search-box i.clr { padding:0 10px; color:#64748b; font-size:18px; cursor:pointer; }
+
+    /* Sugerencias del filtro de búsqueda — mismo diseño que /admin/almacen */
+    .amf-search-wrap { position:relative; }
+    .amf-suggest {
+        position:absolute; top:calc(100% + 5px); left:0; right:0; background:#fff;
+        border:1px solid #e2e8f0; border-radius:12px; box-shadow:0 10px 25px rgba(0,0,0,0.1);
+        z-index:1000; max-height:260px; overflow-y:auto; padding:5px; display:none;
+    }
+    .amf-suggest.open { display:block; animation:slideDown 0.18s ease-out; }
+    .amf-suggest-item { display:flex; flex-direction:column; gap:2px; padding:10px 15px; border-radius:8px; cursor:default; transition:background 0.2s; font-weight:600; color:var(--maquinaria-dark-blue,#1e3a5f); }
+    .amf-suggest-item:hover, .amf-suggest-item.active { background:#f0f4f8; }
+    .amf-suggest-item .nom { font-size:13.5px; color:#475569; font-weight:600; }
+    /* CODIGO + descripción en una línea (mismo patrón que el filtro Buscar de
+       /admin/almacen): el código va PRIMERO y la descripción ocupa el resto. */
+    .amf-suggest-line { display:flex; align-items:flex-start; gap:8px; }
+    .amf-suggest-line .nom { flex:1 1 auto; min-width:0; }
+    .amf-suggest-cod { font-size:13.5px; font-weight:600; color:#475569; flex:0 0 auto; white-space:nowrap; }
+    .amf-suggest-empty { padding:10px 15px; font-size:13px; color:#94a3b8; }
+    /* Igualar el tamaño de letra de la lista del filtro Frente con la del filtro
+       Descripción: el .dropdown-item global usa 14px y las sugerencias de
+       descripción (.amf-suggest-item .nom) usan 13.5px, por lo que el Frente se
+       veía con la letra más grande. Lo acotamos solo a este dropdown. */
+    #almMovFiltroFrente .dropdown-item { font-size:13.5px; }
+    /* Tabla limpia: thead oscuro + body con TODOS los valores CENTRADOS (verticales y horizontales).
+       Sin bordes verticales entre columnas. */
+    .alm-mov-table { width:100%; border-collapse:separate; border-spacing:0; font-size:14px; color:#000; }
+    .alm-mov-table thead tr { background:#1e293b; color:#fff; }
+    .alm-mov-table thead th {
+        text-align:center; color:#fff; font-size:13px; font-weight:700;
+        text-transform:uppercase; letter-spacing:1px;
+        padding:10px 12px; border-bottom:2px solid #0f172a;
+        white-space:nowrap;
+    }
+    .alm-mov-table tbody td {
+        padding:12px 12px; color:#000; font-size:14px;
+        text-align:center; vertical-align:middle;
+        border-bottom:1px solid #e2e8f0;
+    }
+    .alm-mov-table tbody tr:hover td { background:#e0f2fe; }
+    /* Celda "Descripción del producto": ancla del tooltip de usuario (position:relative
+       para que el .tooltip-bubble interno se posicione con bottom:100% sobre ella). */
+    .alm-mov-table td.col-producto { position:relative; }
+    /* Activamos el .tooltip-bubble (clase global de /admin/equipos) al hover de la fila
+       completa — mismo patrón que .admin-table tr:hover .tooltip-bubble en
+       estilos_globales.css. Replicamos aquí porque la tabla no es .admin-table. */
+    .alm-mov-table tbody tr.alm-mov-row:hover .tooltip-bubble {
+        opacity:1 !important;
+        visibility:visible !important;
+        transform:translateY(0) !important;
+    }
+    /* Botón "deshacer movimiento" — SOLO super.admin (blade lo gatea con can()).
+       Casi invisible en reposo; se realza al pasar el mouse por la fila y se pone
+       rojo al hover directo. Anclado al borde superior derecho de la celda Ref. */
+    .alm-mov-table td.mv-td-ref { position:relative; }
+    /* El N° de Nota abre el PDF: icono de documento + número en NEGRO y negrita. Antes
+       iba en gris y con el mismo peso que la REFERENCIA de al lado, así que no se
+       distinguía de un texto muerto; lo que lo resalta ahora son el icono y la negrita,
+       no el color — el cliente lo quiere negro, no azul de enlace.
+       En la tarjeta móvil el @media de abajo lo reduce a un botón redondo con solo el
+       icono (ahí no cabe el número). */
+    .alm-mov-table td.mv-td-ref a.mv-nota-link {
+        display:inline-flex; align-items:center; gap:4px;
+        color:#0f172a; font-weight:800; font-size:12.5px; text-decoration:none;
+    }
+    .alm-mov-table td.mv-td-ref a.mv-nota-link:hover { text-decoration:underline; }
+    .alm-mov-table td.mv-td-ref .mv-nota-ico { font-size:16px; line-height:1; }
+    /* "Devolver" (.mv-undo-btn, el mismo enlace de "Deshacer" en Movilizaciones) en su
+       propio renglón, bajo el N° de nota. */
+    .alm-mov-table td.mv-td-ref .mv-devolver { display:flex; margin:4px auto 0; }
+    /* "devuelto N" bajo la cantidad de una salida que ya regresó, entera o en parte. */
+    .alm-mov-table .mv-devuelto { display:block; margin-top:2px; font-size:10.5px; font-weight:700;
+        color:#0f766e; background:#ccfbf1; border-radius:999px; padding:1px 7px; white-space:nowrap; }
+    .alm-mov-undo {
+        position:absolute; top:3px; right:3px;
+        width:20px; height:20px; padding:0; margin:0;
+        display:inline-flex; align-items:center; justify-content:center;
+        border:none; border-radius:5px; background:transparent;
+        color:#cbd5e1; cursor:pointer; opacity:.08;
+        transition:opacity .15s ease, background .15s ease, color .15s ease;
+    }
+    .alm-mov-table tbody tr.alm-mov-row:hover .alm-mov-undo { opacity:.5; }
+    .alm-mov-undo:hover,
+    .alm-mov-undo:focus-visible { opacity:1; background:#fee2e2; color:#dc2626; }
+    .alm-mov-undo:focus { opacity:.7; outline:none; }
+    .alm-mov-undo:disabled { cursor:default; opacity:.5; }
+    /* Botón "eliminar SOLO del historial" — mismo patrón casi-invisible que el de
+       deshacer, pero anclado a su IZQUIERDA (right:26px) y en tono ámbar al hover
+       (no rojo) para distinguir la acción: borra el rastro pero NO revierte el stock.
+       Ancla a la celda Ref (td.mv-td-ref ya es position:relative, declarado arriba). */
+    .alm-mov-purge {
+        position:absolute; top:3px; right:26px;
+        width:20px; height:20px; padding:0; margin:0;
+        display:inline-flex; align-items:center; justify-content:center;
+        border:none; border-radius:5px; background:transparent;
+        color:#cbd5e1; cursor:pointer; opacity:.08;
+        transition:opacity .15s ease, background .15s ease, color .15s ease;
+    }
+    .alm-mov-table tbody tr.alm-mov-row:hover .alm-mov-purge { opacity:.5; }
+    .alm-mov-purge:hover,
+    .alm-mov-purge:focus-visible { opacity:1; background:#fef3c7; color:#d97706; }
+    .alm-mov-purge:focus { opacity:.7; outline:none; }
+    .alm-mov-purge:disabled { cursor:default; opacity:.5; }
+    /* Observación del lote (NOTAS): en desktop NO va inline en la columna Ref —
+       aparece en la burbuja de hover de la fila (junto al usuario que registró).
+       En móvil (sin hover) se re-muestra dentro de la tarjeta Ref (media query). */
+    .mv-notas-inline { display:none; }
+
+    /* ── Presentación de las filas del kardex ──────────────────────────────────
+       Estas reglas estaban escritas como style="" DENTRO de partials/kardex_rows.blade.php,
+       repetidas idénticas en cada fila del lote (794 atributos por página de 50). Como el
+       valor es siempre el mismo, vive aquí una vez y la fila solo lleva la clase.
+
+       Van scoped bajo .alm-mov-table A PROPÓSITO: el prefijo .mv- lo comparte el módulo de
+       Movilizaciones (reglas #movilizacionesTable en estilos_globales.css) y una regla
+       suelta se le colaría.
+
+       El @media de la tarjeta móvil (abajo) declara todo con !important, así que ganaba a
+       los style="" inline y sigue ganando a estas clases: la tarjeta no cambia. */
+    /* Fecha y hora al MISMO tamaño (11,5 px): se leen como un solo dato
+       "17/09/2026 02:43 PM". El tamaño va en la celda y la hora lo hereda — antes la hora
+       lo declaraba aparte y la fecha se quedaba con los 14 px del tbody. */
+    .alm-mov-table td.mv-td-fecha    { white-space:nowrap; line-height:1.6; font-size:11.5px; }
+    .alm-mov-table .mv-hora          { color:inherit; font-weight:500; }
+    /* El color del tipo es lo ÚNICO que cambia de una fila a otra: la fila lo publica en
+       su propio style como --mov-color y aquí se lee. */
+    .alm-mov-table .mv-tipo-inline   { display:inline-flex; align-items:center; gap:3px;
+                                       color:var(--mov-color); font-weight:700; font-size:11px;
+                                       margin-top:3px; }
+    .alm-mov-table .mv-tipo-inline .material-icons { font-size:13px; }
+    .alm-mov-table td.mv-td-producto { font-weight:400; font-size:12.5px; }
+    .alm-mov-table .mv-prod-codigo   { color:#0f172a; }
+    .alm-mov-table .mv-parte         { font-size:11px; font-weight:600; color:#334155; margin-top:2px; }
+    .alm-mov-table td.mv-td-cantidad { font-weight:800; white-space:nowrap; }
+    /* Verde si el movimiento suma, rojo si resta. Antes el color se calculaba en el blade
+       y salía escrito en cada fila. */
+    .alm-mov-table td.mv-td-cantidad.mv-suma  { color:#16a34a; }
+    .alm-mov-table td.mv-td-cantidad.mv-resta { color:#dc2626; }
+    .alm-mov-table td.mv-td-cantidad .mv-um   { color:#64748b; font-weight:600; font-size:10.5px; }
+    .alm-mov-table td.mv-td-stock    { white-space:nowrap; font-weight:700; }
+    /* En PC el tipo se lee como pastilla suave (--mov-fondo, que publica cada fila). La
+       franja de color a la izquierda de la fila se QUITÓ a pedido del cliente: con la
+       pastilla del tipo y el color de la cantidad ya se distingue entrada de salida, y la
+       franja rayaba la tabla de rojos y azules. En el teléfono cada fila sigue siendo una
+       tarjeta con su borde de color (ver el @media de abajo). */
+    @media (min-width: 769px) {
+        /* Reparto FIJO: sin esto el navegador reparte por contenido y los anchos del thead
+           son solo una sugerencia que acaba ignorando. */
+        .alm-mov-table { table-layout: fixed; }
+        .alm-mov-table .mv-tipo-inline {
+            background: var(--mov-fondo, transparent); border-radius: 999px; padding: 1px 8px;
+        }
+    }
+    .alm-mov-table td.mv-td-destino  { font-size:12.5px; }
+    .alm-mov-table .mv-destino-frente { font-weight:600; color:#1e293b; }
+    .alm-mov-table .mv-ref-referencia { font-size:12.5px; color:#334155; font-weight:400; }
+    /* Excepción al peso 400 de las referencias: el stock inicial va en negrita (lo eligió el
+       cliente el 11-09-2026, con "Nuevo material" en gris debajo). */
+    .alm-mov-table .mv-ref-stock-inicial { font-weight:700; }
+    /* Línea secundaria en gris: el proveedor de una entrada o el "Nuevo material" del stock inicial. */
+    .alm-mov-table .mv-ref-proveedor,
+    .alm-mov-table .mv-ref-sub        { font-size:10.5px; color:#64748b; }
+    /* Separación del dato cuando NO es el primero de la celda (antes: un margin-top
+       inline puesto con un ternario en cada fila). */
+    .alm-mov-table .mv-ref-apilado    { margin-top:2px; }
+    .alm-mov-table .mv-notas-inline { font-size:10.5px; color:#94a3b8; align-items:center; gap:3px; margin-top:2px; }
+    .alm-mov-table .mv-notas-inline .material-icons { font-size:12px; }
+    .alm-mov-table .mv-notas-texto   { overflow:hidden; text-overflow:ellipsis;
+                                       white-space:nowrap; max-width:130px; }
+    .alm-mov-table .alm-mov-undo .material-icons,
+    .alm-mov-table .alm-mov-purge .material-icons { font-size:14px; }
+
+    /* La burbuja de hover (usuario + observación). `.tooltip-bubble` es una clase global
+       pero NO tiene regla base en estilos_globales.css —solo los activadores de hover—,
+       así que cada pantalla la describía en su style="" inline. Aquí se describe una vez
+       y SOLO para esta tabla, para no alterar las otras pantallas que la usan con el suyo.
+       El activador de hover (arriba, con !important) sigue mandando sobre opacity/visibility. */
+    .alm-mov-table .tooltip-bubble {
+        pointer-events:none; opacity:0; visibility:hidden;
+        position:absolute; bottom:100%; left:0; transform:translateY(5px);
+        background:#1e293b; color:#fff; padding:6px 10px; border-radius:6px;
+        font-size:11px; font-weight:500; white-space:normal; width:max-content;
+        max-width:240px; word-wrap:break-word; text-align:center;
+        box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);
+        transition:all 0.2s ease-in-out; z-index:50; margin-bottom:5px;
+    }
+    .alm-mov-table .mv-tip-notas {
+        margin-top:5px; padding-top:5px;
+        border-top:1px solid rgba(255,255,255,0.18); font-style:italic;
+    }
+    .alm-mov-table .mv-tip-flecha {
+        position:absolute; top:100%; left:30px; margin-left:-4px;
+        border-width:4px; border-style:solid;
+        border-color:#1e293b transparent transparent transparent;
+    }
+    /* Estado vacío de la tabla (una sola fila, no por movimiento). */
+    .alm-mov-table .mv-vacio      { text-align:center; padding:36px 16px; color:#94a3b8; font-size:14px; }
+    .alm-mov-table .mv-vacio .material-icons { font-size:40px; color:#cbd5e0; display:block; margin:0 auto 8px; }
+
+    /* Chip de conteo: visible en todos los viewports. Antes solo aparecia en mobile
+       (el desktop dependia del big-counter del sidebar) — el cliente pidio tener
+       el conteo siempre a la vista en la parte superior del modulo. */
+
+    /* ── Responsive mobile (≤768px) — patron calcado de /admin/equipos ──
+       En mobile, el modulo se compacta así:
+         · Titulo de pagina OCULTO (la nav ya indica donde esta el usuario).
+         · Selector de almacen full-width como header efectivo.
+         · Fila 1 de filtros: Buscar (full-width).
+         · Fila 2 de filtros: Frente (flex-grow) + boton Filtros Avanzados (icono
+           compacto a la derecha, mismo patron que /admin/equipos).
+         · Fila 3: boton "Acciones" full-width.
+         · Menu desplegable de Acciones limitado al viewport (no overflow). */
+    @media (max-width: 768px) {
+        /* Titulo de pagina oculto en mobile + separador vertical (ya no tiene sentido) */
+        .page-title-card .page-title { display: none !important; }
+        .page-title-card > div > span[aria-hidden="true"] { display: none !important; }
+        /* Cabecera apilada para que el selector de almacen ocupe todo el ancho */
+        .page-title-card > div { flex-direction: column !important; align-items: stretch !important; gap: 10px !important; }
+        .page-title-card > div > div { width: 100% !important; flex: 1 1 100% !important; }
+        .page-title-card > div > div > div[style*="width:280px"] { width: 100% !important; min-width: 0 !important; max-width: 100% !important; }
+
+        /* Buscar: fila propia full-width. */
+        #almMovFilters { gap: 8px; }
+        #almMovFilters > .amf-search { flex: 1 1 100% !important; max-width: none !important; }
+        /* Frente: ocupa el resto de su fila (basis 0 hace que comparta espacio
+           con el boton Filtros Avanzados — flex:1 los hace flexibles juntos). */
+        #almMovFilters > .amf-item:not(.amf-search) { flex: 1 1 0 !important; min-width: 0 !important; max-width: none !important; }
+        /* Boton Filtros Avanzados: tamano natural (~45px) a la derecha del Frente,
+           NO wrappea a fila propia. Selector: div hijo directo SIN clase .amf-item
+           que NO sea el ultimo (el ultimo es Acciones). */
+        #almMovFilters > div:not(.amf-item):not(:last-child) { flex: 0 0 auto !important; }
+        /* Acciones: fila propia full-width al final (era margin-left:auto). */
+        #almMovFilters > div:last-child:not(.amf-item) { width: 100% !important; flex: 1 1 100% !important; margin-left: 0 !important; }
+        #btnAccionesMov { width: 100% !important; }
+        #splitDropdownMenuMovInv { left: 0 !important; right: 0 !important; min-width: 0 !important; max-width: calc(100vw - 20px) !important; }
+        /* Panel de Filtros Avanzados (Tipo + Desde/Hasta): su centrado en mobile
+           vive ahora en estilos_globales.css (regla unica para todos los modulos). */
+
+        /* ══════════════════════════════════════════════
+           MOBILE CARD LAYOUT — Movimientos
+           Cada <tr> es una TARJETA INDEPENDIENTE (como /admin/equipos):
+           rounded, con sombra propia, separadas por gap. NO es una lista densa
+           con divisores — el cliente lo pidio explicitamente como cards.
+             ┌────────────────────────────────────────────────────────┐
+             │ Nombre completo del producto (wrap, no truncate)       │
+             │                                            +5 UND      │
+             │ 📅 18/05/26   [NE-2026-0010]      📍 ASIGNACION UPATA  │
+             └────────────────────────────────────────────────────────┘
+             gap 10px
+             ┌────────────────────────────────────────────────────────┐
+             │ Otro producto ...                                      │
+             ...
+
+           Stock + Tipo OCULTOS en mobile (cantidad lleva color/signo que ya
+           comunica entrada/salida; stock resultante se ve en desktop).
+           ══════════════════════════════════════════════ */
+        .alm-mov-table thead { display: none !important; }
+        /* Wrapper de la tabla: en desktop tiene border+radius para encerrar el
+           thead oscuro; en mobile las filas son tarjetas independientes con su
+           propio borde, asi que el wrapper queda invisible (sin borde, sin
+           radius, sin overflow:auto) para no dibujar una "caja gris" alrededor. */
+        .alm-mov-table-wrap {
+            border: none !important;
+            border-radius: 0 !important;
+            overflow: visible !important;
+            background: transparent !important;
+        }
+        .alm-mov-table {
+            display: block !important;
+            width: 100% !important;
+            background: transparent !important;
+            border: none !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            overflow: visible !important;
+        }
+        .alm-mov-table tbody {
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 8px !important;
+            width: 100% !important;
+        }
+
+        /* Tarjeta: borde izquierdo coloreado por tipo (--mov-color).
+           overflow:hidden: la banda del destino usa margins negativos. */
+        .alm-mov-table tr.alm-mov-row {
+            display: grid !important;
+            /* 3ª columna = el botón del PDF (grid-area "pdf"). Es `auto`: cuando el
+               movimiento no tiene nota, la celda va vacía y la columna colapsa a 0. */
+            grid-template-columns: 1fr auto auto !important;
+            grid-template-rows: auto auto auto !important;
+            grid-template-areas:
+                "producto cantidad pdf"
+                "producto fecha    pdf"
+                "destino  destino  destino" !important;
+            column-gap: 10px !important;
+            row-gap: 3px !important;
+            background: #fff !important;
+            border: 1px solid #e2e8f0 !important;
+            border-radius: 10px !important;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.05) !important;
+            margin: 0 !important;
+            padding: 10px 12px 0 10px !important;
+            overflow: hidden !important;
+            position: relative !important;
+            transition: box-shadow 0.2s ease, border-color 0.2s ease !important;
+            cursor: pointer !important;
+        }
+        .alm-mov-table tr.alm-mov-row:active {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important;
+        }
+        /* Seleccionada: azul + muestra burbuja ref */
+        .alm-mov-table tr.alm-mov-row.mv-row-selected {
+            border: 2px solid var(--maquinaria-blue, #0067b1) !important;
+            background: #f0f9ff !important;
+            box-shadow: 0 4px 12px rgba(0,103,177,0.15) !important;
+        }
+
+        /* Cada td: reset desktop, queda como grid cell */
+        .alm-mov-table tr.alm-mov-row td {
+            display: flex !important;
+            align-items: center !important;
+            border: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            background: transparent !important;
+            white-space: normal !important;
+            box-sizing: border-box;
+            min-width: 0;
+        }
+
+        /* OCULTOS en mobile — la pill de tipo (cantidad ya lleva color/signo) + stock.
+           Tipo ahora vive DENTRO de la celda de fecha como .mv-tipo-inline. */
+        .alm-mov-table tr.alm-mov-row .mv-tipo-inline,
+        .alm-mov-table tr.alm-mov-row td.mv-td-stock { display: none !important; }
+
+        /* Tooltip del usuario tampoco aporta en mobile (no hay hover). */
+        .alm-mov-table tr.alm-mov-row td .tooltip-bubble { display: none !important; }
+
+        /* Producto: titulo principal — bold, MULTILINE (wrap, no truncate)
+           para que se vea el nombre COMPLETO. El cliente lo pidio explicito:
+           "la descripcion del producto debe salir completa". */
+        .alm-mov-table tr.alm-mov-row td.mv-td-producto {
+            grid-area: producto !important;
+            font-size: 11.5px !important;
+            font-weight: 600 !important;
+            color: #0b1c30 !important;
+            line-height: 1.35 !important;
+            white-space: normal !important;
+            word-wrap: break-word !important;
+            overflow-wrap: break-word !important;
+            display: block !important;
+            align-self: flex-start !important;
+            /* El td hereda text-align:center de la tabla desktop — en la
+               tarjeta movil el producto va alineado a la izquierda. */
+            text-align: left !important;
+        }
+        /* (El código del producto ya usa el mismo tipo de letra/peso que la descripción
+           directamente en el partial kardex_rows — ya no necesita override mobile.) */
+
+        /* Cantidad: numero a la derecha. El color (verde si suma, rojo si resta) lo
+           ponen las clases .mv-suma / .mv-resta declaradas arriba — aqui no se toca.
+           UM va pegada al numero. Tamano moderado (no acapara la tarjeta). */
+        .alm-mov-table tr.alm-mov-row td.mv-td-cantidad {
+            grid-area: cantidad !important;
+            font-size: 12.5px !important;
+            font-weight: 800 !important;
+            line-height: 1.2 !important;
+            justify-content: flex-end !important;
+            justify-self: end !important;
+            align-self: flex-start !important;
+            text-align: right !important;
+            gap: 3px !important;
+            white-space: nowrap !important;
+        }
+        .alm-mov-table tr.alm-mov-row td.mv-td-cantidad span {
+            font-size: 10px !important;
+            font-weight: 600 !important;
+        }
+
+        /* Fecha: AHORA va DEBAJO de la cantidad (col 2 fila 2), alineada a la
+           derecha. Cliente la sacó de la meta-row para que cantidad y fecha
+           formen un bloque visual a la derecha (cuando + dónde), y dejar el
+           bottom row solo para ref + destino. */
+        .alm-mov-table tr.alm-mov-row td.mv-td-fecha {
+            grid-area: fecha !important;
+            font-size: 10.5px !important;
+            color: #76777d !important;
+            font-weight: 500 !important;
+            white-space: nowrap !important;
+            gap: 3px !important;
+            justify-content: flex-end !important;
+            justify-self: end !important;
+            align-self: flex-start !important;
+        }
+        .alm-mov-table tr.alm-mov-row td.mv-td-fecha::before {
+            content: "calendar_today";
+            font-family: 'Material Icons';
+            font-size: 13px;
+            color: #c6c6cd;
+            font-weight: normal;
+        }
+        /* En las tarjetas (móvil) la hora NO se muestra: la tarjeta es compacta y
+           el día ya basta; la hora solo aporta en la tabla de escritorio. */
+        .alm-mov-table tr.alm-mov-row td.mv-td-fecha .mv-hora {
+            display: none !important;
+        }
+
+        /* Celda "Ref" en la TARJETA móvil = solo el botón del PDF, arriba a la derecha.
+           Antes era una burbuja tipo tooltip que nunca llegaba a verse (display:none en los
+           dos estados) y, en su lugar, tocar la tarjeta abría el PDF de golpe — sin que nada
+           anunciara que ese toque iba a abrir un documento. Ahora el único disparador es
+           este botón; el resto de la tarjeta solo selecciona (ver JS).
+           Si el movimiento no tiene nota (ajustes, entradas sin NE) no hay <a> y la celda
+           queda vacía: sin borde ni fondo propios, no se ve nada. */
+        /* Ocupa su propia columna de la grid ("pdf"), NO position:absolute: la esquina
+           superior derecha ya la usa mv-td-cantidad (justify-self:end), y un botón flotante
+           ahí se le montaba encima. */
+        .alm-mov-table tr.alm-mov-row td.mv-td-ref {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            grid-area: pdf !important;
+            position: static !important;
+            transform: none !important;
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            min-width: 0 !important;
+            max-width: none !important;
+        }
+        /* La celda sin nota de entrega (ajustes, entradas sin NE) se trata más abajo, junto
+           al botón de deshacer que vive dentro de ella. */
+        /* La flecha del antiguo tooltip. */
+        .alm-mov-table tr.alm-mov-row td.mv-td-ref::after { content: none !important; }
+        /* Todo lo que NO es el enlace del PDF (referencia/OC, proveedor, observaciones y el
+           "—" de las filas sin datos) se queda fuera de la tarjeta: el detalle se consulta
+           en escritorio o abriendo el propio PDF. */
+        .alm-mov-table tr.alm-mov-row td.mv-td-ref > div,
+        .alm-mov-table tr.alm-mov-row td.mv-td-ref .mv-notas-inline,
+        .alm-mov-table tr.alm-mov-row td.mv-td-ref .mv-ref-empty {
+            display: none !important;
+        }
+        /* Botón redondo con el icono de documento. 32px = objetivo táctil cómodo sin robar
+           ancho al nombre del producto. El icono, del mismo color que en escritorio. */
+        .alm-mov-table tr.alm-mov-row td.mv-td-ref a.mv-nota-link {
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            width: 32px !important;
+            height: 32px !important;
+            padding: 0 !important;
+            border-radius: 50% !important;
+            background: #e0f2fe !important;
+            border: 1px solid #bae6fd !important;
+            color: #0f172a !important;
+            text-decoration: none !important;
+        }
+        .alm-mov-table tr.alm-mov-row td.mv-td-ref a.mv-nota-link .mv-nota-ico {
+            display: inline-block !important;
+            font-size: 18px !important;
+            line-height: 1 !important;
+        }
+        /* "Devolver", al lado del PDF y del mismo tamaño: solo el icono (el texto va en el title). */
+        .alm-mov-table tr.alm-mov-row td.mv-td-ref .mv-devolver {
+            width: 26px !important; height: 26px !important; margin: 0 0 0 6px !important; padding: 0 !important;
+        }
+        .alm-mov-table tr.alm-mov-row td.mv-td-ref .mv-devolver .material-icons { font-size: 16px !important; }
+        .alm-mov-table tr.alm-mov-row td.mv-td-ref .mv-devolver span { display: none !important; }
+        /* En la tarjeta manda el icono: el N° de nota se lee al abrir el PDF (va en su título). */
+        .alm-mov-table tr.alm-mov-row td.mv-td-ref a.mv-nota-link .mv-nota-num {
+            display: none !important;
+        }
+        /* "Eliminar del historial" sigue siendo acción de escritorio: vive encima del icono
+           del PDF, con opacity .08 y dependiendo de :hover, que en teléfono no existe. */
+        .alm-mov-table tr.alm-mov-row td.mv-td-ref .alm-mov-purge {
+            display: none !important;
+        }
+
+        /* ── DESHACER en teléfono: al lado del frente (pedido del cliente) ──────────
+           El botón vive en el HTML dentro de la celda de la Referencia, que en la
+           tarjeta cae arriba a la derecha (sobre el icono del PDF) y encima se ocultaba
+           entera cuando el movimiento no trae nota — se habría perdido justo en los
+           ajustes y las entradas. Por eso, en teléfono:
+             · cuando no hay nota, esa celda ya NO se esconde con display:none: se deja
+               sin tamaño, así su columna sigue colapsando igual pero el botón, que va
+               absolute y no ocupa sitio en el flujo, se sigue pintando;
+             · el botón se ancla a la TARJETA (el tr ya es position:relative, y la celda
+               es position:static aquí arriba), abajo a la derecha, que es exactamente
+               donde queda la banda gris del destino con el nombre del frente.
+           Se le quita el disfraz de escritorio (opacity .08 + :hover) porque al tocar
+           no hay hover: aquí se ve siempre, en rojo y con un área de toque cómoda. */
+        .alm-mov-table tr.alm-mov-row td.mv-td-ref:not(:has(a.mv-nota-link)) {
+            display: block !important;
+            width: 0 !important;
+            min-width: 0 !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            overflow: visible !important;
+        }
+
+        .alm-mov-table tr.alm-mov-row td.mv-td-ref .alm-mov-undo {
+            display: inline-flex !important;
+            position: absolute !important;
+            top: auto !important;
+            bottom: 3px !important;
+            right: 6px !important;
+            z-index: 3 !important;
+            width: 26px !important;
+            height: 22px !important;
+            opacity: 1 !important;
+            color: #dc2626 !important;
+            background: transparent !important;
+        }
+        .alm-mov-table tr.alm-mov-row td.mv-td-ref .alm-mov-undo .material-icons {
+            font-size: 17px !important;
+        }
+        /* Al pulsarlo, un destello: en teléfono no hay hover que confirme el toque. */
+        .alm-mov-table tr.alm-mov-row td.mv-td-ref .alm-mov-undo:active {
+            background: #fee2e2 !important;
+            border-radius: 5px !important;
+        }
+
+        /* Destino: banda gris inferior full-width */
+        .alm-mov-table tr.alm-mov-row td.mv-td-destino {
+            grid-area: destino !important;
+            justify-content: center !important;
+            justify-self: stretch !important;
+            font-size: 10.5px !important;
+            font-weight: 700 !important;
+            color: #3730a3 !important;
+            background: #f8fafc !important;
+            border-radius: 0 0 8px 8px !important;
+            /* 38px a la derecha: el hueco del botón de deshacer, que se monta sobre esta
+               misma banda. Sin reserva, un destino largo ("FRENTE 72 - VELADERO / CRUCE LA
+               GUAIRA") llegaba hasta el borde y sus últimas letras quedaban DEBAJO del
+               icono. Con el hueco, el texto se recorta antes con sus puntos suspensivos. */
+            padding: 5px 38px 5px 12px !important;
+            margin: 4px -12px 0 -10px !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            max-width: none !important;
+            gap: 4px !important;
+        }
+        .alm-mov-table tr.alm-mov-row td.mv-td-destino::before {
+            content: "location_on";
+            font-family: 'Material Icons';
+            font-size: 13px;
+            color: #3730a3;
+            font-weight: normal;
+            flex-shrink: 0;
+        }
+
+        /* Empty state: el <tr><td colspan="7"> del partial — sin tarjeta */
+        .alm-mov-table tbody tr:not(.alm-mov-row) {
+            display: block !important;
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+        }
+        .alm-mov-table tbody tr:not(.alm-mov-row) td {
+            display: block !important;
+            text-align: center !important;
+            border: none !important;
+            padding: 36px 16px !important;
+        }
+    }
+    /* Tablet (768-900px): los filtros se quedan en grilla compacta sin forzar
+       full-width — el viewport todavia da para 2 filtros por fila. */
+    @media (min-width: 769px) and (max-width: 900px) {
+        #almMovFilters .amf-item { flex: 1 1 calc(50% - 6px); max-width: none; }
+    }
+    /* Desktop (>1024px): SOLO en esta bitacora. Al combinar Fecha+Tipo en una
+       sola columna la tabla necesita menos ancho, así que el sidebar (Total
+       movimientos / Consumo de Inventario) se ensancha (270→320) para que los
+       nombres largos de producto del ranking quepan mejor. El scope
+       body:has(.alm-mov-table) limita el override a este modulo. */
+    @media (min-width: 1025px) {
+        body:has(.alm-mov-table) .page-layout-grid {
+            grid-template-columns: minmax(0, 1fr) 370px;
+            gap: 24px;
+        }
+    }
+
+    /* Items del menu "Acciones" (#splitDropdownMenuMovInv).
+       Salen de una CLASE y no de estilos inline por el mismo motivo que .mv-accion-item
+       en /admin/movilizaciones: casi todos ocultan el menu al pulsarlos, asi que el
+       `onmouseout` inline nunca llegaba y el color del hover se quedaba escrito en el
+       elemento; al volver a abrir el menu ese boton salia ya coloreado. Con :hover en
+       CSS el estado se va solo cuando el elemento se oculta.
+       De paso, el mismo bloque de ~230 caracteres ya no se copia en cada item. */
+    /* border-box: con width:100% + padding el item medía 24px más que el menú y su overflow
+       recortaba lo del borde derecho (la pill de "Despachos"). nowrap: el menú se
+       ensancha al texto en vez de partirlo en dos renglones. */
+    .alm-mov-accion {
+        width: 100%;
+        box-sizing: border-box;
+        white-space: nowrap;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        border-radius: 6px;
+        border: none;
+        background: transparent;
+        color: #475569;
+        /* font-family:inherit — los <button> NO heredan la fuente: salian en la del navegador
+           mientras los items <a> iban en la de la app, y la lista se veia con dos letras. */
+        font-family: inherit;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        text-align: left;
+        /* Los items <a> (Historial de Notas, Despachos): sin esto saldrian subrayados. */
+        text-decoration: none;
+        transition: background 0.15s;
+    }
+    .alm-mov-accion:hover { background: #cbd5e1; }
+    /* Pill de "Despachos", JUNTO a la palabra (pegada al borde quedaba muy lejos del texto
+       al que se refiere; igual que en el menú Acciones de Inventario). Los colores vienen de
+       Traspaso::ESTADOS_META en el propio item (En tránsito / Confirmada). */
+    .alm-mov-accion-pill { margin-left: -2px; flex: 0 0 auto; padding: 2px 8px; border-radius: 999px; font-size: 10.5px;
+        font-weight: 800; text-transform: uppercase; letter-spacing: .3px; white-space: nowrap; }
+    .alm-mov-accion:focus { background: transparent; outline: none; }
+    .alm-mov-accion:focus-visible { outline: 2px solid #0067b1; outline-offset: -2px; }

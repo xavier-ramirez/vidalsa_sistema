@@ -462,7 +462,6 @@
                 };
 
                 window.submitConsumiblesFilters = function () {
-                    if (window.showPreloader) window.showPreloader();
                     var form = document.getElementById('filtrosForm');
                     var url = new URL(form.action);
                     var formData = new FormData(form);
@@ -473,11 +472,51 @@
                         }
                     }
                     url.search = params.toString();
-                    if (typeof window.navigateTo === 'function') {
-                        window.navigateTo(url.pathname + url.search);
-                    } else {
-                        window.location.href = url.pathname + url.search;
-                    }
+                    window.cargarConsumibles(url.pathname + url.search);
+                };
+
+                /*
+                 * Filtrar o paginar SIN volver a montar la pantalla: se pide la misma pagina y se
+                 * cambian solo los resultados (resumen, tabla y paginador) y los contadores. Lo
+                 * demas se queda como esta —el filtro que se esta escribiendo no pierde el foco,
+                 * los paneles abiertos siguen abiertos— y la URL se actualiza para que Atras y F5
+                 * den lo mismo. Si la respuesta no trae los resultados (sesion caducada, error),
+                 * se navega como antes.
+                 */
+                window.cargarConsumibles = function (destino) {
+                    var url = new URL(destino, window.location.origin);
+                    var seguir = function () {
+                        if (typeof window.navigateTo === 'function') window.navigateTo(url.pathname + url.search);
+                        else window.location.href = url.pathname + url.search;
+                    };
+                    if (window.showPreloader) window.showPreloader();
+                    var pedido = (window._consumiblesPedido = (window._consumiblesPedido || 0) + 1);
+                    fetch(url.pathname + url.search, {
+                        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'text/html' },
+                        credentials: 'same-origin'
+                    })
+                    .then(function (r) { if (!r.ok || r.redirected) throw new Error('HTTP ' + r.status); return r.text(); })
+                    .then(function (html) {
+                        if (pedido !== window._consumiblesPedido) return;   // llego otro despues
+                        var doc = new DOMParser().parseFromString(html, 'text/html');
+                        var nuevo = doc.getElementById('consumiblesResultados');
+                        var actual = document.getElementById('consumiblesResultados');
+                        if (!nuevo || !actual) { seguir(); return; }
+                        actual.innerHTML = nuevo.innerHTML;
+                        ['cnt-pendientes', 'cnt-confirmados', 'cnt-sinmatch'].forEach(function (id) {
+                            var a = document.getElementById(id), n = doc.getElementById(id);
+                            if (a && n) a.textContent = n.textContent;
+                        });
+                        if (window.location.pathname + window.location.search !== url.pathname + url.search) {
+                            history.pushState({}, '', url.pathname + url.search);
+                        }
+                        if (window.hidePreloader) window.hidePreloader();
+                    })
+                    .catch(function () {
+                        if (pedido !== window._consumiblesPedido) return;
+                        if (window.hidePreloader) window.hidePreloader();
+                        seguir();
+                    });
                 };
 
                 document.getElementById('filtrosForm').addEventListener('submit', function (e) {
@@ -504,6 +543,9 @@
 
             </script>
 
+            {{-- Lo que cambia al filtrar o paginar: cargarConsumibles() reemplaza SOLO esto (y
+                 los contadores de arriba) sin volver a pintar la pantalla entera. --}}
+            <div id="consumiblesResultados">
             {{-- Resumen surtido por frente --}}
             @if($resumenFrente->isNotEmpty() && request('tipo') === 'GASOIL')
                 @php $maxFrente = $resumenFrente->max('total'); @endphp
@@ -742,24 +784,20 @@
             <div style="margin-top:20px;" id="consumiblesPagination">
                 {{ $consumibles->links('vendor.pagination.custom-sliding') }}
             </div>
+            </div>{{-- #consumiblesResultados --}}
         </div>
 
         <script>
             (function () {
-                var pagContainer = document.getElementById('consumiblesPagination');
-                if (pagContainer) {
-                    // Remove previous listeners if needed (not strictly necessary since element is new, but safe)
-                    pagContainer.addEventListener('click', function (e) {
-                        var link = e.target.closest('a');
+                // Delegado en el envoltorio de resultados, que NO se reemplaza al filtrar: el
+                // paginador de dentro si, y un listener puesto en el se perderia.
+                var resultados = document.getElementById('consumiblesResultados');
+                if (resultados) {
+                    resultados.addEventListener('click', function (e) {
+                        var link = e.target.closest('#consumiblesPagination a');
                         if (link && link.href) {
                             e.preventDefault();
-                            if (window.showPreloader) window.showPreloader();
-                            if (typeof window.navigateTo === 'function') {
-                                var url = new URL(link.href);
-                                window.navigateTo(url.pathname + url.search);
-                            } else {
-                                window.location.href = link.href;
-                            }
+                            window.cargarConsumibles(link.href);
                         }
                     });
                 }

@@ -76,10 +76,13 @@ if (typeof window.ModuleManager !== 'undefined') {
                     // Show toast which will persist across SPA navigation
                     window.toast(msg, 'success');
 
-                    // Instantly reload without hiding the preloader, 
-                    // avoiding the double-spinner glitch.
+                    // Recargar los resultados. cargarConsumibles toma su PROPIA referencia del
+                    // spinner antes de soltar la del match (es un contador), asi que no parpadea;
+                    // y el boton vuelve a servir porque ya no se repinta la pantalla entera.
                     if (window.submitConsumiblesFilters) {
                         window.submitConsumiblesFilters();
+                        if (window.hidePreloader) window.hidePreloader();
+                        if (btn) btn.disabled = false;
                     } else {
                         location.reload();
                     }
@@ -166,7 +169,8 @@ if (typeof window.ModuleManager !== 'undefined') {
             window.editarFrente = function(id, idActual) {
                 var celda = document.getElementById('frente-cell-' + id);
                 if (!celda) return;
-                if (!(id in celdaOriginal)) celdaOriginal[id] = celda.innerHTML;
+                // Se guarda lo que muestra AHORA, salvo que ya este editandose (el select).
+                if (!celda.querySelector('#sel-frente-' + id)) celdaOriginal[id] = celda.innerHTML;
                 var frentesList = [];
                 try { frentesList = JSON.parse(appRoot.dataset.frentes || '[]'); } catch(e) {}
 

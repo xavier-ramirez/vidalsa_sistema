@@ -1,0 +1,357 @@
+/* Estilos de admin/equipos/index.blade.php (antes en un <style> dentro de la vista: viajaban en el HTML de cada visita y no se cacheaban). El <link> ocupa EXACTAMENTE el sitio del <style>, asi que la cascada no cambia. */
+        @keyframes fleetSpin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+
+        /* Label de los bloques verde/rojo del Consolidado. En modo documento
+           ("Con/Sin Certificado", "Con Compraventa"...) el texto es más largo y
+           se partía en dos líneas: .is-doc lo achica y fuerza una sola línea. */
+        .consolidado-stat-label {
+            font-size: 11px;
+            letter-spacing: -0.2px;
+            opacity: 0.9;
+            font-weight: 700;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+        .consolidado-stat-label.is-doc {
+            font-size: 9px;
+            letter-spacing: -0.3px;
+            text-transform: none;
+        }
+
+        /* ── Tokens del modal ──────────────────────────────────────────────────────
+           Los valores viven aquí y no repetidos por cada regla/style inline.
+           Contraste sobre blanco COMPROBADO (AA texto normal = 4.5:1):
+             --fd-ink   #000000  21.0:1  cifras y etiquetas de los gráficos. NEGRO puro
+                                         a pedido del cliente (era #0f172a, 17.9:1).
+             --fd-ink-2 #64748b   4.8:1  textos pequeños de apoyo (PASA texto)
+             --fd-ink-3 #8a94a6   3.1:1  SOLO mobiliario no textual (íconos, ejes,
+                                         leyenda). NO usar para texto: no llega a 4.5.
+           #fleetDashboardModal es el ámbito, así que las cajas que pinta el JS dentro
+           del modal también pueden usar estas variables. */
+        #fleetDashboardModal {
+            --fd-ring: rgba(15, 23, 42, 0.08);
+            --fd-ink: #000;
+            --fd-ink-2: #64748b;
+            --fd-ink-3: #8a94a6;
+        }
+
+        /* Cabecera AZUL del proyecto (#00004d), con título/íconos blancos. El CUERPO del
+           modal sí es blanco: el contraste cabecera-cuerpo es lo que separa el encabezado,
+           así que aquí no hace falta borde inferior. */
+        .fleet-dashboard-header {
+            background: #00004d;
+            padding: 13px 22px;
+        }
+        
+        .fleet-header-wrapper {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+        }
+        
+        .fleet-header-left {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .fleet-header-title-group {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-shrink: 0;
+        }
+        
+        /* Grupo derecho: botones Descargar + Cerrar, mismo estilo (glass) */
+        .fleet-header-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-shrink: 0;
+        }
+
+        /* Botones Descargar/Cerrar sobre la cabecera azul: "glass" (blanco translúcido)
+           con ícono blanco. Han ido bajando de 38 a 34 y de 34 a 28: son acciones de
+           marco —no del contenido— y a 34 competían por atención con los KPI, que es
+           lo que se viene a ver. A 28 con icono de 17 siguen siendo el objetivo táctil
+           más pequeño del modal, pero no el más pequeño de la app: el aspa de la
+           burbuja del historial anda por ahí. Bajar más ya costaría acertarlas. */
+        .fleet-header-btn {
+            background: rgba(255, 255, 255, 0.14);
+            border: none;
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            flex-shrink: 0;
+            transition: background 0.2s;
+        }
+
+        .fleet-header-btn:hover {
+            background: rgba(255, 255, 255, 0.28);
+        }
+
+        .fleet-header-btn .material-icons {
+            color: #fff;
+            /* 17px: proporción parecida a la que había (20 sobre 34), así el icono no
+               queda ni apretado contra el borde ni perdido en medio. */
+            font-size: 17px;
+        }
+
+        /* ── Paneles y su cabecera ────────────────────────────────────────────────
+           El contenedor, la cabecera y el boton de captura estaban escritos con styles
+           inline IDENTICOS en los tres paneles. Aqui una sola vez. */
+        .fdm-panel {
+            background: #fff;
+            border-radius: 12px;
+            padding: 16px 20px 12px;
+            border: 1px solid var(--fd-ring);
+            min-width: 0;
+            overflow: hidden;
+        }
+
+        .fdm-panel-head {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin: 0 0 12px 0;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--fd-ring);
+        }
+
+        .fdm-panel-title {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            font-size: 13.5px;
+            color: #334155;
+            font-weight: 600;
+            min-width: 0;
+        }
+
+        .fdm-panel-title .material-icons { font-size: 18px; color: var(--fd-ink-3); }
+
+        /* Claves de serie CON su total: hacen de leyenda y de contador a la vez, por eso
+           el grafico de edad lleva la leyenda de Chart.js desactivada (seria repetirla).
+           Aqui viven los totales de flota nueva/antigua, que antes eran dos tarjetas
+           sueltas arriba: pertenecen a este grafico, que es justo lo que desglosan. */
+        .fdm-keys {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-left: auto;
+            flex-wrap: wrap;
+        }
+
+        .fdm-key {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11.5px;
+            font-weight: 500;
+            /* Negro (antes var(--fd-ink-2) = #64748b, gris): son las claves "Nueva
+               (≥2025) / Antigua (<2025) / Sin año" que acompañan a cada gráfico. */
+            color: var(--fd-ink);
+            white-space: nowrap;
+        }
+
+        .fdm-dot {
+            width: 9px;
+            height: 9px;
+            border-radius: 3px;
+            flex-shrink: 0;
+        }
+
+        .fdm-key b {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--fd-ink);
+            letter-spacing: -0.3px;
+        }
+
+        .fdm-cam {
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            color: var(--fd-ink-3);
+            display: flex;
+            align-items: center;
+            padding: 4px 6px;
+            border-radius: 8px;
+            transition: background .2s;
+            flex-shrink: 0;
+        }
+
+        .fdm-cam:hover { background: #f1f5f9; }
+        .fdm-cam .material-icons { font-size: 17px; }
+
+        /* ── Tarjetas KPI (Σ Equipos / Σ Auxiliares / Gasoil Máx L/día, y debajo
+           Equipos a Gasoil / Equipos a Gasolina) ─────────────────────────────
+           Las cinco son IDÉNTICAS salvo etiqueta e id, con el acento azul del proyecto.
+           (Flota nueva/antigua ya no son tarjetas: viven como claves de serie dentro de
+           #fdm-panel-age.) El estilo vive aquí y no en styles inline: si no, son copias
+           byte a byte.
+
+           Contrato de "tarjeta de dato": ETIQUETA + CIFRA, nada más. Se quitó el ícono
+           (era decoración y obligaba a la tarjeta a tener el alto de su caja) y la
+           etiqueta pasa de MAYÚSCULAS con letter-spacing a formato oración: en mayúsculas
+           "FLOTA ANTIGUA (<2025)" ocupaba dos líneas y competía con la cifra, que es lo
+           único que debe destacar.
+
+           OJO: el bloque mobile de más abajo apunta a `.fleet-stats-grid > div`, `h3` y `p`
+           para ajustar padding y tamaños, y ADEMÁS voltea la tarjeta: en teléfono la cifra va
+           arriba y la etiqueta debajo, centradas. O sea que el "etiqueta izquierda / cifra
+           derecha" que se describe aquí es SOLO de escritorio. */
+        .fleet-kpi {
+            background: #fff;
+            border-radius: 10px;
+            /* 40px de alto. Nacio para igualar al buscador de frente, que iba en esta misma
+               fila; el buscador se mudo a la cabecera, pero el valor se conserva porque es
+               el que mantiene iguales entre si a las CINCO tarjetas.
+               Con la cifra en 20px el contenido pide 6 + 6 de relleno + 22 de la cifra + 2
+               de borde = 36, o sea POR DEBAJO de este min-height: hoy manda el min-height y
+               ya no hay ningun 6 que recalcular al tocar .fleet-kpi-val. Solo habria que
+               revisarlo si la cifra creciera tanto que el contenido pasara de 40.
+               OJO: eso vale con la etiqueta en UNA linea. Si el texto se parte en DOS
+               (tarjeta estrecha), mandan las dos lineas de la etiqueta —12 x 1.25 x 2 = 30—
+               y esa tarjeta sube a ~44, arrastrando el alto de la fila. Se acepta a
+               proposito: el cliente prefiere el texto en dos lineas antes que la cifra
+               debajo. */
+            min-height: 40px;
+            box-sizing: border-box;
+            padding: 6px 14px;
+            /* Cada tarjeta pide 150 px y crece para llenar su fila. Es lo que hace que la
+               ultima fila no quede coja: dos tarjetas solas se reparten el ancho entero en
+               vez de dejar el hueco de la tercera columna. */
+            flex: 1 1 150px;
+            /* Etiqueta a la izquierda, cifra a la derecha — "Σ Equipos ....... 61".
+               La CIFRA SIEMPRE va AL LADO, nunca debajo: `nowrap` aqui y `flex:none` en
+               .fleet-kpi-val. Cuando no cabe, quien cede es el TEXTO, que se reparte en dos
+               lineas (.fleet-kpi-lbl con white-space:normal). Antes era al reves —
+               flex-wrap:wrap + etiqueta en nowrap— y el numero era el que caia de linea.
+               align-items:center y no baseline: con la etiqueta en dos lineas, baseline
+               pegaba la cifra al renglon de la PRIMERA y quedaba descolgada. */
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            flex-wrap: nowrap;
+            /* Anillo de un pelo (translúcido) en vez de un borde sólido: se apoya en el
+               fondo en vez de dibujar una caja. Y SIN la barra azul de 3px que llevaba
+               cada tarjeta: cuatro franjas saturadas seguidas son ruido, y al ser las
+               cuatro del mismo color no distinguían nada. El acento de color se reserva
+               para marcas pequeñas; aquí quien manda es la cifra. */
+            border: 1px solid var(--fd-ring);
+        }
+
+        .fleet-kpi-lbl {
+            margin: 0;
+            /* 12px (antes 11): se pidió la etiqueta un punto más grande. Mismo valor que
+               el override de móvil, para que no cambie de tamaño entre PC y teléfono. */
+            font-size: 12px;
+            line-height: 1.25;
+            /* Se parte en dos lineas cuando hace falta (p. ej. "Equipos a Gasolina" en una
+               columna estrecha). Es el texto el que cede, no la cifra. min-width:0 para
+               que pueda encogerse de verdad dentro del flex. */
+            white-space: normal;
+            min-width: 0;
+            /* Negro (antes var(--fd-ink-2) = #64748b, gris): la etiqueta se leía apagada al
+               lado de la cifra. Sigue vigente el motivo por el que NUNCA debe usarse aquí
+               --fd-ink-3 (#8a94a6, 3.06:1): no llega al 4.5:1 que exige AA. */
+            color: var(--fd-ink);
+            /* 600 (antes 500): se pidio la etiqueta "mas oscura". El color ya es --fd-ink
+               (#000, negro puro): no hay tinta mas oscura que dar, asi que lo que se sube es
+               el GROSOR, que es lo que la hace leerse mas marcada al lado de la cifra. */
+            font-weight: 600;
+        }
+
+        /* Cifras proporcionales a propósito (sin tabular-nums): en un número grande y
+           suelto los dígitos de ancho fijo hacen que "61" se vea desparramado. */
+        .fleet-kpi-val {
+            margin: 0;
+            /* flex:none + nowrap: la cifra no se encoge ni se parte nunca. Es lo que
+               garantiza que se quede AL LADO de la etiqueta por estrecha que sea la caja. */
+            flex: none;
+            white-space: nowrap;
+            /* 20px (antes 24): se pidio la cifra mas pequena. Al bajar de 24 a 20 la caja
+               de la cifra pasa de 26 a 22 px, o sea por debajo del min-height:40 de
+               .fleet-kpi, que es el que ahora fija el alto de las cinco tarjetas. */
+            font-size: 20px;
+            line-height: 1.1;
+            /* Misma tinta que la etiqueta: lo que separa la cifra es el tamaño y el
+               grosor, no el color (antes la etiqueta iba en gris). */
+            color: var(--fd-ink);
+            font-weight: 700;
+            letter-spacing: -0.6px;
+        }
+
+        /* Fila superior del cuerpo: contadores (crecen) + buscador de frente (ancho fijo).
+           margin-bottom 8 (antes 12): separaba de mas los contadores del primer grafico. */
+        .fleet-topline {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 0 0 8px 0;
+        }
+
+        /* Las tarjetas se quedan con el ANCHO ENTERO de la fila. Antes compartian sitio con
+           el buscador de frente y se les concedia un flex-basis en px (620 -> 540), que habia
+           que renegociar cada vez que el cliente pedia mas buscador o mas tarjetas. Al subir
+           el buscador junto al titulo esa negociacion desaparece: .fleet-topline tiene un
+           solo hijo y este lo ocupa todo, que es justo lo que hace que las CINCO tarjetas
+           entren en una sola fila (5 x 150 de base + 4 huecos de 10 = 790, sobre los ~840
+           utiles del modal). */
+        .fleet-topline .fleet-stats-grid {
+            flex: 1 1 auto;
+            min-width: 0;
+            margin: 0 !important;
+        }
+
+        /* El REPARTO de las tarjetas vive aquí y ya no en un `style=` del HTML: estaba
+           partido entre los dos sitios y había que mirar en ambos para entenderlo.
+
+           Reparto flexible en vez de columnas fijas. Antes eran tres columnas calculadas a
+           mano (0.8 / 0.8 / 1 sobre 540 px = 160+160+200) y el comentario avisaba de
+           "recalcular esta cuenta" al tocar algo. Paso lo previsible: llegaron dos tarjetas
+           mas (equipos a gasoil y a gasolina), las columnas siguieron siendo tres y la
+           segunda fila quedo con un HUECO de 200 px a la derecha.
+
+           Con `flex-wrap` las tarjetas se reparten el ancho de CADA fila: entran las que
+           quepan y las que sobran pasan abajo ESTIRANDOSE hasta llenarla. Cinco tarjetas dan
+           3 + 2 sin hueco, y agregar o quitar una no obliga a recalcular nada nunca mas.
+           (El nombre de la clase dice "grid" por historia; se conserva porque lo nombran
+           ocho reglas y ningun JS.) */
+        .fleet-stats-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        /* Buscador de frente. Vive en la CABECERA azul, junto al título: crece con el hueco
+           que le deja .fleet-header-left y ya no compite por ancho con las tarjetas. */
+        .fleet-filter-container {
+            position: relative;
+            flex: 1 1 auto;
+            min-width: 0;
+        }
+
+        /* Altura FIJA, no la del contenido: dentro van una caja de texto y dos iconos
+           (lupa 18px, aspa 20px) y el aspa aparece y desaparece al escribir. Sin fijarla,
+           el buscador daba un saltito cada vez que salia el aspa. 32px deja unos 9px de
+           aire con la fuente de 14px y los dos iconos entran de sobra; a 40px la caja
+           pesaba de mas al lado del titulo. Vale igual en telefono: el bloque movil de
+           mas abajo solo le toca el ancho. */
+        .fleet-filter-container .dropdown-trigger {
+            height: 32px !important;
+        }
+
+        .fleet-filter-container input[type="text"] {
+            font-size: 14px !important;
+        }
+    

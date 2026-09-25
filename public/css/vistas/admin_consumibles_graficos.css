@@ -1,0 +1,256 @@
+/* Estilos de admin/consumibles/graficos.blade.php (antes en un <style> dentro de la vista: viajaban en el HTML de cada visita y no se cacheaban). El <link> ocupa EXACTAMENTE el sitio del <style>, asi que la cascada no cambia. */
+        .g-grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .g-grid-1 {
+            margin-bottom: 20px;
+        }
+
+        .g-card {
+            background: #fff;
+            border-radius: 14px;
+            padding: 25px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, .06), 0 8px 24px rgba(0, 0, 0, .06);
+        }
+
+        .g-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: #1e293b;
+            margin: 0 0 16px 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .g-title i {
+            font-size: 18px;
+            color: #0067b1;
+        }
+
+        .g-subtitle {
+            font-size: 11px;
+            color: #94a3b8;
+            font-weight: 400;
+            margin-left: 4px;
+        }
+
+        .btn-green {
+            background: linear-gradient(135deg, #059669, #047857);
+        }
+
+        @media (max-width: 900px) {
+            .g-grid-2 {
+                grid-template-columns: 1fr;
+            }
+
+            .acciones-wrapper {
+                flex: 1 1 100%;
+                min-width: 100%;
+            }
+
+            #btnAcciones {
+                width: 100%;
+                justify-content: center;
+            }
+
+            #splitDropdownMenu {
+                width: 100%;
+                min-width: 100%;
+            }
+
+            .hide-on-mobile {
+                display: none !important;
+            }
+
+            /* Forzar el ancho completo en mobile, reduciendo el padding del viewport */
+            body:has(.graficos-layout) .main-viewport {
+                padding-left: 8px !important;
+                padding-right: 8px !important;
+                width: 100% !important;
+                max-width: 100% !important;
+            }
+
+            .admin-card {
+                padding: 15px !important;
+            }
+
+            /* Filtros mobile: Frente solo en su fila, Tipo + btn avanzados en la misma fila */
+            .graficos-filter-frente {
+                flex: 1 1 100% !important;
+                min-width: 100% !important;
+            }
+            .graficos-filter-tipo {
+                flex: 1 1 0 !important;
+                min-width: 0 !important;
+            }
+            .graficos-filter-adv {
+                flex: 0 0 auto !important;
+            }
+        }
+        /* Ranking "Total de Consumo por Frente" - compactar en pantallas chicas */
+        @media (max-width: 640px) {
+            .g-card { padding: 12px !important; }
+            .g-title { font-size: 12px !important; }
+            .g-title i { font-size: 15px !important; }
+            .frow {
+                display: flex !important;
+                flex-wrap: wrap !important;
+                align-items: center !important;
+                gap: 4px !important;
+                padding: 6px 0 !important;
+            }
+            .frow-num  { flex: 0 0 16px !important; font-size: 9.5px !important; }
+            .frow-name { flex: 1 !important; min-width: 100px !important; font-size: 9.5px !important; line-height: 1.1 !important; }
+            .frow-val  { flex: 0 0 auto !important; font-size: 10px !important; padding-left: 2px !important; text-align: right !important; }
+            .frow-dep  { display: inline-block !important; margin-left: 4px !important; font-size: 8.5px !important; }
+            .frow-bar-wrap { flex: 0 0 100% !important; height: 5px !important; margin-top: 2px !important; }
+        }
+
+        @media (max-width: 420px) {
+            .g-card { padding: 10px !important; }
+            .g-title { font-size: 11px !important; }
+            .frow {
+                padding: 5px 0 !important;
+            }
+            .frow-num  { font-size: 8.5px !important; }
+            .frow-name { font-size: 9px !important; }
+            .frow-val  { font-size: 9px !important; }
+            .frow-dep  { font-size: 8px !important; }
+        }
+
+        /* Tarjetas resumen */
+        .resumen-grid {
+            display: flex;
+            gap: 14px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+
+        .resumen-card {
+            flex: 1;
+            min-width: 150px;
+            background: linear-gradient(135deg, #1e293b, #0f172a);
+            border-radius: 14px;
+            padding: 16px 18px;
+            color: #fff;
+        }
+
+        /* Tarjetas resumen — estilos internos manejados por JS */
+
+        /* Ranking frentes — grid de 4 columnas, valor auto-ancho para alinear */
+        .frow {
+            display: grid;
+            grid-template-columns: 24px 190px 1fr auto;
+            align-items: center;
+            gap: 8px;
+            padding: 7px 0;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        .frow:last-child {
+            border: none;
+        }
+
+        .frow-num {
+            font-size: 11px;
+            color: #94a3b8;
+            font-weight: 700;
+            text-align: center;
+        }
+
+        .frow-name {
+            font-weight: 700;
+            font-size: 12px;
+            color: #1e293b;
+            word-break: break-word;
+            line-height: 1.3;
+        }
+
+        .frow-bar-wrap {
+            background: #f1f5f9;
+            border-radius: 20px;
+            height: 10px;
+            overflow: hidden;
+        }
+
+        .frow-bar {
+            height: 100%;
+            border-radius: 20px;
+            transition: width .6s;
+        }
+
+        .frow-val {
+            text-align: left;
+            font-weight: 800;
+            font-size: 13px;
+            color: #003a70;
+            white-space: nowrap;
+            padding-left: 4px;
+        }
+
+        .frow-dep {
+            display: block;
+            font-size: 11px;
+            font-weight: 700;
+            color: #0077cc;
+            margin-top: 1px;
+        }
+
+        /* Ranking "Top 20" — BOARD horizontal: cada FRENTE es una COLUMNA (cabecera arriba
+           + sus equipos apilados debajo). Las columnas van lado a lado; si no caben, hay
+           scroll horizontal. La ubicación del frente vive en la cabecera (.eq-frente-head),
+           fuera de las tarjetas, que son compactas para que entren la mayor cantidad. */
+        .eq-board { display:flex; gap:12px; overflow-x:auto; align-items:flex-start; padding-bottom:6px; }
+        .eq-frente-group { flex:0 0 190px; min-width:190px; display:flex; flex-direction:column; gap:8px; }
+        .eq-frente-head { display:flex; flex-direction:column; gap:2px; padding:6px 10px;
+                          background:#eef2f7; border-radius:8px; border-left:4px solid #0067b1; }
+        .eq-frente-name { font-size:12px; font-weight:800; color:#1e293b;
+                          white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .eq-frente-meta { font-size:11px; font-weight:700; color:#0077cc; }
+        .eq-col-cards { display:flex; flex-direction:column; gap:8px; }
+        /* .eq-grid la usa renderInoperativos (otra sección que COMPARTE .eq-card/.eq-tipo/
+           .eq-modelo). El ranking ya NO la usa (pasó a board por columnas), pero NO se
+           elimina: rompería la grilla de inoperativos. */
+        .eq-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(190px, 1fr)); gap:8px; }
+        .eq-card { background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px;
+                   padding:5px 8px; transition:box-shadow .2s; }
+        .eq-card:hover { box-shadow:0 4px 12px rgba(0,0,0,.08); }
+        .eq-tipo { font-size:9px; font-weight:700; color:#0067b1; text-transform:uppercase;
+                   letter-spacing:.4px; margin-bottom:0px; }
+        .eq-modelo { font-size:12px; font-weight:700; color:#1e293b; margin-bottom:2px;
+                     white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        /* Monospace SOLO en las tarjetas del ranking (no en inoperativos, que comparte .eq-modelo). */
+        .eq-col-cards .eq-modelo { font-family:monospace; letter-spacing:.5px; }
+        .eq-total { font-size:17px; font-weight:800; color:#003a70; line-height:1; }
+        .eq-unidad{ font-size:10px; color:#94a3b8; margin-left:3px; }
+        .eq-desp  { font-size:11px; font-weight:700; color:#0077cc; margin-top:2px; }
+        .eq-bar   { margin-top:4px; background:#e2e8f0; border-radius:20px; height:4px; overflow:hidden; }
+        .eq-bar-fill { height:100%; border-radius:20px; transition:width .6s; }
+        .eq-desp-badge { display:inline-flex; align-items:center; gap:4px; background:#003a70;
+                         color:#fff; border-radius:20px; padding:2px 10px; font-size:12px; font-weight:700; }
+
+        .loading-overlay {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 180px;
+            color: #94a3b8;
+            font-size: 13px;
+            gap: 8px;
+        }
+
+        @keyframes spin {
+            from {
+                transform: rotate(0deg)
+            }
+
+            to {
+                transform: rotate(360deg)
+            }
+        }
+    

@@ -1,0 +1,547 @@
+/* Estilos de admin/almacen/recepcion/index.blade.php (antes en un <style> dentro de la vista: viajaban en el HTML de cada visita y no se cacheaban). El <link> ocupa EXACTAMENTE el sitio del <style>, asi que la cascada no cambia. */
+    /* ── Bandeja de recepción — estilo WMS profesional ── */
+
+    /* Toolbar de filtros */
+    #trFilters {
+        display:flex; gap:10px; flex-wrap:wrap; align-items:center;
+        margin-bottom:12px;
+    }
+    /* Los dos buscadores llevan position:relative para anclar su panel de sugerencias
+       (absolute). UNA sola declaración por selector: antes .tr-search-num se declaraba dos
+       veces y la segunda —agrupada con .tr-search-prod— pisaba el ancho recortado de la
+       primera, así que el recorte nunca llegó a aplicarse.
+       Reparto del toolbar (el Estado ya no vive aquí: se mudó al panel "Filtros avanzados",
+       así que el ancho que ocupaba se reparte entre los dos buscadores). Los DOS crecen y se
+       llenan la fila —no uno elástico y otro fijo, que dejaba hueco muerto a la derecha— en
+       proporción 2:1, porque producto/descripción muestra texto largo y la nota de entrega
+       solo aloja un código corto (NE-2026-0249):
+         · producto/descripción → PRIMERO (pedido del cliente) y con el doble de peso.
+         · nota de entrega      → después, con la mitad.
+       Bases y mínimos RECORTADOS respecto del reparto original (300/240 y 200/190): el
+       toolbar ahora también aloja el botón "Compra directa", que necesita su espacio
+       propio. La proporción 2:1 se conserva — solo baja el ancho de partida. */
+    #trFilters .tr-search-prod { position:relative; flex:2 1 210px; min-width:170px; }
+    #trFilters .tr-search-num  { position:relative; flex:1 1 150px; min-width:140px; }
+    /* Toolbar alineado al estándar de /admin/almacen/movimientos: cajas de 45px,
+       radio 12px, fondo suave #fbfcfd y letra 14px (antes 40px/8px/13px se veía
+       más apretado que el resto de los módulos). Azul #e1effa cuando hay filtro. */
+    .tr-search-box { display:flex; align-items:center; height:45px; border:1px solid #cbd5e0; border-radius:12px; background:#fbfcfd; overflow:hidden; }
+    .tr-search-box.active { border-color:#0067b1; background:#e1effa; }
+    .tr-search-box i.lupa { padding:0 10px; color:#64748b; font-size:18px; }
+    /* font-family:inherit — los <input> NO heredan la fuente: se quedaban en el Arial del
+       navegador mientras el resto de la app (y la tabla del inventario) usa Nunito. Por eso
+       los buscadores se veían con otra letra que el listado. Aplica a nota y a producto. */
+    .tr-search-box input { flex:1; border:none; background:transparent; outline:none; padding:10px 5px; font-size:14px; min-width:0; color:#0f172a; font-family:inherit; }
+    /* Filtro "Estado" en MAYÚSCULAS (pedido del cliente). Se hace por CSS y NO tocando
+       Traspaso::ESTADOS_META: esa constante también rotula las pills de la tabla, que
+       siguen en su capitalización normal ("En tránsito"). El placeholder hereda el
+       text-transform, así que el estado elegido también se ve en mayúsculas.
+       12px (no 14px): el filtro vive dentro del panel "Filtros avanzados" (300px) y en
+       mayúsculas "CONFIRMADA PARCIAL" no entra a 14px. Misma escala que Desde/Hasta. */
+    #trEstadoDropdown .dropdown-item,
+    #trEstadoDropdown .dropdown-trigger input { text-transform:uppercase; letter-spacing:.3px; font-size:12px; }
+    #trEstadoDropdown .dropdown-trigger input::placeholder { text-transform:uppercase; }
+    /* Los tres campos del panel (Estado / Desde / Hasta) comparten caja para verse como una
+       sola familia: UNA declaración de la métrica, no una copia por control. */
+    #trEstadoDropdown .dropdown-trigger,
+    .tr-date-box { height:40px; border-radius:8px; }
+    /* Cajas de fecha (Desde/Hasta), dentro del panel "Filtros avanzados". */
+    .tr-date-box { display:flex; align-items:center; gap:5px; border:1px solid #cbd5e0; padding:0 10px; cursor:default; box-sizing:border-box; }
+    .tr-date-box i { font-size:16px; color:#94a3b8; pointer-events:none; }
+    .tr-date-box input[type=date] { flex:1; min-width:0; border:none; background:transparent; padding:0; font-size:12px; outline:none; color:#0f172a; cursor:default; }
+
+    /* Panel "Filtros avanzados": UNA grilla de 2 columnas para los tres campos — el Estado
+       ocupa las dos (.tr-adv-full) y Desde/Hasta una cada uno, así el mismo `gap` separa las
+       dos filas. El min-width:0 en las celdas deja que los inputs de fecha encojan y NO se
+       desborden del panel. */
+    .tr-adv-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px 8px; }
+    .tr-adv-grid > div { min-width:0; }
+    .tr-adv-grid > .tr-adv-full { grid-column:1 / -1; }
+    .tr-adv-grid .tr-date-box { padding:0 6px; gap:4px; }
+    .tr-adv-grid .tr-date-box input[type=date] { font-size:11px; }
+    /* Botón "Compra directa": misma altura/radio que el resto del toolbar (45px/12px)
+       pero SÓLIDO azul de marca — es la única ACCIÓN de la barra (los demás controles
+       filtran), así que se distingue de ellos por relleno, no por tamaño. flex:0 0 auto
+       para que no lo estire el reparto de los buscadores. */
+    .tr-compra-btn { height:45px; flex:0 0 auto; padding:0 16px; display:flex; align-items:center; gap:7px;
+        border-radius:12px; background:#0067b1; border:1px solid #0067b1; color:#fff;
+        font-family:inherit; font-size:13px; font-weight:700; white-space:nowrap; box-shadow:none; }
+    .tr-compra-btn:hover { background:#005596; border-color:#005596; }
+    .tr-compra-btn .material-icons { font-size:20px; }
+    /* Pantallas angostas: el botón se queda solo con el icono (cuadrado 45px, como el de
+       filtros avanzados) para no comerse la fila de los buscadores. El title del botón
+       sigue explicando qué hace. */
+    @media (max-width: 900px) {
+        .tr-compra-btn { padding:0; width:45px; min-width:45px; justify-content:center; gap:0; }
+        .tr-compra-txt { display:none; }
+    }
+
+    /* Dropdown de sugerencias */
+    /* Mismas medidas que .amf-suggest (/almacen/movimientos) y .alm-suggest (/almacen):
+       separación 5px, radio 12, sombra 0 10px 25px y padding 5. Antes eran 4/10/18/4, una
+       diferencia que no respondía a nada. z-index 1000 también como allá: el 60 anterior
+       quedaba por DEBAJO del panel "Filtros avanzados" (z-index:100) que se abre al lado. */
+    .tr-suggest {
+        position:absolute; top:calc(100% + 5px); left:0; right:0;
+        background:#fff; border:1px solid #e2e8f0; border-radius:12px;
+        box-shadow:0 10px 25px rgba(0,0,0,0.1);
+        max-height:260px; overflow-y:auto; padding:5px;
+        z-index:1000; display:none;
+        scrollbar-width:thin; scrollbar-color:#cbd5e1 transparent;
+    }
+    .tr-suggest::-webkit-scrollbar { width:5px; }
+    .tr-suggest::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:999px; }
+    .tr-suggest::-webkit-scrollbar-track { background:transparent; }
+    .tr-suggest.open { display:block; }
+    /* MISMA letra que las listas de sugerencias del resto de la app (.alm-suggest-item del
+       inventario): la fuente de la app (inherit, no monospace) y 13.5px — antes
+       era monospace 12.5px en NEGRITA (700), así que el N° de nota se veía con otro tipo de
+       letra y más gordo que todo lo demás. La regla `.tr-suggest, .tr-suggest-item
+       { font-family:inherit }` que había más arriba no servía de nada: esta la pisaba. */
+    /* La MISMA letra en las dos listas (N° de nota y producto/descripción): el peso 500 se
+       declara aquí, no por buscador. Antes la de N° de nota iba en 600 y la de producto en
+       500, así que una se veía más gorda que la otra. */
+    /* Geometría y hover calcados de .amf-suggest-item (/almacen/movimientos) y
+       .alm-suggest-item (/almacen): 10px 15px, radio 8 y realce #f0f4f8. Recepción iba por
+       su cuenta (8px 12px, radio 6, realce azul) y su lista se veía de otro módulo. */
+    .tr-suggest-item {
+        padding:10px 15px; border-radius:8px; cursor:default;
+        font-family:inherit; font-size:13.5px; font-weight:500; color:#0f172a;
+        letter-spacing:0; transition:background .2s;
+    }
+    .tr-suggest-item:hover, .tr-suggest-item.active { background:#f0f4f8; }
+    .tr-suggest-empty { padding:10px 12px; font-size:12px; color:#94a3b8; font-style:italic; }
+    /* El buscador por PRODUCTO reusa .tr-suggest, pero sus ítems muestran una DESCRIPCIÓN
+       (texto largo) en vez de un código corto: solo necesita ajuste de línea, la tipografía
+       ya la comparte. El nº de parte equivalente va en su propio <span> delante del nombre. */
+    #trProdSuggest .tr-suggest-item { white-space:normal; display:flex; align-items:baseline; gap:2px; }
+
+    /* ── Layout: la tabla (.admin-card) y el panel de resumen, cada uno en SU PROPIO
+         contenedor, lado a lado. ── */
+    .tr-layout { display:flex; gap:14px; align-items:flex-start; }
+    /* Panel estilo "Consolidado de Inventario" (/admin/almacen): tarjeta con gradiente
+       azul y texto blanco, un número héroe (Por revisar) + dos sub-métricas
+       (Recientes / Urgentes) en cajas semitransparentes de color. */
+    /* 250px (antes 300): el panel solo muestra 3 métricas cortas y le sobraba ancho,
+       mientras la tabla —que sí tiene columnas largas (Origen/Destino)— se apretaba.
+       El recorte va todo a la tabla, que es flex:1 en .tr-layout. El interlineado del
+       título también se ajusta (letter-spacing 1.5→1px) para que "Resumen de la bandeja"
+       siga entrando en una sola línea a este ancho. */
+    .tr-stats { flex:0 0 250px; position:relative; overflow:hidden; align-self:flex-start;
+        background:linear-gradient(135deg,#1a365d 0%,#2c5282 100%); border-radius:12px;
+        padding:13px; color:#fff; box-shadow:0 4px 6px -1px rgba(0,0,0,0.1); }
+    .tr-stats-bgicon { position:absolute; right:-15px; bottom:-15px; font-size:80px; opacity:0.1; transform:rotate(-15deg); }
+    .tr-stats-title { display:flex; align-items:center; gap:6px; font-size:12.5px; font-weight:700; text-transform:uppercase; letter-spacing:1px; opacity:0.8; margin-bottom:10px; }
+    .tr-stats-title i { font-size:14px; }
+    /* Las 3 métricas, TODAS del mismo tamaño: grid de 3 columnas iguales. */
+    .tr-stats-row { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; }
+    /* Icono AL LADO del número (en fila); el label cae a su propia línea debajo
+       (flex:1 1 100% lo fuerza al siguiente renglón). */
+    /* Cada métrica: contenido centrado (icono+número en una línea, label debajo),
+       clicable para filtrar la bandeja. */
+    .tr-stats-sub { display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:3px 6px; padding:8px 4px; border-radius:8px; text-align:center; cursor:default; user-select:none; transition:transform .12s ease, box-shadow .15s ease, filter .15s ease; }
+    .tr-stats-sub i { font-size:18px; }
+    .tr-stats-sub strong { flex:0 0 auto; font-weight:800; font-size:18px; color:#fff; }
+    .tr-stats-sub span { flex:1 1 100%; font-size:10px; opacity:0.9; font-weight:700; text-transform:uppercase; line-height:1.1; }
+    .tr-stats-sub:hover { filter:brightness(1.18); }
+    .tr-stats-sub:active { transform:scale(0.96); }
+    /* Métrica activa: anillo blanco que resalta sobre el gradiente azul. */
+    .tr-stats-sub.active { box-shadow:0 0 0 2px rgba(255,255,255,0.95), 0 4px 10px rgba(0,0,0,0.18); }
+    .tr-sub-rev { background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.25); }
+    .tr-sub-rec { background:rgba(34,197,94,0.15); border:1px solid rgba(34,197,94,0.25); }
+    .tr-sub-urg { background:rgba(245,158,11,0.18); border:1px solid rgba(245,158,11,0.3); }
+    /* Mobile: el panel (tarjeta con gradiente) sube ARRIBA de la tabla, full-width. */
+    @media (max-width: 768px) {
+        .tr-layout { flex-direction:column; }
+        .tr-stats { order:-1; flex:0 0 auto; width:100%; box-sizing:border-box; }
+    }
+
+    /* Tabla */
+    .tr-table { width:100%; border-collapse:separate; border-spacing:0; font-size:14px; color:#000; }
+    .tr-table thead tr { background:#1e293b; }
+    /* Divisores verticales entre columnas (mismo patrón que el módulo de equipos):
+       encabezado #334155, cuerpo claro #e2e8f0. */
+    .tr-table thead th { text-align:center; color:#fff; font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:1px; padding:10px 14px; border-right:1px solid #334155; border-bottom:2px solid #0f172a; white-space:nowrap; }
+    .tr-table thead th:last-child { border-right:none; }
+    .tr-table tbody td { padding:12px 14px; color:#000; border-bottom:1px solid #e2e8f0; border-right:1px solid #e2e8f0; text-align:center; vertical-align:middle; }
+    .tr-table tbody td:last-child { border-right:none; }
+    .tr-table tbody tr:hover td { background:#e0f2fe; cursor:default; }
+    .tr-table tbody tr:nth-child(even) td { background:#fafbfc; }
+    .tr-table tbody tr:nth-child(even):hover td { background:#e0f2fe; }
+    .estado-pill { display:inline-flex; align-items:center; gap:4px; padding:3px 9px; border-radius:999px; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.3px; }
+    .pill-linea { display:inline-flex; align-items:center; padding:2px 8px; border-radius:999px; font-size:10.5px; font-weight:800; text-transform:uppercase; letter-spacing:.2px; }
+
+    /* ── Modal detalle/recepción ── */
+    /* Mismo velo que el modal "Auditoría de Inventario" (.alm-modal-overlay): rgba(15,23,42,.45)
+       y SIN backdrop-filter. El blur(3px) obligaba al navegador a recomponer toda la página
+       detrás del overlay en cada frame — se notaba al abrir/cerrar, sobre todo en teléfono. */
+    .dtm-overlay {
+        display:none; position:fixed; inset:0; z-index:99999;
+        background:rgba(15,23,42,0.45);
+        align-items:center; justify-content:center; padding:10px;
+    }
+    .dtm-overlay.open { display:flex; }
+    .dtm-box {
+        /* 640px (antes 760): sin el bloque de metadatos ni la columna Recibido ancha, el
+           modal sobraba de ancho y la tabla quedaba desperdigada. */
+        background:#fff; border-radius:16px; width:100%; max-width:640px;
+        max-height:95vh; min-height:60vh; display:flex; flex-direction:column; overflow:hidden;
+        box-shadow:0 25px 50px -12px rgba(0,0,0,0.35);
+        animation: dtmIn .2s ease-out;
+    }
+    @keyframes dtmIn { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+    /* Barra superior estilo modal de Movilización: slate #1e293b, icono azul + número
+       centrados, botón cerrar absoluto a la derecha. Va a sangre (las esquinas las
+       redondea el overflow:hidden de .dtm-box). */
+    /* Es la cabecera del modal (antes vivía dentro de .dtm-header, que se eliminó al quitar
+       el bloque de metadatos): hereda su flex-shrink:0 para no encogerse cuando la tabla
+       de materiales crece. El borde inferior no hace falta: la barra es oscura y a sangre. */
+    .dtm-title-row { position:relative; display:flex; align-items:center; justify-content:center; gap:9px; background:#1e293b; padding:15px 48px; flex-shrink:0; }
+    .dtm-title-icon { color:#0067b1; font-size:19px; }
+    .dtm-numero { font-family:monospace; font-size:15px; font-weight:800; color:#fff; }
+    .dtm-close {
+        position:absolute; right:12px; top:50%; transform:translateY(-50%);
+        background:transparent; border:none; cursor:default;
+        color:#fff; opacity:.75; padding:4px; border-radius:6px; transition:opacity .15s;
+    }
+    .dtm-close:hover { opacity:1; }
+    /* Sin bloque .dtm-meta: el encabezado Origen/Destino/Frente/Despachado se quitó del
+       modal (pedido del cliente). Sus estilos y los de .dtm-sub se fueron con él. */
+
+    .dtm-body { flex:1; overflow-y:auto; padding:14px 20px; }
+    .dtm-notas { display:flex; align-items:flex-start; gap:6px; padding:8px 10px; background:#fffbeb; border:1px solid #fef3c7; border-radius:8px; font-size:12.5px; color:#92400e; margin-bottom:10px; }
+    /* "Marcar todas": atajo para la nota que llegó completa. Misma altura (38px) que la caja
+       del buscador, con la que comparte la fila .dtm-buscar-row, y el MISMO radio (12px) que
+       el botón "Acciones" del resto de la app — no de píldora, que desentonaba. */
+    .dtm-marcar-todas { display:inline-flex; align-items:center; gap:5px; flex:none; height:38px; padding:0 12px;
+        border:1px solid #cbd5e0; border-radius:12px; background:#fff; color:#0067b1;
+        font-family:inherit; font-size:11.5px; font-weight:800; text-transform:uppercase; letter-spacing:.3px; cursor:default; }
+    .dtm-marcar-todas:hover { background:#e1effa; border-color:#0067b1; }
+    .dtm-marcar-todas .material-icons { font-size:16px; }
+    /* Todas tildadas → el botón pasa a ser "Quitar todas" y se ve encendido. */
+    .dtm-marcar-todas.activo { background:#0067b1; border-color:#0067b1; color:#fff; }
+    /* Materiales = TABLA real (<table>): encabezado + filas con columnas alineadas y
+       valores centrados — se ve como una tabla, consistente con el modal. */
+    .dtm-table-wrap { border:1px solid #e2e8f0; border-radius:8px; overflow:hidden; }
+    .dtm-table { width:100%; border-collapse:collapse; font-size:13px; }
+    .dtm-table thead th {
+        text-align:center; font-size:9px; font-weight:700; color:#94a3b8;
+        text-transform:uppercase; letter-spacing:.3px; padding:7px 8px;
+        background:#f8fafc; border-bottom:1px solid #e2e8f0; white-space:nowrap;
+    }
+    .dtm-table thead th:first-child { text-align:left; }
+    .dtm-table tbody td {
+        /* 10px verticales (antes 6): las filas iban muy apretadas y ahora alojan el campo
+           editable de "Recibido" (30px de alto). */
+        padding:10px 8px; border-bottom:1px solid #eef2f6;
+        text-align:center; vertical-align:middle; border-right:1px solid #f1f5f9;
+    }
+    .dtm-table tbody td:last-child { border-right:none; }
+    .dtm-table tbody tr:last-child td { border-bottom:none; }
+    .dtm-table tbody tr:hover td { background:#f8fafc; }
+    .dtm-td-prod { text-align:left !important; min-width:0; }
+    .dtm-td-prod .dtm-linea-cod, .dtm-td-prod .dtm-linea-nom { display:inline; }
+    /* Misma letra para TODA la tabla: 13px, misma familia (sin monospace), y todo en NEGRO
+       (#0f172a) — antes el nombre iba en gris #334155 y la UM en gris claro #94a3b8. */
+    .dtm-linea-cod { font-weight:700; font-size:13px; color:#0f172a; }
+    .dtm-linea-nom { font-size:13px; font-weight:500; color:#0f172a; margin-left:4px; }
+    /* La UM vive junto a la CANTIDAD enviada, no junto al nombre: más pequeña que el número
+       para que se lea "10 UNIDAD" como una magnitud y no compita con la cifra. */
+    .dtm-linea-um { font-size:10px; font-weight:600; color:#0f172a; text-transform:uppercase; margin-left:3px; }
+    .dtm-col-num { font-weight:600; font-size:13px; color:#0f172a; white-space:nowrap; }
+    /* Columna "#": numeración de filas, gris y discreta. */
+    .dtm-col-idx { font-size:13px; font-weight:700; color:#94a3b8; width:1%; white-space:nowrap; }
+    /* Recepción activa: tocar la fila la marca (azul) y rellena su campo "Recibido" con lo
+       enviado. Si llegó menos, se escribe el número a mano; el campo manda sobre el toque.
+       Columna estrecha: solo aloja una cifra corta. */
+    .dtm-linea-rec { cursor:default; }
+    .dtm-linea-rec.recibida td { background:#e1effa; }
+    .dtm-linea-rec.recibida:hover td { background:#d6e9fb; }
+    .dtm-rec-cant { width:1%; white-space:nowrap; padding-left:4px !important; padding-right:4px !important; }
+    /* Check verde de "tildado": aparece al marcar la fila (.recibida). Reserva su hueco
+       siempre (visibility, no display) para que el input no se corra al marcar/desmarcar. */
+    .dtm-rec-ico { font-size:18px; color:#16a34a; vertical-align:middle; margin-right:5px; visibility:hidden; }
+    .dtm-linea-rec.recibida .dtm-rec-ico { visibility:visible; }
+    /* El campo es type=text (ver el modal), así que no hay flechitas de spinner que ocultar.
+       52px basta para las cantidades reales (1-4 dígitos); a 64px el recuadro se veía
+       desproporcionado frente al número que contiene. */
+    .dtm-rec-input {
+        width:52px; height:28px; padding:0 4px; text-align:center;
+        border:1px solid #cbd5e0; border-radius:8px; background:#fff;
+        font-family:inherit; font-size:13px; font-weight:600; color:#0f172a;
+        outline:none; cursor:text;
+    }
+    .dtm-rec-input:focus { border-color:#0067b1; box-shadow:0 0 0 2px rgba(0,103,177,.15); }
+    .dtm-linea-rec.recibida .dtm-rec-input { border-color:#0067b1; color:#0067b1; font-weight:800; }
+    .dtm-diff-value { font-size:13px; font-weight:600; color:#64748b; }
+
+    /* Buscador de materiales del modal — mismo lenguaje visual que .alm-filter-box del
+       módulo Inventario (lupa, borde #cbd5e0, radio 12, fondo #fbfcfd), a menor altura
+       porque vive dentro de un modal. font-family:inherit: los <input> no heredan la
+       fuente y se quedarían en el Arial del navegador. */
+    /* Buscador de materiales + "Marcar todas" en la MISMA línea: el buscador crece y el
+       botón mide lo suyo. El margen inferior vive en la fila, no en la caja, para que los dos
+       queden alineados por arriba y el hueco de abajo sea uno solo. */
+    .dtm-buscar-row { display:flex; align-items:center; gap:8px; margin:0 0 10px; }
+    .dtm-buscar-row .dtm-buscar-box { flex:1 1 auto; }
+    /* Sin margen propio: la caja SIEMPRE va dentro de .dtm-buscar-row, que es quien pone el
+       hueco de abajo. Tenía `margin:0 0 10px` y la regla de arriba se lo anulaba — dos
+       declaraciones peleando la misma propiedad, y editar el 10px de aquí no hacía nada. */
+    .dtm-buscar-box { display:flex; align-items:center; height:38px; border:1px solid #cbd5e0; border-radius:12px; background:#fbfcfd; overflow:hidden; }
+    .dtm-buscar-box.active { border-color:#0067b1; background:#e1effa; }
+    .dtm-buscar-box .lupa { padding:0 8px; color:#64748b; font-size:18px; }
+    .dtm-buscar-box input { flex:1; min-width:0; border:none; background:transparent; outline:none; padding:0 4px; font-family:inherit; font-size:13.5px; color:#0f172a; }
+    .dtm-buscar-clear { padding:0 8px; color:#64748b; font-size:18px; cursor:default; display:none; }
+    .dtm-buscar-box.active .dtm-buscar-clear { display:block; }
+    /* Fila "sin resultados" del buscador (la inyecta trFiltrarLineas). */
+    .dtm-sin-resultados td { text-align:center; color:#94a3b8; font-size:13px; padding:22px 10px; }
+
+    .dtm-footer {
+        display:flex; align-items:center; justify-content:center; gap:12px; flex-wrap:wrap;
+        padding:14px 20px; border-top:1px solid #e2e8f0; flex-shrink:0;
+        background:#fff;
+    }
+    /* Botones del modal: misma paleta que los del modal "Auditoría de Inventario"
+       (secundario gris plano #e2e8f0/#475569, primario en el azul global), pero MÁS BAJOS:
+       44px de alto con 22px laterales quedaban desproporcionados en un pie de dos botones.
+       .dt-btn-primary ya no se define aquí: su único usuario era "Confirmar todo", que se
+       eliminó. La página /recepcion/{id} tiene su propia hoja y su propio .dt-btn-primary. */
+    .dt-btn {
+        height:36px; padding:0 16px; border-radius:10px; cursor:default;
+        font-size:13px; font-weight:700; letter-spacing:.2px;
+        display:inline-flex; align-items:center; justify-content:center; gap:6px;
+        border:none; transition:background .15s, transform .1s, opacity .15s;
+    }
+    .dt-btn i { font-size:17px; }
+    /* Secundario (Cancelar / Cancelar borrador / Cancelar y revertir). */
+    .dt-btn-cancel { background:#e2e8f0; color:#475569; box-shadow:none; }
+    .dt-btn-cancel:hover { background:#cbd5e0; }
+    /* Primario: la acción principal del modal (Aceptar / Enviar). Azul SÓLIDO: ya no compite
+       con un segundo botón azul, así que el perfilado que tenía "Confirmar (N)" sobra. */
+    .dt-btn-blue { background:var(--maquinaria-blue,#0067b1); color:#fff; box-shadow:0 4px 8px -2px rgba(0,103,177,0.3); }
+    .dt-btn-blue:hover { background:#005391; }
+    .dt-btn-blue:active { transform:scale(0.98); }
+    /* "Aceptar (0)": sin filas marcadas no hay nada que aceptar. El :hover se neutraliza
+       sobre .dt-btn-blue (el único botón que se deshabilita), no sobre .dt-btn: si no,
+       un Cancelar deshabilitado se pintaría de azul al pasar el ratón. */
+    .dt-btn:disabled { opacity:.5; cursor:not-allowed; box-shadow:none; }
+    .dt-btn-blue:disabled:hover { background:var(--maquinaria-blue,#0067b1); }
+    .dt-btn:disabled:active { transform:none; }
+
+    @media (max-width: 768px) {
+        .dtm-overlay { padding:0; align-items:flex-end; }
+        .dtm-box { max-width:100%; max-height:95vh; border-radius:16px 16px 0 0; }
+        .dtm-footer { flex-direction:column; }
+        .dtm-footer .dt-btn { width:100%; justify-content:center; }
+        /* "Marcar todas" se queda SOLO con el icono: el ancho del teléfono lo necesita el
+           buscador, que es donde se escribe. El rótulo sigue disponible en el `title` y el
+           estado se ve igual (el botón se enciende cuando están todas marcadas). */
+        .dtm-marcar-todas .desktop-text { display:none; }
+        .dtm-marcar-todas { padding:0 10px; }
+        /* Materiales (tabla): celdas y fuentes más compactas para el ancho del teléfono.
+           8px verticales (no 5): la fila aloja el campo editable de "Recibido" (30px). */
+        .dtm-table { font-size:12px; }
+        .dtm-table thead th, .dtm-table tbody td { padding:8px 4px; }
+        /* Campo "Recibido": el ancho (52px) y el alto (28px) del bloque base ya sirven en
+           teléfono; aquí sólo se achica la letra para igualar la de la tabla. Antes esta regla
+           repetía width:54px/height:28px — el height era idéntico al base y el width, tras
+           reducir el base a 52px, dejó de "angostar" nada: lo ensanchaba 2px. */
+        .dtm-rec-input { font-size:12px; }
+        /* Misma letra (12px) para TODO el texto de la tabla también en móvil. La UM queda
+           fuera: acompaña a la cantidad y debe seguir siendo más pequeña que la cifra. */
+        .dtm-col-num, .dtm-diff-value, .dtm-linea-cod, .dtm-linea-nom, .dtm-col-idx { font-size:12px; }
+        .dtm-linea-um { font-size:9.5px; }
+    }
+
+    /* ── Responsive mobile (≤768px) — patron calcado de /admin/almacen ──
+       Titulo oculto, selector de almacen destino full-width como header
+       efectivo, y los filtros en línea (buscador / Estado / Desde-Hasta)
+       se reacomodan a lo ancho del telefono. */
+    @media (max-width: 768px) {
+        /* Viewport principal: por default .main-viewport tiene padding:20px y
+           width:98% (estilos_globales.css:92). En /admin/almacen el global lo
+           reduce a 8px porque tiene .page-layout-grid; aqui NO tenemos esa
+           clase asi que replicamos el override para que el contenedor blanco
+           ocupe casi todo el ancho del telefono.
+           max-width:100% (no 100vw) — 100vw incluye el ancho de la scrollbar
+           vertical y deja el padding-right tapado, generando margen izq > der. */
+        .main-viewport { padding-left: 8px !important; padding-right: 8px !important; width: 100% !important; max-width: 100% !important; box-sizing: border-box !important; padding-top: 12px !important; }
+        /* Contenedor blanco (.admin-card): padding interno chico y full-width.
+           box-sizing:border-box ya viene de la clase global .admin-card. */
+        /* flex:0 0 auto — RESETEA el `flex:1 1 0` inline que la tarjeta necesita en
+           escritorio. Allí .tr-layout es una FILA y ese flex reparte el ancho sobrante;
+           aquí pasa a COLUMNA (regla de arriba), así que el mismo flex-basis:0 se aplica a
+           la ALTURA: la tarjeta se quedaba en su min-height (70vh) sin crecer con el
+           contenido, y las tarjetas de las notas se salían por debajo del recuadro blanco.
+           Con `auto` la altura la manda el contenido y el min-height solo hace de suelo. */
+        .admin-card { padding: 4px !important; margin: 0 !important; width: 100% !important;
+            flex: 0 0 auto !important; }
+        /* page-title-card: el global mobile le pone width:100% y menu.css le mete
+           padding:8px 12px — SIN box-sizing:border-box el ancho real es 100%+24px
+           y se desborda 24px a la derecha (clippeado), dejando el contenido
+           corrido hacia la derecha. Forzamos border-box + padding lateral 4px
+           para que su contenido alinee EXACTO con el de .admin-card (padding 4px). */
+        .page-title-card { box-sizing: border-box !important; padding-left: 4px !important; padding-right: 4px !important; }
+        /* Titulo + separador ocultos en mobile */
+        .page-title-card .page-title { display: none !important; }
+        .page-title-card > div > span[aria-hidden="true"] { display: none !important; }
+        /* Cabecera apilada para que el selector de almacen destino ocupe todo el ancho */
+        .page-title-card > div { flex-direction: column !important; align-items: stretch !important; gap: 10px !important; }
+        .page-title-card > div > div { width: 100% !important; flex: 1 1 100% !important; }
+
+        /* Filtros en mobile: producto a fila completa arriba y, debajo, la nota junto a los
+           dos botones cuadrados —"Filtros avanzados" (que ya contiene Estado/Desde/Hasta) y
+           "Compra directa", que a este ancho se queda solo con su icono. */
+        #trFilters { gap: 8px !important; }
+        /* Producto ocupa su propia fila (es el que más texto muestra); la nota comparte
+           renglón con los botones 45x45 — de ahí `flex:1 1 0` en vez de 100%, que la dejaría
+           sola en su fila y a los botones huérfanos en la siguiente. */
+        #trFilters > .tr-search-prod { flex: 1 1 100% !important; max-width: none !important; min-width: 0 !important; }
+        #trFilters > .tr-search-num  { flex: 1 1 0 !important;    max-width: none !important; min-width: 0 !important; }
+
+        /* ══════════════════════════════════════════════
+           MOBILE CARD LAYOUT — Recepción (bandeja)
+           Cada <tr data-id="..."> pasa a ser una tarjeta con grid de 3 filas:
+             ┌───────────────────────────────────┐
+             │ TR-2026-0042         [ENVIADO]    │ ← Nº + Estado
+             │ Almacén Origen                    │
+             │   ↓                               │
+             │ Almacén Destino                   │
+             │ 📦 5 · 📅 18-May · 👤 Juan        │ ← Meta
+             └───────────────────────────────────┘
+           El acento izquierdo se hace con box-shadow:inset (no border-left:3px)
+           para mantener simetria horizontal — mismo fix aplicado en /movimientos.
+           "Fecha recibido" no se muestra en la tarjeta mobile por espacio (en el
+           default "En tránsito" va vacia; si se filtra Confirmadas el dato se ve en
+           el desktop). ══════════════════════════════════════════════ */
+        .tr-table { display: block !important; min-width: 0 !important; background: transparent !important; border: none !important; }
+        .tr-table thead { display: none !important; }
+        .tr-table tbody { display: flex !important; flex-direction: column !important; gap: 10px !important; width: 100% !important; }
+
+        /* Wrapper con overflow-x:auto deja de hacer falta en mobile — las cards son
+           block y no requieren scroll horizontal. Anulamos su border/radius para que
+           las cards no queden encerradas en un marco extra. */
+        .admin-card > div[style*="overflow-x:auto"] {
+            overflow: visible !important;
+            border: none !important;
+            border-radius: 0 !important;
+        }
+
+        /* Tarjeta de registro — fondo blanco puro (no gradient), borde 1px
+           #cbd5e1, border-radius 14px, sombra suave 0 4px 12px. Mismo tono de
+           borde que las tarjetas moviles de equipos / inventario / movimientos.
+           Sin el acento `inset 3px` lateral — el cliente prefirio el look mas
+           limpio y minimal. */
+        .tr-table tbody tr[data-id] {
+            display: grid !important;
+            grid-template-columns: 1fr auto !important;
+            grid-template-areas:
+                "numero  estado"
+                "ruta    ruta"
+                "meta    meta" !important;
+            row-gap: 8px !important;
+            column-gap: 10px !important;
+            background: #fff !important;
+            /* Borde mas marcado (#cbd5e1) — mismo tono que las tarjetas de
+               /admin/equipos, para consistencia entre modulos. */
+            border: 1px solid #cbd5e1 !important;
+            border-radius: 14px !important;
+            box-shadow: 0 4px 12px rgba(15,23,42,0.04) !important;
+            padding: 14px 16px !important;
+            overflow: hidden !important;
+            cursor: default !important;
+            transition: box-shadow 0.2s ease, transform 0.15s ease !important;
+        }
+        .tr-table tbody tr[data-id]:active {
+            transform: translateY(-1px) !important;
+            box-shadow: 0 8px 20px rgba(15,23,42,0.08) !important;
+        }
+        /* Anulamos el hover de tabla (e0f2fe) en mobile — las cards usan :active. */
+        .tr-table tbody tr[data-id]:hover td { background: transparent !important; }
+
+        .tr-table tbody tr[data-id] td {
+            padding: 0 !important;
+            border: none !important;
+            background: transparent !important;
+            font-size: 12.5px !important;
+            /* En la TARJETA móvil el contenido va a la izquierda (el centrado es solo
+               para la tabla de escritorio). El Estado (td:3) se realínea a la derecha
+               más abajo; el trayecto Origen → Destino se mantiene centrado. */
+            text-align: left !important;
+        }
+        /* Trayecto Origen → Destino: centrado dentro de la tarjeta móvil (su contenedor
+           interno ya usa justify-content:center; lo reforzamos sobre el <td>). */
+        .tr-table tbody tr[data-id] .tr-ruta-dest { text-align: center !important; }
+
+        /* td:1 = Nº TR-... (esquina sup-izq, monospace destacado) */
+        .tr-table tbody tr[data-id] td:nth-child(1) {
+            grid-area: numero !important;
+            font-family: monospace !important; font-weight: 800 !important;
+            /* 13px = la escala de la tarjeta (ver el bloque de tipografía más abajo). Una sola
+               declaración: antes esto ponía 14px y la regla de más abajo lo pisaba con 13px. */
+            font-size: 13px !important; color: #0f172a !important; white-space: nowrap !important;
+            align-self: center !important;
+        }
+        /* td:2 = "Origen → Destino" (ya tiene su sub-layout con div+flecha interno) */
+        .tr-table tbody tr[data-id] td:nth-child(2) {
+            grid-area: ruta !important;
+            padding-top: 8px !important;
+            border-top: 1px dashed #e2e8f0 !important;
+        }
+        /* td:3 = Estado pill */
+        .tr-table tbody tr[data-id] td:nth-child(3) {
+            grid-area: estado !important;
+            text-align: right !important; align-self: center !important;
+        }
+        /* td:4 = Fecha envío — fila "meta" propia, CENTRADA en la tarjeta (antes quedaba
+           pegada a la izquierda). flex + wrap para que "hace 4 horas" baje a su renglón
+           si no cabe, sin perder el centrado. */
+        .tr-table tbody tr[data-id] td:nth-child(4) {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            flex-wrap: wrap !important;
+            gap: 4px !important;
+            font-size: 12px !important;
+            font-weight: 400 !important;
+            color: #1e293b !important;
+            padding-top: 8px !important;
+            border-top: 1px dashed #e2e8f0 !important;
+            grid-area: meta !important;
+        }
+
+        /* Iconito sutil antes de la fecha de envío. */
+        .tr-table tbody tr[data-id] td:nth-child(4)::before { content: 'event'; font-family: 'Material Icons'; font-size: 13px; color: #64748b; }
+
+        /* ── Tipografía de la tarjeta: escala CORTA y pareja ────────────────────────
+           En móvil convivían 14 / 13 / 12.5 / 11.5 / 10.5px y la tarjeta se leía a
+           saltos. Se reduce a dos tamaños: 13px para los datos (nº, origen, frente,
+           fecha) y 11.5px para lo secundario (almacén físico, "hace X"). Los spans de
+           rows.blade traen font-size inline, así que hace falta !important. El nº de nota
+           (td:1) ya se fija arriba, en su propia regla; no se repite aquí. */
+        /* Origen y frente: una sola declaración. Envuelven (white-space:normal) porque en el
+           ancho del teléfono la columna es estrecha y el nowrap del escritorio los recortaría
+           con puntos suspensivos. */
+        .tr-table tbody tr[data-id] .tr-ruta-origen,
+        .tr-table tbody tr[data-id] .tr-ruta-frente {
+            font-size: 13px !important;
+            white-space: normal !important;
+            overflow: visible !important;
+            text-overflow: clip !important;
+        }
+        /* white-space:normal como sus hermanos de arriba: el renglón del almacén pasó a
+           llevar el prefijo "Almacén", así que es bastante más largo y con el nowrap del
+           style inline se salía de la tarjeta en las pantallas más estrechas. */
+        .tr-table tbody tr[data-id] .tr-ruta-alm    { font-size: 11.5px !important; white-space: normal !important; }
+        .tr-table tbody tr[data-id] .tr-fecha-rel span { font-size: 11.5px !important; }
+
+        /* Empty state: el <tr> SIN data-id (rama vacia del forelse) queda como bloque centrado sin tarjeta. */
+        .tr-table tbody tr:not([data-id]) {
+            display: block !important; background: transparent !important;
+            border: none !important; box-shadow: none !important; padding: 0 !important;
+        }
+        .tr-table tbody tr:not([data-id]) td {
+            display: block !important; text-align: center !important;
+            padding: 36px 16px !important; border: none !important;
+        }
+    }

@@ -1,0 +1,115 @@
+/* Estilos de admin/equipos/index.blade.php (antes en un <style> dentro de la vista: viajaban en el HTML de cada visita y no se cacheaban). El <link> ocupa EXACTAMENTE el sitio del <style>, asi que la cascada no cambia. */
+    /* Textarea masiva: el usuario pega/escribe seriales separados por cualquier
+       whitespace. Se mantiene como <textarea> (NO tabla de inputs, que fallaba al
+       pegar 300+), pero con aspecto de CASILLAS DE TABLA: una línea horizontal por
+       renglón (gradiente con background-attachment:local para que las líneas hagan
+       scroll junto con el texto). line-height fijo en px = alto de cada casilla. */
+    #bulkLookupTextarea {
+        width: 100%; min-height: 224px; max-height: 50vh;
+        padding: 0 10px; box-sizing: border-box;
+        border: 1px solid #cbd5e0; border-radius: 8px;
+        font-family: 'Courier New', monospace; font-size: 13px;
+        line-height: 28px; text-transform: uppercase;
+        resize: vertical; outline: none;
+        background-attachment: local;
+        background-image: linear-gradient(to bottom, transparent 0, transparent 27px, #e2e8f0 27px, #e2e8f0 28px);
+        background-size: 100% 28px;
+        transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    #bulkLookupTextarea:focus {
+        border-color: #0067b1;
+        box-shadow: 0 0 0 3px rgba(0,103,177,0.12);
+    }
+    /* El frente usa el componente global .custom-dropdown (mismo diseño que el resto
+       de la app); su estilo viene de las reglas globales. Ocupa todo el ancho
+       disponible junto al botón Buscar (sin tope). */
+    #bulkLookupFrenteDropdown { flex: 1 1 auto; }
+
+    /* ── Botones del footer del modal de Búsqueda Masiva ──
+       Mismo lenguaje que los botones del modal de recepción (rectángulo redondeado
+       radio 10, 42px de alto, 13px/700, icono+texto): outline para los secundarios
+       (Modificar / Copiar), sólido para las acciones (Detalle / Movilizar). La
+       VISIBILIDAD la sigue controlando el JS (display:none → flex por fase). */
+    #bulkLookupFooter button {
+        height: 36px; padding: 0 16px; border-radius: 10px; cursor: pointer;
+        font-size: 13px; font-weight: 700; letter-spacing: .2px;
+        display: none; align-items: center; justify-content: center; gap: 7px;
+        border: none; transition: background .15s, transform .1s;
+    }
+    #bulkLookupFooter button:active { transform: scale(0.98); }
+    #bulkLookupFooter button i.material-icons { font-size: 18px; }
+    .blk-btn-ghost  { background: #fff; color: #475569; border: 1px solid #cbd5e0 !important; }
+    .blk-btn-ghost:hover  { background: #f1f5f9; }
+    .blk-btn-danger { background: #fff; color: #b91c1c; border: 1px solid #fca5a5 !important; }
+    .blk-btn-danger:hover { background: #fee2e2; }
+    .blk-btn-slate  { background: #64748b; color: #fff; }
+    .blk-btn-slate:hover  { background: #475569; }
+    .blk-btn-blue   { background: #0067b1; color: #fff; box-shadow: 0 4px 8px -2px rgba(0,103,177,0.3); }
+    .blk-btn-blue:hover   { background: #005a9c; }
+
+    /* ── Teléfono ─────────────────────────────────────────────────────────────
+       El modal pasa a pantalla completa y el footer reparte los botones de forma
+       uniforme; en pantallas chicas los botones van SIN icono (solo texto) para
+       que quepan y se vean parejos. !important porque el markup usa estilos inline. */
+    @media (max-width: 600px) {
+        #bulkLookupModal .modal-content {
+            width: 100% !important;
+            max-width: 100% !important;
+            height: 100dvh !important;
+            max-height: 100dvh !important;
+            border-radius: 0 !important;
+        }
+        /* Footer en grid de 2 columnas: todos los botones del MISMO tamaño
+           (1fr cada uno), sin importar el largo del texto ni cuántos haya. */
+        #bulkLookupFooter { display: grid !important; grid-template-columns: 1fr 1fr; gap: 8px; }
+        #bulkLookupFooter button {
+            justify-content: center;
+            white-space: nowrap;
+            padding-left: 6px;
+            padding-right: 6px;
+        }
+        #bulkLookupFooter button i.material-icons { display: none; }
+
+        /* Resultados: la tabla se vuelve TARJETAS compactas (estilo Anclaje). Se
+           ocultan los encabezados y cada fila pasa a tarjeta; cada celda muestra
+           su rótulo (data-label) a la izquierda y el valor a la derecha. */
+        #bulkLookupResultsBox { border: none !important; }
+        #bulkLookupResultsPhase thead { display: none; }
+        #bulkLookupResultsPhase tbody tr {
+            display: block;
+            border: 1px solid #cbd5e0;
+            border-radius: 8px;
+            padding: 5px 8px;
+            margin-bottom: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.10);
+        }
+        #bulkLookupResultsPhase tbody td {
+            display: flex; justify-content: space-between; align-items: center; gap: 10px;
+            padding: 2px 0 !important; border: none !important;
+            text-align: left !important; font-size: 11px;
+        }
+        #bulkLookupResultsPhase tbody td::before {
+            content: attr(data-label);
+            flex-shrink: 0; font-size: 9px; font-weight: 700;
+            color: #64748b; text-transform: uppercase; letter-spacing: 0.3px;
+        }
+        /* Fila "no encontrado" (mensaje colspan): sin rótulo y a lo ancho. */
+        #bulkLookupResultsPhase tbody td[colspan]::before { content: none; }
+        #bulkLookupResultsPhase tbody td[colspan] { justify-content: flex-start; }
+
+        /* Leyendas (Rojo/Amarillo) una al lado de la otra en teléfono. */
+        #bulkLookupLegend { flex-direction: row !important; flex-wrap: wrap; gap: 4px 14px !important; }
+
+        /* Modal a pantalla completa: el textarea llena el alto disponible para que
+           no quede un hueco enorme debajo del texto pegado. */
+        #bulkLookupInputPhase { display: flex; flex-direction: column; height: 100%; }
+        #bulkLookupTextareaWrap { flex: 1 1 auto; min-height: 0; }
+        #bulkLookupTextarea { max-height: none !important; height: 100% !important; }
+
+        /* Fase de resultados también llena el alto: la lista de tarjetas crece
+           (más espacio vertical) y la leyenda queda justo arriba del footer,
+           sin el hueco grande que dejaba el tope de 50vh. */
+        #bulkLookupResultsPhase { display: flex; flex-direction: column; height: 100%; }
+        #bulkLookupResultsBox { flex: 1 1 auto; min-height: 0; }
+        #bulkLookupResultsScroll { max-height: none !important; height: 100%; }
+    }

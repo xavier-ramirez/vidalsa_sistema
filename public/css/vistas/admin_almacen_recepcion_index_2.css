@@ -1,0 +1,203 @@
+/* Estilos de admin/almacen/recepcion/index.blade.php (antes en un <style> dentro de la vista: viajaban en el HTML de cada visita y no se cacheaban). El <link> ocupa EXACTAMENTE el sitio del <style>, asi que la cascada no cambia. */
+    .cdir-overlay { display:none; position:fixed; inset:0; z-index:99999; background:rgba(15,23,42,0.45); align-items:center; justify-content:center; padding:10px; }
+    .cdir-overlay.open { display:flex; }
+    /* 760px de ancho y 82vh de alto. Alto FIJO —no automático— para que el modal no cambie
+       de tamaño al pasar de un paso a otro: lo único que se intercambia es el bloque de
+       arriba. Los tres campos del paso 2 siguen entrando en fila a este ancho (≈263px para
+       nota y proveedor, 170 para la fecha). */
+    /* La caja SE AJUSTA AL PASO. .cdir-en-paso1 ya la pone cdirPaso() para esconder la tabla,
+       así que basta colgarle el tamaño — ni una línea de JS nueva.
+         · Paso 1: solo pide cuatro datos en columna, así que va angosta y con el alto del
+           CONTENIDO (height:auto). Con el 82vh fijo quedaba medio palmo de blanco debajo de
+           los botones. De paso, cuando aparece el aviso de error la caja crece sola en vez
+           de recortarlo contra el overflow:hidden.
+         · Paso 2: la tabla de líneas necesita ancho Y un alto acotado contra el que hacer
+           scroll (.cdir-list-wrap es flex:1 1 auto), de ahí el 82vh.
+       Solo se anima el ancho: el alto pasa de auto a 82vh y esa transición no se puede
+       interpolar, así que animarla daría un salto feo en vez de un movimiento. */
+    .cdir-box { background:#fff; border-radius:16px; width:100%; max-width:760px; height:82vh; max-height:94vh;
+        display:flex; flex-direction:column; overflow:hidden; box-shadow:0 25px 50px -12px rgba(0,0,0,0.35);
+        animation:dtmIn .2s ease-out; transition:max-width .3s cubic-bezier(.4,0,.2,1); }
+    .cdir-box.cdir-en-paso1 { max-width:460px; height:auto; }
+
+    /* Barra superior: mismo slate #1e293b + icono azul del modal de detalle, para que los
+       dos modales del módulo se lean como la misma familia. */
+    .cdir-title-row { position:relative; display:flex; align-items:center; justify-content:center; gap:9px; background:#1e293b; padding:15px 48px; flex-shrink:0; }
+    .cdir-title-row .material-icons { color:#0067b1; font-size:20px; }
+    .cdir-title { font-size:14.5px; font-weight:800; color:#fff; letter-spacing:.2px; }
+    .cdir-close { position:absolute; right:12px; top:50%; transform:translateY(-50%); background:transparent; border:none;
+        cursor:default; color:#fff; opacity:.75; padding:4px; border-radius:6px; transition:opacity .15s; }
+    .cdir-close:hover { opacity:1; }
+    /* Simétrico a la ✕ pero a la izquierda. Mismo tratamiento visual: transparente sobre la
+       barra oscura, y solo se enciende al pasar por encima. */
+    .cdir-atras { position:absolute; left:12px; top:50%; transform:translateY(-50%); background:transparent;
+        border:none; cursor:default; color:#fff; opacity:.75; padding:4px; border-radius:6px; transition:opacity .15s; }
+    .cdir-atras:hover { opacity:1; }
+
+    /* Pasos: solo uno visible a la vez, y los dos son bloques FIJOS en la parte de arriba
+       (el paso 1 trae proyecto + datos del documento; el paso 2, la barra de captura). El
+       alto sobrante se lo queda la tabla de líneas, que vive fuera de los pasos y solo se
+       pinta en el paso 2. */
+    .cdir-paso { display:none; flex-direction:column; flex-shrink:0; }
+    .cdir-paso.on { display:flex; }
+
+    /* Asociar material a un proyecto: PRIMER campo del paso 1, en la misma columna que los
+       tres de abajo (nota, proveedor y fecha) — mismo margen, mismo ancho y la etiqueta
+       encima del campo. Antes iba en una franja gris a todo lo ancho y se leía como si
+       fuera de otra pantalla.
+       z-index:6 — por encima de .cdir-capt (5), para que sus sugerencias tapen la barra de
+       captura que queda debajo. Por eso conserva position:relative aunque ya no tenga fondo. */
+    .cdir-proyecto { position:relative; z-index:6; flex-shrink:0; display:grid; gap:6px;
+        padding:14px 20px 0; }
+    .cdir-proyecto label { font-size:11px; font-weight:800;
+        text-transform:uppercase; letter-spacing:.4px; color:#64748b; }
+    /* Campo CON BUSCADOR (no un <select> nativo): el almacén puede tener muchos proyectos y
+       teclear tres letras es más rápido que recorrer la lista. Misma caja que el resto del
+       modal para que no desentone. */
+    .cdir-proy-field { position:relative; min-width:0; }
+    .cdir-proy-field .cdir-input { padding-right:34px; }
+    .cdir-proy-caret { position:absolute; right:9px; top:50%; transform:translateY(-50%);
+        color:#64748b; font-size:20px; pointer-events:none; }
+    /* Sin elegir → borde rojo suave. No es un error todavía (nadie ha intentado seguir),
+       solo la señal de que falta ese dato. Se apaga en cuanto se elige. */
+    .cdir-proy-field .cdir-input.falta { border-color:#f87171; background:#fef2f2; }
+    /* Elegido → verde tenue: confirma de un golpe que ese dato ya está resuelto. */
+    .cdir-proy-field .cdir-input.listo { border-color:#22c55e; background:#f0fdf4; font-weight:700; }
+
+    /* Zona de captura (fija). z-index para que el desplegable de sugerencias tape la tabla. */
+    .cdir-capt { position:relative; z-index:5; flex-shrink:0; padding:10px 20px 8px; background:#fff; }
+    .cdir-section-title { font-size:11.5px; font-weight:800; text-transform:uppercase; letter-spacing:.6px; color:#64748b; margin-bottom:6px; }
+    .cdir-capt-bar { display:flex; gap:8px; align-items:stretch; }
+    .cdir-field { position:relative; flex:1 1 auto; min-width:0; }
+    /* Lupa del buscador de producto. Mismo tamaño y color que la de .tr-search-box para que
+       los dos buscadores del módulo se lean igual. pointer-events:none para que el clic
+       caiga siempre en el input y no en el icono. */
+    .cdir-lupa { position:absolute; left:10px; top:50%; transform:translateY(-50%);
+        color:#64748b; font-size:18px; pointer-events:none; }
+    .cdir-field .cdir-input { padding-left:34px; }
+    /* 36px (antes 42): el modal entraba justo en pantallas bajas y los campos se veían
+       inflados. Alto compartido por el buscador, UM, cantidad y el botón de agregar — si se
+       cambia aquí hay que cambiar .cdir-add-btn, que se alinea con ellos. */
+    .cdir-input { width:100%; box-sizing:border-box; height:36px; border:1px solid #cbd5e0; border-radius:10px;
+        background:#fbfcfd; padding:0 12px; font-family:inherit; font-size:13.5px; color:#0f172a; outline:none; }
+    .cdir-input:focus { border-color:#0067b1; background:#fff; }
+    .cdir-um-input  { width:78px; flex:0 0 78px; text-align:center; text-transform:uppercase; font-weight:700; font-size:12.5px; }
+    .cdir-cant-input{ width:92px; flex:0 0 92px; text-align:center; font-weight:700; }
+    .cdir-um-wrap { position:relative; flex:0 0 78px; }
+    /* Verde y con un check (pedido del cliente): el gesto es "confirmar esta línea", no
+       "sumar un número", y el verde lo separa del azul de las acciones del pie. */
+    /* REDONDO (border-radius:50%), no cuadrado: es una acción puntual —"confirmar esta
+       línea"— y el círculo la separa de los campos rectangulares de al lado, que es donde
+       se escribe. Su alto es el MISMO de .cdir-input (36px), así que queda a ras con los
+       campos sin alinearlo a mano; si allá cambia, aquí también. */
+    .cdir-add-btn { flex:0 0 36px; width:36px; height:36px; display:flex; align-items:center; justify-content:center;
+        border:1px solid #16a34a; border-radius:50%; background:#16a34a; color:#fff; cursor:default; }
+    .cdir-add-btn:hover { background:#15803d; }
+
+    /* Producto ya elegido: el input se oculta y en su lugar va este chip. */
+    .cdir-badge { display:none; position:absolute; inset:0; align-items:center; gap:6px; padding:0 8px 0 10px;
+        border:1px solid #0067b1; border-radius:10px; background:#e1effa; overflow:hidden; }
+    .cdir-badge.show { display:flex; }
+    /* Una sola tipografía y un solo color de texto en TODO el modal (pedido del cliente):
+       el código ya no va en monospace azul — se distingue por el peso, no por ser otra
+       letra de otro color, que hacía ver la línea como dos textos pegados. */
+    .cdir-badge .cod { font-weight:800; font-size:13px; color:#0f172a; flex:0 0 auto; }
+    .cdir-badge .nom { font-size:13px; font-weight:600; color:#0f172a; flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .cdir-badge .material-icons { font-size:17px; color:#64748b; flex:0 0 auto; cursor:default; }
+
+    /* Desplegables (producto y UM): mismas medidas que .tr-suggest del toolbar. */
+    .cdir-suggest, .cdir-um-suggest { display:none; position:absolute; top:calc(100% + 5px); left:0; right:0; z-index:20;
+        background:#fff; border:1px solid #e2e8f0; border-radius:12px; box-shadow:0 10px 25px rgba(0,0,0,0.1);
+        max-height:230px; overflow-y:auto; padding:5px; }
+    .cdir-suggest.open, .cdir-um-suggest.open { display:block; }
+    /* El de UM se ancla a la DERECHA y se ensancha hacia la izquierda: el campo mide 78px y
+       a ese ancho el aviso de "sin coincidencias" quedaba en una columna de una palabra por
+       renglón. Anclado a la derecha crece hacia dentro del modal, nunca hacia afuera. */
+    .cdir-um-suggest { left:auto; right:0; min-width:210px; }
+    .cdir-suggest-item, .cdir-um-item { padding:8px 10px; border-radius:8px; font-size:13px; color:#0f172a; cursor:default;
+        display:flex; align-items:baseline; gap:6px; }
+    .cdir-suggest-item:hover, .cdir-um-item:hover { background:#e1effa; }
+    .cdir-suggest-item .parte { font-weight:800; font-size:12.5px; color:#0f172a; flex:0 0 auto; }
+    .cdir-suggest-item .nom { flex:1 1 auto; min-width:0; }
+    /* La UM conserva su recuadro gris (es una etiqueta, no texto corrido) pero el color de
+       la letra es el mismo del resto. */
+    .cdir-suggest-item .um { flex:0 0 auto; font-size:10px; font-weight:800; text-transform:uppercase; color:#0f172a;
+        background:#f1f5f9; border-radius:5px; padding:2px 5px; }
+    .cdir-suggest-empty { padding:10px; font-size:12.5px; color:#64748b; line-height:1.45; }
+
+    /* Tabla de líneas — la ÚNICA zona con scroll, y la que absorbe el alto sobrante. */
+    /* padding-top 0: el rótulo de la sección se mudó arriba del buscador, así que la lista
+       arranca pegada a la barra de captura en vez de dejar un hueco donde estaba el título.
+       (Se fue con él la regla `.cdir-list-wrap .cdir-section-title`, que ya no aplicaba a
+       ningún elemento.) */
+    .cdir-list-wrap { flex:1 1 auto; min-height:0; display:flex; flex-direction:column; padding:0 20px; }
+    /* En el paso 1 (cabecera del documento) no hay nada capturado todavia. */
+    .cdir-en-paso1 .cdir-list-wrap { display:none; }
+    .cdir-list { flex:1 1 auto; min-height:120px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:10px; }
+    .cdir-table { width:100%; border-collapse:collapse; font-size:13px; }
+    .cdir-table thead th { position:sticky; top:0; z-index:1; background:#1e293b; color:#fff; font-size:10.5px; font-weight:800;
+        text-transform:uppercase; letter-spacing:.5px; padding:8px 10px; text-align:center; white-space:nowrap; }
+    .cdir-table thead th.c-desc { text-align:left; }
+    .cdir-table tbody td { padding:8px 10px; border-bottom:1px solid #f1f5f9; text-align:center; color:#0f172a; }
+    .cdir-table tbody tr:last-child td { border-bottom:none; }
+    .cdir-table tbody tr:hover td { background:#f8fafc; }
+    .cdir-table .c-num  { width:1%; white-space:nowrap; font-weight:800; color:#94a3b8; }
+    .cdir-table .c-cod  { width:1%; white-space:nowrap; font-weight:700; }
+    .cdir-table .c-desc { text-align:left; font-weight:600; }
+    .cdir-table .c-cant { width:1%; white-space:nowrap; font-weight:800; }
+    .cdir-table .c-cant .um { font-size:10px; font-weight:700; color:#0f172a; margin-left:3px; }
+    .cdir-table .c-del  { width:1%; }
+    .cdir-del-btn { background:transparent; border:none; color:#cbd5e0; cursor:default; padding:2px; display:flex; }
+    .cdir-del-btn:hover { color:#ef4444; }
+    .cdir-empty { padding:26px 16px; text-align:center; font-size:12.5px; color:#94a3b8; }
+
+    /* Paso 1 — datos del documento del proveedor. */
+    .cdir-paso2-head { flex-shrink:0; padding:16px 20px 0; }
+    /* Nota, proveedor y fecha: UNO DEBAJO DEL OTRO, en la misma columna que el campo de
+       proyecto de arriba. Son datos opcionales y de relleno lento (hay que copiarlos del
+       papel del proveedor), así que en columna se leen de corrido y cada caja tiene ancho
+       de sobra. Al ser una sola columna en cualquier pantalla, no necesita override de
+       @media: el mismo reparto sirve en escritorio y en teléfono.
+       El padding de abajo NO es decorativo: debajo va directo .cdir-list-wrap (padding:0 20px),
+       así que sin él los campos quedaban pegados al encabezado negro de la tabla. */
+    .cdir-meta { flex-shrink:0; display:grid; grid-template-columns:1fr; gap:12px; padding:8px 20px 14px; }
+    .cdir-meta label { display:block; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.4px; color:#64748b; margin-bottom:4px; }
+    .cdir-date { display:flex; align-items:center; gap:6px; cursor:default; }
+    .cdir-date input { flex:1; min-width:0; border:none; background:transparent; padding:0; font-family:inherit; font-size:13.5px; color:#0f172a; outline:none; cursor:default; }
+    .cdir-error { display:none; flex-shrink:0; margin:10px 20px 0; padding:9px 12px; background:#fee2e2; border:1px solid #fecaca;
+        border-radius:10px; color:#b91c1c; font-size:12.5px; font-weight:600; }
+
+    /* Botonera CENTRADA (pedido del cliente). Solo se muestra la del paso activo. */
+    .cdir-footer { flex-shrink:0; display:none; align-items:center; justify-content:center; gap:10px; padding:14px 20px; margin-top:12px; border-top:1px solid #e2e8f0; background:#f8fafc; }
+    .cdir-footer.on { display:flex; }
+    /* min-width igual en los dos: antes "Cancelar" salía más angosto que "Aceptar" porque
+       cada uno se medía por su texto y el segundo además lleva icono.
+       38px de alto y 130px de ancho: los del resto de los modales de Almacén rondan eso
+       (.btn-primary-maquinaria, padding 12px 24px sobre 13px de letra). Estaban en 44×170
+       y se veían desproporcionados al lado de los de "Auditoría de Inventario". */
+    .cdir-btn { height:38px; min-width:130px; padding:0 16px; display:flex; align-items:center;
+        justify-content:center; gap:6px; border-radius:10px;
+        font-family:inherit; font-size:13px; font-weight:800; cursor:default; }
+    .cdir-btn .material-icons { font-size:17px; }
+    .cdir-btn-cancel { background:#fff; border:1px solid #cbd5e0; color:#475569; }
+    .cdir-btn-cancel:hover { background:#f1f5f9; }
+    .cdir-btn-ok { background:#0067b1; border:1px solid #0067b1; color:#fff; }
+    .cdir-btn-ok:hover { background:#005596; }
+    .cdir-btn-ok:disabled { opacity:.6; }
+
+    /* Teléfono: la barra de captura pasa a 2 renglones (buscador arriba; UM, cantidad y el
+       check abajo) y los datos del documento a una sola columna. La caja va a pantalla
+       completa. */
+    @media (max-width: 640px) {
+        .cdir-overlay { padding:0; }
+        /* Pantalla completa: ni se estrecha en el paso 1 ni se anima el ancho. */
+        .cdir-box, .cdir-box.cdir-en-paso1 { max-width:none; max-height:100vh; height:100vh; border-radius:0; transition:none; }
+        .cdir-capt-bar { flex-wrap:wrap; }
+        .cdir-field { flex:1 1 100%; }
+        .cdir-um-wrap, .cdir-um-input { flex:0 0 76px; width:76px; }
+        .cdir-cant-input { flex:1 1 auto; width:auto; }
+        /* Se reparten el ancho de la fila a partes iguales (flex:1 1 0), que igual los deja
+             del mismo tamaño. min-width:0 anula los 130px de escritorio para que quepan
+             holgados en un teléfono angosto. */
+        .cdir-btn { flex:1 1 0; min-width:0; justify-content:center; }
+    }
