@@ -105,10 +105,8 @@ class CargaMasivaDocumentosController extends Controller
 
         // La ULTIMA ficha no entro (documento anterior, no quiso reemplazar...) pero alguna de
         // las anteriores si: la propuesta igualmente queda resuelta. Si no, se quedaria "Por
-        // aplicar" con el PDF ya en uso, y no se podria ni aplicar ni descartar.
-        if (!$r['ok'] && $cerrar && empty($datos['ensayo'])
-            && ($id = \App\Models\DocumentoAnexo::driveIdDeLink($datos['link']))
-            && \App\Support\EnlacesDocumentos::sigueEnUso($id)) {
+        // aplicar" con el PDF (o sus partes, en un ROTC de flota) ya en uso.
+        if (!$r['ok'] && $cerrar && empty($datos['ensayo']) && $this->servicio->yaSeAplicoAlgo($datos['link'])) {
             $this->servicio->cerrarPropuesta($datos['link']);
         }
 

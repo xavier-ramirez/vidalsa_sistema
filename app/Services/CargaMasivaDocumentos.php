@@ -13,6 +13,7 @@ use App\Support\EnlacesDocumentos;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * Carga masiva de documentos: sube VARIOS PDF y cada uno se enlaza solo a su equipo.
@@ -107,7 +108,12 @@ class CargaMasivaDocumentos
      */
     private ?string $avisoFichas = null;
 
-    public function __construct(private LectorDocumentoPdf $lector, private LectorGemini $ia) {}
+    public function __construct(private LectorDocumentoPdf $lector, private LectorGemini $ia, private ?RotcDeFlota $rotcFlota = null) {}
+
+    private function rotcFlota(): RotcDeFlota
+    {
+        return $this->rotcFlota ??= app(RotcDeFlota::class);
+    }
 
     // ── Paso 1: subir, leer y proponer ────────────────────────────────────────────
 
@@ -162,6 +168,13 @@ class CargaMasivaDocumentos
         $tipo = $texto !== '' ? ($tipoPedido ?: $this->detectarTipo($texto)) : null;
         if ($texto !== '' && !$tipo) {
             $motivo = 'No se reconoce que documento es. Elige el tipo arriba y vuelve a subirlo.';
+        }
+
+        // El ROTC ENTERO de la flota (portada, tabla de toda la flota y los certificados): no
+        // es de UN equipo sino de todos los de su tabla, y a cada uno le va SU parte (ver
+        // RotcDeFlota). Se reparte como un RACDA: una ficha por vehiculo registrado.
+        if ($tipo === LectorDocumentoPdf::ROTC && ($flota = $this->leerFlota($archivo))) {
+            return $this->anotar($this->propuestaDeFlota($nombre, $link, $md5, $driveId, $flota), $driveId);
         }
 
         $leido = $tipo ? $this->lector->extraer($tipo, $texto) : [];
@@ -317,6 +330,201 @@ class CargaMasivaDocumentos
                 'APLICADO_EN'  => now(),
                 'updated_at'   => now(),
             ]);
+    }
+
+    // ── ROTC de flota ─────────────────────────────────────────────────────────────
+
+    /**
+     * Lo que dice RotcDeFlota del PDF, si es un ROTC de flota ENTERO: dos o mas hojas de la
+     * tabla, o dos o mas certificados. Una PARTE ya separada (portada, una hoja y un
+     * certificado, como las que se armaban a mano) es de un solo equipo y sigue el camino de
+     * siempre. Sin Ghostscript, o si no se puede leer, tambien: null.
+     */
+    private function leerFlota(UploadedFile $archivo): ?array
+    {
+        try {
+            if (!$this->rotcFlota()->disponible()) return null;
+            $flota = $this->rotcFlota()->leer($archivo->getRealPath());
+        } catch (\Throwable $e) {
+            Log::warning('Carga masiva: no se pudo leer el ROTC como flota', ['archivo' => $archivo->getClientOriginalName(), 'error' => $e->getMessage()]);
+            return null;
+        }
+        if (!$flota) return null;
+
+        $hojas = count(array_unique(array_column($flota['filas'], 'pagina')));
+        return ($hojas >= 2 || count($flota['certificados']) >= 2) ? $flota : null;
+    }
+
+    /**
+     * La propuesta de un ROTC de flota: todos los equipos registrados de su tabla, cada uno con
+     * DONDE esta lo suyo (la hoja de su fila y su certificado, si viene) y SUS fechas (las de su
+     * fila; la emision, la de su certificado o la de la hoja). aplicar() arma su parte con eso.
+     */
+    private function propuestaDeFlota(string $nombre, string $link, ?string $md5, ?string $driveId, array $flota): array
+    {
+        $filas = collect($flota['filas']);
+        $filas = $filas->unique(fn ($f) => $this->lector->codigo($f['serial']) . '|' . $this->lector->codigo($f['placa']))->values();
+        $porSerial = $filas->keyBy(fn ($f) => $this->lector->codigo($f['serial']));
+        $porPlaca  = $filas->keyBy(fn ($f) => $this->lector->codigo($f['placa']));
+        $certs = collect($flota['certificados']);
+        $certSerial = $certs->keyBy(fn ($c) => $this->lector->codigo($c['serial']));
+        $certPlaca  = $certs->keyBy(fn ($c) => $this->lector->codigo($c['placa']));
+
+        $registrados = $this->consulta()
+            ->where(fn ($q) => $q->whereIn(DB::raw(self::sqlCodigo('e.SERIAL_CHASIS')), $porSerial->keys()->all())
+                                 ->orWhereIn(DB::raw(self::sqlCodigo('d.PLACA')), $porPlaca->keys()->all()))
+            ->orderBy('d.ID_EQUIPO')->get();
+
+        $fichas = [];
+        $conCertificado = 0;
+        foreach ($registrados as $r) {
+            // Por el serial primero: el N.I.V. no se repite; la placa, si.
+            $fila = $porSerial->get($this->lector->codigo((string) $r->SERIAL_CHASIS));
+            $porQue = $fila ? 'el serial ' . $r->SERIAL_CHASIS : null;
+            if (!$fila && ($fila = $porPlaca->get($this->lector->codigo((string) $r->PLACA)))) $porQue = 'la placa ' . $r->PLACA;
+            if (!$fila) continue;
+
+            $cert = $certSerial->get($this->lector->codigo($fila['serial'])) ?? $certPlaca->get($this->lector->codigo($fila['placa']));
+            if ($cert) $conCertificado++;
+            $fichas[] = ['coincide_por' => $porQue] + $this->ficha($r) + ['rotc' => [
+                'tabla'   => $fila['pagina'],
+                'cert'    => $cert,
+                'vence'   => $fila['vence'],
+                'emision' => $cert['emision'] ?? $flota['emision'],
+            ]];
+        }
+
+        $total = $filas->count();
+        $propuesta = [
+            'archivo' => $nombre, 'link' => $link, 'tipo' => LectorDocumentoPdf::ROTC,
+            'tipo_nombre' => self::NOMBRES[LectorDocumentoPdf::ROTC],
+            'vence' => $flota['vence'], 'emision' => $flota['emision'],
+            'titular' => null, 'nro' => null, 'aseguradora' => null,
+            'equipos' => $fichas, 'estado' => 'listo', 'aviso' => null, 'ia' => false, 'md5' => $md5,
+            // Lo que aplicar() necesita para armar la parte de cada equipo (ver parteDeFlota).
+            'flota_rotc' => ['portada' => $flota['portada']],
+        ];
+
+        if (!$fichas) {
+            $propuesta['estado'] = 'sin_equipo';
+            $propuesta['aviso'] = "ROTC de flota con $total vehiculos: ninguno esta registrado.";
+            return $propuesta;
+        }
+
+        $sinCert = count($fichas) - $conCertificado;
+        $propuesta['aviso'] = "ROTC de flota: $total vehiculos en la tabla, " . count($fichas) . ' registrados'
+            . ($total > count($fichas) ? ' (los demas no estan en el sistema)' : '') . '. '
+            . 'A cada uno se le enlaza SU parte: la portada, su hoja de la tabla'
+            . ($conCertificado ? " y su certificado ($conCertificado lo traen" . ($sinCert ? "; $sinCert no, y van sin certificado)" : ')') : ' (el documento no trae certificados)')
+            . '.';
+        if ($otra = $this->yaSeSolto($md5, $driveId)) {
+            $propuesta['estado'] = 'revisar';
+            $propuesta['aviso'] = $otra . ' ' . $propuesta['aviso'];
+        }
+        return $propuesta;
+    }
+
+    /** La parte de este equipo en una propuesta de ROTC de flota, o null si no es de esas. */
+    private function parteDeFlota(string $link, int $idEquipo): ?array
+    {
+        if (!$driveId = DocumentoAnexo::driveIdDeLink($link)) return null;
+        $p = VerificacionDocumento::where('DRIVE_ID', $driveId)
+            ->where('ORIGEN', VerificacionDocumento::DE_CARGA_MASIVA)->value('PROPUESTA');
+        $p = is_string($p) ? json_decode($p, true) : $p;
+        if (empty($p['flota_rotc'])) return null;
+
+        foreach ($p['equipos'] ?? [] as $f) {
+            if ((int) $f['id'] === $idEquipo && empty($f['auxiliar']) && isset($f['rotc'])) {
+                return ['ficha' => $f, 'portada' => $p['flota_rotc']['portada'] ?? [],
+                        'pieza' => $p['flota_rotc']['piezas'][$idEquipo] ?? null];
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Aplicar la parte de UN equipo de un ROTC de flota. Las MISMAS puertas que cualquier
+     * documento (no pisa sin permiso, no retrocede un vencimiento), probadas ANTES de armar
+     * nada: solo si pasan se arma su PDF, se sube y se enlaza. Asi un "¿reemplazarlo?" o un
+     * documento anterior no dejan partes sueltas en Drive.
+     */
+    private function aplicarParteDeFlota(int $idEquipo, string $link, array $parte, bool $pisar, bool $ensayo, bool $cerrar): array
+    {
+        $rotc = $parte['ficha']['rotc'];
+
+        // Ya tiene SU parte de esta misma propuesta (otra pestaña, o repetir tras un corte).
+        $actual = Documentacion::where('ID_EQUIPO', $idEquipo)->value('LINK_ROTC');
+        if ($parte['pieza'] && $this->mismoArchivo($actual, $parte['pieza'])) {
+            if (!$ensayo && $cerrar) $this->cerrarPropuesta($link);
+            return ['ok' => true, 'mensaje' => 'Ya estaba enlazado.'];
+        }
+
+        $prueba = $this->aplicarEnEquipo($idEquipo, LectorDocumentoPdf::ROTC, $link, $rotc['vence'], $rotc['emision'], $pisar, true, false);
+        if (!$prueba['ok'] || $ensayo) return $prueba;
+
+        try {
+            $pieza = $this->subirParte($link, $parte);
+        } catch (\Throwable $e) {
+            Log::error('Carga masiva: no se pudo armar la parte del ROTC de flota', ['equipo' => $idEquipo, 'error' => $e->getMessage()]);
+            return ['ok' => false, 'mensaje' => 'No se pudo preparar la parte de este equipo del ROTC. Vuelve a intentarlo.'];
+        }
+
+        $r = $this->aplicarEnEquipo($idEquipo, LectorDocumentoPdf::ROTC, $pieza, $rotc['vence'], $rotc['emision'], $pisar, false, false);
+        if (!$r['ok']) {
+            // Algo cambio entre la prueba y ahora: la parte recien subida no se queda suelta.
+            if ($id = DocumentoAnexo::driveIdDeLink($pieza)) GoogleDriveService::borrarTrasResponder($id);
+            return $r;
+        }
+
+        $this->anotarPieza($link, $idEquipo, $pieza);
+        if ($cerrar) $this->cerrarPropuesta($link);
+        return $r;
+    }
+
+    /** Arma la parte del equipo con el ROTC original (la copia local, o de Drive) y la sube. */
+    private function subirParte(string $link, array $parte): string
+    {
+        $idOriginal = DocumentoAnexo::driveIdDeLink($link);
+        $ruta = GoogleDriveService::rutaCopiaLocal($idOriginal);
+        $disco = Storage::disk('local');
+        if (!$disco->exists($ruta)) {
+            $disco->put($ruta, (string) GoogleDriveService::getInstance()->getStreamById($idOriginal)->getContents());
+        }
+
+        $rotc = $parte['ficha']['rotc'];
+        $destino = tempnam(sys_get_temp_dir(), 'rotc_parte_');
+        try {
+            $this->rotcFlota()->parte($disco->path($ruta), ['portada' => $parte['portada']], (int) $rotc['tabla'], $rotc['cert'] ?? null, $destino);
+            $placa = preg_replace('/[^A-Z0-9]/', '', strtoupper((string) ($parte['ficha']['placa'] ?? ''))) ?: 'equipo';
+            return GoogleDriveService::getInstance()->subirPdf(new \Illuminate\Http\File($destino), 'rotc_' . time() . '_' . $placa . '.pdf');
+        } finally {
+            @unlink($destino);
+        }
+    }
+
+    /** Recuerda que parte se le enlazo a cada equipo (para "Ya estaba enlazado"). */
+    private function anotarPieza(string $link, int $idEquipo, string $pieza): void
+    {
+        $fila = VerificacionDocumento::where('DRIVE_ID', DocumentoAnexo::driveIdDeLink($link))
+            ->where('ORIGEN', VerificacionDocumento::DE_CARGA_MASIVA)->first();
+        if (!$fila) return;
+        $p = $fila->PROPUESTA;
+        $p['flota_rotc']['piezas'][$idEquipo] = $pieza;
+        $fila->update(['PROPUESTA' => $p]);
+    }
+
+    /**
+     * ¿Alguna ficha tiene ya este PDF, o una parte suya (ROTC de flota)? Con eso la propuesta
+     * queda resuelta aunque la ULTIMA ficha no entrara (ver el controlador).
+     */
+    public function yaSeAplicoAlgo(string $link): bool
+    {
+        if (!$id = DocumentoAnexo::driveIdDeLink($link)) return false;
+        if (EnlacesDocumentos::sigueEnUso($id)) return true;
+
+        $p = VerificacionDocumento::where('DRIVE_ID', $id)->where('ORIGEN', VerificacionDocumento::DE_CARGA_MASIVA)->value('PROPUESTA');
+        $p = is_string($p) ? json_decode($p, true) : $p;
+        return !empty($p['flota_rotc']['piezas']);
     }
 
     /** Lo que se lee en la columna "Que dice la ficha y que dice el documento" de la tabla. */
@@ -787,7 +995,17 @@ class CargaMasivaDocumentos
         if ($auxiliar) {
             return $this->aplicarEnAuxiliar($idEquipo, $tipo, $link, $vence, $pisar, $ensayo, $cerrar);
         }
+        // Un ROTC de flota: a este equipo le va SU parte, con SUS fechas (no las que mande la
+        // pantalla, que son las de la hoja entera).
+        if ($tipo === LectorDocumentoPdf::ROTC && ($parte = $this->parteDeFlota($link, $idEquipo))) {
+            return $this->aplicarParteDeFlota($idEquipo, $link, $parte, $pisar, $ensayo, $cerrar);
+        }
+        return $this->aplicarEnEquipo($idEquipo, $tipo, $link, $vence, $emision, $pisar, $ensayo, $cerrar);
+    }
 
+    /** aplicar() en la ficha de un EQUIPO. */
+    private function aplicarEnEquipo(int $idEquipo, string $tipo, string $link, ?string $vence, ?string $emision, bool $pisar, bool $ensayo, bool $cerrar): array
+    {
         $equipo = Equipo::with('documentacion')->find($idEquipo);
         if (!$equipo) return ['ok' => false, 'mensaje' => 'El equipo ya no existe.'];
 

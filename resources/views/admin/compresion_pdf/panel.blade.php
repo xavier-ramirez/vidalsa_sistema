@@ -726,15 +726,20 @@
         }
 
         btn.disabled = true;
-        var i = 0, bien = 0, fallos = [];
+        // Un ROTC de flota trae cientos de fichas y cada una arma y sube su parte (~2-3 s): el
+        // boton cuenta por donde va, para que se vea que avanza y no se vuelva a pulsar.
+        var htmlBoton = btn.innerHTML;
+        var i = 0, bien = 0, fallos = [], reemplazarTodas = null;
         var siguiente = function () {
+            if (fichas.length > 1) btn.innerHTML = '<span style="font-size:11px;font-weight:700;">' + Math.min(i + 1, fichas.length) + '/' + fichas.length + '</span>';
             if (i >= fichas.length) {
+                btn.innerHTML = htmlBoton;
                 btn.disabled = false;
                 // Lo que NO entro se dice siempre, tambien cuando otras fichas si: antes, con
                 // una sola que entrara, los rechazos de las demas se perdian sin avisar.
                 if (bien && !fallos.length) window.toast('Aplicado a ' + bien + ' ficha' + (bien === 1 ? '' : 's'), 'success');
-                else if (bien) window.toast('Aplicado a ' + bien + ' de ' + fichas.length + '. No entró en: ' + fallos.join(' · '), 'warning');
-                else window.toast(fallos.join(' · ') || 'No se pudo aplicar', 'error');
+                else if (bien) window.toast('Aplicado a ' + bien + ' de ' + fichas.length + '. No entró en: ' + resumen(fallos), 'warning');
+                else window.toast(resumen(fallos) || 'No se pudo aplicar', 'error');
                 window.cpdfFiltrar();
                 return;
             }
@@ -746,6 +751,11 @@
         // entonces se reintenta con "reemplazar": así la regla de no pisar sigue siendo del
         // servidor y aquí solo se pide permiso. Un documento ANTERIOR se niega igualmente,
         // reemplazo o no, y ahí el servidor manda su motivo sin volver a preguntar.
+        // Con cientos de fichas el aviso no puede listarlas todas: las 5 primeras y cuantas mas.
+        function resumen(lista) {
+            return lista.slice(0, 5).join(' · ') + (lista.length > 5 ? ' · y ' + (lista.length - 5) + ' más' : '');
+        }
+
         function enviar(f, pisar) {
             return window.apiPostForm(@json(route('historial-documentos.carga-masiva.aplicar')), {
                 id_equipo: f.id, auxiliar: f.auxiliar ? 1 : '', tipo: propuesta.tipo,
@@ -760,9 +770,14 @@
                 .catch(function (e) {
                     var msg = (e && e.message) || 'No se pudo aplicar';
                     if (!pisar && e && e.requiere_pisar) {
-                        if (window.confirm(f.nombre + ' ya tiene ese documento.\n\n¿Reemplazarlo?\nEl anterior se va a la PAPELERA de Drive: se recupera con un clic.')) {
-                            return enviar(f, true);
+                        // Con varias fichas (RACDA, ROTC de flota) se pregunta UNA vez y la
+                        // respuesta vale para todas: si no, eran decenas de ventanas seguidas.
+                        if (reemplazarTodas === null) {
+                            reemplazarTodas = window.confirm(f.nombre + ' ya tiene ese documento.\n\n¿Reemplazarlo?'
+                                + (fichas.length > 1 ? '\n(La respuesta vale para TODAS las de este documento que ya tengan uno.)' : '')
+                                + '\nEl anterior se va a la PAPELERA de Drive: se recupera con un clic.');
                         }
+                        if (reemplazarTodas) return enviar(f, true);
                         msg = 'No se reemplazó: ' + f.nombre + ' ya tiene ese documento.';
                     }
                     fallos.push(fichas.length > 1 ? f.nombre + ' (' + msg + ')' : msg);

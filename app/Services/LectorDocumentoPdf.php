@@ -223,7 +223,11 @@ class LectorDocumentoPdf
         // La tabla sale como BLOQUE DE ROTULOS y debajo el bloque de valores, en el mismo
         // orden ("Razon Social / RIF / Nro de ROTC" y luego el nombre, el RIF y el numero).
         // Por eso no vale buscar "rotulo: valor": hay que leer la fila de abajo.
-        if (preg_match('/Raz[oó]n\s*Social\s*\R\s*RIF\s*\R\s*Nro\s*de\s*ROTC\s*\R\s*(.+)\R\s*[VEJGP]-?[\d\-]{6,}\s*\R\s*(\d{3,10})/ui', $plano, $m)) {
+        if (preg_match('/Raz[oó]n\s*Social\s*\R\s*RIF\s*\R\s*Nro\s*de\s*ROTC\s*\R\s*(.+)\R\s*[VEJGP]-?[\d\-]{6,}\s*\R\s*(\d{3,10})/ui', $plano, $m)
+            // La misma tabla con cada fila en UNA linea ("Razón Social RIF Nro de ROTC" y debajo
+            // "CONSTRUCTORA VIDALSA 27, C.A J-29387719-9 49199"). Sin esto el respaldo de abajo
+            // tomaba "RIF Nro de ROTC" por el nombre del titular (visto con el ROTC real, 25-09-2026).
+            || preg_match('/Raz[oó]n\s*Social[^\S\r\n]+RIF[^\S\r\n]+Nro\s*de\s*ROTC[^\S\r\n]*\R[^\S\r\n]*(.+?)[^\S\r\n]+[VEJGP]-?[\d\-]{6,}[^\S\r\n]+(\d{3,10})\b/ui', $plano, $m)) {
             $datos['titular'] = $this->limpiarNombre($m[1]);
             $datos['nro'] = $m[2];
         } else {
@@ -231,7 +235,10 @@ class LectorDocumentoPdf
             // nombre tiene que ir DETRAS del rotulo, no en la linea de mas abajo: con \s* (que
             // cruza saltos de linea) el respaldo cogia el siguiente rotulo de la tabla ("RIF")
             // y eso terminaba escrito en la ficha al pulsar "Corregir".
-            if (preg_match('/Raz[oó]n\s*Social:?[^\S\r\n]*([^\r\n]+)/ui', $plano, $m)) $datos['titular'] = $this->limpiarNombre($m[1]);
+            // Y nunca un rotulo por nombre: "RIF Nro de ROTC" es la cabecera, no el titular.
+            if (preg_match('/Raz[oó]n\s*Social:?[^\S\r\n]*([^\r\n]+)/ui', $plano, $m) && !preg_match('/^\s*RIF\b/ui', $m[1])) {
+                $datos['titular'] = $this->limpiarNombre($m[1]);
+            }
             // "Nro de ROTC" en el certificado; "Número de ROTC: 49199" en la tabla de flota.
             if (preg_match('/(?:Nro|N[uú]mero)\s*de\s*ROTC:?[^\d]{0,30}(\d{3,10})/ui', $plano, $m)) $datos['nro'] = $m[1];
         }
