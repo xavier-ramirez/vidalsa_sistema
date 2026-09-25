@@ -20,6 +20,9 @@
        `.dropdown-trigger:has(> input)` de estilos_globales.css — aquí el patrón es otro
        (.alm-filter-box), por eso se ajusta en su propia regla en vez de duplicar aquella. */
     .alm-filter .alm-ic { padding: 0 0 0 10px; display: flex; align-items: center; color: #64748b; }
+    /* La lupa del buscador sí se toca (las demás .alm-ic siguen siendo decorativas). */
+    .alm-filter .alm-ic-buscar { cursor: pointer; }
+    .alm-filter .alm-ic-buscar:hover { color: #2563eb; }
     .alm-filter input[type="text"] {
         flex: 1; border: none; background: transparent; outline: none; font-size: 14px;
         color: #1e293b; padding: 10px 6px 10px 4px; min-width: 0; height: 100%; cursor: text;
@@ -149,6 +152,13 @@
     #almSalidaAviso > .material-icons { font-size: 20px; color: #dc2626; flex-shrink: 0; margin-top: 1px; }
     #almSalidaAviso > div { font-size: 13px; line-height: 1.4; }
     #almSalidaAviso .alm-aviso-pista { font-size: 12px; color: #b91c1c; margin-top: 2px; }
+    /* Aviso de búsqueda aproximada (almPintarAvisoBusqueda): mismo molde que el de arriba,
+       pero informativo —azul, no rojo— porque no hay nada que corregir. */
+    #almBuscarAviso { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 10px; padding: 10px 14px;
+                      background: #eff6ff; border: 1px solid #93c5fd; border-radius: 10px; color: #1e40af; }
+    #almBuscarAviso[hidden] { display: none; }
+    #almBuscarAviso > .material-icons { font-size: 20px; color: #2563eb; flex-shrink: 0; margin-top: 1px; }
+    #almBuscarAviso > div { font-size: 13px; line-height: 1.4; }
     /* Volver a pulsar "Registrar salida" con el aviso ya puesto: un meneo corto para que se note. */
     #almSalidaAviso.alm-aviso-sacude { animation: almAvisoSacude .35s ease-in-out 1; }
     @keyframes almAvisoSacude { 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
@@ -1376,8 +1386,20 @@
         @php $bActivo = trim((string) ($reqBuscar ?? '')); @endphp
         <div class="alm-filter {{ $bActivo ? 'active' : '' }}" style="flex:3 1 380px;max-width:660px;">
             <div class="alm-filter-box">
-                <span class="alm-ic"><i class="material-icons" style="font-size:18px;">search</i></span>
+                {{-- La lupa BUSCA al tocarla: en el teléfono es la salida visible cuando el
+                     teclado no trae tecla de buscar. En PC no estorba (hace lo mismo que
+                     Enter). Antes era decorativa.
+                     Sin role="button" a propósito: con teclado ya se busca con Enter en el
+                     propio campo, así que anunciarla como botón sin poder enfocarla solo
+                     estorbaría. Es un atajo para el dedo, no un control aparte. --}}
+                <span class="alm-ic alm-ic-buscar" aria-hidden="true"
+                      title="Buscar" onclick="window.almBuscarEnter()"><i class="material-icons" style="font-size:18px;">search</i></span>
+                {{-- enterkeyhint="search": sin esto el teclado del teléfono muestra
+                     "siguiente", que solo mueve el foco y NO dispara ningún Enter — se
+                     escribía, se pulsaba y no pasaba nada. Con esto la tecla pasa a ser
+                     "Buscar" y sí manda el Enter que espera almBuscarEnter. --}}
                 <input type="text" id="almFiltroBuscar" autocomplete="off"
+                       enterkeyhint="search"
                        placeholder="{{ $bActivo ?: 'Buscar por código o descripción…' }}"
                        value=""
                        data-active="{{ $bActivo }}"
@@ -1539,6 +1561,10 @@
 
     {{-- Aviso de la salida por corregir: lo pinta almPintarAvisoSalida. --}}
     <div id="almSalidaAviso" role="alert" hidden></div>
+
+    {{-- "Sin coincidencias exactas, mostrando parecidos": lo pinta almPintarAvisoBusqueda
+         cuando el servidor responde aproximada=true (ver AlmacenController::index). --}}
+    <div id="almBuscarAviso" role="status" hidden></div>
 
     {{-- ── Tabla ── --}}
     <div class="alm-table-wrap" style="overflow-x:auto;border:1px solid #e2e8f0;border-radius:12px;">

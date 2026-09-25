@@ -366,6 +366,29 @@
                         if (opts.mostrar) almMostrarProducto(opts.mostrar, gen);
                     }
                 }
+                // El aviso se repinta SOLO en la primera pagina. El backend manda la
+                // bandera siempre (va en $resp, fuera del if que omite stats en el scroll),
+                // pero repintarlo en cada lote del scroll borraria el aviso de la busqueda
+                // que se esta viendo.
+                if (!append) {
+                    // El termino sale de los filtros CONGELADOS, que son los que se
+                    // consultaron de verdad. Leerlo del input aqui daria el texto de ahora:
+                    // si el usuario siguio tecleando mientras volaba la peticion, el aviso
+                    // nombraria una palabra distinta de la que hay en la tabla. (Y valActive
+                    // ademas vacia el input, que es justo lo que este .then() no debe tocar.)
+                    almPintarAvisoBusqueda(
+                        data.aproximada,
+                        new URLSearchParams(almFiltrosVigentes || '').get('search') || ''
+                    );
+                    // Si esta busqueda salio aproximada, se marca en los filtros congelados
+                    // que reusan las paginas del scroll: asi cada una va DIRECTA al modo
+                    // tolerante en vez de repetir la consulta exacta que ya se sabe vacia.
+                    if (data.aproximada) {
+                        var _fa = new URLSearchParams(almFiltrosVigentes || '');
+                        _fa.set('aprox', '1');
+                        almFiltrosVigentes = _fa.toString();
+                    }
+                }
                 // Stats + distribución solo en la primera página (el backend ya las omite
                 // cuando offset>0; aquí evitamos rebajar a "—" lo que ya pintamos).
                 if (!append && data.stats) {
@@ -866,7 +889,9 @@
     //       texto — porque ya quiere algo distinto.
     //   (b) Clic en una sugerencia [almBuscarPick] → fija id_producto = match EXACTO
     //       (solo aparece esa fila en la tabla).
-    //   (c) Enter [almBuscarEnter] → similitudes via LIKE %term% del backend (sin id_producto).
+    //   (c) Enter, o tocar la lupa del campo [almBuscarEnter] → similitudes via LIKE %term%
+    //       del backend (sin id_producto), ordenadas de la mas parecida a la mas lejana
+    //       (AlmacenController::ordenarInventarioPorRelevancia).
     //   (d) Limpiar [almBuscarLimpiar] → quita texto + id_producto, recarga sin filtro.
     window.almBuscarInput = function () {
         // Si el texto ya no coincide con la última sugerencia elegida, el id pegado deja
@@ -884,9 +909,22 @@
         if (!window.almProductosCargados && typeof window.almCargarProductos === 'function') window.almCargarProductos();
         window.almBuscarSuggest();
     };
+    // Se llama de dos sitios: la tecla del teclado (con evento) y el clic en la lupa del
+    // campo (sin evento). Sin `ev` es siempre una peticion explicita de buscar.
+    // El keyCode 13 va ademas del key 'Enter' porque algunos teclados de telefono mandan
+    // el codigo pero no ponen `key` (llega como 'Unidentified'), y entonces no filtraba.
     window.almBuscarEnter = function (ev) {
-        if (ev && ev.key !== 'Enter') return;
+        if (ev && ev.key !== 'Enter' && ev.keyCode !== 13) return;
         if (ev) ev.preventDefault();
+        // Sin nada escrito no hay busqueda que hacer, y seguir seria DESTRUCTIVO: mas abajo
+        // se sueltan "Stock bajo"/"Con stock", asi que tocar la lupa con el campo vacio
+        // dejaba la tabla sin ningun filtro y en "Usa los filtros...". En el telefono la
+        // lupa cae justo donde se toca para enfocar el campo, asi que pasaba facil.
+        var _inp = el('almFiltroBuscar');
+        if (_inp && !_inp.value.trim() && !(_inp.dataset.active || '').trim()) {
+            _inp.focus();
+            return;
+        }
         almResetPick();
         // Buscar algo nuevo es una acción explícita del usuario para ver OTRA cosa —
         // no debe quedar recortada en silencio por un atajo "Con stock"/"Stock bajo"
@@ -1123,6 +1161,19 @@
         var tr = document.querySelector('#almTableBody tr.alm-row[data-id-producto="' + id + '"]');
         if (tr) tr.classList.add('alm-row-exceeds-stock');
         almPintarAvisoSalida();
+    }
+
+    // ── Aviso de busqueda aproximada (#almBuscarAviso) ──
+    // Lo enciende el backend (aproximada=true) cuando lo escrito no coincidio con NADA y
+    // hubo que buscar parecidos perdonando un error de tipeo. Sin este aviso la tabla
+    // mostraria filas que no contienen lo escrito y pareceria que el filtro esta roto.
+    function almPintarAvisoBusqueda(aproximada, termino) {
+        var box = el('almBuscarAviso'); if (!box) return;
+        if (!aproximada) { box.hidden = true; box.innerHTML = ''; return; }
+        box.innerHTML = '<i class="material-icons">info_outline</i>'
+                      + '<div>Sin coincidencias exactas de <b>' + escHtml(termino || '') + '</b>. '
+                      + 'Mostrando resultados parecidos.</div>';
+        box.hidden = false;
     }
 
     // ── Aviso de la salida por corregir (#almSalidaAviso) ──
@@ -1852,7 +1903,7 @@
             case 'almacen':  if (window.almAbrirAlmacen)        window.almAbrirAlmacen();        break;
             case 'producto': if (window.almAbrirProducto)       window.almAbrirProducto();       break;
             case 'export':
-                // El export debe reflejar EXACTAMENTE lo que muestra la tabla. Reusamos
+                // El export sale con los MISMOS FILTROS que la tabla. Reusamos
                 // filtros() —la única fuente de verdad de los filtros activos: almacén,
                 // búsqueda/producto puntual, categoría, stock bajo/con saldo— en vez de
                 // armar la URL a mano. Antes solo mandaba almacén + categoría, así que

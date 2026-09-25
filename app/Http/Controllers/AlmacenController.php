@@ -189,6 +189,8 @@ class AlmacenController extends Controller
             $offset = max(0, (int) $request->input('offset', 0));
             $rows = collect();
             $hasMore = false;
+            // Se enciende si lo escrito no coincidio con nada y hubo que buscar parecidos.
+            $busquedaAproximada = false;
 
             // Sin filtro de contenido la tabla queda VACÍA ("Usa los filtros…"): al abrir el
             // módulo no se carga ningún producto (pedido del cliente, 16-09-2026), y menos el
@@ -204,10 +206,33 @@ class AlmacenController extends Controller
                 || $request->boolean('ver_todo'); // acción explícita "Ver todo el stock"
 
             if ($hayInventario && $hayFiltro) {
-                $rows = $this->productosConSaldoQuery($idAlmacenSel, $request)
-                    ->orderBy('productos_inventario.NOMBRE')
-                    ->skip($offset)->take($PAGE_SIZE + 1)
-                    ->get();
+                // Una pasada del listado. $tolerante=true perdona UN error de tipeo por
+                // palabra; se usa solo en el reintento de abajo.
+                $traer = function (bool $tolerante) use ($idAlmacenSel, $request, $offset, $PAGE_SIZE) {
+                    return $this->productosConSaldoQuery($idAlmacenSel, $request, $tolerante)
+                        ->tap(fn ($q) => $this->ordenarInventarioPorRelevancia(
+                            // Se ordena por cercanía siempre que haya TEXTO escrito, y el
+                            // front lo manda incluso al elegir una sugerencia (para que el
+                            // campo siga mostrándolo y la URL compartible conserve el
+                            // contexto). Con `id_producto` da igual —sale una fila— y con
+                            // `id_producto_in` (una descripción con varias presentaciones)
+                            // esas filas salen de la más parecida a lo escrito a la menos.
+                            // Sin texto —solo categoría o unidad de medida— no hay nada que
+                            // comparar y manda el alfabético de siempre.
+                            $q, $request->input('search'),
+                            'productos_inventario.CODIGO', 'productos_inventario.NOMBRE',
+                            'productos_inventario.ID_PRODUCTO', $tolerante
+                        ))
+                        ->skip($offset)->take($PAGE_SIZE + 1)
+                        ->get();
+                };
+
+                // Si lo escrito no coincide con NADA se reintenta perdonando un error de
+                // tipeo (ver buscarConPerdonDeTipeo). El autocomplete ya lo perdonaba, asi
+                // que escribir "mangera" mostraba las mangueras en la lista y dejaba la
+                // tabla VACIA al buscar sin elegir ninguna.
+                [$rows, $busquedaAproximada] = $this->buscarConPerdonDeTipeo($request, $traer);
+
                 $hasMore = $rows->count() > $PAGE_SIZE;
                 if ($hasMore) $rows = $rows->slice(0, $PAGE_SIZE)->values();
                 $this->cargarDetallesDeFilas($rows);
@@ -231,6 +256,8 @@ class AlmacenController extends Controller
                 'html'       => $html,
                 'hasMore'    => $hasMore,
                 'nextOffset' => $hasMore ? $offset + $PAGE_SIZE : null,
+                // El front pinta el aviso "sin coincidencias exactas, mostrando parecidos".
+                'aproximada' => $busquedaAproximada,
             ];
             // Stats y distribución solo en la primera página (offset=0) — son costosos y
             // no cambian al hacer scroll, solo cuando el usuario cambia un filtro.
@@ -251,7 +278,7 @@ class AlmacenController extends Controller
                 // cuantas filas devolviera la busqueda, sin que nadie lo hubiera pedido. Lo
                 // decide el usuario tocando, no el numero de resultados (pedido del cliente,
                 // 17-09-2026).
-                $resp['distribucionHtml'] = $this->panelLateral(null, $idAlmacenSel, $almacenSel?->NOMBRE, $request, $user);
+                $resp['distribucionHtml'] = $this->panelLateral(null, $idAlmacenSel, $almacenSel?->NOMBRE, $request, $user, $busquedaAproximada);
             }
             return response()->json($resp);
         }
@@ -376,22 +403,258 @@ class AlmacenController extends Controller
     }
 
     /**
-     * Aplica la búsqueda tokenizada de productos sobre $q: AND entre tokens y, por
-     * cada token >3 letras terminado en 's', prueba también el SINGULAR ("BOTAS"
-     * encuentra "BOTA DE SEGURIDAD"). $cols son las columnas CODIGO/NOMBRE ya
-     * calificadas según el contexto del llamador (tabla con JOIN → 'productos_inventario.X';
-     * relación whereHas('producto') → 'X'). El fuzzy + ranking real vive en el
-     * autocomplete del frontend; este LIKE es el fallback de "tipear + Enter".
+     * Ejecuta una búsqueda del inventario y, si lo escrito no coincide con NADA, la repite
+     * perdonando un error de tipeo por palabra.
+     *
+     * Punto ÚNICO de esa regla: lo usan el listado (index) y la exportación a Excel, que
+     * promete traer "exactamente los que muestra la tabla". Si solo lo hiciera el listado,
+     * buscar "mangera" enseñaría 12 mangueras en pantalla y bajaría un Excel VACÍO.
+     *
+     * $consulta recibe true/false (tolerante o no) y devuelve la colección.
+     *
+     * @return array{0:\Illuminate\Support\Collection,1:bool} [resultado, fueAproximada]
      */
-    private function aplicarBusquedaProducto($q, string $term, array $cols, bool $incluirEquivalencias = false): void
+    private function buscarConPerdonDeTipeo(Request $request, callable $consulta): array
+    {
+        // `aprox=1` lo pone el front en las PAGINAS SIGUIENTES del scroll cuando la primera
+        // ya salio aproximada: se va directo al modo tolerante en vez de repetir en cada
+        // pagina una consulta exacta que ya se sabe vacia. Ademas evita el caso raro de que
+        // una pagina vacia de una busqueda EXACTA (porque los datos cambiaron a media
+        // lectura) se rellene con parecidos que no vienen a cuento.
+        //
+        // Solo con offset > 0, a proposito: es un parametro que viaja por la URL y
+        // cualquiera puede escribirlo a mano. En la PRIMERA pagina se decide siempre aqui,
+        // midiendo; si no, un enlace con &aprox=1 haria que una busqueda con coincidencias
+        // exactas se anunciara como "sin coincidencias exactas, mostrando parecidos".
+        if ($request->boolean('aprox') && (int) $request->input('offset', 0) > 0) {
+            return [$consulta(true), true];
+        }
+
+        $exacto = $consulta(false);
+
+        // Solo se reintenta cuando hay TEXTO escrito y no encontró nada. Si el usuario eligió
+        // una sugerencia pidió filas concretas —`id_producto`, o `id_producto_in` cuando esa
+        // descripción tiene varias presentaciones— y que salgan vacías es la respuesta
+        // correcta, no algo que haya que adivinar. Con `id_producto_in` además el texto ni
+        // siquiera se mira (aplicarFiltrosContenido corta antes), así que el reintento
+        // repetiría la MISMA consulta para nada.
+        if ($exacto->isNotEmpty()
+            || !$request->filled('search')
+            || $request->filled('id_producto')
+            || $request->filled('id_producto_in')) {
+            return [$exacto, false];
+        }
+
+        $aproximado = $consulta(true);
+
+        return $aproximado->isNotEmpty() ? [$aproximado, true] : [$exacto, false];
+    }
+
+    /**
+     * Techos del perdon de tipeo. Cada palabra genera ~3 variantes por letra, y cada
+     * variante son varios LIKE en el WHERE y otros tantos en el ORDER BY, asi que el coste
+     * crece con el LARGO y con el NUMERO de palabras: medido, "manguera hidraulica
+     * reforzada" (3 palabras) ya son 261 LIKE y 107 ms. Un texto pegado de 50 palabras
+     * generaria miles y un SQL de cientos de KB.
+     *
+     * Los terminos reales del almacen son de una a tres palabras ("filtro aceite motor"),
+     * y equivocarse en una palabra de mas de doce letras sin que ninguna de sus doce
+     * primeras coincida es raro. Pasados estos topes se busca EXACTO, como antes.
+     */
+    private const MAX_PALABRAS_CON_PERDON = 3;
+    private const MAX_LETRAS_CON_PERDON   = 12;
+
+    /**
+     * Lo que escribio el usuario, listo para meterlo dentro de un LIKE: sus `%` y `_` pasan
+     * a ser texto normal y no comodines.
+     *
+     * Punto UNICO, porque el filtro y el orden TIENEN que entender lo escrito igual. Hay 14
+     * productos con `%` en el nombre ("YODO AL 10%", "DEXTROSA 5% 500ML"): sin esto, buscar
+     * "10%" hacia LIKE '%10%%' y traia todo lo que llevara "10" en cualquier parte, y un
+     * `%` suelto devolvia el catalogo entero.
+     */
+    private function comoTextoEnLike(string $s): string
+    {
+        return addcslashes($s, '%_\\');
+    }
+
+    /**
+     * TODAS las formas con las que buscar una palabra: la palabra tal cual, su singular si
+     * venía en plural, y —cuando se perdona el tipeo— las variantes con un error de CADA
+     * una de esas dos.
+     *
+     * Punto ÚNICO, y por un fallo concreto: la regla del singular estaba escrita dos veces
+     * —una en el filtro y otra en el orden— y cada copia le daba una entrada distinta al
+     * perdón de tipeo. El filtro perdonaba solo el plural y metía el singular literal, así
+     * que "mangeras" (plural CON error) encontraba 1 fila en vez de 12, y "botazs"
+     * ninguna. Con las formas en un solo sitio, filtro y orden miran exactamente lo mismo
+     * —incluido el tope de letras, que antes se medía sobre el plural en un lado y sobre
+     * el singular en el otro.
+     *
+     * Lo escrito va escapado (comoTextoEnLike); las variantes del perdón NO, porque su `_`
+     * es un comodín puesto a propósito.
+     */
+    private function formasDeBuscarPalabra(string $token, bool $tolerante): array
+    {
+        $formas = [$this->comoTextoEnLike($token)];
+        $raices = [$token];
+
+        // "BOTAS" tiene que encontrar "BOTA DE SEGURIDAD".
+        if (mb_strlen($token) > 3 && mb_substr($token, -1) === 's') {
+            $singular = mb_substr($token, 0, -1);
+            $formas[] = $this->comoTextoEnLike($singular);
+            $raices[] = $singular;
+        }
+
+        if ($tolerante) {
+            foreach ($raices as $raiz) {
+                $formas = array_merge($formas, $this->variantesConUnError($raiz));
+            }
+        }
+
+        return array_values(array_unique($formas));
+    }
+
+    /**
+     * Patrones LIKE de una palabra que perdonan UN error de tipeo, para el reintento de
+     * index() cuando lo escrito no coincide con nada.
+     *
+     * MySQL no trae distancia de Levenshtein, pero el comodín `_` de LIKE (exactamente un
+     * carácter) da los tres errores que comete la gente escribiendo, sin funciones nuevas:
+     *
+     *   - letra CAMBIADA  ("mangyera") → mang_era  → encuentra MANGUERA
+     *   - letra FALTANTE  ("mangera")  → mang_era  → encuentra MANGUERA
+     *   - letra SOBRANTE  ("manguuera")→ manguera  → encuentra MANGUERA
+     *
+     * Es el mismo perdón que ya daba el autocomplete (FuzzySearch tolera Levenshtein), que
+     * es justo la incoherencia que esto arregla: la lista sugería las mangueras y la tabla
+     * salía vacía.
+     *
+     * Solo palabras de 4 letras o más: en una de tres, cambiar un carácter por `_` deja un
+     * patrón que casa con media base. Y si la palabra ya trae comodines de LIKE (`%`, `_`)
+     * o una barra invertida, se devuelve vacío en vez de intentar escaparlos dentro de un
+     * patrón que además lleva comodines puestos por nosotros: ahí no se adivina.
+     */
+    private function variantesConUnError(string $token): array
+    {
+        $largo = mb_strlen($token);
+        if ($largo < 4 || $largo > self::MAX_LETRAS_CON_PERDON || preg_match('/[%_\\\\]/', $token)) {
+            return [];
+        }
+
+        $variantes = [];
+        for ($i = 0; $i < $largo; $i++) {
+            $antes   = mb_substr($token, 0, $i);
+            $despues = mb_substr($token, $i + 1);
+            $variantes[] = $antes . '_' . $despues;   // una letra distinta
+            $variantes[] = $antes . $despues;         // una letra de más
+        }
+        for ($i = 0; $i <= $largo; $i++) {            // una letra de menos
+            $variantes[] = mb_substr($token, 0, $i) . '_' . mb_substr($token, $i);
+        }
+
+        return array_values(array_unique($variantes));
+    }
+
+    /**
+     * Ordena el listado del inventario: por CERCANÍA al término cuando se buscó algo, y
+     * alfabético cuando no.
+     *
+     * Por qué existe: el WHERE de aplicarBusquedaProducto trae todas las similitudes, pero
+     * el orden era `NOMBRE` a secas. Buscando "manguera" salían primero
+     * "ABRAZADERA 5\" PARA MANGUERA…" y "ABRAZADERA 6\"…", y las mangueras de verdad
+     * quedaban de la cuarta en adelante — el usuario veía lo que pidió, pero sepultado.
+     * Ahora manda lo mismo que el autocomplete: primero lo que EMPIEZA por lo escrito,
+     * luego lo que lo trae al empezar una palabra, y al final lo que solo lo menciona.
+     *
+     * El criterio es el de FuzzySearch.rank() (la frase entera pesa más que los tokens
+     * sueltos, y el inicio de palabra más que el medio), traducido a SQL porque aquí hay
+     * que ordenar el conjunto ENTERO antes de partirlo en páginas: si se ordenara en PHP,
+     * solo se ordenaría la página ya traída y la fila más relevante podría quedar en la
+     * página 3. A igualdad NO se prefiere el nombre corto, a diferencia del autocomplete:
+     * ver el comentario del ORDER BY, al final.
+     *
+     * El desempate final por ID_PRODUCTO no es cosmético: 28 productos se llaman
+     * "FILTRO DE ACEITE DE MOTOR". Sin un criterio único al final, MySQL no garantiza el
+     * mismo orden entre filas empatadas, y el scroll infinito (skip/take) puede repetir
+     * una fila o saltársela.
+     */
+    private function ordenarInventarioPorRelevancia($q, ?string $term, string $colCodigo, string $colNombre, string $colId, bool $tolerante = false): void
+    {
+        $frase = trim((string) $term);
+        if ($frase === '') {
+            $q->orderBy($colNombre)->orderBy($colId);   // sin búsqueda: alfabético de siempre
+            return;
+        }
+
+        $piezas = [];
+        $bind   = [];
+
+        // La frase completa: es la señal más fuerte de que la fila es lo que se pidió.
+        $f = $this->comoTextoEnLike(mb_strtolower($frase));
+        $piezas[] = "CASE WHEN {$colNombre} LIKE ? THEN 40"    // el nombre EMPIEZA por lo escrito
+                  . "     WHEN {$colNombre} LIKE ? THEN 25"    // lo trae al empezar una palabra
+                  . "     WHEN {$colNombre} LIKE ? THEN 15"    // solo lo menciona
+                  . "     ELSE 0 END";
+        array_push($bind, "{$f}%", "% {$f}%", "%{$f}%");
+
+        // Y cada palabra por su cuenta, para los términos de varias ("aceite motor").
+        $tokens = $this->tokenizarBusquedaProducto($frase);
+        // El MISMO tope que el filtro (MAX_PALABRAS_CON_PERDON): si el orden perdonara lo
+        // que el WHERE no perdona, generaria LIKEs que no pueden encajar con nada.
+        $tolerante = $tolerante && count($tokens) <= self::MAX_PALABRAS_CON_PERDON;
+        foreach ($tokens as $tok) {
+            // Se puntúa con las MISMAS formas con las que filtró el WHERE
+            // (formasDeBuscarPalabra): el plural y su singular, y en el reintento también
+            // sus variantes con un error. Si el orden mirara otra cosa, buscar "mangera"
+            // traería las mangueras (bien) pero las ordenaría contra un término que no casa
+            // con ninguna: todas a cero, y el desempate alfabético volvería a poner
+            // "ABRAZADERA … PARA MANGUERA" primero.
+            $formas = $this->formasDeBuscarPalabra($tok, $tolerante);
+
+            // Cada nivel acepta CUALQUIERA de las formas; el primero que encaje manda.
+            $nivel = function (string $col, string $molde) use ($formas, &$bind) {
+                $ors = [];
+                foreach ($formas as $f) { $ors[] = "{$col} LIKE ?"; $bind[] = str_replace('@', $f, $molde); }
+                return '(' . implode(' OR ', $ors) . ')';
+            };
+            $piezas[] = 'CASE WHEN ' . $nivel($colNombre, '@%')   . ' THEN 8'   // empieza por la palabra
+                      . '     WHEN ' . $nivel($colNombre, '% @%') . ' THEN 6'   // empieza una palabra
+                      . '     WHEN ' . $nivel($colNombre, '%@%')  . ' THEN 3'   // solo la menciona
+                      . '     WHEN ' . $nivel($colCodigo, '%@%')  . ' THEN 2'   // entró por el código
+                      . '     ELSE 0 END';                                      // entró por nº de parte
+        }
+
+        // Dentro del mismo nivel de cercanía se ordena ALFABÉTICO, no por nombre más corto:
+        // la lista queda predecible y las series numeradas salen en orden ("BOTA … TALLA 35,
+        // 36, 37"). Probado con el largo primero, y mezclaba las tallas sin motivo.
+        $q->orderByRaw(
+            '(' . implode(' + ', $piezas) . ") DESC, {$colNombre} ASC, {$colId} ASC",
+            $bind
+        );
+    }
+
+    /**
+     * Aplica la búsqueda tokenizada de productos sobre $q: AND entre palabras, y cada
+     * palabra contra todas sus formas (ver formasDeBuscarPalabra, que es donde vive la
+     * regla del singular: "BOTAS" encuentra "BOTA DE SEGURIDAD").
+     *
+     * $cols son las columnas CODIGO/NOMBRE ya calificadas según el contexto del llamador
+     * (tabla con JOIN → 'productos_inventario.X'; relación whereHas('producto') → 'X').
+     *
+     * $tolerante perdona además UN error de tipeo por palabra. Lo enciende SOLO el
+     * reintento de index() cuando la búsqueda exacta no encontró nada
+     * (buscarConPerdonDeTipeo); las demás pantallas que llaman aquí —la bitácora y el
+     * ranking de consumo— lo dejan en false y buscan exacto, como siempre.
+     */
+    private function aplicarBusquedaProducto($q, string $term, array $cols, bool $incluirEquivalencias = false, bool $tolerante = false): void
     {
         $tokens = $this->tokenizarBusquedaProducto($term);
-        $q->where(function ($s) use ($tokens, $cols, $incluirEquivalencias) {
+        // Frases largas no se perdonan: ver MAX_PALABRAS_CON_PERDON.
+        $tolerante = $tolerante && count($tokens) <= self::MAX_PALABRAS_CON_PERDON;
+        $q->where(function ($s) use ($tokens, $cols, $incluirEquivalencias, $tolerante) {
             foreach ($tokens as $tok) {
-                $variantes = [$tok];
-                if (mb_strlen($tok) > 3 && mb_substr($tok, -1) === 's') {
-                    $variantes[] = mb_substr($tok, 0, -1);
-                }
+                $variantes = $this->formasDeBuscarPalabra($tok, $tolerante);
                 $s->where(function ($t) use ($variantes, $cols, $incluirEquivalencias) {
                     foreach ($variantes as $v) {
                         foreach ($cols as $col) {
@@ -472,13 +735,18 @@ class AlmacenController extends Controller
      * NO toca el JOIN con almacen_stock ni los filtros por stock (solo_bajo/solo_con_saldo),
      * que dependen del almacén y los maneja el llamador.
      *
-     * Lo usan inventarioBaseQuery() (la tabla) y export() (la exportación), para que ambos
-     * filtren IDÉNTICO y "exportar" devuelva justo lo que se ve en pantalla.
+     * Lo usan inventarioBaseQuery() (la tabla) y export() (la exportación), para que los dos
+     * FILTREN idéntico. Ojo: que filtren igual no significa que el archivo tenga las mismas
+     * filas — el export salta después las de saldo 0 y ordena alfabético. Ver el comentario
+     * de export(), que lo mide.
+     *
+     * $tolerante se propaga a la búsqueda por texto: perdona un error de tipeo por palabra.
+     * Solo lo enciende el reintento de index() cuando la búsqueda exacta no encontró nada.
      *
      * @return bool true si `id_producto_in` hizo short-circuit (acotó a esos IDs e ignora
      *              el resto de filtros) — el llamador debe cortar ahí.
      */
-    private function aplicarFiltrosContenido($q, Request $request): bool
+    private function aplicarFiltrosContenido($q, Request $request, bool $tolerante = false): bool
     {
         // ─── Modo "Ver solo seleccionados" del bulk counter ────────────────────────
         // El frontend manda los IDs ya seleccionados como CSV en `id_producto_in`.
@@ -504,7 +772,7 @@ class AlmacenController extends Controller
         } elseif ($request->filled('search')) {
             // (cae aquí solo si NO vino id_producto — typed-and-Enter, no clic en sugerencia)
             $term = trim((string) $request->input('search'));
-            $this->aplicarBusquedaProducto($q, $term, ['productos_inventario.CODIGO', 'productos_inventario.NOMBRE'], true);
+            $this->aplicarBusquedaProducto($q, $term, ['productos_inventario.CODIGO', 'productos_inventario.NOMBRE'], true, $tolerante);
         }
         if ($request->filled('categoria') && $request->input('categoria') !== 'all') {
             // Coincidencia parcial (igual que "search"): el filtro de categoría es un
@@ -552,7 +820,7 @@ class AlmacenController extends Controller
             ->groupBy('ID_PRODUCTO');
     }
 
-    private function inventarioBaseQuery(?int $idAlmacen, Request $request)
+    private function inventarioBaseQuery(?int $idAlmacen, Request $request, bool $tolerante = false)
     {
         $q = ProductoInventario::query()->activos();
 
@@ -587,7 +855,7 @@ class AlmacenController extends Controller
         // compartidos con export() para que la exportación refleje EXACTAMENTE lo que
         // muestra la tabla. Si `id_producto_in` hizo short-circuit (modo "ver solo
         // seleccionados"), la query queda acotada a esos IDs e ignoramos el resto.
-        if ($this->aplicarFiltrosContenido($q, $request)) {
+        if ($this->aplicarFiltrosContenido($q, $request, $tolerante)) {
             return $q;
         }
         if ($request->boolean('solo_bajo')) {
@@ -624,10 +892,15 @@ class AlmacenController extends Controller
         }
     }
 
-    /** Query del listado (con las columnas que la tabla muestra). */
-    private function productosConSaldoQuery(?int $idAlmacen, Request $request)
+    /**
+     * Query del listado (con las columnas que la tabla muestra).
+     *
+     * $tolerante lo enciende SOLO el reintento de index() cuando la busqueda exacta no
+     * encontro nada: perdona un error de tipeo por palabra.
+     */
+    private function productosConSaldoQuery(?int $idAlmacen, Request $request, bool $tolerante = false)
     {
-        return $this->inventarioBaseQuery($idAlmacen, $request)->select([
+        return $this->inventarioBaseQuery($idAlmacen, $request, $tolerante)->select([
             'productos_inventario.ID_PRODUCTO',
             'productos_inventario.CODIGO',
             'productos_inventario.NOMBRE',
@@ -702,14 +975,18 @@ class AlmacenController extends Controller
      * Lo usan la carga HTML (sin producto), la recarga AJAX de la tabla (index) y el clic
      * en una fila (productoOtrosAlmacenes, siempre con producto).
      */
-    private function panelLateral(?int $idProducto, ?int $idAlmacen, ?string $nombreAlmacen, Request $request, $user): string
+    private function panelLateral(?int $idProducto, ?int $idAlmacen, ?string $nombreAlmacen, Request $request, $user, bool $tolerante = false): string
     {
         if ($idProducto) {
             return $this->panelOtrosAlmacenes($idProducto, $idAlmacen, $nombreAlmacen, $user);
         }
 
+        // $tolerante viaja desde index(): el panel reparte por categoria LO QUE LA TABLA
+        // ESTA MOSTRANDO, asi que si la busqueda fue aproximada el reparto tambien. Sin
+        // esto, escribir "acetminofen" enseñaba 4 filas en la tabla y un panel VACIO al
+        // lado, porque el panel seguia buscando la palabra exacta.
         return view('admin.almacen.partials.distribucion_stats', [
-            'distribucion' => $this->distribucionPorCategoria($idAlmacen, $request),
+            'distribucion' => $this->distribucionPorCategoria($idAlmacen, $request, $tolerante),
         ])->render();
     }
 
@@ -736,13 +1013,13 @@ class AlmacenController extends Controller
      * bypass "verCatalogo" de inventarioBaseQuery, que si no contaba TODO el catálogo (saldo
      * 0) mientras el Consolidado marcaba 0 y los dos paneles se contradecían.
      */
-    private function distribucionPorCategoria(?int $idAlmacen, Request $request)
+    private function distribucionPorCategoria(?int $idAlmacen, Request $request, bool $tolerante = false)
     {
         if ($idAlmacen === null) {
             return collect();
         }
 
-        return $this->inventarioBaseQuery($idAlmacen, $request)
+        return $this->inventarioBaseQuery($idAlmacen, $request, $tolerante)
             ->whereNotNull('almacen_stock.ID_PRODUCTO')
             // Solo lo que TIENE existencia, como antes: el panel va pegado al KPI
             // "CON STOCK" y si cuenta tambien los productos en cero los dos numeros
@@ -2776,17 +3053,31 @@ class AlmacenController extends Controller
         //  - Global (sin almacén): inventarioBaseQuery devolvería vacío (su JOIN exige un
         //    almacén), así que aplicamos solo los filtros de contenido sobre el catálogo
         //    (los de stock son por-almacén y no aplican a la vista de todos los almacenes).
+        // El mismo perdon de tipeo que el listado: sin esto, buscar "mangera" encontraba
+        // mangueras en pantalla y bajaba un Excel VACIO (ver buscarConPerdonDeTipeo).
+        //
+        // OJO con "exactamente los que muestra la tabla" de aqui arriba: se cumple en el
+        // FILTRO (que productos entran), no en lo que acaba escrito en el archivo. Mas
+        // abajo, el bucle que escribe las filas salta las de saldo 0 "a pedido del
+        // cliente", mientras que la tabla SI las enseña cuando hay una busqueda (el bypass
+        // verCatalogo de inventarioBaseQuery). Medido en BARCELONA: search=MANGUERA son 12
+        // filas en pantalla y 2 en el Excel. Y el orden tampoco coincide: el Excel va
+        // alfabetico a proposito (se lee y se filtra con Excel) y la tabla por cercania a
+        // lo buscado (ordenarInventarioPorRelevancia).
         if ($idAlmacenSel !== null) {
-            $ids = $this->inventarioBaseQuery($idAlmacenSel, $request)
+            [$ids] = $this->buscarConPerdonDeTipeo($request, fn (bool $tol) => $this
+                ->inventarioBaseQuery($idAlmacenSel, $request, $tol)
                 ->distinct()
-                ->pluck('productos_inventario.ID_PRODUCTO');
+                ->pluck('productos_inventario.ID_PRODUCTO'));
             $productos = ProductoInventario::whereIn('ID_PRODUCTO', $ids)
                 ->orderBy('NOMBRE')
                 ->get(['ID_PRODUCTO', 'CODIGO', 'NOMBRE', 'UM', 'CATEGORIA']);
         } else {
-            $productosQuery = ProductoInventario::activos()->orderBy('NOMBRE');
-            $this->aplicarFiltrosContenido($productosQuery, $request);
-            $productos = $productosQuery->get(['ID_PRODUCTO', 'CODIGO', 'NOMBRE', 'UM', 'CATEGORIA']);
+            [$productos] = $this->buscarConPerdonDeTipeo($request, function (bool $tol) use ($request) {
+                $q = ProductoInventario::activos()->orderBy('NOMBRE');
+                $this->aplicarFiltrosContenido($q, $request, $tol);
+                return $q->get(['ID_PRODUCTO', 'CODIGO', 'NOMBRE', 'UM', 'CATEGORIA']);
+            });
         }
 
         // AGRUPADO por producto+almacén, no fila por fila: desde que el saldo se lleva por
