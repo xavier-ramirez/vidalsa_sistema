@@ -239,25 +239,34 @@ class DashboardController extends Controller
         // frentes; los bloqueados se ocultan a todos.
         [$frentesVisibles, $frentesBloqueados] = $this->frentesDelUsuario();
         $clave = $this->claveCache($frentesVisibles, $frentesBloqueados);
-        $expiredList = \Illuminate\Support\Facades\Cache::remember("dashboard_alertas_{$clave}", now()->addMinutes(10),
-            fn () => $this->generateAlertsList($frentesVisibles, $frentesBloqueados));
+        // Se cachea la RESPUESTA ya armada (HTML, total y datos del detalle), no la coleccion
+        // Eloquent: guardar la coleccion (~1,3 MB con sus relaciones) obligaba a leerla y
+        // deserializarla y a volver a pintar el HTML y los datos del detalle en CADA visita.
+        // Nada de esto depende del usuario fuera de la clave: el partial no usa @can ni
+        // auth(), y los permisos y frentes ya van en la huella de claveCache. Prefijo propio
+        // (_resp_) para no leer nunca una entrada vieja que guardaba la coleccion.
+        $resp = \Illuminate\Support\Facades\Cache::remember("dashboard_alertas_resp_{$clave}", now()->addMinutes(10), function () use ($frentesVisibles, $frentesBloqueados) {
+            $expiredList = $this->generateAlertsList($frentesVisibles, $frentesBloqueados);
+
+            return [
+                'html'        => view('partials.dashboard_alerts', compact('expiredList'))->render(),
+                'totalAlerts' => $expiredList->count(),
+                // window.equiposData de los equipos de las alertas: el modal de detalles abierto
+                // desde el panel muestra TODOS los campos, igual que en /admin/equipos, y no solo
+                // los data-* de la tarjeta. Fuente unica: Equipo::toDetailsPayload(). SOLO
+                // equipos: la lista trae tambien certificados de auxiliares, que no tienen
+                // toDetailsPayload() (ni ID_EQUIPO) ni abren ficha.
+                'equiposData' => $expiredList->pluck('equipo')
+                    ->filter(fn ($e) => $e instanceof \App\Models\Equipo)
+                    ->unique('ID_EQUIPO')
+                    ->mapWithKeys(fn ($e) => [$e->ID_EQUIPO => $e->toDetailsPayload()])
+                    ->all(),
+            ];
+        });
         // Su total aparte, diminuto: el menú lo pinta al abrirse sin leer la lista entera.
-        \Illuminate\Support\Facades\Cache::remember("dashboard_alertas_total_{$clave}", now()->addMinutes(10), fn () => $expiredList->count());
+        \Illuminate\Support\Facades\Cache::remember("dashboard_alertas_total_{$clave}", now()->addMinutes(10), fn () => $resp['totalAlerts']);
 
-        // window.equiposData de los equipos de las alertas: el modal de detalles abierto desde
-        // el panel muestra TODOS los campos, igual que en /admin/equipos, y no solo los data-*
-        // de la tarjeta. Fuente única: Equipo::toDetailsPayload(). SOLO equipos: la lista trae
-        // también certificados de auxiliares, que no tienen toDetailsPayload() (ni ID_EQUIPO)
-        // ni abren ficha.
-        $equiposData = $expiredList->pluck('equipo')
-            ->filter(fn ($e) => $e instanceof \App\Models\Equipo)
-            ->unique('ID_EQUIPO')
-            ->mapWithKeys(fn ($e) => [$e->ID_EQUIPO => $e->toDetailsPayload()]);
-
-        return response()->json([
-            'html'        => view('partials.dashboard_alerts', compact('expiredList'))->render(),
-            'totalAlerts' => $expiredList->count(),
-            'equiposData' => $equiposData,
+        return response()->json($resp + [
             'clave'       => $clave,
         ]);
     }

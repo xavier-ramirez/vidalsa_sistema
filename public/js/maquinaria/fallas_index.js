@@ -121,7 +121,9 @@
     // Paginación AJAX: interceptar el clic en un enlace del paginador para recargar por fetch
     // CONSERVANDO los filtros (mismo patrón que movilizaciones_index.js). Sin esto, el SPA
     // navegaba el link /admin/fallas?page=2 como página completa, sin filtros. Guardia por
-    // bandera para no apilar el listener.
+    // bandera para no apilar el listener. En fase de CAPTURA: este archivo se carga con su
+    // vista, y al entrar por la SPA se registra DESPUÉS del clic de navegacion.js (también en
+    // document); en burbuja su stopImmediatePropagation llegaba tarde y el SPA ganaba.
     if (!window._fallasPaginationRegistered) {
         window._fallasPaginationRegistered = true;
         document.addEventListener('click', function (e) {
@@ -132,7 +134,7 @@
                 const page = new URL(link.href, window.location.origin).searchParams.get('page');
                 window.cargarFallas(page || 1);
             }
-        });
+        }, true);
     }
 
     // Cerrar panel avanzado al hacer clic fuera

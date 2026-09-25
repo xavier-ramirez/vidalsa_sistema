@@ -613,6 +613,8 @@
 <script>
     window.CAT_CFG = @json($cat_cfg);
 </script>
+{{-- catalogo_index.js ANTES de catalogo_vista.js: este llama a loadCatalogo. Solo lo usa esta pantalla. --}}
+<script src="{{ asset('js/maquinaria/catalogo_index.js') }}?v={{ @filemtime(public_path('js/maquinaria/catalogo_index.js')) }}"></script>
 <script src="{{ asset('js/maquinaria/catalogo_vista.js') }}?v={{ @filemtime(public_path('js/maquinaria/catalogo_vista.js')) }}"></script>
 <script>
     // El archivo de arriba se carga UNA vez en toda la sesion; esta llamada es la que

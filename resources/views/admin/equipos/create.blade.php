@@ -981,4 +981,8 @@
      que carga el mismo archivo por el mismo camino. --}}
 <script>window.AUX_HOST_SEARCH_URL = '{{ route("equipos-auxiliares.searchHosts") }}';</script>
 
+{{-- Carga por Excel de equipos y auxiliares, en este orden (la fabrica primero). Una sola vez aqui y no en bulk_upload_card, que se incluye dos veces. La SPA lo ejecuta una vez por pestaña. --}}
+<script src="{{ asset('js/maquinaria/bulk_preview_factory.js') }}?v={{ @filemtime(public_path('js/maquinaria/bulk_preview_factory.js')) }}"></script>
+<script src="{{ asset('js/maquinaria/equipos_bulk.js') }}?v={{ @filemtime(public_path('js/maquinaria/equipos_bulk.js')) }}"></script>
+<script src="{{ asset('js/maquinaria/auxiliares_bulk.js') }}?v={{ @filemtime(public_path('js/maquinaria/auxiliares_bulk.js')) }}"></script>
 @endsection

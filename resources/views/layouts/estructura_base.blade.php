@@ -76,6 +76,12 @@
          y NO trae nada consigo — solo sabe pedir lo pesado cuando de verdad hace falta. --}}
     <script
         src="{{ asset('js/maquinaria/lazy_loader.js') }}?v={{ @filemtime(public_path('js/maquinaria/lazy_loader.js')) }}"></script>
+    {{-- module_manager.js TAMBIEN en el <head>: los modulos que traen su JS en SU vista
+         (<script src> al final del contenido) se registran en window.ModuleManager al
+         evaluarse, y en una carga completa eso ocurre ANTES del bloque de scripts del final
+         del layout. No tiene dependencias ni toca el DOM al cargarse. --}}
+    <script
+        src="{{ asset('js/maquinaria/module_manager.js') }}?v={{ @filemtime(public_path('js/maquinaria/module_manager.js')) }}"></script>
     <style>
         /* Standard Material Icons definition */
         .material-icons {
@@ -1135,8 +1141,6 @@
         {{-- dom_helpers.js NO va aquí: se carga en el <head> (ver arriba) porque los
              scripts inline del contenido lo usan antes de llegar a este bloque. --}}
         <script
-            src="{{ asset('js/maquinaria/module_manager.js') }}?v={{ @filemtime(public_path('js/maquinaria/module_manager.js')) }}"></script>
-        <script
             src="{{ asset('js/maquinaria/uicomponents.js') }}?v={{ @filemtime(public_path('js/maquinaria/uicomponents.js')) }}"></script>
         {{-- Buscador "estilo Google" compartido (window.FuzzySearch): lo usan Inventario
              y Recepción. Global aquí → sobrevive a la navegación SPA. --}}
@@ -1155,28 +1159,22 @@
              son síncronos, así que parsearlo en todas retrasaba la interactividad de todas.
              Lo piden con window.ensureChartJS() — ver js/maquinaria/lazy_loader.js. --}}
 
-        {{-- Module Scripts (Global Load for SPA Navigation) --}}
-        {{-- NOTE: These MUST be loaded globally because the SPA navigation --}}
-        {{-- calls functions like window.loadEquipos(), window.loadCatalogo(), etc. --}}
-        {{-- from navegacion.js when switching between pages without reload --}}
+        {{-- JS de modulo que se queda GLOBAL: lo llaman otras pantallas (equipos_index,
+             fleet_dashboard, movilizaciones, historial...) o el modo offline lo parchea.
+             El JS que solo usa SU pantalla va al final de esa vista (fallas, usuarios,
+             frentes, catalogo, consumibles, carga por Excel): la navegacion SPA ejecuta
+             los <script src> del contenido, en orden y UNA vez por pestaña (navegacion.js
+             · executeScripts), y asi las demas pantallas no lo descargan ni lo parsean. --}}
         <script
             src="{{ asset('js/maquinaria/menu.js') }}?v={{ @filemtime(public_path('js/maquinaria/menu.js')) }}"></script>
         <script
-            src="{{ asset('js/maquinaria/catalogo_create.js') }}?v={{ @filemtime(public_path('js/maquinaria/catalogo_create.js')) }}"></script>
-        <script
             src="{{ asset('js/maquinaria/equipos_index.js') }}?v={{ @filemtime(public_path('js/maquinaria/equipos_index.js')) }}"></script>
         <script
-            src="{{ asset('js/maquinaria/catalogo_index.js') }}?v={{ @filemtime(public_path('js/maquinaria/catalogo_index.js')) }}"></script>
-        <script
             src="{{ asset('js/maquinaria/movilizaciones_index.js') }}?v={{ @filemtime(public_path('js/maquinaria/movilizaciones_index.js')) }}"></script>
-        <script
-            src="{{ asset('js/maquinaria/fallas_index.js') }}?v={{ @filemtime(public_path('js/maquinaria/fallas_index.js')) }}"></script>
-        {{-- Modal "Nuevo Reporte de Falla" COMPARTIDO (fallas/equipos/auxiliares). Global
-             porque la SPA no re-ejecuta los <script> del contenido al navegar. --}}
+        {{-- Modal "Nuevo Reporte de Falla" COMPARTIDO (fallas/equipos/auxiliares): global
+             porque lo usan tres pantallas. --}}
         <script
             src="{{ asset('js/maquinaria/falla_create_modal.js') }}?v={{ @filemtime(public_path('js/maquinaria/falla_create_modal.js')) }}"></script>
-        <script
-            src="{{ asset('js/maquinaria/usuarios_index.js') }}?v={{ @filemtime(public_path('js/maquinaria/usuarios_index.js')) }}"></script>
         <script
             src="{{ asset('js/maquinaria/historial_documentos_index.js') }}?v={{ @filemtime(public_path('js/maquinaria/historial_documentos_index.js')) }}"></script>
         <script
@@ -1243,11 +1241,8 @@
 
             {{-- Selector de TIPO AUX y de EQUIPO VINCULADO (los nueve manejadores
                  window.auxTipo*/auxHost*). Lo usan /admin/equipos/create y la ficha del
-                 auxiliar, y las dos lo pintan DENTRO de .main-viewport: por eso se pide
-                 desde aqui y no desde la vista. Un <script src> dentro del contenido no
-                 llega a ejecutarse al entrar por navegacion SPA —executeScripts lo
-                 descarta al encontrarse el nodo inerte que dejo innerHTML con esa misma
-                 URL—, y los combos quedaban muertos.
+                 auxiliar, y las dos lo pintan DENTRO de .main-viewport: se pide desde aqui,
+                 con su detector, para no repetir el <script src> en las dos vistas.
 
                  Mismo trato que el mapa: detector + cargarScriptUnaVez (que cachea por
                  URL), inyectado en el <head>, asi que la navegacion SPA no lo pierde y
@@ -1263,10 +1258,6 @@
             );
         </script>
 
-        <script
-            src="{{ asset('js/maquinaria/frentes_spa.js') }}?v={{ @filemtime(public_path('js/maquinaria/frentes_spa.js')) }}"></script>
-        <script
-            src="{{ asset('js/maquinaria/consumibles_index.js') }}?v={{ @filemtime(public_path('js/maquinaria/consumibles_index.js')) }}"></script>
         <script>
             {{-- Flags de permiso renderizados server-side. Los LEE layout_ui.js (cargado
                  justo debajo), que por ser un archivo estatico ya no puede traerlos consigo.
@@ -1295,15 +1286,9 @@
         {{-- NOTE: form_selects.js removed (deprecated, merged into form_logic.js) --}}
         <script
             src="{{ asset('js/maquinaria/equipos_form.js') }}?v={{ @filemtime(public_path('js/maquinaria/equipos_form.js')) }}"></script>
-        {{-- Bulk upload: andamiaje compartido (window.createBulkPreview) ANTES de los módulos --}}
-        <script
-            src="{{ asset('js/maquinaria/bulk_preview_factory.js') }}?v={{ @filemtime(public_path('js/maquinaria/bulk_preview_factory.js')) }}"></script>
-        {{-- Bulk upload de equipos (Global: @yield('extra_js') queda fuera del .main-viewport → SPA no lo re-ejecutaría) --}}
-        <script
-            src="{{ asset('js/maquinaria/equipos_bulk.js') }}?v={{ @filemtime(public_path('js/maquinaria/equipos_bulk.js')) }}"></script>
-        {{-- Bulk upload de equipos auxiliares (mismo patron SPA-compat) --}}
-        <script
-            src="{{ asset('js/maquinaria/auxiliares_bulk.js') }}?v={{ @filemtime(public_path('js/maquinaria/auxiliares_bulk.js')) }}"></script>
+
+
+
 
         @yield('extra_js')
         @include('partials.session_timeout')

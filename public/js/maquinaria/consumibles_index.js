@@ -159,9 +159,14 @@ if (typeof window.ModuleManager !== 'undefined') {
             };
 
             // ── Edición inline — Frente ───────────────────────────────
+            // Lo que tenia cada celda antes de editarla: cancelar la deja como estaba sin
+            // volver a pedir la pagina entera.
+            var celdaOriginal = {};
+
             window.editarFrente = function(id, idActual) {
                 var celda = document.getElementById('frente-cell-' + id);
                 if (!celda) return;
+                if (!(id in celdaOriginal)) celdaOriginal[id] = celda.innerHTML;
                 var frentesList = [];
                 try { frentesList = JSON.parse(appRoot.dataset.frentes || '[]'); } catch(e) {}
 
@@ -193,6 +198,7 @@ if (typeof window.ModuleManager !== 'undefined') {
                 .then(function(r) { return r.json(); })
                 .then(function(data) {
                     if (data.ok) {
+                        delete celdaOriginal[id];
                         var celda = document.getElementById('frente-cell-' + id);
                         if (!celda) return;
                         celda.innerHTML =
@@ -212,6 +218,12 @@ if (typeof window.ModuleManager !== 'undefined') {
             };
 
             window.cancelarFrente = function(id) {
+                var celda = document.getElementById('frente-cell-' + id);
+                if (celda && id in celdaOriginal) {
+                    celda.innerHTML = celdaOriginal[id];
+                    delete celdaOriginal[id];
+                    return;
+                }
                 if (window.submitConsumiblesFilters) {
                     window.submitConsumiblesFilters();
                 } else {

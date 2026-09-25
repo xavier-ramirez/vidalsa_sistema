@@ -2,6 +2,15 @@
 document.addEventListener('DOMContentLoaded', () => {
     const mainViewport = document.querySelector('.main-viewport');
 
+    // Los <script src> que YA corrieron en esta pestaña. Al cargar la página los ejecutó el
+    // navegador (también los que venían dentro del contenido del módulo), y los que llegan
+    // después los apunta executeScripts. Hace falta porque el <script src> de un módulo que
+    // vive en SU vista desaparece del DOM al navegar a otro: sin esta lista, F5 en el módulo,
+    // salir y volver lo ejecutaba OTRA VEZ, duplicando sus listeners globales (un "Guardar"
+    // que se enviaba dos veces). Con ella cada archivo corre UNA vez por pestaña, igual que
+    // si viniera en el layout.
+    const srcEjecutados = new Set(Array.from(document.querySelectorAll('script[src]'), (s) => s.src));
+
     // Cabeceras de toda petición de navegación SPA. Fuente ÚNICA: las usan loadPage() y
     // la precarga al pasar el mouse — deben ser IDÉNTICAS o el servidor podría responder
     // distinto a la copia precargada que a la que pide el clic.
@@ -76,6 +85,11 @@ document.addEventListener('DOMContentLoaded', () => {
         // No es un clic primario limpio (botón central, Ctrl/Cmd para abrir en pestaña
         // nueva, etc.) → que lo maneje el navegador.
         if (e.button !== 0 || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+
+        // Otro manejador YA se ocupo de este clic (los paginadores AJAX de fallas, usuarios,
+        // movilizaciones, historial... recargan su tabla conservando los filtros). Navegar
+        // ademas reemplazaba la pagina por la del enlace, sin filtros.
+        if (e.defaultPrevented) return;
 
         if (!esNavegableSPA(link)) return;
 
@@ -284,14 +298,15 @@ document.addEventListener('DOMContentLoaded', () => {
                         // script muerto: un módulo que trajera su JavaScript en un archivo
                         // propio no arrancaba nunca al entrar por la SPA (sí al recargar la
                         // página, y de ahí lo despistante del caso).
-                        const yaCargado = Array.from(document.querySelectorAll(`script[src="${newScript.src}"]`))
-                            .some((s) => !container.contains(s));
+                        const yaCargado = srcEjecutados.has(newScript.src)
+                            || Array.from(document.querySelectorAll(`script[src="${newScript.src}"]`))
+                                .some((s) => !container.contains(s));
                         if (yaCargado) {
                             resolve();
                             return;
                         }
                         // Esperar a que cargue o falle antes de continuar con el siguiente
-                        newScript.onload  = () => resolve();
+                        newScript.onload  = () => { srcEjecutados.add(newScript.src); resolve(); };
                         newScript.onerror = () => resolve(); // Continuar aunque falle
                         document.head.appendChild(newScript);
                     } else {
@@ -496,7 +511,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (NON_CRITICAL_SCRIPTS.some(p => basePath.endsWith(p))) continue;
 
                 const matchingCurrent = currentScripts.find(cs => cs.src.split('?')[0] === basePath);
-                if (matchingCurrent && matchingCurrent.src !== ns.src) {
+                // Tambien contra lo YA ejecutado: el <script src> de un modulo que vive en su
+                // vista ya no esta en el DOM cuando se vuelve a el, pero su version vieja si
+                // corrio en esta pestaña. Sin esto, un despliegue que solo cambia ese archivo
+                // no se detectaba y la version nueva corria ENCIMA de la vieja.
+                const yaEjecutado = Array.from(srcEjecutados).find(u => u.split('?')[0] === basePath);
+                if ((matchingCurrent && matchingCurrent.src !== ns.src) || (yaEjecutado && yaEjecutado !== ns.src)) {
                     versionChanged = true;
                     console.log(`Nueva versión detectada para: ${basePath}. Requiriendo recarga completa.`);
                     break;

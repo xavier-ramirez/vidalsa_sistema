@@ -840,7 +840,7 @@
             </div>
         </div>
 
-        {{-- Rutas para fallas_index.js (cargado globalmente en el layout) --}}
+        {{-- Rutas para fallas_index.js (se carga al final de esta vista, despues de esto) --}}
         <script>
             window.FALLAS_CFG = {
                 urlIndex: '{{ route("fallas.index") }}',
@@ -856,4 +856,6 @@
         </script>
         {{-- falla_create_modal.js se carga GLOBAL en el layout (SPA-safe). --}}
 
+{{-- JS de esta pantalla (solo lo usa ella; antes iba en el layout y lo bajaban todas). La SPA lo ejecuta una vez por pestaña. --}}
+<script src="{{ asset('js/maquinaria/fallas_index.js') }}?v={{ @filemtime(public_path('js/maquinaria/fallas_index.js')) }}"></script>
 @endsection

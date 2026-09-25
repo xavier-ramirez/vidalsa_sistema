@@ -99,13 +99,14 @@ class AppServiceProvider extends ServiceProvider
         // View Composer: inyecta $traspasosPorRecibir en el layout base para que el badge
         // del menú "Almacén → Recepción" se vea desde CUALQUIER página
         // (no solo desde /admin/almacen donde el controller lo calculaba).
-        // Defensa: si la tabla `traspasos` aún no existe (migrate pendiente) o el usuario
-        // no está autenticado, $traspasosPorRecibir queda en 0 y el badge no aparece.
+        // Defensa: si el usuario no está autenticado, o la tabla `traspasos` faltara (la
+        // consulta falla y la recoge el catch), $traspasosPorRecibir queda en 0 y el badge no
+        // aparece. Sin Schema::hasTable: era una consulta a information_schema en CADA página.
         View::composer('layouts.estructura_base', function ($view) {
             $count = 0;
             try {
                 $user = auth()->user();
-                if ($user && Schema::hasTable('traspasos')) {
+                if ($user) {
                     // Cacheado por usuario: estas 2 consultas (whereHas + count) corrían
                     // en CADA página. La clave lleva la versión que Traspaso::booted()
                     // incrementa en cada escritura → el badge se refresca al instante

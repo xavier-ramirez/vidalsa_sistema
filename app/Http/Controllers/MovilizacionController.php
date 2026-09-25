@@ -59,13 +59,6 @@ class MovilizacionController extends Controller
 
         $totalTransito = $movilizaciones->total();
 
-        // Mostramos TODOS los frentes en el historial (activos y finalizados)
-        // porque se necesita poder buscar movilizaciones de frentes antiguos.
-        $frentes = FrenteTrabajo::orderBy('NOMBRE_FRENTE')->get();
-        $allTipos = \App\Models\TipoEquipo::orderBy('nombre')->get();
-        $tiposAux = \App\Models\EquipoAuxiliar::whereNotNull('TIPO')->where('TIPO', '!=', '')
-            ->distinct()->orderBy('TIPO')->pluck('TIPO');
-
         if ($request->wantsJson()) {
             $tableHtml = view('admin.movilizaciones.partials.table_rows', compact('movilizaciones'))->render();
             $paginationHtml = $movilizaciones->appends($request->all())->links('vendor.pagination.custom-sliding')->toHtml();
@@ -76,6 +69,14 @@ class MovilizacionController extends Controller
                 'totalTransito' => $totalTransito
             ]);
         }
+
+        // Los combos de los filtros solo hacen falta al pintar la pagina (no en el JSON de
+        // cada filtrado). TODOS los frentes (activos y finalizados): se busca tambien en
+        // movilizaciones de frentes antiguos.
+        $frentes = FrenteTrabajo::orderBy('NOMBRE_FRENTE')->get();
+        $allTipos = \App\Models\TipoEquipo::orderBy('nombre')->get();
+        $tiposAux = \App\Models\EquipoAuxiliar::whereNotNull('TIPO')->where('TIPO', '!=', '')
+            ->distinct()->orderBy('TIPO')->pluck('TIPO');
 
         return view('admin.movilizaciones.index', compact('movilizaciones', 'totalTransito', 'frentes', 'allTipos', 'tiposAux'));
     }

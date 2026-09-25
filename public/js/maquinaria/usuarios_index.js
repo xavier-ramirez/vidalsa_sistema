@@ -112,14 +112,16 @@ window.loadUsuarios = function (url = null) {
         });
 };
 
-// Pagination click handler
+// Pagination click handler. En fase de CAPTURA: este archivo se carga con su vista, asi que
+// al entrar por la SPA se registra DESPUES del clic de navegacion.js; en captura corre antes y
+// su preventDefault le dice a la navegacion que el clic ya esta atendido.
 document.addEventListener('click', function (e) {
     const link = e.target.closest('#usuariosPagination a');
     if (link) {
         e.preventDefault();
         window.loadUsuarios(link.getAttribute('href'));
     }
-});
+}, true);
 
 // Móvil: tocar una tarjeta de usuario muestra su detalle (fecha de creación + frentes) en
 // una burbuja flotante por encima (en escritorio sale al pasar el mouse). Solo en el layout

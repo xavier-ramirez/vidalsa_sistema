@@ -610,11 +610,10 @@ class FallaController extends Controller
         [$eqQ, $auxQ] = $this->buildActivoQueriesForStats($request);
 
         // El Consolidado muestra Reportes Abiertos / Cerrados. Los $eqQ/$auxQ se usan
-        // para acotar las fallas a los activos filtrados (ids de abajo).
+        // para acotar las fallas a los activos filtrados (ids de abajo), y SOLO si hay
+        // filtro de activo: sin el, la cuenta es global y no hace falta ninguna lista.
         // Reportes: aplica los filtros equivalentes sobre la tabla fallas
         // (id_frente, tipo_activo, marca, modelo, search se filtran por activo).
-        $eqIds  = (clone $eqQ)->pluck('equipos.ID_EQUIPO')->toArray();
-        $auxIds = (clone $auxQ)->pluck('ID_AUXILIAR')->toArray();
 
         $reportesQ = Falla::query();
         if ($request->filled('fecha_desde')) {
@@ -639,6 +638,11 @@ class FallaController extends Controller
             $buscado = $request->filled('search')
                 ? '%' . mb_strtoupper(ltrim(trim($request->input('search')), '#')) . '%'
                 : null;
+
+            // Solo el ID: la consulta base trae select('equipos.*') y un pluck sobre ella
+            // bajaba TODAS las columnas de todos los equipos en cada apertura del modulo.
+            $eqIds  = (clone $eqQ)->select('equipos.ID_EQUIPO')->pluck('ID_EQUIPO')->all();
+            $auxIds = (clone $auxQ)->select('equipos_auxiliares.ID_AUXILIAR')->pluck('ID_AUXILIAR')->all();
 
             $reportesQ->where(function ($q) use ($eqIds, $auxIds, $buscado) {
                 $q->where(fn($i) => $i->where('ACTIVO_TIPO','equipo')->whereIn('ACTIVO_ID',$eqIds ?: [0]))
