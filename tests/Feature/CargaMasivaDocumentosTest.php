@@ -187,8 +187,10 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
     {
         $s = $this->servicio();
 
+        // Con el rotulo que trae el ROTC de verdad: "Certificado de Circulación" a secas lo
+        // lleva tambien la colilla del titulo (ver test_la_colilla_del_titulo_no_lo_convierte_en_rotc).
         $this->assertSame(LectorDocumentoPdf::ROTC,
-            $s->detectarTipo('INSTITUTO NACIONAL DE TRANSPORTE TERRESTRE (INTT). Certificado de Circulación N° 4455.'));
+            $s->detectarTipo('INSTITUTO NACIONAL DE TRANSPORTE TERRESTRE (INTT). Certificado de Circulación de Vehículo de Carga N° 4455.'));
         $this->assertSame(LectorDocumentoPdf::RACDA,
             $s->detectarTipo('INTT. Providencia Administrativa N° 1120 que ampara las siguientes unidades.'));
         // Y si NADA se anuncia, la pista sigue valiendo: un título con el membrete y poco más.
@@ -573,15 +575,6 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
         }
     }
 
-    /** La compraventa cita el titulo, pero se anuncia antes: no se reparte como titulo. */
-    public function test_una_compraventa_se_reconoce_y_no_se_reparte_como_titulo(): void
-    {
-        $this->assertSame(CargaMasivaDocumentos::COMPRAVENTA, $this->servicio()->detectarTipo(
-            "DOCUMENTO DE COMPRA-VENTA\nEl vendedor, segun Certificado de Registro de Vehiculo N 123, da en venta..."));
-        $this->assertSame(LectorDocumentoPdf::PROPIEDAD, $this->servicio()->detectarTipo(
-            "Certificado de Registro de Vehiculo\n... prohibida su compraventa sin autorizacion ..."));
-    }
-
     /** El serial de una soldadora es corto y va tras "S/N": igual se reconoce el auxiliar. */
     public function test_un_auxiliar_se_reconoce_por_su_serial_corto(): void
     {
@@ -612,7 +605,9 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
         $this->actingAs($this->usuario());
         $a = $this->equipo(); $b = $this->equipo();
 
-        $p = $this->soltar("CERTIFICADO DE CIRCULACION ROTC\nSerial de Carroceria {$a->SERIAL_CHASIS}\n{$b->SERIAL_CHASIS}\nFecha de Vencimiento 10/10/2027");
+        // Los dos seriales sueltos en la hoja, sin que ninguno vaya detras de su rotulo: si uno
+        // lo fuera, ese seria el del documento (ver el ROTC de flota real, mas abajo).
+        $p = $this->soltar("ROTC\nUnidades amparadas: {$a->SERIAL_CHASIS} {$b->SERIAL_CHASIS}\nFecha de Vencimiento 10/10/2027");
 
         $this->assertSame('revisar', $p['estado']);
         $this->assertStringContainsString('varias unidades', $p['aviso']);
@@ -700,5 +695,86 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
             ->assertStatus(422);
 
         $this->assertSame(VerificacionDocumento::POR_ENGANCHAR, $fila->refresh()->ESTADO);
+    }
+
+    // ── Con los formatos de documentos REALES (25-09-2026) ─────────────────────
+
+    /**
+     * ROTC de flota: la hoja nombra muchas unidades y el certificado de debajo es de UNA. Se
+     * propone la del certificado, sin avisar de "varias", y con el vencimiento y la emision de
+     * SU fila de la hoja (renovada), no los del certificado (viejo, 30/05/2026).
+     */
+    public function test_rotc_de_flota_real_propone_la_unidad_del_certificado_con_la_fecha_de_la_hoja(): void
+    {
+        $this->actingAs($this->usuario());
+        $otra = $this->equipo(['PLACA' => 'Z87BE9R']);
+        $otra->update(['SERIAL_CHASIS' => 'LZZPCMSC7SJ38946Z']);
+        $suya = $this->equipo(['PLACA' => 'Z88EZ7A']);
+        $suya->update(['SERIAL_CHASIS' => 'LA9B23GE5H1GHY69Z']);
+
+        $p = $this->soltar("Fecha y Hora de Emisión: 03/07/2026 12:20:15 PM Pág. 12/34\n"
+            . "FLOTA VEHICULAR DE TRANSPORTE DE CARGA\nREGISTRO DE OPERADORAS DE TRANSPORTE DE CARGA (ROTC)\n"
+            . "Operadora: CONSTRUCTORA VIDALSA 27, C.A (J-29387719-9) Número de ROTC: 49199 Fecha de vencimiento: 03/07/2027\n"
+            . "# Placa Marca Modelo Año Tipo de Vehículo N° de Ejes Serial Carrocería Vencimiento\n"
+            . "171 Z87BE9R SINOTRUK ZZ4257V324JB1 2025 CAMION TRACTOR 3 12730 Ton. LZZPCMSC7SJ38946Z 03/07/2027\n"
+            . "186 Z88EZ7A JAC HFC9380TJP 2017 BATEA 3 30480 Ton. LA9B23GE5H1GHY69Z 03/07/2027\n"
+            . "CERTIFICADO DE CIRCULACIÓN DE VEHICULO DE CARGA\nRazón Social RIF Nro de ROTC\n"
+            . "CONTRUCTORA VIDALSA 27, C.A J-29387719-9 49199\n"
+            . "Placa Serial de Carrocería Marca - Modelo Año\nZ88EZ7A LA9B23GE5H1GHY69Z JAC - HFC9380TJP 2017\n"
+            . "Fecha de Emisión Fecha de Vencimiento\n30/05/2025 30/05/2026\n");
+
+        $this->assertSame(LectorDocumentoPdf::ROTC, $p['tipo']);
+        $this->assertSame('listo', $p['estado'], (string) $p['aviso']);
+        $this->assertSame([$suya->ID_EQUIPO], array_column($p['equipos'], 'id'));
+        $this->assertSame('2027-07-03', $p['vence']);
+        $this->assertSame('2026-07-03', $p['emision']);
+    }
+
+    /**
+     * Las dos polizas reales (Pirámide y Seguros Constitución) salian "SEGUROS CARACAS": las
+     * dos nombran Caracas en la direccion o la sucursal.
+     */
+    public function test_una_ciudad_en_la_direccion_no_decide_la_aseguradora(): void
+    {
+        $lector = app(LectorDocumentoPdf::class);
+        $catalogo = [1 => 'SEGUROS CARACAS', 2 => 'PIRÁMIDE SEGUROS', 3 => 'SEGUROS CONSTITUCION'];
+
+        $piramide = "CUADRO Y RECIBO DE PÓLIZAS\nSucursal: CARACAS\nVigencia del Seguro: 05/03/2026 al 05/03/2027\n"
+            . "Correo electrónico: defensor-asegurado@segurospiramide.com.";
+        $constitucion = "SEGURO DE AUTOMOVIL INDIVIDUAL CUADRO RECIBO\nCiudad: GRAN CARACAS\n"
+            . "favor emitir cheque a nombre de SEGUROS CONSTITUCIÓN, CA";
+        $caracas = "SEGUROS CARACAS DE LIBERTY MUTUAL\nCUADRO POLIZA\nCaracas, Venezuela";
+
+        $this->assertSame(2, $lector->aseguradoraEnTexto($piramide, $catalogo));
+        $this->assertSame(3, $lector->aseguradoraEnTexto($constitucion, $catalogo));
+        $this->assertSame(1, $lector->aseguradoraEnTexto($caracas, $catalogo), 'por su nombre entero si se reconoce');
+        $this->assertNull($lector->aseguradoraEnTexto("CUADRO RECIBO\nDomicilio: CARACAS", $catalogo));
+    }
+
+    /**
+     * El titulo del INTT lleva abajo la colilla "CERTIFICADO DE CIRCULACIÓN": escaneado y con el
+     * encabezado mal leido, salia como ROTC. El ROTC se sigue reconociendo.
+     */
+    public function test_la_colilla_del_titulo_no_lo_convierte_en_rotc(): void
+    {
+        $titulo = "INSTITUTO NACIONAL DE TRANSPORTE TERRESTRE\nSN de Redio de Vabteulo\n...\n"
+            . "CERTIFICADO DE CIRCULACIÓN\nPlaca: A83BV4G\nCERTIFICADO DE REGISTRO\nDE VEHÍCULO\nPara ser archivado en lugar seguro.";
+        $this->assertSame(LectorDocumentoPdf::PROPIEDAD, $this->servicio()->detectarTipo($titulo));
+        $this->assertSame(LectorDocumentoPdf::ROTC, $this->servicio()->detectarTipo(
+            "FLOTA VEHICULAR DE TRANSPORTE DE CARGA\nREGISTRO DE OPERADORAS DE TRANSPORTE DE CARGA (ROTC)"));
+    }
+
+    /** Una poliza escaneada con "O" por "0" en el serial (8XVC508SODDLD... por ...S0DDLD...). */
+    public function test_el_serial_leido_con_o_por_cero_encuentra_el_equipo(): void
+    {
+        $this->actingAs($this->usuario());
+        $e = $this->equipo();
+        $e->update(['SERIAL_CHASIS' => '8XVC508S0DDLD' . random_int(1000, 9999)]);
+        $mal = str_replace('S0DD', 'SODD', $e->SERIAL_CHASIS);
+
+        $p = $this->soltar("SEGURO DE AUTOMOVIL INDIVIDUAL CUADRO RECIBO\nVigencia de Póliza Desde: 21/05/2025 Hasta: 21/05/2026\n"
+            . "Capacidad-Carga: 1 TM.Serial Carroceria: $mal Serial Motor: 8140");
+
+        $this->assertSame([$e->ID_EQUIPO], array_column($p['equipos'], 'id'));
     }
 }

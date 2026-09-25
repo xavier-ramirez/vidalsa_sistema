@@ -236,13 +236,27 @@ class LectorDocumentoPdf
             if (preg_match('/(?:Nro|N[uú]mero)\s*de\s*ROTC:?[^\d]{0,30}(\d{3,10})/ui', $plano, $m)) $datos['nro'] = $m[1];
         }
         // "Placa / Serial de Carroceria / Marca - Modelo / Año" y debajo sus cuatro valores.
-        if (preg_match('/Placa\s*\R\s*Serial\s*de\s*Carrocer[ií]a\s*\R[^\n]*\R[^\n]*\R\s*([A-Z0-9]{5,8})\s*\R\s*([A-Z0-9]{10,25})\b/ui', $plano, $m)) {
+        if (preg_match('/Placa\s*\R\s*Serial\s*de\s*Carrocer[ií]a\s*\R[^\n]*\R[^\n]*\R\s*([A-Z0-9]{5,8})\s*\R\s*([A-Z0-9]{10,25})\b/ui', $plano, $m)
+            // La misma tabla con cada fila en UNA linea: "Placa Serial de Carrocería Marca -
+            // Modelo Año" y debajo "A88EZ7A LA9B23GE5H1GHY696 JAC - HFC9380TJP 2017" (ROTC real,
+            // 25-09-2026). Sin esto la placa y el serial del certificado quedaban vacios.
+            || preg_match('/Placa[^\S\r\n]+Serial[^\S\r\n]*de[^\S\r\n]*Carrocer[ií]a[^\r\n]*\R[^\S\r\n]*([A-Z0-9]{5,8})[^\S\r\n]+([A-Z0-9]{10,25})\b/ui', $plano, $m)) {
             $datos['placa']  = mb_strtoupper($m[1]);
             $datos['serial'] = mb_strtoupper($m[2]);
         } else {
             $datos['placa']  = $this->placaEnTexto($plano);
             $datos['serial'] = $this->serialEnTexto($plano);
         }
+        // El vencimiento de la HOJA de flota ("Fecha de vencimiento: 03/07/2027", en su
+        // cabecera). Vale para las unidades de su tabla cuando la tabla no se pudo leer fila por
+        // fila; el del certificado de debajo puede ser viejo (ver CargaMasivaDocumentos).
+        $datos['vence_flota'] = preg_match('/FLOTA\s+VEHICULAR[\s\S]{0,600}?Fecha\s*de\s*vencimiento:?\s*' . $f . '/ui', $plano, $m)
+            ? $this->fecha($m[1]) : null;
+        // Y cuando se emitio esa hoja ("Fecha y Hora de Emisión: 03/07/2026 12:20:15 PM"): es la
+        // emision que va con ese vencimiento, no la del certificado.
+        $datos['emision_flota'] = $datos['vence_flota'] && preg_match('/Fecha\s*y\s*Hora\s*de\s*Emisi[oó]n:?\s*' . $f . '/ui', $plano, $m)
+            ? $this->fecha($m[1]) : null;
+
         // El ROTC de FLOTA trae, antes del certificado, la tabla de la flota: una fila por
         // vehiculo con su placa, su serial de carroceria y, AL LADO DEL SERIAL, su vencimiento
         // ("69 A45AF5Y JAC HFC3252KR1K3 2017 VOLTEO 3 16200 Ton. LJ13R8DK3H3400167 03/07/2027").
@@ -515,21 +529,50 @@ class LectorDocumentoPdf
 
     /**
      * La aseguradora del catalogo cuyo nombre aparece en el texto. $catalogo es
-     * [ID_SEGURO => NOMBRE_ASEGURADORA]. Se busca por la palabra mas larga del nombre
-     * ("PIRAMIDE" de "PIRÁMIDE SEGUROS"), que es la que no comparten entre si.
+     * [ID_SEGURO => NOMBRE_ASEGURADORA].
+     *
+     * Primero el nombre ENTERO ("SEGUROS CONSTITUCION"); si ninguno sale entero, la palabra mas
+     * larga del nombre ("PIRAMIDE" de "PIRÁMIDE SEGUROS", tambien dentro de
+     * "segurospiramide.com"). Entre varias, gana la que aparece ANTES en el texto, y no la
+     * primera del catalogo.
+     *
+     * Una palabra que es un LUGAR no vale sola (LUGARES): con dos polizas reales (Pirámide y
+     * Seguros Constitución, 25-09-2026) las dos salian "SEGUROS CARACAS" porque en ambas
+     * aparece "CARACAS" en la direccion o la sucursal. Esa aseguradora se reconoce por su
+     * nombre entero.
      */
     public function aseguradoraEnTexto(string $texto, array $catalogo): ?int
     {
         $plano = $this->normalizar($texto);
-        foreach ($catalogo as $id => $nombre) {
-            $palabras = array_filter(explode(' ', $this->normalizar($nombre)),
-                fn ($p) => mb_strlen($p) >= 5 && !in_array($p, ['SEGUROS', 'SEGURO', 'POSEE', 'DOCUMENTO'], true));
-            if (!$palabras) continue;
-            usort($palabras, fn ($a, $b) => mb_strlen($b) <=> mb_strlen($a));
-            if (str_contains($plano, $palabras[0])) return (int) $id;
+        $mejor = null;
+        $donde = PHP_INT_MAX;
+        foreach ([true, false] as $entero) {
+            foreach ($catalogo as $id => $nombre) {
+                $norm = $this->normalizar($nombre);
+                if ($entero) {
+                    $clave = mb_strlen($norm) >= 5 ? $norm : null;
+                } else {
+                    $palabras = array_filter(explode(' ', $norm),
+                        fn ($p) => mb_strlen($p) >= 5 && !in_array($p, ['SEGUROS', 'SEGURO', 'POSEE', 'DOCUMENTO'], true)
+                            && !in_array($p, self::LUGARES, true));
+                    usort($palabras, fn ($a, $b) => mb_strlen($b) <=> mb_strlen($a));
+                    $clave = $palabras[0] ?? null;
+                }
+                if (!$clave) continue;
+                $pos = mb_strpos($plano, $clave);
+                if ($pos !== false && $pos < $donde) {
+                    $donde = $pos;
+                    $mejor = (int) $id;
+                }
+            }
+            if ($mejor !== null) return $mejor;
         }
         return null;
     }
+
+    /** Lugares que salen en las direcciones de las polizas (ver aseguradoraEnTexto). */
+    private const LUGARES = ['CARACAS', 'VENEZUELA', 'MIRANDA', 'MATURIN', 'MONAGAS', 'ANZOATEGUI',
+                             'BARCELONA', 'VALENCIA', 'MARACAIBO', 'ORIENTE', 'OCCIDENTE', 'CAPITAL'];
 
     /**
      * Compara un nombre de la ficha con el del documento. Devuelve [iguales, motivo, sirve]:
@@ -707,8 +750,10 @@ class LectorDocumentoPdf
      * letras de otro alfabeto que son IGUALES a las nuestras (HOMOGLIFOS) pasadas a latinas, y
      * O, I, S como 0, 1, 5 (lo que confunde el reconocimiento). Una Н cirilica tecleada por
      * error no es otra letra: sin esto el vehiculo no se encontraba en sus propios documentos.
+     * Publica: la carga masiva busca el equipo con la misma tolerancia (ver
+     * CargaMasivaDocumentos::sqlCodigo, que la repite en SQL).
      */
-    private function codigo(string $p): string
+    public function codigo(string $p): string
     {
         return strtr(preg_replace('/[^A-Z0-9]/', '', strtr(mb_strtoupper($p), self::HOMOGLIFOS)),
             ['O' => '0', 'I' => '1', 'S' => '5']);

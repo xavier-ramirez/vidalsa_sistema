@@ -191,6 +191,21 @@ class CargaMasivaDocumentos
             return $this->anotar($this->fallo($nombre, $link, $motivo ?: 'No se pudo leer el PDF.'), $driveId);
         }
 
+        // ROTC de flota: el vencimiento de ESTE equipo es el de SU fila en la tabla, como lo lee
+        // la revision de la noche (LectorDocumentoPdf::filaRotc). El certificado de debajo trae
+        // sus propias fechas y pueden ser viejas: en un ROTC real (25-09-2026) el certificado
+        // vencia el 30/05/2026 y la tabla, renovada, decia 03/07/2027.
+        if ($tipo === LectorDocumentoPdf::ROTC && count($equipos) === 1 && empty($equipos[0]['auxiliar'])) {
+            $fila = $this->lector->filaRotc($equipos[0]['placa'], $equipos[0]['serial'], $leido);
+            if ($fila || (!empty($leido['vence_flota']) && $this->enLaHoja($equipos[0], $leido))) {
+                // Sin la fila (la tabla no salio fila por fila) pero con el equipo en la hoja,
+                // vale la fecha de la cabecera de la flota. Y la emision, la de ESA hoja: la del
+                // certificado va con su propio vencimiento, no con este.
+                $leido['vence'] = $fila['vence'] ?? $leido['vence_flota'];
+                if (!empty($leido['emision_flota'])) $leido['emision'] = $leido['emision_flota'];
+            }
+        }
+
         $propuesta = [
             'archivo' => $nombre,
             'link'    => $link,
@@ -462,14 +477,17 @@ class CargaMasivaDocumentos
      */
     private const ROTULOS = [
         LectorDocumentoPdf::RACDA     => '/PROVIDENCIA ADMINISTRATIVA|RACDA|REGISTRO NACIONAL DE TRANSPORTE TERRESTRE/u',
-        LectorDocumentoPdf::ROTC      => '/\bROTC\b|CERTIFICADO DE CIRCULACI[OÓ]N/u',
+        // "Certificado de circulacion" SOLO no basta: el titulo de propiedad del INTT lo lleva en
+        // la colilla de abajo, y un titulo escaneado cuyo encabezado no se leyo bien salia como
+        // ROTC (visto con un titulo real, 25-09-2026). El del ROTC dice "... DE VEHICULO DE CARGA".
+        LectorDocumentoPdf::ROTC      => '/\bROTC\b|CERTIFICADO DE CIRCULACI[OÓ]N DE VEH[IÍ]CULO DE CARGA/u',
         LectorDocumentoPdf::POLIZA    => '/P[OÓ]LIZA|POLIZA|CUADRO RECIBO|ASEGURAD/u',
-        LectorDocumentoPdf::PROPIEDAD => '/CERTIFICADO DE REGISTRO DE VEH[IÍ]CULO|T[IÍ]TULO DE PROPIEDAD/u',
-        // La compraventa suele citar el titulo ("segun Certificado de Registro de Vehiculo
-        // N°..."): sin su propio rotulo se repartia como TITULO y, en una ficha sin titulo,
-        // quedaba "listo" para entrar en la casilla equivocada. Se anuncia en su encabezado,
-        // antes que esa cita, y por posicion gana.
-        self::COMPRAVENTA             => '/COMPRA\s*-?\s*VENTA/u',
+        // "CERTIFICADO DE REGISTRO" a secas: es lo que dice la colilla del titulo ("CERTIFICADO
+        // DE REGISTRO DE VEHICULO" partido en dos lineas), y a veces lo unico legible de un
+        // titulo escaneado.
+        LectorDocumentoPdf::PROPIEDAD => '/CERTIFICADO DE REGISTRO|T[IÍ]TULO DE PROPIEDAD/u',
+        // El certificado asociado y la compraventa no se reconocen solos: todavia no hay
+        // ejemplos reales de sus formatos. Se sueltan eligiendo el tipo en el modal.
     ];
 
     /**
@@ -536,11 +554,22 @@ class CargaMasivaDocumentos
         ));
         $placas = array_filter(array_merge([$leido['placa'] ?? null], $leido['placas'] ?? []));
 
-        $filas = $seriales ? $this->buscarPorSerial($seriales) : collect();
-        $porQue = $filas->isNotEmpty() ? 'el serial ' . $filas->first()->SERIAL_CHASIS : null;
-        if ($filas->isEmpty() && $placas) {
-            $filas = $this->filasPorPlaca($placas, 5);
-            if ($filas->isNotEmpty()) $porQue = 'la placa ' . $filas->first()->PLACA;
+        // PRIMERO lo que el documento dice que es SUYO: el serial y la placa que van detras de
+        // su rotulo (el certificado de un ROTC de flota, "Placa: ..." en un titulo). Solo si
+        // no dan con nadie se mira todo lo que aparece en la hoja. Con un ROTC real (25-09-2026)
+        // la hoja nombra 17 unidades de la flota y el certificado es de UNA: mirando todo a la
+        // vez, se proponia la que saliera primero y se avisaba de "varias unidades".
+        $filas = collect();
+        $porQue = null;
+        foreach ([[$leido['serial'] ?? null], [$leido['placa'] ?? null], $seriales, $placas] as $i => $lista) {
+            $lista = array_values(array_filter($lista));
+            if (!$lista) continue;
+            $filas = $i % 2 === 0 ? $this->buscarPorSerial($lista) : $this->filasPorPlaca($lista, 5);
+            if ($filas->isNotEmpty()) {
+                $porQue = $i % 2 === 0 ? 'el serial ' . $filas->first()->SERIAL_CHASIS : 'la placa ' . $filas->first()->PLACA;
+                $propio = $i < 2;
+                break;
+            }
         }
         $fila = $filas->first();
         if (!$fila) return [];
@@ -549,7 +578,7 @@ class CargaMasivaDocumentos
         // bajo, siempre la misma) y se avisa, en vez de elegir una al azar sin decirlo. Su
         // vencimiento puede ser el de otra fila de la tabla: eso lo resuelve la revision de la
         // noche, que lee fila por fila.
-        if ($filas->count() > 1 || !empty($leido['flota'])) {
+        if (!$propio && ($filas->count() > 1 || !empty($leido['flota']))) {
             $this->avisoFichas = 'El documento nombra ' . ($filas->count() > 1 ? 'varias unidades registradas' : 'varias unidades')
                 . ': se propone ' . trim(($fila->MARCA ?? '') . ' ' . ($fila->MODELO ?? '')) . ($fila->PLACA ? ' (' . $fila->PLACA . ')' : '')
                 . '. Comprueba que sea la correcta.';
@@ -580,8 +609,7 @@ class CargaMasivaDocumentos
         if (!$seriales) return [];
 
         $filas = EquipoAuxiliar::whereNull('deleted_at')
-            ->whereIn(DB::raw("UPPER(REPLACE(REPLACE(SERIAL, '-', ''), ' ', ''))"),
-                      array_values(array_unique(array_map(fn ($s) => str_replace(['-', ' '], '', $s), $seriales))))
+            ->whereIn(DB::raw(self::sqlCodigo('SERIAL')), $this->codigos($seriales))
             ->orderBy('ID_AUXILIAR')->limit(5)
             ->get(['ID_AUXILIAR', 'SERIAL', 'MARCA', 'MODELO',
                    'LINK_DOC_PROPIEDAD', 'LINK_CERTIFICADO', 'FECHA_VENCIMIENTO_CERT']);
@@ -619,28 +647,45 @@ class CargaMasivaDocumentos
     private function buscarPorSerial(array $seriales)
     {
         return $this->consulta()
-            ->whereIn(DB::raw('UPPER(e.SERIAL_CHASIS)'), array_map('strtoupper', array_values($seriales)))
+            ->whereIn(DB::raw(self::sqlCodigo('e.SERIAL_CHASIS')), $this->codigos($seriales))
             ->orderBy('d.ID_EQUIPO')->limit(5)
             ->get();
     }
 
     private function filasPorPlaca(array $placas, int $tope)
     {
-        // La placa se compara sin guiones ni espacios: en la ficha puede estar "A50AB1D" y en
-        // el PDF "A50-AB1D". Es la misma normalizacion que usa el lector (placaEnLista).
-        $limpias = array_values(array_unique(array_map(
-            fn ($p) => strtoupper(preg_replace('/[^A-Z0-9]/i', '', (string) $p)),
-            $placas
-        )));
-        $limpias = array_filter($limpias);
+        // La placa se compara sin guiones ni espacios ("A50AB1D" en la ficha, "A50-AB1D" en el
+        // PDF) y con O/I/S como 0/1/5, igual que el lector (codigo()).
+        $limpias = $this->codigos($placas);
         if (!$limpias) return collect();
 
         return $this->consulta()
-            ->whereIn(DB::raw("UPPER(REPLACE(REPLACE(REPLACE(d.PLACA, '-', ''), ' ', ''), '.', ''))"), $limpias)
+            ->whereIn(DB::raw(self::sqlCodigo('d.PLACA')), $limpias)
             // Siempre el mismo orden: sin el, el tope (y "la primera") salian al azar.
             ->orderBy('d.ID_EQUIPO')
             ->limit($tope)
             ->get();
+    }
+
+    /**
+     * Placas o seriales como los compara el lector (LectorDocumentoPdf::codigo): sin guiones
+     * ni espacios y con O, I, S como 0, 1, 5. El escaneo confunde esas letras con las cifras
+     * (una poliza real escaneada, 25-09-2026, traia "8XVC508SODDLD2694" por "...S0DDLD2694").
+     */
+    private function codigos(array $valores): array
+    {
+        return array_values(array_unique(array_filter(array_map(
+            fn ($v) => $this->lector->codigo((string) $v), $valores))));
+    }
+
+    /** Lo mismo que codigo(), en SQL, sobre la columna de la ficha. */
+    private static function sqlCodigo(string $columna): string
+    {
+        $sql = "UPPER($columna)";
+        foreach (['-' => '', ' ' => '', '.' => '', 'O' => '0', 'I' => '1', 'S' => '5'] as $de => $a) {
+            $sql = "REPLACE($sql, '$de', '$a')";
+        }
+        return $sql;
     }
 
     /** Base comun: la ficha viva con su documentacion. */
@@ -982,6 +1027,13 @@ class CargaMasivaDocumentos
             if ((int) ($f['id'] ?? 0) === $id && (bool) ($f['auxiliar'] ?? false) === $auxiliar) return true;
         }
         return false;
+    }
+
+    /** La placa o el serial del equipo aparecen en la hoja (ver LectorDocumentoPdf::codigo). */
+    private function enLaHoja(array $ficha, array $leido): bool
+    {
+        $enHoja = $this->codigos(array_merge($leido['placas'] ?? [], $leido['seriales'] ?? []));
+        return (bool) array_intersect($this->codigos(array_filter([$ficha['placa'] ?? null, $ficha['serial'] ?? null])), $enHoja);
     }
 
     /** Los dos enlaces son el mismo archivo de Drive (el enlace lleva a veces "?v=..."). */
