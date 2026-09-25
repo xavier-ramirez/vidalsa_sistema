@@ -32,12 +32,17 @@ class CargaMasivaDocumentosController extends Controller
         $this->autorizar();
 
         $request->validate([
-            'file' => 'required|file|mimes:pdf|max:51200',
+            // El techo lo manda GoogleDriveService::MAX_PDF_KB (la comprobacion central, que
+            // vale para todas las puertas). Aqui se repite para avisar ANTES de procesar.
+            'file' => 'required|file|mimes:pdf|max:' . \App\Services\GoogleDriveService::MAX_PDF_KB,
             'tipo' => ['nullable', Rule::in(CargaMasivaDocumentos::TIPOS)],
         ], [
             'file.required' => 'Debe seleccionar un archivo.',
             'file.mimes'    => 'Solo se aceptan archivos en formato PDF.',
-            'file.max'      => 'El archivo supera el tamaño máximo permitido (50 MB).',
+            // En KB, igual que el aviso de la comprobacion central: si uno dice "2,9 MB" y
+            // el otro "3.000 KB" parecen dos limites distintos.
+            'file.max'      => 'El archivo supera el tamaño máximo permitido ('
+                               . number_format(\App\Services\GoogleDriveService::MAX_PDF_KB, 0, ',', '.') . ' KB).',
         ]);
 
         // Leer con Drive tarda; el limite por defecto de PHP no da para un PDF pesado.

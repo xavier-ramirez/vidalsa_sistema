@@ -80,6 +80,63 @@ class PdfConContenidoActivoTest extends MySqlTestCase
     }
 
     /**
+     * Lo que intenta SALIR del documento: mandar datos a otra dirección, leer otro archivo
+     * o traerse algo remoto. Es lo que pidió el usuario como "que no lea el servidor".
+     * Ninguno aparece en los 43 documentos reales de la máquina.
+     */
+    public function test_no_entra_un_pdf_que_intenta_salir_a_buscar_algo(): void
+    {
+        $casos = [
+            '/SubmitForm'  => '1 0 obj << /Type /Action /S /SubmitForm /F (http://ajeno/x) >> endobj',
+            '/ImportData'  => '1 0 obj << /Type /Action /S /ImportData /F (C:/passwords.txt) >> endobj',
+            '/GoToR'       => '1 0 obj << /Type /Action /S /GoToR /F (//servidor/otro.pdf) >> endobj',
+            '/XFA'         => '1 0 obj << /XFA [ (preamble) 2 0 R ] >> endobj',
+            '/JBIG2Decode' => '1 0 obj << /Filter /JBIG2Decode /Length 10 >> endobj',
+        ];
+        foreach ($casos as $marca => $cuerpo) {
+            $this->assertNotNull($this->rechaza($cuerpo), "Un PDF con {$marca} tiene que rechazarse.");
+        }
+    }
+
+    /** Los enlaces web SÍ pasan: 9 de los 43 documentos reales los traen. */
+    public function test_un_enlace_web_normal_no_bloquea(): void
+    {
+        $this->assertNull(
+            $this->rechaza('1 0 obj << /Type /Action /S /URI /URI (https://www.intt.gob.ve) >> endobj'),
+            'Bloquear /URI dejaría fuera documentos legítimos (9 de 43 lo traen).'
+        );
+    }
+
+    /**
+     * El techo de tamaño vive en la comprobación central, no solo en el formulario: así no
+     * se puede entrar por otra pantalla a subir un archivo enorme.
+     */
+    public function test_un_pdf_que_pasa_del_techo_no_entra(): void
+    {
+        $ruta = tempnam(sys_get_temp_dir(), 'grande') . '.pdf';
+        // Justo por encima del límite, con la cabecera y el cierre correctos.
+        $relleno = str_repeat('A', (GoogleDriveService::MAX_PDF_KB + 50) * 1024);
+        file_put_contents($ruta, "%PDF-1.4\n% " . $relleno . "\ntrailer\n%%EOF\n");
+
+        try {
+            GoogleDriveService::comprobarPdfCompleto($ruta, 'pesado.pdf');
+            $this->fail('Un PDF por encima del techo tiene que rechazarse.');
+        } catch (PdfNoValido $e) {
+            $this->assertStringContainsString('maximo', $e->getMessage());
+            $this->assertStringContainsString('3.000 KB', $e->getMessage(), 'El aviso dice el límite en KB.');
+        } finally {
+            @unlink($ruta);
+        }
+    }
+
+    /** Y uno normal, muy por debajo, entra sin problema. */
+    public function test_un_documento_del_tamano_de_siempre_entra(): void
+    {
+        // La mediana de los documentos reales son 303 KB.
+        $this->assertNull($this->rechaza('% ' . str_repeat('A', 300 * 1024)));
+    }
+
+    /**
      * A PROPÓSITO: el JavaScript NO bloquea. Lo traen documentos legítimos (Word y algunos
      * escáneres lo meten para validar campos) y rechazarlos dejaría al usuario sin poder
      * subir sus propios títulos y pólizas. Si esta prueba empieza a fallar es que alguien

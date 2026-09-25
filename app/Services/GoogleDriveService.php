@@ -10,6 +10,14 @@ use Illuminate\Support\Facades\Storage;
 
 class GoogleDriveService
 {
+    /**
+     * Lo mas que puede pesar un PDF que entre al sistema, en KB. Vale para TODAS las
+     * puertas (ficha, visor, auxiliares y carga masiva), porque se mira en
+     * comprobarPdfCompleto. El formulario de la carga masiva lo repite en su validacion
+     * para avisar antes, pero quien manda es este.
+     */
+    public const MAX_PDF_KB = 3000;
+
     private static $instance = null;
     private $client;
     private $drive;
@@ -261,6 +269,23 @@ class GoogleDriveService
         if ($bytes === 0) {
             throw new \App\Exceptions\PdfNoValido("El archivo «{$nombre}» llego vacio. Vuelve a subirlo.");
         }
+        // TECHO DE TAMANO, aqui y no solo en el formulario: esta es la unica puerta por la
+        // que pasan todos los PDF, asi que el limite no se puede esquivar entrando por otra
+        // pantalla. Un documento de flota (titulo, poliza, certificado escaneado) no llega
+        // ni de lejos: de los 43 reales de la maquina la mediana son 303 KB y solo dos lo
+        // pasan —un informe geotecnico de 22 MB y un plan de soldadura de 5,7 MB—, que no
+        // son documentos de equipo. Ademas cada PDF que entra lo abre Ghostscript de noche
+        // para comprimirlo: cuanto mas pequeno, menos superficie.
+        if ($bytes > self::MAX_PDF_KB * 1024) {
+            // En KB, que es como esta puesto el limite: decirlo en MB ("2,9 MB") no cuadra
+            // con el numero configurado y despista a quien lo lee.
+            $kb = (int) round($bytes / 1024);
+            throw new \App\Exceptions\PdfNoValido(
+                "El PDF «{$nombre}» pesa " . number_format($kb, 0, ',', '.') . ' KB y el maximo son '
+                . number_format(self::MAX_PDF_KB, 0, ',', '.') . ' KB. '
+                . 'Escanealo en blanco y negro o a menos resolucion, o subelo por partes.'
+            );
+        }
 
         $f = fopen($ruta, 'rb');
         if (!$f) throw new \App\Exceptions\PdfNoValido("No se pudo leer el archivo «{$nombre}».");
@@ -313,11 +338,19 @@ class GoogleDriveService
     private static function comprobarSinContenidoActivo(string $ruta, string $nombre, int $bytes): void
     {
         // Nombres PDF: distinguen mayusculas, asi que se comparan tal cual.
+        // Los cinco de abajo son los que intentan SALIR del documento —mandar datos fuera,
+        // leer otro archivo, traerse algo remoto— o los que han servido de puerta de entrada
+        // conocida. Ninguno aparece en los 43 documentos reales de la maquina.
         $prohibido = [
             '/Launch'       => 'una accion para ejecutar programas',
             '/EmbeddedFile' => 'archivos escondidos dentro',
             '/RichMedia'    => 'contenido multimedia incrustado',
             '/Flash'        => 'contenido Flash incrustado',
+            '/SubmitForm'   => 'una accion para mandar datos a otra direccion',
+            '/ImportData'   => 'una accion para leer datos de otro archivo',
+            '/GoToR'        => 'un salto a un documento de fuera',
+            '/XFA'          => 'un formulario XML incrustado',
+            '/JBIG2Decode'  => 'una compresion de imagen que no se acepta por seguridad',
         ];
 
         $f = fopen($ruta, 'rb');

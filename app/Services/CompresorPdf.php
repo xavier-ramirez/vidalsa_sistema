@@ -76,9 +76,15 @@ class CompresorPdf
     /** Numero de paginas. */
     public function paginas(string $pdf): int
     {
-        // runpdfbegin necesita leer el archivo fuera de -dSAFER: se permite SOLO ese.
+        // -dSAFER + --permit-file-read: Ghostscript sigue en modo seguro y SOLO se le abre
+        // este archivo. Antes iba con -dNOSAFER, que apaga TODAS las protecciones (no solo
+        // la de leer: tambien deja escribir y abrir tuberias), y eso corre sobre un PDF que
+        // llega de fuera. --permit-file-read esta pensado justamente para usarse CON SAFER.
+        // Comprobado en los 20 PDF reales de la maquina: cuenta las mismas paginas en los
+        // dos modos, asi que no se pierde nada. OJO si alguien lo revierte: este PDF puede
+        // venir de un correo o de WhatsApp y aqui se abre EN EL SERVIDOR.
         $salida = $this->correr([
-            '-q', '-dNODISPLAY', '-dNOSAFER', '--permit-file-read=' . $pdf,
+            '-q', '-dNODISPLAY', '-dSAFER', '--permit-file-read=' . $pdf,
             '-c', '(' . $this->rutaPostScript($pdf) . ') (r) file runpdfbegin pdfpagecount = quit',
         ]);
         return (int) trim($salida);
