@@ -20,11 +20,24 @@ class PanelOtrosAlmacenesTest extends MySqlTestCase
     {
         $admin = $this->superAdminGlobal();
         // Un producto con saldo en DOS almacenes o más: desde el primero, el otro sale en la lista.
-        $fila = AlmacenStock::query()
+        // Si la base no trae ninguno, se le da saldo en otro almacén a uno que ya tiene (dentro
+        // de la transacción del test). Fuera los de la papelera: un producto borrado conserva
+        // su saldo para poder restaurarlo, pero ya no se consulta.
+        $activos = ProductoInventario::query()->select('ID_PRODUCTO');
+        $buscar = fn () => AlmacenStock::query()
             ->selectRaw('ID_PRODUCTO, MIN(ID_ALMACEN) as alm')
             ->where('CANTIDAD', '>', 0)
+            ->whereIn('ID_PRODUCTO', $activos)
             ->groupBy('ID_PRODUCTO')->havingRaw('COUNT(DISTINCT ID_ALMACEN) > 1')
             ->first();
+        if (!$fila = $buscar()) {
+            $uno = AlmacenStock::where('CANTIDAD', '>', 0)->whereIn('ID_PRODUCTO', $activos)->first();
+            $otro = $uno ? Almacen::query()->activos()->where('ID_ALMACEN', '!=', $uno->ID_ALMACEN)->value('ID_ALMACEN') : null;
+            if ($otro) {
+                \DB::table('almacen_stock')->insert(['ID_ALMACEN' => $otro, 'ID_PRODUCTO' => $uno->ID_PRODUCTO, 'ID_FRENTE' => 0, 'CANTIDAD' => 3]);
+                $fila = $buscar();
+            }
+        }
         $this->assertNotNull($fila, 'Hace falta un producto con saldo en dos almacenes.');
         $producto = ProductoInventario::find($fila->ID_PRODUCTO);
 

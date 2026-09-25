@@ -131,6 +131,21 @@ class RotcDeFlotaTest extends MySqlTestCase
     }
 
     /**
+     * Se ata SOLO por el serial de chasis. Un equipo con la placa de una fila pero OTRO serial
+     * (la placa paso a otro vehiculo) no se lleva la parte de ese camion.
+     */
+    public function test_la_placa_sola_no_ata_un_equipo_a_la_flota(): void
+    {
+        $bueno = $this->equipo($this->flota[0]);
+        $this->equipo(['placa' => $this->flota[1]['placa'], 'serial' => 'LZZOTRO' . strtoupper(substr(uniqid(), -10))]);
+
+        $p = $this->soltar($this->pdf);
+
+        $this->assertSame([$bueno->ID_EQUIPO], array_column($p['equipos'], 'id'));
+        $this->assertStringContainsString('1 registrados', $p['aviso']);
+    }
+
+    /**
      * Aplicar deja en cada ficha SU parte con SUS fechas; volver a aplicar no sube otra, y la
      * fila pasa a "Aplicado" con la ultima.
      */

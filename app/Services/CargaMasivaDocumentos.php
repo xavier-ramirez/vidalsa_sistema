@@ -380,33 +380,24 @@ class CargaMasivaDocumentos
     private function propuestaDeFlota(string $nombre, string $link, ?string $md5, ?string $driveId, array $flota): array
     {
         $filas = collect($flota['filas']);
-        $filas = $filas->unique(fn ($f) => $this->lector->codigo($f['serial']) . '|' . $this->lector->codigo($f['placa']))->values();
+        // SOLO por el serial de chasis (N.I.V.): no se repite y no cambia de vehiculo. La
+        // placa si: una que paso a otro camion le daria a esta ficha la fila, el certificado
+        // y el vencimiento de ese otro. Un equipo sin serial en el sistema no se reparte.
         $porSerial = $filas->keyBy(fn ($f) => $this->lector->codigo($f['serial']));
-        $porPlaca  = $filas->keyBy(fn ($f) => $this->lector->codigo($f['placa']));
-        $certs = collect($flota['certificados']);
-        $certSerial = $certs->keyBy(fn ($c) => $this->lector->codigo($c['serial']));
-        $certPlaca  = $certs->keyBy(fn ($c) => $this->lector->codigo($c['placa']));
+        $certSerial = collect($flota['certificados'])->keyBy(fn ($c) => $this->lector->codigo($c['serial']));
 
         $registrados = $this->consulta()
-            ->where(fn ($q) => $q->whereIn(DB::raw(self::sqlCodigo('e.SERIAL_CHASIS')), $porSerial->keys()->all())
-                                 ->orWhereIn(DB::raw(self::sqlCodigo('d.PLACA')), $porPlaca->keys()->all()))
+            ->whereIn(DB::raw(self::sqlCodigo('e.SERIAL_CHASIS')), $porSerial->keys()->all())
             ->orderBy('d.ID_EQUIPO')->get();
 
         $fichas = [];
         $conCertificado = 0;
         foreach ($registrados as $r) {
-            // Por el serial primero: el N.I.V. no se repite; la placa, si.
             $fila = $porSerial->get($this->lector->codigo((string) $r->SERIAL_CHASIS));
-            $porQue = $fila ? 'el serial ' . $r->SERIAL_CHASIS : null;
-            if (!$fila && ($fila = $porPlaca->get($this->lector->codigo((string) $r->PLACA)))) $porQue = 'la placa ' . $r->PLACA;
             if (!$fila) continue;
-            // Por la placa solo vale si el serial no la contradice: una placa que paso a otro
-            // vehiculo le daria a esta ficha la fila, el certificado y el vencimiento de ese
-            // otro (mismo criterio que LectorDocumentoPdf::filaRotc).
-            if (!str_starts_with($porQue, 'el serial') && trim((string) $r->SERIAL_CHASIS) !== ''
-                && !$this->lector->serialDeFila((string) $r->SERIAL_CHASIS, $fila['serial'])) continue;
+            $porQue = 'el serial ' . $r->SERIAL_CHASIS;
 
-            $cert = $certSerial->get($this->lector->codigo($fila['serial'])) ?? $certPlaca->get($this->lector->codigo($fila['placa']));
+            $cert = $certSerial->get($this->lector->codigo($fila['serial']));
             if ($cert) $conCertificado++;
             $fichas[] = ['coincide_por' => $porQue] + $this->ficha($r) + ['rotc' => [
                 'tabla'   => $fila['pagina'],
@@ -416,7 +407,7 @@ class CargaMasivaDocumentos
             ]];
         }
 
-        $total = $filas->count();
+        $total = $porSerial->count();
         $propuesta = [
             'archivo' => $nombre, 'link' => $link, 'tipo' => LectorDocumentoPdf::ROTC,
             'tipo_nombre' => self::NOMBRES[LectorDocumentoPdf::ROTC],
