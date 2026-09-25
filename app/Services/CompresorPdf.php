@@ -26,7 +26,6 @@ class CompresorPdf
         $this->bin = $bin ?? (string) config('services.compresion_pdf.ghostscript', 'gs');
     }
 
-    /** ¿Esta Ghostscript instalado y responde? */
     /**
      * Cuanto se recuerda si Ghostscript esta instalado. Comprobarlo cuesta LANZAR UN
      * PROCESO: medido en el panel de Compresion, ~200 ms de los ~230 que tardaba en abrir,
@@ -36,6 +35,7 @@ class CompresorPdf
      */
     private const MINUTOS_RECORDADO = 10;
 
+    /** ¿Esta Ghostscript instalado y responde? */
     public function disponible(): bool
     {
         return (bool) \Illuminate\Support\Facades\Cache::remember(

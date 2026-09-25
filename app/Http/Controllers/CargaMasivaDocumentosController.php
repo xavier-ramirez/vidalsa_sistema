@@ -69,8 +69,8 @@ class CargaMasivaDocumentosController extends Controller
                 : Rule::exists('equipos', 'ID_EQUIPO')->whereNull('deleted_at')],
             'tipo'      => ['required', Rule::in(CargaMasivaDocumentos::TIPOS)],
             'link'      => 'required|string|starts_with:/storage/google/',
-            'vence'     => 'nullable|date',
-            'emision'   => 'nullable|date',
+            'vence'     => 'nullable|date_format:Y-m-d',
+            'emision'   => 'nullable|date_format:Y-m-d',
             'pisar'     => 'nullable|boolean',
             // Modo ensayo: comprueba y dice que haria, pero no escribe nada.
             'ensayo'    => 'nullable|boolean',

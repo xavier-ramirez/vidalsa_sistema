@@ -18,8 +18,8 @@
 @can('docs.carga.masiva')
 <style>
     /* Mismo lenguaje que el aviso de cierre de sesión (partials/session_timeout): tarjeta
-       blanca de 16 px de radio, borde suave y sombra larga. Sin barra oscura arriba: el
-       título va dentro de la tarjeta, con su ícono en una pastilla azul clara. */
+       blanca de 16 px de radio, borde suave y sombra larga. El encabezado lleva el degradado
+       del botón principal (ver .hd-cm-head). */
     #hdCmOverlay { position: fixed; inset: 0; background: rgba(15,23,42,0.45); z-index: 2500; display: flex; justify-content: center; align-items: center; }
     /* SIN overflow:hidden: la lista del desplegable del tipo se sale de la tarjeta y con él
        quedaba cortada por el borde de abajo (solo se veían 3 de las 7 opciones). Las esquinas

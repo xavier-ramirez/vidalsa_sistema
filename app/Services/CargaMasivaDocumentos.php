@@ -130,7 +130,7 @@ class CargaMasivaDocumentos
         $prefijo = self::PREFIJOS[$tipoPedido] ?? 'doc_masivo_';
         $this->avisoFichas = null;
         // La huella del archivo: con ella se sabe si ESTE MISMO PDF ya se habia soltado antes
-        // (ver yaSeSolto). Se saca antes de subirlo: subirPdf puede mover el temporal.
+        // (ver yaSeSolto). Se saca antes de subirlo.
         $md5 = @md5_file($archivo->getRealPath()) ?: null;
 
         try {
@@ -150,6 +150,21 @@ class CargaMasivaDocumentos
         $driveId = DocumentoAnexo::driveIdDeLink($link);
         if (!$driveId) return $this->fallo($nombre, $link, 'El archivo se subio pero Drive no devolvio un enlace utilizable.');
 
+        // Lo que falle de aqui en adelante (una consulta, anotar la fila) dejaria el PDF en
+        // Drive sin fila en la tabla: nadie podria aplicarlo ni descartarlo. Vuelve a la
+        // papelera y la pantalla dice que NO se subio, que es lo cierto.
+        try {
+            return $this->proponer($archivo, $tipoPedido, $nombre, $link, $driveId, $md5);
+        } catch (\Throwable $e) {
+            Log::error('Carga masiva: fallo al analizar un PDF ya subido', ['archivo' => $nombre, 'error' => $e->getMessage()]);
+            GoogleDriveService::borrarTrasResponder($driveId);
+            return $this->fallo($nombre, null, 'No se pudo analizar el archivo. Vuelve a subirlo.');
+        }
+    }
+
+    /** Lee el PDF ya subido y arma su propuesta (ver analizar). */
+    private function proponer(UploadedFile $archivo, ?string $tipoPedido, string $nombre, string $link, string $driveId, ?string $md5): array
+    {
         // El motivo por el que la lectura de siempre no llego a nada: es el que se le enseña al
         // usuario si la IA tampoco lo resuelve (o no esta puesta). Los mismos mensajes de
         // siempre, en el mismo orden: primero "no se pudo leer", luego "esta en blanco" y por
@@ -278,8 +293,8 @@ class CargaMasivaDocumentos
      * ORIGEN='carga_masiva' para no confundirla con lo que lee la tarea de la noche.
      *
      * NO escribe en ninguna ficha: es una propuesta esperando que alguien pulse "Aplicar".
-     * Si falla al anotarla no se rompe la subida —el PDF ya esta en Drive y la pantalla ya
-     * tiene su respuesta—, pero queda en el log.
+     * Si falla al anotarla, la excepcion sube a analizar(), que devuelve el PDF a la papelera:
+     * sin su fila nadie podria aplicarlo ni descartarlo.
      */
     private function anotar(array $propuesta, ?string $driveId): array
     {
@@ -304,9 +319,11 @@ class CargaMasivaDocumentos
                 ]
             );
         } catch (\Throwable $e) {
+            // Sin su fila el PDF no se podria aplicar ni descartar: que lo recoja analizar().
             Log::warning('Carga masiva: no se pudo anotar la propuesta', [
                 'archivo' => $propuesta['archivo'], 'error' => $e->getMessage(),
             ]);
+            throw $e;
         }
 
         return $propuesta;
@@ -383,6 +400,11 @@ class CargaMasivaDocumentos
             $porQue = $fila ? 'el serial ' . $r->SERIAL_CHASIS : null;
             if (!$fila && ($fila = $porPlaca->get($this->lector->codigo((string) $r->PLACA)))) $porQue = 'la placa ' . $r->PLACA;
             if (!$fila) continue;
+            // Por la placa solo vale si el serial no la contradice: una placa que paso a otro
+            // vehiculo le daria a esta ficha la fila, el certificado y el vencimiento de ese
+            // otro (mismo criterio que LectorDocumentoPdf::filaRotc).
+            if (!str_starts_with($porQue, 'el serial') && trim((string) $r->SERIAL_CHASIS) !== ''
+                && !$this->lector->serialDeFila((string) $r->SERIAL_CHASIS, $fila['serial'])) continue;
 
             $cert = $certSerial->get($this->lector->codigo($fila['serial'])) ?? $certPlaca->get($this->lector->codigo($fila['placa']));
             if ($cert) $conCertificado++;
@@ -783,9 +805,9 @@ class CargaMasivaDocumentos
         if (!$fila) return [];
 
         // Una poliza o un ROTC de FLOTA nombran varias unidades: se propone una (la de ID mas
-        // bajo, siempre la misma) y se avisa, en vez de elegir una al azar sin decirlo. Su
-        // vencimiento puede ser el de otra fila de la tabla: eso lo resuelve la revision de la
-        // noche, que lee fila por fila.
+        // bajo, siempre la misma) y se avisa, en vez de elegir una al azar sin decirlo. En un
+        // ROTC el vencimiento es el de SU fila de la tabla (filaRotc, en proponer); el ROTC
+        // entero de la flota ni llega aqui (propuestaDeFlota).
         if (!$propio && ($filas->count() > 1 || !empty($leido['flota']))) {
             $this->avisoFichas = 'El documento nombra ' . ($filas->count() > 1 ? 'varias unidades registradas' : 'varias unidades')
                 . ': se propone ' . trim(($fila->MARCA ?? '') . ' ' . ($fila->MODELO ?? '')) . ($fila->PLACA ? ' (' . $fila->PLACA . ')' : '')
@@ -1041,8 +1063,10 @@ class CargaMasivaDocumentos
 
         $datos = [$colLink => $link];
         if ($colVence && $vence) $datos += DocumentacionDeEquipo::datosVencimiento($tipo, $vence);
-        if ($emision && isset(DocumentacionDeEquipo::EMISION[$tipo])) {
-            $datos[DocumentacionDeEquipo::EMISION[$tipo]] = $emision;
+        // La emision va SIEMPRE con el documento nuevo: si este no la trae, se vacia. Quedarse
+        // con la del PDF reemplazado seria la fecha de otro papel (mismo criterio que deleteDoc).
+        if (isset(DocumentacionDeEquipo::EMISION[$tipo])) {
+            $datos[DocumentacionDeEquipo::EMISION[$tipo]] = $emision ?: null;
         }
         $datos[DocumentacionDeEquipo::COLUMNAS[$tipo]['autor']] = auth()->user()->ID_USUARIO;
         $datos[DocumentacionDeEquipo::COLUMNAS[$tipo]['fecha']] = now();
@@ -1070,7 +1094,8 @@ class CargaMasivaDocumentos
         // copia. O sea: reemplazar un documento desde el local no toca la ficha del servidor,
         // pero SI borraria de Drive el archivo al que apunta su enlace, y ese documento se
         // perderia para todos. Se deja el archivo huerfano, que no le hace daño a nadie, y
-        // queda en el log para poder limpiarlo a mano si hiciera falta.
+        // queda en el log para poder limpiarlo a mano si hiciera falta. (El job tambien lo
+        // comprueba —EnlacesDocumentos::esBaseDelServidor—; aqui ni se llega a pedir.)
         if ($anterior && $anterior !== $link && ($viejoId = DocumentoAnexo::driveIdDeLink($anterior))) {
             if (app()->environment('local')) {
                 Log::info('Carga masiva en local: NO se borra de Drive el documento reemplazado', [
@@ -1148,14 +1173,15 @@ class CargaMasivaDocumentos
         $aux->update($datos);
 
         // Igual que en los equipos: en LOCAL no se borra de Drive el reemplazado (el .env de
-        // desarrollo apunta al Drive REAL y se perderia para todos).
-        if ($anterior && $anterior !== $link && ($viejoId = DocumentoAnexo::driveIdDeLink($anterior))) {
+        // desarrollo apunta al Drive REAL y se perderia para todos). En el servidor, como el
+        // formulario (olvidarDoc): tambien los antiguos del disco public, servidos sin sesion.
+        if ($anterior && $anterior !== $link) {
             if (app()->environment('local')) {
                 Log::info('Carga masiva en local: NO se borra de Drive el documento reemplazado', [
-                    'auxiliar' => $aux->ID_AUXILIAR, 'tipo' => $tipo, 'drive_id' => $viejoId,
+                    'auxiliar' => $aux->ID_AUXILIAR, 'tipo' => $tipo, 'enlace' => $anterior,
                 ]);
             } else {
-                GoogleDriveService::borrarTrasResponder($viejoId);
+                EquipoAuxiliar::olvidarDoc($anterior);
             }
         }
 

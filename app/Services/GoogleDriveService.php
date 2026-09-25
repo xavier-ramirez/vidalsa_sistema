@@ -13,8 +13,8 @@ class GoogleDriveService
     /**
      * Lo mas que puede pesar un PDF que entre al sistema, en KB. Vale para TODAS las
      * puertas (ficha, visor, auxiliares y carga masiva), porque se mira en
-     * comprobarPdfCompleto. El formulario de la carga masiva lo repite en su validacion
-     * para avisar antes, pero quien manda es este.
+     * comprobarPdfCompleto. Los formularios lo repiten en su validacion para avisar antes
+     * de subir, pero quien manda es este.
      */
     public const MAX_PDF_KB = 3000;
 

@@ -309,7 +309,7 @@ class LectorDocumentoPdf
     }
 
     /** ¿El serial de la ficha es el de la fila, entero o su final (8 o mas caracteres)? */
-    private function serialDeFila(string $serial, string $deFila): bool
+    public function serialDeFila(string $serial, string $deFila): bool
     {
         [$s, $f] = [$this->codigo($serial), $this->codigo($deFila)];
         return $s === $f || (strlen($s) >= 8 && strlen($s) < strlen($f) && str_ends_with($f, $s));

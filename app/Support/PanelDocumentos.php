@@ -128,7 +128,7 @@ class PanelDocumentos
         // desplegable o por la URL.
         $pedido = $request->input('estado_doc');
         $estadoDoc = (in_array($pedido, ['revisar', 'corregibles'], true) || in_array($pedido, $estados, true)) ? $pedido : null;
-        // Los cuatro documentos, los mismos que ofrece el desplegable de la vista.
+        // Los tipos de documento, los mismos que ofrece el desplegable de la vista.
         $tipoDoc = array_key_exists((string) $request->input('tipo_doc'),
                                     VerificacionDocumento::NOMBRES + \App\Services\CargaMasivaDocumentos::NOMBRES)
             ? $request->input('tipo_doc') : null;

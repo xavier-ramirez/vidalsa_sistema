@@ -200,6 +200,15 @@ class VerificarDocumentos extends Command
     private function procesar(string $tipo, object $f, LectorDocumentoPdf $lector, array $catalogo): void
     {
         $driveId = DocumentoAnexo::driveIdDeLink($f->LINK);
+        // Una carga masiva repartida A MEDIAS (un RACDA ya enlazado a la primera ficha y las
+        // demas por aplicar) comparte clave con esta lectura (indice unico ID_EQUIPO, TIPO,
+        // DRIVE_ID). Leerla ahora se quedaria con esa fila, dejaria de ser de la carga y el
+        // resto de las fichas ya no se podria aplicar. Se lee cuando la carga se cierre.
+        if ($driveId && VerificacionDocumento::deCargaMasiva()->where('ID_EQUIPO', $f->ID_EQUIPO)
+                ->where('TIPO', $tipo)->where('DRIVE_ID', $driveId)
+                ->whereIn('ESTADO', VerificacionDocumento::DE_LA_CARGA)->exists()) {
+            return;
+        }
         $leido = [];
         $diferencias = [];
         $texto = '';
@@ -355,10 +364,17 @@ class VerificarDocumentos extends Command
         // Las que YA se aplicaron si se van: su PDF era el de esta casilla y ha quedado
         // reemplazado por el que se acaba de leer, asi que esa fila habla de un archivo que ya
         // no esta enlazado. Sin esto se quedaban para siempre diciendo "Aplicado".
-        VerificacionDocumento::where('ID_EQUIPO', $f->ID_EQUIPO)->where('TIPO', $tipo)
+        $retirar = VerificacionDocumento::where('ID_EQUIPO', $f->ID_EQUIPO)->where('TIPO', $tipo)
             ->where(fn ($q) => $q->where('ORIGEN', VerificacionDocumento::DE_LA_NOCHE)
                 ->orWhere('ESTADO', VerificacionDocumento::APLICADO))
-            ->where('ID_REGISTRO', '<>', $reg->ID_REGISTRO)->delete();
+            ->where('ID_REGISTRO', '<>', $reg->ID_REGISTRO);
+        // Un ROTC de flota ya repartido: ninguna ficha enlaza el original (cada una tiene SU
+        // parte) y con esta fila se va lo unico que lo recordaba. A la papelera de Drive; el
+        // job no toca un archivo que alguna fila siga enlazando (EnlacesDocumentos::sigueEnUso).
+        (clone $retirar)->deCargaMasiva()->get(['DRIVE_ID', 'PROPUESTA'])
+            ->filter(fn ($r) => !empty($r->PROPUESTA['flota_rotc']) && $r->DRIVE_ID)
+            ->each(fn ($r) => \App\Services\GoogleDriveService::borrarTrasResponder($r->DRIVE_ID));
+        $retirar->delete();
 
         // MANDA EL DOCUMENTO: lo que dice el PDF se pone en la ficha, este vacia o diga otra
         // cosa. Nunca la placa ni el serial (CorrectorFichaDocumento::CAMPOS), y nunca si el
