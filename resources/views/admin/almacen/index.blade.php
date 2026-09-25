@@ -182,13 +182,17 @@
        El JS de esta pantalla solo ESCRIBE .style.* sobre campos de formulario y el canvas
        de etiquetas — nunca sobre estas celdas—, así que no hay interacción con el cambio. */
     /* "Despachos" es un <a> dentro de un menú de <button>s: sin esto saldría
-       subrayado y sin la fila alineada como los demás. La pill va pegada a la derecha. */
+       subrayado y sin la fila alineada como los demás.
+       box-sizing: un <a> suma el padding al width:100% (un <button> no) y se salía del menú,
+       que lo recorta: la pill quedaba cortada contra el borde derecho.
+       La pill va JUNTO a la palabra "Despachos", no pegada al borde (lo pidió el cliente:
+       salía muy lejos del texto al que se refiere). */
     #almAccionesMenu .alm-acc-despacho { display: flex; align-items: center; gap: 10px; padding: 11px 14px;
                                          color: #475569; background: transparent; border: none;
-                                         border-bottom: 1px solid #f1f5f9; width: 100%; text-align: left;
-                                         cursor: pointer; text-decoration: none; }
+                                         border-bottom: 1px solid #f1f5f9; width: 100%; box-sizing: border-box;
+                                         text-align: left; cursor: pointer; text-decoration: none; }
     #almAccionesMenu .alm-acc-despacho:hover { background: #f8fafc; }
-    #almAccionesMenu .alm-acc-pill { margin-left: auto; font-size: 11px; font-weight: 800; padding: 2px 8px;
+    #almAccionesMenu .alm-acc-pill { margin-left: -2px; font-size: 11px; font-weight: 800; padding: 2px 8px;
                                      border-radius: 999px; white-space: nowrap; }
     /* Foto dentro de "Detalles del producto": un CÍRCULO centrado (lo pidió el cliente). Sin
        foto, el mismo círculo con su ícono en gris.

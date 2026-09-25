@@ -680,9 +680,10 @@
         transition: background 0.15s;
     }
     .alm-mov-accion:hover { background: #cbd5e1; }
-    /* Pill de "Despachos", a la derecha del item. Los colores vienen de
+    /* Pill de "Despachos", JUNTO a la palabra (pegada al borde quedaba muy lejos del texto
+       al que se refiere; igual que en el menú Acciones de Inventario). Los colores vienen de
        Traspaso::ESTADOS_META en el propio item (En tránsito / Confirmada). */
-    .alm-mov-accion-pill { margin-left: auto; flex: 0 0 auto; padding: 2px 8px; border-radius: 999px; font-size: 10.5px;
+    .alm-mov-accion-pill { margin-left: -2px; flex: 0 0 auto; padding: 2px 8px; border-radius: 999px; font-size: 10.5px;
         font-weight: 800; text-transform: uppercase; letter-spacing: .3px; white-space: nowrap; }
     .alm-mov-accion:focus { background: transparent; outline: none; }
     .alm-mov-accion:focus-visible { outline: 2px solid #0067b1; outline-offset: -2px; }
