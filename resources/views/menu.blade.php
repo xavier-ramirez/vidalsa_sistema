@@ -1248,122 +1248,6 @@
     <!-- Partial Modal for Equipment Details (Used by Alerts) -->
     @include('admin.equipos.partials.equipment_details_modal')
 
-    {{-- ============================================================ --}}
-    {{-- MODAL DE RECEPCIÓN DIRECTA (Abierto desde el menú) --}}
-    {{-- ============================================================ --}}
-    @php
-        $menuUser = auth()->user();
-    @endphp
-
-    {{-- El modal reutiliza exactamente la misma lógica JS de movilizaciones_index.js --}}
-    <div id="recepcionDirectaModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 10000; justify-content: center; align-items: center;">
-        <div style="background: white; width: 95%; max-width: 450px; max-height: 90vh; border-radius: 16px; padding: 0; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); animation: slideDown 0.3s ease-out; display: flex; flex-direction: column; overflow: hidden;">
-
-            {{-- Header --}}
-            <div style="background: linear-gradient(135deg, #1e293b, #0f172a); padding: 14px 18px; color: white; flex-shrink: 0;">
-                <div style="display: flex; align-items: center; justify-content: space-between;">
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <i class="material-icons" style="font-size: 22px;">input</i>
-                        <div>
-                            <h3 style="margin: 0; font-size: 15px; font-weight: 800;">Recepción Directa</h3>
-                            <p style="margin: 0; font-size: 11px; opacity: 0.85;">Sin movilización previa</p>
-                        </div>
-                    </div>
-                    <button type="button" onclick="cerrarRecepcionDirecta()" style="background: rgba(255,255,255,0.2); border: none; color: white; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
-                        <i class="material-icons" style="font-size: 18px;">close</i>
-                    </button>
-                </div>
-            </div>
-
-            {{-- Body --}}
-            <div style="padding: 20px 25px; overflow-y: auto; flex: 1;">
-
-                {{-- PASO 1: Buscar equipos --}}
-                <div style="margin-bottom: 20px;">
-                    <label for="rdSearchInput" style="display: block; font-size: 13px; font-weight: 700; color: #475569; margin-bottom: 8px;">
-                        <span style="background: #1e293b; color: white; padding: 2px 8px; border-radius: 50%; font-size: 11px; font-weight: 800; margin-right: 6px;">1</span>
-                        Buscar Equipo (Serial, Placa, Motor o #Etiqueta)
-                    </label>
-                    <div style="display: flex; gap: 8px;">
-                        <input type="text" id="rdSearchInput"
-                            placeholder="Buscar seriales..."
-                            style="flex: 1; padding: 10px 14px; border: 1px solid #cbd5e0; border-radius: 10px; font-size: 14px; background: #f8fafc; outline: none;"
-                            autocomplete="off"
-                            onfocus="this.style.borderColor='#1e293b'" onblur="this.style.borderColor='#cbd5e0'"
-                            onkeyup="if(event.key === 'Enter') { if(window.rdSearchTimeout) clearTimeout(window.rdSearchTimeout); buscarEquiposRD(true); } else { if(window.rdSearchTimeout) clearTimeout(window.rdSearchTimeout); window.rdSearchTimeout = setTimeout(() => buscarEquiposRD(), 500); }">
-                    </div>
-                </div>
-
-                {{-- Resultados de búsqueda --}}
-                <div id="rdResultados" style="margin-bottom: 20px; display: none;">
-                    <p style="font-size: 12px; font-weight: 600; color: #94a3b8; margin-bottom: 6px; margin-top: 0; text-transform: uppercase;">Resultados</p>
-                    <div id="rdResultadosList" style="min-height: 100px; max-height: 400px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 10px; background: #fafbfc;">
-                        {{-- populated by JS --}}
-                    </div>
-                </div>
-
-                {{-- Frente receptor --}}
-                @php
-                    $frentesIdsArray = $menuUser ? $menuUser->getFrentesIds() : [];
-                    $assignedFrentes = $frentes->whereIn('ID_FRENTE', $frentesIdsArray);
-                @endphp
-
-                @if($assignedFrentes->count() > 1)
-                    {{-- Si tiene varios frentes asignados, debe elegir uno para la recepción --}}
-                    <div style="margin-bottom: 15px;">
-                        <label for="rdFrenteInput" style="display: block; font-size: 13px; font-weight: 700; color: #475569; margin-bottom: 8px;">
-                            <span style="background: #1e293b; color: white; padding: 2px 8px; border-radius: 50%; font-size: 11px; font-weight: 800; margin-right: 6px;">2</span>
-                            FRENTE DE RECEPCIÓN
-                        </label>
-                        <select id="rdFrenteInput" style="appearance: none; -webkit-appearance: none; width: 100%; padding: 10px 14px; border: 1px solid #cbd5e0; border-radius: 10px; font-size: 14px; background: #f8fafc url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%204%205%22%3E%3Cpath%20fill%3D%22%23a0aec0%22%20d%3D%22M2%200L0%202h4zm0%205L0%203h4z%22%2F%3E%3C%2Fsvg%3E') no-repeat right 14px top 50%; background-size: 8px 10px; outline: none; cursor: pointer;">
-                            @foreach($assignedFrentes as $fA)
-                                <option value="{{ $fA->ID_FRENTE }}">{{ $fA->NOMBRE_FRENTE }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                @else
-                    {{-- Si tiene solo 1 (o es GLOBAL y no tiene asignado, usamos null/hidden) --}}
-                    @php
-                        $singleFrenteObj = $assignedFrentes->first();
-                    @endphp
-                    <input type="hidden" id="rdFrenteInput" value="{{ $singleFrenteObj ? $singleFrenteObj->ID_FRENTE : '' }}">
-                @endif
-
-                {{-- PASO 3: Ubicación específica (opcional) --}}
-                <div style="margin-bottom: 15px;">
-                    <label for="rdUbicacionInput" style="display: block; font-size: 13px; font-weight: 700; color: #475569; margin-bottom: 8px;">
-                        <span style="background: #1e293b; color: white; padding: 2px 8px; border-radius: 50%; font-size: 11px; font-weight: 800; margin-right: 6px;">{{ $assignedFrentes->count() > 1 ? '3' : '2' }}</span>
-                        UBICACIÓN DETALLADA (Opcional)
-                    </label>
-                    <div style="position: relative;">
-                        <input type="text" id="rdUbicacionInput"
-                            placeholder="Ej. Patio de maniobras..."
-                            style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e0; border-radius: 10px; font-size: 14px; background: #f8fafc; outline: none; box-sizing: border-box;"
-                            onfocus="this.style.borderColor='#1e293b'; showUbicacionSuggestions('rd-ubicacion-suggestions')"
-                            onblur="this.style.borderColor='#cbd5e0'; setTimeout(()=>hideUbicacionSuggestions('rd-ubicacion-suggestions'), 200)"
-                            oninput="filterUbicacionSuggestions(this, 'rd-ubicacion-suggestions')">
-                        <div id="rd-ubicacion-suggestions" style="display:none; position:absolute; top:100%; left:0; right:0; background:white; border:1px solid #cbd5e0; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.1); z-index:500; max-height:160px; overflow-y:auto; margin-top:4px;"></div>
-                    </div>
-                </div>
-            </div>
-
-            {{-- Footer --}}
-            <div style="padding: 15px 25px; border-top: 1px solid #e2e8f0; display: flex; gap: 10px; flex-shrink: 0; background: #fafbfc;">
-                <button type="button" onclick="cerrarRecepcionDirecta()"
-                    style="flex: 1; padding: 12px; background: white; border: 1px solid #e2e8f0; border-radius: 10px; font-weight: 600; color: #64748b;">
-                    Cancelar
-                </button>
-                <button type="button" id="btnConfirmarRD" onclick="confirmarRecepcionDirecta()"
-                    style="flex: 1; padding: 12px; background: #1e293b; border: none; border-radius: 10px; font-weight: 700; color: white; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s; box-shadow: 0 4px 6px -1px rgba(30,41,59,0.3);"
-                    onmouseover="this.style.background='#0f172a'; this.style.transform='translateY(-1px)'"
-                    onmouseout="this.style.background='#1e293b'; this.style.transform='translateY(0)'">
-                    <i class="material-icons" style="font-size: 16px;">check_circle</i>
-                    Confirmar
-                </button>
-            </div>
-        </div>
-    </div>
-
     {{-- Scripts inline del dashboard. Van dentro de @section('content') (no en
          @yield('extra_js')) para que el navegador SPA los re-ejecute al volver
          a /menu desde otra página — si vivieran en extra_js quedarían fuera de
@@ -1480,7 +1364,8 @@
             programar();
         })();
 
-        // Animación del modal de recepción directa
+        // Animación slideDown: la usan modales de otras pantallas (equipos, movilizaciones)
+        // que no la definen; una vez inyectada vale para toda la pestaña.
         (function () {
             if (window.__menuStyleRDInjected) return;
             window.__menuStyleRDInjected = true;

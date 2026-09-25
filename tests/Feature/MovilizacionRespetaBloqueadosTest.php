@@ -12,8 +12,7 @@ use Tests\MySqlTestCase;
  * Movilizar equipos respeta la LISTA NEGRA de frentes del usuario.
  *
  * El hueco que cubre: la lista negra (ID_FRENTE_BLOQUEADO) tapa los equipos de esos
- * frentes en TODA la aplicación, pero los dos endpoints de movilización de equipos no
- * la miraban — ni para el destino ni para el origen. Se podía meter material en un
+ * frentes en TODA la aplicación, pero la movilización de equipos no la miraba. Se podía meter material en un
  * frente que el usuario no puede ni ver, y sacar equipos de uno bloqueado mandando su
  * ID por el cuerpo de la petición. El equivalente de auxiliares (bulkMove) sí cortaba,
  * con un comentario que dice "nadie —ni GLOBAL— puede movilizar HACIA un frente
@@ -27,9 +26,10 @@ class MovilizacionRespetaBloqueadosTest extends MySqlTestCase
     {
         [$usuario, $bloqueado, $equipo] = $this->escenario();
 
-        $r = $this->actingAs($usuario)->postJson(route('movilizaciones.recepcionDirecta'), [
-            'ids'               => [$equipo->ID_EQUIPO],
-            'ID_FRENTE_DESTINO' => $bloqueado->ID_FRENTE,
+        $r = $this->actingAs($usuario)->postJson(route('equipos.bulkMobilize'), [
+            'ids'         => [$equipo->ID_EQUIPO],
+            'destination' => $bloqueado->NOMBRE_FRENTE,
+            'generar_pdf' => false,
         ]);
 
         $r->assertStatus(403);
@@ -40,27 +40,24 @@ class MovilizacionRespetaBloqueadosTest extends MySqlTestCase
         );
     }
 
-    public function test_no_deja_sacar_un_equipo_de_un_frente_bloqueado(): void
+    /**
+     * La recepcion directa se retiro. La APK (api/mobile/movilizaciones) todavia puede
+     * mandarla: se rechaza, y NO cae en el despacho (que registraria un movimiento).
+     */
+    public function test_la_apk_ya_no_registra_recepciones_directas(): void
     {
-        [$usuario, $bloqueado, , $destinoOk, $equipoEnBloqueado] = $this->escenario();
+        [$usuario, , $equipo, $destinoOk] = $this->escenario();
+        DB::table('usuarios')->where('ID_USUARIO', $usuario->ID_USUARIO)->update(['PERMISOS' => 'equipos.assign,equipos.create']);
+        $antes = DB::table('movilizacion_historial')->count();
 
-        if (!$equipoEnBloqueado) {
-            $this->markTestSkipped('No hay ningún equipo en el frente que se bloqueó.');
-        }
+        \Laravel\Sanctum\Sanctum::actingAs($usuario->fresh(), ['*']);
+        $this->postJson('/api/mobile/movilizaciones', [
+            'tipo' => 'recepcion_directa', 'ids' => [$equipo->ID_EQUIPO],
+            'ID_EQUIPO' => $equipo->ID_EQUIPO, 'ID_FRENTE_DESTINO' => $destinoOk->ID_FRENTE,
+        ])->assertStatus(422)->assertJson(['success' => false]);
 
-        $r = $this->actingAs($usuario)->postJson(route('movilizaciones.recepcionDirecta'), [
-            'ids'               => [$equipoEnBloqueado->ID_EQUIPO],
-            'ID_FRENTE_DESTINO' => $destinoOk->ID_FRENTE,
-        ]);
-
-        // El equipo no es visible para el usuario, asi que la operacion no encuentra
-        // nada que mover (422) y, sobre todo, el equipo se queda donde estaba.
-        $this->assertContains($r->status(), [403, 422], 'No debe poder moverlo.');
-        $this->assertSame(
-            (int) $bloqueado->ID_FRENTE,
-            (int) Equipo::find($equipoEnBloqueado->ID_EQUIPO)->ID_FRENTE_ACTUAL,
-            'El equipo del frente bloqueado no se debe haber movido.'
-        );
+        $this->assertSame($antes, DB::table('movilizacion_historial')->count(), 'No se registra ningun movimiento.');
+        $this->assertSame((int) $equipo->ID_FRENTE_ACTUAL, (int) Equipo::find($equipo->ID_EQUIPO)->ID_FRENTE_ACTUAL);
     }
 
     /**

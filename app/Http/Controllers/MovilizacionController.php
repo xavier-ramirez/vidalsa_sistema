@@ -17,8 +17,8 @@ class MovilizacionController extends Controller
     public function __construct()
     {
         $this->middleware('auth')->except(['mobileIndex', 'mobileStore']);
-        // Permiso para MOVER equipos (Crear movilizaciones o registrar recepcion directa sin despacho previo)
-        $this->middleware('can:equipos.assign')->only(['bulkStore', 'recepcionDirecta']);
+        // Permiso para MOVER equipos (crear movilizaciones).
+        $this->middleware('can:equipos.assign')->only(['bulkStore']);
         // Borrar/deshacer movilizaciones es destructivo: solo super.admin (consistente con el modulo de equipos).
         $this->middleware('can:super.admin')->only(['bulkDestroy', 'deshacer']);
     }
@@ -579,202 +579,6 @@ class MovilizacionController extends Controller
             Log::error('bulkStore movilizacion error: ' . $e->getMessage());
             return response()->json(['success' => false, 'message' => 'No se pudo registrar la movilizacion.'], 500);
         }
-    }
-
-
-
-    /**
-     * RECEPCIÃ“N DIRECTA: Registrar equipos que llegan sin movilizaciÃ³n previa
-     */
-    public function recepcionDirecta(Request $request)
-    {
-        $usuario = $request->user();
-        
-        $request->validate([
-            'ids' => 'required|array',
-            'ids.*' => 'exists:equipos,ID_EQUIPO',
-            'ID_FRENTE_DESTINO' => 'required|exists:frentes_trabajo,ID_FRENTE',
-            'DETALLE_UBICACION' => 'nullable|string|max:150',
-        ]);
-
-        // Acceso controlado UNICAMENTE por el permiso 'equipos.assign' (middleware
-        // del controller). NIVEL_ACCESO_EQUIPOS del usuario NO restringe el frente destino.
-
-        DB::beginTransaction();
-        try {
-            $now = now();
-            // LISTA NEGRA del usuario: nadie -ni GLOBAL- moviliza HACIA un frente bloqueado.
-            // Es la misma regla que ya corta EquipoAuxiliarController::bulkMove; aqui faltaba,
-            // asi que la lista negra tapaba los equipos de esos frentes en toda la aplicacion
-            // pero no impedia METER equipos nuevos en ellos.
-            $bloqueados = array_map('strval', $usuario->getFrentesBloqueadosIds());
-            if (in_array((string) $request->ID_FRENTE_DESTINO, $bloqueados, true)) {
-                DB::rollBack();
-                return response()->json([
-                    'success' => false,
-                    'message' => 'No tiene permisos para movilizar a este frente.',
-                ], 403);
-            }
-
-            $frenteDestino = FrenteTrabajo::findOrFail($request->ID_FRENTE_DESTINO);
-
-            // Sin `with('frenteActual')` â€” solo usamos ID_FRENTE_ACTUAL directo, no la relacion.
-            // Solo equipos VISIBLES para el usuario: mandar un id por el cuerpo de la peticion
-            // no puede mover un equipo de un frente bloqueado. Mismo criterio que el
-            // scopeFrentes del bulkMove de auxiliares.
-            $consultaEquipos = \App\Models\Equipo::whereIn('ID_EQUIPO', $request->ids);
-            $usuario->aplicarScopeFrentesEquipos($consultaEquipos, 'equipos.ID_FRENTE_ACTUAL');
-            $equipos = $consultaEquipos
-                ->lockForUpdate()
-                ->get(['ID_EQUIPO', 'ID_FRENTE_ACTUAL']);
-
-            // Nombres de los frentes de ORIGEN a congelar en el snapshot — un solo query
-            // por lote (no N+1). El destino es uno solo ($frenteDestino, ya cargado arriba).
-            // Ninguno de los ids es visible para el usuario (p. ej. todos en un frente
-            // bloqueado): no hay nada que recibir. Sin este corte la operacion seguia y
-            // respondia 'N equipos recibidos' habiendo movido CERO, que es mentir en verde.
-            if ($equipos->isEmpty()) {
-                DB::rollBack();
-                return response()->json([
-                    'success' => false,
-                    'message' => 'No se encontraron equipos validos para recibir.',
-                ], 422);
-            }
-
-            $origenIds     = $equipos->pluck('ID_FRENTE_ACTUAL')->filter()->unique()->values();
-            $origenNombres = FrenteTrabajo::whereIn('ID_FRENTE', $origenIds)->pluck('NOMBRE_FRENTE', 'ID_FRENTE');
-
-            $insertData = [];
-            foreach ($equipos as $equipo) {
-                $insertData[] = [
-                    'CODIGO_CONTROL' => null, // Recepciones directas no tienen cÃ³digo de control
-                    'ID_EQUIPO' => $equipo->ID_EQUIPO,
-                    'ID_FRENTE_ORIGEN' => $equipo->ID_FRENTE_ACTUAL ?? $request->ID_FRENTE_DESTINO,
-                    // Nombre congelado al momento del movimiento — ver Movilizacion::getNombreOrigenAttribute.
-                    // Mismo fallback que ID_FRENTE_ORIGEN de arriba: sin origen real, usa el destino.
-                    'NOMBRE_FRENTE_ORIGEN_SNAPSHOT'  => $origenNombres[$equipo->ID_FRENTE_ACTUAL] ?? $frenteDestino->NOMBRE_FRENTE,
-                    'ID_FRENTE_DESTINO' => $request->ID_FRENTE_DESTINO,
-                    'NOMBRE_FRENTE_DESTINO_SNAPSHOT' => $frenteDestino->NOMBRE_FRENTE,
-                    'DETALLE_UBICACION' => $request->DETALLE_UBICACION,
-                    'FECHA_DESPACHO' => null, // No hubo despacho
-                    'TIPO_MOVIMIENTO' => 'RECEPCION_DIRECTA',
-                    'USUARIO_REGISTRO' => $usuario->CORREO_ELECTRONICO ?? 'SISTEMA',
-                    'created_at' => $now,
-                    'updated_at' => $now,
-                ];
-            }
-
-            if (!empty($insertData)) {
-                Movilizacion::insert($insertData);
-            }
-
-            // Actualizar equipos
-            // Sobre los equipos YA ACOTADOS, no sobre $request->ids: si no, el scope de
-            // arriba no serviria de nada porque el update tocaria todo igual.
-            \App\Models\Equipo::whereIn('ID_EQUIPO', $equipos->pluck('ID_EQUIPO'))->update([
-                'ID_FRENTE_ACTUAL' => $request->ID_FRENTE_DESTINO,
-                'DETALLE_UBICACION_ACTUAL' => $request->DETALLE_UBICACION,
-                'CONFIRMADO_EN_SITIO' => 1,
-            ]);
-            // Mass-update sin eventos Eloquent → bump explícito del dashboard.
-            \App\Http\Controllers\DashboardController::bumpDataVersion();
-
-            DB::commit();
-
-            $ubicacionTexto = $frenteDestino->NOMBRE_FRENTE;
-            if ($request->filled('DETALLE_UBICACION')) {
-                $ubicacionTexto .= ' â†’ ' . $request->DETALLE_UBICACION;
-            }
-
-            return response()->json([
-                'success' => true,
-                'message' => count($request->ids) . ' equipo(s) recibido(s) directamente en ' . $ubicacionTexto,
-                'count' => count($request->ids),
-            ]);
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            \Log::error('Error en recepcionDirecta: ' . $e->getMessage());
-            return response()->json(['success' => false, 'message' => 'No se pudo registrar la recepcion directa.'], 500);
-        }
-    }
-
-    /**
-     * API: Buscar equipos para recepciÃ³n directa
-     */
-    public function buscarEquiposParaRecepcion(Request $request)
-    {
-        $query = \App\Models\Equipo::with(['tipo', 'frenteActual', 'documentacion', ...\App\Models\Equipo::conFoto()]);
-
-        // Scope LOCAL: el usuario solo ve equipos de los frentes asignados (barrera
-        // centralizada en Usuario::aplicarScopeFrentes — global ve todo; local sin
-        // frentes no ve nada → query vacío → []). Sin esto, un local podría buscar y
-        // ver PLACA de cualquier equipo, contradiciendo el resto de los flujos.
-        $user = auth()->user();
-        if ($user) {
-            $user->aplicarScopeFrentesEquipos($query, 'ID_FRENTE_ACTUAL');
-        }
-
-        if ($request->filled('search')) {
-            $search = $request->search;
-            $searchUpper = strtoupper(trim($search));
-
-            if (strpos($searchUpper, '#') !== false) {
-                // Mode: Tag Number Search
-                $tagSearch = str_replace('#', '', $searchUpper);
-                $query->where('NUMERO_ETIQUETA', 'like', "%{$tagSearch}%");
-
-            } else {
-                // Búsqueda estándar: cubre SERIAL_CHASIS, SERIAL_DE_MOTOR, CODIGO_PATIO,
-                // NUMERO_ETIQUETA y PLACA. (Se quitó la rama que, si el texto tenía guion,
-                // buscaba SOLO en CODIGO_PATIO — impedía encontrar seriales con guion.
-                // CODIGO_PATIO ya se busca aquí, igual que en /admin/equipos.)
-                // O/0 ambiguity applied ONLY to PLACA
-                $placaVariants = collect([
-                    $searchUpper,
-                    str_replace('O', '0', $searchUpper),
-                    str_replace('0', 'O', $searchUpper),
-                    str_replace(['O', '0'], ['0', 'O'], $searchUpper),
-                ])->unique()->values()->all();
-
-                $query->where(function ($q) use ($searchUpper, $placaVariants) {
-                    $q->where('SERIAL_CHASIS', 'like', "%{$searchUpper}%")
-                      ->orWhere('SERIAL_DE_MOTOR', 'like', "%{$searchUpper}%")
-                      ->orWhere('CODIGO_PATIO', 'like', "%{$searchUpper}%")
-                      ->orWhere('NUMERO_ETIQUETA', 'like', "%{$searchUpper}%")
-                      ->orWhereHas('documentacion', function ($d) use ($placaVariants) {
-                          $d->where(function ($pq) use ($placaVariants) {
-                              foreach ($placaVariants as $variant) {
-                                  $pq->orWhere('PLACA', 'like', "%{$variant}%");
-                              }
-                          });
-                      });
-                });
-            }
-        }
-
-        $equipos = $query->orderBy('CODIGO_PATIO')->limit(20)->get();
-
-        return response()->json($equipos->map(function ($eq) {
-            // La foto de toda la app: Equipo::fotoParaMostrar (color → modelo → propia).
-            $foto = $eq->fotoParaMostrar();
-
-            return [
-                'ID_EQUIPO' => $eq->ID_EQUIPO,
-                'TIPO' => $eq->tipo->nombre ?? 'N/A',
-                'CODIGO_PATIO' => $eq->CODIGO_PATIO,
-                'SERIAL_CHASIS' => $eq->SERIAL_CHASIS,
-                'PLACA' => $eq->documentacion->PLACA ?? 'S/P',
-                'MARCA' => $eq->MARCA,
-                'MODELO' => $eq->MODELO,
-                'ANIO' => $eq->ANIO,
-                'FRENTE_ACTUAL' => $eq->frenteActual->NOMBRE_FRENTE ?? 'Sin Asignar',
-                'FRENTE_ACTUAL_ESTATUS' => $eq->frenteActual->ESTATUS_FRENTE ?? null,
-                'CONFIRMADO' => $eq->CONFIRMADO_EN_SITIO,
-                'DETALLE_UBICACION' => $eq->DETALLE_UBICACION_ACTUAL,
-                'FOTO' => $foto, // URL de foto del equipo o referencial
-            ];
-        }));
     }
 
     /**
@@ -1363,8 +1167,10 @@ class MovilizacionController extends Controller
         $tipo = $request->input('tipo', 'despacho');
         $usuario = $request->user();
 
+        // La RECEPCION DIRECTA se retiro. Una APK vieja que todavia la mande no puede caer en
+        // el despacho de abajo (registraria un movimiento que nadie pidio): se rechaza.
         if ($tipo === 'recepcion_directa') {
-            return $this->recepcionDirecta($request);
+            return response()->json(['success' => false, 'message' => 'La recepcion directa ya no existe. Registra la movilizacion como despacho.'], 422);
         }
 
         $request->validate([

@@ -31,7 +31,7 @@ class Equipo extends Model
     /**
      * Mass-assignment seguro. ID_FRENTE_ACTUAL y ID_ANCLAJE fueron removidos:
      * su mutacion debe pasar por flujos controlados (bulkStore de movilizacion,
-     * bulkAnchor, recepcionDirecta) que validan permisos, scope LOCAL y hacen
+     * bulkAnchor) que validan permisos, scope LOCAL y hacen
      * lockForUpdate. Asignarlos directamente a la propiedad ($eq->ID_FRENTE_ACTUAL = X)
      * sigue funcionando; solo se bloquea $eq->fill($request->all()).
      */
