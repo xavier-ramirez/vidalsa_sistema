@@ -249,14 +249,14 @@ trailer
         );
 
         $respuesta = $this->actingAs($this->usuario())
-            ->patch('/admin/equipos-auxiliares/' . $aux->ID_AUXILIAR, [
-                'SERIAL'      => $aux->SERIAL,
+            ->patch('/admin/equipos-auxiliares/' . $aux->ID_AUXILIAR, $aux->only(['SERIAL', 'TIPO', 'ESTADO_OPERATIVO', 'MARCA', 'MODELO']) + [
                 'certificado' => $pdf,
                 // A PROPÓSITO sin 'fecha_vencimiento_cert': es el caso que se colaba.
             ]);
 
-        $this->assertNotSame(200, $respuesta->status(),
-            'Un certificado nuevo sin su fecha no puede aceptarse.');
+        // El resto de la ficha va completo: el UNICO error tiene que ser el de la fecha (con
+        // la ficha a medias el update caia por TIPO/MARCA... y el test pasaba sin el arreglo).
+        $respuesta->assertSessionHasErrors('fecha_vencimiento_cert');
 
         $aux->refresh();
         $this->assertSame('/storage/google/certificado-viejo', $aux->LINK_CERTIFICADO,
@@ -265,5 +265,27 @@ trailer
             'La fecha anterior se queda como estaba.');
         $this->assertSame(0, $this->drive->subidos(),
             'Ni siquiera se sube a Drive: se rechaza antes.');
+    }
+
+    /** La otra mitad: tampoco se PONE, desde el formulario, la fecha de un certificado que no hay. */
+    public function test_el_formulario_no_pone_fecha_a_un_certificado_que_no_hay(): void
+    {
+        $aux = EquipoAuxiliar::whereNull('deleted_at')->firstOrFail();
+        $aux->LINK_CERTIFICADO       = null;
+        $aux->FECHA_VENCIMIENTO_CERT = null;
+        $aux->save();
+
+        $datos = $aux->only(['SERIAL', 'TIPO', 'ESTADO_OPERATIVO', 'MARCA', 'MODELO']);
+        $this->actingAs($this->usuario())
+            ->patch('/admin/equipos-auxiliares/' . $aux->ID_AUXILIAR, $datos + ['fecha_vencimiento_cert' => now()->addDays(10)->toDateString()])
+            ->assertSessionHasErrors('fecha_vencimiento_cert');
+        $this->assertNull($aux->fresh()->FECHA_VENCIMIENTO_CERT);
+
+        // Una fecha huerfana que YA estaba vuelve rellena en el formulario: no impide editar.
+        $aux->FECHA_VENCIMIENTO_CERT = '2020-01-01';
+        $aux->save();
+        $this->actingAs($this->usuario())
+            ->patch('/admin/equipos-auxiliares/' . $aux->ID_AUXILIAR, $datos + ['fecha_vencimiento_cert' => '2020-01-01'])
+            ->assertSessionDoesntHaveErrors('fecha_vencimiento_cert');
     }
 }

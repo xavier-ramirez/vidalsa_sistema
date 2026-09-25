@@ -2379,8 +2379,9 @@ class EquipoAuxiliarController extends Controller
      * entendiera por que. Es la otra mitad de la regla: fecha y documento van juntos o no
      * van ninguno.
      *
-     * Devuelve el motivo del rechazo, o null si se puede seguir. Lo miran las DOS puertas
-     * que tocan esta fecha sin subir archivo: updateCertExpiry y updateMetadata.
+     * Devuelve el motivo del rechazo, o null si se puede seguir. Lo miran las puertas que
+     * tocan esta fecha sin subir archivo: updateCertExpiry y updateMetadata; el formulario
+     * (store/update) lo comprueba igual en validateData.
      */
     private function vetoFechaSinCertificado(EquipoAuxiliar $aux, $fecha): ?string
     {
@@ -2519,6 +2520,20 @@ class EquipoAuxiliarController extends Controller
             throw \Illuminate\Validation\ValidationException::withMessages([
                 'fecha_vencimiento_cert' => 'La fecha de vencimiento es obligatoria al cargar el certificado.',
             ]);
+        }
+
+        // Y la otra mitad (ver vetoFechaSinCertificado): el formulario tampoco pone la fecha de
+        // un certificado que no hay. En la edicion solo si la fecha CAMBIA: una fecha huerfana
+        // que ya estaba en la base vuelve rellena en el formulario, y rechazarla impediria
+        // editar la marca de ese auxiliar.
+        if ($request->filled('fecha_vencimiento_cert') && !$request->hasFile('certificado')) {
+            $actual = $isCreate ? null : EquipoAuxiliar::whereKey($currentId)->first(['LINK_CERTIFICADO', 'FECHA_VENCIMIENTO_CERT']);
+            $cambia = $isCreate || substr((string) $actual?->FECHA_VENCIMIENTO_CERT, 0, 10) !== substr((string) $request->input('fecha_vencimiento_cert'), 0, 10);
+            if ($cambia && empty($actual?->LINK_CERTIFICADO)) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'fecha_vencimiento_cert' => 'No hay certificado cargado: primero sube el PDF y su fecha va con el.',
+                ]);
+            }
         }
 
         $validated = $request->validate($rules, [

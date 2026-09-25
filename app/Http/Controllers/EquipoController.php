@@ -3472,7 +3472,8 @@ class EquipoController extends Controller
             case 'rotc':
             case 'racda':
             case 'adicional':
-                // Fecha (obligatoria, validada arriba) + fin de la gestion si es futura.
+                // Fecha (obligatoria si hay documento, validada arriba; vacia la borra) + fin
+                // de la gestion si es futura.
                 $updateData = $this->datosVencimiento($type, $request->input('fecha_vencimiento'));
 
                 // Handle insurance name (create if new)

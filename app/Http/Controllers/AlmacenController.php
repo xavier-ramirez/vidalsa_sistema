@@ -445,6 +445,17 @@ class AlmacenController extends Controller
             return [$exacto, false];
         }
 
+        // Si lo escrito SI esta en el catalogo, el vacio lo pusieron los otros filtros
+        // ("Stock bajo", categoria, UM): no hay nada mal escrito que perdonar. Reintentar
+        // ahi enseñaba BOTELLA o BOTON con "sin coincidencias exactas de bota" cuando las
+        // botas existen y solo no estaban en stock bajo. Un exists() sobre el catalogo.
+        $soloTexto = ProductoInventario::query()->activos();
+        $this->aplicarBusquedaProducto($soloTexto, trim((string) $request->input('search')),
+            ['productos_inventario.CODIGO', 'productos_inventario.NOMBRE'], true);
+        if ($soloTexto->exists()) {
+            return [$exacto, false];
+        }
+
         $aproximado = $consulta(true);
 
         return $aproximado->isNotEmpty() ? [$aproximado, true] : [$exacto, false];
@@ -463,6 +474,13 @@ class AlmacenController extends Controller
      */
     private const MAX_PALABRAS_CON_PERDON = 3;
     private const MAX_LETRAS_CON_PERDON   = 12;
+    /**
+     * Y un techo sobre el TOTAL de formas (sumando todas las palabras): los plurales
+     * duplican las variantes (plural y singular, cada uno con las suyas), asi que tres
+     * palabras en plural llegaban a ~1.240 LIKE y 270 ms con 5.000 productos. Por encima
+     * se busca exacto.
+     */
+    private const MAX_FORMAS_CON_PERDON   = 120;
 
     /**
      * Lo que escribio el usuario, listo para meterlo dentro de un LIKE: sus `%` y `_` pasan
@@ -526,12 +544,15 @@ class AlmacenController extends Controller
      *   - letra FALTANTE  ("mangera")  → mang_era  → encuentra MANGUERA
      *   - letra SOBRANTE  ("manguuera")→ manguera  → encuentra MANGUERA
      *
-     * Es el mismo perdón que ya daba el autocomplete (FuzzySearch tolera Levenshtein), que
-     * es justo la incoherencia que esto arregla: la lista sugería las mangueras y la tabla
-     * salía vacía.
+     * Se parece al perdón del autocomplete (FuzzySearch, Levenshtein), aunque es más
+     * estricto: aquí un solo error por palabra y todas las palabras; allí hasta 2-3 errores
+     * y basta la mitad. Arregla el caso de siempre (la lista sugería las mangueras y la
+     * tabla salía vacía), pero algo muy mal escrito puede sugerirse y no encontrarse.
      *
      * Solo palabras de 4 letras o más: en una de tres, cambiar un carácter por `_` deja un
-     * patrón que casa con media base. Y si la palabra ya trae comodines de LIKE (`%`, `_`)
+     * patrón que casa con media base. (Las de 4 dan variantes de 3 letras —"bota" → "bot",
+     * "ota"—, muy anchas; por eso el reintento solo corre si lo escrito no está en NINGÚN
+     * producto del catálogo: ver buscarConPerdonDeTipeo.) Y si la palabra ya trae comodines de LIKE (`%`, `_`)
      * o una barra invertida, se devuelve vacío en vez de intentar escaparlos dentro de un
      * patrón que además lleva comodines puestos por nosotros: ahí no se adivina.
      */
@@ -602,7 +623,8 @@ class AlmacenController extends Controller
         $tokens = $this->tokenizarBusquedaProducto($frase);
         // El MISMO tope que el filtro (MAX_PALABRAS_CON_PERDON): si el orden perdonara lo
         // que el WHERE no perdona, generaria LIKEs que no pueden encajar con nada.
-        $tolerante = $tolerante && count($tokens) <= self::MAX_PALABRAS_CON_PERDON;
+        $tolerante = $tolerante && count($tokens) <= self::MAX_PALABRAS_CON_PERDON
+            && array_sum(array_map(fn ($t) => count($this->formasDeBuscarPalabra($t, true)), $tokens)) <= self::MAX_FORMAS_CON_PERDON;
         foreach ($tokens as $tok) {
             // Se puntúa con las MISMAS formas con las que filtró el WHERE
             // (formasDeBuscarPalabra): el plural y su singular, y en el reintento también
