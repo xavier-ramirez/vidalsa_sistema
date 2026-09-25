@@ -150,7 +150,7 @@ class VerificacionDocumento extends Model
     /** Todos los de la carga masiva, incluido el ya resuelto. Para el filtro de la pantalla. */
     public const DE_LA_CARGA_TODOS = [self::POR_ENGANCHAR, self::SIN_FICHA, self::APLICADO];
 
-    /** Filas que vienen de la carga masiva y siguen sin aplicarse. */
+    /** Filas que vienen de la carga masiva, en cualquier estado (tambien las ya aplicadas). */
     public function scopeDeCargaMasiva($q)
     {
         return $q->where('ORIGEN', self::DE_CARGA_MASIVA);

@@ -9,6 +9,7 @@ use App\Models\EquipoAuditLog;
 use App\Models\EquipoAuxiliar;
 use App\Models\VerificacionDocumento;
 use App\Support\DocumentacionDeEquipo;
+use App\Support\EnlacesDocumentos;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -98,6 +99,14 @@ class CargaMasivaDocumentos
     /** Lo que cabe en verificacion_documento_registro.MOTIVO (varchar 255). */
     private const MOTIVO_MAX = 255;
 
+    /**
+     * Lo que la busqueda de fichas tiene que contar en la propuesta: que el documento nombra
+     * varias unidades y se propuso solo una, que el RACDA paso del tope... Lo llenan
+     * equipoDelDocumento / auxiliarDelDocumento / equiposDelRacda y lo lee analizar(), que lo
+     * vacia al empezar cada archivo.
+     */
+    private ?string $avisoFichas = null;
+
     public function __construct(private LectorDocumentoPdf $lector, private LectorGemini $ia) {}
 
     // ── Paso 1: subir, leer y proponer ────────────────────────────────────────────
@@ -113,6 +122,10 @@ class CargaMasivaDocumentos
     {
         $nombre = $archivo->getClientOriginalName();
         $prefijo = self::PREFIJOS[$tipoPedido] ?? 'doc_masivo_';
+        $this->avisoFichas = null;
+        // La huella del archivo: con ella se sabe si ESTE MISMO PDF ya se habia soltado antes
+        // (ver yaSeSolto). Se saca antes de subirlo: subirPdf puede mover el temporal.
+        $md5 = @md5_file($archivo->getRealPath()) ?: null;
 
         try {
             $link = GoogleDriveService::getInstance()->subirPdf($archivo, $prefijo . time() . '_' . mt_rand(1000, 9999) . '.pdf');
@@ -152,6 +165,9 @@ class CargaMasivaDocumentos
         }
 
         $leido = $tipo ? $this->lector->extraer($tipo, $texto) : [];
+        // Todos los codigos de la hoja: con ellos se reconoce un AUXILIAR aunque su serial sea
+        // corto o no vaya detras de un rotulo de chasis (ver auxiliarDelDocumento).
+        if ($leido) $leido['codigos'] = $this->codigosEnTexto($texto);
         if ($tipo === LectorDocumentoPdf::POLIZA) {
             $catalogo = $this->catalogoAseguradoras();
             $idSeguro = $this->lector->aseguradoraEnTexto($texto, $catalogo);
@@ -189,13 +205,21 @@ class CargaMasivaDocumentos
             'estado'  => 'listo',
             'aviso'   => null,
             'ia'      => $conIa,
+            'md5'     => $md5,
         ];
 
         if (!$equipos) {
             $propuesta['estado'] = 'sin_equipo';
-            $propuesta['aviso'] = $tipo === LectorDocumentoPdf::RACDA
-                ? 'Se leyo la providencia pero ninguna de sus placas esta registrada.'
-                : 'Se leyo el documento pero no dice de que equipo es (ni placa ni serial reconocidos).';
+            $propuesta['aviso'] = match (true) {
+                $tipo === LectorDocumentoPdf::RACDA
+                    => 'Se leyo la providencia pero ninguna de sus placas esta registrada.',
+                // El serial SI cuadro, pero con un auxiliar, y un auxiliar no guarda ese
+                // documento: decir "no se sabe de quien es" haria buscar el fallo donde no esta.
+                !isset(self::TIPOS_AUXILIAR[$tipo]) && $this->auxiliarDelDocumento($leido)
+                    => 'Es de un equipo auxiliar, y los auxiliares solo guardan titulo de propiedad y certificado.',
+                default
+                    => 'Se leyo el documento pero no dice de que equipo es (ni placa ni serial reconocidos).',
+            };
             return $this->anotar($propuesta, $driveId);
         }
 
@@ -207,6 +231,14 @@ class CargaMasivaDocumentos
         } elseif ($conIa) {
             $propuesta['estado'] = 'revisar';
             $propuesta['aviso'] = trim('Leido con apoyo de inteligencia artificial: comprueba el equipo y las fechas antes de aplicar. ' . $notaIa);
+        }
+
+        // Lo que la busqueda de fichas quiere que se mire (varias unidades, tope del RACDA) y
+        // el mismo archivo soltado otra vez: no impiden aplicar, pero no puede salir "listo".
+        $avisos = array_filter([$this->avisoFichas, $this->yaSeSolto($md5, $driveId)]);
+        if ($avisos) {
+            $propuesta['estado'] = 'revisar';
+            $propuesta['aviso'] = trim(implode(' ', $avisos) . ' ' . ($propuesta['aviso'] ?? ''));
         }
 
         return $this->anotar($propuesta, $driveId);
@@ -257,7 +289,7 @@ class CargaMasivaDocumentos
      * se vea que paso con cada archivo que se solto; cuando la tarea de la noche relea ese
      * documento —que ya es de la ficha— la convertira en una lectura suya.
      */
-    private function cerrarPropuesta(string $link): void
+    public function cerrarPropuesta(string $link): void
     {
         if (!$driveId = DocumentoAnexo::driveIdDeLink($link)) return;
 
@@ -433,6 +465,11 @@ class CargaMasivaDocumentos
         LectorDocumentoPdf::ROTC      => '/\bROTC\b|CERTIFICADO DE CIRCULACI[OÓ]N/u',
         LectorDocumentoPdf::POLIZA    => '/P[OÓ]LIZA|POLIZA|CUADRO RECIBO|ASEGURAD/u',
         LectorDocumentoPdf::PROPIEDAD => '/CERTIFICADO DE REGISTRO DE VEH[IÍ]CULO|T[IÍ]TULO DE PROPIEDAD/u',
+        // La compraventa suele citar el titulo ("segun Certificado de Registro de Vehiculo
+        // N°..."): sin su propio rotulo se repartia como TITULO y, en una ficha sin titulo,
+        // quedaba "listo" para entrar en la casilla equivocada. Se anuncia en su encabezado,
+        // antes que esa cita, y por posicion gana.
+        self::COMPRAVENTA             => '/COMPRA\s*-?\s*VENTA/u',
     ];
 
     /**
@@ -499,13 +536,24 @@ class CargaMasivaDocumentos
         ));
         $placas = array_filter(array_merge([$leido['placa'] ?? null], $leido['placas'] ?? []));
 
-        $fila = $seriales ? $this->buscarPorSerial($seriales) : null;
-        $porQue = $fila ? 'el serial ' . $fila->SERIAL_CHASIS : null;
-        if (!$fila && $placas) {
-            $fila = $this->buscarPorPlaca($placas);
-            if ($fila) $porQue = 'la placa ' . $fila->PLACA;
+        $filas = $seriales ? $this->buscarPorSerial($seriales) : collect();
+        $porQue = $filas->isNotEmpty() ? 'el serial ' . $filas->first()->SERIAL_CHASIS : null;
+        if ($filas->isEmpty() && $placas) {
+            $filas = $this->filasPorPlaca($placas, 5);
+            if ($filas->isNotEmpty()) $porQue = 'la placa ' . $filas->first()->PLACA;
         }
+        $fila = $filas->first();
         if (!$fila) return [];
+
+        // Una poliza o un ROTC de FLOTA nombran varias unidades: se propone una (la de ID mas
+        // bajo, siempre la misma) y se avisa, en vez de elegir una al azar sin decirlo. Su
+        // vencimiento puede ser el de otra fila de la tabla: eso lo resuelve la revision de la
+        // noche, que lee fila por fila.
+        if ($filas->count() > 1 || !empty($leido['flota'])) {
+            $this->avisoFichas = 'El documento nombra ' . ($filas->count() > 1 ? 'varias unidades registradas' : 'varias unidades')
+                . ': se propone ' . trim(($fila->MARCA ?? '') . ' ' . ($fila->MODELO ?? '')) . ($fila->PLACA ? ' (' . $fila->PLACA . ')' : '')
+                . '. Comprueba que sea la correcta.';
+        }
 
         // POR QUE se eligio esa ficha. Es lo primero que necesita saber quien mira la tabla
         // ("¿y como se que es de ESE equipo?"): el dato impreso en el PDF que cuadro EXACTO
@@ -520,18 +568,30 @@ class CargaMasivaDocumentos
      */
     private function auxiliarDelDocumento(array $leido): array
     {
-        $seriales = array_values(array_filter(array_merge(
+        // Ademas de los seriales "de chasis", CUALQUIER codigo de la hoja (codigosEnTexto): el
+        // serial de una soldadora o una planta suele ser corto ("S/N U1180512345") y no va
+        // detras de un rotulo de carroceria, asi que el lector de siempre no lo veia. Se exige
+        // que el codigo sea EXACTAMENTE el serial de un auxiliar, no un parecido.
+        $seriales = array_values(array_unique(array_map('strtoupper', array_filter(array_merge(
             [$leido['serial'] ?? null],
-            $leido['seriales'] ?? []
-        )));
+            $leido['seriales'] ?? [],
+            $leido['codigos'] ?? []
+        )))));
         if (!$seriales) return [];
 
-        $fila = EquipoAuxiliar::whereNull('deleted_at')
-            ->whereIn(DB::raw('UPPER(SERIAL)'), array_map('strtoupper', $seriales))
-            ->first(['ID_AUXILIAR', 'SERIAL', 'MARCA', 'MODELO',
-                     'LINK_DOC_PROPIEDAD', 'LINK_CERTIFICADO', 'FECHA_VENCIMIENTO_CERT']);
-
-        return $fila ? [['coincide_por' => 'el serial ' . $fila->SERIAL] + $this->fichaAuxiliar($fila)] : [];
+        $filas = EquipoAuxiliar::whereNull('deleted_at')
+            ->whereIn(DB::raw("UPPER(REPLACE(REPLACE(SERIAL, '-', ''), ' ', ''))"),
+                      array_values(array_unique(array_map(fn ($s) => str_replace(['-', ' '], '', $s), $seriales))))
+            ->orderBy('ID_AUXILIAR')->limit(5)
+            ->get(['ID_AUXILIAR', 'SERIAL', 'MARCA', 'MODELO',
+                   'LINK_DOC_PROPIEDAD', 'LINK_CERTIFICADO', 'FECHA_VENCIMIENTO_CERT']);
+        $fila = $filas->first();
+        if (!$fila) return [];
+        if ($filas->count() > 1) {
+            $this->avisoFichas = 'El documento nombra varios auxiliares registrados: se propone '
+                . trim(($fila->MARCA ?? '') . ' ' . ($fila->MODELO ?? '')) . ' (' . $fila->SERIAL . '). Comprueba que sea el correcto.';
+        }
+        return [['coincide_por' => 'el serial ' . $fila->SERIAL] + $this->fichaAuxiliar($fila)];
     }
 
     /** Los equipos que nombra la lista de placas de una providencia RACDA. */
@@ -540,23 +600,28 @@ class CargaMasivaDocumentos
         $placas = $leido['placas'] ?? [];
         if (!$placas) return [];
 
+        // Uno mas que el tope, para saber si se paso y DECIRLO (antes se cortaba en silencio).
+        $filas = $this->filasPorPlaca($placas, self::TOPE_RACDA + 1);
+        if ($filas->count() > self::TOPE_RACDA) {
+            $filas = $filas->take(self::TOPE_RACDA);
+            $this->avisoFichas = 'La providencia nombra mas de ' . self::TOPE_RACDA . ' unidades registradas: aqui se proponen '
+                . self::TOPE_RACDA . '. Las demas las enlaza la revision de la noche.';
+        }
+
         // Cada ficha lleva POR QUE se la eligio: su propia placa, la que la providencia nombra.
         return array_map(
             fn ($f) => ['coincide_por' => 'la placa ' . $f['placa']] + $f,
-            $this->fichas($this->filasPorPlaca($placas, self::TOPE_RACDA))
+            $this->fichas($filas)
         );
     }
 
-    private function buscarPorSerial(array $seriales): ?object
+    /** Hasta 5 equipos con alguno de esos seriales, siempre en el mismo orden. */
+    private function buscarPorSerial(array $seriales)
     {
         return $this->consulta()
             ->whereIn(DB::raw('UPPER(e.SERIAL_CHASIS)'), array_map('strtoupper', array_values($seriales)))
-            ->first();
-    }
-
-    private function buscarPorPlaca(array $placas): ?object
-    {
-        return $this->filasPorPlaca($placas, 1)->first();
+            ->orderBy('d.ID_EQUIPO')->limit(5)
+            ->get();
     }
 
     private function filasPorPlaca(array $placas, int $tope)
@@ -572,6 +637,8 @@ class CargaMasivaDocumentos
 
         return $this->consulta()
             ->whereIn(DB::raw("UPPER(REPLACE(REPLACE(REPLACE(d.PLACA, '-', ''), ' ', ''), '.', ''))"), $limpias)
+            // Siempre el mismo orden: sin el, el tope (y "la primera") salian al azar.
+            ->orderBy('d.ID_EQUIPO')
             ->limit($tope)
             ->get();
     }
@@ -667,13 +734,13 @@ class CargaMasivaDocumentos
      * los datos de verdad sin tocarlos: lo que niega en ensayo lo negaria igual de verdad,
      * y lo que aceptaria lo cuenta campo por campo.
      */
-    public function aplicar(int $idEquipo, string $tipo, string $link, ?string $vence, ?string $emision, bool $pisar = false, bool $ensayo = false, bool $auxiliar = false): array
+    public function aplicar(int $idEquipo, string $tipo, string $link, ?string $vence, ?string $emision, bool $pisar = false, bool $ensayo = false, bool $auxiliar = false, bool $cerrar = true): array
     {
         if (!in_array($tipo, self::TIPOS, true)) {
             return ['ok' => false, 'mensaje' => 'Tipo de documento no valido.'];
         }
         if ($auxiliar) {
-            return $this->aplicarEnAuxiliar($idEquipo, $tipo, $link, $vence, $pisar, $ensayo);
+            return $this->aplicarEnAuxiliar($idEquipo, $tipo, $link, $vence, $pisar, $ensayo, $cerrar);
         }
 
         $equipo = Equipo::with('documentacion')->find($idEquipo);
@@ -683,8 +750,16 @@ class CargaMasivaDocumentos
         $colLink = DocumentacionDeEquipo::COLUMNAS[$tipo]['link'];
         $colVence = DocumentacionDeEquipo::VENCIMIENTO[$tipo] ?? null;
 
-        // 1) Ya tiene uno: no se pisa sin permiso explicito.
+        // 0) Ya tiene ESTE MISMO archivo (otra pestaña, o volver a pulsar Aplicar tras cortarse
+        //    un RACDA a medias): no hay nada que hacer. Sin esto preguntaba "¿reemplazarlo?"
+        //    y, confirmando, reescribia lo mismo y duplicaba el historial.
         $anterior = $doc?->$colLink;
+        if ($this->mismoArchivo($anterior, $link)) {
+            if (!$ensayo && $cerrar) $this->cerrarPropuesta($link);
+            return ['ok' => true, 'mensaje' => 'Ya estaba enlazado.'];
+        }
+
+        // 1) Ya tiene uno: no se pisa sin permiso explicito.
         if ($anterior && !$pisar) {
             return ['ok' => false, 'requiere_pisar' => true,
                     'mensaje' => 'Este equipo ya tiene ese documento. Marca "reemplazar" si quieres cambiarlo.'];
@@ -749,7 +824,7 @@ class CargaMasivaDocumentos
         ]);
         if ($diff) EquipoAuditLog::registrar($equipo->ID_EQUIPO, 'metadata_' . $tipo, $diff);
 
-        $this->cerrarPropuesta($link);
+        if ($cerrar) $this->cerrarPropuesta($link);
         return ['ok' => true, 'mensaje' => 'Aplicado.'];
     }
 
@@ -762,7 +837,7 @@ class CargaMasivaDocumentos
      * un documento que ya esta sin decirlo, no se retrocede un vencimiento ni con permiso, y
      * lo que vence no entra sin su fecha.
      */
-    private function aplicarEnAuxiliar(int $idAuxiliar, string $tipo, string $link, ?string $vence, bool $pisar, bool $ensayo): array
+    private function aplicarEnAuxiliar(int $idAuxiliar, string $tipo, string $link, ?string $vence, bool $pisar, bool $ensayo, bool $cerrar = true): array
     {
         $tipoAux = self::TIPOS_AUXILIAR[$tipo] ?? null;
         if (!$tipoAux) {
@@ -776,6 +851,10 @@ class CargaMasivaDocumentos
         $colVence = EquipoAuxiliar::DOCS_VENCE[$tipoAux] ?? null;
 
         $anterior = $aux->$colLink;
+        if ($this->mismoArchivo($anterior, $link)) {
+            if (!$ensayo && $cerrar) $this->cerrarPropuesta($link);
+            return ['ok' => true, 'mensaje' => 'Ya estaba enlazado.'];
+        }
         if ($anterior && !$pisar) {
             return ['ok' => false, 'requiere_pisar' => true,
                     'mensaje' => 'Este auxiliar ya tiene ese documento. Marca "reemplazar" si quieres cambiarlo.'];
@@ -817,7 +896,7 @@ class CargaMasivaDocumentos
             }
         }
 
-        $this->cerrarPropuesta($link);
+        if ($cerrar) $this->cerrarPropuesta($link);
 
         // AQUI NO SE AUDITA. El update() de arriba dispara EquipoAuxiliarObserver::updated, que
         // ya escribe la subida (aux_upload_propiedad / aux_upload_certificado) y el cambio de
@@ -856,7 +935,7 @@ class CargaMasivaDocumentos
     public function descartar(?string $link): bool
     {
         if (!$id = DocumentoAnexo::driveIdDeLink($link)) return false;
-        if (!$this->esDeLaCarga($link, true) || $this->loUsaAlgunaFicha($id)) return false;
+        if (!$this->esPropuestaSinAplicar($link) || EnlacesDocumentos::sigueEnUso($id)) return false;
 
         // Su fila sale de la tabla de Revision de documentos: la propuesta ya no existe.
         VerificacionDocumento::where('DRIVE_ID', $id)
@@ -867,38 +946,79 @@ class CargaMasivaDocumentos
     }
 
     /**
-     * El PDF de $link lo subio esta pantalla: tiene su fila en la tabla de Revision de
-     * documentos (anotar()). Con $sinAplicar, ademas, todavia no se enlazo a ninguna ficha.
-     *
-     * Es la puerta de aplicar() y descartar(): solo se enlaza o se borra lo que se solto en
-     * la carga masiva, no cualquier archivo de Drive cuyo enlace alguien escriba (por
-     * ejemplo el documento de OTRO equipo, que luego se borraria al reemplazarlo en uno).
+     * El PDF de $link es una propuesta de esta pantalla que todavia no se enlazo a ninguna
+     * ficha: es la puerta de descartar(). No se borra cualquier archivo de Drive cuyo enlace
+     * alguien escriba (el documento montado de un equipo, por ejemplo).
      */
-    public function esDeLaCarga(?string $link, bool $sinAplicar = false): bool
+    private function esPropuestaSinAplicar(string $link): bool
     {
         if (!$id = DocumentoAnexo::driveIdDeLink($link)) return false;
 
         return VerificacionDocumento::where('DRIVE_ID', $id)
             ->where('ORIGEN', VerificacionDocumento::DE_CARGA_MASIVA)
-            ->when($sinAplicar, fn ($q) => $q->whereIn('ESTADO', VerificacionDocumento::DE_LA_CARGA))
+            ->whereIn('ESTADO', VerificacionDocumento::DE_LA_CARGA)
             ->exists();
     }
 
-    /** Algun equipo, auxiliar o correccion anexada apunta a ese archivo de Drive. */
-    private function loUsaAlgunaFicha(string $driveId): bool
+    /**
+     * El PDF de $link es una propuesta de esta pantalla PARA ESA FICHA y ESE tipo: es la puerta
+     * de aplicar(). Una propuesta sin aplicar, o ya aplicada pero que nombraba varias fichas
+     * (un RACDA se enlaza a cada una por turno; tras la primera la fila ya dice "Aplicado").
+     * Sin esto, con una peticion escrita a mano se podia enlazar un PDF de la carga a
+     * cualquier equipo o como cualquier tipo de documento.
+     */
+    public function propuestaAdmite(string $link, int $id, bool $auxiliar, string $tipo): bool
     {
-        $enlace = '%/storage/google/' . $driveId . '%';
+        if (!$driveId = DocumentoAnexo::driveIdDeLink($link)) return false;
 
-        $enEquipos = Documentacion::query()->where(function ($q) use ($enlace) {
-            foreach (DocumentacionDeEquipo::COLUMNAS as $c) $q->orWhere($c['link'], 'like', $enlace);
-        })->exists();
-        if ($enEquipos) return true;
+        $fila = VerificacionDocumento::where('DRIVE_ID', $driveId)
+            ->where('ORIGEN', VerificacionDocumento::DE_CARGA_MASIVA)
+            ->whereIn('ESTADO', [VerificacionDocumento::POR_ENGANCHAR, VerificacionDocumento::APLICADO])
+            ->first(['PROPUESTA']);
+        $p = $fila?->PROPUESTA;
+        if (!$p || ($p['tipo'] ?? null) !== $tipo) return false;
 
-        $enAuxiliares = EquipoAuxiliar::withTrashed()->where(function ($q) use ($enlace) {
-            foreach (EquipoAuxiliar::DOCS as $col) $q->orWhere($col, 'like', $enlace);
-        })->exists();
-        if ($enAuxiliares) return true;
+        foreach ($p['equipos'] ?? [] as $f) {
+            if ((int) ($f['id'] ?? 0) === $id && (bool) ($f['auxiliar'] ?? false) === $auxiliar) return true;
+        }
+        return false;
+    }
 
-        return DocumentoAnexo::where('DRIVE_FILE_ID', $driveId)->orWhere('LINK', 'like', $enlace)->exists();
+    /** Los dos enlaces son el mismo archivo de Drive (el enlace lleva a veces "?v=..."). */
+    private function mismoArchivo(?string $a, ?string $b): bool
+    {
+        $idA = DocumentoAnexo::driveIdDeLink($a);
+        return $idA !== null && $idA === DocumentoAnexo::driveIdDeLink($b);
+    }
+
+    /**
+     * Si este mismo archivo (misma huella) ya se habia soltado antes y sigue en la tabla, lo
+     * dice: dos filas del mismo PDF acaban en un "¿reemplazarlo?" que confunde. No lo impide:
+     * puede ser a proposito (se descarto la otra, o era para otro equipo).
+     */
+    private function yaSeSolto(?string $md5, ?string $driveId): ?string
+    {
+        if (!$md5) return null;
+
+        $otra = VerificacionDocumento::where('ORIGEN', VerificacionDocumento::DE_CARGA_MASIVA)
+            ->where('PROPUESTA', 'like', '%"md5":"' . $md5 . '"%')
+            ->when($driveId, fn ($q) => $q->where('DRIVE_ID', '<>', $driveId))
+            ->orderByDesc('ID_REGISTRO')->first(['ARCHIVO', 'ESTADO', 'created_at']);
+        if (!$otra) return null;
+
+        return 'Este mismo archivo ya se habia soltado' . ($otra->created_at ? ' el ' . $otra->created_at->format('d/m/Y') : '')
+            . ($otra->ESTADO === VerificacionDocumento::APLICADO ? ' y ya esta aplicado.' : ' y sigue en la tabla.');
+    }
+
+    /**
+     * Los codigos que aparecen en la hoja: letras y numeros (con guiones), de 6 a 25
+     * caracteres y con algun digito. Son los candidatos a serial de un auxiliar; solo cuentan
+     * si coinciden EXACTO con uno registrado (ver auxiliarDelDocumento).
+     */
+    private function codigosEnTexto(string $texto): array
+    {
+        preg_match_all('/(?<![A-Z0-9])[A-Z0-9][A-Z0-9\-]{4,23}[A-Z0-9](?![A-Z0-9])/u', mb_strtoupper($texto, 'UTF-8'), $m);
+        $codigos = array_filter(array_unique($m[0]), fn ($c) => preg_match('/\d/', $c));
+        return array_slice(array_values($codigos), 0, 300);
     }
 }

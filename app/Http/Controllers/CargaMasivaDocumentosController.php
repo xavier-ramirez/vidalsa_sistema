@@ -74,17 +74,22 @@ class CargaMasivaDocumentosController extends Controller
             'pisar'     => 'nullable|boolean',
             // Modo ensayo: comprueba y dice que haria, pero no escribe nada.
             'ensayo'    => 'nullable|boolean',
+            // Si esta es la ULTIMA ficha de la propuesta (un RACDA se enlaza a varias, de una en
+            // una): solo entonces la fila pasa a "Aplicado". Sin el campo, se cierra (una ficha).
+            'cerrar'    => 'nullable|boolean',
         ], [
             'id_equipo.exists' => $esAux ? 'Ese equipo auxiliar ya no existe.' : 'Ese equipo ya no existe.',
         ]);
 
-        // Solo se enlaza un PDF que se subio por esta pantalla. El enlace llega del navegador:
-        // sin esto se podia enganchar cualquier archivo de Drive, como el documento de OTRO
-        // equipo (y al reemplazarlo luego en uno, se borraba para los dos).
-        if (!$this->servicio->esDeLaCarga($datos['link'])) {
+        // Solo se enlaza un PDF que se subio por esta pantalla, y a una ficha y como el tipo que
+        // su propuesta dice. El enlace llega del navegador: sin esto se podia enganchar
+        // cualquier archivo de Drive (el documento de OTRO equipo) o una propuesta a cualquier
+        // ficha.
+        if (!$this->servicio->propuestaAdmite($datos['link'], (int) $datos['id_equipo'], $esAux, $datos['tipo'])) {
             return response()->json(['success' => false,
-                'message' => 'Ese PDF no se subió por la carga masiva: solo se enlaza lo que se soltó aquí.'], 422);
+                'message' => 'Ese PDF no es una propuesta de la carga masiva para esta ficha (o ya se descartó). Recarga la tabla.'], 422);
         }
+        $cerrar = !$request->has('cerrar') || $request->boolean('cerrar');
 
         $r = $this->servicio->aplicar(
             (int) $datos['id_equipo'],
@@ -95,7 +100,17 @@ class CargaMasivaDocumentosController extends Controller
             (bool) ($datos['pisar'] ?? false),
             (bool) ($datos['ensayo'] ?? false),
             $esAux,
+            $cerrar,
         );
+
+        // La ULTIMA ficha no entro (documento anterior, no quiso reemplazar...) pero alguna de
+        // las anteriores si: la propuesta igualmente queda resuelta. Si no, se quedaria "Por
+        // aplicar" con el PDF ya en uso, y no se podria ni aplicar ni descartar.
+        if (!$r['ok'] && $cerrar && empty($datos['ensayo'])
+            && ($id = \App\Models\DocumentoAnexo::driveIdDeLink($datos['link']))
+            && \App\Support\EnlacesDocumentos::sigueEnUso($id)) {
+            $this->servicio->cerrarPropuesta($datos['link']);
+        }
 
         return response()->json([
             'success' => $r['ok'],

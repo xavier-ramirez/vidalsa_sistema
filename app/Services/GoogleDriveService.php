@@ -332,7 +332,7 @@ class GoogleDriveService
      * ALCANCE HONESTO: es una comprobacion de marcadores, no un analisis del PDF. Un archivo
      * preparado a proposito puede esconder el nombre (los PDF admiten escapes tipo /L#61unch)
      * y pasar. Cubre el caso realista —alguien manda por WhatsApp un PDF con sorpresa— y se
-     * suma a lo que ya hay: solo PDF, 50 MB como mucho, la clave docs.carga.masiva para poder
+     * suma a lo que ya hay: solo PDF, MAX_PDF_KB como mucho, la clave docs.carga.masiva para poder
      * usar la pantalla, y el nombre del archivo pintado con textContent (nunca como HTML).
      */
     private static function comprobarSinContenidoActivo(string $ruta, string $nombre, int $bytes): void
@@ -356,7 +356,7 @@ class GoogleDriveService
         $f = fopen($ruta, 'rb');
         if (!$f) return;   // ya se comprobo que se puede leer; si falla aqui, no se bloquea
         try {
-            // Por trozos, no de un bocado: el limite son 50 MB y no hay por que tenerlos
+            // Por trozos, no de un bocado: el limite es MAX_PDF_KB y no hay por que tenerlos
             // enteros en memoria. El solape de 32 bytes evita perder un marcador que caiga
             // justo en la costura entre dos trozos.
             $cola = '';

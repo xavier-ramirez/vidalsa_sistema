@@ -42,6 +42,13 @@ class CompresionPdfController extends Controller
     public function marcarRevisado(Request $request, int $id, CorrectorFichaDocumento $corrector)
     {
         $reg = VerificacionDocumento::findOrFail($id);
+        // Solo las lecturas de la noche, igual que marcarRevisados: una propuesta de la carga
+        // masiva no esta en ninguna ficha todavia (se aplica o se descarta con sus botones).
+        // Darla por revisada la dejaba "Coincide" sin haberse enlazado, y sin sus botones.
+        if ($reg->ORIGEN !== VerificacionDocumento::DE_LA_NOCHE) {
+            return response()->json(['success' => false,
+                'message' => 'Este PDF viene de la carga masiva: se aplica o se descarta con sus botones.'], 422);
+        }
         // Los datos que el panel del visor no tiene (el titular del ROTC), con el valor que
         // la persona dejo en su campo al guardar. Vacio = solo dar la fila por revisada.
         $valores = (array) $request->input('campos', []);

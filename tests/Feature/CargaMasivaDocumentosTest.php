@@ -458,12 +458,14 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
     // ── Solo se enlaza o se borra lo que se solto en la carga masiva ─────────
 
     /** La fila que anotar() deja al soltar un PDF: sin ella el enlace no es de esta pantalla. */
-    private function propuesta(string $driveId, string $estado = VerificacionDocumento::POR_ENGANCHAR): void
+    private function propuesta(string $driveId, array $fichas = [], string $estado = VerificacionDocumento::POR_ENGANCHAR, string $tipo = 'rotc'): void
     {
         VerificacionDocumento::create([
             'DRIVE_ID' => $driveId, 'ORIGEN' => VerificacionDocumento::DE_CARGA_MASIVA,
-            'TIPO' => 'rotc', 'ARCHIVO' => $driveId . '.pdf', 'ESTADO' => $estado,
+            'TIPO' => $tipo, 'ARCHIVO' => $driveId . '.pdf', 'ESTADO' => $estado,
             'A_MANO' => true, 'INTENTOS' => 0,
+            'PROPUESTA' => ['tipo' => $tipo, 'link' => '/storage/google/' . $driveId,
+                'equipos' => array_map(fn ($e) => ['id' => $e->getKey(), 'auxiliar' => $e instanceof \App\Models\EquipoAuxiliar], $fichas)],
         ]);
     }
 
@@ -474,7 +476,7 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
     public function test_descartar_no_borra_un_pdf_que_ya_esta_en_una_ficha(): void
     {
         $equipo = $this->equipo(['LINK_ROTC' => '/storage/google/montado-cm', 'FECHA_ROTC' => now()->addYear()->toDateString()]);
-        $this->propuesta('montado-cm');   // su fila aun dice "sin aplicar", como en una pestaña vieja
+        $this->propuesta('montado-cm', [$equipo]);   // su fila aun dice "sin aplicar", como en una pestaña vieja
 
         $this->actingAs($this->usuario())
             ->post(route('historial-documentos.carga-masiva.descartar'), ['link' => '/storage/google/montado-cm'], ['Accept' => 'application/json'])
@@ -520,7 +522,7 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
         $this->assertNull($equipo->documentacion()->first()->LINK_ROTC);
 
         // El mismo caso con un PDF que SI se solto aqui entra (y la fila pasa a Aplicado).
-        $this->propuesta('nuevo-cm');
+        $this->propuesta('nuevo-cm', [$equipo]);
         $this->post(route('historial-documentos.carga-masiva.aplicar'), [
             'id_equipo' => $equipo->ID_EQUIPO, 'tipo' => 'rotc', 'link' => '/storage/google/nuevo-cm', 'vence' => $vence,
         ], ['Accept' => 'application/json'])->assertOk();
@@ -533,7 +535,7 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
     {
         $vence = now()->addYear()->toDateString();
         $equipo = $this->equipo(['LINK_ROTC' => '/storage/google/el-montado-cm', 'FECHA_ROTC' => $vence]);
-        $this->propuesta('otra-copia-cm');
+        $this->propuesta('otra-copia-cm', [$equipo]);
 
         $this->actingAs($this->usuario())
             ->post(route('historial-documentos.carga-masiva.aplicar'), [
@@ -544,5 +546,159 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
 
         $this->assertSame('/storage/google/el-montado-cm', $equipo->documentacion()->first()->LINK_ROTC);
         Bus::assertNotDispatchedAfterResponse(DeleteGoogleDriveFile::class);
+    }
+
+    // ── Reconocer y repartir: compraventa, auxiliares, flota, RACDA a medias ─
+
+    /** Servicio con un OCR que devuelve lo que diga la prueba (Drive falso, sin IA). */
+    private function lectorCon(string $texto): CargaMasivaDocumentos
+    {
+        $ocr = new class($texto) extends LectorDocumentoPdf {
+            public function __construct(private string $t) {}
+            public function texto(string $driveId): string { return $this->t; }
+        };
+        return new CargaMasivaDocumentos($ocr, app(\App\Services\LectorGemini::class));
+    }
+
+    private function soltar(string $texto, ?string $tipo = null, string $contenido = 'x'): array
+    {
+        \Illuminate\Support\Facades\Storage::fake('local');
+        config(['services.gemini.key' => null]);
+        \Tests\DriveFalso::instalar();
+        try {
+            $pdf = \Illuminate\Http\UploadedFile::fake()->createWithContent('doc.pdf', "%PDF-1.5\n" . str_repeat($contenido, 2048) . "\n%%EOF\n");
+            return $this->lectorCon($texto)->analizar($pdf, $tipo);
+        } finally {
+            \Tests\DriveFalso::quitar();
+        }
+    }
+
+    /** La compraventa cita el titulo, pero se anuncia antes: no se reparte como titulo. */
+    public function test_una_compraventa_se_reconoce_y_no_se_reparte_como_titulo(): void
+    {
+        $this->assertSame(CargaMasivaDocumentos::COMPRAVENTA, $this->servicio()->detectarTipo(
+            "DOCUMENTO DE COMPRA-VENTA\nEl vendedor, segun Certificado de Registro de Vehiculo N 123, da en venta..."));
+        $this->assertSame(LectorDocumentoPdf::PROPIEDAD, $this->servicio()->detectarTipo(
+            "Certificado de Registro de Vehiculo\n... prohibida su compraventa sin autorizacion ..."));
+    }
+
+    /** El serial de una soldadora es corto y va tras "S/N": igual se reconoce el auxiliar. */
+    public function test_un_auxiliar_se_reconoce_por_su_serial_corto(): void
+    {
+        $this->actingAs($this->usuario());
+        $aux = $this->auxiliar(['SERIAL' => 'U11' . random_int(10000000, 99999999)]);
+
+        $p = $this->soltar("CERTIFICADO DE CALIBRACION\nSoldadora Lincoln\nS/N {$aux->SERIAL}", CargaMasivaDocumentos::CERTIFICADO);
+
+        $this->assertSame([['id' => $aux->ID_AUXILIAR, 'auxiliar' => true]],
+            array_map(fn ($f) => ['id' => $f['id'], 'auxiliar' => $f['auxiliar']], $p['equipos']));
+    }
+
+    /** Un auxiliar no guarda compraventa: se dice eso, no "no se sabe de quien es". */
+    public function test_la_compraventa_de_un_auxiliar_dice_por_que_no_entra(): void
+    {
+        $this->actingAs($this->usuario());
+        $aux = $this->auxiliar(['SERIAL' => 'U12' . random_int(10000000, 99999999)]);
+
+        $p = $this->soltar("DOCUMENTO DE COMPRAVENTA\nPlanta electrica serial {$aux->SERIAL}", CargaMasivaDocumentos::COMPRAVENTA);
+
+        $this->assertSame('sin_equipo', $p['estado']);
+        $this->assertStringContainsString('auxiliar', $p['aviso']);
+    }
+
+    /** Un documento que nombra dos unidades registradas no sale "listo" con una al azar. */
+    public function test_un_documento_de_varias_unidades_se_marca_para_revisar(): void
+    {
+        $this->actingAs($this->usuario());
+        $a = $this->equipo(); $b = $this->equipo();
+
+        $p = $this->soltar("CERTIFICADO DE CIRCULACION ROTC\nSerial de Carroceria {$a->SERIAL_CHASIS}\n{$b->SERIAL_CHASIS}\nFecha de Vencimiento 10/10/2027");
+
+        $this->assertSame('revisar', $p['estado']);
+        $this->assertStringContainsString('varias unidades', $p['aviso']);
+        $this->assertSame(min($a->ID_EQUIPO, $b->ID_EQUIPO), $p['equipos'][0]['id'], 'siempre la misma: la de ID mas bajo');
+    }
+
+    /** Soltar dos veces el MISMO archivo se avisa en la segunda. */
+    public function test_el_mismo_archivo_soltado_dos_veces_se_avisa(): void
+    {
+        $this->actingAs($this->usuario());
+        $e = $this->equipo();
+        $texto = "CERTIFICADO DE CIRCULACION ROTC\nSerial de Carroceria {$e->SERIAL_CHASIS}\nFecha de Vencimiento 10/10/2027";
+        $unico = 'q' . uniqid();
+
+        // Un solo Drive falso para las dos: cada archivo tiene que salir con su propio id,
+        // como en el Drive de verdad (DriveFalso numera desde 1 cada vez que se instala).
+        \Illuminate\Support\Facades\Storage::fake('local');
+        config(['services.gemini.key' => null]);
+        \Tests\DriveFalso::instalar();
+        try {
+            $pdf = fn () => \Illuminate\Http\UploadedFile::fake()->createWithContent('doc.pdf', "%PDF-1.5\n" . str_repeat($unico, 200) . "\n%%EOF\n");
+            $this->assertSame('listo', $this->lectorCon($texto)->analizar($pdf())['estado']);
+            $otra = $this->lectorCon($texto)->analizar($pdf());
+        } finally {
+            \Tests\DriveFalso::quitar();
+        }
+
+        $this->assertSame('revisar', $otra['estado']);
+        $this->assertStringContainsString('ya se habia soltado', $otra['aviso']);
+    }
+
+    /**
+     * Un RACDA se enlaza a varias fichas de una en una. La fila pasa a "Aplicado" con la
+     * ULTIMA (cerrar=1), no con la primera: si se corta a medias, el boton sigue ahi y lo que
+     * ya estaba responde "Ya estaba enlazado" en vez de preguntar si reemplazarlo.
+     */
+    public function test_un_racda_a_varias_fichas_se_cierra_con_la_ultima(): void
+    {
+        $vence = now()->addYear()->toDateString();
+        $a = $this->equipo(); $b = $this->equipo();
+        $this->propuesta('racda-cm', [$a, $b], VerificacionDocumento::POR_ENGANCHAR, 'racda');
+        $this->actingAs($this->usuario());
+        $ir = fn ($e, $cerrar) => $this->post(route('historial-documentos.carga-masiva.aplicar'), [
+            'id_equipo' => $e->ID_EQUIPO, 'tipo' => 'racda', 'link' => '/storage/google/racda-cm', 'vence' => $vence, 'cerrar' => $cerrar,
+        ], ['Accept' => 'application/json']);
+        $estado = fn () => VerificacionDocumento::where('DRIVE_ID', 'racda-cm')->value('ESTADO');
+
+        $ir($a, 0)->assertOk();
+        $this->assertSame(VerificacionDocumento::POR_ENGANCHAR, $estado(), 'tras la primera sigue por aplicar');
+
+        $ir($a, 0)->assertOk()->assertJson(['message' => 'Ya estaba enlazado.']);
+        $ir($b, 1)->assertOk();
+        $this->assertSame(VerificacionDocumento::APLICADO, $estado());
+        $this->assertSame('/storage/google/racda-cm', $b->documentacion()->first()->LINK_RACDA);
+    }
+
+    /** Una propuesta solo entra en las fichas que ella misma nombra, y como su tipo. */
+    public function test_una_propuesta_no_se_aplica_a_otra_ficha_ni_como_otro_tipo(): void
+    {
+        $vence = now()->addYear()->toDateString();
+        $suya = $this->equipo(); $otra = $this->equipo();
+        $this->propuesta('solo-suya-cm', [$suya]);
+        $this->actingAs($this->usuario());
+
+        $this->post(route('historial-documentos.carga-masiva.aplicar'), [
+            'id_equipo' => $otra->ID_EQUIPO, 'tipo' => 'rotc', 'link' => '/storage/google/solo-suya-cm', 'vence' => $vence,
+        ], ['Accept' => 'application/json'])->assertStatus(422);
+        $this->post(route('historial-documentos.carga-masiva.aplicar'), [
+            'id_equipo' => $suya->ID_EQUIPO, 'tipo' => 'poliza', 'link' => '/storage/google/solo-suya-cm', 'vence' => $vence,
+        ], ['Accept' => 'application/json'])->assertStatus(422);
+
+        $this->assertNull($otra->documentacion()->first()->LINK_ROTC);
+        $this->assertNull($suya->documentacion()->first()->LINK_POLIZA_SEGURO);
+    }
+
+    /** "Dar por revisada" una propuesta de la carga la dejaba "Coincide" sin haberse enlazado. */
+    public function test_una_propuesta_de_la_carga_no_se_da_por_revisada(): void
+    {
+        $e = $this->equipo();
+        $this->propuesta('sin-revisar-cm', [$e]);
+        $fila = VerificacionDocumento::where('DRIVE_ID', 'sin-revisar-cm')->first();
+
+        $this->actingAs($this->usuario())
+            ->post(route('compresion-pdf.documento.revisado', ['id' => $fila->ID_REGISTRO]), [], ['Accept' => 'application/json'])
+            ->assertStatus(422);
+
+        $this->assertSame(VerificacionDocumento::POR_ENGANCHAR, $fila->refresh()->ESTADO);
     }
 }

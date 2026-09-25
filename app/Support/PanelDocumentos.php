@@ -158,7 +158,10 @@ class PanelDocumentos
             // esperando para pulsar "Aplicar", y sin eso se perderia entre miles de filas.
             ->orderByRaw("FIELD(ESTADO, '" . VerificacionDocumento::POR_ENGANCHAR . "', '" . VerificacionDocumento::SIN_FICHA
                 . "', '" . VerificacionDocumento::DIFIERE . "', '" . VerificacionDocumento::ILEGIBLE
-                . "', '" . VerificacionDocumento::SIN_ARCHIVO . "', '" . VerificacionDocumento::ERROR . "', '" . VerificacionDocumento::COINCIDE . "')")
+                . "', '" . VerificacionDocumento::SIN_ARCHIVO . "', '" . VerificacionDocumento::ERROR . "', '" . VerificacionDocumento::COINCIDE
+                // Lo ya aplicado de la carga, al final: FIELD da 0 a lo que no esta en la lista y
+                // 0 va PRIMERO, asi que sin nombrarlo tapaba lo que espera su "Aplicar".
+                . "', '" . VerificacionDocumento::APLICADO . "')")
             ->orderByDesc('updated_at')->orderByDesc('ID_REGISTRO')
             ->paginate(50)->withQueryString();
 

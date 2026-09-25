@@ -292,8 +292,13 @@ class VerificarDocumentos extends Command
         // Si una persona ya habia revisado este documento (se relee por "Revisar ahora", ver
         // VerificacionDocumento::condicionLeido), su decision se respeta: de esta lectura solo se
         // ponen las fechas VACIAS y la fila vuelve a quedar como ella la dejo.
+        // SOLO las de la noche: una fila de la carga masiva ya aplicada tambien lleva
+        // APLICADO_POR (quien pulso Aplicar), pero eso no es revisar el documento. Tomarla por
+        // una revision tapaba para siempre lo que esta lectura encontrara en el PDF recien
+        // enlazado ("es de otro vehiculo", la aseguradora, un vencimiento distinto).
         $revision = VerificacionDocumento::where('ID_EQUIPO', $f->ID_EQUIPO)->where('TIPO', $tipo)
-            ->where('DRIVE_ID', $driveId)->whereNotNull('APLICADO_POR')
+            ->where('DRIVE_ID', $driveId)->where('ORIGEN', VerificacionDocumento::DE_LA_NOCHE)
+            ->whereNotNull('APLICADO_POR')
             ->first(['ESTADO', 'A_MANO', 'DIFERENCIAS', 'MOTIVO', 'APLICADO_POR', 'APLICADO_EN']);
 
         $reg = VerificacionDocumento::updateOrCreate(

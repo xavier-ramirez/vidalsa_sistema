@@ -420,7 +420,17 @@
                                     </button>
                                 @endif
                                 @endcan
-                                @if ($d->DRIVE_ID)
+                                @if ($d->DRIVE_ID && $d->ORIGEN !== \App\Models\VerificacionDocumento::DE_LA_NOCHE)
+                                    {{-- Lo soltado en la carga masiva se MIRA, sin la ficha al lado: todavia no es
+                                         el documento de ningun equipo. Con cpdfRevisar el visor tomaba el PDF
+                                         por el documento de la ficha, y su "Eliminar" o "Reemplazar" actuaban
+                                         sobre el documento MONTADO del equipo; y guardar el panel la daba por
+                                         revisada ("Coincide") sin haberse aplicado. --}}
+                                    <button type="button" class="pdf-doc-btn" title="Ver el PDF soltado"
+                                        onclick="window.openPdfPreview('/storage/google/{{ $d->DRIVE_ID }}', @js($d->TIPO), @js($d->ARCHIVO ?: 'Documento'), null, '', true)">
+                                        <i class="material-icons">description</i>
+                                    </button>
+                                @elseif ($d->DRIVE_ID)
                                     {{-- Abre el PDF con los campos de la ficha para revisarla (ver cpdfRevisar). --}}
                                     <button type="button" class="pdf-doc-btn" title="Ver el documento y revisar la ficha"
                                         onclick="window.cpdfRevisar(@js(['id' => $d->ID_REGISTRO, 'equipoId' => (int) $d->ID_EQUIPO, 'tipo' => $d->TIPO, 'dif' => (object) ($d->DIFERENCIAS ?? []), 'estado' => $estadosDoc[$d->ESTADO] ?? $d->ESTADO, 'motivo' => $d->MOTIVO, 'fiable' => !($d->esLecturaParcial() || $d->sinConfirmar() || $d->esDeOtroVehiculo() || $d->esDocumentoAnterior())]), '/storage/google/{{ $d->DRIVE_ID }}', @js(($tiposDoc[$d->TIPO] ?? '') . ' ' . ($d->PLACA ?: $d->SERIAL ?: '')))">
@@ -716,12 +726,15 @@
         }
 
         btn.disabled = true;
-        var i = 0, bien = 0, fallo = null;
+        var i = 0, bien = 0, fallos = [];
         var siguiente = function () {
             if (i >= fichas.length) {
                 btn.disabled = false;
-                if (bien) window.toast('Aplicado a ' + bien + ' ficha' + (bien === 1 ? '' : 's'), 'success');
-                else window.toast(fallo || 'No se pudo aplicar', 'error');
+                // Lo que NO entro se dice siempre, tambien cuando otras fichas si: antes, con
+                // una sola que entrara, los rechazos de las demas se perdian sin avisar.
+                if (bien && !fallos.length) window.toast('Aplicado a ' + bien + ' ficha' + (bien === 1 ? '' : 's'), 'success');
+                else if (bien) window.toast('Aplicado a ' + bien + ' de ' + fichas.length + '. No entró en: ' + fallos.join(' · '), 'warning');
+                else window.toast(fallos.join(' · ') || 'No se pudo aplicar', 'error');
                 window.cpdfFiltrar();
                 return;
             }
@@ -737,7 +750,11 @@
             return window.apiPostForm(@json(route('historial-documentos.carga-masiva.aplicar')), {
                 id_equipo: f.id, auxiliar: f.auxiliar ? 1 : '', tipo: propuesta.tipo,
                 link: propuesta.link, vence: vence || '', emision: propuesta.emision || '',
-                pisar: pisar ? 1 : ''
+                pisar: pisar ? 1 : '',
+                // La fila pasa a "Aplicado" con la ULTIMA ficha, no con la primera: si el
+                // reparto de un RACDA se corta a medias, el boton sigue ahi para terminarlo
+                // (las que ya lo tienen responden "Ya estaba enlazado").
+                cerrar: f === fichas[fichas.length - 1] ? 1 : 0
             }, 'No se pudo aplicar.')
                 .then(function () { bien++; })
                 .catch(function (e) {
@@ -748,7 +765,7 @@
                         }
                         msg = 'No se reemplazó: ' + f.nombre + ' ya tiene ese documento.';
                     }
-                    fallo = msg;
+                    fallos.push(fichas.length > 1 ? f.nombre + ' (' + msg + ')' : msg);
                 });
         }
 

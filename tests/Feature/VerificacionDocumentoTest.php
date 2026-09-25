@@ -276,6 +276,31 @@ class VerificacionDocumentoTest extends MySqlTestCase
         $this->assertSame(VerificacionDocumento::SIN_ARCHIVO, $this->verificar($e3, VerificacionDocumento::PROPIEDAD)->ESTADO);
     }
 
+    /**
+     * Un PDF aplicado desde la carga masiva deja su fila con APLICADO_POR (quien pulso
+     * Aplicar). La noche lo tomaba por una REVISION A MANO y le devolvia su "Aplicado" encima
+     * de lo que acababa de leer: un documento de otro vehiculo quedaba escondido para siempre.
+     */
+    public function test_lo_aplicado_desde_la_carga_masiva_no_se_toma_por_una_revision_a_mano(): void
+    {
+        [$equipo] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'CONSTRUCTORA VIDALSA 27, C.A']);
+        $driveId = \App\Models\DocumentoAnexo::driveIdDeLink($this->ficha($equipo)->LINK_DOC_PROPIEDAD);
+        VerificacionDocumento::create([
+            'ID_EQUIPO' => $equipo, 'TIPO' => VerificacionDocumento::PROPIEDAD, 'DRIVE_ID' => $driveId,
+            'ORIGEN' => VerificacionDocumento::DE_CARGA_MASIVA, 'ESTADO' => VerificacionDocumento::APLICADO,
+            'A_MANO' => false, 'INTENTOS' => 0, 'ARCHIVO' => 'titulo.pdf',
+            'APLICADO_POR' => Usuario::query()->value('ID_USUARIO'), 'APLICADO_EN' => now(),
+        ]);
+        $this->lectorFalso($this->textoTitulo('OTRA EMPRESA, C.A', 'CC999DD'));
+
+        $reg = $this->verificar($equipo, VerificacionDocumento::PROPIEDAD);
+
+        $this->assertSame(VerificacionDocumento::DE_LA_NOCHE, $reg->ORIGEN);
+        $this->assertSame(VerificacionDocumento::DIFIERE, $reg->ESTADO, 'lo que leyo la noche no se tapa');
+        $this->assertTrue($reg->esDeOtroVehiculo());
+        $this->assertNull($reg->APLICADO_POR);
+    }
+
     public function test_un_documento_de_otro_vehiculo_se_avisa_y_no_se_puede_aplicar(): void
     {
         [$equipo] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'CONSTRUCTORA VIDALSA 27, C.A']);
