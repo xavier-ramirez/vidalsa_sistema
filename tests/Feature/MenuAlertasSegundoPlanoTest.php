@@ -41,6 +41,11 @@ class MenuAlertasSegundoPlanoTest extends MySqlTestCase
         $this->assertSame(1, preg_match('/data-doc-type="poliza"\s+data-equipo-id="(\d+)"/', $antes['html'], $m),
             'hace falta una póliza en alertas para probar');
         $id = (int) $m[1];
+        // Fecha y documento van juntos (EquipoController::updateMetadata): solo se renueva
+        // la fecha de una poliza que TIENE su PDF. La base de pruebas trae fechas sin
+        // enlace, asi que se le pone uno a esta (dentro de la transaccion del test).
+        \DB::table('documentacion')->where('ID_EQUIPO', $id)->whereNull('LINK_POLIZA_SEGURO')
+            ->update(['LINK_POLIZA_SEGURO' => 'https://drive.google.com/file/d/prueba-poliza/view']);
 
         // Como el panel de datos del visor de PDF: nueva fecha de vencimiento, dentro de un año.
         $nueva = now()->addYear()->format('Y-m-d');
