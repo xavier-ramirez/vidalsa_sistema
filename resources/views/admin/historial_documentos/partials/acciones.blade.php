@@ -22,7 +22,9 @@
             <div style="background: #dbeafe; padding: 6px; border-radius: 6px; display: flex;">
                 <i class="material-icons" style="font-size: 18px; color: #0067b1;">cloud_upload</i>
             </div>
-            <span style="font-size: 14px; font-weight: 500;">Carga masiva de documentos</span>
+            {{-- "Carga masiva" a secas: el menú ya está dentro del módulo de documentos y el
+                 nombre largo partía el botón en dos líneas. --}}
+            <span style="font-size: 14px; font-weight: 500;">Carga masiva</span>
         </button>
         @endcan
         <button type="button" class="dropdown-item-custom"

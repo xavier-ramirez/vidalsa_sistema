@@ -29,16 +29,21 @@
                    box-shadow: 0 20px 45px -12px rgba(15,23,42,0.30); }
     /* Encabezado CON COLOR (el mismo degradado del botón principal y del aviso de cierre de
        sesión): el modal era todo blanco y no se distinguía del fondo de la página. */
-    .hd-cm-head { padding: 11px 14px; display: flex; align-items: center; gap: 10px; border-radius: 15px 15px 0 0;
+    .hd-cm-head { position: relative; padding: 11px 44px; display: flex; align-items: center;
+                  justify-content: center; gap: 10px; border-radius: 15px 15px 0 0;
                   background: linear-gradient(135deg,#00004d 0%,#0067b1 100%); color: #fff; }
     .hd-cm-head-ic { flex: 0 0 auto; width: 30px; height: 30px; border-radius: 9px;
                      background: rgba(255,255,255,.18); color: #fff;
                      display: flex; align-items: center; justify-content: center; }
     .hd-cm-head-ic .material-icons { font-size: 18px; }
-    .hd-cm-head-txt { flex: 1 1 auto; min-width: 0; }
+    /* Ícono y título van CENTRADOS juntos, como una sola pieza: los centra el
+       justify-content del padre. La X se saca del flujo (position:absolute) para que no
+       desplace ese centro: si contara como un hijo más del flex, el par quedaría corrido
+       hacia la izquierda. El padding lateral de 44 px deja sitio para la X sin que el
+       título se le monte encima en pantallas estrechas. */
     .hd-cm-head h2 { margin: 0; font-size: 14px; font-weight: 800; color: #fff; line-height: 1.25; }
-    .hd-cm-head p { margin: 1px 0 0; font-size: 11.5px; color: rgba(255,255,255,.78); line-height: 1.3; }
-    .hd-cm-cerrar { flex: 0 0 auto; background: transparent; border: none; color: rgba(255,255,255,.75);
+    .hd-cm-cerrar { position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+                    background: transparent; border: none; color: rgba(255,255,255,.75);
                     cursor: pointer; display: flex; padding: 4px; border-radius: 8px; }
     .hd-cm-cerrar:hover { color: #fff; background: rgba(255,255,255,.16); }
 
@@ -139,10 +144,7 @@
             '<div class="hd-cm-modal" role="dialog" aria-modal="true" aria-label="Carga masiva de documentos">' +
                 '<div class="hd-cm-head">' +
                     '<div class="hd-cm-head-ic"><i class="material-icons">cloud_upload</i></div>' +
-                    '<div class="hd-cm-head-txt">' +
-                        '<h2>Carga masiva de documentos</h2>' +
-                        '<p>Aparecen en la tabla para aplicarlos.</p>' +
-                    '</div>' +
+                    '<h2>Carga masiva de documentos</h2>' +
                     '<button type="button" class="hd-cm-cerrar" id="hdCmCerrar" title="Cerrar"><i class="material-icons">close</i></button>' +
                 '</div>' +
                 '<div class="hd-cm-tools">' +
