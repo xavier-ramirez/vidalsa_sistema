@@ -82,7 +82,8 @@ if (typeof window.ModuleManager !== 'undefined') {
                     if (window.submitConsumiblesFilters) {
                         window.submitConsumiblesFilters();
                         if (window.hidePreloader) window.hidePreloader();
-                        if (btn) btn.disabled = false;
+                        // El boton lo deja como toca cargarConsumibles (apagado si ya no
+                        // queda nada que emparejar), al llegar los numeros nuevos.
                     } else {
                         location.reload();
                     }

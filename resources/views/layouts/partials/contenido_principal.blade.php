@@ -1,7 +1,10 @@
 {{-- El <main> de la app: los avisos flash y el contenido del modulo. Lo usan la pagina
      completa y la respuesta corta de la navegacion SPA (ver layouts/estructura_base). --}}
     <!-- Main Content Area -->
-    <main class="main-viewport transition-fade">
+    {{-- data-ruta: de que direccion es este contenido. Sin red, el service worker puede
+         servir el menu guardado al abrir un modulo que solo tiene su copia corta de la SPA;
+         navegacion.js lo ve (no coincide con la barra de direcciones) y carga esa copia. --}}
+    <main class="main-viewport transition-fade" data-ruta="/{{ ltrim(request()->path(), '/') }}">
         @if(session('success'))
             <script>
                 window.addEventListener('load', () => {

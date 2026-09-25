@@ -153,11 +153,9 @@
         <div class="admin-card" style="box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); padding: 25px;">
             {{-- Filtros --}}
             {{-- SIN onsubmit que encienda el spinner: el listener de más abajo hace
-                 preventDefault() y llama a submitConsumiblesFilters(), que ya lo enciende.
-                 Con los dos, el contador de referencias quedaba en 1 y el spinner no se iba.
-                 Aquí no saltaba a la vista porque navigateTo() parece recargar, pero es
-                 navegación SPA: la página NO se recarga y el contador tampoco se reinicia.
-                 Mismo fallo que tenía el formulario de frentes. --}}
+                 preventDefault() y llama a submitConsumiblesFilters() → cargarConsumibles(),
+                 que ya lo enciende. Con los dos, el contador de referencias quedaba en 1 y el
+                 spinner no se iba. Mismo fallo que tenía el formulario de frentes. --}}
             <form method="GET" action="{{ route('consumibles.index') }}" id="filtrosForm">
                 <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-bottom: 20px;">
 
@@ -415,10 +413,10 @@
                                 <div style="background: #fee2e2; padding: 6px; border-radius: 6px; display: flex;">
                                     <i class="material-icons" style="font-size: 18px; color: #ef4444;">bolt</i>
                                 </div>
-                                <span style="font-size:14px; font-weight:500;">Ejecutar Match ({{ $pendientes }} /
+                                <span id="consumiblesMatchTxt" style="font-size:14px; font-weight:500;">Ejecutar Match ({{ $pendientes }} /
                                     {{ $sinMatch }})</span>
                             </button>
-                            <a href="{{ route('consumibles.exportarCsv', request()->all()) }}"
+                            <a id="consumiblesExportar" href="{{ route('consumibles.exportarCsv', request()->all()) }}"
                                 onclick="document.getElementById('splitDropdownMenu').style.display='none';"
                                 class="dropdown-item-custom"
                                 style="display: flex; align-items: center; gap: 10px; padding: 12px 15px; color: #475569; text-decoration: none; transition: all 0.2s; border-bottom: 1px solid #f1f5f9; background: transparent;"
@@ -491,30 +489,39 @@
                     };
                     if (window.showPreloader) window.showPreloader();
                     var pedido = (window._consumiblesPedido = (window._consumiblesPedido || 0) + 1);
+                    // X-SPA-Navigate: la respuesta corta (sin menu ni scripts), que trae todo esto.
                     fetch(url.pathname + url.search, {
-                        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'text/html' },
+                        headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-SPA-Navigate': '1', 'Accept': 'text/html' },
                         credentials: 'same-origin'
                     })
                     .then(function (r) { if (!r.ok || r.redirected) throw new Error('HTTP ' + r.status); return r.text(); })
                     .then(function (html) {
-                        if (pedido !== window._consumiblesPedido) return;   // llego otro despues
+                        // Llego otro pedido despues: este no pinta nada, pero SI suelta su
+                        // referencia del spinner (es un contador; sin esto quedaba puesto).
+                        if (pedido !== window._consumiblesPedido) { if (window.hidePreloader) window.hidePreloader(); return; }
                         var doc = new DOMParser().parseFromString(html, 'text/html');
                         var nuevo = doc.getElementById('consumiblesResultados');
                         var actual = document.getElementById('consumiblesResultados');
                         if (!nuevo || !actual) { seguir(); return; }
                         actual.innerHTML = nuevo.innerHTML;
-                        ['cnt-pendientes', 'cnt-confirmados', 'cnt-sinmatch'].forEach(function (id) {
+                        ['cnt-pendientes', 'cnt-confirmados', 'cnt-sinmatch', 'consumiblesMatchTxt'].forEach(function (id) {
                             var a = document.getElementById(id), n = doc.getElementById(id);
                             if (a && n) a.textContent = n.textContent;
                         });
+                        // Lo de fuera de los resultados que depende de los filtros o de los
+                        // numeros: el Match (se apaga si no queda nada) y el Excel (sus filtros).
+                        var btnM = document.getElementById('btnMatch'), nBtnM = doc.getElementById('btnMatch');
+                        if (btnM && nBtnM) btnM.disabled = nBtnM.disabled;
+                        var exp = document.getElementById('consumiblesExportar'), nExp = doc.getElementById('consumiblesExportar');
+                        if (exp && nExp) exp.href = nExp.getAttribute('href');
                         if (window.location.pathname + window.location.search !== url.pathname + url.search) {
                             history.pushState({}, '', url.pathname + url.search);
                         }
                         if (window.hidePreloader) window.hidePreloader();
                     })
                     .catch(function () {
-                        if (pedido !== window._consumiblesPedido) return;
                         if (window.hidePreloader) window.hidePreloader();
+                        if (pedido !== window._consumiblesPedido) return;
                         seguir();
                     });
                 };

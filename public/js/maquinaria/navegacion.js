@@ -154,7 +154,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 // TraspasoController:81) — sin este guard, apuntar al módulo y entrar dejaba
                 // el menú pintado con la URL del módulo y sin el toast que explica por qué.
                 const ct = r.headers.get('Content-Type') || '';
-                return (r.ok && !r.redirected && ct.includes('text/html')) ? r.text() : null;
+                // Una copia de la caché (sin red, ver resources/sw.js) no se precarga: el clic
+                // la pedirá igual y así sabe que viene de la caché.
+                return (r.ok && !r.redirected && ct.includes('text/html') && r.headers.get('X-Vidalsa-Desde-Cache') !== '1') ? r.text() : null;
             })
             .then((html) => { if (html) prefetchStore.set(url, { html: html, ts: Date.now() }); })
             .catch(() => { /* silencioso: si falla, el clic hará la petición normal */ })
@@ -252,6 +254,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         loadPage(window.location.href, false);
     });
+
+    // Sin red, abrir la app (F5, icono de la PWA) en un modulo al que se habia llegado por la
+    // SPA recibe el MENU guardado: de ese modulo solo hay la copia corta (resources/sw.js).
+    // El <main> dice de que direccion es (data-ruta); si no es la de la barra, se carga la
+    // copia del modulo como en cualquier navegacion SPA. Con red nunca difieren.
+    function normalizarRuta(r) { try { r = decodeURI(r); } catch (_) {} return r.replace(/\/+$/, '') || '/'; }
+    if (mainViewport && mainViewport.dataset.ruta
+        && normalizarRuta(mainViewport.dataset.ruta) !== normalizarRuta(window.location.pathname)) {
+        setTimeout(() => loadPage(window.location.href, false), 0);
+    }
 
     async function navigateTo(url) {
         await loadPage(url, true);
@@ -431,6 +443,9 @@ document.addEventListener('DOMContentLoaded', () => {
             // que si el servidor mando a otro sitio, `url` ya no es donde estamos: lo dice
             // response.url. Se usa abajo cuando lo que llego no es una pagina de la app.
             let urlFinal = url;
+            // ¿La página llegó de la caché del service worker (sin red)? Entonces es la
+            // versión de cuando se guardó, y compararla con la de esta pestaña no dice nada.
+            let desdeCache = false;
 
             if (html !== null) {
                 clearTimeout(timeoutId);
@@ -443,6 +458,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 clearTimeout(timeoutId);
                 if (_yaNoEsLaActual()) { handledCleanup = true; return; }
                 if (response.redirected && response.url) urlFinal = response.url;
+                desdeCache = response.headers.get('X-Vidalsa-Desde-Cache') === '1';
 
                 // 403 de AuthorizationException: servidor devuelve JSON con
                 // {success:false, message, forbidden:true}. Mostrar toast y
@@ -488,27 +504,22 @@ document.addEventListener('DOMContentLoaded', () => {
             const parser = new DOMParser();
             const doc    = parser.parseFromString(html, 'text/html');
 
-            // Auto Cache-Busting: detectar si el servidor sirvió versiones mas nuevas
-            // de nuestros scripts. Si hay cambio REAL -> hard reload para evitar bugs
-            // por codigo desactualizado. Excluimos scripts no-criticos (pwa-install,
-            // service worker loader, etc.) cuya nueva version no afecta la logica
-            // de la app — evitamos reloads innecesarios que se perciben como "se
-            // recargo toda la pagina" al navegar entre modulos.
+            // ¿Hubo un despliegue? Entonces recarga completa, en vez de mezclar el HTML nuevo
+            // con el JS viejo de esta pestaña. Lo dicen dos cosas: la huella version-vistas
+            // (vistas + JS + CSS, ver VersionVistas: la respuesta corta de la SPA ya no trae
+            // los <script> del layout) y, por si esa huella faltara, el ?v= de los <script src>
+            // que SÍ trae el contenido del módulo.
             const newScripts     = Array.from(doc.querySelectorAll('script[src]'));
             const currentScripts = Array.from(document.querySelectorAll('script[src]'));
             let versionChanged   = false;
 
-            // Paths que NO disparan hard reload aunque cambie su version:
-            // - pwa-install.js: solo registra SW, no afecta paginas abiertas.
-            // - sw.js: el service worker se actualiza en su propio canal.
-            const NON_CRITICAL_SCRIPTS = ['/js/pwa-install.js', '/sw.js'];
-
-            for (let i = 0; i < newScripts.length; i++) {
+            // Sin red la página sale de la caché, guardada en otra versión: esa diferencia
+            // no es un despliegue, y la recarga forzada llevaba al menú en vez del módulo.
+            for (let i = 0; !desdeCache && i < newScripts.length; i++) {
                 const ns = newScripts[i];
                 if (!ns.src.includes(window.location.origin)) continue; // externos
 
                 const basePath = ns.src.split('?')[0];
-                if (NON_CRITICAL_SCRIPTS.some(p => basePath.endsWith(p))) continue;
 
                 const matchingCurrent = currentScripts.find(cs => cs.src.split('?')[0] === basePath);
                 // Tambien contra lo YA ejecutado: el <script src> de un modulo que vive en su
@@ -529,7 +540,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // viejo. El <head> no lo cambia la SPA, así que el meta actual es el de la carga
             // completa. Sin conexión no se compara: las páginas guardadas pueden ser de otra
             // versión y cada navegación recargaría.
-            if (!versionChanged && navigator.onLine !== false) {
+            if (!versionChanged && !desdeCache && navigator.onLine !== false) {
                 const vNueva  = (doc.querySelector('meta[name="version-vistas"]') || {}).content;
                 const vActual = (document.querySelector('meta[name="version-vistas"]') || {}).content;
                 if (vNueva && vActual && vNueva !== vActual) {
@@ -538,28 +549,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            // HOJAS DE ESTILO (<link rel="stylesheet">): la SPA NO re-evalúa los <link>
-            // al navegar, así que un cambio CSS-only (z-index del PDF, menú, etc.) no se
-            // veía hasta un F5 manual. A DIFERENCIA de los <script> —que requieren recarga
-            // completa para re-evaluar su lógica— una hoja de estilo nueva se aplica EN
-            // CALIENTE cambiando el href del <link> existente: se toma el CSS actualizado
-            // SIN recargar la página, manteniendo la navegación SPA fluida (antes esto
-            // forzaba un window.location.href y se percibía como "se recargó toda la
-            // página" al editar el CSS y navegar a otro módulo).
-            if (!versionChanged) {
-                const newLinks     = Array.from(doc.querySelectorAll('link[rel="stylesheet"][href]'));
-                const currentLinks = Array.from(document.querySelectorAll('link[rel="stylesheet"][href]'));
-                for (let i = 0; i < newLinks.length; i++) {
-                    const nl = newLinks[i];
-                    if (!nl.href.includes(window.location.origin)) continue; // CDNs externos
-                    const basePath = nl.href.split('?')[0];
-                    const matchingCurrent = currentLinks.find(cl => cl.href.split('?')[0] === basePath);
-                    if (matchingCurrent && matchingCurrent.href !== nl.href) {
-                        matchingCurrent.href = nl.href; // hot-swap: aplica el nuevo CSS sin recargar
-                        console.log(`Nueva versión de CSS aplicada en caliente: ${basePath}`);
-                    }
-                }
-            }
+            // (Ya no hay cambio de CSS "en caliente": un despliegue que toca public/css cambia la
+            // huella version-vistas y recarga entero, y las hojas del módulo llegan con su ?v=.)
 
             if (versionChanged) {
                 handledCleanup = true;
@@ -657,7 +648,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 // (fetch_interceptor.js), que ve fallar ESTA misma petición. Aquí solo queda el
                 // aviso propio de la navegación: que la página no cambió y se puede reintentar.
                 if (typeof window.showToast === 'function') {
-                    window.showToast('Sin conexión. Verificá tu internet e intentá de nuevo.', 'error');
+                    // Sin red solo abren los módulos que ya se abrieron con conexión en este
+                    // equipo (el service worker guarda cada uno al abrirlo).
+                    window.showToast('Sin conexión: este módulo todavía no está guardado en este equipo. Ábrelo una vez con internet y después funcionará sin conexión.', 'error');
                 }
                 console.warn('SPA: navegacion abortada — sin conexion o servidor inalcanzable.', error);
                 return;

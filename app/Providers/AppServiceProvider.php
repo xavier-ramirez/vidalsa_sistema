@@ -84,11 +84,12 @@ class AppServiceProvider extends ServiceProvider
         EquipoAuxiliar::observe(EquipoAuxiliarObserver::class);
         Documentacion::observe(DocumentacionObserver::class);
 
-        // Versión de las vistas (la modificación más reciente de resources/views), en el <head>
+        // Versión de lo que sirve el servidor (lo más reciente entre resources/views, public/js y
+        // public/css; ver VersionVistas), en el <head>
         // del layout. La SPA la compara al navegar (navegacion.js) y recarga completo si cambió:
         // el código de cada módulo va DENTRO de su vista y se inicia una sola vez por pestaña
         // (guardas tipo __almIndexInit), así que tras una actualización mezclaba el HTML nuevo
-        // con el JS de la primera carga. Cacheada 30 s: recorrer las vistas cuesta ~8 ms.
+        // con el JS de la primera carga. Cacheada 30 s: recorrer esas carpetas cuesta unos ms.
         View::composer('layouts.estructura_base', function ($view) {
             // Sin versión (si algo falla devuelve '') la SPA simplemente no compara: nunca
             // rompe la página. La huella y su caché viven en App\Support\VersionVistas, que

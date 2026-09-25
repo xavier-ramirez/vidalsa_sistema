@@ -69,22 +69,93 @@ self.addEventListener('install', (event) => {
                 if (response && response.status === 200 && !response.redirected) {
                     return caches.open(RUNTIME_CACHE).then((cache) => cache.put('/', response));
                 }
+            }).catch(() => {}),
+            // Y el MENU, si hay sesion (sin sesion redirige al login: no se guarda). Es a
+            // donde lleva "Entrar sin conexion": si faltaba —recien actualizada la app y sin
+            // haber vuelto a abrir el menu con red— ese boton devolvia al login una y otra
+            // vez ("no me deja iniciar sesion").
+            fetch('/menu', { credentials: 'same-origin' }).then((response) => {
+                if (response && response.status === 200 && !response.redirected) {
+                    return caches.open(RUNTIME_CACHE).then((cache) => cache.put('/menu', response));
+                }
             }).catch(() => {})
         ])
     );
 });
 
+// ¿Se puede pasar esta entrada de la caché vieja a la nueva? Las PAGINAS (HTML, incluidas
+// las respuestas cortas de la SPA y el panel de alertas) y los archivos con ?v= en la URL:
+// esos nunca pueden servir una version equivocada (la pagina se pide primero a la red, y el
+// ?v= cambia con el archivo). NO los assets sin version (los del PRECACHE): para refrescar
+// esos existe justamente el cambio de CACHE_VERSION.
+function sePuedeConservar(req, res) {
+    const u = new URL(req.url);
+    // Una respuesta CORTA de la SPA guardada con la clave normal (lo hacia el SW anterior a
+    // las claves ?__spa=1): pasarla abriria la app sin menu ni scripts. Fuera.
+    if (req.headers.get('X-SPA-Navigate') === '1') return false;
+    if (u.search.includes('v=') && u.pathname.match(/^\/(js|css|fonts|images|img|icons)\//)) return true;
+    return (res.headers.get('Content-Type') || '').includes('text/html') || u.pathname === '/dashboard/alerts-html';
+}
+
 self.addEventListener('activate', (event) => {
+    // CACHE_VERSION cambia en CADA despliegue (commit + filemtime). Antes eso borraba TODO
+    // lo guardado: el menu y los modulos desaparecian de la caché cada vez que se subia una
+    // version, y quien se quedaba sin red justo despues no podia entrar ni abrir modulos
+    // (volvia al login). Ahora lo que no puede quedar desfasado (sePuedeConservar) se pasa
+    // a la caché nueva antes de borrar la vieja; con red, cada pagina se refresca sola la
+    // proxima vez que se abra (network-first).
     event.waitUntil(
-        caches.keys().then((keys) =>
-            Promise.all(
-                keys
-                    .filter((key) => key !== STATIC_CACHE && key !== RUNTIME_CACHE && key.startsWith('vidalsa-'))
-                    .map((key) => caches.delete(key))
-            )
-        ).then(() => self.clients.claim())
+        caches.keys().then((keys) => {
+            const viejas = keys.filter((key) => key !== STATIC_CACHE && key !== RUNTIME_CACHE && key.startsWith('vidalsa-'));
+            return caches.open(RUNTIME_CACHE).then((nueva) => Promise.all(
+                viejas.filter((k) => k.startsWith('vidalsa-runtime-')).map((k) => caches.open(k).then((vieja) =>
+                    vieja.keys().then((reqs) => Promise.all(reqs.map((req) =>
+                        vieja.match(req).then((res) => {
+                            if (!res || !sePuedeConservar(req, res)) return;
+                            // No pisar lo que el install ya bajo fresco (el login, el menu).
+                            return nueva.match(req).then((ya) => ya ? null : nueva.put(req, res));
+                        }).catch(() => {})
+                    )))
+                ).catch(() => {}))
+            )).then(() => Promise.all(viejas.map((key) => caches.delete(key))));
+        }).then(() => self.clients.claim())
     );
 });
+
+// La red, pero con un tope. Con el wifi conectado y el servidor inalcanzable (router sin
+// salida, portal cautivo, servidor caido) la peticion no falla: se queda colgada minutos, y
+// la pantalla en blanco esperando. Pasado el tope se usa lo guardado; la peticion sigue en
+// segundo plano y, si llega, actualiza la caché para la proxima vez.
+//
+// Y una vez que el servidor no contesto, se RECUERDA un rato (sinServidorHasta): cada pagina,
+// cada JS y cada CSS esperaba su propio tope y abrir un modulo costaba 20 s. Mientras dure,
+// se va directo a lo guardado; la red se sigue intentando por detras y, en cuanto responde
+// algo, se olvida.
+const TOPE_RED_MS = 6000;
+const RECORDAR_SIN_SERVIDOR_MS = 30000;
+let sinServidorHasta = 0;
+function redConTope(peticion) {
+    peticion.then(() => { sinServidorHasta = 0; }, () => {});
+    return new Promise((resolve, reject) => {
+        const tope = Date.now() < sinServidorHasta ? 0 : TOPE_RED_MS;
+        const t = setTimeout(() => {
+            sinServidorHasta = Date.now() + RECORDAR_SIN_SERVIDOR_MS;
+            reject(new Error('tope'));
+        }, tope);
+        peticion.then((r) => { clearTimeout(t); resolve(r); }, (e) => { clearTimeout(t); reject(e); });
+    });
+}
+
+// Una pagina servida DESDE LA CACHÉ (sin red) lleva esta marca. navegacion.js la mira para
+// no comparar versiones: una copia guardada es de la version de cuando se guardo, y tomar
+// esa diferencia por "hubo un despliegue" forzaba una recarga que, sin servidor, acababa en
+// el menu en vez de en el modulo pedido.
+function marcarDesdeCache(res) {
+    if (!res) return res;
+    const h = new Headers(res.headers);
+    h.set('X-Vidalsa-Desde-Cache', '1');
+    return res.blob().then((b) => new Response(b, { status: res.status, statusText: res.statusText, headers: h }));
+}
 
 self.addEventListener('fetch', (event) => {
     const request = event.request;
@@ -180,7 +251,10 @@ self.addEventListener('fetch', (event) => {
                     networkFetch.catch(() => {}); // revalida en el fondo; el catch es solo para no dejar la promesa colgada
                     return exact;
                 }
-                return networkFetch.catch(() => caches.match(request, { ignoreSearch: true }));
+                // Sin copia exacta: la red, con tope (con el servidor colgado, un JS o un CSS
+                // esperando dejaba la pagina —el login incluido— sin terminar de cargar).
+                return redConTope(networkFetch).catch(() => caches.match(request, { ignoreSearch: true })
+                    .then((c) => c || networkFetch));
             })
         );
         return;
@@ -207,7 +281,7 @@ self.addEventListener('fetch', (event) => {
                     }
                     return response;
                 }).catch(() => cached);
-                return cached || networkFetch;
+                return cached || redConTope(networkFetch).catch(() => networkFetch);
             })
         );
         return;
@@ -223,25 +297,35 @@ self.addEventListener('fetch', (event) => {
     const esSpa = request.headers.get('X-SPA-Navigate') === '1';
     if (request.mode === 'navigate' || esSpa || (request.headers.get('accept') || '').includes('text/html')) {
         const claveSpa = () => { const u = new URL(request.url); u.searchParams.set('__spa', '1'); return u.toString(); };
+        const red = fetch(request).then((response) => {
+            // Sin redirect: si la sesion se cayo, el servidor manda al login y ESE HTML
+            // quedaba guardado como si fuera el modulo pedido (sin red, abrir ese modulo
+            // enseñaba el login). El login tiene su propia entrada ('/', mas arriba).
+            if (response && response.status === 200 && !response.redirected) {
+                const copy = response.clone();
+                caches.open(RUNTIME_CACHE).then((cache) => cache.put(esSpa ? claveSpa() : request, copy)).catch(() => {});
+            }
+            return response;
+        });
+        red.catch(() => {}); // si gana el tope, que esta no quede como promesa rechazada suelta
         event.respondWith(
-            fetch(request).then((response) => {
-                // Sin redirect: si la sesion se cayo, el servidor manda al login y ESE HTML
-                // quedaba guardado como si fuera el modulo pedido (sin red, abrir ese modulo
-                // enseñaba el login). El login tiene su propia entrada ('/', mas arriba).
-                if (response && response.status === 200 && !response.redirected) {
-                    const copy = response.clone();
-                    caches.open(RUNTIME_CACHE).then((cache) => cache.put(esSpa ? claveSpa() : request, copy)).catch(() => {});
-                }
-                return response;
-            }).catch(() => (esSpa ? caches.match(claveSpa()) : Promise.resolve(undefined)).then(
-                // Offline: 1) la respuesta corta de este modulo (solo la SPA); 2) la misma
-                // pagina completa; 3) el menú cacheado (lo más útil para reabrir la app sin
-                // señal); 4) la raíz como último recurso. ignoreVary: la pagina completa se
-                // guardo sin la cabecera X-SPA-Navigate.
-                (corta) => corta || caches.match(request, { ignoreVary: true }).then(
-                    (cached) => cached || caches.match('/menu').then((m) => m || caches.match('/'))
-                )
-            ))
+            redConTope(red).catch(() => (esSpa ? caches.match(claveSpa()) : Promise.resolve(undefined)).then(
+                // Sin red: 1) la respuesta corta de este modulo (solo la SPA); 2) la misma
+                // pagina completa (en la SPA con ignoreVary: se guardo sin X-SPA-Navigate;
+                // en una navegacion NO, para no servir nunca una respuesta corta).
+                (corta) => corta || caches.match(request, esSpa ? { ignoreVary: true } : undefined)
+            ).then((cached) => {
+                if (cached) return marcarDesdeCache(cached);
+                // Un modulo que nunca se abrio con red en este equipo. En la SPA, error de
+                // red: navegacion.js avisa y DEJA al usuario donde estaba (antes le pintaba
+                // el menu con la direccion del modulo, y parecia que el modulo no abria).
+                if (esSpa) return Response.error();
+                // Abriendo la app (F5, icono de la PWA) en un modulo al que se llego por la SPA
+                // (solo hay su copia corta): el menu guardado, que al arrancar ve que su
+                // contenido no es el de la direccion y carga la copia corta del modulo
+                // (data-ruta, ver navegacion.js). Sin menu, el login como ultimo recurso.
+                return caches.match('/menu').then((m) => m ? marcarDesdeCache(m) : caches.match('/'));
+            }))
         );
     }
 });

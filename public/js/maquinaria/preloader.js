@@ -99,3 +99,16 @@ window.addEventListener('load', function() {
         window.hidePreloader(true);
     }
 });
+
+// Tope al spinner inicial: 'load' espera a TODAS las imagenes, y con el wifi conectado pero
+// el servidor inalcanzable las fotos de los equipos (/storage/google, que el service worker
+// no guarda) se quedan colgadas hasta un minuto. La pagina ya estaba lista —sale de la caché—
+// y el usuario veia el spinner girando: "no me deja entrar". A los 4 s del DOM listo se quita
+// igual, con la misma guarda que arriba (si un modulo pidio el spinner, lo suelta el).
+document.addEventListener('DOMContentLoaded', function () {
+    setTimeout(function () {
+        if (document.readyState !== 'complete' && _preloaderRefs === 0 && typeof window.hidePreloader === 'function') {
+            window.hidePreloader(true);
+        }
+    }, 4000);
+});
