@@ -225,7 +225,10 @@ self.addEventListener('fetch', (event) => {
         const claveSpa = () => { const u = new URL(request.url); u.searchParams.set('__spa', '1'); return u.toString(); };
         event.respondWith(
             fetch(request).then((response) => {
-                if (response && response.status === 200) {
+                // Sin redirect: si la sesion se cayo, el servidor manda al login y ESE HTML
+                // quedaba guardado como si fuera el modulo pedido (sin red, abrir ese modulo
+                // enseñaba el login). El login tiene su propia entrada ('/', mas arriba).
+                if (response && response.status === 200 && !response.redirected) {
                     const copy = response.clone();
                     caches.open(RUNTIME_CACHE).then((cache) => cache.put(esSpa ? claveSpa() : request, copy)).catch(() => {});
                 }
