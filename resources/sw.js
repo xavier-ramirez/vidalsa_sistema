@@ -88,6 +88,28 @@ self.addEventListener('install', (event) => {
 // esos nunca pueden servir una version equivocada (la pagina se pide primero a la red, y el
 // ?v= cambia con el archivo). NO los assets sin version (los del PRECACHE): para refrescar
 // esos existe justamente el cambio de CACHE_VERSION.
+/**
+ * ¿Es el HTML del LOGIN guardado con la clave de OTRA pagina?
+ *
+ * Lo dejaba el SW anterior al arreglo de `redirected`: si la sesion se caia a mitad de
+ * navegacion, el servidor mandaba al login y ese HTML se guardaba como si fuera el modulo
+ * pedido. Ya no se guardan nuevos, pero los que YA estaban se copiaban de version en
+ * version en cada despliegue (sePuedeConservar deja pasar cualquier text/html), asi que el
+ * problema sobrevivia para siempre: abrir ese modulo sin red —o con el servidor lento—
+ * enseñaba el login, y el login, al ver que si hay sesion, mandaba al menu.
+ *
+ * El login legitimo vive en '/' y ese SI se conserva.
+ */
+function esLoginEnClaveAjena(req, res) {
+    const u = new URL(req.url);
+    if (u.pathname === '/' || !(res.headers.get('Content-Type') || '').includes('text/html')) {
+        return Promise.resolve(false);
+    }
+    return res.clone().text()
+        .then((html) => html.includes('id="loginForm"'))
+        .catch(() => false);   // si no se puede leer, no se tira nada
+}
+
 function sePuedeConservar(req, res) {
     const u = new URL(req.url);
     // Una respuesta CORTA de la SPA guardada con la clave normal (lo hacia el SW anterior a
@@ -112,8 +134,11 @@ self.addEventListener('activate', (event) => {
                     vieja.keys().then((reqs) => Promise.all(reqs.map((req) =>
                         vieja.match(req).then((res) => {
                             if (!res || !sePuedeConservar(req, res)) return;
-                            // No pisar lo que el install ya bajo fresco (el login, el menu).
-                            return nueva.match(req).then((ya) => ya ? null : nueva.put(req, res));
+                            return esLoginEnClaveAjena(req, res).then((envenenada) => {
+                                if (envenenada) return;   // se queda en la cache vieja, que se borra
+                                // No pisar lo que el install ya bajo fresco (el login, el menu).
+                                return nueva.match(req).then((ya) => ya ? null : nueva.put(req, res));
+                            });
                         }).catch(() => {})
                     )))
                 ).catch(() => {}))
@@ -135,13 +160,22 @@ const TOPE_RED_MS = 6000;
 const RECORDAR_SIN_SERVIDOR_MS = 30000;
 let sinServidorHasta = 0;
 function redConTope(peticion) {
-    peticion.then(() => { sinServidorHasta = 0; }, () => {});
+    // Solo un fallo DE VERDAD (no hay red, el servidor no acepta) enciende el "sin
+    // servidor". Antes lo encendia tambien el tope, y eso confundia un servidor LENTO con
+    // uno caido: bastaba UNA pagina que tardara mas de TOPE_RED_MS para que, durante los
+    // RECORDAR_SIN_SERVIDOR_MS siguientes, el tope pasara a 0 y CADA modulo se sirviera de
+    // la cache sin siquiera intentar la red. Con el servidor cargado (o una consulta
+    // pesada) eso se disparaba solo, y lo guardado podia ser el login: de ahi el "abro un
+    // modulo y me manda al login, y luego al menu".
+    //
+    // Que una respuesta tarde no dice que el servidor no este; que el fetch se rompa, si.
+    peticion.then(
+        () => { sinServidorHasta = 0; },
+        () => { sinServidorHasta = Date.now() + RECORDAR_SIN_SERVIDOR_MS; }
+    );
     return new Promise((resolve, reject) => {
         const tope = Date.now() < sinServidorHasta ? 0 : TOPE_RED_MS;
-        const t = setTimeout(() => {
-            sinServidorHasta = Date.now() + RECORDAR_SIN_SERVIDOR_MS;
-            reject(new Error('tope'));
-        }, tope);
+        const t = setTimeout(() => reject(new Error('tope')), tope);
         peticion.then((r) => { clearTimeout(t); resolve(r); }, (e) => { clearTimeout(t); reject(e); });
     });
 }

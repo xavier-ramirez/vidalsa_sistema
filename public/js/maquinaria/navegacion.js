@@ -562,6 +562,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (!newContent) {
                 handledCleanup = true;
+                // ¿Vino de la CACHÉ? Entonces la sesión no tiene nada que ver: el service
+                // worker sirvió una copia guardada (el servidor no contestó a tiempo, o no
+                // hay red) y da la casualidad de que esa copia es el login, guardado con la
+                // clave de este módulo por un fallo antiguo. Recargar aquí era lo que
+                // provocaba el "abro un módulo, me sale el login y acabo en el menú": la
+                // recarga volvía a caer en la misma copia. Se avisa y se deja al usuario
+                // donde está, con su pantalla intacta.
+                if (desdeCache) {
+                    // Mismo aviso que el catch de abajo: showToast (el de este archivo), y
+                    // el usuario se queda donde estaba para reintentar.
+                    if (typeof window.showToast === 'function') {
+                        window.showToast('El servidor no respondió a tiempo y este módulo no está guardado en este equipo. Inténtalo de nuevo.', 'error');
+                    }
+                    console.warn('SPA: la copia guardada de este módulo no sirve (es el login). No se recarga.');
+                    return;
+                }
                 // urlFinal y NO url. Lo que llega sin .main-viewport es casi siempre el LOGIN:
                 // el servidor cerro la sesion y redirigio a /?aviso=<motivo>. Navegar a la url
                 // PEDIDA tiraba ese motivo: la sesion ya estaba muerta, esa peticion daba 401 y
