@@ -1965,6 +1965,9 @@
     window.QrScan.init({
         input:      'almFiltroBuscar',
         icono:      'almBuscarScan',
+        // En PC ese hueco lo ocupa el acceso a KITS: alli el QR no abria nada (el lector
+        // USB teclea directo en el buscador). Quien decide cual se ve es QrScan.iconToggle.
+        iconoPc:    'almBuscarKits',
         // Mismo criterio que la "x" de limpiar en filtros() (patrón placeholder-background:
         // texto tecleado o filtro aplicado en data-active) → los dos iconos, que comparten
         // sitio dentro del cuadro, nunca se ven a la vez.

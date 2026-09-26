@@ -177,8 +177,13 @@
     }
 
     function cerrar() {
-        detenerCamara();
+        // El modal se va PRIMERO, la camara despues. Al reves —que es como estaba— la X no
+        // respondia hasta que la libreria soltaba el dispositivo: scanner.stop() es asincrono
+        // y en un telefono tarda un momento, asi que el usuario pulsaba, no pasaba nada
+        // visible y volvia a pulsar. Quitar la clase es inmediato; apagar la camara puede ir
+        // por detras sin que nadie lo espere.
         var m = el('qrsModal'); if (m) m.classList.remove('open');
+        detenerCamara();
     }
 
     // Muestra el icono de escaneo SOLO cuando NO hay filtro puesto (si lo hay, su lugar lo
@@ -187,8 +192,16 @@
     // módulo compartido no debe conocer la convención de ninguna.
     function iconToggle() {
         if (!cfg || typeof cfg.activo !== 'function') return;
-        var ic = el(cfg.icono); if (!ic) return;
-        ic.style.display = cfg.activo() ? 'none' : 'flex';
+        var libre = !cfg.activo();               // el buscador esta vacio: cabe un icono
+        var ic = el(cfg.icono);
+        // En PC el icono de escanear NO abria nada (solo enfocaba el buscador, porque el
+        // lector USB teclea ahi). Asi que ese hueco lo ocupa el atajo que la vista indique
+        // en cfg.iconoPc — en el inventario, Kits. Si la vista no pone ninguno, en PC no se
+        // enseña nada y punto.
+        var esTelefono = esMovil();
+        if (ic) ic.style.display = (libre && esTelefono) ? 'flex' : 'none';
+        var alt = cfg.iconoPc ? el(cfg.iconoPc) : null;
+        if (alt) alt.style.display = (libre && !esTelefono) ? 'flex' : 'none';
     }
 
     // ── Lector USB global (escanear en PC SIN abrir el modal) ──────────────────
@@ -248,7 +261,7 @@
         /**
          * Engancha el escaneo al buscador de la vista actual. Se llama en CADA visita SPA
          * para que cfg apunte al DOM vivo.
-         * @param {{input:string, icono:string, onProducto:Function, activo?:Function}} opts
+         * @param {{input:string, icono:string, iconoPc?:string, onProducto:Function, activo?:Function}} opts
          */
         init: function (opts) {
             // Si se navegó con el modal abierto (botón atrás), el #qrsModal se fue del DOM

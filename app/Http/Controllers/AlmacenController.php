@@ -621,10 +621,29 @@ class AlmacenController extends Controller
 
         // Y cada palabra por su cuenta, para los términos de varias ("aceite motor").
         $tokens = $this->tokenizarBusquedaProducto($frase);
+
         // El MISMO tope que el filtro (MAX_PALABRAS_CON_PERDON): si el orden perdonara lo
-        // que el WHERE no perdona, generaria LIKEs que no pueden encajar con nada.
+        // que el WHERE no perdona, generaria LIKEs que no pueden encajar con nada. Se mide
+        // ANTES de sumar los numeros de abajo, porque el WHERE no los cuenta: si entraran
+        // aqui, "filtro aceite motor 15" pasaria de 3 palabras a 4 y el orden dejaria de
+        // perdonar la errata que el filtro SI perdona — que es justo la descoordinacion que
+        // dejaba todo a cero y devolvia el alfabetico.
         $tolerante = $tolerante && count($tokens) <= self::MAX_PALABRAS_CON_PERDON
             && array_sum(array_map(fn ($t) => count($this->formasDeBuscarPalabra($t, true)), $tokens)) <= self::MAX_FORMAS_CON_PERDON;
+        // Los NÚMEROS CORTOS también puntúan, aunque el filtro los descarte.
+        //
+        // tokenizarBusquedaProducto tira los números de una o dos cifras para que el WHERE no
+        // se vuelva un colador. Pero en un almacén esos números son LA TALLA, y son justo lo
+        // que distingue un producto de otro: buscando "BRAGA 42" salían las ocho bragas con
+        // el mismo puntaje y mandaba el alfabético, así que la 42 —la única que se pidió—
+        // aparecía detrás de la 36. Aquí sí se miran: el filtro sigue trayendo todas las
+        // bragas (que es lo que se quiere: ver las tallas parecidas), pero la que lleva el
+        // número escrito sale PRIMERA.
+        foreach (preg_split('/\s+/', mb_strtolower($frase), -1, PREG_SPLIT_NO_EMPTY) as $suelto) {
+            if (preg_match('/^\d{1,2}$/', $suelto) && !in_array($suelto, $tokens, true)) {
+                $tokens[] = $suelto;
+            }
+        }
         foreach ($tokens as $tok) {
             // Se puntúa con las MISMAS formas con las que filtró el WHERE
             // (formasDeBuscarPalabra): el plural y su singular, y en el reintento también

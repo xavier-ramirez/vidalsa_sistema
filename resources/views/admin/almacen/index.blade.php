@@ -152,11 +152,18 @@
                 {{-- Escanear QR: icono dentro del propio buscador. Visible cuando el campo
                      está vacío; al escribir/filtrar se oculta y aparece la "x" de limpiar
                      (toggle en QrScan.iconToggle, llamado desde filtros()/almBuscarInput).
-                     En teléfono abre el modal de cámara; en PC NO abre nada: enfoca este
-                     mismo buscador para que el lector USB teclee aquí. --}}
+                     En TELÉFONO se ve el icono de escanear (abre la cámara). En PC se ve en
+                     su lugar el de KITS: allí el QR no abría nada, porque un lector USB
+                     teclea directamente en este buscador. --}}
                 <i class="material-icons qrs-ic" id="almBuscarScan" title="Escanear código QR"
-                   style="display:{{ $bActivo ? 'none' : 'flex' }};"
+                   style="display:none;"
                    onclick="window.QrScan.abrir()">&#xf206;</i>
+                {{-- En PC, donde no hay cámara, ese hueco lo ocupa el acceso a KITS: el QR
+                     allí no abría nada (solo enfocaba este mismo buscador). Cuál de los dos
+                     se ve lo decide QrScan.iconToggle, que es quien sabe si es teléfono. --}}
+                <i class="material-icons qrs-ic" id="almBuscarKits" title="Kits por equipo"
+                   style="display:none;"
+                   onclick="window.almAbrirKits && window.almAbrirKits()">inventory_2</i>
                 <i class="material-icons filter-clear" style="display:{{ $bActivo ? 'flex' : 'none' }};"
                    onclick="window.almBuscarLimpiar()">close</i>
             </div>
