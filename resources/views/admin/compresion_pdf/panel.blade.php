@@ -306,7 +306,6 @@
                 <div>
                     <small>Documentos leídos</small>
                     <strong>{{ $resumenDocs->sum() }}</strong>
-                    <span>títulos, pólizas, ROTC y RACDA</span>
                 </div>
             </div>
             <div class="cpdf-caja cpdf-aviso {{ $activa ? 'ok' : 'apagada' }}">
