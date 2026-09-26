@@ -74,7 +74,7 @@ Estructura: overlay > modal-content > header + sub-header + body
                     <summary
                         style="padding: 15px 20px; font-weight: 700; color: #1e293b; display: flex; align-items: center; gap: 10px; background: #f8fafc; list-style: none;">
                         <i class="material-icons" style="font-size: 20px; color: #64748b;">description</i>
-                        <span>Documentaci&oacute;n Legal y Soportes</span>
+                        <span>Documentaci&oacute;n Legal</span>
                     </summary>
                     <div style="padding: 10px 16px; border-top: 1px solid #e2e8f0;">
                         <div style="display: flex; flex-direction: column; gap: 6px; font-size: 13px;">
@@ -151,8 +151,8 @@ Estructura: overlay > modal-content > header + sub-header + body
                     </div>
                 </details>
 
-                {{-- Sub-activos vinculados (auxiliares) — colocado JUSTO debajo de "Documentación
-                     Legal y Soportes" (antes iba al final del modal). --}}
+                {{-- Sub-activos vinculados (auxiliares) — colocado JUSTO debajo de
+                     "Documentación Legal" (antes iba al final del modal). --}}
                 <details id="sa_accordion" name="equipment_accordion"
                     style="background: white; border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden; display: none;">
                     <summary

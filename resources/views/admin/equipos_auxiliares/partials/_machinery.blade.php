@@ -437,7 +437,7 @@
         // el equipo vinculado (host) y datos adicionales (codigo interno, año, observaciones).
         const body = document.getElementById('auxDetailsBody');
         body.innerHTML = `
-            ${section('Documentación Legal y Soportes', 'description',
+            ${section('Documentación Legal', 'description',
                 rowPropiedad + rowCertificado
             )}
 

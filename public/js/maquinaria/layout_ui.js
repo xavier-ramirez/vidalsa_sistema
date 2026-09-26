@@ -2454,8 +2454,8 @@ window.closePdfPreview = function () {
                 title:       'Falta la fecha de vencimiento',
                 message:     'Sin la fecha, este documento <b>no se puede cargar</b>.<br><br>'
                            + '¿Descartas el documento y cierras el visor?',
-                confirmText: 'Descartar el documento',
-                cancelText:  'Volver y poner la fecha',
+                confirmText: 'Descartar',
+                cancelText:  'Poner fecha',
             }, function () {
                 window.toast('Carga cancelada: el documento no se subió.', 'info');
                 _pdfCerrarPendiente(null);
