@@ -219,19 +219,21 @@
 
     function pintarAlmacen() {
         var box = $('almKitsAlmacen');
-        var nombre = nombreAlmacen(S.idAlmacen);
-        box.classList.toggle('sin', !S.idAlmacen);
-        // NO es un selector: es el pie de qué almacén salen los números de la columna
-        // "En almacén" y del aviso "no alcanza". Antes solo ponía el nombre y parecía
-        // repetir el almacén desde el que se abrió el modal; el rótulo lo aclara sin
-        // tener que dejar el dedo encima para leer el title.
-        box.innerHTML = '<i class="material-icons">warehouse</i>' +
-            (S.idAlmacen
-                ? '<span class="akit-alm-rot">Existencias en</span>' + esc(nombre || 'Almacén')
-                : 'Elige un almacén en el inventario');
-        box.title = S.idAlmacen
-            ? 'Lo que se ve en "En almacén" es la existencia de ' + (nombre || 'este almacén')
-            : 'Para ver cuánto alcanza, elige primero el almacén en el inventario';
+        // Con almacén elegido NO se enseña nada: el modal se abre DESDE ese almacén, con su
+        // nombre en la barra del inventario justo detrás, así que "Existencias en BARCELONA"
+        // solo repetía lo que el usuario acababa de elegir y robaba una línea del modal.
+        // El aviso sí se queda cuando NO hay almacén: sin él, los números de "En almacén" y
+        // el "no alcanza" no se sostienen y nadie sabría por qué salen en cero.
+        if (S.idAlmacen) {
+            box.hidden = true;
+            box.innerHTML = '';
+            box.removeAttribute('title');
+            return;
+        }
+        box.hidden = false;
+        box.classList.add('sin');
+        box.innerHTML = '<i class="material-icons">warehouse</i>Elige un almacén en el inventario';
+        box.title = 'Para ver cuánto alcanza, elige primero el almacén en el inventario';
     }
 
     function pintarDetalle() {
@@ -302,6 +304,11 @@
         $('almKitsEditor').hidden = !editor;
         $('almKitsPieEditor').hidden = !editor;
         $('almKitsTitulo').textContent = editor ? (S.ed && S.ed.id ? 'Editar kit' : 'Nuevo kit') : 'Kits por equipo';
+        // El editor es un formulario de campos apilados: con el ancho de la lista quedaba
+        // medio modal vacio a la derecha. La lista SI necesita ese ancho (tiene columnas:
+        // material, por kit, total, en almacen), asi que se estrecha solo mientras se edita.
+        var caja = $('almKitsModal') && $('almKitsModal').querySelector('.alm-modal');
+        if (caja) caja.classList.toggle('akit-editando', !!editor);
     }
     function puedeEditar() {
         if (offline()) { toast('Sin conexión no se pueden armar ni cambiar kits.', 'error'); return false; }
@@ -313,7 +320,6 @@
             ? { id: kit.id, modelos: kit.modelos.slice(), items: kit.items.map(function (i) { return Object.assign({}, i); }) }
             : { id: null, modelos: [], items: [] };
         $('almKitNombre').value = kit ? kit.nombre : '';
-        $('almKitDesc').value = kit ? kit.descripcion : '';
         $('almKitModeloBuscar').value = '';
         $('almKitProdBuscar').value = '';
         $('almKitError').textContent = '';
@@ -543,7 +549,6 @@
             err.textContent = '';
             var cuerpo = {
                 nombre: nombre,
-                descripcion: $('almKitDesc').value.trim(),
                 items: ed.items.map(function (i) { return { id_producto: i.id_producto, cantidad: i.cantidad }; }),
                 modelos: ed.modelos.map(function (m) { return { origen: m.origen, refs: m.refs }; }),
             };

@@ -66,10 +66,6 @@
                             <label for="almKitNombre">Nombre del kit</label>
                             <input type="text" id="almKitNombre" maxlength="120" autocomplete="off" placeholder="Ej.: KIT 250 HORAS HOWO">
                         </div>
-                        <div class="akit-campo">
-                            <label for="almKitDesc">Descripción (opcional)</label>
-                            <input type="text" id="almKitDesc" maxlength="255" autocomplete="off" placeholder="Ej.: servicio de 250 horas, cambio de aceite y filtros">
-                        </div>
                     </div>
 
                     <div class="akit-seccion">
@@ -109,7 +105,7 @@
         <div class="alm-modal-foot" id="almKitsPieEditor" hidden>
             <button type="button" class="btn-primary-maquinaria" style="background:#e2e8f0;color:#475569;" onclick="window.AlmKits.cancelarEdicion()">Cancelar</button>
             <button type="button" class="btn-primary-maquinaria" id="almKitGuardar" onclick="window.AlmKits.guardar()">
-                <i class="material-icons" style="font-size:18px;vertical-align:middle;">save</i> Guardar kit
+                <i class="material-icons" style="font-size:18px;vertical-align:middle;">save</i> Guardar
             </button>
         </div>
     </div>
