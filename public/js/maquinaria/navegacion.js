@@ -260,9 +260,20 @@ document.addEventListener('DOMContentLoaded', () => {
     // El <main> dice de que direccion es (data-ruta); si no es la de la barra, se carga la
     // copia del modulo como en cualquier navegacion SPA. Con red nunca difieren.
     function normalizarRuta(r) { try { r = decodeURI(r); } catch (_) {} return r.replace(/\/+$/, '') || '/'; }
+    //
+    // SOLO si esa copia existe. Sin ella, pedirla por la SPA con el servidor colgado acababa en
+    // el tope de 12 s -> recarga -> otra vez el menu -> otra vez aqui: un bucle. Entonces se
+    // deja el menu, la direccion pasa a decir la verdad y se avisa.
     if (mainViewport && mainViewport.dataset.ruta
         && normalizarRuta(mainViewport.dataset.ruta) !== normalizarRuta(window.location.pathname)) {
-        setTimeout(() => loadPage(window.location.href, false), 0);
+        copiaGuardada(window.location.href).then((copia) => {
+            // Se pinta la copia tal cual, sin pedirla a la red (que puede estar colgada).
+            if (copia) { loadPage(window.location.href, false, { html: copia, desdeCache: true }); return; }
+            history.replaceState(null, '', mainViewport.dataset.ruta);
+            if (typeof window.showToast === 'function') {
+                window.showToast('Sin conexión: ese módulo todavía no está guardado en este equipo. Ábrelo una vez con internet y después funcionará sin conexión.', 'error');
+            }
+        });
     }
 
     async function navigateTo(url) {
@@ -373,7 +384,24 @@ document.addEventListener('DOMContentLoaded', () => {
     // spinner se iba antes de tiempo y la pantalla quedaba destapada a medio cargar.
     let _navSeq = 0;
 
-    async function loadPage(url, pushHistory = true) {
+    // La copia guardada de un módulo en la caché del service worker (la corta de la SPA o la
+    // página completa), leída DIRECTAMENTE: sin volver a pedirla a una red que no contesta.
+    // Solo si es de verdad una pantalla de la app (trae .main-viewport): nunca el login.
+    async function copiaGuardada(url) {
+        if (!window.caches) return null;
+        try {
+            const spa = new URL(url, window.location.origin);
+            spa.searchParams.set('__spa', '1');
+            const r = (await caches.match(spa.toString())) || (await caches.match(url));
+            if (!r) return null;
+            const html = await r.text();
+            return html.includes('main-viewport') ? html : null;
+        } catch (_) { return null; }
+    }
+
+    // opciones.html: pintar ESE html sin pedir nada (una copia guardada); opciones.desdeCache:
+    // es de la caché, así que no se compara su versión (ver más abajo).
+    async function loadPage(url, pushHistory = true, opciones = {}) {
         const _miNav = ++_navSeq;
         // ── Timeout de 12s: si el servidor no responde, no dejamos el spinner eternamente ──
         const controller = new AbortController();
@@ -438,14 +466,14 @@ document.addEventListener('DOMContentLoaded', () => {
             // 200 text/html, así que por esta vía nunca llega un 403, un redirect ni un
             // PDF — sus comprobaciones siguen viviendo en la rama de red, que es la única
             // que puede producirlos.
-            let html = tomarPrefetch(url);
+            let html = opciones.html != null ? opciones.html : tomarPrefetch(url);
             // A DONDE LLEVO DE VERDAD la respuesta. fetch sigue los redirects sin avisar, asi
             // que si el servidor mando a otro sitio, `url` ya no es donde estamos: lo dice
             // response.url. Se usa abajo cuando lo que llego no es una pagina de la app.
             let urlFinal = url;
             // ¿La página llegó de la caché del service worker (sin red)? Entonces es la
             // versión de cuando se guardó, y compararla con la de esta pestaña no dice nada.
-            let desdeCache = false;
+            let desdeCache = !!opciones.desdeCache;
 
             if (html !== null) {
                 clearTimeout(timeoutId);
@@ -673,6 +701,17 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (error.name === 'AbortError') {
+                // El servidor no contestó en 12 s. Si este módulo está guardado, se pinta esa
+                // copia (avisando) en vez de recargar: con el servidor colgado, la recarga
+                // volvía a esperar y podía acabar en un bucle.
+                const copia = await copiaGuardada(url);
+                if (copia && !_yaNoEsLaActual()) {
+                    if (typeof window.showToast === 'function') {
+                        window.showToast('El servidor no responde: se muestra la copia guardada en este equipo.', 'info');
+                    }
+                    loadPage(url, pushHistory, { html: copia, desdeCache: true });
+                    return;
+                }
                 console.warn('SPA: tiempo de espera agotado (12s), recargando normalmente.');
             } else {
                 console.error('SPA: Error cargando página:', error);

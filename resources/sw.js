@@ -180,6 +180,14 @@ function redConTope(peticion) {
     });
 }
 
+// La red para la SPA: se espera lo que tarde (el tope lo pone navegacion.js). Solo si un fetch
+// acaba de FALLAR de verdad (sinServidorHasta, lo enciende redConTope) se va directo a lo
+// guardado, sin esperar a que falle otra vez.
+function redSinTopeSpa(peticion) {
+    peticion.then(() => { sinServidorHasta = 0; }, () => { sinServidorHasta = Date.now() + RECORDAR_SIN_SERVIDOR_MS; });
+    return Date.now() < sinServidorHasta ? Promise.reject(new Error('sin servidor')) : peticion;
+}
+
 // Una pagina servida DESDE LA CACHÉ (sin red) lleva esta marca. navegacion.js la mira para
 // no comparar versiones: una copia guardada es de la version de cuando se guardo, y tomar
 // esa diferencia por "hubo un despliegue" forzaba una recarga que, sin servidor, acababa en
@@ -343,12 +351,22 @@ self.addEventListener('fetch', (event) => {
         });
         red.catch(() => {}); // si gana el tope, que esta no quede como promesa rechazada suelta
         event.respondWith(
-            redConTope(red).catch(() => (esSpa ? caches.match(claveSpa()) : Promise.resolve(undefined)).then(
+            // En la SPA SIN tope: navegacion.js ya tiene el suyo (12 s) y sabe qué hacer. Con el
+            // tope, un servidor VIVO pero LENTO (cargado, una consulta pesada) servía la copia
+            // vieja sin avisar —datos que parecían actuales— o, sin copia, "sin conexión" estando
+            // conectado. Aquí solo se usa lo guardado si la red FALLA (o acaba de fallar: ver
+            // sinServidorHasta). El tope se queda para abrir la app (F5, icono), donde la
+            // alternativa es la pantalla en blanco.
+            (esSpa ? redSinTopeSpa(red) : redConTope(red)).catch(() => (esSpa ? caches.match(claveSpa()) : Promise.resolve(undefined)).then(
                 // Sin red: 1) la respuesta corta de este modulo (solo la SPA); 2) la misma
                 // pagina completa (en la SPA con ignoreVary: se guardo sin X-SPA-Navigate;
                 // en una navegacion NO, para no servir nunca una respuesta corta).
                 (corta) => corta || caches.match(request, esSpa ? { ignoreVary: true } : undefined)
-            ).then((cached) => {
+            ).then((cached) => cached && esLoginEnClaveAjena(request, cached).then((login) => login ? null : cached))
+            .then((cached) => {
+                // (Una copia que resulta ser el LOGIN guardado con la clave de este modulo no
+                // cuenta: se trata como si no hubiera copia. La migracion ya no las pasa, pero
+                // hasta el siguiente despliegue pueden seguir en la caché actual.)
                 if (cached) return marcarDesdeCache(cached);
                 // Un modulo que nunca se abrio con red en este equipo. En la SPA, error de
                 // red: navegacion.js avisa y DEJA al usuario donde estaba (antes le pintaba
@@ -358,7 +376,9 @@ self.addEventListener('fetch', (event) => {
                 // (solo hay su copia corta): el menu guardado, que al arrancar ve que su
                 // contenido no es el de la direccion y carga la copia corta del modulo
                 // (data-ruta, ver navegacion.js). Sin menu, el login como ultimo recurso.
-                return caches.match('/menu').then((m) => m ? marcarDesdeCache(m) : caches.match('/'));
+                return caches.match('/menu')
+                    .then((m) => m && esLoginEnClaveAjena(new Request('/menu'), m).then((login) => login ? null : m))
+                    .then((m) => m ? marcarDesdeCache(m) : caches.match('/'));
             }))
         );
     }
