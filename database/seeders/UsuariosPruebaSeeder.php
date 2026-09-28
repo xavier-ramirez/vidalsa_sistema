@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use App\Models\Usuario;
 use Faker\Factory as Faker;
 
@@ -33,7 +34,7 @@ class UsuariosPruebaSeeder extends Seeder
             Usuario::forceCreate([
                 'NOMBRE_COMPLETO' => $faker->name,
                 'CORREO_ELECTRONICO' => $faker->unique()->email,
-                'PASSWORD_HASH' => Hash::make('password123'), // Contraseña genérica
+                'PASSWORD_HASH' => Hash::make(Str::random(16)), // Sin clave conocida: son de relleno
                 'ID_ROL' => $rolesIds[array_rand($rolesIds)],
                 'ID_FRENTE_ASIGNADO' => !empty($frentesIds) ? $frentesIds[array_rand($frentesIds)] : null,
                 'NIVEL_ACCESO_EQUIPOS' => $faker->randomElement([1, 2]),
