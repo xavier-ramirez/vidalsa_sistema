@@ -23,7 +23,7 @@
     <tr>
         <td colspan="{{ $cols }}" class="alm-vacio">
             <i class="material-icons">warehouse</i>
-            Aún no hay almacenes registrados. Usa el menú "Acciones → Nuevo almacén" para crear el primero.
+            Aún no hay almacenes registrados. Crea el primero en "Acciones → Gestionar almacenes", con el botón de abajo.
         </td>
     </tr>
 @elseif($inicial && $rows->count() === 0)

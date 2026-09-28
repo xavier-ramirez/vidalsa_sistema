@@ -255,11 +255,12 @@ document.addEventListener('DOMContentLoaded', () => {
         loadPage(window.location.href, false);
     });
 
-    // Sin red, abrir la app (F5, icono de la PWA) en un modulo al que se habia llegado por la
-    // SPA recibe el MENU guardado: de ese modulo solo hay la copia corta (resources/sw.js).
-    // El <main> dice de que direccion es (data-ruta); si no es la de la barra, se carga la
-    // copia del modulo como en cualquier navegacion SPA. Con red nunca difieren.
     function normalizarRuta(r) { try { r = decodeURI(r); } catch (_) {} return r.replace(/\/+$/, '') || '/'; }
+
+    // Abrir la app de cero (F5, icono de la PWA) en un modulo al que se habia llegado por la
+    // SPA devuelve el MENU guardado: de ese modulo solo hay la copia corta (resources/sw.js).
+    // El <main> dice de que direccion es (data-ruta); si no es la de la barra, se carga la
+    // copia del modulo como en cualquier navegacion SPA. Con el servidor al dia nunca difieren.
     //
     // SOLO si esa copia existe. Sin ella, pedirla por la SPA con el servidor colgado acababa en
     // el tope de 12 s -> recarga -> otra vez el menu -> otra vez aqui: un bucle. Entonces se
@@ -267,12 +268,17 @@ document.addEventListener('DOMContentLoaded', () => {
     if (mainViewport && mainViewport.dataset.ruta
         && normalizarRuta(mainViewport.dataset.ruta) !== normalizarRuta(window.location.pathname)) {
         copiaGuardada(window.location.href).then((copia) => {
-            // Se pinta la copia tal cual, sin pedirla a la red (que puede estar colgada).
-            if (copia) { loadPage(window.location.href, false, { html: copia, desdeCache: true }); return; }
-            history.replaceState(null, '', mainViewport.dataset.ruta);
-            if (typeof window.showToast === 'function') {
-                window.showToast('Sin conexión: ese módulo todavía no está guardado en este equipo. Ábrelo una vez con internet y después funcionará sin conexión.', 'error');
+            // Se pinta la copia tal cual, sin pedirla a la red (que puede estar colgada), y se
+            // avisa de que es una copia: lo que se ve es de la ultima vez que se abrio, no lo
+            // que hay ahora en el servidor (el texto lo elige avisarDeLaCopia).
+            if (copia) {
+                loadPage(window.location.href, false, { html: copia, desdeCache: true });
+                avisarDeLaCopia('conCopia', 'info');
+                return;
             }
+            // Sin copia: se deja el menu y la direccion pasa a decir la verdad.
+            history.replaceState(null, '', mainViewport.dataset.ruta);
+            avisarDeLaCopia('sinCopia');
         });
     }
 
@@ -383,6 +389,35 @@ document.addEventListener('DOMContentLoaded', () => {
     // llegar tarde y restarle una referencia a la SEGUNDA, que aun estaba cargando; el
     // spinner se iba antes de tiempo y la pantalla quedaba destapada a medio cargar.
     let _navSeq = 0;
+
+    // Los avisos de "no se pudo traer la página del servidor", escritos UNA vez.
+    //
+    // Son dos situaciones —hay copia guardada de ese módulo o no la hay— por dos causas: el
+    // equipo está sin red, o la red va bien y el que no contesta es el servidor. Cuatro textos.
+    // Estaban sueltos en los cuatro puntos del archivo que avisan, y cada uno los redactaba a
+    // su manera: el MISMO hecho salía como "Sin conexión…", "El servidor no respondió a
+    // tiempo…" y "El servidor no responde…" según por dónde se pasara, y un comentario llegó a
+    // decir "mismo aviso que el de abajo" de dos textos que no coincidían.
+    //
+    // La causa se decide por navigator.onLine y no por el sitio del código: el service worker
+    // sirve la copia guardada tanto sin red como con el servidor VIVO pero lento (resources/
+    // sw.js, TOPE_RED_MS), así que ningún punto de este archivo puede dar por hecho el motivo.
+    // Los textos van DENTRO de la función, y la función es una declaración: así también sirve
+    // al bloque de arranque de más arriba, que corre antes de llegar a esta línea.
+    function avisarDeLaCopia(situacion, tipo) {
+        const AVISOS = {
+            conCopia: {
+                sinRed:   'Sin conexión: se muestra la copia guardada en este equipo.',
+                servidor: 'El servidor no responde: se muestra la copia guardada en este equipo.',
+            },
+            sinCopia: {
+                sinRed:   'Sin conexión: este módulo todavía no está guardado en este equipo. Ábrelo una vez con internet y después funcionará sin conexión.',
+                servidor: 'El servidor no responde y este módulo no está guardado en este equipo. Inténtalo de nuevo.',
+            },
+        };
+        if (typeof window.showToast !== 'function') return;
+        window.showToast(AVISOS[situacion][navigator.onLine ? 'servidor' : 'sinRed'], tipo || 'error');
+    }
 
     // La copia guardada de un módulo en la caché del service worker (la corta de la SPA o la
     // página completa), leída DIRECTAMENTE: sin volver a pedirla a una red que no contesta.
@@ -598,11 +633,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 // recarga volvía a caer en la misma copia. Se avisa y se deja al usuario
                 // donde está, con su pantalla intacta.
                 if (desdeCache) {
-                    // Mismo aviso que el catch de abajo: showToast (el de este archivo), y
-                    // el usuario se queda donde estaba para reintentar.
-                    if (typeof window.showToast === 'function') {
-                        window.showToast('El servidor no respondió a tiempo y este módulo no está guardado en este equipo. Inténtalo de nuevo.', 'error');
-                    }
+                    // La copia que hay no sirve, asi que para el usuario es como no tenerla:
+                    // mismo aviso que el catch de abajo, y se queda donde estaba para reintentar.
+                    avisarDeLaCopia('sinCopia');
                     console.warn('SPA: la copia guardada de este módulo no sirve (es el login). No se recarga.');
                     return;
                 }
@@ -691,11 +724,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 // El banner "Sin conexión" ya lo sacó el interceptor global de fetch
                 // (fetch_interceptor.js), que ve fallar ESTA misma petición. Aquí solo queda el
                 // aviso propio de la navegación: que la página no cambió y se puede reintentar.
-                if (typeof window.showToast === 'function') {
-                    // Sin red solo abren los módulos que ya se abrieron con conexión en este
-                    // equipo (el service worker guarda cada uno al abrirlo).
-                    window.showToast('Sin conexión: este módulo todavía no está guardado en este equipo. Ábrelo una vez con internet y después funcionará sin conexión.', 'error');
-                }
+                // Sin red solo abren los módulos que ya se abrieron con conexión en este
+                // equipo (el service worker guarda cada uno al abrirlo).
+                avisarDeLaCopia('sinCopia');
                 console.warn('SPA: navegacion abortada — sin conexion o servidor inalcanzable.', error);
                 return;
             }
@@ -706,9 +737,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // volvía a esperar y podía acabar en un bucle.
                 const copia = await copiaGuardada(url);
                 if (copia && !_yaNoEsLaActual()) {
-                    if (typeof window.showToast === 'function') {
-                        window.showToast('El servidor no responde: se muestra la copia guardada en este equipo.', 'info');
-                    }
+                    avisarDeLaCopia('conCopia', 'info');
                     loadPage(url, pushHistory, { html: copia, desdeCache: true });
                     return;
                 }

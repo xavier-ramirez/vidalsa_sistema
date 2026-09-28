@@ -630,6 +630,10 @@
         // Mismo motivo: el observador de la lista de frentes apunta al <div> del montaje
         // anterior, que ya no existe (ver almFrentesObservar).
         if (typeof almFrentesObservar === 'function') almFrentesObservar();
+        // Y lo mismo con el escaneo: QrScan solo recuerda la ÚLTIMA vista que se enganchó, así
+        // que al volver de Movimientos o Recepción hay que reclamarlo para este buscador o el
+        // lector USB no escanea aquí (ver almEngancharEscaneo).
+        if (typeof almEngancharEscaneo === 'function') almEngancharEscaneo();
         // Red de seguridad del guard anti doble-alta: vive en window, así que si una
         // excepción SÍNCRONA cortara almGuardarProducto antes de lanzar la petición, el
         // finally no correría y el modal se quedaría mudo hasta recargar la página. Al
@@ -862,7 +866,7 @@
                 // peso 600 — para que el nº de parte se lea igual que el tipo, no más apagado.
                 var parteSafe   = parteMostrar ? escHtml(String(parteMostrar)) : '';
                 var partePrefix = parteSafe
-                    ? '<span class="alm-suggest-parte" style="font-size:13.5px;color:#475569;font-weight:600;margin-right:7px;white-space:nowrap;">' + parteSafe + '</span>'
+                    ? '<span style="font-size:13.5px;color:#475569;font-weight:600;margin-right:7px;white-space:nowrap;">' + parteSafe + '</span>'
                     : '';
                 // Texto que queda en el cuadro al elegir: si la sugerencia matcheó por nº de parte
                 // (equivalencia, p.ej. "P164378"), ese nº va DELANTE de la descripción para que se
@@ -1857,6 +1861,15 @@
             window.almDetalleCerrar();
             return;
         }
+        // Nuevo/Editar almacén: mismo criterio que los dos de arriba. Si se llegó desde
+        // "Gestionar almacenes", Escape tiene que devolver ahí igual que la ✕ y el Cancelar
+        // — si no, cerraría a secas y dejaría la bandera almDesdeGestionar encendida para
+        // la próxima vez (ver almCerrarAlmacenModal).
+        var nuevoAlm = el('almAlmacenModal');
+        if (nuevoAlm && nuevoAlm.classList.contains('open') && typeof window.almCerrarAlmacenModal === 'function') {
+            window.almCerrarAlmacenModal();
+            return;
+        }
         document.querySelectorAll('.alm-modal-overlay.open').forEach(function (m) { m.classList.remove('open'); });
     });
 
@@ -1899,8 +1912,9 @@
     window.almAccion = function (which) {
         var m = el('almAccionesMenu'); if (m) m.style.display = 'none';
         switch (which) {
+            // Ya no hay case 'almacen': crear almacén se pide desde el botón de "Gestionar
+            // almacenes" (almBtnNuevoAlmacen), que llama directo a window.almAbrirAlmacen.
             case 'admin':    if (window.almAbrirAdminAlmacenes) window.almAbrirAdminAlmacenes(); break;
-            case 'almacen':  if (window.almAbrirAlmacen)        window.almAbrirAlmacen();        break;
             case 'producto': if (window.almAbrirProducto)       window.almAbrirProducto();       break;
             case 'export':
                 // El export sale con los MISMOS FILTROS que la tabla. Reusamos
@@ -1962,18 +1976,31 @@
     // Engancha el escaneo (icono del buscador + cámara + lector USB) a ESTE buscador.
     // Al resolver un código, reusa el "pick" del filtro (almBuscarPick → almCargar),
     // que ya deja la tabla en ese producto y muestra su saldo en el almacén activo.
-    window.QrScan.init({
-        input:      'almFiltroBuscar',
-        icono:      'almBuscarScan',
-        // En PC ese hueco lo ocupa el acceso a KITS: alli el QR no abria nada (el lector
-        // USB teclea directo en el buscador). Quien decide cual se ve es QrScan.iconToggle.
-        iconoPc:    'almBuscarKits',
-        // Mismo criterio que la "x" de limpiar en filtros() (patrón placeholder-background:
-        // texto tecleado o filtro aplicado en data-active) → los dos iconos, que comparten
-        // sitio dentro del cuadro, nunca se ven a la vez.
-        activo:     function () { return !!buscarActivo(); },
-        onProducto: function (p, label) { window.almBuscarPick(label, p.id); },
-    });
+    //
+    // En FUNCIÓN, no suelto, porque hay que repetirlo en CADA visita: QrScan guarda UNA
+    // sola configuración —la de la última vista que llamó a init— y decide por ella si un
+    // escaneo le toca. Al volver aquí desde Movimientos o Recepción el cuerpo de este IIFE
+    // ya no corre (guard de re-montaje de arriba), así que sin esto la configuración se
+    // quedaba apuntando al buscador de aquel módulo, que aquí no existe: el lector USB
+    // dejaba de escanear en Inventario hasta recargar con F5, y el icono del cuadro de
+    // búsqueda se quedaba como estuviera. Por eso almResetOnRemount lo vuelve a llamar.
+    function almEngancharEscaneo() {
+        window.QrScan.init({
+            input:      'almFiltroBuscar',
+            icono:      'almBuscarScan',
+            // En PC ese hueco lo ocupa el acceso a KITS: alli el QR no abria nada (el lector
+            // USB teclea directo en el buscador). Quien decide cual se ve es QrScan.iconToggle.
+            // OJO: el de Kits NO se esconde al filtrar —es el unico acceso que tiene— y convive
+            // con la "x" de limpiar; el que se turna con ella es solo el de escanear.
+            iconoPc:    'almBuscarKits',
+            // Mismo criterio que la "x" de limpiar en filtros() (patrón placeholder-background:
+            // texto tecleado o filtro aplicado en data-active), para que el icono de escanear y
+            // la "x" no se pisen dentro del cuadro.
+            activo:     function () { return !!buscarActivo(); },
+            onProducto: function (p, label) { window.almBuscarPick(label, p.id); },
+        });
+    }
+    almEngancharEscaneo();
 
     // Abre el modal de etiquetas. Según cuántos productos lleguen en `lista`
     // ([{ id, codigo, nombre }]) se arma de dos formas:
@@ -2000,10 +2027,11 @@
         if (copias)    copias.style.display    = porProducto ? 'none' : '';
 
         var cont = el('almEtqLista');
-        // Vaciar SIEMPRE antes de repintar: si no, al abrir el modal desde el menú Acciones
-        // después de haberlo usado con varios productos, los campos .alm-etq-cant de aquella
-        // selección seguían en el DOM (ocultos) y almEtiquetasGenerar los tomaba como modo
-        // "por producto" → se etiquetaba lo de la vez anterior en vez de lo pedido ahora.
+        // Vaciar SIEMPRE antes de repintar: si no, al volver a abrir el modal con OTRA
+        // selección (o con un solo producto) después de haberlo usado con varios, los campos
+        // .alm-etq-cant de aquella selección seguían en el DOM (ocultos) y almEtiquetasGenerar
+        // los tomaba como modo "por producto" → se etiquetaba lo de la vez anterior en vez de
+        // lo pedido ahora.
         if (cont) cont.innerHTML = '';
 
         if (porProducto) {
@@ -3149,6 +3177,37 @@
         inp.focus();
         var dd = el('almNvNombreDropdown'); if (dd) dd.classList.remove('active');
     }
+    /**
+     * Cierra "Nuevo/Editar almacén" y, si se llegó desde "Gestionar almacenes", VUELVE allí.
+     *
+     * Sin esto, cancelar dejaba al usuario en la tabla de inventario, sin ningún modal: había
+     * abierto Gestionar, pulsado "Nuevo almacén" —que cierra Gestionar para no apilar dos— y al
+     * arrepentirse perdía el sitio donde estaba. Es el mismo patrón que almVolverADetalle usa
+     * en los sub-modales de "Detalles del producto".
+     */
+    window.almCerrarAlmacenModal = function () {
+        almCerrar('almAlmacenModal');
+        if (window.almDesdeGestionar && el('almAdminAlmacenesModal')) almOpen('almAdminAlmacenesModal');
+        window.almDesdeGestionar = false;
+    };
+    /**
+     * El botón "Nuevo almacén" que vive DENTRO de "Gestionar almacenes".
+     *
+     * En una función y no en el onclick del blade para que las tres cosas que hay que hacer
+     * —marcar de dónde se viene, cerrar Gestionar y abrir el formulario— pasen juntas o no
+     * pasen: escritas sueltas en el HTML, si el módulo aún no había cargado se cerraba
+     * Gestionar y no se abría nada, dejando la pantalla pelada y la bandera encendida.
+     */
+    window.almNuevoAlmacenDesdeGestionar = function () {
+        window.almDesdeGestionar = true;
+        // Se abre PRIMERO y solo entonces se cierra Gestionar: si faltara el permiso,
+        // almAbrirAlmacen sale por su toast sin abrir nada, y cerrar antes habría dejado al
+        // usuario mirando la tabla sin saber por qué.
+        window.almAbrirAlmacen();
+        var nuevo = el('almAlmacenModal');
+        if (nuevo && nuevo.classList.contains('open')) almCerrar('almAdminAlmacenesModal');
+        else window.almDesdeGestionar = false;
+    };
     window.almAbrirAlmacen = function () {
         if (!ensurePerm(HAS_ALM_MANAGE, 'No tienes permiso para crear almacenes.')) return;
         almResetAlmacenModal();
@@ -3157,7 +3216,12 @@
     };
     window.almEditarAlmacen = function (id) {
         if (!ensurePerm(HAS_ALM_MANAGE, 'No tienes permiso para editar almacenes.')) return;
+        // La bandera se pone DESPUÉS de comprobar que el almacén existe: si no, este camino
+        // salía por el toast dejándola encendida sin que nadie la apagara, y el siguiente
+        // cierre del modal reabría Gestionar sin venir de allí.
         var d = (window.almAlmacenesData || {})[id]; if (!d) { toast('No se encontró el almacén.', 'error'); return; }
+        // Editar SIEMPRE se entra desde Gestionar: al cancelar se vuelve allí.
+        window.almDesdeGestionar = true;
         almResetAlmacenModal();
         el('almAlmacenModal').dataset.idAlmacen = id;
         el('almNvTitulo').textContent = 'Editar almacén';
@@ -3234,6 +3298,10 @@
         .then(function (res) {
             unpre();
             if (res.ok) {
+                // Se cierra a secas, sin volver a Gestionar: la pagina entera se rehace abajo
+                // con la lista ya al dia. La bandera se apaga igual para que su ciclo de vida
+                // quede completo aqui y no dependa de que la recarga la borre.
+                window.almDesdeGestionar = false;
                 almCerrar('almAlmacenModal'); toast(res.b.message || (id ? 'Almacén actualizado.' : 'Almacén creado.'));
                 var newId = res.b.almacen && (res.b.almacen.ID_ALMACEN || res.b.almacen.id);
                 // recargar: cambió la lista del selector / nombres
@@ -3273,7 +3341,11 @@
                 if (fila) fila.remove();
                 var lista = document.querySelector('#almAdminAlmacenesModal .alm-admin-list');
                 if (lista && !lista.querySelector('.alm-admin-row')) {
-                    lista.innerHTML = '<p style="color:#94a3b8;font-size:13px;text-align:center;padding:20px 0;">No hay almacenes. Usa "Nuevo almacén" para crear el primero.</p>';
+                    // MISMO texto y mismo estilo que el @empty del blade (index.blade.php, la
+                    // lista de "Gestionar almacenes"): borrar el último almacén desde aquí tiene
+                    // que dejar la lista igual que si se hubiera abierto ya vacía. Si se cambia
+                    // uno hay que cambiar el otro.
+                    lista.innerHTML = '<p style="color:#94a3b8;font-size:13px;text-align:center;padding:20px 0;">No hay almacenes todavía. Crea el primero con el botón de abajo.</p>';
                 }
                 // 2) Quitar la opción del dropdown "Almacén" del header.
                 var opt = document.querySelector('#almSelAlmacenDropdown .dropdown-item[data-value="' + id + '"]');

@@ -160,7 +160,14 @@
                    onclick="window.QrScan.abrir()">&#xf206;</i>
                 {{-- En PC, donde no hay cámara, ese hueco lo ocupa el acceso a KITS: el QR
                      allí no abría nada (solo enfocaba este mismo buscador). Cuál de los dos
-                     se ve lo decide QrScan.iconToggle, que es quien sabe si es teléfono. --}}
+                     se ve lo decide QrScan.iconToggle, que es quien sabe si es teléfono.
+
+                     Desde el 28-09-2026 este es el ÚNICO acceso a Kits: se quitó su item del
+                     menú Acciones (pedido del cliente). En el teléfono, por tanto, Kits no se
+                     abre — se decidió así a sabiendas: allí ese hueco es del escáner QR.
+                     Por ser el único, en PC se queda SIEMPRE a la vista, también con un filtro
+                     puesto: convive con la "x" de limpiar (ver iconToggle). El de escanear, en
+                     cambio, sí se esconde al escribir. --}}
                 <i class="material-icons qrs-ic" id="almBuscarKits" title="Kits por equipo"
                    style="display:none;"
                    onclick="window.almAbrirKits && window.almAbrirKits()">inventory_2</i>
@@ -246,13 +253,6 @@
                         <div style="background:#e0f2fe;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#0067b1;">analytics</i></div>
                         <span style="font-size:14px;font-weight:500;">Dashboard de consumo</span>
                     </button>
-                    {{-- Kits por equipo: recetas de materiales que cargan la salida de un golpe
-                         (partials/kits_modal). Visible para todos, como el resto del menú: el
-                         permiso se pide dentro, al armar un kit o al cargarlo en la salida. --}}
-                    <button type="button" onclick="document.getElementById('almAccionesMenu').style.display='none'; window.almAbrirKits();" class="dropdown-item-custom" style="display:flex;align-items:center;gap:10px;padding:11px 14px;color:#475569;background:transparent;border:none;border-bottom:1px solid #f1f5f9;width:100%;text-align:left;cursor:pointer;">
-                        <div style="background:#e0f2fe;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#0067b1;">inventory_2</i></div>
-                        <span style="font-size:14px;font-weight:500;">Kits por equipo</span>
-                    </button>
                     {{-- Despachos: abre la Reposición del general (la bandeja donde
                          los almacenes de proyecto confirman lo que el general les despachó) y
                          dice cuántas notas faltan por recibir. El MISMO item que en la
@@ -283,17 +283,14 @@
                         <span style="font-size:14px;font-weight:500;">Nuevo producto</span>
                     </button>
                     {{-- Todos los items SIEMPRE visibles — la verificacion de permiso vive
-                         dentro del handler JS de cada funcion (ver almAbrirAlmacen, etc.).
+                         dentro del handler JS de cada funcion (ver almAbrirAdminAlmacenes,
+                         almAbrirProducto, etc.).
                          Si el usuario no tiene el permiso, aparece toast moderno; antes los
                          botones se ocultaban — el cliente pidio cambio: ver lo que existe +
                          notificacion de denegacion, no ocultar nada. --}}
                     <button type="button" onclick="window.almAccion('admin')" class="dropdown-item-custom" style="display:flex;align-items:center;gap:10px;padding:11px 14px;color:#475569;background:transparent;border:none;border-bottom:1px solid #f1f5f9;width:100%;text-align:left;cursor:pointer;">
                         <div style="background:#f1f5f9;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#475569;">warehouse</i></div>
                         <span style="font-size:14px;font-weight:500;">Gestionar almacenes</span>
-                    </button>
-                    <button type="button" onclick="window.almAccion('almacen')" class="dropdown-item-custom" style="display:flex;align-items:center;gap:10px;padding:11px 14px;color:#475569;background:transparent;border:none;border-bottom:1px solid #f1f5f9;width:100%;text-align:left;cursor:pointer;">
-                        <div style="background:#e0f2fe;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#0284c7;">add_business</i></div>
-                        <span style="font-size:14px;font-weight:500;">Nuevo almacén</span>
                     </button>
                     {{-- Papelera: productos eliminados (soft-delete) — buscar y restaurar. --}}
                     <button type="button" onclick="document.getElementById('almAccionesMenu').style.display='none'; window.almAbrirPapelera();" class="dropdown-item-custom" style="display:flex;align-items:center;gap:10px;padding:11px 14px;color:#475569;background:transparent;border:none;width:100%;text-align:left;cursor:pointer;">
@@ -468,7 +465,7 @@
                 <div class="custom-dropdown" id="almEtqFormatoDropdown" data-filter-type="formato_etq" data-default-label="Rollo 50 × 30 mm" style="flex:1;min-width:0;" hidden>
                     <input type="hidden" id="almEtqFormato" data-filter-value value="50x30">
                     <div class="dropdown-trigger" style="padding:0;display:flex;align-items:center;background:#fff;overflow:hidden;border:1px solid #cbd5e0;border-radius:7px;height:32px;">
-                        <input type="text" id="almEtqFormatoSearch" data-filter-search autocomplete="off" readonly
+                        <input type="text" data-filter-search autocomplete="off" readonly
                                placeholder="Rollo 50 × 30 mm" aria-label="Tamaño de la etiqueta"
                                style="flex:1;border:none;background:transparent;padding:0 10px;font-size:13.5px;color:#0f172a;outline:none;min-width:0;cursor:pointer;">
                         <i class="material-icons" style="padding:0 8px;color:#94a3b8;font-size:20px;">expand_more</i>
@@ -509,9 +506,10 @@
                        style="flex:1;border:none;outline:none;padding:0 6px;font-size:14px;background:transparent;height:100%;"
                        oninput="window.almPapeleraBuscar()">
             </div>
-            {{-- Reusa .alm-admin-list (columna + gap): las filas son las mismas de
-                 "Gestionar almacenes". Aquí solo se agrega el alto máximo con scroll. --}}
-            <div id="almPapeleraLista" class="alm-admin-list" style="max-height:360px;overflow-y:auto;">
+            {{-- Reusa .alm-admin-list (columna + gap + su alto máximo con scroll): las filas
+                 son las mismas de "Gestionar almacenes". El tope estaba repetido aquí en un
+                 style suelto; desde que vive en la clase, aquí no hace falta nada. --}}
+            <div id="almPapeleraLista" class="alm-admin-list">
                 <div style="text-align:center;color:#94a3b8;font-size:13px;padding:24px 0;">Cargando…</div>
             </div>
         </div>
@@ -756,12 +754,15 @@
 </style>
 
 @if($puedeAlmManage)
-{{-- Nuevo almacén — solo super.admin. --}}
+{{-- Nuevo almacén Y Editar almacén: es el mismo modal, cambia el título (#almNvTitulo).
+     Solo super.admin. Se llega desde "Gestionar almacenes" (su botón de abajo, o el lápiz de
+     una fila), y al cerrarlo sin guardar se VUELVE allí — por eso la ✕, el Cancelar y Escape
+     pasan todos por window.almCerrarAlmacenModal() en vez de cerrar a secas. --}}
 <div id="almAlmacenModal" class="alm-modal-overlay">
     <div class="alm-modal">
         <div class="alm-modal-head">
             <h3><i class="material-icons" style="font-size:20px;">add_business</i> <span id="almNvTitulo">Nuevo almacén</span></h3>
-            <i class="material-icons alm-x" onclick="almCerrar('almAlmacenModal')">close</i>
+            <i class="material-icons alm-x" onclick="window.almCerrarAlmacenModal()">close</i>
         </div>
         <div class="alm-modal-body">
             {{-- NOMBRE — combo, no campo libre: en un almacén de PROYECTO el nombre es el del
@@ -949,7 +950,7 @@
                                 <span>{{ $f->NOMBRE_FRENTE }}</span>
                             </label>
                         @empty
-                            <div style="padding:10px 15px;font-size:13px;color:#94a3b8;" id="almNvFrentesVacio">No hay frentes activos.</div>
+                            <div style="padding:10px 15px;font-size:13px;color:#94a3b8;">No hay frentes activos.</div>
                         @endforelse
                         <div id="almNvFrentesNoMatch" style="display:none;padding:10px 15px;font-size:13px;color:#94a3b8;">Sin coincidencias.</div>
                     </div>
@@ -958,7 +959,7 @@
             <div id="almNvError" style="display:none;margin-top:6px;padding:9px 12px;background:#fee2e2;border:1px solid #fecaca;border-radius:8px;color:#b91c1c;font-size:13px;font-weight:600;"></div>
         </div>
         <div class="alm-modal-foot">
-            <button type="button" class="btn-primary-maquinaria" style="background:#e2e8f0;color:#475569;box-shadow:none;" onclick="almCerrar('almAlmacenModal')">Cancelar</button>
+            <button type="button" class="btn-primary-maquinaria" style="background:#e2e8f0;color:#475569;box-shadow:none;" onclick="window.almCerrarAlmacenModal()">Cancelar</button>
             <button type="button" class="btn-primary-maquinaria" onclick="window.almGuardarAlmacen()">Guardar</button>
         </div>
     </div>
@@ -1058,9 +1059,23 @@
                                 onclick="window.almEliminarAlmacen({{ $a->ID_ALMACEN }}, '{{ addslashes($a->NOMBRE) }}')"><i class="material-icons" style="font-size:16px;">delete_outline</i></button>
                     </div>
                 @empty
-                    <p style="color:#94a3b8;font-size:13px;text-align:center;padding:20px 0;">No hay almacenes. Usa "Nuevo almacén" para crear el primero.</p>
+                    {{-- Mismo texto y mismo estilo que el que pinta almEliminarAlmacen al borrar
+                         el último (almacen_index.js): si se cambia uno, el otro también. --}}
+                    <p style="color:#94a3b8;font-size:13px;text-align:center;padding:20px 0;">No hay almacenes todavía. Crea el primero con el botón de abajo.</p>
                 @endforelse
             </div>
+            {{-- Crear uno nuevo, DENTRO de este modal (pedido 28-09-2026): es donde están los
+                 almacenes a la vista, así que es donde se espera el botón de añadir otro. Antes
+                 vivía en el menú Acciones, enterrado entre los demás items, y de ahí se quitó:
+                 este botón es AHORA el único camino para crear un almacén.
+                 Abre el modal de "Nuevo almacén" cerrando este, para que no queden dos
+                 superpuestos; si se cancela, se vuelve aquí (window.almDesdeGestionar, ver
+                 almCerrarAlmacenModal). Al guardar NO se vuelve: la página se recarga entera
+                 con el almacén nuevo ya seleccionado. --}}
+            <button type="button" id="almBtnNuevoAlmacen" class="btn-primary-maquinaria alm-nuevo-almacen"
+                    onclick="window.almNuevoAlmacenDesdeGestionar && window.almNuevoAlmacenDesdeGestionar()">
+                <i class="material-icons" style="font-size:18px;">add_business</i> Nuevo almacén
+            </button>
         </div>
     </div>
 </div>
@@ -1355,7 +1370,7 @@
                              custom (event) porque el <input type="date"> nativo de Chrome/Edge
                              pinta su propio indicador de calendario a la derecha — antes se veian
                              DOS calendarios (custom izq + nativo der). Dejamos solo el nativo. --}}
-                        <div id="almSalidaFechaBox" style="display:flex;align-items:center;background:#fff;border:1px solid #cbd5e0;border-radius:7px;height:38px;overflow:hidden;cursor:pointer;"
+                        <div style="display:flex;align-items:center;background:#fff;border:1px solid #cbd5e0;border-radius:7px;height:38px;overflow:hidden;cursor:pointer;"
                              onclick="var i=document.getElementById('almSalidaFecha'); if(i){ i.focus(); if(i.showPicker){ try{ i.showPicker(); }catch(e){} } }">
                             <input type="date" id="almSalidaFecha" class="alm-nota-input" style="flex:1;width:auto;min-width:0;border:none;background:transparent;height:36px;padding:0 10px;border-radius:0;">
                         </div>

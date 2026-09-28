@@ -200,8 +200,14 @@
         // enseña nada y punto.
         var esTelefono = esMovil();
         if (ic) ic.style.display = (libre && esTelefono) ? 'flex' : 'none';
+        // El atajo de PC NO se esconde al filtrar. El de escanear sí, porque comparte sitio
+        // con la "x" de limpiar y con el campo vacio no hace falta ninguna de las dos; pero el
+        // atajo es un ACCESO, y si es el unico que tiene su pantalla (en Inventario, Kits),
+        // esconderlo en cuanto se escribe algo dejaba la funcion sin puerta: con un filtro
+        // puesto no se podia llegar a ella desde ningun lado. Caben los dos: son iconos
+        // pequeños con flex: 0 0 auto, uno al lado del otro.
         var alt = cfg.iconoPc ? el(cfg.iconoPc) : null;
-        if (alt) alt.style.display = (libre && !esTelefono) ? 'flex' : 'none';
+        if (alt) alt.style.display = esTelefono ? 'none' : 'flex';
     }
 
     // ── Lector USB global (escanear en PC SIN abrir el modal) ──────────────────

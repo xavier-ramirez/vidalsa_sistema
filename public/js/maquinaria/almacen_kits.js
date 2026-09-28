@@ -248,12 +248,20 @@
             : '<span class="akit-tag gen">Uso general</span>';
         var filas = k.items.map(function (i) {
             var total = i.cantidad * cuantos, h = hay(i.id_producto);
-            var falta = S.idAlmacen && h < total;
+            // El MISMO margen de redondeo que alcanza(): con cantidades decimales (0,1 × 3 da
+            // 0,30000000000000004 en coma flotante) la resta cruda marcaba en rojo una fila que
+            // si alcanza y le escribia al lado "faltan 0".
+            var debe  = total - h;
+            var falta = S.idAlmacen && debe > 1e-9;
+            // CUANTO falta, no solo que falta: la fila roja decia "algo pasa aqui" y habia que
+            // restar a ojo en cada renglon para saber que pedir.
             return '<tr' + (falta ? ' class="falta"' : '') + '>'
                 + '<td><span class="cod">' + esc(i.codigo) + '</span>' + esc(i.nombre) + '</td>'
                 + '<td class="num">' + fmt(i.cantidad) + ' ' + esc(i.um) + '</td>'
                 + '<td class="num"><b>' + fmt(total) + '</b></td>'
-                + '<td class="num hay">' + (S.idAlmacen ? fmt(h) : '—') + '</td>'
+                + '<td class="num hay">' + (S.idAlmacen ? fmt(h) : '—')
+                +   (falta ? '<small class="akit-falta">faltan ' + fmt(debe) + '</small>' : '')
+                + '</td>'
                 + '</tr>';
         }).join('');
 
@@ -265,11 +273,21 @@
         } else if (!k.items.length) {
             aviso = 'Este kit no tiene materiales activos.'; clase = 'no';
         } else if (n === 0) {
-            var escasos = k.items.filter(function (i) { return hay(i.id_producto) < i.cantidad; }).slice(0, 2)
-                .map(function (i) { return esc(i.nombre) + ' (hay ' + fmt(hay(i.id_producto)) + ' de ' + fmt(i.cantidad) + ')'; });
-            aviso = 'No alcanza para un kit. Falta: ' + escasos.join('; ') + '.'; clase = 'no';
+            // Solo la CUENTA. Los nombres no se repiten aquí: cada fila escasa ya sale en rojo
+            // con su "faltan N" al lado de lo que hay, que es donde el almacenista mira. Antes
+            // este renglón los listaba y se comía tres líneas del pie diciendo lo mismo que la
+            // tabla de encima.
+            // Mismo margen de redondeo que alcanza() y que las filas, por lo mismo.
+            var escasos = k.items.filter(function (i) { return i.cantidad - hay(i.id_producto) > 1e-9; });
+            aviso = escasos.length === 1 ? 'Falta 1 material para un kit.'
+                                         : 'Faltan ' + escasos.length + ' materiales para un kit.';
+            clase = 'no';
         } else {
-            aviso = 'Alcanza para ' + n + (n === 1 ? ' kit' : ' kits') + ' en este almacén.'; clase = 'ok'; bloqueado = false;
+            // El NÚMERO no se repite aquí: ya está pegado al stepper (.akit-tope, que es donde
+            // se decide cuántos) y en el badge de la tarjeta. Este renglón dice DÓNDE, que es
+            // lo único que no se ve en los otros dos.
+            var dondeAlm = nombreAlmacen(S.idAlmacen);
+            aviso = 'Hay existencia en ' + (dondeAlm || 'este almacén') + '.'; clase = 'ok'; bloqueado = false;
         }
         var max = n !== null && n > 0 ? n : 1;
 
@@ -287,6 +305,9 @@
             + '</tr></thead><tbody>' + filas + '</tbody></table></div>'
             + '<div class="akit-det-pie">'
             +   '<div class="akit-cuantos">¿Cuántos kits?'
+            // Solo cuando se puede usar: sin conexión el stepper está apagado y prometer un
+            // tope que no se puede mover sobra.
+            +     (!bloqueado && n > 0 ? '<small class="akit-tope">alcanza para ' + n + '</small>' : '')
             +     '<div class="akit-stepper">'
             +       '<button type="button" onclick="window.AlmKits.cuantos(-1)"' + (cuantos <= 1 || bloqueado ? ' disabled' : '') + ' aria-label="Uno menos"><i class="material-icons" style="font-size:18px;">remove</i></button>'
             +       '<input type="text" inputmode="numeric" id="almKitCuantos" value="' + cuantos + '"' + (bloqueado ? ' disabled' : '') + ' onchange="window.AlmKits.cuantos(0, this.value)">'

@@ -1,5 +1,6 @@
 {{--
-    Modal "Kits por equipo" (Acciones → Kits por equipo en /admin/almacen).
+    Modal "Kits por equipo". Se abre con el icono de la cajita del buscador, en PC
+    (/admin/almacen). Ya NO está en el menú Acciones: se quitó el 28-09-2026.
 
     Un kit es una RECETA de materiales para uno o varios modelos de equipo ("KIT 250H HOWO" =
     1 filtro de aceite + 1 de combustible + 2 cuñetes). Aquí se busca el kit del equipo (por
@@ -15,7 +16,7 @@
 
     Permisos: verlos, cualquiera con el módulo; armarlos, almacen.productos; cargarlos en la
     salida, almacen.movimiento (lo vuelve a pedir la salida). Los botones se ven siempre y
-    avisan si falta el permiso, como el resto del menú Acciones.
+    avisan si falta el permiso, como el resto del módulo.
 --}}
 <link rel="stylesheet" href="{{ asset('css/vistas/admin_almacen_partials_kits_modal.css') }}?v={{ @filemtime(public_path('css/vistas/admin_almacen_partials_kits_modal.css')) }}">
 
