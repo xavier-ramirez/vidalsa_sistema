@@ -392,21 +392,14 @@ taparlo todo. NO se hereda el 2000 de .modal-overlay: quedaria por detras.
 MODAL GPS TRACKER — Rastreo Satelital en Vivo
 ═══════════════════════════════════════════════════════════════ --}}
 <div id="gpsTrackerModal" style="display:none;">
-    <div class="gps-modal-container" role="dialog" aria-modal="true" aria-labelledby="gps_equipo_title">
+    <div class="gps-modal-container" role="dialog" aria-modal="true" aria-label="Rastreo satelital en vivo">
 
-        {{-- Header GPS --}}
-        <div class="gps-header">
-            <div class="gps-header-icono">
-                <i class="material-icons">gps_fixed</i>
-            </div>
-            <div class="gps-header-textos">
-                <span class="gps-header-label">Rastreo Satelital en Vivo</span>
-                <span id="gps_equipo_title" class="gps-header-titulo">&mdash;</span>
-            </div>
-            <button type="button" class="gps-cerrar" onclick="closeGpsModal()" aria-label="Cerrar">
-                <i class="material-icons">close</i>
-            </button>
-        </div>
+        {{-- Sin encabezado (pedido del cliente, 30-09-2026): el rótulo "Rastreo Satelital en
+             Vivo" y el tipo/placa repetían lo que ya dice la ficha. Solo queda el botón de
+             cerrar, flotando sobre la esquina del mapa. --}}
+        <button type="button" class="gps-cerrar" onclick="closeGpsModal()" aria-label="Cerrar">
+            <i class="material-icons">close</i>
+        </button>
 
         {{-- Cuerpo: mapa de Google a la izquierda y los datos del GPS a la derecha. Los datos los
              pide el servidor a GPS51 (MapaController::equipoGps, la misma lectura que la capa
@@ -455,27 +448,17 @@ MODAL GPS TRACKER — Rastreo Satelital en Vivo
         background: #fff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden;
         width: 100%; max-width: 1150px; height: min(760px, 90vh);
         display: flex; flex-direction: column; box-shadow: 0 25px 60px rgba(0,0,0,0.2);
+        position: relative;
     }
 
-    .gps-header {
-        display: flex; align-items: center; gap: 12px; flex-shrink: 0;
-        padding: 14px 20px; background: #f8fafc; border-bottom: 1px solid #e2e8f0;
-    }
-    .gps-header-icono {
-        width: 36px; height: 36px; border-radius: 50%; background: #10b981; flex-shrink: 0;
-        display: flex; align-items: center; justify-content: center;
-    }
-    .gps-header-icono .material-icons { font-size: 18px; color: #fff; }
-    .gps-header-textos { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
-    .gps-header-label { color: #64748b; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
-    .gps-header-titulo { color: #1e293b; font-weight: 800; font-size: 15px; line-height: 1.2; word-break: break-word; }
-    .gps-header-titulo .gps-titulo-dato { color: #64748b; font-size: 13px; font-weight: 700; }
-    .gps-header-titulo .gps-titulo-dato strong { color: #1e293b; }
-    .gps-header-titulo .gps-titulo-sep { color: #cbd5e1; margin: 0 6px; }
+    /* Cerrar: flota sobre la esquina superior derecha del mapa (ya no hay encabezado). */
     .gps-cerrar {
-        width: 32px; height: 32px; flex-shrink: 0; border-radius: 8px; cursor: default;
+        position: absolute; top: 10px; z-index: 5;
+        width: 34px; height: 34px; border-radius: 8px; cursor: default;
         display: flex; align-items: center; justify-content: center;
-        background: #f1f5f9; border: 1px solid #e2e8f0; color: #64748b; transition: all 0.2s;
+        background: #fff; border: 1px solid #e2e8f0; color: #64748b; transition: all 0.2s;
+        box-shadow: 0 2px 8px rgba(15,23,42,0.18);
+        right: calc(360px + 10px);   /* ancho de .gps-info + margen */
     }
     .gps-cerrar .material-icons { font-size: 18px; }
     .gps-cerrar:hover { background: #fee2e2; color: #ef4444; border-color: #fecaca; }
@@ -500,15 +483,20 @@ MODAL GPS TRACKER — Rastreo Satelital en Vivo
     .gps-mensaje { margin: 0; font-size: 14px; font-weight: 700; color: #000; }
     .gps-vence { margin: 0; font-size: 11px; font-weight: 600; color: #475569; text-align: center; }
 
+    /* Los seis datos (velocidad, motor, combustible, voltaje, kilometraje y última señal) en
+       DOS renglones de tres (pedido del cliente, 30-09-2026). Solo en el modal: la tarjeta de
+       /mapa es más angosta y sigue a dos columnas. */
+    #gpsTrackerModal .mapa-eq-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
     /* Tablet: la ficha se angosta para dejarle ancho al mapa. */
     @media (max-width: 1024px) {
         .gps-info { width: 300px; padding: 16px; }
+        .gps-cerrar { right: calc(300px + 10px); }
     }
 
     /* PC o laptop con poca altura: ficha más compacta para que quepa sin desplazarse. */
     @media (min-width: 769px) and (max-height: 760px) {
         .gps-modal-container { height: 94vh; }
-        .gps-header { padding: 10px 20px; }
         .gps-info { gap: 8px; padding-top: 14px; padding-bottom: 14px; }
     }
 
@@ -516,9 +504,7 @@ MODAL GPS TRACKER — Rastreo Satelital en Vivo
     @media (max-width: 768px) {
         #gpsTrackerModal { padding: 0; }
         .gps-modal-container { max-width: none; height: 100vh; height: 100dvh; border: 0; border-radius: 0; }
-        .gps-header { padding: 10px 12px; gap: 10px; }
-        .gps-header-icono { width: 30px; height: 30px; }
-        .gps-header-titulo { font-size: 14px; }
+        .gps-cerrar { right: 10px; }
         .gps-body { flex-direction: column; overflow-y: auto; -webkit-overflow-scrolling: touch; }
         .gps-panel-map { flex: none; height: 42vh; height: 42dvh; min-height: 230px; }
         .gps-info { width: auto; border-left: 0; border-top: 1px solid #e2e8f0; overflow: visible; padding: 14px 16px 20px; }
@@ -528,8 +514,7 @@ MODAL GPS TRACKER — Rastreo Satelital en Vivo
     @media (max-width: 1024px) and (max-height: 500px) and (orientation: landscape) {
         #gpsTrackerModal { padding: 0; }
         .gps-modal-container { max-width: none; height: 100vh; height: 100dvh; border: 0; border-radius: 0; }
-        .gps-header { padding: 6px 12px; }
-        .gps-header-icono { display: none; }
+        .gps-cerrar { right: calc(290px + 10px); }
         .gps-body { flex-direction: row; overflow: hidden; }
         .gps-panel-map { flex: 1; height: auto; min-height: 0; }
         .gps-info { width: 290px; border-top: 0; border-left: 1px solid #e2e8f0; overflow-y: auto; padding: 10px 14px; gap: 8px; }
@@ -546,7 +531,6 @@ if (!window._gpsModalScriptLoaded) {
         // Un poco más que la caché del servidor (Gps51Service::TTL_POSICION = 120 s): con el mismo
         // periodo la consulta cae justo antes de que caduque y trae la posición vieja otra vez.
         var GPS_REFRESCO_MS = 130000;
-        var GPS_FUENTES = { gps: 'Satélite GPS+Beidou', lbs: 'Antena celular', wifi: 'WiFi' };
         var GPS_MOTIVOS = {
             enlace_vencido:  'El enlace de este GPS está vencido. Hay que renovarlo en GPS51.',
             enlace_invalido: 'GPS51 no reconoce el enlace de este GPS. Revísalo en la ficha del equipo.',
@@ -630,14 +614,6 @@ if (!window._gpsModalScriptLoaded) {
                 return;
             }
 
-            // "Señal GPS": de dónde sale la posición, cuántos satélites, altitud y % de señal.
-            // Es lo único que la ficha no sabe armar sola, porque depende del catálogo de fuentes
-            // de GPS51 (GPS_FUENTES), que vive aquí.
-            var ubic = [GPS_FUENTES[g.fuente] || (g.fuente ? g.fuente.toUpperCase() : '')];
-            if (g.satelites !== null && g.satelites !== undefined) ubic.push(g.satelites + ' satélites');
-            if (g.altitud !== null && g.altitud !== undefined) ubic.push('Alt. ' + g.altitud + ' m');
-            if (g.senal !== null && g.senal !== undefined) ubic.push('Señal ' + g.senal + '%');
-
             // La ficha ENTERA la pinta el componente compartido, el mismo del mapa. El color del
             // frente no se le pasa a propósito: ahí sirve para distinguir equipos de frentes
             // distintos en el mismo mapa, y aquí solo hay uno.
@@ -649,7 +625,6 @@ if (!window._gpsModalScriptLoaded) {
                 gps: g
             }, {
                 dudosa: !!g.fuera_de_venezuela,
-                senal: ubic.filter(Boolean).join(' · '),
                 // La dirección se pide aparte (tarda ~2 s): la ficha reserva su hueco y
                 // cargarDireccion la rellena por este data-eqdir cuando llega.
                 // Con la posición fuera del país no se pide dirección (ver más abajo), así que
@@ -713,17 +688,8 @@ if (!window._gpsModalScriptLoaded) {
             pararRefresco();
             S = { id: ds.equipoId, lat: null, lng: null, timer: null, turno: S.turno + 1, direccion: null, identRespaldo: null };
 
-            var tipo   = limpio(ds.equipoTipo, ['N/A']).toUpperCase();
             var placa  = limpio(ds.equipoName, ['N/A', 'Sin Placa']);
             var serial = limpio(ds.equipoSerial, ['N/A', 'Sin Chasis']);
-            var titulo = $('gps_equipo_title');
-            if (titulo) {
-                var partes = [];
-                if (tipo)        partes.push('<span>' + esc(tipo) + '</span>');
-                if (placa)       partes.push('<span class="gps-titulo-dato">Placa: <strong>' + esc(placa) + '</strong></span>');
-                else if (serial) partes.push('<span class="gps-titulo-dato">Chasis: <strong>' + esc(serial) + '</strong></span>');
-                titulo.innerHTML = partes.join('<span class="gps-titulo-sep">|</span>') || '&mdash;';
-            }
             // Por si el servidor tarda o no llega a decir qué equipo es: la ficha necesita un
             // nombre y el botón ya trae la placa (o el chasis).
             S.identRespaldo = placa || serial || null;

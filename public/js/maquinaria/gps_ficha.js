@@ -42,10 +42,6 @@
          * @param {object} op  Opcional:
          *                     · dudosa   true si el GPS la reporta fuera del país: pinta el
          *                                aviso de que ese punto no es donde está el equipo.
-         *                     · senal    "GPS+Beidou · 14 satélites · Alt. 210 m · 88%". Solo
-         *                                la pasa el modal: depende del catálogo de fuentes de
-         *                                GPS51, que no vive aquí, y en la tarjeta del mapa no
-         *                                cabría.
          *                     · direccion  la dirección escrita, o null mientras se busca.
          *                     · dirAttr  valor del data-eqdir: por ahí la rellenan los dos
          *                                cuando llega, sin repintar la ficha entera.
@@ -95,10 +91,6 @@
                     celda('Voltaje', hay(g.voltaje) ? num(g.voltaje, 1) + ' V' : '—') +
                     celda('Kilometraje', num(g.km_total) + ' km') +
                     celda('Última señal', window.tiempoHace(g.ultima_senal), window.fechaHoraLocal(g.ultima_senal)) +
-                    // Solo si quien llama la da: depende del catálogo de fuentes de GPS51, que no
-                    // vive aquí. El mapa no la pasa (su ficha es una tarjeta chica); el modal sí,
-                    // que tiene sitio de sobra.
-                    (op.senal ? celda('Señal GPS', op.senal, '', true) : '') +
                 '</div>' +
                 (ids ? '<div class="mapa-eq-ids">' + ids + '</div>' : '') +
                 (op.sinDireccion ? '' :
