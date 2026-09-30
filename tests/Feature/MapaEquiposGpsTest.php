@@ -130,11 +130,21 @@ class MapaEquiposGpsTest extends MySqlTestCase
         $this->assertTrue($r->json('gps51'));
         $gps = $r->json('gps');
         $this->assertTrue($gps['ok']);
-        // La ficha arma su encabezado con esto: tipo, modelo y marca, y luego placa o serial.
-        $this->assertSame(
-            ['tipo', 'modelo', 'marca', 'placa', 'serial_chasis', 'ident', 'frente'],
-            array_keys($r->json('equipo'))
-        );
+        // La ficha arma su encabezado con esto: tipo, modelo y marca, y luego cómo se llama el
+        // equipo con su rótulo (placa; si no, serial de chasis…).
+        $datos = $r->json('equipo');
+        $this->assertEqualsCanonicalizing(['tipo', 'modelo', 'marca', 'ident', 'ident_por', 'frente'], array_keys($datos));
+        $eq = Equipo::with(['tipo', 'documentacion'])->find($equipo->ID_EQUIPO);
+        $this->assertSame(optional($eq->tipo)->nombre, $datos['tipo']);
+        $this->assertSame($eq->MODELO, $datos['modelo']);
+        $this->assertSame($eq->MARCA, $datos['marca']);
+        $placa = trim((string) optional($eq->documentacion)->PLACA);
+        $chasis = trim((string) $eq->SERIAL_CHASIS);
+        if ($placa !== '') {
+            $this->assertSame([$placa, 'Placa'], [$datos['ident'], $datos['ident_por']]);
+        } elseif ($chasis !== '') {
+            $this->assertSame([$chasis, 'Serial'], [$datos['ident'], $datos['ident_por']]);
+        }
         $this->assertStringNotContainsString('authcode', $r->getContent());
 
         // Un enlace que no es de GPS51: no se consulta nada y el modal ofrece abrirlo tal cual.

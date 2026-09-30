@@ -37,10 +37,12 @@
          * El HTML de la ficha, o cadena vacía si el equipo no tiene posición que pintar
          * (sin `gps`, con `gps.ok` falso o sin coordenadas).
          *
-         * @param {object} eq  El equipo: { tipo, modelo, marca, placa, serial_chasis, ident,
-         *                     frente, color, gps }. `gps` es lo que devuelve Gps51Service.
-         *                     `ident` es el nombre de respaldo (serial de motor, código…) para
-         *                     el equipo que no tiene ni placa ni serial de chasis.
+         * @param {object} eq  El equipo: { tipo, modelo, marca, ident, identPor, frente, color,
+         *                     gps }. `ident` es CÓMO se llama (placa; si no, serial de chasis,
+         *                     de motor, código o etiqueta) e `identPor` su rótulo ("Placa",
+         *                     "Serial"…, vacío para "Equipo N"). Lo resuelve quien llama:
+         *                     MapaController::identificar en el modal, eqIdentCon en el mapa.
+         *                     `gps` es lo que devuelve Gps51Service.
          * @param {object} op  Opcional:
          *                     · dudosa   true si el GPS la reporta fuera del país: pinta el
          *                                aviso de que ese punto no es donde está el equipo.
@@ -67,10 +69,8 @@
             // modelo y marca) y después CUÁL es (la placa y, si no tiene, el serial de chasis).
             // Por eso ya no va aparte la línea "Placa: … Serial chasis: …": repetía lo de arriba.
             var limpio = function (v) { return (v == null ? '' : String(v)).trim(); };
-            var placa = limpio(eq.placa), serial = limpio(eq.serial_chasis);
-            var cual = placa ? 'Placa: <b>' + esc(placa) + '</b>'
-                     : serial ? 'Serial: <b>' + esc(serial) + '</b>'
-                     : (limpio(eq.ident) ? '<b>' + esc(eq.ident) + '</b>' : '');
+            var ident = limpio(eq.ident), identPor = limpio(eq.identPor);
+            var cual = ident ? (identPor ? esc(identPor) + ': ' : '') + '<b>' + esc(ident) + '</b>' : '';
             var modeloMarca = [limpio(eq.modelo), limpio(eq.marca)].filter(Boolean).join(' · ');
 
             return '<div class="mapa-eq">' +

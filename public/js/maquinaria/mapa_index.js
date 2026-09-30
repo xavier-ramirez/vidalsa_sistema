@@ -3450,14 +3450,18 @@
         // el Excel del panel (MapaController::exportarEquiposGps) — y con el mismo recorte de
         // espacios, que sin él una placa escrita con puros espacios salía en blanco aquí mientras
         // el Excel la daba por vacía y bajaba al serial.
-        function eqIdent(e) {
-            var v = [e.placa, e.serial_chasis, e.serial_motor, e.codigo, e.etiqueta];
+        // Devuelve [valor, rótulo]: la ficha escribe "Placa: …" / "Serial: …" con el rótulo, para
+        // que un serial de motor o un código no se confundan con la placa.
+        function eqIdentCon(e) {
+            var v = [['Placa', e.placa], ['Serial', e.serial_chasis], ['Serial motor', e.serial_motor],
+                     ['Código', e.codigo], ['Etiqueta', e.etiqueta]];
             for (var i = 0; i < v.length; i++) {
-                var s = (v[i] == null ? '' : String(v[i])).trim();
-                if (s) return s;
+                var s = (v[i][1] == null ? '' : String(v[i][1])).trim();
+                if (s) return [s, v[i][0]];
             }
-            return 'Equipo ' + e.id;
+            return ['Equipo ' + e.id, ''];
         }
+        function eqIdent(e) { return eqIdentCon(e)[0]; }
         // El tipo tal como se ENSEÑA. Se usa también para ordenar: mostrando "Sin tipo" pero
         // ordenando por cadena vacía, esos equipos se iban al principio de la lista sin motivo.
         function eqTipoTexto(e) { return e.tipo || 'Sin tipo'; }
@@ -3504,9 +3508,9 @@
         // tienen que verse idénticas. Aquí solo se traduce el equipo de la capa a lo que el
         // componente espera.
         function eqFicha(e) {
+            var id = eqIdentCon(e);
             return window.GpsFicha.html({
-                tipo: e.tipo, modelo: e.modelo, marca: e.marca,
-                placa: e.placa, serial_chasis: e.serial_chasis, ident: eqIdent(e),
+                tipo: e.tipo, modelo: e.modelo, marca: e.marca, ident: id[0], identPor: id[1],
                 color: eqColor(e), frente: e.frente ? e.frente.nombre : null, gps: e.gps
             }, {
                 dudosa: eqDudosa(e),

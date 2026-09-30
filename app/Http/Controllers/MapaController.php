@@ -152,7 +152,7 @@ class MapaController extends Controller
 
         $esGps51 = stripos((string) $equipo->LINK_GPS, 'gps51') !== false;
         $authcode = Gps51Service::authcode($equipo->LINK_GPS);
-        [$ident] = self::identificar($equipo, 'Equipo ' . $equipo->ID_EQUIPO);
+        [$ident, $por] = self::identificar($equipo, 'Equipo ' . $equipo->ID_EQUIPO);
 
         return response()->json([
             'gps51'  => $esGps51,
@@ -160,9 +160,8 @@ class MapaController extends Controller
                 'tipo'          => optional($equipo->tipo)->nombre,
                 'modelo'        => $equipo->MODELO,
                 'marca'         => $equipo->MARCA,
-                'placa'         => optional($equipo->documentacion)->PLACA,
-                'serial_chasis' => $equipo->SERIAL_CHASIS,
                 'ident'         => $ident,
+                'ident_por'     => self::IDENT_ROTULO[$por] ?? '',
                 'frente'        => optional($equipo->frenteActual)->NOMBRE_FRENTE,
             ],
             'gps'   => $authcode ? (Gps51Service::posiciones([$authcode])[$authcode] ?? null)
@@ -332,6 +331,18 @@ class MapaController extends Controller
             'Cache-Control' => 'no-cache, no-store, must-revalidate',
         ])->deleteFileAfterSend(true);
     }
+
+    /**
+     * Rótulo corto de cada escalón de identificar() para la ficha del GPS ("Placa: …",
+     * "Serial: …"), el mismo que pone eqIdentCon en el mapa. El Excel usa el largo.
+     */
+    private const IDENT_ROTULO = [
+        'PLACA'            => 'Placa',
+        'SERIAL DE CHASIS' => 'Serial',
+        'SERIAL DE MOTOR'  => 'Serial motor',
+        'CÓDIGO DE PATIO'  => 'Código',
+        'ETIQUETA'         => 'Etiqueta',
+    ];
 
     /**
      * Cómo se llama un equipo: placa, y si no la tiene, serial de chasis, serial de motor, código

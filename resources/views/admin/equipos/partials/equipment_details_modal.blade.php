@@ -19,7 +19,7 @@ Estructura: overlay > modal-content > header + sub-header + body
                     <div style="display: flex; gap: 6px; flex-wrap: wrap;">
                         <button id="modal_gps_btn" type="button"
                             onclick="openGpsModal(this)"
-                            data-equipo-id="" data-url="" data-equipo-name="" data-equipo-serial=""
+                            data-equipo-id="" data-url="" data-equipo-name="" data-equipo-serial="" data-equipo-tipo=""
                             style="display: none; background: linear-gradient(135deg,#10b981,#059669); color: white; padding: 6px 14px; border-radius: 8px; font-size: 11px; font-weight: 700; border: none; cursor: default; align-items: center; gap: 5px; transition: all 0.2s; box-shadow: 0 2px 8px rgba(16,185,129,0.35);"
                             onmouseover="this.style.transform='scale(1.04)'; this.style.boxShadow='0 4px 14px rgba(16,185,129,0.5)'"
                             onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 2px 8px rgba(16,185,129,0.35)'">
@@ -392,14 +392,12 @@ taparlo todo. NO se hereda el 2000 de .modal-overlay: quedaria por detras.
 MODAL GPS TRACKER — Rastreo Satelital en Vivo
 ═══════════════════════════════════════════════════════════════ --}}
 <div id="gpsTrackerModal" style="display:none;">
-    <div class="gps-modal-container" role="dialog" aria-modal="true" aria-label="Rastreo satelital en vivo">
+    <div class="gps-modal-container" role="dialog" aria-modal="true" aria-label="Rastreo satelital">
 
         {{-- Sin encabezado (pedido del cliente, 30-09-2026): el rótulo "Rastreo Satelital en
-             Vivo" y el tipo/placa repetían lo que ya dice la ficha. Solo queda el botón de
-             cerrar, flotando sobre la esquina del mapa. --}}
-        <button type="button" class="gps-cerrar" onclick="closeGpsModal()" aria-label="Cerrar">
-            <i class="material-icons">close</i>
-        </button>
+             Vivo" y el tipo/placa repetían lo que ya dice la ficha. El botón de cerrar va en la
+             esquina de la ficha (ver .gps-info), no sobre el mapa: ahí está el botón de
+             pantalla completa de Google. --}}
 
         {{-- Cuerpo: mapa de Google a la izquierda y los datos del GPS a la derecha. Los datos los
              pide el servidor a GPS51 (MapaController::equipoGps, la misma lectura que la capa
@@ -414,6 +412,12 @@ MODAL GPS TRACKER — Rastreo Satelital en Vivo
             </div>
 
             <aside class="gps-info">
+                <button type="button" class="gps-cerrar" onclick="closeGpsModal()" aria-label="Cerrar">
+                    <i class="material-icons">close</i>
+                </button>
+                {{-- Qué equipo es mientras la ficha no está (cargando o con un problema del
+                     enlace): sin el encabezado, si no, no habría forma de saber de cuál se habla. --}}
+                <p id="gps_ident" class="gps-ident"></p>
                 {{-- La ficha entera la pinta window.GpsFicha (gps_ficha.js), el MISMO componente
                      que usa la capa Equipos de /mapa: identificador y estado, qué equipo es, su
                      frente, la rejilla de datos, placa/serial, dirección y coordenadas. Antes
@@ -448,17 +452,14 @@ MODAL GPS TRACKER — Rastreo Satelital en Vivo
         background: #fff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden;
         width: 100%; max-width: 1150px; height: min(760px, 90vh);
         display: flex; flex-direction: column; box-shadow: 0 25px 60px rgba(0,0,0,0.2);
-        position: relative;
     }
 
-    /* Cerrar: flota sobre la esquina superior derecha del mapa (ya no hay encabezado). */
+    /* Cerrar: en la esquina superior derecha de la ficha (ya no hay encabezado). */
     .gps-cerrar {
-        position: absolute; top: 10px; z-index: 5;
-        width: 34px; height: 34px; border-radius: 8px; cursor: default;
+        position: absolute; top: 8px; right: 8px; z-index: 5;
+        width: 32px; height: 32px; border-radius: 8px; cursor: default;
         display: flex; align-items: center; justify-content: center;
-        background: #fff; border: 1px solid #e2e8f0; color: #64748b; transition: all 0.2s;
-        box-shadow: 0 2px 8px rgba(15,23,42,0.18);
-        right: calc(360px + 10px);   /* ancho de .gps-info + margen */
+        background: #f1f5f9; border: 1px solid #e2e8f0; color: #64748b; transition: all 0.2s;
     }
     .gps-cerrar .material-icons { font-size: 18px; }
     .gps-cerrar:hover { background: #fee2e2; color: #ef4444; border-color: #fecaca; }
@@ -474,6 +475,7 @@ MODAL GPS TRACKER — Rastreo Satelital en Vivo
     .gps-mapa-aviso .material-icons { font-size: 40px; color: #94a3b8; }
 
     .gps-info {
+        position: relative;
         width: 360px; flex-shrink: 0; background: #fff; color: #000;
         border-left: 1px solid #e2e8f0; padding: 18px 20px; overflow-y: auto;
         display: flex; flex-direction: column; gap: 12px;
@@ -481,6 +483,10 @@ MODAL GPS TRACKER — Rastreo Satelital en Vivo
     /* Solo para los problemas del enlace (vencido, ajeno, sin reportar). El aviso de posición
        fuera del país NO va aquí: lo pinta la propia ficha (.mapa-eq-dudosa), igual que en el mapa. */
     .gps-mensaje { margin: 0; font-size: 14px; font-weight: 700; color: #000; }
+    .gps-ident { margin: 0; padding-right: 36px; font-size: 14px; font-weight: 800; color: #0f172a; }
+    .gps-ident:empty { display: none; }
+    /* Hueco para la "×" de cerrar junto al título de la ficha. */
+    #gpsTrackerModal .mapa-eq-tit { padding-right: 30px; }
     .gps-vence { margin: 0; font-size: 11px; font-weight: 600; color: #475569; text-align: center; }
 
     /* Los seis datos (velocidad, motor, combustible, voltaje, kilometraje y última señal) en
@@ -491,7 +497,6 @@ MODAL GPS TRACKER — Rastreo Satelital en Vivo
     /* Tablet: la ficha se angosta para dejarle ancho al mapa. */
     @media (max-width: 1024px) {
         .gps-info { width: 300px; padding: 16px; }
-        .gps-cerrar { right: calc(300px + 10px); }
     }
 
     /* PC o laptop con poca altura: ficha más compacta para que quepa sin desplazarse. */
@@ -504,7 +509,6 @@ MODAL GPS TRACKER — Rastreo Satelital en Vivo
     @media (max-width: 768px) {
         #gpsTrackerModal { padding: 0; }
         .gps-modal-container { max-width: none; height: 100vh; height: 100dvh; border: 0; border-radius: 0; }
-        .gps-cerrar { right: 10px; }
         .gps-body { flex-direction: column; overflow-y: auto; -webkit-overflow-scrolling: touch; }
         .gps-panel-map { flex: none; height: 42vh; height: 42dvh; min-height: 230px; }
         .gps-info { width: auto; border-left: 0; border-top: 1px solid #e2e8f0; overflow: visible; padding: 14px 16px 20px; }
@@ -514,7 +518,6 @@ MODAL GPS TRACKER — Rastreo Satelital en Vivo
     @media (max-width: 1024px) and (max-height: 500px) and (orientation: landscape) {
         #gpsTrackerModal { padding: 0; }
         .gps-modal-container { max-width: none; height: 100vh; height: 100dvh; border: 0; border-radius: 0; }
-        .gps-cerrar { right: calc(290px + 10px); }
         .gps-body { flex-direction: row; overflow: hidden; }
         .gps-panel-map { flex: 1; height: auto; min-height: 0; }
         .gps-info { width: 290px; border-top: 0; border-left: 1px solid #e2e8f0; overflow-y: auto; padding: 10px 14px; gap: 8px; }
@@ -579,6 +582,18 @@ if (!window._gpsModalScriptLoaded) {
 
         function pararRefresco() { clearInterval(S.timer); S.timer = null; }
 
+        // Qué equipo es, en una línea ("CAMION DE SERVICIO · Placa: A51EX9P"), para cuando la
+        // ficha no está. También es el nombre del diálogo para los lectores de pantalla.
+        function ponerIdent(eq) {
+            var tipo = limpio(eq.tipo, ['N/A', 'SIN TIPO']).toUpperCase();
+            var ident = limpio(eq.ident);
+            var texto = [tipo, ident ? (eq.ident_por ? eq.ident_por + ': ' : '') + ident : '']
+                .filter(Boolean).join(' · ');
+            $('gps_ident').textContent = texto;
+            var dlg = document.querySelector('#gpsTrackerModal .gps-modal-container');
+            if (dlg) dlg.setAttribute('aria-label', 'Rastreo satelital' + (texto ? ': ' + texto : ''));
+        }
+
         // Pinta la ficha con lo que devuelve MapaController::equipoGps (ver Gps51Service::normalizar).
         function pintarDatos(r) {
             var ficha = $('gps_ficha'), msg = $('gps_mensaje'), vence = $('gps_vence');
@@ -594,6 +609,7 @@ if (!window._gpsModalScriptLoaded) {
 
             ficha.innerHTML = '';
             msg.hidden = true; vence.hidden = true;
+            if (r && r.equipo) ponerIdent(r.equipo);
 
             var problema = null;
             if (r && r.gps51 === false) problema = 'El enlace de este GPS no es de GPS51: no se pueden leer sus datos aquí.';
@@ -618,10 +634,11 @@ if (!window._gpsModalScriptLoaded) {
             // frente no se le pasa a propósito: ahí sirve para distinguir equipos de frentes
             // distintos en el mismo mapa, y aquí solo hay uno.
             var eq = (r && r.equipo) || {};
+            // Con la ficha a la vista su encabezado ya dice qué equipo es.
+            $('gps_ident').textContent = '';
             ficha.innerHTML = window.GpsFicha.html({
                 tipo: eq.tipo, modelo: eq.modelo, marca: eq.marca,
-                placa: eq.placa, serial_chasis: eq.serial_chasis,
-                ident: eq.ident || S.identRespaldo || 'Equipo',
+                ident: eq.ident, identPor: eq.ident_por,
                 frente: eq.frente, gps: g
             }, {
                 dudosa: !!g.fuera_de_venezuela,
@@ -686,13 +703,12 @@ if (!window._gpsModalScriptLoaded) {
             var ds = btn.dataset;
 
             pararRefresco();
-            S = { id: ds.equipoId, lat: null, lng: null, timer: null, turno: S.turno + 1, direccion: null, identRespaldo: null };
+            S = { id: ds.equipoId, lat: null, lng: null, timer: null, turno: S.turno + 1, direccion: null };
 
+            // Mientras el servidor contesta, qué equipo es sale de lo que trae el botón.
             var placa  = limpio(ds.equipoName, ['N/A', 'Sin Placa']);
             var serial = limpio(ds.equipoSerial, ['N/A', 'Sin Chasis']);
-            // Por si el servidor tarda o no llega a decir qué equipo es: la ficha necesita un
-            // nombre y el botón ya trae la placa (o el chasis).
-            S.identRespaldo = placa || serial || null;
+            ponerIdent({ tipo: ds.equipoTipo, ident: placa || serial, ident_por: placa ? 'Placa' : 'Serial' });
 
             // Estado inicial: todo vacío y el mapa cargando.
             $('gps_ficha').innerHTML = '';
