@@ -19,7 +19,7 @@ Estructura: overlay > modal-content > header + sub-header + body
                     <div style="display: flex; gap: 6px; flex-wrap: wrap;">
                         <button id="modal_gps_btn" type="button"
                             onclick="openGpsModal(this)"
-                            data-equipo-id="" data-url="" data-equipo-name="" data-equipo-serial="" data-equipo-tipo=""
+                            data-equipo-id="" data-url="" data-equipo-name="" data-equipo-serial=""
                             style="display: none; background: linear-gradient(135deg,#10b981,#059669); color: white; padding: 6px 14px; border-radius: 8px; font-size: 11px; font-weight: 700; border: none; cursor: default; align-items: center; gap: 5px; transition: all 0.2s; box-shadow: 0 2px 8px rgba(16,185,129,0.35);"
                             onmouseover="this.style.transform='scale(1.04)'; this.style.boxShadow='0 4px 14px rgba(16,185,129,0.5)'"
                             onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 2px 8px rgba(16,185,129,0.35)'">
@@ -619,10 +619,10 @@ if (!window._gpsModalScriptLoaded) {
             // distintos en el mismo mapa, y aquí solo hay uno.
             var eq = (r && r.equipo) || {};
             ficha.innerHTML = window.GpsFicha.html({
+                tipo: eq.tipo, modelo: eq.modelo, marca: eq.marca,
+                placa: eq.placa, serial_chasis: eq.serial_chasis,
                 ident: eq.ident || S.identRespaldo || 'Equipo',
-                descripcion: eq.descripcion, frente: eq.frente,
-                placa: eq.placa, codigo: eq.codigo, serial_chasis: eq.serial_chasis,
-                gps: g
+                frente: eq.frente, gps: g
             }, {
                 dudosa: !!g.fuera_de_venezuela,
                 // La dirección se pide aparte (tarda ~2 s): la ficha reserva su hueco y

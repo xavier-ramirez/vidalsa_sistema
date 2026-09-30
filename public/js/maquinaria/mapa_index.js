@@ -3458,7 +3458,6 @@
             }
             return 'Equipo ' + e.id;
         }
-        function eqDescripcion(e) { return [e.tipo, [e.marca, e.modelo].filter(Boolean).join(' ')].filter(Boolean).join(' · '); }
         // El tipo tal como se ENSEÑA. Se usa también para ordenar: mostrando "Sin tipo" pero
         // ordenando por cadena vacía, esos equipos se iban al principio de la lista sin motivo.
         function eqTipoTexto(e) { return e.tipo || 'Sin tipo'; }
@@ -3506,9 +3505,9 @@
         // componente espera.
         function eqFicha(e) {
             return window.GpsFicha.html({
-                ident: eqIdent(e), descripcion: eqDescripcion(e), color: eqColor(e),
-                frente: e.frente ? e.frente.nombre : null,
-                placa: e.placa, codigo: e.codigo, serial_chasis: e.serial_chasis, gps: e.gps
+                tipo: e.tipo, modelo: e.modelo, marca: e.marca,
+                placa: e.placa, serial_chasis: e.serial_chasis, ident: eqIdent(e),
+                color: eqColor(e), frente: e.frente ? e.frente.nombre : null, gps: e.gps
             }, {
                 dudosa: eqDudosa(e),
                 // La dirección llega después (eqCargarDireccion la rellena por este data-eqdir

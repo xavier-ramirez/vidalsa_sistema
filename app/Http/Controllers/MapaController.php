@@ -152,21 +152,18 @@ class MapaController extends Controller
 
         $esGps51 = stripos((string) $equipo->LINK_GPS, 'gps51') !== false;
         $authcode = Gps51Service::authcode($equipo->LINK_GPS);
-        $placa = trim((string) optional($equipo->documentacion)->PLACA);
         [$ident] = self::identificar($equipo, 'Equipo ' . $equipo->ID_EQUIPO);
 
         return response()->json([
             'gps51'  => $esGps51,
             'equipo' => [
-                'ident'         => $ident,
-                'descripcion'   => implode(' · ', array_filter([
-                    optional($equipo->tipo)->nombre,
-                    trim($equipo->MARCA . ' ' . $equipo->MODELO) ?: null,
-                ])),
-                'frente'        => optional($equipo->frenteActual)->NOMBRE_FRENTE,
-                'placa'         => $placa,
-                'codigo'        => $equipo->CODIGO_PATIO,
+                'tipo'          => optional($equipo->tipo)->nombre,
+                'modelo'        => $equipo->MODELO,
+                'marca'         => $equipo->MARCA,
+                'placa'         => optional($equipo->documentacion)->PLACA,
                 'serial_chasis' => $equipo->SERIAL_CHASIS,
+                'ident'         => $ident,
+                'frente'        => optional($equipo->frenteActual)->NOMBRE_FRENTE,
             ],
             'gps'   => $authcode ? (Gps51Service::posiciones([$authcode])[$authcode] ?? null)
                      : ($esGps51 ? ['ok' => false, 'motivo' => 'enlace_invalido'] : null),

@@ -27,8 +27,8 @@
     var num = function (n, dec) { return Number(n).toLocaleString('es-VE', { maximumFractionDigits: dec || 0 }); };
     var hay = function (v) { return v !== null && v !== undefined; };
 
-    function celda(rotulo, valor, detalle, ancha) {
-        return '<div class="mapa-eq-cel' + (ancha ? ' ancha' : '') + '"><span>' + esc(rotulo) + '</span>' +
+    function celda(rotulo, valor, detalle) {
+        return '<div class="mapa-eq-cel"><span>' + esc(rotulo) + '</span>' +
                '<b>' + esc(valor) + '</b>' + (detalle ? '<small>' + esc(detalle) + '</small>' : '') + '</div>';
     }
 
@@ -37,8 +37,10 @@
          * El HTML de la ficha, o cadena vacía si el equipo no tiene posición que pintar
          * (sin `gps`, con `gps.ok` falso o sin coordenadas).
          *
-         * @param {object} eq  El equipo: { ident, descripcion, frente, color, placa, codigo,
-         *                     serial_chasis, gps }. `gps` es lo que devuelve Gps51Service.
+         * @param {object} eq  El equipo: { tipo, modelo, marca, placa, serial_chasis, ident,
+         *                     frente, color, gps }. `gps` es lo que devuelve Gps51Service.
+         *                     `ident` es el nombre de respaldo (serial de motor, código…) para
+         *                     el equipo que no tiene ni placa ni serial de chasis.
          * @param {object} op  Opcional:
          *                     · dudosa   true si el GPS la reporta fuera del país: pinta el
          *                                aviso de que ese punto no es donde está el equipo.
@@ -61,9 +63,15 @@
             // El color va DENTRO de un atributo style, donde escapeHtml no protege: se acepta solo
             // si es un color de los que arma el sistema (#rgb / #rrggbb). Cualquier otra cosa, al gris.
             var color = /^#[0-9a-fA-F]{3,8}$/.test(String(eq.color || '')) ? eq.color : '#94a3b8';
-            var ids = [['Placa', eq.placa], ['Código', eq.codigo], ['Serial chasis', eq.serial_chasis]]
-                .filter(function (p) { return p[1]; })
-                .map(function (p) { return '<span>' + esc(p[0]) + ': <b>' + esc(p[1]) + '</b></span>'; }).join('');
+            // Encabezado en el orden que pidió el cliente (30-09-2026): primero QUÉ es (tipo,
+            // modelo y marca) y después CUÁL es (la placa y, si no tiene, el serial de chasis).
+            // Por eso ya no va aparte la línea "Placa: … Serial chasis: …": repetía lo de arriba.
+            var limpio = function (v) { return (v == null ? '' : String(v)).trim(); };
+            var placa = limpio(eq.placa), serial = limpio(eq.serial_chasis);
+            var cual = placa ? 'Placa: <b>' + esc(placa) + '</b>'
+                     : serial ? 'Serial: <b>' + esc(serial) + '</b>'
+                     : (limpio(eq.ident) ? '<b>' + esc(eq.ident) + '</b>' : '');
+            var modeloMarca = [limpio(eq.modelo), limpio(eq.marca)].filter(Boolean).join(' · ');
 
             return '<div class="mapa-eq">' +
                 // Lo primero: esta posición no es la real. El equipo se pinta igual (el cliente
@@ -71,10 +79,11 @@
                 (op.dudosa ? '<div class="mapa-eq-dudosa"><i class="material-icons">location_off</i>' +
                     '<span>El GPS la reporta FUERA de Venezuela: no es donde está el equipo. Hay que revisar ese GPS.</span></div>' : '') +
                 '<div class="mapa-eq-head" style="border-left-color:' + color + '">' +
-                    '<div class="mapa-eq-tit"><b>' + esc(eq.ident) + '</b>' +
+                    '<div class="mapa-eq-tit"><b>' + esc(limpio(eq.tipo) || 'Sin tipo') + '</b>' +
                         '<span class="mapa-eq-estado ' + (g.en_linea ? 'en-linea' : 'fuera') + '">' +
                         (g.en_linea ? 'En línea' : 'Sin conexión') + '</span></div>' +
-                    (eq.descripcion ? '<div class="mapa-eq-desc">' + esc(eq.descripcion) + '</div>' : '') +
+                    (modeloMarca ? '<div class="mapa-eq-desc">' + esc(modeloMarca) + '</div>' : '') +
+                    (cual ? '<div class="mapa-eq-ident">' + cual + '</div>' : '') +
                     '<div class="mapa-eq-frente"><span style="background:' + color + '"></span>' +
                         esc(eq.frente || 'Sin frente') + '</div>' +
                 '</div>' +
@@ -92,7 +101,6 @@
                     celda('Kilometraje', num(g.km_total) + ' km') +
                     celda('Última señal', window.tiempoHace(g.ultima_senal), window.fechaHoraLocal(g.ultima_senal)) +
                 '</div>' +
-                (ids ? '<div class="mapa-eq-ids">' + ids + '</div>' : '') +
                 (op.sinDireccion ? '' :
                     '<div class="mapa-eq-dir"' + (op.dirAttr ? ' data-eqdir="' + esc(op.dirAttr) + '"' : '') + '>' +
                     esc(op.direccion || 'Buscando dirección…') + '</div>') +

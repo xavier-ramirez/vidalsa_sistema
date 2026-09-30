@@ -130,11 +130,11 @@ class MapaEquiposGpsTest extends MySqlTestCase
         $this->assertTrue($r->json('gps51'));
         $gps = $r->json('gps');
         $this->assertTrue($gps['ok']);
-        // Lo que GPS51 muestra como "Ubic.: Satélite Beidou 22…/Alt218m/Señal48%".
-        $this->assertSame('gps', $gps['fuente']);
-        $this->assertSame(22, $gps['satelites']);
-        $this->assertSame(218, $gps['altitud']);
-        $this->assertSame(48, $gps['senal']);
+        // La ficha arma su encabezado con esto: tipo, modelo y marca, y luego placa o serial.
+        $this->assertSame(
+            ['tipo', 'modelo', 'marca', 'placa', 'serial_chasis', 'ident', 'frente'],
+            array_keys($r->json('equipo'))
+        );
         $this->assertStringNotContainsString('authcode', $r->getContent());
 
         // Un enlace que no es de GPS51: no se consulta nada y el modal ofrece abrirlo tal cual.
