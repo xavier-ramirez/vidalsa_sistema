@@ -26,10 +26,11 @@
         \App\Models\VerificacionDocumento::ILEGIBLE    => 'No se pudo leer',
         \App\Models\VerificacionDocumento::SIN_ARCHIVO => 'Sin archivo en Drive',
         \App\Models\VerificacionDocumento::ERROR       => 'Con error',
-        // Los dos de la carga masiva: PDF recien soltados que todavia no estan en ninguna
-        // ficha. Aqui es DONDE SE VE lo que se subio; el modal solo sirve para soltarlos.
-        \App\Models\VerificacionDocumento::POR_ENGANCHAR => 'Por aplicar',
-        \App\Models\VerificacionDocumento::SIN_FICHA     => 'Sin ficha reconocida',
+        // Los de la carga masiva: PDF recien soltados que todavia no estan en ninguna ficha.
+        // Aqui es DONDE SE VE lo que se subio; el modal solo sirve para soltarlos.
+        \App\Models\VerificacionDocumento::POR_ENGANCHAR  => 'Por aplicar',
+        \App\Models\VerificacionDocumento::SIN_FICHA      => 'Sin ficha reconocida',
+        \App\Models\VerificacionDocumento::OTRO_DOCUMENTO => 'Otro documento (no se asoció)',
         \App\Models\VerificacionDocumento::APLICADO      => 'Aplicado',
     ];
     // En el DESPLEGABLE cada opcion lleva su cuenta, y las que no tienen ninguna fila no se

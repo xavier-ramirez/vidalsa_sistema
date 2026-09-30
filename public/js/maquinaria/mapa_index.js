@@ -1673,12 +1673,13 @@
                     // A pantalla completa va el contenedor de las DOS columnas, no solo el mapa:
                     // si fuera solo el mapa, la columna de equipos se quedaría fuera y se
                     // perderían los filtros justo donde más sitio hay para usarlos.
-                    // _mapaLayout lo busca una sola vez el montaje del panel, mucho antes de que
-                    // nadie pueda pulsar aquí; el mapa a secas queda de red por si la vista que
-                    // llegó fuera una vieja, sin las dos columnas.
-                    var destino = _mapaLayout || el;
-                    var req = destino.requestFullscreen || destino.webkitRequestFullscreen;
-                    if (req) req.call(destino);
+                    // Sin #mapa-layout no se entra: las reglas de pantalla completa cuelgan todas
+                    // de .mapa-layout:fullscreen, así que pedirla sobre el mapa a secas no
+                    // redimensionaría nada ni sacaría la "X" de salir — se quedaría encerrado.
+                    // _mapaLayout lo busca el montaje del panel, mucho antes de que nadie pulse aquí.
+                    if (!_mapaLayout) return;
+                    var req = _mapaLayout.requestFullscreen || _mapaLayout.webkitRequestFullscreen;
+                    if (req) req.call(_mapaLayout);
                 });
                 return btn;
             }
@@ -3479,11 +3480,6 @@
             if (e.gps.motivo === 'enlace_vencido') return 'Enlace de GPS vencido';
             return 'GPS51 no reconoce el enlace';   // enlace_invalido, y cualquier motivo nuevo
         }
-        // "hace 5 min" / "hace 3 días": corto para que quepa en la ficha. La cuenta la hace
-        // window.tiempoHace (dom_helpers.js), COMPARTIDA con el modal "Rastreo Satelital en Vivo":
-        // el mismo equipo no puede decir una cosa aquí y otra allá. La fecha exacta bajo el
-        // "hace 8 h" la pinta ya la propia ficha (GpsFicha, con window.fechaHoraLocal).
-        function eqHace(ms) { return window.tiempoHace(ms); }
 
         // Marca del equipo: el icono del módulo Equipos (el mismo "agriculture" del menú), blanco y
         // SIN el color del frente (pedido del cliente, 22-09-2026: ni círculo ni colores). Más
@@ -3833,7 +3829,7 @@
         function eqEstadoTexto(e) {
             if (!eqTienePosicion(e)) return eqSinPosicionTexto(e);
             if (eqDudosa(e)) return 'Fuera de Venezuela';
-            return e.gps.en_linea ? 'En línea' : 'Última señal ' + eqHace(e.gps.ultima_senal);
+            return e.gps.en_linea ? 'En línea' : 'Última señal ' + window.tiempoHace(e.gps.ultima_senal);
         }
 
         // Opciones de los desplegables: los frentes que TIENEN equipos con GPS y los tipos de ese

@@ -4429,8 +4429,11 @@ body:has(.mapa-page) { --mapa-col: 380px; }
 
 /* Teléfono: el contenedor del mapa gana el espacio que le robaba el padding lateral de
    .mapa-page, y se oculta el botón-miniatura de MUNICIPIOS — en una pantalla angosta solo
-   tapa mapa útil, y el usuario móvil no lo necesita para consultar. Un solo breakpoint para
-   todo el módulo. (Los créditos "Elaborado por…" ya no están en pantalla: solo en la foto.) */
+   tapa mapa útil, y el usuario móvil no lo necesita para consultar.
+   OJO: el módulo ya NO tiene un solo breakpoint. El panel de equipos trajo los suyos —900 (pasa
+   debajo del mapa), 640 (se aprieta), 640×640 (pantalla baja) y 1400 / 901-1399 (cómo se aparta el
+   menú de la app)—, así que al tocar el mapa en pantalla chica hay que mirar también esos bloques.
+   (Los créditos "Elaborado por…" ya no están en pantalla: solo en la foto.) */
 @media (max-width: 640px) {
     /* El layout full-screen (main-viewport/mapa-page/#mapa-leaflet a pantalla completa detrás
        del header) vive ahora en la base, arriba — aplica igual en PC y teléfono. Aquí quedan
@@ -4891,7 +4894,7 @@ body:has(.mapa-page) { --mapa-col: 380px; }
    quede con el sitio. No se toca nada del diseño de PC. */
 @media (max-width: 640px) {
     /* En teléfono manda el MAPA: la lista enseña tres equipos y el resto se ve desplazando
-       (pedido del cliente). Con 45dvh salían seis y el mapa se quedaba en nada. */
+       (pedido del cliente): con menos mapa salían seis equipos y el mapa se quedaba en nada. */
     .mapa-layout.con-panel #mapa-leaflet { flex: 0 0 57dvh; height: 57dvh; }
     /* Sin el título "Equipos con GPS": ocupa un renglón entero para decir lo que ya se ve, y en
        teléfono ese renglón es una fila de equipos (pedido del cliente). */
@@ -4909,9 +4912,9 @@ body:has(.mapa-page) { --mapa-col: 380px; }
     .mapa-eqp-eq { padding: 5px 6px; }
     .mapa-eqp-pie { margin-top: 8px; padding-top: 6px; }
 }
-/* Teléfono BAJO (un SE, o cualquiera con el teclado abierto): con 45dvh de mapa al panel le
-   quedaban 277 px y solo asomaban DOS equipos. El mapa cede hasta un tercio largo de la pantalla
-   —sigue siendo un mapa usable— y la lista pasa a enseñar cuatro. */
+/* Teléfono BAJO (un SE, o cualquiera con el teclado abierto): en 568 px de alto, con el reparto
+   de arriba al panel le quedaban 277 px y solo asomaban DOS equipos. El mapa cede hasta un tercio
+   largo de la pantalla —sigue siendo un mapa usable— y la lista vuelve a enseñar cuatro. */
 @media (max-width: 640px) and (max-height: 640px) {
     .mapa-layout.con-panel #mapa-leaflet { flex: 0 0 35dvh; height: 35dvh; }
     .mapa-eqp-kpi b { font-size: 15px; }

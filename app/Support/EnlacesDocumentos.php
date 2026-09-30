@@ -32,6 +32,8 @@ class EnlacesDocumentos
         ['equipos_auxiliares', 'LINK_DOC_PROPIEDAD', 'aux_propiedad_',   'Doc. propiedad (auxiliar)'],
         ['equipos_auxiliares', 'LINK_CERTIFICADO',   'aux_certificado_', 'Certificado (auxiliar)'],
         ['documento_anexos', 'LINK', 'correccion_', 'Correccion anexa'],
+        // Un BL: UN archivo para todos los equipos de su embarque (ver Embarque).
+        ['embarques', 'LINK', 'embarque_', 'Documento de embarque (BL)'],
     ];
 
     /**

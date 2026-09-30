@@ -203,6 +203,13 @@ class Equipo extends Model
                     ->orderBy('created_at');
     }
 
+    /** El embarque (BL) en que llego. Uno como mucho: embarque_equipo.ID_EQUIPO es unico. */
+    public function embarques()
+    {
+        return $this->belongsToMany(Embarque::class, 'embarque_equipo', 'ID_EQUIPO', 'ID_EMBARQUE')
+                    ->withPivot('VIN');
+    }
+
     public function responsables()
     {
         return $this->hasMany(Responsable::class, 'ID_EQUIPO', 'ID_EQUIPO');

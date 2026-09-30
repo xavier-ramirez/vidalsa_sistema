@@ -87,7 +87,11 @@
 
     function $(id) { return document.getElementById(id); }
 
-    /** El tipo elegido. '' = reconocerlo solo (lo normal: así se suelta un montón mezclado). */
+    /**
+     * El tipo elegido. Es OBLIGATORIO: se sueltan PDF de un solo tipo por tanda ("estos son
+     * títulos") y el servidor comprueba que cada uno lo sea; el que resulte ser otro documento
+     * queda en la tabla como "Otro documento" y no se asocia a nada. '' = todavía no se eligió.
+     */
     function tipoElegido() {
         var v = document.querySelector('#hdCmTipo [data-filter-value]');
         return v ? v.value : '';
@@ -99,25 +103,23 @@
      * desplegable). Sus manejadores están delegados en document, así que funcionan aunque
      * este trozo se cree a mano después de cargar la página.
      *
-     * Los cuatro de siempre se reconocen por lo que dice el propio PDF; el certificado y la
-     * compraventa no traen un rótulo fijo, así que esos hay que elegirlos.
+     * Sin opción de "reconocerlo solo" (pedido 30-09-2026): se elige qué documento se carga.
      */
     function desplegableTipo() {
         // La lista sale de PHP (CargaMasivaDocumentos::NOMBRES), que es la única fuente: si allí
         // se añade un documento, aquí aparece solo. Antes estaba escrita a mano en los dos sitios.
-        var TIPOS = [['', 'Reconocerlo solo']].concat(
-            Object.entries(@json(\App\Services\CargaMasivaDocumentos::NOMBRES)));
-        var opciones = TIPOS.map(function (t, i) {
-            return '<div class="dropdown-item' + (i === 0 ? ' selected' : '') + '" data-value="' + t[0] + '" data-label="' + t[1] + '"' +
+        var TIPOS = Object.entries(@json(\App\Services\CargaMasivaDocumentos::NOMBRES));
+        var opciones = TIPOS.map(function (t) {
+            return '<div class="dropdown-item" data-value="' + t[0] + '" data-label="' + t[1] + '"' +
                    ' onclick="window.selectOption(\'hdCmTipo\', this.dataset.value, this.dataset.label)">' + t[1] + '</div>';
         }).join('');
 
-        return '<div class="custom-dropdown" id="hdCmTipo" data-filter-type="tipo" data-default-label="Reconocerlo solo" style="width:100%;">' +
+        return '<div class="custom-dropdown" id="hdCmTipo" data-filter-type="tipo" data-default-label="¿Qué documento vas a cargar?" style="width:100%;">' +
             '<input type="hidden" data-filter-value value="">' +
             '<div class="dropdown-trigger" style="background:#fbfcfd;border:1px solid #cbd5e0;border-radius:12px;height:45px;display:flex;align-items:center;justify-content:space-between;padding:0;width:100%;overflow:hidden;">' +
                 '<div style="padding:0 10px;display:flex;align-items:center;color:var(--maquinaria-gray-text);">' +
                     '<i class="material-icons" style="font-size:18px;">search</i></div>' +
-                '<input type="text" name="filter_search_dropdown" data-filter-search placeholder="Reconocerlo solo"' +
+                '<input type="text" name="filter_search_dropdown" data-filter-search placeholder="¿Qué documento vas a cargar?"' +
                     ' style="width:100%;border:none;background:transparent;padding:10px 5px;font-size:14px;outline:none;color:#4a5568;"' +
                     ' onkeyup="window.filterDropdownOptions(this)" autocomplete="off">' +
                 '<div style="display:flex;align-items:center;padding-right:10px;">' +
@@ -212,6 +214,7 @@
         if (!pdfs.length) { window.toast('Solo se aceptan archivos PDF', 'error'); return; }
 
         var tipo = tipoElegido();
+        if (!tipo) { window.toast('Elige primero qué documento vas a cargar', 'error'); return; }
         // Soltar algo durante la cuenta atrás del cierre la cancela: el modal se queda.
         clearTimeout(estado.cierre);
         estado.cierre = null;
@@ -222,11 +225,11 @@
         // `perdidos` son los que NO llegaron a Drive: esos no dejan fila en la tabla (la fila se
         // identifica por el archivo de Drive), así que si no se nombran aquí desaparecen sin que
         // nadie se entere. Los demás, lean o no, sí salen en la tabla con su motivo.
-        var i = 0, hechos = 0, perdidos = [];
+        var i = 0, hechos = 0, otros = 0, perdidos = [];
         estado.hechos = 0;
         var siguiente = function () {
             if (turno !== estado.turno) return;              // se cerró el modal: se abandona
-            if (i >= pdfs.length) { terminar(hechos, perdidos); return; }
+            if (i >= pdfs.length) { terminar(hechos, otros, perdidos); return; }
 
             var archivo = pdfs[i++];
             avance(i, pdfs.length, archivo.name);
@@ -235,7 +238,10 @@
                     // Sin enlace de Drive no hay fila: cuenta como perdido, no como hecho. Y se
                     // guarda el MOTIVO que manda el servidor ("el PDF esta incompleto: vuelve a
                     // escanearlo"), que es lo que dice QUE hacer.
-                    if (b && b.propuesta && b.propuesta.link) { hechos++; estado.hechos++; }
+                    if (b && b.propuesta && b.propuesta.link) {
+                        hechos++; estado.hechos++;
+                        if (b.propuesta.estado === 'otro_documento') otros++;
+                    }
                     else perdidos.push({ nombre: archivo.name, motivo: (b && b.propuesta && b.propuesta.aviso) || '' });
                 })
                 .catch(function (e) { perdidos.push({ nombre: archivo.name, motivo: (e && e.message) || '' }); })
@@ -264,7 +270,7 @@
         if (tipo) tipo.classList.toggle('hd-cm-apagado', si);
     }
 
-    function terminar(hechos, perdidos) {
+    function terminar(hechos, otros, perdidos) {
         estado.corriendo = false;
         bloquear(false);
         if ($('hdCmBarra')) $('hdCmBarra').style.width = '100%';
@@ -279,7 +285,8 @@
             // que si no se leen aquí no hay dónde encontrarlos. Se escriben con textContent
             // (el nombre lo pone el usuario) dentro de su propio renglón.
             nota.innerHTML = '<b>' + hechos + '</b> en la tabla. Búscalos como <b>Por aplicar</b>.'
-                + (perdidos.length ? '' : '<br>Cerrando…');
+                + (otros ? '<br><b>' + otros + '</b> no se asociaron porque son otro documento: están como <b>Otro documento</b>.' : '')
+                + (perdidos.length || otros ? '' : '<br>Cerrando…');
             if (perdidos.length) {
                 var mal = document.createElement('div');
                 mal.style.cssText = 'margin-top:6px;color:#b91c1c;font-weight:700;';
@@ -301,7 +308,8 @@
         // Si todo subió, el modal se cierra SOLO: ya no hay nada que mirar aquí, lo que hay que
         // ver está en la tabla. Si algo se perdió NO se cierra, porque esos nombres solo están
         // escritos aquí: cerrarlo sería tragarse el único aviso.
-        if (!perdidos.length) estado.cierre = setTimeout(cerrar, 1200);
+        // Tampoco si alguno resultó ser otro documento: ese aviso también hay que leerlo.
+        if (!perdidos.length && !otros) estado.cierre = setTimeout(cerrar, 1200);
 
         // La tabla se refresca al CERRAR, no aquí: cpdfFiltrar recarga la página por la SPA y
         // el modal se quedaba encima de lo recargado hasta que alguien lo cerrara a mano.

@@ -402,6 +402,42 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
 
     // ── Las puertas ───────────────────────────────────────────────────────────
 
+    /** Ya no hay "reconocerlo solo": sin decir qué documento es, no se sube nada. */
+    public function test_sin_elegir_el_tipo_no_se_analiza(): void
+    {
+        $pdf = \Illuminate\Http\UploadedFile::fake()->createWithContent('doc.pdf', "%PDF-1.5\n" . str_repeat('x', 2048) . "\n%%EOF\n");
+
+        $this->actingAs($this->usuario())
+            ->post(route('historial-documentos.carga-masiva.analizar'), ['file' => $pdf], ['Accept' => 'application/json'])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['tipo' => 'Elige primero']);
+    }
+
+    /**
+     * Se cargó como título y el texto es de una póliza: no se asocia (aunque su serial sea de
+     * una ficha), queda en el historial como "Otro documento" y se puede descartar.
+     */
+    public function test_un_pdf_que_es_otro_documento_queda_en_el_historial_sin_asociar(): void
+    {
+        $this->actingAs($this->usuario());
+        $e = $this->equipo();
+
+        $p = $this->soltar("CUADRO RECIBO DE POLIZA DE SEGURO\nSerial de Carroceria: {$e->SERIAL_CHASIS}\nHasta: 10/10/2027",
+            LectorDocumentoPdf::PROPIEDAD);
+
+        $this->assertSame(CargaMasivaDocumentos::OTRO_DOCUMENTO, $p['estado']);
+        $this->assertSame([], $p['equipos']);
+        $this->assertFalse($p['ia'], 'lo dijo el rotulo, sin IA');
+        $this->assertStringContainsString('el PDF es poliza de seguro', $p['aviso']);
+
+        $fila = VerificacionDocumento::deCargaMasiva()
+            ->where('DRIVE_ID', \App\Models\DocumentoAnexo::driveIdDeLink($p['link']))->firstOrFail();
+        $this->assertSame(VerificacionDocumento::OTRO_DOCUMENTO, $fila->ESTADO);
+        $this->assertContains($fila->ESTADO, VerificacionDocumento::DE_LA_CARGA, 'se puede descartar desde la tabla');
+        $this->assertFalse(app(CargaMasivaDocumentos::class)->propuestaAdmite($p['link'], $e->ID_EQUIPO, false, LectorDocumentoPdf::PROPIEDAD),
+            'y no se puede aplicar a ninguna ficha');
+    }
+
     public function test_sin_sesion_no_se_puede_analizar_ni_aplicar(): void
     {
         $this->post(route('historial-documentos.carga-masiva.analizar'), [], ['Accept' => 'application/json'])
@@ -569,7 +605,9 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
         \Tests\DriveFalso::instalar();
         try {
             $pdf = \Illuminate\Http\UploadedFile::fake()->createWithContent('doc.pdf', "%PDF-1.5\n" . str_repeat($contenido, 2048) . "\n%%EOF\n");
-            return $this->lectorCon($texto)->analizar($pdf, $tipo);
+            // Sin tipo en la prueba: el que el usuario habría elegido, el que el PDF dice ser.
+            $servicio = $this->lectorCon($texto);
+            return $servicio->analizar($pdf, $tipo ?? $servicio->detectarTipo($texto));
         } finally {
             \Tests\DriveFalso::quitar();
         }
@@ -629,8 +667,8 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
         \Tests\DriveFalso::instalar();
         try {
             $pdf = fn () => \Illuminate\Http\UploadedFile::fake()->createWithContent('doc.pdf', "%PDF-1.5\n" . str_repeat($unico, 200) . "\n%%EOF\n");
-            $this->assertSame('listo', $this->lectorCon($texto)->analizar($pdf())['estado']);
-            $otra = $this->lectorCon($texto)->analizar($pdf());
+            $this->assertSame('listo', $this->lectorCon($texto)->analizar($pdf(), LectorDocumentoPdf::ROTC)['estado']);
+            $otra = $this->lectorCon($texto)->analizar($pdf(), LectorDocumentoPdf::ROTC);
         } finally {
             \Tests\DriveFalso::quitar();
         }
@@ -776,5 +814,168 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
             . "Capacidad-Carga: 1 TM.Serial Carroceria: $mal Serial Motor: 8140");
 
         $this->assertSame([$e->ID_EQUIPO], array_column($p['equipos'], 'id'));
+    }
+
+    // ── Documento de embarque (BL) ─────────────────────────────────────────────
+
+    /** Un BL como los del 2do embarque (CONGENBILL), con los VIN que diga la prueba. */
+    private function textoBl(array $vins, string $nro = 'HCLKGT99'): string
+    {
+        return "CODE NAME: \"CONGENBILL\". EDITION 1994\nBILL  OF  LADING  B/L NO. $nro\n"
+            . "Vessel\nPort of loading\nHONCHO\nV.2512\nLONGKOU,CHINA\nPort of discharge\nGUANTA, VENEZUELA\n"
+            . "Place and\ndate of issue\nFreight\npayable\nat\nGUANTA, VENEZUELA\n2025-07-20\n"
+            . "ATTACHMENT\nV/V:HONCHO V2512   BL NO.:$nro\nITEM MODEL VIN NO. ENGINE NO.\n"
+            . implode("\n", array_map(fn ($v, $i) => ($i + 1) . "\nZZ4257V344JB1\n$v\n1424L0687" . $i, $vins, array_keys($vins)));
+    }
+
+    /** Propuesta de BL ya anotada en la tabla (como la deja analizar), para probar aplicar. */
+    private function propuestaBl(string $driveId, array $equipos, ?string $nro = 'HCLKGT99'): void
+    {
+        VerificacionDocumento::create([
+            'DRIVE_ID' => $driveId, 'ORIGEN' => VerificacionDocumento::DE_CARGA_MASIVA,
+            'TIPO' => CargaMasivaDocumentos::EMBARQUE, 'ARCHIVO' => $driveId . '.pdf',
+            'ESTADO' => VerificacionDocumento::POR_ENGANCHAR, 'A_MANO' => true, 'INTENTOS' => 0,
+            'PROPUESTA' => ['tipo' => CargaMasivaDocumentos::EMBARQUE, 'link' => '/storage/google/' . $driveId,
+                'archivo' => $driveId . '.pdf',
+                'equipos' => array_map(fn ($e) => ['id' => $e->ID_EQUIPO, 'auxiliar' => false, 'serial' => $e->SERIAL_CHASIS], $equipos),
+                'embarque' => ['nro' => $nro, 'buque' => 'HONCHO V.2512', 'puerto_carga' => 'LONGKOU,CHINA',
+                    'puerto_descarga' => 'GUANTA, VENEZUELA', 'fecha' => '2025-07-20', 'unidades' => count($equipos), 'no_registrados' => []]],
+        ]);
+    }
+
+    private function aplicarBl(Equipo $e, string $driveId, bool $pisar = false): array
+    {
+        return $this->servicio()->aplicar($e->ID_EQUIPO, CargaMasivaDocumentos::EMBARQUE, '/storage/google/' . $driveId, null, null, $pisar);
+    }
+
+    /** El lector del BL con el formulario real: buque partido en dos lineas, fecha lejos del rotulo. */
+    public function test_el_lector_de_bl_saca_numero_buque_puertos_fecha_y_vins(): void
+    {
+        $bl = \App\Support\BillOfLading::leer($this->textoBl(['LZZPCMSC9SJ380599', 'LZZPCMSC7SJ389205']) . "\nLZZWADG49ST501 039");
+
+        $this->assertSame('HCLKGT99', $bl['nro']);
+        $this->assertSame('HONCHO V.2512', $bl['buque']);
+        $this->assertSame('LONGKOU,CHINA', $bl['puerto_carga']);
+        $this->assertSame('GUANTA, VENEZUELA', $bl['puerto_descarga']);
+        $this->assertSame('2025-07-20', $bl['fecha']);
+        $this->assertSame(['LZZPCMSC9SJ380599', 'LZZPCMSC7SJ389205'], $bl['vins']);
+        $this->assertSame(['LZZWADG49ST501039'], $bl['vins_partidos'], 'el VIN partido por un espacio se une');
+    }
+
+    /**
+     * Se suelta un BL: propone TODOS los equipos de su anexo (por VIN) y nombra los VIN que no
+     * estan en el sistema. Tambien los equipos SIN fila de documentacion (antes no se hallaban).
+     */
+    public function test_un_bl_propone_sus_equipos_por_vin_y_nombra_los_que_faltan(): void
+    {
+        $this->actingAs($this->usuario());
+        $a = $this->equipo();
+        $sinDoc = Equipo::create(['MARCA' => 'PRUEBA', 'MODELO' => 'SIN-DOC', 'ANIO' => 2026,
+            'SERIAL_CHASIS' => 'TESTCM' . strtoupper(uniqid())]);
+        $falta = 'LZZ1ELSF4SJ413132';
+
+        $p = $this->soltar($this->textoBl([$a->SERIAL_CHASIS, $sinDoc->SERIAL_CHASIS, $falta]), CargaMasivaDocumentos::EMBARQUE);
+
+        $this->assertSame(CargaMasivaDocumentos::EMBARQUE, $p['tipo']);
+        $this->assertSame('listo', $p['estado'], (string) $p['aviso']);
+        $this->assertEqualsCanonicalizing([$a->ID_EQUIPO, $sinDoc->ID_EQUIPO], array_column($p['equipos'], 'id'));
+        $this->assertSame([$falta], $p['embarque']['no_registrados']);
+        $this->assertSame(3, $p['embarque']['unidades']);
+        $this->assertStringContainsString('No estan en el sistema: ' . $falta, $p['aviso']);
+    }
+
+    /** Aplicar crea el embarque una vez y enlaza cada equipo; repetir no duplica nada. */
+    public function test_aplicar_un_bl_crea_el_embarque_y_enlaza_cada_equipo(): void
+    {
+        $this->actingAs($this->usuario());
+        $a = $this->equipo(); $b = $this->equipo();
+        $this->propuestaBl('bl-uno', [$a, $b]);
+
+        $this->assertTrue($this->aplicarBl($a, 'bl-uno')['ok']);
+        $this->assertTrue($this->aplicarBl($b, 'bl-uno')['ok']);
+        $this->assertSame('Ya estaba enlazado.', $this->aplicarBl($a, 'bl-uno')['mensaje']);
+
+        $emb = \App\Models\Embarque::where('NRO_BL', 'HCLKGT99')->firstOrFail();
+        $this->assertSame('/storage/google/bl-uno', $emb->LINK);
+        $this->assertSame('HONCHO V.2512', $emb->BUQUE);
+        $this->assertSame('2025-07-20', $emb->FECHA_EMBARQUE->format('Y-m-d'));
+        $this->assertEqualsCanonicalizing([$a->ID_EQUIPO, $b->ID_EQUIPO], $emb->equipos()->pluck('equipos.ID_EQUIPO')->all());
+        $this->assertSame($a->SERIAL_CHASIS, $a->embarques()->first()->pivot->VIN);
+        $this->assertTrue(\App\Support\EnlacesDocumentos::sigueEnUso('bl-uno'), 'Drive no puede retirar el PDF de un BL en uso');
+        $this->assertSame(VerificacionDocumento::APLICADO,
+            VerificacionDocumento::where('DRIVE_ID', 'bl-uno')->value('ESTADO'));
+    }
+
+    /** Un equipo llega en UN embarque: moverlo a otro pide permiso. */
+    public function test_un_equipo_en_otro_bl_no_se_mueve_sin_permiso(): void
+    {
+        $this->actingAs($this->usuario());
+        $e = $this->equipo();
+        $this->propuestaBl('bl-a', [$e], 'HCLKGTA1');
+        $this->propuestaBl('bl-b', [$e], 'HCLKGTB2');
+        $this->assertTrue($this->aplicarBl($e, 'bl-a')['ok']);
+
+        $r = $this->aplicarBl($e, 'bl-b');
+        $this->assertFalse($r['ok']);
+        $this->assertTrue($r['requiere_pisar'] ?? false);
+        $this->assertStringContainsString('HCLKGTA1', $r['mensaje']);
+
+        $this->assertTrue($this->aplicarBl($e, 'bl-b', true)['ok']);
+        $this->assertSame('HCLKGTB2', $e->embarques()->first()->NRO_BL);
+        $this->assertSame(1, \Illuminate\Support\Facades\DB::table('embarque_equipo')->where('ID_EQUIPO', $e->ID_EQUIPO)->count());
+    }
+
+    /** El mismo BL con OTRO PDF: cambiarlo se lo cambia a todos, asi que pide permiso. */
+    public function test_otro_pdf_del_mismo_bl_pide_permiso_y_retira_el_viejo(): void
+    {
+        $this->actingAs($this->usuario());
+        $a = $this->equipo(); $b = $this->equipo();
+        $this->propuestaBl('bl-viejo', [$a]);
+        $this->propuestaBl('bl-nuevo', [$a, $b]);
+        $this->aplicarBl($a, 'bl-viejo');
+
+        $r = $this->aplicarBl($b, 'bl-nuevo');
+        $this->assertTrue($r['requiere_pisar'] ?? false);
+        $this->assertNull($b->embarques()->first(), 'sin permiso no se enlaza');
+
+        $this->assertTrue($this->aplicarBl($b, 'bl-nuevo', true)['ok']);
+        $this->assertSame('/storage/google/bl-nuevo', \App\Models\Embarque::where('NRO_BL', 'HCLKGT99')->value('LINK'));
+        $this->assertSame('Ya estaba enlazado.', $this->aplicarBl($a, 'bl-nuevo')['mensaje'], 'el otro equipo ya ve el PDF nuevo');
+        Bus::assertDispatchedAfterResponse(DeleteGoogleDriveFile::class);
+    }
+
+    /** Una poliza soltada como BL no se asocia; y un auxiliar no lleva BL. */
+    public function test_un_bl_que_no_lo_es_no_se_asocia_y_un_auxiliar_no_lleva_bl(): void
+    {
+        $this->actingAs($this->usuario());
+        $e = $this->equipo();
+
+        $p = $this->soltar("CUADRO RECIBO DE POLIZA DE SEGURO\nSerial: {$e->SERIAL_CHASIS}", CargaMasivaDocumentos::EMBARQUE);
+        $this->assertSame(CargaMasivaDocumentos::OTRO_DOCUMENTO, $p['estado']);
+
+        $aux = $this->auxiliar();
+        $r = $this->servicio()->aplicar($aux->ID_AUXILIAR, CargaMasivaDocumentos::EMBARQUE, '/storage/google/x', null, null, false, false, true);
+        $this->assertFalse($r['ok']);
+        $this->assertStringContainsString('auxiliar', $r['mensaje']);
+    }
+
+    /** La ficha del equipo pide su embarque aparte (no viaja en el listado). */
+    public function test_la_ficha_ensena_el_embarque_del_equipo(): void
+    {
+        $u = $this->usuario();
+        $this->actingAs($u);
+        $e = $this->equipo();
+        $this->propuestaBl('bl-ficha', [$e]);
+        $this->aplicarBl($e, 'bl-ficha');
+
+        $this->actingAs($u)->getJson(route('equipos.embarqueDoc', $e->ID_EQUIPO))
+            ->assertOk()
+            ->assertJsonPath('embarque.nro', 'HCLKGT99')
+            ->assertJsonPath('embarque.fecha', '20/07/2025')
+            ->assertJsonPath('embarque.link', '/storage/google/bl-ficha');
+
+        $otro = $this->equipo();
+        $this->actingAs($u)->getJson(route('equipos.embarqueDoc', $otro->ID_EQUIPO))
+            ->assertOk()->assertJsonPath('embarque', null);
     }
 }

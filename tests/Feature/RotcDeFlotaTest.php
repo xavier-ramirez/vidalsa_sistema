@@ -227,7 +227,7 @@ class RotcDeFlotaTest extends MySqlTestCase
         $copia = tempnam(sys_get_temp_dir(), 'up');
         copy($pdf, $copia);
         return (new CargaMasivaDocumentos($ocr, app(\App\Services\LectorGemini::class)))
-            ->analizar(new UploadedFile($copia, 'rotc_flota.pdf', 'application/pdf', null, true));
+            ->analizar(new UploadedFile($copia, 'rotc_flota.pdf', 'application/pdf', null, true), LectorDocumentoPdf::ROTC);
     }
 
     /** El texto de cada pagina de un PDF (Ghostscript), para mirar que hay en cada una. */

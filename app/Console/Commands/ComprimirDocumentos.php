@@ -266,6 +266,12 @@ class ComprimirDocumentos extends Command
     /** Filas de $tabla con un enlace a Drive en $col: fila, link, serial (y tipo en anexos). Solo de equipos/auxiliares vivos. */
     private function filasCon(string $tabla, string $col)
     {
+        // Un BL no es de un equipo: se nombra por su numero, que es lo que lo identifica.
+        if ($tabla === 'embarques') {
+            return DB::table('embarques')->where($col, 'like', '/storage/google/%')
+                ->select('ID_EMBARQUE as fila', "$col as link", DB::raw("COALESCE(NRO_BL, CONCAT('BL #', ID_EMBARQUE)) as serial"))
+                ->get();
+        }
         if ($tabla === 'equipos_auxiliares') {
             return DB::table('equipos_auxiliares as a')->whereNull('a.deleted_at')->where("a.$col", 'like', '/storage/google/%')
                 ->select('a.ID_AUXILIAR as fila', "a.$col as link", DB::raw("COALESCE(NULLIF(a.SERIAL,''), a.CODIGO_INTERNO) as serial"))

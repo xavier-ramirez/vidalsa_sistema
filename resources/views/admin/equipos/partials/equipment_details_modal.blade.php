@@ -147,6 +147,18 @@ Estructura: overlay > modal-content > header + sub-header + body
                                 </div>
                             </div>
 
+                            {{-- Documento de embarque (BL): solo se ve si el equipo tiene uno. Lo pide
+                                 uicomponents.js al abrir el detalle y lo pone la carga masiva. --}}
+                            <div id="d_row_embarque" class="detail-row-doc"
+                                style="display:none;align-items:center;justify-content:space-between;gap:4px;padding:5px 0;border-top:1px dashed #f1f5f9;">
+                                <span style="color:#64748b;font-size:12px;font-weight:500;">Embarque</span>
+                                <div style="display:flex;align-items:center;gap:6px;">
+                                    <span id="d_embarque_txt" style="color:#333;font-size:13px;"></span>
+                                    <a id="d_btn_embarque" target="_blank" rel="noopener" title="Ver documento de embarque"
+                                        style="display:flex;text-decoration:none;"><span class="pdf-doc-btn"><i class="material-icons">description</i></span></a>
+                                </div>
+                            </div>
+
                         </div>
                     </div>
                 </details>

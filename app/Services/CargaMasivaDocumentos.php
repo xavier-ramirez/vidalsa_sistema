@@ -4,10 +4,12 @@ namespace App\Services;
 
 use App\Models\Documentacion;
 use App\Models\DocumentoAnexo;
+use App\Models\Embarque;
 use App\Models\Equipo;
 use App\Models\EquipoAuditLog;
 use App\Models\EquipoAuxiliar;
 use App\Models\VerificacionDocumento;
+use App\Support\BillOfLading;
 use App\Support\DocumentacionDeEquipo;
 use App\Support\EnlacesDocumentos;
 use Illuminate\Http\UploadedFile;
@@ -20,8 +22,11 @@ use Illuminate\Support\Facades\Storage;
  *
  * El trabajo va en DOS pasos separados a proposito, y el usuario decide entre uno y otro:
  *
- *   1) analizar()  Sube el PDF a Drive, lo LEE y propone: que tipo de documento es, de que
- *                  equipo es y que fechas trae. NO toca la ficha.
+ *   1) analizar()  Sube el PDF a Drive, lo LEE y propone de que equipo es y que fechas trae.
+ *                  El TIPO lo elige el usuario antes de soltar los archivos, y aqui solo se
+ *                  COMPRUEBA que el PDF sea de verdad ese documento: si es otro, no se asocia a
+ *                  nada y queda en la tabla como "Otro documento" (ver esOtroDocumento). NO toca
+ *                  la ficha.
  *   2) aplicar()   Con el visto bueno, escribe el enlace y las fechas en `documentacion`.
  *
  * Por que hay que subirlo para leerlo: el texto lo saca el OCR de Google Drive
@@ -44,9 +49,16 @@ class CargaMasivaDocumentos
     public const COMPRAVENTA = 'adicional_2';
 
     /**
-     * Los 6 documentos que esta pantalla sabe repartir: los mismos que la ficha del equipo.
-     * El certificado y la compraventa NO se reconocen tan bien solos como los otros cuatro
-     * (no traen un rotulo tan claro): para esos conviene elegir el tipo arriba.
+     * El documento de EMBARQUE (Bill of Lading). No es una casilla de la ficha: un BL ampara a
+     * muchas unidades y vive en su propia tabla (Embarque), ver aplicarEmbarque.
+     */
+    public const EMBARQUE = 'embarque';
+
+    /**
+     * Los documentos que esta pantalla sabe repartir: los seis de la ficha del equipo y el de
+     * embarque. El usuario elige SIEMPRE cual va a cargar. De los que tienen rotulo (ROTULOS)
+     * se comprueba que el PDF lo sea; el certificado y la compraventa no traen un rotulo fijo y
+     * se toman como el usuario dice.
      */
     public const TIPOS = [
         LectorDocumentoPdf::PROPIEDAD,
@@ -55,6 +67,7 @@ class CargaMasivaDocumentos
         LectorDocumentoPdf::RACDA,
         self::CERTIFICADO,
         self::COMPRAVENTA,
+        self::EMBARQUE,
     ];
 
     /** Como se llama cada tipo en pantalla (los mismos rotulos que la ficha). */
@@ -65,6 +78,7 @@ class CargaMasivaDocumentos
         LectorDocumentoPdf::RACDA     => 'RACDA',
         self::CERTIFICADO             => 'Certificado asociado',
         self::COMPRAVENTA             => 'Compraventa',
+        self::EMBARQUE                => 'Documento de embarque (BL)',
     ];
 
     /**
@@ -87,6 +101,7 @@ class CargaMasivaDocumentos
         LectorDocumentoPdf::RACDA     => 'racda_',
         self::CERTIFICADO             => 'doc_adicional_',
         self::COMPRAVENTA             => 'doc_adicional_2_',
+        self::EMBARQUE                => 'embarque_',
     ];
 
     /**
@@ -96,6 +111,13 @@ class CargaMasivaDocumentos
      * nocturna, que ya lo reparte.
      */
     private const TOPE_RACDA = 40;
+
+    /**
+     * Un BL de SINOTRUK nombra hasta ~90 unidades (el HCLKGT03, 84). Enlazar cada una es solo
+     * una fila en embarque_equipo —no se sube ni se arma nada por equipo—, asi que el tope es
+     * mas alto que el del RACDA.
+     */
+    private const TOPE_EMBARQUE = 150;
 
     /** Lo que cabe en verificacion_documento_registro.MOTIVO (varchar 255). */
     private const MOTIVO_MAX = 255;
@@ -108,6 +130,16 @@ class CargaMasivaDocumentos
      */
     private ?string $avisoFichas = null;
 
+    /**
+     * Lo que dijo la IA del archivo que se esta analizando: false = todavia no se le pregunto.
+     * Se guarda porque se le puede preguntar dos veces por el mismo PDF (para confirmar el tipo
+     * y para rellenar lo que falto) y cada pregunta gasta cupo y ~6 s. Lo vacia analizar().
+     */
+    private array|false|null $vistoIa = false;
+
+    /** "No se pudo confirmar que sea X": no impide aplicar, pero la propuesta no sale "listo". */
+    private ?string $avisoTipo = null;
+
     public function __construct(private LectorDocumentoPdf $lector, private LectorGemini $ia, private ?RotcDeFlota $rotcFlota = null) {}
 
     private function rotcFlota(): RotcDeFlota
@@ -118,17 +150,20 @@ class CargaMasivaDocumentos
     // ── Paso 1: subir, leer y proponer ────────────────────────────────────────────
 
     /**
-     * Sube $archivo a Drive, lo lee y devuelve la propuesta. $tipoPedido fuerza el tipo
-     * (el usuario dijo "estos son polizas"); si es null se reconoce por el texto.
+     * Sube $archivo a Drive, lo lee y devuelve la propuesta. $tipoPedido es el documento que el
+     * usuario dice que va a cargar ("estos son titulos"): se busca ESE documento y, si el PDF
+     * resulta ser otro, la propuesta queda como "otro_documento" y no se asocia a ninguna ficha.
      *
      * Devuelve SIEMPRE una propuesta, tambien cuando no se pudo leer: la pantalla la pinta
      * igual con su motivo, para que el usuario vea que paso con cada archivo.
      */
-    public function analizar(UploadedFile $archivo, ?string $tipoPedido = null): array
+    public function analizar(UploadedFile $archivo, string $tipoPedido): array
     {
         $nombre = $archivo->getClientOriginalName();
         $prefijo = self::PREFIJOS[$tipoPedido] ?? 'doc_masivo_';
         $this->avisoFichas = null;
+        $this->avisoTipo = null;
+        $this->vistoIa = false;
         // La huella del archivo: con ella se sabe si ESTE MISMO PDF ya se habia soltado antes
         // (ver yaSeSolto). Se saca antes de subirlo.
         $md5 = @md5_file($archivo->getRealPath()) ?: null;
@@ -163,12 +198,11 @@ class CargaMasivaDocumentos
     }
 
     /** Lee el PDF ya subido y arma su propuesta (ver analizar). */
-    private function proponer(UploadedFile $archivo, ?string $tipoPedido, string $nombre, string $link, string $driveId, ?string $md5): array
+    private function proponer(UploadedFile $archivo, string $tipoPedido, string $nombre, string $link, string $driveId, ?string $md5): array
     {
         // El motivo por el que la lectura de siempre no llego a nada: es el que se le enseña al
-        // usuario si la IA tampoco lo resuelve (o no esta puesta). Los mismos mensajes de
-        // siempre, en el mismo orden: primero "no se pudo leer", luego "esta en blanco" y por
-        // ultimo "no se reconoce que documento es".
+        // usuario si la IA tampoco lo resuelve (o no esta puesta). Primero "no se pudo leer" y
+        // luego "esta en blanco".
         $motivo = null;
         try {
             $texto = trim($this->lector->texto($driveId));
@@ -180,10 +214,20 @@ class CargaMasivaDocumentos
             $motivo = 'El PDF no tiene texto legible (esta escaneado muy bajo o en blanco).';
         }
 
-        $tipo = $texto !== '' ? ($tipoPedido ?: $this->detectarTipo($texto)) : null;
-        if ($texto !== '' && !$tipo) {
-            $motivo = 'No se reconoce que documento es. Elige el tipo arriba y vuelve a subirlo.';
+        // ¿Es de verdad el documento que se eligio? Si es otro no se busca su equipo: se anota
+        // tal cual en la tabla y ahi se queda, sin asociarse a nada.
+        if ($otro = $this->esOtroDocumento($archivo, $tipoPedido, $texto)) {
+            return $this->anotar($this->propuestaDeOtroDocumento($nombre, $link, $md5, $tipoPedido, $otro), $driveId);
         }
+
+        // El documento de embarque no es de UN equipo sino de todos los VIN de su anexo.
+        if ($tipoPedido === self::EMBARQUE) {
+            return $this->anotar($this->propuestaDeEmbarque($archivo, $nombre, $link, $md5, $driveId, $texto), $driveId);
+        }
+
+        // Sin texto el tipo queda en el aire: si la IA lee el PDF lo pone ella (apoyarConIa, con
+        // el tipo pedido) y si no, sale "no tiene texto legible".
+        $tipo = $texto !== '' ? $tipoPedido : null;
 
         // El ROTC ENTERO de la flota (portada, tabla de toda la flota y los certificados): no
         // es de UN equipo sino de todos los de su tabla, y a cada uno le va SU parte (ver
@@ -213,8 +257,8 @@ class CargaMasivaDocumentos
             [$tipo, $leido, $equipos, $conIa, $notaIa] = $this->apoyarConIa($archivo, $tipoPedido, $tipo, $leido, $equipos);
         }
 
-        // Sin tipo no hay nada que proponer: se devuelve el motivo de la lectura de siempre,
-        // porque es el que explica que paso con el archivo.
+        // Sin tipo (en blanco y la IA no lo leyo) no hay nada que proponer: se devuelve el motivo
+        // de la lectura de siempre, porque es el que explica que paso con el archivo.
         if (!$tipo) {
             return $this->anotar($this->fallo($nombre, $link, $motivo ?: 'No se pudo leer el PDF.'), $driveId);
         }
@@ -278,7 +322,7 @@ class CargaMasivaDocumentos
 
         // Lo que la busqueda de fichas quiere que se mire (varias unidades, tope del RACDA) y
         // el mismo archivo soltado otra vez: no impiden aplicar, pero no puede salir "listo".
-        $avisos = array_filter([$this->avisoFichas, $this->yaSeSolto($md5, $driveId)]);
+        $avisos = array_filter([$this->avisoTipo, $this->avisoFichas, $this->yaSeSolto($md5, $driveId)]);
         if ($avisos) {
             $propuesta['estado'] = 'revisar';
             $propuesta['aviso'] = trim(implode(' ', $avisos) . ' ' . ($propuesta['aviso'] ?? ''));
@@ -312,7 +356,11 @@ class CargaMasivaDocumentos
                     'SERIAL'      => $ficha['serial'] ?? null,
                     'ARCHIVO'     => $propuesta['archivo'],
                     'PROPUESTA'   => $propuesta,
-                    'ESTADO'      => $ficha ? VerificacionDocumento::POR_ENGANCHAR : VerificacionDocumento::SIN_FICHA,
+                    'ESTADO'      => match (true) {
+                        ($propuesta['estado'] ?? null) === self::OTRO_DOCUMENTO => VerificacionDocumento::OTRO_DOCUMENTO,
+                        (bool) $ficha => VerificacionDocumento::POR_ENGANCHAR,
+                        default       => VerificacionDocumento::SIN_FICHA,
+                    },
                     'MOTIVO'      => mb_substr($this->motivoDeLaPropuesta($propuesta), 0, self::MOTIVO_MAX),
                     'A_MANO'      => true,
                     'INTENTOS'    => 0,
@@ -388,7 +436,7 @@ class CargaMasivaDocumentos
 
         $registrados = $this->consulta()
             ->whereIn(DB::raw(self::sqlCodigo('e.SERIAL_CHASIS')), $porSerial->keys()->all())
-            ->orderBy('d.ID_EQUIPO')->get();
+            ->orderBy('e.ID_EQUIPO')->get();
 
         $fichas = [];
         $conCertificado = 0;
@@ -437,13 +485,20 @@ class CargaMasivaDocumentos
         return $propuesta;
     }
 
-    /** La parte de este equipo en una propuesta de ROTC de flota, o null si no es de esas. */
-    private function parteDeFlota(string $link, int $idEquipo): ?array
+    /** La propuesta que se anoto en la tabla para el PDF de $link (ver anotar), o null. */
+    private function propuestaGuardada(string $link): ?array
     {
         if (!$driveId = DocumentoAnexo::driveIdDeLink($link)) return null;
         $p = VerificacionDocumento::where('DRIVE_ID', $driveId)
             ->where('ORIGEN', VerificacionDocumento::DE_CARGA_MASIVA)->value('PROPUESTA');
         $p = is_string($p) ? json_decode($p, true) : $p;
+        return is_array($p) ? $p : null;
+    }
+
+    /** La parte de este equipo en una propuesta de ROTC de flota, o null si no es de esas. */
+    private function parteDeFlota(string $link, int $idEquipo): ?array
+    {
+        $p = $this->propuestaGuardada($link);
         if (empty($p['flota_rotc'])) return null;
 
         foreach ($p['equipos'] ?? [] as $f) {
@@ -535,9 +590,7 @@ class CargaMasivaDocumentos
         if (!$id = DocumentoAnexo::driveIdDeLink($link)) return false;
         if (EnlacesDocumentos::sigueEnUso($id)) return true;
 
-        $p = VerificacionDocumento::where('DRIVE_ID', $id)->where('ORIGEN', VerificacionDocumento::DE_CARGA_MASIVA)->value('PROPUESTA');
-        $p = is_string($p) ? json_decode($p, true) : $p;
-        return !empty($p['flota_rotc']['piezas']);
+        return !empty($this->propuestaGuardada($link)['flota_rotc']['piezas']);
     }
 
     /** Lo que se lee en la columna "Que dice la ficha y que dice el documento" de la tabla. */
@@ -631,20 +684,14 @@ class CargaMasivaDocumentos
      *
      * @return array{0:?string,1:array,2:array,3:bool,4:?string}  [tipo, leido, equipos, ayudo, nota]
      */
-    private function apoyarConIa(UploadedFile $archivo, ?string $tipoPedido, ?string $tipo, array $leido, array $equipos): array
+    private function apoyarConIa(UploadedFile $archivo, string $tipoPedido, ?string $tipo, array $leido, array $equipos): array
     {
         $comoEstaba = [$tipo, $leido, $equipos, false, null];
-        if (!$this->ia->disponible()) return $comoEstaba;
-
-        $pdf = (string) @file_get_contents($archivo->getRealPath());
-        // Un solo intento: esto corre dentro de una peticion del navegador, que tiene su
-        // propio tope de tiempo (ver CargaMasivaDocumentosController). Reintentar aqui
-        // acabaria en un "error de red" con el archivo ya subido.
-        $visto = $pdf === '' ? null : $this->ia->leer($pdf, 1);
+        $visto = $this->vistoPorIa($archivo, $tipoPedido);
         if (!$visto) return $comoEstaba;
 
-        $tipoIa = $tipoPedido ?: ($tipo ?: $visto['tipo']);
-        if (!$tipoIa) return $comoEstaba;
+        // El tipo es el que se eligio: esOtroDocumento ya comprobo que el PDF lo sea.
+        $tipoIa = $tipoPedido;
 
         $nuevo = $this->mezclarLoDeIa($tipoIa, $leido, $visto);
         $equiposIa = $this->equiposDeLoLeido($tipoIa, $nuevo);
@@ -662,6 +709,23 @@ class CargaMasivaDocumentos
             : $visto['nota'];
 
         return [$tipoIa, $nuevo, $equiposIa, true, $nota ?: null];
+    }
+
+    /**
+     * Lo que dice la IA del PDF, preguntado UNA sola vez por archivo (ver $vistoIa). Se le dice
+     * que documento se esta buscando: si el archivo trae varios (un titulo y una poliza), lee
+     * los datos de ESE. Null si no hay IA, no hay cupo o no contesto.
+     */
+    private function vistoPorIa(UploadedFile $archivo, string $tipoPedido): ?array
+    {
+        if ($this->vistoIa !== false) return $this->vistoIa;
+        if (!$this->ia->disponible()) return $this->vistoIa = null;
+
+        $pdf = (string) @file_get_contents($archivo->getRealPath());
+        // Un solo intento: esto corre dentro de una peticion del navegador, que tiene su
+        // propio tope de tiempo (ver CargaMasivaDocumentosController). Reintentar aqui
+        // acabaria en un "error de red" con el archivo ya subido.
+        return $this->vistoIa = ($pdf === '' ? null : $this->ia->leer($pdf, 1, $tipoPedido));
     }
 
     /** Lo de la IA debajo de lo del OCR: rellena huecos, nunca pisa lo ya leido. */
@@ -689,6 +753,250 @@ class CargaMasivaDocumentos
         return $leido;
     }
 
+    // ── Documento de embarque (BL) ────────────────────────────────────────────────
+
+    /**
+     * La propuesta de un BL: todos los equipos de su anexo, reconocidos SOLO por el VIN (serial
+     * de chasis: la placa no existia cuando se embarcaron). Los VIN que no estan en el sistema
+     * se nombran, porque es justo lo que se busca al revisar un embarque. Si el PDF no trae
+     * texto (escaneado), la IA lee la lista.
+     */
+    private function propuestaDeEmbarque(UploadedFile $archivo, string $nombre, string $link, ?string $md5, ?string $driveId, string $texto): array
+    {
+        $bl = BillOfLading::leer($texto);
+        $conIa = false;
+        if (!$bl['vins'] && !$bl['vins_partidos'] && ($visto = $this->vistoPorIa($archivo, self::EMBARQUE))) {
+            $bl['vins'] = array_values(array_unique(array_filter(array_column($visto['vehiculos'], 'serial'))));
+            $bl['nro'] ??= $visto['nro'];
+            $bl['fecha'] ??= $visto['emision'];
+            $conIa = (bool) $bl['vins'];
+        }
+
+        // Ademas de los VIN, cualquier codigo de la hoja que sea EXACTAMENTE el serial de un
+        // equipo: las maquinas (LOVOL, SHANTUI) no siempre traen 17 caracteres.
+        $buscar = $this->codigos(array_merge($bl['vins'], $bl['vins_partidos'], $texto !== '' ? $this->codigosEnTexto($texto) : []));
+        $filas = $buscar
+            ? $this->consulta()->whereIn(DB::raw(self::sqlCodigo('e.SERIAL_CHASIS')), $buscar)
+                ->orderBy('e.ID_EQUIPO')->limit(self::TOPE_EMBARQUE + 1)->get()
+            : collect();
+        if ($filas->count() > self::TOPE_EMBARQUE) {
+            $filas = $filas->take(self::TOPE_EMBARQUE);
+            $this->avisoFichas = 'El BL nombra mas de ' . self::TOPE_EMBARQUE . ' unidades registradas: se proponen ' . self::TOPE_EMBARQUE . '.';
+        }
+
+        $enSistema = $filas->map(fn ($f) => $this->lector->codigo((string) $f->SERIAL_CHASIS))->flip();
+        $noEstan = array_values(array_filter($bl['vins'], fn ($v) => !isset($enSistema[$this->lector->codigo($v)])));
+        // Las que nombra el BL: las registradas (por VIN, VIN partido o serial de maquina) mas
+        // los VIN enteros que no estan en el sistema.
+        $unidades = $filas->count() + count($noEstan);
+
+        $fichas = $filas->map(fn ($f) => ['coincide_por' => 'el VIN ' . $f->SERIAL_CHASIS] + $this->ficha($f))->values()->all();
+        $rotulo = 'BL ' . ($bl['nro'] ?? 'sin numero') . ($bl['buque'] ? ' (' . $bl['buque'] . ')' : '');
+
+        $propuesta = [
+            'archivo' => $nombre, 'link' => $link, 'tipo' => self::EMBARQUE,
+            'tipo_nombre' => self::NOMBRES[self::EMBARQUE],
+            'vence' => null, 'emision' => $bl['fecha'], 'titular' => null, 'nro' => $bl['nro'], 'aseguradora' => null,
+            'equipos' => $fichas, 'estado' => 'listo', 'aviso' => null, 'ia' => $conIa, 'md5' => $md5,
+            // Lo que aplicarEmbarque escribe en la tabla embarques (ver datosDeEmbarque).
+            'embarque' => [
+                'nro' => $bl['nro'], 'buque' => $bl['buque'],
+                'puerto_carga' => $bl['puerto_carga'], 'puerto_descarga' => $bl['puerto_descarga'],
+                'fecha' => $bl['fecha'], 'unidades' => $unidades, 'no_registrados' => $noEstan,
+            ],
+        ];
+
+        if (!$fichas) {
+            $propuesta['estado'] = 'sin_equipo';
+            $propuesta['aviso'] = $unidades
+                ? "$rotulo: ninguna de sus $unidades unidades esta registrada."
+                : "$rotulo: no se leyo ningun VIN.";
+            return $propuesta;
+        }
+
+        $propuesta['aviso'] = "$rotulo: $unidades unidades, " . count($fichas) . ' registradas.'
+            . ($noEstan ? ' No estan en el sistema: ' . implode(', ', array_slice($noEstan, 0, 5))
+                . (count($noEstan) > 5 ? ' y ' . (count($noEstan) - 5) . ' mas' : '') . '.' : '');
+
+        $avisos = array_filter([
+            !$bl['nro'] ? 'No se leyo el numero de BL.' : null,
+            $conIa ? 'La lista de VIN la leyo la IA: compruebala antes de aplicar.' : null,
+            $this->avisoTipo, $this->avisoFichas, $this->yaSeSolto($md5, $driveId),
+        ]);
+        if ($avisos) {
+            $propuesta['estado'] = 'revisar';
+            $propuesta['aviso'] = implode(' ', $avisos) . ' ' . $propuesta['aviso'];
+        }
+        return $propuesta;
+    }
+
+    /** Los datos del BL que se anotaron al analizar su PDF (propuesta['embarque']), o null. */
+    private function datosDeEmbarque(string $link): ?array
+    {
+        $p = $this->propuestaGuardada($link);
+        if (($p['tipo'] ?? null) !== self::EMBARQUE || empty($p['embarque'])) return null;
+
+        return $p['embarque'] + ['archivo' => $p['archivo'] ?? null,
+            'vins' => array_column($p['equipos'] ?? [], 'serial', 'id')];
+    }
+
+    /**
+     * Enlaza UN equipo a su embarque. Un BL es de todos sus equipos, asi que las puertas son
+     * las del documento compartido (como el RACDA), en este orden:
+     *
+     *   · El embarque es el de ese numero de BL (o, sin numero, el de ese mismo PDF). Si ya
+     *     existe con OTRO PDF, cambiarlo se lo cambia a todos sus equipos: hace falta $pisar.
+     *   · Un equipo llega en UN embarque: si ya esta en otro, moverlo tambien pide $pisar.
+     *   · Ya enlazado a este mismo BL y PDF: no hay nada que hacer.
+     *
+     * Como aplicarEnEquipo: $ensayo dice que haria sin escribir, y $cerrar pasa la fila de la
+     * tabla a "Aplicado" (con la ultima ficha del BL).
+     */
+    private function aplicarEmbarque(int $idEquipo, string $link, bool $pisar, bool $ensayo, bool $cerrar): array
+    {
+        $bl = $this->datosDeEmbarque($link);
+        if (!$bl) return ['ok' => false, 'mensaje' => 'No estan los datos de ese BL. Vuelve a soltar el PDF.'];
+
+        $equipo = Equipo::find($idEquipo);
+        if (!$equipo) return ['ok' => false, 'mensaje' => 'El equipo ya no existe.'];
+
+        $driveId = DocumentoAnexo::driveIdDeLink($link);
+        $embarque = $bl['nro']
+            ? Embarque::where('NRO_BL', $bl['nro'])->first()
+            : Embarque::where('LINK', 'like', '/storage/google/' . $driveId . '%')->first();
+        $nombreBl = 'BL ' . ($bl['nro'] ?? 'sin numero');
+
+        $pdfDistinto = $embarque && !$this->mismoArchivo($embarque->LINK, $link);
+        if ($pdfDistinto && !$pisar) {
+            return ['ok' => false, 'requiere_pisar' => true,
+                    'mensaje' => "El $nombreBl ya tiene otro PDF cargado: reemplazarlo se lo cambia a todos sus equipos."];
+        }
+
+        $actual = DB::table('embarque_equipo')->where('ID_EQUIPO', $idEquipo)->first();
+        $enEste = $actual && $embarque && (int) $actual->ID_EMBARQUE === (int) $embarque->ID_EMBARQUE;
+        if ($enEste && !$pdfDistinto) {
+            if (!$ensayo && $cerrar) $this->cerrarPropuesta($link);
+            return ['ok' => true, 'mensaje' => 'Ya estaba enlazado.'];
+        }
+        if ($actual && !$enEste && !$pisar) {
+            $otro = Embarque::find($actual->ID_EMBARQUE);
+            return ['ok' => false, 'requiere_pisar' => true,
+                    'mensaje' => 'Este equipo ya esta en el embarque BL ' . ($otro?->NRO_BL ?? 'sin numero') . '.'];
+        }
+
+        if ($ensayo) {
+            return ['ok' => true, 'ensayo' => true, 'mensaje' => 'ENSAYO — '
+                . ($actual && !$enEste ? 'lo sacaria de su embarque y ' : '')
+                . ($enEste ? 'ya esta en el ' . $nombreBl : 'lo enlazaria al ' . $nombreBl)
+                . ($pdfDistinto ? ', cambiandole el PDF al BL' : '') . '. No se escribio nada.'];
+        }
+
+        $anterior = $embarque?->LINK;
+        DB::transaction(function () use (&$embarque, $bl, $link, $idEquipo, $actual, $enEste) {
+            $datos = [
+                'NRO_BL' => $bl['nro'], 'BUQUE' => $bl['buque'],
+                'PUERTO_CARGA' => $bl['puerto_carga'], 'PUERTO_DESCARGA' => $bl['puerto_descarga'],
+                'FECHA_EMBARQUE' => $bl['fecha'], 'LINK' => $link, 'ARCHIVO' => $bl['archivo'],
+                'UNIDADES' => $bl['unidades'], 'SUBIDO_POR' => auth()->user()->ID_USUARIO,
+            ];
+            $embarque ? $embarque->update($datos) : ($embarque = Embarque::create($datos));
+
+            if (!$enEste) {
+                if ($actual) DB::table('embarque_equipo')->where('ID_EQUIPO', $idEquipo)->delete();
+                DB::table('embarque_equipo')->insert([
+                    'ID_EMBARQUE' => $embarque->ID_EMBARQUE, 'ID_EQUIPO' => $idEquipo,
+                    'VIN' => $bl['vins'][$idEquipo] ?? null, 'ASOCIADO_POR' => auth()->user()->ID_USUARIO,
+                    'created_at' => now(),
+                ]);
+            }
+        });
+
+        // El PDF viejo del BL, si se reemplazo, ya no lo usa nadie (el job lo vuelve a comprobar).
+        $this->retirarReemplazado($anterior, $link, ['embarque' => $embarque->ID_EMBARQUE]);
+
+        EquipoAuditLog::registrar($idEquipo, 'upload_' . self::EMBARQUE, [
+            'archivo' => basename($link), 'bl' => $bl['nro'], 'origen' => 'carga masiva',
+        ]);
+
+        if ($cerrar) $this->cerrarPropuesta($link);
+        return ['ok' => true, 'mensaje' => 'Aplicado.'];
+    }
+
+    // ── ¿Es el documento que se eligio? ───────────────────────────────────────────
+
+    /** Estado de la propuesta cuyo PDF no es el documento que se eligio. */
+    public const OTRO_DOCUMENTO = 'otro_documento';
+
+    /**
+     * Si el PDF NO es el documento que se eligio, que es: ['es' => tipo o null (ninguno de los
+     * cuatro), 'por_ia' => bool, 'nota' => ?string]. Null si lo es o si no hay forma de saberlo.
+     *
+     * Primero el rotulo del propio texto (detectarTipo, gratis). Si no cuadra con lo elegido, o
+     * no hay rotulo (escaneado, formato raro), decide la IA, que mira el PDF entero: la regla
+     * del rotulo se puede equivocar con un encabezado mal escaneado y no se rechaza un titulo
+     * bueno solo por eso (pero esa propuesta sale para revisar). Sin IA, manda el rotulo; y sin
+     * rotulo tampoco, se da por bueno lo que dijo el usuario, tambien para revisar ($avisoTipo).
+     *
+     * El certificado y la compraventa no tienen rotulo que buscar: se toman como se eligieron.
+     */
+    private function esOtroDocumento(UploadedFile $archivo, string $pedido, string $texto): ?array
+    {
+        if (!isset(self::ROTULOS[$pedido])) return null;
+
+        $porTexto = $texto !== '' ? $this->detectarTipo($texto) : null;
+        if ($porTexto === $pedido) return null;
+
+        $visto = $this->vistoPorIa($archivo, $pedido);
+        if ($visto && $visto['tipo'] === $pedido) {
+            // El rotulo decia otra cosa y la IA dice que si: vale lo elegido, pero con la
+            // contradiccion a la vista para que una persona lo mire antes de aplicar.
+            if ($porTexto) {
+                $this->avisoTipo = 'El encabezado parece ' . mb_strtolower(self::NOMBRES[$porTexto]) . ', pero la IA confirma que es '
+                    . mb_strtolower(self::NOMBRES[$pedido]) . ': compruebalo antes de aplicar.';
+            }
+            return null;
+        }
+        // La IA dijo que es otro de los cuatro, o que no es ninguno ("otro").
+        if ($visto && ($visto['tipo'] || !empty($visto['otro']))) {
+            return ['es' => $visto['tipo'], 'por_ia' => true, 'nota' => $visto['nota'] ?? null];
+        }
+        if ($porTexto) {
+            return ['es' => $porTexto, 'por_ia' => false, 'nota' => null];
+        }
+
+        // Ni rotulo ni IA que lo confirme: se sigue con lo que dijo el usuario, pero avisando.
+        // Si ademas no hay texto, la propuesta ya sale "no se pudo leer" por su cuenta.
+        if ($texto !== '') {
+            $this->avisoTipo = 'No se pudo confirmar que el PDF sea ' . mb_strtolower(self::NOMBRES[$pedido]) . ': compruebalo antes de aplicar.';
+        }
+        return null;
+    }
+
+    /**
+     * La propuesta de un PDF que no es lo que se eligio: sin equipos (no se puede aplicar) y con
+     * el porque, que es lo que se lee en la tabla. El archivo se queda en Drive hasta que alguien
+     * lo descarte, igual que un "Sin ficha reconocida".
+     */
+    private function propuestaDeOtroDocumento(string $nombre, string $link, ?string $md5, string $pedido, array $otro): array
+    {
+        $es = $otro['es']
+            ? 'es ' . mb_strtolower(self::NOMBRES[$otro['es']])
+            : 'no es titulo, poliza, ROTC, RACDA ni BL';
+        $aviso = 'No se asocio: se cargo como ' . mb_strtolower(self::NOMBRES[$pedido]) . ' pero el PDF ' . $es
+            . ($otro['por_ia'] ? ' (segun la IA)' : '') . '. Descartalo o subelo con el tipo correcto.'
+            . (!empty($otro['nota']) ? ' ' . $otro['nota'] : '');
+
+        return [
+            'archivo' => $nombre, 'link' => $link,
+            // El tipo que se ELIGIO: la fila sale al filtrar por el documento que se estaba cargando.
+            'tipo' => $pedido, 'tipo_nombre' => self::NOMBRES[$pedido],
+            'es_realmente' => $otro['es'],
+            'vence' => null, 'emision' => null, 'titular' => null, 'nro' => null, 'aseguradora' => null,
+            'equipos' => [], 'estado' => self::OTRO_DOCUMENTO, 'aviso' => $aviso,
+            'ia' => $otro['por_ia'], 'md5' => $md5,
+        ];
+    }
+
     // ── Reconocer que documento es ────────────────────────────────────────────────
 
     /**
@@ -707,8 +1015,10 @@ class CargaMasivaDocumentos
         // DE REGISTRO DE VEHICULO" partido en dos lineas), y a veces lo unico legible de un
         // titulo escaneado.
         LectorDocumentoPdf::PROPIEDAD => '/CERTIFICADO DE REGISTRO|T[IÍ]TULO DE PROPIEDAD/u',
-        // El certificado asociado y la compraventa no se reconocen solos: todavia no hay
-        // ejemplos reales de sus formatos. Se sueltan eligiendo el tipo en el modal.
+        // El formulario CONGENBILL se anuncia "BILL OF LADING B/L NO. HCLKGT03".
+        self::EMBARQUE                => '/BILL OF LADING|\bB\/L NO\b|CONOCIMIENTO DE EMBARQUE/u',
+        // El certificado asociado y la compraventa no tienen rotulo: todavia no hay ejemplos
+        // reales de sus formatos. Se toman como el tipo que se elige en el modal.
     ];
 
     /**
@@ -723,8 +1033,9 @@ class CargaMasivaDocumentos
     ];
 
     /**
-     * De que tipo es el PDF, por lo que dice de si mismo. Gana el rotulo que aparece ANTES en
-     * el texto, porque un documento se anuncia en su encabezado y lo de despues son menciones.
+     * De que tipo es el PDF, por lo que dice de si mismo (con esto se comprueba que sea el que se
+     * eligio, ver esOtroDocumento). Gana el rotulo que aparece ANTES en el texto, porque un
+     * documento se anuncia en su encabezado y lo de despues son menciones.
      *
      * Por que no vale mirarlos en un orden fijo (visto en la prueba real del 23-09-2026): el
      * titulo de propiedad del INTT se presenta en el caracter 3 ("Certificado de Registro de
@@ -869,7 +1180,7 @@ class CargaMasivaDocumentos
     {
         return $this->consulta()
             ->whereIn(DB::raw(self::sqlCodigo('e.SERIAL_CHASIS')), $this->codigos($seriales))
-            ->orderBy('d.ID_EQUIPO')->limit(5)
+            ->orderBy('e.ID_EQUIPO')->limit(5)
             ->get();
     }
 
@@ -883,7 +1194,7 @@ class CargaMasivaDocumentos
         return $this->consulta()
             ->whereIn(DB::raw(self::sqlCodigo('d.PLACA')), $limpias)
             // Siempre el mismo orden: sin el, el tope (y "la primera") salian al azar.
-            ->orderBy('d.ID_EQUIPO')
+            ->orderBy('e.ID_EQUIPO')
             ->limit($tope)
             ->get();
     }
@@ -909,17 +1220,22 @@ class CargaMasivaDocumentos
         return $sql;
     }
 
-    /** Base comun: la ficha viva con su documentacion. */
+    /**
+     * Base comun: el equipo vivo con su documentacion y su embarque. Parte de EQUIPOS y no de
+     * documentacion: 288 equipos no tienen fila de documentacion (30-09-2026) y, partiendo de
+     * ella, ni su serial los encontraba. aplicarEnEquipo ya crea la fila si falta.
+     */
     private function consulta()
     {
-        return DB::table('documentacion as d')
-            ->join('equipos as e', 'e.ID_EQUIPO', '=', 'd.ID_EQUIPO')
+        return DB::table('equipos as e')
+            ->leftJoin('documentacion as d', 'd.ID_EQUIPO', '=', 'e.ID_EQUIPO')
             ->whereNull('e.deleted_at')
             ->select([
-                'd.ID_EQUIPO', 'd.PLACA', 'e.SERIAL_CHASIS', 'e.MODELO', 'e.MARCA',
+                'e.ID_EQUIPO', 'd.PLACA', 'e.SERIAL_CHASIS', 'e.MODELO', 'e.MARCA',
                 'd.LINK_DOC_PROPIEDAD', 'd.LINK_POLIZA_SEGURO', 'd.LINK_ROTC', 'd.LINK_RACDA',
                 'd.LINK_DOC_ADICIONAL', 'd.LINK_DOC_ADICIONAL_2',
                 'd.FECHA_VENC_POLIZA', 'd.FECHA_ROTC', 'd.FECHA_RACDA', 'd.FECHA_ADICIONAL',
+                DB::raw('(SELECT ee.ID_EMBARQUE FROM embarque_equipo ee WHERE ee.ID_EQUIPO = e.ID_EQUIPO) as ID_EMBARQUE'),
             ]);
     }
 
@@ -944,6 +1260,7 @@ class CargaMasivaDocumentos
                 LectorDocumentoPdf::RACDA     => (bool) $f->LINK_RACDA,
                 self::CERTIFICADO             => (bool) $f->LINK_DOC_ADICIONAL,
                 self::COMPRAVENTA             => (bool) $f->LINK_DOC_ADICIONAL_2,
+                self::EMBARQUE                => (bool) $f->ID_EMBARQUE,
             ],
             'vence_ficha' => [
                 LectorDocumentoPdf::POLIZA => $this->soloFecha($f->FECHA_VENC_POLIZA),
@@ -1004,6 +1321,11 @@ class CargaMasivaDocumentos
     {
         if (!in_array($tipo, self::TIPOS, true)) {
             return ['ok' => false, 'mensaje' => 'Tipo de documento no valido.'];
+        }
+        if ($tipo === self::EMBARQUE) {
+            return $auxiliar
+                ? ['ok' => false, 'mensaje' => 'Un equipo auxiliar no lleva documento de embarque.']
+                : $this->aplicarEmbarque($idEquipo, $link, $pisar, $ensayo, $cerrar);
         }
         if ($auxiliar) {
             return $this->aplicarEnAuxiliar($idEquipo, $tipo, $link, $vence, $pisar, $ensayo, $cerrar);
@@ -1079,23 +1401,7 @@ class CargaMasivaDocumentos
         }
 
         // El PDF que estaba se borra DESPUES de guardar el nuevo, igual que en uploadDoc.
-        //
-        // EN LOCAL NO SE BORRA. El .env de desarrollo apunta al Drive REAL (las mismas
-        // credenciales y carpetas que el servidor), mientras que la base de datos si es una
-        // copia. O sea: reemplazar un documento desde el local no toca la ficha del servidor,
-        // pero SI borraria de Drive el archivo al que apunta su enlace, y ese documento se
-        // perderia para todos. Se deja el archivo huerfano, que no le hace daño a nadie, y
-        // queda en el log para poder limpiarlo a mano si hiciera falta. (El job tambien lo
-        // comprueba —EnlacesDocumentos::esBaseDelServidor—; aqui ni se llega a pedir.)
-        if ($anterior && $anterior !== $link && ($viejoId = DocumentoAnexo::driveIdDeLink($anterior))) {
-            if (app()->environment('local')) {
-                Log::info('Carga masiva en local: NO se borra de Drive el documento reemplazado', [
-                    'equipo' => $equipo->ID_EQUIPO, 'tipo' => $tipo, 'drive_id' => $viejoId,
-                ]);
-            } else {
-                GoogleDriveService::borrarTrasResponder($viejoId);
-            }
-        }
+        $this->retirarReemplazado($anterior, $link, ['equipo' => $equipo->ID_EQUIPO, 'tipo' => $tipo]);
 
         EquipoAuditLog::registrar($equipo->ID_EQUIPO, 'upload_' . $tipo, [
             'archivo' => basename($link),
@@ -1105,6 +1411,34 @@ class CargaMasivaDocumentos
 
         if ($cerrar) $this->cerrarPropuesta($link);
         return ['ok' => true, 'mensaje' => 'Aplicado.'];
+    }
+
+    /**
+     * El PDF que acaba de ser reemplazado sale de Drive (a la papelera, por el job, que ademas
+     * comprueba que ninguna otra fila lo use). $borrar cambia COMO se retira; por defecto,
+     * GoogleDriveService::borrarTrasResponder.
+     *
+     * EN LOCAL NO SE BORRA. El .env de desarrollo apunta al Drive REAL (las mismas credenciales
+     * y carpetas que el servidor), mientras que la base de datos si es una copia. O sea:
+     * reemplazar un documento desde el local no toca la ficha del servidor, pero SI borraria de
+     * Drive el archivo al que apunta su enlace, y ese documento se perderia para todos. Se deja
+     * el archivo huerfano, que no le hace daño a nadie, y queda en el log para poder limpiarlo a
+     * mano si hiciera falta. (El job tambien lo comprueba —EnlacesDocumentos::esBaseDelServidor—;
+     * aqui ni se llega a pedir.)
+     */
+    private function retirarReemplazado(?string $anterior, string $link, array $contexto, ?callable $borrar = null): void
+    {
+        if (!$anterior || $anterior === $link) return;
+
+        if (app()->environment('local')) {
+            Log::info('Carga masiva en local: NO se borra de Drive el documento reemplazado', $contexto + ['enlace' => $anterior]);
+            return;
+        }
+        if ($borrar) {
+            $borrar($anterior);
+        } elseif ($viejoId = DocumentoAnexo::driveIdDeLink($anterior)) {
+            GoogleDriveService::borrarTrasResponder($viejoId);
+        }
     }
 
     /**
@@ -1163,18 +1497,9 @@ class CargaMasivaDocumentos
 
         $aux->update($datos);
 
-        // Igual que en los equipos: en LOCAL no se borra de Drive el reemplazado (el .env de
-        // desarrollo apunta al Drive REAL y se perderia para todos). En el servidor, como el
-        // formulario (olvidarDoc): tambien los antiguos del disco public, servidos sin sesion.
-        if ($anterior && $anterior !== $link) {
-            if (app()->environment('local')) {
-                Log::info('Carga masiva en local: NO se borra de Drive el documento reemplazado', [
-                    'auxiliar' => $aux->ID_AUXILIAR, 'tipo' => $tipo, 'enlace' => $anterior,
-                ]);
-            } else {
-                EquipoAuxiliar::olvidarDoc($anterior);
-            }
-        }
+        // Como el formulario (olvidarDoc): tambien los antiguos del disco public, servidos sin sesion.
+        $this->retirarReemplazado($anterior, $link, ['auxiliar' => $aux->ID_AUXILIAR, 'tipo' => $tipo],
+            fn (string $viejo) => EquipoAuxiliar::olvidarDoc($viejo));
 
         if ($cerrar) $this->cerrarPropuesta($link);
 

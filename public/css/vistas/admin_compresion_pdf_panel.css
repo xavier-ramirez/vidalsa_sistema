@@ -123,6 +123,8 @@
     /* Carga masiva: azul para lo que espera un clic, ámbar para lo que no se sabe de quién es. */
     .cpdf-estado.por_enganchar { background: #dbeafe; color: #1e40af; cursor: help; }
     .cpdf-estado.sin_ficha { background: #fef3c7; color: #92400e; cursor: help; }
+    /* Se cargo como un documento y el PDF era otro: no se asocio a nada. */
+    .cpdf-estado.otro_documento { background: #ffe4e6; color: #9f1239; cursor: help; }
     .cpdf-estado.aplicado { background: #dcfce7; color: #166534; cursor: help; }
     /* Cada dato que no cuadra, en una linea: etiqueta, lo de la ficha (tachado) y lo del documento. */
     .cpdf-nom { font-size: 12.5px; color: #0f172a; }

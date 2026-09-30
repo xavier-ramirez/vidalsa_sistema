@@ -43,11 +43,11 @@ class LectorGemini
     /** Lo que se le pide que devuelva. Mismos nombres que usa el resto de la app. */
     private const INSTRUCCION = <<<'TXT'
 Eres el lector de documentos de una flota de equipos en Venezuela. Te doy UN documento en PDF:
-título de propiedad del INTT, póliza de seguro, ROTC (certificado de circulación) o providencia
-RACDA. Devuelve SOLO un JSON con esta forma exacta:
+título de propiedad del INTT, póliza de seguro, ROTC (certificado de circulación), providencia
+RACDA o documento de embarque (Bill of Lading, "BL"). Devuelve SOLO un JSON con esta forma exacta:
 
 {
- "tipo_documento": "titulo|poliza|rotc|racda|otro",
+ "tipo_documento": "titulo|poliza|rotc|racda|embarque|otro",
  "placa": "",
  "serial_carroceria": "",
  "serial_motor": "",
@@ -67,7 +67,8 @@ Reglas:
 - "seguro": false si el escaneo no permite leer con certeza la placa o el serial.
 - Los seriales confunden O con 0, I con 1, S con 5 y B con 8: míralos con lupa.
 - "vehiculos": si el documento ampara VARIOS (póliza de flota, ROTC de flota, providencia
-  RACDA), pon todos los que nombra con su placa y su serial. Si es de uno solo, deja la lista
+  RACDA, BL), pon todos los que nombra con su placa y su serial (en un BL, el VIN).
+- En un BL, "numero_documento" es el "B/L NO." y "fecha_emision" la de "Place and date of issue". Si es de uno solo, deja la lista
   vacía y usa los campos de arriba.
 - Un documento colectivo NO es ilegible: rellena igual las fechas, el número y el titular.
 - "nota": una frase en español con lo que no se pudo leer, si algo faltó.
@@ -86,9 +87,14 @@ TXT;
      *
      * @param  string  $pdf       contenido binario del PDF
      * @param  int     $intentos  cuántas veces insistir si Gemini dice "espera" (429/503)
-     * @return array{tipo:?string,placa:?string,serial:?string,serial_motor:?string,titular:?string,nro:?string,emision:?string,vence:?string,aseguradora:?string,vehiculos:array,seguro:bool,nota:?string,modelo:string}|null
+     * @param  ?string $esperado  el documento que se está buscando (clave de LectorDocumentoPdf):
+     *                            la carga masiva lo dice porque el usuario eligió el tipo. Si el
+     *                            archivo trae varios, se leen los datos de ESE; si no lo trae,
+     *                            Gemini contesta el tipo que sí es. La revisión de la noche no
+     *                            lo pasa.
+     * @return array{tipo:?string,placa:?string,serial:?string,serial_motor:?string,titular:?string,nro:?string,emision:?string,vence:?string,aseguradora:?string,vehiculos:array,seguro:bool,nota:?string,otro:bool,modelo:string}|null
      */
-    public function leer(string $pdf, int $intentos = 3): ?array
+    public function leer(string $pdf, int $intentos = 3, ?string $esperado = null): ?array
     {
         try {
             $modelo = $this->modelo();
@@ -104,7 +110,7 @@ TXT;
                 return null;
             }
 
-            $json = $this->consultar($modelo, $pdf, max(1, $intentos));
+            $json = $this->consultar($modelo, $pdf, max(1, $intentos), $esperado);
             if ($json === null) {
                 return null;
             }
@@ -124,11 +130,11 @@ TXT;
      * (candado) y una espera entre uno y otro. Si Gemini contesta "demasiadas consultas" o
      * "saturado", se reintenta; cualquier otro fallo se anota y se devuelve null.
      */
-    private function consultar(string $modelo, string $pdf, int $intentos): ?array
+    private function consultar(string $modelo, string $pdf, int $intentos, ?string $esperado = null): ?array
     {
         $cuerpo = [
             'contents' => [['parts' => [
-                ['text' => self::INSTRUCCION],
+                ['text' => self::INSTRUCCION . $this->loQueSeBusca($esperado)],
                 ['inline_data' => ['mime_type' => 'application/pdf', 'data' => base64_encode($pdf)]],
             ]]],
             // temperatura 0 = la lectura más literal posible; el JSON viene ya formado.
@@ -184,6 +190,20 @@ TXT;
         return null;
     }
 
+    /**
+     * El párrafo que se añade a la instrucción cuando se sabe qué documento se busca. Sin
+     * mentirle: se le pide que CONFIRME, y que diga el tipo verdadero si el archivo es otro.
+     */
+    private function loQueSeBusca(?string $esperado): string
+    {
+        $palabra = array_flip(self::TIPOS)[$esperado] ?? null;
+        if (!$palabra) return '';
+
+        return "\n\nSe está buscando un documento de tipo \"$palabra\". Si el archivo lo contiene (aunque traiga "
+             . "otros documentos), pon tipo_documento = \"$palabra\" y lee SUS datos. Si no lo contiene, pon en "
+             . "tipo_documento el tipo que realmente es (\"otro\" si no es ninguno de los cuatro) y di en \"nota\" qué es.";
+    }
+
     /** La respuesta de Gemini → los mismos nombres que usa la app. */
     private function normalizar(array $json): array
     {
@@ -219,6 +239,9 @@ TXT;
             'vehiculos'    => $vehiculos,
             'seguro'       => (bool) ($d['seguro'] ?? false),
             'nota'         => $txt($d['nota'] ?? null),
+            // "otro" es una respuesta (no es ninguno de los cuatro), no un hueco: la carga
+            // masiva la usa para no asociar un PDF que no es lo que se eligió.
+            'otro'         => strtolower(trim((string) ($d['tipo_documento'] ?? ''))) === 'otro',
         ];
     }
 
@@ -228,13 +251,14 @@ TXT;
         'poliza' => LectorDocumentoPdf::POLIZA,
         'rotc'   => LectorDocumentoPdf::ROTC,
         'racda'  => LectorDocumentoPdf::RACDA,
+        'embarque' => CargaMasivaDocumentos::EMBARQUE,
     ];
 
     private function vacio(): array
     {
         return ['tipo' => null, 'placa' => null, 'serial' => null, 'serial_motor' => null, 'titular' => null,
                 'nro' => null, 'emision' => null, 'vence' => null, 'aseguradora' => null,
-                'vehiculos' => [], 'seguro' => false, 'nota' => null];
+                'vehiculos' => [], 'seguro' => false, 'nota' => null, 'otro' => false];
     }
 
     /** "2027-04-08" tal cual; cualquier otra cosa (o una fecha imposible) se descarta. */

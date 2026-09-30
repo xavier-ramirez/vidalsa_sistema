@@ -3029,6 +3029,25 @@ class EquipoController extends Controller
     }
 
     /**
+     * El embarque (BL) del equipo, para su ficha. Va aparte del dataset de la fila por lo mismo
+     * que los anexos: la tabla trae ~1.200 equipos y solo lo mira quien abre el detalle. Solo
+     * se ENSEÑA: el BL lo pone la carga masiva (CargaMasivaDocumentos::aplicarEmbarque).
+     */
+    public function embarqueDoc($id)
+    {
+        $equipo = $this->findAndAuthorizeEquipo($id);
+        $e = $equipo->embarques()->first();
+
+        return response()->json(['success' => true, 'embarque' => $e ? [
+            'nro'   => $e->NRO_BL,
+            'buque' => $e->BUQUE,
+            'fecha' => $e->FECHA_EMBARQUE?->format('d/m/Y'),
+            'link'  => $e->LINK,
+            'vin'   => $e->pivot->VIN,
+        ] : null]);
+    }
+
+    /**
      * Borra UNA corrección anexa: el archivo del Drive y su fila.
      *
      * Mismo permiso que borrar el documento principal (super.admin, en la ruta) y mismo

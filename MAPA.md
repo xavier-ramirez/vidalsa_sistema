@@ -169,22 +169,30 @@ se lee y se propone a su ficha; **nada se escribe hasta que se aplica la fila**.
   sale lo que lee la tarea de la noche, y desde ahí se aplica o se descarta. Antes el modal
   tenía su propia lista con su propio "Aplicar": eran dos tablas de documentos en el mismo
   módulo (pedido 23-09-2026: una sola). Por eso cada análisis deja su fila con
-  `ORIGEN='carga_masiva'` y estado **Por aplicar** / **Sin ficha reconocida** / **Aplicado**.
+  `ORIGEN='carga_masiva'` y estado **Por aplicar** / **Sin ficha reconocida** / **Otro
+  documento (no se asoció)** / **Aplicado**.
   La tarea de la noche NO borra esas filas (ver el `delete` de hermanas en `procesar`).
 - **Permiso propio y EXCLUSIVO `docs.carga.masiva`**: ni super.admin lo hereda
   (`Usuario::PERMISOS_EXPLICITOS`). Protege las tres rutas, el controlador y el botón del menú.
   Subir de uno en uno sigue siendo `user.edit`: eso toca UNA ficha que el usuario está mirando,
   esto reparte a ciegas por media flota. La migración `2026_09_23_100000` se la dio a los
   super.admin que ya podían usarla, para que nadie se quede fuera al desplegar.
-- **De qué documento es**: gana el rótulo que aparece ANTES en el texto, no un orden fijo
+- **El tipo lo elige el usuario, siempre** (desde el 30-09-2026 no hay "Reconocerlo solo"; el
+  controlador lo exige). El servidor **comprueba** que el PDF sea ese documento
+  (`esOtroDocumento`): primero su rótulo; si no cuadra o no hay rótulo, decide Gemini, al que se
+  le dice qué se busca (`LectorGemini::leer(..., $esperado)`). Si la IA confirma lo elegido gana
+  al rótulo, pero sale para revisar. Lo que es otro documento **no se asocia**: queda con estado
+  `otro_documento`, sin equipos (no se puede aplicar) y con Descartar. Sin IA ni rótulo se
+  acepta lo elegido, para revisar.
+- **El rótulo**: gana el que aparece ANTES en el texto, no un orden fijo
   (`detectarTipo`). Un documento se anuncia en su encabezado y lo de después son menciones: el
   título del INTT se presenta en el carácter 3 y en su letra pequeña, por el 2.879, nombra el
   "certificado de circulación" — con el orden fijo se repartía como ROTC (visto en la prueba
   real del 23-09-2026 con dos títulos reales).
 - **Los SEIS documentos del equipo**, los mismos de la ficha: título, póliza, ROTC, RACDA,
   Certificado asociado (`adicional` → `LINK_DOC_ADICIONAL`, vence) y Compraventa (`adicional_2`
-  → `LINK_DOC_ADICIONAL_2`, no vence). Los cuatro primeros se reconocen solos por lo que dice el
-  PDF; **el certificado y la compraventa no traen rótulo fijo**: para esos se elige el tipo.
+  → `LINK_DOC_ADICIONAL_2`, no vence). De los cuatro primeros se comprueba que el PDF lo sea;
+  **el certificado y la compraventa no traen rótulo fijo**: se toman como se eligen.
 - **Equipos AUXILIARES**: si ningún equipo reconoce el documento, se busca un auxiliar **por
   serial** (no tienen placa). Solo admiten dos papeles —título y certificado—, y dónde va cada
   uno lo dice `EquipoAuxiliar::DOCS` / `DOCS_VENCE`, que ya existían. Una
@@ -198,12 +206,25 @@ se lee y se propone a su ficha; **nada se escribe hasta que se aplica la fila**.
   Es la forma de probar contra los datos de verdad sin tocarlos.
 - Un **RACDA** es de la empresa y nombra muchas unidades: se aplica a todas las que lo
   necesiten (tope 40 por archivo).
+- **Documento de embarque (BL)** (desde el 30-09-2026). Un Bill of Lading ampara decenas de
+  unidades con UN PDF, así que no es una casilla de `documentacion`: tablas `embarques` (nº de
+  BL único, buque, puertos, fecha, PDF) y `embarque_equipo` (un equipo, un embarque; guarda el
+  VIN impreso). Lo lee `App\Support\BillOfLading` (formato CONGENBILL: "B/L NO.", "Port of
+  loading", anexo de VIN) y se reconoce **solo por VIN / serial de chasis**. La propuesta nombra
+  los VIN que no están en el sistema. Aplicar (`aplicarEmbarque`): el mismo BL con otro PDF o un
+  equipo que ya está en otro BL piden "reemplazar". La ficha lo pide aparte
+  (`equipos/{id}/embarque`, como los anexos) y lo enseña solo si hay. El PDF está en
+  `EnlacesDocumentos::DOCUMENTOS`: el job no lo retira mientras lo use un embarque y la
+  compresión nocturna lo incluye.
+- La búsqueda de fichas (`consulta()`) parte de `equipos` con LEFT JOIN a `documentacion`: los
+  equipos sin fila de documentación (288 el 30-09-2026) antes no se hallaban ni por serial.
 
 **Segundo lector: Gemini (`App\Services\LectorGemini`).** El lector de siempre es el OCR de
 Drive + las reglas de `LectorDocumentoPdf`; la IA **solo entra donde ese no alcanza** y nunca
 decide nada: propone y una persona confirma.
-- **Carga masiva**: si no hay texto, no se sabe qué documento es, no se da con el equipo o
-  falta la fecha de vencimiento, se le da el PDF entero. Lo que devuelve **rellena huecos, no
+- **Carga masiva**: si el rótulo no confirma el tipo elegido, no hay texto, no se da con el
+  equipo o falta la fecha de vencimiento, se le da el PDF entero (UNA consulta por archivo:
+  `vistoPorIa` la guarda para las dos cosas). Lo que devuelve **rellena huecos, no
   pisa** lo que el OCR ya leyó (`mezclarLoDeIa`); si no aporta nada, la propuesta queda como
   estaba. Cuando ayuda, la fila de la tabla lo dice en su motivo y queda para revisar.
 - **Revisión nocturna** (`docs:verificar-documentos`): solo los que quedan **"No se pudo
@@ -257,8 +278,9 @@ antes de que una navegación pusiera el contador a cero — restarla destapaba l
   conocida (`Gps51Service::ultimasConocidas`, 1 día) y solo lo que no tiene ninguna se pide a
   GPS51 con tope de 20 s. Direcciones en UNA consulta (`Gps51Service::direcciones`: GPS51
   devuelve los puntos desordenados, se emparejan por coordenada). Identificación: placa → serial
-  de chasis → serial de motor, la MISMA en el panel (`eqIdent`) y en el Excel. Encabezado = el de
-  Equipos (`ExcelLogoCorporativo::encabezadoCorporativo`).
+  de chasis → serial de motor → código de patio → etiqueta, los MISMOS cinco escalones y con el
+  mismo recorte de espacios en el panel (`eqIdent`), en la ficha (`equipoGps`) y en el Excel
+  (`exportarEquiposGps`). Encabezado = el de Equipos (`ExcelLogoCorporativo::encabezadoCorporativo`).
 
 **Fotos de equipos.** `Equipo::fotoParaMostrar()` decide, en este orden: foto del **color** de
 la unidad en su ficha del catálogo → foto del **modelo** (`FOTO_REFERENCIAL`) → foto propia de

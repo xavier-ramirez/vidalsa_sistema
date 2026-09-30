@@ -236,7 +236,7 @@ class LectorGeminiTest extends MySqlTestCase
         ]);
 
         // El OCR de Drive devolvió la hoja en blanco: sin la IA esto era "no se pudo leer".
-        $p = $this->cargaMasiva('')->analizar($this->pdf());
+        $p = $this->cargaMasiva('')->analizar($this->pdf(), LectorDocumentoPdf::ROTC);
 
         $this->assertTrue($p['ia'], 'la propuesta tiene que decir que la leyó la IA');
         $this->assertSame(LectorDocumentoPdf::ROTC, $p['tipo']);
@@ -252,7 +252,7 @@ class LectorGeminiTest extends MySqlTestCase
 
         $texto = "CERTIFICADO DE CIRCULACION ROTC\nSerial de Carroceria: {$equipo->SERIAL_CHASIS}\n"
                . "Fecha de Emisión: 11/02/2026\nFecha de Vencimiento: 11/02/2027\n";
-        $p = $this->cargaMasiva($texto)->analizar($this->pdf());
+        $p = $this->cargaMasiva($texto)->analizar($this->pdf(), LectorDocumentoPdf::ROTC);
 
         $this->assertFalse($p['ia']);
         $this->assertSame('listo', $p['estado']);
@@ -274,7 +274,7 @@ class LectorGeminiTest extends MySqlTestCase
         // El OCR sacó el vencimiento pero no dio con el equipo (serial roto por el escaneo).
         $texto = "CERTIFICADO DE CIRCULACION ROTC\nSerial de Carroceria: XXXXXXXXXXXXXXXXX\n"
                . "Fecha de Vencimiento: 11/02/2027\n";
-        $p = $this->cargaMasiva($texto)->analizar($this->pdf());
+        $p = $this->cargaMasiva($texto)->analizar($this->pdf(), LectorDocumentoPdf::ROTC);
 
         $this->assertTrue($p['ia']);
         $this->assertSame('2027-02-11', $p['vence'], 'el vencimiento del OCR manda');
@@ -286,7 +286,7 @@ class LectorGeminiTest extends MySqlTestCase
         config(['services.gemini.key' => '']);
         Http::fake();
 
-        $p = $this->cargaMasiva('')->analizar($this->pdf());
+        $p = $this->cargaMasiva('')->analizar($this->pdf(), LectorDocumentoPdf::ROTC);
 
         $this->assertSame('ilegible', $p['estado']);
         $this->assertStringContainsString('no tiene texto legible', $p['aviso']);
@@ -307,6 +307,92 @@ class LectorGeminiTest extends MySqlTestCase
 
         $this->assertSame('ilegible', $p['estado'], 'no puede salir como "sin equipo": no se leyó nada');
         $this->assertStringContainsString('no tiene texto legible', $p['aviso']);
+    }
+
+    // ── El tipo lo elige el usuario: lo que resulte ser otro documento no se asocia ──
+
+    /** Se cargó como título y la IA ve una póliza: queda "Otro documento", sin equipo. */
+    public function test_si_la_ia_ve_otro_documento_no_se_asocia(): void
+    {
+        $equipo = $this->equipo();
+        $this->fakeGemini([
+            'tipo_documento' => 'poliza',
+            'serial_carroceria' => $equipo->SERIAL_CHASIS,
+            'fecha_vencimiento' => '2027-07-03',
+        ]);
+        $this->actingAs($this->usuarioConPermiso());
+
+        // Escaneado: el OCR no saca nada, así que decide la IA.
+        $p = $this->cargaMasiva('')->analizar($this->pdf(), LectorDocumentoPdf::PROPIEDAD);
+
+        $this->assertSame(CargaMasivaDocumentos::OTRO_DOCUMENTO, $p['estado']);
+        $this->assertSame([], $p['equipos'], 'no se asocia a nadie aunque el serial sea de una ficha');
+        $this->assertSame(LectorDocumentoPdf::POLIZA, $p['es_realmente']);
+        $this->assertStringContainsString('titulo de propiedad pero el PDF es poliza de seguro', $p['aviso']);
+
+        $fila = \App\Models\VerificacionDocumento::deCargaMasiva()
+            ->where('DRIVE_ID', \App\Models\DocumentoAnexo::driveIdDeLink($p['link']))->firstOrFail();
+        $this->assertSame(\App\Models\VerificacionDocumento::OTRO_DOCUMENTO, $fila->ESTADO, 'queda en el historial');
+        $this->assertSame(LectorDocumentoPdf::PROPIEDAD, $fila->TIPO, 'con el tipo que se eligió');
+        $this->assertNull($fila->ID_EQUIPO);
+        $this->assertStringContainsString('No se asocio', (string) $fila->MOTIVO);
+        $this->assertNull($equipo->documentacion()->first()->LINK_DOC_PROPIEDAD, 'la ficha no se toca');
+
+        // A Gemini se le dijo qué se buscaba.
+        Http::assertSent(fn ($r) => str_contains(json_encode($r->data(), JSON_UNESCAPED_UNICODE), 'tipo \\"titulo\\"'));
+    }
+
+    /** La IA dice "otro" (una factura, un manual...): tampoco se asocia. */
+    public function test_si_la_ia_dice_que_no_es_ninguno_de_los_que_se_cargan_no_se_asocia(): void
+    {
+        $this->fakeGemini(['tipo_documento' => 'otro', 'nota' => 'Es una factura comercial.']);
+
+        $p = $this->cargaMasiva('')->analizar($this->pdf(), LectorDocumentoPdf::ROTC);
+
+        $this->assertSame(CargaMasivaDocumentos::OTRO_DOCUMENTO, $p['estado']);
+        $this->assertNull($p['es_realmente']);
+        $this->assertStringContainsString('no es titulo, poliza, ROTC, RACDA ni BL', $p['aviso']);
+        $this->assertStringContainsString('Es una factura comercial.', $p['aviso']);
+    }
+
+    /**
+     * El rótulo del texto dice otra cosa pero la IA confirma lo elegido: manda la IA (un
+     * encabezado mal escaneado no tumba un título bueno). Y se le pregunta UNA sola vez aunque
+     * luego haga falta para enganchar el equipo.
+     */
+    public function test_si_la_ia_confirma_lo_elegido_gana_al_rotulo_y_se_pregunta_una_vez(): void
+    {
+        $equipo = $this->equipo();
+        $this->fakeGemini([
+            'tipo_documento' => 'titulo',
+            'serial_carroceria' => $equipo->SERIAL_CHASIS,
+            'fecha_emision' => '2020-05-04',
+        ]);
+
+        $p = $this->cargaMasiva("RECIBO DE POLIZA ANEXO\nCERTIFICADO DE REGISTRO DE VEHICULO\nSerial ilegible")
+            ->analizar($this->pdf(), LectorDocumentoPdf::PROPIEDAD);
+
+        $this->assertSame(LectorDocumentoPdf::PROPIEDAD, $p['tipo']);
+        $this->assertSame([$equipo->ID_EQUIPO], array_column($p['equipos'], 'id'));
+        $this->assertSame('revisar', $p['estado']);
+        $this->assertStringContainsString('El encabezado parece poliza de seguro, pero la IA confirma', $p['aviso']);
+        Http::assertSentCount(1);
+    }
+
+    /** Sin IA y sin rótulo: se toma lo elegido, pero sale para revisar diciendo por qué. */
+    public function test_sin_ia_ni_rotulo_se_toma_lo_elegido_para_revisar(): void
+    {
+        config(['services.gemini.key' => '']);
+        Http::fake();
+        $equipo = $this->equipo();
+
+        $p = $this->cargaMasiva("Documento sin encabezado\nSerial de Carroceria: {$equipo->SERIAL_CHASIS}\n")
+            ->analizar($this->pdf(), LectorDocumentoPdf::PROPIEDAD);
+
+        $this->assertSame([$equipo->ID_EQUIPO], array_column($p['equipos'], 'id'));
+        $this->assertSame('revisar', $p['estado']);
+        $this->assertStringContainsString('No se pudo confirmar que el PDF sea titulo de propiedad', $p['aviso']);
+        Http::assertNothingSent();
     }
 
     public function test_un_pdf_demasiado_grande_no_se_manda(): void
@@ -334,7 +420,7 @@ class LectorGeminiTest extends MySqlTestCase
         ]);
         $this->actingAs($this->usuarioConPermiso());
 
-        $p = $this->cargaMasiva('')->analizar($this->pdf());
+        $p = $this->cargaMasiva('')->analizar($this->pdf(), LectorDocumentoPdf::ROTC);
 
         $fila = \App\Models\VerificacionDocumento::deCargaMasiva()
             ->where('DRIVE_ID', \App\Models\DocumentoAnexo::driveIdDeLink($p['link']))->first();
@@ -359,14 +445,14 @@ class LectorGeminiTest extends MySqlTestCase
         Http::fake();
         $this->actingAs($this->usuarioConPermiso());
 
-        $p = $this->cargaMasiva('')->analizar($this->pdf());
+        $p = $this->cargaMasiva('')->analizar($this->pdf(), LectorDocumentoPdf::ROTC);
 
         $fila = \App\Models\VerificacionDocumento::deCargaMasiva()
             ->where('DRIVE_ID', \App\Models\DocumentoAnexo::driveIdDeLink($p['link']))->first();
 
         $this->assertNotNull($fila);
         $this->assertSame(\App\Models\VerificacionDocumento::SIN_FICHA, $fila->ESTADO);
-        $this->assertNull($fila->TIPO, 'no se reconoció qué documento es');
+        $this->assertNull($fila->TIPO, 'no se leyó nada del documento');
     }
 
     /** Al aplicarlo la fila pasa a "Aplicado": se ve qué pasó con cada archivo. */
@@ -382,7 +468,7 @@ class LectorGeminiTest extends MySqlTestCase
         $this->actingAs($u);
 
         $servicio = $this->cargaMasiva('');
-        $p = $servicio->analizar($this->pdf());
+        $p = $servicio->analizar($this->pdf(), LectorDocumentoPdf::ROTC);
         $r = $servicio->aplicar($equipo->ID_EQUIPO, 'rotc', $p['link'], '2027-07-03', null);
 
         $this->assertTrue($r['ok'], $r['mensaje']);
@@ -403,7 +489,7 @@ class LectorGeminiTest extends MySqlTestCase
         $this->actingAs($this->usuarioConPermiso());
 
         $servicio = $this->cargaMasiva('');
-        $p = $servicio->analizar($this->pdf());
+        $p = $servicio->analizar($this->pdf(), LectorDocumentoPdf::ROTC);
         $driveId = \App\Models\DocumentoAnexo::driveIdDeLink($p['link']);
         $this->assertNotNull(\App\Models\VerificacionDocumento::deCargaMasiva()->where('DRIVE_ID', $driveId)->first());
 
@@ -427,7 +513,7 @@ class LectorGeminiTest extends MySqlTestCase
         ]);
         $u = $this->usuarioConPermiso();
         $this->actingAs($u);
-        $this->cargaMasiva('')->analizar($this->pdf());
+        $this->cargaMasiva('')->analizar($this->pdf(), LectorDocumentoPdf::ROTC);
 
         // Filtrando por "Por aplicar" y buscando por el nombre del archivo.
         $html = $this->actingAs($u)
@@ -458,7 +544,7 @@ class LectorGeminiTest extends MySqlTestCase
         ]);
         $u = $this->usuarioConPermiso();
         $this->actingAs($u);
-        $p = $this->cargaMasiva('')->analizar($this->pdf());
+        $p = $this->cargaMasiva('')->analizar($this->pdf(), LectorDocumentoPdf::ROTC);
 
         $fila = \App\Models\VerificacionDocumento::deCargaMasiva()
             ->where('DRIVE_ID', \App\Models\DocumentoAnexo::driveIdDeLink($p['link']))->firstOrFail();
@@ -494,7 +580,7 @@ class LectorGeminiTest extends MySqlTestCase
         $this->actingAs($u);
 
         $servicio = $this->cargaMasiva('');
-        $p = $servicio->analizar($this->pdf());
+        $p = $servicio->analizar($this->pdf(), LectorDocumentoPdf::ROTC);
         $servicio->aplicar($equipo->ID_EQUIPO, 'rotc', $p['link'], '2027-07-03', null);
 
         $pendiente = \App\Models\VerificacionDocumento::pendientes('rotc', 'LINK_ROTC')

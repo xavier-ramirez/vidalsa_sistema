@@ -51,9 +51,9 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Sistema Vidalsa">
-    <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('icons/icon-180.png') }}">
-    <link rel="apple-touch-icon" sizes="152x152" href="{{ asset('icons/icon-152.png') }}">
-    <link rel="apple-touch-icon" sizes="192x192" href="{{ asset('icons/icon-192.png') }}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('img/app-iconos/icon-180.png') }}">
+    <link rel="apple-touch-icon" sizes="152x152" href="{{ asset('img/app-iconos/icon-152.png') }}">
+    <link rel="apple-touch-icon" sizes="192x192" href="{{ asset('img/app-iconos/icon-192.png') }}">
 
     <!-- Preload Fonts to prevent FOUT (text flashing before icons load) -->
     <link rel="preload" as="font" href="{{ asset('fonts/MaterialIcons-Regular.woff2') }}" type="font/woff2"

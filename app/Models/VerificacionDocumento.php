@@ -138,6 +138,14 @@ class VerificacionDocumento extends Model
     public const SIN_FICHA = 'sin_ficha';
 
     /**
+     * Se cargo como un documento (p. ej. titulo) y el PDF es OTRO (una poliza, una factura...):
+     * no se asocio a ninguna ficha. Se queda para que se vea que paso con ese archivo, y se
+     * descarta o se vuelve a subir con el tipo correcto. La misma clave que
+     * CargaMasivaDocumentos::OTRO_DOCUMENTO.
+     */
+    public const OTRO_DOCUMENTO = 'otro_documento';
+
+    /**
      * Ya se enlazo a su ficha. La fila se queda para que se vea que paso con ese PDF; cuando
      * la tarea de la noche lo relea (ya es un documento de la ficha) la convertira en una
      * lectura suya, con su comparacion de verdad.
@@ -145,10 +153,10 @@ class VerificacionDocumento extends Model
     public const APLICADO = 'aplicado';
 
     /** Los estados de la carga masiva que todavia esperan a una persona. */
-    public const DE_LA_CARGA = [self::POR_ENGANCHAR, self::SIN_FICHA];
+    public const DE_LA_CARGA = [self::POR_ENGANCHAR, self::SIN_FICHA, self::OTRO_DOCUMENTO];
 
     /** Todos los de la carga masiva, incluido el ya resuelto. Para el filtro de la pantalla. */
-    public const DE_LA_CARGA_TODOS = [self::POR_ENGANCHAR, self::SIN_FICHA, self::APLICADO];
+    public const DE_LA_CARGA_TODOS = [self::POR_ENGANCHAR, self::SIN_FICHA, self::OTRO_DOCUMENTO, self::APLICADO];
 
     /** Filas que vienen de la carga masiva, en cualquier estado (tambien las ya aplicadas). */
     public function scopeDeCargaMasiva($q)

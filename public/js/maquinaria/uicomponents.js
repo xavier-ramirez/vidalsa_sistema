@@ -926,6 +926,28 @@ window.showDetailsImproved = function (target, event) {
     createDocBtn("d_btn_adicional", "adicional", d.linkAdicional, 'Certificado Asociado', eqId);
     createDocBtn("d_btn_adicional_2", "adicional_2", d.linkAdicional2, 'Compraventa', eqId);
 
+    // Documento de EMBARQUE (BL). Tampoco viaja en el dataset (mismo motivo que los anexos,
+    // abajo): se pide al abrir el detalle y la fila solo aparece si el equipo tiene uno.
+    const rowEmbarque = document.getElementById('d_row_embarque');
+    if (rowEmbarque && eqId) {
+        rowEmbarque.style.display = 'none';
+        fetch('/admin/equipos/' + eqId + '/embarque', { headers: { 'Accept': 'application/json' } })
+            .then(r => (r.ok ? r.json() : null))
+            .then(res => {
+                const emb = res && res.embarque;
+                // Otro equipo abierto mientras llegaba la respuesta: no se pinta aqui.
+                if (!emb || String(window._quickEditEquipoId || '') !== String(eqId)) return;
+                // textContent: el numero y el buque salen del texto del PDF.
+                document.getElementById('d_embarque_txt').textContent =
+                    'BL ' + (emb.nro || 's/n') + (emb.fecha ? ' · ' + emb.fecha : '');
+                const btn = document.getElementById('d_btn_embarque');
+                btn.href = emb.link;
+                btn.title = 'Ver documento de embarque' + (emb.buque ? ' (' + emb.buque + ')' : '');
+                rowEmbarque.style.display = 'flex';
+            })
+            .catch(() => {});   // sin embarque la ficha se ve como siempre
+    }
+
     // Contador de CORRECCIONES ANEXAS sobre el boton del documento.
     // Los anexos no viajan en el dataset de cada fila: la tabla trae ~1.200
     // equipos y engordaria el HTML de todas para un dato que solo mira quien abre

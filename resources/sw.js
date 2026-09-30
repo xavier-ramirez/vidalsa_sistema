@@ -2,7 +2,7 @@
  * Vidalsa PWA Service Worker
  * Estrategia: stale-while-revalidate para el login (/), network-first para el
  * resto de HTML (la app es dinámica), cache-first para assets estáticos
- * (/icons, /css, /js, /fonts, /images) que ya vienen con cache-busting via ?v=filemtime.
+ * (/img, /css, /js, /fonts, /images) que ya vienen con cache-busting via ?v=filemtime.
  *
  * MODO OFFLINE (Fase 1): las navegaciones (incluidas /admin/ y /dashboard/) son
  * network-first y se CACHEAN; offline se sirve el cascarón cacheado para que el

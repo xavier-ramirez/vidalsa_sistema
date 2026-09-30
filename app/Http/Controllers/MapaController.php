@@ -152,11 +152,8 @@ class MapaController extends Controller
 
         $esGps51 = stripos((string) $equipo->LINK_GPS, 'gps51') !== false;
         $authcode = Gps51Service::authcode($equipo->LINK_GPS);
-        $placa = optional($equipo->documentacion)->PLACA;
-        // MISMA regla que el mapa (eqIdent) y que el Excel del panel: placa, y si no hay, el
-        // serial. Que el mismo equipo no se llame de dos formas segun la pantalla.
-        $ident = $placa ?: ($equipo->SERIAL_CHASIS ?: ($equipo->SERIAL_DE_MOTOR
-                 ?: ($equipo->CODIGO_PATIO ?: ($equipo->NUMERO_ETIQUETA ?: 'Equipo ' . $equipo->ID_EQUIPO))));
+        $placa = trim((string) optional($equipo->documentacion)->PLACA);
+        [$ident] = self::identificar($equipo, 'Equipo ' . $equipo->ID_EQUIPO);
 
         return response()->json([
             'gps51'  => $esGps51,
@@ -243,22 +240,7 @@ class MapaController extends Controller
 
         $filas = $equipos->map(function ($e) use ($pos, $dirs, $conPunto) {
             $p = $pos[Gps51Service::authcode($e->LINK_GPS)] ?? null;
-            $placa = trim((string) optional($e->documentacion)->PLACA);
-            // Los MISMOS escalones que la lista del panel (eqIdent, mapa_index.js): placa, serial
-            // de chasis, serial de motor y, si no hay ninguno, el código de patio o la etiqueta.
-            // Antes se paraba en el serial de motor y ponía "—", así que un equipo identificado en
-            // pantalla por su código salía sin identificar en el Excel.
-            $escalones = [
-                ['PLACA',            $placa],
-                ['SERIAL DE CHASIS', trim((string) $e->SERIAL_CHASIS)],
-                ['SERIAL DE MOTOR',  trim((string) $e->SERIAL_DE_MOTOR)],
-                ['CÓDIGO DE PATIO',  trim((string) $e->CODIGO_PATIO)],
-                ['ETIQUETA',         trim((string) $e->NUMERO_ETIQUETA)],
-            ];
-            [$ident, $identPor] = ['—', '—'];
-            foreach ($escalones as [$por, $valor]) {
-                if ($valor !== '') { [$ident, $identPor] = [$valor, $por]; break; }
-            }
+            [$ident, $identPor] = self::identificar($e, '—');
             return [
                 'frente'   => $e->frenteActual ? mb_strtoupper(trim($e->frenteActual->NOMBRE_FRENTE)) : 'SIN FRENTE',
                 'tipo'     => $e->tipo ? mb_strtoupper($e->tipo->nombre) : '—',
@@ -352,6 +334,38 @@ class MapaController extends Controller
             'Content-Type'  => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             'Cache-Control' => 'no-cache, no-store, must-revalidate',
         ])->deleteFileAfterSend(true);
+    }
+
+    /**
+     * Cómo se llama un equipo: placa, y si no la tiene, serial de chasis, serial de motor, código
+     * de patio o etiqueta — en ese orden.
+     *
+     * Vive AQUÍ y no repetido en cada sitio porque lo usan la ficha del modal, el Excel del panel y
+     * la lista del mapa (eqIdent, en mapa_index.js, con los mismos cinco escalones y el mismo
+     * recorte de espacios). Estaba escrito tres veces y las tres no hacían lo mismo: una no
+     * recortaba, así que una PLACA de puros espacios ganaba y el equipo salía sin nombre, mientras
+     * las otras bajaban al serial. El mismo equipo no puede llamarse distinto según la pantalla.
+     *
+     * @param  string  $siNoHay  qué devolver cuando no hay ninguno ("—" en el Excel, "Equipo N" en
+     *                           pantalla, que ahí siempre tiene que verse algo).
+     * @return array{0: string, 1: string}  [identificador, de dónde salió]
+     */
+    private static function identificar($equipo, string $siNoHay): array
+    {
+        $escalones = [
+            ['PLACA',            optional($equipo->documentacion)->PLACA],
+            ['SERIAL DE CHASIS', $equipo->SERIAL_CHASIS],
+            ['SERIAL DE MOTOR',  $equipo->SERIAL_DE_MOTOR],
+            ['CÓDIGO DE PATIO',  $equipo->CODIGO_PATIO],
+            ['ETIQUETA',         $equipo->NUMERO_ETIQUETA],
+        ];
+        foreach ($escalones as [$por, $valor]) {
+            $valor = trim((string) $valor);
+            if ($valor !== '') {
+                return [$valor, $por];
+            }
+        }
+        return [$siNoHay, '—'];
     }
 
     /** Estado del GPS en palabras para el Excel (los mismos casos que distingue el mapa). */

@@ -612,6 +612,7 @@ class HistorialDocumentosController extends Controller
                     'upload_racda'         => 'Subida RACDA',
                     'upload_adicional'     => 'Subida Certificado',
                     'upload_adicional_2'   => 'Subida Compraventa',
+                    'upload_embarque'      => 'Enlace a embarque (BL)',
                     'delete_propiedad'     => 'Borrado Propiedad',
                     'delete_poliza'        => 'Borrado Póliza',
                     'delete_rotc'          => 'Borrado ROTC',

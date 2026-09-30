@@ -35,8 +35,11 @@ class CargaMasivaDocumentosController extends Controller
             // El techo lo manda GoogleDriveService::MAX_PDF_KB (la comprobacion central, que
             // vale para todas las puertas). Aqui se repite para avisar ANTES de procesar.
             'file' => 'required|file|mimes:pdf|max:' . \App\Services\GoogleDriveService::MAX_PDF_KB,
-            'tipo' => ['nullable', Rule::in(CargaMasivaDocumentos::TIPOS)],
+            // SIEMPRE se dice que documento se carga: el sistema busca ESE y lo que resulte ser
+            // otro no se asocia (queda como "Otro documento", ver CargaMasivaDocumentos).
+            'tipo' => ['required', Rule::in(CargaMasivaDocumentos::TIPOS)],
         ], [
+            'tipo.required' => 'Elige primero qué documento vas a cargar.',
             'file.required' => 'Debe seleccionar un archivo.',
             'file.mimes'    => 'Solo se aceptan archivos en formato PDF.',
             // En KB, igual que el aviso de la comprobacion central: si uno dice "2,9 MB" y
@@ -50,7 +53,7 @@ class CargaMasivaDocumentosController extends Controller
 
         return response()->json([
             'success'   => true,
-            'propuesta' => $this->servicio->analizar($request->file('file'), $request->input('tipo') ?: null),
+            'propuesta' => $this->servicio->analizar($request->file('file'), $request->input('tipo')),
         ]);
     }
 

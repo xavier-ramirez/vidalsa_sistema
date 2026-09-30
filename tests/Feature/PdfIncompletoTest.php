@@ -86,7 +86,7 @@ class PdfIncompletoTest extends MySqlTestCase
             $cortado = \Illuminate\Http\UploadedFile::fake()->createWithContent(
                 'rotc_cortado.pdf', "%PDF-1.5\\n" . str_repeat('x', 2048)   // sin %%EOF
             );
-            $p = app(\App\Services\CargaMasivaDocumentos::class)->analizar($cortado);
+            $p = app(\App\Services\CargaMasivaDocumentos::class)->analizar($cortado, 'rotc');
 
             $this->assertNull($p['link'], 'no llego a Drive');
             $this->assertMatchesRegularExpression('/incompleto|corto a medias/i', (string) $p['aviso']);

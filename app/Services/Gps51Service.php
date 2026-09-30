@@ -53,8 +53,9 @@ class Gps51Service
     /** Última señal más reciente que esto = el equipo está "en línea". */
     private const EN_LINEA_MS = 10 * 60 * 1000;
 
-    /** Recuadro de Venezuela: un GPS que reporta fuera (p. ej. la posición de fábrica, en China)
-        no se pinta. */
+    /** Recuadro de Venezuela. Un GPS que reporta fuera (p. ej. la posición de fábrica, en China)
+        SÍ se pinta, marcado como dudoso (pedido del cliente, 28-09-2026): el cliente quiere ver
+        dónde dice el GPS que está, pero nadie debe salir a buscar el equipo ahí. Ver normalizar(). */
     private const VENEZUELA = ['lat_min' => 0.6, 'lat_max' => 12.6, 'lng_min' => -73.4, 'lng_max' => -59.8];
 
     /** El authcode de un enlace compartido de GPS51, o null si el enlace no es de GPS51. */

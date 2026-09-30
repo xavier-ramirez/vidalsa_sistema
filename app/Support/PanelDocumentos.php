@@ -114,9 +114,9 @@ class PanelDocumentos
     private static function datosDocumentos(Request $request, string $buscar): array
     {
         $avance = self::avance();
-        // Los cinco de la revision nocturna mas los dos de la carga masiva (POR_ENGANCHAR y
-        // SIN_FICHA): las dos procedencias comparten esta tabla, que es la unica del modulo
-        // donde se ve el estado de un documento.
+        // Los cinco de la revision nocturna mas los de la carga masiva (DE_LA_CARGA_TODOS): las
+        // dos procedencias comparten esta tabla, que es la unica del modulo donde se ve el
+        // estado de un documento.
         $estados = array_merge(
             [VerificacionDocumento::COINCIDE, VerificacionDocumento::DIFIERE,
              VerificacionDocumento::ILEGIBLE, VerificacionDocumento::SIN_ARCHIVO, VerificacionDocumento::ERROR],
@@ -157,6 +157,7 @@ class PanelDocumentos
             // Lo recien soltado en la carga masiva va PRIMERO: es lo que alguien esta
             // esperando para pulsar "Aplicar", y sin eso se perderia entre miles de filas.
             ->orderByRaw("FIELD(ESTADO, '" . VerificacionDocumento::POR_ENGANCHAR . "', '" . VerificacionDocumento::SIN_FICHA
+                . "', '" . VerificacionDocumento::OTRO_DOCUMENTO
                 . "', '" . VerificacionDocumento::DIFIERE . "', '" . VerificacionDocumento::ILEGIBLE
                 . "', '" . VerificacionDocumento::SIN_ARCHIVO . "', '" . VerificacionDocumento::ERROR . "', '" . VerificacionDocumento::COINCIDE
                 // Lo ya aplicado de la carga, al final: FIELD da 0 a lo que no esta en la lista y
