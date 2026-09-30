@@ -773,8 +773,13 @@ class CargaMasivaDocumentos
         }
 
         // Ademas de los VIN, cualquier codigo de la hoja que sea EXACTAMENTE el serial de un
-        // equipo: las maquinas (LOVOL, SHANTUI) no siempre traen 17 caracteres.
-        $buscar = $this->codigos(array_merge($bl['vins'], $bl['vins_partidos'], $texto !== '' ? $this->codigosEnTexto($texto) : []));
+        // equipo: las maquinas (LOVOL, SHANTUI) no siempre traen 17 caracteres. De cada uno se
+        // guarda como lo IMPRIME el BL (comparado, "LZZWADG46STS01046" es "...5TS01046").
+        $impreso = [];
+        foreach (array_merge($bl['vins'], $bl['vins_partidos'], $texto !== '' ? $this->codigosEnTexto($texto) : []) as $v) {
+            $impreso[$this->lector->codigo($v)] ??= $v;
+        }
+        $buscar = array_keys(array_filter($impreso, fn ($v, $c) => $c !== '', ARRAY_FILTER_USE_BOTH));
         $filas = $buscar
             ? $this->consulta()->whereIn(DB::raw(self::sqlCodigo('e.SERIAL_CHASIS')), $buscar)
                 ->orderBy('e.ID_EQUIPO')->limit(self::TOPE_EMBARQUE + 1)->get()
@@ -790,7 +795,8 @@ class CargaMasivaDocumentos
         // los VIN enteros que no estan en el sistema.
         $unidades = $filas->count() + count($noEstan);
 
-        $fichas = $filas->map(fn ($f) => ['coincide_por' => 'el VIN ' . $f->SERIAL_CHASIS] + $this->ficha($f))->values()->all();
+        $fichas = $filas->map(fn ($f) => ['coincide_por' => 'el VIN ' . $f->SERIAL_CHASIS] + $this->ficha($f)
+            + ['vin_bl' => $impreso[$this->lector->codigo((string) $f->SERIAL_CHASIS)] ?? $f->SERIAL_CHASIS])->values()->all();
         $rotulo = 'BL ' . ($bl['nro'] ?? 'sin numero') . ($bl['buque'] ? ' (' . $bl['buque'] . ')' : '');
 
         $propuesta = [
@@ -837,7 +843,7 @@ class CargaMasivaDocumentos
         if (($p['tipo'] ?? null) !== self::EMBARQUE || empty($p['embarque'])) return null;
 
         return $p['embarque'] + ['archivo' => $p['archivo'] ?? null,
-            'vins' => array_column($p['equipos'] ?? [], 'serial', 'id')];
+            'vins' => array_column($p['equipos'] ?? [], 'vin_bl', 'id')];
     }
 
     /**
@@ -891,15 +897,18 @@ class CargaMasivaDocumentos
                 . ($pdfDistinto ? ', cambiandole el PDF al BL' : '') . '. No se escribio nada.'];
         }
 
-        $anterior = $embarque?->LINK;
-        DB::transaction(function () use (&$embarque, $bl, $link, $idEquipo, $actual, $enEste) {
-            $datos = [
-                'NRO_BL' => $bl['nro'], 'BUQUE' => $bl['buque'],
-                'PUERTO_CARGA' => $bl['puerto_carga'], 'PUERTO_DESCARGA' => $bl['puerto_descarga'],
-                'FECHA_EMBARQUE' => $bl['fecha'], 'LINK' => $link, 'ARCHIVO' => $bl['archivo'],
-                'UNIDADES' => $bl['unidades'], 'SUBIDO_POR' => auth()->user()->ID_USUARIO,
-            ];
-            $embarque ? $embarque->update($datos) : ($embarque = Embarque::create($datos));
+        $anterior = $pdfDistinto ? $embarque->LINK : null;
+        DB::transaction(function () use (&$embarque, $bl, $link, $idEquipo, $actual, $enEste, $pdfDistinto) {
+            // El BL se escribe al crearlo o al cambiarle el PDF; las demas unidades solo se enlazan.
+            if (!$embarque || $pdfDistinto) {
+                $datos = [
+                    'NRO_BL' => $bl['nro'], 'BUQUE' => $bl['buque'],
+                    'PUERTO_CARGA' => $bl['puerto_carga'], 'PUERTO_DESCARGA' => $bl['puerto_descarga'],
+                    'FECHA_EMBARQUE' => $bl['fecha'], 'LINK' => $link, 'ARCHIVO' => $bl['archivo'],
+                    'UNIDADES' => $bl['unidades'], 'SUBIDO_POR' => auth()->user()->ID_USUARIO,
+                ];
+                $embarque ? $embarque->update($datos) : ($embarque = Embarque::create($datos));
+            }
 
             if (!$enEste) {
                 if ($actual) DB::table('embarque_equipo')->where('ID_EQUIPO', $idEquipo)->delete();
@@ -911,8 +920,8 @@ class CargaMasivaDocumentos
             }
         });
 
-        // El PDF viejo del BL, si se reemplazo, ya no lo usa nadie (el job lo vuelve a comprobar).
-        $this->retirarReemplazado($anterior, $link, ['embarque' => $embarque->ID_EMBARQUE]);
+        // El PDF viejo del BL, si se le cambio, ya no lo usa nadie (el job lo vuelve a comprobar).
+        if ($anterior) $this->retirarReemplazado($anterior, $link, ['embarque' => $embarque->ID_EMBARQUE]);
 
         EquipoAuditLog::registrar($idEquipo, 'upload_' . self::EMBARQUE, [
             'archivo' => basename($link), 'bl' => $bl['nro'], 'origen' => 'carga masiva',

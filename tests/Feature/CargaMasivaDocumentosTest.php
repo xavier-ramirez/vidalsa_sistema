@@ -837,7 +837,8 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
             'ESTADO' => VerificacionDocumento::POR_ENGANCHAR, 'A_MANO' => true, 'INTENTOS' => 0,
             'PROPUESTA' => ['tipo' => CargaMasivaDocumentos::EMBARQUE, 'link' => '/storage/google/' . $driveId,
                 'archivo' => $driveId . '.pdf',
-                'equipos' => array_map(fn ($e) => ['id' => $e->ID_EQUIPO, 'auxiliar' => false, 'serial' => $e->SERIAL_CHASIS], $equipos),
+                'equipos' => array_map(fn ($e) => ['id' => $e->ID_EQUIPO, 'auxiliar' => false, 'serial' => $e->SERIAL_CHASIS,
+                    'vin_bl' => $e->SERIAL_CHASIS], $equipos),
                 'embarque' => ['nro' => $nro, 'buque' => 'HONCHO V.2512', 'puerto_carga' => 'LONGKOU,CHINA',
                     'puerto_descarga' => 'GUANTA, VENEZUELA', 'fecha' => '2025-07-20', 'unidades' => count($equipos), 'no_registrados' => []]],
         ]);
@@ -880,6 +881,7 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
         $this->assertSame('listo', $p['estado'], (string) $p['aviso']);
         $this->assertEqualsCanonicalizing([$a->ID_EQUIPO, $sinDoc->ID_EQUIPO], array_column($p['equipos'], 'id'));
         $this->assertSame([$falta], $p['embarque']['no_registrados']);
+        $this->assertSame($a->SERIAL_CHASIS, collect($p['equipos'])->firstWhere('id', $a->ID_EQUIPO)['vin_bl'], 'el VIN tal como lo imprime el BL');
         $this->assertSame(3, $p['embarque']['unidades']);
         $this->assertStringContainsString('No estan en el sistema: ' . $falta, $p['aviso']);
     }

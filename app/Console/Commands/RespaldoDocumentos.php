@@ -5,13 +5,15 @@ namespace App\Console\Commands;
 use Illuminate\Console\Command;
 use App\Services\GoogleDriveService;
 use App\Models\Documentacion;
+use App\Models\Embarque;
 use App\Models\EquipoAuxiliar;
 
 /**
  * Respaldo LOCAL de todos los PDF de documentos guardados en Google Drive.
  *
  * Baja cada documento (propiedad, póliza, ROTC, RACDA, certificado, compraventa) de
- * VEHÍCULOS y AUXILIARES a una carpeta local, organizada por equipo, y genera un
+ * VEHÍCULOS y AUXILIARES, y cada documento de EMBARQUE (BL, uno por BL: lo comparten sus
+ * equipos), a una carpeta local, organizada por equipo, y genera un
  * índice CSV (se abre en Excel) que relaciona SERIAL + PLACA + TIPO → RUTA del archivo.
  * Así el usuario busca el equipo en el Excel y encuentra dónde está su PDF.
  *
@@ -132,7 +134,22 @@ class RespaldoDocumentos extends Command
             $this->newLine(2);
         }
 
-        // ── 3) Índice CSV (con BOM para que Excel muestre bien los acentos) ────
+        // ── 3) EMBARQUES (BL) ─────────────────────────────────────────────────
+        // UN archivo por BL, no uno por equipo: es el mismo PDF para todas sus unidades. En el
+        // índice va el número de BL y cuántos equipos ampara (la lista está en el sistema).
+        $embarques = Embarque::withCount('equipos')->get();
+        if ($embarques->count()) {
+            $this->line("   Embarques…");
+            foreach ($embarques as $emb) {
+                $carpeta = $this->nombreCarpeta('EMB', $emb->NRO_BL, null, $emb->ID_EMBARQUE);
+                $res = $this->procesarDoc($drive, $destino, $carpeta, 'EMBARQUE', $emb->LINK, $soloIndice, $stats);
+                $filas[] = ['EMBARQUE', '', $emb->NRO_BL ?? '', $emb->BUQUE ?? '', $emb->equipos_count . ' equipos',
+                            'EMBARQUE', $res['archivo'], $res['drive_id'], $res['estado']];
+            }
+            $this->newLine();
+        }
+
+        // ── 4) Índice CSV (con BOM para que Excel muestre bien los acentos) ────
         $csvPath = $destino . '/INDICE.csv';
         $fh = fopen($csvPath, 'w');
         fwrite($fh, "\xEF\xBB\xBF"); // BOM UTF-8
