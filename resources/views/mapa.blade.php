@@ -16,6 +16,13 @@
          data-equipos-gps-exportar = el Excel del panel de equipos (MapaController::exportarEquiposGps).
          Todos los geojson son LOCALES y, como los equipos, se cargan solo cuando se enciende su capa. --}}
     @php $geo = fn ($ruta) => asset($ruta) . '?v=' . (@filemtime(public_path($ruta)) ?: 0); @endphp
+    {{-- Dos columnas: el mapa y, a su derecha, el sitio del panel de la capa Equipos. El panel NO
+         va flotando encima del mapa (antes era un control de Leaflet en la esquina y tapaba media
+         pantalla): vive en #mapa-lateral, que está vacío y sin ancho mientras ninguna capa lo
+         pida. Al encenderse la capa, mapa_index.js le pone la clase "con-panel" a este contenedor
+         y avisa a Leaflet del nuevo ancho (invalidateSize), que si no se queda con las piezas del
+         mapa a medio dibujar. --}}
+    <div class="mapa-layout" id="mapa-layout">
     <div id="mapa-leaflet"
          data-geojson="{{ $geo('geo/venezuela-estados.geojson') }}"
          data-municipios="{{ $geo('geo/venezuela-municipios.geojson') }}"
@@ -27,6 +34,8 @@
          data-mini-equipos="{{ $geo('img/mapa/mini-equipos.png') }}"
          data-equipos-gps="{{ route('mapa.equiposGps') }}"
          data-equipos-gps-exportar="{{ route('mapa.equiposGps.exportar') }}"></div>
+        <aside class="mapa-lateral" id="mapa-lateral"></aside>
+    </div>
 </div>
 {{-- Frentes de trabajo = proyectos. mapa_index.js los usa para el selector "Vincular a un
      proyecto" (recomendados desde la tabla frentes_trabajo; ya NO se crean a mano en el mapa). --}}

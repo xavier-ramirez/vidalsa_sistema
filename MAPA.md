@@ -207,14 +207,17 @@ decide nada: propone y una persona confirma.
   pisa** lo que el OCR ya leyó (`mezclarLoDeIa`); si no aporta nada, la propuesta queda como
   estaba. Cuando ayuda, la fila de la tabla lo dice en su motivo y queda para revisar.
 - **Revisión nocturna** (`docs:verificar-documentos`): solo los que quedan **"No se pudo
-  leer"**, y con el modelo bueno. Lo leído se guarda en `LEIDO['ia']` y se resume en el MOTIVO;
+  leer"**, con el mismo modelo que la carga masiva. Lo leído se guarda en `LEIDO['ia']` y se resume en el MOTIVO;
   **no se aplica solo** (un ilegible ya sale en "para revisar"). Se apaga con `--sin-ia`.
 - **Una sola vez por archivo**: un ilegible se relee 3 veces esa noche y vuelve a la cola cada
   noche; la marca `LEIDO['ia']` evita que los mismos documentos se coman el cupo entero todas
   las noches (`yaPasoPorLaIa`). Si tampoco pudo leerlo, la marca queda vacía y no se repite.
 - **Ritmo y cupo** (plan gratis): un documento a la vez en todo el servidor (candado
-  `gemini_lectura`), espera entre uno y otro por el tope por minuto y una cuenta diaria **por
-  modelo**. Agotado el cupo, o sin `GEMINI_API_KEY`, todo sigue exactamente como antes.
+  `gemini_lectura`), espera entre uno y otro por el tope por minuto y una cuenta diaria.
+  **Un solo modelo** (`gemini-3.5-flash-lite`, ~500 al día): el de 20 al día se quitó porque
+  se agotaba enseguida. El día del cupo se cuenta como Google (medianoche del Pacífico = 03:00
+  en Venezuela), y si Google responde que se acabó el del día, no se le vuelve a preguntar hasta
+  que renueve. Agotado el cupo, o sin `GEMINI_API_KEY`, todo sigue exactamente como antes.
 - La clave va en el `.env` del servidor — **nunca** en el repositorio (`config/services.php`
   la lee de `GEMINI_API_KEY`, con los topes por env para no tocar código si se paga un plan).
 
@@ -225,11 +228,30 @@ Todo lo que llega tarde (proyectos, capas, municipios) mira `desmontado`: si se 
 no pinta. El spinner lo cuida la **generación** del contador (`window.preloaderGeneracion`, sube
 con cada `hidePreloader(true)`): `spinOn/spinOff` del mapa no devuelven una referencia pedida
 antes de que una navegación pusiera el contador a cero — restarla destapaba la pantalla nueva.
-- **Capa Equipos (GPS51)** = un solo panel "Equipos con GPS" arriba-derecha (a la izquierda de
-  las capas): conteos, filtros frente / tipo / serial con los desplegables de Equipos
-  (`uicomponents.js`) y la lista de equipos, sin colores. Los filtros (`eqPasaFiltro`) deciden
-  también qué puntos se pintan. No hay otra leyenda, ni buscador aparte, ni reparto por frente:
-  para eso están los filtros (pedido 22-09-2026).
+- **Capa Equipos (GPS51)** = un solo panel "Equipos con GPS" en la COLUMNA DE LA DERECHA
+  (`.mapa-layout` > `#mapa-lateral`, ver `mapa.blade.php`), no flotando sobre el mapa: conteos,
+  filtros frente / tipo / serial con los desplegables de Equipos (`uicomponents.js`) y la lista de
+  equipos, sin colores. Los filtros (`eqPasaFiltro`) deciden también qué puntos se pintan. No hay
+  otra leyenda, ni buscador aparte, ni reparto por frente: para eso están los filtros (pedido
+  22-09-2026). La columna se abre y se cierra con la capa, y **cada vez hay que avisarle a Leaflet
+  del ancho nuevo** (`eqAvisarTamano` → `invalidateSize`, dos veces: al momento y al acabar la
+  animación); sin eso el mapa se queda con el tamaño viejo y sale a medio dibujar. Desde 1400 px el
+  menú de la app se encoge para dejarle la columna libre; entre 901 y 1399 baja el tablero entero;
+  por debajo de 900 el panel va DEBAJO del mapa.
+- **Los equipos van AGRUPADOS** (Leaflet.markercluster, servido desde `/vendor/leaflet`): de lejos
+  los que caen en el mismo sitio se juntan en una banderita con su número (`eqIconoGrupo` +
+  `.mapa-eq-grupo`) y desde `EQ_GRUPO_HASTA_ZOOM` se ven todos sueltos. Dos reglas que no se
+  adivinan leyendo el código:
+  1. **Mover un marcador exige avisar al agrupador** (`refreshClusters`): lleva su propio árbol de
+     posiciones y, sin el aviso, el icono se mueve pero su grupo sigue calculado con la coordenada
+     vieja.
+  2. **La capa se monta a puerta cerrada.** Mientras `capaEquipos.montando`, NADIE llama a
+     `eqPintar`: el mapa sale de una vez, ya agrupado, cuando llegan todas las posiciones o cuando
+     vence `EQ_MONTAJE_TOPE_MS` (15 s; GPS51 es lento y no se deja la pantalla bloqueada sin fin).
+     El spinner aguanta hasta ese momento. Antes se veían aparecer los equipos a goteo y juntarse
+     en grupos una y otra vez con cada tanda.
+- **La lista del panel se pinta por bloques** (`EQ_LISTA_BLOQUE` / `eqVisibles`), no entera: crece
+  al bajar y vuelve al primer bloque al cambiar de filtro o al apagar la capa.
 - **Excel del panel** (`mapa.equiposGps.exportar`): recibe los `ids` de lo filtrado (el servidor
   igual recorta a los frentes del usuario). Posición: la fresca (2 min), si no la ÚLTIMA
   conocida (`Gps51Service::ultimasConocidas`, 1 día) y solo lo que no tiene ninguna se pide a

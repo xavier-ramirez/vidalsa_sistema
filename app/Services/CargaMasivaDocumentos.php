@@ -640,7 +640,7 @@ class CargaMasivaDocumentos
         // Un solo intento: esto corre dentro de una peticion del navegador, que tiene su
         // propio tope de tiempo (ver CargaMasivaDocumentosController). Reintentar aqui
         // acabaria en un "error de red" con el archivo ya subido.
-        $visto = $pdf === '' ? null : $this->ia->leer($pdf, false, 1);
+        $visto = $pdf === '' ? null : $this->ia->leer($pdf, 1);
         if (!$visto) return $comoEstaba;
 
         $tipoIa = $tipoPedido ?: ($tipo ?: $visto['tipo']);

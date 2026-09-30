@@ -95,7 +95,9 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/mapa/equipos-gps', [App\Http\Controllers\MapaController::class, 'equiposGps'])->name('mapa.equiposGps');
         Route::get('/mapa/equipos-gps/exportar', [App\Http\Controllers\MapaController::class, 'exportarEquiposGps'])->name('mapa.equiposGps.exportar');
         Route::get('/mapa/equipos-gps/posiciones', [App\Http\Controllers\MapaController::class, 'equiposGpsPosiciones'])->name('mapa.equiposGps.posiciones');
-        Route::get('/mapa/equipos-gps/{id}/direccion', [App\Http\Controllers\MapaController::class, 'equipoGpsDireccion'])->whereNumber('id')->name('mapa.equiposGps.direccion');
+        // Un solo equipo: el modal "Rastreo Satelital en Vivo" del detalle de equipos.
+        Route::get('/mapa/equipos-gps/{id}', [App\Http\Controllers\MapaController::class, 'equipoGps'])->whereNumber('id')->name('mapa.equiposGps.equipo');
+        Route::get('/mapa/equipos-gps/{id}/direccion',[App\Http\Controllers\MapaController::class, 'equipoGpsDireccion'])->whereNumber('id')->name('mapa.equiposGps.direccion');
         // Oleoductos del mapa (proyectos de puntos + linea). API JSON que consume mapa_index.js.
         Route::get   ('/mapa/oleoductos',              [App\Http\Controllers\OleoductoController::class, 'index'])->name('mapa.oleoductos.index');
         // Escritura del mapa (crear punto, asociar/dibujar, borrar punto/proyecto): SOLO con el

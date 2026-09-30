@@ -705,6 +705,14 @@ class VerificacionDocumentoTest extends MySqlTestCase
         // Lectura 8 p.m. - 12 de la noche y compresion 2 - 5 a.m., sin tocarse.
         // Se mira cada tarea a varias horas SIN el filtro de "es el servidor" (en el PC de
         // desarrollo no corre nunca): franja + "hay trabajo".
+        //
+        // El trabajo lo pone la propia prueba: una ficha con sus enlaces y sin leer. Antes se
+        // daba por hecho que la base tenia algo pendiente, y el dia que se sincronizo con el
+        // servidor —que lo tiene todo leido— la cola quedo en cero y "a las 20:00 arranca"
+        // fallaba sin que nada del programador hubiera cambiado. La transaccion de la prueba
+        // se lleva la ficha al terminar.
+        $this->equipoConDocumentos();
+        $this->assertTrue(VerificacionDocumento::hayTrabajo(), 'La prueba tiene que dejar algo por leer.');
         $pasan = function (string $hora, string $comando, bool $nadaEstaNoche = false) {
             \Carbon\Carbon::setTestNow(\Carbon\Carbon::parse("2026-09-18 $hora", config('app.timezone')));
             \Illuminate\Support\Facades\Cache::put('docs_comprimir_nada', $nadaEstaNoche, 60);

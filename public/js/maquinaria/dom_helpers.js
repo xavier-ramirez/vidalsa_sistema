@@ -203,6 +203,62 @@
     };
 
     /**
+     * Marca de tiempo (ms) a "28/9/2026", SIEMPRE en hora de Venezuela.
+     *
+     * Existe aparte de fechaHoraLocal porque hay un sitio que solo quiere el día sin la hora
+     * (el "vigente hasta el" del enlace de GPS del modal de rastreo). Antes ese sitio recortaba
+     * la cadena de la fecha con hora a mano (slice + split + reverse), y al cambiar el formato
+     * dejó de cuadrar: los días de un solo dígito salían cortados ("1/9/2026 0"). La fecha se
+     * arma en UN solo sitio y quien quiera solo el día llama aquí.
+     *
+     * La zona se fija a America/Caracas a propósito: la hora que importa es la de la obra,
+     * no la del equipo desde el que se consulta.
+     */
+    window.fechaLocal = function (ms) {
+        if (!ms) return '';
+        return new Date(ms).toLocaleDateString('es-VE', { timeZone: 'America/Caracas' });
+    };
+
+    /**
+     * Marca de tiempo (ms) a "28/9/2026 07:47", SIEMPRE en hora de Venezuela.
+     *
+     * Acompaña a tiempoHace y por el mismo motivo: la ficha del equipo en el MAPA y la del
+     * modal "Rastreo Satelital en Vivo" enseñan la MISMA última señal del MISMO equipo, y la
+     * escribían cada una a su manera — el mapa en la zona del PC ("28/9/2026 07:47") y el
+     * modal forzando Caracas con formato sueco ("2026-09-28 07:47:58"). En un PC con otra
+     * zona horaria el mismo GPS mostraba dos horas distintas según dónde se mirara.
+     *
+     * La hora va en 24 h (hour12: false) a propósito: es como la enseña GPS51 y así "15:40" no
+     * se confunde con "03:40" ni gasta sitio en el "p. m." dentro de la ficha.
+     */
+    window.fechaHoraLocal = function (ms) {
+        if (!ms) return '';
+        return window.fechaLocal(ms) + ' ' +
+               new Date(ms).toLocaleTimeString('es-VE', {
+                   timeZone: 'America/Caracas', hour: '2-digit', minute: '2-digit', hour12: false
+               });
+    };
+
+    /**
+     * "hace 5 min" / "hace 3 días": cuánto pasó desde una marca de tiempo (ms).
+     *
+     * Vive AQUÍ por el mismo motivo que formatearFecha: lo usan la ficha de un equipo en el
+     * MAPA y el modal "Rastreo Satelital en Vivo" del detalle de equipos, y son dos pantallas
+     * que enseñan EL MISMO dato del MISMO equipo. Escrito dos veces, el día que alguien
+     * cambiara un umbral (los 60 s, la hora, el día) el mismo GPS diría una cosa en el mapa y
+     * otra en la ficha, que es justo lo que no puede pasar.
+     */
+    window.tiempoHace = function (ms) {
+        if (!ms) return 'Sin dato';
+        var s = Math.max(0, (Date.now() - ms) / 1000);
+        if (s < 60) return 'hace segundos';
+        if (s < 3600) return 'hace ' + Math.floor(s / 60) + ' min';
+        if (s < 86400) return 'hace ' + Math.floor(s / 3600) + ' h';
+        var dias = Math.floor(s / 86400);
+        return 'hace ' + dias + (dias === 1 ? ' día' : ' días');
+    };
+
+    /**
      * Fecha de la base (aaaa-mm-dd) a como se lee en pantalla (dd/mm/aaaa).
      *
      * Vive AQUI porque la usan dos fichas distintas —el detalle de un equipo y el de un

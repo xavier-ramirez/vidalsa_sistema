@@ -58,15 +58,11 @@ return [
     'gemini' => [
         'key' => env('GEMINI_API_KEY'),
 
-        // El de diario: rapido, barato y con cupo grande (15 por minuto, 500 al dia).
+        // UN solo modelo para todo: rapido y con cupo grande (15 por minuto, 500 al dia). El de
+        // "casos duros" (gemini-3.8-flash) daba 20 al dia y se agotaba enseguida: se quito.
         'modelo' => env('GEMINI_MODELO', 'gemini-3.5-flash-lite'),
         'rpm'    => env('GEMINI_RPM', 15),
         'rpd'    => env('GEMINI_RPD', 450),
-
-        // El de los casos duros: lee mejor pero su cupo diario es minimo (20 al dia), asi que
-        // solo se usa cuando el documento quedo ilegible o los datos no cuadran.
-        'modelo_dificil' => env('GEMINI_MODELO_DIFICIL', 'gemini-3.8-flash'),
-        'rpd_dificil'    => env('GEMINI_RPD_DIFICIL', 18),
 
         // Espera por documento. 75 s con holgura: medido el 22-09-2026 son ~6 s de media y
         // ~20 s el peor. Tiene que caber en el tope de la peticion de la carga masiva

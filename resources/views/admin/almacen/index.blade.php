@@ -978,7 +978,33 @@
         <div class="alm-modal-body">
             {{-- Sin campo Código: lo pone SIEMPRE el sistema (AlmacenController::
                  generarCodigoProducto), al crear, y no se cambia al editar. --}}
-            <div><label for="almProdNombre">Descripción / producto</label><input type="text" id="almProdNombre" maxlength="200" autocomplete="off"></div>
+            {{-- Foto opcional, en la MISMA fila que la descripción para no alargar el modal.
+                 Reusa la caja de "Detalles del producto" (.alm-det-foto-caja) y su recorte
+                 (partials/recorte_foto), asi que no trae estilo ni logica propios.
+
+                 Al CREAR todavia no hay id, asi que la foto elegida se queda en memoria y se
+                 sube DESPUES de guardar, contra el mismo endpoint de siempre
+                 (almacen.productos.foto.store). Al EDITAR se ve la que ya tiene y cambiarla
+                 hace lo mismo. Sin permiso de productos no se enseña: no podria guardarla. --}}
+            <div style="display:flex;gap:12px;align-items:flex-start;">
+                @can('almacen.productos')
+                <div style="flex:0 0 auto;">
+                    <label>Foto <span class="alm-opc">(opcional)</span></label>
+                    <div class="alm-det-foto-caja editable" title="Elegir una foto"
+                         onclick="document.getElementById('almProdFotoInput').click()">
+                        <img id="almProdFotoImg" class="alm-det-foto" alt="Foto del producto" style="display:none;">
+                        <div id="almProdFotoSin" class="alm-det-foto alm-det-foto-sin"><i class="material-icons">inventory_2</i></div>
+                        <div class="alm-det-foto-camara"><i class="material-icons">photo_camera</i></div>
+                        <input type="file" id="almProdFotoInput" accept="image/jpeg,image/png,image/webp" hidden
+                               onclick="event.stopPropagation()" onchange="window.almProdFotoElegir(this)">
+                    </div>
+                </div>
+                @endcan
+                <div style="flex:1;min-width:0;">
+                    <label for="almProdNombre">Descripción / producto</label>
+                    <input type="text" id="almProdNombre" maxlength="200" autocomplete="off" style="width:100%;box-sizing:border-box;">
+                </div>
+            </div>
             {{-- UM + Cantidad inicial en una fila. Cantidad solo se ve al CREAR con un almacén
                  elegido; si no, UM ocupa la fila. --}}
             <div style="display:flex;gap:10px;align-items:flex-start;">

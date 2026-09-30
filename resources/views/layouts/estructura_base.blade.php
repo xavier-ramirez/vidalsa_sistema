@@ -95,6 +95,12 @@
         src="{{ asset('js/maquinaria/producto_suggest.js') }}?v={{ @filemtime(public_path('js/maquinaria/producto_suggest.js')) }}"></script>
     <script
         src="{{ asset('js/maquinaria/qr_scan.js') }}?v={{ @filemtime(public_path('js/maquinaria/qr_scan.js')) }}"></script>
+    {{-- gps_ficha.js (window.GpsFicha) — la ficha de un equipo con GPS, COMPARTIDA por la capa
+         Equipos de /mapa y por el modal "Rastreo Satelital en Vivo" del detalle de equipos, que
+         tienen que verse idénticas. Va aquí porque el <script> inline de ese modal la usa al
+         pintar, y /mapa la llama desde su propio módulo. Solo define funciones. --}}
+    <script
+        src="{{ asset('js/maquinaria/gps_ficha.js') }}?v={{ @filemtime(public_path('js/maquinaria/gps_ficha.js')) }}"></script>
     {{-- Y por lo mismo lazy_loader.js (window.cargarScriptUnaVez / ensureChartJS): los
          <script> inline de los gráficos de consumibles lo llaman al evaluarse. Pesa 3 KB
          y NO trae nada consigo — solo sabe pedir lo pesado cuando de verdad hace falta. --}}

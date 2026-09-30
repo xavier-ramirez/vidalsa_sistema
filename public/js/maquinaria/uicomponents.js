@@ -813,7 +813,12 @@ window.showDetailsImproved = function (target, event) {
     const gpsBtn = document.getElementById("modal_gps_btn");
     if (gpsBtn) {
         const rawGps = (d.linkGps || "").trim();
-        if (isValid(rawGps)) {
+        // Solo un enlace de verdad: hay fichas con texto suelto en LINK_GPS (p. ej. "VEHICULO CEDIDO").
+        if (isValid(rawGps) && /^https?:\/\//i.test(rawGps)) {
+            // El modal pide los datos por el id (MapaController::equipoGps), no por este enlace.
+            // data-url se sigue poniendo por si hace falta el enlace crudo, pero hoy no lo lee
+            // nadie: los botones que lo abrían se quitaron del modal (28-09-2026).
+            gpsBtn.dataset.equipoId = d.equipoId || '';
             gpsBtn.dataset.url = rawGps;
 
             // Limpiar si el dato guardado en base de datos ya trae la palabra "Placa:" o "Serial:" adentro

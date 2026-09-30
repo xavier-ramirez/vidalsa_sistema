@@ -19,6 +19,10 @@
     var LEAFLET_JS   = '/vendor/leaflet/leaflet.js';
     var GEOCODER_JS  = '/vendor/leaflet/Control.Geocoder.js';
     var PROJ4_JS     = '/vendor/leaflet/proj4.js'; // convertir UTM ↔ lat/lng
+    // Agrupador de marcadores (Leaflet.markercluster 1.5.3), también alojado aquí y no en un CDN.
+    // Su CSS trae SOLO las animaciones: el aspecto del grupo lo pone el sistema (.mapa-eq-grupo).
+    var CLUSTER_CSS  = '/vendor/leaflet/MarkerCluster.css';
+    var CLUSTER_JS   = '/vendor/leaflet/leaflet.markercluster.js';
 
     // Inserta un <link rel=stylesheet> una sola vez.
     function ensureCss(href) {
@@ -52,10 +56,14 @@
     function ensureLeaflet() {
         ensureCss(LEAFLET_CSS);
         ensureCss(GEOCODER_CSS);
+        ensureCss(CLUSTER_CSS);
         var hayLeaflet = typeof L !== 'undefined' && L.map;
         var pedidos = [];
         if (!hayLeaflet) pedidos.push(loadScript(LEAFLET_JS));
         if (!(hayLeaflet && L.Control && L.Control.Geocoder)) pedidos.push(loadScript(GEOCODER_JS));
+        // Si el agrupador no llegara, el mapa sigue funcionando: la capa de equipos cae a un grupo
+        // normal y se ven todos los iconos sueltos, como antes.
+        if (!(hayLeaflet && L.markerClusterGroup)) pedidos.push(loadScript(CLUSTER_JS).catch(function () {}));
         if (typeof proj4 === 'undefined') pedidos.push(loadScript(PROJ4_JS).catch(function () {})); // proj4 opcional (UTM)
         return Promise.all(pedidos);
     }
@@ -508,11 +516,22 @@
         }
 
         function repintarMuniEstado() {
+            // Ya no queda ningún municipio pedido: si había una descarga en camino, se devuelve su
+            // spinner aquí. Este es el punto por el que pasan TODOS los caminos que apagan
+            // municipios —el botón grande y el "Ocultar Municipios" del clic derecho—, así que
+            // soltarlo solo en ocultarTodosMunicipios dejaba el spinner puesto cuando se apagaban
+            // desde el menú del estado.
+            if (!todosMuniOn && !estadosConMuni.size && !muniIndividuales.size) muniSoltarSpin();
             // Punto unico donde se dispara la carga perezosa: si hay municipios que pintar y el
             // geojson aun no esta, se pide y se repinta al llegar. Asi las 5 llamadas que
             // existen a esta funcion no tienen que saber nada de la descarga.
             if (!muniData && (estadosConMuni.size || muniIndividuales.size)) {
-                cargarMunicipios().then(function (gj) { if (gj) repintarMuniEstado(); });
+                alLlegarMunicipios();
+                // El botón y la leyenda se ponen al día YA, sin esperar al geojson: si no, pedir
+                // los municipios de un estado por el clic derecho dejaba el botón "Municipios"
+                // apagado durante toda la descarga, como si no se hubiera pedido nada.
+                actualizarLeyenda();
+                sincronizarBotonMuni();
                 return;
             }
             muniEstado.clearLayers();
@@ -632,24 +651,41 @@
         var miniFajaUrl    = el.getAttribute('data-mini-faja');
         var miniBloquesUrl = el.getAttribute('data-mini-bloques');
         var muniPromesa = null;
+        var muniSoltarSpin = function () {};   // suelta el spinner de la descarga en curso (ver spinTicket)
         function cargarMunicipios() {
             if (muniPromesa) return muniPromesa;
             if (!muniUrl) return Promise.resolve(null);
             // Spinner: es el archivo mas pesado del mapa (~1 MB) y encima hay que colorear
             // por adyacencia antes de pintar. Sin el, con internet flojo la pantalla se
             // quedaba quieta y parecia que el clic no habia hecho nada.
-            spinOn();
+            // El ticket lo suelta quien llegue primero: el final de la descarga, o el usuario en
+            // cuanto deja de haber municipios pedidos (repintarMuniEstado, por donde pasan tanto el
+            // botón grande como el "Ocultar Municipios" del clic derecho). Así el spinner no se
+            // queda encima del mapa esperando un archivo que ya no interesa.
+            muniSoltarSpin = spinTicket();
             muniPromesa = window.apiFetch(muniUrl).then(function (r) { return r.json(); }).then(function (gj) {
                 // Se salió del mapa mientras bajaba: ni se colorea ni se devuelve el spinner (la
                 // navegación nueva ya lo puso a cero); null = quien espera no repinta.
                 if (desmontado) return null;
                 muniData = gj;
                 construirColoresMuni(gj.features); // coloreado por adyacencia (vecinos ≠ color) antes de pintar
-                spinOff();   // DESPUES del coloreado: esa parte tambien tarda
+                muniSoltarSpin();   // DESPUES del coloreado: esa parte tambien tarda
                 return gj;
             }).catch(function () {
                 if (desmontado) return null;
-                spinOff();
+                muniSoltarSpin();
+                // Se apaga la capa y se avisa, como hace la capa petrolera: si no, el botón se
+                // quedaba encendido sobre un mapa sin municipios, sin decir nada, y encima había
+                // que pulsarlo DOS veces para reintentar (el primer clic solo lo "apagaba").
+                // Se limpia TODO lo pedido, no solo el interruptor de "todos": si la descarga
+                // venía del clic derecho sobre un estado, esos conjuntos seguían llenos y el
+                // siguiente repintado volvía a pedir el archivo de 1 MB y a sacar otro aviso de
+                // error, una y otra vez con cada cosa que el usuario tocara.
+                todosMuniOn = false;
+                estadosConMuni.clear();
+                muniIndividuales.clear();
+                sincronizarBotonMuni();
+                window.toast('No se pudieron cargar los municipios.', 'error');
                 // Si fallo se limpia la promesa para permitir un reintento en el SIGUIENTE
                 // uso (otro clic del usuario). Quien llama debe comprobar que el resultado
                 // no sea null antes de repintar: si no, el .then() volveria a pedir la
@@ -822,13 +858,36 @@
         // Los bordes de los estados quedan SIEMPRE visibles (estados.addTo(map) arriba); los
         // municipios no son una capa simple: se pintan según estadosConMuni + repintarMuniEstado.
         var todosMuniOn = false;
+        var muniEsperando = false;
+        /**
+         * Engancha UNA sola vez el repintado a la descarga del geojson, la pidan las veces que la
+         * pidan mientras baja.
+         *
+         * Antes cada clic colgaba su propio `.then` de la misma promesa, así que encender, apagar
+         * y volver a encender (o pedir dos estados por el clic derecho) dejaba tres o cuatro
+         * repintados en cola. Al llegar el archivo se hacían todos seguidos —y cada uno recorre
+         * los ~335 municipios, los recolorea y rehace todos los números—, con la pantalla
+         * congelada varios segundos y ya sin spinner. Además se veía un parpadeo: primero salía
+         * un solo estado y al instante todos.
+         *
+         * Al llegar se mira el estado ACTUAL, no el que había cuando se pidió, así que el
+         * resultado es siempre lo último que dijo el usuario.
+         */
+        function alLlegarMunicipios() {
+            if (muniEsperando) return;
+            muniEsperando = true;
+            cargarMunicipios().then(function (gj) {
+                muniEsperando = false;
+                if (!gj || desmontado) return;
+                if (todosMuniOn) activarTodosMunicipios();
+                else if (estadosConMuni.size || muniIndividuales.size) repintarMuniEstado();
+            });
+        }
         // Activa TODOS los municipios de TODOS los estados (limpia exclusiones previas).
         function activarTodosMunicipios() {
             todosMuniOn = true;
             if (!muniData) {
-                // Carga perezosa: se pide el geojson y, al llegar, se reintenta (si el usuario
-                // no ha desmarcado la capa mientras tanto).
-                cargarMunicipios().then(function (gj) { if (gj && todosMuniOn) activarTodosMunicipios(); });
+                alLlegarMunicipios();   // carga perezosa; al llegar se aplica lo que esté pedido
                 return;
             }
             muniExcluidos.clear();
@@ -844,6 +903,9 @@
             estadosConMuni.clear();
             muniIndividuales.clear();
             muniExcluidos.clear();
+            // El spinner de una descarga en camino lo devuelve repintarMuniEstado, que ve que ya
+            // no queda nada pedido (la descarga sigue y se guarda en memoria para la próxima vez,
+            // pero sin bloquear la pantalla).
             repintarMuniEstado();
         }
         // ── Botón MINIATURA de municipios (en la caja de capas) ───────────────────────────
@@ -864,16 +926,18 @@
             _btnMuni.classList.toggle('activo', hayMunicipiosVisibles());
             _btnMuni.title = todosMuniOn ? 'Ocultar los municipios' : 'Ver TODOS los municipios (colores por municipio)';
         }
-        // ── CAJA DE CAPAS (abajo-derecha) ─────────────────────────────────────────────
+        // ── CAJA DE CAPAS (arriba-derecha) ────────────────────────────────────────────
         // UN solo botón "Capas" (icono + rótulo) que agrupa los botones-miniatura (Equipos,
         // Municipios, Faja, Bloques), en PC y en teléfono por igual: al tocarlo se despliegan
-        // (en PC en fila hacia la izquierda, en teléfono hacia arriba), cada uno marcado si
-        // está encendido. Antes, en PC iban sueltos y apilados arriba-derecha. Va en la fila de
-        // abajo-derecha, a la izquierda de la escala y la brújula: abajo-izquierda quedaba
-        // debajo de las leyendas (pedidos del cliente, 22-09-2026).
+        // (en PC en fila hacia la izquierda, en teléfono hacia abajo), cada uno marcado si
+        // está encendido.
+        // Estuvo abajo-derecha, apretado entre la escala y la brújula, donde el botón apenas se
+        // distinguía (pedido del cliente, 29-09-2026). Arriba-derecha quedó libre al mudarse el
+        // panel de equipos a su columna, y es la esquina más despejada: arriba-izquierda está el
+        // buscador con sus botones y abajo-izquierda, las leyendas.
         var capasBox, capasPanel; // los rellena onAdd, síncrono en el addControl de abajo
         var CapasCtrl = L.Control.extend({
-            options: { position: 'bottomright' },
+            options: { position: 'topright' },
             onAdd: function () {
                 capasBox = L.DomUtil.create('div', 'mapa-capas-box');
                 var toggle = L.DomUtil.create('button', 'mapa-capas-toggle', capasBox);
@@ -895,7 +959,8 @@
             }
         });
         map.addControl(new CapasCtrl()); // deja listos capasBox/capasPanel (onAdd es síncrono)
-        // Cierra la caja de capas (la usa el clic en el mapa: tocar fuera la recoge).
+        // Cierra la caja de capas. La usan el clic en el mapa (tocar fuera la recoge) y el
+        // molde de las miniaturas (elegir una capa tambien la recoge).
         function cerrarCapas() { capasBox.classList.remove('abierto'); }
 
         // Molde del botón-miniatura, COMPARTIDO por las capas (Municipios, Faja, Bloques y Equipos):
@@ -910,7 +975,13 @@
             btn.innerHTML = '<img class="mapa-mini-capa-img" src="' + esc(urlImagen) + '" alt="" draggable="false">' +
                             '<span class="mapa-mini-capa-lbl">' + esc(rotulo) + '</span>';
             alCrear(btn);
-            L.DomEvent.on(btn, 'click', alClic);
+            // Tocada una capa, la caja se RECOGE: ya cumplió, y abierta tapa el trozo de mapa
+            // que se acaba de encender. Vale igual al APAGAR una (es el mismo botón), así que
+            // para quitar dos hay que volver a abrirla: se aceptó así, pedido del cliente.
+            // Se hace aquí, en el molde, y no en cada capa: así vale para las cuatro (Equipos,
+            // Municipios, Faja, Bloques) y para las que vengan. Va DESPUÉS del handler propio,
+            // que es quien enciende o apaga.
+            L.DomEvent.on(btn, 'click', function (ev) { alClic(ev); cerrarCapas(); });
         }
         if (miniMuniUrl) agregarMiniCapa(miniMuniUrl, 'Municipios', function () {
             // El botón es el de TODOS: si no están todos (aunque haya municipios sueltos
@@ -956,7 +1027,11 @@
         // Divisiones que van en la leyenda: solo cuando la capa está encendida. La comprobación
         // de capaFaja es por orden: esto se declara ANTES que la capa y la leyenda podría
         // dibujarse primero.
-        function areasFajaVisibles() { return (capaFaja && capaFaja.on) ? AREAS_FAJA : []; }
+        // Se exige también capaFaja.capa, no solo que esté encendida: mientras baja el geojson la
+        // leyenda salía con sus cuatro colores sobre un mapa SIN Faja, y la imagen que se descarga
+        // en ese momento salía igual — con leyenda y sin los polígonos, porque el dibujo del PNG
+        // sí comprueba las dos cosas.
+        function areasFajaVisibles() { return (capaFaja && capaFaja.on && capaFaja.capa) ? AREAS_FAJA : []; }
         // Borde NEGRO en las divisiones de la Faja: el relleno ya dice cuál es cada área y así el
         // contorno se distingue del de los bloques (que va en gris claro). El MISMO trazo lo usan
         // las dos capas de la Faja: la del relleno y la copia solo-contorno de fajaBordePane.
@@ -1001,7 +1076,7 @@
         // Molde de "capa perezosa con botón-miniatura": descarga (una sola vez), encendido/apagado
         // y estado del botón. Lo comparten la Faja y los Bloques — solo cambia cómo se pinta.
         function capaPetrolera(url, crearCapa, tituloOff, tituloOn, alCambiar) {
-            var est = { on: false, capa: null, promesa: null, btn: null };
+            var est = { on: false, capa: null, promesa: null, btn: null, soltarSpin: function () {} };
             est.sincronizar = function () {
                 if (!est.btn) return;
                 est.btn.classList.toggle('activo', est.on);
@@ -1011,7 +1086,9 @@
             est.cargar = function () {
                 if (est.promesa) return est.promesa;
                 if (!url) return Promise.resolve(false);
-                spinOn();
+                // Lo suelta quien llegue primero: el final de la descarga o el usuario al apagar
+                // la capa (ver spinTicket y est.alternar).
+                est.soltarSpin = spinTicket();
                 est.promesa = window.apiFetch(url).then(function (r) { return r.json(); }).then(function (gj) {
                     // Se salió del mapa mientras bajaba: nada que pintar, y el spinner no se
                     // devuelve (la navegación nueva ya lo puso a cero).
@@ -1020,13 +1097,13 @@
                     // poligonos es la parte lenta y antes quedaba fuera, asi que el spinner
                     // se iba y la pantalla seguia congelada un rato mas.
                     est.capa = crearCapa(gj);
-                    spinOff();
+                    est.soltarSpin();
                     return true;
                 }).catch(function () {
                     // Igual que en los municipios: se limpia la promesa para poder reintentar en el
                     // siguiente clic (si no, quedaría rota para siempre).
                     if (desmontado) return false;
-                    spinOff();
+                    est.soltarSpin();
                     est.promesa = null;
                     window.toast('No se pudo cargar la capa petrolera.', 'error');
                     return false;
@@ -1037,12 +1114,21 @@
                 est.on = !est.on;
                 est.sincronizar();  // responde al instante, aunque el geojson aún se esté bajando
                 if (alCambiar) alCambiar(est); // cada capa refresca LO SUYO (leyenda / buscador)
-                if (!est.on) { if (est.capa) map.removeLayer(est.capa); return; }
+                if (!est.on) {
+                    if (est.capa) map.removeLayer(est.capa);
+                    // Lo que venga en camino ya no interesa: se devuelve el spinner ahora, en vez
+                    // de dejarlo encima del mapa mientras el usuario enciende otra capa.
+                    est.soltarSpin();
+                    return;
+                }
                 // Volver a encender una capa YA descargada no baja nada, pero meter miles de
                 // poligonos en el mapa igual se nota. El spinner cubre tambien ese momento;
                 // si la capa esta sin descargar lo enciende cargar() y aqui no se toca, que
                 // si no el contador de referencias se quedaria descuadrado.
-                var yaEstaba = !!est.promesa;
+                // Se mira est.capa y NO est.promesa: la promesa también existe mientras se está
+                // descargando, y entonces esto encendía un spinner de más y aplazaba el pintado
+                // con el doble rAF, que solo tiene sentido cuando ya está todo en memoria.
+                var yaEstaba = !!est.capa;
                 if (yaEstaba) spinOn();
                 est.cargar().then(function (ok) {
                     // Con el mapa destruido no se pinta ni se devuelve el spinner: la navegación
@@ -1566,7 +1652,7 @@
         });
         map.addControl(new FitVE());
 
-        // ── Pantalla completa (usa el contenedor del mapa como raíz) ──
+        // ── Pantalla completa (la pide el contenedor de las DOS columnas: mapa y panel) ──
         // Salir NO se hace con este mismo botón: en pantalla completa se oculta (CSS) y
         // aparece la "X" de arriba-derecha (control CerrarFS). Así hay UN solo control
         // para salir, no dos que hagan lo mismo.
@@ -1584,8 +1670,15 @@
                 btn.innerHTML = '<i class="material-icons">fullscreen</i>';
                 L.DomEvent.disableClickPropagation(btn);
                 L.DomEvent.on(btn, 'click', function () {
-                    var req = el.requestFullscreen || el.webkitRequestFullscreen;
-                    if (req) req.call(el);
+                    // A pantalla completa va el contenedor de las DOS columnas, no solo el mapa:
+                    // si fuera solo el mapa, la columna de equipos se quedaría fuera y se
+                    // perderían los filtros justo donde más sitio hay para usarlos.
+                    // _mapaLayout lo busca una sola vez el montaje del panel, mucho antes de que
+                    // nadie pueda pulsar aquí; el mapa a secas queda de red por si la vista que
+                    // llegó fuera una vieja, sin las dos columnas.
+                    var destino = _mapaLayout || el;
+                    var req = destino.requestFullscreen || destino.webkitRequestFullscreen;
+                    if (req) req.call(destino);
                 });
                 return btn;
             }
@@ -1593,7 +1686,7 @@
         map.addControl(new FullScreen());
 
         // ── Botón "X" para SALIR de pantalla completa (solo visible en pantalla completa,
-        //    lo controla el CSS con #mapa-leaflet:fullscreen). Va arriba-derecha porque
+        //    lo controla el CSS con .mapa-layout:fullscreen). Va arriba-derecha porque
         //    arriba-izquierda queda el buscador. ──
         var CerrarFS = L.Control.extend({
             options: { position: 'topright' },
@@ -1632,6 +1725,15 @@
             // Refresco de la capa Equipos. Se declara más abajo en buildMap: el if cubre que el
             // montaje se haya cortado antes de llegar a ella.
             if (capaEquipos) clearTimeout(capaEquipos.timer);
+            clearTimeout(_tLayout);   // el segundo aviso de tamaño a Leaflet, si quedó pendiente
+            if (capaEquipos) {
+                clearTimeout(capaEquipos.topeMontaje);
+                // Por simetría con apagar la capa: se cierra el ticket propio. Hoy la navegación ya
+                // pone el contador a cero por su cuenta, pero esta es la única salida que no lo
+                // cerraba y no conviene que dependa de eso.
+                capaEquipos.montando = false;
+                capaEquipos.soltarSpin();
+            }
             window.removeEventListener('spa:contentLoaded', alNavegar);
             document.removeEventListener('fullscreenchange', onFsChange);
             document.removeEventListener('webkitfullscreenchange', onFsChange);
@@ -1734,6 +1836,21 @@
             spinPedidos--;
             if (window.hidePreloader) window.hidePreloader();
         }
+        /**
+         * Enciende el spinner y devuelve la función que lo suelta, que se puede llamar las veces
+         * que sea: solo la primera cuenta.
+         *
+         * Existe porque el spinner tapaba el mapa hasta que terminaba una descarga que el usuario
+         * YA no quería: encender una capa, apagarla y encender otra dejaba el preloader encima
+         * mientras la capa nueva se pintaba debajo, sin verse. Con esto, apagar una capa suelta su
+         * spinner en el acto, y cuando la descarga por fin llega su soltar() ya no hace nada —
+         * sin restar de más, que era el riesgo de llamar a spinOff() a mano desde dos sitios.
+         */
+        function spinTicket() {
+            spinOn();
+            var vivo = true;
+            return function () { if (!vivo) return; vivo = false; spinOff(); };
+        }
 
         // Aclara un color hex mezclándolo con blanco (para el brillo de la tubería).
         function aclararColor(hex, f) {
@@ -1825,7 +1942,7 @@
                 lines.forEach(function (l) {
                     l.bindPopup(popKm, { className: 'oleo-km-popup', closeButton: false });
                     l.on('mouseover', function () { if (kmCierra) { clearTimeout(kmCierra); kmCierra = null; } });
-                    l.on('mouseout',  function () { kmCierra = setTimeout(function () { map.closePopup(); }, 150); });
+                    l.on('mouseout',  function () { kmCierra = setTimeout(function () { if (!desmontado) map.closePopup(); }, 150); });
                 });
             }
             var markers = pts.map(function (p) {
@@ -2681,7 +2798,12 @@
                 '</div>' +
                 '<button type="button" class="mapa-dibujo-btn primary" data-a="guardar">Guardar</button>' +
                 '<button type="button" class="mapa-dibujo-btn" data-a="salir">Salir</button>';
-            window.raizVisible(el).appendChild(bar);
+            // SIEMPRE dentro del mapa, no de lo que esté a pantalla completa: la barra va
+            // posicionada respecto a su padre y a pantalla completa el padre pasó a ser el
+            // contenedor de las dos columnas, así que se centraba contando también el ancho
+            // del panel y se iba hacia la derecha. Se sigue viendo porque el mapa está DENTRO
+            // de ese contenedor.
+            el.appendChild(bar);
             L.DomEvent.disableClickPropagation(bar);
             L.DomEvent.disableScrollPropagation(bar);
             bar.addEventListener('click', function (e2) {
@@ -3251,49 +3373,117 @@
         var miniEquiposUrl = el.getAttribute('data-mini-equipos');
         var EQ_REFRESCO = 120000;
         var EQ_TANDAS_A_LA_VEZ = 2;
+        var EQ_MONTAJE_TOPE_MS = 15000;  // lo que se espera a tenerlo todo antes de enseñar lo que haya
+        var EQ_GRUPO_RADIO_PX = 55;    // a menos de esto en pantalla, dos equipos se juntan en uno
+        var EQ_GRUPO_HASTA_ZOOM = 16;  // desde aquí ya no se agrupa: se ven todos sueltos
+
+        /**
+         * La marca de un grupo de equipos: una banderita con cuántos lleva dentro.
+         *
+         * Crece un poco con la cantidad (tres tamaños, alto y letra) para que de un vistazo se note
+         * dónde está el grueso de la flota sin tener que leer los números. El color es el azul del sistema,
+         * no los verdes y amarillos que trae el agrupador por su cuenta — de ahí que solo se cargue
+         * su CSS de animaciones y el aspecto se ponga aquí (.mapa-eq-grupo en estilos_globales).
+         */
+        function eqIconoGrupo(grupo) {
+            var n = grupo.getChildCount();
+            var talla = n < 10 ? 'ch' : (n < 50 ? 'md' : 'gr');
+            // Banderita: el ancho crece con los dígitos para que el número no se apriete, y el
+            // alto es fijo. El anclaje va abajo-centro, en la PUNTA: es la punta la que señala el
+            // sitio, igual que en los pines de los equipos (si se anclara al centro, la bandera
+            // quedaría clavada por la mitad y el punto real caería más arriba de donde apunta).
+            var ancho = 20 + String(n).length * 6;
+            var alto = talla === 'gr' ? 24 : (talla === 'md' ? 22 : 20);
+            var PICO = 8;   // los mismos 8 px que dibuja el ::after y que descuenta el span (CSS)
+            return L.divIcon({
+                html: '<span>' + n + '</span>',
+                className: 'mapa-eq-grupo mapa-eq-grupo-' + talla,
+                iconSize: L.point(ancho, alto + PICO),
+                iconAnchor: L.point(ancho / 2, alto + PICO)
+            });
+        }
+
         var capaEquipos = {
-            on: false, btn: null, datos: [], cargado: false, cargando: false, timer: null, actualizado: null,
+            on: false, btn: null, datos: [], cargado: false, cargando: false, timer: null,
             pendientes: 0,   // posiciones que aún se están pidiendo en esta vuelta
+            // Equipos que tiene CADA frente en total, con GPS y sin él (MapaController los manda
+            // aparte). La capa solo lista los que llevan GPS, así que sin esto el panel no puede
+            // decir cuántos equipos hay de verdad en el frente elegido.
+            totalesFrente: {}, totalEquipos: 0,
             vuelta: 0,       // cada carga suma 1: las tandas de una vuelta vieja se descartan
             promesa: null,   // la carga de la lista en curso (ver eqCargar)
+            soltarSpin: function () {},   // devuelve el spinner de la carga en curso (ver spinTicket)
+            montando: false, // primera carga: se pinta al final, de una vez (ver eqCompletar)
+            topeMontaje: null,
             dirs: {},        // "id|lat|lng" → dirección ya buscada (sobrevive a los refrescos)
             dirsPidiendo: {},// "id|lat|lng" → true mientras se pide
-            grupo: L.layerGroup(),
+            // Los equipos van AGRUPADOS: de lejos, los que caen en el mismo sitio se juntan en una
+            // sola marca con su número, y al acercarse se abren. Sin esto, un frente con veinte
+            // camiones en el mismo patio se veía como un borrón de iconos encimados del que no se
+            // podía tocar ninguno.
+            //   · EQ_GRUPO_RADIO_PX  a qué distancia (en pantalla, no en metros) se juntan dos
+            //     equipos. En píxeles a propósito: lo que molesta es que se tapen en la pantalla,
+            //     y eso depende del zoom.
+            //   · EQ_GRUPO_HASTA_ZOOM  desde este acercamiento ya NO se agrupa nada: se ven todos
+            //     sueltos, que es lo que se quiere cuando ya estás mirando un patio concreto.
+            // Si el agrupador no se hubiera podido cargar, se cae a un grupo normal (todos sueltos,
+            // como antes) en vez de dejar el mapa sin equipos.
+            grupo: L.markerClusterGroup ? L.markerClusterGroup({
+                maxClusterRadius: EQ_GRUPO_RADIO_PX,
+                disableClusteringAtZoom: EQ_GRUPO_HASTA_ZOOM,
+                // Abre en abanico los que compartan el mismo punto. Por clic apenas se llega a ver
+                // —desde EQ_GRUPO_HASTA_ZOOM ya no hay grupos que tocar—, pero es lo que usa
+                // zoomToShowLayer para llegar a un equipo desde la lista del panel.
+                spiderfyOnMaxZoom: true,
+                showCoverageOnHover: false,  // sin el polígono que se dibuja al pasar el ratón
+                zoomToBoundsOnClick: true,   // tocar el grupo acerca a lo que contiene
+                iconCreateFunction: eqIconoGrupo
+            }) : L.layerGroup(),
             marcas: {}       // id de equipo → L.marker (se reutilizan al refrescar: la ficha abierta sigue abierta)
         };
 
         function eqColor(e) { return e.frente ? colorHash(e.frente.nombre) : '#94a3b8'; }
         function eqFrenteClave(e) { return e.frente ? String(e.frente.id) : 'sin'; }
-        // Identificador principal: placa; si no tiene, serial de chasis; si no, serial de motor (la
-        // MISMA regla que el Excel del panel, MapaController::exportarEquiposGps). Código y
-        // etiqueta solo si no hay ninguno de los tres.
-        function eqIdent(e) { return e.placa || e.serial_chasis || e.serial_motor || e.codigo || e.etiqueta || ('Equipo ' + e.id); }
+        // Identificador principal: placa; si no tiene, serial de chasis; si no, serial de motor;
+        // y si tampoco, código de patio o etiqueta. Los MISMOS escalones, en el mismo orden, que
+        // el Excel del panel (MapaController::exportarEquiposGps) — y con el mismo recorte de
+        // espacios, que sin él una placa escrita con puros espacios salía en blanco aquí mientras
+        // el Excel la daba por vacía y bajaba al serial.
+        function eqIdent(e) {
+            var v = [e.placa, e.serial_chasis, e.serial_motor, e.codigo, e.etiqueta];
+            for (var i = 0; i < v.length; i++) {
+                var s = (v[i] == null ? '' : String(v[i])).trim();
+                if (s) return s;
+            }
+            return 'Equipo ' + e.id;
+        }
         function eqDescripcion(e) { return [e.tipo, [e.marca, e.modelo].filter(Boolean).join(' ')].filter(Boolean).join(' · '); }
-        // Solo se pinta una posición válida DENTRO de Venezuela (fuera suele ser la de fábrica).
-        function eqTienePosicion(e) { return !!(e.gps && e.gps.ok && !e.gps.fuera_de_venezuela); }
-        // Por qué un equipo NO está en el mapa (buscador y aviso al elegirlo).
+        // El tipo tal como se ENSEÑA. Se usa también para ordenar: mostrando "Sin tipo" pero
+        // ordenando por cadena vacía, esos equipos se iban al principio de la lista sin motivo.
+        function eqTipoTexto(e) { return e.tipo || 'Sin tipo'; }
+        // Tener posicion = el GPS dio una, aunque caiga FUERA de Venezuela (pedido del cliente,
+        // 28-09-2026): antes esos equipos no se pintaban y no habia forma de ver donde dice el
+        // GPS que estan. Ahora se pintan y se marcan como dudosos — de eso se encarga eqDudosa.
+        function eqTienePosicion(e) { return !!(e.gps && e.gps.ok); }
+        // La posicion NO es de fiar: el GPS la reporta fuera del pais (tipico de un aparato
+        // recien instalado o mal configurado). Se pinta igual, avisando.
+        function eqDudosa(e) { return !!(e.gps && e.gps.fuera_de_venezuela); }
+        // Por qué un equipo NO está en el mapa (buscador y aviso al elegirlo). Solo se llama con
+        // !eqTienePosicion(e), o sea sin gps.ok: el caso "fuera de Venezuela" no cae aquí, porque
+        // ese SÍ se pinta y su aviso lo da eqEstadoTexto.
+        // Los mismos motivos, con el mismo texto, que el modal de rastreo (GPS_MOTIVOS) y el
+        // Excel del panel (MapaController::estadoGps).
         function eqSinPosicionTexto(e) {
             if (!e.gps) return e._sinRespuesta ? 'Sin respuesta de GPS51' : 'Cargando posición…';
-            if (e.gps.ok) return 'Posición fuera de Venezuela';
             if (e.gps.motivo === 'sin_posicion') return 'Sin posición registrada';
-            return 'Enlace de GPS vencido';
+            if (e.gps.motivo === 'enlace_vencido') return 'Enlace de GPS vencido';
+            return 'GPS51 no reconoce el enlace';   // enlace_invalido, y cualquier motivo nuevo
         }
-        function eqNum(n, dec) { return Number(n).toLocaleString('es-VE', { maximumFractionDigits: dec || 0 }); }
-        // "hace 5 min" / "hace 3 días": corto para que quepa en la ficha; la fecha exacta la da eqFecha.
-        function eqHace(ms) {
-            if (!ms) return 'Sin dato';
-            var s = Math.max(0, (Date.now() - ms) / 1000);
-            if (s < 60) return 'hace segundos';
-            if (s < 3600) return 'hace ' + Math.floor(s / 60) + ' min';
-            if (s < 86400) return 'hace ' + Math.floor(s / 3600) + ' h';
-            var dias = Math.floor(s / 86400);
-            return 'hace ' + dias + (dias === 1 ? ' día' : ' días');
-        }
-        function eqFecha(ms) {
-            if (!ms) return '';
-            var d = new Date(ms);
-            return d.toLocaleDateString('es-VE') + ' ' + d.toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' });
-        }
+        // "hace 5 min" / "hace 3 días": corto para que quepa en la ficha. La cuenta la hace
+        // window.tiempoHace (dom_helpers.js), COMPARTIDA con el modal "Rastreo Satelital en Vivo":
+        // el mismo equipo no puede decir una cosa aquí y otra allá. La fecha exacta bajo el
+        // "hace 8 h" la pinta ya la propia ficha (GpsFicha, con window.fechaHoraLocal).
+        function eqHace(ms) { return window.tiempoHace(ms); }
 
         // Marca del equipo: el icono del módulo Equipos (el mismo "agriculture" del menú), blanco y
         // SIN el color del frente (pedido del cliente, 22-09-2026: ni círculo ni colores). Más
@@ -3313,36 +3503,22 @@
             });
         }
 
-        function eqCelda(rotulo, valor, detalle) {
-            return '<div class="mapa-eq-cel"><span>' + esc(rotulo) + '</span><b>' + esc(valor) + '</b>' +
-                   (detalle ? '<small>' + esc(detalle) + '</small>' : '') + '</div>';
-        }
-        // Ficha del equipo (se arma al abrirla y al refrescar con ella abierta).
+        // Ficha del equipo (se arma al abrirla y al refrescar con ella abierta). La MAQUETA
+        // vive en window.GpsFicha (gps_ficha.js), compartida con el modal "Rastreo Satelital en
+        // Vivo" del detalle de equipos: las dos pantallas enseñan lo mismo del mismo equipo y
+        // tienen que verse idénticas. Aquí solo se traduce el equipo de la capa a lo que el
+        // componente espera.
         function eqFicha(e) {
-            var g = e.gps, color = eqColor(e), comb = g.combustible || {};
-            var ids = [['Placa', e.placa], ['Código', e.codigo], ['Serial chasis', e.serial_chasis]]
-                .filter(function (p) { return p[1]; })
-                .map(function (p) { return '<span>' + esc(p[0]) + ': <b>' + esc(p[1]) + '</b></span>'; }).join('');
-            return '<div class="mapa-eq">' +
-                '<div class="mapa-eq-head" style="border-left-color:' + color + '">' +
-                    '<div class="mapa-eq-tit"><b>' + esc(eqIdent(e)) + '</b>' +
-                        '<span class="mapa-eq-estado ' + (g.en_linea ? 'en-linea' : 'fuera') + '">' + (g.en_linea ? 'En línea' : 'Sin conexión') + '</span></div>' +
-                    (eqDescripcion(e) ? '<div class="mapa-eq-desc">' + esc(eqDescripcion(e)) + '</div>' : '') +
-                    '<div class="mapa-eq-frente"><span style="background:' + color + '"></span>' + esc(e.frente ? e.frente.nombre : 'Sin frente') + '</div>' +
-                '</div>' +
-                '<div class="mapa-eq-grid">' +
-                    eqCelda('Velocidad', eqNum(g.velocidad) + ' km/h') +
-                    eqCelda('Motor', g.acc === null ? '—' : (g.acc ? 'Encendido' : 'Apagado'), g.acc_tiempo) +
-                    eqCelda('Combustible', comb.total !== null && comb.total !== undefined ? eqNum(comb.total) + ' L' : '—',
-                            comb.auxiliar !== null && comb.auxiliar !== undefined ? 'P ' + eqNum(comb.principal) + ' · A ' + eqNum(comb.auxiliar) : '') +
-                    eqCelda('Voltaje', g.voltaje !== null ? eqNum(g.voltaje, 1) + ' V' : '—') +
-                    eqCelda('Kilometraje', eqNum(g.km_total) + ' km') +
-                    eqCelda('Última señal', eqHace(g.ultima_senal), eqFecha(g.ultima_senal)) +
-                '</div>' +
-                (ids ? '<div class="mapa-eq-ids">' + ids + '</div>' : '') +
-                '<div class="mapa-eq-dir" data-eqdir="' + esc(eqClaveDir(e)) + '">' + esc(capaEquipos.dirs[eqClaveDir(e)] || 'Buscando dirección…') + '</div>' +
-                '<div class="mapa-eq-coord">' + g.lat.toFixed(6) + ', ' + g.lng.toFixed(6) + '</div>' +
-            '</div>';
+            return window.GpsFicha.html({
+                ident: eqIdent(e), descripcion: eqDescripcion(e), color: eqColor(e),
+                frente: e.frente ? e.frente.nombre : null,
+                placa: e.placa, codigo: e.codigo, serial_chasis: e.serial_chasis, gps: e.gps
+            }, {
+                dudosa: eqDudosa(e),
+                // La dirección llega después (eqCargarDireccion la rellena por este data-eqdir
+                // sin repintar la ficha, para no cerrar la que el usuario tenga abierta).
+                dirAttr: eqClaveDir(e), direccion: capaEquipos.dirs[eqClaveDir(e)] || null
+            });
         }
 
         // La dirección se pide UNA vez por equipo y posición, al abrir su ficha (no para los ~130 a
@@ -3368,7 +3544,7 @@
         // Pinta/actualiza los puntos. Los marcadores se REUTILIZAN por id: al refrescar solo se
         // mueven y cambian de icono, así la ficha que el usuario tenga abierta no se cierra.
         function eqPintar() {
-            var vivos = {};
+            var vivos = {}, movidos = [];
             capaEquipos.datos.forEach(function (e) {
                 if (!eqTienePosicion(e)) return;
                 vivos[e.id] = true;
@@ -3380,7 +3556,10 @@
                     // cambiar el icono de TODOS en cada una rehacía el DOM de cada punto decenas de
                     // veces por vuelta. Solo se toca lo que cambió.
                     var antes = m.getLatLng();
-                    if (antes.lat !== ll[0] || antes.lng !== ll[1]) m.setLatLng(ll);
+                    if (antes.lat !== ll[0] || antes.lng !== ll[1]) {
+                        m.setLatLng(ll);
+                        movidos.push(m);   // hay que avisarle al agrupador (ver abajo)
+                    }
                     var firma = eqIconoFirma(e);
                     if (m._eqFirma !== firma) { m.setIcon(eqIcono(e)); m._eqFirma = firma; }
                     // Ficha abierta: se re-dibuja con los datos nuevos y, si el equipo se movió, se pide
@@ -3404,6 +3583,13 @@
                 if (visible && !capaEquipos.grupo.hasLayer(m)) capaEquipos.grupo.addLayer(m);
                 if (!visible && capaEquipos.grupo.hasLayer(m)) capaEquipos.grupo.removeLayer(m);
             });
+            // Los que se movieron: hay que DECÍRSELO al agrupador. Él lleva su propio árbol de
+            // posiciones y, si solo se mueve el marcador, el icono cambia de sitio en pantalla pero
+            // el grupo al que pertenece sigue calculado con la coordenada vieja: al cambiar el zoom
+            // los equipos se recolocaban donde estaban antes. Se avisa de todos de una pasada, al
+            // final, y no uno por uno: cada aviso recalcula el árbol entero.
+            if (movidos.length && capaEquipos.grupo.refreshClusters) capaEquipos.grupo.refreshClusters(movidos);
+
             // Equipos que ya no traen posición (o que dejaron de verse): fuera del mapa.
             Object.keys(capaEquipos.marcas).forEach(function (id) {
                 if (vivos[id]) return;
@@ -3418,9 +3604,19 @@
             // Ya hay una carga en curso (p. ej. encender → apagar → encender antes de que llegue la
             // lista): se devuelve ESA misma promesa, con su resultado real. Un "false" inventado
             // aquí hacía que alternar() lo tomara por fallo y volviera a apagar la capa.
-            if (capaEquipos.cargando) return capaEquipos.promesa;
+            if (capaEquipos.cargando) {
+                // Ya hay una carga en curso. Si además hace falta spinner (no es un refresco en
+                // silencio) se pide uno NUEVO: apagar y volver a encender antes de que llegara la
+                // lista gastaba el ticket al apagar y la segunda vez se quedaba sin nada — mapa
+                // vacío, sin spinner y sin panel hasta que terminaran las tandas.
+                if (!silencioso) capaEquipos.soltarSpin = spinTicket();
+                return capaEquipos.promesa;
+            }
             capaEquipos.cargando = true;
-            if (!silencioso) spinOn();
+            // Lo suelta quien llegue primero: el final de la carga o el usuario al apagar la capa
+            // (ver spinTicket y capaEquipos.alternar). Sin esto el spinner seguía tapando el mapa
+            // esperando una lista que ya no se quería, mientras la capa nueva se pintaba debajo.
+            capaEquipos.soltarSpin = silencioso ? function () {} : spinTicket();
             capaEquipos.promesa = window.apiFetch(equiposGpsUrl, { headers: { 'Accept': 'application/json' } })
                 .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
                 .then(function (j) {
@@ -3431,9 +3627,13 @@
                     capaEquipos.datos.forEach(function (e) { if (e.gps) anteriores[e.id] = e.gps; });
                     capaEquipos.datos = (j && j.equipos) || [];
                     capaEquipos.datos.forEach(function (e) { if (!e.gps && anteriores[e.id]) e.gps = anteriores[e.id]; });
+                    capaEquipos.totalesFrente = (j && j.totales_frente) || {};
+                    capaEquipos.totalEquipos   = (j && j.total_equipos) || 0;
                     capaEquipos.cargado = true;
-                    capaEquipos.actualizado = Date.now();
-                    eqPintar();
+                    // Durante el montaje ni esta primera pintada: enseñaría solo los equipos cuya
+                    // posición ya tenía el servidor en caché (unos pocos) y el resto iría cayendo
+                    // después, que es justo el goteo que se quiere evitar.
+                    if (!capaEquipos.montando) eqPintar();
                     eqCompletar((j && j.pendientes) || [], (j && j.lote) || 10);
                     return true;
                 })
@@ -3443,7 +3643,16 @@
                 })
                 .then(function (ok) {
                     capaEquipos.cargando = false;
-                    if (!silencioso) spinOff();
+                    // El spinner NO se suelta aquí: la lista es solo el primer paso y el mapa aún
+                    // está a medias. Lo suelta eqMontajeListo cuando ya está todo pintado (o si
+                    // falló la carga, aquí mismo, que si no se quedaría dando vueltas para siempre).
+                    // Quien apaga `montando` limpia SIEMPRE el tope, aquí también: es lo que impide
+                    // que quede un temporizador suelto apuntando a un montaje que ya no existe.
+                    if (!ok) {
+                        capaEquipos.montando = false;
+                        clearTimeout(capaEquipos.topeMontaje);
+                        capaEquipos.soltarSpin();
+                    }
                     // Un refresco que falló (sin red, sesión, servidor) no corta el ciclo: se vuelve
                     // a intentar en la siguiente vuelta. Si salió bien lo programa eqCompletar.
                     if (!ok && capaEquipos.cargado && capaEquipos.on && !desmontado) eqProgramar();
@@ -3452,19 +3661,56 @@
             return capaEquipos.promesa;
         }
 
-        // Paso 2: las posiciones que faltan, por tandas (EQ_TANDAS_A_LA_VEZ a la vez), pintando
-        // cada tanda al llegar. Al terminar la vuelta se programa el siguiente refresco.
+        /**
+         * Cierra una vuelta de carga. Si era la del MONTAJE (la primera con la capa encendida),
+         * pinta el mapa de una vez, devuelve el spinner y quita el tope; da igual quién llegue
+         * primero —el final de las tandas o el tope de seguridad—, porque solo cuenta la primera.
+         * En las vueltas normales (el refresco de cada 2 minutos) no hay nada que montar y solo se
+         * asegura de que ningún spinner quede pendiente.
+         */
+        function eqMontajeListo() {
+            clearTimeout(capaEquipos.topeMontaje);
+            if (!capaEquipos.montando) { capaEquipos.soltarSpin(); return; }
+            capaEquipos.montando = false;
+            if (!desmontado) { eqPintar(); eqActualizarPanel(); }
+            capaEquipos.soltarSpin();
+        }
+
+        /**
+         * Paso 2: las posiciones que faltan, por tandas (EQ_TANDAS_A_LA_VEZ a la vez). En el
+         * MONTAJE no se pinta cada tanda —el mapa sale entero al final—; en los refrescos
+         * posteriores sí, que ahí ya no hay nada que estropear. Al terminar la vuelta se programa
+         * el siguiente refresco.
+         */
         function eqCompletar(pendientes, lote) {
             var vuelta = ++capaEquipos.vuelta;
             var cola = pendientes.slice();
             capaEquipos.pendientes = cola.length;
             eqActualizarPanel();
-            if (!cola.length) { eqProgramar(); return; }
+            // Tope de seguridad del montaje: GPS51 es lento y con la flota entera pedir todas las
+            // posiciones puede irse a medio minuto. Pasado este tiempo se enseña lo que haya y el
+            // resto entra en caliente, en vez de dejar al usuario mirando un spinner.
+            if (capaEquipos.montando) {
+                clearTimeout(capaEquipos.topeMontaje);
+                capaEquipos.topeMontaje = setTimeout(function () {
+                    if (!desmontado) eqMontajeListo();
+                }, EQ_MONTAJE_TOPE_MS);
+            }
+            // Solo se programa el siguiente refresco si la capa sigue encendida: apagarla
+            // mientras bajaba la lista dejaba un temporizador armado para dos minutos después.
+            if (!cola.length) {
+                eqMontajeListo();
+                if (capaEquipos.on && !desmontado) eqProgramar();
+                return;
+            }
             var enCurso = 0;
             function siguiente() {
                 // Vuelta vieja (llegó un refresco nuevo, se apagó la capa o se salió del mapa): se deja.
                 if (vuelta !== capaEquipos.vuelta || !capaEquipos.on || desmontado) return;
-                if (!cola.length) { if (!enCurso) eqProgramar(); return; }
+                if (!cola.length) {
+                    if (!enCurso) { eqMontajeListo(); eqProgramar(); }
+                    return;
+                }
                 var ids = cola.splice(0, lote);
                 enCurso++;
                 var qs = ids.map(function (id) { return 'ids[]=' + encodeURIComponent(id); }).join('&');
@@ -3482,8 +3728,11 @@
                             e._sinRespuesta = !pos[e.id] && !e.gps;
                         });
                         capaEquipos.pendientes = Math.max(0, capaEquipos.pendientes - ids.length);
-                        capaEquipos.actualizado = Date.now();
-                        eqPintar();
+                        // Mientras se monta, el mapa NO se repinta en cada tanda: si no, se veían
+                        // aparecer los equipos sueltos y un momento después juntarse en banderas,
+                        // una y otra vez con cada tanda que llegaba. El panel sí se actualiza: ahí
+                        // el "faltan N" es justo lo que informa de que aún está trabajando.
+                        if (!capaEquipos.montando) eqPintar();
                         eqActualizarPanel();
                         siguiente();
                     });
@@ -3512,11 +3761,20 @@
             capaEquipos.sincronizar();
             if (!capaEquipos.on) {
                 clearTimeout(capaEquipos.timer);
+                clearTimeout(capaEquipos.topeMontaje);
+                capaEquipos.montando = false;
                 map.removeLayer(capaEquipos.grupo);
+                capaEquipos.soltarSpin();   // la lista que venga en camino ya no interesa
+                // Apagar la capa cierra el panel: al volver a encenderlo se empieza por el primer
+                // bloque, no por las cien filas que se hubieran desplegado en la visita anterior.
+                eqVisibles = EQ_LISTA_BLOQUE;
                 eqActualizarPanel();
                 return;
             }
             capaEquipos.grupo.addTo(map);
+            // Primera vez que se enciende: se monta TODO antes de enseñarlo. Si ya estaba cargada,
+            // no hay nada que montar y se pinta al instante con lo que había.
+            capaEquipos.montando = !capaEquipos.cargado;
             eqActualizarPanel();
             // Ya cargada: se enciende al instante con lo que había y se refresca en silencio. El
             // siguiente refresco lo programa eqCompletar al terminar de pedir las posiciones.
@@ -3534,18 +3792,23 @@
         };
         if (miniEquiposUrl && equiposGpsUrl) agregarMiniCapa(miniEquiposUrl, 'Equipos', capaEquipos.alternar, capaEquipos.montar, true);
 
-        // ── Panel "Equipos con GPS" (arriba-derecha) ──
+        // ── Panel "Equipos con GPS" (columna de la derecha, #mapa-lateral) ──
         // Un solo sitio para la capa: conteos, filtros por frente / tipo / serial (con los mismos
         // desplegables del módulo Equipos, uicomponents.js) y la lista de equipos. Los filtros
         // deciden qué puntos se ven en el mapa (eqPasaFiltro, en eqPintar).
         // Antes esto era una leyenda abajo-izquierda (ocultar por frente) más un buscador
         // arriba-derecha: hacían lo mismo en dos sitios.
         var eqFiltro = { frente: '', tipo: '', texto: '' };
-        var EQ_LISTA_MAX = 150;      // filas de la lista; más no aportan (para eso están los filtros)
-        var _panEq = null;           // nodos del panel (los crea onAdd)
+        // La lista no se pinta entera de golpe: se pintan EQ_LISTA_BLOQUE filas y se añade otro
+        // bloque cuando el usuario baja hasta el final. Con 133 equipos se rehacían 133 filas en
+        // cada refresco (cada 2 minutos) y en cada toque de un filtro, para enseñar una docena:
+        // ese trabajo se nota en el teléfono y no servía de nada.
+        var EQ_LISTA_BLOQUE = 25;
+        var eqVisibles = EQ_LISTA_BLOQUE;   // cuántas hay pintadas ahora mismo
+        var _panEq = null;           // nodos del panel (los crea eqCrearPanel)
+        var _mapaLayout = null;      // el contenedor de las dos columnas (mapa | panel)
+        var _mapaLateral = null;     // la columna de la derecha, donde se cuelga el panel
         var eqFirmaOpciones = '';    // frentes/tipos con que se armaron los desplegables la última vez
-        // En el teléfono arranca recogido: abierto tapa medio mapa.
-        var eqPanelPlegado = !!(window.matchMedia && window.matchMedia('(max-width: 640px)').matches);
 
         // Sin tildes y en minúsculas: NFD separa la tilde de la letra y el rango borra esas
         // tildes sueltas (el mismo que usa normaliza() arriba, para el buscador de lugares).
@@ -3568,22 +3831,29 @@
             return true;
         }
         function eqEstadoTexto(e) {
-            return !eqTienePosicion(e) ? eqSinPosicionTexto(e) : (e.gps.en_linea ? 'En línea' : 'Última señal ' + eqHace(e.gps.ultima_senal));
+            if (!eqTienePosicion(e)) return eqSinPosicionTexto(e);
+            if (eqDudosa(e)) return 'Fuera de Venezuela';
+            return e.gps.en_linea ? 'En línea' : 'Última señal ' + eqHace(e.gps.ultima_senal);
         }
 
         // Opciones de los desplegables: los frentes que TIENEN equipos con GPS y los tipos de ese
         // frente (como en Equipos, el tipo depende del frente elegido). Solo se rehacen si cambió
         // la lista: los refrescos traen casi siempre los mismos frentes y tipos.
         function eqArmarOpciones() {
+            // NINGUNA de las dos listas lleva ya cifra al lado (pedido del cliente): la del frente
+            // eran sus equipos CON GPS y chocaba con el contador de arriba —el mismo frente salía
+            // como 22 en la lista y 251 en el contador—, y la del tipo se quitó detrás.
+            //
+            // Así que tampoco se cuenta nada: solo se junta QUÉ frentes y QUÉ tipos hay. Contar
+            // sobraba y además metía el número en la firma de abajo, con lo que un equipo que
+            // cambiara de frente rehacía los dos desplegables enteros para enseñar la misma lista.
             var frentes = {}, tipos = {};
             capaEquipos.datos.forEach(function (e) {
                 var k = eqFrenteClave(e);
-                if (!frentes[k]) frentes[k] = { valor: k, nombre: e.frente ? e.frente.nombre : 'Sin frente', n: 0 };
-                frentes[k].n++;
+                if (!frentes[k]) frentes[k] = { valor: k, nombre: e.frente ? e.frente.nombre : 'Sin frente' };
                 if (eqFiltro.frente && k !== eqFiltro.frente) return;
                 var t = eqTipoClave(e);
-                if (!tipos[t]) tipos[t] = { valor: t, nombre: t, n: 0 };
-                tipos[t].n++;
+                if (!tipos[t]) tipos[t] = { valor: t, nombre: t };
             });
             var porNombre = function (a, b) { return a.nombre.localeCompare(b.nombre, 'es'); };
             var lf = Object.keys(frentes).map(function (k) { return frentes[k]; }).sort(porNombre);
@@ -3595,73 +3865,171 @@
             eqFirmaOpciones = firma;
             var opcion = function (o, sel) {
                 return '<div class="dropdown-item' + (sel ? ' selected' : '') + '" data-value="' + esc(o.valor) + '" data-label="' + esc(o.nombre) + '">' +
-                       // Fila interna propia: al escribir, filterDropdownOptions le pone display:block al
-                       // item y el flex del item se perdía (la cifra dejaba de ir a la derecha).
-                       '<span class="mapa-eqp-opt-fila"><span class="mapa-eqp-opt">' + esc(o.nombre) + '</span><span class="mapa-eqp-opt-n">' + o.n + '</span></span></div>';
+                       '<span class="mapa-eqp-opt">' + esc(o.nombre) + '</span></div>';
             };
-            _panEq.listaFrentes.innerHTML = opcion({ valor: '', nombre: 'TODOS LOS FRENTES', n: capaEquipos.datos.length }, !eqFiltro.frente) +
+            _panEq.listaFrentes.innerHTML = opcion({ valor: '', nombre: 'TODOS LOS FRENTES' }, !eqFiltro.frente) +
                 lf.map(function (o) { return opcion(o, o.valor === eqFiltro.frente); }).join('');
-            _panEq.listaTipos.innerHTML = opcion({ valor: '', nombre: 'TODOS LOS TIPOS', n: lt.reduce(function (s, o) { return s + o.n; }, 0) }, !eqFiltro.tipo) +
+            _panEq.listaTipos.innerHTML = opcion({ valor: '', nombre: 'TODOS LOS TIPOS' }, !eqFiltro.tipo) +
                 lt.map(function (o) { return opcion(o, o.valor === eqFiltro.tipo); }).join('');
+        }
+
+        // Abre o cierra la columna de la derecha y le avisa a Leaflet del ancho nuevo. Sin este
+        // aviso el mapa se queda con el tamaño viejo: sale con piezas grises a medio dibujar y el
+        // centro corrido. Se avisa DOS veces a propósito — una enseguida, para que responda al
+        // instante, y otra al acabar la animación de la columna (0.18 s), que es cuando el ancho
+        // ya es el definitivo.
+        var _tLayout = null;
+        function eqAvisarTamano() {
+            map.invalidateSize({ animate: false });
+            clearTimeout(_tLayout);
+            _tLayout = setTimeout(function () {
+                if (desmontado) return;
+                map.invalidateSize({ animate: false });
+            }, 220);
+        }
+        function eqAjustarLayout(abierto) {
+            if (!_mapaLayout) return;
+            if (_mapaLayout.classList.contains('con-panel') === abierto) return;   // ya está así
+            _mapaLayout.classList.toggle('con-panel', abierto);
+            eqAvisarTamano();
         }
 
         function eqActualizarPanel() {
             if (!_panEq) return;
             var visible = capaEquipos.on && capaEquipos.cargado;
             _panEq.caja.style.display = visible ? '' : 'none';
+            eqAjustarLayout(visible);
             if (!visible) return;
-            _panEq.caja.classList.toggle('plegado', eqPanelPlegado);
-            _panEq.fold.innerHTML = '<i class="material-icons">' + (eqPanelPlegado ? 'expand_more' : 'expand_less') + '</i>';
-            _panEq.fold.title = eqPanelPlegado ? 'Expandir' : 'Recoger';
             eqArmarOpciones();
 
             var filtrados = capaEquipos.datos.filter(eqPasaFiltro);
-            var enLinea = 0, frentes = {};
+            var frentes = {};
             var cuenta = { fuera: 0, vencidos: 0, sinPosicion: 0, sinRespuesta: 0 };
             filtrados.forEach(function (e) {
-                frentes[eqFrenteClave(e)] = true;
                 if (eqTienePosicion(e)) {
-                    if (e.gps.en_linea) enLinea++;
+                    // Solo los que SE PINTAN cuentan para "N frentes con equipos en el mapa": si
+                    // se contaran todos los filtrados, el pie prometía frentes que en el mapa no
+                    // tienen ni una marca.
+                    frentes[eqFrenteClave(e)] = true;
+                    // Los de posición dudosa se pintan igual, pero se cuentan: su posición no
+                    // vale y hay que mandar a revisar esos GPS (sale en el pie).
+                    if (eqDudosa(e)) cuenta.fuera++;
                 } else if (!e.gps) { if (e._sinRespuesta) cuenta.sinRespuesta++; }   // sin gps y sin marca: aún cargando
-                else if (e.gps.ok) cuenta.fuera++;
                 else if (e.gps.motivo === 'sin_posicion') cuenta.sinPosicion++;
                 else cuenta.vencidos++;   // enlace vencido o rechazado por GPS51
             });
-            _panEq.kTotal.textContent = filtrados.length;
-            _panEq.kLinea.textContent = enLinea;
-            _panEq.kFrentes.textContent = Object.keys(frentes).length;
+            // Las dos cifras responden a "¿cuántos equipos hay aquí y cuántos veo por GPS?".
+            // El primer número son los equipos que EXISTEN (los tenga o no el GPS): antes se
+            // ponía aquí el total de la capa, que solo trae los que llevan enlace de GPS51, y
+            // al elegir un frente parecía que ese frente tenía cuatro equipos cuando tiene
+            // cuarenta. Con un frente elegido es el total de ESE frente.
+            //
+            // No lo tocan el filtro de tipo ni el buscador a propósito: es el dato de la
+            // realidad del frente, no de lo que está pintado. El segundo (Con GPS) sí es de lo
+            // filtrado, que es lo que se ve en el mapa.
+            var totalFrente = eqFiltro.frente
+                ? (capaEquipos.totalesFrente[eqFiltro.frente] || 0)
+                : capaEquipos.totalEquipos;
+            // Sin fallback al numero de la capa: si el frente no viniera en totales_frente,
+            // poner ahi los que tienen GPS mentiria bajo el rotulo "Equipos del frente".
+            _panEq.kTotal.textContent = totalFrente;
+            _panEq.kTotalLbl.textContent = eqFiltro.frente ? 'Equipos del frente' : 'Equipos en total';
+            _panEq.kGps.textContent = filtrados.length;
 
-            // Lista: primero los que están en línea, luego por nombre.
+            // Primero los que están en línea; dentro de eso, por TIPO —que es lo que se lee en el
+            // primer renglón de cada fila, así que ordenar por otra cosa dejaba la lista con
+            // pinta de desordenada— y, a igual tipo, por su placa o serial.
             var orden = filtrados.slice().sort(function (a, b) {
                 var la = eqTienePosicion(a) && a.gps.en_linea ? 0 : 1, lb = eqTienePosicion(b) && b.gps.en_linea ? 0 : 1;
-                return la - lb || eqIdent(a).localeCompare(eqIdent(b), 'es');
+                return la - lb
+                    || eqTipoTexto(a).localeCompare(eqTipoTexto(b), 'es')
+                    || eqIdent(a).localeCompare(eqIdent(b), 'es');
             });
-            _panEq._lista = orden.slice(0, EQ_LISTA_MAX);
+            // Si el filtro dejó menos de las que había pintadas, se recorta: si no, al quitar un
+            // filtro la lista se quedaría pensando que enseña más de las que hay.
+            if (eqVisibles > orden.length) eqVisibles = Math.max(EQ_LISTA_BLOQUE, orden.length);
+            _panEq._lista = orden.slice(0, eqVisibles);
+            _panEq._total = orden.length;
             _panEq.lista.innerHTML = (!_panEq._lista.length ? '<div class="mapa-eqp-vacio">Ningún equipo con estos filtros</div>' : '') + _panEq._lista.map(function (e, i) {
                 var linea = eqTienePosicion(e) && e.gps.en_linea;
+                // Dos renglones (pedido del cliente, 29-09-2026):
+                //   1) el TIPO y, al lado, la MARCA
+                //   2) el MODELO y, al lado, la placa — o el serial de chasis si no tiene placa;
+                //      si tampoco, lo que haya (eqIdent baja a serial de motor, código o etiqueta).
+                // El frente no va aquí: se comía el renglón entero y dejaba la placa cortada con
+                // puntos suspensivos, que es justo el dato por el que se busca un equipo. Para eso
+                // está el filtro de frente, arriba.
+                // eqIdent ya es "placa, si no el serial de chasis, si no…": repetir aquí sus dos
+                // primeros escalones no añadía nada y el día que se cambiara el orden ahí dentro,
+                // la fila diría un identificador y la ficha otro.
+                var identifica = eqIdent(e);
                 return '<div class="mapa-eqp-eq' + (eqTienePosicion(e) ? '' : ' sin-pos') + '" data-i="' + i + '">' +
-                    '<span class="mapa-eqp-eq-txt"><b>' + esc(eqIdent(e)) + '</b>' +
-                        '<small>' + esc([eqDescripcion(e), e.frente ? e.frente.nombre : 'Sin frente'].filter(Boolean).join(' · ')) + '</small></span>' +
+                    '<span class="mapa-eqp-eq-txt">' +
+                        // Sin tipo va el rótulo, NO el identificador: ponerlo ahí lo repetiría en
+                        // los dos renglones de la misma fila. La ficha te dirá el resto.
+                        '<b><span class="mapa-eqp-tipo">' + esc(eqTipoTexto(e)) + '</span>' +
+                            (e.marca ? '<span class="mapa-eqp-marca">' + esc(e.marca) + '</span>' : '') + '</b>' +
+                        // Los dos datos van en trozos separados a propósito: cuando el renglón no
+                        // cabe, lo que se recorta es el MODELO y la placa se ve siempre entera. Al
+                        // revés —todo en una cadena— se cortaba por el final y desaparecía justo el
+                        // dato por el que se busca un equipo. Sin modelo no se emite su trozo: un
+                        // span vacío se llevaría igual su hueco de separación.
+                        '<small>' +
+                            (e.modelo ? '<span class="mapa-eqp-modelo">' + esc(e.modelo) + '</span>' : '') +
+                            '<span class="mapa-eqp-id">' + esc(identifica) + '</span></small></span>' +
                     '<span class="mapa-eqp-estado' + (linea ? ' en-linea' : '') + '">' + esc(eqEstadoTexto(e)) + '</span></div>';
-            }).join('') + (orden.length > EQ_LISTA_MAX ? '<div class="mapa-eqp-vacio">y ' + (orden.length - EQ_LISTA_MAX) + ' más: afina los filtros</div>' : '');
+            }).join('') + (orden.length > _panEq._lista.length
+                ? '<div class="mapa-eqp-mas">' + (orden.length - _panEq._lista.length) + ' más abajo</div>'
+                : '');
+
+            // Si el bloque pintado no llega a llenar el panel, no hay barra que desplazar y el
+            // aviso de "N más abajo" se quedaría sin salida: se añade otro bloque en el acto. Pasa
+            // en pantallas altas y al filtrar a pocos resultados.
+            if (_panEq.body && eqVisibles < orden.length &&
+                _panEq.body.scrollHeight <= _panEq.body.clientHeight + 4) {
+                eqVisibles += EQ_LISTA_BLOQUE;
+                return eqActualizarPanel();
+            }
 
             var notas = [];
+            if (!eqFiltro.frente && Object.keys(frentes).length) {
+                notas.push(Object.keys(frentes).length + ' frentes con equipos en el mapa');
+            }
+            // Los que hay en el frente y la capa no trae: sin enlace de GPS51, o con uno del que
+            // no se puede sacar el código de acceso (equiposGps los descarta antes de consultar).
+            // Para quien mira el mapa los dos son lo mismo: equipos que no se ven por GPS.
+            var sinGps = totalFrente - filtrados.length;
+            if (eqFiltro.frente && !eqFiltro.tipo && !eqFiltro.texto && sinGps > 0) {
+                notas.push(sinGps + (sinGps === 1 ? ' equipo sin GPS' : ' equipos sin GPS') + ' en este frente');
+            }
             if (capaEquipos.pendientes) notas.push('Cargando posiciones… faltan ' + capaEquipos.pendientes);
-            if (cuenta.fuera) notas.push(cuenta.fuera + ' con posición fuera de Venezuela');
+            if (cuenta.fuera) notas.push(cuenta.fuera + ' con posición fuera de Venezuela (revisar su GPS)');
             if (cuenta.sinPosicion) notas.push(cuenta.sinPosicion + ' sin posición registrada');
-            if (cuenta.vencidos) notas.push(cuenta.vencidos + ' con el enlace de GPS vencido');
+            // Los dos casos de enlace van juntos porque la acción es la misma (revisarlo en GPS51);
+            // el rótulo los nombra a los dos para no llamar "vencido" a uno que está mal escrito.
+            if (cuenta.vencidos) notas.push(cuenta.vencidos + ' con el enlace de GPS vencido o no reconocido');
             if (cuenta.sinRespuesta) notas.push(cuenta.sinRespuesta + ' sin respuesta de GPS51 (se reintenta)');
-            notas.push('Actualizado ' + new Date(capaEquipos.actualizado).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' }));
+            // Sin la hora de actualización (pedido del cliente): la capa se refresca sola cada
+            // pocos minutos, así que esa línea cambiaba sin que nadie la mirara y solo restaba
+            // sitio a lo que sí hay que leer. Cuándo se leyó cada equipo lo dice su propia fila
+            // ("Última señal hace 12 min").
             _panEq.pie.innerHTML = notas.map(esc).join('<br>');
         }
 
         // Cambia un filtro: repinta los puntos y el panel.
         function eqPonerFiltro(campo, valor) {
             eqFiltro[campo] = valor || '';
+            // Otro filtro, otra lista: se vuelve al primer bloque y arriba del todo. Si no, al
+            // filtrar se quedaba pintando tantas filas como se hubieran desplegado antes, y el
+            // desplazamiento a media lista de otra cosa.
+            eqVisibles = EQ_LISTA_BLOQUE;
+            if (_panEq && _panEq.body) _panEq.body.scrollTop = 0;
             // Cambiar de frente: el tipo elegido que ese frente no tiene se suelta ANTES de
             // pintar; si no, el mapa quedaba vacío (frente nuevo + tipo que allí no existe).
             if (campo === 'frente') eqSoltarTipoAusente();
-            eqPintar();
+            // Durante el montaje no se pinta: el mapa sale de una vez al final. Si no, tocar un
+            // filtro mientras carga lo poblaba a medias y las tandas siguientes ya no lo repintaban.
+            if (!capaEquipos.montando) eqPintar();
             eqActualizarPanel();
         }
         // Suelta el filtro de tipo si ningún equipo del frente elegido es de ese tipo (así el tipo
@@ -3679,9 +4047,22 @@
         function eqIrA(e) {
             if (!e) return;
             if (!eqTienePosicion(e)) { window.toast(eqIdent(e) + ': ' + eqSinPosicionTexto(e) + '.', 'error'); return; }
+            // Durante el montaje todavía no hay marcadores: el panel ya lista los equipos pero el
+            // mapa está por pintar. Antes el toque se caía en silencio y parecía que no funcionaba.
+            if (capaEquipos.montando) { window.toast('Espera: el mapa se está terminando de cargar.', 'info'); return; }
             var m = capaEquipos.marcas[e.id];
             if (!m) return;
             var ll = m.getLatLng();
+            // Dentro de un grupo el equipo no está pintado por su cuenta, así que abrirle la ficha
+            // no enseñaría nada: el agrupador acerca primero hasta separarlo (o lo abre en abanico
+            // si comparten el mismo punto) y luego se abre la ficha.
+            // Se exige __parent: la librería lo lee sin comprobarlo y reventaría con un equipo que
+            // no esté en el grupo (filtrado fuera). Hoy no puede pasar —quien llama saca el equipo
+            // de la lista, que es lo filtrado—, pero el invariante no estaba escrito en ningún lado.
+            if (capaEquipos.grupo.zoomToShowLayer && m.__parent) {
+                capaEquipos.grupo.zoomToShowLayer(m, function () { m.openPopup(); });
+                return;
+            }
             // Ya a la vista y de cerca: sin movimiento no hay moveend, así que la ficha se abre directo.
             if (map.getZoom() >= 15 && map.getBounds().pad(-0.2).contains(ll)) { m.openPopup(); return; }
             // El once() va ANTES del setView por lo mismo que en irABloque: sin animación, moveend
@@ -3692,7 +4073,7 @@
 
         // Excel de lo que está filtrado en el panel (MapaController::exportarEquiposGps). Se mandan
         // los ids de TODO lo filtrado —también lo que no cabe en la lista, que muestra hasta
-        // EQ_LISTA_MAX—; el servidor igual recorta a los frentes del usuario. Puede tardar unos segundos (dirección de cada equipo),
+        // pintado de la lista—; el servidor igual recorta a los frentes del usuario. Puede tardar unos segundos (dirección de cada equipo),
         // por eso se baja por fetch —spinner hasta que llega— y no con un enlace directo.
         function eqExportarExcel(btn) {
             var ids = capaEquipos.datos.filter(eqPasaFiltro).map(function (e) { return e.id; });
@@ -3735,21 +4116,22 @@
                 '<div class="dropdown-content"><div class="dropdown-item-list"></div></div>' +
             '</div>';
         }
-        var PanelEquiposCtrl = L.Control.extend({
-            options: { position: 'topright' },
-            onAdd: function () {
-                var caja = L.DomUtil.create('div', 'mapa-eqp');
+        // El panel NO es un control de Leaflet: vive en la columna de la derecha (#mapa-lateral),
+        // fuera del mapa. Como control flotaba en la esquina y tapaba media pantalla — el cliente
+        // pidió (29-09-2026) el mapa a la izquierda y esto al lado, de arriba abajo.
+        // Se sigue construyendo igual; lo único que cambia es dónde se cuelga.
+        function eqCrearPanel(lateral) {
+            var caja = document.createElement('div');
+                caja.className = 'mapa-eqp';
                 caja.style.display = 'none';
                 caja.innerHTML =
                     '<div class="mapa-eqp-head">' +
                         '<span class="mapa-eqp-titulo"><i class="material-icons">gps_fixed</i>Equipos con GPS</span>' +
-                        '<button type="button" class="mapa-eqp-fold"></button>' +
                     '</div>' +
                     '<div class="mapa-eqp-body">' +
                         '<div class="mapa-eqp-kpis">' +
-                            '<div class="mapa-eqp-kpi"><b data-k="total">0</b><span>Total equipos</span></div>' +
-                            '<div class="mapa-eqp-kpi linea"><b data-k="linea">0</b><span>Con GPS activo</span></div>' +
-                            '<div class="mapa-eqp-kpi"><b data-k="frentes">0</b><span>Frentes activos</span></div>' +
+                            '<div class="mapa-eqp-kpi"><b data-k="total">0</b><span data-k="total-lbl">Equipos en total</span></div>' +
+                            '<div class="mapa-eqp-kpi"><b data-k="gps">0</b><span>Con GPS</span></div>' +
                         '</div>' +
                         '<div class="mapa-eqp-filtros">' +
                             eqDesplegable('mapaEqFrente', 'Filtrar Frente...') +
@@ -3771,18 +4153,27 @@
                         '<div class="mapa-eqp-lista"></div>' +
                         '<div class="mapa-eqp-pie"></div>' +
                     '</div>';
-                L.DomEvent.disableClickPropagation(caja);
-                L.DomEvent.disableScrollPropagation(caja);
+                // Ya no hace falta frenarle los clics ni la rueda al mapa (disableClickPropagation
+                // / disableScrollPropagation): el panel está FUERA de él, no encima.
                 var q = function (s) { return caja.querySelector(s); };
                 var serial = q('.mapa-eqp-serial');
                 _panEq = {
-                    caja: caja, fold: q('.mapa-eqp-fold'),
-                    kTotal: q('[data-k="total"]'), kLinea: q('[data-k="linea"]'), kFrentes: q('[data-k="frentes"]'),
+                    caja: caja, body: q('.mapa-eqp-body'),
+                    kTotal: q('[data-k="total"]'), kTotalLbl: q('[data-k="total-lbl"]'),
+                    kGps: q('[data-k="gps"]'),
                     listaFrentes: q('#mapaEqFrente .dropdown-item-list'), listaTipos: q('#mapaEqTipo .dropdown-item-list'),
                     lista: q('.mapa-eqp-lista'), pie: q('.mapa-eqp-pie'),
                     serial: serial.querySelector('input'), serialX: serial.querySelector('.mapa-eqp-x'), _lista: []
                 };
-                _panEq.fold.addEventListener('click', function () { eqPanelPlegado = !eqPanelPlegado; eqActualizarPanel(); });
+                // Al llegar cerca del final se añade otro bloque de filas. El margen de 120 px es
+                // para que lleguen ANTES de tocar fondo y no se vea el salto.
+                _panEq.body.addEventListener('scroll', function () {
+                    var b = _panEq.body;
+                    if (b.scrollTop + b.clientHeight < b.scrollHeight - 120) return;
+                    if (eqVisibles >= (_panEq._total || 0)) return;   // ya están todas
+                    eqVisibles += EQ_LISTA_BLOQUE;
+                    eqActualizarPanel();
+                });
                 var btnExp = q('.mapa-eqp-exportar');
                 if (btnExp) btnExp.addEventListener('click', function () { eqExportarExcel(btnExp); });
                 // Escribir dentro del desplegable filtra SUS opciones (igual que en Equipos).
@@ -3829,10 +4220,11 @@
                     else if (ev.key === 'Enter') { clearTimeout(tSerial); ponerSerial(); if (_panEq._lista.length) eqIrA(_panEq._lista[0]); }
                 });
                 _panEq.serialX.addEventListener('click', function () { _panEq.serial.value = ''; ponerSerial(); _panEq.serial.focus(); });
-                return caja;
-            }
-        });
-        if (equiposGpsUrl) map.addControl(new PanelEquiposCtrl());
+            lateral.appendChild(caja);
+        }
+        _mapaLayout = document.getElementById('mapa-layout');
+        _mapaLateral = document.getElementById('mapa-lateral');
+        if (equiposGpsUrl && _mapaLateral) eqCrearPanel(_mapaLateral);
 
         // Botón de descarga (arriba-izq, junto al buscador/globo/pantalla completa).
         var ExportarCtrl = L.Control.extend({
@@ -3948,7 +4340,12 @@
                     '<button type="button" class="mapa-dibujo-btn mapa-export-cancel">Cancelar</button>' +
                     '<button type="button" class="mapa-dibujo-btn primary mapa-export-go">Descargar</button>' +
                 '</div>';
-            window.raizVisible(el).appendChild(bar);
+            // SIEMPRE dentro del mapa, no de lo que esté a pantalla completa: la barra va
+            // posicionada respecto a su padre y a pantalla completa el padre pasó a ser el
+            // contenedor de las dos columnas, así que se centraba contando también el ancho
+            // del panel y se iba hacia la derecha. Se sigue viendo porque el mapa está DENTRO
+            // de ese contenedor.
+            el.appendChild(bar);
             L.DomEvent.disableClickPropagation(bar); L.DomEvent.disableScrollPropagation(bar);
             var oriSel = bar.querySelector('#expOri');
             var persBox = bar.querySelector('.mapa-export-pers');

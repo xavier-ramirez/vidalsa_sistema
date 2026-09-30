@@ -19,6 +19,10 @@ use Illuminate\Support\Facades\Log;
  * siendo CorrectorFichaDocumento (revisión) o el usuario pulsando "Aplicar" (carga masiva),
  * con sus mismas puertas: placa y serial no se pisan, un PDF de otro vehículo no se aplica.
  *
+ * UN SOLO MODELO para todo (la carga masiva y la revisión de la noche): el de cupo grande
+ * (services.gemini.modelo, ~500 al día en el plan gratis). Hubo un segundo modelo "para los
+ * difíciles" con 20 al día; se agotaba enseguida y se quitó (29-09-2026).
+ *
  * Ritmo (plan GRATIS de Gemini): un documento a la vez, con espera entre uno y otro para no
  * pasar del tope por minuto, y un tope al día. Si se acaba el cupo, devuelve null y el sistema
  * sigue como si la IA no existiera. Sin clave (`GEMINI_API_KEY`) tampoco pasa nada: null.
@@ -32,6 +36,9 @@ class LectorGemini
 
     /** Cuánto se espera por el candado antes de rendirse: si hay cola, mejor seguir sin IA. */
     private const ESPERA_CANDADO = 20;
+
+    /** Donde Google cuenta el día del cupo gratis (renueva a medianoche de allí). */
+    private const ZONA_CUPO = 'America/Los_Angeles';
 
     /** Lo que se le pide que devuelva. Mismos nombres que usa el resto de la app. */
     private const INSTRUCCION = <<<'TXT'
@@ -78,18 +85,15 @@ TXT;
      * suba una de dentro: el que llama sigue su camino como si la IA no existiera.
      *
      * @param  string  $pdf       contenido binario del PDF
-     * @param  bool    $dificil   true = usar el modelo mejor (cupo diario mucho más chico)
      * @param  int     $intentos  cuántas veces insistir si Gemini dice "espera" (429/503)
      * @return array{tipo:?string,placa:?string,serial:?string,serial_motor:?string,titular:?string,nro:?string,emision:?string,vence:?string,aseguradora:?string,vehiculos:array,seguro:bool,nota:?string,modelo:string}|null
      */
-    public function leer(string $pdf, bool $dificil = false, int $intentos = 3): ?array
+    public function leer(string $pdf, int $intentos = 3): ?array
     {
         try {
-            $modelo = $dificil
-                ? (string) config('services.gemini.modelo_dificil')
-                : (string) config('services.gemini.modelo');
+            $modelo = $this->modelo();
 
-            if (!$this->disponible() || $pdf === '' || $modelo === '' || !$this->hayCupo($modelo)) {
+            if (!$this->disponible() || $pdf === '' || $modelo === '' || !$this->hayCupo()) {
                 return null;
             }
             // El PDF viaja DENTRO de la consulta, en base64 (un tercio más grande), y la API
@@ -158,8 +162,16 @@ TXT;
             }
 
             if ($r->successful()) {
-                $this->gastarCupo($modelo);
+                $this->gastarCupo();
                 return $r->json();
+            }
+            // 429 por el tope DEL DÍA (o un modelo con cupo 0 en este plan): esperar no lo arregla
+            // hasta mañana. Se da el cupo local por gastado para que los siguientes PDF no vuelvan
+            // a preguntar, esperar y fallar uno por uno.
+            if ($r->status() === 429 && preg_match('/PerDay|limit:\s*0\b/i', $r->body())) {
+                Log::info('Gemini: Google dice que se acabó el cupo de hoy; se sigue sin IA', ['modelo' => $modelo]);
+                $this->agotarCupo();
+                return null;
             }
             // 429 = se pasó del tope por minuto; 503 = el modelo está saturado. Se reintenta.
             if (!in_array($r->status(), [429, 503], true)) {
@@ -243,39 +255,53 @@ TXT;
 
     // ── Cupo diario ───────────────────────────────────────────────────────────────
 
-    /**
-     * Consultas que quedan hoy de ese modelo (cada uno tiene su propio tope). Sirve para
-     * pintarlo en pantalla y para decidir si vale la pena mandar el documento a la IA.
-     */
-    public function restantesHoy(?string $modelo = null): int
+    /** El modelo que se usa para todo (ver la cabecera de la clase). */
+    private function modelo(): string
     {
-        $modelo = $modelo ?: (string) config('services.gemini.modelo');
-        $tope = $modelo === (string) config('services.gemini.modelo_dificil')
-            ? (int) config('services.gemini.rpd_dificil', 18)
-            : (int) config('services.gemini.rpd', 450);
-
-        return max(0, $tope - (int) Cache::get($this->claveCupo($modelo), 0));
+        return (string) config('services.gemini.modelo');
     }
 
-    private function hayCupo(string $modelo): bool
+    /** Consultas que quedan hoy. Sirve para decidir si vale la pena mandar el documento a la IA. */
+    public function restantesHoy(): int
     {
-        if ($this->restantesHoy($modelo) > 0) {
+        return max(0, (int) config('services.gemini.rpd', 450) - (int) Cache::get($this->claveCupo(), 0));
+    }
+
+    private function hayCupo(): bool
+    {
+        if ($this->restantesHoy() > 0) {
             return true;
         }
-        Log::info('Gemini: cupo diario agotado; se sigue sin IA', ['modelo' => $modelo]);
+        Log::info('Gemini: cupo diario agotado; se sigue sin IA', ['modelo' => $this->modelo()]);
         return false;
     }
 
-    private function gastarCupo(string $modelo): void
+    private function gastarCupo(): void
     {
-        $clave = $this->claveCupo($modelo);
-        Cache::add($clave, 0, now()->endOfDay()->addMinute());
+        $clave = $this->claveCupo();
+        Cache::add($clave, 0, $this->finDelDiaDeGoogle());
         Cache::increment($clave);
     }
 
-    /** Una cuenta por modelo y por día; se borra sola al terminar el día. */
-    private function claveCupo(string $modelo): string
+    /** El cupo de hoy, dado por gastado (Google ya dijo que no hay más). */
+    private function agotarCupo(): void
     {
-        return 'gemini_cupo_' . md5($modelo) . '_' . now()->format('Y_m_d');
+        Cache::put($this->claveCupo(), (int) config('services.gemini.rpd', 450), $this->finDelDiaDeGoogle());
     }
+
+    /**
+     * Una cuenta por modelo y por día DE GOOGLE: el cupo se renueva a medianoche del Pacífico
+     * (las 3:00 en Venezuela). Contado con el día de aquí, un cupo agotado entre las 00:00 y las
+     * 03:00 se habría dado por gastado también el día siguiente entero.
+     */
+    private function claveCupo(): string
+    {
+        return 'gemini_cupo_' . md5($this->modelo()) . '_' . now(self::ZONA_CUPO)->format('Y_m_d');
+    }
+
+    private function finDelDiaDeGoogle(): \Carbon\CarbonInterface
+    {
+        return now(self::ZONA_CUPO)->endOfDay()->addMinute();
+    }
+
 }

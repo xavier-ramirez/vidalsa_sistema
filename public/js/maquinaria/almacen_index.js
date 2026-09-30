@@ -3368,6 +3368,7 @@
         if (el('almProdCantInicial')) el('almProdCantInicial').value = '';
         var cs = el('almProdCatSuggest'); if (cs) cs.innerHTML = '';
         var us = el('almProdUmSuggestBox'); if (us) { us.innerHTML = ''; us.classList.remove('open'); }
+        almProdFotoLimpiar();
         almProdCatHide();
         // Limpiar resaltados de error de todos los campos del modal
         almProdFieldErr('almProdNombre',  false);
@@ -3379,6 +3380,69 @@
         almProdEquivRender();
         var _ew = el('almProdEquivWrap'); if (_ew) _ew.style.display = 'none';
     }
+    // ── Foto opcional del alta / edición de producto ──────────────────────────────────
+    //
+    // Al CREAR no hay id todavía, así que la foto NO se puede subir en el momento: se recorta,
+    // se deja en memoria (_almProdFotoPend) y se sube cuando guardar devuelve el id. Al EDITAR
+    // se podría subir al instante, pero se hace igual al guardar para que Cancelar no deje una
+    // foto cambiada en un producto que no se llegó a guardar.
+    //
+    // El recorte y la subida son los MISMOS de "Detalles del producto": window._openCropModal
+    // (partials/recorte_foto) y el endpoint productosBase/<id>/foto, que ya convierte a WebP,
+    // sube a Drive y borra la anterior. Lo único que se repite de almDetFotoElegir es el guard
+    // de entrada (que haya archivo y no pase de 10 MB): son cuatro líneas y sacarlas a una
+    // función común costaría más leerlo de lo que ahorra.
+    //
+    // Ese tope de 10 MB es del archivo que ELIGE el usuario —la foto de un teléfono—, no del
+    // que se sube: al recorte le sale un WebP de unos cientos de KB, muy por debajo del
+    // max:8192 que valida el servidor. Son dos límites de dos cosas distintas.
+    var _almProdFotoPend = null;    // Blob recortado esperando a que exista el producto
+    var _almProdFotoUrl  = null;    // object URL de la vista previa, para revocarlo
+
+    function almProdFotoPintar(url) {
+        var img = el('almProdFotoImg'), sin = el('almProdFotoSin');
+        if (!img || !sin) return;
+        if (url) { img.src = url; img.style.display = ''; sin.style.display = 'none'; }
+        else     { img.removeAttribute('src'); img.style.display = 'none'; sin.style.display = ''; }
+    }
+    function almProdFotoLimpiar() {
+        _almProdFotoPend = null;
+        // Sin revocar, cada foto elegida y descartada se queda en memoria hasta recargar.
+        if (_almProdFotoUrl) { try { URL.revokeObjectURL(_almProdFotoUrl); } catch (_) {} _almProdFotoUrl = null; }
+        var inp = el('almProdFotoInput'); if (inp) inp.value = '';
+        almProdFotoPintar('');
+    }
+    window.almProdFotoElegir = function (input) {
+        var archivo = input && input.files && input.files[0];
+        input.value = '';                      // permite volver a elegir el mismo archivo
+        if (!archivo) return;
+        if (archivo.size > 10 * 1024 * 1024) { toast('La foto supera los 10 MB.', 'error'); return; }
+        window._openCropModal(archivo, function (recortada) {
+            if (_almProdFotoUrl) { try { URL.revokeObjectURL(_almProdFotoUrl); } catch (_) {} }
+            _almProdFotoPend = recortada;
+            _almProdFotoUrl  = URL.createObjectURL(recortada);
+            almProdFotoPintar(_almProdFotoUrl);
+        });
+    };
+    /**
+     * Sube la foto pendiente, si la hay, al producto que acaba de guardarse.
+     *
+     * Devuelve SIEMPRE una promesa cumplida: que Drive falle no puede tumbar el guardado —el
+     * producto ya existe— así que se avisa y se sigue. La foto se vuelve a intentar desde
+     * "Detalles del producto" cuando haga falta.
+     */
+    function almProdSubirFotoPendiente(idProducto) {
+        if (!_almProdFotoPend || !idProducto) return Promise.resolve(null);
+        var archivo = _almProdFotoPend;
+        return window.apiPostForm(CFG.rutas.productosBase + '/' + idProducto + '/foto',
+                                  { foto: archivo }, 'No se pudo subir la foto.')
+            .then(function (b) { return (b && b.foto) || null; })
+            .catch(function (e) {
+                toast('El producto se guardó, pero la foto no: ' + e.message, 'error');
+                return null;
+            });
+    }
+
     // ── Equivalencias del filtro: lista editable dentro de "Editar producto" ──────────
     // Estado en memoria; se sincroniza al Guardar (updateProducto manda el conjunto completo).
     // Solo FILTROS y solo al EDITAR (para crear, primero se crea el filtro y luego se edita).
@@ -3449,6 +3513,10 @@
         // Equivalencias (filtros): se cargan desde la fila (data-equiv) y la sección se muestra
         // solo si el producto es FILTRO. La lista se sincroniza al Guardar.
         var trE = document.querySelector('tr.alm-row[data-id-producto="' + id + '"]');
+        // La foto que ya tiene, para que se vea lo que hay antes de cambiarla. Sale de la
+        // miniatura de su fila (la tabla ya la trae) — sin pedir nada al servidor.
+        var imgFila = trE && trE.querySelector('.alm-td-foto img');
+        if (imgFila) almProdFotoPintar(imgFila.getAttribute('src'));
         window._almProdEquivs = (trE && trE.dataset.equiv) ? trE.dataset.equiv.split('|').filter(Boolean) : [];
         almProdEquivRender();
         window.almProdEquivSyncVisible();
@@ -3684,7 +3752,18 @@
                     window.ProductoSuggest.invalidar();
                 }
 
-                almRecargarMostrando(id || (res.b && res.b.producto && res.b.producto.ID_PRODUCTO));
+                // La foto va DESPUES de guardar: al crear, hasta aquí no había id al que
+                // colgarla. Se espera a que suba antes de recargar la tabla, o la fila se
+                // repintaría todavía sin ella (ver almProdSubirFotoPendiente).
+                var idFinal = id || (res.b && res.b.producto && res.b.producto.ID_PRODUCTO);
+                // Al terminar NO se limpia la foto pendiente: de eso se encarga
+                // almResetProductoModal al ABRIR el modal. Limpiarla aquí era una carrera —
+                // si mientras la foto subía el usuario abría "Nuevo producto" otra vez y
+                // elegía otra, este .then le borraba la recién elegida (y su vista previa)
+                // sin decir nada. La subida ya trabaja con su propia copia del archivo.
+                almProdSubirFotoPendiente(idFinal).then(function () {
+                    almRecargarMostrando(idFinal);
+                });
             }
             else {
                 var msg = (res.b && res.b.message) || 'No se pudo guardar el producto.';

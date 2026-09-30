@@ -4059,13 +4059,89 @@ body:has(.mapa-page) .main-viewport {
 }
 .mapa-page { max-width: none; margin: 0; padding: 0; }
 
-#mapa-leaflet {
+/* El mapa y su columna de la derecha, uno al lado del otro. El alto lo manda este contenedor y
+   los dos hijos lo siguen, así que la columna llega de arriba abajo sin calcular nada. */
+.mapa-layout {
+    display: flex;
+    align-items: stretch;
     width: 100%;
     height: 100vh;   /* fallback para navegadores sin dvh */
     height: 100dvh;  /* toda la pantalla (dvh descuenta la barra de URL en móvil) */
+    overflow: hidden;
+}
+#mapa-leaflet {
+    flex: 1 1 auto;
+    min-width: 0;    /* sin esto el mapa no se deja encoger al salir la columna */
+    height: 100%;
     min-height: 0;
     overflow: hidden;
     z-index: 1; /* debajo del header flotante de la app */
+}
+/* El ancho de la columna se declara UNA vez y lo leen todos los que dependen de él: la propia
+   columna y el menú de la app, que se encoge para no encimársele. Escrito a mano en cada sitio,
+   cambiarlo en uno y olvidar el otro dejaba al menú pisando el panel o un hueco entre los dos. */
+body:has(.mapa-page) { --mapa-col: 380px; }
+@media (max-width: 1280px) { body:has(.mapa-page) { --mapa-col: 330px; } }
+
+/* La columna de la derecha. Vacía y sin ancho mientras ninguna capa la pida: así el mapa ocupa
+   todo y no queda ni un borde de más. Solo se abre con la clase del contenedor. */
+.mapa-lateral {
+    flex: 0 0 0px;
+    width: 0;
+    height: 100%;
+    overflow: hidden;
+    background: #fff;
+    transition: flex-basis 0.18s ease, width 0.18s ease;
+}
+.mapa-layout.con-panel .mapa-lateral {
+    flex-basis: var(--mapa-col); width: var(--mapa-col); border-left: 1px solid #e2e8f0;
+}
+
+/* ── El menú de la app y la columna no se pisan ──
+   El header es flotante (position: fixed, 98 % del ancho y centrado), así que cruzaba por encima
+   de la columna: el panel quedaba DEBAJO del menú, con solo una franja asomando por la derecha.
+   Hay dos maneras de resolverlo y cuál sirve depende del ancho, porque el menú necesita sus
+   ~960 px para que quepan el logo, las cuatro secciones y el usuario.
+
+   PANTALLA GRANDE (desde 1400: 960 del menú + 380 de la columna + aire): el menú se encoge hasta
+   donde empieza la columna. Se queda sobre el mapa, que es donde siempre estuvo, y el panel se ve
+   entero desde arriba del todo. */
+@media (min-width: 1400px) {
+    body:has(.mapa-layout.con-panel) .dashboard-header {
+        left: 10px;
+        transform: none;
+        width: calc(100% - var(--mapa-col) - 20px);   /* la columna y un poco de aire */
+        max-width: none;
+    }
+}
+/* PANTALLA MEDIANA (901–1399): encoger el menú no cabe — el usuario y el botón de salir se salían
+   por la derecha. Aquí baja el TABLERO entero: el mapa y la columna empiezan debajo del menú, que
+   se queda arriba como en el resto de los módulos. Solo con la columna abierta; sin ella el mapa
+   sigue llegando hasta arriba del todo. */
+@media (min-width: 901px) and (max-width: 1399px) {
+    .mapa-layout.con-panel { padding-top: 80px; box-sizing: border-box; }
+    /* El mapa ya arranca debajo del menú: los controles no tienen nada que esquivar. */
+    .mapa-layout.con-panel #mapa-leaflet .leaflet-top { margin-top: 10px; }
+}
+/* Teléfono y tableta angosta: uno encima del otro, que a lo ancho no caben los dos. El mapa se
+   queda con la mitad de arriba y el panel con el resto; ninguno tapa al otro. */
+@media (max-width: 900px) {
+    /* Regla de escala y leyenda: FUERA (pedido del cliente). Estaban en el @media de 640 y el
+       diseño de teléfono empieza aquí, en 900: entre 641 y 900 el panel ya iba debajo del mapa
+       pero las dos seguían saliendo y tapaban lo poco de mapa que queda.
+       De la escala solo se oculta el control de PANTALLA: escalaKm() la calcula del propio mapa y
+       la regla de la foto exportada la dibuja su código, así que ninguno se ve afectado.
+       !important en la leyenda porque el JS le pone display en línea al mostrarla y ocultarla. */
+    .leaflet-control-scale { display: none !important; }
+    .mapa-leyenda { display: none !important; }
+
+    .mapa-layout { flex-direction: column; }
+    .mapa-layout.con-panel #mapa-leaflet { flex: 0 0 52dvh; height: 52dvh; }
+    .mapa-lateral { width: 100%; }
+    .mapa-layout.con-panel .mapa-lateral {
+        flex: 1 1 auto; width: 100%; height: auto; min-height: 0;
+        border-left: none; border-top: 1px solid #e2e8f0;
+    }
 }
 /* Controles del mapa (buscador, pantalla completa) POR DEBAJO del header flotante
    (top:5px + 70px de alto ≈ 75px). Sin esto el menú los taparía. */
@@ -4075,42 +4151,37 @@ body:has(.mapa-page) .main-viewport {
    agrupadas con coma. Un selector que el navegador no entienda invalida TODA la regla, así que
    agrupándolos Firefox (no conoce :-webkit-full-screen) descartaba el bloque entero y se quedaba
    sin salida visible de pantalla completa. Duplicar la regla es aquí la forma correcta. */
-/* El contenedor del mapa ocupa TODA la pantalla (sin bordes ni radio) */
-#mapa-leaflet:fullscreen {
-    width: 100vw !important;
-    height: 100vh !important;
-    min-height: 0 !important;
-    border-radius: 0 !important;
-    border: none !important;
-}
-#mapa-leaflet:-webkit-full-screen {
-    width: 100vw !important;
-    height: 100vh !important;
-    min-height: 0 !important;
-    border-radius: 0 !important;
-    border: none !important;
-}
-/* En pantalla completa NO existe el header flotante de la app → los controles (buscador,
-   botones de al lado, capas) suben al tope: se anula el margin-top: 80px de arriba.
-   La "X" para salir SOLO existe aquí, y el botón que ENTRA se oculta (si no, habría dos
-   controles para lo mismo). order:-1 la deja ARRIBA del control de capas (Leaflet apila en
-   orden de alta). */
-#mapa-leaflet:fullscreen .leaflet-top { margin-top: 10px; }
-#mapa-leaflet:fullscreen .mapa-fs-close { display: flex; order: -1; }
-#mapa-leaflet:fullscreen .mapa-fs-toggle { display: none; }
+/* A pantalla completa va el CONTENEDOR de las dos columnas, no el mapa solo: así el panel de
+   equipos entra también (si no, se quedaba fuera justo donde más sitio hay para usarlo). Las dos
+   reglas van SEPARADAS por lo que se explica arriba. */
+.mapa-layout:fullscreen { width: 100vw !important; height: 100vh !important; padding-top: 0 !important; }
+.mapa-layout:-webkit-full-screen { width: 100vw !important; height: 100vh !important; padding-top: 0 !important; }
+.mapa-layout:fullscreen #mapa-leaflet { border-radius: 0 !important; border: none !important; }
+.mapa-layout:-webkit-full-screen #mapa-leaflet { border-radius: 0 !important; border: none !important; }
+
+/* OJO con la especificidad: estas reglas tienen que ganarle a `#mapa-leaflet .leaflet-top` y a
+   `#mapa-leaflet .mapa-fs-close`, que llevan un ID. Por eso van con el ID dentro y no como
+   `.mapa-layout:fullscreen .leaflet-top` a secas — así escritas no se aplicaban y en pantalla
+   completa no salía la "X" para salir ni subían los controles.
+   En pantalla completa no existe el header flotante de la app, así que los controles (buscador,
+   botones de al lado, capas) y el encabezado del panel suben al tope. La "X" para salir SOLO
+   existe aquí, y el botón que ENTRA se oculta (si no, habría dos controles para lo mismo).
+   order:-1 la deja ARRIBA del control de capas (Leaflet apila en orden de alta). */
+.mapa-layout:fullscreen #mapa-leaflet .leaflet-top { margin-top: 10px; }
+.mapa-layout:-webkit-full-screen #mapa-leaflet .leaflet-top { margin-top: 10px; }
+.mapa-layout:fullscreen #mapa-leaflet .mapa-fs-close { display: flex; order: -1; }
+.mapa-layout:-webkit-full-screen #mapa-leaflet .mapa-fs-close { display: flex; order: -1; }
+.mapa-layout:fullscreen #mapa-leaflet .mapa-fs-toggle { display: none; }
+.mapa-layout:-webkit-full-screen #mapa-leaflet .mapa-fs-toggle { display: none; }
+.mapa-layout:fullscreen .mapa-eqp-head { padding-top: 10px; }
+.mapa-layout:-webkit-full-screen .mapa-eqp-head { padding-top: 10px; }
 /* align-items: flex-end — la columna flex mide lo que su hijo MÁS ANCHO (el buscador de
    bloques, 232px, que aparece al encender esa capa). Sin esto los demás controles (la "X"
-   de salir) se alineaban al borde IZQUIERDO de esa caja y
-   se veían corridos hacia el centro del mapa en cuanto salía el buscador. Todos pegados a
-   la derecha, que es el lado donde vive esta esquina. */
-#mapa-leaflet:fullscreen .leaflet-top.leaflet-right { display: flex; flex-direction: column; align-items: flex-end; }
-
-#mapa-leaflet:-webkit-full-screen .leaflet-top { margin-top: 10px; }
-#mapa-leaflet:-webkit-full-screen .mapa-fs-close { display: flex; order: -1; }
-#mapa-leaflet:-webkit-full-screen .mapa-fs-toggle { display: none; }
-/* Variante -webkit- de la regla de arriba (los selectores no se pueden agrupar: un
-   pseudo-elemento desconocido invalidaría toda la regla). Ver la nota de align-items ahí. */
-#mapa-leaflet:-webkit-full-screen .leaflet-top.leaflet-right { display: flex; flex-direction: column; align-items: flex-end; }
+   de salir) se alineaban al borde IZQUIERDO de esa caja y se veían corridos hacia el centro del
+   mapa en cuanto salía el buscador. Todos pegados a la derecha, que es el lado donde vive esta
+   esquina. La variante -webkit- va aparte: agrupadas, un selector desconocido invalidaría las dos. */
+.mapa-layout:fullscreen #mapa-leaflet .leaflet-top.leaflet-right { display: flex; flex-direction: column; align-items: flex-end; }
+.mapa-layout:-webkit-full-screen #mapa-leaflet .leaflet-top.leaflet-right { display: flex; flex-direction: column; align-items: flex-end; }
 
 /* Fuera de pantalla completa la "X" no existe (con #id para ganarle al display:flex de
    .mapa-fit-btn, que se define más abajo). */
@@ -4368,13 +4439,6 @@ body:has(.mapa-page) .main-viewport {
        medio mapa (los bloques se identifican tocándolos). Las capas SÍ se ven en
        teléfono, dentro de la caja desplegable de capas (ver .mapa-capas-box más abajo). */
     .mapa-bloque-buscador { display: none !important; }
-    /* Regla de escala (abajo-derecha): fuera en teléfono, a pedido del cliente. Solo se
-       oculta el control de PANTALLA — escalaKm() la calcula del propio mapa y la regla de
-       la foto exportada la dibuja su código, así que ninguno de los dos se ve afectado. */
-    .leaflet-control-scale { display: none !important; }
-    /* Leyenda fuera en teléfono (pedido del cliente): en una pantalla angosta tapaba mapa
-       útil. !important porque el JS le pone display inline al mostrarla/ocultarla. */
-    .mapa-leyenda { display: none !important; }
     /* Se ocultan TODOS los botones de la barra (Ver toda Venezuela, Pantalla completa y
        Descargar imagen): solo queda el cuadrado de la lupa, que despliega el buscador.
        Los de "Frentes de trabajo" y "Dibujar tubería" ya no están en la barra: se quitaron
@@ -4656,34 +4720,93 @@ body:has(.mapa-page) .main-viewport {
 .mapa-eq-cel { display: flex; flex-direction: column; gap: 1px; min-width: 0; padding: 7px 8px; background: #fff; }
 .mapa-eq-cel span { font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; color: #64748b; }
 .mapa-eq-cel b, .mapa-eq-cel small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Celda de fila entera, para el dato largo que en media columna se corta (la señal del GPS:
+   fuente, satélites, altitud y %). Sin ella quedaba a la mitad y con un hueco vacío al lado. */
+.mapa-eq-cel.ancha { grid-column: 1 / -1; }
+.mapa-eq-cel.ancha b { white-space: normal; }
 .mapa-eq-cel b { font-size: 13px; font-weight: 800; }
 .mapa-eq-cel small { font-size: 10px; color: #64748b; }
 .mapa-eq-ids { display: flex; flex-wrap: wrap; gap: 2px 10px; padding: 8px 12px 0; font-size: 11px; color: #475569; }
 .mapa-eq-ids b { color: #0f172a; }
+/* Aviso de posición NO fiable, arriba del todo en la ficha del equipo: el GPS la reporta fuera
+   del país. En ámbar y no en rojo: no es un fallo de la app ni del equipo, es el aparato de GPS
+   el que hay que revisar. */
+.mapa-eq-dudosa { display: flex; align-items: flex-start; gap: 6px; padding: 8px 12px;
+    background: #fef3c7; color: #92400e; font-size: 11.5px; font-weight: 700; line-height: 1.35; }
+.mapa-eq-dudosa .material-icons { font-size: 16px; flex: 0 0 auto; margin-top: 1px; }
 .mapa-eq-dir { padding: 6px 12px 0; font-size: 11.5px; color: #1e293b; }
 .mapa-eq-coord { padding: 4px 12px 10px; font-size: 10.5px; color: #64748b; font-variant-numeric: tabular-nums; }
-/* Panel "Equipos con GPS" (arriba-derecha; en teléfono más angosto, ver más abajo). Letra, cajas y desplegables como
-   los filtros del módulo Equipos: Nunito, borde #cbd5e0, radio 12 px, azul #0067b1 al filtrar. */
+/* ── Marca de un GRUPO de equipos (Leaflet.markercluster) ──
+   De lejos, los equipos que caen en el mismo sitio se juntan en una sola marca con su número; al
+   acercarse se abren solos. El agrupador trae por su cuenta unos círculos verdes y amarillos: no se
+   carga ese CSS (solo el de las animaciones) y el aspecto se define aquí, con el azul del sistema y
+   el mismo aire que los iconos de equipo. Tres tamaños según cuántos lleve dentro, para que se note
+   de un vistazo dónde está el grueso de la flota. */
+.mapa-eq-grupo {
+    /* Banderita, no un círculo: el pico de abajo señala el sitio igual que los pines de equipo,
+       así el mapa se lee de una pieza. El span lleva el número; el ::after dibuja el pico.
+       OJO: aquí NO se declaran position, display ni transform. Leaflet coloca cada marcador con
+       un transform en línea y le pone `position: absolute; display: block` desde su propia hoja,
+       que se carga DESPUÉS de esta: declararlos aquí es, en el mejor caso, letra muerta, y en el
+       peor —si algún día su hoja se cargara antes— las banderitas se apilarían en flujo y el mapa
+       quedaría roto. Y una `transition: transform` aquí se aplicaría al transform de Leaflet: las
+       marcas se deslizaban hasta su sitio en cada recolocación en vez de aparecer en él. Todo lo
+       que se anima va en el hijo, que Leaflet no toca. */
+    cursor: pointer;
+}
+.mapa-eq-grupo > span {
+    /* border-box para que el borde de 2 px NO sume al tamaño: sumando, la bandera salía 4 px más
+       ancha que su icono y el pico —que se centra respecto al icono— quedaba 2 px corrido; y de los
+       8 px de pico solo asomaban 4. Con esto los tres números (ancho, alto y PICO, en eqIconoGrupo)
+       cuadran exactos con lo que se dibuja. */
+    box-sizing: border-box;
+    display: flex; align-items: center; justify-content: center;
+    width: 100%; height: calc(100% - 8px);   /* 8 = el alto del pico de abajo */
+    background: var(--maquinaria-dark-blue);
+    color: #fff; border: 2px solid #fff; border-radius: 6px;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.45);
+    font: 800 11px/1 "Nunito", sans-serif;
+    font-variant-numeric: tabular-nums;
+    transition: transform 0.12s ease;
+    transform-origin: 50% 100%;
+}
+.mapa-eq-grupo:hover > span { transform: scale(1.08); }
+/* El pico: un triángulo pegado al borde de abajo, del color de la bandera. Su alto (8) es el
+   mismo que descuenta el span de arriba y el que reserva eqIconoGrupo en el JS. */
+.mapa-eq-grupo::after {
+    content: '';
+    position: absolute; left: 50%; bottom: 0; transform: translateX(-50%);
+    width: 0; height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 8px solid var(--maquinaria-dark-blue);
+    filter: drop-shadow(0 1px 1px rgba(255, 255, 255, 0.9));
+}
+/* Tres tamaños de letra según cuántos equipos lleve dentro (los altos los pone eqIconoGrupo).
+   El chico se queda con los 11 px de la regla de arriba, así que no necesita una propia. */
+.mapa-eq-grupo-md > span { font-size: 12px; }
+.mapa-eq-grupo-gr > span { font-size: 13px; }
+
+/* Panel "Equipos con GPS". Vive en la columna de la derecha (.mapa-lateral), NO flotando sobre el
+   mapa: ocupa todo el alto y el ancho de su columna, así que no lleva sombra, ni radio, ni borde
+   propio — el borde que se ve es el de la columna. Letra, cajas y desplegables como los filtros
+   del módulo Equipos: Nunito, borde #cbd5e0, radio 12 px, azul #0067b1 al filtrar. */
 .mapa-eqp {
-    width: 310px; max-height: calc(100vh - 210px); display: flex; flex-direction: column;
-    background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;
-    box-shadow: 0 10px 25px rgba(15, 23, 42, 0.18); overflow: hidden;
+    width: 100%; height: 100%; display: flex; flex-direction: column;
+    background: #fff; overflow: hidden;
     font: 14px/1.35 "Nunito", sans-serif; color: var(--maquinaria-dark-blue);
 }
-.mapa-eqp-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px; border-bottom: 1px solid #e2e8f0; }
+/* El título arranca arriba del todo: el menú de la app se encoge para dejarle la columna libre
+   (ver la regla de .dashboard-header más arriba), así que aquí ya no hay que esquivarlo. */
+.mapa-eqp-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 14px 12px 10px; border-bottom: 1px solid #e2e8f0; }
 .mapa-eqp-titulo { display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 800; }
 .mapa-eqp-titulo .material-icons { font-size: 18px; color: var(--maquinaria-blue); }
-.mapa-eqp-fold { display: inline-flex; border: none; background: transparent; padding: 0; cursor: pointer; color: var(--maquinaria-gray-text); }
-.mapa-eqp-fold .material-icons { font-size: 20px; }
-.mapa-eqp.plegado .mapa-eqp-body { display: none; }
-.mapa-eqp.plegado .mapa-eqp-head { border-bottom: none; }
-.mapa-eqp-body { overflow-y: auto; padding: 10px 12px 12px; }
-.mapa-eqp-kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+/* Se come el alto que sobra y se desplaza solo él: el encabezado queda fijo arriba. */
+.mapa-eqp-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 10px 12px 12px; }
+.mapa-eqp-kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
 .mapa-eqp-kpi { display: flex; flex-direction: column; align-items: center; padding: 8px 4px; border-radius: 10px; background: #f0f4f8; text-align: center; }
 .mapa-eqp-kpi b { font-size: 20px; font-weight: 800; line-height: 1.1; color: var(--maquinaria-dark-blue); font-variant-numeric: tabular-nums; }
 .mapa-eqp-kpi span { margin-top: 2px; font-size: 10.5px; font-weight: 700; color: var(--maquinaria-gray-text); }
-.mapa-eqp-kpi.linea { background: #e1effa; }
-.mapa-eqp-kpi.linea b { color: var(--maquinaria-blue); }
 .mapa-eqp-filtros { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
 /* La caja del filtro: la de Equipos (45 px allí; 40 aquí, que el panel es angosto). */
 .mapa-eqp .mapa-eqp-trigger { height: 40px; padding: 0; overflow: hidden; }
@@ -4693,12 +4816,14 @@ body:has(.mapa-page) .main-viewport {
 .mapa-eqp-trigger .mapa-eqp-x { padding: 0 8px 0 4px; cursor: pointer; }
 /* La lupa y la X no giran al abrir (la regla global rota el icono del desplegable abierto). */
 .mapa-eqp .custom-dropdown.active .dropdown-trigger i { transform: none; }
+/* Se mantiene por encima de los controles de Leaflet (z-index 1000) por si el desplegable llega a
+   asomar fuera de la columna; dentro de ella no hace falta, que el panel ya no está en el mapa. */
 .mapa-eqp .dropdown-content { z-index: 1100; }
 .mapa-eqp .dropdown-item-list { max-height: 230px; overflow-y: auto; }
 .mapa-eqp .dropdown-item { padding: 8px 12px; font-size: 13px; }
-.mapa-eqp-opt-fila { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; }
-.mapa-eqp-opt { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.mapa-eqp-opt-n { flex: none; font-size: 11.5px; color: var(--maquinaria-gray-text); font-variant-numeric: tabular-nums; }
+/* La fila interna (.mapa-eqp-opt-fila) y la cifra (.mapa-eqp-opt-n) se quitaron con los números
+   de las listas: la fila solo existía para empujar la cifra a la derecha. Queda el nombre. */
+.mapa-eqp-opt { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* Buscador + botón de exportar en la misma línea; el botón, chico y solo con el icono. */
 .mapa-eqp-buscar { display: flex; align-items: center; gap: 8px; }
 .mapa-eqp-buscar .mapa-eqp-serial { flex: 1 1 auto; min-width: 0; }
@@ -4713,18 +4838,85 @@ body:has(.mapa-page) .main-viewport {
 .mapa-eqp-eq { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 8px; cursor: pointer; }
 .mapa-eqp-eq:hover { background: #f0f4f8; }
 .mapa-eqp-eq-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.mapa-eqp-eq-txt b, .mapa-eqp-eq-txt small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.mapa-eqp-eq-txt b { font-size: 13px; font-weight: 800; }
-.mapa-eqp-eq-txt small { font-size: 11px; color: var(--maquinaria-gray-text); }
-.mapa-eqp-estado { flex: none; max-width: 92px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10.5px; font-weight: 700; color: var(--maquinaria-gray-text); }
+/* Primer renglón: el TIPO y, al lado, la marca. Misma idea que el segundo renglón — el que cede
+   cuando no caben es el tipo, y la marca no se recorta.
+   Va en NEGRO (pedido del cliente): sobre el panel claro el gris de antes se leía flojo. El verde
+   de "En línea" se queda, que ahí el color ES el dato. */
+.mapa-eqp-eq-txt b {
+    display: flex; align-items: baseline; gap: 6px; min-width: 0;
+    overflow: hidden; white-space: nowrap;
+    font-size: 13px; font-weight: 800; color: #000;
+}
+/* El tipo en su propio span y no como texto suelto: dentro de un contenedor flex el texto suelto
+   queda en una caja anónima, que CSS no puede alcanzar para recortarlo con puntos suspensivos. */
+.mapa-eqp-tipo { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* La marca, más discreta que el tipo: es el dato de apoyo, no el titular. */
+.mapa-eqp-marca { flex: none; font-size: 11px; font-weight: 700; color: #475569; letter-spacing: 0.2px; }
+/* Segundo renglón: el MODELO y al lado la placa (o el serial). Cuando no caben los dos, el
+   que cede es el MODELO — la placa nunca se recorta, que es el dato por el que se busca un equipo.
+   Eso lo hace el reparto: el modelo puede encogerse (flex 0 1 auto + min-width 0) y la placa no
+   (flex: none). Aquí NO se pone text-overflow: siendo un contenedor flex no tiene texto propio que
+   recortar, lo hace su hijo. El nowrap sí se queda: lo heredan los dos trozos, y sin él la placa
+   se partiría en dos líneas. */
+.mapa-eqp-eq-txt small {
+    display: flex; align-items: baseline; gap: 4px;
+    overflow: hidden; white-space: nowrap;
+    font-size: 11px; color: #000;
+}
+.mapa-eqp-modelo { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.mapa-eqp-id { flex: none; }
+/* El "·" lo pone la placa, y solo si tiene algo delante: puesto al final del trozo del modelo se
+   lo comían los puntos suspensivos justo cuando hacía falta, y los dos datos quedaban pegados. */
+.mapa-eqp-modelo + .mapa-eqp-id::before { content: '· '; }
+.mapa-eqp-estado { flex: none; max-width: 92px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10.5px; font-weight: 700; color: #000; }
 .mapa-eqp-estado.en-linea { color: #15803d; }
-.mapa-eqp-eq.sin-pos { cursor: default; opacity: 0.6; }
+/* Sin posicion: se marca con el cursor y un punto de transparencia, pero NO tanta como para
+   deshacer el negro de arriba (estaba en 0.6 y esas filas volvian a leerse grises). */
+.mapa-eqp-eq.sin-pos { cursor: default; opacity: 0.85; }
 .mapa-eqp-vacio { padding: 6px 8px; font-size: 12px; color: var(--maquinaria-gray-text); }
+/* Pie de la lista mientras quedan filas por pintar: se añaden solas al seguir bajando. */
+.mapa-eqp-mas {
+    padding: 8px; text-align: center; font-size: 11px; font-weight: 700;
+    color: var(--maquinaria-gray-text);
+}
 .mapa-eqp-pie { margin-top: 10px; padding-top: 8px; border-top: 1px solid #e2e8f0; font-size: 11px; line-height: 1.45; color: var(--maquinaria-gray-text); }
+@media (max-width: 900px) {
+    /* Aquí el panel va DEBAJO del mapa y el menú se queda arriba sobre él: nada que esquivar. */
+    .mapa-eqp-head { padding: 10px 12px; }
+}
+/* ── TELÉFONO: el panel, apretado ──
+   Abajo del mapa quedan unos 400 px de alto y con las medidas de PC se los comían el encabezado,
+   los dos contadores y los tres filtros: solo asomaban TRES equipos, que es justo lo que se viene a
+   mirar. Todo se encoge un punto —contadores, cajas de filtro, márgenes— para que la lista se
+   quede con el sitio. No se toca nada del diseño de PC. */
 @media (max-width: 640px) {
-    /* Teléfono: un poco más angosto (cabe en 320 px con los márgenes) y arranca recogido
-       (ver eqPanelPlegado). */
-    .mapa-eqp { width: 290px; max-height: 60vh; }
+    /* En teléfono manda el MAPA: la lista enseña tres equipos y el resto se ve desplazando
+       (pedido del cliente). Con 45dvh salían seis y el mapa se quedaba en nada. */
+    .mapa-layout.con-panel #mapa-leaflet { flex: 0 0 57dvh; height: 57dvh; }
+    /* Sin el título "Equipos con GPS": ocupa un renglón entero para decir lo que ya se ve, y en
+       teléfono ese renglón es una fila de equipos (pedido del cliente). */
+    .mapa-eqp-head { display: none; }
+    .mapa-eqp-body { padding: 8px 10px 10px; }
+    .mapa-eqp-kpi { padding: 5px 4px; border-radius: 8px; }
+    .mapa-eqp-kpi b { font-size: 16px; }
+    .mapa-eqp-kpi span { font-size: 9.5px; }
+    /* Los tres filtros uno debajo del otro, igual que en PC (pedido del cliente): en dos columnas
+       las cajas quedaban demasiado estrechas para leer un frente entero. */
+    .mapa-eqp-filtros { gap: 6px; margin-top: 8px; }
+    .mapa-eqp .mapa-eqp-trigger { height: 36px; }
+    .mapa-eqp-trigger input { font-size: 13px; }
+    .mapa-eqp-sec { margin: 8px 0 2px; }
+    .mapa-eqp-eq { padding: 5px 6px; }
+    .mapa-eqp-pie { margin-top: 8px; padding-top: 6px; }
+}
+/* Teléfono BAJO (un SE, o cualquiera con el teclado abierto): con 45dvh de mapa al panel le
+   quedaban 277 px y solo asomaban DOS equipos. El mapa cede hasta un tercio largo de la pantalla
+   —sigue siendo un mapa usable— y la lista pasa a enseñar cuatro. */
+@media (max-width: 640px) and (max-height: 640px) {
+    .mapa-layout.con-panel #mapa-leaflet { flex: 0 0 35dvh; height: 35dvh; }
+    .mapa-eqp-kpi b { font-size: 15px; }
+    .mapa-eqp-kpi { padding: 4px 4px; }
+    .mapa-eqp-sec { margin: 6px 0 2px; }
 }
 
 /* Cuadrito de color de cada división de la Faja en la leyenda. Mismo hueco que el número del
@@ -4896,15 +5088,17 @@ body:has(.mapa-page) .main-viewport {
     #mapa-leaflet .mapa-buscar-toggle { display: flex; }
 }
 
-/* Caja de capas (abajo-derecha, a la izquierda de la escala y la brújula; order 0 en la fila
-   de esa esquina, ver .mapa-compass): el botón "Capas" y, al tocarlo (.abierto), las
-   miniaturas en FILA a su IZQUIERDA. row-reverse en las dos: el botón queda a la derecha y la
-   primera capa (Equipos) pegada a él. Recogida por defecto: sueltas tapaban mapa. */
-.mapa-capas-box { display: flex; flex-direction: row-reverse; align-items: flex-end; gap: 8px; }
+/* Caja de capas (ARRIBA-derecha): el botón "Capas" y, al tocarlo (.abierto), las miniaturas en
+   FILA a su IZQUIERDA. row-reverse en las dos: el botón queda a la derecha y la primera capa
+   (Equipos) pegada a él. Recogida por defecto: sueltas tapaban mapa.
+   align-items: flex-start porque ahora cuelga de arriba — abajo-derecha se alineaba al pie. */
+.mapa-capas-box { display: flex; flex-direction: row-reverse; align-items: flex-start; gap: 8px; }
 .mapa-capas-panel { display: none; flex-direction: row-reverse; gap: 8px; }
 .mapa-capas-box.abierto .mapa-capas-panel { display: flex; animation: mapaCapasEntra 0.16s ease-out; }
 @keyframes mapaCapasEntra { from { opacity: 0; transform: translateX(8px); } }
-@keyframes mapaCapasSube { from { opacity: 0; transform: translateY(8px); } }
+/* En teléfono las miniaturas salen en columna DEBAJO del botón, así que entran bajando. Cuando la
+   caja estaba abajo-derecha salían por encima y entraban subiendo. */
+@keyframes mapaCapasBaja { from { opacity: 0; transform: translateY(-8px); } }
 /* El botón "Capas" tiene la MISMA forma que las miniaturas (marco blanco, rótulo abajo) para
    que se lea como una más; en vez de mapa lleva el icono de capas. Azul si hay alguna encendida. */
 .mapa-capas-toggle {
@@ -4974,8 +5168,10 @@ body:has(.mapa-page) .main-viewport {
    las declaraciones base están en ESTE punto del archivo: con la misma especificidad gana la
    última. */
 @media (max-width: 640px) {
-    .mapa-capas-box, .mapa-capas-panel { flex-direction: column-reverse; gap: 6px; }
-    .mapa-capas-box.abierto .mapa-capas-panel { animation-name: mapaCapasSube; }
+    /* column (no column-reverse): el botón manda arriba y las capas se despliegan HACIA ABAJO,
+       que es hacia donde hay mapa libre ahora que la caja vive en la esquina de arriba. */
+    .mapa-capas-box, .mapa-capas-panel { flex-direction: column; gap: 6px; }
+    .mapa-capas-box.abierto .mapa-capas-panel { animation-name: mapaCapasBaja; }
     .mapa-mini-capa, .mapa-capas-toggle { width: 54px; height: 51px; }
     .mapa-capas-toggle { padding-top: 5px; }
     .mapa-capas-toggle .material-icons { font-size: 26px; }

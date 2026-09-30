@@ -503,11 +503,19 @@
         color: #00004d; /* navy del panel de usuario (antes #1e293b) */
         margin-bottom: 2px;
     }
+    /* La línea PRINCIPAL de la tarjeta: sus vecinas tienen una cifra grande que llena la tarjeta
+       (el "89.3%" de Salud, el número de Alertas) y esta no, así que con 12px se veía con la letra
+       chica y medio vacía al lado de ellas. Se le da el navy y el peso de aquellas, pero NO su
+       tamaño: aquí es una frase, no una cifra de tres dígitos, y a 22px se comía la tarjeta y se
+       partía en dos renglones en las pantallas de 1101-1400. A 16px pide 194px y el hueco más
+       estrecho que llega a haber es de 218, así que entra en un renglón en cualquier pantalla sin
+       necesidad de recortes por tramos. */
     .mapa-card-sub {
-        font-size: 12px;
-        font-weight: 700;
-        color: #475569;
-        line-height: 1.25;
+        font-size: 16px;
+        font-weight: 900;
+        color: #00004d;
+        letter-spacing: -0.02em;
+        line-height: 1.15;
     }
     @media (max-width: 900px) {
         /* El padding lo fija la regla de compactacion del wrapper (.cards-wrapper .mapa-card),
@@ -516,13 +524,13 @@
         .mapa-card-icon { width: 40px; height: 40px; border-radius: 11px; }
         .mapa-card-icon .material-icons { font-size: 22px; }
         .mapa-card-label { font-size: 10px; letter-spacing: 0.08em; }
-        .mapa-card-sub { font-size: 11px; }
+        .mapa-card-sub { font-size: 15px; }
     }
     @media (max-width: 520px) {
         .mapa-card { gap: 10px; }
         .mapa-card-icon { width: 36px; height: 36px; border-radius: 10px; }
         .mapa-card-icon .material-icons { font-size: 20px; }
-        .mapa-card-sub { font-size: 10.5px; }
+        .mapa-card-sub { font-size: 14px; }
     }
 
     /* ── Card "Alertas Documentos" — misma superficie blanca limpia que Salud ── */

@@ -18,8 +18,8 @@ Estructura: overlay > modal-content > header + sub-header + body
                     </div>
                     <div style="display: flex; gap: 6px; flex-wrap: wrap;">
                         <button id="modal_gps_btn" type="button"
-                            onclick="openGpsModal(this.dataset.url, this.dataset.equipoName, this.dataset.equipoSerial, this.dataset.equipoTipo)"
-                            data-url="" data-equipo-name="" data-equipo-serial="" data-equipo-tipo=""
+                            onclick="openGpsModal(this)"
+                            data-equipo-id="" data-url="" data-equipo-name="" data-equipo-serial="" data-equipo-tipo=""
                             style="display: none; background: linear-gradient(135deg,#10b981,#059669); color: white; padding: 6px 14px; border-radius: 8px; font-size: 11px; font-weight: 700; border: none; cursor: default; align-items: center; gap: 5px; transition: all 0.2s; box-shadow: 0 2px 8px rgba(16,185,129,0.35);"
                             onmouseover="this.style.transform='scale(1.04)'; this.style.boxShadow='0 4px 14px rgba(16,185,129,0.5)'"
                             onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 2px 8px rgba(16,185,129,0.35)'">
@@ -379,43 +379,50 @@ taparlo todo. NO se hereda el 2000 de .modal-overlay: quedaria por detras.
 {{-- ═══════════════════════════════════════════════════════════
 MODAL GPS TRACKER — Rastreo Satelital en Vivo
 ═══════════════════════════════════════════════════════════════ --}}
-<div id="gpsTrackerModal"
-    style="display:none; position:fixed; inset:0; z-index:99999; background:rgba(15,23,42,0.8); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); align-items:center; justify-content:center; padding:20px; font-family:'Nunito',sans-serif;">
-    <div class="gps-modal-container"
-        style="background:#ffffff; border-radius:16px; width:100%; max-width:1150px; max-height:90vh; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 25px 60px rgba(0,0,0,0.2); border:1px solid #e2e8f0;">
+<div id="gpsTrackerModal" style="display:none;">
+    <div class="gps-modal-container" role="dialog" aria-modal="true" aria-labelledby="gps_equipo_title">
 
         {{-- Header GPS --}}
-        <div style="padding:14px 20px; display:flex; align-items:flex-start; justify-content:space-between; border-bottom:1px solid #e2e8f0; background:#f8fafc; flex-shrink:0;">
-            <div style="display:flex; align-items:flex-start; gap:12px; flex:1; min-width:0; padding-right:10px;">
-                <div style="width:36px; height:36px; border-radius:50%; background:#10b981; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
-                    <i class="material-icons" style="font-size:18px; color:white;">gps_fixed</i>
-                </div>
-                <div style="display:flex; flex-direction:column; gap:2px; min-width:0; flex:1;">
-                    <span style="color:#64748b; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px;">Rastreo Satelital en Vivo</span>
-                    <span id="gps_equipo_title" style="color:#1e293b; font-weight:800; font-size:15px; word-break:break-word; max-width:100%; line-height:1.2;">&mdash;</span>
-                </div>
+        <div class="gps-header">
+            <div class="gps-header-icono">
+                <i class="material-icons">gps_fixed</i>
             </div>
-            <button type="button" onclick="closeGpsModal()"
-                style="background:#f1f5f9; border:1px solid #e2e8f0; color:#64748b; width:32px; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center; cursor:default; transition:all 0.2s; flex-shrink:0;"
-                onmouseover="this.style.background='#fee2e2'; this.style.color='#ef4444'; this.style.borderColor='#fecaca'"
-                onmouseout="this.style.background='#f1f5f9'; this.style.color='#64748b'; this.style.borderColor='#e2e8f0'">
-                <i class="material-icons" style="font-size:18px;">close</i>
+            <div class="gps-header-textos">
+                <span class="gps-header-label">Rastreo Satelital en Vivo</span>
+                <span id="gps_equipo_title" class="gps-header-titulo">&mdash;</span>
+            </div>
+            <button type="button" class="gps-cerrar" onclick="closeGpsModal()" aria-label="Cerrar">
+                <i class="material-icons">close</i>
             </button>
         </div>
 
-        {{-- iframe GPS --}}
-        <div class="gps-panel-map" style="flex:1; min-height:540px; overflow:hidden; position:relative;">
-            <div id="gps-loading-overlay"
-                style="position:absolute; inset:0; background:white; z-index:10; display:flex; align-items:center; justify-content:center;">
-                <div class="spinner-circle"></div>
+        {{-- Cuerpo: mapa de Google a la izquierda y los datos del GPS a la derecha. Los datos los
+             pide el servidor a GPS51 (MapaController::equipoGps, la misma lectura que la capa
+             Equipos de /mapa): ya no se abre la página de GPS51 dentro del modal. --}}
+        <div class="gps-body">
+            <div class="gps-panel-map">
+                <iframe id="gps_mapa" title="Mapa de Google" src="about:blank" loading="lazy"
+                    referrerpolicy="no-referrer-when-downgrade" allow="fullscreen"></iframe>
+                <div id="gps_mapa_aviso" class="gps-mapa-aviso">
+                    <div class="spinner-circle"></div>
+                </div>
             </div>
-            {{-- Solo se usa 'allow="...fullscreen..."'; 'allowfullscreen' es
-                 redundante y dispara warning en consola ("Allow attribute will
-                 take precedence over allowfullscreen"). --}}
-            <iframe id="gps_iframe" src="about:blank"
-                style="width:100%; height:100%; border:none; display:none; min-height:540px; opacity:0; transition:opacity 0.35s ease-in;"
-                allow="geolocation; fullscreen"
-                onload="if (window.handleGpsIframeLoad) window.handleGpsIframeLoad(this);"></iframe>
+
+            <aside class="gps-info">
+                {{-- La ficha entera la pinta window.GpsFicha (gps_ficha.js), el MISMO componente
+                     que usa la capa Equipos de /mapa: identificador y estado, qué equipo es, su
+                     frente, la rejilla de datos, placa/serial, dirección y coordenadas. Antes
+                     aquí había una maqueta propia (placa gigante, chip suelto y una lista de
+                     dos columnas) que no se parecía en nada a la del mapa. --}}
+                <div id="gps_ficha"></div>
+                <p id="gps_mensaje" class="gps-mensaje" hidden></p>
+
+                {{-- Sin botones (pedido del cliente, 28-09-2026): "Abrir en Google Maps",
+                     "Abrir enlace del GPS" y "Actualizar" se quitaron. El de Actualizar además
+                     sobraba: la ficha se refresca sola cada GPS_REFRESCO_MS mientras está
+                     abierta (ver el setInterval de openGpsModal). --}}
+                <p id="gps_vence" class="gps-vence" hidden></p>
+            </aside>
         </div>
     </div>
 </div>
@@ -423,15 +430,99 @@ MODAL GPS TRACKER — Rastreo Satelital en Vivo
 <style>
     details[name="equipment_accordion"] summary { cursor: default; }
 
-    @keyframes gps-spin {
-        to { transform: rotate(360deg); }
+    /* ── Modal Rastreo Satelital: mapa de Google + ficha blanca con letra negra ──
+       PC: mapa a la izquierda y ficha a la derecha. Tablet: igual, ficha más angosta.
+       Teléfono de pie: pantalla completa, mapa arriba y ficha debajo (un solo scroll).
+       Teléfono acostado: pantalla completa, mapa y ficha lado a lado. */
+    #gpsTrackerModal {
+        position: fixed; inset: 0; z-index: 99999; padding: 20px;
+        background: rgba(15,23,42,0.8); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+        align-items: center; justify-content: center; font-family: 'Nunito', sans-serif;
+    }
+    .gps-modal-container {
+        background: #fff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden;
+        width: 100%; max-width: 1150px; height: min(760px, 90vh);
+        display: flex; flex-direction: column; box-shadow: 0 25px 60px rgba(0,0,0,0.2);
     }
 
-    @media (max-width: 768px) {
-        #gpsTrackerModal { padding: 12px !important; }
-        .gps-modal-container { max-height: 96vh !important; }
-        .gps-panel-map { height: 80vh !important; min-height: 350px !important; }
+    .gps-header {
+        display: flex; align-items: center; gap: 12px; flex-shrink: 0;
+        padding: 14px 20px; background: #f8fafc; border-bottom: 1px solid #e2e8f0;
     }
+    .gps-header-icono {
+        width: 36px; height: 36px; border-radius: 50%; background: #10b981; flex-shrink: 0;
+        display: flex; align-items: center; justify-content: center;
+    }
+    .gps-header-icono .material-icons { font-size: 18px; color: #fff; }
+    .gps-header-textos { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+    .gps-header-label { color: #64748b; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+    .gps-header-titulo { color: #1e293b; font-weight: 800; font-size: 15px; line-height: 1.2; word-break: break-word; }
+    .gps-header-titulo .gps-titulo-dato { color: #64748b; font-size: 13px; font-weight: 700; }
+    .gps-header-titulo .gps-titulo-dato strong { color: #1e293b; }
+    .gps-header-titulo .gps-titulo-sep { color: #cbd5e1; margin: 0 6px; }
+    .gps-cerrar {
+        width: 32px; height: 32px; flex-shrink: 0; border-radius: 8px; cursor: default;
+        display: flex; align-items: center; justify-content: center;
+        background: #f1f5f9; border: 1px solid #e2e8f0; color: #64748b; transition: all 0.2s;
+    }
+    .gps-cerrar .material-icons { font-size: 18px; }
+    .gps-cerrar:hover { background: #fee2e2; color: #ef4444; border-color: #fecaca; }
+
+    .gps-body { display: flex; flex: 1; min-height: 0; }
+    .gps-panel-map { flex: 1; min-width: 0; position: relative; background: #e2e8f0; }
+    #gps_mapa { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+    .gps-mapa-aviso {
+        position: absolute; inset: 0; z-index: 2; background: #f8fafc;
+        display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+        padding: 24px; text-align: center; color: #0f172a; font-size: 14px; font-weight: 700;
+    }
+    .gps-mapa-aviso .material-icons { font-size: 40px; color: #94a3b8; }
+
+    .gps-info {
+        width: 360px; flex-shrink: 0; background: #fff; color: #000;
+        border-left: 1px solid #e2e8f0; padding: 18px 20px; overflow-y: auto;
+        display: flex; flex-direction: column; gap: 12px;
+    }
+    /* Solo para los problemas del enlace (vencido, ajeno, sin reportar). El aviso de posición
+       fuera del país NO va aquí: lo pinta la propia ficha (.mapa-eq-dudosa), igual que en el mapa. */
+    .gps-mensaje { margin: 0; font-size: 14px; font-weight: 700; color: #000; }
+    .gps-vence { margin: 0; font-size: 11px; font-weight: 600; color: #475569; text-align: center; }
+
+    /* Tablet: la ficha se angosta para dejarle ancho al mapa. */
+    @media (max-width: 1024px) {
+        .gps-info { width: 300px; padding: 16px; }
+    }
+
+    /* PC o laptop con poca altura: ficha más compacta para que quepa sin desplazarse. */
+    @media (min-width: 769px) and (max-height: 760px) {
+        .gps-modal-container { height: 94vh; }
+        .gps-header { padding: 10px 20px; }
+        .gps-info { gap: 8px; padding-top: 14px; padding-bottom: 14px; }
+    }
+
+    /* Teléfono de pie: pantalla completa; mapa arriba y ficha debajo, con un solo scroll. */
+    @media (max-width: 768px) {
+        #gpsTrackerModal { padding: 0; }
+        .gps-modal-container { max-width: none; height: 100vh; height: 100dvh; border: 0; border-radius: 0; }
+        .gps-header { padding: 10px 12px; gap: 10px; }
+        .gps-header-icono { width: 30px; height: 30px; }
+        .gps-header-titulo { font-size: 14px; }
+        .gps-body { flex-direction: column; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+        .gps-panel-map { flex: none; height: 42vh; height: 42dvh; min-height: 230px; }
+        .gps-info { width: auto; border-left: 0; border-top: 1px solid #e2e8f0; overflow: visible; padding: 14px 16px 20px; }
+    }
+
+    /* Teléfono acostado: poca altura, así que mapa y ficha van lado a lado a pantalla completa. */
+    @media (max-width: 1024px) and (max-height: 500px) and (orientation: landscape) {
+        #gpsTrackerModal { padding: 0; }
+        .gps-modal-container { max-width: none; height: 100vh; height: 100dvh; border: 0; border-radius: 0; }
+        .gps-header { padding: 6px 12px; }
+        .gps-header-icono { display: none; }
+        .gps-body { flex-direction: row; overflow: hidden; }
+        .gps-panel-map { flex: 1; height: auto; min-height: 0; }
+        .gps-info { width: 290px; border-top: 0; border-left: 1px solid #e2e8f0; overflow-y: auto; padding: 10px 14px; gap: 8px; }
+    }
+
 </style>
 
 <script>
@@ -440,64 +531,208 @@ MODAL GPS TRACKER — Rastreo Satelital en Vivo
 if (!window._gpsModalScriptLoaded) {
     window._gpsModalScriptLoaded = true;
     (function () {
-        // Portal GPS51 es cross-origin: iframe.onload dispara al cargar el documento raíz
-        // pero su JS de tiles y mapa siguen renderizando por 1-2s. Mantenemos el spinner
-        // visible un extra para cubrir ese render, luego fade-in del iframe.
-        var GPS_IFRAME_EXTRA_DELAY_MS = 1400;
-
-        window.handleGpsIframeLoad = function (iframe) {
-            var overlay = document.getElementById('gps-loading-overlay');
-            if (!iframe || iframe.src === 'about:blank') return;
-            setTimeout(function () {
-                // Si el usuario cerró el modal durante el delay, no revelar el iframe.
-                var modal = document.getElementById('gpsTrackerModal');
-                if (!modal || modal.style.display !== 'flex') return;
-                if (overlay) overlay.style.display = 'none';
-                iframe.style.display = 'block';
-                requestAnimationFrame(function () { iframe.style.opacity = '1'; });
-            }, GPS_IFRAME_EXTRA_DELAY_MS);
+        // Un poco más que la caché del servidor (Gps51Service::TTL_POSICION = 120 s): con el mismo
+        // periodo la consulta cae justo antes de que caduque y trae la posición vieja otra vez.
+        var GPS_REFRESCO_MS = 130000;
+        var GPS_FUENTES = { gps: 'Satélite GPS+Beidou', lbs: 'Antena celular', wifi: 'WiFi' };
+        var GPS_MOTIVOS = {
+            enlace_vencido:  'El enlace de este GPS está vencido. Hay que renovarlo en GPS51.',
+            enlace_invalido: 'GPS51 no reconoce el enlace de este GPS. Revísalo en la ficha del equipo.',
+            sin_posicion:    'Este GPS todavía no ha reportado ninguna posición.'
         };
+        // Estado del modal abierto: equipo, última coordenada pintada, temporizador y un turno
+        // para descartar respuestas viejas. El enlace de GPS51 ya no se guarda: los datos los
+        // sirve el propio sistema (/mapa/equipos-gps/{id}) y el botón que abría el enlace crudo
+        // se quitó, así que nadie lo leía.
+        var S = { id: null, lat: null, lng: null, timer: null, turno: 0 };
+        var esc = window.escapeHtml;   // dom_helpers.js
 
-        window.openGpsModal = function (url, equipoPlaca, equipoSerial, equipoTipo) {
-            if (window.showPreloader) window.showPreloader();
+        function $(id) { return document.getElementById(id); }
+        function limpio(v, vacios) {
+            v = (v == null ? '' : String(v)).trim();
+            return (v && v !== 'null' && v !== 'undefined' && (vacios || []).indexOf(v) === -1) ? v : '';
+        }
 
-            var modal   = document.getElementById('gpsTrackerModal');
-            var titleEl = document.getElementById('gps_equipo_title');
-            var iframe  = document.getElementById('gps_iframe');
-            var overlay = document.getElementById('gps-loading-overlay');
+        function avisoMapa(html) {
+            var av = $('gps_mapa_aviso');
+            if (!av) return;
+            av.innerHTML = html || '';
+            av.style.display = html ? 'flex' : 'none';
+        }
+        // Pone el iframe del mapa con ese src usando SIEMPRE un iframe nuevo: cambiarle el src a uno
+        // ya cargado deja un paso invisible en el historial y gasta el siguiente Atrás (lo mismo que
+        // closePdfPreview en layout_ui.js).
+        function ponerIframe(src) {
+            var fr = $('gps_mapa');
+            if (!fr || fr.getAttribute('src') === src) return;
+            var nuevo = fr.cloneNode(false);
+            nuevo.setAttribute('src', src);
+            fr.parentNode.replaceChild(nuevo, fr);
+        }
+        function pintarMapa() {
+            if (S.lat === null) return;
+            // Mapa y satélite los cambia el propio Google (el recuadro de abajo a la izquierda).
+            // t=k -> vista SATELITE (pedido del cliente): sobre el terreno se reconoce el patio,
+            // la via o el galpon donde esta el equipo, que en el plano de calles no se distingue.
+            ponerIframe('https://maps.google.com/maps?q=' + S.lat + ',' + S.lng + '&z=16&t=k&hl=es&output=embed');
+            avisoMapa('');
+        }
 
-            var dTipo   = (equipoTipo   && equipoTipo   !== 'null' && equipoTipo   !== '') ? equipoTipo.toUpperCase() : null;
-            var dPlaca  = (equipoPlaca  && equipoPlaca  !== 'N/A'  && equipoPlaca  !== 'Sin Placa')  ? equipoPlaca  : null;
-            var dSerial = (equipoSerial && equipoSerial !== 'N/A'  && equipoSerial !== 'Sin Chasis') ? equipoSerial : null;
+        // "hace 5 min" / "hace 3 días": lo calcula window.tiempoHace (dom_helpers.js, en el
+        // <head>), el MISMO que usa la ficha del mapa — un solo sitio para un solo criterio.
 
-            if (titleEl) {
-                var parts = [];
-                if (dTipo)        parts.push('<span style="font-weight:800;color:#1e293b;">' + dTipo + '</span>');
-                if (dPlaca)       parts.push('<span style="color:#64748b;font-size:13px;">Placa: <strong>' + dPlaca + '</strong></span>');
-                else if (dSerial) parts.push('<span style="color:#64748b;font-size:13px;">Chasis: <strong>' + dSerial + '</strong></span>');
-                titleEl.innerHTML = parts.join('<span style="color:#cbd5e1;margin:0 6px;">|</span>') || '&mdash;';
+        function pararRefresco() { clearInterval(S.timer); S.timer = null; }
+
+        // Pinta la ficha con lo que devuelve MapaController::equipoGps (ver Gps51Service::normalizar).
+        function pintarDatos(r) {
+            var ficha = $('gps_ficha'), msg = $('gps_mensaje'), vence = $('gps_vence');
+            var g = r && r.gps;
+
+            // GPS51 no contestó esta vez (lento u ocupado): si ya había datos se dejan en pantalla
+            // con un aviso, y la siguiente vuelta lo vuelve a intentar.
+            if (!g && S.lat !== null) {
+                msg.textContent = 'GPS51 no respondió: se muestran los últimos datos recibidos.';
+                msg.hidden = false;
+                return;
             }
 
-            if (url && url !== 'null' && url !== '') {
-                if (overlay) overlay.style.display = 'flex';
-                if (iframe) {
-                    iframe.style.display = 'none';
-                    iframe.style.opacity = '0';
-                    iframe.src = url;
-                }
+            ficha.innerHTML = '';
+            msg.hidden = true; vence.hidden = true;
+
+            var problema = null;
+            if (r && r.gps51 === false) problema = 'El enlace de este GPS no es de GPS51: no se pueden leer sus datos aquí.';
+            // Sin mandar a pulsar "Actualizar": ese botón ya no existe y la ficha se reintenta
+            // sola mientras esté abierta (el setInterval de openGpsModal).
+            else if (!g) problema = 'GPS51 no respondió. Se vuelve a intentar solo, deja la ventana abierta.';
+            else if (!g.ok) problema = GPS_MOTIVOS[g.motivo] || GPS_MOTIVOS.enlace_invalido;
+            if (problema) {
+                // Enlace ajeno, vencido o inválido no se arregla solo: se deja de consultar.
+                // "Todavía no ha reportado" SÍ se arregla solo en cuanto el aparato mande su
+                // primera posición, así que ese se sigue reintentando mientras el modal esté abierto.
+                if ((g && g.motivo !== 'sin_posicion') || (r && r.gps51 === false)) pararRefresco();
+                S.lat = S.lng = null;
+                msg.textContent = problema;
+                msg.hidden = false;
+                ponerIframe('about:blank');
+                avisoMapa('<i class="material-icons">location_off</i><span>' + esc(problema) + '</span>');
+                return;
             }
 
-            setTimeout(function () {
-                if (window.hidePreloader) window.hidePreloader();
-                // Guard: si la SPA navego antes de que dispare el timeout, el
-                // modal ya no esta conectado al DOM. Evitamos bloquear el scroll
-                // de la pagina destino (ej. /edit), lo que dejaba al usuario sin
-                // scroll vertical.
-                if (!modal || !modal.isConnected) return;
-                modal.style.display = 'flex';
-                // Mismo ayudante que el detalle y el visor de PDF (layout_ui.js).
-                window.bloquearScrollFondo();
-            }, 1200);
+            // "Señal GPS": de dónde sale la posición, cuántos satélites, altitud y % de señal.
+            // Es lo único que la ficha no sabe armar sola, porque depende del catálogo de fuentes
+            // de GPS51 (GPS_FUENTES), que vive aquí.
+            var ubic = [GPS_FUENTES[g.fuente] || (g.fuente ? g.fuente.toUpperCase() : '')];
+            if (g.satelites !== null && g.satelites !== undefined) ubic.push(g.satelites + ' satélites');
+            if (g.altitud !== null && g.altitud !== undefined) ubic.push('Alt. ' + g.altitud + ' m');
+            if (g.senal !== null && g.senal !== undefined) ubic.push('Señal ' + g.senal + '%');
+
+            // La ficha ENTERA la pinta el componente compartido, el mismo del mapa. El color del
+            // frente no se le pasa a propósito: ahí sirve para distinguir equipos de frentes
+            // distintos en el mismo mapa, y aquí solo hay uno.
+            var eq = (r && r.equipo) || {};
+            ficha.innerHTML = window.GpsFicha.html({
+                ident: eq.ident || S.identRespaldo || 'Equipo',
+                descripcion: eq.descripcion, frente: eq.frente,
+                placa: eq.placa, codigo: eq.codigo, serial_chasis: eq.serial_chasis,
+                gps: g
+            }, {
+                dudosa: !!g.fuera_de_venezuela,
+                senal: ubic.filter(Boolean).join(' · '),
+                // La dirección se pide aparte (tarda ~2 s): la ficha reserva su hueco y
+                // cargarDireccion la rellena por este data-eqdir cuando llega.
+                // Con la posición fuera del país no se pide dirección (ver más abajo), así que
+                // tampoco se reserva su hueco: dejaría un "Buscando dirección…" que no llega.
+                sinDireccion: !!g.fuera_de_venezuela,
+                dirAttr: 'modal', direccion: S.direccion || null
+            });
+
+            if (g.vence) {
+                // Solo el día, sin hora: window.fechaLocal (dom_helpers.js), en hora de Venezuela.
+                vence.textContent = 'Enlace del GPS vigente hasta el ' + window.fechaLocal(g.vence);
+                vence.hidden = false;
+            }
+
+            // Fuera de Venezuela: el mapa SE PINTA IGUAL (pedido del cliente, 28-09-2026) — el
+            // cliente quiere ver dónde dice el GPS que está. El AVISO de que ese punto no es el
+            // equipo lo pone la propia ficha (GpsFicha, opción `dudosa`), el mismo que en el mapa;
+            // aquí solo se decide si vale la pena buscar la dirección escrita: la de una
+            // coordenada de otro país no dice nada y sería una consulta para nada.
+            var cambio = S.lat !== g.lat || S.lng !== g.lng;
+            S.lat = g.lat; S.lng = g.lng;
+            pintarMapa();
+            if (!g.fuera_de_venezuela && (cambio || !S.direccion)) cargarDireccion();
+        }
+
+        // Dirección escrita (la misma que da GPS51): va aparte porque tarda ~2 s más. Solo se pinta
+        // si el equipo sigue en la coordenada por la que se preguntó (si se movió mientras tanto,
+        // llega la de la posición nueva).
+        function cargarDireccion() {
+            var turno = S.turno, lat = S.lat, lng = S.lng;
+            window.apiFetch('/mapa/equipos-gps/' + encodeURIComponent(S.id) + '/direccion', { headers: { 'Accept': 'application/json' } })
+                .then(function (r) { return r.ok ? r.json() : null; })
+                .catch(function () { return null; })
+                .then(function (j) {
+                    if (turno !== S.turno || S.lat !== lat || S.lng !== lng || !j || !j.direccion) return;
+                    // Se guarda en S para que el refresco que repinta la ficha no la pierda, y se
+                    // escribe en el hueco que la ficha dejó (data-eqdir), sin repintarla entera.
+                    S.direccion = j.direccion;
+                    var hueco = document.querySelector('#gps_ficha [data-eqdir]');
+                    if (hueco) hueco.textContent = j.direccion;
+                });
+        }
+
+        function cargar() {
+            var turno = S.turno;
+            return window.apiFetch('/mapa/equipos-gps/' + encodeURIComponent(S.id), { headers: { 'Accept': 'application/json' } })
+                .then(function (r) { return r.ok ? r.json() : null; })
+                .catch(function () { return null; })
+                .then(function (j) {
+                    if (turno !== S.turno) return;   // se cerró o se abrió otro equipo mientras tanto
+                    pintarDatos(j || { gps: null });
+                });
+        }
+
+        // Lo abre el botón "VER GPS EN VIVO" del detalle (uicomponents.js le pone los data-*).
+        window.openGpsModal = function (btn) {
+            var modal = $('gpsTrackerModal');
+            if (!modal || !btn) return;
+            var ds = btn.dataset;
+
+            pararRefresco();
+            S = { id: ds.equipoId, lat: null, lng: null, timer: null, turno: S.turno + 1, direccion: null, identRespaldo: null };
+
+            var tipo   = limpio(ds.equipoTipo, ['N/A']).toUpperCase();
+            var placa  = limpio(ds.equipoName, ['N/A', 'Sin Placa']);
+            var serial = limpio(ds.equipoSerial, ['N/A', 'Sin Chasis']);
+            var titulo = $('gps_equipo_title');
+            if (titulo) {
+                var partes = [];
+                if (tipo)        partes.push('<span>' + esc(tipo) + '</span>');
+                if (placa)       partes.push('<span class="gps-titulo-dato">Placa: <strong>' + esc(placa) + '</strong></span>');
+                else if (serial) partes.push('<span class="gps-titulo-dato">Chasis: <strong>' + esc(serial) + '</strong></span>');
+                titulo.innerHTML = partes.join('<span class="gps-titulo-sep">|</span>') || '&mdash;';
+            }
+            // Por si el servidor tarda o no llega a decir qué equipo es: la ficha necesita un
+            // nombre y el botón ya trae la placa (o el chasis).
+            S.identRespaldo = placa || serial || null;
+
+            // Estado inicial: todo vacío y el mapa cargando.
+            $('gps_ficha').innerHTML = '';
+            ['gps_mensaje', 'gps_vence'].forEach(function (id) { $(id).hidden = true; });
+            ponerIframe('about:blank');
+            avisoMapa('<div class="spinner-circle"></div><span>Consultando el GPS…</span>');
+
+            modal.style.display = 'flex';
+            // Mismo ayudante que el detalle y el visor de PDF (layout_ui.js).
+            window.bloquearScrollFondo();
+
+            if (!S.id) { pintarDatos({ gps: null }); return; }
+            cargar();
+            S.timer = setInterval(function () {
+                // Si la SPA navegó a otra página con el modal abierto, se deja de consultar.
+                if (!modal.isConnected || modal.style.display !== 'flex') { pararRefresco(); return; }
+                cargar();
+            }, GPS_REFRESCO_MS);
         };
 
         // Abre la pantalla de edición del equipo que está siendo mostrado en el modal de detalles.
@@ -536,21 +771,15 @@ if (!window._gpsModalScriptLoaded) {
         };
 
         window.closeGpsModal = function () {
-            var modal  = document.getElementById('gpsTrackerModal');
-            var iframe = document.getElementById('gps_iframe');
+            var modal = $('gpsTrackerModal');
             if (modal && modal.style.display === 'flex') {
                 modal.style.display = 'none';
+                pararRefresco();
+                S.turno++;   // descarta la respuesta que venga en camino
                 // Se abre desde el detalle del equipo, que sigue abierto debajo: restaurarScrollFondo
                 // mantiene el bloqueo mientras quede una capa (layout_ui.js · _CAPAS_SCROLL).
                 window.restaurarScrollFondo();
-                // Un iframe NUEVO en about:blank en vez de iframe.src = 'about:blank': cambiarle el
-                // src a uno ya cargado deja un paso invisible en el historial y gasta el siguiente
-                // Atrás (lo mismo que closePdfPreview en layout_ui.js).
-                if (iframe) {
-                    var nuevo = iframe.cloneNode(false);
-                    nuevo.setAttribute('src', 'about:blank');
-                    iframe.parentNode.replaceChild(nuevo, iframe);
-                }
+                ponerIframe('about:blank');
             }
         };
 

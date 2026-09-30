@@ -177,7 +177,9 @@ class Gps51Service
     /**
      * Respuesta de sharetracklastposition → lo que pinta el mapa.
      *   ok=false + motivo: enlace_invalido (GPS51 lo rechaza), enlace_vencido, sin_posicion.
-     *   ok=true con fuera_de_venezuela=true: el GPS reporta fuera del país (no se pinta).
+     *   ok=true con fuera_de_venezuela=true: el GPS reporta fuera del país. SE PINTA igual
+     *   (pedido del cliente, 28-09-2026), marcado como dudoso: el cliente quiere ver dónde dice
+     *   el GPS que está, pero nadie debe salir a buscar el equipo ahí.
      * Unidades de GPS51: speed en m/h, totaldistance en m, masteroil/auxoil en centésimas de litro
      * (-1 = sin sensor); updatetime/expire en milisegundos.
      */
@@ -230,6 +232,13 @@ class Gps51Service
             'en_linea'     => $ultima > 0 && ($ahoraMs - $ultima) < self::EN_LINEA_MS,
             'dispositivo'  => $j['devicename'] ?? null,
             'vence'        => isset($j['expire']) ? (int) $j['expire'] : null,
+            // Lo que GPS51 muestra como "Ubic.: Satélite Beidou 22…/Alt218m/Señal48%": de dónde
+            // salió la posición (gps | lbs = antena celular | wifi), satélites, altitud y señal.
+            // is_numeric y no isset: un valor raro de un solo GPS no debe tumbar la tanda entera.
+            'fuente'       => isset($r['gotsrc']) && $r['gotsrc'] !== '' ? strtolower((string) $r['gotsrc']) : null,
+            'satelites'    => (is_numeric($r['gpsvalidnum'] ?? null) && $r['gpsvalidnum'] >= 0) ? (int) $r['gpsvalidnum'] : null,
+            'altitud'      => is_numeric($r['altitude'] ?? null) ? (int) round((float) $r['altitude']) : null,
+            'senal'        => (is_numeric($r['rxlevel'] ?? null) && $r['rxlevel'] >= 0) ? (int) $r['rxlevel'] : null,
         ];
     }
 

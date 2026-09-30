@@ -34,8 +34,8 @@ const RUNTIME_CACHE = 'vidalsa-runtime-' + CACHE_VERSION;
 // bloquea el primer pintado en escritorio. Precacharla sería medio mega por dispositivo y
 // por versión de caché a cambio de nada.
 const PRECACHE_URLS = [
-    '/icons/icon-192.png',
-    '/icons/icon-512.png',
+    '/img/app-iconos/icon-192.png',
+    '/img/app-iconos/icon-512.png',
     '/favicon.png',
     '/css/fonts.css',
     '/css/maquinaria/inicio_sesion.css',
@@ -245,7 +245,7 @@ self.addEventListener('fetch', (event) => {
     }
 
     const isStaticAsset =
-        url.pathname.startsWith('/icons/') ||
+        url.pathname.startsWith('/img/app-iconos/') ||
         url.pathname.startsWith('/css/') ||
         url.pathname.startsWith('/js/') ||
         url.pathname.startsWith('/fonts/') ||

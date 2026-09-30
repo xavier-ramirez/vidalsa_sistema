@@ -137,6 +137,42 @@ class LectorGeminiTest extends MySqlTestCase
         Http::assertSentCount(2);
     }
 
+    public function test_si_google_dice_que_se_acabo_el_cupo_del_dia_no_se_vuelve_a_preguntar_hoy(): void
+    {
+        // Lo que responde Google de verdad (29-09-2026) al pasar el tope diario del plan gratis.
+        Http::fake(['generativelanguage.googleapis.com/*' => Http::response(['error' => [
+            'code' => 429, 'status' => 'RESOURCE_EXHAUSTED',
+            'message' => 'Quota exceeded for metric: generate_content_free_tier_requests, limit: 500, model: gemini-3.5-flash-lite',
+            'details' => [['violations' => [['quotaId' => 'GenerateRequestsPerDayPerProjectPerModel-FreeTier']]]],
+        ]], 429)]);
+        $lector = $this->lector();
+
+        $this->assertNull($lector->leer('%PDF-uno', 3));
+        Http::assertSentCount(1);   // sin reintentos: esperar no lo arregla hasta mañana
+        $this->assertSame(0, $lector->restantesHoy(), 'el cupo local queda gastado');
+        $this->assertNull($lector->leer('%PDF-dos'));
+        Http::assertSentCount(1);   // el siguiente PDF ya ni pregunta
+    }
+
+    public function test_el_cupo_se_renueva_cuando_lo_renueva_google_y_no_a_medianoche_de_aqui(): void
+    {
+        // Google cuenta el día en hora del Pacífico: renueva a las 03:00 de Venezuela.
+        config(['services.gemini.rpd' => 1]);
+        $this->fakeGemini(['tipo_documento' => 'titulo', 'placa' => 'A11BB22']);
+        $lector = $this->lector();
+
+        \Illuminate\Support\Carbon::setTestNow(\Illuminate\Support\Carbon::parse('2026-09-29 01:00', 'America/Caracas'));
+        $lector->leer('%PDF-uno');
+        $this->assertSame(0, $lector->restantesHoy(), 'gastado a la 01:00');
+
+        \Illuminate\Support\Carbon::setTestNow(\Illuminate\Support\Carbon::parse('2026-09-29 02:30', 'America/Caracas'));
+        $this->assertSame(0, $lector->restantesHoy(), 'a las 02:30 Google todavía no lo renovó');
+
+        \Illuminate\Support\Carbon::setTestNow(\Illuminate\Support\Carbon::parse('2026-09-29 03:30', 'America/Caracas'));
+        $this->assertSame(1, $lector->restantesHoy(), 'pasadas las 03:00 ya hay cupo nuevo');
+        \Illuminate\Support\Carbon::setTestNow();
+    }
+
     public function test_un_error_que_no_es_de_cupo_no_se_reintenta(): void
     {
         Http::fake(['generativelanguage.googleapis.com/*' => Http::response('modelo desconocido', 404)]);

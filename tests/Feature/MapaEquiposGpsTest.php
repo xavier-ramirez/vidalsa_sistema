@@ -25,6 +25,7 @@ class MapaEquiposGpsTest extends MySqlTestCase
                 'totaldistance' => 5.5302799E7, 'masteroil' => 56188, 'auxoil' => 19591,
                 'updatetime' => (int) round(microtime(true) * 1000) - 60000,
                 'strstatusen' => 'ACC On 2H54M/Voltage 27.9V',
+                'gotsrc' => 'gps', 'gpsvalidnum' => 22, 'altitude' => 218, 'rxlevel' => 48,
             ]],
         ];
     }
@@ -115,6 +116,38 @@ class MapaEquiposGpsTest extends MySqlTestCase
         $this->actingAs($this->usuarioGlobal())->getJson(route('mapa.equiposGps.direccion', ['id' => $equipo->ID_EQUIPO]))
             ->assertOk()
             ->assertJson(['direccion' => 'El Manguito, Anzoátegui, Venezuela']);
+    }
+
+    public function test_el_modal_de_rastreo_de_un_equipo_trae_sus_datos_sin_el_enlace(): void
+    {
+        $equipo = Equipo::where('LINK_GPS', 'like', '%gps51%')->get(['ID_EQUIPO', 'LINK_GPS'])
+            ->first(fn ($e) => Gps51Service::authcode($e->LINK_GPS) !== null);
+        $this->assertNotNull($equipo, 'Hace falta un equipo con enlace de GPS51 válido.');
+        Http::fake(['gps51.com/*' => Http::response($this->respuestaGps51())]);
+        $u = $this->usuarioGlobal();
+
+        $r = $this->actingAs($u)->getJson(route('mapa.equiposGps.equipo', ['id' => $equipo->ID_EQUIPO]))->assertOk();
+        $this->assertTrue($r->json('gps51'));
+        $gps = $r->json('gps');
+        $this->assertTrue($gps['ok']);
+        // Lo que GPS51 muestra como "Ubic.: Satélite Beidou 22…/Alt218m/Señal48%".
+        $this->assertSame('gps', $gps['fuente']);
+        $this->assertSame(22, $gps['satelites']);
+        $this->assertSame(218, $gps['altitud']);
+        $this->assertSame(48, $gps['senal']);
+        $this->assertStringNotContainsString('authcode', $r->getContent());
+
+        // Un enlace que no es de GPS51: no se consulta nada y el modal ofrece abrirlo tal cual.
+        Equipo::whereKey($equipo->ID_EQUIPO)->update(['LINK_GPS' => 'https://otra-plataforma.com/equipo/1']);
+        $this->actingAs($u)->getJson(route('mapa.equiposGps.equipo', ['id' => $equipo->ID_EQUIPO]))
+            ->assertOk()->assertJson(['gps51' => false, 'gps' => null]);
+
+        // Un enlace de GPS51 sin código legible es un enlace inválido, no uno ajeno.
+        Equipo::whereKey($equipo->ID_EQUIPO)->update(['LINK_GPS' => 'https://gps51.com/#/tracking?isshare=1']);
+        $this->actingAs($u)->getJson(route('mapa.equiposGps.equipo', ['id' => $equipo->ID_EQUIPO]))
+            ->assertOk()->assertJson(['gps51' => true, 'gps' => ['ok' => false, 'motivo' => 'enlace_invalido']]);
+
+        $this->actingAs($u)->getJson(route('mapa.equiposGps.equipo', ['id' => 999999999]))->assertNotFound();
     }
 
     public function test_las_direcciones_van_en_lote_y_se_emparejan_por_coordenada(): void

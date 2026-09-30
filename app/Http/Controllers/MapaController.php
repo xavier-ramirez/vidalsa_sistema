@@ -79,7 +79,32 @@ class MapaController extends Controller
             ];
         })->values();
 
-        return response()->json(['equipos' => $items, 'pendientes' => $pendientes, 'lote' => Gps51Service::LOTE]);
+        // Cuántos equipos tiene CADA frente en total, con GPS y sin él.
+        //
+        // La capa solo lista los que tienen enlace de GPS51 (133 de 1.217 hoy), así que el panel
+        // contaba esos y los llamaba "Total equipos": al elegir un frente parecía que ese frente
+        // solo tenía los del GPS. Con esto el panel puede decir las dos cifras — los que hay y
+        // los que reportan — y se ve de un vistazo cuántos faltan por equipar.
+        //
+        // MISMO scope de permisos que la capa (aplicarScopeFrentesEquipos), y sin los borrados:
+        // Equipo usa SoftDeletes, así que los de la papelera no cuentan. La clave es el id del
+        // frente en texto, y 'sin' para los que no tienen, igual que eqFrenteClave() en el mapa.
+        $totales = $request->user()->aplicarScopeFrentesEquipos(Equipo::query())
+            ->selectRaw('ID_FRENTE_ACTUAL AS f, COUNT(*) AS n')
+            ->groupBy('ID_FRENTE_ACTUAL')
+            ->pluck('n', 'f');
+        $totalesFrente = [];
+        foreach ($totales as $f => $n) {
+            $totalesFrente[$f === null || $f === '' ? 'sin' : (string) $f] = (int) $n;
+        }
+
+        return response()->json([
+            'equipos'        => $items,
+            'pendientes'     => $pendientes,
+            'lote'           => Gps51Service::LOTE,
+            'totales_frente' => (object) $totalesFrente,
+            'total_equipos'  => (int) array_sum($totalesFrente),
+        ]);
     }
 
     /**
@@ -104,6 +129,51 @@ class MapaController extends Controller
         }
 
         return response()->json(['posiciones' => (object) $out]);
+    }
+
+    /**
+     * Posición de UN equipo para el modal "Rastreo Satelital en Vivo" del detalle de equipos: la
+     * misma lectura de GPS51 que la capa del mapa (caché de 2 min), sin abrir la página de GPS51.
+     * gps null = GPS51 no respondió; `gps51` false = el enlace no es de GPS51 (el modal lo dice
+     * y deja de consultar). Un enlace de GPS51 sin authcode legible es un enlace inválido, no ajeno.
+     */
+    public function equipoGps(Request $request, int $id)
+    {
+        // Se traen tambien los datos de la FICHA porque el modal la pinta con el mismo
+        // componente que el mapa (window.GpsFicha): identificador, que equipo es y en que
+        // frente esta. Antes solo llegaba la posicion y el modal se apañaba con lo que el
+        // boton le pasara por data-*, que no incluye el frente ni la marca.
+        $equipo = $request->user()->aplicarScopeFrentesEquipos(Equipo::query())
+            ->with(['frenteActual:ID_FRENTE,NOMBRE_FRENTE', 'documentacion:ID_EQUIPO,PLACA', 'tipo:id,nombre'])
+            ->whereKey($id)
+            ->first(['ID_EQUIPO', 'id_tipo_equipo', 'CODIGO_PATIO', 'NUMERO_ETIQUETA', 'MARCA', 'MODELO',
+                     'SERIAL_CHASIS', 'SERIAL_DE_MOTOR', 'LINK_GPS', 'ID_FRENTE_ACTUAL']);
+        abort_unless($equipo, 404);
+
+        $esGps51 = stripos((string) $equipo->LINK_GPS, 'gps51') !== false;
+        $authcode = Gps51Service::authcode($equipo->LINK_GPS);
+        $placa = optional($equipo->documentacion)->PLACA;
+        // MISMA regla que el mapa (eqIdent) y que el Excel del panel: placa, y si no hay, el
+        // serial. Que el mismo equipo no se llame de dos formas segun la pantalla.
+        $ident = $placa ?: ($equipo->SERIAL_CHASIS ?: ($equipo->SERIAL_DE_MOTOR
+                 ?: ($equipo->CODIGO_PATIO ?: ($equipo->NUMERO_ETIQUETA ?: 'Equipo ' . $equipo->ID_EQUIPO))));
+
+        return response()->json([
+            'gps51'  => $esGps51,
+            'equipo' => [
+                'ident'         => $ident,
+                'descripcion'   => implode(' · ', array_filter([
+                    optional($equipo->tipo)->nombre,
+                    trim($equipo->MARCA . ' ' . $equipo->MODELO) ?: null,
+                ])),
+                'frente'        => optional($equipo->frenteActual)->NOMBRE_FRENTE,
+                'placa'         => $placa,
+                'codigo'        => $equipo->CODIGO_PATIO,
+                'serial_chasis' => $equipo->SERIAL_CHASIS,
+            ],
+            'gps'   => $authcode ? (Gps51Service::posiciones([$authcode])[$authcode] ?? null)
+                     : ($esGps51 ? ['ok' => false, 'motivo' => 'enlace_invalido'] : null),
+        ]);
     }
 
     /** Dirección escrita de la posición actual de un equipo (la ficha del mapa la pide al abrirse). */
@@ -174,9 +244,21 @@ class MapaController extends Controller
         $filas = $equipos->map(function ($e) use ($pos, $dirs, $conPunto) {
             $p = $pos[Gps51Service::authcode($e->LINK_GPS)] ?? null;
             $placa = trim((string) optional($e->documentacion)->PLACA);
-            [$ident, $identPor] = $placa !== '' ? [$placa, 'PLACA']
-                : (trim((string) $e->SERIAL_CHASIS) !== '' ? [trim($e->SERIAL_CHASIS), 'SERIAL DE CHASIS']
-                : (trim((string) $e->SERIAL_DE_MOTOR) !== '' ? [trim($e->SERIAL_DE_MOTOR), 'SERIAL DE MOTOR'] : ['—', '—']));
+            // Los MISMOS escalones que la lista del panel (eqIdent, mapa_index.js): placa, serial
+            // de chasis, serial de motor y, si no hay ninguno, el código de patio o la etiqueta.
+            // Antes se paraba en el serial de motor y ponía "—", así que un equipo identificado en
+            // pantalla por su código salía sin identificar en el Excel.
+            $escalones = [
+                ['PLACA',            $placa],
+                ['SERIAL DE CHASIS', trim((string) $e->SERIAL_CHASIS)],
+                ['SERIAL DE MOTOR',  trim((string) $e->SERIAL_DE_MOTOR)],
+                ['CÓDIGO DE PATIO',  trim((string) $e->CODIGO_PATIO)],
+                ['ETIQUETA',         trim((string) $e->NUMERO_ETIQUETA)],
+            ];
+            [$ident, $identPor] = ['—', '—'];
+            foreach ($escalones as [$por, $valor]) {
+                if ($valor !== '') { [$ident, $identPor] = [$valor, $por]; break; }
+            }
             return [
                 'frente'   => $e->frenteActual ? mb_strtoupper(trim($e->frenteActual->NOMBRE_FRENTE)) : 'SIN FRENTE',
                 'tipo'     => $e->tipo ? mb_strtoupper($e->tipo->nombre) : '—',

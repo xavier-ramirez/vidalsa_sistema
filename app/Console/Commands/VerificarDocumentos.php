@@ -608,13 +608,13 @@ class VerificarDocumentos extends Command
     // ── Apoyo de la IA ────────────────────────────────────────────────────────────
 
     /**
-     * Baja el PDF de Drive y se lo da entero a la IA (el modelo bueno: son pocos al dia y son
-     * los dificiles). Devuelve lo que vio, o null si no hay clave, no queda cupo o fallo algo:
+     * Baja el PDF de Drive y se lo da entero a la IA (el mismo modelo que la carga masiva, ver
+     * LectorGemini). Devuelve lo que vio, o null si no hay clave, no queda cupo o fallo algo:
      * en ese caso la revision sigue exactamente como antes de que existiera esto.
      */
     private function leerConIa(string $driveId): ?array
     {
-        if (!$this->ia->disponible() || $this->ia->restantesHoy(config('services.gemini.modelo_dificil')) < 1) {
+        if (!$this->ia->disponible() || $this->ia->restantesHoy() < 1) {
             return null;
         }
         try {
@@ -624,7 +624,7 @@ class VerificarDocumentos extends Command
             return null;
         }
 
-        return $this->ia->leer($pdf, true);
+        return $this->ia->leer($pdf);
     }
 
     /**
