@@ -12,7 +12,9 @@
  * final del body, y alguna vista llama a ensureChartJS() al evaluarse.
  *
  * Expone:
- *   · window.cargarScriptUnaVez(src, yaCargado) → Promise
+ *   · window.cargarScriptUnaVez(src, yaCargado, enOrden) → Promise
+ *   · window.cargarCssUnaVez(href)
+ *   · window.cargarLeaflet()                    → Promise (Leaflet: /mapa y el modal de GPS)
  *   · window.ensureChartJS()                    → Promise (Chart.js + DataLabels)
  */
 (function () {
@@ -26,16 +28,19 @@
      *
      * @param {string}   src        URL del script.
      * @param {function} yaCargado  Devuelve true si el global que trae ya existe.
+     * @param {boolean}  enOrden    true = se EJECUTA en el orden en que se pidió respecto de los
+     *                              demás pedidos en orden (async=false), aunque se bajen a la vez:
+     *                              para plugins que necesitan su librería (los de Leaflet).
      * @returns {Promise<void>}
      */
-    window.cargarScriptUnaVez = function (src, yaCargado) {
+    window.cargarScriptUnaVez = function (src, yaCargado, enOrden) {
         if (typeof yaCargado === 'function' && yaCargado()) return Promise.resolve();
         if (enVuelo[src]) return enVuelo[src];
 
         enVuelo[src] = new Promise(function (resolve, reject) {
             var s = document.createElement('script');
             s.src = src;
-            s.async = true;
+            s.async = !enOrden;
             s.onload = function () { resolve(); };
             s.onerror = function () {
                 delete enVuelo[src]; // libera el guard: la próxima visita puede reintentar
@@ -44,6 +49,28 @@
             document.head.appendChild(s);
         });
         return enVuelo[src];
+    };
+
+    /** Inserta un <link rel=stylesheet> una sola vez. */
+    window.cargarCssUnaVez = function (href) {
+        if (document.querySelector('link[data-css-una-vez="' + href + '"]')) return;
+        var l = document.createElement('link');
+        l.rel = 'stylesheet';
+        l.href = href;
+        l.setAttribute('data-css-una-vez', href);
+        document.head.appendChild(l);
+    };
+
+    /**
+     * Leaflet (CSS + JS) desde /vendor/leaflet, UNA sola vez para toda la app: lo usan /mapa
+     * (que además pide sus plugins, en orden detrás de este) y el mapa del modal de GPS de
+     * Equipos. Antes cada uno tenía su cargador y, si se cruzaban, Leaflet podía ejecutarse dos
+     * veces y borrar los plugins de /mapa.
+     */
+    window.cargarLeaflet = function () {
+        window.cargarCssUnaVez('/vendor/leaflet/leaflet.css');
+        return window.cargarScriptUnaVez('/vendor/leaflet/leaflet.js',
+            function () { return typeof L !== 'undefined' && !!L.map; }, true);
     };
 
     /** Base para armar URLs absolutas (el layout la publica en un <meta>). */

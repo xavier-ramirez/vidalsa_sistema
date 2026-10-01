@@ -14,9 +14,7 @@
 (function () {
     'use strict';
 
-    var LEAFLET_CSS  = '/vendor/leaflet/leaflet.css';
     var GEOCODER_CSS = '/vendor/leaflet/Control.Geocoder.css';
-    var LEAFLET_JS   = '/vendor/leaflet/leaflet.js';
     var GEOCODER_JS  = '/vendor/leaflet/Control.Geocoder.js';
     var PROJ4_JS     = '/vendor/leaflet/proj4.js'; // convertir UTM ↔ lat/lng
     // Agrupador de marcadores (Leaflet.markercluster 1.5.3), también alojado aquí y no en un CDN.
@@ -24,47 +22,21 @@
     var CLUSTER_CSS  = '/vendor/leaflet/MarkerCluster.css';
     var CLUSTER_JS   = '/vendor/leaflet/leaflet.markercluster.js';
 
-    // Inserta un <link rel=stylesheet> una sola vez.
-    function ensureCss(href) {
-        if (document.querySelector('link[data-mapa-css="' + href + '"]')) return;
-        var l = document.createElement('link');
-        l.rel = 'stylesheet';
-        l.href = href;
-        l.setAttribute('data-mapa-css', href);
-        document.head.appendChild(l);
-    }
-
-    // Carga un <script src> una sola vez; devuelve Promise que resuelve al cargar.
-    var _scriptPromises = {};
-    function loadScript(src) {
-        if (_scriptPromises[src]) return _scriptPromises[src];
-        _scriptPromises[src] = new Promise(function (resolve, reject) {
-            var s = document.createElement('script');
-            s.src = src;
-            s.async = false; // preserva el orden (el geocoder depende de Leaflet)
-            s.onload = function () { resolve(); };
-            s.onerror = function () { reject(new Error('No se pudo cargar ' + src)); };
-            document.head.appendChild(s);
-        });
-        return _scriptPromises[src];
-    }
-
-    // Garantiza Leaflet + geocoder disponibles (CSS + JS), luego resuelve.
-    // Los tres scripts se piden A LA VEZ: async=false (loadScript) ya garantiza que se EJECUTAN
-    // en el orden en que se insertan (el geocoder necesita a Leaflet). Antes se pedía uno solo
-    // cuando había terminado el anterior: tres viajes seguidos antes de poder montar el mapa.
+    // Garantiza Leaflet + sus plugins (CSS + JS), luego resuelve. Leaflet lo baja
+    // window.cargarLeaflet (lazy_loader.js), el MISMO cargador que usa el modal de GPS de Equipos:
+    // si el modal ya lo pidió, aquí se reutiliza esa descarga en vez de meter otra copia. Todo
+    // va "en orden" (async=false): se baja a la vez pero se EJECUTA en el orden pedido, así los
+    // plugins corren detrás de Leaflet sin esperar a que termine de bajar.
     function ensureLeaflet() {
-        ensureCss(LEAFLET_CSS);
-        ensureCss(GEOCODER_CSS);
-        ensureCss(CLUSTER_CSS);
-        var hayLeaflet = typeof L !== 'undefined' && L.map;
-        var pedidos = [];
-        if (!hayLeaflet) pedidos.push(loadScript(LEAFLET_JS));
-        if (!(hayLeaflet && L.Control && L.Control.Geocoder)) pedidos.push(loadScript(GEOCODER_JS));
+        var cargar = window.cargarScriptUnaVez;
+        window.cargarCssUnaVez(GEOCODER_CSS);
+        window.cargarCssUnaVez(CLUSTER_CSS);
+        var pedidos = [window.cargarLeaflet()];
+        pedidos.push(cargar(GEOCODER_JS, function () { return typeof L !== 'undefined' && L.Control && !!L.Control.Geocoder; }, true));
         // Si el agrupador no llegara, el mapa sigue funcionando: la capa de equipos cae a un grupo
         // normal y se ven todos los iconos sueltos, como antes.
-        if (!(hayLeaflet && L.markerClusterGroup)) pedidos.push(loadScript(CLUSTER_JS).catch(function () {}));
-        if (typeof proj4 === 'undefined') pedidos.push(loadScript(PROJ4_JS).catch(function () {})); // proj4 opcional (UTM)
+        pedidos.push(cargar(CLUSTER_JS, function () { return typeof L !== 'undefined' && !!L.markerClusterGroup; }, true).catch(function () {}));
+        pedidos.push(cargar(PROJ4_JS, function () { return typeof proj4 !== 'undefined'; }, true).catch(function () {})); // proj4 opcional (UTM)
         return Promise.all(pedidos);
     }
 
@@ -105,7 +77,7 @@
         // available" en zonas rurales; con 17 reescala la última imagen real en vez de
         // ese cartel (se ve borroso al máximo, pero limpio, sin texto ni blanco).
         var sateliteEsri = L.tileLayer(
-            'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+            window.GpsFicha.SATELITE,
             {
                 maxZoom: 21,
                 maxNativeZoom: 17,
@@ -3477,19 +3449,9 @@
         // SIN el color del frente (pedido del cliente, 22-09-2026: ni círculo ni colores). Más
         // apagado si no está en línea, y una flecha con el rumbo cuando va en marcha.
         // Lo que decide cómo se ve el icono (eqIcono): si cambia, hay que rehacerlo; si no, no.
-        function eqIconoFirma(e) {
-            var g = e.gps;
-            return (g.en_linea ? 1 : 0) + '|' + (g.velocidad > 3 ? (g.rumbo || 0) : '-');
-        }
-        function eqIcono(e) {
-            var g = e.gps;
-            return L.divIcon({
-                className: 'mapa-eq-pin' + (g.en_linea ? '' : ' fuera'),
-                html: '<i class="material-icons mapa-eq-ico">agriculture</i>' +
-                      (g.velocidad > 3 ? '<span class="mapa-eq-rumbo" style="transform:rotate(' + (g.rumbo || 0) + 'deg)"></span>' : ''),
-                iconSize: [26, 26], iconAnchor: [13, 13], popupAnchor: [0, -12]
-            });
-        }
+        // El icono en sí lo arma window.GpsFicha.icono, el mismo del modal de GPS de Equipos.
+        function eqIconoFirma(e) { return window.GpsFicha.iconoFirma(e.gps); }
+        function eqIcono(e) { return window.GpsFicha.icono(e.gps); }
 
         // Ficha del equipo (se arma al abrirla y al refrescar con ella abierta). La MAQUETA
         // vive en window.GpsFicha (gps_ficha.js), compartida con el modal "Rastreo Satelital en
@@ -3502,6 +3464,7 @@
                 color: eqColor(e), frente: e.frente ? e.frente.nombre : null, gps: e.gps
             }, {
                 dudosa: eqDudosa(e),
+                sinRespuesta: !!e._sinRespuesta,
                 // La dirección llega después (eqCargarDireccion la rellena por este data-eqdir
                 // sin repintar la ficha, para no cerrar la que el usuario tenga abierta).
                 dirAttr: eqClaveDir(e), direccion: capaEquipos.dirs[eqClaveDir(e)] || null
@@ -3517,6 +3480,11 @@
         function eqCargarDireccion(marca) {
             var id = marca.eq.id, clave = eqClaveDir(marca.eq);
             if (capaEquipos.dirs[clave] || capaEquipos.dirsPidiendo[clave]) return;
+            // Con la última posición conocida (`vieja`) mientras su tanda la está trayendo, no se
+            // pide: el servidor tendría que consultar a GPS51 compitiendo con las tandas del propio
+            // mapa. Cuando llegue la nueva, eqPintar repinta la ficha y la pide. Si GPS51 no
+            // respondió (_sinRespuesta), sí se pide: no va a llegar otra.
+            if (marca.eq.gps.vieja && !marca.eq._sinRespuesta) return;
             capaEquipos.dirsPidiendo[clave] = true;
             window.apiFetch(equiposGpsUrl + '/' + id + '/direccion', { headers: { 'Accept': 'application/json' } })
                 .then(function (r) { return r.ok ? r.json() : null; })
@@ -3561,14 +3529,16 @@
                     // la dirección de la posición nueva (la de antes queda guardada en capaEquipos.dirs).
                     // Solo si cambió SU gps: update() re-encuadra la ficha (autoPan) y, con una tanda
                     // cada pocos segundos, devolvía el mapa a ella mientras el usuario lo arrastraba.
-                    var cambio = m._eqGps !== e.gps;
+                    var cambio = m._eqGps !== e.gps || m._eqSinResp !== !!e._sinRespuesta;
                     m._eqGps = e.gps;
+                    m._eqSinResp = !!e._sinRespuesta;
                     if (cambio && m.isPopupOpen()) { m.getPopup().update(); eqCargarDireccion(m); }
                 } else {
                     m = L.marker(ll, { icon: eqIcono(e), riseOnHover: true, keyboard: false });
                     m.eq = e;
                     m._eqFirma = eqIconoFirma(e);
                     m._eqGps = e.gps;
+                    m._eqSinResp = !!e._sinRespuesta;
                     m.bindTooltip(function (capa) {
                         var q = capa.eq;
                         return '<b>' + esc(eqIdent(q)) + '</b>' + (q.frente ? '<br><span style="opacity:.85;">' + esc(q.frente.nombre) + '</span>' : '');
@@ -3626,11 +3596,9 @@
                     var anteriores = {};
                     capaEquipos.datos.forEach(function (e) { if (e.gps) anteriores[e.id] = e.gps; });
                     capaEquipos.datos = (j && j.equipos) || [];
-                    // Tampoco se cambia por la ÚLTIMA conocida (`vieja`) una que este mapa ya tenía al día.
-                    capaEquipos.datos.forEach(function (e) {
-                        var antes = anteriores[e.id];
-                        if (antes && (!e.gps || (e.gps.vieja && !antes.vieja))) e.gps = antes;
-                    });
+                    // La `vieja` del servidor SÍ reemplaza a la que tenía el mapa: es la misma lectura (o
+                    // una más nueva de otro usuario) con el "en línea" recalculado a la hora actual.
+                    capaEquipos.datos.forEach(function (e) { if (!e.gps && anteriores[e.id]) e.gps = anteriores[e.id]; });
                     capaEquipos.totalesFrente = (j && j.totales_frente) || {};
                     capaEquipos.totalEquipos   = (j && j.total_equipos) || 0;
                     capaEquipos.cargado = true;
@@ -4975,7 +4943,7 @@
         function tileURL(z, x, y, tipo) {
             var n = Math.pow(2, z); x = ((x % n) + n) % n; // envolver longitud
             if (tipo === 'lbl') return 'https://mt' + (Math.abs(x + y) % 4) + '.google.com/vt/lyrs=h&x=' + x + '&y=' + y + '&z=' + z;
-            return 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/' + z + '/' + y + '/' + x;
+            return window.GpsFicha.SATELITE.replace('{z}', z).replace('{y}', y).replace('{x}', x);
         }
         // Rellena anillos de polígono (lat/lng) — municipios resaltados y capa petrolera en la
         // foto. `alpha` = opacidad del relleno (0.42 por defecto, el de los municipios) y
@@ -5252,7 +5220,9 @@
         // Primera visita: Leaflet aún no está y hay que bajarlo. El layout suelta su referencia
         // del spinner cuando termina ESTE archivo, antes de que exista el mapa; esta otra
         // referencia lo mantiene hasta que el mapa está montado (si no, se veía el hueco vacío).
-        var esperaLeaflet = !(typeof L !== 'undefined' && L.map);
+        // Cuenta como "ya está" solo con los plugins: el modal de GPS de Equipos baja Leaflet SOLO,
+        // y con esa copia la primera visita aquí soltaba el spinner mientras bajaban el resto.
+        var esperaLeaflet = !(typeof L !== 'undefined' && L.map && L.Control && L.Control.Geocoder);
         var gen = window.preloaderGeneracion ? window.preloaderGeneracion() : 0;
         if (esperaLeaflet && window.showPreloader) window.showPreloader();
         ensureLeaflet()

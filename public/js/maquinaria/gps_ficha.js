@@ -66,7 +66,32 @@
                (detalle ? '<small title="' + esc(detalle) + '">' + esc(detalle) + '</small>' : '') + '</div>';
     }
 
+    // En marcha = más de 3 km/h, y solo con la posición al día: con la última conocida (`vieja`,
+    // de hasta un día) la flecha diría que va en marcha AHORA.
+    function enMarcha(g) { return !g.vieja && g.velocidad > 3; }
+
     window.GpsFicha = {
+        /** Teselas del satélite de Esri: el mapa base de /mapa y del modal de GPS de Equipos. */
+        SATELITE: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+
+        /**
+         * El icono del equipo en el mapa (Leaflet divIcon): el de "agriculture" del módulo
+         * Equipos, más apagado si no está en línea y con una flecha del rumbo cuando va en
+         * marcha. El mismo en /mapa y en el modal. Estilos .mapa-eq-pin en estilos_globales.css.
+         */
+        icono: function (g) {
+            return L.divIcon({
+                className: 'mapa-eq-pin' + (g.en_linea ? '' : ' fuera'),
+                html: '<i class="material-icons mapa-eq-ico">agriculture</i>' +
+                      (enMarcha(g) ? '<span class="mapa-eq-rumbo" style="transform:rotate(' + (+g.rumbo || 0) + 'deg)"></span>' : ''),
+                iconSize: [26, 26], iconAnchor: [13, 13], popupAnchor: [0, -12]
+            });
+        },
+        /** Lo que decide cómo se ve el icono: si no cambia, no hace falta rehacerlo. */
+        iconoFirma: function (g) {
+            return (g.en_linea ? 1 : 0) + '|' + (enMarcha(g) ? (+g.rumbo || 0) : '-');
+        },
+
         /**
          * El HTML de la ficha, o cadena vacía si el equipo no tiene posición que pintar
          * (sin `gps`, con `gps.ok` falso o sin coordenadas).
@@ -80,6 +105,8 @@
          * @param {object} op  Opcional:
          *                     · dudosa   true si el GPS la reporta fuera del país: pinta el
          *                                aviso de que ese punto no es donde está el equipo.
+         *                     · sinRespuesta  true si GPS51 no contestó al refrescar una posición
+         *                                `vieja`: el aviso lo dice en vez de "actualizando…".
          *                     · direccion  la dirección escrita, o null mientras se busca.
          *                     · dirAttr  valor del data-eqdir: por ahí la rellenan los dos
          *                                cuando llega, sin repintar la ficha entera.
@@ -133,6 +160,10 @@
                     '<div class="mapa-eq-frente"><i style="background:' + color + '"></i>' +
                         '<span title="' + esc(frente) + '">' + esc(frente) + '</span></div>' +
                 '</div>' +
+                // Con la última posición conocida (`vieja`) los datos de abajo son de cuando se
+                // consultó, no de ahora: se dice, hasta que llegue la lectura nueva.
+                (g.vieja ? '<div class="mapa-eq-vieja">Últimos datos conocidos · ' +
+                    (op.sinRespuesta ? 'GPS51 no respondió' : 'actualizando…') + '</div>' : '') +
                 '<div class="mapa-eq-grid">' +
                     celda('Velocidad', num(g.velocidad) + ' km/h') +
                     // "Apagado / desde hace 1 día 11 h": antes salía "1d11h42m" suelto, sin decir qué era.
@@ -149,7 +180,7 @@
                     celda('Kilometraje', num(g.km_total) + ' km') +
                     celda('Última señal', window.tiempoHace(g.ultima_senal), window.fechaHoraLocal(g.ultima_senal)) +
                 '</div>' +
-                // Dónde está, en dos renglones como mucho: la dirección corta y, debajo, la coordenada.
+                // Dónde está: la dirección corta (dos renglones como mucho) y, debajo, la coordenada.
                 '<div class="mapa-eq-ubic"><i class="material-icons">place</i><div>' +
                     (op.sinDireccion ? '' :
                         '<div class="mapa-eq-dir"' + (op.dirAttr ? ' data-eqdir="' + esc(op.dirAttr) + '"' : '') +

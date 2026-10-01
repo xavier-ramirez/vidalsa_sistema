@@ -242,8 +242,10 @@ decide nada: propone y una persona confirma.
 - La clave va en el `.env` del servidor — **nunca** en el repositorio (`config/services.php`
   la lee de `GEMINI_API_KEY`, con los topes por env para no tocar código si se paga un plan).
 
-**Mapa (`/mapa`, `mapa_index.js`).** Leaflet y sus dos librerías se piden A LA VEZ; en la
-primera visita `initMapa` mantiene el spinner hasta que el mapa existe. Los créditos "Elaborado
+**Mapa (`/mapa`, `mapa_index.js`).** Leaflet y sus librerías se piden A LA VEZ y se ejecutan en
+orden; Leaflet lo baja `window.cargarLeaflet` (`lazy_loader.js`), el MISMO cargador del mapa del
+modal de GPS de Equipos, así nunca se baja dos veces. En la primera visita `initMapa` mantiene el
+spinner hasta que el mapa existe (aunque el modal ya hubiera traído Leaflet solo). Los créditos "Elaborado
 por / Fuente" van SOLO en la foto exportada (`CREDITOS` → `dibujarCreditos`), no en pantalla.
 Todo lo que llega tarde (proyectos, capas, municipios) mira `desmontado`: si se salió del mapa
 no pinta. El spinner lo cuida la **generación** del contador (`window.preloaderGeneracion`, sube
@@ -266,21 +268,26 @@ antes de que una navegación pusiera el contador a cero — restarla destapaba l
   1. **Mover un marcador exige avisar al agrupador** (`refreshClusters`): lleva su propio árbol de
      posiciones y, sin el aviso, el icono se mueve pero su grupo sigue calculado con la coordenada
      vieja.
-  2. **La capa se monta a puerta cerrada.** Mientras `capaEquipos.montando`, NADIE llama a
-     `eqPintar`: el mapa sale de una vez, ya agrupado, cuando llegan todas las posiciones o cuando
-     vence `EQ_MONTAJE_TOPE_MS` (15 s; GPS51 es lento y no se deja la pantalla bloqueada sin fin).
-     El spinner aguanta hasta ese momento. Antes se veían aparecer los equipos a goteo y juntarse
-     en grupos una y otra vez con cada tanda.
+  2. **La capa se monta de una vez.** Mientras `capaEquipos.montando`, NADIE llama a `eqPintar`:
+     el mapa sale entero, ya agrupado. La lista (`equiposGps`) trae para cada equipo su posición
+     fresca (2 min) o, si caducó, la ÚLTIMA conocida (1 día, marcada `vieja`) y la deja en
+     `pendientes`: si a lo sumo una tanda no trae ninguna, el mapa sale AL INSTANTE y las tandas lo
+     ponen al día en caliente (los marcadores solo se mueven). Si faltan más, espera a las tandas o
+     a `EQ_MONTAJE_TOPE_MS` (8 s). Antes se veían aparecer los equipos a goteo y juntarse en grupos
+     una y otra vez con cada tanda.
+  3. **`vieja` no es "al día":** no cuenta como respondida (`_sinRespuesta`, el pie lo avisa), no
+     dibuja la flecha de marcha ni el "desde hace" del motor, la ficha dice "Últimos datos
+     conocidos" y su dirección no se pide hasta que llega la nueva. `/direccion` devuelve también
+     la coordenada a la que corresponde, y se guarda bajo esa.
 - **La lista del panel se pinta por bloques** (`EQ_LISTA_BLOQUE` / `eqVisibles`), no entera: crece
   al bajar y vuelve al primer bloque al cambiar de filtro o al apagar la capa.
 - **Excel del panel** (`mapa.equiposGps.exportar`): recibe los `ids` de lo filtrado (el servidor
   igual recorta a los frentes del usuario). Posición: la fresca (2 min), si no la ÚLTIMA
-  conocida (`Gps51Service::ultimasConocidas`, 1 día) y solo lo que no tiene ninguna se pide a
+  conocida (`Gps51Service::frescasOUltimas`, 1 día) y solo lo que no tiene ninguna se pide a
   GPS51 con tope de 20 s. Direcciones en UNA consulta (`Gps51Service::direcciones`: GPS51
   devuelve los puntos desordenados, se emparejan por coordenada). Identificación: placa → serial
-  de chasis → serial de motor → código de patio → etiqueta, los MISMOS cinco escalones y con el
-  mismo recorte de espacios en el panel (`eqIdent`), en la ficha (`equipoGps`) y en el Excel
-  (`exportarEquiposGps`). Encabezado = el de Equipos (`ExcelLogoCorporativo::encabezadoCorporativo`).
+  de chasis → serial de motor → código de patio → etiqueta: SOLO `MapaController::identificar`
+  (llega al navegador en `ident` / `ident_por`), para el panel, las fichas y el Excel. Encabezado = el de Equipos (`ExcelLogoCorporativo::encabezadoCorporativo`).
 
 **Fotos de equipos.** `Equipo::fotoParaMostrar()` decide, en este orden: foto del **color** de
 la unidad en su ficha del catálogo → foto del **modelo** (`FOTO_REFERENCIAL`) → foto propia de

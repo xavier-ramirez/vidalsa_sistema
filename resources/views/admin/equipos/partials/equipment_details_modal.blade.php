@@ -406,7 +406,7 @@ MODAL GPS TRACKER — Rastreo Satelital en Vivo
              teléfono. --}}
         <div class="gps-body">
             <div class="gps-panel-map">
-                <div id="gps_mapa" role="img" aria-label="Mapa satelital con la posición del equipo"></div>
+                <div id="gps_mapa"></div>
                 <div id="gps_mapa_aviso" class="gps-mapa-aviso">
                     <div class="spinner-circle"></div>
                 </div>
@@ -573,56 +573,55 @@ if (!window._gpsModalScriptLoaded) {
             av.style.display = html ? 'flex' : 'none';
         }
         // ── Mapa: Leaflet con SOLO el satélite de Esri (lo mismo que /mapa, sin etiquetas ni nada
-        // más). Leaflet sale de /vendor/leaflet, el mismo archivo que usa /mapa: si ya se abrió
-        // el mapa, no se vuelve a bajar. Se pide al ABRIR el modal, a la vez que los datos del GPS.
-        var LEAFLET_JS = '/vendor/leaflet/leaflet.js', LEAFLET_CSS = '/vendor/leaflet/leaflet.css';
-        var SATELITE = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+        // más). Leaflet lo baja window.cargarLeaflet (lazy_loader.js), el mismo cargador de /mapa:
+        // si ya se abrió el mapa no se vuelve a bajar. Se pide al ABRIR el modal, a la vez que los
+        // datos del GPS. El icono y las teselas salen de window.GpsFicha, igual que en /mapa.
         var M = { mapa: null, marca: null };
-        function cargarLeaflet() {
-            // data-mapa-css: la misma marca que pone /mapa (ensureCss), así no se duplica el <link>.
-            if (!document.querySelector('link[data-mapa-css="' + LEAFLET_CSS + '"]')) {
-                var l = document.createElement('link');
-                l.rel = 'stylesheet'; l.href = LEAFLET_CSS; l.setAttribute('data-mapa-css', LEAFLET_CSS);
-                document.head.appendChild(l);
-            }
-            return window.cargarScriptUnaVez(LEAFLET_JS, function () { return typeof L !== 'undefined' && !!L.map; });
+        function soltarMapa() {
+            if (M.mapa) M.mapa.remove();
+            M.mapa = M.marca = null;
         }
         // El mapa se crea UNA vez y se reutiliza en cada apertura. Si la SPA rehízo el modal (otra
-        // página y vuelta), el contenedor es otro y se crea de nuevo.
+        // página y vuelta), el contenedor es otro: se suelta el viejo y se crea de nuevo.
         function mapaListo() {
-            return cargarLeaflet().then(function () {
+            return window.cargarLeaflet().then(function () {
                 var cont = $('gps_mapa');
                 if (!cont) throw new Error('sin contenedor');
-                if (M.mapa && M.mapa.getContainer() !== cont) { M.mapa.remove(); M.mapa = M.marca = null; }
+                if (M.mapa && M.mapa.getContainer() !== cont) soltarMapa();
                 if (!M.mapa) {
-                    M.mapa = L.map(cont, { zoomControl: true, attributionControl: false });   // sin el texto de créditos, igual que /mapa
+                    M.mapa = L.map(cont, {
+                        zoomControl: true,
+                        attributionControl: false,   // sin el texto de créditos, igual que /mapa
+                        // En el teléfono el mapa ocupa media pantalla: con un dedo se desplaza la
+                        // página hasta la ficha, en vez de arrastrar el mapa (se acerca con dos).
+                        dragging: !L.Browser.mobile
+                    });
                     // maxNativeZoom 17: más cerca Esri no tiene imagen en zonas rurales; reescala la última.
-                    L.tileLayer(SATELITE, { maxZoom: 19, maxNativeZoom: 17 }).addTo(M.mapa);
+                    L.tileLayer(window.GpsFicha.SATELITE, { maxZoom: 19, maxNativeZoom: 17 }).addTo(M.mapa);
                 }
                 return M.mapa;
             });
         }
-        // El mismo icono que en /mapa (estilos .mapa-eq-pin de estilos_globales.css).
-        function iconoEquipo(enLinea) {
-            return L.divIcon({
-                className: 'mapa-eq-pin' + (enLinea ? '' : ' fuera'),
-                html: '<i class="material-icons mapa-eq-ico">agriculture</i>',
-                iconSize: [26, 26], iconAnchor: [13, 13]
-            });
-        }
-        // Centra en el equipo al abrir; en los refrescos solo lo mueve (sin cambiar el zoom que
-        // haya puesto el usuario) y lo sigue si se desplazó.
-        function pintarMapa(enLinea) {
+        // Una navegación de la SPA se lleva el modal: el mapa viejo no se queda vivo en memoria.
+        window.addEventListener('spa:contentLoaded', function () {
+            if (M.mapa && !M.mapa.getContainer().isConnected) soltarMapa();
+        });
+        // Centra en el equipo al abrir. En los refrescos solo mueve el marcador, sin tocar el zoom
+        // ni el encuadre que haya puesto el usuario, y lo sigue únicamente si el equipo se movió
+        // (`movido`) y quedó fuera de la vista.
+        function pintarMapa(g, movido) {
             if (S.lat === null) return;
             var turno = S.turno, lat = S.lat, lng = S.lng;
             mapaListo().then(function (mapa) {
                 if (turno !== S.turno || S.lat !== lat || S.lng !== lng) return;   // cerrado u otro equipo
-                mapa.invalidateSize();   // el contenedor estaba oculto (display:none) al crearse
+                // Al REUTILIZAR el mapa: con el modal cerrado Leaflet midió el contenedor oculto
+                // (0×0) si cambió el tamaño de la ventana; sin esto el equipo no quedaba centrado.
+                mapa.invalidateSize();
                 var ll = [lat, lng];
                 if (!M.marca) M.marca = L.marker(ll, { keyboard: false }).addTo(mapa);
-                M.marca.setLatLng(ll).setIcon(iconoEquipo(enLinea));
+                M.marca.setLatLng(ll).setIcon(window.GpsFicha.icono(g));
                 if (!S.centrado) { mapa.setView(ll, 17, { animate: false }); S.centrado = true; }
-                else if (!mapa.getBounds().contains(ll)) mapa.panTo(ll);
+                else if (movido && !mapa.getBounds().contains(ll)) mapa.panTo(ll);
                 avisoMapa('');
             }).catch(function () {
                 if (turno !== S.turno) return;
@@ -715,7 +714,7 @@ if (!window._gpsModalScriptLoaded) {
             // coordenada de otro país no dice nada y sería una consulta para nada.
             var cambio = S.lat !== g.lat || S.lng !== g.lng;
             S.lat = g.lat; S.lng = g.lng;
-            pintarMapa(g.en_linea);
+            pintarMapa(g, cambio);
             if (!g.fuera_de_venezuela && (cambio || !S.direccion)) cargarDireccion();
         }
 
@@ -729,6 +728,10 @@ if (!window._gpsModalScriptLoaded) {
                 .catch(function () { return null; })
                 .then(function (j) {
                     if (turno !== S.turno || S.lat !== lat || S.lng !== lng || !j || !j.direccion) return;
+                    // La dirección es de la posición que el servidor tiene AHORA: si ya no es la que
+                    // enseña la ficha (el equipo se movió entre las dos consultas), no se pone.
+                    var a4 = function (n) { return Number(n).toFixed(4); };
+                    if (a4(j.lat) !== a4(lat) || a4(j.lng) !== a4(lng)) return;
                     // Se guarda en S para que el refresco que repinta la ficha no la pierda, y se
                     // escribe en el hueco que la ficha dejó (data-eqdir), sin repintarla entera.
                     S.direccion = j.direccion;
@@ -766,7 +769,7 @@ if (!window._gpsModalScriptLoaded) {
             ['gps_mensaje', 'gps_vence'].forEach(function (id) { $(id).hidden = true; });
             avisoMapa('<div class="spinner-circle"></div><span>Consultando el GPS…</span>');
             // Leaflet se baja YA, en paralelo con los datos del GPS: cuando lleguen, el mapa está.
-            cargarLeaflet().catch(function () {});
+            window.cargarLeaflet().catch(function () {});
 
             modal.style.display = 'flex';
             // Mismo ayudante que el detalle y el visor de PDF (layout_ui.js).
