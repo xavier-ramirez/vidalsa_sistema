@@ -3971,7 +3971,10 @@
             // Si el bloque pintado no llega a llenar el panel, no hay barra que desplazar y el
             // aviso de "N más abajo" se quedaría sin salida: se añade otro bloque en el acto. Pasa
             // en pantallas altas y al filtrar a pocos resultados.
-            if (_panEq.body && eqVisibles < orden.length &&
+            // Solo con el cuerpo A LA VISTA (clientHeight > 0): con el panel recogido del teléfono
+            // mide 0, la condición se cumplía siempre y se pintaba la lista ENTERA en cada refresco.
+            // Al desplegarlo, eqPlegarPanel vuelve a pasar por aquí y ahí sí se rellena.
+            if (_panEq.body && eqVisibles < orden.length && _panEq.body.clientHeight > 0 &&
                 _panEq.body.scrollHeight <= _panEq.body.clientHeight + 4) {
                 eqVisibles += EQ_LISTA_BLOQUE;
                 return eqActualizarPanel();
@@ -4030,6 +4033,27 @@
             window.clearDropdownFilter('mapaEqTipo');
             return true;
         }
+        // Teléfono = el diseño en el que el panel va DEBAJO del mapa (el mismo corte de 900 px que
+        // estilos_globales.css). Solo ahí el panel se pliega.
+        function eqEsTelefono() { return window.matchMedia('(max-width: 900px)').matches; }
+        function eqPlegarPanel(recoger) {
+            if (!_mapaLayout || _mapaLayout.classList.contains('panel-recogido') === recoger) return;
+            // Recogido, el cuerpo queda oculto y el navegador olvida hasta dónde se había bajado:
+            // se apunta para devolver la lista a ese punto al desplegarla.
+            if (recoger && _panEq) _panEq._scroll = _panEq.body.scrollTop;
+            _mapaLayout.classList.toggle('panel-recogido', recoger);
+            var b = _panEq && _panEq.caja.querySelector('.mapa-eqp-plegar');
+            if (b) {
+                b.setAttribute('aria-expanded', recoger ? 'false' : 'true');
+                b.firstChild.textContent = recoger ? 'expand_less' : 'expand_more';
+            }
+            eqAvisarTamano();   // el mapa cambió de alto: Leaflet tiene que volver a medirlo
+            if (!recoger && _panEq) {
+                // Recogido no se rellena la lista (ver eqActualizarPanel): ya con alto, sí.
+                eqActualizarPanel();
+                _panEq.body.scrollTop = _panEq._scroll || 0;
+            }
+        }
         function eqIrA(e) {
             if (!e) return;
             if (!eqTienePosicion(e)) { window.toast(eqIdent(e) + ': ' + eqSinPosicionTexto(e) + '.', 'error'); return; }
@@ -4038,6 +4062,10 @@
             if (capaEquipos.montando) { window.toast('Espera: el mapa se está terminando de cargar.', 'info'); return; }
             var m = capaEquipos.marcas[e.id];
             if (!m) return;
+            // En el teléfono, con el equipo YA en el mapa, se recoge la lista para que se vea. Solo
+            // aquí: si no tiene posición o el mapa se está montando, la lista se queda abierta con
+            // su aviso. Antes de moverse: así Leaflet ya mide el mapa con su alto nuevo al centrarlo.
+            if (eqEsTelefono()) eqPlegarPanel(true);
             var ll = m.getLatLng();
             // Dentro de un grupo el equipo no está pintado por su cuenta, así que abrirle la ficha
             // no enseñaría nada: el agrupador acerca primero hasta separarlo (o lo abre en abanico
@@ -4111,8 +4139,13 @@
                 caja.className = 'mapa-eqp';
                 caja.style.display = 'none';
                 caja.innerHTML =
+                    // En teléfono el encabezado es la BARRA del panel plegable: tocarla despliega o
+                    // recoge la lista (ver eqPlegarPanel). En PC el botón no se ve y no hace nada.
                     '<div class="mapa-eqp-head">' +
                         '<span class="mapa-eqp-titulo"><i class="material-icons">gps_fixed</i>Equipos con GPS</span>' +
+                        '<button type="button" class="mapa-eqp-plegar" aria-expanded="false" ' +
+                            'aria-label="Ver u ocultar la lista" title="Ver u ocultar la lista">' +
+                            '<i class="material-icons" aria-hidden="true">expand_less</i></button>' +
                     '</div>' +
                     '<div class="mapa-eqp-body">' +
                         '<div class="mapa-eqp-kpis">' +
@@ -4162,6 +4195,11 @@
                 });
                 var btnExp = q('.mapa-eqp-exportar');
                 if (btnExp) btnExp.addEventListener('click', function () { eqExportarExcel(btnExp); });
+                // Toda la barra (no solo la flecha) despliega o recoge: en el teléfono es el blanco
+                // más fácil de tocar. En PC no pasa nada: ahí el panel nunca se recoge.
+                q('.mapa-eqp-head').addEventListener('click', function () {
+                    if (eqEsTelefono()) eqPlegarPanel(!_mapaLayout.classList.contains('panel-recogido'));
+                });
                 // Escribir dentro del desplegable filtra SUS opciones (igual que en Equipos).
                 caja.querySelectorAll('.mapa-eqp-dd [data-filter-search]').forEach(function (inp) {
                     inp.addEventListener('input', function () { window.filterDropdownOptions(inp); });
@@ -4211,6 +4249,9 @@
         _mapaLayout = document.getElementById('mapa-layout');
         _mapaLateral = document.getElementById('mapa-lateral');
         if (equiposGpsUrl && _mapaLateral) eqCrearPanel(_mapaLateral);
+        // En teléfono el panel arranca RECOGIDO (pedido del cliente, 01-10-2026): abierto se comía
+        // media pantalla y casi no se veía el mapa. En PC la clase no tiene efecto.
+        if (_mapaLayout) _mapaLayout.classList.add('panel-recogido');
 
         // Botón de descarga (arriba-izq, junto al buscador/globo/pantalla completa).
         var ExportarCtrl = L.Control.extend({

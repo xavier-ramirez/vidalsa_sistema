@@ -423,8 +423,9 @@ MODAL GPS TRACKER — Rastreo Satelital en Vivo
                          enlace): sin el encabezado, si no, no habría forma de saber de cuál se habla. --}}
                     <p id="gps_ident" class="gps-ident"></p>
                     {{-- La ficha entera la pinta window.GpsFicha (gps_ficha.js), el MISMO componente
-                         que usa la capa Equipos de /mapa: tipo y estado, modelo · marca, placa (o
-                         serial), frente, la rejilla de datos, dirección y coordenadas. Antes
+                         que usa la capa Equipos de /mapa: frente; tipo · modelo; marca · placa (o
+                         serial); la rejilla de datos; dirección y coordenada. Aquí sin el "En línea"
+                         (sinEstado, ver pintarDatos). Antes
                          aquí había una maqueta propia (placa gigante, chip suelto y una lista de
                          dos columnas) que no se parecía en nada a la del mapa. --}}
                     <div id="gps_ficha"></div>
@@ -493,9 +494,9 @@ MODAL GPS TRACKER — Rastreo Satelital en Vivo
     .gps-mensaje { margin: 0; font-size: 14px; font-weight: 700; color: #000; }
     .gps-ident { margin: 0; padding-right: 36px; font-size: 14px; font-weight: 800; color: #0f172a; }
     .gps-ident:empty { display: none; }
-    /* Hueco para la "×" de cerrar junto a lo primero de la ficha: el título o, si la posición
+    /* Hueco para la "×" de cerrar junto a lo primero de la ficha: el frente o, si la posición
        es dudosa, el aviso de "FUERA de Venezuela", que va encima. */
-    #gpsTrackerModal .mapa-eq-tit,
+    #gpsTrackerModal .mapa-eq-frente,
     #gpsTrackerModal .mapa-eq-dudosa { padding-right: 30px; }
     .gps-vence { margin: 0; font-size: 11px; font-weight: 600; color: #475569; text-align: center; }
 
@@ -503,6 +504,17 @@ MODAL GPS TRACKER — Rastreo Satelital en Vivo
        DOS renglones de tres (pedido del cliente, 30-09-2026). Solo en el modal: la tarjeta de
        /mapa es más angosta y sigue a dos columnas. */
     #gpsTrackerModal .mapa-eq-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    /* Letra más grande en el modal (pedido del cliente, 01-10-2026): los rótulos y los datos
+       chicos de la ficha (9,5-11,5 px) costaban de leer. Solo aquí, que hay sitio; la tarjeta
+       de /mapa es más angosta y se queda como está. */
+    #gpsTrackerModal .mapa-eq-desc,
+    #gpsTrackerModal .mapa-eq-frente { font-size: 13px; }
+    #gpsTrackerModal .mapa-eq-cel span { font-size: 11px; }
+    #gpsTrackerModal .mapa-eq-cel b { font-size: 14px; }
+    #gpsTrackerModal .mapa-eq-cel small { font-size: 12px; }
+    #gpsTrackerModal .mapa-eq-vieja,
+    #gpsTrackerModal .mapa-eq-dir { font-size: 13px; }
+    #gpsTrackerModal .mapa-eq-coord { font-size: 12px; }
 
     /* Tablet: la ficha se angosta para dejarle ancho al mapa. */
     @media (max-width: 1024px) {
@@ -693,6 +705,8 @@ if (!window._gpsModalScriptLoaded) {
                 frente: eq.frente, gps: g
             }, {
                 dudosa: !!g.fuera_de_venezuela,
+                // Sin el "En línea" del encabezado: aquí ya lo dice "Última señal".
+                sinEstado: true,
                 // La dirección se pide aparte (tarda ~2 s): la ficha reserva su hueco y
                 // cargarDireccion la rellena por este data-eqdir cuando llega.
                 // Con la posición fuera del país no se pide dirección (ver más abajo), así que

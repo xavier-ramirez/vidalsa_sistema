@@ -4131,9 +4131,12 @@ body:has(.mapa-page) { --mapa-col: 380px; }
        pero las dos seguían saliendo y tapaban lo poco de mapa que queda.
        De la escala solo se oculta el control de PANTALLA: escalaKm() la calcula del propio mapa y
        la regla de la foto exportada la dibuja su código, así que ninguno se ve afectado.
-       !important en la leyenda porque el JS le pone display en línea al mostrarla y ocultarla. */
+       !important en la leyenda porque el JS le pone display en línea al mostrarla y ocultarla.
+       La brújula también FUERA (pedido del cliente, 01-10-2026), por lo mismo que la escala: solo
+       el control de pantalla; la foto exportada dibuja la suya aparte. */
     .leaflet-control-scale { display: none !important; }
     .mapa-leyenda { display: none !important; }
+    .mapa-compass { display: none; }
 
     .mapa-layout { flex-direction: column; }
     .mapa-layout.con-panel #mapa-leaflet { flex: 0 0 52dvh; height: 52dvh; }
@@ -4712,44 +4715,47 @@ body:has(.mapa-page) { --mapa-col: 380px; }
 .mapa-eq { color: #0f172a; font-family: "Nunito", sans-serif; font-size: 12.5px; line-height: 1.3; }
 /* Fondo gris azul, el del sistema (--maquinaria-gray-bg; pedido del cliente, 01-10-2026). */
 .mapa-eq-head { padding: 10px 12px 9px; border-left: 4px solid #94a3b8; background: var(--maquinaria-gray-bg, #e9edf4); border-bottom: 1px solid #dbe2ec; }
-/* padding-right: deja libre la "×" de cerrar de Leaflet, arriba a la derecha. */
-.mapa-eq-tit { display: flex; align-items: flex-start; gap: 8px; padding-right: 18px; }
 /* Todo texto de la ficha que no cabe baja de renglón, pero como MÁXIMO a dos (pedido del cliente,
-   01-10-2026); lo que sobra se corta con "…" y entero queda en el title. */
-.mapa-eq-tit b, .mapa-eq-desc, .mapa-eq-frente span, .mapa-eq-cel b, .mapa-eq-cel small, .mapa-eq-dir {
+   01-10-2026); lo que sobra se corta con "…" y entero queda en el title. La dirección no entra:
+   va en línea con su coordenada detrás y ya llega acortada (ver direccionCorta en gps_ficha.js). */
+.mapa-eq-tit b, .mapa-eq-desc, .mapa-eq-frente, .mapa-eq-cel b, .mapa-eq-cel small {
     display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2;
     overflow: hidden; overflow-wrap: anywhere;
 }
+.mapa-eq-tit { display: flex; align-items: flex-start; gap: 8px; margin-top: 3px; }
 .mapa-eq-tit b { font-size: 14px; font-weight: 800; min-width: 0; }
+.mapa-eq-modelo { font-weight: 700; }
 .mapa-eq-tit .mapa-eq-estado { margin-top: 1px; }
 .mapa-eq-estado { flex: none; padding: 2px 7px; border-radius: 999px; font-size: 9.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.3px; }
 .mapa-eq-estado.en-linea { background: #dcfce7; color: #15803d; }
 .mapa-eq-estado.fuera { background: #cbd5e1; color: #334155; }   /* se distingue sobre el gris azul del encabezado */
-.mapa-eq-desc { margin-top: 2px; font-size: 12px; color: #475569; }
-.mapa-eq-desc b { color: #0f172a; font-weight: 800; }
+.mapa-eq-desc { margin-top: 2px; font-size: 12px; }
+.mapa-eq-desc b { font-weight: 800; }
 /* "· Placa: X" baja entero de renglón; si él solo no cabe (un serial muy largo), se corta con "…". */
 .mapa-eq-cual { display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
-.mapa-eq-frente { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 11.5px; font-weight: 700; color: #1e293b; }
-.mapa-eq-frente i { flex: none; width: 10px; height: 10px; border-radius: 50%; box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.25); }
-.mapa-eq-frente span { min-width: 0; }
+/* El frente va arriba del todo. padding-right: deja libre la "×" de cerrar de Leaflet, arriba
+   a la derecha. */
+.mapa-eq-frente { padding-right: 18px; font-size: 11.5px; font-weight: 800; }
 /* Dos columnas: a tres, "Encendido", el kilometraje o la fecha de la última señal no cabían. */
 .mapa-eq-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; background: #e2e8f0; }
 .mapa-eq-cel { display: flex; flex-direction: column; gap: 1px; min-width: 0; padding: 7px 8px; background: #fff; }
 .mapa-eq-cel span { font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; color: #64748b; }
 .mapa-eq-cel b { font-size: 13px; font-weight: 800; }
-.mapa-eq-cel small { font-size: 10px; color: #64748b; }
+/* pre-line: el combustible manda "Principal…" y "Auxiliar…" separados por un salto de renglón. */
+.mapa-eq-cel small { font-size: 10px; color: #64748b; white-space: pre-line; }
 /* Aviso de posición NO fiable, arriba del todo en la ficha del equipo: el GPS la reporta fuera
    del país. En ámbar y no en rojo: no es un fallo de la app ni del equipo, es el aparato de GPS
    el que hay que revisar. */
-.mapa-eq-dudosa { display: flex; align-items: flex-start; gap: 6px; padding: 8px 12px;
+.mapa-eq-dudosa { display: flex; align-items: flex-start; gap: 6px; padding: 8px 30px 8px 12px;   /* 30: la × de Leaflet */
     background: #fef3c7; color: #92400e; font-size: 11.5px; font-weight: 700; line-height: 1.35; }
 .mapa-eq-dudosa .material-icons { font-size: 16px; flex: 0 0 auto; margin-top: 1px; }
 .mapa-eq-vieja { padding: 5px 12px; font-size: 10.5px; font-weight: 700; color: #475569; background: #f1f5f9; border-bottom: 1px solid #e2e8f0; }
 .mapa-eq-ubic { display: flex; align-items: flex-start; gap: 6px; padding: 8px 12px 10px; }
 .mapa-eq-ubic > .material-icons { flex: none; font-size: 16px; color: #64748b; margin-top: 1px; }
 .mapa-eq-ubic > div { min-width: 0; }
-.mapa-eq-dir { font-size: 11.5px; font-weight: 600; color: #1e293b; }
-.mapa-eq-coord { margin-top: 2px; font-size: 10.5px; color: #64748b; font-variant-numeric: tabular-nums; }
+.mapa-eq-dir { font-size: 11.5px; font-weight: 600; color: #1e293b; overflow-wrap: anywhere; }
+/* La coordenada sigue a la dirección en el mismo renglón; si no cabe entera, sigue en el de abajo. */
+.mapa-eq-coord { font-size: 10.5px; color: #64748b; font-variant-numeric: tabular-nums; }
 /* ── Marca de un GRUPO de equipos (Leaflet.markercluster) ──
    De lejos, los equipos que caen en el mismo sitio se juntan en una sola marca con su número; al
    acercarse se abren solos. El agrupador trae por su cuenta unos círculos verdes y amarillos: no se
@@ -4898,18 +4904,17 @@ body:has(.mapa-page) { --mapa-col: 380px; }
     /* Aquí el panel va DEBAJO del mapa y el menú se queda arriba sobre él: nada que esquivar. */
     .mapa-eqp-head { padding: 10px 12px; }
 }
+/* Botón de plegar el panel: solo existe en el diseño de teléfono (ver más abajo). */
+.mapa-eqp-plegar { display: none; }
 /* ── TELÉFONO: el panel, apretado ──
    Abajo del mapa quedan unos 400 px de alto y con las medidas de PC se los comían el encabezado,
    los dos contadores y los tres filtros: solo asomaban TRES equipos, que es justo lo que se viene a
    mirar. Todo se encoge un punto —contadores, cajas de filtro, márgenes— para que la lista se
    quede con el sitio. No se toca nada del diseño de PC. */
 @media (max-width: 640px) {
-    /* En teléfono manda el MAPA: la lista enseña tres equipos y el resto se ve desplazando
-       (pedido del cliente): con menos mapa salían seis equipos y el mapa se quedaba en nada. */
+    /* En teléfono manda el MAPA (pedido del cliente): con el panel desplegado la lista enseña unos
+       pocos equipos y el resto se ve desplazando; con menos mapa este se quedaba en nada. */
     .mapa-layout.con-panel #mapa-leaflet { flex: 0 0 57dvh; height: 57dvh; }
-    /* Sin el título "Equipos con GPS": ocupa un renglón entero para decir lo que ya se ve, y en
-       teléfono ese renglón es una fila de equipos (pedido del cliente). */
-    .mapa-eqp-head { display: none; }
     .mapa-eqp-body { padding: 8px 10px 10px; }
     .mapa-eqp-kpi { padding: 5px 4px; border-radius: 8px; }
     .mapa-eqp-kpi b { font-size: 16px; }
@@ -4922,6 +4927,25 @@ body:has(.mapa-page) { --mapa-col: 380px; }
     .mapa-eqp-sec { margin: 8px 0 2px; }
     .mapa-eqp-eq { padding: 5px 6px; }
     .mapa-eqp-pie { margin-top: 8px; padding-top: 6px; }
+}
+/* ── TELÉFONO: el panel se PLIEGA (pedido del cliente, 01-10-2026) ──
+   Abierto se quedaba con casi la mitad de la pantalla y apenas se veía el mapa. Ahora arranca
+   recogido: solo asoma su encabezado como una barra al pie ("Equipos con GPS" + flecha) y el mapa
+   se queda con todo lo demás. Tocar la barra lo despliega con el reparto de siempre (el de las
+   reglas de arriba); elegir un equipo de la lista lo vuelve a recoger. Las reglas de
+   .panel-recogido mandan por ESPECIFICIDAD (un selector más largo) sobre las de 900, 640 y teléfono
+   bajo, también sobre esa última aunque vaya después en el archivo. */
+@media (max-width: 900px) {
+    .mapa-eqp-head { cursor: pointer; }   /* la barra se toca entera, no solo la flecha */
+    .mapa-eqp-plegar {
+        display: flex; align-items: center; justify-content: center; flex: none;
+        width: 32px; height: 32px; padding: 0; border: 1px solid #cbd5e0; border-radius: 8px;
+        background: #fff; color: var(--maquinaria-dark-blue); cursor: pointer;
+    }
+    .mapa-eqp-plegar .material-icons { font-size: 22px; }
+    .mapa-layout.con-panel.panel-recogido #mapa-leaflet { flex: 1 1 auto; height: auto; }
+    .mapa-layout.con-panel.panel-recogido .mapa-lateral { flex: 0 0 auto; height: auto; }
+    .mapa-layout.panel-recogido .mapa-eqp-body { display: none; }
 }
 /* Teléfono BAJO (un SE, o cualquiera con el teclado abierto): en 568 px de alto, con el reparto
    de arriba al panel le quedaban 277 px y solo asomaban DOS equipos. El mapa cede hasta un tercio
@@ -5177,8 +5201,8 @@ body:has(.mapa-page) { --mapa-col: 380px; }
 /* Encendido: marco azul de la marca + rótulo sólido (mismo azul que .mapa-fit-btn.activo). */
 .mapa-mini-capa.activo { border-color: #0067b1; box-shadow: 0 0 0 2px rgba(0, 103, 177, 0.35), 0 1px 4px rgba(0, 0, 0, 0.35); }
 .mapa-mini-capa.activo .mapa-mini-capa-lbl { background: #0067b1; }
-/* Teléfono: todo algo más chico y las miniaturas se despliegan hacia ARRIBA (en fila, junto a
-   la brújula, no caben en 360 px). Va aquí y no en el @media del módulo (más arriba) porque
+/* Teléfono: todo algo más chico y las miniaturas se despliegan en columna (en fila no caben en
+   360 px). Va aquí y no en el @media del módulo (más arriba) porque
    las declaraciones base están en ESTE punto del archivo: con la misma especificidad gana la
    última. */
 @media (max-width: 640px) {

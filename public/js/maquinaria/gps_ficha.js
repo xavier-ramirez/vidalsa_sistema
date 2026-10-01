@@ -105,6 +105,9 @@
          * @param {object} op  Opcional:
          *                     · dudosa   true si el GPS la reporta fuera del país: pinta el
          *                                aviso de que ese punto no es donde está el equipo.
+         *                     · sinEstado  true para no poner el "En línea / Sin conexión" del
+         *                                encabezado. Lo usa el modal (pedido del cliente,
+         *                                01-10-2026): ahí ya lo dice "Última señal".
          *                     · sinRespuesta  true si GPS51 no contestó al refrescar una posición
          *                                `vieja`: el aviso lo dice en vez de "actualizando…".
          *                     · direccion  la dirección escrita, o null mientras se busca.
@@ -126,23 +129,24 @@
             // El color va DENTRO de un atributo style, donde escapeHtml no protege: se acepta solo
             // si es un color de los que arma el sistema (#rgb / #rrggbb). Cualquier otra cosa, al gris.
             var color = /^#[0-9a-fA-F]{3,8}$/.test(String(eq.color || '')) ? eq.color : '#94a3b8';
-            // Encabezado en el orden que pidió el cliente (30-09-2026): primero QUÉ es (tipo,
-            // modelo y marca) y después CUÁL es (la placa y, si no tiene, el serial de chasis).
-            // Por eso ya no va aparte la línea "Placa: … Serial chasis: …": repetía lo de arriba.
+            // Encabezado en tres renglones, todo en negro (pedido del cliente, 01-10-2026):
+            //   1. el frente (proyecto), sin el círculo de color delante;
+            //   2. QUÉ es: el tipo y, al lado, el modelo ("CAMION GRUA · ZZ5317V4667B1");
+            //   3. la marca y CUÁL es: la placa o, si no tiene, el serial ("SINOTRUK · Placa: A64BG4R").
+            //      Ese escalón (placa → serial…) llega resuelto del servidor en ident / identPor.
             var limpio = function (v) { return (v == null ? '' : String(v)).trim(); };
             var ident = limpio(eq.ident), identPor = limpio(eq.identPor);
             var rotulo = identPor ? identPor + ': ' : '';
-            // Segundo renglón del encabezado, todo junto: "ZZ1168K621NC1 · SINOTRUK · Placa: A51EX9P"
-            // (pedido del cliente, 01-10-2026: el encabezado en dos renglones, no en cuatro). El
-            // title sale de los MISMOS trozos que lo que se ve.
-            var modeloMarca = [limpio(eq.modelo), limpio(eq.marca)].filter(Boolean).join(' · ');
-            var segundaTxt = [modeloMarca, ident ? rotulo + ident : ''].filter(Boolean).join(' · ');
+            var tipo = limpio(eq.tipo) || 'Sin tipo';
+            var modelo = limpio(eq.modelo), marca = limpio(eq.marca);
+            var frente = limpio(eq.frente) || 'Sin frente';
+            var tituloTxt = [tipo, modelo].filter(Boolean).join(' · ');
+            // El title sale de los MISMOS trozos que lo que se ve.
+            var terceraTxt = [marca, ident ? rotulo + ident : ''].filter(Boolean).join(' · ');
             // "· Placa: X" va en un trozo que no se parte: si no cabe baja entero de renglón, sin
             // dejar el "·" colgando ni "Placa:" separada de su valor.
-            var segunda = esc(modeloMarca) + (ident ? (modeloMarca ? ' ' : '') + '<span class="mapa-eq-cual">' +
-                (modeloMarca ? '· ' : '') + esc(rotulo) + '<b>' + esc(ident) + '</b></span>' : '');
-            var tipo = limpio(eq.tipo) || 'Sin tipo';
-            var frente = limpio(eq.frente) || 'Sin frente';
+            var tercera = esc(marca) + (ident ? (marca ? ' ' : '') + '<span class="mapa-eq-cual">' +
+                (marca ? '· ' : '') + esc(rotulo) + '<b>' + esc(ident) + '</b></span>' : '');
             // "desde hace" es lo que GPS51 dijo AL CONSULTAR: con la última posición conocida
             // (`vieja`, de hasta un día) ya no es verdad, así que no se pone.
             var motorDesde = g.vieja ? '' : duracion(g.acc_tiempo);
@@ -153,12 +157,12 @@
                 (op.dudosa ? '<div class="mapa-eq-dudosa"><i class="material-icons">location_off</i>' +
                     '<span>El GPS la reporta FUERA de Venezuela: no es donde está el equipo. Hay que revisar ese GPS.</span></div>' : '') +
                 '<div class="mapa-eq-head" style="border-left-color:' + color + '">' +
-                    '<div class="mapa-eq-tit"><b title="' + esc(tipo) + '">' + esc(tipo) + '</b>' +
-                        '<span class="mapa-eq-estado ' + (g.en_linea ? 'en-linea' : 'fuera') + '">' +
-                        (g.en_linea ? 'En línea' : 'Sin conexión') + '</span></div>' +
-                    (segunda ? '<div class="mapa-eq-desc" title="' + esc(segundaTxt) + '">' + segunda + '</div>' : '') +
-                    '<div class="mapa-eq-frente"><i style="background:' + color + '"></i>' +
-                        '<span title="' + esc(frente) + '">' + esc(frente) + '</span></div>' +
+                    '<div class="mapa-eq-frente" title="' + esc(frente) + '">' + esc(frente) + '</div>' +
+                    '<div class="mapa-eq-tit"><b title="' + esc(tituloTxt) + '">' + esc(tipo) +
+                        (modelo ? ' <span class="mapa-eq-modelo">·\u00a0' + esc(modelo) + '</span>' : '') + '</b>' +
+                        (op.sinEstado ? '' : '<span class="mapa-eq-estado ' + (g.en_linea ? 'en-linea' : 'fuera') + '">' +
+                        (g.en_linea ? 'En línea' : 'Sin conexión') + '</span>') + '</div>' +
+                    (tercera ? '<div class="mapa-eq-desc" title="' + esc(terceraTxt) + '">' + tercera + '</div>' : '') +
                 '</div>' +
                 // Con la última posición conocida (`vieja`) los datos de abajo son de cuando se
                 // consultó, no de ahora: se dice, hasta que llegue la lectura nueva.
@@ -171,30 +175,35 @@
                           hay(g.acc) && motorDesde ? 'desde hace ' + motorDesde : '') +
                     // El reparto por tanques solo si HAY auxiliar, y cada tanque con su propio
                     // dato: los dos vienen sueltos de GPS51 y uno puede faltar. Poniendo 0 donde
-                    // no hay medida se leería como un tanque vacío.
+                    // no hay medida se leería como un tanque vacío. Con el nombre entero del
+                    // tanque: "P 603 · A 205" no se entendía (pedido del cliente, 01-10-2026).
                     celda('Combustible', hay(comb.total) ? num(comb.total) + ' L' : '—',
                           hay(comb.auxiliar)
-                              ? 'P ' + (hay(comb.principal) ? num(comb.principal) : '—') + ' · A ' + num(comb.auxiliar)
+                              ? 'Principal ' + (hay(comb.principal) ? num(comb.principal) + ' L' : '—') +
+                                '\nAuxiliar ' + num(comb.auxiliar) + ' L'   // un tanque por renglón (ver .mapa-eq-cel small)
                               : '') +
                     celda('Voltaje', hay(g.voltaje) ? num(g.voltaje, 1) + ' V' : '—') +
                     celda('Kilometraje', num(g.km_total) + ' km') +
                     celda('Última señal', window.tiempoHace(g.ultima_senal), window.fechaHoraLocal(g.ultima_senal)) +
                 '</div>' +
-                // Dónde está: la dirección corta (dos renglones como mucho) y, debajo, la coordenada.
+                // Dónde está: la dirección corta y, en el MISMO renglón justo detrás, la coordenada
+                // (pedido del cliente, 01-10-2026; antes iba debajo). Son dos trozos aparte porque
+                // ponerDireccion reescribe solo el de la dirección cuando llega.
                 '<div class="mapa-eq-ubic"><i class="material-icons">place</i><div>' +
                     (op.sinDireccion ? '' :
-                        '<div class="mapa-eq-dir"' + (op.dirAttr ? ' data-eqdir="' + esc(op.dirAttr) + '"' : '') +
+                        '<span class="mapa-eq-dir"' + (op.dirAttr ? ' data-eqdir="' + esc(op.dirAttr) + '"' : '') +
                         (op.direccion ? ' title="' + esc(op.direccion) + '"' : '') + '>' +
-                        esc(op.direccion ? direccionCorta(op.direccion) : 'Buscando dirección…') + '</div>') +
-                    '<div class="mapa-eq-coord">' + g.lat.toFixed(6) + ', ' + g.lng.toFixed(6) + '</div>' +
+                        esc(op.direccion ? direccionCorta(op.direccion) : 'Buscando dirección…') + '</span> ') +
+                    '<span class="mapa-eq-coord">' + (op.sinDireccion ? '' : '·\u00a0') +   // espacio duro: el "·" no se queda colgando al final del renglón
+                        g.lat.toFixed(6) + ', ' + g.lng.toFixed(6) + '</span>' +
                 '</div></div>' +
             '</div>';
         },
 
         /**
          * Escribe la dirección cuando llega (va aparte porque tarda ~2 s) en el hueco que dejó
-         * html() (data-eqdir), sin repintar la ficha. En pantalla se corta a dos renglones, así
-         * que la entera queda en el title. Lo usan el mapa y el modal.
+         * html() (data-eqdir), sin repintar la ficha. En pantalla va la versión corta
+         * (direccionCorta) y la entera queda en el title. Lo usan el mapa y el modal.
          */
         ponerDireccion: function (nodo, texto) {
             if (!nodo) return;
