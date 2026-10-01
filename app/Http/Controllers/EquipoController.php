@@ -89,15 +89,21 @@ class EquipoController extends Controller
 
     /**
      * True si el request trae un filtro de BÚSQUEDA o de ATRIBUTO concreto
-     * (serial/placa/etiqueta, modelo, marca, año, categoría, estado, ubicación,
-     * GPS o documentación). NO cuenta `id_frente` ni `id_tipo` (son ejes de
-     * navegación). Cuando esto es true, el listado NO oculta los frentes
-     * ESPECIAL: si el usuario busca algo concreto, debe ver todo lo que coincide
-     * (incluida la flota de asignaciones especiales).
+     * (serial/placa/etiqueta, TIPO, modelo, marca, año, categoría, estado, ubicación,
+     * GPS o documentación). NO cuenta `id_frente` (el frente decide aparte). Cuando esto
+     * es true, el listado NO oculta los frentes ESPECIAL: si el usuario pide algo
+     * concreto, debe ver todo lo que coincide (incluida la flota de asignaciones especiales).
+     *
+     * El TIPO cuenta (tipoEquipoPedido): si no, al filtrar por un tipo la tabla y su TOTAL
+     * dejaban fuera los de ASIGNACIONES ESPECIALES mientras la tarjeta "Ubicación por Frente"
+     * sí los contaba, y afinar con una marca traía MÁS equipos que el tipo solo.
      */
     private function tieneFiltroEspecifico(Request $request): bool
     {
         if ($request->filled('search_query')) {
+            return true;
+        }
+        if ($this->tipoEquipoPedido($request) !== null) {
             return true;
         }
         foreach (['modelo', 'marca', 'detalle_ubicacion', 'anio', 'categoria', 'estado', 'color'] as $p) {
@@ -120,8 +126,29 @@ class EquipoController extends Controller
     }
 
     /**
+     * El TIPO de equipo concreto que pide el request (id_tipo=N o 'tipo_eq:N'), o null si no
+     * pide ninguno: vacío, 'all' (TODOS LOS TIPOS) o 'tipo_aux:X' (un tipo de auxiliar, que
+     * no filtra la tabla de equipos). Un valor que no es un número da 0: no coincide con
+     * ningún equipo, como antes. UNA definición: la usan el filtro (applyEquipoFilters),
+     * tieneFiltroEspecifico y el listado de anclados.
+     */
+    private function tipoEquipoPedido(Request $request): ?int
+    {
+        $v = trim((string) $request->input('id_tipo', ''));
+        if ($v === '' || $v === 'all' || str_starts_with($v, 'tipo_aux:')) {
+            return null;
+        }
+        if (str_starts_with($v, 'tipo_eq:')) {
+            $v = substr($v, 8);
+        }
+        return ctype_digit($v) ? (int) $v : 0;
+    }
+
+    /**
      * Aplica al query los filtros activos del request. `$exclude` permite omitir ejes
      * específicos para que los stats de una dimensión no queden limitados por su propio filtro.
+     * 'ocultar_especial' en `$exclude` deja ver los frentes ESPECIAL aunque no haya un filtro
+     * concreto (la tarjeta de tipos: cada fila es lo que trae tocar ese tipo).
      */
     private function applyEquipoFilters($query, Request $request, array $exclude = []): void
     {
@@ -171,26 +198,18 @@ class EquipoController extends Controller
             } elseif ($raw !== '' && $raw !== 'all') {
                 // Frente específico seleccionado: respeta el filtro exacto (aunque sea ESPECIAL).
                 $query->where('ID_FRENTE_ACTUAL', $raw);
-            } elseif (!$this->tieneFiltroEspecifico($request)) {
-                // "TODOS LOS FRENTES" y SIN búsqueda/filtro de atributo: ocultar los frentes
+            } elseif (!in_array('ocultar_especial', $exclude) && !$this->tieneFiltroEspecifico($request)) {
+                // "TODOS LOS FRENTES" y SIN búsqueda ni filtro concreto: ocultar los frentes
                 // ESPECIAL (asignaciones especiales, no flota propia). Si el usuario busca por
-                // serial/placa/etc. o filtra por modelo/marca/año/..., los ESPECIAL SÍ se incluyen.
+                // serial/placa/etc. o filtra por tipo/modelo/marca/año/..., SÍ se incluyen.
                 $query->excludeEspecial();
             }
         }
 
-        if (!in_array('id_tipo', $exclude) && $request->filled('id_tipo') && trim($request->id_tipo) !== '' && $request->id_tipo !== 'all') {
-            $tipoVal = (string) $request->id_tipo;
-            // Dropdown combinado (patron /admin/movilizaciones): el valor puede venir
-            // prefijado. 'tipo_aux:X' es un tipo de AUXILIAR -> NO aplica a la tabla
-            // equipos (esos se listan aparte en index() via buildEmbedPayload), se
-            // ignora aqui. 'tipo_eq:N' y el valor numerico pelado filtran por equipo.
-            if (str_starts_with($tipoVal, 'tipo_aux:')) {
-                // no-op: el filtro de tipo de auxiliar no aplica a equipos
-            } else {
-                $tipoId = str_starts_with($tipoVal, 'tipo_eq:') ? (int) substr($tipoVal, 8) : $tipoVal;
-                $query->where('id_tipo_equipo', $tipoId);
-            }
+        // Dropdown combinado (patron /admin/movilizaciones): 'tipo_eq:N' o N filtran equipos;
+        // 'tipo_aux:X' es de AUXILIAR y no aplica a esta tabla (se listan aparte en index()).
+        if (!in_array('id_tipo', $exclude) && ($tipoId = $this->tipoEquipoPedido($request)) !== null) {
+            $query->where('id_tipo_equipo', $tipoId);
         }
 
         if (!in_array('modelo', $exclude) && $request->filled('modelo') && trim($request->modelo) !== '') {
@@ -667,9 +686,11 @@ class EquipoController extends Controller
         // Decision del cliente: al abrir, la card no muestra nada; aparece al filtrar.
         // Sigue omitiendose en modo aux: alli la Distribucion la aporta el payload auxiliar.
         if ($hasFilter && !$auxMode) {
-            // Tipos Stats — siempre muestra todos los tipos (sin filtro por id_tipo) para no autolimitarse
+            // Tipos Stats — siempre muestra todos los tipos (sin filtro por id_tipo) para no autolimitarse.
+            // Cada fila es lo que trae tocar ese tipo, y un tipo SÍ incluye los frentes ESPECIAL
+            // (tieneFiltroEspecifico): por eso aquí tampoco se ocultan ('ocultar_especial').
             $tiposQuery = Equipo::query()->leftJoin('tipo_equipos', 'equipos.id_tipo_equipo', '=', 'tipo_equipos.id');
-            $this->applyEquipoFilters($tiposQuery, $request, ['id_tipo']);
+            $this->applyEquipoFilters($tiposQuery, $request, ['id_tipo', 'ocultar_especial']);
             $this->applyBusquedaTexto($tiposQuery, $search); // Distribución por tipo refleja la búsqueda
             $tiposStats = $tiposQuery
                 ->select('equipos.id_tipo_equipo', 'tipo_equipos.nombre', DB::raw('COUNT(*) as total'))
@@ -4691,7 +4712,7 @@ class EquipoController extends Controller
     public function getAnchoredEquipos(Request $request)
     {
         $frenteId = $request->input('frente_id');
-        $tipoId   = $request->input('id_tipo');
+        $tipoId   = $this->tipoEquipoPedido($request);
         // Se cargan también las relaciones ANIDADAS de ancladoA (especificaciones,
         // documentacion, tipo) porque el map de abajo las accede; sin esto cada par
         // anclado dispara ~3 queries lazy (N+1). Espeja lo que hace exportAnclajes.
@@ -4702,8 +4723,9 @@ class EquipoController extends Controller
 
         if ($frenteId && $frenteId !== 'all') {
             $query->where('ID_FRENTE_ACTUAL', $frenteId);
-        } else {
-            // Listado global: excluir frentes ESPECIAL (no son flota propia).
+        } elseif ($tipoId === null) {
+            // Listado global: excluir frentes ESPECIAL (no son flota propia). Con un tipo NO,
+            // igual que la tabla de equipos (tieneFiltroEspecifico).
             $query->excludeEspecial();
         }
 
@@ -4711,7 +4733,7 @@ class EquipoController extends Controller
         // pares a aquellos cuyo "remolcador" (eq_a) sea de ese tipo. La pareja
         // mutua se conserva intacta — la deduplicacion por ID minimo se hace
         // mas abajo y respeta el resultado filtrado.
-        if ($tipoId && $tipoId !== 'all') {
+        if ($tipoId !== null) {
             // Columna real en `equipos` es id_tipo_equipo (FK a tipo_equipos.id)
             $query->where('id_tipo_equipo', $tipoId);
         }
@@ -4862,7 +4884,7 @@ class EquipoController extends Controller
         set_time_limit(180);
 
         $frenteId = $request->input('frente_id');
-        $tipoId   = $request->input('id_tipo');
+        $tipoId   = $this->tipoEquipoPedido($request);
 
         // Reutilizar la lógica de getAnchoredEquipos: obtener pares únicos
         $query = Equipo::with(['ancladoA', 'tipo', 'ancladoA.tipo', 'documentacion', 'ancladoA.documentacion', 'frenteActual'])
@@ -4870,13 +4892,13 @@ class EquipoController extends Controller
 
         if ($frenteId && $frenteId !== 'all') {
             $query->where('ID_FRENTE_ACTUAL', $frenteId);
-        } else {
-            $query->excludeEspecial();
+        } elseif ($tipoId === null) {
+            $query->excludeEspecial();   // con un tipo no, como getAnchoredEquipos
         }
 
         // Filtro por tipo: hereda el filtro del listado principal cuando esta
         // activo. Mismo comportamiento que getAnchoredEquipos.
-        if ($tipoId && $tipoId !== 'all') {
+        if ($tipoId !== null) {
             // Columna real en `equipos` es id_tipo_equipo (FK a tipo_equipos.id)
             $query->where('id_tipo_equipo', $tipoId);
         }

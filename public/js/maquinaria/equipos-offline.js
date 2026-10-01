@@ -104,9 +104,11 @@
                   f.categoria || f.estado || f.gps || f.color || f.confirmado || f.docs.length);
     }
 
-    // Réplica de tieneFiltroEspecifico(): decide si los frentes ESPECIAL se ocultan.
+    // Réplica de tieneFiltroEspecifico(): decide si los frentes ESPECIAL se ocultan. Un TIPO
+    // concreto cuenta (no 'all' ni uno de auxiliar), como en el servidor.
     function filtroEspecifico(f) {
         if (f.q || f.modelo || f.marca || f.ubicacion || f.anio || f.categoria || f.estado || f.color) return true;
+        if (f.tipo && f.tipo !== 'all' && f.tipo.indexOf('tipo_aux:') !== 0) return true;
         if (['SI', 'NO'].indexOf(up(f.gps)) >= 0) return true;
         if (['SI', 'NO'].indexOf(up(f.confirmado)) >= 0) return true;
         return f.docs.length > 0;
@@ -284,7 +286,9 @@
             barra = 'linear-gradient(90deg, #10b981 0%, #059669 100%)';
             alTocar = function (g) { return "selectOption('frenteFilterSelect', '" + g.id + "', '" + escAttr(g.nombre) + "'); loadEquipos();"; };
         } else {
-            filas = agrupar(datos.filter(function (e) { return coincide(e, f, especifico, 'tipo'); }),
+            // Cada fila es lo que trae tocar ese tipo, y un tipo incluye los frentes ESPECIAL
+            // (filtroEspecifico): aquí tampoco se ocultan, como 'ocultar_especial' en el servidor.
+            filas = agrupar(datos.filter(function (e) { return coincide(e, f, true, 'tipo'); }),
                 function (e) { return e.id_tipo; }, function (e) { return e.tipo; });
             titulo = 'Equipos y Maquinaria'; icono = 'autorenew'; colorIcono = '#3b82f6';
             barra = 'linear-gradient(90deg, #3b82f6 0%, #2563eb 100%)';
