@@ -130,9 +130,11 @@ class CompresionPdfTest extends MySqlTestCase
     public function test_la_pantalla_del_registro_es_solo_para_super_admin(): void
     {
         $admin = Usuario::all()->first(fn ($u) => $u->can('super.admin'));
-        $otro  = Usuario::all()->first(fn ($u) => !$u->can('super.admin'));
+        // Sin super.admin NI la carga masiva: con esa clave sí se entra, pero solo a la revisión de lo
+        // que se carga (ver AuditoriaDocumentosPermisosTest).
+        $otro  = Usuario::all()->first(fn ($u) => !$u->veAuditoriaDocumentos());
         $this->assertNotNull($admin, 'No hay ningun super.admin para probar.');
-        $this->assertNotNull($otro, 'No hay ningun usuario sin super.admin para probar.');
+        $this->assertNotNull($otro, 'No hay ningun usuario sin super.admin ni carga masiva para probar.');
 
         // El registro vive en una pestaña de Control de Auditoría; la direccion vieja lleva alli.
         $this->actingAs($otro)->get(route('historial-documentos.index', ['pestana' => 'compresion']))->assertForbidden();

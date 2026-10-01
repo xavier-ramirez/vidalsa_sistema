@@ -530,10 +530,30 @@ Route::middleware(['auth'])->group(function () {
             Route::post  ('almacen/recepcion/{id}/cancelar',         [App\Http\Controllers\TraspasoController::class, 'cancelar'])->whereNumber('id')->name('almacen.recepcion.cancelar');
 
             // ── Auditoría Documental ─────────────────────────────────────────
+            // Control de Auditoría: historial + las dos pestañas de documentos
+            // (?pestana=compresion|documentos, ver App\Support\PanelDocumentos). Fuera del grupo
+            // super.admin: entra también quien solo tiene la carga masiva, y entonces ve SOLO la
+            // revisión de lo que carga. Quién entra y qué ve lo decide el controlador
+            // (Usuario::veAuditoriaDocumentos).
+            Route::get('historial-documentos', [App\Http\Controllers\HistorialDocumentosController::class, 'index'])->name('historial-documentos.index');
+
+            // Carga masiva de documentos (menu Acciones). Tres pasos, tres rutas: se
+            // analiza UN PDF por peticion (el OCR de Drive tarda ~8 s y treinta juntos
+            // se caerian por timeout), se aplica fila a fila y lo descartado sale de Drive.
+            // Permiso PROPIO y exclusivo ('docs.carga.masiva'), y SOLO ese (pedido del cliente,
+            // 01-10-2026): ni super.admin lo hereda (ver PERMISOS_EXPLICITOS) ni hace falta tenerlo.
+            Route::middleware('can:docs.carga.masiva')->group(function () {
+                Route::post('historial-documentos/carga-masiva/analizar', [App\Http\Controllers\CargaMasivaDocumentosController::class, 'analizar'])
+                    ->name('historial-documentos.carga-masiva.analizar');
+                Route::post('historial-documentos/carga-masiva/aplicar', [App\Http\Controllers\CargaMasivaDocumentosController::class, 'aplicar'])
+                    ->name('historial-documentos.carga-masiva.aplicar');
+                Route::post('historial-documentos/carga-masiva/descartar', [App\Http\Controllers\CargaMasivaDocumentosController::class, 'descartar'])
+                    ->name('historial-documentos.carga-masiva.descartar');
+            });
+
+            // Lo demás de Auditoría, incluida la lectura automática ("Revisar ahora" y el
+            // "Revisado"): solo super.admin.
             Route::middleware('can:super.admin')->group(function () {
-                // Control de Auditoría: historial + las dos pestañas de documentos
-                // (?pestana=compresion|documentos, ver App\Support\PanelDocumentos).
-                Route::get('historial-documentos', [App\Http\Controllers\HistorialDocumentosController::class, 'index'])->name('historial-documentos.index');
                 // Desbloquear IP: la tarjeta que la usa esta en /admin/usuarios (ver unlockIp).
                 Route::delete('historial-documentos/unlock-ip/{id}', [App\Http\Controllers\HistorialDocumentosController::class, 'unlockIp'])->name('historial-documentos.unlock-ip');
                 Route::delete('historial-documentos/registro', [App\Http\Controllers\HistorialDocumentosController::class, 'deleteRegistro'])->name('historial-documentos.deleteRegistro');
@@ -550,20 +570,6 @@ Route::middleware(['auth'])->group(function () {
                 // "Revisar ahora": la lectura de documentos arranca ya, a cualquier hora.
                 Route::post('compresion-pdf/documentos/leer-ahora', [App\Http\Controllers\CompresionPdfController::class, 'leerAhora'])
                     ->name('compresion-pdf.documentos.leer-ahora');
-
-                // Carga masiva de documentos (menu Acciones). Tres pasos, tres rutas: se
-                // analiza UN PDF por peticion (el OCR de Drive tarda ~8 s y treinta juntos
-                // se caerian por timeout), se aplica fila a fila y lo descartado sale de Drive.
-                // Permiso PROPIO y exclusivo ('docs.carga.masiva'): el grupo de arriba ya pide
-                // super.admin, pero esta clave no la hereda ni el (ver PERMISOS_EXPLICITOS).
-                Route::middleware('can:docs.carga.masiva')->group(function () {
-                    Route::post('historial-documentos/carga-masiva/analizar', [App\Http\Controllers\CargaMasivaDocumentosController::class, 'analizar'])
-                        ->name('historial-documentos.carga-masiva.analizar');
-                    Route::post('historial-documentos/carga-masiva/aplicar', [App\Http\Controllers\CargaMasivaDocumentosController::class, 'aplicar'])
-                        ->name('historial-documentos.carga-masiva.aplicar');
-                    Route::post('historial-documentos/carga-masiva/descartar', [App\Http\Controllers\CargaMasivaDocumentosController::class, 'descartar'])
-                        ->name('historial-documentos.carga-masiva.descartar');
-                });
             });
 
             // Ruta de emergencia `force-fix-db` removida: los ajustes de schema ahora

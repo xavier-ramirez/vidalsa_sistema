@@ -556,13 +556,14 @@
                     </a>
                     @endcan
                     {{-- Compresión de PDF ya no va aquí: se abre desde Control de Auditoría →
-                         Acciones, por eso este link queda activo también en esa pantalla. --}}
-                    @can('super.admin')
+                         Acciones, por eso este link queda activo también en esa pantalla.
+                         Lo ve también quien solo tiene la carga masiva (Usuario::veAuditoriaDocumentos). --}}
+                    @if (auth()->user()?->veAuditoriaDocumentos())
                     <a href="{{ route('historial-documentos.index') }}"
                         class="nav-dropdown-link {{ request()->routeIs('historial-documentos.*', 'compresion-pdf.*') ? 'active' : '' }}">
                         <i class="material-icons">fact_check</i> Control de Auditoría
                     </a>
-                    @endcan
+                    @endif
                 </div>
             </div>
         </nav>
@@ -716,12 +717,12 @@
                      sigue llegando desde la tarjeta del menú principal (/menu), desde el
                      desplegable de Equipos y desde el de Auxiliares. Este menú lateral de
                      escritorio nunca la tuvo. --}}
-                @can('super.admin')
+                @if (auth()->user()?->veAuditoriaDocumentos())
                 <a href="{{ route('historial-documentos.index') }}"
                     class="mobile-nav-link {{ request()->routeIs('historial-documentos.*', 'compresion-pdf.*') ? 'active' : '' }}">
                     <i class="material-icons">fact_check</i> Control de Auditoría
                 </a>
-                @endcan
+                @endif
             </div>
         </div>
 

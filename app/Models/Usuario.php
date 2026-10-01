@@ -427,6 +427,17 @@ class Usuario extends Authenticatable
         return $this->nivelTexto($this->NIVEL_ACCESO_ALMACEN);
     }
     /**
+     * Quién entra a Auditoría de Documentos (/admin/historial-documentos). Con 'super.admin',
+     * a todo; con 'docs.carga.masiva' (sin super.admin), SOLO a la revisión de lo que se carga
+     * en lote: aplicar, descartar y ver esos PDF (pedido del cliente, 01-10-2026). Punto único
+     * para la ruta, el menú y la pantalla. No es una clave de permisos: se deriva de las dos.
+     */
+    public function veAuditoriaDocumentos(): bool
+    {
+        return $this->can('super.admin') || $this->can('docs.carga.masiva');
+    }
+
+    /**
      * Determine if the entity has the given abilities.
      *
      * @param  iterable|string  $abilities

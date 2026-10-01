@@ -234,16 +234,21 @@ class HistorialDocumentosController extends Controller
         // documentos, que pinta admin/compresion_pdf/panel.blade.php con los datos de
         // App\Support\PanelDocumentos. Cuando el usuario esta en una de esas, NO se arma la
         // lista de eventos: es el trabajo caro de esta pantalla y no se ve.
-        $pestana = $request->input('pestana');
+        // Entra super.admin (todo) o quien tiene la carga masiva: este, a la revisión de
+        // documentos y solo con lo que se carga en lote (ver Usuario::veAuditoriaDocumentos).
+        $user = auth()->user();
+        abort_unless($user && $user->veAuditoriaDocumentos(), 403);
+        $soloCarga = !$user->can('super.admin');
+
+        $pestana = $soloCarga ? PanelDocumentos::DOCUMENTOS : $request->input('pestana');
         if (PanelDocumentos::esPestana($pestana)) {
-            return view('admin.historial_documentos.index', PanelDocumentos::datos($request, $pestana));
+            return view('admin.historial_documentos.index', PanelDocumentos::datos($request, $pestana, $soloCarga));
         }
 
         // ── Scope LOCAL ─────────────────────────────────────────────────────
         // Usuarios NIVEL_ACCESO_EQUIPOS=2 (local) solo ven el historial de equipos en
         // los frentes que tienen asignados. Sin frentes => ven nada.
         // Los super.admin / global ven todo el historial.
-        $user            = auth()->user();
         // null = ve todo (global) | [] = local sin frentes | [ids] (Usuario::frentesVisiblesEquiposIds).
         $frentesVisibles = $user ? $user->frentesVisiblesEquiposIds() : [];
         // Lista negra: frentes a OCULTAR siempre (también a GLOBAL).

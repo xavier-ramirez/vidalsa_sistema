@@ -31,8 +31,12 @@ class PanelDocumentos
         return in_array($v, [self::COMPRESION, self::DOCUMENTOS], true);
     }
 
-    /** Todo lo que necesita panel.blade.php para la pestaña pedida. */
-    public static function datos(Request $request, string $pestana): array
+    /**
+     * Todo lo que necesita panel.blade.php para la pestaña pedida. $soloCarga: quien entra
+     * sin super.admin, solo por la carga masiva — ve únicamente esas filas y nada de la lectura
+     * automática (ver Usuario::veAuditoriaDocumentos).
+     */
+    public static function datos(Request $request, string $pestana, bool $soloCarga = false): array
     {
         $buscar = trim((string) $request->input('buscar', ''));
 
@@ -43,11 +47,12 @@ class PanelDocumentos
         $zona = config('app.schedule_timezone', config('app.timezone'));
 
         $propias = $pestana === self::DOCUMENTOS
-            ? self::datosDocumentos($request, $buscar)
+            ? self::datosDocumentos($request, $buscar, $soloCarga)
             : self::datosCompresion($request, $buscar);
 
         return $propias + [
             'pestana'      => $pestana,
+            'soloCarga'    => $soloCarga,
             'buscar'       => $buscar,
             'activa'       => $activa,
             'motivoActiva' => $motivoActiva,
@@ -111,9 +116,11 @@ class PanelDocumentos
      * Pestaña "Documentos" (titulos, polizas, ROTC y RACDA): filas paginadas, cuantas hay de cada estado, cuando fue la
      * ultima lectura y cuantos documentos faltan por leer.
      */
-    private static function datosDocumentos(Request $request, string $buscar): array
+    private static function datosDocumentos(Request $request, string $buscar, bool $soloCarga): array
     {
-        $avance = self::avance();
+        // Lo de la revisión nocturna (el avance y sus cuentas) solo lo ve super.admin.
+        $avance = $soloCarga ? [] : self::avance();
+        $deLaCarga = fn ($q) => $q->where('ORIGEN', VerificacionDocumento::DE_CARGA_MASIVA);
         // Los cinco de la revision nocturna mas los de la carga masiva (DE_LA_CARGA_TODOS): las
         // dos procedencias comparten esta tabla, que es la unica del modulo donde se ve el
         // estado de un documento.
@@ -134,6 +141,7 @@ class PanelDocumentos
             ? $request->input('tipo_doc') : null;
 
         $filas = VerificacionDocumento::query()
+            ->when($soloCarga, $deLaCarga)
             ->when($estadoDoc === 'revisar', fn ($q) => $q->paraRevisar())
             ->when($estadoDoc === 'corregibles', fn ($q) => $q->corregibles())
             ->when($estadoDoc && !in_array($estadoDoc, ['revisar', 'corregibles'], true),
@@ -168,11 +176,11 @@ class PanelDocumentos
 
         return [
             'docs'           => $filas,
-            'resumenDocs'    => VerificacionDocumento::select('ESTADO', DB::raw('COUNT(*) as n'))->groupBy('ESTADO')->pluck('n', 'ESTADO'),
+            'resumenDocs'    => VerificacionDocumento::select('ESTADO', DB::raw('COUNT(*) as n'))->when($soloCarga, $deLaCarga)->groupBy('ESTADO')->pluck('n', 'ESTADO'),
             // Los dos montones que se miran distinto: lo que la tarea todavia pone sola y lo
             // que pide una persona (ilegible, sin archivo, de otro vehiculo o leido a medias).
-            'docsParaRevisar' => VerificacionDocumento::paraRevisar()->count(),
-            'docsCorregibles' => VerificacionDocumento::corregibles()->count(),
+            'docsParaRevisar' => VerificacionDocumento::paraRevisar()->when($soloCarga, $deLaCarga)->count(),
+            'docsCorregibles' => $soloCarga ? 0 : VerificacionDocumento::corregibles()->count(),
             'estadoDoc'      => $estadoDoc,
             'tipoDoc'        => $tipoDoc,
             'ultimaLectura'  => VerificacionDocumento::max('updated_at'),

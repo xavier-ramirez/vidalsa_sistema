@@ -17,12 +17,18 @@
 
 <div class="hd-pest-fila">
     <div class="hd-pest">
+    {{-- Quien entra solo por la carga masiva ve solo "Revisión de documentos" (ver
+         Usuario::veAuditoriaDocumentos): el historial y la compresión son de super.admin. --}}
+    @can('super.admin')
     <button type="button" class="{{ $pestana === 'historial' ? 'on' : '' }}" onclick="window.hdPestana('historial')">Historial de cambios</button>
+    @endcan
     <button type="button" class="{{ $pestana === 'documentos' ? 'on' : '' }}" onclick="window.hdPestana('documentos')">
         Revisión de documentos
         @if ($docsParaRevisar) <span class="hd-pend" title="Documentos que hay que revisar a mano">{{ $docsParaRevisar }}</span> @endif
     </button>
+    @can('super.admin')
     <button type="button" class="{{ $pestana === 'compresion' ? 'on' : '' }}" onclick="window.hdPestana('compresion')">Compresión de PDF</button>
+    @endcan
     </div>
 </div>
 <script>

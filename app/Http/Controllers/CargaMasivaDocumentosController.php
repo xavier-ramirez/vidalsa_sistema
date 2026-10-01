@@ -18,9 +18,10 @@ use Illuminate\Validation\Rule;
  *   aplicar()   Escribe en la ficha lo que el usuario aprobo, de una fila.
  *   descartar() Borra de Drive el PDF de una propuesta que el usuario no quiso.
  *
- * Permiso: la pantalla es de super.admin (igual que el menu Acciones donde vive el boton) y
- * ademas hace falta 'docs.carga.masiva', que es EXCLUSIVO y ni super.admin hereda (ver
- * autorizar(), abajo). Los tres pasos piden lo mismo.
+ * Permiso: SOLO 'docs.carga.masiva', que es EXCLUSIVO y ni super.admin hereda (ver
+ * autorizar(), abajo). Con esa clave basta, sin super.admin: se entra a Auditoría de
+ * Documentos solo a la revisión de lo cargado (ver Usuario::veAuditoriaDocumentos).
+ * Los tres pasos piden lo mismo.
  */
 class CargaMasivaDocumentosController extends Controller
 {

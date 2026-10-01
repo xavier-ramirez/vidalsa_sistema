@@ -231,13 +231,15 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="6" class="cpdf-vacio">{{ $estadoDoc || $tipoDoc || $buscar !== '' ? 'Nada coincide con los filtros.' : 'Todavía no se ha revisado ningún documento.' }}</td></tr>
+                        <tr><td colspan="6" class="cpdf-vacio">{{ $estadoDoc || $tipoDoc || $buscar !== '' ? 'Nada coincide con los filtros.' : ($soloCarga ? 'Todavía no hay documentos cargados.' : 'Todavía no se ha revisado ningún documento.') }}</td></tr>
                     @endforelse
                 </tbody>
             </table>
         </div>
         <div style="margin-top:12px;">{{ $docs->links('vendor.pagination.custom-sliding') }}</div>
-        {{-- Dar por revisadas las filas elegidas con un clic, sin abrir el visor (ver cpdfMarcarRevisadas). --}}
+        {{-- Dar por revisadas las filas elegidas con un clic, sin abrir el visor (ver cpdfMarcarRevisadas).
+             Es de la lectura automática: solo super.admin. --}}
+        @can('super.admin')
         <div id="cpdfSelBarra" class="selection-floating-bar">
             <div class="selection-counter">
                 <i class="material-icons" style="font-size:18px;">fact_check</i>
@@ -249,6 +251,7 @@
                 <i class="material-icons">done_all</i> Revisado
             </button>
         </div>
+        @endcan
         @else
         <div class="cpdf-tabla-caja cpdf-comp">
             <table class="admin-table">
@@ -301,7 +304,22 @@
     </div>
 
     <aside class="cpdf-side">
-        @if ($pestana === 'documentos')
+        @if ($pestana === 'documentos' && $soloCarga)
+            {{-- Quien entra solo por la carga masiva (ver Usuario::veAuditoriaDocumentos): lo
+                 suyo, sin nada de la lectura automática, que es de super.admin. --}}
+            <div class="cpdf-hero">
+                <i class="material-icons">cloud_upload</i>
+                <div>
+                    <small>Documentos cargados</small>
+                    <strong>{{ $resumenDocs->sum() }}</strong>
+                </div>
+            </div>
+            <a class="cpdf-caja cpdf-filtra" href="{{ request()->fullUrlWithQuery(['estado_doc' => \App\Models\VerificacionDocumento::POR_ENGANCHAR, 'page' => null]) }}">
+                <small>Por aplicar</small>
+                <strong>{{ $resumenDocs[\App\Models\VerificacionDocumento::POR_ENGANCHAR] ?? 0 }}</strong>
+                <span>reconocidos, esperando su "Aplicar"</span>
+            </a>
+        @elseif ($pestana === 'documentos')
             <div class="cpdf-hero">
                 <i class="material-icons">fact_check</i>
                 <div>
@@ -427,6 +445,9 @@
         else window.location.href = url;
     };
 
+    {{-- Lo de la lectura automática (elegir filas, "Revisado" y "Revisar ahora"): solo
+         super.admin, igual que sus rutas. A quien entra por la carga masiva ni le llega. --}}
+    @can('super.admin')
     // ── Dar por revisadas varias filas sin abrir el visor ──────────────────────────────
     // De la ficha solo se llenan las fechas que tiene VACIAS y el documento trae
     // (CorrectorFichaDocumento::fechasVacias); lo demas no cambia. Cada fila queda como
@@ -502,6 +523,7 @@
                 window.toast('No se pudo pedir la revisión', 'error');
             });
     };
+    @endcan
 
     // ── Aplicar un PDF de la carga masiva ─────────────────────────────────────────────
     // El modal de carga masiva solo sirve para SOLTAR archivos; lo que se subió se ve y se

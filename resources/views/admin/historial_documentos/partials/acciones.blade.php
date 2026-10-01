@@ -1,8 +1,9 @@
 {{-- Botón "Acciones" de Control de Auditoría. Va al final de la fila de filtros de cada
-     pestaña (junto a Filtros Avanzados en el Historial), así sale en las TRES. Solo
-     super.admin, igual que sus entradas; la Papelera exige además user.delete (sin él
-     avisa y no abre, ver abrirPapelera en partials/papelera.blade.php). --}}
-@can('super.admin')
+     pestaña (junto a Filtros Avanzados en el Historial), así sale en las TRES. Lo ve
+     quien entra a la pantalla (Usuario::veAuditoriaDocumentos); cada entrada pide su
+     permiso: la carga masiva el suyo, la Papelera super.admin y además user.delete (sin
+     él avisa y no abre, ver abrirPapelera en partials/papelera.blade.php). --}}
+@if (auth()->user()->veAuditoriaDocumentos())
 <div class="hd-acciones-wrap">
     <button type="button" id="hdBtnAcciones" class="btn-primary-maquinaria"
         onclick="window.hdToggleAcciones()"
@@ -27,6 +28,7 @@
             <span style="font-size: 14px; font-weight: 500;">Carga masiva</span>
         </button>
         @endcan
+        @can('super.admin')
         <button type="button" class="dropdown-item-custom"
             onclick="window.hdCerrarAcciones(); window.abrirPapelera && window.abrirPapelera();"
             style="display: flex; align-items: center; gap: 10px; padding: 12px 15px; color: #475569; background: transparent; border: none; border-bottom: 1px solid #f1f5f9; width: 100%; text-align: left; cursor: pointer;">
@@ -35,6 +37,7 @@
             </div>
             <span style="font-size: 14px; font-weight: 500;">Papelera</span>
         </button>
+        @endcan
     </div>
 </div>
-@endcan
+@endif
