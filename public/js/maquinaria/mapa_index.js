@@ -89,7 +89,7 @@
         // Etiquetas de Google (lyrs=h): nombres de ciudades, calles y carreteras,
         // transparentes — pane labelsPane (ENCIMA del satélite). Los mismos de Google Maps.
         var etiquetas = L.tileLayer(window.GpsFicha.ETIQUETAS, {
-            subdomains: window.GpsFicha.ETIQUETAS_SUBDOMINIOS,
+            subdomains: window.GpsFicha.SUBDOMINIOS_GOOGLE,
             maxZoom: 21,
             maxNativeZoom: 20,
             pane: 'labelsPane',
@@ -3404,10 +3404,6 @@
             grupo: L.markerClusterGroup ? L.markerClusterGroup({
                 maxClusterRadius: EQ_GRUPO_RADIO_PX,
                 disableClusteringAtZoom: EQ_GRUPO_HASTA_ZOOM,
-                // Abre en abanico los que compartan el mismo punto. Por clic apenas se llega a ver
-                // —desde EQ_GRUPO_HASTA_ZOOM ya no hay grupos que tocar—, pero es lo que usa
-                // zoomToShowLayer para llegar a un equipo desde la lista del panel.
-                spiderfyOnMaxZoom: true,
                 showCoverageOnHover: false,  // sin el polígono que se dibuja al pasar el ratón
                 zoomToBoundsOnClick: true,   // tocar el grupo acerca a lo que contiene
                 iconCreateFunction: eqIconoGrupo
@@ -3543,9 +3539,11 @@
                         var q = capa.eq;
                         return '<b>' + esc(eqIdent(q)) + '</b>' + (q.frente ? '<br><span style="opacity:.85;">' + esc(q.frente.nombre) + '</span>' : '');
                     }, { direction: 'top', offset: [0, -8], className: 'estado-tooltip' });
-                    // autoPanPaddingTopLeft: el menú de la app flota encima del mapa; sin este margen la
-                    // ficha de un punto cercano al borde de arriba quedaba tapada por él.
-                    m.bindPopup(function (capa) { return eqFicha(capa.eq); }, { className: 'mapa-eq-pop', maxWidth: 300, minWidth: 272, autoPanPaddingTopLeft: [20, 140] });
+                    // autoPanPaddingTopLeft: el menú de la app flota encima del mapa, y debajo van el
+                    // buscador y el botón "Capas" (hasta ~152 px en el teléfono); sin este margen la
+                    // ficha de un punto cercano al borde de arriba quedaba tapada por ellos. Si se
+                    // cambia, ajustar el alto máximo de la ficha con poco alto (.mapa-eq-pop, CSS).
+                    m.bindPopup(function (capa) { return eqFicha(capa.eq); }, { className: 'mapa-eq-pop', maxWidth: 300, minWidth: 272, autoPanPaddingTopLeft: [20, 160] });
                     m.on('popupopen', function (ev) { eqCargarDireccion(ev.target); });
                     capaEquipos.marcas[e.id] = m;
                 }
@@ -3863,13 +3861,16 @@
         // instante, y otra al acabar la animación de la columna (0.18 s), que es cuando el ancho
         // ya es el definitivo.
         var _tLayout = null;
+        // La segunda medida de eqAvisarTamano: lo que tarda el diseño en asentarse. eqIrA espera
+        // a que pase antes de abrir una ficha (ver allí).
+        var EQ_REMEDIR_MS = 220;
         function eqAvisarTamano() {
             map.invalidateSize({ animate: false });
             clearTimeout(_tLayout);
             _tLayout = setTimeout(function () {
                 if (desmontado) return;
                 map.invalidateSize({ animate: false });
-            }, 220);
+            }, EQ_REMEDIR_MS);
         }
         function eqAjustarLayout(abierto) {
             if (!_mapaLayout) return;
@@ -4036,8 +4037,9 @@
         // Teléfono = el diseño en el que el panel va DEBAJO del mapa (el mismo corte de 900 px que
         // estilos_globales.css). Solo ahí el panel se pliega.
         function eqEsTelefono() { return window.matchMedia('(max-width: 900px)').matches; }
+        // Devuelve true si cambió algo (el mapa cambió de alto), false si ya estaba así.
         function eqPlegarPanel(recoger) {
-            if (!_mapaLayout || _mapaLayout.classList.contains('panel-recogido') === recoger) return;
+            if (!_mapaLayout || _mapaLayout.classList.contains('panel-recogido') === recoger) return false;
             // Recogido, el cuerpo queda oculto y el navegador olvida hasta dónde se había bajado:
             // se apunta para devolver la lista a ese punto al desplegarla.
             if (recoger && _panEq) _panEq._scroll = _panEq.body.scrollTop;
@@ -4053,6 +4055,7 @@
                 eqActualizarPanel();
                 _panEq.body.scrollTop = _panEq._scroll || 0;
             }
+            return true;
         }
         function eqIrA(e) {
             if (!e) return;
@@ -4064,25 +4067,33 @@
             if (!m) return;
             // En el teléfono, con el equipo YA en el mapa, se recoge la lista para que se vea. Solo
             // aquí: si no tiene posición o el mapa se está montando, la lista se queda abierta con
-            // su aviso. Antes de moverse: así Leaflet ya mide el mapa con su alto nuevo al centrarlo.
-            if (eqEsTelefono()) eqPlegarPanel(true);
-            var ll = m.getLatLng();
-            // Dentro de un grupo el equipo no está pintado por su cuenta, así que abrirle la ficha
-            // no enseñaría nada: el agrupador acerca primero hasta separarlo (o lo abre en abanico
-            // si comparten el mismo punto) y luego se abre la ficha.
-            // Se exige __parent: la librería lo lee sin comprobarlo y reventaría con un equipo que
-            // no esté en el grupo (filtrado fuera). Hoy no puede pasar —quien llama saca el equipo
-            // de la lista, que es lo filtrado—, pero el invariante no estaba escrito en ningún lado.
-            if (capaEquipos.grupo.zoomToShowLayer && m.__parent) {
-                capaEquipos.grupo.zoomToShowLayer(m, function () { m.openPopup(); });
+            // su aviso. Al recogerla el mapa crece y Leaflet lo vuelve a medir dos veces (la segunda
+            // a los EQ_REMEDIR_MS): la ficha se abre DESPUÉS. Abierta antes, ese reajuste la corría
+            // (quedaba bajo el botón "Capas") o, con el teléfono acostado, la cerraba.
+            if (eqEsTelefono() && eqPlegarPanel(true)) {
+                setTimeout(function () {
+                    if (!desmontado && capaEquipos.marcas[e.id] === m) eqMostrarEnMapa(m);
+                }, EQ_REMEDIR_MS + 40);
                 return;
             }
-            // Ya a la vista y de cerca: sin movimiento no hay moveend, así que la ficha se abre directo.
-            if (map.getZoom() >= 15 && map.getBounds().pad(-0.2).contains(ll)) { m.openPopup(); return; }
+            eqMostrarEnMapa(m);
+        }
+        // Lleva el mapa hasta el marcador y le abre la ficha.
+        function eqMostrarEnMapa(m) {
+            var ll = m.getLatLng();
+            // Se centra en el equipo a EQ_GRUPO_HASTA_ZOOM o más, donde ya no se agrupa: ahí está
+            // suelto, pintado y a la vista, y su ficha se puede abrir. Antes, dentro de un grupo,
+            // lo separaba zoomToShowLayer del agrupador, que con el mapa bajo (teléfono acostado,
+            // ~330 px de alto) lo dejaba FUERA de la vista: no se pintaba y la ficha no se abría
+            // nunca. Así vale igual con el agrupador o sin él (si no llegó a cargar).
+            var zoom = Math.max(map.getZoom(), EQ_GRUPO_HASTA_ZOOM);
+            // Ya suelto y a la vista a ese zoom: sin movimiento no hay moveend, así que se abre directo.
+            if (m._map && map.getZoom() >= zoom && map.getBounds().pad(-0.2).contains(ll)) { m.openPopup(); return; }
             // El once() va ANTES del setView por lo mismo que en irABloque: sin animación, moveend
-            // se dispara en el acto.
-            map.once('moveend', function () { if (capaEquipos.grupo.hasLayer(m)) m.openPopup(); });
-            map.setView(ll, Math.max(map.getZoom(), 15));
+            // se dispara en el acto. El agrupador pinta los marcadores sueltos en su propio moveend,
+            // que se registró antes que este: aquí el equipo ya está en el mapa.
+            map.once('moveend', function () { if (m._map) m.openPopup(); });
+            map.setView(ll, zoom);
         }
 
         // Excel de lo que está filtrado en el panel (MapaController::exportarEquiposGps). Se mandan

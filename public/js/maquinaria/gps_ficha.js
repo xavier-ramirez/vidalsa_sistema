@@ -71,12 +71,17 @@
     function enMarcha(g) { return !g.vieja && g.velocidad > 3; }
 
     window.GpsFicha = {
-        /** Teselas del satélite de Esri: el mapa base de /mapa y del modal de GPS de Equipos. */
+        /** Teselas del satélite de Esri: el mapa base de /mapa. */
         SATELITE: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
         /** Nombres de calles, carreteras y ciudades de Google (lyrs=h, fondo transparente), encima
-            del satélite: los mismos de Google Maps. Con subdominios mt0…mt3. /mapa y el modal. */
+            del satélite de /mapa: los mismos de Google Maps. */
         ETIQUETAS: 'https://{s}.google.com/vt/lyrs=h&x={x}&y={y}&z={z}',
-        ETIQUETAS_SUBDOMINIOS: ['mt0', 'mt1', 'mt2', 'mt3'],
+        /** Satélite de Google CON los nombres ya puestos (lyrs=y): el mapa del modal de GPS de
+            Equipos. En vez del de Esri porque el de Esri trae nubes en zonas de trabajo (p. ej.
+            vía a Rincón de Monagas, Maturín; pedido del cliente, 01-10-2026). */
+        HIBRIDO: 'https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
+        /** Subdominios de las teselas de Google ({s} de ETIQUETAS e HIBRIDO). */
+        SUBDOMINIOS_GOOGLE: ['mt0', 'mt1', 'mt2', 'mt3'],
 
         /**
          * El icono del equipo en el mapa (Leaflet divIcon): el de "agriculture" del módulo
@@ -109,9 +114,6 @@
          * @param {object} op  Opcional:
          *                     · dudosa   true si el GPS la reporta fuera del país: pinta el
          *                                aviso de que ese punto no es donde está el equipo.
-         *                     · sinEstado  true para no poner el "En línea / Sin conexión" del
-         *                                encabezado. Lo usa el modal (pedido del cliente,
-         *                                01-10-2026): ahí ya lo dice "Última señal".
          *                     · sinRespuesta  true si GPS51 no contestó al refrescar una posición
          *                                `vieja`: el aviso lo dice en vez de "actualizando…".
          *                     · direccion  la dirección escrita, o null mientras se busca.
@@ -134,27 +136,30 @@
             // si es un color de los que arma el sistema (#rgb / #rrggbb). Cualquier otra cosa, al gris.
             var color = /^#[0-9a-fA-F]{3,8}$/.test(String(eq.color || '')) ? eq.color : '#94a3b8';
             // Encabezado en tres renglones, todo en negro (pedido del cliente, 01-10-2026):
-            //   1. el frente (proyecto), sin el círculo de color delante;
-            //   2. QUÉ es: el tipo y, al lado, el modelo ("CAMION GRUA · Modelo: ZZ5317V4667B1");
-            //   3. la marca y CUÁL es: la placa o, si no tiene, el serial ("SINOTRUK · Placa: A64BG4R").
-            //      Ese escalón (placa → serial…) llega resuelto del servidor en ident / identPor.
+            //   1. "ASIGNADO A" y el frente (proyecto), separado de lo de abajo por una raya fina;
+            //   2. QUÉ es: el tipo y, al lado, la marca ("CHUTO  SINOTRUK");
+            //   3. el modelo y CUÁL es: la placa o, si no tiene, el serial
+            //      ("Modelo: ZZ4257V324JB1  Placa: A93BE7R"). Ese escalón (placa → serial…) llega
+            //      resuelto del servidor en ident / identPor.
+            // Sin "·" entre los datos (pedido del cliente, 01-10-2026): los separa un hueco.
             var limpio = function (v) { return (v == null ? '' : String(v)).trim(); };
             var ident = limpio(eq.ident), identPor = limpio(eq.identPor);
             var rotulo = identPor ? identPor + ': ' : '';
             var tipo = limpio(eq.tipo) || 'Sin tipo';
             var modelo = limpio(eq.modelo), marca = limpio(eq.marca);
             var frente = limpio(eq.frente) || 'Sin frente';
-            var tituloTxt = [tipo, modelo ? 'Modelo: ' + modelo : ''].filter(Boolean).join(' · ');
-            // El title sale de los MISMOS trozos que lo que se ve.
-            var terceraTxt = [marca, ident ? rotulo + ident : ''].filter(Boolean).join(' · ');
-            // "Modelo: X", "Placa: X" y la coordenada van cada uno en un trozo que no se parte
-            // (.mapa-eq-cual): si no cabe, baja ENTERO de renglón. El "·" que lo separa de lo de
-            // delante lo pone el CSS y solo se ve en el mismo renglón: al empezar renglón queda
-            // fuera del borde (ver .mapa-eq-cual en estilos_globales.css). Lo de delante va en
-            // .mapa-eq-pre, que le deja el hueco; el corte de renglón lo permite el \u200b.
-            var trozo = function (html) { return '\u200b<span class="mapa-eq-cual">' + html + '</span>'; };
-            var tercera = (marca ? '<span class="mapa-eq-pre">' + esc(marca) + '</span>' : '') +
-                (ident ? trozo(esc(rotulo) + esc(ident)) : '');
+            // Cada dato es una .mapa-eq-parte y entre dos va un espacio (ahí puede partirse el
+            // renglón) más el hueco del CSS. Los de "entero" (la marca, "Modelo: X", "Placa: X", la
+            // coordenada) no se parten por dentro: si no caben, bajan enteros. El title sale de los
+            // MISMOS datos que lo que se ve.
+            var parte = function (html, entero) {
+                return '<span class="mapa-eq-parte' + (entero ? ' mapa-eq-entero' : '') + '">' + html + '</span>';
+            };
+            var segundaTxt = [tipo, marca].filter(Boolean).join('  ');
+            var segunda = [parte(esc(tipo)), marca ? parte(esc(marca), true) : ''].filter(Boolean).join(' ');
+            var terceraTxt = [modelo ? 'Modelo: ' + modelo : '', ident ? rotulo + ident : ''].filter(Boolean).join('  ');
+            var tercera = [modelo ? parte('Modelo: ' + esc(modelo), true) : '',
+                           ident ? parte(esc(rotulo) + esc(ident), true) : ''].filter(Boolean).join(' ');
             // "desde hace" es lo que GPS51 dijo AL CONSULTAR: con la última posición conocida
             // (`vieja`, de hasta un día) ya no es verdad, así que no se pone.
             var motorDesde = g.vieja ? '' : duracion(g.acc_tiempo);
@@ -165,16 +170,16 @@
                 (op.dudosa ? '<div class="mapa-eq-dudosa"><i class="material-icons">location_off</i>' +
                     '<span>El GPS la reporta FUERA de Venezuela: no es donde está el equipo. Hay que revisar ese GPS.</span></div>' : '') +
                 '<div class="mapa-eq-head" style="border-left-color:' + color + '">' +
-                    '<div class="mapa-eq-frente" title="' + esc(frente) + '">' + esc(frente) + '</div>' +
-                    '<div class="mapa-eq-tit"><b title="' + esc(tituloTxt) + '"><span class="mapa-eq-pre">' + esc(tipo) + '</span>' +
-                        (modelo ? trozo('Modelo: ' + esc(modelo)) : '') + '</b>' +
-                        (op.sinEstado ? '' : '<span class="mapa-eq-estado ' + (g.en_linea ? 'en-linea' : 'fuera') + '">' +
-                        (g.en_linea ? 'En línea' : 'Sin conexión') + '</span>') + '</div>' +
+                    '<div class="mapa-eq-frente" title="Asignado a ' + esc(frente) + '">' +
+                        '<span class="mapa-eq-rot">Asignado a</span> ' + esc(frente) + '</div>' +
+                    '<div class="mapa-eq-tit"><b title="' + esc(segundaTxt) + '">' + segunda + '</b></div>' +
+                    // Sin "En línea / Sin conexión" (pedido del cliente, 01-10-2026): lo dice ya
+                    // "Última señal", y el icono del mapa sale apagado si no está en línea.
                     (tercera ? '<div class="mapa-eq-desc" title="' + esc(terceraTxt) + '">' + tercera + '</div>' : '') +
                 '</div>' +
                 // Con la última posición conocida (`vieja`) los datos de abajo son de cuando se
                 // consultó, no de ahora: se dice, hasta que llegue la lectura nueva.
-                (g.vieja ? '<div class="mapa-eq-vieja">Últimos datos conocidos · ' +
+                (g.vieja ? '<div class="mapa-eq-vieja">Últimos datos conocidos: ' +
                     (op.sinRespuesta ? 'GPS51 no respondió' : 'actualizando…') + '</div>' : '') +
                 '<div class="mapa-eq-grid">' +
                     celda('Velocidad', num(g.velocidad) + ' km/h') +
@@ -196,14 +201,13 @@
                 '</div>' +
                 // Dónde está: la dirección corta y, en el MISMO renglón justo detrás, la coordenada
                 // (pedido del cliente, 01-10-2026; antes iba debajo). Son dos trozos aparte porque
-                // ponerDireccion reescribe solo el de la dirección cuando llega. Sin dirección, la
-                // coordenada empieza el renglón y su "·" no se ve.
+                // ponerDireccion reescribe solo el de la dirección cuando llega.
                 '<div class="mapa-eq-ubic"><i class="material-icons">place</i><div>' +
                     (op.sinDireccion ? '' :
-                        '<span class="mapa-eq-dir mapa-eq-pre"' + (op.dirAttr ? ' data-eqdir="' + esc(op.dirAttr) + '"' : '') +
+                        '<span class="mapa-eq-dir mapa-eq-parte"' + (op.dirAttr ? ' data-eqdir="' + esc(op.dirAttr) + '"' : '') +
                         (op.direccion ? ' title="' + esc(op.direccion) + '"' : '') + '>' +
-                        esc(op.direccion ? direccionCorta(op.direccion) : 'Buscando dirección…') + '</span>') +
-                    trozo('<span class="mapa-eq-coord">' + g.lat.toFixed(6) + ', ' + g.lng.toFixed(6) + '</span>') +
+                        esc(op.direccion ? direccionCorta(op.direccion) : 'Buscando dirección…') + '</span> ') +
+                    parte('<span class="mapa-eq-coord">' + g.lat.toFixed(6) + ', ' + g.lng.toFixed(6) + '</span>', true) +
                 '</div></div>' +
             '</div>';
         },

@@ -406,10 +406,10 @@ MODAL GPS TRACKER — Rastreo Satelital en Vivo
 
         {{-- Cuerpo: mapa satelital a la izquierda y los datos del GPS a la derecha. Los datos los
              pide el servidor a GPS51 (MapaController::equipoGps, la misma lectura que la capa
-             Equipos de /mapa). El mapa es Leaflet con el satélite de Esri y encima los nombres
-             de calles de Google, lo mismo que /mapa (ver mapaListo): antes era Google Maps
-             incrustado, que bajaba todo Google Maps (scripts, recuadro del lugar, controles) y
-             tardaba en verse, sobre todo en el teléfono. --}}
+             Equipos de /mapa). El mapa es Leaflet con el satélite de Google y sus nombres de
+             calles (GpsFicha.HIBRIDO, ver mapaListo): antes era Google Maps incrustado, que
+             bajaba todo Google Maps (scripts, recuadro del lugar, controles) y tardaba en verse,
+             sobre todo en el teléfono. --}}
         <div class="gps-body">
             <div class="gps-panel-map">
                 <div id="gps_mapa"></div>
@@ -424,11 +424,10 @@ MODAL GPS TRACKER — Rastreo Satelital en Vivo
                          enlace): sin el encabezado, si no, no habría forma de saber de cuál se habla. --}}
                     <p id="gps_ident" class="gps-ident"></p>
                     {{-- La ficha entera la pinta window.GpsFicha (gps_ficha.js), el MISMO componente
-                         que usa la capa Equipos de /mapa: frente; tipo · modelo; marca · placa (o
-                         serial); la rejilla de datos; dirección y coordenada. Aquí sin el "En línea"
-                         (sinEstado, ver pintarDatos). Antes
-                         aquí había una maqueta propia (placa gigante, chip suelto y una lista de
-                         dos columnas) que no se parecía en nada a la del mapa. --}}
+                         que usa la capa Equipos de /mapa: frente; tipo y marca; modelo y placa (o
+                         serial); la rejilla de datos; dirección y coordenada. Antes aquí había una
+                         maqueta propia (placa gigante, chip suelto y una lista de dos columnas)
+                         que no se parecía en nada a la del mapa. --}}
                     <div id="gps_ficha"></div>
                     <p id="gps_mensaje" class="gps-mensaje" hidden></p>
 
@@ -504,9 +503,13 @@ MODAL GPS TRACKER — Rastreo Satelital en Vivo
     .gps-mensaje { margin: 0; font-size: 14px; font-weight: 700; color: #000; }
     .gps-ident { margin: 0; font-size: 14px; font-weight: 800; color: #0f172a; }
     .gps-ident:empty { display: none; }
-    /* El hueco que la ficha deja a la derecha para la × de Leaflet (en /mapa) aquí no hace falta:
-       la × del modal va en el encabezado. */
-    #gpsTrackerModal .mapa-eq-frente { padding-right: 0; }
+    /* Encabezado de la ficha en VERDE, el tono del icono de "Rastreo Satelital en Vivo" (pedido
+       del cliente, 01-10-2026; la raya de la izquierda la pone el color que se le pasa).
+       El hueco que la ficha deja a la derecha para la × de Leaflet (en /mapa) aquí no hace falta:
+       la × del modal va en el encabezado del modal. */
+    #gpsTrackerModal .mapa-eq-head { background: #ecfdf5; border-bottom-color: #bbf7d0; }
+    #gpsTrackerModal .mapa-eq-frente { padding-right: 0; border-bottom-color: #bbf7d0; }
+    #gpsTrackerModal .mapa-eq-rot { font-size: 10.5px; color: #047857; }
     #gpsTrackerModal .mapa-eq-dudosa { padding-right: 12px; }
     .gps-vence { margin: 0; font-size: 11px; font-weight: 600; color: #475569; text-align: center; }
 
@@ -596,10 +599,10 @@ if (!window._gpsModalScriptLoaded) {
             av.innerHTML = html || '';
             av.style.display = html ? 'flex' : 'none';
         }
-        // ── Mapa: Leaflet con SOLO el satélite de Esri (lo mismo que /mapa, sin etiquetas ni nada
-        // más). Leaflet lo baja window.cargarLeaflet (lazy_loader.js), el mismo cargador de /mapa:
-        // si ya se abrió el mapa no se vuelve a bajar. Se pide al ABRIR el modal, a la vez que los
-        // datos del GPS. El icono y las teselas salen de window.GpsFicha, igual que en /mapa.
+        // ── Mapa: Leaflet con el satélite de Google y sus nombres de calles (GpsFicha.HIBRIDO).
+        // Leaflet lo baja window.cargarLeaflet (lazy_loader.js), el mismo cargador de /mapa: si ya
+        // se abrió el mapa no se vuelve a bajar. Se pide al ABRIR el modal, a la vez que los datos
+        // del GPS. El icono y las teselas salen de window.GpsFicha.
         var M = { mapa: null, marca: null };
         function soltarMapa() {
             if (M.mapa) M.mapa.remove();
@@ -620,12 +623,10 @@ if (!window._gpsModalScriptLoaded) {
                         // página hasta la ficha, en vez de arrastrar el mapa (se acerca con dos).
                         dragging: !L.Browser.mobile
                     });
-                    // maxNativeZoom 17: más cerca Esri no tiene imagen en zonas rurales; reescala la última.
-                    L.tileLayer(window.GpsFicha.SATELITE, { maxZoom: 19, maxNativeZoom: 17 }).addTo(M.mapa);
-                    // Encima, los nombres de calles y lugares (pedido del cliente, 01-10-2026: el
-                    // satélite solo no los traía). Los mismos de /mapa.
-                    L.tileLayer(window.GpsFicha.ETIQUETAS, {
-                        subdomains: window.GpsFicha.ETIQUETAS_SUBDOMINIOS, maxZoom: 19
+                    // Satélite de Google con los nombres de calles y lugares ya puestos: sin las
+                    // nubes que trae el de Esri en algunas zonas (pedido del cliente, 01-10-2026).
+                    L.tileLayer(window.GpsFicha.HIBRIDO, {
+                        subdomains: window.GpsFicha.SUBDOMINIOS_GOOGLE, maxZoom: 19
                     }).addTo(M.mapa);
                 }
                 return M.mapa;
@@ -663,13 +664,13 @@ if (!window._gpsModalScriptLoaded) {
 
         function pararRefresco() { clearInterval(S.timer); S.timer = null; }
 
-        // Qué equipo es, en una línea ("CAMION DE SERVICIO · Placa: A51EX9P"), para cuando la
+        // Qué equipo es, en una línea ("CAMION DE SERVICIO  Placa: A51EX9P"), para cuando la
         // ficha no está. También es el nombre del diálogo para los lectores de pantalla.
         function ponerIdent(eq) {
             var tipo = limpio(eq.tipo, ['N/A', 'SIN TIPO']).toUpperCase();
             var ident = limpio(eq.ident);
             var texto = [tipo, ident ? (eq.ident_por ? eq.ident_por + ': ' : '') + ident : '']
-                .filter(Boolean).join(' · ');
+                .filter(Boolean).join('  ');
             $('gps_ident').textContent = texto;
             var dlg = document.querySelector('#gpsTrackerModal .gps-modal-container');
             if (dlg) dlg.setAttribute('aria-label', 'Rastreo satelital' + (texto ? ': ' + texto : ''));
@@ -711,19 +712,17 @@ if (!window._gpsModalScriptLoaded) {
             }
 
             // La ficha ENTERA la pinta el componente compartido, el mismo del mapa. El color del
-            // frente no se le pasa a propósito: ahí sirve para distinguir equipos de frentes
-            // distintos en el mismo mapa, y aquí solo hay uno.
+            // frente no se le pasa: ahí sirve para distinguir equipos de frentes distintos en el
+            // mismo mapa, y aquí solo hay uno. En su lugar va el verde del icono del encabezado.
             var eq = (r && r.equipo) || {};
             // Con la ficha a la vista su encabezado ya dice qué equipo es.
             $('gps_ident').textContent = '';
             ficha.innerHTML = window.GpsFicha.html({
                 tipo: eq.tipo, modelo: eq.modelo, marca: eq.marca,
                 ident: eq.ident, identPor: eq.ident_por,
-                frente: eq.frente, gps: g
+                frente: eq.frente, color: '#10b981', gps: g
             }, {
                 dudosa: !!g.fuera_de_venezuela,
-                // Sin el "En línea" del encabezado: aquí ya lo dice "Última señal".
-                sinEstado: true,
                 // La dirección se pide aparte (tarda ~2 s): la ficha reserva su hueco y
                 // cargarDireccion la rellena por este data-eqdir cuando llega.
                 // Con la posición fuera del país no se pide dirección (ver más abajo), así que
