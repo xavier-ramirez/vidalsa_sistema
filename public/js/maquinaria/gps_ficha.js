@@ -40,8 +40,8 @@
          * @param {object} eq  El equipo: { tipo, modelo, marca, ident, identPor, frente, color,
          *                     gps }. `ident` es CÓMO se llama (placa; si no, serial de chasis,
          *                     de motor, código o etiqueta) e `identPor` su rótulo ("Placa",
-         *                     "Serial"…, vacío para "Equipo N"). Lo resuelve quien llama:
-         *                     MapaController::identificar en el modal, eqIdentCon en el mapa.
+         *                     "Serial"…, vacío para "Equipo N"). Los dos llegan resueltos
+         *                     del servidor (MapaController::identificar).
          *                     `gps` es lo que devuelve Gps51Service.
          * @param {object} op  Opcional:
          *                     · dudosa   true si el GPS la reporta fuera del país: pinta el

@@ -25,7 +25,6 @@ class MapaEquiposGpsTest extends MySqlTestCase
                 'totaldistance' => 5.5302799E7, 'masteroil' => 56188, 'auxoil' => 19591,
                 'updatetime' => (int) round(microtime(true) * 1000) - 60000,
                 'strstatusen' => 'ACC On 2H54M/Voltage 27.9V',
-                'gotsrc' => 'gps', 'gpsvalidnum' => 22, 'altitude' => 218, 'rxlevel' => 48,
             ]],
         ];
     }
@@ -242,5 +241,53 @@ class MapaEquiposGpsTest extends MySqlTestCase
         // válido tampoco (vacío no es "todo").
         $exportar('999999999')->assertNotFound();
         $exportar('abc')->assertNotFound();
+    }
+
+    /**
+     * Cómo se llama el equipo en la ficha: cada escalón (placa, serial de chasis, serial de motor,
+     * código de patio, etiqueta) con SU rótulo, igual en la lista del mapa y en el modal. Un
+     * escalón sin rótulo haría pasar un código por una placa sin que nada fallara.
+     */
+    public function test_el_identificador_llega_con_su_rotulo_en_cada_escalon(): void
+    {
+        $equipo = Equipo::where('LINK_GPS', 'like', '%gps51%')->get(['ID_EQUIPO', 'LINK_GPS'])
+            ->first(fn ($e) => Gps51Service::authcode($e->LINK_GPS) !== null);
+        $this->assertNotNull($equipo, 'Hace falta un equipo con enlace de GPS51 válido.');
+        Http::fake(['gps51.com/*' => Http::response($this->respuestaGps51())]);
+        $u = $this->usuarioGlobal();
+        $id = $equipo->ID_EQUIPO;
+
+        $poner = function (array $datos) use ($id) {
+            $placa = $datos['PLACA'] ?? null;
+            unset($datos['PLACA']);
+            Equipo::whereKey($id)->update(array_merge(
+                ['SERIAL_CHASIS' => '', 'SERIAL_DE_MOTOR' => null, 'CODIGO_PATIO' => null, 'NUMERO_ETIQUETA' => null],
+                $datos
+            ));
+            \Illuminate\Support\Facades\DB::table('documentacion')->updateOrInsert(['ID_EQUIPO' => $id], ['PLACA' => $placa]);
+        };
+        $ident = function () use ($u, $id) {
+            $modal = $this->actingAs($u)->getJson(route('mapa.equiposGps.equipo', ['id' => $id]))->assertOk()->json('equipo');
+            $fila = collect($this->actingAs($u)->getJson(route('mapa.equiposGps'))->assertOk()->json('equipos'))
+                ->firstWhere('id', $id);
+            // La lista del mapa y el modal dicen lo mismo del mismo equipo.
+            $this->assertSame([$modal['ident'], $modal['ident_por']], [$fila['ident'], $fila['ident_por']]);
+            return [$modal['ident'], $modal['ident_por']];
+        };
+
+        $casos = [
+            [['PLACA' => 'A00AA0A', 'SERIAL_CHASIS' => 'CH-1'], ['A00AA0A', 'Placa']],
+            [['SERIAL_CHASIS' => 'CH-1', 'SERIAL_DE_MOTOR' => 'MO-1'], ['CH-1', 'Serial']],
+            [['SERIAL_DE_MOTOR' => 'MO-1', 'CODIGO_PATIO' => 'CP-1'], ['MO-1', 'Serial motor']],
+            [['CODIGO_PATIO' => 'CP-1', 'NUMERO_ETIQUETA' => 'ET-1'], ['CP-1', 'Código']],
+            [['NUMERO_ETIQUETA' => 'ET-1'], ['ET-1', 'Etiqueta']],
+            [[], ['Equipo ' . $id, '']],
+            // Una placa con solo un espacio duro (pegada desde Excel) está vacía: baja al serial.
+            [['PLACA' => "\u{00A0}", 'SERIAL_CHASIS' => ' CH-2 '], ['CH-2', 'Serial']],
+        ];
+        foreach ($casos as [$datos, $esperado]) {
+            $poner($datos);
+            $this->assertSame($esperado, $ident(), json_encode($datos, JSON_UNESCAPED_UNICODE));
+        }
     }
 }

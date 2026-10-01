@@ -3446,22 +3446,11 @@
         function eqColor(e) { return e.frente ? colorHash(e.frente.nombre) : '#94a3b8'; }
         function eqFrenteClave(e) { return e.frente ? String(e.frente.id) : 'sin'; }
         // Identificador principal: placa; si no tiene, serial de chasis; si no, serial de motor;
-        // y si tampoco, código de patio o etiqueta. Los MISMOS escalones, en el mismo orden, que
-        // el Excel del panel (MapaController::exportarEquiposGps) — y con el mismo recorte de
-        // espacios, que sin él una placa escrita con puros espacios salía en blanco aquí mientras
-        // el Excel la daba por vacía y bajaba al serial.
-        // Devuelve [valor, rótulo]: la ficha escribe "Placa: …" / "Serial: …" con el rótulo, para
-        // que un serial de motor o un código no se confundan con la placa.
-        function eqIdentCon(e) {
-            var v = [['Placa', e.placa], ['Serial', e.serial_chasis], ['Serial motor', e.serial_motor],
-                     ['Código', e.codigo], ['Etiqueta', e.etiqueta]];
-            for (var i = 0; i < v.length; i++) {
-                var s = (v[i][1] == null ? '' : String(v[i][1])).trim();
-                if (s) return [s, v[i][0]];
-            }
-            return ['Equipo ' + e.id, ''];
-        }
-        function eqIdent(e) { return eqIdentCon(e)[0]; }
+        // y si tampoco, código de patio o etiqueta. Lo resuelve el servidor
+        // (MapaController::identificar, la misma escalera del Excel) y llega en `ident`, con su
+        // rótulo en `ident_por` ("Placa", "Serial"…). Antes se repetía aquí y las dos copias no
+        // recortaban los espacios igual: el mismo equipo podía llamarse distinto según la pantalla.
+        function eqIdent(e) { return e.ident || 'Equipo ' + e.id; }
         // El tipo tal como se ENSEÑA. Se usa también para ordenar: mostrando "Sin tipo" pero
         // ordenando por cadena vacía, esos equipos se iban al principio de la lista sin motivo.
         function eqTipoTexto(e) { return e.tipo || 'Sin tipo'; }
@@ -3508,9 +3497,8 @@
         // tienen que verse idénticas. Aquí solo se traduce el equipo de la capa a lo que el
         // componente espera.
         function eqFicha(e) {
-            var id = eqIdentCon(e);
             return window.GpsFicha.html({
-                tipo: e.tipo, modelo: e.modelo, marca: e.marca, ident: id[0], identPor: id[1],
+                tipo: e.tipo, modelo: e.modelo, marca: e.marca, ident: eqIdent(e), identPor: e.ident_por,
                 color: eqColor(e), frente: e.frente ? e.frente.nombre : null, gps: e.gps
             }, {
                 dudosa: eqDudosa(e),

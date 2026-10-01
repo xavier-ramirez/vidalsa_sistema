@@ -411,26 +411,30 @@ MODAL GPS TRACKER — Rastreo Satelital en Vivo
                 </div>
             </div>
 
+            {{-- La "×" va en .gps-info y lo que se desplaza en .gps-info-cuerpo: así la "×" no se
+                 va con el scroll cuando la ficha no cabe (teléfono acostado). --}}
             <aside class="gps-info">
                 <button type="button" class="gps-cerrar" onclick="closeGpsModal()" aria-label="Cerrar">
                     <i class="material-icons">close</i>
                 </button>
-                {{-- Qué equipo es mientras la ficha no está (cargando o con un problema del
-                     enlace): sin el encabezado, si no, no habría forma de saber de cuál se habla. --}}
-                <p id="gps_ident" class="gps-ident"></p>
-                {{-- La ficha entera la pinta window.GpsFicha (gps_ficha.js), el MISMO componente
-                     que usa la capa Equipos de /mapa: identificador y estado, qué equipo es, su
-                     frente, la rejilla de datos, placa/serial, dirección y coordenadas. Antes
-                     aquí había una maqueta propia (placa gigante, chip suelto y una lista de
-                     dos columnas) que no se parecía en nada a la del mapa. --}}
-                <div id="gps_ficha"></div>
-                <p id="gps_mensaje" class="gps-mensaje" hidden></p>
+                <div class="gps-info-cuerpo">
+                    {{-- Qué equipo es mientras la ficha no está (cargando o con un problema del
+                         enlace): sin el encabezado, si no, no habría forma de saber de cuál se habla. --}}
+                    <p id="gps_ident" class="gps-ident"></p>
+                    {{-- La ficha entera la pinta window.GpsFicha (gps_ficha.js), el MISMO componente
+                         que usa la capa Equipos de /mapa: tipo y estado, modelo · marca, placa (o
+                         serial), frente, la rejilla de datos, dirección y coordenadas. Antes
+                         aquí había una maqueta propia (placa gigante, chip suelto y una lista de
+                         dos columnas) que no se parecía en nada a la del mapa. --}}
+                    <div id="gps_ficha"></div>
+                    <p id="gps_mensaje" class="gps-mensaje" hidden></p>
 
-                {{-- Sin botones (pedido del cliente, 28-09-2026): "Abrir en Google Maps",
-                     "Abrir enlace del GPS" y "Actualizar" se quitaron. El de Actualizar además
-                     sobraba: la ficha se refresca sola cada GPS_REFRESCO_MS mientras está
-                     abierta (ver el setInterval de openGpsModal). --}}
-                <p id="gps_vence" class="gps-vence" hidden></p>
+                    {{-- Sin botones (pedido del cliente, 28-09-2026): "Abrir en Google Maps",
+                         "Abrir enlace del GPS" y "Actualizar" se quitaron. El de Actualizar además
+                         sobraba: la ficha se refresca sola cada GPS_REFRESCO_MS mientras está
+                         abierta (ver el setInterval de openGpsModal). --}}
+                    <p id="gps_vence" class="gps-vence" hidden></p>
+                </div>
             </aside>
         </div>
     </div>
@@ -475,9 +479,11 @@ MODAL GPS TRACKER — Rastreo Satelital en Vivo
     .gps-mapa-aviso .material-icons { font-size: 40px; color: #94a3b8; }
 
     .gps-info {
-        position: relative;
-        width: 360px; flex-shrink: 0; background: #fff; color: #000;
-        border-left: 1px solid #e2e8f0; padding: 18px 20px; overflow-y: auto;
+        position: relative; flex-shrink: 0; min-height: 0; display: flex; flex-direction: column;
+        background: #fff; color: #000; border-left: 1px solid #e2e8f0;
+    }
+    .gps-info-cuerpo {
+        width: 360px; flex: 1; min-height: 0; padding: 18px 20px; overflow-y: auto;
         display: flex; flex-direction: column; gap: 12px;
     }
     /* Solo para los problemas del enlace (vencido, ajeno, sin reportar). El aviso de posición
@@ -485,24 +491,30 @@ MODAL GPS TRACKER — Rastreo Satelital en Vivo
     .gps-mensaje { margin: 0; font-size: 14px; font-weight: 700; color: #000; }
     .gps-ident { margin: 0; padding-right: 36px; font-size: 14px; font-weight: 800; color: #0f172a; }
     .gps-ident:empty { display: none; }
-    /* Hueco para la "×" de cerrar junto al título de la ficha. */
-    #gpsTrackerModal .mapa-eq-tit { padding-right: 30px; }
+    /* Hueco para la "×" de cerrar junto a lo primero de la ficha: el título o, si la posición
+       es dudosa, el aviso de "FUERA de Venezuela", que va encima. */
+    #gpsTrackerModal .mapa-eq-tit,
+    #gpsTrackerModal .mapa-eq-dudosa { padding-right: 30px; }
     .gps-vence { margin: 0; font-size: 11px; font-weight: 600; color: #475569; text-align: center; }
 
     /* Los seis datos (velocidad, motor, combustible, voltaje, kilometraje y última señal) en
        DOS renglones de tres (pedido del cliente, 30-09-2026). Solo en el modal: la tarjeta de
        /mapa es más angosta y sigue a dos columnas. */
     #gpsTrackerModal .mapa-eq-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    /* A tres columnas, en tablet o teléfono "hace segundos" o la fecha de la última señal no
+       caben: aquí el dato baja de renglón en vez de cortarse con "…". */
+    #gpsTrackerModal .mapa-eq-cel b,
+    #gpsTrackerModal .mapa-eq-cel small { white-space: normal; overflow-wrap: anywhere; }
 
     /* Tablet: la ficha se angosta para dejarle ancho al mapa. */
     @media (max-width: 1024px) {
-        .gps-info { width: 300px; padding: 16px; }
+        .gps-info-cuerpo { width: 300px; padding: 16px; }
     }
 
     /* PC o laptop con poca altura: ficha más compacta para que quepa sin desplazarse. */
     @media (min-width: 769px) and (max-height: 760px) {
         .gps-modal-container { height: 94vh; }
-        .gps-info { gap: 8px; padding-top: 14px; padding-bottom: 14px; }
+        .gps-info-cuerpo { gap: 8px; padding-top: 14px; padding-bottom: 14px; }
     }
 
     /* Teléfono de pie: pantalla completa; mapa arriba y ficha debajo, con un solo scroll. */
@@ -511,7 +523,8 @@ MODAL GPS TRACKER — Rastreo Satelital en Vivo
         .gps-modal-container { max-width: none; height: 100vh; height: 100dvh; border: 0; border-radius: 0; }
         .gps-body { flex-direction: column; overflow-y: auto; -webkit-overflow-scrolling: touch; }
         .gps-panel-map { flex: none; height: 42vh; height: 42dvh; min-height: 230px; }
-        .gps-info { width: auto; border-left: 0; border-top: 1px solid #e2e8f0; overflow: visible; padding: 14px 16px 20px; }
+        .gps-info { border-left: 0; border-top: 1px solid #e2e8f0; }
+        .gps-info-cuerpo { width: auto; overflow: visible; padding: 14px 16px 20px; }
     }
 
     /* Teléfono acostado: poca altura, así que mapa y ficha van lado a lado a pantalla completa. */
@@ -520,7 +533,8 @@ MODAL GPS TRACKER — Rastreo Satelital en Vivo
         .gps-modal-container { max-width: none; height: 100vh; height: 100dvh; border: 0; border-radius: 0; }
         .gps-body { flex-direction: row; overflow: hidden; }
         .gps-panel-map { flex: 1; height: auto; min-height: 0; }
-        .gps-info { width: 290px; border-top: 0; border-left: 1px solid #e2e8f0; overflow-y: auto; padding: 10px 14px; gap: 8px; }
+        .gps-info { border-top: 0; border-left: 1px solid #e2e8f0; }
+        .gps-info-cuerpo { width: 290px; overflow-y: auto; padding: 10px 14px; gap: 8px; }
     }
 
 </style>

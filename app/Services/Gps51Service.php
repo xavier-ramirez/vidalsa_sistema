@@ -233,8 +233,6 @@ class Gps51Service
             'en_linea'     => $ultima > 0 && ($ahoraMs - $ultima) < self::EN_LINEA_MS,
             'dispositivo'  => $j['devicename'] ?? null,
             'vence'        => isset($j['expire']) ? (int) $j['expire'] : null,
-            // La "Señal GPS" (fuente, satélites, altitud y % de señal) ya no se lee: el cliente la
-            // quitó del modal de rastreo (30-09-2026) y era la única pantalla que la enseñaba.
         ];
     }
 

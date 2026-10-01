@@ -61,8 +61,11 @@ class MapaController extends Controller
             if ($authcode && $gps === null) {
                 $pendientes[] = $e->ID_EQUIPO;
             }
+            [$ident, $identPor] = self::identParaPantalla($e);
             return [
                 'id'            => $e->ID_EQUIPO,
+                'ident'         => $ident,
+                'ident_por'     => $identPor,
                 'placa'         => optional($e->documentacion)->PLACA,
                 'codigo'        => $e->CODIGO_PATIO,
                 'etiqueta'      => $e->NUMERO_ETIQUETA,
@@ -152,7 +155,7 @@ class MapaController extends Controller
 
         $esGps51 = stripos((string) $equipo->LINK_GPS, 'gps51') !== false;
         $authcode = Gps51Service::authcode($equipo->LINK_GPS);
-        [$ident, $por] = self::identificar($equipo, 'Equipo ' . $equipo->ID_EQUIPO);
+        [$ident, $identPor] = self::identParaPantalla($equipo);
 
         return response()->json([
             'gps51'  => $esGps51,
@@ -161,7 +164,7 @@ class MapaController extends Controller
                 'modelo'        => $equipo->MODELO,
                 'marca'         => $equipo->MARCA,
                 'ident'         => $ident,
-                'ident_por'     => self::IDENT_ROTULO[$por] ?? '',
+                'ident_por'     => $identPor,
                 'frente'        => optional($equipo->frenteActual)->NOMBRE_FRENTE,
             ],
             'gps'   => $authcode ? (Gps51Service::posiciones([$authcode])[$authcode] ?? null)
@@ -334,7 +337,7 @@ class MapaController extends Controller
 
     /**
      * Rótulo corto de cada escalón de identificar() para la ficha del GPS ("Placa: …",
-     * "Serial: …"), el mismo que pone eqIdentCon en el mapa. El Excel usa el largo.
+     * "Serial: …"). El Excel usa el largo.
      */
     private const IDENT_ROTULO = [
         'PLACA'            => 'Placa',
@@ -348,11 +351,11 @@ class MapaController extends Controller
      * Cómo se llama un equipo: placa, y si no la tiene, serial de chasis, serial de motor, código
      * de patio o etiqueta — en ese orden.
      *
-     * Vive AQUÍ y no repetido en cada sitio porque lo usan la ficha del modal, el Excel del panel y
-     * la lista del mapa (eqIdent, en mapa_index.js, con los mismos cinco escalones y el mismo
-     * recorte de espacios). Estaba escrito tres veces y las tres no hacían lo mismo: una no
-     * recortaba, así que una PLACA de puros espacios ganaba y el equipo salía sin nombre, mientras
-     * las otras bajaban al serial. El mismo equipo no puede llamarse distinto según la pantalla.
+     * Vive SOLO AQUÍ: lo usan el Excel del panel y, por identParaPantalla(), la lista y la ficha
+     * del mapa y la ficha del modal (el navegador recibe `ident` / `ident_por` ya resueltos).
+     * Estaba escrito tres veces y no hacían lo mismo: una no recortaba, así que una PLACA de puros
+     * espacios ganaba y el equipo salía sin nombre, mientras las otras bajaban al serial. El mismo
+     * equipo no puede llamarse distinto según la pantalla.
      *
      * @param  string  $siNoHay  qué devolver cuando no hay ninguno ("—" en el Excel, "Equipo N" en
      *                           pantalla, que ahí siempre tiene que verse algo).
@@ -368,12 +371,27 @@ class MapaController extends Controller
             ['ETIQUETA',         $equipo->NUMERO_ETIQUETA],
         ];
         foreach ($escalones as [$por, $valor]) {
-            $valor = trim((string) $valor);
+            // trim() no quita el espacio duro (U+00A0) que trae lo pegado desde Excel: una PLACA
+            // con solo eso ganaba y el equipo salía sin nombre en vez de bajar al serial.
+            // Con bytes que no son UTF-8 válido preg_replace da null: ahí basta el trim() de siempre.
+            $valor = preg_replace('/^[\s\x{00A0}]+|[\s\x{00A0}]+$/u', '', (string) $valor) ?? trim((string) $valor);
             if ($valor !== '') {
                 return [$valor, $por];
             }
         }
         return [$siNoHay, '—'];
+    }
+
+    /**
+     * [identificador, rótulo corto] para la pantalla: "Equipo N" cuando no hay ninguno, y sin
+     * rótulo en ese caso. Lo reciben la lista y la ficha del mapa y la ficha del modal.
+     *
+     * @return array{0: string, 1: string}
+     */
+    private static function identParaPantalla($equipo): array
+    {
+        [$ident, $por] = self::identificar($equipo, 'Equipo ' . $equipo->ID_EQUIPO);
+        return [$ident, self::IDENT_ROTULO[$por] ?? ''];
     }
 
     /** Estado del GPS en palabras para el Excel (los mismos casos que distingue el mapa). */
