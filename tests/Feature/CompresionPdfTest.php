@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Jobs\DeleteGoogleDriveFile;
 use App\Models\Usuario;
+use App\Models\VerificacionDocumento;
 use App\Services\CompresorPdf;
 use App\Support\EnlacesDocumentos;
 use Illuminate\Support\Facades\DB;
@@ -91,6 +92,52 @@ class CompresionPdfTest extends MySqlTestCase
             ->where('LINK_DOC_PROPIEDAD', 'like', '/storage/google/COMPARTIDO_NUEVO_CPDF?v=%')->count());
         $this->assertFalse(EnlacesDocumentos::sigueEnUso('COMPARTIDO_PRUEBA_CPDF'),
             'Tras cambiarlas todas, el viejo ya no lo usa nadie y se puede retirar.');
+    }
+
+    /**
+     * El comprimido es el MISMO documento: su revision tiene que irse con el. Si no, la lectura
+     * de la noche lo releia como nuevo y, sin encontrar lo "revisado a mano" (se busca por
+     * DRIVE_ID), ponia lo del PDF encima de lo que una persona ya habia decidido.
+     */
+    public function test_la_revision_del_documento_se_va_con_el_comprimido(): void
+    {
+        $equipo = DB::table('documentacion')->value('ID_EQUIPO');
+        $this->assertNotNull($equipo, 'No hay ninguna fila de documentacion para probar.');
+        DB::table('documentacion')->where('ID_EQUIPO', $equipo)
+            ->update(['LINK_DOC_PROPIEDAD' => '/storage/google/REV_VIEJO_CPDF?v=1']);
+        DB::table('verificacion_documento_registro')->where('ID_EQUIPO', $equipo)->where('TIPO', VerificacionDocumento::PROPIEDAD)->delete();
+        $revision = DB::table('verificacion_documento_registro')->insertGetId([
+            'ID_EQUIPO' => $equipo, 'TIPO' => VerificacionDocumento::PROPIEDAD, 'DRIVE_ID' => 'REV_VIEJO_CPDF',
+            'ESTADO' => VerificacionDocumento::COINCIDE, 'ORIGEN' => VerificacionDocumento::DE_LA_NOCHE,
+            'MOTIVO' => 'Revisado a mano', 'APLICADO_POR' => 1, 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $leido = fn () => !VerificacionDocumento::pendientes(VerificacionDocumento::PROPIEDAD, 'LINK_DOC_PROPIEDAD')
+            ->where('d.ID_EQUIPO', $equipo)->exists();
+        $this->assertTrue($leido(), 'Antes de comprimir, el titulo ya esta revisado.');
+
+        $this->assertSame(1, EnlacesDocumentos::cambiar('REV_VIEJO_CPDF', 'REV_NUEVO_CPDF'));
+        $fila = DB::table('verificacion_documento_registro')->where('ID_REGISTRO', $revision)->first();
+        $this->assertSame('REV_NUEVO_CPDF', $fila->DRIVE_ID, 'La revision se va con el archivo comprimido.');
+        $this->assertSame('Revisado a mano', $fila->MOTIVO);
+        $this->assertTrue($leido(), 'Comprimido, sigue revisado: la noche no lo vuelve a leer.');
+    }
+
+    public function test_si_el_comprimido_ya_tiene_revision_manda_esa(): void
+    {
+        $equipo = DB::table('documentacion')->value('ID_EQUIPO');
+        $this->assertNotNull($equipo, 'No hay ninguna fila de documentacion para probar.');
+        DB::table('verificacion_documento_registro')->where('ID_EQUIPO', $equipo)->where('TIPO', VerificacionDocumento::PROPIEDAD)->delete();
+        $fila = fn (string $id, string $motivo) => DB::table('verificacion_documento_registro')->insertGetId([
+            'ID_EQUIPO' => $equipo, 'TIPO' => VerificacionDocumento::PROPIEDAD, 'DRIVE_ID' => $id,
+            'ESTADO' => VerificacionDocumento::COINCIDE, 'MOTIVO' => $motivo, 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $vieja = $fila('DOS_VIEJO_CPDF', 'la del archivo viejo');
+        $nueva = $fila('DOS_NUEVO_CPDF', 'la del comprimido');
+
+        // Sin chocar con la clave unica (equipo, tipo, archivo): la vieja se queda donde esta.
+        $this->assertSame(0, EnlacesDocumentos::pasarRevisiones('DOS_VIEJO_CPDF', 'DOS_NUEVO_CPDF'));
+        $this->assertSame('DOS_VIEJO_CPDF', DB::table('verificacion_documento_registro')->where('ID_REGISTRO', $vieja)->value('DRIVE_ID'));
+        $this->assertSame('la del comprimido', DB::table('verificacion_documento_registro')->where('ID_REGISTRO', $nueva)->value('MOTIVO'));
     }
 
     public function test_la_correccion_anexa_cambia_su_enlace_y_su_id(): void

@@ -104,7 +104,9 @@ lo sensible dentro de `can:super.admin`.
 - `CorrectorFichaDocumento` — **único** sitio que escribe en la ficha desde la verificación.
 - `CompresorPdf` + `docs:comprimir` — comprime PDFs pesados de noche. `disponible()` (¿está
   Ghostscript?) **lanza un proceso**: su respuesta se recuerda 10 min o la pestaña de
-  Compresión tardaba 374 ms en abrir en vez de 111.
+  Compresión tardaba 374 ms en abrir en vez de 111. Al cambiar un PDF por el comprimido
+  (`EnlacesDocumentos::cambiar`) su **revisión se va con él** (`pasarRevisiones`): la revisión
+  va atada al DRIVE_ID y, sin eso, la noche releía lo ya revisado y podía pisar lo decidido a mano.
 - `VerificarDocumentos` (`docs:verificar-documentos`) — compara ficha ↔ PDF (ver §5).
 - `InventarioService`, `TraspasoService`, `DevolucionService`, `LogisticaAlmacenService`,
   `CompatibilidadProductoService` — reglas del almacén.

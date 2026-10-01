@@ -76,7 +76,8 @@ class EnlacesDocumentos
      * cambio. Una fila que se reemplazo entretanto ya no apunta al viejo y no se toca. Las
      * correcciones anexas que corrigen ese archivo (PRINCIPAL_DRIVE_ID) pasan a apuntar al
      * nuevo: la app compara ese ID con el del principal para saber si son del documento
-     * vigente. Llamarlo dentro de una transaccion.
+     * vigente. Y la REVISION de ese documento pasa al nuevo (pasarRevisiones). Llamarlo dentro
+     * de una transaccion.
      */
     public static function cambiar(string $idViejo, string $idNuevo): int
     {
@@ -90,8 +91,37 @@ class EnlacesDocumentos
         }
         if ($total > 0) {
             DB::table('documento_anexos')->where('PRINCIPAL_DRIVE_ID', $idViejo)->update(['PRINCIPAL_DRIVE_ID' => $idNuevo]);
+            self::pasarRevisiones($idViejo, $idNuevo);
         }
         return $total;
+    }
+
+    /**
+     * La revision de documentos (verificacion_documento_registro) va atada al ARCHIVO, por su
+     * DRIVE_ID. Cuando la compresion cambia un PDF por su version comprimida —el MISMO
+     * documento—, la revision tiene que irse con el: si no, la lectura de la noche lo toma por
+     * un documento nuevo, lo vuelve a leer y, como lo "revisado a mano" tambien se busca por
+     * DRIVE_ID, no encuentra esa revision y aplica lo que diga el PDF encima de lo que una
+     * persona ya habia decidido (un nombre estandarizado, por ejemplo). Visto el 01-10-2026 con
+     * el titulo del equipo 293, comprimido a las 06:00 y revisado a mano a las 08:06.
+     *
+     * Si el nuevo ya tiene su propia revision para ese mismo equipo/auxiliar y tipo, manda esa
+     * (es mas reciente) y la vieja se queda donde esta: la tabla no admite dos del mismo archivo.
+     * No toca updated_at: es "cuando se leyo", y lo usa la cola de lectura.
+     */
+    public static function pasarRevisiones(string $idViejo, string $idNuevo): int
+    {
+        $clave = fn ($r) => $r->ID_EQUIPO . '|' . $r->ID_AUXILIAR . '|' . $r->TIPO;
+        $tabla = 'verificacion_documento_registro';
+        $yaTienen = DB::table($tabla)->where('DRIVE_ID', $idNuevo)
+            ->get(['ID_EQUIPO', 'ID_AUXILIAR', 'TIPO'])->map($clave)->flip();
+
+        $pasadas = 0;
+        foreach (DB::table($tabla)->where('DRIVE_ID', $idViejo)->get(['ID_REGISTRO', 'ID_EQUIPO', 'ID_AUXILIAR', 'TIPO']) as $r) {
+            if (isset($yaTienen[$clave($r)])) continue;
+            $pasadas += DB::table($tabla)->where('ID_REGISTRO', $r->ID_REGISTRO)->update(['DRIVE_ID' => $idNuevo]);
+        }
+        return $pasadas;
     }
 
     /** SQL del ID de Drive dentro de un enlace "/storage/google/{id}?v=...". */
