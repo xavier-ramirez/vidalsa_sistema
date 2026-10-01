@@ -88,8 +88,8 @@
 
         // Etiquetas de Google (lyrs=h): nombres de ciudades, calles y carreteras,
         // transparentes — pane labelsPane (ENCIMA del satélite). Los mismos de Google Maps.
-        var etiquetas = L.tileLayer('https://{s}.google.com/vt/lyrs=h&x={x}&y={y}&z={z}', {
-            subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+        var etiquetas = L.tileLayer(window.GpsFicha.ETIQUETAS, {
+            subdomains: window.GpsFicha.ETIQUETAS_SUBDOMINIOS,
             maxZoom: 21,
             maxNativeZoom: 20,
             pane: 'labelsPane',

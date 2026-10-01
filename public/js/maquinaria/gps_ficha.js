@@ -73,6 +73,10 @@
     window.GpsFicha = {
         /** Teselas del satélite de Esri: el mapa base de /mapa y del modal de GPS de Equipos. */
         SATELITE: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        /** Nombres de calles, carreteras y ciudades de Google (lyrs=h, fondo transparente), encima
+            del satélite: los mismos de Google Maps. Con subdominios mt0…mt3. /mapa y el modal. */
+        ETIQUETAS: 'https://{s}.google.com/vt/lyrs=h&x={x}&y={y}&z={z}',
+        ETIQUETAS_SUBDOMINIOS: ['mt0', 'mt1', 'mt2', 'mt3'],
 
         /**
          * El icono del equipo en el mapa (Leaflet divIcon): el de "agriculture" del módulo
@@ -131,7 +135,7 @@
             var color = /^#[0-9a-fA-F]{3,8}$/.test(String(eq.color || '')) ? eq.color : '#94a3b8';
             // Encabezado en tres renglones, todo en negro (pedido del cliente, 01-10-2026):
             //   1. el frente (proyecto), sin el círculo de color delante;
-            //   2. QUÉ es: el tipo y, al lado, el modelo ("CAMION GRUA · ZZ5317V4667B1");
+            //   2. QUÉ es: el tipo y, al lado, el modelo ("CAMION GRUA · Modelo: ZZ5317V4667B1");
             //   3. la marca y CUÁL es: la placa o, si no tiene, el serial ("SINOTRUK · Placa: A64BG4R").
             //      Ese escalón (placa → serial…) llega resuelto del servidor en ident / identPor.
             var limpio = function (v) { return (v == null ? '' : String(v)).trim(); };
@@ -140,13 +144,17 @@
             var tipo = limpio(eq.tipo) || 'Sin tipo';
             var modelo = limpio(eq.modelo), marca = limpio(eq.marca);
             var frente = limpio(eq.frente) || 'Sin frente';
-            var tituloTxt = [tipo, modelo].filter(Boolean).join(' · ');
+            var tituloTxt = [tipo, modelo ? 'Modelo: ' + modelo : ''].filter(Boolean).join(' · ');
             // El title sale de los MISMOS trozos que lo que se ve.
             var terceraTxt = [marca, ident ? rotulo + ident : ''].filter(Boolean).join(' · ');
-            // "· Placa: X" va en un trozo que no se parte: si no cabe baja entero de renglón, sin
-            // dejar el "·" colgando ni "Placa:" separada de su valor.
-            var tercera = esc(marca) + (ident ? (marca ? ' ' : '') + '<span class="mapa-eq-cual">' +
-                (marca ? '· ' : '') + esc(rotulo) + '<b>' + esc(ident) + '</b></span>' : '');
+            // "Modelo: X", "Placa: X" y la coordenada van cada uno en un trozo que no se parte
+            // (.mapa-eq-cual): si no cabe, baja ENTERO de renglón. El "·" que lo separa de lo de
+            // delante lo pone el CSS y solo se ve en el mismo renglón: al empezar renglón queda
+            // fuera del borde (ver .mapa-eq-cual en estilos_globales.css). Lo de delante va en
+            // .mapa-eq-pre, que le deja el hueco; el corte de renglón lo permite el \u200b.
+            var trozo = function (html) { return '\u200b<span class="mapa-eq-cual">' + html + '</span>'; };
+            var tercera = (marca ? '<span class="mapa-eq-pre">' + esc(marca) + '</span>' : '') +
+                (ident ? trozo(esc(rotulo) + esc(ident)) : '');
             // "desde hace" es lo que GPS51 dijo AL CONSULTAR: con la última posición conocida
             // (`vieja`, de hasta un día) ya no es verdad, así que no se pone.
             var motorDesde = g.vieja ? '' : duracion(g.acc_tiempo);
@@ -158,8 +166,8 @@
                     '<span>El GPS la reporta FUERA de Venezuela: no es donde está el equipo. Hay que revisar ese GPS.</span></div>' : '') +
                 '<div class="mapa-eq-head" style="border-left-color:' + color + '">' +
                     '<div class="mapa-eq-frente" title="' + esc(frente) + '">' + esc(frente) + '</div>' +
-                    '<div class="mapa-eq-tit"><b title="' + esc(tituloTxt) + '">' + esc(tipo) +
-                        (modelo ? ' <span class="mapa-eq-modelo">·\u00a0' + esc(modelo) + '</span>' : '') + '</b>' +
+                    '<div class="mapa-eq-tit"><b title="' + esc(tituloTxt) + '"><span class="mapa-eq-pre">' + esc(tipo) + '</span>' +
+                        (modelo ? trozo('Modelo: ' + esc(modelo)) : '') + '</b>' +
                         (op.sinEstado ? '' : '<span class="mapa-eq-estado ' + (g.en_linea ? 'en-linea' : 'fuera') + '">' +
                         (g.en_linea ? 'En línea' : 'Sin conexión') + '</span>') + '</div>' +
                     (tercera ? '<div class="mapa-eq-desc" title="' + esc(terceraTxt) + '">' + tercera + '</div>' : '') +
@@ -188,14 +196,14 @@
                 '</div>' +
                 // Dónde está: la dirección corta y, en el MISMO renglón justo detrás, la coordenada
                 // (pedido del cliente, 01-10-2026; antes iba debajo). Son dos trozos aparte porque
-                // ponerDireccion reescribe solo el de la dirección cuando llega.
+                // ponerDireccion reescribe solo el de la dirección cuando llega. Sin dirección, la
+                // coordenada empieza el renglón y su "·" no se ve.
                 '<div class="mapa-eq-ubic"><i class="material-icons">place</i><div>' +
                     (op.sinDireccion ? '' :
-                        '<span class="mapa-eq-dir"' + (op.dirAttr ? ' data-eqdir="' + esc(op.dirAttr) + '"' : '') +
+                        '<span class="mapa-eq-dir mapa-eq-pre"' + (op.dirAttr ? ' data-eqdir="' + esc(op.dirAttr) + '"' : '') +
                         (op.direccion ? ' title="' + esc(op.direccion) + '"' : '') + '>' +
-                        esc(op.direccion ? direccionCorta(op.direccion) : 'Buscando dirección…') + '</span> ') +
-                    '<span class="mapa-eq-coord">' + (op.sinDireccion ? '' : '·\u00a0') +   // espacio duro: el "·" no se queda colgando al final del renglón
-                        g.lat.toFixed(6) + ', ' + g.lng.toFixed(6) + '</span>' +
+                        esc(op.direccion ? direccionCorta(op.direccion) : 'Buscando dirección…') + '</span>') +
+                    trozo('<span class="mapa-eq-coord">' + g.lat.toFixed(6) + ', ' + g.lng.toFixed(6) + '</span>') +
                 '</div></div>' +
             '</div>';
         },

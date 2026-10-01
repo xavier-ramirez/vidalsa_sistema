@@ -394,16 +394,22 @@ MODAL GPS TRACKER — Rastreo Satelital en Vivo
 <div id="gpsTrackerModal" style="display:none;">
     <div class="gps-modal-container" role="dialog" aria-modal="true" aria-label="Rastreo satelital">
 
-        {{-- Sin encabezado (pedido del cliente, 30-09-2026): el rótulo "Rastreo Satelital en
-             Vivo" y el tipo/placa repetían lo que ya dice la ficha. El botón de cerrar va en la
-             esquina de la ficha (ver .gps-info). --}}
+        {{-- Encabezado: solo el rótulo y el botón de cerrar (pedido del cliente, 01-10-2026, que
+             lo quiere de vuelta). Qué equipo es lo dice la ficha, así que aquí no se repite. --}}
+        <div class="gps-header">
+            <span class="gps-header-icono"><i class="material-icons">gps_fixed</i></span>
+            <span class="gps-header-titulo">Rastreo Satelital en Vivo</span>
+            <button type="button" class="gps-cerrar" onclick="closeGpsModal()" aria-label="Cerrar">
+                <i class="material-icons">close</i>
+            </button>
+        </div>
 
         {{-- Cuerpo: mapa satelital a la izquierda y los datos del GPS a la derecha. Los datos los
              pide el servidor a GPS51 (MapaController::equipoGps, la misma lectura que la capa
-             Equipos de /mapa). El mapa es Leaflet con SOLO el satélite de Esri, el mismo de
-             /mapa (ver pintarMapa): antes era Google Maps incrustado, que bajaba todo Google
-             Maps (scripts, recuadro del lugar, controles) y tardaba en verse, sobre todo en el
-             teléfono. --}}
+             Equipos de /mapa). El mapa es Leaflet con el satélite de Esri y encima los nombres
+             de calles de Google, lo mismo que /mapa (ver mapaListo): antes era Google Maps
+             incrustado, que bajaba todo Google Maps (scripts, recuadro del lugar, controles) y
+             tardaba en verse, sobre todo en el teléfono. --}}
         <div class="gps-body">
             <div class="gps-panel-map">
                 <div id="gps_mapa"></div>
@@ -412,12 +418,7 @@ MODAL GPS TRACKER — Rastreo Satelital en Vivo
                 </div>
             </div>
 
-            {{-- La "×" va en .gps-info y lo que se desplaza en .gps-info-cuerpo: así la "×" no se
-                 va con el scroll cuando la ficha no cabe (teléfono acostado). --}}
             <aside class="gps-info">
-                <button type="button" class="gps-cerrar" onclick="closeGpsModal()" aria-label="Cerrar">
-                    <i class="material-icons">close</i>
-                </button>
                 <div class="gps-info-cuerpo">
                     {{-- Qué equipo es mientras la ficha no está (cargando o con un problema del
                          enlace): sin el encabezado, si no, no habría forma de saber de cuál se habla. --}}
@@ -460,10 +461,19 @@ MODAL GPS TRACKER — Rastreo Satelital en Vivo
         display: flex; flex-direction: column; box-shadow: 0 25px 60px rgba(0,0,0,0.2);
     }
 
-    /* Cerrar: en la esquina superior derecha de la ficha (ya no hay encabezado). */
+    .gps-header {
+        display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+        padding: 12px 16px; background: #f8fafc; border-bottom: 1px solid #e2e8f0;
+    }
+    .gps-header-icono {
+        width: 32px; height: 32px; border-radius: 50%; background: #10b981; flex-shrink: 0;
+        display: flex; align-items: center; justify-content: center;
+    }
+    .gps-header-icono .material-icons { font-size: 18px; color: #fff; }
+    .gps-header-titulo { flex: 1; min-width: 0; color: #1e293b; font-size: 15px; font-weight: 800; }
+    /* Cerrar: a la derecha del encabezado. */
     .gps-cerrar {
-        position: absolute; top: 8px; right: 8px; z-index: 5;
-        width: 32px; height: 32px; border-radius: 8px; cursor: default;
+        width: 32px; height: 32px; flex-shrink: 0; border-radius: 8px; cursor: default;
         display: flex; align-items: center; justify-content: center;
         background: #f1f5f9; border: 1px solid #e2e8f0; color: #64748b; transition: all 0.2s;
     }
@@ -482,7 +492,7 @@ MODAL GPS TRACKER — Rastreo Satelital en Vivo
     .gps-mapa-aviso .material-icons { font-size: 40px; color: #94a3b8; }
 
     .gps-info {
-        position: relative; flex-shrink: 0; min-height: 0; display: flex; flex-direction: column;
+        flex-shrink: 0; min-height: 0; display: flex; flex-direction: column;
         background: #fff; color: #000; border-left: 1px solid #e2e8f0;
     }
     .gps-info-cuerpo {
@@ -492,23 +502,22 @@ MODAL GPS TRACKER — Rastreo Satelital en Vivo
     /* Solo para los problemas del enlace (vencido, ajeno, sin reportar). El aviso de posición
        fuera del país NO va aquí: lo pinta la propia ficha (.mapa-eq-dudosa), igual que en el mapa. */
     .gps-mensaje { margin: 0; font-size: 14px; font-weight: 700; color: #000; }
-    .gps-ident { margin: 0; padding-right: 36px; font-size: 14px; font-weight: 800; color: #0f172a; }
+    .gps-ident { margin: 0; font-size: 14px; font-weight: 800; color: #0f172a; }
     .gps-ident:empty { display: none; }
-    /* Hueco para la "×" de cerrar junto a lo primero de la ficha: el frente o, si la posición
-       es dudosa, el aviso de "FUERA de Venezuela", que va encima. */
-    #gpsTrackerModal .mapa-eq-frente,
-    #gpsTrackerModal .mapa-eq-dudosa { padding-right: 30px; }
+    /* El hueco que la ficha deja a la derecha para la × de Leaflet (en /mapa) aquí no hace falta:
+       la × del modal va en el encabezado. */
+    #gpsTrackerModal .mapa-eq-frente { padding-right: 0; }
+    #gpsTrackerModal .mapa-eq-dudosa { padding-right: 12px; }
     .gps-vence { margin: 0; font-size: 11px; font-weight: 600; color: #475569; text-align: center; }
 
-    /* Los seis datos (velocidad, motor, combustible, voltaje, kilometraje y última señal) en
-       DOS renglones de tres (pedido del cliente, 30-09-2026). Solo en el modal: la tarjeta de
-       /mapa es más angosta y sigue a dos columnas. */
-    #gpsTrackerModal .mapa-eq-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    /* Los seis datos van en TRES filas de dos, como en /mapa (pedido del cliente, 01-10-2026;
+       antes dos filas de tres): es la rejilla de la propia ficha, sin regla aquí. */
     /* Letra más grande en el modal (pedido del cliente, 01-10-2026): los rótulos y los datos
        chicos de la ficha (9,5-11,5 px) costaban de leer. Solo aquí, que hay sitio; la tarjeta
        de /mapa es más angosta y se queda como está. */
-    #gpsTrackerModal .mapa-eq-desc,
-    #gpsTrackerModal .mapa-eq-frente { font-size: 13px; }
+    #gpsTrackerModal .mapa-eq-frente,
+    #gpsTrackerModal .mapa-eq-tit b,
+    #gpsTrackerModal .mapa-eq-desc { font-size: 13px; }
     #gpsTrackerModal .mapa-eq-cel span { font-size: 11px; }
     #gpsTrackerModal .mapa-eq-cel b { font-size: 14px; }
     #gpsTrackerModal .mapa-eq-cel small { font-size: 12px; }
@@ -543,6 +552,9 @@ MODAL GPS TRACKER — Rastreo Satelital en Vivo
     @media (max-width: 1024px) and (max-height: 500px) and (orientation: landscape) {
         #gpsTrackerModal { padding: 0; }
         .gps-modal-container { max-width: none; height: 100vh; height: 100dvh; border: 0; border-radius: 0; }
+        /* Con tan poco alto, el encabezado se queda en lo justo. */
+        .gps-header { padding: 6px 12px; }
+        .gps-header-icono { display: none; }
         .gps-body { flex-direction: row; overflow: hidden; }
         .gps-panel-map { flex: 1; height: auto; min-height: 0; }
         .gps-info { border-top: 0; border-left: 1px solid #e2e8f0; }
@@ -610,6 +622,11 @@ if (!window._gpsModalScriptLoaded) {
                     });
                     // maxNativeZoom 17: más cerca Esri no tiene imagen en zonas rurales; reescala la última.
                     L.tileLayer(window.GpsFicha.SATELITE, { maxZoom: 19, maxNativeZoom: 17 }).addTo(M.mapa);
+                    // Encima, los nombres de calles y lugares (pedido del cliente, 01-10-2026: el
+                    // satélite solo no los traía). Los mismos de /mapa.
+                    L.tileLayer(window.GpsFicha.ETIQUETAS, {
+                        subdomains: window.GpsFicha.ETIQUETAS_SUBDOMINIOS, maxZoom: 19
+                    }).addTo(M.mapa);
                 }
                 return M.mapa;
             });
