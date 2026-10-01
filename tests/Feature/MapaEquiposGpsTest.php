@@ -114,7 +114,7 @@ class MapaEquiposGpsTest extends MySqlTestCase
 
         $this->actingAs($this->usuarioGlobal())->getJson(route('mapa.equiposGps.direccion', ['id' => $equipo->ID_EQUIPO]))
             ->assertOk()
-            ->assertJson(['direccion' => 'El Manguito, Anzoátegui, Venezuela']);
+            ->assertJson(['direccion' => 'El Manguito, Anzoátegui, Venezuela', 'lat' => 8.68235, 'lng' => -64.861661]);
     }
 
     public function test_el_modal_de_rastreo_de_un_equipo_trae_sus_datos_sin_el_enlace(): void
@@ -289,5 +289,39 @@ class MapaEquiposGpsTest extends MySqlTestCase
             $poner($datos);
             $this->assertSame($esperado, $ident(), json_encode($datos, JSON_UNESCAPED_UNICODE));
         }
+    }
+
+    /**
+     * Abrir el mapa con la posición fresca caducada: el equipo sale YA con su última posición
+     * conocida (no hay que esperar a GPS51) y va igual a `pendientes` para refrescarla.
+     */
+    public function test_la_lista_trae_la_ultima_posicion_conocida_mientras_se_refresca(): void
+    {
+        $equipo = Equipo::where('LINK_GPS', 'like', '%gps51%')->get(['ID_EQUIPO', 'LINK_GPS'])
+            ->first(fn ($e) => Gps51Service::authcode($e->LINK_GPS) !== null);
+        $this->assertNotNull($equipo, 'Hace falta un equipo con enlace de GPS51 válido.');
+        $ac = Gps51Service::authcode($equipo->LINK_GPS);
+        Http::fake(['gps51.com/*' => Http::response($this->respuestaGps51())]);
+        $u = $this->usuarioGlobal();
+
+        // Una consulta deja la fresca y la última conocida; se borra la fresca (= caducó).
+        Gps51Service::posiciones([$ac]);
+        \Illuminate\Support\Facades\Cache::forget('gps51_pos_' . $ac);
+
+        $lista = $this->actingAs($u)->getJson(route('mapa.equiposGps'))->assertOk();
+        Http::assertSentCount(1);   // solo la de arriba: la lista no consulta a GPS51
+        $fila = collect($lista->json('equipos'))->firstWhere('id', $equipo->ID_EQUIPO);
+        $this->assertTrue($fila['gps']['ok']);
+        $this->assertSame(8.68235, $fila['gps']['lat']);
+        // Marcada como vieja: el mapa no la da por respondida ni pone el "desde hace" del motor.
+        $this->assertTrue($fila['gps']['vieja']);
+        $this->assertContains($equipo->ID_EQUIPO, $lista->json('pendientes'));
+
+        // Con la fresca de vuelta: sin marca y fuera de `pendientes`.
+        Gps51Service::posiciones([$ac]);
+        $lista = $this->actingAs($u)->getJson(route('mapa.equiposGps'))->assertOk();
+        $fila = collect($lista->json('equipos'))->firstWhere('id', $equipo->ID_EQUIPO);
+        $this->assertArrayNotHasKey('vieja', $fila['gps']);
+        $this->assertNotContains($equipo->ID_EQUIPO, $lista->json('pendientes'));
     }
 }

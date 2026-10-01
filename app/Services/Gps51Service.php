@@ -44,7 +44,7 @@ class Gps51Service
     /** Segundos que se reutiliza una dirección (una coordenada no cambia de dirección). */
     private const TTL_DIRECCION = 86400;
 
-    /** Segundos que se guarda la ÚLTIMA posición conocida (ver ultimasConocidas). */
+    /** Segundos que se guarda la ÚLTIMA posición conocida (ver frescasOUltimas). */
     private const TTL_ULTIMA = 86400;
 
     /** Coordenadas por consulta de direcciones (ver direcciones(); 120 se probaron sin problema). */
@@ -142,37 +142,48 @@ class Gps51Service
         // Una sola escritura para toda la tanda (misma razon que enCache: la cache es una tabla).
         if ($porGuardar) {
             Cache::putMany($porGuardar, self::TTL_POSICION);
-            Cache::putMany($ultimas, self::TTL_ULTIMA);   // copia de larga vida (ver ultimasConocidas)
+            Cache::putMany($ultimas, self::TTL_ULTIMA);   // copia de larga vida (ver frescasOUltimas)
         }
 
         return $out;
     }
 
     /**
-     * La ÚLTIMA posición conocida de cada authcode (hasta TTL_ULTIMA de vieja), sin consultar a
-     * GPS51. Para el Excel del mapa: la posición "fresca" dura TTL_POSICION y, si caducó, pedir
-     * de nuevo 130 equipos a GPS51 tarda más que la petición. `en_linea` se recalcula con la
-     * hora de la última señal: el valor guardado era el de cuando se consultó.
+     * La posición de cada authcode SIN consultar a GPS51, en UNA sola lectura de la caché: la
+     * fresca (hasta TTL_POSICION) y, si caducó, la ÚLTIMA conocida (hasta TTL_ULTIMA), marcada
+     * con `vieja` => true y con `en_linea` recalculado a la hora de su última señal (el valor
+     * guardado era el de cuando se consultó). La usan la capa Equipos del mapa —enseña los
+     * equipos al instante y refresca los no frescos por tandas— y el Excel del panel.
      *
      * @param  string[]  $authcodes
-     * @return array<string, array>
+     * @return array{0: array<string, array>, 1: string[]}  [authcode → posición, authcodes sin
+     *                                                      posición fresca (los que hay que pedir)]
      */
-    public static function ultimasConocidas(array $authcodes): array
+    public static function frescasOUltimas(array $authcodes): array
     {
+        $codigos = array_values(array_unique(array_filter($authcodes)));
         $claves = [];
-        foreach (array_unique(array_filter($authcodes)) as $ac) {
+        foreach ($codigos as $ac) {
+            $claves[self::clavePosicion($ac)] = $ac;
             $claves[self::claveUltima($ac)] = $ac;
         }
-        $out = [];
+        $frescas = $viejas = [];
         $ahoraMs = (int) round(microtime(true) * 1000);
         foreach ($claves ? Cache::many(array_keys($claves)) : [] as $clave => $pos) {
             if (!is_array($pos)) continue;
+            $ac = $claves[$clave];
+            if ($clave === self::clavePosicion($ac)) {
+                $frescas[$ac] = $pos;
+                continue;
+            }
             if (!empty($pos['ok'])) {
                 $pos['en_linea'] = !empty($pos['ultima_senal']) && ($ahoraMs - $pos['ultima_senal']) < self::EN_LINEA_MS;
             }
-            $out[$claves[$clave]] = $pos;
+            $pos['vieja'] = true;
+            $viejas[$ac] = $pos;
         }
-        return $out;
+
+        return [$frescas + $viejas, array_values(array_diff($codigos, array_keys($frescas)))];
     }
 
     /**

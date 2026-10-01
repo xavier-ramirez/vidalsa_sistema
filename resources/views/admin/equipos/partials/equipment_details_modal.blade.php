@@ -501,10 +501,6 @@ MODAL GPS TRACKER — Rastreo Satelital en Vivo
        DOS renglones de tres (pedido del cliente, 30-09-2026). Solo en el modal: la tarjeta de
        /mapa es más angosta y sigue a dos columnas. */
     #gpsTrackerModal .mapa-eq-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-    /* A tres columnas, en tablet o teléfono "hace segundos" o la fecha de la última señal no
-       caben: aquí el dato baja de renglón en vez de cortarse con "…". */
-    #gpsTrackerModal .mapa-eq-cel b,
-    #gpsTrackerModal .mapa-eq-cel small { white-space: normal; overflow-wrap: anywhere; }
 
     /* Tablet: la ficha se angosta para dejarle ancho al mapa. */
     @media (max-width: 1024px) {
@@ -694,8 +690,7 @@ if (!window._gpsModalScriptLoaded) {
                     // Se guarda en S para que el refresco que repinta la ficha no la pierda, y se
                     // escribe en el hueco que la ficha dejó (data-eqdir), sin repintarla entera.
                     S.direccion = j.direccion;
-                    var hueco = document.querySelector('#gps_ficha [data-eqdir]');
-                    if (hueco) hueco.textContent = j.direccion;
+                    window.GpsFicha.ponerDireccion(document.querySelector('#gps_ficha [data-eqdir]'), j.direccion);
                 });
         }
 

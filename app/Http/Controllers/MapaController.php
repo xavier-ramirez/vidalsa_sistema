@@ -52,13 +52,18 @@ class MapaController extends Controller
                    'SERIAL_CHASIS', 'SERIAL_DE_MOTOR', 'LINK_GPS', 'ID_FRENTE_ACTUAL', 'ESTADO_OPERATIVO'])
             ->filter(fn ($e) => Gps51Service::authcode($e->LINK_GPS) !== null);
 
-        $enCache = Gps51Service::enCache($equipos->map(fn ($e) => Gps51Service::authcode($e->LINK_GPS))->all());
+        // Lo que no está fresco (más de TTL_POSICION) sale con su ÚLTIMA posición conocida, la de
+        // hasta un día atrás y marcada `vieja`, y va igual a `pendientes` para refrescarla. Así el
+        // mapa enseña los equipos al instante en vez de esperar a GPS51 (~2–8 s por tanda de 10).
+        $authcodes = $equipos->mapWithKeys(fn ($e) => [$e->ID_EQUIPO => Gps51Service::authcode($e->LINK_GPS)])->all();
+        [$posiciones, $noFrescos] = Gps51Service::frescasOUltimas($authcodes);
+        $noFrescos = array_flip($noFrescos);
 
         $pendientes = [];
-        $items = $equipos->map(function ($e) use ($enCache, &$pendientes) {
-            $authcode = Gps51Service::authcode($e->LINK_GPS);
-            $gps = $authcode ? ($enCache[$authcode] ?? null) : null;
-            if ($authcode && $gps === null) {
+        $items = $equipos->map(function ($e) use ($authcodes, $posiciones, $noFrescos, &$pendientes) {
+            $authcode = $authcodes[$e->ID_EQUIPO];
+            $gps = $authcode ? ($posiciones[$authcode] ?? null) : null;
+            if ($authcode && isset($noFrescos[$authcode])) {
                 $pendientes[] = $e->ID_EQUIPO;
             }
             [$ident, $identPor] = self::identParaPantalla($e);
@@ -78,7 +83,7 @@ class MapaController extends Controller
                 'frente'        => $e->frenteActual
                     ? ['id' => $e->frenteActual->ID_FRENTE, 'nombre' => $e->frenteActual->NOMBRE_FRENTE]
                     : null,
-                'gps'           => $gps,   // ver Gps51Service::normalizar(); null = aún sin consultar
+                'gps'           => $gps,   // ver Gps51Service::normalizar() y `vieja`; null = sin ninguna en el último día
             ];
         })->values();
 
@@ -184,7 +189,13 @@ class MapaController extends Controller
             return response()->json(['direccion' => null]);
         }
 
-        return response()->json(['direccion' => Gps51Service::direccion($authcode, $pos['lat'], $pos['lng'])]);
+        // Con la coordenada a la que corresponde: el mapa puede estar enseñando la ÚLTIMA posición
+        // conocida (vieja) y la dirección es de la actual; así la guarda bajo la que es.
+        return response()->json([
+            'direccion' => Gps51Service::direccion($authcode, $pos['lat'], $pos['lng']),
+            'lat'       => $pos['lat'],
+            'lng'       => $pos['lng'],
+        ]);
     }
 
     /**
@@ -219,8 +230,7 @@ class MapaController extends Controller
         // 1) la posición fresca (la que el mapa acaba de pedir), 2) si caducó, la última conocida
         // (la columna ÚLTIMA SEÑAL dice de cuándo es) y 3) solo lo que no tiene ninguna se pide a
         // GPS51, con tope de tiempo. Lo que ni así responde sale como "Sin respuesta de GPS51".
-        $pos = Gps51Service::enCache($acs);
-        $pos += Gps51Service::ultimasConocidas(array_values(array_diff($acs, array_keys($pos))));
+        [$pos] = Gps51Service::frescasOUltimas($acs);
         $hasta = microtime(true) + 20;
         foreach (array_chunk(array_values(array_diff($acs, array_keys($pos))), Gps51Service::LOTE) as $tanda) {
             if (microtime(true) > $hasta) break;

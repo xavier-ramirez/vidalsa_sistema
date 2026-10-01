@@ -3374,7 +3374,7 @@
         var miniEquiposUrl = el.getAttribute('data-mini-equipos');
         var EQ_REFRESCO = 120000;
         var EQ_TANDAS_A_LA_VEZ = 2;
-        var EQ_MONTAJE_TOPE_MS = 15000;  // lo que se espera a tenerlo todo antes de enseñar lo que haya
+        var EQ_MONTAJE_TOPE_MS = 8000;   // con la caché vacía, lo que se espera a tenerlo todo antes de enseñar lo que haya
         var EQ_GRUPO_RADIO_PX = 55;    // a menos de esto en pantalla, dos equipos se juntan en uno
         var EQ_GRUPO_HASTA_ZOOM = 16;  // desde aquí ya no se agrupa: se ven todos sueltos
 
@@ -3414,7 +3414,7 @@
             vuelta: 0,       // cada carga suma 1: las tandas de una vuelta vieja se descartan
             promesa: null,   // la carga de la lista en curso (ver eqCargar)
             soltarSpin: function () {},   // devuelve el spinner de la carga en curso (ver spinTicket)
-            montando: false, // primera carga: se pinta al final, de una vez (ver eqCompletar)
+            montando: false, // primera carga: se pinta de una vez, no por tandas (ver eqCompletar)
             topeMontaje: null,
             dirs: {},        // "id|lat|lng" → dirección ya buscada (sobrevive a los refrescos)
             dirsPidiendo: {},// "id|lat|lng" → true mientras se pide
@@ -3511,20 +3511,28 @@
         // La dirección se pide UNA vez por equipo y posición, al abrir su ficha (no para los ~130 a
         // la vez). Se guarda aparte de los datos del equipo (capaEquipos.dirs) porque cada refresco
         // los reemplaza, y con ellos se perdía la dirección de una ficha abierta.
-        function eqClaveDir(e) { return e.id + '|' + e.gps.lat.toFixed(4) + '|' + e.gps.lng.toFixed(4); }
+        function eqClaveDirDe(id, lat, lng) { return id + '|' + Number(lat).toFixed(4) + '|' + Number(lng).toFixed(4); }
+        function eqClaveDir(e) { return eqClaveDirDe(e.id, e.gps.lat, e.gps.lng); }
+        function eqHuecoDir(clave) { return document.querySelector('.mapa-eq-dir[data-eqdir="' + clave + '"]'); }
         function eqCargarDireccion(marca) {
-            var clave = eqClaveDir(marca.eq);
+            var id = marca.eq.id, clave = eqClaveDir(marca.eq);
             if (capaEquipos.dirs[clave] || capaEquipos.dirsPidiendo[clave]) return;
             capaEquipos.dirsPidiendo[clave] = true;
-            window.apiFetch(equiposGpsUrl + '/' + marca.eq.id + '/direccion', { headers: { 'Accept': 'application/json' } })
+            window.apiFetch(equiposGpsUrl + '/' + id + '/direccion', { headers: { 'Accept': 'application/json' } })
                 .then(function (r) { return r.ok ? r.json() : null; })
                 .catch(function () { return null; })
                 .then(function (j) {
                     delete capaEquipos.dirsPidiendo[clave];
-                    capaEquipos.dirs[clave] = (j && j.direccion) || 'Dirección no disponible';
-                    // Solo se escribe en una ficha abierta que siga mostrando ESA posición.
-                    var nodo = document.querySelector('.mapa-eq-dir[data-eqdir="' + clave + '"]');
-                    if (nodo) nodo.textContent = capaEquipos.dirs[clave];
+                    // Sin dirección: se avisa en la ficha pero NO se guarda, y se vuelve a pedir la
+                    // próxima vez que se abra (antes quedaba "no disponible" toda la sesión).
+                    if (!j || !j.direccion) { window.GpsFicha.ponerDireccion(eqHuecoDir(clave), 'Dirección no disponible'); return; }
+                    // Se guarda bajo la coordenada que dice el SERVIDOR: la ficha puede estar
+                    // enseñando la última posición conocida (vieja) y la dirección es de la actual.
+                    // Si no coinciden, la ficha sigue en "Buscando dirección…" hasta que su tanda
+                    // la mueva a la posición nueva, y ahí ya la encuentra guardada.
+                    var real = eqClaveDirDe(id, j.lat, j.lng);
+                    capaEquipos.dirs[real] = j.direccion;
+                    window.GpsFicha.ponerDireccion(eqHuecoDir(real), j.direccion);
                 });
         }
 
@@ -3551,11 +3559,16 @@
                     if (m._eqFirma !== firma) { m.setIcon(eqIcono(e)); m._eqFirma = firma; }
                     // Ficha abierta: se re-dibuja con los datos nuevos y, si el equipo se movió, se pide
                     // la dirección de la posición nueva (la de antes queda guardada en capaEquipos.dirs).
-                    if (m.isPopupOpen()) { m.getPopup().update(); eqCargarDireccion(m); }
+                    // Solo si cambió SU gps: update() re-encuadra la ficha (autoPan) y, con una tanda
+                    // cada pocos segundos, devolvía el mapa a ella mientras el usuario lo arrastraba.
+                    var cambio = m._eqGps !== e.gps;
+                    m._eqGps = e.gps;
+                    if (cambio && m.isPopupOpen()) { m.getPopup().update(); eqCargarDireccion(m); }
                 } else {
                     m = L.marker(ll, { icon: eqIcono(e), riseOnHover: true, keyboard: false });
                     m.eq = e;
                     m._eqFirma = eqIconoFirma(e);
+                    m._eqGps = e.gps;
                     m.bindTooltip(function (capa) {
                         var q = capa.eq;
                         return '<b>' + esc(eqIdent(q)) + '</b>' + (q.frente ? '<br><span style="opacity:.85;">' + esc(q.frente.nombre) + '</span>' : '');
@@ -3613,13 +3626,16 @@
                     var anteriores = {};
                     capaEquipos.datos.forEach(function (e) { if (e.gps) anteriores[e.id] = e.gps; });
                     capaEquipos.datos = (j && j.equipos) || [];
-                    capaEquipos.datos.forEach(function (e) { if (!e.gps && anteriores[e.id]) e.gps = anteriores[e.id]; });
+                    // Tampoco se cambia por la ÚLTIMA conocida (`vieja`) una que este mapa ya tenía al día.
+                    capaEquipos.datos.forEach(function (e) {
+                        var antes = anteriores[e.id];
+                        if (antes && (!e.gps || (e.gps.vieja && !antes.vieja))) e.gps = antes;
+                    });
                     capaEquipos.totalesFrente = (j && j.totales_frente) || {};
                     capaEquipos.totalEquipos   = (j && j.total_equipos) || 0;
                     capaEquipos.cargado = true;
-                    // Durante el montaje ni esta primera pintada: enseñaría solo los equipos cuya
-                    // posición ya tenía el servidor en caché (unos pocos) y el resto iría cayendo
-                    // después, que es justo el goteo que se quiere evitar.
+                    // Durante el montaje no se pinta aquí: lo decide eqCompletar (de una vez, y solo
+                    // cuando ya hay posición para casi todos; si no, el resto iría cayendo después).
                     if (!capaEquipos.montando) eqPintar();
                     eqCompletar((j && j.pendientes) || [], (j && j.lote) || 10);
                     return true;
@@ -3665,15 +3681,26 @@
 
         /**
          * Paso 2: las posiciones que faltan, por tandas (EQ_TANDAS_A_LA_VEZ a la vez). En el
-         * MONTAJE no se pinta cada tanda —el mapa sale entero al final—; en los refrescos
-         * posteriores sí, que ahí ya no hay nada que estropear. Al terminar la vuelta se programa
-         * el siguiente refresco.
+         * MONTAJE no se pinta cada tanda: el mapa sale entero de una vez, en cuanto casi todos
+         * tienen posición (ver abajo) o al tope. Después sí, que ahí los marcadores ya existen y
+         * solo se mueven. Al terminar la vuelta se programa el siguiente refresco.
          */
         function eqCompletar(pendientes, lote) {
             var vuelta = ++capaEquipos.vuelta;
             var cola = pendientes.slice();
             capaEquipos.pendientes = cola.length;
             eqActualizarPanel();
+            // Si la lista ya trae posición (fresca o la última conocida, ver
+            // MapaController::equiposGps) para todos menos, como mucho, una tanda, el mapa se
+            // enseña YA y las tandas lo ponen al día en caliente: los marcadores se reutilizan por
+            // id, así que solo se mueven. Si faltan más (caché a medias o vacía), se espera como
+            // antes, con el tope de abajo: si no, el resto iría apareciendo de 10 en 10.
+            if (capaEquipos.montando) {
+                var enCola = {};
+                cola.forEach(function (id) { enCola[id] = true; });
+                var sinNada = capaEquipos.datos.filter(function (e) { return enCola[e.id] && !e.gps; }).length;
+                if (sinNada <= lote) eqMontajeListo();
+            }
             // Tope de seguridad del montaje: GPS51 es lento y con la flota entera pedir todas las
             // posiciones puede irse a medio minuto. Pasado este tiempo se enseña lo que haya y el
             // resto entra en caliente, en vez de dejar al usuario mirando un spinner.
@@ -3712,7 +3739,9 @@
                             if (ids.indexOf(e.id) === -1) return;
                             // Sin respuesta de GPS51: se queda con la de antes (si la había).
                             if (pos[e.id]) e.gps = pos[e.id];
-                            e._sinRespuesta = !pos[e.id] && !e.gps;
+                            // Sin respuesta: tampoco si lo que tiene es la ÚLTIMA conocida (`vieja`),
+                            // que puede ser de horas atrás; el pie lo cuenta igual.
+                            e._sinRespuesta = !pos[e.id] && (!e.gps || !!e.gps.vieja);
                         });
                         capaEquipos.pendientes = Math.max(0, capaEquipos.pendientes - ids.length);
                         // Mientras se monta, el mapa NO se repinta en cada tanda: si no, se veían
@@ -3901,6 +3930,8 @@
                     // Los de posición dudosa se pintan igual, pero se cuentan: su posición no
                     // vale y hay que mandar a revisar esos GPS (sale en el pie).
                     if (eqDudosa(e)) cuenta.fuera++;
+                    // Pintado con la última posición conocida porque GPS51 no contestó.
+                    if (e._sinRespuesta) cuenta.sinRespuesta++;
                 } else if (!e.gps) { if (e._sinRespuesta) cuenta.sinRespuesta++; }   // sin gps y sin marca: aún cargando
                 else if (e.gps.motivo === 'sin_posicion') cuenta.sinPosicion++;
                 else cuenta.vencidos++;   // enlace vencido o rechazado por GPS51
