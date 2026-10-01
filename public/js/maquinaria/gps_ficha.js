@@ -149,11 +149,14 @@
                     celda('Kilometraje', num(g.km_total) + ' km') +
                     celda('Última señal', window.tiempoHace(g.ultima_senal), window.fechaHoraLocal(g.ultima_senal)) +
                 '</div>' +
-                (op.sinDireccion ? '' :
-                    '<div class="mapa-eq-dir"' + (op.dirAttr ? ' data-eqdir="' + esc(op.dirAttr) + '"' : '') +
-                    (op.direccion ? ' title="' + esc(op.direccion) + '"' : '') + '>' +
-                    esc(op.direccion ? direccionCorta(op.direccion) : 'Buscando dirección…') + '</div>') +
-                '<div class="mapa-eq-coord">' + g.lat.toFixed(6) + ', ' + g.lng.toFixed(6) + '</div>' +
+                // Dónde está, en dos renglones como mucho: la dirección corta y, debajo, la coordenada.
+                '<div class="mapa-eq-ubic"><i class="material-icons">place</i><div>' +
+                    (op.sinDireccion ? '' :
+                        '<div class="mapa-eq-dir"' + (op.dirAttr ? ' data-eqdir="' + esc(op.dirAttr) + '"' : '') +
+                        (op.direccion ? ' title="' + esc(op.direccion) + '"' : '') + '>' +
+                        esc(op.direccion ? direccionCorta(op.direccion) : 'Buscando dirección…') + '</div>') +
+                    '<div class="mapa-eq-coord">' + g.lat.toFixed(6) + ', ' + g.lng.toFixed(6) + '</div>' +
+                '</div></div>' +
             '</div>';
         },
 

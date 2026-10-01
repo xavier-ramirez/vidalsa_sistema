@@ -396,16 +396,17 @@ MODAL GPS TRACKER — Rastreo Satelital en Vivo
 
         {{-- Sin encabezado (pedido del cliente, 30-09-2026): el rótulo "Rastreo Satelital en
              Vivo" y el tipo/placa repetían lo que ya dice la ficha. El botón de cerrar va en la
-             esquina de la ficha (ver .gps-info), no sobre el mapa: ahí está el botón de
-             pantalla completa de Google. --}}
+             esquina de la ficha (ver .gps-info). --}}
 
-        {{-- Cuerpo: mapa de Google a la izquierda y los datos del GPS a la derecha. Los datos los
+        {{-- Cuerpo: mapa satelital a la izquierda y los datos del GPS a la derecha. Los datos los
              pide el servidor a GPS51 (MapaController::equipoGps, la misma lectura que la capa
-             Equipos de /mapa): ya no se abre la página de GPS51 dentro del modal. --}}
+             Equipos de /mapa). El mapa es Leaflet con SOLO el satélite de Esri, el mismo de
+             /mapa (ver pintarMapa): antes era Google Maps incrustado, que bajaba todo Google
+             Maps (scripts, recuadro del lugar, controles) y tardaba en verse, sobre todo en el
+             teléfono. --}}
         <div class="gps-body">
             <div class="gps-panel-map">
-                <iframe id="gps_mapa" title="Mapa de Google" src="about:blank" loading="lazy"
-                    referrerpolicy="no-referrer-when-downgrade" allow="fullscreen"></iframe>
+                <div id="gps_mapa" role="img" aria-label="Mapa satelital con la posición del equipo"></div>
                 <div id="gps_mapa_aviso" class="gps-mapa-aviso">
                     <div class="spinner-circle"></div>
                 </div>
@@ -443,7 +444,7 @@ MODAL GPS TRACKER — Rastreo Satelital en Vivo
 <style>
     details[name="equipment_accordion"] summary { cursor: default; }
 
-    /* ── Modal Rastreo Satelital: mapa de Google + ficha blanca con letra negra ──
+    /* ── Modal Rastreo Satelital: mapa satelital + ficha blanca con letra negra ──
        PC: mapa a la izquierda y ficha a la derecha. Tablet: igual, ficha más angosta.
        Teléfono de pie: pantalla completa, mapa arriba y ficha debajo (un solo scroll).
        Teléfono acostado: pantalla completa, mapa y ficha lado a lado. */
@@ -470,9 +471,10 @@ MODAL GPS TRACKER — Rastreo Satelital en Vivo
 
     .gps-body { display: flex; flex: 1; min-height: 0; }
     .gps-panel-map { flex: 1; min-width: 0; position: relative; background: #e2e8f0; }
-    #gps_mapa { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+    #gps_mapa { position: absolute; inset: 0; width: 100%; height: 100%; }
+    /* Encima de todo lo de Leaflet (sus capas y controles llegan a z-index 1000). */
     .gps-mapa-aviso {
-        position: absolute; inset: 0; z-index: 2; background: #f8fafc;
+        position: absolute; inset: 0; z-index: 1001; background: #f8fafc;
         display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
         padding: 24px; text-align: center; color: #0f172a; font-size: 14px; font-weight: 700;
     }
@@ -518,7 +520,9 @@ MODAL GPS TRACKER — Rastreo Satelital en Vivo
         #gpsTrackerModal { padding: 0; }
         .gps-modal-container { max-width: none; height: 100vh; height: 100dvh; border: 0; border-radius: 0; }
         .gps-body { flex-direction: column; overflow-y: auto; -webkit-overflow-scrolling: touch; }
-        .gps-panel-map { flex: none; height: 42vh; height: 42dvh; min-height: 230px; }
+        /* El mapa es lo principal en el teléfono (pedido del cliente, 01-10-2026): más de la
+           mitad de la pantalla; la ficha queda debajo, con un solo scroll. */
+        .gps-panel-map { flex: none; height: 55vh; height: 55dvh; min-height: 260px; }
         .gps-info { border-left: 0; border-top: 1px solid #e2e8f0; }
         .gps-info-cuerpo { width: auto; overflow: visible; padding: 14px 16px 20px; }
     }
@@ -568,23 +572,62 @@ if (!window._gpsModalScriptLoaded) {
             av.innerHTML = html || '';
             av.style.display = html ? 'flex' : 'none';
         }
-        // Pone el iframe del mapa con ese src usando SIEMPRE un iframe nuevo: cambiarle el src a uno
-        // ya cargado deja un paso invisible en el historial y gasta el siguiente Atrás (lo mismo que
-        // closePdfPreview en layout_ui.js).
-        function ponerIframe(src) {
-            var fr = $('gps_mapa');
-            if (!fr || fr.getAttribute('src') === src) return;
-            var nuevo = fr.cloneNode(false);
-            nuevo.setAttribute('src', src);
-            fr.parentNode.replaceChild(nuevo, fr);
+        // ── Mapa: Leaflet con SOLO el satélite de Esri (lo mismo que /mapa, sin etiquetas ni nada
+        // más). Leaflet sale de /vendor/leaflet, el mismo archivo que usa /mapa: si ya se abrió
+        // el mapa, no se vuelve a bajar. Se pide al ABRIR el modal, a la vez que los datos del GPS.
+        var LEAFLET_JS = '/vendor/leaflet/leaflet.js', LEAFLET_CSS = '/vendor/leaflet/leaflet.css';
+        var SATELITE = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+        var M = { mapa: null, marca: null };
+        function cargarLeaflet() {
+            // data-mapa-css: la misma marca que pone /mapa (ensureCss), así no se duplica el <link>.
+            if (!document.querySelector('link[data-mapa-css="' + LEAFLET_CSS + '"]')) {
+                var l = document.createElement('link');
+                l.rel = 'stylesheet'; l.href = LEAFLET_CSS; l.setAttribute('data-mapa-css', LEAFLET_CSS);
+                document.head.appendChild(l);
+            }
+            return window.cargarScriptUnaVez(LEAFLET_JS, function () { return typeof L !== 'undefined' && !!L.map; });
         }
-        function pintarMapa() {
+        // El mapa se crea UNA vez y se reutiliza en cada apertura. Si la SPA rehízo el modal (otra
+        // página y vuelta), el contenedor es otro y se crea de nuevo.
+        function mapaListo() {
+            return cargarLeaflet().then(function () {
+                var cont = $('gps_mapa');
+                if (!cont) throw new Error('sin contenedor');
+                if (M.mapa && M.mapa.getContainer() !== cont) { M.mapa.remove(); M.mapa = M.marca = null; }
+                if (!M.mapa) {
+                    M.mapa = L.map(cont, { zoomControl: true, attributionControl: false });   // sin el texto de créditos, igual que /mapa
+                    // maxNativeZoom 17: más cerca Esri no tiene imagen en zonas rurales; reescala la última.
+                    L.tileLayer(SATELITE, { maxZoom: 19, maxNativeZoom: 17 }).addTo(M.mapa);
+                }
+                return M.mapa;
+            });
+        }
+        // El mismo icono que en /mapa (estilos .mapa-eq-pin de estilos_globales.css).
+        function iconoEquipo(enLinea) {
+            return L.divIcon({
+                className: 'mapa-eq-pin' + (enLinea ? '' : ' fuera'),
+                html: '<i class="material-icons mapa-eq-ico">agriculture</i>',
+                iconSize: [26, 26], iconAnchor: [13, 13]
+            });
+        }
+        // Centra en el equipo al abrir; en los refrescos solo lo mueve (sin cambiar el zoom que
+        // haya puesto el usuario) y lo sigue si se desplazó.
+        function pintarMapa(enLinea) {
             if (S.lat === null) return;
-            // Mapa y satélite los cambia el propio Google (el recuadro de abajo a la izquierda).
-            // t=k -> vista SATELITE (pedido del cliente): sobre el terreno se reconoce el patio,
-            // la via o el galpon donde esta el equipo, que en el plano de calles no se distingue.
-            ponerIframe('https://maps.google.com/maps?q=' + S.lat + ',' + S.lng + '&z=16&t=k&hl=es&output=embed');
-            avisoMapa('');
+            var turno = S.turno, lat = S.lat, lng = S.lng;
+            mapaListo().then(function (mapa) {
+                if (turno !== S.turno || S.lat !== lat || S.lng !== lng) return;   // cerrado u otro equipo
+                mapa.invalidateSize();   // el contenedor estaba oculto (display:none) al crearse
+                var ll = [lat, lng];
+                if (!M.marca) M.marca = L.marker(ll, { keyboard: false }).addTo(mapa);
+                M.marca.setLatLng(ll).setIcon(iconoEquipo(enLinea));
+                if (!S.centrado) { mapa.setView(ll, 17, { animate: false }); S.centrado = true; }
+                else if (!mapa.getBounds().contains(ll)) mapa.panTo(ll);
+                avisoMapa('');
+            }).catch(function () {
+                if (turno !== S.turno) return;
+                avisoMapa('<i class="material-icons">map</i><span>No se pudo cargar el mapa.</span>');
+            });
         }
 
         // "hace 5 min" / "hace 3 días": lo calcula window.tiempoHace (dom_helpers.js, en el
@@ -635,7 +678,6 @@ if (!window._gpsModalScriptLoaded) {
                 S.lat = S.lng = null;
                 msg.textContent = problema;
                 msg.hidden = false;
-                ponerIframe('about:blank');
                 avisoMapa('<i class="material-icons">location_off</i><span>' + esc(problema) + '</span>');
                 return;
             }
@@ -673,7 +715,7 @@ if (!window._gpsModalScriptLoaded) {
             // coordenada de otro país no dice nada y sería una consulta para nada.
             var cambio = S.lat !== g.lat || S.lng !== g.lng;
             S.lat = g.lat; S.lng = g.lng;
-            pintarMapa();
+            pintarMapa(g.en_linea);
             if (!g.fuera_de_venezuela && (cambio || !S.direccion)) cargarDireccion();
         }
 
@@ -712,7 +754,7 @@ if (!window._gpsModalScriptLoaded) {
             var ds = btn.dataset;
 
             pararRefresco();
-            S = { id: ds.equipoId, lat: null, lng: null, timer: null, turno: S.turno + 1, direccion: null };
+            S = { id: ds.equipoId, lat: null, lng: null, timer: null, turno: S.turno + 1, direccion: null, centrado: false };
 
             // Mientras el servidor contesta, qué equipo es sale de lo que trae el botón.
             var placa  = limpio(ds.equipoName, ['N/A', 'Sin Placa']);
@@ -722,8 +764,9 @@ if (!window._gpsModalScriptLoaded) {
             // Estado inicial: todo vacío y el mapa cargando.
             $('gps_ficha').innerHTML = '';
             ['gps_mensaje', 'gps_vence'].forEach(function (id) { $(id).hidden = true; });
-            ponerIframe('about:blank');
             avisoMapa('<div class="spinner-circle"></div><span>Consultando el GPS…</span>');
+            // Leaflet se baja YA, en paralelo con los datos del GPS: cuando lleguen, el mapa está.
+            cargarLeaflet().catch(function () {});
 
             modal.style.display = 'flex';
             // Mismo ayudante que el detalle y el visor de PDF (layout_ui.js).
@@ -782,7 +825,6 @@ if (!window._gpsModalScriptLoaded) {
                 // Se abre desde el detalle del equipo, que sigue abierto debajo: restaurarScrollFondo
                 // mantiene el bloqueo mientras quede una capa (layout_ui.js · _CAPAS_SCROLL).
                 window.restaurarScrollFondo();
-                ponerIframe('about:blank');
             }
         };
 
