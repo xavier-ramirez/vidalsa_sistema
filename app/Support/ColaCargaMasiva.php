@@ -105,7 +105,8 @@ class ColaCargaMasiva
             set_time_limit(180);   // por PDF: leerlo con Drive tarda
             // El lector puede ser otro (el programador, o la subida de otra persona): lo que se
             // enlace al leerlo va a nombre de quien soltó el PDF.
-            if (!empty($datos['usuario'])) Auth::onceUsingId($datos['usuario']);
+            // Sin autor guardado, sin autor: no se hereda el del PDF anterior.
+            empty($datos['usuario']) ? Auth::forgetUser() : Auth::onceUsingId($datos['usuario']);
             $servicio->leer(new UploadedFile($pdf, $datos['subido']['nombre'], 'application/pdf', null, true),
                 $datos['tipo'], $datos['subido']);
             return 1;

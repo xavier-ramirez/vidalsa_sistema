@@ -214,13 +214,22 @@ class CargaMasivaDocumentos
         // papelera y queda en el log.
         try {
             $propuesta = $this->proponer($archivo, $tipoPedido, $nombre, $link, $driveId, $md5);
-            if (($propuesta['tipo'] ?? null) === self::EMBARQUE) $this->enlazarEmbarque($propuesta);
-            return $propuesta;
         } catch (\Throwable $e) {
             Log::error('Carga masiva: fallo al analizar un PDF ya subido', ['archivo' => $nombre, 'error' => $e->getMessage()]);
             GoogleDriveService::borrarTrasResponder($driveId);
             return $this->fallo($nombre, null, 'No se pudo analizar el archivo. Vuelve a subirlo.');
         }
+
+        // Fuera del try de arriba: la propuesta ya esta anotada, asi que si enlazar falla el PDF
+        // NO va a la papelera; la fila se queda "Por aplicar" y se aplica a mano.
+        if (($propuesta['tipo'] ?? null) === self::EMBARQUE) {
+            try {
+                $this->enlazarEmbarque($propuesta);
+            } catch (\Throwable $e) {
+                Log::error('Carga masiva: no se pudo enlazar el BL solo', ['archivo' => $nombre, 'error' => $e->getMessage()]);
+            }
+        }
+        return $propuesta;
     }
 
     /** Lee el PDF ya subido y arma su propuesta (ver analizar). */
@@ -876,19 +885,19 @@ class CargaMasivaDocumentos
     {
         if (!empty($propuesta['ia']) || empty($propuesta['equipos']) || empty($propuesta['link'])) return;
 
+        // Cuantos se quedan sin enlazar, por motivo.
         $pendientes = [];
         foreach ($propuesta['equipos'] as $f) {
             $r = $this->aplicarEmbarque((int) $f['id'], $propuesta['link'], false, false, false);
-            if (!$r['ok']) $pendientes[$r['mensaje']][] = $f['serial'] ?? $f['id'];
+            if (!$r['ok']) $pendientes[$r['mensaje']] = ($pendientes[$r['mensaje']] ?? 0) + 1;
         }
         if (!$pendientes) {
             $this->cerrarPropuesta($propuesta['link']);
             return;
         }
 
-        $enlazados = count($propuesta['equipos']) - array_sum(array_map('count', $pendientes));
-        $porque = implode(' ', array_map(fn ($m, $quienes) => count($quienes) . ' sin enlazar: ' . $m,
-            array_keys($pendientes), $pendientes));
+        $enlazados = count($propuesta['equipos']) - array_sum($pendientes);
+        $porque = implode(' ', array_map(fn ($m, $n) => "$n sin enlazar: $m", array_keys($pendientes), $pendientes));
         VerificacionDocumento::where('DRIVE_ID', DocumentoAnexo::driveIdDeLink($propuesta['link']))
             ->where('ORIGEN', VerificacionDocumento::DE_CARGA_MASIVA)
             ->update(['MOTIVO' => mb_substr("Enlazado solo a $enlazados equipo(s). $porque Pulsa Aplicar para decidirlo. "
