@@ -3309,8 +3309,6 @@ class EquipoController extends Controller
                 $data = $e ? [
                     'nro_bl'          => $e->NRO_BL ?? '',
                     'buque'           => $e->BUQUE ?? '',
-                    'puerto_carga'    => $e->PUERTO_CARGA ?? '',
-                    'puerto_descarga' => $e->PUERTO_DESCARGA ?? '',
                     'fecha_embarque'  => $e->FECHA_EMBARQUE?->format('Y-m-d') ?? '',
                     'unidades'        => $e->UNIDADES ?? '',
                     'vin'             => $e->pivot->VIN ?? '',
@@ -3633,7 +3631,7 @@ class EquipoController extends Controller
 
     /**
      * Guarda desde el panel del visor los datos del documento de embarque (BL) del equipo.
-     * Numero, buque, puertos, fecha y unidades son del EMBARQUE: valen para todos sus equipos.
+     * Numero, buque, fecha y unidades son del EMBARQUE: valen para todos sus equipos.
      * El VIN es el de ESTE equipo tal como lo imprime el BL. Mismo permiso que el resto del
      * panel (user.edit, en updateMetadata) y queda en el historial como 'metadata_embarque'.
      */
@@ -3647,8 +3645,6 @@ class EquipoController extends Controller
         $v = \Illuminate\Support\Facades\Validator::make($request->all(), [
             'nro_bl'          => 'nullable|string|max:40|unique:embarques,NRO_BL,' . $embarque->ID_EMBARQUE . ',ID_EMBARQUE',
             'buque'           => 'nullable|string|max:120',
-            'puerto_carga'    => 'nullable|string|max:120',
-            'puerto_descarga' => 'nullable|string|max:120',
             'fecha_embarque'  => 'nullable|date_format:Y-m-d',
             'unidades'        => 'nullable|integer|min:0|max:100000',
             'vin'             => 'nullable|string|max:40',
@@ -3663,13 +3659,11 @@ class EquipoController extends Controller
         // Solo los campos que llegan: el visor manda unicamente los que la persona cambio. Asi
         // un panel abierto hace rato no devuelve a su valor viejo lo que otro corrigio despues.
         $columnas = [
-            'nro_bl' => 'NRO_BL', 'buque' => 'BUQUE', 'puerto_carga' => 'PUERTO_CARGA',
-            'puerto_descarga' => 'PUERTO_DESCARGA', 'fecha_embarque' => 'FECHA_EMBARQUE',
+            'nro_bl' => 'NRO_BL', 'buque' => 'BUQUE', 'fecha_embarque' => 'FECHA_EMBARQUE',
             'unidades' => 'UNIDADES', 'vin' => 'VIN',
         ];
         $antes = [
             'NRO_BL' => $embarque->NRO_BL, 'BUQUE' => $embarque->BUQUE,
-            'PUERTO_CARGA' => $embarque->PUERTO_CARGA, 'PUERTO_DESCARGA' => $embarque->PUERTO_DESCARGA,
             'FECHA_EMBARQUE' => $embarque->FECHA_EMBARQUE?->format('Y-m-d'), 'UNIDADES' => $embarque->UNIDADES,
             'VIN' => $embarque->pivot->VIN,
         ];
@@ -3681,7 +3675,7 @@ class EquipoController extends Controller
                 'unidades'       => $request->filled($campo) ? (int) $request->input($campo) : null,
                 default          => self::textoEnMayusculas($request, $campo),
             };
-            // Solo mayusculas no es un cambio: el PDF trae el buque y los puertos como vienen.
+            // Solo mayusculas no es un cambio: el PDF trae el buque como viene.
             if (mb_strtoupper((string) $antes[$columna]) !== (string) $valor) {
                 $diff[$columna] = ['antes' => $antes[$columna], 'despues' => $valor];
             }

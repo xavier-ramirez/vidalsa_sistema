@@ -16,6 +16,10 @@ namespace App\Support;
  *   GUANTA, VENEZUELA                      <- puerto de descarga
  *   Place and date of issue
  *   GUANTA, VENEZUELA       2025-07-20     <- fecha (en los escaneados, unas lineas mas abajo)
+ *
+ * Drive no siempre respeta ese orden: con el RAQDLA16 (RUI AN YANG V.2524, 01-10-2026) pone los
+ * rotulos juntos y los valores despues. Por eso el buque se busca por su forma (RE_BUQUE) y la
+ * fecha, si no esta junto a su rotulo, es la unica del documento.
  *   ATTACHMENT: ITEM / MODEL / VIN NO. / ENGINE NO.   <- una fila por unidad
  *
  * Todo es "lo mejor que se pudo leer": lo que no aparece queda en null y la unica pieza
@@ -31,6 +35,12 @@ class BillOfLading
 
     /** Un VIN que el PDF parte en dos con un espacio ("LZZWADG49ST501 039", anexo HCLKGT14). */
     private const RE_VIN_PARTIDO = '/\b([A-HJ-NPR-Z0-9]{8,16}) ([A-HJ-NPR-Z0-9]{1,9})\b/';
+
+    /**
+     * Buque y viaje en una linea: "RUI AN YANG V.2524", "HONCHO V2512". Es la forma mas segura
+     * de dar con el buque, porque Drive no siempre deja el valor debajo de su rotulo.
+     */
+    private const RE_BUQUE = '/^([A-Z][A-Z0-9 \-]*[A-Z])\s+(V\.?\s?\d{3,5}[A-Z]?)$/u';
 
     /** Rotulos del formulario: donde termina el valor de otro rotulo. */
     private const ROTULO = '/^(PORT OF|VESSEL|SHIPPING MARK|SHIPPER|CONSIGNEE|NOTIFY)/i';
@@ -64,7 +74,7 @@ class BillOfLading
 
         return [
             'nro'             => self::nro($texto),
-            'buque'           => $buque ?? self::buqueDelAnexo($texto),
+            'buque'           => self::buqueConViaje($lineas) ?? $buque ?? self::buqueDelAnexo($texto),
             'puerto_carga'    => $puertoCarga,
             'puerto_descarga' => self::lineaTras($lineas, '/^PORT OF DISCHARGE$/i'),
             'fecha'           => self::fecha($lineas),
@@ -77,6 +87,15 @@ class BillOfLading
     private static function nro(string $texto): ?string
     {
         return preg_match('/\bB\/?L\s*NO[.:\s]*([A-Z0-9][A-Z0-9\-]{3,})/i', $texto, $m) ? strtoupper($m[1]) : null;
+    }
+
+    /** La primera linea que es un buque con su viaje (RE_BUQUE), donde sea que este. */
+    private static function buqueConViaje(array $lineas): ?string
+    {
+        foreach ($lineas as $l) {
+            if (preg_match(self::RE_BUQUE, mb_strtoupper($l))) return mb_substr($l, 0, 120);
+        }
+        return null;
     }
 
     /** "V/V:HONCHO V2512   BL NO.:..." del anexo, si la cabecera no lo dio. */
@@ -123,20 +142,30 @@ class BillOfLading
     /**
      * La fecha de "Place and date of issue" (2025-07-20 o 20/07/2025), en AAAA-MM-DD. En los
      * escaneados el rotulo va partido ("Place and" / "date of issue") y la fecha llega varias
-     * lineas despues, tras "Freight payable at" y el lugar.
+     * lineas despues, tras "Freight payable at" y el lugar. Si cerca del rotulo no hay ninguna
+     * —Drive a veces pone todos los rotulos juntos y los valores mas abajo—, la del documento,
+     * siempre que tenga UNA sola (con dos no se sabe cual es).
      */
     private static function fecha(array $lineas): ?string
     {
         foreach ($lineas as $i => $l) {
             if (!preg_match('/DATE OF ISSUE/i', $l)) continue;
             foreach (array_slice($lineas, $i, 8) as $cerca) {
-                if (preg_match('/\b(\d{4})-(\d{2})-(\d{2})\b/', $cerca, $m) && checkdate((int) $m[2], (int) $m[3], (int) $m[1])) {
-                    return "$m[1]-$m[2]-$m[3]";
-                }
-                if (preg_match('/\b(\d{1,2})[\/.](\d{1,2})[\/.](\d{4})\b/', $cerca, $m) && checkdate((int) $m[2], (int) $m[1], (int) $m[3])) {
-                    return sprintf('%04d-%02d-%02d', $m[3], $m[2], $m[1]);
-                }
+                if ($f = self::fechaEn($cerca)) return $f;
             }
+        }
+        $todas = array_unique(array_filter(array_map([self::class, 'fechaEn'], $lineas)));
+        return count($todas) === 1 ? reset($todas) : null;
+    }
+
+    /** La fecha de una linea (2025-07-20 o 20/07/2025) en AAAA-MM-DD, o null. */
+    private static function fechaEn(string $linea): ?string
+    {
+        if (preg_match('/\b(\d{4})-(\d{2})-(\d{2})\b/', $linea, $m) && checkdate((int) $m[2], (int) $m[3], (int) $m[1])) {
+            return "$m[1]-$m[2]-$m[3]";
+        }
+        if (preg_match('/\b(\d{1,2})[\/.](\d{1,2})[\/.](\d{4})\b/', $linea, $m) && checkdate((int) $m[2], (int) $m[1], (int) $m[3])) {
+            return sprintf('%04d-%02d-%02d', $m[3], $m[2], $m[1]);
         }
         return null;
     }

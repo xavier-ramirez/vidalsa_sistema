@@ -2294,11 +2294,9 @@ window.loadMetadata = async function () {
                 <p style="color:#94a3b8;font-size:12px;margin:0 0 12px;">Datos de todo el embarque: lo que se guarde vale para sus ${esc(info.equipos)} equipo(s). El VIN es solo de este.</p>
                 ${campo('nro_bl', 'Nro. BL', 'text', 'maxlength="40"')}
                 ${campo('buque', 'Buque', 'text', 'maxlength="120"')}
-                ${campo('puerto_carga', 'Puerto de Carga', 'text', 'maxlength="120"')}
-                ${campo('puerto_descarga', 'Puerto de Descarga', 'text', 'maxlength="120"')}
+                ${campo('fecha_embarque', 'Fecha del Embarque', 'date')}
                 ${campo('unidades', 'Unidades', 'number', 'min="0" step="1"')}
                 ${campo('vin', 'VIN de este equipo', 'text', 'maxlength="40"')}
-                ${campo('fecha_embarque', 'Fecha del Embarque', 'date')}
             `;
                 _metaPintar(container, html, ctx);
                 return;

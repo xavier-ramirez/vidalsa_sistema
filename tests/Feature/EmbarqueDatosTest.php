@@ -56,8 +56,8 @@ class EmbarqueDatosTest extends MySqlTestCase
     private function completo(array $cambios = []): array
     {
         return $cambios + [
-            'nro_bl' => 'RAQDLA16_PRUEBA', 'buque' => 'RUI AN YANG V.2524', 'puerto_carga' => 'QINGDAO,CHINA',
-            'puerto_descarga' => 'LA GUAIRA,VENEZUELA', 'fecha_embarque' => '2025-08-20', 'unidades' => '10',
+            'nro_bl' => 'RAQDLA16_PRUEBA', 'buque' => 'RUI AN YANG V.2524',
+            'fecha_embarque' => '2025-08-20', 'unidades' => '10',
             'vin' => 'LEZDD2CC8SF132435',
         ];
     }
@@ -66,8 +66,8 @@ class EmbarqueDatosTest extends MySqlTestCase
     {
         $this->actingAs($this->editor)->getJson("/admin/equipos/{$this->equipo}/metadata?type=embarque")
             ->assertOk()->assertJsonPath('data', [
-                'nro_bl' => 'RAQDLA16_PRUEBA', 'buque' => 'Rui An Yang V.2524', 'puerto_carga' => 'QINGDAO,CHINA',
-                'puerto_descarga' => 'LA GUAIRA,VENEZUELA', 'fecha_embarque' => '2025-08-20', 'unidades' => 10,
+                'nro_bl' => 'RAQDLA16_PRUEBA', 'buque' => 'Rui An Yang V.2524',
+                'fecha_embarque' => '2025-08-20', 'unidades' => 10,
                 'vin' => 'LEZDD2CC8SF132435', 'equipos' => 2,
             ]);
     }

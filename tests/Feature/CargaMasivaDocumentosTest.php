@@ -850,6 +850,21 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
     }
 
     /** El lector del BL con el formulario real: buque partido en dos lineas, fecha lejos del rotulo. */
+    public function test_bl_con_los_rotulos_juntos_saca_igual_el_buque_y_la_fecha(): void
+    {
+        // Asi lo devolvio Drive con el RAQDLA16: los rotulos seguidos y los valores mas abajo.
+        $bl = \App\Support\BillOfLading::leer(
+            "BILL OF LADING B/L NO. RAQDLA16\nVessel\nPort of loading\nPort of discharge\nShipping mark\n"
+            . "RUI AN YANG V.2524\nQINGDAO,CHINA\nLA GUAIRA,VENEZUELA\n10UNITS\nLEZDD2CC8SF132435 E425A001785\n"
+            . "Freight payable at\nPlace and date of issue\nPrinted and sold by\nFr g Knudtzons Bogtrykkeri A/S\n"
+            . "DK-1253 Copenhagen K\nTelefax + 4533931184\nby authority of the Baltic\nCouncil\n(BIMCO)\nNumber of original Bs/L\n"
+            . "Signature\nTHREE\nLA GUAIRA,VENEZUELA,2025-11-22\n");
+        $this->assertSame('RAQDLA16', $bl['nro']);
+        $this->assertSame('RUI AN YANG V.2524', $bl['buque']);
+        $this->assertSame('2025-11-22', $bl['fecha']);
+        $this->assertSame(['LEZDD2CC8SF132435'], $bl['vins']);
+    }
+
     public function test_el_lector_de_bl_saca_numero_buque_puertos_fecha_y_vins(): void
     {
         $bl = \App\Support\BillOfLading::leer($this->textoBl(['LZZPCMSC9SJ380599', 'LZZPCMSC7SJ389205']) . "\nLZZWADG49ST501 039");
