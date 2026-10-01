@@ -107,7 +107,8 @@ class EnlacesDocumentos
      *
      * Si el nuevo ya tiene su propia revision para ese mismo equipo/auxiliar y tipo, manda esa
      * (es mas reciente) y la vieja se queda donde esta: la tabla no admite dos del mismo archivo.
-     * No toca updated_at: es "cuando se leyo", y lo usa la cola de lectura.
+     * No toca updated_at: es "cuando se leyo", y lo usa la cola de lectura. Las de la carga
+     * masiva guardan el enlace del PDF en su PROPUESTA (y la buscan por el): tambien se cambia.
      */
     public static function pasarRevisiones(string $idViejo, string $idNuevo): int
     {
@@ -117,9 +118,15 @@ class EnlacesDocumentos
             ->get(['ID_EQUIPO', 'ID_AUXILIAR', 'TIPO'])->map($clave)->flip();
 
         $pasadas = 0;
-        foreach (DB::table($tabla)->where('DRIVE_ID', $idViejo)->get(['ID_REGISTRO', 'ID_EQUIPO', 'ID_AUXILIAR', 'TIPO']) as $r) {
+        foreach (DB::table($tabla)->where('DRIVE_ID', $idViejo)->get(['ID_REGISTRO', 'ID_EQUIPO', 'ID_AUXILIAR', 'TIPO', 'PROPUESTA']) as $r) {
             if (isset($yaTienen[$clave($r)])) continue;
-            $pasadas += DB::table($tabla)->where('ID_REGISTRO', $r->ID_REGISTRO)->update(['DRIVE_ID' => $idNuevo]);
+            $valores = ['DRIVE_ID' => $idNuevo];
+            $propuesta = $r->PROPUESTA ? json_decode($r->PROPUESTA, true) : null;
+            if (is_string($propuesta['link'] ?? null)) {
+                $propuesta['link'] = str_replace('/storage/google/' . $idViejo, '/storage/google/' . $idNuevo, $propuesta['link']);
+                $valores['PROPUESTA'] = json_encode($propuesta);
+            }
+            $pasadas += DB::table($tabla)->where('ID_REGISTRO', $r->ID_REGISTRO)->update($valores);
         }
         return $pasadas;
     }

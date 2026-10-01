@@ -286,9 +286,7 @@
             barra = 'linear-gradient(90deg, #10b981 0%, #059669 100%)';
             alTocar = function (g) { return "selectOption('frenteFilterSelect', '" + g.id + "', '" + escAttr(g.nombre) + "'); loadEquipos();"; };
         } else {
-            // Cada fila es lo que trae tocar ese tipo, y un tipo incluye los frentes ESPECIAL
-            // (filtroEspecifico): aquí tampoco se ocultan, como 'ocultar_especial' en el servidor.
-            filas = agrupar(datos.filter(function (e) { return coincide(e, f, true, 'tipo'); }),
+            filas = agrupar(datos.filter(function (e) { return coincide(e, f, especifico, 'tipo'); }),
                 function (e) { return e.id_tipo; }, function (e) { return e.tipo; });
             titulo = 'Equipos y Maquinaria'; icono = 'autorenew'; colorIcono = '#3b82f6';
             barra = 'linear-gradient(90deg, #3b82f6 0%, #2563eb 100%)';

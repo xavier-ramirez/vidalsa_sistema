@@ -56,6 +56,47 @@ class EquiposFiltroTipoTest extends MySqlTestCase
         $this->assertSame($todos, $this->filas(['id_tipo' => $tipo]), 'Filtrar por tipo debe traer TODOS los equipos de ese tipo.');
         // El desplegable combinado manda el mismo tipo como 'tipo_eq:N'.
         $this->assertSame($todos, $this->filas(['id_tipo' => "tipo_eq:$tipo"]));
+
+        // La tarjeta de tipos y la de frentes cuentan lo mismo que la tabla.
+        $vista = $this->actingAs($this->usuarioGlobal())->get('/admin/equipos?id_tipo=' . $tipo)->assertOk();
+        $this->assertSame(count($todos), (int) $vista->viewData('tiposStats')->firstWhere('id_tipo_equipo', $tipo)->total);
+        $sinFrente = DB::table('equipos')->where('id_tipo_equipo', $tipo)->whereNull('deleted_at')->whereNull('ID_FRENTE_ACTUAL')->count();
+        $this->assertSame(count($todos) - $sinFrente, (int) $vista->viewData('frentesStats')->sum('total'));
+    }
+
+    /** Pares del modal de anclajes con los filtros del listado. */
+    private function anclajes(array $q): array
+    {
+        return $this->actingAs($this->usuarioGlobal())
+            ->getJson('/admin/equipos/get-anchors?' . http_build_query($q))->assertOk()->json();
+    }
+
+    public function test_anclajes_con_tipo_de_auxiliar_traen_solo_esos_auxiliares(): void
+    {
+        $aux = DB::table('equipos_auxiliares')->whereNotNull('ID_EQUIPO_HOST')->whereNull('deleted_at')->value('ID_AUXILIAR');
+        if ($aux === null) {
+            $this->markTestSkipped('La base no tiene auxiliares anclados.');
+        }
+        DB::table('equipos_auxiliares')->where('ID_AUXILIAR', $aux)->update(['TIPO' => 'PRUEBA_TIPO_AUX']);
+
+        $r = $this->anclajes(['id_tipo' => 'tipo_aux:PRUEBA_TIPO_AUX']);
+        $this->assertSame([], $r['pairs'], 'Un tipo de auxiliar no trae pares equipo-equipo.');
+        $ids = collect($r['aux'])->flatMap(fn ($h) => collect($h['auxes'])->pluck('id'))->all();
+        $this->assertSame([$aux], $ids);
+    }
+
+    public function test_anclajes_sin_asignar_traen_los_que_no_tienen_frente(): void
+    {
+        $eq = DB::table('equipos')->whereNotNull('ID_ANCLAJE')->whereNull('deleted_at')->first(['ID_EQUIPO', 'ID_ANCLAJE']);
+        if ($eq === null) {
+            $this->markTestSkipped('La base no tiene equipos anclados.');
+        }
+        DB::table('equipos')->whereIn('ID_EQUIPO', [$eq->ID_EQUIPO, $eq->ID_ANCLAJE])->update(['ID_FRENTE_ACTUAL' => null]);
+
+        $pares = collect($this->anclajes(['frente_id' => 'none'])['pairs']);
+        $this->assertNotEmpty($pares);
+        $this->assertTrue($pares->every(fn ($p) => DB::table('equipos')->where('ID_EQUIPO', $p['ID_A'])->value('ID_FRENTE_ACTUAL') === null));
+        $this->assertTrue($pares->contains(fn ($p) => in_array($eq->ID_EQUIPO, [$p['ID_A'], $p['ID_B']])));
     }
 
     public function test_que_cuenta_como_un_tipo_concreto(): void

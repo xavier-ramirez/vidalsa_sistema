@@ -11,8 +11,8 @@ use Illuminate\Support\Facades\DB;
  * la lectura de la noche quedaba como un documento nuevo: lo volvia a leer y, sin encontrar lo
  * "revisado a mano" (tambien se busca por DRIVE_ID), podia poner lo del PDF encima de lo que una
  * persona ya habia decidido. Desde hoy EnlacesDocumentos::cambiar se la lleva; esto lo hace con
- * lo ya comprimido, en el orden en que se comprimio (un archivo comprimido dos veces pasa de
- * mano en mano hasta el ultimo). Las revisiones que ya tiene el archivo nuevo no se tocan.
+ * lo ya comprimido, en el orden en que se comprimio. Las revisiones que ya tiene el archivo
+ * nuevo no se tocan.
  *
  * Una sola vez: es una migracion. down vacio: deshacerlo volveria a mandar a releer lo revisado.
  */

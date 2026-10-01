@@ -147,8 +147,6 @@ class EquipoController extends Controller
     /**
      * Aplica al query los filtros activos del request. `$exclude` permite omitir ejes
      * específicos para que los stats de una dimensión no queden limitados por su propio filtro.
-     * 'ocultar_especial' en `$exclude` deja ver los frentes ESPECIAL aunque no haya un filtro
-     * concreto (la tarjeta de tipos: cada fila es lo que trae tocar ese tipo).
      */
     private function applyEquipoFilters($query, Request $request, array $exclude = []): void
     {
@@ -198,7 +196,7 @@ class EquipoController extends Controller
             } elseif ($raw !== '' && $raw !== 'all') {
                 // Frente específico seleccionado: respeta el filtro exacto (aunque sea ESPECIAL).
                 $query->where('ID_FRENTE_ACTUAL', $raw);
-            } elseif (!in_array('ocultar_especial', $exclude) && !$this->tieneFiltroEspecifico($request)) {
+            } elseif (!$this->tieneFiltroEspecifico($request)) {
                 // "TODOS LOS FRENTES" y SIN búsqueda ni filtro concreto: ocultar los frentes
                 // ESPECIAL (asignaciones especiales, no flota propia). Si el usuario busca por
                 // serial/placa/etc. o filtra por tipo/modelo/marca/año/..., SÍ se incluyen.
@@ -687,10 +685,10 @@ class EquipoController extends Controller
         // Sigue omitiendose en modo aux: alli la Distribucion la aporta el payload auxiliar.
         if ($hasFilter && !$auxMode) {
             // Tipos Stats — siempre muestra todos los tipos (sin filtro por id_tipo) para no autolimitarse.
-            // Cada fila es lo que trae tocar ese tipo, y un tipo SÍ incluye los frentes ESPECIAL
-            // (tieneFiltroEspecifico): por eso aquí tampoco se ocultan ('ocultar_especial').
+            // Los frentes ESPECIAL se ocultan o no igual que en la tabla (tieneFiltroEspecifico
+            // mira el request, no `$exclude`): la suma de la card es el TOTAL de la tabla.
             $tiposQuery = Equipo::query()->leftJoin('tipo_equipos', 'equipos.id_tipo_equipo', '=', 'tipo_equipos.id');
-            $this->applyEquipoFilters($tiposQuery, $request, ['id_tipo', 'ocultar_especial']);
+            $this->applyEquipoFilters($tiposQuery, $request, ['id_tipo']);
             $this->applyBusquedaTexto($tiposQuery, $search); // Distribución por tipo refleja la búsqueda
             $tiposStats = $tiposQuery
                 ->select('equipos.id_tipo_equipo', 'tipo_equipos.nombre', DB::raw('COUNT(*) as total'))
@@ -699,7 +697,7 @@ class EquipoController extends Controller
                 ->get();
 
             // Frentes Stats — se muestra cuando hay un tipo filtrado; listamos TODOS los frentes que coinciden (sin filtro id_frente)
-            if ($request->filled('id_tipo')) {
+            if ($this->tipoEquipoPedido($request) !== null) {
                 $frentesQuery = Equipo::query()->leftJoin('frentes_trabajo', 'equipos.ID_FRENTE_ACTUAL', '=', 'frentes_trabajo.ID_FRENTE');
                 $this->applyEquipoFilters($frentesQuery, $request, ['id_frente']);
                 $this->applyBusquedaTexto($frentesQuery, $search); // frentes stats reflejan la búsqueda
@@ -4711,8 +4709,6 @@ class EquipoController extends Controller
      */
     public function getAnchoredEquipos(Request $request)
     {
-        $frenteId = $request->input('frente_id');
-        $tipoId   = $this->tipoEquipoPedido($request);
         // Se cargan también las relaciones ANIDADAS de ancladoA (especificaciones,
         // documentacion, tipo) porque el map de abajo las accede; sin esto cada par
         // anclado dispara ~3 queries lazy (N+1). Espeja lo que hace exportAnclajes.
@@ -4720,23 +4716,15 @@ class EquipoController extends Controller
             'ancladoA', ...Equipo::conFoto('ancladoA.', true), 'ancladoA.documentacion', 'ancladoA.tipo',
             'tipo', ...Equipo::conFoto('', true), 'documentacion',
         ])->whereNotNull('ID_ANCLAJE');
-
-        if ($frenteId && $frenteId !== 'all') {
-            $query->where('ID_FRENTE_ACTUAL', $frenteId);
-        } elseif ($tipoId === null) {
-            // Listado global: excluir frentes ESPECIAL (no son flota propia). Con un tipo NO,
-            // igual que la tabla de equipos (tieneFiltroEspecifico).
-            $query->excludeEspecial();
-        }
-
-        // Filtro por tipo del listado principal: si esta activo, restringe los
-        // pares a aquellos cuyo "remolcador" (eq_a) sea de ese tipo. La pareja
-        // mutua se conserva intacta — la deduplicacion por ID minimo se hace
-        // mas abajo y respeta el resultado filtrado.
-        if ($tipoId !== null) {
-            // Columna real en `equipos` es id_tipo_equipo (FK a tipo_equipos.id)
-            $query->where('id_tipo_equipo', $tipoId);
-        }
+        // El modal tambien muestra los equipos con auxiliares anclados (anchorage 1:N): una
+        // sola tarjeta por equipo host con todos sus aux, como en /admin/equipos-auxiliares.
+        $auxQuery = \App\Models\EquipoAuxiliar::with([
+            'equipoHost.documentacion',
+            'equipoHost.tipo',
+            ...Equipo::conFoto('equipoHost.'),
+            'equipoHost.frenteActual',
+        ])->whereNotNull('ID_EQUIPO_HOST');
+        $this->filtrarAnclajes($request, $query, $auxQuery);
 
         $anchored = $query->get()->map(function ($eq) {
             // Get mutual pair to avoid duplicates, we can just return all since we'll group them in JS, or we can format it here.
@@ -4790,28 +4778,6 @@ class EquipoController extends Controller
         }
 
         // ─── Anclajes equipo→auxiliar ──────────────────────────────────
-        // El modal del modulo equipos tambien debe mostrar los equipos que
-        // tienen auxiliares anclados (anchorage 1:N). Una sola tarjeta por
-        // equipo host con todos sus aux — mismo formato visual que el modal
-        // de /admin/equipos-auxiliares.
-        $auxQuery = \App\Models\EquipoAuxiliar::with([
-            'equipoHost.documentacion',
-            'equipoHost.tipo',
-            ...Equipo::conFoto('equipoHost.'),
-            'equipoHost.frenteActual',
-        ])->whereNotNull('ID_EQUIPO_HOST');
-
-        if ($frenteId && $frenteId !== 'all') {
-            $auxQuery->where('ID_FRENTE_ACTUAL', $frenteId);
-        }
-        if ($tipoId && $tipoId !== 'all') {
-            // El filtro de tipo del listado de equipos aplica al HOST: solo
-            // pares cuyo equipo host sea del tipo seleccionado.
-            $auxQuery->whereHas('equipoHost', function ($q) use ($tipoId) {
-                $q->where('id_tipo_equipo', $tipoId);
-            });
-        }
-
         $tiposAuxMap = $this->auxTiposLabelMap();
         $byHost = $auxQuery->get()->groupBy('ID_EQUIPO_HOST');
         $auxAnchorages = [];
@@ -4851,6 +4817,38 @@ class EquipoController extends Controller
     }
 
     /**
+     * Los filtros del listado (frente y tipo) en los dos bloques del modal y del Excel de
+     * anclajes: pares equipo-equipo ($pares) y equipos con auxiliares ($aux). Mismo criterio
+     * que la tabla: 'none' es SIN ASIGNAR; los frentes ESPECIAL se ocultan solo sin frente ni
+     * tipo concreto; un tipo de equipo filtra el par por su equipo (eq_a) y el aux por su host;
+     * un tipo de AUXILIAR ('tipo_aux:X') deja solo los auxiliares de ese tipo (sin pares).
+     */
+    private function filtrarAnclajes(Request $request, $pares, $aux): void
+    {
+        $frente = trim((string) $request->input('frente_id', ''));
+        $tipoId = $this->tipoEquipoPedido($request);
+        $tipo   = trim((string) $request->input('id_tipo', ''));
+
+        if ($frente === 'none') {
+            $pares->whereNull('ID_FRENTE_ACTUAL');
+            $aux->whereNull('ID_FRENTE_ACTUAL');
+        } elseif ($frente !== '' && $frente !== 'all') {
+            $pares->where('ID_FRENTE_ACTUAL', $frente);
+            $aux->where('ID_FRENTE_ACTUAL', $frente);
+        } elseif ($tipoId === null) {
+            $pares->excludeEspecial();
+        }
+
+        if (str_starts_with($tipo, 'tipo_aux:')) {
+            $pares->whereRaw('1 = 0');
+            $aux->where('TIPO', substr($tipo, 9));
+        } elseif ($tipoId !== null) {
+            $pares->where('id_tipo_equipo', $tipoId);
+            $aux->whereHas('equipoHost', fn ($q) => $q->where('id_tipo_equipo', $tipoId));
+        }
+    }
+
+    /**
      * Mapa TIPO=>label de auxiliares (enum + tipos custom). Replicado del
      * EquipoAuxiliarController::getTiposDinamicos para evitar duplicar la
      * dependencia. Solo se usa para etiquetar tipos en la respuesta del
@@ -4884,24 +4882,13 @@ class EquipoController extends Controller
         set_time_limit(180);
 
         $frenteId = $request->input('frente_id');
-        $tipoId   = $this->tipoEquipoPedido($request);
 
-        // Reutilizar la lógica de getAnchoredEquipos: obtener pares únicos
+        // Mismos pares y mismos filtros que getAnchoredEquipos (filtrarAnclajes)
         $query = Equipo::with(['ancladoA', 'tipo', 'ancladoA.tipo', 'documentacion', 'ancladoA.documentacion', 'frenteActual'])
             ->whereNotNull('ID_ANCLAJE');
-
-        if ($frenteId && $frenteId !== 'all') {
-            $query->where('ID_FRENTE_ACTUAL', $frenteId);
-        } elseif ($tipoId === null) {
-            $query->excludeEspecial();   // con un tipo no, como getAnchoredEquipos
-        }
-
-        // Filtro por tipo: hereda el filtro del listado principal cuando esta
-        // activo. Mismo comportamiento que getAnchoredEquipos.
-        if ($tipoId !== null) {
-            // Columna real en `equipos` es id_tipo_equipo (FK a tipo_equipos.id)
-            $query->where('id_tipo_equipo', $tipoId);
-        }
+        $auxQuery = \App\Models\EquipoAuxiliar::with(['equipoHost.documentacion','equipoHost.tipo','equipoHost.frenteActual'])
+            ->whereNotNull('ID_EQUIPO_HOST');
+        $this->filtrarAnclajes($request, $query, $auxQuery);
 
         $anchored = $query->get();
 
@@ -4919,7 +4906,9 @@ class EquipoController extends Controller
         }
 
         $nombreFrente = 'TODOS LOS FRENTES';
-        if ($frenteId && $frenteId !== 'all') {
+        if ($frenteId === 'none') {
+            $nombreFrente = 'SIN ASIGNAR';
+        } elseif ($frenteId && $frenteId !== 'all') {
             $f = \App\Models\FrenteTrabajo::find($frenteId);
             if ($f) $nombreFrente = mb_strtoupper($f->NOMBRE_FRENTE);
         }
@@ -5059,17 +5048,7 @@ class EquipoController extends Controller
         // ─── Sub-bloque: Anclajes Equipo→Auxiliar ─────────────────────
         // Mismo formato pero con merge vertical en columnas del host (1 host
         // se ve como 1 sola fila visual con N filas de aux). Solo se imprime
-        // si hay anclajes equipo→aux que respeten los filtros activos.
-        $auxQuery = \App\Models\EquipoAuxiliar::with(['equipoHost.documentacion','equipoHost.tipo','equipoHost.frenteActual'])
-            ->whereNotNull('ID_EQUIPO_HOST');
-        if ($frenteId && $frenteId !== 'all') {
-            $auxQuery->where('ID_FRENTE_ACTUAL', $frenteId);
-        }
-        if ($tipoId && $tipoId !== 'all') {
-            $auxQuery->whereHas('equipoHost', function ($q) use ($tipoId) {
-                $q->where('id_tipo_equipo', $tipoId);
-            });
-        }
+        // si hay anclajes equipo→aux que respeten los filtros activos (filtrarAnclajes, arriba).
         $byHost = $auxQuery->orderBy('ID_EQUIPO_HOST')->orderBy('TIPO')->get()->groupBy('ID_EQUIPO_HOST');
 
         if ($byHost->count() > 0) {

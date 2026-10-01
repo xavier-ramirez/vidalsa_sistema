@@ -140,6 +140,30 @@ class CompresionPdfTest extends MySqlTestCase
         $this->assertSame('la del comprimido', DB::table('verificacion_documento_registro')->where('ID_REGISTRO', $nueva)->value('MOTIVO'));
     }
 
+    /**
+     * La de la carga masiva guarda el enlace del PDF en su PROPUESTA y se busca por el: se
+     * cambia con el DRIVE_ID. Y la de un auxiliar se va igual que la de un equipo.
+     */
+    public function test_la_revision_de_la_carga_masiva_cambia_tambien_su_enlace(): void
+    {
+        $aux = DB::table('equipos_auxiliares')->value('ID_AUXILIAR');
+        $this->assertNotNull($aux, 'No hay ningun auxiliar para probar.');
+        $revision = VerificacionDocumento::create([
+            'ID_AUXILIAR' => $aux, 'TIPO' => VerificacionDocumento::PROPIEDAD, 'DRIVE_ID' => 'CARGA_VIEJO_CPDF',
+            'ESTADO' => VerificacionDocumento::APLICADO, 'ORIGEN' => VerificacionDocumento::DE_CARGA_MASIVA,
+            'PROPUESTA' => ['archivo' => 'titulo.pdf', 'link' => '/storage/google/CARGA_VIEJO_CPDF?v=1', 'md5' => 'abc123'],
+        ]);
+
+        $this->assertSame(1, EnlacesDocumentos::pasarRevisiones('CARGA_VIEJO_CPDF', 'CARGA_NUEVO_CPDF'));
+        $fila = VerificacionDocumento::find($revision->getKey());
+        $this->assertSame('CARGA_NUEVO_CPDF', $fila->DRIVE_ID);
+        $this->assertSame('/storage/google/CARGA_NUEVO_CPDF?v=1', $fila->PROPUESTA['link']);
+        $this->assertSame('abc123', $fila->PROPUESTA['md5']);
+        $this->assertTrue(DB::table('verificacion_documento_registro')
+            ->where('PROPUESTA', 'like', '%"md5":"abc123"%')->where('ID_REGISTRO', $revision->getKey())->exists(),
+            'La busqueda por md5 de la carga masiva sigue encontrandola.');
+    }
+
     public function test_la_correccion_anexa_cambia_su_enlace_y_su_id(): void
     {
         $equipo = DB::table('documentacion')->value('ID_EQUIPO');
