@@ -6,8 +6,9 @@
      con su propio "Aplicar" y eran dos tablas de documentos en el mismo módulo (pedido
      23-09-2026: una sola). Aplicar y descartar se hacen desde esa tabla.
 
-     Por qué un archivo por petición: el texto lo saca el OCR de Google Drive (~8 s por PDF) y
-     treinta en una sola petición se caerían por timeout. La cola los manda de uno en uno.
+     Aquí solo se SUBEN (con el spinner de la aplicación, un archivo por petición) y el modal se
+     cierra. La LECTURA —el OCR de Google Drive, ~8 s por PDF— sigue en segundo plano en el
+     servidor (ColaCargaMasiva) y cada resultado aparece en la tabla.
 
      Las reglas de seguridad NO viven aquí sino en el servidor (CargaMasivaDocumentos): esta
      pantalla solo las refleja.
@@ -47,7 +48,7 @@
                     cursor: pointer; display: flex; padding: 4px; border-radius: 8px; }
     .hd-cm-cerrar:hover { color: #fff; background: rgba(255,255,255,.16); }
 
-    /* El cuerpo entero: tipo, zona de soltar y avance, uno debajo del otro. */
+    /* El cuerpo entero: tipo, zona de soltar y lo que no se subió, uno debajo del otro. */
     .hd-cm-tools { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 10px; }
     /* El desplegable del tipo es el MISMO componente que los filtros (.custom-dropdown de
        uicomponents.js). Solo se le dice que ocupe todo el ancho y que su lista quede por
@@ -71,13 +72,7 @@
     .hd-cm-zona .material-icons { font-size: 26px; }
     .hd-cm-zona small { font-size: 11px; font-weight: 600; color: #94a3b8; }
 
-    /* Avance de la cola. Oculto mientras no haya nada que contar. */
-    .hd-cm-avance { display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: #64748b; font-weight: 700; }
-    .hd-cm-avance[hidden] { display: none; }
-    .hd-cm-barra { flex: 1 1 auto; height: 6px; border-radius: 99px; background: #e2e8f0; overflow: hidden; }
-    .hd-cm-barra i { display: block; height: 100%; width: 0; background: #0067b1; transition: width .25s; }
-
-    /* Dónde mirar después. Se pinta al terminar la cola. */
+    /* Los que NO se subieron. Solo se pinta si hubo alguno (si no, el modal ya se cerró). */
     .hd-cm-nota { font-size: 11.5px; line-height: 1.45; color: #475569; background: #f8fafc;
                   border: 1px solid #e2e8f0; border-radius: 10px; padding: 9px 11px; }
     .hd-cm-nota[hidden] { display: none; }
@@ -90,7 +85,7 @@
 
     // `turno` descarta los resultados de una tanda ya cancelada: cerrar el modal con la cola a
     // medias no debe seguir pintando ni avisar al terminar.
-    var estado = { turno: 0, corriendo: false, hechos: 0, cierre: null, oyenteTipo: null };
+    var estado = { turno: 0, corriendo: false, hechos: 0, oyenteTipo: null };
 
     function $(id) { return document.getElementById(id); }
 
@@ -153,10 +148,6 @@
     // ── El modal ──────────────────────────────────────────────────────────────
 
     function construir() {
-        // Si quedaba un cierre automático pendiente del modal anterior, muere aquí: si no,
-        // cerraría este.
-        clearTimeout(estado.cierre);
-        estado.cierre = null;
         // Al arrancarle el DOM al modal anterior hay que soltar SU oyente: vive en window, así
         // que sobrevive al nodo y se quedaría colgado apuntando a una zona que ya no está en la
         // página, uno por cada reapertura. (Aquí no vale llamar a cerrar(): con una tanda a medias
@@ -183,10 +174,6 @@
                         '<small>o haz clic para elegirlos</small>' +
                     '</div>' +
                     '<input type="file" id="hdCmInput" accept="application/pdf" multiple hidden>' +
-                    '<div class="hd-cm-avance" id="hdCmAvance" hidden>' +
-                        '<span id="hdCmAvanceTxt">Leyendo…</span>' +
-                        '<div class="hd-cm-barra"><i id="hdCmBarra"></i></div>' +
-                    '</div>' +
                     '<div class="hd-cm-nota" id="hdCmNota" hidden></div>' +
                 '</div>' +
             '</div>';
@@ -240,13 +227,8 @@
     }
 
     function cerrar() {
-        // Con la cola a medias se avisa: lo que falte NO se sube. Lo ya leído sí está en la
-        // tabla, así que no se pierde nada de lo hecho.
-        if (estado.corriendo && !window.confirm('Todavía se están subiendo archivos. ¿Cerrar y dejar los que faltan sin subir?')) return;
-        // El temporizador del cierre automático se cancela SIEMPRE: si no, seguía vivo y podía
-        // cerrar un modal reabierto, o preguntar "¿cerrar?" en medio de una tanda nueva.
-        clearTimeout(estado.cierre);
-        estado.cierre = null;
+        // Mientras se sube, el spinner de la aplicación tapa la pantalla: no se puede cerrar.
+        if (estado.corriendo) return;
         estado.turno++;
         estado.corriendo = false;
         var subio = estado.hechos > 0;
@@ -267,50 +249,34 @@
 
         var tipo = tipoElegido();
         if (!tipo) { window.toast('Elige primero qué documento vas a cargar', 'error'); return; }
-        // Soltar algo durante la cuenta atrás del cierre la cancela: el modal se queda.
-        clearTimeout(estado.cierre);
-        estado.cierre = null;
         var turno = ++estado.turno;
         estado.corriendo = true;
         bloquear(true);
+        // El spinner de siempre de la aplicación mientras se suben (tapa también el modal).
+        if (window.showPreloader) window.showPreloader();
 
         // `perdidos` son los que NO llegaron a Drive: esos no dejan fila en la tabla (la fila se
         // identifica por el archivo de Drive), así que si no se nombran aquí desaparecen sin que
-        // nadie se entere. Los demás, lean o no, sí salen en la tabla con su motivo.
-        var i = 0, hechos = 0, otros = 0, perdidos = [];
+        // nadie se entere. Los demás se leen en segundo plano y salen en la tabla con su motivo.
+        var i = 0, hechos = 0, perdidos = [];
         estado.hechos = 0;
         var siguiente = function () {
             if (turno !== estado.turno) return;              // se cerró el modal: se abandona
-            if (i >= pdfs.length) { terminar(hechos, otros, perdidos); return; }
+            if (i >= pdfs.length) { terminar(hechos, perdidos); return; }
 
             var archivo = pdfs[i++];
-            avance(i, pdfs.length, archivo.name);
             window.apiPostForm(RUTAS.analizar, { file: archivo, tipo: tipo }, 'No se pudo subir el archivo.')
                 .then(function (b) {
                     // Sin enlace de Drive no hay fila: cuenta como perdido, no como hecho. Y se
                     // guarda el MOTIVO que manda el servidor ("el PDF esta incompleto: vuelve a
                     // escanearlo"), que es lo que dice QUE hacer.
-                    if (b && b.propuesta && b.propuesta.link) {
-                        hechos++; estado.hechos++;
-                        if (b.propuesta.estado === 'otro_documento') otros++;
-                    }
+                    if (b && b.propuesta && b.propuesta.link) { hechos++; estado.hechos++; }
                     else perdidos.push({ nombre: archivo.name, motivo: (b && b.propuesta && b.propuesta.aviso) || '' });
                 })
                 .catch(function (e) { perdidos.push({ nombre: archivo.name, motivo: (e && e.message) || '' }); })
                 .then(function () { if (turno === estado.turno) siguiente(); });
         };
         siguiente();
-    }
-
-    function avance(n, total, nombre) {
-        var caja = $('hdCmAvance');
-        if (!caja) return;
-        caja.hidden = false;
-        $('hdCmAvanceTxt').textContent = 'Leyendo ' + n + ' de ' + total;
-        $('hdCmBarra').style.width = Math.round(((n - 1) / total) * 100) + '%';
-        // textContent, no innerHTML: el nombre del archivo lo pone el usuario.
-        var zona = $('hdCmZona');
-        if (zona) zona.querySelector('span').textContent = nombre;
     }
 
     // Mientras se sube, ni se cambia el tipo ni se sueltan más archivos: la tanda ya salió
@@ -322,49 +288,38 @@
         if (tipo) tipo.classList.toggle('hd-cm-apagado', si);
     }
 
-    function terminar(hechos, otros, perdidos) {
+    function terminar(hechos, perdidos) {
         estado.corriendo = false;
         bloquear(false);
-        if ($('hdCmBarra')) $('hdCmBarra').style.width = '100%';
-        if ($('hdCmAvanceTxt')) $('hdCmAvanceTxt').textContent = 'Listo';
+        if (window.hidePreloader) window.hidePreloader();
+
+        if (hechos) {
+            window.toast(hechos + ' subido(s). Se están leyendo en el servidor: aparecerán en la tabla como '
+                + 'Por aplicar en unos segundos (actualiza la tabla para verlos).', 'success');
+        }
+        // Todo subió: el modal se cierra ya. Lo que queda (leerlos) es del servidor.
+        if (!perdidos.length) { cerrar(); return; }
+
+        // Si algo NO se subió, el modal se queda: esos nombres solo están escritos aquí y
+        // cerrarlo sería tragarse el único aviso.
+        window.toast(perdidos.length + ' archivo(s) NO se subieron', 'error');
         var zona = $('hdCmZona');
         if (zona) zona.querySelector('span').textContent = 'Suelta los PDF aquí';
-
         var nota = $('hdCmNota');
-        if (nota) {
-            nota.hidden = false;
-            // Los perdidos van CON NOMBRE: son los únicos que no dejan rastro en la tabla, así
-            // que si no se leen aquí no hay dónde encontrarlos. Se escriben con textContent
-            // (el nombre lo pone el usuario) dentro de su propio renglón.
-            nota.innerHTML = '<b>' + hechos + '</b> en la tabla. Búscalos como <b>Por aplicar</b>.'
-                + (otros ? '<br><b>' + otros + '</b> no se asociaron porque son otro documento: están como <b>Otro documento</b>.' : '')
-                + (perdidos.length || otros ? '' : '<br>Cerrando…');
-            if (perdidos.length) {
-                var mal = document.createElement('div');
-                mal.style.cssText = 'margin-top:6px;color:#b91c1c;font-weight:700;';
-                mal.textContent = 'NO se subieron:';
-                perdidos.forEach(function (p) {
-                    var li = document.createElement('div');
-                    li.style.cssText = 'margin-top:3px;font-weight:600;';
-                    // textContent: el nombre del archivo lo pone el usuario.
-                    li.textContent = '· ' + p.nombre + (p.motivo ? ' — ' + p.motivo : '');
-                    mal.appendChild(li);
-                });
-                nota.appendChild(mal);
-            }
-        }
-        window.toast(perdidos.length
-            ? (perdidos.length + ' archivo(s) NO se subieron')
-            : (hechos + ' en la tabla de documentos'), perdidos.length ? 'error' : 'success');
-
-        // Si todo subió, el modal se cierra SOLO: ya no hay nada que mirar aquí, lo que hay que
-        // ver está en la tabla. Si algo se perdió NO se cierra, porque esos nombres solo están
-        // escritos aquí: cerrarlo sería tragarse el único aviso.
-        // Tampoco si alguno resultó ser otro documento: ese aviso también hay que leerlo.
-        if (!perdidos.length && !otros) estado.cierre = setTimeout(cerrar, 1200);
-
-        // La tabla se refresca al CERRAR, no aquí: cpdfFiltrar recarga la página por la SPA y
-        // el modal se quedaba encima de lo recargado hasta que alguien lo cerrara a mano.
+        if (!nota) return;
+        nota.hidden = false;
+        nota.textContent = '';
+        var mal = document.createElement('div');
+        mal.style.cssText = 'color:#b91c1c;font-weight:700;';
+        mal.textContent = 'NO se subieron:';
+        perdidos.forEach(function (p) {
+            var li = document.createElement('div');
+            li.style.cssText = 'margin-top:3px;font-weight:600;';
+            // textContent: el nombre del archivo lo pone el usuario.
+            li.textContent = '· ' + p.nombre + (p.motivo ? ' — ' + p.motivo : '');
+            mal.appendChild(li);
+        });
+        nota.appendChild(mal);
     }
 
     window.abrirCargaMasiva = function () { construir(); };

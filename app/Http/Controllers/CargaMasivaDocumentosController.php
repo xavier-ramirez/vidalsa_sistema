@@ -12,9 +12,9 @@ use Illuminate\Validation\Rule;
  * Tres puertas, una por paso. El trabajo de verdad esta en CargaMasivaDocumentos; aqui
  * solo se valida lo que llega y se traduce a JSON.
  *
- *   analizar()  UN archivo por peticion. La pantalla los manda de uno en uno y va pintando
- *               cada resultado: treinta PDF en una sola peticion se caerian por timeout
- *               (el OCR de Drive tarda ~8 s por archivo).
+ *   analizar()  UN archivo por peticion: lo sube a Drive y responde; la lectura (el OCR de
+ *               Drive, ~8 s por archivo) sigue en segundo plano y su resultado sale en la
+ *               tabla de Revision de documentos.
  *   aplicar()   Escribe en la ficha lo que el usuario aprobo, de una fila.
  *   descartar() Borra de Drive el PDF de una propuesta que el usuario no quiso.
  *
@@ -27,7 +27,7 @@ class CargaMasivaDocumentosController extends Controller
 {
     public function __construct(private CargaMasivaDocumentos $servicio) {}
 
-    /** Sube un PDF, lo lee y devuelve la propuesta (sin tocar ninguna ficha). */
+    /** Sube un PDF y lo deja leyendose en segundo plano (sin tocar ninguna ficha). */
     public function analizar(Request $request)
     {
         $this->autorizar();
@@ -49,13 +49,36 @@ class CargaMasivaDocumentosController extends Controller
                                . number_format(\App\Services\GoogleDriveService::MAX_PDF_KB, 0, ',', '.') . ' KB).',
         ]);
 
-        // Leer con Drive tarda; el limite por defecto de PHP no da para un PDF pesado.
-        set_time_limit(180);
+        $archivo = $request->file('file');
+        $tipo = $request->input('tipo');
 
-        return response()->json([
-            'success'   => true,
-            'propuesta' => $this->servicio->analizar($request->file('file'), $request->input('tipo')),
-        ]);
+        // Lo que la pantalla espera es solo la SUBIDA a Drive. Si no se pudo, no hay fila en
+        // la tabla: se dice aqui, con su motivo, que es el unico sitio donde se va a leer.
+        $subido = $this->servicio->subir($archivo, $tipo);
+        if (isset($subido['estado'])) {
+            return response()->json(['success' => true, 'propuesta' => $subido]);
+        }
+
+        // La LECTURA (OCR de Drive, ~8 s por PDF) va en segundo plano, despues de responder: la
+        // persona no se queda mirando el modal y su resultado sale en la tabla de Revision de
+        // documentos. Va a una fila con UN solo lector (ColaCargaMasiva): leer treinta a la vez
+        // ocuparia todo el servidor.
+        try {
+            \App\Support\ColaCargaMasiva::encolar($archivo, $tipo, $subido);
+        } catch (\Throwable $e) {
+            // Sin fila nadie lo leeria: el PDF vuelve a la papelera de Drive y se dice que NO se subio.
+            \Illuminate\Support\Facades\Log::error('Carga masiva: no se pudo dejar en la fila', ['archivo' => $subido['nombre'], 'error' => $e->getMessage()]);
+            \App\Services\GoogleDriveService::borrarTrasResponder($subido['driveId']);
+            return response()->json(['success' => true, 'propuesta' => [
+                'archivo' => $subido['nombre'], 'link' => null, 'aviso' => 'No se pudo guardar el archivo para leerlo. Vuelve a subirlo.']]);
+        }
+        defer(fn () => \App\Support\ColaCargaMasiva::leer($this->servicio));
+
+        // Content-Length: con el servidor de desarrollo (php artisan serve) el navegador da la
+        // respuesta por terminada al recibirla, sin esperar a que acabe la lectura de atras.
+        $respuesta = response()->json(['success' => true, 'en_segundo_plano' => true,
+            'propuesta' => ['archivo' => $subido['nombre'], 'link' => $subido['link']]]);
+        return $respuesta->header('Content-Length', (string) strlen($respuesta->getContent()));
     }
 
     /** Escribe en la ficha del equipo el documento ya analizado. */

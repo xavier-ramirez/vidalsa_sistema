@@ -61,6 +61,14 @@ Schedule::command('docs:comprimir --lote=5')
     ->withoutOverlapping(30)
     ->runInBackground();
 
+// Carga masiva: lo que quedó en la fila sin leer (ver ColaCargaMasiva). Normalmente lo lee
+// el lector que arranca tras cada subida; esto es el respaldo si aquel no terminó.
+Schedule::command('docs:carga-masiva-pendientes')
+    ->everyMinute()
+    ->when(fn () => \App\Support\ColaCargaMasiva::hayPendientes())
+    ->withoutOverlapping(30)
+    ->runInBackground();
+
 // La caché vive en la base de datos (CACHE_STORE=database), y ahí una entrada caducada solo
 // se borra si alguien la vuelve a leer. Las cachés con la versión en la clave (el tablero del
 // menú) dejan una entrada nueva por usuario en cada cambio de datos, de hasta 2,8 MB, y la

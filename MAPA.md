@@ -174,6 +174,12 @@ se lee y se propone a su ficha; **nada se escribe hasta que se aplica la fila**.
   `ORIGEN='carga_masiva'` y estado **Por aplicar** / **Sin ficha reconocida** / **Otro
   documento (no se asoció)** / **Aplicado**.
   La tarea de la noche NO borra esas filas (ver el `delete` de hermanas en `procesar`).
+- **El modal solo espera a la SUBIDA a Drive** (con el spinner de la app) y se cierra. La
+  LECTURA (OCR de Drive, ~8 s por PDF) va en segundo plano: `ColaCargaMasiva`, una fila en
+  `storage/app/private/carga_masiva_cola` con **un solo lector a la vez** (candado), que arranca
+  tras responder (`defer`). Treinta lecturas sueltas ocuparían los 12 procesos de php-fpm. Lo
+  que se quede sin leer lo recoge `docs:carga-masiva-pendientes` (programador, cada minuto).
+  Con `php artisan serve` (un proceso) la siguiente subida espera a que acabe esa lectura.
 - **Permiso propio y EXCLUSIVO `docs.carga.masiva`**: ni super.admin lo hereda
   (`Usuario::PERMISOS_EXPLICITOS`). Protege las tres rutas, el controlador y el botón del menú.
   Subir de uno en uno sigue siendo `user.edit`: eso toca UNA ficha que el usuario está mirando,

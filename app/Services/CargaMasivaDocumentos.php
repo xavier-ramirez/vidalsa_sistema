@@ -159,11 +159,20 @@ class CargaMasivaDocumentos
      */
     public function analizar(UploadedFile $archivo, string $tipoPedido): array
     {
+        $subido = $this->subir($archivo, $tipoPedido);
+        return isset($subido['estado']) ? $subido : $this->leer($archivo, $tipoPedido, $subido);
+    }
+
+    /**
+     * Paso 1a, el rapido: sube $archivo a Drive. Devuelve lo que necesita leer() (nombre, link,
+     * driveId, md5) o, si no se pudo subir, la propuesta fallida (con 'estado'), que no deja
+     * fila en la tabla. La pantalla de carga masiva solo espera a esto; la lectura va despues
+     * de responder (ver CargaMasivaDocumentosController::analizar).
+     */
+    public function subir(UploadedFile $archivo, string $tipoPedido): array
+    {
         $nombre = $archivo->getClientOriginalName();
         $prefijo = self::PREFIJOS[$tipoPedido] ?? 'doc_masivo_';
-        $this->avisoFichas = null;
-        $this->avisoTipo = null;
-        $this->vistoIa = false;
         // La huella del archivo: con ella se sabe si ESTE MISMO PDF ya se habia soltado antes
         // (ver yaSeSolto). Se saca antes de subirlo.
         $md5 = @md5_file($archivo->getRealPath()) ?: null;
@@ -185,9 +194,24 @@ class CargaMasivaDocumentos
         $driveId = DocumentoAnexo::driveIdDeLink($link);
         if (!$driveId) return $this->fallo($nombre, $link, 'El archivo se subio pero Drive no devolvio un enlace utilizable.');
 
+        return ['nombre' => $nombre, 'link' => $link, 'driveId' => $driveId, 'md5' => $md5];
+    }
+
+    /**
+     * Paso 1b, el lento (OCR de Drive, ~8 s): lee el PDF que subir() ya puso en Drive, arma su
+     * propuesta y la anota en la tabla. $archivo es el MISMO PDF en el disco (la IA y el ROTC
+     * de flota lo leen de ahi).
+     */
+    public function leer(UploadedFile $archivo, string $tipoPedido, array $subido): array
+    {
+        $this->avisoFichas = null;
+        $this->avisoTipo = null;
+        $this->vistoIa = false;
+        ['nombre' => $nombre, 'link' => $link, 'driveId' => $driveId, 'md5' => $md5] = $subido;
+
         // Lo que falle de aqui en adelante (una consulta, anotar la fila) dejaria el PDF en
         // Drive sin fila en la tabla: nadie podria aplicarlo ni descartarlo. Vuelve a la
-        // papelera y la pantalla dice que NO se subio, que es lo cierto.
+        // papelera y queda en el log.
         try {
             return $this->proponer($archivo, $tipoPedido, $nombre, $link, $driveId, $md5);
         } catch (\Throwable $e) {

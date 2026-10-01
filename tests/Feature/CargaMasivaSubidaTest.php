@@ -6,6 +6,10 @@ use App\Jobs\DeleteGoogleDriveFile;
 use App\Services\CargaMasivaDocumentos;
 use App\Services\LectorDocumentoPdf;
 use App\Services\LectorGemini;
+use App\Models\Usuario;
+use App\Models\VerificacionDocumento;
+use App\Support\ColaCargaMasiva;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Storage;
@@ -126,5 +130,92 @@ class CargaMasivaSubidaTest extends MySqlTestCase
         $this->assertEmpty($resultados[1]['link'], 'el segundo está cortado');
         $this->assertNotEmpty($resultados[2]['link'], 'el tercero vuelve a ser bueno: uno malo no tumba la tanda');
         $this->assertSame(['uno.pdf', 'dos_cortado.pdf', 'tres.pdf'], array_column($resultados, 'archivo'));
+    }
+
+    // ── La lectura en segundo plano (ColaCargaMasiva) ─────────────────────────
+
+    private function usuario(): Usuario
+    {
+        $u = Usuario::where('REQUIERE_CAMBIO_CLAVE', 0)->whereNotNull('PERMISOS')->get()
+            ->first(fn ($usr) => in_array('super.admin', array_map('strtolower', $usr->PERMISOS), true));
+        $this->assertNotNull($u, 'hace falta un super.admin activo');
+        if (!in_array('docs.carga.masiva', $u->PERMISOS, true)) {
+            $u->PERMISOS = array_merge($u->PERMISOS, ['docs.carga.masiva']);
+            $u->save();
+        }
+        return $u;
+    }
+
+    private function filaDe(string $link): ?VerificacionDocumento
+    {
+        $driveId = \App\Models\DocumentoAnexo::driveIdDeLink($link);
+        return VerificacionDocumento::where('DRIVE_ID', $driveId)->where('ORIGEN', VerificacionDocumento::DE_CARGA_MASIVA)->first();
+    }
+
+    /** Lo diferido se guarda pero NO corre: como en el servidor, va despues de responder. */
+    private function retenerLoDiferido(): \Illuminate\Support\Defer\DeferredCallbackCollection
+    {
+        $col = new class extends \Illuminate\Support\Defer\DeferredCallbackCollection {
+            public function invoke(): void {}
+            public function invokeWhen(?\Closure $when = null): void {}
+        };
+        $this->app->instance(\Illuminate\Support\Defer\DeferredCallbackCollection::class, $col);
+        return $col;
+    }
+
+    /** La pantalla solo espera a la subida: la respuesta llega sin haber leido el PDF. */
+    public function test_la_pantalla_solo_espera_a_la_subida_y_la_lectura_va_despues(): void
+    {
+        $svc = $this->servicio('POLIZA DE SEGURO ... VENCE 31/12/2027');
+        $this->app->instance(CargaMasivaDocumentos::class, $svc);
+        $diferido = $this->retenerLoDiferido();
+
+        $r = $this->actingAs($this->usuario())->post('/admin/historial-documentos/carga-masiva/analizar',
+            ['file' => $this->pdfBueno(), 'tipo' => 'poliza'], ['Accept' => 'application/json'])
+            ->assertOk()->assertJsonPath('en_segundo_plano', true)->json('propuesta');
+
+        $this->assertNotEmpty($r['link'], 'Ya esta en Drive.');
+        $this->assertNull($this->filaDe($r['link']), 'Todavia no se ha leido: la pantalla no lo espera.');
+        $this->assertTrue(ColaCargaMasiva::hayPendientes(), 'Queda en la fila para leerlo.');
+        $this->assertCount(1, $diferido, 'El lector arranca despues de responder.');
+
+        $this->assertSame(1, ColaCargaMasiva::leer($svc));
+        $this->assertNotNull($this->filaDe($r['link']), 'Leido, sale en la tabla de revision.');
+        $this->assertFalse(ColaCargaMasiva::hayPendientes(), 'Y sale de la fila (con su copia del PDF).');
+        $this->assertSame([], Storage::disk('local')->allFiles('carga_masiva_cola'));
+    }
+
+    /** Un PDF cortado no llega a la fila: se dice en la pantalla, que es donde se va a leer. */
+    public function test_un_pdf_que_no_se_sube_no_entra_en_la_fila(): void
+    {
+        $this->app->instance(CargaMasivaDocumentos::class, $this->servicio('lo que sea'));
+        $diferido = $this->retenerLoDiferido();
+
+        $r = $this->actingAs($this->usuario())->post('/admin/historial-documentos/carga-masiva/analizar',
+            ['file' => $this->pdfCortado(), 'tipo' => 'poliza'], ['Accept' => 'application/json'])
+            ->assertOk()->json('propuesta');
+
+        $this->assertEmpty($r['link']);
+        $this->assertNotEmpty($r['aviso']);
+        $this->assertFalse(ColaCargaMasiva::hayPendientes());
+        $this->assertCount(0, $diferido, 'Sin nada que leer no se arranca ningun lector.');
+    }
+
+    /** UN lector a la vez: si ya hay uno leyendo, el segundo no hace nada (aquel lo recoge). */
+    public function test_con_otro_lector_en_marcha_no_se_lee_dos_veces(): void
+    {
+        $svc = $this->servicio('POLIZA DE SEGURO');
+        $subido = $svc->subir($this->pdfBueno(), 'poliza');
+        ColaCargaMasiva::encolar($this->pdfBueno(), 'poliza', $subido);
+
+        $candado = Cache::lock('carga-masiva-lector', 60);
+        $this->assertTrue($candado->get());
+        try {
+            $this->assertSame(0, ColaCargaMasiva::leer($svc));
+            $this->assertTrue(ColaCargaMasiva::hayPendientes(), 'Sigue en la fila para el lector que esta en marcha.');
+        } finally {
+            $candado->release();
+        }
+        $this->assertSame(1, ColaCargaMasiva::leer($svc));
     }
 }
