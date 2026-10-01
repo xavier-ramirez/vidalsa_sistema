@@ -181,6 +181,31 @@ class VerificacionDocumento extends Model
     }
 
     /**
+     * Títulos YA LEÍDOS y dados por buenos ("coincide") de fichas SIN número, cuya lectura sí
+     * lo trae: los rellena VerificarDocumentos::numerosDeTituloYaLeidos con lo guardado, sin
+     * volver a Drive (pedido del cliente, 01-10-2026). Solo si la lectura es del archivo
+     * enlazado AHORA y es fiable (no es de otro vehículo, no se leyó a medias, se confirmó la
+     * placa o el serial). UNA definición: la usan esa tarea y hayTrabajo; si no, un título que
+     * nunca da número haría arrancar la tarea cada minuto para nada.
+     * JSON_UNQUOTE da el mismo texto en MySQL 8 (servidor) y MariaDB (local): 'null', 'true'.
+     */
+    public function scopeNumeroDeTituloPorPoner($q)
+    {
+        $json = fn (string $clave) => "JSON_UNQUOTE(JSON_EXTRACT(verificacion_documento_registro.LEIDO, '$.$clave'))";
+        return $q->where('verificacion_documento_registro.TIPO', self::PROPIEDAD)
+            ->where('verificacion_documento_registro.ORIGEN', self::DE_LA_NOCHE)
+            ->where('verificacion_documento_registro.ESTADO', self::COINCIDE)
+            ->whereRaw($json('nro') . " REGEXP '^[0-9]{12}$'")
+            ->whereRaw('COALESCE(' . $json('otra_placa') . ", 'false') <> 'true'")
+            ->whereRaw('COALESCE(' . $json('lectura_parcial') . ", 'false') <> 'true'")
+            ->whereRaw('COALESCE(' . $json('sin_confirmar') . ", 'false') <> 'true'")
+            ->whereExists(fn ($s) => $s->from('documentacion as d')
+                ->whereColumn('d.ID_EQUIPO', 'verificacion_documento_registro.ID_EQUIPO')
+                ->where(fn ($w) => $w->whereNull('d.NRO_DE_DOCUMENTO')->orWhere('d.NRO_DE_DOCUMENTO', ''))
+                ->whereRaw("d.LINK_DOC_PROPIEDAD LIKE CONCAT('%/', verificacion_documento_registro.DRIVE_ID, '%')"));
+    }
+
+    /**
      * Documentos que el comando todavia tiene que leer, de un tipo. UNA sola definicion de la
      * cola: la usan el comando (para su lote), el panel (para "faltan por leer") y las pruebas.
      * Quedan fuera los enlaces que no apuntan a un archivo de Drive —no hay nada que leer— y
@@ -268,6 +293,9 @@ class VerificacionDocumento extends Model
     public static function hayTrabajo(): bool
     {
         if (self::corregibles()->exists()) return true;
+        // Lo que coincide no se relee: sin esto, con todo leído la tarea ni arrancaría y el
+        // número del título ya leído no se pondría nunca (ver scopeNumeroDeTituloPorPoner).
+        if (self::numeroDeTituloPorPoner()->exists()) return true;
         foreach (self::ENLACES as $tipo => $columna) {
             if (self::pendientes($tipo, $columna)->exists()) return true;
         }

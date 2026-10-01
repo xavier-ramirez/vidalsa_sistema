@@ -144,7 +144,10 @@ class VerificarDocumentos extends Command
         // Lo ya leido en pasadas anteriores que se quedo sin poner en la ficha: se pone ahora,
         // sin volver a Drive (la lectura esta guardada). Asi no queda una cola de filas viejas
         // con diferencias que la tarea si podia resolver.
-        if (!$this->option('no-rellenar')) $this->rellenarLoYaLeido($tipos, $this->option('equipo'));
+        if (!$this->option('no-rellenar')) {
+            if (in_array(VerificacionDocumento::PROPIEDAD, $tipos, true)) $this->numerosDeTituloYaLeidos($this->option('equipo'));
+            $this->rellenarLoYaLeido($tipos, $this->option('equipo'));
+        }
 
         // De uno en uno y EN ORDEN (asi lo pidio el cliente): la pasada se gasta en el primer
         // documento que tenga cola; cuando ese se acaba, el resto del lote sigue con el
@@ -195,6 +198,43 @@ class VerificarDocumentos extends Command
             }, 'ID_REGISTRO');
 
         if ($puestas) $this->info("Se rellenaron $puestas fichas con lo ya leido (sin volver a Drive).");
+    }
+
+    /**
+     * La diferencia del número del título, SOLO si la ficha no tiene ninguno y el documento sí
+     * (pedido del cliente, 01-10-2026). Uno ya escrito no se toca ni se compara: lo puso una
+     * persona al subir el título. La usan la lectura de un título y el relleno de lo ya leído.
+     */
+    private static function numeroParaFichaVacia(?string $enFicha, array $leido): ?array
+    {
+        if (trim((string) $enFicha) !== '' || empty($leido['nro'])) return null;
+        return ['etiqueta' => 'Nro. de documento', 'ficha' => null, 'documento' => (string) $leido['nro']];
+    }
+
+    /**
+     * Títulos YA LEÍDOS de fichas sin número, leídos antes de que la tarea supiera poner el
+     * número: se pone ahora con lo que esa lectura guardó, sin volver a Drive. Sin esto no se
+     * rellenarían nunca, porque lo que coincide no se relee. Cuáles son y con qué condiciones
+     * lo dice VerificacionDocumento::scopeNumeroDeTituloPorPoner; lo escribe el corrector, como
+     * todo, y solo con la ficha todavía vacía.
+     */
+    private function numerosDeTituloYaLeidos($equipo = null): void
+    {
+        $puestos = 0;
+        [$parte, $de] = $this->reparto();
+        VerificacionDocumento::numeroDeTituloPorPoner()
+            ->when($equipo, fn ($q) => $q->where('ID_EQUIPO', (int) $equipo))
+            ->when($de > 1, fn ($q) => $q->whereRaw('ID_EQUIPO % ? = ?', [$de, $parte]))
+            ->orderBy('ID_REGISTRO')->chunkById(100, function ($filas) use (&$puestos) {
+                foreach ($filas as $reg) {
+                    $nro = self::numeroParaFichaVacia(null, $reg->LEIDO ?? []);
+                    if (!$nro) continue;
+                    $reg->update(['ESTADO' => VerificacionDocumento::DIFIERE, 'A_MANO' => false, 'DIFERENCIAS' => ['NRO_DE_DOCUMENTO' => $nro]]);
+                    if ($this->corrector->aplicar($reg->refresh())['puestos'] ?? []) $puestos++;
+                }
+            }, 'ID_REGISTRO');
+
+        if ($puestos) $this->info("Se puso el número del título en $puestos fichas con lo ya leído (sin volver a Drive).");
     }
 
     private function procesar(string $tipo, object $f, LectorDocumentoPdf $lector, array $catalogo): void
@@ -411,6 +451,7 @@ class VerificarDocumentos extends Command
             if (!$sirve) $leido['lectura_parcial'] = true;
         }
         $this->compararFecha($dif, 'FECHA_EMISION_PROPIEDAD', 'Fecha de emisión', $f->FECHA_EMISION_PROPIEDAD, $leido['emision'] ?? null);
+        if ($nro = self::numeroParaFichaVacia($f->NRO_DE_DOCUMENTO ?? null, $leido)) $dif['NRO_DE_DOCUMENTO'] = $nro;
 
         // El motivo del nombre (errata, abreviado, otro alfabeto...) manda: es el que dice que
         // mirar. Si solo cambian fechas, se resume que falta y que esta distinto.
@@ -686,7 +727,7 @@ class VerificarDocumentos extends Command
             ->orderBy('d.ID_EQUIPO')
             ->limit($lote)
             ->get([
-                'd.ID_EQUIPO', 'd.PLACA', 'd.NOMBRE_DEL_TITULAR', 'd.FECHA_EMISION_PROPIEDAD',
+                'd.ID_EQUIPO', 'd.PLACA', 'd.NOMBRE_DEL_TITULAR', 'd.FECHA_EMISION_PROPIEDAD', 'd.NRO_DE_DOCUMENTO',
                 'd.ID_SEGURO', 'd.FECHA_VENC_POLIZA', 'd.FECHA_EMISION_POLIZA',
                 'd.FECHA_ROTC', 'd.FECHA_EMISION_ROTC', 'd.FECHA_RACDA', 'd.FECHA_EMISION_RACDA',
                 'e.SERIAL_CHASIS', DB::raw("d.$col as LINK"),

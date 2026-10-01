@@ -1485,8 +1485,9 @@ class VerificacionDocumentoTest extends MySqlTestCase
         $this->actingAs($yo)->postJson($url, ['ids' => [$r4->ID_REGISTRO]])->assertOk()->assertJson(['revisadas' => 1, 'fechas' => 0]);
         $this->assertNull($this->ficha($e4)->FECHA_EMISION_PROPIEDAD);
 
-        // Una que ya coincide no se toca (no se puede elegir): conserva su motivo.
-        [$e3, $p3] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'GRUPO ROYSO C.A.', 'FECHA_EMISION_PROPIEDAD' => '2018-10-03']);
+        // Una que ya coincide no se toca (no se puede elegir): conserva su motivo. Con su número
+        // de título: sin él, la ficha no coincide del todo (la tarea lo pondría).
+        [$e3, $p3] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'GRUPO ROYSO C.A.', 'FECHA_EMISION_PROPIEDAD' => '2018-10-03', 'NRO_DE_DOCUMENTO' => '240109177454']);
         $this->lectorFalso($this->textoTitulo('GRUPO ROYSO C.A.', $p3));
         $r3 = $this->verificarSinAplicar($e3, VerificacionDocumento::PROPIEDAD);
         $this->assertSame(VerificacionDocumento::COINCIDE, $r3->ESTADO);
@@ -1772,5 +1773,65 @@ class VerificacionDocumentoTest extends MySqlTestCase
         $this->assertSame('MODAVENCA HOME, C.A.', $ficha->NOMBRE_DEL_TITULAR, 'Su decisión se respeta.');
         $this->assertSame($admin->getKey(), (int) $reg->APLICADO_POR, 'Sigue como revisada por ella.');
         $this->assertSame(VerificacionDocumento::COINCIDE, $reg->ESTADO);
+    }
+
+    public function test_el_numero_del_titulo_se_pone_solo_si_la_ficha_no_lo_tiene(): void
+    {
+        // Sin número en la ficha: se pone el del título (el texto de prueba trae 240109177454).
+        [$sinNro, $placa] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'CONSTRUCTORA VIDALSA 27, C.A.']);
+        $this->lectorFalso($this->textoTitulo('CONSTRUCTORA VIDALSA 27, C.A.', $placa));
+        $reg = $this->verificar($sinNro, VerificacionDocumento::PROPIEDAD);
+        $this->assertSame('240109177454', $this->ficha($sinNro)->NRO_DE_DOCUMENTO);
+        $this->assertSame(VerificacionDocumento::COINCIDE, $reg->ESTADO);
+
+        // Con número ya escrito: no se toca, ni se anota como diferencia (no se compara).
+        [$conNro, $placa2] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'CONSTRUCTORA VIDALSA 27, C.A.', 'NRO_DE_DOCUMENTO' => '111222333444']);
+        $this->lectorFalso($this->textoTitulo('CONSTRUCTORA VIDALSA 27, C.A.', $placa2));
+        $reg2 = $this->verificar($conNro, VerificacionDocumento::PROPIEDAD);
+        $this->assertSame('111222333444', $this->ficha($conNro)->NRO_DE_DOCUMENTO);
+        $this->assertArrayNotHasKey('NRO_DE_DOCUMENTO', $reg2->DIFERENCIAS ?? []);
+    }
+
+    public function test_el_numero_de_un_titulo_ya_leido_se_pone_sin_volver_a_drive(): void
+    {
+        // Con --equipo la tarea relee SIEMPRE el PDF de esa ficha (esa opción es para probar una).
+        // El relleno de lo ya leído va ANTES y no pisa un número escrito, así que si en la ficha
+        // queda el número GUARDADO (180105275159) y no el del PDF releído (240109177454 del texto
+        // de prueba), salió de lo ya leído y no de Drive.
+        $fila = function (int $equipo, string $driveId, array $leido): void {
+            DB::table('verificacion_documento_registro')->insert([
+                'ID_EQUIPO' => $equipo, 'TIPO' => VerificacionDocumento::PROPIEDAD, 'DRIVE_ID' => $driveId,
+                'ESTADO' => VerificacionDocumento::COINCIDE, 'ORIGEN' => VerificacionDocumento::DE_LA_NOCHE,
+                'MOTIVO' => 'Revisado a mano', 'LEIDO' => json_encode($leido), 'created_at' => now(), 'updated_at' => now(),
+            ]);
+        };
+        $driveDe = fn (int $equipo) => preg_replace('~^/storage/google/([^?]+).*$~', '$1', $this->ficha($equipo)->LINK_DOC_PROPIEDAD);
+
+        [$bueno] = $this->equipoConDocumentos();
+        $fila($bueno, $driveDe($bueno), ['nro' => '180105275159', 'titular' => 'X']);
+        [$otroArchivo] = $this->equipoConDocumentos();
+        $fila($otroArchivo, 'driveDEOTROARCHIVO', ['nro' => '180105275159']);
+        [$otroVehiculo] = $this->equipoConDocumentos();
+        $fila($otroVehiculo, $driveDe($otroVehiculo), ['nro' => '180105275159', 'otra_placa' => true]);
+        [$yaTiene] = $this->equipoConDocumentos(['NRO_DE_DOCUMENTO' => '999888777666']);
+        $fila($yaTiene, $driveDe($yaTiene), ['nro' => '180105275159']);
+
+        // Solo el bueno está "por poner", y eso cuenta como trabajo: si no, con todo ya leído la
+        // tarea ni arrancaría (hayTrabajo) y el número no se pondría nunca.
+        $porPoner = VerificacionDocumento::numeroDeTituloPorPoner()->pluck('ID_EQUIPO')->all();
+        $this->assertContains($bueno, $porPoner);
+        foreach ([$otroArchivo, $otroVehiculo, $yaTiene] as $e) $this->assertNotContains($e, $porPoner);
+        $this->assertTrue(VerificacionDocumento::hayTrabajo());
+
+        foreach ([$bueno, $otroArchivo, $otroVehiculo, $yaTiene] as $e) {
+            $this->lectorFalso($this->textoTitulo('X', $this->ficha($e)->PLACA));
+            $this->artisan('docs:verificar-documentos', ['--equipo' => $e, '--tipo' => VerificacionDocumento::PROPIEDAD])->assertSuccessful();
+        }
+
+        $this->assertSame('180105275159', $this->ficha($bueno)->NRO_DE_DOCUMENTO, 'Lo ya leído se pone, sin releer.');
+        $this->assertNotSame('180105275159', $this->ficha($otroArchivo)->NRO_DE_DOCUMENTO, 'La lectura guardada era de OTRO archivo: no vale.');
+        $this->assertNotSame('180105275159', $this->ficha($otroVehiculo)->NRO_DE_DOCUMENTO, 'De otro vehículo: no se copia nada de esa lectura.');
+        $this->assertSame('999888777666', $this->ficha($yaTiene)->NRO_DE_DOCUMENTO, 'Uno ya escrito no se toca.');
+        $this->assertNotContains($bueno, VerificacionDocumento::numeroDeTituloPorPoner()->pluck('ID_EQUIPO')->all(), 'Puesto: ya no queda por poner.');
     }
 }

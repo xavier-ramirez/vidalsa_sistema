@@ -635,7 +635,7 @@
         // Diferencia del verificador -> campo del panel del visor que la corrige.
         // Las fechas de emision tienen su campo en el panel (fecha_emision): lo que dice el
         // documento sale debajo con su "Usar", no como un campo aparte.
-        var CAMPO = { NOMBRE_DEL_TITULAR: 'titular', ID_SEGURO: 'nombre_aseguradora',
+        var CAMPO = { NOMBRE_DEL_TITULAR: 'titular', NRO_DE_DOCUMENTO: 'nro_documento', ID_SEGURO: 'nombre_aseguradora',
                       FECHA_VENC_POLIZA: 'fecha_vencimiento', FECHA_ROTC: 'fecha_vencimiento', FECHA_RACDA: 'fecha_vencimiento',
                       FECHA_EMISION_PROPIEDAD: 'fecha_emision', FECHA_EMISION_POLIZA: 'fecha_emision',
                       FECHA_EMISION_ROTC: 'fecha_emision', FECHA_EMISION_RACDA: 'fecha_emision' };

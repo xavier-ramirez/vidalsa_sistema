@@ -37,6 +37,10 @@ class CorrectorFichaDocumento
      */
     public const CAMPOS = [
         'NOMBRE_DEL_TITULAR',
+        // El número del título: el verificador SOLO lo propone cuando la ficha no tiene ninguno
+        // (pedido del cliente, 01-10-2026); uno ya escrito no se toca ni se compara. Y como todo,
+        // se escribe solo si la ficha sigue vacía al aplicarlo (ver $esperado en aplicar()).
+        'NRO_DE_DOCUMENTO',
         'ID_SEGURO',
         'FECHA_VENC_POLIZA', 'FECHA_EMISION_POLIZA',
         'FECHA_EMISION_PROPIEDAD',
