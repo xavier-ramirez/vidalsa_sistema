@@ -299,10 +299,15 @@
                    placeholder="Sin documento" readonly style="flex: 1; background:#f8fafc; cursor:default;" autocomplete="off">
             <div class="pdf-btn-container" style="display:flex; align-items:center; gap:6px;">
                 @if($hasProp)
-                    <a href="{{ asset($auxiliar->LINK_DOC_PROPIEDAD) }}" target="_blank" rel="noopener" title="Ver documento: Propiedad"
+                    {{-- Se abre en el visor de la aplicación, no en otra pestaña. En SOLO LECTURA (sin
+                         equipoId): la gestión del documento en esta pantalla la hace el propio
+                         formulario con sus botones de reemplazar y quitar, y dejar además los del
+                         visor serían dos caminos pisándose sobre un formulario a medio guardar. --}}
+                    <button type="button" title="Ver documento: Propiedad"
+                       onclick="window.openPdfPreview(@js(asset($auxiliar->LINK_DOC_PROPIEDAD)), 'propiedad', 'Propiedad', 0, '', true, 'auxiliar')"
                        class="pdf-doc-btn">
                         <i class="material-icons">description</i>
-                    </a>
+                    </button>
                     <label for="doc_propiedad" title="Reemplazar PDF"
                            style="display:flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:6px; color:#64748b; cursor:pointer; background:#f1f5f9;"
                            onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f1f5f9'">
@@ -333,10 +338,15 @@
                    style="flex: 1; cursor:pointer;" onclick="try{this.showPicker()}catch(e){}">
             <div class="pdf-btn-container" style="display:flex; align-items:center; gap:6px;">
                 @if($hasCert)
-                    <a href="{{ asset($auxiliar->LINK_CERTIFICADO) }}" target="_blank" rel="noopener" title="Ver certificado"
+                    {{-- Se abre en el visor de la aplicación, no en otra pestaña. En SOLO LECTURA (sin
+                         equipoId): la gestión del documento en esta pantalla la hace el propio
+                         formulario con sus botones de reemplazar y quitar, y dejar además los del
+                         visor serían dos caminos pisándose sobre un formulario a medio guardar. --}}
+                    <button type="button" title="Ver certificado"
+                       onclick="window.openPdfPreview(@js(asset($auxiliar->LINK_CERTIFICADO)), 'certificado', 'Certificado', 0, '', true, 'auxiliar')"
                        class="pdf-doc-btn">
                         <i class="material-icons">description</i>
-                    </a>
+                    </button>
                     <label for="certificado" title="Reemplazar certificado"
                            style="display:flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:6px; color:#64748b; cursor:pointer; background:#f1f5f9;"
                            onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f1f5f9'">

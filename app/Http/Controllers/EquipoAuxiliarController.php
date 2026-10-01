@@ -77,7 +77,8 @@ class EquipoAuxiliarController extends Controller
     /**
      * Aborta con 404 si el auxiliar pertenece a un frente fuera del scope
      * del usuario LOCAL. Usado para no filtrar la existencia del registro
-     * via URLs directas (mismo patron que findAndAuthorizeEquipo).
+     * via URLs directas. (EquipoController no tiene equivalente: su buscarEquipoOFallar solo
+     * busca el equipo, no comprueba frentes.)
      */
     private function authorizeAuxScope(EquipoAuxiliar $aux): void
     {
@@ -2197,9 +2198,10 @@ class EquipoAuxiliarController extends Controller
 
     /**
      * Guarda los datos editados desde el panel lateral del visor PDF.
-     * doc_type=propiedad => actualiza SERIAL/MARCA/MODELO/CAPACIDAD/ANIO/TIPO.
-     * doc_type=certificado => actualiza FECHA_VENCIMIENTO_CERT (+ datos basicos
-     * por simetria con propiedad). Permiso: user.edit (gateado en routes/web.php).
+     * doc_type=propiedad    => SERIAL, CODIGO_INTERNO, TIPO, MARCA, MODELO, CAPACIDAD y ANIO,
+     *                          pero SOLO los que vengan en la peticion (ver abajo).
+     * doc_type=certificado  => FECHA_VENCIMIENTO_CERT y nada mas.
+     * Permiso: user.edit (gateado en routes/web.php).
      */
     public function updateMetadata(Request $request, $id)
     {
@@ -2209,14 +2211,33 @@ class EquipoAuxiliarController extends Controller
 
         $upd = [];
         if ($type === 'propiedad') {
-            $upd['SERIAL']         = mb_strtoupper(trim((string) $request->input('serial', '')));
-            $upd['CODIGO_INTERNO'] = mb_strtoupper(trim((string) $request->input('codigo', '')));
-            $upd['TIPO']           = mb_strtoupper(trim((string) $request->input('tipo', '')));
-            $upd['MARCA']          = mb_strtoupper(trim((string) $request->input('marca', '')));
-            $upd['MODELO']         = mb_strtoupper(trim((string) $request->input('modelo', '')));
-            $upd['CAPACIDAD']      = mb_strtoupper(trim((string) $request->input('capacidad', '')));
-            $anio = trim((string) $request->input('anio', ''));
-            $upd['ANIO']           = $anio === '' ? null : (int) $anio;
+            // SOLO se escriben los campos que vienen en la peticion, igual que en
+            // EquipoController::updateMetadata. Antes se escribian todos tomando el que faltaba
+            // como vacio, asi que una peticion incompleta —un cliente viejo, un reintento a
+            // medias— BORRABA en silencio el SERIAL, y el SERIAL es justo el dato con el que
+            // CargaMasivaDocumentos comprueba que un PDF es de este auxiliar: sin el, ese
+            // auxiliar deja de poder verificarse.
+            // Que un campo venga VACIO sigue queriendo decir "borralo": eso es el usuario
+            // limpiando la casilla a proposito, y se distingue de que no venga.
+            $enMayusculas = function (string $campo) use ($request): ?string {
+                $v = trim((string) $request->input($campo, ''));
+                return $v === '' ? null : mb_strtoupper($v);
+            };
+            // TIPO es la unica NOT NULL de las seis: vaciarla guarda cadena vacia, no null.
+            foreach ([
+                'serial' => 'SERIAL', 'codigo' => 'CODIGO_INTERNO', 'tipo' => 'TIPO',
+                'marca' => 'MARCA', 'modelo' => 'MODELO', 'capacidad' => 'CAPACIDAD',
+            ] as $campo => $columna) {
+                if (! $request->has($campo)) {
+                    continue;
+                }
+                $valor = $enMayusculas($campo);
+                $upd[$columna] = ($valor === null && $columna === 'TIPO') ? '' : $valor;
+            }
+            if ($request->has('anio')) {
+                $anio = trim((string) $request->input('anio', ''));
+                $upd['ANIO'] = $anio === '' ? null : (int) $anio;
+            }
         } elseif ($type === 'certificado') {
             // Con certificado cargado la fecha no se puede vaciar (ver reglaFechaCert). JSON
             // a mano: este POST llega por apiFetch sin 'Accept: application/json', y

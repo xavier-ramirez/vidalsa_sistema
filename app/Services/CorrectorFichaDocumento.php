@@ -214,9 +214,30 @@ class CorrectorFichaDocumento
             $limpios[$campo] = $valor;
         }
 
-        DB::transaction(function () use ($reg, $limpios, $dif, $usuario) {
+        $fallo = DB::transaction(function () use ($reg, $limpios, $usuario) {
+            // Se bloquea TAMBIÉN la lectura, como en aplicar(): si no, la tarea nocturna puede
+            // escribir esta misma fila entre el cambio de la ficha y el "revisado a mano", y el
+            // trabajo de la persona queda pisado o marcado como si lo hubiera cambiado otro.
+            $reg = VerificacionDocumento::where('ID_REGISTRO', $reg->ID_REGISTRO)->lockForUpdate()->first();
+            // Como en aplicar(): si la fila ya no está, se corta. Antes seguía en silencio con el
+            // modelo viejo y marcarRevisadoPor() no tocaba ninguna fila, pero el panel respondía
+            // "listo".
+            if (!$reg) return ['error' => 'Esa lectura ya no existe: vuelve a leer el documento.'];
+            // Y se vuelve a comprobar el permiso de cada campo contra la fila YA bloqueada: la
+            // validación de arriba se hizo sobre el retrato anterior al bloqueo, y entre medias
+            // la tarea nocturna pudo reescribir DIFERENCIAS.
+            $dif = $reg->DIFERENCIAS ?? [];
+            foreach (array_keys($limpios) as $campo) {
+                if (!isset($dif[$campo])) {
+                    return ['error' => 'Esa lectura cambió mientras la revisabas: vuelve a abrirla.'];
+                }
+            }
             if ($limpios) {
-                $doc = Documentacion::where('ID_EQUIPO', $reg->ID_EQUIPO)->lockForUpdate()->firstOrFail();
+                // first() y no firstOrFail(), igual que aplicar(): si la ficha ya no esta, se
+                // responde con el mismo mensaje de siempre en vez de reventar con un 500 (o, en
+                // la tanda, ensenarle al usuario el texto de Eloquent).
+                $doc = Documentacion::where('ID_EQUIPO', $reg->ID_EQUIPO)->lockForUpdate()->first();
+                if (!$doc) return ['error' => 'La ficha de ese equipo ya no existe.'];
                 $cambios = [];
                 foreach ($limpios as $campo => $valor) {
                     $antes = $doc->{$campo};
@@ -232,9 +253,10 @@ class CorrectorFichaDocumento
                 }
             }
             $reg->marcarRevisadoPor($usuario);
+            return null;
         });
 
-        return ['puestos' => array_keys($limpios)];
+        return $fallo ?: ['puestos' => array_keys($limpios)];
     }
 
     /**

@@ -469,8 +469,15 @@
                 .then(function (r) { return r.json(); })
                 .then(function (data) {
                     if (!data || !data.success) throw new Error((data && data.message) || 'sin exito');
-                    window.toast((data.revisadas === 1 ? '1 fila revisada' : data.revisadas + ' filas revisadas')
-                        + (data.fechas ? ' · ' + (data.fechas === 1 ? '1 fecha puesta' : data.fechas + ' fechas puestas') : ''), 'success');
+                    // Se dice lo que de verdad pasó, incluidas las que NO se pudieron revisar y por
+                    // qué: antes se contaban todas como hechas aunque alguna hubiera fallado.
+                    var txt = (data.revisadas === 1 ? '1 fila revisada' : data.revisadas + ' filas revisadas')
+                        + (data.fechas ? ' · ' + (data.fechas === 1 ? '1 fecha puesta' : data.fechas + ' fechas puestas') : '');
+                    if (data.fallaron) {
+                        txt += ' · ' + (data.fallaron === 1 ? '1 se quedó sin revisar' : data.fallaron + ' se quedaron sin revisar')
+                             + (data.motivo ? ' (' + data.motivo + ')' : '');
+                    }
+                    window.toast(txt, data.fallaron ? 'warning' : 'success');
                     window.cpdfFiltrar();
                 })
                 .catch(function (err) {
@@ -702,24 +709,39 @@
             });
             if (lista.childNodes.length) aviso.appendChild(lista);
 
-            // Lo que el panel no tiene (el titular del ROTC): su propio campo,
-            // relleno con lo que dice el documento. Al GUARDAR se pone en la ficha lo que diga el
-            // campo, sin casilla que marcar (lo pidio el cliente); vaciarlo = no ponerlo. Sin esto
-            // se perderia al dar la fila por revisada.
+            // Lo que el panel no tiene (el titular del ROTC): su propio campo, relleno con lo que
+            // dice el documento SOLO si la lectura es fiable (ver abajo). Al GUARDAR se pone en la
+            // ficha lo que diga el campo, sin casilla que marcar (lo pidio el cliente); vaciarlo =
+            // no ponerlo. Sin esto se perderia al dar la fila por revisada.
             // Del PDF ANTERIOR no se ofrece nada: es el viejo y dejaria la ficha peor.
             if (!anterior) otras.forEach(function (o) {
                 var campo = o[0], d = o[1], valorDoc = o[2];
                 var inp = document.createElement('input');
                 inp.type = /^FECHA_/.test(campo) ? 'date' : 'text';
-                inp.value = valorDoc;
+                // Con la lectura NO fiable (se leyó a medias, o no se confirmó de qué vehículo es)
+                // el campo sale VACÍO, no con lo que creyó leer. Salía relleno y bastaba pulsar
+                // Guardar para meter en la ficha un nombre cortado a la mitad — justo lo que el
+                // sistema se niega a hacer solo porque la dejaría peor de como está. Quien lo
+                // sepa lo escribe mirando el PDF, que para eso lo tiene delante.
+                if (v.fiable) {
+                    inp.value = valorDoc;
+                } else {
+                    inp.placeholder = 'Escríbelo mirando el PDF';
+                }
                 aviso.appendChild(cpdfNodo('div', 'cpdf-extra', [
                     cpdfNodo('div', 'cpdf-extra-tit', d.etiqueta || campo),
-                    cpdfNodo('div', 'cpdf-extra-ficha', 'Ficha: ' + (d.ficha ? cpdfFecha(d.ficha) : 'vacío') + ' · documento:'),
+                    // Con la lectura no fiable el campo va vacío, así que el rótulo no puede
+                    // anunciar un "documento:" que no está: ahí se dice lo que hay que hacer, y lo
+                    // que el sistema creyó leer lo cuenta la nota de abajo.
+                    cpdfNodo('div', 'cpdf-extra-ficha', 'Ficha: ' + (d.ficha ? cpdfFecha(d.ficha) : 'vacío')
+                        + (v.fiable ? ' · documento:' : ' · escríbelo tú:')),
                     inp,
                     // Si no se confirmo de que vehiculo es (o se leyo a medias), se avisa: quien
                     // guarda debe haberlo visto en el PDF.
-                    cpdfNodo('div', 'cpdf-extra-nota', v.fiable ? 'Se pone en la ficha al guardar.'
-                        : 'Se pone al guardar. Lectura no segura: confírmalo en el PDF o vacía el campo.'),
+                    cpdfNodo('div', 'cpdf-extra-nota' + (v.fiable ? '' : ' cpdf-extra-ojo'), v.fiable
+                        ? 'Se pone en la ficha al guardar.'
+                        : 'Lectura NO segura: el sistema leyó «' + (valorDoc || '—') + '», pero puede estar a medias. ' +
+                          'Escríbelo tú mirando el PDF, o déjalo vacío para no tocar la ficha.'),
                 ]));
                 window._pdfVerif.extras.push({ campo: campo, input: inp });
             });

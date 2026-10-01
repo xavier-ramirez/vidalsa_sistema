@@ -751,6 +751,11 @@
     <script>
         window.TIPOS_CON_ANEXOS = @json(\App\Http\Controllers\EquipoController::TIPOS_CON_ANEXOS);
         window.ROTULO_ANEXO     = @json(\App\Http\Controllers\EquipoController::ROTULO_ANEXO);
+        {{-- Qué documentos vencen, por el mismo motivo que los dos de arriba: el panel del visor
+             pinta la fecha de vencimiento de estos y de ningún otro, y la lista estaba escrita a
+             mano allí. La fuente es DocumentacionDeEquipo::VENCIMIENTO, que es la que usa el
+             servidor para leerla y guardarla. --}}
+        window.TIPOS_QUE_VENCEN = @json(array_keys(\App\Support\DocumentacionDeEquipo::VENCIMIENTO));
     </script>
 
     <!-- PDF Preview Modal -->

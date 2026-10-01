@@ -59,8 +59,15 @@
                   height: 110px; border: 2px dashed #cbd5e1; border-radius: 10px; background: #f8fafc; color: #64748b;
                   font-size: 12.5px; font-weight: 600; cursor: pointer; text-align: center; padding: 0 12px;
                   transition: border-color .15s, background .15s; }
-    .hd-cm-zona:hover, .hd-cm-zona.encima { border-color: #0067b1; background: #eff6ff; color: #0067b1; }
+    /* El realce azul SOLO cuando la zona acepta archivos. El :not() lo deja fuera de la zona
+       bloqueada en los dos casos —pasar el ratón y arrastrar algo encima—, sin una segunda regla
+       que vuelva a pintar los mismos colores para deshacerlo. */
+    .hd-cm-zona:not(.hd-cm-bloqueada):hover,
+    .hd-cm-zona:not(.hd-cm-bloqueada).encima { border-color: #0067b1; background: #eff6ff; color: #0067b1; }
     .hd-cm-zona.ocupada { cursor: progress; }
+    /* Sin tipo elegido no se puede cargar: la zona se ve apagada y no responde al pasar por
+       encima, para que se note que el paso que falta es el de arriba. */
+    .hd-cm-zona.hd-cm-bloqueada { opacity: 0.45; cursor: not-allowed; border-style: solid; }
     .hd-cm-zona .material-icons { font-size: 26px; }
     .hd-cm-zona small { font-size: 11px; font-weight: 600; color: #94a3b8; }
 
@@ -83,9 +90,20 @@
 
     // `turno` descarta los resultados de una tanda ya cancelada: cerrar el modal con la cola a
     // medias no debe seguir pintando ni avisar al terminar.
-    var estado = { turno: 0, corriendo: false, hechos: 0, cierre: null };
+    var estado = { turno: 0, corriendo: false, hechos: 0, cierre: null, oyenteTipo: null };
 
     function $(id) { return document.getElementById(id); }
+
+    /**
+     * Suelta el oyente que sigue al desplegable del tipo. Vive en window —el desplegable avisa
+     * por ahí— así que no se va solo con el modal: hay que quitarlo tanto al cerrar como al
+     * reconstruirlo. Fuente única para los dos sitios.
+     */
+    function soltarOyenteTipo() {
+        if (!estado.oyenteTipo) return;
+        window.removeEventListener('dropdown-selection', estado.oyenteTipo);
+        estado.oyenteTipo = null;
+    }
 
     /**
      * El tipo elegido. Es OBLIGATORIO: se sueltan PDF de un solo tipo por tanda ("estos son
@@ -139,6 +157,11 @@
         // cerraría este.
         clearTimeout(estado.cierre);
         estado.cierre = null;
+        // Al arrancarle el DOM al modal anterior hay que soltar SU oyente: vive en window, así
+        // que sobrevive al nodo y se quedaría colgado apuntando a una zona que ya no está en la
+        // página, uno por cada reapertura. (Aquí no vale llamar a cerrar(): con una tanda a medias
+        // pregunta, y si el usuario dice que no, se queda sin cerrar y acabaríamos con dos.)
+        soltarOyenteTipo();
         if ($('hdCmOverlay')) $('hdCmOverlay').remove();
         var o = document.createElement('div');
         o.id = 'hdCmOverlay';
@@ -151,7 +174,10 @@
                 '</div>' +
                 '<div class="hd-cm-tools">' +
                     desplegableTipo() +
-                    '<div class="hd-cm-zona" id="hdCmZona">' +
+                    // Nace BLOQUEADA: primero se elige qué documento se carga. Antes dejaba abrir
+                    // el explorador y soltar archivos, y solo entonces avisaba de que faltaba el
+                    // tipo — con la tanda ya elegida (pedido del cliente, 30-09-2026).
+                    '<div class="hd-cm-zona hd-cm-bloqueada" id="hdCmZona">' +
                         '<i class="material-icons">upload_file</i>' +
                         '<span>Suelta los PDF aquí</span>' +
                         '<small>o haz clic para elegirlos</small>' +
@@ -174,17 +200,42 @@
         $('hdCmCerrar').addEventListener('click', cerrar);
         o.addEventListener('click', function (e) { if (e.target === o) cerrar(); });
 
-        zona.addEventListener('click', function () { if (!estado.corriendo) input.click(); });
+        // La zona sigue al desplegable: mientras no haya tipo, ni abre el explorador ni acepta
+        // nada soltado. Se engancha al evento 'dropdown-selection' que dispara selectOption(),
+        // por donde pasan las DOS formas de cambiar el tipo: elegir una opción y limpiarla con
+        // el aspa. (Escuchar el clic del desplegable no valía: el aspa hace stopPropagation, así
+        // que al limpiar la zona se quedaba con pinta de habilitada sin tipo elegido.)
+        var sincronizarZona = function (e) {
+            if (e && e.detail && e.detail.dropdownId !== 'hdCmTipo') return;
+            var hay = !!tipoElegido();
+            zona.classList.toggle('hd-cm-bloqueada', !hay);
+            zona.title = hay ? '' : 'Elige primero qué documento vas a cargar';
+        };
+        // Se guarda para poder soltarlo (ver soltarOyenteTipo): el modal se reconstruye en cada
+        // apertura y si no, los oyentes se irían acumulando en window.
+        estado.oyenteTipo = sincronizarZona;
+        window.addEventListener('dropdown-selection', sincronizarZona);
+        sincronizarZona();
+
+        zona.addEventListener('click', function () {
+            if (estado.corriendo) return;
+            if (!tipoElegido()) { window.toast('Elige primero qué documento vas a cargar', 'error'); return; }
+            input.click();
+        });
         input.addEventListener('change', function () { encolar(input.files); input.value = ''; });
 
         ['dragenter', 'dragover'].forEach(function (ev) {
-            zona.addEventListener(ev, function (e) { e.preventDefault(); if (!estado.corriendo) zona.classList.add('encima'); });
+            zona.addEventListener(ev, function (e) { e.preventDefault(); if (!estado.corriendo && tipoElegido()) zona.classList.add('encima'); });
         });
         ['dragleave', 'drop'].forEach(function (ev) {
             zona.addEventListener(ev, function (e) { e.preventDefault(); zona.classList.remove('encima'); });
         });
         zona.addEventListener('drop', function (e) {
-            if (!estado.corriendo && e.dataTransfer) encolar(e.dataTransfer.files);
+            if (estado.corriendo || !e.dataTransfer) return;
+            // encolar() vuelve a comprobar el tipo; aquí se corta antes para no darle vueltas a
+            // los archivos soltados cuando ya se sabe que no van a ir a ninguna parte.
+            if (!tipoElegido()) { window.toast('Elige primero qué documento vas a cargar', 'error'); return; }
+            encolar(e.dataTransfer.files);
         });
     }
 
@@ -200,6 +251,7 @@
         estado.corriendo = false;
         var subio = estado.hechos > 0;
         estado.hechos = 0;          // que la próxima vez no herede el conteo de esta
+        soltarOyenteTipo();
         var o = $('hdCmOverlay');
         if (o) o.remove();
         // Ya sin el modal delante: la tabla de esta misma pantalla se refresca para que salgan

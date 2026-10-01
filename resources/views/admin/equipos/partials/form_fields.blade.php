@@ -371,10 +371,14 @@
             <!-- Button Wrapper -->
             <div id="wrapper_propiedad" class="pdf-btn-container" style="display:flex; align-items:center; gap:6px;">
                 @if($hasProp)
-                    <a href="{{ $equipo->documentacion->LINK_DOC_PROPIEDAD }}" target="_blank" title="Ver documento: Propiedad"
-                       class="pdf-doc-btn">
+                    {{-- Se abre en el visor de la aplicación, no en otra pestaña. En SOLO LECTURA (sin
+                         equipoId): la gestión del documento en esta pantalla la hace el propio
+                         formulario con sus botones de reemplazar y quitar, y dejar además los del
+                         visor serían dos caminos pisándose sobre un formulario a medio guardar. --}}
+                    <button type="button" class="pdf-doc-btn" title="Ver documento: Propiedad"
+                            onclick="window.openPdfPreview(@js($equipo->documentacion->LINK_DOC_PROPIEDAD), 'propiedad', 'Propiedad', 0, '', true, 'equipo')">
                         <i class="material-icons">description</i>
-                    </a>
+                    </button>
                     <label for="doc_propiedad" title="Reemplazar PDF"
                            style="display:flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:6px; color:#64748b; cursor:pointer; background:#f1f5f9;"
                            onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f1f5f9'">
@@ -422,10 +426,14 @@
 
             <div id="wrapper_poliza" class="pdf-btn-container" style="display:flex; align-items:center; gap:6px;">
                 @if($hasPoliza)
-                    <a href="{{ $equipo->documentacion->LINK_POLIZA_SEGURO }}" target="_blank" title="Ver documento: Póliza"
-                       class="pdf-doc-btn">
+                    {{-- Se abre en el visor de la aplicación, no en otra pestaña. En SOLO LECTURA (sin
+                         equipoId): la gestión del documento en esta pantalla la hace el propio
+                         formulario con sus botones de reemplazar y quitar, y dejar además los del
+                         visor serían dos caminos pisándose sobre un formulario a medio guardar. --}}
+                    <button type="button" class="pdf-doc-btn" title="Ver documento: Póliza"
+                            onclick="window.openPdfPreview(@js($equipo->documentacion->LINK_POLIZA_SEGURO), 'poliza', 'Póliza', 0, '', true, 'equipo')">
                         <i class="material-icons">description</i>
-                    </a>
+                    </button>
                     <label for="poliza_seguro" title="Reemplazar PDF"
                            style="display:flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:6px; color:#64748b; cursor:pointer; background:#f1f5f9;"
                            onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f1f5f9'">
@@ -452,10 +460,14 @@
 
             <div id="wrapper_rotc" class="pdf-btn-container" style="display:flex; align-items:center; gap:6px;">
                 @if($hasRotc)
-                    <a href="{{ $equipo->documentacion->LINK_ROTC }}" target="_blank" title="Ver documento: ROTC"
-                       class="pdf-doc-btn">
+                    {{-- Se abre en el visor de la aplicación, no en otra pestaña. En SOLO LECTURA (sin
+                         equipoId): la gestión del documento en esta pantalla la hace el propio
+                         formulario con sus botones de reemplazar y quitar, y dejar además los del
+                         visor serían dos caminos pisándose sobre un formulario a medio guardar. --}}
+                    <button type="button" class="pdf-doc-btn" title="Ver documento: ROTC"
+                            onclick="window.openPdfPreview(@js($equipo->documentacion->LINK_ROTC), 'rotc', 'ROTC', 0, '', true, 'equipo')">
                         <i class="material-icons">description</i>
-                    </a>
+                    </button>
                     <label for="doc_rotc" title="Reemplazar PDF"
                            style="display:flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:6px; color:#64748b; cursor:pointer; background:#f1f5f9;"
                            onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f1f5f9'">
@@ -483,10 +495,14 @@
 
            <div id="wrapper_racda" class="pdf-btn-container" style="display:flex; align-items:center; gap:6px;">
                 @if($hasRacda)
-                    <a href="{{ $equipo->documentacion->LINK_RACDA }}" target="_blank" title="Ver documento: RACDA"
-                       class="pdf-doc-btn">
+                    {{-- Se abre en el visor de la aplicación, no en otra pestaña. En SOLO LECTURA (sin
+                         equipoId): la gestión del documento en esta pantalla la hace el propio
+                         formulario con sus botones de reemplazar y quitar, y dejar además los del
+                         visor serían dos caminos pisándose sobre un formulario a medio guardar. --}}
+                    <button type="button" class="pdf-doc-btn" title="Ver documento: RACDA"
+                            onclick="window.openPdfPreview(@js($equipo->documentacion->LINK_RACDA), 'racda', 'RACDA', 0, '', true, 'equipo')">
                         <i class="material-icons">description</i>
-                    </a>
+                    </button>
                     <label for="doc_racda" title="Reemplazar PDF"
                            style="display:flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:6px; color:#64748b; cursor:pointer; background:#f1f5f9;"
                            onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f1f5f9'">

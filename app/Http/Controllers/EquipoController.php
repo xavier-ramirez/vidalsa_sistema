@@ -66,11 +66,19 @@ class EquipoController extends Controller
     }
 
     /**
-     * Centralized lookup. NO aplica barrera por NIVEL_ACCESO_EQUIPOS / jurisdiccion:
-     * la filosofia del sistema es "solo la clave PERMISOS decide el acceso".
-     * El control granular ya esta en el middleware/@can de cada operacion.
+     * Busca el equipo o falla. SOLO eso: no autoriza nada.
+     *
+     * Se llamaba findAndAuthorizeEquipo y el nombre mentia — quien lo leia daba por hecho que
+     * comprobaba algo. NO aplica barrera por NIVEL_ACCESO_EQUIPOS ni por frente, y es a
+     * proposito: la filosofia del sistema es "solo la clave PERMISOS decide el acceso", y el
+     * control granular esta en el middleware/@can de cada operacion.
+     *
+     * OJO con la consecuencia: quien tenga el permiso puede tocar CUALQUIER equipo, incluidos los
+     * de frentes que no ve en los listados o que tiene bloqueados (Usuario::aplicarScopeFrentesEquipos
+     * no entra aqui). Si algun dia se decide que los frentes tambien manden en la edicion, este
+     * es el sitio.
      */
-    private function findAndAuthorizeEquipo($id, $with = [])
+    private function buscarEquipoOFallar($id, $with = [])
     {
         $query = \App\Models\Equipo::query();
         if (!empty($with)) {
@@ -1874,7 +1882,9 @@ class EquipoController extends Controller
                 $reqDoc = $request->input('documentacion', []);
                 $reqDoc['ID_EQUIPO'] = $equipo->ID_EQUIPO;
                 $reqDoc['PLACA'] = strtoupper($reqDoc['PLACA'] ?? '');
-                $reqDoc['NOMBRE_DEL_TITULAR'] = strtoupper($reqDoc['NOMBRE_DEL_TITULAR'] ?? '');
+                // mb_strtoupper, como en updateMetadata: strtoupper va byte a byte y un titular
+                // con Ñ o acentos salía a medias ("SEñOR"). La placa y el número son ASCII.
+                $reqDoc['NOMBRE_DEL_TITULAR'] = mb_strtoupper($reqDoc['NOMBRE_DEL_TITULAR'] ?? '');
                 $reqDoc['NRO_DE_DOCUMENTO'] = strtoupper($reqDoc['NRO_DE_DOCUMENTO'] ?? '');
 
                 if (!empty($reqDoc['NOMBRE_SEGURO'])) {
@@ -1961,7 +1971,7 @@ class EquipoController extends Controller
 
     public function edit(Request $request, $id)
     {
-        $equipo = $this->findAndAuthorizeEquipo($id, ['frenteActual', 'especificaciones', 'documentacion', 'responsables', 'tipo']);
+        $equipo = $this->buscarEquipoOFallar($id, ['frenteActual', 'especificaciones', 'documentacion', 'responsables', 'tipo']);
 
         // Listado al que volver (con sus filtros) al Cancelar/Guardar. Lo manda el lápiz
         // del modal de detalles como ?return=…; se sanea para evitar open-redirect.
@@ -2008,7 +2018,7 @@ class EquipoController extends Controller
         $data = $request->validate([
             'ID_ESPEC' => 'required|integer|exists:caracteristicas_modelo,ID_ESPEC',
         ]);
-        $equipo = $this->findAndAuthorizeEquipo($id);
+        $equipo = $this->buscarEquipoOFallar($id);
         $equipo->ID_ESPEC = (int) $data['ID_ESPEC'];
         $equipo->save();
 
@@ -2027,7 +2037,7 @@ class EquipoController extends Controller
     public function update(Request $request, $id)
     {
         set_time_limit(300);
-        $equipo = $this->findAndAuthorizeEquipo($id);
+        $equipo = $this->buscarEquipoOFallar($id);
 
         // Normalize inputs to uppercase before validation to avoid case-sensitivity issues with unique constraints
         $request->merge([
@@ -2241,8 +2251,10 @@ class EquipoController extends Controller
                     $docData['PLACA'] = ($placaVal === '') ? null : strtoupper($placaVal);
                 }
 
+                // mb_strtoupper, como en updateMetadata: strtoupper va byte a byte y un titular
+                // con Ñ o acentos salía a medias ("SEñOR"). La placa y el número son ASCII.
                 if (isset($docData['NOMBRE_DEL_TITULAR']))
-                    $docData['NOMBRE_DEL_TITULAR'] = strtoupper($docData['NOMBRE_DEL_TITULAR']);
+                    $docData['NOMBRE_DEL_TITULAR'] = mb_strtoupper($docData['NOMBRE_DEL_TITULAR']);
                 if (isset($docData['NRO_DE_DOCUMENTO']))
                     $docData['NRO_DE_DOCUMENTO'] = strtoupper($docData['NRO_DE_DOCUMENTO']);
 
@@ -2322,7 +2334,7 @@ class EquipoController extends Controller
 
     public function destroy($id)
     {
-        $equipo = $this->findAndAuthorizeEquipo($id);
+        $equipo = $this->buscarEquipoOFallar($id);
         // Registrar ANTES del delete (el Observer solo cubre 'updated',
         // no 'deleted', asi que este registro manual NO duplica nada).
         \App\Models\EquipoAuditLog::registrar($equipo->ID_EQUIPO, 'delete', [
@@ -2554,7 +2566,7 @@ class EquipoController extends Controller
         $request->validate([
             'status' => 'required|in:OPERATIVO,INOPERATIVO,EN MANTENIMIENTO,DESINCORPORADO',
         ]);
-        $equipo = $this->findAndAuthorizeEquipo($id);
+        $equipo = $this->buscarEquipoOFallar($id);
 
         // Si el equipo tiene un reporte de falla ABIERTO, su estado lo gobierna ese
         // reporte (quedó INOPERATIVO al crearlo): no se cambia a mano desde aquí. Para
@@ -2581,14 +2593,14 @@ class EquipoController extends Controller
      * Confirmar / quitar la presencia FÍSICA del equipo en su frente (CONFIRMADO_EN_SITIO).
      * El usuario está en el frente y va tildando los que verificó "que está ahí". Lo usan
      * el chip de la celda del frente (lista) y el botón del modal de detalles. Mismo permiso
-     * que changeStatus (equipos.edit, gateado en la ruta) y mismo scope vía findAndAuthorizeEquipo.
+     * que changeStatus (equipos.edit, gateado en la ruta) y mismo scope vía buscarEquipoOFallar.
      */
     public function confirmarSitio(Request $request, $id)
     {
         $request->validate([
             'confirmado' => 'required|boolean',
         ]);
-        $equipo = $this->findAndAuthorizeEquipo($id);
+        $equipo = $this->buscarEquipoOFallar($id);
         $equipo->CONFIRMADO_EN_SITIO = $request->boolean('confirmado') ? 1 : 0;
         $equipo->save();
 
@@ -2657,7 +2669,7 @@ class EquipoController extends Controller
             'expiration_date.date'     => 'La fecha de vencimiento no es válida.',
         ]);
 
-        $equipo = $this->findAndAuthorizeEquipo($id);
+        $equipo = $this->buscarEquipoOFallar($id);
         $type = $request->input('doc_type');
         $file = $request->file('file');
 
@@ -2883,7 +2895,7 @@ class EquipoController extends Controller
                                . number_format(\App\Services\GoogleDriveService::MAX_PDF_KB, 0, ',', '.') . ' KB).',
         ]);
 
-        $equipo = $this->findAndAuthorizeEquipo($id);
+        $equipo = $this->buscarEquipoOFallar($id);
         $type   = $request->input('doc_type');
         $file   = $request->file('file');
 
@@ -2998,7 +3010,7 @@ class EquipoController extends Controller
      */
     public function anexosDoc($id)
     {
-        $equipo = $this->findAndAuthorizeEquipo($id);
+        $equipo = $this->buscarEquipoOFallar($id);
 
         $doc = $equipo->documentacion;
         $porTipo = [];
@@ -3035,7 +3047,7 @@ class EquipoController extends Controller
      */
     public function embarqueDoc($id)
     {
-        $equipo = $this->findAndAuthorizeEquipo($id);
+        $equipo = $this->buscarEquipoOFallar($id);
         $e = $equipo->embarques()->first();
 
         return response()->json(['success' => true, 'embarque' => $e ? [
@@ -3059,7 +3071,7 @@ class EquipoController extends Controller
      */
     public function eliminarAnexo($id, $anexoId)
     {
-        $equipo = $this->findAndAuthorizeEquipo($id);
+        $equipo = $this->buscarEquipoOFallar($id);
 
         $anexo = \App\Models\DocumentoAnexo::where('ID_ANEXO', $anexoId)
             ->where('ID_EQUIPO', $equipo->ID_EQUIPO)
@@ -3210,7 +3222,7 @@ class EquipoController extends Controller
      */
     public function metadata(Request $request, $id)
     {
-        $equipo = $this->findAndAuthorizeEquipo($id, ['documentacion.seguro']);
+        $equipo = $this->buscarEquipoOFallar($id, ['documentacion.seguro']);
 
         $type = $request->input('type');
         $doc = $equipo->documentacion;
@@ -3297,7 +3309,7 @@ class EquipoController extends Controller
             'doc_type' => 'required|in:' . implode(',', array_keys(self::DOC_COLUMNAS)),
         ]);
 
-        $equipo = $this->findAndAuthorizeEquipo($id, ['documentacion']);
+        $equipo = $this->buscarEquipoOFallar($id, ['documentacion']);
         $doc = $equipo->documentacion;
 
         if (!$doc) {
@@ -3387,7 +3399,7 @@ class EquipoController extends Controller
         if (!auth()->user()->can('user.edit')) {
             return response()->json(['success' => false, 'message' => 'No tiene permiso para realizar esta acción.'], 403);
         }
-        $equipo = $this->findAndAuthorizeEquipo($id, ['documentacion']);
+        $equipo = $this->buscarEquipoOFallar($id, ['documentacion']);
         $type = $request->input('doc_type');
 
         // Mismos 6 tipos que deleteDoc/uploadDoc. Sin este check, un doc_type
@@ -3452,28 +3464,41 @@ class EquipoController extends Controller
 
         switch ($type) {
             case 'propiedad':
-                // FIX: Normalize PLACA to null when empty so clearing the field actually saves null,
-                // consistent with the update() method fix. strtoupper('') = '' which array_filter
-                // below (strips '') would remove — but callers may not reach array_filter for PLACA
-                // if the value is already a non-empty string that was then cleared.
-                $placaRaw = trim((string) $request->input('placa', ''));
-                $updateData = [
-                    'NRO_DE_DOCUMENTO'   => strtoupper($request->input('nro_documento', '')) ?: null,
-                    'NOMBRE_DEL_TITULAR' => strtoupper($request->input('titular', '')) ?: null,
-                    'PLACA'              => $placaRaw !== '' ? strtoupper($placaRaw) : null,
-                ];
+                // SOLO se escriben los campos que vienen en la peticion. Antes se escribian todos
+                // tomando el que faltaba como vacio, asi que una peticion incompleta —un cliente
+                // viejo, un reintento a medias— BORRABA en silencio la placa, el serial de chasis
+                // o la marca. Y el serial de chasis y la placa son justo los dos datos con los que
+                // se comprueba que un PDF es de este vehiculo: sin ellos deja de funcionar la
+                // verificacion de ese equipo.
+                // Que un campo venga VACIO sigue queriendo decir "borralo": eso es el usuario
+                // limpiando la casilla a proposito, y se distingue de que no venga.
+                $enMayusculas = function (string $campo) use ($request): ?string {
+                    $v = trim((string) $request->input($campo, ''));
+                    return $v === '' ? null : mb_strtoupper($v);
+                };
+                foreach (['nro_documento' => 'NRO_DE_DOCUMENTO', 'titular' => 'NOMBRE_DEL_TITULAR', 'placa' => 'PLACA'] as $campo => $columna) {
+                    if ($request->has($campo)) {
+                        $updateData[$columna] = $enMayusculas($campo);
+                    }
+                }
 
                 // Update Equipment basic info directamente. Usamos saveQuietly()
                 // para NO disparar EquipoObserver::updated (que registraria un audit
                 // 'edit'). De lo contrario, una sola edicion de propiedad genera DOS
                 // eventos en el historial: "Edición de Datos" + "Edición Metadata
                 // Propiedad". Solo dejamos el segundo, que ya captura el diff completo.
-                $equipo->fill([
-                    'MARCA'           => strtoupper($request->input('marca', '')),
-                    'MODELO'          => strtoupper($request->input('modelo', '')),
-                    'SERIAL_CHASIS'   => strtoupper($request->input('serial_chasis', '')),
-                    'SERIAL_DE_MOTOR' => (trim($request->input('serial_motor', '') ?? '') === '') ? null : strtoupper(trim($request->input('serial_motor', ''))),
-                ]);
+                // MARCA, MODELO y SERIAL_CHASIS no admiten NULL en la tabla: vaciarlos guarda
+                // cadena vacia, no null. SERIAL_DE_MOTOR si lo admite y se guarda como null.
+                $sinNulo = ['MARCA', 'MODELO', 'SERIAL_CHASIS'];
+                $delEquipo = [];
+                foreach (['marca' => 'MARCA', 'modelo' => 'MODELO', 'serial_chasis' => 'SERIAL_CHASIS', 'serial_motor' => 'SERIAL_DE_MOTOR'] as $campo => $columna) {
+                    if (!$request->has($campo)) {
+                        continue;
+                    }
+                    $valor = $enMayusculas($campo);
+                    $delEquipo[$columna] = ($valor === null && in_array($columna, $sinNulo, true)) ? '' : $valor;
+                }
+                $equipo->fill($delEquipo);
                 // Captura el diff del equipo ANTES de saveQuietly en formato {antes,despues}
                 // (mismo esquema que EquipoObserver) para que el historial muestre ambos valores.
                 // Variable separada de $updateData para no contaminar la update de Documentacion.
@@ -3495,18 +3520,24 @@ class EquipoController extends Controller
                 // de la gestion si es futura.
                 $updateData = $this->datosVencimiento($type, $request->input('fecha_vencimiento'));
 
-                // Handle insurance name (create if new)
-                if ($type === 'poliza' && $request->filled('nombre_aseguradora')) {
-                    $seguro = CatalogoSeguro::firstOrCreate([
-                        'NOMBRE_ASEGURADORA' => strtoupper($request->input('nombre_aseguradora'))
-                    ]);
-                    $updateData['ID_SEGURO'] = $seguro->ID_SEGURO;
+                // La aseguradora: se da de alta si es nueva. Y si viene VACÍA se quita de la ficha
+                // —antes vaciar la casilla no hacía nada y la póliza se quedaba con la aseguradora
+                // de antes, al revés que las fechas, que sí se borran—. Como en el resto: que no
+                // venga el campo es "no lo toques"; que venga vacío es "bórralo".
+                if ($type === 'poliza' && $request->has('nombre_aseguradora')) {
+                    $nombre = trim((string) $request->input('nombre_aseguradora'));
+                    if ($nombre === '') {
+                        $updateData['ID_SEGURO'] = null;
+                    } else {
+                        $seguro = CatalogoSeguro::firstOrCreate(['NOMBRE_ASEGURADORA' => mb_strtoupper($nombre)]);
+                        $updateData['ID_SEGURO'] = $seguro->ID_SEGURO;
+                    }
                 }
                 break;
 
             case 'adicional_2':
-                // Compraventa: no guarda fecha de vencimiento.
-                $updateData = [];
+                // Compraventa: no guarda fecha de vencimiento. $updateData ya viene vacio de
+                // arriba: esta rama no tiene nada que anadirle.
                 break;
         }
 
@@ -3515,10 +3546,10 @@ class EquipoController extends Controller
             $updateData[$campoEmision] = $request->input('fecha_emision') ?: null;
         }
 
-        // Filter only empty strings (NOT nulls, because we need to save nulls to clear management)
-        $updateData = array_filter($updateData, function ($value) {
-            return $value !== '';
-        });
+        // Aqui ya no hay cadenas vacias que filtrar: todas las ramas que llenan $updateData
+        // guardan null cuando el campo viene vacio ($enMayusculas, datosVencimiento, ?: null),
+        // y null es justo lo que hay que escribir para BORRAR la casilla. El array_filter que
+        // habia aqui las descartaba y por eso vaciar una casilla no hacia nada.
 
         // Diff {antes,despues} de la Documentacion ANTES de updateQuietly (ver diffDocumentacion).
         $docDiff = $this->diffDocumentacion($equipo->documentacion, $updateData);
@@ -5230,7 +5261,7 @@ class EquipoController extends Controller
             return response()->json(['success' => false, 'error' => 'Sin permisos'], 403);
         }
 
-        $equipo = $this->findAndAuthorizeEquipo($id);
+        $equipo = $this->buscarEquipoOFallar($id);
 
         $request->validate([
             'DETALLE_UBICACION_ACTUAL' => 'nullable|string|max:150',

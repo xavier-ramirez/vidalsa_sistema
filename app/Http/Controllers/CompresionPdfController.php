@@ -92,12 +92,38 @@ class CompresionPdfController extends Controller
             ->where('ORIGEN', VerificacionDocumento::DE_LA_NOCHE)
             ->where('ESTADO', '<>', VerificacionDocumento::COINCIDE)->get();
         $fechasPuestas = 0;
+        $fallaron = [];
         foreach ($filas as $reg) {
-            $fechas = $corrector->fechasVacias($reg);
-            $resultado = $corrector->ponerAMano($reg, $fechas, $request->user());
+            // Cada fila va en su propia transacción y se cuenta aparte: una que reviente —la
+            // ficha borrada entre medias, o un choque de bloqueos con la tarea nocturna— no puede
+            // tumbar la tanda entera y dejar sin contar las que sí pasaron.
+            try {
+                $fechas = $corrector->fechasVacias($reg);
+                $resultado = $corrector->ponerAMano($reg, $fechas, $request->user());
+            } catch (\Throwable $e) {
+                // El detalle va al log; al navegador solo un mensaje nuestro. getMessage() de
+                // Eloquent o del driver se lee como "No query results for model [App\Models\...]"
+                // —o trae el SQL entero— y acaba pintado en un aviso de la pantalla.
+                report($e);
+                $fallaron[] = 'No se pudo revisar la lectura ' . $reg->ID_REGISTRO . ': vuelve a intentarlo.';
+                continue;
+            }
+            // Solo cuenta como revisada la que de verdad se revisó: ponerAMano puede devolver un
+            // error y no marcar nada. Antes se sumaba igual y el usuario leía "N revisadas"
+            // aunque alguna se hubiera quedado como estaba.
+            if (isset($resultado['error'])) {
+                $fallaron[] = $resultado['error'];
+                continue;
+            }
             $fechasPuestas += count($resultado['puestos'] ?? []);
             $hechas++;
         }
-        return response()->json(['success' => true, 'revisadas' => $hechas, 'fechas' => $fechasPuestas]);
+        return response()->json([
+            'success'   => true,
+            'revisadas' => $hechas,
+            'fechas'    => $fechasPuestas,
+            'fallaron'  => count($fallaron),
+            'motivo'    => $fallaron[0] ?? null,   // el primero, para poder decir POR QUÉ
+        ]);
     }
 }

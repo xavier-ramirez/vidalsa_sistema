@@ -873,13 +873,10 @@ window.showDetailsImproved = function (target, event) {
             // PDF existe — solo botón de Ver
             container.innerHTML = `
                 <div class="pdf-btn-container" data-doc-tipo="${type}" style="display:flex; align-items:center; position:relative;">
-                    <button type="button"
+                    <button type="button" class="pdf-doc-btn"
                         onclick="event.stopPropagation(); openPdfPreview('${link}', '${type}', '${label}', '${equipoId}')"
-                        style="background: none; border: none; padding: 0; cursor: default; display: flex; align-items: center; justify-content: center;"
                         title="Ver documento: ${label}">
-                        <span class="pdf-doc-btn">
-                            <i class="material-icons">description</i>
-                        </span>
+                        <i class="material-icons">description</i>
                     </button>
                 </div>
             `;
@@ -929,20 +926,66 @@ window.showDetailsImproved = function (target, event) {
     // Documento de EMBARQUE (BL). Tampoco viaja en el dataset (mismo motivo que los anexos,
     // abajo): se pide al abrir el detalle y la fila solo aparece si el equipo tiene uno.
     const rowEmbarque = document.getElementById('d_row_embarque');
-    if (rowEmbarque && eqId) {
+    // Se BORRA lo del equipo anterior SIEMPRE, aunque luego no se vaya a preguntar por este: si
+    // el reset viviera dentro del if, un equipo sin id dejaria en pantalla la fila del anterior
+    // —visible, recolocada y con su boton armado— y abriria el BL de otro.
+    if (rowEmbarque) {
         rowEmbarque.style.display = 'none';
+        const btnEmbarque = document.getElementById('d_btn_embarque');
+        if (btnEmbarque) btnEmbarque.onclick = null;
+    }
+    if (rowEmbarque && eqId) {
+        // Sin titulo de propiedad, el BL es el papel que acredita el equipo mientras el titulo
+        // llega: entonces la fila sube JUNTO AL TITULO, que es donde se busca. Con titulo se queda
+        // abajo, en su sitio de siempre. Nunca reemplaza al boton de cargar el titulo —ese sigue
+        // donde estaba— ni se pinta bajo el rotulo del titulo: un BL no es un titulo y en una
+        // pantalla donde se auditan documentos confundirlos seria peor que no verlo.
+        const faltaTitulo = !isValid(d.linkPropiedad);
         fetch('/admin/equipos/' + eqId + '/embarque', { headers: { 'Accept': 'application/json' } })
             .then(r => (r.ok ? r.json() : null))
             .then(res => {
                 const emb = res && res.embarque;
                 // Otro equipo abierto mientras llegaba la respuesta: no se pinta aqui.
                 if (!emb || String(window._quickEditEquipoId || '') !== String(eqId)) return;
-                // textContent: el numero y el buque salen del texto del PDF.
+                // textContent: el numero y el buque salen del texto del PDF, asi que nunca como HTML.
+                // El rotulo de la fila ya dice "Embarque BL", asi que aqui va solo el numero.
                 document.getElementById('d_embarque_txt').textContent =
-                    'BL ' + (emb.nro || 's/n') + (emb.fecha ? ' · ' + emb.fecha : '');
+                    (emb.nro || 's/n') + (emb.fecha ? ' · ' + emb.fecha : '');
+                // El buque, debajo: es el dato por el que se identifica un embarque cuando se
+                // habla con la naviera, y antes solo estaba escondido en el globo del boton.
+                const buque = document.getElementById('d_embarque_buque');
+                if (buque) {
+                    buque.textContent = emb.buque || '';
+                    buque.style.display = emb.buque ? '' : 'none';
+                    buque.title = emb.buque || '';
+                }
                 const btn = document.getElementById('d_btn_embarque');
-                btn.href = emb.link;
                 btn.title = 'Ver documento de embarque' + (emb.buque ? ' (' + emb.buque + ')' : '');
+                // El MISMO visor que el resto de los documentos, no otra pestaña. El BL no se
+                // gestiona desde aquí (lo pone la carga masiva y es de todo el embarque, no de
+                // este equipo), así que va sin equipoId ni uploadUrl —eso esconde "Subir" y
+                // "Eliminar"— y con skipMetadata: no tiene panel de datos que editar.
+                btn.onclick = function (ev) {
+                    ev.stopPropagation();
+                    if (typeof window.openPdfPreview !== 'function') return;
+                    window.openPdfPreview(emb.link, 'embarque',
+                        'Embarque BL ' + (emb.nro || '') + (emb.buque ? ' · ' + emb.buque : ''),
+                        0, '', true, 'embarque');
+                };
+
+                // El modal es UNO solo y se reusa entre equipos, asi que la fila se recoloca en
+                // cada apertura: al de al lado puede sobrarle la mudanza.
+                const filaNroDoc = document.getElementById('d_row_nro_doc');
+                const ancla = document.getElementById('d_embarque_ancla');
+                if (faltaTitulo && filaNroDoc) {
+                    filaNroDoc.insertAdjacentElement('afterend', rowEmbarque);
+                } else if (ancla && ancla.parentNode) {
+                    ancla.parentNode.insertBefore(rowEmbarque, ancla);
+                }
+                // Arriba lleva raya abajo (como las demas filas del bloque); abajo, raya arriba,
+                // que es la que lo separa de Compraventa.
+                rowEmbarque.style.borderTop = faltaTitulo ? 'none' : '1px dashed #f1f5f9';
+                rowEmbarque.style.borderBottom = faltaTitulo ? '1px dashed #f1f5f9' : 'none';
                 rowEmbarque.style.display = 'flex';
             })
             .catch(() => {});   // sin embarque la ficha se ve como siempre
@@ -1534,14 +1577,22 @@ window.showToast = function (message, type = "info") {
     const icons = {
         success: "check_circle",
         error: "error",
+        warning: "warning",
         info: "info",
     };
     const icon = icons[type] || "info";
 
-    toast.innerHTML = `
-        <i class="material-icons">${icon}</i>
-        <span>${message}</span>
-    `;
+    // El icono es nuestro; el MENSAJE va por textContent y nunca como HTML. Muchos avisos
+    // arrastran texto de fuera —el motivo que manda el servidor, el nombre de un archivo que
+    // eligio el usuario, lo que el lector saco de un PDF—, y con innerHTML un '<' ahi dentro
+    // se interpretaba como marcado.
+    toast.textContent = '';
+    const ico = document.createElement('i');
+    ico.className = 'material-icons';
+    ico.textContent = icon;
+    const txt = document.createElement('span');
+    txt.textContent = message;
+    toast.append(ico, txt);
 
     // 3. Add to container
     container.appendChild(toast);

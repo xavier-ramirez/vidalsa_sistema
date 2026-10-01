@@ -3479,6 +3479,13 @@ body:has(.mobile-menu.active) .selection-floating-bar {
     border-left-color: var(--maquinaria-blue);
 }
 
+/* Aviso: ni un error (no falló nada) ni una confirmación (algo no salió del todo). Lo piden
+   13 llamadas repartidas por el sistema —"se aplicó a 3 de 5", "sin conexión no se puede
+   filtrar por…"— que sin esta regla se veían igual que un mensaje informativo cualquiera. */
+.toast-notification.warning {
+    border-left-color: #b45309;
+}
+
 .toast-notification i {
     font-size: 20px;
     flex-shrink: 0;
@@ -3797,6 +3804,11 @@ body:has(.mobile-menu.active) .selection-floating-bar {
 @media (max-width: 768px) {
     /* En el teléfono los datos se abren con el botón de la cabecera (pdfAlternarDatos). */
     #pdfBtnDatos { display: flex !important; }
+    /* Salvo con un documento que NO tiene datos que editar (el BL del embarque, los de otros
+       módulos): lo pone openPdfPreview. Pulsarlo ahí decía "el vehículo asociado a este
+       documento fue eliminado", que no es verdad. Con clase y no con estilo en línea, porque
+       la regla de arriba lleva !important y habría que quitar el display del atributo. */
+    #pdfBtnDatos.pdf-sin-datos { display: none !important; }
     /* En el teléfono, proporcional a la pantalla: con los 260 px fijos del escritorio el
        contenido se salía por la derecha. Con el ID, porque así se define arriba. */
     #pdfMetadataPanel.pdf-metadata-panel-responsive { --pdf-panel-datos: min(320px, 88vw); }

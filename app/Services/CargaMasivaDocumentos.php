@@ -431,10 +431,13 @@ class CargaMasivaDocumentos
         // SOLO por el serial de chasis (N.I.V.): no se repite y no cambia de vehiculo. La
         // placa si: una que paso a otro camion le daria a esta ficha la fila, el certificado
         // y el vencimiento de ese otro. Un equipo sin serial en el sistema no se reparte.
-        $porSerial = $filas->keyBy(fn ($f) => $this->lector->codigo($f['serial']));
-        $certSerial = collect($flota['certificados'])->keyBy(fn ($c) => $this->lector->codigo($c['serial']));
+        // Sin la clave VACIA: un serial que la tabla del ROTC trae en blanco o solo con rayas se
+        // reduce a '' igual que los 5 equipos cuyo SERIAL_CHASIS es basura, y sin este filtro se
+        // repartirian entre ellos el certificado y el vencimiento de ese vehiculo.
+        $porSerial = $filas->keyBy(fn ($f) => $this->lector->codigo($f['serial']))->forget('');
+        $certSerial = collect($flota['certificados'])->keyBy(fn ($c) => $this->lector->codigo($c['serial']))->forget('');
 
-        $registrados = $this->consulta()
+        $registrados = $porSerial->isEmpty() ? collect() : $this->consulta()
             ->whereIn(DB::raw(self::sqlCodigo('e.SERIAL_CHASIS')), $porSerial->keys()->all())
             ->orderBy('e.ID_EQUIPO')->get();
 
@@ -1219,14 +1222,73 @@ class CargaMasivaDocumentos
             fn ($v) => $this->lector->codigo((string) $v), $valores))));
     }
 
-    /** Lo mismo que codigo(), en SQL, sobre la columna de la ficha. */
+    /**
+     * Lo mismo que LectorDocumentoPdf::codigo(), en SQL, sobre la columna de la ficha.
+     *
+     * Tiene que hacer EXACTAMENTE lo mismo o la carga masiva no encuentra equipos que el
+     * verificador nocturno sí reconoce. Pasaba: no traducía las letras de otro alfabeto que se ven
+     * iguales que las nuestras (HOMOGLIFOS) y solo quitaba guion, espacio y punto, mientras
+     * codigo() borra todo lo que no sea letra o número. Una ficha con una «Н» cirílica en la placa
+     * —las hay— se leía bien de noche y en la carga masiva salía "no dice de qué equipo es"; igual
+     * con cualquier barra o paréntesis en la placa.
+     *
+     * Los homóglifos salen de la MISMA constante que usa el PHP, no de una lista copiada aquí.
+     */
     private static function sqlCodigo(string $columna): string
     {
         $sql = "UPPER($columna)";
-        foreach (['-' => '', ' ' => '', '.' => '', 'O' => '0', 'I' => '1', 'S' => '5'] as $de => $a) {
-            $sql = "REPLACE($sql, '$de', '$a')";
+        // Primero las letras de otro alfabeto a las nuestras, igual que hace codigo() antes de nada.
+        foreach (LectorDocumentoPdf::HOMOGLIFOS as $de => $a) {
+            $sql = "REPLACE($sql, " . self::comillas($de) . ", " . self::comillas($a) . ")";
+        }
+        // Fuera todo lo que no sea letra o número. Se hace con REPLACE y no con REGEXP_REPLACE
+        // para no atarse a la versión del motor (no existe antes de MySQL 8.0.4), así que la lista
+        // se GENERA: todo el ASCII imprimible que no es letra ni número, más los invisibles
+        // (tabulador, saltos de línea y espacio duro), que son justo lo que arrastra un dato
+        // pegado desde Excel o desde una web —la ficha se veía igual pero no casaba con nada—.
+        // Generada y no escrita a mano porque cualquier signo que faltara en la lista era un
+        // equipo que la carga masiva no encontraba y el verificador nocturno sí.
+        // Lo único que sigue sin coincidir con codigo(): una LETRA de otro alfabeto que no esté en
+        // HOMOGLIFOS (una Ñ, una vocal con tilde). No las hay en placas ni en seriales.
+        // Los invisibles y la puntuación de fuera del ASCII van listados aparte porque el bucle de
+        // abajo solo barre ASCII: son los que mete Word o una web al copiar —guion largo, comillas
+        // curvas, espacios raros, marcas de ancho cero—, y un serial con uno de ellos se veía
+        // idéntico en pantalla y no casaba con nada.
+        $fuera = [
+            "\t", "\n", "\r",
+            "\u{00A0}", "\u{2007}", "\u{2009}", "\u{202F}",             // espacios que no se parten
+            "\u{200B}", "\u{200C}", "\u{200D}", "\u{FEFF}",             // ancho cero y marca de orden
+            "\u{2010}", "\u{2011}", "\u{2012}", "\u{2013}", "\u{2014}", "\u{2015}",  // guiones
+            "\u{2018}", "\u{2019}", "\u{201C}", "\u{201D}",             // comillas curvas
+        ];
+        for ($i = 32; $i < 127; $i++) {
+            $ch = chr($i);
+            if (! ctype_alnum($ch)) {
+                $fuera[] = $ch;
+            }
+        }
+        foreach ($fuera as $ch) {
+            $sql = "REPLACE($sql, " . self::comillas($ch) . ", '')";
+        }
+        // Y las tres parejas que el escaneo confunde siempre.
+        foreach (['O' => '0', 'I' => '1', 'S' => '5'] as $de => $a) {
+            $sql = "REPLACE($sql, " . self::comillas($de) . ", " . self::comillas($a) . ")";
         }
         return $sql;
+    }
+
+    /**
+     * Un literal de texto para SQL. Escapa la comilla simple y, sobre todo, la BARRA INVERTIDA:
+     * en MySQL es carácter de escape, así que '\' deja la cadena abierta y rompe la consulta
+     * entera (pasó al añadir la barra a los separadores que se quitan).
+     *
+     * SOLO para las constantes de sqlCodigo(), nunca para nada que venga del usuario: escapar a
+     * mano depende de que el servidor NO tenga el modo NO_BACKSLASH_ESCAPES (con él, '\\' serían
+     * dos barras de verdad). Para un dato de fuera van los parámetros ligados de siempre.
+     */
+    private static function comillas(string $v): string
+    {
+        return "'" . str_replace(['\\', "'"], ['\\\\', "''"], $v) . "'";
     }
 
     /**

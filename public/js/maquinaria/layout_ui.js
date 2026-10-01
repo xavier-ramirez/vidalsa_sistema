@@ -1059,6 +1059,20 @@ window.openPdfPreview = function (url, docType, label, equipoId, uploadUrl, skip
     if (updateLabel) updateLabel.style.display = docGestionable ? 'flex' : 'none';
     if (deleteBtn)   deleteBtn.style.display   = docGestionable ? 'flex' : 'none';
 
+    // El boton "Datos" de la cabecera es SOLO del telefono y solo tiene sentido si este
+    // documento trae panel que editar. Sin panel —el BL del embarque, una Nota de Entrega, un
+    // reporte de fallas— al pulsarlo salia "El vehiculo asociado a este documento fue eliminado
+    // de la base de datos", que es mentira y asusta.
+    //
+    // OJO: la condicion NO es skipMetadata. Ese solo dice "no abras el panel tu solo al arrancar",
+    // y hay tres sitios que lo mandan con un documento de equipo que SI tiene panel (cambiar de
+    // pestana de correcciones, salir de la comparacion y reabrir el principal tras borrar una
+    // correccion). Lo que decide de verdad es lo mismo que mira loadMetadata: un equipo y un
+    // modulo con tabla detras.
+    const tieneDatos = !!equipoId && ((module || 'equipo') === 'equipo' || module === 'auxiliar');
+    const btnDatos = document.getElementById('pdfBtnDatos');
+    if (btnDatos) btnDatos.classList.toggle('pdf-sin-datos', !tieneDatos);
+
     // Respaldo por si el onload del PDF no llega NUNCA.
     //
     // El handle vive FUERA de esta función y cada apertura cancela el anterior.
@@ -1268,9 +1282,13 @@ window.openPdfPreview = function (url, docType, label, equipoId, uploadUrl, skip
     }
 
     // Store current context for metadata panel
-    // module: 'equipo' (default) | 'auxiliar'. Determina si load/save
-    // metadata pegan a /admin/equipos/.. o a /admin/equipos-auxiliares/..
-    window.currentPdfContext = { equipoId, docType, label, uploadUrl, module: module || 'equipo' };
+    // module: 'equipo' (el de por defecto) | 'auxiliar' son los DOS que tienen panel de datos;
+    // deciden si load/save metadata pegan a /admin/equipos/.. o a /admin/equipos-auxiliares/..
+    // Por aqui pasan ademas 'movilizaciones', 'almacen', 'falla' y 'embarque': cualquier otro
+    // valor es un documento de SOLO LECTURA, sin panel y sin gestion.
+    // sinDatos lo mira pdfAlternarDatos: asi el dato vive en el contexto y no se lee de una clase
+    // del CSS, que seria la unica fuente de verdad de algo que es del documento, no del estilo.
+    window.currentPdfContext = { equipoId, docType, label, uploadUrl, module: module || 'equipo', sinDatos: !tieneDatos };
 
     // Pestanas de correcciones anexas (ver bloque _pdfPintarAnexos).
     // Va DESPUES de currentPdfContext y de haber decidido que botones se
@@ -1510,6 +1528,10 @@ window._pdfComparando = false;
 window.pdfAlternarDatos = function () {
     const panel = document.getElementById('pdfMetadataPanel');
     if (!panel) return;
+    // Cinturón: el botón ya se esconde con los documentos sin panel (ver openPdfPreview), pero
+    // esta función también se llama desde código (pedirVencimientoEnVisor) y abrir el panel de
+    // un documento que no tiene datos solo pintaría un mensaje que no viene a cuento.
+    if (window.currentPdfContext && window.currentPdfContext.sinDatos) return;
     const cerrado = !panel.style.width || panel.style.width === '0' || panel.style.width === '0px';
     panel.style.width = cerrado ? 'var(--pdf-panel-datos)' : '0';
     if (cerrado && !window._pdfDatosCargados && typeof window.loadMetadata === 'function') {
@@ -2245,6 +2267,19 @@ window.loadMetadata = async function () {
                 _metaPintar(container, html, ctx);
                 return;
             }
+
+            // De aqui abajo, documentos de EQUIPO. Los que VENCEN dejan su fecha para el final,
+            // junto a la de emisión y en el orden en que ocurren (ver más abajo); los otros dos no
+            // la tienen: la compraventa (adicional_2) no vence y el título de propiedad tampoco.
+            // Antes el Certificado (adicional) solo la mostraba con categoría FLOTA LIVIANA y los
+            // de FLOTA PESADA quedaban con el panel vacío; esa restricción ya no está.
+            // La lista la dice el SERVIDOR (DocumentacionDeEquipo::VENCIMIENTO, publicada por el
+            // layout), igual que TIPOS_CON_ANEXOS: escrita a mano aquí era una segunda copia de
+            // algo que ya existe, y el día que allá se añada un documento que vence, esta se
+            // quedaría diciendo lo de antes.
+            const TIPOS_QUE_VENCEN = window.TIPOS_QUE_VENCEN || ['poliza', 'rotc', 'racda', 'adicional'];
+            const vencimientoAlFinal = TIPOS_QUE_VENCEN.indexOf(ctx.docType) !== -1;
+
             if (ctx.docType === 'propiedad') {
                 html += `
                 <div style="${containerStyle}"><label for="meta_nro_doc_${ctx.equipoId}" style="${labelStyle}">Nro. Documento</label><input type="text" id="meta_nro_doc_${ctx.equipoId}" name="nro_documento" value="${info.nro_documento || ''}" ${disabledAttr} autocomplete="off"></div>
@@ -2264,27 +2299,28 @@ window.loadMetadata = async function () {
                         if (ins.ID_SEGURO == info.id_seguro) currentInsurerName = ins.NOMBRE_ASEGURADORA;
                     });
                 }
+                // La aseguradora va ARRIBA (pedido del cliente): es de quién es la póliza, el dato
+                // que se busca primero. Las fechas van al final, con el resto, en su orden natural.
                 html += `
-                <div style="${containerStyle}"><label for="meta_fec_venc_${ctx.equipoId}" style="${labelStyle}">Fecha Vencimiento</label><input type="date" id="meta_fec_venc_${ctx.equipoId}" name="fecha_vencimiento" value="${info.fecha_vencimiento || ''}" ${disabledAttr} ${fechaReq} autocomplete="off"></div>
                 <div style="${containerStyle}">
                     <label for="meta_aseguradora_${ctx.equipoId}" style="${labelStyle}">Aseguradora <small style="color:#94a3b8;font-weight:400;">(Seleccionar o escribir nueva)</small></label>
                     <input type="text" id="meta_aseguradora_${ctx.equipoId}" name="nombre_aseguradora" list="insurersList_${ctx.equipoId}" value="${currentInsurerName || ''}" placeholder="Escriba o seleccione..." ${disabledAttr} autocomplete="off">
                     <datalist id="insurersList_${ctx.equipoId}">${datalistOptions}</datalist>
                 </div>
             `;
-            } else if (ctx.docType === 'rotc' || ctx.docType === 'racda' || ctx.docType === 'adicional') {
-                // Compraventa (adicional_2) NO requiere fecha de vencimiento.
-                // Antes el Certificado (adicional) solo mostraba fecha si la categoria era
-                // FLOTA LIVIANA — los equipos FLOTA PESADA quedaban con panel vacio.
-                // Removida esa restriccion: el campo aparece siempre y, como en el
-                // resto de documentos que vencen, es obligatorio (fechaReq).
-                html += `<div style="${containerStyle}"><label for="meta_fec_venc_${ctx.equipoId}" style="${labelStyle}">Fecha Vencimiento</label><input type="date" id="meta_fec_venc_${ctx.equipoId}" name="fecha_vencimiento" value="${info.fecha_vencimiento || ''}" ${disabledAttr} ${fechaReq} autocomplete="off"></div>`;
             }
-            // Fecha de emision (de origen): la manda el servidor solo para los documentos que la
-            // tienen (titulo, poliza, ROTC y RACDA). Siempre a la vista, para ponerla a mano si
-            // la verificacion no la saco del PDF. Opcional: no toda hoja la trae.
+            // Las FECHAS, al final y en el orden en que ocurren: primero se emite el documento y
+            // después vence. Estaban al revés —vencimiento arriba del todo y emisión al final,
+            // con la aseguradora en medio— y se leía dando saltos (pedido del cliente).
+            //
+            // La de emisión la manda el servidor solo para los documentos que la tienen (título,
+            // póliza, ROTC y RACDA). Siempre a la vista, para ponerla a mano si la verificación no
+            // la sacó del PDF. Opcional: no toda hoja la trae.
             if ('fecha_emision' in info) {
                 html += `<div style="${containerStyle}"><label for="meta_fec_emi_${ctx.equipoId}" style="${labelStyle}">Fecha de Emisión</label><input type="date" id="meta_fec_emi_${ctx.equipoId}" name="fecha_emision" value="${info.fecha_emision || ''}" ${disabledAttr} autocomplete="off"></div>`;
+            }
+            if (vencimientoAlFinal) {
+                html += `<div style="${containerStyle}"><label for="meta_fec_venc_${ctx.equipoId}" style="${labelStyle}">Fecha Vencimiento</label><input type="date" id="meta_fec_venc_${ctx.equipoId}" name="fecha_vencimiento" value="${info.fecha_vencimiento || ''}" ${disabledAttr} ${fechaReq} autocomplete="off"></div>`;
             }
             _metaPintar(container, html, ctx);
         }
