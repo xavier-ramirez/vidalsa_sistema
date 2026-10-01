@@ -203,8 +203,9 @@
                                 @endif
                                 {{-- Descartar: el PDF subido se va a la papelera de Drive y la fila
                                      desaparece. Sin esto, lo que se sube y no se aplica se queda
-                                     ahí para siempre. Solo en lo de la carga masiva sin aplicar. --}}
-                                @if (in_array($d->ESTADO, \App\Models\VerificacionDocumento::DE_LA_CARGA, true) && ($d->PROPUESTA['link'] ?? null))
+                                     ahí para siempre. Solo en lo de la carga masiva sin aplicar, y
+                                     solo super.admin (borra de Drive, como Eliminar un documento). --}}
+                                @if (auth()->user()->can('super.admin') && in_array($d->ESTADO, \App\Models\VerificacionDocumento::DE_LA_CARGA, true) && ($d->PROPUESTA['link'] ?? null))
                                     <button type="button" class="pdf-doc-btn cpdf-descartar" title="Descartar este PDF"
                                         onclick="event.stopPropagation(); window.cpdfDescartarCarga(this, @js($d->PROPUESTA['link']), @js($d->ARCHIVO))">
                                         <i class="material-icons">delete_outline</i>

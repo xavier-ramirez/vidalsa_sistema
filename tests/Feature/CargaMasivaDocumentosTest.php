@@ -901,6 +901,93 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
         $this->assertStringContainsString('No estan en el sistema: ' . $falta, $p['aviso']);
     }
 
+    private function filaBl(array $p): VerificacionDocumento
+    {
+        return VerificacionDocumento::where('DRIVE_ID', \App\Models\DocumentoAnexo::driveIdDeLink($p['link']))
+            ->where('ORIGEN', VerificacionDocumento::DE_CARGA_MASIVA)->firstOrFail();
+    }
+
+    /** Un BL se enlaza SOLO a los equipos que reconoce por VIN: no hay que pulsar Aplicar. */
+    public function test_un_bl_se_enlaza_solo_a_sus_equipos(): void
+    {
+        $this->actingAs($this->usuario());
+        $a = $this->equipo(); $b = $this->equipo();
+
+        $p = $this->soltar($this->textoBl([$a->SERIAL_CHASIS, $b->SERIAL_CHASIS], 'HCLKGTAU'), CargaMasivaDocumentos::EMBARQUE);
+
+        $this->assertSame('HCLKGTAU', $a->embarques()->first()?->NRO_BL);
+        $this->assertSame('HCLKGTAU', $b->embarques()->first()?->NRO_BL);
+        $this->assertSame(VerificacionDocumento::APLICADO, $this->filaBl($p)->ESTADO, 'Sin nada que decidir, la fila queda Aplicado.');
+    }
+
+    /** El que ya esta en otro embarque no se mueve solo: la fila se queda Por aplicar y lo dice. */
+    public function test_un_bl_deja_por_aplicar_lo_que_pide_una_decision(): void
+    {
+        $this->actingAs($this->usuario());
+        $a = $this->equipo(); $b = $this->equipo();
+        $this->propuestaBl('bl-otro', [$b], 'HCLKGTOT');
+        $this->assertTrue($this->aplicarBl($b, 'bl-otro')['ok']);
+
+        $p = $this->soltar($this->textoBl([$a->SERIAL_CHASIS, $b->SERIAL_CHASIS], 'HCLKGTDE'), CargaMasivaDocumentos::EMBARQUE);
+
+        $this->assertSame('HCLKGTDE', $a->embarques()->first()?->NRO_BL);
+        $this->assertSame('HCLKGTOT', $b->embarques()->first()?->NRO_BL, 'No se saca de su embarque sin preguntar.');
+        $fila = $this->filaBl($p);
+        $this->assertSame(VerificacionDocumento::POR_ENGANCHAR, $fila->ESTADO);
+        $this->assertStringContainsString('Enlazado solo a 1 equipo(s)', $fila->MOTIVO);
+    }
+
+    /**
+     * El MISMO PDF soltado otra vez (otra copia en Drive): enlaza lo que falte (un equipo cuyo
+     * serial se corrigio) al embarque que ya habia, sin cambiarle el PDF.
+     */
+    public function test_el_mismo_bl_otra_vez_enlaza_lo_que_falta_sin_cambiar_el_pdf(): void
+    {
+        $this->actingAs($this->usuario());
+        $a = $this->equipo();
+        $vinB = 'LEZDD2CC9SF' . substr((string) hexdec(substr(md5(uniqid()), 0, 6)), 0, 6);
+        $texto = $this->textoBl([$a->SERIAL_CHASIS, $vinB], 'HCLKGTRE');
+
+        $p1 = $this->soltar($texto, CargaMasivaDocumentos::EMBARQUE);
+        $this->assertSame($p1['link'], \App\Models\Embarque::where('NRO_BL', 'HCLKGTRE')->value('LINK'));
+        // El Drive de la prueba vuelve a numerar desde 1 en cada soltar(): la primera copia se
+        // pone en su propio id, como pasaria en Drive de verdad.
+        $fila = $this->filaBl($p1);
+        $fila->update(['DRIVE_ID' => 'bl-primera-copia', 'PROPUESTA' => ['link' => '/storage/google/bl-primera-copia'] + $fila->PROPUESTA]);
+        \App\Models\Embarque::where('NRO_BL', 'HCLKGTRE')->update(['LINK' => '/storage/google/bl-primera-copia']);
+        $linkEmbarque = '/storage/google/bl-primera-copia';
+        $p1['link'] = $linkEmbarque;
+
+        // Se corrige la ficha que tenia el VIN mal escrito y se vuelve a soltar el mismo PDF.
+        $b = Equipo::create(['MARCA' => 'PRUEBA', 'MODELO' => 'VIN-CORREGIDO', 'ANIO' => 2026, 'SERIAL_CHASIS' => $vinB]);
+        $p2 = $this->soltar($texto, CargaMasivaDocumentos::EMBARQUE);
+
+        $this->assertNotSame($p1['link'], $p2['link'], 'Es otra copia en Drive.');
+        $this->assertSame('HCLKGTRE', $b->embarques()->first()?->NRO_BL, 'El que faltaba ya esta en el embarque.');
+        $this->assertSame($linkEmbarque, \App\Models\Embarque::where('NRO_BL', 'HCLKGTRE')->value('LINK'), 'Sin cambiarle el PDF.');
+        $this->assertSame(VerificacionDocumento::APLICADO, $this->filaBl($p2)->ESTADO);
+    }
+
+    /** Descartar manda el PDF a la papelera de Drive: solo super.admin, aunque tenga la carga masiva. */
+    public function test_descartar_es_solo_de_super_admin(): void
+    {
+        $u = Usuario::where('REQUIERE_CAMBIO_CLAVE', 0)->whereNotNull('PERMISOS')->get()
+            ->first(fn ($usr) => !in_array('super.admin', array_map('strtolower', $usr->PERMISOS), true));
+        if (!$u) {
+            $this->markTestSkipped('No hay un usuario sin super.admin para probarlo.');
+        }
+        $u->PERMISOS = array_values(array_unique(array_merge($u->PERMISOS, ['docs.carga.masiva'])));
+        $u->save();
+        $this->propuestaBl('bl-descartar', [$this->equipo()]);
+
+        $this->actingAs($u->fresh())->postJson(route('historial-documentos.carga-masiva.descartar'), ['link' => '/storage/google/bl-descartar'])
+            ->assertStatus(403);
+        $this->assertTrue(VerificacionDocumento::where('DRIVE_ID', 'bl-descartar')->exists(), 'Sigue en la tabla.');
+
+        $this->actingAs($this->usuario())->postJson(route('historial-documentos.carga-masiva.descartar'), ['link' => '/storage/google/bl-descartar'])
+            ->assertOk();
+    }
+
     /** Aplicar crea el embarque una vez y enlaza cada equipo; repetir no duplica nada. */
     public function test_aplicar_un_bl_crea_el_embarque_y_enlaza_cada_equipo(): void
     {

@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Services\CargaMasivaDocumentos;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -36,7 +37,8 @@ class ColaCargaMasiva
         $base = self::CARPETA . '/' . now()->format('YmdHis') . '_' . bin2hex(random_bytes(4));
         $disco->put($base . '.pdf', file_get_contents($archivo->getRealPath()));
         // El .json se escribe el ULTIMO: es el que dice que el par esta completo.
-        $disco->put($base . '.json', json_encode(['tipo' => $tipo, 'subido' => $subido]));
+        // Quien lo subio: el BL se enlaza solo al leerlo, y el historial lo pone a su nombre.
+        $disco->put($base . '.json', json_encode(['tipo' => $tipo, 'subido' => $subido, 'usuario' => auth()->id()]));
     }
 
     public static function hayPendientes(): bool
@@ -101,6 +103,9 @@ class ColaCargaMasiva
                 return 0;
             }
             set_time_limit(180);   // por PDF: leerlo con Drive tarda
+            // El lector puede ser otro (el programador, o la subida de otra persona): lo que se
+            // enlace al leerlo va a nombre de quien soltó el PDF.
+            if (!empty($datos['usuario'])) Auth::onceUsingId($datos['usuario']);
             $servicio->leer(new UploadedFile($pdf, $datos['subido']['nombre'], 'application/pdf', null, true),
                 $datos['tipo'], $datos['subido']);
             return 1;

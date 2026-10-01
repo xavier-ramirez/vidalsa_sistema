@@ -213,7 +213,9 @@ class CargaMasivaDocumentos
         // Drive sin fila en la tabla: nadie podria aplicarlo ni descartarlo. Vuelve a la
         // papelera y queda en el log.
         try {
-            return $this->proponer($archivo, $tipoPedido, $nombre, $link, $driveId, $md5);
+            $propuesta = $this->proponer($archivo, $tipoPedido, $nombre, $link, $driveId, $md5);
+            if (($propuesta['tipo'] ?? null) === self::EMBARQUE) $this->enlazarEmbarque($propuesta);
+            return $propuesta;
         } catch (\Throwable $e) {
             Log::error('Carga masiva: fallo al analizar un PDF ya subido', ['archivo' => $nombre, 'error' => $e->getMessage()]);
             GoogleDriveService::borrarTrasResponder($driveId);
@@ -863,6 +865,36 @@ class CargaMasivaDocumentos
         return $propuesta;
     }
 
+    /**
+     * Un BL se enlaza SOLO a los equipos que reconocio por su VIN: no hace falta pulsar Aplicar
+     * (pedido 01-10-2026). El VIN es el serial de chasis exacto, no hay nada que decidir. Si
+     * todos entran, la fila queda "Aplicado"; los que necesitan una decision (el equipo ya esta
+     * en otro embarque, o el BL tiene OTRO PDF cargado) se quedan "Por aplicar" y la fila lo
+     * dice. Lo leido por la IA NO se enlaza solo: su lista de VIN hay que comprobarla.
+     */
+    private function enlazarEmbarque(array $propuesta): void
+    {
+        if (!empty($propuesta['ia']) || empty($propuesta['equipos']) || empty($propuesta['link'])) return;
+
+        $pendientes = [];
+        foreach ($propuesta['equipos'] as $f) {
+            $r = $this->aplicarEmbarque((int) $f['id'], $propuesta['link'], false, false, false);
+            if (!$r['ok']) $pendientes[$r['mensaje']][] = $f['serial'] ?? $f['id'];
+        }
+        if (!$pendientes) {
+            $this->cerrarPropuesta($propuesta['link']);
+            return;
+        }
+
+        $enlazados = count($propuesta['equipos']) - array_sum(array_map('count', $pendientes));
+        $porque = implode(' ', array_map(fn ($m, $quienes) => count($quienes) . ' sin enlazar: ' . $m,
+            array_keys($pendientes), $pendientes));
+        VerificacionDocumento::where('DRIVE_ID', DocumentoAnexo::driveIdDeLink($propuesta['link']))
+            ->where('ORIGEN', VerificacionDocumento::DE_CARGA_MASIVA)
+            ->update(['MOTIVO' => mb_substr("Enlazado solo a $enlazados equipo(s). $porque Pulsa Aplicar para decidirlo. "
+                . $this->motivoDeLaPropuesta($propuesta), 0, self::MOTIVO_MAX)]);
+    }
+
     /** Los datos del BL que se anotaron al analizar su PDF (propuesta['embarque']), o null. */
     private function datosDeEmbarque(string $link): ?array
     {
@@ -900,7 +932,10 @@ class CargaMasivaDocumentos
             ?? Embarque::where('LINK', 'like', '/storage/google/' . $driveId . '%')->first();
         $nombreBl = 'BL ' . ($bl['nro'] ?? 'sin numero');
 
-        $pdfDistinto = $embarque && !$this->mismoArchivo($embarque->LINK, $link);
+        // El MISMO PDF soltado otra vez (otra copia en Drive, misma huella) no es "otro PDF":
+        // sus equipos se enlazan al embarque sin cambiarle el archivo.
+        $pdfDistinto = $embarque && !$this->mismoArchivo($embarque->LINK, $link)
+            && !$this->mismaHuella($embarque->LINK, $link);
         if ($pdfDistinto && !$pisar) {
             return ['ok' => false, 'requiere_pisar' => true,
                     'mensaje' => "El $nombreBl ya tiene otro PDF cargado: reemplazarlo se lo cambia a todos sus equipos."];
@@ -933,7 +968,7 @@ class CargaMasivaDocumentos
                     'NRO_BL' => $bl['nro'], 'BUQUE' => $bl['buque'],
                     'PUERTO_CARGA' => $bl['puerto_carga'], 'PUERTO_DESCARGA' => $bl['puerto_descarga'],
                     'FECHA_EMBARQUE' => $bl['fecha'], 'LINK' => $link, 'ARCHIVO' => $bl['archivo'],
-                    'UNIDADES' => $bl['unidades'], 'SUBIDO_POR' => auth()->user()->ID_USUARIO,
+                    'UNIDADES' => $bl['unidades'], 'SUBIDO_POR' => auth()->id(),
                 ];
                 $embarque ? $embarque->update($datos) : ($embarque = Embarque::create($datos));
             }
@@ -942,7 +977,7 @@ class CargaMasivaDocumentos
                 if ($actual) DB::table('embarque_equipo')->where('ID_EQUIPO', $idEquipo)->delete();
                 DB::table('embarque_equipo')->insert([
                     'ID_EMBARQUE' => $embarque->ID_EMBARQUE, 'ID_EQUIPO' => $idEquipo,
-                    'VIN' => $bl['vins'][$idEquipo] ?? null, 'ASOCIADO_POR' => auth()->user()->ID_USUARIO,
+                    'VIN' => $bl['vins'][$idEquipo] ?? null, 'ASOCIADO_POR' => auth()->id(),
                     'created_at' => now(),
                 ]);
             }
@@ -1697,6 +1732,13 @@ class CargaMasivaDocumentos
     {
         $idA = DocumentoAnexo::driveIdDeLink($a);
         return $idA !== null && $idA === DocumentoAnexo::driveIdDeLink($b);
+    }
+
+    /** Dos copias en Drive del MISMO PDF: la misma huella (md5) en sus propuestas de la carga masiva. */
+    private function mismaHuella(?string $a, ?string $b): bool
+    {
+        $md5 = $a ? ($this->propuestaGuardada($a)['md5'] ?? null) : null;
+        return $md5 !== null && $b !== null && $md5 === ($this->propuestaGuardada($b)['md5'] ?? null);
     }
 
     /**

@@ -16,12 +16,12 @@ use Illuminate\Validation\Rule;
  *               Drive, ~8 s por archivo) sigue en segundo plano y su resultado sale en la
  *               tabla de Revision de documentos.
  *   aplicar()   Escribe en la ficha lo que el usuario aprobo, de una fila.
- *   descartar() Borra de Drive el PDF de una propuesta que el usuario no quiso.
+ *   descartar() Borra de Drive el PDF de una propuesta que el usuario no quiso (super.admin).
  *
  * Permiso: SOLO 'docs.carga.masiva', que es EXCLUSIVO y ni super.admin hereda (ver
  * autorizar(), abajo). Con esa clave basta, sin super.admin: se entra a Auditoría de
  * Documentos solo a la revisión de lo cargado (ver Usuario::veAuditoriaDocumentos).
- * Los tres pasos piden lo mismo.
+ * Los tres pasos piden lo mismo; descartar, ademas, super.admin.
  */
 class CargaMasivaDocumentosController extends Controller
 {
@@ -148,6 +148,8 @@ class CargaMasivaDocumentosController extends Controller
     public function descartar(Request $request)
     {
         $this->autorizar();
+        // Manda el PDF a la papelera de Drive: solo super.admin, como Eliminar un documento.
+        abort_unless(auth()->user()->can('super.admin'), 403, 'Solo un super administrador puede descartar documentos.');
 
         $datos = $request->validate([
             'link' => 'required|string|starts_with:/storage/google/',

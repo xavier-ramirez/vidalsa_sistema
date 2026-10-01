@@ -207,7 +207,8 @@ se lee y se propone a su ficha; **nada se escribe hasta que se aplica la fila**.
   póliza, un ROTC o un RACDA nunca van a un auxiliar: no tiene columna donde ponerlos.
 - **Un archivo por petición**: el OCR lo hace Drive (~8 s por PDF) y treinta juntos se caerían
   por timeout. Para leer un PDF hay que **subirlo antes**, por eso lo analizado y no aplicado
-  se borra de Drive al cerrar (`descartar()`).
+  se borra de Drive al cerrar (`descartar()`). **Descartar es solo de super.admin** (manda el
+  PDF a la papelera de Drive, como Eliminar un documento).
 - **Nunca pisa solo**: si la ficha ya tiene ese documento hace falta marcar "reemplazar", y un
   *documento anterior* se niega **incluso** marcándolo. Las mismas puertas en equipo y auxiliar.
 - **Modo ensayo**: pasa por todas las comprobaciones y dice qué haría, sin escribir ni borrar.
@@ -219,8 +220,11 @@ se lee y se propone a su ficha; **nada se escribe hasta que se aplica la fila**.
   BL único, buque, puertos, fecha, PDF) y `embarque_equipo` (un equipo, un embarque; guarda el
   VIN impreso). Lo lee `App\Support\BillOfLading` (formato CONGENBILL: "B/L NO.", "Port of
   loading", anexo de VIN) y se reconoce **solo por VIN / serial de chasis**. La propuesta nombra
-  los VIN que no están en el sistema. Aplicar (`aplicarEmbarque`): el mismo BL con otro PDF o un
-  equipo que ya está en otro BL piden "reemplazar". La ficha lo pide aparte
+  los VIN que no están en el sistema. **Se enlaza solo** al leerlo (`enlazarEmbarque`, desde el
+  01-10-2026) a los equipos que reconoce por VIN, salvo si la lista la leyó la IA; lo que pide
+  una decisión —el mismo BL con otro PDF o un equipo que ya está en otro BL, que piden
+  "reemplazar"— se queda **Por aplicar** y la fila lo dice. El MISMO PDF soltado otra vez (misma
+  huella md5) no cuenta como otro PDF: enlaza lo que falte sin cambiarle el archivo al embarque. La ficha lo pide aparte
   (`equipos/{id}/embarque`, como los anexos) y lo enseña solo si hay. El PDF está en
   `EnlacesDocumentos::DOCUMENTOS`: el job no lo retira mientras lo use un embarque y la
   compresión nocturna lo incluye.

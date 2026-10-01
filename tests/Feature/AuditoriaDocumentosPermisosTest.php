@@ -92,7 +92,8 @@ class AuditoriaDocumentosPermisosTest extends MySqlTestCase
         // Las suyas: llegan al controlador (falta el archivo / el enlace → 422, no 403).
         $this->actingAs($u)->post(route('historial-documentos.carga-masiva.analizar'), [], ['Accept' => 'application/json'])->assertStatus(422);
         $this->actingAs($u)->post(route('historial-documentos.carga-masiva.aplicar'), [], ['Accept' => 'application/json'])->assertStatus(422);
-        $this->actingAs($u)->post(route('historial-documentos.carga-masiva.descartar'), [], ['Accept' => 'application/json'])->assertStatus(422);
+        // Descartar borra de Drive: ademas de la carga masiva, pide super.admin (01-10-2026).
+        $this->actingAs($u)->post(route('historial-documentos.carga-masiva.descartar'), [], ['Accept' => 'application/json'])->assertForbidden();
 
         // Las de la lectura automática y el resto de Auditoría: solo super.admin.
         $this->actingAs($u)->post(route('compresion-pdf.documentos.leer-ahora'), [], ['Accept' => 'application/json'])->assertForbidden();
