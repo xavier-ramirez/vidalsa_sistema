@@ -85,6 +85,24 @@ class EquiposFiltroTipoTest extends MySqlTestCase
         $this->assertSame([$aux], $ids);
     }
 
+    public function test_anclajes_respetan_los_frentes_bloqueados_del_usuario(): void
+    {
+        $eq = DB::table('equipos')->whereNotNull('ID_ANCLAJE')->whereNotNull('ID_FRENTE_ACTUAL')
+            ->whereNull('deleted_at')->first(['ID_EQUIPO', 'ID_FRENTE_ACTUAL']);
+        if ($eq === null) {
+            $this->markTestSkipped('La base no tiene equipos anclados con frente.');
+        }
+        $u = $this->usuarioGlobal();
+        $ids = fn () => collect($this->actingAs($u->fresh())
+                ->getJson('/admin/equipos/get-anchors?frente_id=' . $eq->ID_FRENTE_ACTUAL)->assertOk()->json('pairs'))
+            ->flatMap(fn ($p) => [$p['ID_A'], $p['ID_B']])->all();
+        $this->assertContains($eq->ID_EQUIPO, $ids());
+
+        // Con ese frente bloqueado, sus anclajes no salen (como en la tabla).
+        DB::table('usuarios')->where('ID_USUARIO', $u->ID_USUARIO)->update(['ID_FRENTE_BLOQUEADO' => (string) $eq->ID_FRENTE_ACTUAL]);
+        $this->assertNotContains($eq->ID_EQUIPO, $ids());
+    }
+
     public function test_anclajes_sin_asignar_traen_los_que_no_tienen_frente(): void
     {
         $eq = DB::table('equipos')->whereNotNull('ID_ANCLAJE')->whereNull('deleted_at')->first(['ID_EQUIPO', 'ID_ANCLAJE']);

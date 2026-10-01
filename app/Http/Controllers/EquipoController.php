@@ -3512,13 +3512,9 @@ class EquipoController extends Controller
                 // verificacion de ese equipo.
                 // Que un campo venga VACIO sigue queriendo decir "borralo": eso es el usuario
                 // limpiando la casilla a proposito, y se distingue de que no venga.
-                $enMayusculas = function (string $campo) use ($request): ?string {
-                    $v = trim((string) $request->input($campo, ''));
-                    return $v === '' ? null : mb_strtoupper($v);
-                };
                 foreach (['nro_documento' => 'NRO_DE_DOCUMENTO', 'titular' => 'NOMBRE_DEL_TITULAR', 'placa' => 'PLACA'] as $campo => $columna) {
                     if ($request->has($campo)) {
-                        $updateData[$columna] = $enMayusculas($campo);
+                        $updateData[$columna] = self::textoEnMayusculas($request, $campo);
                     }
                 }
 
@@ -3535,7 +3531,7 @@ class EquipoController extends Controller
                     if (!$request->has($campo)) {
                         continue;
                     }
-                    $valor = $enMayusculas($campo);
+                    $valor = self::textoEnMayusculas($request, $campo);
                     $delEquipo[$columna] = ($valor === null && in_array($columna, $sinNulo, true)) ? '' : $valor;
                 }
                 $equipo->fill($delEquipo);
@@ -3587,7 +3583,7 @@ class EquipoController extends Controller
         }
 
         // Aqui ya no hay cadenas vacias que filtrar: todas las ramas que llenan $updateData
-        // guardan null cuando el campo viene vacio ($enMayusculas, datosVencimiento, ?: null),
+        // guardan null cuando el campo viene vacio (textoEnMayusculas, datosVencimiento, ?: null),
         // y null es justo lo que hay que escribir para BORRAR la casilla. El array_filter que
         // habia aqui las descartaba y por eso vaciar una casilla no hacia nada.
 
@@ -3628,6 +3624,13 @@ class EquipoController extends Controller
         return response()->json(['success' => true, 'message' => 'Metadatos actualizados']);
     }
 
+    /** Texto del panel en mayusculas, o null si viene vacio (vaciar la casilla la borra). */
+    private static function textoEnMayusculas(Request $request, string $campo): ?string
+    {
+        $v = trim((string) $request->input($campo, ''));
+        return $v === '' ? null : mb_strtoupper($v);
+    }
+
     /**
      * Guarda desde el panel del visor los datos del documento de embarque (BL) del equipo.
      * Numero, buque, puertos, fecha y unidades son del EMBARQUE: valen para todos sus equipos.
@@ -3657,17 +3660,13 @@ class EquipoController extends Controller
             return response()->json(['success' => false, 'message' => $v->errors()->first()], 422);
         }
 
-        $texto = fn (string $campo) => ($t = mb_strtoupper(trim((string) $request->input($campo)))) === '' ? null : $t;
-        $nuevos = [
-            'NRO_BL'          => $texto('nro_bl'),
-            'BUQUE'           => $texto('buque'),
-            'PUERTO_CARGA'    => $texto('puerto_carga'),
-            'PUERTO_DESCARGA' => $texto('puerto_descarga'),
-            'FECHA_EMBARQUE'  => $request->input('fecha_embarque') ?: null,
-            'UNIDADES'        => $request->filled('unidades') ? (int) $request->input('unidades') : null,
+        // Solo los campos que llegan: el visor manda unicamente los que la persona cambio. Asi
+        // un panel abierto hace rato no devuelve a su valor viejo lo que otro corrigio despues.
+        $columnas = [
+            'nro_bl' => 'NRO_BL', 'buque' => 'BUQUE', 'puerto_carga' => 'PUERTO_CARGA',
+            'puerto_descarga' => 'PUERTO_DESCARGA', 'fecha_embarque' => 'FECHA_EMBARQUE',
+            'unidades' => 'UNIDADES', 'vin' => 'VIN',
         ];
-        $vin = $texto('vin');
-
         $antes = [
             'NRO_BL' => $embarque->NRO_BL, 'BUQUE' => $embarque->BUQUE,
             'PUERTO_CARGA' => $embarque->PUERTO_CARGA, 'PUERTO_DESCARGA' => $embarque->PUERTO_DESCARGA,
@@ -3675,20 +3674,37 @@ class EquipoController extends Controller
             'VIN' => $embarque->pivot->VIN,
         ];
         $diff = [];
-        foreach ($nuevos + ['VIN' => $vin] as $campo => $valor) {
-            if ((string) $antes[$campo] !== (string) $valor) {
-                $diff[$campo] = ['antes' => $antes[$campo], 'despues' => $valor];
+        foreach ($columnas as $campo => $columna) {
+            if (!$request->has($campo)) continue;
+            $valor = match ($campo) {
+                'fecha_embarque' => $request->input($campo) ?: null,
+                'unidades'       => $request->filled($campo) ? (int) $request->input($campo) : null,
+                default          => self::textoEnMayusculas($request, $campo),
+            };
+            // Solo mayusculas no es un cambio: el PDF trae el buque y los puertos como vienen.
+            if (mb_strtoupper((string) $antes[$columna]) !== (string) $valor) {
+                $diff[$columna] = ['antes' => $antes[$columna], 'despues' => $valor];
             }
         }
         if (!$diff) {
-            return response()->json(['success' => true, 'message' => 'Sin cambios']);
+            return response()->json(['success' => true, 'sin_cambios' => true, 'message' => 'No había cambios que guardar.']);
         }
 
-        DB::transaction(function () use ($embarque, $equipo, $nuevos, $vin) {
-            $embarque->update($nuevos);
-            DB::table('embarque_equipo')->where('ID_EQUIPO', $equipo->ID_EQUIPO)->update(['VIN' => $vin]);
+        $delEmbarque = array_diff_key($diff, ['VIN' => true]);
+        DB::transaction(function () use ($embarque, $equipo, $diff, $delEmbarque) {
+            if ($delEmbarque) $embarque->update(array_map(fn ($c) => $c['despues'], $delEmbarque));
+            if (isset($diff['VIN'])) {
+                DB::table('embarque_equipo')->where('ID_EQUIPO', $equipo->ID_EQUIPO)->update(['VIN' => $diff['VIN']['despues']]);
+            }
         });
+        // En el historial de CADA equipo del embarque, que a todos les cambio su BL; el VIN, solo en este.
         \App\Models\EquipoAuditLog::registrar($equipo->ID_EQUIPO, 'metadata_embarque', $diff);
+        if ($delEmbarque) {
+            foreach (DB::table('embarque_equipo')->where('ID_EMBARQUE', $embarque->ID_EMBARQUE)
+                         ->where('ID_EQUIPO', '!=', $equipo->ID_EQUIPO)->pluck('ID_EQUIPO') as $otro) {
+                \App\Models\EquipoAuditLog::registrar((int) $otro, 'metadata_embarque', $delEmbarque);
+            }
+        }
 
         return response()->json(['success' => true, 'message' => 'Datos del embarque actualizados']);
     }
@@ -4908,9 +4924,15 @@ class EquipoController extends Controller
      * que la tabla: 'none' es SIN ASIGNAR; los frentes ESPECIAL se ocultan solo sin frente ni
      * tipo concreto; un tipo de equipo filtra el par por su equipo (eq_a) y el aux por su host;
      * un tipo de AUXILIAR ('tipo_aux:X') deja solo los auxiliares de ese tipo (sin pares).
+     * Y la barrera de frentes del usuario (LOCAL / bloqueados), como en la tabla.
      */
     private function filtrarAnclajes(Request $request, $pares, $aux): void
     {
+        if ($user = auth()->user()) {
+            $user->aplicarScopeFrentesEquipos($pares, 'ID_FRENTE_ACTUAL');
+            $user->aplicarScopeFrentesEquipos($aux, 'ID_FRENTE_ACTUAL');
+        }
+
         $frente = trim((string) $request->input('frente_id', ''));
         $tipoId = $this->tipoEquipoPedido($request);
         $tipo   = trim((string) $request->input('id_tipo', ''));

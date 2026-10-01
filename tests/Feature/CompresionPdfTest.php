@@ -164,6 +164,16 @@ class CompresionPdfTest extends MySqlTestCase
             'La busqueda por md5 de la carga masiva sigue encontrandola.');
     }
 
+    public function test_el_enlace_de_la_propuesta_solo_cambia_si_es_del_archivo_viejo(): void
+    {
+        $json = json_encode(['link' => '/storage/google/VIEJO_CPDF?v=7', 'md5' => 'x']);
+        $this->assertSame('/storage/google/NUEVO_CPDF?v=7',
+            json_decode(EnlacesDocumentos::propuestaConEnlace($json, 'VIEJO_CPDF', 'NUEVO_CPDF'), true)['link']);
+        $this->assertNull(EnlacesDocumentos::propuestaConEnlace($json, 'OTRO_CPDF', 'NUEVO_CPDF'));
+        $this->assertNull(EnlacesDocumentos::propuestaConEnlace(json_encode(['md5' => 'x']), 'VIEJO_CPDF', 'NUEVO_CPDF'));
+        $this->assertNull(EnlacesDocumentos::propuestaConEnlace(null, 'VIEJO_CPDF', 'NUEVO_CPDF'));
+    }
+
     public function test_la_correccion_anexa_cambia_su_enlace_y_su_id(): void
     {
         $equipo = DB::table('documentacion')->value('ID_EQUIPO');

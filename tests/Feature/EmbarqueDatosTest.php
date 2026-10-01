@@ -23,15 +23,20 @@ class EmbarqueDatosTest extends MySqlTestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->editor = Usuario::where('ESTATUS', 'ACTIVO')->get()->first(fn ($u) => $u->can('user.edit'));
-        $this->assertNotNull($this->editor, 'Hace falta un usuario con permiso user.edit.');
+        $this->editor = Usuario::where('ESTATUS', 'ACTIVO')->where('REQUIERE_CAMBIO_CLAVE', 0)->get()
+            ->first(fn ($u) => $u->can('user.edit'));
+        $this->assertNotNull($this->editor, 'Hace falta un usuario activo con permiso user.edit.');
 
-        [$this->equipo, $this->otroEquipo] = DB::table('equipos')->whereNull('deleted_at')
+        $libres = DB::table('equipos')->whereNull('deleted_at')
             ->whereNotIn('ID_EQUIPO', DB::table('embarque_equipo')->select('ID_EQUIPO'))
             ->limit(2)->pluck('ID_EQUIPO')->map(fn ($v) => (int) $v)->all();
+        if (count($libres) < 2) {
+            $this->markTestSkipped('Hacen falta dos equipos sin embarque.');
+        }
+        [$this->equipo, $this->otroEquipo] = $libres;
 
         $this->embarque = Embarque::create([
-            'NRO_BL' => 'RAQDLA16_PRUEBA', 'BUQUE' => 'RUI AN YANG V.2524', 'PUERTO_CARGA' => 'QINGDAO,CHINA',
+            'NRO_BL' => 'RAQDLA16_PRUEBA', 'BUQUE' => 'Rui An Yang V.2524', 'PUERTO_CARGA' => 'QINGDAO,CHINA',
             'PUERTO_DESCARGA' => 'LA GUAIRA,VENEZUELA', 'FECHA_EMBARQUE' => '2025-08-20',
             'LINK' => '/storage/google/BL_PRUEBA?v=1', 'UNIDADES' => 10,
         ]);
@@ -61,7 +66,7 @@ class EmbarqueDatosTest extends MySqlTestCase
     {
         $this->actingAs($this->editor)->getJson("/admin/equipos/{$this->equipo}/metadata?type=embarque")
             ->assertOk()->assertJsonPath('data', [
-                'nro_bl' => 'RAQDLA16_PRUEBA', 'buque' => 'RUI AN YANG V.2524', 'puerto_carga' => 'QINGDAO,CHINA',
+                'nro_bl' => 'RAQDLA16_PRUEBA', 'buque' => 'Rui An Yang V.2524', 'puerto_carga' => 'QINGDAO,CHINA',
                 'puerto_descarga' => 'LA GUAIRA,VENEZUELA', 'fecha_embarque' => '2025-08-20', 'unidades' => 10,
                 'vin' => 'LEZDD2CC8SF132435', 'equipos' => 2,
             ]);
@@ -82,12 +87,30 @@ class EmbarqueDatosTest extends MySqlTestCase
         $log = EquipoAuditLog::where('ID_EQUIPO', $this->equipo)->where('ACCION', 'metadata_embarque')->latest('ID_LOG')->first();
         $this->assertNotNull($log, 'La edicion queda en el historial.');
         $this->assertSame(['BUQUE', 'UNIDADES', 'VIN'], array_keys($log->CAMBIOS));
+        // Al otro equipo tambien le cambio su BL: queda en su historial, sin el VIN ajeno.
+        $otro = EquipoAuditLog::where('ID_EQUIPO', $this->otroEquipo)->where('ACCION', 'metadata_embarque')->first();
+        $this->assertSame(['BUQUE', 'UNIDADES'], array_keys($otro->CAMBIOS));
     }
 
     public function test_sin_cambios_no_escribe_nada(): void
     {
-        $this->guardar($this->completo())->assertOk()->assertJsonPath('message', 'Sin cambios');
+        // Lo mismo que hay; el buque solo cambia de mayusculas/minusculas, y eso no es un cambio.
+        $this->guardar($this->completo(['buque' => 'RUI AN YANG V.2524']))->assertOk()->assertJsonPath('sin_cambios', true);
+        $this->assertSame('Rui An Yang V.2524', $this->embarque->fresh()->BUQUE);
         $this->assertFalse(EquipoAuditLog::where('ID_EQUIPO', $this->equipo)->where('ACCION', 'metadata_embarque')->exists());
+    }
+
+    public function test_solo_escribe_los_campos_que_llegan(): void
+    {
+        // El visor manda solo lo que se toco: lo demas no se borra ni vuelve a un valor viejo.
+        $this->guardar(['vin' => 'LEZDD2CC8SF132400'])->assertOk();
+        $e = $this->embarque->fresh();
+        $this->assertSame('RAQDLA16_PRUEBA', $e->NRO_BL);
+        $this->assertSame('Rui An Yang V.2524', $e->BUQUE);
+        $this->assertSame(10, (int) $e->UNIDADES);
+        $this->assertSame('LEZDD2CC8SF132400', DB::table('embarque_equipo')->where('ID_EQUIPO', $this->equipo)->value('VIN'));
+        $this->assertFalse(EquipoAuditLog::where('ID_EQUIPO', $this->otroEquipo)->where('ACCION', 'metadata_embarque')->exists(),
+            'Cambiar solo el VIN no toca el historial de los demas equipos.');
     }
 
     public function test_no_admite_un_numero_de_bl_de_otro_embarque_ni_una_fecha_rota(): void
@@ -101,12 +124,13 @@ class EmbarqueDatosTest extends MySqlTestCase
 
     public function test_sin_permiso_de_edicion_no_se_guarda(): void
     {
-        $sinPermiso = Usuario::get()->first(fn ($u) => !$u->can('user.edit'));
+        $sinPermiso = Usuario::where('ESTATUS', 'ACTIVO')->where('REQUIERE_CAMBIO_CLAVE', 0)->get()
+            ->first(fn ($u) => !$u->can('user.edit'));
         if (!$sinPermiso) {
             $this->markTestSkipped('No hay ningún usuario sin permiso user.edit para probarlo.');
         }
         $this->guardar($this->completo(['buque' => 'NO DEBE QUEDAR']), $sinPermiso)->assertStatus(403);
-        $this->assertSame('RUI AN YANG V.2524', $this->embarque->fresh()->BUQUE);
+        $this->assertSame('Rui An Yang V.2524', $this->embarque->fresh()->BUQUE);
     }
 
     public function test_un_equipo_sin_embarque_responde_que_no_lo_tiene(): void

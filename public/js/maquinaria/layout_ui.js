@@ -2387,6 +2387,13 @@ window.saveMetadata = async function (e) {
     try {
         const formData = new FormData(e.target);
         formData.append('doc_type', ctx.docType);
+        // El BL es de todo el embarque: van solo los campos que se tocaron (defaultValue es lo
+        // que se pinto al abrir), para no devolverle a su valor viejo lo que otro corrigio.
+        if (ctx.docType === 'embarque') {
+            Array.from(e.target.elements).forEach(el => {
+                if (el.name && el.value === el.defaultValue) formData.delete(el.name);
+            });
+        }
         const saveUrl = ctx.module === 'auxiliar'
             ? `/admin/equipos-auxiliares/${ctx.equipoId}/update-metadata`
             : `/admin/equipos/${ctx.equipoId}/update-metadata`;
@@ -2395,6 +2402,10 @@ window.saveMetadata = async function (e) {
             body: formData
         });
         const data = await res.json();
+        if (data.success && data.sin_cambios) {
+            window.toast(data.message, 'info');
+            return;
+        }
         if (data.success) {
             // Aviso de "guardado", igual que el de pintado (ver loadMetadata). Se puede CANCELAR:
             // quien lo escuche y se haga cargo (la revision a mano de Control de Auditoria, que

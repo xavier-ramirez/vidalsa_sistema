@@ -870,9 +870,10 @@ class CargaMasivaDocumentos
         if (!$equipo) return ['ok' => false, 'mensaje' => 'El equipo ya no existe.'];
 
         $driveId = DocumentoAnexo::driveIdDeLink($link);
-        $embarque = $bl['nro']
-            ? Embarque::where('NRO_BL', $bl['nro'])->first()
-            : Embarque::where('LINK', 'like', '/storage/google/' . $driveId . '%')->first();
+        // Por su numero o, si no, por su PDF: el numero se puede corregir a mano en el visor
+        // (EquipoController::guardarDatosEmbarque) y la propuesta guarda el que se leyo.
+        $embarque = ($bl['nro'] ? Embarque::where('NRO_BL', $bl['nro'])->first() : null)
+            ?? Embarque::where('LINK', 'like', '/storage/google/' . $driveId . '%')->first();
         $nombreBl = 'BL ' . ($bl['nro'] ?? 'sin numero');
 
         $pdfDistinto = $embarque && !$this->mismoArchivo($embarque->LINK, $link);

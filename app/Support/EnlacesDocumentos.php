@@ -121,14 +121,26 @@ class EnlacesDocumentos
         foreach (DB::table($tabla)->where('DRIVE_ID', $idViejo)->get(['ID_REGISTRO', 'ID_EQUIPO', 'ID_AUXILIAR', 'TIPO', 'PROPUESTA']) as $r) {
             if (isset($yaTienen[$clave($r)])) continue;
             $valores = ['DRIVE_ID' => $idNuevo];
-            $propuesta = $r->PROPUESTA ? json_decode($r->PROPUESTA, true) : null;
-            if (is_string($propuesta['link'] ?? null)) {
-                $propuesta['link'] = str_replace('/storage/google/' . $idViejo, '/storage/google/' . $idNuevo, $propuesta['link']);
-                $valores['PROPUESTA'] = json_encode($propuesta);
+            if (($propuesta = self::propuestaConEnlace($r->PROPUESTA, $idViejo, $idNuevo)) !== null) {
+                $valores['PROPUESTA'] = $propuesta;
             }
             $pasadas += DB::table($tabla)->where('ID_REGISTRO', $r->ID_REGISTRO)->update($valores);
         }
         return $pasadas;
+    }
+
+    /**
+     * La PROPUESTA (JSON) de una revision de la carga masiva con su enlace cambiado del archivo
+     * viejo al nuevo, o null si no tiene enlace a ese archivo (no hay nada que escribir).
+     */
+    public static function propuestaConEnlace(?string $json, string $idViejo, string $idNuevo): ?string
+    {
+        $propuesta = $json ? json_decode($json, true) : null;
+        $link = $propuesta['link'] ?? null;
+        if (!is_string($link) || !str_contains($link, '/storage/google/' . $idViejo)) return null;
+
+        $propuesta['link'] = str_replace('/storage/google/' . $idViejo, '/storage/google/' . $idNuevo, $link);
+        return json_encode($propuesta);
     }
 
     /** SQL del ID de Drive dentro de un enlace "/storage/google/{id}?v=...". */
