@@ -7,8 +7,9 @@ use Illuminate\Database\Eloquent\Model;
 /**
  * Un documento de embarque (Bill of Lading) y los equipos que ampara.
  *
- * Ver la migracion create_embarques_tables para el porque de la tabla aparte. Se escribe
- * SOLO desde la carga masiva (CargaMasivaDocumentos::aplicarEmbarque).
+ * Ver la migracion create_embarques_tables para el porque de la tabla aparte. Se crea desde
+ * la carga masiva (CargaMasivaDocumentos::aplicarEmbarque); sus datos se corrigen en el panel
+ * del visor (EquipoController::guardarDatosEmbarque).
  */
 class Embarque extends Model
 {

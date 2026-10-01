@@ -961,16 +961,16 @@ window.showDetailsImproved = function (target, event) {
                 }
                 const btn = document.getElementById('d_btn_embarque');
                 btn.title = 'Ver documento de embarque' + (emb.buque ? ' (' + emb.buque + ')' : '');
-                // El MISMO visor que el resto de los documentos, no otra pestaña. El BL no se
-                // gestiona desde aquí (lo pone la carga masiva y es de todo el embarque, no de
-                // este equipo), así que va sin equipoId ni uploadUrl —eso esconde "Subir" y
-                // "Eliminar"— y con skipMetadata: no tiene panel de datos que editar.
+                // El MISMO visor que el resto de los documentos, con su panel de datos (los del
+                // BL, que se editan con el permiso de siempre). No se sube ni se borra desde
+                // aqui —lo pone la carga masiva y es de todo el embarque—: openPdfPreview
+                // esconde "Subir" y "Eliminar" para el tipo 'embarque'.
                 btn.onclick = function (ev) {
                     ev.stopPropagation();
                     if (typeof window.openPdfPreview !== 'function') return;
                     window.openPdfPreview(emb.link, 'embarque',
                         'Embarque BL ' + (emb.nro || '') + (emb.buque ? ' · ' + emb.buque : ''),
-                        0, '', true, 'embarque');
+                        eqId, '', false);
                 };
 
                 // El modal es UNO solo y se reusa entre equipos, asi que la fila se recoloca en

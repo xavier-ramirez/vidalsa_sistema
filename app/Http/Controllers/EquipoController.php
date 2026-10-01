@@ -3301,6 +3301,22 @@ class EquipoController extends Controller
                 // Compraventa: NO tiene fecha de vencimiento (panel sin campos editables).
                 $data = [];
                 break;
+
+            case 'embarque':
+                // El BL es de TODO el embarque (no de este equipo): 'equipos' dice a cuantos
+                // les cambia lo que se guarde. El VIN si es solo de este equipo.
+                $e = $equipo->embarques()->withCount('equipos')->first();
+                $data = $e ? [
+                    'nro_bl'          => $e->NRO_BL ?? '',
+                    'buque'           => $e->BUQUE ?? '',
+                    'puerto_carga'    => $e->PUERTO_CARGA ?? '',
+                    'puerto_descarga' => $e->PUERTO_DESCARGA ?? '',
+                    'fecha_embarque'  => $e->FECHA_EMBARQUE?->format('Y-m-d') ?? '',
+                    'unidades'        => $e->UNIDADES ?? '',
+                    'vin'             => $e->pivot->VIN ?? '',
+                    'equipos'         => $e->equipos_count,
+                ] : [];
+                break;
         }
 
         // La fecha de emision (de origen) de los documentos que la tienen: el visor la
@@ -3420,6 +3436,11 @@ class EquipoController extends Controller
         }
         $equipo = $this->buscarEquipoOFallar($id, ['documentacion']);
         $type = $request->input('doc_type');
+
+        // El BL no vive en `documentacion` sino en su propia tabla (embarques).
+        if ($type === 'embarque') {
+            return $this->guardarDatosEmbarque($request, $equipo);
+        }
 
         // Mismos 6 tipos que deleteDoc/uploadDoc. Sin este check, un doc_type
         // desconocido caía por el switch sin actualizar nada y respondía éxito.
@@ -3605,6 +3626,71 @@ class EquipoController extends Controller
         \App\Http\Controllers\DashboardController::bumpDataVersion();
 
         return response()->json(['success' => true, 'message' => 'Metadatos actualizados']);
+    }
+
+    /**
+     * Guarda desde el panel del visor los datos del documento de embarque (BL) del equipo.
+     * Numero, buque, puertos, fecha y unidades son del EMBARQUE: valen para todos sus equipos.
+     * El VIN es el de ESTE equipo tal como lo imprime el BL. Mismo permiso que el resto del
+     * panel (user.edit, en updateMetadata) y queda en el historial como 'metadata_embarque'.
+     */
+    private function guardarDatosEmbarque(Request $request, Equipo $equipo)
+    {
+        $embarque = $equipo->embarques()->first();
+        if (!$embarque) {
+            return response()->json(['success' => false, 'message' => 'Este equipo no tiene documento de embarque.'], 404);
+        }
+
+        $v = \Illuminate\Support\Facades\Validator::make($request->all(), [
+            'nro_bl'          => 'nullable|string|max:40|unique:embarques,NRO_BL,' . $embarque->ID_EMBARQUE . ',ID_EMBARQUE',
+            'buque'           => 'nullable|string|max:120',
+            'puerto_carga'    => 'nullable|string|max:120',
+            'puerto_descarga' => 'nullable|string|max:120',
+            'fecha_embarque'  => 'nullable|date_format:Y-m-d',
+            'unidades'        => 'nullable|integer|min:0|max:100000',
+            'vin'             => 'nullable|string|max:40',
+        ], [
+            'nro_bl.unique'              => 'Ya hay otro embarque con ese número de BL.',
+            'fecha_embarque.date_format' => 'La fecha del embarque no es válida.',
+        ]);
+        if ($v->fails()) {
+            return response()->json(['success' => false, 'message' => $v->errors()->first()], 422);
+        }
+
+        $texto = fn (string $campo) => ($t = mb_strtoupper(trim((string) $request->input($campo)))) === '' ? null : $t;
+        $nuevos = [
+            'NRO_BL'          => $texto('nro_bl'),
+            'BUQUE'           => $texto('buque'),
+            'PUERTO_CARGA'    => $texto('puerto_carga'),
+            'PUERTO_DESCARGA' => $texto('puerto_descarga'),
+            'FECHA_EMBARQUE'  => $request->input('fecha_embarque') ?: null,
+            'UNIDADES'        => $request->filled('unidades') ? (int) $request->input('unidades') : null,
+        ];
+        $vin = $texto('vin');
+
+        $antes = [
+            'NRO_BL' => $embarque->NRO_BL, 'BUQUE' => $embarque->BUQUE,
+            'PUERTO_CARGA' => $embarque->PUERTO_CARGA, 'PUERTO_DESCARGA' => $embarque->PUERTO_DESCARGA,
+            'FECHA_EMBARQUE' => $embarque->FECHA_EMBARQUE?->format('Y-m-d'), 'UNIDADES' => $embarque->UNIDADES,
+            'VIN' => $embarque->pivot->VIN,
+        ];
+        $diff = [];
+        foreach ($nuevos + ['VIN' => $vin] as $campo => $valor) {
+            if ((string) $antes[$campo] !== (string) $valor) {
+                $diff[$campo] = ['antes' => $antes[$campo], 'despues' => $valor];
+            }
+        }
+        if (!$diff) {
+            return response()->json(['success' => true, 'message' => 'Sin cambios']);
+        }
+
+        DB::transaction(function () use ($embarque, $equipo, $nuevos, $vin) {
+            $embarque->update($nuevos);
+            DB::table('embarque_equipo')->where('ID_EQUIPO', $equipo->ID_EQUIPO)->update(['VIN' => $vin]);
+        });
+        \App\Models\EquipoAuditLog::registrar($equipo->ID_EQUIPO, 'metadata_embarque', $diff);
+
+        return response()->json(['success' => true, 'message' => 'Datos del embarque actualizados']);
     }
 
     /**

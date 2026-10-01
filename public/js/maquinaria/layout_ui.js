@@ -1053,15 +1053,16 @@ window.openPdfPreview = function (url, docType, label, equipoId, uploadUrl, skip
     // este preview es "solo lectura" -> ocultamos ambos. El gate por permisos del
     // Blade (la directiva can/super.admin) ya pudo no haberlos renderizado; aqui
     // solo nos aseguramos de no mostrarlos cuando el documento no es gestionable.
-    const docGestionable = !!uploadUrl || !!equipoId;
+    // El BL del embarque se abre con su equipo (para tener panel de datos), pero no se sube
+    // ni se borra desde aqui: lo pone la carga masiva y es de todo el embarque.
+    const docGestionable = (!!uploadUrl || !!equipoId) && docType !== 'embarque';
     const updateLabel = document.getElementById('pdfUpdateLabel');
     const deleteBtn   = document.getElementById('pdfDeleteBtn');
     if (updateLabel) updateLabel.style.display = docGestionable ? 'flex' : 'none';
     if (deleteBtn)   deleteBtn.style.display   = docGestionable ? 'flex' : 'none';
 
     // El boton "Datos" de la cabecera es SOLO del telefono y solo tiene sentido si este
-    // documento trae panel que editar. Sin panel —el BL del embarque, una Nota de Entrega, un
-    // reporte de fallas— al pulsarlo salia "El vehiculo asociado a este documento fue eliminado
+    // documento trae panel que editar. Sin panel —una Nota de Entrega, un reporte de fallas— al pulsarlo salia "El vehiculo asociado a este documento fue eliminado
     // de la base de datos", que es mentira y asusta.
     //
     // OJO: la condicion NO es skipMetadata. Ese solo dice "no abras el panel tu solo al arrancar",
@@ -1284,8 +1285,8 @@ window.openPdfPreview = function (url, docType, label, equipoId, uploadUrl, skip
     // Store current context for metadata panel
     // module: 'equipo' (el de por defecto) | 'auxiliar' son los DOS que tienen panel de datos;
     // deciden si load/save metadata pegan a /admin/equipos/.. o a /admin/equipos-auxiliares/..
-    // Por aqui pasan ademas 'movilizaciones', 'almacen', 'falla' y 'embarque': cualquier otro
-    // valor es un documento de SOLO LECTURA, sin panel y sin gestion.
+    // Por aqui pasan ademas 'movilizaciones', 'almacen' y 'falla': cualquier otro valor es un
+    // documento de SOLO LECTURA, sin panel y sin gestion.
     // sinDatos lo mira pdfAlternarDatos: asi el dato vive en el contexto y no se lee de una clase
     // del CSS, que seria la unica fuente de verdad de algo que es del documento, no del estilo.
     window.currentPdfContext = { equipoId, docType, label, uploadUrl, module: module || 'equipo', sinDatos: !tieneDatos };
@@ -2279,6 +2280,29 @@ window.loadMetadata = async function () {
             // quedaría diciendo lo de antes.
             const TIPOS_QUE_VENCEN = window.TIPOS_QUE_VENCEN || ['poliza', 'rotc', 'racda', 'adicional'];
             const vencimientoAlFinal = TIPOS_QUE_VENCEN.indexOf(ctx.docType) !== -1;
+
+            if (ctx.docType === 'embarque') {
+                // Datos del BL. Salen del texto del PDF: van escapados (nunca como HTML).
+                if (!('nro_bl' in info)) {
+                    _metaPintar(container, '<p style="color:#cbd5e0;font-size:13px;text-align:center;margin:0;">Este equipo ya no tiene documento de embarque.</p>', ctx);
+                    return;
+                }
+                const esc = window.escapeHtml;
+                const campo = (nombre, rotulo, tipo, extra) =>
+                    `<div style="${containerStyle}"><label for="meta_${nombre}_${ctx.equipoId}" style="${labelStyle}">${rotulo}</label><input type="${tipo}" id="meta_${nombre}_${ctx.equipoId}" name="${nombre}" value="${esc(info[nombre])}" ${extra || ''} ${disabledAttr} autocomplete="off"></div>`;
+                html += `
+                <p style="color:#94a3b8;font-size:12px;margin:0 0 12px;">Datos de todo el embarque: lo que se guarde vale para sus ${esc(info.equipos)} equipo(s). El VIN es solo de este.</p>
+                ${campo('nro_bl', 'Nro. BL', 'text', 'maxlength="40"')}
+                ${campo('buque', 'Buque', 'text', 'maxlength="120"')}
+                ${campo('puerto_carga', 'Puerto de Carga', 'text', 'maxlength="120"')}
+                ${campo('puerto_descarga', 'Puerto de Descarga', 'text', 'maxlength="120"')}
+                ${campo('unidades', 'Unidades', 'number', 'min="0" step="1"')}
+                ${campo('vin', 'VIN de este equipo', 'text', 'maxlength="40"')}
+                ${campo('fecha_embarque', 'Fecha del Embarque', 'date')}
+            `;
+                _metaPintar(container, html, ctx);
+                return;
+            }
 
             if (ctx.docType === 'propiedad') {
                 html += `

@@ -611,6 +611,7 @@ class HistorialDocumentosController extends Controller
                     'metadata_racda'       => 'Edición Metadata RACDA',
                     'metadata_adicional'   => 'Edición Metadata Certificado',
                     'metadata_adicional_2' => 'Edición Metadata Compraventa',
+                    'metadata_embarque'    => 'Edición Metadata Embarque (BL)',
                     'upload_propiedad'     => 'Subida Propiedad',
                     'upload_poliza'        => 'Subida Póliza',
                     'upload_rotc'          => 'Subida ROTC',

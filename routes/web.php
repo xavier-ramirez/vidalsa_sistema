@@ -173,7 +173,8 @@ Route::middleware(['auth'])->group(function () {
             // con el. anexar-doc solo AÑADE archivos a Drive; no borra ninguno.
             Route::post('equipos/{id}/anexar-doc', [App\Http\Controllers\EquipoController::class, 'anexarDoc'])->name('equipos.anexarDoc');
             Route::get('equipos/{id}/anexos', [App\Http\Controllers\EquipoController::class, 'anexosDoc'])->name('equipos.anexosDoc');
-            // Documento de embarque (BL) del equipo: solo lectura, lo pone la carga masiva.
+            // Documento de embarque (BL) del equipo. Lo pone la carga masiva; sus datos se editan
+            // en el panel del visor (metadata / update-metadata con doc_type=embarque).
             Route::get('equipos/{id}/embarque', [App\Http\Controllers\EquipoController::class, 'embarqueDoc'])->name('equipos.embarqueDoc');
             // Borrar UNA correccion. Mismo guardia que delete-doc del principal:
             // super.admin y nadie mas, porque tambien borra el archivo del Drive.
