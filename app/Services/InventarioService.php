@@ -37,6 +37,12 @@ class InventarioService
      */
     public const EPS = 0.0005;
 
+    /** 5 → "5", 2.5 → "2,5": como se escriben las cantidades en los mensajes y el kardex. */
+    public static function num(float $n): string
+    {
+        return rtrim(rtrim(number_format($n, 3, ',', '.'), '0'), ',') ?: '0';
+    }
+
     // ─────────────────────────────────────────────────────────────
     //  API pública
     // ─────────────────────────────────────────────────────────────
@@ -265,62 +271,8 @@ class InventarioService
 
             $movs = MovimientoInventario::whereIn('ID_MOVIMIENTO', $ids)->get();
 
-            // (almacén, producto) únicos afectados — hay que recalcular el saldo de cada uno.
-            $pares = $movs->map(fn ($m) => ['a' => (int) $m->ID_ALMACEN, 'p' => (int) $m->ID_PRODUCTO])
-                ->unique(fn ($x) => $x['a'] . '-' . $x['p'])
-                ->values();
-
-            // Capturar el SALDO DE APERTURA de cada BOLSA ANTES de borrar: es el
-            // CANTIDAD_ANTERIOR de su movimiento más antiguo (menor ID). El kardex NO siempre
-            // arranca en 0 — puede haber un saldo inicial de migración o movimientos previos
-            // ya archivados — así que recalcular desde 0 destrozaría el stock. Esa apertura
-            // es el saldo previo al primer movimiento de la bolsa y se preserva tal cual.
-            // Sirve igual si el movimiento borrado ERA el más antiguo: la apertura describe
-            // el saldo de ANTES de él, así que el replay lo deja fuera y da el número justo.
-            //
-            // Y si una bolsa no tiene NI UN movimiento (saldo cargado por importación, típico
-            // en los almacenes que ya venían con inventario), su apertura es su saldo ACTUAL:
-            // el kardex no lo explica, pero existe, y recalcularlo desde 0 lo borraría.
-            //
-            // Las bolsas se listan aquí una sola vez y se reutilizan abajo en el recálculo:
-            // dos listados separados podían recalcular una bolsa con la apertura de otra.
-            $bolsasPorPar = [];
-            $aperturas    = [];
-            foreach ($pares as $par) {
-                $clave  = $par['a'] . '-' . $par['p'];
-                $separa = $this->almacenSepara($par['a']);
-
-                $bolsas = AlmacenStock::where('ID_ALMACEN', $par['a'])
-                    ->where('ID_PRODUCTO', $par['p'])
-                    ->pluck('ID_FRENTE')
-                    ->map(fn ($v) => (int) $v)
-                    ->all();
-                if ($bolsas === []) {
-                    $bolsas = [self::FRENTE_BOLSA_COMUN];
-                }
-                $bolsasPorPar[$clave] = $bolsas;
-
-                foreach ($bolsas as $bolsa) {
-                    // MISMO criterio de pertenencia que usa el recálculo (ver
-                    // recalcularSaldoProducto): sin separación por proyecto todo el kardex es
-                    // de la única bolsa, y con ella la bolsa la dice ID_FRENTE_SALDO sola.
-                    $anterior = MovimientoInventario::where('ID_ALMACEN', $par['a'])
-                        ->where('ID_PRODUCTO', $par['p'])
-                        ->when(
-                            $separa,
-                            fn ($q) => $q->where('ID_FRENTE_SALDO', $bolsa)
-                        )
-                        ->orderBy('ID_MOVIMIENTO')
-                        ->value('CANTIDAD_ANTERIOR');
-
-                    $aperturas[$clave][$bolsa] = $anterior !== null
-                        ? (float) $anterior
-                        : (float) (AlmacenStock::where('ID_ALMACEN', $par['a'])
-                            ->where('ID_PRODUCTO', $par['p'])
-                            ->where('ID_FRENTE', $bolsa)
-                            ->value('CANTIDAD') ?? 0);
-                }
-            }
+            // Las aperturas se capturan ANTES de borrar (ver aperturasDeBolsas).
+            [$pares, $bolsasPorPar, $aperturas] = $this->aperturasDeBolsas($movs);
 
             // Borrado duro de las filas del kardex.
             MovimientoInventario::whereIn('ID_MOVIMIENTO', $ids)->delete();
@@ -331,32 +283,175 @@ class InventarioService
             // sin cambiar su ID. Se pide a los clientes la copia completa de almacen.
             \App\Support\OfflineVersion::resetear('almacen');
 
-            // Recalcular el saldo de cada (almacén, producto) afectado desde el kardex restante,
-            // partiendo del saldo de apertura capturado arriba.
-            // Un producto puede tener VARIOS saldos en el mismo almacén (uno por proyecto),
-            // y cada uno se reconstruye con los movimientos de su propio frente. Recalcular
-            // solo uno dejaría los demás con el valor viejo. Se recorren todas las filas que
-            // existan y, si no hay ninguna, al menos la bolsa común para no perder la
-            // reposición del saldo de apertura.
-            $afectados = [];
-            foreach ($pares as $par) {
-                $clave = $par['a'] . '-' . $par['p'];
-                $total = 0.0;
-                foreach ($bolsasPorPar[$clave] as $idFrente) {
-                    // Cada bolsa se reconstruye desde SU propia apertura (capturada arriba):
-                    // el saldo que ya tenía antes del primer movimiento que la explica.
-                    $total += $this->recalcularSaldoProducto(
-                        $par['a'],
-                        $par['p'],
-                        $aperturas[$clave][$idFrente] ?? 0.0,
-                        $idFrente
-                    );
-                }
-                $afectados[] = ['id_almacen' => $par['a'], 'id_producto' => $par['p'], 'saldo' => $total];
-            }
+            $afectados = $this->recalcularBolsas($pares, $bolsasPorPar, $aperturas);
 
             return ['eliminados' => $movs->count(), 'afectados' => $afectados];
         });
+    }
+
+    /**
+     * Cambia la cantidad de filas SALIDA ya registradas y deja el kardex y el stock como si
+     * hubieran salido así desde el principio: la corrección de una Nota de Entrega mal
+     * cargada (salieron 100 y se tecleó 180). Lo usa CorreccionNotaService, que es quien
+     * decide cuánto le toca a cada fila y deja el rastro de la corrección.
+     *
+     * $nuevas = [ID_MOVIMIENTO => cantidad nueva]. Una fila que queda en 0 se BORRA: una
+     * salida de cero no es una salida (quien llama ya comprobó que no tenía devoluciones).
+     *
+     * Si una fila SUBE y su bolsa termina en negativo, se aborta: es material que no hay, y
+     * una salida corregida no puede permitir lo que una salida nueva no permite.
+     *
+     * Debe llamarse dentro de una transacción (la de quien llama, que bloquea la nota).
+     *
+     * @param  array<int,float>  $nuevas
+     */
+    public function corregirCantidadesSalida(array $nuevas): void
+    {
+        $movs = MovimientoInventario::whereIn('ID_MOVIMIENTO', array_keys($nuevas))->lockForUpdate()->get();
+        if ($movs->count() !== count($nuevas)) {
+            throw new RuntimeException('Una de las líneas de la nota ya no existe: vuelve a abrir la corrección.');
+        }
+        if ($movs->contains(fn ($m) => $m->TIPO !== MovimientoInventario::TIPO_SALIDA)) {
+            throw new InvalidArgumentException('Solo se puede corregir la cantidad de una salida.');
+        }
+
+        [$pares, $bolsasPorPar, $aperturas] = $this->aperturasDeBolsas($movs);
+
+        $suben  = [];
+        $borrar = [];
+        foreach ($movs as $m) {
+            $nueva = round((float) $nuevas[$m->ID_MOVIMIENTO], 3);
+            if ($nueva < 0) {
+                throw new InvalidArgumentException('La cantidad corregida no puede ser negativa.');
+            }
+            if ($nueva > (float) $m->CANTIDAD + self::EPS) {
+                $suben[] = $m;
+            }
+            if ($nueva <= self::EPS) {
+                $borrar[] = (int) $m->ID_MOVIMIENTO;
+                continue;
+            }
+            // El recálculo de abajo reescribe ANTERIOR/RESULTANTE de esta fila y de las
+            // siguientes con la cantidad nueva.
+            $m->CANTIDAD = $nueva;
+            $m->save();
+        }
+        if ($borrar) {
+            MovimientoInventario::whereIn('ID_MOVIMIENTO', $borrar)->delete();
+            // Borrado duro: ver la nota de resetear('almacen') en eliminarMovimientoConReverso.
+            \App\Support\OfflineVersion::resetear('almacen');
+        }
+
+        $this->recalcularBolsas($pares, $bolsasPorPar, $aperturas);
+
+        foreach ($suben as $m) {
+            $bolsa = $this->almacenSepara((int) $m->ID_ALMACEN)
+                ? (int) ($m->ID_FRENTE_SALDO ?? self::FRENTE_BOLSA_COMUN)
+                : self::FRENTE_BOLSA_COMUN;
+            $saldo = (float) AlmacenStock::where('ID_ALMACEN', $m->ID_ALMACEN)
+                ->where('ID_PRODUCTO', $m->ID_PRODUCTO)
+                ->where('ID_FRENTE', $bolsa)
+                ->value('CANTIDAD');
+            if ($saldo < -self::EPS) {
+                throw new RuntimeException(sprintf(
+                    'No hay stock suficiente para subir la cantidad: faltan %s %s.',
+                    self::num(-$saldo),
+                    $m->producto?->UM ?? ''
+                ));
+            }
+        }
+    }
+
+    /**
+     * Saldo de APERTURA de cada bolsa de los (almacén, producto) de $movs. Se captura ANTES
+     * de tocar el kardex: es el CANTIDAD_ANTERIOR de su movimiento más antiguo (menor ID).
+     * El kardex NO siempre arranca en 0 — puede haber un saldo inicial de migración o
+     * movimientos previos ya archivados — así que recalcular desde 0 destrozaría el stock.
+     * Sirve igual si el movimiento borrado ERA el más antiguo: la apertura describe el saldo
+     * de ANTES de él, así que el replay lo deja fuera y da el número justo.
+     *
+     * Y si una bolsa no tiene NI UN movimiento (saldo cargado por importación, típico en los
+     * almacenes que ya venían con inventario), su apertura es su saldo ACTUAL: el kardex no
+     * lo explica, pero existe, y recalcularlo desde 0 lo borraría.
+     *
+     * Las bolsas se listan aquí una sola vez y las reutiliza recalcularBolsas: dos listados
+     * separados podían recalcular una bolsa con la apertura de otra.
+     *
+     * @return array{0:\Illuminate\Support\Collection,1:array,2:array} [pares, bolsasPorPar, aperturas]
+     */
+    private function aperturasDeBolsas(\Illuminate\Support\Collection $movs): array
+    {
+        // (almacén, producto) únicos afectados — hay que recalcular el saldo de cada uno.
+        $pares = $movs->map(fn ($m) => ['a' => (int) $m->ID_ALMACEN, 'p' => (int) $m->ID_PRODUCTO])
+            ->unique(fn ($x) => $x['a'] . '-' . $x['p'])
+            ->values();
+
+        $bolsasPorPar = [];
+        $aperturas    = [];
+        foreach ($pares as $par) {
+            $clave  = $par['a'] . '-' . $par['p'];
+            $separa = $this->almacenSepara($par['a']);
+
+            $bolsas = AlmacenStock::where('ID_ALMACEN', $par['a'])
+                ->where('ID_PRODUCTO', $par['p'])
+                ->pluck('ID_FRENTE')
+                ->map(fn ($v) => (int) $v)
+                ->all();
+            if ($bolsas === []) {
+                $bolsas = [self::FRENTE_BOLSA_COMUN];
+            }
+            $bolsasPorPar[$clave] = $bolsas;
+
+            foreach ($bolsas as $bolsa) {
+                // MISMO criterio de pertenencia que usa el recálculo (ver
+                // recalcularSaldoProducto): sin separación por proyecto todo el kardex es
+                // de la única bolsa, y con ella la bolsa la dice ID_FRENTE_SALDO sola.
+                $anterior = MovimientoInventario::where('ID_ALMACEN', $par['a'])
+                    ->where('ID_PRODUCTO', $par['p'])
+                    ->when(
+                        $separa,
+                        fn ($q) => $q->where('ID_FRENTE_SALDO', $bolsa)
+                    )
+                    ->orderBy('ID_MOVIMIENTO')
+                    ->value('CANTIDAD_ANTERIOR');
+
+                $aperturas[$clave][$bolsa] = $anterior !== null
+                    ? (float) $anterior
+                    : (float) (AlmacenStock::where('ID_ALMACEN', $par['a'])
+                        ->where('ID_PRODUCTO', $par['p'])
+                        ->where('ID_FRENTE', $bolsa)
+                        ->value('CANTIDAD') ?? 0);
+            }
+        }
+
+        return [$pares, $bolsasPorPar, $aperturas];
+    }
+
+    /**
+     * Recalcula el saldo de cada (almacén, producto) desde el kardex que queda, partiendo
+     * de las aperturas de aperturasDeBolsas. Un producto puede tener VARIOS saldos en el
+     * mismo almacén (uno por proyecto), y cada uno se reconstruye con los movimientos de su
+     * propio frente: recalcular solo uno dejaría los demás con el valor viejo.
+     *
+     * @return array<int,array{id_almacen:int,id_producto:int,saldo:float}>
+     */
+    private function recalcularBolsas(\Illuminate\Support\Collection $pares, array $bolsasPorPar, array $aperturas): array
+    {
+        $afectados = [];
+        foreach ($pares as $par) {
+            $clave = $par['a'] . '-' . $par['p'];
+            $total = 0.0;
+            foreach ($bolsasPorPar[$clave] as $idFrente) {
+                $total += $this->recalcularSaldoProducto(
+                    $par['a'],
+                    $par['p'],
+                    $aperturas[$clave][$idFrente] ?? 0.0,
+                    $idFrente
+                );
+            }
+            $afectados[] = ['id_almacen' => $par['a'], 'id_producto' => $par['p'], 'saldo' => $total];
+        }
+        return $afectados;
     }
 
     /**

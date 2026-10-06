@@ -133,9 +133,10 @@ class DevolucionMaterialTest extends MySqlTestCase
 
         $this->assertSame(8.0, $this->saldo($alm->ID_ALMACEN, $p->ID_PRODUCTO));
 
-        // El resumen de la nota dice lo mismo.
-        $linea = $this->actingAs($this->usuario())->getJson(route('almacen.devolucion.show', ['numero' => strtolower($nota)]))
-            ->assertOk()->json('lineas.0');
+        // El resumen del modal dice lo mismo.
+        $linea = $this->actingAs($this->usuario())
+            ->getJson(route('almacen.ajuste-nota.show', ['numero' => strtolower($nota), 'id_producto' => $p->ID_PRODUCTO]))
+            ->assertOk()->json('linea');
         $this->assertEquals([5, 3, 2], [$linea['entregado'], $linea['devuelto'], $linea['pendiente']]);
     }
 
@@ -241,8 +242,10 @@ class DevolucionMaterialTest extends MySqlTestCase
             $this->markTestSkipped('No hay notas de envío entre almacenes para probar.');
         }
 
-        $this->actingAs($this->usuario())->getJson(route('almacen.devolucion.show', ['numero' => $numero]))
-            ->assertStatus(422);
+        $id = MovimientoInventario::where('NUMERO_NOTA', $numero)->value('ID_PRODUCTO');
+        $this->actingAs($this->usuario())->getJson(route('almacen.ajuste-nota.show', ['numero' => $numero, 'id_producto' => $id]))
+            ->assertOk()
+            ->assertJsonPath('devolucion.motivo_no', 'Esta nota es un envío a otro almacén: el material entró a su inventario. La devolución se registra en ese almacén, sobre la nota con la que lo entregó.');
     }
 
     public function test_desde_un_movimiento_se_devuelve_solo_ese_producto(): void
@@ -255,39 +258,45 @@ class DevolucionMaterialTest extends MySqlTestCase
         $nota = $this->salidaConNota($alm->ID_ALMACEN, [$p45->ID_PRODUCTO => 5, $p42->ID_PRODUCTO => 3], null);
         $this->devolver($nota, [['id_producto' => $p42->ID_PRODUCTO, 'cantidad' => 1]])->assertCreated();
 
-        $ver = fn (array $q) => $this->actingAs($this->usuario())->getJson(route('almacen.devolucion.show', ['numero' => $nota] + $q));
+        $ver = fn (array $q) => $this->actingAs($this->usuario())->getJson(route('almacen.ajuste-nota.show', ['numero' => $nota] + $q));
 
         // Solo el producto del movimiento, con SUS devoluciones (la del 42 no sale en el 45).
         $r = $ver(['id_producto' => $p45->ID_PRODUCTO])->assertOk();
-        $this->assertSame([$p45->ID_PRODUCTO], array_column($r->json('lineas'), 'id_producto'));
-        $this->assertSame([], $r->json('historial'));
-        $this->assertCount(1, $ver(['id_producto' => $p42->ID_PRODUCTO])->json('historial'));
+        $this->assertSame($p45->ID_PRODUCTO, $r->json('linea.id_producto'));
+        $this->assertSame([], $r->json('devolucion.historial'));
+        $this->assertCount(1, $ver(['id_producto' => $p42->ID_PRODUCTO])->json('devolucion.historial'));
 
-        // Sin producto, la nota entera; con uno que no está en la nota, se dice.
-        $this->assertCount(2, $ver([])->json('lineas'));
+        // El modal es de UN producto: sin él no hay nada que mostrar; con uno que no está, se dice.
+        $ver([])->assertStatus(422);
         $otro = $this->producto('40');
         $ver(['id_producto' => $otro->ID_PRODUCTO])->assertNotFound()
             ->assertJsonPath('message', "Ese producto no está en la Nota {$nota}.");
     }
 
-    public function test_el_historial_ofrece_devolver_solo_mientras_quede_algo(): void
+    public function test_el_historial_ofrece_modificar_mientras_haya_algo_que_hacer(): void
     {
         $alm = $this->almacen();
         $p = $this->producto('45');
         $this->inv->registrarEntrada($alm->ID_ALMACEN, $p->ID_PRODUCTO, 10);
         $nota = $this->salidaConNota($alm->ID_ALMACEN, [$p->ID_PRODUCTO => 5], null);
-        $boton = "almAbrirDevolucion('{$nota}', {$p->ID_PRODUCTO})";
+        $boton = "almModificarNota('{$nota}', {$p->ID_PRODUCTO})";
         $bitacora = fn () => $this->actingAs($this->usuario())
             ->getJson(route('almacen.movimientos', ['id_almacen' => $alm->ID_ALMACEN, 'tipo' => 'SALIDA', 'skip_consumo' => 1]))
             ->assertOk()->json('html');
 
-        $this->assertStringContainsString($boton, $bitacora(), 'La salida con nota tiene que ofrecer Devolver.');
+        $this->assertStringContainsString($boton, $bitacora(), 'La salida con nota tiene que ofrecer Modificar.');
 
         $this->devolver($nota, [['id_producto' => $p->ID_PRODUCTO, 'cantidad' => 2]])->assertCreated();
         $this->assertStringContainsString($boton, $bitacora(), 'Quedan 3 por devolver: sigue el botón.');
 
+        // Ya volvió todo: no queda nada que devolver, así que el botón solo sigue para quien
+        // todavía puede CORREGIR la nota.
         $this->devolver($nota, [['id_producto' => $p->ID_PRODUCTO, 'cantidad' => 3]])->assertCreated();
-        $this->assertStringNotContainsString($boton, $bitacora(), 'Ya volvió todo: sin botón.');
+        if ($this->usuario()->can('almacen.nota.corregir')) {
+            $this->assertStringContainsString($boton, $bitacora(), 'Ya volvió todo, pero se puede corregir.');
+        } else {
+            $this->assertStringNotContainsString($boton, $bitacora(), 'Ya volvió todo y no corrige: sin botón.');
+        }
     }
 
     public function test_la_nota_y_la_bitacora_dicen_lo_que_se_devolvio(): void

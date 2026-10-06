@@ -3815,7 +3815,20 @@ class AlmacenController extends Controller
             $datos[$campo] = (string) ($hd->{$columna} ?? '');
         }
 
+        // ?version=original → la nota COMO SALIÓ antes de corregirla, con la corrección en rojo
+        // (CorreccionNotaService). Sin correcciones no hay "original" distinto: sale la de siempre.
+        $correcciones = collect();
+        if ($request->query('version') === 'original' && $hd->NUMERO_NOTA) {
+            $correcciones = \App\Models\CorreccionNota::with(['producto:ID_PRODUCTO,NOMBRE,UM', 'usuario:ID_USUARIO,NOMBRE_COMPLETO'])
+                ->where('NUMERO_NOTA', $hd->NUMERO_NOTA)
+                ->orderBy('ID_CORRECCION')
+                ->get();
+        }
+
         $slug   = $hd->NUMERO_NOTA ?: ($hd->NUMERO_RQ ?: ('LOTE-' . $hd->ID_MOVIMIENTO));
+        if ($correcciones->isNotEmpty()) {
+            $slug .= '_ORIGINAL';
+        }
         // Reimpresion desde el historial: la hoja es la que se uso el dia de la operacion
         // (movimientos_inventario.FORMATO_NOTA, congelado al registrar), NO la que el almacen
         // emita hoy — cambiar la plantilla de un almacen no puede reescribir documentos ya
@@ -3825,10 +3838,13 @@ class AlmacenController extends Controller
         // El ALMACEN se sigue pasando porque de el salen los FIRMANTES del horizontal, y ya
         // viene cargado con los movimientos (buscarMovimientosDeNota -> with([...,'almacen'])):
         // no agrega ni una consulta. Los dos valores van CRUDOS: normalizar es cosa del render.
-        $binary = $this->renderNotaEntregaPdfBinary($datos, $movs, false, $hd->almacen, $hd->FORMATO_NOTA);
+        $binary = $this->renderNotaEntregaPdfBinary($datos, $movs, false, $hd->almacen, $hd->FORMATO_NOTA, $correcciones);
+        // ?descargar=1 → como archivo (botones de descarga de la comparación de la corrección);
+        // sin él, en línea para el visor.
         return response($binary, 200, [
             'Content-Type'        => 'application/pdf',
-            'Content-Disposition' => 'inline; filename="Nota_Entrega_' . preg_replace('/[^A-Za-z0-9_-]/', '_', $slug) . '.pdf"',
+            'Content-Disposition' => ($request->boolean('descargar') ? 'attachment' : 'inline')
+                . '; filename="Nota_Entrega_' . preg_replace('/[^A-Za-z0-9_-]/', '_', $slug) . '.pdf"',
         ]);
     }
 
@@ -4470,8 +4486,10 @@ class AlmacenController extends Controller
         $movs,
         bool $esPreview = false,
         ?Almacen $almacen = null,
-        ?string $formato = null
+        ?string $formato = null,
+        ?\Illuminate\Support\Collection $correcciones = null
     ): string {
+        $correcciones ??= collect();
         // El papel lista PRODUCTOS, no tramos de saldo. Cuando una salida tuvo que tomar de
         // varias bolsas (InventarioService::aplicarSalidaConCascada) el kardex guarda un
         // movimiento por bolsa, y sin esto la Nota imprimia el mismo producto dos veces
@@ -4491,15 +4509,26 @@ class AlmacenController extends Controller
         //
         // Va aqui, el UNICO punto por el que pasan los dos formatos y tambien la vista
         // previa -donde es un no-op, porque alli cada linea ya viene entera-.
+        //
+        // IDS_TRAMOS lleva los movimientos que suma la línea: lo devuelto de CUALQUIERA de
+        // ellos es de esa línea (antes se miraba solo el del primer tramo).
+        //
+        // Con $correcciones (la nota ORIGINAL, ?version=original) la línea de un producto
+        // corregido imprime lo que decía ANTES de su primera corrección, y CANTIDAD_CORREGIDA
+        // lo que dice hoy: la vista la pinta en rojo. CorreccionNotaService ya garantiza que
+        // un producto corregido va en una sola línea.
+        $originales = \App\Models\CorreccionNota::originales($correcciones);
         $movs = collect($movs)
             ->groupBy(fn ($m) => $m->ID_PRODUCTO . '-' . $m->ID_FRENTE . '-' . ($m->NUMERO_PARTE ?? ''))
-            ->map(function ($tramos) {
-                if ($tramos->count() === 1) {
-                    return $tramos->first();
-                }
+            ->map(function ($tramos) use ($originales) {
                 // Clon: se toca solo la copia que se imprime, nunca el modelo del kardex.
                 $fila = clone $tramos->first();
                 $fila->CANTIDAD = $tramos->sum('CANTIDAD');
+                $fila->IDS_TRAMOS = $tramos->pluck('ID_MOVIMIENTO')->filter()->values()->all();
+                if (isset($originales[(int) $fila->ID_PRODUCTO])) {
+                    $fila->CANTIDAD_CORREGIDA = $fila->CANTIDAD;
+                    $fila->CANTIDAD = $originales[(int) $fila->ID_PRODUCTO];
+                }
                 return $fila;
             })
             ->values();
@@ -4527,7 +4556,7 @@ class AlmacenController extends Controller
         // añade un bloque al pie que las lista; si no hay, la nota sale igual que siempre.
         $devoluciones = MovimientoInventario::with('producto:ID_PRODUCTO,CODIGO,NOMBRE,UM')
             ->where('TIPO', MovimientoInventario::TIPO_DEVOLUCION)
-            ->whereIn('ID_MOVIMIENTO_RELACIONADO', $movs->pluck('ID_MOVIMIENTO'))
+            ->whereIn('ID_MOVIMIENTO_RELACIONADO', $movs->pluck('IDS_TRAMOS')->flatten())
             ->orderBy('FECHA')->orderBy('ID_MOVIMIENTO')
             ->get();
 
@@ -4544,7 +4573,7 @@ class AlmacenController extends Controller
         // que pasar: nunca se recorta un item.
         $filasOficiales = $horizontal ? self::NOTA_FILAS_HORIZONTAL : self::NOTA_FILAS_VERTICAL;
         $armar = function (int $filas, bool $compacto) use (
-            $horizontal, $datos, $esPreview, $vista, $movs, $devoluciones, $almacen
+            $horizontal, $datos, $esPreview, $vista, $movs, $devoluciones, $almacen, $correcciones
         ): NotaEntregaPDF {
             $pdf = new NotaEntregaPDF($horizontal ? 'L' : 'P', 'mm', 'A4', true, 'UTF-8', false);
             // El N° de Nota va en el cabezote (esquina derecha, donde antes estaba "CODIGO:").
@@ -4582,7 +4611,8 @@ class AlmacenController extends Controller
             // queda inerte porque setPrintFooter(false) no dibuja pie.
             $pdf->SetFooterMargin(10);
             $pdf->SetAutoPageBreak(true, 16);
-            $pdf->SetTitle('Nota de Entrega de Materiales' . ($esPreview ? ' (Vista previa)' : ''));
+            $pdf->SetTitle('Nota de Entrega de Materiales' . ($esPreview ? ' (Vista previa)' : '')
+                . ($correcciones->isNotEmpty() ? ' (original, antes de corregir)' : ''));
             $pdf->SetAuthor('Constructora Vidalsa 27, C.A.');
             $pdf->SetCreator('Sistema de Gestión VIDALSA');
             $pdf->AddPage();
@@ -4601,6 +4631,8 @@ class AlmacenController extends Controller
                 'datos' => $datos,
                 'movs'  => $movs,
                 'devoluciones' => $devoluciones,
+                // Solo en la nota ORIGINAL de una nota corregida: el bloque rojo del pie.
+                'correcciones' => $correcciones,
                 // Solo lo consume la vista horizontal; la vertical lleva sus dos firmas armadas
                 // con 'entregado_por'/'cargo_entrega' y nunca lee esto, por eso alli va vacio.
                 // Con el formato congelado una nota horizontal SI puede quedarse sin almacen (si

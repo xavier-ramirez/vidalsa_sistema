@@ -456,13 +456,17 @@ Route::middleware(['auth'])->group(function () {
             // de lo que aún no se había devuelto.
             // Requiere la clave almacen.nota.eliminar: una nota borrada no se recupera y el stock se mueve.
             Route::delete('almacen/nota-entrega',                 [App\Http\Controllers\AlmacenController::class, 'eliminarNota'])      ->middleware('can:almacen.nota.eliminar')->name('almacen.nota-entrega.destroy');
-            // DEVOLUCIÓN de material de una Nota de Entrega, con cambio opcional por otro
-            // producto (sacaron BRAGA 45 y la regresan porque era la 42). GET = lo entregado,
-            // lo devuelto y lo que falta (solo lectura); POST = registrar, con la clave
-            // almacen.movimiento (se valida dentro para nombrarla en el mensaje).
-            // Ver App\Services\DevolucionService.
-            Route::get   ('almacen/devolucion',                   [App\Http\Controllers\DevolucionMaterialController::class, 'show'])  ->name('almacen.devolucion.show');
-            Route::post  ('almacen/devolucion',                   [App\Http\Controllers\DevolucionMaterialController::class, 'store']) ->name('almacen.devolucion.store');
+            // «MODIFICAR» un producto de una Nota de Entrega: un modal, dos operaciones
+            // (App\Http\Controllers\AjusteNotaController).
+            //   GET  ajuste-nota      → lo que necesita el modal (pide alguna de las dos claves).
+            //   POST devolucion       → el material volvió (DevolucionService); la clave
+            //                           almacen.movimiento se valida dentro para nombrarla.
+            //   POST correccion-nota  → la nota se cargó mal (CorreccionNotaService). La nota
+            //                           original con la corrección en rojo es
+            //                           almacen.nota-entrega?version=original.
+            Route::get   ('almacen/ajuste-nota',                  [App\Http\Controllers\AjusteNotaController::class, 'show'])     ->name('almacen.ajuste-nota.show');
+            Route::post  ('almacen/devolucion',                   [App\Http\Controllers\AjusteNotaController::class, 'devolver']) ->name('almacen.devolucion.store');
+            Route::post  ('almacen/correccion-nota',              [App\Http\Controllers\AjusteNotaController::class, 'corregir']) ->middleware('can:almacen.nota.corregir')->name('almacen.correccion-nota.store');
             // DESHACER un movimiento individual del kardex — EXCLUSIVO super.admin.
             // Borrado DURO sin rastro: elimina la fila, revierte el stock y RECALCULA el
             // saldo de los movimientos posteriores del mismo producto+almacén para que el

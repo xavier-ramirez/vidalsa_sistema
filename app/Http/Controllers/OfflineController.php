@@ -141,7 +141,8 @@ class OfflineController extends Controller
         return [
             $user->can('equipos.create') || $user->can('equipos.edit') || $user->can('equipos.assign'),
             $user->can('almacen.productos') || $user->can('almacen.movimiento')
-                || $user->can('almacen.nota.eliminar') || $user->can('super.admin'),
+                || $user->can('almacen.nota.eliminar') || $user->can('almacen.nota.corregir')
+                || $user->can('super.admin'),
         ];
     }
 
