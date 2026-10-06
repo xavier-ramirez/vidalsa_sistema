@@ -104,6 +104,7 @@ class PanelDocumentos
             'ghostscript' => app(CompresorPdf::class)->disponible(),
             // De la otra pestaña solo hace falta el numero de su botón.
             'docs'        => null,
+            'vinesFaltan' => [],
             'avanceDocs'  => [],
             'docsParaRevisar' => VerificacionDocumento::paraRevisar()->count(),
             'estadoDoc'   => null,
@@ -159,23 +160,34 @@ class PanelDocumentos
                     ->orWhere('ARCHIVO', 'like', $like)
                     ->orWhere('LEIDO', 'like', $like)->orWhere('LEIDO', 'like', $likeJson));
             })
-            // Primero lo que hay que resolver; dentro de cada montón, lo ultimo leido arriba.
-            // El ID desempata: el comando escribe varias filas en el mismo segundo y sin el
-            // una misma fila podia salir en dos paginas (o en ninguna).
-            // Lo recien soltado en la carga masiva va PRIMERO: es lo que alguien esta
-            // esperando para pulsar "Aplicar", y sin eso se perderia entre miles de filas.
+            // Lo soltado en la carga masiva en las ULTIMAS 24 HORAS va PRIMERO, lo mas nuevo
+            // arriba, este como este: se enlaza solo y queda "Aplicado", y lo aplicado va al
+            // final, detras de miles de filas de la noche; sin esto habia que filtrar para ver
+            // lo que uno acababa de subir.
+            ->orderByRaw('CASE WHEN ORIGEN = ? AND created_at >= ? THEN 0 ELSE 1 END',
+                [VerificacionDocumento::DE_CARGA_MASIVA, now()->subDay()])
+            ->orderByRaw('CASE WHEN ORIGEN = ? AND created_at >= ? THEN ID_REGISTRO END DESC',
+                [VerificacionDocumento::DE_CARGA_MASIVA, now()->subDay()])
+            // Despues, primero lo que hay que resolver; dentro de cada montón, lo ultimo leido
+            // arriba. El ID desempata: el comando escribe varias filas en el mismo segundo y
+            // sin el una misma fila podia salir en dos paginas (o en ninguna).
             ->orderByRaw("FIELD(ESTADO, '" . VerificacionDocumento::POR_ENGANCHAR . "', '" . VerificacionDocumento::SIN_FICHA
                 . "', '" . VerificacionDocumento::OTRO_DOCUMENTO
                 . "', '" . VerificacionDocumento::DIFIERE . "', '" . VerificacionDocumento::ILEGIBLE
                 . "', '" . VerificacionDocumento::SIN_ARCHIVO . "', '" . VerificacionDocumento::ERROR . "', '" . VerificacionDocumento::COINCIDE
                 // Lo ya aplicado de la carga, al final: FIELD da 0 a lo que no esta en la lista y
-                // 0 va PRIMERO, asi que sin nombrarlo tapaba lo que espera su "Aplicar".
+                // 0 va PRIMERO, asi que sin nombrarlo tapaba lo que quedo sin enlazar.
                 . "', '" . VerificacionDocumento::APLICADO . "')")
             ->orderByDesc('updated_at')->orderByDesc('ID_REGISTRO')
             ->paginate(50)->withQueryString();
 
         return [
             'docs'           => $filas,
+            // Los VIN de cada BL de la carga que no casaron con ninguna ficha, de toda la pagina
+            // de una vez (la vista los pinta con su boton de "Atar a un equipo").
+            'vinesFaltan'    => app(\App\Services\CargaMasivaDocumentos::class)->vinesSinAtarDeVarias(
+                $filas->getCollection()->mapWithKeys(fn ($d) => [$d->ID_REGISTRO =>
+                    $d->ORIGEN === VerificacionDocumento::DE_CARGA_MASIVA ? $d->PROPUESTA : null])->all()),
             'resumenDocs'    => VerificacionDocumento::select('ESTADO', DB::raw('COUNT(*) as n'))->when($soloCarga, $deLaCarga)->groupBy('ESTADO')->pluck('n', 'ESTADO'),
             // Los dos montones que se miran distinto: lo que la tarea todavia pone sola y lo
             // que pide una persona (ilegible, sin archivo, de otro vehiculo o leido a medias).

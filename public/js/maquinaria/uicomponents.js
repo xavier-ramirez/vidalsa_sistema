@@ -948,7 +948,11 @@ window.showDetailsImproved = function (target, event) {
                 // Otro equipo abierto mientras llegaba la respuesta: no se pinta aqui.
                 if (!emb || String(window._quickEditEquipoId || '') !== String(eqId)) return;
                 // textContent: el numero y el buque salen del texto del PDF, asi que nunca como HTML.
-                // El rotulo de la fila ya dice "Embarque BL", asi que aqui va solo el numero.
+                // El rotulo de la fila dice que papel es ("Embarque BL" o "Certificado de origen"),
+                // asi que en el valor va solo el numero.
+                const rotulo = emb.rotulo || 'Embarque BL';
+                const rotuloEl = document.getElementById('d_embarque_rotulo');
+                if (rotuloEl) rotuloEl.textContent = rotulo;
                 document.getElementById('d_embarque_txt').textContent =
                     (emb.nro || 's/n') + (emb.fecha ? ' · ' + emb.fecha : '');
                 // El buque, debajo: es el dato por el que se identifica un embarque cuando se
@@ -960,7 +964,7 @@ window.showDetailsImproved = function (target, event) {
                     buque.title = emb.buque || '';
                 }
                 const btn = document.getElementById('d_btn_embarque');
-                btn.title = 'Ver documento de embarque' + (emb.buque ? ' (' + emb.buque + ')' : '');
+                btn.title = 'Ver ' + rotulo.toLowerCase() + (emb.buque ? ' (' + emb.buque + ')' : '');
                 // El MISMO visor que el resto de los documentos, con su panel de datos (los del
                 // BL, que se editan con el permiso de siempre). No se sube ni se borra desde
                 // aqui —lo pone la carga masiva y es de todo el embarque—: openPdfPreview
@@ -969,7 +973,7 @@ window.showDetailsImproved = function (target, event) {
                     ev.stopPropagation();
                     if (typeof window.openPdfPreview !== 'function') return;
                     window.openPdfPreview(emb.link, 'embarque',
-                        'Embarque BL ' + (emb.nro || '') + (emb.buque ? ' · ' + emb.buque : ''),
+                        rotulo + ' ' + (emb.nro || '') + (emb.buque ? ' · ' + emb.buque : ''),
                         eqId, '', false);
                 };
 
@@ -1893,8 +1897,7 @@ window.toggleConfirmacionSitioAux = function (el) {
         var modal = $(ID_MODAL);
         if (!modal || !modal.classList.contains('active')) return;
 
-        // Clic en el fondo (no en el contenido) => cerrar.
-        if (e.target === modal) { window.cerrarMovilizacionesEquipo(); return; }
+        // Un clic en el fondo NO lo cierra: solo la X (pedido 01-10-2026).
 
         if (e.target.closest && e.target.closest('#mov_reintentar')) {
             cargar(ultimoEquipoId);

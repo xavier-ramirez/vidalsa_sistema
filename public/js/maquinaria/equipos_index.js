@@ -1925,8 +1925,8 @@ window.openUbicacionBulkModal = function (event) {
     const submitBtn = overlay.querySelector('#ub-submit');
     setTimeout(() => input.focus(), 80);
 
+    // Solo se cierra con la X (pedido 01-10-2026): un clic fuera por descuido perdia lo escrito.
     overlay.querySelector('#ub-close').onclick  = closeModal;
-    overlay.onclick = (e) => { if (e.target === overlay) closeModal(); };
     input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); doSubmit(); } });
 
     function showFb(type, msg) {
@@ -2305,8 +2305,8 @@ window.openBulkModal = function (event) {
 
     // ── Close handlers ──
     const _closeModal = () => { removePortal(); overlay.remove(); };
+    // Solo se cierra con la X (pedido 01-10-2026): un clic fuera por descuido perdia lo escrito.
     overlay.querySelector('#btnCloseDynamic').onclick = _closeModal;
-    overlay.onclick = (e) => { if (e.target === overlay) _closeModal(); };
 
     // ── Submit ──
     overlay.querySelector("#bm-submit-btn").onclick = async function () {
@@ -2685,8 +2685,8 @@ window._mostrarVistaPreviaActa = async function (actaState, onConfirm, opts) {
     function revoke() { try { URL.revokeObjectURL(pdfUrl); } catch (_) {} }
     function cerrar() { revoke(); ov.remove(); }
 
+    // Solo se cierra con la X (pedido 01-10-2026), como los demas modales de Equipos.
     ov.querySelector('#mov-prev-x').onclick = cerrar;
-    ov.onclick = function (e) { if (e.target === ov) cerrar(); };
 
     // ── Vista de PREVIEW: iframe (escritorio) / canvas (móvil) + [Editar | Confirmar] ──
     function renderPreview() {

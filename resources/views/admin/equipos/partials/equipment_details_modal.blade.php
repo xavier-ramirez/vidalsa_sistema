@@ -161,10 +161,11 @@ Estructura: overlay > modal-content > header + sub-header + body
                                 {{-- Sin borde aquí: la raya la pone uicomponents.js en cada apertura,
                                      arriba o abajo según dónde acabe la fila. --}}
                                 style="display:none;align-items:center;justify-content:space-between;gap:4px;padding:5px 0;">
-                                {{-- "Embarque BL" junto, que es el nombre del documento: antes el
-                                     rótulo decía "Embarque" y el valor empezaba por "BL", y se leía
-                                     partido (pedido del cliente, 30-09-2026). --}}
-                                <span style="color:#64748b;font-size:12px;font-weight:500;white-space:nowrap;">Embarque BL</span>
+                                {{-- El nombre del documento, junto ("Embarque BL": antes el rótulo decía
+                                     "Embarque" y el valor empezaba por "BL", pedido del cliente 30-09-2026).
+                                     uicomponents.js lo cambia a "Certificado de origen" si es uno
+                                     (Embarque::rotulo, según TIPO_DOCUMENTO). --}}
+                                <span id="d_embarque_rotulo" style="color:#64748b;font-size:12px;font-weight:500;white-space:nowrap;">Embarque BL</span>
                                 <div style="display:flex;align-items:center;gap:6px;min-width:0;">
                                     {{-- El número y la fecha en el renglón de arriba y el BUQUE
                                          debajo: los tres juntos en una línea no caben en el modal. --}}

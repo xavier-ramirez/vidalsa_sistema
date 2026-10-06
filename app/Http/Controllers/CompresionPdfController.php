@@ -43,11 +43,11 @@ class CompresionPdfController extends Controller
     {
         $reg = VerificacionDocumento::findOrFail($id);
         // Solo las lecturas de la noche, igual que marcarRevisados: una propuesta de la carga
-        // masiva no esta en ninguna ficha todavia (se aplica o se descarta con sus botones).
+        // masiva no esta en ninguna ficha todavia (se enlaza sola o se descarta con su boton).
         // Darla por revisada la dejaba "Coincide" sin haberse enlazado, y sin sus botones.
         if ($reg->ORIGEN !== VerificacionDocumento::DE_LA_NOCHE) {
             return response()->json(['success' => false,
-                'message' => 'Este PDF viene de la carga masiva: se aplica o se descarta con sus botones.'], 422);
+                'message' => 'Este PDF viene de la carga masiva: se enlaza solo a su ficha o se descarta con su botón.'], 422);
         }
         // Los datos que el panel del visor no tiene (el titular del ROTC), con el valor que
         // la persona dejo en su campo al guardar. Vacio = solo dar la fila por revisada.
@@ -83,17 +83,26 @@ class CompresionPdfController extends Controller
         $hechas = 0;
         // Las que ya coinciden no se pueden elegir ni tienen nada que revisar: se dejan como estan.
         //
-        // Y SOLO lo que leyo la noche. Las filas de la carga masiva son PROPUESTAS de un PDF que
-        // todavia no esta en ninguna ficha: no hay nada que "dar por revisado" en ellas —se
-        // aplican con su propio boton—, pueden no tener ni equipo (ID_EQUIPO nulo, cuando no se
-        // reconocio de quien es) y darlas por revisadas las dejaria marcadas como resueltas sin
-        // que el documento hubiera llegado a la ficha.
+        // Y de la carga masiva, SOLO lo que ya esta en su ficha y quedo para revisar (enlazado sin
+        // fecha, o un BL sin numero): lo demas son PROPUESTAS de un PDF que todavia no esta en
+        // ninguna ficha, pueden no tener ni equipo, y darlas por revisadas las dejaria como
+        // resueltas sin que el documento hubiera llegado a la ficha.
         $filas = VerificacionDocumento::whereIn('ID_REGISTRO', array_unique($ids))
-            ->where('ORIGEN', VerificacionDocumento::DE_LA_NOCHE)
-            ->where('ESTADO', '<>', VerificacionDocumento::COINCIDE)->get();
+            ->where(fn ($q) => $q
+                ->where(fn ($w) => $w->where('ORIGEN', VerificacionDocumento::DE_LA_NOCHE)
+                    ->where('ESTADO', '<>', VerificacionDocumento::COINCIDE))
+                ->orWhere(fn ($w) => $w->where('ORIGEN', VerificacionDocumento::DE_CARGA_MASIVA)
+                    ->where('ESTADO', VerificacionDocumento::APLICADO)->where('A_MANO', true)))
+            ->get();
         $fechasPuestas = 0;
         $fallaron = [];
         foreach ($filas as $reg) {
+            // La de la carga ya esta en su ficha: solo sale de "para revisar".
+            if ($reg->ORIGEN === VerificacionDocumento::DE_CARGA_MASIVA) {
+                $reg->marcarRevisadoPor($request->user());
+                $hechas++;
+                continue;
+            }
             // Cada fila va en su propia transacción y se cuenta aparte: una que reviente —la
             // ficha borrada entre medias, o un choque de bloqueos con la tarea nocturna— no puede
             // tumbar la tanda entera y dejar sin contar las que sí pasaron.

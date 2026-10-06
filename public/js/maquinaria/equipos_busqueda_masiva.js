@@ -444,10 +444,8 @@ window.equiposBusquedaMasivaArrancar = function (EQBM_CFG) {
             updateCountHint();
         });
 
-        // Clic en el fondo del overlay (no en su contenido) = cerrar.
-        document.addEventListener('click', function (e) {
-            if (e.target && e.target.id === 'bulkLookupModal') window.closeBulkLookupModal();
-        });
+        // Un clic en el fondo NO lo cierra: solo la X (pedido 01-10-2026), que la lista pegada
+        // se perdia con un clic fuera por descuido.
 
         document.addEventListener('keydown', function (e) {
             if (e.key !== 'Escape') return;

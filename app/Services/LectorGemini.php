@@ -16,8 +16,9 @@ use Illuminate\Support\Facades\Log;
  * serial y la placa, y sacó fechas y número donde el OCR no encontró nada.
  *
  * AQUÍ NO SE DECIDE NADA. Este servicio solo LEE y devuelve lo que vio; quién aplica sigue
- * siendo CorrectorFichaDocumento (revisión) o el usuario pulsando "Aplicar" (carga masiva),
- * con sus mismas puertas: placa y serial no se pisan, un PDF de otro vehículo no se aplica.
+ * siendo CorrectorFichaDocumento (revisión) o la carga masiva, que lo leído por la IA NUNCA lo
+ * enlaza sola (se queda para revisar), con sus mismas puertas: placa y serial no se pisan, un
+ * PDF de otro vehículo no se aplica.
  *
  * UN SOLO MODELO para todo (la carga masiva y la revisión de la noche): el de cupo grande
  * (services.gemini.modelo, ~500 al día en el plan gratis). Hubo un segundo modelo "para los
@@ -68,6 +69,9 @@ Reglas:
 - Los seriales confunden O con 0, I con 1, S con 5 y B con 8: míralos con lupa.
 - "vehiculos": si el documento ampara VARIOS (póliza de flota, ROTC de flota, providencia
   RACDA, BL), pon todos los que nombra con su placa y su serial (en un BL, el VIN).
+- En un RACDA, "numero_documento" es el N° de la PROVIDENCIA ADMINISTRATIVA (no el registro RACDA
+  "03-04-RTSMDP-...") y "vehiculos" son SOLO las placas de la lista de unidades autorizadas (el
+  "código de validación" del pie no es una placa).
 - En un BL, "numero_documento" es el "B/L NO." y "fecha_emision" la de "Place and date of issue". Si es de uno solo, deja la lista
   vacía y usa los campos de arriba.
 - Un documento colectivo NO es ilegible: rellena igual las fechas, el número y el titular.

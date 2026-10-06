@@ -430,11 +430,11 @@ class LectorGeminiTest extends MySqlTestCase
         $this->assertSame($equipo->ID_EQUIPO, (int) $fila->ID_EQUIPO);
         $this->assertSame('documento.pdf', $fila->ARCHIVO);
         $this->assertSame('rotc', $fila->TIPO);
-        $this->assertTrue($fila->A_MANO, 'espera a que una persona lo aplique');
+        $this->assertTrue($fila->A_MANO, 'leido por la IA: no se enlaza solo');
         // POR QUÉ es de ese equipo: el dato impreso en el PDF que cuadró exacto con la ficha.
         // Es lo que responde "¿y cómo sé que lo asoció al equipo correcto?" sin abrir el PDF.
         $this->assertStringContainsString('Reconocido por el serial ' . $equipo->SERIAL_CHASIS, (string) $fila->MOTIVO);
-        // Y la ficha sigue intacta: nada se escribe hasta aplicar.
+        // Y la ficha sigue intacta: lo leido por la IA no se enlaza solo.
         $this->assertNull($equipo->documentacion()->first()->LINK_ROTC);
     }
 
@@ -515,7 +515,7 @@ class LectorGeminiTest extends MySqlTestCase
         $this->actingAs($u);
         $this->cargaMasiva('')->analizar($this->pdf(), LectorDocumentoPdf::ROTC);
 
-        // Filtrando por "Por aplicar" y buscando por el nombre del archivo.
+        // Filtrando por "Sin enlazar" y buscando por el nombre del archivo.
         $html = $this->actingAs($u)
             ->get(route('historial-documentos.index', [
                 'pestana' => 'documentos',
@@ -524,7 +524,7 @@ class LectorGeminiTest extends MySqlTestCase
             ]))->assertOk()->getContent();
 
         $this->assertStringContainsString('documento.pdf', $html, 'la tabla tiene que enseñar el archivo');
-        $this->assertStringContainsString('Por aplicar', $html, 'con su estado');
+        $this->assertStringContainsString('Sin enlazar', $html, 'con su estado');
         $this->assertStringContainsString($equipo->SERIAL_CHASIS, $html, 'y de qué ficha es');
     }
 
@@ -555,7 +555,7 @@ class LectorGeminiTest extends MySqlTestCase
         $this->assertSame(0, $r->json('revisadas'), 'una propuesta de carga masiva no se da por revisada');
 
         $fila->refresh();
-        $this->assertSame(\App\Models\VerificacionDocumento::POR_ENGANCHAR, $fila->ESTADO, 'sigue esperando que la apliquen');
+        $this->assertSame(\App\Models\VerificacionDocumento::POR_ENGANCHAR, $fila->ESTADO, 'sigue sin enlazar');
         $this->assertNull($fila->APLICADO_POR);
         $this->assertNull($equipo->documentacion()->first()->LINK_ROTC, 'y la ficha sigue intacta');
     }

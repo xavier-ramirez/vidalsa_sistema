@@ -454,6 +454,95 @@ class VerificacionDocumentoTest extends MySqlTestCase
         $this->assertTrue($reg->aplicable());
     }
 
+    /**
+     * El serial del TITULO es otro (un caracter distinto) y la placa coincide: se ve en la fila
+     * —ficha contra documento— para que una persona elija en el visor (pedido 05-10-2026). La
+     * tarea pone lo que si puede (el propietario) y NUNCA toca el serial.
+     */
+    public function test_un_serial_distinto_en_el_titulo_se_muestra_y_lo_elige_una_persona(): void
+    {
+        [$equipo, $placa] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'TRANSPORTE MILENUIM 0210, CA']);
+        $serial = DB::table('equipos')->where('ID_EQUIPO', $equipo)->value('SERIAL_CHASIS');
+        $otro = substr($serial, 0, -1) . (substr($serial, -1) === '7' ? '8' : '7');
+        $this->lectorFalso("INTT \nCertificado de Registro de Vehículo a: \nTRANSPORTE MILENIUM 0210 C.A \n"
+            . "Placa: $placa \nSerial N.I.V.: $otro \nDado a los: 3 días del mes de: OCTUBRE de: 2018 \n");
+
+        $reg = $this->verificar($equipo, VerificacionDocumento::PROPIEDAD);
+
+        $this->assertSame('TRANSPORTE MILENIUM 0210 C.A', $this->ficha($equipo)->NOMBRE_DEL_TITULAR, 'el propietario se pone solo');
+        $this->assertSame($serial, DB::table('equipos')->where('ID_EQUIPO', $equipo)->value('SERIAL_CHASIS'), 'el serial NUNCA lo cambia la tarea');
+        $this->assertSame(VerificacionDocumento::DIFIERE, $reg->ESTADO);
+        $this->assertTrue((bool) $reg->A_MANO, 'queda para que lo elija una persona');
+        $this->assertSame(['etiqueta' => 'Serial de chasis', 'ficha' => $serial, 'documento' => $otro], $reg->DIFERENCIAS['SERIAL_CHASIS'] ?? null);
+        $this->assertStringContainsString('Elige en el visor', $reg->MOTIVO);
+    }
+
+    /**
+     * Un documento que vence, sin fecha en la ficha y cuyo PDF tampoco la trae (aqui un RACDA que
+     * amplia otro: no dice cuanto vale; asi lo enlaza tambien la carga masiva, ENLAZAR_Y_REVISAR)
+     * NO "coincide" al leerlo de noche: queda para revisar. Al poner la fecha sale solo.
+     */
+    public function test_un_documento_sin_fecha_que_no_la_trae_queda_para_revisar(): void
+    {
+        [$equipo, $placa] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'CONSTRUCTORA VIDALSA 27, C.A']);
+        $this->lectorFalso("PROVIDENCIA ADMINISTRATIVA N° 304\nCARACAS, 02 DE MARZO DE 2026.\n"
+            . "SEGUNDO: Las unidades autorizadas para tal fin poseen las siguientes placas:\n$placa\n"
+            . "TERCERO: Reconocer la validez de la Providencia Administrativa Nº 1120 de fecha 14-07-2025\n");
+
+        $reg = $this->verificar($equipo, VerificacionDocumento::RACDA);
+
+        $this->assertNull($this->ficha($equipo)->FECHA_RACDA);
+        $this->assertSame(VerificacionDocumento::DIFIERE, $reg->ESTADO);
+        $this->assertTrue((bool) $reg->A_MANO, 'queda para revisar');
+        $this->assertStringContainsString('ponla en el visor', $reg->MOTIVO);
+
+        // Como lo hace la persona: en el panel del visor (que guarda sin disparar observers).
+        $this->actingAs($this->superAdmin())
+            ->postJson(route('equipos.updateMetadata', $equipo), ['doc_type' => 'racda', 'fecha_vencimiento' => '2027-05-30'])
+            ->assertOk();
+        $reg->refresh();
+        $this->assertSame(VerificacionDocumento::COINCIDE, $reg->ESTADO, 'puesta la fecha, sale de "para revisar"');
+        $this->assertFalse((bool) $reg->A_MANO);
+    }
+
+    /** Poner la fecha que faltaba no da por resuelta una lectura que tiene OTRA diferencia pendiente. */
+    public function test_poner_la_fecha_no_tapa_otra_diferencia_pendiente(): void
+    {
+        [$equipo] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'CONSTRUCTORA VIDALSA 27, C.A']);
+        $link = $this->ficha($equipo)->LINK_ROTC;
+        $driveId = preg_replace('~^/storage/google/([^?]+).*$~', '$1', $link);
+        $dif = ['NOMBRE_DEL_TITULAR' => ['etiqueta' => 'Propietario', 'ficha' => 'CONSTRUCTORA VIDALSA 27, C.A', 'documento' => 'OTRA, C.A']];
+        $reg = VerificacionDocumento::create([
+            'ID_EQUIPO' => $equipo, 'TIPO' => VerificacionDocumento::ROTC, 'DRIVE_ID' => $driveId,
+            'ORIGEN' => VerificacionDocumento::DE_LA_NOCHE, 'ESTADO' => VerificacionDocumento::DIFIERE, 'A_MANO' => true,
+            'MOTIVO' => VerificacionDocumento::MOTIVO_SIN_FECHA . ' Propietario distinto', 'DIFERENCIAS' => $dif,
+            'LEIDO' => ['sin_fecha' => true], 'INTENTOS' => 0,
+        ]);
+
+        \App\Models\Documentacion::find($equipo)->update(['FECHA_ROTC' => '2027-05-30']);
+
+        $reg->refresh();
+        $this->assertSame(VerificacionDocumento::DIFIERE, $reg->ESTADO, 'la diferencia del propietario sigue');
+        $this->assertSame($dif, $reg->DIFERENCIAS);
+        $this->assertSame('Propietario distinto', $reg->MOTIVO, 'solo se quita lo de la fecha');
+        $this->assertArrayNotHasKey('sin_fecha', $reg->LEIDO ?? []);
+
+        // Y una que seguia por otra marca SIN diferencias (la placa fuera de la lista del RACDA)
+        // tampoco se da por resuelta.
+        $racda = preg_replace('~^/storage/google/([^?]+).*$~', '$1', $this->ficha($equipo)->LINK_RACDA);
+        $fuera = VerificacionDocumento::create([
+            'ID_EQUIPO' => $equipo, 'TIPO' => VerificacionDocumento::RACDA, 'DRIVE_ID' => $racda,
+            'ORIGEN' => VerificacionDocumento::DE_LA_NOCHE, 'ESTADO' => VerificacionDocumento::DIFIERE, 'A_MANO' => true,
+            'MOTIVO' => VerificacionDocumento::MOTIVO_SIN_FECHA . ' La placa NO esta entre las unidades autorizadas',
+            'LEIDO' => ['sin_fecha' => true, 'fuera_de_lista' => true], 'INTENTOS' => 0,
+        ]);
+        \App\Models\Documentacion::find($equipo)->update(['FECHA_RACDA' => '2027-05-30']);
+        $fuera->refresh();
+        $this->assertSame(VerificacionDocumento::DIFIERE, $fuera->ESTADO);
+        $this->assertTrue((bool) $fuera->A_MANO);
+        $this->assertSame('La placa NO esta entre las unidades autorizadas', $fuera->MOTIVO);
+    }
+
     public function test_una_placa_mal_leida_no_gana_al_serial_que_si_coincide(): void
     {
         // Escaneo sucio: el reconocimiento se come la placa, pero el serial sale perfecto.
@@ -1833,5 +1922,42 @@ class VerificacionDocumentoTest extends MySqlTestCase
         $this->assertNotSame('180105275159', $this->ficha($otroVehiculo)->NRO_DE_DOCUMENTO, 'De otro vehículo: no se copia nada de esa lectura.');
         $this->assertSame('999888777666', $this->ficha($yaTiene)->NRO_DE_DOCUMENTO, 'Uno ya escrito no se toca.');
         $this->assertNotContains($bueno, VerificacionDocumento::numeroDeTituloPorPoner()->pluck('ID_EQUIPO')->all(), 'Puesto: ya no queda por poner.');
+
+    }
+
+    public function test_poner_el_numero_no_borra_quien_reviso_y_queda_en_el_historial(): void
+    {
+        // Como lo corre la noche o "Revisar ahora" (sin --equipo): lo que coincide NO se relee,
+        // solo se pone el número guardado. Titular, fechas y seriales no se tocan.
+        [$equipo] = $this->equipoConDocumentos();
+        $antes = $this->ficha($equipo);
+        $driveId = preg_replace('~^/storage/google/([^?]+).*$~', '$1', $antes->LINK_DOC_PROPIEDAD);
+        $revisado = now()->subDays(3)->startOfSecond();
+        DB::table('verificacion_documento_registro')->insert([
+            'ID_EQUIPO' => $equipo, 'TIPO' => VerificacionDocumento::PROPIEDAD, 'DRIVE_ID' => $driveId,
+            'ESTADO' => VerificacionDocumento::COINCIDE, 'ORIGEN' => VerificacionDocumento::DE_LA_NOCHE,
+            // Como la deja marcarRevisadoPor: con QUIEN la reviso (APLICADO_POR).
+            'MOTIVO' => 'Revisado a mano por Fernando Sanchez', 'APLICADO_EN' => $revisado,
+            'APLICADO_POR' => \App\Models\Usuario::value('ID_USUARIO'),
+            'LEIDO' => json_encode(['nro' => '180105275159', 'titular' => 'OTRO NOMBRE ESCRITO DISTINTO']),
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $this->lectorFalso($this->textoTitulo('X', $antes->PLACA));
+        $this->artisan('docs:verificar-documentos', ['--tipo' => VerificacionDocumento::PROPIEDAD])->assertSuccessful();
+
+        $despues = $this->ficha($equipo);
+        $this->assertSame('180105275159', $despues->NRO_DE_DOCUMENTO);
+        $this->assertSame($antes->NOMBRE_DEL_TITULAR, $despues->NOMBRE_DEL_TITULAR, 'El titular estandarizado no se toca.');
+        $this->assertSame($antes->PLACA, $despues->PLACA);
+
+        $reg = VerificacionDocumento::where('ID_EQUIPO', $equipo)->first();
+        $this->assertSame('Revisado a mano por Fernando Sanchez · Se puso solo: nro. de documento', $reg->MOTIVO);
+        $this->assertSame($revisado->format('Y-m-d H:i:s'), \Illuminate\Support\Carbon::parse($reg->APLICADO_EN)->format('Y-m-d H:i:s'));
+
+        // El cambio queda en el historial del equipo (el observer corre tras el commit).
+        $log = \App\Models\EquipoAuditLog::where('ID_EQUIPO', $equipo)->where('ACCION', 'edit')->latest('ID_LOG')->first();
+        $this->assertNotNull($log, 'El número puesto tiene que quedar en el historial.');
+        $this->assertSame(['NRO_DE_DOCUMENTO' => ['antes' => null, 'despues' => '180105275159']], $log->CAMBIOS);
     }
 }

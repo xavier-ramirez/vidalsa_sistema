@@ -146,6 +146,16 @@
     .cpdf-dif-doc { color: #166534; font-weight: 600; }
     .cpdf-flecha { font-size: 14px; color: #94a3b8; }
 
+    /* El VIN de un BL que no casó con ninguna ficha, y su buscador para atarlo a mano. */
+    .cpdf-vin-falta { margin-top: 6px; font-size: 12px; color: #b45309; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+    .cpdf-vin-btn, .cpdf-vin-op button { border: 1px solid #1e40af; background: #fff; color: #1e40af; border-radius: 6px; padding: 2px 8px; font-size: 12px; font-weight: 600; cursor: pointer; }
+    .cpdf-vin-op button:disabled { border-color: #cbd5e1; color: #94a3b8; cursor: default; }
+    .cpdf-vin-buscar { flex-basis: 100%; }
+    .cpdf-vin-buscar input { width: 100%; max-width: 320px; padding: 4px 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 12px; }
+    .cpdf-vin-lista { margin-top: 4px; }
+    .cpdf-vin-op { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 3px 0; color: #334155; border-bottom: 1px solid #f1f5f9; }
+    .cpdf-vin-nada { color: #64748b; padding: 3px 0; }
+
     /* Angosto: una columna. stretch y no flex-start: con flex-start la tarjeta tomaba el
        ancho de la TABLA (816 px en un teléfono de 390) y la página se salía por la derecha;
        así toma el de la pantalla y la tabla se desplaza dentro de .cpdf-tabla-caja. El

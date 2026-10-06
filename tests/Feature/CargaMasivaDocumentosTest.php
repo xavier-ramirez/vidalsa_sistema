@@ -97,16 +97,27 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
         $this->assertStringStartsWith($vence, (string) $doc->getRawOriginal('FECHA_ADICIONAL'));
     }
 
-    public function test_el_certificado_no_entra_sin_su_fecha_de_vencimiento(): void
+    /**
+     * Un certificado cuya fecha no se leyo SI entra si la ficha no tiene ninguno, con el
+     * vencimiento VACIO (pedido 05-10-2026: se enlaza y una persona pone la fecha); pero no
+     * reemplaza a uno que ya esta, ni con permiso.
+     */
+    public function test_el_certificado_sin_fecha_entra_solo_si_la_ficha_no_tiene_uno(): void
     {
-        $equipo = $this->equipo();
+        $equipo = $this->equipo(['FECHA_ADICIONAL' => '2020-01-01']);   // una fecha huerfana, sin PDF
         $this->actingAs($this->usuario());
 
         $r = $this->servicio()->aplicar($equipo->ID_EQUIPO, 'adicional', '/storage/google/cert', null, null);
 
+        $this->assertTrue($r['ok'], $r['mensaje']);
+        $doc = $equipo->documentacion()->first();
+        $this->assertSame('/storage/google/cert', $doc->LINK_DOC_ADICIONAL);
+        $this->assertNull($doc->getRawOriginal('FECHA_ADICIONAL'), 'nunca con la fecha de otro papel');
+
+        $r = $this->servicio()->aplicar($equipo->ID_EQUIPO, 'adicional', '/storage/google/otro-cert', null, null, true);
         $this->assertFalse($r['ok']);
         $this->assertStringContainsString('fecha de vencimiento', $r['mensaje']);
-        $this->assertNull($equipo->documentacion()->first()->LINK_DOC_ADICIONAL);
+        $this->assertSame('/storage/google/cert', $equipo->documentacion()->first()->LINK_DOC_ADICIONAL);
     }
 
     public function test_el_documento_de_un_auxiliar_va_a_su_ficha(): void
@@ -301,15 +312,18 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
         $this->assertStringStartsWith($vigente->toDateString(), (string) $doc->getRawOriginal('FECHA_ROTC'));
     }
 
-    public function test_un_documento_que_vence_no_se_aplica_sin_su_fecha(): void
+    public function test_un_documento_sin_fecha_no_reemplaza_al_que_tiene_fecha(): void
     {
-        $equipo = $this->equipo();
+        $vigente = now()->addYear()->toDateString();
+        $equipo = $this->equipo(['LINK_POLIZA_SEGURO' => '/storage/google/con-fecha', 'FECHA_VENC_POLIZA' => $vigente]);
         $this->actingAs($this->usuario());
 
-        $r = $this->servicio()->aplicar($equipo->ID_EQUIPO, 'poliza', '/storage/google/sin-fecha', null, null);
+        $r = $this->servicio()->aplicar($equipo->ID_EQUIPO, 'poliza', '/storage/google/sin-fecha', null, null, true);
 
         $this->assertFalse($r['ok']);
-        $this->assertNull($equipo->documentacion()->first()->LINK_POLIZA_SEGURO);
+        $doc = $equipo->documentacion()->first();
+        $this->assertSame('/storage/google/con-fecha', $doc->LINK_POLIZA_SEGURO);
+        $this->assertStringStartsWith($vigente, (string) $doc->getRawOriginal('FECHA_VENC_POLIZA'));
     }
 
     /** El título de propiedad NO vence: ese sí entra sin fecha. */
@@ -434,15 +448,14 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
             ->where('DRIVE_ID', \App\Models\DocumentoAnexo::driveIdDeLink($p['link']))->firstOrFail();
         $this->assertSame(VerificacionDocumento::OTRO_DOCUMENTO, $fila->ESTADO);
         $this->assertContains($fila->ESTADO, VerificacionDocumento::DE_LA_CARGA, 'se puede descartar desde la tabla');
-        $this->assertFalse(app(CargaMasivaDocumentos::class)->propuestaAdmite($p['link'], $e->ID_EQUIPO, false, LectorDocumentoPdf::PROPIEDAD),
-            'y no se puede aplicar a ninguna ficha');
+        $this->assertNull($e->documentacion()->first()->LINK_DOC_PROPIEDAD, 'y no se enlaza a ninguna ficha');
     }
 
-    public function test_sin_sesion_no_se_puede_analizar_ni_aplicar(): void
+    public function test_sin_sesion_no_se_puede_analizar_ni_descartar(): void
     {
         $this->post(route('historial-documentos.carga-masiva.analizar'), [], ['Accept' => 'application/json'])
             ->assertStatus(401);
-        $this->post(route('historial-documentos.carga-masiva.aplicar'), [], ['Accept' => 'application/json'])
+        $this->post(route('historial-documentos.carga-masiva.descartar'), [], ['Accept' => 'application/json'])
             ->assertStatus(401);
     }
 
@@ -460,37 +473,8 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
             ->post(route('historial-documentos.carga-masiva.analizar'), [], ['Accept' => 'application/json'])
             ->assertStatus(403);
         $this->actingAs($u)
-            ->post(route('historial-documentos.carga-masiva.aplicar'), [], ['Accept' => 'application/json'])
-            ->assertStatus(403);
-        $this->actingAs($u)
             ->post(route('historial-documentos.carga-masiva.descartar'), [], ['Accept' => 'application/json'])
             ->assertStatus(403);
-    }
-
-    public function test_aplicar_valida_lo_que_llega(): void
-    {
-        $this->actingAs($this->usuario())
-            ->post(route('historial-documentos.carga-masiva.aplicar'),
-                   ['id_equipo' => 999999999, 'tipo' => 'inventado', 'link' => 'http://otro-sitio/x.pdf'],
-                   ['Accept' => 'application/json'])
-            ->assertStatus(422)
-            ->assertJsonValidationErrors(['id_equipo', 'tipo', 'link']);
-    }
-
-    /** Un enlace que no sea de nuestro Drive no se guarda: es la puerta de entrada. */
-    public function test_el_enlace_tiene_que_ser_de_drive(): void
-    {
-        $equipo = $this->equipo();
-
-        $this->actingAs($this->usuario())
-            ->post(route('historial-documentos.carga-masiva.aplicar'), [
-                'id_equipo' => $equipo->ID_EQUIPO, 'tipo' => 'rotc',
-                'link' => 'https://ejemplo.com/rotc.pdf', 'vence' => now()->addYear()->toDateString(),
-            ], ['Accept' => 'application/json'])
-            ->assertStatus(422)
-            ->assertJsonValidationErrors('link');
-
-        $this->assertNull($equipo->documentacion()->first()->LINK_ROTC);
     }
 
     // ── Solo se enlaza o se borra lo que se solto en la carga masiva ─────────
@@ -545,42 +529,16 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
         $this->assertFalse(VerificacionDocumento::where('DRIVE_ID', 'suelto-cm')->exists());
     }
 
-    /** El enlace llega del navegador: el documento de OTRO equipo no se engancha a este. */
-    public function test_aplicar_solo_acepta_un_pdf_subido_por_la_carga(): void
-    {
-        $vence = now()->addYear()->toDateString();
-        $this->equipo(['LINK_ROTC' => '/storage/google/de-otro-cm', 'FECHA_ROTC' => $vence]);
-        $equipo = $this->equipo();
-
-        $this->actingAs($this->usuario())
-            ->post(route('historial-documentos.carga-masiva.aplicar'), [
-                'id_equipo' => $equipo->ID_EQUIPO, 'tipo' => 'rotc', 'link' => '/storage/google/de-otro-cm', 'vence' => $vence,
-            ], ['Accept' => 'application/json'])
-            ->assertStatus(422);
-        $this->assertNull($equipo->documentacion()->first()->LINK_ROTC);
-
-        // El mismo caso con un PDF que SI se solto aqui entra (y la fila pasa a Aplicado).
-        $this->propuesta('nuevo-cm', [$equipo]);
-        $this->post(route('historial-documentos.carga-masiva.aplicar'), [
-            'id_equipo' => $equipo->ID_EQUIPO, 'tipo' => 'rotc', 'link' => '/storage/google/nuevo-cm', 'vence' => $vence,
-        ], ['Accept' => 'application/json'])->assertOk();
-        $this->assertSame('/storage/google/nuevo-cm', $equipo->documentacion()->first()->LINK_ROTC);
-        $this->assertSame(VerificacionDocumento::APLICADO, VerificacionDocumento::where('DRIVE_ID', 'nuevo-cm')->value('ESTADO'));
-    }
-
-    /** Subir otra vez el MISMO documento que ya esta montado no lo cambia sin preguntar. */
+    /** Otra copia del MISMO documento que ya esta montado no lo cambia sin permiso. */
     public function test_el_mismo_pdf_que_ya_esta_montado_no_entra_sin_reemplazar(): void
     {
         $vence = now()->addYear()->toDateString();
         $equipo = $this->equipo(['LINK_ROTC' => '/storage/google/el-montado-cm', 'FECHA_ROTC' => $vence]);
         $this->propuesta('otra-copia-cm', [$equipo]);
+        $this->actingAs($this->usuario());
 
-        $this->actingAs($this->usuario())
-            ->post(route('historial-documentos.carga-masiva.aplicar'), [
-                'id_equipo' => $equipo->ID_EQUIPO, 'tipo' => 'rotc', 'link' => '/storage/google/otra-copia-cm', 'vence' => $vence,
-            ], ['Accept' => 'application/json'])
-            ->assertStatus(422)
-            ->assertJson(['requiere_pisar' => true]);
+        $r = $this->servicio()->aplicar($equipo->ID_EQUIPO, 'rotc', '/storage/google/otra-copia-cm', $vence, null);
+        $this->assertTrue($r['requiere_pisar'] ?? false);
 
         $this->assertSame('/storage/google/el-montado-cm', $equipo->documentacion()->first()->LINK_ROTC);
         Bus::assertNotDispatchedAfterResponse(DeleteGoogleDriveFile::class);
@@ -679,8 +637,8 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
 
     /**
      * Un RACDA se enlaza a varias fichas de una en una. La fila pasa a "Aplicado" con la
-     * ULTIMA (cerrar=1), no con la primera: si se corta a medias, el boton sigue ahi y lo que
-     * ya estaba responde "Ya estaba enlazado" en vez de preguntar si reemplazarlo.
+     * ULTIMA (cerrar), no con la primera: si se corta a medias, el reintento lo termina y lo
+     * que ya estaba responde "Ya estaba enlazado" en vez de tratarlo como un reemplazo.
      */
     public function test_un_racda_a_varias_fichas_se_cierra_con_la_ultima(): void
     {
@@ -688,37 +646,16 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
         $a = $this->equipo(); $b = $this->equipo();
         $this->propuesta('racda-cm', [$a, $b], VerificacionDocumento::POR_ENGANCHAR, 'racda');
         $this->actingAs($this->usuario());
-        $ir = fn ($e, $cerrar) => $this->post(route('historial-documentos.carga-masiva.aplicar'), [
-            'id_equipo' => $e->ID_EQUIPO, 'tipo' => 'racda', 'link' => '/storage/google/racda-cm', 'vence' => $vence, 'cerrar' => $cerrar,
-        ], ['Accept' => 'application/json']);
+        $ir = fn ($e, bool $cerrar) => $this->servicio()->aplicar($e->ID_EQUIPO, 'racda', '/storage/google/racda-cm', $vence, null, false, false, false, $cerrar);
         $estado = fn () => VerificacionDocumento::where('DRIVE_ID', 'racda-cm')->value('ESTADO');
 
-        $ir($a, 0)->assertOk();
-        $this->assertSame(VerificacionDocumento::POR_ENGANCHAR, $estado(), 'tras la primera sigue por aplicar');
+        $this->assertTrue($ir($a, false)['ok']);
+        $this->assertSame(VerificacionDocumento::POR_ENGANCHAR, $estado(), 'tras la primera sigue sin enlazar');
 
-        $ir($a, 0)->assertOk()->assertJson(['message' => 'Ya estaba enlazado.']);
-        $ir($b, 1)->assertOk();
+        $this->assertSame('Ya estaba enlazado.', $ir($a, false)['mensaje']);
+        $this->assertTrue($ir($b, true)['ok']);
         $this->assertSame(VerificacionDocumento::APLICADO, $estado());
         $this->assertSame('/storage/google/racda-cm', $b->documentacion()->first()->LINK_RACDA);
-    }
-
-    /** Una propuesta solo entra en las fichas que ella misma nombra, y como su tipo. */
-    public function test_una_propuesta_no_se_aplica_a_otra_ficha_ni_como_otro_tipo(): void
-    {
-        $vence = now()->addYear()->toDateString();
-        $suya = $this->equipo(); $otra = $this->equipo();
-        $this->propuesta('solo-suya-cm', [$suya]);
-        $this->actingAs($this->usuario());
-
-        $this->post(route('historial-documentos.carga-masiva.aplicar'), [
-            'id_equipo' => $otra->ID_EQUIPO, 'tipo' => 'rotc', 'link' => '/storage/google/solo-suya-cm', 'vence' => $vence,
-        ], ['Accept' => 'application/json'])->assertStatus(422);
-        $this->post(route('historial-documentos.carga-masiva.aplicar'), [
-            'id_equipo' => $suya->ID_EQUIPO, 'tipo' => 'poliza', 'link' => '/storage/google/solo-suya-cm', 'vence' => $vence,
-        ], ['Accept' => 'application/json'])->assertStatus(422);
-
-        $this->assertNull($otra->documentacion()->first()->LINK_ROTC);
-        $this->assertNull($suya->documentacion()->first()->LINK_POLIZA_SEGURO);
     }
 
     /** "Dar por revisada" una propuesta de la carga la dejaba "Coincide" sin haberse enlazado. */
@@ -844,6 +781,245 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
         ]);
     }
 
+    /**
+     * El VIN del BL que no caso con ninguna ficha (el serial de la ficha difiere en UN caracter)
+     * se ve aparte, el buscador pone primero la ficha parecida y se ata a mano: queda en el
+     * embarque con el VIN del BL, sin tocar su serial, y deja de faltar en todas partes.
+     */
+    public function test_un_vin_que_falta_se_ata_a_mano_al_equipo_parecido(): void
+    {
+        $this->actingAs($this->usuario());
+        $a = $this->equipo();
+        $digitos = substr((string) hexdec(substr(md5(uniqid()), 0, 6)), 0, 6);
+        $vinBl = 'LEZDD2CC9SF' . $digitos;
+        $b = Equipo::create(['MARCA' => 'PRUEBA', 'MODELO' => 'VIN-DISTINTO', 'ANIO' => 2026, 'SERIAL_CHASIS' => 'LEZDD2CC7SF' . $digitos]);
+        $texto = $this->textoBl([$a->SERIAL_CHASIS, $vinBl], 'HCLKGTAT');
+
+        $p = $this->soltar($texto, CargaMasivaDocumentos::EMBARQUE);
+        $this->assertSame([$vinBl], $this->servicio()->vinesSinAtar($p));
+        $this->assertSame($b->ID_EQUIPO, $this->servicio()->buscarEquipo($vinBl)[0]['id'] ?? null, 'el parecido sale primero');
+        // El panel lo pinta con su boton (los VIN de la pagina se calculan de una vez).
+        $panel = fn () => $this->get(route('historial-documentos.index', ['pestana' => 'documentos', 'buscar' => $vinBl]));
+        $panel()->assertOk()->assertSee("Falta el VIN <b>$vinBl</b>", false);
+
+        // Uno que ya esta en ESTE BL no recibe otro VIN.
+        $this->postJson(route('historial-documentos.carga-masiva.atar-vin'), ['link' => $p['link'], 'vin' => $vinBl, 'id_equipo' => $a->ID_EQUIPO])
+            ->assertStatus(422);
+
+        $this->postJson(route('historial-documentos.carga-masiva.atar-vin'), ['link' => $p['link'], 'vin' => $vinBl, 'id_equipo' => $b->ID_EQUIPO])
+            ->assertOk();
+        $this->assertSame('HCLKGTAT', $b->embarques()->first()?->NRO_BL);
+        $this->assertSame($vinBl, \Illuminate\Support\Facades\DB::table('embarque_equipo')->where('ID_EQUIPO', $b->ID_EQUIPO)->value('VIN'));
+        $this->assertSame('LEZDD2CC7SF' . $digitos, $b->fresh()->SERIAL_CHASIS, 'el serial de la ficha no se toca');
+        $this->assertSame([], $this->servicio()->vinesSinAtar($p));
+        // La MISMA fila sigue en la pagina (dice "Atado a mano"), pero ya sin el boton.
+        $panel()->assertOk()->assertSee('Atado a mano: el VIN ' . $vinBl)->assertDontSee("Falta el VIN <b>$vinBl</b>", false);
+        $motivo = $this->filaDeLaCarga($p)->MOTIVO;
+        $this->assertStringContainsString("Atado a mano: el VIN $vinBl", $motivo);
+        $this->assertStringNotContainsString('No se consiguio', $motivo);
+
+        // Atarlo otra vez ya no se puede, y el mismo BL soltado de nuevo ya no lo da por perdido.
+        $this->postJson(route('historial-documentos.carga-masiva.atar-vin'), ['link' => $p['link'], 'vin' => $vinBl, 'id_equipo' => $b->ID_EQUIPO])
+            ->assertStatus(422);
+        $otra = $this->soltar($texto, CargaMasivaDocumentos::EMBARQUE, 'y');
+        $this->assertStringNotContainsString($vinBl, (string) $otra['aviso']);
+        $this->assertStringContainsString('2 unidades, 2 registradas', (string) $otra['aviso']);
+    }
+
+    /** Una fila pendiente de un ROTC, como la deja anotar(), soltada por $subidoPor. */
+    private function pendienteRotc(Equipo $e, string $driveId, ?int $subidoPor): void
+    {
+        VerificacionDocumento::create([
+            'DRIVE_ID' => $driveId, 'ORIGEN' => VerificacionDocumento::DE_CARGA_MASIVA,
+            'TIPO' => 'rotc', 'ARCHIVO' => 'rotc.pdf', 'ESTADO' => VerificacionDocumento::POR_ENGANCHAR,
+            'A_MANO' => true, 'INTENTOS' => 0,
+            'PROPUESTA' => ['tipo' => 'rotc', 'link' => '/storage/google/' . $driveId, 'estado' => 'listo',
+                'vence' => '2027-10-10', 'emision' => null, 'ia' => false, 'aviso' => null, 'archivo' => 'rotc.pdf',
+                'subido_por' => $subidoPor,
+                'equipos' => [['id' => $e->ID_EQUIPO, 'auxiliar' => false, 'placa' => null, 'serial' => $e->SERIAL_CHASIS,
+                    'nombre' => 'PRUEBA']]],
+        ]);
+    }
+
+    /**
+     * Un PDF que no se enlazo solo (aqui: no se supo de que equipo es) se ATA a mano a la ficha
+     * elegida (pedido 05-10-2026). Si esa ficha ya tiene uno, se pide reemplazar; sin fecha
+     * leida queda para revisar.
+     */
+    public function test_un_pdf_sin_enlazar_se_ata_a_mano_a_la_ficha_elegida(): void
+    {
+        $this->actingAs($this->usuario());
+        $e = $this->equipo(['LINK_ROTC' => '/storage/google/rotc-viejo', 'FECHA_ROTC' => '2026-01-01']);
+        $p = $this->soltar("CERTIFICADO DE CIRCULACION ROTC\nFecha de Vencimiento 10/10/2027\n", LectorDocumentoPdf::ROTC);
+        $fila = $this->filaDeLaCarga($p);
+        $this->assertSame(VerificacionDocumento::SIN_FICHA, $fila->ESTADO);
+
+        // El panel le pone su boton.
+        $this->get(route('historial-documentos.index', ['pestana' => 'documentos', 'buscar' => $p['archivo']]))
+            ->assertOk()->assertSee('cpdfAtarDocumento(', false);
+
+        // La ficha ya tiene uno: primero se pregunta.
+        $this->postJson(route('historial-documentos.carga-masiva.atar-documento'), ['link' => $p['link'], 'id_equipo' => $e->ID_EQUIPO])
+            ->assertStatus(422)->assertJson(['requiere_pisar' => true]);
+        $this->assertSame('/storage/google/rotc-viejo', $e->documentacion()->first()->LINK_ROTC);
+
+        $this->postJson(route('historial-documentos.carga-masiva.atar-documento'), ['link' => $p['link'], 'id_equipo' => $e->ID_EQUIPO, 'reemplazar' => 1])
+            ->assertOk();
+        $doc = $e->documentacion()->first();
+        $this->assertSame($p['link'], $doc->LINK_ROTC);
+        $this->assertStringStartsWith('2027-10-10', (string) $doc->getRawOriginal('FECHA_ROTC'));
+        $fila->refresh();
+        $this->assertSame(VerificacionDocumento::APLICADO, $fila->ESTADO);
+        $this->assertSame($e->ID_EQUIPO, (int) $fila->ID_EQUIPO);
+        $this->assertStringContainsString('Atado a mano al equipo de serial ' . $e->SERIAL_CHASIS, $fila->MOTIVO);
+
+        // Ya enlazado, no se vuelve a atar.
+        $this->postJson(route('historial-documentos.carga-masiva.atar-documento'), ['link' => $p['link'], 'id_equipo' => $e->ID_EQUIPO])
+            ->assertStatus(422);
+    }
+
+    /** Un BL del que no se reconocio ninguna unidad queda Aplicado al atar a mano todos sus VIN. */
+    public function test_un_bl_sin_ficha_queda_aplicado_al_atar_todos_sus_vin(): void
+    {
+        $this->actingAs($this->usuario());
+        $digitos = substr((string) hexdec(substr(md5(uniqid()), 0, 6)), 0, 6);
+        $vinBl = 'LEZDD2CC9SF' . $digitos;
+        $b = Equipo::create(['MARCA' => 'PRUEBA', 'MODELO' => 'VIN-DISTINTO', 'ANIO' => 2026, 'SERIAL_CHASIS' => 'LEZDD2CC7SF' . $digitos]);
+
+        $p = $this->soltar($this->textoBl([$vinBl], 'HCLKGTSF'), CargaMasivaDocumentos::EMBARQUE);
+        $this->assertSame(VerificacionDocumento::SIN_FICHA, $this->filaDeLaCarga($p)->ESTADO);
+
+        $this->assertTrue($this->servicio()->atarVin($p['link'], $vinBl, $b->ID_EQUIPO)['ok']);
+
+        $fila = $this->filaDeLaCarga($p);
+        $this->assertSame(VerificacionDocumento::APLICADO, $fila->ESTADO);
+        $this->assertSame($b->ID_EQUIPO, (int) $fila->ID_EQUIPO);
+    }
+
+    /** Un PDF de varias unidades (un RACDA a medias) no se ata a una sola: las demas se quedarian sin el. */
+    public function test_un_pdf_de_varias_unidades_no_se_ata_a_una_sola(): void
+    {
+        $this->actingAs($this->usuario());
+        $a = $this->equipo(); $b = $this->equipo();
+        VerificacionDocumento::create([
+            'DRIVE_ID' => 'racda-varias', 'ORIGEN' => VerificacionDocumento::DE_CARGA_MASIVA,
+            'TIPO' => 'racda', 'ARCHIVO' => 'racda.pdf', 'ESTADO' => VerificacionDocumento::POR_ENGANCHAR,
+            'A_MANO' => true, 'INTENTOS' => 0,
+            'PROPUESTA' => ['tipo' => 'racda', 'link' => '/storage/google/racda-varias', 'estado' => 'listo',
+                'vence' => '2027-10-10', 'emision' => null, 'ia' => false, 'aviso' => null, 'archivo' => 'racda.pdf',
+                'equipos' => [['id' => $a->ID_EQUIPO, 'auxiliar' => false], ['id' => $b->ID_EQUIPO, 'auxiliar' => false]]],
+        ]);
+
+        $this->postJson(route('historial-documentos.carga-masiva.atar-documento'), ['link' => '/storage/google/racda-varias', 'id_equipo' => $a->ID_EQUIPO])
+            ->assertStatus(422)->assertJsonFragment(['message' => 'Este PDF es de varias unidades: se enlaza solo a cada una; no se ata a una sola.']);
+    }
+
+    /** El JavaScript del panel (con el buscador comun de atar) no tiene errores de sintaxis. */
+    public function test_el_javascript_del_panel_es_valido(): void
+    {
+        $this->actingAs($this->usuario());
+        $html = $this->get(route('historial-documentos.index', ['pestana' => 'documentos']))->assertOk()->getContent();
+        preg_match_all('~<script(?![^>]*\bsrc=)[^>]*>(.*?)</script>~is', $html, $m);
+        $js = implode(";\n", array_filter(array_map('trim', $m[1])));
+        $this->assertStringContainsString('cpdfBuscarEquipo', $js);
+        $archivo = tempnam(sys_get_temp_dir(), 'cpdf') . '.js';
+        file_put_contents($archivo, $js);
+        exec('node --check ' . escapeshellarg($archivo) . ' 2>&1', $salida, $codigo);
+        @unlink($archivo);
+        if ($codigo === 127) $this->markTestSkipped('node no esta instalado');
+        $this->assertSame(0, $codigo, implode("\n", $salida));
+    }
+
+    /** Lo que enlaza el reintento de cada hora (sin sesion) va a nombre de quien solto el PDF. */
+    public function test_el_reintento_enlaza_a_nombre_de_quien_solto_el_pdf(): void
+    {
+        $u = $this->usuario();
+        $e = $this->equipo();
+        $this->pendienteRotc($e, 'rotc-con-autor', $u->ID_USUARIO);
+        \Illuminate\Support\Facades\Auth::forgetUser();   // como la tarea de cada hora
+
+        $this->servicio()->enlazarLoPendiente();
+
+        $doc = $e->documentacion()->first();
+        $this->assertSame('/storage/google/rotc-con-autor', $doc->LINK_ROTC);
+        $this->assertSame($u->ID_USUARIO, (int) $doc->ROTC_SUBIDO_POR);
+        $this->assertSame($u->ID_USUARIO, (int) \App\Models\EquipoAuditLog::where('ID_EQUIPO', $e->ID_EQUIPO)
+            ->where('ACCION', 'upload_rotc')->value('ID_USUARIO'));
+        $this->assertNull(\Illuminate\Support\Facades\Auth::id(), 'no deja a nadie con la sesion puesta');
+    }
+
+    /** Mientras se lee un PDF (el candado del lector), el reintento no toca nada: espera a la hora siguiente. */
+    public function test_el_reintento_no_corre_mientras_se_lee(): void
+    {
+        $e = $this->equipo();
+        $this->pendienteRotc($e, 'rotc-esperando', null);
+        $lector = \Illuminate\Support\Facades\Cache::lock(\App\Support\ColaCargaMasiva::CANDADO, 60);
+        $this->assertTrue($lector->get());
+        try {
+            $this->assertSame(0, $this->servicio()->enlazarLoPendiente());
+            $this->assertNull($e->documentacion()->first()->LINK_ROTC);
+        } finally {
+            $lector->release();
+        }
+        $this->assertGreaterThanOrEqual(1, $this->servicio()->enlazarLoPendiente(), 'libre el candado, si');
+        $this->assertSame('/storage/google/rotc-esperando', $e->documentacion()->first()->LINK_ROTC);
+    }
+
+    /**
+     * El reintento de cada hora compara con la ficha de AHORA: si despues de leer el PDF se le
+     * cargo uno que vence igual o despues, no se reemplaza (la fecha guardada al leer era vieja).
+     */
+    public function test_el_reintento_no_reemplaza_si_la_ficha_ya_tiene_uno_igual_de_nuevo(): void
+    {
+        $this->actingAs($this->usuario());
+        $e = $this->equipo(['LINK_ROTC' => '/storage/google/rotc-de-hoy', 'FECHA_ROTC' => '2027-10-10']);
+        VerificacionDocumento::create([
+            'DRIVE_ID' => 'rotc-reintento', 'ORIGEN' => VerificacionDocumento::DE_CARGA_MASIVA,
+            'TIPO' => 'rotc', 'ARCHIVO' => 'rotc.pdf', 'ESTADO' => VerificacionDocumento::POR_ENGANCHAR,
+            'A_MANO' => true, 'INTENTOS' => 0,
+            'PROPUESTA' => ['tipo' => 'rotc', 'link' => '/storage/google/rotc-reintento', 'estado' => 'listo',
+                'vence' => '2027-10-10', 'emision' => null, 'ia' => false, 'aviso' => null, 'archivo' => 'rotc.pdf',
+                // Al leerlo, la ficha tenia uno que vencia ANTES.
+                'equipos' => [['id' => $e->ID_EQUIPO, 'auxiliar' => false, 'placa' => null, 'serial' => $e->SERIAL_CHASIS,
+                    'nombre' => 'PRUEBA', 'vence_ficha' => ['rotc' => '2026-01-01']]]],
+        ]);
+
+        $this->servicio()->enlazarLoPendiente();
+
+        $this->assertSame('/storage/google/rotc-de-hoy', $e->documentacion()->first()->LINK_ROTC);
+        $this->assertSame(VerificacionDocumento::POR_ENGANCHAR, VerificacionDocumento::where('DRIVE_ID', 'rotc-reintento')->value('ESTADO'));
+    }
+
+    /** El reintento de cada hora no vuelve a dar por perdido un VIN que ya se ato a mano. */
+    public function test_el_reintento_no_vuelve_a_decir_que_falta_un_vin_atado(): void
+    {
+        $this->actingAs($this->usuario());
+        $a = $this->equipo(); $otro = $this->equipo();
+        $digitos = substr((string) hexdec(substr(md5(uniqid()), 0, 6)), 0, 6);
+        $vinBl = 'LEZDD2CC9SF' . $digitos;
+        $b = Equipo::create(['MARCA' => 'PRUEBA', 'MODELO' => 'VIN-DISTINTO', 'ANIO' => 2026, 'SERIAL_CHASIS' => 'LEZDD2CC7SF' . $digitos]);
+        // $a ya esta en OTRO embarque: la fila del BL se queda Sin enlazar y la toca el reintento.
+        $this->propuestaBl('bl-de-a', [$a], 'HCLKGTOA');
+        $this->aplicarBl($a, 'bl-de-a');
+
+        $p = $this->soltar($this->textoBl([$a->SERIAL_CHASIS, $otro->SERIAL_CHASIS, $vinBl], 'HCLKGTRI'), CargaMasivaDocumentos::EMBARQUE);
+        $this->assertSame(VerificacionDocumento::POR_ENGANCHAR, $this->filaDeLaCarga($p)->ESTADO);
+        $this->assertTrue($this->servicio()->atarVin($p['link'], $vinBl, $b->ID_EQUIPO)['ok']);
+
+        $this->servicio()->enlazarLoPendiente();
+
+        $motivo = (string) $this->filaDeLaCarga($p)->MOTIVO;
+        $this->assertStringNotContainsString("No se consiguio en el sistema el VIN $vinBl", $motivo, 'ya no falta');
+        $this->assertStringContainsString("Atado a mano: el VIN $vinBl", $motivo, 'y la nota de lo atado se conserva');
+        $this->assertSame([], $this->servicio()->vinesSinAtar($p));
+
+        // Sin cambios, la siguiente pasada no vuelve a escribir la fila.
+        $antes = $this->filaDeLaCarga($p)->updated_at;
+        $this->travel(2)->minutes();
+        $this->servicio()->enlazarLoPendiente();
+        $this->assertEquals($antes, $this->filaDeLaCarga($p)->updated_at);
+    }
+
     private function aplicarBl(Equipo $e, string $driveId, bool $pisar = false): array
     {
         return $this->servicio()->aplicar($e->ID_EQUIPO, CargaMasivaDocumentos::EMBARQUE, '/storage/google/' . $driveId, null, null, $pisar);
@@ -898,10 +1074,10 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
         $this->assertSame([$falta], $p['embarque']['no_registrados']);
         $this->assertSame($a->SERIAL_CHASIS, collect($p['equipos'])->firstWhere('id', $a->ID_EQUIPO)['vin_bl'], 'el VIN tal como lo imprime el BL');
         $this->assertSame(3, $p['embarque']['unidades']);
-        $this->assertStringContainsString('No estan en el sistema: ' . $falta, $p['aviso']);
+        $this->assertStringContainsString('No se consiguio en el sistema el VIN ' . $falta, $p['aviso']);
     }
 
-    private function filaBl(array $p): VerificacionDocumento
+    private function filaDeLaCarga(array $p): VerificacionDocumento
     {
         return VerificacionDocumento::where('DRIVE_ID', \App\Models\DocumentoAnexo::driveIdDeLink($p['link']))
             ->where('ORIGEN', VerificacionDocumento::DE_CARGA_MASIVA)->firstOrFail();
@@ -917,10 +1093,10 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
 
         $this->assertSame('HCLKGTAU', $a->embarques()->first()?->NRO_BL);
         $this->assertSame('HCLKGTAU', $b->embarques()->first()?->NRO_BL);
-        $this->assertSame(VerificacionDocumento::APLICADO, $this->filaBl($p)->ESTADO, 'Sin nada que decidir, la fila queda Aplicado.');
+        $this->assertSame(VerificacionDocumento::APLICADO, $this->filaDeLaCarga($p)->ESTADO, 'Sin nada que decidir, la fila queda Aplicado.');
     }
 
-    /** El que ya esta en otro embarque no se mueve solo: la fila se queda Por aplicar y lo dice. */
+    /** El que ya esta en otro embarque no se mueve solo: la fila se queda Sin enlazar y lo dice. */
     public function test_un_bl_deja_por_aplicar_lo_que_pide_una_decision(): void
     {
         $this->actingAs($this->usuario());
@@ -932,7 +1108,7 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
 
         $this->assertSame('HCLKGTDE', $a->embarques()->first()?->NRO_BL);
         $this->assertSame('HCLKGTOT', $b->embarques()->first()?->NRO_BL, 'No se saca de su embarque sin preguntar.');
-        $fila = $this->filaBl($p);
+        $fila = $this->filaDeLaCarga($p);
         $this->assertSame(VerificacionDocumento::POR_ENGANCHAR, $fila->ESTADO);
         $this->assertStringContainsString('Enlazado solo a 1 equipo(s)', $fila->MOTIVO);
     }
@@ -952,7 +1128,7 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
         $this->assertSame($p1['link'], \App\Models\Embarque::where('NRO_BL', 'HCLKGTRE')->value('LINK'));
         // El Drive de la prueba vuelve a numerar desde 1 en cada soltar(): la primera copia se
         // pone en su propio id, como pasaria en Drive de verdad.
-        $fila = $this->filaBl($p1);
+        $fila = $this->filaDeLaCarga($p1);
         $fila->update(['DRIVE_ID' => 'bl-primera-copia', 'PROPUESTA' => ['link' => '/storage/google/bl-primera-copia'] + $fila->PROPUESTA]);
         \App\Models\Embarque::where('NRO_BL', 'HCLKGTRE')->update(['LINK' => '/storage/google/bl-primera-copia']);
         $linkEmbarque = '/storage/google/bl-primera-copia';
@@ -965,7 +1141,133 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
         $this->assertNotSame($p1['link'], $p2['link'], 'Es otra copia en Drive.');
         $this->assertSame('HCLKGTRE', $b->embarques()->first()?->NRO_BL, 'El que faltaba ya esta en el embarque.');
         $this->assertSame($linkEmbarque, \App\Models\Embarque::where('NRO_BL', 'HCLKGTRE')->value('LINK'), 'Sin cambiarle el PDF.');
-        $this->assertSame(VerificacionDocumento::APLICADO, $this->filaBl($p2)->ESTADO);
+        $this->assertSame(VerificacionDocumento::APLICADO, $this->filaDeLaCarga($p2)->ESTADO);
+    }
+
+    /** Lo que coincide se enlaza SOLO, de cualquier tipo (no solo el BL): no hay que pulsar Aplicar. */
+    public function test_un_documento_que_coincide_se_enlaza_solo(): void
+    {
+        $this->actingAs($this->usuario());
+        $e = $this->equipo();
+
+        $p = $this->soltar("CERTIFICADO DE CIRCULACION ROTC
+Serial de Carroceria {$e->SERIAL_CHASIS}
+Fecha de Vencimiento 10/10/2027",
+            LectorDocumentoPdf::ROTC);
+
+        $this->assertSame('listo', $p['estado'], (string) $p['aviso']);
+        $doc = $e->documentacion()->first();
+        $this->assertSame($p['link'], $doc->LINK_ROTC);
+        $this->assertStringStartsWith('2027-10-10', (string) $doc->getRawOriginal('FECHA_ROTC'));
+        $fila = $this->filaDeLaCarga($p);
+        $this->assertSame(VerificacionDocumento::APLICADO, $fila->ESTADO);
+        $this->assertStringContainsString('Enlazado solo.', $fila->MOTIVO);
+        $this->assertStringNotContainsString('Todavia sin enlazar', $fila->MOTIVO);
+    }
+
+    /**
+     * Uno que vence y cuya fecha no se leyo se enlaza IGUAL y queda para revisar (pedido
+     * 05-10-2026); al poner la fecha en la ficha (el visor) sale solo de "para revisar".
+     */
+    public function test_sin_fecha_se_enlaza_y_queda_para_revisar_hasta_que_se_pone(): void
+    {
+        $this->actingAs($this->usuario());
+        $e = $this->equipo();
+
+        $p = $this->soltar("CERTIFICADO DE CIRCULACION ROTC\nSerial de Carroceria {$e->SERIAL_CHASIS}\n", LectorDocumentoPdf::ROTC);
+
+        $this->assertSame(CargaMasivaDocumentos::ENLAZAR_Y_REVISAR, $p['estado'], (string) $p['aviso']);
+        $doc = $e->documentacion()->first();
+        $this->assertSame($p['link'], $doc->LINK_ROTC, 'se enlaza aunque falte la fecha');
+        $this->assertNull($doc->getRawOriginal('FECHA_ROTC'));
+        $fila = $this->filaDeLaCarga($p);
+        $this->assertSame(VerificacionDocumento::APLICADO, $fila->ESTADO);
+        $this->assertTrue(VerificacionDocumento::paraRevisar()->whereKey($fila->ID_REGISTRO)->exists(), 'queda para revisar');
+        $this->assertStringContainsString('ponla en el visor', $fila->MOTIVO);
+
+        // Como lo hace la persona: en el panel del visor (que guarda sin disparar observers).
+        $this->postJson(route('equipos.updateMetadata', $e->ID_EQUIPO), ['doc_type' => 'rotc', 'fecha_vencimiento' => '2027-10-10'])
+            ->assertOk();
+        $this->assertFalse(VerificacionDocumento::paraRevisar()->whereKey($fila->ID_REGISTRO)->exists(),
+            'puesta la fecha, sale de "para revisar"');
+    }
+
+    /**
+     * Un BL sin numero leido se enlaza (sus VIN son los seriales exactos) y queda para revisar;
+     * "Revisado" lo saca de ese monton sin tocar lo enlazado.
+     */
+    public function test_un_bl_sin_numero_se_enlaza_y_se_da_por_revisado(): void
+    {
+        $u = $this->usuario();
+        $this->actingAs($u);
+        $a = $this->equipo();
+        $texto = str_replace(['B/L NO. HCLKGTSN', 'BL NO.:HCLKGTSN'], '', $this->textoBl([$a->SERIAL_CHASIS], 'HCLKGTSN'));
+
+        $p = $this->soltar($texto, CargaMasivaDocumentos::EMBARQUE);
+
+        $this->assertNull($p['nro']);
+        $this->assertSame(CargaMasivaDocumentos::ENLAZAR_Y_REVISAR, $p['estado'], (string) $p['aviso']);
+        $this->assertNotNull($a->embarques()->first(), 'se enlaza aunque no tenga numero');
+        $fila = $this->filaDeLaCarga($p);
+        $this->assertTrue(VerificacionDocumento::paraRevisar()->whereKey($fila->ID_REGISTRO)->exists());
+
+        // Ponerle el numero en el visor la saca de "para revisar".
+        $this->postJson(route('equipos.updateMetadata', $a->ID_EQUIPO), ['doc_type' => 'embarque', 'nro_bl' => 'HCLKGTSN'])
+            ->assertOk();
+        $this->assertFalse(VerificacionDocumento::paraRevisar()->whereKey($fila->ID_REGISTRO)->exists(), 'con el numero puesto, sale');
+        // Y "Revisado" tambien la saca (se vuelve a marcar para probarlo).
+        $fila->refresh()->update(['A_MANO' => true]);
+
+        $this->postJson(route('compresion-pdf.documentos.revisados'), ['ids' => [$fila->ID_REGISTRO]])
+            ->assertOk()->assertJson(['revisadas' => 1]);
+        $fila->refresh();
+        $this->assertSame(VerificacionDocumento::APLICADO, $fila->ESTADO);
+        $this->assertFalse((bool) $fila->A_MANO);
+        $this->assertStringStartsWith('Revisado a mano por', $fila->MOTIVO);
+        $this->assertNotNull($a->embarques()->first(), 'darlo por revisado no lo desenlaza');
+    }
+
+    /** Lo dudoso de verdad —un PDF que no se confirma que sea un BL— no se enlaza solo. */
+    public function test_un_bl_que_no_se_confirma_no_se_enlaza(): void
+    {
+        $this->actingAs($this->usuario());
+        $a = $this->equipo();
+
+        $p = $this->soltar("Documento sin encabezado\nVIN {$a->SERIAL_CHASIS}\n", CargaMasivaDocumentos::EMBARQUE);
+
+        $this->assertSame('revisar', $p['estado'], (string) $p['aviso']);
+        $this->assertNull($a->embarques()->first(), 'no se enlaza');
+        $this->assertSame(VerificacionDocumento::POR_ENGANCHAR, $this->filaDeLaCarga($p)->ESTADO);
+    }
+
+    /** Si la ficha ya tiene uno que vence DESPUES (o igual), no se pisa: se queda Sin enlazar y lo dice. */
+    public function test_un_documento_que_ya_tiene_la_ficha_no_se_pisa_solo(): void
+    {
+        $this->actingAs($this->usuario());
+        $e = $this->equipo(['LINK_ROTC' => '/storage/google/rotc-de-antes', 'FECHA_ROTC' => '2028-01-01']);
+
+        $p = $this->soltar("CERTIFICADO DE CIRCULACION ROTC
+Serial de Carroceria {$e->SERIAL_CHASIS}
+Fecha de Vencimiento 10/10/2027",
+            LectorDocumentoPdf::ROTC);
+
+        $this->assertSame('/storage/google/rotc-de-antes', $e->documentacion()->first()->LINK_ROTC, 'No se reemplaza sin preguntar.');
+        $fila = $this->filaDeLaCarga($p);
+        $this->assertSame(VerificacionDocumento::POR_ENGANCHAR, $fila->ESTADO);
+        $this->assertStringStartsWith('No se enlazó. Este equipo ya tiene ese documento, y el nuevo no vence despues', $fila->MOTIVO);
+    }
+
+    /** Si el nuevo vence DESPUES que el de la ficha, lo reemplaza solo (el viejo, a la papelera). */
+    public function test_un_documento_que_vence_despues_reemplaza_solo_al_de_la_ficha(): void
+    {
+        $this->actingAs($this->usuario());
+        $e = $this->equipo(['LINK_ROTC' => '/storage/google/rotc-vencido', 'FECHA_ROTC' => '2026-01-01']);
+
+        $p = $this->soltar("CERTIFICADO DE CIRCULACION ROTC\nSerial de Carroceria {$e->SERIAL_CHASIS}\nFecha de Vencimiento 10/10/2027",
+            LectorDocumentoPdf::ROTC);
+
+        $this->assertSame($p['link'], $e->documentacion()->first()->LINK_ROTC);
+        $this->assertSame(VerificacionDocumento::APLICADO, $this->filaDeLaCarga($p)->ESTADO);
     }
 
     /** Descartar manda el PDF a la papelera de Drive: solo super.admin, aunque tenga la carga masiva. */
@@ -1029,8 +1331,13 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
         $this->assertSame(1, \Illuminate\Support\Facades\DB::table('embarque_equipo')->where('ID_EQUIPO', $e->ID_EQUIPO)->count());
     }
 
-    /** El mismo BL con OTRO PDF: cambiarlo se lo cambia a todos, asi que pide permiso. */
-    public function test_otro_pdf_del_mismo_bl_pide_permiso_y_retira_el_viejo(): void
+    /**
+     * OTRO PDF del mismo BL (mismo numero), soltado despues, REEMPLAZA al que tenia el embarque
+     * (pedido 05-10-2026: el bueno reemplaza al malo): sus equipos se ligan al MISMO embarque, el
+     * anterior va a la papelera de Drive y su fila deja de esperar. Un reintento del viejo no lo
+     * devuelve.
+     */
+    public function test_otro_pdf_del_mismo_bl_reemplaza_al_malo(): void
     {
         $this->actingAs($this->usuario());
         $a = $this->equipo(); $b = $this->equipo();
@@ -1038,14 +1345,47 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
         $this->propuestaBl('bl-nuevo', [$a, $b]);
         $this->aplicarBl($a, 'bl-viejo');
 
-        $r = $this->aplicarBl($b, 'bl-nuevo');
-        $this->assertTrue($r['requiere_pisar'] ?? false);
-        $this->assertNull($b->embarques()->first(), 'sin permiso no se enlaza');
+        $this->assertTrue($this->aplicarBl($b, 'bl-nuevo')['ok']);
+        $this->assertSame('HCLKGT99', $b->embarques()->first()?->NRO_BL);
+        $this->assertSame('/storage/google/bl-nuevo', \App\Models\Embarque::where('NRO_BL', 'HCLKGT99')->value('LINK'), 'el nuevo reemplaza al malo');
+        $this->assertSame('Ya estaba enlazado.', $this->aplicarBl($a, 'bl-nuevo')['mensaje']);
+        $this->assertSame(1, \App\Models\Embarque::where('NRO_BL', 'HCLKGT99')->count(), 'un solo embarque');
+        Bus::assertDispatchedAfterResponse(DeleteGoogleDriveFile::class, 1);
+        $viejo = VerificacionDocumento::where('DRIVE_ID', 'bl-viejo')->first();
+        $this->assertSame(VerificacionDocumento::APLICADO, $viejo->ESTADO);
+        $this->assertStringContainsString('Reemplazado por otro PDF del mismo BL', $viejo->MOTIVO);
 
-        $this->assertTrue($this->aplicarBl($b, 'bl-nuevo', true)['ok']);
+        // El reintento de cada hora del PDF viejo no le devuelve el malo.
+        $this->aplicarBl($a, 'bl-viejo');
         $this->assertSame('/storage/google/bl-nuevo', \App\Models\Embarque::where('NRO_BL', 'HCLKGT99')->value('LINK'));
-        $this->assertSame('Ya estaba enlazado.', $this->aplicarBl($a, 'bl-nuevo')['mensaje'], 'el otro equipo ya ve el PDF nuevo');
-        Bus::assertDispatchedAfterResponse(DeleteGoogleDriveFile::class);
+    }
+
+    /**
+     * Un BL SIN numero se encuentra por su PDF en todas partes: atado un VIN, ya no falta, y un
+     * equipo que ya esta en el BL no recibe otro VIN (antes se pisaba el suyo).
+     */
+    public function test_un_bl_sin_numero_no_pisa_vin_ni_lo_ata_dos_veces(): void
+    {
+        $this->actingAs($this->usuario());
+        $a = $this->equipo();
+        $digitos = substr((string) hexdec(substr(md5(uniqid()), 0, 6)), 0, 6);
+        $vinBl = 'LEZDD2CC9SF' . $digitos;
+        $b = Equipo::create(['MARCA' => 'PRUEBA', 'MODELO' => 'VIN-DISTINTO', 'ANIO' => 2026, 'SERIAL_CHASIS' => 'LEZDD2CC7SF' . $digitos]);
+        $texto = str_replace(['B/L NO. HCLKGTNN', 'BL NO.:HCLKGTNN'], '', $this->textoBl([$a->SERIAL_CHASIS, $vinBl], 'HCLKGTNN'));
+
+        $p = $this->soltar($texto, CargaMasivaDocumentos::EMBARQUE);
+        $this->assertNull($p['nro']);
+        $this->assertSame([$vinBl], $this->servicio()->vinesSinAtar($p));
+        $vinDeA = \Illuminate\Support\Facades\DB::table('embarque_equipo')->where('ID_EQUIPO', $a->ID_EQUIPO)->value('VIN');
+
+        $this->postJson(route('historial-documentos.carga-masiva.atar-vin'), ['link' => $p['link'], 'vin' => $vinBl, 'id_equipo' => $a->ID_EQUIPO])
+            ->assertStatus(422);
+        $this->assertSame($vinDeA, \Illuminate\Support\Facades\DB::table('embarque_equipo')->where('ID_EQUIPO', $a->ID_EQUIPO)->value('VIN'), 'no se le pisa su VIN');
+
+        $this->postJson(route('historial-documentos.carga-masiva.atar-vin'), ['link' => $p['link'], 'vin' => $vinBl, 'id_equipo' => $b->ID_EQUIPO])
+            ->assertOk();
+        $this->assertSame([], $this->servicio()->vinesSinAtar($p), 'atado, ya no falta');
+        $this->assertStringContainsString("Atado a mano: el VIN $vinBl", $this->filaDeLaCarga($p)->MOTIVO);
     }
 
     /** Una poliza soltada como BL no se asocia; y un auxiliar no lleva BL. */

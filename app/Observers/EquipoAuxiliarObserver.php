@@ -48,7 +48,11 @@ class EquipoAuxiliarObserver
             unset($changes['updated_at'], $changes['created_at']);
             if (empty($changes)) return;
 
-            $original   = $aux->getOriginal();
+            // getPrevious(), NO getOriginal(): este observer corre DESPUÉS del commit
+            // ($afterCommit) y para entonces Laravel ya igualó el "original" al valor nuevo; dentro
+            // de una transacción (formulario del equipo, lectura de documentos) todo parecía sin
+            // cambios y no se anotaba nada. getPrevious() guarda lo de antes del último guardado.
+            $original   = $aux->getPrevious();
             $diff       = [];
             $docActions = [];
 
@@ -79,6 +83,12 @@ class EquipoAuxiliarObserver
             }
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::warning('EquipoAuxiliarObserver updated audit log fallo: ' . $e->getMessage());
+        }
+
+        // La fecha que le faltaba al certificado enlazado sin ella por la carga masiva: su fila
+        // sale de "para revisar" (ver VerificacionDocumento::fechaPuesta).
+        if ($aux->wasChanged('FECHA_VENCIMIENTO_CERT') && $aux->FECHA_VENCIMIENTO_CERT) {
+            \App\Models\VerificacionDocumento::fechaPuesta('equipos_auxiliares', 'LINK_CERTIFICADO', 'FECHA_VENCIMIENTO_CERT', $aux->LINK_CERTIFICADO);
         }
     }
 }

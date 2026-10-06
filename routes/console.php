@@ -69,6 +69,13 @@ Schedule::command('docs:carga-masiva-pendientes')
     ->withoutOverlapping(30)
     ->runInBackground();
 
+// Carga masiva: lo que se quedó sin enlazar se vuelve a intentar (ver
+// CargaMasivaDocumentos::enlazarLoPendiente). Sin botón de Aplicar, es lo que lo termina.
+Schedule::call(fn () => app(\App\Services\CargaMasivaDocumentos::class)->enlazarLoPendiente())
+    ->name('carga-masiva-enlazar-pendiente')
+    ->hourly()
+    ->withoutOverlapping(30);
+
 // La caché vive en la base de datos (CACHE_STORE=database), y ahí una entrada caducada solo
 // se borra si alguien la vuelve a leer. Las cachés con la versión en la clave (el tablero del
 // menú) dejan una entrada nueva por usuario en cada cambio de datos, de hasta 2,8 MB, y la

@@ -141,10 +141,12 @@ class RespaldoDocumentos extends Command
         if ($embarques->count()) {
             $this->line("   Embarques…");
             foreach ($embarques as $emb) {
+                // Un certificado de origen guardado como embarque se archiva con su nombre.
+                $tipo = $emb->esCertificadoOrigen() ? 'CERTIFICADO_ORIGEN' : 'EMBARQUE';
                 $carpeta = $this->nombreCarpeta('EMB', $emb->NRO_BL, null, $emb->ID_EMBARQUE);
-                $res = $this->procesarDoc($drive, $destino, $carpeta, 'EMBARQUE', $emb->LINK, $soloIndice, $stats);
-                $filas[] = ['EMBARQUE', '', $emb->NRO_BL ?? '', $emb->BUQUE ?? '', $emb->equipos_count . ' equipos',
-                            'EMBARQUE', $res['archivo'], $res['drive_id'], $res['estado']];
+                $res = $this->procesarDoc($drive, $destino, $carpeta, $tipo, $emb->LINK, $soloIndice, $stats);
+                $filas[] = [$tipo, '', $emb->NRO_BL ?? '', $emb->BUQUE ?? '', $emb->equipos_count . ' equipos',
+                            $tipo, $res['archivo'], $res['drive_id'], $res['estado']];
             }
             $this->newLine();
         }

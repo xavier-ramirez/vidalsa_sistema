@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Services\LectorDocumentoPdf;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Una fila por equipo, tipo de documento y archivo que docs:verificar-documentos ya leyo.
@@ -129,8 +130,10 @@ class VerificacionDocumento extends Model
     public const DE_CARGA_MASIVA = 'carga_masiva';
 
     /**
-     * Estado propio de la carga masiva: el PDF se leyo y hay una ficha candidata, pero NADIE
-     * lo ha enlazado todavia. Es el unico estado desde el que se puede pulsar "Aplicar".
+     * Estado propio de la carga masiva: el PDF se leyo y hay ficha candidata, pero no quedo
+     * enlazado del todo (a ninguna ficha, o solo a algunas de un RACDA/ROTC de flota). Lo
+     * reintenta cada hora CargaMasivaDocumentos::enlazarLoPendiente; lo que pide una persona
+     * (leido con IA, sin fecha) no se enlaza solo y se queda aqui.
      */
     public const POR_ENGANCHAR = 'por_enganchar';
 
@@ -360,6 +363,19 @@ class VerificacionDocumento extends Model
      */
     public function marcarRevisadoPor(Usuario $usuario): void
     {
+        // Lo de la carga masiva que YA esta en su ficha pero quedo para revisar (enlazado sin
+        // fecha, o un BL sin numero): darlo por revisado solo lo saca de ese monton; sigue
+        // "Aplicado" y conserva lo que dice su motivo.
+        if ($this->ORIGEN === self::DE_CARGA_MASIVA) {
+            $this->update([
+                'A_MANO'       => false,
+                'MOTIVO'       => self::motivoQueCabe((string) $this->MOTIVO,
+                                    'Revisado a mano por ' . ($usuario->NOMBRE_COMPLETO ?: $usuario->CORREO_ELECTRONICO) . '. '),
+                'APLICADO_POR' => $usuario->getKey(),
+            ]);
+            return;
+        }
+
         $this->update([
             'ESTADO'       => self::COINCIDE,
             'A_MANO'       => false,
@@ -368,6 +384,89 @@ class VerificacionDocumento extends Model
             'APLICADO_POR' => $usuario->getKey(),
             'APLICADO_EN'  => now(),
         ]);
+    }
+
+    /**
+     * Las marcas de LEIDO que dejan una lectura para que la mire una persona aunque no traiga
+     * DIFERENCIAS (de otro vehiculo, leida a medias, sin confirmar de quien es, fuera de la lista
+     * del RACDA, el PDF anterior, otra placa en la tabla del ROTC). UNA lista: la usan
+     * VerificarDocumentos (A_MANO) y fechaPuesta (no dar por resuelta una fila que sigue por esto).
+     */
+    public const LEIDO_PARA_REVISAR = ['otra_placa', 'lectura_parcial', 'sin_confirmar', 'fuera_de_lista', 'doc_anterior', 'placa_en_tabla'];
+
+    /** ¿La lectura trae alguna de LEIDO_PARA_REVISAR? */
+    public static function leidoParaRevisar(?array $leido): bool
+    {
+        return (bool) array_filter(array_intersect_key($leido ?? [], array_flip(self::LEIDO_PARA_REVISAR)));
+    }
+
+    /** El motivo de un documento que vence y no tiene fecha ni la deja leer (ver VerificarDocumentos). */
+    public const MOTIVO_SIN_FECHA = 'No tiene fecha de vencimiento y el documento no la deja leer: ponla en el visor.';
+
+    /**
+     * Un motivo que cabe en su columna (255): si no, se recorta por DELANTE —lo de atras es lo que
+     * dice que falta o que hacer—, despues de $prefijo, que se queda entero. UNA sola regla para
+     * la carga masiva y para "Revisado a mano".
+     */
+    public static function motivoQueCabe(string $motivo, string $prefijo = ''): string
+    {
+        $cabe = 255 - mb_strlen($prefijo);
+        return $prefijo . (mb_strlen($motivo) > $cabe ? '…' . mb_substr($motivo, -($cabe - 1)) : $motivo);
+    }
+
+    /**
+     * Se puso la fecha de vencimiento de un documento que estaba SIN ella: el que la carga masiva
+     * enlazo asi (CargaMasivaDocumentos::ENLAZAR_Y_REVISAR) o el que la lectura de la noche dejo
+     * para revisar por lo mismo (LEIDO sin_fecha). Lo llaman el observer de EquipoAuxiliar y
+     * DocumentacionObserver::fechasPuestas ($tabla y sus columnas del enlace y del vencimiento).
+     * Va por el archivo, y un PDF compartido (un RACDA de varias unidades) sigue para revisar
+     * mientras a ALGUNA de sus fichas vivas le falte la fecha. Una lectura de la noche con otras
+     * diferencias pendientes solo pierde lo de la fecha: lo demas lo sigue mirando una persona.
+     */
+    public static function fechaPuesta(string $tabla, string $colLink, string $colVence, ?string $link): void
+    {
+        $driveId = DocumentoAnexo::driveIdDeLink($link);
+        if (!$driveId) return;
+        $faltan = DB::table($tabla . ' as t')
+            ->where("t.$colLink", 'like', '/storage/google/' . $driveId . '%')->whereNull("t.$colVence")
+            ->when($tabla === 'documentacion', fn ($q) => $q->join('equipos as e', 'e.ID_EQUIPO', '=', 't.ID_EQUIPO')->whereNull('e.deleted_at'))
+            ->when($tabla === 'equipos_auxiliares', fn ($q) => $q->whereNull('t.deleted_at'))
+            ->exists();
+        if ($faltan) return;
+
+        static::where('DRIVE_ID', $driveId)->where('A_MANO', true)->get()
+            ->filter(fn ($r) => ($r->ORIGEN === self::DE_CARGA_MASIVA && $r->ESTADO === self::APLICADO)
+                || ($r->ORIGEN === self::DE_LA_NOCHE && !empty($r->LEIDO['sin_fecha'])))
+            ->each(function ($r) {
+                if ($r->ORIGEN === self::DE_CARGA_MASIVA) {
+                    $r->update(['A_MANO' => false]);
+                    return;
+                }
+                $leido = $r->LEIDO;
+                unset($leido['sin_fecha']);
+                // Solo se da por resuelta si la fecha era lo UNICO: con otras diferencias o
+                // marcas (p. ej. la placa fuera de la lista del RACDA) se quita lo de la fecha y
+                // lo demas lo sigue mirando una persona.
+                $r->update(empty($r->DIFERENCIAS) && !self::leidoParaRevisar($leido)
+                    ? ['ESTADO' => self::COINCIDE, 'A_MANO' => false, 'LEIDO' => $leido, 'MOTIVO' => 'Fecha de vencimiento puesta a mano']
+                    : ['LEIDO' => $leido, 'MOTIVO' => trim(str_replace(self::MOTIVO_SIN_FECHA, '', (string) $r->MOTIVO)) ?: null]);
+            });
+    }
+
+    /**
+     * Se le puso el numero (en el visor) a un BL que la carga masiva enlazo SIN el
+     * (CargaMasivaDocumentos::ENLAZAR_Y_REVISAR): la fila de ese PDF sale de "para revisar", si
+     * era lo UNICO que faltaba (revisar_por; un BL pasado del tope sigue para que se mire).
+     */
+    public static function numeroDeBlPuesto(?string $link): void
+    {
+        $driveId = DocumentoAnexo::driveIdDeLink($link);
+        if (!$driveId) return;
+        static::where('DRIVE_ID', $driveId)->where('ORIGEN', self::DE_CARGA_MASIVA)
+            ->where('ESTADO', self::APLICADO)->where('A_MANO', true)->get()
+            ->filter(fn ($r) => empty($r->PROPUESTA['embarque']['nro'])
+                && !array_diff($r->PROPUESTA['revisar_por'] ?? ['numero'], ['numero']))
+            ->each(fn ($r) => $r->update(['A_MANO' => false]));
     }
 
     public function equipo()

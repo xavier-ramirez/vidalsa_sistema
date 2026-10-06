@@ -146,22 +146,14 @@ class RotcDeFlotaTest extends MySqlTestCase
     }
 
     /**
-     * Aplicar deja en cada ficha SU parte con SUS fechas; volver a aplicar no sube otra, y la
-     * fila pasa a "Aplicado" con la ultima.
+     * Al leerlo, cada ficha recibe SOLA su parte con SUS fechas, y la fila pasa a "Aplicado";
+     * volver a aplicar no sube otra.
      */
     public function test_aplicar_enlaza_a_cada_equipo_su_parte(): void
     {
         $con = $this->equipo($this->flota[0]);
         $sin = $this->equipo($this->flota[4]);
         $p = $this->soltar($this->pdf);
-
-        $ir = fn ($e, $cerrar) => $this->post(route('historial-documentos.carga-masiva.aplicar'), [
-            'id_equipo' => $e->ID_EQUIPO, 'tipo' => 'rotc', 'link' => $p['link'],
-            'vence' => $p['vence'], 'emision' => $p['emision'], 'cerrar' => $cerrar,
-        ], ['Accept' => 'application/json']);
-
-        $ir($con, 0)->assertOk();
-        $ir($sin, 1)->assertOk();
 
         foreach ([[$con, 3], [$sin, 2]] as [$e, $paginas]) {
             $doc = Documentacion::where('ID_EQUIPO', $e->ID_EQUIPO)->first();
@@ -174,23 +166,20 @@ class RotcDeFlotaTest extends MySqlTestCase
         $this->assertSame(VerificacionDocumento::APLICADO,
             VerificacionDocumento::where('DRIVE_ID', \App\Models\DocumentoAnexo::driveIdDeLink($p['link']))->value('ESTADO'));
 
-        $ir($con, 1)->assertOk()->assertJson(['message' => 'Ya estaba enlazado.']);
+        $r = app(CargaMasivaDocumentos::class)->aplicar($con->ID_EQUIPO, 'rotc', $p['link'], $p['vence'], $p['emision']);
+        $this->assertSame('Ya estaba enlazado.', $r['mensaje']);
     }
 
-    /** Si la ficha ya tiene un ROTC y no se confirma el reemplazo, no queda una parte suelta en Drive. */
-    public function test_sin_confirmar_el_reemplazo_no_se_sube_nada(): void
+    /** Si la ficha ya tiene un ROTC que vence DESPUES, se queda el suyo y no queda una parte suelta en Drive. */
+    public function test_sin_reemplazo_no_se_sube_nada(): void
     {
-        $e = $this->equipo($this->flota[0], ['LINK_ROTC' => '/storage/google/rotc-viejo', 'FECHA_ROTC' => '2026-05-30']);
+        $e = $this->equipo($this->flota[0], ['LINK_ROTC' => '/storage/google/rotc-viejo', 'FECHA_ROTC' => '2028-01-01']);
         $p = $this->soltar($this->pdf);
-        $drive = GoogleDriveService::getInstance();
-        $antes = $drive->subidos();
 
-        $this->post(route('historial-documentos.carga-masiva.aplicar'), [
-            'id_equipo' => $e->ID_EQUIPO, 'tipo' => 'rotc', 'link' => $p['link'], 'vence' => $p['vence'], 'cerrar' => 1,
-        ], ['Accept' => 'application/json'])->assertStatus(422)->assertJson(['requiere_pisar' => true]);
-
-        $this->assertSame($antes, $drive->subidos(), 'la parte se arma solo si va a entrar');
+        $this->assertSame(1, GoogleDriveService::getInstance()->subidos(), 'solo el PDF soltado: la parte se arma solo si va a entrar');
         $this->assertSame('/storage/google/rotc-viejo', Documentacion::where('ID_EQUIPO', $e->ID_EQUIPO)->value('LINK_ROTC'));
+        $this->assertSame(VerificacionDocumento::POR_ENGANCHAR,
+            VerificacionDocumento::where('DRIVE_ID', \App\Models\DocumentoAnexo::driveIdDeLink($p['link']))->value('ESTADO'));
     }
 
     // ── Ayudas ───────────────────────────────────────────────────────────────────

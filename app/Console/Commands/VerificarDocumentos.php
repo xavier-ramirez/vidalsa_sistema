@@ -229,8 +229,20 @@ class VerificarDocumentos extends Command
                 foreach ($filas as $reg) {
                     $nro = self::numeroParaFichaVacia(null, $reg->LEIDO ?? []);
                     if (!$nro) continue;
+                    // Quién la revisó y cuándo: el corrector reescribe el motivo; la revisión de una
+                    // PERSONA (APLICADO_POR; el corrector no lo toca) tiene que seguir constando, con
+                    // lo que se puso solo detrás. Una fila que nadie reviso se queda con lo del corrector.
+                    [$motivo, $cuando, $persona] = [trim((string) $reg->MOTIVO), $reg->APLICADO_EN, $reg->APLICADO_POR];
                     $reg->update(['ESTADO' => VerificacionDocumento::DIFIERE, 'A_MANO' => false, 'DIFERENCIAS' => ['NRO_DE_DOCUMENTO' => $nro]]);
-                    if ($this->corrector->aplicar($reg->refresh())['puestos'] ?? []) $puestos++;
+                    if ($this->corrector->aplicar($reg->refresh())['puestos'] ?? []) {
+                        $puestos++;
+                        if ($persona && $motivo !== '') {
+                            $reg->refresh()->update([
+                                'MOTIVO'      => mb_substr($motivo . ' · Se puso solo: ' . mb_strtolower($nro['etiqueta']), 0, 255),
+                                'APLICADO_EN' => $cuando,
+                            ]);
+                        }
+                    }
                 }
             }, 'ID_REGISTRO');
 
@@ -305,6 +317,18 @@ class VerificarDocumentos extends Command
                     if (($leido['sin_confirmar'] ?? false) && $estado === VerificacionDocumento::DIFIERE) {
                         $motivo = 'No se pudo confirmar que el documento sea de este vehículo (no se leyó placa ni serial). ' . $motivo;
                     }
+                    // Un documento que vence, sin fecha en la ficha y que tampoco la deja leer, no
+                    // "coincide": le falta el dato que vigila la app. Queda para que una persona la
+                    // ponga en el visor (asi lo enlaza la carga masiva: ENLAZAR_Y_REVISAR). Sin esto,
+                    // leerlo de noche borraba esa marca de "para revisar".
+                    $colVence = VerificacionDocumento::CAMPO_VENCE[$tipo] ?? null;
+                    if (in_array($estado, [VerificacionDocumento::COINCIDE, VerificacionDocumento::DIFIERE], true)
+                        && $colVence && empty($f->$colVence) && empty($leido['vence'])) {
+                        $leido['sin_fecha'] = true;
+                        $motivo = trim(VerificacionDocumento::MOTIVO_SIN_FECHA . ' '
+                            . ($estado === VerificacionDocumento::DIFIERE ? $motivo : ''));
+                        $estado = VerificacionDocumento::DIFIERE;
+                    }
                 }
             } catch (\Throwable $e) {
                 // Un archivo borrado de Drive da 404 aqui: es "sin archivo", no un fallo del
@@ -342,7 +366,7 @@ class VerificarDocumentos extends Command
         // VerificacionDocumento::condicionLeido), su decision se respeta: de esta lectura solo se
         // ponen las fechas VACIAS y la fila vuelve a quedar como ella la dejo.
         // SOLO las de la noche: una fila de la carga masiva ya aplicada tambien lleva
-        // APLICADO_POR (quien pulso Aplicar), pero eso no es revisar el documento. Tomarla por
+        // APLICADO_POR (quien la enlazo o la ato), pero eso no es revisar el documento. Tomarla por
         // una revision tapaba para siempre lo que esta lectura encontrara en el PDF recien
         // enlazado ("es de otro vehiculo", la aseguradora, un vencimiento distinto).
         $revision = VerificacionDocumento::where('ID_EQUIPO', $f->ID_EQUIPO)->where('TIPO', $tipo)
@@ -370,9 +394,10 @@ class VerificarDocumentos extends Command
                 // RACDA u otra placa en la tabla del ROTC) va al monton "para revisar".
                 // Solo cuando hay algo que decidir: si todo cuadra, no hay nada que mirar.
                 'A_MANO'      => $estado === VerificacionDocumento::DIFIERE
-                    && (bool) (($leido['otra_placa'] ?? false) || ($leido['lectura_parcial'] ?? false)
-                        || ($leido['sin_confirmar'] ?? false) || ($leido['fuera_de_lista'] ?? false)
-                        || ($leido['doc_anterior'] ?? false) || !empty($leido['placa_en_tabla'])),
+                    && (VerificacionDocumento::leidoParaRevisar($leido)
+                        // Sin fecha y sin nada mas: nadie la pondria. Con otras diferencias se
+                        // deja al corrector ponerlas; el marca la fila al terminar (sinFecha).
+                        || (($leido['sin_fecha'] ?? false) && !$diferencias)),
                 // Los ilegibles y los fallidos se reintentan en esa noche hasta MAX_INTENTOS
                 // (Drive devuelve el documento vacio o a medias de vez en cuando); lo demas se
                 // lee una vez. El anexo de poliza de FLOTA sin fechas tambien: sus fechas salen
@@ -397,7 +422,7 @@ class VerificarDocumentos extends Command
         // no queden dos filas del mismo documento (ni se pueda aplicar lo que decia el viejo).
         //
         // SALVO las de la carga masiva que siguen ESPERANDO: esas son PDF que alguien acaba de
-        // soltar y que todavia no estan en ninguna ficha. Son propuestas esperando un "Aplicar",
+        // soltar y que todavia no estan en ninguna ficha. Son propuestas esperando a enlazarse,
         // no lecturas viejas de este documento; borrarlas aqui las haria desaparecer de la tabla
         // sin que nadie las viera.
         //
@@ -452,6 +477,22 @@ class VerificarDocumentos extends Command
         }
         $this->compararFecha($dif, 'FECHA_EMISION_PROPIEDAD', 'Fecha de emisión', $f->FECHA_EMISION_PROPIEDAD, $leido['emision'] ?? null);
         if ($nro = self::numeroParaFichaVacia($f->NRO_DE_DOCUMENTO ?? null, $leido)) $dif['NRO_DE_DOCUMENTO'] = $nro;
+
+        // El serial y la placa del TITULO frente a los de la ficha (pedido 05-10-2026). La tarea
+        // NUNCA los cambia (no estan en CorrectorFichaDocumento::CAMPOS: son con lo que se sabe de
+        // que vehiculo es el PDF): el corrector pone lo demas y los deja a ellos para que una
+        // persona elija en el visor cual es el bueno. Un serial leido de menos de 8 caracteres no
+        // se compara: casi siempre es una lectura a medias.
+        $serialLeido = (string) ($leido['serial'] ?? '');
+        $identidad = [
+            'SERIAL_CHASIS' => ['Serial de chasis', $f->SERIAL_CHASIS, strlen($lector->codigo($serialLeido)) >= 8 ? $serialLeido : null],
+            'PLACA'         => ['Placa', $f->PLACA, $leido['placa'] ?? null],
+        ];
+        foreach ($identidad as $campo => [$etiqueta, $enFicha, $enDocumento]) {
+            if ($enFicha && $enDocumento && $lector->codigo($enFicha) !== $lector->codigo($enDocumento)) {
+                $dif[$campo] = ['etiqueta' => $etiqueta, 'ficha' => $enFicha, 'documento' => $enDocumento];
+            }
+        }
 
         // El motivo del nombre (errata, abreviado, otro alfabeto...) manda: es el que dice que
         // mirar. Si solo cambian fechas, se resume que falta y que esta distinto.

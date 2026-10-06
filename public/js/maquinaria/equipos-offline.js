@@ -645,7 +645,7 @@
             var cerrar = function () { overlay.remove(); };
             box.querySelector('#eqOffMovClose').onclick = cerrar;
             box.querySelector('#eqOffMovCancel').onclick = cerrar;
-            overlay.addEventListener('click', function (e) { if (e.target === overlay) cerrar(); });
+            // Un clic en el fondo NO lo cierra: solo la X o Cancelar, igual que en linea (01-10-2026).
 
             okBtn.onclick = function () {
                 if (!sel.id) return;

@@ -3070,11 +3070,12 @@ class EquipoController extends Controller
         $e = $equipo->embarques()->first();
 
         return response()->json(['success' => true, 'embarque' => $e ? [
-            'nro'   => $e->NRO_BL,
-            'buque' => $e->BUQUE,
-            'fecha' => $e->FECHA_EMBARQUE?->format('d/m/Y'),
-            'link'  => $e->LINK,
-            'vin'   => $e->pivot->VIN,
+            'nro'    => $e->NRO_BL,
+            'rotulo' => $e->rotulo(),
+            'buque'  => $e->BUQUE,
+            'fecha'  => $e->FECHA_EMBARQUE?->format('d/m/Y'),
+            'link'   => $e->LINK,
+            'vin'    => $e->pivot->VIN,
         ] : null]);
     }
 
@@ -3313,6 +3314,8 @@ class EquipoController extends Controller
                     'unidades'        => $e->UNIDADES ?? '',
                     'vin'             => $e->pivot->VIN ?? '',
                     'equipos'         => $e->equipos_count,
+                    // Certificado de origen guardado como embarque: el visor cambia los rótulos.
+                    'certificado'     => $e->esCertificadoOrigen(),
                 ] : [];
                 break;
         }
@@ -3594,6 +3597,8 @@ class EquipoController extends Controller
             // abajo como 'metadata_<tipo>' con el diff completo; sin el quiet, una sola
             // edicion por el panel del visor generaria DOS eventos en el historial.
             $equipo->documentacion->updateQuietly($updateData);
+            // Sin observer (quiet): la fecha puesta aqui tiene que sacar su fila de "para revisar".
+            \App\Observers\DocumentacionObserver::fechasPuestas($equipo->documentacion);
         }
 
         // Auditoria: registra la edicion de metadata por tipo de documento.
@@ -3691,6 +3696,10 @@ class EquipoController extends Controller
                 DB::table('embarque_equipo')->where('ID_EQUIPO', $equipo->ID_EQUIPO)->update(['VIN' => $diff['VIN']['despues']]);
             }
         });
+        // Un BL que la carga masiva enlazo SIN numero y que ahora lo tiene: sale de "para revisar".
+        if (!empty($delEmbarque['NRO_BL']['despues'])) {
+            \App\Models\VerificacionDocumento::numeroDeBlPuesto($embarque->LINK);
+        }
         // En el historial de CADA equipo del embarque, que a todos les cambio su BL; el VIN, solo en este.
         \App\Models\EquipoAuditLog::registrar($equipo->ID_EQUIPO, 'metadata_embarque', $diff);
         if ($delEmbarque) {

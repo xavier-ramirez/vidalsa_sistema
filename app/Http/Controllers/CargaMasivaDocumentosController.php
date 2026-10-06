@@ -9,19 +9,21 @@ use Illuminate\Validation\Rule;
 /**
  * Carga masiva de documentos (menu Acciones de Control de Auditoria).
  *
- * Tres puertas, una por paso. El trabajo de verdad esta en CargaMasivaDocumentos; aqui
- * solo se valida lo que llega y se traduce a JSON.
+ * El trabajo de verdad esta en CargaMasivaDocumentos; aqui solo se valida lo que llega y se
+ * traduce a JSON.
  *
  *   analizar()  UN archivo por peticion: lo sube a Drive y responde; la lectura (el OCR de
- *               Drive, ~8 s por archivo) sigue en segundo plano y su resultado sale en la
- *               tabla de Revision de documentos.
- *   aplicar()   Escribe en la ficha lo que el usuario aprobo, de una fila.
- *   descartar() Borra de Drive el PDF de una propuesta que el usuario no quiso (super.admin).
+ *               Drive, ~8 s por archivo) sigue en segundo plano, lo que coincide se enlaza
+ *               solo (no hay boton de Aplicar) y el resultado sale en la tabla de Revision
+ *               de documentos.
+ *   descartar() Borra de Drive el PDF de una propuesta que no se enlazo (super.admin).
+ *   buscarEquipo() / atarVin()  Un VIN del BL que no caso con ninguna ficha (su serial difiere
+ *               en algo) se ata a mano a la ficha que la persona elige.
  *
  * Permiso: SOLO 'docs.carga.masiva', que es EXCLUSIVO y ni super.admin hereda (ver
  * autorizar(), abajo). Con esa clave basta, sin super.admin: se entra a Auditoría de
  * Documentos solo a la revisión de lo cargado (ver Usuario::veAuditoriaDocumentos).
- * Los tres pasos piden lo mismo; descartar, ademas, super.admin.
+ * Todas piden lo mismo; descartar, ademas, super.admin.
  */
 class CargaMasivaDocumentosController extends Controller
 {
@@ -81,69 +83,6 @@ class CargaMasivaDocumentosController extends Controller
         return $respuesta->header('Content-Length', (string) strlen($respuesta->getContent()));
     }
 
-    /** Escribe en la ficha del equipo el documento ya analizado. */
-    public function aplicar(Request $request)
-    {
-        $this->autorizar();
-
-        // El id es de una ficha u otra segun 'auxiliar', asi que su tabla se comprueba
-        // aparte (Rule::exists con la tabla que toque) en vez de con un exists fijo.
-        $esAux = $request->boolean('auxiliar');
-        $datos = $request->validate([
-            'auxiliar'  => 'nullable|boolean',
-            'id_equipo' => ['required', 'integer', $esAux
-                ? Rule::exists('equipos_auxiliares', 'ID_AUXILIAR')->whereNull('deleted_at')
-                : Rule::exists('equipos', 'ID_EQUIPO')->whereNull('deleted_at')],
-            'tipo'      => ['required', Rule::in(CargaMasivaDocumentos::TIPOS)],
-            'link'      => 'required|string|starts_with:/storage/google/',
-            'vence'     => 'nullable|date_format:Y-m-d',
-            'emision'   => 'nullable|date_format:Y-m-d',
-            'pisar'     => 'nullable|boolean',
-            // Modo ensayo: comprueba y dice que haria, pero no escribe nada.
-            'ensayo'    => 'nullable|boolean',
-            // Si esta es la ULTIMA ficha de la propuesta (un RACDA se enlaza a varias, de una en
-            // una): solo entonces la fila pasa a "Aplicado". Sin el campo, se cierra (una ficha).
-            'cerrar'    => 'nullable|boolean',
-        ], [
-            'id_equipo.exists' => $esAux ? 'Ese equipo auxiliar ya no existe.' : 'Ese equipo ya no existe.',
-        ]);
-
-        // Solo se enlaza un PDF que se subio por esta pantalla, y a una ficha y como el tipo que
-        // su propuesta dice. El enlace llega del navegador: sin esto se podia enganchar
-        // cualquier archivo de Drive (el documento de OTRO equipo) o una propuesta a cualquier
-        // ficha.
-        if (!$this->servicio->propuestaAdmite($datos['link'], (int) $datos['id_equipo'], $esAux, $datos['tipo'])) {
-            return response()->json(['success' => false,
-                'message' => 'Ese PDF no es una propuesta de la carga masiva para esta ficha (o ya se descartó). Recarga la tabla.'], 422);
-        }
-        $cerrar = !$request->has('cerrar') || $request->boolean('cerrar');
-
-        $r = $this->servicio->aplicar(
-            (int) $datos['id_equipo'],
-            $datos['tipo'],
-            $datos['link'],
-            $datos['vence'] ?? null,
-            $datos['emision'] ?? null,
-            (bool) ($datos['pisar'] ?? false),
-            (bool) ($datos['ensayo'] ?? false),
-            $esAux,
-            $cerrar,
-        );
-
-        // La ULTIMA ficha no entro (documento anterior, no quiso reemplazar...) pero alguna de
-        // las anteriores si: la propuesta igualmente queda resuelta. Si no, se quedaria "Por
-        // aplicar" con el PDF (o sus partes, en un ROTC de flota) ya en uso.
-        if (!$r['ok'] && $cerrar && empty($datos['ensayo']) && $this->servicio->yaSeAplicoAlgo($datos['link'])) {
-            $this->servicio->cerrarPropuesta($datos['link']);
-        }
-
-        return response()->json([
-            'success' => $r['ok'],
-            'message' => $r['mensaje'],
-        ] + (isset($r['requiere_pisar']) ? ['requiere_pisar' => true] : [])
-          + (isset($r['ensayo']) ? ['ensayo' => true] : []), $r['ok'] ? 200 : 422);
-    }
-
     /** El usuario descarto la propuesta: su PDF sale de Drive. */
     public function descartar(Request $request)
     {
@@ -161,6 +100,47 @@ class CargaMasivaDocumentosController extends Controller
         }
 
         return response()->json(['success' => true]);
+    }
+
+    /** Fichas para atar un VIN que falta: lo mas parecido primero (ver CargaMasivaDocumentos::buscarEquipo). */
+    public function buscarEquipo(Request $request)
+    {
+        $this->autorizar();
+        $q = (string) $request->validate(['q' => 'required|string|max:60'])['q'];
+
+        return response()->json(['success' => true, 'equipos' => $this->servicio->buscarEquipo($q)]);
+    }
+
+    /** Ata a mano un VIN del BL que no caso con ninguna ficha a la que la persona eligio. */
+    public function atarVin(Request $request)
+    {
+        $this->autorizar();
+        $datos = $request->validate([
+            'link'      => 'required|string|starts_with:/storage/google/',
+            'vin'       => 'required|string|max:40',
+            'id_equipo' => ['required', 'integer', Rule::exists('equipos', 'ID_EQUIPO')->whereNull('deleted_at')],
+        ], ['id_equipo.exists' => 'Ese equipo ya no existe.']);
+
+        $r = $this->servicio->atarVin($datos['link'], $datos['vin'], (int) $datos['id_equipo']);
+        return response()->json(['success' => $r['ok'], 'message' => $r['mensaje']], $r['ok'] ? 200 : 422);
+    }
+
+    /**
+     * Ata a mano a la ficha elegida un PDF de la carga que no se enlazo solo. Si la ficha ya tiene
+     * ese documento responde requiere_pisar y la pantalla pregunta antes de reemplazarlo.
+     */
+    public function atarDocumento(Request $request)
+    {
+        $this->autorizar();
+        $datos = $request->validate([
+            'link'       => 'required|string|starts_with:/storage/google/',
+            'id_equipo'  => ['required', 'integer', Rule::exists('equipos', 'ID_EQUIPO')->whereNull('deleted_at')],
+            'reemplazar' => 'nullable|boolean',
+        ], ['id_equipo.exists' => 'Ese equipo ya no existe.']);
+
+        $r = $this->servicio->atarDocumento($datos['link'], (int) $datos['id_equipo'], (bool) ($datos['reemplazar'] ?? false));
+        return response()->json(['success' => $r['ok'], 'message' => $r['mensaje'],
+            'requiere_pisar' => !empty($r['requiere_pisar'])], $r['ok'] ? 200 : 422);
     }
 
     /**

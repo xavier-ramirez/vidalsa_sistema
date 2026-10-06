@@ -68,8 +68,22 @@ class EmbarqueDatosTest extends MySqlTestCase
             ->assertOk()->assertJsonPath('data', [
                 'nro_bl' => 'RAQDLA16_PRUEBA', 'buque' => 'Rui An Yang V.2524',
                 'fecha_embarque' => '2025-08-20', 'unidades' => 10,
-                'vin' => 'LEZDD2CC8SF132435', 'equipos' => 2,
+                'vin' => 'LEZDD2CC8SF132435', 'equipos' => 2, 'certificado' => false,
             ]);
+    }
+
+    public function test_un_certificado_de_origen_se_nombra_como_tal(): void
+    {
+        // El detalle del equipo dice "Embarque BL" para un BL y "Certificado de origen" para un
+        // certificado guardado como embarque; el visor recibe la marca para cambiar sus rótulos.
+        $this->actingAs($this->editor)->getJson("/admin/equipos/{$this->equipo}/embarque")
+            ->assertOk()->assertJsonPath('embarque.rotulo', 'Embarque BL');
+
+        $this->embarque->update(['TIPO_DOCUMENTO' => Embarque::TIPO_CERTIFICADO_ORIGEN]);
+        $this->actingAs($this->editor)->getJson("/admin/equipos/{$this->equipo}/embarque")
+            ->assertOk()->assertJsonPath('embarque.rotulo', 'Certificado de origen');
+        $this->actingAs($this->editor)->getJson("/admin/equipos/{$this->equipo}/metadata?type=embarque")
+            ->assertOk()->assertJsonPath('data.certificado', true);
     }
 
     public function test_guarda_los_datos_para_todo_el_embarque_y_el_vin_solo_del_equipo(): void

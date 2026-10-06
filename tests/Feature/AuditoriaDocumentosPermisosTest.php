@@ -91,7 +91,8 @@ class AuditoriaDocumentosPermisosTest extends MySqlTestCase
 
         // Las suyas: llegan al controlador (falta el archivo / el enlace → 422, no 403).
         $this->actingAs($u)->post(route('historial-documentos.carga-masiva.analizar'), [], ['Accept' => 'application/json'])->assertStatus(422);
-        $this->actingAs($u)->post(route('historial-documentos.carga-masiva.aplicar'), [], ['Accept' => 'application/json'])->assertStatus(422);
+        $this->actingAs($u)->get(route('historial-documentos.carga-masiva.buscar-equipo'), ['Accept' => 'application/json'])->assertStatus(422);
+        $this->actingAs($u)->post(route('historial-documentos.carga-masiva.atar-vin'), [], ['Accept' => 'application/json'])->assertStatus(422);
         // Descartar borra de Drive: ademas de la carga masiva, pide super.admin (01-10-2026).
         $this->actingAs($u)->post(route('historial-documentos.carga-masiva.descartar'), [], ['Accept' => 'application/json'])->assertForbidden();
 
@@ -117,8 +118,9 @@ class AuditoriaDocumentosPermisosTest extends MySqlTestCase
         $this->assertStringContainsString('window.hdDeleteRegistro', $hist);
 
         $this->actingAs($u)->post(route('historial-documentos.carga-masiva.analizar'), [], ['Accept' => 'application/json'])->assertForbidden();
-        $this->actingAs($u)->post(route('historial-documentos.carga-masiva.aplicar'), [], ['Accept' => 'application/json'])->assertForbidden();
         $this->actingAs($u)->post(route('historial-documentos.carga-masiva.descartar'), [], ['Accept' => 'application/json'])->assertForbidden();
+        $this->actingAs($u)->get(route('historial-documentos.carga-masiva.buscar-equipo', ['q' => 'ABC']), ['Accept' => 'application/json'])->assertForbidden();
+        $this->actingAs($u)->post(route('historial-documentos.carga-masiva.atar-vin'), [], ['Accept' => 'application/json'])->assertForbidden();
     }
 
     public function test_super_admin_ve_la_lectura_automatica_y_su_boton(): void

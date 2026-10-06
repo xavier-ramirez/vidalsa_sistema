@@ -4,7 +4,8 @@
      falta la fecha, si no se pudo leer— se ve en la tabla de "Revisión de documentos", que es
      la misma donde se ve lo que lee la tarea de la noche. Antes había aquí una segunda lista
      con su propio "Aplicar" y eran dos tablas de documentos en el mismo módulo (pedido
-     23-09-2026: una sola). Aplicar y descartar se hacen desde esa tabla.
+     23-09-2026: una sola). Lo que coincide se enlaza solo (01-10-2026: sin botón de Aplicar);
+     descartar se hace desde esa tabla.
 
      Aquí solo se SUBEN (con el spinner de la aplicación, un archivo por petición) y el modal se
      cierra. La LECTURA —el OCR de Google Drive, ~8 s por PDF— sigue en segundo plano en el
@@ -295,7 +296,7 @@
 
         if (hechos) {
             window.toast(hechos + ' subido(s). Se están leyendo en el servidor: aparecerán en la tabla como '
-                + 'Por aplicar en unos segundos (actualiza la tabla para verlos).', 'success');
+                + 'enlazados (o, si algo no cuadra, con el porqué) en unos segundos; actualiza la tabla para verlos.', 'success');
         }
         // Todo subió: el modal se cierra ya. Lo que queda (leerlos) es del servidor.
         if (!perdidos.length) { cerrar(); return; }

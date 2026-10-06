@@ -263,7 +263,8 @@
     document.addEventListener('click', function (e) {
         if (!abierto()) return;
         var t = e.target, card;
-        if (t === modal() || t.closest('[data-vf-cerrar]')) { cerrar(); return; }
+        // Solo la X (data-vf-cerrar) lo cierra; un clic en el fondo no (pedido 01-10-2026).
+        if (t.closest('[data-vf-cerrar]')) { cerrar(); return; }
         if (t.closest('#vfVincular')) { vincular(); return; }
         if ((card = t.closest('#vfModal .vf-item'))) elegir(card);
     });

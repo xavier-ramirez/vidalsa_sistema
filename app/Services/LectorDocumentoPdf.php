@@ -322,6 +322,9 @@ class LectorDocumentoPdf
      *   · la fecha en que se emitio ("CARACAS, 14 DE JULIO DE 2025");
      *   · hasta cuando vale ("tendra validez por DOS (02) años, contados a partir de la emision");
      *   · las placas autorizadas.
+     * Hay providencias que AMPLIAN otra (la 304 y la 1582 agregan unidades a la 1120): no dicen
+     * cuanto valen, sino "Reconocer la validez de la Providencia Administrativa Nº 1120 de fecha
+     * 14-07-2025". En esas no hay "validez por N años" y el vencimiento queda vacio: no se adivina.
      */
     private function extraerRacda(string $plano): array
     {
@@ -339,7 +342,15 @@ class LectorDocumentoPdf
         if (preg_match('/PROVIDENCIA\s*ADMINISTRATIVA\s*N[°ºo.]*\s*(\d{2,8})/ui', $plano, $m)) {
             $datos['nro'] = $m[1];
         }
-        $datos['placas'] = $this->placasEnTexto($plano);
+        // Las placas, SOLO de la lista de unidades ("... poseen las siguientes placas: ... TERCERO"):
+        // el resto de la hoja trae codigos que tambien parecen placa, como el "codigo de
+        // validacion N° 1AVFcGK" del pie (visto el 05-10-2026 en las tres providencias, que asi
+        // salian con una placa de mas). Si no se encuentra ese bloque, se busca en toda la hoja.
+        // Y el codigo se quita de lo que quede: si la lista sigue en otra pagina, el pie de la
+        // primera cae DENTRO del bloque.
+        $lista = preg_match('/siguientes\s+placas:?(.*?)(?:TERCERO|$)/uis', $plano, $m) ? $m[1] : $plano;
+        $lista = preg_replace('/c[oó]digo\s+de\s+validaci[oó]n\s*(?:N(?:ro)?[°ºo.:]*)?\s*\S+/ui', ' ', $lista);
+        $datos['placas'] = $this->placasEnTexto($lista);
 
         return $datos;
     }

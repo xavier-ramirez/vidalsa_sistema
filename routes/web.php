@@ -538,18 +538,23 @@ Route::middleware(['auth'])->group(function () {
             // (Usuario::veAuditoriaDocumentos).
             Route::get('historial-documentos', [App\Http\Controllers\HistorialDocumentosController::class, 'index'])->name('historial-documentos.index');
 
-            // Carga masiva de documentos (menu Acciones). Tres pasos, tres rutas: se
-            // analiza UN PDF por peticion (el OCR de Drive tarda ~8 s y treinta juntos
-            // se caerian por timeout), se aplica fila a fila y lo descartado sale de Drive.
+            // Carga masiva de documentos (menu Acciones). Se analiza UN PDF por
+            // peticion (el OCR de Drive tarda ~8 s y treinta juntos se caerian por timeout; lo
+            // que coincide se enlaza solo), lo descartado sale de Drive y el VIN de un BL que no
+            // caso con ninguna ficha se ata a mano.
             // Permiso PROPIO y exclusivo ('docs.carga.masiva'), y SOLO ese (pedido del cliente,
             // 01-10-2026): ni super.admin lo hereda (ver PERMISOS_EXPLICITOS) ni hace falta tenerlo.
             Route::middleware('can:docs.carga.masiva')->group(function () {
                 Route::post('historial-documentos/carga-masiva/analizar', [App\Http\Controllers\CargaMasivaDocumentosController::class, 'analizar'])
                     ->name('historial-documentos.carga-masiva.analizar');
-                Route::post('historial-documentos/carga-masiva/aplicar', [App\Http\Controllers\CargaMasivaDocumentosController::class, 'aplicar'])
-                    ->name('historial-documentos.carga-masiva.aplicar');
                 Route::post('historial-documentos/carga-masiva/descartar', [App\Http\Controllers\CargaMasivaDocumentosController::class, 'descartar'])
                     ->name('historial-documentos.carga-masiva.descartar');
+                Route::get('historial-documentos/carga-masiva/buscar-equipo', [App\Http\Controllers\CargaMasivaDocumentosController::class, 'buscarEquipo'])
+                    ->name('historial-documentos.carga-masiva.buscar-equipo');
+                Route::post('historial-documentos/carga-masiva/atar-vin', [App\Http\Controllers\CargaMasivaDocumentosController::class, 'atarVin'])
+                    ->name('historial-documentos.carga-masiva.atar-vin');
+                Route::post('historial-documentos/carga-masiva/atar-documento', [App\Http\Controllers\CargaMasivaDocumentosController::class, 'atarDocumento'])
+                    ->name('historial-documentos.carga-masiva.atar-documento');
             });
 
             // Lo demás de Auditoría, incluida la lectura automática ("Revisar ahora" y el

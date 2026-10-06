@@ -28,7 +28,7 @@
         \App\Models\VerificacionDocumento::ERROR       => 'Con error',
         // Los de la carga masiva: PDF recien soltados que todavia no estan en ninguna ficha.
         // Aqui es DONDE SE VE lo que se subio; el modal solo sirve para soltarlos.
-        \App\Models\VerificacionDocumento::POR_ENGANCHAR  => 'Por aplicar',
+        \App\Models\VerificacionDocumento::POR_ENGANCHAR  => 'Sin enlazar',
         \App\Models\VerificacionDocumento::SIN_FICHA      => 'Sin ficha reconocida',
         \App\Models\VerificacionDocumento::OTRO_DOCUMENTO => 'Otro documento (no se asoció)',
         \App\Models\VerificacionDocumento::APLICADO      => 'Aplicado',
@@ -148,11 +148,14 @@
                         {{-- Las que no coinciden se eligen con un clic en la fila (ver cpdfSelFila);
                              las que ya coinciden no tienen nada que revisar.
 
-                             Las de la CARGA MASIVA tampoco se eligen: son propuestas de un PDF que
-                             aún no está en ninguna ficha, se aplican con su propio botón y el
-                             servidor las deja fuera del "Revisado" en lote (marcarRevisados). --}}
-                        @if ($d->ESTADO !== \App\Models\VerificacionDocumento::COINCIDE
-                             && $d->ORIGEN === \App\Models\VerificacionDocumento::DE_LA_NOCHE)
+                             De la CARGA MASIVA solo lo ya enlazado que quedó para revisar (sin
+                             fecha, o un BL sin número): lo demás son propuestas de un PDF que se
+                             enlaza solo a su ficha (o dice por qué no), y el servidor las deja
+                             fuera del "Revisado" en lote (marcarRevisados). --}}
+                        @if (($d->ESTADO !== \App\Models\VerificacionDocumento::COINCIDE
+                              && $d->ORIGEN === \App\Models\VerificacionDocumento::DE_LA_NOCHE)
+                             || ($d->ORIGEN === \App\Models\VerificacionDocumento::DE_CARGA_MASIVA
+                              && $d->ESTADO === \App\Models\VerificacionDocumento::APLICADO && $d->A_MANO))
                             <tr class="cpdf-fila-sel" data-id="{{ $d->ID_REGISTRO }}" onclick="window.cpdfSelFila(event, this)">
                         @else
                             <tr>
@@ -183,24 +186,41 @@
                                 @empty
                                     <span style="font-size:12px;color:#64748b;">{{ $d->MOTIVO ?: 'Todo coincide con el documento' }}</span>
                                 @endforelse
+                                {{-- Un PDF de la carga que no se enlazó solo (no se supo de quién es, lo
+                                     leyó la IA, venía con algo que mirar): se ata a mano buscando el
+                                     equipo por serial, placa o código. El BL va VIN por VIN (abajo),
+                                     "otro documento" no se ata (se descarta) y lo de varias unidades
+                                     (un RACDA, un ROTC de flota) se enlaza solo a cada una. --}}
+                                @if ($d->ORIGEN === \App\Models\VerificacionDocumento::DE_CARGA_MASIVA
+                                     && in_array($d->ESTADO, [\App\Models\VerificacionDocumento::POR_ENGANCHAR, \App\Models\VerificacionDocumento::SIN_FICHA], true)
+                                     && $d->TIPO !== \App\Services\CargaMasivaDocumentos::EMBARQUE && ($d->PROPUESTA['link'] ?? null)
+                                     && count($d->PROPUESTA['equipos'] ?? []) <= 1 && empty($d->PROPUESTA['flota_rotc']))
+                                    @can('docs.carga.masiva')
+                                        <div class="cpdf-vin-falta">
+                                            <span>Sin enlazar</span>
+                                            <button type="button" class="cpdf-vin-btn"
+                                                onclick="event.stopPropagation(); window.cpdfAtarDocumento(this, @js($d->PROPUESTA['link']), @js($d->SERIAL ?: $d->PLACA ?: ''))">Atar a un equipo</button>
+                                        </div>
+                                    @endcan
+                                @endif
+                                {{-- Un VIN del BL que no casó con ninguna ficha (el serial de la ficha
+                                     difiere en algo): se ve aparte y se ata a mano buscando el equipo. --}}
+                                @if ($d->ORIGEN === \App\Models\VerificacionDocumento::DE_CARGA_MASIVA
+                                     && $d->TIPO === \App\Services\CargaMasivaDocumentos::EMBARQUE && ($d->PROPUESTA['link'] ?? null))
+                                    @can('docs.carga.masiva')
+                                        @foreach ($vinesFaltan[$d->ID_REGISTRO] ?? [] as $vin)
+                                            <div class="cpdf-vin-falta">
+                                                <span>Falta el VIN <b>{{ $vin }}</b></span>
+                                                <button type="button" class="cpdf-vin-btn"
+                                                    onclick="event.stopPropagation(); window.cpdfAtarVin(this, @js($d->PROPUESTA['link']), @js($vin))">Atar a un equipo</button>
+                                            </div>
+                                        @endforeach
+                                    @endcan
+                                @endif
                             </td>
                             <td><span class="cpdf-estado {{ $d->ESTADO }}" @if ($d->MOTIVO) title="{{ $d->MOTIVO }}" @endif>{{ $estadosDoc[$d->ESTADO] ?? $d->ESTADO }}</span></td>
                             <td style="white-space:nowrap;">
-                                {{-- Lo recién soltado en la carga masiva se aplica DESDE AQUÍ: el
-                                     modal solo sirve para soltar archivos. Solo cuando hay ficha
-                                     reconocida; sin ella no hay dónde enlazarlo.
-
-                                     El MISMO permiso que el JS de más abajo: sin él estos botones
-                                     no se pintan. Si no, un super.admin sin la clave vería filas
-                                     que otro subió, pulsaría y se encontraría con que la función
-                                     ni existe. --}}
                                 @can('docs.carga.masiva')
-                                @if ($d->ESTADO === \App\Models\VerificacionDocumento::POR_ENGANCHAR && ($d->PROPUESTA['equipos'] ?? []))
-                                    <button type="button" class="pdf-doc-btn cpdf-aplicar" title="Enlazar este PDF a su ficha"
-                                        onclick="event.stopPropagation(); window.cpdfAplicarCarga(this, @js($d->PROPUESTA))">
-                                        <i class="material-icons">playlist_add_check</i>
-                                    </button>
-                                @endif
                                 {{-- Descartar: el PDF subido se va a la papelera de Drive y la fila
                                      desaparece. Sin esto, lo que se sube y no se aplica se queda
                                      ahí para siempre. Solo en lo de la carga masiva sin aplicar, y
@@ -238,8 +258,9 @@
             </table>
         </div>
         <div style="margin-top:12px;">{{ $docs->links('vendor.pagination.custom-sliding') }}</div>
-        {{-- Dar por revisadas las filas elegidas con un clic, sin abrir el visor (ver cpdfMarcarRevisadas).
-             Es de la lectura automática: solo super.admin. --}}
+        {{-- Dar por revisadas las filas elegidas con un clic, sin abrir el visor (ver cpdfMarcarRevisadas):
+             las de la lectura automática y lo de la carga masiva ya enlazado que quedó para revisar.
+             Solo super.admin. --}}
         @can('super.admin')
         <div id="cpdfSelBarra" class="selection-floating-bar">
             <div class="selection-counter">
@@ -316,9 +337,9 @@
                 </div>
             </div>
             <a class="cpdf-caja cpdf-filtra" href="{{ request()->fullUrlWithQuery(['estado_doc' => \App\Models\VerificacionDocumento::POR_ENGANCHAR, 'page' => null]) }}">
-                <small>Por aplicar</small>
+                <small>Sin enlazar</small>
                 <strong>{{ $resumenDocs[\App\Models\VerificacionDocumento::POR_ENGANCHAR] ?? 0 }}</strong>
-                <span>reconocidos, esperando su "Aplicar"</span>
+                <span>reconocidos, no se pudieron enlazar solos</span>
             </a>
         @elseif ($pestana === 'documentos')
             <div class="cpdf-hero">
@@ -526,85 +547,107 @@
     };
     @endcan
 
-    // ── Aplicar un PDF de la carga masiva ─────────────────────────────────────────────
-    // El modal de carga masiva solo sirve para SOLTAR archivos; lo que se subió se ve y se
-    // aplica aquí, en la misma tabla que la revisión de la noche. Este botón enlaza el PDF a
-    // la ficha que se le propuso, con las mismas puertas del servidor (no pisa lo que ya hay,
-    // no retrocede un vencimiento, no entra sin fecha).
+    // ── Carga masiva ──────────────────────────────────────────────────────────────
+    // Lo que coincide se enlaza solo al leerlo (no hay botón de Aplicar). Aquí se descarta y se
+    // ata a mano el VIN de un BL que no casó con ninguna ficha.
     @can('docs.carga.masiva')
-    window.cpdfAplicarCarga = function (btn, propuesta) {
-        var fichas = (propuesta && propuesta.equipos) || [];
-        if (!fichas.length) return;
+    // Buscador de equipos en la misma fila (serial, placa o código; salen primero los seriales
+    // parecidos). Lo usan atar un VIN del BL y atar un PDF sin enlazar: `atar(eq, boton)` hace el
+    // POST de cada uno. Uno que ya está en un embarque solo se bloquea al atar un VIN.
+    var cpdfBuscarEquipo = function (btn, inicial, bloquearConBl, atar) {
+        var caja = btn.parentNode;
+        if (caja.querySelector('.cpdf-vin-buscar')) return;
+        btn.hidden = true;
+        var zona = document.createElement('div');
+        zona.className = 'cpdf-vin-buscar';
+        var campo = document.createElement('input');
+        campo.type = 'search';
+        campo.value = inicial;
+        campo.placeholder = 'Serial, placa o código';
+        var lista = document.createElement('div');
+        lista.className = 'cpdf-vin-lista';
+        zona.appendChild(campo);
+        zona.appendChild(lista);
+        caja.appendChild(zona);
+        zona.addEventListener('click', function (e) { e.stopPropagation(); });
 
-        // Los que vencen necesitan su fecha, y del certificado y la compraventa no se lee
-        // ninguna: se pide aquí, que es donde está la persona.
-        var vence = propuesta.vence || '';
-        if (@json(array_keys(\App\Support\DocumentacionDeEquipo::VENCIMIENTO)).indexOf(propuesta.tipo) !== -1 && !vence) {
-            vence = window.prompt('¿Cuándo vence este documento? (AAAA-MM-DD)', '');
-            if (!vence) return;
-            if (!/^\d{4}-\d{2}-\d{2}$/.test(vence)) { window.toast('La fecha va como 2027-04-08', 'error'); return; }
+        var turno = 0, espera = null;
+        function aviso(texto) {
+            lista.textContent = '';
+            var p = document.createElement('div');
+            p.className = 'cpdf-vin-nada';
+            p.textContent = texto;
+            lista.appendChild(p);
         }
-
-        btn.disabled = true;
-        // Un ROTC de flota trae cientos de fichas y cada una arma y sube su parte (~2-3 s): el
-        // boton cuenta por donde va, para que se vea que avanza y no se vuelva a pulsar.
-        var htmlBoton = btn.innerHTML;
-        var i = 0, bien = 0, fallos = [], reemplazarTodas = null;
-        var siguiente = function () {
-            if (fichas.length > 1) btn.innerHTML = '<span style="font-size:11px;font-weight:700;">' + Math.min(i + 1, fichas.length) + '/' + fichas.length + '</span>';
-            if (i >= fichas.length) {
-                btn.innerHTML = htmlBoton;
-                btn.disabled = false;
-                // Lo que NO entro se dice siempre, tambien cuando otras fichas si: antes, con
-                // una sola que entrara, los rechazos de las demas se perdian sin avisar.
-                if (bien && !fallos.length) window.toast('Aplicado a ' + bien + ' ficha' + (bien === 1 ? '' : 's'), 'success');
-                else if (bien) window.toast('Aplicado a ' + bien + ' de ' + fichas.length + '. No entró en: ' + resumen(fallos), 'warning');
-                else window.toast(resumen(fallos) || 'No se pudo aplicar', 'error');
-                window.cpdfFiltrar();
-                return;
-            }
-            var f = fichas[i++];
-            enviar(f, false).then(siguiente);
-        };
-
-        // Una ficha. Si el servidor dice que YA tiene ese documento, se pregunta y solo
-        // entonces se reintenta con "reemplazar": así la regla de no pisar sigue siendo del
-        // servidor y aquí solo se pide permiso. Un documento ANTERIOR se niega igualmente,
-        // reemplazo o no, y ahí el servidor manda su motivo sin volver a preguntar.
-        // Con cientos de fichas el aviso no puede listarlas todas: las 5 primeras y cuantas mas.
-        function resumen(lista) {
-            return lista.slice(0, 5).join(' · ') + (lista.length > 5 ? ' · y ' + (lista.length - 5) + ' más' : '');
+        function buscar() {
+            var q = campo.value.trim(), mio = ++turno;
+            if (q.length < 3) { aviso('Escribe al menos 3 caracteres.'); return; }
+            aviso('Buscando…');
+            window.apiFetch(@json(route('historial-documentos.carga-masiva.buscar-equipo')) + '?q=' + encodeURIComponent(q),
+                { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
+                .then(function (r) { return r.json(); })
+                .then(function (b) {
+                    if (mio !== turno) return;           // llegó una búsqueda más nueva
+                    var equipos = (b && b.equipos) || [];
+                    if (!equipos.length) { aviso('No se encontró ningún equipo parecido.'); return; }
+                    lista.textContent = '';
+                    equipos.forEach(function (eq) {
+                        var fila = document.createElement('div');
+                        fila.className = 'cpdf-vin-op';
+                        var txt = document.createElement('span');
+                        // textContent: los datos vienen de la base, no se interpretan como HTML.
+                        txt.textContent = eq.serial + (eq.placa ? ' · ' + eq.placa : '') + (eq.codigo ? ' · ' + eq.codigo : '') + ' — ' + eq.nombre
+                            + (bloquearConBl && eq.bl ? ' (ya está en el BL ' + eq.bl + ')' : '');
+                        var boton = document.createElement('button');
+                        boton.type = 'button';
+                        boton.textContent = 'Atar';
+                        // Uno que ya está en un embarque no se mueve desde aquí (el servidor tampoco lo hace).
+                        boton.disabled = bloquearConBl && !!eq.bl;
+                        boton.addEventListener('click', function () { boton.disabled = true; atar(eq, boton); });
+                        fila.appendChild(txt);
+                        fila.appendChild(boton);
+                        lista.appendChild(fila);
+                    });
+                })
+                .catch(function () { if (mio === turno) aviso('No se pudo buscar. Inténtalo de nuevo.'); });
         }
+        campo.addEventListener('input', function () { clearTimeout(espera); espera = setTimeout(buscar, 300); });
+        campo.focus();
+        buscar();
+    };
 
-        function enviar(f, pisar) {
-            return window.apiPostForm(@json(route('historial-documentos.carga-masiva.aplicar')), {
-                id_equipo: f.id, auxiliar: f.auxiliar ? 1 : '', tipo: propuesta.tipo,
-                link: propuesta.link, vence: vence || '', emision: propuesta.emision || '',
-                pisar: pisar ? 1 : '',
-                // La fila pasa a "Aplicado" con la ULTIMA ficha, no con la primera: si el
-                // reparto de un RACDA se corta a medias, el boton sigue ahi para terminarlo
-                // (las que ya lo tienen responden "Ya estaba enlazado").
-                cerrar: f === fichas[fichas.length - 1] ? 1 : 0
-            }, 'No se pudo aplicar.')
-                .then(function () { bien++; })
-                .catch(function (e) {
-                    var msg = (e && e.message) || 'No se pudo aplicar';
-                    if (!pisar && e && e.requiere_pisar) {
-                        // Con varias fichas (RACDA, ROTC de flota) se pregunta UNA vez y la
-                        // respuesta vale para todas: si no, eran decenas de ventanas seguidas.
-                        if (reemplazarTodas === null) {
-                            reemplazarTodas = window.confirm(f.nombre + ' ya tiene ese documento.\n\n¿Reemplazarlo?'
-                                + (fichas.length > 1 ? '\n(La respuesta vale para TODAS las de este documento que ya tengan uno.)' : '')
-                                + '\nEl anterior se va a la PAPELERA de Drive: se recupera con un clic.');
+    var cpdfAtado = function (r) { window.toast(r.message || 'Atado', 'success'); window.cpdfFiltrar(); };
+
+    // Atar un VIN del BL que falta: el buscador arranca con el propio VIN.
+    window.cpdfAtarVin = function (btn, link, vin) {
+        cpdfBuscarEquipo(btn, vin, true, function (eq, boton) {
+            window.apiPostForm(@json(route('historial-documentos.carga-masiva.atar-vin')),
+                { link: link, vin: vin, id_equipo: eq.id }, 'No se pudo atar.')
+                .then(cpdfAtado)
+                .catch(function (e) { boton.disabled = false; window.toast((e && e.message) || 'No se pudo atar', 'error'); });
+        });
+    };
+
+    // Atar un PDF que no se enlazó solo a la ficha elegida. Si esa ficha ya tiene ese documento,
+    // se pregunta antes de reemplazarlo (el servidor responde requiere_pisar).
+    window.cpdfAtarDocumento = function (btn, link, inicial) {
+        cpdfBuscarEquipo(btn, inicial, false, function (eq, boton) {
+            var enviar = function (reemplazar) {
+                window.apiPostForm(@json(route('historial-documentos.carga-masiva.atar-documento')),
+                    { link: link, id_equipo: eq.id, reemplazar: reemplazar ? 1 : '' }, 'No se pudo atar.')
+                    .then(cpdfAtado)
+                    .catch(function (e) {
+                        if (e && e.requiere_pisar && !reemplazar
+                            && window.confirm((e.message || 'Esa ficha ya tiene ese documento.') + '\n\n¿Reemplazarlo por este PDF?')) {
+                            enviar(true);
+                            return;
                         }
-                        if (reemplazarTodas) return enviar(f, true);
-                        msg = 'No se reemplazó: ' + f.nombre + ' ya tiene ese documento.';
-                    }
-                    fallos.push(fichas.length > 1 ? f.nombre + ' (' + msg + ')' : msg);
-                });
-        }
-
-        siguiente();
+                        boton.disabled = false;
+                        window.toast((e && e.message) || 'No se pudo atar', 'error');
+                    });
+            };
+            enviar(false);
+        });
     };
 
     // Descartar lo subido y no aplicado: el PDF se va a la PAPELERA de Drive (se recupera con
@@ -635,8 +678,10 @@
         var URL_REVISADO = @json(route('compresion-pdf.documento.revisado', ['id' => 0]));
         // Diferencia del verificador -> campo del panel del visor que la corrige.
         // Las fechas de emision tienen su campo en el panel (fecha_emision): lo que dice el
-        // documento sale debajo con su "Usar", no como un campo aparte.
+        // documento sale debajo con su "Usar", no como un campo aparte. El serial y la placa
+        // (solo en el titulo) los elige la persona aqui: la tarea nunca los cambia.
         var CAMPO = { NOMBRE_DEL_TITULAR: 'titular', NRO_DE_DOCUMENTO: 'nro_documento', ID_SEGURO: 'nombre_aseguradora',
+                      SERIAL_CHASIS: 'serial_chasis', PLACA: 'placa',
                       FECHA_VENC_POLIZA: 'fecha_vencimiento', FECHA_ROTC: 'fecha_vencimiento', FECHA_RACDA: 'fecha_vencimiento',
                       FECHA_EMISION_PROPIEDAD: 'fecha_emision', FECHA_EMISION_POLIZA: 'fecha_emision',
                       FECHA_EMISION_ROTC: 'fecha_emision', FECHA_EMISION_RACDA: 'fecha_emision' };

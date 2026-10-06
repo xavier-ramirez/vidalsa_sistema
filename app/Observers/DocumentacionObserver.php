@@ -39,7 +39,11 @@ class DocumentacionObserver
 
         try {
             $changes = $doc->getChanges();
-            $original = $doc->getOriginal();
+            // getPrevious(), NO getOriginal(): este observer corre DESPUÉS del commit
+            // ($afterCommit) y para entonces Laravel ya igualó el "original" al valor nuevo; dentro
+            // de una transacción (formulario del equipo, lectura de documentos) todo parecía sin
+            // cambios y no se anotaba nada. getPrevious() guarda lo de antes del último guardado.
+            $original = $doc->getPrevious();
             $diff = [];
             foreach (self::AUDITED as $field) {
                 if (!array_key_exists($field, $changes)) continue;
@@ -53,6 +57,24 @@ class DocumentacionObserver
             }
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::warning('DocumentacionObserver updated audit log fallo: ' . $e->getMessage());
+        }
+
+        self::fechasPuestas($doc);
+    }
+
+    /**
+     * La fecha de vencimiento que le faltaba a un documento: su fila sale de "para revisar" (ver
+     * VerificacionDocumento::fechaPuesta). Publica: el panel del visor guarda con updateQuietly
+     * (para no duplicar el historial) y este observer no corre; EquipoController::updateMetadata
+     * la llama a mano. Lee wasChanged(), que tambien vale tras un guardado silencioso.
+     */
+    public static function fechasPuestas(Documentacion $doc): void
+    {
+        foreach (\App\Support\DocumentacionDeEquipo::VENCIMIENTO as $tipo => $col) {
+            if ($doc->wasChanged($col) && $doc->$col) {
+                $link = \App\Support\DocumentacionDeEquipo::COLUMNAS[$tipo]['link'];
+                \App\Models\VerificacionDocumento::fechaPuesta('documentacion', $link, $col, $doc->$link);
+            }
         }
     }
 }

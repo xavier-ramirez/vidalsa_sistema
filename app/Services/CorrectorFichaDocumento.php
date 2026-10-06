@@ -152,11 +152,13 @@ class CorrectorFichaDocumento
                 // igual, marcada para mirar a mano: si no, la tarea no la resuelve nunca, la
                 // reintenta en cada pasada para siempre y el panel sigue enseñando un valor
                 // de ficha que ya no existe.
+                // Si lo unico que queda es lo que esta lista no toca (el serial o la placa del
+                // titulo), no es que alguien cambiara la ficha: lo elige una persona en el visor.
                 $reg->update([
                     'ESTADO'      => VerificacionDocumento::DIFIERE,
                     'A_MANO'      => true,
-                    'MOTIVO'      => mb_substr('Alguien cambió la ficha después de leer el documento: '
-                        . $this->etiquetas($quedan) . '. Míralo con el PDF delante.', 0, 255),
+                    'MOTIVO'      => mb_substr($this->paraElegir($quedan)
+                        ?? 'Alguien cambió la ficha después de leer el documento: ' . $this->etiquetas($quedan) . '. Míralo con el PDF delante.', 0, 255),
                     'DIFERENCIAS' => $quedan,
                 ]);
                 return ['puestos' => [], 'saltados' => $saltados];
@@ -171,13 +173,21 @@ class CorrectorFichaDocumento
                 EquipoAuditLog::registrar($reg->ID_EQUIPO, 'edit', $propios + ['_origen' => 'Verificación de documentos (automática)']);
             }
 
+            // Un documento que vence y sigue SIN fecha (ni la ficha ni el PDF la tienen; ver
+            // VerificarDocumentos): poner lo demas no lo deja resuelto, sigue para revisar.
+            $colVence = VerificacionDocumento::CAMPO_VENCE[$reg->TIPO] ?? null;
+            $sinFecha = !empty($reg->LEIDO['sin_fecha']) && $colVence && empty($doc->{$colVence});
             $reg->update([
-                'ESTADO'       => $quedan ? VerificacionDocumento::DIFIERE : VerificacionDocumento::COINCIDE,
+                'ESTADO'       => ($quedan || $sinFecha) ? VerificacionDocumento::DIFIERE : VerificacionDocumento::COINCIDE,
                 // A_MANO: solo si lo que queda ya no lo puede poner la tarea: lo que alguien
-                // cambio a mano despues de leer el PDF, o lo que una lectura no segura no deja
-                // poner (eso se mira en el visor).
-                'A_MANO'       => $hayCorregidoAMano || ($bloqueo !== null && $quedan),
-                'MOTIVO'       => $this->motivo($reg, $puestos, $quedan),
+                // cambio a mano despues de leer el PDF, lo que una lectura no segura no deja
+                // poner, lo que esta lista nunca toca (el serial o la placa) o la fecha que falta:
+                // eso se mira en el visor.
+                'A_MANO'       => $hayCorregidoAMano || ($bloqueo !== null && $quedan) || $sinFecha
+                                  || (bool) array_diff_key($quedan, array_flip(self::CAMPOS)),
+                'MOTIVO'       => $sinFecha && !$quedan
+                    ? mb_substr(trim((string) $reg->MOTIVO) . ' · Se puso solo: ' . implode(', ', $puestos), 0, 255)
+                    : $this->motivo($reg, $puestos, $quedan),
                 'DIFERENCIAS'  => $quedan ?: null,
                 'APLICADO_EN'  => now(),
             ]);
@@ -296,9 +306,20 @@ class CorrectorFichaDocumento
     {
         if (!$quedan) return 'Puesto solo con lo que dice el documento';
         // Manda la explicacion de lo que hay que MIRAR ("se diferencian en una letra..."), que
-        // es para lo que se lee esta columna; lo que se puso solo va detras.
-        $base = trim((string) $reg->MOTIVO) ?: ('Falta decidir ' . $this->etiquetas($quedan));
+        // es para lo que se lee esta columna; lo que se puso solo va detras. Si solo queda el
+        // serial o la placa, la explicacion es esa: la de antes era de lo que ya se puso.
+        $base = $this->paraElegir($quedan) ?? (trim((string) $reg->MOTIVO) ?: ('Falta decidir ' . $this->etiquetas($quedan)));
         return mb_substr($base . ' · Se puso solo: ' . implode(', ', $puestos), 0, 255);
+    }
+
+    /**
+     * Lo que queda es SOLO lo que esta lista no toca (el serial o la placa del titulo): el motivo
+     * pide que una persona elija en el visor. Si queda algo mas, null (manda el otro motivo).
+     */
+    private function paraElegir(array $quedan): ?string
+    {
+        if (!$quedan || array_intersect_key($quedan, array_flip(self::CAMPOS))) return null;
+        return 'El documento no coincide con la ficha en: ' . $this->etiquetas($quedan) . '. Elige en el visor cuál es el bueno.';
     }
 
     /** "propietario, vencimiento" — lo que queda por decidir, en minusculas. */

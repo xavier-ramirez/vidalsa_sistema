@@ -16,14 +16,28 @@ class Embarque extends Model
     protected $table = 'embarques';
     protected $primaryKey = 'ID_EMBARQUE';
 
+    /** TIPO_DOCUMENTO: 'BL' (el de la naviera, valor por omisión) o el certificado de origen del INTT. */
+    public const TIPO_CERTIFICADO_ORIGEN = 'CERTIFICADO_ORIGEN';
+
     protected $fillable = [
-        'NRO_BL', 'BUQUE', 'PUERTO_CARGA', 'PUERTO_DESCARGA', 'FECHA_EMBARQUE',
+        'NRO_BL', 'TIPO_DOCUMENTO', 'BUQUE', 'PUERTO_CARGA', 'PUERTO_DESCARGA', 'FECHA_EMBARQUE',
         'LINK', 'ARCHIVO', 'UNIDADES', 'SUBIDO_POR',
     ];
 
     protected $casts = [
         'FECHA_EMBARQUE' => 'date',
     ];
+
+    public function esCertificadoOrigen(): bool
+    {
+        return $this->TIPO_DOCUMENTO === self::TIPO_CERTIFICADO_ORIGEN;
+    }
+
+    /** Nombre del documento tal como se muestra en el detalle del equipo y en el visor. */
+    public function rotulo(): string
+    {
+        return $this->esCertificadoOrigen() ? 'Certificado de origen' : 'Embarque BL';
+    }
 
     public function equipos()
     {

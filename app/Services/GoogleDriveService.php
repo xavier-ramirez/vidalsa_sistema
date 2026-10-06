@@ -438,11 +438,18 @@ class GoogleDriveService
     /** Carpeta de las copias, dentro del disco 'local'. */
     private const CARPETA_COPIAS = 'google_cache/';
 
+    /**
+     * Version de las miniaturas guardadas: cambiarla hace que se vuelvan a pedir a Drive. La 2
+     * es la de las fotos en WebP (con su transparencia, ver miniatura()): las guardadas antes
+     * eran JPEG con el fondo NEGRO y se seguian sirviendo del disco.
+     */
+    private const VERSION_MINIATURAS = '2';
+
     /** Ruta (en el disco 'local') de la copia de un archivo, o de su miniatura si se da $sz. */
     public static function rutaCopiaLocal(string $fileId, ?string $sz = null): string
     {
         return self::CARPETA_COPIAS
-            . ($sz === null ? '' : 'thumb_' . preg_replace('/[^A-Za-z0-9_-]/', '', $sz) . '_')
+            . ($sz === null ? '' : 'thumb_' . self::VERSION_MINIATURAS . preg_replace('/[^A-Za-z0-9_-]/', '', $sz) . '_')
             . $fileId;
     }
 
@@ -497,7 +504,10 @@ class GoogleDriveService
      *
      * Al enlace se le pide el tamaño y ademas `-rj-l75`: JPEG al 75 %. Sin eso Drive la da
      * en PNG, y la primera pagina de un escaneo a 1024 px pesaba 1,9 MB en PNG contra
-     * 124-235 KB en JPEG (medido). La miniatura esta para ir RAPIDO.
+     * 124-235 KB en JPEG (medido). La miniatura esta para ir RAPIDO. Eso SOLO a los PDF:
+     * el JPEG no tiene transparencia y una foto PNG/WebP sin fondo salia con el fondo
+     * NEGRO. Las fotos se piden en WebP (`-rw`): conserva la transparencia y a 300 px pesa
+     * menos que el JPEG (9-11 KB contra 13-15 KB; en PNG serian 70-105 KB, medido).
      *
      * La URL publica queda de respaldo SOLO para cuando la API no contesta (sin token, sin
      * red hacia Google): con una foto compartida sigue sirviendo. Si la API contesto —aunque
@@ -517,6 +527,8 @@ class GoogleDriveService
             // Envenenada por la version anterior (ver arriba): se tira y se pide de nuevo.
             $disco->delete($ruta);
         }
+        // La de antes de VERSION_MINIATURAS ya no se lee: se borra al pedir la nueva.
+        $disco->delete(self::CARPETA_COPIAS . 'thumb_' . preg_replace('/[^A-Za-z0-9_-]/', '', $sz) . '_' . $fileId);
 
         // "w300" o "w300-h200" van tal cual; un numero pelado ("300") es un lado maximo.
         $tamano = ctype_digit($sz[0]) ? 's' . $sz : $sz;
@@ -544,7 +556,8 @@ class GoogleDriveService
             $mime = $meta['mime'];
             if (!empty($meta['link'])) {
                 // El enlace trae su propio tamaño al final ("=s220"): se cambia por el pedido.
-                $url = preg_replace('/=[^=\/]*$/', '', $meta['link']) . '=' . $tamano . '-rj-l75';
+                $url = preg_replace('/=[^=\/]*$/', '', $meta['link']) . '=' . $tamano
+                     . ($mime === 'application/pdf' ? '-rj-l75' : '-rw');
                 $resp = $servicio->getClient()->authorize()->request('GET', $url, [
                     'http_errors' => false,
                     'timeout'     => 8,

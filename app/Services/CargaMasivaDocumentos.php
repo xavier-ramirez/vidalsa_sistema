@@ -11,8 +11,11 @@ use App\Models\EquipoAuxiliar;
 use App\Models\VerificacionDocumento;
 use App\Support\BillOfLading;
 use App\Support\DocumentacionDeEquipo;
+use App\Support\ColaCargaMasiva;
 use App\Support\EnlacesDocumentos;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -27,7 +30,9 @@ use Illuminate\Support\Facades\Storage;
  *                  COMPRUEBA que el PDF sea de verdad ese documento: si es otro, no se asocia a
  *                  nada y queda en la tabla como "Otro documento" (ver esOtroDocumento). NO toca
  *                  la ficha.
- *   2) aplicar()   Con el visto bueno, escribe el enlace y las fechas en `documentacion`.
+ *   2) aplicar()   Escribe el enlace y las fechas en `documentacion`. No hay boton de
+ *                  Aplicar: lo llaman enlazarSolo() (lo que coincide, al leerlo y en el
+ *                  reintento de cada hora) y, a mano, atarDocumento() y atarVin() (el BL).
  *
  * Por que hay que subirlo para leerlo: el texto lo saca el OCR de Google Drive
  * (LectorDocumentoPdf::texto recibe un id de Drive, no un archivo). Asi que el PDF viaja
@@ -37,7 +42,8 @@ use Illuminate\Support\Facades\Storage;
  * timeout. La pantalla los manda de uno en uno y va pintando el resultado de cada uno.
  *
  * Lo que NUNCA hace solo:
- *   · Pisar un documento que la ficha ya tiene. Hace falta decirselo (pisar=true).
+ *   · Pisar un documento que la ficha ya tiene, salvo que el nuevo venza DESPUES
+ *     (enlazarSolo / venceDespues): si no, se queda el suyo.
  *   · Poner un documento ANTERIOR al que ya esta (la regla de VerificacionDocumento::
  *     documentoAnterior, la misma de la revision nocturna): eso retrocederia un
  *     vencimiento bueno. Ahi se niega incluso con pisar=true.
@@ -122,6 +128,9 @@ class CargaMasivaDocumentos
     /** Lo que cabe en verificacion_documento_registro.MOTIVO (varchar 255). */
     private const MOTIVO_MAX = 255;
 
+    /** La frase de los VIN que faltan dentro de un aviso; tambien la vieja, "No estan en el sistema: X." */
+    private const FRASE_NO_ESTAN = '/ ?No (se consiguio en el sistema (el|los) VIN|estan en el sistema:) [^.]*\./u';
+
     /**
      * Lo que la busqueda de fichas tiene que contar en la propuesta: que el documento nombra
      * varias unidades y se propuso solo una, que el RACDA paso del tope... Lo llenan
@@ -137,8 +146,18 @@ class CargaMasivaDocumentos
      */
     private array|false|null $vistoIa = false;
 
-    /** "No se pudo confirmar que sea X": no impide aplicar, pero la propuesta no sale "listo". */
+    /** "No se pudo confirmar que sea X": la propuesta no sale "listo" y no se enlaza sola. */
     private ?string $avisoTipo = null;
+
+    /**
+     * Estado de la propuesta que SE ENLAZA aunque le falte algo que tiene que completar una
+     * persona (pedido 05-10-2026): la fecha de vencimiento que no se leyo, o el numero de un BL.
+     * Queda "Aplicado" y ademas PARA REVISAR (A_MANO) hasta que se complete (ver
+     * VerificacionDocumento::fechaPuesta) o alguien la de por revisada. Lo dudoso de verdad —lo
+     * leido por la IA, un PDF que no se confirma que sea ese documento, varias unidades, el mismo
+     * archivo otra vez— sigue en "revisar" y NO se enlaza.
+     */
+    public const ENLAZAR_Y_REVISAR = 'enlazar_y_revisar';
 
     public function __construct(private LectorDocumentoPdf $lector, private LectorGemini $ia, private ?RotcDeFlota $rotcFlota = null) {}
 
@@ -221,13 +240,11 @@ class CargaMasivaDocumentos
         }
 
         // Fuera del try de arriba: la propuesta ya esta anotada, asi que si enlazar falla el PDF
-        // NO va a la papelera; la fila se queda "Por aplicar" y se aplica a mano.
-        if (($propuesta['tipo'] ?? null) === self::EMBARQUE) {
-            try {
-                $this->enlazarEmbarque($propuesta);
-            } catch (\Throwable $e) {
-                Log::error('Carga masiva: no se pudo enlazar el BL solo', ['archivo' => $nombre, 'error' => $e->getMessage()]);
-            }
+        // NO va a la papelera; la fila se queda "Sin enlazar" y lo reintenta enlazarLoPendiente().
+        try {
+            $this->enlazarSolo($propuesta);
+        } catch (\Throwable $e) {
+            Log::error('Carga masiva: no se pudo enlazar solo', ['archivo' => $nombre, 'error' => $e->getMessage()]);
         }
         return $propuesta;
     }
@@ -345,18 +362,20 @@ class CargaMasivaDocumentos
             return $this->anotar($propuesta, $driveId);
         }
 
-        // Un documento que vence sin su fecha no se puede aplicar: es el dato que vigila la app
-        // y uploadDoc tampoco lo acepta. Se propone igual para que el usuario la escriba.
-        if ($this->faltaVencimiento($tipo, $leido)) {
+        // Lo leido por la IA no se enlaza solo: hay que comprobarlo. Un documento que vence y
+        // cuya fecha no se leyo SI se enlaza a su ficha (salvo que la ficha ya tenga uno: ese no
+        // se cambia por uno sin fecha) y queda para revisar: la fecha se pone en el visor.
+        if ($conIa) {
             $propuesta['estado'] = 'revisar';
-            $propuesta['aviso'] = 'No se leyo la fecha de vencimiento. Escribela para poder aplicarlo.';
-        } elseif ($conIa) {
-            $propuesta['estado'] = 'revisar';
-            $propuesta['aviso'] = trim('Leido con apoyo de inteligencia artificial: comprueba el equipo y las fechas antes de aplicar. ' . $notaIa);
+            $propuesta['aviso'] = trim('Leido con apoyo de inteligencia artificial: no se enlaza solo; si el equipo y las fechas son correctos, subelo desde su ficha. ' . $notaIa);
+        } elseif ($this->faltaVencimiento($tipo, $leido)) {
+            $propuesta['estado'] = self::ENLAZAR_Y_REVISAR;
+            $propuesta['revisar_por'] = ['fecha'];
+            $propuesta['aviso'] = 'No se leyo la fecha de vencimiento: se enlaza sin ella; ponla en el visor de su ficha.';
         }
 
         // Lo que la busqueda de fichas quiere que se mire (varias unidades, tope del RACDA) y
-        // el mismo archivo soltado otra vez: no impiden aplicar, pero no puede salir "listo".
+        // el mismo archivo soltado otra vez: no sale "listo" y no se enlaza solo (se ata a mano).
         $avisos = array_filter([$this->avisoTipo, $this->avisoFichas, $this->yaSeSolto($md5, $driveId)]);
         if ($avisos) {
             $propuesta['estado'] = 'revisar';
@@ -371,7 +390,8 @@ class CargaMasivaDocumentos
      * lo que se sube (el modal solo sirve para soltar archivos). Una fila por PDF, con
      * ORIGEN='carga_masiva' para no confundirla con lo que lee la tarea de la noche.
      *
-     * NO escribe en ninguna ficha: es una propuesta esperando que alguien pulse "Aplicar".
+     * NO escribe en ninguna ficha: es la propuesta. La enlaza después enlazarSolo(), si
+     * coincide; si no, la fila dice por qué no.
      * Si falla al anotarla, la excepcion sube a analizar(), que devuelve el PDF a la papelera:
      * sin su fila nadie podria aplicarlo ni descartarlo.
      */
@@ -390,7 +410,9 @@ class CargaMasivaDocumentos
                     'PLACA'       => $ficha['placa'] ?? null,
                     'SERIAL'      => $ficha['serial'] ?? null,
                     'ARCHIVO'     => $propuesta['archivo'],
-                    'PROPUESTA'   => $propuesta,
+                    // Quien lo solto: lo que enlace despues el reintento de cada hora va a su
+                    // nombre, como lo enlazado al leerlo (ver enlazarLoPendiente).
+                    'PROPUESTA'   => $propuesta + ['subido_por' => Auth::id()],
                     'ESTADO'      => match (true) {
                         ($propuesta['estado'] ?? null) === self::OTRO_DOCUMENTO => VerificacionDocumento::OTRO_DOCUMENTO,
                         (bool) $ficha => VerificacionDocumento::POR_ENGANCHAR,
@@ -415,9 +437,10 @@ class CargaMasivaDocumentos
     /**
      * El PDF ya esta en su ficha: su fila de la tabla pasa a "Aplicado". No se borra, para que
      * se vea que paso con cada archivo que se solto; cuando la tarea de la noche relea ese
-     * documento —que ya es de la ficha— la convertira en una lectura suya.
+     * documento —que ya es de la ficha— la convertira en una lectura suya. Con $paraRevisar
+     * (ENLAZAR_Y_REVISAR) queda ademas para revisar: falta algo que pone una persona.
      */
-    public function cerrarPropuesta(string $link): void
+    public function cerrarPropuesta(string $link, bool $paraRevisar = false): void
     {
         if (!$driveId = DocumentoAnexo::driveIdDeLink($link)) return;
 
@@ -425,7 +448,7 @@ class CargaMasivaDocumentos
             ->where('ORIGEN', VerificacionDocumento::DE_CARGA_MASIVA)
             ->update([
                 'ESTADO'       => VerificacionDocumento::APLICADO,
-                'A_MANO'       => false,
+                'A_MANO'       => $paraRevisar,
                 'APLICADO_POR' => auth()->id(),
                 'APLICADO_EN'  => now(),
                 'updated_at'   => now(),
@@ -551,7 +574,7 @@ class CargaMasivaDocumentos
     /**
      * Aplicar la parte de UN equipo de un ROTC de flota. Las MISMAS puertas que cualquier
      * documento (no pisa sin permiso, no retrocede un vencimiento), probadas ANTES de armar
-     * nada: solo si pasan se arma su PDF, se sube y se enlaza. Asi un "¿reemplazarlo?" o un
+     * nada: solo si pasan se arma su PDF, se sube y se enlaza. Asi un reemplazo que no entra o un
      * documento anterior no dejan partes sueltas en Drive.
      */
     private function aplicarParteDeFlota(int $idEquipo, string $link, array $parte, bool $pisar, bool $ensayo, bool $cerrar): array
@@ -619,18 +642,6 @@ class CargaMasivaDocumentos
         $fila->update(['PROPUESTA' => $p]);
     }
 
-    /**
-     * ¿Alguna ficha tiene ya este PDF, o una parte suya (ROTC de flota)? Con eso la propuesta
-     * queda resuelta aunque la ULTIMA ficha no entrara (ver el controlador).
-     */
-    public function yaSeAplicoAlgo(string $link): bool
-    {
-        if (!$id = DocumentoAnexo::driveIdDeLink($link)) return false;
-        if (EnlacesDocumentos::sigueEnUso($id)) return true;
-
-        return !empty($this->propuestaGuardada($link)['flota_rotc']['piezas']);
-    }
-
     /** Lo que se lee en la columna "Que dice la ficha y que dice el documento" de la tabla. */
     private function motivoDeLaPropuesta(array $p): string
     {
@@ -647,7 +658,7 @@ class CargaMasivaDocumentos
         // Y CABEN LOS DOS: la columna son 255 caracteres, asi que si el aviso no entra entero se
         // recorta la parte de delante —el nombre del equipo, que ya se ve en su propia columna—
         // y nunca el aviso, que es lo que dice que hay que hacer.
-        $aviso = trim((string) ($p['aviso'] ?: 'Falta aplicarlo a la ficha.'));
+        $aviso = trim((string) ($p['aviso'] ?? 'Todavia sin enlazar a la ficha.'));
         $porQue = 'Reconocido por ' . ($ficha['coincide_por'] ?? 'lo que dice el PDF')
             . ', que es de ' . $ficha['nombre'] . $otros
             . ($p['vence'] ? '. Vence el ' . implode('/', array_reverse(explode('-', $p['vence']))) : '')
@@ -687,7 +698,7 @@ class CargaMasivaDocumentos
         return $fichas;
     }
 
-    /** ¿Es de los que vencen y no se leyo su fecha? Sin ella no se puede aplicar. */
+    /** ¿Es de los que vencen y no se leyo su fecha? Entonces se enlaza sin ella y queda para revisar. */
     private function faltaVencimiento(?string $tipo, array $leido): bool
     {
         return $tipo && isset(DocumentacionDeEquipo::VENCIMIENTO[$tipo]) && empty($leido['vence']);
@@ -717,8 +728,8 @@ class CargaMasivaDocumentos
      * Le da el PDF entero a Gemini y rellena SOLO lo que falto. Lo que la lectura de siempre
      * ya saco no se toca: si el OCR dio una fecha, esa manda; la IA solo pone huecos.
      *
-     * El resultado sigue siendo una PROPUESTA: la pantalla la marca como "revisar" y nada se
-     * escribe en la ficha hasta que el usuario pulse Aplicar.
+     * El resultado sigue siendo una PROPUESTA: sale como "revisar" y NO se enlaza sola (ver
+     * enlazarSolo); si es correcta, el documento se sube desde la ficha del equipo.
      *
      * @return array{0:?string,1:array,2:array,3:bool,4:?string}  [tipo, leido, equipos, ayudo, nota]
      */
@@ -832,6 +843,9 @@ class CargaMasivaDocumentos
         // Las que nombra el BL: las registradas (por VIN, VIN partido o serial de maquina) mas
         // los VIN enteros que no estan en el sistema.
         $unidades = $filas->count() + count($noEstan);
+        // Los que ya se ataron a mano a una ficha (atarVin) no faltan: estan en el embarque.
+        $noEstan = $this->vinesSinAtar(['tipo' => self::EMBARQUE, 'link' => $link,
+            'embarque' => ['nro' => $bl['nro'], 'no_registrados' => $noEstan]]);
 
         $fichas = $filas->map(fn ($f) => ['coincide_por' => 'el VIN ' . $f->SERIAL_CHASIS] + $this->ficha($f)
             + ['vin_bl' => $impreso[$this->lector->codigo((string) $f->SERIAL_CHASIS)] ?? $f->SERIAL_CHASIS])->values()->all();
@@ -858,50 +872,419 @@ class CargaMasivaDocumentos
             return $propuesta;
         }
 
-        $propuesta['aviso'] = "$rotulo: $unidades unidades, " . count($fichas) . ' registradas.'
-            . ($noEstan ? ' No estan en el sistema: ' . implode(', ', array_slice($noEstan, 0, 5))
-                . (count($noEstan) > 5 ? ' y ' . (count($noEstan) - 5) . ' mas' : '') . '.' : '');
+        $propuesta['aviso'] = "$rotulo: $unidades unidades, " . ($unidades - count($noEstan)) . ' registradas.' . self::fraseNoEstan($noEstan);
 
-        $avisos = array_filter([
-            !$bl['nro'] ? 'No se leyo el numero de BL.' : null,
-            $conIa ? 'La lista de VIN la leyo la IA: compruebala antes de aplicar.' : null,
-            $this->avisoTipo, $this->avisoFichas, $this->yaSeSolto($md5, $driveId),
+        // Lo que impide enlazarlo solo (la IA, no confirmarse que sea un BL) y lo que no lo
+        // impide pero lo deja para revisar (sin numero, mas del tope): su VIN es el serial de
+        // chasis exacto, asi que de que equipos es si se sabe. El MISMO PDF otra vez no impide
+        // nada: es como se enlazan los equipos que faltaban (un serial corregido); solo se dice.
+        $bloquean = array_filter([
+            $conIa ? 'La lista de VIN la leyo la IA: no se enlaza sola; compruebala.' : null,
+            $this->avisoTipo,
         ]);
-        if ($avisos) {
-            $propuesta['estado'] = 'revisar';
-            $propuesta['aviso'] = implode(' ', $avisos) . ' ' . $propuesta['aviso'];
+        // Por que queda para revisar (revisar_por): cada motivo sale de la revision cuando se
+        // completa lo suyo (ver quedaPorRevisar y VerificacionDocumento::numeroDeBlPuesto).
+        $paraRevisar = array_filter([
+            'numero' => !$bl['nro'] ? 'No se leyo el numero de BL: se enlaza igual; ponlo en el visor del equipo.' : null,
+            'tope'   => $this->avisoFichas,
+        ]);
+        if ($bloquean || $paraRevisar) {
+            $propuesta['estado'] = $bloquean ? 'revisar' : self::ENLAZAR_Y_REVISAR;
+            if (!$bloquean) $propuesta['revisar_por'] = array_keys($paraRevisar);
         }
+        $propuesta['aviso'] = trim(implode(' ', array_merge($bloquean, array_values($paraRevisar),
+            array_filter([$this->yaSeSolto($md5, $driveId)]))) . ' ' . $propuesta['aviso']);
         return $propuesta;
     }
 
     /**
-     * Un BL se enlaza SOLO a los equipos que reconocio por su VIN: no hace falta pulsar Aplicar
-     * (pedido 01-10-2026). El VIN es el serial de chasis exacto, no hay nada que decidir. Si
-     * todos entran, la fila queda "Aplicado"; los que necesitan una decision (el equipo ya esta
-     * en otro embarque, o el BL tiene OTRO PDF cargado) se quedan "Por aplicar" y la fila lo
-     * dice. Lo leido por la IA NO se enlaza solo: su lista de VIN hay que comprobarla.
+     * Lo que se reconoce y coincide se enlaza SOLO al leerlo, sin pulsar Aplicar (pedido
+     * 01-10-2026): titulos, polizas, ROTC, RACDA, certificados, compraventas y BL. Se enlaza lo
+     * "listo" (ficha reconocida, sin IA, con su fecha, sin avisos que mirar) y lo
+     * ENLAZAR_Y_REVISAR (sin fecha, o un BL sin numero), que ademas queda para revisar. Las
+     * unidades de un BL que no estan registradas no lo impiden: se atan a mano (atarVin). Lo
+     * leido por la IA NUNCA: hay que comprobarlo.
+     *
+     * No hay boton de Aplicar (pedido 01-10-2026): esto es lo que enlaza solo; a mano, atarDocumento
+     * y atarVin. Si la ficha ya tiene ese documento, se reemplaza solo cuando el nuevo vence DESPUES (el viejo va a la
+     * papelera de Drive, se recupera con un clic); si no, se queda el suyo. Lo que no entra
+     * —documento anterior, equipo en otro embarque— se queda sin enlazar y la fila dice por que.
+     * Si todo entra, queda "Aplicado".
      */
-    private function enlazarEmbarque(array $propuesta): void
+    private function enlazarSolo(array $propuesta): void
     {
+        $tipo = $propuesta['tipo'] ?? null;
         if (!empty($propuesta['ia']) || empty($propuesta['equipos']) || empty($propuesta['link'])) return;
+        if (!in_array($propuesta['estado'] ?? null, ['listo', self::ENLAZAR_Y_REVISAR], true)) return;
 
         // Cuantos se quedan sin enlazar, por motivo.
         $pendientes = [];
         foreach ($propuesta['equipos'] as $f) {
-            $r = $this->aplicarEmbarque((int) $f['id'], $propuesta['link'], false, false, false);
+            // Un ROTC de flota arma y sube la parte de cada equipo (~2-3 s): el tope de tiempo
+            // va por ficha, no por PDF. Si aun asi se corta, lo termina enlazarLoPendiente().
+            ColaCargaMasiva::renovarTope();
+            $aplicarlo = fn (bool $pisar) => $this->aplicar((int) $f['id'], $tipo, $propuesta['link'], $propuesta['vence'] ?? null,
+                $propuesta['emision'] ?? null, $pisar, false, !empty($f['auxiliar']), false);
+            $r = $aplicarlo(false);
+            if (!empty($r['requiere_pisar']) && $this->venceDespues($propuesta, $f)) $r = $aplicarlo(true);
             if (!$r['ok']) $pendientes[$r['mensaje']] = ($pendientes[$r['mensaje']] ?? 0) + 1;
         }
+        $filaDelPdf = VerificacionDocumento::where('DRIVE_ID', DocumentoAnexo::driveIdDeLink($propuesta['link']))
+            ->where('ORIGEN', VerificacionDocumento::DE_CARGA_MASIVA);
         if (!$pendientes) {
-            $this->cerrarPropuesta($propuesta['link']);
+            // La fila dice que se enlazo sola, no el "Todavia sin enlazar" con el que se anoto.
+            $filaDelPdf->update(['MOTIVO' => mb_substr($this->motivoDeLaPropuesta(
+                ['aviso' => trim('Enlazado solo. ' . $this->avisoAlDia($propuesta))] + $propuesta), 0, self::MOTIVO_MAX)]);
+            $this->cerrarPropuesta($propuesta['link'], $this->quedaPorRevisar($propuesta));
             return;
         }
 
+        // Lo que no entra dice por que. La fila solo se reescribe si el motivo CAMBIA (el
+        // reintento de cada hora la tocaba siempre: cambiaba su fecha y desordenaba la tabla) y
+        // conserva lo que se ato a mano (atarVin), que no sale de la propuesta.
+        $fila = $filaDelPdf->first();
+        if (!$fila) return;
+        preg_match_all('/Atado a mano: [^.]*\./u', (string) $fila->MOTIVO, $atados);
         $enlazados = count($propuesta['equipos']) - array_sum($pendientes);
-        $porque = implode(' ', array_map(fn ($m, $n) => "$n sin enlazar: $m", array_keys($pendientes), $pendientes));
-        VerificacionDocumento::where('DRIVE_ID', DocumentoAnexo::driveIdDeLink($propuesta['link']))
+        $porque = implode(' ', array_map(fn ($m, $n) => ($enlazados || $n > 1 ? "$n sin enlazar: " : '') . $m,
+            array_keys($pendientes), $pendientes));
+        $motivo = VerificacionDocumento::motivoQueCabe(trim(($enlazados ? "Enlazado solo a $enlazados equipo(s). " : 'No se enlazó. ')
+            . "$porque " . $this->motivoDeLaPropuesta(['aviso' => $this->avisoAlDia($propuesta) ?? ''] + $propuesta)
+            . ' ' . implode(' ', $atados[0])));
+        if ($fila->MOTIVO !== $motivo) $fila->update(['MOTIVO' => $motivo]);
+    }
+
+    /**
+     * ¿Sigue habiendo algo por completar en lo que se enlazo como ENLAZAR_Y_REVISAR? Se mira AHORA:
+     * el numero de un BL pudo ponerse en el visor despues de leerlo (y la fila se cerro mas tarde,
+     * en el reintento). Sin revisar_por (anotadas antes), se toma que si.
+     */
+    private function quedaPorRevisar(array $p): bool
+    {
+        if (($p['estado'] ?? null) !== self::ENLAZAR_Y_REVISAR) return false;
+        $por = $p['revisar_por'] ?? ['?'];
+        if (in_array('numero', $por, true) && $this->embarqueDelBl(null, $p['link'] ?? null)?->NRO_BL) {
+            $por = array_diff($por, ['numero']);
+        }
+        return (bool) $por;
+    }
+
+    /**
+     * El documento nuevo vence DESPUES que el que tiene la ficha AHORA: solo entonces se
+     * reemplaza solo. La de la ficha se lee en el momento y no la guardada al leer el PDF: el
+     * reintento de cada hora llega cuando quizas ya se cargo otro. Sin las dos fechas (un titulo,
+     * un certificado sin fecha en la ficha) no se sabe cual es el bueno, y se queda el que estaba.
+     * El de un ROTC de flota es el de SU fila.
+     */
+    private function venceDespues(array $propuesta, array $ficha): bool
+    {
+        $tipo = $propuesta['tipo'] ?? null;
+        $nuevo = $ficha['rotc']['vence'] ?? $propuesta['vence'] ?? null;
+        $actual = !empty($ficha['auxiliar'])
+            ? ($tipo === self::CERTIFICADO
+                ? DB::table('equipos_auxiliares')->where('ID_AUXILIAR', $ficha['id'])->value('FECHA_VENCIMIENTO_CERT') : null)
+            : (($col = DocumentacionDeEquipo::VENCIMIENTO[$tipo] ?? null)
+                ? DB::table('documentacion')->where('ID_EQUIPO', $ficha['id'])->value($col) : null);
+        return $nuevo && $actual && $nuevo > $this->soloFecha($actual);
+    }
+
+    /**
+     * El aviso de la propuesta, al dia: en un BL, los VIN que faltan son los que AUN faltan (los
+     * atados a mano despues ya no, ver atarVin). Sin esto, el reintento de cada hora volvia a
+     * escribir en la fila "no se consiguio el VIN X" de uno ya atado.
+     */
+    private function avisoAlDia(array $propuesta): ?string
+    {
+        $aviso = $propuesta['aviso'] ?? null;
+        if (($propuesta['tipo'] ?? null) !== self::EMBARQUE || !$aviso) return $aviso;
+        return trim(preg_replace(self::FRASE_NO_ESTAN, '', $aviso)) . self::fraseNoEstan($this->vinesSinAtar($propuesta));
+    }
+
+    /**
+     * Lo que sigue sin enlazar se vuelve a intentar cada hora (routes/console.php): lo subido
+     * antes de que se enlazara solo, un ROTC de flota cortado a medias, o una ficha a la que
+     * ya se le corrigio el serial. Lo que no entra no escribe en la ficha: solo se vuelve a decir
+     * por que (y la fila solo si eso cambio).
+     *
+     * Con el MISMO candado que la lectura (ColaCargaMasiva::CANDADO): si se esta leyendo un PDF,
+     * esta pasada se salta y lo intenta la de la hora siguiente; si no, las dos podian enlazar la
+     * misma fila a la vez (historial repetido, la parte de un ROTC de flota subida dos veces). Y
+     * cada fila va a nombre de quien solto su PDF, como lo que se enlaza al leerlo. Devuelve
+     * cuantas filas se intentaron.
+     */
+    public function enlazarLoPendiente(): int
+    {
+        $candado = Cache::lock(ColaCargaMasiva::CANDADO, ColaCargaMasiva::ABANDONADO_SEG);
+        if (!$candado->get()) return 0;
+
+        $n = 0;
+        $hasta = ColaCargaMasiva::hastaCuando();   // lo que quede, en la pasada de la hora siguiente
+        try {
+            VerificacionDocumento::where('ORIGEN', VerificacionDocumento::DE_CARGA_MASIVA)
+                ->where('ESTADO', VerificacionDocumento::POR_ENGANCHAR)
+                ->orderBy('ID_REGISTRO')->get()
+                ->each(function ($fila) use (&$n, $hasta) {
+                    if (time() > $hasta) return false;
+                    $propuesta = $fila->PROPUESTA ?? [];
+                    ColaCargaMasiva::aNombreDe($propuesta['subido_por'] ?? null);
+                    try {
+                        $this->enlazarSolo($propuesta);
+                        $n++;
+                    } catch (\Throwable $e) {
+                        Log::error('Carga masiva: no se pudo enlazar lo pendiente', ['fila' => $fila->ID_REGISTRO, 'error' => $e->getMessage()]);
+                    }
+                });
+        } finally {
+            Auth::forgetUser();
+            $candado->release();
+        }
+        return $n;
+    }
+
+    /** " No se consiguio en el sistema el VIN X." (o los VIN, hasta 5), o '' si no falta ninguno. */
+    private static function fraseNoEstan(array $vins): string
+    {
+        if (!$vins) return '';
+        return ' No se consiguio en el sistema ' . (count($vins) === 1 ? 'el VIN ' : 'los VIN ')
+            . implode(', ', array_slice($vins, 0, 5)) . (count($vins) > 5 ? ' y ' . (count($vins) - 5) . ' mas' : '') . '.';
+    }
+
+    /**
+     * Los VIN de un BL que no casaron con ninguna ficha y todavia no se ataron a mano (ver
+     * atarVin). Se mira en el EMBARQUE y no en la fila: el mismo BL soltado varias veces deja
+     * varias filas, y atado desde una, ya no falta en ninguna.
+     */
+    public function vinesSinAtar(?array $propuesta): array
+    {
+        return $this->vinesSinAtarDeVarias([$propuesta])[0];
+    }
+
+    /**
+     * vinesSinAtar() de muchas propuestas a la vez (una pagina del panel): unas pocas consultas
+     * en total, no por fila. Devuelve los VIN que faltan con las MISMAS claves que $propuestas.
+     */
+    public function vinesSinAtarDeVarias(array $propuestas): array
+    {
+        $conFaltan = array_filter($propuestas, fn ($p) => ($p['tipo'] ?? null) === self::EMBARQUE
+            && !empty($p['embarque']['no_registrados']));
+        // Los embarques, como embarqueDelBl: por numero, todos de una vez; el de un BL sin
+        // numero (o que no se encuentre por el), por su PDF.
+        $nros = array_values(array_unique(array_filter(array_map(fn ($p) => $p['embarque']['nro'] ?? null, $conFaltan))));
+        $idDe = [];
+        if ($nros) {
+            foreach (Embarque::whereIn('NRO_BL', $nros)->get(['ID_EMBARQUE', 'NRO_BL']) as $e) {
+                $idDe[self::claveBl($e->NRO_BL)] = $e->ID_EMBARQUE;
+            }
+        }
+        $sinNumero = array_values(array_filter(array_map(fn ($p) => isset($idDe[self::claveBl($p['embarque']['nro'] ?? null)])
+            ? null : DocumentoAnexo::driveIdDeLink($p['link'] ?? null), $conFaltan)));
+        $idPorPdf = [];
+        if ($sinNumero) {
+            $porPdf = Embarque::where(function ($q) use ($sinNumero) {
+                foreach ($sinNumero as $driveId) $q->orWhere('LINK', 'like', '/storage/google/' . $driveId . '%');
+            })->get(['ID_EMBARQUE', 'LINK']);
+            foreach ($porPdf as $e) $idPorPdf[DocumentoAnexo::driveIdDeLink($e->LINK)] = $e->ID_EMBARQUE;
+        }
+        $suEmbarque = array_map(fn ($p) => $idDe[self::claveBl($p['embarque']['nro'] ?? null)]
+            ?? $idPorPdf[DocumentoAnexo::driveIdDeLink($p['link'] ?? null) ?? ''] ?? null, $conFaltan);
+
+        $atados = [];   // ID_EMBARQUE => [codigo del VIN => true]
+        if ($ids = array_values(array_unique(array_filter($suEmbarque)))) {
+            foreach (DB::table('embarque_equipo')->whereIn('ID_EMBARQUE', $ids)->whereNotNull('VIN')
+                         ->get(['ID_EMBARQUE', 'VIN']) as $r) {
+                $atados[$r->ID_EMBARQUE][$this->lector->codigo((string) $r->VIN)] = true;
+            }
+        }
+
+        $faltan = [];
+        foreach ($propuestas as $k => $p) {
+            $suyos = $atados[$suEmbarque[$k] ?? 0] ?? [];
+            $faltan[$k] = !isset($conFaltan[$k]) ? [] : array_values(array_filter($p['embarque']['no_registrados'],
+                fn ($v) => !isset($suyos[$this->lector->codigo($v)])));
+        }
+        return $faltan;
+    }
+
+    /**
+     * Fichas para atar un VIN que falta (o lo que se escriba): las que contienen lo buscado en
+     * su serial, placa o codigo, y las de serial PARECIDO —uno o dos caracteres distintos, como
+     * el digito de control de un VIN mal copiado—. Primero lo mas parecido. Cada una dice si ya
+     * esta en un embarque.
+     */
+    public function buscarEquipo(string $buscado): array
+    {
+        $cod = $this->lector->codigo($buscado);
+        if (strlen($cod) < 3) return [];
+
+        $serial = self::sqlCodigo('e.SERIAL_CHASIS');
+        $filas = $this->consulta()->addSelect('e.CODIGO_PATIO')
+            ->where(function ($w) use ($cod, $serial) {
+                $w->whereRaw("$serial LIKE ?", ['%' . $cod . '%'])
+                  ->orWhereRaw(self::sqlCodigo('d.PLACA') . ' LIKE ?', ['%' . $cod . '%'])
+                  ->orWhereRaw(self::sqlCodigo('e.CODIGO_PATIO') . ' LIKE ?', ['%' . $cod . '%']);
+                // Un VIN con un caracter cambiado comparte el principio o el final.
+                if (strlen($cod) >= 10) {
+                    $w->orWhereRaw("$serial LIKE ?", [substr($cod, 0, 8) . '%'])
+                      ->orWhereRaw("$serial LIKE ?", ['%' . substr($cod, -6)]);
+                }
+            })
+            // Primero lo que contiene lo buscado, luego lo que comparte el FINAL (el numero de
+            // serie del VIN, casi unico) y al ultimo el PRINCIPIO (fabricante y modelo: pueden ser
+            // cientos de unidades). Sin orden, el tope se quedaba con filas cualquiera y el equipo
+            // bueno podia no salir. Comparar unos miles de seriales aqui abajo es inmediato.
+            ->orderByRaw("CASE WHEN $serial LIKE ? THEN 0 WHEN $serial LIKE ? THEN 1 ELSE 2 END",
+                ['%' . $cod . '%', '%' . substr($cod, -6)])
+            ->limit(2000)->get();
+
+        $nros = Embarque::whereIn('ID_EMBARQUE', $filas->pluck('ID_EMBARQUE')->filter()->unique())->pluck('NRO_BL', 'ID_EMBARQUE');
+        return $filas
+            ->map(function ($f) use ($cod) {
+                $suyo = $this->lector->codigo((string) $f->SERIAL_CHASIS);
+                $contiene = $suyo !== '' && str_contains($suyo, $cod)
+                    || str_contains($this->lector->codigo((string) $f->PLACA), $cod)
+                    || str_contains($this->lector->codigo((string) $f->CODIGO_PATIO), $cod);
+                return [$f, $contiene ? 0 : levenshtein($cod, $suyo)];
+            })
+            ->filter(fn ($par) => $par[1] <= 3)
+            ->sortBy(fn ($par) => $par[1])
+            ->take(8)
+            ->map(fn ($par) => [
+                'id' => (int) $par[0]->ID_EQUIPO, 'serial' => $par[0]->SERIAL_CHASIS, 'placa' => $par[0]->PLACA,
+                'codigo' => $par[0]->CODIGO_PATIO,
+                'nombre' => trim(($par[0]->MARCA ?? '') . ' ' . ($par[0]->MODELO ?? '')) ?: ('Equipo #' . $par[0]->ID_EQUIPO),
+                'bl' => $par[0]->ID_EMBARQUE ? ($nros[$par[0]->ID_EMBARQUE] ?? 'sin numero') : null,
+            ])
+            ->values()->all();
+    }
+
+    /**
+     * Ata a mano un VIN del BL que no caso con ninguna ficha (el serial de la ficha difiere en
+     * algo) a la ficha que la persona eligio. Pasa por las mismas puertas que el enlace solo
+     * (aplicarEmbarque: un equipo en otro embarque no se mueve), guarda el VIN COMO LO DICE EL
+     * BL y no toca el serial de la ficha: cual de los dos esta bien lo decide una persona.
+     */
+    public function atarVin(string $link, string $vin, int $idEquipo): array
+    {
+        $p = $this->propuestaGuardada($link);
+        $vin = collect($this->vinesSinAtar($p))->first(fn ($v) => $this->lector->codigo($v) === $this->lector->codigo($vin));
+        if (!$vin) return ['ok' => false, 'mensaje' => 'Ese VIN ya no falta en este BL. Recarga la tabla.'];
+
+        // Uno que ya esta en ESTE BL tiene su propio VIN: atarle otro se lo pisaria.
+        $nro = $p['embarque']['nro'] ?? null;
+        $idEmbarque = $this->embarqueDelBl($nro, $link)?->ID_EMBARQUE;
+        $suVin = $idEmbarque ? DB::table('embarque_equipo')->where('ID_EMBARQUE', $idEmbarque)->where('ID_EQUIPO', $idEquipo)->first(['VIN']) : null;
+        if ($suVin) {
+            return ['ok' => false, 'mensaje' => 'Ese equipo ya esta en este BL' . ($suVin->VIN ? ' con el VIN ' . $suVin->VIN : '') . ': elige otro.'];
+        }
+
+        $r = $this->aplicarEmbarque($idEquipo, $link, false, false, false);
+        if (!$r['ok']) return $r;
+
+        // aplicarEmbarque lo enlazo sin VIN (no estaba entre los suyos): se guarda el del BL.
+        DB::table('embarque_equipo')->where('ID_EQUIPO', $idEquipo)->update(['VIN' => $vin]);
+
+        // Las filas de ESE BL (pudo soltarse varias veces) dejan de decir que el VIN falta. Sin
+        // numero de BL, solo la suya: el numero es lo unico que dice que dos filas son el mismo BL.
+        $serial = Equipo::whereKey($idEquipo)->value('SERIAL_CHASIS');
+        $faltan = $this->vinesSinAtar($p);
+        $driveId = DocumentoAnexo::driveIdDeLink($link);
+        VerificacionDocumento::where('ORIGEN', VerificacionDocumento::DE_CARGA_MASIVA)
+            ->where('TIPO', self::EMBARQUE)
+            ->when($nro,
+                fn ($q) => $q->whereRaw("UPPER(TRIM(JSON_UNQUOTE(JSON_EXTRACT(PROPUESTA, '$.embarque.nro')))) = ?", [self::claveBl($nro)]),
+                fn ($q) => $q->where('DRIVE_ID', $driveId))
+            ->get()
+            ->each(function ($fila) use ($faltan, $vin, $serial) {
+                $motivo = trim(preg_replace(self::FRASE_NO_ESTAN, '', (string) $fila->MOTIVO))
+                    . self::fraseNoEstan($faltan) . " Atado a mano: el VIN $vin al equipo de serial $serial.";
+                // Lo nuevo va al FINAL: si no cabe, se recorta por delante.
+                $fila->update(['MOTIVO' => VerificacionDocumento::motivoQueCabe($motivo)]);
+            });
+
+        // Sin VIN que falten y con todas sus unidades reconocidas en el embarque, el BL quedo
+        // entero: su fila pasa a Aplicado, tambien la que al leerlo no reconocio ninguna ("sin
+        // ficha"), que se queda con el equipo atado para que no diga que no tiene ficha.
+        $embarque = $this->embarqueDelBl($nro, $link);
+        $enEl = $embarque ? DB::table('embarque_equipo')->where('ID_EMBARQUE', $embarque->ID_EMBARQUE)->pluck('ID_EQUIPO')->all() : [];
+        if (!$faltan && !array_diff(array_column($p['equipos'] ?? [], 'id'), $enEl)) {
+            VerificacionDocumento::where('DRIVE_ID', $driveId)->where('ORIGEN', VerificacionDocumento::DE_CARGA_MASIVA)
+                ->whereNull('ID_EQUIPO')->update(['ID_EQUIPO' => $idEquipo]);
+            $this->cerrarPropuesta($link, $this->quedaPorRevisar($p));
+        }
+
+        return ['ok' => true, 'mensaje' => "VIN $vin atado al equipo de serial $serial."];
+    }
+
+    /** El numero de un BL como lo compara MySQL: sin mayusculas ni espacios al final. */
+    private static function claveBl(?string $nro): string
+    {
+        return mb_strtoupper(rtrim((string) $nro));
+    }
+
+    /**
+     * El embarque de un BL: el de su numero o, sin numero (o si no se encuentra por el), el de
+     * su PDF. Es la UNICA forma de buscarlo: la usan enlazar (aplicarEmbarque), atar un VIN
+     * (atarVin) y saber que VIN faltan (vinesSinAtarDeVarias). Cada una lo buscaba a su manera
+     * y un BL sin numero no se encontraba al atar: el mismo VIN acababa en dos equipos.
+     */
+    private function embarqueDelBl(?string $nro, ?string $link): ?Embarque
+    {
+        if ($nro && ($embarque = Embarque::where('NRO_BL', $nro)->first())) return $embarque;
+        $driveId = DocumentoAnexo::driveIdDeLink($link);
+        return $driveId ? Embarque::where('LINK', 'like', '/storage/google/' . $driveId . '%')->first() : null;
+    }
+
+    /**
+     * Ata a mano, a la ficha que eligio la persona (buscandola por serial, placa o codigo), un PDF
+     * de la carga que no se enlazo solo: no se supo de quien era, lo leyo la IA o venia con algo
+     * que mirar (pedido 05-10-2026). Pasa por las MISMAS puertas que el enlace solo (aplicar): no
+     * retrocede un vencimiento ni cambia uno con fecha por uno sin ella, y si la ficha ya tiene
+     * ese documento pide $reemplazar. Sin fecha leida queda para revisar (como ENLAZAR_Y_REVISAR).
+     * El BL no va por aqui: es de varios equipos y se ata VIN por VIN (atarVin).
+     */
+    public function atarDocumento(string $link, int $idEquipo, bool $reemplazar = false): array
+    {
+        $p = $this->propuestaGuardada($link);
+        $tipo = $p['tipo'] ?? null;
+        if (!$p || !$this->esPropuestaSinAplicar($link)) {
+            return ['ok' => false, 'mensaje' => 'Ese PDF ya no esta por enlazar. Recarga la tabla.'];
+        }
+        if ($tipo === self::EMBARQUE) {
+            return ['ok' => false, 'mensaje' => 'Un BL se ata VIN por VIN, desde su fila.'];
+        }
+        if (!isset(self::NOMBRES[$tipo]) || ($p['estado'] ?? null) === self::OTRO_DOCUMENTO) {
+            return ['ok' => false, 'mensaje' => 'No se sabe que documento es: descartalo y vuelve a soltarlo eligiendo su tipo.'];
+        }
+        // Un PDF de VARIAS unidades (un RACDA, un ROTC de flota) se enlaza a cada una por su lado:
+        // atarlo aqui a una lo daria por terminado y las demas se quedarian sin el.
+        if (count($p['equipos'] ?? []) > 1 || !empty($p['flota_rotc'])) {
+            return ['ok' => false, 'mensaje' => 'Este PDF es de varias unidades: se enlaza solo a cada una; no se ata a una sola.'];
+        }
+
+        $vence = $p['vence'] ?? null;
+        $r = $this->aplicar($idEquipo, $tipo, $link, $vence, $p['emision'] ?? null, $reemplazar, false, false, false);
+        if (!empty($r['requiere_pisar'])) {
+            // El mensaje de aplicar habla de fechas comparadas, y aqui no se comparo nada.
+            $r['mensaje'] = isset(DocumentacionDeEquipo::VENCIMIENTO[$tipo]) && !$vence
+                ? 'Esa ficha ya tiene ' . self::NOMBRES[$tipo] . ' y este PDF no trae fecha: no se reemplaza.'
+                : 'Esa ficha ya tiene ' . self::NOMBRES[$tipo] . '.';
+            if (isset(DocumentacionDeEquipo::VENCIMIENTO[$tipo]) && !$vence) unset($r['requiere_pisar']);
+        }
+        if (!$r['ok']) return $r;
+
+        $sinFecha = isset(DocumentacionDeEquipo::VENCIMIENTO[$tipo]) && !$vence;
+        $this->cerrarPropuesta($link, $sinFecha);
+        $equipo = Equipo::with('documentacion:ID_EQUIPO,PLACA')->find($idEquipo);
+        VerificacionDocumento::where('DRIVE_ID', DocumentoAnexo::driveIdDeLink($link))
             ->where('ORIGEN', VerificacionDocumento::DE_CARGA_MASIVA)
-            ->update(['MOTIVO' => mb_substr("Enlazado solo a $enlazados equipo(s). $porque Pulsa Aplicar para decidirlo. "
-                . $this->motivoDeLaPropuesta($propuesta), 0, self::MOTIVO_MAX)]);
+            ->update([
+                'ID_EQUIPO' => $idEquipo, 'ID_AUXILIAR' => null,
+                'PLACA' => $equipo?->documentacion?->PLACA, 'SERIAL' => $equipo?->SERIAL_CHASIS,
+                'MOTIVO' => VerificacionDocumento::motivoQueCabe('Atado a mano al equipo de serial ' . ($equipo?->SERIAL_CHASIS ?: $idEquipo)
+                    . ($sinFecha ? '. No se leyo la fecha de vencimiento: ponla en el visor de su ficha.' : '.')),
+            ]);
+
+        return ['ok' => true, 'mensaje' => self::NOMBRES[$tipo] . ' atado al equipo de serial ' . ($equipo?->SERIAL_CHASIS ?: $idEquipo) . '.'];
     }
 
     /** Los datos del BL que se anotaron al analizar su PDF (propuesta['embarque']), o null. */
@@ -918,10 +1301,12 @@ class CargaMasivaDocumentos
      * Enlaza UN equipo a su embarque. Un BL es de todos sus equipos, asi que las puertas son
      * las del documento compartido (como el RACDA), en este orden:
      *
-     *   · El embarque es el de ese numero de BL (o, sin numero, el de ese mismo PDF). Si ya
-     *     existe con OTRO PDF, cambiarlo se lo cambia a todos sus equipos: hace falta $pisar.
-     *   · Un equipo llega en UN embarque: si ya esta en otro, moverlo tambien pide $pisar.
-     *   · Ya enlazado a este mismo BL y PDF: no hay nada que hacer.
+     *   · El embarque es el de ese numero de BL (o, sin numero, el de ese mismo PDF; ver
+     *     embarqueDelBl). Si ya existe, el equipo se liga a EL. Si este PDF es OTRO (no la misma
+     *     hoja otra vez) y se solto despues, pasa a ser el del embarque y el anterior va a la
+     *     papelera de Drive (pedido 05-10-2026: el bueno reemplaza al malo).
+     *   · Un equipo llega en UN embarque: si ya esta en otro, moverlo pide $pisar.
+     *   · Ya enlazado a este mismo BL: no hay nada que hacer.
      *
      * Como aplicarEnEquipo: $ensayo dice que haria sin escribir, y $cerrar pasa la fila de la
      * tabla a "Aplicado" (con la ultima ficha del BL).
@@ -934,25 +1319,17 @@ class CargaMasivaDocumentos
         $equipo = Equipo::find($idEquipo);
         if (!$equipo) return ['ok' => false, 'mensaje' => 'El equipo ya no existe.'];
 
-        $driveId = DocumentoAnexo::driveIdDeLink($link);
         // Por su numero o, si no, por su PDF: el numero se puede corregir a mano en el visor
         // (EquipoController::guardarDatosEmbarque) y la propuesta guarda el que se leyo.
-        $embarque = ($bl['nro'] ? Embarque::where('NRO_BL', $bl['nro'])->first() : null)
-            ?? Embarque::where('LINK', 'like', '/storage/google/' . $driveId . '%')->first();
+        $embarque = $this->embarqueDelBl($bl['nro'], $link);
         $nombreBl = 'BL ' . ($bl['nro'] ?? 'sin numero');
-
-        // El MISMO PDF soltado otra vez (otra copia en Drive, misma huella) no es "otro PDF":
-        // sus equipos se enlazan al embarque sin cambiarle el archivo.
-        $pdfDistinto = $embarque && !$this->mismoArchivo($embarque->LINK, $link)
-            && !$this->mismaHuella($embarque->LINK, $link);
-        if ($pdfDistinto && !$pisar) {
-            return ['ok' => false, 'requiere_pisar' => true,
-                    'mensaje' => "El $nombreBl ya tiene otro PDF cargado: reemplazarlo se lo cambia a todos sus equipos."];
+        if ($embarque && !$ensayo && $this->reemplazaAlDelEmbarque($embarque, $link)) {
+            $this->cambiarPdfDelEmbarque($embarque, $link, $bl);
         }
 
         $actual = DB::table('embarque_equipo')->where('ID_EQUIPO', $idEquipo)->first();
         $enEste = $actual && $embarque && (int) $actual->ID_EMBARQUE === (int) $embarque->ID_EMBARQUE;
-        if ($enEste && !$pdfDistinto) {
+        if ($enEste) {
             if (!$ensayo && $cerrar) $this->cerrarPropuesta($link);
             return ['ok' => true, 'mensaje' => 'Ya estaba enlazado.'];
         }
@@ -965,22 +1342,17 @@ class CargaMasivaDocumentos
         if ($ensayo) {
             return ['ok' => true, 'ensayo' => true, 'mensaje' => 'ENSAYO — '
                 . ($actual && !$enEste ? 'lo sacaria de su embarque y ' : '')
-                . ($enEste ? 'ya esta en el ' . $nombreBl : 'lo enlazaria al ' . $nombreBl)
-                . ($pdfDistinto ? ', cambiandole el PDF al BL' : '') . '. No se escribio nada.'];
+                . 'lo enlazaria al ' . $nombreBl . '. No se escribio nada.'];
         }
 
-        $anterior = $pdfDistinto ? $embarque->LINK : null;
-        DB::transaction(function () use (&$embarque, $bl, $link, $idEquipo, $actual, $enEste, $pdfDistinto) {
-            // El BL se escribe al crearlo o al cambiarle el PDF; las demas unidades solo se enlazan.
-            if (!$embarque || $pdfDistinto) {
-                $datos = [
-                    'NRO_BL' => $bl['nro'], 'BUQUE' => $bl['buque'],
-                    'PUERTO_CARGA' => $bl['puerto_carga'], 'PUERTO_DESCARGA' => $bl['puerto_descarga'],
-                    'FECHA_EMBARQUE' => $bl['fecha'], 'LINK' => $link, 'ARCHIVO' => $bl['archivo'],
-                    'UNIDADES' => $bl['unidades'], 'SUBIDO_POR' => auth()->id(),
-                ];
-                $embarque ? $embarque->update($datos) : ($embarque = Embarque::create($datos));
-            }
+        DB::transaction(function () use (&$embarque, $bl, $link, $idEquipo, $actual, $enEste) {
+            // El BL se escribe al crearlo; las demas unidades (y las copias) solo se enlazan.
+            $embarque ??= Embarque::create([
+                'NRO_BL' => $bl['nro'], 'BUQUE' => $bl['buque'],
+                'PUERTO_CARGA' => $bl['puerto_carga'], 'PUERTO_DESCARGA' => $bl['puerto_descarga'],
+                'FECHA_EMBARQUE' => $bl['fecha'], 'LINK' => $link, 'ARCHIVO' => $bl['archivo'],
+                'UNIDADES' => $bl['unidades'], 'SUBIDO_POR' => auth()->id(),
+            ]);
 
             if (!$enEste) {
                 if ($actual) DB::table('embarque_equipo')->where('ID_EQUIPO', $idEquipo)->delete();
@@ -992,15 +1364,56 @@ class CargaMasivaDocumentos
             }
         });
 
-        // El PDF viejo del BL, si se le cambio, ya no lo usa nadie (el job lo vuelve a comprobar).
-        if ($anterior) $this->retirarReemplazado($anterior, $link, ['embarque' => $embarque->ID_EMBARQUE]);
-
         EquipoAuditLog::registrar($idEquipo, 'upload_' . self::EMBARQUE, [
             'archivo' => basename($link), 'bl' => $bl['nro'], 'origen' => 'carga masiva',
         ]);
 
         if ($cerrar) $this->cerrarPropuesta($link);
         return ['ok' => true, 'mensaje' => 'Aplicado.'];
+    }
+
+    /**
+     * ¿El PDF de $link tiene que pasar a ser el del embarque? Solo si es OTRA hoja (no la misma
+     * soltada otra vez: mismo contenido) y se solto DESPUES que la que tiene; asi el reintento
+     * de cada hora de un PDF viejo nunca le devuelve el malo. Si el del embarque no vino de la
+     * carga masiva (se puso a mano), manda el que se suelta ahora.
+     */
+    private function reemplazaAlDelEmbarque(Embarque $embarque, string $link): bool
+    {
+        if ($this->mismoArchivo($embarque->LINK, $link)) return false;
+        $filaDe = fn (?string $l) => VerificacionDocumento::where('ORIGEN', VerificacionDocumento::DE_CARGA_MASIVA)
+            ->where('DRIVE_ID', DocumentoAnexo::driveIdDeLink($l))->first(['ID_REGISTRO', 'PROPUESTA']);
+        $nuevo = $filaDe($link);
+        if (!$nuevo) return false;
+        $actual = $filaDe($embarque->LINK);
+        if (!$actual) return true;
+        $md5 = $nuevo->PROPUESTA['md5'] ?? null;
+        if ($md5 && $md5 === ($actual->PROPUESTA['md5'] ?? null)) return false;
+        return $nuevo->ID_REGISTRO > $actual->ID_REGISTRO;
+    }
+
+    /**
+     * El embarque pasa a usar el PDF de $link (con los datos que este si trae) y el anterior va a
+     * la papelera de Drive (retirarReemplazado: en local no se toca). Las filas del anterior
+     * dejan de esperar: dicen que se reemplazo y el reintento de cada hora ya no las toma.
+     */
+    private function cambiarPdfDelEmbarque(Embarque $embarque, string $link, array $bl): void
+    {
+        $viejo = $embarque->LINK;
+        $embarque->update(['LINK' => $link, 'ARCHIVO' => $bl['archivo']] + array_filter([
+            'BUQUE' => $bl['buque'], 'PUERTO_CARGA' => $bl['puerto_carga'], 'PUERTO_DESCARGA' => $bl['puerto_descarga'],
+            'FECHA_EMBARQUE' => $bl['fecha'], 'UNIDADES' => $bl['unidades'],
+        ], fn ($v) => $v !== null && $v !== ''));
+
+        VerificacionDocumento::where('ORIGEN', VerificacionDocumento::DE_CARGA_MASIVA)
+            ->where('DRIVE_ID', DocumentoAnexo::driveIdDeLink($viejo))
+            ->update([
+                'ESTADO' => VerificacionDocumento::APLICADO, 'A_MANO' => false, 'updated_at' => now(),
+                'MOTIVO' => mb_substr('Reemplazado por otro PDF del mismo BL (' . ($bl['archivo'] ?: 'sin nombre')
+                    . '): este va a la papelera de Drive.', 0, self::MOTIVO_MAX),
+            ]);
+        Log::info('Carga masiva: el BL cambia de PDF', ['embarque' => $embarque->ID_EMBARQUE, 'antes' => $viejo, 'ahora' => $link]);
+        $this->retirarReemplazado($viejo, $link, ['embarque' => $embarque->ID_EMBARQUE]);
     }
 
     // ── ¿Es el documento que se eligio? ───────────────────────────────────────────
@@ -1033,7 +1446,7 @@ class CargaMasivaDocumentos
             // contradiccion a la vista para que una persona lo mire antes de aplicar.
             if ($porTexto) {
                 $this->avisoTipo = 'El encabezado parece ' . mb_strtolower(self::NOMBRES[$porTexto]) . ', pero la IA confirma que es '
-                    . mb_strtolower(self::NOMBRES[$pedido]) . ': compruebalo antes de aplicar.';
+                    . mb_strtolower(self::NOMBRES[$pedido]) . ': no se enlaza solo; compruebalo.';
             }
             return null;
         }
@@ -1048,7 +1461,7 @@ class CargaMasivaDocumentos
         // Ni rotulo ni IA que lo confirme: se sigue con lo que dijo el usuario, pero avisando.
         // Si ademas no hay texto, la propuesta ya sale "no se pudo leer" por su cuenta.
         if ($texto !== '') {
-            $this->avisoTipo = 'No se pudo confirmar que el PDF sea ' . mb_strtolower(self::NOMBRES[$pedido]) . ': compruebalo antes de aplicar.';
+            $this->avisoTipo = 'No se pudo confirmar que el PDF sea ' . mb_strtolower(self::NOMBRES[$pedido]) . ': no se enlaza solo; compruebalo.';
         }
         return null;
     }
@@ -1444,7 +1857,7 @@ class CargaMasivaDocumentos
         return \App\Models\CatalogoSeguro::pluck('NOMBRE_ASEGURADORA', 'ID_SEGURO')->all();
     }
 
-    // ── Paso 2: aplicar lo aprobado ───────────────────────────────────────────────
+    // ── Paso 2: aplicar lo que coincide (lo llama enlazarSolo) ───────────────────────────────────────────────
 
     /**
      * Escribe el documento en la ficha del equipo. Devuelve ['ok'=>bool, 'mensaje'=>string].
@@ -1488,9 +1901,9 @@ class CargaMasivaDocumentos
         $colLink = DocumentacionDeEquipo::COLUMNAS[$tipo]['link'];
         $colVence = DocumentacionDeEquipo::VENCIMIENTO[$tipo] ?? null;
 
-        // 0) Ya tiene ESTE MISMO archivo (otra pestaña, o volver a pulsar Aplicar tras cortarse
-        //    un RACDA a medias): no hay nada que hacer. Sin esto preguntaba "¿reemplazarlo?"
-        //    y, confirmando, reescribia lo mismo y duplicaba el historial.
+        // 0) Ya tiene ESTE MISMO archivo (el reintento de enlazarLoPendiente tras cortarse un
+        //    RACDA a medias): no hay nada que hacer. Sin esto lo trataba como un reemplazo,
+        //    reescribia lo mismo y duplicaba el historial.
         $anterior = $doc?->$colLink;
         if ($this->mismoArchivo($anterior, $link)) {
             if (!$ensayo && $cerrar) $this->cerrarPropuesta($link);
@@ -1500,7 +1913,7 @@ class CargaMasivaDocumentos
         // 1) Ya tiene uno: no se pisa sin permiso explicito.
         if ($anterior && !$pisar) {
             return ['ok' => false, 'requiere_pisar' => true,
-                    'mensaje' => 'Este equipo ya tiene ese documento. Marca "reemplazar" si quieres cambiarlo.'];
+                    'mensaje' => 'Este equipo ya tiene ese documento, y el nuevo no vence despues: se quedo el suyo.'];
         }
 
         // 2) Ni con permiso se retrocede un vencimiento: misma regla que la revision nocturna.
@@ -1509,19 +1922,21 @@ class CargaMasivaDocumentos
             if ($motivo) return ['ok' => false, 'mensaje' => $motivo];
         }
 
-        // 3) Un documento que vence no se guarda sin su fecha (igual que uploadDoc).
-        if ($colVence && !$vence) {
-            return ['ok' => false, 'mensaje' => 'Falta la fecha de vencimiento.'];
+        // 3) Uno que vence y no trae fecha solo entra si la ficha NO tiene ese documento: no se
+        //    cambia uno con fecha por uno sin ella. Entra con el vencimiento VACIO (nunca con el
+        //    de un papel anterior) y su fila queda para revisar (ENLAZAR_Y_REVISAR).
+        if ($colVence && !$vence && $anterior) {
+            return ['ok' => false, 'mensaje' => 'Falta la fecha de vencimiento: no se cambia el que tiene la ficha por uno sin fecha.'];
         }
 
         $datos = [$colLink => $link];
-        if ($colVence && $vence) $datos += DocumentacionDeEquipo::datosVencimiento($tipo, $vence);
+        if ($colVence) $datos += DocumentacionDeEquipo::datosVencimiento($tipo, $vence);
         // La emision va SIEMPRE con el documento nuevo: si este no la trae, se vacia. Quedarse
         // con la del PDF reemplazado seria la fecha de otro papel (mismo criterio que deleteDoc).
         if (isset(DocumentacionDeEquipo::EMISION[$tipo])) {
             $datos[DocumentacionDeEquipo::EMISION[$tipo]] = $emision ?: null;
         }
-        $datos[DocumentacionDeEquipo::COLUMNAS[$tipo]['autor']] = auth()->user()->ID_USUARIO;
+        $datos[DocumentacionDeEquipo::COLUMNAS[$tipo]['autor']] = auth()->id();
         $datos[DocumentacionDeEquipo::COLUMNAS[$tipo]['fecha']] = now();
 
         // El diff se saca ANTES de guardar: es lo que ve el historial.
@@ -1588,7 +2003,7 @@ class CargaMasivaDocumentos
      *
      * Las PUERTAS son exactamente las mismas que en un equipo, en el mismo orden: no se pisa
      * un documento que ya esta sin decirlo, no se retrocede un vencimiento ni con permiso, y
-     * lo que vence no entra sin su fecha.
+     * un certificado sin fecha solo entra si el auxiliar no tiene ninguno.
      */
     private function aplicarEnAuxiliar(int $idAuxiliar, string $tipo, string $link, ?string $vence, bool $pisar, bool $ensayo, bool $cerrar = true): array
     {
@@ -1610,18 +2025,18 @@ class CargaMasivaDocumentos
         }
         if ($anterior && !$pisar) {
             return ['ok' => false, 'requiere_pisar' => true,
-                    'mensaje' => 'Este auxiliar ya tiene ese documento. Marca "reemplazar" si quieres cambiarlo.'];
+                    'mensaje' => 'Este auxiliar ya tiene ese documento, y el nuevo no vence despues: se quedo el suyo.'];
         }
         if ($colVence && $vence) {
             $motivo = VerificacionDocumento::documentoAnterior($this->soloFecha($aux->$colVence), $vence);
             if ($motivo) return ['ok' => false, 'mensaje' => $motivo];
         }
-        if ($colVence && !$vence) {
-            return ['ok' => false, 'mensaje' => 'Falta la fecha de vencimiento.'];
+        if ($colVence && !$vence && $anterior) {
+            return ['ok' => false, 'mensaje' => 'Falta la fecha de vencimiento: no se cambia el que tiene la ficha por uno sin fecha.'];
         }
 
         $datos = [$colLink => $link];
-        if ($colVence && $vence) $datos[$colVence] = $vence;
+        if ($colVence) $datos[$colVence] = $vence;
 
         $diff = [];
         foreach ($datos as $campo => $valor) {
@@ -1669,8 +2084,8 @@ class CargaMasivaDocumentos
     }
 
     /**
-     * Borra de Drive el PDF de una propuesta que el usuario descarto. Sin esto, analizar
-     * treinta y aplicar cinco dejaria veinticinco archivos huerfanos en Drive.
+     * Borra de Drive el PDF de una propuesta que el usuario descarto. Sin esto, soltar
+     * treinta y que se enlacen cinco dejaria veinticinco archivos huerfanos en Drive.
      *
      * Devuelve false —y no borra NADA— si ese PDF no es una propuesta sin aplicar de esta
      * pantalla, o si ya lo usa alguna ficha. Antes se fiaba del enlace que llegaba: con el de
@@ -1705,30 +2120,6 @@ class CargaMasivaDocumentos
             ->exists();
     }
 
-    /**
-     * El PDF de $link es una propuesta de esta pantalla PARA ESA FICHA y ESE tipo: es la puerta
-     * de aplicar(). Una propuesta sin aplicar, o ya aplicada pero que nombraba varias fichas
-     * (un RACDA se enlaza a cada una por turno; tras la primera la fila ya dice "Aplicado").
-     * Sin esto, con una peticion escrita a mano se podia enlazar un PDF de la carga a
-     * cualquier equipo o como cualquier tipo de documento.
-     */
-    public function propuestaAdmite(string $link, int $id, bool $auxiliar, string $tipo): bool
-    {
-        if (!$driveId = DocumentoAnexo::driveIdDeLink($link)) return false;
-
-        $fila = VerificacionDocumento::where('DRIVE_ID', $driveId)
-            ->where('ORIGEN', VerificacionDocumento::DE_CARGA_MASIVA)
-            ->whereIn('ESTADO', [VerificacionDocumento::POR_ENGANCHAR, VerificacionDocumento::APLICADO])
-            ->first(['PROPUESTA']);
-        $p = $fila?->PROPUESTA;
-        if (!$p || ($p['tipo'] ?? null) !== $tipo) return false;
-
-        foreach ($p['equipos'] ?? [] as $f) {
-            if ((int) ($f['id'] ?? 0) === $id && (bool) ($f['auxiliar'] ?? false) === $auxiliar) return true;
-        }
-        return false;
-    }
-
     /** La placa o el serial del equipo aparecen en la hoja (ver LectorDocumentoPdf::codigo). */
     private function enLaHoja(array $ficha, array $leido): bool
     {
@@ -1743,16 +2134,9 @@ class CargaMasivaDocumentos
         return $idA !== null && $idA === DocumentoAnexo::driveIdDeLink($b);
     }
 
-    /** Dos copias en Drive del MISMO PDF: la misma huella (md5) en sus propuestas de la carga masiva. */
-    private function mismaHuella(?string $a, ?string $b): bool
-    {
-        $md5 = $a ? ($this->propuestaGuardada($a)['md5'] ?? null) : null;
-        return $md5 !== null && $b !== null && $md5 === ($this->propuestaGuardada($b)['md5'] ?? null);
-    }
-
     /**
      * Si este mismo archivo (misma huella) ya se habia soltado antes y sigue en la tabla, lo
-     * dice: dos filas del mismo PDF acaban en un "¿reemplazarlo?" que confunde. No lo impide:
+     * dice: dos filas del mismo PDF confunden. No lo impide:
      * puede ser a proposito (se descarto la otra, o era para otro equipo).
      */
     private function yaSeSolto(?string $md5, ?string $driveId): ?string

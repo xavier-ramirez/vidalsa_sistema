@@ -26,9 +26,40 @@ use Illuminate\Support\Facades\Storage;
 class ColaCargaMasiva
 {
     private const CARPETA = 'carga_masiva_cola';
-    private const CANDADO = 'carga-masiva-lector';
+    /** El candado del lector; lo toma tambien el reintento de cada hora (enlazarLoPendiente). */
+    public const CANDADO = 'carga-masiva-lector';
     /** Un lector que murio a medias deja su .leyendo: pasado esto vuelve a la fila. */
-    private const ABANDONADO_SEG = 900;
+    public const ABANDONADO_SEG = 900;
+
+    /**
+     * Hasta cuando se puede seguir con el candado tomado: antes de que venza (ABANDONADO_SEG), con
+     * margen para el PDF o la fila en curso. Lo que quede lo toma la pasada siguiente; seguir
+     * dejaria que otro tomara el candado vencido y trabajara a la vez.
+     */
+    public static function hastaCuando(): int
+    {
+        return time() + self::ABANDONADO_SEG - 300;
+    }
+
+    /**
+     * Lo que se haga desde aqui va a nombre de $usuario (o de nadie). Primero se olvida al de
+     * antes: si este ya no existe, onceUsingId falla y todo iria a nombre del anterior.
+     */
+    public static function aNombreDe(?int $usuario): void
+    {
+        Auth::forgetUser();
+        if ($usuario) Auth::onceUsingId($usuario);
+    }
+
+    /**
+     * Renueva el tope de tiempo de la peticion: leer un PDF o enlazar una ficha tarda. Solo si ya
+     * hay tope (la web); en consola no hay ninguno (0) y ponerlo se lo dejaba a lo que corriera
+     * despues en el mismo proceso.
+     */
+    public static function renovarTope(): void
+    {
+        if ((int) ini_get('max_execution_time') > 0) set_time_limit(180);
+    }
 
     /** Deja el PDF en la fila para leerlo despues. */
     public static function encolar(UploadedFile $archivo, string $tipo, array $subido): void
@@ -37,7 +68,7 @@ class ColaCargaMasiva
         $base = self::CARPETA . '/' . now()->format('YmdHis') . '_' . bin2hex(random_bytes(4));
         $disco->put($base . '.pdf', file_get_contents($archivo->getRealPath()));
         // El .json se escribe el ULTIMO: es el que dice que el par esta completo.
-        // Quien lo subio: el BL se enlaza solo al leerlo, y el historial lo pone a su nombre.
+        // Quien lo subio: lo que coincide se enlaza solo al leerlo, y el historial lo pone a su nombre.
         $disco->put($base . '.json', json_encode(['tipo' => $tipo, 'subido' => $subido, 'usuario' => auth()->id()]));
     }
 
@@ -65,8 +96,9 @@ class ColaCargaMasiva
             $candado = Cache::lock(self::CANDADO, self::ABANDONADO_SEG);
             if (!$candado->get()) break;
             $tomados = 0;
+            $hasta = self::hastaCuando();
             try {
-                while ($leyendo = self::siguiente()) {
+                while (time() <= $hasta && ($leyendo = self::siguiente())) {
                     $tomados++;
                     $leidos += self::leerUno($servicio, $leyendo);
                 }
@@ -102,11 +134,11 @@ class ColaCargaMasiva
                 Log::error('Carga masiva: en la fila hay un PDF incompleto', ['archivo' => basename($leyendo)]);
                 return 0;
             }
-            set_time_limit(180);   // por PDF: leerlo con Drive tarda
+            self::renovarTope();   // por PDF: leerlo con Drive tarda
             // El lector puede ser otro (el programador, o la subida de otra persona): lo que se
             // enlace al leerlo va a nombre de quien soltó el PDF.
             // Sin autor guardado, sin autor: no se hereda el del PDF anterior.
-            empty($datos['usuario']) ? Auth::forgetUser() : Auth::onceUsingId($datos['usuario']);
+            self::aNombreDe($datos['usuario'] ?? null);
             $servicio->leer(new UploadedFile($pdf, $datos['subido']['nombre'], 'application/pdf', null, true),
                 $datos['tipo'], $datos['subido']);
             return 1;

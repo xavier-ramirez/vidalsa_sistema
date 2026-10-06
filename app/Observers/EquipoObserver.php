@@ -92,7 +92,11 @@ class EquipoObserver
             unset($changes['updated_at'], $changes['created_at']);
             if (empty($changes)) return;
 
-            $original = $equipo->getOriginal();
+            // getPrevious(), NO getOriginal(): este observer corre DESPUÉS del commit
+            // ($afterCommit) y para entonces Laravel ya igualó el "original" al valor nuevo; dentro
+            // de una transacción (formulario del equipo, lectura de documentos) todo parecía sin
+            // cambios y no se anotaba nada. getPrevious() guarda lo de antes del último guardado.
+            $original = $equipo->getPrevious();
             $diff = [];
             foreach ($changes as $field => $newValue) {
                 $oldValue = $original[$field] ?? null;

@@ -2290,7 +2290,13 @@ window.loadMetadata = async function () {
                 const esc = window.escapeHtml;
                 const campo = (nombre, rotulo, tipo, extra) =>
                     `<div style="${containerStyle}"><label for="meta_${nombre}_${ctx.equipoId}" style="${labelStyle}">${rotulo}</label><input type="${tipo}" id="meta_${nombre}_${ctx.equipoId}" name="${nombre}" value="${esc(info[nombre])}" ${extra || ''} ${disabledAttr} autocomplete="off"></div>`;
-                html += `
+                // Certificado de origen guardado como embarque: es de UN equipo y no tiene buque
+                // ni unidades; esos campos no se muestran (el guardado solo toca los que llegan).
+                html += info.certificado ? `
+                ${campo('nro_bl', 'Nro. de control', 'text', 'maxlength="40"')}
+                ${campo('fecha_embarque', 'Fecha de emisión', 'date')}
+                ${campo('vin', 'Serial de este equipo', 'text', 'maxlength="40"')}
+            ` : `
                 <p style="color:#94a3b8;font-size:12px;margin:0 0 12px;">Datos de todo el embarque: lo que se guarde vale para sus ${esc(info.equipos)} equipo(s). El VIN es solo de este.</p>
                 ${campo('nro_bl', 'Nro. BL', 'text', 'maxlength="40"')}
                 ${campo('buque', 'Buque', 'text', 'maxlength="120"')}
