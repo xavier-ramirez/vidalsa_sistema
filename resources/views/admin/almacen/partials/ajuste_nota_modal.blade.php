@@ -39,12 +39,12 @@
                 <div class="ajn-opciones" role="radiogroup" aria-label="¿Qué pasó?">
                     <button type="button" class="ajn-opcion" data-op="devolucion" role="radio" aria-checked="false">
                         <span class="ajn-opcion-tit"><i class="material-icons">assignment_return</i>Devolución</span>
-                        <span class="ajn-opcion-txt">El material volvió al almacén. La nota no cambia.</span>
+                        <span class="ajn-opcion-txt">Regresó al almacén</span>
                         <span class="ajn-opcion-no" hidden></span>
                     </button>
                     <button type="button" class="ajn-opcion" data-op="correccion" role="radio" aria-checked="false">
                         <span class="ajn-opcion-tit"><i class="material-icons">edit_note</i>Corrección</span>
-                        <span class="ajn-opcion-txt">La nota se cargó mal. Pasa a decir lo que salió.</span>
+                        <span class="ajn-opcion-txt">Cantidad mal anotada</span>
                         <span class="ajn-opcion-no" hidden></span>
                     </button>
                 </div>

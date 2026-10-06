@@ -26,11 +26,11 @@
     var OPS = {
         devolucion: {
             cant: 'Cantidad que vuelve', motivo: 'Motivo (opcional)', motivoEj: 'Ej.: sobró en la obra',
-            boton: '<i class="material-icons">assignment_return</i>Registrar devolución', motivoObligatorio: false,
+            boton: '<i class="material-icons">assignment_return</i>Devolver', motivoObligatorio: false,
         },
         correccion: {
-            cant: 'Cantidad que de verdad salió', motivo: 'Motivo de la corrección', motivoEj: 'Ej.: salieron 100, se cargó 180 por error',
-            boton: '<i class="material-icons">edit_note</i>Corregir nota', motivoObligatorio: true,
+            cant: 'Cantidad que de verdad salió', motivo: 'Motivo (obligatorio)', motivoEj: 'Ej.: salieron 100, se cargó 180 por error',
+            boton: '<i class="material-icons">edit_note</i>Corregir', motivoObligatorio: true,
         },
     };
     var estado = { nota: null, op: null, guardando: false };
@@ -182,14 +182,14 @@
     }
 
     // ── Guardar ──────────────────────────────────────────────────────────────
+    // El botón se enciende con una cantidad válida. El motivo obligatorio NO lo apaga: un botón
+    // gris sin explicación deja al usuario sin saber qué falta; al pulsar, guardar() lo dice.
     function listo() {
         if (!estado.nota || !estado.op) return false;
         var cant = cantidad();
         if (cant <= EPS) return false;
-        if (estado.op === 'correccion') {
-            return Math.abs(cant - estado.nota.linea.entregado) > EPS && $('ajNotaMotivo').value.trim() !== '';
-        }
-        return true;
+        // Corregir a la misma cantidad que ya dice la nota no cambia nada.
+        return estado.op !== 'correccion' || Math.abs(cant - estado.nota.linea.entregado) > EPS;
     }
 
     function actualizarBoton() {
@@ -214,6 +214,11 @@
         var cant = cantidad();
         var aviso = avisoPrevio(cant);
         if (aviso) { mensaje(aviso); return; }
+        if (OPS[estado.op].motivoObligatorio && $('ajNotaMotivo').value.trim() === '') {
+            mensaje('<b>Escribe el motivo de la corrección.</b><br>Queda anotado en la nota original.');
+            $('ajNotaMotivo').focus();
+            return;
+        }
 
         var m = modal(), nota = estado.nota, op = estado.op;
         var motivo = $('ajNotaMotivo').value.trim();
