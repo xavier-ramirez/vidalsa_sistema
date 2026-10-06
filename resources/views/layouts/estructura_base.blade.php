@@ -947,6 +947,14 @@
                             onclick="window.pdfComparaZoom('izq', 1)" title="Acercar este documento">
                             <i class="material-icons">zoom_in</i>
                         </button>
+                        {{-- Descargar SOLO este documento. Lo enciende _pdfComparaEncender en una
+                             comparación de solo lectura (window.openPdfComparado: la Nota de
+                             Entrega original y la corregida), donde cada una se baja por su lado.
+                             Con las pólizas no sale: allí Descargar baja el expediente unido. --}}
+                        <button type="button" class="pdf-visor-btn" id="pdfComparaDescargarIzq" style="display:none;"
+                            onclick="window.pdfComparaDescargar('izq')" title="Descargar este documento">
+                            <i class="material-icons">download</i>
+                        </button>
                         {{-- Borrar ESTE documento (el original). Con los dos PDFs en pantalla
                              un solo boton en la cabecera no basta: no hay forma de saber a
                              cual se refiere, y de hecho borraba siempre el original aunque se
@@ -978,6 +986,11 @@
                         <button type="button" class="pdf-visor-btn" id="pdfZoomMasDer"
                             onclick="window.pdfComparaZoom('der', 1)" title="Acercar este documento">
                             <i class="material-icons">zoom_in</i>
+                        </button>
+                        {{-- Descargar SOLO este documento (ver el gemelo del lado izquierdo). --}}
+                        <button type="button" class="pdf-visor-btn" id="pdfComparaDescargarDer" style="display:none;"
+                            onclick="window.pdfComparaDescargar('der')" title="Descargar este documento">
+                            <i class="material-icons">download</i>
                         </button>
                         {{-- Borrar la CORRECCION que este panel esta mostrando. El original
                              de la izquierda no se toca (ver el boton gemelo de ese lado). --}}

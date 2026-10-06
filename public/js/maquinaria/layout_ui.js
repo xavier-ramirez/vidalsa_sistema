@@ -355,7 +355,9 @@ const _pdfImprimirBlob = function (blob, alTerminar) {
 };
 
 // Optimized Direct PDF Download with visual feedback
-window.downloadPdfDirect = function (url, documentLabel) {
+// soloEste: baja ESE archivo aunque el documento tenga correcciones (el botón de cada panel de
+// la vista partida, window.pdfComparaDescargar); sin él, el expediente unido.
+window.downloadPdfDirect = function (url, documentLabel, soloEste) {
     if (!url) {
         alert('No hay URL para descargar');
         return;
@@ -396,7 +398,7 @@ window.downloadPdfDirect = function (url, documentLabel) {
 
     pintarBoton(true);
 
-    _pdfPrepararUnion().then(function (unido) {
+    (soloEste ? Promise.resolve(null) : _pdfPrepararUnion()).then(function (unido) {
         if (unido) {
             // El expediente entero: se marca en el nombre para no confundirlo con el
             // archivo suelto que pueda tener ya guardado.
@@ -882,8 +884,8 @@ const _pdfCancelarCargaIzq = function () {
 };
 
 // Bloqueo del scroll del FONDO mientras hay una capa a pantalla (detalle de equipo/
-// auxiliar, visor de PDF, el panel de alertas del menú, el Dashboard de Consumo, o el
-// «Modificar» de una nota del almacén y su comparación original/corregida). Se bloquea en html Y en body porque el scroll del
+// auxiliar, visor de PDF, el panel de alertas del menú, el Dashboard de Consumo o el
+// «Modificar» de una nota del almacén). Se bloquea en html Y en body porque el scroll del
 // viewport lo lleva <html> (documentElement): poner overflow:hidden solo en body no lo
 // frenaba y el módulo se seguía desplazando bajo el visor.
 // restaurar() solo libera cuando NINGUNA capa sigue abierta — así cerrar el PDF con el
@@ -897,7 +899,6 @@ window._CAPAS_SCROLL = [
     { id: 'expiredDocsContainer', cls: 'open' },
     { id: 'consumoDashModal', cls: 'open' },
     { id: 'ajNotaModal', cls: 'open' },
-    { id: 'ajNotaComparar', cls: 'open' },
 ];
 window.bloquearScrollFondo = function () {
     document.documentElement.style.overflow = 'hidden';
@@ -1489,6 +1490,14 @@ const PDF_COMPARA_ANCHO_MIN = 900;
    (ver PDF_COMPARA_ZOOMS). */
 const PDF_PARAMS_COMPARA = '#toolbar=0&navpanes=0&scrollbar=0&view=Fit';
 
+/* En una comparación de SOLO LECTURA (openPdfComparado: la Nota de Entrega original y la
+   corregida) cada hoja va AJUSTADA AL ANCHO de su mitad ('view=FitH') y se baja con la
+   rueda: a hoja entera la cantidad corregida no se leía, y el gris a los lados separaba las
+   dos hojas. Una póliza sigue entrando entera (arriba). */
+const PDF_PARAMS_COMPARA_ANCHO = '#toolbar=0&navpanes=0&view=FitH';
+const _pdfParamsCompara = () =>
+    (window._pdfAnexoCtx && window._pdfAnexoCtx.soloLectura) ? PDF_PARAMS_COMPARA_ANCHO : PDF_PARAMS_COMPARA;
+
 /** El anexo que se ve a la DERECHA (lo fija _pdfComparaMostrar). Entero y no solo su
     enlace: el boton de borrar de ese panel necesita ademas su id y su etiqueta. */
 window._pdfComparaAnexoDer = null;
@@ -1550,7 +1559,8 @@ window._pdfSincronizarBarraPestanas = function () {
         ? ((((window._anexosPorEquipo || {})[ctx.equipoId]) || {})[ctx.tipo] || [])
         : [];
     const esTelefono = window.innerWidth <= PDF_ANCHO_TELEFONO;
-    const haceFalta = !esTelefono && lista.length > 0
+    // Una comparación de SOLO LECTURA (openPdfComparado) no tiene pestañas que pintar.
+    const haceFalta = !esTelefono && lista.length > 0 && !ctx.soloLectura
         && (!window._pdfComparando || lista.length > 1);
 
     // Un solo sitio que escribe el display, y solo cuando CAMBIA: esto corre ahora en
@@ -1586,7 +1596,7 @@ window._pdfComparaMostrar = function (anexo) {
 
     if (rotDer) rotDer.textContent = anexo.etiqueta || _ROTULO_ANEXO;
     _pdfCargadorHasta('pdfComparaLoader', frame);
-    frame.src = anexo.link + PDF_PARAMS_COMPARA;
+    frame.src = anexo.link + _pdfParamsCompara();
     _pdfComparaMarcarChips(anexo.link);
 
     // El enlace LIMPIO del lado derecho: la lupa rearma la URL entera desde aqui para
@@ -1617,26 +1627,43 @@ window._pdfComparaEncender = function (anexo) {
     // derecha. Lo decide _pdfSincronizarBarraPestanas.
     window._pdfSincronizarBarraPestanas();
 
-    // Y el boton de borrar de la CABECERA se esconde: con los dos documentos en pantalla
-    // no hay forma de saber a cual se refiere —de hecho borraba el original aunque se
-    // estuviera leyendo la correccion—. Cada panel tiene ya el suyo, que si dice cual es.
+    // Los botones de CADA PANEL dependen de qué se compara. Con las correcciones de un equipo,
+    // borrar (cada uno la suya). En una comparación de solo lectura (openPdfComparado) no hay
+    // nada que borrar —apuntarían a otro documento—, y en su lugar cada lado se descarga solo.
+    ['pdfComparaBorrarIzq', 'pdfComparaBorrarDer'].forEach(function (id) {
+        const b = document.getElementById(id);
+        if (b) b.style.display = ctx.soloLectura ? 'none' : '';
+    });
+    ['pdfComparaDescargarIzq', 'pdfComparaDescargarDer'].forEach(function (id) {
+        const b = document.getElementById(id);
+        if (b) b.style.display = ctx.soloLectura ? '' : 'none';
+    });
+
+    // Y se esconden acciones de la CABECERA que con dos documentos en pantalla no dicen a
+    // cuál se refieren:
+    //   · borrar: borraba el original aunque se estuviera leyendo la corrección. Cada panel
+    //     tiene ya el suyo, que sí dice cuál es.
+    //   · descargar, en solo lectura: bajaba los dos unidos, y allí cada uno se baja desde
+    //     su panel. (Con las pólizas se queda: el expediente unido es lo que se quiere.)
     // Se guarda como marca en el propio nodo para poder devolverlo al apagar sin adivinar
-    // si estaba visible o si el documento no era gestionable.
-    const delCab = document.getElementById('pdfDeleteBtn');
-    if (delCab && delCab.dataset.ocultoPorCompara !== '1') {
-        delCab.dataset.ocultoPorCompara = delCab.style.display === 'none' ? 'no' : '1';
-        if (delCab.dataset.ocultoPorCompara === '1') delCab.style.display = 'none';
-    }
+    // si estaba visible o si el documento no lo ofrecía.
+    ['pdfDeleteBtn'].concat(ctx.soloLectura ? ['pdfDownloadBtn'] : []).forEach(function (id) {
+        const b = document.getElementById(id);
+        if (!b || b.dataset.ocultoPorCompara === '1') return;
+        b.dataset.ocultoPorCompara = b.style.display === 'none' ? 'no' : '1';
+        if (b.dataset.ocultoPorCompara === '1') b.style.display = 'none';
+    });
 
     // El izquierdo se abrio al 100% de zoom (el modo lectura de un solo documento).
-    // Comparando hace falta la hoja entera, asi que se le cambian los parametros. Es
+    // Comparando hace falta otro encaje (la hoja entera, o al ancho en solo lectura: ver
+    // _pdfParamsCompara), asi que se le cambian los parametros. Es
     // una re-navegacion, pero el archivo acaba de descargarse y sale del cache del
     // navegador: no hay segunda descarga.
     // getAttribute y no .src: la propiedad devuelve la URL ABSOLUTA ya resuelta, asi
     // que compararla contra una ruta relativa da SIEMPRE distinto y re-navegaria de
     // balde cada vez que se repinte la barra.
     const izq = document.getElementById('pdfPreviewFrame');
-    const destinoIzq = ctx.principal + PDF_PARAMS_COMPARA;
+    const destinoIzq = ctx.principal + _pdfParamsCompara();
     if (izq && izq.getAttribute('src') !== destinoIzq) {
         // Elemento nuevo y no un src a secas: lo que suele cambiar es SOLO el fragmento
         // (#zoom=100 → #view=Fit), y eso no reinicia el visor — se quedaria en negro.
@@ -1845,6 +1872,51 @@ window.pdfCompararToggle = function () {
     window._pdfComparaEncender(correccion);
 };
 
+/**
+ * Vista comparada de DOS documentos cualesquiera, en el MISMO visor que una póliza con su
+ * corrección: original a la izquierda, el otro a la derecha, lupa en cada lado. La usa la
+ * Nota de Entrega corregida (ajuste_nota.js): la original con la corrección en rojo y la
+ * corregida.
+ *
+ * No son correcciones de un equipo, así que el contexto va marcado soloLectura: sin
+ * pestañas, sin "Anexar" y sin borrar; cada panel lleva su propio Descargar
+ * (pdfComparaDescargar) y el de la cabecera, que bajaría los dos unidos, se esconde.
+ * Imprimir sí imprime los dos (_pdfPrepararUnion). La lista vive en _anexosPorEquipo bajo
+ * una clave propia ('cmp:' + url), que ningún ID de equipo puede tener.
+ *
+ * Por debajo de PDF_COMPARA_ANCHO_MIN (teléfono, ventana estrecha) no se parte, igual que
+ * con las pólizas: se ve el de la izquierda y Descargar trae los dos unidos. Tampoco en una
+ * tableta (pdfEsMovil): ahí openPdfPreview dibuja el izquierdo en <canvas>, no en el iframe
+ * que la vista partida reacomoda.
+ *
+ * Cada hoja entra ajustada al ancho de su mitad (PDF_PARAMS_COMPARA_ANCHO).
+ */
+window.openPdfComparado = function (urlIzq, der, titulo, docType, module) {
+    window.openPdfPreview(urlIzq, docType, titulo, 0, '', true, module);
+    const clave = 'cmp:' + urlIzq;
+    window._anexosPorEquipo[clave] = { [docType]: [der] };
+    window._pdfAnexoCtx = { equipoId: clave, tipo: docType, label: titulo, principal: urlIzq, activo: urlIzq, soloLectura: true };
+    if (window.innerWidth >= PDF_COMPARA_ANCHO_MIN && !(window.pdfEsMovil && window.pdfEsMovil())) {
+        window._pdfComparaEncender(der);
+    }
+};
+
+/**
+ * Descarga SOLO el documento de un lado de la vista partida ('izq' | 'der'). Es el botón de
+ * cada panel en una comparación de solo lectura (ver _pdfComparaEncender); el nombre del
+ * archivo lleva el rótulo del lado para no confundir los dos.
+ */
+window.pdfComparaDescargar = function (lado) {
+    const ctx = window._pdfAnexoCtx;
+    const der = window._pdfComparaAnexoDer;
+    if (!ctx) return;
+    if (lado === 'izq') {
+        window.downloadPdfDirect(ctx.principal, ctx.label + ' original', true);
+    } else if (der) {
+        window.downloadPdfDirect(der.link, ctx.label + ' ' + (der.etiqueta || _ROTULO_ANEXO), true);
+    }
+};
+
 /** Al cerrar el visor o abrir otro documento, la comparación no sobrevive. */
 window._pdfComparaApagar = function () {
     if (!window._pdfComparando) return;
@@ -1877,13 +1949,14 @@ window._pdfComparaApagar = function () {
     // saltar de una correccion a otra.
     window._pdfSincronizarBarraPestanas();
 
-    // Y el boton de borrar de la cabecera vuelve SOLO si lo escondio el encendido: si ya
-    // estaba oculto porque el documento no es gestionable, se queda como estaba.
-    const delCab = document.getElementById('pdfDeleteBtn');
-    if (delCab) {
-        if (delCab.dataset.ocultoPorCompara === '1') delCab.style.display = 'flex';
-        delete delCab.dataset.ocultoPorCompara;
-    }
+    // Y los botones de la cabecera vuelven SOLO si los escondio el encendido: si ya estaban
+    // ocultos porque el documento no los ofrecia, se quedan como estaban.
+    ['pdfDeleteBtn', 'pdfDownloadBtn'].forEach(function (id) {
+        const b = document.getElementById(id);
+        if (!b) return;
+        if (b.dataset.ocultoPorCompara === '1') b.style.display = 'flex';
+        delete b.dataset.ocultoPorCompara;
+    });
 };
 
 // Encoger la ventana por debajo del minimo con la comparacion puesta dejaria dos

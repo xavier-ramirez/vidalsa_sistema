@@ -1,19 +1,19 @@
 /**
- * window.AjusteNota — modal «Modificar» de una línea de Nota de Entrega y comparación de una
- * nota corregida (resources/views/admin/almacen/partials/ajuste_nota_modal.blade.php).
+ * window.AjusteNota — modal «Modificar» de una línea de Nota de Entrega
+ * (resources/views/admin/almacen/partials/ajuste_nota_modal.blade.php).
  *
  * Flujo: botón «Modificar» de una salida con nota del Historial → GET con el producto en la
  * nota y qué se puede hacer → el usuario elige QUÉ PASÓ:
  *   · Devolución: el material volvió. Pone cuánto vuelve → POST devolución; la nota no cambia.
  *   · Corrección: la nota se cargó mal. Pone cuánto salió de verdad y el motivo → POST
- *     corrección → se abre la comparación original | corregida.
- * La marca «corregida» del Historial abre directamente la comparación.
+ *     corrección → se abre la comparación original | corregida (window.almVerCorreccion, en
+ *     esa vista: la usa también la marca «corregida», que ve quien no tiene este modal).
  *
  * Las reglas —no devolver más de lo que queda, no corregir por debajo de lo devuelto, no subir
  * sin stock, quién puede qué— las decide el servidor (DevolucionService, CorreccionNotaService,
  * AjusteNotaController); aquí solo se guía.
  *
- * Se carga bajo demanda desde window.almModificarNota / almVerCorreccion. Los listeners van
+ * Se carga bajo demanda desde window.almModificarNota. Los listeners van
  * sobre el DOCUMENTO y buscan el modal en cada evento: la SPA reemplaza el HTML al navegar.
  */
 (function (w) {
@@ -242,7 +242,8 @@
                 if (!res.ok) { mensaje(esc(errorDe(res))); return; }
                 w.toast(res.d.message || 'Listo.', 'success');
                 cerrar();
-                if (op === 'correccion') comparar(nota.numero);
+                // Original | corregida, con el mismo envoltorio que la marca «corregida».
+                if (op === 'correccion') w.almVerCorreccion(nota.numero);
                 if (typeof w.loadMovimientos === 'function') w.loadMovimientos();   // la fila cambia de cantidad o de marca
             })
             .catch(function () { mensaje('No se pudo contactar al servidor. Modificar una nota necesita conexión.'); })
@@ -251,51 +252,6 @@
                 btn.innerHTML = html;
                 actualizarBoton();
             });
-    }
-
-    // ── Comparación: original (corrección en rojo) | corregida ─────────────────
-    // En escritorio el PDF va en un <iframe>, NUEVO en cada apertura (el visor del navegador no
-    // siempre repinta al cambiarle el src). En teléfono el navegador no dibuja un PDF dentro de
-    // un <iframe>: se baja y se pinta en <canvas>, como el visor general.
-    function mostrarDoc(cont, url) {
-        cont.innerHTML = '';
-        cont.classList.toggle('lienzo', w.pdfEsMovil());
-        if (!w.pdfEsMovil()) {
-            var f = document.createElement('iframe');
-            f.title = 'Nota de Entrega';
-            f.src = url;
-            cont.appendChild(f);
-            return;
-        }
-        fetch(url, { credentials: 'same-origin' })
-            .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); })
-            .then(function (blob) { return w.pintarPdfEnCanvas(cont, blob); })
-            .catch(function () {
-                cont.innerHTML = '<div style="color:#fecaca;text-align:center;padding:30px;font-size:13px;">No se pudo mostrar la nota. Usa el botón Descargar.</div>';
-            });
-    }
-
-    function comparar(numero) {
-        var c = $('ajNotaComparar'); if (!c) return;
-        var nueva = c.dataset.urlNota + '?numero=' + encodeURIComponent(numero);
-        var original = nueva + '&version=original';
-        $('ajNotaCompNum').textContent = 'Nota ' + numero + ' — original y corregida';
-        $('ajNotaDescOriginal').href = original + '&descargar=1';
-        $('ajNotaDescNueva').href = nueva + '&descargar=1';
-        c.classList.add('open');
-        w.bloquearScrollFondo();
-        // Después de abrir: el lienzo del teléfono mide el ancho de su caja.
-        mostrarDoc($('ajNotaDocOriginal'), original);
-        mostrarDoc($('ajNotaDocNueva'), nueva);
-    }
-
-    function cerrarComparar() {
-        var c = $('ajNotaComparar'); if (!c) return;
-        c.classList.remove('open');
-        // Sin documento detrás: un PDF oculto sigue ocupando memoria.
-        $('ajNotaDocOriginal').innerHTML = '';
-        $('ajNotaDocNueva').innerHTML = '';
-        w.restaurarScrollFondo();
     }
 
     // ── Eventos (delegados en el documento: sobreviven al reemplazo SPA del HTML) ──
@@ -311,11 +267,6 @@
     });
 
     document.addEventListener('keydown', function (e) {
-        var c = $('ajNotaComparar');
-        if (c && c.classList.contains('open')) {
-            if (e.key === 'Escape') cerrarComparar();
-            return;
-        }
         if (!modal() || !modal().classList.contains('open')) return;
         if (e.key === 'Escape') { cerrar(); return; }
         // Enter en un campo: guarda, como el Enter de cualquier formulario corto.
@@ -325,5 +276,5 @@
         }
     });
 
-    w.AjusteNota = { abrir: abrir, cerrar: cerrar, comparar: comparar, cerrarComparar: cerrarComparar };
+    w.AjusteNota = { abrir: abrir, cerrar: cerrar };
 })(window);

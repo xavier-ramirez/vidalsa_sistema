@@ -273,7 +273,7 @@ class CorreccionNotaTest extends MySqlTestCase
             ->get(route('almacen.movimientos', ['id_almacen' => $alm->ID_ALMACEN]))
             ->assertOk()
             ->assertSee('id="ajNotaModal"', false)
-            ->assertSee('id="ajNotaComparar"', false)
+            ->assertSee('window.almVerCorreccion', false)
             ->assertSee('js/maquinaria/ajuste_nota.js', false);
     }
 

@@ -399,7 +399,9 @@ Las dos se piden desde **un solo botón, "Modificar"**, que abre un modal que pr
   que el "deshacer".
 - **Notas:** `nota-entrega?numero=…&version=original` = como salió, con la cantidad tachada en rojo
   y el bloque "NOTA CORREGIDA" al pie; sin `version`, la corregida. `&descargar=1` la baja. Al
-  corregir se abren las dos lado a lado; la marca roja "corregida" del Historial las reabre.
+  corregir se abren las dos lado a lado en el visor de documentos, igual que una póliza con su
+  corrección (`window.openPdfComparado`), cada una con su botón de descarga; la marca roja
+  "corregida" del Historial las reabre.
 - No aplica a envíos a otro almacén (se corrigen en Recepción) ni a un producto que va en varias
   líneas de la nota (distinto nº de parte o proyecto).
 
