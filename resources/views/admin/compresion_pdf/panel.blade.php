@@ -777,8 +777,8 @@
             });
             if (lista.childNodes.length) aviso.appendChild(lista);
 
-            // Lo que el panel no tiene (el titular del ROTC): su propio campo, relleno con lo que
-            // dice el documento SOLO si la lectura es fiable (ver abajo). Al GUARDAR se pone en la
+            // Lo que el panel de ese documento no tiene como campo propio: un campo aparte,
+            // relleno con lo que dice el documento SOLO si la lectura es fiable (ver abajo). Al GUARDAR se pone en la
             // ficha lo que diga el campo, sin casilla que marcar (lo pidio el cliente); vaciarlo =
             // no ponerlo. Sin esto se perderia al dar la fila por revisada.
             // Del PDF ANTERIOR no se ofrece nada: es el viejo y dejaria la ficha peor.

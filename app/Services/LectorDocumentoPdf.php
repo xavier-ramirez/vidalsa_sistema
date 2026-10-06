@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Log;
  *
  *   · TITULO DE PROPIEDAD (LINK_DOC_PROPIEDAD) — nombre del propietario y fecha de emision.
  *   · POLIZA DE SEGURO   (LINK_POLIZA_SEGURO)  — aseguradora, fecha de vencimiento y de emision.
- *   · ROTC               (LINK_ROTC)           — propietario, numero y sus dos fechas.
+ *   · ROTC               (LINK_ROTC)           — operadora (Razon Social), numero y sus dos fechas.
  *   · RACDA              (LINK_RACDA)          — providencia de la EMPRESA: fecha, años de
  *                                                validez y la lista de placas autorizadas.
  *

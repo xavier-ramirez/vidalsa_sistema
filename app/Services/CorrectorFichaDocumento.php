@@ -49,6 +49,17 @@ class CorrectorFichaDocumento
     ];
 
     /**
+     * El propietario (NOMBRE_DEL_TITULAR) solo lo dice el TITULO: el nombre del ROTC es la
+     * operadora (ver VerificarDocumentos::revisarRotc). Una lectura ROTC guardada antes del
+     * 06-10-2026 puede traerlo todavia (la migracion de ese dia las borra): no se escribe, ni
+     * sola ni a mano.
+     */
+    private static function seEscribeDesde(string $campo, ?string $tipo): bool
+    {
+        return $campo !== 'NOMBRE_DEL_TITULAR' || $tipo === VerificacionDocumento::PROPIEDAD;
+    }
+
+    /**
      * Pone en la ficha lo que dice el documento. Con $soloFechasVacias (una fila que ya reviso
      * una persona: su decision se respeta) solo pone las fechas que la ficha tiene vacias; lo
      * mismo hace sola cuando la lectura no es segura (ver admiteFechasVacias). Devuelve:
@@ -100,6 +111,7 @@ class CorrectorFichaDocumento
             $hayCorregidoAMano = false;
 
             foreach ($reg->DIFERENCIAS as $campo => $d) {
+                if (!self::seEscribeDesde($campo, $reg->TIPO)) continue;
                 // Red de seguridad: solo los datos de la lista. Si alguna vez se añade una
                 // diferencia nueva al verificador, tiene que pasar por aqui a proposito.
                 if (!in_array($campo, self::CAMPOS, true)) {
@@ -198,7 +210,7 @@ class CorrectorFichaDocumento
 
     /**
      * Revision A MANO desde el visor: la persona corrigio la ficha en el panel y, ademas, pone
-     * los datos que ese panel no tiene (el titular del ROTC), con el valor que ella deja
+     * los datos de CAMPOS que ese panel no tenga como campo propio, con el valor que ella deja
      * escrito; el boton "Revisado" de la tabla pone aqui las fechas vacias (fechasVacias).
      * Despues la fila queda "revisada por" ella.
      *
@@ -214,7 +226,8 @@ class CorrectorFichaDocumento
         $limpios = [];
         foreach ($valores as $campo => $valor) {
             $valor = trim((string) $valor);
-            if (!in_array($campo, self::CAMPOS, true) || $campo === 'ID_SEGURO' || !isset($dif[$campo])) {
+            if (!in_array($campo, self::CAMPOS, true) || $campo === 'ID_SEGURO' || !isset($dif[$campo])
+                || !self::seEscribeDesde($campo, $reg->TIPO)) {
                 return ['error' => "Ese dato no se puede poner desde aquí: $campo"];
             }
             if (str_starts_with($campo, 'FECHA_')) {

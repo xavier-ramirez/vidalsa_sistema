@@ -33,10 +33,19 @@ class CompresionPdfController extends Controller
     }
 
     /**
+     * Un PDF de OTRO vehiculo no se da por revisado: se cambia el archivo (el nuevo se lee esa
+     * noche) o, si la mala es la ficha, se corrige su placa o su serial y se pulsa "Revisar
+     * ahora" (relee los "Datos distintos"). Un "Revisado" lo escondia para siempre (05-10-2026:
+     * el ROTC de un Sinotruk en la ficha de un JAC); por eso la relectura tampoco lo restaura
+     * (VerificarDocumentos).
+     */
+    private const OTRO_VEHICULO = 'El PDF es de otro vehículo: cámbialo o, si la mala es la ficha, corrige su placa o su serial y pulsa "Revisar ahora". No se da por revisado.';
+
+    /**
      * La persona reviso el documento EN EL VISOR y guardo la ficha a mano: la fila queda como
      * revisada por ella (ver VerificacionDocumento::marcarRevisadoPor). Lo que el panel tiene
      * ya lo guardo con su propia ruta (equipos.updateMetadata, incluida la fecha de emision);
-     * aqui se pone lo que no tiene (el titular del ROTC) y se deja constancia en Control de
+     * aqui se pone lo que no tenga como campo propio y se deja constancia en Control de
      * Auditoría.
      */
     public function marcarRevisado(Request $request, int $id, CorrectorFichaDocumento $corrector)
@@ -49,7 +58,10 @@ class CompresionPdfController extends Controller
             return response()->json(['success' => false,
                 'message' => 'Este PDF viene de la carga masiva: se enlaza solo a su ficha o se descarta con su botón.'], 422);
         }
-        // Los datos que el panel del visor no tiene (el titular del ROTC), con el valor que
+        if ($reg->esDeOtroVehiculo()) {
+            return response()->json(['success' => false, 'message' => self::OTRO_VEHICULO], 422);
+        }
+        // Los datos que el panel del visor no tiene como campo propio, con el valor que
         // la persona dejo en su campo al guardar. Vacio = solo dar la fila por revisada.
         $valores = (array) $request->input('campos', []);
         $resultado = $corrector->ponerAMano($reg, $valores, $request->user());
@@ -97,6 +109,10 @@ class CompresionPdfController extends Controller
         $fechasPuestas = 0;
         $fallaron = [];
         foreach ($filas as $reg) {
+            if ($reg->esDeOtroVehiculo()) {
+                $fallaron[] = self::OTRO_VEHICULO;
+                continue;
+            }
             // La de la carga ya esta en su ficha: solo sale de "para revisar".
             if ($reg->ORIGEN === VerificacionDocumento::DE_CARGA_MASIVA) {
                 $reg->marcarRevisadoPor($request->user());

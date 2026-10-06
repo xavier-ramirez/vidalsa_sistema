@@ -21,7 +21,8 @@ use Illuminate\Support\Facades\Log;
  *
  *   · TITULO DE PROPIEDAD : propietario y fecha de emision.
  *   · POLIZA DE SEGURO    : aseguradora, vencimiento y fecha de emision.
- *   · ROTC                : propietario, vencimiento, fecha de emision y numero de ROTC.
+ *   · ROTC                : vencimiento, fecha de emision y numero de ROTC (su nombre es el
+ *                           de la operadora, no el propietario: no se compara).
  *   · RACDA               : es de la EMPRESA, no del equipo: la MISMA providencia vale para
  *                           muchos vehiculos (aunque en Drive este subida un archivo por
  *                           ficha). De ella salen la fecha, hasta cuando vale (dice cuantos
@@ -310,7 +311,7 @@ class VerificarDocumentos extends Command
                     if ($deEsteVehiculo === 'no_se_sabe') $leido['sin_confirmar'] = true;
                     [$estado, $motivo, $diferencias, $leido] = match ($tipo) {
                         VerificacionDocumento::POLIZA => $this->revisarPoliza($f, $leido, $texto, $lector, $catalogo),
-                        VerificacionDocumento::ROTC   => $this->revisarRotc($f, $leido, $texto, $lector),
+                        VerificacionDocumento::ROTC   => $this->revisarRotc($f, $leido, $texto),
                         VerificacionDocumento::RACDA  => $this->revisarRacda($f, $leido, $lector),
                         default                       => $this->revisarPropiedad($f, $leido, $lector),
                     };
@@ -452,7 +453,10 @@ class VerificarDocumentos extends Command
         }
         // La revision de la persona vuelve a quedar como estaba (ver $revision, arriba). Si el
         // archivo ya no esta o no se pudo leer, eso SI se ve: no se tapa con la revision vieja.
-        if ($revision && in_array($estado, [VerificacionDocumento::COINCIDE, VerificacionDocumento::DIFIERE], true)) {
+        // Y tampoco que el PDF es de OTRO vehiculo: eso no se da por revisado (ver
+        // CompresionPdfController::OTRO_VEHICULO); un "Revisado" de antes lo escondia para siempre.
+        if ($revision && in_array($estado, [VerificacionDocumento::COINCIDE, VerificacionDocumento::DIFIERE], true)
+            && empty($leido['otra_placa'])) {
             $reg->refresh()->update($revision->only(['ESTADO', 'A_MANO', 'DIFERENCIAS', 'MOTIVO', 'APLICADO_POR', 'APLICADO_EN']));
         }
 
@@ -561,10 +565,10 @@ class VerificarDocumentos extends Command
     }
 
     /**
-     * ROTC: el certificado de circulacion de carga. Trae propietario, las dos fechas y su
+     * ROTC: el certificado de circulacion de carga. Trae la operadora, las dos fechas y su
      * numero. La ficha guarda como FECHA_ROTC la de VENCIMIENTO (es la que vigilan las alertas).
      */
-    private function revisarRotc(object $f, array $leido, string $textoRotc, LectorDocumentoPdf $lector): array
+    private function revisarRotc(object $f, array $leido, string $textoRotc): array
     {
         // Que el PDF sea DE VERDAD un ROTC, igual que con el RACDA: "Fecha de Emisión" y
         // "Fecha de Vencimiento" son rotulos que salen tambien en otros papeles del mismo
@@ -587,21 +591,17 @@ class VerificarDocumentos extends Command
                     . ' y la ficha dice ' . $f->PLACA . ': revisar cuál es la buena', [], $leido];
         }
         if ($anterior = $this->documentoAnterior($f->FECHA_ROTC, $leido)) return $anterior;
+        // El nombre del ROTC ("Razon Social") es la OPERADORA —siempre la empresa—, no el
+        // PROPIETARIO del vehiculo, que es lo que guarda NOMBRE_DEL_TITULAR (sale del titulo). No
+        // se comparan: en un vehiculo de otro dueño operado por la empresa salia "otro nombre" y
+        // el corrector le ponia la empresa como dueña (visto el 05-10-2026 en 7 fichas: CORPO NAC
+        // DE LOGISTICA, ALVARO MARTINEZ, 1000 MILLAS).
         $dif = [];
-        $motivo = null;
-        if (!empty($leido['titular'])) {
-            [$iguales, $motivoNombre, $sirve] = array_pad($lector->compararNombre($f->NOMBRE_DEL_TITULAR, $leido['titular']), 3, true);
-            if (!$iguales) {
-                $dif['NOMBRE_DEL_TITULAR'] = ['etiqueta' => 'Propietario', 'ficha' => $f->NOMBRE_DEL_TITULAR, 'documento' => $leido['titular']];
-                $motivo = $motivoNombre;
-                if (!$sirve) $leido['lectura_parcial'] = true;
-            }
-        }
         $this->compararFecha($dif, 'FECHA_ROTC', 'Vencimiento', $f->FECHA_ROTC, $leido['vence'] ?? null);
         $this->compararFecha($dif, 'FECHA_EMISION_ROTC', 'Fecha de emisión', $f->FECHA_EMISION_ROTC, $leido['emision'] ?? null);
 
         return $dif
-            ? [VerificacionDocumento::DIFIERE, $motivo ?: $this->motivoDe($dif), $dif, $leido]
+            ? [VerificacionDocumento::DIFIERE, $this->motivoDe($dif), $dif, $leido]
             : [VerificacionDocumento::COINCIDE, null, [], $leido];
     }
 

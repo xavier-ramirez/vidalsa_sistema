@@ -543,6 +543,79 @@ class VerificacionDocumentoTest extends MySqlTestCase
         $this->assertSame('La placa NO esta entre las unidades autorizadas', $fuera->MOTIVO);
     }
 
+    /**
+     * El nombre del ROTC es la OPERADORA (la empresa), no el dueño: un vehiculo de otro
+     * propietario operado por la empresa NO sale con "otro nombre" ni le cambian el dueño.
+     */
+    public function test_el_rotc_no_toca_al_propietario_del_vehiculo(): void
+    {
+        [$equipo, $placa] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'CORPO NAC DE LOGISTICA Y TRANSPORTE DE CARGA S.A']);
+        $serial = DB::table('equipos')->where('ID_EQUIPO', $equipo)->value('SERIAL_CHASIS');
+        $this->lectorFalso($this->textoRotc('CONSTRUCTORA VIDALSA 27, C.A', $placa, $serial, '03/07/2026', '03/07/2027'));
+
+        $reg = $this->verificar($equipo, VerificacionDocumento::ROTC);
+
+        $this->assertArrayNotHasKey('NOMBRE_DEL_TITULAR', $reg->DIFERENCIAS ?? []);
+        $this->assertSame('CORPO NAC DE LOGISTICA Y TRANSPORTE DE CARGA S.A', $this->ficha($equipo)->NOMBRE_DEL_TITULAR,
+            'el dueño no se cambia por la operadora');
+    }
+
+    /** Un "Revisado a mano" de antes no esconde que el PDF es de OTRO vehiculo al releerlo. */
+    public function test_una_revision_vieja_no_tapa_un_pdf_de_otro_vehiculo(): void
+    {
+        [$equipo] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'CONSTRUCTORA VIDALSA 27, C.A']);
+        $driveId = \App\Models\DocumentoAnexo::driveIdDeLink($this->ficha($equipo)->LINK_ROTC);
+        VerificacionDocumento::create([
+            'ID_EQUIPO' => $equipo, 'TIPO' => VerificacionDocumento::ROTC, 'DRIVE_ID' => $driveId,
+            'ORIGEN' => VerificacionDocumento::DE_LA_NOCHE, 'ESTADO' => VerificacionDocumento::COINCIDE, 'A_MANO' => false,
+            'MOTIVO' => 'Revisado a mano por Fernando Sanchez', 'APLICADO_POR' => \App\Models\Usuario::value('ID_USUARIO'),
+            'APLICADO_EN' => now()->subDays(5), 'INTENTOS' => 0,
+        ]);
+        $this->lectorFalso($this->textoRotc('CONSTRUCTORA VIDALSA 27, C.A', 'A45BN3R', 'LZZPCMSCXSJ389196', '03/07/2026', '03/07/2027'));
+
+        $this->artisan('docs:verificar-documentos', ['--equipo' => $equipo, '--tipo' => VerificacionDocumento::ROTC, '--rehacer' => true])
+            ->assertSuccessful();
+
+        $reg = VerificacionDocumento::where('ID_EQUIPO', $equipo)->where('TIPO', VerificacionDocumento::ROTC)->firstOrFail();
+        $this->assertSame(VerificacionDocumento::DIFIERE, $reg->ESTADO);
+        $this->assertTrue($reg->esDeOtroVehiculo());
+        $this->assertStringContainsString('otro vehiculo', $reg->MOTIVO);
+
+        // Y no se puede volver a dar por revisado: lo que se arregla es el PDF.
+        $this->actingAs($this->superAdmin())->postJson(route('compresion-pdf.documento.revisado', ['id' => $reg->ID_REGISTRO]))
+            ->assertStatus(422)->assertJson(['success' => false]);
+        $this->assertSame(VerificacionDocumento::DIFIERE, $reg->refresh()->ESTADO);
+    }
+
+    /** Una lectura ROTC guardada antes del arreglo, con el titular como diferencia, no cambia al dueño. */
+    public function test_una_lectura_rotc_vieja_con_titular_no_se_escribe(): void
+    {
+        [$equipo] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'ALVARO MARTINEZ', 'FECHA_ROTC' => '2026-07-03']);
+        $reg = VerificacionDocumento::create([
+            'ID_EQUIPO' => $equipo, 'TIPO' => VerificacionDocumento::ROTC,
+            'DRIVE_ID' => \App\Models\DocumentoAnexo::driveIdDeLink($this->ficha($equipo)->LINK_ROTC),
+            'ORIGEN' => VerificacionDocumento::DE_LA_NOCHE, 'ESTADO' => VerificacionDocumento::DIFIERE, 'A_MANO' => false,
+            'INTENTOS' => 0, 'LEIDO' => ['vence' => '2027-07-03'],
+            'DIFERENCIAS' => [
+                'NOMBRE_DEL_TITULAR' => ['etiqueta' => 'Propietario', 'ficha' => 'ALVARO MARTINEZ', 'documento' => 'CONSTRUCTORA VIDALSA 27, C.A'],
+                'FECHA_ROTC' => ['etiqueta' => 'Vencimiento', 'ficha' => '2026-07-03', 'documento' => '2027-07-03'],
+            ],
+        ]);
+
+        app(CorrectorFichaDocumento::class)->aplicar($reg);
+
+        $this->assertSame('ALVARO MARTINEZ', $this->ficha($equipo)->NOMBRE_DEL_TITULAR);
+        $this->assertSame('2027-07-03', substr((string) $this->ficha($equipo)->FECHA_ROTC, 0, 10), 'la fecha si se pone');
+        $this->assertSame(VerificacionDocumento::COINCIDE, $reg->refresh()->ESTADO);
+
+        // Tampoco a mano desde el visor.
+        $reg->update(['ESTADO' => VerificacionDocumento::DIFIERE,
+            'DIFERENCIAS' => ['NOMBRE_DEL_TITULAR' => ['etiqueta' => 'Propietario', 'ficha' => 'ALVARO MARTINEZ', 'documento' => 'X']]]);
+        $r = app(CorrectorFichaDocumento::class)->ponerAMano($reg, ['NOMBRE_DEL_TITULAR' => 'CONSTRUCTORA VIDALSA 27, C.A'], $this->superAdmin());
+        $this->assertArrayHasKey('error', $r);
+        $this->assertSame('ALVARO MARTINEZ', $this->ficha($equipo)->NOMBRE_DEL_TITULAR);
+    }
+
     public function test_una_placa_mal_leida_no_gana_al_serial_que_si_coincide(): void
     {
         // Escaneo sucio: el reconocimiento se come la placa, pero el serial sale perfecto.
@@ -1566,13 +1639,14 @@ class VerificacionDocumentoTest extends MySqlTestCase
         $this->assertSame('TRANSPORTE MILENUIM 0210, CA', $this->ficha($e1)->NOMBRE_DEL_TITULAR);
         $this->assertSame('GRUPO ROYSO C.A.', $this->ficha($e2)->NOMBRE_DEL_TITULAR);
 
-        // El PDF de OTRO vehiculo no da ninguna fecha: solo se marca revisada.
+        // El PDF de OTRO vehiculo no se da por revisado ni da ninguna fecha: se arregla el PDF.
         [$e4] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'GRUPO ROYSO C.A.']);
         $this->lectorFalso($this->textoTitulo('GRUPO ROYSO C.A.', 'Z99ZZ9Z'));
         $r4 = $this->verificarSinAplicar($e4, VerificacionDocumento::PROPIEDAD);
         $this->assertTrue($r4->esDeOtroVehiculo());
-        $this->actingAs($yo)->postJson($url, ['ids' => [$r4->ID_REGISTRO]])->assertOk()->assertJson(['revisadas' => 1, 'fechas' => 0]);
+        $this->actingAs($yo)->postJson($url, ['ids' => [$r4->ID_REGISTRO]])->assertOk()->assertJson(['revisadas' => 0, 'fechas' => 0, 'fallaron' => 1]);
         $this->assertNull($this->ficha($e4)->FECHA_EMISION_PROPIEDAD);
+        $this->assertSame(VerificacionDocumento::DIFIERE, $r4->refresh()->ESTADO);
 
         // Una que ya coincide no se toca (no se puede elegir): conserva su motivo. Con su número
         // de título: sin él, la ficha no coincide del todo (la tarea lo pondría).
@@ -1670,7 +1744,7 @@ class VerificacionDocumentoTest extends MySqlTestCase
         [$equipo] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'TRANSPORTE MILENUIM 0210, CA']);
         $diferencias = [
             'FECHA_EMISION_POLIZA' => ['etiqueta' => 'Fecha de emisión', 'ficha' => null, 'documento' => '2026-08-06'],
-            'NOMBRE_DEL_TITULAR'   => ['etiqueta' => 'Propietario', 'ficha' => 'TRANSPORTE MILENUIM 0210, CA', 'documento' => 'OTRO NOMBRE'],
+            'FECHA_VENC_POLIZA'    => ['etiqueta' => 'Vencimiento', 'ficha' => '2026-01-01', 'documento' => '2027-01-01'],
         ];
         $reg = VerificacionDocumento::create([
             'ID_EQUIPO' => $equipo, 'TIPO' => VerificacionDocumento::POLIZA, 'DRIVE_ID' => 'drive-leido',
@@ -1700,7 +1774,7 @@ class VerificacionDocumentoTest extends MySqlTestCase
         $this->assertSame('2026-08-06', substr((string) $this->ficha($equipo)->FECHA_EMISION_POLIZA, 0, 10));
         $this->assertSame('TRANSPORTE MILENUIM 0210, CA', $this->ficha($equipo)->NOMBRE_DEL_TITULAR, 'Lo demás no se toca.');
         $reg->refresh();
-        $this->assertTrue($reg->A_MANO, 'El titular sigue para revisar.');
+        $this->assertTrue($reg->A_MANO, 'El vencimiento sigue para revisar.');
         $this->assertArrayNotHasKey('FECHA_EMISION_POLIZA', $reg->DIFERENCIAS);
         $this->assertNull($this->ficha($ajeno)->FECHA_EMISION_POLIZA, 'El PDF de otro vehículo no pone nada.');
     }
