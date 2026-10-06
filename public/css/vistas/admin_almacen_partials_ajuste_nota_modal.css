@@ -13,7 +13,8 @@
     #ajNotaModal .ajn-contenido { display:flex; flex-direction:column; gap:14px; }
     #ajNotaModal .ajn-contenido[hidden] { display:none; }
 
-    #ajNotaModal .ajn-msg { padding:9px 12px; border-radius:10px; font-size:13px; font-weight:500; line-height:1.45; }
+    /* Centrado, igual que los botones de abajo (pedido del cliente, 06-10-2026). */
+    #ajNotaModal .ajn-msg { padding:9px 12px; border-radius:10px; font-size:13px; font-weight:500; line-height:1.45; text-align:center; }
     #ajNotaModal .ajn-msg b { font-weight:700; }
     #ajNotaModal .ajn-msg.error { background:#fee2e2; color:#b91c1c; border:1px solid #fecaca; }
     #ajNotaModal .ajn-msg.info  { background:#e0f2fe; color:#075985; border:1px solid #bae6fd; }
