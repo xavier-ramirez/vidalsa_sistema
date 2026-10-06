@@ -25,6 +25,10 @@
       - $firmantes: los 5 bloques de firma del horizontal. A esta vista SIEMPRE le llega
                 vacío y no lo usa: el formato vertical lleva solo ENTREGADO POR /
                 RECIBIDO POR, armados abajo con 'entregado_por' y 'cargo_entrega'.
+      - $correcciones: Collection<CorreccionNota>, llena SOLO en la nota ORIGINAL de una
+                nota corregida (?version=original): la línea corregida trae
+                CANTIDAD_CORREGIDA (partials/nota_cantidad la pinta en rojo) y el pie lleva
+                partials/nota_correcciones. En la nota de siempre llega vacía.
 
     Es el cuerpo del formato VERTICAL (Almacen::FORMATO_NOTA_VERTICAL), el que emite un
     almacén salvo que se le marque HORIZONTAL en "Editar almacén".
@@ -115,7 +119,7 @@
         @foreach($movs as $i => $m)
             <tr>
                 <td width="6%"  align="center"><font face="helvetica" size="{{ $fi }}">{{ $i + 1 }}</font></td>
-                <td width="10%" align="center"><font face="helvetica" size="{{ $fi }}">{{ $fmt($m->CANTIDAD) }}</font></td>
+                <td width="10%" align="center">@include('admin.almacen.partials.nota_cantidad')</td>
                 <td width="10%" align="center"><font face="helvetica" size="{{ $fi }}">{{ $m->producto?->UM ?? '' }}</font></td>
                 {{-- Filtros: si se eligió un nº de parte al entregar, sale el TIPO + el nº de
                      parte específico en la DESCRIPCIÓN. La columna N° COLADA/SERIAL muestra
@@ -129,7 +133,7 @@
                     // En la VISTA PREVIA los renglones todavía no son movimientos guardados (llegan
                     // como stdClass sin ID_MOVIMIENTO): ahí no hay nada devuelto que marcar.
                     $devuelto = ($m->ID_MOVIMIENTO ?? null)
-                        ? ($devoluciones ?? collect())->where('ID_MOVIMIENTO_RELACIONADO', $m->ID_MOVIMIENTO)->sum('CANTIDAD')
+                        ? ($devoluciones ?? collect())->whereIn('ID_MOVIMIENTO_RELACIONADO', $m->IDS_TRAMOS ?? [$m->ID_MOVIMIENTO])->sum('CANTIDAD')
                         : 0;
                 @endphp
                 <td width="62%"><font face="helvetica" size="{{ $fi }}">{{ $m->producto?->NOMBRE ?? '' }}@if($np) &nbsp;—&nbsp; {{ $np }}@endif</font>@if($devuelto > 0)<font face="helvetica" size="7" color="#b91c1c"> &nbsp;(DEVUELTO: {{ $fmt($devuelto) }} {{ $m->producto?->UM ?? '' }})</font>@endif</td>
@@ -205,4 +209,5 @@
 
 @include('admin.almacen.partials.nota_vehiculo_chofer', ['wLabel' => 14, 'wValor' => 36, 'centrarEmpresa' => true])
 @include('admin.almacen.partials.nota_devoluciones')
+@include('admin.almacen.partials.nota_correcciones')
 

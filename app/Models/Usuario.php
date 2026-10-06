@@ -36,6 +36,8 @@ class Usuario extends Authenticatable
      *    confirmar recepciones mueve el stock real.
      *  - almacen.nota.eliminar: eliminar Notas de Entrega (reversa el stock) y
      *    eliminar productos del catalogo — borrados destructivos.
+     *  - almacen.nota.corregir: corregir la cantidad de un producto en una Nota de
+     *    Entrega ya emitida (cambia la salida y el stock; queda el rastro).
      *
      * user.delete (agregada 2026-05-26): elimina equipos (vehiculos + auxiliares)
      * y da acceso a las papeleras del historial. EXCLUSIVA por decision del
@@ -50,6 +52,7 @@ class Usuario extends Authenticatable
         'almacen.productos'     => true,
         'almacen.movimiento'    => true,
         'almacen.nota.eliminar' => true,
+        'almacen.nota.corregir' => true,
         'user.delete'           => true,
         'docs.carga.masiva'     => true,
     ];

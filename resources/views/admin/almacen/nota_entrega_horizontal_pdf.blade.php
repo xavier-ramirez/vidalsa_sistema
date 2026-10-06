@@ -32,6 +32,7 @@
       - $datos:     mismas claves que el vertical + 'hora'.
       - $movs:      Collection<MovimientoInventario> con {producto, frente}.
       - $firmantes: los 5 bloques de firma que devuelve Almacen::firmantesNota().
+      - $correcciones: solo en la nota ORIGINAL de una nota corregida (ver el vertical).
 --}}
 @php
     $fmt = fn ($n) => rtrim(rtrim(number_format((float) $n, 3, ',', '.'), '0'), ',') ?: '0';
@@ -133,14 +134,14 @@
                 // En la VISTA PREVIA los renglones todavía no son movimientos guardados (llegan
                 // como stdClass sin ID_MOVIMIENTO): ahí no hay nada devuelto que marcar.
                 $devuelto = ($m->ID_MOVIMIENTO ?? null)
-                    ? ($devoluciones ?? collect())->where('ID_MOVIMIENTO_RELACIONADO', $m->ID_MOVIMIENTO)->sum('CANTIDAD')
+                    ? ($devoluciones ?? collect())->whereIn('ID_MOVIMIENTO_RELACIONADO', $m->IDS_TRAMOS ?? [$m->ID_MOVIMIENTO])->sum('CANTIDAD')
                     : 0;
             @endphp
             <tr>
                 <td width="4%"  align="center"><font face="helvetica" size="{{ $fi }}">{{ $i + 1 }}</font></td>
                 <td width="40%"><font face="helvetica" size="{{ $fi }}">{{ $m->producto?->NOMBRE ?? '' }}@if($np) &nbsp;—&nbsp; {{ $np }}@endif</font>@if($devuelto > 0)<font face="helvetica" size="7" color="#b91c1c"> &nbsp;(DEVUELTO: {{ $fmt($devuelto) }} {{ $m->producto?->UM ?? '' }})</font>@endif</td>
                 <td width="13%" align="center"><font face="helvetica" size="{{ $fi }}">{{ $m->producto?->CODIGO ?? '' }}</font></td>
-                <td width="8%"  align="center"><font face="helvetica" size="{{ $fi }}">{{ $fmt($m->CANTIDAD) }}</font></td>
+                <td width="8%"  align="center">@include('admin.almacen.partials.nota_cantidad')</td>
                 <td width="6%"  align="center"><font face="helvetica" size="{{ $fi }}">{{ $m->producto?->UM ?? '' }}</font></td>
                 <td width="29%"><font face="helvetica" size="{{ $fi }}">{{ $destino }}</font></td>
             </tr>
@@ -221,3 +222,4 @@
     </tr>
 </table>
 @include('admin.almacen.partials.nota_devoluciones')
+@include('admin.almacen.partials.nota_correcciones')

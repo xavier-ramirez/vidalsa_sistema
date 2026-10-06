@@ -363,10 +363,11 @@ Lo que se entregó con una Nota de Entrega puede **volver al almacén**. NO es u
 nueva: la devolución queda **colgada de la SALIDA de esa nota**, así el kardex sigue
 contando cuánto se consumió de verdad.
 
-- **Dónde:** Historial de Movimientos (`/admin/almacen/movimientos`), botón **"Devolver"**.
-  Solo sale en filas SALIDA **con nota** y **con cantidad pendiente**, y con `almacen.movimiento`.
-  No sale en TRASPASO_SALIDA (esas se manejan con la confirmación de recepción).
-- **Modal:** `partials/devolucion_modal.blade.php` + `js/maquinaria/devolucion_material.js`
+- **Dónde:** Historial de Movimientos (`/admin/almacen/movimientos`), botón **"Modificar"**
+  de las filas SALIDA **con nota**, opción **Devolución** del modal (ver §14.1). La opción se
+  ofrece con cantidad pendiente y con `almacen.movimiento`; si no, sale apagada y dice por qué.
+  No hay botón en TRASPASO_SALIDA (esas se manejan con la confirmación de recepción).
+- **Modal:** `partials/ajuste_nota_modal.blade.php` + `js/maquinaria/ajuste_nota.js`
   (se descarga la primera vez que se abre). Muestra la nota, el producto, lo entregado, lo ya
   devuelto; se escribe la cantidad y un motivo opcional (si es más de lo que falta, avisa).
 - **Servicio:** `DevolucionService::registrar()`. Dentro de una transacción: valida contra lo
@@ -375,6 +376,32 @@ contando cuánto se consumió de verdad.
 - **Cuánto queda por devolver:** `MovimientoInventario::porDevolver()` y
   `SQL_CANTIDAD_NETA` (SALIDA − devoluciones), que es lo que usan el botón, el Dashboard de
   Consumo y los reportes para no contar de más.
+
+### 14.1 Corrección de una Nota mal cargada (y el botón «Modificar»)
+
+Devolución y corrección son cosas distintas y se registran distinto:
+
+| | Devolución (§14) | Corrección |
+|---|---|---|
+| Qué pasó | El material salió y **volvió** | La nota se **cargó mal** (salieron 100, se tecleó 180) |
+| La nota | No cambia; lo devuelto va al pie | Pasa a decir lo que salió; queda la **original** |
+| Kardex | Fila DEVOLUCION nueva, con su fecha | La SALIDA cambia y se recalculan los saldos |
+| Rastro | La fila DEVOLUCION | Tabla `correcciones_nota` (antes, después, motivo, quién) |
+| Clave | `almacen.movimiento` | `almacen.nota.corregir` (EXCLUSIVA) |
+
+Las dos se piden desde **un solo botón, "Modificar"**, que abre un modal que pregunta *qué pasó*
+(`AjusteNotaController`: un GET con todo lo del modal y un POST por operación).
+
+- **Servicio:** `CorreccionNotaService::corregir()`. Solo ese producto; los demás de la nota no
+  se tocan. Subir va a la primera fila (bolsa del proyecto) y falla sin stock; bajar empieza por
+  la última (lo prestado vuelve primero), nunca por debajo de lo devuelto; una fila en 0 se borra.
+  El kardex lo recalcula `InventarioService::corregirCantidadesSalida()` con el mismo recálculo
+  que el "deshacer".
+- **Notas:** `nota-entrega?numero=…&version=original` = como salió, con la cantidad tachada en rojo
+  y el bloque "NOTA CORREGIDA" al pie; sin `version`, la corregida. `&descargar=1` la baja. Al
+  corregir se abren las dos lado a lado; la marca roja "corregida" del Historial las reabre.
+- No aplica a envíos a otro almacén (se corrigen en Recepción) ni a un producto que va en varias
+  líneas de la nota (distinto nº de parte o proyecto).
 
 ---
 

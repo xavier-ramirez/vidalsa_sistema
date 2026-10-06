@@ -848,9 +848,10 @@
      dentro de @can('almacen.nota.eliminar') y no abría para quien no tuviera ese permiso. --}}
 @include('admin.almacen.partials.consumo_dashboard_modal')
 
-{{-- Modal "Devolución de material" (botón Devolver de las salidas con nota). Se gatea él
-     mismo con almacen.movimiento. --}}
-@include('admin.almacen.partials.devolucion_modal')
+{{-- Modal «Modificar» de las salidas con nota (devolver o corregir; se gatea él mismo con
+     esas dos claves) y la comparación original/corregida de la marca «corregida», que ve
+     todo el que ve la nota. --}}
+@include('admin.almacen.partials.ajuste_nota_modal')
 
 @can('almacen.nota.eliminar')
 {{-- ═════════════════════════════════════════════════════════════════

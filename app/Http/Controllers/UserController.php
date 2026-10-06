@@ -218,11 +218,15 @@ class UserController extends Controller
             //   almacen.nota.eliminar → eliminar Notas de Entrega (revierte el stock)
             //                        y eliminar productos del catalogo. EXCLUSIVA
             //                        (PERMISOS_EXPLICITOS): ni super.admin la hereda.
+            //   almacen.nota.corregir → corregir la cantidad de un producto en una Nota ya
+            //                        emitida (cambia la salida y el stock; queda el rastro).
+            //                        EXCLUSIVA, igual que la de eliminar.
             //
             // Solo el literal en PERMISOS otorga acceso. No hay alias ni atajos.
             'almacen.productos'  => 'Registrar y editar productos del catálogo',
             'almacen.movimiento' => 'Registrar entradas, salidas, ajustes, traspasos y confirmar recepciones',
             'almacen.nota.eliminar' => 'Eliminar Notas de Entrega y productos del catálogo',
+            'almacen.nota.corregir' => 'Corregir cantidades de una Nota de Entrega',
             // Visibilidad del panel "Alertas de Documentos" (menú), POR USUARIO. Regla en
             // DashboardController@generateAlertsList: si el usuario tiene AL MENOS una clave
             // alertas.ver.*, ve SOLO esos documentos; si no tiene ninguna, ve TODOS (default).

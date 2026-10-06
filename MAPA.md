@@ -72,7 +72,7 @@ Dos cosas del entorno de Windows que ya están resueltas y **no hay que volver a
 | Mapa | `/mapa` (fuera de `admin`) | `MapaController`, `OleoductoController` | `admin/mapa*` | `mapa_index.js` |
 | Almacén | `/admin/almacen` | `AlmacenController` | `admin/almacen/**` | inline + `almacen-offline.js`, `producto_suggest.js` |
 | Consumibles | `/admin/consumibles` | `ConsumiblesController` | `admin/consumibles/**` | `consumibles_index.js`, `consumibles_graficos.js` |
-| Traspasos / Devoluciones | `/admin/almacen/recepcion`, `/admin/almacen/devolucion` | `TraspasoController`, `DevolucionMaterialController` | dentro de almacén | `devolucion_material.js` |
+| Traspasos / Devoluciones y correcciones de nota | `/admin/almacen/recepcion`, `/admin/almacen/ajuste-nota` | `TraspasoController`, `AjusteNotaController` | dentro de almacén | `ajuste_nota.js` |
 | Usuarios / Frentes | `/admin/usuarios`, `/admin/frentes` | `UserController`, `FrenteTrabajoController` | `admin/usuarios/**`, `admin/frentes/**` | `usuarios_index.js`, `frentes_spa.js` |
 | **Control de Auditoría** | `/admin/historial-documentos` | `HistorialDocumentosController` + `CompresionPdfController` + `CargaMasivaDocumentosController` | `admin/historial_documentos/**`, `admin/compresion_pdf/panel.blade.php` | `historial_documentos_index.js` |
 | Archivos de Drive | `/storage/google/{id}` | `GoogleDriveController` (proxy + copia local + miniaturas) | — | — |

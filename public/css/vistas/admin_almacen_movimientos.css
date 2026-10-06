@@ -79,12 +79,18 @@
     }
     .alm-mov-table td.mv-td-ref a.mv-nota-link:hover { text-decoration:underline; }
     .alm-mov-table td.mv-td-ref .mv-nota-ico { font-size:16px; line-height:1; }
-    /* "Devolver" (.mv-undo-btn, el mismo enlace de "Deshacer" en Movilizaciones) en su
+    /* "Modificar" (.mv-undo-btn, el mismo enlace de "Deshacer" en Movilizaciones) en su
        propio renglón, bajo el N° de nota. */
-    .alm-mov-table td.mv-td-ref .mv-devolver { display:flex; margin:4px auto 0; }
+    .alm-mov-table td.mv-td-ref .mv-modificar { display:flex; margin:4px auto 0; }
     /* "devuelto N" bajo la cantidad de una salida que ya regresó, entera o en parte. */
     .alm-mov-table .mv-devuelto { display:block; margin-top:2px; font-size:10.5px; font-weight:700;
         color:#0f766e; background:#ccfbf1; border-radius:999px; padding:1px 7px; white-space:nowrap; }
+    /* "corregida" bajo la cantidad de un producto cuya nota se corrigió: misma píldora que
+       "devuelto", en rojo (el color de la corrección en la nota original). Es un botón:
+       abre la original y la corregida lado a lado. */
+    .alm-mov-table .mv-corregida { display:block; margin-top:2px; font:inherit; font-size:10.5px; font-weight:700;
+        color:#b91c1c; background:#fee2e2; border:none; border-radius:999px; padding:1px 7px; white-space:nowrap; cursor:pointer; }
+    .alm-mov-table .mv-corregida:hover { background:#fecaca; }
     .alm-mov-undo {
         position:absolute; top:3px; right:3px;
         width:20px; height:20px; padding:0; margin:0;
@@ -477,12 +483,12 @@
             font-size: 18px !important;
             line-height: 1 !important;
         }
-        /* "Devolver", al lado del PDF y del mismo tamaño: solo el icono (el texto va en el title). */
-        .alm-mov-table tr.alm-mov-row td.mv-td-ref .mv-devolver {
+        /* "Modificar", al lado del PDF y del mismo tamaño: solo el icono (el texto va en el title). */
+        .alm-mov-table tr.alm-mov-row td.mv-td-ref .mv-modificar {
             width: 26px !important; height: 26px !important; margin: 0 0 0 6px !important; padding: 0 !important;
         }
-        .alm-mov-table tr.alm-mov-row td.mv-td-ref .mv-devolver .material-icons { font-size: 16px !important; }
-        .alm-mov-table tr.alm-mov-row td.mv-td-ref .mv-devolver span { display: none !important; }
+        .alm-mov-table tr.alm-mov-row td.mv-td-ref .mv-modificar .material-icons { font-size: 16px !important; }
+        .alm-mov-table tr.alm-mov-row td.mv-td-ref .mv-modificar span { display: none !important; }
         /* En la tarjeta manda el icono: el N° de nota se lee al abrir el PDF (va en su título). */
         .alm-mov-table tr.alm-mov-row td.mv-td-ref a.mv-nota-link .mv-nota-num {
             display: none !important;

@@ -13,7 +13,8 @@ use RuntimeException;
  * Devolución de material entregado con una Nota de Entrega.
  *
  * El caso: salen 5 BRAGA TALLA 45 con la nota NE-2026-0123 y a los días las regresan. Lo
- * correcto NO es corregir la nota —esa entrega pasó y se firmó— ni meter una entrada suelta
+ * correcto NO es corregir la nota —esa entrega pasó y se firmó; corregir es para una nota
+ * cargada MAL, ver CorreccionNotaService— ni meter una entrada suelta
  * —el consumo seguiría contando las 45 y nadie sabría de dónde volvieron—, sino dejar escrito
  * lo que pasó, el día que pasó: una DEVOLUCION enlazada a la salida de la nota, que devuelve
  * el stock a la MISMA bolsa de la que salió y baja el consumo de esa salida
@@ -82,6 +83,22 @@ class DevolucionService
         })->values()->all();
     }
 
+    /** Devoluciones anteriores de estas salidas, para el modal. */
+    public function historial(Collection $salidas): array
+    {
+        return MovimientoInventario::with(['producto:ID_PRODUCTO,NOMBRE,UM', 'usuario:ID_USUARIO,NOMBRE_COMPLETO'])
+            ->where('TIPO', MovimientoInventario::TIPO_DEVOLUCION)
+            ->whereIn('ID_MOVIMIENTO_RELACIONADO', $salidas->pluck('ID_MOVIMIENTO'))
+            ->orderBy('ID_MOVIMIENTO')
+            ->get()
+            ->map(fn ($d) => [
+                'fecha'    => optional($d->FECHA)->format('d/m/Y'),
+                'cantidad' => round((float) $d->CANTIDAD, 3),
+                'motivo'   => $d->MOTIVO,
+                'usuario'  => $d->usuario?->NOMBRE_COMPLETO,
+            ])->all();
+    }
+
     /**
      * Registra la devolución.
      *
@@ -134,7 +151,7 @@ class DevolucionService
                 if ($cantidad > $pendiente + self::EPS) {
                     throw new RuntimeException(sprintf(
                         'No puedes devolver más de lo entregado. De «%s» quedan %s %s por devolver en la Nota %s y se intentó devolver %s.',
-                        $nombre, $this->num($pendiente), $producto?->UM ?? '', $numero, $this->num($cantidad)
+                        $nombre, InventarioService::num($pendiente), $producto?->UM ?? '', $numero, InventarioService::num($cantidad)
                     ));
                 }
 
@@ -188,11 +205,5 @@ class DevolucionService
     {
         $t = trim((string) $valor);
         return $t === '' ? null : $t;
-    }
-
-    /** 5 → "5", 2.5 → "2,5": la misma presentación que el kardex. */
-    private function num(float $n): string
-    {
-        return rtrim(rtrim(number_format($n, 3, ',', '.'), '0'), ',') ?: '0';
     }
 }

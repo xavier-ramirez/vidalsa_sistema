@@ -20,13 +20,16 @@
     // (ver $numNota abajo): una nota eliminada ya no tiene PDF que abrir.
     $notasVigentes = \App\Models\MovimientoInventario::notasVigentesDeDevoluciones($rows);
 
-    // Lo que queda por devolver de cada SALIDA con nota de esta página (una consulta): la
-    // fila solo ofrece "Devolver" mientras quede algo. Un envío a otro almacén no se
-    // devuelve desde aquí (DevolucionService::motivoNoDevolvible).
-    $porDevolver = \App\Models\MovimientoInventario::porDevolver(
-        $rows->filter(fn ($m) => $m->TIPO === \App\Models\MovimientoInventario::TIPO_SALIDA && $m->NUMERO_NOTA)
-    );
+    // SALIDAS con nota de esta página: lo que queda por devolver de cada una y qué productos
+    // de sus notas ya se corrigieron (una consulta cada cosa). Un envío a otro almacén
+    // (TRASPASO_SALIDA) no entra: ni se devuelve ni se corrige desde aquí.
+    $conNota = $rows->filter(fn ($m) => $m->TIPO === \App\Models\MovimientoInventario::TIPO_SALIDA && $m->NUMERO_NOTA);
+    $porDevolver = \App\Models\MovimientoInventario::porDevolver($conNota);
+    $corregidos  = \App\Models\CorreccionNota::corregidos($conNota);
+    // «Modificar» (partials/ajuste_nota_modal) sale si hay ALGO que hacer: devolver lo que
+    // queda (almacen.movimiento) o corregir la nota (almacen.nota.corregir).
     $puedeDevolver = auth()->user()?->can('almacen.movimiento') ?? false;
+    $puedeCorregir = auth()->user()?->can('almacen.nota.corregir') ?? false;
 @endphp
 
 @if($rows->count() === 0)
@@ -105,6 +108,13 @@
             <td class="mv-td-cantidad {{ $entra || ($m->TIPO === 'AJUSTE' && $signo === '+') ? 'mv-suma' : 'mv-resta' }}" data-label="Cantidad">{{ $signo }}{{ $fmt($mag) }} <span class="mv-um">{{ $m->producto?->UM }}</span>
                 @if($devuelto > \App\Services\InventarioService::EPS)
                     <span class="mv-devuelto" title="De lo entregado en esta línea ya volvieron {{ $fmt($devuelto) }} {{ $m->producto?->UM }}">devuelto {{ $fmt($devuelto) }}</span>
+                @endif
+                @if($m->NUMERO_NOTA && isset($corregidos[$m->NUMERO_NOTA . '|' . $m->ID_PRODUCTO]))
+                    {{-- La nota se corrigió en este producto: abre la original (corrección en rojo)
+                         y la corregida, lado a lado. Lo ve quien ve la nota. --}}
+                    <button type="button" class="mv-corregida"
+                            onclick="event.stopPropagation(); window.almVerCorreccion('{{ $m->NUMERO_NOTA }}');"
+                            title="Cantidad corregida: ver la nota original y la corregida">corregida</button>
                 @endif
             </td>
             {{-- Stock: solo el saldo RESULTANTE (cómo quedó tras el movimiento). El "antes → después"
@@ -206,14 +216,15 @@
                        target="_blank" rel="noopener"
                        title="Ver Nota de Entrega (PDF)"><i class="material-icons mv-nota-ico">description</i><span class="mv-nota-num">{{ $numNota }}</span></a>
                 @endif
-                @if($puedeDevolver && ($porDevolver[$m->ID_MOVIMIENTO] ?? 0) > \App\Services\InventarioService::EPS)
-                    {{-- Devolución de lo entregado con la nota (partials/devolucion_modal): abre
-                         con la nota y este producto listos. No es el "deshacer" de super.admin de
-                         más abajo: aquel borra el movimiento; esto registra que el material volvió. --}}
-                    <button type="button" class="mv-undo-btn mv-devolver"
-                            onclick="event.stopPropagation(); window.almAbrirDevolucion('{{ $m->NUMERO_NOTA }}', {{ (int) $m->ID_PRODUCTO }});"
-                            title="Registrar lo que vuelve al almacén de la Nota {{ $m->NUMERO_NOTA }}">
-                        <i class="material-icons">undo</i><span>Devolver</span>
+                @if(isset($porDevolver[$m->ID_MOVIMIENTO])
+                    && ($puedeCorregir || ($puedeDevolver && $porDevolver[$m->ID_MOVIMIENTO] > \App\Services\InventarioService::EPS)))
+                    {{-- Un botón para las dos cosas que se le hacen a una línea de nota: devolver
+                         (el material volvió) o corregir (se cargó mal). El modal pregunta cuál.
+                         No es el "deshacer" de super.admin de más abajo: aquel borra el movimiento. --}}
+                    <button type="button" class="mv-undo-btn mv-modificar"
+                            onclick="event.stopPropagation(); window.almModificarNota('{{ $m->NUMERO_NOTA }}', {{ (int) $m->ID_PRODUCTO }});"
+                            title="Devolver o corregir este producto de la Nota {{ $m->NUMERO_NOTA }}">
+                        <i class="material-icons">edit_note</i><span>Modificar</span>
                     </button>
                 @endif
                 @if($m->esStockInicial())
