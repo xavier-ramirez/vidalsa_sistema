@@ -77,13 +77,14 @@
 /* ── ¿Qué pasó? Las dos operaciones, como dos tarjetas a elegir ──
    La pregunta va ANTES del campo: según lo que se elija, el campo pide una cosa u otra
    (cuánto volvió / cuánto salió de verdad). Una que no se puede hacer queda apagada y
-   dice por qué, en vez de desaparecer: así se entiende que existe. */
+   dice por qué, en vez de desaparecer: así se entiende que existe. El texto va centrado
+   (pedido del cliente, 06-10-2026). */
 #ajNotaModal .ajn-opciones { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
-#ajNotaModal .ajn-opcion { display:flex; flex-direction:column; gap:3px; text-align:left; padding:9px 11px; border:1.5px solid #cbd5e1; border-radius:10px; background:#fff; font:inherit; color:#0f172a; cursor:pointer; transition:border-color .15s, background .15s; }
+#ajNotaModal .ajn-opcion { display:flex; flex-direction:column; align-items:center; gap:3px; text-align:center; padding:9px 11px; border:1.5px solid #cbd5e1; border-radius:10px; background:#fff; font:inherit; color:#0f172a; cursor:pointer; transition:border-color .15s, background .15s; }
 #ajNotaModal .ajn-opcion:hover:not(:disabled) { border-color:#94a3b8; }
 #ajNotaModal .ajn-opcion.activa { border-color:#0067b1; background:#eff6ff; }
 #ajNotaModal .ajn-opcion:disabled { cursor:not-allowed; opacity:.6; background:#f8fafc; }
-#ajNotaModal .ajn-opcion-tit { display:flex; align-items:center; gap:6px; font-size:13.5px; font-weight:700; }
+#ajNotaModal .ajn-opcion-tit { display:flex; align-items:center; justify-content:center; gap:6px; font-size:13.5px; font-weight:700; }
 #ajNotaModal .ajn-opcion-tit .material-icons { font-size:18px; color:#0067b1; }
 #ajNotaModal .ajn-opcion-txt { font-size:11.5px; font-weight:500; line-height:1.35; color:#475569; }
 /* Por qué no se puede (sin la clave, ya devuelto todo, envío a otro almacén…). */
