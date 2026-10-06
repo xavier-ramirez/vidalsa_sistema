@@ -4883,41 +4883,33 @@ body:has(.mapa-page) { --mapa-col: 380px; }
 .mapa-eqp-eq { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 8px; cursor: pointer; }
 .mapa-eqp-eq:hover { background: #f0f4f8; }
 .mapa-eqp-eq-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-/* Primer renglón: el TIPO y, al lado, la marca. Misma idea que el segundo renglón — el que cede
-   cuando no caben es el tipo, y la marca no se recorta.
+/* Primer renglón: el TIPO y, al lado, la marca y el modelo. Cuando no caben, el que no cabe BAJA
+   entero al renglón de abajo (flex-wrap) en vez de cortarse con "…": cortados, el tipo y el modelo
+   no se leían. Solo un dato que no cabe ni solo se corta.
    Va en NEGRO (pedido del cliente): sobre el panel claro el gris de antes se leía flojo. El verde
    de "En línea" se queda, que ahí el color ES el dato. */
 .mapa-eqp-eq-txt b {
-    display: flex; align-items: baseline; gap: 6px; min-width: 0;
-    overflow: hidden; white-space: nowrap;
-    color: #000;   /* letra y tamaño: los pone cada trozo (.mapa-eqp-tipo / .mapa-eqp-marca) */
+    display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 6px; min-width: 0;
+    white-space: nowrap;
+    color: #000;   /* letra y tamaño: los pone cada trozo (.mapa-eqp-tipo / .mapa-eqp-marca / .mapa-eqp-modelo) */
 }
 /* El tipo en su propio span y no como texto suelto: dentro de un contenedor flex el texto suelto
    queda en una caja anónima, que CSS no puede alcanzar para recortarlo con puntos suspensivos. */
 .mapa-eqp-tipo { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 /* El tipo con la MISMA letra y tamaño que la marca, pero en negro (pedido del cliente, 06-10-2026). */
-.mapa-eqp-tipo, .mapa-eqp-marca { font-size: 11px; font-weight: 700; letter-spacing: 0.2px; }
+.mapa-eqp-tipo, .mapa-eqp-marca, .mapa-eqp-modelo { font-size: 11px; font-weight: 700; letter-spacing: 0.2px; }
 .mapa-eqp-tipo { color: #000; }
 .mapa-eqp-marca { flex: none; color: #475569; }
-/* Segundo renglón: el MODELO y al lado la placa (o el serial). Cuando no caben los dos, el
-   que cede es el MODELO — la placa nunca se recorta, que es el dato por el que se busca un equipo.
-   Eso lo hace el reparto: el modelo puede encogerse (flex 0 1 auto + min-width 0) y la placa no
-   (flex: none). Aquí NO se pone text-overflow: siendo un contenedor flex no tiene texto propio que
-   recortar, lo hace su hijo. El nowrap sí se queda: lo heredan los dos trozos, y sin él la placa
-   se partiría en dos líneas. */
+/* El modelo al lado de la marca (pedido del cliente, 06-10-2026), con su letra. */
+.mapa-eqp-modelo { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: #475569; }
+/* Debajo, un dato por renglón: chasis y placa (pedido del cliente, 06-10-2026). El que no
+   cabe se corta con "…" y entero queda en el title. El text-overflow va en el span y no en el
+   small: siendo un contenedor flex, el small no tiene texto propio que recortar. */
 .mapa-eqp-eq-txt small {
-    display: flex; align-items: baseline; gap: 4px;
-    overflow: hidden; white-space: nowrap;
+    display: flex; overflow: hidden; white-space: nowrap;
     font-size: 11px; color: #000;
 }
-.mapa-eqp-modelo { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.mapa-eqp-id { flex: none; }
-/* El "·" lo pone la placa, y solo si tiene algo delante: puesto al final del trozo del modelo se
-   lo comían los puntos suspensivos justo cuando hacía falta, y los dos datos quedaban pegados. */
-.mapa-eqp-modelo + .mapa-eqp-id::before { content: '· '; }
-/* Tercer renglón: el serial de chasis (pedido del cliente, 06-10-2026). Un VIN que no cabe se
-   corta con "…" y entero queda en el title. */
-.mapa-eqp-eq-txt small.mapa-eqp-chasis span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.mapa-eqp-dato { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .mapa-eqp-estado { flex: none; max-width: 92px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10.5px; font-weight: 700; color: #000; }
 .mapa-eqp-estado.en-linea { color: #15803d; }
 /* Sin posicion: se marca con el cursor y un punto de transparencia, pero NO tanta como para

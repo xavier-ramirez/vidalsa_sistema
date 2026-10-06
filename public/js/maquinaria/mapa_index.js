@@ -3940,39 +3940,35 @@
             _panEq._total = orden.length;
             _panEq.lista.innerHTML = (!_panEq._lista.length ? '<div class="mapa-eqp-vacio">Ningún equipo con estos filtros</div>' : '') + _panEq._lista.map(function (e, i) {
                 var linea = eqTienePosicion(e) && e.gps.en_linea;
-                // Dos renglones (pedido del cliente, 29-09-2026), más el serial de chasis (ver abajo):
-                //   1) el TIPO y, al lado, la MARCA
-                //   2) el MODELO y, al lado, la placa — o el serial de chasis si no tiene placa;
-                //      si tampoco, lo que haya (eqIdent baja a serial de motor, código o etiqueta).
-                // El frente no va aquí: se comía el renglón entero y dejaba la placa cortada con
-                // puntos suspensivos, que es justo el dato por el que se busca un equipo. Para eso
-                // está el filtro de frente, arriba.
-                // eqIdent ya es "placa, si no el serial de chasis, si no…": repetir aquí sus dos
-                // primeros escalones no añadía nada y el día que se cambiara el orden ahí dentro,
-                // la fila diría un identificador y la ficha otro.
+                // Un dato por renglón, sin "·" entre ellos (pedido del cliente, 06-10-2026):
+                //   1) el TIPO y, al lado, la MARCA y el MODELO
+                //   2) "Chasis: …"
+                //   3) "Placa: …" — o, sin placa, lo que haya (eqIdent baja a serial de motor,
+                //      código o etiqueta), con su rótulo. Si el equipo se identifica por el
+                //      chasis, ya salió en el 2 y no se repite.
+                // El frente no va aquí: se comía el renglón entero. Para eso está el filtro de
+                // frente, arriba.
+                // eqIdent ya es "placa, si no el serial de chasis, si no…": repetir aquí sus
+                // escalones haría que la fila dijera un identificador y la ficha otro.
                 var identifica = eqIdent(e);
-                // Con su rótulo delante: "Placa: A41BL3R" (pedido del cliente, 06-10-2026), o
-                // "Chasis: …" si no tiene placa. "Equipo N" no lleva rótulo.
-                var identRotulo = e.ident_por ? e.ident_por + ': ' : '';
-                // 3) el serial de chasis (pedido del cliente, 06-10-2026), con la MISMA regla que
-                //    la ficha: GpsFicha.chasisAparte (no se repite si ya es el del renglón 2).
-                var chasis = window.GpsFicha.chasisAparte({ chasis: e.serial_chasis, identPor: e.ident_por });
+                var porChasis = e.ident_por === 'Chasis';
+                // La MISMA regla que la ficha (GpsFicha.chasisAparte) para el chasis aparte.
+                var chasis = porChasis ? identifica
+                    : window.GpsFicha.chasisAparte({ chasis: e.serial_chasis, identPor: e.ident_por });
+                var otroIdent = porChasis ? '' : (e.ident_por ? e.ident_por + ': ' : '') + identifica;   // "Equipo N" va sin rótulo
+                // Cada dato en su renglón; el que no cabe se corta con "…" y entero queda en el title.
+                var renglon = function (txt) {
+                    return txt ? '<small><span class="mapa-eqp-dato" title="' + esc(txt) + '">' + esc(txt) + '</span></small>' : '';
+                };
                 return '<div class="mapa-eqp-eq' + (eqTienePosicion(e) ? '' : ' sin-pos') + '" data-i="' + i + '">' +
                     '<span class="mapa-eqp-eq-txt">' +
                         // Sin tipo va el rótulo, NO el identificador: ponerlo ahí lo repetiría en
                         // los dos renglones de la misma fila. La ficha te dirá el resto.
                         '<b><span class="mapa-eqp-tipo">' + esc(eqTipoTexto(e)) + '</span>' +
-                            (e.marca ? '<span class="mapa-eqp-marca">' + esc(e.marca) + '</span>' : '') + '</b>' +
-                        // Los dos datos van en trozos separados a propósito: cuando el renglón no
-                        // cabe, lo que se recorta es el MODELO y la placa se ve siempre entera. Al
-                        // revés —todo en una cadena— se cortaba por el final y desaparecía justo el
-                        // dato por el que se busca un equipo. Sin modelo no se emite su trozo: un
-                        // span vacío se llevaría igual su hueco de separación.
-                        '<small>' +
-                            (e.modelo ? '<span class="mapa-eqp-modelo">' + esc(e.modelo) + '</span>' : '') +
-                            '<span class="mapa-eqp-id">' + esc(identRotulo + identifica) + '</span></small>' +
-                        (chasis ? '<small class="mapa-eqp-chasis" title="Chasis: ' + esc(chasis) + '">' +
-                            '<span>Chasis: ' + esc(chasis) + '</span></small>' : '') + '</span>' +
+                            (e.marca ? '<span class="mapa-eqp-marca">' + esc(e.marca) + '</span>' : '') +
+                            (e.modelo ? '<span class="mapa-eqp-modelo" title="' + esc(e.modelo) + '">' + esc(e.modelo) + '</span>' : '') + '</b>' +
+                        renglon(chasis ? 'Chasis: ' + chasis : '') +
+                        renglon(otroIdent) + '</span>' +
                     '<span class="mapa-eqp-estado' + (linea ? ' en-linea' : '') + '">' + esc(eqEstadoTexto(e)) + '</span></div>';
             }).join('') + (orden.length > _panEq._lista.length
                 ? '<div class="mapa-eqp-mas">' + (orden.length - _panEq._lista.length) + ' más abajo</div>'
