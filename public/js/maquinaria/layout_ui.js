@@ -2246,6 +2246,8 @@ window.loadMetadata = async function () {
             // Todas las fechas de este panel son de documentos que vencen: con PDF
             // cargado no se guardan vacias (lo exige tambien updateMetadata).
             const fechaReq = window.CAN_UPDATE_INFO ? 'required' : '';
+            // Para lo que llega de la ficha o del PDF y va dentro de un value="...".
+            const esc = window.escapeHtml;
             // Modulo auxiliares: campos propios del aux (no hay tabla
             // documentacion paralela). Propiedad => datos basicos;
             // certificado => fecha de vencimiento + datos basicos.
@@ -2287,7 +2289,6 @@ window.loadMetadata = async function () {
                     _metaPintar(container, '<p style="color:#cbd5e0;font-size:13px;text-align:center;margin:0;">Este equipo ya no tiene documento de embarque.</p>', ctx);
                     return;
                 }
-                const esc = window.escapeHtml;
                 const campo = (nombre, rotulo, tipo, extra) =>
                     `<div style="${containerStyle}"><label for="meta_${nombre}_${ctx.equipoId}" style="${labelStyle}">${rotulo}</label><input type="${tipo}" id="meta_${nombre}_${ctx.equipoId}" name="${nombre}" value="${esc(info[nombre])}" ${extra || ''} ${disabledAttr} autocomplete="off"></div>`;
                 // Certificado de origen guardado como embarque: es de UN equipo y no tiene buque
@@ -2335,6 +2336,16 @@ window.loadMetadata = async function () {
                     <input type="text" id="meta_aseguradora_${ctx.equipoId}" name="nombre_aseguradora" list="insurersList_${ctx.equipoId}" value="${currentInsurerName || ''}" placeholder="Escriba o seleccione..." ${disabledAttr} autocomplete="off">
                     <datalist id="insurersList_${ctx.equipoId}">${datalistOptions}</datalist>
                 </div>
+            `;
+            }
+            // Póliza, ROTC y RACDA: placa y serial de la ficha, para cotejarlos con el PDF. Debajo
+            // de la aseguradora y antes de las fechas. Solo lectura y SIN name: no viajan al
+            // guardar ni los toman las pistas de Control de Auditoría (se editan en el título).
+            if (info.vehiculo) {
+                const verStyle = `${commonInputStyle} opacity: 0.7; cursor: default;`;
+                html += `
+                <div style="${containerStyle}"><label for="meta_ver_placa_${ctx.equipoId}" style="${labelStyle}">Placa</label><input type="text" id="meta_ver_placa_${ctx.equipoId}" value="${esc(info.vehiculo.placa)}" readonly tabindex="-1" style="${verStyle}"></div>
+                <div style="${containerStyle}"><label for="meta_ver_chasis_${ctx.equipoId}" style="${labelStyle}">Serial Chasis</label><input type="text" id="meta_ver_chasis_${ctx.equipoId}" value="${esc(info.vehiculo.serial_chasis)}" readonly tabindex="-1" style="${verStyle}"></div>
             `;
             }
             // Las FECHAS, al final y en el orden en que ocurren: primero se emite el documento y

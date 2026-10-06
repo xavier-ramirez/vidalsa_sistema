@@ -137,6 +137,23 @@ class DocsEquipoEnDriveTest extends MySqlTestCase
         $this->assertStringStartsWith('2027-01-15', (string) $equipo->documentacion()->first()->getRawOriginal('FECHA_ROTC'));
     }
 
+    public function test_el_visor_muestra_placa_y_serial_en_poliza_rotc_y_racda(): void
+    {
+        // Solo para mirarlos contra el PDF: se editan en el titulo de propiedad.
+        $equipo = $this->equipoConRotc();
+        Documentacion::where('ID_EQUIPO', $equipo->ID_EQUIPO)->update(['PLACA' => 'A00TEST']);
+        $url = "/admin/equipos/{$equipo->ID_EQUIPO}/metadata?type=";
+
+        foreach (['poliza', 'rotc', 'racda'] as $tipo) {
+            $this->actingAs($this->usuario())->get($url . $tipo)->assertOk()
+                ->assertJsonPath('data.vehiculo.placa', 'A00TEST')
+                ->assertJsonPath('data.vehiculo.serial_chasis', $equipo->SERIAL_CHASIS);
+        }
+        // El titulo los trae como campos propios, editables.
+        $this->actingAs($this->usuario())->get($url . 'propiedad')->assertOk()
+            ->assertJsonMissingPath('data.vehiculo')->assertJsonPath('data.placa', 'A00TEST');
+    }
+
     public function test_el_visor_ofrece_y_guarda_la_fecha_de_emision(): void
     {
         // El panel del visor la trae siempre (título, póliza, ROTC y RACDA) para ponerla a mano
