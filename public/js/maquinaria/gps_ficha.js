@@ -70,6 +70,16 @@
     // de hasta un día) la flecha diría que va en marcha AHORA.
     function enMarcha(g) { return !g.vieja && g.velocidad > 3; }
 
+    // El serial de chasis va en su propio renglón SIEMPRE que lo haya (pedido del cliente,
+    // 06-10-2026): en campo es lo que se coteja contra la chapa del equipo, y antes solo salía
+    // cuando el equipo no tenía placa. Si ya ES el identificador (sin placa: identificar() bajó
+    // al serial y el rótulo es "Serial"), sale arriba y no se repite. Una sola regla para la
+    // ficha y la lista del panel de /mapa, que tienen que decir lo mismo.
+    function chasisAparte(eq) {
+        var chasis = (eq.chasis == null ? '' : String(eq.chasis)).trim();   // trim() quita también el espacio duro
+        return String(eq.identPor || '').trim() === 'Serial' ? '' : chasis;
+    }
+
     window.GpsFicha = {
         /** Teselas del satélite de Esri: el mapa base de /mapa. */
         SATELITE: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
@@ -100,6 +110,10 @@
         iconoFirma: function (g) {
             return (g.en_linea ? 1 : 0) + '|' + (enMarcha(g) ? (+g.rumbo || 0) : '-');
         },
+
+        /** El serial de chasis que va en su propio renglón, o '' (ver chasisAparte). Lo usa
+            también la lista del panel de /mapa. */
+        chasisAparte: chasisAparte,
 
         /**
          * El HTML de la ficha, o cadena vacía si el equipo no tiene posición que pintar
@@ -137,12 +151,13 @@
             // El color va DENTRO de un atributo style, donde escapeHtml no protege: se acepta solo
             // si es un color de los que arma el sistema (#rgb / #rrggbb). Cualquier otra cosa, al gris.
             var color = /^#[0-9a-fA-F]{3,8}$/.test(String(eq.color || '')) ? eq.color : '#94a3b8';
-            // Encabezado en tres renglones, todo en negro (pedido del cliente, 01-10-2026):
+            // Encabezado en cuatro renglones, todo en negro (pedido del cliente, 01-10-2026):
             //   1. "ASIGNADO A" y el frente (proyecto), separado de lo de abajo por una raya fina;
             //   2. QUÉ es: el tipo y, al lado, la marca ("CHUTO  SINOTRUK");
             //   3. el modelo y CUÁL es: la placa o, si no tiene, el serial
             //      ("Modelo: ZZ4257V324JB1  Placa: A93BE7R"). Ese escalón (placa → serial…) llega
-            //      resuelto del servidor en ident / identPor.
+            //      resuelto del servidor en ident / identPor;
+            //   4. el serial de chasis, si no es ya el de arriba (ver chasisAparte).
             // Sin "·" entre los datos (pedido del cliente, 01-10-2026): los separa un hueco.
             var limpio = function (v) { return (v == null ? '' : String(v)).trim(); };
             var ident = limpio(eq.ident), identPor = limpio(eq.identPor);
@@ -150,14 +165,9 @@
             var tipo = limpio(eq.tipo) || 'Sin tipo';
             var modelo = limpio(eq.modelo), marca = limpio(eq.marca);
             var frente = limpio(eq.frente) || 'Sin frente';
-            // 4. El serial de chasis, en su propio renglón y SIEMPRE que lo haya (pedido del
-            //    cliente, 06-10-2026): en campo es lo que se coteja contra la chapa del equipo, y
-            //    antes solo salía cuando el equipo no tenía placa. En su renglón y no detrás de la
-            //    placa porque el de arriba ya llega a dos líneas con un modelo largo y un VIN de 17
-            //    caracteres lo cortaría con "…". Si ya es el identificador (sin placa, sale
-            //    "Serial: X" arriba), no se repite.
-            var chasis = limpio(eq.chasis);   // trim() de JS ya quita el espacio duro
-            if (chasis && identPor === 'Serial' && chasis === ident) chasis = '';
+            // En su renglón y no detrás de la placa: el 3 ya llega a dos líneas con un modelo largo
+            // y un VIN de 17 caracteres lo cortaría con "…".
+            var chasis = chasisAparte(eq);
             // Cada dato es una .mapa-eq-parte y entre dos va un espacio (ahí puede partirse el
             // renglón) más el hueco del CSS. Los de "entero" (la marca, "Modelo: X", "Placa: X", la
             // coordenada) no se parten por dentro: si no caben, bajan enteros. El title sale de los

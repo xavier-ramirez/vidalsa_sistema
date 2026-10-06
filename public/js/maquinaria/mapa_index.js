@@ -3951,11 +3951,9 @@
                 // primeros escalones no añadía nada y el día que se cambiara el orden ahí dentro,
                 // la fila diría un identificador y la ficha otro.
                 var identifica = eqIdent(e);
-                // 3) el serial de chasis, en su propio renglón y SIEMPRE que lo haya (pedido del
-                //    cliente, 06-10-2026), igual que en la ficha: en campo es lo que se coteja. Si
-                //    ya es el identificador del renglón 2 (equipo sin placa), no se repite.
-                var chasis = String(e.serial_chasis == null ? '' : e.serial_chasis).trim();
-                if (chasis === String(identifica).trim()) chasis = '';
+                // 3) el serial de chasis (pedido del cliente, 06-10-2026), con la MISMA regla que
+                //    la ficha: GpsFicha.chasisAparte (no se repite si ya es el del renglón 2).
+                var chasis = window.GpsFicha.chasisAparte({ chasis: e.serial_chasis, identPor: e.ident_por });
                 return '<div class="mapa-eqp-eq' + (eqTienePosicion(e) ? '' : ' sin-pos') + '" data-i="' + i + '">' +
                     '<span class="mapa-eqp-eq-txt">' +
                         // Sin tipo va el rótulo, NO el identificador: ponerlo ahí lo repetiría en
