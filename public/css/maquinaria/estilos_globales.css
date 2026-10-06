@@ -4910,6 +4910,9 @@ body:has(.mapa-page) { --mapa-col: 380px; }
 /* El "·" lo pone la placa, y solo si tiene algo delante: puesto al final del trozo del modelo se
    lo comían los puntos suspensivos justo cuando hacía falta, y los dos datos quedaban pegados. */
 .mapa-eqp-modelo + .mapa-eqp-id::before { content: '· '; }
+/* Tercer renglón: el serial de chasis (pedido del cliente, 06-10-2026). Un VIN que no cabe se
+   corta con "…" y entero queda en el title. */
+.mapa-eqp-eq-txt small.mapa-eqp-chasis span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .mapa-eqp-estado { flex: none; max-width: 92px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10.5px; font-weight: 700; color: #000; }
 .mapa-eqp-estado.en-linea { color: #15803d; }
 /* Sin posicion: se marca con el cursor y un punto de transparencia, pero NO tanta como para

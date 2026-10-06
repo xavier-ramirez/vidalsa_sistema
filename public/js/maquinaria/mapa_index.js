@@ -3940,7 +3940,7 @@
             _panEq._total = orden.length;
             _panEq.lista.innerHTML = (!_panEq._lista.length ? '<div class="mapa-eqp-vacio">Ningún equipo con estos filtros</div>' : '') + _panEq._lista.map(function (e, i) {
                 var linea = eqTienePosicion(e) && e.gps.en_linea;
-                // Dos renglones (pedido del cliente, 29-09-2026):
+                // Dos renglones (pedido del cliente, 29-09-2026), más el serial de chasis (ver abajo):
                 //   1) el TIPO y, al lado, la MARCA
                 //   2) el MODELO y, al lado, la placa — o el serial de chasis si no tiene placa;
                 //      si tampoco, lo que haya (eqIdent baja a serial de motor, código o etiqueta).
@@ -3951,6 +3951,11 @@
                 // primeros escalones no añadía nada y el día que se cambiara el orden ahí dentro,
                 // la fila diría un identificador y la ficha otro.
                 var identifica = eqIdent(e);
+                // 3) el serial de chasis, en su propio renglón y SIEMPRE que lo haya (pedido del
+                //    cliente, 06-10-2026), igual que en la ficha: en campo es lo que se coteja. Si
+                //    ya es el identificador del renglón 2 (equipo sin placa), no se repite.
+                var chasis = String(e.serial_chasis == null ? '' : e.serial_chasis).trim();
+                if (chasis === String(identifica).trim()) chasis = '';
                 return '<div class="mapa-eqp-eq' + (eqTienePosicion(e) ? '' : ' sin-pos') + '" data-i="' + i + '">' +
                     '<span class="mapa-eqp-eq-txt">' +
                         // Sin tipo va el rótulo, NO el identificador: ponerlo ahí lo repetiría en
@@ -3964,7 +3969,9 @@
                         // span vacío se llevaría igual su hueco de separación.
                         '<small>' +
                             (e.modelo ? '<span class="mapa-eqp-modelo">' + esc(e.modelo) + '</span>' : '') +
-                            '<span class="mapa-eqp-id">' + esc(identifica) + '</span></small></span>' +
+                            '<span class="mapa-eqp-id">' + esc(identifica) + '</span></small>' +
+                        (chasis ? '<small class="mapa-eqp-chasis" title="Serial de chasis: ' + esc(chasis) + '">' +
+                            '<span>Serial de chasis: ' + esc(chasis) + '</span></small>' : '') + '</span>' +
                     '<span class="mapa-eqp-estado' + (linea ? ' en-linea' : '') + '">' + esc(eqEstadoTexto(e)) + '</span></div>';
             }).join('') + (orden.length > _panEq._lista.length
                 ? '<div class="mapa-eqp-mas">' + (orden.length - _panEq._lista.length) + ' más abajo</div>'
